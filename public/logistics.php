@@ -264,6 +264,28 @@ try {
     GameLog::error('logistics', 'Pipeline data load failed', $e, ['player' => $playerId]);
 }
 
+// Wells with active hub assignment but no pipeline yet (candidates for pipeline purchase)
+$wellsWithoutPipeline = [];
+try {
+    $woPipelineStmt = $db->prepare("
+        SELECT w.id, w.name AS well_name, w.status AS well_status,
+               w.location_name, w.transport_type,
+               h.id AS hub_id, h.name AS hub_name
+          FROM wells w
+          JOIN logistics_hub_assignments a ON a.well_id = w.id AND a.status = 'active'
+          JOIN logistics_hubs h ON h.id = a.hub_id AND h.status NOT IN ('disabled','building')
+          LEFT JOIN well_pipelines p ON p.well_id = w.id
+         WHERE w.player_id = ?
+           AND p.id IS NULL
+           AND w.status NOT IN ('sold','seized','blowout','broken')
+         ORDER BY w.id
+    ");
+    $woPipelineStmt->execute([$playerId]);
+    $wellsWithoutPipeline = $woPipelineStmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'Wells without pipeline query failed', $e, ['player' => $playerId]);
+}
+
 $lossWells = array_values(array_filter(
     $wells,
     static fn(array $row): bool => (float)($row['loss'] ?? 0.0) > 0.0

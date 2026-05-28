@@ -2008,6 +2008,60 @@
     line-height: 1.5;
 }
 
+/* Wells without pipeline subsection / Odwierty bez rurociagu */
+.logistics-pipeline-nopipe {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color, rgba(255,255,255,.07));
+}
+
+.logistics-pipeline-nopipe-title {
+    font-size: .85rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--text-muted, #aaa);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.logistics-pipeline-nopipe-desc {
+    font-size: .8rem;
+    color: var(--text-muted2, #888);
+    margin: 0 0 12px;
+}
+
+.logistics-pipeline-nopipe-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.logistics-pipeline-nopipe-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 14px;
+    background: var(--card-bg2, rgba(255,255,255,.04));
+    border: 1px solid var(--border-color, rgba(255,255,255,.07));
+    border-radius: 6px;
+    min-width: 200px;
+}
+
+.logistics-pipeline-nopipe-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.logistics-pipeline-nopipe-card-head strong {
+    font-size: .85rem;
+}
+
+.logistics-pipeline-nopipe-card-hub {
+    font-size: .78rem;
+    color: var(--text-muted2, #888);
+}
+
 /* Mobile layout / Uklad mobilny */
 @media (max-width: 700px) {
     .logistics-hub-filter { gap: 4px; }

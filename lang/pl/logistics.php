@@ -473,6 +473,10 @@ return [
     'logistics.pipeline.confirm_suspend' => 'Wstrzymać rurociąg? Odwiert przełączy się na transport drogowy — koszty i straty mogą wzrosnąć.',
     'logistics.pipeline.confirm_resume'  => 'Wznowić rurociąg?',
     'logistics.pipeline.action_error'    => 'Błąd akcji rurociągu',
+    'logistics.pipeline.nopipe_title'    => 'Odwierty bez rurociągu',
+    'logistics.pipeline.nopipe_desc'     => 'Te odwierty mają aktywne przypisanie do hubu, ale nie posiadają jeszcze rurociągu. Możesz zakupić rurociąg, aby obniżyć straty transportowe.',
+    'logistics.pipeline.nopipe_hub'      => 'Hub',
+    'logistics.pipeline.nopipe_btn'      => 'Kup rurociąg',
 
     // P1.2 Road trips / Kursy drogowe
     'logistics.road_trips.section_title'      => 'Kursy drogowe w tranzycie',

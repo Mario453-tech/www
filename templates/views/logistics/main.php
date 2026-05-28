@@ -462,6 +462,30 @@
             <?php endforeach ?>
         </div>
         <?php endif ?>
+
+        <?php if (!empty($wellsWithoutPipeline)): ?>
+        <div class="logistics-pipeline-nopipe">
+            <h4 class="logistics-pipeline-nopipe-title"><?= t('logistics.pipeline.nopipe_title') ?></h4>
+            <p class="logistics-pipeline-nopipe-desc"><?= t('logistics.pipeline.nopipe_desc') ?></p>
+            <div class="logistics-pipeline-nopipe-grid">
+                <?php foreach ($wellsWithoutPipeline as $npw): ?>
+                <div class="logistics-pipeline-nopipe-card">
+                    <div class="logistics-pipeline-nopipe-card-head">
+                        <strong><?= htmlspecialchars((string)($npw['well_name'] ?? ('#' . (int)($npw['id'] ?? 0)))) ?></strong>
+                        <span class="c-muted2"><?= htmlspecialchars((string)($npw['location_name'] ?? '')) ?></span>
+                    </div>
+                    <div class="logistics-pipeline-nopipe-card-hub">
+                        <?= t('logistics.pipeline.nopipe_hub') ?>: <em><?= htmlspecialchars((string)($npw['hub_name'] ?? ('#' . (int)($npw['hub_id'] ?? 0)))) ?></em>
+                    </div>
+                    <button class="btn btn-xs btn-primary"
+                            onclick="openPipelineBuyModal(<?= (int)($npw['id'] ?? 0) ?>)">
+                        <?= t('logistics.pipeline.nopipe_btn') ?>
+                    </button>
+                </div>
+                <?php endforeach ?>
+            </div>
+        </div>
+        <?php endif ?>
     </section>
     <section class="logistics-panel" aria-labelledby="logistics-insights-heading">
         <div class="logistics-panel-head">
