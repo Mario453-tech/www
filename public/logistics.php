@@ -9,6 +9,7 @@ $db       = Database::getInstance()->getConnection();
 $srcDir = __DIR__ . '/../src';
 require_once $srcDir . '/LogisticsService.php';
 require_once $srcDir . '/HubService.php';
+require_once $srcDir . '/HubIncidentService.php';
 require_once $srcDir . '/HubViewService.php';
 require_once $srcDir . '/HubEconomyService.php';
 require_once $srcDir . '/RoadTransportService.php';
@@ -118,7 +119,10 @@ try {
     $hubAlerts        = $viewSvc->getAlerts($playerId);
     $hubAvailByRegion = $viewSvc->getAvailableHubsByRegion($playerId);
     $hubUnassignedAll = $hubSvc->getUnassignedWells($playerId);
-    $hubIncidents     = $hubSvc->getUnreadEvents($playerId, 20);
+    // Use HubIncidentService to get only hub_incident_* events (all, regardless of is_read).
+    // HubService::getUnreadEvents() returns all event types filtered by is_read=0 — wrong for incidents panel.
+    $hubIncidentSvc   = new HubIncidentService($db, $hubSvc);
+    $hubIncidents     = $hubIncidentSvc->getPlayerRecentIncidents($playerId, 20);
 
     $perPage = 5;
     $unassignedPage = max(1, (int)($_GET['unassigned_page'] ?? 1));
