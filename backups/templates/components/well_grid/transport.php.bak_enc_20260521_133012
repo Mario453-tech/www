@@ -1,0 +1,102 @@
+<?php
+// Transport section / Sekcja transportu
+?>
+                <!-- Transport panel / Panel transportu -->
+                <div class="wg-transport-wrap">
+                    <div class="wg-section-hdr" onclick="wgToggleTransport(<?= $wid ?>)">
+                        <div class="wg-section-title"><span class="wg-section-ico"></span> <?= t('wg.transport_title') ?></div>
+                        <span class="wg-section-badge nsb-warn">
+                            <span class="<?= $w['_trCls'] ?>"><?= $w['_trLabel'] ?></span>
+                            Ă‚Â· <?= $w['_trCapPct'] ?>%
+                        </span>
+                        <span class="wg-section-arrow" id="wg-tarrow-<?= $wid ?>"></span>
+                    </div>
+                    <div class="wg-section-body" id="wg-transport-<?= $wid ?>">
+                        <?php
+                        $__trRiskMap = [
+                            'rurociag'   => ['kv-green', '-20%'],
+                            'ciezarowki' => ['kv-red',   '+30%'],
+                            'tankowiec'  => ['mv-neu',    '0%'],
+                        ];
+                        $__effectiveTransport = (string)($w['_trTypeEffective'] ?? $w['_trType']);
+                        ?>
+                        <div class="wg-cur-stats" style="grid-template-columns:repeat(3,1fr)">
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-lbl"><?= t('wg.transport_capacity') ?></div>
+                                <div class="wg-cs-val <?= $w['_trCapPct'] >= 100 ? 'kv-green' : 'kv-orange' ?>"><?= $w['_trCapPct'] ?>%</div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-lbl"><?= t('wg.transport_opex') ?></div>
+                                <div class="wg-cs-val <?= $w['_trOpexPct'] <= 10 ? 'kv-green' : ($w['_trOpexPct'] <= 15 ? 'kv-orange' : 'kv-red') ?>"><?= $w['_trOpexPct'] ?>%</div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-lbl"><?= t('wg.transport_incident_risk') ?></div>
+                                <div class="wg-cs-val <?= $__trRiskMap[$__effectiveTransport][0] ?? 'mv-neu' ?>">
+                                    <?= $__trRiskMap[$__effectiveTransport][1] ?? '0%' ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <?php if (!$w['_isOffshore'] && !empty($w['_pipelineOwned'])): ?>
+                        <div class="wg-staff-hint"><?= t('well_grid.transport_pipeline_owned') ?></div>
+                        <?php elseif (!$w['_isOffshore'] && ($w['_trType'] ?? '') === 'rurociag'): ?>
+                        <div class="wg-staff-hint"><?= t('well_grid.transport_pipeline_missing') ?></div>
+                        <?php endif ?>
+
+                        <div class="wg-opt-cards">
+                        <?php foreach ($w['_trDefs'] as $tCode => [$tName, $tCls2, $tCap, $tOpex, $tDesc, $available]):
+                            $isCurrent  = ($tCode === $__effectiveTransport);
+                            $isDisabled = !$available && !$isCurrent;
+                            [$__rCls, $__rVal] = $__trRiskMap[$tCode] ?? ['mv-neu', '0%'];
+                            $__capCls  = $tCap  >= 100 ? 'kv-green' : 'kv-orange';
+                            $__opxCls  = $tOpex <= 10  ? 'kv-green' : ($tOpex <= 15 ? 'kv-orange' : 'kv-red');
+                            $__cardCls = $isCurrent ? 'wg-opt-card--active' : ($isDisabled ? 'wg-opt-card--disabled' : '');
+                        ?>
+                            <div class="wg-opt-card <?= $__cardCls ?>">
+                                <div class="wg-opt-hdr">
+                                    <span class="wg-opt-name"><?= $tName ?></span>
+                                    <?php if ($isCurrent): ?>
+                                    <span class="wg-opt-badge wg-opt-badge--ok"> <?= t('wg.eq_current') ?></span>
+                                    <?php endif ?>
+                                </div>
+                                <div class="wg-opt-desc"><?= $tDesc ?></div>
+
+                                <?php if ($isDisabled): ?>
+                                <div class="wg-opt-unavail">
+                                     <?= $w['_isOffshore'] ? t('wg.transport_no_offshore') : t('wg.transport_offshore_only') ?>
+                                </div>
+                                <?php else: ?>
+                                <?php if ($tCode === 'rurociag' && !$w['_isOffshore'] && empty($w['_pipelineOwned'])): ?>
+                                <div class="wg-opt-desc">
+                                    <?= t('technical.pipe_build_cost') ?>:
+                                    <strong class="cv-gold"><?= number_format((float)($w['_pipelineBuildCost'] ?? 0), 0, '.', ' ') ?> <?= t('common.pln') ?></strong>
+                                </div>
+                                <?php endif ?>
+                                <div class="wg-mult-grid" style="grid-template-columns:repeat(3,1fr)">
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-lbl"><?= t('wg.transport_capacity') ?></div>
+                                        <div class="wg-mult-val <?= $__capCls ?>"><?= $tCap ?>%</div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-lbl"><?= t('wg.transport_opex') ?></div>
+                                        <div class="wg-mult-val <?= $__opxCls ?>"><?= $tOpex ?>%</div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-lbl"><?= t('wg.transport_risk_short') ?></div>
+                                        <div class="wg-mult-val <?= $__rCls ?>"><?= $__rVal ?></div>
+                                    </div>
+                                </div>
+                                <?php if (!$isCurrent): ?>
+                                <div class="wg-opt-footer">
+                                    <button class="wg-opt-btn wg-opt-btn--primary"
+                                        onclick="wgSetTransport(<?= $wid ?>, '<?= $tCode ?>', <?= !empty($w['_pipelineOwned']) ? 'true' : 'false' ?>, <?= json_encode((float)($w['_pipelineBuildCost'] ?? 0), JSON_UNESCAPED_UNICODE) ?>, <?= json_encode($tName, JSON_UNESCAPED_UNICODE) ?>, <?= $tCap ?>, <?= $tOpex ?>, <?= json_encode($__rVal, JSON_UNESCAPED_UNICODE) ?>)">
+                                        <?= ($tCode === 'rurociag' && !$w['_isOffshore'] && empty($w['_pipelineOwned'])) ? t('well_grid.transport_buy_confirm') : t('wg.transport_btn_switch') ?>
+                                    </button>
+                                </div>
+                                <?php endif ?>
+                                <?php endif ?>
+                            </div>
+                        <?php endforeach ?>
+                        </div>
+                    </div>
+                </div>

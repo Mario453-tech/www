@@ -1,0 +1,866 @@
+# LOGISTICS HUBS README — UJEDNOLICONA WERSJA FINALNA
+
+## Cel dokumentu
+
+Ten dokument porządkuje finalne założenia dla logistyki ropy w grze.
+
+Łączy:
+- stan obecny systemu,
+- ustalone decyzje projektowe,
+- docelowy przepływ ropy,
+- zasady dla gracza,
+- zasady dla panelu admina,
+- wymagania dotyczące komunikatów, czasu i finansów.
+
+Najważniejsza zasada:
+
+**Ropa nie trafia do magazynu automatycznie po wydobyciu. Ropa musi przejść przez pełny łańcuch logistyki.**
+
+---
+
+# 1. Decyzje główne
+
+## 1.1. Hub zostaje systemowy
+
+Hub jest infrastrukturą systemową.
+
+Gracz nie kupuje huba na własność.
+
+Gracz może:
+- przypisać odwiert do huba,
+- odpiąć odwiert od huba,
+- przenieść odwiert do innego dozwolonego huba,
+- korzystać z huba jako punktu przeładunkowego,
+- ponosić koszty korzystania z logistyki.
+
+Gracz nie posiada huba jako majątku firmy.
+
+## 1.2. Co z podziałem `nowy / używany / wynajęty`
+
+Ponieważ hub zostaje systemowy, podział:
+
+- nowy,
+- używany,
+- wynajęty,
+
+nie powinien być pokazywany graczowi jako zakup huba na własność.
+
+Na obecnym etapie te pola można traktować jako:
+- wewnętrzny model balansu,
+- konfigurację admina,
+- opis stanu infrastruktury systemowej,
+- parametr kosztów i kondycji huba.
+
+Dla gracza ważniejsze są:
+- stan huba,
+- poziom huba,
+- przepustowość,
+- obciążenie,
+- koszt korzystania,
+- liczba wolnych miejsc,
+- region lub strefa działania.
+
+## 1.3. Hub jest obowiązkowym punktem przeładunku
+
+Hub nie zastępuje transportu.
+
+Hub jest punktem, do którego ropa musi najpierw dotrzeć.
+
+Dopiero potem ropa może ruszyć dalej do magazynu.
+
+---
+
+# 2. Finalny przepływ ropy
+
+## 2.1. Odwiert lądowy
+
+Finalny przepływ dla odwiertu lądowego:
+
+**odwiert → rurociąg albo transport drogowy → hub → rurociąg albo transport drogowy → magazyn**
+
+Czyli są dwa odcinki transportu:
+
+### Odcinek 1
+**odwiert → hub**
+
+Do wyboru:
+- rurociąg,
+- transport drogowy.
+
+### Odcinek 2
+**hub → magazyn**
+
+Do wyboru:
+- rurociąg,
+- transport drogowy.
+
+## 2.2. Odwiert morski
+
+Finalny przepływ dla odwiertu morskiego:
+
+**odwiert → transport morski → hub → rurociąg albo transport drogowy → magazyn**
+
+Czyli:
+
+### Odcinek 1
+**odwiert morski → hub**
+
+Do wyboru:
+- transport morski.
+
+### Odcinek 2
+**hub → magazyn**
+
+Do wyboru:
+- rurociąg,
+- transport drogowy.
+
+## 2.3. Zasada magazynu
+
+Magazyn dostaje tylko tę ropę, która:
+
+1. została wydobyta,
+2. została dostarczona do huba,
+3. została przyjęta przez hub,
+4. została przetransportowana z huba do magazynu.
+
+Jeżeli którykolwiek etap nie działa, ropa nie trafia do magazynu.
+
+---
+
+# 3. Uruchomienie odwiertu
+
+## 3.1. Sam zakup odwiertu nie wystarcza
+
+Zakup odwiertu nie oznacza jeszcze pełnej pracy odwiertu.
+
+Przypisanie ludzi też nie wystarcza.
+
+Aby odwiert działał normalnie, gracz musi mieć pełny łańcuch logistyczny.
+
+## 3.2. Odwiert lądowy musi mieć
+
+Odwiert lądowy działa poprawnie dopiero wtedy, gdy:
+
+- jest kupiony,
+- ma przypisanych ludzi,
+- ma wybrany dozwolony hub,
+- ma aktywny transport z odwiertu do huba,
+- ma aktywny transport z huba do magazynu.
+
+## 3.3. Odwiert morski musi mieć
+
+Odwiert morski działa poprawnie dopiero wtedy, gdy:
+
+- jest kupiony,
+- ma przypisanych ludzi,
+- ma wybrany dozwolony hub,
+- ma aktywny transport morski do huba,
+- ma aktywny transport z huba do magazynu.
+
+---
+
+# 4. Wybór huba
+
+## 4.1. Hub musi pasować do odwiertu
+
+Nie można przypiąć odwiertu do dowolnego huba na świecie.
+
+Hub musi być:
+- lokalny,
+- graniczny,
+- albo dozwolony przez mapę połączeń.
+
+Nie może być sytuacji, że odwiert w Polsce zostaje przypisany do huba w Afryce.
+
+## 4.2. System ma sprawdzać
+
+Przy przypisywaniu odwiertu do huba system ma sprawdzić:
+
+- czy hub jest w dozwolonym regionie lub strefie,
+- czy hub jest aktywny,
+- czy hub ma wolne miejsce,
+- czy hub może przyjąć ropę z tego typu odwiertu,
+- czy odwiert należy do gracza,
+- czy gracz może wykonać taką akcję.
+
+---
+
+# 5. Przepięcie odwiertu do innego huba
+
+## 5.1. Przepięcie nie jest natychmiastowe
+
+Gracz może przenieść odwiert do innego huba, ale nie dzieje się to od razu.
+
+Przepięcie:
+- trwa określony czas,
+- wymaga potwierdzenia,
+- zatrzymuje normalną pracę odwiertu,
+- nadal nalicza koszty odwiertu.
+
+## 5.2. Co dzieje się podczas przepięcia
+
+W czasie przepięcia:
+
+- odwiert nie przekazuje ropy dalej,
+- ropa nie trafia do huba,
+- ropa nie trafia do magazynu,
+- odwiert nie zarabia normalnie,
+- koszty utrzymania nadal są naliczane.
+
+To ma być odczuwalne finansowo.
+
+## 5.3. Potwierdzenie przepięcia
+
+Przed przepięciem gracz musi zobaczyć okno potwierdzenia.
+
+Okno ma informować:
+
+- do jakiego huba odwiert zostanie przepięty,
+- czy hub jest dozwolony,
+- ile potrwa przepięcie,
+- czy odwiert się zatrzyma,
+- że koszty nadal będą naliczane,
+- że ropa nie będzie w tym czasie przekazywana dalej.
+
+Przykład komunikatu:
+
+**Czy na pewno chcesz przepiąć odwiert do nowego huba? Przepięcie potrwa 2 ticki. W tym czasie odwiert nie będzie przekazywał ropy dalej, ale koszty utrzymania nadal będą naliczane.**
+
+---
+
+# 6. Rurociąg
+
+## 6.1. Czym jest rurociąg
+
+Rurociąg jest infrastrukturą gracza.
+
+Rurociąg:
+- nie jest darmowy,
+- trzeba go kupić,
+- trzeba go zbudować,
+- budowa trwa,
+- może się psuć,
+- ma stan techniczny,
+- może wymagać konserwacji i naprawy.
+
+## 6.2. Gdzie rurociąg może działać
+
+Rurociąg może działać na dwóch odcinkach:
+
+### Odcinek 1
+**odwiert lądowy → hub**
+
+### Odcinek 2
+**hub → magazyn**
+
+Nie należy opisywać rurociągu jako ogólnej, oderwanej od celu infrastruktury.
+
+Rurociąg zawsze ma prowadzić:
+- do konkretnego huba,
+- albo z konkretnego huba do magazynu.
+
+## 6.3. Rurociąg na odcinku odwiert → hub
+
+Dla odwiertu lądowego gracz może wybrać rurociąg jako sposób dostarczenia ropy do huba.
+
+Rurociąg może zostać wybrany dopiero wtedy, gdy odwiert ma przypisany dozwolony hub.
+
+Jeżeli odwiert nie ma przypisanego huba, gracz nie powinien móc rozpocząć budowy rurociągu do huba.
+
+## 6.4. Rurociąg na odcinku hub → magazyn
+
+Po przyjęciu ropy przez hub gracz może wybrać rurociąg jako sposób transportu z huba do magazynu.
+
+Ten rurociąg też:
+- kosztuje,
+- może mieć czas budowy,
+- może mieć awarie,
+- może mieć wycieki,
+- może tracić ropę,
+- może wymagać naprawy.
+
+## 6.5. Budowa rurociągu
+
+Rurociąg nie działa od razu.
+
+Po zakupie rurociąg przechodzi w stan budowy.
+
+Budowa ma:
+- koszt,
+- czas trwania,
+- licznik pozostałego czasu,
+- potwierdzenie przed rozpoczęciem.
+
+Koszt i czas budowy mają być ustawiane w panelu admina.
+
+## 6.6. Co dzieje się w czasie budowy
+
+Dopóki rurociąg nie jest gotowy:
+
+- nie przesyła ropy,
+- gracz może używać transportu drogowego jako rozwiązania tymczasowego,
+- system pokazuje pozostały czas budowy.
+
+## 6.7. Rodzaje rurociągu
+
+Na start wystarczą trzy rodzaje:
+
+### Lekki
+- najtańszy,
+- mniejsza przepustowość,
+- szybsze zużycie,
+- dobry dla małych odwiertów.
+
+### Standardowy
+- średni koszt,
+- średnia przepustowość,
+- podstawowy wybór.
+
+### Mocny
+- najdroższy,
+- wysoka przepustowość,
+- wolniejsze zużycie,
+- dobry dla dużych odwiertów.
+
+## 6.8. Problemy na rurociągu
+
+Na rurociągu mogą wystąpić:
+
+- mały wyciek,
+- duży wyciek,
+- awaria,
+- spadek przepływu,
+- uszkodzenie,
+- sabotaż.
+
+Skutki:
+
+- mniej ropy dociera dalej,
+- część ropy przepada,
+- rosną koszty,
+- może pojawić się przestój,
+- gracz musi naprawiać albo konserwować rurociąg.
+
+---
+
+# 7. Transport drogowy
+
+## 7.1. Rola transportu drogowego
+
+Transport drogowy jest alternatywą dla rurociągu.
+
+Ma być:
+- szybszy do uruchomienia,
+- tańszy na wejściu,
+- droższy w użytkowaniu,
+- bardziej ryzykowny,
+- przydatny na start,
+- przydatny awaryjnie,
+- przydatny tymczasowo.
+
+Transport drogowy musi mieć sens gameplayowy.
+
+Nie może być tak, że nikt go nie używa, bo zawsze jest zbyt nieopłacalny.
+
+## 7.2. Gdzie działa transport drogowy
+
+Transport drogowy może działać na dwóch odcinkach:
+
+### Odcinek 1
+**odwiert lądowy → hub**
+
+### Odcinek 2
+**hub → magazyn**
+
+## 7.3. Transport drogowy działa jako kursy
+
+Transport drogowy nie działa natychmiast.
+
+Każdy kurs:
+- zabiera określoną ilość ropy,
+- ma moment wyjazdu,
+- ma przewidywany czas dotarcia,
+- może się opóźnić,
+- może zostać utracony.
+
+Ropa dociera dopiero po zakończeniu kursu.
+
+## 7.4. Incydenty drogowe
+
+Na drodze mogą wystąpić:
+
+- kradzież kursu,
+- napad,
+- sabotaż,
+- wypadek,
+- blokada trasy,
+- awaria pojazdu.
+
+Najważniejsza zasada:
+
+**kradzież albo napad oznaczają utratę całego kursu.**
+
+Jeśli kurs został okradziony lub przejęty, żadna ropa z tego kursu nie dociera dalej.
+
+## 7.5. Balans transportu drogowego
+
+Transport drogowy powinien być używany wtedy, gdy:
+
+- rurociąg jest jeszcze w budowie,
+- gracz nie ma pieniędzy na rurociąg,
+- odwiert jest mały i rurociąg jeszcze się nie opłaca,
+- rurociąg jest uszkodzony,
+- gracz przepina odwiert do innego huba,
+- gracz chce szybko uruchomić nowy region.
+
+---
+
+# 8. Transport morski
+
+## 8.1. Rola transportu morskiego
+
+Transport morski dotyczy odwiertów morskich.
+
+Odwiert morski nie używa lądowego rurociągu na odcinku do huba.
+
+Dla odwiertu morskiego pierwszy etap wygląda tak:
+
+**odwiert morski → transport morski → hub**
+
+## 8.2. Transport morski działa jako dostawy
+
+Każda dostawa morska:
+
+- zabiera określoną ilość ropy,
+- ma moment wypłynięcia,
+- ma przewidywany czas dotarcia,
+- ma hub docelowy,
+- może się opóźnić,
+- może zostać częściowo utracona,
+- może zostać utracona całkowicie.
+
+## 8.3. Incydenty morskie
+
+Na morzu mogą wystąpić:
+
+- zła pogoda,
+- sztorm,
+- piraci,
+- kataklizm,
+- awaria jednostki,
+- sabotaż.
+
+Skutki:
+
+- opóźnienie,
+- utrata części ropy,
+- utrata całej dostawy,
+- dodatkowe koszty.
+
+---
+
+# 9. Hub jako punkt przeładunku
+
+## 9.1. Rola huba
+
+Hub jest punktem przeładunku.
+
+Hub:
+- przyjmuje ropę,
+- trzyma ją w buforze,
+- przekazuje ją dalej,
+- może być przeciążony,
+- może tracić ropę przez zły stan lub przeciążenie,
+- może mieć incydenty.
+
+## 9.2. Hub nie działa magicznie
+
+Hub przyjmuje tylko tę ropę, która naprawdę do niego dotarła.
+
+Jeżeli:
+- rurociąg nie przesłał ropy,
+- kurs drogowy został okradziony,
+- tankowiec nie dotarł,
+- dostawa została utracona,
+
+to hub nie ma czego przyjąć.
+
+## 9.3. Hub jako etap obowiązkowy
+
+Ropa musi przejść przez hub przed magazynem.
+
+Nie wolno robić skrótu:
+
+**odwiert → magazyn**
+
+---
+
+# 10. Transport z huba do magazynu
+
+## 10.1. Drugi etap transportu
+
+Po przyjęciu ropy przez hub gracz musi mieć aktywny transport z huba do magazynu.
+
+Do wyboru:
+
+- rurociąg,
+- transport drogowy.
+
+## 10.2. Ten etap też może mieć problemy
+
+Na odcinku **hub → magazyn** mogą wystąpić:
+
+### Dla rurociągu
+- wyciek,
+- awaria,
+- spadek przepływu,
+- sabotaż.
+
+### Dla transportu drogowego
+- kradzież kursu,
+- napad,
+- wypadek,
+- blokada trasy,
+- opóźnienie.
+
+## 10.3. Dopiero po tym ropa trafia do magazynu
+
+Magazyn dostaje tylko tę ropę, która naprawdę przeszła z huba do magazynu.
+
+---
+
+# 11. Powiadomienia
+
+System musi informować gracza o ważnych zdarzeniach.
+
+Powiadomienia mają być:
+- po polsku,
+- proste,
+- czytelne,
+- powiązane z konkretnym odwiertem, hubem albo transportem.
+
+Powiadomienia mają dotyczyć:
+
+- rozpoczęcia budowy rurociągu,
+- zakończenia budowy rurociągu,
+- wysłania kursu drogowego,
+- opóźnienia kursu drogowego,
+- utraty kursu drogowego,
+- wysłania dostawy morskiej,
+- opóźnienia dostawy morskiej,
+- utraty części ładunku,
+- utraty całej dostawy,
+- przeciążenia huba,
+- braku możliwości przyjęcia ropy przez hub,
+- rozpoczęcia przepięcia odwiertu,
+- zakończenia przepięcia,
+- braku pełnego łańcucha logistycznego,
+- dotarcia ropy do magazynu.
+
+Przykłady:
+
+- „Rozpoczęto budowę rurociągu.”
+- „Budowa rurociągu zakończy się za 20 minut.”
+- „Kurs z ropą jest w drodze.”
+- „Kurs został okradziony. Ropa nie dotarła.”
+- „Tankowiec płynie do huba.”
+- „Dostawa morska opóźniła się przez sztorm.”
+- „Hub nie przyjął całej ropy.”
+- „Przepięcie odwiertu trwa.”
+- „Przepięcie zakończone.”
+- „Ropa trafiła do magazynu.”
+
+---
+
+# 12. Potwierdzenia w oknie
+
+Ważne działania muszą wymagać potwierdzenia.
+
+Potwierdzenie jest wymagane przy:
+
+- wyborze nowego huba,
+- przepięciu odwiertu,
+- rozpoczęciu budowy rurociągu,
+- przełączeniu z rurociągu na drogę,
+- przełączeniu z drogi na rurociąg,
+- wyborze transportu z huba do magazynu,
+- wyłączeniu aktywnego rurociągu,
+- anulowaniu budowy rurociągu.
+
+Okno potwierdzenia ma mówić:
+
+- co gracz robi,
+- ile to kosztuje,
+- ile to potrwa,
+- czy odwiert się zatrzyma,
+- czy ropa nie będzie trafiała dalej,
+- czy koszty nadal będą naliczane.
+
+---
+
+# 13. Czas rzeczywisty
+
+Jeśli coś trwa, gracz ma widzieć dokładny pozostały czas.
+
+Dotyczy to:
+
+- budowy rurociągu,
+- kursu drogowego,
+- transportu morskiego,
+- przepięcia do nowego huba,
+- transportu z huba do magazynu,
+- napraw,
+- konserwacji, jeśli blokują działanie.
+
+Przykłady:
+
+- „Do końca budowy zostało 20 minut.”
+- „Kurs dotrze za 12 minut.”
+- „Tankowiec dotrze za 35 minut.”
+- „Przepięcie zakończy się za 10 minut.”
+
+---
+
+# 14. Finanse i podsumowanie dnia
+
+W dziale finansowym ma być codzienne podsumowanie logistyki.
+
+Gracz ma widzieć:
+
+- ile ropy dotarło do magazynu,
+- ile ropy sprzedano,
+- ile zarobił,
+- ile stracił,
+- jakie były koszty logistyki,
+- czy wystąpiły opóźnienia,
+- z jakiego powodu były straty,
+- co najbardziej obniżyło wynik dnia.
+
+Podsumowanie ma uwzględniać:
+
+- straty na rurociągach,
+- straty w transporcie drogowym,
+- straty w transporcie morskim,
+- straty na hubach,
+- koszty budowy rurociągów,
+- koszty transportu drogowego,
+- koszty transportu morskiego,
+- koszty napraw,
+- koszty konserwacji,
+- opóźnienia i ich powody.
+
+---
+
+# 15. Co ma widzieć gracz
+
+## 15.1. Na karcie odwiertu lądowego
+
+Gracz ma widzieć:
+
+- wybrany hub,
+- czy hub jest dozwolony,
+- transport z odwiertu do huba,
+- czy rurociąg jest w budowie,
+- ile zostało czasu do końca budowy,
+- czy ropa jedzie drogą,
+- przewidywany czas kursu,
+- ile ropy dotarło do huba,
+- jakie były incydenty.
+
+## 15.2. Na karcie odwiertu morskiego
+
+Gracz ma widzieć:
+
+- wybrany hub,
+- czy transport morski jest aktywny,
+- czy tankowiec płynie,
+- ile czasu zostało do dotarcia,
+- czy dostawa się opóźniła,
+- czy część ładunku przepadła,
+- czy cała dostawa przepadła.
+
+## 15.3. W widoku huba
+
+Gracz ma widzieć:
+
+- ile ropy dotarło do huba,
+- ile ropy czeka w buforze,
+- ile ropy wyszło z huba,
+- czy hub jest przeciążony,
+- transport z huba do magazynu,
+- straty i opóźnienia.
+
+## 15.4. W logistyce
+
+Gracz ma widzieć:
+
+- odwierty bez pełnej logistyki,
+- odwierty bez rurociągu,
+- odwierty z rurociągiem w budowie,
+- aktywne kursy drogowe,
+- aktywne dostawy morskie,
+- huby przeciążone,
+- największe straty,
+- rekomendacje, co zrobić.
+
+---
+
+# 16. Co ma widzieć admin
+
+Admin ma mieć pełny obraz łańcucha:
+
+**odwiert → transport do huba → hub → transport do magazynu**
+
+## 16.1. Rurociągi
+
+Admin ma widzieć:
+
+- listę rurociągów,
+- gracza,
+- odwiert albo hub,
+- cel rurociągu,
+- stan techniczny,
+- czy jest w budowie,
+- czas do zakończenia budowy,
+- przepustowość,
+- straty,
+- awarie.
+
+Admin ma móc:
+
+- zmieniać czas budowy,
+- zmieniać koszt położenia,
+- wymuszać awarie,
+- naprawiać,
+- zmieniać stan,
+- zmieniać przepustowość,
+- wyłączać i włączać.
+
+## 16.2. Transport drogowy
+
+Admin ma widzieć:
+
+- listę kursów,
+- gracza,
+- źródło kursu,
+- cel kursu,
+- ilość ropy,
+- czas wyjazdu,
+- czas dotarcia,
+- opóźnienia,
+- utracone kursy,
+- powód problemu.
+
+Admin ma móc:
+
+- zmieniać koszt transportu,
+- zmieniać czas przejazdu,
+- wymuszać opóźnienia,
+- wymuszać utratę kursu,
+- usuwać testowe kursy.
+
+## 16.3. Transport morski
+
+Admin ma widzieć:
+
+- wszystkie dostawy morskie,
+- gracza,
+- odwiert,
+- hub docelowy,
+- czas wypłynięcia,
+- czas dotarcia,
+- status,
+- straty,
+- powód problemu.
+
+Admin ma móc:
+
+- zmieniać czas podróży,
+- zmieniać koszt,
+- wymuszać opóźnienia,
+- wymuszać częściową stratę,
+- wymuszać całkowitą stratę,
+- oznaczać jako dostarczone.
+
+## 16.4. Huby
+
+Admin ma widzieć:
+
+- stan hubów,
+- obciążenie,
+- bufor,
+- straty,
+- przeciążenie,
+- napływ ropy,
+- transport z huba do magazynu.
+
+Admin ma móc:
+
+- zmieniać parametry huba,
+- naprawiać,
+- wstrzymywać,
+- wznawiać,
+- zmieniać przepustowość,
+- zmieniać koszty,
+- wymuszać problemy testowe.
+
+---
+
+# 17. Co robić teraz
+
+1. Ujednolicić cały przepływ ropy:
+   **odwiert → transport do huba → hub → transport do magazynu**.
+
+2. Dopilnować, że rurociąg nie działa bez celu:
+   musi prowadzić do huba albo z huba do magazynu.
+
+3. Dopilnować, że hub jest systemowy:
+   gracz go nie kupuje, tylko z niego korzysta.
+
+4. Dopilnować, że `nowy / używany / wynajęty` nie miesza graczowi:
+   to nie ma być zakup huba na własność.
+
+5. Dopiąć transport z huba do magazynu:
+   rurociąg albo droga.
+
+6. Dopiąć incydenty na każdym etapie transportu.
+
+7. Dopiąć powiadomienia, modale i liczniki czasu.
+
+8. Dopiąć podsumowanie dnia w finansach.
+
+---
+
+# 18. Czego teraz nie robić
+
+Nie robić teraz zakupu hubów przez gracza.
+
+Nie przepisywać hubów na własność firmy.
+
+Nie usuwać sensu rurociągów.
+
+Nie robić skrótu:
+
+**odwiert → hub → magazyn**
+
+Nie robić skrótu:
+
+**odwiert → magazyn**
+
+---
+
+# 19. Najkrótsza wersja końcowa
+
+Hub zostaje systemowy i jest obowiązkowym punktem przeładunku. Gracz nie kupuje huba, ale wybiera hub dla odwiertu. Dla odwiertu lądowego ropa idzie z odwiertu do huba rurociągiem albo transportem drogowym. Dla odwiertu morskiego ropa idzie do huba transportem morskim. Po przyjęciu ropy przez hub gracz wybiera drugi transport: z huba do magazynu rurociągiem albo drogą. Rurociąg ma sens tylko wtedy, gdy prowadzi do konkretnego huba albo z huba do magazynu. Transport drogowy i morski trwają w czasie, mogą mieć incydenty i mogą powodować straty. Magazyn dostaje tylko tę ropę, która naprawdę przeszła cały łańcuch.
+
+### Admin - procentowe typy rurociagow
+
+Panel `admin/pipelines.php` pozwala edytowac typy rurociagow per profil (`light`, `standard`, `heavy`). Konfiguracja jest zapisywana procentowo w `well_config` w kategorii `pipeline_types`:
+
+- `price_pct` - procent ceny bazowej, przeliczany na koszt budowy nowego rurociagu
+- `capacity_pct` - przepustowosc rurociagu w procentach, uzywana przy zakupie i przy wyborze transportu
+- `durability_pct` - trwalosc w procentach, przeliczana na tempo zuzycia rurociagu
+
+Zmiany dotycza nowych wyborow/zakupow rurociagow i sa zatwierdzane modalem w panelu admina.
+

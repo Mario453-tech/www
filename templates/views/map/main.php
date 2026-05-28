@@ -1,0 +1,150 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<div class="fade-in">
+
+<?php if ($error):   ?><div class="msg-bar msg-error"><?= htmlspecialchars($error) ?></div><?php endif ?>
+<?php if ($success): ?><div class="msg-bar msg-success"><?= htmlspecialchars($success) ?></div><?php endif ?>
+
+
+<!-- Region legend and filters / Legenda regionow i filtry -->
+<section class="card map-legend-card">
+    <div class="map-legend">
+    <?php foreach ($mapData['regions'] as $r): ?>
+        <div class="legend-item" data-region="<?= $r['id'] ?>">
+            <span class="legend-dot" style="background:<?= htmlspecialchars($r['color_hex']) ?>"></span>
+            <span class="legend-name"><?= htmlspecialchars($r['name']) ?></span>
+            <span class="legend-tax"><?= t('map.region_legend') ?> <?= round((float)$r['tax_rate'] * 100, 0) ?>%</span>
+        </div>
+    <?php endforeach ?>
+    </div>
+    <div class="map-top-filters" id="map-top-filters">
+        <span class="map-top-filters__label"><?= t('map.filter_label') ?></span>
+        <div class="map-top-filters__group" id="top-tier-btns">
+            <button class="map-filter-btn active" data-tier="all"><?= t('map.filter_all') ?></button>
+            <button class="map-filter-btn" data-tier="starter"> <?= t('map.tier_starter') ?></button>
+            <button class="map-filter-btn" data-tier="medium"> <?= t('map.tier_medium') ?></button>
+            <button class="map-filter-btn" data-tier="advanced"> <?= t('map.tier_advanced') ?></button>
+        </div>
+        <div class="map-top-filters__sep"></div>
+        <span class="map-top-filters__label"><?= t('map.sort_label') ?></span>
+        <div class="map-top-filters__group" id="top-sort-btns">
+            <button class="map-sort-btn active" data-sort="default"><?= t('map.sort_default') ?></button>
+            <button class="map-sort-btn" data-sort="price-asc"><?= t('map.sort_price_asc') ?></button>
+            <button class="map-sort-btn" data-sort="price-desc"><?= t('map.sort_price_desc') ?></button>
+            <button class="map-sort-btn" data-sort="prod-asc"><?= t('map.sort_prod_asc') ?></button>
+            <button class="map-sort-btn" data-sort="prod-desc"><?= t('map.sort_prod_desc') ?></button>
+        </div>
+    </div>
+</section>
+
+<!-- Main layout: globe and sidebar / Glowny uklad: globus i panel boczny -->
+<div class="map-layout">
+    <div class="map-wrap card">
+        <div id="globe-container"></div>
+    </div>
+
+    <aside class="map-sidebar" id="map-sidebar">
+
+        <!-- Placeholder / Placeholder -->
+        <div class="sidebar-placeholder" id="sidebar-placeholder">
+            <div class="sidebar-ph-icon"></div>
+            <p class="sidebar-ph-text"><?= t('map.sidebar_prompt') ?></p>
+            <button class="btn-browse-all" id="btn-browse-all"> <?= t('map.browse_all_btn') ?></button>
+        </div>
+
+        <!-- Region panel / Panel regionu -->
+        <div class="sidebar-region" id="sidebar-region" style="display:none">
+            <div class="sidebar-region-hdr" id="sr-hdr">
+                <span class="sr-icon" id="sr-icon"></span>
+                <div>
+                    <div class="sr-name" id="sr-name">-</div>
+                    <div class="sr-sub" id="sr-sub">-</div>
+                </div>
+            </div>
+            <div class="sr-metrics" id="sr-metrics"></div>
+            <div class="sr-desc" id="sr-desc"></div>
+            <div class="sr-locations-title"> <?= t('map.locations_available') ?>:</div>
+            <div class="sr-locations" id="sr-locations"></div>
+        </div>
+
+        <!-- Location panel / Panel lokalizacji -->
+        <div class="sidebar-location" id="sidebar-location" style="display:none">
+            <button class="loc-back" id="loc-back"><?= t('map.back_to_region') ?></button>
+            <div class="loc-hdr" id="loc-hdr"></div>
+            <div class="loc-metrics" id="loc-metrics"></div>
+            <div class="loc-desc" id="loc-desc"></div>
+            <div id="loc-buy-section"></div>
+        </div>
+
+        <!-- Browse all wells panel / Panel przegladu wszystkich odwiertow -->
+        <div class="sidebar-browse" id="sidebar-browse" style="display:none">
+            <div class="browse-hdr">
+                <button class="loc-back" id="browse-back"> <?= t('map.back_btn') ?></button>
+                <div class="browse-title"> <?= t('map.browse_title') ?></div>
+            </div>
+            <div class="browse-list" id="browse-list"></div>
+        </div>
+
+    </aside>
+</div>
+
+</div>
+
+<input type="hidden" id="csrf-token"    value="<?= CSRF::generateToken() ?>">
+<input type="hidden" id="player-cash"   value="<?= (float)$playerData['cash'] ?>">
+<input type="hidden" id="map-data-json" value="<?= htmlspecialchars($mapJson) ?>">
+
+<!-- Three.js r134 with legacy script-tag support / Three.js r134 z obsluga legacy script tags -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+window.MAP_LANG = <?= json_encode([
+    'prod_bonus'       => t('map_js.prod_bonus'),
+    'tax_rate'         => t('map_js.tax_rate'),
+    'political_risk'   => t('map_js.political_risk'),
+    'entry_cost'       => t('map_js.entry_cost'),
+    'badge_mine'       => t('map_js.badge_mine'),
+    'badge_taken'      => t('map_js.badge_taken'),
+    'badge_free'       => t('map_js.badge_free'),
+    'est_production'   => t('map_js.est_production'),
+    'oil_richness'     => t('map_js.oil_richness'),
+    'regional_tax'     => t('map_js.regional_tax'),
+    'buy_cost'         => t('map_js.buy_cost'),
+    'no_funds_title'   => t('map_js.no_funds_title'),
+    'no_funds_diff'    => t('map_js.no_funds_diff'),
+    'location_label'   => t('map_js.location_label'),
+    'region_label'     => t('map_js.region_label'),
+    'regional_tax_row' => t('map_js.regional_tax_row'),
+    'tax_suffix'       => t('map_js.tax_suffix'),
+    'buy_btn'          => t('map_js.buy_btn'),
+    'buying'           => t('map_js.buying'),
+    'buy_confirm_title'=> t('map_js.buy_confirm_title'),
+    'buy_confirm_text' => t('map_js.buy_confirm_text'),
+    'buy_confirm_btn'  => t('map_js.buy_confirm_btn'),
+    'buy_success_title'=> t('map_js.buy_success_title'),
+    'buy_error_title'  => t('map_js.buy_error_title'),
+    'err_connection'   => t('map_js.err_connection'),
+    'no_locations'     => t('map_js.no_locations'),
+    'offshore'         => t('map_js.offshore'),
+    'onshore'          => t('map_js.onshore'),
+    'my_well'          => t('map_js.my_well'),
+    'well_status'      => t('map_js.well_status'),
+    'well_production'  => t('map_js.well_production'),
+    'well_condition'   => t('map_js.well_condition'),
+    'well_level'       => t('map_js.well_level'),
+    'well_status_active'         => t('map_js.well_status_active'),
+    'well_status_paused_cash'    => t('map_js.well_status_paused_cash'),
+    'well_status_paused_storage' => t('map_js.well_status_paused_storage'),
+    'well_status_paused_staff'   => t('map_js.well_status_paused_staff'),
+    'well_status_broken'         => t('map_js.well_status_broken'),
+    'well_status_blowout'        => t('map_js.well_status_blowout'),
+    'well_status_contaminated'   => t('map_js.well_status_contaminated'),
+    'well_status_seized'         => t('map_js.well_status_seized'),
+    'well_go_technical'          => t('map_js.well_go_technical'),
+    'taken_badge'      => t('map_js.taken_badge'),
+    'no_filter_results'=> t('map_js.no_filter_results'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="/assets/js/world_map.js?v=<?= filemtime(__DIR__ . '/../../../assets/js/world_map.js') ?>"></script>
+<script src="/assets/js/map_audio.js?v=<?= filemtime(__DIR__ . '/../../../assets/js/map_audio.js') ?>"></script>

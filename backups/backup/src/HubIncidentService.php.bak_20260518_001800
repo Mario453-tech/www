@@ -1,0 +1,146 @@
+<?php
+
+require_once __DIR__ . '/Hub/IncidentRiskTrait.php';
+require_once __DIR__ . '/Hub/IncidentEffectsTrait.php';
+
+/**
+ * HubIncidentService — generuje i przetwarza incydenty logistyczne hubów.
+ *
+ * Wywoływany z WellLoopSection::finalizeHubTicks() po HubTickService::processTick().
+ * Zdarzenia zapisywane do: logistics_hub_events, technical_notifications.
+ * Uszkodzenia kondycji aplikowane natychmiast do: logistics_hubs.condition_pct.
+ *
+ * Typy incydentów (§15 README):
+ *   transfer_failure, equipment_damage, local_leak, loading_error, storage_jam, critical_overload
+ *
+ * Traits:
+ *   HubIncidentRiskTrait    — stałe BASE_CHANCE/INCIDENTS/MSG_COUNT + calcRiskMultiplier
+ *   HubIncidentEffectsTrait — generateIncident, applyConditionDamage, saveEvent, notifyPlayer
+ */
+class HubIncidentService
+{
+    use HubIncidentRiskTrait;
+    use HubIncidentEffectsTrait;
+
+    private PDO $db;
+
+    public function __construct(PDO $db)
+    {
+        $this->db = $db;
+    }
+
+    // ── Główna metoda tickowa ─────────────────────────────────────────────────
+
+    /**
+     * Sprawdza szanse incydentu dla jednego huba w jednym ticku.
+     * Jeśli incydent wylosowany — generuje go, zapisuje i zwraca dane.
+     *
+     * @param array<string, mixed> $hub        Wiersz huba z DB
+     * @param float                $inputBbl   Wolumen wejściowy tego ticka (bbl)
+     * @param array<string, mixed> $tickResult Wynik z HubTickService::processTick()
+     * @param float                $deltaHours Czas ticka (godziny)
+     * @param int                  $playerId   Gracz, którego studnie są w hubie
+     * @return ?array<string, mixed>           Dane incydentu lub null
+     */
+    public function processTick(
+        array $hub,
+        float $inputBbl,
+        array $tickResult,
+        float $deltaHours,
+        int   $playerId
+    ): ?array {
+        // Huby active/overloaded/damaged/critical mogą mieć incydenty
+        // (disabled/building/paused — nie)
+        $status = (string)($hub['status'] ?? 'active');
+        if (!in_array($status, ['active', 'overloaded', 'damaged', 'critical'], true)) {
+            return null;
+        }
+
+        // Brak wolumenu — brak incydentu
+        if ($inputBbl < 0.001) {
+            return null;
+        }
+
+        $riskMult = $this->calcRiskMultiplier($hub, $tickResult);
+        $loadPct  = (float)($tickResult['load_pct'] ?? 0.0);
+
+        foreach (self::INCIDENTS as $type => $cfg) {
+            // critical_overload — tylko gdy faktycznie przeciążony
+            if ($type === 'critical_overload' && $loadPct <= 100.0) {
+                continue;
+            }
+
+            $chance = (self::BASE_CHANCE_PER_HOUR[$type] ?? 0.01) * $deltaHours * $riskMult;
+            if ((mt_rand(0, 999999) / 1_000_000.0) < $chance) {
+                return $this->generateIncident($type, $cfg, $hub, $inputBbl, $tickResult, $playerId);
+            }
+        }
+
+        return null;
+    }
+
+    // ── Gettery danych ────────────────────────────────────────────────────────
+
+    /**
+     * Ostatnie incydenty hubów gracza (do wyświetlenia na stronie logistyki i działu tech).
+     * @return list<array<string, mixed>>
+     */
+    public function getPlayerRecentIncidents(int $playerId, int $limit = 20): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT e.*, h.name AS hub_name
+            FROM   logistics_hub_events e
+            LEFT   JOIN logistics_hubs h ON h.id = e.hub_id
+            WHERE  e.player_id  = ?
+              AND  e.event_type LIKE 'hub_incident_%'
+            ORDER BY e.created_at DESC
+            LIMIT  ?
+        ");
+        $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $limit,    PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Liczba incydentów hubów gracza (do paginacji).
+     */
+    public function countPlayerIncidents(int $playerId): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM   logistics_hub_events
+            WHERE  player_id  = ?
+              AND  event_type LIKE 'hub_incident_%'
+        ");
+        $stmt->execute([$playerId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
+     * Ostatnie incydenty dla konkretnego huba (do kart na logistics page).
+     * @return list<array<string, mixed>>
+     */
+    public function getHubRecentIncidents(int $hubId, int $limit = 3): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT *
+            FROM   logistics_hub_events
+            WHERE  hub_id     = ?
+              AND  event_type LIKE 'hub_incident_%'
+            ORDER BY created_at DESC
+            LIMIT  ?
+        ");
+        $stmt->bindValue(1, $hubId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // ── Pomocnicze ────────────────────────────────────────────────────────────
+
+    private function getTitle(string $type): string
+    {
+        return tPlain("logistics.hub.incident.title.{$type}");
+    }
+}

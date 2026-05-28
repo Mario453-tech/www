@@ -1,0 +1,1015 @@
+<?php
+require_once __DIR__ . '/../FinancePolicyService.php';
+
+/**
+ * WellLoopSection — pętla odwiertów gracza: produkcja, OPEX, transport, zdarzenia.
+ * WellLoopSection — player well loop: production, OPEX, transport events.
+ */
+class WellLoopSection
+{
+    //  Wyniki pętli (eksponowane do PlayersSection) 
+    public float $finRevenue    = 0.0;
+    public float $finOpex       = 0.0;
+    public float $finSalary     = 0.0;
+    public float $finTransport  = 0.0;
+    public float $finIncident   = 0.0;
+    public float $finTax        = 0.0;
+    public float $finBbl        = 0.0;
+    public float $finGross      = 0.0;
+    public float $finLossBbl    = 0.0;
+    public float $finLossValue  = 0.0;
+    public float $finHubUsageCost = 0.0;
+    public float $finHubLossBbl = 0.0;
+    public float $finHubLossValue = 0.0;
+    public float $finFallbackLossBbl = 0.0;
+    public float $finFallbackLossValue = 0.0;
+    public float $finHubIncidentLossBbl = 0.0;
+    public float $finHubIncidentLossValue = 0.0;
+    public int   $finWellsActive = 0;
+    public int   $disastersTriggered = 0;
+    public int   $incidentsTriggered  = 0;
+    public float $currentStorage = 0.0;
+    public float $playerCash     = 0.0;
+
+    private PDO         $db;
+    private DateTime    $now;
+    private float       $oilPrice;
+    /** @var array<string, mixed> */
+    private array       $gBalanceMults;
+    private WellService $wellService;
+
+    //  Cache preloadowanych danych per gracz 
+    /** @var array<int, array<string, mixed>> preloaded technical_staff indexed by id */
+    private array $staffCache = [];
+    /** @var float preloaded max pipeline transport_loss for current player */
+    private float $pipelineTransportLoss = 0.0;
+    /** @var ?GeologicalLayerService reused per player loop */
+    private ?object $geoSvc = null;
+    /** @var ?IncidentService reused per player loop */
+    private ?object $incidentSvc = null;
+    /** @var array<string, array<string, float>> konfiguracja transportu per typ (z transport_config lub domyślna) */
+    private array $transportConfig = [];
+    private ?FinancePolicyService $financePolicySvc = null;
+    /** @var array<string, float|string> */
+    private array $financeTechnicalMods = [];
+    /** @var array<string, float|string> */
+    private array $financeLogisticsMods = [];
+    /** @var array<string, float|string> */
+    private array $financeSafetyMods = [];
+
+    //  Hub logistics — initialized in constructor, null if module not installed
+    /** @var ?HubService */
+    private ?HubService         $hubSvc           = null;
+    /** @var ?HubTickService */
+    private ?HubTickService     $hubTickSvc       = null;
+    /** @var ?HubIncidentService */
+    private ?HubIncidentService $hubIncidentSvc   = null;
+    /** @var array<int, int> well_id → hub_id for this player's assigned wells */
+    private array           $wellHubMap    = [];
+    /** @var array<int, array<string, mixed>> hub_id → full hub row */
+    private array           $hubCache      = [];
+    /** @var array<int, float> hub_id → accumulated oil input (bbl) for this tick */
+    private array           $hubInputAccum = [];
+
+    /**
+     * @param array<string, mixed> $gBalanceMults
+     */
+    public function __construct(
+        PDO         $db,
+        DateTime    $now,
+        float       $oilPrice,
+        array       $gBalanceMults,
+        WellService $wellService
+    ) {
+        $this->db            = $db;
+        $this->now           = $now;
+        $this->oilPrice      = $oilPrice;
+        $this->gBalanceMults = $gBalanceMults;
+        $this->wellService   = $wellService;
+
+        // Załaduj cost_per_bbl z transport_config (globalny config admina)
+        try {
+            $this->transportConfig = TransportConfigService::load($db);
+        } catch (Throwable $e) {
+            // tabela opcjonalna — używamy defaultów
+        }
+
+        if (class_exists('FinancePolicyService')) {
+            try {
+                $this->financePolicySvc = new FinancePolicyService($db);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'WellLoopSection: FinancePolicyService init FAILED', $e);
+            }
+        }
+
+        // Hub logistics — optional module, fail gracefully if not installed
+        if (class_exists('HubService') && class_exists('HubTickService')) {
+            try {
+                $this->hubSvc     = new HubService($db);
+                $this->hubTickSvc = new HubTickService($db, $this->hubSvc);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'WellLoopSection: hub services init FAILED', $e);
+            }
+        }
+        if (class_exists('HubIncidentService')) {
+            try {
+                $this->hubIncidentSvc = new HubIncidentService($db);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'WellLoopSection: HubIncidentService init FAILED', $e);
+            }
+        }
+    }
+
+    /**
+     * Uruchamia pętlę odwiertów dla jednego gracza.
+     * Runs the well loop for a single player.
+     */
+    /**
+     * @param list<array<string, mixed>> $wells
+     * @param array<string, mixed>       $hseBonus
+     * @param array<string, mixed>       $staffCheck
+     * @param list<array<string, mixed>> $activeRegEvents
+     */
+    public function run(
+        int    $playerId,
+        array  $wells,
+        float  $playerCash,
+        float  $currentStorage,
+        float  $storageCapacity,
+        float  $deltaHours,
+        array  $hseBonus,
+        array  $staffCheck,
+        float  $offlineProdMult,
+        float  $offlineRiskMult,
+        ?object $tsvc,
+        ?object $regionalSvc,
+        array  $activeRegEvents
+    ): void {
+        $this->playerCash     = $playerCash;
+        $this->currentStorage = $currentStorage;
+        $this->preloadFinancePolicies($playerId);
+
+        //  Pensje
+        $this->processSalaries($playerId, $deltaHours);
+
+        //  Preload danych przed pętlą odwiertów (w tym przypisania hubów)
+        $this->preloadPlayerData($playerId, $wells);
+
+        //  Pętla odwiertów
+        foreach ($wells as $well) {
+            $wellId = (int)$well['id'];
+            try {
+                $this->processWell(
+                    $playerId, $well, $wellId, $deltaHours,
+                    $hseBonus, $staffCheck,
+                    $offlineProdMult, $offlineRiskMult,
+                    $tsvc, $regionalSvc, $activeRegEvents,
+                    $storageCapacity
+                );
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'petla well FAILED', $e, ['well_id' => $wellId, 'player_id' => $playerId]);
+            }
+        }
+
+        //  Finalizacja hubów: wear/status, reconciliacja strat, OPEX hubów
+        $this->finalizeHubTicks($playerId, $deltaHours);
+    }
+
+    private function processSalaries(int $playerId, float $deltaHours): void
+    {
+        try {
+            GameLog::step('tick', 'salary', 1, 'start', ['player_id' => $playerId]);
+
+            $boardSalaryStmt = $this->db->prepare("
+                SELECT COALESCE(SUM(ec.salary + ec.bonus), 0) AS total
+                FROM board_members bm
+                JOIN employee_contracts ec ON ec.member_id = bm.id
+                WHERE bm.player_id = :pid AND bm.status = 'active'
+                  AND ec.status = 'active' AND ec.contract_end >= CURDATE()
+            ");
+            $boardSalaryStmt->execute([':pid' => $playerId]);
+            $boardSalaryMonth = (float)$boardSalaryStmt->fetchColumn();
+
+            $techSalaryStmt = $this->db->prepare("
+                SELECT COALESCE(SUM(salary), 0) AS total
+                FROM technical_staff
+                WHERE player_id = :pid AND status IN ('active','busy')
+            ");
+            $techSalaryStmt->execute([':pid' => $playerId]);
+            $techSalaryMonth  = (float)$techSalaryStmt->fetchColumn();
+            $totalSalaryMonth = $boardSalaryMonth + $techSalaryMonth;
+
+            if ($totalSalaryMonth > 0) {
+                $salaryPerHour      = $totalSalaryMonth / 720.0;
+                $salaryCost         = round($salaryPerHour * $deltaHours, 2);
+                $this->finSalary   += $salaryCost;
+                $this->playerCash  -= $salaryCost;
+                GameLog::info('tick', 'salary_deducted', [
+                    'player_id'       => $playerId,
+                    'board_monthly'   => $boardSalaryMonth,
+                    'tech_monthly'    => $techSalaryMonth,
+                    'salary_per_hour' => round($salaryPerHour, 2),
+                    'delta_hours'     => round($deltaHours, 4),
+                    'cost'            => $salaryCost,
+                    'cash_after'      => round($this->playerCash, 2),
+                ]);
+            }
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'potrącenie pensji FAILED', $e, ['player_id' => $playerId]);
+        }
+    }
+
+    private function preloadFinancePolicies(int $playerId): void
+    {
+        $this->financeTechnicalMods = ['opex_mult' => 1.0, 'wear_mult' => 1.0, 'degradation_mult' => 1.0];
+        $this->financeLogisticsMods = ['transport_cost_mult' => 1.0, 'hub_cost_mult' => 1.0, 'loss_mult' => 1.0, 'incident_mult' => 1.0];
+        $this->financeSafetyMods    = ['incident_mult' => 1.0, 'disaster_mult' => 1.0];
+
+        if ($this->financePolicySvc === null) {
+            return;
+        }
+
+        try {
+            $this->financeTechnicalMods = $this->financePolicySvc->getTechnicalModifiers($playerId);
+            $this->financeLogisticsMods = $this->financePolicySvc->getLogisticsModifiers($playerId);
+            $this->financeSafetyMods    = $this->financePolicySvc->getSafetyModifiers($playerId);
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'preloadFinancePolicies FAILED', $e, ['player_id' => $playerId]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed>       $well
+     * @param array<string, mixed>       $hseBonus
+     * @param array<string, mixed>       $staffCheck
+     * @param list<array<string, mixed>> $activeRegEvents
+     */
+    private function processWell(
+        int    $playerId,
+        array  $well,
+        int    $wellId,
+        float  $deltaHours,
+        array  $hseBonus,
+        array  $staffCheck,
+        float  $offlineProdMult,
+        float  $offlineRiskMult,
+        ?object $tsvc,
+        ?object $regionalSvc,
+        array  $activeRegEvents,
+        float  $storageCapacity
+    ): void {
+        $db            = $this->db;
+        $wellService   = $this->wellService;
+        $gBalanceMults = $this->gBalanceMults;
+        $newPrice      = $this->oilPrice;
+
+        $incidentProdDrop = 0.0;
+
+        if (in_array($well['status'], ['seized','blowout','broken'])) return;
+
+        // Montaż sprzętu — odwiert wstrzymany przez 1h
+        if ($well['status'] === 'equipment_swap') {
+            $swapUntil = $well['equipment_swap_until'] ?? null;
+            if ($swapUntil && strtotime($swapUntil) <= time()) {
+                $prevStatus = !empty($well['equipment_swap_prev_status']) ? $well['equipment_swap_prev_status'] : 'active';
+                if (!in_array($prevStatus, ['active','contaminated'])) {
+                    $prevStatus = 'active';
+                }
+                $db->prepare("
+                    UPDATE wells
+                    SET status = ?, equipment_swap_until = NULL, equipment_swap_prev_status = NULL
+                    WHERE id = ?
+                ")->execute([$prevStatus, $wellId]);
+                $well['status'] = $prevStatus;
+                GameLog::info('tick', 'equipment_swap zakończony — odwiert wznowiony', [
+                    'well_id' => $wellId, 'new_status' => $prevStatus,
+                ]);
+                $tsvc?->notify('task', $wellId, t('tick.notify.equipment_swap_done', ['id' => $wellId]));
+            } else {
+                return;
+            }
+        }
+
+        // Zakończenie wiercenia warstwy geologicznej
+        if (!empty($well['layer_switch_until']) && $this->geoSvc !== null) {
+            try {
+                $this->geoSvc->processSwitchCompletion($wellId);
+                $freshStatus = $db->prepare("SELECT status FROM wells WHERE id = ? LIMIT 1");
+                $freshStatus->execute([$wellId]);
+                $well['status'] = $freshStatus->fetchColumn() ?: $well['status'];
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'zakończenie wiercenia warstwy FAILED', $e, ['well_id' => $wellId]);
+            }
+        }
+
+        // Kontrola personelu
+        if (!$staffCheck['meets_minimum']) {
+            if (in_array($well['status'], ['active','contaminated'])) {
+                $reason = implode(',', $staffCheck['missing']);
+                $db->prepare("UPDATE wells SET status = 'paused_staff', paused_staff_reason = ? WHERE id = ?")->execute([$reason, $wellId]);
+                $well['status'] = 'paused_staff';
+                GameLog::info('tick', 'odwiert paused_staff (brak personelu)', ['well_id' => $wellId, 'player_id' => $playerId, 'missing' => $reason]);
+                $tsvc?->notify('task', $wellId, t('tick.notify.well_paused_staff', ['id' => $wellId, 'missing' => implode(', ', $staffCheck['missing_labels'])]));
+            }
+        } elseif ($well['status'] === 'paused_staff') {
+            $db->prepare("UPDATE wells SET status = 'active', paused_staff_reason = NULL WHERE id = ?")->execute([$wellId]);
+            $well['status'] = 'active';
+            GameLog::info('tick', 'odwiert wznowiony (personel uzupełniony)', ['well_id' => $wellId, 'player_id' => $playerId]);
+            $tsvc?->notify('task', $wellId, t('tick.notify.well_resumed_staff', ['id' => $wellId]));
+        }
+
+        // Operator / Technik
+        $operatorId   = !empty($well['operator_id'])   ? (int)$well['operator_id']   : null;
+        $technicianId = !empty($well['technician_id']) ? (int)$well['technician_id'] : null;
+
+        $operatorId   = $this->validateStaff($operatorId,   $wellId, 'operator_id');
+        $technicianId = $this->validateStaff($technicianId, $wellId, 'technician_id');
+
+        if (!$operatorId && in_array($well['status'], ['active','contaminated','no_technician'])) {
+            $db->prepare("UPDATE wells SET status = 'no_operator' WHERE id = ?")->execute([$wellId]);
+            $well['status'] = 'no_operator';
+            GameLog::info('tick', 'odwiert — brak operatora', ['well_id' => $wellId]);
+        } elseif ($operatorId && !$technicianId && in_array($well['status'], ['active','contaminated'])) {
+            $db->prepare("UPDATE wells SET status = 'no_technician' WHERE id = ?")->execute([$wellId]);
+            $well['status'] = 'no_technician';
+            GameLog::info('tick', 'odwiert — brak technika', ['well_id' => $wellId]);
+        } elseif ($operatorId && $technicianId && in_array($well['status'], ['no_operator','no_technician'])) {
+            $db->prepare("UPDATE wells SET status = 'active' WHERE id = ?")->execute([$wellId]);
+            $well['status'] = 'active';
+            GameLog::info('tick', 'odwiert przywrócony do active (operator+technik)', ['well_id' => $wellId]);
+        }
+
+        // Mnożniki warstwy geologicznej (raz per odwiert, z cache serwisu)
+        // Geological layer multipliers (once per well, from service cache)
+        $layerRichnessMult = 1.0;
+        $layerWearMult     = 1.0;
+        if ($this->geoSvc !== null) {
+            try {
+                $eqTierForLayer = $well['equipment_tier'] ?? 'standard';
+                $lMults            = $this->geoSvc->getLayerMultipliers($wellId, $eqTierForLayer);
+                $layerRichnessMult = (float)($lMults['richness_mult'] ?? 1.0);
+                $layerWearMult     = (float)($lMults['wear_mult']     ?? 1.0);
+                // Zapisz active_layer_code do well dla pola opProdPerkMult (dalej w kodzie)
+                $well['active_layer_code'] = $lMults['code'] ?? ($well['active_layer_code'] ?? 'shallow');
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'getLayerMultipliers FAILED', $e, ['well_id' => $wellId]);
+            }
+        }
+
+        // Mnożniki sprzętu i spirali
+        $wearLevel      = (float)($well['wear_level'] ?? 0.0);
+        $wearDegMult    = 1.0 + ($wearLevel * 0.5 / 100.0);
+        $spiralBoost    = (float)($well['post_incident_risk_boost'] ?? 0.0);
+        $spiralWearMult = 1.0 + ($spiralBoost / 150.0);
+        $eqMults        = WellService::getEquipmentMultipliers($well['equipment_tier'] ?? 'standard', (int)($well['equipment_upgrade_level'] ?? 0));
+        $spiralWearMult *= $eqMults['spiral'];
+
+        // Perki operatora i technika
+        $opSkill = 5; $opPerk = null; $techPerk = null;
+        $opRow = null; $techRow = null;
+        if ($operatorId) {
+            // Użyj preloadowanego cache ze staff_specializations
+            $opRow = $this->staffCache[$operatorId] ?? null;
+            if ($opRow === null) {
+                // Fallback SELECT jeśli brak w cache
+                $opStmt = $db->prepare("SELECT ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? LIMIT 1");
+                $opStmt->execute([$operatorId]);
+                $opRow = $opStmt->fetch() ?: null;
+                if ($opRow) $this->staffCache[$operatorId] = $opRow;
+            }
+            if ($opRow) {
+                $opSkill = (int)($opRow['skill_level'] ?? 5);
+                if (!empty($opRow['specialization'])) $opPerk = $opRow;
+            }
+        }
+        if ($technicianId) {
+            $techRow = $this->staffCache[$technicianId] ?? null;
+            if ($techRow === null) {
+                $techStmt = $db->prepare("SELECT ts.skill_level, ts.specialization, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? LIMIT 1");
+                $techStmt->execute([$technicianId]);
+                $techRow = $techStmt->fetch() ?: null;
+                if ($techRow) $this->staffCache[$technicianId] = $techRow;
+            }
+            if ($techRow && !empty($techRow['specialization'])) $techPerk = $techRow;
+        }
+
+        $opEfficiencyMult = $operatorId ? (0.80 + ($opSkill - 1) * (0.30 / 9)) : 1.0;
+        $opProdPerkMult   = 1.0;
+        if ($opPerk && ($opPerk['specialization'] ?? '') === 'drilling_specialist') {
+            $activeLayerCode = $well['active_layer_code'] ?? 'shallow';
+            if (in_array($activeLayerCode, ['deep','ultra'])) $opProdPerkMult = 1.0 + (float)($opPerk['prod_bonus'] ?? 0.075);
+        }
+
+        $transportType    = $well['transport_type']         ?? 'rurociag';
+        $transportCfg = $this->transportConfig[$transportType] ?? TransportConfigService::getDefaults()['rurociag'];
+        $transportCapPct  = (float)($well['transport_capacity_pct'] ?? $transportCfg['capacity']);
+        $transportOpexPct = (float)($well['transport_opex_pct'] ?? $transportCfg['opex']);
+        $transportIncidentMult = (float)($transportCfg['incident'] ?? 1.0);
+        $transportDisasterMult = (float)($transportCfg['disaster'] ?? 1.0);
+        $transportWearMult     = (float)($transportCfg['wear'] ?? 1.0);
+        $transportSpiralMult   = (float)($transportCfg['spiral'] ?? 1.0);
+
+        if ($transportType === 'ciezarowki' && ($well['equipment_tier'] ?? 'standard') === 'black_market') {
+            $transportIncidentMult *= 1.25;
+            $transportDisasterMult *= 1.10;
+        }
+
+        $techDegradefMult = $technicianId ? 1.0 : 1.5;
+
+        $perkWearMult = 1.0;
+        if ($opPerk   && (float)($opPerk['wear_reduction']   ?? 0) > 0) $perkWearMult *= (1.0 - (float)$opPerk['wear_reduction']);
+        if ($techPerk && (float)($techPerk['wear_reduction'] ?? 0) > 0) $perkWearMult *= (1.0 - (float)$techPerk['wear_reduction']);
+
+        $perkSpiralReduction = 0.0;
+        if ($opPerk   && (float)($opPerk['spiral_reduction']   ?? 0) > 0) $perkSpiralReduction += (float)$opPerk['spiral_reduction'];
+        if ($techPerk && (float)($techPerk['spiral_reduction'] ?? 0) > 0) $perkSpiralReduction += (float)$techPerk['spiral_reduction'];
+        $spiralBoostEffective = $spiralBoost * max(0.0, 1.0 - $perkSpiralReduction);
+        $spiralMultEffective  = 1.0 + ($spiralBoostEffective / 100.0);
+
+        $perkCatastropheReduction = 0.0;
+        if ($techPerk && (float)($techPerk['catastrophe_reduction'] ?? 0) > 0) $perkCatastropheReduction += (float)$techPerk['catastrophe_reduction'];
+        $techSpecCatMult = max(0.3, 1.0 - $perkCatastropheReduction);
+
+        // Degradacja, ryzyko, zużycie
+        // Degradacja stan techniczny — dla wszystkich statusów (sprzęt starzeje się też gdy wstrzymany)
+        $statusAllowsDegradation = in_array($well['status'], ['active','contaminated','paused_staff','paused_cash','paused_storage','no_technician','no_operator']);
+        // Katastrofy i incydenty — tylko gdy odwiert realnie pracuje (nie gdy wstrzymany brakiem kadry/cash/storage)
+        $statusAllowsIncidents   = in_array($well['status'], ['active','contaminated','no_technician','no_operator']);
+
+        if ($statusAllowsDegradation) {
+            try { $wellService->processDegradation($wellId, $deltaHours, $hseBonus, $techDegradefMult * $wearDegMult * $spiralMultEffective * $eqMults['wear'] * $gBalanceMults['degradation'] * $offlineRiskMult * (float)($this->financeTechnicalMods['degradation_mult'] ?? 1.0)); } catch (Throwable $e) { GameLog::error('tick', 'processDegradation FAILED', $e, ['well_id' => $wellId]); }
+            try { $wellService->updateRiskScore($wellId, $deltaHours, $hseBonus); } catch (Throwable $e) { GameLog::error('tick', 'updateRiskScore FAILED', $e, ['well_id' => $wellId]); }
+
+            if (in_array($well['status'], ['active','contaminated','no_technician','paused_storage','paused_cash'])) {
+                try { $wellService->processWear($wellId, $deltaHours, (float)$well['base_production_per_hour'], (float)($well['oil_richness'] ?? 1.0), false, $spiralWearMult * $perkWearMult * $eqMults['wear'] * $transportWearMult * $gBalanceMults['wear'] * $layerWearMult * (float)($this->financeTechnicalMods['wear_mult'] ?? 1.0)); } catch (Throwable $e) { GameLog::error('tick', 'zużycie odwiertu FAILED', $e, ['well_id' => $wellId]); }
+                try { $wellService->processSpiralDecay($wellId, $deltaHours, $hseBonus); } catch (Throwable $e) { GameLog::error('tick', 'zanik spirali FAILED', $e, ['well_id' => $wellId]); }
+            }
+        }
+
+        if ($statusAllowsIncidents) {
+            try {
+                $hseForDisaster = $hseBonus;
+                $hseForDisaster['catastrophe_mult'] = ($hseBonus['catastrophe_mult'] ?? 1.0) * $techSpecCatMult * (float)($this->financeSafetyMods['disaster_mult'] ?? 1.0);
+                $disaster = $wellService->processDisasterRoll($wellId, $deltaHours, $hseForDisaster, $transportDisasterMult * $gBalanceMults['disaster'] * $offlineRiskMult * (float)($this->financeSafetyMods['disaster_mult'] ?? 1.0));
+                if (!empty($disaster['disaster'])) {
+                    $this->disastersTriggered++;
+                    GameLog::error('tick', 'KATASTROFA PRZEMYSLOWA', null, ['type' => $disaster['disaster'], 'well_id' => $wellId, 'player_id' => $playerId, 'cost' => $disaster['cost'] ?? 0, 'env_fine' => $disaster['env_fine'] ?? 0]);
+                    if ($tsvc) {
+                        $disasterFull = DisasterMessages::getFull($disaster['disaster'], ($hseBonus['active_hse'] ?? 0) > 0, ['well' => $wellId]);
+                        $tsvc->notify('disaster_' . $disaster['disaster'], $wellId, $disasterFull['icon'] . ' ' . $disasterFull['title'] . ': ' . ($disaster['desc'] ?? $disasterFull['message']));
+                    }
+                    return;
+                }
+            } catch (Throwable $e) { GameLog::error('tick', 'processDisasterRoll FAILED', $e, ['well_id' => $wellId]); }
+
+            //  Incydenty produkcyjne 
+            try {
+                $perkIncidentReduction = 0.0;
+                if ($opPerk   && (float)($opPerk['incident_reduction']   ?? 0) > 0) $perkIncidentReduction += (float)$opPerk['incident_reduction'];
+                if ($techPerk && (float)($techPerk['incident_reduction'] ?? 0) > 0) $perkIncidentReduction += (float)$techPerk['incident_reduction'];
+                $perkCatRed = $techPerk ? (float)($techPerk['catastrophe_reduction'] ?? 0.0) : 0.0;
+
+                $incidentStaffData = [
+                    'operator_skill'           => $operatorId   ? ($opRow['skill_level']    ?? null) : null,
+                    'technician_skill'          => $technicianId ? ($techRow['skill_level']  ?? null) : null,
+                    'no_technician'             => !$technicianId,
+                    'spiral_mult'               => $spiralMultEffective,
+                    'wear_mult'                 => $wearDegMult,
+                    'perk_incident_reduction'   => $perkIncidentReduction,
+                    'perk_catastrophe_reduction'=> $perkCatRed,
+                    'transport_incident_mult'   => $transportIncidentMult * $gBalanceMults['incident'] * (float)($this->financeLogisticsMods['incident_mult'] ?? 1.0) * (float)($this->financeSafetyMods['incident_mult'] ?? 1.0),
+                ];
+                $incidentResult = $this->incidentSvc !== null
+                    ? $this->incidentSvc->processTick($wellId, $playerId, $deltaHours, $well, $incidentStaffData, $hseBonus)
+                    : ['incident' => null];
+                if (!empty($incidentResult['incident'])) {
+                    $inc = $incidentResult['incident'];
+                    $incidentProdDrop = (float)($inc['prod_drop'] ?? 0) / 100.0;
+                    $this->incidentsTriggered++;
+                    if ($inc['cost'] > 0) {
+                        $this->finIncident  += (float)$inc['cost'];
+                        $this->playerCash   -= (float)$inc['cost'];
+                    }
+                    if ($tsvc) {
+                        $tsvc->notify('incident', $wellId, '⚠ ' . ($inc['message'] ?? t('tick.notify.incident_generic', ['id' => $wellId])));
+                    }
+                    GameLog::info('tick', 'incident_processed', ['well_id' => $wellId, 'level' => $inc['level'], 'drop_pct' => $inc['prod_drop'], 'cost' => $inc['cost']]);
+                }
+            } catch (Throwable $e) { GameLog::error('tick', 'IncidentService::processTick FAILED', $e, ['well_id' => $wellId]); }
+        }
+
+        // OPEX
+        $opexPerHour = $wellService->getOpexPerHour($well);
+        if ($well['status'] === 'paused_storage') $opexPerHour *= 0.30;
+        $opexTotal = $opexPerHour * $deltaHours * (float)($this->financeTechnicalMods['opex_mult'] ?? 1.0);
+
+        if ($this->playerCash < $opexTotal) {
+            if (in_array($well['status'], ['active','contaminated','no_technician','paused_storage','paused_cash'])) {
+                $db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = :id")->execute([':id' => $wellId]);
+                GameLog::info('tick', 'odwiert paused_cash (brak kasy)', ['well_id' => $wellId, 'player_id' => $playerId, 'cash' => $this->playerCash, 'opex' => $opexTotal]);
+            }
+            $this->playerCash = max(0.0, $this->playerCash - $opexTotal);
+            return;
+        }
+        $this->finOpex    += $opexTotal;
+        $this->playerCash -= $opexTotal;
+
+        if ($well['status'] === 'paused_storage') {
+            $freeSpace = $storageCapacity - $this->currentStorage;
+            if ($freeSpace > 0) {
+                $db->prepare("UPDATE wells SET status = 'active' WHERE id = :id")->execute([':id' => $wellId]);
+                $well['status'] = 'active';
+                GameLog::info('tick', 'odwiert wznowiony (magazyn ma miejsce)', ['well_id' => $wellId, 'free_space' => round($freeSpace, 1)]);
+            } else { return; }
+        }
+
+        if ($well['status'] === 'paused_cash') {
+            $db->prepare("UPDATE wells SET status = 'active' WHERE id = :id")->execute([':id' => $wellId]);
+            $well['status'] = 'active';
+            GameLog::info('tick', 'odwiert wznowiony (jest kasa)', ['well_id' => $wellId, 'player_id' => $playerId]);
+        }
+
+        if ($well['status'] === 'no_operator') {
+            GameLog::info('tick', 'brak operatora — pomijam produkcję', ['well_id' => $wellId]);
+            return;
+        }
+
+        if (!in_array($well['status'], ['active','contaminated','no_technician'])) return;
+
+        // Produkcja — uwzględnij richness_mult warstwy geologicznej
+        // Production — include geological layer richness_mult
+        $effectiveProd  = $wellService->getEffectiveProduction($well) * $gBalanceMults['production'];
+        $effectiveProd *= $opEfficiencyMult * $eqMults['prod'] * $opProdPerkMult * $offlineProdMult * $layerRichnessMult;
+        if ($incidentProdDrop > 0) $effectiveProd *= max(0, 1.0 - $incidentProdDrop);
+
+        $regionCode       = $well['region_code'] ?? null;
+        $regEventTaxExtra = 0.0;
+        if ($regionCode && $regionalSvc && !empty($activeRegEvents)) {
+            $regMods = $regionalSvc->getWellModifiers($playerId, $regionCode, $activeRegEvents);
+            if ($regMods['prod_mult'] < 1.0) {
+                $effectiveProd *= $regMods['prod_mult'];
+                GameLog::info('tick', 'regional_event_prod_reduction', ['well_id' => $wellId, 'region' => $regionCode, 'prod_mult' => $regMods['prod_mult']]);
+            }
+            $regEventTaxExtra = $regMods['tax_extra'];
+        }
+
+        $potential    = $effectiveProd * $deltaHours;
+        $transportMax = $potential * ($transportCapPct / 100.0);
+        $potential    = min($potential, $transportMax);
+        $freeSpace    = $storageCapacity - $this->currentStorage;
+
+        if ($freeSpace <= 0) {
+            $db->prepare("UPDATE wells SET status = 'paused_storage' WHERE id = :id")->execute([':id' => $wellId]);
+            GameLog::info('tick', 'odwiert paused_storage (magazyn pelny)', ['well_id' => $wellId, 'player_id' => $playerId]);
+            return;
+        }
+
+        $actual = min($potential, $freeSpace);
+
+        // Hub logistics — akumuluje input dla hub-wells lub aplikuje fallback cap dla no-hub
+        $this->applyHubOrFallback($wellId, $actual, $deltaHours);
+
+        // Straty transportowe
+        if ($actual > 0) {
+            // Użyj preloadowanej wartości transport_loss (jeden SELECT per gracz, nie per well)
+            $transportLossPct = $this->pipelineTransportLoss;
+            if ($transportLossPct > 0) {
+                $lostOil = round($actual * ($transportLossPct / 100) * $gBalanceMults['loss'] * (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0), 4);
+                $actual  = max(0, $actual - $lostOil);
+                if ($lostOil > 0.01) GameLog::info('tick', 'transport_loss', ['well_id' => $wellId, 'player_id' => $playerId, 'loss_pct' => $transportLossPct, 'lost_bbl' => round($lostOil, 3), 'actual_after' => round($actual, 3)]);
+            }
+        }
+
+        if ($actual > 0) {
+            $db->prepare("UPDATE wells SET status = 'active', last_production_at = NOW() WHERE id = :id")->execute([':id' => $wellId]);
+
+            // Zdarzenia transportowe — PRZED dodaniem do magazynu i liczeniem finansów
+            $actualBeforeEvent = $actual;
+            $this->processTransportEvent($playerId, $wellId, $transportType, $deltaHours, $hseBonus, $well, $actual, $tsvc);
+
+            $price = $newPrice > 0 ? $newPrice : 70.0;
+            $this->finGross    += round($actualBeforeEvent * $price, 2);
+            $lostBbl            = $actualBeforeEvent - $actual;
+            if ($lostBbl > 0) {
+                $this->finLossBbl   += $lostBbl;
+                $this->finLossValue += round($lostBbl * $price, 2);
+            }
+
+            if ($actual > 0) {
+                $this->finBbl         += $actual;
+                $this->finRevenue     += round($actual * $price, 2);
+                $this->currentStorage += $actual;
+
+                if ($transportOpexPct > 0) {
+                    $transportOpex        = round($actual * $price * ($transportOpexPct / 100.0) * $gBalanceMults['opex'] * (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
+                    $this->finTransport  += $transportOpex;
+                    $this->playerCash    -= $transportOpex;
+                    GameLog::info('tick', 'transport_opex', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'opex_pct' => $transportOpexPct, 'opex_pln' => $transportOpex]);
+                }
+
+                // Koszt stały transportu: PLN za każdą przetransportowaną baryłkę
+                $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
+                if ($costPerBbl > 0) {
+                    $transportFixedCost   = round($actual * $costPerBbl * (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
+                    $this->finTransport  += $transportFixedCost;
+                    $this->playerCash    -= $transportFixedCost;
+                    GameLog::info('tick', 'transport_cost_per_bbl', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'cost_per_bbl' => $costPerBbl, 'total_pln' => $transportFixedCost]);
+                }
+
+                // Podatek regionalny
+                $taxRate = (float)($well['regional_tax_rate'] ?? 0.0);
+                if ($taxRate <= 0 && !empty($well['region_tax_rate'])) $taxRate = (float)$well['region_tax_rate'];
+                $taxRate += $regEventTaxExtra;
+                if ($taxRate > 0) {
+                    try {
+                        $grossRevenue = $actual * $price;
+                        $taxAmount    = round($grossRevenue * $taxRate, 2);
+                        if ($taxAmount > 0) {
+                            $this->playerCash -= $taxAmount;
+                            $this->finTax     += $taxAmount;
+                            GameLog::info('tick', 'regional_tax', ['well_id' => $wellId, 'player_id' => $playerId, 'tax_rate_pct' => round($taxRate * 100, 2), 'event_tax' => round($regEventTaxExtra * 100, 2), 'gross_rev' => round($grossRevenue, 2), 'tax_amount' => $taxAmount]);
+                        }
+                    } catch (Throwable $e) { GameLog::error('tick', 'regional_tax FAILED', $e, ['well_id' => $wellId]); }
+                }
+            }
+        }
+
+        if (in_array($well['status'], ['active','no_technician','contaminated'])) $this->finWellsActive++;
+    }
+
+    /**
+     * @param array<string, mixed> $hseBonus
+     * @param array<string, mixed> $well
+     */
+    private function processTransportEvent(
+        int    $playerId,
+        int    $wellId,
+        string $transportType,
+        float  $deltaHours,
+        array  $hseBonus,
+        array  $well,
+        float  &$actual,
+        ?object $tsvc
+    ): void {
+        try {
+            $politicalRiskLevel   = (int)($well['region_political_risk'] ?? 1);
+            $transportEventChance = match($transportType) {
+                'ciezarowki' => 0.36 * $deltaHours,
+                'tankowiec'  => 0.18 * $deltaHours,
+                default      => 0.11 * $deltaHours,
+            };
+            if ($transportType === 'ciezarowki' && $politicalRiskLevel >= 3) $transportEventChance *= 1.30;
+            $transportEventChance *= ($hseBonus['failure_reduction'] ?? 1.0);
+
+            if (mt_rand(1, 100000) > (int)($transportEventChance * 100000)) return;
+
+            $eventType     = match($transportType) {
+                'ciezarowki' => (mt_rand(0,1) ? 'theft' : 'accident'),
+                'tankowiec'  => 'storm',
+                default      => (mt_rand(0,1) ? 'leak' : 'pressure_drop'),
+            };
+            $eventImpact   = [];
+            $oilPriceLocal = (float)($this->oilPrice ?? 70);
+
+            switch ($eventType) {
+                case 'theft':
+                    $theftPct    = mt_rand(5, 15) / 100.0;
+                    $theftLoss   = round($actual * $theftPct, 2);
+                    $actual      = max(0, $actual - $theftLoss);
+                    $eventImpact = ['type' => 'theft', 'lost_bbl' => $theftLoss, 'revenue_loss' => round($theftLoss * $oilPriceLocal, 2), 'pct' => round($theftPct * 100, 1)];
+                    $tsvc?->notify('incident', $wellId, t('tick.notify.transport_theft', ['id' => $wellId, 'bbl' => $theftLoss, 'pct' => $eventImpact['pct']]));
+                    break;
+                case 'accident':
+                    $eventImpact = ['type' => 'accident', 'lost_bbl' => round($actual, 2)];
+                    $actual      = 0;
+                    $this->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = ? AND status = 'active'")->execute([$wellId]);
+                    $tsvc?->notify('incident', $wellId, t('tick.notify.transport_accident', ['id' => $wellId]));
+                    break;
+                case 'storm':
+                    $stormLoss   = round($actual * 0.30, 2);
+                    $actual      = max(0, $actual - $stormLoss);
+                    $eventImpact = ['type' => 'storm', 'lost_bbl' => $stormLoss];
+                    $tsvc?->notify('incident', $wellId, t('tick.notify.transport_storm', ['id' => $wellId, 'bbl' => $stormLoss]));
+                    break;
+                case 'leak':
+                    $leakPct              = mt_rand(10, 20) / 100.0;
+                    $leakLoss             = round($this->currentStorage * $leakPct, 2);
+                    $this->currentStorage = max(0, $this->currentStorage - $leakLoss);
+                    $this->db->prepare("UPDATE storage SET used = GREATEST(0, used - ?) WHERE player_id = ?")->execute([$leakLoss, $playerId]);
+                    $eventImpact = ['type' => 'leak', 'lost_bbl' => $leakLoss, 'pct' => round($leakPct * 100)];
+                    $tsvc?->notify('incident', $wellId, t('tick.notify.transport_leak', ['id' => $wellId, 'bbl' => $leakLoss, 'pct' => $eventImpact['pct']]));
+                    break;
+                case 'pressure_drop':
+                    $pdLoss      = round($actual * 0.15, 2);
+                    $actual      = max(0, $actual - $pdLoss);
+                    $eventImpact = ['type' => 'pressure_drop', 'lost_bbl' => $pdLoss];
+                    $tsvc?->notify('task', $wellId, t('tick.notify.transport_pressure_drop', ['id' => $wellId, 'bbl' => $pdLoss]));
+                    break;
+            }
+            GameLog::info('tick', 'transport_event', ['well_id' => $wellId, 'player_id' => $playerId, 'transport' => $transportType, 'event' => $eventType, 'impact' => $eventImpact, 'chance_pct' => round($transportEventChance * 100, 4)]);
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'event transportowy FAILED', $e, ['well_id' => $wellId]);
+        }
+    }
+
+
+    /**
+     * Preładuje dane per gracz przed pętlą odwiertów.
+     * Eliminuje N+1 queries dla technical_staff, transport_loss, serwisów i hubów.
+     *
+     * @param list<array<string, mixed>> $wells odwierty gracza (potrzebne do batch-query hubów)
+     */
+    private function preloadPlayerData(int $playerId, array $wells): void
+    {
+        // 1. Preload technical_staff + staff_specializations w jednym SELECT
+        $this->staffCache = [];
+        try {
+            $stmt = $this->db->prepare("
+                SELECT ts.id, ts.status, ts.skill_level, ts.specialization,
+                       ss.prod_bonus, ss.wear_reduction, ss.incident_reduction,
+                       ss.spiral_reduction, ss.only_deep_layers, ss.repair_speed,
+                       ss.incident_return_reduction, ss.catastrophe_reduction
+                FROM technical_staff ts
+                LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
+                WHERE ts.player_id = ?
+                  AND ts.status IN ('active', 'busy')
+            ");
+            $stmt->execute([$playerId]);
+            foreach ($stmt->fetchAll() as $row) {
+                $this->staffCache[(int)$row['id']] = $row;
+            }
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'preloadPlayerData staff FAILED', $e, ['player_id' => $playerId]);
+        }
+
+        // 2. Preload max transport_loss z rurociągów — 1 SELECT per gracz zamiast per well
+        $this->pipelineTransportLoss = 0.0;
+        try {
+            $tlStmt = $this->db->prepare("
+                SELECT COALESCE(MAX(transport_loss), 0)
+                FROM pipelines
+                WHERE player_id = ? AND status = 'active'
+            ");
+            $tlStmt->execute([$playerId]);
+            $this->pipelineTransportLoss = (float)($tlStmt->fetchColumn() ?? 0.0);
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'preloadPlayerData pipelines FAILED', $e, ['player_id' => $playerId]);
+        }
+
+        // 3. Inicjalizuj serwisy raz per gracz
+        $this->geoSvc      = class_exists('GeologicalLayerService') ? new GeologicalLayerService() : null;
+        $this->incidentSvc = class_exists('IncidentService')         ? new IncidentService()        : null;
+
+        // 4. Batch-load przypisań hubów dla odwiertów gracza (1 query na gracza)
+        $this->wellHubMap    = [];
+        $this->hubCache      = [];
+        $this->hubInputAccum = [];
+
+        if ($this->hubSvc !== null && !empty($wells)) {
+            try {
+                $wellIds      = array_map('intval', array_column($wells, 'id'));
+                $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
+                $stmt = $this->db->prepare(
+                    "SELECT a.well_id, h.*
+                       FROM logistics_hub_assignments a
+                       JOIN logistics_hubs h ON h.id = a.hub_id
+                      WHERE a.well_id IN ({$placeholders})
+                        AND a.status   = 'active'
+                        AND h.status  NOT IN ('disabled','building')"
+                );
+                $stmt->execute($wellIds);
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $wellId = (int)$row['well_id'];
+                    $hubId  = (int)$row['id'];          // h.id alias
+                    unset($row['well_id']);              // wyjmij kolumnę assoc z wiersza huba
+                    $this->wellHubMap[$wellId] = $hubId;
+                    if (!isset($this->hubCache[$hubId])) {
+                        $this->hubCache[$hubId]      = $row;
+                        $this->hubInputAccum[$hubId] = 0.0;
+                    }
+                }
+                if (!empty($this->hubCache)) {
+                    GameLog::info('tick', 'hub_assignments_preloaded', [
+                        'player_id'    => $playerId,
+                        'assigned_cnt' => count($this->wellHubMap),
+                        'hub_cnt'      => count($this->hubCache),
+                    ]);
+                }
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'preloadHubAssignments FAILED', $e, ['player_id' => $playerId]);
+            }
+        }
+    }
+
+    // ── Hub logistics helpers ────────────────────────────────────────────────
+
+    /**
+     * Applies hub logistics or fallback cap to a well's production volume.
+     *
+     * Hub-assigned wells: accumulates $actual into hubInputAccum — $actual is NOT
+     * reduced here. Hub losses are reconciled in finalizeHubTicks() after the loop.
+     *
+     * Wells without hub: immediately applies fallback throughput cap (100 bph default).
+     * Volume above the cap is permanently lost and added to finLossBbl.
+     *
+     * @param float $actual passed by reference — may be reduced for no-hub wells
+     */
+    private function applyHubOrFallback(int $wellId, float &$actual, float $deltaHours): void
+    {
+        if ($this->hubTickSvc === null || $actual <= 0.0) {
+            return;
+        }
+
+        $hubId = $this->wellHubMap[$wellId] ?? null;
+
+        if ($hubId !== null) {
+            // Well ma aktywne przypisanie do huba — akumuluj input, reconciliacja po pętli
+            $this->hubInputAccum[$hubId] = ($this->hubInputAccum[$hubId] ?? 0.0) + $actual;
+            // $actual NIE jest redukowany — hub losses korygowane w finalizeHubTicks()
+        } else {
+            // Brak huba — natychmiastowy fallback cap (jak odwiert bez infrastruktury)
+            $fallback = $this->hubTickSvc->applyFallback($actual, $deltaHours);
+            $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
+            if ($logisticsLossMult !== 1.0 && $fallback['lost_bbl'] > 0.0) {
+                $scaledLost = min($actual, round($fallback['lost_bbl'] * $logisticsLossMult, 4));
+                $fallback['lost_bbl'] = $scaledLost;
+                $fallback['effective_bbl'] = max(0.0, $actual - $scaledLost);
+            }
+            if ($fallback['lost_bbl'] > 0.001) {
+                $this->finLossBbl   += $fallback['lost_bbl'];
+                $this->finLossValue += round($fallback['lost_bbl'] * $this->oilPrice, 2);
+                $this->finFallbackLossBbl += $fallback['lost_bbl'];
+                $this->finFallbackLossValue += round($fallback['lost_bbl'] * $this->oilPrice, 2);
+                GameLog::info('tick', 'hub_fallback_loss', [
+                    'well_id'   => $wellId,
+                    'input_bbl' => round($actual, 2),
+                    'lost_bbl'  => round($fallback['lost_bbl'], 2),
+                ]);
+            }
+            $actual = $fallback['effective_bbl'];
+        }
+    }
+
+    /**
+     * Po pętli odwiertów: przetwarza tick każdego aktywnego huba.
+     *
+     * Dla każdego huba:
+     *  1. processTick() → oblicza wear, condition, status, przetworzone/stracone baryłki
+     *  2. persistTickResult() → zapisuje stan huba i statystyki tiku
+     *  3. Reconciliacja strat → odejmuje hub_lost_bbl od currentStorage i fin*
+     *  4. Hub OPEX → nalicza koszt operacyjny huba (raz na tick, niezależnie od liczby odwiertów)
+     *
+     * Bufor huba (MVP): wyłączony — cały nadmiar ponad przepustowość jest tracony.
+     * Buffer będzie włączony w kolejnym etapie razem z UI logistyki.
+     */
+    private function finalizeHubTicks(int $playerId, float $deltaHours): void
+    {
+        if ($this->hubTickSvc === null || empty($this->hubCache)) {
+            return;
+        }
+
+        foreach ($this->hubCache as $hubId => $hub) {
+            try {
+                $inputBbl = $this->hubInputAccum[$hubId] ?? 0.0;
+
+                // MVP: wyłącz bufor — cały nadmiar = strata.
+                // Upraszcza accounting storage (brak "pending oil in buffer" edge case).
+                // Bufor włączymy razem z UI w Etapie 2.
+                $hubForTick = $hub;
+                $hubForTick['buffer_capacity_bbl'] = 0.0;
+                $hubForTick['buffer_current_bbl']  = 0.0;
+
+                $result = $this->hubTickSvc->processTick($hubForTick, $inputBbl, $deltaHours);
+
+                // Zachowaj rzeczywisty bufor — nie nadpisuj go przy persist
+                $result['new_buffer'] = (float)$hub['buffer_current_bbl'];
+
+                $this->hubTickSvc->persistTickResult($hub, $result, $this->now);
+
+                // ── Reconciliacja strat ──────────────────────────────────────
+                // Podczas pętli wells dodaliśmy $inputBbl do storage/revenue.
+                // Teraz odejmujemy to co hub stracił (ponad przepustowość).
+                $hubLostBbl = (float)$result['lost_bbl'];
+                $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
+                if ($hubLostBbl > 0.0 && $logisticsLossMult !== 1.0) {
+                    $hubLostBbl = min($inputBbl, round($hubLostBbl * $logisticsLossMult, 4));
+                }
+
+                if ($hubLostBbl > 0.001) {
+                    $lostVal = round($hubLostBbl * $this->oilPrice, 2);
+                    $this->currentStorage  = max(0.0, $this->currentStorage - $hubLostBbl);
+                    $this->finBbl         -= $hubLostBbl;
+                    $this->finRevenue     -= $lostVal;
+                    $this->finLossBbl     += $hubLostBbl;
+                    $this->finLossValue   += $lostVal;
+                    $this->finHubLossBbl  += $hubLostBbl;
+                    $this->finHubLossValue += $lostVal;
+                    GameLog::info('tick', 'hub_tick_loss', [
+                        'hub_id'     => $hubId,
+                        'player_id'  => $playerId,
+                        'input_bbl'  => round($inputBbl, 2),
+                        'processed'  => round($result['processed_bbl'], 2),
+                        'lost_bbl'   => round($hubLostBbl, 2),
+                        'load_pct'   => $result['load_pct'],
+                        'new_status' => $result['new_status'],
+                    ]);
+                }
+
+                // ── Liczba studni gracza w tym hubie (używana przez incident i OPEX) ──
+                $playerWellCount = count(array_filter(
+                    $this->wellHubMap,
+                    fn($hId) => $hId === $hubId
+                ));
+
+                // ── Incydenty logistyczne huba ───────────────────────────────
+                // Losowe zdarzenia (awaria, wyciek, przeciążenie) generowane per hub.
+                // Efekty: dodatkowa strata wolumenu + obniżenie kondycji huba.
+                if ($this->hubIncidentSvc !== null && $playerWellCount > 0) {
+                    try {
+                        $incident = $this->hubIncidentSvc->processTick(
+                            $hub, $inputBbl, $result, $deltaHours, $playerId
+                        );
+                        if ($incident !== null && $incident['extra_loss'] > 0.0) {
+                            $incLoss = (float)$incident['extra_loss'] * (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
+                            $incVal  = round($incLoss * $this->oilPrice, 2);
+                            $this->currentStorage  = max(0.0, $this->currentStorage - $incLoss);
+                            $this->finBbl         -= $incLoss;
+                            $this->finRevenue     -= $incVal;
+                            $this->finLossBbl     += $incLoss;
+                            $this->finLossValue   += $incVal;
+                            $this->finHubIncidentLossBbl += $incLoss;
+                            $this->finHubIncidentLossValue += $incVal;
+                            $this->incidentsTriggered++;
+                        }
+                    } catch (Throwable $e) {
+                        GameLog::error('tick', 'hub incident check FAILED', $e, [
+                            'hub_id'    => $hubId,
+                            'player_id' => $playerId,
+                        ]);
+                    }
+                }
+
+                // ── Hub usage fee (per-slot model) ───────────────────────────
+                // Huby są systemowe — gracz nie płaci pełnego OPEX huba.
+                // Płaci proporcjonalny udział: (opex/slot_limit) × liczba_własnych_studni × mode_mult × cond_mult.
+                // Kara za kondycję: zdegradowany hub = droższe utrzymanie per gracz.
+                if ($playerWellCount > 0) {
+                    $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
+                    $opexMult   = $modeMultipliers['opex_mult'] ?? 1.0;
+                    $condPct    = (float)($hub['condition_pct'] ?? 100.0);
+                    $condMult   = match(true) {
+                        $condPct <= 20.0 => 1.80,
+                        $condPct <= 30.0 => 1.50,
+                        $condPct <= 50.0 => 1.25,
+                        $condPct <  70.0 => 1.10,
+                        default          => 1.00,
+                    };
+                    $slotCost   = (float)$hub['opex_per_tick'] / max(1, (int)$hub['slot_limit']);
+                    $usageFee   = round($slotCost * $playerWellCount * $opexMult * $condMult * (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0), 2);
+                    if ($usageFee > 0.0) {
+                        $this->finOpex    += $usageFee;
+                        $this->finHubUsageCost += $usageFee;
+                        $this->playerCash -= $usageFee;
+                        GameLog::info('tick', 'hub_usage_fee', [
+                            'hub_id'      => $hubId,
+                            'player_id'   => $playerId,
+                            'player_wells'=> $playerWellCount,
+                            'slot_cost'   => $slotCost,
+                            'usage_fee'   => $usageFee,
+                            'mode'        => $hub['work_mode'] ?? 'standard',
+                            'cond_pct'    => $condPct,
+                            'cond_mult'   => $condMult,
+                        ]);
+                    }
+                }
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'finalizeHubTicks FAILED', $e, [
+                    'hub_id'    => $hubId,
+                    'player_id' => $playerId,
+                ]);
+            }
+        }
+    }
+
+    private function validateStaff(?int $staffId, int $wellId, string $column): ?int
+    {
+        if (!$staffId) return null;
+        try {
+            // Użyj preloadowanego cache zamiast SELECT per well
+            if (isset($this->staffCache[$staffId])) {
+                $chk = $this->staffCache[$staffId];
+            } else {
+                // Fallback — staff nie był w cache (nowo zatrudniony w tym ticku?)
+                $chkStmt = $this->db->prepare("SELECT status FROM technical_staff WHERE id = ? LIMIT 1");
+                $chkStmt->execute([$staffId]);
+                $chk = $chkStmt->fetch();
+                if ($chk) $this->staffCache[$staffId] = $chk;
+            }
+            if (!$chk || $chk['status'] === 'fired') {
+                $this->db->prepare("UPDATE wells SET {$column} = NULL WHERE id = ?")->execute([$wellId]);
+                return null;
+            }
+        } catch (Throwable $e) {}
+        return $staffId;
+    }
+}

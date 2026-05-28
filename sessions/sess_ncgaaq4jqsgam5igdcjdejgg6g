@@ -1,0 +1,1 @@
+csrf_token|s:64:"831f434e29ece6cfa86c089bb3089e84896ff53228ab120b41cf12a8dbc3e90f";redirect_after_login|s:33:"/src/ChatApi.php?action=dm_status";rl_login_::1|a:2:{s:8:"attempts";i:1;s:13:"first_attempt";i:1779788560;}logistics_optimize_last|i:1779752943;rl_action_::1|a:2:{s:8:"attempts";i:2;s:13:"first_attempt";i:1779753037;}

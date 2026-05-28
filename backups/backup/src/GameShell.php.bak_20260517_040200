@@ -1,0 +1,94 @@
+<?php
+
+class GameShell
+{
+    /** @return array<int, array{label:string,value:string,class:string}> */
+    public static function statusItems(int $playerId): array
+    {
+        $playerData = ['cash' => 0, 'status' => 'active', 'capacity' => 0, 'used' => 0];
+        $marketData = ['current_price' => 0];
+
+        try {
+            $player = new Player($playerId);
+            $data = $player->getData();
+            if (is_array($data)) {
+                $playerData = array_merge($playerData, $data);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('GameShell', 'player status load failed', $e, ['player_id' => $playerId]);
+            }
+        }
+
+        try {
+            $market = new Market();
+            $data = $market->getState();
+            if (is_array($data)) {
+                $marketData = array_merge($marketData, $data);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('GameShell', 'market status load failed', $e);
+            }
+        }
+
+        return [
+            ['label' => t('index.cash'),      'value' => number_format((float)$playerData['cash']) . ' ' . t('common.pln'), 'class' => 'money'],
+            ['label' => t('index.storage'),   'value' => (string)$playerData['used'] . '/' . (string)$playerData['capacity'], 'class' => 'storage'],
+            ['label' => t('index.oil_price'), 'value' => number_format((float)$marketData['current_price']), 'class' => 'money'],
+            ['label' => t('index.status'),    'value' => ucfirst((string)$playerData['status']), 'class' => ''],
+        ];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public static function actionItems(int $playerId): array
+    {
+        return self::actionItemsFromConfig($playerId);
+    }
+
+    /** @return array<int, array<string, string>> */
+    private static function actionItemsFromConfig(int $playerId): array
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $rows = $db->query("
+                SELECT label, url_key, icon, css_class
+                FROM nav_items
+                WHERE active = 1 AND location = 'actions'
+                ORDER BY sort_order ASC, id ASC
+            ")->fetchAll(PDO::FETCH_ASSOC);
+
+            if (class_exists('BoardAccess', false)) {
+                $rows = BoardAccess::filterNav($rows ?: [], $playerId);
+            }
+
+            $rows = array_values(array_filter($rows ?: [], static function (array $row): bool {
+                return (string)($row['url_key'] ?? '') !== 'upgrade-well';
+            }));
+
+            return array_map(static function (array $row): array {
+                $key = (string)($row['url_key'] ?? '#');
+                $href = str_starts_with($key, '/') ? $key : url($key);
+                $label = (($row['icon'] ?? '') ? $row['icon'] . ' ' : '') . ($row['label'] ?? '');
+
+                return [
+                    'type'  => 'link',
+                    'url'   => $href,
+                    'label' => $label,
+                    'class' => (string)($row['css_class'] ?: 'btn-secondary'),
+                ];
+            }, $rows ?: []);
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    /** @return array{statusItems:array<int,array<string,string>>,actions:array<int,array<string,mixed>>} */
+    public static function data(int $playerId): array
+    {
+        return [
+            'statusItems' => self::statusItems($playerId),
+            'actions' => self::actionItems($playerId),
+        ];
+    }
+}

@@ -1,0 +1,9 @@
+<?php
+/**
+ * Cron az.pl — uruchamiany co 5 minut przez serwer.
+ * Plik musi znajdować się w katalogu głównym konta (public_html/).
+ * Nazwa: cron-5min.php → az.pl wywołuje go automatycznie co 5 minut.
+ */
+
+define('FORCE_TICK_INTERNAL', true); // pomija guard HTTP w cron/tick.php
+require_once __DIR__ . '/cron/tick.php';

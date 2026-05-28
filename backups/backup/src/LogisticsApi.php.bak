@@ -1,0 +1,69 @@
+<?php
+/**
+ * LogisticsApi.php AJAX endpoint optymalizatora logistyki
+ * URL: /src/LogisticsApi.php
+ * Metody: POST (optimize) | GET (summary)
+ */
+
+ob_start();
+require_once __DIR__ . '/init.php';
+ob_clean();
+header('Content-Type: application/json; charset=utf-8');
+
+function logisticsJsonOut(array $data, int $code = 200): void
+{
+    http_response_code($code);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+if (!Auth::isLoggedIn()) {
+    logisticsJsonOut(['success' => false, 'error' => t('common.not_logged_in')], 401);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['_token'] ?? '')) {
+        logisticsJsonOut(['success' => false, 'error' => t('common.csrf_error')], 419);
+    }
+}
+
+$playerId = Auth::getUserId();
+
+// Optimizer dostępny dla gracza z uprawnieniami technical lub logistics
+// Optimizer available to players with technical or logistics permissions
+if (class_exists('BoardAccess', false)
+    && !BoardAccess::has($playerId, 'technical')
+    && !BoardAccess::has($playerId, 'logistics'))
+{
+    logisticsJsonOut(['success' => false, 'error' => t('common.access_denied')], 403);
+}
+
+require_once __DIR__ . '/LogisticsService.php';
+$svc    = new LogisticsService($playerId);
+$action = $_REQUEST['action'] ?? '';
+
+try {
+    switch ($action) {
+
+        case 'optimize':
+            $mode   = $_POST['mode'] ?? 'balans';
+            $result = $svc->optimize($mode);
+            logisticsJsonOut($result);
+
+        case 'summary':
+            $data = $svc->getCurrentSummary();
+            logisticsJsonOut(['success' => true] + $data);
+
+        case 'cooldown':
+            logisticsJsonOut([
+                'success'  => true,
+                'cooldown' => $svc->getRemainingCooldown(),
+            ]);
+
+        default:
+            logisticsJsonOut(['success' => false, 'error' => t('logistics.err_unknown_action')], 400);
+    }
+} catch (Throwable $e) {
+    GameLog::error('LogisticsApi', 'Uncaught exception', $e, ['action' => $action]);
+    logisticsJsonOut(['success' => false, 'error' => t('logistics.err_server')], 500);
+}

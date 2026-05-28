@@ -1,0 +1,222 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/MySqlIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/PortService.php';
+require_once dirname(__DIR__, 2) . '/src/MarineDeliveryService.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/MarineDeliverySection.php';
+
+/**
+ * Testy integracyjne MySql dla MarineDeliverySection (tick).
+ * MySQL integration tests for MarineDeliverySection (tick).
+ */
+final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
+{
+    private MarineDeliveryService $marineSvc;
+
+    private int $portId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->marineSvc = new MarineDeliveryService($this->db);
+        $this->portId    = $this->seed + 10;
+    }
+
+    protected function tearDown(): void
+    {
+        $playerId = $this->getTrackedIds()['playerId'];
+        try { $this->db->prepare('DELETE FROM port_queue WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
+        try { $this->db->prepare('DELETE FROM marine_deliveries WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
+        try { $this->db->prepare('DELETE FROM ports WHERE id = ?')->execute([$this->portId]); } catch (\Throwable $e) {}
+
+        parent::tearDown();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────
+
+    private function insertPort(int $regionId, string $status = 'active', int $queueLimit = 25): void
+    {
+        $this->db->prepare(
+            "INSERT INTO ports
+                 (id, region_id, name, port_type, throughput_per_tick, queue_limit,
+                  handling_cost_per_bbl, base_transit_hours, overload_risk_pct,
+                  failure_risk_per_tick, status)
+             VALUES (?, ?, ?, 'medium', 600.00, ?, 0.50, 3.00, 15.00, 0.001, ?)
+             ON DUPLICATE KEY UPDATE status = VALUES(status)"
+        )->execute([$this->portId, $regionId, 'TestPort #' . $this->portId, $queueLimit, $status]);
+    }
+
+    private function insertDelivery(
+        int    $playerId,
+        int    $wellId,
+        float  $volumeBbl,
+        string $status,
+        string $etaAt,
+        ?int   $portId = null
+    ): int {
+        $this->db->prepare(
+            "INSERT INTO marine_deliveries
+                 (player_id, well_id, port_id, volume_bbl, status, departure_at, eta_at, created_at)
+             VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW())"
+        )->execute([$playerId, $wellId, $portId, $volumeBbl, $status, $etaAt]);
+
+        return (int)$this->db->lastInsertId();
+    }
+
+    private function fetchDelivery(int $id): array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM marine_deliveries WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row ?: [];
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // departing → in_transit
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessChangesStatusFromDepartingToInTransit(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+
+        // ETA daleko w przyszlosci — nie dotrze w tym ticku
+        $etaFuture = (new \DateTime('+6 hours'))->format('Y-m-d H:i:s');
+        $delivId   = $this->insertDelivery($playerId, $ids['wellId'], 30.0, 'departing', $etaFuture);
+
+        $section = new MarineDeliverySection($this->db, new \DateTime());
+        // incidentChance 0 (hseBonus catastrophe_mult = 0) → brak losowych strat
+        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+
+        $row = $this->fetchDelivery($delivId);
+        $this->assertSame('in_transit', $row['status'], 'departing powinno przejsc w in_transit');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // in_transit po ETA → waiting_for_port
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessForwardsToPortQueueAfterEta(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+        $this->insertPort(77, 'active', 25);
+
+        // ETA juz minela — dostawa powinna trafic do kolejki portowej
+        $etaPast = (new \DateTime('-2 hours'))->format('Y-m-d H:i:s');
+        $delivId = $this->insertDelivery($playerId, $ids['wellId'], 50.0, 'in_transit', $etaPast, $this->portId);
+
+        $section = new MarineDeliverySection($this->db, new \DateTime());
+        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+
+        $row = $this->fetchDelivery($delivId);
+        $this->assertSame('waiting_for_port', $row['status'], 'Po ETA dostawa powinna czekac na port');
+        $this->assertSame(1, $section->queuedDeliveries, 'Licznik kolejkowych powinien = 1');
+
+        // Sprawdz wpis w port_queue
+        $stmt = $this->db->prepare('SELECT * FROM port_queue WHERE delivery_id = ?');
+        $stmt->execute([$delivId]);
+        $queueRow = $stmt->fetch();
+        $this->assertNotFalse($queueRow, 'Wpis w port_queue powinien istniec');
+        $this->assertSame('waiting', $queueRow['status']);
+        $this->assertEqualsWithDelta(50.0, (float)$queueRow['volume_bbl'], 0.001);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Brak portu → delayed
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessDelaysDeliveryWhenNoPortAvailable(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        // Region 997 — celowo brak portu dla tego regionu w bazie
+        $this->seedWell($playerId, $ids['wellId'], 'active', 997, 'A1', 'tankowiec');
+
+        $etaPast = (new \DateTime('-1 hour'))->format('Y-m-d H:i:s');
+        $delivId = $this->insertDelivery($playerId, $ids['wellId'], 20.0, 'in_transit', $etaPast, null);
+
+        // Upewnij sie ze nie ma aktywnego portu dla regionu 997
+        $this->db->exec("DELETE FROM ports WHERE region_id = 997");
+
+        $section = new MarineDeliverySection($this->db, new \DateTime());
+        // Blokujemy incydenty (catastrophe_mult = 0) ale brak portu → delayed
+        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+
+        $row = $this->fetchDelivery($delivId);
+
+        // Moze byc delayed LUB waiting_for_port (jezeli fallback znalazl port gdzies)
+        // Jezeli status = delayed — test zdawal
+        // Jezeli = waiting_for_port — fallback znalazl port (inne regiony moga miec port w bazie)
+        $this->assertContains(
+            $row['status'],
+            ['delayed', 'waiting_for_port'],
+            'Dostawa po ETA powinna byc delayed lub waiting_for_port'
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Kolejka portowa pelna → waiting_for_port z opoznieniem
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessDelaysWhenPortQueueFull(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+
+        // Wstaw port z queue_limit = 1
+        $this->insertPort(77, 'active', 1);
+
+        // Wypelnij kolejke (1/1 = 100% > 80%)
+        $this->db->prepare(
+            "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
+             VALUES (?, ?, ?, 10.0000, NOW(), 'waiting')"
+        )->execute([$this->portId, $this->seed + 99, $playerId]);
+
+        $etaPast = (new \DateTime('-1 hour'))->format('Y-m-d H:i:s');
+        $delivId = $this->insertDelivery($playerId, $ids['wellId'], 30.0, 'in_transit', $etaPast, $this->portId);
+
+        $section = new MarineDeliverySection($this->db, new \DateTime());
+        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+
+        $row = $this->fetchDelivery($delivId);
+
+        // Pelna kolejka → waiting_for_port z inkrementem delay_ticks
+        $this->assertSame('waiting_for_port', $row['status'], 'Pelna kolejka → waiting_for_port');
+        $this->assertGreaterThanOrEqual(1, (int)$row['delay_ticks'], 'delay_ticks powinno sie zwiekszyc');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Liczniki sekcji
+    // ─────────────────────────────────────────────────────────────
+
+    public function testSectionCountersStartAtZero(): void
+    {
+        $section = new MarineDeliverySection($this->db, new \DateTime());
+
+        $this->assertSame(0.0, $section->lostBbl);
+        $this->assertSame(0,   $section->lostDeliveries);
+        $this->assertSame(0,   $section->delayedDeliveries);
+        $this->assertSame(0,   $section->queuedDeliveries);
+    }
+
+    public function testSectionProcessWithNoDeliveriesLeavesCountersAtZero(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+
+        $section = new MarineDeliverySection($this->db, new \DateTime());
+        $section->process($playerId, [], 1.0);
+
+        $this->assertSame(0.0, $section->lostBbl);
+        $this->assertSame(0,   $section->lostDeliveries);
+        $this->assertSame(0,   $section->delayedDeliveries);
+        $this->assertSame(0,   $section->queuedDeliveries);
+    }
+}

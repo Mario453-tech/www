@@ -1,0 +1,439 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('dashboard.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/src/init.php';
+Auth::requireLogin();
+
+$playerId  = (int)($_SESSION['user_id'] ?? 0);
+$db        = Database::getInstance()->getConnection();
+$csrfToken = CSRF::generateToken();
+$hr        = new HRService();
+$directorRoleCodes = ['hr', 'technical', 'finance', 'legal', 'logistics'];
+
+GameLog::step('dashboard', 'init', 1, 'start', ['player_id' => $playerId]);
+
+try {
+    $hr->processReadyRecruitments();
+} catch (Throwable $e) {
+    GameLog::error('dashboard', 'processReadyRecruitments FAILED', $e, ['player_id' => $playerId]);
+}
+
+// ── Bankrut? ──────────────────────────────────────────────────────────────────
+$isBankrupt = false;
+try {
+    $bStmt = $db->prepare("SELECT status, COALESCE(recovery_mode,0) AS recovery_mode,
+                                  COALESCE(bankruptcy_status,'none') AS bankruptcy_status
+                           FROM players WHERE id = ? LIMIT 1");
+    $bStmt->execute([$playerId]);
+    $bRow = $bStmt->fetch();
+    if ($bRow) {
+        $isBankrupt = ($bRow['status'] === 'bankrupt'
+            || (int)$bRow['recovery_mode'] === 1
+            || !in_array($bRow['bankruptcy_status'], ['none','recovered'], true));
+    }
+} catch (Throwable $e) {
+    GameLog::error('dashboard', 'bankruptcy check FAILED', $e);
+}
+if ($isBankrupt && empty($_SESSION['bankruptcy_dashboard_visited'])) {
+    $_SESSION['bankruptcy_dashboard_visited'] = true;
+    header('Location: /recovery'); exit();
+}
+if (!$isBankrupt) unset($_SESSION['bankruptcy_dashboard_visited']);
+
+// ── POST: dyrektor zatwierdza / odrzuca CV ────────────────────────────────────
+$msg   = '';
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = t('common.csrf_error');
+    } else {
+        $action = $_POST['action'] ?? '';
+
+        if ($action === 'start_director_recruitment') {
+            $roleId     = (int)($_POST['role_id'] ?? 0);
+            $regionCode = trim((string)($_POST['region_code'] ?? 'PL'));
+
+            $roleStmt = $db->prepare("
+                SELECT id, code, name
+                FROM board_roles
+                WHERE id = ?
+                LIMIT 1
+            ");
+            $roleStmt->execute([$roleId]);
+            $role = $roleStmt->fetch();
+
+            if (!$role || !in_array((string)$role['code'], $directorRoleCodes, true)) {
+                $error = t('dashboard.err_invalid_role');
+            } else {
+                $roleBusyStmt = $db->prepare("
+                    SELECT COUNT(*)
+                    FROM board_members
+                    WHERE player_id = ?
+                      AND role_id = ?
+                      AND status = 'active'
+                      AND member_type = 'director'
+                ");
+                $roleBusyStmt->execute([$playerId, (int)$role['id']]);
+
+                $roleRecruitingStmt = $db->prepare("
+                    SELECT COUNT(*)
+                    FROM recruitment_requests
+                    WHERE player_id = ?
+                      AND role_id = ?
+                      AND initiated_by = 'director'
+                      AND COALESCE(spec_code, '') = ''
+                      AND (
+                          status = 'pending'
+                          OR (
+                              status = 'ready'
+                              AND EXISTS (
+                                  SELECT 1
+                                  FROM candidates c
+                                  WHERE c.request_id = recruitment_requests.id
+                                    AND c.expires_at > NOW()
+                              )
+                          )
+                      )
+                ");
+                $roleRecruitingStmt->execute([$playerId, (int)$role['id']]);
+
+                if ((int)$roleBusyStmt->fetchColumn() > 0 || (int)$roleRecruitingStmt->fetchColumn() > 0) {
+                    GameLog::info('dashboard', 'role blocked for recruitment', [
+                        'player_id' => $playerId,
+                        'role_id' => (int)$role['id'],
+                        'role_code' => (string)$role['code'],
+                        'reason' => 'busy_or_recruiting',
+                    ]);
+                    $error = t('dashboard.recruitment_no_roles');
+                } else {
+                $slotStmt = $db->prepare("
+                    SELECT COUNT(*)
+                    FROM recruitment_requests
+                    WHERE player_id = ?
+                      AND initiated_by = 'director'
+                      AND COALESCE(spec_code, '') = ''
+                      AND (
+                          status = 'pending'
+                          OR (
+                              status = 'ready'
+                              AND EXISTS (
+                                  SELECT 1
+                                  FROM candidates c
+                                  WHERE c.request_id = recruitment_requests.id
+                                    AND c.expires_at > NOW()
+                              )
+                          )
+                      )
+                ");
+                $slotStmt->execute([$playerId]);
+                $directorRecruitmentCount = (int)$slotStmt->fetchColumn();
+
+                if ($directorRecruitmentCount >= 2) {
+                    $error = t('dashboard.err_max_recruitments');
+                } else {
+                    $regionType = in_array($regionCode, ['PL', 'EU', 'RU', 'UK'], true) ? 'local' : 'international';
+                    $result = $hr->startRecruitment($playerId, (int)$role['id'], $regionCode, null, 'director', $regionType);
+                    if (!empty($result['success'])) {
+                        $msg = $result['message'] ?? t('dashboard.msg_recruitment_started');
+                    } else {
+                        $error = $result['message'] ?? t('common.app_error');
+                    }
+                }
+                }
+            }
+
+        } elseif ($action === 'hire_candidate') {
+            $candId       = (int)($_POST['cand_id'] ?? 0);
+            $contractType = trim((string)($_POST['contract_type'] ?? '1y'));
+            if ($candId > 0) {
+                $result = $hr->hireCandidate($candId, $playerId, $contractType);
+                if (!empty($result['success'])) {
+                    $msg = $result['message'] ?? t('dashboard.msg_hired');
+                } else {
+                    $error = $result['message'] ?? t('dashboard.err_not_found');
+                }
+            }
+
+        } elseif ($action === 'reject_candidate') {
+            $candId = (int)($_POST['cand_id'] ?? 0);
+            if ($candId > 0) {
+                $result = $hr->rejectCandidate($candId, $playerId);
+                if (!empty($result['success'])) {
+                    $msg = $result['message'] ?? t('dashboard.msg_rejected');
+                } else {
+                    $error = $result['message'] ?? t('dashboard.err_not_found');
+                }
+            }
+
+        } elseif ($action === 'fire_employee') {
+            $memberId = (int)($_POST['member_id'] ?? 0);
+            if ($memberId > 0) {
+                // Weryfikacja że pracownik należy do tego gracza
+                $ck2 = $db->prepare("SELECT id FROM board_members WHERE id = ? AND player_id = ?");
+                $ck2->execute([$memberId, $playerId]);
+                if ($ck2->fetch()) {
+                    $db->beginTransaction();
+                    try {
+                        $db->prepare("UPDATE board_members SET status='fired', fired_at=NOW() WHERE id=?")
+                           ->execute([$memberId]);
+                        $db->prepare("UPDATE employee_contracts SET status='terminated' WHERE member_id=? AND status='active'")
+                           ->execute([$memberId]);
+                        $db->prepare("INSERT INTO employment_history (member_id, action, reason, created_at) VALUES (?,?,?,NOW())")
+                           ->execute([$memberId, 'fired', t('dashboard.fire_reason')]);
+                        $db->commit();
+                        $msg = t('dashboard.msg_fired');
+                    } catch (Throwable $e) {
+                        $db->rollBack();
+                        $error = t('dashboard.err_fire');
+                        GameLog::error('dashboard', 'fire FAILED', $e);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Dane ─────────────────────────────────────────────────────────────────────
+
+// 1. Zarząd — tylko pracownicy tego gracza
+$boardMembers = [];
+try {
+    $stmt = $db->prepare("
+        SELECT bm.*, br.code AS role_code, br.name AS role_name,
+               TIMESTAMPDIFF(YEAR, bm.birth_date, CURDATE()) AS age,
+               DATEDIFF(CURDATE(), bm.hired_at) AS days_employed,
+               ec.salary AS contract_salary, ec.contract_end
+        FROM board_members bm
+        JOIN board_roles br ON bm.role_id = br.id
+        LEFT JOIN employee_contracts ec ON ec.member_id = bm.id AND ec.status = 'active'
+        WHERE bm.status = 'active'
+          AND bm.player_id = ?
+          AND bm.member_type = 'director'
+        ORDER BY bm.hired_at ASC
+    ");
+    $stmt->execute([$playerId]);
+    $boardMembers = $stmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('dashboard', 'boardMembers FAILED', $e);
+}
+
+// 2. Regiony dla rekrutacji zarz�du
+$regions = [];
+try {
+    $regions = $hr->getRegions();
+} catch (Throwable $e) {
+    GameLog::error('dashboard', 'regions FAILED', $e);
+}
+
+// 3. Aktywne rekrutacje zarz�du � tylko flow dyrektora
+$activeRecruitments = [];
+try {
+    $stmt = $db->prepare("
+        SELECT rr.*, br.code AS role_code, br.name AS role_name,
+               TIMESTAMPDIFF(SECOND, NOW(), rr.ready_at) AS seconds_remaining,
+               TIMESTAMPDIFF(MINUTE, rr.requested_at, NOW()) AS minutes_elapsed
+        FROM recruitment_requests rr
+        JOIN board_roles br ON rr.role_id = br.id
+        WHERE rr.player_id = ?
+          AND rr.initiated_by = 'director'
+          AND COALESCE(rr.spec_code, '') = ''
+          AND (
+               rr.status = 'pending'
+               OR (
+                   rr.status = 'ready'
+                   AND EXISTS (
+                       SELECT 1
+                       FROM candidates c
+                       WHERE c.request_id = rr.id
+                         AND c.expires_at > NOW()
+                   )
+               )
+          )
+        ORDER BY rr.requested_at DESC
+    ");
+    $stmt->execute([$playerId]);
+    $activeRecruitments = $stmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('dashboard', 'activeRecruitments FAILED', $e);
+}
+
+// 4. Kandydaci dla kadry dyrektorskiej
+$candidates = [];
+try {
+    $stmt = $db->prepare("
+        SELECT c.*, br.code AS role_code, br.name AS role_name,
+               rr.region_code,
+               TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) AS age,
+               TIMESTAMPDIFF(HOUR, NOW(), c.expires_at) AS hours_remaining
+        FROM candidates c
+        JOIN board_roles br ON c.role_id = br.id
+        JOIN recruitment_requests rr ON rr.id = c.request_id
+        WHERE c.expires_at > NOW()
+          AND rr.player_id = ?
+          AND rr.initiated_by = 'director'
+          AND COALESCE(rr.spec_code, '') = ''
+        ORDER BY c.created_at DESC
+    ");
+    $stmt->execute([$playerId]);
+    $candidates = $stmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('dashboard', 'candidates FAILED', $e);
+}
+
+// 5. Dost�pne role zarz�du do obsadzenia
+$availableDirectorRoles = [];
+try {
+    $placeholders = implode(',', array_fill(0, count($directorRoleCodes), '?'));
+    $params = array_merge($directorRoleCodes, [$playerId, $playerId]);
+    $stmt = $db->prepare("
+        SELECT br.id, br.code, br.name
+        FROM board_roles br
+        WHERE br.code IN ($placeholders)
+          AND NOT EXISTS (
+              SELECT 1
+              FROM board_members bm
+              WHERE bm.player_id = ?
+                AND bm.role_id = br.id
+                AND bm.status = 'active'
+                AND bm.member_type = 'director'
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM recruitment_requests rr
+              WHERE rr.player_id = ?
+                AND rr.role_id = br.id
+                AND rr.initiated_by = 'director'
+                AND COALESCE(rr.spec_code, '') = ''
+                AND (
+                    rr.status = 'pending'
+                    OR (
+                        rr.status = 'ready'
+                        AND EXISTS (
+                            SELECT 1
+                            FROM candidates c
+                            WHERE c.request_id = rr.id
+                              AND c.expires_at > NOW()
+                        )
+                    )
+                )
+          )
+        ORDER BY br.sort_order ASC, br.id ASC
+    ");
+    $stmt->execute($params);
+    $availableDirectorRoles = $stmt->fetchAll();
+} catch (Throwable $e) {
+    // Fallback bez sort_order (gdy kolumna nie istnieje w DB)
+    try {
+        $placeholders2 = implode(',', array_fill(0, count($directorRoleCodes), '?'));
+        $params2 = array_merge($directorRoleCodes, [$playerId, $playerId]);
+        $stmt2 = $db->prepare("
+            SELECT br.id, br.code, br.name
+            FROM board_roles br
+            WHERE br.code IN ($placeholders2)
+              AND NOT EXISTS (
+                  SELECT 1 FROM board_members bm
+                  WHERE bm.player_id = ? AND bm.role_id = br.id
+                    AND bm.status = 'active' AND bm.member_type = 'director'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM recruitment_requests rr
+                  WHERE rr.player_id = ? AND rr.role_id = br.id
+                    AND rr.initiated_by = 'director'
+                    AND COALESCE(rr.spec_code, '') = ''
+                    AND (
+                        rr.status = 'pending'
+                        OR (
+                            rr.status = 'ready'
+                            AND EXISTS (
+                                SELECT 1
+                                FROM candidates c
+                                WHERE c.request_id = rr.id
+                                  AND c.expires_at > NOW()
+                            )
+                        )
+                    )
+              )
+            ORDER BY br.id ASC
+        ");
+        $stmt2->execute($params2);
+        $availableDirectorRoles = $stmt2->fetchAll();
+    } catch (Throwable $e2) {
+        GameLog::error('dashboard', 'availableDirectorRoles FAILED (fallback te�)', $e2);
+    }
+}
+
+$openRoleCount = count($availableDirectorRoles);
+
+// 6. Historia — tylko tego gracza
+$recentHistory = [];
+try {
+    $stmt = $db->prepare("
+        SELECT eh.*, bm.first_name, bm.last_name, br.name AS role_name
+        FROM employment_history eh
+        LEFT JOIN board_members bm ON eh.member_id = bm.id
+        LEFT JOIN board_roles br ON bm.role_id = br.id
+        WHERE bm.player_id = ?
+        ORDER BY eh.created_at DESC
+        LIMIT 10
+    ");
+    $stmt->execute([$playerId]);
+    $recentHistory = $stmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('dashboard', 'history FAILED', $e);
+}
+
+$pendingCount  = count($candidates);
+$totalSeats    = 10;
+$occupiedSeats = count($boardMembers);
+$directorRecruitmentCount = count($activeRecruitments);
+
+GameLog::info('dashboard', 'render start', [
+    'player_id' => $playerId, 'pending_cv' => $pendingCount,
+    'open_roles'=> $openRoleCount, 'board' => $occupiedSeats,
+    'available_roles' => array_map(static fn(array $row): string => (string)($row['code'] ?? ''), $availableDirectorRoles),
+]);
+
+$skillLabels = [
+    'skill_organization' => t('dashboard.skill_org'),
+    'skill_negotiation'  => t('dashboard.skill_neg'),
+    'skill_analysis'     => t('dashboard.skill_ana'),
+    'skill_stress'       => t('dashboard.skill_stress'),
+    'skill_ethics'       => t('dashboard.skill_ethics'),
+];
+
+$viewData = [
+    'msg'               => $msg,
+    'error'             => $error,
+    'isBankrupt'        => $isBankrupt,
+    'pendingCount'      => $pendingCount,
+    'openRoleCount'     => $openRoleCount,
+    'occupiedSeats'     => $occupiedSeats,
+    'totalSeats'        => $totalSeats,
+    'candidates'        => $candidates,
+    'activeRecruitments'=> $activeRecruitments,
+    'directorRecruitmentCount' => $directorRecruitmentCount,
+    'availableDirectorRoles'   => $availableDirectorRoles,
+    'regions'           => $regions,
+    'boardMembers'      => $boardMembers,
+    'recentHistory'     => $recentHistory,
+    'csrfToken'         => $csrfToken,
+    'skillLabels'       => $skillLabels,
+];
+$viewData = array_merge($viewData, GameShell::data($playerId));
+
+$pageTitle = t('dashboard.page_title');
+$extraCss = ['/assets/css/dashboard.css'];
+$gameShellTitle = t('dashboard.page_title');
+$gameShellView = __DIR__ . '/templates/views/dashboard/main.php';
+
+require_once __DIR__ . '/templates/header.php';
+extract($viewData, EXTR_SKIP);
+require __DIR__ . '/templates/components/game_shell.php';
+require_once __DIR__ . '/templates/footer.php';
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) GameLog::error('dashboard.php', t('common.unhandled_exception'), $e);
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) GameLog::pageEnd('dashboard.php', $_codexGuardStart);
+}

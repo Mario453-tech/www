@@ -1,0 +1,1510 @@
+# OilCorp â€” System hubĂłw logistycznych i rozwĂłj logistyki onshore/offshore
+
+## 1. Cel dokumentu
+
+Ten dokument opisuje aktualny stan systemu hubĂłw logistycznych oraz dalszy plan rozbudowy logistyki w OilCorp.
+
+Dokument ma cztery zadania:
+
+- opisaÄ‡, co z hubĂłw jest juĹĽ realnie wdroĹĽone,
+- rozdzieliÄ‡ rzeczy dziaĹ‚ajÄ…ce od planĂłw,
+- uporzÄ…dkowaÄ‡ dalsze wdroĹĽenie logistyki onshore/offshore,
+- wskazaÄ‡, co poĹ‚Ä…czyÄ‡ z istniejÄ…cymi panelami, tickiem, Finansami, Technicznym i BHP.
+
+To nie jest juĹĽ dokument koncepcyjny. To jest README wdroĹĽeniowe i status techniczny moduĹ‚u logistyki.
+
+---
+
+## 2. Aktualna filozofia logistyki
+
+Obecnie gra dziaĹ‚a gĹ‚Ăłwnie wedĹ‚ug prostszego modelu:
+
+`odwiert -> magazyn -> sprzedaĹĽ`
+
+Docelowo system ma przejĹ›Ä‡ w model etapowy:
+
+`odwiert -> logistyka lokalna -> magazyn -> sprzedaĹĽ`
+
+A w dalszej rozbudowie:
+
+`odwiert -> logistyka lokalna -> hub / terminal / port -> magazyn / eksport -> sprzedaĹĽ`
+
+WaĹĽne: porty i terminale nie sÄ… obecnie wdroĹĽonym moduĹ‚em. Nie naleĹĽy ich traktowaÄ‡ jako istniejÄ…cej czÄ™Ĺ›ci obecnego flow.
+
+### 2.1. Twarda zasada flow logistycznego
+
+To musi byc zapisane wprost:
+
+- odwiert nie moze funkcjonowac w modelu logistycznym "sam z siebie",
+- gracz najpierw musi miec aktywny odwiert,
+- potem musi miec wybrany i utrzymany lokalny sposob transportu,
+- dopiero potem ropa trafia dalej do huba i magazynu.
+
+Docelowy flow dla odwiertu ladowego:
+
+`odwiert -> lokalny transport ladowy -> hub -> magazyn`
+
+Docelowy flow dla odwiertu morskiego:
+
+`odwiert offshore -> transport wodny -> magazyn`
+
+### 2.2. Odwiert ladowy
+
+Dla odwiertu ladowego gracz musi podjac decyzje transportowa.
+
+Ma do wyboru:
+
+- `rurociag`
+- `ciezarowki`
+
+#### A. Jesli wybiera `rurociag`
+
+To oznacza:
+
+- rurociag musi byc zakupiony,
+- rurociag ma koszt budowy,
+- rurociag ma koszt utrzymania,
+- rurociag ma swoj stan, degradacje, konserwacje i incydenty,
+- ropa plynie:
+
+`odwiert -> rurociag -> hub -> magazyn`
+
+#### B. Jesli wybiera `ciezarowki`
+
+To oznacza:
+
+- transport lokalny tez kosztuje,
+- koszt nie jest ukryty i musi wejsc w logistyke / finanse,
+- ropa jedzie:
+
+`odwiert -> kursy drogowe -> hub -> magazyn`
+
+### 2.3. Odwiert morski
+
+Dla odwiertu morskiego nie ma lokalnego rurociagu ladowego.
+
+To oznacza:
+
+- odwiert offshore nie korzysta z rurociagu per odwiert,
+- lokalna decyzja transportowa dla offshore to transport wodny,
+- koszt i ryzyko liczymy przez transport morski,
+- ropa plynie:
+
+`odwiert offshore -> transport wodny -> magazyn`
+
+Hub ladowy nie jest pierwszym krokiem dla odwiertu morskiego w MVP.
+
+### 2.4. Skutek projektowy
+
+Z tego wynika wprost:
+
+- rurociag nie moze byc tylko "domyslnie wlaczony",
+- rurociag dla odwiertu ladowego powinien byc decyzja i kosztem gracza,
+- transport samochodowy tez powinien byc decyzja i kosztem gracza,
+- hub jest kolejnym etapem po lokalnym transporcie, a nie zamiennikiem lokalnego transportu.
+
+---
+
+## 3. Co system hubĂłw ma robiÄ‡ gameplayowo
+
+Huby majÄ… sprawiÄ‡, ĹĽe logistyka bÄ™dzie osobnym systemem strategicznym, a nie tylko dodatkiem do odwiertu.
+
+Hub ma byÄ‡:
+
+- wÄ…skim gardĹ‚em regionu,
+- ĹşrĂłdĹ‚em kosztĂłw,
+- ĹşrĂłdĹ‚em ryzyka,
+- obiektem wymagajÄ…cym utrzymania,
+- elementem Ĺ‚Ä…czÄ…cym Finanse, Techniczny, BHP i LogistykÄ™.
+
+Hub nie powinien byÄ‡ tylko paskiem pojemnoĹ›ci. Ma wpĹ‚ywaÄ‡ na realny wynik firmy przez przepustowoĹ›Ä‡, straty, stan techniczny, incydenty i koszty.
+
+---
+
+## 4. Stan na dziĹ› â€” co jest juĹĽ wdroĹĽone
+
+### 4.1. Warstwa danych i serwisĂłw
+
+WdroĹĽone sÄ…:
+
+- `HubService`,
+- `HubAssignmentService`,
+- `HubViewService`,
+- `HubEconomyService`,
+- `HubTickService`,
+- `HubIncidentService`.
+
+### 4.2. Tabele i relacje
+
+WdroĹĽone sÄ… tabele:
+
+- `logistics_hubs`,
+- `logistics_hub_assignments`,
+- `logistics_hub_tick_stats`,
+- `logistics_hub_events`,
+- `logistics_hub_config`,
+- `logistics_region_zones`.
+
+### 4.3. Huby jako infrastruktura systemowa
+
+Na dziĹ› huby dziaĹ‚ajÄ… jako infrastruktura systemowa:
+
+- hub istnieje jako obiekt w bazie,
+- ma region i opcjonalnÄ… strefÄ™,
+- odwiert moĹĽna przypisaÄ‡ tylko do jednego aktywnego huba,
+- dziaĹ‚a cooldown po odpiÄ™ciu / transferze,
+- dziaĹ‚a limit slotĂłw,
+- dziaĹ‚a przypisanie tylko w tym samym regionie,
+- dziaĹ‚a cross-zone w obrÄ™bie regionu.
+
+### 4.4. Tick hubĂłw
+
+WdroĹĽone sÄ…:
+
+- realna przepustowoĹ›Ä‡,
+- obciÄ…ĹĽenie,
+- strata przez przeciÄ…ĹĽenie,
+- strata przez sĹ‚abÄ… kondycjÄ™,
+- zapis statystyk ticka,
+- aktualizacja kondycji, wear i statusu.
+
+### 4.5. Incydenty hubĂłw
+
+WdroĹĽone sÄ…:
+
+- losowanie incydentĂłw per hub,
+- zapis do `logistics_hub_events`,
+- wpĹ‚yw incydentu na kondycjÄ™,
+- odczyt ostatnich incydentĂłw dla gracza i huba.
+
+### 4.6. Integracja z Finansami
+
+WdroĹĽone sÄ…:
+
+- koszt uĹĽycia huba,
+- straty hubowe,
+- straty odwiertĂłw bez huba,
+- straty incydentĂłw hubowych,
+- wpĹ‚yw polityki finansowej na logistykÄ™.
+
+### 4.7. Integracja z Technicznym
+
+WdroĹĽone sÄ… taski:
+
+- `hub_maintenance`,
+- `hub_repair`.
+
+Konserwacja wpĹ‚ywa na:
+
+- kondycjÄ™,
+- `repair_cost_estimate`,
+- `last_maintenance_at`,
+- tick i dalszÄ… degradacjÄ™.
+
+### 4.8. Integracja z BHP
+
+BHP liczy juĹĽ nie tylko odwierty, ale takĹĽe uĹĽywane huby.
+
+Aktywne huby zwiÄ™kszajÄ… obciÄ…ĹĽenie nadzoru. Bonus HSE wpĹ‚ywa na:
+
+- `degrade_mult`,
+- `failure_reduction`,
+- `catastrophe_mult`,
+- ryzyko incydentĂłw hubĂłw.
+
+### 4.9. UI gracza
+
+WdroĹĽone sÄ…:
+
+- lista przypisanych hubĂłw,
+- przypisanie odwiertu do huba,
+- odpiÄ™cie i transfer,
+- widok dostÄ™pnych hubĂłw systemowych w regionach,
+- alerty i sekcja â€žGdzie logistyka zjada wynikâ€ť,
+- wyĹ›wietlanie modelu pozyskania i czynszu.
+
+### 4.10. UI admina
+
+WdroĹĽone sÄ…:
+
+- tworzenie pojedynczego huba,
+- seed regionu,
+- filtrowanie i lista hubĂłw,
+- szczegĂłĹ‚y huba,
+- zmiana trybu pracy,
+- pauza / wznowienie,
+- naprawa,
+- konfiguracja typĂłw i modeli pozyskania.
+
+### 4.11. Testy
+
+WdroĹĽone sÄ…:
+
+- PHPUnit lokalny,
+- testy SQLite,
+- testy MySQL,
+- pokrycie dla przypisaĹ„,
+- pokrycie dla taskĂłw technicznych,
+- pokrycie dla ticka huba,
+- pokrycie dla incydentĂłw,
+- pokrycie BHP dla hubĂłw.
+
+---
+
+## 5. Co jest wdroĹĽone czÄ™Ĺ›ciowo
+
+### 5.1. `new / used / rental`
+
+Warstwa ekonomiczna juĹĽ dziaĹ‚a:
+
+- `acquisition_type`,
+- `lease_fee_per_tick`,
+- `initial_condition_pct`,
+- mnoĹĽniki kosztu,
+- mnoĹĽniki zuĹĽycia,
+- mnoĹĽniki ryzyka.
+
+Ale nadal:
+
+- hub jest gĹ‚Ăłwnie systemowy,
+- gracz nie jest jeszcze peĹ‚nym wĹ‚aĹ›cicielem huba,
+- nie ma peĹ‚nego modelu aktywa gracza,
+- nie ma kompletnego UI wejĹ›cia w model `new / used / rental`.
+
+### 5.2. Konserwacja hubĂłw
+
+DziaĹ‚a:
+
+- task konserwacji,
+- task naprawy,
+- zapis ostatniej konserwacji,
+- wpĹ‚yw na tick.
+
+Do doprecyzowania:
+
+- rĂłĹĽnica miÄ™dzy konserwacjÄ… a naprawÄ… w UI,
+- budĹĽetowanie konserwacji,
+- priorytety konserwacji,
+- peĹ‚na integracja z politykami utrzymania.
+
+### 5.3. BHP dla hubĂłw
+
+DziaĹ‚a:
+
+- wliczanie hubĂłw do obciÄ…ĹĽenia nadzoru,
+- wpĹ‚yw HSE na zuĹĽycie i incydenty.
+
+Brakuje:
+
+- alertĂłw â€žBHP nie wyrabia na hubachâ€ť,
+- osobnego raportowania ryzyka per hub,
+- jawnego moduĹ‚u kontroli infrastruktury w interfejsie.
+
+---
+
+## 6. Co nie jest jeszcze wdroĹĽone
+
+### 6.1. PeĹ‚ny Model B wĹ‚asnoĹ›ci huba
+
+Brakuje:
+
+- huba jako aktywa gracza,
+- zakupu huba przez gracza,
+- wynajmu jako peĹ‚nej decyzji gracza,
+- bilansu majÄ…tku hubĂłw po stronie firmy,
+- peĹ‚nej logiki wĹ‚aĹ›cicielskiej per firma.
+
+### 6.2. Twarde reguĹ‚y `used / rental`
+
+Brakuje:
+
+- ograniczeĹ„ upgrade'u,
+- gorszej Ĺ›cieĹĽki rozwoju,
+- kar specyficznych dla wynajmu,
+- gorszej opĹ‚acalnoĹ›ci dĹ‚ugiego utrzymania wynajmu,
+- losowego limitu naprawy per egzemplarz huba.
+
+### 6.3. RurociÄ…gi per odwiert
+
+MVP modelu:
+
+`1 odwiert = 1 rurociÄ…g`
+
+jest juĹĽ wdroĹĽony technicznie w nowym ticku.
+
+DziaĹ‚a juĹĽ:
+
+- osobny `well_pipelines` per odwiert,
+- degradacja per rurociÄ…g,
+- koszty `opex_per_tick` i `opex_per_bbl`,
+- zdarzenia i statystyki ticka per rurociÄ…g,
+- taski `pipeline_maintenance` i `pipeline_repair`,
+- wpĹ‚yw BHP na zuĹĽycie i ryzyko,
+- player-facing widocznoĹ›Ä‡ rurociÄ…gĂłw w Logistyce.
+
+Brakuje jeszcze:
+
+- zakupu / wejĹ›cia w rurociÄ…g przez gracza jako peĹ‚nej decyzji majÄ…tkowej,
+- peĹ‚nej konfiguracji adminowej typĂłw rurociÄ…gĂłw,
+- gĹ‚Ä™bszego UI decyzji utrzymaniowych per rurociÄ…g.
+
+### 6.4. Transport drogowy jako kursy
+
+Obecny transport drogowy nie jest jeszcze peĹ‚nym systemem kursĂłw.
+
+Brakuje:
+
+- pojemnoĹ›ci kursu,
+- liczby kursĂłw na tick,
+- kosztu kursu,
+- ryzyka incydentu per kurs,
+- utraty caĹ‚ego kursu przy kradzieĹĽy lub napadzie.
+
+### 6.5. Rozdzielenie onshore i offshore
+
+Brakuje peĹ‚nego rozdzielenia:
+
+- onshore: rurociÄ…g / transport drogowy,
+- offshore: transport morski.
+
+### 6.6. Porty i terminale
+
+Porty i terminale nie sÄ… obecnie wdroĹĽone.
+
+Brakuje:
+
+- tabel portĂłw,
+- terminali morskich,
+- terminali przeĹ‚adunkowych,
+- capacity portu,
+- capacity terminala,
+- opĹ‚at portowych,
+- kolejek tankowcĂłw,
+- eksportu jako osobnego flow.
+
+Porty i terminale naleĹĽy traktowaÄ‡ jako przyszĹ‚y moduĹ‚ rozwojowy, a nie jako czÄ™Ĺ›Ä‡ obecnego systemu.
+
+---
+
+## 7. Aktualna architektura
+
+### 7.1. Obecny model dziaĹ‚ania hubĂłw
+
+DziĹ› system dziaĹ‚a tak:
+
+`odwiert gracza -> logistics_hub_assignments -> hub systemowy`
+
+To oznacza:
+
+- odwiert naleĹĽy do gracza,
+- hub jest obiektem infrastrukturalnym,
+- gracz korzysta z huba,
+- gracz nie posiada jeszcze huba jako peĹ‚nego aktywa firmy.
+
+### 7.2. GĹ‚Ăłwne klasy
+
+#### `HubService`
+
+Odpowiada za:
+
+- runtime defaults,
+- konfiguracjÄ™,
+- podstawowe odczyty,
+- mutacje adminowe,
+- eventy.
+
+#### `HubAssignmentService`
+
+Odpowiada za:
+
+- przypiÄ™cie odwiertu,
+- odpiÄ™cie,
+- transfer,
+- cooldown,
+- walidacjÄ™ slotĂłw,
+- walidacjÄ™ regionu.
+
+#### `HubTickService`
+
+Odpowiada za:
+
+- przepustowoĹ›Ä‡,
+- obciÄ…ĹĽenie,
+- wear,
+- kondycjÄ™,
+- wynik ticka,
+- zapis statystyk ticka.
+
+#### `HubIncidentService`
+
+Odpowiada za:
+
+- ryzyko incydentĂłw,
+- losowanie incydentu,
+- zapis eventu,
+- wpĹ‚yw na stan huba.
+
+#### `HubEconomyService`
+
+Odpowiada za:
+
+- CAPEX,
+- OPEX,
+- koszt napraw,
+- opĹ‚acalnoĹ›Ä‡ ekonomicznÄ… huba.
+
+#### `TechnicalTeamService`
+
+ObsĹ‚uguje juĹĽ:
+
+- `hub_maintenance`,
+- `hub_repair`.
+
+#### `TTSManagerTrait::getHSEBonus()`
+
+Liczy:
+
+- realny bonus BHP,
+- obciÄ…ĹĽenie odwiertami i hubami,
+- wpĹ‚yw BHP na zuĹĽycie i ryzyko.
+
+---
+
+## 8. NajwaĹĽniejsze problemy porzÄ…dkowe
+
+### 8.1. Hub systemowy vs hub jako aktywo gracza
+
+Historycznie dokumentacja mieszaĹ‚a dwa modele:
+
+- hub systemowy,
+- hub jako aktywo gracza.
+
+Na dziĹ› kod dziaĹ‚a gĹ‚Ăłwnie na hubie systemowym, ale ekonomia `new / used / rental` przygotowuje grunt pod Model B.
+
+Trzeba pilnowaÄ‡, ĹĽeby w dalszym wdroĹĽeniu nie mieszaÄ‡ tych modeli bez jasnej migracji.
+
+### 8.2. WĹ‚asnoĹ›Ä‡ vs dostÄ™p
+
+Obecnie gracz ma dostÄ™p do huba, ale nie jest jego wĹ‚aĹ›cicielem.
+
+Docelowo gracz powinien mĂłc:
+
+- wynajÄ…Ä‡ hub,
+- kupiÄ‡ uĹĽywany hub,
+- kupiÄ‡ nowy hub,
+- utrzymywaÄ‡ hub,
+- widzieÄ‡ hub jako aktywo firmy.
+
+### 8.3. RurociÄ…gi majÄ… dziĹ› dwie logiki
+
+Obecnie wspĂłĹ‚istniejÄ…:
+
+- stary system `pipelines`,
+- planowany model rurociÄ…gu per odwiert.
+
+Trzeba zdecydowaÄ‡ migracjÄ™.
+
+Docelowo rekomendowany kierunek:
+
+`odwiert onshore -> rurociÄ…g per odwiert albo transport drogowy -> dalsza logistyka`
+
+### 8.4. Porty i terminale nie mogÄ… byÄ‡ udawane
+
+Nie pisaÄ‡ w flow, ĹĽe ropa idzie do portu albo terminala jako do istniejÄ…cego systemu.
+
+Na dziĹ› port i terminal to future expansion.
+
+---
+
+## 9. Nowy model przepĹ‚ywu ropy
+
+### 9.1. Zasada gĹ‚Ăłwna
+
+Magazyn nie powinien dostawaÄ‡ peĹ‚nej produkcji odwiertu.
+
+Magazyn powinien dostawaÄ‡ tylko wolumen, ktĂłry realnie przeszedĹ‚ przez logistykÄ™.
+
+Czyli trzeba przejĹ›Ä‡ z:
+
+`produced_volume -> storage`
+
+na:
+
+`produced_volume -> delivered_volume -> storage`
+
+### 9.2. Onshore MVP
+
+Dla odwiertu lÄ…dowego:
+
+`odwiert -> rurociÄ…g / transport drogowy -> magazyn -> sprzedaĹĽ`
+
+### 9.3. Offshore MVP
+
+Dla odwiertu morskiego, dopĂłki nie ma portĂłw i terminali:
+
+`odwiert offshore -> transport morski -> magazyn -> sprzedaĹĽ`
+
+### 9.4. PrzyszĹ‚y model z portami i terminalami
+
+Po wdroĹĽeniu portĂłw i terminali moĹĽliwe flow:
+
+`offshore -> transport morski -> terminal morski -> magazyn / eksport -> sprzedaĹĽ`
+
+oraz:
+
+`magazyn / terminal -> port -> eksport -> sprzedaĹĽ`
+
+### 9.5. PrzyszĹ‚y model z hubem przeĹ‚adunkowym
+
+Po wdroĹĽeniu rurociÄ…gĂłw, drogĂłwki i delivered volume:
+
+`odwiert onshore -> rurociÄ…g / transport drogowy -> hub przeĹ‚adunkowy -> magazyn -> sprzedaĹĽ`
+
+Hub przeĹ‚adunkowy ma byÄ‡ dodatkiem pĂłĹşniejszym, nie fundamentem pierwszego etapu.
+
+---
+
+## 10. Onshore â€” docelowa logika
+
+### 10.1. RurociÄ…g per odwiert
+
+RurociÄ…g jest aktywem przypisanym do konkretnego odwiertu.
+
+Zasady:
+
+- rurociÄ…g trzeba zakupiÄ‡,
+- jeden odwiert ma maksymalnie jeden aktywny rurociÄ…g,
+- rurociÄ…g ma przepustowoĹ›Ä‡,
+- rurociÄ…g ma condition,
+- rurociÄ…g degraduje siÄ™,
+- rurociÄ…g moĹĽe mieÄ‡ awarie,
+- rurociÄ…g wymaga konserwacji i napraw.
+
+RurociÄ…g jest pierwszym filtrem przepĹ‚ywu ropy.
+
+JeĹĽeli odwiert produkuje 100 bbl, a rurociÄ…g przepuszcza 70 bbl, to dalej idzie tylko 70 bbl.
+
+### 10.2. Transport drogowy
+
+Transport drogowy jest alternatywÄ…, gdy odwiert nie ma rurociÄ…gu albo gdy gracz Ĺ›wiadomie wybiera droĹĽszy, elastyczny wariant.
+
+Zasady:
+
+- transport drogowy jest droĹĽszy od rurociÄ…gu w dĹ‚ugim terminie,
+- dziaĹ‚a jako kursy,
+- kaĹĽdy kurs ma pojemnoĹ›Ä‡,
+- kaĹĽdy kurs moĹĽe mieÄ‡ incydent,
+- kradzieĹĽ lub napad oznacza utratÄ™ caĹ‚ego kursu,
+- sabotaĹĽ moĹĽe powodowaÄ‡ blokadÄ™ albo opĂłĹşnienie,
+- wypadek moĹĽe powodowaÄ‡ stratÄ™ czÄ™Ĺ›ciowÄ… lub caĹ‚kowitÄ….
+
+### 10.3. Incydenty transportu drogowego
+
+Typy incydentĂłw:
+
+- kradzieĹĽ kursu,
+- napad na konwĂłj,
+- sabotaĹĽ,
+- wypadek drogowy,
+- blokada trasy.
+
+NajwaĹĽniejsza zasada:
+
+KradzieĹĽ i napad nie sÄ… procentowym obciÄ™ciem wolumenu. One oznaczajÄ…, ĹĽe konkretny kurs nie dotarĹ‚.
+
+---
+
+## 11. Offshore â€” docelowa logika
+
+### 11.1. Offshore MVP
+
+Na start offshore nie uĹĽywa klasycznego rurociÄ…gu lÄ…dowego.
+
+MVP offshore:
+
+`odwiert offshore -> transport morski -> magazyn -> sprzedaĹĽ`
+
+### 11.2. Transport morski
+
+Transport morski powinien mieÄ‡:
+
+- capacity,
+- koszt,
+- ryzyko sztormu,
+- ryzyko awarii,
+- ryzyko opĂłĹşnienia,
+- moĹĽliwoĹ›Ä‡ czasowego przestoju.
+
+### 11.3. Czego nie wdraĹĽaÄ‡ na start
+
+Nie wdraĹĽaÄ‡ od razu:
+
+- terminali morskich,
+- portĂłw,
+- kolejek tankowcĂłw,
+- eksportu jako osobnego flow,
+- podmorskich rurociÄ…gĂłw.
+
+To ma byÄ‡ kolejny moduĹ‚.
+
+---
+
+## 12. Porty i terminale â€” future expansion
+
+### 12.1. Status
+
+Porty i terminale nie sÄ… obecnie wdroĹĽone.
+
+Nie traktowaÄ‡ ich jako istniejÄ…cych elementĂłw systemu.
+
+### 12.2. Terminal morski
+
+Terminal morski w przyszĹ‚oĹ›ci moĹĽe byÄ‡ punktem odbioru ropy z offshore.
+
+MoĹĽe mieÄ‡:
+
+- capacity,
+- koszt obsĹ‚ugi,
+- condition,
+- kolejkÄ™ przeĹ‚adunku,
+- ryzyko awarii,
+- czas przeĹ‚adunku.
+
+PrzyszĹ‚y flow:
+
+`offshore -> transport morski -> terminal morski -> magazyn / eksport`
+
+### 12.3. Port
+
+Port w przyszĹ‚oĹ›ci moĹĽe byÄ‡ wiÄ™kszym wÄ™zĹ‚em eksportowym.
+
+MoĹĽe mieÄ‡:
+
+- capacity eksportowe,
+- opĹ‚atÄ™ portowÄ…,
+- kolejkÄ™ tankowcĂłw,
+- ryzyko blokady,
+- ryzyko strajku,
+- ryzyko sztormu,
+- bonus lub karÄ™ do sprzedaĹĽy eksportowej.
+
+PrzyszĹ‚y flow:
+
+`magazyn / terminal -> port -> eksport -> sprzedaĹĽ`
+
+### 12.4. Integracje przyszĹ‚ych portĂłw i terminali
+
+Porty i terminale trzeba bÄ™dzie spiÄ…Ä‡ z:
+
+- Finansami,
+- Technicznym,
+- BHP,
+- dziaĹ‚em prawnym,
+- LogistykÄ…,
+- panelem admina.
+
+---
+
+## 13. Hub przeĹ‚adunkowy â€” rola po korekcie
+
+### 13.1. Hub nie zastÄ™puje rurociÄ…gu
+
+Hub nie moĹĽe dziaĹ‚aÄ‡ magicznie.
+
+Dla onshore ropa musi najpierw dotrzeÄ‡ z odwiertu przez:
+
+- rurociÄ…g,
+- albo transport drogowy.
+
+Dopiero potem moĹĽe wejĹ›Ä‡ do huba.
+
+### 13.2. Hub jako pĂłĹşniejsza warstwa
+
+Hub przeĹ‚adunkowy powinien wejĹ›Ä‡ po wdroĹĽeniu:
+
+- rurociÄ…gĂłw per odwiert,
+- transportu drogowego jako kursĂłw,
+- delivered volume,
+- rozdzielenia onshore/offshore.
+
+Docelowy flow:
+
+`odwiert onshore -> rurociÄ…g / transport drogowy -> hub -> magazyn -> sprzedaĹĽ`
+
+### 13.3. TODO: hub przeĹ‚adunkowy
+
+W ostatnim etapie wdroĹĽenia dodaÄ‡ hub przeĹ‚adunkowy jako regionalny punkt odbioru wolumenu z odwiertĂłw onshore.
+
+Hub ma dziaĹ‚aÄ‡:
+
+- po etapie transportu lokalnego,
+- przed etapem magazynu,
+- jako dodatkowe wÄ…skie gardĹ‚o,
+- jako narzÄ™dzie optymalizacji i kosztĂłw.
+
+---
+
+## 14. Degradacja, naprawa i konserwacja hubĂłw
+
+### 14.1. Zasada gĹ‚Ăłwna
+
+KaĹĽdy hub degraduje siÄ™ stale.
+
+Degradacji nie da siÄ™ zatrzymaÄ‡ caĹ‚kowicie. MoĹĽna jÄ… tylko spowolniÄ‡ przez:
+
+- konserwacjÄ™,
+- mniejsze obciÄ…ĹĽenie,
+- lepszy typ huba,
+- wsparcie Technicznego i BHP.
+
+### 14.2. Naprawa vs konserwacja
+
+Naprawa:
+
+- przywraca condition,
+- kosztuje jednorazowo,
+- nie usuwa charakteru huba,
+- nie zawsze pozwala wrĂłciÄ‡ do 100%.
+
+Konserwacja:
+
+- nie przywraca condition,
+- spowalnia dalszÄ… degradacjÄ™,
+- zmniejsza ryzyko zaniedbania,
+- powinna byÄ‡ taĹ„sza dĹ‚ugoterminowo niĹĽ ciÄ…gĹ‚e naprawy awaryjne.
+
+### 14.3. Losowy limit naprawy
+
+KaĹĽdy hub powinien mieÄ‡ indywidualny parametr:
+
+`max_repairable_condition_pct`
+
+Parametr ten:
+
+- jest losowany przy utworzeniu / udostÄ™pnieniu huba,
+- pozostaje staĹ‚y dla konkretnego egzemplarza,
+- okreĹ›la maksymalny stan, do ktĂłrego moĹĽna naprawiÄ‡ hub.
+
+PrzykĹ‚ady:
+
+- nowy hub: 95â€“100%,
+- rental: 80â€“90%,
+- used / degraded: 75â€“85%.
+
+### 14.4. PrĂłg krytyczny
+
+PrĂłg krytyczny: okoĹ‚o 20% condition.
+
+Hub o takim stanie jest infrastrukturÄ… wysokiego ryzyka.
+
+Zasada:
+
+Im gorszy stan techniczny huba i im wiÄ™ksze jego obciÄ…ĹĽenie, tym czÄ™Ĺ›ciej pojawiajÄ… siÄ™ incydenty logistyczne. Hub w stanie krytycznym nie powinien nadawaÄ‡ siÄ™ do dalszego intensywnego rozwoju bez wczeĹ›niejszej naprawy.
+
+---
+
+## 15. Co poĹ‚Ä…czyÄ‡ z istniejÄ…cymi panelami
+
+### 15.1. Panel Logistyki gracza
+
+RozbudowaÄ‡ o:
+
+- delivered volume per odwiert,
+- typ lokalnej logistyki,
+- informacjÄ™, czy odwiert ma rurociÄ…g,
+- koszt transportu drogowego,
+- utracone kursy,
+- ryzyko drogowe,
+- offshore transport status,
+- czy problem jest przed hubem, w hubie czy po hubie.
+
+### 15.2. Panel Techniczny
+
+RozbudowaÄ‡ o:
+
+- `pipeline_maintenance`,
+- `pipeline_repair`,
+- kolejki serwisowe rurociÄ…gĂłw,
+- osobne priorytety dla hubĂłw,
+- najbardziej zaniedbane elementy infrastruktury.
+
+### 15.3. Panel BHP
+
+RozbudowaÄ‡ o:
+
+- ryzyko rurociÄ…gĂłw,
+- ryzyko transportu drogowego,
+- ryzyko transportu morskiego,
+- ryzyko hubĂłw,
+- alert â€žBHP nie wyrabia na logistyceâ€ť.
+
+### 15.4. Panel FinansĂłw
+
+RozbudowaÄ‡ o:
+
+- CAPEX rurociÄ…gĂłw,
+- OPEX rurociÄ…gĂłw,
+- koszty kursĂłw drogowych,
+- straty z kradzieĹĽy,
+- straty z sabotaĹĽu,
+- czynsz najmu hubĂłw,
+- koszty konserwacji,
+- koszty napraw.
+
+### 15.5. Panel Admina
+
+RozbudowaÄ‡ obecne adminowe narzÄ™dzia, nie tworzyÄ‡ rĂłwnolegĹ‚ego systemu.
+
+DodaÄ‡:
+
+- widok rurociÄ…gĂłw per odwiert,
+- konfiguracjÄ™ typĂłw rurociÄ…gĂłw,
+- konfiguracjÄ™ transportu drogowego,
+- konfiguracjÄ™ incydentĂłw drogowych,
+- konfiguracjÄ™ transportu offshore,
+- telemetriÄ™ delivered volume,
+- statystyki strat przed hubem, w hubie i po hubie,
+- przyszĹ‚oĹ›ciowo konfiguracjÄ™ portĂłw i terminali.
+
+---
+
+## 16. Etapy wdroĹĽenia
+
+## Etap 1 â€” delivered volume i porzÄ…dek flow
+
+### Cel
+
+Magazyn dostaje tylko wolumen, ktĂłry realnie dotarĹ‚ po logistyce.
+
+### Do wdroĹĽenia
+
+- dodaÄ‡ warstwÄ™ `delivered_volume`,
+- rozdzieliÄ‡ `produced_volume` od `delivered_volume`,
+- nie zmieniaÄ‡ jeszcze agresywnie sprzedaĹĽy,
+- utrzymaÄ‡ kompatybilnoĹ›Ä‡ z obecnym magazynem,
+- przygotowaÄ‡ tick pod onshore/offshore.
+
+### Efekt
+
+Straty, kradzieĹĽe, awarie i ograniczenia infrastruktury zacznÄ… mieÄ‡ realny wpĹ‚yw na magazyn i sprzedaĹĽ.
+
+---
+
+## Etap 2 â€” onshore: rurociÄ…g per odwiert
+
+### Cel
+
+Odwiert lÄ…dowy ma mieÄ‡ realnÄ… lokalnÄ… infrastrukturÄ™.
+
+### Do wdroĹĽenia
+
+- tabela rurociÄ…gĂłw per odwiert,
+- zakup rurociÄ…gu,
+- typy rurociÄ…gĂłw,
+- capacity,
+- condition,
+- wear,
+- OPEX,
+- degradacja,
+- awarie,
+- konserwacja,
+- naprawy,
+- integracja z Technicznym,
+- integracja z BHP,
+- integracja z Finansami.
+
+### Flow
+
+`odwiert onshore -> rurociÄ…g -> magazyn -> sprzedaĹĽ`
+
+---
+
+## Etap 3 â€” onshore: transport drogowy jako kursy
+
+### Cel
+
+Transport drogowy ma byÄ‡ realnÄ… alternatywÄ… dla braku rurociÄ…gu.
+
+### Do wdroĹĽenia
+
+- pojemnoĹ›Ä‡ kursu,
+- liczba kursĂłw na tick,
+- koszt kursu,
+- incydenty per kurs,
+- kradzieĹĽ caĹ‚ego kursu,
+- napad na konwĂłj,
+- sabotaĹĽ,
+- wypadki,
+- blokady trasy,
+- log strat drogowych,
+- UI strat i ryzyk.
+
+### Flow
+
+`odwiert onshore -> transport drogowy -> magazyn -> sprzedaĹĽ`
+
+---
+
+## Etap 4 â€” offshore MVP
+
+### Cel
+
+Offshore ma dostaÄ‡ wĹ‚asnÄ… uproszczonÄ… Ĺ›cieĹĽkÄ™, bez udawania portĂłw i terminali.
+
+### Do wdroĹĽenia
+
+- transport morski,
+- capacity,
+- koszt,
+- ryzyko sztormĂłw,
+- ryzyko opĂłĹşnieĹ„,
+- awarie transportu morskiego,
+- straty morskie,
+- UI offshore w Logistyce,
+- adminowÄ… konfiguracjÄ™ transportu morskiego.
+
+### Flow
+
+`odwiert offshore -> transport morski -> magazyn -> sprzedaĹĽ`
+
+---
+
+## Etap 5 â€” domkniÄ™cie Modelu B hubĂłw
+
+### Cel
+
+Hub ma staÄ‡ siÄ™ peĹ‚nym aktywem / decyzjÄ… gracza, a nie tylko infrastrukturÄ… systemowÄ….
+
+### Do wdroĹĽenia
+
+- zakup huba przez gracza,
+- wynajem huba przez gracza,
+- zakup nowego huba,
+- zakup uĹĽywanego / zdegradowanego huba,
+- bilans majÄ…tku hubĂłw,
+- UI wyboru `new / used / rental`,
+- czynsz najmu, najlepiej osobno od OPEX,
+- losowy `max_repairable_condition_pct`,
+- limity upgrade'u dla rental / used,
+- peĹ‚na widocznoĹ›Ä‡ naprawy i konserwacji.
+
+---
+
+## Etap 6 â€” hub przeĹ‚adunkowy jako warstwa koĹ„cowa onshore
+
+### Cel
+
+Hub przeĹ‚adunkowy zostaje wpiÄ™ty jako regionalny wÄ™zeĹ‚ po transporcie lokalnym.
+
+### Do wdroĹĽenia
+
+- wejĹ›cie do huba z `delivered_local_volume`,
+- raport â€žprzed hubem / w hubie / po hubieâ€ť,
+- pokazanie strat lokalnych osobno od strat hubowych,
+- integracja rurociÄ…gĂłw i drogĂłwki z hubem,
+- bottlenecks regionalne,
+- rozbudowane rekomendacje w panelu Logistyki.
+
+### Flow
+
+`odwiert onshore -> rurociÄ…g / transport drogowy -> hub -> magazyn -> sprzedaĹĽ`
+
+---
+
+## Etap 7 â€” porty i terminale jako osobny moduĹ‚
+
+### Cel
+
+Dopiero po ustabilizowaniu onshore/offshore dodaÄ‡ porty i terminale.
+
+### Do wdroĹĽenia
+
+- terminale morskie,
+- terminale przeĹ‚adunkowe,
+- porty,
+- capacity portĂłw,
+- opĹ‚aty portowe,
+- kolejki tankowcĂłw,
+- eksport jako osobne flow,
+- incydenty portowe,
+- integracja z dziaĹ‚em prawnym,
+- integracja z Finansami,
+- integracja z Technicznym i BHP.
+
+### PrzyszĹ‚y flow
+
+`offshore -> transport morski -> terminal -> port / magazyn -> sprzedaĹĽ / eksport`
+
+oraz:
+
+`magazyn / hub / terminal -> port -> eksport -> sprzedaĹĽ`
+
+---
+
+## 17. Otwarte decyzje projektowe
+
+Do ustalenia przed implementacjÄ… kolejnych etapĂłw:
+
+- czy rental moĹĽna pĂłĹşniej wykupiÄ‡,
+- czy czynsz huba ma byÄ‡ co tick, czy co 24 godziny,
+- czy nowy hub moĹĽe byÄ‡ naprawiany do 100%, czy teĹĽ ma losowy limit,
+- jaki zakres `max_repairable_condition_pct` majÄ… `new`, `used`, `rental`,
+- czy rurociÄ…g Ĺ‚Ä…czy odwiert z magazynem, czy z warstwÄ… regionalnÄ…, a dopiero pĂłĹşniej z hubem,
+- czy transport drogowy ma kursy staĹ‚e, czy zaleĹĽne od produkcji,
+- czy offshore w MVP ma trafiaÄ‡ bezpoĹ›rednio do magazynu,
+- kiedy dokĹ‚adnie wprowadziÄ‡ terminale,
+- czy port bÄ™dzie osobnym bottleneckiem,
+- jak dziaĹ‚ prawny ma wpĹ‚ywaÄ‡ na porty, blokady, eksport i spory.
+
+---
+
+## 18. Czego nie cofamy
+
+Nie cofamy:
+
+- ticka hubĂłw,
+- ekonomii `new / used / rental`,
+- taskĂłw technicznych hubĂłw,
+- BHP dla hubĂłw,
+- testĂłw MySQL,
+- aktualnych paneli hubĂłw,
+- obecnej warstwy statystyk i eventĂłw.
+
+Te elementy sÄ… fundamentem dalszej rozbudowy.
+
+---
+
+## 19. Czego pilnowaÄ‡ przy dalszym wdraĹĽaniu
+
+Przy dalszym rozwoju trzeba pilnowaÄ‡:
+
+- nie mieszaÄ‡ warstwy systemowej z wĹ‚aĹ›cicielskÄ… bez jasnej migracji,
+- nie udawaÄ‡ portĂłw i terminali, dopĂłki ich nie ma,
+- nie doklejaÄ‡ huba przed uporzÄ…dkowaniem transportu lokalnego,
+- nie sprzedawaÄ‡ peĹ‚nego wydobycia, jeĹ›li logistyka ogranicza dostawÄ™,
+- nie zostawiaÄ‡ rĂłwnolegĹ‚ych modeli rurociÄ…gĂłw bez decyzji migracyjnej,
+- nie robiÄ‡ osobnego mini-design-systemu dla logistyki,
+- utrzymaÄ‡ wspĂłlne wzorce paneli, modalĂłw, tĹ‚umaczeĹ„ i logĂłw.
+
+---
+
+## 20. Rekomendowana kolejnoĹ›Ä‡ dalszych prac
+
+Najczystsza kolejnoĹ›Ä‡:
+
+1. wdroĹĽyÄ‡ `delivered_volume`,
+2. wdroĹĽyÄ‡ rurociÄ…g per odwiert onshore,
+3. wdroĹĽyÄ‡ transport drogowy jako kursy,
+4. wdroĹĽyÄ‡ offshore MVP bez portĂłw i terminali,
+5. domknÄ…Ä‡ Model B hubĂłw,
+6. wpiÄ…Ä‡ hub przeĹ‚adunkowy jako warstwÄ™ po lokalnym transporcie,
+7. dopiero potem wdroĹĽyÄ‡ porty, terminale i eksport.
+
+Ta kolejnoĹ›Ä‡ ogranicza ryzyko dublowania systemĂłw i pozwala rozwijaÄ‡ logistykÄ™ bez rozbijania obecnego ticka.
+
+---
+
+## 21. Checklista implementacyjna â€” Etap 1 `delivered_volume`
+
+Status: `WDROĹ»ONE I POTWIERDZONE TESTAMI`
+
+Ten etap zostaĹ‚ wdroĹĽony bez rozbijania sprzedaĹĽy, magazynu i FinansĂłw w jednym ruchu.
+
+### 21.1. Co istniaĹ‚o w kodzie przed wdroĹĽeniem
+
+Tick dziaĹ‚aĹ‚ wedĹ‚ug uproszczonego przepĹ‚ywu:
+
+`produkcja -> transport / fallback / hub -> magazyn -> sprzedaĹĽ`
+
+NajwaĹĽniejsze miejsca:
+
+- `src/Tick/WellLoopSection.php`
+- `src/Tick/PlayersSection.php`
+- `src/FinanceService.php`
+- `storage.used` jako koĹ„cowy magazyn sprzedaĹĽy
+
+### 21.2. Co zostaĹ‚o wdroĹĽone
+
+Wprowadzono jawne rozrĂłĹĽnienie:
+
+- `produced_volume` / `produced_bbl` â€” ile odwiert wyprodukowaĹ‚,
+- `delivered_volume` / `delivered_bbl` â€” ile realnie dotarĹ‚o po lokalnej logistyce,
+- `stored_volume` â€” ile finalnie weszĹ‚o do magazynu,
+- `pre_storage_loss_bbl` â€” ile stracono przed magazynem,
+- `transport_loss_bbl` â€” ile stracono na zwykĹ‚ych stratach transportowych,
+- `transport_event_loss_bbl` â€” ile stracono przez zdarzenia transportowe.
+
+### 21.3. Zakres wdroĹĽenia w backendzie
+
+#### A. `src/Tick/WellLoopSection.php`
+
+Rozdzielono logikÄ™ na osobne warstwy danych:
+
+- produkcja surowa,
+- ograniczenia przepustowoĹ›ci lokalnego transportu,
+- straty przed magazynem,
+- straty transportowe,
+- straty transport eventĂłw,
+- straty hubowe i incydentowe,
+- wolumen koĹ„cowy dostarczony do magazynu.
+
+NajwaĹĽniejsza zasada, ktĂłra juĹĽ dziaĹ‚a:
+
+- do `storage` i do przychodu trafia tylko wolumen koĹ„cowy po logistyce,
+- a nie wolumen wyprodukowany przed wszystkimi stratami.
+
+#### B. `src/FinanceService.php`
+
+Dodano i obsĹ‚uĹĽono w `finance_logs`:
+
+- `produced_bbl`
+- `delivered_bbl`
+- `pre_storage_loss_bbl`
+- `transport_loss_bbl`
+- `transport_event_loss_bbl`
+
+Do tego:
+
+- zachowano zgodnoĹ›Ä‡ wstecznÄ… z `bbl_produced`,
+- dodano backfill dla starszych rekordĂłw,
+- rozszerzono `getSummary()` i `getHistory()`.
+
+#### C. `src/Tick/PlayersSection.php`
+
+Tick gracza zapisuje teraz do FinansĂłw peĹ‚ny zestaw nowych metryk.
+
+### 21.4. Testy i potwierdzenie
+
+Etap zostaĹ‚ potwierdzony przez:
+
+- suite PHPUnit lokalne,
+- suite MySQL,
+- test `MySqlFinanceDeliveredVolumeTest`,
+- retest caĹ‚ego projektu po wdroĹĽeniu.
+
+### 21.5. Czego nadal Ĺ›wiadomie nie robimy w etapie 1
+
+- nie ruszamy jeszcze modelu rynku,
+- nie robimy jeszcze portĂłw i terminali,
+- nie przebudowujemy jeszcze offshore,
+- nie podpinamy jeszcze nowego rurociÄ…gu per odwiert,
+- nie mieszamy jeszcze lokalnego `delivered_volume` z peĹ‚nym wĹ‚aĹ›cicielskim Modelem B hubĂłw.
+
+### 21.6. Kryterium ukoĹ„czenia etapu 1
+
+Etap 1 uznajemy za zamkniÄ™ty, poniewaĹĽ:
+
+- magazyn dostaje tylko wolumen po logistyce,
+- tick rozrĂłĹĽnia `produced` i `delivered`,
+- straty sÄ… rozbite na sensowne warstwy,
+- sprzedaĹĽ dalej dziaĹ‚a bez zmiany publicznego flow gracza,
+- dane sÄ… zapisane w Finansach i objÄ™te testami.
+
+## 22. Checklista implementacyjna â€” Etap 2 onshore `1 odwiert = 1 rurociÄ…g`
+
+Ten etap zastÄ™puje obecny, stary model globalnego `pipelines`.
+
+### 22.1. Co istnieje dziĹ› w kodzie i bazie
+
+W aktualnym systemie istniejÄ… dwa stare filary:
+
+#### A. Tabela `pipelines`
+
+Obecna tabela:
+
+- jest per gracz, nie per odwiert,
+- ma m.in.:
+  - `player_id`
+  - `capacity_bbl_h`
+  - `condition_pct`
+  - `status`
+  - `transport_loss`
+  - `last_inspected_at`
+  - `damaged_at`
+
+Tick dziĹ› czyta z niej preload:
+
+- `MAX(transport_loss)` per gracz
+
+co oznacza, ĹĽe strata rurociÄ…gowa nie jest jeszcze przypiÄ™ta do konkretnego odwiertu.
+
+#### B. Pola transportowe w `wells`
+
+Tabela `wells` ma dziĹ›:
+
+- `transport_type`
+- `transport_capacity_pct`
+- `transport_opex_pct`
+
+To daje prosty model:
+
+- `rurociÄ…g`
+- `ciÄ™ĹĽarĂłwki`
+- `tankowiec`
+
+ale bez osobnego aktywa infrastrukturalnego per odwiert.
+
+### 22.2. Cel etapu
+
+WdroĹĽyÄ‡ nowy model:
+
+`1 odwiert onshore = maksymalnie 1 aktywny rurociÄ…g`
+
+tak, aby:
+
+- rurociÄ…g byĹ‚ osobnym obiektem,
+- miaĹ‚ swĂłj stan, zuĹĽycie i koszt,
+- miaĹ‚ wĹ‚asnÄ… konserwacjÄ™ i awarie,
+- wpĹ‚ywaĹ‚ bezpoĹ›rednio na delivered volume odwiertu.
+
+### 22.3. Nowe tabele i pola
+
+#### A. Nowa tabela `well_pipelines`
+
+MVP powinno zawieraÄ‡ co najmniej:
+
+- `id`
+- `player_id`
+- `well_id`
+- `pipeline_type`
+- `status`
+- `condition_pct`
+- `wear_level`
+- `capacity_bbl_h`
+- `transport_loss_pct`
+- `opex_per_tick`
+- `opex_per_bbl`
+- `incident_risk_mult`
+- `build_cost`
+- `last_maintenance_at`
+- `last_inspected_at`
+- `damaged_at`
+- `created_at`
+- `updated_at`
+
+Kluczowa zasada:
+
+- `well_id` ma byÄ‡ logicznie unikalne dla aktywnego rurociÄ…gu.
+
+#### B. Opcjonalne tabele etapu 2
+
+JeĹ›li chcemy od razu utrzymaÄ‡ porzÄ…dek:
+
+- `well_pipeline_events`
+- `well_pipeline_tick_stats`
+- `well_pipeline_config`
+
+JeĹ›li chcemy wejĹ›Ä‡ ostroĹĽniej:
+
+- eventy i statystyki moĹĽna na poczÄ…tku logowaÄ‡ do istniejÄ…cego systemu logĂłw,
+- a osobne tabele doĹ‚oĹĽyÄ‡ w etapie 2b.
+
+### 22.4. Migracja ze starego modelu
+
+To jest krytyczne i nie moĹĽna tego zostawiÄ‡ niedopowiedzianego.
+
+#### Stary model do wygaszenia
+
+- globalna tabela `pipelines`,
+- preload `MAX(transport_loss)` per gracz w `WellLoopSection`,
+- uproszczone pole `transport_type = 'rurociag'` bez osobnego obiektu infrastruktury.
+
+#### Model przejĹ›ciowy
+
+Na czas migracji:
+
+- zostawiÄ‡ `transport_type` jako wybĂłr warstwy lokalnej,
+- ale dla `transport_type = 'rurociag'` czytaÄ‡ juĹĽ nie z globalnego `pipelines`,
+  tylko z `well_pipelines`.
+
+#### Decyzja migracyjna
+
+Po wdroĹĽeniu etapu 2:
+
+- `pipelines` ma zostaÄ‡ oznaczone jako legacy,
+- nowe ticki nie powinny juĹĽ uĹĽywaÄ‡ `MAX(transport_loss)` z tej tabeli.
+
+### 22.5. Co trzeba ruszyÄ‡ w backendzie
+
+#### A. `src/Tick/WellLoopSection.php`
+
+ZmieniÄ‡:
+
+- preload starego `pipelineTransportLoss`,
+- logikÄ™ `transport_loss` dla `rurociÄ…gu`,
+- logikÄ™ capacity dla `rurociÄ…gu`.
+
+Docelowo:
+
+- `ciezarowki` i `tankowiec` nadal korzystajÄ… z `transport_config`,
+- `rurociag` korzysta z realnego `well_pipelines`.
+
+#### B. Serwis rurociÄ…gĂłw
+
+DodaÄ‡ osobny serwis domenowy, zamiast wciskaÄ‡ caĹ‚oĹ›Ä‡ do `WellLoopSection`.
+
+MVP serwisu powinno umieÄ‡:
+
+- pobraÄ‡ aktywny rurociÄ…g odwiertu,
+- policzyÄ‡ delivered volume przez rurociÄ…g,
+- policzyÄ‡ straty,
+- policzyÄ‡ wear,
+- policzyÄ‡ incydent,
+- zapisaÄ‡ stan po ticku.
+
+#### C. Techniczny
+
+DodaÄ‡ taski:
+
+- `pipeline_maintenance`
+- `pipeline_repair`
+
+oraz ich peĹ‚ne skutki w ticku.
+
+#### D. BHP
+
+RurociÄ…g ma wejĹ›Ä‡ do realnego zasiÄ™gu nadzoru BHP:
+
+- zwiÄ™ksza liczbÄ™ nadzorowanych obiektĂłw,
+- obniĹĽa jakoĹ›Ä‡ nadzoru przy przeciÄ…ĹĽeniu,
+- ma wpĹ‚yw na ryzyko wycieku, spadku ciĹ›nienia, awarii.
+
+#### E. Finanse
+
+DodaÄ‡ osobne koszty:
+
+- CAPEX rurociÄ…gu,
+- OPEX rurociÄ…gu,
+- naprawy,
+- straty przesyĹ‚owe,
+- incydenty rurociÄ…gowe.
+
+### 22.6. Co trzeba ruszyÄ‡ w UI
+
+#### Logistyka
+
+Per odwiert pokazaÄ‡:
+
+- czy ma rurociÄ…g,
+- typ rurociÄ…gu,
+- stan,
+- przepustowoĹ›Ä‡,
+- straty,
+- koszt,
+- ryzyko,
+- przyciski konserwacji / naprawy / wymiany.
+
+#### Techniczny
+
+DodaÄ‡ huby i rurociÄ…gi jako osobne cele utrzymania, bez mieszania ich z odwiertem.
+
+#### Admin
+
+DodaÄ‡:
+
+- konfiguracjÄ™ typĂłw rurociÄ…gĂłw,
+- ich kosztĂłw,
+- wear,
+- risk,
+- capacity,
+- loss.
+
+### 22.7. Kryterium ukoĹ„czenia etapu 2
+
+Etap 2 jest skoĹ„czony, jeĹ›li:
+
+- onshore ma rurociÄ…g jako osobny byt per odwiert,
+- stary globalny `pipelines` nie wpĹ‚ywa juĹĽ na nowy tick,
+- `rurociÄ…g` ma realny stan, koszt i degradacjÄ™,
+- delivered volume odwiertu zaleĹĽy od konkretnego rurociÄ…gu.
+
+---
+
+## 23. Ĺšwiadomie odĹ‚oĹĽone po etapie 1 i 2
+
+Te rzeczy sÄ… waĹĽne, ale nie powinny wejĹ›Ä‡ przed uporzÄ…dkowaniem delivered volume i rurociÄ…gu per odwiert.
+
+### 23.1. PeĹ‚ny Model B wĹ‚asnoĹ›ci hubĂłw
+
+Do odĹ‚oĹĽenia:
+
+- peĹ‚ne przejÄ™cie hubĂłw przez gracza jako aktywĂłw,
+- migracja z `player_id = 0`,
+- bilans majÄ…tku hubĂłw,
+- peĹ‚ny zakup / sprzedaĹĽ / wykup rentalu.
+
+### 23.2. Hub przeĹ‚adunkowy jako warstwa po lokalnym transporcie
+
+Do odĹ‚oĹĽenia:
+
+- wejĹ›cie do huba dopiero po lokalnym delivered volume,
+- raporty â€žprzed hubem / w hubie / po hubieâ€ť,
+- regionalne bottlenecks po peĹ‚nym wdroĹĽeniu lokalnego transportu.
+
+### 23.3. Offshore poza MVP
+
+Do odĹ‚oĹĽenia:
+
+- terminale,
+- porty,
+- podmorskie rurociÄ…gi,
+- eksport,
+- osobny bottleneck portowy.
+
+### 23.4. DziaĹ‚ prawny
+
+Do odĹ‚oĹĽenia:
+
+- wpĹ‚yw prawa i sporĂłw na porty,
+- blokady eksportu,
+- spory o przesyĹ‚ i infrastrukturÄ™.
+
+### 23.5. GĹ‚Ä™bszy UI polish
+
+Do odĹ‚oĹĽenia:
+
+- peĹ‚ny redesign ekranĂłw logistyki,
+- zaawansowane wizualizacje przepĹ‚ywu,
+- szerokie dashboardy telemetryczne.
+
+Najpierw ma dziaĹ‚aÄ‡ system i dane. Kosmetyka nie moĹĽe wyprzedzaÄ‡ architektury.
+
+---
+
+## 24. Status po obecnych wdroĹĽeniach
+
+Po aktualnym zakresie prac wdroĹĽone sÄ… juĹĽ:
+
+- system hubĂłw,
+- przypisania odwiertĂłw do hubĂłw,
+- tick hubĂłw,
+- incydenty hubĂłw,
+- ekonomia `new / used / rental`,
+- taski techniczne hubĂłw,
+- wpĹ‚yw BHP na huby,
+- `delivered_volume` jako nowa warstwa ticka,
+- `well_pipelines` jako rurociÄ…g per odwiert w MVP,
+- koszt rurociÄ…gu per tick i per przesĹ‚anÄ… baryĹ‚kÄ™,
+- zdarzenia i statystyki ticka dla rurociÄ…gĂłw,
+- taski techniczne rurociÄ…gĂłw,
+- player-facing widocznosc rurociagow w Logistyce,
+- widocznosc wsparcia Technicznego dla rurociagow w Logistyce,
+- widocznosc nadzoru BHP dla rurociagow w Logistyce,
+- zapis `produced / delivered / pre-storage loss` w Finansach,
+- testy SQLite dla logiki hubĂłw,
+- testy MySQL dla:
+  - przypisaĹ„,
+  - technicznego,
+  - ticka,
+  - incydentĂłw,
+  - wpĹ‚ywu BHP,
+  - taskĂłw technicznych rurociÄ…gĂłw,
+  - ticka i HSE dla rurociÄ…gĂłw,
+  - `delivered_volume`.
+
+Nie sÄ… jeszcze wdroĹĽone:
+
+- drogĂłwka jako realne kursy,
+- offshore MVP w nowym modelu,
+- peĹ‚ny wĹ‚aĹ›cicielski Model B hubĂłw,
+- porty i terminale.

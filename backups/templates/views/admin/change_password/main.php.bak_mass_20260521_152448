@@ -1,0 +1,32 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1><?= t('admin.change_password.heading') ?></h1>
+
+<?php if ($msg): ?>
+<p class="alert alert-success" role="status"><?= htmlspecialchars($msg) ?></p>
+<?php endif ?>
+<?php if ($err): ?>
+<p class="alert alert-error" role="alert"><?= htmlspecialchars($err) ?></p>
+<?php endif ?>
+
+<section class="panel pw-form-wrap" aria-label="<?= t('admin.change_password.form_aria') ?>">
+    <p class="panel-title">🔑 <?= t('admin.change_password.form_title') ?></p>
+    <form method="post" autocomplete="off">
+        <?= CSRF::field() ?>
+        <div class="pw-form-group">
+            <div>
+                <label class="form-label-sm"><?= t('admin.change_password.label_current') ?></label>
+                <input type="password" name="current_password" required class="input-full">
+            </div>
+            <div>
+                <label class="form-label-sm"><?= t('admin.change_password.label_new') ?></label>
+                <input type="password" name="new_password" required minlength="8" class="input-full">
+            </div>
+            <div>
+                <label class="form-label-sm"><?= t('admin.change_password.label_confirm') ?></label>
+                <input type="password" name="confirm_password" required minlength="8" class="input-full">
+            </div>
+            <button type="submit" class="btn btn-primary"><?= t('admin.change_password.btn_submit') ?></button>
+        </div>
+    </form>
+</section>

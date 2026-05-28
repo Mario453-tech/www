@@ -1,0 +1,129 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1>&#128181; <?= t('admin.finance.heading') ?></h1>
+
+<?php if ($msg): ?>
+<p class="alert alert-success"><?= htmlspecialchars($msg) ?></p>
+<?php endif; ?>
+<?php if ($err): ?>
+<p class="alert alert-error"><?= htmlspecialchars($err) ?></p>
+<?php endif; ?>
+
+<?php if (!empty($admAlerts)): ?>
+<div class="fin-admin-alerts">
+    <?php foreach ($admAlerts as $alert): ?>
+    <div class="finance-alert finance-alert--<?= htmlspecialchars($alert['level']) ?>">
+        <span><?= $alert['icon'] ?></span>
+        <span><?= htmlspecialchars($alert['msg']) ?></span>
+    </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<div class="fin-range-bar">
+    <span class="muted fin-range-label"><?= t('admin.finance.range_label') ?>:</span>
+    <?php foreach ($rangeOptions as $rangeHours => $label): ?>
+    <a href="?hours=<?= (int)$rangeHours ?>" class="btn btn-sm <?= $hours === $rangeHours ? 'btn-primary' : 'btn-secondary' ?>">
+        <?= htmlspecialchars($label) ?>
+    </a>
+    <?php endforeach; ?>
+</div>
+
+<section class="panel">
+    <p class="panel-title">&#128202; <?= t('admin.finance.global_stats_title', ['hours' => $hours]) ?></p>
+    <div class="fin-global-grid-3">
+        <?php foreach ($globalStatCards as $card): ?>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= $card['title'] ?></div>
+            <div class="fin-global-val <?= htmlspecialchars($card['cls']) ?>"><?= $card['val'] ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#128230; <?= t('admin.finance.hub_breakdown_title', ['hours' => $hours]) ?></p>
+    <div class="fin-global-grid-3">
+        <?php foreach ($hubStatCards as $card): ?>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= $card['title'] ?></div>
+            <div class="fin-global-val <?= htmlspecialchars($card['cls']) ?>"><?= $card['val'] ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#128100; <?= t('admin.finance.per_player_title', ['hours' => $hours]) ?></p>
+    <?php if (empty($perPlayer)): ?>
+    <p class="empty-state"><?= t('admin.finance.no_data') ?></p>
+    <?php else: ?>
+    <div class="fin-player-list">
+        <div class="fin-player-header">
+            <span><?= t('admin.finance.col_company') ?></span>
+            <span><?= t('admin.finance.col_balance') ?></span>
+            <span><?= t('admin.finance.col_revenue') ?></span>
+            <span><?= t('admin.finance.col_net') ?></span>
+            <span><?= t('admin.finance.col_loss') ?></span>
+            <span><?= t('admin.finance.col_hub_cost') ?></span>
+            <span><?= t('admin.finance.col_hub_loss') ?></span>
+            <span><?= t('admin.finance.col_wells') ?></span>
+            <span><?= t('admin.finance.col_avg_tick') ?></span>
+        </div>
+        <?php foreach ($perPlayer as $player):
+            $pNet          = (float)$player['total_net'];
+            $pLoss         = (float)$player['total_loss'];
+            $pRev          = (float)$player['total_revenue'];
+            $pLossPct      = $pRev > 0 ? round($pLoss / $pRev * 100, 1) : 0;
+            $pHubCost      = (float)($player['total_hub_usage_cost'] ?? 0);
+            $pHubLoss      = (float)($player['total_hub_loss_value'] ?? 0) + (float)($player['total_fallback_loss_value'] ?? 0) + (float)($player['total_hub_incident_loss_value'] ?? 0);
+        ?>
+        <div class="fin-player-row">
+            <span>
+                <a href="/admin/player.php?id=<?= (int)$player['player_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($player['company'] ?? '?') ?>
+                </a>
+            </span>
+            <span class="fin-num"><?= $fmtAdminPln((float)$player['cash']) ?></span>
+            <span class="fin-num fin-green"><?= $fmtAdminPln($pRev) ?></span>
+            <span class="fin-num <?= $pNet >= 0 ? 'fin-green' : 'fin-red' ?>"><?= $fmtAdminPln($pNet, true) ?></span>
+            <span class="fin-num fin-orange">
+                <?= $fmtAdminPln($pLoss) ?>
+                <span class="fin-muted fin-small">(<?= $pLossPct ?>%)</span>
+            </span>
+            <span class="fin-num fin-red"><?= $fmtAdminPln($pHubCost) ?></span>
+            <span class="fin-num fin-orange"><?= $fmtAdminPln($pHubLoss) ?></span>
+            <span class="fin-num"><?= (int)$player['wells_active'] ?></span>
+            <span class="fin-num fin-muted"><?= $fmtAdminPln((float)$player['avg_net_per_tick'], true) ?></span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#9881; <?= t('admin.finance.config_title') ?></p>
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_config">
+        <div class="fin-config-grid">
+            <?php foreach ($configFields as $field): ?>
+            <div class="card fin-config-card">
+                <label class="fin-config-label" for="<?= htmlspecialchars($field['key']) ?>"><?= $field['label'] ?></label>
+                <input
+                    type="number"
+                    id="<?= htmlspecialchars($field['key']) ?>"
+                    name="<?= htmlspecialchars($field['key']) ?>"
+                    value="<?= htmlspecialchars((string)$field['val']) ?>"
+                    min="0.1"
+                    max="5"
+                    step="0.01"
+                    class="fin-config-input">
+                <div class="fin-config-desc"><?= $field['desc'] ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <button type="submit" class="btn btn-primary">&#128190; <?= t('admin.finance.btn_save') ?></button>
+        <span class="muted fin-save-hint"><?= t('admin.finance.save_hint') ?></span>
+    </form>
+</section>

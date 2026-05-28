@@ -1,0 +1,26 @@
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 6
+    paths:
+        - src
+    excludePaths:
+        - src/PHPMailer
+    scanDirectories:
+        - src
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        - '#Function url not found#'
+        - '#Function t not found#'
+        - '#Constant ROUTES not found#'
+        - '#Function ensureBankruptcyRecoverySchema not found#'
+        - '#Function enforceBankruptcyPostGuards not found#'
+        - '#Property .+::\$now is never read, only written#'
+        - '#Comparison operation .+ is always (true|false)#'
+        - '#If condition is always (true|false)#'
+        - '#Dead catch - Throwable is never thrown in the try block#'
+        - '#on left side of \?\? always exists and is not nullable#'
+        - '#Static property .+::\$.+ is never read, only written#'
+        - '#Method CandidateGenerator::randomCertificate\(\) never returns null#'

@@ -1,0 +1,130 @@
+<?php
+require_once __DIR__ . '/../src/init.php';
+
+Auth::requireLogin();
+
+$playerId = Auth::getUserId();
+$db       = Database::getInstance()->getConnection();
+
+// ── Serwisy ──────────────────────────────────────────────────────────────────
+
+$srcDir = __DIR__ . '/../src';
+require_once $srcDir . '/LogisticsService.php';
+require_once $srcDir . '/HubService.php';
+require_once $srcDir . '/HubViewService.php';
+require_once $srcDir . '/HubEconomyService.php';
+$logisticsSvc = new LogisticsService($playerId);
+$hubSvc       = new HubService($db);
+$econSvc      = new HubEconomyService($hubSvc);
+$viewSvc      = new HubViewService($db, $hubSvc, $econSvc);
+
+// ── Dane transportu (stary modul logistyki) ───────────────────────────────────
+
+$summary      = $logisticsSvc->getCurrentSummary();
+$wells        = $summary['wells'] ?? [];
+$totals       = $summary['totals'] ?? ['transported' => 0, 'loss' => 0, 'cost' => 0];
+
+$transportMix = ['rurociag' => ['count' => 0, 'transported' => 0, 'loss' => 0, 'cost' => 0],
+                 'ciezarowki' => ['count' => 0, 'transported' => 0, 'loss' => 0, 'cost' => 0],
+                 'tankowiec'  => ['count' => 0, 'transported' => 0, 'loss' => 0, 'cost' => 0]];
+foreach ($wells as $w) {
+    $t = $w['transport'] ?? 'rurociag';
+    if (!isset($transportMix[$t])) {
+        $transportMix[$t] = ['count' => 0, 'transported' => 0, 'loss' => 0, 'cost' => 0];
+    }
+    $transportMix[$t]['count']++;
+    $transportMix[$t]['transported'] += $w['transported'] ?? 0;
+    $transportMix[$t]['loss']        += $w['loss'] ?? 0;
+    $transportMix[$t]['cost']        += $w['cost'] ?? 0;
+}
+
+$totalTransported = (float)$totals['transported'];
+$totalLoss        = (float)$totals['loss'];
+$efficiency       = ($totalTransported + $totalLoss) > 0
+    ? round($totalTransported / ($totalTransported + $totalLoss) * 100, 1)
+    : 100.0;
+$lossPct          = ($totalTransported + $totalLoss) > 0
+    ? round($totalLoss / ($totalTransported + $totalLoss) * 100, 1)
+    : 0.0;
+
+// ── Alerty transportowe (stary modul) ────────────────────────────────────────
+
+$alerts = [];
+if ($totalLoss > 0) {
+    $alerts[] = ['type' => 'warn', 'text' => t('logistics.alert_loss', ['bbl' => number_format($totalLoss, 1, ',', ' ')])];
+}
+
+// ── Dane modulu hubow ─────────────────────────────────────────────────────────
+
+$hubCards        = [];
+$hubAlerts       = [];
+$hubUnassigned   = [];
+$hubIncidents    = [];
+
+try {
+    $hubCards         = $viewSvc->getHubCards($playerId);
+    $hubAlerts        = $viewSvc->getAlerts($playerId);
+    $hubUnassignedAll = $hubSvc->getUnassignedWells($playerId);
+    $hubIncidents     = $hubSvc->getUnreadEvents($playerId, 20);
+
+    // Paginacja odwiertow bez huba — 5 na strone
+    $perPage = 5;
+    $unassignedPage = max(1, (int)($_GET['unassigned_page'] ?? 1));
+    $unassignedTotal = count($hubUnassignedAll);
+    $unassignedTotalPages = (int)ceil($unassignedTotal / $perPage);
+    $unassignedPage = min($unassignedPage, max(1, $unassignedTotalPages));
+    $unassignedOffset = ($unassignedPage - 1) * $perPage;
+    $hubUnassigned = array_slice($hubUnassignedAll, $unassignedOffset, $perPage);
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'Hub data load failed', $e, ['player' => $playerId]);
+}
+
+// ── Dostawy morskie (Etap 5) ─────────────────────────────────────────────────
+
+$marineDeliveries  = [];
+$marineHistory     = [];
+$marineInTransitBbl = 0.0;
+
+if (class_exists('MarineDeliveryService')) {
+    try {
+        $marineSvc         = new MarineDeliveryService($db);
+        $marineDeliveries  = $marineSvc->getActiveForPlayer($playerId);
+        $marineHistory     = $marineSvc->getHistoryForPlayer($playerId, 10);
+        $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
+    } catch (Throwable $e) {
+        GameLog::error('logistics', 'MarineDeliveryService load failed', $e, ['player' => $playerId]);
+    }
+}
+
+// ── $viewData ────────────────────────────────────────────────────────────────
+
+$viewData = compact(
+    'wells',
+    'totals',
+    'transportMix',
+    'efficiency',
+    'lossPct',
+    'alerts',
+    'hubCards',
+    'hubAlerts',
+    'hubUnassigned',
+    'hubIncidents',
+    'unassignedPage',
+    'unassignedTotalPages',
+    'unassignedTotal',
+    'marineDeliveries',
+    'marineHistory',
+    'marineInTransitBbl'
+);
+$viewData = array_merge($viewData, GameShell::data($playerId));
+
+$pageTitle      = t('logistics.page_title') . ' — Oil Empire';
+$gameShellTitle = t('logistics.page_title');
+$gameShellView  = __DIR__ . '/../templates/views/logistics/main.php';
+$extraCss = ['/assets/css/logistics.css'];
+$extraJs  = ['/assets/js/logistics_hubs.js'];
+
+require_once __DIR__ . '/../templates/header.php';
+extract($viewData, EXTR_SKIP);
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';

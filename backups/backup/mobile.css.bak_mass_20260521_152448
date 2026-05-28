@@ -1,0 +1,546 @@
+/* ═══════════════════════════════════════════════════════════════
+   OILCORP — mobile.css
+   Pełna responsywność ≤768px i ≤480px dla wszystkich modułów.
+   Ładowany po wszystkich innych CSS w <head>.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── GLOBALNE ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+    .container { padding: 0 10px 36px; }
+
+    /* Header / logo */
+    .header { padding: 12px 0; margin-bottom: 16px; gap: 2px 0; }
+    .header h1 { font-size: 15px; letter-spacing: 4px; }
+    .header h1 small { font-size: 6px; letter-spacing: 3px; margin-top: 3px; }
+    .user-greeting { display: none; }
+    .user-nav { gap: 4px; }
+
+    /* Karty */
+    .card { padding: 12px 12px; }
+    .card h2 { font-size: 9px; letter-spacing: 2px; padding-bottom: 10px; margin-bottom: 12px; }
+
+    /* Przyciski */
+    .btn { padding: 9px 14px; font-size: 10px; letter-spacing: 1px; }
+    .btn-sm { padding: 6px 10px; font-size: 9px; }
+
+    /* Module tabs — scroll poziomy */
+    .module-tabs {
+        padding: 0 2px;
+        gap: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+    }
+    .module-tabs::-webkit-scrollbar { display: none; }
+    .module-tab { padding: 0 12px; font-size: 9px; letter-spacing: 1.5px; height: 44px; white-space: nowrap; }
+    .module-tab-badge { font-size: 9px; padding: 1px 5px; min-width: 16px; height: 16px; }
+
+    /* Action grid — 2 kolumny */
+    .action-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+    /* Page-nav */
+    .page-nav { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 14px; }
+    .page-nav .btn { width: 100%; text-align: center; justify-content: center; }
+
+    /* game-shell */
+    .game-shell { gap: 10px; }
+    .game-shell-heading { padding: 10px 12px; }
+
+    /* Stat-bar (strona główna) */
+    .db-stats-row,
+    .stat-bar,
+    .stats-row { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+
+    /* Tabele — scroll poziomy */
+    .table-scroll,
+    .contracts-table,
+    .specs-table,
+    .history-table,
+    .logistics-table,
+    .fin-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Banery */
+    .warning-banner { flex-wrap: wrap; gap: 8px; }
+    .warning-banner-actions { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+    .offline-report-banner { flex-direction: column; gap: 10px; }
+
+    /* Modalne */
+    .modal-content,
+    .repay-modal { max-width: 94vw !important; padding: 20px 16px !important; }
+}
+
+@media (max-width: 480px) {
+    .container { padding: 0 8px 28px; }
+    .card { padding: 10px 10px; }
+    .header h1 { font-size: 13px; letter-spacing: 3px; }
+    .action-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .btn { padding: 8px 12px; }
+}
+
+/* ── STRONA GŁÓWNA (index / home) ────────────────────────────── */
+@media (max-width: 768px) {
+    .dashboard { gap: 10px; }
+
+    /* Trend alert */
+    .trend-alert__body { padding: 12px 14px; gap: 10px; }
+    .trend-alert__icon { font-size: 1.4rem; }
+    .trend-alert__message { font-size: 13px; }
+    .trend-alert__meta { font-size: 9px; }
+
+    /* Bailiff */
+    .bailiff-actions { flex-direction: column; gap: 8px; }
+    .bailiff-next-warning { margin-left: 0; font-size: 12px; }
+
+    /* Bank approved — inline */
+    .card--bank-approved { flex-direction: column; gap: 8px; }
+    .card--bank-approved .btn { width: 100%; }
+}
+
+/* ── RYNEK ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Tabs rynku — scroll */
+    .market-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+        margin-bottom: 1rem;
+        padding-bottom: 2px;
+    }
+    .market-tabs::-webkit-scrollbar { display: none; }
+    .market-tab { padding: .65rem .9rem; font-size: .85rem; white-space: nowrap; }
+
+    /* Wykres cen — mniejsza wysokość */
+    .price-chart-bars { height: 70px; }
+    .price-chart-title { font-size: .85rem; }
+
+    /* My offers — scroll poziomy */
+    .my-offers-head,
+    .my-offers-row { grid-template-columns: 2fr 1fr 1fr 2fr; font-size: 12px; }
+
+    /* Formularz sprzedaży */
+    .market-sell-form,
+    .market-instant-form { gap: 10px; }
+
+    /* Black market grid */
+    .bm-offers-grid,
+    .bm-history-grid { overflow-x: auto; }
+    .bm-offer-head,
+    .bm-offer-row,
+    .bm-history-head,
+    .bm-history-row { min-width: 500px; }
+}
+
+/* ── BANK ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .loan-card { padding: 12px !important; }
+    .loan-header { flex-wrap: wrap; gap: 6px; }
+    .loan-item { font-size: 12px !important; padding: 5px 0 !important; }
+
+    .offer-actions { grid-template-columns: 1fr !important; gap: 8px !important; }
+    .offer-item { font-size: 12px; padding: 8px 12px; }
+
+    .repay-options { flex-direction: column; }
+    .repay-option { min-width: unset; }
+    .repay-form { flex-direction: column; gap: 8px; }
+
+    .neg-panel-header { font-size: 12px; padding: 10px 12px; }
+    .neg-panel-body   { padding: 10px 12px; }
+    .neg-panel-sub    { font-size: 11px; }
+
+    .bank-flash { padding: 10px 12px !important; font-size: 12px !important; }
+
+    .info-box { padding: 10px 12px; font-size: 12px; }
+    .info-box-green .money { font-size: 16px !important; }
+
+    .form-group input[type="number"],
+    .form-group input[type="text"],
+    .form-group select {
+        min-height: 48px !important;
+        font-size: 15px !important;
+    }
+
+    .repay-modal-actions { grid-template-columns: 1fr 1fr; gap: 8px; }
+}
+@media (max-width: 480px) {
+    .repay-modal-actions { grid-template-columns: 1fr !important; }
+    .loan-paid-off-banner { flex-direction: column !important; padding: 12px !important; gap: 8px !important; }
+    .neg-offer-details { grid-template-columns: 1fr !important; }
+}
+
+/* ── FINANSE ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .fin-policy-grid { grid-template-columns: 1fr !important; }
+    .fin-savings-effects { grid-template-columns: 1fr !important; }
+    .fin-mode-picker--triple { grid-template-columns: 1fr !important; }
+    .fin-reserve-options { grid-template-columns: repeat(3, 1fr); }
+    .fin-risk-grid { grid-template-columns: 1fr !important; }
+
+    /* Overview stat grid */
+    .fin-overview-grid,
+    .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+
+    /* Liquidity */
+    .fin-liquidity-grid { grid-template-columns: 1fr !important; }
+
+    /* History table */
+    .fin-history-list { overflow-x: auto; }
+    .fin-history-row { min-width: 480px; }
+
+    /* Budget sliders */
+    .fin-budget-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .fin-budget-slider { width: 100% !important; }
+}
+@media (max-width: 480px) {
+    .fin-reserve-options { grid-template-columns: 1fr !important; }
+    .fin-overview-grid,
+    .fin-kpi-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── TECHNICZNY ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .t-wrap { padding: 12px 10px 36px; }
+
+    /* Manager card */
+    .manager-card,
+    .t-manager-card { flex-direction: column; gap: 10px; }
+    .t-manager-meta { flex-wrap: wrap; gap: 8px; font-size: 11px; }
+    .t-bonus-pills { flex-wrap: wrap; }
+
+    /* Staff grid */
+    .staff-grid { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+    .staff-card { padding: 12px; }
+    .staff-hdr { flex-wrap: wrap; gap: 6px; }
+
+    /* Task form */
+    .task-form-grid { grid-template-columns: 1fr !important; }
+
+    /* Well detail */
+    .well-detail-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+    /* Tabs sekcji */
+    .t-section-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+    .t-section-tabs::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 480px) {
+    .staff-grid { grid-template-columns: 1fr !important; }
+    .staff-card { padding: 10px; }
+    .well-detail-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── HR / KADRY ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .recruit-form-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+    .employees-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+    .candidates-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+    .employee-card { padding: 12px; }
+    .hh-launch-grid { grid-template-columns: 1fr !important; }
+    .hh-offer-grid  { grid-template-columns: 1fr !important; }
+
+    /* Historia kontraktów — scroll */
+    .contracts-table th,
+    .contracts-table td,
+    .specs-table th,
+    .specs-table td { font-size: 11px; padding: 6px 8px; }
+}
+@media (max-width: 480px) {
+    .employees-grid { grid-template-columns: 1fr !important; }
+    .candidates-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── LOGISTYKA ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .logistics-kpi-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+    .logistics-mix-grid  { grid-template-columns: 1fr !important; }
+    .logistics-roadmap   { grid-template-columns: 1fr !important; }
+    .logistics-modes     { grid-template-columns: 1fr !important; }
+    .logistics-hub-grid  { grid-template-columns: 1fr !important; }
+    .logistics-compare   { flex-direction: column; gap: 12px; }
+    .logistics-compare-arrow { transform: rotate(90deg); }
+
+    .logistics-panel-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .logistics-optimizer-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+    .logistics-table-head,
+    .logistics-table-row { min-width: 600px; }
+}
+@media (max-width: 480px) {
+    .logistics-kpi-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── BOARDROOM ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Nagłówek boardroom */
+    .br-header-content { padding: 12px 14px; flex-direction: column; gap: 10px; }
+    .br-header-title   { font-size: 14px; letter-spacing: 3px; }
+    .br-header-right   { font-size: 11px; gap: 8px; flex-wrap: wrap; }
+    .br-footer         { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+
+    /* Scena — większa proporcja na mobile */
+    .scene { aspect-ratio: 3 / 2 !important; padding: 10px !important; }
+
+    /* Sloty na fotelach — większa czcionka i dłuższe etykiety */
+    .slot-num          { font-size: 8px !important; max-width: 70px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .slot-label        { font-size: 8px !important; max-width: 72px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Legenda */
+    .legend      { gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .legend-item { font-size: 9px; }
+
+    /* Licznik miejsc */
+    .seat-count-num { font-size: 20px; }
+
+    /* Team-member info popup */
+    .seat-popup { max-width: 220px; font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+    .scene { aspect-ratio: 4 / 3 !important; padding: 8px !important; }
+    .slot-num,
+    .slot-label { font-size: 7px !important; max-width: 58px !important; }
+
+    /* Legenda zwinięta */
+    .legend-item span { display: none; }
+    .legend-item::after { content: attr(data-short); font-size: 8px; }
+
+    /* Seat count — mniejszy */
+    .seat-count-num { font-size: 18px; }
+
+    /* Akcje w boardroom footer — stack */
+    .br-footer .btn { width: 100%; }
+}
+
+/* ── CZAT + NEWSY (chat.css override) ───────────────────────── */
+@media (max-width: 768px) {
+    .chat-news-wrapper {
+        flex-direction: column !important;
+        max-height: none !important;
+        gap: 8px;
+    }
+    .news-panel {
+        flex: none !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-height: 160px;
+    }
+    .news-list { max-height: 120px; }
+    .chat-box {
+        width: 100% !important;
+        min-width: 0 !important;
+        flex: none !important;
+    }
+    .chat-messages { height: 200px; }
+    .chat-msg-bubble,
+    .chat-msg-bubble--mine { max-width: 90%; }
+    .chat-form { padding: 6px 8px; }
+    .chat-input { font-size: .8rem; }
+    .chat-send  { padding: 5px 10px; font-size: .75rem; }
+}
+
+/* ── MAPA ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .map-layout { flex-direction: column !important; gap: 10px; }
+    .map-sidebar { width: 100% !important; max-width: none !important; min-width: 0 !important; }
+    .map-canvas  { min-height: 260px; }
+    .loc-back    { font-size: 12px; padding: 7px 12px; }
+}
+
+/* ── WELL-GRID (odwierty) ────────────────────────────────────── */
+@media (max-width: 768px) {
+    .well-grid { grid-template-columns: 1fr !important; }
+    .well-card-stats { grid-template-columns: repeat(2, 1fr) !important; }
+    .well-region-head { flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 480px) {
+    .well-card-stats { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ── MODAL globalny ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .modal-overlay { align-items: flex-end; }
+    .modal-content {
+        border-radius: 16px 16px 0 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+}
+
+
+/* ── NAVBAR — kompaktowy na tabletach ───────────────────────── */
+@media (max-width: 900px) {
+    .header {
+        padding: 10px 0;
+        margin-bottom: 16px;
+        gap: 2px 0;
+    }
+
+    /* Logo — mniejszy font */
+    .header h1 {
+        font-size: 14px;
+        letter-spacing: 3px;
+        white-space: nowrap;
+    }
+    .header h1 small {
+        font-size: 6px;
+        letter-spacing: 2.5px;
+        margin-top: 2px;
+        white-space: nowrap;
+    }
+
+    /* Avatar + link profilu — kompaktowy */
+    .topbar-user-link {
+        padding: 2px 6px 2px 3px;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+    .topbar-avatar,
+    .topbar-avatar-initials {
+        width: 22px !important;
+        height: 22px !important;
+        font-size: 10px !important;
+    }
+    .user-greeting { display: none; }
+}
+
+@media (max-width: 600px) {
+    .header { padding: 8px 0; margin-bottom: 12px; }
+    .header h1 { font-size: 12px; letter-spacing: 2.5px; }
+    .header h1 small { display: none; }
+    .user-nav .btn { padding: 5px 8px; font-size: 8px; letter-spacing: 0.5px; }
+    .topbar-avatar,
+    .topbar-avatar-initials { width: 20px !important; height: 20px !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BURGER MENU — nawigacja mobilna ≤600px (tylko telefony)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Burger button — ukryty domyślnie (desktop) */
+.nav-burger {
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 30px;
+    height: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    z-index: 1002;
+    position: relative;
+}
+.nav-burger span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--gold);
+    border-radius: 2px;
+    transition: transform .25s ease, opacity .2s ease;
+    transform-origin: center;
+}
+
+/* Backdrop — ukryty domyślnie */
+.nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .55);
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+@media (max-width: 600px) {
+    /* Pokaż przycisk burgera */
+    .nav-burger { display: flex; }
+
+    /* Header — logo z lewej, burger z prawej, bez zawijania */
+    .header { flex-wrap: nowrap !important; align-items: center !important; }
+    .header h1 { flex: 1 1 auto; min-width: 0; }
+
+    /* Nav — wysuwany panel z prawej strony */
+    .user-nav {
+        position: fixed !important;
+        top: 0 !important;
+        right: -280px !important;
+        width: 260px !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        background: var(--bg2, #0e0e18) !important;
+        border-left: 1px solid var(--border, rgba(255,255,255,.08)) !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        flex-wrap: nowrap !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        padding: 64px 16px 32px !important;
+        gap: 6px !important;
+        z-index: 1001;
+        transition: right .28s cubic-bezier(.4, 0, .2, 1);
+        box-shadow: -6px 0 32px rgba(0, 0, 0, .5);
+    }
+
+    /* Otwarte menu — wysuń panel */
+    body.nav-open .user-nav  { right: 0 !important; }
+
+    /* Widoczny backdrop przy otwartym menu */
+    body.nav-open .nav-backdrop { display: block; }
+
+    /* Animacja X na hamburgerze */
+    body.nav-open .nav-burger span:nth-child(1) {
+        transform: translateY(9px) rotate(45deg);
+    }
+    body.nav-open .nav-burger span:nth-child(2) {
+        opacity: 0;
+        transform: scaleX(0);
+    }
+    body.nav-open .nav-burger span:nth-child(3) {
+        transform: translateY(-9px) rotate(-45deg);
+    }
+
+    /* Avatar/profil — wyraźna sekcja na górze panelu */
+    .user-nav .topbar-user-link {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 12px 10px !important;
+        border-bottom: 1px solid var(--border, rgba(255,255,255,.08)) !important;
+        margin-bottom: 8px !important;
+        white-space: normal !important;
+        text-decoration: none !important;
+    }
+    .user-nav .user-greeting {
+        display: block !important;
+        font-size: 11px !important;
+        letter-spacing: 1.5px !important;
+    }
+    .user-nav .topbar-avatar,
+    .user-nav .topbar-avatar-initials {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 14px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Przyciski nawigacji — pełna szerokość */
+    .user-nav .btn {
+        width: 100% !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        padding: 11px 14px !important;
+        font-size: 11px !important;
+        letter-spacing: 1px !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        box-sizing: border-box !important;
+    }
+}
+

@@ -1,0 +1,176 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<div class="admin-page-header">
+    <h1 class="admin-page-title"><?= t('admin.tick_log.page_title') ?></h1>
+</div>
+
+<?php if ($deleteMsg): ?>
+<div class="alert alert-<?= str_starts_with($deleteMsg, 'ok:') ? 'success' : 'danger' ?>">
+    <?= htmlspecialchars(ltrim(strstr($deleteMsg, ':'), ':')) ?>
+</div>
+<?php endif ?>
+<?php if ($cleanupMsg): ?>
+<div class="alert alert-<?= str_starts_with($cleanupMsg, 'ok:') ? 'success' : 'danger' ?>">
+    <?= htmlspecialchars(ltrim(strstr($cleanupMsg, ':'), ':')) ?>
+</div>
+<?php endif ?>
+
+<?php
+$s = $summary24h;
+$tickCount = (int)($s['tick_count'] ?? 0);
+?>
+
+<section class="section-card">
+    <h2 class="section-title"><?= t('admin.tick_log.section_summary') ?></h2>
+    <div class="stats-grid stats-grid--6">
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_ticks_24h') ?></div>
+            <div class="stat-value"><?= $tickCount ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_avg_duration') ?></div>
+            <div class="stat-value"><?= $tickCount ? round((float)$s['avg_duration_ms']) : '—' ?> ms</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_max_duration') ?></div>
+            <div class="stat-value <?= (int)($s['max_duration_ms'] ?? 0) > 30000 ? 'red' : '' ?>">
+                <?= $tickCount ? round((float)$s['max_duration_ms']) : '—' ?> ms
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_total_bbl') ?></div>
+            <div class="stat-value"><?= $tickCount ? number_format((float)$s['total_bbl'], 1) : '—' ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_total_revenue') ?></div>
+            <div class="stat-value"><?= $tickCount ? '$' . number_format((float)$s['total_revenue'], 0, '.', ' ') : '—' ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_disasters') ?></div>
+            <div class="stat-value <?= (int)($s['total_disasters'] ?? 0) > 0 ? 'red' : 'green' ?>">
+                <?= $tickCount ? (int)$s['total_disasters'] : '—' ?>
+            </div>
+        </div>
+    </div>
+    <div class="stats-grid stats-grid--3 mt-sm">
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_price_min') ?></div>
+            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_min'], 2) : '—' ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_price_avg') ?></div>
+            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_avg'], 2) : '—' ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_price_max') ?></div>
+            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_max'], 2) : '—' ?></div>
+        </div>
+    </div>
+</section>
+
+<section class="section-card">
+    <div class="section-toolbar">
+        <h2 class="section-title"><?= t('admin.tick_log.section_history') ?> <span class="muted">(<?= $totalRows ?>)</span></h2>
+        <div class="toolbar-actions">
+            <form method="get" action="/admin/tick_log.php" class="inline-form">
+                <select name="source" onchange="this.form.submit()" class="form-select form-select--sm">
+                    <option value="" <?= $filterSource === '' ? 'selected' : '' ?>><?= t('admin.tick_log.filter_all') ?></option>
+                    <option value="cron"  <?= $filterSource === 'cron'  ? 'selected' : '' ?>><?= t('admin.tick_log.filter_cron') ?></option>
+                    <option value="force" <?= $filterSource === 'force' ? 'selected' : '' ?>><?= t('admin.tick_log.filter_force') ?></option>
+                </select>
+            </form>
+
+            <form method="post" action="/admin/tick_log.php" class="inline-form">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                <input type="number" name="cleanup_days" value="7" min="1" max="365" class="form-input form-input--sm form-input--narrow">
+                <button type="submit" class="btn btn-sm btn-secondary"><?= t('admin.tick_log.btn_cleanup') ?></button>
+            </form>
+        </div>
+    </div>
+
+    <?php if (empty($ticks)): ?>
+    <p class="empty-state"><?= t('admin.tick_log.empty') ?></p>
+    <?php else: ?>
+
+    <div class="table-scroll-wrap">
+    <div class="data-list tick-log-grid">
+        <div class="list-header" role="row">
+            <span>#</span>
+            <span><?= t('admin.tick_log.col_time') ?></span>
+            <span><?= t('admin.tick_log.col_source') ?></span>
+            <span><?= t('admin.tick_log.col_duration') ?></span>
+            <span><?= t('admin.tick_log.col_price') ?></span>
+            <span><?= t('admin.tick_log.col_trend') ?></span>
+            <span><?= t('admin.tick_log.col_players') ?></span>
+            <span><?= t('admin.tick_log.col_bbl') ?></span>
+            <span><?= t('admin.tick_log.col_revenue') ?></span>
+            <span><?= t('admin.tick_log.col_disasters') ?></span>
+            <span><?= t('admin.tick_log.col_incidents') ?></span>
+            <span><?= t('admin.tick_log.col_bank') ?></span>
+            <span></span>
+        </div>
+
+        <?php foreach ($ticks as $tick): ?>
+        <?php
+            $isSlow = (int)($tick['duration_ms'] ?? 0) > 30000;
+            $hasDis = (int)($tick['disasters_triggered'] ?? 0) > 0;
+        ?>
+        <article class="list-row <?= $isSlow ? 'row--warn' : '' ?>" role="row">
+            <span class="muted">#<?= (int)$tick['id'] ?></span>
+            <span><?= htmlspecialchars($tick['ran_at']) ?></span>
+            <span>
+                <span class="badge badge--<?= $tick['source'] === 'cron' ? 'blue' : 'orange' ?>">
+                    <?= htmlspecialchars($tick['source']) ?>
+                </span>
+            </span>
+            <span class="<?= $isSlow ? 'red' : 'muted' ?>">
+                <?= $tick['duration_ms'] !== null ? (int)$tick['duration_ms'] . ' ms' : '—' ?>
+            </span>
+            <span>$<?= $tick['oil_price'] !== null ? number_format((float)$tick['oil_price'], 2) : '—' ?></span>
+            <span>
+                <?php if ($tick['trend_name']): ?>
+                <span class="badge badge--<?= $tick['trend_new'] ? 'green' : 'neutral' ?>">
+                    <?= htmlspecialchars($tick['trend_name']) ?>
+                    <?= $tick['trend_new'] ? ' ' : '' ?>
+                </span>
+                <?php else: ?>
+                <span class="muted">—</span>
+                <?php endif ?>
+            </span>
+            <span><?= $tick['players_processed'] !== null ? (int)$tick['players_processed'] : '—' ?></span>
+            <span><?= $tick['total_production_bbl'] !== null ? number_format((float)$tick['total_production_bbl'], 1) : '—' ?></span>
+            <span><?= $tick['total_revenue_pln'] !== null ? '$' . number_format((float)$tick['total_revenue_pln'], 0, '.', ' ') : '—' ?></span>
+            <span class="<?= $hasDis ? 'red' : 'muted' ?>">
+                <?= $tick['disasters_triggered'] !== null ? (int)$tick['disasters_triggered'] : '—' ?>
+            </span>
+            <span class="muted"><?= $tick['incidents_triggered'] !== null ? (int)$tick['incidents_triggered'] : '—' ?></span>
+            <span class="muted">
+                <?= t('admin.tick_log.bank_neg') ?>: <?= (int)($tick['bank_negotiations_resolved'] ?? 0) ?>
+                / <?= t('admin.tick_log.bank_loans') ?>: <?= (int)($tick['bank_loan_decisions'] ?? 0) ?>
+            </span>
+            <span>
+                <form method="post" action="/admin/tick_log.php<?= $filterSource ? '?source=' . urlencode($filterSource) : '' ?>" data-confirm="<?= htmlspecialchars(t('admin.tick_log.confirm_delete'), ENT_QUOTES) ?>" data-confirm-type="danger" data-confirm-title="<?= htmlspecialchars(t('common.delete'), ENT_QUOTES) ?>" data-confirm-label="<?= htmlspecialchars(t('common.delete'), ENT_QUOTES) ?>">
+                    <input type="hidden" name="csrf_token"  value="<?= htmlspecialchars($csrfToken) ?>">
+                    <input type="hidden" name="delete_id"   value="<?= (int)$tick['id'] ?>">
+                    <button type="submit" class="btn btn-xs btn-danger"></button>
+                </form>
+            </span>
+        </article>
+        <?php endforeach ?>
+    </div>
+    </div>
+
+    <?php if ($totalPages > 1): ?>
+    <nav class="pagination" aria-label="<?= t('admin.tick_log.pagination_label') ?>">
+        <?php if ($page > 1): ?>
+        <a href="?page=<?= $page - 1 ?><?= $filterSource ? '&source=' . urlencode($filterSource) : '' ?>" class="btn btn-sm btn-secondary"> <?= t('common.prev') ?></a>
+        <?php endif ?>
+        <span class="pagination-info"><?= t('admin.tick_log.page_of', ['page' => $page, 'total' => $totalPages]) ?></span>
+        <?php if ($page < $totalPages): ?>
+        <a href="?page=<?= $page + 1 ?><?= $filterSource ? '&source=' . urlencode($filterSource) : '' ?>" class="btn btn-sm btn-secondary"><?= t('common.next') ?> </a>
+        <?php endif ?>
+    </nav>
+    <?php endif ?>
+
+    <?php endif ?>
+</section>

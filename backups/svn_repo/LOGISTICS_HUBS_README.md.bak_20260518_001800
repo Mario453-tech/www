@@ -1,0 +1,3558 @@
+# OilCorp - System Hubów Przeładunkowych
+
+## 1. Cel dokumentu
+
+Ten dokument opisuje docelowy system hubów przeładunkowych dla gry OilCorp.
+
+System ma zostać wdrożony jako pełnoprawna część:
+- działu `Logistyka`
+- ekonomii regionalnej
+- ticka gry
+- infrastruktury gracza
+
+To nie jest luźny pomysł koncepcyjny. To jest brief wdrożeniowy pod implementację.
+
+---
+
+## 2. Cel gameplayowy
+
+Huby przeładunkowe mają sprawić, że:
+- logistyka stanie się osobnym systemem strategicznym
+- region przestanie być tylko etykietą odwiertu
+- sama produkcja odwiertu nie będzie gwarantować zysku
+- gracz będzie musiał planować przepustowość, przeciążenia i koszty regionalne
+- dział logistyki zyska realną, codzienną rolę operacyjną
+
+Docelowa filozofia systemu:
+
+`odwiert -> hub -> transport -> magazyn / port -> sprzedaż`
+
+Hub nie zastępuje istniejącego transportu. Hub jest nową warstwą pośrednią.
+
+---
+
+## 3. Rola systemu w grze
+
+Hub ma być:
+- aktywem infrastrukturalnym
+- regionalnym wąskim gardłem
+- źródłem kosztów operacyjnych
+- źródłem ryzyka i degradacji
+- narzędziem optymalizacji
+
+Hub nie może być tylko "kolejnym paskiem z pojemnością".
+
+Dobry system hubów ma wymuszać pytania:
+- czy budować drugi hub w regionie?
+- czy rozbudować istniejący?
+- czy akceptować straty chwilowe?
+- czy wysyłać ropę do magazynu, czy do portu?
+- czy opłaca się trzymać region przeciążony?
+- czy region bez logistyki nadal jest opłacalny?
+
+---
+
+## 4. Założenia główne
+
+### 4.1. Hub działa regionalnie
+
+Każdy hub należy do jednego regionu.
+
+Może obsługiwać wyłącznie odwierty z tego samego regionu.
+
+Przykłady:
+- hub `Polska` obsługuje tylko odwierty z Polski
+- hub `USA` obsługuje tylko odwierty z USA
+- hub `Norwegia` obsługuje tylko odwierty z Norwegii
+
+Nie ma cross-region assignment.
+
+### 4.1a. Region może być podzielony na strefy logistyczne
+
+Każdy region może dodatkowo zawierać kilka stref logistycznych.
+
+Przykłady:
+- `Polska / Północ`
+- `Polska / Centrum`
+- `Polska / Południe`
+- `USA / Gulf`
+- `USA / Inland`
+- `Norwegia / Offshore North`
+
+Hub ma więc dwa poziomy lokalizacji:
+- `region`
+- `zone`
+
+To pozwala budować kilka hubów w tym samym regionie bez utraty logiki regionalnej.
+
+### 4.1b. Zasada przypisania przy strefach
+
+Podstawowa reguła pozostaje taka:
+- odwiert może być przypisany tylko do huba z tego samego regionu
+
+Strefa działa jako dodatkowa warstwa optymalizacji.
+
+Proponowany model:
+- odwiert przypisany do huba w tej samej strefie działa najefektywniej
+- odwiert przypisany do huba w innej strefie tego samego regionu nadal może działać, ale z karą logistyczną
+
+Kara strefowa może wpływać na:
+- throughput
+- opex
+- wear
+- risk
+
+Dzięki temu:
+- region dalej pozostaje twardą granicą systemu
+- strefy tworzą głębszą warstwę decyzji
+- gracz może budować lokalną infrastrukturę w obrębie jednego kraju / regionu
+
+### 4.1c. Alternatywa wdrożeniowa dla MVP
+
+Jeżeli pełne strefy byłyby zbyt ciężkie na start, MVP może wdrożyć uproszczony model:
+- hub ma pole `zone_key`
+- odwiert ma pole `zone_key`
+- przypisanie między różnymi strefami tego samego regionu jest dozwolone
+- ale naliczany jest prosty `zone_distance_penalty`
+
+To da strefy już w MVP, bez konieczności budowania od razu złożonej mapy połączeń.
+
+### 4.2. Jeden odwiert może należeć tylko do jednego huba
+
+Odwiert:
+- może być nieprzypisany
+- może być przypisany do jednego huba
+- nie może należeć do dwóch hubów jednocześnie
+
+### 4.3. Limit aktywnych przypisań na typ huba
+
+Nie stosujemy jednego sztywnego limitu `3` dla wszystkich hubów.
+
+Docelowy model:
+- mały hub: do `2` odwiertów
+- średni hub: do `4` odwiertów
+- duży hub: do `6` odwiertów
+
+To ograniczenie działa równolegle z przepustowością.
+
+Czyli:
+- hub może mieć wolny slot, ale nie mieć wolnej przepustowości
+- hub może mieć przepustowość, ale być pełny slotowo
+
+Takie podejście daje lepsze decyzje strategiczne niż jednolite `max 3`.
+
+---
+
+## 5. Typy hubów
+
+### 5.1. Mały hub
+
+Charakterystyka:
+- niski koszt wejścia
+- niski OPEX
+- mała przepustowość
+- mały bufor
+- dobry dla początkujących regionów
+
+Rola gameplayowa:
+- startowy punkt regionalny
+- szybkie odblokowanie logistyki
+- niska kara za błędną inwestycję
+- dobry do obsługi jednej strefy w regionie
+
+### 5.2. Średni hub
+
+Charakterystyka:
+- balans koszt / przepustowość
+- średni OPEX
+- średni bufor
+- domyślny wybór dla większości regionów
+
+Rola gameplayowa:
+- główna warstwa rozwoju logistyki
+- pierwszy sensowny hub pod stabilne regiony
+- dobry do obsługi dwóch sąsiadujących stref
+
+### 5.3. Duży hub
+
+Charakterystyka:
+- wysoka przepustowość
+- wysoki OPEX
+- duży bufor
+- większa wrażliwość na koszt utrzymania przy złym użyciu
+
+Rola gameplayowa:
+- rozwiązanie dla regionów dojrzałych
+- centralny punkt pod wysoką produkcję
+- dobra baza pod eksport
+- dobry jako główny hub regionalny spinający wiele stref
+
+### 5.4. Upgrade
+
+Każdy hub powinien wspierać rozbudowę.
+
+Rozbudowa może zwiększać:
+- throughput
+- bufor
+- condition cap / trwałość
+- odporność na przeciążenie
+- efficiency
+
+Upgrade nie może być tylko kosmetyczny.
+
+Ma być decyzją ekonomiczną:
+- rozbudować stary hub
+- czy postawić nowy?
+
+---
+
+## 6. Model przepływu ropy
+
+### 6.1. Docelowy flow
+
+Każdy tick:
+
+1. odwiert produkuje ropę
+2. ropa trafia do przypisanego huba albo do lokalnego fallbacku
+3. hub przetwarza wolumen w granicach swojej realnej przepustowości
+4. nadwyżka trafia do bufora
+5. jeśli bufor jest pełny, pojawia się strata
+6. wolumen po hubie trafia do istniejącego systemu transportu
+7. transport kieruje ropę do magazynu lub portu
+8. dopiero potem zachodzi sprzedaż / składowanie
+
+### 6.2. Hub jako bottleneck
+
+Hub ma własny:
+- nominal throughput `bbl/h`
+- real throughput `bbl/h`
+- load `%`
+- buffer `bbl`
+- loss `bbl/h`
+
+Jeżeli suma produkcji odwiertów przekracza real throughput huba:
+- najpierw zapełnia się bufor
+- potem narasta realna strata
+
+### 6.3. Bufor
+
+Hub powinien mieć lokalny bufor.
+
+Przykładowo:
+- mały hub: `200 bbl`
+- średni hub: `600 bbl`
+- duży hub: `1200 bbl`
+
+Bufor ma służyć do:
+- łagodzenia krótkich skoków produkcji
+- zmniejszenia frustracji przy chwilowym przeciążeniu
+- zwiększenia znaczenia jakości infrastruktury
+
+Bez bufora system byłby zbyt brutalny.
+
+### 6.4. Typy strat
+
+Rozdzielamy dwa pojęcia:
+
+#### Backlog
+Ropa czeka w hubie lub buforze.
+
+Nie jest jeszcze utracona.
+
+#### Real loss
+Ropa przepada, bo:
+- bufor jest pełny
+- throughput nie wyrabia
+- stan techniczny zaniża efektywność
+- wystąpił problem logistyczny
+
+To rozróżnienie jest ważne dla gameplayu i debugowania.
+
+---
+
+## 7. Stan techniczny huba
+
+### 7.1. Główne parametry
+
+Każdy hub ma:
+- `condition`
+- `wear_level`
+- `efficiency`
+- `degradation_rate`
+- `overload_penalty`
+
+### 7.2. Wpływ condition
+
+Condition nie może wpływać tylko na jedną liczbę.
+
+Condition ma wpływać na:
+- real throughput
+- efficiency
+- OPEX
+- incident risk
+- repair cost
+
+Przykład:
+- hub ma `condition = 70%`
+- nominal throughput `1000 bbl/h`
+- real throughput `750-850 bbl/h`
+- wyższy koszt obsługi
+- większe ryzyko logistycznego problemu
+
+### 7.3. Degradacja
+
+Hub zużywa się:
+- bazowo co tick
+- szybciej przy wysokim obciążeniu
+- jeszcze szybciej przy przeciążeniu
+
+Model:
+- normal load = bazowe zużycie
+- high load = zwiększone zużycie
+- overload = duży wzrost zużycia i ryzyka
+
+### 7.4. Tryb pracy huba
+
+Każdy hub powinien mieć tryb pracy:
+- `oszczędny`
+- `standard`
+- `maksymalny`
+
+Tryb pracy wpływa na:
+- throughput
+- wear
+- efficiency
+- opex
+- incident risk
+
+To daje graczowi decyzję operacyjną, nie tylko budowlaną.
+
+---
+
+## 8. Transport po hubie
+
+Hub nie zastępuje obecnego transportu.
+
+Hub działa przed transportem.
+
+### 8.1. Po wyjściu z huba ropa może iść do:
+
+#### Magazynu
+- stabilniej
+- przewidywalniej
+- mniej zależne od eksportu
+
+#### Portu
+- pod eksport morski
+- lepsze dla regionów offshore i handlowych
+- bardziej zależne od infrastruktury morskiej
+
+#### Transportu samochodowego
+- elastyczny
+- droższy
+- bardziej ryzykowny
+
+### 8.2. Ważna zasada
+
+Hub nie kasuje istniejących statystyk transportu.
+
+Dotychczasowe:
+- transport capacity
+- opex transportu
+- transport risk
+
+działają nadal, tylko na wolumenie wychodzącym z huba.
+
+---
+
+## 9. Dział Logistyki - UI i UX
+
+System ma żyć wyłącznie w:
+- `Logistyka`
+
+Nie dokładamy głównego sterowania hubami do:
+- `Technical`
+- panelu odwiertu
+- `Bank`
+
+### 9.1. Widok główny działu
+
+Panel logistyki powinien zaczynać się od odpowiedzi na pytanie:
+
+`Gdzie jest problem?`
+
+Dlatego priorytetem nie jest lista wszystkich hubów, tylko stan regionów.
+
+### 9.2. Główne widoki
+
+#### Widok regionów
+Powinien pokazywać:
+- region
+- strefy regionu
+- liczbę odwiertów
+- liczbę odwiertów bez huba
+- liczbę hubów
+- sumę throughput
+- sumę load
+- sumę strat
+- status przeciążenia
+- alerty regionu
+
+#### Lista hubów
+Powinna pokazywać:
+- nazwę huba
+- region
+- strefę
+- typ
+- nominal throughput
+- real throughput
+- load
+- buffer
+- condition
+- efficiency
+- loss
+- assigned wells
+- tryb pracy
+
+#### Widok szczegółów huba
+Powinien pozwalać na:
+- podgląd odwiertów
+- podgląd bufora
+- podgląd strat
+- zmianę trybu pracy
+- naprawę
+- upgrade
+- odpinanie i przypinanie odwiertów
+
+#### Panel przypisania odwiertów
+Powinien wspierać:
+- przypisanie
+- odpięcie
+- przeniesienie do innego huba
+- filtrowanie po regionie
+- filtrowanie po strefie
+- pokazanie konfliktów i przeciążeń
+- pokazanie kary za przypisanie między strefami
+
+### 9.3. Alerty logistyczne
+
+System powinien generować czytelne komunikaty:
+- hub przeciążony
+- bufor pełny
+- odwiert bez przypisania
+- spadek condition
+- ryzyko awarii logistycznej
+- nieopłacalny hub
+- region logistycznie przeciążony
+
+To powinno trafić do istniejącego systemu powiadomień gry.
+
+### 9.4. Standard UI
+
+Wdrożenie musi respektować obowiązujący standard projektu:
+- wspólny `GameShell`
+- wspólny `style.css` jako główny system stylów
+- złota kolorystyka
+- wspólna sekcja `AKCJE`
+- brak nowego osobnego mini-design-systemu dla logistyki
+
+---
+
+## 10. Główne decyzje gracza
+
+System ma wymuszać realne decyzje:
+
+### 10.1. Budowa
+- czy stawiać mały hub tanio i szybko?
+- czy czekać na duży?
+- czy region zasługuje już na inwestycję?
+- czy budować jeden hub centralny?
+- czy kilka mniejszych hubów w różnych strefach?
+
+### 10.2. Przeciążenie
+- czy akceptować czasowe straty?
+- czy budować drugi hub?
+- czy rozdzielić odwierty?
+
+### 10.3. Transport
+- czy lepiej iść w magazyn?
+- czy w port?
+- czy ciężarówki nadal się opłacają?
+
+### 10.4. Utrzymanie
+- czy naprawiać natychmiast?
+- czy przeciążać hub dla zysku krótkoterminowego?
+- czy zmienić tryb pracy?
+
+### 10.5. Rozwój
+- czy upgrade starego huba jest lepszy niż nowa budowa?
+
+---
+
+## 11. Tick integration
+
+System hubów musi być częścią:
+- `cron/tick.php`
+
+### 11.1. Docelowa kolejność w ticku
+
+1. policz produkcję odwiertów
+2. zgrupuj wolumen per region i hub
+3. przypisz wolumen do hubów
+4. policz throughput, buffer i loss
+5. policz wear, efficiency i incident risk hubów
+6. przekaż wolumen po hubie do istniejącego systemu transportu
+7. zastosuj transport capacity / opex / ryzyko
+8. zaktualizuj magazyn / port / sprzedaż
+9. zapisz logi i statystyki ticka
+
+### 11.2. Kluczowa zasada
+
+Hub musi być warstwą pośrednią:
+- po produkcji
+- przed transportem
+
+Nie wolno go doklejać po sprzedaży albo obok magazynu.
+
+---
+
+## 12. Architektura backendu
+
+### 12.1. Preferowany podział
+
+#### `HubService`
+Odpowiada za:
+- CRUD hubów
+- reguły regionów
+- reguły stref
+- walidację przypisań
+- status i dane ogólne
+
+#### `HubAssignmentService`
+Odpowiada za:
+- przypisywanie odwiertów
+- przepinanie odwiertów
+- walidację regionów
+- walidację stref
+- limity slotów
+- naliczanie kar strefowych
+
+#### `HubTickService`
+Odpowiada za:
+- tickowe przetwarzanie throughput
+- buffer
+- backlog
+- loss
+- wear
+- overload
+
+#### `HubEconomyService`
+Odpowiada za:
+- koszt budowy
+- upgrade
+- naprawy
+- OPEX
+- opłacalność
+
+#### `HubViewService`
+Odpowiada za:
+- gotowe dane pod dział logistyki
+- region summary
+- hub cards
+- alerty i stan UI
+
+### 12.2. Czego nie robić
+
+Nie wrzucać całego systemu do jednego pliku typu:
+- `hub.php`
+- `HubService` 1500 linii
+
+Projekt ma już ustalony wzorzec:
+- duże serwisy rozbijamy na traity / warstwy
+- widok renderuje
+- serwis liczy
+
+---
+
+## 13. Model danych
+
+### 13.1. Główne encje
+
+#### Hubs
+Przechowuje:
+- id
+- player_id
+- region_key
+- zone_key
+- hub_type
+- name
+- status
+- work_mode
+- condition
+- wear_level
+- efficiency
+- nominal_capacity_bph
+- buffer_capacity_bbl
+- current_buffer_bbl
+- build_cost
+- repair_cost
+- opex_per_tick
+- created_at
+- updated_at
+
+#### Hub assignments
+Przechowuje:
+- id
+- hub_id
+- well_id
+- assigned_at
+- detached_at
+- is_active
+
+#### Hub history / stats
+Przechowuje dane analityczne:
+- hub_id
+- tick_time
+- input_volume
+- processed_volume
+- buffered_volume
+- lost_volume
+- load_pct
+- condition_before
+- condition_after
+- wear_added
+- incident_flag
+
+### 13.2. Rozszerzenia istniejących tabel
+
+Możliwe będą też lekkie rozszerzenia np.:
+- agregatów regionów
+- stref odwiertów
+- logów
+- powiadomień logistycznych
+
+Ale główny system powinien mieć własne tabele, a nie być dopisywany jako kolumny do odwiertu.
+
+---
+
+## 14. Fallback dla odwiertów bez huba
+
+To bardzo ważna decyzja systemowa.
+
+### 14.1. Docelowe zachowanie
+
+Odwiert bez huba:
+- nie powinien całkowicie przestawać działać
+- ale powinien działać gorzej
+
+Proponowany fallback:
+- bardzo ograniczona lokalna przepustowość
+- wyższe koszty
+- większe ryzyko
+- niższa wydajność
+
+To jest ważne, bo:
+- pozwala grać dalej
+- ale mocno zachęca do inwestycji w logistykę
+
+### 14.2. Czego unikać
+
+Nie blokować całkiem odwiertów bez huba od pierwszego dnia.
+
+To byłoby zbyt brutalne dla early game.
+
+---
+
+## 15. Incydenty logistyczne
+
+Huby powinny wspierać własne zdarzenia.
+
+Przykładowe:
+- awaria przeładunku
+- zator magazynowy
+- uszkodzenie sprzętu huba
+- lokalny wyciek
+- błąd załadunku
+- przeciążenie krytyczne
+
+Wpływ:
+- chwilowy spadek throughput
+- wzrost loss
+- wzrost opex
+- spadek condition
+- koszt naprawy
+
+To daje działowi logistyki własną tożsamość.
+
+---
+
+## 16. Balans ekonomiczny
+
+System nie może działać tylko jako "kara za rozwój".
+
+Hub powinien:
+- kosztować
+- zwiększać kontrolę
+- zmniejszać długoterminowe straty
+- zwiększać możliwości regionu
+- odblokowywać bardziej zaawansowane ścieżki logistyczne
+
+### 16.1. Model kosztów
+
+Hub ma generować:
+- koszt budowy
+- koszt upgrade
+- koszt napraw
+- stały OPEX
+- koszt przeciążenia
+
+### 16.2. Model zysku pośredniego
+
+Hub daje:
+- mniej strat
+- większą stabilność
+- większą opłacalność regionu
+- możliwość podłączenia większej liczby odwiertów
+- lepszy eksport
+
+---
+
+## 17. Telemetria i debug
+
+System hubów musi być łatwy do diagnozowania.
+
+Potrzebne są:
+- statystyki per tick
+- statystyki per hub
+- statystyki per region
+- log przeciążeń
+- log loss
+- log awarii logistycznych
+
+Gracz powinien widzieć uproszczoną wersję.
+
+Admin i debug powinny widzieć dokładniejszą.
+
+---
+
+## 18. Zakres MVP
+
+### 18.1. MVP powinno zawierać
+
+- budowę hubów
+- 3 typy hubów
+- region binding
+- przypisywanie odwiertów
+- throughput
+- buffer
+- loss
+- condition
+- degradację
+- naprawę
+- podstawowy panel logistyki
+- integrację z tickiem
+
+### 18.2. MVP nie musi jeszcze zawierać
+
+- pełnego systemu eventów logistycznych
+- zaawansowanych upgrade tree
+- animacji przepływu
+- zaawansowanych rankingów regionów
+- automatycznego AI routingu
+
+---
+
+## 19. Etapowanie wdrożenia
+
+### Etap 1 - Backend i dane
+- tabele
+- modele
+- serwisy
+- tick
+- logi
+
+### Etap 2 - Dział Logistyki
+- lista regionów
+- lista hubów
+- panel budowy
+- panel przypisań
+
+### Etap 3 - Balans i ekonomia
+- koszty
+- throughput
+- degradation
+- overload
+
+### Etap 4 - Alerty i jakość UX
+- komunikaty
+- statusy
+- region bottlenecks
+- naprawy i czytelność UI
+
+### Etap 5 - Rozbudowa
+- upgrade
+- tryby pracy
+- incydenty logistyczne
+- eksport / port tuning
+
+---
+
+## 20. Zasady implementacyjne zgodne z projektem
+
+Wdrożenie systemu musi respektować aktualne reguły OilCorp:
+- logika w `src/`
+- widoki tylko renderują
+- teksty UI trafiają do `lang/pl.php`
+- logi wewnętrzne po angielsku
+- `style.css` pozostaje głównym systemem stylów
+- nie dokładamy nowego osobnego mini-design-systemu dla logistyki
+- strona logistyki ma działać w ramach `GameShell`
+- po większej zmianie aktualizujemy `GAME_README.md`
+- po wdrożeniu należy dodać testy backendowe do `tests/`
+
+---
+
+## 21. Jednolity system wdrożenia
+
+System hubów przeładunkowych ma zostać wdrożony jako naturalna część OilCorp, a nie jako osobny, boczny moduł z własnymi wyjątkami.
+
+### 21.1. Jednolity system UI
+
+Logistyka ma używać dokładnie tych samych zasad wizualnych co reszta gry:
+- wspólny `GameShell`
+- wspólny `assets/css/style.css` jako główne źródło stylów
+- wspólny układ:
+  - status boxów
+  - nagłówka działu
+  - zakładek
+  - kart
+  - list danych
+  - formularzy
+  - sekcji `AKCJE`
+- wspólny system modalny
+- wspólne klasy przycisków
+- wspólne badge i alerty
+
+Nie tworzymy dla logistyki:
+- nowego osobnego motywu
+- nowego osobnego systemu tabów
+- nowego osobnego systemu formularzy
+- osobnego footer actions
+- własnego mini design systemu
+
+### 21.2. Jednolity system backendu
+
+Logistyka ma wejść w ten sam model architektoniczny co reszta gry:
+- logika w `src/`
+- widok tylko renderuje
+- tick liczy stan
+- dane do UI są przygotowane wcześniej
+- teksty idą do `lang/pl.php`
+- logi wewnętrzne są po angielsku
+
+Nie robimy:
+- ciężkiej logiki w widoku
+- duplikacji reguł między widokiem i POST/API
+- wyjątków typu „w logistyce działa inaczej niż w reszcie systemu”
+
+### 21.3. Jednolity system interakcji
+
+Każda akcja w logistyce ma działać jak w reszcie projektu:
+- modal zamiast natywnego `confirm()`
+- komunikat sukcesu / błędu w tym samym stylu co inne działy
+- te same wzorce walidacji
+- te same wzorce blokowania akcji
+
+### 21.4. Jednolity system danych
+
+System ma być spójny z resztą projektu także na poziomie danych:
+- jedna prawda o stanie huba
+- jedna prawda o przypisaniu odwiertu
+- jedna prawda o przeciążeniu i stratach
+- UI nie może pokazywać czegoś jako dostępne, jeśli backend to blokuje
+
+### 21.5. Jednolity system wdrożenia krok po kroku
+
+Każdy etap wdrożenia ma być zamykany w tej kolejności:
+
+1. model danych
+2. serwisy i logika
+3. tick
+4. endpointy / POST / API
+5. UI gracza
+6. panel admina
+7. tłumaczenia
+8. testy
+9. aktualizacja `GAME_README.md`
+
+Nie wdrażamy samego frontu bez backendu.
+Nie wdrażamy samego backendu bez możliwości diagnostyki w panelu admina.
+
+---
+
+## 22. Rozbudowany panel admina
+
+Panel admina dla hubów przeładunkowych ma być pełnoprawnym narzędziem operacyjnym.
+
+Nie może być:
+- tylko podglądem
+- tylko debug screenem
+- tylko listą wartości readonly
+
+Ma umożliwiać pełną konfigurację, diagnostykę i ręczną interwencję.
+
+### 22.1. Zasada główna
+
+Każda funkcja widoczna w panelu admina ma:
+- działać realnie
+- zapisywać dane
+- wpływać na gameplay
+- mieć walidację
+- mieć komunikat sukcesu / błędu
+- mieć log backendowy
+
+Nie zostawiamy martwych przycisków, pseudo-opcji ani pól, które „tylko wyglądają”.
+
+### 22.2. Sekcja: konfiguracja typów hubów
+
+Admin musi móc edytować dla każdego typu huba:
+- nazwę typu
+- koszt budowy
+- czas budowy
+- nominal throughput
+- buffer capacity
+- slot limit
+- bazowy OPEX
+- bazowy wear
+- mnożnik przeciążenia
+- mnożnik ryzyka
+- koszt napraw
+- koszt upgrade
+- maksymalny poziom upgrade
+
+Każda zmiana:
+- zapisuje się natychmiast albo przez jawny przycisk `Zapisz`
+- ma walidację zakresu
+- ma komunikat o powodzeniu
+
+### 22.3. Sekcja: konfiguracja trybów pracy
+
+Admin musi móc edytować tryby:
+- `oszczędny`
+- `standard`
+- `maksymalny`
+
+Dla każdego:
+- throughput multiplier
+- wear multiplier
+- opex multiplier
+- risk multiplier
+- efficiency modifier
+
+### 22.4. Sekcja: fallback bez huba
+
+Admin musi móc ustawić:
+- fallback throughput
+- fallback OPEX
+- fallback loss multiplier
+- fallback risk multiplier
+- minimalną efektywność bez huba
+
+To ma być w pełni edytowalne z panelu, bez potrzeby zmiany kodu.
+
+### 22.5. Sekcja: ustawienia regionalne
+
+Admin powinien móc ustawić per region:
+- build cost multiplier
+- logistics wear multiplier
+- transport synergy bonus
+- incident risk modifier
+- port bonus / penalty
+- region difficulty flag
+
+To pozwala balansować regiony bez hardcodu.
+
+Admin powinien też móc skonfigurować strefy w obrębie regionu:
+- nazwa strefy
+- region nadrzędny
+- mnożnik odległości
+- mnożnik kosztu połączeń między strefami
+- mnożnik ryzyka
+- flaga portowa / inland / offshore
+
+### 22.6. Sekcja: lista hubów graczy
+
+Panel powinien pokazywać:
+- gracza
+- region
+- strefę
+- nazwę huba
+- typ
+- status
+- level
+- condition
+- throughput
+- load
+- buffer
+- loss
+- assigned wells
+- OPEX
+
+Admin powinien móc:
+- wejść w szczegóły
+- filtrować
+- sortować
+- wyszukiwać
+
+### 22.7. Sekcja: szczegóły huba
+
+Admin musi móc ręcznie:
+- zmienić nazwę
+- zmienić status
+- zmienić typ
+- zmienić tryb pracy
+- zmienić condition
+- zmienić wear
+- zmienić throughput
+- zmienić buffer
+- zmienić load / buffer current
+- naprawić hub
+- zresetować bufor
+- wyłączyć / włączyć hub
+- usunąć hub
+
+Każda akcja:
+- przez modal
+- z walidacją
+- z logiem
+
+### 22.8. Sekcja: przypisania odwiertów
+
+Admin musi móc:
+- zobaczyć wszystkie przypisania
+- zobaczyć odwierty bez huba
+- przypisać odwiert do huba
+- odpiąć odwiert
+- przepiąć odwiert do innego huba
+- wymusić usunięcie martwego przypisania
+- zobaczyć blokady regionu / strefy / slotów / przeciążenia
+
+### 22.9. Sekcja: przeciążenia i straty
+
+Panel powinien mieć dedykowany widok:
+- przeciążone huby
+- regiony z największym loss
+- huby z pełnym buforem
+- regiony bez wystarczającej infrastruktury
+
+To nie ma być tylko informacja.
+
+Admin musi móc z tego widoku:
+- przejść do szczegółów huba
+- przejść do gracza
+- przejść do regionu
+- wymusić naprawę
+- wymusić reset bufora
+
+### 22.10. Sekcja: incydenty logistyczne
+
+Panel admina powinien pokazywać:
+- aktywne incydenty logistyczne
+- historię incydentów
+- severity
+- skutki
+- czas trwania
+
+Admin musi móc:
+- oznaczyć incydent jako rozwiązany
+- wymusić utworzenie incydentu testowego
+- wyczyścić błędny incydent
+
+### 22.11. Sekcja: statystyki i telemetria
+
+Panel powinien pokazywać:
+- throughput per hub
+- loss per region
+- najgorsze huby
+- najdroższe huby
+- regiony z największym przeciążeniem
+- historię load / loss / condition
+
+Docelowo:
+- wykresy
+- zakres czasu
+- filtrowanie po graczu i regionie
+
+### 22.12. Sekcja: narzędzia GM
+
+Admin / GM musi mieć ręczne akcje:
+- zbuduj hub graczowi
+- usuń hub graczowi
+- przypisz odwiert ręcznie
+- odłącz odwiert ręcznie
+- ustaw condition
+- ustaw buffer
+- ustaw level
+- ustaw status
+- uruchom naprawę
+- zakończ naprawę
+- wyczyść błędne dane
+- odtwórz statystyki z ostatniego ticka
+
+### 22.13. Modale w panelu admina
+
+Każda akcja zmieniająca dane:
+- używa modalu projektu
+- nie używa natywnego `confirm()`
+- dla akcji destrukcyjnych używa wariantu `danger`
+
+Dotyczy to szczególnie:
+- usunięcia huba
+- resetu bufora
+- przepisania odwiertów
+- masowych zmian konfiguracji
+
+### 22.14. Komunikaty w panelu admina
+
+Panel admina ma mieć jasne komunikaty:
+- `Konfiguracja zapisana`
+- `Hub naprawiony`
+- `Przypisanie zmienione`
+- `Nie można przypisać odwiertu spoza regionu`
+- `Hub usunięty`
+- `Reset bufora zakończony`
+
+### 22.15. Logi admina
+
+Każda akcja admina ma zostawiać wpis:
+- co zmieniono
+- komu
+- kiedy
+- przez jakiego admina
+
+### 22.16. Standard UI panelu admina
+
+Panel admina ma pozostać spójny z projektem:
+- polskie UI
+- wspólne modale
+- czytelne sekcje
+- brak martwych przycisków
+- brak readonly atrap
+
+---
+
+## 23. Kluczowe decyzje projektowe
+
+Na ten moment przyjmujemy:
+
+1. hub jest regionalny
+2. odwiert należy maksymalnie do jednego huba
+3. limit slotów zależy od typu huba
+4. throughput i buffer są ważniejsze niż sztywny limit `3`
+5. strata nie jest liczona od razu, jeśli bufor może ją przejąć
+6. condition wpływa na więcej niż jedną statystykę
+7. system działa w dziale `Logistyka`
+8. hub jest warstwą pośrednią przed transportem
+
+---
+
+## 24. Finalna wizja
+
+Docelowo gracz ma dojść do sytuacji, w której:
+- patrzy na region nie tylko przez pryzmat odwiertów
+- widzi logistykę jako infrastrukturę
+- buduje huby świadomie
+- reaguje na przeciążenia
+- planuje rozwój wokół przepustowości, nie tylko produkcji
+
+To ma być system, który zamienia logistykę z dodatku w jeden z rdzeni gry.
+
+---
+
+## 25. Następny krok
+
+Po akceptacji tego dokumentu następnym krokiem powinno być przygotowanie:
+- specyfikacji tabel SQL
+- listy plików do wdrożenia
+- podziału serwisów i traitów
+- kolejności implementacji etap 1 -> etap 5
+- checklisty testów
+
+---
+
+## 26. Statusy i stany systemu
+
+### 24.1. Status huba
+
+Każdy hub powinien mieć jawny status biznesowy:
+- `planned`
+- `building`
+- `active`
+- `overloaded`
+- `damaged`
+- `paused`
+- `disabled`
+
+Znaczenie:
+
+#### `planned`
+Hub utworzony w systemie, ale nie rozpoczęto jeszcze budowy.
+
+#### `building`
+Hub jest w trakcie budowy i nie obsługuje jeszcze odwiertów.
+
+#### `active`
+Hub działa normalnie.
+
+#### `overloaded`
+Hub działa, ale przekracza bezpieczny poziom obciążenia.
+
+#### `damaged`
+Hub działa ograniczenie albo wymaga naprawy.
+
+#### `paused`
+Hub został ręcznie wstrzymany przez gracza.
+
+#### `disabled`
+Hub jest wyłączony i nie uczestniczy w przepływie ropy.
+
+### 24.2. Status przypisania odwiertu
+
+Każde przypisanie odwiertu do huba powinno mieć własny status:
+- `pending`
+- `active`
+- `relinking`
+- `detached`
+- `blocked`
+
+To pozwala czytelnie obsłużyć:
+- przypięcie
+- przepięcie
+- odpięcie
+- konflikty
+- cooldown po zmianie
+
+---
+
+## 27. Modale i interakcje użytkownika
+
+Zgodnie z agentem system ma używać istniejącego systemu modalnego projektu.
+
+Nie używamy:
+- `confirm()`
+- `alert()`
+- `prompt()`
+
+Używamy:
+- `confirmAction(...)`
+- `confirmSubmit(...)`
+- `confirmHref(...)`
+- `alertInfo(...)`
+- `alertWarning(...)`
+- `alertError(...)`
+
+### 25.1. Modale obowiązkowe w logistyce
+
+#### Budowa huba
+Modal powinien pokazywać:
+- region
+- typ huba
+- koszt budowy
+- przewidywany OPEX
+- przewidywany throughput
+- czas budowy
+
+Akcja:
+- `Zbuduj hub`
+
+#### Upgrade huba
+Modal powinien pokazywać:
+- aktualny poziom
+- poziom po rozbudowie
+- nowy throughput
+- nowy buffer
+- koszt upgrade
+- wzrost OPEX
+
+Akcja:
+- `Rozbuduj`
+
+#### Naprawa huba
+Modal powinien pokazywać:
+- current condition
+- koszt naprawy
+- przewidywany stan po naprawie
+- czas niedostępności, jeśli naprawa nie jest natychmiastowa
+
+Akcja:
+- `Napraw`
+
+#### Przypisanie odwiertu
+Modal powinien pokazywać:
+- nazwę odwiertu
+- region
+- wybrany hub
+- aktualny load huba
+- przewidywany load po przypisaniu
+- ewentualne ryzyko przeciążenia
+
+Akcja:
+- `Przypisz`
+
+#### Przeniesienie odwiertu do innego huba
+Modal powinien pokazywać:
+- obecny hub
+- nowy hub
+- koszt przepięcia
+- czas relokacji
+- wpływ na obciążenie obu hubów
+
+Akcja:
+- `Przenieś`
+
+#### Odpięcie odwiertu
+To jest akcja destrukcyjna biznesowo.
+
+Modal powinien ostrzegać, że odwiert przejdzie na fallback logistyczny i może:
+- tracić throughput
+- mieć wyższe koszty
+- zwiększyć ryzyko strat
+
+Akcja:
+- `Odepnij`
+
+### 25.2. Gdzie modale są obowiązkowe
+
+Modal musi się pojawiać przy:
+- budowie
+- upgrade
+- naprawie
+- przypięciu odwiertu
+- przepięciu odwiertu
+- odpięciu odwiertu
+- wyłączeniu huba
+- przywróceniu huba
+
+---
+
+## 28. Komunikaty i powiadomienia
+
+System hubów musi mieć pełną warstwę komunikatów UI i powiadomień.
+
+### 26.1. Komunikaty lokalne w panelu logistyki
+
+To są komunikaty widoczne od razu w module.
+
+Przykłady:
+- `Hub został zbudowany.`
+- `Rozbudowa huba rozpoczęta.`
+- `Hub wymaga naprawy.`
+- `Nie można przypisać odwiertu do huba z innego regionu.`
+- `Wybrany hub nie ma wolnych slotów.`
+- `Wybrany hub nie ma wystarczającej przepustowości.`
+- `Odwiert został przypisany.`
+- `Odwiert został przeniesiony do innego huba.`
+- `Hub został wstrzymany.`
+- `Hub został wznowiony.`
+
+### 26.2. Powiadomienia systemowe gry
+
+To są komunikaty trafiające do wspólnego systemu powiadomień.
+
+Przykłady:
+- `Region Polska ma przeciążoną logistykę.`
+- `Hub Warszawa 1 osiągnął krytyczne przeciążenie.`
+- `Hub Bergen North ma condition poniżej 50%.`
+- `Odwiert #123 pracuje bez huba i generuje straty logistyczne.`
+- `Bufor huba Houston East jest pełny.`
+- `W regionie UK występują straty logistyczne 120 bbl/h.`
+
+### 26.3. Klucze tłumaczeń
+
+Nowe teksty powinny trafić do:
+- `logistics.*`
+- `logistics_hub.*`
+- `admin.logistics.*`
+
+Przykładowe grupy:
+- `logistics.hub_status_*`
+- `logistics.alert_*`
+- `logistics.modal_*`
+- `logistics.region_*`
+- `admin.logistics.hub_*`
+
+### 26.4. Logowanie backendowe
+
+Wewnętrzne logi po angielsku:
+- budowa huba
+- upgrade
+- repair
+- attach / detach / transfer well
+- overload
+- buffer full
+- incident created
+
+Przykładowe wpisy:
+- `Hub created`
+- `Hub upgraded`
+- `Hub overloaded`
+- `Well assigned to hub`
+- `Well transfer blocked by region mismatch`
+
+---
+
+## 29. Panel admina
+
+System hubów wymaga osobnego wsparcia w panelu admina.
+
+Nie wystarczy sama strona gracza.
+
+### 27.1. Konfiguracja typów hubów
+
+Admin powinien móc ustawić dla każdego typu:
+- koszt budowy
+- czas budowy
+- bazowy throughput
+- bazowy buffer
+- bazowy OPEX
+- maksymalną liczbę slotów
+- bazową degradację
+- mnożnik przeciążenia
+- mnożnik ryzyka
+- koszt naprawy
+
+### 27.2. Konfiguracja fallbacku bez huba
+
+Admin powinien móc ustawić:
+- fallback throughput
+- fallback opex
+- fallback loss multiplier
+- fallback risk multiplier
+
+### 27.3. Konfiguracja trybów pracy huba
+
+Admin powinien mieć osobne ustawienia dla:
+- `oszczędny`
+- `standard`
+- `maksymalny`
+
+Dla każdego:
+- throughput multiplier
+- wear multiplier
+- opex multiplier
+- risk multiplier
+
+### 27.4. Konfiguracja regionów
+
+Jeśli zajdzie potrzeba, admin powinien móc ustawić regionalne modyfikatory:
+- build cost multiplier
+- wear multiplier
+- risk multiplier
+- infrastructure bonus / penalty
+
+To pozwoli różnicować regiony bez hardcodu.
+
+### 27.5. Widoki administracyjne
+
+Panel admina powinien mieć:
+
+#### Listę hubów graczy
+Pokazywać:
+- gracz
+- region
+- typ
+- status
+- throughput
+- load
+- condition
+- loss
+
+#### Widok przeciążeń
+Pokazywać:
+- które huby są przeciążone
+- od kiedy
+- jaką generują stratę
+
+#### Widok strat logistycznych
+Pokazywać:
+- gracz
+- region
+- hub
+- strata / tick
+- strata / dzień
+
+#### Narzędzia GM
+Pozwalać na:
+- napraw hub
+- zresetuj buffer
+- zmień condition
+- wyłącz / włącz hub
+- przepnij odwiert
+- usuń martwe przypisania
+
+### 27.6. Zgodność z zasadami projektu
+
+Panel admina:
+- używa `lang/pl.php`
+- nie zostawia hardcoded tekstów
+- korzysta z istniejącego systemu modalnego
+- nie buduje własnego osobnego systemu UI
+
+---
+
+## 30. Dokładna specyfikacja tabel SQL
+
+Poniżej jest proponowany model tabel pod MySQL.
+
+### 28.1. `logistics_hubs`
+
+Cel:
+- główna tabela hubów gracza
+
+Kolumny:
+- `id` BIGINT UNSIGNED PK
+- `player_id` BIGINT UNSIGNED NOT NULL
+- `region_key` VARCHAR(32) NOT NULL
+- `zone_key` VARCHAR(32) NOT NULL
+- `name` VARCHAR(120) NOT NULL
+- `hub_type` VARCHAR(24) NOT NULL
+- `status` VARCHAR(24) NOT NULL DEFAULT 'active'
+- `work_mode` VARCHAR(24) NOT NULL DEFAULT 'standard'
+- `level` TINYINT UNSIGNED NOT NULL DEFAULT 1
+- `slot_limit` TINYINT UNSIGNED NOT NULL DEFAULT 2
+- `condition_pct` DECIMAL(5,2) NOT NULL DEFAULT 100.00
+- `wear_level` DECIMAL(10,4) NOT NULL DEFAULT 0.0000
+- `efficiency_pct` DECIMAL(5,2) NOT NULL DEFAULT 100.00
+- `nominal_capacity_bph` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `real_capacity_bph` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `buffer_capacity_bbl` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `buffer_current_bbl` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `opex_per_tick` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `build_cost` DECIMAL(14,2) NOT NULL DEFAULT 0.00
+- `repair_cost_estimate` DECIMAL(14,2) NOT NULL DEFAULT 0.00
+- `last_processed_at` DATETIME NULL
+- `created_at` DATETIME NOT NULL
+- `updated_at` DATETIME NOT NULL
+
+Indeksy:
+- `INDEX idx_hubs_player (player_id)`
+- `INDEX idx_hubs_region (region_key)`
+- `INDEX idx_hubs_zone (zone_key)`
+- `INDEX idx_hubs_status (status)`
+- `INDEX idx_hubs_player_region (player_id, region_key)`
+- `INDEX idx_hubs_region_zone (region_key, zone_key)`
+
+### 28.2. `logistics_hub_assignments`
+
+Cel:
+- aktywne i historyczne przypisania odwiertów do hubów
+
+Kolumny:
+- `id` BIGINT UNSIGNED PK
+- `hub_id` BIGINT UNSIGNED NOT NULL
+- `well_id` BIGINT UNSIGNED NOT NULL
+- `status` VARCHAR(24) NOT NULL DEFAULT 'active'
+- `assigned_at` DATETIME NOT NULL
+- `detached_at` DATETIME NULL
+- `cooldown_until` DATETIME NULL
+- `created_at` DATETIME NOT NULL
+- `updated_at` DATETIME NOT NULL
+
+Indeksy:
+- `INDEX idx_assign_hub (hub_id)`
+- `INDEX idx_assign_well (well_id)`
+- `INDEX idx_assign_status (status)`
+- `UNIQUE KEY uq_assign_active_well (well_id, status)`
+
+Uwaga:
+Przy implementacji unikalności aktywnego przypisania może być potrzebny bezpieczniejszy wariant niż prosty unikalny indeks na `status`, w zależności od tego jak dokładnie będzie modelowana historia.
+
+### 30.2a. `logistics_region_zones`
+
+Cel:
+- słownik stref logistycznych
+
+Kolumny:
+- `id` BIGINT UNSIGNED PK
+- `region_key` VARCHAR(32) NOT NULL
+- `zone_key` VARCHAR(32) NOT NULL
+- `zone_name` VARCHAR(120) NOT NULL
+- `zone_type` VARCHAR(24) NOT NULL DEFAULT 'inland'
+- `distance_penalty_pct` DECIMAL(6,2) NOT NULL DEFAULT 0.00
+- `opex_penalty_pct` DECIMAL(6,2) NOT NULL DEFAULT 0.00
+- `risk_penalty_pct` DECIMAL(6,2) NOT NULL DEFAULT 0.00
+- `is_active` TINYINT(1) NOT NULL DEFAULT 1
+- `created_at` DATETIME NOT NULL
+- `updated_at` DATETIME NOT NULL
+
+Indeksy:
+- `UNIQUE KEY uq_region_zone (region_key, zone_key)`
+- `INDEX idx_zone_region (region_key)`
+
+### 30.2b. Rozszerzenie odwiertów o strefę
+
+Każdy odwiert powinien mieć przypisaną strefę:
+- `zone_key`
+
+To może być:
+- kolumna w tabeli odwiertów
+albo
+- wynik pochodny z mapy / regionu, jeśli obecna architektura już to wspiera
+
+W praktyce dla MVP najprostsza będzie jawna kolumna `zone_key`.
+
+### 28.3. `logistics_hub_tick_stats`
+
+Cel:
+- telemetria i diagnostyka per tick
+
+Kolumny:
+- `id` BIGINT UNSIGNED PK
+- `hub_id` BIGINT UNSIGNED NOT NULL
+- `tick_time` DATETIME NOT NULL
+- `input_volume_bbl` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `processed_volume_bbl` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `buffered_volume_bbl` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `lost_volume_bbl` DECIMAL(12,2) NOT NULL DEFAULT 0.00
+- `load_pct` DECIMAL(6,2) NOT NULL DEFAULT 0.00
+- `condition_before_pct` DECIMAL(5,2) NOT NULL DEFAULT 100.00
+- `condition_after_pct` DECIMAL(5,2) NOT NULL DEFAULT 100.00
+- `wear_added` DECIMAL(10,4) NOT NULL DEFAULT 0.0000
+- `overload_flag` TINYINT(1) NOT NULL DEFAULT 0
+- `incident_flag` TINYINT(1) NOT NULL DEFAULT 0
+- `created_at` DATETIME NOT NULL
+
+Indeksy:
+- `INDEX idx_tickstats_hub (hub_id)`
+- `INDEX idx_tickstats_time (tick_time)`
+- `INDEX idx_tickstats_hub_time (hub_id, tick_time)`
+
+### 28.4. `logistics_hub_events`
+
+Cel:
+- historia ważnych zdarzeń biznesowych i technicznych
+
+Kolumny:
+- `id` BIGINT UNSIGNED PK
+- `player_id` BIGINT UNSIGNED NOT NULL
+- `hub_id` BIGINT UNSIGNED NULL
+- `well_id` BIGINT UNSIGNED NULL
+- `event_type` VARCHAR(40) NOT NULL
+- `severity` VARCHAR(16) NOT NULL DEFAULT 'info'
+- `title` VARCHAR(190) NOT NULL
+- `message` TEXT NOT NULL
+- `meta_json` JSON NULL
+- `is_read` TINYINT(1) NOT NULL DEFAULT 0
+- `created_at` DATETIME NOT NULL
+
+Indeksy:
+- `INDEX idx_hubevents_player (player_id)`
+- `INDEX idx_hubevents_hub (hub_id)`
+- `INDEX idx_hubevents_read (is_read)`
+- `INDEX idx_hubevents_type (event_type)`
+
+### 28.5. `logistics_hub_config`
+
+Cel:
+- ustawienia typów hubów i trybów pracy z panelu admina
+
+Kolumny:
+- `id` BIGINT UNSIGNED PK
+- `config_group` VARCHAR(32) NOT NULL
+- `config_key` VARCHAR(64) NOT NULL
+- `config_scope` VARCHAR(32) NOT NULL DEFAULT 'global'
+- `config_value` VARCHAR(255) NOT NULL
+- `updated_at` DATETIME NOT NULL
+
+Indeksy:
+- `UNIQUE KEY uq_hubconfig (config_group, config_key, config_scope)`
+
+### 28.6. Migracje
+
+Migracje muszą respektować zasady z agenta:
+- MySQL, nie MariaDB
+- bez `ADD COLUMN IF NOT EXISTS`
+- bez `CREATE INDEX IF NOT EXISTS`
+- przez procedury sprawdzające `INFORMATION_SCHEMA`
+
+---
+
+## 31. Lista plików do wdrożenia
+
+### 29.1. Backend
+
+Nowe lub rozbudowane pliki:
+- `src/HubService.php`
+- `src/HubAssignmentService.php`
+- `src/HubTickService.php`
+- `src/HubEconomyService.php`
+- `src/HubViewService.php`
+- `src/Logistics/` lub `src/Hub/` na traity, jeśli serwis urośnie
+- `cron/tick.php`
+- `src/Tick/WellLoopSection.php` lub nowa sekcja ticka
+- warstwa stref logistycznych i kar strefowych
+
+### 29.2. Widoki gracza
+
+- `public/logistics.php`
+- `templates/views/logistics/main.php`
+- komponenty kart / sekcji jeśli będą współdzielone
+
+### 29.3. JavaScript
+
+- `assets/js/logistics.js`
+
+Zakres:
+- otwieranie modali
+- przypisania
+- przepięcia
+- odświeżanie stanu regionów
+- akcje UI
+
+### 29.4. CSS
+
+Logistyka ma korzysta? g??wnie z:
+- `assets/css/style.css`
+
+Dla logistyki dopuszczamy osobny plik:
+- `assets/css/logistics.css`
+
+Ale tylko zgodnie z agentem:
+- bez nowego mini-design-systemu
+- bez dublowania wsp?lnych przycisk?w, tab?w i formularzy
+- bez globalnych nadpisa? typu `.btn`, `.header`, `label`, `input`
+- wy??cznie dla rzeczy specyficznych dla modu?u logistyki
+
+Podzia? odpowiedzialno?ci:
+- `style.css` -> shell, wsp?lne komponenty, footer actions, globalne karty, wsp?lne formularze
+- `logistics.css` -> tylko uk?ad i elementy unikalne dla logistyki
+
+### 29.5. Panel admina
+
+- `admin/logistics.php`
+- ewentualnie osobne widoki cząstkowe w `templates/views/admin/`
+
+### 29.6. Tłumaczenia
+
+- `lang/pl.php`
+
+Nowe klucze:
+- `logistics.*`
+- `admin.logistics.*`
+- `logistics_hub.*`
+
+### 29.7. Testy
+
+- `tests/test_hubs.php`
+- `tests/test_hub_tick.php`
+- `tests/test_hub_assignments.php`
+
+---
+
+## 32. Checklist implementacyjny
+
+### 30.1. Backend MVP
+
+- [x] utwórz tabele (`sql/logistics_hubs.sql` — 6 tabel + `zone_key` na `wells`)
+- [x] dodaj konfigurację typów hubów (`logistics_hub_config` + domyślne wartości)
+- [x] dodaj słownik stref logistycznych (`logistics_region_zones`)
+- [x] dodaj CRUD hubów (`HubService` + traity: Config, Query, Actions)
+- [x] dodaj przypisania odwiertów (`HubAssignmentService` — assign/detach/transfer + walidacja regionu/slotów/cooldown)
+- [x] dodaj fallback bez huba (`HubTickService::applyFallback()`)
+- [x] dodaj karę za przypisanie między strefami (`HubAssignmentService::getZonePenalty()`)
+- [x] dodaj tick processing (`WellLoopSection`: preload przypisań, `applyHubOrFallback`, `finalizeHubTicks` — wear/staty/OPEX/reconciliacja strat)
+- [x] dodaj logi (`GameLog` w każdej operacji, `logistics_hub_events` dla gracza)
+
+### 30.2. UI gracza
+
+- [x] dział logistyki (`logistics.php` — rozszerzony o dane hubów z `HubViewService`)
+- [x] lista regionów i hubów per region (`getRegionSummary` + `getHubCards`)
+- [x] lista hubów — karty z kondycją, obciążeniem, slotami, OPEX, przyciskami akcji
+- [x] modale: budowa huba, odwierty huba, przypisanie odwiertu
+- [x] alerty hubów (overload, low condition, odwierty bez huba)
+- [x] API: `src/HubApi.php` — build, repair, upgrade, set_mode, toggle_pause, assign/detach/transfer well
+- [x] JS: `assets/js/logistics_hubs.js` — wszystkie akcje AJAX + modale
+- [x] lang: wszystkie klucze `logistics.hub.*` w `lang/pl.php`
+
+### 30.3. Panel admina
+
+- [x] `admin/logistics_hubs.php` — przegląd, tworzenie, seed masowy, edycja statusu/kondycji/nazwy/trybu
+- [ ] sekcja konfiguracji typów hubów (zapis do `logistics_hub_config`)
+- [ ] sekcja konfiguracji trybów pracy (throughput/wear/opex/risk_mult)
+- [ ] sekcja konfiguracji fallbacku (throughput_bph, opex_mult, loss_mult)
+- [ ] widok przeciążeń i strat per region
+- [ ] narzędzia GM: reset bufora, wymuś naprawę, przepnij odwiert, usuń hub
+
+### 30.4. Testy
+
+- [x] happy path dla budowy (`HubServiceTest`)
+- [x] happy path dla przypisania (`HubAssignmentServiceTest`)
+- [x] edge case przeciążenia (`HubTickServiceTest::testOverloadSetsOverloadedFlag`)
+- [x] edge case pełnego bufora (`HubTickServiceTest::testFullBufferCausesLoss`)
+- [x] edge case odwiertu bez huba (`HubTickServiceTest::testFallbackLimitsVolume`)
+- [x] edge case region mismatch (`HubAssignmentServiceTest`)
+- [x] edge case uszkodzonego huba (`HubTickServiceTest::testDamagedHubHasReducedThroughput`)
+- [x] edge case paused/disabled hub = fallback, nie pass-through (`HubTickServiceTest::testPausedHubAppliesFallbackNotPassThrough`)
+- [x] edge case cooldown bypass zablokowany (`HubAssignmentService::getCooldownAssignment`)
+- [ ] testy panelu admina (`HubApiTest` — blokada akcji admin dla graczy)
+- [ ] `HubAssignmentServiceTest` — zaktualizować (hub systemowy, nie gracza)
+- [ ] `tests/Integration/HubIncidentServiceTest.php` — pełne pokrycie (248L)
+
+### 30.5. Dokumentacja
+
+- [x] `LOGISTICS_HUBS_README.md` — zaktualizowany §30, §36 po refaktorze traitów (2026-05-09); §39 po wdrożeniach 10.05.2026
+- [x] `game_help_pages` — nowa strona `huby` + aktualizacja `logistyka` (`sql/help_update_huby_2026_05_10.sql`)
+- [ ] aktualizacja `GAME_README.md` — dodać sekcję o systemie hubów
+- [ ] `assets/css/logistics.css` — plik nie istnieje; klasy `.logistics-hub-avail-card` i `.logistics-hub-region-group` już nieużywane po usunięciu sekcji avail
+
+---
+
+## 33. Integracja z obecnym tickiem - stan aktualny
+
+System hub?w musi zosta? osadzony w realnym pipeline ticka, kt?ry ju? istnieje.
+
+### 33.1. Aktualna kolejno?? ticka
+
+Obecny `cron/tick.php` dzia?a tak:
+
+1. `MarketSection`
+   - trendy
+   - cena ropy
+
+2. `BankSection`
+   - bank
+   - HR
+   - decyzje bankowe
+   - bankructwa
+
+3. `PlayersSection`
+   - offline
+   - p?tla odwiert?w
+   - pipeline
+   - spill
+   - stan finansowy
+
+4. `BlackMarketService`
+
+5. zapis `tick_stats`
+
+### 33.2. Najwa?niejszy punkt wej?cia dla hub?w
+
+Huby nie powinny by? dodawane jako osobny tick po wszystkim.
+
+Najwa?niejsze miejsce integracji to:
+- `src/Tick/WellLoopSection.php`
+
+Bo to tam obecnie dziej? si?:
+- produkcja odwiertu
+- ograniczenie przez `transport_capacity_pct`
+- straty transportowe
+- eventy transportowe
+- dopisanie do magazynu
+- transport OPEX
+- `cost_per_bbl`
+- podatek regionalny
+
+### 33.3. Docelowa kolejno?? z hubami
+
+Docelowo przep?yw powinien wygl?da? tak:
+
+1. odwiert liczy produkcj?
+2. wolumen trafia do warstwy huba
+3. hub liczy:
+   - throughput
+   - load
+   - buffer
+   - backlog
+   - loss
+   - wear
+   - overload
+4. dopiero wolumen po hubie trafia do istniej?cego transportu
+5. potem:
+   - transport OPEX
+   - eventy transportowe
+   - magazyn
+   - sprzeda? / finanse
+
+### 33.4. Co to oznacza implementacyjnie
+
+Huby musz? wej??:
+- po produkcji
+- przed transportem
+
+Nie wolno ich dokleja?:
+- po magazynie
+- po sprzeda?y
+- jako osobnej warstwy obok finans?w
+
+### 33.5. Pliki, kt?re trzeba zna? przy wdro?eniu
+
+Najwa?niejsze pliki:
+- `cron/tick.php`
+- `src/Tick/PlayersSection.php`
+- `src/Tick/WellLoopSection.php`
+- `src/Tick/PipelineSection.php`
+- `src/Tick/SpillSection.php`
+- `src/Tick/FinancialStateSection.php`
+- `src/Tick/TickStatsRepository.php`
+
+### 33.6. Wniosek architektoniczny
+
+Najzdrowszy model:
+- `PlayersSection` dalej zostaje fasad?
+- `WellLoopSection` produkuje wolumen odwiertu
+- nowy `HubTickService` przejmuje wolumen mi?dzy produkcj? a transportem
+- reszta obecnego pipeline pozostaje mo?liwie nienaruszona
+
+---
+
+## 34. Pe?ny plan test?w i jako?ci
+
+Ten modu? ma by? obj?ty pe?nym pakietem jako?ci.
+
+Nie wystarcza:
+- `php -l`
+- klikanie jednego ekranu
+
+### 34.1. Testy backendowe
+
+Nowe testy:
+- `tests/test_hubs.php`
+- `tests/test_hub_tick.php`
+- `tests/test_hub_assignments.php`
+- `tests/test_hub_admin.php`
+- `tests/test_hub_fallback.php`
+
+Ka?dy ma pokrywa?:
+- happy path
+- edge cases
+- z?e dane wej?ciowe
+
+### 34.2. Testy ticka
+
+Obowi?zkowe scenariusze:
+- 1 odwiert + 1 hub + brak przeci??enia
+- kilka odwiert?w + 1 hub + overload
+- pe?ny bufor
+- uszkodzony hub
+- odwiert bez huba
+- przypisanie do innej strefy tego samego regionu
+- blokada dla innego regionu
+
+Sprawdzamy:
+- throughput
+- loss
+- backlog
+- magazyn
+- finanse
+- tick stats
+
+### 34.3. Testy panelu admina
+
+Ka?da funkcja admina ma by? testowana funkcjonalnie:
+- zapis konfiguracji typu huba
+- zapis fallbacku
+- zapis tryb?w pracy
+- edycja stref
+- naprawa huba
+- reset bufora
+- zmiana condition
+- przypisanie odwiertu
+- odpi?cie odwiertu
+- usuni?cie huba
+
+### 34.4. Testy UI gracza
+
+R?czne testy funkcjonalne:
+- budowa huba z modala
+- anulowanie modala
+- przypisanie odwiertu
+- przepi?cie odwiertu
+- odpi?cie odwiertu
+- widok region?w
+- widok listy hub?w
+- alerty przeci??enia
+- komunikaty sukcesu / b??du
+- mobilka
+
+### 34.5. Testy regresji
+
+Po wdro?eniu trzeba sprawdzi?, czy nie zosta?y rozwalone:
+- produkcja odwiert?w
+- transport
+- magazyn
+- sprzeda?
+- pipeline
+- spill
+- bank / finanse
+- tick summary
+- cena ropy
+
+### 34.6. PHPStan
+
+Projekt ma ju?:
+- `C:\xampp1\htdocs\phpstan.neon`
+
+Aktualny stan:
+- poziom `6`
+- analiza katalogu `src`
+
+Wym?g dla hub?w:
+- wszystkie nowe klasy i serwisy maj? przechodzi? `phpstan`
+- wdro?enie nie mo?e zwi?kszy? liczby ostrze?e? bez realnego uzasadnienia
+- nowe ignorowania b??d?w tylko w ostateczno?ci
+
+Minimalny pakiet kontroli:
+- `phpstan` dla ca?ego `src`
+- `php -l` dla zmienionych plik?w
+- testy modu?owe
+- testy funkcjonalne panelu gracza
+- testy funkcjonalne panelu admina
+
+### 34.7. Definicja gotowo?ci funkcji
+
+Funkcja jest uznana za gotow? dopiero gdy:
+- zapisuje dane
+- wp?ywa na stan gry
+- ma poprawny komunikat
+- ma poprawny log
+- przechodzi walidacj?
+- nie rozwala ticka
+- przechodzi testy
+
+---
+
+## 35. Poprawki i uwagi techniczne (code review 2026-05-09)
+
+### 35.1. NAPRAWIONE — `buildEmptyResult` dawał darmowy pass-through
+
+**Problem:** `HubTickService::buildEmptyResult()` (wywoływane gdy `status IN [disabled, building, paused]`)
+zwracało `processed_bbl = $inputBbl` — cały wolumen przechodził przez nieaktywny hub bez żadnych strat.
+Odwiert podłączony do wyłączonego huba działał *lepiej* niż na fallbacku (brak ograniczenia przepustowości).
+
+**Naprawa:** `buildEmptyResult` teraz wywołuje `applyFallback($inputBbl, $deltaHours)`.
+Wolumen powyżej limitu fallback jest tracony, identycznie jak u odwiertu bez żadnego huba.
+Hub w stanie paused/disabled/building nie zużywa się ani nie zmienia statusu.
+
+**Pliki:** `src/HubTickService.php` + `tests/Integration/HubTickServiceTest.php`
+(test `testPausedHubPassesThroughAllVolume` → `testPausedHubAppliesFallbackNotPassThrough`)
+
+---
+
+### 35.2. NAPRAWIONE — cooldown można było obejść po detach
+
+**Problem:** `HubAssignmentService::validateAssignment()` sprawdzało tylko aktywne przypisania
+(`getWellAssignment` → `WHERE status = 'active'`). Po detach/transfer odwiertu status zmienia się
+na `'detached'` — więc gracz mógł natychmiast przypisać odwiert do innego huba,
+omijając 4-godzinny cooldown.
+
+**Naprawa:** Dodano prywatną metodę `getCooldownAssignment(int $wellId): ?array` która
+sprawdza `WHERE status = 'detached' AND cooldown_until > NOW()`. Wywołana w `validateAssignment()`
+po sprawdzeniu `already_assigned`; zwraca błąd `cooldown_active` jeśli cooldown wciąż aktywny.
+
+Transfer między hubami (`skipCurrentCheck = true`) celowo pomija ten check — przeniesienie
+w trakcie aktywnego przypisania to operacja dozwolona; cooldown nalicza się po transferze
+na starym przypisaniu.
+
+**Plik:** `src/HubAssignmentService.php`
+
+---
+
+### 35.3. UWAGA — kalibracja wear przy overload + max mode
+
+Formuła: `$wear = $baseWear * $wearMult * $deltaHours * (overloaded ? $overWearMul * $overloadFactor : 1)`
+
+Przy max mode + 200% obciążeniu (medium hub):
+- `baseWear = 0.04`, `wearMult = 1.80`, `overWearMul = 2.8`, `overloadFactor = 2.0`
+- wynikowy wear = `0.04 * 1.80 * 2.8 * 2.0 = 0.4032` na tick
+
+Degradacja od 100 → 30 (próg "damaged") = ~174 ticki ≈ 7 dni przy ticku co godzinę.
+Uznano za akceptowalne dla balance gry. Jeśli zajdzie potrzeba zmian,
+wystarczy edytować `overload_wear_mult` w `logistics_hub_config` bez zmian kodu.
+
+---
+
+---
+
+## 36. Rewizja architektury — huby systemowe (2026-05-09)
+
+### 36.1. Zmiana fundamentalna: gracz NIE buduje hubów
+
+**Decyzja:** Huby przeładunkowe są infrastrukturą **systemową** (`player_id = 0`).
+Gracz przypisuje swoje odwierty do istniejących hubów — nie buduje ich.
+Administrator tworzy huby z poziomu panelu `/admin/logistics_hubs.php`.
+
+**Docelowa gęstość:** 20 małych + 20 średnich + 20 dużych = **60 hubów per region**.
+Tworzenie za pomocą SQL seeda (`sql/logistics_hubs_seed.sql`) lub masowego narzędzia w panelu admina.
+
+**Uzasadnienie gameplayowe:**
+- Hub to infrastruktura jak drogi — istnieje w regionie, nie należy do gracza
+- Gracz zarządza *dostępem* (przypisaniem odwiertów), a nie *własnością* infrastruktury
+- Eliminuje barierę wejścia (gracz nie musi mieć kapitału na budowę huba od zera)
+- Admin kontroluje dostępność i jakość infrastruktury w regionach
+
+---
+
+### 36.2. Aktualny stan plików (po refaktorze traitów 2026-05-09)
+
+#### Serwisy główne
+
+| Plik | Linie | Opis |
+|------|-------|------|
+| `src/HubService.php` | 40L | Agregator traitów — tylko `use` + konstruktor |
+| `src/HubViewService.php` | 29L | Agregator traitów widoku |
+| `src/HubAssignmentService.php` | 244L | assign/detach/transfer + `AssignmentValidationTrait` |
+| `src/HubTickService.php` | 191L | `processTick` + `applyFallback` + 2 traity |
+| `src/HubIncidentService.php` | 146L | Generowanie incydentów + 2 traity + 3 gettery |
+| `src/HubEconomyService.php` | 130L | `getOpex`, `getRepairCost`, `getUpgradeCost` |
+| `src/HubApi.php` | 243L | HTTP endpoint: assign/detach/transfer (gracz) + admin actions |
+
+#### Traity `src/Hub/`
+
+| Trait | Linie | Używany przez |
+|-------|-------|--------------|
+| `ConfigTrait.php` | 142L | `HubService` |
+| `QueryTrait.php` | 39L | `HubService` — tylko `getHub()` |
+| `AdminQueryTrait.php` | 91L | `HubService` — `getAllHubs`, tick stats, events |
+| `PlayerQueryTrait.php` | 107L | `HubService` — `getPlayerHubs`, `getRegionHubs`, `getUnassignedWells`, `getPlayerRegionIds` |
+| `AssignmentQueryTrait.php` | 69L | `HubService` — `getWellAssignment`, `getHubWells`, `getHubWellsForPlayer` |
+| `AdminActionsTrait.php` | 320L | `HubService` — `buildHub`, `repairHub`, `upgradeHub`, `setWorkMode`, `toggleHubPause`, `renameHub`, `adminSetStatus`, `adminSetCondition` |
+| `EventsTrait.php` | 43L | `HubService` — `createEvent`, `getRepairCost` |
+| `AssignmentValidationTrait.php` | 109L | `HubAssignmentService` |
+| `ViewSummaryTrait.php` | 160L | `HubViewService` — `getRegionSummary` + helpery |
+| `ViewHubsTrait.php` | 202L | `HubViewService` — `getHubCards`, `getAlerts`, `getHubDetail`, `getAssignableHubs`, `getAvailableHubsByRegion` |
+| `TickCalculationsTrait.php` | 103L | `HubTickService` — czyste obliczenia (bez DB) |
+| `TickPersistTrait.php` | 80L | `HubTickService` — zapis do DB |
+| `IncidentRiskTrait.php` | 75L | `HubIncidentService` — stałe + `calcRiskMultiplier` |
+| `IncidentEffectsTrait.php` | 124L | `HubIncidentService` — `generateIncident`, `saveEvent`, `notifyPlayer` |
+
+#### Pozostałe pliki modułu
+
+| Plik | Status |
+|------|--------|
+| `sql/logistics_hubs.sql` | ✅ gotowe — 6 tabel + `zone_key` na `wells` |
+| `sql/logistics_hubs_seed.sql` | ✅ gotowe — masowy seed hubów per region |
+| `sql/logistics_region_zones_seed.sql` | ✅ gotowe |
+| `templates/views/logistics/main.php` | ✅ widok gracza bez build modal |
+| `admin/logistics_hubs.php` | ✅ panel admina (przegląd, CRUD, seed) |
+| `assets/js/logistics_hubs.js` | ✅ AJAX akcje + modale |
+| `assets/css/logistics.css` | ❌ **BRAKUJE** |
+| `public/logistics.php` | ❌ **BRAKUJE** (kontroler gracza) |
+| `src/Tick/WellLoopSection.php` | ✅ zintegrowany (hub jako warstwa przed transportem) |
+
+---
+
+### 36.3. Model opłat za hub (per-slot)
+
+Ponieważ hub jest systemowy i wspólny dla wielu graczy, opłata za korzystanie naliczana jest proporcjonalnie:
+
+```
+usageFee = (opex_per_tick / slot_limit) × liczba_własnych_studni × mode_mult × cond_mult
+```
+
+**`cond_mult`** — kara za kondycję huba (zdegradowany hub = droższe utrzymanie per gracz):
+
+| Kondycja huba | `cond_mult` |
+|---------------|-------------|
+| ≥ 70%         | ×1.00       |
+| 50–70%        | ×1.10       |
+| 30–50%        | ×1.25       |
+| 20–30%        | ×1.50       |
+| ≤ 20%         | ×1.80       |
+
+Przykład: hub medium (opex = 1200 PLN, 4 sloty), gracz ma 2 studnie, kondycja 45%:
+- opłata = (1200 / 4) × 2 × 1.0 × **1.25** = **750 PLN/tick**
+
+Gracz z 1 studnią i kondycją 100% zapłaci 300 PLN. Hub z 4 studniami (2 graczy × 2) pokrywa pełny OPEX.
+Kara zachęca graczy do przypisywania studni do hubów w dobrej kondycji.
+
+---
+
+### 36.4. Checklist wdrożenia (aktualizacja 2026-05-09)
+
+- [x] `QueryTrait` — model bez własności gracza, podzielony na Admin/Player/AssignmentQueryTrait
+- [x] `ActionsTrait` → `AdminActionsTrait` — admin-only, `player_id = 0`
+- [x] `HubAssignmentService` — `AssignmentValidationTrait` wydzielony
+- [x] `HubViewService` — `ViewSummaryTrait` + `ViewHubsTrait`
+- [x] `HubTickService` — `TickCalculationsTrait` + `TickPersistTrait`
+- [x] `HubIncidentService` — `IncidentRiskTrait` + `IncidentEffectsTrait`
+- [x] `HubApi.php` — blokada akcji admin dla graczy
+- [x] `WellLoopSection` — OPEX per-slot zamiast full OPEX, hub jako warstwa przed transportem
+- [x] Template gracza `templates/views/logistics/main.php` — bez build modal; usunięta sekcja avail hubów (10.05.2026)
+- [x] `public/logistics.php` — usunięte `$hubAvailByRegion` + wywołanie `getAvailableHubsByRegion()` (10.05.2026)
+- [x] Panel admina `admin/logistics_hubs.php` — przegląd, CRUD, seed masowy, paginacja, filtry, grupowanie wg regionu, PL etykiety, modale, kolorystyka #222/#383838
+- [x] SQL seed `sql/logistics_hubs_seed.sql`
+- [x] `lang/pl.php` — klucze `logistics.hub.*`
+- [ ] **`assets/css/logistics.css`** — plik BRAKUJE (klasy avail już nieużywane; sprawdzić które klasy nadal potrzebne)
+- [ ] Testy: `HubAssignmentServiceTest` — zaktualizować (hub systemowy)
+- [ ] Testy: `HubApiTest` — blokada admin actions dla graczy
+- [ ] Panel admina: sekcje konfiguracji typów/trybów/fallbacku
+- [ ] Panel admina: widok przeciążeń + narzędzia GM
+- [ ] `GAME_README.md` — dodać sekcję o systemie hubów
+
+---
+
+## 37. Co pozostało do wdrożenia (stan 2026-05-09)
+
+### 37.1. KRYTYCZNE — bez tego system nie działa dla gracza
+
+| Co | Plik | Uwagi |
+|----|------|-------|
+| ~~Kontroler gracza~~ | `public/logistics.php` | ✅ Istnieje — `$hubAvailByRegion` usunięte 10.05.2026 |
+| CSS logistyki | `assets/css/logistics.css` | Plik nie istnieje; klasy avail (`hub-avail-card`, `hub-region-group`) już nieużywane — sprawdzić które klasy faktycznie brakują |
+
+### 37.2. WAŻNE — panel admina niekompletny
+
+Obecny `admin/logistics_hubs.php` ma: przegląd hubów, tworzenie, seed, edycja statusu/kondycji.
+
+**Brakuje:**
+- sekcja konfiguracji typów hubów (edycja `logistics_hub_config` dla `small/medium/large`)
+- sekcja konfiguracji trybów pracy (`eco/standard/max` — throughput/wear/opex/risk mult)
+- sekcja konfiguracji fallbacku (bez huba)
+- widok przeciążeń i strat per region
+- narzędzia GM: reset bufora, przepnij odwiert, usuń hub, wymuś naprawę
+
+### 37.3. TESTY — do uzupełnienia
+
+| Test | Stan | Co zrobić |
+|------|------|-----------|
+| `HubAssignmentServiceTest.php` (96L) | Częściowy | Zaktualizować — hub nie musi należeć do gracza |
+| `HubIncidentServiceTest.php` (348L) | Obecny | Sprawdzić pokrycie po wydzieleniu traitów |
+| `HubServiceTest.php` (233L) | Obecny | Sprawdzić — metody przeniesione do traitów |
+| `HubTickServiceTest.php` (515L) | Dobry | Sprawdzić po wydzieleniu `TickCalculationsTrait` |
+| `HubApiTest` | **BRAKUJE** | Stworzyć — blokada admin actions dla graczy |
+
+### 37.4. DOKUMENTACJA
+
+- `GAME_README.md` — brak sekcji o systemie hubów przeładunkowych
+
+---
+
+## 38. Brief: Ryzyko logistyczne i stan techniczny hubów — analiza wdrożenia (2026-05-09)
+
+### 38.1. Co zostało wdrożone
+
+#### ✅ Realna przepustowość zależna od condition
+
+`HubTickService::processTick()` → `calcConditionFactor($condPct)`:
+- `≤20%` → 10% nominalnej przepustowości (`THROUGHPUT_FACTOR_CRITICAL`)
+- `≤30%` → 30% nominalnej (`THROUGHPUT_FACTOR_DAMAGED`)
+- `>30%` → liniowe `condPct / 100`
+
+Realnie wdrożone, progowe, odczuwalne.
+
+#### ✅ Ryzyko incydentów zależne od condition + load (model łączony)
+
+`HubIncidentService::calcRiskMultiplier()`:
+
+| condition | mnożnik ryzyka |
+|-----------|---------------|
+| ≤20% | ×6.0 |
+| <30% | ×3.0 |
+| <50% | ×1.8 |
+| <70% | ×1.3 |
+| ≥70% | ×1.0 |
+
++ load: `>120%` → ×3.0, `>100%` → ×2.0, `>80%` → ×1.4
+
+Model łączony działa — niski condition + wysoki load = ekstremalne ryzyko.
+
+#### ✅ Straty logistyczne z powodu stanu technicznego
+
+`calcConditionLoss()` generuje bezpośrednie straty wolumenu:
+- `≤20%`: 15–25% wolumenu traconego + ×1.8 przy overload
+- `≤30%`: 8–15%
+- `≤50%`: 3–8%
+- `50–70%`: 1–3%
+- `≥70%`: brak strat
+
+#### ✅ Tempo degradacji rośnie przy złym stanie
+
+Wear loop w `processTick()`:
+```php
+if ($condPct <= COND_CRITICAL) { $wear *= 2.0; }
+elseif ($condPct <= COND_DAMAGED) { $wear *= 1.4; }
+```
+Hub w stanie krytycznym degraduje się 2× szybciej.
+
+#### ✅ Próg krytyczny 20% — status `critical`
+
+`deriveStatus()` → `if ($newCondition <= COND_CRITICAL) return 'critical'`
+
+Hub w `critical` jest oznaczony w tick stats i dostępny w alertach UI.
+
+#### ✅ Incydenty obejmują wszystkie wymagane typy
+
+6 typów z briefa: `transfer_failure`, `equipment_damage`, `local_leak`, `loading_error`, `storage_jam`, `critical_overload` — wszystkie zaimplementowane w `IncidentRiskTrait`.
+
+#### ✅ Ostrzeżenie przy przypisaniu do huba w złym stanie
+
+`AssignmentValidationTrait::validateAssignment()`:
+- `≤20%` → `warning: 'condition_critical'`
+- `≤40%` → `warning: 'condition_low'`
+
+Przypisanie nadal możliwe — z ostrzeżeniem, nie blokadą (zgodnie z briefem).
+
+#### ✅ Alerty UI dla gracza
+
+`ViewHubsTrait::getAlerts()`:
+- `condition < 30%` → alert `critical`
+- `condition < 60%` → alert `warning`
+- hub overloaded → alert `critical`
+- straty logistyczne > 0 → alert `warning`
+- bufor ≥90% → alert `warning`
+- odwierty bez huba → alert `warning`
+
+---
+
+### 38.2. Co NIE zostało wdrożone z briefa
+
+#### ❌ Wpływ condition na OPEX / koszt utrzymania
+
+Brief: *„Zły stan może zwiększać koszt napraw i bieżącego utrzymania."*
+
+Obecny `HubEconomyService::getOpex()` — sprawdzić czy condition wpływa na OPEX.
+`getRepairCost()` istnieje i jest powiązane z condition, ale OPEX bieżący może być płaski.
+
+**Do zrobienia:** `getOpex()` powinien mnożyć przez `condition_opex_mult` zależny od stanu.
+
+#### ❌ Blokada przypisania przy ekstremalnie niskim condition (opcjonalna)
+
+Brief: *„opcjonalnie można zablokować przypisanie przy ekstremalnie niskim condition"*
+
+Obecny kod daje tylko ostrzeżenie. Blokada przy `condition < 10%` jest opcją do rozważenia przy balansie.
+
+#### ❌ UI pokazuje ryzyko przypisania przed kliknięciem
+
+Brief: *„UI powinno pokazać wysokie ryzyko"*
+
+`validateAssignment()` zwraca `warning` w odpowiedzi API — ale czy modal przypisania w `logistics_hubs.js` wyświetla to ostrzeżenie użytkownikowi przed potwierdzeniem? Do weryfikacji.
+
+#### ❌ Progi condition 100–0% — szczegółowa specyfikacja
+
+Brief kończy się propozycją: *„następny krok — progi condition 100–0% i dokładnie co dzieje się na każdym przedziale."*
+
+Obecne progi:
+- `>70%` — brak strat, pełna przepustowość, ryzyko bazowe
+- `50–70%` — straty 1–3%, ryzyko ×1.3
+- `30–50%` — straty 3–8%, ryzyko ×1.8
+- `20–30%` — straty 8–15%, throughput 30%, ryzyko ×3.0
+- `≤20%` — straty 15–25%, throughput 10%, ryzyko ×6.0, wear ×2.0
+
+Progi istnieją w kodzie — ale nie ma ich sformalizowanej dokumentacji w README jako tabela decyzyjna dla gracza i balansowania.
+
+---
+
+### 38.4. Tabela progów condition 100–0%
+
+| Przedział condition | Throughput | Straty wolumenu | Ryzyko incydentów | Wear | OPEX |
+|--------------------|------------|-----------------|-------------------|------|------|
+| 100–70% | 100% nominalnej | 0% | ×1.0 (bazowe) | ×1.0 | ×1.00 |
+| <70–51% | liniowe (69–51%) | 1–3% przetworzonego | ×1.3 | ×1.0 | ×1.10 |
+| 50–31% | liniowe (50–31%) | 3–8% przetworzonego | ×1.8 | ×1.0 | ×1.25 |
+| 30–21% | 30% nominalnej (próg damaged) | 8–15% | ×3.0 | ×1.4 | ×1.50 |
+| ≤20% | 10% nominalnej (próg krytyczny) | 15–25% | ×6.0 | ×2.0 | ×1.80 |
+
+**Dodatkowe efekty:**
+- Przy overload + niskim condition straty wolumenu mnożone przez ×1.8 (max 40%)
+- Status: `≤30%` → `damaged`, `≤20%` → `critical`
+- Ostrzeżenie przy przypisaniu odwiertu: `≤40%` → `condition_low`, `≤20%` → `condition_critical`
+- OPEX dotyczy `HubEconomyService::getOpex()` — naliczany per tick per gracz (per-slot)
+
+**Stałe w kodzie** (`HubTickService`):
+- `COND_CRITICAL = 20.0`
+- `COND_DAMAGED  = 30.0`
+- `COND_DEGRADED = 50.0`
+- `THROUGHPUT_FACTOR_CRITICAL = 0.10`
+- `THROUGHPUT_FACTOR_DAMAGED  = 0.30`
+
+---
+
+### 38.3. Podsumowanie zgodności z briefem
+
+| Wymaganie briefa | Stan |
+|-----------------|------|
+| Realna przepustowość zależna od condition | ✅ |
+| Ryzyko incydentów rośnie z niskim condition | ✅ |
+| Model łączony: condition + load = ryzyko | ✅ |
+| Straty logistyczne z kondycji | ✅ |
+| Tempo degradacji rośnie przy złym stanie | ✅ |
+| Próg krytyczny 20% | ✅ |
+| 6 typów incydentów logistycznych | ✅ |
+| Ostrzeżenie przy przypisaniu do złego huba | ✅ |
+| Alerty UI dla gracza | ✅ |
+| OPEX rośnie przy złym stanie | ✅ `HubEconomyService::getOpex()` — ×1.0–×1.80 |
+| Modal przypisania pokazuje warning condition | ✅ JS L312–316 + API `warn_condition_*` |
+| Specyfikacja progów 100–0% w dokumentacji | ✅ §38.4 |
+
+---
+
+## 33. Rzeczy, których nie wolno pominąć przy wdrożeniu
+
+1. spójność widok <-> backend
+2. modale zamiast natywnych dialogów
+3. tłumaczenia w `lang/pl.php`
+4. logi backendowe po angielsku
+5. testy przy większym zakresie zmian
+6. panel admina do konfiguracji i diagnostyki
+7. telemetria loss / load / overload
+8. fallback dla odwiertu bez huba
+9. brak osobnego mini-design-systemu
+10. działanie w ramach `GameShell`
+
+---
+
+## 39. Wdrożenia i zmiany — 10.05.2026
+
+### 39.1. Wdrożone
+
+#### UI / UX — panel admina (`admin/logistics_hubs.php` + `assets/css/admin.css`)
+
+- ✅ **Paginacja hubów** — 5 hubów/stronę, kompaktowa z wielokropkami (nie wszystkie strony)
+- ✅ **Filtrowanie** — po statusie, regionie i degradacji kondycji (ok / obniżona / zła / krytyczna)
+- ✅ **Grupowanie wg regionu** — złoty nagłówek sekcji regionalnej na liście hubów
+- ✅ **Nazwy przyjazne dla laika** — typy i tryby zmienione w `lang/pl.php`:
+  - `small` → `Mały (lokalny)`
+  - `medium` → `Średni (regionalny)`
+  - `large` → `Duży (kontynentalny)`
+  - `eco` → `Eco — mniejsze straty, wolniej`
+  - `standard` → `Standard — normalny ruch`
+  - `max` → `Turbo — szybko, ale zużywa hub`
+- ✅ **Kolorystyka** — pełna ciemna kolorystyka z złotymi akcentami; tła `#222`, ramki `#383838`
+- ✅ **Modale potwierdzenia** — repair / pause / resume przez modal (nie natywny `confirm()`)
+- ✅ **Polskie etykiety** — typ, status, tryb pracy w dl/dt/dd szczegółów huba
+- ✅ **Badge statusów** — zielony/żółty/czerwony/niebieski/pomarańczowy według statusu
+
+#### Widok gracza (`templates/views/logistics/main.php` + `public/logistics.php`)
+
+- ✅ **Usunięta sekcja "Dostępne huby systemowe w Twoich regionach"** — zbędna dla gracza, dezorientująca
+- ✅ **Usunięte `$hubAvailByRegion`** z kontrolera — eliminuje zbędne zapytanie do bazy per request
+  (`getAvailableHubsByRegion()` nie jest już wywoływane)
+
+#### Dział Pomocy — `sql/help_update_huby_2026_05_10.sql`
+
+- ✅ **Nowa strona helpa: `huby`** (sort_order=7, ikona 🏭) — opis dla laika:
+  - Czym jest hub (analogia stacji przeładunkowej)
+  - Typy hubów z praktycznym komentarzem kiedy który wybrać
+  - Tryby pracy z samochodową analogią (bieg)
+  - Znaczenie każdej liczby w karcie huba (kondycja, zużycie, sloty, poziom)
+  - Statusy huba po polsku z wyjaśnieniem
+  - 5 praktycznych wskazówek
+- ✅ **Aktualizacja strony `logistyka`** — dopisana sekcja "Huby logistyczne — fundament transportu" z odesłaniem do nowej strony
+
+> **Do wdrożenia w bazie:** uruchom `sql/help_update_huby_2026_05_10.sql` w phpMyAdmin na bazie `gra1`
+
+---
+
+### 39.2. Jeszcze do zrobienia (stan po 10.05.2026)
+
+#### KRYTYCZNE
+
+| Co | Plik | Uwagi |
+|----|------|-------|
+| Kontroler gracza | `public/logistics.php` | Istnieje — sprawdzić czy uruchamiany przez router |
+| CSS logistyki | `assets/css/logistics.css` | Klasy `.logistics-hub-avail-card`, `.logistics-hub-region-group` mogą być nadmiarowe po usunięciu sekcji avail |
+
+#### Panel admina — brakujące sekcje
+
+| Sekcja | Stan |
+|--------|------|
+| Konfiguracja typów hubów (`small/medium/large` — koszt/throughput/sloty/wear) | ❌ brakuje |
+| Konfiguracja trybów pracy (`eco/standard/turbo` — throughput/wear/opex/risk mult) | ❌ brakuje |
+| Konfiguracja fallbacku bez huba | ❌ brakuje |
+| Widok przeciążeń i strat per region | ❌ brakuje |
+| Narzędzia GM: reset bufora, przepnij odwiert, usuń hub | ❌ brakuje |
+
+#### Testy
+
+| Test | Stan |
+|------|------|
+| `HubApiTest` — blokada admin actions dla graczy | ❌ brakuje |
+| `HubAssignmentServiceTest` — zaktualizować (hub systemowy) | ❌ częściowy |
+| `HubIncidentServiceTest` — sprawdzić pokrycie po refaktorze | ❌ do weryfikacji |
+
+#### Dokumentacja
+
+| Co | Stan |
+|----|------|
+| `GAME_README.md` — sekcja o systemie hubów | ❌ brakuje |
+
+---
+
+## 40. Status wdrożenia warstwy biznesowej hubów
+
+### 40.1. Co jest już wdrożone
+
+Obecny system hubów w grze wspiera realnie:
+- 3 rozmiary / klasy infrastrukturalne hubów:
+  - `small`
+  - `medium`
+  - `large`
+- kondycję i zużycie infrastruktury:
+  - `condition_pct`
+  - `wear_level`
+- tryby pracy:
+  - `eco`
+  - `standard`
+  - `max`
+- statusy operacyjne huba:
+  - `active`
+  - `paused`
+  - `disabled`
+  - `building`
+  - oraz stany wynikające z przeciążenia / uszkodzeń
+- degradację, ryzyko incydentów, straty i przeciążenia
+- przypisywanie odwiertów do hubów w obrębie regionu / strefy
+
+To oznacza, że wdrożona jest już warstwa techniczna i operacyjna systemu hubów.
+
+### 40.2. Czego jeszcze nie ma
+
+Nie jest jeszcze wdrożona osobna warstwa biznesowa pozyskania huba:
+- `nowy hub`
+- `używany hub`
+- `hub na wynajem`
+
+W praktyce oznacza to, że gracz może dziś operować hubami o różnych rozmiarach,
+ale nie ma jeszcze decyzji typu:
+- kupić nowy,
+- kupić używany,
+- wejść w wynajem.
+
+### 40.3. Najważniejsza różnica
+
+Na dziś system rozróżnia:
+- **jaki hub masz** (`small / medium / large`)
+
+Nie rozróżnia jeszcze:
+- **w jakiej formie wszedłeś w ten hub** (`nowy / używany / wynajem`)
+
+To są dwie różne warstwy systemu i druga z nich nie została jeszcze wdrożona.
+
+### 40.4. Co powinno dojść w następnym etapie
+
+Aby domknąć system zgodnie z założeniami gameplayowymi, trzeba dodać drugą oś konfiguracji:
+
+#### Oś 1 — rozmiar huba
+- mały
+- średni
+- duży
+
+#### Oś 2 — sposób pozyskania
+- nowy
+- używany
+- wynajem
+
+Każdy z tych wariantów powinien móc mieć inne:
+- koszty wejścia
+- koszty stałe
+- kondycję startową
+- tempo degradacji
+- ryzyko incydentów
+- opłacalność napraw
+- możliwość lub ograniczenie upgrade'u
+
+### 40.5. Rekomendacja projektowa
+
+Najuczciwszy obecny status systemu brzmi:
+- **wdrożone są 3 typy techniczne hubów oraz ich degradacja**
+- **nie jest jeszcze wdrożony model `nowy / używany / wynajem`**
+
+Ta warstwa powinna zostać zaplanowana jako osobny etap rozbudowy logistyki,
+a nie być traktowana jako coś, co już działa.
+
+---
+
+## 41. Rozbudowa systemu hubów — model `nowy / używany / wynajem`
+
+### 41.1. Cel tej warstwy
+
+Drugi etap rozwoju hubów ma dodać nie tylko wybór rozmiaru infrastruktury,
+ale też wybór **modelu wejścia w hub**.
+
+Gracz nie powinien już decydować wyłącznie:
+- czy postawić `small`, `medium` czy `large`
+
+Powinien też decydować:
+- czy kupić hub nowy,
+- czy wejść taniej w używany,
+- czy wziąć hub na wynajem,
+- czy opłaca mu się szybkie wejście kosztem większego ryzyka lub gorszej marży.
+
+To ma być warstwa:
+- strategiczna,
+- finansowa,
+- i bardzo czytelna dla gracza.
+
+### 41.2. Dwie osie systemu
+
+Docelowo każdy hub powinien być opisany przez:
+
+#### Oś A — rozmiar
+- `small`
+- `medium`
+- `large`
+
+#### Oś B — model pozyskania
+- `new`
+- `used`
+- `rental`
+
+Przykłady:
+- `small + new`
+- `medium + used`
+- `large + rental`
+
+To daje znacznie więcej sensownych decyzji niż sam wybór wielkości.
+
+---
+
+## 42. Definicje biznesowe wariantów
+
+### 42.1. Nowy hub
+
+Charakterystyka:
+- najwyższy koszt wejścia,
+- najwyższa kondycja startowa,
+- najniższe ryzyko ukrytych problemów,
+- najlepsza przewidywalność kosztów,
+- pełna możliwość rozbudowy i modernizacji.
+
+Gameplayowo:
+- bezpieczny wybór dla stabilnych graczy,
+- opłacalny długoterminowo,
+- mniej awaryjny,
+- dobry dla regionów, które mają być fundamentem firmy.
+
+### 42.2. Używany hub
+
+Charakterystyka:
+- niższy koszt wejścia,
+- gorsza kondycja startowa,
+- większa niepewność techniczna,
+- wyższe ryzyko szybszego zużycia,
+- możliwe dodatkowe koszty po zakupie.
+
+Gameplayowo:
+- szybkie wejście w logistykę przy niższym cashu,
+- dobry dla agresywnej ekspansji,
+- ryzykowny przy słabym zapleczu technicznym,
+- może wymagać wcześniejszej naprawy albo szybszego remontu.
+
+### 42.3. Hub na wynajem
+
+Charakterystyka:
+- niski koszt wejścia,
+- wysoki koszt stały,
+- ograniczona kontrola,
+- ograniczona rozbudowa albo brak pełnego upgrade'u,
+- wygodny jako rozwiązanie przejściowe.
+
+Gameplayowo:
+- szybkie wejście do regionu,
+- dobre pod test regionu lub krótkoterminowy boom,
+- słabe jako rozwiązanie długoterminowe,
+- dobre dla gracza, który chce uniknąć dużego CAPEX-u na starcie.
+
+---
+
+## 43. Różnice między wariantami — tabela projektowa
+
+| Wariant | Koszt wejścia | OPEX | Kondycja startowa | Wear | Ryzyko incydentów | Upgrade |
+|--------|---------------|------|-------------------|------|-------------------|---------|
+| `new` | wysoki | niski / standard | 90–100% | niskie | niskie | pełny |
+| `used` | średni / niski | średni / wyższy | 45–80% | wyższe | wyższe | ograniczony lub pełny po remoncie |
+| `rental` | niski | wysoki | 70–95% | standard | średnie | ograniczony |
+
+To są wartości kierunkowe do balansowania, nie finalne liczby produkcyjne.
+
+---
+
+## 44. Startowe zakresy dla MVP
+
+### 44.1. Kondycja startowa
+
+- `new`:
+  - losowanie w zakresie `92–100%`
+- `used`:
+  - losowanie w zakresie `48–78%`
+- `rental`:
+  - losowanie w zakresie `72–92%`
+
+### 44.2. Mnożniki kosztów i ryzyk
+
+Przykładowe wartości pod MVP:
+
+- `new`
+  - `entry_cost_mult = 1.00`
+  - `opex_mult = 1.00`
+  - `wear_mult = 0.90`
+  - `incident_mult = 0.90`
+
+- `used`
+  - `entry_cost_mult = 0.70`
+  - `opex_mult = 1.15`
+  - `wear_mult = 1.35`
+  - `incident_mult = 1.25`
+
+- `rental`
+  - `entry_cost_mult = 0.30`
+  - `opex_mult = 1.45`
+  - `wear_mult = 1.00`
+  - `incident_mult = 1.10`
+
+### 44.3. Ograniczenia upgrade'u
+
+- `new`
+  - pełen upgrade od razu
+- `used`
+  - upgrade pełny dopiero po przywróceniu condition powyżej np. `75%`
+- `rental`
+  - tylko lekki upgrade operacyjny
+  - bez pełnej rozbudowy slotów / klasy huba
+
+### 44.4. Twarde liczby MVP — model bazowy
+
+Poniższe liczby są rekomendowanym punktem startowym do pierwszego wdrożenia.
+
+#### `small`
+
+| Wariant | CAPEX wejścia | OPEX | Start condition | Wear mult | Incident mult |
+|--------|----------------|------|-----------------|-----------|---------------|
+| `new` | 180 000 PLN | 100% bazowego | 95–100% | 0.90 | 0.90 |
+| `used` | 120 000 PLN | 115% bazowego | 55–78% | 1.35 | 1.25 |
+| `rental` | 45 000 PLN | 155% bazowego | 78–92% | 1.00 | 1.10 |
+
+#### `medium`
+
+| Wariant | CAPEX wejścia | OPEX | Start condition | Wear mult | Incident mult |
+|--------|----------------|------|-----------------|-----------|---------------|
+| `new` | 420 000 PLN | 100% bazowego | 94–100% | 0.90 | 0.90 |
+| `used` | 285 000 PLN | 118% bazowego | 52–75% | 1.35 | 1.25 |
+| `rental` | 95 000 PLN | 150% bazowego | 76–90% | 1.00 | 1.10 |
+
+#### `large`
+
+| Wariant | CAPEX wejścia | OPEX | Start condition | Wear mult | Incident mult |
+|--------|----------------|------|-----------------|-----------|---------------|
+| `new` | 820 000 PLN | 100% bazowego | 92–100% | 0.90 | 0.90 |
+| `used` | 560 000 PLN | 122% bazowego | 48–72% | 1.35 | 1.30 |
+| `rental` | 180 000 PLN | 148% bazowego | 74–88% | 1.00 | 1.12 |
+
+### 44.5. Jak rozumieć te liczby
+
+- `CAPEX wejścia`
+  - jednorazowy koszt wejścia w hub
+- `OPEX`
+  - mnożnik nakładany na bazowy koszt utrzymania typu `small / medium / large`
+- `Start condition`
+  - losowany zakres condition przy utworzeniu huba
+- `Wear mult`
+  - mnożnik zużycia w ticku
+- `Incident mult`
+  - mnożnik ryzyka incydentu
+
+### 44.6. Dodatkowe reguły MVP
+
+#### `new`
+- brak kary wejściowej po zakupie
+- pełna dostępność napraw i upgrade'u
+- brak dodatkowych ukrytych kosztów po zakupie
+
+#### `used`
+- 20% szansy na „ukrytą wadę” przy zakupie
+- ukryta wada może dać:
+  - `condition -5 do -12 pkt`
+  - albo tymczasowy `incident_mult +0.10` przez pierwsze 24h gry
+- pełny upgrade dopiero po podniesieniu condition do minimum `75%`
+
+#### `rental`
+- niski koszt wejścia, ale stały koszt czynszu
+- brak upgrade'u klasy huba
+- tylko upgrade lekki / operacyjny
+- rozwiązanie łatwe do wejścia, ale słabe do długiego trzymania
+
+### 44.7. Czynsz przy wynajmie
+
+W wariancie `rental` OPEX powinien być rozbity na:
+- bazowy OPEX typu huba
+- oraz osobny czynsz najmu
+
+Rekomendowane bazowe wartości czynszu:
+- `small rental` — `220 PLN / tick`
+- `medium rental` — `520 PLN / tick`
+- `large rental` — `980 PLN / tick`
+
+To daje adminowi i graczowi bardziej czytelny model:
+- koszt utrzymania operacyjnego
+- plus koszt samego najmu
+
+### 44.8. Efekt finansowy dla gracza
+
+Ten system powinien dawać trzy różne profile decyzji:
+
+#### `new`
+- największy koszt wejścia
+- najlepszy wynik długoterminowy
+- najmniej problemów technicznych
+
+#### `used`
+- tańsze wejście
+- większe ryzyko
+- opłacalne tylko wtedy, gdy gracz potrafi szybko naprawiać i utrzymywać infrastrukturę
+
+#### `rental`
+- bardzo niski próg wejścia
+- szybkie uruchomienie logistyki
+- wysokie koszty długoterminowe
+- dobry wariant pomostowy, zły wariant docelowy
+
+### 44.9. Twarde zasady MVP dla upgrade'u
+
+#### `new`
+- można od razu:
+  - naprawiać
+  - modernizować
+  - rozbudowywać
+
+#### `used`
+- naprawiać: tak
+- modernizować: tak
+- rozbudowywać sloty / klasę:
+  - dopiero od `condition >= 75%`
+
+#### `rental`
+- naprawiać: ograniczenie do lekkich napraw operacyjnych
+- modernizować: tylko małe buffy pracy
+- rozbudowywać sloty / klasę: nie
+
+### 44.10. Alerty i komunikaty dla gracza
+
+System powinien umieć pokazać graczowi jasne komunikaty:
+
+#### przy zakupie / wejściu
+- `Nowy hub — najwyższy koszt wejścia, najlepsza trwałość`
+- `Używany hub — tańszy, ale bardziej ryzykowny`
+- `Hub na wynajem — niski próg wejścia, wysoki koszt utrzymania`
+
+#### przy finansach
+- `Czynsz najmu hubów rośnie`
+- `Używane huby generują ponadnormatywne zużycie`
+- `Nowe huby mają najlepszy bilans długoterminowy`
+
+### 44.11. Rekomendacja pierwszego balansu
+
+Na start MVP rekomendowany balans jest taki:
+- `new` ma być najlepszy długoterminowo
+- `used` ma być najlepszy tylko przy ograniczonym cashu i dobrym zarządzaniu
+- `rental` ma być najlepszy wyłącznie jako szybkie wejście albo rozwiązanie przejściowe
+
+Jeśli po pierwszych testach:
+- `rental` wychodzi zbyt opłacalny długoterminowo
+  - podnieść czynsz
+- `used` wychodzi zbyt bezpieczny
+  - podnieść wear / incident mult
+- `new` wychodzi zbyt nieatrakcyjny
+  - obniżyć CAPEX lub zwiększyć przewagę condition / ryzyka
+
+---
+
+## 45. Wpływ na tick i gospodarkę gry
+
+Nowa warstwa powinna wpływać bezpośrednio na:
+
+1. **CAPEX**
+- koszt zakupu / wejścia w hub
+
+2. **OPEX**
+- koszt godzinowy / tickowy utrzymania
+
+3. **Kondycję startową**
+- ile gracz dostaje „na dzień dobry”
+
+4. **Tempo degradacji**
+- jak szybko hub schodzi z condition przy obciążeniu
+
+5. **Ryzyko incydentów**
+- szczególnie dla `used`
+
+6. **Dostępność upgrade'u**
+- pełna / ograniczona / zablokowana do czasu naprawy
+
+7. **Zwrot z inwestycji**
+- wynajem może być najlepszy krótkoterminowo,
+- nowy może być najlepszy długoterminowo,
+- używany może być najlepszy oportunistycznie.
+
+---
+
+## 46. Co gracz powinien widzieć w UI
+
+### 46.1. Przy pozyskiwaniu huba
+
+Gracz powinien widzieć:
+- typ huba,
+- model pozyskania,
+- koszt wejścia,
+- przewidywany koszt utrzymania,
+- kondycję startową,
+- ryzyko,
+- ograniczenia upgrade'u,
+- krótką ocenę typu:
+  - `Dobre na start`
+  - `Ryzykowna okazja`
+  - `Wysoki koszt stały`
+
+### 46.2. Na karcie huba
+
+Karta huba powinna pokazywać:
+- `Nowy`
+- `Używany`
+- `Wynajem`
+
+Nie jako mały techniczny kod, tylko jako czytelny badge biznesowy.
+
+### 46.3. W logistyce i finansach
+
+System powinien potem umieć powiedzieć:
+- ile kosztują huby wynajmowane,
+- które używane huby generują największe ryzyko,
+- czy gracz przepłaca za wynajem,
+- czy nowy hub był lepszą decyzją niż używany.
+
+---
+
+## 47. Co powinien widzieć admin
+
+Admin powinien konfigurować:
+- mnożniki dla `new / used / rental`,
+- zakres condition startowego,
+- zakresy cen,
+- mnożniki wear,
+- mnożniki incident risk,
+- ograniczenia upgrade'u,
+- dostępność wariantów per region / event / etap gry.
+
+Admin powinien też mieć monitoring:
+- ile hubów gracze mają nowych,
+- ile używanych,
+- ile wynajmowanych,
+- jaki jest średni koszt i średni stan każdej grupy.
+
+### 47.1. Dostęp z panelu admina
+
+Ta warstwa nie może być tylko „w kodzie”.
+
+Panel admina powinien mieć osobny dostęp do:
+- tworzenia huba jako:
+  - `new`
+  - `used`
+  - `rental`
+- edycji już istniejącego huba:
+  - zmiana `acquisition_type`
+  - korekta condition startowego / bieżącego
+  - korekta kosztu wejścia
+  - korekta kosztu stałego / czynszu
+- konfiguracji globalnej per wariant:
+  - `new`
+  - `used`
+  - `rental`
+- podglądu listy hubów z filtrem:
+  - po rozmiarze
+  - po modelu pozyskania
+  - po regionie
+  - po stanie kondycji
+  - po statusie
+
+### 47.2. Widoki panelu, które trzeba dodać
+
+Panel powinien dostać co najmniej:
+
+1. **Konfiguracja wariantów hubów**
+- osobne sekcje dla:
+  - `Nowy`
+  - `Używany`
+  - `Wynajem`
+- z możliwością ustawienia:
+  - CAPEX
+  - OPEX
+  - start condition
+  - wear mult
+  - incident mult
+  - ograniczeń upgrade'u
+
+2. **Lista hubów z modelem pozyskania**
+- tabela wszystkich hubów z kolumną:
+  - `Model pozyskania`
+- szybkie badge:
+  - `Nowy`
+  - `Używany`
+  - `Wynajem`
+
+3. **Edycja pojedynczego huba**
+- zmiana modelu pozyskania
+- wymuszenie przeliczenia kosztów
+- ustawienie czynszu przy wynajmie
+- ustawienie blokady upgrade'u
+
+4. **Monitoring i diagnostyka**
+- ile hubów wynajmowanych generuje ujemny bilans
+- ile używanych ma condition krytyczne
+- które regiony są oparte głównie na wynajmie
+- które huby używane generują ponadnormatywne incydenty
+
+### 47.3. Zasada projektowa
+
+Jeśli dodajemy `new / used / rental`, to:
+- musi to być widoczne dla gracza,
+- musi to być konfigurowalne z panelu,
+- musi to być czytelne diagnostycznie dla admina.
+
+Bez tego powstanie warstwa, której nie da się sensownie balansować i utrzymywać.
+
+## 48. Zmiany danych i modelu
+
+Do wdrożenia potrzebna będzie nowa warstwa w danych, np.:
+
+### 48.1. W `logistics_hubs`
+
+Nowe pola:
+- `acquisition_type` (`new`, `used`, `rental`)
+- `acquisition_cost`
+- `acquired_at`
+- `upgrade_locked_until` lub flaga ograniczeń
+
+Opcjonalnie:
+- `initial_condition_pct`
+- `lease_fee_per_tick`
+- `owner_type` jeśli kiedyś dojdzie operator zewnętrzny
+
+### 48.2. W configu
+
+Nowa konfiguracja per wariant:
+- koszt wejścia,
+- koszt stały,
+- start condition,
+- wear mult,
+- incident mult,
+- upgrade policy.
+
+### 48.3. Jak system łączy się dzisiaj w kodzie
+
+Obecny system hubów jest już spięty z kilkoma warstwami gry:
+
+#### A. Dane główne huba
+Tabela:
+- `logistics_hubs`
+
+Zawiera dziś m.in.:
+- `hub_type`
+- `status`
+- `work_mode`
+- `condition_pct`
+- `wear_level`
+- `slot_limit`
+- `nominal_capacity_bph`
+- `real_capacity_bph`
+- `buffer_capacity_bbl`
+- `buffer_current_bbl`
+- `opex_per_tick`
+
+#### B. Przypisania odwiertów
+Tabela:
+- `logistics_hub_assignments`
+
+To ona spina:
+- `hub_id`
+- `well_id`
+- `status`
+- `cooldown_until`
+
+Czyli realna relacja działa dziś jako:
+
+`odwiert -> aktywne przypisanie -> hub`
+
+#### C. Strefy regionalne
+Tabela:
+- `logistics_region_zones`
+
+To ona odpowiada za:
+- `zone_key`
+- kary strefowe
+- ryzyko / OPEX / dystans w obrębie regionu
+
+#### D. Tick huba
+Serwisy i miejsca spięcia:
+- `HubService`
+- `HubAssignmentService`
+- `HubTickService`
+- `HubIncidentService`
+- `Tick/WellLoopSection.php`
+
+#### E. Finanse
+Straty i koszty hubów są już dziś zapisywane do:
+- `finance_logs`
+
+W praktyce Finanse czytają:
+- koszt użycia hubów
+- straty hubowe
+- straty odwiertów bez huba
+- straty incydentów hubowych
+
+### 48.4. Najważniejsza obecna cecha architektury
+
+Obecny kod działa na założeniu:
+- **huby są infrastrukturą systemową**
+- gracz **nie posiada ich jeszcze jako klasycznego aktywa**
+- gracz przypisuje do nich swoje odwierty
+
+To widać wprost w:
+- `HubAssignmentService`
+
+gdzie opis i walidacja są oparte o model:
+- hub systemowy
+- odwiert gracza
+- przypisanie do dostępnej infrastruktury
+
+To jest bardzo ważne, bo rozbudowa `new / used / rental` może pójść dwiema różnymi drogami.
+
+---
+
+## 49. Dwa możliwe modele wdrożenia `new / used / rental`
+
+### 49.1. Model A — hub dalej jest systemowy, gracz wybiera formę dostępu
+
+W tym modelu:
+- hub fizycznie pozostaje elementem infrastruktury systemu / regionu
+- gracz nie „stawia” własnego obiektu od zera
+- gracz kupuje:
+  - nowy kontrakt dostępu,
+  - używany kontrakt,
+  - wynajem slotów / eksploatacji
+
+To znaczy, że:
+- `new / used / rental` opisuje **umowę / formę dostępu**
+- a nie pełne właścicielstwo obiektu
+
+Zalety:
+- mniejszy refaktor obecnego systemu
+- łatwiejsze wdrożenie
+- mniej zmian w ticku i przypisaniach
+
+Wady:
+- mniej „namacalne” poczucie posiadania huba przez gracza
+- bardziej abstrakcyjny model biznesowy
+
+### 49.2. Model B — hub staje się prawdziwym aktywem gracza
+
+W tym modelu:
+- gracz realnie nabywa hub
+- `player_id` przestaje być tylko technicznym polem i staje się właścicielem infrastruktury
+- `new / used / rental` opisuje realny model wejścia w aktywo
+
+To oznacza:
+- budowę / zakup przez gracza
+- pełny koszt wejścia
+- pełną odpowiedzialność za kondycję i OPEX
+- wynajem jako szczególną formę użytkowania aktywa
+
+Zalety:
+- bardziej naturalna ekonomia i większa głębia
+- lepsze spięcie z Finansami, bilansem firmy i aktywami
+
+Wady:
+- większy refaktor
+- trzeba przejrzeć:
+  - ownership
+  - admin tools
+  - tick
+  - uprawnienia
+  - UI logistyki
+
+### 49.3. Rekomendacja
+
+Jeśli chcemy rozbudować huby naprawdę porządnie i długoterminowo,
+lepszy jest:
+
+- **Model B — hub jako aktywo gracza**
+
+Jeśli chcemy dojść tam etapami bez dużego ryzyka regresji,
+dobry etap przejściowy to:
+
+- najpierw lekka wersja Modelu A,
+- a potem przejście do pełnego Modelu B.
+
+Najuczciwiej jednak:
+- jeśli mówimy o `nowy / używany / wynajem`,
+- to semantycznie dużo lepiej pasuje do **aktywów gracza** niż do czysto systemowych hubów.
+
+---
+
+## 50. Jak wpiąć `new / used / rental` w obecny system
+
+### 50.1. Minimalny wariant bez rozwalania istniejących połączeń
+
+Najbezpieczniejszy wariant wdrożenia:
+
+1. dodać do `logistics_hubs` pola:
+- `acquisition_type`
+- `acquisition_cost`
+- `lease_fee_per_tick`
+- `initial_condition_pct`
+
+2. nie ruszać od razu relacji:
+- `odwiert -> assignment -> hub`
+
+3. pozwolić tickowi czytać nowe pola tylko jako dodatkowe mnożniki:
+- OPEX
+- wear
+- incident risk
+- upgrade policy
+
+To oznacza:
+- obecny model przypisań zostaje
+- ale hub dostaje nową warstwę biznesową
+
+### 50.2. Miejsca, które trzeba dotknąć
+
+#### Baza
+- `logistics_hubs`
+- `logistics_hub_config`
+
+#### Backend
+- `HubService`
+- `HubAssignmentService`
+- `HubTickService`
+- `HubIncidentService`
+- `HubEconomyService`
+
+#### Tick
+- `Tick/WellLoopSection.php`
+
+#### Finanse
+- `FinanceService`
+- `finance_logs`
+
+#### UI gracza
+- `public/logistics.php`
+- `templates/views/logistics/main.php`
+
+#### Admin
+- `admin/logistics_hubs.php`
+- adminowe widoki i config
+
+### 50.3. Co powinno wejść do ticka
+
+Tick powinien czytać z modelu `new / used / rental`:
+- mnożnik OPEX
+- mnożnik wear
+- mnożnik incident risk
+- ewentualny czynsz najmu
+- ograniczenia upgrade'u
+
+To powinno działać podobnie jak obecne:
+- `hub_type`
+- `work_mode`
+- `condition_pct`
+
+Czyli nowa warstwa ma być **nakładką na istniejący system**, a nie osobnym silnikiem obok.
+
+---
+
+## 51. Etap wdrożenia tej warstwy
+
+### Etap 1
+- model danych
+- config wariantów
+- backend zakupu / tworzenia huba z wariantem
+
+### Etap 2
+- UI gracza: wybór `new / used / rental`
+- badże i opisy na kartach hubów
+
+### Etap 3
+- wpływ na tick:
+  - OPEX
+  - wear
+  - condition
+  - incidents
+
+### Etap 4
+- panel admina:
+  - config
+  - monitoring
+  - balans
+  - pełna obsługa `new / used / rental`
+
+### Etap 5
+- spięcie z Finansami:
+  - koszt wynajmu
+  - opłacalność
+  - ryzyko
+
+---
+
+## 52. Rekomendacja końcowa
+
+Najlepsza rozbudowa hubów na teraz to:
+- **zostawić obecną warstwę techniczną bez rozwalania tego, co działa**
+- i dołożyć na nią osobną warstwę biznesową:
+  - `new`
+  - `used`
+  - `rental`
+
+To da:
+- więcej decyzji,
+- więcej sensu w Finansach,
+- większą rolę Logistyki,
+- i naturalny most między CAPEX-em, ryzykiem a operacją.
+
+---
+
+## 53. Rurociągi jako osobny system infrastruktury
+
+### 53.1. Problem obecnego modelu
+
+Obecny model rurociągu jest zbyt uproszczony:
+- działa jak wspólny, ogólny kanał transportu,
+- nie buduje realnej odpowiedzialności infrastrukturalnej per odwiert,
+- nie daje sensownego miejsca na degradację, konserwację i awarie pojedynczej linii.
+
+Przy rozbudowie Modelu B dla hubów to zaczyna być zbyt płaskie.
+
+Jeśli:
+- hub jest aktywem,
+- logistyka ma być realnym systemem,
+- techniczny i BHP mają mieć sens operacyjny,
+
+to rurociąg też powinien być traktowany jako **realna infrastruktura**, a nie jako wspólny abstrakcyjny mnożnik.
+
+### 53.2. Rekomendacja projektowa
+
+Docelowo należy przejść na zasadę:
+
+- **jeden rurociąg = jeden odwiert**
+
+To znaczy:
+- odwiert może mieć własny rurociąg,
+- rurociąg może prowadzić do przypisanego huba,
+- brak rurociągu oznacza konieczność korzystania z alternatywnego transportu,
+- stan rurociągu wpływa na realny wynik odwiertu.
+
+Nie robimy modelu:
+- jeden wspólny rurociąg dla całej firmy,
+- jeden wspólny stan dla wszystkich odwiertów.
+
+### 53.3. Co oznacza „jeden rurociąg do jednego odwiertu”
+
+Każdy odwiert powinien mieć własną warstwę przesyłową:
+- brak rurociągu,
+- rurociąg aktywny,
+- rurociąg uszkodzony,
+- rurociąg przeciążony,
+- rurociąg w naprawie,
+- rurociąg wyłączony.
+
+To pozwala odróżnić:
+- odwiert dobrze przygotowany infrastrukturalnie,
+- odwiert tymczasowy,
+- odwiert zaniedbany,
+- odwiert, który generuje ryzyko i koszty.
+
+### 53.4. Rurociąg jako aktywo per odwiert
+
+Każdy rurociąg powinien mieć własne dane:
+- `well_id`
+- `status`
+- `condition_pct`
+- `wear_level`
+- `throughput_bph`
+- `loss_pct`
+- `incident_risk_mult`
+- `opex_per_tick`
+- `created_at`
+- `last_maintenance_at`
+
+Opcjonalnie później:
+- długość / dystans
+- trudność terenu
+- typ linii
+- materiał / klasa jakości
+
+### 53.5. Degradacja rurociągu
+
+Rurociąg musi być mocno degradujący się w czasie, szczególnie gdy:
+- odwiert pracuje intensywnie,
+- rurociąg jest przeciążony,
+- stan techniczny spada,
+- brakuje konserwacji,
+- BHP nie wyrabia z kontrolą infrastruktury.
+
+Rurociąg nie może być „wieczny”.
+
+To powinno wpływać na:
+- straty przesyłowe,
+- przepustowość,
+- ryzyko incydentów,
+- koszt utrzymania,
+- konieczność napraw.
+
+### 53.6. Stany rurociągu
+
+Minimalny zestaw stanów:
+- `active`
+- `degraded`
+- `damaged`
+- `critical`
+- `repairing`
+- `disabled`
+
+Progi przykładowe:
+- `100–70%` — stan dobry
+- `69–50%` — stan obniżony
+- `49–30%` — stan zły
+- `29–15%` — stan krytyczny
+- `<=14%` — bardzo wysokie ryzyko awarii / dużych strat
+
+### 53.7. Jak rurociąg ma się łączyć z hubem
+
+Docelowy flow powinien wyglądać tak:
+
+`odwiert -> rurociąg -> hub -> dalsza logistyka -> magazyn / sprzedaż`
+
+Czyli:
+- odwiert produkuje,
+- rurociąg przenosi wolumen do huba,
+- stan rurociągu może ograniczyć realny input do huba,
+- dopiero potem działa logika huba.
+
+To jest ważne, bo:
+- dziś hub jest pierwszą warstwą logistyczną przy odwiertach,
+- po rozbudowie rurociąg stanie się warstwą wcześniejszą,
+- i też będzie wpływał na straty oraz ryzyko.
+
+### 53.8. Techniczny a rurociągi
+
+Rurociągi muszą wejść do obowiązków działu technicznego.
+
+Najlepiej uporządkować techniczny na trzy gałęzie:
+- konserwacja odwiertów,
+- konserwacja hubów,
+- konserwacja rurociągów.
+
+Rurociąg powinien móc:
+- mieć przypisany typ opieki technicznej,
+- korzystać z cyklicznej konserwacji,
+- wymagać napraw po incydencie,
+- wymagać pilnej interwencji przy stanie krytycznym.
+
+To pozwoli realnie odróżnić:
+- firmę dobrze utrzymaną,
+- firmę, która oszczędza na infrastrukturze,
+- firmę, która jeździ na granicy awarii.
+
+### 53.9. BHP a rurociągi
+
+BHP nie może obejmować tylko odwiertów i hubów.
+Musi obejmować też rurociągi.
+
+To znaczy:
+- więcej odwiertów + więcej hubów + więcej rurociągów
+= większe obciążenie BHP.
+
+Im więcej infrastruktury BHP musi nadzorować:
+- tym bardziej spada jakość kontroli,
+- jeśli zespół BHP nie rośnie wraz ze skalą firmy.
+
+Rurociągi powinny zwiększać:
+- liczbę obiektów do kontroli,
+- ryzyko wycieków,
+- ryzyko awarii przesyłu,
+- ryzyko strat przy zaniedbaniu.
+
+### 53.10. Finanse a rurociągi
+
+Finanse powinny widzieć rurociągi jako osobny koszt i osobne źródło strat.
+
+Osobno od hubów.
+
+Powinny być widoczne:
+- koszt utrzymania rurociągów,
+- koszt napraw rurociągów,
+- straty przesyłowe,
+- koszt zaniedbań,
+- wpływ na wynik odwiertu,
+- wpływ na logistykę 24h.
+
+To powinno trafić potem do:
+- `FinanceService`
+- `finance_logs`
+- panelu Finansów gracza
+- panelu admina
+
+### 53.11. UI gracza
+
+Gracz powinien widzieć przy odwiercie:
+- czy ma rurociąg,
+- stan rurociągu,
+- straty przesyłu,
+- ryzyko,
+- czy potrzebna jest konserwacja / naprawa.
+
+W Logistyce powinna dojść sekcja:
+- rurociągi krytyczne,
+- rurociągi przeciążone,
+- najwyższe straty przesyłowe,
+- odwierty bez dobrej infrastruktury przesyłowej.
+
+### 53.12. Panel admina
+
+Admin powinien móc ustawiać:
+- bazowy koszt budowy rurociągu,
+- bazowy koszt utrzymania,
+- bazowe tempo degradacji,
+- mnożniki przeciążenia,
+- mnożniki incydentów,
+- wpływ BHP,
+- wpływ technicznego,
+- progi stanów `degraded / damaged / critical`.
+
+Powinien też widzieć:
+- ile rurociągów działa,
+- ile jest w złym stanie,
+- które regiony mają najwyższe straty przesyłowe,
+- które firmy zaniedbują konserwację.
+
+### 53.13. Rekomendacja wdrożeniowa
+
+Najlepiej wdrażać to etapami:
+
+#### Etap 1
+- jeden rurociąg per odwiert
+- condition
+- wear
+- status
+- koszt utrzymania
+- podstawowe straty i ryzyko
+
+#### Etap 2
+- konserwacja techniczna
+- wpływ BHP
+- incydenty rurociągowe
+
+#### Etap 3
+- pełne spięcie z hubami i finansami
+- monitoring w panelu admina
+
+### 53.14. Wniosek
+
+Jeśli robimy Model B porządnie, to:
+- hub nie może być jedyną „poważną” infrastrukturą,
+- rurociąg też musi stać się aktywem operacyjnym,
+- i powinien być liczony **per odwiert**, a nie globalnie dla całej firmy.
+
+To bardzo dobrze spina się z:
+- technicznym,
+- BHP,
+- finansami,
+- i z sensem logistycznym całej gry.

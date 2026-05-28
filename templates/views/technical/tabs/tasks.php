@@ -1,0 +1,147 @@
+<?php if (!empty($activeTasks)): ?>
+<div class="section-h"><?= t('technical.tasks_in_progress', ['count' => count($activeTasks)]) ?></div>
+<?php foreach ($activeTasks as $t):
+    $taskDef = TechnicalTeamService::getTaskDefinition($t['task_type']) ?? ['icon' => 'TASK', 'label' => $t['task_type'], 'effect' => ''];
+    $endTs = strtotime($t['active_task_end'] ?? $t['end_time']);
+    $startTs = strtotime($t['start_time']);
+    $total = max(1, $endTs - $startTs);
+    $elapsed = time() - $startTs;
+    $progress = min(100, max(0, round($elapsed / $total * 100)));
+    $overdue = time() > $endTs;
+?>
+<div class="task-item in_progress <?= $overdue ? 'task-overdue' : '' ?>">
+    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-info">
+        <div class="task-title"><?= htmlspecialchars($t['title']) ?></div>
+        <div class="task-meta">
+            <span><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></span>
+            <span class="sep">&middot;</span>
+            <span><?= htmlspecialchars($t['spec_name']) ?></span>
+            <?php if ($t['well_name'] || $t['hub_name']): ?>
+                <span class="sep">&middot;</span>
+                <span><?= htmlspecialchars($t['well_name'] ?: $t['hub_name']) ?></span>
+            <?php endif ?>
+            <?php if ($t['cost'] > 0): ?>
+                <span class="sep">&middot;</span>
+                <span class="c-gold"><?= number_format($t['cost'], 0, '.', ' ') ?> <?= t('common.currency') ?></span>
+            <?php endif ?>
+        </div>
+        <div class="task-prog-row">
+            <div class="task-prog-bar"><div class="task-prog-fill" style="--bar-w:<?= $progress ?>%"></div></div>
+            <span class="task-prog-pct"><?= $progress ?>%</span>
+        </div>
+    </div>
+    <div class="task-side">
+        <div class="task-time">
+            <span class="countdown" data-end="<?= $endTs ?>">...</span>
+            <div class="task-date"><?= t('technical.task_end') ?>: <?= date('d.m H:i', $endTs) ?></div>
+        </div>
+        <?php if (!$overdue): ?>
+        <form method="post" class="cancel-form" onsubmit="return confirmSubmit(this, '<?= t('technical.confirm_cancel_task') ?>')">
+            <input type="hidden" name="_token" value="<?= $csrf ?>">
+            <input type="hidden" name="action" value="cancel_task">
+            <input type="hidden" name="task_id" value="<?= $t['id'] ?>">
+            <button type="submit" class="btn-cancel-task" title="<?= t('technical.cancel_task_title') ?>">&times; <?= t('technical.btn_cancel') ?></button>
+        </form>
+        <?php else: ?>
+        <span class="task-done-label">... <?= t('technical.finalizing') ?>...</span>
+        <?php endif ?>
+    </div>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php if (!empty($taskQueue)): ?>
+<div class="section-h">
+    <?= t('technical.queue_section', ['count' => count($taskQueue)]) ?>
+    <span class="section-h-note">&mdash; <?= t('technical.queue_note') ?></span>
+</div>
+<div class="queue-list">
+    <div class="queue-header">
+        <span><?= t('technical.col_worker') ?></span>
+        <span><?= t('technical.col_task') ?></span>
+        <span><?= t('technical.col_target') ?></span>
+        <span><?= t('technical.col_added') ?></span>
+        <span></span>
+    </div>
+    <?php foreach ($taskQueue as $q):
+        $qTaskDef = TechnicalTeamService::getTaskDefinition($q['task_type']) ?? ['icon' => 'TASK', 'label' => $q['task_type']];
+    ?>
+    <div class="queue-row">
+        <span class="queue-worker">
+            <?= htmlspecialchars($q['first_name'] . ' ' . $q['last_name']) ?>
+            <small class="queue-spec"><?= htmlspecialchars($q['spec_name']) ?></small>
+        </span>
+        <span class="queue-task">
+            <?= $qTaskDef['icon'] ?> <?= htmlspecialchars($qTaskDef['label'] ?? $q['task_type']) ?>
+        </span>
+        <span class="queue-well c-muted">
+            <?= ($q['well_name'] || $q['hub_name']) ? htmlspecialchars($q['well_name'] ?: $q['hub_name']) : '&mdash;' ?>
+        </span>
+        <span class="queue-time c-muted">
+            <?= date('d.m H:i', strtotime($q['queued_at'])) ?>
+        </span>
+        <span class="queue-actions">
+            <form method="post" onsubmit="return confirmSubmit(this, '<?= t('technical.confirm_cancel_queue') ?>')">
+                <input type="hidden" name="_token" value="<?= $csrf ?>">
+                <input type="hidden" name="action" value="cancel_queue_item">
+                <input type="hidden" name="queue_id" value="<?= $q['id'] ?>">
+                <button type="submit" class="btn-cancel-queue" title="<?= t('technical.remove_from_queue') ?>">&times;</button>
+            </form>
+        </span>
+    </div>
+    <?php endforeach ?>
+</div>
+<?php endif ?>
+
+<?php
+$otherTasks = array_filter($allTasks, fn($t) => !in_array($t['status'], ['in_progress', 'cancelled']));
+$cancelledTasks = array_filter($allTasks, fn($t) => $t['status'] === 'cancelled');
+if (!empty($otherTasks)):
+?>
+<div class="section-h"><?= t('technical.tasks_history') ?></div>
+<?php foreach (array_slice(array_values($otherTasks), 0, 20) as $t):
+    $taskDef = TechnicalTeamService::getTaskDefinition($t['task_type']) ?? ['icon' => '?', 'label' => $t['task_type']];
+    $cls = $t['status'] === 'completed' ? 'completed' : 'failed';
+    $timeLbl = $t['status'] === 'completed' ? t('technical.task_completed') : t('technical.task_failed');
+?>
+<div class="task-item <?= $cls ?>">
+    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-info">
+        <div class="task-title"><?= htmlspecialchars($t['title']) ?></div>
+        <div class="task-meta">
+            <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
+            <?php if ($t['well_name'] || $t['hub_name']): ?> &middot; <?= htmlspecialchars($t['well_name'] ?: $t['hub_name']) ?><?php endif ?>
+            <?php if ($t['cost'] > 0): ?> &middot; <?= number_format($t['cost'], 0, '.', ' ') ?> zł<?php endif ?>
+        </div>
+    </div>
+    <div class="task-time <?= $t['status'] === 'failed' ? 'failed-t' : 'done' ?>">
+        <?= $timeLbl ?><br>
+        <span class="task-date"><?= date('d.m H:i', strtotime($t['end_time'])) ?></span>
+    </div>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php if (!empty($cancelledTasks)): ?>
+<div class="section-h"><?= t('technical.tasks_cancelled', ['count' => count($cancelledTasks)]) ?></div>
+<?php foreach (array_slice(array_values($cancelledTasks), 0, 10) as $t):
+    $taskDef = TechnicalTeamService::getTaskDefinition($t['task_type']) ?? ['icon' => '?', 'label' => $t['task_type']];
+?>
+<div class="task-item cancelled">
+    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-info">
+        <div class="task-title c-muted"><?= htmlspecialchars($t['title']) ?></div>
+        <div class="task-meta"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></div>
+    </div>
+    <div class="task-time c-muted">
+        <?= t('technical.task_cancelled_label') ?><br>
+        <span class="task-date"><?= date('d.m H:i', strtotime($t['end_time'])) ?></span>
+    </div>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php if (empty($allTasks) && empty($taskQueue)): ?>
+<div class="empty-state"><?= t('technical.no_tasks') ?></div>
+<?php endif ?>

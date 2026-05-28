@@ -1,0 +1,331 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1><?= t('admin.loans.title') ?></h1>
+
+<?php if ($msg): ?><p class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
+
+<?php if ($needsMigration): ?>
+<div class="alert alert-error">
+    <strong> <?= t('admin.loans.migration_needed') ?></strong>
+    <?= t('admin.loans.migration_hint') ?>
+</div>
+<?php endif ?>
+
+<!--  1. STAN SYSTEMU  -->
+<section class="panel">
+    <p class="panel-title"><?= t('admin.loans.sys_title') ?></p>
+    <div class="cards">
+        <div class="card">
+            <p class="label"><?= t('admin.loans.stat_sys_status') ?></p>
+            <p class="value sm"><span class="badge <?= $sysStatusBadge[$sysStatus] ?? 'badge-inactive' ?>"><?= $sysStatusLabel[$sysStatus] ?? htmlspecialchars($sysStatus) ?></span></p>
+        </div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_pending') ?></p><p class="value orange"><?= (int)$stats['pending'] ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_active') ?></p><p class="value"><?= (int)$loanStats['active'] ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_late') ?></p><p class="value red"><?= (int)$loanStats['late'] ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_bailiff') ?></p><p class="value red"><?= count($proceedings) ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_bankruptcies') ?></p><p class="value red"><?= $bankruptcies['day'] ?> / <?= $bankruptcies['week'] ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_total_debt') ?></p><p class="value orange"><?= number_format((float)($loanStats['total_debt'] ?? 0)) ?> <?= t('common.pln') ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_avg_apr') ?></p><p class="value"><?= $loanStats['avg_apr'] ?? '—' ?>%</p></div>
+    </div>
+</section>
+
+<!--  2. PARAMETRY BANKU  -->
+<section class="panel">
+    <p class="panel-title"><?= t('admin.loans.settings_title') ?></p>
+    <?php if (!$settingsExist): ?>
+    <p class="alert alert-error"><?= t('admin.loans.settings_missing') ?></p>
+    <?php else: ?>
+    <form method="post" class="bank-settings-form">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_settings">
+        <?php foreach ($settings as $s):
+            $d   = $settingDescs[$s['setting_key']] ?? ['min'=>0.1,'max'=>5.0,'step'=>0.1,'hint'=>''];
+            $val = (float)$s['value'];
+            $color = match(true) {
+                $s['setting_key'] === 'apr_multiplier'          && $val > 1.2  => 'var(--red)',
+                $s['setting_key'] === 'risk_tolerance_modifier' && $val < 0.85 => 'var(--red)',
+                $s['setting_key'] === 'max_amount_multiplier'   && $val < 0.8  => 'var(--red)',
+                default => 'var(--orange)',
+            };
+        ?>
+        <div class="bank-setting-box">
+            <p class="bank-setting-label"><?= BankSettings::label($s['setting_key']) ?></p>
+            <input type="number" name="<?= $s['setting_key'] ?>" value="<?= $val ?>"
+                   min="<?= $d['min'] ?>" max="<?= $d['max'] ?>" step="<?= $d['step'] ?>"
+                   class="bank-setting-input" style="color:<?= $color ?>">
+            <p class="bank-setting-note"><?= htmlspecialchars($d['hint']) ?></p>
+            <p class="bank-setting-note"><?= t('admin.loans.setting_changed_by') ?>: <?= htmlspecialchars($s['updated_by']) ?> (<?= substr($s['updated_at'], 0, 16) ?>)</p>
+        </div>
+        <?php endforeach ?>
+        <button type="submit" class="btn btn-primary"> <?= t('admin.loans.settings_save') ?></button>
+    </form>
+    <?php endif ?>
+</section>
+
+<!--  3. POSTÊPOWANIA KOMORNICZE  -->
+<?php if (!empty($proceedings)): ?>
+<section class="panel panel-danger">
+    <p class="panel-title panel-title-danger"> <?= t('admin.loans.bailiff_title') ?> (<?= count($proceedings) ?>)</p>
+    <div class="data-list bailiff-grid">
+        <div class="list-header" role="row">
+            <span><?= t('admin.loans.col_id') ?></span>
+            <span><?= t('admin.loans.col_player') ?></span>
+            <span><?= t('admin.loans.col_stage') ?></span>
+            <span><?= t('admin.loans.col_debt') ?></span>
+            <span><?= t('admin.loans.col_seized') ?></span>
+            <span><?= t('admin.loans.col_next_action') ?></span>
+            <span><?= t('admin.loans.col_control') ?></span>
+        </div>
+        <?php foreach ($proceedings as $p): ?>
+        <article class="list-row" role="row">
+            <span class="muted">#<?= (int)$p['id'] ?></span>
+            <span><a href="/admin/player.php?id=<?= (int)$p['player_id'] ?>"><?= htmlspecialchars($p['player_email']) ?></a></span>
+            <span><span class="badge badge-bankrupt"><?= htmlspecialchars($stageLabel[(string)$p['stage']] ?? 'Etap '.$p['stage']) ?></span></span>
+            <span class="score-bad"><?= number_format((float)$p['debt']) ?> <?= t('common.pln') ?></span>
+            <span class="muted">
+                 <?= number_format((float)$p['cash_seized']) ?> <?= t('common.pln') ?><br>
+                 <?= number_format((float)$p['oil_seized']) ?> <?= t('common.bbl') ?><br>
+                 <?= (int)$p['wells_seized'] ?> <?= t('admin.loans.wells_short') ?>
+            </span>
+            <span class="muted"><?= substr($p['next_action_at'], 0, 16) ?></span>
+            <span class="action-col">
+                <?php if ($p['stage'] < 4): ?>
+                <form method="post" class="inline">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action"  value="bailiff_advance">
+                    <input type="hidden" name="proc_id" value="<?= (int)$p['id'] ?>">
+                    <button class="btn btn-sm btn-secondary"
+                            onclick="confirmSubmit(this, '<?= t('admin.loans.confirm_advance') ?> <?= (int)($p['stage']+1) ?>?'); return false;">
+                         <?= t('admin.loans.stage_btn') ?> <?= (int)($p['stage']+1) ?>
+                    </button>
+                </form>
+                <?php endif ?>
+                <form method="post" class="inline">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action"  value="close_bailiff">
+                    <input type="hidden" name="proc_id" value="<?= (int)$p['id'] ?>">
+                    <button class="btn btn-sm btn-success"
+                            onclick="confirmSubmit(this, '<?= t('admin.loans.confirm_close') ?> #<?= (int)$p['id'] ?>?'); return false;">
+                         <?= t('admin.loans.btn_close') ?>
+                    </button>
+                </form>
+                <details>
+                    <summary class="btn btn-sm btn-danger"> <?= t('admin.loans.btn_bankruptcy') ?></summary>
+                    <div class="details-body">
+                    <form method="post">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action"  value="bailiff_bankruptcy">
+                        <input type="hidden" name="proc_id" value="<?= (int)$p['id'] ?>">
+                        <div class="form-group">
+                            <label for="bankruptcy_reason"><?= t('admin.loans.label_reason') ?></label>
+                            <input type="text" id="bankruptcy_reason" name="bankruptcy_reason" value="<?= t('admin.loans.default_reason') ?>" class="input-w-md">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-danger"
+                                onclick="confirmSubmit(this, '<?= t('admin.loans.confirm_bankruptcy') ?> #<?= (int)$p['player_id'] ?>?'); return false;">
+                            <?= t('admin.loans.btn_force_bankruptcy') ?>
+                        </button>
+                    </form>
+                    </div>
+                </details>
+            </span>
+        </article>
+        <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<!--  4. WNIOSKI KREDYTOWE  -->
+<section>
+    <h2><?= t('admin.loans.apps_title') ?></h2>
+    <nav class="filters" aria-label="<?= t('admin.loans.filter_nav') ?>">
+        <?php foreach ([
+            'pending'  => t('admin.loans.filter_pending'),
+            'approved' => t('admin.loans.filter_approved'),
+            'rejected' => t('admin.loans.filter_rejected'),
+            'accepted' => t('admin.loans.filter_accepted'),
+            'expired'  => t('admin.loans.filter_expired'),
+            'all'      => t('admin.loans.filter_all'),
+        ] as $f => $l): ?>
+        <a href="?filter=<?= $f ?>" class="btn btn-sm <?= $filter === $f ? 'btn-primary' : 'btn-secondary' ?>"><?= $l ?></a>
+        <?php endforeach ?>
+    </nav>
+    <?php if (empty($applications)): ?>
+    <p class="empty-state"><?= t('admin.loans.apps_empty') ?></p>
+    <?php else: ?>
+    <div class="data-list loans-grid">
+        <div class="list-header" role="row">
+            <span><?= t('admin.loans.col_id') ?></span>
+            <span><?= t('admin.loans.col_player') ?></span>
+            <span><?= t('admin.loans.col_amount') ?></span>
+            <span><?= t('admin.loans.col_decision') ?></span>
+            <span><?= t('admin.loans.col_risk') ?></span>
+            <span><?= t('admin.loans.col_status') ?></span>
+            <span><?= t('admin.loans.col_actions') ?></span>
+        </div>
+        <?php foreach ($applications as $a):
+            $bd      = !empty($a['risk_breakdown']) ? json_decode($a['risk_breakdown'], true) : null;
+            $live    = $liveScores[(int)$a['player_id']] ?? null;
+            $useBd   = $live['breakdown'] ?? $bd ?? null;
+            $useScore = $live ? $live['score'] : ($a['risk_score'] ?? null);
+        ?>
+        <article class="list-row" role="row">
+            <span class="muted">#<?= (int)$a['id'] ?><br><?= substr($a['created_at'], 0, 10) ?></span>
+            <span><a href="/admin/player.php?id=<?= (int)$a['player_id'] ?>"><?= htmlspecialchars($a['player_email']) ?></a>
+                <?php if ($live): ?><br><span class="badge badge-paused font-xs"> live</span><?php endif ?>
+            </span>
+            <span>
+                <strong><?= number_format((float)$a['requested_amount']) ?> <?= t('common.pln') ?></strong>
+                <?php if ($a['approved_amount']): ?>
+                <br><small class="<?= (float)$a['approved_amount'] < (float)$a['requested_amount'] ? 'orange' : 'green' ?>">
+                     <?= number_format((float)$a['approved_amount']) ?> <?= t('common.pln') ?></small>
+                <br><?= aprBadge((float)($a['interest_rate'] ?? 0)) ?>
+                <?php endif ?>
+            </span>
+            <span class="font-sm">
+                <?php if ($a['rejection_reason']): ?>
+                <span class="muted"><?= htmlspecialchars(mb_substr($a['rejection_reason'], 0, 90)) ?><?= mb_strlen($a['rejection_reason']) > 90 ? '…' : '' ?></span>
+                <?php endif ?>
+                <?php if ($useBd && isset($useBd['market'])): ?>
+                <br><span class="text-blue"> <?= htmlspecialchars($useBd['market']['details'] ?? '') ?></span>
+                <?php endif ?>
+            </span>
+            <span>
+                <?php if ($useScore !== null): ?>
+                <strong class="<?= $useScore >= 75 ? 'green' : ($useScore >= 50 ? 'orange' : 'red') ?>"><?= $useScore ?>/115</strong>
+                <?php if ($useBd): ?>
+                <details class="risk-breakdown-details">
+                    <summary class="risk-breakdown-summary"><?= t('admin.loans.risk_show_breakdown') ?></summary>
+                    <div class="risk-breakdown-grid">
+                    <?php foreach ($riskSectionDescriptions as $key => $info):
+                        $sec = $useBd[$key] ?? null;
+                        $pts = $sec['points'] ?? null;
+                        $max = $info['max'];
+                        $pct = $max > 0 && $pts !== null ? max(0, min(100, round(($pts / $max) * 100))) : 0;
+                        $barColor = $pts === null ? 'var(--muted)' : ($pts >= $max * 0.7 ? 'var(--green)' : ($pts >= $max * 0.35 ? 'var(--orange)' : 'var(--red)'));
+                    ?>
+                    <div class="risk-row">
+                        <div class="risk-row-header">
+                            <span class="risk-row-label"><?= htmlspecialchars($info['label']) ?></span>
+                            <span class="risk-row-pts <?= $pts !== null && $pts < 0 ? 'red' : '' ?>">
+                                <?= $pts ?? '?' ?> / <?= $max ?>
+                            </span>
+                        </div>
+                        <div class="risk-bar-bg">
+                            <div class="risk-bar-fill" style="width:<?= $pct ?>%;background:<?= $barColor ?>"></div>
+                        </div>
+                        <p class="risk-row-detail muted font-xs"><?= htmlspecialchars($sec['details'] ?? '—') ?></p>
+                        <p class="risk-row-desc font-xs"><?= htmlspecialchars($info['desc']) ?></p>
+                    </div>
+                    <?php endforeach ?>
+                    </div>
+                </details>
+                <?php endif ?>
+                <?php else: ?><span class="muted">—</span><?php endif ?>
+            </span>
+            <span><?php
+                $st = $a['status'];
+                $cls = match($st) {
+                    'pending'  => 'badge-paused',
+                    'approved' => 'badge-active',
+                    'accepted' => 'badge-active',
+                    'rejected' => 'badge-bankrupt',
+                    'expired'  => 'badge-inactive',
+                    default    => 'badge-inactive',
+                };
+                $lbl = t('loan.status.' . $st);
+            ?><span class="badge <?= $cls ?>"><?= $lbl ?></span></span>
+            <span>
+                <?php if (in_array($a['status'], ['pending', 'rejected'])): ?>
+                <details>
+                    <summary class="btn btn-sm btn-primary"><?= t('admin.loans.btn_override_approve') ?></summary>
+                    <div class="details-body">
+                    <form method="post">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action" value="admin_approve">
+                        <input type="hidden" name="app_id" value="<?= (int)$a['id'] ?>">
+                        <div class="form-group">
+                            <label for="override_amount"><?= t('admin.loans.label_amount') ?></label>
+                            <input type="number" id="override_amount" name="override_amount" value="<?= (int)($a['approved_amount'] ?: $a['requested_amount']) ?>" class="input-w-sm">
+                        </div>
+                        <div class="form-group">
+                            <label for="override_rate"><?= t('admin.loans.label_apr') ?></label>
+                            <input type="number" id="override_rate" name="override_rate" value="<?= $a['interest_rate'] ?: 18 ?>" step="0.5" class="input-w-xs">
+                        </div>
+                        <div class="form-group">
+                            <label for="override_reason"><?= t('admin.loans.label_reason') ?></label>
+                            <input type="text" id="override_reason" name="override_reason" value="<?= t('admin.loans.default_decision') ?>" class="input-w-lg">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.loans.btn_approve') ?></button>
+                    </form>
+                    </div>
+                </details>
+                <?php endif ?>
+                <?php if (in_array($a['status'], ['pending', 'approved'])): ?>
+                <details class="mt-sm">
+                    <summary class="btn btn-sm btn-danger"><?= t('admin.loans.btn_override_reject') ?></summary>
+                    <div class="details-body">
+                    <form method="post">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action" value="admin_reject">
+                        <input type="hidden" name="app_id" value="<?= (int)$a['id'] ?>">
+                        <div class="form-group">
+                            <label for="reject_reason"><?= t('admin.loans.label_reason') ?></label>
+                            <input type="text" id="reject_reason" name="reject_reason" value="<?= t('admin.loans.default_decision') ?>" class="input-w-lg">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.loans.btn_reject') ?></button>
+                    </form>
+                    </div>
+                </details>
+                <?php endif ?>
+            </span>
+        </article>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<!--  5. AKTYWNE KREDYTY  -->
+<?php if (!$needsMigration): ?>
+<section>
+    <h2><?= t('admin.loans.active_title') ?></h2>
+    <?php if (empty($loans)): ?>
+    <p class="empty-state"><?= t('admin.loans.active_empty') ?></p>
+    <?php else: ?>
+    <div class="table-scroll-wrap">
+    <div class="data-list active-loans-grid">
+        <div class="list-header" role="row">
+            <span><?= t('admin.loans.col_id') ?></span>
+            <span><?= t('admin.loans.col_player') ?></span>
+            <span><?= t('admin.loans.col_principal') ?></span>
+            <span><?= t('admin.loans.col_remaining') ?></span>
+            <span><?= t('common.apr') ?></span>
+            <span><?= t('admin.loans.col_installment') ?></span>
+            <span><?= t('admin.loans.col_next_payment') ?></span>
+            <span><?= t('admin.loans.col_status') ?></span>
+        </div>
+        <?php foreach ($loans as $l): ?>
+        <article class="list-row" role="row">
+            <span class="muted">#<?= (int)$l['id'] ?></span>
+            <span><a href="/admin/player.php?id=<?= (int)$l['player_id'] ?>"><?= htmlspecialchars($l['player_email']) ?></a></span>
+            <span><?= number_format((float)$l['principal_amount']) ?> <?= t('common.pln') ?></span>
+            <span class="<?= (float)$l['remaining_amount'] > (float)$l['principal_amount'] ? 'red' : '' ?>">
+                <?= number_format((float)$l['remaining_amount']) ?> <?= t('common.pln') ?>
+            </span>
+            <span><?= aprBadge((float)$l['interest_rate']) ?></span>
+            <span><?= number_format((float)$l['installment_amount']) ?> <?= t('common.pln') ?></span>
+            <span class="muted"><?= htmlspecialchars($l['next_installment_at'] ?? '—') ?></span>
+            <span>
+                <?php if ($l['status'] === 'late'): ?>
+                <span class="badge badge-bankrupt"> <?= t('loan.status.late') ?></span>
+                <?php else: ?>
+                <span class="badge badge-active"> <?= t('loan.status.active') ?></span>
+                <?php endif ?>
+            </span>
+        </article>
+        <?php endforeach ?>
+    </div>
+    </div>
+    <?php endif ?>
+</section>
+<?php endif ?>

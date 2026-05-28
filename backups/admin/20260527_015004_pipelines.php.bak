@@ -1,0 +1,143 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/pipelines.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+
+$db  = Database::getInstance()->getConnection();
+$msg = '';
+$err = '';
+
+//  SprawdŸ czy tabela pipelines istnieje 
+$tableExists = false;
+try {
+    $db->query("SELECT 1 FROM pipelines LIMIT 1");
+    $tableExists = true;
+} catch (Throwable $e) {}
+
+if (!$tableExists) {
+    $pageTitle = t('admin.pipelines.title');
+    require_once __DIR__ . '/partials/header.php';
+    echo '<h1> ' . t('admin.pipelines.title') . '</h1>';
+    echo '<p class="alert alert-warning">' . t('admin.pipelines.no_table') . '</p>';
+    require_once __DIR__ . '/partials/footer.php';
+    return;
+}
+
+//  Akcje 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
+        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+
+    $action     = $_POST['action'] ?? '';
+    $pipelineId = (int)($_POST['pipeline_id'] ?? 0);
+
+    if ($action === 'repair' && $pipelineId) {
+        try {
+            $db->prepare("
+                UPDATE pipelines SET condition_pct = 100, transport_loss = 0
+                WHERE id = ?
+            ")->execute([$pipelineId]);
+            AdminLog::log('pipeline_repair', t('admin.pipelines.log_repair', ['id' => $pipelineId]));
+            $msg = t('admin.pipelines.msg_repair', ['id' => $pipelineId]);
+        } catch (Throwable $e) {
+            $err = t('admin.pipelines.err_repair') . $e->getMessage();
+        }
+    }
+
+    elseif ($action === 'set_loss' && $pipelineId) {
+        $newLoss = max(0, min(100, (float)($_POST['new_loss'] ?? 0)));
+        try {
+            $db->prepare("UPDATE pipelines SET transport_loss = ? WHERE id = ?")
+               ->execute([$newLoss, $pipelineId]);
+            AdminLog::log('pipeline_set_loss', "id={$pipelineId} loss={$newLoss}%");
+            $msg = t('admin.pipelines.msg_set_loss', ['id' => $pipelineId, 'loss' => $newLoss]);
+        } catch (Throwable $e) {
+            $err = t('admin.pipelines.err_set_loss') . $e->getMessage();
+        }
+    }
+
+    elseif ($action === 'force_failure' && $pipelineId) {
+        try {
+            $db->prepare("
+                UPDATE pipelines SET condition_pct = 15, transport_loss = 25
+                WHERE id = ?
+            ")->execute([$pipelineId]);
+            AdminLog::log('pipeline_force_failure', t('admin.pipelines.log_force_failure', ['id' => $pipelineId]));
+            $msg = t('admin.pipelines.msg_force_failure', ['id' => $pipelineId]);
+        } catch (Throwable $e) {
+            $err = t('common.error_prefix') . $e->getMessage();
+        }
+    }
+
+    elseif ($action === 'repair_all_critical') {
+        try {
+            $db->query("
+                UPDATE pipelines SET condition_pct = 80, transport_loss = 5
+                WHERE status = 'active' AND condition_pct < 30
+            ");
+            $cnt = $db->query("SELECT ROW_COUNT()")->fetchColumn();
+            AdminLog::log('pipeline_repair_critical', t('admin.pipelines.log_repair_critical', ['count' => $cnt]));
+            $msg = t('admin.pipelines.msg_repair_critical', ['count' => $cnt]);
+        } catch (Throwable $e) {
+            $err = t('admin.pipelines.err_repair_critical') . $e->getMessage();
+        }
+    }
+}
+
+//  Pobierz dane 
+$pipelines = $db->query("
+    SELECT p.*,
+           pl.username AS player_login,
+           pl.id    AS player_id
+    FROM pipelines p
+    LEFT JOIN players pl ON pl.id = p.player_id
+    ORDER BY p.condition_pct ASC, p.transport_loss DESC
+")->fetchAll();
+
+//  Statystyki globalne 
+$stats = $db->query("
+    SELECT
+        COUNT(*) AS total,
+        SUM(status = 'active') AS active_count,
+        SUM(status = 'active' AND condition_pct < 30) AS critical_count,
+        SUM(status = 'active' AND condition_pct < 70) AS warning_count,
+        AVG(CASE WHEN status='active' THEN transport_loss END) AS avg_loss,
+        AVG(CASE WHEN status='active' THEN condition_pct END) AS avg_condition,
+        MAX(CASE WHEN status='active' THEN transport_loss END) AS max_loss
+    FROM pipelines
+")->fetch();
+
+//  Historia awarii ruroci¹gów 
+$failureHistory = [];
+try {
+    $failureHistory = $db->query("
+        SELECT n.*, pl.username AS player_login
+        FROM director_notifications n
+        LEFT JOIN players pl ON pl.id = n.player_id
+        WHERE n.type LIKE 'disaster_pipeline%'
+        ORDER BY n.created_at DESC
+        LIMIT 20
+    ")->fetchAll();
+} catch (Throwable $e) {}
+
+$viewData = [
+    'msg'            => $msg,
+    'err'            => $err,
+    'stats'          => $stats,
+    'pipelines'      => $pipelines,
+    'failureHistory' => $failureHistory,
+];
+
+$pageTitle = t('admin.pipelines.title');
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/pipelines/main.php';
+require_once __DIR__ . '/partials/footer.php';
+
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) GameLog::error('admin/pipelines.php', t('common.unhandled_exception'), $e);
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) GameLog::pageEnd('admin/pipelines.php', $_codexGuardStart);
+}

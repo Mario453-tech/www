@@ -1,0 +1,49 @@
+/**
+ * auth.js - handles login and password reset forms
+ * auth.js - obsluguje formularze logowania i resetowania hasla
+ * Requires: window.AUTH_LANG (set by PHP template before this script)
+ */
+
+function togglePassword(id, btn) {
+    const input = document.getElementById(id);
+    const L = window.AUTH_LANG || {};
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.setAttribute('aria-label', L.hide_pass || '');
+    } else {
+        input.type = 'password';
+        btn.setAttribute('aria-label', L.show_pass || '');
+    }
+}
+
+/**
+ * Password strength and match check.
+ * Sprawdzenie sily hasla i zgodnosci.
+ */
+function checkStrength(v) {
+    var L   = window.AUTH_LANG || {};
+    var bar = document.getElementById('sbar'), hint = document.getElementById('shint');
+    var score = 0;
+    if (v.length >= 8)  score++;
+    if (v.length >= 12) score++;
+    if (/[A-Z]/.test(v)) score++;
+    if (/[0-9]/.test(v)) score++;
+    if (/[^A-Za-z0-9]/.test(v)) score++;
+    var colors = ['#e05555','#e05555','#e0b644','#c8a84b','#4ec97a','#4ec97a'];
+    var labels = ['', L.str_too_short || '', L.str_weak || '', L.str_medium || '', L.str_good || '', L.str_strong || ''];
+    bar.style.width      = (score * 20) + '%';
+    bar.style.background = colors[score];
+    hint.textContent     = labels[score];
+    hint.style.color     = colors[score];
+    checkMatch();
+}
+
+function checkMatch() {
+    var p1  = document.getElementById('pw1').value;
+    var p2  = document.getElementById('pw2').value;
+    var btn = document.getElementById('submitBtn');
+    if (p2.length > 0) {
+        document.getElementById('pw2').style.borderColor = p1 === p2 ? 'var(--green)' : 'var(--red)';
+    }
+    btn.disabled = !(p1 === p2 && p1.length >= 8);
+}

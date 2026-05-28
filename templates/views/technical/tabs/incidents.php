@@ -1,0 +1,111 @@
+<div class="g-card">
+    <div class="g-card-title">
+        <?= t('technical.incidents_title') ?>
+        <?php if ($incTotal > 0): ?>
+        <span class="g-card-count"><?= $incTotal ?></span>
+        <?php endif ?>
+    </div>
+
+    <?php if (empty($incidents)): ?>
+    <div class="empty-state"><?= t('technical.no_incidents') ?></div>
+    <?php else: ?>
+    <div class="inc-list">
+    <?php foreach ($incidents as $inc):
+        $lvl       = $inc['level'];
+        $cause     = $inc['cause_type'];
+        $lvlIcon   = match($lvl) { 'micro'=>'🟢','minor'=>'🟡','medium'=>'🟠','major'=>'🔴', default=>'' };
+        $lvlCls    = match($lvl) { 'micro'=>'inc-micro','minor'=>'inc-minor','medium'=>'inc-medium','major'=>'inc-major', default=>'' };
+        $causeIcon = match($cause) { 'operator'=>'👤','technician'=>'🔧','hse'=>'⛑️','system'=>'⚙️', default=>'' };
+    ?>
+    <div class="inc-row <?= $lvlCls ?>">
+        <div class="inc-icon"><?= $lvlIcon ?></div>
+        <div class="inc-body">
+            <div class="inc-msg"><?= htmlspecialchars($inc['message']) ?></div>
+            <div class="inc-meta">
+                <span><?= $causeIcon ?> <?= t('technical.inc_cause_' . $cause, [], ucfirst($cause)) ?></span>
+                <span class="sep">·</span>
+                <span><?= t('technical.well_num', ['id' => $inc['well_id']]) ?><?= $inc['well_name'] ? ' — '.htmlspecialchars($inc['well_name']) : '' ?></span>
+                <span class="sep">·</span>
+                <span class="<?= $inc['prod_drop'] >= 40 ? 'c-bad' : ($inc['prod_drop'] >= 10 ? 'c-warn' : 'c-muted2') ?>">
+                    <?= $inc['prod_drop'] ?>% <?= t('technical.inc_prod') ?>
+                </span>
+                <?php if ($inc['cost'] > 0): ?>
+                <span class="sep">·</span>
+                <span class="c-gold"><?= t('technical.inc_cost') ?>: $<?= number_format($inc['cost'], 0, '.', ' ') ?></span>
+                <?php endif ?>
+                <?php if ($inc['deg_damage'] > 0): ?>
+                <span class="sep">·</span>
+                <span class="c-bad"><?= t('technical.inc_cond_drop', ['pts' => $inc['deg_damage']]) ?></span>
+                <?php endif ?>
+                <span class="sep">·</span>
+                <span class="c-muted2"><?= $inc['auto_repair'] ? t('technical.inc_auto_repair') : t('technical.inc_needs_tech') ?></span>
+                <span class="sep">·</span>
+                <span class="c-muted2"><?= date('d.m H:i', strtotime($inc['created_at'])) ?></span>
+            </div>
+        </div>
+        <div class="inc-badge"><?= t('technical.inc_level_' . $lvl, [], strtoupper($lvl)) ?></div>
+    </div>
+    <?php endforeach ?>
+    </div>
+
+    <?php if ($incTotalPages > 1): ?>
+    <nav class="inc-pagination">
+        <?php if ($incPage > 1): ?>
+        <a href="?tab=incidents&inc_page=<?= $incPage - 1 ?>" class="btn btn-sm btn-secondary">‹ <?= t('common.prev') ?></a>
+        <?php endif ?>
+        <span class="inc-page-info"><?= $incPage ?> / <?= $incTotalPages ?></span>
+        <?php if ($incPage < $incTotalPages): ?>
+        <a href="?tab=incidents&inc_page=<?= $incPage + 1 ?>" class="btn btn-sm btn-secondary"><?= t('common.next') ?> ›</a>
+        <?php endif ?>
+    </nav>
+    <?php endif ?>
+
+    <?php endif ?>
+</div>
+
+<?php if (!empty($hubIncidents)): ?>
+<div class="g-card" style="margin-top:1.25rem">
+    <div class="g-card-title">
+         <?= t('logistics.hub.incidents_title') ?>
+        <?php if ($hubIncTotal > 0): ?>
+        <span class="g-card-count"><?= $hubIncTotal ?></span>
+        <?php endif ?>
+    </div>
+    <div class="inc-list">
+    <?php foreach ($hubIncidents as $hi):
+        $sev     = $hi['severity'] ?? 'low';
+        $sevIcon = match($sev) { 'critical'=>'🔴', 'high'=>'🟠', 'medium'=>'🟡', default=>'' };
+        $lvlCls  = match($sev) { 'critical'=>'inc-major', 'high'=>'inc-medium', 'medium'=>'inc-minor', default=>'inc-micro' };
+    ?>
+    <div class="inc-row <?= $lvlCls ?>">
+        <div class="inc-icon"><?= $sevIcon ?></div>
+        <div class="inc-body">
+            <div class="inc-msg"><?= htmlspecialchars($hi['message']) ?></div>
+            <div class="inc-meta">
+                <span> <?= htmlspecialchars($hi['hub_name'] ?? 'Hub #' . $hi['hub_id']) ?></span>
+                <?php if (!empty($hi['meta_json'])): $meta = json_decode($hi['meta_json'], true) ?? []; ?>
+                <?php if (($meta['extra_loss_bbl'] ?? 0) > 0): ?>
+                <span class="sep">·</span>
+                <span class="c-bad"><?= number_format((float)$meta['extra_loss_bbl'], 1, ',', ' ') ?> bbl</span>
+                <?php endif ?>
+                <?php if (($meta['condition_dmg'] ?? 0) > 0): ?>
+                <span class="sep">·</span>
+                <span class="c-warn"><?= t('technical.inc_cond_drop', ['pts' => (int)$meta['condition_dmg']]) ?></span>
+                <?php endif ?>
+                <?php endif ?>
+                <span class="sep">·</span>
+                <span class="c-muted2"><?= date('d.m H:i', strtotime($hi['created_at'])) ?></span>
+            </div>
+        </div>
+        <div class="inc-badge"><?= htmlspecialchars($hi['title'] ?? strtoupper($sev)) ?></div>
+    </div>
+    <?php endforeach ?>
+    </div>
+    <?php if ($hubIncTotal > count($hubIncidents)): ?>
+    <div style="padding:.75rem 1rem;font-size:.82rem;color:var(--c-muted)">
+        <?= t('logistics.hub.incidents_more', ['n' => $hubIncTotal - count($hubIncidents)]) ?>
+        → <a href="/logistics"><?= t('logistics.hub.incidents_goto') ?></a>
+    </div>
+    <?php endif ?>
+</div>
+<?php endif ?>

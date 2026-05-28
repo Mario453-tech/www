@@ -1,0 +1,121 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/MySqlIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/init.php';
+require_once dirname(__DIR__, 2) . '/src/WellPipelineService.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/PipelineSection.php';
+
+final class MySqlPipelineHseIntegrationTest extends MySqlIntegrationTestCase
+{
+    public function testGetHseBonusCountsPipelinesInSupervisionLoad(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'rurociag', 120.0, 50.0);
+        $this->seedHub($ids['hubId'], 'PHPUnit HSE Hub');
+        $this->seedAssignment($ids['hubId'], $ids['wellId']);
+
+        $this->seedTechnicalStaff($playerId, $this->seed + 20, 'safety_officer', 'Oficer BHP', 10, 9000);
+        $this->seedTechnicalStaff($playerId, $this->seed + 21, 'safety_engineer', 'Inzynier BHP', 10, 12000);
+        $this->setPlayerProcedures($playerId, 3, 90);
+
+        $service = new TechnicalTeamService($playerId);
+        $before = $service->getHSEBonus();
+
+        $pipelineService = new WellPipelineService($this->db);
+        $pipelineService->createPipelineForWell($playerId, [
+            'id' => $ids['wellId'],
+            'base_production_per_hour' => 50.0,
+            'transport_capacity_pct' => 120.0,
+        ]);
+
+        $after = $service->getHSEBonus();
+
+        $this->assertSame(1, $before['total_wells']);
+        $this->assertSame(0, $before['total_pipelines']);
+        $this->assertSame(1, $before['total_hubs']);
+        $this->assertSame(3, $before['supervised_units']);
+        $this->assertSame(1, $after['total_wells']);
+        $this->assertSame(1, $after['total_pipelines']);
+        $this->assertSame(1, $after['total_hubs']);
+        $this->assertSame(4, $after['supervised_units']);
+        $this->assertGreaterThanOrEqual((float)$before['failure_reduction'], (float)$after['failure_reduction']);
+    }
+
+    public function testRealHseBonusReducesPipelineWearOnRealMySql(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'rurociag', 120.0, 50.0);
+        $this->seedHub($ids['hubId'], 'PHPUnit HSE Hub');
+        $this->seedAssignment($ids['hubId'], $ids['wellId']);
+
+        $pipelineService = new WellPipelineService($this->db);
+        $pipelineService->createPipelineForWell($playerId, [
+            'id' => $ids['wellId'],
+            'base_production_per_hour' => 50.0,
+            'transport_capacity_pct' => 120.0,
+        ]);
+
+        $this->db->prepare(
+            "UPDATE well_pipelines
+                SET condition_pct = 70.50,
+                    transport_loss = 2.00,
+                    degradation_rate_per_hour = 0.0500,
+                    status = 'active'
+              WHERE player_id = ? AND well_id = ?"
+        )->execute([$playerId, $ids['wellId']]);
+
+        $this->seedTechnicalStaff($playerId, $this->seed + 30, 'safety_officer', 'Oficer BHP', 10, 9000);
+        $this->seedTechnicalStaff($playerId, $this->seed + 31, 'safety_engineer', 'Inzynier BHP', 10, 12000);
+        $this->setPlayerProcedures($playerId, 5, 100);
+
+        $technicalService = new TechnicalTeamService($playerId);
+        $hseBonus = $technicalService->getHSEBonus();
+
+        $section = new PipelineSection($this->db, new DateTime('2026-05-18 12:00:00'), new WellService());
+        $section->process($playerId, 1000.0, [], 10.0, null);
+
+        $withoutStmt = $this->db->prepare(
+            'SELECT condition_pct, transport_loss
+               FROM well_pipelines
+              WHERE player_id = ? AND well_id = ?'
+        );
+        $withoutStmt->execute([$playerId, $ids['wellId']]);
+        $without = $withoutStmt->fetch();
+
+        $this->assertNotFalse($without);
+
+        $this->db->prepare(
+            "UPDATE well_pipelines
+                SET condition_pct = 70.50,
+                    transport_loss = 2.00,
+                    degradation_rate_per_hour = 0.0500,
+                    status = 'active'
+              WHERE player_id = ? AND well_id = ?"
+        )->execute([$playerId, $ids['wellId']]);
+
+        $section->process($playerId, 1000.0, $hseBonus, 10.0, null);
+
+        $withStmt = $this->db->prepare(
+            'SELECT condition_pct, transport_loss
+               FROM well_pipelines
+              WHERE player_id = ? AND well_id = ?'
+        );
+        $withStmt->execute([$playerId, $ids['wellId']]);
+        $with = $withStmt->fetch();
+
+        $this->assertNotFalse($with);
+        $this->assertGreaterThan(0, $hseBonus['active_hse']);
+        $this->assertLessThan(1.0, (float)$hseBonus['degrade_mult']);
+        $this->assertTrue(
+            (float)$with['condition_pct'] > (float)$without['condition_pct'],
+            'Pipeline condition with HSE should stay higher than without HSE.'
+        );
+        $this->assertTrue(
+            (float)$with['transport_loss'] <= (float)$without['transport_loss'],
+            'Pipeline loss with HSE should not be worse than without HSE.'
+        );
+    }
+}

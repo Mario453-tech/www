@@ -1,0 +1,47 @@
+/* 
+   OILCORP — DESIGN SYSTEM TOKENS (Ÿród³o prawdy)
+   £adowany jako PIERWSZY we wszystkich stronach gry.
+   Wszystkie modu³y (hr.css, dashboard.css itd.) dziedzicz¹
+   te wartoœci — nie redeklaruj¹ identycznych zmiennych.
+    */
+
+:root {
+    /*  Z³oto / akcent  */
+    --gold:        #c8a84b;
+    --gold2:       #e8cc7a;          /* jasne z³oto — highlight tekstu */
+    --gold3:       #a08030;          /* ciemne z³oto — wyciszone akcenty */
+    --gold-dim:    rgba(200,168,75,.12);  /* t³o hover/aktywne */
+    --gold-border: rgba(200,168,75,.25); /* obramowania */
+    --gold-glow:   rgba(200,168,75,.3);  /* poœwiata / cieñ */
+
+    /*  T³a  */
+    --bg:          #08080f;
+    --bg2:         #0f0f18;
+    --bg3:         #161622;
+    --bg4:         #1e1e2e;
+    --bg5:         #252535;
+
+    /*  Tekst  */
+    --text:        #e8e8f0;
+    --text2:       rgba(232,232,240,.6);
+    --text3:       rgba(232,232,240,.35);
+
+    /*  Kolory semantyczne  */
+    --red:         #e05555;
+    --red-dim:     rgba(224,85,85,.12);
+    --green:       #4ec97a;
+    --green-dim:   rgba(78,201,122,.1);
+    --blue:        #5b9cf6;
+    --orange:      #f0a050;
+    --warn:        #e6b43c;          /* ostrze¿enia (¿ó³ty) */
+
+    /*  Obramowania  */
+    --border:      rgba(200,168,75,.18);   /* z³ote obramowanie kart */
+    --border2:     rgba(255,255,255,.06);  /* delikatne bia³e obramowanie */
+
+    /*  Kszta³t / cieñ  */
+    --radius:      8px;
+    --radius-lg:   12px;
+    --shadow:      0 8px 32px rgba(0,0,0,.55);
+    --shadow-lg:   0 20px 60px rgba(0,0,0,.7);
+}

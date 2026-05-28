@@ -1,0 +1,102 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/MySqlIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/init.php';
+require_once dirname(__DIR__, 2) . '/src/WellPipelineService.php';
+
+final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
+{
+    public function testEnsureCreatesOnePipelinePerRurociagWellAndUsesLegacyLoss(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'rurociag', 130.0, 50.0);
+        $this->seedWell($playerId, $ids['auxWellId'], 'active', 77, 'A1', 'ciezarowki', 100.0, 40.0);
+        $this->seedLegacyPipeline($playerId, 'Legacy PHPUnit', 3.75);
+
+        $service = new WellPipelineService($this->db);
+        $wells = [
+            [
+                'id' => $ids['wellId'],
+                'transport_type' => 'rurociag',
+                'base_production_per_hour' => 50.0,
+                'transport_capacity_pct' => 130.0,
+            ],
+            [
+                'id' => $ids['auxWellId'],
+                'transport_type' => 'ciezarowki',
+                'base_production_per_hour' => 40.0,
+                'transport_capacity_pct' => 100.0,
+            ],
+        ];
+
+        $service->ensurePipelinesForPlayerWells($playerId, $wells);
+        $service->ensurePipelinesForPlayerWells($playerId, $wells);
+
+        $stmt = $this->db->prepare(
+            'SELECT well_id, name, pipeline_type, transport_loss, nominal_capacity_bph, real_capacity_bph,
+                    opex_per_tick, opex_per_bbl, build_cost, status
+               FROM well_pipelines
+              WHERE player_id = ?
+              ORDER BY id ASC'
+        );
+        $stmt->execute([$playerId]);
+        $rows = $stmt->fetchAll();
+
+        $this->assertCount(1, $rows);
+        $this->assertSame((string)$ids['wellId'], (string)$rows[0]['well_id']);
+        $this->assertSame(tPlain('pipeline.default_name', ['id' => $ids['wellId']]), $rows[0]['name']);
+        $this->assertSame('standard', $rows[0]['pipeline_type']);
+        $this->assertSame('3.75', $rows[0]['transport_loss']);
+        $this->assertSame('65.00', $rows[0]['nominal_capacity_bph']);
+        $this->assertSame('65.00', $rows[0]['real_capacity_bph']);
+        $this->assertSame('140.00', $rows[0]['opex_per_tick']);
+        $this->assertSame('0.2500', $rows[0]['opex_per_bbl']);
+        $this->assertSame('18000.00', $rows[0]['build_cost']);
+        $this->assertSame('active', $rows[0]['status']);
+    }
+
+    public function testGetPlayerPipelinesReturnsJoinedWellContext(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'rurociag', 120.0, 37.5);
+
+        $service = new WellPipelineService($this->db);
+        $service->ensurePipelinesForPlayerWells($playerId, [[
+            'id' => $ids['wellId'],
+            'transport_type' => 'rurociag',
+            'base_production_per_hour' => 37.5,
+            'transport_capacity_pct' => 120.0,
+        ]]);
+
+        $pipelines = $service->getPlayerPipelines($playerId);
+
+        $this->assertCount(1, $pipelines);
+        $this->assertSame((string)$ids['wellId'], (string)$pipelines[0]['source_well_id']);
+        $this->assertSame('PHPUnit Well ' . $ids['wellId'], $pipelines[0]['well_name']);
+        $this->assertSame('PHPUnit Pole ' . $ids['wellId'], $pipelines[0]['location_name']);
+        $this->assertSame('rurociag', $pipelines[0]['transport_type']);
+        $this->assertSame($pipelines[0]['real_capacity_bph'], $pipelines[0]['capacity_bbl_h']);
+        $this->assertSame('standard', $pipelines[0]['pipeline_type']);
+        $this->assertSame($pipelines[0]['transport_loss'], $pipelines[0]['transport_loss_pct']);
+    }
+
+    public function testEnsureSchemaCreatesPipelineSupportTables(): void
+    {
+        $service = new WellPipelineService($this->db);
+        $this->assertInstanceOf(WellPipelineService::class, $service);
+
+        foreach (['well_pipelines', 'well_pipeline_events', 'well_pipeline_tick_stats'] as $table) {
+            $stmt = $this->db->prepare(
+                'SELECT COUNT(*)
+                   FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = ?'
+            );
+            $stmt->execute([$table]);
+            $this->assertSame(1, (int)$stmt->fetchColumn(), $table . ' should exist');
+        }
+    }
+}

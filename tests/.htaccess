@@ -1,0 +1,14 @@
+# Wyłącz przekierowania dla folderu tests
+RewriteEngine Off
+
+# Zezwól na bezpośredni dostęp do plików PHP
+<Files "*.php">
+    Allow from all
+</Files>
+
+# Wyłącz security headers dla testów
+<FilesMatch "\.(php|html)$">
+    Header unset X-Content-Type-Options
+    Header unset X-Frame-Options
+    Header unset X-XSS-Protection
+</FilesMatch>

@@ -1,0 +1,54 @@
+<?php
+/**
+ * admin/bank_status.php
+ * JSON endpoint — zwraca aktualny stan kredytów i komornika gracza
+ * U¿ywany przez JS polling w player.php
+ */
+require_once __DIR__ . '/init.php';
+GameLog::info('admin/bank_status.php', 'entry');
+AdminAuth::requireLogin();
+
+header('Content-Type: application/json');
+
+$pid = (int)($_GET['pid'] ?? 0);
+if (!$pid) { echo json_encode(['error' => 'brak pid']); exit; }
+
+$db = Database::getInstance()->getConnection();
+
+// SprawdŸ strukturê
+try {
+    $cols = $db->query("SHOW COLUMNS FROM loans")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('remaining_amount', $cols)) {
+        echo json_encode(['error' => 'stara struktura']); exit;
+    }
+} catch (PDOException $e) {
+    echo json_encode(['error' => 'brak tabeli']); exit;
+}
+
+// Kredyty
+$loans = $db->prepare("SELECT * FROM loans WHERE player_id=:pid ORDER BY created_at DESC LIMIT 10");
+$loans->execute([':pid' => $pid]);
+$loans = $loans->fetchAll(PDO::FETCH_ASSOC);
+
+// Postêpowania
+$procs = $db->prepare("
+    SELECT bp.*, l.remaining_amount AS debt
+    FROM bailiff_proceedings bp
+    JOIN loans l ON bp.loan_id = l.id
+    WHERE bp.player_id=:pid
+    ORDER BY bp.started_at DESC LIMIT 5
+");
+$procs->execute([':pid' => $pid]);
+$procs = $procs->fetchAll(PDO::FETCH_ASSOC);
+
+// Status gracza
+$player = $db->prepare("SELECT status, cash FROM players WHERE id=:pid");
+$player->execute([':pid' => $pid]);
+$player = $player->fetch(PDO::FETCH_ASSOC);
+
+echo json_encode([
+    'loans'   => $loans,
+    'procs'   => $procs,
+    'player'  => $player,
+    'ts'      => time(),
+]);

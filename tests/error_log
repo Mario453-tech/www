@@ -1,0 +1,10 @@
+[26-Feb-2026 22:52:56 Europe/Warsaw] PHP Warning:  require_once(src/init.php): Failed to open stream: No such file or directory in /home/vh15188/public_html/tests/check_trends.php on line 3
+[26-Feb-2026 22:52:56 Europe/Warsaw] PHP Fatal error:  Uncaught Error: Failed opening required 'src/init.php' (include_path='.:/opt/alt/php83/usr/share/pear:/opt/alt/php83/usr/share/php:/usr/share/pear:/usr/share/php') in /home/vh15188/public_html/tests/check_trends.php:3
+Stack trace:
+#0 {main}
+  thrown in /home/vh15188/public_html/tests/check_trends.php on line 3
+[26-Feb-2026 22:54:43 Europe/Warsaw] PHP Warning:  require_once(src/init.php): Failed to open stream: No such file or directory in /home/vh15188/public_html/tests/check_trends.php on line 3
+[26-Feb-2026 22:54:43 Europe/Warsaw] PHP Fatal error:  Uncaught Error: Failed opening required 'src/init.php' (include_path='.:/opt/alt/php83/usr/share/pear:/opt/alt/php83/usr/share/php:/usr/share/pear:/usr/share/php') in /home/vh15188/public_html/tests/check_trends.php:3
+Stack trace:
+#0 {main}
+  thrown in /home/vh15188/public_html/tests/check_trends.php on line 3

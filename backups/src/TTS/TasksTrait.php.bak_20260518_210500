@@ -1,0 +1,513 @@
+<?php
+/**
+ * TTS/TasksTrait.php
+ * System zadań technicznych — zlecanie, tick, efekty, kolejka, anulowanie.
+ * Technical tasks system — assignment, tick, effects, queue, cancellation.
+ */
+trait TTSTasksTrait
+{
+    // ═══════════════════════════════════════════════════════
+    // POBIERANIE ZADAŃ
+    // ═══════════════════════════════════════════════════════
+
+    public function getTasks(string $statusFilter = ''): array
+    {
+        $where = $statusFilter ? "AND tt.status = ?" : '';
+        $stmt = $this->db->prepare("
+            SELECT tt.*,
+                   ts.first_name, ts.last_name, ts.spec_code, ts.spec_name, ts.skill_level,
+                   w.location_name AS well_name,
+                   GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), tt.end_time)) AS seconds_remaining
+            FROM technical_tasks tt
+            JOIN technical_staff ts ON tt.staff_id = ts.id
+            LEFT JOIN wells w ON tt.well_id = w.id
+            WHERE tt.player_id = ? {$where}
+            ORDER BY tt.created_at DESC
+            LIMIT 50
+        ");
+        $params = [$this->playerId];
+        if ($statusFilter) $params[] = $statusFilter;
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function getActiveTasks(): array
+    {
+        return $this->getTasks('in_progress');
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ZLECANIE ZADAŃ
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * Zlecenie zadania inżynierowi.
+     * Assign a task to an engineer.
+     */
+    public function assignTask(int $staffId, string $taskType, ?int $wellId = null, ?string $moduleType = null): array
+    {
+        $staff = $this->getStaffMember($staffId);
+        if (!$staff) return ['success' => false, 'message' => 'Pracownik nie istnieje.'];
+        if ($staff['status'] === 'fired') return ['success' => false, 'message' => 'Pracownik został zwolniony.'];
+
+        $taskDef = self::TASKS[$taskType] ?? null;
+        if (!$taskDef) return ['success' => false, 'message' => 'Nieznany typ zadania.'];
+
+        if (!in_array($staff['spec_code'], $taskDef['assignable'])) {
+            $allowed = implode(', ', array_map(fn($s) => self::SPECS[$s]['name'] ?? $s, $taskDef['assignable']));
+            return ['success' => false, 'message' => "To zadanie wykonuje: {$allowed}. Ten pracownik to: " . $staff['spec_name']];
+        }
+
+        if ($taskDef['needs_well'] && !$wellId) {
+            return ['success' => false, 'message' => 'To zadanie wymaga wskazania odwiertu.'];
+        }
+
+        if ($wellId && $taskDef['needs_well']) {
+            $wellStmt = $this->db->prepare("SELECT status, paused_staff_reason FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
+            $wellStmt->execute([$wellId, $this->playerId]);
+            $wellRow = $wellStmt->fetch();
+            if (!$wellRow) {
+                return ['success' => false, 'message' => 'Odwiert nie istnieje lub nie należy do Ciebie.'];
+            }
+            if ($wellRow['status'] === 'paused_staff') {
+                $missing = $wellRow['paused_staff_reason'] ?? 'brak personelu';
+                return [
+                    'success' => false,
+                    'message' => "Odwiert jest wstrzymany z powodu braku personelu ({$missing}). Zatrudnij wymaganych specjalistów, aby móc zlecać zadania.",
+                ];
+            }
+            if (in_array($wellRow['status'], ['seized', 'blowout'])) {
+                return ['success' => false, 'message' => 'Odwiert jest niedostępny (status: ' . $wellRow['status'] . ').'];
+            }
+        }
+
+        $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
+        $busyStmt->execute([$staffId]);
+        if ($busyStmt->fetch()) {
+            $this->db->prepare("
+                INSERT INTO technical_task_queue (player_id, staff_id, task_type, well_id, module_type)
+                VALUES (?,?,?,?,?)
+            ")->execute([$this->playerId, $staffId, $taskType, $wellId, $moduleType]);
+            return ['success' => true, 'message' => "Pracownik zajęty. Zadanie dodano do kolejki.", 'queued' => true];
+        }
+
+        return $this->startTask($staffId, $taskType, $wellId, $moduleType, $staff);
+    }
+
+    private function startTask(int $staffId, string $taskType, ?int $wellId, ?string $moduleType, array $staff): array
+    {
+        $taskDef = self::TASKS[$taskType];
+        $manager = $this->getManager();
+        $mBonus  = $this->getManagerBonus($manager);
+        $sBonus  = $this->getStaffBonus($staff);
+
+        $baseHours = rand($taskDef['hours_min'], $taskDef['hours_max']);
+        $hours     = max(1, (int)round($baseHours * $mBonus['time_mult'] * $sBonus['time_mult']));
+
+        $baseCost = $taskDef['cost_min'] > 0 ? rand($taskDef['cost_min'], $taskDef['cost_max']) : 0;
+        $cost     = (int)round($baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult']);
+
+        if ($taskType === 'install_module' && $moduleType && isset(self::MODULES[$moduleType])) {
+            $cost = self::MODULES[$moduleType]['cost'];
+        }
+
+        if ($cost > 0) {
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
+            $cashStmt->execute([$this->playerId]);
+            if ($cashStmt->fetchColumn() < $cost) {
+                return ['success' => false, 'message' => "Brak środków. Koszt zadania: \$" . number_format($cost, 0, '.', ' ')];
+            }
+        }
+
+        $wellName = '';
+        if ($wellId) {
+            $wStmt = $this->db->prepare("SELECT location_name FROM wells WHERE id = ?");
+            $wStmt->execute([$wellId]);
+            $w = $wStmt->fetch();
+            $wellName = $w ? " — {$w['location_name']}" : " — odwiert #{$wellId}";
+        }
+        $moduleLabel = $moduleType ? (' (' . (self::MODULES[$moduleType]['label'] ?? $moduleType) . ')') : '';
+        $title       = $taskDef['label'] . $moduleLabel . $wellName;
+        $startTime   = date('Y-m-d H:i:s');
+        $endTime     = date('Y-m-d H:i:s', time() + $hours * 3600);
+
+        $this->db->beginTransaction();
+        try {
+            if ($cost > 0) {
+                $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
+            }
+            $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ?")->execute([$staffId]);
+            $this->db->prepare("
+                INSERT INTO technical_tasks
+                    (player_id, staff_id, task_type, well_id, title, module_type,
+                     start_time, end_time, duration_hours, cost, status)
+                VALUES (?,?,?,?,?,?,?,?,?,?, 'in_progress')
+            ")->execute([
+                $this->playerId, $staffId, $taskType, $wellId, $title, $moduleType,
+                $startTime, $endTime, $hours, $cost,
+            ]);
+            $this->db->commit();
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            GameLog::error('TTS', 'startTask FAILED', $e);
+            return ['success' => false, 'message' => 'Błąd: ' . $e->getMessage()];
+        }
+
+        return [
+            'success'  => true,
+            'message'  => "Zlecono: {$title}. Czas: {$hours}h. Koszt: \$" . number_format($cost, 0, '.', ' '),
+            'hours'    => $hours,
+            'end_time' => $endTime,
+        ];
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // TICK — zakończenie zadań i efekty
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * Główna metoda ticka — sprawdza ukończone zadania i stosuje efekty.
+     * Main tick method — checks completed tasks and applies effects.
+     */
+    public function processTick(): void
+    {
+        $stmt = $this->db->prepare("
+            SELECT tt.*, ts.spec_code, ts.skill_level,
+                   ts.first_name, ts.last_name
+            FROM technical_tasks tt
+            JOIN technical_staff ts ON tt.staff_id = ts.id
+            WHERE tt.status = 'in_progress'
+              AND tt.end_time <= NOW()
+        ");
+        $stmt->execute();
+        foreach ($stmt->fetchAll() as $task) {
+            $this->completeTask($task);
+        }
+    }
+
+    /**
+     * Zastosuj efekty zakończonego zadania.
+     * Apply effects of a completed task.
+     */
+    public function completeTask(array $task): void
+    {
+        $taskId  = (int)$task['id'];
+        $staffId = (int)$task['staff_id'];
+        $wellId  = $task['well_id'] ? (int)$task['well_id'] : null;
+        $pId     = (int)$task['player_id'];
+        $skill   = (int)($task['skill_level'] ?? 5);
+        $result  = [];
+
+        // Szansa na błąd dla niskich skillów
+        $failed = ($skill <= 3) && (mt_rand(1, 100) <= (4 - $skill) * 8);
+
+        if (!$failed) {
+            switch ($task['task_type']) {
+
+                case 'well_maintenance':
+                    if ($wellId) {
+                        $gain = 20 + ($skill >= 7 ? 10 : 0);
+                        $this->db->prepare("
+                            UPDATE wells
+                            SET technical_condition = LEAST(100, technical_condition + ?)
+                            WHERE id = ? AND player_id = ?
+                        ")->execute([$gain, $wellId, $pId]);
+                        $result = ['condition_gain' => $gain];
+                        $msg = "Panie Dyrektorze, zakończono konserwację odwiertu #{$wellId} ({$task['title']}). Stan techniczny +{$gain}%.";
+                    }
+                    break;
+
+                case 'well_repair':
+                    if ($wellId) {
+                        $this->db->prepare("
+                            UPDATE wells
+                            SET technical_condition = 100,
+                                status = CASE WHEN status IN ('broken','paused_cash') THEN 'active' ELSE status END
+                            WHERE id = ? AND player_id = ?
+                        ")->execute([$wellId, $pId]);
+                        $result = ['condition' => 100, 'status' => 'active'];
+                        $msg = "Panie Dyrektorze, naprawa odwiertu #{$wellId} zakończona. Stan przywrócony do 100%. Odwiert aktywny.";
+                    }
+                    break;
+
+                case 'reservoir_analysis':
+                    if ($wellId) {
+                        if ($skill >= 7) {
+                            $this->db->prepare("
+                                UPDATE wells SET pressure = LEAST(1.50, pressure + 0.05)
+                                WHERE id = ? AND player_id = ?
+                            ")->execute([$wellId, $pId]);
+                            $result = ['pressure_boost' => 0.05];
+                        }
+                        $wStmt = $this->db->prepare("SELECT reservoir_remaining, reservoir_max, pressure FROM wells WHERE id = ?");
+                        $wStmt->execute([$wellId]);
+                        $w      = $wStmt->fetch();
+                        $resPct = $w ? round(($w['reservoir_remaining'] / max(1, $w['reservoir_max'])) * 100, 1) : 0;
+                        $msg    = "Panie Dyrektorze, analiza złoża odwiertu #{$wellId} zakończona. Złoże: {$resPct}% · Ciśnienie: " . round(($w['pressure'] ?? 1.0), 3) . ".";
+                    }
+                    break;
+
+                case 'production_optimization':
+                    if ($wellId) {
+                        $boost = 5 + ($skill >= 7 ? min(10, $skill - 5) * 2 : 0);
+                        $this->db->prepare("
+                            UPDATE wells
+                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100),
+                                production_boost_pct = LEAST(50, production_boost_pct + ?)
+                            WHERE id = ? AND player_id = ?
+                        ")->execute([$boost, $boost, $wellId, $pId]);
+                        $result = ['production_boost_pct' => $boost];
+                        $msg = "Panie Dyrektorze, optymalizacja produkcji odwiertu #{$wellId} zakończona. Produkcja zwiększona o {$boost}%.";
+                    }
+                    break;
+
+                case 'install_module':
+                    if ($wellId && $task['module_type']) {
+                        $mod       = $task['module_type'];
+                        $checkStmt = $this->db->prepare("SELECT id FROM well_upgrades WHERE well_id = ? AND upgrade_type = ?");
+                        $checkStmt->execute([$wellId, $mod]);
+                        if (!$checkStmt->fetch()) {
+                            $this->db->prepare("INSERT INTO well_upgrades (well_id, upgrade_type, cost_paid) VALUES (?,?,?)")
+                                     ->execute([$wellId, $mod, $task['cost']]);
+                            if ($mod === 'pump_electric') {
+                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.20 WHERE id = ?")->execute([$wellId]);
+                            } elseif ($mod === 'water_injection') {
+                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.10 WHERE id = ?")->execute([$wellId]);
+                            } elseif ($mod === 'pressure_booster') {
+                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.15, pressure = LEAST(1.5, pressure + 0.1) WHERE id = ?")->execute([$wellId]);
+                            }
+                            $result = ['module' => $mod];
+                        }
+                        $modLabel  = self::MODULES[$mod]['label']  ?? $mod;
+                        $modEffect = self::MODULES[$mod]['effect'] ?? '';
+                        $msg = "Panie Dyrektorze, instalacja „{$modLabel}\" w odwiercie #{$wellId} zakończona. {$modEffect}.";
+                    }
+                    break;
+
+                case 'pipeline_inspection':
+                    $this->db->prepare("
+                        UPDATE pipelines
+                        SET transport_loss = GREATEST(0.5, transport_loss - 0.3),
+                            condition_pct  = LEAST(100, condition_pct + 10)
+                        WHERE player_id = ?
+                    ")->execute([$pId]);
+                    $result = ['transport_loss_reduced' => 0.3];
+                    $msg = "Panie Dyrektorze, inspekcja rurociągów zakończona. Straty transportowe zmniejszone o 0.3%.";
+                    break;
+
+                case 'safety_audit':
+                    $reduction = $skill >= 7 ? 3 : 2;
+                    $this->db->prepare("
+                        UPDATE wells SET risk_level = GREATEST(1, risk_level - ?)
+                        WHERE player_id = ? AND status = 'active'
+                    ")->execute([$reduction, $pId]);
+
+                    $integrityBoost = 0;
+                    if ($skill >= 6) {
+                        $intStmt = $this->db->prepare("SELECT safety_procedures_level, procedure_integrity FROM players WHERE id = ?");
+                        $intStmt->execute([$pId]);
+                        $intRow = $intStmt->fetch();
+                        if ($intRow && (int)(float)$intRow['safety_procedures_level'] > 0) {
+                            $integrityBoost = $skill >= 8 ? 20 : 15;
+                            $newInt = min(100.0, (float)$intRow['procedure_integrity'] + $integrityBoost);
+                            $this->db->prepare("
+                                UPDATE players SET procedure_integrity = ?, procedures_last_decay_at = NOW()
+                                WHERE id = ?
+                            ")->execute([$newInt, $pId]);
+                        }
+                    }
+
+                    $result = ['risk_reduction' => $reduction, 'integrity_boost' => $integrityBoost];
+                    $msg    = "Panie Dyrektorze, audyt bezpieczeństwa zakończony. Ryzyko awarii na wszystkich odwiertach zmniejszone o {$reduction} pkt."
+                            . ($integrityBoost > 0 ? " Integralność procedur BHP +{$integrityBoost}%." : '');
+                    break;
+
+                case 'blowout_control':
+                    if ($wellId) {
+                        $this->db->prepare("
+                            UPDATE wells
+                            SET status = 'active', technical_condition = GREATEST(20, 35 + ? * 3)
+                            WHERE id = ? AND player_id = ? AND status = 'blowout'
+                        ")->execute([$skill, $wellId, $pId]);
+                        $this->db->prepare("
+                            UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                            WHERE player_id = ? AND well_id = ? AND disaster_type = 'blowout' AND status != 'resolved'
+                        ")->execute([$pId, $wellId]);
+                        $this->db->prepare("
+                            UPDATE failure_log SET resolved = 1, resolved_at = NOW()
+                            WHERE player_id = ? AND well_id = ? AND failure_type = 'blowout' AND resolved = 0
+                        ")->execute([$pId, $wellId]);
+                        $result = ['blowout_resolved' => true];
+                        $msg = "Panie Dyrektorze, akcja ratunkowa na odwiercie #{$wellId} zakończona. Niekontrolowany wypływ opanowany. Odwiert wznowiony.";
+                    }
+                    break;
+
+                case 'pipeline_repair':
+                    $this->db->prepare("
+                        UPDATE pipelines
+                        SET status = 'active', condition_pct = LEAST(100, 40 + ? * 5), damaged_at = NULL
+                        WHERE player_id = ? AND status = 'damaged'
+                        LIMIT 1
+                    ")->execute([$skill, $pId]);
+                    $this->db->prepare("
+                        UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                        WHERE player_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
+                    ")->execute([$pId]);
+                    $result = ['pipeline_repaired' => true];
+                    $msg = "Panie Dyrektorze, naprawa rurociągu zakończona. Infrastruktura transportowa przywrócona do działania.";
+                    break;
+
+                case 'reservoir_rehabilitation':
+                    if ($wellId) {
+                        $boostPct = 10 + ($skill >= 7 ? 5 : 0);
+                        $this->db->prepare("
+                            UPDATE wells
+                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100),
+                                status = CASE WHEN status = 'contaminated' THEN 'active' ELSE status END
+                            WHERE id = ? AND player_id = ?
+                        ")->execute([$boostPct, $wellId, $pId]);
+                        $this->db->prepare("
+                            UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                            WHERE player_id = ? AND well_id = ? AND disaster_type = 'reservoir_contamination' AND status != 'resolved'
+                        ")->execute([$pId, $wellId]);
+                        $this->db->prepare("
+                            UPDATE failure_log SET resolved = 1, resolved_at = NOW()
+                            WHERE player_id = ? AND well_id = ? AND failure_type = 'reservoir_contamination' AND resolved = 0
+                        ")->execute([$pId, $wellId]);
+                        $result = ['production_restored_pct' => $boostPct];
+                        $msg = "Panie Dyrektorze, rehabilitacja złoża odwiertu #{$wellId} zakończona. Produkcja wzrosła o {$boostPct}%. Odwiert aktywny.";
+                    }
+                    break;
+
+                default:
+                    $msg = "Panie Dyrektorze, zadanie „{$task['title']}\" zakończone.";
+            }
+        } else {
+            $msg = "Panie Dyrektorze, zadanie „{$task['title']}\" nie powiodło się. Niskie kompetencje pracownika. Koszt nieodwracalny.";
+        }
+
+        $this->db->prepare("
+            UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ?
+        ")->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId]);
+
+        $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ?")->execute([$staffId]);
+
+        if (!empty($msg)) {
+            $this->db->prepare("
+                INSERT INTO technical_notifications (player_id, well_id, type, message)
+                VALUES (?,?,?,?)
+            ")->execute([$pId, $wellId, 'task', $msg]);
+        }
+
+        // Pobierz następne zadanie z kolejki dla tego pracownika
+        $qStmt = $this->db->prepare("
+            SELECT * FROM technical_task_queue
+            WHERE staff_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
+        ");
+        $qStmt->execute([$staffId]);
+        $next = $qStmt->fetch();
+        if ($next) {
+            $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$next['id']]);
+            $staffRow = $this->getStaffMember($staffId);
+            if ($staffRow) {
+                $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // KOLEJKA ZADAŃ — podgląd i anulowanie
+    // ═══════════════════════════════════════════════════════
+
+    public function getQueue(): array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT q.*,
+                       ts.first_name, ts.last_name, ts.spec_code,
+                       COALESCE(hs.name, ts.spec_code) AS spec_name,
+                       w.location_name AS well_name
+                FROM technical_task_queue q
+                JOIN technical_staff ts ON ts.id = q.staff_id
+                LEFT JOIN hr_specializations hs ON hs.code = ts.spec_code
+                LEFT JOIN wells w ON w.id = q.well_id
+                WHERE q.player_id = ?
+                ORDER BY q.priority DESC, q.queued_at ASC
+            ");
+            $stmt->execute([$this->playerId]);
+            return $stmt->fetchAll() ?: [];
+        } catch (Throwable $e) {
+            GameLog::error('TTS', 'getQueue failed', $e, ['player_id' => $this->playerId]);
+            return [];
+        }
+    }
+
+    public function cancelTask(int $taskId): array
+    {
+        GameLog::step('TTS', 'cancelTask', 1, "task={$taskId}");
+        try {
+            $stmt = $this->db->prepare("
+                SELECT t.*, ts.first_name, ts.last_name
+                FROM technical_tasks t
+                JOIN technical_staff ts ON ts.id = t.staff_id
+                WHERE t.id = ? AND t.player_id = ? AND t.status = 'in_progress'
+                LIMIT 1
+            ");
+            $stmt->execute([$taskId, $this->playerId]);
+            $task = $stmt->fetch();
+            if (!$task) {
+                return ['success' => false, 'message' => 'Nie znaleziono aktywnego zadania.'];
+            }
+
+            $this->db->beginTransaction();
+            $this->db->prepare("
+                UPDATE technical_tasks SET status = 'cancelled', end_time = NOW()
+                WHERE id = ? AND player_id = ?
+            ")->execute([$taskId, $this->playerId]);
+            $this->db->prepare("
+                UPDATE technical_staff SET status = 'active'
+                WHERE id = ? AND player_id = ?
+            ")->execute([$task['staff_id'], $this->playerId]);
+
+            $next = $this->db->prepare("
+                SELECT * FROM technical_task_queue WHERE staff_id = ?
+                ORDER BY priority DESC, queued_at ASC LIMIT 1
+            ");
+            $next->execute([$task['staff_id']]);
+            $nextTask = $next->fetch();
+            if ($nextTask) {
+                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$nextTask['id']]);
+                $staffRow = $this->getStaffMember((int)$task['staff_id']);
+                if ($staffRow) {
+                    $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow);
+                }
+            }
+
+            $this->db->commit();
+            GameLog::info('TTS', 'cancelTask OK', ['task_id' => $taskId, 'player_id' => $this->playerId]);
+            return ['success' => true, 'message' => 'Zadanie anulowane. Pracownik dostępny.'];
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            GameLog::error('TTS', 'cancelTask FAILED', $e, ['task_id' => $taskId]);
+            return ['success' => false, 'message' => 'Błąd podczas anulowania zadania.'];
+        }
+    }
+
+    public function cancelQueueItem(int $queueId): array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?
+            ");
+            $stmt->execute([$queueId, $this->playerId]);
+            if ($stmt->rowCount() === 0) {
+                return ['success' => false, 'message' => 'Nie znaleziono pozycji w kolejce.'];
+            }
+            GameLog::info('TTS', 'cancelQueueItem OK', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
+            return ['success' => true, 'message' => 'Zadanie usunięte z kolejki.'];
+        } catch (Throwable $e) {
+            GameLog::error('TTS', 'cancelQueueItem FAILED', $e, ['queue_id' => $queueId]);
+            return ['success' => false, 'message' => 'Błąd podczas usuwania z kolejki.'];
+        }
+    }
+}

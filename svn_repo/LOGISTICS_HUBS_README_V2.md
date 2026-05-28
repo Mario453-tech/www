@@ -1,0 +1,323 @@
+# Logistics Hubs README V2
+
+## Cel pliku
+
+To jest jedyny kanoniczny opis systemu hubow logistycznych i powiazanych etapow transportu w tym projekcie.
+Plik powstal po porownaniu kodu z trzema starszymi dokumentami:
+
+- `LOGISTICS_HUBS_README_UPDATED.md`
+- `LOGISTICS_README_FINAL_dopisane.md`
+- `LOGISTICS_HUBS_README.md`
+
+Starsze pliki zawieraly rozjazdy merytoryczne i problemy z kodowaniem znakow. Ten dokument opisuje stan faktyczny na podstawie kodu i testow.
+
+## Co zostalo sprawdzone
+
+Porownanie wykonano z realnymi implementacjami w:
+
+- `src/HubService.php`
+- `src/HubAssignmentService.php`
+- `src/HubViewService.php`
+- `src/HubEconomyService.php`
+- `src/HubTickService.php`
+- `src/HubIncidentService.php`
+- `src/Hub/*.php`
+- `src/AdminHub/*.php`
+- `src/LogisticsService.php`
+- `src/WellPipelineService.php`
+- `src/RoadTransportService.php`
+- `src/OffshoreTransportService.php`
+- `src/MarineDeliveryService.php`
+- `src/PortService.php`
+- `src/Tick/WellHubSection.php`
+- `src/Tick/MarineDeliverySection.php`
+- `src/Tick/PortSection.php`
+- `src/Tick/PlayersSection.php`
+- `public/logistics.php`
+- `admin/logistics_hubs.php`
+- `admin/transport.php`
+- `templates/views/logistics/main.php`
+- `templates/views/admin/logistics/main.php`
+- `assets/js/logistics_hubs.js`
+- `assets/js/admin_logistics_hubs.js`
+- `tests/Integration/*`
+- `tests/MySqlIntegration/*`
+
+## Werdykt ogolny
+
+System logistyki jest wdrozony znacznie szerzej, niz sugerowaly starsze README.
+
+Nie jest prawda, ze huby sa tylko szkicem albo ze etapy portowe i morskie sa dopiero planem. Te elementy maja realny backend, integracje z tickiem, testy integracyjne i UI administracyjne, a czesc z nich jest tez widoczna dla gracza.
+
+Jednoczesnie system nie jest jeszcze domkniety jako pelny model "gracz kupuje i posiada huba". Obecna implementacja to model infrastruktury systemowej, z ktorej gracz korzysta przez przypisywanie odwiertow i przez mechaniki transportowe.
+
+## Co jest realnie wdrozone
+
+### 1. Huby logistyczne - rdzen systemu
+
+W kodzie istnieje kompletny modul hubow:
+
+- tworzenie, naprawa, upgrade, pauza/wznowienie, zmiana trybu pracy i zmiana nazwy
+- stany huba: aktywny, paused, damaged, disabled, building
+- poziomy, kondycja, wear, sprawnosc, limity slotow
+- nominalna i realna przepustowosc
+- bufor ropy w hubie (`buffer_capacity_bbl`, `buffer_current_bbl`)
+- ekonomia huba i OPEX per tick
+- incydenty i ryzyko awarii
+- finalizacja hubow po petli odwiertow w ticku
+
+To nie jest juz tylko warstwa widoku. Backend i tick sa realnie podpiete.
+
+### 2. Przypisywanie odwiertow do hubow
+
+Gracz moze:
+
+- przypisac odwiert do huba
+- odpiac odwiert od huba
+- przeniesc odwiert miedzy hubami
+- pobierac liste hubow dostepnych dla odwiertu
+- pobierac szczegoly huba i odwiertow przypietych do huba
+
+Obowiazuja realne reguly backendowe:
+
+- zgodnosc regionu
+- limit slotow
+- cooldown
+- filtrowanie tylko do odwiertow gracza
+- walidacje aktywnosci i stanu huba
+
+### 3. Model akwizycji `new / used / rental`
+
+Ten model jest wdrozony w logice huba, a nie tylko opisany w dokumentacji.
+
+Obejmuje:
+
+- `acquisition_type`
+- mnozniki build cost
+- poczatkowy zakres kondycji
+- `lease_fee_per_tick`
+- prezentacje statusu w UI admina i gracza
+- potwierdzenia dla wynajmu w JS
+
+### 4. UI gracza dla hubow
+
+Po stronie gracza wdrozone sa:
+
+- ekran logistyki
+- lista hubow i ich statystyki
+- widocznosc typu akwizycji
+- widocznosc czynszu per tick
+- podglad bufora
+- modal przypisania odwiertu
+- modal transferu odwiertu
+- komunikaty ostrzegawcze i sukcesy
+
+### 5. UI admina dla hubow
+
+Po stronie admina wdrozone sa:
+
+- budowa huba
+- konfiguracja typu akwizycji podczas budowy
+- podglad stanu, kondycji, czynszu i bufora
+- pauza / wznowienie
+- repair / upgrade / rename
+- konfiguracja parametrow akwizycji
+
+### 6. Integracja hubow z tickiem i ekonomia gry
+
+Tick uwzglednia:
+
+- stan i zuzycie hubow
+- koszty OPEX
+- straty hubowe i reconciliacje
+- zdarzenia/incydenty
+- prace z buforem
+- finalizacje po petli odwiertow
+
+### 7. Rurociagi per odwiert
+
+To jest realnie wdrozony system, nie placeholder.
+
+Obejmuje:
+
+- `WellPipelineService`
+- testy MySQL i integracyjne
+- techniczne taski dla pipeline
+- integracje HSE
+- wlasnosciowy warunek dla transportu ladowego
+
+W praktyce:
+
+- odwiert ladowy nie powinien startowac z domyslnie wybranym `rurociag` ani `ciezarowki`; poprawny stan poczatkowy to `nieustawiony`
+- jesli w starszych danych odwiert ladowy ma wpisane `rurociag`, ale gracz nie ma swojego wpisu w `well_pipelines`, system traktuje to jako stary autopreset i wymaga ponownego wyboru transportu
+- fallback do `ciezarowki` wystepuje tylko wtedy, gdy rurociag dla odwiertu istnieje, ale chwilowo nie jest jeszcze operacyjny, np. jest w budowie
+- optimizer nie tworzy sam rurociagu "z powietrza"
+- rurociag moze zostac wybrany tylko po aktywnym przypisaniu odwiertu do systemowego huba
+- `nieustawiony` jest stanem systemowym i naglowkiem informacyjnym, a nie osobnym kaflem wyboru w "Moich odwiertach"; lista akcji pokazuje tylko realne transporty (`rurociag`, `ciezarowki`, `tankowiec`)
+- w "Moich odwiertach" akcja przy rurociagu ma byc zwyklym przyciskiem `Przelacz`; koszt budowy i przypisanie do huba sa informacja w potwierdzeniu / backendzie, nie osobnym stanem UI
+
+To jest potwierdzone testem `MySqlLogisticsOwnershipFlowTest`.
+
+### 8. Transport drogowy
+
+System transportu drogowego jest wdrozony jako system kursow:
+
+- backend `RoadTransportService`
+- integracja z tickiem
+- testy SQLite i MySQL
+
+### 9. Transport offshore
+
+Transport offshore jest wdrozony jako system rejsow tankowcow:
+
+- backend `OffshoreTransportService`
+- integracja z tickiem
+- testy SQLite i MySQL
+
+### 10. Dostawy morskie
+
+To tez jest wdrozone, a nie "future only".
+
+Obejmuje:
+
+- `MarineDeliveryService`
+- tworzenie i aktualizacje dostaw
+- kolejke portowa
+- przetwarzanie statusow w ticku przez `MarineDeliverySection`
+- testy MySQL
+
+### 11. Porty morskie
+
+Porty sa zaimplementowane jako osobny system:
+
+- `PortService`
+- `PortSection`
+- odswiezanie statusow
+- seed domyslnych portow
+- statystyki kolejki
+- integracja z `admin/transport.php`
+- testy MySQL
+
+To oznacza, ze stare zapisy typu "porty dopiero pozniej" sa juz nieaktualne.
+
+### 12. Rozbicie wolumenu dostarczonego w finansach
+
+W kodzie sa testy i integracje potwierdzajace, ze delivered volume i przeplywy logistyczne sa juz rozdzielane w logice finansowej/tickowej.
+
+## Co jest wdrozone czesciowo albo z ograniczeniami
+
+### 1. Huby nie sa jeszcze wlasnoscia gracza
+
+To jest najwazniejszy brak do domkniecia.
+
+Obecny model:
+
+- hub jest tworzony z `player_id = 0`
+- dokumentacja i API wprost nazywaja huby infrastruktura systemowa
+- gracz korzysta z istniejacych hubow, ale sam ich nie posiada jako swoich rekordow
+
+Konsekwencja:
+
+- model `new / used / rental` istnieje w danych i ekonomii
+- ale nie ma jeszcze pelnego gameplay loopa "gracz kupuje / wynajmuje / odkupuje hub dla siebie"
+
+### 2. Budowa huba jest nadal akcja admin-only
+
+API rozdziela akcje bardzo jasno:
+
+- admin: `build_hub`, `repair_hub`, `upgrade_hub`, `set_mode`, `toggle_pause`, `rename_hub`
+- gracz: `assign_well`, `detach_well`, `transfer_well`
+
+To oznacza, ze UI i backend dla bezposredniego zakupu huba przez gracza nie sa jeszcze zakonczone.
+
+### 3. Akwizycja `used / rental` jest glownie modelem ekonomicznym i prezentacyjnym
+
+Dzisiaj dziala:
+
+- typ akwizycji
+- start condition
+- lease fee
+- prezentacja i ostrzezenia
+
+Brakuje pelnego domkniecia pod katem:
+
+- samodzielnego flow zakupu przez gracza
+- twardych ograniczen biznesowych dla odkupu / wynajmu
+- kompletnego lifecycle ownership dla huba po stronie gracza
+
+### 4. Sa czerwone testy od komunikatow tlumaczen
+
+W lokalnym pakiecie testowym dla tej domeny wyszly 2 fail'e:
+
+- `TechnicalHubTasksTest::testAssignTaskRejectsHubTaskWithoutHubId`
+- `TechnicalHubTasksTest::testAssignTaskRejectsHubNotUsedByPlayer`
+
+To nie wyglada na blad logiki logistyki, tylko na rozjazd oczekiwanego tekstu z aktualnym kluczem tlumaczenia.
+
+## Co zostalo do wdrozenia do konca
+
+Jesli celem jest "huby jako pelny system gracza", to do domkniecia zostaje przede wszystkim:
+
+1. Player ownership model dla hubow
+   - przejscie z czysto systemowych hubow na huby kupowane / wynajmowane przez gracza albo swiadome potwierdzenie, ze gra zostaje przy modelu systemowym
+
+2. Pelen flow zakupu / wynajmu po stronie gracza
+   - backend
+   - UI
+   - walidacje
+   - koszty
+   - skutki finansowe
+
+3. Domkniecie lifecycle `used / rental`
+   - zasady dostepnosci
+   - odkup / wygasniecie / opoznienia / blokady
+   - warunki utrzymania i ewentualne sankcje
+
+4. Dopracowanie warstwy komunikatow i tlumaczen
+   - zeby testy tekstowe znowu byly zielone
+
+5. Cleanup techniczny
+   - w kodzie nadal sa pliki `.bak_*`
+   - w czesci komentarzy PHP sa jeszcze slady problemow z kodowaniem znakow
+
+## Wynik testow podczas weryfikacji
+
+Sprawdzony pakiet MySQL dla logistyki:
+
+- `phpunit.mysql.xml.dist`
+- wynik: `OK (60 tests, 1769 assertions)`
+
+Sprawdzony pakiet aplikacyjny dla logistyki:
+
+- `phpunit.xml.dist`
+- wynik: `41 tests`, `2 failures`
+
+Obie porazki dotycza komunikatow w `TechnicalHubTasksTest`, a nie glownej logiki hubow, pipeline, road/offshore, marine delivery czy portow.
+
+## Co zostalo usuniete z poprzednich README
+
+Z nowego opisu usunieto albo skorygowano miedzy innymi:
+
+- tezy, ze porty i dostawy morskie sa tylko przyszlym etapem
+- niejasne mieszanie planu z implementacja
+- rozjazdy miedzy backendem a opisem ownership
+- problemy z kodowaniem znakow
+
+## Rekomendacja robocza
+
+Na dzis najuczciwszy opis brzmi tak:
+
+"Huby logistyczne i kolejne warstwy transportu sa juz wdrozone technicznie i dobrze przetestowane, ale system nadal nie jest domkniety jako pelny model zakupu i posiadania hubow przez gracza."
+
+To jest aktualny stan faktyczny kodu.
+
+### Admin - procentowe typy rurociagow
+
+Panel `admin/pipelines.php` pozwala edytowac typy rurociagow per profil (`light`, `standard`, `heavy`). Konfiguracja jest zapisywana procentowo w `well_config` w kategorii `pipeline_types`:
+
+- `price_pct` - procent ceny bazowej, przeliczany na koszt budowy nowego rurociagu
+- `capacity_pct` - przepustowosc rurociagu w procentach, uzywana przy zakupie i przy wyborze transportu
+- `durability_pct` - trwalosc w procentach, przeliczana na tempo zuzycia rurociagu
+
+Zmiany dotycza nowych wyborow/zakupow rurociagow i sa zatwierdzane modalem w panelu admina.
+

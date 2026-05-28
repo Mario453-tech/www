@@ -1,0 +1,398 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<div class="profile-wrap">
+
+    <?php foreach ($errors as $e): ?>
+    <div class="msg-bar msg-error"><?= htmlspecialchars($e) ?></div>
+    <?php endforeach ?>
+    <?php foreach ($success as $s): ?>
+    <div class="msg-bar msg-success"><?= htmlspecialchars($s) ?></div>
+    <?php endforeach ?>
+
+    <div class="profile-grid">
+        <div class="profile-left">
+            <div class="profile-avatar-card">
+                <div class="profile-avatar-wrap">
+                    <?php if ($avatarUrl): ?>
+                    <img src="<?= $avatarUrl ?>" alt="Avatar" class="profile-avatar-img" id="avatarPreview">
+                    <?php else: ?>
+                    <div class="profile-avatar-placeholder" id="avatarPreview">
+                        <span><?= strtoupper(substr($playerData['username'] ?? 'G', 0, 1)) ?></span>
+                    </div>
+                    <?php endif ?>
+                    <label class="profile-avatar-overlay" for="avatarInput" title="<?= t('profile.avatar_change_title') ?>">
+                        &#128247;
+                    </label>
+                </div>
+                <div class="profile-username"><?= htmlspecialchars($playerData['username'] ?? 'Gracz') ?></div>
+                <?php if ($companyName): ?>
+                <div class="profile-company"><?= $companyName ?></div>
+                <?php endif ?>
+
+                <form method="post" enctype="multipart/form-data" id="avatarForm">
+                    <input type="hidden" name="_token" value="<?= $csrfToken ?>">
+                    <input type="hidden" name="action" value="upload_avatar">
+                    <input
+                        type="file"
+                        name="avatar"
+                        id="avatarInput"
+                        accept="image/*"
+                        class="visually-hidden"
+                        onchange="previewAndSubmitAvatar(this)"
+                    >
+                </form>
+                <div class="profile-avatar-hint"><?= t('profile.avatar_hint') ?></div>
+            </div>
+
+            <div class="profile-stats-card">
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('profile.member_since') ?></span>
+                    <span class="profile-stat-value"><?= $memberSince ?></span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('profile.last_login') ?></span>
+                    <span class="profile-stat-value"><?= $lastLogin ?></span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('profile.wells_label') ?></span>
+                    <span class="profile-stat-value"><?= sprintf(t('profile.wells_stat'), $playerData['active_wells'], $playerData['well_count']) ?></span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('profile.sold_oil_label') ?></span>
+                    <span class="profile-stat-value"><?= number_format((float) ($sellStats['total_sold'] ?? 0), 0, '.', ' ') ?> bbl</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('profile.safety_label') ?></span>
+                    <span class="profile-stat-value"><?= sprintf(t('profile.safety_level'), $playerData['safety_procedures_level'] ?? 0) ?></span>
+                </div>
+            </div>
+
+            <div class="profile-stats-card">
+                <h3 class="profile-bm-heading">&#127980; <?= t('black_market.profile_heading') ?></h3>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('black_market.profile_transactions') ?></span>
+                    <span class="profile-stat-value"><?= (int) $bmStats['total_transactions'] ?></span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('black_market.profile_revenue') ?></span>
+                    <span class="profile-stat-value money"><?= number_format((float) $bmStats['total_revenue'], 0, ',', ' ') ?> PLN</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('black_market.profile_penalties') ?></span>
+                    <span class="profile-stat-value profile-bm-score--high"><?= number_format((float) $bmStats['total_penalties'], 0, ',', ' ') ?> PLN</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label"><?= t('black_market.profile_detected') ?></span>
+                    <span class="profile-stat-value"><?= (int) $bmStats['times_detected'] ?></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-right">
+            <div class="profile-card">
+                <h2 class="profile-card-title"><?= t('profile.company_title') ?></h2>
+                <form method="post">
+                    <input type="hidden" name="_token" value="<?= $csrfToken ?>">
+                    <input type="hidden" name="action" value="update_profile">
+                    <div class="profile-field">
+                        <label class="profile-label"><?= t('profile.company_label') ?></label>
+                        <input
+                            type="text"
+                            name="company_name"
+                            class="profile-input"
+                            value="<?= $companyName ?>"
+                            placeholder="<?= t('profile.company_placeholder') ?>"
+                            maxlength="80"
+                        >
+                        <span class="profile-hint"><?= sprintf(t('profile.company_hint'), $playerId) ?></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><?= t('profile.company_save_btn') ?></button>
+                </form>
+            </div>
+
+            <div class="profile-card">
+                <h2 class="profile-card-title"><?= t('profile.password_title') ?></h2>
+                <form method="post" id="passwordForm">
+                    <input type="hidden" name="_token" value="<?= $csrfToken ?>">
+                    <input type="hidden" name="action" value="change_password">
+
+                    <div class="profile-field">
+                        <label class="profile-label"><?= t('profile.current_pass_label') ?></label>
+                        <div class="profile-password-wrap">
+                            <input
+                                type="password"
+                                name="current_password"
+                                id="currentPass"
+                                class="profile-input"
+                                autocomplete="current-password"
+                                required
+                            >
+                            <button type="button" class="profile-pass-toggle" onclick="togglePass('currentPass', this)">&#128065;</button>
+                        </div>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="profile-label"><?= t('profile.new_pass_label') ?></label>
+                        <div class="profile-password-wrap">
+                            <input
+                                type="password"
+                                name="new_password"
+                                id="newPass"
+                                class="profile-input"
+                                autocomplete="new-password"
+                                required
+                                minlength="8"
+                                oninput="checkPassStrength(this.value)"
+                            >
+                            <button type="button" class="profile-pass-toggle" onclick="togglePass('newPass', this)">&#128065;</button>
+                        </div>
+                        <div class="profile-pass-strength" id="passStrength"></div>
+                        <span class="profile-hint"><?= t('profile.new_pass_hint') ?></span>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="profile-label"><?= t('profile.confirm_pass_label') ?></label>
+                        <div class="profile-password-wrap">
+                            <input
+                                type="password"
+                                name="confirm_password"
+                                id="confirmPass"
+                                class="profile-input"
+                                autocomplete="new-password"
+                                required
+                                minlength="8"
+                            >
+                            <button type="button" class="profile-pass-toggle" onclick="togglePass('confirmPass', this)">&#128065;</button>
+                        </div>
+                        <div class="profile-pass-match" id="passMatch"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary"><?= t('profile.change_pass_btn') ?></button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var PROFILE_LANG = {
+    uploading: <?= json_encode(t('profile_js.avatar_uploading')) ?>,
+    uploadFailed: <?= json_encode(t('profile.err_upload_error')) ?>,
+    uploadSaveFailed: <?= json_encode(t('profile.err_upload_save')) ?>,
+    avatarAlt: <?= json_encode(t('profile.avatar_change_title')) ?>,
+    passVeryWeak: <?= json_encode(t('profile_js.pass_very_weak')) ?>,
+    passWeak: <?= json_encode(t('profile_js.pass_weak')) ?>,
+    passMedium: <?= json_encode(t('profile_js.pass_medium')) ?>,
+    passStrong: <?= json_encode(t('profile_js.pass_strong')) ?>,
+    passVeryStrong: <?= json_encode(t('profile_js.pass_very_strong')) ?>,
+    passMatch: <?= json_encode(t('profile_js.pass_match')) ?>,
+    passNoMatch: <?= json_encode(t('profile_js.pass_no_match')) ?>
+};
+
+function togglePass(id, btn) {
+    var input = document.getElementById(id);
+    var isText = input.type === 'text';
+    input.type = isText ? 'password' : 'text';
+    btn.innerHTML = isText ? '&#128065;' : '&#128584;';
+}
+
+function checkPassStrength(val) {
+    var el = document.getElementById('passStrength');
+    if (!val) {
+        el.textContent = '';
+        return;
+    }
+    var score = 0;
+    if (val.length >= 8) score++;
+    if (val.length >= 12) score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[^A-Za-z0-9]/.test(val)) score++;
+    var labels = ['', PROFILE_LANG.passVeryWeak, PROFILE_LANG.passWeak, PROFILE_LANG.passMedium, PROFILE_LANG.passStrong, PROFILE_LANG.passVeryStrong];
+    var colors = ['', '#e05555', '#e07b55', '#e0b44c', '#7ec97a', '#4ec97a'];
+    el.textContent = labels[score] || '';
+    el.style.color = colors[score] || '';
+}
+
+document.getElementById('confirmPass')?.addEventListener('input', function() {
+    var match = document.getElementById('passMatch');
+    var newVal = document.getElementById('newPass').value;
+    if (!this.value) {
+        match.textContent = '';
+        return;
+    }
+    if (this.value === newVal) {
+        match.textContent = PROFILE_LANG.passMatch;
+        match.style.color = '#4ec97a';
+    } else {
+        match.textContent = PROFILE_LANG.passNoMatch;
+        match.style.color = '#e05555';
+    }
+});
+
+function profileShowMessage(kind, text) {
+    var wrap = document.querySelector('.profile-wrap');
+    if (!wrap) return;
+
+    wrap.querySelectorAll('.msg-bar.msg-dynamic').forEach(function(node) {
+        node.remove();
+    });
+
+    var bar = document.createElement('div');
+    bar.className = 'msg-bar msg-dynamic ' + (kind === 'success' ? 'msg-success' : 'msg-error');
+    bar.textContent = text;
+    wrap.insertBefore(bar, wrap.firstChild);
+}
+
+function updateTopbarAvatar(url) {
+    var link = document.querySelector('.topbar-user-link');
+    if (!link) return;
+
+    var img = link.querySelector('.topbar-avatar');
+    if (img) {
+        img.src = url;
+        return;
+    }
+
+    var initials = link.querySelector('.topbar-avatar-initials');
+    if (!initials) return;
+
+    img = document.createElement('img');
+    img.src = url;
+    img.className = 'topbar-avatar';
+    img.alt = 'avatar';
+    initials.replaceWith(img);
+}
+
+function compressAvatarBlob(file) {
+    return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onerror = function() {
+            reject(new Error('read_failed'));
+        };
+        reader.onload = function(e) {
+            var original = new Image();
+            original.onerror = function() {
+                reject(new Error('image_decode_failed'));
+            };
+            original.onload = function() {
+                var maxBytes = 6000;
+                var minSide = 64;
+                var scale = 1;
+                var qualities = [0.82, 0.72, 0.64, 0.56, 0.48, 0.4];
+
+                function attempt() {
+                    var width = Math.max(minSide, Math.round(original.width * scale));
+                    var height = Math.max(minSide, Math.round(original.height * scale));
+                    var maxDim = 96;
+
+                    if (width > height && width > maxDim) {
+                        height = Math.max(minSide, Math.round(height * maxDim / width));
+                        width = maxDim;
+                    } else if (height >= width && height > maxDim) {
+                        width = Math.max(minSide, Math.round(width * maxDim / height));
+                        height = maxDim;
+                    }
+
+                    var canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    canvas.getContext('2d').drawImage(original, 0, 0, width, height);
+
+                    var index = 0;
+                    function tryNextQuality() {
+                        var quality = qualities[index++];
+                        canvas.toBlob(function(blob) {
+                            if (!blob) {
+                                reject(new Error('blob_failed'));
+                                return;
+                            }
+                            if (blob.size <= maxBytes || index >= qualities.length) {
+                                if (blob.size <= maxBytes || (width <= minSide && height <= minSide)) {
+                                    resolve({
+                                        blob: blob,
+                                        previewUrl: canvas.toDataURL('image/jpeg', Math.min(quality, 0.72))
+                                    });
+                                    return;
+                                }
+                                scale = scale * 0.85;
+                                attempt();
+                                return;
+                            }
+                            tryNextQuality();
+                        }, 'image/jpeg', quality);
+                    }
+
+                    tryNextQuality();
+                }
+
+                attempt();
+            };
+            original.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function previewAndSubmitAvatar(input) {
+    if (!input.files || !input.files[0]) return;
+
+    var tokenNode = document.querySelector('#avatarForm [name="_token"]');
+    var token = tokenNode ? tokenNode.value : '';
+    var file = input.files[0];
+
+    profileShowMessage('success', PROFILE_LANG.uploading);
+
+    compressAvatarBlob(file)
+        .then(function(result) {
+            var prev = document.getElementById('avatarPreview');
+            if (prev && prev.tagName === 'IMG') {
+                prev.src = result.previewUrl;
+            } else if (prev) {
+                var img = document.createElement('img');
+                img.src = result.previewUrl;
+                img.className = 'profile-avatar-img';
+                img.id = 'avatarPreview';
+                img.alt = PROFILE_LANG.avatarAlt;
+                prev.replaceWith(img);
+            }
+
+            return fetch(window.location.pathname + window.location.search, {
+                method: 'POST',
+                body: result.blob,
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'image/jpeg',
+                    'X-CSRF-Token': token,
+                    'X-Upload-Action': 'upload_avatar',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+        })
+        .then(function(response) {
+            return response.json().catch(function() {
+                throw new Error(PROFILE_LANG.uploadSaveFailed);
+            });
+        })
+        .then(function(data) {
+            if (!data || !data.ok) {
+                throw new Error((data && data.message) || PROFILE_LANG.uploadSaveFailed);
+            }
+
+            if (data.avatar_url) {
+                var img = document.getElementById('avatarPreview');
+                if (img && img.tagName === 'IMG') {
+                    img.src = data.avatar_url;
+                }
+                updateTopbarAvatar(data.avatar_url);
+            }
+
+            profileShowMessage('success', data.message || PROFILE_LANG.uploading);
+            input.value = '';
+        })
+        .catch(function(err) {
+            profileShowMessage('error', err && err.message ? err.message : PROFILE_LANG.uploadFailed);
+            input.value = '';
+        });
+}
+</script>

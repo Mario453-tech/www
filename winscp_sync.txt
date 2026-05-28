@@ -1,0 +1,17 @@
+# WinSCP synchronization script — OilCorp → az.pl
+# Uruchom: winscp.com /script=winscp_sync.txt
+# Lub przeciągnij ten plik na winscp.com
+
+# ── Połączenie ────────────────────────────────────────────────────────────────
+# ZMIEŃ: user, hasło, domenę
+open ftpes://oil%40oilempire.pl:.1Y849twub@hosting2629304.online.pro -hostkey="*"
+
+# ── Synchronizacja ────────────────────────────────────────────────────────────
+# local  → remote (upload tylko zmienionych plików, porównanie po rozmiarze+dacie)
+# -delete usunie z serwera pliki których nie ma lokalnie (ostrożnie!)
+# Usuń -delete jeśli nie chcesz kasowania po stronie serwera
+
+lcd C:\xampp1\htdocs
+synchronize remote -criteria=either -filemask="| vendor/; .git/; .windsurf/; sessions/; cache/; sql/; tests/; migrations/; .phpunit.cache/; *.log; error_log; *.bak; *.sql; vh15188_oil.sql; phpstan_errors.txt; check_log_cfg.php; debug.php; diag.php; reset_db.php; winscp_sync.txt; composer.lock; phpstan.neon; phpunit.xml.dist; deploy.ps1; GAME_README.md; htaccess; technical.php.bak; winscp.log" -rawtransfersettings ExcludeEmptyDirectories=1
+
+exit

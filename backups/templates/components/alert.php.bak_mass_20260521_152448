@@ -1,0 +1,21 @@
+<?php
+if (class_exists('GameLog', false)) {
+    if (!isset($error) && !isset($success)) {
+        GameLog::warn('component/alert', 'Brak zmiennych $error i $success');
+    }
+}
+?>
+<?php if (isset($error) && $error): ?>
+    <div class="error"><?= $error ?></div>
+<?php endif ?>
+
+<?php if (isset($success) && $success): ?>
+    <?php if (!empty($loanPaidOff)): ?>
+    <div class="loan-paid-off-banner">
+        <div class="loan-paid-off-icon">🎉</div>
+        <div class="loan-paid-off-text"><?= $success ?></div>
+    </div>
+    <?php else: ?>
+    <div class="success"><?= $success ?></div>
+    <?php endif ?>
+<?php endif ?>

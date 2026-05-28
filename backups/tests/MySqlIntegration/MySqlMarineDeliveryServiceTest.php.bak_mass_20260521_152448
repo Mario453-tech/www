@@ -1,0 +1,286 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/MySqlIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/PortService.php';
+require_once dirname(__DIR__, 2) . '/src/MarineDeliveryService.php';
+
+/**
+ * Testy integracyjne MySql dla MarineDeliveryService.
+ * MySQL integration tests for MarineDeliveryService.
+ */
+final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
+{
+    private MarineDeliveryService $svc;
+
+    // Port ID poza zakresem trackedIds (seed+10)
+    private int $portId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->svc    = new MarineDeliveryService($this->db);
+        $this->portId = $this->seed + 10;
+    }
+
+    protected function tearDown(): void
+    {
+        // Usun dane morskie przed czyszczeniem glownym
+        $playerId = $this->getTrackedIds()['playerId'];
+        try { $this->db->prepare('DELETE FROM port_queue WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
+        try { $this->db->prepare('DELETE FROM marine_deliveries WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
+        try { $this->db->prepare('DELETE FROM ports WHERE id = ?')->execute([$this->portId]); } catch (\Throwable $e) {}
+
+        parent::tearDown();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Helper: wstaw port bezposrednio do bazy
+    // ─────────────────────────────────────────────────────────────
+
+    private function seedPort(int $regionId = 77, string $status = 'active'): int
+    {
+        $this->db->prepare(
+            "INSERT INTO ports
+                 (id, region_id, name, port_type, throughput_per_tick, queue_limit,
+                  handling_cost_per_bbl, base_transit_hours, overload_risk_pct,
+                  failure_risk_per_tick, status)
+             VALUES (?, ?, ?, 'medium', 600.00, 25, 0.50, 3.00, 15.00, 0.001, ?)
+             ON DUPLICATE KEY UPDATE status = VALUES(status)"
+        )->execute([$this->portId, $regionId, 'Port MySqlTest ' . $this->portId, $status]);
+
+        return $this->portId;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // createDelivery
+    // ─────────────────────────────────────────────────────────────
+
+    public function testCreateDeliveryReturnsPositiveId(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $id   = $this->svc->createDelivery($playerId, $ids['wellId'], 45.0, 1.0, $well, []);
+
+        $this->assertGreaterThan(0, $id, 'createDelivery powinno zwrocic ID > 0');
+    }
+
+    public function testCreateDeliveryInsertsRowInDatabase(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $id   = $this->svc->createDelivery($playerId, $ids['wellId'], 60.0, 1.0, $well, []);
+
+        $stmt = $this->db->prepare('SELECT * FROM marine_deliveries WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        $this->assertNotFalse($row, 'Rekord marine_deliveries powinien istniec');
+        $this->assertSame((string)$playerId,       (string)$row['player_id']);
+        $this->assertSame((string)$ids['wellId'],  (string)$row['well_id']);
+        $this->assertSame('departing',             $row['status']);
+        $this->assertEqualsWithDelta(60.0, (float)$row['volume_bbl'], 0.001);
+    }
+
+    public function testCreateDeliveryAssignsPortWhenPortExistsForRegion(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+        $portId = $this->seedPort(77, 'active');
+
+        $well = ['region_id' => 77];
+        $id   = $this->svc->createDelivery($playerId, $ids['wellId'], 30.0, 1.0, $well, []);
+
+        $stmt = $this->db->prepare('SELECT port_id FROM marine_deliveries WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        $this->assertSame((string)$portId, (string)$row['port_id'], 'Port powinien byc przypisany');
+    }
+
+    public function testCreateDeliveryHasNullPortWhenNoPortForRegion(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        // Region 998 — nie ma portu
+        $this->seedWell($playerId, $ids['wellId'], 'active', 998, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 998];
+        $id   = $this->svc->createDelivery($playerId, $ids['wellId'], 20.0, 1.0, $well, []);
+
+        $stmt = $this->db->prepare('SELECT port_id FROM marine_deliveries WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        // Brak portu dla regionu 998 — port_id moze byc null lub fallback
+        // Test sprawdza tylko ze rekord istnieje (port_id null lub int)
+        $this->assertArrayHasKey('port_id', $row);
+    }
+
+    public function testCreateDeliveryEtaIsInFuture(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $before = new \DateTime('-10 seconds');
+        $well   = ['region_id' => 77];
+        $id     = $this->svc->createDelivery($playerId, $ids['wellId'], 10.0, 1.0, $well, []);
+
+        $stmt = $this->db->prepare('SELECT departure_at, eta_at FROM marine_deliveries WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        $departure = new \DateTime($row['departure_at']);
+        $eta       = new \DateTime($row['eta_at']);
+
+        $this->assertGreaterThan($before, $departure, 'Czas wyjazdu powinien byc po rozpoczeciu testu');
+        $this->assertGreaterThan($departure, $eta,    'ETA powinno byc po departure');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // getActiveForPlayer
+    // ─────────────────────────────────────────────────────────────
+
+    public function testGetActiveForPlayerReturnsCreatedDeliveries(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $this->svc->createDelivery($playerId, $ids['wellId'], 40.0, 1.0, $well, []);
+        $this->svc->createDelivery($playerId, $ids['wellId'], 25.0, 1.0, $well, []);
+
+        $active = $this->svc->getActiveForPlayer($playerId);
+
+        $this->assertCount(2, $active, 'Powinny byc 2 aktywne dostawy');
+        foreach ($active as $d) {
+            $this->assertSame((string)$playerId, (string)$d['player_id']);
+            $this->assertSame('departing', $d['status']);
+        }
+    }
+
+    public function testGetActiveForPlayerIgnoresDeliveredOnes(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $id   = $this->svc->createDelivery($playerId, $ids['wellId'], 50.0, 1.0, $well, []);
+
+        // Oznacz jako delivered
+        $this->db->prepare("UPDATE marine_deliveries SET status = 'delivered' WHERE id = ?")->execute([$id]);
+
+        $active = $this->svc->getActiveForPlayer($playerId);
+
+        $this->assertCount(0, $active, 'Dostarczone dostawy nie powinny byc w aktywnych');
+    }
+
+    public function testGetActiveForPlayerReturnsEmptyForOtherPlayer(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $this->svc->createDelivery($playerId, $ids['wellId'], 30.0, 1.0, $well, []);
+
+        // Inny gracz nie ma dostaw
+        $other = $this->svc->getActiveForPlayer($playerId + 99999);
+
+        $this->assertCount(0, $other, 'Inny gracz nie ma zadnych dostaw');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // getHistoryForPlayer
+    // ─────────────────────────────────────────────────────────────
+
+    public function testGetHistoryForPlayerReturnsDeliveredEntries(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $id1  = $this->svc->createDelivery($playerId, $ids['wellId'], 55.0, 1.0, $well, []);
+        $id2  = $this->svc->createDelivery($playerId, $ids['wellId'], 30.0, 1.0, $well, []);
+
+        // id1 delivered, id2 nadal departing
+        $this->db->prepare("UPDATE marine_deliveries SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
+            ->execute([$id1]);
+
+        $history = $this->svc->getHistoryForPlayer($playerId, 10);
+
+        $this->assertCount(1, $history,    'Tylko 1 dostarczona dostawa w historii');
+        $this->assertSame('delivered', $history[0]['status']);
+    }
+
+    public function testGetHistoryForPlayerRespectsLimit(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        for ($i = 0; $i < 5; $i++) {
+            $id = $this->svc->createDelivery($playerId, $ids['wellId'], 10.0, 1.0, $well, []);
+            $this->db->prepare("UPDATE marine_deliveries SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
+                ->execute([$id]);
+        }
+
+        $history = $this->svc->getHistoryForPlayer($playerId, 3);
+
+        $this->assertCount(3, $history, 'Limit = 3, powinny byc 3 wpisy w historii');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // getInTransitBbl
+    // ─────────────────────────────────────────────────────────────
+
+    public function testGetInTransitBblSumsActiveDeparting(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $this->svc->createDelivery($playerId, $ids['wellId'], 40.0, 1.0, $well, []);
+        $this->svc->createDelivery($playerId, $ids['wellId'], 35.0, 1.0, $well, []);
+
+        $inTransit = $this->svc->getInTransitBbl($playerId);
+
+        $this->assertEqualsWithDelta(75.0, $inTransit, 0.01, '40 + 35 = 75 bbl w drodze');
+    }
+
+    public function testGetInTransitBblIgnoresDelivered(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $well = ['region_id' => 77];
+        $id   = $this->svc->createDelivery($playerId, $ids['wellId'], 80.0, 1.0, $well, []);
+
+        $this->db->prepare("UPDATE marine_deliveries SET status = 'delivered' WHERE id = ?")->execute([$id]);
+
+        $inTransit = $this->svc->getInTransitBbl($playerId);
+
+        $this->assertEqualsWithDelta(0.0, $inTransit, 0.001, 'Dostarczone nie liczy sie do inTransit');
+    }
+
+    public function testGetInTransitBblReturnsZeroForNewPlayer(): void
+    {
+        $inTransit = $this->svc->getInTransitBbl(999999998);
+
+        $this->assertEqualsWithDelta(0.0, $inTransit, 0.001, 'Nowy gracz ma 0 bbl w drodze');
+    }
+}

@@ -1,0 +1,125 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<link rel="stylesheet" href="/assets/css/help_editor.css">
+
+<h1> <?= t('admin.help.page_title') ?></h1>
+<p class="muted he-meta-info"><?= t('admin.help.intro') ?></p>
+
+<?php if ($msg): ?><p class="alert alert-success"> <?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p class="alert alert-error"> <?= htmlspecialchars($err) ?></p><?php endif ?>
+
+<div class="he-layout">
+
+<!--  SIDEBAR: lista sekcji  -->
+<aside>
+    <div class="he-sidebar">
+        <div class="he-sidebar-hdr">Sekcje (<?= count($pages) ?>)</div>
+        <ul class="he-list">
+        <?php foreach ($pages as $p): ?>
+            <li>
+                <a href="?edit=<?= (int)$p['id'] ?>" class="<?= (int)$p['id'] === $editId ? 'active' : '' ?>">
+                    <span><?= htmlspecialchars($p['icon']) ?></span>
+                    <span><?= htmlspecialchars($p['title']) ?></span>
+                    <?php if (!$p['active']): ?>
+                        <span class="he-badge">ukryta</span>
+                    <?php else: ?>
+                        <span class="he-ok"></span>
+                    <?php endif ?>
+                </a>
+            </li>
+        <?php endforeach ?>
+        <?php if (empty($pages)): ?>
+            <li class="he-empty"><?= t('admin.help.no_sections') ?></li>
+        <?php endif ?>
+        </ul>
+
+        <!-- Dodaj now¹ sekcjê -->
+        <div class="he-add-form">
+            <form method="post">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="action" value="add">
+                <label class="he-form-label"><?= t('admin.help.field_slug') ?></label>
+                <input type="text" name="new_slug" placeholder="np. rynek_ropy"
+                       pattern="[a-z0-9_]+" title="<?= t('admin.help.hint_slug') ?>" required>
+                <label class="he-form-label"><?= t('admin.help.field_title') ?></label>
+                <input type="text" name="new_title" placeholder="Tytu³ sekcji" required>
+                <label class="he-form-label"><?= t('admin.help.field_icon') ?></label>
+                <input type="text" name="new_icon" placeholder="" maxlength="4" value="">
+                <button type="submit" class="btn btn-secondary he-add-btn">+ <?= t('admin.help.btn_add') ?></button>
+            </form>
+        </div>
+    </div>
+</aside>
+
+<!--  EDITOR: edycja wybranej sekcji  -->
+<div class="he-editor">
+<?php if ($editPage): ?>
+    <h2><?= htmlspecialchars($editPage['icon'] . ' ' . $editPage['title']) ?></h2>
+    <p class="muted he-meta-info">
+        Slug: <code><?= htmlspecialchars($editPage['slug']) ?></code>
+        &nbsp;·&nbsp; Ostatnia zmiana: <?= $editPage['updated_at'] ?>
+        <?php if ($editPage['updated_by']): ?>&nbsp;(<?= htmlspecialchars($editPage['updated_by']) ?>)<?php endif ?>
+    </p>
+
+    <form method="post" id="ahEditForm">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action"  value="save">
+        <input type="hidden" name="page_id" value="<?= (int)$editPage['id'] ?>">
+
+        <div class="he-meta">
+            <div>
+                <label><?= t('admin.help.field_icon') ?></label>
+                <input type="text" name="icon" value="<?= htmlspecialchars($editPage['icon']) ?>" maxlength="4">
+            </div>
+            <div>
+                <label><?= t('admin.help.field_title') ?></label>
+                <input type="text" name="title" value="<?= htmlspecialchars($editPage['title']) ?>" required>
+            </div>
+            <div>
+                <label><?= t('admin.help.field_sort') ?></label>
+                <input type="number" name="sort_order" value="<?= (int)$editPage['sort_order'] ?>" min="0">
+            </div>
+            <div>
+                <label><?= t('admin.help.field_active') ?></label>
+                <input type="checkbox" name="active" value="1"
+                       <?= $editPage['active'] ? 'checked' : '' ?> class="he-checkbox">
+            </div>
+        </div>
+
+        <p class="muted he-meta-info"><?= t('admin.help.hint_content') ?></p>
+        <div class="he-tinymce">
+            <textarea id="ah-tinymce-content" name="content"><?= htmlspecialchars($editPage['content']) ?></textarea>
+        </div>
+
+        <div class="form-row">
+            <button type="submit" class="btn btn-primary"> <?= t('admin.help.btn_save') ?></button>
+            <button type="button" class="btn btn-danger"
+                    onclick="confirmSubmit(document.getElementById('ahDeleteForm'), '<?= t('admin.help.confirm_delete') ?>')">
+                 <?= t('admin.help.btn_delete') ?>
+            </button>
+        </div>
+    </form>
+
+    <form method="post" id="ahDeleteForm" class="form-hidden">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action"  value="delete">
+        <input type="hidden" name="page_id" value="<?= (int)$editPage['id'] ?>">
+    </form>
+
+    <!-- Podgl¹d sekcji -->
+    <div class="he-preview-wrap">
+        <p class="he-sidebar-hdr"> <?= t('admin.help.preview_title') ?></p>
+        <div class="he-preview-body">
+            <?= $editPage['content'] ?>
+        </div>
+    </div>
+
+<?php else: ?>
+    <p class="muted"><?= t('admin.help.no_sections') ?></p>
+<?php endif ?>
+</div>
+
+</div><!-- /.he-layout -->
+
+<script src="https://cdn.tiny.cloud/1/n2m8igiixgfiasr4l4gha8fjz6hxp12sudqgnecovtt6y2nq/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="/assets/js/admin_help.js"></script>

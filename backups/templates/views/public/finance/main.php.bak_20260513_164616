@@ -1,0 +1,267 @@
+<?php
+extract($viewData ?? [], EXTR_SKIP);
+
+$net     = (float)($last['net_profit'] ?? 0);
+$netH    = $net * 12;
+$lossVal = (float)($last['loss_value'] ?? 0);
+$rev     = (float)($last['revenue'] ?? 0);
+$lossPct = $rev > 0 ? ($lossVal / $rev * 100) : 0;
+
+$tRev              = (float)($summary['total_revenue'] ?? 0);
+$tGross            = (float)($summary['total_gross'] ?? 0);
+$tOpex             = (float)($summary['total_opex'] ?? 0);
+$tHubUsage         = (float)($summary['total_hub_usage_cost'] ?? 0);
+$tWellOpex         = max(0.0, $tOpex - $tHubUsage);
+$tSal              = (float)($summary['total_salary'] ?? 0);
+$tTr               = (float)($summary['total_transport'] ?? 0);
+$tInc              = (float)($summary['total_incident'] ?? 0);
+$tTax              = (float)($summary['total_tax'] ?? 0);
+$tLoss             = (float)($summary['total_loss_value'] ?? 0);
+$tHubLoss          = (float)($summary['total_hub_loss_value'] ?? 0);
+$tFallbackLoss     = (float)($summary['total_fallback_loss_value'] ?? 0);
+$tHubIncidentLoss  = (float)($summary['total_hub_incident_loss_value'] ?? 0);
+$tTransportOnlyLoss = max(0.0, $tLoss - $tHubLoss - $tFallbackLoss - $tHubIncidentLoss);
+$tNet              = (float)($summary['total_net'] ?? 0);
+$tCost             = $tOpex + $tSal + $tTr + $tInc + $tTax;
+?>
+
+<div class="finance-wrap fade-in">
+
+<?php if (!empty($alerts)): ?>
+<div class="finance-alerts">
+<?php foreach ($alerts as $alert): ?>
+    <div class="finance-alert finance-alert--<?= htmlspecialchars($alert['level']) ?>">
+        <span><?= $alert['icon'] ?></span>
+        <span><?= htmlspecialchars($alert['msg']) ?></span>
+    </div>
+<?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<div class="fin-topbar">
+    <div class="g-card fin-stat-card">
+        <div class="g-card-title">&#128176; <?= t('finance.card_balance') ?></div>
+        <div class="fin-big <?= $cash >= 0 ? 'fin-green' : 'fin-red' ?>">
+            <?= fmtPLN($cash) ?>
+        </div>
+        <div class="fin-sub"><?= t('finance.sub_balance') ?></div>
+    </div>
+
+    <div class="g-card fin-stat-card">
+        <div class="g-card-title">&#128200; <?= t('finance.card_profit_tick') ?></div>
+        <div class="fin-big <?= $net >= 0 ? 'fin-green' : 'fin-red' ?>">
+            <?= fmtPLN($net, true) ?>
+        </div>
+        <div class="fin-sub"><?= t('finance.sub_profit_tick') ?></div>
+    </div>
+
+    <div class="g-card fin-stat-card">
+        <div class="g-card-title">&#9201; <?= t('finance.card_profit_hour') ?></div>
+        <div class="fin-big <?= $netH >= 0 ? 'fin-green' : 'fin-red' ?>">
+            <?= fmtPLN($netH, true) ?>
+        </div>
+        <div class="fin-sub"><?= t('finance.sub_profit_hour') ?></div>
+    </div>
+
+    <div class="g-card fin-stat-card">
+        <div class="g-card-title">&#9888; <?= t('finance.card_logistics_loss') ?></div>
+        <div class="fin-big <?= $lossPct > 15 ? 'fin-red' : ($lossPct > 8 ? 'fin-orange' : 'fin-green') ?>">
+            <?= fmtPct($lossPct) ?>
+        </div>
+        <div class="fin-sub">&minus;<?= fmtPLN($lossVal) ?> / <?= t('finance.tick') ?></div>
+    </div>
+</div>
+
+<div class="g-card finance-chart-card">
+    <div class="finance-chart-hdr">
+        <span class="g-card-title">&#128202; <?= t('finance.chart_title') ?></span>
+        <div class="fin-range-btns">
+            <a href="?hours=24" class="btn btn-sm <?= $hours === 24 ? 'btn-primary' : 'btn-secondary' ?>">24h</a>
+            <a href="?hours=168" class="btn btn-sm <?= $hours === 168 ? 'btn-primary' : 'btn-secondary' ?>">7 <?= t('finance.days') ?></a>
+        </div>
+    </div>
+
+    <?php if (empty($history)): ?>
+    <p class="fin-empty"><?= t('finance.no_data') ?></p>
+    <?php else: ?>
+    <div class="finance-chart-wrap">
+        <canvas id="finChart" height="220"></canvas>
+    </div>
+    <script>
+    window._finHistory = <?= json_encode(array_values($history), JSON_UNESCAPED_UNICODE) ?>;
+    </script>
+    <?php endif; ?>
+</div>
+
+<div class="g-card">
+    <div class="g-card-title">&#128201; <?= t('finance.breakdown_title') ?> (<?= $hours === 24 ? '24h' : '7 ' . t('finance.days') ?>)</div>
+    <div class="fin-breakdown">
+        <div class="fin-breakdown-col">
+            <div class="fin-breakdown-title fin-green"><?= t('finance.revenues') ?></div>
+            <div class="fin-breakdown-row">
+                <span><?= t('finance.oil_sales') ?></span>
+                <span class="fin-green"><?= fmtPLN($tRev) ?></span>
+            </div>
+            <?php if ($tLoss > 0): ?>
+            <div class="fin-breakdown-row fin-muted">
+                <span><?= t('finance.gross_before_loss') ?></span>
+                <span><?= fmtPLN($tGross) ?></span>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="fin-breakdown-col">
+            <div class="fin-breakdown-title fin-red"><?= t('finance.costs') ?></div>
+            <?php foreach ([
+                [t('finance.cost_opex'), $tWellOpex, $tCost],
+                [t('finance.cost_hub_usage'), $tHubUsage, $tCost],
+                [t('finance.cost_salary'), $tSal, $tCost],
+                [t('finance.cost_transport'), $tTr, $tCost],
+                [t('finance.cost_incidents'), $tInc, $tCost],
+                [t('finance.cost_tax'), $tTax, $tCost],
+            ] as [$label, $value, $base]):
+                if ($value <= 0) {
+                    continue;
+                }
+            ?>
+            <div class="fin-breakdown-row">
+                <span><?= $label ?></span>
+                <span>
+                    <span class="fin-red"><?= fmtPLN($value) ?></span>
+                    <span class="fin-muted fin-small"><?= pct($value, $base) ?></span>
+                </span>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="fin-breakdown-col">
+            <div class="fin-breakdown-title fin-orange"><?= t('finance.losses') ?></div>
+            <div class="fin-breakdown-row">
+                <span><?= t('finance.transport_loss') ?></span>
+                <span>
+                    <span class="fin-orange"><?= fmtPLN($tTransportOnlyLoss) ?></span>
+                    <span class="fin-muted fin-small"><?= pct($tTransportOnlyLoss, $tRev) ?> <?= t('finance.of_revenue') ?></span>
+                </span>
+            </div>
+            <?php if ($tHubLoss > 0): ?>
+            <div class="fin-breakdown-row">
+                <span><?= t('finance.hub_loss') ?></span>
+                <span>
+                    <span class="fin-orange"><?= fmtPLN($tHubLoss) ?></span>
+                    <span class="fin-muted fin-small"><?= pct($tHubLoss, $tRev) ?> <?= t('finance.of_revenue') ?></span>
+                </span>
+            </div>
+            <?php endif; ?>
+            <?php if ($tFallbackLoss > 0): ?>
+            <div class="fin-breakdown-row">
+                <span><?= t('finance.fallback_loss') ?></span>
+                <span>
+                    <span class="fin-orange"><?= fmtPLN($tFallbackLoss) ?></span>
+                    <span class="fin-muted fin-small"><?= pct($tFallbackLoss, $tRev) ?> <?= t('finance.of_revenue') ?></span>
+                </span>
+            </div>
+            <?php endif; ?>
+            <?php if ($tHubIncidentLoss > 0): ?>
+            <div class="fin-breakdown-row">
+                <span><?= t('finance.hub_incident_loss') ?></span>
+                <span>
+                    <span class="fin-orange"><?= fmtPLN($tHubIncidentLoss) ?></span>
+                    <span class="fin-muted fin-small"><?= pct($tHubIncidentLoss, $tRev) ?> <?= t('finance.of_revenue') ?></span>
+                </span>
+            </div>
+            <?php endif; ?>
+            <div class="fin-breakdown-row">
+                <span><?= t('finance.lost_barrels') ?></span>
+                <span class="fin-muted"><?= number_format((float)($summary['total_loss_bbl'] ?? 0), 1, ',', ' ') ?> bbl</span>
+            </div>
+            <hr class="fin-hr">
+            <div class="fin-breakdown-row fin-bold">
+                <span><?= t('finance.net_result') ?></span>
+                <span class="<?= $tNet >= 0 ? 'fin-green' : 'fin-red' ?>"><?= fmtPLN($tNet, true) ?></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="g-card">
+    <div class="g-card-title">&#128230; <?= t('finance.hub_section_title') ?></div>
+    <div class="fin-topbar">
+        <div class="g-card fin-stat-card">
+            <div class="g-card-title"><?= t('finance.hub_card_usage') ?></div>
+            <div class="fin-big <?= $tHubUsage > 0 ? 'fin-red' : 'fin-green' ?>"><?= fmtPLN($tHubUsage) ?></div>
+            <div class="fin-sub"><?= t('finance.hub_card_usage_sub') ?></div>
+        </div>
+        <div class="g-card fin-stat-card">
+            <div class="g-card-title"><?= t('finance.hub_card_loss') ?></div>
+            <div class="fin-big <?= $tHubLoss > 0 ? 'fin-orange' : 'fin-green' ?>"><?= fmtPLN($tHubLoss) ?></div>
+            <div class="fin-sub"><?= number_format((float)($summary['total_hub_loss_bbl'] ?? 0), 1, ',', ' ') ?> bbl</div>
+        </div>
+        <div class="g-card fin-stat-card">
+            <div class="g-card-title"><?= t('finance.hub_card_fallback') ?></div>
+            <div class="fin-big <?= $tFallbackLoss > 0 ? 'fin-orange' : 'fin-green' ?>"><?= fmtPLN($tFallbackLoss) ?></div>
+            <div class="fin-sub"><?= number_format((float)($summary['total_fallback_loss_bbl'] ?? 0), 1, ',', ' ') ?> bbl</div>
+        </div>
+        <div class="g-card fin-stat-card">
+            <div class="g-card-title"><?= t('finance.hub_card_incidents') ?></div>
+            <div class="fin-big <?= $tHubIncidentLoss > 0 ? 'fin-red' : 'fin-green' ?>"><?= fmtPLN($tHubIncidentLoss) ?></div>
+            <div class="fin-sub"><?= number_format((float)($summary['total_hub_incident_loss_bbl'] ?? 0), 1, ',', ' ') ?> bbl</div>
+        </div>
+    </div>
+</div>
+
+<?php if (!empty($perWell)): ?>
+<div class="g-card">
+    <div class="g-card-title">&#128738; <?= t('finance.per_well_title') ?></div>
+    <div class="fin-well-list">
+        <div class="fin-well-header">
+            <span><?= t('finance.col_well') ?></span>
+            <span><?= t('finance.col_type') ?></span>
+            <span><?= t('finance.col_status') ?></span>
+            <span><?= t('finance.col_prod_h') ?></span>
+            <span><?= t('finance.col_opex_h') ?></span>
+            <span><?= t('finance.col_transport') ?></span>
+            <span><?= t('finance.col_tax') ?></span>
+            <span><?= t('finance.col_est_profit_h') ?></span>
+        </div>
+        <?php foreach ($perWell as $well):
+            $prod     = (float)$well['base_production_per_hour'];
+            $opexH    = (float)$well['upkeep_cost_per_hour'];
+            $trPct    = (float)$well['transport_opex_pct'];
+            $taxRate  = (float)$well['regional_tax_rate'];
+            $grossH   = $prod * $oilPrice;
+            $trCostH  = $grossH * ($trPct / 100);
+            $taxH     = $grossH * $taxRate;
+            $netPerH  = $grossH - $opexH - $trCostH - $taxH;
+            $isActive = in_array($well['status'], ['active', 'no_technician', 'contaminated'], true);
+        ?>
+        <div class="fin-well-row<?= $netPerH < 0 ? ' fin-well-row--loss' : '' ?><?= $isActive ? '' : ' fin-well-row--inactive' ?>">
+            <span>
+                <a href="/wells#well-<?= (int)$well['id'] ?>" class="fin-well-link">
+                    <?= htmlspecialchars($well['well_name'] ?: $well['name'] ?: '#' . $well['id']) ?>
+                </a>
+            </span>
+            <span><span class="fin-type-badge fin-type-<?= htmlspecialchars((string)($well['well_type'] ?? 'onshore')) ?>"><?= t('technical.well_type_' . ($well['well_type'] ?? 'onshore')) ?></span></span>
+            <span><span class="fin-status-badge"><?= t('technical.ws_' . ($well['status'] ?? 'active')) ?></span></span>
+            <span class="fin-num"><?= number_format($prod, 1, ',', ' ') ?> <?= t('common.bbl') ?></span>
+            <span class="fin-num fin-red"><?= fmtPLN($opexH) ?></span>
+            <span class="fin-num fin-muted"><?= $trPct > 0 ? fmtPct($trPct) : '&mdash;' ?></span>
+            <span class="fin-num fin-muted"><?= $taxRate > 0 ? fmtPct($taxRate * 100) : '&mdash;' ?></span>
+            <span class="fin-num fin-bold <?= $netPerH >= 0 ? 'fin-green' : 'fin-red' ?>"><?= fmtPLN($netPerH, true) ?></span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <p class="fin-note">* <?= t('finance.per_well_note', ['price' => $oilPrice]) ?></p>
+</div>
+<?php endif; ?>
+
+</div>
+
+<script>
+window.FIN_LANG = <?= json_encode([
+    'revenue'    => t('fin_js.revenue'),
+    'costs'      => t('fin_js.costs'),
+    'net_profit' => t('fin_js.net_profit'),
+    'losses'     => t('fin_js.losses'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="/assets/js/finance.js"></script>

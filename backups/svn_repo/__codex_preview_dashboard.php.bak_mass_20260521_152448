@@ -1,0 +1,77 @@
+﻿<?php
+$lang = require __DIR__ . '/lang/pl.php';
+function t(string $key, array $params = []): string {
+    global $lang;
+    $text = $lang[$key] ?? $key;
+    foreach ($params as $k => $v) {
+        $text = str_replace(':' . $k, (string)$v, $text);
+    }
+    return $text;
+}
+function url(string $path): string { return '#'; }
+$csrfToken = 'preview';
+$viewData = [
+    'msg' => '',
+    'error' => '',
+    'isBankrupt' => false,
+    'occupiedSeats' => 2,
+    'totalSeats' => 5,
+    'pendingCount' => 1,
+    'openRoleCount' => 3,
+    'directorRecruitmentCount' => 1,
+    'availableDirectorRoles' => [
+        ['id' => 2, 'name' => 'Dyrektor Techniczny'],
+        ['id' => 3, 'name' => 'Dyrektor Logistyki'],
+    ],
+    'regions' => [
+        ['code' => 'PL', 'name' => 'Polska'],
+        ['code' => 'EU', 'name' => 'Europa'],
+    ],
+    'candidates' => [[
+        'id' => 31,
+        'first_name' => 'Paweł',
+        'last_name' => 'Lewandowski',
+        'role_name' => 'Dyrektor Techniczny',
+        'expected_salary' => 28000,
+        'age' => 39,
+        'experience_years' => 12,
+        'hours_remaining' => 14,
+        'region_code' => 'PL',
+        'skill_organization' => 8,
+        'skill_negotiation' => 7,
+        'skill_analysis' => 9,
+        'skill_stress' => 7,
+        'skill_ethics' => 8,
+    ]],
+    'activeRecruitments' => [[
+        'role_name' => 'Dyrektor Logistyki',
+        'region_code' => 'EU',
+        'status' => 'pending',
+        'seconds_remaining' => 420,
+    ]],
+    'boardMembers' => [[
+        'id' => 41,
+        'first_name' => 'Anna',
+        'last_name' => 'Nowak',
+        'role_name' => 'Dyrektor Kadr',
+        'days_employed' => 102,
+        'salary' => 26000,
+    ]],
+    'recentHistory' => [[
+        'action' => 'hired',
+        'first_name' => 'Anna',
+        'last_name' => 'Nowak',
+        'role_name' => 'Dyrektor Kadr',
+        'created_at' => '2026-05-03 10:00:00',
+    ]],
+    'skillLabels' => [
+        'skill_organization' => 'ORG',
+        'skill_negotiation' => 'NEG',
+        'skill_analysis' => 'ANL',
+        'skill_stress' => 'STR',
+        'skill_ethics' => 'ETY',
+    ],
+    'csrfToken' => $csrfToken,
+];
+?><!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/css/dashboard.css"></head><body style="background:#0d0d18"><?php extract($viewData, EXTR_SKIP); include __DIR__ . '/templates/views/dashboard/main.php'; ?></body></html>

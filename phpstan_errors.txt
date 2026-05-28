@@ -1,0 +1,1121 @@
+﻿php : Note: Using configuration file C:\xampp\htdocs\phpstan.neon.
+At line:1 char:1
++ php vendor/bin/phpstan analyse --no-progress 2>&1 | Out-File -Encodin ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Note: Using con...s\phpstan.neon.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  Line   AdminAuth.php                                                                                                 
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  :73    Method AdminAuth::setSession() has parameter $admin with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :135   Method AdminAuth::sendPasswordReset() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :179   Method AdminAuth::verifyResetToken() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :189   Method AdminAuth::resetPassword() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :243   Method AdminAuth::logFailAccount() has parameter $admin with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+ ------ -------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------ 
+  Line   Auth.php                                                                                              
+ ------ ------------------------------------------------------------------------------------------------------ 
+  :61    Method Auth::register() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+  :130   Method Auth::setSession() has parameter $player with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+  :269   Method Auth::sendPasswordReset() return type has no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+  :332   Method Auth::verifyResetToken() return type has no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+  :362   Method Auth::resetPassword() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+ ------ ------------------------------------------------------------------------------------------------------ 
+
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  Line   BailiffService.php                                                                                                   
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  :16    Property BailiffService::$db has no type specified.                                                                  
+  :75    Method BailiffService::executeStage() has parameter $proc with no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :104   Method BailiffService::stage1_Warning() has parameter $proc with no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :116   Method BailiffService::stage2_SeizeCash() has parameter $proc with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :152   Method BailiffService::stage3_SeizeOil() has parameter $proc with no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :192   Method BailiffService::stage4_SeizeWells() has parameter $proc with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :242   Method BailiffService::declareBankruptcy() has parameter $proc with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+
+ ------ --------------------------------------------------------------------------------------------------------------------------------- 
+  Line   BankNegotiation\ContextTrait.php (in context of class BankNegotiationService)                                                    
+ ------ --------------------------------------------------------------------------------------------------------------------------------- 
+  :94    Method BankNegotiationService::buildContext() has parameter $loan with no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :94    Method BankNegotiationService::buildContext() return type has no value type specified in iterable type array.                    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :291   Method BankNegotiationService::calculateDeferralFee() has parameter $ctx with no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :291   Method BankNegotiationService::calculateDeferralFee() has parameter $loan with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :291   Method BankNegotiationService::calculateDeferralFee() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :323   Method BankNegotiationService::calculateDecisionTime() has parameter $ctx with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :323   Method BankNegotiationService::calculateDecisionTime() has parameter $loan with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :323   Method BankNegotiationService::calculateDecisionTime() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :435   Method BankNegotiationService::getPlayerTrustData() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+ ------ --------------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ --------------------------------------------------------------------------------------------------------------------------------------- 
+  Line   BankNegotiation\MessagesTrait.php (in context of class BankNegotiationService)                                                         
+ ------ --------------------------------------------------------------------------------------------------------------------------------------- 
+  :11    Method BankNegotiationService::buildBankOpeningMessage() has parameter $messages with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                               
+  :62    Method BankNegotiationService::buildApprovalMessage() has parameter $ctx with no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                               
+  :62    Method BankNegotiationService::buildApprovalMessage() has parameter $neg with no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                               
+  :101   Method BankNegotiationService::buildRejectionMessage() has parameter $ctx with no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                               
+  :101   Method BankNegotiationService::buildRejectionMessage() has parameter $neg with no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                               
+  :101   Method BankNegotiationService::buildRejectionMessage() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                               
+ ------ --------------------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------------- 
+  Line   BankNegotiation\ProcessorTrait.php (in context of class BankNegotiationService)                                                
+ ------ ------------------------------------------------------------------------------------------------------------------------------- 
+  :46    Method BankNegotiationService::resolveNegotiation() has parameter $ctx with no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :46    Method BankNegotiationService::resolveNegotiation() has parameter $neg with no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :110   Method BankNegotiationService::applyNegotiation() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :395   Method BankNegotiationService::canNegotiate() return type has no value type specified in iterable type array.                  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :450   Method BankNegotiationService::getActiveNegotiationsForLoan() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :467   Method BankNegotiationService::getActivePendingOrApproved() return type has no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :483   Method BankNegotiationService::getNegotiationHistory() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :503   Method BankNegotiationService::getLoan() return type has no value type specified in iterable type array.                       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+  :531   Method BankNegotiationService::notifyDirector() has parameter $params with no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                       
+ ------ ------------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  Line   BankNegotiation\RandomEventsTrait.php (in context of class BankNegotiationService)                                   
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  :11    Method BankNegotiationService::triggerRandomEvent() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------------- 
+  Line   BankNegotiation\RequestsTrait.php (in context of class BankNegotiationService)                                        
+ ------ ---------------------------------------------------------------------------------------------------------------------- 
+  :9     Method BankNegotiationService::requestDeferral() return type has no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                              
+  :80    Method BankNegotiationService::requestRestructure() return type has no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                              
+  :168   Method BankNegotiationService::requestRecoveryPlan() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                              
+ ------ ---------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------------------------- 
+  Line   BankSettings.php                                                                               
+ ------ ----------------------------------------------------------------------------------------------- 
+  :8     Property BankSettings::$cache type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type       
+  :43    Method BankSettings::getAll() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type       
+ ------ ----------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  Line   Bank\ApplicationTrait.php (in context of class BankService)                                                     
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  :11    Method BankService::submitLoanApplication() return type has no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :158   Method BankService::getLoanApplicationStatus() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :252   Method BankService::acceptLoanOffer() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+  Line   Bank\CalculationTrait.php (in context of class BankService)                                                               
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+  :54    Method BankService::calculateCreditLimit() has parameter $player with no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :54    Method BankService::calculateCreditLimit() has parameter $wellsData with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ -------------------------------------------------------------------------------------------------------- 
+  Line   Bank\RepaymentTrait.php (in context of class BankService)                                               
+ ------ -------------------------------------------------------------------------------------------------------- 
+  :9     Method BankService::getActiveLoans() return type has no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                
+  :31    Method BankService::repay() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                
+  :155   Method BankService::repayInstallment() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                
+ ------ -------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------ 
+  Line   Bankruptcy\EventsTrait.php (in context of class BankruptcyService)                                                
+ ------ ------------------------------------------------------------------------------------------------------------------ 
+  :165   Method BankruptcyService::logEvent() has parameter $payload with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                          
+ ------ ------------------------------------------------------------------------------------------------------------------ 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  Line   Bankruptcy\OptionsTrait.php (in context of class BankruptcyService)                                                     
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  :9     Method BankruptcyService::applyOption() has parameter $payload with no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :9     Method BankruptcyService::applyOption() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :41    Method BankruptcyService::applySellAsset() has parameter $payload with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :41    Method BankruptcyService::applySellAsset() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :48    Method BankruptcyService::applySellWellAsset() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :75    Method BankruptcyService::applySellStorageAsset() return type has no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :121   Method BankruptcyService::applyBankTakeover() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :153   Method BankruptcyService::applyEmergencyLoan() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :189   Method BankruptcyService::applyCostCuts() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :232   Method BankruptcyService::applyRescueInvestor() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :293   Method BankruptcyService::applyNewStart() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  Line   Bankruptcy\StateTrait.php (in context of class BankruptcyService)                                               
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  :9     Method BankruptcyService::getState() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :51    Method BankruptcyService::getRecoveryOptions() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :141   Method BankruptcyService::loadState() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :167   Method BankruptcyService::getEvents() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  Line   BlackMarketService.php                                                                                                  
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  :101   Method BlackMarketService::getActiveOffers() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :330   Method BlackMarketService::getTransactions() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :349   Method BlackMarketService::getPlayerStats() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :376   Method BlackMarketService::getAllTransactions() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :400   Method BlackMarketService::getPlayersBlackMarketData() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :463   Method BlackMarketService::getGlobalStats() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+
+ ------ --------------------------------------------------------------------------- 
+  Line   CSRF.php                                                                   
+ ------ --------------------------------------------------------------------------- 
+  :5     Method CSRF::generateToken() has no return type specified.                 
+  :22    Method CSRF::validateToken() has no return type specified.                 
+  :22    Method CSRF::validateToken() has parameter $token with no type specified.  
+  :34    Method CSRF::field() has no return type specified.                         
+ ------ --------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------- 
+  Line   CandidateGenerator.php                                                                                                   
+ ------ ------------------------------------------------------------------------------------------------------------------------- 
+  :13    Property CandidateGenerator::$db has no type specified.                                                                  
+  :16    Property CandidateGenerator::$countByRarity has no type specified.                                                       
+  :25    Property CandidateGenerator::$skillDistribution has no type specified.                                                   
+  :42    Property CandidateGenerator::$expLevels has no type specified.                                                           
+  :48    Method CandidateGenerator::__construct() has parameter $db with no type specified.                                       
+  :74    Method CandidateGenerator::generateForRequest() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :134   Method CandidateGenerator::generateOne() has parameter $region with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :134   Method CandidateGenerator::generateOne() has parameter $spec with no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :246   Method CandidateGenerator::generateSkills() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :259   Method CandidateGenerator::generateTraits() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :296   Method CandidateGenerator::randomCertificate() has parameter $spec with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :331   Method CandidateGenerator::fetchRegion() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :338   Method CandidateGenerator::fetchSpecByCode() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :345   Method CandidateGenerator::fetchSpecByRole() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :369   Method CandidateGenerator::save() has parameter $data with no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+ ------ ------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------- 
+  Line   Database.php                                                    
+ ------ ---------------------------------------------------------------- 
+  :5     Property Database::$instance has no type specified.             
+  :6     Property Database::$pdo has no type specified.                  
+  :56    Method Database::getInstance() has no return type specified.    
+  :64    Method Database::getConnection() has no return type specified.  
+ ------ ---------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------- 
+  Line   DirectorNotificationService.php                                                                                          
+ ------ ------------------------------------------------------------------------------------------------------------------------- 
+  :216   Method DirectorNotificationService::create() has parameter $params with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :272   Method DirectorNotificationService::getUnread() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+  :389   Method DirectorNotificationService::getHistory() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                 
+ ------ ------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  Line   DisasterMessages.php                                                                                            
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  :20    Property DisasterMessages::$cache type has no value type specified in iterable type array.                      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :23    Property DisasterMessages::$fallback type has no value type specified in iterable type array.                   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :29    Method DisasterMessages::meta() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :62    Method DisasterMessages::get() has parameter $context with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :90    Method DisasterMessages::getFull() has parameter $context with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :90    Method DisasterMessages::getFull() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :114   Method DisasterMessages::getAll() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :133   Method DisasterMessages::loadPool() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :176   Method DisasterMessages::interpolate() has parameter $ctx with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+  Line   FinanceService.php                                                                                                 
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+  :65    Method FinanceService::getLastTick() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :77    Method FinanceService::getSummary() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :106   Method FinanceService::getHistory() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :124   Method FinanceService::getPerWellStats() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :152   Method FinanceService::getAlerts() has parameter $last with no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :152   Method FinanceService::getAlerts() has parameter $summary24h with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :152   Method FinanceService::getAlerts() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :204   Method FinanceService::getGlobalStats() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :224   Method FinanceService::getPerPlayerStats() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :248   Method FinanceService::getAdminAlerts() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------- 
+  Line   GameLog.php                                                                                               
+ ------ ---------------------------------------------------------------------------------------------------------- 
+  :28    Property GameLog::$activePages type has no value type specified in iterable type array.                   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :37    Method GameLog::write() has parameter $context with no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :53    Method GameLog::info() has parameter $ctx with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :54    Method GameLog::warn() has parameter $ctx with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :87    Method GameLog::db() has parameter $extra with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :87    Method GameLog::db() has parameter $params with no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :102   Method GameLog::dbError() has parameter $params with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :116   Method GameLog::step() has parameter $ctx with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :122   Method GameLog::perf() has parameter $ctx with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :174   Method GameLog::tablesCheck() has parameter $tables with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :174   Method GameLog::tablesCheck() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :188   Method GameLog::safePrepare() has parameter $params with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :188   Method GameLog::safePrepare() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :204   Method GameLog::safeExecute() has parameter $params with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+ ------ ---------------------------------------------------------------------------------------------------------- 
+
+ ------ --------------------------------------------------------------------------------------------------------------------------------- 
+  Line   GeologicalLayerService.php                                                                                                       
+ ------ --------------------------------------------------------------------------------------------------------------------------------- 
+  :22    Property GeologicalLayerService::$layerCache type has no value type specified in iterable type array.                            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :38    Method GeologicalLayerService::getAllLayers() return type has no value type specified in iterable type array.                    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :59    Method GeologicalLayerService::getLayer() return type has no value type specified in iterable type array.                        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :68    Method GeologicalLayerService::getLayerByCode() return type has no value type specified in iterable type array.                  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :79    Method GeologicalLayerService::getActiveLayer() return type has no value type specified in iterable type array.                  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :108   Method GeologicalLayerService::getLayerMultipliers() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :135   Method GeologicalLayerService::multipliersFromLayer() has parameter $layer with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :135   Method GeologicalLayerService::multipliersFromLayer() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :205   Method GeologicalLayerService::switchLayer() return type has no value type specified in iterable type array.                     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+  :326   Method GeologicalLayerService::getFallbackLayer() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                         
+ ------ --------------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------- 
+  Line   HRApi.php                                                                                           
+ ------ ---------------------------------------------------------------------------------------------------- 
+  :13    Function respondJson() has parameter $payload with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type            
+ ------ ---------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------- 
+  Line   HRService.php                                                
+ ------ ------------------------------------------------------------- 
+  :25    Property HRService::$db has no type specified.               
+  :26    Property HRService::$generator has no type specified.        
+  :31    Property HRService::$recruitDuration has no type specified.  
+  :37    Property HRService::$regionScope has no type specified.      
+ ------ ------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+  Line   HR\DataTrait.php (in context of class HRService)                                                                       
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+  :11    Method HRService::getRegions() return type has no value type specified in iterable type array.                         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :17    Method HRService::getSpecializations() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :23    Method HRService::getCandidatesForRole() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :39    Method HRService::getActiveEmployees() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :63    Method HRService::getActiveContracts() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :82    Method HRService::getActiveRecruitments() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :99    Method HRService::getAllCandidates() return type has no value type specified in iterable type array.                   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :130   Method HRService::getHistory() return type has no value type specified in iterable type array.                         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :146   Method HRService::getTechnicalCandidatesWithReviews() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :175   Method HRService::rejectCandidate() return type has no value type specified in iterable type array.                    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :185   Method HRService::saveCandidate() return type has no value type specified in iterable type array.                      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :196   Method HRService::renewContract() return type has no value type specified in iterable type array.                      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------------------------------- 
+  Line   HR\EventsTrait.php (in context of class HRService)                                                   
+ ------ ----------------------------------------------------------------------------------------------------- 
+  :11    Method HRService::fireEmployee() return type has no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type             
+  :44    Method HRService::getUnreadEvents() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type             
+ ------ ----------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------------------- 
+  Line   HR\HiringTrait.php (in context of class HRService)                                                                          
+ ------ ---------------------------------------------------------------------------------------------------------------------------- 
+  :14    Method HRService::hireCandidate() return type has no value type specified in iterable type array.                           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :85    Method HRService::hireTechEngineerToStaff() has parameter $candidate with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :85    Method HRService::hireTechEngineerToStaff() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :210   Method HRService::getCandidateForHire() return type has no value type specified in iterable type array.                     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :235   Method HRService::hireCandidateDefaultPath() has parameter $candidate with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :235   Method HRService::hireCandidateDefaultPath() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :254   Method HRService::insertBoardMember() has parameter $candidate with no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+ ------ ---------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------ 
+  Line   HR\RecruitmentTrait.php (in context of class HRService)                                               
+ ------ ------------------------------------------------------------------------------------------------------ 
+  :12    Method HRService::startRecruitment() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+ ------ ------------------------------------------------------------------------------------------------------ 
+
+ ------ --------------------------------------------------------------------------------------------------------------------------- 
+  Line   HeadhunterService.php                                                                                                      
+ ------ --------------------------------------------------------------------------------------------------------------------------- 
+  :17    Property HeadhunterService::$skillDist type has no value type specified in iterable type array.                            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :25    Property HeadhunterService::$companies type has no value type specified in iterable type array.                            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :44    Method HeadhunterService::startSearch() return type has no value type specified in iterable type array.                    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :147   Method HeadhunterService::generateCandidates() has parameter $search with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :211   Method HeadhunterService::makeOffer() return type has no value type specified in iterable type array.                      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :277   Method HeadhunterService::calcProbability() has parameter $c with no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :328   Method HeadhunterService::doHire() has parameter $c with no value type specified in iterable type array.                   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :328   Method HeadhunterService::doHire() return type has no value type specified in iterable type array.                         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :420   Method HeadhunterService::getActiveSearch() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :442   Method HeadhunterService::getAvailableCandidates() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+  :464   Method HeadhunterService::getRecentSearches() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                   
+ ------ --------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+  Line   Incident\MessagesTrait.php (in context of class IncidentService)                                                          
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+  :68    Method IncidentService::generateIncident() has parameter $cfg with no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :68    Method IncidentService::generateIncident() has parameter $hseBonus with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :68    Method IncidentService::generateIncident() has parameter $staffData with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :68    Method IncidentService::generateIncident() has parameter $wellData with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :68    Method IncidentService::generateIncident() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :142   Method IncidentService::getWorkerName() has parameter $staffData with no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :152   Method IncidentService::interpolate() has parameter $ctx with no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  Line   Incident\RepairDataTrait.php (in context of class IncidentService)                                                   
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  :15    Method IncidentService::repairIncident() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :87    Method IncidentService::getRecentIncidents() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :107   Method IncidentService::getPlayerIncidents() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :128   Method IncidentService::saveIncident() has parameter $incident with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :161   Method IncidentService::applyEffects() has parameter $incident with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :232   Method IncidentService::weightedRand() has parameter $weights with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  Line   Incident\TickTrait.php (in context of class IncidentService)                                                         
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+  :20    Method IncidentService::processTick() has parameter $hseBonus with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :20    Method IncidentService::processTick() has parameter $staffData with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :20    Method IncidentService::processTick() has parameter $wellData with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+  :20    Method IncidentService::processTick() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                             
+ ------ --------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------- 
+  Line   InterestEngine.php                                                                            
+ ------ ---------------------------------------------------------------------------------------------- 
+  :5     Property InterestEngine::$db has no type specified.                                           
+  :23    Method InterestEngine::calculateInterest() has no return type specified.                      
+  :46    Method InterestEngine::calculateLoanInterest() has no return type specified.                  
+  :46    Method InterestEngine::calculateLoanInterest() has parameter $loanId with no type specified.  
+ ------ ---------------------------------------------------------------------------------------------- 
+
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+  Line   LoanDecisionService.php                                                                                                   
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+  :18    Property LoanDecisionService::$db has no type specified.                                                                  
+  :19    Property LoanDecisionService::$riskEngine has no type specified.                                                          
+  :34    Method LoanDecisionService::processApplication() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :70    Method LoanDecisionService::makeDecision() has parameter $breakdown with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :70    Method LoanDecisionService::makeDecision() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :154   Method LoanDecisionService::saveDecision() has parameter $breakdown with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+  :154   Method LoanDecisionService::saveDecision() has parameter $decision with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                  
+ ------ -------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------------------- 
+  Line   LoanRepository.php                                                                       
+ ------ ----------------------------------------------------------------------------------------- 
+  :5     Property LoanRepository::$db has no type specified.                                      
+  :23    Method LoanRepository::processInstallments() has no return type specified.               
+  :47    Method LoanRepository::processInstallment() has no return type specified.                
+  :47    Method LoanRepository::processInstallment() has parameter $loan with no type specified.  
+ ------ ----------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------- 
+  Line   Market.php                                                      
+ ------ ---------------------------------------------------------------- 
+  :5     Property Market::$db has no type specified.                     
+  :19    Method Market::getState() has no return type specified.         
+  :32    Method Market::getCurrentPrice() has no return type specified.  
+ ------ ---------------------------------------------------------------- 
+
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  Line   MarketOffer.php                                                                                               
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  :14    Method MarketOffer::createOffer() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :106   Method MarketOffer::getPlayerOffers() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :122   Method MarketOffer::getOffer() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :145   Method MarketOffer::updateOffer() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :187   Method MarketOffer::cancelOffer() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :278   Method MarketOffer::executeOffer() has parameter $offer with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+ ------ -------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+  Line   MarketTick.php                                                                                                     
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+  :39    Method MarketTick::updatePrices() has parameter $activeTrend with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :233   Method MarketTick::getPriceHistory() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :249   Method MarketTick::getMarketSnapshot() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :278   Method MarketTick::getSupplyDemandHistory() return type has no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+  Line   MarketTrend.php                                                                                                    
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+  :20    Method MarketTrend::getActiveTrend() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :40    Method MarketTrend::getTrend() return type has no value type specified in iterable type array.                     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :53    Method MarketTrend::getAllTrends() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :65    Method MarketTrend::getTrendsByCategory() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :81    Method MarketTrend::getTrendHistory() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :163   Method MarketTrend::checkAndActivateRandomTrend() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :231   Method MarketTrend::getRandomInactiveTrend() return type has no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+  :249   Method MarketTrend::getTrendMessage() has parameter $trend with no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                           
+ ------ ------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------ 
+  Line   Player.php                                                                    
+ ------ ------------------------------------------------------------------------------ 
+  :5     Property Player::$db has no type specified.                                   
+  :6     Property Player::$playerId has no type specified.                             
+  :8     Method Player::__construct() has parameter $playerId with no type specified.  
+  :21    Method Player::getData() has no return type specified.                        
+  :44    Method Player::updateCash() has no return type specified.                     
+  :44    Method Player::updateCash() has parameter $amount with no type specified.     
+  :111   Method Player::canAfford() has no return type specified.                      
+  :111   Method Player::canAfford() has parameter $cost with no type specified.        
+  :137   Method Player::getCash() has no return type specified.                        
+ ------ ------------------------------------------------------------------------------ 
+
+ ------ ------------------------------------------------------------------------------------------ 
+  Line   RateLimiter.php                                                                           
+ ------ ------------------------------------------------------------------------------------------ 
+  :6     Property RateLimiter::$limits has no type specified.                                      
+  :14    Property RateLimiter::$progressive has no type specified.                                 
+  :26    Method RateLimiter::check() has parameter $action with no type specified.                 
+  :26    Method RateLimiter::check() has parameter $identifier with no type specified.             
+  :65    Method RateLimiter::checkProgressive() has parameter $action with no type specified.      
+  :65    Method RateLimiter::checkProgressive() has parameter $identifier with no type specified.  
+  :101   Method RateLimiter::registerFailure() has parameter $action with no type specified.       
+  :101   Method RateLimiter::registerFailure() has parameter $identifier with no type specified.   
+  :144   Method RateLimiter::getWaitSeconds() has parameter $action with no type specified.        
+  :144   Method RateLimiter::getWaitSeconds() has parameter $identifier with no type specified.    
+ ------ ------------------------------------------------------------------------------------------ 
+
+ ------ ----------------------------------------------------------------------------------------------------------------- 
+  Line   RecruitmentAPI.php                                                                                               
+ ------ ----------------------------------------------------------------------------------------------------------------- 
+  :15    Property RecruitmentAPI::$db has no type specified.                                                              
+  :16    Property RecruitmentAPI::$generator has no type specified.                                                       
+  :17    Property RecruitmentAPI::$hrService has no type specified.                                                       
+  :32    Method RecruitmentAPI::startRecruitment() return type has no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+  :99    Method RecruitmentAPI::checkRecruitmentStatus() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+  :147   Method RecruitmentAPI::getCandidates() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+  :180   Method RecruitmentAPI::hireCandidate() has parameter $contractType with no type specified.                       
+  :180   Method RecruitmentAPI::hireCandidate() has parameter $playerId with no type specified.                           
+  :180   Method RecruitmentAPI::hireCandidate() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+  :219   Method RecruitmentAPI::fireEmployee() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+  :268   Method RecruitmentAPI::getBoardMembers() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+  :291   Function respondJson() has parameter $payload with no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+ ------ ----------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------------------------- 
+  Line   RegionalEvent\ModifiersTrait.php (in context of class RegionalEventService)                                                       
+ ------ ---------------------------------------------------------------------------------------------------------------------------------- 
+  :12    Method RegionalEventService::getActiveEvents() return type has no value type specified in iterable type array.                    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :34    Method RegionalEventService::getWellModifiers() has parameter $activeEvents with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :34    Method RegionalEventService::getWellModifiers() return type has no value type specified in iterable type array.                   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :61    Method RegionalEventService::getStopPct() has parameter $event with no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :68    Method RegionalEventService::getBonusPct() has parameter $event with no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :76    Method RegionalEventService::getTaxExtra() has parameter $event with no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+ ------ ---------------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  Line   RiskScoreEngine.php                                                                                           
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  :18    Property RiskScoreEngine::$db has no type specified.                                                          
+  :35    Method RiskScoreEngine::calculateRiskScore() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :66    Method RiskScoreEngine::scoreWells() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :115   Method RiskScoreEngine::scoreProduction() return type has no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :151   Method RiskScoreEngine::scoreStorage() return type has no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :184   Method RiskScoreEngine::scoreCash() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :208   Method RiskScoreEngine::scoreBehavior() return type has no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :262   Method RiskScoreEngine::scoreMarket() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :330   Method RiskScoreEngine::scoreHistory() return type has no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :371   Method RiskScoreEngine::scoreCreditScore() return type has no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+ ------ -------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------- 
+  Line   Security.php                                                             
+ ------ ------------------------------------------------------------------------- 
+  :5     Method Security::setHeaders() has no return type specified.              
+  :24    Method Security::escape() has no return type specified.                  
+  :24    Method Security::escape() has parameter $string with no type specified.  
+ ------ ------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------- 
+  Line   Storage.php                                                                    
+ ------ ------------------------------------------------------------------------------- 
+  :5     Property Storage::$db has no type specified.                                   
+  :6     Property Storage::$playerId has no type specified.                             
+  :8     Method Storage::__construct() has parameter $playerId with no type specified.  
+  :21    Method Storage::getData() has no return type specified.                        
+  :48    Method Storage::addOil() has no return type specified.                         
+  :48    Method Storage::addOil() has parameter $amount with no type specified.         
+  :75    Method Storage::sellAll() has no return type specified.                        
+  :75    Method Storage::sellAll() has parameter $price with no type specified.         
+  :109   Method Storage::upgrade() has no return type specified.                        
+  :134   Method Storage::getUpgradeCost() has no return type specified.                 
+ ------ ------------------------------------------------------------------------------- 
+
+ ------- ---------------------------------------------------------------------------------------------------------------------------- 
+  Line    TechnicalTeamService.php                                                                                                    
+ ------- ---------------------------------------------------------------------------------------------------------------------------- 
+  :216    Method TechnicalTeamService::getManager() return type has no value type specified in iterable type array.                   
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :253    Method TechnicalTeamService::getHSEBonus() return type has no value type specified in iterable type array.                  
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :481    Method TechnicalTeamService::getProcedureStatus() return type has no value type specified in iterable type array.           
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :507    Method TechnicalTeamService::upgradeProcedures() return type has no value type specified in iterable type array.            
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :608    Method TechnicalTeamService::repairProcedureIntegrity() return type has no value type specified in iterable type array.     
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :702    Method TechnicalTeamService::getStaffRequirementCheck() return type has no value type specified in iterable type array.     
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :812    Method TechnicalTeamService::getManagerBonus() has parameter $manager with no value type specified in iterable type array.  
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :812    Method TechnicalTeamService::getManagerBonus() return type has no value type specified in iterable type array.              
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :828    Method TechnicalTeamService::getStaff() return type has no value type specified in iterable type array.                     
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :857    Method TechnicalTeamService::getStaffMember() return type has no value type specified in iterable type array.               
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :867    Method TechnicalTeamService::getStaffBonus() has parameter $staff with no value type specified in iterable type array.      
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :867    Method TechnicalTeamService::getStaffBonus() return type has no value type specified in iterable type array.                
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :885    Method TechnicalTeamService::hireEngineer() return type has no value type specified in iterable type array.                 
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :926    Method TechnicalTeamService::fireEngineer() return type has no value type specified in iterable type array.                 
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :946    Method TechnicalTeamService::getTasks() return type has no value type specified in iterable type array.                     
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :967    Method TechnicalTeamService::getActiveTasks() return type has no value type specified in iterable type array.               
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :975    Method TechnicalTeamService::assignTask() return type has no value type specified in iterable type array.                   
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1031   Method TechnicalTeamService::startTask() has parameter $staff with no value type specified in iterable type array.          
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1031   Method TechnicalTeamService::startTask() return type has no value type specified in iterable type array.                    
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1133   Method TechnicalTeamService::completeTask() has parameter $task with no value type specified in iterable type array.        
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1398   Method TechnicalTeamService::getQueue() return type has no value type specified in iterable type array.                     
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1421   Method TechnicalTeamService::cancelTask() return type has no value type specified in iterable type array.                   
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1480   Method TechnicalTeamService::cancelQueueItem() return type has no value type specified in iterable type array.              
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1503   Method TechnicalTeamService::getUnreadNotifications() return type has no value type specified in iterable type array.       
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1548   Method TechnicalTeamService::getTechnicalCandidates() return type has no value type specified in iterable type array.       
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1578   Method TechnicalTeamService::reviewCandidate() return type has no value type specified in iterable type array.              
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1625   Method TechnicalTeamService::getActiveRecruitment() return type has no value type specified in iterable type array.         
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+  :1642   Method TechnicalTeamService::requestRecruitment() return type has no value type specified in iterable type array.           
+          ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                    
+ ------- ---------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  Line   Tick\FinancialStateSection.php                                                                                          
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  :22    Method FinancialStateSection::process() has parameter $playerData with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+
+ ------ ----------------------------------------------------------------------------------------------- 
+  Line   Tick\MarketSection.php                                                                         
+ ------ ----------------------------------------------------------------------------------------------- 
+  :10    Property MarketSection::$activeTrend type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type       
+ ------ ----------------------------------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------------------------------------------- 
+  Line   Tick\OfflineSection.php                                                                                          
+ ------ ----------------------------------------------------------------------------------------------------------------- 
+  :31    Method OfflineSection::process() has parameter $playerData with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                         
+ ------ ----------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  Line   Tick\PipelineSection.php                                                                                        
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  :32    Method PipelineSection::process() has parameter $hseBonus with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  Line   Tick\PlayersSection.php                                                                                                 
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+  :28    Property PlayersSection::$gBalanceMults type has no value type specified in iterable type array.                        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :30    Method PlayersSection::__construct() has parameter $gBalanceMults with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+  :69    Method PlayersSection::processPlayer() has parameter $playerData with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                
+ ------ ------------------------------------------------------------------------------------------------------------------------ 
+
+ ------ ------------------------------------------------------------------------------------------------------------- 
+  Line   Tick\SpillSection.php                                                                                        
+ ------ ------------------------------------------------------------------------------------------------------------- 
+  :28    Method SpillSection::process() has parameter $hseBonus with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                     
+ ------ ------------------------------------------------------------------------------------------------------------- 
+
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  Line   Tick\TickStatsRepository.php                                                                                  
+ ------ -------------------------------------------------------------------------------------------------------------- 
+  :20    Method TickStatsRepository::save() has parameter $stats with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :72    Method TickStatsRepository::getRecent() return type has no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+  :88    Method TickStatsRepository::getSummary24h() return type has no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                      
+ ------ -------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------------------------ 
+  Line   Tick\WellLoopSection.php                                                                                                      
+ ------ ------------------------------------------------------------------------------------------------------------------------------ 
+  :28    Property WellLoopSection::$gBalanceMults type has no value type specified in iterable type array.                             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :31    Method WellLoopSection::__construct() has parameter $gBalanceMults with no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :49    Method WellLoopSection::run() has parameter $activeRegEvents with no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :49    Method WellLoopSection::run() has parameter $hseBonus with no value type specified in iterable type array.                    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :49    Method WellLoopSection::run() has parameter $staffCheck with no value type specified in iterable type array.                  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :49    Method WellLoopSection::run() has parameter $wells with no value type specified in iterable type array.                       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :131   Method WellLoopSection::processWell() has parameter $activeRegEvents with no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :131   Method WellLoopSection::processWell() has parameter $hseBonus with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :131   Method WellLoopSection::processWell() has parameter $staffCheck with no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :131   Method WellLoopSection::processWell() has parameter $well with no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :409   Method WellLoopSection::processTransportEvent() has parameter $hseBonus with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+  :409   Method WellLoopSection::processTransportEvent() has parameter $well with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                      
+ ------ ------------------------------------------------------------------------------------------------------------------------------ 
+
+ ------ -------------------------------------------------------------------------------- 
+  Line   Validator.php                                                                   
+ ------ -------------------------------------------------------------------------------- 
+  :5     Method Validator::sanitize() has no return type specified.                      
+  :5     Method Validator::sanitize() has parameter $input with no type specified.       
+  :17    Method Validator::validateEmail() has no return type specified.                 
+  :17    Method Validator::validateEmail() has parameter $email with no type specified.  
+  :29    Method Validator::validateInt() has no return type specified.                   
+  :29    Method Validator::validateInt() has parameter $max with no type specified.      
+  :29    Method Validator::validateInt() has parameter $min with no type specified.      
+  :29    Method Validator::validateInt() has parameter $value with no type specified.    
+  :42    Method Validator::validateFloat() has no return type specified.                 
+  :42    Method Validator::validateFloat() has parameter $min with no type specified.    
+  :42    Method Validator::validateFloat() has parameter $value with no type specified.  
+ ------ -------------------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------- 
+  Line   Well.php                                                                     
+ ------ ----------------------------------------------------------------------------- 
+  :5     Property Well::$db has no type specified.                                    
+  :6     Property Well::$playerId has no type specified.                              
+  :8     Method Well::__construct() has parameter $playerId with no type specified.   
+  :21    Method Well::getWells() has no return type specified.                        
+  :52    Method Well::getWell() has no return type specified.                         
+  :52    Method Well::getWell() has parameter $wellId with no type specified.         
+  :72    Method Well::upgrade() has no return type specified.                         
+  :72    Method Well::upgrade() has parameter $wellId with no type specified.         
+  :103   Method Well::getUpgradeCost() has no return type specified.                  
+  :103   Method Well::getUpgradeCost() has parameter $wellId with no type specified.  
+ ------ ----------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------ 
+  Line   WellShop.php                                                                                          
+ ------ ------------------------------------------------------------------------------------------------------ 
+  :18    Method WellShop::getAvailableWells() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+  :33    Method WellShop::getWell() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+  :51    Method WellShop::buyWell() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type              
+ ------ ------------------------------------------------------------------------------------------------------ 
+
+ ------ --------------------------------------------------------------------------------------------- 
+  Line   WellStaffApi.php                                                                             
+ ------ --------------------------------------------------------------------------------------------- 
+  :13    Function jsonOut() has parameter $data with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type     
+ ------ --------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  Line   WellStaffService.php                                                                                            
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+  :30    Method WellStaffService::assign() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :133   Method WellStaffService::unassign() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :215   Method WellStaffService::getWellsStaffStatus() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :264   Method WellStaffService::getAvailableStaff() return type has no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :313   Method WellStaffService::getWell() return type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+  :323   Method WellStaffService::getStaff() return type has no value type specified in iterable type array.             
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                        
+ ------ ---------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------- 
+  Line   Well\ActionsTrait.php (in context of class WellService)                                                   
+ ------ ---------------------------------------------------------------------------------------------------------- 
+  :9     Method WellService::upgradeEquipment() return type has no value type specified in iterable type array.    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :69    Method WellService::performMaintenance() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+ ------ ---------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------- 
+  Line   Well\ConfigTrait.php (in context of class WellService)                                              
+ ------ ---------------------------------------------------------------------------------------------------- 
+  :4     Property WellService::$config type has no value type specified in iterable type array.              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type            
+  :19    Method WellService::getAllConfig() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type            
+ ------ ---------------------------------------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+  Line   Well\CostsTrait.php (in context of class WellService)                                                                  
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+  :17    Method WellService::getOpexPerHour() has parameter $well with no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :34    Method WellService::getMaintenanceCost() has parameter $well with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :44    Method WellService::getRepairCost() has parameter $well with no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :64    Method WellService::getEffectiveProduction() has parameter $well with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :122   Method WellService::getEquipmentMultipliers() return type has no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------------------------------------------------------------------- 
+  Line   Well\DisastersTrait.php (in context of class WellService)                                                                         
+ ------ ---------------------------------------------------------------------------------------------------------------------------------- 
+  :10    Method WellService::processDisasterRoll() has parameter $hseBonus with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :10    Method WellService::processDisasterRoll() return type has no value type specified in iterable type array.                         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :72    Method WellService::triggerBlowout() has parameter $hseBonus with no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :72    Method WellService::triggerBlowout() has parameter $well with no value type specified in iterable type array.                     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :72    Method WellService::triggerBlowout() return type has no value type specified in iterable type array.                              
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :192   Method WellService::triggerReservoirContamination() has parameter $hseBonus with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :192   Method WellService::triggerReservoirContamination() has parameter $well with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :192   Method WellService::triggerReservoirContamination() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :318   Method WellService::triggerPipelineExplosion() has parameter $hseBonus with no value type specified in iterable type array.       
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :318   Method WellService::triggerPipelineExplosion() return type has no value type specified in iterable type array.                    
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :410   Method WellService::triggerSurfaceSpill() has parameter $hseBonus with no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :410   Method WellService::triggerSurfaceSpill() return type has no value type specified in iterable type array.                         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+  :503   Method WellService::notifyDirectorDisaster() has parameter $context with no value type specified in iterable type array.          
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                                          
+ ------ ---------------------------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------------------------ 
+  Line   Well\QueryTrait.php (in context of class WellService)                                                       
+ ------ ------------------------------------------------------------------------------------------------------------ 
+  :4     Method WellService::getWell() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                    
+  :18    Method WellService::getPlayerWells() return type has no value type specified in iterable type array.        
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                    
+  :33    Method WellService::getWellEvents() return type has no value type specified in iterable type array.         
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                    
+  :45    Method WellService::getInstalledUpgrades() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                    
+ ------ ------------------------------------------------------------------------------------------------------------ 
+
+ ------ ---------------------------------------------------------------------------------------------------------- 
+  Line   Well\SellTrait.php (in context of class WellService)                                                      
+ ------ ---------------------------------------------------------------------------------------------------------- 
+  :8     Method WellService::calculateSellValue() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+  :116   Method WellService::sellWell() return type has no value type specified in iterable type array.            
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                  
+ ------ ---------------------------------------------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+  Line   Well\TickTrait.php (in context of class WellService)                                                                   
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+  :10    Method WellService::processDegradation() has parameter $hseBonus with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :10    Method WellService::processDegradation() return type has no value type specified in iterable type array.               
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :131   Method WellService::updateRiskScore() has parameter $hseBonus with no value type specified in iterable type array.     
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :192   Method WellService::addSpiralBoost() has parameter $hseBonus with no value type specified in iterable type array.      
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+  :240   Method WellService::processSpiralDecay() has parameter $hseBonus with no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                               
+ ------ ----------------------------------------------------------------------------------------------------------------------- 
+
+ ------ --------------------------------------------------------------------------------------------------------------- 
+  Line   WorldMap.php                                                                                                   
+ ------ --------------------------------------------------------------------------------------------------------------- 
+  :24    Method WorldMap::getRegions() return type has no value type specified in iterable type array.                  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                       
+  :34    Method WorldMap::getRegion() return type has no value type specified in iterable type array.                   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                       
+  :48    Method WorldMap::getLocations() return type has no value type specified in iterable type array.                
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                       
+  :67    Method WorldMap::getLocation() return type has no value type specified in iterable type array.                 
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                       
+  :90    Method WorldMap::getPlayerOccupiedLocations() return type has no value type specified in iterable type array.  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                       
+  :119   Method WorldMap::buyWellAtLocation() return type has no value type specified in iterable type array.           
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                       
+  :262   Method WorldMap::getMapData() return type has no value type specified in iterable type array.                  
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type                       
+ ------ --------------------------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------- 
+  Line   i18n.php                                                                                   
+ ------ ------------------------------------------------------------------------------------------- 
+  :11    Function t() has parameter $replace with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type   
+ ------ ------------------------------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------------------------------- 
+  Line   init.php                                                                                   
+ ------ ------------------------------------------------------------------------------------------- 
+  :162   Function url() has parameter $query with no value type specified in iterable type array.   
+         ­čĺí See: https://phpstan.org/blog/solving-phpstan-no-value-type-specified-in-iterable-type   
+ ------ ------------------------------------------------------------------------------------------- 
+
+ [ERROR] Found 421 errors                                                                                               
+

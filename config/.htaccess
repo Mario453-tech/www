@@ -1,0 +1,8 @@
+# BLOKADA CAŁEGO FOLDERU CONFIG
+Order deny,allow
+Deny from all
+
+# Tylko serwer może czytać te pliki
+<Files "*">
+    Deny from all
+</Files>

@@ -1,0 +1,251 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/MySqlIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/PortService.php';
+require_once dirname(__DIR__, 2) . '/src/MarineDeliveryService.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/PortSection.php';
+
+/**
+ * Testy integracyjne MySql dla PortSection (tick).
+ * MySQL integration tests for PortSection (tick).
+ */
+final class MySqlPortSectionTest extends MySqlIntegrationTestCase
+{
+    private int $portId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Zapewnij schematy tabel
+        new MarineDeliveryService($this->db);
+        $this->portId = $this->seed + 10;
+    }
+
+    protected function tearDown(): void
+    {
+        $playerId = $this->getTrackedIds()['playerId'];
+        try { $this->db->prepare('DELETE FROM port_queue WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
+        try { $this->db->prepare('DELETE FROM marine_deliveries WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
+        try { $this->db->prepare('DELETE FROM ports WHERE id = ?')->execute([$this->portId]); } catch (\Throwable $e) {}
+
+        parent::tearDown();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────
+
+    private function insertPort(
+        int    $regionId   = 77,
+        string $status     = 'active',
+        int    $queueLimit = 25,
+        float  $costPerBbl = 0.50
+    ): void {
+        $this->db->prepare(
+            "INSERT INTO ports
+                 (id, region_id, name, port_type, throughput_per_tick, queue_limit,
+                  handling_cost_per_bbl, base_transit_hours, overload_risk_pct,
+                  failure_risk_per_tick, status)
+             VALUES (?, ?, ?, 'medium', 600.00, ?, ?, 3.00, 15.00, 0.001, ?)
+             ON DUPLICATE KEY UPDATE status = VALUES(status)"
+        )->execute([$this->portId, $regionId, 'TestPort #' . $this->portId, $queueLimit, $costPerBbl, $status]);
+    }
+
+    private function insertDeliveryAndQueueEntry(
+        int   $playerId,
+        int   $wellId,
+        float $volumeBbl
+    ): int {
+        $now = (new \DateTime())->format('Y-m-d H:i:s');
+
+        $this->db->prepare(
+            "INSERT INTO marine_deliveries
+                 (player_id, well_id, port_id, volume_bbl, status,
+                  departure_at, eta_at, arrived_at, created_at)
+             VALUES (?, ?, ?, ?, 'waiting_for_port', ?, ?, ?, ?)"
+        )->execute([$playerId, $wellId, $this->portId, $volumeBbl, $now, $now, $now, $now]);
+
+        $delivId = (int)$this->db->lastInsertId();
+
+        $this->db->prepare(
+            "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
+             VALUES (?, ?, ?, ?, NOW(), 'waiting')"
+        )->execute([$this->portId, $delivId, $playerId, $volumeBbl]);
+
+        return $delivId;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // process — happy path
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessDeliversWaitingDeliveryToStorage(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+        $this->insertPort(77, 'active');
+
+        $delivId = $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 80.0);
+
+        $section = new PortSection($this->db, new \DateTime());
+        $newStorage = $section->process($playerId, 0.0, 10000.0, 50.0);
+
+        $this->assertEqualsWithDelta(80.0, $newStorage, 0.001, 'Magazyn powinien wzrosnac o 80 bbl');
+        $this->assertEqualsWithDelta(80.0, $section->deliveredBbl, 0.001);
+        $this->assertSame(1, $section->processedCount);
+        $this->assertGreaterThan(0.0, $section->handlingCost, 'Koszt portowy powinien byc > 0');
+    }
+
+    public function testProcessMarksDeliveryAsDelivered(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+        $this->insertPort(77, 'active');
+
+        $delivId = $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 40.0);
+
+        $section = new PortSection($this->db, new \DateTime());
+        $section->process($playerId, 0.0, 10000.0, 50.0);
+
+        $stmt = $this->db->prepare('SELECT status FROM marine_deliveries WHERE id = ?');
+        $stmt->execute([$delivId]);
+        $status = $stmt->fetchColumn();
+
+        $this->assertSame('delivered', $status, 'Dostawa powinna byc oznaczona jako delivered');
+    }
+
+    public function testProcessMarksPortQueueEntryAsDone(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+        $this->insertPort(77, 'active');
+
+        $delivId = $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 25.0);
+
+        $section = new PortSection($this->db, new \DateTime());
+        $section->process($playerId, 0.0, 10000.0, 50.0);
+
+        $stmt = $this->db->prepare('SELECT status FROM port_queue WHERE delivery_id = ?');
+        $stmt->execute([$delivId]);
+        $queueStatus = $stmt->fetchColumn();
+
+        $this->assertSame('done', $queueStatus, 'Wpis w kolejce portowej powinien byc oznaczony jako done');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // process — limit magazynu
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessRespectStorageCapacity(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+        $this->insertPort(77, 'active');
+
+        // Magazyn prawie pelny: pojemnosc 100, aktualnie 90 → wolne 10
+        $delivId = $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 50.0);
+
+        $section    = new PortSection($this->db, new \DateTime());
+        $newStorage = $section->process($playerId, 90.0, 100.0, 50.0);
+
+        $this->assertEqualsWithDelta(100.0, $newStorage, 0.001, 'Magazyn nie powinien przekroczyc pojemnosci');
+        $this->assertEqualsWithDelta(10.0, $section->deliveredBbl, 0.001, 'Dostarczone = tylko wolne miejsce');
+    }
+
+    public function testProcessWithFullStorageSkipsDelivery(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+        $this->insertPort(77, 'active');
+
+        // Magazyn pelny
+        $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 30.0);
+
+        $section    = new PortSection($this->db, new \DateTime());
+        $newStorage = $section->process($playerId, 100.0, 100.0, 50.0);
+
+        $this->assertEqualsWithDelta(100.0, $newStorage, 0.001, 'Pelny magazyn — bez zmian');
+        $this->assertEqualsWithDelta(0.0, $section->deliveredBbl, 0.001, 'Brak dostarczonego przy pelnym magazynie');
+        $this->assertSame(0, $section->processedCount);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // process — brak dostawy w kolejce
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessWithEmptyQueueReturnsUnchangedStorage(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->insertPort(77, 'active');
+
+        $section    = new PortSection($this->db, new \DateTime());
+        $newStorage = $section->process($playerId, 200.0, 5000.0, 50.0);
+
+        $this->assertEqualsWithDelta(200.0, $newStorage, 0.001, 'Pusta kolejka — magazyn bez zmian');
+        $this->assertSame(0, $section->processedCount);
+        $this->assertEqualsWithDelta(0.0, $section->handlingCost, 0.001);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // process — koszt portowy
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessCalculatesHandlingCostCorrectly(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+
+        // handling_cost_per_bbl = 2.00
+        $this->insertPort(77, 'active', 25, 2.00);
+        $delivId = $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 60.0);
+
+        $section = new PortSection($this->db, new \DateTime());
+        $section->process($playerId, 0.0, 10000.0, 50.0);
+
+        // 60 bbl × 2.00 PLN/bbl = 120 PLN
+        $this->assertEqualsWithDelta(120.0, $section->handlingCost, 0.01, 'Koszt portowy: 60 bbl × 2.00 = 120 PLN');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Liczniki poczatkowe
+    // ─────────────────────────────────────────────────────────────
+
+    public function testSectionCountersStartAtZero(): void
+    {
+        $section = new PortSection($this->db, new \DateTime());
+
+        $this->assertEqualsWithDelta(0.0, $section->deliveredBbl, 0.001);
+        $this->assertEqualsWithDelta(0.0, $section->handlingCost, 0.001);
+        $this->assertSame(0, $section->processedCount);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // process — port zamkniety nie przetwarza
+    // ─────────────────────────────────────────────────────────────
+
+    public function testProcessSkipsClosedPort(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+
+        // Port zamkniety
+        $this->insertPort(77, 'closed');
+        $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 45.0);
+
+        $section    = new PortSection($this->db, new \DateTime());
+        $newStorage = $section->process($playerId, 0.0, 10000.0, 50.0);
+
+        // Zamkniety port nie powinien byc uzywany przez PortSection (JOIN filtruje closed)
+        $this->assertEqualsWithDelta(0.0, $newStorage, 0.001, 'Zamkniety port — magazyn bez zmian');
+        $this->assertSame(0, $section->processedCount, 'Zamkniety port — brak przetworzonych dostaw');
+    }
+}

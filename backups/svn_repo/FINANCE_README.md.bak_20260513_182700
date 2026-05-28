@@ -1,0 +1,1875 @@
+# OilCorp - Dział Finansów v2
+
+## 1. Cel dokumentu
+
+Ten dokument opisuje docelową rozbudowę działu `Finanse` w grze OilCorp.
+
+To nie ma być nowy, oderwany moduł. To ma być rozwinięcie istniejącego panelu finansowego tak, aby:
+- dalej pokazywał dane i statystyki,
+- ale dodatkowo dawał graczowi realne decyzje,
+- wpływał na tick gry,
+- czytał także dane z logistyki i hubów przeładunkowych,
+- miał spójny panel admina,
+- był wdrażany etapami i bez rozwalania obecnego systemu.
+
+Ten dokument jest briefem wdrożeniowym pod implementację.
+
+---
+
+## 2. Stan obecny
+
+### 2.1. Co już działa
+
+Obecny panel finansów już pokazuje:
+- saldo,
+- zysk / tick,
+- zysk / godzina,
+- straty transportu,
+- wykres historii finansowej,
+- strukturę finansową 24h / 7 dni,
+- analizę per odwiert.
+
+Obecne pliki:
+- `C:\xampp1\htdocs\public\finance.php`
+- `C:\xampp1\htdocs\src\FinanceService.php`
+- `C:\xampp1\htdocs\templates\views\public\finance\main.php`
+- `C:\xampp1\htdocs\assets\css\finance.css`
+- `C:\xampp1\htdocs\assets\js\finance.js`
+- `C:\xampp1\htdocs\admin\finance.php`
+- `C:\xampp1\htdocs\templates\views\admin\finance\main.php`
+
+### 2.2. Jak działa to teraz
+
+Obecnie `FinanceService` zapisuje per tick do `finance_logs`:
+- revenue,
+- gross_revenue,
+- opex,
+- salary_cost,
+- transport_cost,
+- incident_cost,
+- tax,
+- loss_bbl,
+- loss_value,
+- net_profit,
+- cash_after,
+- oil_price,
+- bbl_produced,
+- wells_active.
+
+Tick zapisuje to z:
+- `C:\xampp1\htdocs\src\Tick\PlayersSection.php`
+- na podstawie liczb z:
+  - `C:\xampp1\htdocs\src\Tick\WellLoopSection.php`
+
+### 2.3. Główna luka obecnego modułu
+
+Obecny panel jest czytelny, ale jest głównie raportem.
+
+Brakuje mu:
+- decyzji,
+- polityk finansowych,
+- prognoz,
+- zarządzania płynnością,
+- budżetów działowych,
+- warstwy ryzyka,
+- jawnego rozliczania wpływu hubów.
+
+---
+
+## 3. Najważniejsze założenie v2
+
+Finanse mają stać się działem, który:
+- nie tylko pokazuje wynik,
+- ale pozwala nim sterować.
+
+Panel finansów ma być:
+- centrum kontroli kosztów,
+- centrum prognoz płynności,
+- centrum ryzyka,
+- centrum decyzji strategicznych.
+
+---
+
+## 4. Jednolity system wdrożenia
+
+## 4.1. Spójność z agentem
+
+Wdrożenie musi być zgodne z:
+- `C:\xampp1\htdocs\.windsurf\agent.md`
+
+To znaczy:
+- wspólny shell strony,
+- wspólna kolorystyka,
+- brak nowego mini-systemu UI,
+- brak hardcoded tekstów,
+- modalowy system projektu zamiast natywnych okienek,
+- `style.css` jako źródło prawdy dla wspólnych komponentów.
+
+## 4.2. Wygląd panelu gracza
+
+Panel gracza `Finanse` ma pozostać wizualnie spójny z resztą gry:
+- złoty akcent,
+- ten sam `GameShell`,
+- te same status boxy,
+- ten sam footer akcji,
+- ten sam system zakładek,
+- ten sam system kart i alertów.
+
+`assets/css/finance.css` może istnieć dalej, ale tylko dla rzeczy specyficznych dla finansów.
+
+Nie przenosimy do niego wspólnych klas typu:
+- globalne przyciski,
+- globalne taby,
+- globalne formularze,
+- globalny header,
+- globalny footer.
+
+## 4.3. Wygląd panelu admina
+
+Panel admina dla finansów musi wyglądać podobnie jak istniejące panele typu:
+- rynek globalny,
+- transport,
+- logistyka,
+- inne nowoczesne sekcje admina.
+
+Zasady:
+- ciemne tło,
+- złote nagłówki sekcji,
+- siatka kart statystyk,
+- sekcje w panelach,
+- czytelne formularze,
+- przyciski zgodne z obecnym admin UI,
+- brak białych natywnych elementów rozwalających estetykę.
+
+Admin korzysta z:
+- `C:\xampp1\htdocs\assets\css\admin.css`
+
+Nie tworzymy nowego osobnego systemu CSS dla admina finansów bez konsultacji.
+
+## 4.4. Wszystkie napisy po polsku
+
+Wszystkie napisy muszą być po polsku:
+- panel gracza,
+- panel admina,
+- komunikaty,
+- modale,
+- opisy pól,
+- alerty,
+- tooltipy,
+- widoki pustego stanu,
+- komunikaty JS.
+
+Wszystko ma trafiać do:
+- `C:\xampp1\htdocs\lang\pl.php`
+
+Bez wyjątków.
+
+---
+
+## 5. Architektura panelu gracza
+
+Obecny ekran ma zostać zakładką:
+- `Przegląd`
+
+Nowy docelowy układ zakładek:
+1. `Przegląd`
+2. `Budżety`
+3. `Płynność`
+4. `Ryzyko`
+5. `Polityka finansowa`
+6. `Historia decyzji`
+
+---
+
+## 6. Zakładka: Przegląd
+
+To jest rozwinięcie obecnego ekranu.
+
+### 6.1. Zostaje
+- saldo,
+- zysk / tick,
+- zysk / godzina,
+- straty transportu,
+- wykres 24h / 7 dni,
+- struktura finansowa,
+- analiza per odwiert.
+
+### 6.2. Dochodzą alerty finansowe
+
+Przykłady:
+- `Transport pochłania 34% kosztów`
+- `Huby logistyczne generują zbyt wysoki koszt użycia`
+- `Region Polska ma wysokie straty hubowe`
+- `2 odwierty są mało opłacalne`
+- `Ryzyko utraty płynności w 24h: średnie`
+- `Koszty stałe przekroczyły bezpieczny próg`
+
+Każdy alert może mieć CTA:
+- `Przejdź do Budżetów`
+- `Przejdź do Ryzyka`
+- `Przejdź do Logistyki`
+- `Uruchom plan oszczędności`
+
+---
+
+## 7. Zakładka: Budżety
+
+To ma być pierwsza naprawdę „żywa” sekcja.
+
+### 7.1. Budżety działowe
+
+Na start gracz ustawia poziom budżetu dla:
+- Technicznego
+- Logistyki
+- HR
+- BHP / bezpieczeństwa
+
+### 7.2. Forma
+
+Na MVP:
+- `Niski`
+- `Standard`
+- `Wysoki`
+
+Później można dodać:
+- wartości procentowe,
+- suwaki,
+- miesięczny limit w PLN.
+
+### 7.3. Wpływ na grę
+
+#### Techniczny
+- niski budżet:
+  - szybszy wear,
+  - więcej usterek,
+  - większe ryzyko awarii
+- wysoki budżet:
+  - lepsze utrzymanie,
+  - mniej usterek
+
+#### Logistyka
+- niski budżet:
+  - większe straty,
+  - większy koszt awarii,
+  - większe ryzyko problemów hubowych,
+  - gorsza wydajność fallbacku bez huba
+- wysoki budżet:
+  - mniejsze straty,
+  - lepsza efektywność logistyki,
+  - niższe ryzyko incydentów hubowych
+
+#### HR
+- niski budżet:
+  - gorszy pool kandydatów,
+  - dłuższa rekrutacja
+- wysoki budżet:
+  - lepsi kandydaci,
+  - większe szanse powodzenia
+
+#### BHP
+- niski budżet:
+  - większe ryzyko incydentów
+- wysoki budżet:
+  - lepsza prewencja
+
+---
+
+## 8. Zakładka: Płynność
+
+To ma być panel prognoz i bezpieczeństwa finansowego.
+
+### 8.1. Pokazywać
+- prognozowany cashflow:
+  - następny tick,
+  - 1h,
+  - 6h,
+  - 24h
+- wolną gotówkę,
+- rezerwę gotówkową,
+- koszty stałe,
+- raty / zobowiązania,
+- udział kosztów logistyki i hubów,
+- udział strat w przychodzie.
+
+### 8.2. Akcje
+- `Włącz tryb oszczędności`
+- `Wstrzymaj inwestycje`
+- `Buduj rezerwę`
+- `Priorytet płynności`
+
+### 8.3. Zasada działania
+
+Te decyzje mają wpływać na tick od kolejnego przebiegu, a nie tylko zmieniać kolor boxa.
+
+### 8.4. Rezerwa awaryjna - dokładna logika MVP
+
+Rezerwa awaryjna na etapie 3 nie jest osobnym portfelem i nie blokuje fizycznie gotówki.
+
+Na start ma działać jako:
+- cel bezpieczeństwa gotówkowego,
+- liczony w godzinach kosztów firmy,
+- źródło alertów i oceny płynności.
+
+#### Poziomy rezerwy
+- `Niska` = 6h kosztów firmy
+- `Standardowa` = 12h kosztów firmy
+- `Wysoka` = 24h kosztów firmy
+
+#### Jak liczyć
+System bierze średni koszt firmy na godzinę i wylicza:
+- `cel_rezerwy = koszt_h * liczba_godzin`
+
+Przykład:
+- koszt firmy: `120 000 PLN / h`
+- poziom rezerwy: `12h`
+- cel rezerwy: `1 440 000 PLN`
+
+#### Jak to działa w praktyce
+- jeśli gotówka jest powyżej celu rezerwy:
+  - ryzyko płynności spada,
+  - alerty wygaszają się,
+  - firma uznawana jest za stabilniejszą
+- jeśli gotówka spada poniżej celu rezerwy:
+  - panel pokazuje alert,
+  - rośnie ocena ryzyka płynności,
+  - system może sugerować uruchomienie planu oszczędności
+
+#### Czego rezerwa awaryjna nie robi na MVP
+- nie tworzy osobnego salda,
+- nie przenosi gotówki do sub-portfela,
+- nie blokuje pieniędzy przed użyciem,
+- nie wywołuje automatycznie decyzji bez potwierdzenia gracza.
+
+---
+
+## 9. Zakładka: Ryzyko
+
+To ma być panel ostrzegawczy i diagnostyczny.
+
+### 9.1. Kategorie ryzyka
+- płynność,
+- zadłużenie,
+- koszty stałe,
+- zależność od ceny ropy,
+- ryzyko logistyczne,
+- ryzyko hubowe,
+- ryzyko regionalne,
+- ryzyko incydentów.
+
+### 9.2. Poziomy
+- `Niskie`
+- `Umiarkowane`
+- `Wysokie`
+- `Krytyczne`
+
+### 9.3. Dodatkowo
+
+Każde ryzyko powinno pokazać:
+- co je powoduje,
+- jakie dane je podbijają,
+- co gracz może zrobić.
+
+Przykład:
+
+`Ryzyko hubowe: wysokie`
+- wysoki `hub_usage_fee`,
+- częste `hub_tick_loss`,
+- niski condition w 2 hubach,
+- region przeciążony.
+
+CTA:
+- `Przejdź do Logistyki`
+
+---
+
+## 10. Zakładka: Polityka finansowa
+
+To ma być miejsce dla długoterminowych ustawień firmy.
+
+### 10.1. Ustawienia
+- polityka kosztowa:
+  - oszczędna / zbalansowana / agresywna
+- poziom rezerwy:
+  - niski / standard / wysoki
+- tolerancja strat:
+  - niska / średnia / wysoka
+- polityka zadłużenia:
+  - ostrożna / standard / agresywna
+
+### 10.2. Wpływ
+- scoring ryzyka,
+- reakcje kryzysowe,
+- dostępne akcje systemowe,
+- decyzje bankowe,
+- ocena bezpieczeństwa firmy.
+
+### 10.3. Plan oszczędności - dokładna logika MVP
+
+Plan oszczędności ma być trybem firmy, a nie jednorazowym bonusem.
+
+#### Dostępne stany
+- `Wyłączony`
+- `Umiarkowany`
+- `Agresywny`
+
+#### Zasada nadrzędna
+Plan oszczędności:
+- ma poprawiać krótkoterminowy wynik finansowy,
+- ale kosztem jakości działania firmy,
+- i nie może udawać prostego, magicznego cięcia płac działów, których realny koszt to głównie ludzie.
+
+#### Co robi realnie
+
+##### Logistyka
+To jest dziś najbardziej naturalne źródło realnych oszczędności kosztowych.
+
+Plan oszczędności może wpływać na:
+- koszt transportu,
+- koszt użycia hubów,
+- koszt fallbacku bez aktywnego huba,
+- koszt operacji logistycznych premium.
+
+Jednocześnie pogarsza:
+- straty logistyczne,
+- ryzyko przeciążeń,
+- ryzyko incydentów hubowych,
+- sprawność regionów przeciążonych.
+
+##### HR
+Plan oszczędności nie powinien udawać bezpośredniego cięcia stałego kosztu HR.
+
+Na MVP wpływa przez:
+- dłuższy czas rekrutacji,
+- gorszą jakość kandydatów,
+- słabszą skuteczność działań premium,
+- możliwość ograniczenia headhuntera w trybie agresywnym.
+
+##### Techniczny
+Plan oszczędności nie powinien udawać prostego cięcia kosztu płac technicznych.
+
+Na MVP wpływa przez:
+- gorszą sprawność operacyjną,
+- większe ryzyko zużycia,
+- wolniejsze lub mniej efektywne reakcje działu,
+- większą ekspozycję na skutki zaniedbań.
+
+##### BHP
+Na MVP wpływ powinien być lekki i ostrożny:
+- wyższe ryzyko tylko w trybie agresywnym,
+- bez przesadnego mnożenia katastrof.
+
+#### Proponowany model efektów
+
+##### Wyłączony
+- brak dodatkowego wpływu
+
+##### Umiarkowany
+- logistyka: umiarkowanie niższy koszt operacyjny
+- logistyka: umiarkowanie wyższe straty i ryzyko
+- HR: umiarkowanie dłuższa rekrutacja i słabsi kandydaci
+- techniczny: umiarkowanie gorsza sprawność
+
+##### Agresywny
+- logistyka: mocniej obniżony koszt operacyjny
+- logistyka: wyraźnie wyższe straty i ryzyko
+- HR: wyraźnie dłuższa rekrutacja i słabsi kandydaci
+- techniczny: wyraźnie gorsza sprawność operacyjna
+- BHP: lekko podniesione ryzyko
+- część kosztownych akcji premium może być ograniczona lub zablokowana
+
+#### Czego plan oszczędności nie robi na MVP
+- nie obniża automatycznie pensji pracowników,
+- nie obniża automatycznie pensji zarządu,
+- nie tworzy jeszcze pełnego systemu morale / retencji / buntu,
+- nie daje darmowych oszczędności bez konsekwencji.
+
+#### Zasady użytkowe
+- zmiana trybu nie może być spamowana co tick,
+- powinna mieć cooldown,
+- efekt wchodzi od kolejnego ticka,
+- historia zmian trafia do historii decyzji.
+
+---
+
+## 10A. Etap 3 - dokładny widok gracza
+
+Ta sekcja opisuje dokładnie, co gracz ma zobaczyć i jak ma z tego korzystać na etapie 3.
+
+### 10A.1. Główne zakładki, które mają żyć na etapie 3
+
+Na etapie 3 gracz ma realnie używać głównie:
+- `Ryzyko`
+- `Polityka finansowa`
+- `Płynność`
+
+Zakładka `Przegląd` nadal pokazuje dane, ale te trzy zakładki mają już dawać decyzje.
+
+### 10A.2. Zakładka `Ryzyko` - co gracz ma widzieć
+
+Gracz powinien widzieć osobne karty ryzyka:
+- `Płynność`
+- `Logistyka`
+- `Huby`
+- `Koszty stałe`
+- `Zależność od ceny ropy`
+- `Ryzyko operacyjne`
+
+Każda karta powinna pokazywać:
+- poziom:
+  - `Niskie`
+  - `Umiarkowane`
+  - `Wysokie`
+  - `Krytyczne`
+- krótki opis, co to znaczy,
+- 2-4 konkretne powody,
+- przycisk akcji prowadzący do właściwego miejsca.
+
+Przykłady CTA:
+- `Przejdź do Logistyki`
+- `Włącz plan oszczędności`
+- `Zmień poziom rezerwy`
+- `Przejdź do Płynności`
+
+### 10A.3. Zakładka `Polityka finansowa` - co gracz ma widzieć
+
+Na start gracz powinien mieć dwa główne bloki:
+
+#### A. Plan oszczędności
+Widok powinien pokazywać:
+- aktualny tryb:
+  - `Wyłączony`
+  - `Umiarkowany`
+  - `Agresywny`
+- czas do końca cooldownu zmiany,
+- skrót efektów:
+  - co daje,
+  - czym grozi.
+
+#### B. Rezerwa awaryjna
+Widok powinien pokazywać:
+- aktualny poziom:
+  - `Niska`
+  - `Standardowa`
+  - `Wysoka`
+- ile wynosi obecny cel rezerwy w PLN,
+- ile godzin kosztów firmy to dziś pokrywa,
+- czy firma jest:
+  - `powyżej celu`
+  - `blisko celu`
+  - `poniżej celu`
+  - `krytycznie poniżej celu`
+
+### 10A.4. Modale gracza na etapie 3
+
+Wszystkie interakcje mają używać systemu modali projektu.
+
+Bez:
+- `alert()`
+- `confirm()`
+- `prompt()`
+
+#### Modal: `Włącz plan oszczędności`
+Powinien pokazywać:
+- wybrany tryb,
+- kiedy zmiana zacznie działać,
+- jaki jest cooldown kolejnej zmiany,
+- sekcję:
+  - `Oszczędzasz`
+  - `Kosztem`
+
+Przykładowy układ:
+
+**Oszczędzasz**
+- niższe koszty logistyki
+- ograniczenie części wydatków opcjonalnych
+
+**Kosztem**
+- większe straty logistyczne
+- słabsi kandydaci i wolniejsza rekrutacja
+- gorsza sprawność operacyjna technicznego
+
+Przyciski:
+- `Anuluj`
+- `Włącz plan`
+
+#### Modal: `Zmień poziom rezerwy awaryjnej`
+Powinien pokazywać:
+- obecny poziom,
+- nowy poziom,
+- szacowany cel rezerwy w PLN,
+- jak zmieni się ocena płynności.
+
+Przyciski:
+- `Anuluj`
+- `Zapisz poziom rezerwy`
+
+#### Modal: `Wstrzymaj inwestycje`
+Powinien wyjaśniać:
+- co zostanie ograniczone,
+- na jak długo,
+- że decyzja ma charakter obronny.
+
+Przyciski:
+- `Anuluj`
+- `Wstrzymaj inwestycje`
+
+### 10A.5. Komunikaty gracza na etapie 3
+
+Wszystkie komunikaty muszą być po polsku i trafić do `lang/pl.php`.
+
+#### Komunikaty sukcesu
+- `Plan oszczędności został włączony.`
+- `Poziom rezerwy awaryjnej został zapisany.`
+- `Inwestycje zostały wstrzymane.`
+
+#### Komunikaty błędu
+- `Nie możesz jeszcze zmienić planu oszczędności.`
+- `Ta zmiana jest chwilowo zablokowana przez cooldown.`
+- `Nie udało się zapisać ustawień finansowych.`
+
+#### Komunikaty ostrzegawcze
+- `Gotówka spadła poniżej celu rezerwy awaryjnej.`
+- `Straty logistyczne przekroczyły bezpieczny próg.`
+- `Aktywny plan oszczędności pogarsza sprawność operacyjną firmy.`
+
+### 10A.6. Alerty, które gracz ma widzieć na etapie 3
+
+Na etapie 3 alerty mają być bardziej decyzyjne niż tylko opisowe.
+
+Minimalny zestaw:
+- `Rezerwa awaryjna poniżej celu`
+- `Krytycznie niski bufor gotówki`
+- `Wysokie straty logistyczne`
+- `Wysoki koszt użycia hubów`
+- `Region przeciążony logistycznie`
+- `Zbyt duży udział strat w przychodzie`
+- `Aktywny plan oszczędności obniża sprawność firmy`
+
+Każdy alert powinien mieć:
+- poziom,
+- opis,
+- przyczynę,
+- przycisk akcji.
+
+### 10A.7. Co gracz ma zrozumieć bez czytania README
+
+UI ma jasno tłumaczyć, że:
+- `Plan oszczędności` nie obniża magicznie pensji,
+- `Rezerwa awaryjna` nie jest osobnym kontem,
+- `Logistyka` jest głównym miejscem realnych oszczędności i strat,
+- `HR` i `Techniczny` reagują głównie przez skuteczność i jakość działań,
+- `Huby` wpływają na wynik finansowy bezpośrednio.
+
+To musi być czytelne w samym panelu, bez potrzeby studiowania dokumentacji technicznej.
+
+---
+
+## 11. Zakładka: Historia decyzji
+
+Powinna pokazywać:
+- datę,
+- decyzję,
+- moduł,
+- koszt / efekt,
+- status.
+
+Przykłady:
+- `Podniesiono budżet logistyki`
+- `Uruchomiono tryb oszczędności`
+- `Wstrzymano inwestycje`
+- `Zwiększono poziom rezerwy`
+
+---
+
+## 12. Finanse mają czytać także z hubów
+
+To jest zasada twarda.
+
+Rozbudowany dział finansów ma czytać nie tylko z:
+- odwiertów,
+- transportu,
+- pensji,
+- podatków,
+- incydentów,
+
+ale także z:
+- hubów logistycznych,
+- strat hubowych,
+- kosztów użycia hubów,
+- incydentów hubowych,
+- kosztów stref / regionów związanych z logistyką.
+
+## 12.1. Co już dziś jest naliczane w ticku
+
+W obecnym ticku istnieją już logi i naliczenia związane z hubami:
+- `hub_tick_loss`
+- `hub_usage_fee`
+- fallback bez huba
+- incydenty hubów
+
+Źródła:
+- `C:\xampp1\htdocs\src\Tick\WellLoopSection.php`
+- `C:\xampp1\htdocs\src\Tick\PlayersSection.php`
+
+## 12.2. Problem obecny
+
+Dziś finanse zapisują wynik zbiorczo do `finance_logs`, ale nie rozdzielają jawnie warstwy hubowej na osobne pola raportowe.
+
+To trzeba poprawić.
+
+## 12.3. Co finanse mają czytać z hubów docelowo
+
+### Koszty
+- `hub_usage_fee`
+- koszty napraw hubów
+- koszty upgrade hubów
+- koszty zmian trybu pracy
+- ewentualne koszty przypisań / przenosin
+
+### Straty
+- `hub_tick_loss`
+- straty fallbacku dla odwiertów bez huba
+- dodatkowe straty z incydentów hubowych
+- straty ze złego przypisania strefowego
+
+### Ryzyko
+- przeciążenie hubów,
+- niski condition,
+- wysoka liczba incydentów,
+- wysokie koszty regionu / strefy,
+- zbyt duży udział logistyki w całkowitym wyniku firmy.
+
+### KPI finansowe powiązane z hubami
+- koszt hubów / 24h
+- straty hubowe / 24h
+- średni koszt logistyczny na baryłkę
+- najbardziej kosztowny region logistyczny
+- najbardziej stratny hub
+- region z największym bottleneckiem
+
+---
+
+## 13. Tick integration
+
+## 13.1. Zasada główna
+
+Nie budujemy osobnego silnika finansów.
+
+Finanse mają czytać i modulować istniejące systemy:
+- WellLoopSection
+- IncidentService
+- HRService
+- Logistics / Hubs
+- Bank
+
+## 13.2. Obecna ścieżka
+
+Obecnie:
+1. `PlayersSection` uruchamia tick gracza
+2. `WellLoopSection` liczy produkcję, OPEX, transport, huby, straty, incydenty
+3. `PlayersSection` woła `FinanceService->saveTick()`
+4. `public/finance.php` czyta dane z `FinanceService`
+
+## 13.3. Docelowa ścieżka v2
+
+1. tick liczy produkcję, transport, huby i incydenty
+2. tick zapisuje pełniejsze dane finansowe
+3. `FinanceService` agreguje:
+   - klasyczne koszty,
+   - koszty logistyczne,
+   - koszty hubowe,
+   - straty transportowe,
+   - straty hubowe
+4. panel finansów pokazuje:
+   - stan bieżący,
+   - prognozę,
+   - alerty,
+   - ryzyko,
+   - decyzje
+
+## 13.4. Dane, które tick musi wystawiać pod finanse
+
+Minimalny zakres:
+- przychód netto po stratach,
+- brutto przed stratami,
+- OPEX odwiertów,
+- pensje,
+- transport cost,
+- incident cost,
+- tax,
+- fallback loss,
+- hub loss,
+- hub incident loss,
+- hub usage fee,
+- bbl produced,
+- bbl lost,
+- cash after,
+- liczba aktywnych odwiertów,
+- liczba aktywnych hubów używanych przez gracza.
+
+---
+
+## 14. Tabele i dane
+
+## 14.1. Istniejąca tabela
+- `finance_logs`
+
+## 14.2. Rozszerzenia `finance_logs`
+
+Do rozważenia rozszerzenie o pola:
+- `hub_loss_bbl`
+- `hub_loss_value`
+- `hub_usage_cost`
+- `hub_incident_cost`
+- `hub_count_active`
+- `wells_without_hub`
+- `fallback_loss_bbl`
+- `fallback_loss_value`
+
+## 14.3. Nowe tabele
+
+### `player_finance_settings`
+Ustawienia gracza:
+- budget_technical
+- budget_logistics
+- budget_hr
+- budget_safety
+- liquidity_mode
+- reserve_policy
+- cost_policy
+- debt_policy
+- created_at
+- updated_at
+
+### `player_finance_alerts`
+Snapshoty alertów / historia alertów:
+- player_id
+- alert_code
+- alert_level
+- alert_payload_json
+- created_at
+- is_active
+
+### `player_finance_decisions`
+Historia decyzji finansowych:
+- player_id
+- decision_code
+- value_before
+- value_after
+- effect_json
+- created_at
+
+### `player_finance_snapshots`
+Rozszerzone snapshoty do analiz:
+- player_id
+- tick_at
+- liquidity_score
+- logistics_score
+- hub_cost_total
+- hub_loss_total
+- transport_loss_total
+- risk_score
+- reserve_level
+
+### `finance_config`
+Konfiguracja admina:
+- config_key
+- config_value
+- label
+- description
+- category
+
+---
+
+## 15. Modale
+
+Tylko system modalny projektu.
+
+Bez:
+- `alert()`
+- `confirm()`
+- `prompt()`
+
+## 15.1. Modale gracza
+- zmiana budżetu działu
+- zmiana polityki finansowej
+- uruchomienie trybu oszczędności
+- ustawienie poziomu rezerwy
+- potwierdzenie wstrzymania inwestycji
+
+## 15.2. Modale admina
+- zapis konfiguracji finansów
+- reset ustawień gracza
+- uruchomienie scenariusza kryzysowego
+- korekta mnożników globalnych
+- podejrzenie szczegółów alertu
+
+---
+
+## 16. Komunikaty
+
+Wszystkie komunikaty po polsku w `lang/pl.php`.
+
+### 16.1. Komunikaty gracza
+- sukces zmiany budżetu
+- błąd zapisu polityki
+- aktywacja oszczędności
+- ostrzeżenie o płynności
+- ostrzeżenie o kosztach hubowych
+- alert o przeciążonej logistyce
+
+### 16.2. Komunikaty admina
+- zapis konfiguracji
+- reset ustawień
+- włączenie trybu testowego
+- aktualizacja progów alarmowych
+
+### 16.3. Alerty systemowe
+- wysoki udział strat logistycznych
+- rosnący koszt hubów
+- niski condition hubów wpływający na wynik
+- zbyt duża liczba odwiertów bez huba
+
+---
+
+## 17. Panel admina - założenia
+
+Panel admina finansów ma być pełnoprawnym centrum konfiguracji.
+
+Nie tylko podglądem.
+
+Ma być także:
+- spójny wizualnie z nowoczesnymi panelami admina projektu,
+- w pełni po polsku,
+- gotowy do realnego balansu etapu 3,
+- użyteczny zarówno do produkcji, jak i do testów GM / QA.
+
+## 17.1. Musi umożliwiać
+- edycję progów alertów,
+- edycję wpływu budżetów na systemy,
+- edycję mnożników kosztów,
+- edycję mnożników strat,
+- edycję wpływu logistyki i hubów,
+- podgląd graczy z największym ryzykiem,
+- podgląd regionów i stref generujących największe koszty,
+- podgląd hubów generujących najwyższe straty,
+- reset / korektę ustawień gracza,
+- wymuszenie scenariuszy testowych.
+
+Dodatkowo dla etapu 3 musi umożliwiać:
+- konfigurację `Planu oszczędności`,
+- konfigurację `Rezerwy awaryjnej`,
+- konfigurację cooldownów decyzji finansowych,
+- podgląd ilu graczy działa poniżej rezerwy,
+- podgląd ilu graczy ma aktywny plan oszczędności,
+- ręczne wymuszenie i cofnięcie trybu testowego dla oszczędności / rezerwy.
+
+## 17.2. Sekcje panelu admina
+
+### A. Stan globalny finansów
+- przychód globalny
+- wynik netto globalny
+- globalne straty
+- udział logistyki
+- udział hubów
+- liczba graczy z problemem płynności
+
+### B. Konfiguracja budżetów
+- mnożnik wpływu budżetu technicznego
+- mnożnik wpływu budżetu logistyki
+- mnożnik wpływu budżetu HR
+- mnożnik wpływu budżetu BHP
+
+### C. Konfiguracja ryzyka
+- progi alertów
+- progi płynności
+- progi udziału strat
+- progi udziału kosztów hubowych
+
+### D. Konfiguracja warstwy hubowej dla finansów
+- czy hub cost wpływa na alerty
+- czy hub loss wpływa na risk score
+- czy fallback loss ma osobny próg alertu
+- próg regionów przeciążonych logistycznie
+- próg strefowego bottlenecku
+
+### D2. Konfiguracja planu oszczędności
+- czy moduł jest aktywny globalnie
+- dostępne tryby:
+  - `Wyłączony`
+  - `Umiarkowany`
+  - `Agresywny`
+- cooldown zmiany trybu
+- wpływ `Umiarkowanego` planu na:
+  - logistykę
+  - HR
+  - techniczny
+  - BHP
+- wpływ `Agresywnego` planu na:
+  - logistykę
+  - HR
+  - techniczny
+  - BHP
+- ograniczenia akcji premium:
+  - headhunter
+  - kosztowne akcje logistyczne
+  - opcjonalne inwestycje
+
+### D3. Konfiguracja rezerwy awaryjnej
+- czy moduł jest aktywny globalnie
+- dostępne poziomy:
+  - `6h`
+  - `12h`
+  - `24h`
+- sposób liczenia kosztu godzinowego firmy
+- próg alertu `poniżej celu rezerwy`
+- próg alertu `krytycznie poniżej celu rezerwy`
+- wpływ poziomu rezerwy na ocenę ryzyka płynności
+- czy niski poziom rezerwy ma wpływać na alerty bankowe / scoring
+
+### E. Regiony i strefy
+- ranking regionów po kosztach
+- ranking stref po stratach
+- ranking hubów po OPEX
+- ranking hubów po loss
+
+### F. Gracze
+- ranking ryzyka
+- ranking strat
+- ranking kosztów logistyki
+- ranking kosztów hubowych
+
+### G. Narzędzia GM
+- reset ustawień finansowych gracza
+- podbicie / obniżenie ryzyka
+- podbicie / obniżenie kosztów
+- test alertu
+- test kryzysu płynności
+
+### H. Monitoring etapu 3
+- ilu graczy ma aktywny plan oszczędności
+- ilu graczy działa w trybie `Umiarkowanym`
+- ilu graczy działa w trybie `Agresywnym`
+- ilu graczy jest poniżej rezerwy 6h
+- ilu graczy jest poniżej rezerwy 12h
+- ilu graczy jest w stanie krytycznym płynności
+- które regiony i strefy najczęściej generują alerty finansowe
+- które huby najczęściej podbijają koszt i straty
+
+## 17.3. Widoki admina etapu 3
+
+Panel admina powinien mieć co najmniej następujące sekcje robocze:
+
+### A. Przegląd globalny
+- stan rynku finansowego graczy
+- najważniejsze KPI
+- liczba aktywnych alertów
+- liczba graczy w krytycznej płynności
+
+### B. Plan oszczędności
+- konfiguracja globalna
+- konfiguracja trybów
+- cooldowny
+- skutki dla logistyki / HR / technicznego / BHP
+
+### C. Rezerwa awaryjna
+- konfiguracja poziomów rezerwy
+- wpływ na ryzyko
+- progi alertów
+- powiązanie z płynnością
+
+### D. Alerty i progi
+- konfiguracja wszystkich progów
+- włączenie / wyłączenie wybranych alertów
+- wgląd w aktywne alerty graczy
+
+### E. Huby i logistyka
+- koszty hubowe
+- straty hubowe
+- fallback
+- regiony
+- strefy
+- ranking największych problemów logistycznych wpływających na finanse
+
+### F. Gracze
+- lista graczy
+- ich polityki finansowe
+- poziom rezerwy
+- aktywny plan oszczędności
+- poziom ryzyka
+- historia decyzji
+
+### G. Narzędzia GM / QA
+- wymuszenie scenariusza
+- reset polityk
+- podejrzenie pełnego snapshotu
+- szybki test alertów
+
+## 17.4. Zasady UX panelu admina etapu 3
+
+Panel admina etapu 3 musi trzymać się tych samych zasad, co inne nowoczesne panele admina:
+- sekcje jako ciemne panele,
+- złote nagłówki,
+- czytelne siatki formularzy,
+- duże, jednoznaczne CTA,
+- brak przypadkowych białych selectów,
+- brak natywnych przeglądarkowych modali,
+- wszystkie napisy po polsku,
+- wszystkie komunikaty przez `lang/pl.php`.
+
+Wszystkie nowe akcje admina muszą mieć:
+- komunikat sukcesu,
+- komunikat błędu,
+- walidację wejścia,
+- log wpisu admina.
+
+## 17.5. Czego admin etapu 3 nie powinien robić
+
+Panel admina nie powinien:
+- udawać prostego cięcia płac HR i Technicznego,
+- mieć osobnego, niespójnego stylu względem reszty admina,
+- opierać się o biały systemowy UI,
+- pozwalać na zmianę krytycznych parametrów bez zapisu do loga,
+- mieć hardcoded angielskich etykiet.
+
+---
+
+## 18. Spójność panelu admina
+
+Panel admina ma zachować spójność z nowoczesnymi panelami admina, szczególnie z widokami typu:
+- rynek globalny,
+- transport,
+- logistyka.
+
+To znaczy:
+- sekcje jako panele,
+- karty statystyk,
+- formularze w siatkach,
+- wyraźne nagłówki,
+- przyciski systemowe,
+- brak białych selectów i przypadkowych stylów przeglądarki.
+
+Wszystkie etykiety mają być po polsku.
+
+---
+
+## 19. Testy
+
+To jest duży moduł i ma wejść z pełnym testowaniem.
+
+## 19.1. Testy funkcjonalne
+
+Trzeba przetestować ręcznie każdą funkcję:
+
+### Gracz
+- wejście do finansów
+- działanie wszystkich zakładek
+- zapis budżetów
+- zapis polityk
+- alerty
+- prognozy
+- reakcję na tick
+- wpływ logistyki
+- wpływ hubów
+
+### Admin
+- zapis konfiguracji
+- odczyt globalnych statystyk
+- edycję mnożników
+- regiony / strefy
+- ranking hubów
+- narzędzia GM
+
+## 19.2. Testy integracyjne
+
+Potrzebne testy pod:
+- `FinanceService`
+- zapis snapshotów
+- odczyt budżetów
+- alerty
+- wyliczenia hubowe
+- odczyt danych region / strefa
+- konfigurację admina
+
+## 19.3. PHPStan
+
+Moduł ma przejść:
+- pełny `phpstan`
+
+Nie tylko składnię.
+
+## 19.4. Kontrola zgodności ticka
+
+Trzeba potwierdzić, że:
+- tick zapisuje dane spójnie,
+- finanse czytają te same liczby, które liczy tick,
+- hub loss i hub cost nie są gubione ani dublowane,
+- fallback bez huba nie rozjeżdża wyniku.
+
+---
+
+## 20. Etapy wdrożenia
+
+## Etap 1 - ożywienie obecnego panelu
+- obecny ekran staje się `Przegląd`
+- alerty finansowe
+- podstawowe prognozy płynności
+- podstawowy odczyt danych hubowych
+- rozszerzenie `finance_logs`
+
+## Etap 2 - decyzje gracza
+- zakładka `Budżety`
+- zakładka `Płynność`
+- zapis ustawień gracza
+- pierwszy wpływ na tick
+
+## Etap 3 - ryzyko i polityka
+- zakładka `Ryzyko`
+- zakładka `Polityka finansowa`
+- historia decyzji
+- rozbudowane alerty
+- wdrożenie `Planu oszczędności` jako trybu:
+  - `Wyłączony`
+  - `Umiarkowany`
+  - `Agresywny`
+- wdrożenie `Rezerwy awaryjnej` jako celu bezpieczeństwa:
+  - `6h`
+  - `12h`
+  - `24h`
+- pełne spięcie etapu 3 z logistyką i hubami:
+  - koszt transportu
+  - koszt użycia hubów
+  - koszt fallbacku
+  - straty hubowe
+  - incydenty hubowe
+- bez sztucznego, bezpośredniego cięcia kosztów płac HR i Technicznego
+- z cooldownem zmian i zapisem do historii decyzji
+
+## Etap 4 - panel admina v3
+- rozbudowany admin
+- konfiguracja progów
+- konfiguracja budżetów
+- konfiguracja planu oszczędności
+- konfiguracja rezerwy awaryjnej
+- konfiguracja cooldownów decyzji
+- regiony i strefy
+- hub analytics
+- monitoring aktywnych polityk finansowych graczy
+- narzędzia GM
+
+## Etap 5 - testy i stabilizacja
+- testy ręczne
+- testy integracyjne
+- phpstan
+- balans
+- poprawki UI/UX
+
+---
+
+## 21. Najważniejsze zasady końcowe
+
+1. Nie budujemy nowego, osobnego systemu finansów obok gry.
+2. Rozwijamy obecny panel i spinamy go z tickiem.
+3. Finanse mają czytać także z hubów.
+4. Panel admina ma być spójny z resztą admina.
+5. Wszystkie napisy mają być po polsku.
+6. Wszystko ma zostać wdrożone etapami.
+7. Każdy etap ma mieć test funkcjonalny.
+8. Całość ma przejść phpstan i testy integracyjne.
+
+---
+
+## 22. Rekomendowany pierwszy krok implementacyjny
+
+Najrozsądniej zacząć od:
+- rozszerzenia `FinanceService`,
+- rozszerzenia `finance_logs`,
+- jawnego rozdzielenia:
+  - strat transportowych,
+  - strat hubowych,
+  - fallback loss,
+  - hub usage fee,
+- oraz dodania alertów do obecnej zakładki `Przegląd`.
+
+To da najszybciej efekt, że dział finansów zacznie naprawdę żyć.
+
+---
+
+## 23. Mapa realnych wpływów na gameplay (stan obecny)
+
+Ta sekcja ma zostać w dokumencie na stałe.
+
+Jej cel:
+- nie zgubić, co już naprawdę działa w grze,
+- odróżnić systemy realnie podpięte do ticka od danych tylko wizualnych,
+- podejmować dalsze decyzje projektowe na bazie faktów z kodu, a nie założeń.
+
+### 23.1. Techniczni pracownicy - co już wpływa realnie
+
+#### Operator odwiertu
+Dziś realnie wpływa na:
+- produkcję odwiertu,
+- ryzyko incydentu,
+- częściowo zużycie i stabilność przez perki.
+
+Obecne źródła wpływu:
+- `skill_level` operatora,
+- specjalizacja / perk operatora.
+
+Główne miejsca w kodzie:
+- `C:\xampp1\htdocs\src\Tick\WellLoopSection.php`
+- `C:\xampp1\htdocs\src\Incident\TickTrait.php`
+
+Wniosek:
+- operator nie jest tylko statystyką na karcie,
+- jego skill realnie zmienia produkcję i prawdopodobieństwo problemów.
+
+#### Technik odwiertu
+Dziś realnie wpływa na:
+- ryzyko incydentów,
+- ryzyko katastrof,
+- wear / spiralę / awarie przez perki,
+- skuteczność części zadań technicznych.
+
+Główne miejsca w kodzie:
+- `C:\xampp1\htdocs\src\Tick\WellLoopSection.php`
+- `C:\xampp1\htdocs\src\Incident\TickTrait.php`
+- `C:\xampp1\htdocs\src\TTS\TasksTrait.php`
+
+Wniosek:
+- technik realnie wpływa na stabilność odwiertu,
+- ale nie jest dziś prostym mnożnikiem "niższego kosztu działu technicznego".
+
+#### Kierownik Techniczny
+Dziś realnie wpływa na:
+- czas zadań technicznych,
+- koszt zadań technicznych.
+
+Główne źródło wpływu:
+- `skill_organization`
+
+Główne miejsce w kodzie:
+- `C:\xampp1\htdocs\src\TTS\ManagerTrait.php`
+
+Wniosek:
+- kierownik techniczny realnie usprawnia dział,
+- ale przez organizację zadań, a nie przez cięcie pensji ludzi.
+
+#### BHP (Oficer BHP / Inżynier BHP)
+Dziś realnie wpływa na:
+- awarie,
+- katastrofy,
+- degradację,
+- koszty napraw,
+- uptime.
+
+Główne miejsce w kodzie:
+- `C:\xampp1\htdocs\src\TTS\ManagerTrait.php`
+
+Wniosek:
+- BHP jest jednym z najlepiej podpiętych systemów kompetencji w grze.
+
+### 23.2. HR / Kadry - co dziś wpływa, a co nie
+
+#### Miękkie skille kandydatów i pracowników
+Obecne skille:
+- `skill_organization`
+- `skill_negotiation`
+- `skill_analysis`
+- `skill_stress`
+- `skill_ethics`
+
+Dziś realnie wpływają przede wszystkim na:
+- ocenę kandydatów,
+- sortowanie kandydatów,
+- jakość zatrudnienia,
+- część konkretnych ról zarządczych.
+
+Główne miejsca w kodzie:
+- `C:\xampp1\htdocs\src\HR\DataTrait.php`
+- `C:\xampp1\htdocs\src\HR\HiringTrait.php`
+- `C:\xampp1\htdocs\src\BankNegotiation\ContextTrait.php`
+- `C:\xampp1\htdocs\src\TTS\ManagerTrait.php`
+
+Wniosek:
+- te skille są używane,
+- ale nie tworzą jeszcze pełnego silnika produktywności całego działu HR.
+
+#### HR jako dział
+Na dziś HR nie ma silnego, własnego modelu kosztowego poza:
+- pensjami pracowników,
+- pensjami zarządu,
+- opcjonalnymi kosztami specjalnych akcji (np. headhunter).
+
+Wniosek projektowy:
+- przyszłe systemy finansowe nie powinny udawać, że "cięcie HR" automatycznie obniża realny stały koszt działu,
+- bardziej uczciwe jest wpływanie na:
+  - czas rekrutacji,
+  - jakość kandydatów,
+  - skuteczność działań HR,
+  - dostępność kosztownych akcji premium.
+
+### 23.3. Logistyka - co dziś wpływa realnie
+
+Dziś logistyka realnie wpływa na:
+- koszt transportu,
+- straty transportowe,
+- koszt użycia hubów,
+- straty przeciążenia hubów,
+- straty fallbacku bez aktywnego huba,
+- straty incydentów hubowych.
+
+Główne miejsca w kodzie:
+- `C:\xampp1\htdocs\src\Tick\WellLoopSection.php`
+- `C:\xampp1\htdocs\src\HubTickService.php`
+- `C:\xampp1\htdocs\src\HubIncidentService.php`
+- `C:\xampp1\htdocs\src\FinanceService.php`
+- `C:\xampp1\htdocs\public\logistics.php`
+- `C:\xampp1\htdocs\public\finance.php`
+
+Wniosek:
+- logistyka już dziś ma realne, policzalne koszty i straty,
+- dlatego to właśnie logistyka jest najbardziej naturalnym miejscem dla realnych oszczędności kosztowych w finansach.
+
+#### Czego jeszcze brakuje logistyce
+Na dziś nie ma jeszcze pełnego, działowego modelu kompetencji logistycznych w stylu:
+- lepszy dyrektor logistyki = stale mniejsze straty,
+- lepsza kadra logistyki = lepsze decyzje i wydajność regionu,
+- pełne przypięcie każdego pracownika logistyki do mnożników ticka.
+
+Wniosek projektowy:
+- przy kolejnych etapach logistyka może być rozwijana jako pełnoprawny dział kompetencyjny,
+- ale już dziś nadaje się do rozbudowy finansów, bo ma realne koszty operacyjne.
+
+### 23.4. Finanse - co dziś wpływa realnie
+
+#### CFO / dyrektor finansowy
+Dziś realnie wpływa na:
+- negocjacje bankowe,
+- część jakości kontekstu negocjacyjnego.
+
+Główne źródła wpływu:
+- `skill_negotiation`
+- `skill_analysis`
+
+Główne miejsce w kodzie:
+- `C:\xampp1\htdocs\src\BankNegotiation\ContextTrait.php`
+
+Wniosek:
+- CFO już działa, ale w wąskim zakresie,
+- nie steruje jeszcze całym działem finansów i polityką firmy w szerokim sensie.
+
+#### Finanse etap 2 - co już wdrożono
+Obecny etap 2 finansów realnie wpływa na:
+- techniczny,
+- logistykę,
+- HR,
+- BHP,
+- ocenę płynności,
+- ocenę ryzyka,
+- historię decyzji.
+
+Główne miejsca w kodzie:
+- `C:\xampp1\htdocs\src\FinancePolicyService.php`
+- `C:\xampp1\htdocs\src\FinanceService.php`
+- `C:\xampp1\htdocs\src\Tick\WellLoopSection.php`
+- `C:\xampp1\htdocs\src\HR\RecruitmentTrait.php`
+- `C:\xampp1\htdocs\src\CandidateGenerator.php`
+- `C:\xampp1\htdocs\public\finance.php`
+
+Wniosek:
+- finanse przestały być tylko raportem,
+- ale część nazw i założeń wymaga jeszcze dopracowania, żeby były w 100% zgodne z realnym modelem kosztów gry.
+
+---
+
+## 24. Co dziś nie wpływa jeszcze tak szeroko, jak może się wydawać
+
+### 24.1. Brak pełnego systemu kompetencji działowych
+Na dziś nie ma jeszcze pełnego modelu:
+- lepszy dział HR = stale lepszy dział HR jako system,
+- lepszy dział finansów = stale lepsza firma poza pojedynczymi obszarami,
+- lepszy dział logistyki = pełny model kompetencyjny pracowników logistyki,
+- każdy miękki skill każdej osoby wpływa stale na tick i wszystkie procesy.
+
+### 24.2. Brak dynamicznego cięcia kosztów płacowych
+Na dziś system nie ma jeszcze sensownego i uczciwego modelu:
+- obniżania pensji pracowników kliknięciem,
+- cięcia wynagrodzeń zarządu bez konsekwencji,
+- pełnego morale / odejść / buntu / retencji związanego z cięciem płac.
+
+Wniosek projektowy:
+- systemy finansowe nie powinny zakładać, że plan oszczędności automatycznie tnie płace i "oszczędza" w ten sposób,
+- dopóki nie ma pełnego systemu konsekwencji personalnych.
+
+### 24.3. Miękkie skille nie są jeszcze pełnym silnikiem całej firmy
+Skille takie jak:
+- organizacja,
+- negocjacje,
+- analiza,
+- stres,
+- etyka
+
+są dziś ważne,
+ale nie tworzą jeszcze pełnej, globalnej symulacji kompetencji firmy.
+
+---
+
+## 25. Wnioski projektowe dla dalszej rozbudowy finansów
+
+### 25.1. Budżety działowe należy interpretować ostrożnie
+Obecne nazwy typu:
+- `Budżet Techniczny`
+- `Budżet HR`
+
+mogą sugerować, że gra ma realne, osobne linie kosztowe dla tych działów.
+
+Stan faktyczny jest bardziej złożony:
+- Techniczny to dziś głównie koszt ludzi + wpływ na operacje,
+- HR to dziś głównie koszt ludzi + wpływ na rekrutację,
+- Logistyka ma najbardziej realny koszt operacyjny,
+- BHP ma realny wpływ na ryzyko i awarie.
+
+Wniosek:
+- w kolejnych etapach warto rozważyć nazwy bliższe rzeczywistości,
+  np. bardziej "priorytet" lub "intensywność działań" niż czysty "budżet",
+- jeśli okaże się, że obecna nazwa wprowadza gracza w błąd.
+
+### 25.2. Plan oszczędności nie powinien być sztucznym cięciem płac
+Jeśli wdrażamy `Plan oszczędności`, to jego wpływ powinien być uczciwy wobec obecnego modelu gry.
+
+Najbardziej naturalne skutki:
+- logistyka: realnie niższe koszty operacyjne, ale większe straty i ryzyko,
+- HR: gorsza skuteczność rekrutacji, dłuższy czas, słabsi kandydaci,
+- techniczny: gorsza sprawność operacyjna, większe ryzyko zużycia i problemów,
+- BHP: ewentualnie lekko wyższe ryzyko, ale ostrożnie.
+
+Najmniej uczciwe byłoby dziś:
+- sztuczne "-20% kosztów technicznego", jeśli realny koszt to głównie płace ludzi,
+- sztuczne "-20% kosztów HR", jeśli nie ma tam osobnego kosztu procesowego.
+
+### 25.3. Rezerwa awaryjna powinna być liczona jako cel bezpieczeństwa
+Najzdrowszy model MVP:
+- rezerwa awaryjna = liczba godzin kosztów firmy,
+- np. 6h / 12h / 24h,
+- bez tworzenia osobnego portfela gotówki na start.
+
+To pozwala:
+- oceniać płynność,
+- budować alerty,
+- uruchamiać decyzje kryzysowe,
+- bez dokładania niepotrzebnej złożoności.
+
+### 25.4. Logistyka jest najlepszym miejscem dla realnych oszczędności kosztowych
+Spośród wszystkich działów to logistyka ma dziś najbardziej naturalne i policzalne pole do oszczędności:
+- koszt transportu,
+- koszt hubów,
+- koszt strat,
+- koszt fallbacku,
+- koszt incydentów logistycznych.
+
+Wniosek:
+- jeśli finanse mają realnie "żyć", to decyzje finansowe powinny bardzo mocno czytać i modulować właśnie logistykę.
+
+---
+
+## 26. Co warto ustalać przed etapem 3
+
+Przed wdrożeniem kolejnych funkcji finansowych trzeba świadomie odpowiedzieć na pytania:
+
+1. Czy obecne `Budżety` zostają pod tą nazwą, czy zmieniamy je później na bardziej uczciwe nazwy?
+2. Czy `Plan oszczędności` ma wpływać głównie na logistykę i skuteczność procesów, zamiast udawać proste cięcie kosztów płacowych?
+3. Czy `Rezerwa awaryjna` pozostaje celem bezpieczeństwa gotówkowego, czy kiedyś ma stać się osobnym sub-portfelem?
+4. Czy rozwijamy pełny system kompetencji działowych dla HR / Finansów / Logistyki, czy zostajemy przy punktowych wpływach?
+
+Ta sekcja ma służyć jako punkt odniesienia przy wszystkich kolejnych decyzjach projektowych.
+
+---
+
+## 27. Etap 3 - plan wdrożenia technicznego
+
+Ta sekcja rozbija etap 3 na realne prace techniczne.
+
+Cel:
+- najpierw ustalić dokładną kolejność wdrożenia,
+- potem kodować bez zgadywania,
+- nie rozwalić ticka, finansów, logistyki i UI przez chaotyczne wejście w duży moduł.
+
+## 27.1. Zakres etapu 3
+
+Etap 3 obejmuje:
+- zakładkę `Ryzyko`,
+- zakładkę `Polityka finansowa`,
+- `Plan oszczędności`,
+- `Rezerwę awaryjną`,
+- rozbudowane alerty,
+- historię decyzji,
+- pełne czytanie danych z logistyki i hubów,
+- panel admina dla konfiguracji tych mechanik.
+
+Nie obejmuje jeszcze:
+- cięcia płac pracowników i zarządu,
+- osobnego sub-portfela gotówki,
+- pełnego systemu morale / retencji,
+- pełnego systemu kompetencji działowych dla wszystkich działów.
+
+## 27.2. Krok 1 - warstwa danych
+
+Najpierw trzeba dopiąć dane.
+
+### Tabele / pola do sprawdzenia i rozszerzenia
+
+#### `player_finance_settings`
+Trzeba potwierdzić lub dopisać pola dla:
+- `savings_plan_mode`
+- `savings_plan_changed_at`
+- `reserve_policy`
+- `reserve_target_hours`
+- `investments_paused`
+- `liquidity_priority_mode`
+
+#### `player_finance_decisions`
+Trzeba zapisywać:
+- decyzję,
+- poprzednią wartość,
+- nową wartość,
+- payload efektu,
+- czas zmiany,
+- źródło zmiany (gracz / admin / GM).
+
+#### `player_finance_alerts`
+Jeśli tabela już istnieje w planie, trzeba ją wdrożyć lub potwierdzić:
+- `player_id`
+- `alert_code`
+- `alert_level`
+- `alert_payload_json`
+- `created_at`
+- `is_active`
+
+#### `player_finance_snapshots`
+Trzeba rozważyć wdrożenie snapshotów dla:
+- `liquidity_score`
+- `risk_score`
+- `reserve_target_value`
+- `reserve_current_coverage_hours`
+- `hub_cost_total`
+- `hub_loss_total`
+- `fallback_loss_total`
+- `transport_loss_total`
+- `savings_plan_mode`
+
+#### `finance_config`
+Admin musi mieć globalną konfigurację dla:
+- progów alertów,
+- trybów planu oszczędności,
+- poziomów rezerwy,
+- cooldownów,
+- wpływu logistyki i hubów na scoring ryzyka.
+
+## 27.3. Krok 2 - backend i serwisy
+
+### Serwisy, które trzeba ruszyć
+
+#### `C:\xampp1\htdocs\src\FinanceService.php`
+Rozszerzyć o:
+- pełne liczenie ryzyka,
+- pełne liczenie rezerwy awaryjnej,
+- budowę alertów finansowych,
+- rozdzielenie danych:
+  - transport,
+  - huby,
+  - fallback,
+  - incydenty logistyczne.
+
+#### `C:\xampp1\htdocs\src\FinancePolicyService.php`
+Rozszerzyć o:
+- odczyt i zapis `Planu oszczędności`,
+- odczyt i zapis `Rezerwy awaryjnej`,
+- cooldown zmian,
+- historię decyzji,
+- budowę prostego podsumowania skutków dla UI.
+
+#### Nowy lub rozszerzony serwis alertów finansowych
+Jeśli obecna logika nie wystarczy, warto dodać osobną warstwę typu:
+- `FinanceAlertService`
+
+Odpowiedzialność:
+- budowa alertów,
+- aktywacja / wygaszanie,
+- zapis historii alertów,
+- payload pod UI gracza i admina.
+
+#### Nowy lub rozszerzony serwis ryzyka
+Jeśli `FinanceService` zrobi się zbyt ciężki, można wydzielić:
+- `FinanceRiskService`
+
+Odpowiedzialność:
+- scoring ryzyka,
+- interpretacja płynności,
+- interpretacja kosztów logistycznych i hubowych,
+- poziomy:
+  - `Niskie`
+  - `Umiarkowane`
+  - `Wysokie`
+  - `Krytyczne`
+
+## 27.4. Krok 3 - integracja z tickiem
+
+To jest najważniejsza część etapu 3.
+
+### Tick ma dostarczyć pod finanse
+- koszt transportu,
+- koszt użycia hubów,
+- straty transportowe,
+- straty hubowe,
+- straty fallbacku,
+- koszty / skutki incydentów hubowych,
+- aktualny cashflow,
+- koszt godzinowy firmy,
+- pokrycie kosztów przez gotówkę.
+
+### Główne miejsca do analizy i wdrożenia
+- `C:\xampp1\htdocs\src\Tick\PlayersSection.php`
+- `C:\xampp1\htdocs\src\Tick\WellLoopSection.php`
+- `C:\xampp1\htdocs\src\HubTickService.php`
+- `C:\xampp1\htdocs\src\HubIncidentService.php`
+
+### Zasady wdrożenia ticka
+1. Nie dublować kosztów hubów i strat fallbacku.
+2. Nie zgubić rozdzielenia:
+   - transport loss
+   - hub loss
+   - fallback loss
+   - hub incident loss
+3. Rezerwa awaryjna ma czytać z realnych kosztów firmy, nie z liczb „na oko”.
+4. Plan oszczędności ma wpływać uczciwie:
+   - logistyka: realne koszty i ryzyko,
+   - HR: czas i jakość rekrutacji,
+   - techniczny: sprawność operacyjna,
+   - BHP: ostrożnie, lekko.
+
+## 27.5. Krok 4 - widok gracza
+
+### Główne pliki
+- `C:\xampp1\htdocs\public\finance.php`
+- `C:\xampp1\htdocs\templates\views\public\finance\main.php`
+- `C:\xampp1\htdocs\assets\js\finance.js`
+- `C:\xampp1\htdocs\assets\css\finance.css`
+
+### Co wdrożyć
+- zakładkę `Ryzyko`,
+- zakładkę `Polityka finansowa`,
+- karty ryzyka,
+- panel `Planu oszczędności`,
+- panel `Rezerwy awaryjnej`,
+- alerty z CTA,
+- modale,
+- historię decyzji.
+
+### Zasady UI
+- korzystamy z istniejącego shellu,
+- korzystamy z istniejących klas wspólnych,
+- `finance.css` tylko dla rzeczy specyficznych dla finansów,
+- żadnych nowych białych systemowych elementów,
+- wszystkie napisy po polsku,
+- bez `alert()` i `confirm()`.
+
+## 27.6. Krok 5 - panel admina
+
+### Główne pliki
+- `C:\xampp1\htdocs\admin\finance.php`
+- `C:\xampp1\htdocs\templates\views\admin\finance\main.php`
+- `C:\xampp1\htdocs\assets\css\admin.css`
+- ewentualny dedykowany JS admina finansów, jeśli będzie potrzebny
+
+### Co wdrożyć
+- konfigurację planu oszczędności,
+- konfigurację rezerwy awaryjnej,
+- konfigurację alertów i progów,
+- monitoring graczy,
+- monitoring regionów i hubów,
+- narzędzia GM / QA.
+
+### Zasady admina
+- wygląd jak nowoczesne panele admina,
+- pełna polska terminologia,
+- walidacja zapisów,
+- logowanie działań admina,
+- brak osobnego mini-systemu UI.
+
+## 27.7. Krok 6 - tłumaczenia i komunikaty
+
+Trzeba dopisać pełny zestaw kluczy do:
+- `C:\xampp1\htdocs\lang\pl.php`
+
+Zakres:
+- zakładki,
+- etykiety formularzy,
+- opisy trybów,
+- komunikaty sukcesu,
+- komunikaty błędu,
+- alerty,
+- teksty modali,
+- puste stany,
+- etykiety admina.
+
+Ważne:
+- bez hardcoded tekstów w PHP,
+- bez hardcoded tekstów w JS.
+
+## 27.8. Krok 7 - testy
+
+To nie może wejść bez testów.
+
+### Testy funkcjonalne
+
+#### Gracz
+- wejście do wszystkich zakładek finansów,
+- zmiana planu oszczędności,
+- zmiana poziomu rezerwy,
+- działanie cooldownu,
+- działanie alertów,
+- historia decyzji,
+- poprawność danych z hubów i fallbacku.
+
+#### Admin
+- zapis konfiguracji etapu 3,
+- odczyt monitoringu graczy,
+- odczyt hubów i regionów,
+- testy scenariuszy GM.
+
+### Testy integracyjne
+- poprawność danych z ticka,
+- poprawność liczenia rezerwy,
+- poprawność działania planu oszczędności,
+- poprawność alertów,
+- poprawność historii decyzji.
+
+### PHPStan
+- cały moduł finansów,
+- miejsca dotykające ticka,
+- miejsca dotykające logistyki i hubów.
+
+## 27.9. Kolejność wdrożenia
+
+Najzdrowsza kolejność:
+
+1. migracje / tabele / pola
+2. backend:
+   - `FinancePolicyService`
+   - `FinanceService`
+   - alerty / ryzyko
+3. tick integration
+4. widok gracza
+5. panel admina
+6. tłumaczenia
+7. testy funkcjonalne
+8. testy integracyjne i phpstan
+9. balans i korekty UX
+
+## 27.10. Co robimy zaraz po tym briefie
+
+Po zamknięciu tej specyfikacji następny sensowny ruch to:
+- zrobić backup,
+- wdrażać etap 3 dokładnie według kolejności z sekcji `27.9`,
+- zaczynając od warstwy danych i backendu, a nie od samego UI.

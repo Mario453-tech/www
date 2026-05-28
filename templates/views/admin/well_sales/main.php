@@ -1,0 +1,181 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1> <?= t('admin.well_sales.title') ?></h1>
+
+<?php if ($msg): ?><p role="status" class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p role="alert"  class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
+
+<!--  DASHBOARD 24h  -->
+<div class="cards">
+    <div class="card">
+        <p class="label"><?= t('admin.well_sales.stat_sales_24h') ?></p>
+        <p class="value orange"><?= (int)($stats24['cnt'] ?? 0) ?></p>
+    </div>
+    <div class="card">
+        <p class="label"><?= t('admin.well_sales.stat_avg_val_24h') ?></p>
+        <p class="value orange">
+            <?= $stats24['avg_val'] ? number_format((float)$stats24['avg_val'], 0, '.', ' ') . ' PLN' : t('common.dash') ?>
+        </p>
+    </div>
+    <div class="card">
+        <p class="label"><?= t('admin.well_sales.stat_top_player_24h') ?></p>
+        <p class="value">
+            <?= $topUser24 ? htmlspecialchars($topUser24['username']) . ' ×' . $topUser24['cnt'] : t('common.dash') ?>
+        </p>
+    </div>
+    <div class="card">
+        <p class="label"><?= t('admin.well_sales.stat_avg_days_7d') ?></p>
+        <p class="value <?= $avgDays > 1.5 ? 'red' : ($avgDays < 0.5 && $avgDays > 0 ? 'orange' : '') ?>">
+            <?= $avgDays > 0 ? $avgDays : t('common.dash') ?>
+        </p>
+    </div>
+</div>
+
+<?php if ($alertBalance): ?>
+<p class="alert alert-<?= $alertBalance['type'] === 'danger' ? 'error' : ($alertBalance['type'] === 'warn' ? 'warning' : 'info') ?>">
+     <?= htmlspecialchars($alertBalance['msg']) ?>
+</p>
+<?php endif ?>
+
+<!--  ZAK£ADKI  -->
+<nav class="tab-nav">
+    <?php foreach ($tabs as $tKey => $tLabel): ?>
+    <a href="?tab=<?= $tKey ?>" class="tab-link <?= $tab === $tKey ? 'active' : '' ?>"><?= $tLabel ?></a>
+    <?php endforeach ?>
+</nav>
+
+<?php if ($tab === 'list'): ?>
+<!--  LISTA SPRZEDA¯Y  -->
+
+<?php if (empty($sales)): ?>
+<p class="empty-state"><?= t('admin.well_sales.no_sales') ?></p>
+<?php else: ?>
+
+<div class="well-sales-grid">
+<div class="list-header">
+    <span>#</span>
+    <span><?= t('admin.well_sales.col_player') ?></span>
+    <span><?= t('admin.well_sales.col_well') ?></span>
+    <span><?= t('admin.well_sales.col_payout') ?></span>
+    <span><?= t('admin.well_sales.col_profit_h') ?></span>
+    <span>Cond%</span>
+    <span>Wear%</span>
+    <span>Risk%</span>
+    <span><?= t('admin.well_sales.col_equipment') ?></span>
+    <span><?= t('admin.well_sales.col_depth') ?></span>
+    <span><?= t('admin.well_sales.col_date') ?></span>
+    <span><?= t('admin.well_sales.col_actions') ?></span>
+</div>
+<div class="data-list">
+<?php foreach ($sales as $s):
+    $pl = json_decode($s['payload_json'] ?? '{}', true) ?? [];
+    $bd = $pl['breakdown'] ?? [];
+    $isExploit = str_contains($s['resolution_note'] ?? '', '[EXPLOIT]');
+?>
+<article class="list-row <?= $isExploit ? 'bk-row-critical' : '' ?>">
+    <span class="muted">#<?= $s['id'] ?></span>
+    <span><a href="/admin/player.php?id=<?= $s['player_id'] ?>"><?= htmlspecialchars($s['username'] ?? '?') ?></a></span>
+    <span class="muted">#<?= (int)($pl['well_id'] ?? 0) ?></span>
+    <span class="text-bold orange"><?= number_format((float)($pl['payout'] ?? 0), 0, '.', ' ') ?> PLN</span>
+    <span class="muted font-sm"><?= number_format((float)($bd['profit_h'] ?? 0), 2) ?></span>
+    <span class="<?= ($bd['condition_pct'] ?? 0) < -20 ? 'text-red' : '' ?>">
+        <?= $bd['condition_pct'] !== null ? sprintf('%+.1f%%', $bd['condition_pct']) : t('common.dash') ?>
+    </span>
+    <span class="<?= ($bd['wear_pct'] ?? 0) < -15 ? 'text-red' : '' ?>">
+        <?= $bd['wear_pct'] !== null ? sprintf('%+.1f%%', $bd['wear_pct']) : t('common.dash') ?>
+    </span>
+    <span><?= $bd['risk_pct'] !== null ? sprintf('%+.1f%%', $bd['risk_pct']) : t('common.dash') ?></span>
+    <span class="font-xs"><?= htmlspecialchars($bd['equipment_pct'] ?? t('common.dash')) ?></span>
+    <span><?= $bd['depth_pct'] !== null ? sprintf('%+.1f%%', $bd['depth_pct']) : t('common.dash') ?></span>
+    <span class="muted font-xs"><?= date('d.m.Y H:i', strtotime($s['created_at'])) ?></span>
+    <span>
+        <form method="post" class="form-inline">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="event_id" value="<?= $s['id'] ?>">
+            <?php if (!$isExploit): ?>
+            <button name="admin_action" value="flag_exploit" class="btn btn-sm btn-warning"
+                    onclick="confirmSubmit(this, '<?= t('admin.well_sales.confirm_exploit') ?>'); return false;">
+                 Exploit
+            </button>
+            <?php else: ?>
+            <span class="text-red font-sm"> EXPLOIT</span>
+            <?php endif ?>
+            <button name="admin_action" value="delete" class="btn btn-sm btn-danger"
+                    onclick="confirmSubmit(this, '<?= t('admin.well_sales.confirm_delete') ?>'); return false;">
+                
+            </button>
+        </form>
+    </span>
+</article>
+<?php endforeach ?>
+</div>
+</div>
+
+<?php if ($total > $perPage):
+    $pages = ceil($total / $perPage); ?>
+<div class="pagination">
+    <?php for ($i = 1; $i <= $pages; $i++): ?>
+    <a href="?tab=list&page=<?= $i ?>" class="page-link <?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
+    <?php endfor ?>
+</div>
+<?php endif ?>
+
+<?php endif ?>
+
+<?php elseif ($tab === 'players'): ?>
+<!--  ANALIZA GRACZY  -->
+
+<?php if (empty($playerStats)): ?>
+<p class="empty-state"><?= t('admin.well_sales.no_data') ?></p>
+<?php else: ?>
+
+<div class="player-sales-grid">
+<div class="list-header">
+    <span><?= t('admin.well_sales.col_player') ?></span>
+    <span><?= t('admin.well_sales.col_sell_count') ?></span>
+    <span><?= t('admin.well_sales.col_avg_val') ?></span>
+    <span><?= t('admin.well_sales.col_total_val') ?></span>
+    <span><?= t('admin.well_sales.col_profile') ?></span>
+</div>
+<div class="data-list">
+<?php foreach ($playerStats as $ps): ?>
+<article class="list-row">
+    <span><?= htmlspecialchars($ps['username'] ?? '?') ?></span>
+    <span class="<?= $ps['sell_count'] > 5 ? 'text-red text-bold' : '' ?>"><?= $ps['sell_count'] ?></span>
+    <span><?= number_format((float)$ps['avg_payout'], 0, '.', ' ') ?> PLN</span>
+    <span class="orange"><?= number_format((float)$ps['total_payout'], 0, '.', ' ') ?> PLN</span>
+    <span><a href="/admin/player.php?id=<?= $ps['pid'] ?>" class="btn btn-sm btn-secondary"> <?= t('admin.well_sales.col_profile') ?></a></span>
+</article>
+<?php endforeach ?>
+</div>
+</div>
+
+<?php endif ?>
+
+<?php elseif ($tab === 'config'): ?>
+<!--  KONFIGURACJA BALANSU  -->
+
+<form method="post" class="form-config">
+    <?= CSRF::field() ?>
+    <input type="hidden" name="save_config" value="1">
+
+    <?php foreach ($cfgFieldGroups as $groupKey => $group): ?>
+    <section class="panel">
+        <p class="panel-title"><?= $group['title'] ?></p>
+        <div class="form-grid">
+            <?php foreach ($group['fields'] as $k => [$label, $hint, $min, $max, $step]): ?>
+            <label class="form-label">
+                <span class="form-label-text"><?= $label ?></span>
+                <input type="number" name="<?= $k ?>" value="<?= htmlspecialchars($cfg[$k] ?? '') ?>"
+                       min="<?= $min ?>" max="<?= $max ?>" step="<?= $step ?>" class="form-input">
+                <span class="form-hint"><?= $hint ?></span>
+            </label>
+            <?php endforeach ?>
+        </div>
+    </section>
+    <?php endforeach ?>
+
+    <button type="submit" class="btn btn-primary"> <?= t('admin.well_sales.btn_save_config') ?></button>
+</form>
+
+<?php endif ?>

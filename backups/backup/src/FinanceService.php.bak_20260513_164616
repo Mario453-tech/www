@@ -1,0 +1,449 @@
+<?php
+declare(strict_types=1);
+
+class FinanceService
+{
+    private PDO $db;
+
+    public function __construct()
+    {
+        $this->db = Database::getInstance()->getConnection();
+        $this->ensureSchema();
+    }
+
+    private function ensureSchema(): void
+    {
+        try {
+            Database::addColumnIfMissing('finance_logs', 'hub_usage_cost', 'DECIMAL(16,2) NOT NULL DEFAULT 0.00 AFTER transport_cost');
+            Database::addColumnIfMissing('finance_logs', 'hub_loss_bbl', 'DECIMAL(14,4) NOT NULL DEFAULT 0.0000 AFTER loss_bbl');
+            Database::addColumnIfMissing('finance_logs', 'hub_loss_value', 'DECIMAL(16,2) NOT NULL DEFAULT 0.00 AFTER loss_value');
+            Database::addColumnIfMissing('finance_logs', 'fallback_loss_bbl', 'DECIMAL(14,4) NOT NULL DEFAULT 0.0000 AFTER hub_loss_bbl');
+            Database::addColumnIfMissing('finance_logs', 'fallback_loss_value', 'DECIMAL(16,2) NOT NULL DEFAULT 0.00 AFTER hub_loss_value');
+            Database::addColumnIfMissing('finance_logs', 'hub_incident_loss_bbl', 'DECIMAL(14,4) NOT NULL DEFAULT 0.0000 AFTER fallback_loss_bbl');
+            Database::addColumnIfMissing('finance_logs', 'hub_incident_loss_value', 'DECIMAL(16,2) NOT NULL DEFAULT 0.00 AFTER fallback_loss_value');
+        } catch (Throwable $e) {
+            GameLog::error('FinanceService', 'ensureSchema FAILED', $e);
+        }
+    }
+
+    public function saveTick(
+        int $playerId,
+        string $tickAt,
+        float $revenue,
+        float $grossRevenue,
+        float $opex,
+        float $salaryCost,
+        float $transportCost,
+        float $incidentCost,
+        float $tax,
+        float $lossBbl,
+        float $lossValue,
+        float $cashAfter,
+        float $oilPrice,
+        float $bblProduced,
+        int $wellsActive,
+        float $hubUsageCost = 0.0,
+        float $hubLossBbl = 0.0,
+        float $hubLossValue = 0.0,
+        float $fallbackLossBbl = 0.0,
+        float $fallbackLossValue = 0.0,
+        float $hubIncidentLossBbl = 0.0,
+        float $hubIncidentLossValue = 0.0
+    ): void {
+        $netProfit = $revenue - ($opex + $salaryCost + $transportCost + $incidentCost + $tax);
+
+        try {
+            $this->db->prepare(
+                "
+                INSERT INTO finance_logs
+                    (player_id, tick_at, revenue, gross_revenue, opex, salary_cost,
+                     transport_cost, hub_usage_cost, incident_cost, tax, loss_bbl, hub_loss_bbl,
+                     fallback_loss_bbl, hub_incident_loss_bbl, loss_value, hub_loss_value,
+                     fallback_loss_value, hub_incident_loss_value, net_profit, cash_after,
+                     oil_price, bbl_produced, wells_active)
+                VALUES
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                "
+            )->execute([
+                $playerId,
+                $tickAt,
+                round($revenue, 2),
+                round($grossRevenue, 2),
+                round($opex, 2),
+                round($salaryCost, 2),
+                round($transportCost, 2),
+                round($hubUsageCost, 2),
+                round($incidentCost, 2),
+                round($tax, 2),
+                round($lossBbl, 4),
+                round($hubLossBbl, 4),
+                round($fallbackLossBbl, 4),
+                round($hubIncidentLossBbl, 4),
+                round($lossValue, 2),
+                round($hubLossValue, 2),
+                round($fallbackLossValue, 2),
+                round($hubIncidentLossValue, 2),
+                round($netProfit, 2),
+                round($cashAfter, 2),
+                round($oilPrice, 2),
+                round($bblProduced, 4),
+                $wellsActive,
+            ]);
+        } catch (Throwable $e) {
+            GameLog::error('FinanceService', 'saveTick FAILED', $e, ['player_id' => $playerId]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getLastTick(int $playerId): ?array
+    {
+        $stmt = $this->db->prepare(
+            "
+            SELECT *
+            FROM finance_logs
+            WHERE player_id = ?
+            ORDER BY tick_at DESC
+            LIMIT 1
+            "
+        );
+        $stmt->execute([$playerId]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    public function getSummary(int $playerId, int $hours = 24): array
+    {
+        $stmt = $this->db->prepare(
+            "
+            SELECT
+                SUM(revenue)                 AS total_revenue,
+                SUM(gross_revenue)           AS total_gross,
+                SUM(opex)                    AS total_opex,
+                SUM(salary_cost)             AS total_salary,
+                SUM(transport_cost)          AS total_transport,
+                SUM(hub_usage_cost)          AS total_hub_usage_cost,
+                SUM(incident_cost)           AS total_incident,
+                SUM(tax)                     AS total_tax,
+                SUM(loss_bbl)                AS total_loss_bbl,
+                SUM(loss_value)              AS total_loss_value,
+                SUM(hub_loss_bbl)            AS total_hub_loss_bbl,
+                SUM(hub_loss_value)          AS total_hub_loss_value,
+                SUM(fallback_loss_bbl)       AS total_fallback_loss_bbl,
+                SUM(fallback_loss_value)     AS total_fallback_loss_value,
+                SUM(hub_incident_loss_bbl)   AS total_hub_incident_loss_bbl,
+                SUM(hub_incident_loss_value) AS total_hub_incident_loss_value,
+                SUM(net_profit)              AS total_net,
+                SUM(bbl_produced)            AS total_bbl,
+                AVG(oil_price)               AS avg_price,
+                COUNT(*)                     AS tick_count
+            FROM finance_logs
+            WHERE player_id = ?
+              AND tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            "
+        );
+        $stmt->execute([$playerId, $hours]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        return array_map(
+            static fn($value): float => (float)($value ?? 0),
+            $row
+        );
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function getHistory(int $playerId, int $hours = 24): array
+    {
+        $stmt = $this->db->prepare(
+            "
+            SELECT
+                tick_at,
+                revenue,
+                net_profit,
+                opex + salary_cost + transport_cost + hub_usage_cost + incident_cost + tax AS total_cost,
+                loss_value,
+                oil_price,
+                bbl_produced
+            FROM finance_logs
+            WHERE player_id = ?
+              AND tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            ORDER BY tick_at ASC
+            "
+        );
+        $stmt->execute([$playerId, $hours]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function getPerWellStats(int $playerId): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "
+                SELECT
+                    w.id,
+                    w.name,
+                    w.well_name,
+                    w.status,
+                    w.base_production_per_hour,
+                    w.upkeep_cost_per_hour,
+                    w.transport_type,
+                    w.transport_opex_pct,
+                    w.technical_condition,
+                    w.wear_level,
+                    w.regional_tax_rate,
+                    w.well_type,
+                    w.location_name
+                FROM wells w
+                WHERE w.player_id = ?
+                  AND w.status NOT IN ('seized', 'blowout')
+                ORDER BY w.status ASC, w.id ASC
+                "
+            );
+            $stmt->execute([$playerId]);
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            GameLog::error('FinanceService', 'getPerWellStats FAILED', $e, ['player_id' => $playerId]);
+            return [];
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $last
+     * @param array<string, float> $summary24h
+     * @return list<array{level:string, icon:string, msg:string}>
+     */
+    public function getAlerts(int $playerId, array $last, array $summary24h): array
+    {
+        $alerts = [];
+
+        if (!empty($last) && (float)($last['net_profit'] ?? 0) < 0) {
+            $alerts[] = [
+                'level' => 'danger',
+                'icon'  => '&#128308;',
+                'msg'   => t('finance.alert_net_loss', ['amount' => $this->fmt((float)$last['net_profit'])]),
+            ];
+        }
+
+        $totalRevenue         = (float)($summary24h['total_revenue'] ?? 0);
+        $totalLoss            = (float)($summary24h['total_loss_value'] ?? 0);
+        $totalHubLoss         = (float)($summary24h['total_hub_loss_value'] ?? 0);
+        $totalFallbackLoss    = (float)($summary24h['total_fallback_loss_value'] ?? 0);
+        $totalHubIncidentLoss = (float)($summary24h['total_hub_incident_loss_value'] ?? 0);
+        $totalHubUsageCost    = (float)($summary24h['total_hub_usage_cost'] ?? 0);
+
+        if ($totalRevenue > 0 && ($totalLoss / $totalRevenue) > 0.15) {
+            $alerts[] = [
+                'level' => 'warning',
+                'icon'  => '&#9888;',
+                'msg'   => t('finance.alert_transport_loss', [
+                    'pct'    => round($totalLoss / $totalRevenue * 100, 1),
+                    'amount' => $this->fmt($totalLoss),
+                ]),
+            ];
+        }
+
+        if ($totalRevenue > 0 && ($totalHubLoss / $totalRevenue) > 0.08) {
+            $alerts[] = [
+                'level' => 'warning',
+                'icon'  => '&#128230;',
+                'msg'   => t('finance.alert_hub_loss', [
+                    'pct'    => round($totalHubLoss / $totalRevenue * 100, 1),
+                    'amount' => $this->fmt($totalHubLoss),
+                ]),
+            ];
+        }
+
+        if ($totalFallbackLoss > 0) {
+            $alerts[] = [
+                'level' => 'info',
+                'icon'  => '&#128668;',
+                'msg'   => t('finance.alert_fallback_loss', [
+                    'amount' => $this->fmt($totalFallbackLoss),
+                    'bbl'    => number_format((float)($summary24h['total_fallback_loss_bbl'] ?? 0), 1, ',', ' '),
+                ]),
+            ];
+        }
+
+        if ($totalRevenue > 0 && ($totalHubUsageCost / $totalRevenue) > 0.10) {
+            $alerts[] = [
+                'level' => 'info',
+                'icon'  => '&#128176;',
+                'msg'   => t('finance.alert_hub_cost', [
+                    'pct'    => round($totalHubUsageCost / $totalRevenue * 100, 1),
+                    'amount' => $this->fmt($totalHubUsageCost),
+                ]),
+            ];
+        }
+
+        if ($totalHubIncidentLoss > 0) {
+            $alerts[] = [
+                'level' => 'warning',
+                'icon'  => '&#128167;',
+                'msg'   => t('finance.alert_hub_incident_loss', [
+                    'amount' => $this->fmt($totalHubIncidentLoss),
+                    'bbl'    => number_format((float)($summary24h['total_hub_incident_loss_bbl'] ?? 0), 1, ',', ' '),
+                ]),
+            ];
+        }
+
+        if (!empty($last) && (float)($last['bbl_produced'] ?? 0) === 0.0 && (int)($last['wells_active'] ?? 0) > 0) {
+            $alerts[] = [
+                'level' => 'warning',
+                'icon'  => '&#9888;',
+                'msg'   => t('finance.alert_no_production'),
+            ];
+        }
+
+        $totalTax = (float)($summary24h['total_tax'] ?? 0);
+        if ($totalRevenue > 0 && ($totalTax / $totalRevenue) > 0.20) {
+            $alerts[] = [
+                'level' => 'info',
+                'icon'  => '&#127963;',
+                'msg'   => t('finance.alert_high_tax', ['pct' => round($totalTax / $totalRevenue * 100, 1)]),
+            ];
+        }
+
+        return $alerts;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getGlobalStats(int $hours = 24): array
+    {
+        $stmt = $this->db->prepare(
+            "
+            SELECT
+                COUNT(DISTINCT player_id)                             AS player_count,
+                SUM(revenue)                                          AS total_revenue,
+                SUM(opex + salary_cost + transport_cost + hub_usage_cost + incident_cost + tax) AS total_cost,
+                SUM(net_profit)                                       AS total_net,
+                AVG(net_profit)                                       AS avg_net,
+                SUM(loss_value)                                       AS total_loss,
+                SUM(hub_usage_cost)                                   AS total_hub_usage_cost,
+                SUM(hub_loss_value)                                   AS total_hub_loss_value,
+                SUM(fallback_loss_value)                              AS total_fallback_loss_value,
+                SUM(hub_incident_loss_value)                          AS total_hub_incident_loss_value,
+                AVG(loss_value)                                       AS avg_loss,
+                AVG(oil_price)                                        AS avg_price,
+                SUM(bbl_produced)                                     AS total_bbl
+            FROM finance_logs
+            WHERE tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            "
+        );
+        $stmt->execute([$hours]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function getPerPlayerStats(int $hours = 24): array
+    {
+        $stmt = $this->db->prepare(
+            "
+            SELECT
+                fl.player_id,
+                COALESCE(NULLIF(p.company_name, ''), p.username) AS company,
+                p.cash,
+                SUM(fl.revenue)                                  AS total_revenue,
+                SUM(fl.net_profit)                               AS total_net,
+                SUM(fl.loss_value)                               AS total_loss,
+                SUM(fl.hub_usage_cost)                           AS total_hub_usage_cost,
+                SUM(fl.hub_loss_value)                           AS total_hub_loss_value,
+                SUM(fl.fallback_loss_value)                      AS total_fallback_loss_value,
+                SUM(fl.hub_incident_loss_value)                  AS total_hub_incident_loss_value,
+                AVG(fl.net_profit)                               AS avg_net_per_tick,
+                MAX(fl.wells_active)                             AS wells_active,
+                COUNT(*)                                         AS tick_count
+            FROM finance_logs fl
+            JOIN players p ON p.id = fl.player_id
+            WHERE fl.tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            GROUP BY fl.player_id
+            ORDER BY total_net DESC
+            "
+        );
+        $stmt->execute([$hours]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return list<array{level:string, icon:string, msg:string}>
+     */
+    public function getAdminAlerts(int $hours = 24): array
+    {
+        $alerts = [];
+
+        $stmt = $this->db->prepare(
+            "
+            SELECT COUNT(*) FROM (
+                SELECT player_id
+                FROM finance_logs
+                WHERE tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+                GROUP BY player_id
+                HAVING SUM(net_profit) < 0
+            ) x
+            "
+        );
+        $stmt->execute([$hours]);
+        $lossPlayers = (int)($stmt->fetchColumn() ?: 0);
+
+        if ($lossPlayers > 0) {
+            $alerts[] = [
+                'level' => 'warning',
+                'icon'  => '&#128184;',
+                'msg'   => t('admin.finance.alert_loss_players', ['count' => $lossPlayers, 'hours' => $hours]),
+            ];
+        }
+
+        $global = $this->getGlobalStats($hours);
+        $rev    = (float)($global['total_revenue'] ?? 0);
+        $loss   = (float)($global['total_loss'] ?? 0);
+        $hub    = (float)($global['total_hub_loss_value'] ?? 0);
+        $fall   = (float)($global['total_fallback_loss_value'] ?? 0);
+
+        if ($rev > 0 && ($loss / $rev) > 0.10) {
+            $alerts[] = [
+                'level' => 'critical',
+                'icon'  => '&#128308;',
+                'msg'   => t('admin.finance.alert_global_loss', ['pct' => round($loss / $rev * 100, 1)]),
+            ];
+        }
+
+        if ($rev > 0 && ($hub / $rev) > 0.05) {
+            $alerts[] = [
+                'level' => 'warning',
+                'icon'  => '&#128230;',
+                'msg'   => t('admin.finance.alert_hub_loss', ['pct' => round($hub / $rev * 100, 1)]),
+            ];
+        }
+
+        if ($fall > 0) {
+            $alerts[] = [
+                'level' => 'info',
+                'icon'  => '&#128668;',
+                'msg'   => t('admin.finance.alert_fallback_loss', ['amount' => $this->fmt($fall)]),
+            ];
+        }
+
+        return $alerts;
+    }
+
+    private function fmt(float $value): string
+    {
+        return number_format($value, 0, ',', ' ');
+    }
+}

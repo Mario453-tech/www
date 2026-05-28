@@ -1,0 +1,108 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('public/login.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/src/init.php';
+
+if (Auth::isLoggedIn()) {
+    header('Location: ' . url('home'));
+    exit();
+}
+
+$error = '';
+
+if ($_POST) {
+    if (!RateLimiter::check('login')) {
+        $error = 'Zbyt wiele prób logowania! Spróbuj za 15 minut.';
+    } elseif (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = 'B³¹d zabezpieczeñ!';
+    } else {
+        $email    = Validator::sanitize($_POST['email']);
+        $password = $_POST['password'];
+
+        if (Auth::login($email, $password)) {
+            header('Location: ' . url('home'));
+            exit();
+        } else {
+            $error = 'B³êdne dane logowania!';
+        }
+    }
+}
+
+$pageTitle = 'Login – Oil Game';
+require_once __DIR__ . '/templates/header.php';
+?>
+
+<div class="login-container">
+    <section class="login-card fade-in" aria-labelledby="login-heading">
+        <h1 id="login-heading"> Oil Game</h1>
+        <p class="login-subtitle">Zaloguj siê do swojego imperium naftowego</p>
+
+        <?php if ($error): ?>
+            <div class="alert alert-error" role="alert"><?= htmlspecialchars($error) ?></div>
+        <?php endif ?>
+
+        <form method="post" aria-label="Formularz logowania" novalidate>
+            <?= CSRF::field() ?>
+
+            <div class="form-group">
+                <label class="form-label" for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="form-input"
+                    placeholder="twój@email.com"
+                    required
+                    autocomplete="email"
+                    value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Has³o</label>
+                <div class="password-wrap">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-input"
+                        placeholder="Twoje has³o"
+                        required
+                        autocomplete="current-password"
+                    >
+                    <button type="button" class="btn-show-pass" onclick="togglePassword('password', this)" aria-label="Poka¿ has³o"></button>
+                </div>
+            </div>
+
+            <p class="forgot-link">
+                <a href="<?= url('forgot-password') ?>" class="link-primary">Nie pamiêtasz has³a?</a>
+            </p>
+
+            <button type="submit" class="btn btn-primary btn-full">
+                 Zaloguj siê
+            </button>
+        </form>
+
+        <p class="login-footer">
+            Nie masz konta? <a href="<?= url('register') ?>" class="link-primary">Zarejestruj siê</a>
+        </p>
+    </section>
+</div>
+
+<script src="/assets/js/auth.js"></script>
+<?php require_once __DIR__ . '/templates/footer.php' ?>
+<?php
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) {
+        GameLog::error('public/login.php', 'Unhandled exception', $e);
+    }
+    if (!headers_sent()) {
+        http_response_code(500);
+    }
+    echo 'Wystapil blad aplikacji.';
+} finally {
+    if (class_exists('GameLog', false)) {
+        GameLog::pageEnd('public/login.php', $_codexGuardStart);
+    }
+}

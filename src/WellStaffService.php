@@ -1,0 +1,341 @@
+<?php
+/**
+ * WellStaffService — manages operator and technician assignments to wells.
+ *
+ * Roles:
+ *   operator   — well operation (absent -> production = 0)
+ *   technician — maintenance    (absent -> degradation x1.5)
+ *
+ * Assignments are per-well, not global.
+ * Cache columns (operator_id, technician_id) in wells for fast tick access.
+ */
+class WellStaffService
+{
+    private PDO $db;
+    private int $playerId;
+
+    public function __construct(int $playerId)
+    {
+        $this->db       = Database::getInstance()->getConnection();
+        $this->playerId = $playerId;
+    }
+
+    // Assignment
+
+    /**
+     * Assign a staff member (operator/technician) to a well.
+     * Automatically unassigns the previous occupant of that role.
+     */
+    public function assign(int $wellId, int $staffId, string $role): array
+    {
+        if (!in_array($role, ['operator', 'technician'])) {
+            return ['success' => false, 'message' => t('well_staff.svc.err_invalid_role')];
+        }
+
+        // Well validation
+        $well = $this->getWell($wellId);
+        if (!$well) {
+            return ['success' => false, 'message' => t('well_staff.svc.err_well_not_found')];
+        }
+        if (in_array($well['status'], ['seized', 'blowout', 'sold'])) {
+            return ['success' => false, 'message' => t('well_staff.svc.err_well_unavailable', ['status' => $well['status']])];
+        }
+
+        // Staff validation
+        $staff = $this->getStaff($staffId);
+        if (!$staff) {
+            return ['success' => false, 'message' => t('well_staff.svc.err_staff_not_found')];
+        }
+        if ($staff['status'] === 'fired') {
+            return ['success' => false, 'message' => t('well_staff.svc.err_staff_fired')];
+        }
+
+        // Spec code check
+        $allowedSpecs = $role === 'operator'
+            ? ['drilling_engineer']
+            : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer'];
+
+        if (!in_array($staff['spec_code'], $allowedSpecs)) {
+            return [
+                'success' => false,
+                'message' => t('well_staff.svc.err_wrong_spec', [
+                    'role'  => $role,
+                    'specs' => implode(', ', $allowedSpecs),
+                ]),
+            ];
+        }
+
+        // Check if the staff member already has another active assignment
+        // (excludes the same role on the same well — unassignRole will replace them)
+        $alreadyStmt = $this->db->prepare("
+            SELECT w.location_name, wsa.role FROM well_staff_assignments wsa
+            JOIN wells w ON w.id = wsa.well_id
+            WHERE wsa.staff_id = ?
+              AND wsa.player_id = ?
+              AND wsa.unassigned_at IS NULL
+              AND NOT (wsa.well_id = ? AND wsa.role = ?)
+        ");
+        $alreadyStmt->execute([$staffId, $this->playerId, $wellId, $role]);
+        $alreadyWell = $alreadyStmt->fetch();
+        if ($alreadyWell) {
+            return [
+                'success' => false,
+                'message' => t('well_staff.svc.err_already_assigned', [
+                    'role' => $alreadyWell['role'],
+                    'well' => $alreadyWell['location_name'],
+                ]),
+            ];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            // Unassign the current occupant of this role
+            $this->unassignRole($wellId, $role);
+
+            // New assignment
+            $this->db->prepare("
+                INSERT INTO well_staff_assignments
+                    (well_id, player_id, staff_id, role, assigned_at)
+                VALUES (?, ?, ?, ?, NOW())
+            ")->execute([$wellId, $this->playerId, $staffId, $role]);
+
+            // Update cache in wells table
+            $col = $role === 'operator' ? 'operator_id' : 'technician_id';
+            $this->db->prepare("UPDATE wells SET {$col} = ? WHERE id = ?")
+                     ->execute([$staffId, $wellId]);
+
+            // Refresh well status (may change to active)
+            $this->refreshWellStatus($wellId);
+
+            $this->db->commit();
+
+            GameLog::info('WellStaffService', 'assign', [
+                'well_id'   => $wellId,
+                'staff_id'  => $staffId,
+                'role'      => $role,
+                'player_id' => $this->playerId,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => t('well_staff.svc.msg_assigned', [
+                    'name' => $staff['first_name'] . ' ' . $staff['last_name'],
+                    'well' => $well['location_name'],
+                ]),
+            ];
+
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            GameLog::error('WellStaffService', 'assign FAILED', $e);
+            return ['success' => false, 'message' => t('well_staff.svc.err_db')];
+        }
+    }
+
+    /**
+     * Unassign a staff member from a well (specific role).
+     */
+    public function unassign(int $wellId, string $role): array
+    {
+        $well = $this->getWell($wellId);
+        if (!$well) {
+            return ['success' => false, 'message' => t('well_staff.svc.err_well_gone')];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->unassignRole($wellId, $role);
+
+            $col = $role === 'operator' ? 'operator_id' : 'technician_id';
+            $this->db->prepare("UPDATE wells SET {$col} = NULL WHERE id = ?")
+                     ->execute([$wellId]);
+
+            $this->refreshWellStatus($wellId);
+
+            $this->db->commit();
+
+            return ['success' => true, 'message' => t('well_staff.svc.msg_unassigned', ['role' => $role])];
+
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            GameLog::error('WellStaffService', 'unassign FAILED', $e);
+            return ['success' => false, 'message' => t('well_staff.svc.err_db')];
+        }
+    }
+
+    // Well status
+
+    /**
+     * Refreshes well status based on currently assigned staff.
+     * Called after every assignment change.
+     */
+    public function refreshWellStatus(int $wellId): void
+    {
+        $well = $this->db->prepare("
+            SELECT status, operator_id, technician_id FROM wells WHERE id = ? LIMIT 1
+        ");
+        $well->execute([$wellId]);
+        $w = $well->fetch();
+        if (!$w) return;
+
+        $currentStatus = $w['status'];
+
+        // Do not override critical statuses
+        if (in_array($currentStatus, ['seized', 'blowout', 'sold', 'paused_cash', 'paused_storage'])) {
+            return;
+        }
+
+        $hasOperator   = !empty($w['operator_id']);
+        $hasTechnician = !empty($w['technician_id']);
+
+        if (!$hasOperator && !$hasTechnician) {
+            $newStatus = 'no_operator'; // operator takes priority
+        } elseif (!$hasOperator) {
+            $newStatus = 'no_operator';
+        } elseif (!$hasTechnician) {
+            $newStatus = 'no_technician';
+        } else {
+            // Both assigned — activate if status was no_operator/no_technician
+            $newStatus = in_array($currentStatus, ['no_operator', 'no_technician'])
+                ? 'active'
+                : $currentStatus;
+        }
+
+        if ($newStatus !== $currentStatus) {
+            $this->db->prepare("UPDATE wells SET status = ? WHERE id = ?")
+                     ->execute([$newStatus, $wellId]);
+            GameLog::info('WellStaffService', 'refreshWellStatus', [
+                'well_id' => $wellId, 'old' => $currentStatus, 'new' => $newStatus,
+            ]);
+        }
+    }
+
+    // Queries / Reads
+
+    /**
+     * Staff status for each of the player's wells.
+     * Used in tick and UI.
+     */
+    public function getWellsStaffStatus(): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT
+                w.id, w.location_name, w.status,
+                w.operator_id, w.technician_id,
+                op.first_name  AS op_first,  op.last_name  AS op_last,
+                op.spec_code   AS op_spec,   op.skill_level AS op_skill,
+                te.first_name  AS te_first,  te.last_name  AS te_last,
+                te.spec_code   AS te_spec,   te.skill_level AS te_skill
+            FROM wells w
+            LEFT JOIN technical_staff op ON op.id = w.operator_id
+            LEFT JOIN technical_staff te ON te.id = w.technician_id
+            WHERE w.player_id = ?
+              AND w.status NOT IN ('seized','blowout','sold')
+            ORDER BY w.id
+        ");
+        $stmt->execute([$this->playerId]);
+        $rows = $stmt->fetchAll();
+
+        $result = [];
+        foreach ($rows as $r) {
+            $result[] = [
+                'well_id'       => (int)$r['id'],
+                'well_name'     => $r['location_name'],
+                'status'        => $r['status'],
+                'has_operator'  => !empty($r['operator_id']),
+                'has_technician'=> !empty($r['technician_id']),
+                'operator'      => $r['operator_id'] ? [
+                    'id'    => (int)$r['operator_id'],
+                    'name'  => $r['op_first'] . ' ' . $r['op_last'],
+                    'spec'  => $r['op_spec'],
+                    'skill' => (int)$r['op_skill'],
+                ] : null,
+                'technician'    => $r['technician_id'] ? [
+                    'id'    => (int)$r['technician_id'],
+                    'name'  => $r['te_first'] . ' ' . $r['te_last'],
+                    'spec'  => $r['te_spec'],
+                    'skill' => (int)$r['te_skill'],
+                ] : null,
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     * List of staff available for assignment.
+     * Excludes already-assigned and dismissed staff.
+     */
+    public function getAvailableStaff(string $role): array
+    {
+        $allowedSpecs = $role === 'operator'
+            ? ['drilling_engineer']
+            : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer'];
+
+        $placeholders = implode(',', array_fill(0, count($allowedSpecs), '?'));
+
+        $stmt = $this->db->prepare("
+            SELECT ts.id, ts.first_name, ts.last_name, ts.spec_code,
+                   ts.spec_name, ts.skill_level, ts.salary, ts.status,
+                   ts.specialization,
+                   ss.name  AS specialization_name,
+                   ss.rarity AS spec_rarity,
+                   ss.only_deep_layers AS spec_only_deep,
+                   ss.prod_bonus, ss.wear_reduction, ss.incident_reduction,
+                   ss.spiral_reduction, ss.repair_speed,
+                   ss.incident_return_reduction, ss.catastrophe_reduction,
+                   MAX(wsa.well_id) AS assigned_well_id,
+                   MAX(w.location_name) AS assigned_well_name
+            FROM technical_staff ts
+            LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
+            LEFT JOIN well_staff_assignments wsa
+                   ON wsa.staff_id = ts.id
+                  AND wsa.player_id = ts.player_id
+                  AND wsa.unassigned_at IS NULL
+            LEFT JOIN wells w ON w.id = wsa.well_id
+            WHERE ts.player_id = ?
+              AND ts.spec_code IN ({$placeholders})
+              AND ts.status IN ('active','busy')
+              AND (ts.fired_at IS NULL OR ts.fired_at > NOW())
+            GROUP BY ts.id, ts.first_name, ts.last_name, ts.spec_code,
+                     ts.spec_name, ts.skill_level, ts.salary, ts.status,
+                     ts.specialization, ss.name, ss.rarity, ss.only_deep_layers,
+                     ss.prod_bonus, ss.wear_reduction, ss.incident_reduction,
+                     ss.spiral_reduction, ss.repair_speed,
+                     ss.incident_return_reduction, ss.catastrophe_reduction
+            ORDER BY ts.skill_level DESC
+        ");
+        $params = array_merge([$this->playerId], $allowedSpecs);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    // Helpers
+
+    private function unassignRole(int $wellId, string $role): void
+    {
+        $this->db->prepare("
+            UPDATE well_staff_assignments
+            SET unassigned_at = NOW()
+            WHERE well_id = ? AND player_id = ? AND role = ? AND unassigned_at IS NULL
+        ")->execute([$wellId, $this->playerId, $role]);
+    }
+
+    private function getWell(int $wellId): ?array
+    {
+        $stmt = $this->db->prepare("
+            SELECT id, location_name, status, operator_id, technician_id
+            FROM wells WHERE id = ? AND player_id = ? LIMIT 1
+        ");
+        $stmt->execute([$wellId, $this->playerId]);
+        return $stmt->fetch() ?: null;
+    }
+
+    private function getStaff(int $staffId): ?array
+    {
+        $stmt = $this->db->prepare("
+            SELECT id, first_name, last_name, spec_code, spec_name, status
+            FROM technical_staff WHERE id = ? AND player_id = ? LIMIT 1
+        ");
+        $stmt->execute([$staffId, $this->playerId]);
+        return $stmt->fetch() ?: null;
+    }
+}

@@ -1,0 +1,245 @@
+<?php
+/**
+ * TechnicalTeamService.php
+ * Zarządzanie zespołem technicznym i systemem zadań.
+ * Technical team management and task system.
+ *
+ * Hierarchia / Hierarchy:
+ *   board_members (role=technical) → Kierownik Techniczny
+ *       └ technical_staff → Drilling/Reservoir/Production/Maintenance/Pipeline/Inżynier BHP
+ *
+ * Logika podzielona na traity w src/TTS/:
+ * Logic split into traits in src/TTS/:
+ *   ManagerTrait.php      — getManager, getManagerBonus, getHSEBonus
+ *   ProceduresTrait.php   — getProcedureStatus, upgradeProcedures, repairProcedureIntegrity,
+ *                           processProcedureDecay, getStaffRequirementCheck
+ *   StaffTrait.php        — getStaff, getStaffMember, getStaffBonus, hireEngineer, fireEngineer
+ *   TasksTrait.php        — getTasks, getActiveTasks, assignTask, processTick, completeTask,
+ *                           getQueue, cancelTask, cancelQueueItem
+ *   NotificationsTrait.php — countUnreadNotifications, getUnreadNotifications, markRead, notify
+ *   RecruitmentTrait.php  — getTechnicalCandidates, reviewCandidate, completeRecruitment,
+ *                           getActiveRecruitment, requestRecruitment, formatTime, fmt
+ */
+
+require_once __DIR__ . '/TTS/ManagerTrait.php';
+require_once __DIR__ . '/TTS/ProceduresTrait.php';
+require_once __DIR__ . '/TTS/StaffTrait.php';
+require_once __DIR__ . '/TTS/TasksTrait.php';
+require_once __DIR__ . '/TTS/NotificationsTrait.php';
+require_once __DIR__ . '/TTS/RecruitmentTrait.php';
+
+class TechnicalTeamService
+{
+    use TTSManagerTrait;
+    use TTSProceduresTrait;
+    use TTSStaffTrait;
+    use TTSTasksTrait;
+    use TTSNotificationsTrait;
+    use TTSRecruitmentTrait;
+
+    private PDO $db;
+    private int $playerId;
+
+    // Definicje specjalizacji inżynierów
+    const SPECS = [
+        'drilling_engineer'    => [
+            'name'      => 'Inżynier Wiercenia',
+            'icon'      => '⛏',
+            'tasks'     => ['well_maintenance','install_module'],
+            'salary_range' => [8000, 18000],
+            'description' => 'Projektowanie i nadzór nad procesem wiercenia',
+        ],
+        'reservoir_engineer'   => [
+            'name'      => 'Inżynier Złoża',
+            'icon'      => '📊',
+            'tasks'     => ['reservoir_analysis'],
+            'salary_range' => [9000, 20000],
+            'description' => 'Analiza złoża, prognoza produkcji, planowanie wydobycia',
+        ],
+        'production_engineer'  => [
+            'name'      => 'Inżynier Produkcji',
+            'icon'      => '⚙',
+            'tasks'     => ['production_optimization'],
+            'salary_range' => [7000, 15000],
+            'description' => 'Optymalizacja pomp, regulacja przepływu ropy',
+        ],
+        'maintenance_engineer' => [
+            'name'      => 'Inżynier Utrzymania Ruchu',
+            'icon'      => '🔧',
+            'tasks'     => ['well_maintenance','well_repair'],
+            'salary_range' => [6000, 13000],
+            'description' => 'Naprawy i konserwacja instalacji',
+        ],
+        'pipeline_engineer'    => [
+            'name'      => 'Inżynier Rurociągów',
+            'icon'      => '🔩',
+            'tasks'     => ['pipeline_inspection'],
+            'salary_range' => [7000, 15000],
+            'description' => 'Kontrola rurociągów, przepustowość, straty transportowe',
+        ],
+        'safety_engineer'      => [
+            'name'      => 'Inżynier BHP',
+            'icon'      => '🛡',
+            'tasks'     => ['safety_audit'],
+            'salary_range' => [7500, 16000],
+            'description' => 'Bezpieczeństwo techniczne, audyty, redukcja ryzyka',
+        ],
+        'safety_officer'       => [
+            'name'      => 'Oficer BHP',
+            'icon'      => '🦺',
+            'tasks'     => ['safety_audit'],
+            'salary_range' => [6000, 12000],
+            'description' => 'Zarządzanie bezpieczeństwem i środowiskiem (HSE)',
+        ],
+    ];
+
+    // Koszty ulepszenia procedur BHP (poziom => koszt w PLN)
+    const PROCEDURE_UPGRADE_COSTS = [
+        1 => 500_000,
+        2 => 1_000_000,
+        3 => 2_000_000,
+        4 => 4_000_000,
+        5 => 8_000_000,
+    ];
+
+    // Definicje zadań
+    const TASKS = [
+        'well_maintenance' => [
+            'label'       => 'Konserwacja odwiertu',
+            'icon'        => '🔧',
+            'assignable'  => ['drilling_engineer','maintenance_engineer'],
+            'hours_min'   => 6,
+            'hours_max'   => 12,
+            'cost_min'    => 200_000,
+            'cost_max'    => 800_000,
+            'needs_well'  => true,
+            'effect'      => '+20% stanu technicznego',
+        ],
+        'well_repair' => [
+            'label'       => 'Naprawa awarii',
+            'icon'        => '🔨',
+            'assignable'  => ['maintenance_engineer'],
+            'hours_min'   => 12,
+            'hours_max'   => 36,
+            'cost_min'    => 1_000_000,
+            'cost_max'    => 6_000_000,
+            'needs_well'  => true,
+            'effect'      => 'Stan 100%, status aktywny',
+        ],
+        'reservoir_analysis' => [
+            'label'       => 'Analiza złoża',
+            'icon'        => '📊',
+            'assignable'  => ['reservoir_engineer'],
+            'hours_min'   => 8,
+            'hours_max'   => 24,
+            'cost_min'    => 0,
+            'cost_max'    => 0,
+            'needs_well'  => true,
+            'effect'      => 'Aktualizacja prognozy produkcji',
+        ],
+        'production_optimization' => [
+            'label'       => 'Optymalizacja produkcji',
+            'icon'        => '📈',
+            'assignable'  => ['production_engineer'],
+            'hours_min'   => 4,
+            'hours_max'   => 10,
+            'cost_min'    => 50_000,
+            'cost_max'    => 200_000,
+            'needs_well'  => true,
+            'effect'      => '+5% do +15% produkcji',
+        ],
+        'install_module' => [
+            'label'       => 'Instalacja modułu',
+            'icon'        => '⚙',
+            'assignable'  => ['drilling_engineer'],
+            'hours_min'   => 24,
+            'hours_max'   => 72,
+            'cost_min'    => 1_000_000,
+            'cost_max'    => 6_000_000,
+            'needs_well'  => true,
+            'effect'      => 'Instalacja nowej technologii',
+        ],
+        'pipeline_inspection' => [
+            'label'       => 'Inspekcja rurociągu',
+            'icon'        => '🔩',
+            'assignable'  => ['pipeline_engineer'],
+            'hours_min'   => 6,
+            'hours_max'   => 12,
+            'cost_min'    => 0,
+            'cost_max'    => 0,
+            'needs_well'  => false,
+            'effect'      => '-30% ryzyko awarii rurociągu',
+        ],
+        'safety_audit' => [
+            'label'       => 'Audyt bezpieczeństwa',
+            'icon'        => '🛡',
+            'assignable'  => ['safety_engineer', 'safety_officer'],
+            'hours_min'   => 12,
+            'hours_max'   => 24,
+            'cost_min'    => 0,
+            'cost_max'    => 0,
+            'needs_well'  => false,
+            'effect'      => '-20% ryzyko awarii wszystkich odwiertów',
+        ],
+
+        //  ZADANIA RATUNKOWE (katastrofy) 
+        'blowout_control' => [
+            'label'       => 'Opanowanie wypływu',
+            'icon'        => '🚨',
+            'assignable'  => ['drilling_engineer', 'maintenance_engineer'],
+            'hours_min'   => 72,
+            'hours_max'   => 120,
+            'cost_min'    => 0,
+            'cost_max'    => 0,
+            'needs_well'  => true,
+            'effect'      => 'Przywraca odwiert po blowout do stanu aktywnego',
+            'emergency'   => true,
+        ],
+        'pipeline_repair' => [
+            'label'       => 'Naprawa rurociągu',
+            'icon'        => '🔩',
+            'assignable'  => ['pipeline_engineer'],
+            'hours_min'   => 24,
+            'hours_max'   => 48,
+            'cost_min'    => 0,
+            'cost_max'    => 0,
+            'needs_well'  => false,
+            'effect'      => 'Naprawia uszkodzony rurociąg po eksplozji',
+            'emergency'   => true,
+        ],
+        'reservoir_rehabilitation' => [
+            'label'       => 'Rehabilitacja złoża',
+            'icon'        => '🧪',
+            'assignable'  => ['reservoir_engineer'],
+            'hours_min'   => 72,
+            'hours_max'   => 120,
+            'cost_min'    => 0,
+            'cost_max'    => 0,
+            'needs_well'  => true,
+            'effect'      => 'Częściowo przywraca złoże po skażeniu (+15% produkcji)',
+            'emergency'   => true,
+        ],
+    ];
+
+    const MODULES = [
+        'pump_electric'    => ['label' => 'Pompa elektryczna',        'cost' => 2_000_000, 'effect' => '+20% produkcji'],
+        'monitoring'       => ['label' => 'System monitoringu',       'cost' => 1_500_000, 'effect' => '-30% ryzyko awarii'],
+        'water_injection'  => ['label' => 'System wtłaczania wody',   'cost' => 3_000_000, 'effect' => '+10% produkcji, +20% żywotności'],
+        'pressure_booster' => ['label' => 'Wzmacniacz ciśnienia',     'cost' => 2_500_000, 'effect' => '+15% produkcji'],
+    ];
+
+    public function __construct(int $playerId)
+    {
+        try {
+            $this->db       = Database::getInstance()->getConnection();
+            $this->playerId = $playerId;
+            GameLog::info('TechnicalTeamService', 'Service initialized', ['player_id' => $playerId]);
+        } catch (Throwable $e) {
+            GameLog::error('TechnicalTeamService', 'Initialization failed', [
+                'player_id' => $playerId,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+}

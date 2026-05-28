@@ -1,0 +1,111 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1> <?= t('admin.alerts.title') ?></h1>
+
+<?php
+$critCount  = count(array_filter($alerts, fn($a) => $a['level'] === 'critical'));
+$warnCount  = count(array_filter($alerts, fn($a) => $a['level'] === 'warning'));
+$tickAgeMin = $lastTick ? round((time() - strtotime($lastTick)) / 60) : 999;
+?>
+
+<!--  STATYSTYKI  -->
+<div class="cards mb-8">
+    <div class="card">
+        <p class="label"><?= t('admin.alerts.stat_critical') ?></p>
+        <p class="value <?= $critCount > 0 ? 'red' : 'green' ?>"><?= $critCount ?></p>
+    </div>
+    <div class="card">
+        <p class="label"><?= t('admin.alerts.stat_warnings') ?></p>
+        <p class="value <?= $warnCount > 0 ? 'orange' : 'green' ?>"><?= $warnCount ?></p>
+    </div>
+    <div class="card">
+        <p class="label"><?= t('admin.alerts.stat_oil_price') ?></p>
+        <p class="value <?= $currentPrice > $THRESHOLDS['price_high'] ? 'green' : ($currentPrice < $THRESHOLDS['price_low'] ? 'red' : 'orange') ?>">
+            $<?= number_format($currentPrice, 0) ?>
+        </p>
+    </div>
+    <div class="card">
+        <p class="label"><?= t('admin.alerts.stat_pipe_loss') ?></p>
+        <p class="value <?= $avgLoss > 15 ? 'red' : ($avgLoss > 5 ? 'orange' : 'green') ?>">
+            <?= number_format($avgLoss, 1) ?>%
+        </p>
+    </div>
+    <div class="card">
+        <p class="label"><?= t('admin.alerts.stat_last_tick') ?></p>
+        <p class="value sm <?= $tickAgeMin > 15 ? 'red' : 'green' ?>"><?= $tickAgeMin ?> <?= t('admin.alerts.stat_tick_ago') ?></p>
+    </div>
+</div>
+
+<!--  LISTA ALERTÓW  -->
+<?php if (empty($alerts)): ?>
+<div class="empty-state-lg">
+    <p class="empty-state-emoji"></p>
+    <p><?= t('admin.alerts.no_alerts') ?></p>
+</div>
+<?php else: ?>
+<div class="alert-list">
+<?php foreach ($alerts as $alert):
+    $levelClass = $alert['level'] === 'critical' ? 'alert-item--critical' : 'alert-item--warning';
+    $titleClass = $alert['level'] === 'critical' ? 'alert-title--critical' : 'alert-title--warning';
+    $badgeClass = $alert['level'] === 'critical' ? 'badge-danger' : 'badge-warning';
+    $levelLabel = $alert['level'] === 'critical' ? t('admin.alerts.level_critical') : t('admin.alerts.level_warning');
+?>
+<div class="alert-item <?= $levelClass ?>">
+    <div class="alert-item-body">
+        <span class="alert-icon"><?= $alert['icon'] ?></span>
+        <div>
+            <div class="alert-title <?= $titleClass ?>">
+                <?= htmlspecialchars($alert['title']) ?>
+                <span class="badge <?= $badgeClass ?> ml-6"><?= $levelLabel ?></span>
+            </div>
+            <div class="alert-msg"><?= $alert['msg'] ?></div>
+        </div>
+    </div>
+    <?php if ($alert['action']): ?>
+    <div class="alert-action"><?= $alert['action'] ?></div>
+    <?php endif ?>
+</div>
+<?php endforeach ?>
+</div>
+<?php endif ?>
+
+<!--  PROGI ALERTÓW  -->
+<section class="panel mt-4">
+    <p class="panel-title"> <?= t('admin.alerts.thresholds_title') ?></p>
+
+    <?php if ($threshMsg): ?>
+    <?php [$tmType, $tmText] = explode(':', $threshMsg, 2); ?>
+    <div class="alert-banner alert-banner--<?= $tmType === 'ok' ? 'success' : 'error' ?>">
+        <?= htmlspecialchars($tmText) ?>
+    </div>
+    <?php endif ?>
+
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="save_thresholds" value="1">
+        <?php foreach ($THRESHOLDS as $key => $val):
+            [$label, $unit, $min, $max] = $threshLabels[$key] ?? [$key, '', 0, 9999];
+            $cfgKey = $cfgKeys[$key];
+        ?>
+        <div class="config-row">
+            <div>
+                <div class="config-key-label"><?= htmlspecialchars($label) ?></div>
+                <div class="config-key-code">well_config['<?= $cfgKey ?>']</div>
+            </div>
+            <div class="config-row-value flex-row-gap">
+                <input type="number" name="<?= $cfgKey ?>" value="<?= $val ?>"
+                       step="0.1" min="<?= $min ?>" max="<?= $max ?>"
+                       class="input-inline input-inline--num">
+                <?php if ($unit): ?><span class="muted"><?= $unit ?></span><?php endif ?>
+            </div>
+        </div>
+        <?php endforeach ?>
+        <div class="form-row mt-4">
+            <button type="submit" class="btn btn-primary"
+                    onclick="confirmSubmit(this, '<?= t('admin.alerts.confirm_save') ?>'); return false;">
+                 <?= t('admin.alerts.btn_save') ?>
+            </button>
+            <span class="form-hint"><?= t('admin.alerts.save_hint') ?></span>
+        </div>
+    </form>
+</section>

@@ -1,0 +1,203 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/MySqlIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/RoadTransportService.php';
+
+final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
+{
+    // 
+    // ensureConfigsForPlayerWells
+    // 
+
+    public function testEnsureCreatesConfigOnlyForCiezarowkiWells(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'],    'active', 77, 'A1', 'ciezarowki', 70.0, 50.0);
+        $this->seedWell($playerId, $ids['auxWellId'], 'active', 77, 'A1', 'rurociag',   120.0, 40.0);
+
+        $svc = new RoadTransportService($this->db);
+        $wells = [
+            ['id' => $ids['wellId'],    'transport_type' => 'ciezarowki'],
+            ['id' => $ids['auxWellId'], 'transport_type' => 'rurociag'],
+        ];
+        $svc->ensureConfigsForPlayerWells($playerId, $wells);
+        // Idempotentne — drugi call nie powinien duplikowaæ
+        $svc->ensureConfigsForPlayerWells($playerId, $wells);
+
+        $stmt = $this->db->prepare('SELECT well_id, truck_type FROM well_road_configs WHERE player_id = ? ORDER BY id');
+        $stmt->execute([$playerId]);
+        $rows = $stmt->fetchAll();
+
+        $this->assertCount(1, $rows, 'Tylko odwiert ciezarowki dostaje config');
+        $this->assertSame((string)$ids['wellId'], (string)$rows[0]['well_id']);
+        $this->assertSame('standard', $rows[0]['truck_type']);
+    }
+
+    // 
+    // getConfigsByWellIds
+    // 
+
+    public function testGetConfigsByWellIdsReturnsKeyedByWellId(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 70.0, 50.0);
+        $this->seedRoadConfig($playerId, $ids['wellId'], 'heavy', 50.0, 900.0, 0.8);
+
+        $svc     = new RoadTransportService($this->db);
+        $configs = $svc->getConfigsByWellIds($playerId, [$ids['wellId'], 999999]);
+
+        $this->assertArrayHasKey($ids['wellId'], $configs);
+        $this->assertSame('heavy', $configs[$ids['wellId']]['truck_type']);
+        $this->assertSame('50.00', $configs[$ids['wellId']]['trip_capacity_bbl']);
+        $this->assertSame('900.00', $configs[$ids['wellId']]['cost_per_trip']);
+        $this->assertSame('0.800', $configs[$ids['wellId']]['incident_risk_mult']);
+        $this->assertArrayNotHasKey(999999, $configs);
+    }
+
+    // 
+    // processTick — œcie¿ka zero incydentów (risk_mult = 0)
+    // 
+
+    public function testProcessTickWithZeroRiskDeliversAllVolume(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 70.0, 50.0);
+
+        // risk_mult = 0.0  szansa incydentu = 0  wszystkie kursy dostarczone
+        $config = [
+            'trip_capacity_bbl'  => 25.0,
+            'cost_per_trip'      => 500.0,
+            'incident_risk_mult' => 0.0,
+        ];
+
+        $svc    = new RoadTransportService($this->db);
+        $result = $svc->processTick(
+            $playerId, $ids['wellId'], 100.0, 1.0,
+            $config, ['failure_reduction' => 1.0], 1
+        );
+
+        $this->assertSame(4, $result['trips_total'],                '100 bbl / 25 bbl = 4 kursy');
+        $this->assertSame(4, $result['trips_delivered']);
+        $this->assertSame(0, $result['trips_lost']);
+        $this->assertEqualsWithDelta(100.0, $result['delivered_bbl'], 0.001);
+        $this->assertSame(0.0, $result['lost_bbl']);
+        $this->assertSame(2000.0, $result['cost'],                    '4 × 500 = 2000');
+        $this->assertSame([], $result['incidents']);
+
+        // Brak incydentów  brak wpisów w logu
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM well_road_incident_logs WHERE well_id = ?');
+        $stmt->execute([$ids['wellId']]);
+        $this->assertSame('0', (string)$stmt->fetchColumn());
+    }
+
+    // 
+    // processTick — wymuszone incydenty (bardzo du¿y risk_mult)
+    // 
+
+    public function testProcessTickWithMaxRiskCreatesIncidentLogs(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 70.0, 50.0);
+
+        // Bardzo ma³a pojemnoœæ kursu = du¿o kursów  przy 95% szansie prawie na pewno incydent
+        $config = [
+            'trip_capacity_bbl'  => 0.5,   // 100 bbl / 0.5 = 200 kursów
+            'cost_per_trip'      => 10.0,
+            'incident_risk_mult' => 99999.0, // wymusza szansê = min(0.95, ...) = 0.95
+        ];
+
+        $svc    = new RoadTransportService($this->db);
+        $result = $svc->processTick(
+            $playerId, $ids['wellId'], 100.0, 1.0,
+            $config, ['failure_reduction' => 1.0], 1
+        );
+
+        // Przy 200 kursach i 95% szansie incydentu P(0 incydentów)  (0.05)^200  0
+        $this->assertGreaterThan(0, $result['trips_lost'],  'Powinien byæ co najmniej 1 utracony kurs');
+        $this->assertGreaterThan(0.0, $result['lost_bbl'],  'Powinna byæ strata bbl');
+        $this->assertNotEmpty($result['incidents']);
+
+        // Weryfikacja struktury incydentów
+        foreach ($result['incidents'] as $inc) {
+            $this->assertArrayHasKey('type', $inc);
+            $this->assertArrayHasKey('trip_idx', $inc);
+            $this->assertArrayHasKey('lost_bbl', $inc);
+            $this->assertContains($inc['type'], ['theft', 'raid', 'accident', 'sabotage', 'route_block']);
+        }
+
+        // Wpisy w logu incydentów w bazie
+        $stmt = $this->db->prepare(
+            'SELECT SUM(trips_lost) AS total_lost, SUM(vol_lost_bbl) AS total_vol
+               FROM well_road_incident_logs WHERE well_id = ? AND player_id = ?'
+        );
+        $stmt->execute([$ids['wellId'], $playerId]);
+        $logRow = $stmt->fetch();
+
+        $this->assertGreaterThan(0, (int)$logRow['total_lost']);
+        $this->assertGreaterThan(0.0, (float)$logRow['total_vol']);
+    }
+
+    // 
+    // processTick — bilans: delivered + lost = input
+    // 
+
+    public function testProcessTickVolumeBalance(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 70.0, 50.0);
+
+        $config = [
+            'trip_capacity_bbl'  => 10.0,
+            'cost_per_trip'      => 200.0,
+            'incident_risk_mult' => 0.5,
+        ];
+
+        $svc    = new RoadTransportService($this->db);
+        $result = $svc->processTick(
+            $playerId, $ids['wellId'], 50.0, 1.0,
+            $config, ['failure_reduction' => 1.0], 2
+        );
+
+        // Niezmiennik: delivered + lost = input (z tolerancj¹ zaokr¹gleñ)
+        $this->assertEqualsWithDelta(
+            50.0,
+            $result['delivered_bbl'] + $result['lost_bbl'],
+            0.01,
+            'delivered + lost powinno sumowaæ siê do inputBbl'
+        );
+
+        // Koszt = trips_total * cost_per_trip
+        $expectedCost = $result['trips_total'] * 200.0;
+        $this->assertEqualsWithDelta($expectedCost, $result['cost'], 0.01);
+
+        // trips_delivered + trips_lost = trips_total
+        $this->assertSame(
+            $result['trips_total'],
+            $result['trips_delivered'] + $result['trips_lost']
+        );
+    }
+
+    // 
+    // processTick — pusty input
+    // 
+
+    public function testProcessTickWithZeroInputReturnsEmpty(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+
+        $svc    = new RoadTransportService($this->db);
+        $result = $svc->processTick($playerId, $ids['wellId'], 0.0, 1.0, null, [], 1);
+
+        $this->assertSame(0, $result['trips_total']);
+        $this->assertSame(0.0, $result['delivered_bbl']);
+        $this->assertSame(0.0, $result['cost']);
+        $this->assertSame([], $result['incidents']);
+    }
+}

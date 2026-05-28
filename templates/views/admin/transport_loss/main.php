@@ -1,0 +1,201 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<?php
+$avgL  = (float)($globalPipelines['avg_loss']      ?? 0);
+$maxL  = (float)($globalPipelines['max_loss']       ?? 0);
+$crit  = (int)  ($globalPipelines['critical_count'] ?? 0);
+$pCond = (float)($globalPipelines['avg_condition']  ?? 100);
+?>
+
+<h1> <?= t('admin.transport_loss.title') ?></h1>
+
+<!--  STATYSTYKI  -->
+<section aria-label="<?= t('admin.transport_loss.section_global') ?>">
+    <div class="cards">
+        <div class="card">
+            <p class="label"><?= t('admin.transport_loss.stat_avg_loss') ?></p>
+            <p class="value <?= $avgL > 15 ? 'red' : ($avgL > 5 ? 'orange' : 'green') ?>">
+                <?= number_format($avgL, 2) ?>%
+            </p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.transport_loss.stat_max_loss') ?></p>
+            <p class="value <?= $maxL > 20 ? 'red' : 'orange' ?>"><?= number_format($maxL, 2) ?>%</p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.transport_loss.stat_critical') ?></p>
+            <p class="value <?= $crit > 0 ? 'red' : 'green' ?>"><?= $crit ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.transport_loss.stat_active_pipes') ?></p>
+            <p class="value"><?= (int)($globalPipelines['active_count'] ?? 0) ?> / <?= (int)($globalPipelines['total'] ?? 0) ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.transport_loss.stat_avg_condition') ?></p>
+            <p class="value <?= $pCond < 40 ? 'red' : ($pCond < 70 ? 'orange' : 'green') ?>">
+                <?= number_format($pCond, 1) ?>%
+            </p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.transport_loss.stat_oil_price') ?></p>
+            <p class="value orange"><?= number_format($oilPrice, 0) ?> $</p>
+        </div>
+    </div>
+</section>
+
+<?php if ($avgL > 15): ?>
+<p class="alert alert-error"> <?= t('admin.transport_loss.alert_critical', ['loss' => number_format($avgL, 2)]) ?></p>
+<?php elseif ($avgL > 8): ?>
+<p class="alert alert-warning"> <?= t('admin.transport_loss.alert_warning', ['loss' => number_format($avgL, 2)]) ?></p>
+<?php endif ?>
+
+<!--  LOSS PER TYP  -->
+<section class="panel">
+    <p class="panel-title"> <?= t('admin.transport_loss.panel_by_type') ?></p>
+    <?php if (empty($lossByType)): ?>
+    <p class="empty-state"><?= t('admin.transport_loss.no_wells') ?></p>
+    <?php else: ?>
+    <div class="detail-grid">
+    <?php foreach ($lossByType as $row):
+        $t        = $row['transport_type'];
+        $baseProd = (float)$row['total_base_prod'];
+        $avgOpex  = (float)$row['avg_opex'];
+        $capPct   = (float)$row['avg_cap'];
+        $transported  = $baseProd * ($capPct / 100);
+        $lostByCapPct = max(0, 100 - $capPct);
+        $estOpexCost  = $transported * $oilPrice * ($avgOpex / 100);
+    ?>
+    <article>
+        <p class="dl"><?= ($tIcons[$t] ?? '?') . ' ' . ($tNames[$t] ?? $t) ?></p>
+        <p class="dv orange"><?= (int)$row['active_wells'] ?> / <?= (int)$row['wells'] ?> <?= t('admin.transport_loss.wells_of') ?></p>
+        <div class="detail-note-sm">
+            <div><?= t('admin.transport_loss.avg_opex') ?>: <strong><?= round($avgOpex, 1) ?>%</strong></div>
+            <div><?= t('admin.transport_loss.avg_cap') ?>: <strong><?= round($capPct, 1) ?>%</strong></div>
+            <div><?= t('admin.transport_loss.cap_loss') ?>: <strong class="<?= $lostByCapPct > 10 ? 'text-red' : 'text-green' ?>"><?= round($lostByCapPct, 1) ?>%</strong></div>
+            <div><?= t('admin.transport_loss.base_prod') ?>: <?= number_format($baseProd, 1) ?> <?= t('common.bbl') ?>/h</div>
+            <div><?= t('admin.transport_loss.est_transport') ?>: <?= number_format($transported, 1) ?> <?= t('common.bbl') ?>/h</div>
+            <div><?= t('admin.transport_loss.est_opex_h') ?>: $<?= number_format($estOpexCost, 0) ?></div>
+            <div class="<?= $t === 'ciezarowki' ? 'text-orange' : 'muted' ?>"><?= $tRiskBase[$t] ?? '' ?></div>
+        </div>
+    </article>
+    <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<!--  LOSS PER WARSTWA  -->
+<?php if (!empty($lossByLayer)): ?>
+<section class="panel">
+    <p class="panel-title"> <?= t('admin.transport_loss.panel_by_layer') ?></p>
+    <div class="layer-grid">
+    <div class="list-header">
+        <span><?= t('admin.transport_loss.col_layer') ?></span>
+        <span><?= t('admin.transport_loss.col_transport') ?></span>
+        <span><?= t('admin.transport_loss.col_wells') ?></span>
+        <span><?= t('admin.transport_loss.col_avg_opex') ?></span>
+        <span><?= t('admin.transport_loss.col_base_prod') ?></span>
+    </div>
+    <div class="data-list">
+    <?php foreach ($lossByLayer as $row):
+        $t    = $row['transport_type'];
+        $opex = (float)$row['avg_opex'];
+    ?>
+    <article class="list-row">
+        <span class="font-md"><?= htmlspecialchars($row['layer'] ?? 'shallow') ?></span>
+        <span><?= ($tIcons[$t] ?? '?') . ' ' . ($tNames[$t] ?? $t) ?></span>
+        <span><?= (int)$row['wells'] ?></span>
+        <span class="<?= $opex > 15 ? 'text-red' : ($opex > 8 ? 'text-orange' : '') ?>"><?= round($opex, 1) ?>%</span>
+        <span><?= number_format((float)$row['base_prod'], 1) ?></span>
+    </article>
+    <?php endforeach ?>
+    </div>
+    </div>
+</section>
+<?php endif ?>
+
+<!--  LOSS PER GRACZ  -->
+<section class="panel">
+    <p class="panel-title"> <?= t('admin.transport_loss.panel_by_player') ?></p>
+    <?php if (empty($lossPerPlayer)): ?>
+    <p class="empty-state"><?= t('admin.transport_loss.no_players') ?></p>
+    <?php else: ?>
+    <div class="player-loss-grid">
+    <div class="list-header">
+        <span><?= t('admin.transport_loss.col_player') ?></span>
+        <span><?= t('admin.transport_loss.col_wells') ?></span>
+        <span><?= t('admin.transport_loss.col_avg_opex') ?></span>
+        <span><?= t('admin.transport_loss.col_avg_cap') ?></span>
+        <span><?= t('admin.transport_loss.col_pipe_loss') ?></span>
+        <span><?= t('admin.transport_loss.col_mix') ?></span>
+        <span><?= t('admin.transport_loss.col_base_prod') ?></span>
+    </div>
+    <div class="data-list">
+    <?php foreach ($lossPerPlayer as $p):
+        $pAvgOpex  = (float)$p['avg_opex'];
+        $pPipeAvgL = (float)$p['pipeline_avg_loss'];
+    ?>
+    <article class="list-row">
+        <span><a href="/admin/player.php?id=<?= $p['id'] ?>"><?= htmlspecialchars($p['login']) ?></a></span>
+        <span><?= (int)$p['active_wells'] ?>/<?= (int)$p['total_wells'] ?></span>
+        <span class="<?= $pAvgOpex > 15 ? 'text-red' : ($pAvgOpex > 8 ? 'text-orange' : '') ?>"><?= round($pAvgOpex, 1) ?>%</span>
+        <span><?= round((float)$p['avg_cap'], 0) ?>%</span>
+        <span class="<?= $pPipeAvgL > 15 ? 'text-red' : ($pPipeAvgL > 5 ? 'text-orange' : 'text-green') ?>"><?= round($pPipeAvgL, 2) ?>%</span>
+        <span class="font-xs muted"><?= htmlspecialchars($p['transport_mix'] ?? t('common.dash')) ?></span>
+        <span class="text-orange"><?= number_format((float)$p['base_prod_sum'], 1) ?></span>
+    </article>
+    <?php endforeach ?>
+    </div>
+    </div>
+    <?php endif ?>
+</section>
+
+<!--  TOP 20 NAJGORSZYCH ODWIERTÓW  -->
+<section class="panel">
+    <p class="panel-title"> <?= t('admin.transport_loss.panel_worst_wells') ?></p>
+    <?php if (empty($worstWells)): ?>
+    <p class="empty-state"><?= t('admin.transport_loss.no_wells') ?></p>
+    <?php else: ?>
+    <div class="well-loss-grid">
+    <div class="list-header">
+        <span>ID</span>
+        <span><?= t('admin.transport_loss.col_well_player') ?></span>
+        <span><?= t('admin.transport_loss.col_transport') ?></span>
+        <span>Cap%</span>
+        <span>OPEX%</span>
+        <span>Cond%</span>
+        <span>Wear</span>
+        <span>Status</span>
+    </div>
+    <div class="data-list">
+    <?php foreach ($worstWells as $w):
+        $capPct        = (float)$w['transport_capacity_pct'];
+        $opexPct       = (float)$w['transport_opex_pct'];
+        $cond          = (float)$w['technical_condition'];
+        $wear          = (float)$w['wear_level'];
+        $t             = $w['transport_type'];
+        $estHourlyLoss = $w['base_production_per_hour'] * $oilPrice * ($opexPct / 100);
+    ?>
+    <article class="list-row">
+        <span class="muted">#<?= $w['id'] ?></span>
+        <span>
+            <div class="row-name-primary"><?= htmlspecialchars($w['name'] ?? "Odwiert #{$w['id']}") ?></div>
+            <div class="row-name-secondary">
+                <a href="/admin/player.php?id=<?= $w['player_id'] ?>"><?= htmlspecialchars($w['player_login']) ?></a>
+                | <?= htmlspecialchars($w['location_name'] ?? '?') ?>
+            </div>
+            <div class="row-name-note">est. OPEX: $<?= number_format($estHourlyLoss, 0) ?>/h</div>
+        </span>
+        <span><?= ($tIcons[$t] ?? '?') ?></span>
+        <span class="<?= $capPct < 80 ? 'text-red' : '' ?>"><?= round($capPct, 0) ?>%</span>
+        <span class="<?= $opexPct > 15 ? 'text-red' : ($opexPct > 10 ? 'text-orange' : '') ?>"><?= round($opexPct, 1) ?>%</span>
+        <span class="<?= $cond < 40 ? 'text-red' : ($cond < 70 ? 'text-orange' : 'text-green') ?>"><?= round($cond, 0) ?>%</span>
+        <span class="<?= $wear > 70 ? 'text-red' : ($wear > 40 ? 'text-orange' : '') ?>"><?= round($wear, 0) ?></span>
+        <span class="badge badge-<?= in_array($w['status'], ['active','contaminated']) ? 'active' : (in_array($w['status'], ['blowout','seized']) ? 'bankrupt' : 'paused') ?>">
+            <?= $w['status'] ?>
+        </span>
+    </article>
+    <?php endforeach ?>
+    </div>
+    </div>
+    <?php endif ?>
+</section>

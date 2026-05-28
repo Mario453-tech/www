@@ -1,0 +1,2019 @@
+<?php
+/**
+ * technical.php — Panel Działu Technicznego
+ */
+require_once __DIR__ . '/src/init.php';
+Auth::requireLogin();
+require_once __DIR__ . '/src/TechnicalTeamService.php';
+require_once __DIR__ . '/src/WellService.php';
+require_once __DIR__ . '/src/IncidentService.php';
+
+$_pageStart = GameLog::pageStart('technical.php');
+$playerId   = Auth::getUserId();
+GameLog::info('technical.php', "Zalogowany gracz", ['player_id' => $playerId]);
+
+// ── Inicjalizacja serwisów ───────────────────────────────
+try {
+    $svc = new TechnicalTeamService($playerId);
+    GameLog::info('technical.php', 'TechnicalTeamService OK');
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'Nie udało się utworzyć TechnicalTeamService', $e);
+    die('Błąd inicjalizacji Działu Technicznego. Sprawdź game_debug.log');
+}
+
+try {
+    $wellSvc = new WellService();
+    GameLog::info('technical.php', 'WellService OK');
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'Nie udało się utworzyć WellService', $e);
+    die('Błąd inicjalizacji WellService. Sprawdź game_debug.log');
+}
+
+try {
+    $incidentSvc = new IncidentService();
+    GameLog::info('technical.php', 'IncidentService OK');
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'Nie udało się utworzyć IncidentService', $e);
+    $incidentSvc = null;
+}
+
+// ── AKCJE POST ────────────────────────────────────────────────────
+$msg = $msgType = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    GameLog::info('technical.php', 'POST request', [
+        'action' => $_POST['action'] ?? '?',
+        'keys'   => array_keys($_POST),
+    ]);
+
+    if (!CSRF::validateToken($_POST['_token'] ?? '')) {
+        $msg = 'Błąd CSRF.'; $msgType = 'error';
+        GameLog::warn('technical.php', 'CSRF walidacja NIEUDANA');
+    } else {
+        $action = $_POST['action'] ?? '';
+        GameLog::step('technical.php', 'POST', 1, "Akcja: {$action}");
+        switch ($action) {
+
+            case 'assign_task':
+                try {
+                    $r = $svc->assignTask(
+                        (int)($_POST['staff_id']  ?? 0),
+                        $_POST['task_type']      ?? '',
+                        ($_POST['well_id'] ?? '') !== '' ? (int)$_POST['well_id'] : null,
+                        ($_POST['module_type'] ?? '') !== '' ? $_POST['module_type'] : null
+                    );
+                    $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'assign_task result', $r);
+                } catch (Throwable $e) {
+                    $msg = 'Wewnętrzny błąd zlecania zadania.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'assign_task EXCEPTION', $e);
+                }
+                break;
+
+            case 'fire_engineer':
+                try {
+                    $r = $svc->fireEngineer((int)($_POST['staff_id'] ?? 0));
+                    $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'fire_engineer result', $r);
+                } catch (Throwable $e) {
+                    $msg = 'Błąd zwalniania inżyniera.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'fire_engineer EXCEPTION', $e);
+                }
+                break;
+
+            case 'review_candidate':
+                try {
+                    $r = $svc->reviewCandidate(
+                        (int)($_POST['candidate_id'] ?? 0),
+                        (int)($_POST['technical_score'] ?? 0),
+                        $_POST['recommendation'] ?? 'reject',
+                        Validator::sanitize($_POST['comment'] ?? '')
+                    );
+                    $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'review_candidate result', $r);
+                } catch (Throwable $e) {
+                    $msg = 'Błąd zapisywania oceny.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'review_candidate EXCEPTION', $e);
+                }
+                break;
+
+            case 'request_recruitment':
+                try {
+                    $recCount = max(1, min(3, (int)($_POST['count'] ?? 1)));
+                    $recSpec  = $_POST['spec_code']        ?? '';
+                    $recReg   = $_POST['region_code']      ?? 'PL';
+                    $recType  = $_POST['recruitment_type'] ?? 'local';
+                    $msgs     = [];
+                    $allOk    = true;
+                    for ($ri = 0; $ri < $recCount; $ri++) {
+                        $r = $svc->requestRecruitment($recSpec, $recReg, $recType);
+                        if (!$r['success']) { $allOk = false; $msgs[] = $r['message']; break; }
+                        $msgs[] = $r['message'];
+                    }
+                    $msgType = $allOk ? 'success' : 'error';
+                    if ($recCount === 1) {
+                        $msg = $msgs[0];
+                    } else {
+                        $msg = "Zlecono {$recCount} rekrutacje: " . ($allOk ? 'wszystkie przyjęte.' : implode('; ', $msgs));
+                    }
+                    GameLog::info('technical.php', 'request_recruitment result', ['count' => $recCount, 'ok' => $allOk]);
+                } catch (Throwable $e) {
+                    $msg = 'Błąd zlecania rekrutacji.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'request_recruitment EXCEPTION', $e);
+                }
+                break;
+
+            case 'cancel_task':
+                try {
+                    $r = $svc->cancelTask((int)($_POST['task_id'] ?? 0));
+                    $msg = $r['message'];
+                    $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'cancel_task', ['task_id' => $_POST['task_id'] ?? 0, 'success' => $r['success']]);
+                } catch (Throwable $e) {
+                    $msg = 'Błąd podczas anulowania zadania.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'cancel_task EXCEPTION', $e);
+                }
+                break;
+
+            case 'cancel_queue_item':
+                try {
+                    $r = $svc->cancelQueueItem((int)($_POST['queue_id'] ?? 0));
+                    $msg = $r['message'];
+                    $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'cancel_queue_item', ['queue_id' => $_POST['queue_id'] ?? 0, 'success' => $r['success']]);
+                } catch (Throwable $e) {
+                    $msg = 'Błąd podczas usuwania z kolejki.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'cancel_queue_item EXCEPTION', $e);
+                }
+                break;
+
+            case 'upgrade_procedures':
+                try {
+                    $r = $svc->upgradeProcedures();
+                    $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'upgrade_procedures result', $r);
+                } catch (Throwable $e) {
+                    $msg = 'Błąd wdrażania procedur BHP.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'upgrade_procedures EXCEPTION', $e);
+                }
+                break;
+
+            case 'repair_procedure_integrity':
+                try {
+                    $r = $svc->repairProcedureIntegrity();
+                    $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'repair_procedure_integrity result', $r);
+                } catch (Throwable $e) {
+                    $msg = 'Błąd przeglądu procedur BHP.'; $msgType = 'error';
+                    GameLog::error('technical.php', 'repair_procedure_integrity EXCEPTION', $e);
+                }
+                break;
+
+            case 'dismiss_notification':
+                try {
+                    $svc->markRead((int)($_POST['notif_id'] ?? 0));
+                    GameLog::info('technical.php', 'dismiss_notification OK', ['notif_id' => $_POST['notif_id'] ?? 0]);
+                } catch (Throwable $e) {
+                    GameLog::error('technical.php', 'dismiss_notification EXCEPTION', $e);
+                }
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true]);
+                exit;
+
+            default:
+                GameLog::warn('technical.php', "Nieznana akcja POST: {$action}");
+        }
+    }
+}
+
+// processReadyRecruitments() — wywoływane tylko przez cron/tick.php, nie przy pageview
+
+// ── DANE ──────────────────────────────────────────────────────────
+$_dataStart = microtime(true);
+
+try { $manager = $svc->getManager(); GameLog::info('technical.php', 'getManager', ['found' => $manager ? 'tak' : 'nie']); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getManager FAIL', $e); $manager = null; }
+
+try { $mBonus = $svc->getManagerBonus($manager); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getManagerBonus FAIL', $e); $mBonus = ['skill'=>0,'time_mult'=>1,'cost_mult'=>1,'label'=>'']; }
+
+try { $staff = $svc->getStaff(); GameLog::dbResult('technical.php', 'getStaff', count($staff)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getStaff FAIL', $e); $staff = []; }
+
+try { $wells = $wellSvc->getPlayerWells($playerId); GameLog::dbResult('technical.php', 'getPlayerWells', count($wells)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getPlayerWells FAIL', $e); $wells = []; }
+
+try { $activeTasks = $svc->getActiveTasks(); GameLog::dbResult('technical.php', 'getActiveTasks', count($activeTasks)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getActiveTasks FAIL', $e); $activeTasks = []; }
+
+try { $allTasks = $svc->getTasks(); GameLog::dbResult('technical.php', 'getTasks', count($allTasks)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getTasks FAIL', $e); $allTasks = []; }
+
+// Auto-zakończ zadania których end_time minął (na wypadek gdy cron nie zdążył)
+try {
+    $svc->processTick();
+    // Odśwież listę po processTick
+    $allTasks = $svc->getTasks();
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'processTick FAIL', $e);
+}
+
+try { $taskQueue = $svc->getQueue(); GameLog::dbResult('technical.php', 'getQueue', count($taskQueue)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getQueue FAIL', $e); $taskQueue = []; }
+
+try { $notifications = $svc->getUnreadNotifications(); GameLog::dbResult('technical.php', 'getUnreadNotifications', count($notifications)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getUnreadNotifications FAIL', $e); $notifications = []; }
+
+try { $incidents = $incidentSvc ? $incidentSvc->getPlayerIncidents($playerId, 50) : []; GameLog::dbResult('technical.php', 'getPlayerIncidents', count($incidents)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getPlayerIncidents FAIL', $e); $incidents = []; }
+
+$activeTab = $_GET['tab'] ?? 'team';
+GameLog::info('technical.php', "Aktywna zakładka: {$activeTab}");
+
+try { $candidates = $svc->getTechnicalCandidates(); GameLog::dbResult('technical.php', 'getTechnicalCandidates', count($candidates)); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getTechnicalCandidates FAIL', $e); $candidates = []; }
+
+try { $activeRecruitment = $svc->getActiveRecruitment(); GameLog::info('technical.php', 'getActiveRecruitment', ['found' => $activeRecruitment ? 'tak' : 'nie']); }
+catch (Throwable $e) { GameLog::error('technical.php', 'getActiveRecruitment FAIL', $e); $activeRecruitment = null; }
+
+$unreviewed = count(array_filter($candidates, fn($c) => $c['review_id'] === null));
+$csrf       = CSRF::generateToken();
+
+$staffBySpec = [];
+foreach ($staff as $s) { $staffBySpec[$s['spec_code']][] = $s; }
+
+$brokenWells = array_filter($wells, fn($w) => in_array($w['status'], ['broken','paused_cash','paused_staff','blowout','contaminated']));
+$activeWells = array_filter($wells, fn($w) => $w['status'] === 'active');
+
+$totalProd = array_sum(array_map(fn($w) => (float)$w['base_production_per_hour'], $activeWells));
+$avgCond   = count($wells) ? round(array_sum(array_map(fn($w) => (float)$w['technical_condition'], $wells)) / count($wells), 1) : 0;
+
+// Dane personelu odwiertów
+try {
+    $wellStaffSvc    = new WellStaffService($playerId);
+    $wellsStaffStatus = $wellStaffSvc->getWellsStaffStatus();
+    $wellsWithoutStaff = count(array_filter($wellsStaffStatus,
+        fn($w) => !$w['has_operator'] || !$w['has_technician']));
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'WellStaffService FAIL', $e);
+    $wellStaffSvc     = null;
+    $wellsStaffStatus = [];
+    $wellsWithoutStaff = 0;
+}
+
+// Bonus BHP — obliczony raz, używany w zakładce Bezpieczeństwo
+try {
+    $hseBonus = $svc->getHSEBonus();
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'getHSEBonus FAIL', $e);
+    $hseBonus = ['active_hse' => 0, 'failure_reduction' => 1.0, 'repair_cost_mult' => 1.0,
+                 'catastrophe_mult' => 1.0, 'uptime_bonus' => 0.0, 'degrade_mult' => 1.0,
+                 'audit_bonus' => false, 'proc_level' => 0, 'proc_integrity' => 100.0,
+                 'proc_factor' => 0.0, 'label' => 'Błąd odczytu BHP'];
+}
+
+// Dane procedur BHP
+try {
+    $procStatus = $svc->getProcedureStatus();
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'getProcedureStatus FAIL', $e);
+    $procStatus = ['level' => 0, 'integrity' => 100.0, 'last_decay_at' => null];
+}
+
+// ── Pipelines ────────────────────────────────────────────
+try {
+    $db = Database::getInstance()->getConnection();
+
+    // Sprawdź kluczowe tabele
+    GameLog::tablesCheck($db, 'technical.php', [
+        'pipelines', 'technical_staff', 'technical_tasks',
+        'technical_notifications', 'candidate_reviews', 'failure_log'
+    ]);
+
+    $pipeStmt = $db->prepare("SELECT * FROM pipelines WHERE player_id = ? ORDER BY id");
+    $pipeStmt->execute([$playerId]);
+    $pipelines = $pipeStmt->fetchAll();
+    GameLog::dbResult('technical.php', 'pipelines', count($pipelines));
+
+    if (empty($pipelines)) {
+        GameLog::info('technical.php', 'Brak rurociągów — tworzę domyślny');
+        $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Rurociąg główny')")->execute([$playerId]);
+        $pipeStmt->execute([$playerId]);
+        $pipelines = $pipeStmt->fetchAll();
+    }
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'Błąd ładowania/tworzenia pipelines', $e);
+    $pipelines = [];
+}
+
+GameLog::perf('technical.php', 'Wszystkie dane załadowane', $_dataStart);
+GameLog::info('technical.php', 'Renderuję HTML', [
+    'manager'       => $manager ? 'tak' : 'nie',
+    'staff'         => count($staff),
+    'wells'         => count($wells),
+    'active_wells'  => count($activeWells),
+    'broken_wells'  => count($brokenWells),
+    'active_tasks'  => count($activeTasks),
+    'candidates'    => count($candidates),
+    'unreviewed'    => $unreviewed,
+    'pipelines'     => count($pipelines),
+    'total_prod'    => $totalProd,
+    'avg_condition'  => $avgCond,
+    'incidents'     => count($incidents),
+]);
+?>
+<!DOCTYPE html>
+<html lang="pl">
+<head><meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#08080f">
+<meta name="csrf-token" content="<?= htmlspecialchars(CSRF::generateToken()) ?>">
+<title>Dział Techniczny — OilCorp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/style.css?v=2">
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="tech-topbar">
+    <div class="topbar-left">
+        <a href="<?= url('home') ?>" class="t-logo">OIL<span>CORP</span></a>
+        <span class="t-section">Dział Techniczny</span>
+    </div>
+    <div class="topbar-right">
+        <?php if ($manager): ?>
+        <div class="topbar-manager">
+            <span class="topbar-manager-name"><?= htmlspecialchars($manager['first_name'].' '.$manager['last_name']) ?></span>
+            <span class="topbar-manager-role">Kierownik Techniczny</span>
+        </div>
+        <?php endif ?>
+        <a href="<?= url('home') ?>" class="t-back">← Dashboard</a>
+    </div>
+</div>
+
+<div class="t-wrap">
+
+<?php if ($msg): ?>
+<div class="msg-bar msg-<?= $msgType ?>"><?= htmlspecialchars($msg) ?></div>
+<?php endif ?>
+
+<!-- POWIADOMIENIA -->
+<?php if (!empty($notifications)): ?>
+<div class="notif-wrap" id="notif-panel">
+    <div class="notif-hdr">⚠ Komunikaty Działu Technicznego (<?= count($notifications) ?>)</div>
+    <?php foreach ($notifications as $n): ?>
+    <div class="notif-row" id="notif-<?= $n['id'] ?>">
+        <div>
+            <div class="notif-msg"><?= htmlspecialchars($n['message']) ?></div>
+            <div class="notif-time"><?= date('d.m.Y H:i', strtotime($n['created_at'])) ?></div>
+        </div>
+        <button class="notif-x" onclick="dismissNotif(<?= $n['id'] ?>)" title="Zatwierdź">✕</button>
+    </div>
+    <?php endforeach ?>
+</div>
+<?php endif ?>
+
+<!-- TABS -->
+<nav class="t-tabs">
+<?php
+$tabDefs = [
+    'team'        => ['Zespół',          count($staff)],
+    'well_staff'  => ['Personel Odwiertów', $wellsWithoutStaff],
+    'candidates'  => ['Kandydaci',       $unreviewed],
+    'tasks'       => ['Zadania',         count($activeTasks)],
+    'wells'       => ['Odwierty',        count($wells)],
+    'prod'        => ['Produkcja',       null],
+    'infra'       => ['Infrastruktura',  null],
+    'safety'      => ['Bezpieczeństwo',  count($brokenWells)],
+    'incidents'    => ['Incydenty',       count($incidents)],
+    'report'      => ['Raport',          null],
+];
+foreach ($tabDefs as $id => [$label, $cnt]):
+    $isActive = $activeTab === $id;
+?>
+<a href="?tab=<?= $id ?>" class="t-tab <?= $isActive ? 'active' : '' ?>">
+    <?= $label ?>
+    <?php if ($cnt !== null && $cnt > 0): ?>
+    <span class="tbadge <?= $id === 'team' ? 'tbadge-ok' : '' ?>"><?= $cnt ?></span>
+    <?php endif ?>
+</a>
+<?php endforeach ?>
+</nav>
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: ZESPÓŁ
+══════════════════════════════════════ -->
+<?php if ($activeTab === 'team'): ?>
+
+<?php if (!$manager): ?>
+<div class="msg-bar msg-error">⚠ Brak Kierownika Technicznego. Zatrudnij pracownika w Dziale Kadr (rola: Dział Techniczny).</div>
+<?php else: ?>
+
+<div class="g-card">
+    <div class="g-card-title">Kierownik Techniczny</div>
+    <div class="mgr-card">
+        <div class="mgr-avatar">👔</div>
+        <div>
+            <div class="mgr-name"><?= htmlspecialchars($manager['first_name'].' '.$manager['last_name']) ?></div>
+            <div class="mgr-role">Kierownik Techniczny</div>
+            <div class="mgr-stats">
+                <div class="mgr-stat">Staż: <span><?= (int)($manager['days_employed'] ?? 0) ?> dni</span></div>
+                <div class="mgr-stat">Doświadczenie: <span><?= $manager['experience_years'] ?> lat</span></div>
+                <div class="mgr-stat">Pensja: <span class="c-gold">$<?= number_format($manager['salary'], 0, '.', ' ') ?>/mies.</span></div>
+            </div>
+        </div>
+    </div>
+    <?php if ($mBonus['skill'] > 0): ?>
+    <div class="mgr-bonus"><?= htmlspecialchars($mBonus['label']) ?></div>
+    <?php endif ?>
+</div>
+
+<?php endif ?>
+
+<div class="g-card">
+    <div class="g-card-title">Zespół Inżynierów (<?= count($staff) ?>)</div>
+
+    <?php if (empty($staff)): ?>
+    <div class="empty-state">Brak inżynierów. Zatrudnij specjalistów poniżej.</div>
+    <?php else: ?>
+    <div class="staff-grid">
+    <?php foreach ($staff as $s):
+        $specDef   = TechnicalTeamService::SPECS[$s['spec_code']] ?? ['icon'=>'?','name'=>$s['spec_name']];
+        $isBusy    = $s['active_task_id'] !== null;
+        $skillFill = (int)$s['skill_level'] * 10;
+        $statusCls = $isBusy ? 'b-busy' : 'b-active';
+        $statusLbl = $isBusy ? 'W trakcie' : 'Dostępny';
+
+        $progress = 0;
+        if ($isBusy && $s['active_task_end']) {
+            $taskStmt = $db->prepare("SELECT start_time, end_time FROM technical_tasks WHERE id = ? LIMIT 1");
+            $taskStmt->execute([$s['active_task_id']]);
+            $taskRow = $taskStmt->fetch();
+            if ($taskRow) {
+                $total    = strtotime($taskRow['end_time']) - strtotime($taskRow['start_time']);
+                $elapsed  = time() - strtotime($taskRow['start_time']);
+                $progress = $total > 0 ? min(100, round($elapsed / $total * 100)) : 100;
+            }
+        }
+    ?>
+    <div class="staff-card <?= $isBusy ? 'busy' : '' ?>">
+        <div class="staff-hdr">
+            <div>
+                <span class="staff-spec-icon"><?= $specDef['icon'] ?></span>
+                <span class="staff-name"><?= htmlspecialchars($s['first_name'].' '.$s['last_name']) ?></span>
+                <div class="staff-spec">
+                    <?= htmlspecialchars($specDef['name']) ?>
+                    <?php if (!empty($s['specialization']) && !empty($s['specialization_name'])): ?>
+                    <span class="ts-perk-badge ts-perk--<?= htmlspecialchars($s['spec_rarity'] ?? 'uncommon') ?>"
+                          title="Specjalizacja: <?= htmlspecialchars($s['specialization_name']) ?>">
+                        ⭐ <?= htmlspecialchars($s['specialization_name']) ?>
+                    </span>
+                    <?php endif ?>
+                </div>
+            </div>
+            <span class="badge <?= $statusCls ?>"><?= $statusLbl ?></span>
+        </div>
+
+        <div class="skill-bar-row">
+            <div class="skill-bar-label">
+                <span>Skill</span>
+                <span class="c-gold fw7"><?= $s['skill_level'] ?>/10</span>
+            </div>
+            <div class="skill-bar"><div class="skill-fill" style="--bar-w:<?= $skillFill ?>%"></div></div>
+        </div>
+
+        <div class="staff-meta">
+            <span><?= $s['experience_years'] ?> lat dośw.</span>
+            <span class="c-gold">$<?= number_format($s['salary'], 0, '.', ' ') ?>/mies.</span>
+            <?php if ($s['queued_tasks'] > 0): ?>
+            <span class="c-warn"><?= $s['queued_tasks'] ?> w kolejce</span>
+            <?php endif ?>
+        </div>
+
+        <?php if ($isBusy): ?>
+        <div class="task-running">
+            <div class="task-running-label">Aktywne zadanie</div>
+            <div class="task-running-title"><?= htmlspecialchars($s['active_task_title'] ?? '') ?></div>
+            <div class="task-running-time">
+                Koniec: <?= date('d.m H:i', strtotime($s['active_task_end'])) ?>
+                · Pozostało: <span class="countdown" data-end="<?= strtotime($s['active_task_end']) ?>"></span>
+            </div>
+            <div class="task-running-bar"><div class="task-running-fill" style="--bar-w:<?= $progress ?>%"></div></div>
+        </div>
+        <?php endif ?>
+
+        <?php if (!$isBusy && $manager): ?>
+        <div class="staff-actions">
+            <details>
+                <summary class="task-assign-toggle">+ Zlec zadanie</summary>
+                <div class="task-form">
+                    <form method="post">
+                        <input type="hidden" name="_token" value="<?= $csrf ?>">
+                        <input type="hidden" name="action" value="assign_task">
+                        <input type="hidden" name="staff_id" value="<?= $s['id'] ?>">
+                        <div class="task-form-grid">
+                            <div class="form-group form-group--flush">
+                                <label class="form-label">Typ zadania</label>
+                                <select name="task_type" class="form-input" onchange="toggleWellSelect(this, '<?= $s['id'] ?>')">
+                                    <?php foreach (TechnicalTeamService::TASKS as $code => $td):
+                                        if (!in_array($s['spec_code'], $td['assignable'])) continue;
+                                    ?>
+                                    <option value="<?= $code ?>"
+                                            data-needs-well="<?= $td['needs_well'] ? '1' : '0' ?>"
+                                            data-needs-module="<?= $code === 'install_module' ? '1' : '0' ?>">
+                                        <?= $td['icon'] ?> <?= $td['label'] ?> · <?= $td['effect'] ?>
+                                    </option>
+                                    <?php endforeach ?>
+                                </select>
+                            </div>
+                            <div class="form-group form-group--flush" id="well-sel-<?= $s['id'] ?>">
+                                <label class="form-label">Odwiert</label>
+                                <select name="well_id" class="form-input">
+                                    <option value="">— bez odwiertu —</option>
+                                    <?php foreach ($wells as $w): ?>
+                                    <option value="<?= $w['id'] ?>">#<?= $w['id'] ?> <?= htmlspecialchars($w['location_name'] ?? 'Odwiert') ?> (<?= $w['status'] ?>)</option>
+                                    <?php endforeach ?>
+                                </select>
+                            </div>
+                            <div class="form-group form-group--flush form-group--hidden" id="mod-sel-<?= $s['id'] ?>">
+                                <label class="form-label">Moduł</label>
+                                <select name="module_type" class="form-input">
+                                    <?php foreach (TechnicalTeamService::MODULES as $mCode => $mDef): ?>
+                                    <option value="<?= $mCode ?>"><?= $mDef['label'] ?> · <?= $mDef['effect'] ?></option>
+                                    <?php endforeach ?>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">Zlec →</button>
+                        </div>
+                    </form>
+                </div>
+            </details>
+        </div>
+        <?php endif ?>
+
+        <?php if (!$isBusy): ?>
+        <form method="post" class="fire-form">
+            <input type="hidden" name="_token" value="<?= $csrf ?>">
+            <input type="hidden" name="action" value="fire_engineer">
+            <input type="hidden" name="staff_id" value="<?= $s['id'] ?>">
+            <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Zwolnić <?= addslashes($s['first_name'].' '.$s['last_name']) ?>?')">Zwolnij</button>
+        </form>
+        <?php endif ?>
+    </div>
+    <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</div>
+<?php endif ?>
+
+
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: KANDYDACI
+══════════════════════════════════════ -->
+
+<?php if ($activeTab === 'candidates'): ?>
+
+<!-- ZAPOTRZEBOWANIE NA SPECJALISTÓW -->
+<div class="g-card">
+    <div class="g-card-title">Zapotrzebowanie na specjalistów</div>
+
+    <?php if ($activeRecruitment): ?>
+    <?php
+    $secsLeft   = max(0,(int)$activeRecruitment['seconds_remaining']);
+    $statusReady = $activeRecruitment['status'] === 'ready';
+
+    // Auto-zamknij: status=ready ale brak żywych kandydatów → martwy request
+    if ($statusReady && empty($candidates)) {
+        try {
+            $db->prepare("UPDATE recruitment_requests SET status='completed' WHERE id=?")
+               ->execute([(int)$activeRecruitment['id']]);
+            GameLog::info('technical.php', 'auto-completed stale ready recruitment',
+                ['req_id' => $activeRecruitment['id']]);
+            $activeRecruitment = null;
+            $statusReady       = false;
+        } catch (Throwable $e) {
+            GameLog::error('technical.php', 'auto-complete stale recruitment FAILED', $e);
+        }
+    }
+    ?>
+    <?php if ($activeRecruitment): ?>
+    <div class="rec-status-bar <?= $statusReady?'rec-ready':'rec-pending' ?>">
+        <div class="rec-status-icon"><?= $statusReady?'✓':'⏳' ?></div>
+        <div class="rec-status-info">
+            <div class="rec-status-title"><?= $statusReady?'Kandydaci gotowi — przewiń w dół aby ocenić':'Dział Kadr szuka kandydatów...' ?></div>
+            <div class="rec-status-meta">
+                Zlecone przez: Dział Techniczny
+                <?php if(!$statusReady && $secsLeft>0): ?>
+                · Pozostało: <span class="countdown" data-end="<?= strtotime($activeRecruitment['ready_at']) ?>"></span>
+                <?php endif ?>
+            </div>
+        </div>
+        <?php if($statusReady): ?><span class="badge b-active">Gotowe</span><?php endif ?>
+    </div>
+    <?php endif ?>
+    <?php endif ?>
+
+    <?php if (!$activeRecruitment || ($activeRecruitment && $activeRecruitment['status'] === 'ready')): ?>
+    <div class="specs-need-grid">
+    <?php
+    $wellCount = max(1, count($wells));
+    // Proporcje: ile pracowników potrzeba na N odwiertów
+    // drilling_engineer: 2 na 1 odwiert, reservoir_engineer: 1 na 2 odwierty,
+    // production_engineer: 1 na 1, maintenance_engineer: 1 na 1, pipeline_engineer: 1 na 1,
+    // safety_officer: 1 na 2 odwierty, safety_engineer: 1 na 2 odwierty
+    $staffRatios = [
+        'drilling_engineer'    => 2,       // x2 per odwiert
+        'reservoir_engineer'   => 0.5,     // 1 na 2 odwierty
+        'production_engineer'  => 1,       // 1 na 1
+        'maintenance_engineer' => 1,       // 1 na 1
+        'pipeline_engineer'    => 1,       // 1 na 1
+        'safety_officer'       => 0.5,     // 1 na 2 odwierty
+        'safety_engineer'      => 0.5,     // 1 na 2 odwierty
+    ];
+    foreach(TechnicalTeamService::SPECS as $specCode => $spec):
+        $cnt    = count(array_filter($staff, fn($s) => $s['spec_code'] === $specCode));
+        $ratio  = $staffRatios[$specCode] ?? 1;
+        $needed = max(1, (int)ceil($wellCount * $ratio));
+        $needMore = $cnt < $needed;
+    ?>
+    <div class="spec-need-card <?= $cnt > 0 ? ($needMore ? 'spec-partial' : 'spec-have') : 'spec-missing' ?>">
+        <div class="spec-need-icon"><?= $spec['icon'] ?></div>
+        <div class="spec-need-name"><?= $spec['name'] ?></div>
+        <div class="spec-need-count">
+            <span class="<?= $cnt >= $needed ? 'c-green' : ($cnt > 0 ? 'c-warn' : 'c-muted2') ?>">
+                <?= $cnt ?> / <?= $needed ?> zatrudnionych
+            </span>
+        </div>
+        <?php if($manager && $needMore): ?>
+        <form method="post" class="spec-need-form">
+            <input type="hidden" name="_token" value="<?= $csrf ?>">
+            <input type="hidden" name="action" value="request_recruitment">
+            <input type="hidden" name="spec_code" value="<?= $specCode ?>">
+            <div class="spec-need-row">
+                <select name="region_code" class="form-input spec-need-region">
+                    <option value="PL">🇵🇱 Polska (lok. 6–12h)</option>
+                    <option value="EU">🇪🇺 Europa (lok. 6–12h)</option>
+                    <option value="NO">🇳🇴 Norwegia (międzyn. 24–48h)</option>
+                    <option value="US_CA">🇺🇸 USA/Kanada (międzyn. 24–48h)</option>
+                    <option value="ME">🌍 Bliski Wschód (międzyn. 24–48h)</option>
+                    <option value="RU">🇷🇺 Rosja (lok. 6–12h)</option>
+                    <option value="ASIA">🌏 Azja (międzyn. 24–48h)</option>
+                </select>
+                <select name="count" class="form-input spec-need-count" title="Ile rekrutacji naraz">
+                    <option value="1">×1</option>
+                    <option value="2">×2</option>
+                    <option value="3">×3</option>
+                </select>
+            </div>
+            <input type="hidden" name="recruitment_type" id="rec-type-<?= $specCode ?>" value="local">
+            <button type="submit" class="btn btn-primary btn-sm" onclick="
+                var r=this.form.querySelector('[name=recruitment_type]');
+                var v=this.form.querySelector('[name=region_code]').value;
+                var intl=['NO','US_CA','ME','ASIA'];
+                r.value=intl.includes(v)?'international':'local';
+            ">Zlec rekrutację →</button>
+        </form>
+        <?php elseif(!$manager): ?>
+        <div class="sm-label c-muted2 mt-sm">Brak Kierownika — nie można zlecić</div>
+        <?php else: ?>
+        <div class="spec-have-info c-green fs12 mt-xs">✓ Obsadzono</div>
+        <?php endif ?>
+    </div>
+    <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</div>
+
+<?php
+// Auto-zakończ rekrutację gdy status=ready i kandydaci już są wygenerowani
+if ($activeRecruitment && $activeRecruitment['status'] === 'ready' && !empty($candidates)) {
+    $svc->completeRecruitment((int)$activeRecruitment['id']);
+    $activeRecruitment = null; // odśwież lokalnie
+}
+?>
+
+<!-- KANDYDACI DO OCENY -->
+<?php if(empty($candidates)): ?>
+<div class="empty-state">
+    Brak kandydatów oczekujących na ocenę. Zlec rekrutację powyżej.
+</div>
+<?php else: ?>
+<div class="section-h">Kandydaci do oceny technicznej (<?= count($candidates) ?>)</div>
+
+<?php foreach($candidates as $c):
+    $reviewed  = $c['review_id'] !== null;
+    $recHire   = $c['review_recommendation'] === 'hire';
+    $hoursLeft = (int)$c['hours_remaining'];
+    $expCls    = $hoursLeft < 24?'c-bad':($hoursLeft < 72?'c-warn':'c-muted2');
+    $specName  = $c['spec_name'] ?? 'Specjalista techniczny';
+?>
+<div class="cand-card <?= $reviewed?($recHire?'cand-hire':'cand-reject'):'' ?>">
+    <div class="cand-hdr">
+        <div class="cand-identity">
+            <div class="cand-name"><?= htmlspecialchars($c['first_name'].' '.$c['last_name']) ?></div>
+            <div class="cand-spec"><?= htmlspecialchars($specName) ?></div>
+            <div class="cand-meta"><?= htmlspecialchars($c['nationality']??'') ?> · <?= $c['age'] ?> lat · <?= $c['experience_years'] ?> lat doświadczenia</div>
+        </div>
+        <div class="cand-badges">
+            <?php if($reviewed): ?>
+            <span class="badge <?= $recHire?'b-active':'b-broken' ?>"><?= $recHire?'✓ Rekomenduję':'✗ Nie rekomenduję' ?></span>
+            <?php else: ?>
+            <span class="badge b-paused">Oczekuje oceny</span>
+            <?php endif ?>
+            <div class="<?= $expCls ?> fs12">Wygasa za <?= $hoursLeft ?>h</div>
+        </div>
+    </div>
+
+    <div class="cand-stats">
+        <div class="cand-stat"><div class="cand-stat-lbl">Doświadczenie</div><div class="cand-stat-val c-gold"><?= $c['experience_years'] ?> lat</div></div>
+        <div class="cand-stat"><div class="cand-stat-lbl">Skill analityczny</div><div class="cand-stat-val <?= $c['skill_analysis']>=7?'c-green':($c['skill_analysis']>=5?'c-warn':'c-bad') ?>"><?= $c['skill_analysis'] ?>/10</div></div>
+        <div class="cand-stat"><div class="cand-stat-lbl">Organizacja</div><div class="cand-stat-val"><?= $c['skill_organization'] ?>/10</div></div>
+        <div class="cand-stat"><div class="cand-stat-lbl">Odporność</div><div class="cand-stat-val"><?= $c['skill_stress'] ?>/10</div></div>
+        <div class="cand-stat"><div class="cand-stat-lbl">Oczekiwana pensja</div><div class="cand-stat-val c-gold">$<?= number_format($c['expected_salary'],0,'.',' ') ?>/mies.</div></div>
+    </div>
+
+    <?php if($reviewed): ?>
+    <div class="cand-prev-review">
+        <span class="cand-prev-score">Ocena techniczna: <strong><?= $c['technical_score'] ?>/10</strong></span>
+        <?php if($c['review_comment']): ?><span class="cand-prev-comment">„<?= htmlspecialchars($c['review_comment']) ?>"</span><?php endif ?>
+    </div>
+    <?php endif ?>
+
+    <?php if(!$manager): ?>
+    <div class="sm-label c-muted2 mt-sm">Brak Kierownika Technicznego — nie można wystawić oceny.</div>
+    <?php else: ?>
+    <details <?= !$reviewed?'open':'' ?>>
+        <summary class="task-assign-toggle"><?= $reviewed?'✎ Zmień ocenę':'+ Wystaw ocenę techniczną' ?></summary>
+        <form method="post" class="cand-review-form">
+            <input type="hidden" name="_token" value="<?= $csrf ?>">
+            <input type="hidden" name="action" value="review_candidate">
+            <input type="hidden" name="candidate_id" value="<?= $c['id'] ?>">
+            <div class="cand-review-grid">
+                <div class="form-group form-group--flush">
+                    <label class="form-label">Ocena techniczna (1–10)</label>
+                    <div class="score-buttons">
+                        <?php for($i=1;$i<=10;$i++): ?>
+                        <label class="score-btn <?= ($reviewed&&$c['technical_score']==$i)?'selected':'' ?>">
+                            <input type="radio" name="technical_score" value="<?= $i ?>"
+                                <?= ($reviewed&&$c['technical_score']==$i)?'checked':'' ?> required>
+                            <?= $i ?>
+                        </label>
+                        <?php endfor ?>
+                    </div>
+                </div>
+                <div class="form-group form-group--flush">
+                    <label class="form-label">Rekomendacja</label>
+                    <div class="rec-buttons">
+                        <label class="rec-btn rec-hire <?= ($reviewed&&$recHire)?'selected':'' ?>">
+                            <input type="radio" name="recommendation" value="hire" <?= ($reviewed&&$recHire)?'checked':'' ?> required>
+                            ✓ Rekomenduję zatrudnienie
+                        </label>
+                        <label class="rec-btn rec-reject <?= ($reviewed&&!$recHire)?'selected':'' ?>">
+                            <input type="radio" name="recommendation" value="reject" <?= ($reviewed&&!$recHire)?'checked':'' ?>>
+                            ✗ Nie rekomenduję
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group form-group--flush">
+                    <label class="form-label">Komentarz techniczny (opcjonalny)</label>
+                    <textarea name="comment" class="form-input cand-comment"
+                        placeholder="np. bardzo dobre doświadczenie w odwiertach offshore..."><?= htmlspecialchars($c['review_comment']??'') ?></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Zapisz ocenę →</button>
+            </div>
+        </form>
+    </details>
+    <?php endif ?>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php endif ?>
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: ZADANIA
+══════════════════════════════════════ -->
+
+<?php if ($activeTab === 'tasks'): ?>
+
+<?php // ── Zadania W TRAKCIE ─────────────────────────── ?>
+<?php if (!empty($activeTasks)): ?>
+<div class="section-h">W trakcie (<?= count($activeTasks) ?>)</div>
+<?php foreach ($activeTasks as $t):
+    $taskDef  = TechnicalTeamService::TASKS[$t['task_type']] ?? ['icon' => '⚙', 'label' => $t['task_type'], 'effect' => ''];
+    $endTs    = strtotime($t['active_task_end'] ?? $t['end_time']);
+    $startTs  = strtotime($t['start_time']);
+    $total    = max(1, $endTs - $startTs);
+    $elapsed  = time() - $startTs;
+    $progress = min(100, max(0, round($elapsed / $total * 100)));
+    $overdue  = time() > $endTs;
+?>
+<div class="task-item in_progress <?= $overdue ? 'task-overdue' : '' ?>">
+    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-info">
+        <div class="task-title"><?= htmlspecialchars($t['title']) ?></div>
+        <div class="task-meta">
+            <span><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></span>
+            <span class="sep">·</span>
+            <span><?= htmlspecialchars($t['spec_name']) ?></span>
+            <?php if ($t['well_name']): ?>
+                <span class="sep">·</span>
+                <span><?= htmlspecialchars($t['well_name']) ?></span>
+            <?php endif ?>
+            <?php if ($t['cost'] > 0): ?>
+                <span class="sep">·</span>
+                <span class="c-gold">$<?= number_format($t['cost'], 0, '.', ' ') ?></span>
+            <?php endif ?>
+        </div>
+        <div class="task-prog-row">
+            <div class="task-prog-bar"><div class="task-prog-fill" style="--bar-w:<?= $progress ?>%"></div></div>
+            <span class="task-prog-pct"><?= $progress ?>%</span>
+        </div>
+    </div>
+    <div class="task-side">
+        <div class="task-time">
+            <span class="countdown" data-end="<?= $endTs ?>">...</span>
+            <div class="task-date">Koniec: <?= date('d.m H:i', $endTs) ?></div>
+        </div>
+        <?php if (!$overdue): ?>
+        <form method="post" class="cancel-form" onsubmit="return confirm('Anulować to zadanie? Pracownik zostanie zwolniony do dyspozycji.')">
+            <input type="hidden" name="_token" value="<?= $csrf ?>">
+            <input type="hidden" name="action" value="cancel_task">
+            <input type="hidden" name="task_id" value="<?= $t['id'] ?>">
+            <button type="submit" class="btn-cancel-task" title="Anuluj zadanie">✕ Anuluj</button>
+        </form>
+        <?php else: ?>
+        <span class="task-done-label">⏳ Finalizacja...</span>
+        <?php endif ?>
+    </div>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php // ── Kolejka zadań ─────────────────────────────── ?>
+<?php if (!empty($taskQueue)): ?>
+<div class="section-h">
+    Kolejka zadań (<?= count($taskQueue) ?>)
+    <span class="section-h-note">— zostaną przydzielone gdy pracownik się zwolni</span>
+</div>
+<div class="queue-list">
+    <div class="queue-header">
+        <span>Pracownik</span>
+        <span>Zadanie</span>
+        <span>Odwiert</span>
+        <span>Dodano</span>
+        <span></span>
+    </div>
+    <?php foreach ($taskQueue as $q):
+        $qTaskDef = TechnicalTeamService::TASKS[$q['task_type']] ?? ['icon' => '⚙', 'label' => $q['task_type']];
+    ?>
+    <div class="queue-row">
+        <span class="queue-worker">
+            <?= htmlspecialchars($q['first_name'] . ' ' . $q['last_name']) ?>
+            <small class="queue-spec"><?= htmlspecialchars($q['spec_name']) ?></small>
+        </span>
+        <span class="queue-task">
+            <?= $qTaskDef['icon'] ?> <?= htmlspecialchars($qTaskDef['label'] ?? $q['task_type']) ?>
+        </span>
+        <span class="queue-well c-muted">
+            <?= $q['well_name'] ? htmlspecialchars($q['well_name']) : '—' ?>
+        </span>
+        <span class="queue-time c-muted">
+            <?= date('d.m H:i', strtotime($q['queued_at'])) ?>
+        </span>
+        <span class="queue-actions">
+            <form method="post" onsubmit="return confirm('Usunąć to zadanie z kolejki?')">
+                <input type="hidden" name="_token" value="<?= $csrf ?>">
+                <input type="hidden" name="action" value="cancel_queue_item">
+                <input type="hidden" name="queue_id" value="<?= $q['id'] ?>">
+                <button type="submit" class="btn-cancel-queue" title="Usuń z kolejki">✕</button>
+            </form>
+        </span>
+    </div>
+    <?php endforeach ?>
+</div>
+<?php endif ?>
+
+<?php // ── Historia zadań ────────────────────────────── ?>
+<?php
+$otherTasks = array_filter($allTasks, fn($t) => !in_array($t['status'], ['in_progress', 'cancelled']));
+$cancelledTasks = array_filter($allTasks, fn($t) => $t['status'] === 'cancelled');
+if (!empty($otherTasks)):
+?>
+<div class="section-h">Historia zadań</div>
+<?php foreach (array_slice(array_values($otherTasks), 0, 20) as $t):
+    $taskDef = TechnicalTeamService::TASKS[$t['task_type']] ?? ['icon' => '?', 'label' => $t['task_type']];
+    $cls     = $t['status'] === 'completed' ? 'completed' : 'failed';
+    $timeLbl = $t['status'] === 'completed' ? '✓ Ukończone' : '✗ Nieudane';
+?>
+<div class="task-item <?= $cls ?>">
+    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-info">
+        <div class="task-title"><?= htmlspecialchars($t['title']) ?></div>
+        <div class="task-meta">
+            <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
+            <?php if ($t['well_name']): ?> · <?= htmlspecialchars($t['well_name']) ?><?php endif ?>
+            <?php if ($t['cost'] > 0): ?> · $<?= number_format($t['cost'], 0, '.', ' ') ?><?php endif ?>
+        </div>
+    </div>
+    <div class="task-time <?= $t['status'] === 'failed' ? 'failed-t' : 'done' ?>">
+        <?= $timeLbl ?><br>
+        <span class="task-date"><?= date('d.m H:i', strtotime($t['end_time'])) ?></span>
+    </div>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php if (!empty($cancelledTasks)): ?>
+<div class="section-h">Anulowane (<?= count($cancelledTasks) ?>)</div>
+<?php foreach (array_slice(array_values($cancelledTasks), 0, 10) as $t):
+    $taskDef = TechnicalTeamService::TASKS[$t['task_type']] ?? ['icon' => '?', 'label' => $t['task_type']];
+?>
+<div class="task-item cancelled">
+    <div class="task-icon" class="wg-muted-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-info">
+        <div class="task-title c-muted"><?= htmlspecialchars($t['title']) ?></div>
+        <div class="task-meta"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></div>
+    </div>
+    <div class="task-time c-muted">
+        Anulowane<br>
+        <span class="task-date"><?= date('d.m H:i', strtotime($t['end_time'])) ?></span>
+    </div>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php if (empty($allTasks) && empty($taskQueue)): ?>
+<div class="empty-state">Brak zadań. Zlec zadanie z zakładki Zespół.</div>
+<?php endif ?>
+
+<?php endif ?>
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: ODWIERTY
+══════════════════════════════════════ -->
+<?php if ($activeTab === 'wells'): ?>
+
+<?php
+// Indeks zadań aktywnych per odwiert (well_id → lista zadań)
+$tasksByWell = [];
+foreach ($activeTasks as $t) {
+    if ($t['well_id']) {
+        $tasksByWell[(int)$t['well_id']][] = $t;
+    }
+}
+
+// Etykiety statusów
+$statusLabels = [
+    'active'         => ['lbl' => 'Aktywny',       'cls' => 'b-active',  'icon' => '🟢'],
+    'paused_staff'   => ['lbl' => 'Wstrzymany',     'cls' => 'b-staff',   'icon' => '⏸'],
+    'paused_cash'    => ['lbl' => 'Brak środków',   'cls' => 'b-broken',  'icon' => '💸'],
+    'paused_storage' => ['lbl' => 'Magazyn pełny',  'cls' => 'b-paused',  'icon' => '🏭'],
+    'contaminated'   => ['lbl' => 'Skażony',        'cls' => 'b-broken',  'icon' => '☣️'],
+    'blowout'        => ['lbl' => 'Blowout',        'cls' => 'b-broken',  'icon' => '🚨'],
+    'seized'         => ['lbl' => 'Zajęty',         'cls' => 'b-broken',  'icon' => '⛔'],
+    'broken'         => ['lbl' => 'Awaria',         'cls' => 'b-broken',  'icon' => '🔴'],
+];
+
+// Polskie nazwy brakujących specjalizacji
+$specLabels = [
+    'safety_officer'       => 'Oficer BHP',
+    'safety_engineer'      => 'Inżynier BHP',
+    'maintenance_engineer' => 'Inżynier Utrzymania Ruchu',
+    'production_engineer'  => 'Inżynier Produkcji',
+];
+?>
+
+<?php if (empty($wells)): ?>
+<div class="empty-state">Brak odwiertów. Kup odwiert w <a href="<?= url('map') ?>" class="link-gold">Mapie</a>.</div>
+<?php else: ?>
+<div class="wells-grid">
+<?php foreach ($wells as $w):
+    $wId       = (int)$w['id'];
+    $cond      = (float)$w['technical_condition'];
+    $condFill  = $cond >= 70 ? 'cond-good' : ($cond >= 40 ? 'cond-warn' : 'cond-bad');
+    $condCol   = $cond >= 70 ? 'c-good'    : ($cond >= 40 ? 'c-warn'    : 'c-bad');
+    $pressure  = (float)($w['pressure'] ?? 1.0);
+    $reservoir = (float)($w['reservoir_remaining'] ?? 0);
+    $resMax    = (float)($w['reservoir_max'] ?? 800000);
+    $resPct    = $resMax > 0 ? round($reservoir / $resMax * 100, 1) : 0;
+    $riskScore = (float)($w['risk_score'] ?? 0);
+    $status    = $w['status'] ?? 'active';
+    $stInfo    = $statusLabels[$status] ?? ['lbl' => $status, 'cls' => 'b-paused', 'icon' => '⏸'];
+    $isActive  = $status === 'active';
+    $isPaused  = str_starts_with($status, 'paused') || in_array($status, ['broken','seized','blowout','contaminated']);
+    $wellTasks = $tasksByWell[$wId] ?? [];
+
+    // Efektywna produkcja uwzględniająca pressure i boost
+    $boostPct  = (float)($w['production_boost_pct'] ?? 0);
+    $effProd   = (float)$w['base_production_per_hour'] * $pressure * (1 + $boostPct / 100);
+    $effProd   = round($effProd, 1);
+
+    // Brakujące spec dla paused_staff
+    $missingSpecs = [];
+    if ($status === 'paused_staff' && !empty($w['paused_staff_reason'])) {
+        foreach (explode(',', $w['paused_staff_reason']) as $code) {
+            $code = trim($code);
+            if ($code) $missingSpecs[] = $specLabels[$code] ?? $code;
+        }
+    }
+
+    // Risk color
+    $riskCls = $riskScore >= 60 ? 'c-bad' : ($riskScore >= 30 ? 'c-warn' : 'c-good');
+?>
+<details class="well-card <?= $isPaused ? 'well-card--paused' : '' ?> <?= $status === 'paused_staff' ? 'well-card--staff' : '' ?>">
+    <summary class="well-card-summary">
+
+        <!-- Nagłówek -->
+        <div class="well-card-hdr">
+            <div class="well-card-title">
+                <span class="well-num">Odwiert #<?= $wId ?> · <?= strtoupper($w['well_type'] ?? 'onshore') ?></span>
+                <span class="well-name"><?= htmlspecialchars($w['location_name'] ?? 'Pole naftowe') ?></span>
+            </div>
+            <div class="well-card-badges">
+                <span class="badge <?= $stInfo['cls'] ?>"><?= $stInfo['icon'] ?> <?= $stInfo['lbl'] ?></span>
+                <?php if (!empty($wellTasks)): ?>
+                <span class="badge b-busy">⚙ <?= count($wellTasks) ?> zadanie</span>
+                <?php endif ?>
+            </div>
+        </div>
+
+        <!-- Statystyki (zawsze widoczne) -->
+        <div class="well-stats">
+            <div>
+                <div class="w-stat-lbl">Produkcja</div>
+                <div class="w-stat-val <?= $isActive ? 'c-gold' : 'c-muted' ?>">
+                    <?= $isActive ? $effProd : '—' ?> <?= $isActive ? 'bbl/h' : '' ?>
+                </div>
+            </div>
+            <div>
+                <div class="w-stat-lbl">Ciśnienie</div>
+                <div class="w-stat-val <?= $pressure < 0.7 ? 'c-bad' : ($pressure < 0.85 ? 'c-warn' : 'c-good') ?>">
+                    <?= number_format($pressure, 2) ?>
+                </div>
+            </div>
+            <div>
+                <div class="w-stat-lbl">Złoże</div>
+                <div class="w-stat-val <?= $resPct < 20 ? 'c-bad' : 'c-good' ?>">
+                    <?= number_format($reservoir, 0, '.', ' ') ?> bbl
+                </div>
+            </div>
+            <div>
+                <div class="w-stat-lbl">Głębokość</div>
+                <div class="w-stat-val c-muted"><?= number_format($w['depth_m'] ?? 2500, 0, '.', ' ') ?> m</div>
+            </div>
+        </div>
+
+        <!-- Pasek stanu technicznego -->
+        <div class="well-cond-wrap">
+            <div class="well-cond-row">
+                <span class="<?= $condCol ?>">Stan techniczny</span>
+                <span class="<?= $condCol ?> fw7"><?= round($cond, 1) ?>%</span>
+            </div>
+            <div class="cond-bar"><div class="cond-fill <?= $condFill ?>" style="--bar-w:<?= $cond ?>%"></div></div>
+        </div>
+
+        <div class="well-expand-hint">▼ szczegóły</div>
+    </summary>
+
+    <!-- ── ROZWINIĘTE SZCZEGÓŁY ── -->
+    <div class="well-detail">
+
+        <?php if ($status === 'paused_staff'): ?>
+        <!-- Diagnoza: brak personelu -->
+        <div class="well-diag well-diag--staff">
+            <div class="well-diag-title">⏸ Odwiert wstrzymany — brak wymaganego personelu</div>
+            <div class="well-diag-body">
+                <p class="well-diag-note">Aby odwiert mógł pracować, potrzebujesz jednocześnie:</p>
+                <ul class="well-missing-list">
+                    <?php foreach ($missingSpecs as $ms): ?>
+                    <li class="well-missing-item">🔴 <?= htmlspecialchars($ms) ?></li>
+                    <?php endforeach ?>
+                </ul>
+                <p class="well-diag-note">Odwiert wznowi się <strong>automatycznie</strong> po zatrudnieniu wszystkich brakujących specjalistów.</p>
+            </div>
+            <a href="?tab=candidates" class="btn btn-primary btn-sm well-diag-btn">Przejdź do Kandydatów →</a>
+        </div>
+
+        <?php elseif ($status === 'paused_cash'): ?>
+        <!-- Diagnoza: brak kasy -->
+        <div class="well-diag well-diag--cash">
+            <div class="well-diag-title">💸 Odwiert wstrzymany — brak środków na OPEX</div>
+            <div class="well-diag-body">
+                <p class="well-diag-note">Koszt operacyjny odwiertu przekroczył dostępne środki. Odwiert wznowi się automatycznie gdy konto będzie zasilone.</p>
+                <p class="well-diag-note">OPEX: <strong>$<?= number_format((float)($w['upkeep_cost_per_hour'] ?? 0), 2, '.', ' ') ?>/h</strong></p>
+            </div>
+            <a href="<?= url('market') ?>" class="btn btn-primary btn-sm well-diag-btn">Sprzedaj ropę →</a>
+        </div>
+
+        <?php elseif ($status === 'paused_storage'): ?>
+        <!-- Diagnoza: pełny magazyn -->
+        <div class="well-diag well-diag--storage">
+            <div class="well-diag-title">🏭 Odwiert wstrzymany — magazyn pełny</div>
+            <div class="well-diag-body">
+                <p class="well-diag-note">Brak miejsca w magazynie. Sprzedaj ropę lub rozbuduj pojemność magazynową.</p>
+            </div>
+            <a href="<?= url('market') ?>" class="btn btn-primary btn-sm well-diag-btn">Sprzedaj ropę →</a>
+        </div>
+
+        <?php elseif ($status === 'blowout'): ?>
+        <!-- Diagnoza: blowout -->
+        <div class="well-diag well-diag--disaster">
+            <div class="well-diag-title">🚨 Niekontrolowany wypływ (Blowout)</div>
+            <div class="well-diag-body">
+                <p class="well-diag-note">Odwiert wymaga natychmiastowej interwencji. Zlec zadanie <strong>Opanowanie wypływu</strong> Inżynierowi Wiercenia lub Inżynierowi Utrzymania Ruchu.</p>
+            </div>
+            <a href="?tab=tasks" class="btn btn-primary btn-sm well-diag-btn">Zlec zadanie →</a>
+        </div>
+
+        <?php elseif ($status === 'contaminated'): ?>
+        <!-- Diagnoza: skażenie złoża -->
+        <div class="well-diag well-diag--disaster">
+            <div class="well-diag-title">☣️ Skażenie złoża</div>
+            <div class="well-diag-body">
+                <p class="well-diag-note">Złoże jest skażone — produkcja obniżona. Zlec <strong>Rehabilitację złoża</strong> Inżynierowi Złoża.</p>
+            </div>
+            <a href="?tab=tasks" class="btn btn-primary btn-sm well-diag-btn">Zlec zadanie →</a>
+        </div>
+
+        <?php else: ?>
+        <!-- Aktywny odwiert — szczegóły operacyjne -->
+        <div class="well-detail-grid">
+            <div class="well-detail-stat">
+                <div class="well-detail-lbl">Ryzyko awarii</div>
+                <div class="well-detail-val <?= $riskCls ?>"><?= number_format($riskScore, 1) ?> / 100</div>
+            </div>
+            <div class="well-detail-stat">
+                <div class="well-detail-lbl">Poziom ryzyka</div>
+                <div class="well-detail-val <?= ($w['risk_level'] ?? 10) > 15 ? 'c-bad' : 'c-good' ?>"><?= $w['risk_level'] ?? 10 ?></div>
+            </div>
+            <div class="well-detail-stat">
+                <div class="well-detail-lbl">Tryb produkcji</div>
+                <div class="well-detail-val"><?= match($w['production_mode'] ?? 'normal') {
+                    'eco'   => '🔋 Eco (-20%)',
+                    'boost' => '⚡ Boost (+20%)',
+                    default => '⚙ Normalny',
+                } ?></div>
+            </div>
+            <div class="well-detail-stat">
+                <div class="well-detail-lbl">Rezerwa złoża</div>
+                <div class="well-detail-val <?= $resPct < 20 ? 'c-bad' : ($resPct < 50 ? 'c-warn' : 'c-good') ?>">
+                    <?= $resPct ?>%
+                </div>
+            </div>
+            <?php if ($boostPct > 0): ?>
+            <div class="well-detail-stat">
+                <div class="well-detail-lbl">Bonus produkcji</div>
+                <div class="well-detail-val c-green">+<?= number_format($boostPct, 1) ?>%</div>
+            </div>
+            <?php endif ?>
+            <?php if ($pressure !== 1.0): ?>
+            <div class="well-detail-stat">
+                <div class="well-detail-lbl">Efekt ciśnienia</div>
+                <div class="well-detail-val <?= $pressure >= 1.0 ? 'c-green' : 'c-warn' ?>">
+                    <?= $pressure >= 1.0 ? '+' : '' ?><?= number_format(($pressure - 1.0) * 100, 1) ?>%
+                </div>
+            </div>
+            <?php endif ?>
+        </div>
+        <?php endif ?>
+
+        <!-- Aktywne zadania na tym odwiercie -->
+        <?php if (!empty($wellTasks)): ?>
+        <div class="well-tasks-list">
+            <div class="well-tasks-hdr">Aktywne zadania</div>
+            <?php foreach ($wellTasks as $t):
+                $tEnd  = strtotime($t['end_time']);
+                $tLeft = max(0, $tEnd - time());
+                $tH    = floor($tLeft / 3600);
+                $tM    = floor(($tLeft % 3600) / 60);
+            ?>
+            <div class="well-task-row">
+                <span class="well-task-icon"><?= TechnicalTeamService::TASKS[$t['task_type']]['icon'] ?? '⚙' ?></span>
+                <span class="well-task-name"><?= htmlspecialchars($t['title']) ?></span>
+                <span class="well-task-who c-muted"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></span>
+                <span class="well-task-time c-warn">
+                    <?= $tH > 0 ? "{$tH}h " : '' ?><?= $tM ?>m
+                </span>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+
+    </div><!-- /.well-detail -->
+</details>
+<?php endforeach ?>
+</div>
+<?php endif ?>
+
+<?php endif ?>
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: PRODUKCJA
+══════════════════════════════════════ -->
+<?php if ($activeTab === 'well_staff'): ?>
+<div class="t-section">
+    <h2 class="t-section-title">Personel Odwiertów</h2>
+    <p class="t-section-sub">Przypisz Operatora i Technika do każdego odwiertu. Bez operatora produkcja = 0, bez technika degradacja +50%.</p>
+
+    <?php if (empty($wellsStaffStatus)): ?>
+    <div class="msg-bar msg-warn">Brak odwiertów. Kup pierwszy odwiert na Mapie Świata.</div>
+    <?php else: ?>
+
+    <div class="ws-grid">
+    <?php foreach ($wellsStaffStatus as $ws): ?>
+    <?php
+        $wsId      = $ws['well_id'];
+        $hasOp     = $ws['has_operator'];
+        $hasTe     = $ws['has_technician'];
+        $warnClass = (!$hasOp || !$hasTe) ? 'ws-card--warn' : '';
+    ?>
+    <div class="ws-card <?= $warnClass ?>" id="ws-card-<?= $wsId ?>">
+        <div class="ws-card-header">
+            <div class="ws-well-name"><?= htmlspecialchars($ws['well_name']) ?></div>
+            <div class="ws-status-badge ws-status-<?= htmlspecialchars($ws['status']) ?>">
+                <?= match($ws['status']) {
+                    'active'       => '✅ Aktywny',
+                    'no_operator'  => '🔴 Brak operatora',
+                    'no_technician'=> '🟡 Brak technika',
+                    'paused_staff' => '⏸ Brak personelu',
+                    'paused_cash'  => '💸 Brak środków',
+                    default        => htmlspecialchars($ws['status'])
+                } ?>
+            </div>
+        </div>
+
+        <!-- Operator -->
+        <div class="ws-role-row">
+            <div class="ws-role-label">
+                <span class="ws-role-icon">👷</span>
+                <span>Operator</span>
+                <span class="ws-role-req">(wymagany)</span>
+            </div>
+            <?php if ($hasOp): ?>
+            <div class="ws-assigned">
+                <span class="ws-person-name"><?= htmlspecialchars($ws['operator']['name']) ?></span>
+                <span class="ws-skill-badge">skl <?= $ws['operator']['skill'] ?>/10</span>
+                <button type="button" class="btn-ws-remove"
+                    onclick="wsUnassign(<?= $wsId ?>, 'operator', this)">✕</button>
+            </div>
+            <?php else: ?>
+            <div class="ws-empty">
+                <span class="ws-empty-label">— nie przypisano —</span>
+                <button type="button" class="btn-ws-assign"
+                    onclick="wsOpenAssign(<?= $wsId ?>, 'operator', '<?= htmlspecialchars($ws['well_name']) ?>')">
+                    + Przypisz
+                </button>
+            </div>
+            <?php endif ?>
+        </div>
+
+        <!-- Technik -->
+        <div class="ws-role-row">
+            <div class="ws-role-label">
+                <span class="ws-role-icon">🔧</span>
+                <span>Technik</span>
+                <span class="ws-role-req">(degradacja)</span>
+            </div>
+            <?php if ($hasTe): ?>
+            <div class="ws-assigned">
+                <span class="ws-person-name"><?= htmlspecialchars($ws['technician']['name']) ?></span>
+                <span class="ws-skill-badge">skl <?= $ws['technician']['skill'] ?>/10</span>
+                <button type="button" class="btn-ws-remove"
+                    onclick="wsUnassign(<?= $wsId ?>, 'technician', this)">✕</button>
+            </div>
+            <?php else: ?>
+            <div class="ws-empty">
+                <span class="ws-empty-label">— nie przypisano —</span>
+                <button type="button" class="btn-ws-assign"
+                    onclick="wsOpenAssign(<?= $wsId ?>, 'technician', '<?= htmlspecialchars($ws['well_name']) ?>')">
+                    + Przypisz
+                </button>
+            </div>
+            <?php endif ?>
+        </div>
+    </div>
+    <?php endforeach ?>
+    </div><!-- .ws-grid -->
+
+    <?php endif ?>
+</div><!-- .t-section -->
+
+<!-- Modal przypisania -->
+<div id="ws-modal" class="ws-modal-backdrop" class="ws-hidden" onclick="if(event.target===this)wsCloseModal()">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <div>
+                <div class="ws-modal-title" id="ws-modal-title">Wybierz pracownika</div>
+                <div class="ws-modal-sub" id="ws-modal-sub"></div>
+            </div>
+            <button type="button" class="ws-modal-close" onclick="wsCloseModal()">×</button>
+        </div>
+        <div class="ws-modal-body" id="ws-modal-body">
+            <div class="ws-loading">Ładowanie...</div>
+        </div>
+    </div>
+</div>
+
+<?php endif ?>
+
+<?php if ($activeTab === 'prod'): ?>
+
+<div class="prod-grid">
+    <div class="prod-stat"><div class="prod-val"><?= number_format($totalProd, 1) ?></div><div class="prod-unit">bbl/godz</div></div>
+    <div class="prod-stat"><div class="prod-val c-blue"><?= number_format($totalProd * 24, 0, '.', ' ') ?></div><div class="prod-unit">bbl/dobę</div></div>
+    <div class="prod-stat"><div class="prod-val c-green"><?= count($activeWells) ?> / <?= count($wells) ?></div><div class="prod-unit">aktywnych odwiertów</div></div>
+    <div class="prod-stat"><div class="prod-val c-gold"><?= number_format($totalProd * 24 * 30, 0, '.', ' ') ?></div><div class="prod-unit">prognoza 30 dni</div></div>
+    <div class="prod-stat"><div class="prod-val <?= $avgCond >= 70 ? 'c-green' : 'c-warn' ?>"><?= $avgCond ?>%</div><div class="prod-unit">śr. stan techniczny</div></div>
+</div>
+
+<?php
+$pausedStaffCount = count(array_filter($wells, fn($w) => $w['status'] === 'paused_staff'));
+$pausedCashCount  = count(array_filter($wells, fn($w) => $w['status'] === 'paused_cash'));
+$disasterCount    = count(array_filter($wells, fn($w) => in_array($w['status'], ['blowout','contaminated'])));
+?>
+<?php if ($pausedStaffCount > 0): ?>
+<div class="msg-bar msg-warn">⏸ <?= $pausedStaffCount ?> odwiert(y) wstrzymanych — brak wymaganego personelu. <a href="?tab=candidates" class="link-gold">Zleć rekrutację →</a></div>
+<?php endif ?>
+<?php if ($pausedCashCount > 0): ?>
+<div class="msg-bar msg-error">💸 <?= $pausedCashCount ?> odwiert(y) wstrzymanych — brak środków na OPEX.</div>
+<?php endif ?>
+<?php if ($disasterCount > 0): ?>
+<div class="msg-bar msg-error">🚨 <?= $disasterCount ?> aktywna katastrofa przemysłowa — <a href="?tab=safety" class="link-gold">przejdź do BHP →</a></div>
+<?php endif ?>
+
+<?php if (!empty($activeWells)): ?>
+<div class="g-card">
+    <div class="g-card-title">Produkcja na odwiert</div>
+    <div class="data-list">
+        <div class="data-list-head cols-prod">
+            <span>#</span><span>Lokalizacja</span><span>Produkcja</span><span>Ciśnienie</span><span>Stan tech.</span><span>Udział</span>
+        </div>
+        <?php foreach ($activeWells as $w):
+            $cond    = (float)$w['technical_condition'];
+            $p       = (float)($w['pressure'] ?? 1.0);
+            $effProd = (float)$w['base_production_per_hour'] * max(0.1, $cond/100) * $p;
+            $share   = $totalProd > 0 ? round($effProd / $totalProd * 100, 1) : 0;
+        ?>
+        <div class="data-list-row cols-prod">
+            <span class="dlc sm">#<?= $w['id'] ?></span>
+            <span class="dlc"><?= htmlspecialchars($w['location_name'] ?? 'Pole') ?></span>
+            <span class="dlc c-gold fw7"><?= number_format($effProd, 1) ?> bbl/h</span>
+            <span class="dlc"><?= number_format($p, 3) ?></span>
+            <span class="dlc <?= $cond >= 70 ? 'c-good' : ($cond >= 40 ? 'c-warn' : 'c-bad') ?> fw6"><?= round($cond, 1) ?>%</span>
+            <span class="dlc sm"><?= $share ?>%</span>
+        </div>
+        <?php endforeach ?>
+    </div>
+</div>
+<?php endif ?>
+
+<?php endif ?>
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: INFRASTRUKTURA
+══════════════════════════════════════ -->
+<?php if ($activeTab === 'infra'): ?>
+
+<?php foreach ($pipelines as $pipe):
+    $flow         = min((float)$pipe['capacity_bbl_h'], $totalProd);
+    $util         = $pipe['capacity_bbl_h'] > 0 ? round($flow / $pipe['capacity_bbl_h'] * 100, 1) : 0;
+    $losses       = round($flow * ($pipe['transport_loss'] / 100), 1);
+    $isBottleneck = $totalProd > $pipe['capacity_bbl_h'];
+    $utilCls      = $util >= 90 ? 'c-bad' : ($util >= 70 ? 'c-warn' : 'c-green');
+    $utilBarCls   = $util >= 90 ? 'util-bad' : ($util >= 70 ? 'util-warn' : 'util-ok');
+?>
+<div class="pipe-card">
+    <div class="pipe-hdr">
+        <div>
+            <div class="pipe-label">Infrastruktura</div>
+            <div class="pipe-name"><?= htmlspecialchars($pipe['name']) ?></div>
+        </div>
+        <span class="badge <?= $isBottleneck ? 'b-broken' : 'b-active' ?>"><?= $isBottleneck ? 'Wąskie gardło' : 'Sprawny' ?></span>
+    </div>
+    <?php if ($isBottleneck): ?>
+    <div class="pipe-alert">Panie Dyrektorze, rurociąg osiągnął maksymalną przepustowość. Zlec inspekcję — Inżynier Rurociągów.</div>
+    <?php endif ?>
+    <div class="pipe-stats">
+        <div><div class="w-stat-lbl">Przepustowość</div><div class="w-stat-val c-blue"><?= number_format($pipe['capacity_bbl_h']) ?> bbl/h</div></div>
+        <div><div class="w-stat-lbl">Aktualny przepływ</div><div class="w-stat-val c-gold"><?= number_format($flow, 1) ?> bbl/h</div></div>
+        <div><div class="w-stat-lbl">Straty transportowe</div><div class="w-stat-val c-bad"><?= $pipe['transport_loss'] ?>% (<?= $losses ?> bbl/h)</div></div>
+        <div><div class="w-stat-lbl">Wykorzystanie</div><div class="w-stat-val <?= $utilCls ?>"><?= $util ?>%</div></div>
+    </div>
+    <div class="util-bar"><div class="util-fill <?= $utilBarCls ?>" style="--bar-w:<?= min(100,$util) ?>%"></div></div>
+    <div class="pipe-footer">Stan rurociągu: <?= $pipe['condition_pct'] ?>% · Inspekcja redukuje straty (Inżynier Rurociągów)</div>
+</div>
+<?php endforeach ?>
+
+<?php endif ?>
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: BEZPIECZEŃSTWO
+══════════════════════════════════════ -->
+<?php if ($activeTab === 'safety'): ?>
+
+<?php
+// ── Panel statusu BHP ───────────────────────────────────
+$hseActive   = $hseBonus['active_hse'] > 0;
+$failRedPct  = (int)round((1 - $hseBonus['failure_reduction'])  * 100);
+$catRedPct   = (int)round((1 - $hseBonus['catastrophe_mult'])   * 100);
+$repRedPct   = (int)round((1 - $hseBonus['repair_cost_mult'])   * 100);
+$degradRedPct= (int)round((1 - $hseBonus['degrade_mult'])       * 100);
+$uptimePct   = round($hseBonus['uptime_bonus'] * 100, 1);
+?>
+<div class="hse-panel <?= $hseActive ? 'hse-panel--active' : 'hse-panel--inactive' ?>">
+    <div class="hse-panel-hdr">
+        <span class="hse-icon"><?= $hseActive ? '🟢' : '🔴' ?></span>
+        <span class="hse-title">SYSTEM BHP</span>
+        <span class="hse-status-badge <?= $hseActive ? 'hse-badge--on' : 'hse-badge--off' ?>">
+            <?= $hseActive ? 'AKTYWNY' : 'BRAK OCHRONY' ?>
+        </span>
+        <?php if ($hseBonus['audit_bonus']): ?>
+            <span class="hse-audit-badge">📋 Aktywny audyt +bonus</span>
+        <?php endif ?>
+    </div>
+
+    <?php if ($hseActive): ?>
+    <div class="hse-metrics">
+        <div class="hse-metric hse-good">
+            <div class="hse-metric-val">-<?= $failRedPct ?>%</div>
+            <div class="hse-metric-lbl">Szansa awarii</div>
+        </div>
+        <div class="hse-metric hse-good">
+            <div class="hse-metric-val">-<?= $catRedPct ?>%</div>
+            <div class="hse-metric-lbl">Ryzyko katastrofy</div>
+        </div>
+        <div class="hse-metric hse-good">
+            <div class="hse-metric-val">-<?= $repRedPct ?>%</div>
+            <div class="hse-metric-lbl">Koszt napraw</div>
+        </div>
+        <div class="hse-metric hse-good">
+            <div class="hse-metric-val">-<?= $degradRedPct ?>%</div>
+            <div class="hse-metric-lbl">Degradacja stanu</div>
+        </div>
+        <?php if ($uptimePct > 0): ?>
+        <div class="hse-metric hse-good">
+            <div class="hse-metric-val">+<?= $uptimePct ?>%</div>
+            <div class="hse-metric-lbl">Uptime odwiertu</div>
+        </div>
+        <?php endif ?>
+    </div>
+    <div class="hse-note">
+        Ochrona oparta na <?= $hseBonus['active_hse'] ?> pracowniku/ach BHP.
+        Metryki obliczane przy każdym ticku systemowym.
+        <?php if ($hseBonus['audit_bonus']): ?>
+            <strong>Aktywny efekt audytu bezpieczeństwa (72h).</strong>
+        <?php endif ?>
+    </div>
+    <?php else: ?>
+    <div class="hse-warning-block">
+        <p class="hse-warn-title">⚠️ Brak aktywnego personelu BHP</p>
+        <p>Twoje odwierty pracują bez żadnej ochrony bezpieczeństwa.</p>
+        <ul class="hse-risk-list">
+            <li>🔴 Pełna szansa awarii — stan techniczny spada szybciej</li>
+            <li>🔴 Brak redukcji kosztów napraw — awarie w pełni kosztowne</li>
+            <li>🔴 Ryzyko blowout przy stanie &lt;30% — katastrofalne straty</li>
+        </ul>
+        <p class="hse-fix-hint">→ Zatrudnij <strong>Oficera BHP</strong> lub <strong>Inżyniera BHP</strong> z zakładki Kandydaci.</p>
+    </div>
+    <?php endif ?>
+</div>
+
+<?php
+// ── Panel procedur BHP ──────────────────────────────────
+$pLevel     = $procStatus['level'];
+$pIntegrity = $procStatus['integrity'];
+$pFactor    = $hseBonus['proc_factor'];
+
+// Klasa CSS na podstawie stanu integralności
+$integrityCls = $pIntegrity > 60 ? 'proc-integrity--ok'
+              : ($pIntegrity > 30  ? 'proc-integrity--warn'
+              :                      'proc-integrity--crit');
+
+// Status tekstowy
+$integrityStatus = $pIntegrity > 60 ? '🟢 Stabilne'
+                 : ($pIntegrity > 30  ? '🟡 Zużycie — wykonaj przegląd'
+                 :                      '🔴 Krytyczne — procedury niemal nieaktywne');
+
+// Koszt kolejnego upgrade
+$nextLevel  = $pLevel + 1;
+$upgradeCost = TechnicalTeamService::PROCEDURE_UPGRADE_COSTS[$nextLevel] ?? null;
+$repairCost  = $pLevel > 0 ? 500_000 * $pLevel : 0;
+
+// Sprawdź warunki upgrade procedur
+$auditDone   = false;
+$hasHseStaff = ['officer' => false, 'engineer' => false];
+try {
+    // Warunek 1: audyt wykonany
+    $auditCheckStmt = $db->prepare("
+        SELECT id FROM technical_tasks
+        WHERE player_id = ? AND task_type = 'safety_audit' AND status = 'completed'
+        LIMIT 1
+    ");
+    $auditCheckStmt->execute([$playerId]);
+    $auditDone = (bool)$auditCheckStmt->fetch();
+
+    // Warunek 2: aktywny Oficer BHP i Inżynier BHP
+    $hseStaffStmt = $db->prepare("
+        SELECT spec_code FROM technical_staff
+        WHERE player_id = ?
+          AND spec_code IN ('safety_officer','safety_engineer')
+          AND status IN ('active','busy')
+          AND (fired_at IS NULL OR fired_at > NOW())
+    ");
+    $hseStaffStmt->execute([$playerId]);
+    foreach ($hseStaffStmt->fetchAll() as $hs) {
+        if ($hs['spec_code'] === 'safety_officer')  $hasHseStaff['officer']  = true;
+        if ($hs['spec_code'] === 'safety_engineer') $hasHseStaff['engineer'] = true;
+    }
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'auditCheck/hseStaff FAIL', $e);
+}
+
+$canUpgradeProcedures = $auditDone && $hasHseStaff['officer'] && $hasHseStaff['engineer'];
+?>
+<div class="proc-panel">
+    <div class="proc-panel-hdr">
+        <span class="proc-icon">📋</span>
+        <span class="proc-title">PROCEDURY BHP</span>
+        <span class="proc-level-badge">Poziom <?= $pLevel ?>/5</span>
+        <?php if ($pLevel > 0): ?>
+            <span class="proc-status-badge <?= $integrityCls ?>"><?= $integrityStatus ?></span>
+        <?php endif ?>
+    </div>
+
+    <?php if ($pLevel > 0): ?>
+    <div class="proc-body">
+
+        <?php /* Pasek integralności */ ?>
+        <div class="proc-integrity-row">
+            <span class="proc-integrity-lbl">Integralność systemu</span>
+            <div class="proc-bar-wrap">
+                <div class="proc-bar-fill <?= $integrityCls ?>" style="width:<?= $pIntegrity ?>%"></div>
+            </div>
+            <span class="proc-integrity-val <?= $integrityCls ?>"><?= number_format($pIntegrity, 1) ?>%</span>
+        </div>
+
+        <?php /* Metryki efektów */ ?>
+        <?php if ($pFactor > 0): ?>
+        <div class="proc-metrics">
+            <?php
+            $pFailPct  = (int)round((1 - (1.0 - 0.20 * $pFactor)) * 100);
+            $pCatPct   = (int)round((1 - (1.0 - 0.40 * $pFactor)) * 100);
+            $pDegPct   = (int)round((1 - (1.0 - 0.25 * $pFactor)) * 100);
+            $pRepPct   = (int)round((1 - (1.0 - 0.10 * $pFactor)) * 100);
+            ?>
+            <div class="proc-metric"><div class="proc-metric-val">-<?= $pFailPct ?>%</div><div class="proc-metric-lbl">Szansa awarii</div></div>
+            <div class="proc-metric"><div class="proc-metric-val">-<?= $pCatPct ?>%</div><div class="proc-metric-lbl">Ryzyko katastrofy</div></div>
+            <div class="proc-metric"><div class="proc-metric-val">-<?= $pDegPct ?>%</div><div class="proc-metric-lbl">Degradacja stanu</div></div>
+            <div class="proc-metric"><div class="proc-metric-val">-<?= $pRepPct ?>%</div><div class="proc-metric-lbl">Koszt napraw</div></div>
+        </div>
+        <?php else: ?>
+        <div class="proc-integrity-zero">⚠️ Integralność = 0% — procedury są wdrożone, ale nieaktywne. Wykonaj przegląd BHP.</div>
+        <?php endif ?>
+
+        <?php /* Przycisk przeglądu */ ?>
+        <?php if ($pIntegrity < 100): ?>
+        <form method="post" class="proc-action-form">
+            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf) ?>">
+            <input type="hidden" name="action" value="repair_procedure_integrity">
+            <button type="submit" class="btn-proc-repair">
+                🔍 Wykonaj przegląd BHP (+30% integralności) — koszt: $<?= number_format($repairCost, 0, '.', ' ') ?>
+            </button>
+        </form>
+        <?php endif ?>
+
+    </div>
+    <?php else: ?>
+    <div class="proc-empty">
+        <p>Brak wdrożonych procedur BHP. Procedury stanowią trzecią warstwę ochrony — działają nawet bez aktywnego inżyniera.</p>
+        <ul class="proc-benefit-list">
+            <li>📉 Poziom 1: -4% awarii, -8% katastrof, -5% degradacji</li>
+            <li>📉 Poziom 3: -12% awarii, -24% katastrof, -15% degradacji</li>
+            <li>📉 Poziom 5: -20% awarii, -40% katastrof, -25% degradacji</li>
+        </ul>
+        <p class="proc-note">Procedury <strong>degradują się z czasem</strong> (-2%/h bez inżyniera, -0,5%/h z inżynierem). Wymagają regularnych przeglądów.</p>
+    </div>
+    <?php endif ?>
+
+    <?php /* Upgrade do następnego poziomu */ ?>
+    <?php if ($pLevel < 5): ?>
+    <div class="proc-upgrade-section">
+        <div class="proc-upgrade-hdr">Wdróż procedury poziomu <?= $nextLevel ?>/5</div>
+        <?php if (!$canUpgradeProcedures): ?>
+            <div class="proc-upgrade-blocked">
+                <?php if (!$hasHseStaff['officer'] || !$hasHseStaff['engineer']): ?>
+                    🔒 Wymagany aktywny personel BHP:
+                    <ul class="tech-missing-list">
+                        <?php if (!$hasHseStaff['officer']): ?><li>Brak <strong>Oficera BHP</strong></li><?php endif ?>
+                        <?php if (!$hasHseStaff['engineer']): ?><li>Brak <strong>Inżyniera BHP</strong></li><?php endif ?>
+                    </ul>
+                    <div class="tech-hire-hint">→ Zatrudnij w zakładce <a href="?tab=candidates" class="tech-gold-link">Kandydaci</a>.</div>
+                <?php elseif (!$auditDone): ?>
+                    🔒 Wymagany ukończony audyt bezpieczeństwa. Zlec zadanie <strong>„Audyt bezpieczeństwa"</strong> Inżynierowi BHP lub Oficerowi BHP.
+                <?php endif ?>
+            </div>
+        <?php else: ?>
+            <div class="proc-upgrade-info">
+                Koszt: <strong>$<?= number_format($upgradeCost, 0, '.', ' ') ?></strong>
+                · Integralność po wdrożeniu zostanie przywrócona do 100%.
+            </div>
+            <form method="post" class="proc-action-form">
+                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf) ?>">
+                <input type="hidden" name="action" value="upgrade_procedures">
+                <button type="submit" class="btn-proc-upgrade">
+                    ⬆️ Wdróż procedury poziomu <?= $nextLevel ?> — $<?= number_format($upgradeCost, 0, '.', ' ') ?>
+                </button>
+            </form>
+        <?php endif ?>
+    </div>
+    <?php endif ?>
+
+</div>
+
+<?php
+// Pogrupuj brokenWells po typie problemu
+$wellsByStatus = [];
+foreach ($brokenWells as $w) {
+    $wellsByStatus[$w['status']][] = $w;
+}
+
+$statusInfo = [
+    'paused_staff'   => ['icon' => '⏸', 'title' => 'Brak wymaganego personelu',      'cls' => 'hse-panel--inactive', 'badge_cls' => 'hse-badge--off', 'badge' => 'BRAK PERSONELU'],
+    'paused_cash'    => ['icon' => '💸', 'title' => 'Brak środków na OPEX',           'cls' => 'hse-panel--inactive', 'badge_cls' => 'hse-badge--off', 'badge' => 'BRAK ŚRODKÓW'],
+    'broken'         => ['icon' => '🔴', 'title' => 'Awaria techniczna',              'cls' => 'hse-panel--inactive', 'badge_cls' => 'hse-badge--off', 'badge' => 'AWARIA'],
+    'blowout'        => ['icon' => '🚨', 'title' => 'Niekontrolowany wypływ (Blowout)', 'cls' => 'hse-panel--inactive', 'badge_cls' => 'hse-badge--off', 'badge' => 'KATASTROFA'],
+    'contaminated'   => ['icon' => '☣️', 'title' => 'Skażenie złoża',                'cls' => 'hse-panel--inactive', 'badge_cls' => 'hse-badge--off', 'badge' => 'SKAŻENIE'],
+];
+
+$actionHint = [
+    'paused_staff'   => 'Zatrudnij brakujących specjalistów w zakładce <a href="?tab=candidates" class="link-gold">Kandydaci</a>.',
+    'paused_cash'    => 'Sprzedaj ropę lub zdobądź finansowanie. Odwiert wznowi się automatycznie.',
+    'broken'         => 'Zlec zadanie <strong>Naprawa awarii</strong> Inżynierowi Utrzymania Ruchu.',
+    'blowout'        => 'Zlec zadanie <strong>Opanowanie wypływu</strong> Inżynierowi Wiercenia lub Inżynierowi Utrzymania Ruchu.',
+    'contaminated'   => 'Zlec zadanie <strong>Rehabilitacja złoża</strong> Inżynierowi Złoża.',
+];
+?>
+
+<?php if (!empty($brokenWells)): ?>
+<?php foreach ($statusInfo as $stCode => $stMeta): ?>
+<?php if (!empty($wellsByStatus[$stCode])): ?>
+<div class="hse-panel <?= $stMeta['cls'] ?>" class="tech-mb">
+    <div class="hse-panel-hdr">
+        <span class="hse-icon"><?= $stMeta['icon'] ?></span>
+        <span class="hse-title"><?= $stMeta['title'] ?></span>
+        <span class="hse-status-badge <?= $stMeta['badge_cls'] ?>"><?= $stMeta['badge'] ?></span>
+    </div>
+    <div class="hse-warning-block">
+        <ul class="hse-risk-list">
+        <?php foreach ($wellsByStatus[$stCode] as $w):
+            $cond = round((float)$w['technical_condition'], 1);
+            $condCls = $cond >= 70 ? 'c-good' : ($cond >= 40 ? 'c-warn' : 'c-bad');
+        ?>
+            <li>
+                <span class="fw7">Odwiert #<?= $w['id'] ?></span>
+                <span class="c-muted fs12"> · <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
+                <span class="<?= $condCls ?> fw7"> · Stan: <?= $cond ?>%</span>
+                <?php if ($stCode === 'paused_staff' && !empty($w['paused_staff_reason'])): ?>
+                <br><span class="c-muted fs12" class="tech-ml">Brakuje: <?= htmlspecialchars(implode(', ', array_map(fn($c) => [
+                    'safety_officer'=>'Oficer BHP','safety_engineer'=>'Inżynier BHP',
+                    'maintenance_engineer'=>'Inżynier Utrzymania Ruchu','production_engineer'=>'Inżynier Produkcji'
+                ][$c] ?? $c, explode(',', $w['paused_staff_reason'])))) ?></span>
+                <?php endif ?>
+            </li>
+        <?php endforeach ?>
+        </ul>
+        <p class="hse-fix-hint">→ <?= $actionHint[$stCode] ?? '' ?></p>
+    </div>
+</div>
+<?php endif ?>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php
+$riskWells = array_filter($wells, fn($w) => $w['status'] === 'active' && $w['technical_condition'] < 60);
+if (!empty($riskWells)):
+?>
+<div class="hse-panel" class="hse-panel hse-panel--warn">
+    <div class="hse-panel-hdr">
+        <span class="hse-icon">⚠️</span>
+        <span class="hse-title">Ryzyko awarii — stan poniżej 60%</span>
+        <span class="hse-status-badge" class="hse-badge hse-badge--warn">UWAGA</span>
+    </div>
+    <div class="hse-warning-block">
+        <ul class="hse-risk-list">
+        <?php foreach ($riskWells as $w):
+            $cond = (float)$w['technical_condition'];
+            $risk = round(max(0, (70 - $cond) * 0.5), 1);
+        ?>
+            <li>
+                <span class="fw7 c-warn">Odwiert #<?= $w['id'] ?></span>
+                <span class="c-muted fs12"> · <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
+                <span class="c-warn fw7"> · Stan: <?= round($cond, 1) ?>%</span>
+                <span class="c-bad fs12"> · Ryzyko awarii: <?= $risk ?>%/h</span>
+            </li>
+        <?php endforeach ?>
+        </ul>
+        <p class="hse-fix-hint">→ Zlec zadanie <strong>Konserwacja odwiertu</strong> Inżynierowi Wiercenia lub Inżynierowi Utrzymania Ruchu.</p>
+    </div>
+</div>
+<?php endif ?>
+
+<?php if (empty($brokenWells) && empty($riskWells)): ?>
+<div class="hse-panel" class="hse-panel hse-panel--ok">
+    <div class="hse-panel-hdr">
+        <span class="hse-icon">🟢</span>
+        <span class="hse-title">Stan techniczny odwiertów</span>
+        <span class="hse-status-badge hse-badge--on">SPRAWNE</span>
+    </div>
+    <div class="hse-note">✓ Brak zagrożeń technicznych — wszystkie odwierty w dobrym stanie.</div>
+</div>
+<?php endif ?>
+
+<?php
+// ── Aktywne katastrofy przemysłowe ────────────────────────
+$activeDisasters = [];
+try {
+    $dsStmt = $db->prepare("
+        SELECT d.*, w.location_name AS well_name
+        FROM industrial_disasters d
+        LEFT JOIN wells w ON w.id = d.well_id
+        WHERE d.player_id = ? AND d.status IN ('active','being_repaired')
+        ORDER BY d.occurred_at DESC
+    ");
+    $dsStmt->execute([$playerId]);
+    $activeDisasters = $dsStmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'activeDisasters query FAILED', $e);
+}
+
+$disasterLabels = [
+    'blowout'                 => ['icon' => '🚨', 'label' => 'Niekontrolowany wypływ (Blowout)',  'cls' => 'disaster-type-blowout'],
+    'pipeline_explosion'      => ['icon' => '💥', 'label' => 'Eksplozja rurociągu',               'cls' => 'disaster-type-pipeline'],
+    'reservoir_contamination' => ['icon' => '☣️', 'label' => 'Skażenie złoża',                   'cls' => 'disaster-type-contamination'],
+    'surface_spill'           => ['icon' => '🛢️', 'label' => 'Wyciek powierzchniowy',             'cls' => 'disaster-type-spill'],
+];
+
+$repairTaskHint = [
+    'blowout'                 => 'Zlec zadanie <strong>Opanowanie wypływu</strong> — Inżynier Wiercenia lub Inżynier Utrzymania Ruchu. Czas: 72–120h.',
+    'pipeline_explosion'      => 'Zlec zadanie <strong>Naprawa rurociągu</strong> — Inżynier Rurociągów. Czas: 24–48h.',
+    'reservoir_contamination' => 'Zlec zadanie <strong>Rehabilitacja złoża</strong> — Inżynier Złoża. Czas: 72–120h.',
+    'surface_spill'           => 'Zdarzenie jednorazowe — brak wymaganej naprawy. Sprawdź poziom magazynu.',
+];
+?>
+
+<?php if (!empty($activeDisasters)): ?>
+<div class="section-h">⚠️ Aktywne katastrofy przemysłowe (<?= count($activeDisasters) ?>)</div>
+<?php foreach ($activeDisasters as $d):
+    $dInfo = $disasterLabels[$d['disaster_type']] ?? ['icon' => '⚠️', 'label' => $d['disaster_type'], 'cls' => ''];
+    $hint  = $repairTaskHint[$d['disaster_type']] ?? '';
+?>
+<div class="disaster-panel">
+    <div class="disaster-panel-hdr">
+        <span class="disaster-icon"><?= $dInfo['icon'] ?></span>
+        <span class="disaster-title <?= $dInfo['cls'] ?>"><?= $dInfo['label'] ?></span>
+        <span class="disaster-badge"><?= $d['status'] === 'being_repaired' ? 'W NAPRAWIE' : 'AKTYWNA' ?></span>
+    </div>
+    <p class="disaster-desc"><?= htmlspecialchars($d['description'] ?? '') ?></p>
+    <div class="disaster-stats">
+        <?php if ($d['repair_cost'] > 0): ?>
+        <div class="disaster-stat">
+            <div class="disaster-stat-val cost"><?= number_format($d['repair_cost'], 0, ',', ' ') ?> PLN</div>
+            <div class="disaster-stat-lbl">Koszt akcji ratunkowej</div>
+        </div>
+        <?php endif ?>
+        <?php if ($d['env_fine'] > 0): ?>
+        <div class="disaster-stat">
+            <div class="disaster-stat-val fine"><?= number_format($d['env_fine'], 0, ',', ' ') ?> PLN</div>
+            <div class="disaster-stat-lbl">Kara środowiskowa</div>
+        </div>
+        <?php endif ?>
+        <?php if ($d['reservoir_lost'] > 0): ?>
+        <div class="disaster-stat">
+            <div class="disaster-stat-val loss"><?= number_format($d['reservoir_lost'], 0, ',', ' ') ?> bbl</div>
+            <div class="disaster-stat-lbl">Utracone złoże</div>
+        </div>
+        <?php endif ?>
+        <?php if ($d['oil_lost'] > 0): ?>
+        <div class="disaster-stat">
+            <div class="disaster-stat-val loss"><?= number_format($d['oil_lost'], 0, ',', ' ') ?> bbl</div>
+            <div class="disaster-stat-lbl">Utracona ropa</div>
+        </div>
+        <?php endif ?>
+        <div class="disaster-stat">
+            <div class="disaster-stat-val" class="wg-disaster-date"><?= date('d.m H:i', strtotime($d['occurred_at'])) ?></div>
+            <div class="disaster-stat-lbl">Data zdarzenia</div>
+        </div>
+    </div>
+    <?php if ($hint): ?>
+    <div class="disaster-action-hint">🔧 <?= $hint ?></div>
+    <?php endif ?>
+    <?php if ($d['hse_active']): ?>
+    <div class="disaster-hse-note">✓ BHP było aktywne — skutki zostały częściowo ograniczone.</div>
+    <?php endif ?>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php
+// ── Historia awarii (rozszerzona o katastrofy) ─────────────
+$failures = [];
+try {
+    $failStmt = $db->prepare("
+        SELECT fl.*, w.location_name
+        FROM failure_log fl
+        LEFT JOIN wells w ON fl.well_id = w.id
+        WHERE fl.player_id = ?
+        ORDER BY fl.occurred_at DESC
+        LIMIT 20
+    ");
+    $failStmt->execute([$playerId]);
+    $failures = $failStmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('technical.php', 'failure_log query FAILED', $e);
+}
+?>
+<?php if (!empty($failures)): ?>
+<div class="section-h">Historia awarii i katastrof</div>
+<div class="disaster-history-hdr">
+    <span></span>
+    <span>Zdarzenie</span>
+    <span>Koszt naprawy</span>
+    <span>Kara środow.</span>
+    <span>Data</span>
+    <span>Status</span>
+</div>
+<?php
+$fTypes = [
+    'pump'                    => ['icon' => '🔧', 'label' => 'Awaria pompy',             'cls' => ''],
+    'pipeline'                => ['icon' => '🔩', 'label' => 'Uszkodzenie rurociągu',    'cls' => ''],
+    'electrical'              => ['icon' => '⚡', 'label' => 'Awaria elektryczna',       'cls' => ''],
+    'pressure_drop'           => ['icon' => '📉', 'label' => 'Spadek ciśnienia',         'cls' => ''],
+    'blowout'                 => ['icon' => '🚨', 'label' => 'Niekontrolowany wypływ',   'cls' => 'disaster-type-blowout'],
+    'pipeline_explosion'      => ['icon' => '💥', 'label' => 'Eksplozja rurociągu',      'cls' => 'disaster-type-pipeline'],
+    'reservoir_contamination' => ['icon' => '☣️', 'label' => 'Skażenie złoża',          'cls' => 'disaster-type-contamination'],
+    'surface_spill'           => ['icon' => '🛢️', 'label' => 'Wyciek powierzchniowy',   'cls' => 'disaster-type-spill'],
+];
+foreach ($failures as $f):
+    $ft = $fTypes[$f['failure_type']] ?? ['icon' => '?', 'label' => $f['failure_type'], 'cls' => ''];
+?>
+<div class="disaster-history-row">
+    <span class="tech-icon-lg"><?= $ft['icon'] ?></span>
+    <span>
+        <span class="<?= $ft['cls'] ?>"><?= $ft['label'] ?></span>
+        <?php if ($f['well_id'] > 0): ?>
+            <small class="c-muted2"> · #<?= $f['well_id'] ?> <?= htmlspecialchars($f['location_name'] ?? '') ?></small>
+        <?php endif ?>
+    </span>
+    <span class="<?= $f['repair_cost'] > 0 ? 'c-bad' : 'c-muted' ?>">
+        <?= $f['repair_cost'] > 0 ? number_format($f['repair_cost'], 0, ',', ' ') . ' PLN' : '—' ?>
+    </span>
+    <span class="<?= ($f['environmental_fine'] ?? 0) > 0 ? 'c-warn' : 'c-muted' ?>">
+        <?= ($f['environmental_fine'] ?? 0) > 0 ? number_format($f['environmental_fine'], 0, ',', ' ') . ' PLN' : '—' ?>
+    </span>
+    <span class="c-muted2 sm"><?= date('d.m H:i', strtotime($f['occurred_at'])) ?></span>
+    <span>
+        <span class="badge <?= $f['resolved'] ? 'b-active' : 'b-broken' ?>">
+            <?= $f['resolved'] ? 'Naprawione' : 'Aktywna' ?>
+        </span>
+    </span>
+</div>
+<?php endforeach ?>
+<?php endif ?>
+
+<?php if (empty($activeDisasters) && empty($failures) && empty($brokenWells)): ?>
+<div class="safety-ok" class="tech-mt">✓ Brak historii awarii ani katastrof. Dobra robota.</div>
+<?php endif ?>
+
+<?php endif ?><!-- end safety tab -->
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: INCYDENTY
+══════════════════════════════════════ -->
+<?php if ($activeTab === 'incidents'): ?>
+
+<div class="g-card">
+    <div class="g-card-title">Dziennik incydentów (ostatnie 50)</div>
+
+    <?php if (empty($incidents)): ?>
+    <div class="empty-state">Brak zarejestrowanych incydentów. Pojawią się tutaj po kolejnym tiku gry.</div>
+    <?php else: ?>
+    <div class="inc-list">
+    <?php foreach ($incidents as $inc):
+        $lvl     = $inc['level'];
+        $cause   = $inc['cause_type'];
+        $lvlIcon = match($lvl) { 'micro'=>'🟢','minor'=>'🟡','medium'=>'🟠','major'=>'🔴', default=>'⚪' };
+        $lvlCls  = match($lvl) { 'micro'=>'inc-micro','minor'=>'inc-minor','medium'=>'inc-medium','major'=>'inc-major', default=>'' };
+        $causeIcon = match($cause) { 'operator'=>'👷','technician'=>'🔧','hse'=>'🦺','system'=>'⚙', default=>'❓' };
+    ?>
+    <div class="inc-row <?= $lvlCls ?>">
+        <div class="inc-icon"><?= $lvlIcon ?></div>
+        <div class="inc-body">
+            <div class="inc-msg"><?= htmlspecialchars($inc['message']) ?></div>
+            <div class="inc-meta">
+                <span><?= $causeIcon ?> <?= ucfirst($cause) ?></span>
+                <span class="sep">·</span>
+                <span>Odwiert #<?= $inc['well_id'] ?><?= $inc['well_name'] ? ' — '.htmlspecialchars($inc['well_name']) : '' ?></span>
+                <span class="sep">·</span>
+                <span class="<?= $inc['prod_drop'] >= 40 ? 'c-bad' : ($inc['prod_drop'] >= 10 ? 'c-warn' : 'c-muted2') ?>">
+                    −<?= $inc['prod_drop'] ?>% produkcji
+                </span>
+                <?php if ($inc['cost'] > 0): ?>
+                <span class="sep">·</span>
+                <span class="c-gold">Koszt: $<?= number_format($inc['cost'], 0, '.', ' ') ?></span>
+                <?php endif ?>
+                <?php if ($inc['deg_damage'] > 0): ?>
+                <span class="sep">·</span>
+                <span class="c-bad">Stan −<?= $inc['deg_damage'] ?>pkt</span>
+                <?php endif ?>
+                <span class="sep">·</span>
+                <span class="c-muted2"><?= $inc['auto_repair'] ? 'Auto-naprawa' : 'Wymaga technika' ?></span>
+                <span class="sep">·</span>
+                <span class="c-muted2"><?= date('d.m H:i', strtotime($inc['created_at'])) ?></span>
+            </div>
+        </div>
+        <div class="inc-badge"><?= strtoupper($lvl) ?></div>
+    </div>
+    <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</div>
+
+<?php endif ?>
+
+<!-- ══════════════════════════════════════
+     ZAKŁADKA: RAPORT
+══════════════════════════════════════ -->
+<?php if ($activeTab === 'report'): ?>
+
+<div class="prod-grid">
+    <div class="prod-stat"><div class="prod-val"><?= count($wells) ?></div><div class="prod-unit">Odwiertów</div></div>
+    <div class="prod-stat"><div class="prod-val c-green"><?= count($activeWells) ?></div><div class="prod-unit">Aktywnych</div></div>
+    <div class="prod-stat"><div class="prod-val <?= $avgCond >= 70 ? 'c-green' : 'c-warn' ?>"><?= $avgCond ?>%</div><div class="prod-unit">Śr. stan tech.</div></div>
+    <div class="prod-stat"><div class="prod-val c-bad"><?= count($brokenWells) ?></div><div class="prod-unit">Awarii</div></div>
+    <div class="prod-stat"><div class="prod-val c-gold"><?= count($staff) ?></div><div class="prod-unit">Inżynierów</div></div>
+    <div class="prod-stat"><div class="prod-val c-blue"><?= count($activeTasks) ?></div><div class="prod-unit">Aktywnych zadań</div></div>
+</div>
+
+<div class="g-card">
+    <div class="g-card-title">Stan odwiertów</div>
+    <div class="data-list">
+        <div class="data-list-head cols-wells">
+            <span>#</span><span>Lokalizacja</span><span>Status</span><span>Produkcja</span><span>Stan</span><span>Ciśnienie</span><span>Złoże</span>
+        </div>
+        <?php foreach ($wells as $w):
+            $cond    = (float)$w['technical_condition'];
+            $condCol = $cond >= 70 ? 'c-good' : ($cond >= 40 ? 'c-warn' : 'c-bad');
+            $resPct  = (float)($w['reservoir_max'] ?? 800000) > 0 ? round((float)$w['reservoir_remaining'] / (float)$w['reservoir_max'] * 100, 1) : 0;
+            $sLbl    = match($w['status']) { 'active'=>'Aktywny','broken','paused_cash'=>'Awaria',default=>ucfirst($w['status']) };
+            $sCls    = match($w['status']) { 'active'=>'b-active','broken','paused_cash'=>'b-broken',default=>'b-paused' };
+        ?>
+        <div class="data-list-row cols-wells">
+            <span class="dlc sm">#<?= $w['id'] ?></span>
+            <span class="dlc"><?= htmlspecialchars($w['location_name'] ?? 'Pole') ?></span>
+            <span class="dlc"><span class="badge <?= $sCls ?>"><?= $sLbl ?></span></span>
+            <span class="dlc c-gold fw7"><?= number_format($w['base_production_per_hour'], 1) ?> bbl/h</span>
+            <span class="dlc <?= $condCol ?> fw7"><?= round($cond, 1) ?>%</span>
+            <span class="dlc"><?= number_format((float)($w['pressure'] ?? 1.0), 3) ?></span>
+            <span class="dlc <?= $resPct < 20 ? 'c-bad' : 'c-muted2' ?>"><?= $resPct ?>%</span>
+        </div>
+        <?php endforeach ?>
+    </div>
+</div>
+
+<div class="g-card">
+    <div class="g-card-title">Zespół techniczny</div>
+    <div class="data-list">
+        <div class="data-list-head cols-staff">
+            <span>Imię i nazwisko</span><span>Specjalizacja</span><span>Skill</span><span>Status</span><span>Pensja</span>
+        </div>
+        <?php foreach ($staff as $s): ?>
+        <div class="data-list-row cols-staff">
+            <span class="dlc fw6"><?= htmlspecialchars($s['first_name'].' '.$s['last_name']) ?></span>
+            <span class="dlc"><?= htmlspecialchars($s['spec_name']) ?></span>
+            <span class="dlc c-gold fw7"><?= $s['skill_level'] ?>/10</span>
+            <span class="dlc"><span class="badge <?= $s['status'] === 'active' ? 'b-active' : 'b-busy' ?>"><?= $s['status'] === 'active' ? 'Dostępny' : 'Zajęty' ?></span></span>
+            <span class="dlc sm">$<?= number_format($s['salary'], 0, '.', ' ') ?></span>
+        </div>
+        <?php endforeach ?>
+    </div>
+</div>
+
+<?php endif ?>
+
+</div><!-- .t-wrap -->
+
+<script src="/assets/js/technical.js"></script>
+<?php GameLog::pageEnd('technical.php', $_pageStart); ?>
+<script>
+const WELL_STAFF_API = '/src/WellStaffApi.php';
+const WS_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+</script>
+<script src="/assets/js/well_staff.js"></script>
+</body>
+</html>

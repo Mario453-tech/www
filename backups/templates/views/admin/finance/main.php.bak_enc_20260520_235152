@@ -1,0 +1,790 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1>&#128181; <?= t('admin.finance.heading') ?></h1>
+
+<?php if ($msg): ?>
+<p class="alert alert-success"><?= htmlspecialchars($msg) ?></p>
+<?php endif; ?>
+<?php if ($err): ?>
+<p class="alert alert-error"><?= htmlspecialchars($err) ?></p>
+<?php endif; ?>
+
+<?php if (!empty($admAlerts)): ?>
+<div class="fin-admin-alerts">
+    <?php foreach ($admAlerts as $alert): ?>
+    <div class="finance-alert finance-alert--<?= htmlspecialchars($alert['level']) ?>">
+        <span><?= $alert['icon'] ?></span>
+        <span><?= htmlspecialchars($alert['msg']) ?></span>
+    </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<div class="fin-range-bar">
+    <span class="muted fin-range-label"><?= t('admin.finance.range_label') ?>:</span>
+    <?php foreach ($rangeOptions as $rangeHours => $label): ?>
+    <a href="?hours=<?= (int)$rangeHours ?>" class="btn btn-sm <?= $hours === $rangeHours ? 'btn-primary' : 'btn-secondary' ?>">
+        <?= htmlspecialchars($label) ?>
+    </a>
+    <?php endforeach; ?>
+</div>
+
+<section class="panel">
+    <p class="panel-title">&#128202; <?= t('admin.finance.global_stats_title', ['hours' => $hours]) ?></p>
+    <div class="fin-global-grid-3">
+        <?php foreach ($globalStatCards as $card): ?>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= $card['title'] ?></div>
+            <div class="fin-global-val <?= htmlspecialchars($card['cls']) ?>"><?= $card['val'] ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#128230; <?= t('admin.finance.hub_breakdown_title', ['hours' => $hours]) ?></p>
+    <div class="fin-global-grid-3">
+        <?php foreach ($hubStatCards as $card): ?>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= $card['title'] ?></div>
+            <div class="fin-global-val <?= htmlspecialchars($card['cls']) ?>"><?= $card['val'] ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+
+<?php
+// Helper: etykieta trybu planu
+$savingsModeLabel = static function (string $mode): string {
+    return match ($mode) {
+        'moderate'   => t('admin.finance.savings_moderate_label'),
+        'aggressive' => t('admin.finance.savings_agg_label'),
+        default      => t('admin.finance.savings_off_label'),
+    };
+};
+$savingsModeClass = static function (string $mode): string {
+    return match ($mode) {
+        'moderate'   => 'fin-mode-moderate',
+        'aggressive' => 'fin-mode-aggressive',
+        default      => 'fin-mode-off',
+    };
+};
+$budgetShort = static function (string $level): string {
+    return match ($level) {
+        'low'  => 'N',
+        'high' => 'W',
+        default => 'S',
+    };
+};
+$budgetClass = static function (string $level): string {
+    return match ($level) {
+        'low'  => 'fin-budget-low',
+        'high' => 'fin-budget-high',
+        default => '',
+    };
+};
+$impactStatusLabel = static function (string $status): string {
+    return match ($status) {
+        'warning' => t('finance.policy_reco_status_warning'),
+        'caution' => t('finance.policy_reco_status_caution'),
+        default => t('finance.policy_reco_status_good'),
+    };
+};
+$impactStatusClass = static function (string $status): string {
+    return match ($status) {
+        'warning' => 'fin-mode-aggressive',
+        'caution' => 'fin-orange',
+        default => 'fin-mode-moderate',
+    };
+};
+$reserveStateClass = static function (string $state): string {
+    return match ($state) {
+        'critical' => 'fin-red',
+        'warning'  => 'fin-orange',
+        'caution'  => 'fin-yellow',
+        default    => 'fin-green',
+    };
+};
+?>
+
+<section class="panel">
+    <p class="panel-title">&#128202; <?= t('admin.finance.savings_monitor_title') ?></p>
+    <div class="fin-global-grid-3">
+        <?php
+        $savingsCards = [
+            'off'        => ['label' => t('admin.finance.savings_off_label'),      'cls' => 'fin-stat-neutral'],
+            'moderate'   => ['label' => t('admin.finance.savings_moderate_label'), 'cls' => 'fin-orange'],
+            'aggressive' => ['label' => t('admin.finance.savings_agg_label'),      'cls' => 'fin-red'],
+        ];
+        foreach ($savingsCards as $mode => $card):
+            $cnt = (int)($savingsModes[$mode] ?? 0);
+        ?>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= $card['label'] ?></div>
+            <div class="fin-global-val <?= $card['cls'] ?>">
+                <?= $cnt ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#128200; <?= t('admin.finance.policy_impact_admin_title') ?></p>
+    <p class="fin-config-desc"><?= t('admin.finance.policy_impact_admin_desc') ?></p>
+
+    <div class="fin-global-grid-3 fin-impact-summary-grid">
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= t('admin.finance.policy_impact_stat_warning') ?></div>
+            <div class="fin-global-val <?= ($policyImpactSummary['warning'] ?? 0) > 0 ? 'fin-red' : 'fin-stat-neutral' ?>">
+                <?= (int)($policyImpactSummary['warning'] ?? 0) ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= t('admin.finance.policy_impact_stat_caution') ?></div>
+            <div class="fin-global-val <?= ($policyImpactSummary['caution'] ?? 0) > 0 ? 'fin-orange' : 'fin-stat-neutral' ?>">
+                <?= (int)($policyImpactSummary['caution'] ?? 0) ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= t('admin.finance.policy_impact_stat_good') ?></div>
+            <div class="fin-global-val <?= ($policyImpactSummary['good'] ?? 0) > 0 ? 'fin-green' : 'fin-stat-neutral' ?>">
+                <?= (int)($policyImpactSummary['good'] ?? 0) ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= t('admin.finance.policy_impact_stat_negative_day') ?></div>
+            <div class="fin-global-val <?= ($policyImpactSummary['negative_day'] ?? 0) > 0 ? 'fin-red' : 'fin-stat-neutral' ?>">
+                <?= (int)($policyImpactSummary['negative_day'] ?? 0) ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+    </div>
+
+    <?php if (empty($policyImpactPlayers)): ?>
+    <p class="empty-state" style="margin-top:14px"><?= t('admin.finance.policy_impact_empty') ?></p>
+    <?php else: ?>
+    <div class="fin-player-list" style="margin-top:14px">
+        <div class="fin-player-header fin-impact-header">
+            <span><?= t('admin.finance.col_company') ?></span>
+            <span><?= t('admin.finance.col_savings_mode') ?></span>
+            <span><?= t('admin.finance.col_reserve_policy') ?></span>
+            <span><?= t('admin.finance.policy_impact_col_tick') ?></span>
+            <span><?= t('admin.finance.policy_impact_col_day') ?></span>
+            <span><?= t('admin.finance.policy_impact_col_reserve_state') ?></span>
+            <span><?= t('admin.finance.policy_impact_col_status') ?></span>
+            <span><?= t('admin.finance.policy_impact_col_recommendation') ?></span>
+        </div>
+        <?php foreach ($policyImpactPlayers as $pi): ?>
+        <div class="fin-player-row fin-impact-row">
+            <span>
+                <a href="/admin/player.php?id=<?= (int)$pi['player_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($pi['company']) ?>
+                </a>
+            </span>
+            <span>
+                <span class="fin-mode-badge <?= $savingsModeClass((string)$pi['mode']) ?>">
+                    <?= $savingsModeLabel((string)$pi['mode']) ?>
+                </span>
+            </span>
+            <span class="fin-num fin-muted">
+                <?= match ((string)$pi['reserve_level']) {
+                    'low' => '6h',
+                    'high' => '24h',
+                    default => '12h',
+                } ?>
+            </span>
+            <span class="fin-num <?= (float)$pi['tick_net'] >= 0 ? 'fin-green' : 'fin-red' ?>">
+                <?= $fmtAdminPln((float)$pi['tick_net'], true) ?>
+            </span>
+            <span class="fin-num <?= (float)$pi['day_net'] >= 0 ? 'fin-green' : 'fin-red' ?>">
+                <?= $fmtAdminPln((float)$pi['day_net'], true) ?>
+            </span>
+            <span class="fin-small <?= $reserveStateClass((string)$pi['reserve_state']) ?>">
+                <?= t('finance.reserve_state_' . ((string)$pi['reserve_state'])) ?>
+            </span>
+            <span>
+                <span class="fin-mode-badge <?= $impactStatusClass((string)$pi['status']) ?>">
+                    <?= $impactStatusLabel((string)$pi['status']) ?>
+                </span>
+            </span>
+            <span class="fin-impact-reco">
+                <strong><?= htmlspecialchars((string)$pi['title']) ?></strong>
+                <small><?= htmlspecialchars((string)$pi['summary']) ?></small>
+                <?php if (!empty($pi['highlights'][0])): ?>
+                <small class="fin-impact-highlight"><?= htmlspecialchars((string)$pi['highlights'][0]) ?></small>
+                <?php endif; ?>
+            </span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+</section>
+
+<?php
+$totalBelowReserve = $reserveCounts['critical'] + $reserveCounts['warning'] + $reserveCounts['caution'];
+?>
+<section class="panel">
+    <p class="panel-title">&#128274; <?= t('admin.finance.reserve_monitor_title') ?></p>
+    <div class="fin-global-grid-3">
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= t('admin.finance.reserve_state_critical') ?></div>
+            <div class="fin-global-val <?= $reserveCounts['critical'] > 0 ? 'fin-red' : 'fin-stat-neutral' ?>">
+                <?= $reserveCounts['critical'] ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= t('admin.finance.reserve_state_warning') ?></div>
+            <div class="fin-global-val <?= $reserveCounts['warning'] > 0 ? 'fin-orange' : 'fin-stat-neutral' ?>">
+                <?= $reserveCounts['warning'] ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= t('admin.finance.reserve_state_caution') ?></div>
+            <div class="fin-global-val <?= $reserveCounts['caution'] > 0 ? 'fin-yellow' : 'fin-stat-neutral' ?>">
+                <?= $reserveCounts['caution'] ?> <span class="fin-muted fin-small"><?= t('admin.finance.players_count') ?></span>
+            </div>
+        </div>
+    </div>
+
+    <?php if (!empty($reserveStatus)): ?>
+    <div class="fin-player-list" style="margin-top:14px">
+        <div class="fin-player-header fin-reserve-header">
+            <span><?= t('admin.finance.col_company') ?></span>
+            <span><?= t('admin.finance.col_balance') ?></span>
+            <span><?= t('admin.finance.reserve_col_target') ?></span>
+            <span><?= t('admin.finance.reserve_col_coverage') ?></span>
+            <span><?= t('admin.finance.reserve_col_mode') ?></span>
+        </div>
+        <?php foreach ($reserveStatus as $rs): ?>
+        <div class="fin-player-row fin-reserve-header">
+            <span>
+                <a href="/admin/player.php?id=<?= (int)$rs['player_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($rs['company'] ?? '?') ?>
+                </a>
+            </span>
+            <span class="fin-num"><?= $fmtAdminPln((float)$rs['cash']) ?></span>
+            <span class="fin-num fin-muted"><?= $fmtAdminPln((float)$rs['reserve_target']) ?></span>
+            <span class="fin-num <?= $reserveStateClass($rs['state']) ?>">
+                <?= number_format($rs['coverage_pct'], 0) ?>%
+            </span>
+            <span>
+                <span class="fin-mode-badge <?= $savingsModeClass((string)$rs['savings_plan_mode']) ?>">
+                    <?= $savingsModeLabel((string)$rs['savings_plan_mode']) ?>
+                </span>
+            </span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php else: ?>
+    <p class="empty-state" style="margin-top:12px">&#10003; <?= t('admin.finance.reserve_all_ok') ?></p>
+    <?php endif; ?>
+</section>
+
+<?php /* ── Monitoring hubów ─────────────────────────────────────────────── */ ?>
+<section class="panel">
+    <p class="panel-title">&#128230; <?= t('admin.finance.hub_monitor_title') ?></p>
+
+    <?php if (empty($hubMonitor)): ?>
+    <p class="empty-state">&#10003; <?= t('admin.finance.hub_monitor_empty') ?></p>
+    <?php else: ?>
+    <?php
+    $loadClass = static function(float $pct): string {
+        if ($pct >= 90) return 'fin-red';
+        if ($pct >= 70) return 'fin-orange';
+        if ($pct >= 50) return 'fin-yellow';
+        return 'fin-green';
+    };
+    $condClass = static function(float $pct): string {
+        if ($pct < 40) return 'fin-red';
+        if ($pct < 70) return 'fin-orange';
+        return 'fin-stat-neutral';
+    };
+    ?>
+    <div class="fin-player-list" style="margin-top:12px">
+        <div class="fin-player-header fin-hub-monitor-header">
+            <span><?= t('admin.finance.hub_mon_col_name') ?></span>
+            <span><?= t('admin.finance.hub_mon_col_owner') ?></span>
+            <span><?= t('admin.finance.hub_mon_col_slots') ?></span>
+            <span><?= t('admin.finance.hub_mon_col_condition') ?></span>
+            <span><?= t('admin.finance.hub_mon_col_load') ?></span>
+            <span><?= t('admin.finance.hub_mon_col_lost') ?></span>
+            <span><?= t('admin.finance.hub_mon_col_incidents') ?></span>
+        </div>
+        <?php foreach ($hubMonitor as $hm): ?>
+        <?php
+            $avgLoad  = (float)$hm['avg_load_pct'];
+            $maxLoad  = (float)$hm['max_load_pct'];
+            $cond     = (float)$hm['condition_pct'];
+            $lostBbl  = (float)$hm['total_lost_bbl'];
+            $incidents= (int)$hm['incident_count'];
+            $overloads= (int)$hm['overload_count'];
+            $slots    = (int)$hm['active_wells'] . '/' . (int)$hm['slot_limit'];
+        ?>
+        <div class="fin-player-row fin-hub-monitor-header">
+            <span>
+                <span class="fin-mode-badge <?= $hm['status'] === 'active' ? 'fin-mode-moderate' : 'fin-mode-off' ?>"
+                      style="font-size:10px; margin-right:4px">
+                    <?= htmlspecialchars(strtoupper((string)$hm['hub_type'])) ?>
+                </span>
+                <?= htmlspecialchars($hm['name']) ?>
+                <?php if ($hm['level'] > 1): ?>
+                <span class="fin-muted fin-small">Lv<?= (int)$hm['level'] ?></span>
+                <?php endif; ?>
+            </span>
+            <span class="fin-muted fin-small">
+                <a href="/admin/player.php?id=<?= (int)$hm['owner_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($hm['owner_company'] ?? '?') ?>
+                </a>
+            </span>
+            <span class="fin-num <?= (int)$hm['active_wells'] >= (int)$hm['slot_limit'] ? 'fin-orange' : '' ?>">
+                <?= $slots ?>
+            </span>
+            <span class="fin-num <?= $condClass($cond) ?>">
+                <?= number_format($cond, 0) ?>%
+            </span>
+            <span class="fin-num <?= $loadClass($avgLoad) ?>"
+                  title="Max: <?= number_format($maxLoad, 0) ?>%, Overloady: <?= $overloads ?>">
+                <?= number_format($avgLoad, 0) ?>%
+            </span>
+            <span class="fin-num <?= $lostBbl > 0 ? 'fin-orange' : 'fin-stat-neutral' ?>">
+                <?= $lostBbl > 0 ? number_format($lostBbl, 1) . ' bbl' : '—' ?>
+            </span>
+            <span class="fin-num <?= $incidents > 0 ? 'fin-red' : 'fin-stat-neutral' ?>">
+                <?= $incidents > 0 ? $incidents : '—' ?>
+            </span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <p class="muted fin-save-hint" style="margin-top:8px">
+        <?= t('admin.finance.hub_mon_note', ['hours' => $hours]) ?>
+    </p>
+    <?php endif; ?>
+</section>
+
+<?php if (!empty($playerPolicies)): ?>
+<section class="panel">
+    <p class="panel-title">&#128100; <?= t('admin.finance.player_policies_title') ?></p>
+    <div class="fin-player-list">
+        <div class="fin-player-header fin-policy-header">
+            <span><?= t('admin.finance.col_company') ?></span>
+            <span><?= t('admin.finance.col_savings_mode') ?></span>
+            <span><?= t('admin.finance.col_reserve_policy') ?></span>
+            <span><?= t('admin.finance.col_budgets') ?></span>
+            <span><?= t('admin.finance.col_cooldown') ?></span>
+        </div>
+        <?php foreach ($playerPolicies as $pp):
+            $mode        = (string)($pp['savings_plan_mode'] ?? 'off');
+            $reserve     = (string)($pp['reserve_policy'] ?? 'standard');
+            $coolActive  = (bool)($pp['cooldown_active'] ?? false);
+            $coolLeft    = (int)($pp['cooldown_left'] ?? 0);
+            $coolH       = floor($coolLeft / 3600);
+            $coolM       = floor(($coolLeft % 3600) / 60);
+        ?>
+        <div class="fin-player-row fin-policy-row">
+            <span>
+                <a href="/admin/player.php?id=<?= (int)$pp['player_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($pp['company'] ?? '?') ?>
+                </a>
+            </span>
+            <span>
+                <span class="fin-mode-badge <?= $savingsModeClass($mode) ?>">
+                    <?= $savingsModeLabel($mode) ?>
+                </span>
+            </span>
+            <span class="fin-num fin-muted">
+                <?php
+                echo match ($reserve) {
+                    'low'  => '6h',
+                    'high' => '24h',
+                    default => '12h',
+                };
+                ?>
+            </span>
+            <span class="fin-budget-row">
+                <?php foreach (['technical_budget','logistics_budget','hr_budget','safety_budget'] as $bKey): ?>
+                <span class="fin-budget-chip <?= $budgetClass((string)($pp[$bKey] ?? 'standard')) ?>">
+                    <?= $budgetShort((string)($pp[$bKey] ?? 'standard')) ?>
+                </span>
+                <?php endforeach; ?>
+            </span>
+            <span>
+                <?php if ($coolActive): ?>
+                <span class="fin-cooldown-active">
+                    &#8987; <?= sprintf('%dh %dm', $coolH, $coolM) ?>
+                </span>
+                <?php else: ?>
+                <span class="fin-muted">&#8212;</span>
+                <?php endif; ?>
+            </span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
+
+<?php if (!empty($policyDistribution)): ?>
+<section class="panel">
+    <p class="panel-title">&#128202; <?= t('admin.finance.policy_distribution_title') ?></p>
+    <div class="fin-player-list">
+        <div class="fin-player-header">
+            <span><?= t('admin.finance.col_policy') ?></span>
+            <span><?= t('admin.finance.col_low') ?></span>
+            <span><?= t('admin.finance.col_standard') ?></span>
+            <span><?= t('admin.finance.col_high') ?></span>
+        </div>
+        <?php foreach ($policyDistribution as $row): ?>
+        <div class="fin-player-row">
+            <span><?= htmlspecialchars($row['label']) ?></span>
+            <span class="fin-num"><?= (int)$row['low'] ?></span>
+            <span class="fin-num"><?= (int)$row['standard'] ?></span>
+            <span class="fin-num"><?= (int)$row['high'] ?></span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
+
+<section class="panel">
+    <p class="panel-title">&#128100; <?= t('admin.finance.per_player_title', ['hours' => $hours]) ?></p>
+    <?php if (empty($perPlayer)): ?>
+    <p class="empty-state"><?= t('admin.finance.no_data') ?></p>
+    <?php else: ?>
+    <div class="fin-player-list">
+        <div class="fin-player-header">
+            <span><?= t('admin.finance.col_company') ?></span>
+            <span><?= t('admin.finance.col_balance') ?></span>
+            <span><?= t('admin.finance.col_revenue') ?></span>
+            <span><?= t('admin.finance.col_net') ?></span>
+            <span><?= t('admin.finance.col_loss') ?></span>
+            <span><?= t('admin.finance.col_hub_cost') ?></span>
+            <span><?= t('admin.finance.col_hub_loss') ?></span>
+            <span><?= t('admin.finance.col_wells') ?></span>
+            <span><?= t('admin.finance.col_avg_tick') ?></span>
+        </div>
+        <?php foreach ($perPlayer as $player):
+            $pNet          = (float)$player['total_net'];
+            $pLoss         = (float)$player['total_loss'];
+            $pRev          = (float)$player['total_revenue'];
+            $pLossPct      = $pRev > 0 ? round($pLoss / $pRev * 100, 1) : 0;
+            $pHubCost      = (float)($player['total_hub_usage_cost'] ?? 0);
+            $pHubLoss      = (float)($player['total_hub_loss_value'] ?? 0) + (float)($player['total_fallback_loss_value'] ?? 0) + (float)($player['total_hub_incident_loss_value'] ?? 0);
+        ?>
+        <div class="fin-player-row">
+            <span>
+                <a href="/admin/player.php?id=<?= (int)$player['player_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($player['company'] ?? '?') ?>
+                </a>
+            </span>
+            <span class="fin-num"><?= $fmtAdminPln((float)$player['cash']) ?></span>
+            <span class="fin-num fin-green"><?= $fmtAdminPln($pRev) ?></span>
+            <span class="fin-num <?= $pNet >= 0 ? 'fin-green' : 'fin-red' ?>"><?= $fmtAdminPln($pNet, true) ?></span>
+            <span class="fin-num fin-orange">
+                <?= $fmtAdminPln($pLoss) ?>
+                <span class="fin-muted fin-small">(<?= $pLossPct ?>%)</span>
+            </span>
+            <span class="fin-num fin-red"><?= $fmtAdminPln($pHubCost) ?></span>
+            <span class="fin-num fin-orange"><?= $fmtAdminPln($pHubLoss) ?></span>
+            <span class="fin-num"><?= (int)$player['wells_active'] ?></span>
+            <span class="fin-num fin-muted"><?= $fmtAdminPln((float)$player['avg_net_per_tick'], true) ?></span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#128272; <?= t('admin.finance.d2_title') ?></p>
+    <p class="fin-config-desc"><?= t('admin.finance.d2_desc') ?></p>
+    <form method="post" style="margin-top:12px"
+          data-confirm="<?= htmlspecialchars(t('admin.finance.confirm_save_multipliers')) ?>"
+          data-confirm-type="warning"
+          data-confirm-label="<?= htmlspecialchars(t('admin.finance.btn_save_multipliers')) ?>">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_multipliers">
+        <?php
+        /**
+         * [domain_key, metric_key, mod_db_key|null, agg_db_key|null]
+         * null = nie dotyczy trybu (BHP umiarkowany), wyświetla "—"
+         */
+        $d2rows = [
+            ['d2_domain_logistics', 'd2_metric_transport_cost', 'sp_log_transport_mod', 'sp_log_transport_agg'],
+            ['d2_domain_logistics', 'd2_metric_hub_cost',       'sp_log_hub_mod',       'sp_log_hub_agg'],
+            ['d2_domain_logistics', 'd2_metric_losses',         'sp_log_loss_mod',      'sp_log_loss_agg'],
+            ['d2_domain_logistics', 'd2_metric_incidents',      'sp_log_incident_mod',  'sp_log_incident_agg'],
+            ['d2_domain_technical', 'd2_metric_wear',           'sp_tech_wear_mod',     'sp_tech_wear_agg'],
+            ['d2_domain_technical', 'd2_metric_degradation',    'sp_tech_degr_mod',     'sp_tech_degr_agg'],
+            ['d2_domain_hr',        'd2_metric_duration',       'sp_hr_duration_mod',   'sp_hr_duration_agg'],
+            ['d2_domain_hr',        'd2_metric_quality',        'sp_hr_quality_mod',    'sp_hr_quality_agg'],
+            ['d2_domain_safety',    'd2_metric_incidents',      null,                   'sp_safety_incident_agg'],
+            ['d2_domain_safety',    'd2_metric_disasters',      null,                   'sp_safety_disaster_agg'],
+        ];
+        $multValClass = static function(?string $key, array $m): string {
+            if ($key === null) return '';
+            $v = $m[$key] ?? 1.0;
+            if ($v < 0.999) return 'fin-green';
+            if ($v > 1.001) return 'fin-orange';
+            return 'fin-stat-neutral';
+        };
+        $multInput = static function(?string $key, array $m, string $cls): string {
+            if ($key === null) {
+                return '<span class="fin-stat-neutral" style="font-size:13px">—</span>';
+            }
+            $v = number_format($m[$key] ?? 1.0, 4, '.', '');
+            return '<input type="number" name="' . htmlspecialchars($key) . '" value="' . $v . '"
+                        min="0.50" max="2.00" step="0.01"
+                        class="fin-mult-input ' . $cls . '"
+                        title="' . htmlspecialchars($key) . '">';
+        };
+        $prevDomain = '';
+        foreach ($d2rows as [$domKey, $metricKey, $modKey, $aggKey]):
+            $domain  = t('admin.finance.' . $domKey);
+            $metric  = t('admin.finance.' . $metricKey);
+            $isNew   = $domain !== $prevDomain;
+            $prevDomain = $domain;
+            $clsMod  = $multValClass($modKey, $mults);
+            $clsAgg  = $multValClass($aggKey, $mults);
+        ?>
+        <div class="fin-effects-row <?= $isNew ? 'fin-effects-domain-row' : '' ?>">
+            <span class="fin-effects-domain"><?= $isNew ? htmlspecialchars($domain) : '' ?></span>
+            <span class="fin-effects-metric"><?= htmlspecialchars($metric) ?></span>
+            <span class="fin-stat-neutral fin-effects-off">×1.00</span>
+            <span class="fin-effects-cell <?= $clsMod ?>"><?= $multInput($modKey, $mults, $clsMod) ?></span>
+            <span class="fin-effects-cell <?= $clsAgg ?>"><?= $multInput($aggKey, $mults, $clsAgg) ?></span>
+        </div>
+        <?php endforeach; ?>
+        <div class="fin-d2-actions">
+            <button type="submit" class="btn btn-primary">&#128190; <?= t('admin.finance.btn_save_multipliers') ?></button>
+            <span class="muted fin-save-hint"><?= t('admin.finance.save_hint') ?></span>
+            <button type="button" class="btn btn-secondary fin-d2-reset-btn"
+                    onclick="finD2ResetDefaults(this.form)">&#8635; <?= t('admin.finance.btn_reset_defaults') ?></button>
+        </div>
+    </form>
+</section>
+<script>
+(function() {
+    var DEFAULTS = <?= json_encode($multDefaults, JSON_THROW_ON_ERROR) ?>;
+    window.finD2ResetDefaults = function(form) {
+        confirmAction('<?= t('admin.finance.d2_reset_confirm') ?>', function () {
+            for (var key in DEFAULTS) {
+                var el = form.querySelector('[name="' + key + '"]');
+                if (el) el.value = DEFAULTS[key].toFixed(4);
+            }
+        }, { type: 'warning', confirmLabel: '<?= t('admin.finance.btn_reset_defaults') ?>' });
+    };
+    window.finConfirmResetPolicy = function(form) {
+        var select = form.querySelector('[name=target_player_id]');
+        if (!select || !select.value) return false;
+        var text = '<?= t('admin.finance.gm_reset_confirm') ?>'.replace(':id', select.value);
+        confirmAction(text, function () {
+            form.submit();
+        }, { type: 'danger', title: '<?= t('admin.finance.gm_reset_btn') ?>', confirmLabel: '<?= t('admin.finance.gm_reset_btn') ?>' });
+        return false;
+    };
+})();
+</script>
+
+<section class="panel">
+    <p class="panel-title">&#128203; <?= t('admin.finance.d3_title') ?></p>
+    <p class="fin-config-desc"><?= t('admin.finance.d3_desc') ?></p>
+    <div class="fin-global-grid-3" style="margin-top:12px">
+        <?php
+        $reserveLevels = [
+            ['level' => 'low',      'label' => t('admin.finance.reserve_low_label'),      'hours' => '6h',  'desc' => t('admin.finance.reserve_low_desc'),      'cls' => 'fin-green'],
+            ['level' => 'standard', 'label' => t('admin.finance.reserve_standard_label'), 'hours' => '12h', 'desc' => t('admin.finance.reserve_standard_desc'), 'cls' => 'fin-orange'],
+            ['level' => 'high',     'label' => t('admin.finance.reserve_high_label'),     'hours' => '24h', 'desc' => t('admin.finance.reserve_high_desc'),     'cls' => 'fin-red'],
+        ];
+        foreach ($reserveLevels as $rl):
+        ?>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= $rl['label'] ?></div>
+            <div class="fin-global-val <?= $rl['cls'] ?>"><?= $rl['hours'] ?></div>
+            <div class="fin-config-desc" style="margin-top:4px"><?= $rl['desc'] ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#9881; <?= t('admin.finance.config_title') ?></p>
+    <form method="post"
+          data-confirm="<?= htmlspecialchars(t('admin.finance.confirm_save_config')) ?>"
+          data-confirm-type="info"
+          data-confirm-label="<?= htmlspecialchars(t('admin.finance.btn_save')) ?>">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_config">
+        <div class="fin-config-grid">
+            <?php foreach ($configFields as $field): ?>
+            <div class="card fin-config-card">
+                <label class="fin-config-label" for="<?= htmlspecialchars($field['key']) ?>"><?= $field['label'] ?></label>
+                <input
+                    type="number"
+                    id="<?= htmlspecialchars($field['key']) ?>"
+                    name="<?= htmlspecialchars($field['key']) ?>"
+                    value="<?= htmlspecialchars((string)$field['val']) ?>"
+                    min="<?= htmlspecialchars((string)($field['min'] ?? 0.1)) ?>"
+                    max="<?= htmlspecialchars((string)($field['max'] ?? 5)) ?>"
+                    step="<?= htmlspecialchars((string)($field['step'] ?? '0.01')) ?>"
+                    class="fin-config-input">
+                <div class="fin-config-desc"><?= $field['desc'] ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <button type="submit" class="btn btn-primary">&#128190; <?= t('admin.finance.btn_save') ?></button>
+        <span class="muted fin-save-hint"><?= t('admin.finance.save_hint') ?></span>
+    </form>
+</section>
+
+<section class="panel">
+    <p class="panel-title">&#128295; <?= t('admin.finance.gm_tools_title') ?></p>
+    <div class="fin-gm-grid">
+
+        <div class="card fin-gm-card">
+            <p class="fin-gm-card-title"><?= t('admin.finance.gm_reset_policy_label') ?></p>
+            <p class="fin-config-desc"><?= t('admin.finance.gm_reset_policy_desc') ?></p>
+            <form method="post" class="fin-gm-form" onsubmit="return finConfirmResetPolicy(this)">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="action" value="reset_player_policy">
+                <div class="fin-gm-row">
+                    <select name="target_player_id" class="fin-gm-select" required>
+                        <option value=""><?= t('admin.finance.gm_select_player') ?></option>
+                        <?php foreach ($playerList as $pl): ?>
+                        <option value="<?= (int)$pl['id'] ?>">
+                            #<?= (int)$pl['id'] ?> — <?= htmlspecialchars($pl['company'] ?? '?') ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="btn btn-warning">
+                        &#9888; <?= t('admin.finance.gm_reset_btn') ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<?php
+/* ── Historia decyzji finansowych graczy ─────────────────────────────────── */
+
+$decisionKeyLabel = static function(string $key): string {
+    return match($key) {
+        'technical_budget'  => 'Budżet techniczny',
+        'logistics_budget'  => 'Budżet logistyki',
+        'hr_budget'         => 'Budżet HR',
+        'safety_budget'     => 'Budżet BHP',
+        'reserve_policy'    => 'Rezerwa awaryjna',
+        'savings_plan_mode' => 'Plan oszczędności',
+        default             => htmlspecialchars($key),
+    };
+};
+
+$decisionValLabel = static function(string $val): string {
+    return match($val) {
+        'low'        => 'Niski',
+        'standard'   => 'Standard',
+        'high'       => 'Wysoki',
+        'off'        => 'Wyłączony',
+        'moderate'   => 'Umiarkowany',
+        'aggressive' => 'Agresywny',
+        default      => htmlspecialchars($val),
+    };
+};
+
+$decisionValClass = static function(string $key, string $val): string {
+    if ($key === 'savings_plan_mode') {
+        return match($val) {
+            'moderate'   => 'fin-orange',
+            'aggressive' => 'fin-red',
+            default      => 'fin-stat-neutral',
+        };
+    }
+    return match($val) {
+        'low'  => 'fin-red',
+        'high' => 'fin-green',
+        default => 'fin-stat-neutral',
+    };
+};
+
+$sourceClass = static function(string $src): string {
+    return match($src) {
+        'admin' => 'fin-orange',
+        'gm'    => 'fin-red',
+        default => 'fin-stat-neutral',
+    };
+};
+?>
+<section class="panel">
+    <p class="panel-title">&#128221; <?= t('admin.finance.history_title') ?></p>
+
+    <form method="get" class="fin-history-filter">
+        <?php foreach ($_GET as $k => $v): ?>
+            <?php if ($k !== 'history_pid'): ?>
+            <input type="hidden" name="<?= htmlspecialchars($k) ?>" value="<?= htmlspecialchars((string)$v) ?>">
+            <?php endif; ?>
+        <?php endforeach; ?>
+        <select name="history_pid" class="fin-gm-select" onchange="this.form.submit()" style="max-width:280px">
+            <option value="0"><?= t('admin.finance.history_all_players') ?></option>
+            <?php foreach ($playerList as $pl): ?>
+            <option value="<?= (int)$pl['id'] ?>" <?= (int)$pl['id'] === $historyPid ? 'selected' : '' ?>>
+                #<?= (int)$pl['id'] ?> — <?= htmlspecialchars($pl['company'] ?? '?') ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+        <span class="muted" style="font-size:11px; margin-left:8px">
+            <?= $historyPid > 0 ? t('admin.finance.history_showing_player') : t('admin.finance.history_showing_all') ?>
+        </span>
+    </form>
+
+    <?php if (empty($decisionHistory)): ?>
+    <p class="empty-state" style="margin-top:14px">&#10003; <?= t('admin.finance.history_empty') ?></p>
+    <?php else: ?>
+    <div class="fin-player-list" style="margin-top:14px">
+        <div class="fin-player-header fin-history-header">
+            <span><?= t('admin.finance.history_col_time') ?></span>
+            <span><?= t('admin.finance.col_company') ?></span>
+            <span><?= t('admin.finance.history_col_decision') ?></span>
+            <span><?= t('admin.finance.history_col_from') ?></span>
+            <span><?= t('admin.finance.history_col_to') ?></span>
+            <span><?= t('admin.finance.history_col_source') ?></span>
+        </div>
+        <?php foreach ($decisionHistory as $dh): ?>
+        <?php
+            $dKey = (string)$dh['decision_key'];
+            $dOld = (string)$dh['old_value'];
+            $dNew = (string)$dh['new_value'];
+            $dSrc = (string)($dh['source'] ?? 'player');
+        ?>
+        <div class="fin-player-row fin-history-header">
+            <span class="fin-muted fin-small" title="<?= htmlspecialchars($dh['created_at']) ?>">
+                <?= date('d.m H:i', strtotime($dh['created_at'])) ?>
+            </span>
+            <span>
+                <a href="/admin/player.php?id=<?= (int)$dh['player_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($dh['company'] ?? '?') ?>
+                </a>
+            </span>
+            <span class="fin-muted"><?= $decisionKeyLabel($dKey) ?></span>
+            <span class="<?= $decisionValClass($dKey, $dOld) ?>"><?= $decisionValLabel($dOld) ?></span>
+            <span class="<?= $decisionValClass($dKey, $dNew) ?>"><strong><?= $decisionValLabel($dNew) ?></strong></span>
+            <span class="<?= $sourceClass($dSrc) ?>" style="font-size:11px"><?= htmlspecialchars($dSrc) ?></span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <p class="muted fin-save-hint" style="margin-top:8px">
+        <?= t('admin.finance.history_limit_note', ['n' => $historyPid > 0 ? 200 : 100]) ?>
+    </p>
+    <?php endif; ?>
+</section>
+
+<?php if ($msg || $err): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    <?php if ($msg): ?>
+    if (typeof showGameToast === 'function') showGameToast(<?= json_encode($msg) ?>, 'success');
+    <?php endif; ?>
+    <?php if ($err): ?>
+    if (typeof showGameToast === 'function') showGameToast(<?= json_encode($err) ?>, 'error');
+    <?php endif; ?>
+});
+</script>
+<?php endif; ?>

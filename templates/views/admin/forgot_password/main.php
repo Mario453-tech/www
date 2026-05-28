@@ -1,0 +1,37 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?= t('admin.forgot_password.page_title') ?></title>
+<link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+<body class="auth-page">
+<div class="auth-wrap">
+    <div class="auth-logo">
+        <div class="auth-logo-text">Oil<span>Corp</span></div>
+        <div class="auth-logo-sub"><?= t('admin.forgot_password.logo_sub') ?></div>
+    </div>
+    <div class="auth-card">
+        <div class="auth-card-title"><?= t('admin.forgot_password.card_title') ?></div>
+        <div class="auth-card-desc">
+            <?= t('admin.forgot_password.card_desc') ?>
+            <strong class="gold"><?= t('admin.forgot_password.card_desc_duration') ?></strong>.
+        </div>
+        <?php if ($error): ?>
+        <div class="auth-alert auth-alert-err"> <?= htmlspecialchars($error) ?></div>
+        <?php endif ?>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+            <label class="auth-label"><?= t('admin.forgot_password.label_email') ?></label>
+            <input class="auth-input" type="email" name="email"
+                   value="<?= htmlspecialchars($email) ?>"
+                   placeholder="admin@example.com" autofocus required>
+            <button type="submit" class="auth-btn"><?= t('admin.forgot_password.btn_submit') ?></button>
+        </form>
+        <a href="/admin/login.php" class="auth-lnk-center"> <?= t('admin.forgot_password.back_link') ?></a>
+    </div>
+</div>
+</body>
+</html>

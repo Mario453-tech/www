@@ -1,0 +1,74 @@
+<?php
+/**
+ * WellSellApi.php — well sale endpoint
+ * GET  ?well_id=X            -> valuation (calculateSellValue)
+ * POST {well_id,csrf_token}  -> sell well (sellWell)
+ */
+header('Content-Type: application/json; charset=utf-8');
+
+try {
+    require_once __DIR__ . '/init.php';
+    Auth::requireLogin();
+
+    $db       = Database::getInstance()->getConnection();
+    $playerId = (int)$_SESSION['user_id'];
+
+    // Migration: add sold_at column to wells if missing (silent)
+    try { Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL'); } catch (Throwable $e) {}
+
+    require_once __DIR__ . '/WellService.php';
+    $svc = new WellService();
+
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+    if ($method === 'GET') {
+        $wellId = (int)($_GET['well_id'] ?? 0);
+        if ($wellId <= 0) {
+            echo json_encode(['error' => t('well_sell.err_no_well_id')]);
+            exit();
+        }
+        $result = $svc->calculateSellValue($wellId, $playerId);
+
+        // Append reservoir state to response
+        if (empty($result['error']) && isset($result['well'])) {
+            $well              = $result['well'];
+            $resRemaining      = (float)($well['reservoir_remaining'] ?? 0);
+            $resMax            = (float)($well['reservoir_max']       ?? 1);
+            $reservoirPct      = $resMax > 0 ? round(($resRemaining / $resMax) * 100, 0) : 100;
+            $result['reservoir_pct']       = $reservoirPct;
+            $result['reservoir_remaining'] = $resRemaining;
+            $result['reservoir_max']       = $resMax;
+        }
+
+        echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+
+    if ($method === 'POST') {
+        $data   = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $wellId = (int)($data['well_id'] ?? 0);
+        $token  = $data['csrf_token'] ?? '';
+
+        if (!CSRF::validateToken($token)) {
+            http_response_code(403);
+            echo json_encode(['error' => t('common.csrf_error')]);
+            exit();
+        }
+        if ($wellId <= 0) {
+            echo json_encode(['error' => t('well_sell.err_no_well_id')]);
+            exit();
+        }
+
+        $result = $svc->sellWell($wellId, $playerId);
+        echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+
+    http_response_code(405);
+    echo json_encode(['error' => t('common.invalid_method')]);
+
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode(['error' => t('common.app_error')]);
+    if (class_exists('GameLog', false)) GameLog::error('WellSellApi', 'unhandled', $e);
+}

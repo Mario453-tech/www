@@ -1,0 +1,52 @@
+<?php
+require_once __DIR__ . '/../src/init.php';
+Auth::requireLogin();
+BoardAccess::require(Auth::getUserId(), 'finance');
+
+$db       = Database::getInstance()->getConnection();
+$playerId = Auth::getUserId();
+
+require_once __DIR__ . '/../src/FinanceService.php';
+$finSvc = new FinanceService();
+
+// Zakres wykresu
+$hours = (int)($_GET['hours'] ?? 24);
+if (!in_array($hours, [24, 168])) $hours = 24;
+
+// Dane
+$last      = $finSvc->getLastTick($playerId);
+$summary   = $finSvc->getSummary($playerId, $hours);
+$history   = $finSvc->getHistory($playerId, $hours);
+$perWell   = $finSvc->getPerWellStats($playerId);
+$alerts    = $finSvc->getAlerts($playerId, $last ?? [], $finSvc->getSummary($playerId, 24));
+$oilPrice  = (float)($db->query("SELECT current_price FROM market_state WHERE id=1")->fetchColumn() ?? 70);
+
+// Pomocnicze
+function fmtPLN(float $v, bool $sign = false): string {
+    $s = number_format(abs($v), 0, ',', ' ') . ' PLN';
+    if ($sign) $s = ($v >= 0 ? '+' : '−') . $s;
+    elseif ($v < 0) $s = '−' . $s;
+    return $s;
+}
+function fmtPct(float $v): string { return number_format(abs($v), 1, ',', ' ') . '%'; }
+function pct(float $part, float $base): string {
+    return $base > 0 ? number_format(abs($part / $base * 100), 1) . '%' : '—';
+}
+
+$cash = (float)($db->query("SELECT cash FROM players WHERE id=$playerId")->fetchColumn() ?? 0);
+
+$pageTitle = t('finance.page_title');
+$extraCss  = ['/assets/css/finance.css'];
+$viewData = compact(
+    'alerts', 'hours', 'last', 'summary', 'history', 'perWell', 'oilPrice', 'cash'
+);
+$viewData = array_merge($viewData, GameShell::data($playerId));
+$gameShellTitle = t('finance.page_title');
+$gameShellView = __DIR__ . '/../templates/views/public/finance/main.php';
+
+require_once __DIR__ . '/../templates/header.php';
+extract($viewData, EXTR_SKIP);
+$actions     = $viewData['actions']     ?? [];
+$statusItems = $viewData['statusItems'] ?? [];
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';

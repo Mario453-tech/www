@@ -1,0 +1,102 @@
+<div class="t-wrap">
+
+<?php if ($msg): ?>
+<div class="msg-bar msg-<?= $msgType ?>"><?= htmlspecialchars($msg) ?></div>
+<?php endif ?>
+
+<!-- POWIADOMIENIA -->
+<?php if (!empty($notifications)): ?>
+<div class="notif-wrap" id="notif-panel">
+    <div class="notif-hdr">
+        <span>&#9888; <?= t('technical.notif_header', ['count' => $notifTotal]) ?></span>
+        <button class="notif-dismiss-all" onclick="dismissAllNotifs()" title="<?= t('technical.notif_dismiss_all') ?>">
+            &#10005; <?= t('technical.notif_dismiss_all') ?>
+        </button>
+    </div>
+    <?php foreach ($notifications as $n): ?>
+    <div class="notif-row" id="notif-<?= $n['id'] ?>">
+        <div>
+            <div class="notif-msg"><?= htmlspecialchars($n['message']) ?></div>
+            <div class="notif-time"><?= date('d.m.Y H:i', strtotime($n['created_at'])) ?></div>
+        </div>
+        <button class="notif-x" onclick="dismissNotif(<?= $n['id'] ?>)" title="<?= t('technical.notif_dismiss') ?>">&#10005;</button>
+    </div>
+    <?php endforeach ?>
+    <?php if ($notifTotal > 10): ?>
+    <div class="notif-overflow">
+        <?= t('technical.notif_overflow', ['count' => $notifTotal - 10]) ?>
+        <a href="?tab=incidents" class="notif-overflow-link"><?= t('technical.notif_overflow_link') ?></a>
+    </div>
+    <?php endif ?>
+</div>
+<?php endif ?>
+
+<!-- TABS -->
+<nav class="t-tabs module-tabs">
+<?php
+$tabDefs = [
+    'team'       => [t('technical.tab_team'),        count($staff)],
+    'well_staff' => [t('technical.tab_well_staff'),  $wellsWithoutStaff],
+    'candidates' => [t('technical.tab_candidates'),  $unreviewed],
+    'tasks'      => [t('technical.tab_tasks'),       count($activeTasks)],
+    'wells'      => [t('technical.tab_wells'),       count($wells)],
+    'prod'       => [t('technical.tab_prod'),        null],
+    'infra'      => [t('technical.tab_infra'),       null],
+    'safety'     => [t('technical.tab_safety'),      count($brokenWells)],
+    'incidents'  => [t('technical.tab_incidents'),   count($incidents)],
+    'report'     => [t('technical.tab_report'),      null],
+];
+foreach ($tabDefs as $id => [$label, $cnt]):
+    $isActive = $activeTab === $id;
+?>
+<a href="?tab=<?= $id ?>" class="t-tab module-tab <?= $isActive ? 'active' : '' ?>">
+    <?= $label ?>
+    <?php if ($cnt !== null && $cnt > 0): ?>
+    <span class="tbadge module-tab-badge <?= $id === 'team' ? 'module-tab-badge--ok' : 'module-tab-badge--gold' ?>"><?= $cnt ?></span>
+    <?php endif ?>
+</a>
+<?php endforeach ?>
+</nav>
+
+<?php
+$_tabFile = __DIR__ . '/tabs/' . preg_replace('/[^a-z_]/', '', $activeTab) . '.php';
+if (file_exists($_tabFile)) include $_tabFile;
+?>
+</div><!-- .t-wrap -->
+
+<script>
+window.TECH_LANG = <?= json_encode([
+    'ready'                => t('tech_js.ready'),
+    'confirm_assign_title' => t('technical.confirm_assign_title'),
+    'confirm_assign_task'  => t('technical.confirm_assign_task'),
+    'confirm_assign_ok'    => t('technical.confirm_assign_ok'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="/assets/js/technical.js"></script>
+<script>
+const WELL_STAFF_API = '/src/WellStaffApi.php';
+const WS_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+window.WS_LANG = <?= json_encode([
+    'role_operator'       => t('well_staff_js.role_operator'),
+    'role_technician'     => t('well_staff_js.role_technician'),
+    'role_operator_of'    => t('well_staff_js.role_operator_of'),
+    'role_technician_of'  => t('well_staff_js.role_technician_of'),
+    'loading'             => t('well_staff_js.loading'),
+    'err_prefix'          => t('well_staff_js.err_prefix'),
+    'err_connection'      => t('well_staff_js.err_connection'),
+    'no_staff'            => t('well_staff_js.no_staff'),
+    'req_specs'           => t('well_staff_js.req_specs'),
+    'req_specs_operator'  => t('well_staff_js.req_specs_operator'),
+    'req_specs_technician'=> t('well_staff_js.req_specs_technician'),
+    'recruit_link'        => t('well_staff_js.recruit_link'),
+    'confirm_unassign'    => t('well_staff_js.confirm_unassign'),
+    'modal_title_assign'  => t('well_staff_js.modal_title_assign'),
+    'assigned_to'         => t('well_staff_js.assigned_to'),
+    'salary'              => t('well_staff_js.salary'),
+    'section_available'   => t('well_staff_js.section_available'),
+    'section_busy'        => t('well_staff_js.section_busy'),
+    'btn_cancel'          => t('well_staff_js.btn_cancel'),
+    'btn_detach'          => t('well_staff_js.btn_detach'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="/assets/js/well_staff.js"></script>

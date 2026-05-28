@@ -1,0 +1,15 @@
+<?php
+/**
+ * Konfiguracja SMTP — nie commitować do repozytorium
+ */
+return [
+    'host'      => 'hosting2629304.online.pro',
+    'port'      => 465,
+    'username'  => 'noreply@oilempire.pl',
+    'password'  => 'h]^=+O21=DqZA=Bb',
+    'from_name' => 'Oil Corp Game',
+
+    // Base URL używany w linkach e-mail (weryfikacja, newsletter, reset hasła)
+    // Zawsze wskazuje na domenę produkcyjną — nie zmienia się lokalnie
+    'base_url'  => 'https://oilempire.pl',
+];

@@ -1,0 +1,116 @@
+<?php
+/**
+ * fix_garbled_typography.php
+ *
+ * Usuwa krzaki typograficzne z lang/pl.php (podwojnie zakodowane znaki CP1252).
+ * Removes garbled typographic chars from lang/pl.php (double-encoded CP1252).
+ *
+ * Uzycie / Usage:
+ *   php fix_garbled_typography.php              -- podmienia na poprawny znak
+ *   php fix_garbled_typography.php --dry-run    -- tylko podglad, brak zapisu
+ *   php fix_garbled_typography.php --remove     -- kasuje krzaki (pusty string)
+ *
+ * UWAGA: skrypt sam tworzy kopie zapasowa przed zapisem.
+ * NOTE:  script creates a backup before saving.
+ */
+declare(strict_types=1);
+
+const FILE_PATH = __DIR__ . '/lang/pl.php';
+
+// ── Tabela podmiany (krzak => poprawny znak Unicode) ─────────────────────────
+// Kazdy krzak to 3 bajty UTF-8 oryginalnego znaku odczytane jako CP1252
+// i ponownie zakodowane jako UTF-8.
+// Each garbled seq = 3 UTF-8 bytes of original char read as CP1252, re-encoded.
+
+$replacements = [
+    // Opis           Krzak (hex)                              Poprawny znak
+    'em-dash  E2809D' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9d" => "\xe2\x80\x94"],  // a(EUR)" => —
+    'en-dash  E2809C' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9c" => "\xe2\x80\x93"],  // a(EUR)" => –
+    'en-dash  E28093' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x93" => "\xe2\x80\x93"],  // a(EUR)- => –
+    'em-dash  E28094' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x94" => "\xe2\x80\x94"],  // a(EUR)- => —
+    'ellipsis C2A6'   => ["\xc3\xa2\xe2\x82\xac\xc2\xa6"     => "\xe2\x80\xa6"],  // a(EUR)¦ => …
+    'lsquote  E28098' => ["\xc3\xa2\xe2\x82\xac\xcb\x9c"     => "\xe2\x80\x98"],  // a(EUR)~ => '
+    'rsquote  E28099' => ["\xc3\xa2\xe2\x82\xac\xe2\x84\xa2" => "\xe2\x80\x99"],  // a(EUR)tm => '
+    'ldquote  E2809C' => ["\xc3\xa2\xe2\x82\xac\xc5\x93"     => "\xe2\x80\x9c"],  // a(EUR)oe => "
+    'bullet   E280A2' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\xa2" => "\xe2\x80\xa2"],  // a(EUR)* => *
+];
+
+// ── Argumenty CLI ─────────────────────────────────────────────────────────────
+
+$args     = $_SERVER['argv'] ?? $argv ?? [];
+$dryRun   = in_array('--dry-run', $args, true);
+$doRemove = in_array('--remove',  $args, true);
+
+echo "=== fix_garbled_typography.php ===\n";
+echo "Plik / File: " . FILE_PATH . "\n";
+if ($dryRun)   echo "[TRYB] Dry-run — tylko podglad, brak zapisu.\n";
+if ($doRemove) echo "[TRYB] Remove — krzaki beda kasowane (pusty string).\n";
+echo "\n";
+
+// ── Odczyt pliku ──────────────────────────────────────────────────────────────
+
+$content = file_get_contents(FILE_PATH);
+if ($content === false) {
+    echo "[BLAD] Nie mozna odczytac pliku.\n";
+    exit(1);
+}
+
+// Sprawdz BOM / Check BOM
+if (substr($content, 0, 3) === "\xef\xbb\xbf") {
+    echo "[WARN] Plik ma BOM — zostanie usuniety przy zapisie.\n";
+    $content = substr($content, 3);
+}
+
+// ── Skanuj i zamieniaj ────────────────────────────────────────────────────────
+
+$fixed      = $content;
+$totalFound = 0;
+
+foreach ($replacements as $desc => $map) {
+    foreach ($map as $garbled => $correct) {
+        $count = substr_count($content, $garbled);
+        if ($count === 0) {
+            continue;
+        }
+        $totalFound += $count;
+        $target = $doRemove ? '' : $correct;
+        echo sprintf(
+            "[ZNALEZIONO] %s : %d szt  ->  '%s'\n",
+            $desc,
+            $count,
+            $doRemove ? '(usunieto)' : $correct
+        );
+        if (!$dryRun) {
+            $fixed = str_replace($garbled, $target, $fixed);
+        }
+    }
+}
+
+if ($totalFound === 0) {
+    echo "[OK] Brak krzakow typograficznych w pliku.\n";
+    exit(0);
+}
+
+echo "\nLacznie / Total: {$totalFound} sekwencji.\n";
+
+// ── Zapis ─────────────────────────────────────────────────────────────────────
+
+if ($dryRun) {
+    echo "\n[DRY-RUN] Brak zmian w pliku. Uruchom bez --dry-run aby zapisac.\n";
+    exit(0);
+}
+
+// Kopia zapasowa przed zapisem / Backup before save
+$backup = FILE_PATH . '.bak_typo_' . date('Ymd_His');
+if (!copy(FILE_PATH, $backup)) {
+    echo "[BLAD] Nie mozna utworzyc kopii zapasowej: {$backup}\n";
+    exit(1);
+}
+echo "Kopia zapasowa / Backup: {$backup}\n";
+
+if (file_put_contents(FILE_PATH, $fixed) === false) {
+    echo "[BLAD] Nie mozna zapisac pliku.\n";
+    exit(1);
+}
+
+echo "[OK] Plik zapisany. Rozmiar przed: " . strlen($content) . " B,  po: " . strlen($fixed) . " B\n";

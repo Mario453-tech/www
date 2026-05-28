@@ -1,0 +1,81 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1><?= t('admin.index.heading') ?></h1>
+
+<?php if ($ftMsg): ?>
+    <p role="<?= $ftError ? 'alert' : 'status' ?>" class="alert <?= $ftError ? 'alert-error' : 'alert-success' ?>">
+        <?= htmlspecialchars($ftMsg) ?>
+    </p>
+<?php endif ?>
+
+<section aria-label="<?= t('admin.index.stats_aria') ?>">
+    <div class="cards">
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_all') ?></p>
+            <p class="value"><?= (int)$stats['total'] ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_active') ?></p>
+            <p class="value green"><?= (int)$stats['active'] ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_paused') ?></p>
+            <p class="value orange"><?= (int)($stats['financial_risk'] + $stats['under_bailiff']) ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_bankrupt') ?></p>
+            <p class="value red"><?= (int)$stats['bankrupt'] ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_market_price') ?></p>
+            <p class="value orange"><?= number_format((float)($market['current_price'] ?? 0), 0, ',', ' ') ?> $</p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_base_price') ?></p>
+            <p class="value"><?= number_format((float)($market['base_price'] ?? 0), 0, ',', ' ') ?> $</p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_trend') ?></p>
+            <p class="value sm <?= $trend ? 'orange' : '' ?>">
+                <?= $trend ? htmlspecialchars($trend['trend_name']) : t('admin.index.no_trend') ?>
+            </p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.index.stat_last_tick') ?></p>
+            <p class="value sm"><?= $lastTick ? htmlspecialchars($lastTick) : '—' ?></p>
+        </div>
+    </div>
+</section>
+
+<?php if ($trend): ?>
+<section aria-label="<?= t('admin.index.trend_aria') ?>" class="panel">
+    <p class="panel-title"><?= t('admin.index.trend_title') ?></p>
+    <div class="detail-grid">
+        <article><p class="dl"><?= t('admin.index.trend_name') ?></p><p class="dv orange"><?= htmlspecialchars($trend['trend_name']) ?></p></article>
+        <article><p class="dl"><?= t('admin.index.trend_modifier') ?></p><p class="dv"><?= $trend['price_modifier'] ?></p></article>
+        <article><p class="dl"><?= t('admin.index.trend_duration') ?></p><p class="dv"><?= $trend['duration_hours'] ?>h</p></article>
+        <article><p class="dl"><?= t('admin.index.trend_activated') ?></p><p class="dv sm"><?= $trend['activated_at'] ?></p></article>
+    </div>
+</section>
+<?php endif ?>
+
+<nav class="panel" aria-label="<?= t('admin.index.force_tick_aria') ?>">
+    <p class="panel-title">⚡ <?= t('admin.index.force_tick_title') ?></p>
+    <form method="post" action="/admin/force_tick.php"
+          onsubmit="this.querySelector('button').disabled=true; return confirm('<?= t('admin.index.force_tick_confirm') ?>')">
+        <?= CSRF::field() ?>
+        <div class="form-row">
+            <button type="submit" class="btn btn-danger"><?= t('admin.index.force_tick_btn') ?></button>
+            <span class="muted admin-tick-hint"><?= t('admin.index.force_tick_hint') ?></span>
+        </div>
+    </form>
+</nav>
+
+<nav class="panel" aria-label="<?= t('admin.index.quicklinks_aria') ?>">
+    <p class="panel-title"><?= t('admin.index.quicklinks_title') ?></p>
+    <div class="form-row">
+        <a href="/admin/players.php" class="btn btn-secondary">→ <?= t('admin.index.link_players') ?></a>
+        <a href="/admin/market.php"  class="btn btn-secondary">→ <?= t('admin.index.link_market') ?></a>
+        <a href="/admin/logs.php"    class="btn btn-secondary">→ <?= t('admin.index.link_logs') ?></a>
+    </div>
+</nav>

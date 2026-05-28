@@ -1,0 +1,1341 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Method AdminAuth\\:\\:logFailAccount\\(\\) has parameter \\$admin with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/AdminAuth.php
+
+		-
+			message: "#^Method AdminAuth\\:\\:resetPassword\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/AdminAuth.php
+
+		-
+			message: "#^Method AdminAuth\\:\\:sendPasswordReset\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/AdminAuth.php
+
+		-
+			message: "#^Method AdminAuth\\:\\:setSession\\(\\) has parameter \\$admin with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/AdminAuth.php
+
+		-
+			message: "#^Method AdminAuth\\:\\:verifyResetToken\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/AdminAuth.php
+
+		-
+			message: "#^Method Auth\\:\\:register\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Auth.php
+
+		-
+			message: "#^Method Auth\\:\\:resetPassword\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Auth.php
+
+		-
+			message: "#^Method Auth\\:\\:sendPasswordReset\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Auth.php
+
+		-
+			message: "#^Method Auth\\:\\:setSession\\(\\) has parameter \\$player with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Auth.php
+
+		-
+			message: "#^Method Auth\\:\\:verifyEmail\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Auth.php
+
+		-
+			message: "#^Method Auth\\:\\:verifyResetToken\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Auth.php
+
+		-
+			message: "#^Method BailiffService\\:\\:declareBankruptcy\\(\\) has parameter \\$proc with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BailiffService.php
+
+		-
+			message: "#^Method BailiffService\\:\\:executeStage\\(\\) has parameter \\$proc with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BailiffService.php
+
+		-
+			message: "#^Method BailiffService\\:\\:stage1Warning\\(\\) has parameter \\$proc with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BailiffService.php
+
+		-
+			message: "#^Method BailiffService\\:\\:stage2SeizeCash\\(\\) has parameter \\$proc with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BailiffService.php
+
+		-
+			message: "#^Method BailiffService\\:\\:stage3SeizeOil\\(\\) has parameter \\$proc with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BailiffService.php
+
+		-
+			message: "#^Method BailiffService\\:\\:stage4SeizeWells\\(\\) has parameter \\$proc with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BailiffService.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:load\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadActiveLoans\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadApplicationStatus\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadCreditLimit\\(\\) has parameter \\$blockReasons with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadCreditLimit\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadNegData\\(\\) has parameter \\$activeLoans with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadNegData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadNegEvents\\(\\) has parameter \\$active with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadNegEvents\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:loadRestructDisplay\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:resolveCanApply\\(\\) has parameter \\$activeLoans with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:resolveCanApply\\(\\) has parameter \\$applicationStatus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankDataLoader\\:\\:resolveCanApply\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/Bank/DataLoader.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:applyNegotiation\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:buildApprovalMessage\\(\\) has parameter \\$ctx with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:buildApprovalMessage\\(\\) has parameter \\$neg with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:buildBankOpeningMessage\\(\\) has parameter \\$messages with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:buildRejectionMessage\\(\\) has parameter \\$ctx with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:buildRejectionMessage\\(\\) has parameter \\$neg with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:calculateDecisionTime\\(\\) has parameter \\$ctx with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:calculateDecisionTime\\(\\) has parameter \\$loan with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:calculateDecisionTime\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:calculateDeferralFee\\(\\) has parameter \\$ctx with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:calculateDeferralFee\\(\\) has parameter \\$loan with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:calculateDeferralFee\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:canNegotiate\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:getActiveNegotiationsForLoan\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:getActivePendingOrApproved\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:getLoan\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:getNegotiationHistory\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:getPlayerTrustData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:notifyDirector\\(\\) has parameter \\$params with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankNegotiationService\\:\\:triggerRandomEvent\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankNegotiationService.php
+
+		-
+			message: "#^Method BankService\\:\\:acceptLoanOffer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankService.php
+
+		-
+			message: "#^Method BankService\\:\\:calculateCreditLimit\\(\\) has parameter \\$player with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankService.php
+
+		-
+			message: "#^Method BankService\\:\\:calculateCreditLimit\\(\\) has parameter \\$wellsData with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankService.php
+
+		-
+			message: "#^Method BankService\\:\\:getLoanApplicationStatus\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankService.php
+
+		-
+			message: "#^Method BankService\\:\\:rejectLoanOffer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankService.php
+
+		-
+			message: "#^Method BankService\\:\\:repayInstallment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:applyBankTakeover\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:applyCostCuts\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:applyEmergencyLoan\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:applyNewStart\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:applyRescueInvestor\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:applySellStorageAsset\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:getEvents\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:loadState\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BankruptcyService\\:\\:logEvent\\(\\) has parameter \\$payload with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BankruptcyService.php
+
+		-
+			message: "#^Method BlackMarketService\\:\\:getActiveOffers\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BlackMarketService.php
+
+		-
+			message: "#^Method BlackMarketService\\:\\:getAllTransactions\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BlackMarketService.php
+
+		-
+			message: "#^Method BlackMarketService\\:\\:getGlobalStats\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BlackMarketService.php
+
+		-
+			message: "#^Method BlackMarketService\\:\\:getPlayerStats\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BlackMarketService.php
+
+		-
+			message: "#^Method BlackMarketService\\:\\:getPlayersBlackMarketData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BlackMarketService.php
+
+		-
+			message: "#^Method BlackMarketService\\:\\:getTransactions\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BlackMarketService.php
+
+		-
+			message: "#^Method BoardAccess\\:\\:filterNav\\(\\) has parameter \\$navItems with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BoardAccess.php
+
+		-
+			message: "#^Method BoardAccess\\:\\:filterNav\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BoardAccess.php
+
+		-
+			message: "#^Method BoardAccess\\:\\:get\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BoardAccess.php
+
+		-
+			message: "#^Property BoardAccess\\:\\:\\$cache type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/BoardAccess.php
+
+		-
+			message: "#^Expression on left side of \\?\\? is not nullable\\.$#"
+			count: 1
+			path: src/ChatApi.php
+
+		-
+			message: "#^Function chatFinalizeAttachment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/ChatApi.php
+
+		-
+			message: "#^Function chatJson\\(\\) has parameter \\$payload with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/ChatApi.php
+
+		-
+			message: "#^Function chatNormalizePreview\\(\\) has parameter \\$row with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/ChatApi.php
+
+		-
+			message: "#^Function chatNormalizePreview\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/ChatApi.php
+
+		-
+			message: "#^Method DirectorNotificationService\\:\\:create\\(\\) has parameter \\$params with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/DirectorNotificationService.php
+
+		-
+			message: "#^Method DirectorNotificationService\\:\\:getHistory\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/DirectorNotificationService.php
+
+		-
+			message: "#^Method DirectorNotificationService\\:\\:getUnread\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/DirectorNotificationService.php
+
+		-
+			message: "#^Array has 2 duplicate keys with value 'reserve' \\('reserve', 'reserve'\\)\\.$#"
+			count: 1
+			path: src/FinanceService.php
+
+		-
+			message: "#^Method GameLog\\:\\:db\\(\\) has parameter \\$extra with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/GameLog.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/GameShell.php
+
+		-
+			message: "#^Function respondJson\\(\\) has parameter \\$payload with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRApi.php
+
+		-
+			message: "#^Method HRService\\:\\:fireEmployee\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:fireTechnicalStaff\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:getActiveContracts\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:getActiveRecruitments\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:getAllCandidates\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:getHistory\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:getHrCandidates\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:getTechnicalCandidatesWithReviews\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:getUnreadEvents\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:rejectCandidate\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:renewContract\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HRService\\:\\:saveCandidate\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HRService.php
+
+		-
+			message: "#^Method HeadhunterService\\:\\:calcProbability\\(\\) has parameter \\$c with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HeadhunterService.php
+
+		-
+			message: "#^Method HeadhunterService\\:\\:generateCandidates\\(\\) has parameter \\$search with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HeadhunterService.php
+
+		-
+			message: "#^Method HeadhunterService\\:\\:makeOffer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HeadhunterService.php
+
+		-
+			message: "#^Call to an undefined static method Auth\\:\\:hasRole\\(\\)\\.$#"
+			count: 2
+			path: src/HubApi.php
+
+		-
+			message: "#^Call to an undefined static method Auth\\:\\:isAdmin\\(\\)\\.$#"
+			count: 1
+			path: src/HubApi.php
+
+		-
+			message: "#^Function hubApiOut\\(\\) has parameter \\$data with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HubApi.php
+
+		-
+			message: "#^Offset 'warning' does not exist on array\\{success\\: true, error\\?\\: string\\}\\.$#"
+			count: 1
+			path: src/HubApi.php
+
+		-
+			message: "#^Method HubIncidentService\\:\\:calcRiskMultiplier\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HubIncidentService.php
+
+		-
+			message: "#^Method HubIncidentService\\:\\:getTitle\\(\\) is unused\\.$#"
+			count: 1
+			path: src/HubIncidentService.php
+
+		-
+			message: "#^Method HubIncidentService\\:\\:processTick\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HubIncidentService.php
+
+		-
+			message: "#^Method HubTickService\\:\\:processTick\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/HubTickService.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/HubViewService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:applyEffects\\(\\) has parameter \\$incident with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:generateIncident\\(\\) has parameter \\$cfg with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:generateIncident\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:generateIncident\\(\\) has parameter \\$staffData with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:generateIncident\\(\\) has parameter \\$wellData with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:generateIncident\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:getPlayerIncidents\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:getRecentIncidents\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:getWorkerName\\(\\) has parameter \\$staffData with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:saveIncident\\(\\) has parameter \\$incident with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Method IncidentService\\:\\:weightedRand\\(\\) has parameter \\$weights with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/IncidentService.php
+
+		-
+			message: "#^Function logisticsJsonOut\\(\\) has parameter \\$data with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/LogisticsApi.php
+
+		-
+			message: "#^Method LogisticsService\\:\\:calcStats\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/LogisticsService.php
+
+		-
+			message: "#^Method LogisticsService\\:\\:getCurrentSummary\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/LogisticsService.php
+
+		-
+			message: "#^Method LogisticsService\\:\\:optimize\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/LogisticsService.php
+
+		-
+			message: "#^Property LogisticsService\\:\\:\\$transportConfig type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/LogisticsService.php
+
+		-
+			message: "#^Method MarketOffer\\:\\:cancelOffer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketOffer.php
+
+		-
+			message: "#^Method MarketOffer\\:\\:createOffer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketOffer.php
+
+		-
+			message: "#^Method MarketOffer\\:\\:executeOffer\\(\\) has parameter \\$offer with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketOffer.php
+
+		-
+			message: "#^Method MarketOffer\\:\\:getOffer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketOffer.php
+
+		-
+			message: "#^Method MarketOffer\\:\\:getPlayerOffers\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketOffer.php
+
+		-
+			message: "#^Method MarketOffer\\:\\:updateOffer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketOffer.php
+
+		-
+			message: "#^Call to an undefined method MarketTick\\:\\:fetchPlayerSupply\\(\\)\\.$#"
+			count: 1
+			path: src/MarketTick.php
+
+		-
+			message: "#^Method MarketTick\\:\\:getMarketSnapshot\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTick.php
+
+		-
+			message: "#^Method MarketTick\\:\\:getPriceHistory\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTick.php
+
+		-
+			message: "#^Method MarketTick\\:\\:getSupplyDemandHistory\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTick.php
+
+		-
+			message: "#^Method MarketTrend\\:\\:checkAndActivateRandomTrend\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTrend.php
+
+		-
+			message: "#^Method MarketTrend\\:\\:getRandomInactiveTrend\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTrend.php
+
+		-
+			message: "#^Method MarketTrend\\:\\:getTrendHistory\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTrend.php
+
+		-
+			message: "#^Method MarketTrend\\:\\:getTrendMessage\\(\\) has parameter \\$trend with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTrend.php
+
+		-
+			message: "#^Method MarketTrend\\:\\:getTrendsByCategory\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/MarketTrend.php
+
+		-
+			message: "#^Constant OffshoreTransportService\\:\\:TANKER_DEFAULTS is unused\\.$#"
+			count: 1
+			path: src/OffshoreTransportService.php
+
+		-
+			message: "#^Match expression does not handle remaining value\\: string$#"
+			count: 1
+			path: src/OffshoreTransportService.php
+
+		-
+			message: "#^Function respondJson\\(\\) has parameter \\$payload with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:checkRecruitmentStatus\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:fireEmployee\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:getBoardMembers\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:getCandidates\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:hireCandidate\\(\\) has parameter \\$contractType with no type specified\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:hireCandidate\\(\\) has parameter \\$playerId with no type specified\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:hireCandidate\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RecruitmentAPI\\:\\:startRecruitment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Property RecruitmentAPI\\:\\:\\$db has no type specified\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Property RecruitmentAPI\\:\\:\\$generator has no type specified\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Property RecruitmentAPI\\:\\:\\$hrService has no type specified\\.$#"
+			count: 1
+			path: src/RecruitmentAPI.php
+
+		-
+			message: "#^Method RegionalEventService\\:\\:getBonusPct\\(\\) has parameter \\$event with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RegionalEventService.php
+
+		-
+			message: "#^Method RegionalEventService\\:\\:getStopPct\\(\\) has parameter \\$event with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RegionalEventService.php
+
+		-
+			message: "#^Method RegionalEventService\\:\\:getTaxExtra\\(\\) has parameter \\$event with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/RegionalEventService.php
+
+		-
+			message: "#^Constant RoadTransportService\\:\\:TRUCK_DEFAULTS is unused\\.$#"
+			count: 1
+			path: src/RoadTransportService.php
+
+		-
+			message: "#^Match expression does not handle remaining value\\: string$#"
+			count: 1
+			path: src/RoadTransportService.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/TTS/TasksTrait.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:buildViewData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleAssignTask\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleCancelQueueItem\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleCancelRecruitment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleCancelTask\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleFireEngineer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handlePost\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleRepairProcedureIntegrity\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleRequestRecruitment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleReviewCandidate\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:handleUpgradeProcedures\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:loadActiveDisasters\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:loadFailures\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:loadHubIncidentData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:loadIncidentData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:loadPipelines\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:loadProcedureRequirements\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:loadWellStaffData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:normalizeWellStatuses\\(\\) has parameter \\$wells with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:normalizeWellStatuses\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:prepareRecruitmentUiData\\(\\) has parameter \\$activeRecruitments with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:prepareRecruitmentUiData\\(\\) has parameter \\$staff with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:prepareRecruitmentUiData\\(\\) has parameter \\$wells with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^Method TechnicalPageController\\:\\:prepareRecruitmentUiData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalPageController.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:assignTask\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:cancelQueueItem\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:cancelRecruitment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:cancelTask\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:completeTask\\(\\) has parameter \\$task with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:fireEngineer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getActiveRecruitment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getActiveRecruitments\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getActiveTasks\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getManager\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getManagerBonus\\(\\) has parameter \\$manager with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getManagerBonus\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getModuleDefinition\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getModulesCatalog\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getProcedureStatus\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getQueue\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getRecruitmentCapacitySummary\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getSpecDefinition\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getSpecsCatalog\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getStaff\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getStaffBonus\\(\\) has parameter \\$staff with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getStaffBonus\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getStaffMember\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getTaskDefinition\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getTasks\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getTasksCatalog\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getTechnicalCandidates\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:getUnreadNotifications\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:hireEngineer\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:repairProcedureIntegrity\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:requestRecruitment\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:reviewCandidate\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:startTask\\(\\) has parameter \\$staff with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:startTask\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^Method TechnicalTeamService\\:\\:upgradeProcedures\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/TechnicalTeamService.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/Tick/FinancialStateSection.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/Tick/OfflineSection.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/Tick/PlayersSection.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/Tick/SpillSection.php
+
+		-
+			message: "#^File begins with UTF\\-8 BOM character\\. This may cause problems when running the code in the web browser\\.$#"
+			count: 1
+			path: src/Tick/TickStatsRepository.php
+
+		-
+			message: "#^Call to an undefined method WellService\\:\\:processDisasterRoll\\(\\)\\.$#"
+			count: 1
+			path: src/Tick/WellRiskHandler.php
+
+		-
+			message: "#^Method WellGridData\\:\\:prepare\\(\\) has parameter \\$playerData with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellGridData.php
+
+		-
+			message: "#^Method WellGridData\\:\\:prepare\\(\\) has parameter \\$wells with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellGridData.php
+
+		-
+			message: "#^Method WellGridData\\:\\:prepare\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellGridData.php
+
+		-
+			message: "#^Method WellGridData\\:\\:prepareWell\\(\\) has parameter \\$specNames with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellGridData.php
+
+		-
+			message: "#^Method WellGridData\\:\\:prepareWell\\(\\) has parameter \\$statusMap with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellGridData.php
+
+		-
+			message: "#^Method WellGridData\\:\\:prepareWell\\(\\) has parameter \\$w with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellGridData.php
+
+		-
+			message: "#^Method WellGridData\\:\\:prepareWell\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellGridData.php
+
+		-
+			message: "#^Method WellService\\:\\:addSpiralBoost\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:calculateSellValue\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:getEffectivePressure\\(\\) has parameter \\$well with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:getEffectiveProduction\\(\\) has parameter \\$well with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:getMaintenanceCost\\(\\) has parameter \\$well with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:getOpexPerHour\\(\\) has parameter \\$well with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:getRepairCost\\(\\) has parameter \\$well with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:notifyDirectorDisaster\\(\\) has parameter \\$context with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:performMaintenance\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:processSpiralDecay\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:sellWell\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:triggerPipelineExplosion\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:triggerPipelineExplosion\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:triggerSurfaceSpill\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:triggerSurfaceSpill\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellService\\:\\:updateRiskScore\\(\\) has parameter \\$hseBonus with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellService.php
+
+		-
+			message: "#^Method WellShop\\:\\:buyWell\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellShop.php
+
+		-
+			message: "#^Method WellShop\\:\\:getAvailableWells\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellShop.php
+
+		-
+			message: "#^Method WellShop\\:\\:getWell\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellShop.php
+
+		-
+			message: "#^Function jsonOut\\(\\) has parameter \\$data with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellStaffApi.php
+
+		-
+			message: "#^Method WellStaffService\\:\\:assign\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellStaffService.php
+
+		-
+			message: "#^Method WellStaffService\\:\\:getAvailableStaff\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellStaffService.php
+
+		-
+			message: "#^Method WellStaffService\\:\\:getStaff\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellStaffService.php
+
+		-
+			message: "#^Method WellStaffService\\:\\:getWell\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellStaffService.php
+
+		-
+			message: "#^Method WellStaffService\\:\\:getWellsStaffStatus\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellStaffService.php
+
+		-
+			message: "#^Method WellStaffService\\:\\:unassign\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WellStaffService.php
+
+		-
+			message: "#^Method WorldMap\\:\\:buyWellAtLocation\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WorldMap.php
+
+		-
+			message: "#^Method WorldMap\\:\\:getLocation\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WorldMap.php
+
+		-
+			message: "#^Method WorldMap\\:\\:getLocations\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WorldMap.php
+
+		-
+			message: "#^Method WorldMap\\:\\:getMapData\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WorldMap.php
+
+		-
+			message: "#^Method WorldMap\\:\\:getPlayerOccupiedLocations\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WorldMap.php
+
+		-
+			message: "#^Method WorldMap\\:\\:getRegion\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WorldMap.php
+
+		-
+			message: "#^Method WorldMap\\:\\:getRegions\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/WorldMap.php

@@ -1,0 +1,262 @@
+. 2026-04-20 01:30:45.234 --------------------------------------------------------------------------
+. 2026-04-20 01:30:45.236 WinSCP Wersja 6.5.6 (Kompilacja 16502 2026-03-25) (OS 10.0.26200 – Windows 11 Pro)
+. 2026-04-20 01:30:45.236 Configuration: HKCU\Software\Martin Prikryl\WinSCP 2\
+. 2026-04-20 01:30:45.236 Log level: Normal
+. 2026-04-20 01:30:45.236 Local account: Mario\Marioo
+. 2026-04-20 01:30:45.236 Working directory: C:\Users\Marioo\AppData\Local\Programs\Windsurf
+. 2026-04-20 01:30:45.236 Process ID: 16576
+. 2026-04-20 01:30:45.252 Ancestor processes: WinSCP, powershell, language_server_windows_x64, Windsurf, Windsurf, explorer, ...
+. 2026-04-20 01:30:45.252 Command-line: "C:\Program Files (x86)\WinSCP\winscp.exe" /console=6.5.6 /consoleinstance=_8932_376 "/script=C:\xampp1\htdocs\winscp_sync.txt" "/log=C:\xampp1\htdocs\winscp.log" 
+. 2026-04-20 01:30:45.253 Time zone: Current: GMT+2, Standard: GMT+1 (Środkowoeuropejski czas stand.), DST: GMT+2 (Środkowoeuropejski czas letni), DST Start: 29.03.2026, DST End: 25.10.2026
+. 2026-04-20 01:30:45.253 Login time: poniedziałek, 20 kwiecień 2026 01:30:45
+. 2026-04-20 01:30:45.253 --------------------------------------------------------------------------
+. 2026-04-20 01:30:45.253 Script: Retrospectively logging previous script records:
+> 2026-04-20 01:30:45.253 Script: open ftpes://oil%40oilempire.pl:***@hosting2629304.online.pro -hostkey="*"
+. 2026-04-20 01:30:45.253 --------------------------------------------------------------------------
+. 2026-04-20 01:30:45.253 Session name: oil@oilempire.pl@hosting2629304.online.pro (Ad-Hoc site)
+. 2026-04-20 01:30:45.253 Host name: hosting2629304.online.pro (Port: 21)
+. 2026-04-20 01:30:45.253 User name: oil@oilempire.pl (Password: Yes, Key file: No, Passphrase: No)
+. 2026-04-20 01:30:45.253 Transfer Protocol: FTP
+. 2026-04-20 01:30:45.253 Ping type: Dummy, Ping interval: 30 sec; Timeout: 15 sec
+. 2026-04-20 01:30:45.253 Disable Nagle: No
+. 2026-04-20 01:30:45.253 Proxy: None
+. 2026-04-20 01:30:45.253 Send buffer: 262144
+. 2026-04-20 01:30:45.253 UTF: Auto
+. 2026-04-20 01:30:45.253 FTPS: Explicit TLS/SSL [Client certificate: No]
+. 2026-04-20 01:30:45.253 FTP: Passive: Yes [Force IP: Auto]; MLSD: Auto [List all: Auto]; HOST: Auto
+. 2026-04-20 01:30:45.253 Session reuse: Yes
+. 2026-04-20 01:30:45.253 TLS/SSL versions: TLSv1.2-TLSv1.3
+. 2026-04-20 01:30:45.253 Local directory: default, Remote directory: home, Update: Yes, Cache: Yes
+. 2026-04-20 01:30:45.253 Cache directory changes: Yes, Permanent: Yes
+. 2026-04-20 01:30:45.253 Recycle bin: Delete to: No, Overwritten to: No, Bin path: 
+. 2026-04-20 01:30:45.253 Timezone offset: 0h 0m
+. 2026-04-20 01:30:45.253 --------------------------------------------------------------------------
+< 2026-04-20 01:30:45.271 Script: Łączenie z hosting2629304.online.pro...
+. 2026-04-20 01:30:45.272 Łączenie z hosting2629304.online.pro...
+. 2026-04-20 01:30:45.322 Połączono z hosting2629304.online.pro, negocjowanie połączenia TLS...
+< 2026-04-20 01:30:45.367 220-Idea FTP Server 6.4.0 (localhost) [46.242.233.130]
+. 2026-04-20 01:30:45.367 The server requires TLS/SSL handshake on transfer connection before responding 1yz to STOR/APPE
+< 2026-04-20 01:30:45.367 220 Ready
+> 2026-04-20 01:30:45.367 AUTH TLS
+< 2026-04-20 01:30:45.411 234 AUTH command successful.
+. 2026-04-20 01:30:45.506 Verifying certificate for "" with fingerprint e7:ac:94:76:14:f8:bf:42:97:3b:6f:84:d7:ca:14:73:3f:fd:2d:0c:48:cd:c5:2c:ab:fc:cd:c1:65:70:da:f1 and 19 failures
+. 2026-04-20 01:30:45.506 Certificate common name "*.online.pro" matches hostname
+< 2026-04-20 01:30:45.506 Script: OSTRZEŻENIE! Rezygnacja z bezpieczeństwa i akceptacja dowolnych certyfikatów zgodnie z konfiguracją!
+* 2026-04-20 01:30:45.506 OSTRZEŻENIE! Rezygnacja z bezpieczeństwa i akceptacja dowolnych certyfikatów zgodnie z konfiguracją!
+. 2026-04-20 01:30:45.507 Using TLSv1.3, cipher TLSv1.3: TLS_AES_256_GCM_SHA384, 2048 bit RSA, TLS_AES_256_GCM_SHA384         TLSv1.3 Kx=any      Au=any   Enc=AESGCM(256)            Mac=AEAD
+< 2026-04-20 01:30:45.507 Script: Połączenie TLS nawiązane. Czekam na wiadomość powitalną...
+. 2026-04-20 01:30:45.507 Połączenie TLS nawiązane. Czekam na wiadomość powitalną...
+> 2026-04-20 01:30:45.507 USER oil@oilempire.pl
+< 2026-04-20 01:30:45.594 331 Password required for 'oil@oilempire.pl'.
+> 2026-04-20 01:30:45.594 PASS **********
+< 2026-04-20 01:30:45.640 230 'oil@oilempire.pl' login ok.
+> 2026-04-20 01:30:45.640 SYST
+< 2026-04-20 01:30:45.683 215 UNIX Type: L8
+> 2026-04-20 01:30:45.683 FEAT
+< 2026-04-20 01:30:45.726 211-Extensions supported
+< 2026-04-20 01:30:45.726     AUTH TLS
+< 2026-04-20 01:30:45.726     MDTM
+< 2026-04-20 01:30:45.726     MFF Modify;UNIX.mode;
+< 2026-04-20 01:30:45.726     MFMT
+< 2026-04-20 01:30:45.726     MLST Type*;Size*;Modify*;Create*;Perm*;Unique*;UNIX.mode*;
+< 2026-04-20 01:30:45.726     PBSZ
+< 2026-04-20 01:30:45.726     PROT
+< 2026-04-20 01:30:45.726     REST STREAM
+< 2026-04-20 01:30:45.726     SIZE
+< 2026-04-20 01:30:45.726     UTF8
+< 2026-04-20 01:30:45.726 211 END
+> 2026-04-20 01:30:45.726 OPTS UTF8 ON
+< 2026-04-20 01:30:45.771 200 OPTS command successful.
+> 2026-04-20 01:30:45.771 PBSZ 0
+< 2026-04-20 01:30:45.815 200 Buffer size set to 0
+> 2026-04-20 01:30:45.815 PROT P
+< 2026-04-20 01:30:45.859 200 Protection level set to P
+< 2026-04-20 01:30:45.859 Script: Połączone
+. 2026-04-20 01:30:45.859 Połączone
+. 2026-04-20 01:30:45.859 --------------------------------------------------------------------------
+. 2026-04-20 01:30:45.859 Using FTP protocol.
+. 2026-04-20 01:30:45.859 Doing startup conversation with host.
+< 2026-04-20 01:30:45.859 Script: Rozpoczynanie sesji...
+> 2026-04-20 01:30:45.859 PWD
+< 2026-04-20 01:30:45.903 257 "/" is current directory.
+. 2026-04-20 01:30:45.903 Getting current directory name.
+. 2026-04-20 01:30:45.903 Startup conversation with host finished.
+< 2026-04-20 01:30:45.903 Script: Sesja rozpoczęta.
+< 2026-04-20 01:30:45.903 Script: Aktywna sesja: [1] oil@oilempire.pl@hosting2629304.online.pro
+> 2026-04-20 01:30:45.904 Script: synchronize remote ^
+< 2026-04-20 01:30:45.904 Script: Użyj skonfigurowanych ustawień transferu, zamiast ustawień fabrycznych.
+< 2026-04-20 01:30:45.904 Script: Porównuje...
+. 2026-04-20 01:30:45.904 Collecting synchronization list for local directory '^' and remote directory '/', mode = Remote, params = 0x2 (NoConfirmation), file mask = ''
+* 2026-04-20 01:30:45.907 (EOSExtException) Błąd pobierania listy plików dla "^\*.*".
+* 2026-04-20 01:30:45.907 Błąd systemu.  Kod: 3.
+* 2026-04-20 01:30:45.907 System nie może odnaleźć określonej ścieżki
+. 2026-04-20 01:30:45.907 Asking user:
+. 2026-04-20 01:30:45.907 Błąd podczas listowania katalogu '^\*.*'. ("Błąd pobierania listy plików dla ""^\*.*"".","Błąd systemu.  Kod: 3.","System nie może odnaleźć określonej ścieżki")
+< 2026-04-20 01:30:45.908 Script: Błąd podczas listowania katalogu '^\*.*'.
+< 2026-04-20 01:30:45.908 Script: Błąd pobierania listy plików dla "^\*.*".
+< 2026-04-20 01:30:45.908 Błąd systemu.  Kod: 3.
+< 2026-04-20 01:30:45.908 System nie może odnaleźć określonej ścieżki
+. 2026-04-20 01:30:45.908 Answer: Abort
+< 2026-04-20 01:30:45.911 Script: Błąd podczas listowania katalogu '^\*.*'.
+< 2026-04-20 01:30:45.911 Błąd pobierania listy plików dla "^\*.*".
+< 2026-04-20 01:30:45.911 Błąd systemu.  Kod: 3.
+< 2026-04-20 01:30:45.911 System nie może odnaleźć określonej ścieżki
+. 2026-04-20 01:30:45.911 Script: Failed
+. 2026-04-20 01:30:45.911 Script: Exit code: 1
+. 2026-04-20 01:30:45.914 Rozłączono z serwerem
+. 2026-04-20 01:31:02.048 --------------------------------------------------------------------------
+. 2026-04-20 01:31:02.049 WinSCP Wersja 6.5.6 (Kompilacja 16502 2026-03-25) (OS 10.0.26200 – Windows 11 Pro)
+. 2026-04-20 01:31:02.049 Configuration: HKCU\Software\Martin Prikryl\WinSCP 2\
+. 2026-04-20 01:31:02.049 Log level: Normal
+. 2026-04-20 01:31:02.049 Local account: Mario\Marioo
+. 2026-04-20 01:31:02.049 Working directory: C:\Users\Marioo\AppData\Local\Programs\Windsurf
+. 2026-04-20 01:31:02.049 Process ID: 7660
+. 2026-04-20 01:31:02.070 Ancestor processes: WinSCP, powershell, language_server_windows_x64, Windsurf, Windsurf, explorer, ...
+. 2026-04-20 01:31:02.070 Command-line: "C:\Program Files (x86)\WinSCP\winscp.exe" /console=6.5.6 /consoleinstance=_5420_216 "/script=C:\xampp1\htdocs\winscp_sync.txt" "/log=C:\xampp1\htdocs\winscp.log" 
+. 2026-04-20 01:31:02.070 Time zone: Current: GMT+2, Standard: GMT+1 (Środkowoeuropejski czas stand.), DST: GMT+2 (Środkowoeuropejski czas letni), DST Start: 29.03.2026, DST End: 25.10.2026
+. 2026-04-20 01:31:02.070 Login time: poniedziałek, 20 kwiecień 2026 01:31:02
+. 2026-04-20 01:31:02.070 --------------------------------------------------------------------------
+. 2026-04-20 01:31:02.070 Script: Retrospectively logging previous script records:
+> 2026-04-20 01:31:02.070 Script: open ftpes://oil%40oilempire.pl:***@hosting2629304.online.pro -hostkey="*"
+. 2026-04-20 01:31:02.070 --------------------------------------------------------------------------
+. 2026-04-20 01:31:02.070 Session name: oil@oilempire.pl@hosting2629304.online.pro (Ad-Hoc site)
+. 2026-04-20 01:31:02.070 Host name: hosting2629304.online.pro (Port: 21)
+. 2026-04-20 01:31:02.071 User name: oil@oilempire.pl (Password: Yes, Key file: No, Passphrase: No)
+. 2026-04-20 01:31:02.071 Transfer Protocol: FTP
+. 2026-04-20 01:31:02.071 Ping type: Dummy, Ping interval: 30 sec; Timeout: 15 sec
+. 2026-04-20 01:31:02.071 Disable Nagle: No
+. 2026-04-20 01:31:02.071 Proxy: None
+. 2026-04-20 01:31:02.071 Send buffer: 262144
+. 2026-04-20 01:31:02.071 UTF: Auto
+. 2026-04-20 01:31:02.071 FTPS: Explicit TLS/SSL [Client certificate: No]
+. 2026-04-20 01:31:02.071 FTP: Passive: Yes [Force IP: Auto]; MLSD: Auto [List all: Auto]; HOST: Auto
+. 2026-04-20 01:31:02.071 Session reuse: Yes
+. 2026-04-20 01:31:02.071 TLS/SSL versions: TLSv1.2-TLSv1.3
+. 2026-04-20 01:31:02.071 Local directory: default, Remote directory: home, Update: Yes, Cache: Yes
+. 2026-04-20 01:31:02.071 Cache directory changes: Yes, Permanent: Yes
+. 2026-04-20 01:31:02.071 Recycle bin: Delete to: No, Overwritten to: No, Bin path: 
+. 2026-04-20 01:31:02.071 Timezone offset: 0h 0m
+. 2026-04-20 01:31:02.071 --------------------------------------------------------------------------
+< 2026-04-20 01:31:02.088 Script: Łączenie z hosting2629304.online.pro...
+. 2026-04-20 01:31:02.088 Łączenie z hosting2629304.online.pro...
+. 2026-04-20 01:31:02.140 Połączono z hosting2629304.online.pro, negocjowanie połączenia TLS...
+< 2026-04-20 01:31:02.231 220-Idea FTP Server 6.4.0 (localhost) [46.242.233.130]
+. 2026-04-20 01:31:02.231 The server requires TLS/SSL handshake on transfer connection before responding 1yz to STOR/APPE
+< 2026-04-20 01:31:02.231 220 Ready
+> 2026-04-20 01:31:02.231 AUTH TLS
+< 2026-04-20 01:31:02.280 234 AUTH command successful.
+. 2026-04-20 01:31:02.393 Verifying certificate for "" with fingerprint e7:ac:94:76:14:f8:bf:42:97:3b:6f:84:d7:ca:14:73:3f:fd:2d:0c:48:cd:c5:2c:ab:fc:cd:c1:65:70:da:f1 and 19 failures
+. 2026-04-20 01:31:02.393 Certificate common name "*.online.pro" matches hostname
+< 2026-04-20 01:31:02.393 Script: OSTRZEŻENIE! Rezygnacja z bezpieczeństwa i akceptacja dowolnych certyfikatów zgodnie z konfiguracją!
+* 2026-04-20 01:31:02.393 OSTRZEŻENIE! Rezygnacja z bezpieczeństwa i akceptacja dowolnych certyfikatów zgodnie z konfiguracją!
+. 2026-04-20 01:31:02.393 Using TLSv1.3, cipher TLSv1.3: TLS_AES_256_GCM_SHA384, 2048 bit RSA, TLS_AES_256_GCM_SHA384         TLSv1.3 Kx=any      Au=any   Enc=AESGCM(256)            Mac=AEAD
+< 2026-04-20 01:31:02.393 Script: Połączenie TLS nawiązane. Czekam na wiadomość powitalną...
+. 2026-04-20 01:31:02.394 Połączenie TLS nawiązane. Czekam na wiadomość powitalną...
+> 2026-04-20 01:31:02.394 USER oil@oilempire.pl
+< 2026-04-20 01:31:02.491 331 Password required for 'oil@oilempire.pl'.
+> 2026-04-20 01:31:02.491 PASS **********
+< 2026-04-20 01:31:02.541 230 'oil@oilempire.pl' login ok.
+> 2026-04-20 01:31:02.541 SYST
+< 2026-04-20 01:31:02.592 215 UNIX Type: L8
+> 2026-04-20 01:31:02.592 FEAT
+< 2026-04-20 01:31:02.644 211-Extensions supported
+< 2026-04-20 01:31:02.645     AUTH TLS
+< 2026-04-20 01:31:02.645     MDTM
+< 2026-04-20 01:31:02.645     MFF Modify;UNIX.mode;
+< 2026-04-20 01:31:02.645     MFMT
+< 2026-04-20 01:31:02.645     MLST Type*;Size*;Modify*;Create*;Perm*;Unique*;UNIX.mode*;
+< 2026-04-20 01:31:02.645     PBSZ
+< 2026-04-20 01:31:02.645     PROT
+< 2026-04-20 01:31:02.645     REST STREAM
+< 2026-04-20 01:31:02.645     SIZE
+< 2026-04-20 01:31:02.645     UTF8
+< 2026-04-20 01:31:02.645 211 END
+> 2026-04-20 01:31:02.645 OPTS UTF8 ON
+< 2026-04-20 01:31:02.696 200 OPTS command successful.
+> 2026-04-20 01:31:02.696 PBSZ 0
+< 2026-04-20 01:31:02.745 200 Buffer size set to 0
+> 2026-04-20 01:31:02.745 PROT P
+< 2026-04-20 01:31:02.796 200 Protection level set to P
+< 2026-04-20 01:31:02.797 Script: Połączone
+. 2026-04-20 01:31:02.797 Połączone
+. 2026-04-20 01:31:02.797 --------------------------------------------------------------------------
+. 2026-04-20 01:31:02.797 Using FTP protocol.
+. 2026-04-20 01:31:02.797 Doing startup conversation with host.
+< 2026-04-20 01:31:02.797 Script: Rozpoczynanie sesji...
+> 2026-04-20 01:31:02.797 PWD
+< 2026-04-20 01:31:02.848 257 "/" is current directory.
+. 2026-04-20 01:31:02.848 Getting current directory name.
+. 2026-04-20 01:31:02.848 Startup conversation with host finished.
+< 2026-04-20 01:31:02.848 Script: Sesja rozpoczęta.
+< 2026-04-20 01:31:02.848 Script: Aktywna sesja: [1] oil@oilempire.pl@hosting2629304.online.pro
+> 2026-04-20 01:31:02.848 Script: synchronize remote -criteria=either -filemask="| .git\; .windsurf\; sessions\; cache\; vendor\; sql\; tests\; migrations\; .phpunit.cache\; *.log; error_log; *.bak; *.sql; vh15188_oil.sql; phpstan_errors.txt; check_log_cfg.php; debug.php; diag.php; reset_db.php; winscp_sync.txt; composer.lock; phpstan.neon; phpunit.xml.dist; deploy.ps1" C:\xampp1\htdocs /public_html
+< 2026-04-20 01:31:02.849 Script: Użyj skonfigurowanych ustawień transferu, zamiast ustawień fabrycznych.
+< 2026-04-20 01:31:02.849 Script: Porównuje...
+. 2026-04-20 01:31:02.849 Collecting synchronization list for local directory 'C:\xampp1\htdocs' and remote directory '/public_html', mode = Remote, params = 0x402 (NoConfirmation, BySize), file mask = '| .git\; .windsurf\; sessions\; cache\; vendor\; sql\; tests\; migrations\; .phpunit.cache\; *.log; error_log; *.bak; *.sql; vh15188_oil.sql; phpstan_errors.txt; check_log_cfg.php; debug.php; diag.php; reset_db.php; winscp_sync.txt; composer.lock; phpstan.neon; phpunit.xml.dist; deploy.ps1'
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\.' [2026-04-19T23:30:45.234Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\..' [2026-04-10T21:55:22.284Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\.git' [2026-04-19T21:36:46.122Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\.htaccess' [2026-04-19T22:39:19.712Z] [5566] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\.phpunit.cache' [2026-04-17T22:13:42.168Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\.windsurf' [2026-04-17T22:13:42.175Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\admin' [2026-04-17T22:13:42.241Z] [0] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\api' [2026-04-10T02:09:36.146Z] [0] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\assets' [2026-04-10T02:09:36.204Z] [0] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\boardroom.php' [2026-04-15T15:14:12.000Z] [9634] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\boardroom_status.php' [2026-04-13T00:59:36.000Z] [1381] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\cache' [2026-04-19T00:02:01.582Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\change_password.php' [2026-04-15T15:16:32.000Z] [2153] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\check_log_cfg.php' [2026-04-19T00:25:54.000Z] [340] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\composer.json' [2026-04-14T08:57:02.000Z] [359] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\composer.lock' [2026-04-14T09:02:08.000Z] [67555] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\config' [2026-04-10T02:09:36.244Z] [0] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\cron' [2026-04-12T01:21:12.358Z] [0] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\cron-5min.php' [2026-04-19T22:39:27.082Z] [330] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\dashboard.php' [2026-04-11T10:21:03.000Z] [10473] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\debug.log' [2026-04-05T00:53:46.000Z] [5968] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\debug_hr.log' [2026-04-05T00:53:46.000Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\deploy.ps1' [2026-04-17T23:17:09.860Z] [1947] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\diag.php' [2026-04-18T23:16:24.000Z] [51] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\dm.php' [2026-04-10T23:48:24.000Z] [978] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\error_log' [2026-04-19T00:31:36.000Z] [5805] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\game_debug.log' [2026-04-19T22:30:56.000Z] [25995] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\GAME_README.md' [2026-04-16T02:07:42.000Z] [72577] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\hr.php' [2026-04-11T10:34:54.000Z] [9413] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\htaccess' [2026-04-15T09:05:00.000Z] [5262] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\index.php' [2026-04-05T00:53:46.000Z] [285] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\lang' [2026-04-11T00:24:40.585Z] [0] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\loans.php' [2026-04-15T15:21:46.000Z] [13376] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\login.php' [2026-04-05T00:53:46.000Z] [3630] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\migrations' [2026-04-17T22:13:42.613Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\phpstan.neon' [2026-04-15T04:51:08.000Z] [919] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\phpstan_errors.txt' [2026-04-15T04:51:24.000Z] [131073] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\phpunit.xml.dist' [2026-04-14T08:57:12.000Z] [796] excluded from synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\profile.php' [2026-04-15T13:55:54.000Z] [19101] included to synchronization
+. 2026-04-20 01:31:02.850 Local file 'C:\xampp1\htdocs\public' [2026-04-11T18:49:09.096Z] [0] included to synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\reset_db.php' [2026-04-10T02:19:16.000Z] [3542] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\reset_password.php' [2026-04-11T17:46:31.000Z] [2072] included to synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\sessions' [2026-04-19T00:28:02.699Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\sql' [2026-04-17T22:13:42.722Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\src' [2026-04-19T00:15:01.064Z] [0] included to synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\technical.php' [2026-04-11T10:37:56.000Z] [20192] included to synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\technical.php.bak' [2026-04-10T15:17:20.000Z] [100166] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\templates' [2026-04-10T12:29:30.138Z] [0] included to synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\tests' [2026-04-17T22:13:43.400Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\tick.php' [2026-04-05T00:53:46.000Z] [367] included to synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\vendor' [2026-04-17T22:13:49.014Z] [0] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\vh15188_oil.sql' [2026-04-09T17:15:22.000Z] [2822593] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\winscp.log' [2026-04-19T23:30:45.914Z] [7777] excluded from synchronization
+. 2026-04-20 01:31:02.851 Local file 'C:\xampp1\htdocs\winscp_sync.txt' [2026-04-19T23:30:55.347Z] [1276] excluded from synchronization
+. 2026-04-20 01:31:02.851 Odzyskuje zawartość katalogu...
+> 2026-04-20 01:31:02.851 CWD /public_html
+< 2026-04-20 01:31:02.901 550 CWD command failed: No such file or directory.
+. 2026-04-20 01:31:02.901 Nie można odzyskiwać zawartości katalogu
+. 2026-04-20 01:31:02.906 Asking user:
+. 2026-04-20 01:31:02.906 Błąd podczas listowania katalogu '/public_html'. ("Nie można odzyskiwać zawartości katalogu","CWD command failed: No such file or directory.")
+< 2026-04-20 01:31:02.906 Script: Błąd podczas listowania katalogu '/public_html'.
+< 2026-04-20 01:31:02.907 Script: Nie można odzyskiwać zawartości katalogu
+< 2026-04-20 01:31:02.907 CWD command failed: No such file or directory.
+. 2026-04-20 01:31:02.907 Answer: Abort
+. 2026-04-20 01:31:02.907 Script: Failed
+. 2026-04-20 01:31:02.907 Script: Exit code: 1
+. 2026-04-20 01:31:02.909 Rozłączono z serwerem

@@ -1,0 +1,389 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1> <?= t('admin.logs.title') ?></h1>
+
+<?php if ($msg): ?>
+<div class="alert alert-success"><?= htmlspecialchars($msg) ?></div>
+<?php endif ?>
+<?php if ($err): ?>
+<div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
+<?php endif ?>
+
+<?php
+$buildUrl = fn(array $extra) => '/admin/logs.php?' . http_build_query(array_merge(
+    ['tab' => $tab, 'filter' => $filter, 'limit' => $limit, 'page' => $page],
+    $extra
+));
+?>
+
+<!--  ZAKADKI  -->
+<nav class="admin-tabs" aria-label="<?= t('admin.logs.tabs_nav') ?>">
+    <a href="?tab=admin&filter=<?= urlencode($filter) ?>&limit=<?= $limit ?>"
+       class="admin-tab <?= $tab === 'admin' ? 'active' : '' ?>">
+         <?= t('admin.logs.tab_admin') ?>
+    </a>
+    <a href="?tab=game&limit=<?= $limit ?>"
+       class="admin-tab <?= $tab === 'game' ? 'active' : '' ?>">
+         <?= t('admin.logs.tab_game') ?>
+    </a>
+    <a href="?tab=tick"
+       class="admin-tab <?= $tab === 'tick' ? 'active' : '' ?>">
+         <?= t('admin.tick_log.page_title') ?>
+    </a>
+</nav>
+
+<?php if ($tab === 'admin'): ?>
+<!--  LOGI ADMINA  -->
+
+<div class="logs-toolbar">
+    <form method="get" class="filters" role="search">
+        <input type="hidden" name="tab" value="admin">
+        <input type="text" name="filter" value="<?= htmlspecialchars($filter) ?>"
+               placeholder="<?= t('admin.logs.filter_placeholder') ?>" class="input-w-xl">
+        <select name="limit">
+            <?php foreach ([50, 100, 200, 500, 1000] as $l): ?>
+            <option value="<?= $l ?>" <?= $limit == $l ? 'selected' : '' ?>><?= $l ?></option>
+            <?php endforeach ?>
+        </select>
+        <button type="submit" class="btn btn-secondary btn-sm"><?= t('admin.logs.btn_filter') ?></button>
+        <?php if ($filter): ?>
+        <a href="?tab=admin&limit=<?= $limit ?>" class="btn btn-secondary btn-sm"> <?= t('admin.logs.btn_clear_filter') ?></a>
+        <?php endif ?>
+    </form>
+
+    <form method="post" class="inline">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="clear_admin_logs">
+        <button type="submit" class="btn btn-sm btn-danger"
+                onclick="confirmSubmit(this, '<?= addslashes(t('admin.logs.confirm_clear_admin')) ?>', {type:'danger'}); return false;">
+             <?= t('admin.logs.btn_clear_admin') ?>
+        </button>
+    </form>
+</div>
+
+<!-- Stats summary -->
+<div class="cards" style="margin-bottom:12px">
+    <div class="card">
+        <div class="label"><?= t('admin.logs.results') ?></div>
+        <div class="value orange"><?= number_format($totalLogs) ?></div>
+    </div>
+    <?php if ($filter): ?>
+    <div class="card">
+        <div class="label"><?= t('admin.logs.filter_placeholder') ?></div>
+        <div class="value sm"><?= htmlspecialchars($filter) ?></div>
+    </div>
+    <?php endif ?>
+    <?php if ($totalPages > 1): ?>
+    <div class="card">
+        <div class="label"><?= t('admin.logs.page_of', ['page' => $page, 'total' => $totalPages]) ?></div>
+        <div class="value sm"><?= $page ?> / <?= $totalPages ?></div>
+    </div>
+    <?php endif ?>
+</div>
+
+<section aria-label="<?= t('admin.logs.tab_admin') ?>">
+    <?php if (empty($logs)): ?>
+    <p class="empty-state"><?= t('admin.logs.empty') ?></p>
+    <?php else: ?>
+    <div class="data-list logs-grid">
+        <div class="list-header" role="row">
+            <span><?= t('admin.logs.col_date') ?></span>
+            <span><?= t('admin.logs.col_action') ?></span>
+            <span><?= t('admin.logs.col_desc') ?></span>
+            <span><?= t('admin.logs.col_admin') ?></span>
+            <span class="col-player"><?= t('admin.logs.col_player') ?></span>
+            <span class="col-ip"><?= t('admin.logs.col_ip') ?></span>
+        </div>
+        <?php foreach ($logs as $log):
+            if ($log['admin_id'] && $log['admin_username']) {
+                $adminLabel = $log['admin_username'];
+                $adminTitle = $log['admin_email'] ?? '';
+            } else {
+                $adminLabel = $log['admin_user'] ?? '';
+                $adminTitle = '';
+            }
+        ?>
+        <article class="list-row" role="row">
+            <time class="log-time" datetime="<?= $log['created_at'] ?>"><?= $log['created_at'] ?></time>
+            <span class="log-action"><?= htmlspecialchars($log['action']) ?></span>
+            <span><?= htmlspecialchars($log['description']) ?></span>
+            <span class="muted font-sm" title="<?= htmlspecialchars($adminTitle) ?>">
+                <?= htmlspecialchars($adminLabel) ?>
+            </span>
+            <span class="col-player">
+                <?php if ($log['target_player_id']): ?>
+                <a href="/admin/player.php?id=<?= (int)$log['target_player_id'] ?>">
+                    <?= htmlspecialchars($log['player_email'] ?? '#' . $log['target_player_id']) ?>
+                </a>
+                <?php else: ?>
+                <span class="muted"></span>
+                <?php endif ?>
+            </span>
+            <span class="col-ip log-ip"><?= htmlspecialchars($log['admin_ip'] ?? '') ?></span>
+        </article>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<?php if ($totalPages > 1): ?>
+<nav class="pagination" aria-label="<?= t('admin.logs.pagination') ?>">
+    <?php if ($page > 1): ?>
+    <a href="<?= $buildUrl(['page' => 1]) ?>" class="btn btn-sm btn-secondary"> <?= t('admin.logs.page_first') ?></a>
+    <a href="<?= $buildUrl(['page' => $page - 1]) ?>" class="btn btn-sm btn-secondary"> <?= t('admin.logs.page_prev') ?></a>
+    <?php endif ?>
+    <span class="pagination-info"><?= t('admin.logs.page_of', ['page' => $page, 'total' => $totalPages]) ?></span>
+    <?php if ($page < $totalPages): ?>
+    <a href="<?= $buildUrl(['page' => $page + 1]) ?>" class="btn btn-sm btn-secondary"><?= t('admin.logs.page_next') ?> </a>
+    <a href="<?= $buildUrl(['page' => $totalPages]) ?>" class="btn btn-sm btn-secondary"><?= t('admin.logs.page_last') ?> </a>
+    <?php endif ?>
+</nav>
+<?php endif ?>
+
+<?php elseif ($tab === 'game'): ?>
+<!--  GAME LOG  -->
+
+<div class="cards" style="margin-bottom:12px">
+    <div class="card">
+        <div class="label"><?= t('admin.logs.game_file') ?></div>
+        <div class="value sm"><code>game_debug.log</code></div>
+    </div>
+    <div class="card">
+        <div class="label">Rozmiar</div>
+        <div class="value orange"><?= number_format($gameLogSize / 1024, 1) ?> KB</div>
+    </div>
+    <div class="card">
+        <div class="label"><?= t('admin.logs.results') ?></div>
+        <div class="value"><?= number_format($totalLogs) ?></div>
+    </div>
+</div>
+
+<div class="logs-toolbar">
+    <form method="get" class="filters">
+        <input type="hidden" name="tab" value="game">
+        <label class="muted font-sm">Wierszy na str.:</label>
+        <select name="limit" onchange="this.form.submit()">
+            <?php foreach ([50, 100, 200, 500] as $l): ?>
+            <option value="<?= $l ?>" <?= $limit == $l ? 'selected' : '' ?>><?= $l ?></option>
+            <?php endforeach ?>
+        </select>
+    </form>
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="clear_game_log">
+        <button type="submit" class="btn btn-sm btn-danger"
+                onclick="confirmSubmit(this, '<?= addslashes(t('admin.logs.confirm_clear_game')) ?>', {type:'danger'}); return false;">
+             <?= t('admin.logs.btn_clear_game') ?>
+        </button>
+    </form>
+</div>
+
+<section aria-label="<?= t('admin.logs.tab_game') ?>">
+    <?php if (empty($gameLogLines)): ?>
+    <p class="empty-state"><?= t('admin.logs.game_empty') ?></p>
+    <?php else: ?>
+    <div class="game-log-list">
+        <?php foreach ($gameLogLines as $line):
+            $cls = str_contains($line, '[ERROR]') ? 'log-line--error'
+                 : (str_contains($line, '[WARN]')  ? 'log-line--warn'
+                 : (str_contains($line, '[DB')      ? 'log-line--db'
+                 : (str_contains($line, '[PERF]')   ? 'log-line--perf'
+                 : '')));
+        ?>
+        <div class="log-line <?= $cls ?>"><?= htmlspecialchars($line) ?></div>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<?php if ($totalPages > 1): ?>
+<nav class="pagination" aria-label="<?= t('admin.logs.pagination') ?>">
+    <?php if ($page > 1): ?>
+    <a href="<?= $buildUrl(['page' => 1]) ?>" class="btn btn-sm btn-secondary"> <?= t('admin.logs.page_first') ?></a>
+    <a href="<?= $buildUrl(['page' => $page - 1]) ?>" class="btn btn-sm btn-secondary"> <?= t('admin.logs.page_prev') ?></a>
+    <?php endif ?>
+    <span class="pagination-info"><?= t('admin.logs.page_of', ['page' => $page, 'total' => $totalPages]) ?></span>
+    <?php if ($page < $totalPages): ?>
+    <a href="<?= $buildUrl(['page' => $page + 1]) ?>" class="btn btn-sm btn-secondary"><?= t('admin.logs.page_next') ?> </a>
+    <a href="<?= $buildUrl(['page' => $totalPages]) ?>" class="btn btn-sm btn-secondary"><?= t('admin.logs.page_last') ?> </a>
+    <?php endif ?>
+</nav>
+<?php endif ?>
+
+<?php elseif ($tab === 'tick'): ?>
+<!--  TICK LOG  -->
+
+<?php if ($tickDeleteMsg): ?>
+<div class="alert alert-<?= str_starts_with($tickDeleteMsg, 'ok:') ? 'success' : 'error' ?>">
+    <?= htmlspecialchars(ltrim(strstr($tickDeleteMsg, ':'), ':')) ?>
+</div>
+<?php endif ?>
+<?php if ($tickCleanupMsg): ?>
+<div class="alert alert-<?= str_starts_with($tickCleanupMsg, 'ok:') ? 'success' : 'error' ?>">
+    <?= htmlspecialchars(ltrim(strstr($tickCleanupMsg, ':'), ':')) ?>
+</div>
+<?php endif ?>
+
+<?php if ($tickSummary24h): $s = $tickSummary24h; $tickCount = (int)($s['tick_count'] ?? 0); ?>
+<section class="section-card">
+    <h2 class="section-title"><?= t('admin.tick_log.section_summary') ?></h2>
+    <div class="stats-grid stats-grid--6">
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_ticks_24h') ?></div>
+            <div class="stat-value"><?= $tickCount ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_avg_duration') ?></div>
+            <div class="stat-value"><?= $tickCount ? round((float)$s['avg_duration_ms']) : '' ?> <small>ms</small></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_max_duration') ?></div>
+            <div class="stat-value <?= (int)($s['max_duration_ms'] ?? 0) > 30000 ? 'red' : '' ?>">
+                <?= $tickCount ? round((float)$s['max_duration_ms']) : '' ?> <small>ms</small>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_total_bbl') ?></div>
+            <div class="stat-value"><?= $tickCount ? number_format((float)$s['total_bbl'], 1) : '' ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_total_revenue') ?></div>
+            <div class="stat-value"><?= $tickCount ? '$' . number_format((float)$s['total_revenue'], 0, '.', ' ') : '' ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><?= t('admin.tick_log.stat_disasters') ?></div>
+            <div class="stat-value <?= (int)($s['total_disasters'] ?? 0) > 0 ? 'red' : 'green' ?>">
+                <?= $tickCount ? (int)$s['total_disasters'] : '' ?>
+            </div>
+        </div>
+    </div>
+</section>
+<?php endif ?>
+
+<section class="section-card">
+    <div class="section-toolbar">
+        <h2 class="section-title" style="margin-bottom:0">
+            <?= t('admin.tick_log.section_history') ?>
+            <span class="muted">(<?= number_format($tickTotalRows) ?>)</span>
+        </h2>
+        <div class="toolbar-actions">
+            <form method="get" action="/admin/logs.php" class="inline-form">
+                <input type="hidden" name="tab" value="tick">
+                <select name="tsource" onchange="this.form.submit()" class="form-select form-select--sm">
+                    <option value="" <?= $tickFilterSource === '' ? 'selected' : '' ?>><?= t('admin.tick_log.filter_all') ?></option>
+                    <option value="cron"      <?= $tickFilterSource === 'cron'      ? 'selected' : '' ?>><?= t('admin.tick_log.filter_cron') ?></option>
+                    <option value="force"     <?= $tickFilterSource === 'force'     ? 'selected' : '' ?>><?= t('admin.tick_log.filter_force') ?></option>
+                    <option value="cron_http" <?= $tickFilterSource === 'cron_http' ? 'selected' : '' ?>>cron_http</option>
+                </select>
+            </form>
+            <form method="post" action="/admin/logs.php?tab=tick" class="inline-form">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                <input type="hidden" name="action" value="tick_log_cleanup">
+                <input type="number" name="cleanup_days" value="7" min="1" max="365"
+                       class="form-input form-input--sm form-input--narrow">
+                <button type="submit" class="btn btn-sm btn-secondary"
+                        onclick="confirmSubmit(this, '<?= addslashes(t('admin.tick_log.btn_cleanup')) ?>: ' + this.form.querySelector('[name=cleanup_days]').value + ' dni?'); return false;">
+                     <?= t('admin.tick_log.btn_cleanup') ?>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <?php if (empty($ticks)): ?>
+    <p class="empty-state"><?= t('admin.tick_log.empty') ?></p>
+    <?php else: ?>
+    <div class="table-scroll-wrap">
+    <div class="data-list tick-log-grid">
+        <div class="list-header" role="row">
+            <span>#</span>
+            <span><?= t('admin.tick_log.col_time') ?></span>
+            <span><?= t('admin.tick_log.col_source') ?></span>
+            <span><?= t('admin.tick_log.col_duration') ?></span>
+            <span><?= t('admin.tick_log.col_price') ?></span>
+            <span><?= t('admin.tick_log.col_players') ?></span>
+            <span><?= t('admin.tick_log.col_bbl') ?></span>
+            <span><?= t('admin.tick_log.col_incidents') ?></span>
+            <span><?= t('admin.tick_log.col_disasters') ?></span>
+            <span></span>
+        </div>
+        <?php foreach ($ticks as $tick):
+            $isSlow = (int)($tick['duration_ms'] ?? 0) > 30000;
+            $hasDis = (int)($tick['disasters_triggered'] ?? 0) > 0;
+        ?>
+        <article class="list-row <?= $isSlow ? 'row--warn' : '' ?>" role="row">
+            <span class="muted">#<?= (int)$tick['id'] ?></span>
+            <span><?= htmlspecialchars($tick['ran_at']) ?></span>
+            <span>
+                <span class="badge badge--<?= ($tick['source'] === 'cron' || $tick['source'] === 'cron_http') ? 'blue' : 'orange' ?>">
+                    <?= htmlspecialchars($tick['source']) ?>
+                </span>
+            </span>
+            <span class="<?= $isSlow ? 'text-red' : 'muted' ?>">
+                <?= $tick['duration_ms'] !== null ? (int)$tick['duration_ms'] . ' ms' : '' ?>
+            </span>
+            <span>$<?= $tick['oil_price'] !== null ? number_format((float)$tick['oil_price'], 2) : '' ?></span>
+            <span><?= $tick['players_processed'] !== null ? (int)$tick['players_processed'] : '' ?></span>
+            <span><?= $tick['total_production_bbl'] !== null ? number_format((float)$tick['total_production_bbl'], 1) : '' ?></span>
+            <span class="muted"><?= $tick['incidents_triggered'] !== null ? (int)$tick['incidents_triggered'] : '' ?></span>
+            <span class="<?= $hasDis ? 'text-red' : 'muted' ?>">
+                <?= $tick['disasters_triggered'] !== null ? (int)$tick['disasters_triggered'] : '' ?>
+            </span>
+            <span>
+                <form method="post" action="/admin/logs.php?tab=tick">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                    <input type="hidden" name="action"    value="tick_log_delete">
+                    <input type="hidden" name="delete_id" value="<?= (int)$tick['id'] ?>">
+                    <button type="submit" class="btn btn-xs btn-danger"
+                            onclick="confirmSubmit(this, '<?= addslashes(t('admin.tick_log.confirm_delete')) ?>', {type:'danger'}); return false;"></button>
+                </form>
+            </span>
+        </article>
+        <?php endforeach ?>
+    </div>
+    </div>
+
+    <?php if ($tickTotalPages > 1): ?>
+    <nav class="pagination" aria-label="<?= t('admin.tick_log.pagination_label') ?>">
+        <?php if ($tickPage > 1): ?>
+        <a href="?tab=tick&page=<?= $tickPage - 1 ?><?= $tickFilterSource ? '&tsource=' . urlencode($tickFilterSource) : '' ?>" class="btn btn-sm btn-secondary"> <?= t('common.prev') ?></a>
+        <?php endif ?>
+        <span class="pagination-info"><?= t('admin.tick_log.page_of', ['page' => $tickPage, 'total' => $tickTotalPages]) ?></span>
+        <?php if ($tickPage < $tickTotalPages): ?>
+        <a href="?tab=tick&page=<?= $tickPage + 1 ?><?= $tickFilterSource ? '&tsource=' . urlencode($tickFilterSource) : '' ?>" class="btn btn-sm btn-secondary"><?= t('common.next') ?> </a>
+        <?php endif ?>
+    </nav>
+    <?php endif ?>
+    <?php endif ?>
+</section>
+
+<?php endif ?>
+
+<!--  RETENCJA LOGW  -->
+<section class="panel" aria-label="<?= t('admin.logs.retention_title') ?>">
+    <p class="panel-title"> <?= t('admin.logs.retention_title') ?></p>
+    <form method="post" class="form-row">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_retention">
+        <div class="form-group">
+            <label class="form-label"><?= t('admin.logs.retention_admin_label') ?></label>
+            <div class="input-with-unit">
+                <input type="number" name="retention_admin" min="0" max="365" step="1"
+                       value="<?= $retentionAdmin ?>" class="gm-input--short">
+                <span class="input-unit"><?= t('common.days') ?></span>
+            </div>
+            <small class="muted"><?= t('admin.logs.retention_hint') ?></small>
+        </div>
+        <div class="form-group">
+            <label class="form-label"><?= t('admin.logs.retention_game_label') ?></label>
+            <div class="input-with-unit">
+                <input type="number" name="retention_game" min="0" max="365" step="1"
+                       value="<?= $retentionGame ?>" class="gm-input--short">
+                <span class="input-unit"><?= t('common.days') ?></span>
+            </div>
+            <small class="muted"><?= t('admin.logs.retention_game_hint') ?></small>
+        </div>
+        <div class="form-group form-group--end">
+            <button type="submit" class="btn btn-primary"> <?= t('admin.logs.btn_save_retention') ?></button>
+        </div>
+    </form>
+</section>
