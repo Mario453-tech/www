@@ -104,7 +104,7 @@ HTML;
                 {$btn}
             </td>
         </tr>
-        <tr>
+`        <tr>
             <td style="padding:20px 32px;border-top:1px solid rgba(255,255,255,.06);
                        font-size:12px;color:{$muted};text-align:center;line-height:1.6;">
                 {$footer}

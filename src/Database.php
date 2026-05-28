@@ -43,7 +43,7 @@ class Database
             
             if (class_exists('GameLog', false)) {
                 $ver = $this->pdo->getAttribute(PDO::ATTR_SERVER_VERSION);
-                GameLog::info('Database', "Connected OK — MySQL {$ver}");
+                GameLog::info('Database', "Connected OK â€” MySQL {$ver}");
             }
         } catch (PDOException $e) {
             $msg = "Database connection failed: {$e->getMessage()}";
@@ -67,10 +67,10 @@ class Database
     }
 
     /**
-     * Dodaje kolumnê do tabeli jeœli nie istnieje - kompatybilne z MySQL 8.0.
+     * Dodaje kolumne do tabeli jesli nie istnieje - kompatybilne z MySQL 8.0.
      * Adds a column to a table if it does not exist - compatible with MySQL 8.0.
      *
-     * U¿ycie / Usage:
+     * Uzycie / Usage:
      *   Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL');
      *   Database::addColumnIfMissing('players', 'recovery_mode', "TINYINT(1) NOT NULL DEFAULT 0 AFTER bankruptcy_status");
      */

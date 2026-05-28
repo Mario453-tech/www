@@ -1,204 +1,202 @@
 <?php
 /**
- * Director notification service used in the dashboard.
- * PL: Serwis powiadomien dyrektora uzywany w dashboardzie.
- *
- * Notifications require read acknowledgement and can drive player actions.
- * PL: Powiadomienia wymagaja potwierdzenia odczytu i moga prowadzic do akcji gracza.
+ * DirectorNotificationService - System komunikatów dla dyrektora | DirectorNotificationService - notification system for director
+ * 
+ * Zarzadza powiadomieniami wyswietlanymi w dashboardzie | Manages notifications displayed in the dashboard
+ * Komunikaty wymagają potwierdzenia przeczytania | Messages require read acknowledgment
  */
 class DirectorNotificationService
 {
     private PDO $db;
-
-    // Notification templates.
-    // PL: Szablony powiadomien.
+    
+    // Szablony komunikatow (20 typow)
     private const TEMPLATES = [
         'bank_payment_due' => [
             'type' => 'bank',
             'priority' => 'high',
-            'icon' => '&#127974;',
+            'icon' => '🏦',
             'title_key' => 'director.bank_payment_due.title',
             'message_key' => 'director.bank_payment_due.message',
             'requires_action' => true,
             'action_url' => 'bank.php',
-            'action_label_key' => 'director.bank_payment_due.action',
+            'action_label_key' => 'director.bank_payment_due.action'
         ],
         'bank_overdue' => [
             'type' => 'bank',
             'priority' => 'critical',
-            'icon' => '&#9888;&#65039;',
+            'icon' => '⚠️',
             'title_key' => 'director.bank_overdue.title',
             'message_key' => 'director.bank_overdue.message',
             'requires_action' => true,
             'action_url' => 'bank.php',
-            'action_label_key' => 'director.bank_overdue.action',
+            'action_label_key' => 'director.bank_overdue.action'
         ],
         'bank_restructure_offer' => [
             'type' => 'bank',
             'priority' => 'high',
-            'icon' => '&#128188;',
+            'icon' => '💼',
             'title_key' => 'director.bank_restructure_offer.title',
             'message_key' => 'director.bank_restructure_offer.message',
             'requires_action' => true,
             'action_url' => 'bank.php?tab=negotiations',
-            'action_label_key' => 'director.bank_restructure_offer.action',
+            'action_label_key' => 'director.bank_restructure_offer.action'
         ],
         'bank_negotiation_approved' => [
             'type' => 'bank',
             'priority' => 'medium',
-            'icon' => '&#9989;',
+            'icon' => '✅',
             'title_key' => 'director.bank_negotiation_approved.title',
             'message_key' => 'director.bank_negotiation_approved.message',
-            'requires_action' => false,
+            'requires_action' => false
         ],
         'bank_negotiation_rejected' => [
             'type' => 'bank',
             'priority' => 'medium',
-            'icon' => '&#10060;',
+            'icon' => '❌',
             'title_key' => 'director.bank_negotiation_rejected.title',
             'message_key' => 'director.bank_negotiation_rejected.message',
-            'requires_action' => false,
+            'requires_action' => false
         ],
         'hr_new_candidates' => [
             'type' => 'hr',
             'priority' => 'high',
-            'icon' => '&#128101;',
+            'icon' => '👥',
             'title_key' => 'director.hr_new_candidates.title',
             'message_key' => 'director.hr_new_candidates.message',
             'requires_action' => true,
             'action_url' => 'dashboard.php',
-            'action_label_key' => 'director.hr_new_candidates.action',
+            'action_label_key' => 'director.hr_new_candidates.action'
         ],
         'hr_contract_expiring' => [
             'type' => 'hr',
             'priority' => 'medium',
-            'icon' => '&#128203;',
+            'icon' => '📋',
             'title_key' => 'director.hr_contract_expiring.title',
             'message_key' => 'director.hr_contract_expiring.message',
             'requires_action' => true,
             'action_url' => 'hr.php',
-            'action_label_key' => 'director.hr_contract_expiring.action',
+            'action_label_key' => 'director.hr_contract_expiring.action'
         ],
         'technical_well_failure' => [
             'type' => 'technical',
             'priority' => 'critical',
-            'icon' => '&#128308;',
+            'icon' => '🔴',
             'title_key' => 'director.technical_well_failure.title',
             'message_key' => 'director.technical_well_failure.message',
             'requires_action' => true,
             'action_url' => 'technical.php',
-            'action_label_key' => 'director.technical_well_failure.action',
+            'action_label_key' => 'director.technical_well_failure.action'
         ],
         'technical_low_condition' => [
             'type' => 'technical',
             'priority' => 'high',
-            'icon' => '&#9881;&#65039;',
+            'icon' => '⚙️',
             'title_key' => 'director.technical_low_condition.title',
             'message_key' => 'director.technical_low_condition.message',
             'requires_action' => true,
             'action_url' => 'technical.php',
-            'action_label_key' => 'director.technical_low_condition.action',
+            'action_label_key' => 'director.technical_low_condition.action'
         ],
         'technical_task_completed' => [
             'type' => 'technical',
             'priority' => 'low',
-            'icon' => '&#9989;',
+            'icon' => '✅',
             'title_key' => 'director.technical_task_completed.title',
             'message_key' => 'director.technical_task_completed.message',
-            'requires_action' => false,
+            'requires_action' => false
         ],
         'market_price_drop' => [
             'type' => 'market',
             'priority' => 'high',
-            'icon' => '&#128201;',
+            'icon' => '📉',
             'title_key' => 'director.market_price_drop.title',
             'message_key' => 'director.market_price_drop.message',
             'requires_action' => true,
             'action_url' => 'market.php',
-            'action_label_key' => 'director.market_price_drop.action',
+            'action_label_key' => 'director.market_price_drop.action'
         ],
         'market_price_surge' => [
             'type' => 'market',
             'priority' => 'high',
-            'icon' => '&#128200;',
+            'icon' => '📈',
             'title_key' => 'director.market_price_surge.title',
             'message_key' => 'director.market_price_surge.message',
             'requires_action' => true,
             'action_url' => 'market.php',
-            'action_label_key' => 'director.market_price_surge.action',
+            'action_label_key' => 'director.market_price_surge.action'
         ],
         'market_new_trend' => [
             'type' => 'market',
             'priority' => 'medium',
-            'icon' => '&#127757;',
+            'icon' => '🌍',
             'title_key' => 'director.market_new_trend.title',
             'message_key' => 'director.market_new_trend.message',
-            'requires_action' => false,
+            'requires_action' => false
         ],
         'storage_full' => [
             'type' => 'urgent',
             'priority' => 'critical',
-            'icon' => '&#128738;&#65039;',
+            'icon' => '🛢️',
             'title_key' => 'director.storage_full.title',
             'message_key' => 'director.storage_full.message',
             'requires_action' => true,
             'action_url' => 'market.php',
-            'action_label_key' => 'director.storage_full.action',
+            'action_label_key' => 'director.storage_full.action'
         ],
         'storage_empty' => [
             'type' => 'info',
             'priority' => 'low',
-            'icon' => '&#128230;',
+            'icon' => '📦',
             'title_key' => 'director.storage_empty.title',
             'message_key' => 'director.storage_empty.message',
-            'requires_action' => false,
+            'requires_action' => false
         ],
         'legal_bailiff_started' => [
             'type' => 'legal',
             'priority' => 'critical',
-            'icon' => '&#9878;&#65039;',
+            'icon' => '⚖️',
             'title_key' => 'director.legal_bailiff_started.title',
             'message_key' => 'director.legal_bailiff_started.message',
             'requires_action' => true,
             'action_url' => 'bank.php',
-            'action_label_key' => 'director.legal_bailiff_started.action',
+            'action_label_key' => 'director.legal_bailiff_started.action'
         ],
         'legal_asset_seized' => [
             'type' => 'legal',
             'priority' => 'critical',
-            'icon' => '&#128680;',
+            'icon' => '🚨',
             'title_key' => 'director.legal_asset_seized.title',
             'message_key' => 'director.legal_asset_seized.message',
             'requires_action' => true,
             'action_url' => 'bank.php',
-            'action_label_key' => 'director.legal_asset_seized.action',
+            'action_label_key' => 'director.legal_asset_seized.action'
         ],
         'urgent_bankruptcy_risk' => [
             'type' => 'urgent',
             'priority' => 'critical',
-            'icon' => '&#128128;',
+            'icon' => '💀',
             'title_key' => 'director.urgent_bankruptcy_risk.title',
             'message_key' => 'director.urgent_bankruptcy_risk.message',
             'requires_action' => true,
             'action_url' => 'bank.php',
-            'action_label_key' => 'director.urgent_bankruptcy_risk.action',
+            'action_label_key' => 'director.urgent_bankruptcy_risk.action'
         ],
         'info_new_feature' => [
             'type' => 'info',
             'priority' => 'low',
-            'icon' => '&#127881;',
+            'icon' => '🎉',
             'title_key' => 'director.info_new_feature.title',
             'message_key' => 'director.info_new_feature.message',
-            'requires_action' => false,
+            'requires_action' => false
         ],
         'info_monthly_report' => [
             'type' => 'info',
             'priority' => 'low',
-            'icon' => '&#128202;',
+            'icon' => '📊',
             'title_key' => 'director.info_monthly_report.title',
             'message_key' => 'director.info_monthly_report.message',
-            'requires_action' => false,
-        ],
+            'requires_action' => false
+        ]
     ];
 
     public function __construct()
@@ -213,26 +211,24 @@ class DirectorNotificationService
     }
 
     /**
-     * Creates a new director notification.
-     * PL: Tworzy nowe powiadomienie dyrektora.
+     * Tworzy nowy komunikat dla dyrektora
      */
     public function create(int $playerId, string $templateKey, array $params = [], ?int $expiresInHours = null): int
     {
         if (!isset(self::TEMPLATES[$templateKey])) {
-            throw new InvalidArgumentException(t('director.err_unknown_template', ['template' => $templateKey]));
+            throw new InvalidArgumentException("Unknown template: {$templateKey}");
         }
 
         $template = self::TEMPLATES[$templateKey];
 
-        // Translate title and message, then substitute template params.
-        // PL: Przetlumacz title i message, a potem podstaw parametry szablonu.
-        $title = t($template['title_key']);
+        // Przetlumacz title i message przez t(), podstaw parametry
+        $title   = t($template['title_key']);
         $message = t($template['message_key']);
         foreach ($params as $key => $value) {
             $message = str_replace('{' . $key . '}', $value, $message);
         }
 
-        $expiresAt = $expiresInHours
+        $expiresAt = $expiresInHours 
             ? date('Y-m-d H:i:s', strtotime("+{$expiresInHours} hours"))
             : null;
 
@@ -253,24 +249,25 @@ class DirectorNotificationService
             ':requires_action' => $template['requires_action'] ? 1 : 0,
             ':action_url' => $template['action_url'] ?? null,
             ':action_label' => isset($template['action_label_key']) ? t($template['action_label_key']) : null,
-            ':expires_at' => $expiresAt,
+            ':expires_at' => $expiresAt
         ]);
 
         $notificationId = (int)$this->db->lastInsertId();
+
+        // Zapisz w historii
         $this->logAction($notificationId, $playerId, 'created');
 
         GameLog::info('DirectorNotificationService', 'Notification created', [
             'notification_id' => $notificationId,
             'player_id' => $playerId,
-            'template' => $templateKey,
+            'template' => $templateKey
         ]);
 
         return $notificationId;
     }
 
     /**
-     * Returns unread notifications for a player.
-     * PL: Pobiera nieprzeczytane powiadomienia gracza.
+     * Pobiera nieprzeczytane komunikaty dla gracza
      */
     public function getUnread(int $playerId, ?string $type = null): array
     {
@@ -292,7 +289,7 @@ class DirectorNotificationService
 
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':player_id', $playerId, PDO::PARAM_INT);
-
+        
         if ($type) {
             $stmt->bindValue(':type', $type, PDO::PARAM_STR);
         }
@@ -302,8 +299,7 @@ class DirectorNotificationService
     }
 
     /**
-     * Marks one notification as read.
-     * PL: Oznacza jedno powiadomienie jako przeczytane.
+     * Oznacza komunikat jako przeczytany
      */
     public function markAsRead(int $notificationId, int $playerId): bool
     {
@@ -315,7 +311,7 @@ class DirectorNotificationService
 
         $result = $stmt->execute([
             ':id' => $notificationId,
-            ':player_id' => $playerId,
+            ':player_id' => $playerId
         ]);
 
         if ($result) {
@@ -326,8 +322,7 @@ class DirectorNotificationService
     }
 
     /**
-     * Marks all notifications as read.
-     * PL: Oznacza wszystkie powiadomienia jako przeczytane.
+     * Oznacza wszystkie komunikaty jako przeczytane
      */
     public function markAllAsRead(int $playerId): int
     {
@@ -342,8 +337,7 @@ class DirectorNotificationService
     }
 
     /**
-     * Counts unread notifications.
-     * PL: Zlicza nieprzeczytane powiadomienia.
+     * Zlicza nieprzeczytane komunikaty
      */
     public function countUnread(int $playerId): int
     {
@@ -359,8 +353,7 @@ class DirectorNotificationService
     }
 
     /**
-     * Deletes expired notifications.
-     * PL: Usuwa wygasle powiadomienia.
+     * Usuwa wygasłe komunikaty
      */
     public function cleanupExpired(): int
     {
@@ -374,8 +367,7 @@ class DirectorNotificationService
     }
 
     /**
-     * Stores action in notification history.
-     * PL: Zapisuje akcje w historii powiadomien.
+     * Zapisuje akcję w historii
      */
     private function logAction(int $notificationId, int $playerId, string $action): void
     {
@@ -387,13 +379,12 @@ class DirectorNotificationService
         $stmt->execute([
             ':notification_id' => $notificationId,
             ':player_id' => $playerId,
-            ':action' => $action,
+            ':action' => $action
         ]);
     }
 
     /**
-     * Returns notification history.
-     * PL: Pobiera historie powiadomien.
+     * Pobiera historię komunikatów (ostatnie 50)
      */
     public function getHistory(int $playerId, int $limit = 50): array
     {
