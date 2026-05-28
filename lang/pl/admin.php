@@ -931,6 +931,71 @@ return [
     'admin.wells.help.s11_score'   => '<strong>Reputacja (BM score)</strong> — gracz buduje reputację na czarnym rynku. Za każdy zakup zyskuje <code>bm_score_gain_min–max</code> pkt. Co tick reputacja spada o <code>bm_score_decay_per_tick</code> pkt. Wyższa reputacja = lepsze oferty.',
     'admin.wells.help.s11_wear'    => '<strong>Początkowe zużycie</strong> — sprzęt z czarnego rynku startuje z losowym zużyciem <code>bm_wear_start_min–max</code>%. Może być prawie nowy lub mocno wyeksploatowany.',
     'admin.wells.help.s11_note'    => '⚠️ Sprzęt z czarnego rynku na warstwach deep/ultra to kombinacja wysokiego ryzyka i dodatkowej kary ×1.5. Zalecany tylko dla graczy z doświadczeniem i dobrym technikiem.',
+
+    // GM wells panel — player filter
+    'admin.wells.filter_player'  => 'Gracz',
+    'admin.wells.filter_all'     => '— wszyscy gracze —',
+    'admin.wells.filter_clear'   => 'Wyczyść',
+    'admin.wells.filter_count'   => 'odwiertów',
+
+    // GM wells panel — list columns
+    'admin.wells.col_transport'  => 'Transport',
+    'admin.wells.col_hub'        => 'Hub',
+
+    // GM wells panel — transport types
+    'admin.wells.transport.rurociag'   => 'Rurociąg',
+    'admin.wells.transport.ciezarowki' => 'Ciężarówki',
+    'admin.wells.transport.tankowiec'  => 'Tankowiec',
+
+    // GM wells panel — equipment tier
+    'admin.wells.eq_tier.black_market' => 'Czarny rynek',
+    'admin.wells.eq_tier.standard'     => 'Standard',
+    'admin.wells.eq_tier.premium'      => 'Premium',
+
+    // GM wells panel — upgrades
+    'admin.wells.upgrade.pump_electric'    => 'Pompa elektryczna',
+    'admin.wells.upgrade.monitoring'       => 'System monitoringu',
+    'admin.wells.upgrade.water_injection'  => 'Wtrysk wody',
+    'admin.wells.upgrade_active'           => 'aktywna',
+
+    // GM wells panel — edit form
+    'admin.wells.gm_edit_title'     => 'Edytuj odwiert (GM)',
+    'admin.wells.gm_panel_title'    => 'GM — Odwiert #:id',
+    'admin.wells.gm_well_type'      => 'Typ',
+    'admin.wells.gm_layer'          => 'Warstwa',
+    'admin.wells.gm_created'        => 'Utworzony',
+    'admin.wells.gm_hub_assigned'   => 'Przypisany hub',
+    'admin.wells.gm_eff_pressure'   => 'Ef. ciśnienie',
+    'admin.wells.gm_depletion'      => 'Wyczerpanie',
+    'admin.wells.gm_save'           => 'Zapisz zmiany GM',
+    'admin.wells.gm_save_warn'      => 'Zmiany działają natychmiast.',
+
+    // GM wells panel — section titles
+    'admin.wells.gm_sec_status'    => 'Status i produkcja',
+    'admin.wells.gm_sec_transport' => 'Transport',
+    'admin.wells.gm_sec_reservoir' => 'Złoże i ciśnienie',
+    'admin.wells.gm_sec_risk'      => 'Ryzyko i sprzęt',
+    'admin.wells.gm_sec_upgrades'  => 'Modernizacje',
+
+    // GM wells panel — field labels
+    'admin.wells.gm_field_status'        => 'Status odwiertu',
+    'admin.wells.gm_field_prod_mode'     => 'Tryb produkcji',
+    'admin.wells.gm_field_cond'          => 'Stan techniczny (%)',
+    'admin.wells.gm_field_wear'          => 'Zużycie (wear_level)',
+    'admin.wells.gm_field_prod_bph'      => 'Produkcja bazowa (bbl/h)',
+    'admin.wells.gm_field_opex'          => 'OPEX (PLN/h)',
+    'admin.wells.gm_field_prod_boost'    => 'Bonus produkcji (%)',
+    'admin.wells.gm_field_transport_type'=> 'Typ transportu',
+    'admin.wells.gm_field_transport_cap' => 'Przepustowość transportu (%)',
+    'admin.wells.gm_field_transport_opex'=> 'OPEX transportu (%)',
+    'admin.wells.gm_field_pressure'      => 'Ciśnienie złoża (0.00–2.00)',
+    'admin.wells.gm_field_res_rem'       => 'Złoże pozostałe (bbl)',
+    'admin.wells.gm_field_res_max'       => 'Złoże maksymalne (bbl)',
+    'admin.wells.gm_field_risk_level'    => 'Poziom ryzyka (1–10)',
+    'admin.wells.gm_field_risk_score'    => 'Risk score (0–100)',
+    'admin.wells.gm_field_eq_tier'       => 'Klasa sprzętu',
+    'admin.wells.gm_field_post_inc_risk' => 'Post-incydent boost ryzyka',
+
     'admin.players.title'        => 'Gracze',
     'admin.players.filter_nav'   => 'Filtry graczy',
     'admin.players.filter_label' => 'Filtruj:',

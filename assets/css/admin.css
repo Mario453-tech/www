@@ -3010,3 +3010,240 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     flex-wrap: wrap;
     margin-top: 14px;
 }
+
+/* ============================================================
+   GM Wells panel — player filter, list, edit form
+   Panel odwiertow GM — filtr gracza, lista, formularz edycji
+   ============================================================ */
+
+.aw-player-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    background: var(--card-bg2, rgba(255,255,255,.04));
+    border: 1px solid var(--border-color, rgba(255,255,255,.07));
+    border-radius: 6px;
+}
+
+.aw-filter-label {
+    font-size: .82rem;
+    color: var(--text-muted, #aaa);
+    white-space: nowrap;
+}
+
+.aw-filter-select {
+    padding: 4px 8px;
+    font-size: .82rem;
+    background: var(--input-bg, #1e2433);
+    color: var(--text, #e8e8e8);
+    border: 1px solid var(--border-color, rgba(255,255,255,.12));
+    border-radius: 4px;
+    min-width: 220px;
+}
+
+.aw-filter-count {
+    margin-left: auto;
+    font-size: .78rem;
+    color: var(--text-muted2, #888);
+}
+
+/* List grid */
+.aw-list-head,
+.aw-list-row {
+    display: grid;
+    grid-template-columns: 44px minmax(120px,1fr) 120px 56px 68px 90px 80px minmax(80px,1fr) 110px 34px;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: .81rem;
+}
+
+.aw-list-head {
+    font-size: .74rem;
+    font-weight: 600;
+    color: var(--text-muted, #aaa);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,.08));
+}
+
+.aw-list-row {
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,.05));
+}
+
+.aw-list-row--expandable:hover {
+    background: var(--hover-bg, rgba(255,255,255,.03));
+}
+
+.aw-col-player {
+    font-size: .8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.aw-transport-badge {
+    font-size: .74rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+    background: rgba(255,255,255,.08);
+}
+
+.aw-transport-rurociag   { background: rgba(80,160,255,.18); color: #7bbeff; }
+.aw-transport-ciezarowki { background: rgba(255,160,60,.18);  color: #ffb060; }
+.aw-transport-tankowiec  { background: rgba(100,220,180,.18); color: #70ddbb; }
+
+.aw-hub-badge {
+    font-size: .76rem;
+    color: var(--text-muted2, #888);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 110px;
+    display: inline-block;
+}
+
+/* GM Edit panel */
+.aw-gm-panel {
+    margin: 0 0 4px 44px;
+    padding: 16px 18px 14px;
+    background: var(--card-bg2, rgba(255,255,255,.03));
+    border: 1px solid var(--border-color, rgba(255,255,255,.09));
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+.aw-gm-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,.07));
+    font-size: .83rem;
+}
+
+.aw-gm-header strong {
+    font-size: .9rem;
+}
+
+.aw-gm-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.aw-gm-section {
+    background: var(--card-bg, rgba(255,255,255,.025));
+    border: 1px solid var(--border-color, rgba(255,255,255,.07));
+    border-radius: 5px;
+    padding: 12px 14px;
+}
+
+.aw-gm-section-title {
+    font-size: .74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-muted, #aaa);
+    margin-bottom: 10px;
+}
+
+.aw-gm-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.aw-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.aw-field label {
+    font-size: .76rem;
+    color: var(--text-muted, #aaa);
+}
+
+.aw-field-hint {
+    font-size: .74rem;
+    color: var(--text-muted2, #888);
+}
+
+.aw-field--readonly span {
+    font-size: .82rem;
+    color: var(--text-muted2, #888);
+}
+
+.aw-field--info span {
+    font-size: .8rem;
+    color: var(--text-muted2, #888);
+}
+
+.aw-input,
+.aw-select {
+    width: 100%;
+    padding: 5px 8px;
+    font-size: .82rem;
+    background: var(--input-bg, #1e2433);
+    color: var(--text, #e8e8e8);
+    border: 1px solid var(--border-color, rgba(255,255,255,.12));
+    border-radius: 4px;
+}
+
+.aw-select {
+    cursor: pointer;
+}
+
+/* Upgrades */
+.aw-gm-upgrade-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.aw-upgrade-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, rgba(255,255,255,.07));
+    cursor: pointer;
+    font-size: .82rem;
+    transition: background .15s;
+}
+
+.aw-upgrade-checkbox:hover {
+    background: rgba(255,255,255,.05);
+}
+
+.aw-upgrade-checkbox--on {
+    border-color: rgba(80,180,100,.4);
+    background: rgba(80,180,100,.08);
+}
+
+.aw-upgrade-name {
+    flex: 1;
+}
+
+/* Actions bar */
+.aw-gm-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.aw-gm-warn {
+    font-size: .76rem;
+    color: var(--text-muted2, #888);
+    margin-left: auto;
+}
