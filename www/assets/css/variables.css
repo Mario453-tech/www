@@ -1,0 +1,47 @@
+/* 
+   OILCORP  DESIGN SYSTEM TOKENS (rdo prawdy)
+   adowany jako PIERWSZY we wszystkich stronach gry.
+   Wszystkie moduy (hr.css, dashboard.css itd.) dziedzicz
+   te wartoci  nie redeklaruj identycznych zmiennych.
+    */
+
+:root {
+    /*  Zoto / akcent  */
+    --gold:        #c8a84b;
+    --gold2:       #e8cc7a;          /* jasne zoto  highlight tekstu */
+    --gold3:       #a08030;          /* ciemne zoto  wyciszone akcenty */
+    --gold-dim:    rgba(200,168,75,.12);  /* to hover/aktywne */
+    --gold-border: rgba(200,168,75,.25); /* obramowania */
+    --gold-glow:   rgba(200,168,75,.3);  /* powiata / cie */
+
+    /*  Ta  */
+    --bg:          #08080f;
+    --bg2:         #0f0f18;
+    --bg3:         #161622;
+    --bg4:         #1e1e2e;
+    --bg5:         #252535;
+
+    /*  Tekst  */
+    --text:        #e8e8f0;
+    --text2:       rgba(232,232,240,.6);
+    --text3:       rgba(232,232,240,.35);
+
+    /*  Kolory semantyczne  */
+    --red:         #e05555;
+    --red-dim:     rgba(224,85,85,.12);
+    --green:       #4ec97a;
+    --green-dim:   rgba(78,201,122,.1);
+    --blue:        #5b9cf6;
+    --orange:      #f0a050;
+    --warn:        #e6b43c;          /* ostrzeenia (ty) */
+
+    /*  Obramowania  */
+    --border:      rgba(200,168,75,.18);   /* zote obramowanie kart */
+    --border2:     rgba(255,255,255,.06);  /* delikatne biae obramowanie */
+
+    /*  Ksztat / cie  */
+    --radius:      8px;
+    --radius-lg:   12px;
+    --shadow:      0 8px 32px rgba(0,0,0,.55);
+    --shadow-lg:   0 20px 60px rgba(0,0,0,.7);
+}

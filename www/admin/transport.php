@@ -1,0 +1,168 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/transport.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+
+$db  = Database::getInstance()->getConnection();
+$msg = '';
+$err = '';
+
+$defaults = TransportConfigService::getDefaults();
+$configTableExists = TransportConfigService::tableExists($db);
+
+$typeNames = [
+    'rurociag'   => t('admin.transport.type_pipe'),
+    'ciezarowki' => t('admin.transport.type_truck'),
+    'tankowiec'  => t('admin.transport.type_tanker'),
+];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+    }
+
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'save_multipliers' && $configTableExists) {
+        try {
+            foreach (['rurociag', 'ciezarowki', 'tankowiec'] as $type) {
+                foreach (['incident', 'disaster', 'wear', 'spiral', 'capacity', 'opex', 'cost_per_bbl'] as $key) {
+                    $val = (float)($_POST[$type . '_' . $key] ?? $defaults[$type][$key]);
+                    $db->prepare("
+                        INSERT INTO transport_config (transport_type, config_key, config_value)
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+                    ")->execute([$type, $key, $val]);
+                }
+            }
+
+            AdminLog::log('transport_config_save', t('admin.transport.log_saved'));
+            $msg = t('admin.transport.msg_saved');
+        } catch (Throwable $e) {
+            $err = t('admin.transport.err_save') . $e->getMessage();
+        }
+    }
+
+    if ($action === 'reset_defaults' && $configTableExists) {
+        try {
+            $db->query("DELETE FROM transport_config");
+            AdminLog::log('transport_config_reset', t('admin.transport.log_reset'));
+            $msg = t('admin.transport.msg_reset');
+        } catch (Throwable $e) {
+            $err = t('admin.transport.err_reset') . $e->getMessage();
+        }
+    }
+
+    if ($action === 'seed_ports') {
+        try {
+            $portSvc = new PortService($db);
+            $created = $portSvc->seedDefaultPorts();
+            AdminLog::log('ports_seed', "Created {$created} default ports.");
+            $msg = "Seed portów zakoñczony. Utworzono: {$created} portów.";
+        } catch (Throwable $e) {
+            $err = 'B³¹d seed portów: ' . $e->getMessage();
+        }
+    }
+
+    if ($action === 'apply_to_wells') {
+        $type = $_POST['apply_type'] ?? '';
+        if (isset($typeNames[$type])) {
+            $cap  = (float)($_POST['apply_capacity'] ?? $defaults[$type]['capacity']);
+            $opex = (float)($_POST['apply_opex'] ?? $defaults[$type]['opex']);
+            try {
+                $db->prepare("
+                    UPDATE wells
+                    SET transport_capacity_pct = ?, transport_opex_pct = ?
+                    WHERE transport_type = ?
+                ")->execute([$cap, $opex, $type]);
+
+                $count = (int)$db->query("SELECT ROW_COUNT()")->fetchColumn();
+                AdminLog::log('transport_apply_wells', "type={$type} cap={$cap}% opex={$opex}% ({$count})");
+                $msg = t('admin.transport.msg_applied', [
+                    'count' => $count,
+                    'type'  => $typeNames[$type],
+                ]);
+            } catch (Throwable $e) {
+                $err = t('admin.transport.err_apply') . $e->getMessage();
+            }
+        }
+    }
+}
+
+$config = TransportConfigService::load($db);
+
+$transportStats = [];
+try {
+    $rows = $db->query("
+        SELECT transport_type,
+               COUNT(*) AS cnt,
+               AVG(transport_capacity_pct) AS avg_cap,
+               AVG(transport_opex_pct) AS avg_opex
+        FROM wells
+        WHERE status NOT IN ('seized','blowout')
+        GROUP BY transport_type
+    ")->fetchAll();
+    foreach ($rows as $row) {
+        $transportStats[$row['transport_type']] = $row;
+    }
+} catch (Throwable $e) {
+}
+
+$typeLabels = [
+    'rurociag'   => [t('admin.transport.type_pipe'), t('admin.transport.type_pipe_desc')],
+    'ciezarowki' => [t('admin.transport.type_truck'), t('admin.transport.type_truck_desc')],
+    'tankowiec'  => [t('admin.transport.type_tanker'), t('admin.transport.type_tanker_desc')],
+];
+
+$fieldDefs = [
+    'incident'     => [t('admin.transport.field_incident'), t('admin.transport.field_incident_hint'), '0.5', '2.0'],
+    'disaster'     => [t('admin.transport.field_disaster'), t('admin.transport.field_disaster_hint'), '0.5', '2.0'],
+    'wear'         => [t('admin.transport.field_wear'), t('admin.transport.field_wear_hint'), '0.5', '2.0'],
+    'spiral'       => [t('admin.transport.field_spiral'), t('admin.transport.field_spiral_hint'), '0.5', '2.0'],
+    'capacity'     => [t('admin.transport.field_capacity'), t('admin.transport.field_capacity_hint'), '50', '200'],
+    'opex'         => [t('admin.transport.field_opex'), t('admin.transport.field_opex_hint'), '0', '50'],
+    'cost_per_bbl' => [t('admin.transport.field_cost_per_bbl'), t('admin.transport.field_cost_per_bbl_hint'), '0', '20'],
+];
+
+// Porty morskie / Marine ports
+$portsData = [];
+try {
+    if (class_exists('PortService')) {
+        $portSvc   = new PortService($db);
+        $portsData = $portSvc->getAllWithQueueStats();
+    }
+} catch (Throwable $e) {
+    // tabela moze nie istniec jeszcze / table may not exist yet
+}
+
+$viewData = [
+    'msg'               => $msg,
+    'err'               => $err,
+    'configTableExists' => $configTableExists,
+    'defaults'          => $defaults,
+    'config'            => $config,
+    'transportStats'    => $transportStats,
+    'typeLabels'        => $typeLabels,
+    'typeNames'         => $typeNames,
+    'fieldDefs'         => $fieldDefs,
+    'configJson'        => json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    'portsData'         => $portsData,
+];
+
+$pageTitle = t('admin.transport.title');
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/transport/main.php';
+require_once __DIR__ . '/partials/footer.php';
+
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) {
+        GameLog::error('admin/transport.php', t('common.unhandled_exception'), $e);
+    }
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) {
+        GameLog::pageEnd('admin/transport.php', $_codexGuardStart);
+    }
+}
