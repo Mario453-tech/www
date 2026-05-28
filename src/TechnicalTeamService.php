@@ -45,7 +45,7 @@ class TechnicalTeamService
         'drilling_engineer'    => [
             'name_key'  => 'technical.spec.drilling_engineer',
             'icon'      => 'DRL',
-            'tasks'     => ['well_maintenance','install_module'],
+            'tasks'     => ['install_module','blowout_control'],
             'salary_range' => [8000, 18000],
             'description_key' => 'technical.spec_desc.drilling_engineer',
         ],
@@ -107,7 +107,7 @@ class TechnicalTeamService
         'well_maintenance' => [
             'label_key'   => 'technical.task.well_maintenance',
             'icon'        => 'MNT',
-            'assignable'  => ['drilling_engineer','maintenance_engineer'],
+            'assignable'  => ['maintenance_engineer'],
             'hours_min'   => 6,
             'hours_max'   => 12,
             'cost_min'    => 200_000,
@@ -221,7 +221,7 @@ class TechnicalTeamService
         'blowout_control' => [
             'label_key'   => 'technical.task.blowout_control',
             'icon'        => 'EMR',
-            'assignable'  => ['drilling_engineer', 'maintenance_engineer'],
+            'assignable'  => ['drilling_engineer'],
             'hours_min'   => 72,
             'hours_max'   => 120,
             'cost_min'    => 0,
