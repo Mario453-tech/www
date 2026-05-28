@@ -105,12 +105,21 @@ trait TTSTasksTrait
         if ($busyStmt->fetch()) {
             // Prevent duplicate queue entries for the same worker+task+target combination.
             // Zabezpieczenie przed duplikatami w kolejce dla tego samego pracownika i zadania.
-            $dupStmt = $this->db->prepare("
-                SELECT id FROM technical_task_queue
-                WHERE staff_id = ? AND task_type = ? AND well_id <=> ? AND hub_id <=> ? AND module_type <=> ?
-                LIMIT 1
-            ");
-            $dupStmt->execute([$staffId, $taskType, $wellId, $hubId, $moduleType]);
+            // Build null-safe conditions portably (MySQL <=> is not supported by SQLite).
+            $dupConds  = ['staff_id = ?', 'task_type = ?'];
+            $dupParams = [$staffId, $taskType];
+            foreach (['well_id' => $wellId, 'hub_id' => $hubId, 'module_type' => $moduleType] as $col => $val) {
+                if ($val === null) {
+                    $dupConds[] = "$col IS NULL";
+                } else {
+                    $dupConds[] = "$col = ?";
+                    $dupParams[] = $val;
+                }
+            }
+            $dupStmt = $this->db->prepare(
+                "SELECT id FROM technical_task_queue WHERE " . implode(' AND ', $dupConds) . " LIMIT 1"
+            );
+            $dupStmt->execute($dupParams);
             if ($dupStmt->fetch()) {
                 return ['success' => false, 'message' => t('technical.task_msg.already_queued')];
             }
