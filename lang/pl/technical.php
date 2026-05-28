@@ -145,6 +145,8 @@ return [
     'technical.ws_broken' => 'Awaria',
     'technical.ws_no_operator' => 'Brak operatora',
     'technical.ws_no_technician' => 'Brak technika',
+    'technical.ws_sold'         => 'Sprzedany',
+    'technical.ws_layer_switch' => 'Zmiana warstwy',
     'technical.spec_safety_officer' => 'Oficer BHP',
     'technical.spec_safety_engineer' => 'Inżynier BHP',
     'technical.spec_maintenance' => 'Inżynier utrzymania ruchu',

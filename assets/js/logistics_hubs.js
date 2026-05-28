@@ -304,7 +304,7 @@
                     <span>#${w.id} ${esc(w.name || w.location_name || '')}</span>
                     <span>${esc(w.region_name || '')}${w.zone_key ? ' / ' + esc(w.zone_key) : ''}</span>
                     <span>${parseFloat(w.base_production_per_hour || 0).toFixed(1)}</span>
-                    <span>${esc(w.status || '')}</span>
+                    <span>${esc(lang()['ws_' + w.status] || w.status || '')}</span>
                     <span style="display:flex;gap:.35rem;flex-wrap:wrap">
                         <button class="btn btn-xs btn-warn" onclick="hubDetachWell(${w.id}, ${hubId})">
                             ${lang().btn_detach || 'Odepnij'}

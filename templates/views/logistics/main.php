@@ -28,12 +28,7 @@
             <span><?= t('logistics.hub.avail_section_desc') ?></span>
         </div>
 
-        <?php if (!$hasUnassignedWells): ?>
-        <div class="logistics-alert logistics-alert--info"><?= t('logistics.hub.avail_info_no_unassigned') ?></div>
-        <?php endif ?>
-
-        <?php if (!$hasUnassignedWells): ?>
-        <?php elseif (!$hasAvailableRegions): ?>
+        <?php if (!$hasAvailableRegions): ?>
         <div class="logistics-empty"><?= t('logistics.hub.avail_no_regions') ?></div>
         <?php else: ?>
 
@@ -1337,6 +1332,19 @@ window.HUB_LANG  = <?= json_encode([
     'confirm_per_tick'        => t('logistics.hub.confirm_per_tick'),
     'confirm_question'        => t('logistics.hub.confirm_question'),
     'err_insufficient_funds'  => t('logistics.hub.err_insufficient_funds'),
+    // Well status labels for hub wells modal / Tlumaczenia statusow odwiertow w modalu huba
+    'ws_active'          => t('technical.ws_active'),
+    'ws_paused_staff'    => t('technical.ws_paused_staff'),
+    'ws_paused_cash'     => t('technical.ws_paused_cash'),
+    'ws_paused_storage'  => t('technical.ws_paused_storage'),
+    'ws_contaminated'    => t('technical.ws_contaminated'),
+    'ws_blowout'         => t('technical.ws_blowout'),
+    'ws_seized'          => t('technical.ws_seized'),
+    'ws_broken'          => t('technical.ws_broken'),
+    'ws_no_operator'     => t('technical.ws_no_operator'),
+    'ws_no_technician'   => t('technical.ws_no_technician'),
+    'ws_sold'            => t('technical.ws_sold'),
+    'ws_layer_switch'    => t('technical.ws_layer_switch'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 
