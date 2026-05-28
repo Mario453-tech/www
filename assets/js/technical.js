@@ -133,7 +133,14 @@ function techTaskConfirm(form) {
     const locale   = window.APP_LOCALE || 'pl-PL';
     const fmt      = (n) => n.toLocaleString(locale, { maximumFractionDigits: 0 });
 
-    if (costMin <= 0) return true; // free task - no confirm needed
+    const btn = form.querySelector('button[type="submit"]');
+
+    // Disable submit button to prevent double-submit on free tasks.
+    // Blokada przycisku po kliknieciu - zapobiega wielokrotnemu wyslaniu.
+    if (costMin <= 0) {
+        if (btn) { btn.disabled = true; btn.textContent = '...'; }
+        return true;
+    }
 
     const costRange = fmt(costMin) + ' – ' + fmt(costMax) + ' zł';
     const msg = (window.TECH_LANG && window.TECH_LANG.confirm_assign_task)
@@ -143,7 +150,10 @@ function techTaskConfirm(form) {
         : ('Przypisać zadanie?\n' + label + '\nSzacowany koszt: ' + costRange);
 
     if (typeof window.confirmAction === 'function') {
-        window.confirmAction(msg, function () { form.submit(); }, {
+        window.confirmAction(msg, function () {
+            if (btn) { btn.disabled = true; btn.textContent = '...'; }
+            form.submit();
+        }, {
             title: (window.TECH_LANG && window.TECH_LANG.confirm_assign_title) || 'Potwierdź zadanie',
             type: 'confirm',
             confirmLabel: (window.TECH_LANG && window.TECH_LANG.confirm_assign_ok) || 'Przypisz'

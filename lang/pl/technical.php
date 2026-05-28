@@ -534,6 +534,7 @@ return [
     'technical.task_msg.safety_audit_integrity' => ' Integralność procedur BHP +:integrity%.',
     'technical.task_msg.hub_not_used' => 'Hub nie istnieje albo nie jest jeszcze używany przez Twoją firmę.',
     'technical.task_msg.worker_busy_queued' => 'Pracownik jest zajęty. Zadanie dodano do kolejki.',
+    'technical.task_msg.already_queued' => 'Identyczne zadanie jest już w kolejce tego pracownika.',
     'technical.task_msg.well_maintenance_done' => 'Panie Dyrektorze, zakończono konserwację odwiertu #:well_id (:title). Stan techniczny +:gain%.',
     'technical.task_msg.well_repair_done' => 'Panie Dyrektorze, naprawa odwiertu #:well_id zakończona. Stan przywrócono do 100%. Odwiert znów działa.',
     'technical.task_msg.hub_maintenance_done' => 'Panie Dyrektorze, zakończono konserwację huba #:hub_id. Kondycja wzrosła o :gain%.',

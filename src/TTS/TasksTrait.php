@@ -103,6 +103,18 @@ trait TTSTasksTrait
         $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
         $busyStmt->execute([$staffId]);
         if ($busyStmt->fetch()) {
+            // Prevent duplicate queue entries for the same worker+task+target combination.
+            // Zabezpieczenie przed duplikatami w kolejce dla tego samego pracownika i zadania.
+            $dupStmt = $this->db->prepare("
+                SELECT id FROM technical_task_queue
+                WHERE staff_id = ? AND task_type = ? AND well_id <=> ? AND hub_id <=> ? AND module_type <=> ?
+                LIMIT 1
+            ");
+            $dupStmt->execute([$staffId, $taskType, $wellId, $hubId, $moduleType]);
+            if ($dupStmt->fetch()) {
+                return ['success' => false, 'message' => t('technical.task_msg.already_queued')];
+            }
+
             $this->db->prepare("
                 INSERT INTO technical_task_queue (player_id, staff_id, task_type, well_id, hub_id, module_type)
                 VALUES (?,?,?,?,?,?)
