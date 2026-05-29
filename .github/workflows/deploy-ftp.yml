@@ -53,5 +53,25 @@ jobs:
             **/migrations/**
             **/backup/**
             **/sessions/**
+            **/.env
             **/.env.*
+            **/.gitignore
+            **/composer.json
             **/composer.lock
+            **/phpstan.neon
+            **/phpstan_errors.txt
+            **/phpunit.xml.dist
+            **/deploy.ps1
+            **/diag*.php
+            **/check_log_cfg.php
+            **/diag.php
+            **/reset_db.php
+            **/*.bak
+            **/*_server.php
+            **/*.log
+            **/winscp.log
+            **/winscp_sync.txt
+            **/*.sql
+            **/*.zip
+            **/*.rar
+            **/database.php
