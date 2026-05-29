@@ -76,7 +76,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
             SELECT
                 h.id, h.name, h.hub_type, h.status, h.level,
                 h.slot_limit, h.condition_pct, h.efficiency_pct, h.opex_per_tick,
-                h.player_id AS owner_id, COALESCE(NULLIF(p.company_name,''), p.username) AS owner_company,
+                h.player_id AS owner_id, p.company AS owner_company,
                 COALESCE(asgn.active_wells, 0)       AS active_wells,
                 COALESCE(stats.avg_load_pct, 0.0)    AS avg_load_pct,
                 COALESCE(stats.max_load_pct, 0.0)    AS max_load_pct,
@@ -163,7 +163,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
     $nowTs = time();
     try {
         $rows = $db->query("
-            SELECT p.id AS player_id, COALESCE(NULLIF(p.company_name,''), p.username) AS company, p.cash,
+            SELECT p.id AS player_id, p.company, p.cash,
                    COALESCE(pfs.savings_plan_mode, 'off')        AS savings_plan_mode,
                    COALESCE(pfs.reserve_policy, 'standard')      AS reserve_policy,
                    pfs.savings_plan_changed_at,
@@ -174,7 +174,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
             FROM players p
             LEFT JOIN player_finance_settings pfs ON pfs.player_id = p.id
             WHERE p.status != 'bankrupt'
-            ORDER BY pfs.savings_plan_mode DESC, COALESCE(NULLIF(p.company_name,''), p.username) ASC
+            ORDER BY pfs.savings_plan_mode DESC, p.company ASC
         ")->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($rows as $row) {
@@ -299,7 +299,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
             $stmtH = $db->prepare("
                 SELECT pfd.id, pfd.player_id, pfd.decision_key,
                        pfd.old_value, pfd.new_value, pfd.source, pfd.created_at,
-                       COALESCE(NULLIF(p.company_name,''), p.username) AS company
+                       p.company
                 FROM player_finance_decisions pfd
                 JOIN players p ON p.id = pfd.player_id
                 WHERE pfd.player_id = ?
@@ -311,7 +311,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
             $stmtH = $db->query("
                 SELECT pfd.id, pfd.player_id, pfd.decision_key,
                        pfd.old_value, pfd.new_value, pfd.source, pfd.created_at,
-                       COALESCE(NULLIF(p.company_name,''), p.username) AS company
+                       p.company
                 FROM player_finance_decisions pfd
                 JOIN players p ON p.id = pfd.player_id
                 ORDER BY pfd.created_at DESC
@@ -325,7 +325,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
 
     $playerList = [];
     try {
-        $playerList = $db->query("SELECT id, COALESCE(NULLIF(company_name,''), username) AS company FROM players WHERE status != 'bankrupt' ORDER BY COALESCE(NULLIF(company_name,''), username) ASC")->fetchAll(PDO::FETCH_ASSOC);
+        $playerList = $db->query("SELECT id, company FROM players WHERE status != 'bankrupt' ORDER BY company ASC")->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
         GameLog::error('admin/finance.php', 'playerList FAILED', $e);
     }
@@ -334,7 +334,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
     $reserveCounts = ['critical' => 0, 'warning' => 0, 'caution' => 0];
     try {
         $rsRows = $db->query("
-            SELECT p.id AS player_id, COALESCE(NULLIF(p.company_name,''), p.username) AS company, p.cash,
+            SELECT p.id AS player_id, p.company, p.cash,
                    COALESCE(pfs.reserve_policy, 'standard') AS reserve_policy,
                    COALESCE(pfs.savings_plan_mode, 'off')   AS savings_plan_mode,
                    COALESCE(
