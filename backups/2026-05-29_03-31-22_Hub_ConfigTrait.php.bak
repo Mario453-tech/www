@@ -37,27 +37,6 @@ trait HubConfigTrait
                 'access_fee_paid',
                 "DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER status"
             );
-
-            // Etap 9: hub ownership columns.
-            // player_id = 0 means hub is on the market (system-owned / available to buy or rent).
-            // player_id > 0 means the hub belongs to that player exclusively.
-            Database::addColumnIfMissing(
-                'logistics_hubs',
-                'acquisition_price',
-                "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER build_cost"
-            );
-            Database::addColumnIfMissing(
-                'logistics_hubs',
-                'acquired_at',
-                "DATETIME NULL DEFAULT NULL AFTER acquisition_price"
-            );
-            // tenant_player_id: who is currently renting a market hub (player_id = 0).
-            // 0 = no active tenant.
-            Database::addColumnIfMissing(
-                'logistics_hubs',
-                'tenant_player_id',
-                "BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER player_id"
-            );
         } catch (Throwable $e) {
             GameLog::error('HubService', 'ensureHubSchema failed', $e);
         }
