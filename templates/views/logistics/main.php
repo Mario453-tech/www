@@ -1208,7 +1208,8 @@
             .then(function(data) {
                 closePipelineActionModal();
                 if (!data.success) {
-                    alert('<?= t('logistics.pipeline.action_error') ?>: ' + (data.error || '?'));
+                    // Use global modal instead of native alert / Modal zamiast natywnego alert
+                    window.alertError('<?= t('logistics.pipeline.action_error') ?>: ' + (data.error || '?'));
                     return;
                 }
                 if (pendingAction === 'toggle_pipeline' && pendingBtn) {
@@ -1225,7 +1226,8 @@
             })
             .catch(function() {
                 closePipelineActionModal();
-                alert('<?= t('logistics.pipeline.action_error') ?>');
+                // Use global modal instead of native alert / Modal zamiast natywnego alert
+                window.alertError('<?= t('logistics.pipeline.action_error') ?>');
             });
     };
 })();
