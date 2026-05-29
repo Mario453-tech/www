@@ -7,6 +7,7 @@ class Database
     
     private function __construct()
     {
+        self::loadEnv(__DIR__ . '/../.env');
         $configFile = __DIR__ . '/../config/database.php';
         
         if (!file_exists($configFile)) {

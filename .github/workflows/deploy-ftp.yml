@@ -33,9 +33,44 @@ jobs:
           local-dir:  ./
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+            **/.git/**
+            **/.github/**
+            **/.vscode/**
+            **/.claude/**
+            **/.phpunit_cache/**
+            **/.idea/**
             **/tests/**
+            **/vendor/**
+            **/node_modules/**
+            **/cache/**
+            **/coverage/**
+            **/build/**
+            **/dist/**
+            **/tmp/**
+            **/temp/**
+            **/backups/**
+            **/svn_repo/**
+            **/migrations/**
+            **/backup/**
+            **/sessions/**
             **/.env.*
+            **/.gitignore
+            **/composer.json
             **/composer.lock
+            **/phpstan.neon
+            **/phpstan_errors.txt
+            **/phpunit.xml.dist
+            **/deploy.ps1
+            **/diag*.php
+            **/check_log_cfg.php
+            **/diag.php
+            **/reset_db.php
+            **/*.bak
+            **/*_server.php
+            **/*.log
+            **/winscp.log
+            **/winscp_sync.txt
+            **/*.sql
+            **/*.zip
+            **/*.rar
+            **/database.php
