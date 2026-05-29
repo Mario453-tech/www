@@ -17,11 +17,6 @@ jobs:
         with:
           fetch-depth: 2  # needed for changed-files detection
 
-      - name: Write .env from secret
-        run: printf '%s' "$ENV_FILE" > .env
-        env:
-          ENV_FILE: ${{ secrets.ENV_FILE }}
-
       - name: Deploy via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
