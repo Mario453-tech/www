@@ -195,9 +195,6 @@ class PlayersSection
             }
         }
 
-        // Second-leg service (hub -> storage), shared by the time-based delivery sections.
-        $outboundSvc = new OutboundLegService(TransportConfigService::load($db));
-
         //  3c. KURSY DROGOWE  ukonczone dostawy ciezarowkami (P1.2) / Road trips  completed truck deliveries (P1.2)
         if (class_exists('WellRoadTripSection') && class_exists('RoadTransportService')) {
             try {
@@ -214,11 +211,6 @@ class PlayersSection
                     $wellLoop->finLossBbl            += $roadTripSec->lostBbl;
                     $wellLoop->finLossValue          += round($roadTripSec->lostBbl * $this->oilPrice, 2);
                 }
-                // Second transport leg (hub -> storage) on the oil just delivered by road.
-                $currentStorage = $this->applyOutboundLeg(
-                    $roadTripSec->deliveredByWell, $wellLoop, $outboundSvc,
-                    $currentStorage, $playerCash, $deltaHours, $hseBonus
-                );
             } catch (Throwable $e) {
                 GameLog::error('tick', 'WellRoadTripSection FAILED', $e, ['player_id' => $playerId]);
             }
@@ -239,11 +231,6 @@ class PlayersSection
                     $wellLoop->finTransport += $portSec->handlingCost;
                     $playerCash              = max(0.0, $playerCash - $portSec->handlingCost);
                 }
-                // Second transport leg (hub -> storage) on the oil just delivered by sea.
-                $currentStorage = $this->applyOutboundLeg(
-                    $portSec->deliveredByWell, $wellLoop, $outboundSvc,
-                    $currentStorage, $playerCash, $deltaHours, $hseBonus
-                );
             } catch (Throwable $e) {
                 GameLog::error('tick', 'PortSection FAILED', $e, ['player_id' => $playerId]);
             }
@@ -311,80 +298,5 @@ class PlayersSection
         $this->totalRevenue += $wellLoop->finRevenue;
         $this->totalOpex    += ($wellLoop->finOpex + $wellLoop->finSalary + $wellLoop->finTransport);
 
-    }
-
-    /**
-     * Applies the second transport leg (hub -> storage) to oil delivered this tick by a
-     * time-based path (road trips / marine). Mirrors WellHubSection's synchronous handling,
-     * reducing storage by leg-2 losses and charging leg-2 cost, while folding the result
-     * into the shared finance accumulators.
-     *
-     * @param array<int, float>     $deliveredByWell well_id => credited bbl
-     * @param array<string, mixed>  $hseBonus
-     */
-    private function applyOutboundLeg(
-        array              $deliveredByWell,
-        WellLoopSection    $wellLoop,
-        OutboundLegService $svc,
-        float              $currentStorage,
-        float              &$playerCash,
-        float              $deltaHours,
-        array              $hseBonus
-    ): float {
-        if ($deliveredByWell === []) {
-            return $currentStorage;
-        }
-
-        $mults = $wellLoop->outboundMults();
-
-        foreach ($deliveredByWell as $wellId => $bbl) {
-            $wellId = (int)$wellId;
-            $bbl    = (float)$bbl;
-            if ($bbl <= 0.001) {
-                continue;
-            }
-
-            $res = $svc->compute(
-                $wellLoop->outboundTypeFor($wellId),
-                $wellLoop->outboundPipelineFor($wellId),
-                $bbl,
-                $this->oilPrice,
-                $mults,
-                $deltaHours,
-                $hseBonus
-            );
-            if ($res['kind'] === 'direct') {
-                continue;
-            }
-
-            $lossBbl = (float)$res['loss_bbl'];
-            if ($lossBbl > 0.001) {
-                $lossVal = (float)$res['loss_value'];
-                $currentStorage                  = max(0.0, $currentStorage - $lossBbl);
-                $wellLoop->finBbl               -= $lossBbl;
-                $wellLoop->deliveredBbl         -= $lossBbl;
-                $wellLoop->finRevenue           -= $lossVal;
-                $wellLoop->finLossBbl           += $lossBbl;
-                $wellLoop->finLossValue         += $lossVal;
-                $wellLoop->finOutboundLossBbl   += $lossBbl;
-                $wellLoop->finOutboundLossValue += $lossVal;
-            }
-
-            $cost = (float)$res['cost'];
-            if ($cost > 0.0) {
-                $wellLoop->finTransport += $cost;
-                $playerCash              = max(0.0, $playerCash - $cost);
-            }
-
-            GameLog::info('tick', 'outbound_leg_delivery', [
-                'well_id'   => $wellId,
-                'kind'      => $res['kind'],
-                'bbl'       => round($bbl, 2),
-                'lost_bbl'  => round($lossBbl, 2),
-                'cost'      => $cost,
-            ]);
-        }
-
-        return $currentStorage;
     }
 }

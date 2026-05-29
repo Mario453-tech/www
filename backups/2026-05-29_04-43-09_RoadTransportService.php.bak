@@ -285,8 +285,6 @@ class RoadTransportService
         $totalDelivered = 0.0;
         $totalLost      = 0.0;
         $completed      = 0;
-        /** @var array<int, float> well_id => delivered bbl (basis for the second transport leg) */
-        $deliveredByWell = [];
 
         try {
             $stmt = $this->db->prepare(
@@ -302,7 +300,7 @@ class RoadTransportService
             if (class_exists('GameLog', false)) {
                 GameLog::error('RoadTransportService', 'processCompletedTrips fetch FAILED', $e, ['player_id' => $playerId]);
             }
-            return ['delivered_bbl' => 0.0, 'lost_bbl' => 0.0, 'completed_count' => 0, 'delivered_by_well' => []];
+            return ['delivered_bbl' => 0.0, 'lost_bbl' => 0.0, 'completed_count' => 0];
         }
 
         foreach ($trips as $trip) {
@@ -337,16 +335,12 @@ class RoadTransportService
             $totalDelivered += $delivered;
             $totalLost      += $lost;
             $completed++;
-
-            $wid = (int)$trip['well_id'];
-            $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
         }
 
         return [
-            'delivered_bbl'   => round($totalDelivered, 4),
-            'lost_bbl'        => round($totalLost, 4),
+            'delivered_bbl'  => round($totalDelivered, 4),
+            'lost_bbl'       => round($totalLost, 4),
             'completed_count' => $completed,
-            'delivered_by_well' => $deliveredByWell,
         ];
     }
 

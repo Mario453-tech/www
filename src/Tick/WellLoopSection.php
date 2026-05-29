@@ -349,6 +349,40 @@ class WellLoopSection
         $this->hubWellDelivered[$wellId] = ($this->hubWellDelivered[$wellId] ?? 0.0) + $bbl;
     }
 
+    /**
+     * Returns the multiplier set used by the second transport leg (hub -> storage),
+     * so delivery sections (road/marine) can apply leg-2 economics consistently.
+     * Zwraca mnozniki odcinka 2 dla sekcji dostaw czasowych.
+     *
+     * @return array<string, float>
+     */
+    public function outboundMults(): array
+    {
+        return [
+            'loss_mult'           => (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0),
+            'global_loss'         => (float)($this->gBalanceMults['loss'] ?? 1.0),
+            'opex'                => (float)($this->gBalanceMults['opex'] ?? 1.0),
+            'transport_cost_mult' => (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
+        ];
+    }
+
+    /**
+     * Returns the well's chosen second-leg transport type (hub -> storage).
+     */
+    public function outboundTypeFor(int $wellId): string
+    {
+        return (string)($this->wellOutboundType[$wellId] ?? 'nieustawiony');
+    }
+
+    /**
+     * Returns the well's operational outbound pipeline row (leg='outbound'), or null.
+     * @return array<string, mixed>|null
+     */
+    public function outboundPipelineFor(int $wellId): ?array
+    {
+        return $this->outboundPipelineCache[$wellId] ?? null;
+    }
+
     // ------------------------------------------------------------------ private
 
     private function processSalaries(int $playerId, float $deltaHours): void
