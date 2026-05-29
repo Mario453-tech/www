@@ -68,8 +68,6 @@ $hubCards          = [];
 $hubAlerts         = [];
 $hubUnassigned     = [];
 $hubIncidents      = [];
-$playerHubRegions  = [];
-$hubTypeOptions    = [];
 $hubAvailByRegion  = [];
 $unassignedPage    = 1;
 $unassignedTotal   = 0;
@@ -117,10 +115,9 @@ $hoursSince = static function (?string $dateTime): ?int {
 };
 
 try {
-    // Private ownership model: "Moje huby" = owned + rented; browser = market hubs to buy/rent.
-    $hubCards         = $viewSvc->getMyHubCards($playerId);
+    $hubCards         = $viewSvc->getHubCards($playerId);
     $hubAlerts        = $viewSvc->getAlerts($playerId);
-    $hubAvailByRegion = $viewSvc->getMarketHubsByRegion($playerId);
+    $hubAvailByRegion = $viewSvc->getAvailableHubsByRegion($playerId);
     $hubUnassignedAll = $hubSvc->getUnassignedWells($playerId);
     // Use HubIncidentService to get only hub_incident_* events (all, regardless of is_read).
     // HubService::getUnreadEvents() returns all event types filtered by is_read=0 — wrong for incidents panel.
@@ -134,26 +131,6 @@ try {
     $unassignedPage = min($unassignedPage, max(1, $unassignedTotalPages));
     $unassignedOffset = ($unassignedPage - 1) * $perPage;
     $hubUnassigned = array_slice($hubUnassignedAll, $unassignedOffset, $perPage);
-
-    // Regions where the player operates (for the "buy new hub" modal).
-    $regionIds = $hubSvc->getPlayerRegionIds($playerId);
-    if (!empty($regionIds)) {
-        $ph    = implode(',', array_fill(0, count($regionIds), '?'));
-        $rStmt = $db->prepare("SELECT id, name FROM world_regions WHERE id IN ($ph) ORDER BY name");
-        $rStmt->execute($regionIds);
-        $playerHubRegions = $rStmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    // Hub type options with base build cost (for the "buy new hub" modal).
-    foreach (['small', 'medium', 'large'] as $htype) {
-        $defs = $hubSvc->getHubTypeDefaults($htype, 1);
-        $hubTypeOptions[] = [
-            'key'        => $htype,
-            'build_cost' => (float)$defs['build_cost'],
-            'slot_limit' => (int)$defs['slot_limit'],
-            'nominal'    => (float)$defs['nominal_bph'],
-        ];
-    }
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Hub data load failed', $e, ['player' => $playerId]);
 }
@@ -443,8 +420,6 @@ $viewData = compact(
     'hubAlerts',
     'hubUnassigned',
     'hubIncidents',
-    'playerHubRegions',
-    'hubTypeOptions',
     'unassignedPage',
     'unassignedTotalPages',
     'unassignedTotal',

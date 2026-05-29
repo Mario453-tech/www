@@ -173,42 +173,15 @@
                         </div>
                     </div>
 
-                    <?php
-                        $buyPrice    = (float)($hub['buy_price']    ?? 0);
-                        $rentDeposit = (float)($hub['rent_deposit'] ?? 0);
-                    ?>
-                    <div class="logistics-hub-avail-prices">
-                        <div class="logistics-hub-avail-price">
-                            <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_buy_price') ?></span>
-                            <strong><?= number_format($buyPrice, 0, ',', ' ') ?> PLN</strong>
-                        </div>
-                        <?php if ($leaseFee > 0): ?>
-                        <div class="logistics-hub-avail-price">
-                            <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_rent_deposit') ?></span>
-                            <strong><?= number_format($rentDeposit, 0, ',', ' ') ?> PLN</strong>
-                        </div>
-                        <?php endif ?>
-                    </div>
-
                     <div class="logistics-hub-avail-footer">
                         <?php if ($hStatus === 'disabled'): ?>
-                        <span class="badge logistics-hub-avail-badge-muted"><?= t('logistics.hub.badge_disabled') ?></span>
+                        <span class="badge" style="opacity:.35;font-size:.7rem"><?= t('logistics.hub.badge_disabled') ?></span>
+                        <?php elseif ($isFull): ?>
+                        <span class="badge" style="opacity:.35;font-size:.7rem"><?= t('logistics.hub.badge_full') ?></span>
                         <?php else: ?>
-                        <button class="logistics-hub-assign-btn logistics-hub-buy-btn" type="button"
-                                onclick="hubBuyUsed(<?= $hId ?>)"
-                                data-hub-name="<?= htmlspecialchars($hName, ENT_QUOTES) ?>"
-                                data-buy-price="<?= number_format($buyPrice, 2, '.', '') ?>">
-                            <?= t('logistics.hub.market_btn_buy') ?>
+                        <button class="logistics-hub-assign-btn" type="button" onclick="hubAssignWellToHubModal(<?= $hId ?>)">
+                            <?= t('logistics.hub.avail_btn_assign') ?>
                         </button>
-                        <?php if ($leaseFee > 0): ?>
-                        <button class="logistics-hub-assign-btn logistics-hub-rent-btn" type="button"
-                                onclick="hubRent(<?= $hId ?>)"
-                                data-hub-name="<?= htmlspecialchars($hName, ENT_QUOTES) ?>"
-                                data-rent-deposit="<?= number_format($rentDeposit, 2, '.', '') ?>"
-                                data-lease-fee="<?= number_format($leaseFee, 2, '.', '') ?>">
-                            <?= t('logistics.hub.market_btn_rent') ?>
-                        </button>
-                        <?php endif ?>
                         <?php endif ?>
                     </div>
                 </article>
@@ -899,13 +872,8 @@
     <!--  -->
     <section class="logistics-panel" aria-labelledby="logistics-hubs-heading">
         <div class="logistics-panel-head">
-            <div>
-                <h3 id="logistics-hubs-heading"><?= t('logistics.hub.my_hubs_title') ?></h3>
-                <span><?= t('logistics.hub.my_hubs_desc') ?></span>
-            </div>
-            <button class="btn btn-sm btn-primary" type="button" onclick="hubBuyNewModal()">
-                <?= t('logistics.hub.market_btn_buy_new') ?>
-            </button>
+            <h3 id="logistics-hubs-heading"><?= t('logistics.hub.my_hubs_title') ?></h3>
+            <span><?= t('logistics.hub.my_hubs_desc') ?></span>
         </div>
 
         <?php if (!empty($hubAlerts)): ?>
@@ -949,10 +917,6 @@
 
                 <div class="logistics-hub-card-hdr">
                     <span class="logistics-hub-name"><?= htmlspecialchars($hub['name']) ?></span>
-                    <?php $ownership = $card['ownership'] ?? 'owned'; ?>
-                    <span class="badge hub-ownership-badge hub-ownership-badge--<?= htmlspecialchars($ownership) ?>">
-                        <?= t('logistics.hub.ownership_' . $ownership) ?>
-                    </span>
                     <span class="badge <?= $card['status_class'] ?>">
                         <?= t('logistics.hub.status_' . $hub['status']) ?>
                     </span>
@@ -1329,78 +1293,6 @@
     </div>
 </div>
 
-<!--  -->
-<!-- MODAL: Kup nowy hub                                                     -->
-<!--  -->
-<div id="hub-buy-new-modal" class="logistics-modal-overlay" style="display:none"
-     onclick="if(event.target===this)closeHubModal('hub-buy-new-modal')">
-    <div class="logistics-modal-box">
-        <div class="logistics-modal-hdr">
-            <span><?= t('logistics.hub.market_buy_new_title') ?></span>
-            <button class="logistics-modal-close" onclick="closeHubModal('hub-buy-new-modal')"></button>
-        </div>
-        <?php if (empty($playerHubRegions)): ?>
-        <div class="logistics-modal-body">
-            <div class="logistics-empty"><?= t('logistics.hub.avail_no_regions') ?></div>
-        </div>
-        <div class="logistics-modal-footer">
-            <button class="btn btn-secondary btn-sm" onclick="closeHubModal('hub-buy-new-modal')">
-                <?= t('logistics.cancel') ?>
-            </button>
-        </div>
-        <?php else: ?>
-        <form id="hub-buy-new-form" class="logistics-modal-body" onsubmit="hubBuyNewSubmit(event)">
-            <label class="logistics-form-field">
-                <span><?= t('logistics.hub.market_field_name') ?></span>
-                <input type="text" name="name" maxlength="120" required
-                       placeholder="<?= htmlspecialchars(t('logistics.hub.market_field_name_ph'), ENT_QUOTES) ?>">
-            </label>
-
-            <label class="logistics-form-field">
-                <span><?= t('logistics.hub.market_field_region') ?></span>
-                <select name="region_id" required>
-                    <?php foreach ($playerHubRegions as $reg): ?>
-                    <option value="<?= (int)$reg['id'] ?>"><?= htmlspecialchars($reg['name']) ?></option>
-                    <?php endforeach ?>
-                </select>
-            </label>
-
-            <label class="logistics-form-field">
-                <span><?= t('logistics.hub.market_field_zone') ?></span>
-                <input type="text" name="zone_key" maxlength="16"
-                       placeholder="<?= htmlspecialchars(t('logistics.hub.market_field_zone_ph'), ENT_QUOTES) ?>">
-            </label>
-
-            <div class="logistics-form-field">
-                <span><?= t('logistics.hub.market_field_type') ?></span>
-                <div class="logistics-modes">
-                    <?php foreach ($hubTypeOptions as $i => $opt): ?>
-                    <label class="logistics-mode-card<?= $i === 0 ? ' selected' : '' ?>">
-                        <input type="radio" name="hub_type" value="<?= htmlspecialchars($opt['key']) ?>"
-                               data-build-cost="<?= number_format($opt['build_cost'], 2, '.', '') ?>"
-                               onchange="hubBuyNewTypeChange(this)" <?= $i === 0 ? 'checked' : '' ?>>
-                        <div class="logistics-mode-name"><?= t('logistics.hub.type_' . $opt['key']) ?></div>
-                        <div class="logistics-mode-desc">
-                            <?= number_format($opt['build_cost'], 0, ',', ' ') ?> PLN
-                            &middot; <?= (int)$opt['slot_limit'] ?> <?= t('logistics.hub.col_slots') ?>
-                        </div>
-                    </label>
-                    <?php endforeach ?>
-                </div>
-            </div>
-        </form>
-        <div class="logistics-modal-footer">
-            <button class="btn btn-secondary btn-sm" onclick="closeHubModal('hub-buy-new-modal')">
-                <?= t('logistics.cancel') ?>
-            </button>
-            <button class="btn btn-primary btn-sm" id="hub-buy-new-submit" onclick="hubBuyNewSubmit(event)">
-                <?= t('logistics.hub.market_btn_buy_new_confirm') ?>
-            </button>
-        </div>
-        <?php endif ?>
-    </div>
-</div>
-
 <script>
 window.HUB_API   = '/src/HubApi.php';
 window.HUB_CSRF  = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -1490,17 +1382,6 @@ window.HUB_LANG  = <?= json_encode([
     'confirm_per_tick'        => t('logistics.hub.confirm_per_tick'),
     'confirm_question'        => t('logistics.hub.confirm_question'),
     'err_insufficient_funds'  => t('logistics.hub.err_insufficient_funds'),
-    // Rynek hubow: kupno / wynajem / Hub market: buy / rent
-    'market_confirm_buy'      => t('logistics.hub.market_confirm_buy',  ['name' => '{name}', 'price' => '{price}']),
-    'market_confirm_rent'     => t('logistics.hub.market_confirm_rent', ['name' => '{name}', 'deposit' => '{deposit}', 'lease' => '{lease}']),
-    'market_confirm_buy_new'  => t('logistics.hub.market_confirm_buy_new', ['name' => '{name}', 'price' => '{price}']),
-    'market_ok_buy'           => t('logistics.hub.ok_buy_used'),
-    'market_ok_rent'          => t('logistics.hub.ok_rent'),
-    'market_ok_buy_new'       => t('logistics.hub.ok_buy_new'),
-    'market_name_required'    => t('logistics.hub.market_name_required'),
-    'err_hub_already_owned'   => t('logistics.hub.err_hub_already_owned'),
-    'err_hub_already_rented'  => t('logistics.hub.err_hub_already_rented'),
-    'err_hub_unavailable'     => t('logistics.hub.err_hub_unavailable'),
     // Well status labels for hub wells modal / Tlumaczenia statusow odwiertow w modalu huba
     'ws_active'          => t('technical.ws_active'),
     'ws_paused_staff'    => t('technical.ws_paused_staff'),

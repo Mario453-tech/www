@@ -32,47 +32,6 @@ trait HubViewHubsTrait
     }
 
     /**
-     * Returns hub cards for hubs the player OWNS or RENTS (private ownership model).
-     * Unlike getHubCards (assignment-based), this includes acquired hubs with no wells yet.
-     * Each card carries an 'ownership' flag: 'owned' or 'rented'.
-     * Zwraca karty hubow nalezacych do gracza (kupione) lub wynajmowanych.
-     * @return list<array<string, mixed>>
-     */
-    public function getMyHubCards(int $playerId): array
-    {
-        $cards = [];
-        $seen  = [];
-
-        $owned  = $this->hubSvc->getMyOwnedHubs($playerId);
-        $rented = $this->hubSvc->getMyRentedHubs($playerId);
-
-        foreach ([['owned', $owned], ['rented', $rented]] as [$ownership, $hubs]) {
-            foreach ($hubs as $hub) {
-                $hubId = (int)$hub['id'];
-                if (isset($seen[$hubId])) {
-                    continue;
-                }
-                $seen[$hubId] = true;
-
-                $lastStats = $this->hubSvc->getLastTickStats($hubId);
-                $cards[]   = [
-                    'hub'          => $hub,
-                    'wells'        => $this->hubSvc->getHubWellsForPlayer($hubId, $playerId),
-                    'last_stats'   => $lastStats,
-                    'opex'         => $this->econSvc->getOpex($hub),
-                    'repair_cost'  => $this->econSvc->getRepairCost($hub),
-                    'upgrade_cost' => $this->econSvc->getUpgradeCost($hub),
-                    'status_class' => $this->getStatusCssClass($hub['status']),
-                    'load_class'   => $this->getLoadCssClass((float)($lastStats['load_pct'] ?? 0)),
-                    'ownership'    => $ownership,
-                ];
-            }
-        }
-
-        return $cards;
-    }
-
-    /**
      * Returns active logistics alerts for a player.
      * @return list<array{type: string, severity: string, hub_id: ?int, region_id: int, message: string}>
      */
@@ -160,13 +119,6 @@ trait HubViewHubsTrait
 
         $list = [];
         foreach ($this->hubSvc->getRegionHubs((int)$well['region_id']) as $hub) {
-            // Private ownership: only hubs the player owns or rents are assignable.
-            $hubOwner  = (int)($hub['player_id']        ?? 0);
-            $hubTenant = (int)($hub['tenant_player_id'] ?? 0);
-            if ($hubOwner !== $playerId && $hubTenant !== $playerId) {
-                continue;
-            }
-
             $slotsUsed   = (int)$hub['assigned_count'];
             $slotLimit   = (int)$hub['slot_limit'];
             $zonePenalty = ($well['zone_key'] !== $hub['zone_key'] && $hub['zone_key'] !== '') ? 10.0 : 0.0;
@@ -259,53 +211,7 @@ trait HubViewHubsTrait
         return $result;
     }
 
-    /**
-     * Returns MARKET hubs (player_id=0, tenant_player_id=0) grouped by the player's regions,
-     * annotated with buy price and rent deposit for the acquisition UI ("rynek").
-     * Zwraca huby rynkowe (do kupna/wynajmu) pogrupowane po regionach gracza.
-     * @return list<array{region_id: int, region_name: string, hubs: list<array<string, mixed>>}>
-     */
-    public function getMarketHubsByRegion(int $playerId): array
-    {
-        $result = [];
-
-        foreach ($this->hubSvc->getPlayerRegionIds($playerId) as $regionId) {
-            $hubs = $this->hubSvc->getMarketHubs($regionId);
-            if (empty($hubs)) {
-                continue;
-            }
-
-            $regionName = $hubs[0]['region_name'] ?? "Region #{$regionId}";
-            $annotated  = [];
-            foreach ($hubs as $hub) {
-                $slotsUsed   = (int)($hub['assigned_count'] ?? 0);
-                $slotLimit   = (int)($hub['slot_limit'] ?? 0);
-                $leaseFee    = (float)($hub['lease_fee_per_tick'] ?? 0.0);
-                $buyPrice    = (float)(($hub['acquisition_price'] ?? 0) > 0
-                                ? $hub['acquisition_price']
-                                : $hub['build_cost']);
-
-                $annotated[] = $hub + [
-                    'slots_avail'  => max(0, $slotLimit - $slotsUsed),
-                    'slots_full'   => $slotLimit > 0 && $slotsUsed >= $slotLimit,
-                    'status_class' => $this->getStatusCssClass($hub['status']),
-                    'buy_price'    => round($buyPrice, 2),
-                    'rent_deposit' => round($leaseFee * 3.0, 2),
-                    'lease_fee'    => round($leaseFee, 2),
-                ];
-            }
-
-            $result[] = [
-                'region_id'   => $regionId,
-                'region_name' => $regionName,
-                'hubs'        => $annotated,
-            ];
-        }
-
-        return $result;
-    }
-
-    //  CSS helpers
+    //  CSS helpers 
 
     private function getStatusCssClass(string $status): string
     {
