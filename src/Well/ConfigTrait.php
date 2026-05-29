@@ -1,7 +1,7 @@
 <?php
 trait WellConfigTrait
 {
-    /** @var array<string, float> */
+ /** @var array<string, float> */
     private array $config = [];
 
     private function loadConfig(): void
@@ -18,14 +18,14 @@ trait WellConfigTrait
         }
     }
 
-    /**
-     * Zwraca tablice mnoznikow dla danego tieru sprzetu i poziomu upgrade.
-     * Returns multiplier array for the given equipment tier and upgrade level.
-     * Klucze: prod, wear, incident, spiral.
-     * Keys: prod, wear, incident, spiral.
-     *
-     * @return array{prod:float, wear:float, incident:float, spiral:float}
-     */
+ /**
+ * Zwraca tablice mnoznikow dla danego tieru sprzetu i poziomu upgrade.
+ * Returns multiplier array for the given equipment tier and upgrade level.
+ * Klucze: prod, wear, incident, spiral.
+ * Keys: prod, wear, incident, spiral.
+ *
+ * @return array{prod:float, wear:float, incident:float, spiral:float}
+ */
     public static function getEquipmentMultipliers(string $tier, int $upgradeLevel): array
     {
         $base = match ($tier) {
@@ -50,7 +50,7 @@ trait WellConfigTrait
         return $this->config[$key] ?? $default;
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getAllConfig(): array
     {
         return $this->db->query("SELECT * FROM well_config ORDER BY category, `key`")->fetchAll();

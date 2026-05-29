@@ -1,8 +1,8 @@
 <?php
 /**
  * /assets/audio/list.php
- * Zwraca JSON z list¹ plików MP3/OGG/WAV w tym samym katalogu.
- * Nie wymaga autoryzacji — pliki i tak s¹ publiczne.
+ * Zwraca JSON z list plikw MP3/OGG/WAV w tym samym katalogu.
+ * Nie wymaga autoryzacji pliki i tak s publiczne.
  */
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: public, max-age=300'); // 5 min cache
@@ -17,6 +17,6 @@ foreach (new DirectoryIterator($dir) as $f) {
     $files[] = '/assets/audio/' . $f->getFilename();
 }
 
-sort($files); // powtarzalna kolejnoœæ — losowanie po stronie JS
+sort($files); // powtarzalna kolejnoï¿½ï¿½ ï¿½ losowanie po stronie JS
 
 echo json_encode($files, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

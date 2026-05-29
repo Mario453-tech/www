@@ -1,7 +1,7 @@
 <?php
 
-// PRZYKŁADOWY PLIK KONFIGURACJI
-// Skopiuj ten plik jako database.php i uzupełnij własnymi danymi
+// PRZYKLADOWY PLIK KONFIGURACJI
+// Skopiuj ten plik jako database.php i uzupelnij wlasnymi danymi
 
 return [
     'host' => 'localhost',

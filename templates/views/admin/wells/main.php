@@ -85,7 +85,7 @@
             <option value="0"><?= t('admin.wells.filter_all') ?></option>
             <?php foreach ($players as $pl): ?>
             <option value="<?= (int)$pl['id'] ?>"<?= (int)$pl['id'] === $filterPlayerId ? ' selected' : '' ?>>
-                #<?= (int)$pl['id'] ?> — <?= htmlspecialchars((string)$pl['label']) ?>
+ #<?= (int)$pl['id'] ?> - <?= htmlspecialchars((string)$pl['label']) ?>
             </option>
             <?php endforeach ?>
         </select>
@@ -415,7 +415,7 @@
                     <li><?= t($liKey) ?></li>
                     <?php endfor ?>
                     <?php
-                    // Special keys for s11
+ // Special keys for s11
                     foreach (['_offers','_price','_risk','_penalty','_well','_score','_wear'] as $k):
                         $hKey = 'admin.wells.help.s' . $s . $k;
                         if (t($hKey) !== $hKey): ?>

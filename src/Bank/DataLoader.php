@@ -24,10 +24,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Returns all data required by the bank page.
-     * Zwraca wszystkie dane wymagane przez strone banku.
-     */
+ /**
+ * Returns all data required by the bank page.
+ * Zwraca wszystkie dane wymagane przez strone banku.
+ */
     public function load(): array
     {
         $applicationStatus = $this->loadApplicationStatus();
@@ -70,10 +70,10 @@ class BankDataLoader
         ];
     }
 
-    /**
-     * Checks whether the player had any historical loan/application outcome.
-     * Sprawdza, czy gracz mial juz historyczny wynik kredytu lub wniosku.
-     */
+ /**
+ * Checks whether the player had any historical loan/application outcome.
+ * Sprawdza, czy gracz mial juz historyczny wynik kredytu lub wniosku.
+ */
     private function checkHasEverHadLoan(): bool
     {
         if (!$this->db) {
@@ -93,10 +93,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads application status if service is available.
-     * Laduje status wniosku, jesli serwis jest dostepny.
-     */
+ /**
+ * Loads application status if service is available.
+ * Laduje status wniosku, jesli serwis jest dostepny.
+ */
     private function loadApplicationStatus(): array
     {
         if (!$this->bankService) {
@@ -113,10 +113,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads active loans if service is available.
-     * Laduje aktywne kredyty, jesli serwis jest dostepny.
-     */
+ /**
+ * Loads active loans if service is available.
+ * Laduje aktywne kredyty, jesli serwis jest dostepny.
+ */
     private function loadActiveLoans(): array
     {
         if (!$this->bankService) {
@@ -133,10 +133,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads negotiation-related view data for all active loans.
-     * Laduje dane negocjacyjne do widoku dla aktywnych kredytow.
-     */
+ /**
+ * Loads negotiation-related view data for all active loans.
+ * Laduje dane negocjacyjne do widoku dla aktywnych kredytow.
+ */
     private function loadNegData(array $activeLoans): array
     {
         $negData = [];
@@ -210,10 +210,10 @@ class BankDataLoader
         return [$negData, $deferralOpts, $activeLoans];
     }
 
-    /**
-     * Loads recent negotiation events for one active negotiation.
-     * Laduje ostatnie zdarzenia negocjacyjne dla aktywnej negocjacji.
-     */
+ /**
+ * Loads recent negotiation events for one active negotiation.
+ * Laduje ostatnie zdarzenia negocjacyjne dla aktywnej negocjacji.
+ */
     private function loadNegEvents(?array $active): array
     {
         if (!$active || !$this->db) {
@@ -242,10 +242,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Checks whether a bailiff proceeding is active for the given loan.
-     * Sprawdza, czy dla kredytu jest aktywny komornik.
-     */
+ /**
+ * Checks whether a bailiff proceeding is active for the given loan.
+ * Sprawdza, czy dla kredytu jest aktywny komornik.
+ */
     private function checkBailiff(int $loanId): bool
     {
         if (!$this->db) {
@@ -265,10 +265,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads restructure display helper data.
-     * Laduje pomocnicze dane wyswietlania restrukturyzacji.
-     */
+ /**
+ * Loads restructure display helper data.
+ * Laduje pomocnicze dane wyswietlania restrukturyzacji.
+ */
     private function loadRestructDisplay(int $loanId): ?array
     {
         if (!$this->db) {
@@ -311,10 +311,10 @@ class BankDataLoader
         ];
     }
 
-    /**
-     * Resolves whether the player can apply for a new loan.
-     * Wylicza, czy gracz moze zlozyc nowy wniosek kredytowy.
-     */
+ /**
+ * Resolves whether the player can apply for a new loan.
+ * Wylicza, czy gracz moze zlozyc nowy wniosek kredytowy.
+ */
     private function resolveCanApply(string $appSt, array $applicationStatus, array $activeLoans): array
     {
         $blockReasons = [];
@@ -376,10 +376,10 @@ class BankDataLoader
         return [$canApply, $blockReasons, $blockHasActiveLoan];
     }
 
-    /**
-     * Loads credit limit and related blocking reasons.
-     * Laduje limit kredytowy i powiazane powody blokady.
-     */
+ /**
+ * Loads credit limit and related blocking reasons.
+ * Laduje limit kredytowy i powiazane powody blokady.
+ */
     private function loadCreditLimit(bool $canApply, array &$blockReasons): array
     {
         $creditLimit = 0;

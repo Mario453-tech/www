@@ -9,7 +9,7 @@ class MarketOffer
         $this->db = Database::getInstance()->getConnection();
     }
 
-    // Offer creation
+ // Offer creation
 
     public function createOffer(int $playerId, float $amount, float $limitPrice): array
     {
@@ -42,7 +42,7 @@ class MarketOffer
 
             $this->db->beginTransaction();
 
-            // Lock oil in storage
+ // Lock oil in storage
             GameLog::step('MarketOffer', 'createOffer', 2, 'UPDATE storage');
             $stmtUpd = $this->db->prepare("
                 UPDATE storage
@@ -51,18 +51,18 @@ class MarketOffer
             ");
             $stmtUpd->execute([':amount' => $amount, ':player_id' => $playerId]);
 
-            // Verify UPDATE actually happened (race condition guard)
+ // Verify UPDATE actually happened (race condition guard)
             $affected = $stmtUpd->rowCount();
             if ($affected === 0) {
                 $this->db->rollBack();
-                GameLog::warn('MarketOffer', 'createOffer: race condition — not enough oil', [
+                GameLog::warn('MarketOffer', 'createOffer: race condition ï¿½ not enough oil', [
                     'player_id' => $playerId,
                     'amount'    => $amount,
                 ]);
                 return ['success' => false, 'message' => t('market_offer.err_race_condition')];
             }
 
-            // Create the offer record
+ // Create the offer record
             GameLog::step('MarketOffer', 'createOffer', 3, 'INSERT market_offers');
             $this->db->prepare("
                 INSERT INTO market_offers
@@ -101,7 +101,7 @@ class MarketOffer
         }
     }
 
-    // Offer retrieval
+ // Offer retrieval
 
     public function getPlayerOffers(int $playerId): array
     {
@@ -140,7 +140,7 @@ class MarketOffer
         }
     }
 
-    // Offer editing
+ // Offer editing
 
     public function updateOffer(int $offerId, int $playerId, float $newLimitPrice): array
     {
@@ -182,7 +182,7 @@ class MarketOffer
         }
     }
 
-    // Offer cancellation
+ // Offer cancellation
 
     public function cancelOffer(int $offerId, int $playerId): array
     {
@@ -204,7 +204,7 @@ class MarketOffer
 
             $this->db->beginTransaction();
 
-            // Calculate penalty and return oil
+ // Calculate penalty and return oil
             $cancellationFee  = (float)($offer['cancellation_fee'] ?? 0.10);
             $penalty          = (int)round($offer['amount'] * $cancellationFee);
             $returnedAmount   = $offer['amount'] - $penalty;
@@ -244,12 +244,12 @@ class MarketOffer
         }
     }
 
-    // Offer execution (called by the tick loop)
+ // Offer execution (called by the tick loop)
 
-    /**
-     * Executes all pending offers where limit_price <= currentPrice.
-     * FIX: parameterised query (previously SQL injection).
-     */
+ /**
+ * Executes all pending offers where limit_price <= currentPrice.
+ * FIX: parameterised query (previously SQL injection).
+ */
     public function processOffers(int $currentPrice): void
     {
         GameLog::step('MarketOffer', 'processOffers', 1, 'start', ['price' => $currentPrice]);
@@ -289,7 +289,7 @@ class MarketOffer
 
             $earnings = (float)$offer['amount'] * $currentPrice;
 
-            // Credit player account
+ // Credit player account
             $this->db->prepare("
                 UPDATE players
                 SET cash = cash + :earnings
@@ -299,7 +299,7 @@ class MarketOffer
                 ':player_id' => $offer['player_id'],
             ]);
 
-            // Close the offer
+ // Close the offer
             $this->db->prepare("
                 UPDATE market_offers
                 SET status       = 'completed',
@@ -326,7 +326,7 @@ class MarketOffer
                 'offer_id'  => $offer['id'],
                 'player_id' => $offer['player_id'],
             ]);
-            // Do not rethrow — one failure must not block remaining offers
+ // Do not rethrow one failure must not block remaining offers
         }
     }
 }

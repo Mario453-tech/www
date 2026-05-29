@@ -2,10 +2,10 @@
 
 trait TechnicalPageRecruitmentViewTrait
 {
-    /**
-     * Sync ready recruitments before rendering the page.
-     * Synchronizuje gotowe rekrutacje przed renderem strony.
-     */
+ /**
+ * Sync ready recruitments before rendering the page.
+ * Synchronizuje gotowe rekrutacje przed renderem strony.
+ */
     public function syncReadyRecruitments(): void
     {
         try {
@@ -19,10 +19,10 @@ trait TechnicalPageRecruitmentViewTrait
         }
     }
 
-    /**
-     * Build recruitment UI data for the technical page.
-     * Buduje dane UI rekrutacji dla strony technicznej.
-     */
+ /**
+ * Build recruitment UI data for the technical page.
+ * Buduje dane UI rekrutacji dla strony technicznej.
+ */
     private function prepareRecruitmentUiData(array $staff, array $wells, array $activeRecruitments): array
     {
         $pendingRecruitments = [];

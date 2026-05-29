@@ -5,22 +5,22 @@ require_once __DIR__ . '/Incident/TickTrait.php';
 require_once __DIR__ . '/Incident/RepairDataTrait.php';
 
 /**
- * IncidentService — micro and minor incident system per well.
+ * IncidentService micro and minor incident system per well.
  *
  * Event types (4 levels):
- *   micro   — -5-10% production, auto-repair, ~40-50% share
- *   minor   — -10-30% production, auto-repair, ~25-30%
- *   medium  — -40-60% production, requires technician, ~15-20%
- *   major   — -100% or shutdown, requires repair + cost, ~5-10%
+ * micro -5-10% production, auto-repair, ~40-50% share
+ * minor -10-30% production, auto-repair, ~25-30%
+ * medium -40-60% production, requires technician, ~15-20%
+ * major -100% or shutdown, requires repair + cost, ~5-10%
  *
  * error_rate per worker: skill 1->12%, skill 5->6%, skill 10->2%
- * Floor risk: global 2-3% / tick — not reducible by HSE/skill
+ * Floor risk: global 2-3% / tick not reducible by HSE/skill
  *
  * Logic split into traits in src/Incident/:
- *   - MessagesTrait.php    — const MESSAGES, generateIncident, getWorkerName, interpolate
- *   - TickTrait.php        — processTick, calcErrorRate
- *   - RepairDataTrait.php  — repairIncident, getRecentIncidents, getPlayerIncidents,
- *                            saveIncident, applyEffects, weightedRand
+ * - MessagesTrait.php const MESSAGES, generateIncident, getWorkerName, interpolate
+ * - TickTrait.php processTick, calcErrorRate
+ * - RepairDataTrait.php repairIncident, getRecentIncidents, getPlayerIncidents,
+ * saveIncident, applyEffects, weightedRand
  */
 class IncidentService
 {
@@ -30,7 +30,7 @@ class IncidentService
 
     private \PDO $db;
 
-    // Level configuration
+ // Level configuration
     private const LEVEL_CONFIG = [
         'micro'  => ['prod_drop_min' => 5,  'prod_drop_max' => 10,  'auto_repair' => true,  'hours_min' => 1,  'hours_max' => 2,  'deg_min' => 0, 'deg_max' => 1,  'cost_min' => 0,      'cost_max' => 0,       'risk_add' => 0],
         'minor'  => ['prod_drop_min' => 10, 'prod_drop_max' => 30,  'auto_repair' => true,  'hours_min' => 2,  'hours_max' => 6,  'deg_min' => 1, 'deg_max' => 3,  'cost_min' => 0,      'cost_max' => 0,       'risk_add' => 0],
@@ -38,9 +38,9 @@ class IncidentService
         'major'  => ['prod_drop_min' => 80, 'prod_drop_max' => 100, 'auto_repair' => false, 'hours_min' => 24, 'hours_max' => 72, 'deg_min' => 8, 'deg_max' => 20, 'cost_min' => 200000, 'cost_max' => 2000000, 'risk_add' => 15],
     ];
 
-    // Base incident chance per hour — neutral (before eq/layer/wear multipliers).
-    // Calibrated: micro every ~40min, minor every ~2h, medium every ~8h, major every ~40h
-    // (at cond=100%, risk=30, standard, shallow, no HSE)
+ // Base incident chance per hour neutral (before eq/layer/wear multipliers).
+ // Calibrated: micro every ~40min, minor every ~2h, medium every ~8h, major every ~40h
+ // (at cond=100%, risk=30, standard, shallow, no HSE)
     private const BASE_CHANCE_PER_HOUR = [
         'micro'  => 0.15,
         'minor'  => 0.055,
@@ -48,11 +48,11 @@ class IncidentService
         'major'  => 0.004,
     ];
 
-    // Floor = fixed chance per tick (NOT scaled by deltaHours)
-    // Guarantees minimum ~3%/tick for micro regardless of gaps
-    /** @var array<string, array<string, float>> */
+ // Floor = fixed chance per tick (NOT scaled by deltaHours)
+ // Guarantees minimum ~3%/tick for micro regardless of gaps
+ /** @var array<string, array<string, float>> */
     private array $levelCfg = [];
-    /** @var array<string, float> */
+ /** @var array<string, float> */
     private array $baseChance = [];
 
     public function __construct()
@@ -61,10 +61,10 @@ class IncidentService
         $this->loadConfigOverrides();
     }
 
-    /**
-     * Load per-level overrides from well_config (set via admin/incidents.php).
-     * Falls back to LEVEL_CONFIG / BASE_CHANCE_PER_HOUR constants if key absent.
-     */
+ /**
+ * Load per-level overrides from well_config (set via admin/incidents.php).
+ * Falls back to LEVEL_CONFIG / BASE_CHANCE_PER_HOUR constants if key absent.
+ */
     private function loadConfigOverrides(): void
     {
         $this->levelCfg   = [];
@@ -78,7 +78,7 @@ class IncidentService
                 "SELECT `key`, `value` FROM well_config WHERE `key` LIKE 'incident_cfg_%'"
             )->fetchAll(\PDO::FETCH_KEY_PAIR);
             foreach ($rows as $key => $val) {
-                // key format: incident_cfg_{level}_{field}
+ // key format: incident_cfg_{level}_{field}
                 $parts = explode('_', str_replace('incident_cfg_', '', $key), 2);
                 if (count($parts) !== 2) continue;
                 [$lvl, $field] = $parts;
@@ -90,22 +90,22 @@ class IncidentService
                 }
             }
         } catch (\Throwable $e) {
-            GameLog::error('IncidentService', 'loadConfigOverrides FAILED — using defaults', $e);
+            GameLog::error('IncidentService', 'loadConfigOverrides FAILED ï¿½ using defaults', $e);
         }
     }
 
-    /**
-     * Returns effective level config (DB overrides applied).
-     * @return array<string, mixed>
-     */
+ /**
+ * Returns effective level config (DB overrides applied).
+ * @return array<string, mixed>
+ */
     public function getLevelConfig(string $level): array
     {
         return $this->levelCfg[$level] ?? (self::LEVEL_CONFIG[$level] ?? []);
     }
 
-    /**
-     * Returns effective base chance per hour for a level.
-     */
+ /**
+ * Returns effective base chance per hour for a level.
+ */
     public function getBaseChance(string $level): float
     {
         return $this->baseChance[$level] ?? (self::BASE_CHANCE_PER_HOUR[$level] ?? 0.0);

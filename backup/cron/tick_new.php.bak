@@ -1,0 +1,135 @@
+<?php
+
+/**
+ * TICK - glowny cron gry (fasada) | TICK - main game cron (facade)
+ * Uruchamiany co ~5 minut przez cron serwera | Triggered every ~5 minutes by server cron
+ *
+ * Logika podzielona na sekcje w src/Tick/ | Logic split into sections in src/Tick/:
+ *   MarketSection  - trendy rynkowe + cena ropy | market trends + oil price
+ *   BankSection    - system bankowy, HR, bankruci | banking system, HR, bankrupt players
+ *   PlayersSection - gracze, odwierty, produkcja | players, wells, production
+ *
+ * Statystyki kazdego ticka zapisywane do tabeli tick_stats | Tick statistics saved to tick_stats table
+ */
+
+require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/DisasterMessages.php';
+require_once __DIR__ . '/../src/WellService.php';
+require_once __DIR__ . '/../src/WellStaffService.php';
+require_once __DIR__ . '/../src/TechnicalTeamService.php';
+require_once __DIR__ . '/../src/IncidentService.php';
+require_once __DIR__ . '/../src/FinanceService.php';
+require_once __DIR__ . '/../src/Tick/MarketSection.php';
+require_once __DIR__ . '/../src/Tick/BankSection.php';
+require_once __DIR__ . '/../src/Tick/PlayersSection.php';
+require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
+
+// Opcjonalne serwisy
+$bankNegAvailable       = file_exists(__DIR__ . '/../src/BankNegotiationService.php');
+$bankruptcyAvailable    = file_exists(__DIR__ . '/../src/BankruptcyService.php');
+if ($bankNegAvailable)    require_once __DIR__ . '/../src/BankNegotiationService.php';
+if ($bankruptcyAvailable) require_once __DIR__ . '/../src/BankruptcyService.php';
+
+$db        = Database::getInstance()->getConnection();
+$now       = new DateTime();
+$startTime = microtime(true);
+$source    = (php_sapi_name() === 'cli') ? 'cron' : 'force';
+
+GameLog::info('tick', '== START ==', ['time' => $now->format('Y-m-d H:i:s'), 'source' => $source]);
+
+//  1-2. RYNEK 
+
+$market = new MarketSection();
+$market->run();
+
+$activeTrend = $market->activeTrend;
+$isNewTrend  = $market->isNewTrend;
+$newPrice    = $market->newPrice;
+
+//  3-4k. SYSTEM BANKOWY / HR / BANKRUCI 
+
+$bank = new BankSection($db, $bankNegAvailable, $bankruptcyAvailable);
+$bank->run();
+
+//  5. GRACZE  ODWIERTY I PRODUKCJA 
+
+// Globalne mnoznik balansu z well_config (admin/balance.php)
+$gBalanceMults = ['incident' => 1.0, 'disaster' => 1.0, 'wear' => 1.0, 'degradation' => 1.0, 'loss' => 1.0, 'opex' => 1.0, 'production' => 1.0, 'tax' => 1.0];
+try {
+    $balanceKeys = ['global_incident_multiplier' => 'incident', 'global_disaster_multiplier' => 'disaster', 'global_wear_multiplier' => 'wear', 'global_degradation_mult' => 'degradation', 'global_loss_multiplier' => 'loss', 'global_opex_multiplier' => 'opex', 'global_production_mult' => 'production', 'global_tax_multiplier' => 'tax'];
+    $balanceStmt = $db->prepare("SELECT `key`, `value` FROM well_config WHERE `key` IN ('global_incident_multiplier','global_disaster_multiplier','global_wear_multiplier','global_degradation_mult','global_loss_multiplier','global_opex_multiplier','global_production_mult','global_tax_multiplier')");
+    $balanceStmt->execute();
+    foreach ($balanceStmt->fetchAll() as $bRow) {
+        $shortKey = $balanceKeys[$bRow['key']] ?? null;
+        if ($shortKey !== null) $gBalanceMults[$shortKey] = max(0.1, min(10.0, (float)$bRow['value']));
+    }
+    $hasNonDefault = array_filter($gBalanceMults, fn($v) => abs($v - 1.0) > 0.001);
+    if (!empty($hasNonDefault)) GameLog::info('tick', 'globalne mnozniki balansu aktywne', $gBalanceMults);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'odczyt mnoznikow balansu FAILED - uzywam 1.0', $e);
+}
+
+$players = new PlayersSection($db, $now, $newPrice, $gBalanceMults);
+$players->run();
+
+//  PODSUMOWANIE + ZAPIS STATYSTYK 
+
+$trendInfo = $activeTrend
+    ? " | Trend: {$activeTrend['trend_name']}" . ($isNewTrend ? ' [NOWY]' : '')
+    : '';
+
+GameLog::info('tick', '== END ==', [
+    'price'    => $newPrice,
+    'trend'    => $activeTrend['trend_name'] ?? 'brak',
+    'players'  => $players->playersProcessed,
+    'bbl'      => round($players->totalBbl, 2),
+    'revenue'  => round($players->totalRevenue, 2),
+    'disasters'=> $players->disastersTriggered,
+]);
+
+// Zapis last_system_tick_at
+try {
+    $db->prepare("
+        INSERT INTO well_config (`key`, `value`, `label`, `category`)
+        VALUES ('last_system_tick_at', :ts, 'Ostatni tick systemu (timestamp)', 'system')
+        ON DUPLICATE KEY UPDATE `value` = :ts2
+    ")->execute([':ts' => $now->getTimestamp(), ':ts2' => $now->getTimestamp()]);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'zapis last_system_tick_at FAILED', $e);
+}
+
+// Zapis statystyk ticka
+try {
+    $durationMs = (int)round((microtime(true) - $startTime) * 1000);
+    (new TickStatsRepository())->save([
+        'ran_at'                       => $now->format('Y-m-d H:i:s'),
+        'source'                       => $source,
+        'duration_ms'                  => $durationMs,
+        'oil_price'                    => $newPrice,
+        'trend_name'                   => $activeTrend['trend_name'] ?? null,
+        'trend_new'                    => $isNewTrend,
+        'bank_negotiations_resolved'   => $bank->negotiationsResolved,
+        'bank_loan_decisions'          => $bank->loanDecisions,
+        'hr_recruitments_processed'    => $bank->hrRecruitmentsProcessed,
+        'bankruptcy_processed'         => $bank->bankruptcyProcessed,
+        'bankruptcy_recovered'         => $bank->bankruptcyRecovered,
+        'players_processed'            => $players->playersProcessed,
+        'wells_active'                 => $players->wellsActive,
+        'total_production_bbl'         => round($players->totalBbl, 4),
+        'total_revenue_pln'            => round($players->totalRevenue, 2),
+        'total_opex_pln'               => round($players->totalOpex, 2),
+        'disasters_triggered'          => $players->disastersTriggered,
+        'incidents_triggered'          => $players->incidentsTriggered,
+    ]);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'zapis tick_stats FAILED', $e);
+}
+
+// Cleanup starych statystyk (zachowaj 7 dni)
+try {
+    (new TickStatsRepository())->cleanup(7);
+} catch (Throwable $e) {}
+
+echo "Tick OK: " . $now->format('Y-m-d H:i:s') . " | Cena: {$newPrice}\${$trendInfo}"
+    . " | Gracze: {$players->playersProcessed} | Bbl: " . round($players->totalBbl, 1) . "\n";
+

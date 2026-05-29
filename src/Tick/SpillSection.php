@@ -1,8 +1,8 @@
 <?php
 
 /**
- * SpillSection — skazenie powierzchniowe przy przepelnieniu magazynu.
- * SpillSection — surface spill disaster when storage is nearly full.
+ * SpillSection skazenie powierzchniowe przy przepelnieniu magazynu.
+ * SpillSection surface spill disaster when storage is nearly full.
  */
 class SpillSection
 {
@@ -19,13 +19,13 @@ class SpillSection
         $this->wellService = $wellService;
     }
 
-    /**
-     * Sprawdza przepeLnienie magazynu i ewentualnie wyzwala wyciek.
-     * Checks storage overflow and optionally triggers a surface spill.
-     *
-     * @param array<string, mixed> $hseBonus
-     * @return float Zaktualizowana zawartoSC magazynu po wycieku / Updated storage contents after the spill
-     */
+ /**
+ * Sprawdza przepeLnienie magazynu i ewentualnie wyzwala wyciek.
+ * Checks storage overflow and optionally triggers a surface spill.
+ *
+ * @param array<string, mixed> $hseBonus
+ * @return float Zaktualizowana zawartoSC magazynu po wycieku / Updated storage contents after the spill
+ */
     public function process(
         int    $playerId,
         float  $currentStorage,

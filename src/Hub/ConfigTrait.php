@@ -6,7 +6,7 @@
  */
 trait HubConfigTrait
 {
-    /** @var array<string, array<string, string>> [group][key] => value */
+ /** @var array<string, array<string, string>> [group][key] => value */
     private array $hubConfig = [];
 
     private function ensureHubSchema(): void
@@ -38,9 +38,9 @@ trait HubConfigTrait
                 "DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER status"
             );
 
-            // Etap 9: hub ownership columns.
-            // player_id = 0 means hub is on the market (system-owned / available to buy or rent).
-            // player_id > 0 means the hub belongs to that player exclusively.
+ // Etap 9: hub ownership columns.
+ // player_id = 0 means hub is on the market (system-owned / available to buy or rent).
+ // player_id > 0 means the hub belongs to that player exclusively.
             Database::addColumnIfMissing(
                 'logistics_hubs',
                 'acquisition_price',
@@ -51,8 +51,8 @@ trait HubConfigTrait
                 'acquired_at',
                 "DATETIME NULL DEFAULT NULL AFTER acquisition_price"
             );
-            // tenant_player_id: who is currently renting a market hub (player_id = 0).
-            // 0 = no active tenant.
+ // tenant_player_id: who is currently renting a market hub (player_id = 0).
+ // 0 = no active tenant.
             Database::addColumnIfMissing(
                 'logistics_hubs',
                 'tenant_player_id',
@@ -62,22 +62,22 @@ trait HubConfigTrait
             GameLog::error('HubService', 'ensureHubSchema failed', $e);
         }
 
-        // Seed acquisition type mix if all hubs still have default 'new' + lease 0.
-        // This runs once after the column is first added.
-        // Distribution: ~55% new, ~30% used, ~15% rental (by hub_id modulo pattern).
+ // Seed acquisition type mix if all hubs still have default 'new' + lease 0.
+ // This runs once after the column is first added.
+ // Distribution: ~55% new, ~30% used, ~15% rental (by hub_id modulo pattern).
         $this->ensureHubAcquisitionMix();
     }
 
-    /**
-     * One-time migration: distributes hub acquisition types across system hubs.
-     * Only runs if all hubs are still 'new' with lease_fee = 0 (fresh install or first boot).
-     *
-     * Lease fee per tick is charged per SLOT occupied by that player's wells.
-     * Values by hub type:
-     *   small  - rental: 120/slot/tick
-     *   medium - rental: 220/slot/tick
-     *   large  - rental: 380/slot/tick
-     */
+ /**
+ * One-time migration: distributes hub acquisition types across system hubs.
+ * Only runs if all hubs are still 'new' with lease_fee = 0 (fresh install or first boot).
+ *
+ * Lease fee per tick is charged per SLOT occupied by that player's wells.
+ * Values by hub type:
+ * small - rental: 120/slot/tick
+ * medium - rental: 220/slot/tick
+ * large - rental: 380/slot/tick
+ */
     private function ensureHubAcquisitionMix(): void
     {
         if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
@@ -97,11 +97,11 @@ trait HubConfigTrait
                 return; // No system hubs yet
             }
 
-            // Lease fees per slot per tick by hub_type
+ // Lease fees per slot per tick by hub_type
             $leaseFees = ['small' => 120.00, 'medium' => 220.00, 'large' => 380.00];
 
-            // Used hubs: set degraded starting condition (42-72%)
-            // Pattern by id: id%10 in {0,1,2} => rental (30%), {3,4,5,6} => used (40%), else => new (30%)
+ // Used hubs: set degraded starting condition (42-72%)
+ // Pattern by id: id%10 in {0,1,2} => rental (30%), {3,4,5,6} => used (40%), else => new (30%)
             $this->db->exec("
                 UPDATE logistics_hubs
                    SET acquisition_type = CASE
@@ -189,13 +189,13 @@ trait HubConfigTrait
         }
     }
 
-    /** Returns a config value as string, or $default if not set. */
+ /** Returns a config value as string, or $default if not set. */
     public function cfg(string $group, string $key, string $default = ''): string
     {
         return $this->hubConfig[$group][$key] ?? $default;
     }
 
-    /** Returns a config value as float. */
+ /** Returns a config value as float. */
     public function cfgFloat(string $group, string $key, float $default = 0.0): float
     {
         return isset($this->hubConfig[$group][$key])
@@ -203,7 +203,7 @@ trait HubConfigTrait
             : $default;
     }
 
-    /** Returns a config value as int. */
+ /** Returns a config value as int. */
     public function cfgInt(string $group, string $key, int $default = 0): int
     {
         return isset($this->hubConfig[$group][$key])
@@ -211,10 +211,10 @@ trait HubConfigTrait
             : $default;
     }
 
-    /**
-     * Returns all config values for a hub type.
-     * @return array<string, mixed>
-     */
+ /**
+ * Returns all config values for a hub type.
+ * @return array<string, mixed>
+ */
     public function getHubTypeConfig(string $hubType): array
     {
         $prefix = $hubType . '.';
@@ -228,10 +228,10 @@ trait HubConfigTrait
         return $result;
     }
 
-    /**
-     * Returns all multipliers for a work mode.
-     * @return array<string, float>
-     */
+ /**
+ * Returns all multipliers for a work mode.
+ * @return array<string, float>
+ */
     public function getWorkModeMultipliers(string $workMode): array
     {
         $prefix = $workMode . '.';
@@ -245,10 +245,10 @@ trait HubConfigTrait
         return $result;
     }
 
-    /**
-     * Returns fallback config for wells without a hub.
-     * @return array<string, float>
-     */
+ /**
+ * Returns fallback config for wells without a hub.
+ * @return array<string, float>
+ */
     public function getFallbackConfig(): array
     {
         $result = [];
@@ -258,18 +258,18 @@ trait HubConfigTrait
         return $result;
     }
 
-    /**
-     * Returns all config values for an acquisition type.
-     * @return array{
-     *   build_cost_mult: float,
-     *   opex_mult: float,
-     *   start_condition_min: float,
-     *   start_condition_max: float,
-     *   wear_mult: float,
-     *   risk_mult: float,
-     *   lease_fee_per_tick: float
-     * }
-     */
+ /**
+ * Returns all config values for an acquisition type.
+ * @return array{
+ * build_cost_mult: float,
+ * opex_mult: float,
+ * start_condition_min: float,
+ * start_condition_max: float,
+ * wear_mult: float,
+ * risk_mult: float,
+ * lease_fee_per_tick: float
+ * }
+ */
     public function getAcquisitionDefaults(string $acquisitionType): array
     {
         $type = in_array($acquisitionType, ['new', 'used', 'rental'], true) ? $acquisitionType : 'new';
@@ -286,11 +286,11 @@ trait HubConfigTrait
         ];
     }
 
-    /**
-     * Returns all nominal values for a hub type accounting for level upgrades.
-     * Level multiplier: each level adds +20% throughput and +15% buffer.
-     * @return array<string, mixed>
-     */
+ /**
+ * Returns all nominal values for a hub type accounting for level upgrades.
+ * Level multiplier: each level adds +20% throughput and +15% buffer.
+ * @return array<string, mixed>
+ */
     public function getHubTypeDefaults(string $hubType, int $level = 1): array
     {
         $base  = $this->getHubTypeConfig($hubType);
@@ -321,7 +321,7 @@ trait HubConfigTrait
                  ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = NOW()"
             );
             $stmt->execute([$group, $key, $scope, $value]);
-            // Refresh local cache
+ // Refresh local cache
             $this->hubConfig[$group][$key] = $value;
             return true;
         } catch (Throwable $e) {

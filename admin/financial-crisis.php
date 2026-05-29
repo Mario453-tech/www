@@ -9,7 +9,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  Obsługa POST 
+// Obsluga POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) 
         die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
@@ -59,9 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Pobierz dane 
+// Pobierz dane 
 
-// Firmy w kryzysie/ostrzeżeniu
+// Firmy w kryzysie/ostrzezeniu
 $crisisPlayers = $db->query("
     SELECT
         p.id, COALESCE(NULLIF(p.company_name,''), p.username) AS company,

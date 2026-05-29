@@ -129,7 +129,7 @@ try {
                 $conditionPct = (float)($pipeline['condition_pct'] ?? 100.0);
                 $status = (string)($pipeline['status'] ?? 'active');
 
-                // Add build timer data for building pipelines / Dodaj dane timera dla rurociagow w budowie
+ // Add build timer data for building pipelines / Dodaj dane timera dla rurociagow w budowie
                 $buildFinishAt = $pipeline['build_finish_at'] ?? null;
                 $pipeline['seconds_remaining'] = ($status === 'building' && $buildFinishAt !== null)
                     ? max(0, strtotime($buildFinishAt) - $nowTs)
@@ -236,7 +236,7 @@ try {
     usort($lossWells, static fn(array $a, array $b): int => ((float)($b['loss'] ?? 0)) <=> ((float)($a['loss'] ?? 0)));
     $lossWells = array_slice($lossWells, 0, 3);
 
-    // Worst pipelines: top 3 non-building by condition_pct ASC, secondary transport_loss DESC
+ // Worst pipelines: top 3 non-building by condition_pct ASC, secondary transport_loss DESC
     $worstPipelines = array_values(array_filter($pipelines, static fn(array $p): bool =>
         !in_array((string)($p['status'] ?? ''), ['building', 'disabled'], true)
     ));
@@ -333,7 +333,7 @@ try {
         'recommendations' => array_slice($logisticsRecommendations, 0, 3),
     ];
 
-    // Aktywne kursy drogowe (P1.2) / Active road trips (P1.2)
+ // Aktywne kursy drogowe (P1.2) / Active road trips (P1.2)
     $activeRoadTrips = [];
     if (class_exists('RoadTransportService')) {
         try {
@@ -354,7 +354,7 @@ try {
         'lossPct'          => $lossPct,
         'alerts'           => $alerts,
         'csrfToken'        => CSRF::generateToken(),
-        // Hub data (system-owned hubs)
+ // Hub data (system-owned hubs)
         'hubCards'         => $hubCards,
         'hubAlerts'        => $hubAlerts,
         'hubRegions'       => $hubRegions,
@@ -371,9 +371,9 @@ try {
         'marineDeliveries' => $marineDeliveries,
         'marineHistory'    => $marineHistory,
         'marineInTransitBbl' => $marineInTransitBbl,
-        // Building pipelines are already in $pipelines - filter here for convenience
+ // Building pipelines are already in $pipelines - filter here for convenience
         'buildingPipelines' => array_values(array_filter($pipelines, static fn(array $p): bool => ($p['status'] ?? '') === 'building')),
-        // P1.2: active road trips in transit / aktywne kursy drogowe w tranzycie
+ // P1.2: active road trips in transit / aktywne kursy drogowe w tranzycie
         'activeRoadTrips'  => $activeRoadTrips,
     ]);
 

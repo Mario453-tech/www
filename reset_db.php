@@ -1,5 +1,5 @@
 <?php
-// Reset gra1 database and reimport — DELETE after use
+// Reset gra1 database and reimport DELETE after use
 declare(strict_types=1);
 
 $host   = '127.0.0.1';
@@ -17,7 +17,7 @@ try {
     .ok{color:lightgreen}.err{color:red}.warn{color:orange}b{color:#f90}</style>";
     echo "<h2 style='color:#f90'>DB Reset & Import</h2>";
 
-    // Drop and recreate database
+ // Drop and recreate database
     $pdo->exec("DROP DATABASE IF EXISTS `{$dbname}`");
     echo "<p class='ok'> Dropped database {$dbname}</p>";
 
@@ -27,7 +27,7 @@ try {
     $pdo->exec("USE `{$dbname}`");
     $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
 
-    // Read and execute SQL file
+ // Read and execute SQL file
     if (!file_exists($sqlFile)) {
         die("<p class='err'>SQL file not found: {$sqlFile}</p>");
     }
@@ -35,24 +35,24 @@ try {
     $sql = file_get_contents($sqlFile);
     echo "<p class='ok'> Loaded SQL file (" . round(strlen($sql)/1024) . " KB)</p>";
 
-    // Check for players_old
+ // Check for players_old
     if (strpos($sql, 'players_old') !== false) {
-        echo "<p class='warn'> Found 'players_old' in SQL — fixing...</p>";
+        echo "<p class='warn'> Found 'players_old' in SQL ï¿½ fixing...</p>";
         $sql = str_replace('`players_old`', '`players`', $sql);
         echo "<p class='ok'> Fixed players_old  players</p>";
     } else {
-        echo "<p class='ok'> No players_old found — file is clean</p>";
+        echo "<p class='ok'> No players_old found ï¿½ file is clean</p>";
     }
 
-    // Increase packet size for large imports
+ // Increase packet size for large imports
     $pdo->exec("SET GLOBAL max_allowed_packet=67108864"); // 64MB
     $pdo->exec("SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO'");
     $pdo->exec("SET time_zone='+00:00'");
     $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
     $pdo->exec("SET UNIQUE_CHECKS=0");
 
-    // Split into individual statements and execute one by one
-    // Removes comments and splits on semicolons
+ // Split into individual statements and execute one by one
+ // Removes comments and splits on semicolons
     $sql = preg_replace('/^--.*$/m', '', $sql);         // strip -- comments
     $sql = preg_replace('/^\/\*.*?\*\//ms', '', $sql);  // strip /* */ comments
     $statements = array_filter(
@@ -85,7 +85,7 @@ try {
     $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
     $pdo->exec("SET UNIQUE_CHECKS=1");
 
-    // Verify key tables
+ // Verify key tables
     echo "<p><b>Verifying tables:</b></p>";
     foreach (['players','wells','loans','finance_logs','bank_negotiations','bailiff_proceedings'] as $t) {
         $n = $pdo->query("SELECT COUNT(*) FROM `{$t}`")->fetchColumn();

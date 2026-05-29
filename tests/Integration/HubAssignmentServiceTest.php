@@ -47,8 +47,8 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         ');
     }
 
-    // Helper: hub mock stub with all fields assignWell() needs.
-    // player_id=1 means test player owns the hub (private ownership model).
+ // Helper: hub mock stub with all fields assignWell() needs.
+ // player_id=1 means test player owns the hub (private ownership model).
     private function makeHubStub(array $overrides = []): array
     {
         return array_merge([
@@ -88,7 +88,7 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
 
     public function testAssignWellReturnsZeroAccessFee(): void
     {
-        // Access fee is no longer charged at assignment time (paid at hub acquisition).
+ // Access fee is no longer charged at assignment time (paid at hub acquisition).
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (101, 1, 7, 'A1', 'active')");
 
@@ -103,7 +103,7 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->assertTrue($result['success']);
         $this->assertEqualsWithDelta(0.0, (float)$result['access_fee'], 0.01);
 
-        // Cash must be untouched — no fee deducted at assignment
+ // Cash must be untouched - no fee deducted at assignment
         $cash = (float)$this->db->query('SELECT cash FROM players WHERE id=1')->fetchColumn();
         $this->assertEqualsWithDelta(999999.0, $cash, 0.01);
 
@@ -113,7 +113,7 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
 
     public function testAssignWellBlocksWhenHubNotAcquired(): void
     {
-        // Market hub: player_id=0 and tenant_player_id=0 — must be acquired before use.
+ // Market hub: player_id=0 and tenant_player_id=0 - must be acquired before use.
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (102, 1, 7, 'A1', 'active')");
 
@@ -133,7 +133,7 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
 
     public function testAssignWellBlocksWhenHubBelongsToOtherPlayer(): void
     {
-        // Hub owned by player 99 — player 1 must not be able to assign to it.
+ // Hub owned by player 99 - player 1 must not be able to assign to it.
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (103, 1, 7, 'A1', 'active')");
 
@@ -153,7 +153,7 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
 
     public function testAssignWellBlocksWhenHubRentedByOtherPlayer(): void
     {
-        // Hub rented by player 99 — player 1 must not be able to assign to it.
+ // Hub rented by player 99 - player 1 must not be able to assign to it.
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (104, 1, 7, 'A1', 'active')");
 
@@ -205,7 +205,7 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
 
         $this->assertFalse($result['success']);
         $this->assertSame('cooldown_active', $result['error']);
-        // remaining seconds must be returned
+ // remaining seconds must be returned
         $this->assertGreaterThan(0, $result['cooldown_remaining_s'] ?? 0);
     }
 

@@ -79,7 +79,7 @@ $pipeLevelMeta = [
 </div>
 
 <?php
-//  TABS: KONFIGURACJA PER POZIOM 
+// TABS: KONFIGURACJA PER POZIOM 
 $formReset = '<form method="post" id="incident-reset-form">' . CSRF::field() . '<input type="hidden" name="action" value="reset_incident_cfg"></form>';
 foreach ($LEVELS as $lvl):
     [$icon, $label, $badgeCls, $tabLabel] = $levelMeta[$lvl];
@@ -95,7 +95,7 @@ foreach ($LEVELS as $lvl):
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="save_incident_cfg">
             <?php
-            // Pass hidden fields for all other levels unchanged
+ // Pass hidden fields for all other levels unchanged
             foreach ($LEVELS as $other):
                 if ($other === $lvl) continue;
                 $co = $config[$other];
@@ -207,7 +207,7 @@ foreach ($LEVELS as $lvl):
 <?= $formReset ?>
 
 <?php
-//  TABS: KONFIGURACJA INCYDENTOW RUROCIAGU
+// TABS: KONFIGURACJA INCYDENTOW RUROCIAGU
 $formPipeReset = '<form method="post" id="pipeline-inc-reset-form">' . CSRF::field() . '<input type="hidden" name="action" value="reset_pipeline_inc_cfg"></form>';
 foreach ($PIPE_LEVELS as $lvl):
     [$plabel, $pbadgeCls, $ptabLabel] = $pipeLevelMeta[$lvl];
@@ -223,7 +223,7 @@ foreach ($PIPE_LEVELS as $lvl):
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="save_pipeline_inc_cfg">
             <?php
-            // Pass hidden fields for all other pipeline levels unchanged
+ // Pass hidden fields for all other pipeline levels unchanged
             foreach ($PIPE_LEVELS as $other):
                 if ($other === $lvl) continue;
                 $pco = $pipeConfig[$other];
@@ -428,7 +428,7 @@ foreach ($PIPE_LEVELS as $lvl):
                 $isPipeline = ($inc['src'] === 'pipeline');
 
                 if ($isPipeline) {
-                    // Map pipeline level (micro/minor/medium) to pipeLevelMeta key
+ // Map pipeline level (micro/minor/medium) to pipeLevelMeta key
                     $pipeKey = 'pipe_' . ($inc['level'] ?? 'micro');
                     $pmeta   = $pipeLevelMeta[$pipeKey] ?? [t('admin.incidents.pipe_micro_label'), 'badge-blue', ''];
                     $lvlCls  = $pmeta[1];
@@ -451,7 +451,7 @@ foreach ($PIPE_LEVELS as $lvl):
                 <span><span class="badge <?= $lvlCls ?>"><?= $lvlText ?></span></span>
                 <span><?= htmlspecialchars($inc['player_name'] ?? '') ?></span>
                 <span>
-                    #<?= (int)$inc['well_id'] ?><?= !empty($inc['well_name']) ? ' '.htmlspecialchars($inc['well_name']) : '' ?>
+ #<?= (int)$inc['well_id'] ?><?= !empty($inc['well_name']) ? ' '.htmlspecialchars($inc['well_name']) : '' ?>
                     <?php if ($isPipeline && !empty($inc['pipeline_id'])): ?>
                     <span class="muted">(rur.#<?= (int)$inc['pipeline_id'] ?>)</span>
                     <?php endif ?>
@@ -728,7 +728,7 @@ foreach ($PIPE_LEVELS as $lvl):
     }
     </script>
     <script>
-    /* Pipeline trigger data and selector */
+ /* Pipeline trigger data and selector */
     var incTrigPipelines = <?= json_encode($trigPipelines, JSON_UNESCAPED_UNICODE) ?>;
     function incTrigUpdatePipelines(playerId) {
         var sel = document.getElementById('trig-pipe-pipeline');

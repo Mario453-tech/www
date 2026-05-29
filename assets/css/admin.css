@@ -23,7 +23,7 @@
     --blue:   #7eb8f7;
 }
 
-/*  BASE  */
+/* BASE */
 body {
     font-family: monospace;
     font-size: 14px;
@@ -34,7 +34,7 @@ body {
 a { color: var(--blue); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/*  LAYOUT: sidebar + tre  */
+/* LAYOUT: sidebar + tre */
 .admin-layout {
     display: flex;
     min-height: 100vh;
@@ -45,7 +45,7 @@ a:hover { text-decoration: underline; }
     display: none;
 }
 
-/*  SIDEBAR  */
+/* SIDEBAR */
 .admin-sidebar {
     width: 210px;
     min-width: 210px;
@@ -136,7 +136,7 @@ a:hover { text-decoration: underline; }
     padding: 6px 16px 4px;
 }
 
-/*  WRAP (tre gwna)  */
+/* WRAP (tre gwna) */
 .admin-wrap {
     flex: 1;
     padding: 20px 28px;
@@ -255,7 +255,7 @@ h1 {
 h2 { font-size: 14px; color: var(--orange); margin: 18px 0 8px; }
 h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 
-/*  STAT CARDS  */
+/* STAT CARDS */
 .cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 .card {
     background: var(--bg3);
@@ -281,7 +281,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .card .value.orange { color: var(--orange); }
 .card .value.sm     { font-size: 13px; font-weight: normal; }
 
-/*  PANEL  */
+/* PANEL */
 .panel {
     background: var(--bg2);
     border: 1px solid var(--brd2);
@@ -300,7 +300,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
     border-bottom: 1px solid var(--border);
 }
 
-/*  DETAIL GRID  */
+/* DETAIL GRID */
 .detail-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
@@ -330,7 +330,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .detail-grid article .dv.red    { color: var(--red); }
 .detail-grid article .dv.sm     { font-size: 12px; font-weight: normal; }
 
-/*  DATA LIST (HTML5 grid rows)  */
+/* DATA LIST (HTML5 grid rows) */
 .data-list { display: flex; flex-direction: column; gap: 5px; }
 
 .list-header {
@@ -430,7 +430,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .cond-warn { color: var(--yellow); }
 .cond-bad  { color: var(--red); }
 
-/*  BADGES  */
+/* BADGES */
 .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -453,7 +453,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
     margin: 1px;
 }
 
-/*  TABS  */
+/* TABS */
 .admin-tabs {
     display: flex;
     gap: 0;
@@ -477,7 +477,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .admin-tab-content    { display: none; }
 .admin-tab-content.active { display: block; }
 
-/*  FORMS  */
+/* FORMS */
 .form-row   { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .form-group { margin-bottom: 12px; }
 .form-group label {
@@ -515,11 +515,11 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
 .input-w-xl  { width: 230px; }
 .input-full  { width: 100%; }
 
-/*  PASSWORD FORM  */
+/* PASSWORD FORM */
 .pw-form-wrap  { max-width: 400px; }
 .pw-form-group { display: flex; flex-direction: column; gap: 10px; }
 
-/*  BUTTONS  */
+/* BUTTONS */
 .btn {
     display: inline-block;
     padding: 6px 14px;
@@ -564,7 +564,7 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
 }
 .btn-news-pin:hover { background: rgba(200,168,75,.28); }
 
-/*  ALERTS  */
+/* ALERTS */
 .alert { padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 13px; }
 .alert-err { background: rgba(224,85,85,.1); border: 1px solid rgba(224,85,85,.3); color: var(--red, #e05555); }
 .alert-ok  { background: rgba(78,201,122,.08); border: 1px solid rgba(78,201,122,.2); color: var(--green, #4ec97a); }
@@ -574,7 +574,7 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
 .alert-warning { background: #3d2a00; border: 1px solid #5a4000; color: var(--yellow); }
 .alert-border-red { border: 2px solid var(--red); }
 
-/*  CONFIG FORM (wells / bank settings)  */
+/* CONFIG FORM (wells / bank settings) */
 .config-section       { margin-bottom: 28px; }
 .config-section-title {
     font-size: 11px; font-weight: bold; color: var(--orange);
@@ -604,13 +604,13 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
 }
 .config-input:focus { outline: none; border-color: var(--orange); }
 
-/*  FILTERS / ACTION ROW  */
+/* FILTERS / ACTION ROW */
 .filters    { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
 .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .action-row .panel { flex: 1; min-width: 240px; margin-bottom: 0; }
 .self-end   { align-self: flex-end; }
 
-/*  LOANS SPECIFICS  */
+/* LOANS SPECIFICS */
 .loan-stat-box {
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -650,7 +650,7 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
     border: 1px solid var(--border);
 }
 
-/*  MISC  */
+/* MISC */
 .muted  { color: var(--muted2); }
 .muted2 { color: var(--muted); }
 .text-sm   { font-size: 11px; }
@@ -812,7 +812,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 .badge--green  { background: rgba(93,217,153,.12);  color: var(--green);  border: 1px solid rgba(93,217,153,.25); }
 .badge--red    { background: rgba(230,102,102,.12); color: var(--red);    border: 1px solid rgba(230,102,102,.25); }
 
-/*  FORMS  uzupenienie  */
+/* FORMS uzupenienie */
 
 input[type=text],
 input[type=number],
@@ -828,17 +828,17 @@ select {
     font-size: 13px;
 }
 
-/*  FILTERS  */
+/* FILTERS */
 
 
-/*  BANK SETTINGS  */
+/* BANK SETTINGS */
 .bank-settings-form       { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
 .bank-setting-box         { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 12px; min-width: 200px; }
 .bank-setting-label       { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
 .bank-setting-note        { font-size: 10px; color: var(--muted); margin-top: 4px; }
 .bank-setting-input       { width: 100%; font-size: 20px; font-weight: bold; background: var(--bg2); border: 1px solid var(--brd2); border-radius: 3px; padding: 4px 8px; }
 
-/*  RISK SCORE BREAKDOWN  */
+/* RISK SCORE BREAKDOWN */
 .risk-breakdown-details   { margin-top: 6px; }
 .risk-breakdown-summary   { cursor: pointer; font-size: 11px; color: var(--blue); user-select: none; }
 .risk-breakdown-summary:hover { text-decoration: underline; }
@@ -853,21 +853,21 @@ select {
 .risk-row-detail          { margin: 0 0 2px; color: var(--muted2); }
 .risk-row-desc            { margin: 0; color: var(--muted); font-style: italic; line-height: 1.4; }
 
-/*  PANEL  danger border  */
+/* PANEL danger border */
 .panel-danger             { border-left: 4px solid var(--red); }
 .panel-title-danger       { color: var(--red); }
 
-/*  DETAILS / SUMMARY (collapse)  */
+/* DETAILS / SUMMARY (collapse) */
 .details-btn              { cursor: pointer; list-style: none; }
 .details-body             { background: var(--bg2); padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid var(--border); }
 
-/*  ACTIONS FLEX (formularz wymu bankructwo itd.)  */
+/* ACTIONS FLEX (formularz wymu bankructwo itd.) */
 .action-col               { display: flex; flex-direction: column; gap: 4px; }
 
-/*  INPUT WIDTHS  */
+/* INPUT WIDTHS */
 .input-w-xs               { width: 80px; }
 
-/*  GLOBE PICKER MODAL (admin/map_locations)  */
+/* GLOBE PICKER MODAL (admin/map_locations) */
 .globe-picker-modal {
     display: none;
     position: fixed;
@@ -914,15 +914,15 @@ select {
     justify-content: flex-end;
 }
 
-/*  ADMIN ACTION FORMS (admin/player  flex layout formularzy)  */
+/* ADMIN ACTION FORMS (admin/player flex layout formularzy) */
 .admin-row--flex       { gap: 16px; flex-wrap: wrap; }
 .admin-action-form     { flex: 1; min-width: 220px; }
 .form-hint-meta        { font-size: .8em; }
 
-/*  FLEX UTILITIES  */
+/* FLEX UTILITIES */
 .flex-row-gap  { display: flex; align-items: center; gap: 6px; }
 
-/*  MISC  */
+/* MISC */
 .score-good   { color: var(--green); font-weight: bold; }
 .score-mid    { color: var(--orange); font-weight: bold; }
 .score-bad    { color: var(--red); font-weight: bold; }
@@ -954,7 +954,7 @@ select {
 /* 
    AUTH PAGES  login / forgot / reset
    (standalone, ciemne to, gold theme)
-    */
+ */
 
 /* Uywane tylko gdy body ma klas .auth-page */
 .auth-page {
@@ -1081,7 +1081,7 @@ select {
 
 /* 
    GM TOOLS
-    */
+ */
 .gm-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
@@ -1120,7 +1120,7 @@ select {
 }
 /* 
    BANKRUCTWO  sekcja GM w admin/player.php
-    */
+ */
 
 /* Dodatkowe badge */
 .badge-ok      { background: #1a3d1a; color: var(--green);  border: 1px solid #2a5a2a; }
@@ -1131,7 +1131,7 @@ select {
 .bk-section { margin-top: 24px; }
 .bk-section .section-heading { margin-bottom: 12px; }
 
-/* Grid dla listy zdarze bankruta  8 kolumn */
+/* Grid dla listy zdarze bankruta 8 kolumn */
 .bk-events-list .list-header,
 .bk-events-list .list-row {
     grid-template-columns:
@@ -1163,7 +1163,7 @@ select {
 
 /* Status "otwarte" */
 .bk-open { color: var(--red); }
-/*  Mapa wiata  lokalizacje  */
+/* Mapa wiata lokalizacje */
 .map-locs-grid .list-header,
 .map-locs-grid .list-row {
     grid-template-columns: 40px 1fr 120px 50px 45px 50px 50px 80px 160px;
@@ -1177,26 +1177,26 @@ select {
 
 /* 
    TRANSPORT / LOSS / PIPELINES / ALERTS / BALANCE / MARKET DEBUG
-    */
+ */
 
-/*  Karta  drobna nota pod value  */
+/* Karta drobna nota pod value */
 .card-note {
     font-size: 10px;
     color: var(--muted2);
     margin-top: 4px;
 }
 
-/*  Panel  staa szeroko w action-row  */
+/* Panel staa szeroko w action-row */
 .panel-no-flex { flex: none; }
 
-/*  Panel  opis/hint pod tytuem  */
+/* Panel opis/hint pod tytuem */
 .panel-hint {
     font-size: 11px;
     color: var(--muted2);
     margin-bottom: 10px;
 }
 
-/*  Panel  blok informacyjny (jak instructions)  */
+/* Panel blok informacyjny (jak instructions) */
 .panel-info {
     font-size: 12px;
     color: var(--muted2);
@@ -1206,7 +1206,7 @@ select {
 .panel-info p + p { margin-top: 8px; }
 .panel-info strong { color: var(--text); }
 
-/*  Panel  blok informacyjny dwukolumnowy  */
+/* Panel blok informacyjny dwukolumnowy */
 .panel-info-2col {
     font-size: 12px;
     color: var(--muted2);
@@ -1218,14 +1218,14 @@ select {
 .panel-info-2col p + p { margin-top: 8px; }
 .panel-info-2col strong { color: var(--text); }
 
-/*  Panel  footer/nota na dole  */
+/* Panel footer/nota na dole */
 .panel-footer-note {
     font-size: 11px;
     color: var(--muted2);
     margin-top: 10px;
 }
 
-/*  Detail grid  drobna nota w article  */
+/* Detail grid drobna nota w article */
 .detail-note {
     font-size: 10px;
     color: var(--muted2);
@@ -1233,7 +1233,7 @@ select {
     line-height: 1.6;
 }
 
-/*  Detail grid  nota 11px  */
+/* Detail grid nota 11px */
 .detail-note-sm {
     font-size: 11px;
     color: var(--muted2);
@@ -1241,14 +1241,14 @@ select {
     line-height: 1.7;
 }
 
-/*  Config row  prawa kolumna (warto readonly)  */
+/* Config row prawa kolumna (warto readonly) */
 .config-row-value {
     text-align: right;
     font-weight: bold;
     color: var(--orange);
 }
 
-/*  Input inline (edytowalne progi alertw)  */
+/* Input inline (edytowalne progi alertw) */
 .input-inline {
     background: var(--bg2);
     border: 1px solid var(--brd2);
@@ -1264,7 +1264,7 @@ select {
     border-color: var(--orange);
 }
 
-/*  Alert banner (sukces / bd w formularzach)  */
+/* Alert banner (sukces / bd w formularzach) */
 .alert-banner {
     padding: 8px 14px;
     border-radius: 4px;
@@ -1282,7 +1282,7 @@ select {
     color: #e07070;
 }
 
-/*  Config input group (slider + number)  */
+/* Config input group (slider + number) */
 .config-input-group {
     display: flex;
     gap: 6px;
@@ -1291,7 +1291,7 @@ select {
 .config-input-sm { width: 80px; }
 .config-range { width: 100px; accent-color: var(--orange); }
 
-/*  Form  label bez marginu (inline w form-row)  */
+/* Form label bez marginu (inline w form-row) */
 .form-label-inline {
     font-size: 12px;
     color: var(--muted2);
@@ -1299,20 +1299,20 @@ select {
     white-space: nowrap;
 }
 
-/*  Form  select szeroko  */
+/* Form select szeroko */
 .select-md { width: 160px; }
 .select-flex { flex: 1; }
 
-/*  Form inline (w tabeli danych)  */
+/* Form inline (w tabeli danych) */
 .form-inline { display: inline; }
 
-/*  Input  may (set loss w pipelines)  */
+/* Input may (set loss w pipelines) */
 .input-w-loss { width: 60px; font-size: 11px; padding: 3px 5px; }
 
-/*  Hint przy buttonie / spanie w form-row  */
+/* Hint przy buttonie / spanie w form-row */
 .form-hint { font-size: 11px; color: var(--muted2); }
 
-/*  Panel title  subtitle w tej samej linii  */
+/* Panel title subtitle w tej samej linii */
 .panel-title-sub {
     font-weight: normal;
     font-size: 10px;
@@ -1320,7 +1320,7 @@ select {
     margin-left: 8px;
 }
 
-/*  Pasek kondycji (progress bar)  */
+/* Pasek kondycji (progress bar) */
 .progress-wrap {
     background: #333;
     border-radius: 2px;
@@ -1335,7 +1335,7 @@ select {
 .progress-bar--orange { background: var(--orange); }
 .progress-bar--red    { background: var(--red); }
 
-/*  Lista alertw  */
+/* Lista alertw */
 .alert-list { display: flex; flex-direction: column; gap: 10px; }
 
 .alert-item {
@@ -1374,7 +1374,7 @@ select {
 .alert-msg { font-size: 12px; color: var(--muted2); }
 .alert-action { flex-shrink: 0; }
 
-/*  Empty state due (alerts)  */
+/* Empty state due (alerts) */
 .empty-state-lg {
     padding: 32px;
     text-align: center;
@@ -1386,7 +1386,7 @@ select {
 }
 .empty-state-lg .empty-state-emoji { font-size: 22px; margin-bottom: 8px; }
 
-/*  Wykres cen (sparkline)  */
+/* Wykres cen (sparkline) */
 .price-bar-wrap {
     display: flex;
     gap: 4px;
@@ -1402,46 +1402,46 @@ select {
 .price-bar--up   { background: var(--green); }
 .price-bar--down { background: var(--red); }
 
-/*  Gridy list-header per widok (nowe strony)  */
+/* Gridy list-header per widok (nowe strony) */
 
-/* transport_loss  warstwa  typ (5 kolumn) */
+/* transport_loss warstwa typ (5 kolumn) */
 .layer-grid .list-header,
 .layer-grid .list-row {
     grid-template-columns: 100px 100px 70px 90px 100px;
 }
 
-/* transport_loss  per gracz (7 kolumn) */
+/* transport_loss per gracz (7 kolumn) */
 .player-loss-grid .list-header,
 .player-loss-grid .list-row {
     grid-template-columns: 1fr 70px 80px 80px 90px 120px 100px;
 }
 
-/* transport_loss  top wells (8 kolumn) */
+/* transport_loss top wells (8 kolumn) */
 .well-loss-grid .list-header,
 .well-loss-grid .list-row {
     grid-template-columns: 40px 1fr 80px 80px 80px 80px 80px 100px;
 }
 
-/* pipelines  lista rurocigw (8 kolumn) */
+/* pipelines lista rurocigw (8 kolumn) */
 .pipelines-grid .list-header,
 .pipelines-grid .list-row {
     grid-template-columns: 40px 1fr 90px 80px 90px 90px 90px 200px;
 }
 
-/* pipelines  historia awarii (3 kolumny) */
+/* pipelines historia awarii (3 kolumny) */
 .pipeline-history-grid .list-header,
 .pipeline-history-grid .list-row {
     grid-template-columns: 120px 1fr 140px;
 }
 
-/* well_sales  lista sprzeday (12 kolumn) */
+/* well_sales lista sprzeday (12 kolumn) */
 .well-sales-grid .list-header,
 .well-sales-grid .list-row {
     grid-template-columns: 44px 1fr 60px 110px 80px 70px 70px 70px 70px 70px 110px 160px;
     align-items: center;
 }
 
-/* well_sales  analiza graczy (5 kolumn) */
+/* well_sales analiza graczy (5 kolumn) */
 .player-sales-grid .list-header,
 .player-sales-grid .list-row {
     grid-template-columns: 1fr 110px 120px 120px 80px;
@@ -1483,29 +1483,29 @@ select {
 }
 .page-link.active { background: var(--gold); color: #000; }
 
-/* market_debug  ekonomia per gracz (7 kolumn) */
+/* market_debug ekonomia per gracz (7 kolumn) */
 .player-economy-grid .list-header,
 .player-economy-grid .list-row {
     grid-template-columns: 1fr 80px 80px 90px 80px 90px 80px;
 }
 
-/* market_debug  supply/demand history (5 kolumn) */
+/* market_debug supply/demand history (5 kolumn) */
 .supply-demand-grid .list-header,
 .supply-demand-grid .list-row {
     grid-template-columns: 130px 90px 90px 60px 80px;
 }
 
-/*  Wiersz gracza / odwiertu  zagniedone diva  */
+/* Wiersz gracza / odwiertu zagniedone diva */
 .row-name-primary   { font-weight: bold; font-size: 12px; }
 .row-name-secondary { font-size: 10px; color: var(--muted2); }
 .row-name-note      { font-size: 10px; color: var(--muted2); margin-top: 1px; }
 
-/*  Balance  zielony/czerwony kolor wartoci mnonika  */
+/* Balance zielony/czerwony kolor wartoci mnonika */
 .mult-nerf   { color: var(--green); }
 .mult-buff   { color: var(--red); }
 .mult-normal { color: var(--text); }
 
-/*  Pre block (SQL snippet)  */
+/* Pre block (SQL snippet) */
 .pre-sql {
     font-size: 11px;
     color: var(--muted2);
@@ -1515,11 +1515,11 @@ select {
 
 /* 
    DZIA FINANSOWY  style admina (/admin/finance)  dodano 08.04.2026
-    */
+ */
 
 /* 
    DZIA FINANSOWY  style admina (admin/finance.php)
-    */
+ */
 
 .fin-admin-alerts {
     display: flex;
@@ -1619,7 +1619,7 @@ select {
 }
 .fin-player-row:hover { background: rgba(255,255,255,.02); }
 
-/* admin  karty global stats */
+/* admin karty global stats */
 .fin-global-stat {
     display: flex;
     flex-direction: column;
@@ -1631,13 +1631,13 @@ select {
 }
 .fin-stat-neutral { color: var(--text2); }
 
-/*  Admin finance  etap 4: polityki graczy  */
+/* Admin finance etap 4: polityki graczy */
 .fin-policy-header,
 .fin-policy-row {
     grid-template-columns: 2fr 140px 70px 120px 90px !important;
 }
 
-/* Budety  chipy T/L/HR/BHP */
+/* Budety chipy T/L/HR/BHP */
 .fin-budget-row {
     display: flex;
     gap: 3px;
@@ -1656,7 +1656,7 @@ select {
 .fin-budget-chip.fin-budget-low  { background: rgba(224,85,85,.25); color: #e08080; }
 .fin-budget-chip.fin-budget-high { background: rgba(80,200,120,.20); color: #80c8a0; }
 
-/* Tryb oszczdnoci  badge w tabeli admina */
+/* Tryb oszczdnoci badge w tabeli admina */
 .fin-mode-badge {
     display: inline-block;
     padding: 2px 8px;
@@ -1675,7 +1675,7 @@ select {
     font-weight: 600;
 }
 
-/*  Admin finance  historia decyzji graczy  */
+/* Admin finance historia decyzji graczy */
 .fin-history-filter {
     display: flex;
     align-items: center;
@@ -1687,19 +1687,19 @@ select {
     grid-template-columns: 80px 1.6fr 1.4fr 100px 100px 70px !important;
 }
 
-/*  Admin finance  monitoring hubw  */
+/* Admin finance monitoring hubw */
 .fin-hub-monitor-header {
     grid-template-columns: 2.2fr 1.2fr 70px 80px 80px 90px 80px !important;
 }
 
-/*  Admin finance  etap 4: monitoring rezerwy  */
+/* Admin finance etap 4: monitoring rezerwy */
 .fin-yellow { color: var(--yellow); }
 
 .fin-reserve-header {
     grid-template-columns: 2fr 110px 110px 80px 120px !important;
 }
 
-/*  Admin finance  etap 4: tabela efektw D2 (edytowalna)  */
+/* Admin finance etap 4: tabela efektw D2 (edytowalna) */
 .fin-effects-row {
     display: grid;
     grid-template-columns: 100px 1fr 70px 130px 130px;
@@ -1761,7 +1761,7 @@ select {
 .fin-effects-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .fin-effects-table th, .fin-effects-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: left; }
 
-/*  Admin finance  etap 4: narzdzia GM  */
+/* Admin finance etap 4: narzdzia GM */
 .fin-gm-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1797,7 +1797,7 @@ select {
 
 /* 
    CRISIS SYSTEM  admin/financial-crisis.php  dodano 08.04.2026
-    */
+ */
 
 .crisis-admin-stats {
     display: grid;
@@ -1891,7 +1891,7 @@ select {
     color: var(--muted2); letter-spacing: .06em;
     border-bottom: 1px solid var(--border);
 }
-/* admin/chat  layout helpers */
+/* admin/chat layout helpers */
 .admin-row           { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .admin-row > .panel  { flex: 1; min-width: 280px; }
 .admin-stats-row     { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -1939,7 +1939,7 @@ select {
 .modal-box               { background: #222; border: 1px solid #444; border-radius: 6px; padding: 24px; width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
 .modal-title             { margin-bottom: 16px; }
 .modal-actions           { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-/*  admin/player detail  */
+/* admin/player detail */
 .pd-header            { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
 .pd-title             { font-size: 18px; font-weight: 700; color: var(--orange, #e8a020); margin: 0; }
 
@@ -1977,7 +1977,7 @@ select {
 .cv-good              { color: #4caf50; font-weight: 600; }
 .cv-bad               { color: #e57373; font-weight: 600; }
 
-/*  Zakadki oglne (tabs)  */
+/* Zakadki oglne (tabs) */
 .tabs          { display: flex; gap: 0; border-bottom: 2px solid var(--border, #333);
                  margin-bottom: 16px; flex-wrap: wrap; }
 .tab           { padding: 8px 18px; font-size: 13px; color: var(--muted2, #888);
@@ -1987,11 +1987,11 @@ select {
 .tab-active    { color: var(--orange, #e8a020); border-bottom-color: var(--orange, #e8a020);
                  font-weight: 600; }
 
-/*  Pasek narzdzi logw  */
+/* Pasek narzdzi logw */
 .logs-toolbar  { display: flex; align-items: center; justify-content: space-between;
                  flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 
-/*  Game log  */
+/* Game log */
 .game-log-list { display: flex; flex-direction: column; gap: 2px; font-family: monospace;
                  font-size: 11px; }
 .log-line      { padding: 3px 8px; border-radius: 3px; color: var(--muted, #aaa);
@@ -2001,7 +2001,7 @@ select {
 .log-line--db    { color: #64b5f6; background: #0d1a26; }
 .log-line--perf  { color: #81c784; background: #0d1a10; }
 
-/*  Section card (generic admin section wrapper)  */
+/* Section card (generic admin section wrapper) */
 .admin-page-header   { margin-bottom: 20px; }
 .admin-page-title    { font-size: 20px; font-weight: 700; color: var(--orange, #e8a020); margin: 0; }
 .section-card        { background: var(--bg2, #1e1e2e); border: 1px solid var(--border, #333);
@@ -2009,7 +2009,7 @@ select {
 .section-title       { font-size: 15px; font-weight: 700; color: var(--text, #e8e8f0); margin: 0 0 14px; }
 .empty-state         { text-align: center; padding: 32px; color: var(--muted2, #666); font-size: 13px; }
 
-/*  Tick Log  */
+/* Tick Log */
 .tick-log-grid .list-header,
 .tick-log-grid .list-row {
     grid-template-columns: 40px 140px 70px 90px 80px 130px 65px 80px 110px 60px 55px 1fr 36px;
@@ -2018,7 +2018,7 @@ select {
 }
 .table-scroll-wrap { overflow-x: auto; }
 
-/*  Stats grid  */
+/* Stats grid */
 .stats-grid         { display: grid; gap: 10px; }
 .stats-grid--3      { grid-template-columns: repeat(3, 1fr); }
 .stats-grid--6      { grid-template-columns: repeat(6, 1fr); }
@@ -2030,13 +2030,13 @@ select {
 .stat-value.red     { color: var(--red); }
 .stat-value.green   { color: var(--green); }
 
-/*  Section toolbar  */
+/* Section toolbar */
 .section-toolbar    { display: flex; align-items: center; justify-content: space-between;
                       flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .toolbar-actions    { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .inline-form        { display: flex; gap: 6px; align-items: center; }
 
-/*  Badges  */
+/* Badges */
 .badge              { display: inline-block; padding: 1px 6px; border-radius: 3px;
                       font-size: 11px; font-weight: 600; }
 .badge--blue        { background: #1a2f4a; color: var(--blue); }
@@ -2044,20 +2044,20 @@ select {
 .badge--green       { background: #0d2a1a; color: var(--green); }
 .badge--neutral     { background: #2a2a2a; color: var(--muted2); }
 
-/*  Row states  */
+/* Row states */
 .row--warn          { background: #1e1800; }
 
-/*  Pagination  */
+/* Pagination */
 .pagination         { display: flex; gap: 10px; align-items: center;
                       margin-top: 14px; flex-wrap: wrap; }
 .pagination-info    { font-size: 12px; color: var(--muted2); }
 
-/*  Form extras  */
+/* Form extras */
 .form-select--sm    { font-size: 12px; padding: 4px 8px; }
 .form-input--narrow { width: 70px; }
 .btn-xs             { padding: 2px 7px; font-size: 11px; }
 
-/*  Panel HR  */
+/* Panel HR */
 .hr-tabs            { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
 .hr-tab             { padding: 7px 16px; border-radius: 6px; font-size: 13px; color: var(--text-muted); text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); transition: background .15s; }
 .hr-tab:hover       { background: var(--bg-hover); color: var(--text); }
@@ -2115,7 +2115,7 @@ select {
 
 /* 
    BOARDROOM ADMIN
-    */
+ */
 
 .br-admin-main       { padding: 24px; }
 .br-admin-title      { margin: 0 0 24px; font-size: 22px; color: var(--text, #e8e8f0); }
@@ -2201,7 +2201,7 @@ select {
 
 /* 
    INCIDENTS ADMIN PANEL (admin/incidents.php)
-    */
+ */
 .inc-cfg-block       { border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; }
 .inc-cfg-head        { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--gold, #c8a84b); }
 .inc-cfg-grid        { display: flex; flex-direction: column; gap: 8px; }
@@ -2219,7 +2219,7 @@ select {
     min-width: 860px;
 }
 
-/* Incident history list  horizontal grid */
+/* Incident history list horizontal grid */
 .inc-history-list .list-header,
 .inc-history-list .list-row {
     grid-template-columns: 44px 80px 110px 140px 80px 70px 100px 90px 110px 36px;
@@ -2255,7 +2255,7 @@ select {
     .inc-help-card--wide { grid-column: span 1; }
 }
 
-/* Trigger tab  danger style */
+/* Trigger tab danger style */
 .admin-tab--danger        { color: #e05555; }
 .admin-tab--danger:hover  { color: #ff7070; border-bottom-color: #e05555; }
 .admin-tab--danger.active { color: #ff7070; border-bottom-color: #e05555; }
@@ -2291,7 +2291,7 @@ select {
 
 /* 
    MARKET TRENDS  CRUD + PAGINATION (admin/market.php)
-    */
+ */
 .trends-grid-full .list-header,
 .trends-grid-full .list-row {
     grid-template-columns: 44px 1fr 100px 110px 70px 90px 120px 140px;
@@ -2308,7 +2308,7 @@ select {
 .form-label          { font-size: 12px; color: rgba(255,255,255,.55); }
 .trend-actions       { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
 
-/* Trend form  horizontal inline row */
+/* Trend form horizontal inline row */
 .trend-form-inline        { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .trend-form-field         { display: flex; flex-direction: column; gap: 4px; }
 .trend-form-field--tpl    { flex: 1 1 200px; }
@@ -2333,7 +2333,7 @@ select {
     .trend-input-cat,
     .trend-input-tpl      { width: 100%; }
 }
-/*  chat history list (admin/chat)  */
+/* chat history list (admin/chat) */
 .chat-list { display: grid; margin-top: .75rem; }
 .chat-list-head,
 .chat-list-row     { display: grid; grid-template-columns: 3rem 9rem 10rem 1fr 6rem; gap: .5rem; padding: .45rem .5rem; align-items: start; }
@@ -2344,28 +2344,28 @@ select {
 .chat-msg-text     { word-break: break-word; }
 .chat-row-actions  { display: flex; gap: .3rem; flex-wrap: wrap; }
 
-/*  admin/chat  mobile  */
+/* admin/chat mobile */
 @media (max-width: 700px) {
-    /* tabela historii: ukryj kolumny ID i czas, zostaw nick/tre/akcje */
+ /* tabela historii: ukryj kolumny ID i czas, zostaw nick/tre/akcje */
     .chat-list-head,
     .chat-list-row {
         grid-template-columns: 8rem 1fr auto;
     }
-    /* ukryj kolumny: ID (1), czas (2)  zostaj: nick (3), tre (4), akcje (5) */
+ /* ukryj kolumny: ID (1), czas (2) zostaj: nick (3), tre (4), akcje (5) */
     .chat-list-head > span:nth-child(1),
     .chat-list-head > span:nth-child(2),
     .chat-list-row  > span:nth-child(1),
     .chat-list-row  > span:nth-child(2) { display: none; }
 
-    /* formularz bana  stack pionowo */
+ /* formularz bana stack pionowo */
     .form-row > select,
     .form-row > input[type="text"] { width: 100%; }
 
-    /* filter form  full width input */
+ /* filter form full width input */
     .filter-form input { width: 100%; flex: 1; }
 }
 
-/*  Avatar inicjaowy w historii czatu  */
+/* Avatar inicjaowy w historii czatu */
 .chat-history-player {
     display: flex;
     align-items: center;
@@ -2386,11 +2386,11 @@ select {
     flex-shrink: 0;
 }
 
-/*  panel divider  */
+/* panel divider */
 .panel-divider { border: none; border-top: 1px solid rgba(255,255,255,.07); margin: 12px 0; }
 .mb-4 { margin-bottom: 4px; }
 
-/*  toggle switch  */
+/* toggle switch */
 .toggle-switch          { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
 .toggle-switch input    { opacity: 0; width: 0; height: 0; }
 .toggle-slider          { position: absolute; inset: 0; background: rgba(255,255,255,.12);
@@ -2401,7 +2401,7 @@ select {
 .toggle-switch input:checked + .toggle-slider              { background: var(--green, #5d9); }
 .toggle-switch input:checked + .toggle-slider::before      { transform: translateX(18px); }
 
-/*  radio pill  */
+/* radio pill */
 .radio-pill             { display: inline-flex; align-items: center; padding: 4px 12px;
                           border: 1px solid rgba(255,255,255,.15); border-radius: 20px;
                           font-size: .78rem; cursor: pointer; transition: all .15s;
@@ -2411,7 +2411,7 @@ select {
 .radio-pill--active     { background: rgba(200,168,75,.15); border-color: rgba(200,168,75,.5);
                           color: var(--orange); font-weight: 600; }
 
-/*  modal potwierdzenia czyszczenia czatu  */
+/* modal potwierdzenia czyszczenia czatu */
 .ac-modal-overlay       { position: fixed; inset: 0; background: rgba(0,0,0,.65);
                           display: flex; align-items: center; justify-content: center; z-index: 900; }
 .ac-modal               { background: var(--bg2); border: 1px solid rgba(255,255,255,.12);
@@ -2425,7 +2425,7 @@ select {
 .ac-modal-body strong   { color: #e66; }
 .ac-modal-footer        { display: flex; justify-content: flex-end; gap: 10px; }
 
-/*  blocked words list (admin/chat)  */
+/* blocked words list (admin/chat) */
 .words-list            { display: grid; }
 .words-list-head,
 .words-list-row        { display: grid; grid-template-columns: 12rem 6rem 7rem 8rem 10rem; gap: .5rem; padding: .4rem .5rem; align-items: center; }
@@ -2435,7 +2435,7 @@ select {
 .word-text             { font-family: monospace; font-size: .9rem; }
 .words-row-actions     { display: flex; gap: .3rem; }
 
-/*  blocked words  tag cloud (admin/chat)  */
+/* blocked words tag cloud (admin/chat) */
 .panel-collapsible > summary        { cursor: pointer; list-style: none; }
 .panel-collapsible > summary::marker,
 .panel-collapsible > summary::-webkit-details-marker { display: none; }
@@ -2465,7 +2465,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .word-tag__btn--enable:hover        { background: rgba(0,200,100,.15); }
 .word-tag__btn--del:hover           { background: rgba(220,50,50,.25); color: #ff6b6b; }
 
-/*  Black Market admin  tabs view  */
+/* Black Market admin tabs view */
 .stats-grid--5      { grid-template-columns: repeat(5, 1fr); }
 
 .bm-cfg-section          { margin-bottom: 1.5rem; }
@@ -2493,7 +2493,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .bm-help-list li         { margin-bottom: .3rem; }
 .bm-help-list strong     { color: var(--text); }
 
-/*  Admin Wells  lista odwiertw  */
+/* Admin Wells lista odwiertw */
 .wells-list-header,
 .wells-list-row          { display: grid;
                             grid-template-columns: 2.5rem 1fr 6rem 3.5rem 5rem 6rem 7rem 1fr 2rem;
@@ -2526,7 +2526,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .cv-warn                 { color: var(--yellow); }
 .cv-bad                  { color: var(--red); }
 
-/*  Separatory grup w zakadce Parametry  */
+/* Separatory grup w zakadce Parametry */
 .config-group-separator      { display: flex; align-items: center; gap: .8rem;
                                 margin: 2rem 0 1rem;
                                 font-size: .8rem; font-weight: 700; text-transform: uppercase;
@@ -2540,7 +2540,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .config-save-bar             { margin-top: 1.5rem; padding-top: 1rem;
                                 border-top: 1px solid var(--border); }
 
-/*  Zakadka Pomoc  */
+/* Zakadka Pomoc */
 .help-page-title         { font-size: 1.15rem; font-weight: 700; color: var(--orange);
                             margin-bottom: .5rem; }
 .help-page-intro         { font-size: .88rem; color: var(--muted2); margin-bottom: 1.4rem;
@@ -2579,7 +2579,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 /* 
    PLAYER CLEAN  player_clean.php  dodatkowe klasy
-    */
+ */
 
 /* Nagwek sekcji z tytuem + przyciskiem obok */
 .panel-title-row {
@@ -2597,7 +2597,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     border-bottom: none;
 }
 
-/* dl  lista szczegw gracza */
+/* dl lista szczegw gracza */
 .detail-list {
     display: grid;
     grid-template-columns: 160px 1fr;
@@ -2640,25 +2640,25 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     margin-bottom: 12px;
 }
 
-/* Trust log  4 kolumny: data / zdarzenie / zmiana / nota */
+/* Trust log 4 kolumny: data / zdarzenie / zmiana / nota */
 .list-header--trust,
 .list-row--trust    { display: grid;
                       grid-template-columns: 155px 1fr 70px 1fr;
                       gap: 8px; align-items: center; }
 
-/* Negocjacje  4 kolumny: id / typ / status / data */
+/* Negocjacje 4 kolumny: id / typ / status / data */
 .list-header--neg,
 .list-row--neg      { display: grid;
                       grid-template-columns: 50px 1fr 130px 155px;
                       gap: 8px; align-items: center; }
 
-/* Komornik  5 kolumn: id / etap / dug / status / nastpna */
+/* Komornik 5 kolumn: id / etap / dug / status / nastpna */
 .list-header--bailiff,
 .list-row--bailiff  { display: grid;
                       grid-template-columns: 50px 90px 130px 120px 155px;
                       gap: 8px; align-items: center; }
 
-/* Bankructwo  4 kolumny: data / zdarzenie / waga / nota */
+/* Bankructwo 4 kolumny: data / zdarzenie / waga / nota */
 .list-header--bk,
 .list-row--bk       { display: grid;
                       grid-template-columns: 155px 1fr 100px 1fr;
@@ -2667,7 +2667,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 /* Kolor wartoci gotwki w stat-card */
 .pd-stat-value.orange { color: var(--orange); }
 
-/*  NEWSLETTER  */
+/* NEWSLETTER */
 .nl-stats {
     display: flex;
     flex-wrap: wrap;
@@ -2736,7 +2736,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .badge-orange { background: rgba(246,173,85,.12);  border: 1px solid rgba(246,173,85,.25);  color: #f6ad55; }
 .badge-blue   { background: rgba(66,153,225,.12);  border: 1px solid rgba(66,153,225,.25);  color: #4299e1; }
 
-/*  Logistics hubs admin  */
+/* Logistics hubs admin */
 .hub-admin-grid       { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 8px 0 16px; }
 .hub-admin-card       { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 12px 14px; }
 .hub-admin-card h4    { margin: 0 0 8px; font-size: .88rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -2785,7 +2785,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 }
 .hub-param-card select option { background: #222; color: #e2e8f0; }
 
-/* Nagwek szczegw huba  zoty */
+/* Nagwek szczegw huba zoty */
 .hub-detail-box h4    { margin: 0 0 14px; font-size: 1rem; color: #f6ad55; font-weight: 700; }
 .hub-detail-dl dt     { color: #a0aec0; }
 .hub-detail-dl dd     { color: #e2e8f0; font-weight: 600; }
@@ -2797,7 +2797,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .admin-details > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
 .admin-details-form   { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 16px; margin-top: 8px; }
 
-/*  Hub config sections  */
+/* Hub config sections */
 .cfg-section      { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
 .cfg-section h4   { margin: 0 0 12px; font-size: .92rem; color: #a0aec0; text-transform: uppercase; letter-spacing: .05em; }
 .cfg-group        { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
@@ -2815,21 +2815,21 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .admin-input--cond       { width: 60px; font-size: .78rem; }
 .admin-input--name       { width: 200px; font-size: .78rem; }
 
-/*  Lista hubw  nagwek + paginacja  */
+/* Lista hubw nagwek + paginacja */
 .hub-list-header         { display: flex; align-items: baseline; gap: 16px; margin-bottom: 4px; }
 .hub-list-header h3      { margin: 0; }
 .hub-pagination-info     { font-size: .8rem; color: #a0aec0; }
 
-/*  Sekcja regionu  */
+/* Sekcja regionu */
 .hub-region-section      { margin-bottom: 24px; }
 .hub-region-header       { font-size: .82rem; font-weight: 700; color: #f6ad55; text-transform: uppercase;
                            letter-spacing: .06em; padding: 6px 0 4px; border-bottom: 1px solid #383838;
                            margin-bottom: 10px; }
 
-/*  Karta huba  ID  */
+/* Karta huba ID */
 .hub-card-id             { color: #4299e1; font-size: .78rem; font-weight: 400; margin-right: 2px; }
 
-/*  Paginacja  */
+/* Paginacja */
 .hub-pagination          { display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
                            margin: 16px 0; padding-top: 12px; border-top: 1px solid #383838;
                            max-width: 100%; }
@@ -2838,7 +2838,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .hub-pagination-dots          { color: #a0aec0; font-size: .82rem; padding: 0 2px; align-self: center; }
 .hub-pagination-info          { margin-left: 8px; font-size: .78rem; color: #a0aec0; align-self: center; }
 
-/*  Modal confirm  */
+/* Modal confirm */
 .hub-admin-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
                            z-index: 9000; align-items: center; justify-content: center; }
 .hub-admin-modal-box     { background: #222; border: 1px solid #383838; border-radius: 10px;
@@ -2847,10 +2847,10 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .hub-admin-modal-text    { font-size: .9rem; color: #e2e8f0; margin-bottom: 20px; line-height: 1.5; }
 .hub-admin-modal-btns    { display: flex; gap: 10px; justify-content: center; }
 
-/*  Ukryte formularze POST (modal confirm)  */
+/* Ukryte formularze POST (modal confirm) */
 .hub-hidden-form         { display: none; }
 
-/*  Weryfikacja ticku (hub verification panel)  */
+/* Weryfikacja ticku (hub verification panel) */
 .admin-details--verify   { border: 1px solid #4a5568; border-radius: 8px; padding: 12px 16px; background: #252525; }
 .admin-details--verify[open] { background: #2a2a2a; }
 .verify-grid           { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
@@ -2861,7 +2861,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .verify-sub            { font-size: .78rem; color: #718096; margin-top: 4px; }
 .verify-alert          { margin-top: 14px; padding: 10px 14px; background: rgba(221,107,32,.12); border: 1px solid #dd6b20; border-radius: 6px; color: #fbd38d; font-size: .85rem; }
 
-/* Finance admin  impact overview */
+/* Finance admin impact overview */
 .fin-impact-summary-grid {
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }

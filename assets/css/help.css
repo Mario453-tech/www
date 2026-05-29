@@ -1,7 +1,7 @@
 /* 
-   HELP — Instrukcja obs³ugi gry
+   HELP ï¿½ Instrukcja obsï¿½ugi gry
    Dark theme, mobile-first
-    */
+ */
 
 .help-wrap          { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
 .help-hero          { text-align: center; padding: 32px 16px 24px; }
@@ -76,25 +76,25 @@
 .badge-red          { background: rgba(224,85,85,.15); color: #e05555; border: 1px solid rgba(224,85,85,.3); }
 .badge-blue         { background: rgba(100,160,255,.12); color: #7ab4ff; border: 1px solid rgba(100,160,255,.25); }
 
-/*  RESPONSIVE  */
+/* RESPONSIVE */
 @media (max-width: 600px) {
     .help-wrap      { padding: 16px 12px 40px; }
     .help-hero      { padding: 20px 8px 16px; }
     .help-hero h1   { font-size: 1.45rem; }
 
-    /* TOC — jedna kolumna zamiast wrap */
+ /* TOC jedna kolumna zamiast wrap */
     .help-toc ul    { flex-direction: column; gap: 6px; }
 
-    /* karty — jedna kolumna */
+ /* karty jedna kolumna */
     .help-cards     { grid-template-columns: 1fr; }
 
-    /* tabela — scroll poziomy */
+ /* tabela scroll poziomy */
     .help-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .help-table,
     .help-content table { min-width: 480px; }
     .help-content .help-table-wrap { overflow-x: auto; }
 
-    /* kroki — mniejszy padding */
+ /* kroki mniejszy padding */
     .help-steps li  { padding: 10px 12px; gap: 8px; }
 }
 

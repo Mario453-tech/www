@@ -33,13 +33,13 @@ $firstPos  = strpos($content, $dupStart);
 $secondPos = strpos($content, $dupStart, $firstPos + 10);
 
 if ($secondPos !== false) {
-    // Znajdz koniec drugiego bloku (po ostatnim kluczu news.time_days_ago)
+ // Znajdz koniec drugiego bloku (po ostatnim kluczu news.time_days_ago)
     $endPos = strpos($content, $dupEnd, $secondPos);
     if ($endPos !== false) {
-        // Znajdz koniec tej linii
+ // Znajdz koniec tej linii
         $lineEnd = strpos($content, "\n", $endPos);
         if ($lineEnd === false) $lineEnd = strlen($content);
-        // Usun od poczatku duplikatu do konca linii (wlacznie z newline)
+ // Usun od poczatku duplikatu do konca linii (wlacznie z newline)
         $content = substr($content, 0, $secondPos) . substr($content, $lineEnd + 1);
         echo "[OK] Usunieto zduplikowany blok (bank/black_market/auth/news).\n";
     }
@@ -48,20 +48,20 @@ if ($secondPos !== false) {
 }
 
 // ── 2. Poprawki wartosci (stary tekst => nowy tekst) ─────────────────────────
-// Format: [$stary, $nowy]  — podmieniamy tylko w wartosciach stringow
+// Format: [$stary, $nowy] - podmieniamy tylko w wartosciach stringow
 
 $fixes = [
 
-    // === dm ===
+ // === dm ===
     ["'Nie udao si usun zacznika.'",  "'Nie udało się usunąć załącznika.'"],
 
-    // === admin.logistics subtitle / stats ===
+ // === admin.logistics subtitle / stats ===
     ["'Huby s infrastruktur systemow (player_id = 0). Gracz przypisuje odwierty  nie buduje hubw.'",
      "'Huby są infrastrukturą systemową (player_id = 0). Gracz przypisuje odwierty — nie buduje hubów.'"],
     ["=> 'Wszystkich hubw'",          "=> 'Wszystkich hubów'"],
     ["=> 'Pozostaych'",               "=> 'Pozostałych'"],
 
-    // === verify ===
+ // === verify ===
     ["'Weryfikacja ticku hubw'",       "'Weryfikacja ticku hubów'"],
     ["'Przypisane do hubw'",           "'Przypisane do hubów'"],
     ["=> 'aktywnych przypisa'",        "=> 'aktywnych przypisań'"],
@@ -69,7 +69,7 @@ $fixes = [
     ["':count odwiertw bez huba  wyszy OPEX i straty przez fallback!'",
      "':count odwiertów bez huba — wyższy OPEX i straty przez fallback!'"],
 
-    // === seed ===
+ // === seed ===
     ["'Masowy seed hubw dla regionu'", "'Masowy seed hubów dla regionu'"],
     ["'Tworzy N hubw kadego typu (mae + rednie + due) dla wybranego regionu. Docelowo: 20  3 = 60 hubw/region.'",
      "'Tworzy N hubów każdego typu (małe + średnie + duże) dla wybranego regionu. Docelowo: 20 x 3 = 60 hubów/region.'"],
@@ -79,61 +79,61 @@ $fixes = [
      "'Seed regionu #:id: utworzono :count hubów, błędy: :errors.'"],
     ["'Podaj prawidowe region_id.'",   "'Podaj prawidłowe region_id.'"],
 
-    // === create ===
+ // === create ===
     ["'Utwrz pojedynczy hub'",         "'Utwórz pojedynczy hub'"],
     ["'np. Hub May Wrocaw A1'",        "'np. Hub Mały Wrocław A1'"],
     ["=> 'Utwrz'",                     "=> 'Utwórz'"],
-    // create_err (dwa wystapienia tego samego klucza - oba naprawiamy)
+ // create_err (dwa wystapienia tego samego klucza - oba naprawiamy)
     ["'Bd tworzenia huba: :error'",    "'Błąd tworzenia huba: :error'"],
 
-    // === list ===
+ // === list ===
     ["'Lista hubw'",                   "'Lista hubów'"],
     ["'Brak hubw speniajcych kryteria. Uyj seeda aby utworzy huby.'",
      "'Brak hubów spełniających kryteria. Użyj seeda aby utworzyć huby.'"],
 
-    // === hub fields ===
+ // === hub fields ===
     ["=> 'Zuycie'",                    "=> 'Zużycie'"],
     ["'Ostatni tick  obcienie'",        "'Ostatni tick — obciążenie'"],
     ["'Ostatni tick  straty'",          "'Ostatni tick — straty'"],
 
-    // === hub types ===
+ // === hub types ===
     ["=> 'May (lokalny)'",             "=> 'Mały (lokalny)'"],
     ["=> 'redni (regionalny)'",        "=> 'Średni (regionalny)'"],
     ["=> 'Duy (kontynentalny)'",       "=> 'Duży (kontynentalny)'"],
 
-    // === hub statuses ===
+ // === hub statuses ===
     ["=> 'Wyczony'",                   "=> 'Wyłączony'"],
     ["=> 'Przeciony'",                 "=> 'Przeciążony'"],
 
-    // === hub modes ===
+ // === hub modes ===
     ["'Eco  mniejsze straty, wolniej'", "'Eco — mniejsze straty, wolniej'"],
     ["'Standard  normalny ruch'",       "'Standard — normalny ruch'"],
     ["'Turbo  szybko, ale zuywa hub'",  "'Turbo — szybko, ale zużywa hub'"],
 
-    // === filter cond ===
+ // === filter cond ===
     ["'Obniona (5069%)'",              "'Obniżona (50–69%)'"],
     ["'Za (3049%)'",                   "'Zła (30–49%)'"],
 
-    // === pagination ===
+ // === pagination ===
     ["=> 'Nastpna '",                  "=> 'Następna »'"],
 
-    // === detail ===
+ // === detail ===
     ["'Szczegy: :name (ID#:id)'",      "'Szczegóły: :name (ID#:id)'"],
     ["'Brak przypisanych odwiertw.'",  "'Brak przypisanych odwiertów.'"],
     ["' Zamknij podgld'",              "'« Zamknij podgląd'"],
 
-    // === buttons ===
+ // === buttons ===
     ["=> 'Podgld'",                    "=> 'Podgląd'"],
     ["=> 'Wznw'",                      "=> 'Wznów'"],
     ["'Zmie nazw'",                    "'Zmień nazwę'"],
 
-    // === ok messages ===
+ // === ok messages ===
     ["'Status huba #:id  :status.'",   "'Status huba #:id: :status.'"],
     ["'Tryb huba #:id  :mode.'",        "'Tryb huba #:id: :mode.'"],
     ["=> 'Bd operacji.'",              "=> 'Błąd operacji.'"],
     ["'Bd CSRF  odwie stron.'",        "'Błąd CSRF — odśwież stronę.'"],
 
-    // === cfg ===
+ // === cfg ===
     ["' Konfiguracja systemu hubw'",   "'Konfiguracja systemu hubów'"],
     ["'Wartoci s zapisywane w logistics_hub_config i od razu aktywne w nastpnym ticku. Nie wymagaj zmian w kodzie.'",
      "'Wartości są zapisywane w logistics_hub_config i od razu aktywne w następnym ticku. Nie wymagają zmian w kodzie.'"],
@@ -161,7 +161,7 @@ $fixes = [
     ["'Wydajno fallback'",             "'Wydajność fallback'"],
     ["'bazowa wydajno bez huba'",      "'bazowa wydajność bez huba'"],
 
-    // === logistics_hub.* ===
+ // === logistics_hub.* ===
     ["'Bd operacji. Odwie stron.'",    "'Błąd operacji. Odśwież stronę.'"],
     ["=> 'adowanie'",                  "=> 'Ładowanie'"],
     ["'Brak dostpnych hubw.'",         "'Brak dostępnych hubów.'"],
@@ -171,10 +171,10 @@ $fixes = [
     ["=> 'Przenie'",                   "=> 'Przenieś'"],
     ["=> 'Uywany'",                    "=> 'Używany'"],
 
-    // === logistics.hub.acq ===
+ // === logistics.hub.acq ===
     ["'Zuycie'",                       "'Zużycie'"],
 
-    // === marine.* ===
+ // === marine.* ===
     ["'Ropa transportowana tankowcami  pojawi si w magazynie dopiero po rozadunku w porcie.'",
      "'Ropa transportowana tankowcami — pojawi się w magazynie dopiero po rozładunku w porcie.'"],
     ["=> 'Objto'",                     "=> 'Objętość'"],
@@ -182,7 +182,7 @@ $fixes = [
     ["=> 'Opniona'",                   "=> 'Opóźniona'"],
     ["'Opnienie: :n tick(i)'",         "'Opóźnienie: :n tick(i)'"],
 
-    // === bank.action_err.* ===
+ // === bank.action_err.* ===
     ["'Bd bezpieczestwa - odwie stron i sprbuj ponownie.'",
      "'Błąd bezpieczeństwa — odśwież stronę i spróbuj ponownie.'"],
     ["'Serwis bankowy jest niedostpny.'",
@@ -207,22 +207,22 @@ $fixes = [
     ["'Bd podczas akceptacji warunkw negocjacji.'",
      "'Błąd podczas akceptacji warunków negocjacji.'"],
 
-    // === black_market.api.* ===
+ // === black_market.api.* ===
     ["=> 'Bd CSRF'",                   "=> 'Błąd CSRF'"],
     ["'Zbyt wiele akcji! Poczekaj chwil.'",
      "'Zbyt wiele akcji! Poczekaj chwilę.'"],
 
-    // === board_access ===
+ // === board_access ===
     ["'Aby odblokowa ten dzia, zatrudnij najpierw :label w Sali Zarzdu.'",
      "'Aby odblokować ten dział, zatrudnij najpierw :label w Sali Zarządu.'"],
 
-    // === auth.email_verify ===
+ // === auth.email_verify ===
     ["'<p>Dzikujemy za rejestracj w OilCorp! Kliknij przycisk poniej, aby potwierdzi swj adres e-mail i aktywowa konto. Link jest wany przez <strong>24 godziny</strong>.</p>'",
      "'<p>Dziękujemy za rejestrację w OilCorp! Kliknij przycisk poniżej, aby potwierdzić swój adres e-mail i aktywować konto. Link jest ważny przez <strong>24 godziny</strong>.</p>'"],
     ["'Jeli nie zakadae konta w OilCorp, zignoruj t wiadomo. Konto zostanie automatycznie usunite.'",
      "'Jeśli nie zakładałeś konta w OilCorp, zignoruj tę wiadomość. Konto zostanie automatycznie usunięte.'"],
 
-    // === auth.reset_email ===
+ // === auth.reset_email ===
     ["'Reset hasa - Oil Empire'",       "'Reset hasła — Oil Empire'"],
     ["'Otrzymalimy prob o reset hasa do Twojego konta. Link jest wany przez 1 godzin.'",
      "'Otrzymaliśmy prośbę o reset hasła do Twojego konta. Link jest ważny przez 1 godzinę.'"],
@@ -230,21 +230,21 @@ $fixes = [
     ["'Jeli nie prosie o reset hasa, zignoruj t wiadomo.'",
      "'Jeśli nie prosiłeś o reset hasła, zignoruj tę wiadomość.'"],
 
-    // === bailiff ===
+ // === bailiff ===
     ["'[BANKRUCTWO] Firma utracia pynno. Wejd do restrukturyzacji i wybierz plan ratunkowy.'",
      "'[BANKRUCTWO] Firma utraciła płynność. Wejdź do restrukturyzacji i wybierz plan ratunkowy.'"],
     ["'Panie Dyrektorze, firma utracia pynno finansow. W cigu 24h podejmij decyzje ratunkowe.'",
      "'Panie Dyrektorze, firma utraciła płynność finansową. W ciągu 24h podejmij decyzje ratunkowe.'"],
 
-    // === news ===
+ // === news ===
     ["'przed chwil'",                  "'przed chwilą'"],
     ["'1 dzie temu'",                  "'1 dzień temu'"],
 
-    // === admin.logistics.hub_initial_condition ===
+ // === admin.logistics.hub_initial_condition ===
     ["'Stan pocztkowy'",               "'Stan początkowy'"],
     ["'Modele pozyskania hubw'",        "'Modele pozyskania hubów'"],
 
-    // === hr_hiring ===
+ // === hr_hiring ===
     ["'Kandydat nie istnieje lub oferta wygasa.'",
      "'Kandydat nie istnieje lub oferta wygasła.'"],
     ["'Stanowisko kierownika tego dziau jest ju obsadzone.'",
@@ -254,7 +254,7 @@ $fixes = [
     ["'Brak rodkw na zatrudnienie. Wymagane: {required}, dostpne: {available}.'",
      "'Brak środków na zatrudnienie. Wymagane: {required}, dostępne: {available}.'"],
 
-    // === hr_headhunter ===
+ // === hr_headhunter ===
     ["'Headhunter jest ju w trakcie poszukiwa.'",
      "'Headhunter jest już w trakcie poszukiwań.'"],
     ["'Brak rodkw. Koszt: {cost}'",    "'Brak środków. Koszt: {cost}'"],
@@ -279,14 +279,14 @@ $fixes = [
     ["'Wystpi bd podczas zatrudniania.'",
      "'Wystąpił błąd podczas zatrudniania.'"],
 
-    // === email_template ===
+ // === email_template ===
     ["'Jeli przycisk nie dziaa, wklej ten link w przegldarce:'",
      "'Jeśli przycisk nie działa, wklej ten link w przeglądarce:'"],
 
-    // === game_shell ===
+ // === game_shell ===
     ["'bbl - {pct}% pojemnoci'",        "'bbl — {pct}% pojemności'"],
 
-    // === candidate.certificate ===
+ // === candidate.certificate ===
     ["'Certyfikat bezpieczestwa wierce'",
      "'Certyfikat bezpieczeństwa wierceń'"],
     ["'Certyfikat specjalisty sprztu'", "'Certyfikat specjalisty sprzętu'"],
@@ -294,16 +294,16 @@ $fixes = [
     ["'Certyfikat zarzdzania projektami (PMP)'",
      "'Certyfikat zarządzania projektami (PMP)'"],
 
-    // === trend_alert ===
+ // === trend_alert ===
     ["'Wplyw na Twoje przychody:'",     "'Wpływ na Twoje przychody:'"],
     ["=> 'Pozostalo'",                  "=> 'Pozostało'"],
     ["'przez najblizsze'",              "'przez najbliższe'"],
 
-    // === urgent_offer ===
+ // === urgent_offer ===
     ["=> 'Osiagnieto!'",               "=> 'Osiągnięto!'"],
     ["'Zarzadzaj ofertami'",            "'Zarządzaj ofertami'"],
 
-    // === logistics.pipeline ===
+ // === logistics.pipeline ===
     ["=> 'Rurocigi'",                   "=> 'Rurociągi'"],
     ["'Stan, wydajno i koszty rurocigw transportowych Twojej firmy.'",
      "'Stan, wydajność i koszty rurociągów transportowych Twojej firmy.'"],
@@ -325,7 +325,7 @@ $fixes = [
     ["'Przegld zalegy'",               "'Przegląd zaległy'"],
     ["'Nadzr BHP niekompletny'",        "'Nadzór BHP niekompletny'"],
 
-    // Napraw komentarz naglowka z podwojnym 'k'
+ // Napraw komentarz naglowka z podwojnym 'k'
     ["// Naglowwek i opis",            "// Naglowek i opis"],
 ];
 

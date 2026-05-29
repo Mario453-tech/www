@@ -1,0 +1,81 @@
+<?php
+/**
+ * equipment_well.php — Zarzadzanie sprzetem odwiertu (endpoint AJAX)
+ * Akcje: set_tier, upgrade_level
+ * Zawsze zwraca JSON: {"success": bool, "message": string, "data": {...}}
+ */
+
+require_once __DIR__ . '/../src/init.php';
+
+header('Content-Type: application/json; charset=utf-8');
+
+function jsonResponse(bool $success, string $message, array $data = [])
+{
+    echo json_encode([
+        'success' => $success,
+        'message' => $message,
+        'data'    => $data,
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+    
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    jsonResponse(false, tPlain('common.invalid_method'));
+}
+
+if (!Auth::isLoggedIn()) {
+    jsonResponse(false, tPlain('common.not_logged_in'));
+}
+
+if (!RateLimiter::check('action')) {
+    jsonResponse(false, tPlain('common.rate_limit'));
+}
+
+if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+    GameLog::warn('equipment_well.php', 'CSRF validation failed');
+    jsonResponse(false, tPlain('common.csrf_error'));
+}
+
+$playerId = Auth::getUserId();
+$wellId   = (int)($_POST['well_id'] ?? 0);
+$action   = $_POST['action']    ?? '';
+$tier     = $_POST['tier']      ?? 'standard';
+
+if ($wellId <= 0) {
+    jsonResponse(false, tPlain('common.invalid_data'));
+}
+
+if (!in_array($action, ['set_tier', 'upgrade_level'])) {
+    jsonResponse(false, tPlain('common.unknown_action', ['action' => $action]));
+}
+
+try {
+    $wellService = new WellService();
+    $result      = $wellService->upgradeEquipment($wellId, $playerId, $action, $tier);
+
+    if (!$result['success']) {
+        jsonResponse(false, $result['message']);
+    }
+
+    $well     = $wellService->getWell($wellId, $playerId);
+    $eqMults  = WellService::getEquipmentMultipliers(
+        $well['equipment_tier']          ?? 'standard',
+        (int)($well['equipment_upgrade_level'] ?? 0)
+    );
+
+    $player = new Player($playerId);
+
+    jsonResponse(true, $result['message'], [
+        'well_id'         => $wellId,
+        'equipment_tier'  => $well['equipment_tier']          ?? 'standard',
+        'upgrade_level'   => (int)($well['equipment_upgrade_level'] ?? 0),
+        'prod_mult'       => $eqMults['prod'],
+        'incident_mult'   => $eqMults['incident'],
+        'wear_mult'       => $eqMults['wear'],
+        'cash_after'      => (float)$player->getCash(),
+    ]);
+
+} catch (Throwable $e) {
+    GameLog::error('equipment_well.php', 'Exception', $e, ['player_id' => $playerId, 'well_id' => $wellId]);
+    jsonResponse(false, tPlain('common.err_retry'));
+}

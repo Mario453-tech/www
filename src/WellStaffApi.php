@@ -111,9 +111,9 @@ try {
 
                 $transportProfile = TransportConfigService::getTypeConfig($db, $transportType);
 
-                // Buy pipeline on first switch to pipeline transport.
-                // Kup rurociag przy pierwszym przelaczeniu na transport rurociagowy.
-                // Keep this path aligned with the dedicated build-timer purchase flow.
+ // Buy pipeline on first switch to pipeline transport.
+ // Kup rurociag przy pierwszym przelaczeniu na transport rurociagowy.
+ // Keep this path aligned with the dedicated build-timer purchase flow.
                 if (!$isOffshore && $transportType === 'rurociag') {
                     $ownedPipeline = $pipelineService->getByPlayerAndWellIds($playerId, [$wellId])[$wellId] ?? null;
 
@@ -132,8 +132,8 @@ try {
                     }
 
                     if ($ownedPipeline === null) {
-                        // Read requested pipeline type from POST; fall back to well record then 'standard'.
-                        // Odczytaj typ rurociagu z POST; fallback do rekordu odwiertu, potem 'standard'.
+ // Read requested pipeline type from POST; fall back to well record then 'standard'.
+ // Odczytaj typ rurociagu z POST; fallback do rekordu odwiertu, potem 'standard'.
                         $allowedPipelineTypes = ['light', 'standard', 'heavy'];
                         $requestedPipelineType = trim((string)($_POST['pipeline_type'] ?? $wellRow['pipeline_type'] ?? 'standard'));
                         if (!in_array($requestedPipelineType, $allowedPipelineTypes, true)) {
@@ -214,11 +214,11 @@ try {
                 'message' => $message,
             ]);
 
-        // Choose the second transport leg (hub -> storage) for a well's hub.
-        // ETAP 11: the setting is now stored per hub (logistics_hubs.outbound_transport_type).
-        // Allowed: 'nieustawiony' (direct), 'rurociag' (outbound pipeline) and
-        // 'ciezarowki' (road haul, per-tick cost + incidents). Tanker second leg N/A
-        // (the second leg is land-based hub -> storage).
+ // Choose the second transport leg (hub -> storage) for a well's hub.
+ // ETAP 11: the setting is now stored per hub (logistics_hubs.outbound_transport_type).
+ // Allowed: 'nieustawiony' (direct), 'rurociag' (outbound pipeline) and
+ // 'ciezarowki' (road haul, per-tick cost + incidents). Tanker second leg N/A
+ // (the second leg is land-based hub -> storage).
         case 'set_outbound_transport':
             $wellId        = (int)($_POST['well_id'] ?? 0);
             $transportType = trim((string)($_POST['transport_type'] ?? ''));
@@ -231,7 +231,7 @@ try {
 
             $db->beginTransaction();
             try {
-                // Find the hub for this well (ETAP 11: outbound setting is per hub).
+ // Find the hub for this well (ETAP 11: outbound setting is per hub).
                 $hubStmt = $db->prepare(
                     'SELECT a.hub_id FROM logistics_hub_assignments a WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
                 );

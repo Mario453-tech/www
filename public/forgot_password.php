@@ -30,8 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = tPlain('auth.err_email_invalid');
         } else {
             Auth::sendPasswordReset($email);
-            // Zawsze neutralny komunikat — nie ujawniamy czy email istnieje.
-            // Always neutral message — don't reveal whether the email exists.
+ // Zawsze neutralny komunikat nie ujawniamy czy email istnieje.
+ // Always neutral message don't reveal whether the email exists.
             $message = tPlain('forgot_password.msg_sent');
         }
     }

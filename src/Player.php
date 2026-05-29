@@ -18,7 +18,7 @@ class Player
         }
     }
 
-    /** @return array<string, mixed>|false|null */
+ /** @return array<string, mixed>|false|null */
     public function getData(): array|false|null
     {
         try {
@@ -87,12 +87,12 @@ class Player
             $status = (string)($row['status'] ?? 'active');
             $bankruptcyStatus = (string)($row['bankruptcy_status'] ?? 'none');
 
-            // Considered bankrupt when:
-            //   - players.status = 'bankrupt'
-            //   - OR recovery_mode = 1 (restructuring in progress)
-            //   - OR bankruptcy_status is an active process (restructuring/liquidation)
-            // We do NOT block on bankruptcy_at - it is a historical timestamp
-            // that persists after the player exits bankruptcy (recovered).
+ // Considered bankrupt when:
+ // - players.status = 'bankrupt'
+ // - OR recovery_mode = 1 (restructuring in progress)
+ // - OR bankruptcy_status is an active process (restructuring/liquidation)
+ // We do NOT block on bankruptcy_at - it is a historical timestamp
+ // that persists after the player exits bankruptcy (recovered).
             return $status === 'bankrupt'
                 || (int)($row['recovery_mode'] ?? 0) === 1
                 || ($bankruptcyStatus !== 'none' && $bankruptcyStatus !== 'recovered');

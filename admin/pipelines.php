@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $wellId = (int)($_POST['well_id'] ?? 0);
         $requestedType = trim((string)($_POST['pipeline_type'] ?? 'standard'));
         $type = $pipelineSvc->normalizePipelineType($requestedType);
-        // Transport leg: 'inbound' (well->hub) or 'outbound' (hub->storage)
+ // Transport leg: 'inbound' (well->hub) or 'outbound' (hub->storage)
         $leg = trim((string)($_POST['leg'] ?? 'inbound'));
         $leg = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
 

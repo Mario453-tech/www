@@ -117,13 +117,13 @@ $hoursSince = static function (?string $dateTime): ?int {
 };
 
 try {
-    // Private ownership model: "Moje huby" = owned + rented; browser = market hubs to buy/rent.
+ // Private ownership model: "Moje huby" = owned + rented; browser = market hubs to buy/rent.
     $hubCards         = $viewSvc->getMyHubCards($playerId);
     $hubAlerts        = $viewSvc->getAlerts($playerId);
     $hubAvailByRegion = $viewSvc->getMarketHubsByRegion($playerId);
     $hubUnassignedAll = $hubSvc->getUnassignedWells($playerId);
-    // Use HubIncidentService to get only hub_incident_* events (all, regardless of is_read).
-    // HubService::getUnreadEvents() returns all event types filtered by is_read=0 — wrong for incidents panel.
+ // Use HubIncidentService to get only hub_incident_* events (all, regardless of is_read).
+ // HubService::getUnreadEvents() returns all event types filtered by is_read=0 - wrong for incidents panel.
     $hubIncidentSvc   = new HubIncidentService($db, $hubSvc);
     $hubIncidents     = $hubIncidentSvc->getPlayerRecentIncidents($playerId, 20);
 
@@ -135,7 +135,7 @@ try {
     $unassignedOffset = ($unassignedPage - 1) * $perPage;
     $hubUnassigned = array_slice($hubUnassignedAll, $unassignedOffset, $perPage);
 
-    // Regions where the player operates (for the "buy new hub" modal).
+ // Regions where the player operates (for the "buy new hub" modal).
     $regionIds = $hubSvc->getPlayerRegionIds($playerId);
     if (!empty($regionIds)) {
         $ph    = implode(',', array_fill(0, count($regionIds), '?'));
@@ -144,7 +144,7 @@ try {
         $playerHubRegions = $rStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Hub type options with base build cost (for the "buy new hub" modal).
+ // Hub type options with base build cost (for the "buy new hub" modal).
     foreach (['small', 'medium', 'large'] as $htype) {
         $defs = $hubSvc->getHubTypeDefaults($htype, 1);
         $hubTypeOptions[] = [

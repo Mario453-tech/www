@@ -437,7 +437,7 @@
 </div>
 
 <script>
-//  Boardroom background filename builder 
+// Boardroom background filename builder 
 (function() {
     const roleOrder = ['hr','tech','finance','legal','logistics'];
 
@@ -471,8 +471,8 @@
         }
     });
 
-    //  Chunked AJAX upload  surowe bajty w body, metadane w URL 
-    // application/octet-stream omija Suhosin i WAF na az.pl
+ // Chunked AJAX upload surowe bajty w body, metadane w URL 
+ // application/octet-stream omija Suhosin i WAF na az.pl
     const picker  = document.getElementById('br-bg-file-picker');
     const status  = document.getElementById('br-bg-file-status');
     const form    = document.getElementById('br-bg-upload-form');

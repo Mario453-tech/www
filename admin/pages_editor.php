@@ -9,7 +9,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  Upewnij siê ¿e tabela istnieje 
+// Upewnij si e tabela istnieje 
 try {
     $db->exec("CREATE TABLE IF NOT EXISTS `static_pages` (
         `id`         INT AUTO_INCREMENT PRIMARY KEY,
@@ -26,20 +26,20 @@ try {
     GameLog::error('admin/pages_editor', 'CREATE TABLE failed', $e);
 }
 
-//  Funkcja: regeneruj regu³y htaccess 
+// Funkcja: regeneruj reguy htaccess 
 function pagesRebuildHtaccess(PDO $db): void {
     $htaccessPath = dirname(__DIR__) . '/.htaccess';
     $content = file_get_contents($htaccessPath);
     if ($content === false) return;
 
-    // Usuñ poprzedni blok stron statycznych
+ // Usu poprzedni blok stron statycznych
     $content = preg_replace(
         '/\n?#  BEGIN static_pages .*?#  END static_pages \n?/s',
         '',
         $content
     );
 
-    // Pobierz aktywne strony
+ // Pobierz aktywne strony
     $slugs = $db->query("SELECT slug FROM static_pages WHERE active=1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_COLUMN);
 
     if (!empty($slugs)) {
@@ -50,7 +50,7 @@ function pagesRebuildHtaccess(PDO $db): void {
         }
         $rules .= "#  END static_pages ";
 
-        // Wstaw PRZED lini¹ "#  Wszystko inne  public/ "
+ // Wstaw PRZED lini "# Wszystko inne public/ "
         $content = str_replace(
             "\n    #  Wszystko inne  public/ ",
             $rules . "\n\n    #  Wszystko inne  public/ ",
@@ -61,7 +61,7 @@ function pagesRebuildHtaccess(PDO $db): void {
     file_put_contents($htaccessPath, $content);
 }
 
-//  POST 
+// POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($slug && $title) {
                 try {
                     $db->prepare("INSERT INTO static_pages (slug,title,icon,sort_order,content,updated_by) VALUES (?,?,?,?,?,?)")
-                       ->execute([$slug, $title, $icon, $sort, '<p>Treœæ strony <strong>' . htmlspecialchars($title) . '</strong> — edytuj poni¿ej.</p>', $who]);
+                       ->execute([$slug, $title, $icon, $sort, '<p>Treï¿½ï¿½ strony <strong>' . htmlspecialchars($title) . '</strong> ï¿½ edytuj poniï¿½ej.</p>', $who]);
                     pagesRebuildHtaccess($db);
                     $newId = (int)$db->lastInsertId();
                     $msg = t('admin.pages_editor.msg_added', ['slug' => htmlspecialchars($slug)]);
@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Dane do widoku 
+// Dane do widoku 
 $pages  = $db->query("SELECT * FROM static_pages ORDER BY sort_order ASC, id ASC")->fetchAll();
 $editId = (int)($_GET['edit'] ?? ($pages[0]['id'] ?? 0));
 $editPage = null;

@@ -7,19 +7,19 @@
  */
 trait AdminHubConfigFieldTrait
 {
-    /**
-     * Renderuje pojedyncze pole konfiguracyjne z formularzem zapisu.
-     * Renders a single config field with a save form.
-     *
-     * @param string $group       Klucz grupy konfiguracji / Config group key
-     * @param string $key         Klucz pola konfiguracji / Config field key
-     * @param string $label       Etykieta wyswietlana / Display label
-     * @param string $currentVal  Aktualna wartosc / Current value
-     * @param string $csrf        Token CSRF / CSRF token
-     * @param string $unit        Optional unit (bph, PLN, x...) / Opcjonalna jednostka (bph, PLN, x...)
-     * @param string $step        Krok inputa numerycznego / Numeric input step
-     * @param string $note        Opcjonalny opis pola / Optional field note
-     */
+ /**
+ * Renderuje pojedyncze pole konfiguracyjne z formularzem zapisu.
+ * Renders a single config field with a save form.
+ *
+ * @param string $group Klucz grupy konfiguracji / Config group key
+ * @param string $key Klucz pola konfiguracji / Config field key
+ * @param string $label Etykieta wyswietlana / Display label
+ * @param string $currentVal Aktualna wartosc / Current value
+ * @param string $csrf Token CSRF / CSRF token
+ * @param string $unit Optional unit (bph, PLN, x...) / Opcjonalna jednostka (bph, PLN, x...)
+ * @param string $step Krok inputa numerycznego / Numeric input step
+ * @param string $note Opcjonalny opis pola / Optional field note
+ */
     public function renderCfgField(
         string $group,
         string $key,

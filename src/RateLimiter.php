@@ -2,30 +2,30 @@
 
 class RateLimiter
 {
-    // Static limits (attempts / window in seconds)
-    /** @var array<string, array<string, int>> */
+ // Static limits (attempts / window in seconds)
+ /** @var array<string, array<string, int>> */
     private static array $limits = [
         'login'       => ['attempts' => 5,  'window' => 900],
         'admin_login' => ['attempts' => 5,  'window' => 900],
         'action'      => ['attempts' => 30, 'window' => 60],
     ];
 
-    // Progressive cooldowns for forgot_password
-    // After N failed attempts -> cooldown X seconds
-    /** @var array<string, array<int, int>> */
+ // Progressive cooldowns for forgot_password
+ // After N failed attempts -> cooldown X seconds
+ /** @var array<string, array<int, int>> */
     private static array $progressive = [
         'forgot_password' => [
-            // [after N failures => cooldown in seconds]
+ // [after N failures => cooldown in seconds]
             3 => 300,   // after 3 failures -> 5 minutes
             5 => 600,   // after 5 failures -> 10 minutes
             7 => 1800,  // after 7 failures -> 30 minutes
         ],
     ];
 
-    /**
-     * Standard rate-limit check (login, action, etc.).
-     * Returns true if the action is allowed, false if blocked.
-     */
+ /**
+ * Standard rate-limit check (login, action, etc.).
+ * Returns true if the action is allowed, false if blocked.
+ */
     public static function check(string $action, ?string $identifier = null): bool
     {
         try {
@@ -61,10 +61,10 @@ class RateLimiter
         }
     }
 
-    /**
-     * Progressive check - counts failed attempts, cooldown grows with each threshold.
-     * Returns true if the action is allowed, false if currently blocked.
-     */
+ /**
+ * Progressive check - counts failed attempts, cooldown grows with each threshold.
+ * Returns true if the action is allowed, false if currently blocked.
+ */
     public static function checkProgressive(string $action, ?string $identifier = null): bool
     {
         try {
@@ -84,7 +84,7 @@ class RateLimiter
 
             $data = &$_SESSION[$key];
 
-            // Active block in progress?
+ // Active block in progress?
             if ($data['blocked_until'] > time()) {
                 return false;
             }
@@ -98,9 +98,9 @@ class RateLimiter
         }
     }
 
-    /**
-     * Registers a failed attempt and applies a cooldown if a threshold is crossed.
-     */
+ /**
+ * Registers a failed attempt and applies a cooldown if a threshold is crossed.
+ */
     public static function registerFailure(string $action, ?string $identifier = null): void
     {
         try {
@@ -123,7 +123,7 @@ class RateLimiter
 
             $data['failures']++;
 
-            // Find highest matching threshold and apply its cooldown
+ // Find highest matching threshold and apply its cooldown
             $cooldown = 0;
             foreach ($thresholds as $after => $seconds) {
                 if ($data['failures'] >= $after) {
@@ -141,9 +141,9 @@ class RateLimiter
         }
     }
 
-    /**
-     * Returns seconds remaining until the block expires (0 if not blocked).
-     */
+ /**
+ * Returns seconds remaining until the block expires (0 if not blocked).
+ */
     public static function getWaitSeconds(string $action, ?string $identifier = null): int
     {
         try {

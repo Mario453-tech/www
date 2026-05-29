@@ -3,12 +3,12 @@
  * RecruitmentAPI - handles recruitment processes.
  *
  * Endpoints:
- * - startRecruitment:        Starts a recruitment process (with a wait timer)
- * - checkRecruitmentStatus:  Checks recruitment status
- * - getCandidates:           Returns the list of candidates
- * - hireCandidate:           Hires a selected candidate
- * - fireEmployee:            Dismisses an employee
- * - getBoardMembers:         Returns the list of board members
+ * - startRecruitment: Starts a recruitment process (with a wait timer)
+ * - checkRecruitmentStatus: Checks recruitment status
+ * - getCandidates: Returns the list of candidates
+ * - hireCandidate: Hires a selected candidate
+ * - fireEmployee: Dismisses an employee
+ * - getBoardMembers: Returns the list of board members
  */
 
 class RecruitmentAPI {
@@ -22,16 +22,16 @@ class RecruitmentAPI {
         $this->hrService = new HRService();
     }
     
-    /**
-     * Starts a recruitment process for the given role.
-     *
-     * @param int $roleId      Role ID
-     * @param int $waitMinutes Wait time in minutes (default 60)
-     * @return array           Operation status
-     */
+ /**
+ * Starts a recruitment process for the given role.
+ *
+ * @param int $roleId Role ID
+ * @param int $waitMinutes Wait time in minutes (default 60)
+ * @return array Operation status
+ */
     public function startRecruitment($roleId, $waitMinutes = 60) {
         try {
-            // Check that the role exists and is active
+ // Check that the role exists and is active
             $stmt = $this->db->prepare("
                 SELECT * FROM board_roles 
                 WHERE id = ?
@@ -43,7 +43,7 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_role_not_found')];
             }
             
-            // Check that no active recruitment process exists for this role
+ // Check that no active recruitment process exists for this role
             $stmt = $this->db->prepare("
                 SELECT * FROM recruitment_requests 
                 WHERE role_id = ? AND status IN ('pending', 'ready')
@@ -55,7 +55,7 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_already_running')];
             }
             
-            // Check that the position is not already filled
+ // Check that the position is not already filled
             $stmt = $this->db->prepare("
                 SELECT * FROM board_members 
                 WHERE role_id = ? AND status = 'active'
@@ -67,7 +67,7 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_position_occupied')];
             }
             
-            // Create a new recruitment request
+ // Create a new recruitment request
             $readyAt = date('Y-m-d H:i:s', strtotime('+' . $waitMinutes . ' minutes'));
             
             $stmt = $this->db->prepare("
@@ -90,12 +90,12 @@ class RecruitmentAPI {
         }
     }
     
-    /**
-     * Checks recruitment status and generates candidates if the wait has elapsed.
-     *
-     * @param int $requestId Recruitment request ID
-     * @return array         Recruitment status
-     */
+ /**
+ * Checks recruitment status and generates candidates if the wait has elapsed.
+ *
+ * @param int $requestId Recruitment request ID
+ * @return array Recruitment status
+ */
     public function checkRecruitmentStatus($requestId) {
         try {
             $stmt = $this->db->prepare("
@@ -111,11 +111,11 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_request_not_found')];
             }
             
-            // If status is 'pending' and wait has elapsed - generate candidates
+ // If status is 'pending' and wait has elapsed - generate candidates
             if ($request['status'] === 'pending' && strtotime($request['ready_at']) <= time()) {
                 $this->generator->generateCandidates($request['role_id']);
                 
-                // Update status to 'ready'
+ // Update status to 'ready'
                 $stmt = $this->db->prepare("
                     UPDATE recruitment_requests 
                     SET status = 'ready' 
@@ -138,15 +138,15 @@ class RecruitmentAPI {
         }
     }
     
-    /**
-     * Returns the list of candidates for a given role.
-     *
-     * @param int $roleId Role ID
-     * @return array      Candidate list
-     */
+ /**
+ * Returns the list of candidates for a given role.
+ *
+ * @param int $roleId Role ID
+ * @return array Candidate list
+ */
     public function getCandidates($roleId) {
         try {
-            // Remove expired candidates first
+ // Remove expired candidates first
             $this->generator->cleanupExpiredCandidates();
             
             $stmt = $this->db->prepare("
@@ -171,12 +171,12 @@ class RecruitmentAPI {
         }
     }
     
-    /**
-     * Hires the selected candidate.
-     *
-     * @param int $candidateId Candidate ID
-     * @return array           Operation status
-     */
+ /**
+ * Hires the selected candidate.
+ *
+ * @param int $candidateId Candidate ID
+ * @return array Operation status
+ */
     public function hireCandidate($candidateId, $playerId, $contractType = '1y') {
         try {
             GameLog::info('RecruitmentAPI', 'hireCandidate delegated to HRService', [
@@ -209,19 +209,19 @@ class RecruitmentAPI {
         }
     }
     
-    /**
-     * Dismisses an employee.
-     *
-     * @param int         $memberId Board member ID
-     * @param string|null $reason   Reason for dismissal (null = default lang string)
-     * @return array                Operation status
-     */
+ /**
+ * Dismisses an employee.
+ *
+ * @param int $memberId Board member ID
+ * @param string|null $reason Reason for dismissal (null = default lang string)
+ * @return array Operation status
+ */
     public function fireEmployee($memberId, $reason = null) {
         $reason = $reason ?? t('recruitment.default_fire_reason');
         try {
             $this->db->beginTransaction();
             
-            // Check that the employee exists
+ // Check that the employee exists
             $stmt = $this->db->prepare("
                 SELECT * FROM board_members WHERE id = ? AND status = 'active'
             ");
@@ -233,7 +233,7 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_employee_not_found')];
             }
             
-            // Update employee status
+ // Update employee status
             $stmt = $this->db->prepare("
                 UPDATE board_members 
                 SET status = 'fired', fired_at = NOW() 
@@ -241,7 +241,7 @@ class RecruitmentAPI {
             ");
             $stmt->execute([$memberId]);
             
-            // Add history record
+ // Add history record
             $stmt = $this->db->prepare("
                 INSERT INTO employment_history (member_id, action, reason)
                 VALUES (?, 'fired', ?)
@@ -261,11 +261,11 @@ class RecruitmentAPI {
         }
     }
 
-    /**
-     * Returns the list of active board members.
-     *
-     * @return array Board member list
-     */
+ /**
+ * Returns the list of active board members.
+ *
+ * @return array Board member list
+ */
     public function getBoardMembers() {
         try {
             $stmt = $this->db->prepare("

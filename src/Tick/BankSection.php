@@ -1,8 +1,8 @@
 <?php
 
 /**
- * BankSection — sekcja 3 ticka: system bankowy (odsetki, raty, komornik, negocjacje, HR, bankruci).
- * BankSection — tick section 3: banking system (interest, installments, bailiff, negotiations, HR, bankrupts).
+ * BankSection sekcja 3 ticka: system bankowy (odsetki, raty, komornik, negocjacje, HR, bankruci).
+ * BankSection tick section 3: banking system (interest, installments, bailiff, negotiations, HR, bankrupts).
  */
 class BankSection
 {
@@ -106,7 +106,7 @@ class BankSection
     private function runNegotiations(): void
     {
         if (!$this->bankNegAvailable) {
-            GameLog::warn('tick', 'BankNegotiationService.php not found — blocks 4f-4i disabled');
+            GameLog::warn('tick', 'BankNegotiationService.php not found ï¿½ blocks 4f-4i disabled');
             return;
         }
 
@@ -198,7 +198,7 @@ class BankSection
     private function runBankruptcy(): void
     {
         if (!$this->bankruptcyAvailable) {
-            GameLog::warn('tick', 'BankruptcyService.php not found — block 4k disabled');
+            GameLog::warn('tick', 'BankruptcyService.php not found ï¿½ block 4k disabled');
             return;
         }
 

@@ -2,22 +2,22 @@
 declare(strict_types=1);
 
 /**
- * MarineDeliverySection — tick: aktualizacja statusow dostaw morskich.
- * MarineDeliverySection — tick: marine delivery status updates.
+ * MarineDeliverySection tick: aktualizacja statusow dostaw morskich.
+ * MarineDeliverySection tick: marine delivery status updates.
  *
  * Odpowiada za: / Responsible for:
- *   - departing  in_transit (pierwsze przetworzenie) / first processing
- *   - in_transit  waiting_for_port (po uplywie ETA) / after ETA passes
- *   - zdarzenia losowe: sztorm, piraci, awaria / random events: storm, pirates, breakdown
- *   - opoznione dostawy (delayed)  ponowna proba / delayed  retry
- *   - przekazanie do kolejki portowej / forwarding to port queue
+ * - departing in_transit (pierwsze przetworzenie) / first processing
+ * - in_transit waiting_for_port (po uplywie ETA) / after ETA passes
+ * - zdarzenia losowe: sztorm, piraci, awaria / random events: storm, pirates, breakdown
+ * - opoznione dostawy (delayed) ponowna proba / delayed retry
+ * - przekazanie do kolejki portowej / forwarding to port queue
  *
- * Wywo³ywana per gracz w PlayersSection przed PortSection.
+ * Wywoywana per gracz w PlayersSection przed PortSection.
  * Called per player in PlayersSection before PortSection.
  */
 class MarineDeliverySection
 {
-    // Liczniki (eksponowane do statystyk) / Counters (exposed for stats)
+ // Liczniki (eksponowane do statystyk) / Counters (exposed for stats)
     public float $lostBbl           = 0.0;
     public int   $lostDeliveries    = 0;
     public int   $delayedDeliveries = 0;
@@ -32,12 +32,12 @@ class MarineDeliverySection
         $this->now = $now;
     }
 
-    /**
-     * Przetwarza wszystkie aktywne dostawy morskie gracza.
-     * Processes all active marine deliveries for a player.
-     *
-     * @param array<string, mixed> $hseBonus
-     */
+ /**
+ * Przetwarza wszystkie aktywne dostawy morskie gracza.
+ * Processes all active marine deliveries for a player.
+ *
+ * @param array<string, mixed> $hseBonus
+ */
     public function process(int $playerId, array $hseBonus, float $deltaHours): void
     {
         try {
@@ -60,14 +60,14 @@ class MarineDeliverySection
         }
     }
 
-    // 
-    // Per-delivery logic
-    // 
+ // 
+ // Per-delivery logic
+ // 
 
-    /**
-     * @param array<string, mixed> $delivery
-     * @param array<string, mixed> $hseBonus
-     */
+ /**
+ * @param array<string, mixed> $delivery
+ * @param array<string, mixed> $hseBonus
+ */
     private function processOne(array $delivery, array $hseBonus, float $deltaHours): void
     {
         $id        = (int)$delivery['id'];
@@ -77,7 +77,7 @@ class MarineDeliverySection
         $regionId  = (int)$delivery['region_id'];
         $nowStr    = $this->now->format('Y-m-d H:i:s');
 
-        // departing  in_transit (pierwsze przetworzenie / first processing)
+ // departing in_transit (pierwsze przetworzenie / first processing)
         if ($status === 'departing') {
             $this->db->prepare(
                 "UPDATE marine_deliveries SET status = 'in_transit' WHERE id = ?"
@@ -85,28 +85,28 @@ class MarineDeliverySection
             $status = 'in_transit';
         }
 
-        // Zdarzenie losowe w tranzycie / Random transit event
-        // Szansa bazowa 4% * deltaHours, zmniejszana przez HSE
-        // Base 4% chance * deltaHours, reduced by HSE bonus
+ // Zdarzenie losowe w tranzycie / Random transit event
+ // Szansa bazowa 4% * deltaHours, zmniejszana przez HSE
+ // Base 4% chance * deltaHours, reduced by HSE bonus
         $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['catastrophe_mult'] ?? 1.0);
         if (mt_rand(1, 100000) <= (int)($incidentChance * 100000)) {
             $this->applyIncident($id, $volumeBbl, $delivery['player_id']);
             return;
         }
 
-        // Sprawdz czy ETA minela / Check if ETA has passed
+ // Sprawdz czy ETA minela / Check if ETA has passed
         $eta = new DateTime($delivery['eta_at']);
         if ($this->now < $eta) {
             return; // Jeszcze w drodze / Still in transit
         }
 
-        // Szukaj portu jesli nie przypisany / Find port if not assigned
+ // Szukaj portu jesli nie przypisany / Find port if not assigned
         if ($portId === null) {
             $portId = $this->findPort($regionId);
         }
 
         if ($portId === null) {
-            // Brak portu — opoznij o 1 godzine / No port — delay by 1 hour
+ // Brak portu opoznij o 1 godzine / No port delay by 1 hour
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'delayed',
@@ -124,16 +124,16 @@ class MarineDeliverySection
         $this->forwardToPort($id, $portId, $volumeBbl, (int)$delivery['player_id'], $nowStr);
     }
 
-    /**
-     * Zastosuj losowe zdarzenie (utrata lub opoznienie).
-     * Apply a random event (loss or delay).
-     */
+ /**
+ * Zastosuj losowe zdarzenie (utrata lub opoznienie).
+ * Apply a random event (loss or delay).
+ */
     private function applyIncident(int $deliveryId, float $volumeBbl, mixed $playerId): void
     {
         $roll = mt_rand(1, 100);
 
         if ($roll <= 5) {
-            // Piraci — caly ladunek utracony / Pirates — entire cargo lost
+ // Piraci caly ladunek utracony / Pirates entire cargo lost
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'lost', incident_type = 'piracy', delivered_at = NOW()
@@ -146,7 +146,7 @@ class MarineDeliverySection
             ]);
 
         } elseif ($roll <= 15) {
-            // Katastrofa — caly ladunek utracony / Catastrophe — entire cargo lost
+ // Katastrofa caly ladunek utracony / Catastrophe entire cargo lost
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'lost', incident_type = 'catastrophe', delivered_at = NOW()
@@ -159,7 +159,7 @@ class MarineDeliverySection
             ]);
 
         } elseif ($roll <= 40) {
-            // Sztorm — opoznienie o 2 godziny / Storm — 2 hour delay
+ // Sztorm opoznienie o 2 godziny / Storm 2 hour delay
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'delayed', incident_type = 'storm',
@@ -173,7 +173,7 @@ class MarineDeliverySection
             ]);
 
         } else {
-            // Awaria silnika — opoznienie o 1 godzine / Engine breakdown — 1 hour delay
+ // Awaria silnika opoznienie o 1 godzine / Engine breakdown 1 hour delay
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'delayed', incident_type = 'breakdown',
@@ -188,10 +188,10 @@ class MarineDeliverySection
         }
     }
 
-    /**
-     * Znajdz port dla regionu.
-     * Find a port for the region.
-     */
+ /**
+ * Znajdz port dla regionu.
+ * Find a port for the region.
+ */
     private function findPort(int $regionId): ?int
     {
         if ($regionId > 0) {
@@ -207,7 +207,7 @@ class MarineDeliverySection
             if ($row) return (int)$row['id'];
         }
 
-        // Fallback: dowolny aktywny port / Fallback: any active port
+ // Fallback: dowolny aktywny port / Fallback: any active port
         $row = $this->db->query(
             "SELECT id FROM ports WHERE status = 'active' ORDER BY RAND() LIMIT 1"
         )->fetch(PDO::FETCH_ASSOC);
@@ -215,10 +215,10 @@ class MarineDeliverySection
         return $row ? (int)$row['id'] : null;
     }
 
-    /**
-     * Przekaz dostawe do kolejki portowej.
-     * Forward delivery to the port queue.
-     */
+ /**
+ * Przekaz dostawe do kolejki portowej.
+ * Forward delivery to the port queue.
+ */
     private function forwardToPort(
         int    $deliveryId,
         int    $portId,
@@ -226,7 +226,7 @@ class MarineDeliverySection
         int    $playerId,
         string $nowStr
     ): void {
-        // Sprawdz pojemnosc kolejki / Check queue capacity
+ // Sprawdz pojemnosc kolejki / Check queue capacity
         $limitStmt = $this->db->prepare("SELECT queue_limit FROM ports WHERE id = ?");
         $limitStmt->execute([$portId]);
         $portRow    = $limitStmt->fetch(PDO::FETCH_ASSOC);
@@ -239,7 +239,7 @@ class MarineDeliverySection
         $queueSize = (int)$sizeStmt->fetchColumn();
 
         if ($queueSize >= $queueLimit) {
-            // Kolejka pelna — opoznienie o 1 godzine / Queue full — 1 hour delay
+ // Kolejka pelna opoznienie o 1 godzine / Queue full 1 hour delay
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'waiting_for_port',
@@ -256,7 +256,7 @@ class MarineDeliverySection
             return;
         }
 
-        // Dodaj do kolejki portowej / Add to port queue
+ // Dodaj do kolejki portowej / Add to port queue
         $this->db->prepare(
             "UPDATE marine_deliveries
                 SET status = 'waiting_for_port', port_id = ?, arrived_at = ?

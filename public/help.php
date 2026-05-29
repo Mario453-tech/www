@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../src/init.php';
 Auth::requireLogin();
 
-$pageTitle = 'Instrukcja obslugi – OilCorp';
+$pageTitle = 'Instrukcja obslugi ï¿½ OilCorp';
 
 // Pobierz sekcje z bazy; fallback = pusta tablica (wyswietli info admina)
 $helpPages   = [];
@@ -12,7 +12,7 @@ try {
     $helpPages   = $db->query("SELECT slug, title, icon, content FROM game_help_pages WHERE active=1 ORDER BY sort_order ASC, id ASC")->fetchAll();
     $dbAvailable = true;
 } catch (Throwable $e) {
-    // tabela moze nie istniec — cicha degradacja, fallback ponizej
+ // tabela moze nie istniec cicha degradacja, fallback ponizej
 }
 
 require_once __DIR__ . '/../templates/header.php';
@@ -28,7 +28,7 @@ require_once __DIR__ . '/../templates/header.php';
 
 <?php if (!empty($helpPages)): ?>
 
-<!-- SPIS TRESCI — dynamiczny -->
+<!-- SPIS TRESCI ï¿½ dynamiczny -->
 <div class="help-toc">
     <h2>Spis tresci</h2>
     <ul>
@@ -38,7 +38,7 @@ require_once __DIR__ . '/../templates/header.php';
     </ul>
 </div>
 
-<!-- SEKCJE — tresc z bazy, renderowana jako raw HTML (admin odpowiada za bezpieczenstwo) -->
+<!-- SEKCJE ï¿½ tresc z bazy, renderowana jako raw HTML (admin odpowiada za bezpieczenstwo) -->
 <?php foreach ($helpPages as $p): ?>
 <div class="help-section" id="<?= htmlspecialchars($p['slug']) ?>">
     <div class="help-section-hdr">

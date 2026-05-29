@@ -6,18 +6,18 @@
  */
 trait IncidentTickTrait
 {
-    /**
-     * Main entry point called from tick.php per well and per player.
-     * Glowna metoda wywolywana z tick.php per odwiert i per gracz.
-     *
-     * @param int $wellId
-     * @param int $playerId
-     * @param float $deltaHours
-     * @param array<string, mixed> $wellData
-     * @param array<string, mixed> $staffData
-     * @param array<string, mixed> $hseBonus
-     * @return array<string, mixed>
-     */
+ /**
+ * Main entry point called from tick.php per well and per player.
+ * Glowna metoda wywolywana z tick.php per odwiert i per gracz.
+ *
+ * @param int $wellId
+ * @param int $playerId
+ * @param float $deltaHours
+ * @param array<string, mixed> $wellData
+ * @param array<string, mixed> $staffData
+ * @param array<string, mixed> $hseBonus
+ * @return array<string, mixed>
+ */
     public function processTick(
         int $wellId,
         int $playerId,
@@ -30,28 +30,28 @@ trait IncidentTickTrait
         $riskScore = (float) ($wellData['risk_score'] ?? 0);
         $hseActive = !empty($hseBonus['active_hse']);
 
-        // Calculate human error rates per role.
-        // Oblicz error-rate ludzi per rola.
+ // Calculate human error rates per role.
+ // Oblicz error-rate ludzi per rola.
         $opSkill = isset($staffData['operator_skill']) ? (int) $staffData['operator_skill'] : null;
         $techSkill = isset($staffData['technician_skill']) ? (int) $staffData['technician_skill'] : null;
 
         $opErrorRate = $this->calcErrorRate($opSkill, !empty($staffData['no_technician']));
         $techErrorRate = $this->calcErrorRate($techSkill, false);
 
-        // Spiral and wear modifiers.
-        // Modyfikatory spirali i zuzycia.
+ // Spiral and wear modifiers.
+ // Modyfikatory spirali i zuzycia.
         $spiralBoost = (float) ($wellData['post_incident_risk_boost'] ?? 0.0);
         $spiralMult = isset($staffData['spiral_mult'])
             ? (float) $staffData['spiral_mult']
             : (1.0 + $spiralBoost / 100.0);
         $wearMult = (float) ($staffData['wear_mult'] ?? 1.0);
 
-        // Spiral increases human error under pressure.
-        // Spirala zwieksza chaos ludzi pod presja.
+ // Spiral increases human error under pressure.
+ // Spirala zwieksza chaos ludzi pod presja.
         $errorSpiralMult = 1.0 + ($spiralBoost / 200.0);
 
-        // Equipment tier incident multiplier.
-        // Mnoznik awarii od tieru sprzetu.
+ // Equipment tier incident multiplier.
+ // Mnoznik awarii od tieru sprzetu.
         $eqTier = $wellData['equipment_tier'] ?? 'standard';
         $eqMults = WellService::getEquipmentMultipliers(
             $eqTier,
@@ -59,8 +59,8 @@ trait IncidentTickTrait
         );
         $equipIncidentMult = $eqMults['incident'];
 
-        // Geological layer incident risk multiplier.
-        // Mnoznik ryzyka awarii od warstwy geologicznej.
+ // Geological layer incident risk multiplier.
+ // Mnoznik ryzyka awarii od warstwy geologicznej.
         $layerRiskMult = 1.0;
         if (class_exists('GeologicalLayerService')) {
             $layerSvc = new GeologicalLayerService();
@@ -68,8 +68,8 @@ trait IncidentTickTrait
             $layerRiskMult = $layerMults['risk_mult'];
         }
 
-        // Reservoir depletion raises incident risk.
-        // Wyczerpanie zloza podnosi ryzyko awarii.
+ // Reservoir depletion raises incident risk.
+ // Wyczerpanie zloza podnosi ryzyko awarii.
         $depletionIncidentMult = 1.0;
         if (class_exists('WellService')) {
             $deplData = WellService::getEffectivePressure($wellData);
@@ -81,8 +81,8 @@ trait IncidentTickTrait
             }
         }
 
-        // Chance modifiers.
-        // Modyfikatory szans.
+ // Chance modifiers.
+ // Modyfikatory szans.
         $condMult = 1.0 + ((100 - $cond) / 100) * 2.0;
         $riskMult = 1.0 + ($riskScore / 100);
         $hseMult = $hseActive ? ($hseBonus['failure_reduction'] ?? 1.0) : 1.0;
@@ -111,13 +111,13 @@ trait IncidentTickTrait
         foreach ($this->levelCfg as $level => $cfg) {
             $baseChance = $this->baseChance[$level] * $deltaHours;
 
-            // Apply condition, risk, wear, spiral, equipment, layer, and transport modifiers.
-            // Zastosuj modyfikatory: stan, risk, wear, spirala, sprzet, warstwa i transport.
+ // Apply condition, risk, wear, spiral, equipment, layer, and transport modifiers.
+ // Zastosuj modyfikatory: stan, risk, wear, spirala, sprzet, warstwa i transport.
             $transportMult = (float) ($staffData['transport_incident_mult'] ?? 1.0);
             $chance = $baseChance * $condMult * $riskMult * $wearMult * $spiralMult * $equipIncidentMult * $layerRiskMult * $transportMult * $depletionIncidentMult;
 
-            // Add human error rate; spiral amplifies mistakes.
-            // Dodaj error-rate ludzi; spirala wzmacnia bledy.
+ // Add human error rate; spiral amplifies mistakes.
+ // Dodaj error-rate ludzi; spirala wzmacnia bledy.
             if ($opSkill !== null) {
                 $chance += $opErrorRate * $errorSpiralMult * $baseChance * 0.5;
             }
@@ -125,8 +125,8 @@ trait IncidentTickTrait
                 $chance += $techErrorRate * $errorSpiralMult * $baseChance * 0.3;
             }
 
-            // Perks reduce incident and catastrophe exposure.
-            // Perki zmniejszaja ekspozycje na incydenty i katastrofy.
+ // Perks reduce incident and catastrophe exposure.
+ // Perki zmniejszaja ekspozycje na incydenty i katastrofy.
             $perkIncRed = (float) ($staffData['perk_incident_reduction'] ?? 0.0);
             if ($perkIncRed > 0) {
                 $chance *= max(0.1, 1.0 - $perkIncRed);
@@ -137,22 +137,22 @@ trait IncidentTickTrait
                 $chance *= max(0.1, 1.0 - $perkCatRed);
             }
 
-            // HSE reduces chance; the floor applies only to micro incidents.
-            // BHP redukuje szanse; floor obowiazuje tylko dla micro.
+ // HSE reduces chance; the floor applies only to micro incidents.
+ // BHP redukuje szanse; floor obowiazuje tylko dla micro.
             $chance *= $hseMult;
             GameLog::step('IncidentService', 'processTick', 2, "chance_{$level}", [
                 'well_id' => $wellId,
                 'chance' => round($chance * 100, 4) . '%',
             ]);
 
-            // Roll the chance.
-            // Losowanie.
+ // Roll the chance.
+ // Losowanie.
             if ((mt_rand(1, 100000) / 100000.0) > $chance) {
                 continue;
             }
 
-            // Incident happened.
-            // Zdarzenie wystapilo.
+ // Incident happened.
+ // Zdarzenie wystapilo.
             $incident = $this->generateIncident($level, $cfg, $wellId, $playerId, $wellData, $staffData, $hseBonus);
             $this->saveIncident($incident);
             $this->applyEffects($incident, $wellId, $playerId);
@@ -172,21 +172,21 @@ trait IncidentTickTrait
         return ['incident' => null];
     }
 
-    /**
-     * Calculate worker error rate.
-     * Liczy error-rate pracownika.
-     *
-     * skill 1 -> 12%, skill 5 -> 6%, skill 10 -> 2%
-     * Brak technika -> +30% do error-rate operatora
-     */
+ /**
+ * Calculate worker error rate.
+ * Liczy error-rate pracownika.
+ *
+ * skill 1 -> 12%, skill 5 -> 6%, skill 10 -> 2%
+ * Brak technika -> +30% do error-rate operatora
+ */
     public function calcErrorRate(?int $skill, bool $noTechnician = false): float
     {
         if ($skill === null) {
             return 0.0;
         }
 
-        // Linear interpolation: skill 1 -> 0.12, skill 10 -> 0.02.
-        // Interpolacja liniowa: skill 1 -> 0.12, skill 10 -> 0.02.
+ // Linear interpolation: skill 1 -> 0.12, skill 10 -> 0.02.
+ // Interpolacja liniowa: skill 1 -> 0.12, skill 10 -> 0.02.
         $rate = 0.12 - ($skill - 1) * (0.10 / 9);
         $rate = max(0.02, min(0.12, $rate));
 

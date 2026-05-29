@@ -6,13 +6,13 @@
  */
 trait TTSProceduresTrait
 {
-    // HSE procedures.
-    // Procedury BHP.
+ // HSE procedures.
+ // Procedury BHP.
 
-    /**
-     * Return the current HSE procedure state for the player.
-     * Zwraca aktualny stan procedur BHP gracza.
-     */
+ /**
+ * Return the current HSE procedure state for the player.
+ * Zwraca aktualny stan procedur BHP gracza.
+ */
     public function getProcedureStatus(): array
     {
         try {
@@ -38,10 +38,10 @@ trait TTSProceduresTrait
         }
     }
 
-    /**
-     * Purchase the next HSE procedure level.
-     * Kupuje kolejny poziom procedur BHP.
-     */
+ /**
+ * Purchase the next HSE procedure level.
+ * Kupuje kolejny poziom procedur BHP.
+ */
     public function upgradeProcedures(): array
     {
         GameLog::step('TTS', 'upgradeProcedures', 1, "player={$this->playerId}");
@@ -57,8 +57,8 @@ trait TTSProceduresTrait
             $nextLevel = $currentLevel + 1;
             $cost = self::PROCEDURE_UPGRADE_COSTS[$nextLevel] ?? 0;
 
-            // Check required HSE staff.
-            // Sprawdz wymagany personel BHP.
+ // Check required HSE staff.
+ // Sprawdz wymagany personel BHP.
             $staffStmt = $this->db->prepare("
                 SELECT spec_code FROM technical_staff
                 WHERE player_id = ?
@@ -88,8 +88,8 @@ trait TTSProceduresTrait
                 ];
             }
 
-            // Check the audit prerequisite.
-            // Sprawdz wymaganie audytu.
+ // Check the audit prerequisite.
+ // Sprawdz wymaganie audytu.
             $auditStmt = $this->db->prepare("
                 SELECT id FROM technical_tasks
                 WHERE player_id = ?
@@ -105,8 +105,8 @@ trait TTSProceduresTrait
                 ];
             }
 
-            // Check available cash.
-            // Sprawdz dostepna gotowke.
+ // Check available cash.
+ // Sprawdz dostepna gotowke.
             $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
             $cashStmt->execute([$this->playerId]);
             $cash = (float) $cashStmt->fetchColumn();
@@ -157,10 +157,10 @@ trait TTSProceduresTrait
         }
     }
 
-    /**
-     * Review HSE procedures and restore integrity.
-     * Wykonuje przeglad procedur BHP i przywraca integralnosc.
-     */
+ /**
+ * Review HSE procedures and restore integrity.
+ * Wykonuje przeglad procedur BHP i przywraca integralnosc.
+ */
     public function repairProcedureIntegrity(): array
     {
         GameLog::step('TTS', 'repairProcedureIntegrity', 1, "player={$this->playerId}");
@@ -241,10 +241,10 @@ trait TTSProceduresTrait
         }
     }
 
-    /**
-     * Apply hourly decay to procedure integrity.
-     * Naklada godzinowa degradacje integralnosci procedur.
-     */
+ /**
+ * Apply hourly decay to procedure integrity.
+ * Naklada godzinowa degradacje integralnosci procedur.
+ */
     public function processProcedureDecay(float $deltaHours): void
     {
         GameLog::step('TTS', 'processProcedureDecay', 1, "player={$this->playerId} dh={$deltaHours}");
@@ -299,12 +299,12 @@ trait TTSProceduresTrait
         }
     }
 
-    /**
-     * Check minimum staffing required for wells.
-     * Sprawdza minimalna obsade wymagana dla odwiertow.
-     *
-     * @return array{meets_minimum: bool, missing: array<int, string>, missing_labels: array<int, string>}
-     */
+ /**
+ * Check minimum staffing required for wells.
+ * Sprawdza minimalna obsade wymagana dla odwiertow.
+ *
+ * @return array{meets_minimum: bool, missing: array<int, string>, missing_labels: array<int, string>}
+ */
     public function getStaffRequirementCheck(): array
     {
         $required = [
@@ -345,8 +345,8 @@ trait TTSProceduresTrait
             );
         } catch (Throwable $e) {
             GameLog::error('TTS', 'getStaffRequirementCheck FAILED', $e, ['player_id' => $this->playerId]);
-            // Fail-safe: do not pause wells because of a read error.
-            // Fail-safe: nie pauzuj odwiertow przez blad odczytu.
+ // Fail-safe: do not pause wells because of a read error.
+ // Fail-safe: nie pauzuj odwiertow przez blad odczytu.
             $result['meets_minimum'] = true;
         }
 

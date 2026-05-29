@@ -1,20 +1,20 @@
 <?php
 require_once __DIR__ . '/FinancePolicyService.php';
 /**
- * CandidateGenerator — generuje kandydatow oil & gas
+ * CandidateGenerator - generuje kandydatow oil & gas
  *
  * Algorytm:
- *  1. Pobiera specjalizację z hr_specializations (rarity, widełki płacowe)
- *  2. Pobiera region z hr_regions (skill_modifier, salary_modifier)
- *  3. Generuje liczbę kandydatów wg rarity
- *  4. Dla każdego: wiek → doświadczenie → skills → traits → pensja → imię
+ * 1. Pobiera specjalizacje z hr_specializations (rarity, widelki placowe)
+ * 2. Pobiera region z hr_regions (skill_modifier, salary_modifier)
+ * 3. Generuje liczbe kandydatow wg rarity
+ * 4. Dla kazdego: wiek → doswiadczenie → skills → traits → pensja → imie
  */
 class CandidateGenerator
 {
     private PDO $db;
 
-    // Liczba kandydatow: 0–3 zaleznie od rarity i dostepnosci regionu
-    /** @var array<string, array<int, int>> */
+ // Liczba kandydatow: 0-3 zaleznie od rarity i dostepnosci regionu
+ /** @var array<string, array<int, int>> */
     private static array $countByRarity = [
         'common'    => [1, 3],
         'uncommon'  => [0, 2],
@@ -22,9 +22,9 @@ class CandidateGenerator
         'very_rare' => [0, 1],
     ];
 
-    // Rozkład skill wg rynku pracy branzy naftowej
-    // skill 3-4: 40%, 5-6: 20%, 7: 12%, 8: 6%, 9: 1.8%, 10: 0.2%
-    /** @var array<int, array<int, int>> */
+ // Rozklad skill wg rynku pracy branzy naftowej
+ // skill 3-4: 40%, 5-6: 20%, 7: 12%, 8: 6%, 9: 1.8%, 10: 0.2%
+ /** @var array<int, array<int, int>> */
     private static array $skillDistribution = [
         [3, 4,  4],
         [5, 6,  20],
@@ -34,15 +34,15 @@ class CandidateGenerator
         [10, 10, 0],   // obslugiwane osobno ponizej (0.2%)
     ];
 
-    // Czas rekrutacji w sekundach
-    // lokalna: 6–12 min (symuluje 6–12h), miedzynarodowa: 24–48 min
+ // Czas rekrutacji w sekundach
+ // lokalna: 6-12 min (symuluje 6-12h), miedzynarodowa: 24-48 min
     const DURATION_LOCAL_MIN  =  6 * 60;
     const DURATION_LOCAL_MAX  = 12 * 60;
     const DURATION_INTL_MIN   = 24 * 60;
     const DURATION_INTL_MAX   = 48 * 60;
 
-    // Skale doswiadczenia
-    /** @var array<string, array<int|float, int|float>> */
+ // Skale doswiadczenia
+ /** @var array<string, array<int|float, int|float>> */
     private static array $expLevels = [
         'junior' => [1,  5,  0.70],
         'mid'    => [6,  12, 1.00],
@@ -60,22 +60,22 @@ class CandidateGenerator
         }
     }
 
-    //  GLOWNA METODA 
+ // GLOWNA METODA 
 
-    /**
-     * Generuje kandydatow dla danej roli i regionu
-     *
-     * @param int    $roleId       ID z board_roles
-     * @param int    $requestId    ID z recruitment_requests
-     * @param string $regionCode   Kod regionu (PL, US, NO...)
-     * @param string $specCode     Kod specjalizacji (drilling_engineer...) lub null = wybierz wg dzialu
-     */
-    /**
-     * Generuje kandydatow dla rekrutacji
-     *
-     * @param string $recruitType  'local' | 'international'
-     * @return list<int>
-     */
+ /**
+ * Generuje kandydatow dla danej roli i regionu
+ *
+ * @param int $roleId ID z board_roles
+ * @param int $requestId ID z recruitment_requests
+ * @param string $regionCode Kod regionu (PL, US, NO...)
+ * @param string $specCode Kod specjalizacji (drilling_engineer...) lub null = wybierz wg dzialu
+ */
+ /**
+ * Generuje kandydatow dla rekrutacji
+ *
+ * @param string $recruitType 'local' | 'international'
+ * @return list<int>
+ */
     public function generateForRequest(int $roleId, int $requestId, string $regionCode = 'PL',
                                        ?string $specCode = null, string $recruitType = 'local',
                                        float $bankruptPenalty = 1.0, string $initiatedBy = 'director'): array
@@ -92,8 +92,8 @@ class CandidateGenerator
                        'min_age'=>25,'max_age'=>55,'name'=>'Pracownik'];
         }
 
-        // Liczba kandydatow: 0–3, zredukowana przez dostepnosc regionu
-        // bankruptPenalty < 1.0 gdy firma jest w restrukturyzacji — mniej chetnych
+ // Liczba kandydatow: 0-3, zredukowana przez dostepnosc regionu
+ // bankruptPenalty < 1.0 gdy firma jest w restrukturyzacji - mniej chetnych
         $range = self::$countByRarity[$spec['rarity']] ?? [1, 3];
         $avail = ($region['availability'] ?? 60) / 100;
         $count = (int)round(rand($range[0], $range[1]) * $avail * $bankruptPenalty);
@@ -140,8 +140,8 @@ class CandidateGenerator
             }
         }
 
-        // Rekrutacja miedzynarodowa daje nieco lepszych kandydatow
-            // bankruptPenalty obniża też skuteczność boost (slabsi kandydaci chcą iść do firmy w tarapatach)
+ // Rekrutacja miedzynarodowa daje nieco lepszych kandydatow
+ // bankruptPenalty obniza tez skutecznosc boost (slabsi kandydaci chca isc do firmy w tarapatach)
         $intlBoost = ($recruitType === 'international') ? 1.1 * $bankruptPenalty : $bankruptPenalty;
 
         $hrQualityMult = 1.0;
@@ -166,7 +166,7 @@ class CandidateGenerator
             $generated[] = $id;
         }
 
-        // Powiadomienie gdy brak kandydatow
+ // Powiadomienie gdy brak kandydatow
         if ($count === 0 && $initiatedBy === 'technical') {
             $this->db->prepare("
                 INSERT INTO technical_notifications (player_id, well_id, type, message)
@@ -191,53 +191,53 @@ class CandidateGenerator
         return $generated;
     }
 
-    //  GENERATOR POJEDYNCZEGO KANDYDATA 
+ // GENERATOR POJEDYNCZEGO KANDYDATA 
 
-    /**
-     * @param array<string, mixed> $region
-     * @param array<string, mixed> $spec
-     */
+ /**
+ * @param array<string, mixed> $region
+ * @param array<string, mixed> $spec
+ */
     private function generateOne(int $roleId, int $requestId, array $region, array $spec,
                                     string $expiresAt, float $intlBoost = 1.0, float $hrQualityMult = 1.0): int
     {
-        // Wiek w zakresie specjalizacji
+ // Wiek w zakresie specjalizacji
         $age       = rand($spec['min_age'], $spec['max_age']);
         $birthDate = date('Y-m-d', mktime(0, 0, 0, rand(1, 12), rand(1, 28), date('Y') - $age));
 
-        // Doswiadczenie: max = wiek - 22, min = 1
+ // Doswiadczenie: max = wiek - 22, min = 1
         $maxExp = max(1, $age - 22);
         $minExp = max(1, (int)floor($maxExp * 0.2));
         $exp    = rand($minExp, $maxExp);
 
-        // Poziom doswiadczenia
+ // Poziom doswiadczenia
         $expMod = $this->getExpModifier($exp);
 
-        // Płec
+ // Plec
         $gender = rand(0, 9) < 8 ? 'M' : 'F'; // 80% M w oil&gas (realistycznie)
 
-        // Narodowosc z regionu
+ // Narodowosc z regionu
         $nationality = $region['code'];
 
-        // Imie i nazwisko
+ // Imie i nazwisko
         $firstName = $this->randomName('first_name', $nationality, $gender);
         $lastName  = $this->randomName('last_name',  $nationality, 'N');
 
-        // Skills: rozklad rynku pracy + modyfikator regionu + boost rekrutacji miedzynarodowej
+ // Skills: rozklad rynku pracy + modyfikator regionu + boost rekrutacji miedzynarodowej
         $skillMod  = (float)$region['skill_modifier'] * $intlBoost * $hrQualityMult;
         $baseSkill = $this->rollSkillFromDistribution($skillMod);
         $skills    = $this->generateSkills($baseSkill, 1.0);
 
-        // Cechy ukryte
+ // Cechy ukryte
         $traits = $this->generateTraits($skills['ethics'], $age, $exp);
 
-        // Pensja: base_salary * region_modifier * exp_modifier + losowy jitter
+ // Pensja: base_salary * region_modifier * exp_modifier + losowy jitter
         $salaryBase = rand((int)$spec['base_salary_min'], (int)$spec['base_salary_max']);
         $salary     = round($salaryBase * (float)$region['salary_modifier'] * $expMod / 100) * 100;
 
-        // Certyfikat (10% szans)
+ // Certyfikat (10% szans)
         $cert = rand(1, 10) === 1 ? $this->randomCertificate($spec) : null;
 
-        // Pobierz player_id z recruitment_requests
+ // Pobierz player_id z recruitment_requests
         $playerIdForCand = null;
         try {
             $pidStmt = $this->db->prepare("SELECT player_id FROM recruitment_requests WHERE id = ? LIMIT 1");
@@ -279,17 +279,17 @@ class CandidateGenerator
         return $value !== false ? (int)$value : null;
     }
 
-    //  SKILLS 
+ // SKILLS 
 
-    /**
-     * Losuje skill według rozkladu rynku pracy branzy naftowej
-     * Modyfikator regionu przesuwa rozklad w gore/dol
-     */
+ /**
+ * Losuje skill wedlug rozkladu rynku pracy branzy naftowej
+ * Modyfikator regionu przesuwa rozklad w gore/dol
+ */
     private function rollSkillFromDistribution(float $regionMod): int
     {
         $roll = mt_rand(1, 1000);
 
-        // 0.2% szans na skill 10 (1000 * 0.002 = 2)
+ // 0.2% szans na skill 10 (1000 * 0.002 = 2)
         if ($roll <= 2) {
             $base = 10;
         } else {
@@ -305,21 +305,21 @@ class CandidateGenerator
             }
         }
 
-        // Modyfikator regionu: NO/US przesuwa w gore, PL/RU w dol
+ // Modyfikator regionu: NO/US przesuwa w gore, PL/RU w dol
         if ($regionMod >= 1.1) {
-            // Lepszy region — 30% szans na +1 skill
+ // Lepszy region - 30% szans na +1 skill
             if (mt_rand(1, 100) <= 30) $base = min(10, $base + 1);
         } elseif ($regionMod <= 0.85) {
-            // Słabszy region — 30% szans na -1 skill
+ // Slabszy region - 30% szans na -1 skill
             if (mt_rand(1, 100) <= 30) $base = max(1, $base - 1);
         }
 
         return max(1, min(10, $base));
     }
 
-    /**
-     * @return array<string, int>
-     */
+ /**
+ * @return array<string, int>
+ */
     private function generateSkills(int $base, float $regionMod): array
     {
         $names = ['organization', 'negotiation', 'analysis', 'stress', 'ethics'];
@@ -331,20 +331,20 @@ class CandidateGenerator
         return $skills;
     }
 
-    //  TRAITS 
+ // TRAITS 
 
-    /**
-     * @return array<string, int>
-     */
+ /**
+ * @return array<string, int>
+ */
     private function generateTraits(int $ethics, int $age, int $exp): array
     {
-        // Lojalnosc rośnie z wiekiem i stazem
+ // Lojalnosc rosnie z wiekiem i stazem
         $loyaltyBase = min(9, max(1, (int)round(($age - 22) / 4) + rand(-1, 1)));
 
-        // Korupcja — odwrotna do etyki, ale z losowoscia
+ // Korupcja - odwrotna do etyki, ale z losowoscia
         $corrBase = max(1, min(10, 11 - $ethics + rand(-2, 2)));
 
-        // Ambicja — maleje z wiekiem i doswiadczeniem
+ // Ambicja - maleje z wiekiem i doswiadczeniem
         $ambBase = max(1, min(10, (int)round((60 - $age) / 5) + rand(-1, 2)));
 
         return [
@@ -354,7 +354,7 @@ class CandidateGenerator
         ];
     }
 
-    //  DOSWIADCZENIE 
+ // DOSWIADCZENIE 
 
     private function getExpModifier(int $exp): float
     {
@@ -371,11 +371,11 @@ class CandidateGenerator
         return 'Senior';
     }
 
-    //  CERTYFIKATY 
+ // CERTYFIKATY 
 
-    /**
-     * @param array<string, mixed> $spec
-     */
+ /**
+ * @param array<string, mixed> $spec
+ */
     private function randomCertificate(array $spec): ?string
     {
         $certs = [
@@ -389,11 +389,11 @@ class CandidateGenerator
         return $certs[$key];
     }
 
-    //  IMIONA 
+ // IMIONA 
 
     private function randomName(string $type, string $nationality, string $gender): string
     {
-        // Spróbuj pobrać z bazy dla danej narodowości
+ // Sprobuj pobrac z bazy dla danej narodowosci
         $stmt = $this->db->prepare("
             SELECT value FROM name_pool
             WHERE type = ? AND nationality = ? AND (gender = ? OR gender = 'N')
@@ -403,17 +403,17 @@ class CandidateGenerator
         $row = $stmt->fetch();
         if ($row) return $row['value'];
 
-        // Fallback na PL
+ // Fallback na PL
         $stmt->execute([$type, 'PL', $gender]);
         $row = $stmt->fetch();
         return $row ? $row['value'] : ($type === 'first_name' ? 'Jan' : 'Kowalski');
     }
 
-    //  FETCH HELPERS 
+ // FETCH HELPERS 
 
-    /**
-     * @return array<string, mixed>|null
-     */
+ /**
+ * @return array<string, mixed>|null
+ */
     private function fetchRegion(string $code): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM hr_regions WHERE code = ?");
@@ -421,9 +421,9 @@ class CandidateGenerator
         return $stmt->fetch() ?: null;
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+ /**
+ * @return array<string, mixed>|null
+ */
     private function fetchSpecByCode(string $code): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM hr_specializations WHERE code = ?");
@@ -431,12 +431,12 @@ class CandidateGenerator
         return $stmt->fetch() ?: null;
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+ /**
+ * @return array<string, mixed>|null
+ */
     private function fetchSpecByRole(int $roleId): ?array
     {
-        // Mapuj role zarządu → departament specjalizacji
+ // Mapuj role zarzadu → departament specjalizacji
         $deptMap = [1 => 'hr', 2 => 'technical', 3 => 'finance', 4 => 'legal', 5 => 'logistics'];
 
         $stmt = $this->db->prepare("SELECT code FROM board_roles WHERE id = ?");
@@ -451,7 +451,7 @@ class CandidateGenerator
             return null;
         }
 
-        // Losuj specjalizację z odpowiedniego działu
+ // Losuj specjalizacje z odpowiedniego dzialu
         $stmt = $this->db->prepare("
             SELECT * FROM hr_specializations
             WHERE department = ?
@@ -461,11 +461,11 @@ class CandidateGenerator
         return $stmt->fetch() ?: null;
     }
 
-    //  ZAPIS 
+ // ZAPIS 
 
-    /**
-     * @param array<string, mixed> $data
-     */
+ /**
+ * @param array<string, mixed> $data
+ */
     private function save(array $data): int
     {
         $stmt = $this->db->prepare("
@@ -493,7 +493,7 @@ class CandidateGenerator
         return (int)$this->db->lastInsertId();
     }
 
-    //  CLEANUP 
+ // CLEANUP 
 
     public function cleanupExpired(): int
     {

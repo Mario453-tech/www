@@ -9,7 +9,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  Upewnij si e tabela istnieje 
+// Upewnij si e tabela istnieje 
 try {
     $db->exec("CREATE TABLE IF NOT EXISTS `game_help_pages` (
         `id`         INT AUTO_INCREMENT PRIMARY KEY,
@@ -26,7 +26,7 @@ try {
     GameLog::error('admin/help_editor', 'CREATE TABLE failed', $e);
 }
 
-//  Domylne sekcje  wstaw jeli tabela pusta 
+// Domylne sekcje wstaw jeli tabela pusta 
 $count = (int)$db->query("SELECT COUNT(*) FROM game_help_pages")->fetchColumn();
 if ($count === 0) {
     $defaults = [
@@ -48,7 +48,7 @@ if ($count === 0) {
     }
 }
 
-//  POST: zapisz sekcj 
+// POST: zapisz sekcj 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -105,10 +105,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Pobierz wszystkie sekcje 
+// Pobierz wszystkie sekcje 
 $pages = $db->query("SELECT * FROM game_help_pages ORDER BY sort_order ASC, id ASC")->fetchAll();
 
-//  Ktra sekcja jest aktywna w edytorze 
+// Ktra sekcja jest aktywna w edytorze 
 $editId   = (int)($_GET['edit'] ?? ($pages[0]['id'] ?? 0));
 $editPage = null;
 foreach ($pages as $p) {

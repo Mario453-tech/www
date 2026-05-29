@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 return [
     'admin.hr.add_spec_hint' => 'Kod musi być unikalny. Wartości perków można ustawić po dodaniu.',
-    'admin.hr.btn_add_spec' => '+ Dodaj specjalizację',
+    'admin.hr.btn_add_spec' => 'Dodaj specjalizację',
     'admin.hr.btn_cleanup_candidates' => 'Usuń wygasłych kandydatów',
     'admin.hr.col_action' => 'Akcja',
     'admin.hr.col_active' => 'Aktywni',
@@ -38,7 +38,7 @@ return [
     'admin.hr.field_catastrophe_reduction' => 'Redukcja katastrofy',
     'admin.hr.field_code' => 'Kod (a-z, cyfry, _)',
     'admin.hr.field_incident_reduction' => 'Redukcja incydentów',
-    'admin.hr.field_incident_return' => 'Redukcja powrotu incyd.',
+    'admin.hr.field_incident_return' => 'Redukcja powrotu incydentów',
     'admin.hr.field_name_pl' => 'Nazwa (PL)',
     'admin.hr.field_prod_bonus' => 'Bonus produkcji',
     'admin.hr.field_repair_speed' => 'Szybkość naprawy',
@@ -60,9 +60,9 @@ return [
     'admin.hr.section_hr_specs' => 'Specjalizacje kandydatów (hr_specializations)',
     'admin.hr.section_staff_specs' => 'Specjalizacje techniczne (staff_specializations)',
     'admin.hr.section_stats' => 'Statystyki HR graczy',
-    'admin.hr.staff_specs_desc' => 'Wartości z zakresu 0.0–1.0 (np. 0.10 = 10%). Zmiany wpływają na balans gry.',
-    'admin.hr.tab_candidates' => '👤 Kandydaci',
-    'admin.hr.tab_history' => '📋 Historia',
-    'admin.hr.tab_specializations' => '⚙️ Specjalizacje',
-    'admin.hr.tab_stats' => '📊 Statystyki',
+    'admin.hr.staff_specs_desc' => 'Wartości z zakresu 0.0-1.0 (np. 0.10 = 10%). Zmiany wpływają na balans gry.',
+    'admin.hr.tab_candidates' => 'Kandydaci',
+    'admin.hr.tab_history' => 'Historia',
+    'admin.hr.tab_specializations' => 'Specjalizacje',
+    'admin.hr.tab_stats' => 'Statystyki',
 ];

@@ -1,12 +1,12 @@
 <?php
 trait WellSellTrait
 {
-    /**
-     * Oblicz wycen sprzeday odwiertu (bez zapisu)  do wywietlenia w modalu.
-     * Calculate well sale value (without saving)  for display in the modal.
-     * Zwraca tablic z sell_value, breakdown i ewentualnym bdem.
-     * Returns array with sell_value, breakdown and optional error.
-     */
+ /**
+ * Oblicz wycen sprzeday odwiertu (bez zapisu) do wywietlenia w modalu.
+ * Calculate well sale value (without saving) for display in the modal.
+ * Zwraca tablic z sell_value, breakdown i ewentualnym bdem.
+ * Returns array with sell_value, breakdown and optional error.
+ */
     public function calculateSellValue(int $wellId, int $playerId): array
     {
         $well = $this->getWell($wellId, $playerId);
@@ -14,14 +14,14 @@ trait WellSellTrait
             return ['error' => t('well.err_not_found')];
         }
 
-        // Blokady statusu / Status locks
+ // Blokady statusu / Status locks
         $blockedStatuses = ['seized', 'blowout', 'sold'];
         if (in_array($well['status'], $blockedStatuses, true)) {
             return ['error' => t('well.err_sell_blocked_status', ['status' => $well['status']])];
         }
 
-        // Blokada: odwiert musi byc odpienty od huba i pracownikow przed sprzedaza.
-        // Block: well must be detached from hub and staff before selling.
+ // Blokada: odwiert musi byc odpienty od huba i pracownikow przed sprzedaza.
+ // Block: well must be detached from hub and staff before selling.
         $hubCheck = $this->db->prepare(
             "SELECT COUNT(*) FROM logistics_hub_assignments WHERE well_id = ? AND status = 'active'"
         );
@@ -34,14 +34,14 @@ trait WellSellTrait
             return ['error' => t('well.err_sell_has_hub_or_staff')];
         }
 
-        // Cooldown 2h od created_at / 2h cooldown from created_at
+ // Cooldown 2h od created_at / 2h cooldown from created_at
         $createdAt = strtotime($well['created_at'] ?? 'now');
         if ((time() - $createdAt) < 7200) {
             $remaining = 7200 - (time() - $createdAt);
             return ['error' => t('well.err_sell_cooldown', ['min' => ceil($remaining / 60)])];
         }
 
-        // Cena ropy / Oil price
+ // Cena ropy / Oil price
         $oilPrice = 0.0;
         try {
             $market   = new Market();
@@ -49,7 +49,7 @@ trait WellSellTrait
         } catch (Throwable $e) {}
         if ($oilPrice <= 0) $oilPrice = 50.0; // fallback
 
-        // Profit/h
+ // Profit/h
         $prodPerH   = (float)($well['base_production_per_hour'] ?? 0);
         $upkeepPerH = $this->getOpexPerHour($well);
         $profitH    = $prodPerH * $oilPrice - $upkeepPerH;
@@ -58,7 +58,7 @@ trait WellSellTrait
             return ['error' => t('well.err_sell_unprofitable')];
         }
 
-        // Konfiguracja (z well_config lub defaults) / Configuration (from well_config or defaults)
+ // Konfiguracja (z well_config lub defaults) / Configuration (from well_config or defaults)
         $baseDaysMult = $this->cfg('sell_base_days_mult',  1.2);
         $wearDivisor  = $this->cfg('sell_wear_divisor',    120.0);
         $riskDivisor  = $this->cfg('sell_risk_divisor',    300.0);
@@ -68,10 +68,10 @@ trait WellSellTrait
         $standardMult = $this->cfg('sell_eq_standard',     1.0);
         $blackMkt     = $this->cfg('sell_eq_black_market', 0.8);
 
-        // Baza / Base value
+ // Baza / Base value
         $base = $profitH * 24 * $baseDaysMult;
 
-        // Mnoniki / Multipliers
+ // Mnoniki / Multipliers
         $condMult = (float)($well['technical_condition'] ?? 100) / 100.0;
 
         $wearLevel = (float)($well['wear_level'] ?? 0);
@@ -95,16 +95,16 @@ trait WellSellTrait
         $incidentBoost   = (float)($well['post_incident_risk_boost'] ?? 0);
         $incidentPenalty = $incidentBoost > 0 ? 0.8 : 1.0;
 
-        // Finalna warto / Final value
+ // Finalna warto / Final value
         $sellValue = $base * $condMult * $wearMult * $riskMult * $eqMult * $depthMult * $incidentPenalty;
 
-        // Clamp min/max
+ // Clamp min/max
         $minValue  = $profitH * $minHours;
         $maxValue  = $profitH * $maxHours;
         $sellValue = max($minValue, min($maxValue, $sellValue));
         $sellValue = round($sellValue, 2);
 
-        // Breakdown (procenty wzgldem bazy) / Breakdown (percentages relative to base)
+ // Breakdown (procenty wzgldem bazy) / Breakdown (percentages relative to base)
         $breakdown = [
             'base'          => round($base, 2),
             'condition_pct' => round(($condMult    - 1) * 100, 1),
@@ -126,10 +126,10 @@ trait WellSellTrait
         ];
     }
 
-    /**
-     * Wykonaj sprzeda odwiertu  zapisuje do DB, aktualizuje balans gracza.
-     * Execute well sale  saves to DB, updates player balance.
-     */
+ /**
+ * Wykonaj sprzeda odwiertu zapisuje do DB, aktualizuje balans gracza.
+ * Execute well sale saves to DB, updates player balance.
+ */
     public function sellWell(int $wellId, int $playerId): array
     {
         try {
@@ -144,22 +144,22 @@ trait WellSellTrait
 
             $this->db->beginTransaction();
 
-            // 1. Status  sold
+ // 1. Status sold
             $this->db->prepare("UPDATE wells SET status='sold', sold_at=NOW(), operator_id=NULL, technician_id=NULL WHERE id=? AND player_id=?")
                      ->execute([$wellId, $playerId]);
 
-            // Odpisz przypisanych pracownikw  bez tego pozostaj "zajci" i nie mona ich przypisa do nowego odwiertu
-            // Unassign assigned workers  otherwise they remain "busy" and cannot be assigned to a new well
+ // Odpisz przypisanych pracownikw bez tego pozostaj "zajci" i nie mona ich przypisa do nowego odwiertu
+ // Unassign assigned workers otherwise they remain "busy" and cannot be assigned to a new well
             $this->db->prepare("
                 UPDATE well_staff_assignments SET unassigned_at = NOW()
                 WHERE well_id = ? AND player_id = ? AND unassigned_at IS NULL
             ")->execute([$wellId, $playerId]);
 
-            // 2. Dodaj kas graczowi / Add cash to player
+ // 2. Dodaj kas graczowi / Add cash to player
             $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id=?")
                      ->execute([$sellValue, $playerId]);
 
-            // 3. Zapis do bankruptcy_events (historia transakcji) / Save to bankruptcy_events (transaction history)
+ // 3. Zapis do bankruptcy_events (historia transakcji) / Save to bankruptcy_events (transaction history)
             $payload = json_encode([
                 'asset_type' => 'well',
                 'well_id'    => $wellId,
@@ -176,7 +176,7 @@ trait WellSellTrait
                 $payload,
             ]);
 
-            // 4. Zapis do admin_logs / Save to admin_logs
+ // 4. Zapis do admin_logs / Save to admin_logs
             $this->db->prepare("
                 INSERT INTO admin_logs (action, description, target_player_id, target_type, target_id, admin_user, admin_ip, created_at)
                 VALUES ('well_sold', ?, ?, 'well', ?, 'system', '', NOW())

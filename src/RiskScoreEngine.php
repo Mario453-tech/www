@@ -1,17 +1,17 @@
 <?php
 
 /**
- * RiskScoreEngine — credit risk scoring engine.
+ * RiskScoreEngine credit risk scoring engine.
  *
  * Score scale (max ~115):
- *   Wells (assets)      : 0-20 pts
- *   Production          : 0-10 pts
- *   Storage             : 0-10 pts
- *   Cash (liquidity)    : 0-15 pts
- *   Behaviour           : 0-15 pts
- *   Market              : -15 / 0 / +15 pts
- *   History             : 0-20 pts
- *   Credit Score        : 0-15 pts  (players.credit_score — banking reputation)
+ * Wells (assets) : 0-20 pts
+ * Production : 0-10 pts
+ * Storage : 0-10 pts
+ * Cash (liquidity) : 0-15 pts
+ * Behaviour : 0-15 pts
+ * Market : -15 / 0 / +15 pts
+ * History : 0-20 pts
+ * Credit Score : 0-15 pts (players.credit_score banking reputation)
  */
 class RiskScoreEngine
 {
@@ -28,10 +28,10 @@ class RiskScoreEngine
         }
     }
 
-    /**
-     * Calculates the credit risk score for a player.
-     * @return array{score: int, breakdown: array<string, array<string, mixed>>}
-     */
+ /**
+ * Calculates the credit risk score for a player.
+ * @return array{score: int, breakdown: array<string, array<string, mixed>>}
+ */
     public function calculateRiskScore(int $playerId): array
     {
         $breakdown    = [];
@@ -61,11 +61,11 @@ class RiskScoreEngine
         ];
     }
 
-    // ASSETS (max 20 pts)
+ // ASSETS (max 20 pts)
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     private function scoreWells(int $playerId): array
     {
         $stmt = $this->db->prepare("
@@ -85,7 +85,7 @@ class RiskScoreEngine
         $active = (int)$d['active_count'];
         $seized = (int)$d['seized'];
 
-        // Points for well count (max 12)
+ // Points for well count (max 12)
         $points = match(true) {
             $total === 0             => 0,
             $total === 1             => 4,
@@ -94,16 +94,16 @@ class RiskScoreEngine
             default                  => 12,
         };
 
-        // Points for status quality (max 8)
+ // Points for status quality (max 8)
         if ($total > 0) {
             $activeRatio = $active / $total;
             if ($activeRatio >= 1.0)       $points += 8;
             elseif ($activeRatio >= 0.75)  $points += 5;
             elseif ($activeRatio >= 0.5)   $points += 2;
-            // below 50% active = 0 bonus
+ // below 50% active = 0 bonus
         }
 
-        // Penalty for seized wells
+ // Penalty for seized wells
         if ($seized > 0) $points = max(0, $points - 5);
 
         return [
@@ -113,14 +113,14 @@ class RiskScoreEngine
         ];
     }
 
-    // PRODUCTION (max 10 pts)
+ // PRODUCTION (max 10 pts)
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     private function scoreProduction(int $playerId): array
     {
-        // Score based on last well activity timestamp
+ // Score based on last well activity timestamp
         $stmt = $this->db->prepare("
             SELECT
                 COUNT(*) AS total,
@@ -152,11 +152,11 @@ class RiskScoreEngine
         ];
     }
 
-    // STORAGE (max 10 pts)
+ // STORAGE (max 10 pts)
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     private function scoreStorage(int $playerId): array
     {
         $stmt = $this->db->prepare("
@@ -165,7 +165,7 @@ class RiskScoreEngine
         $stmt->execute([':pid' => $playerId]);
         $storage = $stmt->fetch();
 
-        // BUG FIX: $usage must be accessible outside the if() block
+ // BUG FIX: $usage must be accessible outside the if() block
         $usageRatio  = 0.0;
         $usagePct    = 0;
         $points      = 0;
@@ -174,7 +174,7 @@ class RiskScoreEngine
             $usageRatio = $storage['used'] / $storage['capacity'];
             $usagePct   = round($usageRatio * 100);
 
-            // Full storage = poor management (production halted)
+ // Full storage = poor management (production halted)
             if ($usageRatio < 0.7)       $points = 10;
             elseif ($usageRatio < 0.85)  $points = 7;
             elseif ($usageRatio < 0.95)  $points = 3;
@@ -188,11 +188,11 @@ class RiskScoreEngine
         ];
     }
 
-    // CASH / LIQUIDITY (max 15 pts)
+ // CASH / LIQUIDITY (max 15 pts)
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     private function scoreCash(int $playerId): array
     {
         $stmt = $this->db->prepare("SELECT cash FROM players WHERE id = :id");
@@ -215,11 +215,11 @@ class RiskScoreEngine
         ];
     }
 
-    // BEHAVIOUR / ACTIVITY (max 15 pts)
+ // BEHAVIOUR / ACTIVITY (max 15 pts)
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     private function scoreBehavior(int $playerId): array
     {
         $stmt = $this->db->prepare("
@@ -230,7 +230,7 @@ class RiskScoreEngine
 
         $points = 0;
 
-        // 1. Account age (max 8 pts)
+ // 1. Account age (max 8 pts)
         $ageDays = (time() - strtotime($player['created_at'])) / 86400;
         $points += match(true) {
             $ageDays >= 30  => 8,
@@ -240,7 +240,7 @@ class RiskScoreEngine
             default         => 0,
         };
 
-        // 2. Last login (max 7 pts) — inactive player = higher risk
+ // 2. Last login (max 7 pts) inactive player = higher risk
         $lastLogin    = $player['last_login_at'] ?? $player['last_tick_at'];
         $hoursInactive = $lastLogin
             ? (time() - strtotime($lastLogin)) / 3600
@@ -260,22 +260,22 @@ class RiskScoreEngine
         ];
     }
 
-    // MARKET / TREND (-15 / 0 / +15 pts)
+ // MARKET / TREND (-15 / 0 / +15 pts)
 
-    /**
-     * BUG FIX: previous version checked category as 'boom','war' etc.
-     * but in the DB category = 'economic','political' etc.
-     * The correct key is trend_name (VARCHAR) or category.
-     *
-     * Mapping per spec:
-     *    +15: economic category with price_modifier > 1 OR trend_name LIKE boom/discovery/opec_cut
-     *    -15: military/political category with price_modifier < 1 OR trend_name LIKE crisis/war/pandemic
-     *      0: everything else
-     *
-     * Uses price_modifier as the objective indicator since it is stored in the DB.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * BUG FIX: previous version checked category as 'boom','war' etc.
+ * but in the DB category = 'economic','political' etc.
+ * The correct key is trend_name (VARCHAR) or category.
+ *
+ * Mapping per spec:
+ * +15: economic category with price_modifier > 1 OR trend_name LIKE boom/discovery/opec_cut
+ * -15: military/political category with price_modifier < 1 OR trend_name LIKE crisis/war/pandemic
+ * 0: everything else
+ *
+ * Uses price_modifier as the objective indicator since it is stored in the DB.
+ *
+ * @return array<string, mixed>
+ */
     private function scoreMarket(): array
     {
         $marketTrend = new MarketTrend();
@@ -297,7 +297,7 @@ class RiskScoreEngine
         $trendName  = strtolower($trend['trend_name']);
         $modifier   = (float)$trend['price_modifier'];
 
-        // Map trend names to sentiment per project spec
+ // Map trend names to sentiment per project spec
         $positiveNames = ['boom', 'discovery', 'opec_cut', 'opec cut', 'odkrycie', 'wzrost'];
         $negativeNames = ['crisis', 'war', 'pandemic', 'kryzys', 'wojna', 'pandemia', 'embargo'];
 
@@ -311,7 +311,7 @@ class RiskScoreEngine
             }
         }
 
-        // Fallback: use price_modifier when the name is inconclusive
+ // Fallback: use price_modifier when the name is inconclusive
         if ($sentiment === 'neutral') {
             if ($modifier >= 1.15)      $sentiment = 'positive';
             elseif ($modifier <= 0.85)  $sentiment = 'negative';
@@ -337,15 +337,15 @@ class RiskScoreEngine
             'trend_name' => $trend['trend_name'],
             'modifier'   => $modifier,
             'sentiment'  => $sentiment,
-            'details'    => "Trend: {$trend['trend_name']} ({$sentimentLabel}, modifier: ×{$modifier})",
+            'details'    => "Trend: {$trend['trend_name']} ({$sentimentLabel}, modifier: ï¿½{$modifier})",
         ];
     }
 
-    // CREDIT HISTORY (max 20 pts)
+ // CREDIT HISTORY (max 20 pts)
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     private function scoreHistory(int $playerId): array
     {
         $stmt = $this->db->prepare("
@@ -382,9 +382,9 @@ class RiskScoreEngine
         ];
     }
 
-    // CREDIT SCORE — banking reputation (max 15 pts)
+ // CREDIT SCORE banking reputation (max 15 pts)
 
-    /** @return array<string, mixed> */
+ /** @return array<string, mixed> */
     private function scoreCreditScore(int $playerId): array
     {
         try {

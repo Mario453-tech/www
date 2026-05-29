@@ -1,7 +1,7 @@
 /* 
    finance.js  wykres historii finansowej
    Uywa Chart.js (adowanego z CDN przez PHP)
-    */
+ */
 var _FINL = window.FIN_LANG || {};
 function finl(k) { return _FINL[k] || k; }
 
@@ -14,7 +14,7 @@ function finl(k) { return _FINL[k] || k; }
     var canvas = document.getElementById('finChart');
     if (!canvas) return;
 
-    // Wczytaj Chart.js dynamicznie
+ // Wczytaj Chart.js dynamicznie
     var script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
     script.onload = function () { renderChart(canvas, history); };
@@ -32,7 +32,7 @@ function finl(k) { return _FINL[k] || k; }
         var profit   = data.map(function (r) { return parseFloat(r.net_profit)  || 0; });
         var loss     = data.map(function (r) { return parseFloat(r.loss_value)  || 0; });
 
-        // Inteligentny step dla labelek
+ // Inteligentny step dla labelek
         var step = Math.max(1, Math.floor(labels.length / 12));
         var sparseLabels = labels.map(function (l, i) {
             return i % step === 0 ? l : '';
@@ -145,7 +145,7 @@ function finl(k) { return _FINL[k] || k; }
     }
 })();
 
-/*  Picker trybu / rezerwy (zakadka Polityka)  */
+/* Picker trybu / rezerwy (zakadka Polityka) */
 (function () {
     'use strict';
     document.addEventListener('DOMContentLoaded', function () {
@@ -164,7 +164,7 @@ function finl(k) { return _FINL[k] || k; }
     });
 })();
 
-/*  Odliczanie cooldown-u polityki oszczdnoci  */
+/* Odliczanie cooldown-u polityki oszczdnoci */
 (function () {
     'use strict';
     document.addEventListener('DOMContentLoaded', function () {
@@ -194,7 +194,7 @@ function finl(k) { return _FINL[k] || k; }
     });
 })();
 
-/*  Dynamiczny badge poziomu budetu (zakadka Budety)  */
+/* Dynamiczny badge poziomu budetu (zakadka Budety) */
 (function () {
     'use strict';
     document.addEventListener('DOMContentLoaded', function () {
@@ -212,7 +212,7 @@ function finl(k) { return _FINL[k] || k; }
     });
 })();
 
-/*  Toast przy powrocie po zapisie ($msg / $err PHP)  */
+/* Toast przy powrocie po zapisie ($msg / $err PHP) */
 (function () {
     'use strict';
     document.addEventListener('DOMContentLoaded', function () {
@@ -231,7 +231,7 @@ function finl(k) { return _FINL[k] || k; }
     });
 })();
 
-/*  Potwierdzenia zmian polityki finansowej  */
+/* Potwierdzenia zmian polityki finansowej */
 (function () {
     'use strict';
     document.addEventListener('DOMContentLoaded', function () {
@@ -243,7 +243,7 @@ function finl(k) { return _FINL[k] || k; }
         policyForms.forEach(function (form) {
             form.addEventListener('submit', function (e) {
 
-                /*  plan oszczdnoci  */
+ /* plan oszczdnoci */
                 var selMode = form.querySelector('input[name="savings_plan_mode"]:checked');
                 if (selMode && selMode.value !== curMode) {
                     var m = selMode.value;
@@ -265,7 +265,7 @@ function finl(k) { return _FINL[k] || k; }
                     return;
                 }
 
-                /*  rezerwa awaryjna  */
+ /* rezerwa awaryjna */
                 var selRes = form.querySelector('input[name="reserve_policy"]:checked');
                 if (selRes && selRes.value !== curRes) {
                     var rText = conf.reserve || 'Zmieni poziom rezerwy awaryjnej?';

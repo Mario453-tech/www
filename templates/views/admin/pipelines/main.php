@@ -220,11 +220,11 @@ $eventLabels = [
                             <?php endif ?>
                         </span>
                         <span>
-                            #<?= (int)($row['well_id'] ?? 0) ?>
+ #<?= (int)($row['well_id'] ?? 0) ?>
                             <span class="muted"><?= htmlspecialchars((string)($row['well_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
                         </span>
                         <span>
-                            #<?= (int)($row['pipeline_id'] ?? 0) ?>
+ #<?= (int)($row['pipeline_id'] ?? 0) ?>
                             <?php if (!empty($row['pipeline_type'])): ?>
                                 <span class="badge"><?= t('logistics.pipeline.type_' . $row['pipeline_type']) ?></span>
                             <?php endif ?>

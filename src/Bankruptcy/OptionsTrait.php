@@ -6,10 +6,10 @@
  */
 trait BankruptcyOptionsTrait
 {
-    /**
-     * @param array<string, mixed> $payload
-     * @return array<string, mixed>
-     */
+ /**
+ * @param array<string, mixed> $payload
+ * @return array<string, mixed>
+ */
     public function applyOption(string $option, array $payload = []): array
     {
         try {
@@ -41,12 +41,12 @@ trait BankruptcyOptionsTrait
         }
     }
 
-    // Asset sale branch.
-    // PL: Galaz sprzedazy aktywow.
-    /**
-     * @param array<string, mixed> $payload
-     * @return array<string, mixed>
-     */
+ // Asset sale branch.
+ // PL: Galaz sprzedazy aktywow.
+ /**
+ * @param array<string, mixed> $payload
+ * @return array<string, mixed>
+ */
     private function applySellAsset(array $payload): array
     {
         $assetType = (string)($payload['asset_type'] ?? 'well');
@@ -56,7 +56,7 @@ trait BankruptcyOptionsTrait
         return $this->applySellWellAsset((int)($payload['well_id'] ?? 0));
     }
 
-    /** @return array<string, mixed> */
+ /** @return array<string, mixed> */
     private function applySellWellAsset(int $wellId): array
     {
         if ($wellId <= 0) {
@@ -142,8 +142,8 @@ trait BankruptcyOptionsTrait
         }
     }
 
-    // Bank takeover branch.
-    // PL: Galaz przejecia przez bank.
+ // Bank takeover branch.
+ // PL: Galaz przejecia przez bank.
     private function applyBankTakeover(): array
     {
         $wellStmt = $this->db->prepare("SELECT id, level, base_production_per_hour FROM wells WHERE player_id=? AND status!='seized' ORDER BY level DESC, base_production_per_hour DESC LIMIT 1");
@@ -180,8 +180,8 @@ trait BankruptcyOptionsTrait
         }
     }
 
-    // Emergency loan branch.
-    // PL: Galaz pozyczki ratunkowej.
+ // Emergency loan branch.
+ // PL: Galaz pozyczki ratunkowej.
     private function applyEmergencyLoan(): array
     {
         $state = $this->loadState();
@@ -220,8 +220,8 @@ trait BankruptcyOptionsTrait
         }
     }
 
-    // Cost-cutting branch.
-    // PL: Galaz ciec kosztow.
+ // Cost-cutting branch.
+ // PL: Galaz ciec kosztow.
     private function applyCostCuts(): array
     {
         $this->db->beginTransaction();
@@ -272,8 +272,8 @@ trait BankruptcyOptionsTrait
         }
     }
 
-    // Rescue investor branch.
-    // PL: Galaz inwestora ratunkowego.
+ // Rescue investor branch.
+ // PL: Galaz inwestora ratunkowego.
     private function applyRescueInvestor(): array
     {
         try {
@@ -343,8 +343,8 @@ trait BankruptcyOptionsTrait
         }
     }
 
-    // New-start branch.
-    // PL: Galaz nowego startu.
+ // New-start branch.
+ // PL: Galaz nowego startu.
     private function applyNewStart(): array
     {
         $ok = $this->applyLiquidationResetIfNeeded(true);

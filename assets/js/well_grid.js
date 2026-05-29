@@ -155,7 +155,7 @@ function wgConfirmStorage(wellId, capNow, capAfter, cost) {
         btn.disabled = true;
         btn.textContent = wgt('storage_upgrading');
 
-        // Resolve CSRF token from global state or the first hidden field.`r`n        // Pobierz token CSRF z globalnego stanu albo z pierwszego ukrytego pola.
+ // Resolve CSRF token from global state or the first hidden field.`r`n // Pobierz token CSRF z globalnego stanu albo z pierwszego ukrytego pola.
         var csrf = (typeof window.WG_CSRF !== 'undefined')
             ? window.WG_CSRF
             : (document.querySelector('input[name="csrf_token"]') || {}).value || '';
@@ -368,8 +368,8 @@ async function wgSellPreview(wellId) {
         const sign = function(n) { return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'; };
         const val  = fmt(data.sell_value);
 
-        // Valuation rows
-        // Wiersze wyceny
+ // Valuation rows
+ // Wiersze wyceny
         var rows = [
             [wgt('sell_row_base'),      fmt(b.base || 0) + ' ' + wgt('pln')],
             [wgt('sell_row_condition'), sign(b.condition_pct || 0)],
@@ -382,8 +382,8 @@ async function wgSellPreview(wellId) {
             rows.push([wgt('sell_row_incident'), b.incident_pct + '%']);
         }
 
-        // Reservoir status and impact on sale value.
-        // Stan zloza i wplyw na wartosc sprzedazy.
+ // Reservoir status and impact on sale value.
+ // Stan zloza i wplyw na wartosc sprzedazy.
         var reservoirPct = data.reservoir_pct != null ? data.reservoir_pct : 100;
         var reservoirHtml = '';
         if (reservoirPct < 100) {
@@ -440,8 +440,8 @@ function wgConfirmSell(wellId) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            // Remove the well card from the DOM without full reload.
-            // Usun karte odwiertu z DOM bez pelnego reloadu.
+ // Remove the well card from the DOM without full reload.
+ // Usun karte odwiertu z DOM bez pelnego reloadu.
             var card = document.getElementById('wg-card-' + wellId);
             if (card) {
                 card.style.transition = 'opacity .4s, transform .4s';
@@ -449,13 +449,13 @@ function wgConfirmSell(wellId) {
                 card.style.transform  = 'scale(.95)';
                 setTimeout(function() {
                     card.remove();
-                    // Check whether the region became empty.
-                    // Sprawdz czy region jest teraz pusty.
+ // Check whether the region became empty.
+ // Sprawdz czy region jest teraz pusty.
                     var fmt = new Intl.NumberFormat(window.APP_LOCALE);
                     var earned = fmt.format(Math.round(data.sell_value || 0));
                     wgShowSoldToast(earned);
-                    // Hide the region when it no longer has cards.
-                    // Ukryj region, gdy nie ma juz kart.
+ // Hide the region when it no longer has cards.
+ // Ukryj region, gdy nie ma juz kart.
                     if (card.closest) {
                         var grid = card.closest('.wg-grid');
                         if (grid && grid.querySelectorAll('.wg-card').length === 0) {
@@ -469,8 +469,8 @@ function wgConfirmSell(wellId) {
                     }
                 }, 420);
             } else {
-                // Fallback to reload if the card is missing in the DOM.
-                // Fallback do reloadu, jesli karta nie istnieje w DOM.
+ // Fallback to reload if the card is missing in the DOM.
+ // Fallback do reloadu, jesli karta nie istnieje w DOM.
                 location.reload();
             }
         } else {
@@ -525,7 +525,7 @@ async function wgSetTransport(wellId, transportType, pipelineOwned, pipelineBuil
         return;
     }
 
-    // Confirm before switching to any other transport type (trucks, tanker, owned pipeline)
+ // Confirm before switching to any other transport type (trucks, tanker, owned pipeline)
     const bodyHtml =
         '<div class="wg-sell-breakdown">' +
             '<div class="wg-sell-row">' +

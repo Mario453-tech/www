@@ -6,25 +6,25 @@
  */
 trait BankCalculationTrait
 {
-    /**
-     * Calculates annuity installment amount.
-     * Oblicza wysokosc raty annuitetowej.
-     *
-     * Formula:
-     * R = P * r * (1+r)^n / ((1+r)^n - 1)
-     * Formula:
-     * R = P * r * (1+r)^n / ((1+r)^n - 1)
-     *
-     * P = principal
-     * r = periodic rate based on APR and installment frequency
-     * n = installment count
-     * P = kwota kredytu
-     * r = stopa okresowa na bazie APR i czestotliwosci rat
-     * n = liczba rat
-     *
-     * For near-zero rate, fallback to P / n.
-     * Dla prawie zerowej stopy uzyj fallbacku P / n.
-     */
+ /**
+ * Calculates annuity installment amount.
+ * Oblicza wysokosc raty annuitetowej.
+ *
+ * Formula:
+ * R = P * r * (1+r)^n / ((1+r)^n - 1)
+ * Formula:
+ * R = P * r * (1+r)^n / ((1+r)^n - 1)
+ *
+ * P = principal
+ * r = periodic rate based on APR and installment frequency
+ * n = installment count
+ * P = kwota kredytu
+ * r = stopa okresowa na bazie APR i czestotliwosci rat
+ * n = liczba rat
+ *
+ * For near-zero rate, fallback to P / n.
+ * Dla prawie zerowej stopy uzyj fallbacku P / n.
+ */
     public static function calculateAnnuityInstallment(
         float $principal,
         float $apr,
@@ -46,24 +46,24 @@ trait BankCalculationTrait
         return round($installment, 2);
     }
 
-    /**
-     * Calculates the maximum credit limit for a player.
-     * Oblicza maksymalny limit kredytowy gracza.
-     *
-     * The limit is based on:
-     * - well asset value
-     * - annual production value
-     * - cash reserve contribution
-     * - storage inventory contribution
-     * Limit bazuje na:
-     * - wartosci odwiertow
-     * - wartosci rocznej produkcji
-     * - wkladzie gotowki
-     * - wkladzie zapasu w magazynie
-     *
-     * The result is capped and may be reduced for recovered bankruptcy state.
-     * Wynik jest ograniczony capem i moze byc obnizony po recovered bankruptcy.
-     */
+ /**
+ * Calculates the maximum credit limit for a player.
+ * Oblicza maksymalny limit kredytowy gracza.
+ *
+ * The limit is based on:
+ * - well asset value
+ * - annual production value
+ * - cash reserve contribution
+ * - storage inventory contribution
+ * Limit bazuje na:
+ * - wartosci odwiertow
+ * - wartosci rocznej produkcji
+ * - wkladzie gotowki
+ * - wkladzie zapasu w magazynie
+ *
+ * The result is capped and may be reduced for recovered bankruptcy state.
+ * Wynik jest ograniczony capem i moze byc obnizony po recovered bankruptcy.
+ */
     public function calculateCreditLimit(int $playerId, array $player, array $wellsData): int
     {
         try {

@@ -4,7 +4,7 @@
                 <!-- Equipment panel / Panel sprzetu -->
                 <?php if ($status !== 'seized' && $w['_eqMults'] !== null): ?>
                 <?php
-                // Base tier multipliers at level 0 / Bazowe mnozniki tierow dla poziomu 0
+ // Base tier multipliers at level 0 / Bazowe mnozniki tierow dla poziomu 0
                 $__tierMults = [
                     'black_market' => ['prod' => 1.10, 'wear' => 1.30, 'incident' => 1.25, 'spiral' => 1.20],
                     'standard'     => ['prod' => 1.00, 'wear' => 1.00, 'incident' => 1.00, 'spiral' => 1.00],

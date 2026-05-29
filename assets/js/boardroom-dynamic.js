@@ -1,8 +1,8 @@
 /**
- * boardroom-dynamic.js  sloty sali zarzdu
+ * boardroom-dynamic.js sloty sali zarzdu
  *
- * Kliknicie pustego slotu z HR zatrudnionym  dialog wyboru regionu  HRApi
- * Kliknicie pracownika HR  mini-panel z linkiem do hr.php
+ * Kliknicie pustego slotu z HR zatrudnionym dialog wyboru regionu HRApi
+ * Kliknicie pracownika HR mini-panel z linkiem do hr.php
  */
 
 var _BRL = window.BR_LANG || {};
@@ -16,13 +16,13 @@ const CX = 50, CY = 58, RX = 30, RY = 16;
 
 const seatPositions = [
     { id:0, angle:360, scale:0.80, role_code:'director',  label:brl('seat_director') },
-    // Prawa strona (od dyrektora idc zgodnie z ruchem wskazwek zegara)
+ // Prawa strona (od dyrektora idc zgodnie z ruchem wskazwek zegara)
     { id:1, angle:30,  scale:0.82, role_code:'hr',        label:brl('seat_hr') },        // 1. prawy
     { id:2, angle:48,  scale:0.92, role_code:'technical', label:brl('seat_technical') }, // 2. prawy
     { id:3, angle:92,  scale:1.02, role_code:'finance',   label:brl('seat_finance') },   // 3. prawy
     { id:4, angle:140, scale:1.10, role_code:'legal',     label:brl('seat_legal') },     // 4. prawy
     { id:5, angle:200, scale:1.15, role_code:'logistics', label:brl('seat_logistics') }, // d lewy
-    // Lewa strona (puste miejsca)
+ // Lewa strona (puste miejsca)
     { id:6, angle:248, scale:1.10, role_code:null,        label:null },
     { id:7, angle:280, scale:1.02, role_code:null,        label:null },
     { id:8, angle:310, scale:0.92, role_code:null,        label:null },
@@ -53,7 +53,7 @@ function formatMoney(n) {
 const container = document.getElementById('slots');
 const hrMember  = phpData.membersByRole['hr'] || null;
 
-//  TO SCENY 
+// TO SCENY 
 (function initSceneBg() {
     const bgEl = document.querySelector('.scene-bg');
     if (!bgEl) return;
@@ -72,7 +72,7 @@ function getRecruitmentForRole(code) {
     return phpData.activeRecruitments.find(r => r.role_id == id) || null;
 }
 
-//  RENDER 
+// RENDER 
 
 function render() {
     container.innerHTML = '';
@@ -165,7 +165,7 @@ function render() {
     });
 }
 
-//  PANEL DYREKTORA  rekrutacja HR 
+// PANEL DYREKTORA rekrutacja HR 
 
 function showDirectorHirePanel(roleId, roleName) {
     openModal(`
@@ -194,12 +194,12 @@ function showDirectorHirePanel(roleId, roleName) {
     document.getElementById('director-hire-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         closeModal();
-        // Krtki delay  pozwala zamkn stary modal przed otwarciem nowego
+ // Krtki delay pozwala zamkn stary modal przed otwarciem nowego
         setTimeout(() => openRecruitDialog(roleId, roleName), 80);
     });
 }
 
-//  PANEL HR (mini modal) 
+// PANEL HR (mini modal) 
 
 function showHrPanel(member) {
     openModal(`
@@ -340,7 +340,7 @@ function showLegalPanel(member) {
     `);
 }
 
-//  DIALOG REKRUTACJI (wybr regionu) 
+// DIALOG REKRUTACJI (wybr regionu) 
 
 function openRecruitDialog(roleId, roleName) {
     const regions = [
@@ -429,7 +429,7 @@ async function submitRecruitment(roleId, roleName) {
 }
 
 async function showCandidatesModal(roleId, roleName) {
-    // Pobierz kandydatw z HRApi
+ // Pobierz kandydatw z HRApi
     const res     = await fetch(`/src/HRApi.php?action=get_candidates&role_id=${roleId}`);
     const data    = await res.json();
     const cands   = data.candidates || [];
@@ -439,7 +439,7 @@ async function showCandidatesModal(roleId, roleName) {
         return;
     }
 
-    // Sortuj malejco po redniej  najwyszy = rekomendacja HR
+ // Sortuj malejco po redniej najwyszy = rekomendacja HR
     cands.sort((a,b) => avgSkill(b) - avgSkill(a));
     const recId = cands[0].id;
 
@@ -494,7 +494,7 @@ async function showCandidatesModal(roleId, roleName) {
         </div>
     `);
 
-    // Bind kliknicia kart
+ // Bind kliknicia kart
     document.querySelectorAll('.candidate-card').forEach(card => {
         card.addEventListener('click', () => {
             document.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
@@ -528,7 +528,7 @@ async function hireBoardroomCandidate() {
     }, { type: 'confirm', confirmLabel: brl('hire_selected_btn') });
 }
 
-//  MODAL PRACOWNIKA 
+// MODAL PRACOWNIKA 
 
 function showEmployeeModal(m, roleName) {
     openModal(`
@@ -589,7 +589,7 @@ async function fireEmployee(memberId, name) {
     }, { type: 'danger', confirmLabel: brl('fire_btn') });
 }
 
-//  MODAL HELPERS 
+// MODAL HELPERS 
 
 function openModal(html) {
     let modal = document.getElementById('boardroom-modal');
@@ -598,13 +598,13 @@ function openModal(html) {
         modal.id = 'boardroom-modal';
         modal.className = 'recruitment-modal';
         modal.innerHTML = '<div class="recruitment-panel" id="boardroom-modal-panel"></div>';
-        // Zamknij tylko gdy klik bezporednio na overlay (nie na panel)
+ // Zamknij tylko gdy klik bezporednio na overlay (nie na panel)
         modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
         document.body.appendChild(modal);
     }
     const panel = document.getElementById('boardroom-modal-panel');
     panel.innerHTML = html;
-    // Klik wewntrz panelu NIE zamyka modala
+ // Klik wewntrz panelu NIE zamyka modala
     panel.addEventListener('click', e => e.stopPropagation(), { capture: false });
     modal.classList.add('active');
 }
@@ -614,7 +614,7 @@ function closeModal() {
     if (modal) modal.classList.remove('active');
 }
 
-//  UI HELPERS 
+// UI HELPERS 
 
 function infoBlock(label, value, isGold=false) {
     return `<div class="info-block">
@@ -643,7 +643,7 @@ function showBoardroomToast(title, msg, isError=false) {
     alertInfo(title + ': ' + msg);
 }
 
-//  TO DYNAMICZNE 
+// TO DYNAMICZNE 
 
 function updateBackground() {
     const bgEl = document.querySelector('.scene-bg');
@@ -657,7 +657,7 @@ function updateBackground() {
         return;
     }
 
-    // Buduj dwie wersje: z pci (boardroom_bg_hr_M_tech_F.png) i bez (boardroom_bg_hr_tech.png)
+ // Buduj dwie wersje: z pci (boardroom_bg_hr_M_tech_F.png) i bez (boardroom_bg_hr_tech.png)
     const partsWithGender = occupied.map(c => {
         const m = phpData.membersByRole[c];
         const g = (m.gender === 'F') ? 'F' : 'M';
@@ -666,7 +666,7 @@ function updateBackground() {
     });
     const partsNoGender = occupied.map(c => c === 'technical' ? 'tech' : c);
 
-    // Lista prb: z pci  bez pci  skrcona z pci  skrcona bez pci  default
+ // Lista prb: z pci bez pci skrcona z pci skrcona bez pci default
     const candidates = [];
     for (let len = partsWithGender.length; len >= 1; len--) {
         candidates.push('boardroom_bg_' + partsWithGender.slice(0, len).join('_') + '.png');
@@ -674,7 +674,7 @@ function updateBackground() {
     }
     candidates.push('boardroom_bg.png');
 
-    // Usu duplikaty
+ // Usu duplikaty
     const unique = [...new Set(candidates)];
     console.log('Trying backgrounds:', unique);
 
@@ -692,7 +692,7 @@ function updateBackground() {
     tryNext(0);
 }
 
-//  POLLING 
+// POLLING 
 
 setInterval(async () => {
     try {
@@ -702,7 +702,7 @@ setInterval(async () => {
     } catch(e) {}
 }, 15000);
 
-//  INIT 
+// INIT 
 
 updateBackground();
 render();

@@ -164,7 +164,7 @@ function closeClearChatModal() {
 }
 function submitClearChat() {
     if (_clearChatForm) {
-        // usu blokad onsubmit i wylij
+ // usu blokad onsubmit i wylij
         _clearChatForm.onsubmit = null;
         _clearChatForm.submit();
     }

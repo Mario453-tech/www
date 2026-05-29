@@ -4,18 +4,18 @@ require_once __DIR__ . '/RegionalEvent/EventsTrait.php';
 require_once __DIR__ . '/RegionalEvent/ModifiersTrait.php';
 
 /**
- * RegionalEventService — region-specific geopolitical events.
+ * RegionalEventService region-specific geopolitical events.
  *
  * Event types:
- *   production_stop  — production halt (Africa: local conflicts, supply failures)
- *   conflict_tax     — war-tax surcharge (Middle East, Russia)
- *   pipeline_block   — pipeline blockage (Russia, Middle East)
+ * production_stop production halt (Africa: local conflicts, supply failures)
+ * conflict_tax war-tax surcharge (Middle East, Russia)
+ * pipeline_block pipeline blockage (Russia, Middle East)
  *
  * Called from tick.php once per player (checks regions of their active wells).
  *
  * Logic split into traits in src/RegionalEvent/:
- *   - EventsTrait.php    — processTick, triggerEvent, resolveExpired
- *   - ModifiersTrait.php — getActiveEvents, getWellModifiers, getStopPct, getBonusPct, getTaxExtra
+ * - EventsTrait.php processTick, triggerEvent, resolveExpired
+ * - ModifiersTrait.php getActiveEvents, getWellModifiers, getStopPct, getBonusPct, getTaxExtra
  */
 class RegionalEventService
 {
@@ -24,18 +24,18 @@ class RegionalEventService
 
     private PDO $db;
 
-    // Event probability per region per 24h (fraction); checked each tick, scaled by deltaHours
+ // Event probability per region per 24h (fraction); checked each tick, scaled by deltaHours
     private const EVENT_CHANCE = [
-        'middle_east'    => 0.12,  // 12%/24h — conflicts, embargoes
-        'russia'         => 0.10,  // 10%/24h — sanctions, blockades
-        'africa'         => 0.15,  // 15%/24h — outages, infrastructure failures
-        'usa_canada'     => 0.02,  // 2%/24h  — near-zero risk
-        'north_europe'   => 0.03,  // 3%/24h  — weather conditions
+        'middle_east'    => 0.12,  // 12%/24h ï¿½ conflicts, embargoes
+        'russia'         => 0.10,  // 10%/24h ï¿½ sanctions, blockades
+        'africa'         => 0.15,  // 15%/24h ï¿½ outages, infrastructure failures
+        'usa_canada'     => 0.02,  // 2%/24h  ï¿½ near-zero risk
+        'north_europe'   => 0.03,  // 3%/24h  ï¿½ weather conditions
         'southeast_asia' => 0.07,  // 7%/24h
-        'latam'          => 0.09,  // 9%/24h  — strikes, nationalisation
+        'latam'          => 0.09,  // 9%/24h  ï¿½ strikes, nationalisation
     ];
 
-    // Event definitions per region (msg keys resolved via t() at display time)
+ // Event definitions per region (msg keys resolved via t() at display time)
     private const EVENTS = [
         'middle_east' => [
             ['type' => 'conflict_tax',    'severity' => 2, 'duration_h' => 24, 'tax_extra' => 0.05,

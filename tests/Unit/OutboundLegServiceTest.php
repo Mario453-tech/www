@@ -6,7 +6,7 @@ require_once dirname(__DIR__, 2) . '/src/OutboundLegService.php';
 
 final class OutboundLegServiceTest extends BaseTestCase
 {
-    /** @return array<string, array<string, float>> */
+ /** @return array<string, array<string, float>> */
     private function config(): array
     {
         return [
@@ -41,10 +41,10 @@ final class OutboundLegServiceTest extends BaseTestCase
         $res = $svc->compute('rurociag', $pipe, 200.0, 70.0, $this->mults());
 
         $this->assertSame('pipeline', $res['kind']);
-        // 5% of 200 = 10 bbl lost
+ // 5% of 200 = 10 bbl lost
         $this->assertEqualsWithDelta(10.0, $res['loss_bbl'], 0.001);
         $this->assertEqualsWithDelta(10.0 * 70.0, $res['loss_value'], 0.01);
-        // cost = 100 + 200*0.25 = 150
+ // cost = 100 + 200*0.25 = 150
         $this->assertEqualsWithDelta(150.0, $res['cost'], 0.01);
     }
 
@@ -64,9 +64,9 @@ final class OutboundLegServiceTest extends BaseTestCase
         $res = $svc->compute('ciezarowki', null, 100.0, 70.0, $this->mults());
 
         $this->assertSame('road', $res['kind']);
-        // cost = 100 * 2.5 = 250
+ // cost = 100 * 2.5 = 250
         $this->assertEqualsWithDelta(250.0, $res['cost'], 0.01);
-        // loss is a random incident, but always bounded to [0, bbl]
+ // loss is a random incident, but always bounded to [0, bbl]
         $this->assertGreaterThanOrEqual(0.0, $res['loss_bbl']);
         $this->assertLessThanOrEqual(100.0, $res['loss_bbl']);
     }

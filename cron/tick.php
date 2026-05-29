@@ -1,15 +1,15 @@
 <?php
 
 /**
- * TICK  cron gry (fasada)
+ * TICK cron gry (fasada)
  * Uruchamiany co ~5 minut przez cron serwera.
  *
  * Logika podzielona na sekcje w src/Tick/:
- *   MarketSection   trendy rynkowe + cena ropy
- *   BankSection     system bankowy, HR, bankruci
- *   PlayersSection  gracze, odwierty, produkcja
+ * MarketSection trendy rynkowe + cena ropy
+ * BankSection system bankowy, HR, bankruci
+ * PlayersSection gracze, odwierty, produkcja
  *
- * Statystyki każdego ticka zapisywane do tabeli tick_stats.
+ * Statystyki kazdego ticka zapisywane do tabeli tick_stats.
  */
 
 require_once __DIR__ . '/../src/init.php';
@@ -55,7 +55,7 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
 
 GameLog::info('tick', '== START ==', ['time' => $now->format('Y-m-d H:i:s'), 'source' => $source]);
 
-//  1-2. RYNEK 
+// 1-2. RYNEK 
 
 $market = new MarketSection();
 $market->run();
@@ -64,12 +64,12 @@ $activeTrend = $market->activeTrend;
 $isNewTrend  = $market->isNewTrend;
 $newPrice    = $market->newPrice;
 
-//  3-4k. SYSTEM BANKOWY / HR / BANKRUCI 
+// 3-4k. SYSTEM BANKOWY / HR / BANKRUCI 
 
 $bank = new BankSection($db, $bankNegAvailable, $bankruptcyAvailable);
 $bank->run();
 
-//  5. GRACZE  ODWIERTY I PRODUKCJA 
+// 5. GRACZE ODWIERTY I PRODUKCJA 
 
 // Globalne mnoznik balansu z well_config (admin/balance.php)
 $gBalanceMults = ['incident' => 1.0, 'disaster' => 1.0, 'wear' => 1.0, 'degradation' => 1.0, 'loss' => 1.0, 'opex' => 1.0, 'production' => 1.0, 'tax' => 1.0];
@@ -90,19 +90,19 @@ try {
 $players = new PlayersSection($db, $now, $newPrice, $gBalanceMults);
 $players->run();
 
-//  6. CZARNY RYNEK 
+// 6. CZARNY RYNEK 
 
 $bmOffersGenerated = 0;
 try {
     $bm = new BlackMarketService($db);
 
-    // Expiracja przeterminowanych ofert
+ // Expiracja przeterminowanych ofert
     $bm->expireOffers();
 
-    // Decay black_market_score wszystkich graczy
+ // Decay black_market_score wszystkich graczy
     $bm->decayScores();
 
-    // Generowanie ofert co N tickow
+ // Generowanie ofert co N tickow
     $bmInterval = 3;
     try {
         $intStmt = $db->prepare("SELECT `value` FROM well_config WHERE `key` = 'bm_offer_interval_ticks' LIMIT 1");
@@ -111,7 +111,7 @@ try {
         if ($intVal !== false) $bmInterval = max(1, (int)$intVal);
     } catch (Throwable $e) {}
 
-    // Pobierz licznik tickow (inkrementuj)
+ // Pobierz licznik tickow (inkrementuj)
     $bmTickCount = 0;
     try {
         $db->prepare("
@@ -125,7 +125,7 @@ try {
     } catch (Throwable $e) {}
 
     if ($bmTickCount > 0 && $bmTickCount % $bmInterval === 0) {
-        // Generuj oferty dla kazdego   aktywnego gracza 
+ // Generuj oferty dla kazdego aktywnego gracza 
         $activePlayers = $db->query("
             SELECT id FROM players
             WHERE financial_state != 'crisis'
@@ -144,7 +144,7 @@ try {
     GameLog::error('tick', 'Black market section FAILED', $e);
 }
 
-//  PODSUMOWANIE + ZAPIS STATYSTYK 
+// PODSUMOWANIE + ZAPIS STATYSTYK 
 
 $trendInfo = $activeTrend
     ? " | Trend: {$activeTrend['trend_name']}" . ($isNewTrend ? ' [NOWY]' : '')

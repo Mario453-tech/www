@@ -6,12 +6,12 @@
  */
 trait BankApplicationTrait
 {
-    /**
-     * Submits a loan application for the player.
-     * Sklada wniosek kredytowy dla gracza.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Submits a loan application for the player.
+ * Sklada wniosek kredytowy dla gracza.
+ *
+ * @return array<string, mixed>
+ */
     public function submitLoanApplication(int $playerId, int $requestedAmount): array
     {
         try {
@@ -23,24 +23,24 @@ trait BankApplicationTrait
                 return ['success' => false, 'message' => t('bank.err_player_not_found')];
             }
 
-            // Check minimum account age.
-            // Sprawdz minimalny wiek konta.
+ // Check minimum account age.
+ // Sprawdz minimalny wiek konta.
             $accountAge = (time() - strtotime((string)$player['created_at'])) / 86400;
             if ($accountAge < 4) {
                 $daysLeft = (int)ceil(4 - $accountAge);
                 return ['success' => false, 'message' => t('bank.err_account_too_young', ['days' => $daysLeft])];
             }
 
-            // Block applications during bankruptcy flow.
-            // Blokuj wnioski podczas procesu bankructwa.
+ // Block applications during bankruptcy flow.
+ // Blokuj wnioski podczas procesu bankructwa.
             $bkStatus = (string)($player['bankruptcy_status'] ?? 'none');
             $plStatus = (string)($player['status'] ?? 'active');
             if ($plStatus === 'bankrupt' || in_array($bkStatus, ['restructuring', 'liquidation'], true)) {
                 return ['success' => false, 'message' => t('bank.err_bankruptcy')];
             }
 
-            // Block when active bailiff proceedings exist.
-            // Blokuj przy aktywnym postepowaniu komorniczym.
+ // Block when active bailiff proceedings exist.
+ // Blokuj przy aktywnym postepowaniu komorniczym.
             $bailiffCheck = $this->db->prepare("
                 SELECT bp.id
                 FROM bailiff_proceedings bp
@@ -54,8 +54,8 @@ trait BankApplicationTrait
                 return ['success' => false, 'message' => t('bank.err_bailiff_active')];
             }
 
-            // Prevent parallel applications and parallel active loans.
-            // Blokuj rownolegle wnioski i rownolegle aktywne kredyty.
+ // Prevent parallel applications and parallel active loans.
+ // Blokuj rownolegle wnioski i rownolegle aktywne kredyty.
             $activeApp = $this->db->prepare("
                 SELECT id FROM loan_applications
                 WHERE player_id = :pid AND status IN ('pending', 'approved')
@@ -88,8 +88,8 @@ trait BankApplicationTrait
                 ];
             }
 
-            // Enforce cooldown after rejected applications.
-            // Wymus cooldown po odrzuconym wniosku.
+ // Enforce cooldown after rejected applications.
+ // Wymus cooldown po odrzuconym wniosku.
             $rejStmt = $this->db->prepare("
                 SELECT decided_at FROM loan_applications
                 WHERE player_id = :pid AND status = 'rejected'
@@ -105,8 +105,8 @@ trait BankApplicationTrait
                 }
             }
 
-            // Require at least one usable well as collateral.
-            // Wymagaj co najmniej jednego uzywalnego odwiertu jako zabezpieczenia.
+ // Require at least one usable well as collateral.
+ // Wymagaj co najmniej jednego uzywalnego odwiertu jako zabezpieczenia.
             $wellsStmt = $this->db->prepare("
                 SELECT
                     COUNT(*) AS total,
@@ -124,8 +124,8 @@ trait BankApplicationTrait
                 return ['success' => false, 'message' => t('bank.err_no_wells')];
             }
 
-            // Calculate dynamic credit limit.
-            // Oblicz dynamiczny limit kredytowy.
+ // Calculate dynamic credit limit.
+ // Oblicz dynamiczny limit kredytowy.
             $maxLoan = $this->calculateCreditLimit($playerId, $player, $wellsData);
 
             if ($requestedAmount <= 0) {
@@ -139,8 +139,8 @@ trait BankApplicationTrait
                 ];
             }
 
-            // Store the pending application with a 1h decision window.
-            // Zapisz oczekujacy wniosek z oknem decyzji 1h.
+ // Store the pending application with a 1h decision window.
+ // Zapisz oczekujacy wniosek z oknem decyzji 1h.
             $ins = $this->db->prepare("
                 INSERT INTO loan_applications
                     (player_id, requested_amount, status, decision_at, created_at)
@@ -173,10 +173,10 @@ trait BankApplicationTrait
         }
     }
 
-    /**
-     * Returns the latest application status for a player.
-     * Zwraca status najnowszego wniosku gracza.
-     */
+ /**
+ * Returns the latest application status for a player.
+ * Zwraca status najnowszego wniosku gracza.
+ */
     public function getLoanApplicationStatus(int $playerId): array
     {
         try {
@@ -223,8 +223,8 @@ trait BankApplicationTrait
                     $installment = self::calculateAnnuityInstallment($principal, $apr, $defaultN, 12);
                     $totalCost = round($installment * $defaultN);
 
-                    // Estimate daily delay interest based on APR / 365.
-                    // Oszacuj dzienne odsetki opoznienia jako APR / 365.
+ // Estimate daily delay interest based on APR / 365.
+ // Oszacuj dzienne odsetki opoznienia jako APR / 365.
                     $dailyInterestCost = round($principal * ($apr / 100) / 365, 2);
 
                     return [
@@ -280,21 +280,21 @@ trait BankApplicationTrait
         }
     }
 
-    /**
-     * Ensures required columns exist in loans table.
-     * Zapewnia istnienie wymaganych kolumn w tabeli loans.
-     */
+ /**
+ * Ensures required columns exist in loans table.
+ * Zapewnia istnienie wymaganych kolumn w tabeli loans.
+ */
     private function ensureLoanColumnsExist(): void
     {
         try {
-            // Use a separate connection because ALTER TABLE cannot run inside a transaction.
-            // Uzyj osobnego polaczenia, bo ALTER TABLE nie moze dzialac w transakcji.
+ // Use a separate connection because ALTER TABLE cannot run inside a transaction.
+ // Uzyj osobnego polaczenia, bo ALTER TABLE nie moze dzialac w transakcji.
             $db = $this->db->inTransaction()
                 ? Database::getInstance()->getConnection()
                 : $this->db;
 
-            // Create the loans table if it does not exist yet.
-            // Utworz tabele loans, jesli jeszcze nie istnieje.
+ // Create the loans table if it does not exist yet.
+ // Utworz tabele loans, jesli jeszcze nie istnieje.
             $tableExists = $db->query("SHOW TABLES LIKE 'loans'")->fetchColumn();
             if (!$tableExists) {
                 $db->exec("
@@ -326,8 +326,8 @@ trait BankApplicationTrait
                 return;
             }
 
-            // Add missing legacy columns one by one for older schemas.
-            // Dodaj brakujace stare kolumny po jednej dla starszych schematow.
+ // Add missing legacy columns one by one for older schemas.
+ // Dodaj brakujace stare kolumny po jednej dla starszych schematow.
             $cols = $db->query("SHOW COLUMNS FROM loans LIKE 'installments_total'")->fetchColumn();
             if (!$cols) {
                 $db->exec("ALTER TABLE loans ADD COLUMN installments_total INT DEFAULT 20");
@@ -356,10 +356,10 @@ trait BankApplicationTrait
         }
     }
 
-    /**
-     * Accepts an approved loan offer and starts the loan.
-     * Akceptuje zatwierdzona oferte i uruchamia kredyt.
-     */
+ /**
+ * Accepts an approved loan offer and starts the loan.
+ * Akceptuje zatwierdzona oferte i uruchamia kredyt.
+ */
     public function acceptLoanOffer(int $applicationId, int $playerId, int $nInstallments = 20): array
     {
         $nInstallments = max(3, min(40, $nInstallments));
@@ -367,8 +367,8 @@ trait BankApplicationTrait
         try {
             $this->db->beginTransaction();
 
-            // Ensure schema compatibility before loan creation.
-            // Zapewnij zgodnosc schematu przed utworzeniem kredytu.
+ // Ensure schema compatibility before loan creation.
+ // Zapewnij zgodnosc schematu przed utworzeniem kredytu.
             $this->ensureLoanColumnsExist();
 
             $stmt = $this->db->prepare("
@@ -455,10 +455,10 @@ trait BankApplicationTrait
         }
     }
 
-    /**
-     * Rejects an approved loan offer on player request.
-     * Odrzuca zatwierdzona oferte na prosbe gracza.
-     */
+ /**
+ * Rejects an approved loan offer on player request.
+ * Odrzuca zatwierdzona oferte na prosbe gracza.
+ */
     public function rejectLoanOffer(int $applicationId, int $playerId): array
     {
         try {

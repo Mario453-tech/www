@@ -6,10 +6,10 @@
  */
 trait BankNegotiationContextTrait
 {
-    /**
-     * Formats hours in accusative form for messages.
-     * Formatuje godziny w bierniku do komunikatow.
-     */
+ /**
+ * Formats hours in accusative form for messages.
+ * Formatuje godziny w bierniku do komunikatow.
+ */
     private function formatHours(float $hours): string
     {
         $h = (int)round($hours);
@@ -22,10 +22,10 @@ trait BankNegotiationContextTrait
         return t('bank_neg.hours_acc_5', ['n' => $h]);
     }
 
-    /**
-     * Formats hours in nominative form for messages.
-     * Formatuje godziny w mianowniku do komunikatow.
-     */
+ /**
+ * Formats hours in nominative form for messages.
+ * Formatuje godziny w mianowniku do komunikatow.
+ */
     private function formatHoursNom(float $hours): string
     {
         $h = (int)round($hours);
@@ -38,10 +38,10 @@ trait BankNegotiationContextTrait
         return t('bank_neg.hours_nom_5', ['n' => $h]);
     }
 
-    /**
-     * Returns the internal trust score for the player.
-     * Zwraca wewnetrzny trust score gracza.
-     */
+ /**
+ * Returns the internal trust score for the player.
+ * Zwraca wewnetrzny trust score gracza.
+ */
     public function getTrustScore(int $playerId): int
     {
         try {
@@ -57,10 +57,10 @@ trait BankNegotiationContextTrait
         }
     }
 
-    /**
-     * Adjusts trust score and writes a log entry.
-     * Koryguje trust score i zapisuje wpis do logu.
-     */
+ /**
+ * Adjusts trust score and writes a log entry.
+ * Koryguje trust score i zapisuje wpis do logu.
+ */
     public function adjustTrustScore(int $playerId, string $event, ?string $note = null): void
     {
         try {
@@ -84,8 +84,8 @@ trait BankNegotiationContextTrait
                 ':event2' => $event . ($note ? ": {$note}" : ''),
             ]);
 
-            // Store trust changes for GM/admin review only.
-            // Zapisz zmiany trust tylko do przegladu GM/admin.
+ // Store trust changes for GM/admin review only.
+ // Zapisz zmiany trust tylko do przegladu GM/admin.
             $this->db->prepare("
                 INSERT INTO bank_trust_log (player_id, event, delta, note, created_at)
                 VALUES (:pid, :event, :delta, :note, NOW())
@@ -100,10 +100,10 @@ trait BankNegotiationContextTrait
         }
     }
 
-    /**
-     * Returns the descriptive trust key used in UI.
-     * Zwraca klucz opisu trust uzywany w UI.
-     */
+ /**
+ * Returns the descriptive trust key used in UI.
+ * Zwraca klucz opisu trust uzywany w UI.
+ */
     private function getTrustDescriptionKey(int $score): string
     {
         return match (true) {
@@ -115,17 +115,17 @@ trait BankNegotiationContextTrait
         };
     }
 
-    /**
-     * Builds the full negotiation context for one loan/player pair.
-     * Buduje pelny kontekst negocjacji dla pary gracz/kredyt.
-     *
-     * @param array<string, mixed> $loan
-     * @return array<string, mixed>
-     */
+ /**
+ * Builds the full negotiation context for one loan/player pair.
+ * Buduje pelny kontekst negocjacji dla pary gracz/kredyt.
+ *
+ * @param array<string, mixed> $loan
+ * @return array<string, mixed>
+ */
     private function buildContext(int $playerId, array $loan): array
     {
-        // Wells and their condition distribution.
-        // Odwierty i rozklad ich kondycji.
+ // Wells and their condition distribution.
+ // Odwierty i rozklad ich kondycji.
         $w = $this->db->prepare("
             SELECT COUNT(*) AS total,
                    SUM(status='active') AS active,
@@ -139,8 +139,8 @@ trait BankNegotiationContextTrait
         $activeWells = (int)$wRow['active'];
         $troubledWells = (int)$wRow['troubled'];
 
-        // Storage saturation ratio.
-        // Poziom zapelnienia magazynu.
+ // Storage saturation ratio.
+ // Poziom zapelnienia magazynu.
         $s = $this->db->prepare("SELECT capacity, used FROM storage WHERE player_id=:pid");
         $s->execute([':pid' => $playerId]);
         $stor = $s->fetch();
@@ -148,8 +148,8 @@ trait BankNegotiationContextTrait
             ? (float)$stor['used'] / (float)$stor['capacity']
             : 0.0;
 
-        // Market situation and active trend.
-        // Sytuacja rynkowa i aktywny trend.
+ // Market situation and active trend.
+ // Sytuacja rynkowa i aktywny trend.
         $mkt = $this->db->query(
             "SELECT base_price, current_price FROM market_state WHERE id=1"
         )->fetch();
@@ -161,16 +161,16 @@ trait BankNegotiationContextTrait
         $trendNeg = $trend && $modifier <= 0.85;
         $trendPos = $trend && $modifier >= 1.15;
 
-        // Credit and trust scores.
-        // Credit score i trust score.
+ // Credit and trust scores.
+ // Credit score i trust score.
         $pRow = $this->db->prepare("SELECT credit_score FROM players WHERE id=:id");
         $pRow->execute([':id' => $playerId]);
         $pData = $pRow->fetch();
         $creditScore = (int)($pData['credit_score'] ?? 50);
         $trustScore = $this->getTrustScore($playerId);
 
-        // Historical bailiff pressure.
-        // Historyczna presja komornicza.
+ // Historical bailiff pressure.
+ // Historyczna presja komornicza.
         $bh = $this->db->prepare("
             SELECT COUNT(*) FROM bailiff_proceedings
             WHERE player_id=:pid AND status IN ('completed','bankruptcy')
@@ -178,8 +178,8 @@ trait BankNegotiationContextTrait
         $bh->execute([':pid' => $playerId]);
         $bailiffCount = (int)$bh->fetchColumn();
 
-        // CFO is inferred from completed recruitment and active board assignment.
-        // CFO wynika z zakonczonej rekrutacji i aktywnego przypisania w board.
+ // CFO is inferred from completed recruitment and active board assignment.
+ // CFO wynika z zakonczonej rekrutacji i aktywnego przypisania w board.
         $cfoRow = null;
         $cfoName = null;
         $cfoSkill = 0;
@@ -214,8 +214,8 @@ trait BankNegotiationContextTrait
             GameLog::error('BankNeg', 'buildContext CFO query FAILED', $e);
         }
 
-        // Lawyer is inferred in the same way through legal role.
-        // Prawnik jest wyliczany analogicznie przez role legal.
+ // Lawyer is inferred in the same way through legal role.
+ // Prawnik jest wyliczany analogicznie przez role legal.
         $lawyerName = null;
         try {
             $law = $this->db->prepare("
@@ -243,15 +243,15 @@ trait BankNegotiationContextTrait
             GameLog::error('BankNeg', 'buildContext Lawyer query FAILED', $e);
         }
 
-        // Loan-to-value proxy for negotiation risk.
-        // Przyblizenie LTV dla ryzyka negocjacji.
+ // Loan-to-value proxy for negotiation risk.
+ // Przyblizenie LTV dla ryzyka negocjacji.
         $ltv = 1.0;
         if ((float)($loan['principal_amount'] ?? 0) > 0) {
             $ltv = (float)$loan['remaining_amount'] / (float)$loan['principal_amount'];
         }
 
-        // Fee factors used by negotiation pricing.
-        // Czynniki prowizji uzywane do wyceny negocjacji.
+ // Fee factors used by negotiation pricing.
+ // Czynniki prowizji uzywane do wyceny negocjacji.
         $well_factor = match (true) {
             $troubledWells === 0 && $totalWells > 0 => 0.80,
             $troubledWells <= 2 => 1.00,
@@ -295,14 +295,14 @@ trait BankNegotiationContextTrait
             default => 1.22,
         };
 
-        // CFO can reduce fees by up to 15%.
-        // CFO moze obnizyc prowizje maksymalnie o 15%.
+ // CFO can reduce fees by up to 15%.
+ // CFO moze obnizyc prowizje maksymalnie o 15%.
         $cfo_fee_reduction = min(0.15, ($cfoSkill / 100) * 0.15);
 
         $late_factor = ($loan['status'] === 'late') ? 1.30 : 1.00;
 
-        // Approval chance model.
-        // Model szansy zatwierdzenia.
+ // Approval chance model.
+ // Model szansy zatwierdzenia.
         $approvalChance = 85;
         if ($creditScore < 30) {
             $approvalChance -= 25;
@@ -371,10 +371,10 @@ trait BankNegotiationContextTrait
         );
     }
 
-    /**
-     * Calculates fee for a deferral request.
-     * Oblicza prowizje dla odroczenia.
-     */
+ /**
+ * Calculates fee for a deferral request.
+ * Oblicza prowizje dla odroczenia.
+ */
     private function calculateDeferralFee(array $loan, int $days, array $ctx): array
     {
         $remaining = (float)$loan['remaining_amount'];
@@ -387,9 +387,9 @@ trait BankNegotiationContextTrait
         };
 
         $effective = $base
-            * $ctx['well_factor'] * $ctx['market_factor'] * $ctx['ltv_factor']
-            * $ctx['storage_factor'] * $ctx['credit_factor'] * $ctx['trust_factor']
-            * $ctx['late_factor'] * $days_factor;
+ * $ctx['well_factor'] * $ctx['market_factor'] * $ctx['ltv_factor']
+ * $ctx['storage_factor'] * $ctx['credit_factor'] * $ctx['trust_factor']
+ * $ctx['late_factor'] * $days_factor;
         $effective *= (1 - $ctx['cfo_fee_reduction']);
         $effective = max(0.005, min(0.14, $effective));
         $fee = (int)round($remaining * $effective);
@@ -412,10 +412,10 @@ trait BankNegotiationContextTrait
         ];
     }
 
-    /**
-     * Calculates decision time, delays and supporting messages.
-     * Oblicza czas decyzji, opoznienia i komunikaty pomocnicze.
-     */
+ /**
+ * Calculates decision time, delays and supporting messages.
+ * Oblicza czas decyzji, opoznienia i komunikaty pomocnicze.
+ */
     private function calculateDecisionTime(array $loan, array $ctx): array
     {
         $hours = 2.0; // Base: 2h, the bank still needs time. | Baza: 2h, bank nadal potrzebuje czasu.
@@ -488,16 +488,16 @@ trait BankNegotiationContextTrait
             $messages[] = t('bank_neg.delay_high_ltv', ['hours' => $this->formatHours($add)]);
         }
 
-        // CFO can shorten decision time by up to 40%.
-        // CFO moze skrocic czas decyzji maksymalnie o 40%.
+ // CFO can shorten decision time by up to 40%.
+ // CFO moze skrocic czas decyzji maksymalnie o 40%.
         $cfoReduction = 0.0;
         if ($ctx['cfoSkill'] > 0) {
             $cfoReduction = min(0.40, ($ctx['cfoSkill'] / 100) * 0.40);
             $hours *= (1 - $cfoReduction);
         }
 
-        // Keep decision time between 2h and 24h.
-        // Utrzymaj czas decyzji miedzy 2h a 24h.
+ // Keep decision time between 2h and 24h.
+ // Utrzymaj czas decyzji miedzy 2h a 24h.
         $hours = max(2.0, min(24.0, $hours));
         $due_at = date('Y-m-d H:i:s', time() + (int)($hours * 3600));
 
@@ -519,10 +519,10 @@ trait BankNegotiationContextTrait
         ];
     }
 
-    /**
-     * Returns trust data for GM/admin view only.
-     * Zwraca dane trust tylko do widoku GM/admin.
-     */
+ /**
+ * Returns trust data for GM/admin view only.
+ * Zwraca dane trust tylko do widoku GM/admin.
+ */
     public function getPlayerTrustData(int $playerId): array
     {
         try {
@@ -544,10 +544,10 @@ trait BankNegotiationContextTrait
         }
     }
 
-    /**
-     * Counts negotiations created this month for the player.
-     * Liczy negocjacje utworzone w tym miesiacu dla gracza.
-     */
+ /**
+ * Counts negotiations created this month for the player.
+ * Liczy negocjacje utworzone w tym miesiacu dla gracza.
+ */
     private function getNegotiationCountThisMonth(int $playerId): int
     {
         try {

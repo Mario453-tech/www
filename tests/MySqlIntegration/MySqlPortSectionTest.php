@@ -17,7 +17,7 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Zapewnij schematy tabel
+ // Zapewnij schematy tabel
         new MarineDeliveryService($this->db);
         $this->portId = $this->seed + 10;
     }
@@ -32,9 +32,9 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         parent::tearDown();
     }
 
-    // 
-    // Helpers
-    // 
+ // 
+ // Helpers
+ // 
 
     private function insertPort(
         int    $regionId   = 77,
@@ -76,9 +76,9 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         return $delivId;
     }
 
-    // 
-    // process — happy path
-    // 
+ // 
+ // process happy path
+ // 
 
     public function testProcessDeliversWaitingDeliveryToStorage(): void
     {
@@ -136,9 +136,9 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $this->assertSame('done', $queueStatus, 'Wpis w kolejce portowej powinien byc oznaczony jako done');
     }
 
-    // 
-    // process — limit magazynu
-    // 
+ // 
+ // process limit magazynu
+ // 
 
     public function testProcessRespectStorageCapacity(): void
     {
@@ -147,7 +147,7 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
         $this->insertPort(77, 'active');
 
-        // Magazyn prawie pelny: pojemnosc 100, aktualnie 90  wolne 10
+ // Magazyn prawie pelny: pojemnosc 100, aktualnie 90 wolne 10
         $delivId = $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 50.0);
 
         $section    = new PortSection($this->db, new \DateTime());
@@ -164,20 +164,20 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
         $this->insertPort(77, 'active');
 
-        // Magazyn pelny
+ // Magazyn pelny
         $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 30.0);
 
         $section    = new PortSection($this->db, new \DateTime());
         $newStorage = $section->process($playerId, 100.0, 100.0, 50.0);
 
-        $this->assertEqualsWithDelta(100.0, $newStorage, 0.001, 'Pelny magazyn — bez zmian');
+        $this->assertEqualsWithDelta(100.0, $newStorage, 0.001, 'Pelny magazyn ï¿½ bez zmian');
         $this->assertEqualsWithDelta(0.0, $section->deliveredBbl, 0.001, 'Brak dostarczonego przy pelnym magazynie');
         $this->assertSame(0, $section->processedCount);
     }
 
-    // 
-    // process — brak dostawy w kolejce
-    // 
+ // 
+ // process brak dostawy w kolejce
+ // 
 
     public function testProcessWithEmptyQueueReturnsUnchangedStorage(): void
     {
@@ -188,14 +188,14 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $section    = new PortSection($this->db, new \DateTime());
         $newStorage = $section->process($playerId, 200.0, 5000.0, 50.0);
 
-        $this->assertEqualsWithDelta(200.0, $newStorage, 0.001, 'Pusta kolejka — magazyn bez zmian');
+        $this->assertEqualsWithDelta(200.0, $newStorage, 0.001, 'Pusta kolejka ï¿½ magazyn bez zmian');
         $this->assertSame(0, $section->processedCount);
         $this->assertEqualsWithDelta(0.0, $section->handlingCost, 0.001);
     }
 
-    // 
-    // process — koszt portowy
-    // 
+ // 
+ // process koszt portowy
+ // 
 
     public function testProcessCalculatesHandlingCostCorrectly(): void
     {
@@ -203,20 +203,20 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
 
-        // handling_cost_per_bbl = 2.00
+ // handling_cost_per_bbl = 2.00
         $this->insertPort(77, 'active', 25, 2.00);
         $delivId = $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 60.0);
 
         $section = new PortSection($this->db, new \DateTime());
         $section->process($playerId, 0.0, 10000.0, 50.0);
 
-        // 60 bbl × 2.00 PLN/bbl = 120 PLN
-        $this->assertEqualsWithDelta(120.0, $section->handlingCost, 0.01, 'Koszt portowy: 60 bbl × 2.00 = 120 PLN');
+ // 60 bbl 2.00 PLN/bbl = 120 PLN
+        $this->assertEqualsWithDelta(120.0, $section->handlingCost, 0.01, 'Koszt portowy: 60 bbl ï¿½ 2.00 = 120 PLN');
     }
 
-    // 
-    // Liczniki poczatkowe
-    // 
+ // 
+ // Liczniki poczatkowe
+ // 
 
     public function testSectionCountersStartAtZero(): void
     {
@@ -227,9 +227,9 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $this->assertSame(0, $section->processedCount);
     }
 
-    // 
-    // process — port zamkniety nie przetwarza
-    // 
+ // 
+ // process port zamkniety nie przetwarza
+ // 
 
     public function testProcessSkipsClosedPort(): void
     {
@@ -237,15 +237,15 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
 
-        // Port zamkniety
+ // Port zamkniety
         $this->insertPort(77, 'closed');
         $this->insertDeliveryAndQueueEntry($playerId, $ids['wellId'], 45.0);
 
         $section    = new PortSection($this->db, new \DateTime());
         $newStorage = $section->process($playerId, 0.0, 10000.0, 50.0);
 
-        // Zamkniety port nie powinien byc uzywany przez PortSection (JOIN filtruje closed)
-        $this->assertEqualsWithDelta(0.0, $newStorage, 0.001, 'Zamkniety port — magazyn bez zmian');
-        $this->assertSame(0, $section->processedCount, 'Zamkniety port — brak przetworzonych dostaw');
+ // Zamkniety port nie powinien byc uzywany przez PortSection (JOIN filtruje closed)
+        $this->assertEqualsWithDelta(0.0, $newStorage, 0.001, 'Zamkniety port ï¿½ magazyn bez zmian');
+        $this->assertSame(0, $section->processedCount, 'Zamkniety port ï¿½ brak przetworzonych dostaw');
     }
 }

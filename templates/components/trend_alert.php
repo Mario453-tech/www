@@ -12,7 +12,7 @@ if (class_exists('GameLog', false)) {
     $trendIcon = $trendIcons[$trendClass] ?? '';
     $isPriceDrop = ($trendPricePct ?? 0) < 0;
     $pctLabel = ($trendPricePct ?? 0) > 0 ? '+' . $trendPricePct . '%' : $trendPricePct . '%';
-    // Format timer
+ // Format timer
     $remSecs = (int)($eventRemainingSeconds ?? 0);
     $remH = str_pad((string)floor($remSecs / 3600), 2, '0', STR_PAD_LEFT);
     $remM = str_pad((string)floor(($remSecs % 3600) / 60), 2, '0', STR_PAD_LEFT);

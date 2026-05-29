@@ -6,14 +6,14 @@
  *
  * Proceeding stages:
  * PL: Etapy postepowania:
- *   1. Warning with 24h repayment window.
- *      PL: Ostrzezenie z 24h oknem na splate.
- *   2. Seizure of 30% cash after another 24h.
- *      PL: Zajecie 30% gotowki po kolejnych 24h.
- *   3. Seizure of 50% stored oil after 48h.
- *      PL: Zajecie 50% ropy z magazynu po 48h.
- *   4. Seizure of wells one by one every 72h, then bankruptcy.
- *      PL: Zajecie odwiertow co 72h, a potem bankructwo.
+ * 1. Warning with 24h repayment window.
+ * PL: Ostrzezenie z 24h oknem na splate.
+ * 2. Seizure of 30% cash after another 24h.
+ * PL: Zajecie 30% gotowki po kolejnych 24h.
+ * 3. Seizure of 50% stored oil after 48h.
+ * PL: Zajecie 50% ropy z magazynu po 48h.
+ * 4. Seizure of wells one by one every 72h, then bankruptcy.
+ * PL: Zajecie odwiertow co 72h, a potem bankructwo.
  */
 class BailiffService
 {
@@ -38,8 +38,8 @@ class BailiffService
 
     private function startNewProceedings(): void
     {
-        // Start proceedings for loans late by more than 24h without active bailiff flow.
-        // PL: Startuj postepowanie dla kredytow opoznionych ponad 24h bez aktywnego flow komornika.
+ // Start proceedings for loans late by more than 24h without active bailiff flow.
+ // PL: Startuj postepowanie dla kredytow opoznionych ponad 24h bez aktywnego flow komornika.
         $stmt = $this->db->query("
             SELECT l.*
             FROM loans l
@@ -77,8 +77,8 @@ class BailiffService
 
     private function executeStage(array $proc): void
     {
-        // Always check if the debt has already been cleared.
-        // PL: Zawsze najpierw sprawdz czy dlug nie zostal juz splacony.
+ // Always check if the debt has already been cleared.
+ // PL: Zawsze najpierw sprawdz czy dlug nie zostal juz splacony.
         if ($this->isDebtCleared((int)$proc['loan_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
@@ -110,8 +110,8 @@ class BailiffService
         return $loan && $loan['status'] !== 'late';
     }
 
-    // Stage 1: warning only.
-    // PL: Etap 1: samo ostrzezenie.
+ // Stage 1: warning only.
+ // PL: Etap 1: samo ostrzezenie.
     private function stage1Warning(array $proc): void
     {
         $this->db->prepare("
@@ -121,8 +121,8 @@ class BailiffService
         ")->execute([':id' => $proc['id']]);
     }
 
-    // Stage 2: seize 30% of player cash.
-    // PL: Etap 2: zajmij 30% gotowki gracza.
+ // Stage 2: seize 30% of player cash.
+ // PL: Etap 2: zajmij 30% gotowki gracza.
     private function stage2SeizeCash(array $proc): void
     {
         $playerStmt = $this->db->prepare("SELECT cash FROM players WHERE id = :id");
@@ -156,8 +156,8 @@ class BailiffService
         ")->execute([':id' => $proc['id']]);
     }
 
-    // Stage 3: seize 50% of stored oil and convert it using current market price.
-    // PL: Etap 3: zajmij 50% ropy z magazynu i przelicz po biezacej cenie rynku.
+ // Stage 3: seize 50% of stored oil and convert it using current market price.
+ // PL: Etap 3: zajmij 50% ropy z magazynu i przelicz po biezacej cenie rynku.
     private function stage3SeizeOil(array $proc): void
     {
         $storStmt = $this->db->prepare("SELECT used FROM storage WHERE player_id = :id");
@@ -195,8 +195,8 @@ class BailiffService
         ")->execute([':id' => $proc['id']]);
     }
 
-    // Stage 4: seize wells one by one until no assets remain, then declare bankruptcy.
-    // PL: Etap 4: zajmuj odwierty po kolei, az skoncza sie aktywa i oglos bankructwo.
+ // Stage 4: seize wells one by one until no assets remain, then declare bankruptcy.
+ // PL: Etap 4: zajmuj odwierty po kolei, az skoncza sie aktywa i oglos bankructwo.
     private function stage4SeizeWells(array $proc): void
     {
         $wellStmt = $this->db->prepare("
@@ -240,8 +240,8 @@ class BailiffService
         $this->declareBankruptcy($proc);
     }
 
-    // Bankruptcy fallback when all enforcement options are exhausted.
-    // PL: Bankructwo awaryjne, gdy komornik wyczerpal wszystkie opcje egzekucji.
+ // Bankruptcy fallback when all enforcement options are exhausted.
+ // PL: Bankructwo awaryjne, gdy komornik wyczerpal wszystkie opcje egzekucji.
     private function declareBankruptcy(array $proc): void
     {
         $this->db->prepare("

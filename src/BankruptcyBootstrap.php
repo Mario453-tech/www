@@ -66,8 +66,8 @@ if (!function_exists('isPlayerInBankruptcyMode')) {
             $status = (string)($row['status'] ?? 'active');
             $bankruptcyStatus = (string)($row['bankruptcy_status'] ?? 'none');
 
-            // Do not check bankruptcy_at, it is a historical timestamp kept after recovery.
-            // PL: Nie sprawdzamy bankruptcy_at, bo to historyczny timestamp po recovery.
+ // Do not check bankruptcy_at, it is a historical timestamp kept after recovery.
+ // PL: Nie sprawdzamy bankruptcy_at, bo to historyczny timestamp po recovery.
             return $status === 'bankrupt'
                 || (int)($row['recovery_mode'] ?? 0) === 1
                 || ($bankruptcyStatus !== 'none' && $bankruptcyStatus !== 'recovered');

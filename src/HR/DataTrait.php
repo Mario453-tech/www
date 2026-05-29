@@ -1,28 +1,28 @@
 <?php
 
 /**
- * DataTrait � gettery danych HR, zarz�dzanie kandydatami i kontraktami.
- * Data trait � HR data getters, candidate and contract management.
+ * DataTrait gettery danych HR, zarzdzanie kandydatami i kontraktami.
+ * Data trait HR data getters, candidate and contract management.
  */
 trait HRDataTrait
 {
-    //  GETTERY / Getters
+ // GETTERY / Getters
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getRegions(): array
     {
         $stmt = $this->db->query("SELECT * FROM hr_regions ORDER BY name");
         return $stmt->fetchAll();
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getSpecializations(): array
     {
         $stmt = $this->db->query("SELECT * FROM hr_specializations ORDER BY department, rarity DESC");
         return $stmt->fetchAll();
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getCandidatesForRole(int $roleId): array
     {
         $playerId = (int)($_SESSION['user_id'] ?? 0);
@@ -47,7 +47,7 @@ trait HRDataTrait
         return $stmt->fetchAll();
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getActiveEmployees(int $playerId = 0): array
     {
         if ($playerId <= 0) $playerId = (int)($_SESSION['user_id'] ?? 0);
@@ -96,7 +96,7 @@ trait HRDataTrait
         return $stmt->fetchAll();
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getActiveDirectors(int $playerId = 0): array
     {
         if ($playerId <= 0) $playerId = (int)($_SESSION['user_id'] ?? 0);
@@ -307,7 +307,7 @@ trait HRDataTrait
         return $stmt->fetchAll();
     }
 
-    //  OPERACJE NA KANDYDATACH I KONTRAKTACH / Candidate and contract operations
+ // OPERACJE NA KANDYDATACH I KONTRAKTACH / Candidate and contract operations
 
     public function rejectCandidate(int $candidateId, int $playerId = 0): array
     {
@@ -393,7 +393,7 @@ trait HRDataTrait
         return ['success' => true, 'message' => t('hr.msg_contract_renewed', ['name' => "{$contract['first_name']} {$contract['last_name']}", 'date' => date('d.m.Y', strtotime($newEnd))])];
     }
 
-    //  HELPER 
+ // HELPER 
 
     private function getRoleName(int $roleId): string
     {

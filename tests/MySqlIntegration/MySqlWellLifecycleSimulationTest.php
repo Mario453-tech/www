@@ -11,26 +11,26 @@ require_once dirname(__DIR__, 2) . '/src/HubTickService.php';
  * End-to-end simulation tests for the full well lifecycle on real MySQL.
  *
  * Simulated flow:
- *   well purchase -> hub assignment -> pipeline purchase -> pipeline activation
- *   -> hub tick -> detach -> cooldown -> reassignment blocked
+ * well purchase -> hub assignment -> pipeline purchase -> pipeline activation
+ * -> hub tick -> detach -> cooldown -> reassignment blocked
  *
  * WellShop uses Database singleton (not injectable) so we simulate its effect
  * by directly deducting cash and inserting the well row - identical DB state.
  */
 final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
 {
-    // Standard pipeline costs (matches WellPipelineService::PIPELINE_DEFAULTS)
+ // Standard pipeline costs (matches WellPipelineService::PIPELINE_DEFAULTS)
     private const COST_PIPELINE_LIGHT    = 11_000.0;
     private const COST_PIPELINE_STANDARD = 18_000.0;
     private const COST_PIPELINE_HEAVY    = 28_000.0;
 
-    // Hub seeded with opex=100, slots=4 -> slot_cost=25 -> access_fee(new)=25*5=125
+ // Hub seeded with opex=100, slots=4 -> slot_cost=25 -> access_fee(new)=25*5=125
     private const ACCESS_FEE_NEW_HUB = 125.0;
 
-    // Simulated well purchase price
+ // Simulated well purchase price
     private const WELL_PURCHASE_COST = 5_000_000.0;
 
-    // wells_for_sale entry ID (outside tracked range to avoid collisions)
+ // wells_for_sale entry ID (outside tracked range to avoid collisions)
     private int $saleWellId;
 
     protected function setUp(): void
@@ -41,7 +41,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
 
     protected function tearDown(): void
     {
-        // wells_for_sale is not tracked by the base cleanupTrackedIds, remove manually
+ // wells_for_sale is not tracked by the base cleanupTrackedIds, remove manually
         try {
             $this->db->prepare('DELETE FROM wells_for_sale WHERE id = ?')
                 ->execute([$this->saleWellId]);
@@ -50,9 +50,9 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         parent::tearDown();
     }
 
-    // =========================================================================
-    //  Helper: seed wells_for_sale
-    // =========================================================================
+ // =========================================================================
+ // Helper: seed wells_for_sale
+ // =========================================================================
 
     private function seedWellForSale(float $cost = self::WELL_PURCHASE_COST): void
     {
@@ -65,10 +65,10 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         )->execute([$this->saleWellId, $cost]);
     }
 
-    /**
-     * Simulate WellShop::buyWell() effect without using Database singleton.
-     * Produces identical DB state: cash deducted, well inserted with transport_type='nieustawiony'.
-     */
+ /**
+ * Simulate WellShop::buyWell() effect without using Database singleton.
+ * Produces identical DB state: cash deducted, well inserted with transport_type='nieustawiony'.
+ */
     private function simulateBuyWell(int $playerId, int $wellId, float $cost): void
     {
         $this->db->prepare('UPDATE players SET cash = cash - ? WHERE id = ?')
@@ -91,21 +91,21 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         )->fetchColumn();
     }
 
-    // =========================================================================
-    //  MAIN LIFECYCLE TEST
-    // =========================================================================
+ // =========================================================================
+ // MAIN LIFECYCLE TEST
+ // =========================================================================
 
-    /**
-     * Full lifecycle:
-     *   buy well -> assign hub (access fee) -> purchase pipeline (standard, building)
-     *   -> complete build -> run hub tick -> detach -> cooldown blocks reassignment
-     */
+ /**
+ * Full lifecycle:
+ * buy well -> assign hub (access fee) -> purchase pipeline (standard, building)
+ * -> complete build -> run hub tick -> detach -> cooldown blocks reassignment
+ */
     public function testFullWellLifecycleFromPurchaseToHubAndPipeline(): void
     {
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer(); // cash = 50 000 000
 
-        // ---- 1. Simulate well purchase ----
+ // ---- 1. Simulate well purchase ----
         $this->seedWellForSale(self::WELL_PURCHASE_COST);
         $cashBefore = $this->getCash($playerId);
         $this->simulateBuyWell($playerId, $ids['wellId'], self::WELL_PURCHASE_COST);
@@ -124,8 +124,8 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
             'Freshly purchased well must have transport_type=nieustawiony');
         $this->assertSame('active', $wellRow['status']);
 
-        // ---- 2. Assign well to hub (new hub -> access fee 125) ----
-        // seedHub: opex=100, slots=4 -> slot_cost=25 -> fee(new)=125
+ // ---- 2. Assign well to hub (new hub -> access fee 125) ----
+ // seedHub: opex=100, slots=4 -> slot_cost=25 -> fee(new)=125
         $this->seedHub($ids['hubId'], 'PHPUnit Sim Hub', 77, 'A1', 95.0, 'active', 'new');
 
         $hubSvc        = new HubService($this->db);
@@ -154,7 +154,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertEqualsWithDelta($accessFee, (float)$assignment['access_fee_paid'], 0.01,
             'access_fee_paid stored in DB must match returned access_fee');
 
-        // ---- 3. Purchase standard pipeline ----
+ // ---- 3. Purchase standard pipeline ----
         $pipelineSvc = new WellPipelineService($this->db);
         $pipeResult  = $pipelineSvc->purchasePipeline($playerId, $ids['wellId'], 'standard');
 
@@ -178,7 +178,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertSame((string)$ids['hubId'], (string)$pipeRow['hub_id'],
             'Pipeline hub_id must match assigned hub');
 
-        // ---- 4. Fast-forward build_finish_at to past and complete ----
+ // ---- 4. Fast-forward build_finish_at to past and complete ----
         $this->db->prepare(
             'UPDATE well_pipelines SET build_finish_at = NOW() - INTERVAL 1 SECOND WHERE well_id = ?'
         )->execute([$ids['wellId']]);
@@ -191,7 +191,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         )->fetchColumn();
         $this->assertSame('active', $pipeStatus, 'Pipeline must be active after build completion');
 
-        // ---- 5. Run hub tick ----
+ // ---- 5. Run hub tick ----
         $hub        = $hubSvc->getHub($ids['hubId']);
         $this->assertIsArray($hub, 'getHub must return the seeded hub');
 
@@ -214,7 +214,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertNotFalse($processedBbl, 'Tick stats row must be persisted');
         $this->assertGreaterThan(0.0, (float)$processedBbl);
 
-        // ---- 6. Detach well (triggers 4h cooldown) ----
+ // ---- 6. Detach well (triggers 4h cooldown) ----
         $detachResult = $assignmentSvc->detachWell($playerId, $ids['wellId']);
         $this->assertTrue($detachResult['success'], 'Detach must succeed');
 
@@ -229,14 +229,14 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertGreaterThan(time(), strtotime((string)$detached['cooldown_until']),
             'cooldown_until must be a future timestamp');
 
-        // ---- 7. Cooldown blocks immediate reassignment ----
+ // ---- 7. Cooldown blocks immediate reassignment ----
         $reassign = $assignmentSvc->assignWell($playerId, $ids['hubId'], $ids['wellId']);
         $this->assertFalse($reassign['success']);
         $this->assertSame('cooldown_active', $reassign['error']);
         $this->assertGreaterThan(0, $reassign['cooldown_remaining_s'] ?? 0,
             'cooldown_remaining_s must be forwarded to caller');
 
-        // ---- 8. cooldown_until appears in getUnassignedWells() ----
+ // ---- 8. cooldown_until appears in getUnassignedWells() ----
         $unassigned = $hubSvc->getUnassignedWells($playerId);
         $found = array_filter($unassigned, fn($r) => (int)$r['id'] === $ids['wellId']);
         $this->assertNotEmpty($found, 'Detached well must appear in unassigned list');
@@ -245,9 +245,9 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
             'cooldown_until must be non-null while cooldown is active');
     }
 
-    // =========================================================================
-    //  ISOLATED STEP TESTS
-    // =========================================================================
+ // =========================================================================
+ // ISOLATED STEP TESTS
+ // =========================================================================
 
     public function testWellPurchaseSimulationDeductsCashAndSetsNieustawiony(): void
     {
@@ -271,11 +271,11 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
 
     public function testMaxWellsLimitBlocksFifthPurchase(): void
     {
-        // WellShop enforces max 5 wells. Simulate the check directly.
+ // WellShop enforces max 5 wells. Simulate the check directly.
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
 
-        // Insert 5 wells manually (simulating 5 previously purchased)
+ // Insert 5 wells manually (simulating 5 previously purchased)
         for ($i = 0; $i < 5; $i++) {
             $this->db->prepare(
                 "INSERT INTO wells
@@ -290,20 +290,20 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         )->fetchColumn();
         $this->assertSame(5, $count, 'Player has 5 wells (at limit)');
 
-        // Cleanup the extra seeded wells (only wellId and auxWellId are tracked by base teardown)
-        // Others are cleaned by player_id deletion at teardown
+ // Cleanup the extra seeded wells (only wellId and auxWellId are tracked by base teardown)
+ // Others are cleaned by player_id deletion at teardown
     }
 
     public function testHubAssignmentFailsWithInsufficientFunds(): void
     {
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
-        // seed well with nieustawiony to match real post-purchase state
+ // seed well with nieustawiony to match real post-purchase state
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'nieustawiony');
-        // Default hub: opex=100, slots=4 -> access_fee=125 PLN (new)
+ // Default hub: opex=100, slots=4 -> access_fee=125 PLN (new)
         $this->seedHub($ids['hubId'], 'PHPUnit Hub Broke', 77, 'A1', 95.0, 'active', 'new');
 
-        // Drain player to 1 PLN (far below 125 fee)
+ // Drain player to 1 PLN (far below 125 fee)
         $this->db->prepare('UPDATE players SET cash = 1.00 WHERE id = ?')->execute([$playerId]);
 
         $hubSvc        = new HubService($this->db);
@@ -314,12 +314,12 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertFalse($result['success']);
         $this->assertSame('insufficient_funds', $result['error']);
 
-        // Cash must not have been deducted
+ // Cash must not have been deducted
         $cashAfter = $this->getCash($playerId);
         $this->assertEqualsWithDelta(1.0, $cashAfter, 0.01,
             'Cash must remain 1 PLN after failed assignment');
 
-        // No assignment row must exist
+ // No assignment row must exist
         $cnt = $this->db->prepare(
             "SELECT COUNT(*) FROM logistics_hub_assignments WHERE well_id = ? AND status = 'active'"
         );
@@ -332,7 +332,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'nieustawiony');
-        // Intentionally NO hub assignment
+ // Intentionally NO hub assignment
 
         $pipelineSvc = new WellPipelineService($this->db);
         $result      = $pipelineSvc->purchasePipeline($playerId, $ids['wellId'], 'standard');
@@ -350,7 +350,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->seedHub($ids['hubId'], 'PHPUnit Hub Pipe Low Cash', 77, 'A1', 95.0, 'active');
         $this->seedAssignment($ids['hubId'], $ids['wellId']);
 
-        // Set cash below standard pipeline cost (18 000)
+ // Set cash below standard pipeline cost (18 000)
         $this->db->prepare('UPDATE players SET cash = 100.00 WHERE id = ?')->execute([$playerId]);
 
         $pipelineSvc = new WellPipelineService($this->db);
@@ -364,7 +364,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertSame(0, (int)$cnt->fetchColumn(),
             'No pipeline row must be created when funds are insufficient');
 
-        // Cash must be unchanged
+ // Cash must be unchanged
         $this->assertEqualsWithDelta(100.0, $this->getCash($playerId), 0.01,
             'Player cash must not be deducted after failed pipeline purchase');
     }
@@ -405,7 +405,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $detach = $assignmentSvc->detachWell($playerId, $ids['wellId']);
         $this->assertTrue($detach['success'], 'Detach must succeed');
 
-        // Verify cooldown row
+ // Verify cooldown row
         $stmt = $this->db->prepare(
             'SELECT status, cooldown_until FROM logistics_hub_assignments WHERE well_id = ? ORDER BY id DESC LIMIT 1'
         );
@@ -415,7 +415,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $cooldownSecs = strtotime((string)$row['cooldown_until']) - time();
         $this->assertGreaterThan(3600 * 3, $cooldownSecs, 'Cooldown must be ~4h in the future');
 
-        // Reassign to different hub must fail
+ // Reassign to different hub must fail
         $r2 = $assignmentSvc->assignWell($playerId, $ids['auxHubId'], $ids['wellId']);
         $this->assertFalse($r2['success']);
         $this->assertSame('cooldown_active', $r2['error']);
@@ -503,7 +503,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
 
         $tickSvc->persistTickResult($hub, $result, new DateTime());
 
-        // Verify hub row was updated
+ // Verify hub row was updated
         $hubStmt = $this->db->prepare(
             'SELECT condition_pct, wear_level FROM logistics_hubs WHERE id = ?'
         );
@@ -518,7 +518,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertGreaterThan(0.0, (float)$updatedHub['wear_level'],
             'wear_level must be persisted');
 
-        // Verify tick stats row
+ // Verify tick stats row
         $statsStmt = $this->db->prepare(
             'SELECT overload_flag, incident_flag, condition_before_pct, condition_after_pct
                FROM logistics_hub_tick_stats WHERE hub_id = ? ORDER BY id DESC LIMIT 1'
@@ -538,7 +538,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'nieustawiony');
-        // new hub: opex=100, slots=4 -> access_fee=125
+ // new hub: opex=100, slots=4 -> access_fee=125
         $this->seedHub($ids['hubId'], 'PHPUnit Hub Fee Check', 77, 'A1', 95.0, 'active', 'new');
 
         $hubSvc        = new HubService($this->db);
@@ -570,7 +570,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $hubSvc        = new HubService($this->db);
         $assignmentSvc = new HubAssignmentService($this->db, $hubSvc);
 
-        // Assign then detach
+ // Assign then detach
         $a = $assignmentSvc->assignWell($playerId, $ids['hubId'], $ids['wellId']);
         $this->assertTrue($a['success']);
         $d = $assignmentSvc->detachWell($playerId, $ids['wellId']);

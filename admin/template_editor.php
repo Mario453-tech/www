@@ -1,5 +1,5 @@
 <?php
-//  AJAX chunk upload  metadane w GET, surowe bajty w body 
+// AJAX chunk upload metadane w GET, surowe bajty w body 
 // application/octet-stream omija Suhosin i ModSecurity na az.pl
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST' &&
@@ -30,7 +30,7 @@ if (
         if (!$bgName)   _ub_json(['ok' => false, 'err' => 'Brak nazwy roli (bg_name).']);
         if (!$uploadId) _ub_json(['ok' => false, 'err' => 'Brak upload_id.']);
 
-        // Odczyt surowych danych binarnych z body
+ // Odczyt surowych danych binarnych z body
         $chunkData = file_get_contents('php://input');
         if ($chunkData === false || $chunkData === '') {
             _ub_json(['ok' => false, 'err' => 'php://input pusty. CL=' . ($_SERVER['CONTENT_LENGTH'] ?? '?') . '  skontaktuj si z supportem az.pl.']);
@@ -89,7 +89,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  Bootstrap tabel 
+// Bootstrap tabel 
 try {
     $db->exec("CREATE TABLE IF NOT EXISTS `site_config` (
         `key`        VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -170,7 +170,7 @@ try {
     GameLog::error('admin/template_editor', 'bootstrap failed', $e);
 }
 
-//  POST 
+// POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -234,7 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $brUpd->execute([$f, $val, $val]);
                 }
 
-                // Footer links (JSON array)
+ // Footer links (JSON array)
                 if (isset($_POST['footer_link_label'])) {
                     $labels = $_POST['footer_link_label'] ?? [];
                     $urls   = $_POST['footer_link_url'] ?? [];
@@ -248,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $brUpd->execute(['footer_links', $json, $json]);
                 }
 
-                // Header image upload
+ // Header image upload
                 $brUploadDir = __DIR__ . '/../assets/images/boardroom/';
                 if (!is_dir($brUploadDir)) mkdir($brUploadDir, 0755, true);
                 if (isset($_FILES['header_image']) && $_FILES['header_image']['error'] === UPLOAD_ERR_OK) {
@@ -283,8 +283,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             GameLog::info('admin/template_editor', 'boardroom header image removed', ['by' => $who]);
 
         } elseif ($action === 'upload_bg_chunk') {
-            // Chunked base64 upload  each chunk is small, avoids post_max_size limit
-            // Flush ALL previous output (PHP warnings, notices) before JSON
+ // Chunked base64 upload each chunk is small, avoids post_max_size limit
+ // Flush ALL previous output (PHP warnings, notices) before JSON
             while (ob_get_level() > 0) { ob_end_clean(); }
             header('Content-Type: application/json; charset=utf-8');
             try {
@@ -298,7 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$bgName)    { echo json_encode(['ok' => false, 'err' => 'Brak nazwy pliku.']);    exit; }
                 if (!$chunkData) { echo json_encode(['ok' => false, 'err' => 'Brak danych chunka.']);  exit; }
 
-                // Uywamy assets/images/boardroom/  tam na pewno s uprawnienia
+ // Uywamy assets/images/boardroom/ tam na pewno s uprawnienia
                 $chunkDir = __DIR__ . '/../assets/images/boardroom/';
                 if (!is_dir($chunkDir)) mkdir($chunkDir, 0755, true);
 
@@ -308,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
 
-                // All chunks received  assemble
+ // All chunks received assemble
                 if ($chunkIdx + 1 >= $totalChunks) {
                     $fullB64 = '';
                     for ($i = 0; $i < $totalChunks; $i++) {
@@ -354,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
 
         } elseif ($action === 'save_boardroom_bg') {
-            // Fallback (unused  chunked AJAX is primary path)
+ // Fallback (unused chunked AJAX is primary path)
             $err = 'Uyj przycisku Zapisz to" w panelu upload.';
 
         } elseif ($action === 'delete_boardroom_bg') {
@@ -371,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Dane do widoku 
+// Dane do widoku 
 $cfgRows     = $db->query("SELECT `key`, `value` FROM site_config")->fetchAll(PDO::FETCH_KEY_PAIR);
 $navItems    = $db->query("SELECT * FROM nav_items WHERE location='header'  ORDER BY sort_order ASC, id ASC")->fetchAll();
 $footerItems = $db->query("SELECT * FROM nav_items WHERE location='footer'  ORDER BY sort_order ASC, id ASC")->fetchAll();
@@ -414,7 +414,7 @@ $brBgMatrix[] = [
     'preview' => '/assets/images/boardroom_bg.png',
 ];
 
-// Single-role combos (each role  each gender)
+// Single-role combos (each role each gender)
 foreach ($brSceneRoles as $code => $label) {
     foreach ($brGenders as $g) {
         $name  = $code . '_' . $g;
@@ -427,7 +427,7 @@ foreach ($brSceneRoles as $code => $label) {
             'preview' => '/assets/images/' . $fname,
         ];
     }
-    // Without gender fallback
+ // Without gender fallback
     $fname = 'boardroom_bg_' . $code . '.png';
     $brBgMatrix[] = [
         'name'    => $code,

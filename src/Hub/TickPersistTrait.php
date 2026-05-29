@@ -6,12 +6,12 @@
  */
 trait HubTickPersistTrait
 {
-    /**
-     * Persists tick results back to logistics_hubs and logistics_hub_tick_stats.
-     *
-     * @param array<string, mixed> $hub
-     * @param array<string, mixed> $result  from processTick()
-     */
+ /**
+ * Persists tick results back to logistics_hubs and logistics_hub_tick_stats.
+ *
+ * @param array<string, mixed> $hub
+ * @param array<string, mixed> $result from processTick()
+ */
     public function persistTickResult(array $hub, array $result, DateTime $now): void
     {
         $hubId      = (int)$hub['id'];
@@ -67,7 +67,7 @@ trait HubTickPersistTrait
                 $tickTime,
             ]);
 
-            // Keep 7 days of stats (720 ticks at 1/h)
+ // Keep 7 days of stats (720 ticks at 1/h)
             $this->db->prepare(
                 "DELETE FROM logistics_hub_tick_stats
                   WHERE hub_id = ? AND tick_time < DATE_SUB(?, INTERVAL 7 DAY)"

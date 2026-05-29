@@ -10,7 +10,7 @@ return [
     'admin.players.btn_details' => 'Szczegóły',
     'admin.players.col_actions' => 'Akcje',
     'admin.players.col_cash' => 'Gotówka',
-    'admin.players.col_email' => 'Email',
+    'admin.players.col_email' => 'E-mail',
     'admin.players.col_id' => 'ID',
     'admin.players.col_lasttick' => 'Ostatnie logowanie',
     'admin.players.col_status' => 'Status',

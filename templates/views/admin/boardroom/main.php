@@ -32,7 +32,7 @@
                     <?php endif ?>
                     <div>
                         <div class="br-role-code">
-                            #<?= $role['id'] ?> · <?= htmlspecialchars($role['code']) ?>
+ #<?= $role['id'] ?> <?= htmlspecialchars($role['code']) ?>
                         </div>
                         <div class="br-role-members">
                             <?= t('boardroom.admin_label_members') ?> <?= $memberCounts[(int)$role['id']] ?? 0 ?>

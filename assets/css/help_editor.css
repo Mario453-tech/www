@@ -1,6 +1,6 @@
 /* 
-   HELP EDITOR — Panel admina, edytor instrukcji obs³ugi
-    */
+   HELP EDITOR ï¿½ Panel admina, edytor instrukcji obsï¿½ugi
+ */
 
 .he-layout      { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: start; }
 .he-sidebar     { background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }

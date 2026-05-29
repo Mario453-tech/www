@@ -67,9 +67,9 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $this->deleteByIds('players', 'id', [$ids['playerId']]);
     }
 
-    /**
-     * @return array{playerId:int,wellId:int,auxWellId:int,hubId:int,auxHubId:int,staffId:int,managerId:int,roleId:int}
-     */
+ /**
+ * @return array{playerId:int,wellId:int,auxWellId:int,hubId:int,auxHubId:int,staffId:int,managerId:int,roleId:int}
+ */
     protected function getTrackedIds(): array
     {
         return [
@@ -269,7 +269,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
             $stmt = $this->db->prepare("DELETE FROM `{$table}` WHERE `{$column}` IN ({$placeholders})");
             $stmt->execute($ids);
         } catch (PDOException $e) {
-            // Tabela mo�e nie istnie� jeszcze (nowe modu�y) � pomijamy cicho.
+ // Tabela moe nie istnie jeszcze (nowe moduy) pomijamy cicho.
             if (!str_contains($e->getMessage(), '1146') && !str_contains($e->getMessage(), '42S02')) {
                 throw $e;
             }

@@ -9,14 +9,14 @@ require_once __DIR__ . '/WellHubSection.php';
  * WellLoopSection - player well loop: production, OPEX, transport and events.
  *
  * Deleguje logike do: / Delegates logic to:
- *   WellProductionSection - przetwarzanie per odwiert (produkcja, OPEX, transport, incydenty)
- *                         - per-well processing (production, OPEX, transport, incidents)
- *   WellHubSection        - finalizacja hubow (wear, reconciliacja strat, OPEX hubow)
- *                         - hub finalization (wear, loss reconciliation, hub OPEX)
+ * WellProductionSection - przetwarzanie per odwiert (produkcja, OPEX, transport, incydenty)
+ * - per-well processing (production, OPEX, transport, incidents)
+ * WellHubSection - finalizacja hubow (wear, reconciliacja strat, OPEX hubow)
+ * - hub finalization (wear, loss reconciliation, hub OPEX)
  */
 class WellLoopSection
 {
-    // Wyniki petli (eksponowane do PlayersSection) / Loop results (exposed to PlayersSection)
+ // Wyniki petli (eksponowane do PlayersSection) / Loop results (exposed to PlayersSection)
     public float $finRevenue             = 0.0;
     public float $finOpex                = 0.0;
     public float $finSalary              = 0.0;
@@ -46,75 +46,75 @@ class WellLoopSection
     public float $storageBlockedBbl        = 0.0;
     public float $currentStorage           = 0.0;
     public float $playerCash               = 0.0;
-    // Stage 5: oil dispatched by sea and not yet delivered
-    // Etap 5: ropa wyslana morzem i jeszcze niedostarczona
+ // Stage 5: oil dispatched by sea and not yet delivered
+ // Etap 5: ropa wyslana morzem i jeszcze niedostarczona
     public float $marineInTransitBbl       = 0.0;
-    // P1.2: oil dispatched by road and not yet delivered
-    // P1.2: ropa wyslana ciezarowkami i jeszcze niedostarczona
+ // P1.2: oil dispatched by road and not yet delivered
+ // P1.2: ropa wyslana ciezarowkami i jeszcze niedostarczona
     public float $roadInTransitBbl         = 0.0;
 
-    // Stan hubow - wspoldzielony z WellProductionSection i WellHubSection
-    // Hub state - shared with WellProductionSection and WellHubSection
-    /** @var array<int, int> well_id -> hub_id for this player's assigned wells */
+ // Stan hubow - wspoldzielony z WellProductionSection i WellHubSection
+ // Hub state - shared with WellProductionSection and WellHubSection
+ /** @var array<int, int> well_id -> hub_id for this player's assigned wells */
     public array $wellHubMap    = [];
-    /** @var array<int, array<string, mixed>> hub_id -> full hub row */
+ /** @var array<int, array<string, mixed>> hub_id -> full hub row */
     public array $hubCache      = [];
-    /** @var array<int, float> hub_id -> accumulated oil input (bbl) for this tick */
+ /** @var array<int, float> hub_id -> accumulated oil input (bbl) for this tick */
     public array $hubInputAccum = [];
-    // ETAP 11: second transport leg (hub -> storage), tracked per hub.
-    /** @var array<int, float> well_id -> bbl delivered to storage through its hub this tick */
+ // ETAP 11: second transport leg (hub -> storage), tracked per hub.
+ /** @var array<int, float> well_id -> bbl delivered to storage through its hub this tick */
     public array $hubWellDelivered = [];
-    /** @var array<int, string> hub_id -> outbound_transport_type (leg 2 choice per hub) */
+ /** @var array<int, string> hub_id -> outbound_transport_type (leg 2 choice per hub) */
     public array $hubOutboundType = [];
-    /** @var array<int, array<string, mixed>> hub_id -> outbound pipeline row (leg='outbound') */
+ /** @var array<int, array<string, mixed>> hub_id -> outbound pipeline row (leg='outbound') */
     public array $hubOutboundPipelineCache = [];
-    // Second-leg transport losses (already folded into finLossBbl/finLossValue; kept for reporting).
+ // Second-leg transport losses (already folded into finLossBbl/finLossValue; kept for reporting).
     public float $finOutboundLossBbl   = 0.0;
     public float $finOutboundLossValue = 0.0;
 
     private PDO         $db;
     private DateTime    $now;
     private float       $oilPrice;
-    /** @var array<string, mixed> */
+ /** @var array<string, mixed> */
     private array       $gBalanceMults;
     private WellService $wellService;
 
-    // Cache preloadowanych danych per gracz / Preloaded data cache per player
-    /** @var array<int, array<string, mixed>> preloaded technical_staff indexed by id */
+ // Cache preloadowanych danych per gracz / Preloaded data cache per player
+ /** @var array<int, array<string, mixed>> preloaded technical_staff indexed by id */
     private array $staffCache = [];
-    /** @var array<int, array<string, mixed>> preloaded well pipelines indexed by well_id */
+ /** @var array<int, array<string, mixed>> preloaded well pipelines indexed by well_id */
     private array $wellPipelineCache = [];
-    /** @var ?GeologicalLayerService reused per player loop */
+ /** @var ?GeologicalLayerService reused per player loop */
     private ?object $geoSvc = null;
-    /** @var ?IncidentService reused per player loop */
+ /** @var ?IncidentService reused per player loop */
     private ?object $incidentSvc = null;
-    /** @var array<string, array<string, float>> konfiguracja transportu per typ (z transport_config lub domyslna) / transport config per type (from transport_config or default) */
+ /** @var array<string, array<string, float>> konfiguracja transportu per typ (z transport_config lub domyslna) / transport config per type (from transport_config or default) */
     private array $transportConfig = [];
     private ?FinancePolicyService $financePolicySvc = null;
-    /** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     private array $financeTechnicalMods = [];
-    /** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     private array $financeLogisticsMods = [];
-    /** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     private array $financeSafetyMods = [];
 
-    // Hub logistics - initialized in constructor, null if module not installed
-    /** @var ?HubService */
+ // Hub logistics - initialized in constructor, null if module not installed
+ /** @var ?HubService */
     private ?HubService          $hubSvc               = null;
-    /** @var ?HubTickService */
+ /** @var ?HubTickService */
     private ?HubTickService      $hubTickSvc           = null;
-    /** @var ?HubIncidentService */
+ /** @var ?HubIncidentService */
     private ?HubIncidentService  $hubIncidentSvc       = null;
     private ?WellPipelineService        $wellPipelineSvc      = null;
     private ?RoadTransportService       $roadTransportSvc     = null;
     private ?OffshoreTransportService   $offshoreTransportSvc = null;
     private ?MarineDeliveryService      $marineDeliverySvc    = null; // Etap 5
-    /** @var array<int, array<string, mixed>> preloaded road configs indexed by well_id */
+ /** @var array<int, array<string, mixed>> preloaded road configs indexed by well_id */
     private array $roadConfigCache = [];
-    /** @var array<int, array<string, mixed>> preloaded offshore configs indexed by well_id */
+ /** @var array<int, array<string, mixed>> preloaded offshore configs indexed by well_id */
     private array $offshoreConfigCache = [];
 
-    /** @param array<string, mixed> $gBalanceMults */
+ /** @param array<string, mixed> $gBalanceMults */
     public function __construct(
         PDO         $db,
         DateTime    $now,
@@ -128,11 +128,11 @@ class WellLoopSection
         $this->gBalanceMults = $gBalanceMults;
         $this->wellService   = $wellService;
 
-        // Zaladuj cost_per_bbl z transport_config (globalny config admina) / Load cost_per_bbl from transport_config (global admin config)
+ // Zaladuj cost_per_bbl z transport_config (globalny config admina) / Load cost_per_bbl from transport_config (global admin config)
         try {
             $this->transportConfig = TransportConfigService::load($db);
         } catch (Throwable $e) {
-            // Tabela opcjonalna - uzywamy wartosci domyslnych. / Table is optional - using defaults.
+ // Tabela opcjonalna - uzywamy wartosci domyslnych. / Table is optional - using defaults.
         }
 
         if (class_exists('FinancePolicyService')) {
@@ -143,7 +143,7 @@ class WellLoopSection
             }
         }
 
-        // Hub logistics - optional module, fail gracefully if not installed.
+ // Hub logistics - optional module, fail gracefully if not installed.
         if (class_exists('HubService') && class_exists('HubTickService')) {
             try {
                 $this->hubSvc     = new HubService($db);
@@ -180,7 +180,7 @@ class WellLoopSection
                 GameLog::error('tick', 'WellLoopSection: OffshoreTransportService init FAILED', $e);
             }
         }
-        // Etap 5: dostawy morskie w czasie / Etap 5: time-based marine deliveries
+ // Etap 5: dostawy morskie w czasie / Etap 5: time-based marine deliveries
         if (class_exists('MarineDeliveryService')) {
             try {
                 $this->marineDeliverySvc = new MarineDeliveryService($db);
@@ -190,15 +190,15 @@ class WellLoopSection
         }
     }
 
-    /**
-     * Uruchamia petle odwiertow dla jednego gracza.
-     * Runs the well loop for a single player.
-     *
-     * @param list<array<string, mixed>> $wells
-     * @param array<string, mixed>       $hseBonus
-     * @param array<string, mixed>       $staffCheck
-     * @param list<array<string, mixed>> $activeRegEvents
-     */
+ /**
+ * Uruchamia petle odwiertow dla jednego gracza.
+ * Runs the well loop for a single player.
+ *
+ * @param list<array<string, mixed>> $wells
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, mixed> $staffCheck
+ * @param list<array<string, mixed>> $activeRegEvents
+ */
     public function run(
         int     $playerId,
         array   $wells,
@@ -218,13 +218,13 @@ class WellLoopSection
         $this->currentStorage = $currentStorage;
         $this->preloadFinancePolicies($playerId);
 
-        // Pensje / Salaries
+ // Pensje / Salaries
         $this->processSalaries($playerId, $deltaHours);
 
-        // Preload danych przed petla odwiertow (w tym przypisania hubow). / Preload data before well loop (including hub assignments).
+ // Preload danych przed petla odwiertow (w tym przypisania hubow). / Preload data before well loop (including hub assignments).
         $this->preloadPlayerData($playerId, $wells);
 
-        // Petla odwiertow / Well loop
+ // Petla odwiertow / Well loop
         $wellProd = new WellProductionSection(
             $this,
             $this->db,
@@ -261,7 +261,7 @@ class WellLoopSection
             }
         }
 
-        // Finalizacja hubow: wear/status, reconciliacja strat, OPEX hubow / Hub finalization: wear/status, loss reconciliation, hub OPEX
+ // Finalizacja hubow: wear/status, reconciliacja strat, OPEX hubow / Hub finalization: wear/status, loss reconciliation, hub OPEX
         $wellHub = new WellHubSection(
             $this,
             $this->now,
@@ -276,13 +276,13 @@ class WellLoopSection
         $wellHub->finalize($playerId, $deltaHours, $hseBonus);
     }
 
-    /**
-     * Aplikuje hub logistics lub fallback cap dla wolumenu odwiertu.
-     * Applies hub logistics or fallback cap to a well's production volume.
-     * Wywolywane z WellProductionSection. / Called from WellProductionSection.
-     *
-     * @param float $actual passed by reference - may be reduced for no-hub wells
-     */
+ /**
+ * Aplikuje hub logistics lub fallback cap dla wolumenu odwiertu.
+ * Applies hub logistics or fallback cap to a well's production volume.
+ * Wywolywane z WellProductionSection. / Called from WellProductionSection.
+ *
+ * @param float $actual passed by reference - may be reduced for no-hub wells
+ */
     public function applyHubOrFallback(int $wellId, float &$actual, float $deltaHours): void
     {
         if ($this->hubTickSvc === null || $actual <= 0.0) {
@@ -292,14 +292,14 @@ class WellLoopSection
         $hubId = $this->wellHubMap[$wellId] ?? null;
 
         if ($hubId !== null) {
-            // Well ma aktywne przypisanie do huba - akumuluj input, reconciliacja po petli.
-            // Well has an active hub assignment - accumulate input, reconcile after the loop.
+ // Well ma aktywne przypisanie do huba - akumuluj input, reconciliacja po petli.
+ // Well has an active hub assignment - accumulate input, reconcile after the loop.
             $this->hubInputAccum[$hubId] = ($this->hubInputAccum[$hubId] ?? 0.0) + $actual;
-            // $actual nie jest redukowany tutaj - straty hubowe korygowane sa w WellHubSection.
-            // $actual is not reduced here - hub losses are reconciled in WellHubSection.
+ // $actual nie jest redukowany tutaj - straty hubowe korygowane sa w WellHubSection.
+ // $actual is not reduced here - hub losses are reconciled in WellHubSection.
         } else {
-            // Brak huba - natychmiastowy fallback cap (jak odwiert bez infrastruktury).
-            // No hub - immediate fallback cap (well without infrastructure).
+ // Brak huba - natychmiastowy fallback cap (jak odwiert bez infrastruktury).
+ // No hub - immediate fallback cap (well without infrastructure).
             $fallback          = $this->hubTickSvc->applyFallback($actual, $deltaHours);
             $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
             if ($logisticsLossMult !== 1.0 && $fallback['lost_bbl'] > 0.0) {
@@ -322,11 +322,11 @@ class WellLoopSection
         }
     }
 
-    /**
-     * Rejestruje strate barylkowa przed magazynem (transport capacity, storage block, pipeline).
-     * Records a pre-storage barrel loss (transport capacity, storage block, pipeline loss).
-     * Wywolywane z WellProductionSection. / Called from WellProductionSection.
-     */
+ /**
+ * Rejestruje strate barylkowa przed magazynem (transport capacity, storage block, pipeline).
+ * Records a pre-storage barrel loss (transport capacity, storage block, pipeline loss).
+ * Wywolywane z WellProductionSection. / Called from WellProductionSection.
+ */
     public function recordPreStorageLoss(float $bbl, float $price): void
     {
         if ($bbl <= 0.0) return;
@@ -335,12 +335,12 @@ class WellLoopSection
         $this->finLossValue      += round($bbl * $price, 2);
     }
 
-    /**
-     * Records barrels a well delivered to storage via its hub this tick.
-     * Used by WellHubSection to apply the second transport leg (hub -> storage).
-     * Only hub-assigned wells are tracked; no-hub wells have no second leg.
-     * Rejestruje barylki dostarczone do magazynu przez hub (podstawa odcinka 2).
-     */
+ /**
+ * Records barrels a well delivered to storage via its hub this tick.
+ * Used by WellHubSection to apply the second transport leg (hub -> storage).
+ * Only hub-assigned wells are tracked; no-hub wells have no second leg.
+ * Rejestruje barylki dostarczone do magazynu przez hub (podstawa odcinka 2).
+ */
     public function recordHubWellDelivered(int $wellId, float $bbl): void
     {
         if ($bbl <= 0.0 || !isset($this->wellHubMap[$wellId])) {
@@ -349,13 +349,13 @@ class WellLoopSection
         $this->hubWellDelivered[$wellId] = ($this->hubWellDelivered[$wellId] ?? 0.0) + $bbl;
     }
 
-    /**
-     * Returns the multiplier set used by the second transport leg (hub -> storage),
-     * so delivery sections (road/marine) can apply leg-2 economics consistently.
-     * Zwraca mnozniki odcinka 2 dla sekcji dostaw czasowych.
-     *
-     * @return array<string, float>
-     */
+ /**
+ * Returns the multiplier set used by the second transport leg (hub -> storage),
+ * so delivery sections (road/marine) can apply leg-2 economics consistently.
+ * Zwraca mnozniki odcinka 2 dla sekcji dostaw czasowych.
+ *
+ * @return array<string, float>
+ */
     public function outboundMults(): array
     {
         return [
@@ -366,10 +366,10 @@ class WellLoopSection
         ];
     }
 
-    /**
-     * Returns the well's chosen second-leg transport type (hub -> storage).
-     * ETAP 11: looks up the well's hub and returns hub-level outbound_transport_type.
-     */
+ /**
+ * Returns the well's chosen second-leg transport type (hub -> storage).
+ * ETAP 11: looks up the well's hub and returns hub-level outbound_transport_type.
+ */
     public function outboundTypeFor(int $wellId): string
     {
         $hubId = $this->wellHubMap[$wellId] ?? null;
@@ -377,11 +377,11 @@ class WellLoopSection
         return (string)($this->hubOutboundType[$hubId] ?? 'nieustawiony');
     }
 
-    /**
-     * Returns the well's operational outbound pipeline row (leg='outbound'), or null.
-     * ETAP 11: looks up the well's hub and returns the hub-level outbound pipeline.
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Returns the well's operational outbound pipeline row (leg='outbound'), or null.
+ * ETAP 11: looks up the well's hub and returns the hub-level outbound pipeline.
+ * @return array<string, mixed>|null
+ */
     public function outboundPipelineFor(int $wellId): ?array
     {
         $hubId = $this->wellHubMap[$wellId] ?? null;
@@ -389,7 +389,7 @@ class WellLoopSection
         return $this->hubOutboundPipelineCache[$hubId] ?? null;
     }
 
-    // ------------------------------------------------------------------ private
+ // ------------------------------------------------------------------ private
 
     private function processSalaries(int $playerId, float $deltaHours): void
     {
@@ -452,13 +452,13 @@ class WellLoopSection
         }
     }
 
-    /**
-     * @param list<array<string, mixed>> $wells odwierty gracza (potrzebne do batch-query hubow)
-     *                                          player wells (needed for hub batch queries)
-     */
+ /**
+ * @param list<array<string, mixed>> $wells odwierty gracza (potrzebne do batch-query hubow)
+ * player wells (needed for hub batch queries)
+ */
     private function preloadPlayerData(int $playerId, array $wells): void
     {
-        // 1. Preload technical_staff + staff_specializations w jednym SELECT / in one SELECT
+ // 1. Preload technical_staff + staff_specializations w jednym SELECT / in one SELECT
         $this->staffCache = [];
         try {
             $stmt = $this->db->prepare("
@@ -479,29 +479,29 @@ class WellLoopSection
             GameLog::error('tick', 'preloadPlayerData staff FAILED', $e, ['player_id' => $playerId]);
         }
 
-        // 2. Preload owned pipelines per well for all player wells.
-        // 2. Preload zakupionych rurociagow per odwiert dla odwiertow gracza.
+ // 2. Preload owned pipelines per well for all player wells.
+ // 2. Preload zakupionych rurociagow per odwiert dla odwiertow gracza.
         $this->wellPipelineCache = [];
         if ($this->wellPipelineSvc !== null && !empty($wells)) {
             try {
                 $wellIds = array_map('intval', array_column($wells, 'id'));
-                // Inbound pipelines only (well -> hub); outbound rows fetched separately below.
+ // Inbound pipelines only (well -> hub); outbound rows fetched separately below.
                 $this->wellPipelineCache = $this->wellPipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
             } catch (Throwable $e) {
                 GameLog::error('tick', 'preloadPlayerData well pipelines FAILED', $e, ['player_id' => $playerId]);
             }
         }
 
-        // 2a. ETAP 11: second transport leg (hub -> storage) - per-hub choice + outbound pipelines per hub.
-        // 2a. ETAP 11: odcinek 2 (hub -> magazyn) - wybor per hub + rurociagi outbound per hub.
+ // 2a. ETAP 11: second transport leg (hub -> storage) - per-hub choice + outbound pipelines per hub.
+ // 2a. ETAP 11: odcinek 2 (hub -> magazyn) - wybor per hub + rurociagi outbound per hub.
         $this->hubOutboundType          = [];
         $this->hubOutboundPipelineCache = [];
         $this->hubWellDelivered         = [];
-        // Hub outbound types are loaded from hubCache (logistics_hubs.outbound_transport_type),
-        // populated in step 4 below. Actual pipeline loading happens after step 4.
+ // Hub outbound types are loaded from hubCache (logistics_hubs.outbound_transport_type),
+ // populated in step 4 below. Actual pipeline loading happens after step 4.
 
-        // 2b. Preload road transport configs for wells using trucks or falling back from missing pipelines.
-        // 2b. Preload konfiguracji transportu drogowego dla odwiertow na ciezarowkach lub fallbacku bez rurociagu.
+ // 2b. Preload road transport configs for wells using trucks or falling back from missing pipelines.
+ // 2b. Preload konfiguracji transportu drogowego dla odwiertow na ciezarowkach lub fallbacku bez rurociagu.
         $this->roadConfigCache = [];
         if ($this->roadTransportSvc !== null && !empty($wells)) {
             try {
@@ -536,7 +536,7 @@ class WellLoopSection
             }
         }
 
-        // 2c. Preload konfiguracji transportu morskiego (rejsy) dla odwiertow tankowiec. / Preload offshore transport configs (voyages) for tanker wells.
+ // 2c. Preload konfiguracji transportu morskiego (rejsy) dla odwiertow tankowiec. / Preload offshore transport configs (voyages) for tanker wells.
         $this->offshoreConfigCache = [];
         if ($this->offshoreTransportSvc !== null && !empty($wells)) {
             try {
@@ -552,11 +552,11 @@ class WellLoopSection
             }
         }
 
-        // 3. Inicjalizuj serwisy raz per gracz / Initialize services once per player
+ // 3. Inicjalizuj serwisy raz per gracz / Initialize services once per player
         $this->geoSvc      = class_exists('GeologicalLayerService') ? new GeologicalLayerService() : null;
         $this->incidentSvc = class_exists('IncidentService')         ? new IncidentService()        : null;
 
-        // 4. Batch-load przypisan hubow dla odwiertow gracza (1 query na gracza). / Batch-load hub assignments for all player wells (1 query per player).
+ // 4. Batch-load przypisan hubow dla odwiertow gracza (1 query na gracza). / Batch-load hub assignments for all player wells (1 query per player).
         $this->wellHubMap    = [];
         $this->hubCache      = [];
         $this->hubInputAccum = [];
@@ -596,7 +596,7 @@ class WellLoopSection
             }
         }
 
-        // Load hub outbound transport types from the already-loaded hub cache.
+ // Load hub outbound transport types from the already-loaded hub cache.
         $outboundHubIds = [];
         foreach ($this->hubCache as $hubId => $hub) {
             $otype = (string)($hub['outbound_transport_type'] ?? 'nieustawiony');

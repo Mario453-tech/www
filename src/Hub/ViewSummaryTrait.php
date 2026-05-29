@@ -6,19 +6,19 @@
  */
 trait HubViewSummaryTrait
 {
-    /**
-     * Returns a summary per region for the player's logistics overview.
-     *
-     * @return list<array{
-     *   region_id: int, region_name: string,
-     *   hubs: list<array<string, mixed>>, hub_count: int,
-     *   total_wells: int, unassigned_wells: int,
-     *   total_nominal_bph: float, total_real_bph: float,
-     *   avg_load_pct: float, total_buffer_bbl: float,
-     *   total_buffer_used_bbl: float, total_lost_bbl: float,
-     *   overloaded: bool, alerts: list<string>
-     * }>
-     */
+ /**
+ * Returns a summary per region for the player's logistics overview.
+ *
+ * @return list<array{
+ * region_id: int, region_name: string,
+ * hubs: list<array<string, mixed>>, hub_count: int,
+ * total_wells: int, unassigned_wells: int,
+ * total_nominal_bph: float, total_real_bph: float,
+ * avg_load_pct: float, total_buffer_bbl: float,
+ * total_buffer_used_bbl: float, total_lost_bbl: float,
+ * overloaded: bool, alerts: list<string>
+ * }>
+ */
     public function getRegionSummary(int $playerId): array
     {
         $hubs = $this->hubSvc->getPlayerHubs($playerId);
@@ -94,7 +94,7 @@ trait HubViewSummaryTrait
             ];
         }
 
-        // Regions that have wells but no hubs
+ // Regions that have wells but no hubs
         foreach ($allWells as $regionId => $wells) {
             if (!isset($byRegion[$regionId])) {
                 $unassigned  = count($unassignedWells[$regionId] ?? []);
@@ -122,10 +122,10 @@ trait HubViewSummaryTrait
         return $result;
     }
 
-    /**
-     * Returns all player wells grouped by region_id.
-     * @return array<int, list<array<string, mixed>>>
-     */
+ /**
+ * Returns all player wells grouped by region_id.
+ * @return array<int, list<array<string, mixed>>>
+ */
     private function getPlayerWellsByRegion(int $playerId): array
     {
         $stmt = $this->db->prepare(
@@ -145,10 +145,10 @@ trait HubViewSummaryTrait
         return $grouped;
     }
 
-    /**
-     * Returns unassigned player wells grouped by region_id.
-     * @return array<int, list<array<string, mixed>>>
-     */
+ /**
+ * Returns unassigned player wells grouped by region_id.
+ * @return array<int, list<array<string, mixed>>>
+ */
     private function getUnassignedWellsByRegion(int $playerId): array
     {
         $grouped = [];

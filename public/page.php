@@ -18,7 +18,7 @@ try {
     $stmt->execute([$slug]);
     $page = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
-    // tabela nie istnieje lub blad — 404
+ // tabela nie istnieje lub blad 404
 }
 
 if (!$page) {
@@ -30,7 +30,7 @@ if (!$page) {
     exit();
 }
 
-$pageTitle = htmlspecialchars($page['title']) . ' – OilCorp';
+$pageTitle = htmlspecialchars($page['title']) . ' ï¿½ OilCorp';
 require_once __DIR__ . '/../templates/header.php';
 ?>
 <link rel="stylesheet" href="/assets/css/static_page.css">

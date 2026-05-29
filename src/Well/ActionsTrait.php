@@ -1,14 +1,14 @@
 <?php
 trait WellActionsTrait
 {
-    /**
-     * Zmiana tieru sprzetu lub upgrade poziomu.
-     * Changes equipment tier or upgrades level.
-     * Koszty: black_market=500k, standard=2mln, premium=8mln
-     * Costs: black_market=500k, standard=2mln, premium=8mln
-     * Upgrade lvl: 1=1mln, 2=2.5mln, 3=5mln
-     */
-    /** @return array<string, mixed> */
+ /**
+ * Zmiana tieru sprzetu lub upgrade poziomu.
+ * Changes equipment tier or upgrades level.
+ * Koszty: black_market=500k, standard=2mln, premium=8mln
+ * Costs: black_market=500k, standard=2mln, premium=8mln
+ * Upgrade lvl: 1=1mln, 2=2.5mln, 3=5mln
+ */
+ /** @return array<string, mixed> */
     public function upgradeEquipment(int $wellId, int $playerId, string $action, string $tier = 'standard'): array
     {
         $well = $this->getWell($wellId, $playerId);
@@ -82,10 +82,10 @@ trait WellActionsTrait
         return ['success' => false, 'message' => t('well.err_unknown_action')];
     }
 
-    /**
-     * Konserwacja odwiertu
-     * Well maintenance.
-     */
+ /**
+ * Konserwacja odwiertu
+ * Well maintenance.
+ */
     public function performMaintenance(int $wellId, int $playerId): array
     {
         $well = $this->getWell($wellId, $playerId);
@@ -107,7 +107,7 @@ trait WellActionsTrait
             $player->updateCash(-$cost);
             $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ?")->execute([$condAfter, $wellId]);
 
-            // Konserwacja redukuje spirale katastrof o 1 stack (-0.10) / Maintenance reduces the disaster spiral by 1 stack (-0.10)
+ // Konserwacja redukuje spirale katastrof o 1 stack (-0.10) / Maintenance reduces the disaster spiral by 1 stack (-0.10)
             $this->db->prepare("
                 UPDATE wells
                 SET post_disaster_risk_boost = GREATEST(0, post_disaster_risk_boost - 0.10)
@@ -115,7 +115,7 @@ trait WellActionsTrait
             ")->execute([$wellId]);
 
             $this->logEvent($wellId, $playerId, 'maintenance', $cost,
-                "Maintenance — condition: {$condBefore}%  {$condAfter}%", $condBefore, $condAfter);
+                "Maintenance ï¿½ condition: {$condBefore}%  {$condAfter}%", $condBefore, $condAfter);
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();

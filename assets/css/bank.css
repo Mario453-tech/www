@@ -4,7 +4,7 @@
    adowany przez: public/bank.php ($extraCss)
    ============================================================= */
 
-/*  Banner spaty kredytu  */
+/* Banner spaty kredytu */
 .loan-paid-off-banner {
     display: flex;
     align-items: center;
@@ -19,7 +19,7 @@
 .loan-paid-off-icon { font-size: 2.2rem; flex-shrink: 0; }
 .loan-paid-off-text { color: var(--green); font-size: 1rem; line-height: 1.5; }
 
-/*  Blokada wniosku  */
+/* Blokada wniosku */
 .block-reasons-list {
     margin: 12px 0 16px 0;
     padding-left: 20px;
@@ -30,7 +30,7 @@
     font-size: 14px;
 }
 
-/*  Negocjacje  blok w karcie kredytu  */
+/* Negocjacje blok w karcie kredytu */
 .neg-block {
     margin-top: 20px;
     border-top: 1px solid var(--border2);
@@ -95,7 +95,7 @@
 .neg-offer-item:last-child { border-bottom: none; }
 .neg-expire strong { color: var(--orange); }
 
-/*  Karty kredytw  */
+/* Karty kredytw */
 .card--bank-approved { border-left: 4px solid var(--green); }
 .bank-loan-count     { color: var(--orange); }
 
@@ -140,7 +140,7 @@
     color: var(--orange);
 }
 
-/*  Flex row: szczegy + restrukturyzacja  */
+/* Flex row: szczegy + restrukturyzacja */
 .loan-body-row  { display: flex; gap: 16px; align-items: flex-start; }
 .loan-body-main { flex: 1 1 0; min-width: 0; }
 
@@ -177,7 +177,7 @@
 .restruct-meta      { font-size: 11px; color: var(--text3); }
 .restruct-done-label { font-size: 13px; font-weight: 700; color: var(--text3); }
 
-/*  Modal potwierdzenia spaty  */
+/* Modal potwierdzenia spaty */
 .repay-modal-overlay {
     position: fixed;
     inset: 0;
@@ -239,7 +239,7 @@
     gap: 10px;
 }
 
-/*  Sekcja spaty kredytu  */
+/* Sekcja spaty kredytu */
 .repay-block {
     border: 1px solid rgba(78,201,122,.2);
     background: rgba(78,201,122,.04);
@@ -313,7 +313,7 @@
     font-size: 12px;
 }
 
-/*  Oferta kredytowa  sekcja wizualna  */
+/* Oferta kredytowa sekcja wizualna */
 .offer-details {
     background: var(--bg4);
     border: 1px solid var(--border2);
@@ -388,7 +388,7 @@
     padding: 0 4px;
 }
 
-/*  Flash messages (success / error)  */
+/* Flash messages (success / error) */
 .bank-flash {
     display: flex;
     align-items: flex-start;
@@ -429,7 +429,7 @@
     color: #e05555;
 }
 
-/*  Odrzucenie / cooldown  */
+/* Odrzucenie / cooldown */
 .rejection-cooldown {
     background: rgba(224,85,85,.08);
     border: 1px solid rgba(224,85,85,.25);
@@ -441,7 +441,7 @@
 }
 .bank-pending-info { padding: 20px; text-align: center; color: var(--text3); font-size: 14px; }
 
-/*  Szczegy zatwierdzonej oferty negocjacji  */
+/* Szczegy zatwierdzonej oferty negocjacji */
 .neg-offer-details {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -459,7 +459,7 @@
 .neg-expire strong { color: var(--orange); }
 .neg-apply-form    { margin-top: 12px; }
 
-/*  Zdarzenia losowe w negocjacjach  */
+/* Zdarzenia losowe w negocjacjach */
 .neg-events {
     margin-top: 14px;
     border-top: 1px dashed var(--border2);
@@ -503,7 +503,7 @@
     margin: 2px 0;
 }
 
-/*  Accordion typw negocjacji  */
+/* Accordion typw negocjacji */
 .neg-accordion { display: flex; flex-direction: column; gap: 8px; }
 .neg-panel {
     border: 1px solid var(--border2);
@@ -537,7 +537,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
 .neg-panel-body { padding: 14px 16px; border-top: 1px solid var(--border2); background: var(--bg2); }
 .neg-desc       { font-size: 13px; color: var(--text2); margin: 0 0 14px; line-height: 1.55; }
 
-/*  Radio opcje odroczenia  */
+/* Radio opcje odroczenia */
 .neg-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .neg-option {
     display: flex;
@@ -555,7 +555,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
 .neg-option-label small { font-weight: 400; color: var(--text3); font-size: 12px; }
 .neg-fee-note { display: block; font-size: 11px; color: var(--text3); margin-top: 4px; }
 
-/*  Negocjacje niedostpne  */
+/* Negocjacje niedostpne */
 .neg-unavailable {
     display: flex;
     align-items: center;
@@ -569,7 +569,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
 }
 .neg-lock-icon { font-size: 13px; flex-shrink: 0; opacity: .6; }
 
-/*  Komunikaty CFO / Prawnik  */
+/* Komunikaty CFO / Prawnik */
 .neg-cfo-msg,
 .neg-lawyer-msg {
     display: block;
@@ -580,7 +580,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
 .neg-cfo-msg::before    { content: ' '; }
 .neg-lawyer-msg::before { content: ' '; }
 
-/*  Media queries  */
+/* Media queries */
 @media (max-width: 600px) {
     .loan-body-row       { flex-direction: column; }
     .loan-restruct-panel { flex: none; width: 100%; }
@@ -589,9 +589,9 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
 
 /* 
    ULEPSZENIA WIZUALNE  bank.css overrides
-    */
+ */
 
-/*  btn-full i btn-sm  */
+/* btn-full i btn-sm */
 .btn-full  { width: 100%; }
 .btn-sm    { padding: 7px 14px; font-size: 10px; }
 .btn-ghost {
@@ -604,7 +604,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
     border-color: rgba(255,255,255,.12);
 }
 
-/*  Input kwoty kredytu  */
+/* Input kwoty kredytu */
 .form-group input[type="number"],
 .form-group input[type="text"],
 .form-group select {
@@ -646,7 +646,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
     line-height: 1.5;
 }
 
-/*  Info-box limit kredytowy (zoty akcent)  */
+/* Info-box limit kredytowy (zoty akcent) */
 .info-box {
     border-radius: 10px;
     padding: 14px 18px;
@@ -717,7 +717,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
     font-size: 13px;
 }
 
-/*  Karty kredytw  ulepszone  */
+/* Karty kredytw ulepszone */
 .loan-card {
     background: rgba(255,255,255,.018) !important;
     border: 1px solid var(--border2) !important;
@@ -746,13 +746,13 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
 .loan-item span:first-child { color: var(--text2); }
 .loan-item strong.money { color: var(--gold) !important; font-weight: 700; }
 
-/* Progress bar kredytu  zoty fill */
+/* Progress bar kredytu zoty fill */
 .repay-bar-fill {
     background: linear-gradient(90deg, var(--gold3), var(--gold)) !important;
 }
 .repay-bar-label { color: var(--text3); font-size: 11px; }
 
-/*  Sekcja spaty  bardziej zota  */
+/* Sekcja spaty bardziej zota */
 .repay-block {
     border-color: rgba(200,168,75,.18) !important;
     background: rgba(200,168,75,.04) !important;
@@ -763,29 +763,29 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
     background: rgba(200,168,75,.08) !important;
 }
 
-/*  Negocjacje  lekki zoty akcent  */
+/* Negocjacje lekki zoty akcent */
 .neg-panel-header:hover { background: rgba(255,255,255,.02); }
 .neg-option:hover {
     border-color: var(--gold) !important;
     background: rgba(200,168,75,.05) !important;
 }
 
-/*  Modal spaty  zoty border zamiast zielonego  */
+/* Modal spaty zoty border zamiast zielonego */
 .repay-modal { border-color: rgba(200,168,75,.3) !important; }
 .repay-modal-amount { color: var(--gold2) !important; }
 
-/*  Flash  czytelniejszy  */
+/* Flash czytelniejszy */
 .bank-flash {
     border-radius: 10px !important;
     font-size: 13px !important;
 }
 
-/*  Loan paid off banner  */
+/* Loan paid off banner */
 .loan-paid-off-banner {
     border-radius: 10px !important;
 }
 
-/*  Offer details  bardziej zote  */
+/* Offer details bardziej zote */
 .offer-item strong.money { color: var(--gold2) !important; font-size: 16px !important; }
 .offer-actions .btn-success {
     background: var(--gold-dim) !important;
@@ -799,7 +799,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
 }
 
 
-/*  Flash success  zoty zamiast zielonego  */
+/* Flash success zoty zamiast zielonego */
 .bank-flash--success {
     background: rgba(200,168,75,.08) !important;
     border-color: rgba(200,168,75,.3) !important;
@@ -810,7 +810,7 @@ details[open] > .neg-panel-header::before { transform: rotate(90deg); }
     font-size: 18px !important;
 }
 
-/*  Karta pending  zoty akcent  */
+/* Karta pending zoty akcent */
 .card--bank-approved,
 section.card:has(> h2) {
     border-left: none;
@@ -829,7 +829,7 @@ section.card p small {
     font-size: 12px;
 }
 
-/* Pending  caa karta zota obwdka */
+/* Pending caa karta zota obwdka */
 .bank-pending-card {
     border-color: rgba(200,168,75,.3) !important;
     background: rgba(200,168,75,.04) !important;
@@ -838,45 +838,45 @@ section.card p small {
 
 /* 
    MOBILE  responsywno banku
-    */
+ */
 
 @media (max-width: 768px) {
 
-    /* Karty  mniejszy padding */
+ /* Karty mniejszy padding */
     .card { padding: 18px 16px !important; }
 
-    /* Flash message */
+ /* Flash message */
     .bank-flash {
         padding: 12px 14px !important;
         gap: 10px !important;
         font-size: 13px !important;
     }
 
-    /* Offer details  stack pionowo */
+ /* Offer details stack pionowo */
     .offer-details { font-size: 13px; }
     .offer-item { padding: 10px 14px; font-size: 13px; }
     .offer-item strong.money { font-size: 15px !important; }
 
-    /* Offer actions  stack pionowo */
+ /* Offer actions stack pionowo */
     .offer-actions {
         grid-template-columns: 1fr !important;
         gap: 8px !important;
     }
 
-    /* Karta kredytu */
+ /* Karta kredytu */
     .loan-card { padding: 14px !important; }
     .loan-header { flex-wrap: wrap; gap: 8px; }
     .loan-id { font-size: 10px !important; }
 
-    /* Szczegy kredytu */
+ /* Szczegy kredytu */
     .loan-item { font-size: 13px !important; padding: 6px 0 !important; }
 
-    /* Spata  opcje w kolumnie */
+ /* Spata opcje w kolumnie */
     .repay-form { flex-direction: column; gap: 10px; }
     .repay-options { flex-direction: column; }
     .repay-option { min-width: unset; }
 
-    /* Negocjacje  accordion */
+ /* Negocjacje accordion */
     .neg-panel-header { font-size: 13px; padding: 10px 12px; }
     .neg-panel-body   { padding: 12px; }
     .neg-panel-sub    { display: none; }
@@ -884,7 +884,7 @@ section.card p small {
         grid-template-columns: 1fr !important;
     }
 
-    /* Restrukturyzacja */
+ /* Restrukturyzacja */
     .loan-body-row { flex-direction: column; }
     .loan-restruct-panel {
         flex: none;
@@ -897,15 +897,15 @@ section.card p small {
     .restruct-countdown { flex-direction: row; align-items: baseline; gap: 6px; }
     .restruct-days { font-size: 26px; }
 
-    /* Info boxy */
+ /* Info boxy */
     .info-box { padding: 12px 14px; font-size: 13px; }
     .info-box-green .money { font-size: 18px !important; }
 
-    /* Block reasons */
+ /* Block reasons */
     .block-reasons-list { padding-left: 16px; }
     .block-reasons-list li { font-size: 13px; }
 
-    /* Modal  peny ekran na mobile */
+ /* Modal peny ekran na mobile */
     .repay-modal {
         max-width: 92vw !important;
         padding: 24px 20px 20px !important;
@@ -916,11 +916,11 @@ section.card p small {
         gap: 8px;
     }
 
-    /* Neg events */
+ /* Neg events */
     .neg-events { margin-top: 10px; }
     .neg-event  { font-size: 12px; }
 
-    /* Form */
+ /* Form */
     .form-group input[type="number"],
     .form-group input[type="text"],
     .form-group select {
@@ -933,21 +933,21 @@ section.card p small {
 
     .card { padding: 14px 12px !important; }
 
-    /* Nagwek h2 karty */
+ /* Nagwek h2 karty */
     .card h2 { font-size: 9px !important; letter-spacing: 2px !important; }
 
-    /* Due numery w karcie pending */
+ /* Due numery w karcie pending */
     .bank-pending-card h2 + p {
         font-size: 13px;
     }
 
-    /* Przyciski */
+ /* Przyciski */
     .btn { padding: 10px 16px !important; font-size: 10px !important; }
 
-    /* Loan id + badge w jednym wierszu */
+ /* Loan id + badge w jednym wierszu */
     .loan-header { align-items: center; }
 
-    /* Restruct panel  pena szeroko, pionowo */
+ /* Restruct panel pena szeroko, pionowo */
     .loan-restruct-panel {
         flex-direction: column !important;
         text-align: center;
@@ -955,17 +955,17 @@ section.card p small {
     .restruct-countdown { flex-direction: column !important; align-items: center !important; }
     .restruct-days { font-size: 32px; }
 
-    /* Repay modal */
+ /* Repay modal */
     .repay-modal { padding: 20px 16px 16px !important; }
     .repay-modal-actions { grid-template-columns: 1fr !important; }
 
-    /* Neg accordion */
+ /* Neg accordion */
     .neg-panel-header { font-size: 12px; gap: 6px; }
 
-    /* Flash */
+ /* Flash */
     .bank-flash--success .bank-flash-icon { font-size: 16px !important; }
 
-    /* Loan paid off banner */
+ /* Loan paid off banner */
     .loan-paid-off-banner {
         flex-direction: column !important;
         padding: 14px !important;
@@ -974,10 +974,10 @@ section.card p small {
     .loan-paid-off-icon { font-size: 1.8rem; }
     .loan-paid-off-text { font-size: 13px; }
 
-    /* Offer actions */
+ /* Offer actions */
     .offer-actions { grid-template-columns: 1fr !important; }
 
-    /* Info box blue lista */
+ /* Info box blue lista */
     .info-box-blue h3 { font-size: 9px; }
     .info-box-blue li  { font-size: 11px; }
 }

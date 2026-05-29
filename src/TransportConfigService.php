@@ -2,7 +2,7 @@
 
 class TransportConfigService
 {
-    /** @return array<string, array<string, float>> */
+ /** @return array<string, array<string, float>> */
     public static function getDefaults(): array
     {
         return [
@@ -23,7 +23,7 @@ class TransportConfigService
         }
     }
 
-    /** @return array<string, array<string, float>> */
+ /** @return array<string, array<string, float>> */
     public static function load(PDO $db): array
     {
         $config = self::getDefaults();
@@ -48,18 +48,18 @@ class TransportConfigService
         return $config;
     }
 
-    /** @return array<string, float> */
+ /** @return array<string, float> */
     public static function getTypeConfig(PDO $db, string $type): array
     {
         $config = self::load($db);
         return $config[$type] ?? self::getDefaults()['nieustawiony'];
     }
 
-    /**
-     * Ensures wells.transport_type enum includes 'nieustawiony'
-     * and transport_config has rows for 'nieustawiony'.
-     * Safe to call on every boot - checks before ALTER.
-     */
+ /**
+ * Ensures wells.transport_type enum includes 'nieustawiony'
+ * and transport_config has rows for 'nieustawiony'.
+ * Safe to call on every boot - checks before ALTER.
+ */
     public static function ensureTransportSchema(PDO $db): void
     {
         if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
@@ -67,7 +67,7 @@ class TransportConfigService
         }
 
         try {
-            // Check if 'nieustawiony' is already in the enum
+ // Check if 'nieustawiony' is already in the enum
             $stmt = $db->prepare("
                 SELECT COLUMN_TYPE FROM information_schema.COLUMNS
                  WHERE TABLE_SCHEMA = DATABASE()
@@ -89,10 +89,10 @@ class TransportConfigService
         }
 
         try {
-            // ETAP 3: second transport leg (hub -> storage) type choice, stored per well.
-            // Mirrors transport_type but applies to the hub -> storage leg.
-            // Kept for backward compatibility - no longer written to after ETAP 11.
-            // Drugi odcinek transportu (hub -> magazyn) - zachowany dla kompatybilnosci.
+ // ETAP 3: second transport leg (hub -> storage) type choice, stored per well.
+ // Mirrors transport_type but applies to the hub -> storage leg.
+ // Kept for backward compatibility - no longer written to after ETAP 11.
+ // Drugi odcinek transportu (hub -> magazyn) - zachowany dla kompatybilnosci.
             Database::addColumnIfMissing(
                 'wells',
                 'hub_outbound_transport_type',
@@ -104,9 +104,9 @@ class TransportConfigService
         }
 
         try {
-            // ETAP 11: second transport leg type stored per hub (not per well).
-            // Outbound type (hub -> storage) is now a property of logistics_hubs.
-            // Typ transportu odcinka 2 zapisany przy hubie (nie przy odwiercie) od ETAP 11.
+ // ETAP 11: second transport leg type stored per hub (not per well).
+ // Outbound type (hub -> storage) is now a property of logistics_hubs.
+ // Typ transportu odcinka 2 zapisany przy hubie (nie przy odwiercie) od ETAP 11.
             Database::addColumnIfMissing(
                 'logistics_hubs',
                 'outbound_transport_type',
@@ -117,7 +117,7 @@ class TransportConfigService
         }
 
         try {
-            // Check transport_config enum too
+ // Check transport_config enum too
             $stmt = $db->prepare("
                 SELECT COLUMN_TYPE FROM information_schema.COLUMNS
                  WHERE TABLE_SCHEMA = DATABASE()
@@ -139,7 +139,7 @@ class TransportConfigService
         }
 
         try {
-            // Seed nieustawiony config rows if missing
+ // Seed nieustawiony config rows if missing
             $existing = $db->query(
                 "SELECT COUNT(*) FROM transport_config WHERE transport_type = 'nieustawiony'"
             )->fetchColumn();

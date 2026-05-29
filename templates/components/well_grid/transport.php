@@ -63,10 +63,10 @@
                                 && !empty($w['_pipelineBuilding'])
                                 && (($w['_trType'] ?? '') === 'rurociag')
                             );
-                            // Zaden typ nie jest oznaczony jako "biezacy" - gracz wybiera sam,
-                            // a kazdy dostepny typ ma zawsze widoczny przycisk przelaczenia.
-                            // No transport type is pre-marked as current - the player always chooses,
-                            // every available type keeps a visible switch button.
+ // Zaden typ nie jest oznaczony jako "biezacy" - gracz wybiera sam,
+ // a kazdy dostepny typ ma zawsze widoczny przycisk przelaczenia.
+ // No transport type is pre-marked as current - the player always chooses,
+ // every available type keeps a visible switch button.
                             $isCurrent  = false;
                             $isDisabled = !$available && !$isCurrent;
                             if ($tCode === 'rurociag' && !$w['_isOffshore'] && empty($w['_hasHubAssignment'])) {
@@ -143,7 +143,7 @@
                         </div>
 
                         <?php
-                        // Second transport leg: hub -> storage / Odcinek 2: hub -> magazyn
+ // Second transport leg: hub -> storage / Odcinek 2: hub -> magazyn
                         $__outType        = (string)($w['_outboundType'] ?? 'nieustawiony');
                         $__outOwned       = !empty($w['_outboundPipelineOwned']);
                         $__outBuilding    = !empty($w['_outboundPipelineBuilding']);

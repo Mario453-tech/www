@@ -14,14 +14,14 @@
             el.classList.toggle('active', active);
             btn.classList.toggle('active', active);
         });
-        // Persist selected tab in URL hash without reload
+ // Persist selected tab in URL hash without reload
         if (history && history.replaceState) {
             history.replaceState(null, '', location.pathname + location.search + '#tab-' + name);
         }
     };
 
-    // Toggle GM edit panel; close others when opening
-    // Przelacz panel GM; zamknij pozostale przy otwieraniu
+ // Toggle GM edit panel; close others when opening
+ // Przelacz panel GM; zamknij pozostale przy otwieraniu
     window.awToggle = function (id) {
         var panel = document.getElementById('aw-form-' + id);
         if (!panel) return;
@@ -37,8 +37,8 @@
         }
     };
 
-    // Upgrade checkbox: toggle visual state immediately
-    // Zmiana stanu checkboxa modernizacji — natychmiastowy efekt wizualny
+ // Upgrade checkbox: toggle visual state immediately
+ // Zmiana stanu checkboxa modernizacji - natychmiastowy efekt wizualny
     document.addEventListener('change', function (e) {
         if (e.target && e.target.type === 'checkbox' && e.target.name === 'gm_upgrades[]') {
             var label = e.target.closest('.aw-upgrade-checkbox');
@@ -46,8 +46,8 @@
         }
     });
 
-    // Restore active tab: prefer URL hash, then query param, then 'config'
-    // Przywroc aktywna zakladke z hasha URL lub domyslnie 'config'
+ // Restore active tab: prefer URL hash, then query param, then 'config'
+ // Przywroc aktywna zakladke z hasha URL lub domyslnie 'config'
     function getInitialTab() {
         var hash = location.hash.replace('#tab-', '');
         if (tabs.indexOf(hash) !== -1) return hash;

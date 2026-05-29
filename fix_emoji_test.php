@@ -1,6 +1,6 @@
 <?php
 /**
- * fix_emoji_to_svg.php  v2
+ * fix_emoji_to_svg.php v2
  *
  * Kompleksowe rozwiazanie:
  * 1. Naprawia podwojne kodowanie (iconv UTF-8->CP1250).
@@ -15,8 +15,8 @@
  * 4. Replaces emoji with wgIco() using PHP tokenizer (HTML vs PHP string context).
  *
  * Uzycie / Usage:
- *   php fix_emoji_to_svg.php              -- zapis / write
- *   php fix_emoji_to_svg.php --dry-run    -- podglad / preview
+ * php fix_emoji_to_svg.php -- zapis / write
+ * php fix_emoji_to_svg.php --dry-run -- podglad / preview
  */
 declare(strict_types=1);
 
@@ -26,7 +26,7 @@ $dryRun = in_array('--dry-run', $args, true);
 
 define('SVG_DIR', __DIR__ . '/assets/img/icons/wg/');
 
-//  Znane emoji => nazwa ikony SVG 
+// Znane emoji => nazwa ikony SVG 
 // Known emoji => existing SVG icon name (descriptive icons already created)
 const KNOWN_EMOJI = [
     "\xE2\x9A\x99\xEF\xB8\x8F" => 'gear',          // 
@@ -65,7 +65,7 @@ const KNOWN_EMOJI = [
     "\xE2\x86\x93"             => 'chevron-down',   // 
 ];
 
-//  Pliki docelowe 
+// Pliki docelowe 
 const TARGETS_SVG = [
     'templates/components/well_grid.php',
     'templates/components/well_grid/equipment.php',
@@ -105,26 +105,26 @@ function processFile(string $fullPath, string $relPath, bool $dryRun): bool
         return false;
     }
 
-    // Strip BOM
+ // Strip BOM
     if (str_starts_with($orig, "\xef\xbb\xbf")) {
         $orig = substr($orig, 3);
     }
 
-    // Krok 1: iconv (napraw podwojne kodowanie)
+ // Krok 1: iconv (napraw podwojne kodowanie)
     $content = iconv('UTF-8', 'CP1250//IGNORE', $orig);
     if ($content === false) {
         echo "[BLAD]   iconv() zwrocil false: {$relPath}\n";
         return false;
     }
 
-    // Krok 2: wykryj emoji w pliku po naprawie kodowania
+ // Krok 2: wykryj emoji w pliku po naprawie kodowania
     $emojiMap = discoverEmoji($content);
 
     if (empty($emojiMap)) {
         if ($content === $orig) {
             echo "[OK]     Bez zmian: {$relPath}\n";
         } else {
-            // iconv cos naprawil ale nie bylo emoji
+ // iconv cos naprawil ale nie bylo emoji
             echo "[KODOWANIE] {$relPath} (iconv fix, brak emoji)\n";
             if (!$dryRun) saveFile($fullPath, $content, 'iconv');
         }
@@ -138,12 +138,12 @@ function processFile(string $fullPath, string $relPath, bool $dryRun): bool
         echo "         [{$hex}] => '{$name}'\n";
     }
 
-    // Krok 3: upewnij sie ze pliki SVG istnieja
+ // Krok 3: upewnij sie ze pliki SVG istnieja
     foreach ($emojiMap as $bytes => $name) {
         ensureSvg($name, $bytes);
     }
 
-    // Krok 4: podmien emoji uzywajac tokenizera PHP
+ // Krok 4: podmien emoji uzywajac tokenizera PHP
     $fixed = replaceEmojiInFile($content, $emojiMap);
 
     if ($fixed === $orig) {
@@ -177,7 +177,7 @@ function saveFile(string $fullPath, string $content, string $suffix): void
 /**
  * Finds all unique emoji/symbol sequences in the content.
  * Skips characters in the Latin / Latin-Extended ranges (U+0000-U+02FF)
- * so Polish letters (¹, ê, ó…) are NOT touched.
+ * so Polish letters (, , ) are NOT touched.
  *
  * Returns: [bytes => icon_name]
  */
@@ -186,47 +186,47 @@ function discoverEmoji(string $content): array
     $known = KNOWN_EMOJI;
     $map   = [];
 
-    // Sort known by length DESC so longer sequences (with variation selectors) win
+ // Sort known by length DESC so longer sequences (with variation selectors) win
     uksort($known, fn($a, $b) => strlen($b) - strlen($a));
 
-    // 1. Check known emoji first
+ // 1. Check known emoji first
     foreach ($known as $bytes => $name) {
         if (str_contains($content, $bytes)) {
             $map[$bytes] = $name;
         }
     }
 
-    // 2. Find any remaining non-ASCII sequences not already in map
-    //    Match full grapheme clusters (base char + combining chars / variation selectors)
+ // 2. Find any remaining non-ASCII sequences not already in map
+ // Match full grapheme clusters (base char + combining chars / variation selectors)
     preg_match_all('/[^\x00-\x7F](?:[\x80-\xBF])*(?:\xEF\xB8[\x8F\x8E])?/u', $content, $m);
     foreach (array_unique($m[0] ?? []) as $seq) {
         if (isset($map[$seq])) continue;
 
-        // Get primary codepoint
+ // Get primary codepoint
         $cp = mb_ord($seq, 'UTF-8');
         if ($cp === false) continue;
 
-        // Skip Latin, Latin Extended, IPA, combining diacritics — keep emoji/symbols
+ // Skip Latin, Latin Extended, IPA, combining diacritics keep emoji/symbols
         if ($cp <= 0x02FF) continue;     // Latin / Latin Extended (incl. Polish)
         if ($cp >= 0x0300 && $cp <= 0x036F) continue; // Combining diacritical marks
         if ($cp >= 0x0400 && $cp <= 0x04FF) continue; // Cyrillic
 
-        // Variation selectors alone — skip
+ // Variation selectors alone skip
         if ($cp >= 0xFE00 && $cp <= 0xFE0F) continue;
 
-        // Generate icon name from codepoints (safe ASCII filename)
+ // Generate icon name from codepoints (safe ASCII filename)
         $name     = emojiToName($seq);
         $map[$seq] = $name;
     }
 
-    // Sort by length DESC for greedy replacement
+ // Sort by length DESC for greedy replacement
     uksort($map, fn($a, $b) => strlen($b) - strlen($a));
     return $map;
 }
 
 /**
  * Generates a safe ASCII filename from UTF-8 grapheme cluster.
- * E.g.  (U+2699 U+FE0F) => 'u2699'
+ * E.g. (U+2699 U+FE0F) => 'u2699'
  */
 function emojiToName(string $emoji): string
 {
@@ -249,17 +249,17 @@ function emojiToName(string $emoji): string
 
 /**
  * Creates an SVG file for the given emoji if it doesn't exist yet.
- * Uses XML character references (pure ASCII) — no encoding issues ever.
+ * Uses XML character references (pure ASCII) no encoding issues ever.
  *
  * Tworzy plik SVG dla emoji jesli nie istnieje.
- * Uzywa referencji XML (czysty ASCII) — zero problemow z kodowaniem.
+ * Uzywa referencji XML (czysty ASCII) zero problemow z kodowaniem.
  */
 function ensureSvg(string $name, string $emoji): void
 {
     $path = SVG_DIR . $name . '.svg';
     if (file_exists($path)) return;
 
-    // Build XML char references for all codepoints
+ // Build XML char references for all codepoints
     $xmlChars = '';
     $len      = mb_strlen($emoji, 'UTF-8');
     for ($i = 0; $i < $len; $i++) {
@@ -269,8 +269,8 @@ function ensureSvg(string $name, string $emoji): void
         $xmlChars .= '&#x' . strtoupper(dechex($cp)) . ';';
     }
 
-    // SVG z emoji jako tekst — fonts systemowe renderuja poprawnie
-    // SVG with emoji as text — system fonts render correctly
+ // SVG z emoji jako tekst fonts systemowe renderuja poprawnie
+ // SVG with emoji as text system fonts render correctly
     $svg = '<?xml version="1.0" encoding="UTF-8"?>'
          . '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img">'
          . '<text x="12" y="19" text-anchor="middle" font-size="16"'
@@ -285,12 +285,12 @@ function ensureSvg(string $name, string $emoji): void
 
 
 // 
-// Podmiana emoji — tokenizer PHP
+// Podmiana emoji tokenizer PHP
 // 
 
 /**
  * Replaces emoji in a PHP file using PHP's own tokenizer.
- * - T_INLINE_HTML  (HTML outside PHP tags) => <?= wgIco('name') ?>
+ * - T_INLINE_HTML (HTML outside PHP tags) => <?= wgIco('name') ?>
  * - T_CONSTANT_ENCAPSED_STRING (PHP string literal) => wgIco('name') . '...'
  */
 function replaceEmojiInFile(string $content, array $emojiMap): string
@@ -307,18 +307,18 @@ function replaceEmojiInFile(string $content, array $emojiMap): string
 
         switch ($type) {
             case T_INLINE_HTML:
-                // HTML context: EMOJI => <?= wgIco('name') ?>
+ // HTML context: EMOJI => <?= wgIco('name') ?>
                 foreach ($emojiMap as $emoji => $name) {
                     $text = str_replace($emoji, "<?= wgIco('{$name}') ?>", $text);
                 }
                 break;
 
             case T_CONSTANT_ENCAPSED_STRING:
-                // PHP string literal: 'EMOJI text' => wgIco('name') . ' text'
+ // PHP string literal: 'EMOJI text' => wgIco('name') . ' text'
                 $text = replaceInPhpString($text, $emojiMap);
                 break;
 
             default:
-                // Other tokens (keywords, operators, etc.) — leave unchanged
+ // Other tokens (keywords, operators, etc.) leave unchanged
                 break;
         }

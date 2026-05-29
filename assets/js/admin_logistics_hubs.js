@@ -1,5 +1,5 @@
 /**
- * admin_logistics_hubs.js — panel admina hubow logistycznych.
+ * admin_logistics_hubs.js panel admina hubow logistycznych.
  * Depends on: modal.js (confirmAction), ADMIN_LOGISTICS_LANG (window global from PHP).
  */
 (function () {
@@ -7,8 +7,8 @@
 
     const lang = () => window.ADMIN_LOGISTICS_LANG || {};
 
-    // Potwierdzenie seeda regionu — zastepuje natywny confirm().
-    // Confirm for region seed — replaces native confirm().
+ // Potwierdzenie seeda regionu zastepuje natywny confirm().
+ // Confirm for region seed replaces native confirm().
     const seedBtn = document.getElementById('seed-region-submit');
     const seedSel = document.getElementById('seed-region-select');
 

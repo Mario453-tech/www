@@ -3,7 +3,7 @@ $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('cron/pr
 try {
 
 
-// zapis logu żeby sprawdzic czy cron dziala
+// zapis logu zeby sprawdzic czy cron dziala
 file_put_contents(__DIR__ . "/cron_log.txt", date("Y-m-d H:i:s") . "\n", FILE_APPEND);
 
 /**
@@ -15,7 +15,7 @@ require_once __DIR__ . '/../src/init.php';
 
 $decisionService = new LoanDecisionService();
 
-// połaczenie z baza
+// polaczenie z baza
 $db = Database::getInstance()->getConnection();
 
 $stmt = $db->query("

@@ -1,0 +1,130 @@
+/* =============================================================================
+   Modal — globalny system komunikatów zastępujący alert() / confirm()
+   ============================================================================= */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity .18s ease;
+    pointer-events: none;
+}
+
+.modal-overlay.modal-visible {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.modal-box {
+    background: #1c1c2e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 28px 32px 24px;
+    max-width: 440px;
+    width: 90%;
+    box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    transform: translateY(-12px) scale(.97);
+    transition: transform .18s ease, opacity .18s ease;
+}
+
+.modal-overlay.modal-visible .modal-box {
+    transform: translateY(0) scale(1);
+}
+
+/* ── Ikona typu ─────────────────────────────────────────────────────────────── */
+.modal-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* ── Tytuł ──────────────────────────────────────────────────────────────────── */
+.modal-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin: 0 0 8px;
+    line-height: 1.4;
+}
+
+/* ── Treść ──────────────────────────────────────────────────────────────────── */
+.modal-body {
+    font-size: 13px;
+    color: #aaa;
+    margin: 0 0 20px;
+    line-height: 1.6;
+}
+
+/* ── Przyciski ──────────────────────────────────────────────────────────────── */
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.modal-btn {
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, opacity .15s;
+}
+
+.modal-btn:hover { opacity: .85; }
+
+.modal-btn--confirm {
+    background: #e8a020;
+    color: #111;
+}
+
+.modal-btn--danger {
+    background: #c0392b;
+    color: #fff;
+}
+
+.modal-btn--cancel {
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+}
+
+.modal-btn--cancel:hover {
+    background: #2a2a3e;
+    opacity: 1;
+}
+
+.modal-btn--ok {
+    background: #e8a020;
+    color: #111;
+}
+
+/* ── Typy modala ────────────────────────────────────────────────────────────── */
+.modal-box--info    .modal-title { color: #64b5f6; }
+.modal-box--warning .modal-title { color: #e8a020; }
+.modal-box--danger  .modal-title { color: #e57373; }
+.modal-box--danger .modal-btn--confirm { background: #c0392b; color: #fff; }
+
+/* ── Responsywność ──────────────────────────────────────── */
+@media (max-width: 600px) {
+    .modal-box {
+        padding: 20px 16px 18px;
+        margin: 12px;
+    }
+    .modal-title { font-size: 17px; }
+    .modal-btn {
+        padding: 11px 20px;   /* większy touch target */
+        font-size: 14px;
+    }
+    .modal-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .modal-actions .modal-btn { width: 100%; justify-content: center; }
+}

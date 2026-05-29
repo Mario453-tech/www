@@ -1,5 +1,5 @@
 /**
- * profile.js — obs³uga formularza profilu gracza
+ * profile.js obsuga formularza profilu gracza
  * Funkcje: togglePass(), checkPassStrength()
  */
 function togglePass(id, btn) {
@@ -18,7 +18,7 @@ function checkPassStrength(val) {
     if (/[A-Z]/.test(val)) score++;
     if (/[0-9]/.test(val)) score++;
     if (/[^A-Za-z0-9]/.test(val)) score++;
-    const labels = ['', 'Bardzo s³abe', 'S³abe', 'Œrednie', 'Silne', 'Bardzo silne'];
+    const labels = ['', 'Bardzo sï¿½abe', 'Sï¿½abe', 'ï¿½rednie', 'Silne', 'Bardzo silne'];
     const colors = ['', '#e05555', '#e07b55', '#e0b44c', '#7ec97a', '#4ec97a'];
     el.textContent  = labels[score] || '';
     el.style.color  = colors[score] || '';
@@ -29,10 +29,10 @@ document.getElementById('confirmPass')?.addEventListener('input', function() {
     const newVal = document.getElementById('newPass').value;
     if (!this.value) { match.textContent = ''; return; }
     if (this.value === newVal) {
-        match.textContent = ' Has³a s¹ identyczne';
+        match.textContent = ' Hasï¿½a sï¿½ identyczne';
         match.style.color = '#4ec97a';
     } else {
-        match.textContent = ' Has³a siê ró¿ni¹';
+        match.textContent = ' Hasï¿½a siï¿½ rï¿½niï¿½';
         match.style.color = '#e05555';
     }
 });
@@ -40,7 +40,7 @@ document.getElementById('confirmPass')?.addEventListener('input', function() {
 function previewAndSubmitAvatar(input) {
     if (!input.files?.[0]) return;
     const file = input.files[0];
-    // Podgl¹d
+ // Podgld
     const reader = new FileReader();
     reader.onload = e => {
         const prev = document.getElementById('avatarPreview');
@@ -55,6 +55,6 @@ function previewAndSubmitAvatar(input) {
         }
     };
     reader.readAsDataURL(file);
-    // Auto-submit
+ // Auto-submit
     document.getElementById('avatarForm').submit();
 }

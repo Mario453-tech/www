@@ -6,7 +6,7 @@
  */
 trait BankNegotiationRequestsTrait
 {
-    /** @return array<string, mixed> */
+ /** @return array<string, mixed> */
     public function requestDeferral(int $playerId, int $loanId, int $days): array
     {
         GameLog::step('BankNeg', 'requestDeferral', 1, 'start', [
@@ -86,7 +86,7 @@ trait BankNegotiationRequestsTrait
         }
     }
 
-    /** @return array<string, mixed> */
+ /** @return array<string, mixed> */
     public function requestRestructure(int $playerId, int $loanId, int $extensionMonths): array
     {
         GameLog::step('BankNeg', 'requestRestructure', 1, 'start', [
@@ -122,9 +122,9 @@ trait BankNegotiationRequestsTrait
             $basePct = self::RESTRUCTURE_BASE_FEE_PCT + self::RESTRUCTURE_MONTHLY_FEE_PCT * $extensionMonths;
             $effectivePct = max(0.005, min(0.14,
                 $basePct
-                * $ctx['market_factor'] * $ctx['credit_factor']
-                * $ctx['trust_factor'] * $ctx['late_factor']
-                * (1 - $ctx['cfo_fee_reduction'])
+ * $ctx['market_factor'] * $ctx['credit_factor']
+ * $ctx['trust_factor'] * $ctx['late_factor']
+ * (1 - $ctx['cfo_fee_reduction'])
             ));
             $totalFee = (int)round($remaining * $effectivePct);
 
@@ -183,7 +183,7 @@ trait BankNegotiationRequestsTrait
         }
     }
 
-    /** @return array<string, mixed> */
+ /** @return array<string, mixed> */
     public function requestRecoveryPlan(int $playerId, int $loanId): array
     {
         GameLog::step('BankNeg', 'requestRecoveryPlan', 1, 'start', [
@@ -205,8 +205,8 @@ trait BankNegotiationRequestsTrait
 
             $ctx = $this->buildContext($playerId, $loan);
 
-            // Recovery plan requires a genuinely difficult situation.
-            // Plan naprawczy wymaga rzeczywiscie trudnej sytuacji.
+ // Recovery plan requires a genuinely difficult situation.
+ // Plan naprawczy wymaga rzeczywiscie trudnej sytuacji.
             $hasBailiff = $this->db->prepare("
                 SELECT id FROM bailiff_proceedings
                 WHERE loan_id=:lid AND status='active' LIMIT 1
@@ -221,9 +221,9 @@ trait BankNegotiationRequestsTrait
             $remaining = (float)$loan['remaining_amount'];
             $effectivePct = max(0.005, min(0.12,
                 self::RECOVERY_BASE_FEE_PCT
-                * $ctx['market_factor'] * $ctx['credit_factor']
-                * $ctx['trust_factor']
-                * (1 - $ctx['cfo_fee_reduction'])
+ * $ctx['market_factor'] * $ctx['credit_factor']
+ * $ctx['trust_factor']
+ * (1 - $ctx['cfo_fee_reduction'])
             ));
             $fee = (int)round($remaining * $effectivePct);
 

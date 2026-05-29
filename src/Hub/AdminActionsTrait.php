@@ -11,14 +11,14 @@
  */
 trait HubAdminActionsTrait
 {
-    /**
-     * Creates a new system hub (admin only).
-     * Hub is inserted with player_id = 0 (system-owned).
-     *
-     * @param int                  $adminId
-     * @param array<string, mixed> $params  [name, hub_type, acquisition_type, region_id, zone_key]
-     * @return array{success: bool, hub_id?: int, error?: string}
-     */
+ /**
+ * Creates a new system hub (admin only).
+ * Hub is inserted with player_id = 0 (system-owned).
+ *
+ * @param int $adminId
+ * @param array<string, mixed> $params [name, hub_type, acquisition_type, region_id, zone_key]
+ * @return array{success: bool, hub_id?: int, error?: string}
+ */
     public function buildHub(int $adminId, array $params): array
     {
         $name            = trim($params['name']             ?? '');
@@ -100,10 +100,10 @@ trait HubAdminActionsTrait
         }
     }
 
-    /**
-     * Repairs a hub, restoring condition to 100% (admin only).
-     * @return array{success: bool, error?: string}
-     */
+ /**
+ * Repairs a hub, restoring condition to 100% (admin only).
+ * @return array{success: bool, error?: string}
+ */
     public function repairHub(int $hubId, int $adminId): array
     {
         $hub = $this->getHub($hubId);
@@ -139,10 +139,10 @@ trait HubAdminActionsTrait
         }
     }
 
-    /**
-     * Upgrades a hub level (max defined by config, admin only).
-     * @return array{success: bool, new_level?: int, error?: string}
-     */
+ /**
+ * Upgrades a hub level (max defined by config, admin only).
+ * @return array{success: bool, new_level?: int, error?: string}
+ */
     public function upgradeHub(int $hubId, int $adminId): array
     {
         $hub = $this->getHub($hubId);
@@ -193,10 +193,10 @@ trait HubAdminActionsTrait
         }
     }
 
-    /**
-     * Sets the work mode (eco|standard|max) for a hub (admin only).
-     * @return array{success: bool, error?: string}
-     */
+ /**
+ * Sets the work mode (eco|standard|max) for a hub (admin only).
+ * @return array{success: bool, error?: string}
+ */
     public function setWorkMode(int $hubId, int $adminId, string $workMode): array
     {
         if (!in_array($workMode, ['eco', 'standard', 'max'], true)) {
@@ -224,10 +224,10 @@ trait HubAdminActionsTrait
         }
     }
 
-    /**
-     * Pauses or resumes a hub (admin only).
-     * @return array{success: bool, new_status?: string, error?: string}
-     */
+ /**
+ * Pauses or resumes a hub (admin only).
+ * @return array{success: bool, new_status?: string, error?: string}
+ */
     public function toggleHubPause(int $hubId, int $adminId): array
     {
         $hub = $this->getHub($hubId);
@@ -255,10 +255,10 @@ trait HubAdminActionsTrait
         }
     }
 
-    /**
-     * Renames a hub (admin only).
-     * @return array{success: bool, error?: string}
-     */
+ /**
+ * Renames a hub (admin only).
+ * @return array{success: bool, error?: string}
+ */
     public function renameHub(int $hubId, int $adminId, string $name): array
     {
         $name = trim($name);
@@ -287,10 +287,10 @@ trait HubAdminActionsTrait
         }
     }
 
-    /**
-     * Sets hub status directly (admin only).
-     * @return array{success: bool, error?: string}
-     */
+ /**
+ * Sets hub status directly (admin only).
+ * @return array{success: bool, error?: string}
+ */
     public function adminSetStatus(int $hubId, string $status): array
     {
         if (!in_array($status, ['active', 'paused', 'damaged', 'disabled', 'building'], true)) {
@@ -309,10 +309,10 @@ trait HubAdminActionsTrait
         }
     }
 
-    /**
-     * Force-updates hub condition and wear (admin only).
-     * @return array{success: bool, error?: string}
-     */
+ /**
+ * Force-updates hub condition and wear (admin only).
+ * @return array{success: bool, error?: string}
+ */
     public function adminSetCondition(int $hubId, float $conditionPct, float $wearLevel): array
     {
         $conditionPct = max(0.0, min(100.0, $conditionPct));

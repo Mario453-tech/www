@@ -14,12 +14,12 @@ trait AdminHubDataFetchTrait
         return (bool)$db->query("SHOW TABLES LIKE " . $db->quote($table))->fetchColumn();
     }
 
-    /**
-     * Load full global hub config from DB.
-     * PL: Wczytuje pelna konfiguracje globalna hubow z bazy.
-     *
-     * @return array<string, array<string, string>>
-     */
+ /**
+ * Load full global hub config from DB.
+ * PL: Wczytuje pelna konfiguracje globalna hubow z bazy.
+ *
+ * @return array<string, array<string, string>>
+ */
     public function loadHubConfigMap(PDO $db): array
     {
         $rows = $db->query(
@@ -36,25 +36,25 @@ trait AdminHubDataFetchTrait
         return $map;
     }
 
-    /**
-     * Fetch all world regions.
-     * PL: Pobiera liste wszystkich regionow.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+ /**
+ * Fetch all world regions.
+ * PL: Pobiera liste wszystkich regionow.
+ *
+ * @return array<int, array<string, mixed>>
+ */
     public function loadAllRegions(PDO $db): array
     {
         return $db->query("SELECT id, name FROM world_regions ORDER BY name")
             ->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Filter hub list by optional status and region values.
-     * PL: Filtruje liste hubow po opcjonalnym statusie i regionie.
-     *
-     * @param array<int, array<string, mixed>> $allHubs
-     * @return array<int, array<string, mixed>>
-     */
+ /**
+ * Filter hub list by optional status and region values.
+ * PL: Filtruje liste hubow po opcjonalnym statusie i regionie.
+ *
+ * @param array<int, array<string, mixed>> $allHubs
+ * @return array<int, array<string, mixed>>
+ */
     public function filterHubs(array $allHubs, string $filterStatus, int $filterRegion): array
     {
         if ($filterStatus !== '') {
@@ -66,12 +66,12 @@ trait AdminHubDataFetchTrait
         return $allHubs;
     }
 
-    /**
-     * Fetch hub detail, connected wells and the latest tick stats.
-     * PL: Pobiera szczegoly huba, podpiete odwierty i ostatnie statystyki ticka.
-     *
-     * @return array{hub: array<string,mixed>|null, wells: array<int,mixed>, lastStats: array<string,mixed>|null}
-     */
+ /**
+ * Fetch hub detail, connected wells and the latest tick stats.
+ * PL: Pobiera szczegoly huba, podpiete odwierty i ostatnie statystyki ticka.
+ *
+ * @return array{hub: array<string,mixed>|null, wells: array<int,mixed>, lastStats: array<string,mixed>|null}
+ */
     public function loadHubDetail(HubService $hubSvc, int $viewHubId): array
     {
         if ($viewHubId <= 0) {
@@ -85,13 +85,13 @@ trait AdminHubDataFetchTrait
         ];
     }
 
-    /**
-     * Compute aggregate stats for the current hub list.
-     * PL: Oblicza statystyki zbiorcze dla biezacej listy hubow.
-     *
-     * @param array<int, array<string, mixed>> $hubs
-     * @return array{total: int, active: int, paused: int}
-     */
+ /**
+ * Compute aggregate stats for the current hub list.
+ * PL: Oblicza statystyki zbiorcze dla biezacej listy hubow.
+ *
+ * @param array<int, array<string, mixed>> $hubs
+ * @return array{total: int, active: int, paused: int}
+ */
     public function computeHubStats(array $hubs): array
     {
         return [
@@ -101,12 +101,12 @@ trait AdminHubDataFetchTrait
         ];
     }
 
-    /**
-     * Fetch tick verification stats for admin diagnostics.
-     * PL: Pobiera statystyki weryfikacyjne ticka do diagnostyki admina.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Fetch tick verification stats for admin diagnostics.
+ * PL: Pobiera statystyki weryfikacyjne ticka do diagnostyki admina.
+ *
+ * @return array<string, mixed>
+ */
     public function getTickVerificationStats(PDO $db): array
     {
         $stats = [
@@ -120,15 +120,15 @@ trait AdminHubDataFetchTrait
         ];
 
         try {
-            // Check whether the assignments table exists.
-            // PL: Sprawdza, czy istnieje tabela assignments.
+ // Check whether the assignments table exists.
+ // PL: Sprawdza, czy istnieje tabela assignments.
             if (!$this->tableExists($db, 'logistics_hub_assignments')) {
                 GameLog::warn('AdminHub', 'Table logistics_hub_assignments does not exist');
                 return $stats;
             }
 
-            // Wells without an active hub assignment, regardless of well status.
-            // PL: Odwierty bez aktywnego przypisania do huba, bez wzgledu na status odwiertu.
+ // Wells without an active hub assignment, regardless of well status.
+ // PL: Odwierty bez aktywnego przypisania do huba, bez wzgledu na status odwiertu.
             $unassigned = $db->query("
                 SELECT COUNT(*) as cnt, COALESCE(SUM(w.base_production_per_hour), 0) as prod
                 FROM wells w
@@ -138,15 +138,15 @@ trait AdminHubDataFetchTrait
             $stats['unassigned_wells'] = (int)$unassigned['cnt'];
             $stats['unassigned_production'] = (float)$unassigned['prod'];
 
-            // Active assignments from the assignments table.
-            // PL: Aktywne przypisania z tabeli assignments.
+ // Active assignments from the assignments table.
+ // PL: Aktywne przypisania z tabeli assignments.
             $assignments = $db->query("
                 SELECT COUNT(*) as cnt FROM logistics_hub_assignments WHERE status = 'active'
             ")->fetchColumn();
             $stats['hub_assignments'] = (int)($assignments ?: 0);
 
-            // Last tick timestamp from tick_stats.
-            // PL: Czas ostatniego ticka z tick_stats.
+ // Last tick timestamp from tick_stats.
+ // PL: Czas ostatniego ticka z tick_stats.
             if ($this->tableExists($db, 'tick_stats')) {
                 $lastTick = $db->query("SELECT ran_at FROM tick_stats ORDER BY id DESC LIMIT 1")->fetchColumn();
                 $stats['last_tick_at'] = $lastTick ?: null;
@@ -154,8 +154,8 @@ trait AdminHubDataFetchTrait
                 GameLog::info('AdminHub', 'Table tick_stats missing, skipping last tick timestamp');
             }
 
-            // Fallback losses from finance logs for the most recent tick.
-            // PL: Straty fallback z finance_logs dla najnowszego ticka.
+ // Fallback losses from finance logs for the most recent tick.
+ // PL: Straty fallback z finance_logs dla najnowszego ticka.
             if ($this->tableExists($db, 'finance_logs')) {
                 $lastFinanceTick = $db->query("SELECT MAX(tick_at) FROM finance_logs")->fetchColumn();
                 if ($lastFinanceTick) {
@@ -176,8 +176,8 @@ trait AdminHubDataFetchTrait
                 GameLog::info('AdminHub', 'Table finance_logs missing, skipping fallback loss stats');
             }
 
-            // Approximate OPEX linked to hub usage.
-            // PL: Przyblizony OPEX powiazany z wykorzystaniem hubow.
+ // Approximate OPEX linked to hub usage.
+ // PL: Przyblizony OPEX powiazany z wykorzystaniem hubow.
             $opex = $db->query("
                 SELECT COALESCE(SUM(
                     h.opex_per_tick * (SELECT COUNT(*) FROM logistics_hub_assignments a2 WHERE a2.hub_id = h.id AND a2.status = 'active') / h.slot_limit
@@ -188,8 +188,8 @@ trait AdminHubDataFetchTrait
             ")->fetchColumn() ?: 0;
             $stats['total_opex_charged'] = (float)$opex;
 
-            // Debug summary for assignment visibility.
-            // PL: Debugowe podsumowanie dla widocznosci przypisan.
+ // Debug summary for assignment visibility.
+ // PL: Debugowe podsumowanie dla widocznosci przypisan.
             $totalAssignments = $db->query("SELECT COUNT(*) FROM logistics_hub_assignments LIMIT 5")->fetchColumn();
             GameLog::info('AdminHub', 'Tick verification stats', [
                 'total_assignments' => (int)($totalAssignments ?: 0),

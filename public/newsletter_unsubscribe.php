@@ -1,10 +1,10 @@
 <?php
 /**
- * newsletter_unsubscribe.php — one-click unsubscribe from newsletter.
+ * newsletter_unsubscribe.php one-click unsubscribe from newsletter.
  * Route: /newsletter-unsubscribe?token=xxx
  *
  * Token is the player's permanent newsletter_token from players table.
- * Unsubscribing does NOT affect login or account — only newsletter_subscribed flag.
+ * Unsubscribing does NOT affect login or account only newsletter_subscribed flag.
  */
 require_once __DIR__ . '/../src/init.php';
 

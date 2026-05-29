@@ -19,7 +19,7 @@ try {
     GameLog::error('dashboard', 'processReadyRecruitments FAILED', $e, ['player_id' => $playerId]);
 }
 
-//  Bankrut? 
+// Bankrut? 
 $isBankrupt = false;
 try {
     $bStmt = $db->prepare("SELECT status, COALESCE(recovery_mode,0) AS recovery_mode,
@@ -41,7 +41,7 @@ if ($isBankrupt && empty($_SESSION['bankruptcy_dashboard_visited'])) {
 }
 if (!$isBankrupt) unset($_SESSION['bankruptcy_dashboard_visited']);
 
-//  POST: dyrektor zatwierdza / odrzuca CV 
+// POST: dyrektor zatwierdza / odrzuca CV 
 $msg   = '';
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -169,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'fire_employee') {
             $memberId = (int)($_POST['member_id'] ?? 0);
             if ($memberId > 0) {
-                // Weryfikacja ¿e pracownik nale¿y do tego gracza
+ // Weryfikacja e pracownik naley do tego gracza
                 $ck2 = $db->prepare("SELECT id FROM board_members WHERE id = ? AND player_id = ?");
                 $ck2->execute([$memberId, $playerId]);
                 if ($ck2->fetch()) {
@@ -194,9 +194,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Dane 
+// Dane 
 
-// 1. Zarz¹d — tylko pracownicy tego gracza
+// 1. Zarzd tylko pracownicy tego gracza
 $boardMembers = [];
 try {
     $stmt = $db->prepare("
@@ -226,7 +226,7 @@ try {
     GameLog::error('dashboard', 'regions FAILED', $e);
 }
 
-// 3. Aktywne rekrutacje zarzdu  tylko flow dyrektora
+// 3. Aktywne rekrutacje zarzdu tylko flow dyrektora
 $activeRecruitments = [];
 try {
     $stmt = $db->prepare("
@@ -323,7 +323,7 @@ try {
     $stmt->execute($params);
     $availableDirectorRoles = $stmt->fetchAll();
 } catch (Throwable $e) {
-    // Fallback bez sort_order (gdy kolumna nie istnieje w DB)
+ // Fallback bez sort_order (gdy kolumna nie istnieje w DB)
     try {
         $placeholders2 = implode(',', array_fill(0, count($directorRoleCodes), '?'));
         $params2 = array_merge($directorRoleCodes, [$playerId, $playerId]);
@@ -365,7 +365,7 @@ try {
 
 $openRoleCount = count($availableDirectorRoles);
 
-// 6. Historia — tylko tego gracza
+// 6. Historia tylko tego gracza
 $recentHistory = [];
 try {
     $stmt = $db->prepare("

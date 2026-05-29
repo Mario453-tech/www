@@ -6,7 +6,7 @@
  */
 trait BankruptcyStateTrait
 {
-    /** @return array<string, mixed> */
+ /** @return array<string, mixed> */
     public function getState(): array
     {
         try {
@@ -51,7 +51,7 @@ trait BankruptcyStateTrait
         }
     }
 
-    /** @return array<string, array<string, mixed>> */
+ /** @return array<string, array<string, mixed>> */
     public function getRecoveryOptions(): array
     {
         try {

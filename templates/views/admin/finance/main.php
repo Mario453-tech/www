@@ -280,7 +280,7 @@ $totalBelowReserve = $reserveCounts['critical'] + $reserveCounts['warning'] + $r
     <?php endif; ?>
 </section>
 
-<?php /*  Monitoring hubw  */ ?>
+<?php /* Monitoring hubw */ ?>
 <section class="panel">
     <p class="panel-title">&#128230; <?= t('admin.finance.hub_monitor_title') ?></p>
 
@@ -502,10 +502,10 @@ $totalBelowReserve = $reserveCounts['critical'] + $reserveCounts['warning'] + $r
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="save_multipliers">
         <?php
-        /**
-         * [domain_key, metric_key, mod_db_key|null, agg_db_key|null]
-         * null = nie dotyczy trybu (BHP umiarkowany), wywietla ""
-         */
+ /**
+ * [domain_key, metric_key, mod_db_key|null, agg_db_key|null]
+ * null = nie dotyczy trybu (BHP umiarkowany), wywietla ""
+ */
         $d2rows = [
             ['d2_domain_logistics', 'd2_metric_transport_cost', 'sp_log_transport_mod', 'sp_log_transport_agg'],
             ['d2_domain_logistics', 'd2_metric_hub_cost',       'sp_log_hub_mod',       'sp_log_hub_agg'],
@@ -649,7 +649,7 @@ $totalBelowReserve = $reserveCounts['critical'] + $reserveCounts['warning'] + $r
                         <option value=""><?= t('admin.finance.gm_select_player') ?></option>
                         <?php foreach ($playerList as $pl): ?>
                         <option value="<?= (int)$pl['id'] ?>">
-                            #<?= (int)$pl['id'] ?>  <?= htmlspecialchars($pl['company'] ?? '?') ?>
+ #<?= (int)$pl['id'] ?> <?= htmlspecialchars($pl['company'] ?? '?') ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
@@ -664,7 +664,7 @@ $totalBelowReserve = $reserveCounts['critical'] + $reserveCounts['warning'] + $r
 </section>
 
 <?php
-/*  Historia decyzji finansowych graczy  */
+/* Historia decyzji finansowych graczy */
 
 $decisionKeyLabel = static function(string $key): string {
     return match($key) {
@@ -726,7 +726,7 @@ $sourceClass = static function(string $src): string {
             <option value="0"><?= t('admin.finance.history_all_players') ?></option>
             <?php foreach ($playerList as $pl): ?>
             <option value="<?= (int)$pl['id'] ?>" <?= (int)$pl['id'] === $historyPid ? 'selected' : '' ?>>
-                #<?= (int)$pl['id'] ?>  <?= htmlspecialchars($pl['company'] ?? '?') ?>
+ #<?= (int)$pl['id'] ?> <?= htmlspecialchars($pl['company'] ?? '?') ?>
             </option>
             <?php endforeach; ?>
         </select>

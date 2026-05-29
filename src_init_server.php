@@ -1,6 +1,6 @@
 <?php
 
-//  ERROR LOGGING — zbiera WSZYSTKIE b³êdy do error_log 
+// ERROR LOGGING zbiera WSZYSTKIE bdy do error_log 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
@@ -54,12 +54,12 @@ set_error_handler(function (int $errno, string $errstr, string $errfile, int $er
     return false;
 });
 
-//  KLASY CORE 
+// KLASY CORE 
 require_once __DIR__ . '/GameLog.php';
 
 GameLog::init(__DIR__ . '/../game_debug.log');
 
-// Automatyczne logowanie requestów w plikach bez rêcznego pageStart/pageEnd
+// Automatyczne logowanie requestw w plikach bez rcznego pageStart/pageEnd
 if (PHP_SAPI !== 'cli') {
     $autoPage = basename($_SERVER['SCRIPT_NAME'] ?? 'request');
     $GLOBALS['__autoPageName']  = $autoPage;
@@ -74,13 +74,13 @@ if (PHP_SAPI !== 'cli') {
     });
 }
 
-//  SERWISY 
+// SERWISY 
 require_once __DIR__ . '/Security.php';
 require_once __DIR__ . '/CSRF.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Validator.php';
 
-// WA¯NE: Auth.php zawiera klasê AdminAuth (panel admina)
+// WANE: Auth.php zawiera klas AdminAuth (panel admina)
 require_once __DIR__ . '/Auth.php';
 
 if (!class_exists('Auth', false)) {
@@ -122,10 +122,10 @@ spl_autoload_register(function ($class) {
     }
 });
 
-//  SESJA I NAG£ÓWKI 
+// SESJA I NAGWKI 
 if (session_status() === PHP_SESSION_NONE) {
-    // Na shared hostingu /tmp mo¿e byæ niedostêpny — u¿ywamy katalogu sessions/ w projekcie.
-    // On shared hosting /tmp may be unavailable — use sessions/ directory within the project.
+ // Na shared hostingu /tmp moe by niedostpny uywamy katalogu sessions/ w projekcie.
+ // On shared hosting /tmp may be unavailable use sessions/ directory within the project.
     $sessionPath = __DIR__ . '/../sessions';
     if (!is_dir($sessionPath)) {
         @mkdir($sessionPath, 0700, true);
@@ -138,13 +138,13 @@ if (session_status() === PHP_SESSION_NONE) {
 
 Security::setHeaders();
 
-//  BANKRUPTCY BOOTSTRAP 
+// BANKRUPTCY BOOTSTRAP 
 require_once __DIR__ . '/BankruptcyBootstrap.php';
 
 ensureBankruptcyRecoverySchema();
 enforceBankruptcyPostGuards();
 
-//  ROUTING 
+// ROUTING 
 const ROUTES = [
     'home'            => '/',
     'login'           => '/login',

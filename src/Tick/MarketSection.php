@@ -1,13 +1,13 @@
 <?php
 
 /**
- * MarketSection — sekcja 1-2 ticka: trendy rynkowe + cena ropy.
- * MarketSection — tick sections 1-2: market trends + oil price update.
+ * MarketSection sekcja 1-2 ticka: trendy rynkowe + cena ropy.
+ * MarketSection tick sections 1-2: market trends + oil price update.
  */
 class MarketSection
 {
     public float  $newPrice   = 0.0;
-    /** @var array<string, mixed>|null */
+ /** @var array<string, mixed>|null */
     public ?array $activeTrend = null;
     public bool   $isNewTrend  = false;
 

@@ -1,31 +1,31 @@
 <?php
 
 /**
- * GameLog — detailed game logging for Oil Empire
+ * GameLog detailed game logging for Oil Empire
  *
  * Writes structured log entries to game_debug.log with labels:
- *   [INFO]          — informational events
- *   [WARN]          — warnings
- *   [ERROR]         — critical errors
- *   [DB]            — SQL queries
- *   [DB_ERROR]      — SQL errors
- *   [DB_RESULT]     — query results
- *   [STEP]          — steps in multi-stage processes
- *   [PERF]          — performance measurements
- *   [PAGE]          — page load start/stop
- *   [TABLE_OK]      — table exists
- *   [TABLE_MISSING] — table missing
+ * [INFO] informational events
+ * [WARN] warnings
+ * [ERROR] critical errors
+ * [DB] SQL queries
+ * [DB_ERROR] SQL errors
+ * [DB_RESULT] query results
+ * [STEP] steps in multi-stage processes
+ * [PERF] performance measurements
+ * [PAGE] page load start/stop
+ * [TABLE_OK] table exists
+ * [TABLE_MISSING] table missing
  *
  * Usage:
- *   GameLog::info('hr.php', 'Loaded 5 employees');
- *   GameLog::db('HRService', 'hire', 'INSERT INTO board_members...', [1,'Jan']);
- *   GameLog::error('technical.php', 'PDO failed', $exception);
+ * GameLog::info('hr.php', 'Loaded 5 employees');
+ * GameLog::db('HRService', 'hire', 'INSERT INTO board_members...', [1,'Jan']);
+ * GameLog::error('technical.php', 'PDO failed', $exception);
  */
 class GameLog
 {
     private static string $logFile    = '';
     private static bool   $enabled    = true;
-    /** @var array<string, float> */
+ /** @var array<string, float> */
     private static array  $activePages = [];
 
     public static function init(string $logFile = ''): void
@@ -35,7 +35,7 @@ class GameLog
 
     public static function setEnabled(bool $e): void { self::$enabled = $e; }
 
-    /** @param array<string, mixed>|null $context */
+ /** @param array<string, mixed>|null $context */
     private static function write(string $level, string $module, string $message, ?array $context = null): void
     {
         if (!self::$enabled) return;
@@ -51,21 +51,21 @@ class GameLog
         @file_put_contents(self::$logFile, $line, FILE_APPEND | LOCK_EX);
     }
 
-    // Log levels
-    /** @param array<string, mixed>|null $ctx */
+ // Log levels
+ /** @param array<string, mixed>|null $ctx */
     public static function info(string $m, string $msg, ?array $ctx = null): void { self::write('INFO',  $m, $msg, $ctx); }
-    /** @param array<string, mixed>|null $ctx */
+ /** @param array<string, mixed>|null $ctx */
     public static function warn(string $m, string $msg, ?array $ctx = null): void { self::write('WARN',  $m, $msg, $ctx); }
 
-    /**
-     * @param string $m       Module name
-     * @param string $msg     Error message
-     * @param Throwable|array<string,mixed>|null $e  Exception or context array
-     * @param array<string,mixed>|null $ctx           Extra context (when $e is Throwable)
-     */
+ /**
+ * @param string $m Module name
+ * @param string $msg Error message
+ * @param Throwable|array<string,mixed>|null $e Exception or context array
+ * @param array<string,mixed>|null $ctx Extra context (when $e is Throwable)
+ */
     public static function error(string $m, string $msg, $e = null, ?array $ctx = null): void
     {
-        // Support both error('m','msg', $exception, $ctx) and error('m','msg', $ctxArray)
+ // Support both error('m','msg', $exception, $ctx) and error('m','msg', $ctxArray)
         if (is_array($e)) {
             $extra = $e;
             $e     = null;
@@ -87,8 +87,8 @@ class GameLog
         self::write('ERROR', $m, $msg, $extra);
     }
 
-    // Database logging
-    /** @param array<string, mixed>|null $params @param array<string, mixed>|null $extra */
+ // Database logging
+ /** @param array<string, mixed>|null $params @param array<string, mixed>|null $extra */
     public static function db(string $m, string $method, string $sql, ?array $params = null, ?array $extra = null): void
     {
         $clean = preg_replace('/\s+/', ' ', trim($sql));
@@ -104,7 +104,7 @@ class GameLog
         self::write('DB_RESULT', $m, $msg);
     }
 
-    /** @param array<string, mixed>|null $params */
+ /** @param array<string, mixed>|null $params */
     public static function dbError(string $m, string $method, string $sql, Throwable $e, ?array $params = null): void
     {
         $clean = preg_replace('/\s+/', ' ', trim($sql));
@@ -118,22 +118,22 @@ class GameLog
         self::write('DB_ERROR', $m, "{$method}() FAILED", $ctx);
     }
 
-    // Process steps
-    /** @param array<string, mixed>|null $ctx */
+ // Process steps
+ /** @param array<string, mixed>|null $ctx */
     public static function step(string $m, string $proc, int $n, string $desc, ?array $ctx = null): void
     {
         self::write('STEP', $m, "[{$proc}] step {$n}: {$desc}", $ctx);
     }
 
-    // Performance
-    /** @param array<string, mixed>|null $ctx */
+ // Performance
+ /** @param array<string, mixed>|null $ctx */
     public static function perf(string $m, string $op, float $start, ?array $ctx = null): void
     {
         $ms = round((microtime(true) - $start) * 1000, 2);
         self::write('PERF', $m, "{$op} {$ms}ms", $ctx);
     }
 
-    // Page loading
+ // Page loading
     public static function pageStart(string $page): float
     {
         if (isset(self::$activePages[$page])) {
@@ -161,7 +161,7 @@ class GameLog
         self::write('PAGE', $page, "=== END ({$ms}ms) ===");
     }
 
-    // Table validation
+ // Table validation
     public static function tableCheck(PDO $db, string $m, string $table): bool
     {
         try {
@@ -179,10 +179,10 @@ class GameLog
         }
     }
 
-    /**
-     * @param list<string> $tables
-     * @return array<string, bool>
-     */
+ /**
+ * @param list<string> $tables
+ * @return array<string, bool>
+ */
     public static function tablesCheck(PDO $db, string $m, array $tables): array
     {
         $results = [];
@@ -196,11 +196,11 @@ class GameLog
         return $results;
     }
 
-    // Safe query helpers
-    /**
-     * @param array<string, mixed> $params
-     * @return list<array<string, mixed>>|null
-     */
+ // Safe query helpers
+ /**
+ * @param array<string, mixed> $params
+ * @return list<array<string, mixed>>|null
+ */
     public static function safePrepare(PDO $db, string $m, string $method, string $sql, array $params = []): ?array
     {
         try {
@@ -216,8 +216,8 @@ class GameLog
         }
     }
 
-    /** Safe execute for INSERT/UPDATE/DELETE — does not fetch results */
-    /** @param array<string, mixed> $params */
+ /** Safe execute for INSERT/UPDATE/DELETE does not fetch results */
+ /** @param array<string, mixed> $params */
     public static function safeExecute(PDO $db, string $m, string $method, string $sql, array $params = []): bool
     {
         try {

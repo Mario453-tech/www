@@ -16,10 +16,10 @@ class LoanRepository
         }
     }
 
-    /**
-     * Processes due installments for all active loans.
-     * Called by the TICK loop.
-     */
+ /**
+ * Processes due installments for all active loans.
+ * Called by the TICK loop.
+ */
     public function processInstallments(): void
     {
         try {
@@ -41,14 +41,14 @@ class LoanRepository
         }
     }
 
-    /**
-     * Processes a single installment payment.
-     * @param array<string, mixed> $loan
-     */
+ /**
+ * Processes a single installment payment.
+ * @param array<string, mixed> $loan
+ */
     private function processInstallment(array $loan): void
     {
         try {
-            // Fetch current player cash
+ // Fetch current player cash
             $playerStmt = $this->db->prepare("SELECT cash FROM players WHERE id = :id");
             $playerStmt->execute([':id' => $loan['player_id']]);
             $player = $playerStmt->fetch();
@@ -58,9 +58,9 @@ class LoanRepository
             }
 
             if ($player['cash'] >= $loan['installment_amount']) {
-                // INSTALLMENT PAID
+ // INSTALLMENT PAID
 
-                // Deduct cash
+ // Deduct cash
                 $updateCash = $this->db->prepare("
                     UPDATE players
                     SET cash = cash - :amount
@@ -71,11 +71,11 @@ class LoanRepository
                     ':id' => $loan['player_id']
                 ]);
 
-                // Reduce remaining balance
+ // Reduce remaining balance
                 $newRemaining = max(0, $loan['remaining_amount'] - $loan['installment_amount']);
 
                 if ($newRemaining <= 0) {
-                    // LOAN FULLY REPAID
+ // LOAN FULLY REPAID
                     $updateLoan = $this->db->prepare("
                         UPDATE loans
                         SET remaining_amount = 0,
@@ -86,7 +86,7 @@ class LoanRepository
                     $updateLoan->execute([':id' => $loan['id']]);
 
                 } else {
-                    // Schedule next installment
+ // Schedule next installment
                     $updateLoan = $this->db->prepare("
                         UPDATE loans
                         SET remaining_amount = :remaining,
@@ -101,7 +101,7 @@ class LoanRepository
                     ]);
                 }
 
-                // Record payment
+ // Record payment
                 $payment = $this->db->prepare("
                     INSERT INTO loan_payments
                     (loan_id, player_id, amount, payment_type, created_at)
@@ -114,7 +114,7 @@ class LoanRepository
                 ]);
 
             } else {
-                // INSUFFICIENT FUNDS - mark as overdue
+ // INSUFFICIENT FUNDS - mark as overdue
                 $updateLoan = $this->db->prepare("
                     UPDATE loans
                     SET status = 'late',

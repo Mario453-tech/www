@@ -1,6 +1,6 @@
 <?php
 
-// ERROR LOGGING � zbiera WSZYSTKIE b��dy do error_log / collects ALL errors to error_log
+// ERROR LOGGING zbiera WSZYSTKIE bdy do error_log / collects ALL errors to error_log
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
@@ -54,12 +54,12 @@ set_error_handler(function (int $errno, string $errstr, string $errfile, int $er
     return false;
 });
 
-//  KLASY CORE 
+// KLASY CORE 
 require_once __DIR__ . '/GameLog.php';
 
 GameLog::init(__DIR__ . '/../game_debug.log');
 
-// Automatyczne logowanie request�w w plikach bez r�cznego pageStart/pageEnd
+// Automatyczne logowanie requestw w plikach bez rcznego pageStart/pageEnd
 // Automatic request logging in files without manual pageStart/pageEnd
 if (PHP_SAPI !== 'cli') {
     $autoPage = basename($_SERVER['SCRIPT_NAME'] ?? 'request');
@@ -75,13 +75,13 @@ if (PHP_SAPI !== 'cli') {
     });
 }
 
-//  SERWISY 
+// SERWISY 
 require_once __DIR__ . '/Security.php';
 require_once __DIR__ . '/CSRF.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Validator.php';
 
-// WA�NE: Auth.php zawiera klas� AdminAuth (panel admina)
+// WANE: Auth.php zawiera klas AdminAuth (panel admina)
 // IMPORTANT: Auth.php contains the AdminAuth class (admin panel)
 require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/EmailTemplate.php';
@@ -125,10 +125,10 @@ spl_autoload_register(function ($class) {
     }
 });
 
-// SESJA I NAG��WKI / SESSION AND HEADERS
+// SESJA I NAGWKI / SESSION AND HEADERS
 if (session_status() === PHP_SESSION_NONE) {
-    // Na shared hostingu /tmp mo�e by� niedost�pny � u�ywamy katalogu sessions/ w projekcie.
-    // On shared hosting /tmp may be unavailable � use sessions/ directory within the project.
+ // Na shared hostingu /tmp moe by niedostpny uywamy katalogu sessions/ w projekcie.
+ // On shared hosting /tmp may be unavailable use sessions/ directory within the project.
     $sessionPath = __DIR__ . '/../sessions';
     if (!is_dir($sessionPath)) {
         @mkdir($sessionPath, 0700, true);
@@ -141,7 +141,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 Security::setHeaders();
 
-//  BANKRUPTCY BOOTSTRAP
+// BANKRUPTCY BOOTSTRAP
 require_once __DIR__ . '/BankruptcyBootstrap.php';
 
 ensureBankruptcyRecoverySchema();
@@ -153,11 +153,11 @@ if (PHP_SAPI !== 'cli') {
     try {
         TransportConfigService::ensureTransportSchema(Database::getInstance()->getConnection());
     } catch (Throwable $__tsEx) {
-        // Non-fatal - game runs without this migration
+ // Non-fatal - game runs without this migration
     }
 }
 
-//  ROUTING 
+// ROUTING 
 const ROUTES = [
     'home'            => '/',
     'login'           => '/login',
@@ -192,7 +192,7 @@ function url(string $name, array $query = []): string
 /**
  * Zwraca URL assetu z automatycznym cache-bustingiem opartym na filemtime().
  * Returns asset URL with automatic cache-busting based on filemtime().
- * Gdy plik zmienisz � przegl�darka automatycznie pobierze now� wersj�.
+ * Gdy plik zmienisz przegldarka automatycznie pobierze now wersj.
  * When the file changes, the browser automatically fetches the new version.
  * Usuwa ewentualne stare ?v=X przed wyliczeniem nowego timestampu.
  * Strips any old ?v=X before computing the new timestamp.

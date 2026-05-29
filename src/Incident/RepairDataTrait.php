@@ -1,20 +1,20 @@
 <?php
 
 /**
- * RepairDataTrait  naprawa incydentw, zapis, efekty i gettery danych.
- * Repair & data trait  incident repair, persistence, effects and data getters.
+ * RepairDataTrait naprawa incydentw, zapis, efekty i gettery danych.
+ * Repair & data trait incident repair, persistence, effects and data getters.
  */
 trait IncidentRepairDataTrait
 {
-    //  NAPRAWA / Repair
+ // NAPRAWA / Repair
 
-    /**
-     * Rczna naprawa incydentu medium/major przez gracza.
-     * Manual repair of a medium/major incident by the player.
-     * Przywraca status odwiertu na 'active' jeli by 'broken' z powodu tego incydentu.
-     * Restores well status to 'active' if it was 'broken' due to this incident.
-     */
-    /** @return array<string, mixed> */
+ /**
+ * Rczna naprawa incydentu medium/major przez gracza.
+ * Manual repair of a medium/major incident by the player.
+ * Przywraca status odwiertu na 'active' jeli by 'broken' z powodu tego incydentu.
+ * Restores well status to 'active' if it was 'broken' due to this incident.
+ */
+ /** @return array<string, mixed> */
     public function repairIncident(int $incidentId, int $playerId): array
     {
         try {
@@ -42,7 +42,7 @@ trait IncidentRepairDataTrait
                 WHERE id = ?
             ")->execute([$playerId, $incidentId]);
 
-            // Przywr odwiert jeli by broken / Restore well if it was broken
+ // Przywr odwiert jeli by broken / Restore well if it was broken
             if ($inc['level'] === 'major') {
                 $this->db->prepare("
                     UPDATE wells SET status = 'active'
@@ -50,8 +50,8 @@ trait IncidentRepairDataTrait
                 ")->execute([$inc['well_id'], $playerId]);
             }
 
-            // Spirala Katastrof: naprawa redukuje post_incident_risk_boost / Incident spiral: repair reduces post_incident_risk_boost
-            // medium -> -50% boost, major -> reset do 0 / medium -> -50% boost, major -> reset to 0
+ // Spirala Katastrof: naprawa redukuje post_incident_risk_boost / Incident spiral: repair reduces post_incident_risk_boost
+ // medium -> -50% boost, major -> reset do 0 / medium -> -50% boost, major -> reset to 0
             if (in_array($inc['level'], ['medium', 'major'])) {
                 if ($inc['level'] === 'major') {
                     $this->db->prepare("
@@ -82,12 +82,12 @@ trait IncidentRepairDataTrait
         }
     }
 
-    //  GETTERY / Getters
+ // GETTERY / Getters
 
-    /**
-     * Zwraca ostatnie incydenty dla odwiertu (do wywietlenia w UI).
-     * Returns recent incidents for a well (for display in the UI).
-     */
+ /**
+ * Zwraca ostatnie incydenty dla odwiertu (do wywietlenia w UI).
+ * Returns recent incidents for a well (for display in the UI).
+ */
     public function getRecentIncidents(int $wellId, int $limit = 10): array
     {
         try {
@@ -107,10 +107,10 @@ trait IncidentRepairDataTrait
         }
     }
 
-    /**
-     * Zwraca ostatnie incydenty dla wszystkich odwiertw gracza.
-     * Returns recent incidents across all player wells.
-     */
+ /**
+ * Zwraca ostatnie incydenty dla wszystkich odwiertw gracza.
+ * Returns recent incidents across all player wells.
+ */
     public function countPlayerIncidents(int $playerId): int
     {
         try {
@@ -144,7 +144,7 @@ trait IncidentRepairDataTrait
         }
     }
 
-    //  ZAPIS I EFEKTY / Persistence and effects
+ // ZAPIS I EFEKTY / Persistence and effects
 
     private function saveIncident(array $incident): void
     {
@@ -182,7 +182,7 @@ trait IncidentRepairDataTrait
     private function applyEffects(array $incident, int $wellId, int $playerId): void
     {
         try {
-            // Degradacja stanu technicznego / Technical condition degradation
+ // Degradacja stanu technicznego / Technical condition degradation
             if ($incident['deg_damage'] > 0) {
                 $this->db->prepare("
                     UPDATE wells
@@ -195,7 +195,7 @@ trait IncidentRepairDataTrait
                 ]);
             }
 
-            // Dodaj risk_score / Add risk_score
+ // Dodaj risk_score / Add risk_score
             if ($incident['risk_add'] > 0) {
                 $this->db->prepare("
                     UPDATE wells
@@ -208,11 +208,11 @@ trait IncidentRepairDataTrait
                 ]);
             }
 
-            // Koszt finansowy dla gracza (medium/major) / Financial cost for the player (medium/major)
-            // UWAGA: odjcie z cash nastpuje w tick.php przez $playerCash -= $inc['cost']
-            // NOTE: cash deduction happens in tick.php via $playerCash -= $inc['cost']
-            // Tu tylko logujemy zdarzenie w well_events
-            // Here we only log the event in well_events
+ // Koszt finansowy dla gracza (medium/major) / Financial cost for the player (medium/major)
+ // UWAGA: odjcie z cash nastpuje w tick.php przez $playerCash -= $inc['cost']
+ // NOTE: cash deduction happens in tick.php via $playerCash -= $inc['cost']
+ // Tu tylko logujemy zdarzenie w well_events
+ // Here we only log the event in well_events
             if ($incident['cost'] > 0) {
                 $this->db->prepare("
                     INSERT INTO well_events
@@ -237,7 +237,7 @@ trait IncidentRepairDataTrait
                 ]);
             }
 
-            // major bez auto_repair -> pauzuj odwiert / major without auto_repair -> pause the well
+ // major bez auto_repair -> pauzuj odwiert / major without auto_repair -> pause the well
             if ($incident['level'] === 'major' && !$incident['auto_repair']) {
                 $this->db->prepare("
                     UPDATE wells SET status = 'broken' WHERE id = ? AND status = 'active'
@@ -250,7 +250,7 @@ trait IncidentRepairDataTrait
         }
     }
 
-    //  HELPER 
+ // HELPER 
 
     private function weightedRand(array $weights): string
     {

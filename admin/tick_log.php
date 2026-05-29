@@ -10,15 +10,15 @@ require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
 $db   = Database::getInstance()->getConnection();
 $repo = new TickStatsRepository();
 
-//  Filtr source 
+// Filtr source 
 $filterSource = in_array($_GET['source'] ?? '', ['cron','force']) ? $_GET['source'] : '';
 
-//  Paginacja 
+// Paginacja 
 $perPage = 50;
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $offset  = ($page - 1) * $perPage;
 
-//  Dane: lista ticków 
+// Dane: lista tickw 
 $whereSource = $filterSource ? "WHERE source = :src" : "";
 $countSql    = "SELECT COUNT(*) FROM tick_stats {$whereSource}";
 $listSql     = "SELECT * FROM tick_stats {$whereSource} ORDER BY ran_at DESC LIMIT :lim OFFSET :off";
@@ -36,10 +36,10 @@ $listStmt->bindValue(':off',  $offset,  PDO::PARAM_INT);
 $listStmt->execute();
 $ticks = $listStmt->fetchAll();
 
-//  Dane: podsumowanie 24h 
+// Dane: podsumowanie 24h 
 $summary24h = $repo->getSummary24h();
 
-//  Akcja: usuñ wpis 
+// Akcja: usu wpis 
 $deleteMsg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
@@ -47,12 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     } else {
         $delId = (int)$_POST['delete_id'];
         $db->prepare("DELETE FROM tick_stats WHERE id = ?")->execute([$delId]);
-        AdminLog::log('tick_log_delete', "Usuniêto wpis tick_stats #{$delId}", null, AdminAuth::getAdminUsername());
+        AdminLog::log('tick_log_delete', "Usuniï¿½to wpis tick_stats #{$delId}", null, AdminAuth::getAdminUsername());
         $deleteMsg = 'ok:' . t('admin.tick_log.msg_deleted');
     }
 }
 
-//  Akcja: cleanup 
+// Akcja: cleanup 
 $cleanupMsg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_days'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
@@ -60,9 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_days'])) {
     } else {
         $days    = max(1, min(365, (int)$_POST['cleanup_days']));
         $deleted = $repo->cleanup($days);
-        AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usuniêto {$deleted} wpisów starszych ni¿ {$days} dni", null, AdminAuth::getAdminUsername());
+        AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usuniï¿½to {$deleted} wpisï¿½w starszych niï¿½ {$days} dni", null, AdminAuth::getAdminUsername());
         $cleanupMsg = 'ok:' . t('admin.tick_log.msg_cleanup', ['count' => $deleted, 'days' => $days]);
-        // Przelicz po cleanup
+ // Przelicz po cleanup
         $countStmt->execute();
         $totalRows  = (int)$countStmt->fetchColumn();
         $totalPages = max(1, (int)ceil($totalRows / $perPage));

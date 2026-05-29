@@ -6,11 +6,11 @@
  */
 trait HubAssignmentValidationTrait
 {
-    /**
-     * Validates an assignment (or transfer if $skipCurrentCheck=true).
-     *
-     * @return array{ok: bool, error?: string, hub?: array<string, mixed>, warning?: ?string}
-     */
+ /**
+ * Validates an assignment (or transfer if $skipCurrentCheck=true).
+ *
+ * @return array{ok: bool, error?: string, hub?: array<string, mixed>, warning?: ?string}
+ */
     private function validateAssignment(
         int  $playerId,
         int  $hubId,
@@ -26,8 +26,8 @@ trait HubAssignmentValidationTrait
             return ['ok' => false, 'error' => 'hub_unavailable'];
         }
 
-        // Ownership check: hub must belong to or be rented by this player.
-        // Market hubs (player_id=0, tenant_player_id=0) require prior acquisition.
+ // Ownership check: hub must belong to or be rented by this player.
+ // Market hubs (player_id=0, tenant_player_id=0) require prior acquisition.
         $hubOwner  = (int)($hub['player_id']        ?? 0);
         $hubTenant = (int)($hub['tenant_player_id'] ?? 0);
         if ($hubOwner !== 0 && $hubOwner !== $playerId) {
@@ -36,7 +36,7 @@ trait HubAssignmentValidationTrait
         if ($hubOwner === 0 && $hubTenant !== 0 && $hubTenant !== $playerId) {
             return ['ok' => false, 'error' => 'hub_not_yours'];
         }
-        // Market hub with no owner/tenant — not yet acquired
+ // Market hub with no owner/tenant - not yet acquired
         if ($hubOwner === 0 && $hubTenant === 0) {
             return ['ok' => false, 'error' => 'hub_not_acquired'];
         }
@@ -82,10 +82,10 @@ trait HubAssignmentValidationTrait
         return ['ok' => true, 'hub' => $hub, 'warning' => $warning];
     }
 
-    /**
-     * Returns the active cooldown assignment for a well, or null.
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Returns the active cooldown assignment for a well, or null.
+ * @return array<string, mixed>|null
+ */
     private function getCooldownAssignment(int $wellId): ?array
     {
         $stmt = $this->db->prepare(
@@ -102,10 +102,10 @@ trait HubAssignmentValidationTrait
         return $row ?: null;
     }
 
-    /**
-     * Returns a well owned by the given player, or null.
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Returns a well owned by the given player, or null.
+ * @return array<string, mixed>|null
+ */
     private function getWell(int $wellId, int $playerId): ?array
     {
         $stmt = $this->db->prepare(

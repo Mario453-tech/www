@@ -115,13 +115,13 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         }
     }
 
-    // --- purchasePipeline ---
+ // --- purchasePipeline ---
 
     public function testPurchasePipelineCreatesBuildingPipelineAndDeductsCash(): void
     {
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
-        // Onshore well with well_type='onshore' (default)
+ // Onshore well with well_type='onshore' (default)
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 100.0, 50.0);
         $this->seedHub($ids['hubId'], 'PHPUnit Hub Purchase');
         $this->seedAssignment($ids['hubId'], $ids['wellId']);
@@ -135,7 +135,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(8, $result['build_hours']);
         $this->assertArrayHasKey('build_finish_at', $result);
 
-        // Pipeline exists with status=building
+ // Pipeline exists with status=building
         $pipeStmt = $this->db->prepare(
             'SELECT status, build_started_at, build_finish_at FROM well_pipelines WHERE well_id = ?'
         );
@@ -146,7 +146,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->assertNotNull($row['build_started_at']);
         $this->assertNotNull($row['build_finish_at']);
 
-        // Cash was deducted
+ // Cash was deducted
         $cashStmt = $this->db->prepare('SELECT cash FROM players WHERE id = ?');
         $cashStmt->execute([$playerId]);
         $cash = (float)$cashStmt->fetchColumn();
@@ -161,7 +161,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->seedHub($ids['hubId'], 'PHPUnit Hub Low Cash');
         $this->seedAssignment($ids['hubId'], $ids['wellId']);
 
-        // Set cash too low
+ // Set cash too low
         $this->db->prepare('UPDATE players SET cash = 1.00 WHERE id = ?')->execute([$playerId]);
 
         $service = new WellPipelineService($this->db);
@@ -170,7 +170,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->assertFalse($result['success']);
         $this->assertSame('insufficient_funds', $result['error']);
 
-        // No pipeline created
+ // No pipeline created
         $cnt = $this->db->prepare('SELECT COUNT(*) FROM well_pipelines WHERE well_id = ?');
         $cnt->execute([$ids['wellId']]);
         $this->assertSame(0, (int)$cnt->fetchColumn());
@@ -185,11 +185,11 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->seedAssignment($ids['hubId'], $ids['wellId']);
 
         $service = new WellPipelineService($this->db);
-        // First purchase succeeds
+ // First purchase succeeds
         $r1 = $service->purchasePipeline($playerId, $ids['wellId'], 'light');
         $this->assertTrue($r1['success']);
 
-        // Second purchase must fail
+ // Second purchase must fail
         $r2 = $service->purchasePipeline($playerId, $ids['wellId'], 'standard');
         $this->assertFalse($r2['success']);
         $this->assertSame('pipeline_already_exists', $r2['error']);
@@ -205,7 +205,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
 
         $service = new WellPipelineService($this->db);
 
-        // Inbound (default) and outbound can coexist for the same well.
+ // Inbound (default) and outbound can coexist for the same well.
         $inbound  = $service->purchasePipeline($playerId, $ids['wellId'], 'standard', 'inbound');
         $outbound = $service->purchasePipeline($playerId, $ids['wellId'], 'standard', 'outbound');
         $this->assertTrue($inbound['success'], 'Inbound purchase should succeed');
@@ -213,19 +213,19 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('inbound', $inbound['leg']);
         $this->assertSame('outbound', $outbound['leg']);
 
-        // Two distinct rows, one per leg.
+ // Two distinct rows, one per leg.
         $legStmt = $this->db->prepare('SELECT leg FROM well_pipelines WHERE well_id = ? ORDER BY leg');
         $legStmt->execute([$ids['wellId']]);
         $legs = $legStmt->fetchAll(PDO::FETCH_COLUMN);
         $this->assertSame(['inbound', 'outbound'], $legs);
 
-        // A second outbound purchase is rejected (one pipeline per leg).
+ // A second outbound purchase is rejected (one pipeline per leg).
         $dup = $service->purchasePipeline($playerId, $ids['wellId'], 'light', 'outbound');
         $this->assertFalse($dup['success']);
         $this->assertSame('pipeline_already_exists', $dup['error']);
     }
 
-    // --- completeBuildingPipelines ---
+ // --- completeBuildingPipelines ---
 
     public function testCompleteBuildingPipelinesFlipsStatusToActiveWhenTimeElapsed(): void
     {
@@ -237,7 +237,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
 
         $service = new WellPipelineService($this->db);
 
-        // Insert a pipeline in building status with build_finish_at in the past
+ // Insert a pipeline in building status with build_finish_at in the past
         $this->db->prepare(
             "INSERT INTO well_pipelines
                 (player_id, well_id, hub_id, name, pipeline_type, status, condition_pct, transport_loss,
@@ -251,7 +251,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
 
         $this->assertCount(1, $completed, 'One pipeline should be completed');
 
-        // Verify status in DB
+ // Verify status in DB
         $stmt = $this->db->prepare('SELECT status FROM well_pipelines WHERE well_id = ?');
         $stmt->execute([$ids['wellId']]);
         $this->assertSame('active', $stmt->fetchColumn());
@@ -267,7 +267,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
 
         $service = new WellPipelineService($this->db);
 
-        // Insert pipeline with build_finish_at 1 hour in the future
+ // Insert pipeline with build_finish_at 1 hour in the future
         $this->db->prepare(
             "INSERT INTO well_pipelines
                 (player_id, well_id, hub_id, name, pipeline_type, status, condition_pct, transport_loss,
@@ -281,13 +281,13 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
 
         $this->assertCount(0, $completed, 'No pipeline should be completed yet');
 
-        // Still building
+ // Still building
         $stmt = $this->db->prepare('SELECT status FROM well_pipelines WHERE well_id = ?');
         $stmt->execute([$ids['wellId']]);
         $this->assertSame('building', $stmt->fetchColumn());
     }
 
-    // --- getBuildingForPlayer ---
+ // --- getBuildingForPlayer ---
 
     public function testGetBuildingForPlayerReturnsBuildingPipelinesWithSecondsRemaining(): void
     {
@@ -299,7 +299,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
 
         $service = new WellPipelineService($this->db);
 
-        // Insert pipeline building - finish in 2 hours
+ // Insert pipeline building - finish in 2 hours
         $this->db->prepare(
             "INSERT INTO well_pipelines
                 (player_id, well_id, hub_id, name, pipeline_type, status, condition_pct, transport_loss,

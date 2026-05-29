@@ -6,15 +6,15 @@
  */
 trait HRHiringTrait
 {
-    // Public API for candidate hiring.
-    // PL: Publiczne API dla zatrudniania kandydatow.
+ // Public API for candidate hiring.
+ // PL: Publiczne API dla zatrudniania kandydatow.
 
-    /**
-     * Hire a candidate and route them to the correct target structure.
-     * PL: Zatrudnia kandydata i kieruje go do poprawnej struktury docelowej.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Hire a candidate and route them to the correct target structure.
+ * PL: Zatrudnia kandydata i kieruje go do poprawnej struktury docelowej.
+ *
+ * @return array<string, mixed>
+ */
     public function hireCandidate(int $candidateId, int $playerId, string $contractType = '1y'): array
     {
         GameLog::info('HRService', 'hireCandidate start', [
@@ -29,8 +29,8 @@ trait HRHiringTrait
                 return ['success' => false, 'message' => t('hr_hiring.err_candidate_unavailable')];
             }
 
-            // Split flow: technical engineer versus department director.
-            // PL: Rozdzielenie sciezek: inzynier techniczny versus dyrektor dzialu.
+ // Split flow: technical engineer versus department director.
+ // PL: Rozdzielenie sciezek: inzynier techniczny versus dyrektor dzialu.
             $isTechEngineer = false;
             if (($candidate['role_code'] ?? '') === 'technical' && !empty($candidate['specialization_id'])) {
                 $spStmt = $this->db->prepare("SELECT department FROM hr_specializations WHERE id = ? LIMIT 1");
@@ -90,16 +90,16 @@ trait HRHiringTrait
         }
     }
 
-    // Internal helpers for hire flow.
-    // PL: Wewnetrzne helpery dla procesu zatrudnienia.
+ // Internal helpers for hire flow.
+ // PL: Wewnetrzne helpery dla procesu zatrudnienia.
 
-    /**
-     * Hire a technical engineer directly into technical_staff.
-     * PL: Zatrudnia inzyniera technicznego bezposrednio do technical_staff.
-     *
-     * @param array<string, mixed> $candidate
-     * @return array<string, mixed>
-     */
+ /**
+ * Hire a technical engineer directly into technical_staff.
+ * PL: Zatrudnia inzyniera technicznego bezposrednio do technical_staff.
+ *
+ * @param array<string, mixed> $candidate
+ * @return array<string, mixed>
+ */
     private function hireTechEngineerToStaff(array $candidate, int $playerId): array
     {
         $mgrStmt = $this->db->prepare("
@@ -196,10 +196,10 @@ trait HRHiringTrait
         }
     }
 
-    /**
-     * Roll a staff specialization perk for a newly hired technical staff member.
-     * PL: Losuje perk specjalizacji dla nowo zatrudnionego pracownika technicznego.
-     */
+ /**
+ * Roll a staff specialization perk for a newly hired technical staff member.
+ * PL: Losuje perk specjalizacji dla nowo zatrudnionego pracownika technicznego.
+ */
     private function rollStaffSpecialization(string $specCode, int $skillLevel): ?string
     {
         $operatorSpecs   = ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer'];
@@ -242,12 +242,12 @@ trait HRHiringTrait
         }
     }
 
-    /**
-     * Load a candidate that can still be hired.
-     * PL: Laduje kandydata, ktorego nadal mozna zatrudnic.
-     *
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Load a candidate that can still be hired.
+ * PL: Laduje kandydata, ktorego nadal mozna zatrudnic.
+ *
+ * @return array<string, mixed>|null
+ */
     private function getCandidateForHire(int $candidateId, int $playerId): ?array
     {
         $stmt = $this->db->prepare("
@@ -268,10 +268,10 @@ trait HRHiringTrait
         return $stmt->fetch() ?: null;
     }
 
-    /**
-     * Check whether the director role for a department is already filled.
-     * PL: Sprawdza, czy rola dyrektora dla dzialu jest juz obsadzona.
-     */
+ /**
+ * Check whether the director role for a department is already filled.
+ * PL: Sprawdza, czy rola dyrektora dla dzialu jest juz obsadzona.
+ */
     private function isRoleOccupied(int $roleId, int $playerId = 0): bool
     {
         if ($playerId <= 0) {
@@ -287,13 +287,13 @@ trait HRHiringTrait
         return (bool)$occupied->fetch();
     }
 
-    /**
-     * Default hire flow for board members.
-     * PL: Domyslny proces zatrudnienia dla board_members.
-     *
-     * @param array<string, mixed> $candidate
-     * @return array<string, mixed>
-     */
+ /**
+ * Default hire flow for board members.
+ * PL: Domyslny proces zatrudnienia dla board_members.
+ *
+ * @param array<string, mixed> $candidate
+ * @return array<string, mixed>
+ */
     private function hireCandidateDefaultPath(array $candidate, int $playerId, string $contractType): array
     {
         GameLog::step('HRService', 'hireCandidate', 1, 'default path', [
@@ -317,12 +317,12 @@ trait HRHiringTrait
         ];
     }
 
-    /**
-     * Insert a board member record.
-     * PL: Wstawia rekord board member.
-     *
-     * @param array<string, mixed> $candidate
-     */
+ /**
+ * Insert a board member record.
+ * PL: Wstawia rekord board member.
+ *
+ * @param array<string, mixed> $candidate
+ */
     private function insertBoardMember(array $candidate, int $playerId = 0): int
     {
         if ($playerId <= 0) {
@@ -372,10 +372,10 @@ trait HRHiringTrait
         return (int)$this->db->lastInsertId();
     }
 
-    /**
-     * Create the employee contract for a newly hired board member.
-     * PL: Tworzy kontrakt pracownika dla nowo zatrudnionego board membera.
-     */
+ /**
+ * Create the employee contract for a newly hired board member.
+ * PL: Tworzy kontrakt pracownika dla nowo zatrudnionego board membera.
+ */
     private function createEmployeeContract(int $memberId, float $salary, string $contractType): void
     {
         $durations   = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'];
@@ -388,10 +388,10 @@ trait HRHiringTrait
         ")->execute([$memberId, $contractEnd, $salary, $contractType]);
     }
 
-    /**
-     * Append a history entry for employment actions.
-     * PL: Dodaje wpis historii dla akcji zatrudnienia.
-     */
+ /**
+ * Append a history entry for employment actions.
+ * PL: Dodaje wpis historii dla akcji zatrudnienia.
+ */
     private function createEmploymentHistory(int $memberId, string $reason): void
     {
         $this->db->prepare("
@@ -400,10 +400,10 @@ trait HRHiringTrait
         ")->execute([$memberId, $reason]);
     }
 
-    /**
-     * Remove candidate leftovers and close recruitment when needed.
-     * PL: Usuwa pozostalosci kandydata i zamyka rekrutacje, gdy potrzeba.
-     */
+ /**
+ * Remove candidate leftovers and close recruitment when needed.
+ * PL: Usuwa pozostalosci kandydata i zamyka rekrutacje, gdy potrzeba.
+ */
     private function finalizeCandidateHiring(int $candidateId, int $roleId, int $requestId, int $playerId, bool $isTechStaff = false): void
     {
         if ($requestId > 0) {

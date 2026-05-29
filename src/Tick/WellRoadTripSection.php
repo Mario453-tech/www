@@ -2,27 +2,27 @@
 declare(strict_types=1);
 
 /**
- * WellRoadTripSection  tick: przetwarzanie ukonczonych kursow drogowych.
- * WellRoadTripSection  tick: processing completed road trips.
+ * WellRoadTripSection tick: przetwarzanie ukonczonych kursow drogowych.
+ * WellRoadTripSection tick: processing completed road trips.
  *
  * Wywolywana per gracz po WellLoopSection (po jej run()), przed zapisem magazynu.
  * Called per player after WellLoopSection (after its run()), before storage save.
  *
  * Dla kazdego kursu z well_road_trips gdzie eta_at <= NOW():
- *   - stosuje incydenty per kurs (RoadTransportService::processCompletedTrips)
- *   - kredytuje dostarczona rope do magazynu w pamieci
+ * - stosuje incydenty per kurs (RoadTransportService::processCompletedTrips)
+ * - kredytuje dostarczona rope do magazynu w pamieci
  *
  * For each trip in well_road_trips where eta_at <= NOW():
- *   - applies per-trip incidents (RoadTransportService::processCompletedTrips)
- *   - credits delivered oil to in-memory storage
+ * - applies per-trip incidents (RoadTransportService::processCompletedTrips)
+ * - credits delivered oil to in-memory storage
  */
 class WellRoadTripSection
 {
-    // Liczniki eksponowane do PlayersSection / Counters exposed to PlayersSection
+ // Liczniki eksponowane do PlayersSection / Counters exposed to PlayersSection
     public float $deliveredBbl   = 0.0;
     public float $lostBbl        = 0.0;
     public int   $completedCount = 0;
-    /** @var array<int, float> well_id => credited bbl (basis for the second transport leg) */
+ /** @var array<int, float> well_id => credited bbl (basis for the second transport leg) */
     public array $deliveredByWell = [];
 
     private PDO      $db;
@@ -34,12 +34,12 @@ class WellRoadTripSection
         $this->now = $now;
     }
 
-    /**
-     * Przetwarza ukonczone kursy; zwraca zaktualizowany poziom magazynu.
-     * Processes completed trips; returns updated storage level.
-     *
-     * @param  array<string, mixed>       $hseBonus
-     */
+ /**
+ * Przetwarza ukonczone kursy; zwraca zaktualizowany poziom magazynu.
+ * Processes completed trips; returns updated storage level.
+ *
+ * @param array<string, mixed> $hseBonus
+ */
     public function process(
         int                  $playerId,
         float                $currentStorage,
@@ -64,8 +64,8 @@ class WellRoadTripSection
                 $overflow  = max(0.0, $delivered - $credited);
                 if ($credited > 0.0) {
                     $currentStorage += $credited;
-                    // Scale the per-well breakdown by the credited fraction (storage overflow aware),
-                    // so the second leg only acts on oil that actually reached storage.
+ // Scale the per-well breakdown by the credited fraction (storage overflow aware),
+ // so the second leg only acts on oil that actually reached storage.
                     $ratio = $delivered > 0.0 ? ($credited / $delivered) : 0.0;
                     foreach ($byWell as $wid => $bbl) {
                         $scaled = round((float)$bbl * $ratio, 4);

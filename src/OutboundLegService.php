@@ -10,9 +10,9 @@
  * the same leg-2 logic consistently.
  *
  * Per-well choice lives in wells.hub_outbound_transport_type:
- *   'nieustawiony' -> direct delivery (no extra loss/cost)
- *   'rurociag'     -> outbound pipeline (transport_loss % + OPEX)
- *   'ciezarowki'   -> road haul (per-tick cost + independent incident loss)
+ * 'nieustawiony' -> direct delivery (no extra loss/cost)
+ * 'rurociag' -> outbound pipeline (transport_loss % + OPEX)
+ * 'ciezarowki' -> road haul (per-tick cost + independent incident loss)
  *
  * Road incidents are rolled here independently from the inbound leg, so the two
  * legs never share or duplicate a single incident.
@@ -21,23 +21,23 @@ class OutboundLegService
 {
     private const ROAD_BASE_INCIDENT_CHANCE = 0.015; // per "shipment", before scaling
 
-    /** @var array<string, array<string, float>> */
+ /** @var array<string, array<string, float>> */
     private array $transportConfig;
 
-    /** @param array<string, array<string, float>> $transportConfig */
+ /** @param array<string, array<string, float>> $transportConfig */
     public function __construct(array $transportConfig)
     {
         $this->transportConfig = $transportConfig;
     }
 
-    /**
-     * Computes the second-leg effect for $bbl barrels leaving the hub.
-     *
-     * @param array<string, mixed>|null $outboundPipeline operational outbound pipeline row, or null
-     * @param array<string, float>      $mults ['loss_mult','global_loss','opex','transport_cost_mult']
-     * @param array<string, mixed>      $hseBonus
-     * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
-     */
+ /**
+ * Computes the second-leg effect for $bbl barrels leaving the hub.
+ *
+ * @param array<string, mixed>|null $outboundPipeline operational outbound pipeline row, or null
+ * @param array<string, float> $mults ['loss_mult','global_loss','opex','transport_cost_mult']
+ * @param array<string, mixed> $hseBonus
+ * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
+ */
     public function compute(
         string $outboundType,
         ?array $outboundPipeline,
@@ -67,11 +67,11 @@ class OutboundLegService
         return $none; // 'nieustawiony' / unknown -> direct delivery
     }
 
-    /**
-     * @param array<string, mixed> $pipe
-     * @param array<string, float> $mults
-     * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
-     */
+ /**
+ * @param array<string, mixed> $pipe
+ * @param array<string, float> $mults
+ * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
+ */
     private function computePipeline(array $pipe, float $bbl, float $oilPrice, array $mults): array
     {
         $lossPct = (float)($pipe['transport_loss'] ?? 0.0);
@@ -79,8 +79,8 @@ class OutboundLegService
         if ($lossPct > 0.0) {
             $lossBbl = min($bbl, round(
                 $bbl * ($lossPct / 100.0)
-                    * (float)($mults['global_loss'] ?? 1.0)
-                    * (float)($mults['loss_mult'] ?? 1.0),
+ * (float)($mults['global_loss'] ?? 1.0)
+ * (float)($mults['loss_mult'] ?? 1.0),
                 4
             ));
         }
@@ -100,14 +100,14 @@ class OutboundLegService
         ];
     }
 
-    /**
-     * Self-contained per-tick road model for the second leg (no DB writes).
-     * Cost from transport_config 'ciezarowki'; loss from an independent incident roll.
-     *
-     * @param array<string, float> $mults
-     * @param array<string, mixed> $hseBonus
-     * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
-     */
+ /**
+ * Self-contained per-tick road model for the second leg (no DB writes).
+ * Cost from transport_config 'ciezarowki'; loss from an independent incident roll.
+ *
+ * @param array<string, float> $mults
+ * @param array<string, mixed> $hseBonus
+ * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
+ */
     private function computeRoad(
         float $bbl,
         float $oilPrice,
@@ -133,7 +133,7 @@ class OutboundLegService
 
         $lossBbl = 0.0;
         if (mt_rand(1, 1_000_000) <= (int)round($chance * 1_000_000)) {
-            // Incident hits part of the haul: 30%-80% of half the load at risk.
+ // Incident hits part of the haul: 30%-80% of half the load at risk.
             $frac    = 0.30 + (mt_rand(0, 500) / 1000.0);
             $lossBbl = $bbl * 0.5 * $frac;
         }

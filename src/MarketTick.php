@@ -1,18 +1,18 @@
 <?php
 
 /**
- * MarketTick — oil price tick logic
+ * MarketTick oil price tick logic
  *
  * PRICE FORMULA:
- *   ratio        = (player_supply + world_production) / demand_index
- *   sd_pressure  = (1 - ratio) * SENSITIVITY * current_price
- *   gravity      = (base_price - current) * GRAVITY_RATE
- *   new_price    = clamp(current + sd_pressure + gravity + noise, MIN, MAX)
+ * ratio = (player_supply + world_production) / demand_index
+ * sd_pressure = (1 - ratio) * SENSITIVITY * current_price
+ * gravity = (base_price - current) * GRAVITY_RATE
+ * new_price = clamp(current + sd_pressure + gravity + noise, MIN, MAX)
  *
  * WORLD_PRODUCTION (OPEC-like):
- *   price > 150  -> +10%/tick  (max 1500)
- *   price <  60  -> -12%/tick  (min  200)
- *   otherwise    -> return to 800 at 2%/tick
+ * price > 150 -> +10%/tick (max 1500)
+ * price < 60 -> -12%/tick (min 200)
+ * otherwise -> return to 800 at 2%/tick
  */
 class MarketTick
 {
@@ -34,9 +34,9 @@ class MarketTick
         $this->db = Database::getInstance()->getConnection();
     }
 
-    // Main method
+ // Main method
 
-    /** @param array<string, mixed>|null $activeTrend */
+ /** @param array<string, mixed>|null $activeTrend */
     public function updatePrices(?array $activeTrend = null): int
     {
         GameLog::step('MarketTick', 'updatePrices', 1, 'start', [
@@ -44,7 +44,7 @@ class MarketTick
         ]);
 
         try {
-            // Fetch market state
+ // Fetch market state
             $market = $this->db->query("SELECT * FROM market_state WHERE id = 1")->fetch();
 
             if (!$market) {
@@ -55,38 +55,38 @@ class MarketTick
             $basePrice  = (int)$market['base_price'];
             $current    = (float)$market['current_price'];
             $volatility = (int)$market['volatility'];
-            // Fallback when migration columns do not exist yet
+ // Fallback when migration columns do not exist yet
             $worldProd  = isset($market['world_production']) ? (float)$market['world_production'] : self::WORLD_PROD_BASE;
             $demand     = isset($market['demand_index'])     ? (float)$market['demand_index']     : 1000.0;
 
-            // 1. Player supply (oil in storage)
+ // 1. Player supply (oil in storage)
             GameLog::step('MarketTick', 'updatePrices', 2, 'SUM active well supply flow');
             $playerSupply = $this->fetchPlayerSupplyFlow();
 
-            // 2. NPC world reacts to price (OPEC)
+ // 2. NPC world reacts to price (OPEC)
             GameLog::step('MarketTick', 'updatePrices', 3, 'adjustWorldProduction', [
                 'world_prod_before' => round($worldProd, 1),
                 'current_price'     => $current,
             ]);
             $worldProd = $this->adjustWorldProduction($worldProd, $current);
 
-            // 3. Popyt modyfikowany przez trend
+ // 3. Popyt modyfikowany przez trend
             $demandModifier  = $activeTrend ? (float)$activeTrend['price_modifier'] : 1.0;
             $effectiveDemand = max(1.0, $demand * $demandModifier);
 
-            // 4. Ratio supply/demand
+ // 4. Ratio supply/demand
             $totalSupply = $playerSupply + $worldProd;
             $ratio       = $totalSupply / $effectiveDemand;
 
-            // 5. Price change components
+ // 5. Price change components
             $sdPressure = (1 - $ratio) * self::SENSITIVITY * $current;
 
-            // Gravity pulls toward base_price × trend price_modifier
-            // Pandemic ×0.60 -> target = 60; Boom ×1.50 -> target = 150 (capped MAX)
+ // Gravity pulls toward base_price trend price_modifier
+ // Pandemic 0.60 -> target = 60; Boom 1.50 -> target = 150 (capped MAX)
             $trendTarget = (int)round(max(self::MIN_PRICE, min(self::MAX_PRICE, $basePrice * $demandModifier)));
             $gravity     = ($trendTarget - $current) * self::GRAVITY_RATE;
 
-            // Direct shock: strong trend (>±25%) pushes price by an extra step/tick
+ // Direct shock: strong trend (>25%) pushes price by an extra step/tick
             $trendShock = 0;
             if ($activeTrend) {
                 $dev = $demandModifier - 1.0;
@@ -97,7 +97,7 @@ class MarketTick
 
             $noise      = rand(-$volatility, $volatility);
 
-            // 6. New price with hard limits
+ // 6. New price with hard limits
             $rawPrice = $current + $sdPressure + $gravity + $trendShock + $noise;
             $newPrice = (int)round(max(self::MIN_PRICE, min(self::MAX_PRICE, $rawPrice)));
 
@@ -117,7 +117,7 @@ class MarketTick
                 'new_price'        => $newPrice,
             ]);
 
-            // 7. Save to DB
+ // 7. Save to DB
             GameLog::step('MarketTick', 'updatePrices', 4, 'UPDATE market_state');
             $this->db->prepare("
                 UPDATE market_state SET
@@ -133,7 +133,7 @@ class MarketTick
                 ':world_prod' => $worldProd,
             ]);
 
-            // 8. Historical logs and order execution
+ // 8. Historical logs and order execution
             $this->saveSupplyDemandLog($totalSupply, $effectiveDemand, $ratio, $newPrice);
             $this->savePriceHistory($newPrice);
             $this->processOffers($newPrice);
@@ -143,7 +143,7 @@ class MarketTick
 
         } catch (Throwable $e) {
             GameLog::error('MarketTick', 'updatePrices CRITICAL FAILURE', $e);
-            // Fallback — do not crash the tick, return the last saved price
+ // Fallback do not crash the tick, return the last saved price
             try {
                 $row = $this->db->query("SELECT current_price FROM market_state WHERE id = 1")->fetch();
                 return (int)($row['current_price'] ?? 0);
@@ -154,7 +154,7 @@ class MarketTick
         }
     }
 
-    // Private helpers
+ // Private helpers
 
     private function fetchPlayerSupplyFlow(): float
     {
@@ -162,8 +162,8 @@ class MarketTick
             return (float)$this->db->query(
                 "SELECT COALESCE(SUM(
                     w.base_production_per_hour
-                    * LEAST(1.0, GREATEST(0.0, COALESCE(w.transport_capacity_pct, 100) / 100.0))
-                    * GREATEST(0.0, LEAST(1.0, COALESCE(w.technical_condition, 100) / 100.0))
+ * LEAST(1.0, GREATEST(0.0, COALESCE(w.transport_capacity_pct, 100) / 100.0))
+ * GREATEST(0.0, LEAST(1.0, COALESCE(w.technical_condition, 100) / 100.0))
                 ), 0)
                 FROM wells w
                 JOIN players p ON p.id = w.player_id
@@ -179,9 +179,9 @@ class MarketTick
     private function adjustWorldProduction(float $current, float $price): float
     {
         if ($price > self::OPEC_BOOM_PRICE) {
-            $current *= 1.10;  // high price — pump more
+            $current *= 1.10;  // high price ï¿½ pump more
         } elseif ($price < self::OPEC_CUT_PRICE) {
-            $current *= 0.88;  // low price — cut production
+            $current *= 0.88;  // low price ï¿½ cut production
         } else {
             $current += (self::WORLD_PROD_BASE - $current) * 0.02;  // return to base
         }
@@ -207,7 +207,7 @@ class MarketTick
             ")->execute([':days' => self::LOG_KEEP_DAYS]);
 
         } catch (Throwable $e) {
-            // Log historyczny — nie krytyczny, nie crashujemy ticki
+ // Log historyczny nie krytyczny, nie crashujemy ticki
             GameLog::error('MarketTick', 'saveSupplyDemandLog FAILED', $e);
         }
     }
@@ -238,7 +238,7 @@ class MarketTick
         }
     }
 
-    //  Publiczne gettery 
+ // Publiczne gettery 
 
     public function getPriceHistory(int $hours = 24): array
     {

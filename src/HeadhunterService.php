@@ -11,12 +11,12 @@ class HeadhunterService
     public const COST_MIN = 500_000;
     public const COST_MAX = 2_000_000;
 
-    // 24-72 minutes in game time shortcut.
-    // PL: 24-72 minuty w skrocie czasu gry.
+ // 24-72 minutes in game time shortcut.
+ // PL: 24-72 minuty w skrocie czasu gry.
     public const DURATION_MIN_SEC = 24 * 60;
     public const DURATION_MAX_SEC = 72 * 60;
 
-    /** @var array<int, array<int, int>> */
+ /** @var array<int, array<int, int>> */
     private static array $skillDist = [
         [5, 6, 30],
         [7, 7, 30],
@@ -25,7 +25,7 @@ class HeadhunterService
         [10, 10, 3],
     ];
 
-    /** @var list<string> */
+ /** @var list<string> */
     private static array $companies = [
         'Shell Polska', 'BP Eastern Europe', 'Total Energies PL',
         'PGNiG Upstream', 'Lotos Exploration', 'Orlen Upstream',
@@ -45,7 +45,7 @@ class HeadhunterService
         }
     }
 
-    /** @return array<string, mixed> */
+ /** @return array<string, mixed> */
     public function startSearch(int $specializationId): array
     {
         try {
@@ -165,7 +165,7 @@ class HeadhunterService
                 $company = self::$companies[array_rand(self::$companies)];
                 $salary = (int)round(
                     rand((int)$search['base_salary_min'], (int)$search['base_salary_max'])
-                    * (0.9 + $skill * 0.02)
+ * (0.9 + $skill * 0.02)
                 );
 
                 $bonusMin = match (true) {
@@ -340,13 +340,13 @@ class HeadhunterService
         }
     }
 
-    /**
-     * @param array<string, mixed> $c
-     * @param float $salary
-     * @param float $bonus
-     * @param int $prob
-     * @return array<string, mixed>
-     */
+ /**
+ * @param array<string, mixed> $c
+ * @param float $salary
+ * @param float $bonus
+ * @param int $prob
+ * @return array<string, mixed>
+ */
     private function doHire(array $c, float $salary, float $bonus, int $prob): array
     {
         try {
@@ -444,9 +444,9 @@ class HeadhunterService
         }
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+ /**
+ * @return array<string, mixed>|null
+ */
     public function getActiveSearch(): ?array
     {
         try {
@@ -469,9 +469,9 @@ class HeadhunterService
         }
     }
 
-    /**
-     * @return array<array<string, mixed>>
-     */
+ /**
+ * @return array<array<string, mixed>>
+ */
     public function getAvailableCandidates(): array
     {
         try {
@@ -494,9 +494,9 @@ class HeadhunterService
         }
     }
 
-    /**
-     * @return array<array<string, mixed>>
-     */
+ /**
+ * @return array<array<string, mixed>>
+ */
     public function getRecentSearches(int $limit = 5): array
     {
         try {
@@ -519,9 +519,9 @@ class HeadhunterService
         }
     }
 
-    /**
-     * @return int
-     */
+ /**
+ * @return int
+ */
     private function rollCount(): int
     {
         $r = mt_rand(1, 100);
@@ -534,9 +534,9 @@ class HeadhunterService
         return 2;
     }
 
-    /**
-     * @return int
-     */
+ /**
+ * @return int
+ */
     private function rollSkill(): int
     {
         $r = mt_rand(1, 100);

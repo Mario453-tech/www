@@ -15,12 +15,12 @@
  */
 class BoardAccess
 {
-    /** Roles that require a board member to unlock a department. */
-    /** PL: Role wymagajace czlonka zarzadu do odblokowania dzialu. */
+ /** Roles that require a board member to unlock a department. */
+ /** PL: Role wymagajace czlonka zarzadu do odblokowania dzialu. */
     public const PROTECTED_ROLES = ['hr', 'technical', 'finance', 'legal', 'logistics'];
 
-    /** Navigation url_key to board role_code map. */
-    /** PL: Mapowanie url_key nawigacji na role_code board_members. */
+ /** Navigation url_key to board role_code map. */
+ /** PL: Mapowanie url_key nawigacji na role_code board_members. */
     public const NAV_ROLE_MAP = [
         'hr' => 'hr',
         'technical' => 'technical',
@@ -37,14 +37,14 @@ class BoardAccess
         'logistics' => 'board_access.role_logistics',
     ];
 
-    /** Per-request cache keyed by player id. */
-    /** PL: Cache na czas requestu indeksowany po player id. */
+ /** Per-request cache keyed by player id. */
+ /** PL: Cache na czas requestu indeksowany po player id. */
     private static array $cache = [];
 
-    /**
-     * Returns a role availability map for a player.
-     * PL: Zwraca mape dostepnosci rol dla gracza.
-     */
+ /**
+ * Returns a role availability map for a player.
+ * PL: Zwraca mape dostepnosci rol dla gracza.
+ */
     public static function get(int $playerId): array
     {
         if (isset(self::$cache[$playerId])) {
@@ -58,8 +58,8 @@ class BoardAccess
             try {
                 Database::addColumnIfMissing('board_members', 'member_type', "ENUM('director','staff') NOT NULL DEFAULT 'director' AFTER player_id");
             } catch (Throwable $e) {
-                // Best-effort guard for legacy schemas.
-                // PL: Zabezpieczenie best-effort dla starych schematow.
+ // Best-effort guard for legacy schemas.
+ // PL: Zabezpieczenie best-effort dla starych schematow.
             }
 
             $stmt = $db->prepare("
@@ -78,14 +78,14 @@ class BoardAccess
                 }
             }
         } catch (Throwable $e) {
-            // Quiet degradation - do not block the page on DB failure.
-            // PL: Cicha degradacja - nie blokuj strony przy bledzie DB.
+ // Quiet degradation - do not block the page on DB failure.
+ // PL: Cicha degradacja - nie blokuj strony przy bledzie DB.
             if (class_exists('GameLog', false)) {
                 GameLog::error('BoardAccess', 'get FAILED', $e, ['player_id' => $playerId]);
             }
 
-            // Fail-open to avoid blocking gameplay completely.
-            // PL: Fail-open, aby nie blokowac rozgrywki calkowicie.
+ // Fail-open to avoid blocking gameplay completely.
+ // PL: Fail-open, aby nie blokowac rozgrywki calkowicie.
             return array_fill_keys(self::PROTECTED_ROLES, true);
         }
 
@@ -93,19 +93,19 @@ class BoardAccess
         return $result;
     }
 
-    /**
-     * Checks whether a specific role is currently staffed.
-     * PL: Sprawdza, czy konkretna rola jest obecnie obsadzona.
-     */
+ /**
+ * Checks whether a specific role is currently staffed.
+ * PL: Sprawdza, czy konkretna rola jest obecnie obsadzona.
+ */
     public static function has(int $playerId, string $role): bool
     {
         return self::get($playerId)[$role] ?? false;
     }
 
-    /**
-     * Requires a staffed role and redirects if it is missing.
-     * PL: Wymaga obsadzonej roli i przekierowuje, jesli jej brakuje.
-     */
+ /**
+ * Requires a staffed role and redirects if it is missing.
+ * PL: Wymaga obsadzonej roli i przekierowuje, jesli jej brakuje.
+ */
     public static function require(int $playerId, string $role): void
     {
         if (self::has($playerId, $role)) {
@@ -120,14 +120,14 @@ class BoardAccess
         exit;
     }
 
-    /**
-     * Filters navigation items by unlocked board roles.
-     * PL: Filtruje elementy nawigacji po odblokowanych rolach zarzadu.
-     *
-     * @param array $navItems Rows from nav_items table.
-     * @param int $playerId Player id.
-     * @return array
-     */
+ /**
+ * Filters navigation items by unlocked board roles.
+ * PL: Filtruje elementy nawigacji po odblokowanych rolach zarzadu.
+ *
+ * @param array $navItems Rows from nav_items table.
+ * @param int $playerId Player id.
+ * @return array
+ */
     public static function filterNav(array $navItems, int $playerId): array
     {
         $access = self::get($playerId);
@@ -141,8 +141,8 @@ class BoardAccess
                 return $access[$role] ?? false;
             }
 
-            // Items without a protected role stay visible.
-            // PL: Pozycje bez chronionej roli pozostaja widoczne.
+ // Items without a protected role stay visible.
+ // PL: Pozycje bez chronionej roli pozostaja widoczne.
             return true;
         });
     }

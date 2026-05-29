@@ -135,8 +135,8 @@ function techTaskConfirm(form) {
 
     const btn = form.querySelector('button[type="submit"]');
 
-    // Disable submit button to prevent double-submit on free tasks.
-    // Blokada przycisku po kliknieciu - zapobiega wielokrotnemu wyslaniu.
+ // Disable submit button to prevent double-submit on free tasks.
+ // Blokada przycisku po kliknieciu - zapobiega wielokrotnemu wyslaniu.
     if (costMin <= 0) {
         if (btn) { btn.disabled = true; btn.textContent = '...'; }
         return true;

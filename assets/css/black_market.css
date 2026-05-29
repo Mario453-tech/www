@@ -1,8 +1,8 @@
 /* 
-   CZARNY RYNEK ROPY — style
-    */
+   CZARNY RYNEK ROPY ï¿½ style
+ */
 
-/*  Subtitle  */
+/* Subtitle */
 .bm-subtitle {
     color: var(--text2);
     font-size: .9rem;
@@ -10,7 +10,7 @@
     line-height: 1.55;
 }
 
-/*  Detection notice  */
+/* Detection notice */
 .bm-detection-notice {
     display: flex;
     align-items: flex-start;
@@ -26,7 +26,7 @@
     line-height: 1.5;
 }
 
-/*  Section heading  */
+/* Section heading */
 .bm-section-heading {
     display: flex;
     align-items: center;
@@ -41,7 +41,7 @@
     border-bottom: 1px solid var(--border2);
 }
 
-/*  Oferty gracza — grid 7 kolumn  */
+/* Oferty gracza grid 7 kolumn */
 .bm-offers-grid {
     font-size: .88rem;
     background: rgba(255, 255, 255, .015);
@@ -83,7 +83,7 @@
     background: rgba(200, 168, 75, .04);
 }
 
-/*  Historia gracza — grid 5 kolumn  */
+/* Historia gracza grid 5 kolumn */
 .bm-history-grid {
     font-size: .88rem;
     background: rgba(255, 255, 255, .015);
@@ -125,7 +125,7 @@
 .bm-row-detected           { background: rgba(224, 85, 85, .06);  }
 .bm-row-detected:hover     { background: rgba(224, 85, 85, .10);  }
 
-/*  Lista graczy — admin (10 kol.)  */
+/* Lista graczy admin (10 kol.) */
 .bm-list {
     font-size: .88rem;
     background: rgba(255, 255, 255, .015);
@@ -162,7 +162,7 @@
 .bm-list-row:last-child { border-bottom: none; }
 .bm-list-row:hover      { background: rgba(200, 168, 75, .04); }
 
-/*  Lista transakcji — admin (9 kol.)  */
+/* Lista transakcji admin (9 kol.) */
 .bm-tx-head,
 .bm-tx-row {
     display: grid;
@@ -193,7 +193,7 @@
 .bm-tx-row--detected         { background: rgba(224, 85, 85, .06);  }
 .bm-tx-row--detected:hover   { background: rgba(224, 85, 85, .10);  }
 
-/*  Empty state  */
+/* Empty state */
 .bm-empty {
     display: flex;
     flex-direction: column;
@@ -206,7 +206,7 @@
     font-style: italic;
 }
 
-/*  Przycisk sprzeda¿y  */
+/* Przycisk sprzeday */
 .bm-sell-btn {
     padding: .35rem .85rem;
     font-size: .82rem;
@@ -214,7 +214,7 @@
     border-radius: 6px;
 }
 
-/*  Ryzyko — badge  */
+/* Ryzyko badge */
 .bm-risk-low  {
     display: inline-block;
     padding: .15rem .55rem;
@@ -248,7 +248,7 @@
     border: 1px solid rgba(224, 85, 85, .25);
 }
 
-/*  Status historia  */
+/* Status historia */
 .bm-status-ok {
     display: inline-block;
     padding: .15rem .55rem;
@@ -271,45 +271,45 @@
     border: 1px solid rgba(224, 85, 85, .25);
 }
 
-/*  Kara  */
+/* Kara */
 .bm-penalty { color: var(--red); font-weight: 600; }
 
-/*  Meta (username + company)  */
+/* Meta (username + company) */
 .bm-player-company {
     font-size: .78rem;
     color: var(--text3);
 }
 
-/*  Data  */
+/* Data */
 .bm-cell-date {
     font-size: .82rem;
     color: var(--text3);
 }
 
-/*  Buyer  */
+/* Buyer */
 .bm-buyer {
     font-style: italic;
     color: var(--text2);
 }
 
-/*  Expires  */
+/* Expires */
 .bm-expires {
     color: var(--text3);
     font-size: .85rem;
 }
 
-/*  Credit delta  */
+/* Credit delta */
 .bm-cell-credit--neg { color: var(--red); }
 .bm-cell-credit--neu { color: var(--text3); }
 
-/*  Inline form w liœcie  */
+/* Inline form w licie */
 .bm-score-form {
     display: inline-flex;
     gap: 4px;
     align-items: center;
 }
 
-/*  Config grid  */
+/* Config grid */
 .config-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -342,7 +342,7 @@
 
 .config-submit { margin-top: 1.25rem; }
 
-/*  Filter note  */
+/* Filter note */
 .bm-filter-note {
     font-size: .8rem;
     color: var(--text2);
@@ -353,7 +353,7 @@
     margin-left: .5rem;
 }
 
-/*  Admin input / btn  */
+/* Admin input / btn */
 .bm-admin-score-input {
     width: 70px;
     padding: .3rem .5rem;
@@ -370,7 +370,7 @@
     font-size: .78rem;
 }
 
-/*  Toast  */
+/* Toast */
 .bm-toast {
     position: fixed;
     bottom: 2rem;
@@ -391,23 +391,23 @@
 .bm-toast-error   { background: var(--red);   color: #fff; }
 
 /* 
-   RESPONSYWNOŒÆ
-    */
+   RESPONSYWNOï¿½ï¿½
+ */
 
 @media (max-width: 900px) {
-    /* Lista graczy (10 kol.) */
+ /* Lista graczy (10 kol.) */
     .bm-list { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .bm-list-head, .bm-list-row { min-width: 780px; }
 
-    /* Lista transakcji (9 kol.) */
+ /* Lista transakcji (9 kol.) */
     .bm-tx-list { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .bm-tx-head, .bm-tx-row { min-width: 700px; }
 
-    /* Oferty gracza (7 kol.) */
+ /* Oferty gracza (7 kol.) */
     .bm-offers-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .bm-offer-head, .bm-offer-row { min-width: 580px; }
 
-    /* Historia gracza (5 kol.) */
+ /* Historia gracza (5 kol.) */
     .bm-history-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .bm-history-head, .bm-history-row { min-width: 480px; }
 }

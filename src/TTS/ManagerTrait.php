@@ -6,8 +6,8 @@
  */
 trait TTSManagerTrait
 {
-    // Technical manager.
-    // Kierownik techniczny.
+ // Technical manager.
+ // Kierownik techniczny.
 
     public function getManager(): ?array
     {
@@ -44,15 +44,15 @@ trait TTSManagerTrait
         ];
     }
 
-    // HSE bonus.
-    // Bonus BHP.
+ // HSE bonus.
+ // Bonus BHP.
 
-    /**
-     * Calculate the active HSE bonus for the player.
-     * Oblicza aktywny bonus BHP dla gracza.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Calculate the active HSE bonus for the player.
+ * Oblicza aktywny bonus BHP dla gracza.
+ *
+ * @return array<string, mixed>
+ */
     public function getHSEBonus(): array
     {
         GameLog::step('TTS', 'getHSEBonus', 1, "player={$this->playerId}");
@@ -81,8 +81,8 @@ trait TTSManagerTrait
         ];
 
         try {
-            // Layer 1: HSE staff coverage.
-            // Warstwa 1: pokrycie personelem BHP.
+ // Layer 1: HSE staff coverage.
+ // Warstwa 1: pokrycie personelem BHP.
             $wellCountStmt = $this->db->prepare("
                 SELECT COUNT(*) FROM wells
                 WHERE player_id = ?
@@ -198,8 +198,8 @@ trait TTSManagerTrait
                 $base['uptime_bonus'] = round($skillFactor * 0.04, 4);
                 $base['degrade_mult'] = round(1.0 - $skillFactor * 0.30, 3);
 
-                // Layer 2: recent safety audit.
-                // Warstwa 2: swiezy audyt bezpieczenstwa.
+ // Layer 2: recent safety audit.
+ // Warstwa 2: swiezy audyt bezpieczenstwa.
                 if ($hasBothHSE) {
                     $auditStmt = $this->db->prepare("
                         SELECT id FROM technical_tasks
@@ -220,8 +220,8 @@ trait TTSManagerTrait
                 }
             }
 
-            // Layer 3: HSE procedures.
-            // Warstwa 3: procedury BHP.
+ // Layer 3: HSE procedures.
+ // Warstwa 3: procedury BHP.
             $playerStmt = $this->db->prepare("
                 SELECT safety_procedures_level, procedure_integrity
                 FROM players WHERE id = ?
@@ -245,8 +245,8 @@ trait TTSManagerTrait
                 }
             }
 
-            // Clamp values into safe ranges.
-            // Ogranicz wartosci do bezpiecznych zakresow.
+ // Clamp values into safe ranges.
+ // Ogranicz wartosci do bezpiecznych zakresow.
             $base['failure_reduction'] = max(0.10, $base['failure_reduction']);
             $base['catastrophe_mult'] = max(0.03, $base['catastrophe_mult']);
             $base['degrade_mult'] = max(0.50, $base['degrade_mult']);

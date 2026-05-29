@@ -400,7 +400,7 @@ window.WG_LANG = <?= json_encode([
     'pipe_type_standard'           => t('well_grid.pipe_type_standard'),
     'pipe_type_heavy'              => t('well_grid.pipe_type_heavy'),
     'pipe_hours_label'             => t('well_grid.pipe_hours_label'),
-    // Second transport leg (hub -> storage) / Odcinek 2 (hub -> magazyn)
+ // Second transport leg (hub -> storage) / Odcinek 2 (hub -> magazyn)
     'leg2_title'                   => t('well_grid.leg2_title'),
     'leg2_btn_pipeline'            => t('well_grid.leg2_btn_pipeline'),
     'leg2_btn_road'                => t('well_grid.leg2_btn_road'),

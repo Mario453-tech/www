@@ -1,8 +1,8 @@
 <?php
 
 /**
- * OfflineSection — detekcja offline gracza, freeze mode, zapis offline_reports.
- * OfflineSection — player offline detection, freeze mode, offline_reports persistence.
+ * OfflineSection detekcja offline gracza, freeze mode, zapis offline_reports.
+ * OfflineSection player offline detection, freeze mode, offline_reports persistence.
  */
 class OfflineSection
 {
@@ -21,14 +21,14 @@ class OfflineSection
         $this->now = $now;
     }
 
-    /**
-     * Przetwarza stan offline dla jednego gracza.
-     * Returns false jesli gracz jest w freeze mode i tick powinien zostac pominiety.
-     *
-     * Processes offline state for one player.
-     * Returns false if player is in freeze mode and tick should be skipped.
-     */
-    /** @param array<string, mixed> $playerData */
+ /**
+ * Przetwarza stan offline dla jednego gracza.
+ * Returns false jesli gracz jest w freeze mode i tick powinien zostac pominiety.
+ *
+ * Processes offline state for one player.
+ * Returns false if player is in freeze mode and tick should be skipped.
+ */
+ /** @param array<string, mixed> $playerData */
     public function process(int $playerId, array $playerData, float $playerCash): bool
     {
         $offlineThresholdMin   = 30;
@@ -54,7 +54,7 @@ class OfflineSection
         $this->offlineRiskMult         = $this->offlineProtectionActive ? 0.50 : 1.0;
         $this->freezeMode              = $this->offlineProtectionActive && ($playerCash <= 0);
 
-        // Ustaw offline_mode = 1 gdy gracz wlasnie przeszedl w tryb offline / Set offline_mode = 1 when player just went offline
+ // Ustaw offline_mode = 1 gdy gracz wlasnie przeszedl w tryb offline / Set offline_mode = 1 when player just went offline
         if ($this->isOffline && !$wasOfflineMode) {
             try {
                 $this->db->prepare("UPDATE players SET offline_mode=1, offline_since=? WHERE id=?")
@@ -64,7 +64,7 @@ class OfflineSection
             }
         }
 
-        // Gracz wrocil online — zapisz raport offline / Player came back online — save offline report
+ // Gracz wrocil online zapisz raport offline / Player came back online save offline report
         if (!$this->isOffline && $wasOfflineMode) {
             $offlineFromTs      = $offlineSince ? strtotime($offlineSince) : ($this->now->getTimestamp() - 1800);
             $offlineReportHours = round(($this->now->getTimestamp() - $offlineFromTs) / 3600, 2);
@@ -98,7 +98,7 @@ class OfflineSection
         }
 
         if ($this->freezeMode) {
-            GameLog::info('tick', 'FREEZE MODE — player offline, cash=0, tick skipped', [
+            GameLog::info('tick', 'FREEZE MODE ï¿½ player offline, cash=0, tick skipped', [
                 'player_id' => $playerId,
                 'cash'      => $playerCash,
             ]);

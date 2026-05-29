@@ -1,19 +1,19 @@
-﻿<?php
+<?php
 
 /**
- * PlayersSection � fasada sekcji 5 ticka (v2, pelny podzial na podsekecje).
- * PlayersSection � tick section 5 facade (v2, fully split into subsections).
+ * PlayersSection fasada sekcji 5 ticka (v2, pelny podzial na podsekecje).
+ * PlayersSection tick section 5 facade (v2, fully split into subsections).
 *
  * Deleguje logike do: / Delegates logic to:
- *   OfflineSection        � detekcja offline + freeze mode / offline detection + freeze mode
- *   WellLoopSection       � petla odwiertow, produkcja, OPEX, transport / well loop, production, OPEX, transport
- *   PipelineSection       � degradacja + eksplozje rurociagow / degradation + pipeline explosions
- *   SpillSection          � skazenie powierzchniowe (overflow magazynu) / surface contamination (storage overflow)
- *   FinancialStateSection � crisis detection + zapis last_tick_at / crisis detection + last_tick_at save
+ * OfflineSection detekcja offline + freeze mode / offline detection + freeze mode
+ * WellLoopSection petla odwiertow, produkcja, OPEX, transport / well loop, production, OPEX, transport
+ * PipelineSection degradacja + eksplozje rurociagow / degradation + pipeline explosions
+ * SpillSection skazenie powierzchniowe (overflow magazynu) / surface contamination (storage overflow)
+ * FinancialStateSection crisis detection + zapis last_tick_at / crisis detection + last_tick_at save
  */
 class PlayersSection
 {
-    //  Liczniki statystyk (eksponowane do TickStatsRepository) / Stat counters (exposed to TickStatsRepository)
+ // Liczniki statystyk (eksponowane do TickStatsRepository) / Stat counters (exposed to TickStatsRepository)
     public int   $playersProcessed   = 0;
     public int   $wellsActive        = 0;
     public float $totalBbl           = 0.0;
@@ -25,10 +25,10 @@ class PlayersSection
     private PDO      $db;
     private DateTime $now;
     private float    $oilPrice;
-    /** @var array<string, mixed> */
+ /** @var array<string, mixed> */
     private array    $gBalanceMults;
 
-    /** @param array<string, mixed> $gBalanceMults */
+ /** @param array<string, mixed> $gBalanceMults */
     public function __construct(PDO $db, DateTime $now, float $oilPrice, array $gBalanceMults)
     {
         $this->db            = $db;
@@ -64,8 +64,8 @@ class PlayersSection
                 $this->processPlayer($playerData);
             } catch (Throwable $e) {
                 GameLog::error('tick', 'player loop FAILED', $e, ['player_id' => $playerData['id'] ?? null]);
-                // Rollback wiszacej transakcji zeby nastepny gracz mogl zaczac.
-                // Roll back any dangling transaction so the next player can begin one.
+ // Rollback wiszacej transakcji zeby nastepny gracz mogl zaczac.
+ // Roll back any dangling transaction so the next player can begin one.
                 if ($this->db->inTransaction()) {
                     try { $this->db->rollBack(); } catch (Throwable $re) {}
                 }
@@ -73,20 +73,20 @@ class PlayersSection
         }
     }
 
-    /** @param array<string, mixed> $playerData */
+ /** @param array<string, mixed> $playerData */
     private function processPlayer(array $playerData): void
     {
         $db       = $this->db;
         $now      = $this->now;
         $playerId = (int)$playerData['id'];
 
-        // No outer per-player transaction.
-        // MySQL 8.x implicitly commits on nested BEGIN (e.g. TechnicalTeamService::startTask
-        // called inside processTick), which caused "There is no active transaction" on commit.
-        // Subsections manage their own short-lived transactions for atomic writes.
-        // Brak zewnetrznej transakcji: MySQL 8.x robi implicit commit przy zagniezdzonej BEGIN.
+ // No outer per-player transaction.
+ // MySQL 8.x implicitly commits on nested BEGIN (e.g. TechnicalTeamService::startTask
+ // called inside processTick), which caused "There is no active transaction" on commit.
+ // Subsections manage their own short-lived transactions for atomic writes.
+ // Brak zewnetrznej transakcji: MySQL 8.x robi implicit commit przy zagniezdzonej BEGIN.
 
-        //  Delta czasu / Time delta
+ // Delta czasu / Time delta
         $lastTick     = new DateTime($playerData['last_tick_at']);
         $deltaSeconds = $now->getTimestamp() - $lastTick->getTimestamp();
         if ($deltaSeconds <= 0) {
@@ -95,7 +95,7 @@ class PlayersSection
         if ($deltaSeconds > 86400) $deltaSeconds = 86400;
         $deltaHours = $deltaSeconds / 3600;
 
-        //  Odwierty i magazyn / Wells and storage
+ // Odwierty i magazyn / Wells and storage
         $wellsStmt = $db->prepare("
             SELECT w.*,
                    GROUP_CONCAT(wu.upgrade_type) AS installed_upgrades,
@@ -128,13 +128,13 @@ class PlayersSection
         $storageCapacity = (float)$storage['capacity'];
         $currentStorage  = (float)$storage['used'];
 
-        //  1. OFFLINE 
+ // 1. OFFLINE 
         $offline = new OfflineSection($db, $now);
         if (!$offline->process($playerId, $playerData, $playerCash)) {
             return; // freeze mode � skip tick
         }
 
-        //  BHP + zdarzenia regionalne / HSE + regional events
+ // BHP + zdarzenia regionalne / HSE + regional events
         $hseBonus   = [];
         $staffCheck = ['meets_minimum' => true, 'missing' => [], 'missing_labels' => []];
         $tsvc       = null;
@@ -163,7 +163,7 @@ class PlayersSection
             GameLog::error('tick', 'RegionalEventService FAILED', $e, ['player_id' => $playerId]);
         }
 
-        //  2. PETLA ODWIERTOW / Well loop
+ // 2. PETLA ODWIERTOW / Well loop
         $wellService = new WellService();
         $wellLoop    = new WellLoopSection($db, $now, $this->oilPrice, $this->gBalanceMults, $wellService);
         $wellLoop->run(
@@ -173,19 +173,19 @@ class PlayersSection
             $tsvc, $regionalSvc, $activeRegEvents
         );
 
-        // Synchronizuj stan po pEtli odwiertow / Sync state after the well loop
+ // Synchronizuj stan po pEtli odwiertow / Sync state after the well loop
         $playerCash     = $wellLoop->playerCash;
         $currentStorage = $wellLoop->currentStorage;
         $this->disastersTriggered += $wellLoop->disastersTriggered;
         $this->incidentsTriggered += $wellLoop->incidentsTriggered;
 
-        //  3. RUROCIAGI / Pipelines
+ // 3. RUROCIAGI / Pipelines
         $pipelines = new PipelineSection($db, $now, $wellService);
         $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc);
         $playerCash               -= abs($pipelines->cashDelta);
         $this->disastersTriggered += $pipelines->disastersTriggered;
 
-        //  3b. DOSTAWY MORSKIE � aktualizacja statusow rejsow / Marine deliveries � voyage status updates
+ // 3b. DOSTAWY MORSKIE aktualizacja statusow rejsow / Marine deliveries voyage status updates
         if (class_exists('MarineDeliverySection')) {
             try {
                 $marineSec = new MarineDeliverySection($db, $now);
@@ -195,10 +195,10 @@ class PlayersSection
             }
         }
 
-        // Second-leg service (hub -> storage), shared by the time-based delivery sections.
+ // Second-leg service (hub -> storage), shared by the time-based delivery sections.
         $outboundSvc = new OutboundLegService(TransportConfigService::load($db));
 
-        //  3c. KURSY DROGOWE  ukonczone dostawy ciezarowkami (P1.2) / Road trips  completed truck deliveries (P1.2)
+ // 3c. KURSY DROGOWE ukonczone dostawy ciezarowkami (P1.2) / Road trips completed truck deliveries (P1.2)
         if (class_exists('WellRoadTripSection') && class_exists('RoadTransportService')) {
             try {
                 $roadSvc        = new RoadTransportService($db);
@@ -214,7 +214,7 @@ class PlayersSection
                     $wellLoop->finLossBbl            += $roadTripSec->lostBbl;
                     $wellLoop->finLossValue          += round($roadTripSec->lostBbl * $this->oilPrice, 2);
                 }
-                // Second transport leg (hub -> storage) on the oil just delivered by road.
+ // Second transport leg (hub -> storage) on the oil just delivered by road.
                 $currentStorage = $this->applyOutboundLeg(
                     $roadTripSec->deliveredByWell, $wellLoop, $outboundSvc,
                     $currentStorage, $playerCash, $deltaHours, $hseBonus
@@ -224,12 +224,12 @@ class PlayersSection
             }
         }
 
-        //  3d. PORT � przetwarzanie kolejki, kredytowanie magazynu / Port � queue processing, storage credit
+ // 3d. PORT przetwarzanie kolejki, kredytowanie magazynu / Port queue processing, storage credit
         if (class_exists('PortSection')) {
             try {
                 $portSec        = new PortSection($db, $now);
                 $currentStorage = $portSec->process($playerId, $currentStorage, $storageCapacity, $this->oilPrice);
-                // Dolacz wyniki portowe do sum finansowych / Add port results to financial sums
+ // Dolacz wyniki portowe do sum finansowych / Add port results to financial sums
                 if ($portSec->deliveredBbl > 0.0) {
                     $wellLoop->finBbl       += $portSec->deliveredBbl;
                     $wellLoop->deliveredBbl += $portSec->deliveredBbl;
@@ -239,7 +239,7 @@ class PlayersSection
                     $wellLoop->finTransport += $portSec->handlingCost;
                     $playerCash              = max(0.0, $playerCash - $portSec->handlingCost);
                 }
-                // Second transport leg (hub -> storage) on the oil just delivered by sea.
+ // Second transport leg (hub -> storage) on the oil just delivered by sea.
                 $currentStorage = $this->applyOutboundLeg(
                     $portSec->deliveredByWell, $wellLoop, $outboundSvc,
                     $currentStorage, $playerCash, $deltaHours, $hseBonus
@@ -249,18 +249,18 @@ class PlayersSection
             }
         }
 
-        //  4. SKAZENIE POWIERZCHNIOWE / Surface spill
+ // 4. SKAZENIE POWIERZCHNIOWE / Surface spill
         $finSvc = new FinanceService();
         $spill  = new SpillSection($db, $wellService);
         $currentStorage            = $spill->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $tsvc);
         $playerCash               -= abs($spill->cashDelta);
         $this->disastersTriggered += $spill->disastersTriggered;
 
-        // Zapis magazynu / Save storage
+ // Zapis magazynu / Save storage
         $db->prepare("UPDATE storage SET used = :used, updated_at = NOW() WHERE player_id = :pid")
            ->execute([':used' => $currentStorage, ':pid' => $playerId]);
 
-        // Zapis finansowy / Financial save
+ // Zapis finansowy / Financial save
         try {
             $finSvc->saveTick(
                 $playerId,
@@ -295,7 +295,7 @@ class PlayersSection
             GameLog::error('tick', 'FinanceService::saveTick FAILED', $e, ['player_id' => $playerId]);
         }
 
-        //  5. STAN FINANSOWY + ZAPIS / Financial state + save
+ // 5. STAN FINANSOWY + ZAPIS / Financial state + save
         $finState = new FinancialStateSection($db, $now);
         $finState->process(
             $playerId, $playerData, $playerCash,
@@ -304,7 +304,7 @@ class PlayersSection
         );
         $finState->saveCashAndTick($playerId, $playerCash);
 
-        //  Aktualizuj liczniki globalne / Update global counters
+ // Aktualizuj liczniki globalne / Update global counters
         $this->playersProcessed++;
         $this->wellsActive  += $wellLoop->finWellsActive;
         $this->totalBbl     += $wellLoop->finBbl;
@@ -313,15 +313,15 @@ class PlayersSection
 
     }
 
-    /**
-     * Applies the second transport leg (hub -> storage) to oil delivered this tick by a
-     * time-based path (road trips / marine). Mirrors WellHubSection's synchronous handling,
-     * reducing storage by leg-2 losses and charging leg-2 cost, while folding the result
-     * into the shared finance accumulators.
-     *
-     * @param array<int, float>     $deliveredByWell well_id => credited bbl
-     * @param array<string, mixed>  $hseBonus
-     */
+ /**
+ * Applies the second transport leg (hub -> storage) to oil delivered this tick by a
+ * time-based path (road trips / marine). Mirrors WellHubSection's synchronous handling,
+ * reducing storage by leg-2 losses and charging leg-2 cost, while folding the result
+ * into the shared finance accumulators.
+ *
+ * @param array<int, float> $deliveredByWell well_id => credited bbl
+ * @param array<string, mixed> $hseBonus
+ */
     private function applyOutboundLeg(
         array              $deliveredByWell,
         WellLoopSection    $wellLoop,

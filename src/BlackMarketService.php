@@ -17,12 +17,12 @@ class BlackMarketService
         $this->db = $db ?? Database::getInstance()->getConnection();
     }
 
-    // Config helpers.
-    // PL: Helpery konfiguracji.
-    /**
-     * Reads config value from well_config with fallback.
-     * PL: Pobiera wartosc konfiguracji z well_config z fallbackiem.
-     */
+ // Config helpers.
+ // PL: Helpery konfiguracji.
+ /**
+ * Reads config value from well_config with fallback.
+ * PL: Pobiera wartosc konfiguracji z well_config z fallbackiem.
+ */
     private function cfg(string $key, float $default): float
     {
         static $cache = [];
@@ -40,15 +40,15 @@ class BlackMarketService
         return $cache[$key];
     }
 
-    // Offer generation.
-    // PL: Generowanie ofert.
-    /**
-     * Generates random black market offers for the player.
-     * PL: Generuje losowe oferty czarnego rynku dla gracza.
-     *
-     * Triggered every N ticks from tick.php.
-     * PL: Wywolywane co N tickow z tick.php.
-     */
+ // Offer generation.
+ // PL: Generowanie ofert.
+ /**
+ * Generates random black market offers for the player.
+ * PL: Generuje losowe oferty czarnego rynku dla gracza.
+ *
+ * Triggered every N ticks from tick.php.
+ * PL: Wywolywane co N tickow z tick.php.
+ */
     public function generateOffers(int $playerId, float $oilPrice): int
     {
         $minBbl = (int)$this->cfg('bm_min_bbl', 50);
@@ -60,12 +60,12 @@ class BlackMarketService
         $ttlMin = (int)$this->cfg('bm_offer_ttl_ticks_min', 6);
         $ttlMax = (int)$this->cfg('bm_offer_ttl_ticks_max', 18);
 
-        // Offers can exist even if the player currently lacks enough oil.
-        // PL: Oferty moga istniec nawet gdy gracz chwilowo nie ma dosc ropy.
+ // Offers can exist even if the player currently lacks enough oil.
+ // PL: Oferty moga istniec nawet gdy gracz chwilowo nie ma dosc ropy.
         $scaledMax = $maxBbl;
 
-        // Random number of offers: 1-3.
-        // PL: Losowa liczba ofert: 1-3.
+ // Random number of offers: 1-3.
+ // PL: Losowa liczba ofert: 1-3.
         $count = random_int(1, 3);
         $generated = 0;
 
@@ -95,10 +95,10 @@ class BlackMarketService
         return $generated;
     }
 
-    /**
-     * Returns active player offers.
-     * PL: Zwraca aktywne oferty gracza.
-     */
+ /**
+ * Returns active player offers.
+ * PL: Zwraca aktywne oferty gracza.
+ */
     public function getActiveOffers(int $playerId): array
     {
         $stmt = $this->db->prepare("
@@ -111,10 +111,10 @@ class BlackMarketService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Expires old offers.
-     * PL: Wygasza przeterminowane oferty.
-     */
+ /**
+ * Expires old offers.
+ * PL: Wygasza przeterminowane oferty.
+ */
     public function expireOffers(): int
     {
         $stmt = $this->db->prepare("
@@ -126,14 +126,14 @@ class BlackMarketService
         return $stmt->rowCount();
     }
 
-    // Transaction execution.
-    // PL: Realizacja transakcji.
-    /**
-     * Executes a black market transaction.
-     * PL: Realizuje transakcje na czarnym rynku.
-     *
-     * @return array{success: bool, detected: bool, revenue: float, penalty: float, black_score: float, credit_change: int, message: string}
-     */
+ // Transaction execution.
+ // PL: Realizacja transakcji.
+ /**
+ * Executes a black market transaction.
+ * PL: Realizuje transakcje na czarnym rynku.
+ *
+ * @return array{success: bool, detected: bool, revenue: float, penalty: float, black_score: float, credit_change: int, message: string}
+ */
     public function executeTransaction(int $playerId, int $offerId): array
     {
         $this->db->beginTransaction();
@@ -171,8 +171,8 @@ class BlackMarketService
             $blackScore = (float)$player['black_market_score'];
             $cash = (float)$player['cash'];
 
-            // Effective risk = base risk + black score contribution.
-            // PL: Ryzyko efektywne = ryzyko bazowe + wklad black score.
+ // Effective risk = base risk + black score contribution.
+ // PL: Ryzyko efektywne = ryzyko bazowe + wklad black score.
             $effectiveRisk = (float)$offer['base_risk_pct'] + ($blackScore * 0.5);
             $effectiveRisk = min($effectiveRisk, 95.0);
 
@@ -199,8 +199,8 @@ class BlackMarketService
                 $penaltyPct = $this->getPenaltyPercent($newScore);
                 $penalty = round($cashAfterSale * ($penaltyPct / 100), 2);
 
-                // Do not take more cash than the player has after the sale.
-                // PL: Nie zabieraj wiecej niz gracz ma po transakcji.
+ // Do not take more cash than the player has after the sale.
+ // PL: Nie zabieraj wiecej niz gracz ma po transakcji.
                 $penalty = min($penalty, $cashAfterSale);
 
                 $creditChange = -random_int(3, max(3, min(10, (int)ceil($newScore / 10))));
@@ -277,12 +277,12 @@ class BlackMarketService
         }
     }
 
-    // Score decay.
-    // PL: Decay score.
-    /**
-     * Reduces black_market_score for all players.
-     * PL: Redukuje black_market_score wszystkim graczom.
-     */
+ // Score decay.
+ // PL: Decay score.
+ /**
+ * Reduces black_market_score for all players.
+ * PL: Redukuje black_market_score wszystkim graczom.
+ */
     public function decayScores(): void
     {
         $decay = $this->cfg('bm_score_decay_per_tick', 0.5);
@@ -297,12 +297,12 @@ class BlackMarketService
         ")->execute([':decay' => $decay]);
     }
 
-    // Credit score recovery.
-    // PL: Odbudowa credit score.
-    /**
-     * Improves player credit score after legal trade.
-     * PL: Poprawia credit score gracza po legalnej transakcji.
-     */
+ // Credit score recovery.
+ // PL: Odbudowa credit score.
+ /**
+ * Improves player credit score after legal trade.
+ * PL: Poprawia credit score gracza po legalnej transakcji.
+ */
     public function applyLegalRecovery(int $playerId): void
     {
         $rate = $this->cfg('credit_score_legal_recovery_rate', 0.1);
@@ -317,12 +317,12 @@ class BlackMarketService
         ")->execute([':rate' => $rate, ':pid' => $playerId]);
     }
 
-    // History helpers.
-    // PL: Helpery historii.
-    /**
-     * Returns recent player transactions.
-     * PL: Zwraca ostatnie transakcje gracza.
-     */
+ // History helpers.
+ // PL: Helpery historii.
+ /**
+ * Returns recent player transactions.
+ * PL: Zwraca ostatnie transakcje gracza.
+ */
     public function getTransactions(int $playerId, int $limit = 20): array
     {
         $stmt = $this->db->prepare("
@@ -339,10 +339,10 @@ class BlackMarketService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Returns player black market stats.
-     * PL: Zwraca statystyki czarnego rynku gracza.
-     */
+ /**
+ * Returns player black market stats.
+ * PL: Zwraca statystyki czarnego rynku gracza.
+ */
     public function getPlayerStats(int $playerId): array
     {
         $stmt = $this->db->prepare("
@@ -365,12 +365,12 @@ class BlackMarketService
         ];
     }
 
-    // Admin helpers.
-    // PL: Helpery admina.
-    /**
-     * Returns all transactions for admin view.
-     * PL: Zwraca wszystkie transakcje do widoku admina.
-     */
+ // Admin helpers.
+ // PL: Helpery admina.
+ /**
+ * Returns all transactions for admin view.
+ * PL: Zwraca wszystkie transakcje do widoku admina.
+ */
     public function getAllTransactions(int $limit = 100, int $offset = 0, ?int $filterPlayerId = null): array
     {
         $where = $filterPlayerId ? "WHERE t.player_id = :fpid" : "";
@@ -392,10 +392,10 @@ class BlackMarketService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Returns black-market score and stats for each player.
-     * PL: Zwraca black market score i statystyki dla kazdego gracza.
-     */
+ /**
+ * Returns black-market score and stats for each player.
+ * PL: Zwraca black market score i statystyki dla kazdego gracza.
+ */
     public function getPlayersBlackMarketData(): array
     {
         $stmt = $this->db->query("
@@ -419,10 +419,10 @@ class BlackMarketService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Sets player black-market score from admin panel.
-     * PL: Ustawia black market score gracza z panelu admina.
-     */
+ /**
+ * Sets player black-market score from admin panel.
+ * PL: Ustawia black market score gracza z panelu admina.
+ */
     public function setPlayerBlackScore(int $playerId, float $score): void
     {
         $score = max(0, min(100, $score));
@@ -430,8 +430,8 @@ class BlackMarketService
             ->execute([':s' => round($score, 2), ':pid' => $playerId]);
     }
 
-    // Internal helpers.
-    // PL: Helpery wewnetrzne.
+ // Internal helpers.
+ // PL: Helpery wewnetrzne.
     private function getPlayerStorageUsed(int $playerId): int
     {
         $stmt = $this->db->prepare("SELECT COALESCE(used, 0) FROM storage WHERE player_id = :pid LIMIT 1");
@@ -439,10 +439,10 @@ class BlackMarketService
         return (int)$stmt->fetchColumn();
     }
 
-    /**
-     * Returns penalty percent based on black score.
-     * PL: Zwraca procent kary zalezne od black score.
-     */
+ /**
+ * Returns penalty percent based on black score.
+ * PL: Zwraca procent kary zalezne od black score.
+ */
     private function getPenaltyPercent(float $blackScore): float
     {
         $lowPct = $this->cfg('bm_penalty_low_pct', 7.5);
@@ -458,10 +458,10 @@ class BlackMarketService
         return $highPct * 0.73 + (mt_rand() / mt_getrandmax()) * ($highPct * 0.54);
     }
 
-    /**
-     * Returns global stats for admin dashboard.
-     * PL: Zwraca globalne statystyki dla dashboardu admina.
-     */
+ /**
+ * Returns global stats for admin dashboard.
+ * PL: Zwraca globalne statystyki dla dashboardu admina.
+ */
     public function getGlobalStats(): array
     {
         $row = $this->db->query("

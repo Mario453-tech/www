@@ -2,14 +2,14 @@
 
 /**
  * HubAcquisitionService - player hub ownership actions.
- * Kupno, wynajem i migracja hub�w logistycznych.
+ * Kupno, wynajem i migracja hubw logistycznych.
  * Buy, rent, and tenant-migration for logistics hubs.
  *
  * Model:
- *   player_id > 0  : hub jest w�asno�ci� tego gracza (kupno nowego/u�ywanego)
- *   player_id = 0  : hub jest na rynku (systemowy)
- *     tenant_player_id > 0 : hub jest wynajmowany przez tego gracza
- *     tenant_player_id = 0 : hub dost�pny do kupna/wynajmu
+ * player_id > 0 : hub jest wasnoci tego gracza (kupno nowego/uywanego)
+ * player_id = 0 : hub jest na rynku (systemowy)
+ * tenant_player_id > 0 : hub jest wynajmowany przez tego gracza
+ * tenant_player_id = 0 : hub dostpny do kupna/wynajmu
  */
 class HubAcquisitionService
 {
@@ -22,16 +22,16 @@ class HubAcquisitionService
         $this->hubSvc = $hubSvc;
     }
 
-    // ------------------------------------------------------------------ public
+ // ------------------------------------------------------------------ public
 
-    /**
-     * Gracz kupuje nowy hub w swoim regionie.
-     * Player builds a brand-new hub in their region.
-     * Cost = build_cost based on hub_type + region multiplier.
-     *
-     * @param array<string, mixed> $params [hub_type, region_id, zone_key, name]
-     * @return array{success: bool, hub_id?: int, cost?: float, error?: string}
-     */
+ /**
+ * Gracz kupuje nowy hub w swoim regionie.
+ * Player builds a brand-new hub in their region.
+ * Cost = build_cost based on hub_type + region multiplier.
+ *
+ * @param array<string, mixed> $params [hub_type, region_id, zone_key, name]
+ * @return array{success: bool, hub_id?: int, cost?: float, error?: string}
+ */
     public function buyNew(int $playerId, array $params): array
     {
         $hubType  = $params['hub_type']  ?? 'small';
@@ -111,13 +111,13 @@ class HubAcquisitionService
         }
     }
 
-    /**
-     * Gracz kupuje istniej�cy hub z rynku (player_id = 0).
-     * Player buys an existing market hub (player_id = 0, any acquisition_type).
-     * After purchase: hub.player_id = playerId.
-     *
-     * @return array{success: bool, cost?: float, error?: string}
-     */
+ /**
+ * Gracz kupuje istniejcy hub z rynku (player_id = 0).
+ * Player buys an existing market hub (player_id = 0, any acquisition_type).
+ * After purchase: hub.player_id = playerId.
+ *
+ * @return array{success: bool, cost?: float, error?: string}
+ */
     public function buyUsed(int $playerId, int $hubId): array
     {
         $hub = $this->hubSvc->getHub($hubId);
@@ -165,14 +165,14 @@ class HubAcquisitionService
         }
     }
 
-    /**
-     * Gracz wynajmuje hub z rynku (player_id = 0, tenant_player_id = 0).
-     * Player rents a market hub exclusively. Hub stays player_id = 0 but is reserved.
-     * Ongoing lease_fee_per_tick is charged each tick via WellHubSection.
-     * One-time deposit: 3x monthly lease fee.
-     *
-     * @return array{success: bool, deposit?: float, error?: string}
-     */
+ /**
+ * Gracz wynajmuje hub z rynku (player_id = 0, tenant_player_id = 0).
+ * Player rents a market hub exclusively. Hub stays player_id = 0 but is reserved.
+ * Ongoing lease_fee_per_tick is charged each tick via WellHubSection.
+ * One-time deposit: 3x monthly lease fee.
+ *
+ * @return array{success: bool, deposit?: float, error?: string}
+ */
     public function rent(int $playerId, int $hubId): array
     {
         $hub = $this->hubSvc->getHub($hubId);
@@ -189,7 +189,7 @@ class HubAcquisitionService
             return ['success' => false, 'error' => 'hub_unavailable'];
         }
 
-        // Deposit = 3 ticks of full lease fee (non-refundable)
+ // Deposit = 3 ticks of full lease fee (non-refundable)
         $leaseFee = (float)($hub['lease_fee_per_tick'] ?? 0.0);
         $deposit  = round($leaseFee * 3.0, 2);
 
@@ -225,21 +225,21 @@ class HubAcquisitionService
         }
     }
 
-    /**
-     * One-time migration: players with active well assignments become tenants.
-     * Runs during ETAP 1 deploy; idempotent (skips hubs that already have tenant/owner).
-     * For each market hub (player_id=0) with active assignments: sets the player
-     * with the most wells as tenant_player_id.
-     * Runs only on MySQL (not SQLite test env).
-     */
+ /**
+ * One-time migration: players with active well assignments become tenants.
+ * Runs during ETAP 1 deploy; idempotent (skips hubs that already have tenant/owner).
+ * For each market hub (player_id=0) with active assignments: sets the player
+ * with the most wells as tenant_player_id.
+ * Runs only on MySQL (not SQLite test env).
+ */
     public function migrateExistingAssignmentsToTenancy(): void
     {
         if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
             return;
         }
         try {
-            // For market hubs with no tenant yet and with active assignments,
-            // set the player with the most wells as tenant.
+ // For market hubs with no tenant yet and with active assignments,
+ // set the player with the most wells as tenant.
             $stmt = $this->db->query(
                 "SELECT a.hub_id, w.player_id, COUNT(*) AS well_cnt
                    FROM logistics_hub_assignments a
@@ -260,7 +260,7 @@ class HubAcquisitionService
                 $hubId    = (int)$row['hub_id'];
                 $tenantId = (int)$row['player_id'];
 
-                // First (highest count) player per hub wins the tenancy
+ // First (highest count) player per hub wins the tenancy
                 if (isset($alreadyMigrated[$hubId])) {
                     continue;
                 }
@@ -283,9 +283,9 @@ class HubAcquisitionService
         }
     }
 
-    // ------------------------------------------------------------------ private
+ // ------------------------------------------------------------------ private
 
-    /** @return array{ok: bool} */
+ /** @return array{ok: bool} */
     private function checkAndDeductCash(int $playerId, float $amount): array
     {
         if ($amount <= 0.0) {

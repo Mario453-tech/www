@@ -2,9 +2,9 @@
 
 class AdminLog
 {
-    /**
-     * Save admin action to admin_logs table.
-     */
+ /**
+ * Save admin action to admin_logs table.
+ */
     public static function log(
         string $action,
         string $description = '',

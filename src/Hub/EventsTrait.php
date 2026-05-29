@@ -6,9 +6,9 @@
  */
 trait HubEventsTrait
 {
-    /**
-     * Creates a logistics event record (for any player or system event).
-     */
+ /**
+ * Creates a logistics event record (for any player or system event).
+ */
     public function createEvent(
         int $playerId,
         ?int $hubId,
@@ -29,10 +29,10 @@ trait HubEventsTrait
         }
     }
 
-    /**
-     * Calculates estimated repair cost for a hub.
-     * @param array<string, mixed> $hub
-     */
+ /**
+ * Calculates estimated repair cost for a hub.
+ * @param array<string, mixed> $hub
+ */
     public function getRepairCost(array $hub): float
     {
         $damage  = max(0.0, 100.0 - (float)$hub['condition_pct']);

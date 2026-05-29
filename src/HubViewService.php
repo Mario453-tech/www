@@ -4,11 +4,11 @@ require_once __DIR__ . '/Hub/ViewSummaryTrait.php';
 require_once __DIR__ . '/Hub/ViewHubsTrait.php';
 
 /**
- * HubViewService — prepares view-ready data for the Logistics section.
+ * HubViewService prepares view-ready data for the Logistics section.
  *
  * Traits:
- *   HubViewSummaryTrait — getRegionSummary + well grouping helpers
- *   HubViewHubsTrait    — getHubCards, getAlerts, getHubDetail, getAssignableHubs, getAvailableHubsByRegion
+ * HubViewSummaryTrait getRegionSummary + well grouping helpers
+ * HubViewHubsTrait getHubCards, getAlerts, getHubDetail, getAssignableHubs, getAvailableHubsByRegion
  */
 class HubViewService
 {

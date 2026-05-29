@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Dane rynku 
+// Dane rynku 
 $market      = $db->query("SELECT * FROM market_state WHERE id = 1")->fetch();
 $activeTrend = $db->query("
     SELECT * FROM market_trends
@@ -117,14 +117,14 @@ $activeTrend = $db->query("
     ORDER BY activated_at DESC LIMIT 1
 ")->fetch();
 
-$trendTimeLeft = '—';
+$trendTimeLeft = 'ï¿½';
 if ($activeTrend) {
     $expires = (new DateTime($activeTrend['activated_at']))->modify('+' . (int)$activeTrend['duration_hours'] . ' hours');
     $diff    = (new DateTime())->diff($expires);
     $trendTimeLeft = $diff->h . 'h ' . $diff->i . 'm';
 }
 
-//  Paginacja i filtr trendów 
+// Paginacja i filtr trendw 
 $perPage     = max(5, min(100, (int)($_GET['per_page'] ?? 10)));
 $page        = max(1, (int)($_GET['page'] ?? 1));
 $filterCat   = $_GET['cat'] ?? '';
@@ -154,8 +154,8 @@ $trendStmt = $db->prepare("SELECT * FROM market_trends {$whereSQL} ORDER BY id L
 $trendStmt->bindValue(1, $perPage, PDO::PARAM_INT);
 $trendStmt->bindValue(2, $offset,  PDO::PARAM_INT);
 foreach ($params as $i => $v) {
-    // Rebind named params (index offset +3 because LIMIT=1, OFFSET=2)
-    // Already using positional — append before LIMIT
+ // Rebind named params (index offset +3 because LIMIT=1, OFFSET=2)
+ // Already using positional append before LIMIT
 }
 // Re-execute with all params in correct order
 $allParams = array_merge($params, [$perPage, $offset]);

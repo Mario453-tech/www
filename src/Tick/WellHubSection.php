@@ -5,11 +5,11 @@
  * WellHubSection - hub finalization after the well loop.
  *
  * Dla kazdego aktywnego huba: / For each active hub:
- *  1. processTick()       -> wear, condition, status, przetworzone/stracone barylki
- *                         -> wear, condition, status, processed/lost barrels
- *  2. persistTickResult() -> zapisuje stan huba / persists hub state
- *  3. Reconciliacja strat -> koryguje currentStorage i fin* / reconciles currentStorage and fin*
- *  4. Hub OPEX            -> koszt per slot, per gracz / per-slot cost per player
+ * 1. processTick() -> wear, condition, status, przetworzone/stracone barylki
+ * -> wear, condition, status, processed/lost barrels
+ * 2. persistTickResult() -> zapisuje stan huba / persists hub state
+ * 3. Reconciliacja strat -> koryguje currentStorage i fin* / reconciles currentStorage and fin*
+ * 4. Hub OPEX -> koszt per slot, per gracz / per-slot cost per player
  */
 class WellHubSection
 {
@@ -18,17 +18,17 @@ class WellHubSection
     private ?HubTickService   $hubTickSvc;
     private ?HubIncidentService $hubIncidentSvc;
     private ?HubService       $hubSvc;
-    /** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     private array             $financeLogisticsMods;
-    /** @var array<string, mixed> */
+ /** @var array<string, mixed> */
     private array             $gBalanceMults;
     private float             $oilPrice;
     private OutboundLegService $outboundSvc;
 
-    /**
-     * @param array<string, float|string> $financeLogisticsMods
-     * @param array<string, mixed>        $gBalanceMults
-     */
+ /**
+ * @param array<string, float|string> $financeLogisticsMods
+ * @param array<string, mixed> $gBalanceMults
+ */
     public function __construct(
         WellLoopSection       $ctx,
         DateTime              $now,
@@ -51,12 +51,12 @@ class WellHubSection
         $this->outboundSvc          = $outboundSvc;
     }
 
-    /**
-     * Przetwarza tick kazdego aktywnego huba i koryguje stan finansowy gracza.
-     * Processes the tick for every active hub and reconciles player financial state.
-     *
-     * @param array<string, mixed> $hseBonus
-     */
+ /**
+ * Przetwarza tick kazdego aktywnego huba i koryguje stan finansowy gracza.
+ * Processes the tick for every active hub and reconciles player financial state.
+ *
+ * @param array<string, mixed> $hseBonus
+ */
     public function finalize(int $playerId, float $deltaHours, array $hseBonus): void
     {
         if ($this->hubTickSvc === null || empty($this->ctx->hubCache)) {
@@ -70,11 +70,11 @@ class WellHubSection
                 $result = $this->hubTickSvc->processTick($hub, $inputBbl, $deltaHours, $hseBonus);
                 $this->hubTickSvc->persistTickResult($hub, $result, $this->now);
 
-                // Reconciliacja strat. / Loss reconciliation.
-                // Podczas petli wells dodalismy $inputBbl do storage/revenue.
-                // During the well loop we added $inputBbl to storage/revenue.
-                // Teraz odejmujemy to, co hub stracil (ponad przepustowosc).
-                // Now we subtract what the hub lost (above throughput capacity).
+ // Reconciliacja strat. / Loss reconciliation.
+ // Podczas petli wells dodalismy $inputBbl do storage/revenue.
+ // During the well loop we added $inputBbl to storage/revenue.
+ // Teraz odejmujemy to, co hub stracil (ponad przepustowosc).
+ // Now we subtract what the hub lost (above throughput capacity).
                 $hubLostBbl        = (float)$result['lost_bbl'];
                 $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
                 if ($hubLostBbl > 0.0 && $logisticsLossMult !== 1.0) {
@@ -114,7 +114,7 @@ class WellHubSection
                     ]);
                 }
 
-                // Liczba studni gracza w tym hubie (uzywana przez incident i OPEX) / Number of player wells in this hub (used by incident and OPEX)
+ // Liczba studni gracza w tym hubie (uzywana przez incident i OPEX) / Number of player wells in this hub (used by incident and OPEX)
                 $playerWellCount = count(array_filter(
                     $this->ctx->wellHubMap,
                     fn($hId) => $hId === $hubId
@@ -134,15 +134,15 @@ class WellHubSection
         }
     }
 
-    /**
-     * Incydenty logistyczne huba / Hub logistics incidents.
-     * Losowe zdarzenia (awaria, wyciek, przeciazenie) generowane per hub.
-     * Random events (breakdown, spill, overload) generated per hub.
-     *
-     * @param array<string, mixed> $hub
-     * @param array<string, mixed> $result
-     * @param array<string, mixed> $hseBonus
-     */
+ /**
+ * Incydenty logistyczne huba / Hub logistics incidents.
+ * Losowe zdarzenia (awaria, wyciek, przeciazenie) generowane per hub.
+ * Random events (breakdown, spill, overload) generated per hub.
+ *
+ * @param array<string, mixed> $hub
+ * @param array<string, mixed> $result
+ * @param array<string, mixed> $hseBonus
+ */
     private function processHubIncident(
         int   $hubId,
         array $hub,
@@ -181,15 +181,15 @@ class WellHubSection
         }
     }
 
-    /**
-     * Hub usage fee — private ownership model.
-     * Owner (player_id > 0) pays full opex_per_tick each tick.
-     * Tenant (player_id = 0, tenant_player_id > 0) pays full lease_fee_per_tick each tick.
-     * Condition penalty applied to owner OPEX: degraded hub costs more to maintain.
-     * Wlasciciel placi pelny OPEX; najemca placi pelny czynsz co tick.
-     *
-     * @param array<string, mixed> $hub
-     */
+ /**
+ * Hub usage fee - private ownership model.
+ * Owner (player_id > 0) pays full opex_per_tick each tick.
+ * Tenant (player_id = 0, tenant_player_id > 0) pays full lease_fee_per_tick each tick.
+ * Condition penalty applied to owner OPEX: degraded hub costs more to maintain.
+ * Wlasciciel placi pelny OPEX; najemca placi pelny czynsz co tick.
+ *
+ * @param array<string, mixed> $hub
+ */
     private function processHubUsageFee(int $hubId, array $hub, int $playerId, int $playerWellCount): void
     {
         if ($playerWellCount <= 0 || $this->hubSvc === null) {
@@ -199,17 +199,17 @@ class WellHubSection
         $hubOwner  = (int)($hub['player_id']        ?? 0);
         $hubTenant = (int)($hub['tenant_player_id'] ?? 0);
 
-        // Only charge the controlling player (owner or tenant).
-        // If neither matches, no charge (legacy or market hub not yet acquired).
+ // Only charge the controlling player (owner or tenant).
+ // If neither matches, no charge (legacy or market hub not yet acquired).
         if ($hubOwner !== $playerId && $hubTenant !== $playerId) {
             return;
         }
 
         $costMult = (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0)
-                  * (float)($this->gBalanceMults['opex'] ?? 1.0);
+ * (float)($this->gBalanceMults['opex'] ?? 1.0);
 
         if ($hubOwner === $playerId) {
-            // Owner pays full OPEX with condition penalty
+ // Owner pays full OPEX with condition penalty
             $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
             $opexMult        = (float)($modeMultipliers['opex_mult'] ?? 1.0);
             $condPct         = (float)($hub['condition_pct'] ?? 100.0);
@@ -236,7 +236,7 @@ class WellHubSection
             return;
         }
 
-        // Tenant pays full lease_fee_per_tick (flat rate, no condition modifier)
+ // Tenant pays full lease_fee_per_tick (flat rate, no condition modifier)
         $leaseFee = round((float)($hub['lease_fee_per_tick'] ?? 0.0) * $costMult, 2);
         if ($leaseFee > 0.0) {
             $this->ctx->finOpex         += $leaseFee;
@@ -250,17 +250,17 @@ class WellHubSection
         }
     }
 
-    /**
-     * Second transport leg (hub -> storage), applied per hub via OutboundLegService.
-     * ETAP 11: the outbound transport type is now a per-hub setting (logistics_hubs.outbound_transport_type).
-     *   'nieustawiony' : direct delivery (no extra loss/cost) - default, backward compatible
-     *   'rurociag'     : outbound pipeline (leg='outbound', well_id=0) - transport_loss % + OPEX
-     *   'ciezarowki'   : road haul (per-tick cost + independent incident loss)
-     * Operates on barrels that were processed by the hub this tick (processedBbl).
-     * Drugi odcinek transportu hub->magazyn, naliczany per hub (ETAP 11).
-     *
-     * @param array<string, mixed> $hseBonus
-     */
+ /**
+ * Second transport leg (hub -> storage), applied per hub via OutboundLegService.
+ * ETAP 11: the outbound transport type is now a per-hub setting (logistics_hubs.outbound_transport_type).
+ * 'nieustawiony' : direct delivery (no extra loss/cost) - default, backward compatible
+ * 'rurociag' : outbound pipeline (leg='outbound', well_id=0) - transport_loss % + OPEX
+ * 'ciezarowki' : road haul (per-tick cost + independent incident loss)
+ * Operates on barrels that were processed by the hub this tick (processedBbl).
+ * Drugi odcinek transportu hub->magazyn, naliczany per hub (ETAP 11).
+ *
+ * @param array<string, mixed> $hseBonus
+ */
     private function processOutboundLeg(int $hubId, int $playerId, float $processedBbl, float $deltaHours, array $hseBonus): void
     {
         if ($processedBbl <= 0.001) {

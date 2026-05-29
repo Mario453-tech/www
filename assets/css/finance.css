@@ -1,8 +1,8 @@
 /* 
-   finance.css — Dzia³ Finansowy OilCorp
-    */
+   finance.css ï¿½ Dziaï¿½ Finansowy OilCorp
+ */
 
-/*  Karta bazowa  */
+/* Karta bazowa */
 .g-card {
     background: linear-gradient(145deg, #161622, #0f0f18);
     border: 1px solid rgba(200,168,75,.15);
@@ -41,7 +41,7 @@
     margin: 0 auto;
 }
 
-/*  Alerty  */
+/* Alerty */
 .finance-alerts {
     display: flex;
     flex-direction: column;
@@ -60,7 +60,7 @@
 .finance-alert--warning { background: rgba(240,160,80,.1);    border-color: var(--orange); color: var(--orange); }
 .finance-alert--info    { background: rgba(91,156,246,.08);   border-color: var(--blue);   color: var(--blue); }
 
-/*  Top bar (4 karty)  */
+/* Top bar (4 karty) */
 .fin-topbar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -87,7 +87,7 @@
     margin-top: 2px;
 }
 
-/*  Kolory  */
+/* Kolory */
 .fin-green  { color: var(--green); }
 .fin-red    { color: var(--red); }
 .fin-orange { color: var(--orange); }
@@ -95,7 +95,7 @@
 .fin-bold   { font-weight: 600; }
 .fin-small  { font-size: 11px; }
 
-/*  Wykres  */
+/* Wykres */
 .finance-chart-card { padding: 16px !important; }
 .finance-chart-hdr {
     display: flex;
@@ -112,7 +112,7 @@
     padding: 32px 0;
 }
 
-/*  Breakdown  */
+/* Breakdown */
 .fin-breakdown {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -147,7 +147,7 @@
     margin: 8px 0;
 }
 
-/*  Per-well tabela (grid, bez tabel HTML)  */
+/* Per-well tabela (grid, bez tabel HTML) */
 .fin-num { text-align: right; font-variant-numeric: tabular-nums; }
 .fin-well-link {
     color: var(--gold);
@@ -178,7 +178,7 @@
     border-top: 1px solid var(--border2);
 }
 
-/*  Per-well list  */
+/* Per-well list */
 .fin-well-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
 
 .fin-well-header,
@@ -464,7 +464,7 @@
 }
 
 
-/*  Polityka finansowa  */
+/* Polityka finansowa */
 .fin-policy-reco-card {
     margin-top: 16px;
     border: 1px solid var(--border2);
@@ -719,7 +719,7 @@
     font-size: 12px;
 }
 
-/* Nag³ówek karty z ikon¹ i accent barem */
+/* Nagwek karty z ikon i accent barem */
 .fin-policy-card-head {
     display: flex;
     align-items: center;
@@ -749,7 +749,7 @@
     text-transform: uppercase;
 }
 
-/* Wiersz cooldown / mo¿na zmieniæ */
+/* Wiersz cooldown / mona zmieni */
 .fin-policy-lock-row {
     display: flex;
     align-items: center;
@@ -820,12 +820,12 @@
     gap: 5px;
 }
 .fin-savings-row::before {
-    content: "·";
+    content: "ï¿½";
     color: var(--text3);
     flex-shrink: 0;
 }
 
-/* Picker trybu oszczêdnoœci / rezerwy */
+/* Picker trybu oszczdnoci / rezerwy */
 .fin-mode-picker {
     display: grid;
     grid-template-columns: 1fr;
@@ -926,7 +926,7 @@
     font-weight: 700;
 }
 
-/* Badge trybu (pill w nag³ówku) */
+/* Badge trybu (pill w nagwku) */
 .fin-mode-badge {
     display: inline-flex;
     align-items: center;
@@ -974,7 +974,7 @@
     flex-shrink: 0;
 }
 
-/* Stan rezerwy — blok z metrykami */
+/* Stan rezerwy blok z metrykami */
 .fin-reserve-status {
     padding: 14px 16px;
     border-radius: 10px;
@@ -1093,7 +1093,7 @@
     font-size: 15px;
 }
 
-/*  Miniaturowe paski zysku (per-well tabela)  */
+/* Miniaturowe paski zysku (per-well tabela) */
 .fin-profit-bar {
     display: block;
     width: 100%;
@@ -1112,7 +1112,7 @@
 .fin-profit-bar-fill--pos { background: var(--green); }
 .fin-profit-bar-fill--neg { background: var(--red); }
 
-/*  Etykieta sekcji bez karty (hub)  */
+/* Etykieta sekcji bez karty (hub) */
 .fin-section-label {
     font-size: 10px;
     letter-spacing: 3px;
@@ -1133,7 +1133,7 @@
     flex-shrink: 0;
 }
 
-/*  Dynamiczny badge poziomu bud¿etu  */
+/* Dynamiczny badge poziomu budetu */
 .fin-level-badge {
     display: inline-flex;
     align-items: center;

@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gm_edit_well_id'])) {
         $fields = [];
         $params = [];
 
-        // Enum fields
+ // Enum fields
         $enumDefs = [
             'status'          => ['active','paused_storage','paused_cash','paused_staff',
                                   'no_operator','no_technician','broken','blowout',
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gm_edit_well_id'])) {
             }
         }
 
-        // Numeric fields [type, min, max]  (null = no limit)
+ // Numeric fields [type, min, max] (null = no limit)
         $numDefs = [
             'technical_condition'    => ['int',   0,   100],
             'wear_level'             => ['float', 0,   null],
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gm_edit_well_id'])) {
             $db->prepare('UPDATE wells SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
         }
 
-        // Upgrade management: hidden sentinel ensures empty checkbox set = remove all
+ // Upgrade management: hidden sentinel ensures empty checkbox set = remove all
         if (isset($_POST['gm_upgrades_submitted'])) {
             $allowedUpgrades   = ['pump_electric', 'monitoring', 'water_injection'];
             $submittedUpgrades = array_values(array_filter(

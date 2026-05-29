@@ -11,7 +11,7 @@ ensureChatSchema();
 $msg = '';
 $err = '';
 
-// == POST: akcje moderacji ==
+// Moderation POST actions / Akcje moderacji POST
 
 $action = '';
 
@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $err = t('admin.chat.err_not_admin_msg');
                 } else {
                     $db->prepare("UPDATE chat_messages SET is_pinned = 1, pinned_at = NOW() WHERE id = ?")->execute([$id]);
-                    AdminLog::log('chat_pin_msg', "Przypiêto wiadomoœæ admina #{$id}");
+                    AdminLog::log('chat_pin_msg', "Pinned admin message #{$id}");
                     $msg = t('admin.chat.msg_pinned', ['id' => $id]);
                 }
             }
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = (int)($_POST['msg_id'] ?? 0);
             if ($id > 0) {
                 $db->prepare("UPDATE chat_messages SET is_pinned = 0, pinned_at = NULL WHERE id = ?")->execute([$id]);
-                AdminLog::log('chat_unpin_msg', "Odpiêto wiadomoœæ admina #{$id}");
+                AdminLog::log('chat_unpin_msg', "Unpinned admin message #{$id}");
                 $msg = t('admin.chat.msg_unpinned', ['id' => $id]);
             }
 
@@ -175,12 +175,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare("INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_enabled',?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)")->execute([$enabled]);
             $db->prepare("INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_interval',?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)")->execute([$interval]);
             AdminLog::log('chat_auto_clear_settings', "Auto-clear: enabled={$enabled}, interval={$interval}min");
-            $msg = 'Ustawienia auto-czyszczenia zapisane.';
+            $msg = t('admin.chat.msg_auto_clear_saved');
         }
     }
 }
 
-// == AUTO-CLEAR (sprawdzenie przy ka¿dym ³adowaniu strony admina) ==
+// Auto-clear check on admin page load / Auto-clear przy ladowaniu panelu
 function chatRunAutoClear(PDO $db): void {
     try {
         $rows = $db->query("SELECT `key`,`value` FROM well_config WHERE `key` IN ('chat_auto_clear_enabled','chat_auto_clear_interval','chat_auto_clear_last_at')")->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -196,7 +196,7 @@ function chatRunAutoClear(PDO $db): void {
 }
 chatRunAutoClear($db);
 
-// == FILTRY ==
+// Filters / Filtry
 
 $filterPlayer = trim($_GET['player'] ?? '');
 $page         = max(1, (int)($_GET['p'] ?? 1));
@@ -231,7 +231,7 @@ $stmt = $db->prepare("
 $stmt->execute($params);
 $messages = $stmt->fetchAll();
 
-// == STATYSTYKI ==
+// Statistics / Statystyki
 
 $stats = $db->query("
     SELECT COUNT(*) AS total_msgs,
@@ -250,7 +250,7 @@ $topSenders = $db->query("
     LIMIT 5
 ")->fetchAll();
 
-// == BANY ==
+// Bans / Blokady
 
 $activeBans = $db->query("
     SELECT cb.id, cb.player_id, cb.reason, cb.banned_by, cb.banned_at, cb.expires_at,
@@ -265,7 +265,7 @@ $playerList = $db->query("
     SELECT id, username FROM players WHERE status != 'banned' ORDER BY username ASC
 ")->fetchAll();
 
-// == ZG£OSZENIA ==
+// Reports / Zgloszenia
 
 $reports = [];
 try {
@@ -280,10 +280,10 @@ try {
         LIMIT 50
     ")->fetchAll();
 } catch (Throwable $e) {
-    // Tabela moze nie istniec
+ // Table may not exist yet / Tabela moze jeszcze nie istniec
 }
 
-// == S£OWA BLOKOWANE ==
+// Blocked words / Slowa blokowane
 
 $blockedWords = [];
 try {
@@ -293,16 +293,16 @@ try {
         ORDER BY word ASC
     ")->fetchAll();
 } catch (Throwable $e) {
-    // Tabela mo¿e nie istnieæ — zasiliæ SQL
+ // Table may not exist yet / Tabela moze jeszcze nie istniec
 }
 
-// == USTAWIENIA AUTO-CLEAR ==
+// Auto-clear settings / Ustawienia auto-clear
 $autoClearRows     = $db->query("SELECT `key`,`value` FROM well_config WHERE `key` IN ('chat_auto_clear_enabled','chat_auto_clear_interval','chat_auto_clear_last_at')")->fetchAll(PDO::FETCH_KEY_PAIR);
 $autoClearEnabled  = (int)($autoClearRows['chat_auto_clear_enabled']  ?? 0);
 $autoClearInterval = (int)($autoClearRows['chat_auto_clear_interval'] ?? 30);
 $autoClearLastAt   = $autoClearRows['chat_auto_clear_last_at'] ?? null;
 
-// == OPCJE CZASU BANA ==
+// Ban duration options / Opcje czasu blokady
 
 $banDurations = [
     '1h'        => t('admin.chat.ban_dur_1h'),
@@ -317,7 +317,7 @@ $banDurations = [
     'permanent' => t('admin.chat.ban_permanent'),
 ];
 
-// == WIDOK ==
+// View data / Dane widoku
 
 $viewData = compact(
     'msg', 'err', 'stats', 'topSenders',

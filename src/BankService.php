@@ -10,12 +10,12 @@ require_once __DIR__ . '/Bank/RepaymentTrait.php';
  *
  * Logic is split into traits in src/Bank/.
  * PL: Logika jest podzielona na traity w src/Bank/.
- *   - CalculationTrait.php  - annuity and credit limit calculations
- *      PL: obliczenia rat i limitu kredytowego
- *   - ApplicationTrait.php  - application submission and offer lifecycle
- *      PL: skladanie wniosku i obsluga oferty
- *   - RepaymentTrait.php    - repayment flow and active loans
- *      PL: splaty i aktywne kredyty
+ * - CalculationTrait.php - annuity and credit limit calculations
+ * PL: obliczenia rat i limitu kredytowego
+ * - ApplicationTrait.php - application submission and offer lifecycle
+ * PL: skladanie wniosku i obsluga oferty
+ * - RepaymentTrait.php - repayment flow and active loans
+ * PL: splaty i aktywne kredyty
  */
 class BankService
 {

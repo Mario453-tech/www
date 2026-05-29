@@ -1,0 +1,340 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/chat.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/init.php';
+require_once __DIR__ . '/../src/ChatBootstrap.php';
+AdminAuth::requireLogin();
+
+$db  = Database::getInstance()->getConnection();
+ensureChatSchema();
+$msg = '';
+$err = '';
+
+// Moderation POST actions / Akcje moderacji POST
+
+$action = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $err = t('common.csrf_error');
+    } else {
+        $action = $_POST['action'] ?? '';
+
+        if ($action === 'delete_msg') {
+            $id = (int)($_POST['msg_id'] ?? 0);
+            if ($id > 0) {
+                $db->prepare("UPDATE chat_messages SET is_deleted = 1 WHERE id = ?")->execute([$id]);
+                AdminLog::log('chat_delete_msg', "Deleted message #{$id}");
+                $msg = t('admin.chat.msg_deleted', ['id' => $id]);
+            }
+
+        } elseif ($action === 'delete_player_msgs') {
+            $pid = (int)($_POST['player_id'] ?? 0);
+            if ($pid > 0) {
+                $count = $db->prepare("SELECT COUNT(*) FROM chat_messages WHERE sender_id = ?");
+                $count->execute([$pid]);
+                $n = (int)$count->fetchColumn();
+                $db->prepare("UPDATE chat_messages SET is_deleted = 1 WHERE sender_id = ?")->execute([$pid]);
+                AdminLog::log('chat_delete_player', "Deleted {$n} messages of player #{$pid}", $pid, 'player');
+                $msg = t('admin.chat.msg_player_deleted', ['n' => $n, 'pid' => $pid]);
+            }
+
+        } elseif ($action === 'delete_expired') {
+            $cut    = date('Y-m-d H:i:s', strtotime('-30 minutes'));
+            $cntStmt = $db->prepare("SELECT COUNT(*) FROM chat_messages WHERE created_at < ? AND is_deleted = 0");
+            $cntStmt->execute([$cut]);
+            $count = (int)$cntStmt->fetchColumn();
+            $db->prepare("UPDATE chat_messages SET is_deleted = 1 WHERE created_at < ? AND is_deleted = 0")->execute([$cut]);
+            AdminLog::log('chat_delete_expired', "Deleted {$count} expired messages (>30 min)");
+            $msg = t('admin.chat.msg_expired_deleted', ['count' => $count]);
+
+        } elseif ($action === 'clear_all') {
+            $count = (int)$db->query("SELECT COUNT(*) FROM chat_messages")->fetchColumn();
+            $db->exec("TRUNCATE TABLE chat_messages");
+            AdminLog::log('chat_clear_all', "Cleared entire chat ({$count} messages)");
+            $msg = t('admin.chat.msg_cleared', ['count' => $count]);
+
+        } elseif ($action === 'ban_player') {
+            $pid    = (int)($_POST['ban_player_id'] ?? 0);
+            $reason = trim($_POST['ban_reason'] ?? '');
+            $dur    = $_POST['ban_duration'] ?? 'permanent';
+            $who    = AdminAuth::getAdminUsername();
+            $durMap = [
+                '1h' => '+1 hour', '3h' => '+3 hours', '12h' => '+12 hours',
+                '1d' => '+1 day',  '3d' => '+3 days',  '7d'  => '+7 days',
+                '14d'=> '+14 days','30d'=> '+30 days',  '90d' => '+90 days',
+                'permanent' => null,
+            ];
+            $expires = isset($durMap[$dur]) && $durMap[$dur] !== null
+                ? date('Y-m-d H:i:s', strtotime($durMap[$dur])) : null;
+            if ($pid > 0) {
+                $db->prepare("
+                    INSERT INTO chat_bans (player_id, reason, banned_by, expires_at)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE reason=VALUES(reason), banned_by=VALUES(banned_by),
+                        banned_at=NOW(), expires_at=VALUES(expires_at)
+                ")->execute([$pid, $reason, $who, $expires]);
+                $durLabel = $dur === 'permanent' ? t('admin.chat.ban_permanent') : $dur;
+                AdminLog::log('chat_ban', "Banned player #{$pid} in chat for {$dur}. Reason: {$reason}", $pid, 'player');
+                $msg = t('admin.chat.msg_banned', ['pid' => $pid, 'dur' => $durLabel]);
+            } else {
+                $err = t('admin.chat.err_invalid_player');
+            }
+
+        } elseif ($action === 'unban_player') {
+            $pid = (int)($_POST['ban_player_id'] ?? 0);
+            if ($pid > 0) {
+                $db->prepare("DELETE FROM chat_bans WHERE player_id = ?")->execute([$pid]);
+                AdminLog::log('chat_unban', "Unbanned player #{$pid} in chat", $pid, 'player');
+                $msg = t('admin.chat.msg_unbanned', ['pid' => $pid]);
+            }
+
+        } elseif ($action === 'send_admin') {
+            $text = trim($_POST['admin_msg'] ?? '');
+            if ($text !== '' && mb_strlen($text) <= 500) {
+                $db->prepare("INSERT INTO chat_messages (sender_id, username, message, channel, is_admin) VALUES (NULL, '[ADMIN]', ?, 'global', 1)")
+                   ->execute([$text]);
+                AdminLog::log('chat_admin_msg', "Sent admin broadcast: {$text}");
+                $msg = t('admin.chat.msg_sent');
+            } else {
+                $err = t('admin.chat.err_msg_empty_or_long');
+            }
+
+        } elseif ($action === 'pin_msg') {
+            $id = (int)($_POST['msg_id'] ?? 0);
+            if ($id > 0) {
+                $isAdmin = (int)$db->prepare("SELECT is_admin FROM chat_messages WHERE id = ? LIMIT 1")->execute([$id]);
+                $row = $db->prepare("SELECT is_admin FROM chat_messages WHERE id = ? LIMIT 1");
+                $row->execute([$id]);
+                $r = $row->fetch();
+                if (!$r || !$r['is_admin']) {
+                    $err = t('admin.chat.err_not_admin_msg');
+                } else {
+                    $db->prepare("UPDATE chat_messages SET is_pinned = 1, pinned_at = NOW() WHERE id = ?")->execute([$id]);
+                    AdminLog::log('chat_pin_msg', "Pinned admin message #{$id}");
+                    $msg = t('admin.chat.msg_pinned', ['id' => $id]);
+                }
+            }
+
+        } elseif ($action === 'unpin_msg') {
+            $id = (int)($_POST['msg_id'] ?? 0);
+            if ($id > 0) {
+                $db->prepare("UPDATE chat_messages SET is_pinned = 0, pinned_at = NULL WHERE id = ?")->execute([$id]);
+                AdminLog::log('chat_unpin_msg', "Unpinned admin message #{$id}");
+                $msg = t('admin.chat.msg_unpinned', ['id' => $id]);
+            }
+
+        } elseif ($action === 'resolve_report') {
+            $rid = (int)($_POST['report_id'] ?? 0);
+            if ($rid > 0) {
+                $db->prepare("UPDATE chat_reports SET status='resolved' WHERE id=?")->execute([$rid]);
+                AdminLog::log('chat_resolve_report', "Resolved report #{$rid}");
+                $msg = t('admin.chat.msg_report_resolved', ['rid' => $rid]);
+            }
+
+        } elseif ($action === 'add_blocked_word') {
+            $word        = mb_strtolower(trim($_POST['word'] ?? ''));
+            $replacement = trim($_POST['replacement'] ?? '***');
+            if ($word !== '' && mb_strlen($word) <= 100) {
+                try {
+                    $db->prepare("
+                        INSERT INTO chat_blocked_words (word, replacement, created_by)
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE replacement=VALUES(replacement), active=1
+                    ")->execute([$word, $replacement ?: '***', AdminAuth::getAdminUsername()]);
+                    AdminLog::log('chat_blocked_word_add', "Added blocked word: {$word}");
+                    $msg = t('admin.chat.word_added', ['word' => $word]);
+                } catch (Throwable $e) {
+                    $err = t('common.err_retry');
+                }
+            } else {
+                $err = t('admin.chat.err_word_empty');
+            }
+
+        } elseif ($action === 'delete_blocked_word') {
+            $wid = (int)($_POST['word_id'] ?? 0);
+            if ($wid > 0) {
+                $db->prepare("DELETE FROM chat_blocked_words WHERE id=?")->execute([$wid]);
+                AdminLog::log('chat_blocked_word_del', "Deleted blocked word #{$wid}");
+                $msg = t('admin.chat.word_deleted');
+            }
+
+        } elseif ($action === 'toggle_blocked_word') {
+            $wid = (int)($_POST['word_id'] ?? 0);
+            if ($wid > 0) {
+                $db->prepare("UPDATE chat_blocked_words SET active = NOT active WHERE id=?")->execute([$wid]);
+                $msg = t('admin.chat.word_toggled');
+            }
+
+        } elseif ($action === 'save_auto_clear') {
+            $enabled  = (int)($_POST['auto_clear_enabled'] ?? 0) === 1 ? 1 : 0;
+            $interval = (int)($_POST['auto_clear_interval'] ?? 30);
+            $allowed  = [15, 30, 60, 90, 120];
+            if (!in_array($interval, $allowed)) $interval = 30;
+            $db->prepare("INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_enabled',?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)")->execute([$enabled]);
+            $db->prepare("INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_interval',?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)")->execute([$interval]);
+            AdminLog::log('chat_auto_clear_settings', "Auto-clear: enabled={$enabled}, interval={$interval}min");
+            $msg = t('admin.chat.msg_auto_clear_saved');
+        }
+    }
+}
+
+// Auto-clear check on admin page load / Auto-clear przy ladowaniu panelu
+function chatRunAutoClear(PDO $db): void {
+    try {
+        $rows = $db->query("SELECT `key`,`value` FROM well_config WHERE `key` IN ('chat_auto_clear_enabled','chat_auto_clear_interval','chat_auto_clear_last_at')")->fetchAll(PDO::FETCH_KEY_PAIR);
+        if (!($rows['chat_auto_clear_enabled'] ?? 0)) return;
+        $interval   = max(15, (int)($rows['chat_auto_clear_interval'] ?? 30));
+        $lastAt     = $rows['chat_auto_clear_last_at'] ?? null;
+        $secondsAgo = $lastAt ? (time() - strtotime($lastAt)) : PHP_INT_MAX;
+        if ($secondsAgo < $interval * 60) return;
+        $cutoff = date('Y-m-d H:i:s', time() - $interval * 60);
+        $db->prepare("UPDATE chat_messages SET is_deleted = 1 WHERE created_at < ? AND is_deleted = 0 AND (is_pinned = 0 OR is_pinned IS NULL)")->execute([$cutoff]);
+        $db->prepare("INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_last_at',NOW()) ON DUPLICATE KEY UPDATE `value`=NOW()")->execute([]);
+    } catch (Throwable $e) {}
+}
+chatRunAutoClear($db);
+
+// Filters / Filtry
+
+$filterPlayer = trim($_GET['player'] ?? '');
+$page         = max(1, (int)($_GET['p'] ?? 1));
+$perPage      = 50;
+$offset       = ($page - 1) * $perPage;
+$where        = '';
+$params       = [];
+
+if ($filterPlayer !== '') {
+    $where    = 'WHERE cm.is_deleted = 0 AND cm.username LIKE ?';
+    $params[] = '%' . $filterPlayer . '%';
+} else {
+    $where = 'WHERE cm.is_deleted = 0';
+}
+
+$expiredCutoff = date('Y-m-d H:i:s', strtotime('-30 minutes'));
+
+$countStmt = $db->prepare("SELECT COUNT(*) FROM chat_messages cm " . $where);
+$countStmt->execute($params);
+$total = (int)$countStmt->fetchColumn();
+
+$totalPages = max(1, (int)ceil($total / $perPage));
+
+$stmt = $db->prepare("
+    SELECT cm.id, cm.sender_id AS player_id, cm.username, cm.message,
+           cm.created_at, cm.is_deleted, cm.channel, cm.is_admin, cm.is_pinned
+    FROM chat_messages cm
+    {$where}
+    ORDER BY cm.id DESC
+    LIMIT {$perPage} OFFSET {$offset}
+");
+$stmt->execute($params);
+$messages = $stmt->fetchAll();
+
+// Statistics / Statystyki
+
+$stats = $db->query("
+    SELECT COUNT(*) AS total_msgs,
+           COUNT(DISTINCT sender_id) AS unique_players,
+           MAX(created_at) AS last_msg
+    FROM chat_messages
+    WHERE sender_id IS NOT NULL
+")->fetch();
+
+$topSenders = $db->query("
+    SELECT username, sender_id AS player_id, COUNT(*) AS cnt
+    FROM chat_messages
+    WHERE sender_id IS NOT NULL
+    GROUP BY sender_id, username
+    ORDER BY cnt DESC
+    LIMIT 5
+")->fetchAll();
+
+// Bans / Blokady
+
+$activeBans = $db->query("
+    SELECT cb.id, cb.player_id, cb.reason, cb.banned_by, cb.banned_at, cb.expires_at,
+           p.username
+    FROM chat_bans cb
+    JOIN players p ON p.id = cb.player_id
+    WHERE cb.expires_at IS NULL OR cb.expires_at > NOW()
+    ORDER BY cb.banned_at DESC
+")->fetchAll();
+
+$playerList = $db->query("
+    SELECT id, username FROM players WHERE status != 'banned' ORDER BY username ASC
+")->fetchAll();
+
+// Reports / Zgloszenia
+
+$reports = [];
+try {
+    $reports = $db->query("
+        SELECT cr.*, cm.message, cm.username AS msg_author,
+               COALESCE(NULLIF(p.company_name,''), p.username) AS reporter_name
+        FROM chat_reports cr
+        JOIN chat_messages cm ON cm.id = cr.message_id
+        LEFT JOIN players p ON p.id = cr.reporter_id
+        WHERE cr.status = 'open'
+        ORDER BY cr.created_at DESC
+        LIMIT 50
+    ")->fetchAll();
+} catch (Throwable $e) {
+    // Table may not exist yet / Tabela moze jeszcze nie istniec
+}
+
+// Blocked words / Slowa blokowane
+
+$blockedWords = [];
+try {
+    $blockedWords = $db->query("
+        SELECT id, word, replacement, active, created_by, created_at
+        FROM chat_blocked_words
+        ORDER BY word ASC
+    ")->fetchAll();
+} catch (Throwable $e) {
+    // Table may not exist yet / Tabela moze jeszcze nie istniec
+}
+
+// Auto-clear settings / Ustawienia auto-clear
+$autoClearRows     = $db->query("SELECT `key`,`value` FROM well_config WHERE `key` IN ('chat_auto_clear_enabled','chat_auto_clear_interval','chat_auto_clear_last_at')")->fetchAll(PDO::FETCH_KEY_PAIR);
+$autoClearEnabled  = (int)($autoClearRows['chat_auto_clear_enabled']  ?? 0);
+$autoClearInterval = (int)($autoClearRows['chat_auto_clear_interval'] ?? 30);
+$autoClearLastAt   = $autoClearRows['chat_auto_clear_last_at'] ?? null;
+
+// Ban duration options / Opcje czasu blokady
+
+$banDurations = [
+    '1h'        => t('admin.chat.ban_dur_1h'),
+    '3h'        => t('admin.chat.ban_dur_3h'),
+    '12h'       => t('admin.chat.ban_dur_12h'),
+    '1d'        => t('admin.chat.ban_dur_1d'),
+    '3d'        => t('admin.chat.ban_dur_3d'),
+    '7d'        => t('admin.chat.ban_dur_7d'),
+    '14d'       => t('admin.chat.ban_dur_14d'),
+    '30d'       => t('admin.chat.ban_dur_30d'),
+    '90d'       => t('admin.chat.ban_dur_90d'),
+    'permanent' => t('admin.chat.ban_permanent'),
+];
+
+// View data / Dane widoku
+
+$viewData = compact(
+    'msg', 'err', 'stats', 'topSenders',
+    'activeBans', 'playerList', 'messages',
+    'filterPlayer', 'page', 'totalPages', 'reports',
+    'banDurations', 'blockedWords', 'expiredCutoff',
+    'autoClearEnabled', 'autoClearInterval', 'autoClearLastAt'
+);
+
+$pageTitle = t('admin.chat.page_title');
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/chat/main.php';
+require_once __DIR__ . '/partials/footer.php';
+
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) GameLog::error('admin/chat.php', 'Exception', $e);
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) GameLog::pageEnd('admin/chat.php', $_codexGuardStart);
+}

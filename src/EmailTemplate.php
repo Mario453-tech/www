@@ -6,9 +6,9 @@
  *
  * Usage:
  * PL: Uzycie:
- *   $html = EmailTemplate::build('Tytul', 'Czesc Jan,', 'Tresc...',
- *               'POTWIERDZ E-MAIL', 'https://...');
- *   Mailer::send($to, 'Subject', $html);
+ * $html = EmailTemplate::build('Tytul', 'Czesc Jan,', 'Tresc...',
+ * 'POTWIERDZ E-MAIL', 'https://...');
+ * Mailer::send($to, 'Subject', $html);
  */
 class EmailTemplate
 {
@@ -18,17 +18,17 @@ class EmailTemplate
     private const TEXT  = '#c8c8d4';
     private const MUTED = '#7a7a99';
 
-    /**
-     * Build a full branded email.
-     * PL: Buduje pelny brandowany email.
-     *
-     * @param string      $title     Heading inside email
-     * @param string      $greeting  Greeting line
-     * @param string      $bodyHtml  Main body with HTML allowed
-     * @param string|null $btnLabel  CTA button label (null = no button)
-     * @param string|null $btnUrl    CTA button URL
-     * @param string      $footer    Footer text (default: generic disclaimer)
-     */
+ /**
+ * Build a full branded email.
+ * PL: Buduje pelny brandowany email.
+ *
+ * @param string $title Heading inside email
+ * @param string $greeting Greeting line
+ * @param string $bodyHtml Main body with HTML allowed
+ * @param string|null $btnLabel CTA button label (null = no button)
+ * @param string|null $btnUrl CTA button URL
+ * @param string $footer Footer text (default: generic disclaimer)
+ */
     public static function build(
         string $title,
         string $greeting,

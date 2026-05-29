@@ -1,4 +1,4 @@
-﻿/* logistics.css
+/* logistics.css
    Style specyficzne dla modułu logistyki i hubów.
    Wspólne komponenty (.btn, .badge, .card, layout shell) pozostają w style.css.
 */
@@ -916,7 +916,7 @@
     color: var(--text);
 }
 
-/*  Etap 5: buffer stat row  */
+/* Etap 5: buffer stat row */
 .logistics-hub-stat--buffer {
     grid-column: 1 / -1;          /* spans full width */
     flex-direction: column;
@@ -1115,7 +1115,7 @@
     font-weight: 600;
 }
 
-/*  Acquisition type breakdown (assign modal)  */
+/* Acquisition type breakdown (assign modal) */
 .hub-acq-breakdown {
     display: flex;
     flex-wrap: wrap;
@@ -1155,7 +1155,7 @@
     cursor: default;
 }
 
-/*  Acquisition badge (hub cards — static)  */
+/* Acquisition badge (hub cards - static) */
 .acq-badge {
     display: inline-block;
     padding: .12rem .38rem;
@@ -1410,20 +1410,20 @@
         display: none;
     }
 
-    #hub-wells-modal .logistics-table-head,
-    #hub-wells-modal .logistics-table-row {
+ #hub-wells-modal .logistics-table-head,
+ #hub-wells-modal .logistics-table-row {
         grid-template-columns: 1fr 1fr 1fr;
     }
 
-    #hub-assign-modal .logistics-table-head,
-    #hub-assign-modal .logistics-table-row {
+ #hub-assign-modal .logistics-table-head,
+ #hub-assign-modal .logistics-table-row {
         min-width: 760px;
     }
 }
 
 /* 
    REDESIGN — transport KPI + hub browser
-    */
+ */
 
 /* Transport KPI accents / Akcenty KPI transportu */
 .logistics-kpi {
@@ -1660,7 +1660,7 @@
     background: rgba(200, 168, 75, .04);
 }
 
-/* Mój hub — zielone wyróżnienie */
+/* Moj hub - zielone wyroznienie */
 .logistics-hub-tbl-row.is-mine {
     background: rgba(78, 201, 122, .04);
     border-left: 2px solid var(--green, #4ec97a);
@@ -1671,7 +1671,7 @@
     background: rgba(78, 201, 122, .07);
 }
 
-/*  Nazwa hubu w tabeli  */
+/* Nazwa hubu w tabeli */
 .logistics-hub-tbl-name {
     display: flex;
     align-items: center;
@@ -1742,7 +1742,7 @@
 .logistics-tier-elite { background: rgba(91,141,217,.12);  color:var(--blue,#5b8dd9);  border:1px solid rgba(91,141,217,.28); }
 .logistics-tier-used  { background: rgba(240,160,80,.12);  color:var(--orange,#f0a050); border:1px solid rgba(240,160,80,.25); }
 
-/*  Type badge (Duży/Mały)  */
+/* Type badge (Duzy/Maly) */
 .logistics-hub-type-badge {
     display: inline-block;
     padding: 1px 6px;
@@ -1756,12 +1756,12 @@
 .logistics-hub-type-medium { background:rgba(200,168,75,.12); color:var(--gold,#c8a84b);  border:1px solid rgba(200,168,75,.22); }
 .logistics-hub-type-small  { background:rgba(240,160,80,.12); color:var(--orange,#f0a050); border:1px solid rgba(240,160,80,.22); }
 
-/*  Kondycja  */
+/* Kondycja */
 .logi-cond-good { color: var(--green,  #4ec97a); font-weight: 600; }
 .logi-cond-warn { color: var(--orange, #f0a050); font-weight: 600; }
 .logi-cond-bad  { color: var(--red,    #e05555); font-weight: 600; }
 
-/*  Przycisk przypisz (w tabeli)  */
+/* Przycisk przypisz (w tabeli) */
 .logistics-hub-assign-btn {
     padding: 4px 10px;
     font-size: .75rem;

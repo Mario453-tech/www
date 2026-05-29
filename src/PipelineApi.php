@@ -5,7 +5,7 @@
  *
  * URL: /src/PipelineApi.php
  * POST actions: buy_pipeline
- * GET  actions: pipeline_status, building_pipelines, pipeline_profiles
+ * GET actions: pipeline_status, building_pipelines, pipeline_profiles
  *
  * Rurociag jest kupowany przez gracza i budowany przez okreslony czas.
  * Pipeline is purchased by the player and built over a fixed time period.
@@ -42,14 +42,14 @@ try {
 
     switch ($action) {
 
-        // POST: player buys pipeline for a well / Gracz kupuje rurociag dla odwiertu
+ // POST: player buys pipeline for a well / Gracz kupuje rurociag dla odwiertu
         case 'buy_pipeline':
             if (!$isPost) {
                 pipelineApiOut(['success' => false, 'error' => 'POST required'], 405);
             }
             $wellId = (int)($_POST['well_id'] ?? 0);
             $type   = trim($_POST['pipeline_type'] ?? 'standard');
-            // Transport leg: 'inbound' (well->hub, default) or 'outbound' (hub->storage)
+ // Transport leg: 'inbound' (well->hub, default) or 'outbound' (hub->storage)
             $leg    = trim($_POST['leg'] ?? 'inbound');
 
             if ($wellId <= 0) {
@@ -72,14 +72,14 @@ try {
 
             pipelineApiOut($result);
 
-        // GET: pipelines currently building for this player / Rurociagi w budowie dla gracza
+ // GET: pipelines currently building for this player / Rurociagi w budowie dla gracza
         case 'building_pipelines':
             pipelineApiOut([
                 'success'   => true,
                 'pipelines' => $svc->getBuildingForPlayer($playerId),
             ]);
 
-        // GET: pipeline status for a specific well / Status rurociagu dla konkretnego odwiertu
+ // GET: pipeline status for a specific well / Status rurociagu dla konkretnego odwiertu
         case 'pipeline_status':
             $wellId = (int)($_GET['well_id'] ?? 0);
             $leg    = trim($_GET['leg'] ?? 'inbound');
@@ -89,7 +89,7 @@ try {
             $pipes = $svc->getByPlayerAndWellIds($playerId, [$wellId], $leg);
             pipelineApiOut(['success' => true, 'pipeline' => $pipes[$wellId] ?? null]);
 
-        // GET: available pipeline types with cost and build time / Dostepne typy rurociagow z kosztami i czasem
+ // GET: available pipeline types with cost and build time / Dostepne typy rurociagow z kosztami i czasem
         case 'pipeline_profiles':
             $profiles = [];
             foreach (['light', 'standard', 'heavy'] as $ptype) {
@@ -108,7 +108,7 @@ try {
             }
             pipelineApiOut(['success' => true, 'profiles' => $profiles]);
 
-        // POST: repair pipeline (restore condition to 100%) / Naprawa rurociagu
+ // POST: repair pipeline (restore condition to 100%) / Naprawa rurociagu
         case 'repair_pipeline':
             if (!$isPost) {
                 pipelineApiOut(['success' => false, 'error' => 'POST required'], 405);
@@ -133,7 +133,7 @@ try {
             ]);
             pipelineApiOut($result);
 
-        // POST: scheduled maintenance / Konserwacja zaplanowana
+ // POST: scheduled maintenance / Konserwacja zaplanowana
         case 'maintenance_pipeline':
             if (!$isPost) {
                 pipelineApiOut(['success' => false, 'error' => 'POST required'], 405);
@@ -157,7 +157,7 @@ try {
             ]);
             pipelineApiOut($result);
 
-        // POST: toggle pipeline suspended/active / Wstrzymaj lub wznow rurociag
+ // POST: toggle pipeline suspended/active / Wstrzymaj lub wznow rurociag
         case 'toggle_pipeline':
             if (!$isPost) {
                 pipelineApiOut(['success' => false, 'error' => 'POST required'], 405);

@@ -2,10 +2,10 @@
 
 class MarketTrend
 {
-    /** Minimum time (minutes) between consecutive trend activations */
+ /** Minimum time (minutes) between consecutive trend activations */
     const COOLDOWN_MINUTES = 30;
 
-    /** Probability (%) of activating a new trend when none is active and cooldown has passed */
+ /** Probability (%) of activating a new trend when none is active and cooldown has passed */
     const ACTIVATION_CHANCE = 10;
 
     private PDO $db;
@@ -15,9 +15,9 @@ class MarketTrend
         $this->db = Database::getInstance()->getConnection();
     }
 
-    // Retrieval
+ // Retrieval
 
-    /** @return array<string, mixed>|null */
+ /** @return array<string, mixed>|null */
     public function getActiveTrend(): ?array
     {
         try {
@@ -38,7 +38,7 @@ class MarketTrend
         }
     }
 
-    /** @return array<string, mixed>|null */
+ /** @return array<string, mixed>|null */
     public function getTrend(int $trendId): ?array
     {
         try {
@@ -52,7 +52,7 @@ class MarketTrend
         }
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getAllTrends(): array
     {
         try {
@@ -99,7 +99,7 @@ class MarketTrend
         }
     }
 
-    // Activation
+ // Activation
 
     public function activateTrend(int $trendId): bool
     {
@@ -110,10 +110,10 @@ class MarketTrend
                 return false;
             }
 
-            // Deactivate all previously active trends
+ // Deactivate all previously active trends
             $this->db->query("UPDATE market_trends SET active = FALSE");
 
-            // Activate the new one
+ // Activate the new one
             $this->db->prepare("
                 UPDATE market_trends
                 SET active = TRUE, activated_at = NOW()
@@ -135,9 +135,9 @@ class MarketTrend
         }
     }
 
-    /**
-     * Deactivates trends whose duration_hours have elapsed.
-     */
+ /**
+ * Deactivates trends whose duration_hours have elapsed.
+ */
     public function deactivateExpiredTrends(): void
     {
         try {
@@ -152,38 +152,38 @@ class MarketTrend
         }
     }
 
-    /**
-     * Rolls and activates a new trend if:
-     *  - no trend is currently active,
-     *  - cooldown has passed (30 min since last activation),
-     *  - random roll succeeds (10% chance).
-     *
-     * Cooldown prevents a new trend from firing immediately after the previous one ends.
-     *
-     * @return array|null  Active trend (new or existing), null if none
-     */
+ /**
+ * Rolls and activates a new trend if:
+ * - no trend is currently active,
+ * - cooldown has passed (30 min since last activation),
+ * - random roll succeeds (10% chance).
+ *
+ * Cooldown prevents a new trend from firing immediately after the previous one ends.
+ *
+ * @return array|null Active trend (new or existing), null if none
+ */
     public function checkAndActivateRandomTrend(): ?array
     {
         try {
             $activeTrend = $this->getActiveTrend();
 
-            // A trend is already active — do nothing
+ // A trend is already active do nothing
             if ($activeTrend) {
                 return $activeTrend;
             }
 
-            // Check cooldown — when was any trend last active?
+ // Check cooldown when was any trend last active?
             if ($this->isCooldownActive()) {
-                GameLog::info('MarketTrend', 'checkAndActivate: cooldown active — skipping');
+                GameLog::info('MarketTrend', 'checkAndActivate: cooldown active ï¿½ skipping');
                 return null;
             }
 
-            // Roll 10% activation chance
+ // Roll 10% activation chance
             if (rand(1, 100) > self::ACTIVATION_CHANCE) {
                 return null;
             }
 
-            // Pick a random inactive trend
+ // Pick a random inactive trend
             $randomTrend = $this->getRandomInactiveTrend();
             if (!$randomTrend) {
                 GameLog::warn('MarketTrend', 'checkAndActivate: no available trends');
@@ -195,7 +195,7 @@ class MarketTrend
                 return null;
             }
 
-            // Fetch fresh data after activation
+ // Fetch fresh data after activation
             return $this->getTrend((int)$randomTrend['id']);
 
         } catch (Throwable $e) {
@@ -204,11 +204,11 @@ class MarketTrend
         }
     }
 
-    // Helpers
+ // Helpers
 
-    /**
-     * Returns true if the cooldown since the last trend activation has not yet elapsed.
-     */
+ /**
+ * Returns true if the cooldown since the last trend activation has not yet elapsed.
+ */
     private function isCooldownActive(): bool
     {
         try {
@@ -218,7 +218,7 @@ class MarketTrend
             ")->fetchColumn();
 
             if (!$lastActivated) {
-                return false; // No trend has ever been active — no cooldown
+                return false; // No trend has ever been active ï¿½ no cooldown
             }
 
             $minutesSince = (time() - strtotime($lastActivated)) / 60;

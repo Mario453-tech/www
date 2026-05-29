@@ -6,9 +6,9 @@ require_once dirname(__DIR__, 2) . '/src/OffshoreTransportService.php';
 
 final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
 {
-    // 
-    // ensureConfigsForPlayerWells
-    // 
+ // 
+ // ensureConfigsForPlayerWells
+ // 
 
     public function testEnsureCreatesConfigOnlyForTankowiecWells(): void
     {
@@ -23,7 +23,7 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
             ['id' => $ids['auxWellId'], 'transport_type' => 'rurociag'],
         ];
         $svc->ensureConfigsForPlayerWells($playerId, $wells);
-        // Idempotentne  drugi call nie powinien duplikowa
+ // Idempotentne drugi call nie powinien duplikowa
         $svc->ensureConfigsForPlayerWells($playerId, $wells);
 
         $stmt = $this->db->prepare('SELECT well_id, tanker_type FROM well_offshore_configs WHERE player_id = ? ORDER BY id');
@@ -35,9 +35,9 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('small', $rows[0]['tanker_type']);
     }
 
-    // 
-    // getConfigsByWellIds
-    // 
+ // 
+ // getConfigsByWellIds
+ // 
 
     public function testGetConfigsByWellIdsReturnsKeyedByWellId(): void
     {
@@ -57,9 +57,9 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertArrayNotHasKey(999999, $configs);
     }
 
-    // 
-    // processTick  cieka zero incydentw (risk_mult = 0)
-    // 
+ // 
+ // processTick cieka zero incydentw (risk_mult = 0)
+ // 
 
     public function testProcessTickWithZeroRiskDeliversAllVolume(): void
     {
@@ -67,7 +67,7 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 70.0, 50.0);
 
-        // risk_mult = 0.0  szansa incydentu = 0  wszystkie rejsy dostarczone
+ // risk_mult = 0.0 szansa incydentu = 0 wszystkie rejsy dostarczone
         $config = [
             'shipment_capacity_bbl' => 30.0,
             'cost_per_shipment'     => 800.0,
@@ -87,15 +87,15 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(2400.0, $result['cost'],                      '3  800 = 2400');
         $this->assertSame([], $result['incidents']);
 
-        // Brak incydentw  brak wpisw w logu
+ // Brak incydentw brak wpisw w logu
         $stmt = $this->db->prepare('SELECT COUNT(*) FROM well_offshore_incident_logs WHERE well_id = ?');
         $stmt->execute([$ids['wellId']]);
         $this->assertSame('0', (string)$stmt->fetchColumn());
     }
 
-    // 
-    // processTick  wymuszone incydenty (bardzo duy risk_mult)
-    // 
+ // 
+ // processTick wymuszone incydenty (bardzo duy risk_mult)
+ // 
 
     public function testProcessTickWithMaxRiskCreatesIncidentLogs(): void
     {
@@ -103,7 +103,7 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 70.0, 50.0);
 
-        // Bardzo maa pojemno rejsu = duo rejsw  przy 95% szansie prawie na pewno incydent
+ // Bardzo maa pojemno rejsu = duo rejsw przy 95% szansie prawie na pewno incydent
         $config = [
             'shipment_capacity_bbl' => 0.5,      // 100 bbl / 0.5 = 200 rejsw
             'cost_per_shipment'     => 10.0,
@@ -116,11 +116,11 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
             $config, ['failure_reduction' => 1.0], 1
         );
 
-        // Przy 200 rejsach i 95% szansie incydentu P(0 incydentw)  (0.05)^200  0
+ // Przy 200 rejsach i 95% szansie incydentu P(0 incydentw) (0.05)^200 0
         $this->assertGreaterThan(0.0, $result['lost_bbl'],  'Powinna by strata bbl');
         $this->assertNotEmpty($result['incidents']);
 
-        // Weryfikacja struktury incydentw
+ // Weryfikacja struktury incydentw
         foreach ($result['incidents'] as $inc) {
             $this->assertArrayHasKey('type', $inc);
             $this->assertArrayHasKey('shipment_idx', $inc);
@@ -128,7 +128,7 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
             $this->assertContains($inc['type'], ['storm', 'breakdown', 'delay', 'piracy']);
         }
 
-        // Wpisy w logu incydentw w bazie
+ // Wpisy w logu incydentw w bazie
         $stmt = $this->db->prepare(
             'SELECT SUM(shipments_lost) AS total_lost, SUM(vol_lost_bbl) AS total_vol
                FROM well_offshore_incident_logs WHERE well_id = ? AND player_id = ?'
@@ -140,9 +140,9 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertGreaterThan(0.0, (float)$logRow['total_vol']);
     }
 
-    // 
-    // processTick  bilans: delivered + lost = input
-    // 
+ // 
+ // processTick bilans: delivered + lost = input
+ // 
 
     public function testProcessTickVolumeBalance(): void
     {
@@ -162,7 +162,7 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
             $config, ['failure_reduction' => 1.0], 2
         );
 
-        // Niezmiennik: delivered + lost = input (z tolerancj zaokrgle)
+ // Niezmiennik: delivered + lost = input (z tolerancj zaokrgle)
         $this->assertEqualsWithDelta(
             60.0,
             $result['delivered_bbl'] + $result['lost_bbl'],
@@ -170,17 +170,17 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
             'delivered + lost powinno sumowa si do inputBbl'
         );
 
-        // Koszt = shipments_total * cost_per_shipment
+ // Koszt = shipments_total * cost_per_shipment
         $expectedCost = $result['shipments_total'] * 600.0;
         $this->assertEqualsWithDelta($expectedCost, $result['cost'], 0.01);
 
-        // shipments_total sprawdzamy (60 / 15 = 4)
+ // shipments_total sprawdzamy (60 / 15 = 4)
         $this->assertSame(4, $result['shipments_total']);
     }
 
-    // 
-    // processTick  pusty input
-    // 
+ // 
+ // processTick pusty input
+ // 
 
     public function testProcessTickWithZeroInputReturnsEmpty(): void
     {
@@ -196,9 +196,9 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame([], $result['incidents']);
     }
 
-    // 
-    // processTick  wysokie ryzyko polityczne (piractwo skaluje)
-    // 
+ // 
+ // processTick wysokie ryzyko polityczne (piractwo skaluje)
+ // 
 
     public function testProcessTickHighPoliticalRiskIncreasesIncidents(): void
     {
@@ -206,8 +206,8 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec', 70.0, 50.0);
 
-        // Uywamy umiarkowanego risk_mult + wysokiego ryzyka politycznego (4)
-        // + mae rejsy eby zwikszy prbk
+ // Uywamy umiarkowanego risk_mult + wysokiego ryzyka politycznego (4)
+ // + mae rejsy eby zwikszy prbk
         $config = [
             'shipment_capacity_bbl' => 1.0,    // 100 bbl / 1 = 100 rejsw
             'cost_per_shipment'     => 10.0,
@@ -220,7 +220,7 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
             $config, ['failure_reduction' => 1.0], 1  // ryzyko polityczne = 1
         );
 
-        // Wyczy logi midzy testami
+ // Wyczy logi midzy testami
         $this->db->prepare('DELETE FROM well_offshore_incident_logs WHERE well_id = ?')->execute([$ids['wellId']]);
 
         $result4 = $svc->processTick(
@@ -228,8 +228,8 @@ final class MySqlOffshoreTransportServiceTest extends MySqlIntegrationTestCase
             $config, ['failure_reduction' => 1.0], 4  // ryzyko polityczne = 4 (2.5)
         );
 
-        // Przy wyszym ryzyku politycznym strata powinna by wiksza lub rwna (moe by zaszumiona losowoci)
-        // Testujemy e wynik ma sensown struktur  bilans
+ // Przy wyszym ryzyku politycznym strata powinna by wiksza lub rwna (moe by zaszumiona losowoci)
+ // Testujemy e wynik ma sensown struktur bilans
         $this->assertEqualsWithDelta(
             100.0,
             $result4['delivered_bbl'] + $result4['lost_bbl'],

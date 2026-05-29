@@ -1,5 +1,5 @@
 /**
- * director_notifications.js — obs³uga powiadomieñ dyrektora
+ * director_notifications.js obsuga powiadomie dyrektora
  * Wymaga: window.CSRF_TOKEN (inline config w director_notifications.php)
  */
 function markNotificationRead(notificationId) {
@@ -31,7 +31,7 @@ function markNotificationRead(notificationId) {
 }
 
 function markAllNotificationsRead() {
-    confirmAction('Oznaczyæ wszystkie komunikaty jako przeczytane?', function () {
+    confirmAction('Oznaczyï¿½ wszystkie komunikaty jako przeczytane?', function () {
         fetch('/api/notifications/mark-all-read.php', {
             method: 'POST',
             headers: {

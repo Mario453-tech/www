@@ -9,24 +9,24 @@ $bak = $backupDir . '/pl.php.bak_last_' . date('Ymd_His');
 copy($file, $bak);
 
 $fixes = [
-    // hr_hiring
+ // hr_hiring
     ["'Bd zatrudniania inyniera.'",             "'Błąd zatrudniania inżyniera.'"],
-    // hr_events
+ // hr_events
     ["{first} {last} zosta zwolniony.",          "{first} {last} został zwolniony."],
     ["'Koczcy si kontrakt: {first} {last}'",    "'Kończący się kontrakt: {first} {last}'"],
     ["'Panie Dyrektorze, za {days} dni koczy si kontrakt pracownika {first} {last} ({role}). Prosz o decyzj w sprawie przeduenia.'",
      "'Panie Dyrektorze, za {days} dni kończy się kontrakt pracownika {first} {last} ({role}). Proszę o decyzję w sprawie przedłużenia.'"],
-    // hr_headhunter
+ // hr_headhunter
     ["=> 'Bd: {error}'",                        "=> 'Błąd: {error}'"],
-    // geology
+ // geology
     ["=> 'Pytka'",                               "=> 'Płytka'"],
-    // logistics pipeline - pominiete w poprzednim passie
+ // logistics pipeline - pominiete w poprzednim passie
     ["'Ostatni przegld'",                        "'Ostatni przegląd'"],
     ["'Brak inyniera'",                          "'Brak inżyniera'"],
-    // admin.logistics.cfg_acquisition
+ // admin.logistics.cfg_acquisition
     ["'Mnonik kosztu wejcia'",                   "'Mnożnik kosztu wejścia'"],
-    // Naprawa kluczy ktore byly wewnatrz duplikatu a nie wurden naprawione w pierwszym bloku
-    // (Zosta/Zostaly pattern - upewnij sie ze wszystkie formy sa naprawione)
+ // Naprawa kluczy ktore byly wewnatrz duplikatu a nie wurden naprawione w pierwszym bloku
+ // (Zosta/Zostaly pattern - upewnij sie ze wszystkie formy sa naprawione)
     [" zosta ",                                  " został "],
 ];
 

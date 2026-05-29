@@ -55,7 +55,7 @@ if ($_POST && isset($_POST['action'])) {
                     $storageData['used']  -= $amount;
                     $playerData['cash']   += $earnings;
 
-                    // Credit score recovery after legal sale
+ // Credit score recovery after legal sale
                     try {
                         (new BlackMarketService())->applyLegalRecovery(Auth::getUserId());
                     } catch (\Throwable $e) {}

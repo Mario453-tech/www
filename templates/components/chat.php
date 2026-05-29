@@ -1,5 +1,5 @@
-﻿<?php
-//  Komponent: Czat globalny graczy
+<?php
+// Komponent: Czat globalny graczy
 ?>
 <section class="card chat-box" aria-labelledby="chat-heading">
     <h2 id="chat-heading">Czat graczy</h2>

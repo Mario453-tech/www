@@ -1,15 +1,15 @@
 <?php
 
 /**
- * HubViewHubsTrait � hub cards, alerts, detail view and assignable hub list.
+ * HubViewHubsTrait hub cards, alerts, detail view and assignable hub list.
  * Used by HubViewService.
  */
 trait HubViewHubsTrait
 {
-    /**
-     * Returns hub cards with enriched data for the hub list view.
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns hub cards with enriched data for the hub list view.
+ * @return list<array<string, mixed>>
+ */
     public function getHubCards(int $playerId): array
     {
         $cards = [];
@@ -31,13 +31,13 @@ trait HubViewHubsTrait
         return $cards;
     }
 
-    /**
-     * Returns hub cards for hubs the player OWNS or RENTS (private ownership model).
-     * Unlike getHubCards (assignment-based), this includes acquired hubs with no wells yet.
-     * Each card carries an 'ownership' flag: 'owned' or 'rented'.
-     * Zwraca karty hubow nalezacych do gracza (kupione) lub wynajmowanych.
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns hub cards for hubs the player OWNS or RENTS (private ownership model).
+ * Unlike getHubCards (assignment-based), this includes acquired hubs with no wells yet.
+ * Each card carries an 'ownership' flag: 'owned' or 'rented'.
+ * Zwraca karty hubow nalezacych do gracza (kupione) lub wynajmowanych.
+ * @return list<array<string, mixed>>
+ */
     public function getMyHubCards(int $playerId): array
     {
         $cards = [];
@@ -72,10 +72,10 @@ trait HubViewHubsTrait
         return $cards;
     }
 
-    /**
-     * Returns active logistics alerts for a player.
-     * @return list<array{type: string, severity: string, hub_id: ?int, region_id: int, message: string}>
-     */
+ /**
+ * Returns active logistics alerts for a player.
+ * @return list<array{type: string, severity: string, hub_id: ?int, region_id: int, message: string}>
+ */
     public function getAlerts(int $playerId): array
     {
         $alerts = [];
@@ -120,10 +120,10 @@ trait HubViewHubsTrait
         return $alerts;
     }
 
-    /**
-     * Returns data for a single hub detail page (player-facing).
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Returns data for a single hub detail page (player-facing).
+ * @return array<string, mixed>|null
+ */
     public function getHubDetail(int $hubId, int $playerId): ?array
     {
         $hub = $this->hubSvc->getHub($hubId);
@@ -145,10 +145,10 @@ trait HubViewHubsTrait
         ];
     }
 
-    /**
-     * Returns assignable hubs for a well (same region, annotated with slot and zone data).
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns assignable hubs for a well (same region, annotated with slot and zone data).
+ * @return list<array<string, mixed>>
+ */
     public function getAssignableHubs(int $playerId, int $wellId): array
     {
         $stmt = $this->db->prepare("SELECT region_id, zone_key FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
@@ -160,7 +160,7 @@ trait HubViewHubsTrait
 
         $list = [];
         foreach ($this->hubSvc->getRegionHubs((int)$well['region_id']) as $hub) {
-            // Private ownership: only hubs the player owns or rents are assignable.
+ // Private ownership: only hubs the player owns or rents are assignable.
             $hubOwner  = (int)($hub['player_id']        ?? 0);
             $hubTenant = (int)($hub['tenant_player_id'] ?? 0);
             if ($hubOwner !== $playerId && $hubTenant !== $playerId) {
@@ -171,8 +171,8 @@ trait HubViewHubsTrait
             $slotLimit   = (int)$hub['slot_limit'];
             $zonePenalty = ($well['zone_key'] !== $hub['zone_key'] && $hub['zone_key'] !== '') ? 10.0 : 0.0;
 
-            // Oplata per-slot jak� gracz zaplaci za JEDN� studnie w tym hubie.
-            // Per-slot fee the player would pay for ONE well in this hub.
+ // Oplata per-slot jak gracz zaplaci za JEDN studnie w tym hubie.
+ // Per-slot fee the player would pay for ONE well in this hub.
             $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
             $opexMult  = (float)($modeMultipliers['opex_mult'] ?? 1.0);
             $condPct   = (float)($hub['condition_pct'] ?? 100.0);
@@ -191,10 +191,10 @@ trait HubViewHubsTrait
             $acqDefaults = $this->hubSvc->getAcquisitionDefaults($acqType);
             $leaseFee    = max(0.0, (float)($hub['lease_fee_per_tick'] ?? $acqDefaults['lease_fee_per_tick']));
 
-            // One-time access fee shown before assignment (mirrors HubAssignmentService logic).
-            // new   : 5 ticks of per-slot opex
-            // used  : 8 ticks of per-slot opex
-            // rental: 3 x lease_fee_per_slot (deposit)
+ // One-time access fee shown before assignment (mirrors HubAssignmentService logic).
+ // new : 5 ticks of per-slot opex
+ // used : 8 ticks of per-slot opex
+ // rental: 3 x lease_fee_per_slot (deposit)
             $accessFee = match($acqType) {
                 'used'   => round($usageFee * 8.0, 2),
                 'rental' => round($leaseFee * 3.0, 2),
@@ -210,7 +210,7 @@ trait HubViewHubsTrait
                 'status_class' => $this->getStatusCssClass($hub['status']),
                 'usage_fee'    => $usageFee,
                 'cond_mult'    => $condMult,
-                // Acquisition type info for player UI
+ // Acquisition type info for player UI
                 'acq_type'      => $acqType,
                 'acq_wear_mult' => (float)$acqDefaults['wear_mult'],
                 'acq_risk_mult' => (float)$acqDefaults['risk_mult'],
@@ -225,10 +225,10 @@ trait HubViewHubsTrait
         return $list;
     }
 
-    /**
-     * Returns system hubs grouped by region for a player (well assignment browser).
-     * @return list<array{region_id: int, region_name: string, hubs: list<array<string, mixed>>}>
-     */
+ /**
+ * Returns system hubs grouped by region for a player (well assignment browser).
+ * @return list<array{region_id: int, region_name: string, hubs: list<array<string, mixed>>}>
+ */
     public function getAvailableHubsByRegion(int $playerId): array
     {
         $result = [];
@@ -259,12 +259,12 @@ trait HubViewHubsTrait
         return $result;
     }
 
-    /**
-     * Returns MARKET hubs (player_id=0, tenant_player_id=0) grouped by the player's regions,
-     * annotated with buy price and rent deposit for the acquisition UI ("rynek").
-     * Zwraca huby rynkowe (do kupna/wynajmu) pogrupowane po regionach gracza.
-     * @return list<array{region_id: int, region_name: string, hubs: list<array<string, mixed>>}>
-     */
+ /**
+ * Returns MARKET hubs (player_id=0, tenant_player_id=0) grouped by the player's regions,
+ * annotated with buy price and rent deposit for the acquisition UI ("rynek").
+ * Zwraca huby rynkowe (do kupna/wynajmu) pogrupowane po regionach gracza.
+ * @return list<array{region_id: int, region_name: string, hubs: list<array<string, mixed>>}>
+ */
     public function getMarketHubsByRegion(int $playerId): array
     {
         $result = [];
@@ -305,7 +305,7 @@ trait HubViewHubsTrait
         return $result;
     }
 
-    //  CSS helpers
+ // CSS helpers
 
     private function getStatusCssClass(string $status): string
     {
@@ -328,7 +328,7 @@ trait HubViewHubsTrait
         return 'text-green';
     }
 
-    /** @param array<string, mixed> $hub */
+ /** @param array<string, mixed> $hub */
     private function canUpgrade(array $hub): bool
     {
         $defaults = $this->hubSvc->getHubTypeDefaults($hub['hub_type'], (int)$hub['level']);

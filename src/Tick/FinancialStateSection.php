@@ -1,8 +1,8 @@
 <?php
 
 /**
- * FinancialStateSection — detekcja kryzysu finansowego i zapis last_tick_at.
- * FinancialStateSection — financial crisis detection and last_tick_at persistence.
+ * FinancialStateSection detekcja kryzysu finansowego i zapis last_tick_at.
+ * FinancialStateSection financial crisis detection and last_tick_at persistence.
  */
 class FinancialStateSection
 {
@@ -15,13 +15,13 @@ class FinancialStateSection
         $this->now = $now;
     }
 
-    /**
-     * Ocenia stan finansowy gracza i aktualizuje financial_state / crisis_ticks.
-     * Evaluates player financial state and updates financial_state / crisis_ticks.
-     */
-    /**
-     * @param array<string, mixed> $playerData
-     */
+ /**
+ * Ocenia stan finansowy gracza i aktualizuje financial_state / crisis_ticks.
+ * Evaluates player financial state and updates financial_state / crisis_ticks.
+ */
+ /**
+ * @param array<string, mixed> $playerData
+ */
     public function process(
         int    $playerId,
         array  $playerData,
@@ -103,10 +103,10 @@ class FinancialStateSection
         }
     }
 
-    /**
-     * Zapisuje gotowke i last_tick_at gracza.
-     * Saves player cash and last_tick_at timestamp.
-     */
+ /**
+ * Zapisuje gotowke i last_tick_at gracza.
+ * Saves player cash and last_tick_at timestamp.
+ */
     public function saveCashAndTick(int $playerId, float $playerCash): void
     {
         $this->db->prepare(
