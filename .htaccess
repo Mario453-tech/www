@@ -45,12 +45,13 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/src/BlackMarketApi\.php$ [OR]
     RewriteCond %{REQUEST_URI} ^/src/LogisticsApi\.php$ [OR]
     RewriteCond %{REQUEST_URI} ^/src/AdminNewsApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/HubApi\.php$
+    RewriteCond %{REQUEST_URI} ^/src/HubApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/PipelineApi\.php$
     RewriteRule ^ - [L]
 
     # ── Blokada dostępu do wrażliwych katalogów ──
     RewriteCond %{REQUEST_URI} ^/src/
-    RewriteCond %{REQUEST_URI} !^/src/(RecruitmentAPI\.php|HRApi\.php|WellStaffApi\.php|ChatApi\.php|TechNotifApi\.php|WellSellApi\.php|DmApi\.php|BlackMarketApi\.php|LogisticsApi\.php|AdminNewsApi\.php|HubApi\.php)$
+    RewriteCond %{REQUEST_URI} !^/src/(RecruitmentAPI\.php|HRApi\.php|WellStaffApi\.php|ChatApi\.php|TechNotifApi\.php|WellSellApi\.php|DmApi\.php|BlackMarketApi\.php|LogisticsApi\.php|AdminNewsApi\.php|HubApi\.php|PipelineApi\.php)$
     RewriteRule ^ - [F,L]
 
     RewriteCond %{REQUEST_URI} ^/config/ [OR]
