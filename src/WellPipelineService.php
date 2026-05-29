@@ -89,6 +89,14 @@ class WellPipelineService
         $this->ensureColumn('well_pipelines', 'leg', "ENUM('inbound','outbound') NOT NULL DEFAULT 'inbound' AFTER hub_id");
         // Migrate the per-well unique key to per-(well, leg) so a well can have both legs.
         $this->ensurePipelineLegUniqueKey();
+        // ETAP 5: pipeline degradation (PipelineSection) reads wells.hub_outbound_transport_type
+        // to pick the outbound leg. Ensure the column exists here too (idempotent, defensive),
+        // since PipelineSection always constructs this service before degrading pipelines.
+        $this->ensureColumn(
+            'wells',
+            'hub_outbound_transport_type',
+            "ENUM('nieustawiony','rurociag','ciezarowki','tankowiec') NOT NULL DEFAULT 'nieustawiony'"
+        );
 
         // Extend ENUM to include building and leak states for existing installations
         try {
