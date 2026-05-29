@@ -214,7 +214,8 @@ try {
                 'message' => $message,
             ]);
 
-        // Choose the second transport leg (hub -> storage) for a well.
+        // Choose the second transport leg (hub -> storage) for a well's hub.
+        // ETAP 11: the setting is now stored per hub (logistics_hubs.outbound_transport_type).
         // Allowed: 'nieustawiony' (direct), 'rurociag' (outbound pipeline) and
         // 'ciezarowki' (road haul, per-tick cost + incidents). Tanker second leg N/A
         // (the second leg is land-based hub -> storage).
@@ -230,19 +231,21 @@ try {
 
             $db->beginTransaction();
             try {
-                $wellStmt = $db->prepare('SELECT * FROM wells WHERE id = ? AND player_id = ? LIMIT 1 FOR UPDATE');
-                $wellStmt->execute([$wellId, $playerId]);
-                $wellRow = $wellStmt->fetch(PDO::FETCH_ASSOC);
-
-                if (!$wellRow) {
+                // Find the hub for this well (ETAP 11: outbound setting is per hub).
+                $hubStmt = $db->prepare(
+                    'SELECT a.hub_id FROM logistics_hub_assignments a WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
+                );
+                $hubStmt->execute([$wellId]);
+                $hubRow = $hubStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$hubRow) {
                     $db->rollBack();
-                    jsonOut(['success' => false, 'message' => t('common.access_denied')], 403);
+                    jsonOut(['success' => false, 'message' => t('well_staff.transport_err_hub_required')], 400);
                 }
+                $hubId = (int)$hubRow['hub_id'];
 
-                // The second leg starts at the well's hub; an active hub assignment is required.
                 if ($transportType === 'rurociag') {
                     $pipelineService = new WellPipelineService($db);
-                    $ownedOutbound   = $pipelineService->getByPlayerAndWellIds($playerId, [$wellId], 'outbound')[$wellId] ?? null;
+                    $ownedOutbound   = $pipelineService->getByPlayerHubIds($playerId, [$hubId])[$hubId] ?? null;
 
                     if ($ownedOutbound === null) {
                         $allowedPipelineTypes  = ['light', 'standard', 'heavy'];
@@ -250,15 +253,13 @@ try {
                         if (!in_array($requestedPipelineType, $allowedPipelineTypes, true)) {
                             $requestedPipelineType = 'standard';
                         }
-                        $purchase = $pipelineService->purchasePipeline($playerId, $wellId, $requestedPipelineType, 'outbound');
+                        $purchase = $pipelineService->purchaseHubOutboundPipeline($playerId, $hubId, $requestedPipelineType);
                         if (!($purchase['success'] ?? false)) {
                             $db->rollBack();
                             $errMsg = match ($purchase['error'] ?? '') {
                                 'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
                                 'pipeline_already_exists' => t('pipeline.err_already_exists'),
-                                'offshore_no_pipeline'    => t('pipeline.err_offshore'),
-                                'hub_required'            => t('well_staff.transport_err_hub_required'),
-                                'well_not_found'          => t('common.not_found'),
+                                'hub_not_found'           => t('well_staff.transport_err_hub_required'),
                                 default                   => t('common.generic_error'),
                             };
                             jsonOut(['success' => false, 'message' => $errMsg], 400);
@@ -268,8 +269,8 @@ try {
                 }
 
                 $db->prepare(
-                    'UPDATE wells SET hub_outbound_transport_type = ? WHERE id = ? AND player_id = ?'
-                )->execute([$transportType, $wellId, $playerId]);
+                    'UPDATE logistics_hubs SET outbound_transport_type = ? WHERE id = ?'
+                )->execute([$transportType, $hubId]);
 
                 $db->commit();
             } catch (Throwable $e) {

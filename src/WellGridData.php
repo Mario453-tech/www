@@ -73,7 +73,7 @@ class WellGridData
         // Preload owned pipelines for all visible wells.
         // Preload zakupionych rurociagow dla wszystkich widocznych odwiertow.
         $pipelineByWell = [];
-        $outboundPipelineByWell = [];
+        $outboundPipelineByHub = [];  // ETAP 11: keyed by hub_id (not well_id)
         $hubAssignmentByWell = [];
         if (!empty($showWells)) {
             $wellIds = array_values(array_filter(array_map(static fn($w): int => (int)($w['id'] ?? 0), $showWells)));
@@ -83,8 +83,7 @@ class WellGridData
                     $pipelineSvc = new WellPipelineService($db);
                     $playerId = (int)($playerData['id'] ?? 0);
                     if ($playerId > 0) {
-                        $pipelineByWell         = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
-                        $outboundPipelineByWell = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'outbound');
+                        $pipelineByWell = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
                     }
                 } catch (Throwable $e) {
                     GameLog::error('WellGridData', 'pipeline preload FAILED', $e);
@@ -93,8 +92,9 @@ class WellGridData
                 try {
                     $db = Database::getInstance()->getConnection();
                     $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
+                    // ETAP 11: also fetch outbound_transport_type from logistics_hubs for second leg display.
                     $stmt = $db->prepare(
-                        "SELECT a.well_id, a.hub_id, h.name AS hub_name
+                        "SELECT a.well_id, a.hub_id, h.name AS hub_name, h.outbound_transport_type
                            FROM logistics_hub_assignments a
                            JOIN logistics_hubs h ON h.id = a.hub_id
                           WHERE a.status = 'active'
@@ -106,6 +106,24 @@ class WellGridData
                     }
                 } catch (Throwable $e) {
                     GameLog::error('WellGridData', 'hub assignment preload FAILED', $e);
+                }
+
+                // ETAP 11: load outbound pipelines keyed by hub_id (well_id=0 sentinel).
+                try {
+                    $db = Database::getInstance()->getConnection();
+                    $pipelineSvc = new WellPipelineService($db);
+                    $playerId = (int)($playerData['id'] ?? 0);
+                    if ($playerId > 0) {
+                        $hubIds = array_values(array_unique(array_map(
+                            static fn($a): int => (int)($a['hub_id'] ?? 0),
+                            $hubAssignmentByWell
+                        )));
+                        if ($hubIds !== []) {
+                            $outboundPipelineByHub = $pipelineSvc->getByPlayerHubIds($playerId, $hubIds);
+                        }
+                    }
+                } catch (Throwable $e) {
+                    GameLog::error('WellGridData', 'hub outbound pipeline preload FAILED', $e);
                 }
             }
         }
@@ -122,7 +140,7 @@ class WellGridData
                     'code'  => $w['region_code'] ?? '',
                 ];
             }
-            $groups[$regionKey]['wells'][] = self::prepareWell($w, $statusMap, $specNames, $playerCash, $pipelineByWell, $hubAssignmentByWell, $outboundPipelineByWell);
+            $groups[$regionKey]['wells'][] = self::prepareWell($w, $statusMap, $specNames, $playerCash, $pipelineByWell, $hubAssignmentByWell, $outboundPipelineByHub);
         }
         ksort($groups);
 
@@ -144,8 +162,9 @@ class WellGridData
 
     /**
      * Enriches a single well row with all computed display data.
+     * ETAP 11: $outboundPipelineByHub is keyed by hub_id (not well_id).
      */
-    private static function prepareWell(array $w, array $statusMap, array $specNames, float $playerCash, array $pipelineByWell, array $hubAssignmentByWell, array $outboundPipelineByWell = []): array
+    private static function prepareWell(array $w, array $statusMap, array $specNames, float $playerCash, array $pipelineByWell, array $hubAssignmentByWell, array $outboundPipelineByHub = []): array
     {
         //  Status & condition 
         $status   = $w['status'] ?? 'active';
@@ -205,9 +224,10 @@ class WellGridData
                 $pipelineBuildCost = 18000.0;
             }
         }
-        // Second transport leg (hub -> storage). Mirrors the inbound pipeline state.
-        $outboundType        = (string)($w['hub_outbound_transport_type'] ?? 'nieustawiony');
-        $outboundPipeline    = $outboundPipelineByWell[$wellId] ?? null;
+        // Second transport leg (hub -> storage). ETAP 11: type stored per hub, pipeline keyed by hub_id.
+        $hubId               = (int)($hubAssignment['hub_id'] ?? 0);
+        $outboundType        = (string)($hubAssignment['outbound_transport_type'] ?? $w['hub_outbound_transport_type'] ?? 'nieustawiony');
+        $outboundPipeline    = ($hubId > 0) ? ($outboundPipelineByHub[$hubId] ?? null) : null;
         $hasOutboundPipeline = $outboundPipeline !== null;
         $outboundStatus      = (string)($outboundPipeline['status'] ?? '');
         $outboundOperational = (bool)($outboundPipeline['_is_operational'] ?? ($hasOutboundPipeline && $outboundStatus !== 'building'));

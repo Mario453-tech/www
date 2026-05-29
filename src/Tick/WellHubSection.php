@@ -122,7 +122,8 @@ class WellHubSection
 
                 $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
                 $this->processHubUsageFee($hubId, $hub, $playerId, $playerWellCount);
-                $this->processOutboundLeg($hubId, $playerId, $deltaHours, $hseBonus);
+                $processedBbl = max(0.0, (float)($result['processed_bbl'] ?? ($inputBbl - max(0.0, $hubLostBbl))));
+                $this->processOutboundLeg($hubId, $playerId, $processedBbl, $deltaHours, $hseBonus);
 
             } catch (Throwable $e) {
                 GameLog::error('tick', 'finalizeHubTicks FAILED', $e, [
@@ -250,20 +251,19 @@ class WellHubSection
     }
 
     /**
-     * Second transport leg (hub -> storage), applied per well via OutboundLegService.
-     * Each well's hub_outbound_transport_type decides how its oil leaves the hub:
+     * Second transport leg (hub -> storage), applied per hub via OutboundLegService.
+     * ETAP 11: the outbound transport type is now a per-hub setting (logistics_hubs.outbound_transport_type).
      *   'nieustawiony' : direct delivery (no extra loss/cost) - default, backward compatible
-     *   'rurociag'     : outbound pipeline (leg='outbound') - transport_loss % + OPEX
+     *   'rurociag'     : outbound pipeline (leg='outbound', well_id=0) - transport_loss % + OPEX
      *   'ciezarowki'   : road haul (per-tick cost + independent incident loss)
-     * Operates on barrels the well delivered to storage this tick (hubWellDelivered),
-     * i.e. oil that reached storage synchronously through the inbound pipeline path.
-     * Drugi odcinek transportu hub->magazyn, naliczany per odwiert.
+     * Operates on barrels that were processed by the hub this tick (processedBbl).
+     * Drugi odcinek transportu hub->magazyn, naliczany per hub (ETAP 11).
      *
      * @param array<string, mixed> $hseBonus
      */
-    private function processOutboundLeg(int $hubId, int $playerId, float $deltaHours, array $hseBonus): void
+    private function processOutboundLeg(int $hubId, int $playerId, float $processedBbl, float $deltaHours, array $hseBonus): void
     {
-        if (empty($this->ctx->hubWellDelivered)) {
+        if ($processedBbl <= 0.001) {
             return;
         }
 
@@ -274,53 +274,42 @@ class WellHubSection
             'transport_cost_mult' => (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
         ];
 
-        foreach ($this->ctx->wellHubMap as $wellId => $assignedHubId) {
-            if ($assignedHubId !== $hubId) {
-                continue;
-            }
-            $deliveredBbl = (float)($this->ctx->hubWellDelivered[$wellId] ?? 0.0);
-            if ($deliveredBbl <= 0.001) {
-                continue;
-            }
+        $outboundType = (string)($this->ctx->hubOutboundType[$hubId] ?? 'nieustawiony');
+        $pipe         = $this->ctx->hubOutboundPipelineCache[$hubId] ?? null;
 
-            $outboundType = (string)($this->ctx->wellOutboundType[$wellId] ?? 'nieustawiony');
-            $pipe         = $this->ctx->outboundPipelineCache[$wellId] ?? null;
-
-            $res = $this->outboundSvc->compute(
-                $outboundType, $pipe, $deliveredBbl, $this->oilPrice, $mults, $deltaHours, $hseBonus
-            );
-            if ($res['kind'] === 'direct') {
-                continue;
-            }
-
-            $lostBbl = (float)$res['loss_bbl'];
-            if ($lostBbl > 0.001) {
-                $lostVal = (float)$res['loss_value'];
-                $this->ctx->currentStorage        = max(0.0, $this->ctx->currentStorage - $lostBbl);
-                $this->ctx->finBbl               -= $lostBbl;
-                $this->ctx->deliveredBbl         -= $lostBbl;
-                $this->ctx->finRevenue           -= $lostVal;
-                $this->ctx->finLossBbl           += $lostBbl;
-                $this->ctx->finLossValue         += $lostVal;
-                $this->ctx->finOutboundLossBbl   += $lostBbl;
-                $this->ctx->finOutboundLossValue += $lostVal;
-            }
-
-            $cost = (float)$res['cost'];
-            if ($cost > 0.0) {
-                $this->ctx->finTransport += $cost;
-                $this->ctx->playerCash   -= $cost;
-            }
-
-            GameLog::info('tick', 'outbound_leg', [
-                'well_id'   => $wellId,
-                'hub_id'    => $hubId,
-                'player_id' => $playerId,
-                'kind'      => $res['kind'],
-                'bbl'       => round($deliveredBbl, 2),
-                'lost_bbl'  => round($lostBbl, 2),
-                'cost'      => $cost,
-            ]);
+        $res = $this->outboundSvc->compute(
+            $outboundType, $pipe, $processedBbl, $this->oilPrice, $mults, $deltaHours, $hseBonus
+        );
+        if ($res['kind'] === 'direct') {
+            return;
         }
+
+        $lostBbl = (float)$res['loss_bbl'];
+        if ($lostBbl > 0.001) {
+            $lostVal = (float)$res['loss_value'];
+            $this->ctx->currentStorage        = max(0.0, $this->ctx->currentStorage - $lostBbl);
+            $this->ctx->finBbl               -= $lostBbl;
+            $this->ctx->deliveredBbl         -= $lostBbl;
+            $this->ctx->finRevenue           -= $lostVal;
+            $this->ctx->finLossBbl           += $lostBbl;
+            $this->ctx->finLossValue         += $lostVal;
+            $this->ctx->finOutboundLossBbl   += $lostBbl;
+            $this->ctx->finOutboundLossValue += $lostVal;
+        }
+
+        $cost = (float)$res['cost'];
+        if ($cost > 0.0) {
+            $this->ctx->finTransport += $cost;
+            $this->ctx->playerCash   -= $cost;
+        }
+
+        GameLog::info('tick', 'outbound_leg_hub', [
+            'hub_id'    => $hubId,
+            'player_id' => $playerId,
+            'kind'      => $res['kind'],
+            'bbl'       => round($processedBbl, 2),
+            'lost_bbl'  => round($lostBbl, 2),
+            'cost'      => $cost,
+        ]);
     }
 }

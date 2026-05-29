@@ -48,7 +48,7 @@ class WellPipelineService
                 id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 player_id INT NOT NULL,
                 well_id INT NOT NULL,
-                hub_id INT NULL DEFAULT NULL,
+                hub_id INT NOT NULL DEFAULT 0,
                 leg ENUM('inbound','outbound') NOT NULL DEFAULT 'inbound',
                 name VARCHAR(120) NOT NULL,
                 pipeline_type VARCHAR(32) NOT NULL DEFAULT 'standard',
@@ -68,14 +68,20 @@ class WellPipelineService
                 leak_started_at DATETIME NULL DEFAULT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_well_pipeline_well_leg (well_id, leg),
+                UNIQUE KEY uq_wp_well_hub_leg (well_id, hub_id, leg),
                 KEY idx_well_pipeline_player (player_id),
                 KEY idx_well_pipeline_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
 
         $this->ensureColumn('well_pipelines', 'pipeline_type', "VARCHAR(32) NOT NULL DEFAULT 'standard' AFTER name");
-        $this->ensureColumn('well_pipelines', 'hub_id', "INT NULL DEFAULT NULL AFTER well_id");
+        $this->ensureColumn('well_pipelines', 'hub_id', "INT NOT NULL DEFAULT 0 AFTER well_id");
+        // Fix up pre-existing NULL values and column definition before unique key migration
+        try {
+            $this->db->exec("UPDATE well_pipelines SET hub_id = 0 WHERE hub_id IS NULL");
+            $this->db->exec("ALTER TABLE well_pipelines MODIFY COLUMN hub_id INT NOT NULL DEFAULT 0");
+        } catch (Throwable) {}
+
         $this->ensureColumn('well_pipelines', 'opex_per_tick', "DECIMAL(12,2) NOT NULL DEFAULT 140.00 AFTER incident_risk_mult");
         $this->ensureColumn('well_pipelines', 'opex_per_bbl', "DECIMAL(12,4) NOT NULL DEFAULT 0.2500 AFTER opex_per_tick");
         $this->ensureColumn('well_pipelines', 'build_cost', "DECIMAL(12,2) NOT NULL DEFAULT 18000.00 AFTER opex_per_bbl");
@@ -259,6 +265,118 @@ class WellPipelineService
         }
 
         return $rows;
+    }
+
+    /**
+     * Returns outbound pipeline rows keyed by hub_id (well_id=0 sentinel, leg='outbound').
+     * ETAP 11: outbound pipelines belong to the hub, not the well.
+     *
+     * @param list<int> $hubIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function getByPlayerHubIds(int $playerId, array $hubIds): array
+    {
+        $hubIds = array_values(array_unique(array_map('intval', $hubIds)));
+        if ($hubIds === []) return [];
+        $placeholders = implode(',', array_fill(0, count($hubIds), '?'));
+        $stmt = $this->db->prepare(
+            "SELECT wp.*,
+                    h.name AS hub_name,
+                    h.status AS hub_status
+               FROM well_pipelines wp
+               LEFT JOIN logistics_hubs h ON h.id = wp.hub_id
+              WHERE wp.player_id = ?
+                AND wp.leg = 'outbound'
+                AND wp.well_id = 0
+                AND wp.hub_id IN ({$placeholders})"
+        );
+        $stmt->execute(array_merge([$playerId], $hubIds));
+        $rows = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $row = $this->normalizePipelineRow($row);
+            $rows[(int)$row['hub_id']] = $row;
+        }
+        return $rows;
+    }
+
+    /**
+     * Player purchases an outbound pipeline for a hub (hub -> storage, leg='outbound').
+     * ETAP 11: one outbound pipeline per hub, keyed by hub_id (well_id=0 sentinel).
+     * Gracz kupuje rurociag wylotowy dla huba (hub->magazyn, odcinek 2).
+     *
+     * @return array{success:bool, pipeline_id?:int, pipeline_type?:string, build_cost?:float, build_hours?:int, build_finish_at?:string, error?:string, status?:string}
+     */
+    public function purchaseHubOutboundPipeline(int $playerId, int $hubId, string $type = 'standard'): array
+    {
+        $type    = $this->normalizePipelineType($type);
+        $profile = $this->getProfile($type);
+        $buildCost  = $profile['build_cost'];
+        $buildHours = $profile['build_hours'];
+
+        // Validate hub belongs to player (owner or tenant)
+        $hubStmt = $this->db->prepare(
+            "SELECT id, nominal_capacity_bph FROM logistics_hubs
+              WHERE id = ? AND (player_id = ? OR tenant_player_id = ?) AND status NOT IN ('disabled','building')"
+        );
+        $hubStmt->execute([$hubId, $playerId, $playerId]);
+        $hub = $hubStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$hub) {
+            return ['success' => false, 'error' => 'hub_not_found'];
+        }
+
+        // Reject if outbound pipeline already exists for this hub
+        $existingStmt = $this->db->prepare(
+            "SELECT id, status FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound'"
+        );
+        $existingStmt->execute([$hubId]);
+        $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
+        }
+
+        // Atomic deduction
+        $deductStmt = $this->db->prepare(
+            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        );
+        $deductStmt->execute([$buildCost, $playerId, $buildCost]);
+        if ($deductStmt->rowCount() === 0) {
+            return ['success' => false, 'error' => 'insufficient_funds'];
+        }
+
+        $capacity = max(1.0, round((float)($hub['nominal_capacity_bph'] ?? 100.0) * ((float)($profile['capacity_pct'] ?? 100.0) / 100.0), 2));
+        $name = tPlain('pipeline.default_name_hub', ['id' => $hubId]);
+
+        $insertStmt = $this->db->prepare(
+            "INSERT INTO well_pipelines
+                (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
+                 nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
+                 opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
+                 last_inspected_at, created_at, updated_at)
+             VALUES (?, 0, ?, 'outbound', ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
+                     NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
+        );
+        $insertStmt->execute([
+            $playerId, $hubId, $name, $type,
+            $capacity, $capacity,
+            $profile['degradation_rate_per_hour'],
+            $profile['incident_risk_mult'],
+            $profile['opex_per_tick'],
+            $profile['opex_per_bbl'],
+            $buildCost,
+            $buildHours,
+        ]);
+        $pipelineId = (int)$this->db->lastInsertId();
+        $buildFinishAt = (new DateTime())->modify("+{$buildHours} hours")->format('Y-m-d H:i:s');
+
+        $this->recordEvent($playerId, 0, $pipelineId, 'pipeline_build_started', 'info',
+            tPlain('pipeline.event_build_started', ['id' => $pipelineId, 'hours' => $buildHours, 'cost' => number_format($buildCost, 2, '.', '')]));
+
+        GameLog::info('WellPipelineService', 'Hub outbound pipeline purchased', [
+            'player_id' => $playerId, 'hub_id' => $hubId, 'pipeline_id' => $pipelineId, 'type' => $type,
+        ]);
+
+        return ['success' => true, 'pipeline_id' => $pipelineId, 'pipeline_type' => $type,
+                'build_cost' => $buildCost, 'build_hours' => $buildHours, 'build_finish_at' => $buildFinishAt];
     }
 
     /**
@@ -1057,11 +1175,11 @@ class WellPipelineService
     }
 
     /**
-     * Migrates the legacy per-well unique key (uq_well_pipeline_well on well_id)
-     * to a per-leg unique key (uq_well_pipeline_well_leg on well_id, leg), so a well
-     * can hold both an inbound (well->hub) and an outbound (hub->storage) pipeline.
-     * Idempotent: skips when already migrated. MySQL only (sqlite test env is no-op).
-     * Migruje stary klucz unikalny well_id na (well_id, leg) - oba odcinki na 1 odwiert.
+     * Migrates unique keys for well_pipelines to the composite (well_id, hub_id, leg) key.
+     * ETAP 11: outbound pipelines are now keyed per hub (well_id=0, hub_id), not per well.
+     * Removes legacy keys (uq_well_pipeline_well, uq_well_pipeline_well_leg) and adds
+     * the new key uq_wp_well_hub_leg (well_id, hub_id, leg). Idempotent. MySQL only.
+     * Migruje klucze unikalne na (well_id, hub_id, leg) - rurociag outbound per hub.
      */
     private function ensurePipelineLegUniqueKey(): void
     {
@@ -1069,14 +1187,19 @@ class WellPipelineService
             return;
         }
         try {
-            if (!$this->indexExists('well_pipelines', 'uq_well_pipeline_well_leg')) {
-                $this->db->exec(
-                    "ALTER TABLE well_pipelines ADD UNIQUE KEY uq_well_pipeline_well_leg (well_id, leg)"
-                );
+            // Drop the old per-(well, leg) key if present.
+            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well_leg')) {
+                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well_leg");
             }
-            // Drop the legacy single-column unique key if it still exists.
+            // Drop the even older single-column key if still present.
             if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well')) {
                 $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well");
+            }
+            // Add the new composite key if not present.
+            if (!$this->indexExists('well_pipelines', 'uq_wp_well_hub_leg')) {
+                $this->db->exec(
+                    "ALTER TABLE well_pipelines ADD UNIQUE KEY uq_wp_well_hub_leg (well_id, hub_id, leg)"
+                );
             }
         } catch (Throwable $e) {
             GameLog::error('WellPipelineService', 'ensurePipelineLegUniqueKey FAILED', $e);

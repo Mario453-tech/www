@@ -61,13 +61,13 @@ class WellLoopSection
     public array $hubCache      = [];
     /** @var array<int, float> hub_id -> accumulated oil input (bbl) for this tick */
     public array $hubInputAccum = [];
-    // ETAP 4: second transport leg (hub -> storage), tracked per well.
+    // ETAP 11: second transport leg (hub -> storage), tracked per hub.
     /** @var array<int, float> well_id -> bbl delivered to storage through its hub this tick */
     public array $hubWellDelivered = [];
-    /** @var array<int, string> well_id -> hub_outbound_transport_type (leg 2 choice) */
-    public array $wellOutboundType = [];
-    /** @var array<int, array<string, mixed>> well_id -> outbound pipeline row (leg='outbound') */
-    public array $outboundPipelineCache = [];
+    /** @var array<int, string> hub_id -> outbound_transport_type (leg 2 choice per hub) */
+    public array $hubOutboundType = [];
+    /** @var array<int, array<string, mixed>> hub_id -> outbound pipeline row (leg='outbound') */
+    public array $hubOutboundPipelineCache = [];
     // Second-leg transport losses (already folded into finLossBbl/finLossValue; kept for reporting).
     public float $finOutboundLossBbl   = 0.0;
     public float $finOutboundLossValue = 0.0;
@@ -368,19 +368,25 @@ class WellLoopSection
 
     /**
      * Returns the well's chosen second-leg transport type (hub -> storage).
+     * ETAP 11: looks up the well's hub and returns hub-level outbound_transport_type.
      */
     public function outboundTypeFor(int $wellId): string
     {
-        return (string)($this->wellOutboundType[$wellId] ?? 'nieustawiony');
+        $hubId = $this->wellHubMap[$wellId] ?? null;
+        if ($hubId === null) return 'nieustawiony';
+        return (string)($this->hubOutboundType[$hubId] ?? 'nieustawiony');
     }
 
     /**
      * Returns the well's operational outbound pipeline row (leg='outbound'), or null.
+     * ETAP 11: looks up the well's hub and returns the hub-level outbound pipeline.
      * @return array<string, mixed>|null
      */
     public function outboundPipelineFor(int $wellId): ?array
     {
-        return $this->outboundPipelineCache[$wellId] ?? null;
+        $hubId = $this->wellHubMap[$wellId] ?? null;
+        if ($hubId === null) return null;
+        return $this->hubOutboundPipelineCache[$hubId] ?? null;
     }
 
     // ------------------------------------------------------------------ private
@@ -486,32 +492,13 @@ class WellLoopSection
             }
         }
 
-        // 2a. ETAP 4: second transport leg (hub -> storage) - per-well choice + outbound pipelines.
-        // 2a. ETAP 4: odcinek 2 (hub -> magazyn) - wybor per odwiert + rurociagi outbound.
-        $this->wellOutboundType      = [];
-        $this->outboundPipelineCache = [];
-        $this->hubWellDelivered      = [];
-        if (!empty($wells)) {
-            $outboundWellIds = [];
-            foreach ($wells as $w) {
-                $wid = (int)($w['id'] ?? 0);
-                if ($wid <= 0) {
-                    continue;
-                }
-                $otype = (string)($w['hub_outbound_transport_type'] ?? 'nieustawiony');
-                $this->wellOutboundType[$wid] = $otype;
-                if ($otype === 'rurociag') {
-                    $outboundWellIds[] = $wid;
-                }
-            }
-            if ($this->wellPipelineSvc !== null && $outboundWellIds !== []) {
-                try {
-                    $this->outboundPipelineCache = $this->wellPipelineSvc->getByPlayerAndWellIds($playerId, $outboundWellIds, 'outbound');
-                } catch (Throwable $e) {
-                    GameLog::error('tick', 'preloadPlayerData outbound pipelines FAILED', $e, ['player_id' => $playerId]);
-                }
-            }
-        }
+        // 2a. ETAP 11: second transport leg (hub -> storage) - per-hub choice + outbound pipelines per hub.
+        // 2a. ETAP 11: odcinek 2 (hub -> magazyn) - wybor per hub + rurociagi outbound per hub.
+        $this->hubOutboundType          = [];
+        $this->hubOutboundPipelineCache = [];
+        $this->hubWellDelivered         = [];
+        // Hub outbound types are loaded from hubCache (logistics_hubs.outbound_transport_type),
+        // populated in step 4 below. Actual pipeline loading happens after step 4.
 
         // 2b. Preload road transport configs for wells using trucks or falling back from missing pipelines.
         // 2b. Preload konfiguracji transportu drogowego dla odwiertow na ciezarowkach lub fallbacku bez rurociagu.
@@ -606,6 +593,23 @@ class WellLoopSection
                 }
             } catch (Throwable $e) {
                 GameLog::error('tick', 'preloadHubAssignments FAILED', $e, ['player_id' => $playerId]);
+            }
+        }
+
+        // Load hub outbound transport types from the already-loaded hub cache.
+        $outboundHubIds = [];
+        foreach ($this->hubCache as $hubId => $hub) {
+            $otype = (string)($hub['outbound_transport_type'] ?? 'nieustawiony');
+            $this->hubOutboundType[$hubId] = $otype;
+            if ($otype === 'rurociag') {
+                $outboundHubIds[] = $hubId;
+            }
+        }
+        if ($this->wellPipelineSvc !== null && $outboundHubIds !== []) {
+            try {
+                $this->hubOutboundPipelineCache = $this->wellPipelineSvc->getByPlayerHubIds($playerId, $outboundHubIds);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'preloadPlayerData hub outbound pipelines FAILED', $e, ['player_id' => $playerId]);
             }
         }
     }

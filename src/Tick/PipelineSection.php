@@ -55,29 +55,48 @@ class PipelineSection
                 );
             }
 
-            // ETAP 5: degrade and roll incidents for BOTH transport legs independently.
-            // Each leg is its own well_pipelines row, so inbound and outbound roll separately
-            // (no duplicated incident) - distinguished by the leg-specific transport choice:
-            //   inbound  -> wells.transport_type = 'rurociag'              (well -> hub)
-            //   outbound -> wells.hub_outbound_transport_type = 'rurociag' (hub  -> storage)
-            $pipelineStmt = $this->db->prepare(
+            // ETAP 11: degrade and roll incidents for BOTH transport legs independently.
+            // Each leg is its own well_pipelines row, so inbound and outbound roll separately.
+            //   inbound  -> wells.transport_type = 'rurociag'                    (well -> hub)
+            //   outbound -> logistics_hubs.outbound_transport_type = 'rurociag'  (hub  -> storage)
+            //              keyed by well_id=0, hub_id (one pipeline per hub, ETAP 11)
+
+            // Inbound pipelines: keyed by well_id > 0, joined to wells and hub assignment.
+            $inboundStmt = $this->db->prepare(
                 "SELECT wp.*
                    FROM well_pipelines wp
                    JOIN wells w ON w.id = wp.well_id
                    JOIN logistics_hub_assignments a ON a.well_id = wp.well_id AND a.status = 'active'
                    JOIN logistics_hubs h ON h.id = wp.hub_id
                   WHERE wp.player_id = ?
+                    AND wp.leg = 'inbound'
+                    AND wp.well_id > 0
                     AND a.hub_id = wp.hub_id
                     AND h.status NOT IN ('disabled', 'building')
+                    AND w.transport_type = 'rurociag'
                     AND wp.status IN ('active', 'degraded', 'critical', 'leak')
-                    AND (
-                          (wp.leg = 'inbound'  AND w.transport_type = 'rurociag')
-                       OR (wp.leg = 'outbound' AND w.hub_outbound_transport_type = 'rurociag')
-                    )
-                  ORDER BY wp.leg, wp.condition_pct ASC"
+                  ORDER BY wp.condition_pct ASC"
             );
-            $pipelineStmt->execute([$playerId]);
-            $pipelines = $pipelineStmt->fetchAll(PDO::FETCH_ASSOC);
+            $inboundStmt->execute([$playerId]);
+            $inboundPipelines = $inboundStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Outbound pipelines (ETAP 11): keyed by well_id=0, hub_id; joined to logistics_hubs.
+            $outboundStmt = $this->db->prepare(
+                "SELECT wp.*
+                   FROM well_pipelines wp
+                   JOIN logistics_hubs h ON h.id = wp.hub_id
+                  WHERE wp.player_id = ?
+                    AND wp.leg = 'outbound'
+                    AND wp.well_id = 0
+                    AND h.status NOT IN ('disabled', 'building')
+                    AND h.outbound_transport_type = 'rurociag'
+                    AND wp.status IN ('active', 'degraded', 'critical', 'leak')
+                  ORDER BY wp.condition_pct ASC"
+            );
+            $outboundStmt->execute([$playerId]);
+            $outboundPipelines = $outboundStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $pipelines = array_merge($inboundPipelines, $outboundPipelines);
 
             $hasPipelineEngineer = $this->checkPipelineEngineer($playerId);
 
