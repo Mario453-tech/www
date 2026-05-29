@@ -164,4 +164,38 @@ function techTaskConfirm(form) {
     return window.confirm(msg);
 }
 
+// Validate and confirm candidate review before submit.
+// Walidacja i potwierdzenie oceny kandydata przed wyslaniem formularza.
+function candReviewConfirm(form) {
+    var scoreEl = form.querySelector('input[name="technical_score"]:checked');
+    var recEl   = form.querySelector('input[name="recommendation"]:checked');
+
+    if (!scoreEl) {
+        alert(techl('review_val_no_score'));
+        return false;
+    }
+    if (!recEl) {
+        alert(techl('review_val_no_rec'));
+        return false;
+    }
+
+    var score   = scoreEl.value;
+    var recVal  = recEl.value;
+    var recLabel = recVal === 'hire' ? techl('rec_hire_label') : techl('rec_reject_label');
+    var msg = techl('review_confirm_msg')
+        .replace(':score', score)
+        .replace(':rec', recLabel);
+
+    if (typeof window.confirmAction === 'function') {
+        window.confirmAction(msg, function () { form.submit(); }, {
+            title: techl('review_confirm_title'),
+            type: 'confirm',
+            confirmLabel: techl('review_confirm_ok'),
+        });
+        return false;
+    }
+
+    return window.confirm(msg);
+}
+
 setTimeout(() => location.reload(), 60000);
