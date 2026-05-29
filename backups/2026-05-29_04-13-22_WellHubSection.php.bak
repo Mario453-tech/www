@@ -119,7 +119,6 @@ class WellHubSection
 
                 $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
                 $this->processHubUsageFee($hubId, $hub, $playerId, $playerWellCount);
-                $this->processOutboundLeg($hubId, $playerId);
 
             } catch (Throwable $e) {
                 GameLog::error('tick', 'finalizeHubTicks FAILED', $e, [
@@ -244,94 +243,5 @@ class WellHubSection
                 'lease_fee' => $leaseFee,
             ]);
         }
-    }
-
-    /**
-     * ETAP 4: second transport leg (hub -> storage), applied per well.
-     * Each well's hub_outbound_transport_type decides how its oil leaves the hub:
-     *   'nieustawiony' : direct delivery (no extra loss/cost) - default, backward compatible
-     *   'rurociag'     : outbound pipeline (leg='outbound') - transport_loss % + OPEX
-     *   'ciezarowki' / 'tankowiec' : reserved for a later stage (treated as direct for now)
-     * Operates on barrels the well delivered to storage this tick (hubWellDelivered).
-     * Drugi odcinek transportu hub->magazyn, naliczany per odwiert.
-     */
-    private function processOutboundLeg(int $hubId, int $playerId): void
-    {
-        if (empty($this->ctx->hubWellDelivered)) {
-            return;
-        }
-
-        foreach ($this->ctx->wellHubMap as $wellId => $assignedHubId) {
-            if ($assignedHubId !== $hubId) {
-                continue;
-            }
-            $deliveredBbl = (float)($this->ctx->hubWellDelivered[$wellId] ?? 0.0);
-            if ($deliveredBbl <= 0.001) {
-                continue;
-            }
-
-            $outboundType = (string)($this->ctx->wellOutboundType[$wellId] ?? 'nieustawiony');
-            if ($outboundType !== 'rurociag') {
-                // 'nieustawiony' = direct delivery; road/tanker second leg is a later stage.
-                continue;
-            }
-
-            $pipe = $this->ctx->outboundPipelineCache[$wellId] ?? null;
-            if ($pipe === null || empty($pipe['_is_operational'])) {
-                // Configured for pipeline but none operational yet - flows direct (no-op).
-                continue;
-            }
-
-            $this->applyOutboundPipeline($wellId, $hubId, $playerId, $deliveredBbl, $pipe);
-        }
-    }
-
-    /**
-     * Applies outbound pipeline transport loss and OPEX for one well's delivered oil.
-     * Mirrors the inbound pipeline economics (transport_loss %, opex_per_tick, opex_per_bbl).
-     * Adjusts the same accumulators as the hub-loss reconciliation so storage stays consistent.
-     *
-     * @param array<string, mixed> $pipe
-     */
-    private function applyOutboundPipeline(int $wellId, int $hubId, int $playerId, float $bbl, array $pipe): void
-    {
-        // Transport loss on the second leg
-        $lossPct = (float)($pipe['transport_loss'] ?? 0.0);
-        if ($lossPct > 0.0) {
-            $globalLoss = (float)($this->gBalanceMults['loss'] ?? 1.0);
-            $lossMult   = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
-            $lostBbl    = min($bbl, round($bbl * ($lossPct / 100.0) * $globalLoss * $lossMult, 4));
-            if ($lostBbl > 0.001) {
-                $lostVal = round($lostBbl * $this->oilPrice, 2);
-                $this->ctx->currentStorage        = max(0.0, $this->ctx->currentStorage - $lostBbl);
-                $this->ctx->finBbl               -= $lostBbl;
-                $this->ctx->deliveredBbl         -= $lostBbl;
-                $this->ctx->finRevenue           -= $lostVal;
-                $this->ctx->finLossBbl           += $lostBbl;
-                $this->ctx->finLossValue         += $lostVal;
-                $this->ctx->finOutboundLossBbl   += $lostBbl;
-                $this->ctx->finOutboundLossValue += $lostVal;
-            }
-        }
-
-        // Outbound pipeline OPEX (per tick + per bbl), mirrors inbound pipeline cost
-        $costMult = (float)($this->gBalanceMults['opex'] ?? 1.0)
-                  * (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0);
-        $tickCost = round((float)($pipe['opex_per_tick'] ?? 0.0) * $costMult, 2);
-        $flowCost = round($bbl * (float)($pipe['opex_per_bbl'] ?? 0.0) * $costMult, 2);
-        $cost     = round($tickCost + $flowCost, 2);
-        if ($cost > 0.0) {
-            $this->ctx->finTransport += $cost;
-            $this->ctx->playerCash   -= $cost;
-        }
-
-        GameLog::info('tick', 'outbound_pipeline_leg', [
-            'well_id'   => $wellId,
-            'hub_id'    => $hubId,
-            'player_id' => $playerId,
-            'bbl'       => round($bbl, 2),
-            'loss_pct'  => $lossPct,
-            'cost'      => $cost,
-        ]);
     }
 }

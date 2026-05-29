@@ -216,16 +216,14 @@ class WellPipelineService
 
     /**
      * @param list<int> $wellIds
-     * @param string    $leg 'inbound' (well->hub) or 'outbound' (hub->storage)
      * @return array<int, array<string, mixed>>
      */
-    public function getByPlayerAndWellIds(int $playerId, array $wellIds, string $leg = 'inbound'): array
+    public function getByPlayerAndWellIds(int $playerId, array $wellIds): array
     {
         $wellIds = array_values(array_unique(array_map('intval', $wellIds)));
         if ($wellIds === []) {
             return [];
         }
-        $leg = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
 
         $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
         $stmt = $this->db->prepare(
@@ -239,10 +237,9 @@ class WellPipelineService
                  ON a.well_id = wp.well_id
                 AND a.status = 'active'
               WHERE wp.player_id = ?
-                AND wp.leg = ?
                 AND wp.well_id IN ({$placeholders})"
         );
-        $stmt->execute(array_merge([$playerId, $leg], $wellIds));
+        $stmt->execute(array_merge([$playerId], $wellIds));
 
         $rows = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {

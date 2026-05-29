@@ -60,16 +60,6 @@ class WellLoopSection
     public array $hubCache      = [];
     /** @var array<int, float> hub_id -> accumulated oil input (bbl) for this tick */
     public array $hubInputAccum = [];
-    // ETAP 4: second transport leg (hub -> storage), tracked per well.
-    /** @var array<int, float> well_id -> bbl delivered to storage through its hub this tick */
-    public array $hubWellDelivered = [];
-    /** @var array<int, string> well_id -> hub_outbound_transport_type (leg 2 choice) */
-    public array $wellOutboundType = [];
-    /** @var array<int, array<string, mixed>> well_id -> outbound pipeline row (leg='outbound') */
-    public array $outboundPipelineCache = [];
-    // Second-leg transport losses (already folded into finLossBbl/finLossValue; kept for reporting).
-    public float $finOutboundLossBbl   = 0.0;
-    public float $finOutboundLossValue = 0.0;
 
     private PDO         $db;
     private DateTime    $now;
@@ -333,20 +323,6 @@ class WellLoopSection
         $this->finLossValue      += round($bbl * $price, 2);
     }
 
-    /**
-     * Records barrels a well delivered to storage via its hub this tick.
-     * Used by WellHubSection to apply the second transport leg (hub -> storage).
-     * Only hub-assigned wells are tracked; no-hub wells have no second leg.
-     * Rejestruje barylki dostarczone do magazynu przez hub (podstawa odcinka 2).
-     */
-    public function recordHubWellDelivered(int $wellId, float $bbl): void
-    {
-        if ($bbl <= 0.0 || !isset($this->wellHubMap[$wellId])) {
-            return;
-        }
-        $this->hubWellDelivered[$wellId] = ($this->hubWellDelivered[$wellId] ?? 0.0) + $bbl;
-    }
-
     // ------------------------------------------------------------------ private
 
     private function processSalaries(int $playerId, float $deltaHours): void
@@ -443,37 +419,9 @@ class WellLoopSection
         if ($this->wellPipelineSvc !== null && !empty($wells)) {
             try {
                 $wellIds = array_map('intval', array_column($wells, 'id'));
-                // Inbound pipelines only (well -> hub); outbound rows fetched separately below.
-                $this->wellPipelineCache = $this->wellPipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
+                $this->wellPipelineCache = $this->wellPipelineSvc->getByPlayerAndWellIds($playerId, $wellIds);
             } catch (Throwable $e) {
                 GameLog::error('tick', 'preloadPlayerData well pipelines FAILED', $e, ['player_id' => $playerId]);
-            }
-        }
-
-        // 2a. ETAP 4: second transport leg (hub -> storage) - per-well choice + outbound pipelines.
-        // 2a. ETAP 4: odcinek 2 (hub -> magazyn) - wybor per odwiert + rurociagi outbound.
-        $this->wellOutboundType      = [];
-        $this->outboundPipelineCache = [];
-        $this->hubWellDelivered      = [];
-        if (!empty($wells)) {
-            $outboundWellIds = [];
-            foreach ($wells as $w) {
-                $wid = (int)($w['id'] ?? 0);
-                if ($wid <= 0) {
-                    continue;
-                }
-                $otype = (string)($w['hub_outbound_transport_type'] ?? 'nieustawiony');
-                $this->wellOutboundType[$wid] = $otype;
-                if ($otype === 'rurociag') {
-                    $outboundWellIds[] = $wid;
-                }
-            }
-            if ($this->wellPipelineSvc !== null && $outboundWellIds !== []) {
-                try {
-                    $this->outboundPipelineCache = $this->wellPipelineSvc->getByPlayerAndWellIds($playerId, $outboundWellIds, 'outbound');
-                } catch (Throwable $e) {
-                    GameLog::error('tick', 'preloadPlayerData outbound pipelines FAILED', $e, ['player_id' => $playerId]);
-                }
             }
         }
 

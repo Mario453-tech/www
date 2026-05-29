@@ -387,10 +387,6 @@ class WellProductionHandler
         $this->ctx->loopCtx->finRevenue     += round($actual * $price, 2);
         $this->ctx->loopCtx->currentStorage += $actual;
 
-        // ETAP 4: record what reached storage via this well's hub so WellHubSection
-        // can apply the second transport leg (hub -> storage). No-hub wells are ignored.
-        $this->ctx->loopCtx->recordHubWellDelivered($wellId, $actual);
-
         if ($transportType === 'rurociag' && $wellPipeline !== null) {
             $pipelineTickCost = round(
                 (float)($wellPipeline['opex_per_tick'] ?? 0.0)
