@@ -22,6 +22,14 @@
     </section>
     <?php endif ?>
 
+    <?php if (!$isBankrupt && ($isCrisis ?? false)): ?>
+    <section class="card">
+        <div class="info-box info-box-red">
+            <?= t('bank.crisis_notice', ['url' => url('recovery')]) ?>
+        </div>
+    </section>
+    <?php endif ?>
+
     <?php if (!empty($error)): ?>
     <div class="bank-flash bank-flash--error">
         <span class="bank-flash-icon"></span>

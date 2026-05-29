@@ -67,9 +67,12 @@ trait BankCalculationTrait
     public function calculateCreditLimit(int $playerId, array $player, array $wellsData): int
     {
         try {
+            $avgCondition = max(0.0, min(100.0, (float)($wellsData['avg_condition'] ?? 100.0)));
+            $conditionFactor = max(0.10, $avgCondition / 100.0);
+
             $onshoreVal = (int)$wellsData['onshore_cnt'] * 8_000_000 * 0.5;
             $offshoreVal = (int)$wellsData['offshore_cnt'] * 40_000_000 * 0.5;
-            $wellsValue = $onshoreVal + $offshoreVal;
+            $wellsValue = (int)round(($onshoreVal + $offshoreVal) * $conditionFactor);
 
             $priceRow = $this->db->query("SELECT current_price FROM market_state WHERE id = 1 LIMIT 1")->fetch();
             $oilPrice = $priceRow ? (float)$priceRow['current_price'] : 70.0;
@@ -111,16 +114,18 @@ trait BankCalculationTrait
             $limit = max(10_000, $limit);
 
             GameLog::info('BankService', 'calculateCreditLimit', [
-                'player_id'       => $playerId,
-                'wells_value'     => $wellsValue,
-                'prod_value'      => (int)$prodValue,
-                'cash_value'      => (int)$cashValue,
-                'stor_value'      => (int)$storValue,
-                'liquidity_ratio' => round($liquidityRatio, 4),
-                'liquidity_mult'  => $liquidityMult,
-                'base_limit'      => $baseLimit,
-                'final_limit'     => $limit,
-                'oil_price'       => $oilPrice,
+                'player_id'        => $playerId,
+                'avg_condition'    => round($avgCondition, 1),
+                'condition_factor' => round($conditionFactor, 4),
+                'wells_value'      => $wellsValue,
+                'prod_value'       => (int)$prodValue,
+                'cash_value'       => (int)$cashValue,
+                'stor_value'       => (int)$storValue,
+                'liquidity_ratio'  => round($liquidityRatio, 4),
+                'liquidity_mult'   => $liquidityMult,
+                'base_limit'       => $baseLimit,
+                'final_limit'      => $limit,
+                'oil_price'        => $oilPrice,
             ]);
 
             return $limit;

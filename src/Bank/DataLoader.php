@@ -50,7 +50,7 @@ class BankDataLoader
         $offerReduced = !empty($offer)
             && (float)($offer['amount'] ?? 0) < (float)($offer['requested_amount'] ?? 0);
 
-        [$canApply, $blockReasons, $blockHasActiveLoan] = $this->resolveCanApply($appSt, $applicationStatus, $activeLoans);
+        [$canApply, $blockReasons, $blockHasActiveLoan, $isCrisis] = $this->resolveCanApply($appSt, $applicationStatus, $activeLoans);
         [$creditLimit] = $this->loadCreditLimit($canApply, $blockReasons);
         $hasEverHadLoan = $this->checkHasEverHadLoan();
 
@@ -65,6 +65,7 @@ class BankDataLoader
             'canApply' => $canApply,
             'blockReasons' => $blockReasons,
             'blockHasActiveLoan' => $blockHasActiveLoan,
+            'isCrisis' => $isCrisis,
             'creditLimit' => $creditLimit,
             'hasEverHadLoan' => $hasEverHadLoan,
         ];
@@ -319,6 +320,20 @@ class BankDataLoader
     {
         $blockReasons = [];
         $blockHasActiveLoan = false;
+        $isCrisis = false;
+
+        if ($this->db) {
+            try {
+                $stmt = $this->db->prepare("SELECT financial_state FROM players WHERE id = ? LIMIT 1");
+                $stmt->execute([$this->playerId]);
+                $row = $stmt->fetch();
+                if ($row && ($row['financial_state'] ?? 'normal') === 'crisis') {
+                    $isCrisis = true;
+                    $blockReasons[] = t('bank.block_crisis');
+                }
+            } catch (Throwable $e) {
+            }
+        }
 
         $canApplyStatuses = ['none', 'accepted', 'expired', 'defaulted', 'unknown', 'error'];
         if ($appSt === 'rejected' && ($applicationStatus['can_reapply'] ?? false)) {
@@ -373,7 +388,7 @@ class BankDataLoader
             $canApply = false;
         }
 
-        return [$canApply, $blockReasons, $blockHasActiveLoan];
+        return [$canApply, $blockReasons, $blockHasActiveLoan, $isCrisis];
     }
 
  /**
@@ -400,7 +415,8 @@ class BankDataLoader
                        SUM(CASE WHEN status NOT IN ('seized','paused_staff') THEN 1 ELSE 0 END) AS usable,
                        SUM(CASE WHEN well_type = 'offshore' THEN 1 ELSE 0 END) AS offshore_cnt,
                        SUM(CASE WHEN well_type = 'onshore' THEN 1 ELSE 0 END) AS onshore_cnt,
-                       COALESCE(SUM(base_production_per_hour), 0) AS total_prod
+                       COALESCE(SUM(base_production_per_hour), 0) AS total_prod,
+                       COALESCE(AVG(technical_condition), 100) AS avg_condition
                 FROM wells
                 WHERE player_id = :pid AND status NOT IN ('seized')
             ");

@@ -39,6 +39,12 @@ trait BankApplicationTrait
                 return ['success' => false, 'message' => t('bank.err_bankruptcy')];
             }
 
+ // Block applications during financial crisis.
+ // Blokuj wnioski podczas kryzysu finansowego.
+            if ((string)($player['financial_state'] ?? 'normal') === 'crisis') {
+                return ['success' => false, 'message' => t('bank.err_crisis_mode')];
+            }
+
  // Block when active bailiff proceedings exist.
  // Blokuj przy aktywnym postepowaniu komorniczym.
             $bailiffCheck = $this->db->prepare("
@@ -113,7 +119,8 @@ trait BankApplicationTrait
                     SUM(CASE WHEN status NOT IN ('seized','paused_staff') THEN 1 ELSE 0 END) AS usable,
                     SUM(CASE WHEN well_type = 'offshore' THEN 1 ELSE 0 END) AS offshore_cnt,
                     SUM(CASE WHEN well_type = 'onshore'  THEN 1 ELSE 0 END) AS onshore_cnt,
-                    COALESCE(SUM(base_production_per_hour), 0) AS total_prod
+                    COALESCE(SUM(base_production_per_hour), 0) AS total_prod,
+                    COALESCE(AVG(technical_condition), 100) AS avg_condition
                 FROM wells
                 WHERE player_id = :pid AND status NOT IN ('seized')
             ");
