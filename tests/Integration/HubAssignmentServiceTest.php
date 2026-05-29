@@ -47,21 +47,24 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         ');
     }
 
-    // Helper: hub mock stub with all fields assignWell() needs
+    // Helper: hub mock stub with all fields assignWell() needs.
+    // player_id=1 means test player owns the hub (private ownership model).
     private function makeHubStub(array $overrides = []): array
     {
         return array_merge([
-            'id'               => 10,
-            'name'             => 'Hub Testowy',
-            'status'           => 'active',
-            'region_id'        => 7,
-            'assigned_count'   => 0,
-            'slot_limit'       => 4,
-            'condition_pct'    => 90.0,
-            'zone_key'         => 'A1',
-            'acquisition_type' => 'new',
-            'opex_per_tick'    => 400.0,
+            'id'                => 10,
+            'name'              => 'Hub Testowy',
+            'status'            => 'active',
+            'region_id'         => 7,
+            'assigned_count'    => 0,
+            'slot_limit'        => 4,
+            'condition_pct'     => 90.0,
+            'zone_key'          => 'A1',
+            'acquisition_type'  => 'new',
+            'opex_per_tick'     => 400.0,
             'lease_fee_per_tick'=> 0.0,
+            'player_id'         => 1,
+            'tenant_player_id'  => 0,
         ], $overrides);
     }
 
@@ -83,16 +86,14 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(['hub_id' => 10, 'well_id' => 100, 'status' => 'active'], $row);
     }
 
-    public function testAssignWellDeductsAccessFeeFromPlayer(): void
+    public function testAssignWellReturnsZeroAccessFee(): void
     {
-        // new hub: fee = opex/slot * 5 = (400/4)*5 = 500
+        // Access fee is no longer charged at assignment time (paid at hub acquisition).
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (101, 1, 7, 'A1', 'active')");
 
         $hubSvc = $this->createMock(HubService::class);
-        $hubSvc->method('getHub')->willReturn($this->makeHubStub([
-            'id' => 10, 'acquisition_type' => 'new', 'opex_per_tick' => 400.0, 'slot_limit' => 4,
-        ]));
+        $hubSvc->method('getHub')->willReturn($this->makeHubStub(['id' => 10]));
         $hubSvc->method('getWellAssignment')->willReturn(null);
         $hubSvc->method('createEvent');
 
@@ -100,64 +101,65 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         $result  = $service->assignWell(1, 10, 101);
 
         $this->assertTrue($result['success']);
-        $this->assertSame(500.0, (float)$result['access_fee']);
+        $this->assertEqualsWithDelta(0.0, (float)$result['access_fee'], 0.01);
 
+        // Cash must be untouched — no fee deducted at assignment
         $cash = (float)$this->db->query('SELECT cash FROM players WHERE id=1')->fetchColumn();
-        $this->assertEqualsWithDelta(999999 - 500.0, $cash, 0.01);
+        $this->assertEqualsWithDelta(999999.0, $cash, 0.01);
 
-        $row = $this->db->query('SELECT access_fee_paid FROM logistics_hub_assignments')->fetchColumn();
-        $this->assertEqualsWithDelta(500.0, (float)$row, 0.01);
+        $feePaid = (float)$this->db->query('SELECT access_fee_paid FROM logistics_hub_assignments')->fetchColumn();
+        $this->assertEqualsWithDelta(0.0, $feePaid, 0.01);
     }
 
-    public function testAssignWellDeductsHigherFeeForUsedHub(): void
+    public function testAssignWellBlocksWhenHubNotAcquired(): void
     {
-        // used hub: fee = opex/slot * 8 = (400/4)*8 = 800
+        // Market hub: player_id=0 and tenant_player_id=0 — must be acquired before use.
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (102, 1, 7, 'A1', 'active')");
 
         $hubSvc = $this->createMock(HubService::class);
         $hubSvc->method('getHub')->willReturn($this->makeHubStub([
-            'acquisition_type' => 'used', 'opex_per_tick' => 400.0, 'slot_limit' => 4,
+            'player_id' => 0, 'tenant_player_id' => 0,
         ]));
         $hubSvc->method('getWellAssignment')->willReturn(null);
-        $hubSvc->method('createEvent');
+        $hubSvc->expects($this->never())->method('createEvent');
 
         $service = new HubAssignmentService($this->db, $hubSvc);
         $result  = $service->assignWell(1, 10, 102);
 
-        $this->assertTrue($result['success']);
-        $this->assertSame(800.0, (float)$result['access_fee']);
+        $this->assertFalse($result['success']);
+        $this->assertSame('hub_not_acquired', $result['error']);
     }
 
-    public function testAssignWellDeductsRentalDepositForRentalHub(): void
+    public function testAssignWellBlocksWhenHubBelongsToOtherPlayer(): void
     {
-        // rental hub: fee = lease_fee_per_tick * 3 = 120 * 3 = 360
+        // Hub owned by player 99 — player 1 must not be able to assign to it.
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (103, 1, 7, 'A1', 'active')");
 
         $hubSvc = $this->createMock(HubService::class);
         $hubSvc->method('getHub')->willReturn($this->makeHubStub([
-            'acquisition_type' => 'rental', 'lease_fee_per_tick' => 120.0,
+            'player_id' => 99, 'tenant_player_id' => 0,
         ]));
         $hubSvc->method('getWellAssignment')->willReturn(null);
-        $hubSvc->method('createEvent');
+        $hubSvc->expects($this->never())->method('createEvent');
 
         $service = new HubAssignmentService($this->db, $hubSvc);
         $result  = $service->assignWell(1, 10, 103);
 
-        $this->assertTrue($result['success']);
-        $this->assertSame(360.0, (float)$result['access_fee']);
+        $this->assertFalse($result['success']);
+        $this->assertSame('hub_not_yours', $result['error']);
     }
 
-    public function testAssignWellBlocksWhenInsufficientFunds(): void
+    public function testAssignWellBlocksWhenHubRentedByOtherPlayer(): void
     {
-        // Player has only 10 PLN, fee would be 500 PLN
-        $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 10)");
+        // Hub rented by player 99 — player 1 must not be able to assign to it.
+        $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");
         $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (104, 1, 7, 'A1', 'active')");
 
         $hubSvc = $this->createMock(HubService::class);
         $hubSvc->method('getHub')->willReturn($this->makeHubStub([
-            'acquisition_type' => 'new', 'opex_per_tick' => 400.0, 'slot_limit' => 4,
+            'player_id' => 0, 'tenant_player_id' => 99,
         ]));
         $hubSvc->method('getWellAssignment')->willReturn(null);
         $hubSvc->expects($this->never())->method('createEvent');
@@ -166,11 +168,7 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         $result  = $service->assignWell(1, 10, 104);
 
         $this->assertFalse($result['success']);
-        $this->assertSame('insufficient_funds', $result['error']);
-
-        // Cash must be unchanged
-        $cash = (float)$this->db->query('SELECT cash FROM players WHERE id=1')->fetchColumn();
-        $this->assertEqualsWithDelta(10.0, $cash, 0.01);
+        $this->assertSame('hub_not_yours', $result['error']);
     }
 
     public function testAssignWellReturnsConditionWarningForWeakHub(): void
@@ -248,10 +246,12 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
             return $id === 20
                 ? ['id' => 20, 'name' => 'Stary', 'status' => 'active', 'region_id' => 7,
                    'assigned_count' => 1, 'slot_limit' => 4, 'condition_pct' => 80.0, 'zone_key' => 'A1',
-                   'acquisition_type' => 'new', 'opex_per_tick' => 400.0, 'lease_fee_per_tick' => 0.0]
+                   'acquisition_type' => 'new', 'opex_per_tick' => 400.0, 'lease_fee_per_tick' => 0.0,
+                   'player_id' => 1, 'tenant_player_id' => 0]
                 : ['id' => 21, 'name' => 'Nowy',  'status' => 'active', 'region_id' => 7,
                    'assigned_count' => 0, 'slot_limit' => 4, 'condition_pct' => 92.0, 'zone_key' => 'A1',
-                   'acquisition_type' => 'new', 'opex_per_tick' => 400.0, 'lease_fee_per_tick' => 0.0];
+                   'acquisition_type' => 'new', 'opex_per_tick' => 400.0, 'lease_fee_per_tick' => 0.0,
+                   'player_id' => 1, 'tenant_player_id' => 0];
         });
         $hubSvc->expects($this->once())->method('createEvent');
 

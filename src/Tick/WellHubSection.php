@@ -177,11 +177,11 @@ class WellHubSection
     }
 
     /**
-     * Hub usage fee (per-slot model).
-     * Huby sa systemowe - gracz placi proporcjonalny udzial (opex/slot_limit) x ilosc_studni x mnozniki.
-     * Hubs are system-owned - player pays proportional share (opex/slot_limit) x well_count x multipliers.
-     * Kara za kondycje: zdegradowany hub = drozsze utrzymanie per gracz.
-     * Condition penalty: degraded hub = higher maintenance cost per player.
+     * Hub usage fee — private ownership model.
+     * Owner (player_id > 0) pays full opex_per_tick each tick.
+     * Tenant (player_id = 0, tenant_player_id > 0) pays full lease_fee_per_tick each tick.
+     * Condition penalty applied to owner OPEX: degraded hub costs more to maintain.
+     * Wlasciciel placi pelny OPEX; najemca placi pelny czynsz co tick.
      *
      * @param array<string, mixed> $hub
      */
@@ -190,54 +190,57 @@ class WellHubSection
         if ($playerWellCount <= 0 || $this->hubSvc === null) {
             return;
         }
-        $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
-        $opexMult        = $modeMultipliers['opex_mult'] ?? 1.0;
-        $condPct         = (float)($hub['condition_pct'] ?? 100.0);
-        $condMult        = match (true) {
-            $condPct <= 20.0 => 1.80,
-            $condPct <= 30.0 => 1.50,
-            $condPct <= 50.0 => 1.25,
-            $condPct <  70.0 => 1.10,
-            default          => 1.00,
-        };
-        $slotCost = (float)$hub['opex_per_tick'] / max(1, (int)$hub['slot_limit']);
-        $usageFee = round(
-            $slotCost * $playerWellCount * $opexMult * $condMult
-            * $this->gBalanceMults['opex']
-            * (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0),
-            2
-        );
-        if ($usageFee > 0.0) {
-            $this->ctx->finOpex        += $usageFee;
-            $this->ctx->finHubUsageCost += $usageFee;
-            $this->ctx->playerCash     -= $usageFee;
-            GameLog::info('tick', 'hub_usage_fee', [
-                'hub_id'       => $hubId,
-                'player_id'    => $playerId,
-                'player_wells' => $playerWellCount,
-                'slot_cost'    => $slotCost,
-                'usage_fee'    => $usageFee,
-                'mode'         => $hub['work_mode'] ?? 'standard',
-                'cond_pct'     => $condPct,
-                'cond_mult'    => $condMult,
-            ]);
+
+        $hubOwner  = (int)($hub['player_id']        ?? 0);
+        $hubTenant = (int)($hub['tenant_player_id'] ?? 0);
+
+        // Only charge the controlling player (owner or tenant).
+        // If neither matches, no charge (legacy or market hub not yet acquired).
+        if ($hubOwner !== $playerId && $hubTenant !== $playerId) {
+            return;
         }
 
-        // Rental lease fee: charged per well slot per tick (hub.acquisition_type = 'rental').
-        // lease_fee_per_tick is the per-slot rate stored on the hub row.
-        $leaseFeePerSlot = (float)($hub['lease_fee_per_tick'] ?? 0.0);
-        if ($leaseFeePerSlot > 0.0) {
-            $leaseFee = round($leaseFeePerSlot * $playerWellCount, 2);
+        $costMult = (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0)
+                  * (float)($this->gBalanceMults['opex'] ?? 1.0);
+
+        if ($hubOwner === $playerId) {
+            // Owner pays full OPEX with condition penalty
+            $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
+            $opexMult        = (float)($modeMultipliers['opex_mult'] ?? 1.0);
+            $condPct         = (float)($hub['condition_pct'] ?? 100.0);
+            $condMult        = match (true) {
+                $condPct <= 20.0 => 1.80,
+                $condPct <= 30.0 => 1.50,
+                $condPct <= 50.0 => 1.25,
+                $condPct <  70.0 => 1.10,
+                default          => 1.00,
+            };
+            $usageFee = round((float)$hub['opex_per_tick'] * $opexMult * $condMult * $costMult, 2);
+            if ($usageFee > 0.0) {
+                $this->ctx->finOpex         += $usageFee;
+                $this->ctx->finHubUsageCost += $usageFee;
+                $this->ctx->playerCash      -= $usageFee;
+                GameLog::info('tick', 'hub_owner_opex', [
+                    'hub_id'    => $hubId,
+                    'player_id' => $playerId,
+                    'opex'      => $usageFee,
+                    'cond_pct'  => $condPct,
+                    'cond_mult' => $condMult,
+                ]);
+            }
+            return;
+        }
+
+        // Tenant pays full lease_fee_per_tick (flat rate, no condition modifier)
+        $leaseFee = round((float)($hub['lease_fee_per_tick'] ?? 0.0) * $costMult, 2);
+        if ($leaseFee > 0.0) {
             $this->ctx->finOpex         += $leaseFee;
             $this->ctx->finHubUsageCost += $leaseFee;
             $this->ctx->playerCash      -= $leaseFee;
-            GameLog::info('tick', 'hub_lease_fee', [
-                'hub_id'             => $hubId,
-                'player_id'          => $playerId,
-                'player_wells'       => $playerWellCount,
-                'lease_fee_per_slot' => $leaseFeePerSlot,
-                'total_lease_fee'    => $leaseFee,
-                'acq_type'           => $hub['acquisition_type'] ?? 'rental',
+            GameLog::info('tick', 'hub_tenant_lease', [
+                'hub_id'    => $hubId,
+                'player_id' => $playerId,
+                'lease_fee' => $leaseFee,
             ]);
         }
     }

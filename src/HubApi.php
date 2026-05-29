@@ -60,6 +60,10 @@ try {
     $db        = Database::getInstance()->getConnection();
     $hubSvc    = new HubService($db);
     $assignSvc = new HubAssignmentService($db, $hubSvc);
+    $acqSvc    = new HubAcquisitionService($db, $hubSvc);
+
+    // One-time migration: existing well assignments → tenancy. Idempotent.
+    $acqSvc->migrateExistingAssignmentsToTenancy();
 
     switch ($action) {
 
@@ -218,6 +222,79 @@ try {
                 hubApiOut(['success' => false, 'error' => $err]);
             }
             hubApiOut(['success' => true, 'message' => t('logistics.hub.ok_assign')]);
+
+        // POST: player buys a new hub (builds it in their region)
+        case 'buy_new_hub':
+            $hubType  = trim($_POST['hub_type']  ?? 'small');
+            $regionId = (int)($_POST['region_id'] ?? 0);
+            $zoneKey  = trim($_POST['zone_key']   ?? '');
+            $name     = trim($_POST['name']       ?? '');
+            if ($regionId <= 0 || $name === '') {
+                hubApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
+            }
+            $result = $acqSvc->buyNew($playerId, [
+                'hub_type'  => $hubType,
+                'region_id' => $regionId,
+                'zone_key'  => $zoneKey,
+                'name'      => $name,
+            ]);
+            if (!$result['success']) {
+                $err = match($result['error'] ?? '') {
+                    'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
+                    'invalid_hub_type'   => t('common.validation_error'),
+                    'invalid_region'     => t('common.validation_error'),
+                    default              => t('logistics.hub.err_generic'),
+                };
+                hubApiOut(['success' => false, 'error' => $err]);
+            }
+            hubApiOut([
+                'success'  => true,
+                'message'  => t('logistics.hub.ok_buy_new'),
+                'hub_id'   => $result['hub_id'] ?? null,
+                'cost'     => $result['cost'] ?? 0.0,
+            ]);
+
+        // POST: player buys an existing market hub
+        case 'buy_used_hub':
+            $hubId = (int)($_POST['hub_id'] ?? 0);
+            if ($hubId <= 0) hubApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
+            $result = $acqSvc->buyUsed($playerId, $hubId);
+            if (!$result['success']) {
+                $err = match($result['error'] ?? '') {
+                    'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
+                    'hub_already_owned'  => t('logistics.hub.err_hub_already_owned'),
+                    'hub_already_rented' => t('logistics.hub.err_hub_already_rented'),
+                    'hub_unavailable'    => t('logistics.hub.err_hub_unavailable'),
+                    default              => t('logistics.hub.err_generic'),
+                };
+                hubApiOut(['success' => false, 'error' => $err]);
+            }
+            hubApiOut([
+                'success' => true,
+                'message' => t('logistics.hub.ok_buy_used'),
+                'cost'    => $result['cost'] ?? 0.0,
+            ]);
+
+        // POST: player rents a market hub
+        case 'rent_hub':
+            $hubId = (int)($_POST['hub_id'] ?? 0);
+            if ($hubId <= 0) hubApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
+            $result = $acqSvc->rent($playerId, $hubId);
+            if (!$result['success']) {
+                $err = match($result['error'] ?? '') {
+                    'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
+                    'hub_already_owned'  => t('logistics.hub.err_hub_already_owned'),
+                    'hub_already_rented' => t('logistics.hub.err_hub_already_rented'),
+                    'hub_unavailable'    => t('logistics.hub.err_hub_unavailable'),
+                    default              => t('logistics.hub.err_generic'),
+                };
+                hubApiOut(['success' => false, 'error' => $err]);
+            }
+            hubApiOut([
+                'success' => true,
+                'message' => t('logistics.hub.ok_rent'),
+                'deposit' => $result['deposit'] ?? 0.0,
+            ]);
 
         // GET: player's wells assigned to a hub
         case 'hub_wells':

@@ -26,6 +26,21 @@ trait HubAssignmentValidationTrait
             return ['ok' => false, 'error' => 'hub_unavailable'];
         }
 
+        // Ownership check: hub must belong to or be rented by this player.
+        // Market hubs (player_id=0, tenant_player_id=0) require prior acquisition.
+        $hubOwner  = (int)($hub['player_id']        ?? 0);
+        $hubTenant = (int)($hub['tenant_player_id'] ?? 0);
+        if ($hubOwner !== 0 && $hubOwner !== $playerId) {
+            return ['ok' => false, 'error' => 'hub_not_yours'];
+        }
+        if ($hubOwner === 0 && $hubTenant !== 0 && $hubTenant !== $playerId) {
+            return ['ok' => false, 'error' => 'hub_not_yours'];
+        }
+        // Market hub with no owner/tenant — not yet acquired
+        if ($hubOwner === 0 && $hubTenant === 0) {
+            return ['ok' => false, 'error' => 'hub_not_acquired'];
+        }
+
         $well = $this->getWell($wellId, $playerId);
         if (!$well) {
             return ['ok' => false, 'error' => 'well_not_found'];
