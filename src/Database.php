@@ -7,6 +7,7 @@ class Database
     
     private function __construct()
     {
+        self::loadEnv(__DIR__ . '/../.env');
         $configFile = __DIR__ . '/../config/database.php';
         
         if (!file_exists($configFile)) {
@@ -74,6 +75,25 @@ class Database
      *   Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL');
      *   Database::addColumnIfMissing('players', 'recovery_mode', "TINYINT(1) NOT NULL DEFAULT 0 AFTER bankruptcy_status");
      */
+    private static function loadEnv(string $path): void
+    {
+        if (!file_exists($path)) {
+            return;
+        }
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+            [$key, $value] = array_pad(explode('=', $line, 2), 2, '');
+            $key   = trim($key);
+            $value = trim($value, " \t\"'");
+            if ($key !== '' && getenv($key) === false) {
+                putenv("{$key}={$value}");
+            }
+        }
+    }
+
     public static function addColumnIfMissing(string $table, string $column, string $definition): void
     {
         $db     = self::getInstance()->getConnection();
