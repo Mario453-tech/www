@@ -1158,22 +1158,6 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 .wg-opt-btn--danger:hover  { background: #3a1010; border-color: #e05555; color: #e05555; }
 .wg-opt-btn--disabled { opacity: .4; cursor: not-allowed; }
 
-/* Second transport leg (hub -> storage) / Odcinek 2 (hub -> magazyn) */
-.wg-leg2 {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px dashed rgba(232, 232, 240, .12);
-}
-.wg-leg2-hdr {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
-}
-.wg-leg2-title { font-size: 12px; font-weight: 700; color: #e8e8f0; }
-.wg-leg2-desc { font-size: 11px; color: rgba(232, 232, 240, .5); margin-bottom: 8px; }
-.wg-leg2-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
 /*  Upgrade box  */
 .wg-upgrade-box {
     background: #0e1428; border: 1px solid rgba(30,46,80,.9);

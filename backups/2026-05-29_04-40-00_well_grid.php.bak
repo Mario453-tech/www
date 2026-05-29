@@ -400,12 +400,6 @@ window.WG_LANG = <?= json_encode([
     'pipe_type_standard'           => t('well_grid.pipe_type_standard'),
     'pipe_type_heavy'              => t('well_grid.pipe_type_heavy'),
     'pipe_hours_label'             => t('well_grid.pipe_hours_label'),
-    // Second transport leg (hub -> storage) / Odcinek 2 (hub -> magazyn)
-    'leg2_title'                   => t('well_grid.leg2_title'),
-    'leg2_btn_pipeline'            => t('well_grid.leg2_btn_pipeline'),
-    'leg2_btn_direct'              => t('well_grid.leg2_btn_direct'),
-    'leg2_confirm_pipeline'        => t('well_grid.leg2_confirm_pipeline', ['cost' => '{cost}']),
-    'leg2_confirm_direct'          => t('well_grid.leg2_confirm_direct'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 window.WG_PIPELINE_API = '/src/PipelineApi.php';
 </script>

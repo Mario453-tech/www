@@ -195,6 +195,36 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('pipeline_already_exists', $r2['error']);
     }
 
+    public function testPurchasePipelineSupportsBothLegsPerWell(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'rurociag', 100.0, 50.0);
+        $this->seedHub($ids['hubId'], 'PHPUnit Hub Both Legs');
+        $this->seedAssignment($ids['hubId'], $ids['wellId']);
+
+        $service = new WellPipelineService($this->db);
+
+        // Inbound (default) and outbound can coexist for the same well.
+        $inbound  = $service->purchasePipeline($playerId, $ids['wellId'], 'standard', 'inbound');
+        $outbound = $service->purchasePipeline($playerId, $ids['wellId'], 'standard', 'outbound');
+        $this->assertTrue($inbound['success'], 'Inbound purchase should succeed');
+        $this->assertTrue($outbound['success'], 'Outbound purchase should succeed');
+        $this->assertSame('inbound', $inbound['leg']);
+        $this->assertSame('outbound', $outbound['leg']);
+
+        // Two distinct rows, one per leg.
+        $legStmt = $this->db->prepare('SELECT leg FROM well_pipelines WHERE well_id = ? ORDER BY leg');
+        $legStmt->execute([$ids['wellId']]);
+        $legs = $legStmt->fetchAll(PDO::FETCH_COLUMN);
+        $this->assertSame(['inbound', 'outbound'], $legs);
+
+        // A second outbound purchase is rejected (one pipeline per leg).
+        $dup = $service->purchasePipeline($playerId, $ids['wellId'], 'light', 'outbound');
+        $this->assertFalse($dup['success']);
+        $this->assertSame('pipeline_already_exists', $dup['error']);
+    }
+
     // --- completeBuildingPipelines ---
 
     public function testCompleteBuildingPipelinesFlipsStatusToActiveWhenTimeElapsed(): void

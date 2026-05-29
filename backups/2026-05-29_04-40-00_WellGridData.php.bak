@@ -73,7 +73,6 @@ class WellGridData
         // Preload owned pipelines for all visible wells.
         // Preload zakupionych rurociagow dla wszystkich widocznych odwiertow.
         $pipelineByWell = [];
-        $outboundPipelineByWell = [];
         $hubAssignmentByWell = [];
         if (!empty($showWells)) {
             $wellIds = array_values(array_filter(array_map(static fn($w): int => (int)($w['id'] ?? 0), $showWells)));
@@ -83,8 +82,7 @@ class WellGridData
                     $pipelineSvc = new WellPipelineService($db);
                     $playerId = (int)($playerData['id'] ?? 0);
                     if ($playerId > 0) {
-                        $pipelineByWell         = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
-                        $outboundPipelineByWell = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'outbound');
+                        $pipelineByWell = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds);
                     }
                 } catch (Throwable $e) {
                     GameLog::error('WellGridData', 'pipeline preload FAILED', $e);
@@ -122,7 +120,7 @@ class WellGridData
                     'code'  => $w['region_code'] ?? '',
                 ];
             }
-            $groups[$regionKey]['wells'][] = self::prepareWell($w, $statusMap, $specNames, $playerCash, $pipelineByWell, $hubAssignmentByWell, $outboundPipelineByWell);
+            $groups[$regionKey]['wells'][] = self::prepareWell($w, $statusMap, $specNames, $playerCash, $pipelineByWell, $hubAssignmentByWell);
         }
         ksort($groups);
 
@@ -145,7 +143,7 @@ class WellGridData
     /**
      * Enriches a single well row with all computed display data.
      */
-    private static function prepareWell(array $w, array $statusMap, array $specNames, float $playerCash, array $pipelineByWell, array $hubAssignmentByWell, array $outboundPipelineByWell = []): array
+    private static function prepareWell(array $w, array $statusMap, array $specNames, float $playerCash, array $pipelineByWell, array $hubAssignmentByWell): array
     {
         //  Status & condition 
         $status   = $w['status'] ?? 'active';
@@ -205,14 +203,6 @@ class WellGridData
                 $pipelineBuildCost = 18000.0;
             }
         }
-        // Second transport leg (hub -> storage). Mirrors the inbound pipeline state.
-        $outboundType        = (string)($w['hub_outbound_transport_type'] ?? 'nieustawiony');
-        $outboundPipeline    = $outboundPipelineByWell[$wellId] ?? null;
-        $hasOutboundPipeline = $outboundPipeline !== null;
-        $outboundStatus      = (string)($outboundPipeline['status'] ?? '');
-        $outboundOperational = (bool)($outboundPipeline['_is_operational'] ?? ($hasOutboundPipeline && $outboundStatus !== 'building'));
-        $outboundBuilding    = $outboundStatus === 'building';
-
         $displayTransportType = $legacyPipelineSelection ? 'nieustawiony' : $trType;
         $effectiveTransportType = $displayTransportType;
         if (!$isOffshore && $displayTransportType === 'rurociag' && !$hasOperationalPipeline) {
@@ -301,13 +291,6 @@ class WellGridData
             '_legacyPipelineSelection' => $legacyPipelineSelection,
             '_pipelineBuildCost'  => $pipelineBuildCost,
             '_pipelineData'       => $ownedPipeline,
-            // Second leg (hub -> storage)
-            '_outboundType'           => $outboundType,
-            '_outboundPipelineOwned'  => $hasOutboundPipeline,
-            '_outboundPipelineOperational' => $outboundOperational,
-            '_outboundPipelineBuilding'    => $outboundBuilding,
-            '_outboundPipelineBuildCost'   => $pipelineBuildCost,
-            '_outboundPipelineData'        => $outboundPipeline,
             '_eqTier'             => $eqTier,
             '_eqLevel'            => $eqLevel,
             '_eqMults'            => $eqMults,
