@@ -387,10 +387,9 @@ class WellPipelineService
      *
      * @return array{success:bool, pipeline_id?:int, pipeline_type?:string, build_cost?:float, build_hours?:int, build_finish_at?:string, error?:string}
      */
-    public function purchasePipeline(int $playerId, int $wellId, string $type = 'standard', string $leg = 'inbound'): array
+    public function purchasePipeline(int $playerId, int $wellId, string $type = 'standard'): array
     {
         $type    = $this->normalizePipelineType($type);
-        $leg     = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
         $profile = $this->getProfile($type);
         $buildCost  = $profile['build_cost'];
         $buildHours = $profile['build_hours'];
@@ -416,11 +415,11 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_required'];
         }
 
-        // Reject if a pipeline already exists for this leg (one per well per leg).
+        // Reject if pipeline already exists (any status)
         $existingStmt = $this->db->prepare(
-            "SELECT id, status FROM well_pipelines WHERE well_id = ? AND leg = ?"
+            "SELECT id, status FROM well_pipelines WHERE well_id = ?"
         );
-        $existingStmt->execute([$wellId, $leg]);
+        $existingStmt->execute([$wellId]);
         $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
         if ($existing) {
             return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
@@ -443,18 +442,17 @@ class WellPipelineService
         // Insert pipeline with building status and timer
         $insertStmt = $this->db->prepare(
             "INSERT INTO well_pipelines
-                (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
+                (player_id, well_id, hub_id, name, pipeline_type, status, condition_pct, transport_loss,
                  nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
                  opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
                  last_inspected_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
+             VALUES (?, ?, ?, ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
                      NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
         );
         $insertStmt->execute([
             $playerId,
             $wellId,
             (int)$hubAssignment['hub_id'],
-            $leg,
             $name,
             $type,
             $capacity,
@@ -488,7 +486,6 @@ class WellPipelineService
             'well_id'     => $wellId,
             'pipeline_id' => $pipelineId,
             'type'        => $type,
-            'leg'         => $leg,
             'build_hours' => $buildHours,
         ]);
 
@@ -496,7 +493,6 @@ class WellPipelineService
             'success'       => true,
             'pipeline_id'   => $pipelineId,
             'pipeline_type' => $type,
-            'leg'           => $leg,
             'build_cost'    => $buildCost,
             'build_hours'   => $buildHours,
             'build_finish_at' => $buildFinishAt,

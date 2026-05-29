@@ -49,21 +49,18 @@ try {
             }
             $wellId = (int)($_POST['well_id'] ?? 0);
             $type   = trim($_POST['pipeline_type'] ?? 'standard');
-            // Transport leg: 'inbound' (well->hub, default) or 'outbound' (hub->storage)
-            $leg    = trim($_POST['leg'] ?? 'inbound');
 
             if ($wellId <= 0) {
                 pipelineApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
             }
 
-            $result = $svc->purchasePipeline($playerId, $wellId, $type, $leg);
+            $result = $svc->purchasePipeline($playerId, $wellId, $type);
 
             if (!($result['success'] ?? false)) {
                 $errMsg = match ($result['error'] ?? '') {
                     'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
                     'pipeline_already_exists' => t('pipeline.err_already_exists'),
                     'offshore_no_pipeline'    => t('pipeline.err_offshore'),
-                    'hub_required'            => t('well_staff.transport_err_hub_required'),
                     'well_not_found'          => t('common.not_found'),
                     default                   => t('common.generic_error'),
                 };
@@ -82,11 +79,10 @@ try {
         // GET: pipeline status for a specific well / Status rurociagu dla konkretnego odwiertu
         case 'pipeline_status':
             $wellId = (int)($_GET['well_id'] ?? 0);
-            $leg    = trim($_GET['leg'] ?? 'inbound');
             if ($wellId <= 0) {
                 pipelineApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
             }
-            $pipes = $svc->getByPlayerAndWellIds($playerId, [$wellId], $leg);
+            $pipes = $svc->getByPlayerAndWellIds($playerId, [$wellId]);
             pipelineApiOut(['success' => true, 'pipeline' => $pipes[$wellId] ?? null]);
 
         // GET: available pipeline types with cost and build time / Dostepne typy rurociagow z kosztami i czasem

@@ -442,6 +442,7 @@ return [
     'well_staff.transport_tanker' => 'Tankowiec',
     'well_staff.transport_unset' => 'Nie ustawiono',
     'well_staff.msg_transport_set' => 'Transport: :name',
+    'well_staff.msg_outbound_transport_set' => 'Transport hub-magazyn: :name',
     'well_staff.svc.err_invalid_role' => 'Nieprawidłowa rola. Dozwolone: operator, technik.',
     'well_staff.svc.err_well_not_found' => 'Odwiert nie istnieje lub nie należy do Ciebie.',
     'well_staff.svc.err_well_unavailable' => 'Odwiert jest niedostępny (status: :status).',
