@@ -195,6 +195,7 @@ return [
     'well.status.blowout' => 'Wybuch (blowout)',
     'well.status.contaminated' => 'Skażony',
     'well.status.sold' => 'Sprzedany',
+    'well.status.layer_switch' => 'Zmiana warstwy',
     'well_grid.transport_switch_confirm_btn' => 'Przełącz',
     'wg.eq_tier_bm_label' => 'Czarny rynek',
     'wg.eq_tier_bm_desc' => 'Tanie, ryzykowne, nieoficjalne',

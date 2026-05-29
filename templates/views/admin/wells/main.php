@@ -118,7 +118,7 @@
             $wId          = (int)$w['id'];
             $cond         = (int)($w['technical_condition'] ?? 100);
             $condClass    = $cond >= 70 ? 'cond-ok' : ($cond >= 40 ? 'cond-warn' : 'cond-bad');
-            $status       = (string)($w['status'] ?? 'active');
+            $status       = (string)($w['status'] ?? '') ?: 'active';
             $sBadge       = match($status) {
                 'active'         => 'badge-active',
                 'seized','sold'  => 'badge-bankrupt',
