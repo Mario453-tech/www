@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../FinancePolicyService.php';
-require_once __DIR__ . '/../OutboundLegService.php';
 require_once __DIR__ . '/WellProductionSection.php';
 require_once __DIR__ . '/WellHubSection.php';
 
@@ -270,8 +269,7 @@ class WellLoopSection
             $this->hubSvc,
             $this->financeLogisticsMods,
             $this->gBalanceMults,
-            $this->oilPrice,
-            new OutboundLegService($this->transportConfig)
+            $this->oilPrice
         );
         $wellHub->finalize($playerId, $deltaHours, $hseBonus);
     }

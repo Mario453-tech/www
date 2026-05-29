@@ -214,14 +214,13 @@ try {
                 'message' => $message,
             ]);
 
-        // Choose the second transport leg (hub -> storage) for a well.
-        // Allowed: 'nieustawiony' (direct), 'rurociag' (outbound pipeline) and
-        // 'ciezarowki' (road haul, per-tick cost + incidents). Tanker second leg N/A
-        // (the second leg is land-based hub -> storage).
+        // ETAP 6: choose the second transport leg (hub -> storage) for a well.
+        // Allowed: 'nieustawiony' (direct) and 'rurociag' (outbound pipeline). Road/tanker
+        // second leg is reserved for a later stage (the tick currently routes only pipelines).
         case 'set_outbound_transport':
             $wellId        = (int)($_POST['well_id'] ?? 0);
             $transportType = trim((string)($_POST['transport_type'] ?? ''));
-            $allowedOut    = ['nieustawiony', 'rurociag', 'ciezarowki'];
+            $allowedOut    = ['nieustawiony', 'rurociag'];
             $pipelineBuildStarted = false;
 
             if ($wellId <= 0 || !in_array($transportType, $allowedOut, true)) {
@@ -282,7 +281,6 @@ try {
             $transportNames = [
                 'nieustawiony' => t('well_staff.transport_unset'),
                 'rurociag'     => t('well_staff.transport_pipeline'),
-                'ciezarowki'   => t('well_staff.transport_trucks'),
             ];
 
             GameLog::info('WellStaffApi', 'set_outbound_transport', [

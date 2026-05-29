@@ -663,6 +663,15 @@ async function wgSetOutboundTransport(wellId, transportType, buildCost) {
         return;
     }
 
+    if (transportType === 'ciezarowki') {
+        confirmAction(wgt('leg2_confirm_road'), doIt, {
+            title: wgt('leg2_title'),
+            type: 'confirm',
+            confirmLabel: wgt('leg2_btn_road')
+        });
+        return;
+    }
+
     confirmAction(wgt('leg2_confirm_direct'), doIt, {
         title: wgt('leg2_title'),
         type: 'confirm',
