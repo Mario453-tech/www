@@ -49,7 +49,6 @@ class WellPipelineService
                 player_id INT NOT NULL,
                 well_id INT NOT NULL,
                 hub_id INT NULL DEFAULT NULL,
-                leg ENUM('inbound','outbound') NOT NULL DEFAULT 'inbound',
                 name VARCHAR(120) NOT NULL,
                 pipeline_type VARCHAR(32) NOT NULL DEFAULT 'standard',
                 status ENUM('active','degraded','critical','damaged','disabled','building','leak') NOT NULL DEFAULT 'active',
@@ -68,7 +67,7 @@ class WellPipelineService
                 leak_started_at DATETIME NULL DEFAULT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_well_pipeline_well_leg (well_id, leg),
+                UNIQUE KEY uq_well_pipeline_well (well_id),
                 KEY idx_well_pipeline_player (player_id),
                 KEY idx_well_pipeline_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
@@ -84,11 +83,6 @@ class WellPipelineService
         $this->ensureColumn('well_pipelines', 'build_finish_at',  "DATETIME DEFAULT NULL AFTER build_started_at");
         // Leak tracking column - added in migration etap7_pipeline_leak
         $this->ensureColumn('well_pipelines', 'leak_started_at',  "DATETIME DEFAULT NULL AFTER damaged_at");
-        // Transport leg column - ETAP 3 (second transport leg: hub -> storage).
-        // Kolumna odcinka transportu: 'inbound' (odwiert->hub), 'outbound' (hub->magazyn).
-        $this->ensureColumn('well_pipelines', 'leg', "ENUM('inbound','outbound') NOT NULL DEFAULT 'inbound' AFTER hub_id");
-        // Migrate the per-well unique key to per-(well, leg) so a well can have both legs.
-        $this->ensurePipelineLegUniqueKey();
 
         // Extend ENUM to include building and leak states for existing installations
         try {
@@ -1039,47 +1033,6 @@ class WellPipelineService
         } catch (Throwable $e) {
             GameLog::error('WellPipelineService', 'ensureColumn FAILED', $e, ['table' => $table, 'column' => $column]);
         }
-    }
-
-    /**
-     * Migrates the legacy per-well unique key (uq_well_pipeline_well on well_id)
-     * to a per-leg unique key (uq_well_pipeline_well_leg on well_id, leg), so a well
-     * can hold both an inbound (well->hub) and an outbound (hub->storage) pipeline.
-     * Idempotent: skips when already migrated. MySQL only (sqlite test env is no-op).
-     * Migruje stary klucz unikalny well_id na (well_id, leg) - oba odcinki na 1 odwiert.
-     */
-    private function ensurePipelineLegUniqueKey(): void
-    {
-        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            return;
-        }
-        try {
-            if (!$this->indexExists('well_pipelines', 'uq_well_pipeline_well_leg')) {
-                $this->db->exec(
-                    "ALTER TABLE well_pipelines ADD UNIQUE KEY uq_well_pipeline_well_leg (well_id, leg)"
-                );
-            }
-            // Drop the legacy single-column unique key if it still exists.
-            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well')) {
-                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well");
-            }
-        } catch (Throwable $e) {
-            GameLog::error('WellPipelineService', 'ensurePipelineLegUniqueKey FAILED', $e);
-        }
-    }
-
-    private function indexExists(string $table, string $indexName): bool
-    {
-        $stmt = $this->db->prepare(
-            "SELECT 1
-               FROM information_schema.STATISTICS
-              WHERE TABLE_SCHEMA = DATABASE()
-                AND TABLE_NAME   = ?
-                AND INDEX_NAME   = ?
-              LIMIT 1"
-        );
-        $stmt->execute([$table, $indexName]);
-        return (bool)$stmt->fetchColumn();
     }
 
     private function columnExists(string $table, string $column): bool

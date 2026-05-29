@@ -89,20 +89,6 @@ class TransportConfigService
         }
 
         try {
-            // ETAP 3: second transport leg (hub -> storage) type choice, stored per well.
-            // Mirrors transport_type but applies to the hub -> storage leg.
-            // Drugi odcinek transportu (hub -> magazyn) - wybor typu zapisany przy odwiercie.
-            Database::addColumnIfMissing(
-                'wells',
-                'hub_outbound_transport_type',
-                "ENUM('nieustawiony','rurociag','ciezarowki','tankowiec') NOT NULL DEFAULT 'nieustawiony' "
-                . "COMMENT 'Typ transportu z hubu do magazynu (odcinek 2)' AFTER transport_type"
-            );
-        } catch (Throwable $e) {
-            GameLog::error('TransportConfigService', 'ensureTransportSchema wells hub_outbound_transport_type failed', $e);
-        }
-
-        try {
             // Check transport_config enum too
             $stmt = $db->prepare("
                 SELECT COLUMN_TYPE FROM information_schema.COLUMNS
