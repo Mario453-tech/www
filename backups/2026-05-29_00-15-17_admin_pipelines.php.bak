@@ -295,9 +295,9 @@ try {
            LEFT JOIN well_pipelines wp ON wp.id = e.pipeline_id
            {$historyWhereSql}
           ORDER BY e.created_at DESC, e.id DESC
-          LIMIT {$historyFilters['per_page']} OFFSET {$offset}"
+          LIMIT ? OFFSET ?"
     );
-    $historyStmt->execute($historyParams);
+    $historyStmt->execute(array_merge($historyParams, [$historyFilters['per_page'], $offset]));
     $historyRows = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     GameLog::error('admin/pipelines.php', 'Pipeline history lookup failed', $e);
