@@ -444,11 +444,22 @@
                         <?= t('logistics.pipeline.btn_maintenance') ?>
                     </button>
                     <?php endif ?>
-                    <?php if ($canToggle): ?>
+                    <?php if ($canToggle):
+                        $pipeName    = (string)($pipe['name'] ?? ('#' . (int)$pipe['id']));
+                        $confirmSusp = t('logistics.pipeline.confirm_suspend_named', ['name' => $pipeName]);
+                        $confirmRes  = t('logistics.pipeline.confirm_resume_named',  ['name' => $pipeName]);
+                        $labelSusp   = t('logistics.pipeline.btn_suspend');
+                        $labelRes    = t('logistics.pipeline.btn_resume');
+                    ?>
                     <button class="btn btn-xs <?= $isSuspended ? 'btn-secondary' : 'btn-danger' ?>"
-                            onclick="pipelineActionConfirm(<?= (int)$pipe['id'] ?>, 'toggle_pipeline',
-                                <?= htmlspecialchars(json_encode($isSuspended ? t('logistics.pipeline.confirm_resume') : t('logistics.pipeline.confirm_suspend')), ENT_QUOTES) ?>)">
-                        <?= $isSuspended ? t('logistics.pipeline.btn_resume') : t('logistics.pipeline.btn_suspend') ?>
+                            data-pipeline-toggle="<?= (int)$pipe['id'] ?>"
+                            data-suspended="<?= $isSuspended ? '1' : '0' ?>"
+                            data-confirm-suspend="<?= htmlspecialchars($confirmSusp, ENT_QUOTES) ?>"
+                            data-confirm-resume="<?= htmlspecialchars($confirmRes, ENT_QUOTES) ?>"
+                            data-label-suspend="<?= htmlspecialchars($labelSusp, ENT_QUOTES) ?>"
+                            data-label-resume="<?= htmlspecialchars($labelRes, ENT_QUOTES) ?>"
+                            onclick="pipelineToggleConfirm(this)">
+                        <?= $isSuspended ? $labelRes : $labelSusp ?>
                     </button>
                     <?php endif ?>
                 </div>
@@ -1123,6 +1134,30 @@
         toggle_pipeline:      '<?= t('logistics.pipeline.btn_suspend') ?> / <?= t('logistics.pipeline.btn_resume') ?>',
     };
 
+    /* Toggle confirm: reads state from data-* attrs, no page reload on success */
+    /* Potwierdzenie toggle: odczytuje stan z data-*, po sukcesie aktualizuje przycisk */
+    window.pipelineToggleConfirm = function(btn) {
+        var pipelineId  = parseInt(btn.dataset.pipelineToggle, 10);
+        var isSuspended = btn.dataset.suspended === '1';
+        var confirmMsg  = isSuspended ? btn.dataset.confirmResume : btn.dataset.confirmSuspend;
+
+        _pendingId     = pipelineId;
+        _pendingAction = 'toggle_pipeline';
+        _pendingBtn    = btn;
+
+        var modal = document.getElementById('pipeline-action-modal');
+        modal.querySelector('.pipeline-action-modal-title').textContent =
+            isSuspended ? btn.dataset.labelResume : btn.dataset.labelSuspend;
+        modal.querySelector('.pipeline-action-modal-msg').textContent = confirmMsg;
+
+        var confirmBtn = modal.querySelector('.pipeline-action-modal-confirm');
+        confirmBtn.disabled     = false;
+        confirmBtn.style.opacity = '';
+
+        modal.style.display = '';
+        confirmBtn.focus();
+    };
+
     /* Open confirm modal / Otworz modal potwierdzenia */
     window.pipelineActionConfirm = function(pipelineId, action, confirmMsg) {
         _pendingId     = pipelineId;
@@ -1164,15 +1199,28 @@
             _token:      PIPELINE_CSRF,
         });
 
+        var pendingAction = _pendingAction;
+        var pendingBtn    = _pendingBtn;
+
         fetch(PIPELINE_API, { method: 'POST', body: body,
             headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 closePipelineActionModal();
-                if (data.success) {
-                    location.reload();
-                } else {
+                if (!data.success) {
                     alert('<?= t('logistics.pipeline.action_error') ?>: ' + (data.error || '?'));
+                    return;
+                }
+                if (pendingAction === 'toggle_pipeline' && pendingBtn) {
+                    /* Update button in-place without reload */
+                    var nowSuspended = (data.new_status === 'suspended');
+                    pendingBtn.dataset.suspended = nowSuspended ? '1' : '0';
+                    pendingBtn.textContent = nowSuspended
+                        ? pendingBtn.dataset.labelResume
+                        : pendingBtn.dataset.labelSuspend;
+                    pendingBtn.className = 'btn btn-xs ' + (nowSuspended ? 'btn-secondary' : 'btn-danger');
+                } else {
+                    location.reload();
                 }
             })
             .catch(function() {

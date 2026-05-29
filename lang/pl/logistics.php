@@ -472,6 +472,8 @@ return [
     'logistics.pipeline.confirm_maint'   => 'Wykonać konserwację? Koszt: ~:cost PLN. Timer przeglądów zostanie zresetowany, stan +2 pkt.',
     'logistics.pipeline.confirm_suspend' => 'Wstrzymać rurociąg? Odwiert przełączy się na transport drogowy — koszty i straty mogą wzrosnąć.',
     'logistics.pipeline.confirm_resume'  => 'Wznowić rurociąg?',
+    'logistics.pipeline.confirm_suspend_named' => 'Wstrzymać rurociąg „:name"? Odwiert przełączy się na transport drogowy — koszty i straty mogą wzrosnąć.',
+    'logistics.pipeline.confirm_resume_named'  => 'Wznowić rurociąg „:name"?',
     'logistics.pipeline.action_error'    => 'Błąd akcji rurociągu',
     'logistics.pipeline.nopipe_title'    => 'Odwierty bez rurociągu',
     'logistics.pipeline.nopipe_desc'     => 'Te odwierty mają aktywne przypisanie do hubu, ale nie posiadają jeszcze rurociągu. Możesz zakupić rurociąg, aby obniżyć straty transportowe.',

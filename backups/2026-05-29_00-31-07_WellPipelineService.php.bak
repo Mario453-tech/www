@@ -89,7 +89,7 @@ class WellPipelineService
             $this->db->exec(
                 "ALTER TABLE well_pipelines
                  MODIFY COLUMN status
-                     ENUM('active','degraded','critical','damaged','disabled','building','leak','suspended')
+                     ENUM('active','degraded','critical','damaged','disabled','building','leak')
                      NOT NULL DEFAULT 'active'"
             );
         } catch (Throwable) {
