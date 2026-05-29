@@ -244,15 +244,6 @@
                                     <?php endforeach ?>
                                 </select>
                             </div>
-                            <?php $outboundTransport = (string)($w['hub_outbound_transport_type'] ?? 'nieustawiony'); ?>
-                            <div class="aw-field">
-                                <label><?= t('admin.wells.gm_field_outbound_transport_type') ?></label>
-                                <select name="hub_outbound_transport_type" class="aw-select">
-                                    <?php foreach (['nieustawiony','rurociag','ciezarowki','tankowiec'] as $ot): ?>
-                                    <option value="<?= $ot ?>"<?= $outboundTransport === $ot ? ' selected' : '' ?>><?= t('admin.wells.transport.' . $ot) ?></option>
-                                    <?php endforeach ?>
-                                </select>
-                            </div>
                             <div class="aw-field">
                                 <label><?= t('admin.wells.gm_field_transport_cap') ?></label>
                                 <input type="text" name="transport_capacity_pct" class="aw-input"

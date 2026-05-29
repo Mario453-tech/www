@@ -41,7 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gm_edit_well_id'])) {
                                   'no_operator','no_technician','broken','blowout',
                                   'contaminated','seized','layer_switch','sold'],
             'transport_type'  => ['rurociag','ciezarowki','tankowiec'],
-            'hub_outbound_transport_type' => ['nieustawiony','rurociag','ciezarowki','tankowiec'],
             'production_mode' => ['eco','normal','boost'],
             'equipment_tier'  => ['black_market','standard','premium'],
         ];
