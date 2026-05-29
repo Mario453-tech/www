@@ -87,6 +87,20 @@ trait BankCalculationTrait
 
             $baseLimit = (int)round($wellsValue + $prodValue + $cashValue + $storValue);
 
+            // Liquidity penalty: cash = 0 means no ability to service debt.
+            // Bank reduces offer proportionally to how little cash the player has vs asset base.
+            // Kara za brak płynności: bank obniża limit gdy gotówka jest niska względem aktywów.
+            $liquidityRatio = $baseLimit > 0 ? $cash / $baseLimit : 0.0;
+            $liquidityMult  = match (true) {
+                $cash <= 0              => 0.10,  // brak gotówki → 10% limitu aktywowego
+                $liquidityRatio < 0.02  => 0.20,  // < 2% → 20%
+                $liquidityRatio < 0.05  => 0.40,  // < 5% → 40%
+                $liquidityRatio < 0.10  => 0.65,  // < 10% → 65%
+                $liquidityRatio < 0.20  => 0.85,  // < 20% → 85%
+                default                 => 1.00,
+            };
+            $baseLimit = (int)round($baseLimit * $liquidityMult);
+
             $cap = 150_000_000;
             $limit = min($baseLimit, $cap);
 
@@ -97,14 +111,16 @@ trait BankCalculationTrait
             $limit = max(10_000, $limit);
 
             GameLog::info('BankService', 'calculateCreditLimit', [
-                'player_id' => $playerId,
-                'wells_value' => $wellsValue,
-                'prod_value' => (int)$prodValue,
-                'cash_value' => (int)$cashValue,
-                'stor_value' => (int)$storValue,
-                'base_limit' => $baseLimit,
-                'final_limit' => $limit,
-                'oil_price' => $oilPrice,
+                'player_id'       => $playerId,
+                'wells_value'     => $wellsValue,
+                'prod_value'      => (int)$prodValue,
+                'cash_value'      => (int)$cashValue,
+                'stor_value'      => (int)$storValue,
+                'liquidity_ratio' => round($liquidityRatio, 4),
+                'liquidity_mult'  => $liquidityMult,
+                'base_limit'      => $baseLimit,
+                'final_limit'     => $limit,
+                'oil_price'       => $oilPrice,
             ]);
 
             return $limit;
