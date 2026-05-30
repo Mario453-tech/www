@@ -39,7 +39,7 @@
                 <label class="auth-label" for="pwinput"><?= t('admin.login.label_password') ?></label>
                 <div class="auth-pw-wrap">
                     <input class="auth-input" type="password" name="password"
-                        id="pwinput" placeholder="••••••••" required>
+                        id="pwinput" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" required>
                     <button type="button" class="auth-pw-eye" onclick="togglePw()"
                         title="<?= t('admin.login.toggle_pw_title') ?>"></button>
                 </div>
@@ -54,13 +54,6 @@
         </div>
     </div>
 
-    <?php if ($hasSso): ?>
-    <div class="auth-sso-box">
-        <?= t('admin.login.sso_logged_in') ?>
-        <a href="/admin/login.php"><?= t('admin.login.sso_click') ?></a>
-        <?= t('admin.login.sso_desc') ?>
-    </div>
-    <?php endif ?>
 </div>
 
 <script>
