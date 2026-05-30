@@ -130,7 +130,9 @@ jobs:
       - name: Deploy via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server:   ${{ secrets.FTP_HOST }}
+          # Host FTP az.pl wpisany na sztywno — sekret FTP_HOST mial bledna wartosc (ENOTFOUND).
+          # az.pl FTP host hardcoded — FTP_HOST secret had a bad value (ENOTFOUND).
+          server:   hosting2629304.online.pro
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           # Host az.pl: implicit FTPS (niejawne TLS) na porcie 990 -> protocol ftps-legacy.
