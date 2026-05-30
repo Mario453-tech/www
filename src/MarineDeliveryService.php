@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * MarineDeliveryService — tworzenie i zarzadzanie dostawami morskimi.
- * MarineDeliveryService — creation and management of marine deliveries.
+ * MarineDeliveryService tworzenie i zarzadzanie dostawami morskimi.
+ * MarineDeliveryService creation and management of marine deliveries.
  *
  * Dostawa morska to osobny obiekt: ropa jest w drodze i trafia do magazynu
  * dopiero po przetworzeniu przez port (przez PortSection w ticku).
@@ -18,10 +18,10 @@ class MarineDeliveryService
     private PDO         $db;
     private PortService $portService;
 
-    /** Bazowy czas tranzytu w godzinach (konfigurowalny) / Base transit time in hours (configurable) */
+ /** Bazowy czas tranzytu w godzinach (konfigurowalny) / Base transit time in hours (configurable) */
     private const BASE_TRANSIT_HOURS = 3.0;
 
-    /** Wariancja czasu tranzytu (losowe +/- X godzin) / Transit time variance (random +/- X hours) */
+ /** Wariancja czasu tranzytu (losowe +/- X godzin) / Transit time variance (random +/- X hours) */
     private const TRANSIT_VARIANCE_HOURS = 1.0;
 
     public function __construct(PDO $db)
@@ -31,9 +31,9 @@ class MarineDeliveryService
         $this->ensureSchema();
     }
 
-    // 
-    // Schema
-    // 
+ // 
+ // Schema
+ // 
 
     public function ensureSchema(): void
     {
@@ -81,18 +81,18 @@ class MarineDeliveryService
         );
     }
 
-    // 
-    // Create
-    // 
+ // 
+ // Create
+ // 
 
-    /**
-     * Tworzy nowa dostawe morska (ropa wyruszyla z odwiertu).
-     * Creates a new marine delivery (oil departing from well).
-     *
-     * @param  array<string, mixed> $well      pelny rekord odwiertu / full well record
-     * @param  array<string, mixed> $hseBonus  aktywne bonusy BHP / active HSE bonuses
-     * @return int  ID nowej dostawy / new delivery ID
-     */
+ /**
+ * Tworzy nowa dostawe morska (ropa wyruszyla z odwiertu).
+ * Creates a new marine delivery (oil departing from well).
+ *
+ * @param array<string, mixed> $well pelny rekord odwiertu / full well record
+ * @param array<string, mixed> $hseBonus aktywne bonusy BHP / active HSE bonuses
+ * @return int ID nowej dostawy / new delivery ID
+ */
     public function createDelivery(
         int   $playerId,
         int   $wellId,
@@ -105,7 +105,7 @@ class MarineDeliveryService
         $nowStr   = $now->format('Y-m-d H:i:s');
         $regionId = (int)($well['region_id'] ?? 0);
 
-        // Czas tranzytu: baza +/- wariancja / Transit time: base +/- variance
+ // Czas tranzytu: baza +/- wariancja / Transit time: base +/- variance
         $transitHours = self::BASE_TRANSIT_HOURS
             + (mt_rand(-100, 100) / 100.0) * self::TRANSIT_VARIANCE_HOURS;
         $transitHours = max(1.0, $transitHours);
@@ -114,7 +114,7 @@ class MarineDeliveryService
         $eta->modify('+' . (int)round($transitHours * 3600) . ' seconds');
         $etaStr = $eta->format('Y-m-d H:i:s');
 
-        // Znajdz port docelowy dla regionu / Find destination port for region
+ // Znajdz port docelowy dla regionu / Find destination port for region
         $port   = $this->portService->findForRegion($regionId);
         $portId = $port ? (int)$port['id'] : null;
 
@@ -140,16 +140,16 @@ class MarineDeliveryService
         return $deliveryId;
     }
 
-    // 
-    // Queries for player panel
-    // 
+ // 
+ // Queries for player panel
+ // 
 
-    /**
-     * Zwraca aktywne dostawy gracza (w drodze + w kolejce portowej).
-     * Returns active deliveries for a player (in transit + in port queue).
-     *
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Zwraca aktywne dostawy gracza (w drodze + w kolejce portowej).
+ * Returns active deliveries for a player (in transit + in port queue).
+ *
+ * @return list<array<string, mixed>>
+ */
     public function getActiveForPlayer(int $playerId): array
     {
         try {
@@ -171,12 +171,12 @@ class MarineDeliveryService
         }
     }
 
-    /**
-     * Historia dostaw gracza (ostatnie 20 dostarczonych/utraconych).
-     * Player delivery history (last 20 delivered/lost).
-     *
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Historia dostaw gracza (ostatnie 20 dostarczonych/utraconych).
+ * Player delivery history (last 20 delivered/lost).
+ *
+ * @return list<array<string, mixed>>
+ */
     public function getHistoryForPlayer(int $playerId, int $limit = 20): array
     {
         try {
@@ -190,7 +190,7 @@ class MarineDeliveryService
                   ORDER BY md.created_at DESC
                   LIMIT ?"
             );
-            // LIMIT musi byc zbindowany jako INT — PDO z execute([]) binduje string (cudzyslowy) co MySQL odrzuca
+ // LIMIT musi byc zbindowany jako INT PDO z execute([]) binduje string (cudzyslowy) co MySQL odrzuca
             $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
             $stmt->bindValue(2, $limit,    PDO::PARAM_INT);
             $stmt->execute();
@@ -200,10 +200,10 @@ class MarineDeliveryService
         }
     }
 
-    /**
-     * Ile bbl jest aktualnie w drodze dla gracza.
-     * How many bbl are currently in transit for a player.
-     */
+ /**
+ * Ile bbl jest aktualnie w drodze dla gracza.
+ * How many bbl are currently in transit for a player.
+ */
     public function getInTransitBbl(int $playerId): float
     {
         try {

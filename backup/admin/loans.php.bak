@@ -1,0 +1,288 @@
+<?php
+require_once __DIR__ . '/init.php';
+GameLog::info('admin/loans.php', 'entry');
+AdminAuth::requireLogin();
+
+$db  = Database::getInstance()->getConnection();
+$msg = '';
+$err = '';
+
+// SPRAWD STRUKTUR TABEL 
+$loansColumns = [];
+try {
+    $cols = $db->query("SHOW COLUMNS FROM loans")->fetchAll(PDO::FETCH_COLUMN);
+    $loansColumns = array_flip($cols);
+} catch (PDOException $e) {}
+
+$needsMigration = !isset($loansColumns['remaining_amount']);
+$tablesExist    = isset($loansColumns['id']);
+try { $db->query("SELECT 1 FROM loan_applications LIMIT 1"); }
+catch (PDOException $e) { $tablesExist = false; }
+
+$settingsExist = true;
+try { $db->query("SELECT 1 FROM bank_settings LIMIT 1"); }
+catch (PDOException $e) { $settingsExist = false; }
+
+// AKCJE 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
+        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'save_settings' && $settingsExist) {
+        $settings  = new BankSettings();
+        $adminUser = $_SESSION['admin_user'] ?? 'admin';
+        $keys = [
+            'apr_multiplier', 'risk_tolerance_modifier', 'max_amount_multiplier',
+            'score_threshold_reject', 'score_threshold_cond', 'score_threshold_full',
+            'apr_tier_conditional', 'apr_tier_partial', 'apr_tier_full',
+        ];
+        $limits = [
+            'apr_multiplier'          => [0.1,  5.0],
+            'risk_tolerance_modifier' => [0.1,  5.0],
+            'max_amount_multiplier'   => [0.1,  5.0],
+            'score_threshold_reject'  => [0,    60],
+            'score_threshold_cond'    => [10,   80],
+            'score_threshold_full'    => [30,   100],
+            'apr_tier_conditional'    => [5.0,  80.0],
+            'apr_tier_partial'        => [5.0,  60.0],
+            'apr_tier_full'           => [1.0,  40.0],
+        ];
+        foreach ($keys as $key) {
+            if (isset($_POST[$key])) {
+                [$lo, $hi] = $limits[$key] ?? [0.1, 5.0];
+                $val = round((float)$_POST[$key], 4);
+                $val = max($lo, min($hi, $val));
+                $old = BankSettings::get($key);
+                $settings->set($key, $val, $adminUser);
+                AdminLog::log('bank_settings_change', BankSettings::label($key) . ": {$old}  {$val}", null, 'system');
+            }
+        }
+        $msg = t('admin.loans.msg_settings_saved');
+    }
+
+    elseif (!$needsMigration && $tablesExist) {
+        $appId  = (int)($_POST['app_id']  ?? 0);
+        $procId = (int)($_POST['proc_id'] ?? 0);
+
+        if ($action === 'admin_approve' && $appId) {
+            $amount = (float)($_POST['override_amount'] ?? 0);
+            $rate   = (float)($_POST['override_rate']   ?? 18.0);
+            $reason = trim($_POST['override_reason']    ?? 'Decyzja administracyjna');
+            if ($amount > 0) {
+                $db->prepare("
+                    UPDATE loan_applications
+                    SET status='approved', approved_amount=:amt, interest_rate=:rate,
+                        rejection_reason=:reason, decided_at=NOW(),
+                        expires_at=DATE_ADD(NOW(), INTERVAL 48 HOUR)
+                    WHERE id=:id AND status IN ('pending','rejected')
+                ")->execute([':amt'=>$amount,':rate'=>$rate,':reason'=>$reason.' [ADMIN]',':id'=>$appId]);
+                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% � {$reason}", null, 'system', $appId);
+                $msg = t('admin.loans.msg_approved', ['id' => $appId]);
+            } else { $err = t('admin.loans.err_amount_zero'); }
+        }
+
+        elseif ($action === 'admin_reject' && $appId) {
+            $reason = trim($_POST['reject_reason'] ?? 'Decyzja administracyjna');
+            $db->prepare("
+                UPDATE loan_applications SET status='rejected',
+                rejection_reason=:reason, decided_at=NOW()
+                WHERE id=:id AND status IN ('pending','approved')
+            ")->execute([':reason'=>$reason.' [ADMIN]',':id'=>$appId]);
+            AdminLog::log('loan_admin_reject', "Override reject #{$appId}: {$reason}", null, 'system', $appId);
+            $msg = t('admin.loans.msg_rejected', ['id' => $appId]);
+        }
+
+        elseif ($action === 'close_bailiff' && $procId) {
+            $row = $db->prepare("SELECT loan_id, player_id FROM bailiff_proceedings WHERE id=:id");
+            $row->execute([':id'=>$procId]);
+            $proc = $row->fetch();
+            if ($proc) {
+                $db->prepare("UPDATE bailiff_proceedings SET status='completed', completed_at=NOW() WHERE id=:id")->execute([':id'=>$procId]);
+                $db->prepare("UPDATE loans SET status='active', late_since=NULL WHERE id=:id")->execute([':id'=>$proc['loan_id']]);
+                AdminLog::log('bailiff_closed', "Closed bailiff proceeding #{$procId}", $proc['player_id'], 'system', $procId);
+                $msg = t('admin.loans.msg_bailiff_closed', ['id' => $procId]);
+            }
+        }
+
+        elseif ($action === 'bailiff_advance' && $procId) {
+            $row = $db->prepare("SELECT stage, player_id FROM bailiff_proceedings WHERE id=:id");
+            $row->execute([':id'=>$procId]);
+            $proc = $row->fetch();
+            if ($proc && $proc['stage'] < 4) {
+                $newStage = $proc['stage'] + 1;
+                $db->prepare("UPDATE bailiff_proceedings SET stage=:s, next_action_at=DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id=:id")
+                   ->execute([':s'=>$newStage,':id'=>$procId]);
+                AdminLog::log('bailiff_advance', "Advanced bailiff stage {$proc['stage']}{$newStage} for proceeding #{$procId}", $proc['player_id'], 'system', $procId);
+                $msg = t('admin.loans.msg_bailiff_advanced', ['stage' => $newStage]);
+            }
+        }
+
+        elseif ($action === 'bailiff_bankruptcy' && $procId) {
+            $row = $db->prepare("SELECT loan_id, player_id FROM bailiff_proceedings WHERE id=:id");
+            $row->execute([':id'=>$procId]);
+            $proc = $row->fetch();
+            if ($proc) {
+                $reason = trim($_POST['bankruptcy_reason'] ?? 'Wymuszone przez admina');
+                $db->prepare("UPDATE players SET status='bankrupt', bankruptcy_at=NOW() WHERE id=:id")->execute([':id'=>$proc['player_id']]);
+                $db->prepare("UPDATE loans SET status='defaulted' WHERE id=:id")->execute([':id'=>$proc['loan_id']]);
+                $db->prepare("UPDATE bailiff_proceedings SET status='bankruptcy', completed_at=NOW() WHERE id=:id")->execute([':id'=>$procId]);
+                AdminLog::log('forced_bankruptcy', "Forced bankruptcy by admin: {$reason}", $proc['player_id'], 'system', $procId);
+                $msg = t('admin.loans.msg_bankruptcy', ['pid' => $proc['player_id']]);
+            }
+        }
+    }
+}
+
+// DANE 
+$filter = $_GET['filter'] ?? 'pending';
+if (!in_array($filter, ['pending','approved','rejected','accepted','expired','all'])) $filter = 'all';
+
+$settings     = $settingsExist ? (new BankSettings())->getAll() : [];
+$applications = $loans = $proceedings = [];
+$stats        = ['pending'=>0,'approved'=>0,'accepted'=>0,'rejected'=>0,'total'=>0];
+$loanStats    = ['active'=>0,'late'=>0,'defaulted'=>0,'total_debt'=>0,'avg_apr'=>0];
+$bankruptcies = ['day'=>0,'week'=>0];
+$sysStatus    = $settingsExist ? BankSettings::systemStatus() : 'unknown';
+
+if ($tablesExist) {
+    $where = $filter !== 'all' ? "WHERE la.status = :status" : "";
+    $s = $db->prepare("
+        SELECT la.*, p.email AS player_email
+        FROM loan_applications la JOIN players p ON la.player_id = p.id
+        {$where} ORDER BY la.created_at DESC LIMIT 200
+    ");
+    if ($filter !== 'all') $s->bindValue(':status', $filter);
+    $s->execute();
+    $applications = $s->fetchAll();
+
+    $stats = $db->query("
+        SELECT SUM(status='pending') AS pending, SUM(status='approved') AS approved,
+               SUM(status='accepted') AS accepted, SUM(status='rejected') AS rejected,
+               COUNT(*) AS total FROM loan_applications
+    ")->fetch() ?: $stats;
+}
+
+if ($tablesExist && !$needsMigration) {
+    $loans = $db->query("
+        SELECT l.*, p.email AS player_email
+        FROM loans l JOIN players p ON l.player_id = p.id
+        WHERE l.status IN ('active','late')
+        ORDER BY l.status DESC, l.created_at DESC
+    ")->fetchAll();
+
+    $proceedings = $db->query("
+        SELECT bp.*, p.email AS player_email, l.remaining_amount AS debt, l.id AS loan_id_val
+        FROM bailiff_proceedings bp
+        JOIN players p ON bp.player_id = p.id
+        JOIN loans l   ON bp.loan_id   = l.id
+        WHERE bp.status = 'active'
+        ORDER BY bp.next_action_at ASC
+    ")->fetchAll();
+
+    $loanStats = $db->query("
+        SELECT SUM(status='active') AS active, SUM(status='late') AS late,
+               SUM(status='defaulted') AS defaulted,
+               SUM(remaining_amount) AS total_debt,
+               ROUND(AVG(interest_rate),1) AS avg_apr
+        FROM loans
+    ")->fetch() ?: $loanStats;
+
+    $bankruptcies['day']  = (int)$db->query("SELECT COUNT(*) FROM players WHERE bankruptcy_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetchColumn();
+    $bankruptcies['week'] = (int)$db->query("SELECT COUNT(*) FROM players WHERE bankruptcy_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
+}
+
+// RISK SCORE LIVE (dla wnioskw pending) 
+$liveScores = [];
+if ($tablesExist) {
+    require_once __DIR__ . '/../src/RiskScoreEngine.php';
+    $rse = new RiskScoreEngine();
+    foreach ($applications as $a) {
+        if ($a['status'] === 'pending') {
+            try {
+                $liveScores[(int)$a['player_id']] = $rse->calculateRiskScore((int)$a['player_id']);
+            } catch (Throwable $e) {
+                GameLog::warn('admin/loans.php', 'RiskScore failed for player', ['player_id' => $a['player_id']]);
+            }
+        }
+    }
+}
+
+$riskSectionDescriptions = [
+    'wells'        => ['label' => t('risk.section_wells'),        'desc' => t('risk.section_wells_desc'),        'max' => 20],
+    'production'   => ['label' => t('risk.section_production'),   'desc' => t('risk.section_production_desc'),   'max' => 10],
+    'storage'      => ['label' => t('risk.section_storage'),      'desc' => t('risk.section_storage_desc'),      'max' => 10],
+    'cash'         => ['label' => t('risk.section_cash'),         'desc' => t('risk.section_cash_desc'),         'max' => 15],
+    'behavior'     => ['label' => t('risk.section_behavior'),     'desc' => t('risk.section_behavior_desc'),     'max' => 15],
+    'market'       => ['label' => t('risk.section_market'),       'desc' => t('risk.section_market_desc'),       'max' => 15],
+    'history'      => ['label' => t('risk.section_history'),      'desc' => t('risk.section_history_desc'),      'max' => 20],
+    'credit_score' => ['label' => t('risk.section_credit_score'), 'desc' => t('risk.section_credit_score_desc'), 'max' => 15],
+];
+
+// FUNKCJE POMOCNICZE 
+if (!function_exists('aprBadge')) {
+    function aprBadge(float $r): string {
+        if ($r >= 40) return "<span class='badge badge-bankrupt'>{$r}% APR</span>";
+        if ($r >= 28) return "<span class='badge badge-paused'>{$r}% APR</span>";
+        return                "<span class='badge badge-active'>{$r}% APR</span>";
+    }
+}
+
+$stageLabel = [
+    '1' => t('admin.loans.bailiff_stage_1'),
+    '2' => t('admin.loans.bailiff_stage_2'),
+    '3' => t('admin.loans.bailiff_stage_3'),
+    '4' => t('admin.loans.bailiff_stage_4'),
+];
+$sysStatusLabel = [
+    'normal'  => t('admin.loans.sys_normal'),
+    'tight'   => t('admin.loans.sys_tight'),
+    'crisis'  => t('admin.loans.sys_crisis'),
+    'loose'   => t('admin.loans.sys_loose'),
+    'unknown' => t('admin.loans.sys_unknown'),
+];
+$sysStatusBadge = [
+    'normal'  => 'badge-active',
+    'tight'   => 'badge-paused',
+    'crisis'  => 'badge-bankrupt',
+    'loose'   => 'badge-active',
+    'unknown' => 'badge-inactive',
+];
+
+$viewData = [
+    'msg'            => $msg,
+    'err'            => $err,
+    'needsMigration' => $needsMigration,
+    'settingsExist'  => $settingsExist,
+    'settings'       => $settings,
+    'settingDescs'   => [
+        'apr_multiplier'          => ['min'=>0.5, 'max'=>3.0,  'step'=>0.05, 'hint'=> t('admin.loans.hint_apr')],
+        'risk_tolerance_modifier' => ['min'=>0.3, 'max'=>2.0,  'step'=>0.05, 'hint'=> t('admin.loans.hint_risk')],
+        'max_amount_multiplier'   => ['min'=>0.3, 'max'=>2.0,  'step'=>0.05, 'hint'=> t('admin.loans.hint_max')],
+        'score_threshold_reject'  => ['min'=>0,   'max'=>60,   'step'=>1,    'hint'=> t('admin.loans.hint_score_reject')],
+        'score_threshold_cond'    => ['min'=>10,  'max'=>80,   'step'=>1,    'hint'=> t('admin.loans.hint_score_cond')],
+        'score_threshold_full'    => ['min'=>30,  'max'=>100,  'step'=>1,    'hint'=> t('admin.loans.hint_score_full')],
+        'apr_tier_conditional'    => ['min'=>5.0, 'max'=>80.0, 'step'=>0.5,  'hint'=> t('admin.loans.hint_apr_conditional')],
+        'apr_tier_partial'        => ['min'=>5.0, 'max'=>60.0, 'step'=>0.5,  'hint'=> t('admin.loans.hint_apr_partial')],
+        'apr_tier_full'           => ['min'=>1.0, 'max'=>40.0, 'step'=>0.5,  'hint'=> t('admin.loans.hint_apr_full')],
+    ],
+    'sysStatus'      => $sysStatus,
+    'sysStatusLabel' => $sysStatusLabel,
+    'sysStatusBadge' => $sysStatusBadge,
+    'stats'          => $stats,
+    'loanStats'      => $loanStats,
+    'bankruptcies'   => $bankruptcies,
+    'proceedings'    => $proceedings,
+    'stageLabel'     => $stageLabel,
+    'applications'          => $applications,
+    'loans'                 => $loans,
+    'filter'                => $filter,
+    'liveScores'            => $liveScores,
+    'riskSectionDescriptions' => $riskSectionDescriptions,
+];
+
+$pageTitle = t('admin.loans.page_title');
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/loans/main.php';
+require_once __DIR__ . '/partials/footer.php';

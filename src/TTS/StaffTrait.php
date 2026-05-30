@@ -6,7 +6,7 @@
  */
 trait TTSStaffTrait
 {
-    // Staff section / Sekcja pracownikow
+ // Staff section / Sekcja pracownikow
 
     public function getStaff(): array
     {
@@ -43,7 +43,7 @@ trait TTSStaffTrait
         return $stmt->fetch() ?: null;
     }
 
-    // Staff task bonus / Bonus pracownika do zadania
+ // Staff task bonus / Bonus pracownika do zadania
     public function getStaffBonus(array $staff): array
     {
         $skill = (int)$staff['skill_level'];
@@ -64,7 +64,7 @@ trait TTSStaffTrait
         ];
     }
 
-    // Hire engineer / Zatrudnij inzyniera
+ // Hire engineer / Zatrudnij inzyniera
     public function hireEngineer(
         string $specCode,
         string $firstName,
@@ -120,7 +120,7 @@ trait TTSStaffTrait
         ])];
     }
 
-    // Fire engineer / Zwolnij inzyniera
+ // Fire engineer / Zwolnij inzyniera
     public function fireEngineer(int $staffId): array
     {
         $staff = $this->getStaffMember($staffId);

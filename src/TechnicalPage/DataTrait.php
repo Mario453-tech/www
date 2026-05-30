@@ -2,10 +2,10 @@
 
 trait TechnicalPageDataTrait
 {
-    /**
-     * Execute a loader safely and return fallback on failure.
-     * Bezpiecznie uruchamia loader i zwraca fallback przy bledzie.
-     */
+ /**
+ * Execute a loader safely and return fallback on failure.
+ * Bezpiecznie uruchamia loader i zwraca fallback przy bledzie.
+ */
     private function safeLoad(callable $loader, string $label, mixed $fallback, ?callable $metaBuilder = null, bool $dbResult = false): mixed
     {
         try {
@@ -22,10 +22,10 @@ trait TechnicalPageDataTrait
         }
     }
 
-    /**
-     * Load paginated well incident data.
-     * Laduje stronicowane dane incydentow odwiertow.
-     */
+ /**
+ * Load paginated well incident data.
+ * Laduje stronicowane dane incydentow odwiertow.
+ */
     private function loadIncidentData(): array
     {
         $incPage = max(1, (int) ($_GET['inc_page'] ?? 1));
@@ -55,10 +55,10 @@ trait TechnicalPageDataTrait
         ];
     }
 
-    /**
-     * Load recent hub incident data.
-     * Laduje ostatnie incydenty hubow.
-     */
+ /**
+ * Load recent hub incident data.
+ * Laduje ostatnie incydenty hubow.
+ */
     private function loadHubIncidentData(): array
     {
         $hubIncidents = [];
@@ -79,10 +79,10 @@ trait TechnicalPageDataTrait
         ];
     }
 
-    /**
-     * Load the player's current cash.
-     * Laduje aktualna gotowke gracza.
-     */
+ /**
+ * Load the player's current cash.
+ * Laduje aktualna gotowke gracza.
+ */
     private function loadPlayerCash(PDO $db): float
     {
         try {
@@ -95,10 +95,10 @@ trait TechnicalPageDataTrait
         }
     }
 
-    /**
-     * Normalize runtime-only well statuses for the page view.
-     * Normalizuje statusy odwiertow dla widoku strony.
-     */
+ /**
+ * Normalize runtime-only well statuses for the page view.
+ * Normalizuje statusy odwiertow dla widoku strony.
+ */
     private function normalizeWellStatuses(PDO $db, array $wells, float $playerCash): array
     {
         try {
@@ -129,8 +129,8 @@ trait TechnicalPageDataTrait
             }
         }
 
-        // Resume staff-paused wells when staffing is sufficient again.
-        // Wznow odwierty paused_staff, gdy obsluga znowu jest kompletna.
+ // Resume staff-paused wells when staffing is sufficient again.
+ // Wznow odwierty paused_staff, gdy obsluga znowu jest kompletna.
         try {
             $staffCheck = $this->svc->getStaffRequirementCheck();
             if ($staffCheck['meets_minimum']) {
@@ -152,10 +152,10 @@ trait TechnicalPageDataTrait
         return $wells;
     }
 
-    /**
-     * Load staffing coverage per well.
-     * Laduje pokrycie kadrowe dla odwiertow.
-     */
+ /**
+ * Load staffing coverage per well.
+ * Laduje pokrycie kadrowe dla odwiertow.
+ */
     private function loadWellStaffData(): array
     {
         try {
@@ -174,10 +174,10 @@ trait TechnicalPageDataTrait
         }
     }
 
-    /**
-     * Load player pipeline data for the page.
-     * Laduje dane rurociagow gracza dla strony.
-     */
+ /**
+ * Load player pipeline data for the page.
+ * Laduje dane rurociagow gracza dla strony.
+ */
     private function loadPipelines(PDO $db): array
     {
         try {
@@ -201,10 +201,10 @@ trait TechnicalPageDataTrait
         }
     }
 
-    /**
-     * Load prerequisites for HSE procedure upgrades.
-     * Laduje wymagania do ulepszania procedur BHP.
-     */
+ /**
+ * Load prerequisites for HSE procedure upgrades.
+ * Laduje wymagania do ulepszania procedur BHP.
+ */
     private function loadProcedureRequirements(PDO $db): array
     {
         $auditDone = false;
@@ -246,10 +246,10 @@ trait TechnicalPageDataTrait
         ];
     }
 
-    /**
-     * Load active industrial disasters.
-     * Laduje aktywne katastrofy przemyslowe.
-     */
+ /**
+ * Load active industrial disasters.
+ * Laduje aktywne katastrofy przemyslowe.
+ */
     private function loadActiveDisasters(PDO $db): array
     {
         try {
@@ -268,10 +268,10 @@ trait TechnicalPageDataTrait
         }
     }
 
-    /**
-     * Load recent failures shown on the page.
-     * Laduje ostatnie awarie pokazywane na stronie.
-     */
+ /**
+ * Load recent failures shown on the page.
+ * Laduje ostatnie awarie pokazywane na stronie.
+ */
     private function loadFailures(PDO $db): array
     {
         try {

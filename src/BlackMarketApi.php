@@ -5,10 +5,10 @@ declare(strict_types=1);
  * Black market AJAX endpoint.
  * Endpoint AJAX dla czarnego rynku.
  *
- * GET  ?action=offers         -> list active offers
- * GET  ?action=offers         -> lista aktywnych ofert
- * GET  ?action=history        -> transaction history
- * GET  ?action=history        -> historia transakcji
+ * GET ?action=offers -> list active offers
+ * GET ?action=offers -> lista aktywnych ofert
+ * GET ?action=history -> transaction history
+ * GET ?action=history -> historia transakcji
  * POST action=sell&offer_id=N -> execute transaction
  * POST action=sell&offer_id=N -> realizacja transakcji
  */
@@ -41,8 +41,8 @@ try {
         if ($action === 'offers') {
             $db = Database::getInstance()->getConnection();
 
-            // Run a lightweight table check before reading offers.
-            // Zrob lekki check tabeli przed odczytem ofert.
+ // Run a lightweight table check before reading offers.
+ // Zrob lekki check tabeli przed odczytem ofert.
             try {
                 $db->query("SELECT COUNT(*) FROM black_market_offers")->fetchColumn();
 

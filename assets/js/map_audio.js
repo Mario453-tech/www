@@ -1,5 +1,5 @@
 /**
- * map_audio.js  Losowe odtwarzanie muzyki ta na mapie.
+ * map_audio.js Losowe odtwarzanie muzyki ta na mapie.
  *
  * Pliki MP3 (lub OGG/WAV/M4A) wrzu do: /assets/audio/
  * Lista plikw pobierana automatycznie z /assets/audio/list.php
@@ -10,14 +10,14 @@
 (function () {
     'use strict';
 
-    //  Konfiguracja 
+ // Konfiguracja 
     const TRACKS_ENDPOINT  = '/assets/audio/list.php';
     const DEFAULT_VOLUME   = 0.40;
     const STORAGE_KEY      = 'wg_map_volume';
     const FADE_DURATION_MS = 1500;   // czas fade-in/out w ms
     const FADE_STEPS       = 40;     // krokw animacji fade
 
-    //  Stan 
+ // Stan 
     let TRACKS      = [];
     let audio       = null;
     let currentIdx  = -1;
@@ -25,7 +25,7 @@
     let targetVol   = parseFloat(localStorage.getItem(STORAGE_KEY) ?? DEFAULT_VOLUME);
     if (isNaN(targetVol) || targetVol < 0 || targetVol > 1) targetVol = DEFAULT_VOLUME;
 
-    //  Losowanie (bez powtrze kolejnych) 
+ // Losowanie (bez powtrze kolejnych) 
     function pickNext() {
         if (TRACKS.length === 1) return 0;
         let idx;
@@ -33,7 +33,7 @@
         return idx;
     }
 
-    //  Fade 
+ // Fade 
     function fadeTo(target, doneCallback) {
         if (!audio) return;
         const start    = audio.volume;
@@ -50,7 +50,7 @@
         }, interval);
     }
 
-    //  Odtworzenie kolejnego utworu 
+ // Odtworzenie kolejnego utworu 
     function playNext() {
         if (!TRACKS.length) return;
         currentIdx      = pickNext();
@@ -62,7 +62,7 @@
         audio.play().then(() => {
             if (!isMuted) fadeTo(targetVol);
         }).catch(() => {
-            // Autoplay zablokowany  poczekaj na pierwsz interakcj
+ // Autoplay zablokowany poczekaj na pierwsz interakcj
             document.addEventListener('click', function tryPlay() {
                 audio.play().then(() => { if (!isMuted) fadeTo(targetVol); });
                 document.removeEventListener('click', tryPlay);
@@ -70,7 +70,7 @@
         });
     }
 
-    //  Wyciszenie / odgonienie 
+ // Wyciszenie / odgonienie 
     function toggleMute() {
         isMuted = !isMuted;
         if (audio) {
@@ -80,7 +80,7 @@
         if (btn) btn.textContent = isMuted ? '' : '';
     }
 
-    //  Budowa widgetu 
+ // Budowa widgetu 
     function buildWidget() {
         const wrap = document.createElement('div');
         wrap.id    = 'map-audio-widget';
@@ -99,11 +99,11 @@
         });
     }
 
-    //  Style widgetu 
+ // Style widgetu 
     function injectStyles() {
         const s = document.createElement('style');
         s.textContent = `
-            #map-audio-widget {
+ #map-audio-widget {
                 position: fixed;
                 bottom: 18px;
                 right: 18px;
@@ -118,7 +118,7 @@
                 backdrop-filter: blur(6px);
                 box-shadow: 0 2px 12px rgba(0,0,0,0.5);
             }
-            #map-audio-mute {
+ #map-audio-mute {
                 background: none;
                 border: none;
                 font-size: 1.2rem;
@@ -126,7 +126,7 @@
                 line-height: 1;
                 padding: 0;
             }
-            #map-audio-vol {
+ #map-audio-vol {
                 width: 80px;
                 accent-color: var(--accent, #4a9eff);
                 cursor: pointer;
@@ -135,7 +135,7 @@
         document.head.appendChild(s);
     }
 
-    //  Pobierz list utworw z serwera, potem startuj 
+ // Pobierz list utworw z serwera, potem startuj 
     function init() {
         injectStyles();
         buildWidget();
@@ -147,7 +147,7 @@
                     console.warn('[map_audio] Brak plikw audio w /assets/audio/');
                     return;
                 }
-                // Przetasuj od razu, eby kada sesja startowaa losowo
+ // Przetasuj od razu, eby kada sesja startowaa losowo
                 TRACKS = list.sort(() => Math.random() - 0.5);
                 playNext();
             })

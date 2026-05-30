@@ -1,10 +1,10 @@
 <?php
 /**
- * admin/newsletter.php � Newsletter to players via TinyMCE.
+ * admin/newsletter.php Newsletter to players via TinyMCE.
  *
- * GET   compose form
- * POST action=preview  render preview (same page)
- * POST action=send     send to all subscribers OR specific player
+ * GET compose form
+ * POST action=preview render preview (same page)
+ * POST action=send send to all subscribers OR specific player
  */
 $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/newsletter.php') : microtime(true);
 try {
@@ -62,7 +62,7 @@ function nlGetToken(PDO $db, int $playerId): string
     return $tok;
 }
 
-// Helper: build unsubscribe URL � always uses production base_url from config
+// Helper: build unsubscribe URL always uses production base_url from config
 function nlUnsubUrl(string $token): string
 {
     $cfg     = require __DIR__ . '/../config/mail.php';
@@ -76,24 +76,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $action      = $_POST['action']       ?? '';
 
-        //  History log management (no subject/body needed) 
+ // History log management (no subject/body needed) 
         if ($action === 'delete_log') {
             $logId = (int)($_POST['log_id'] ?? 0);
             if ($logId > 0) {
                 $db->prepare("DELETE FROM newsletter_log WHERE id = ?")->execute([$logId]);
-                AdminLog::log('newsletter_log_delete', "Usuni�to wpis newsletter_log #{$logId}");
+                AdminLog::log('newsletter_log_delete', "Usuniďż˝to wpis newsletter_log #{$logId}");
                 GameLog::info('admin/newsletter', 'Newsletter log entry deleted', ['id' => $logId, 'by' => $admin]);
             }
             $msg = t('admin.newsletter.msg_log_deleted');
 
         } elseif ($action === 'clear_log') {
             $db->exec("DELETE FROM newsletter_log");
-            AdminLog::log('newsletter_log_clear', 'Wyczyszczono ca�� histori� newsletter_log');
+            AdminLog::log('newsletter_log_clear', 'Wyczyszczono caďż˝ďż˝ historiďż˝ newsletter_log');
             GameLog::info('admin/newsletter', 'Newsletter log cleared', ['by' => $admin]);
             $msg = t('admin.newsletter.msg_log_cleared');
 
         } else {
-        //  Compose / send flow 
+ // Compose / send flow 
         $subject     = trim($_POST['subject'] ?? '');
         $bodyHtml    = $_POST['body_html']    ?? '';
         $sendTarget  = ($_POST['send_target'] ?? 'all') === 'single' ? 'single' : 'all';
@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require_once __DIR__ . '/../src/EmailTemplate.php';
 
             if ($sendTarget === 'single') {
-                // Send to one specific player (bypass subscription check)
+ // Send to one specific player (bypass subscription check)
                 $sStmt = $db->prepare("SELECT id, email, username FROM players WHERE email = ? LIMIT 1");
                 $sStmt->execute([$singleEmail]);
                 $singlePlayer = $sStmt->fetch();
@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $tok  = nlGetToken($db, (int)$singlePlayer['id']);
                     $unsub = nlUnsubUrl($tok);
-                    $greeting = 'Cze�� <strong style="color:#c8a84b">'
+                    $greeting = 'Czeďż˝ďż˝ <strong style="color:#c8a84b">'
                         . htmlspecialchars($singlePlayer['username']) . '</strong>,';
                     $footerHtml = nlFooterHtml($unsub);
 
@@ -164,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
             } else {
-                // Send to all subscribed, verified players
+ // Send to all subscribed, verified players
                 $recipients = $db->query("
                     SELECT id, email, username, newsletter_token
                     FROM players
@@ -183,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($recipients as $r) {
                         $tok  = $r['newsletter_token'] ?: nlGetToken($db, (int)$r['id']);
                         $unsub = nlUnsubUrl($tok);
-                        $greeting = 'Cze�� <strong style="color:#c8a84b">'
+                        $greeting = 'Czeďż˝ďż˝ <strong style="color:#c8a84b">'
                             . htmlspecialchars($r['username']) . '</strong>,';
                         $footerHtml = nlFooterHtml($unsub);
 
@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->prepare("INSERT INTO newsletter_log (subject,body_html,sent_to,sent_by,status,notes)
                                   VALUES (?,?,?,?,?,?)")
                        ->execute([$subject, $bodyHtml, $sent, $admin, $status,
-                                  $failed > 0 ? "B��dy: {$failed}" : null]);
+                                  $failed > 0 ? "Bďż˝ďż˝dy: {$failed}" : null]);
 
                     AdminLog::log('newsletter_sent', "Newsletter '{$subject}'  {$sent} graczy");
                     GameLog::info('admin/newsletter', 'Newsletter bulk sent', [

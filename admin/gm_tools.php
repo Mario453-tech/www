@@ -1,14 +1,14 @@
-﻿<?php
+<?php
 /**
- * admin/gm_tools.php  Narzdzia Game Mastera
+ * admin/gm_tools.php Narzdzia Game Mastera
  *
  * Funkcje:
- *  - Broadcast wiadomoci do wszystkich graczy
- *  - Reset gracza (wyzerowanie konta)
- *  - Klonowanie konta testowego
- *  - Podgld ekonomii (sumy globalne)
- *  - Czyszczenie wygasych danych
- *  - Zmiana prdkoci gry (tick multiplier)
+ * - Broadcast wiadomoci do wszystkich graczy
+ * - Reset gracza (wyzerowanie konta)
+ * - Klonowanie konta testowego
+ * - Podgld ekonomii (sumy globalne)
+ * - Czyszczenie wygasych danych
+ * - Zmiana prdkoci gry (tick multiplier)
  */
 require_once __DIR__ . '/init.php';
 GameLog::info('admin/gm_tools.php', 'entry');
@@ -17,7 +17,7 @@ AdminAuth::requireLogin();
 $db  = Database::getInstance()->getConnection();
 $msg = $msgType = '';
 
-//  AKCJE POST 
+// AKCJE POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         die('<p class="alert alert-error">Bd CSRF.</p>');
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? '';
 
-    //  BROADCAST 
+ // BROADCAST 
     if ($action === 'broadcast') {
         $title   = trim($_POST['bc_title']   ?? '');
         $message = trim($_POST['bc_message'] ?? '');
@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    //  RESET GRACZA 
+ // RESET GRACZA 
     elseif ($action === 'reset_player') {
         $resetId    = (int)($_POST['reset_player_id'] ?? 0);
         $keepLogin  = isset($_POST['keep_login']);
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $db->beginTransaction();
                 try {
-                    // Kolejno ma znaczenie  zalenoci FK najpierw usu dzieci
+ // Kolejno ma znaczenie zalenoci FK najpierw usu dzieci
                     $simpleDeletes = [
                         'well_staff_assignments'  => 'player_id',
                         'well_incidents'          => 'player_id',
@@ -117,13 +117,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         } catch (Throwable $e) { /* tabela moe nie istnie */ }
                     }
 
-                    // board_members i powizane (employee_contracts, employment_history maj ON DELETE CASCADE)
+ // board_members i powizane (employee_contracts, employment_history maj ON DELETE CASCADE)
                     try {
                         $db->prepare("DELETE FROM `board_members` WHERE `player_id` = ?")->execute([$resetId]);
                     } catch (Throwable $e) {}
 
-                    // candidates nie ma player_id  powizane przez recruitment_requests (ju usunite)
-                    // Usu osierocone candidates bez aktywnych requestw
+ // candidates nie ma player_id powizane przez recruitment_requests (ju usunite)
+ // Usu osierocone candidates bez aktywnych requestw
                     try {
                         $db->prepare("DELETE FROM `candidates` WHERE `player_id` = ?")->execute([$resetId]);
                     } catch (Throwable $e) {}
@@ -138,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    WHERE c.request_id IS NOT NULL AND rr.id IS NULL");
                     } catch (Throwable $e) {}
 
-                    // Reset gracza
+ // Reset gracza
                     $db->prepare("
                         UPDATE players SET
                             cash                = ?,
@@ -149,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         WHERE id = ?
                     ")->execute([$startCash, $resetId]);
 
-                    // Utwrz domylny magazyn
+ // Utwrz domylny magazyn
                     try {
                         $db->prepare("INSERT INTO storage (player_id, capacity, used) VALUES (?, 10000, 0)
                                       ON DUPLICATE KEY UPDATE capacity = 10000, used = 0")
@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    //  KLONOWANIE KONTA TESTOWEGO 
+ // KLONOWANIE KONTA TESTOWEGO 
     elseif ($action === 'clone_test') {
         $sourceId = (int)($_POST['source_id'] ?? 0);
         $newEmail = trim($_POST['new_email'] ?? '');
@@ -179,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$sourceId || !$newEmail || !$newPass) {
             $msg = 'Wypenij wszystkie pola.'; $msgType = 'error';
         } else {
-            // Sprawd czy email nie zajty
+ // Sprawd czy email nie zajty
             $exists = $db->prepare("SELECT id FROM players WHERE email = ?");
             $exists->execute([$newEmail]);
             if ($exists->fetch()) {
@@ -201,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ")->execute([$newEmail, $hash, $source['cash']]);
                         $newId = (int)$db->lastInsertId();
 
-                        // Klonuj magazyn
+ // Klonuj magazyn
                         $stor = $db->prepare("SELECT capacity, used FROM storage WHERE player_id = ?");
                         $stor->execute([$sourceId]);
                         $s = $stor->fetch();
@@ -210,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                ->execute([$newId, $s['capacity'], $s['used']]);
                         }
 
-                        // Klonuj odwierty
+ // Klonuj odwierty
                         $wellsStmt = $db->prepare("SELECT * FROM wells WHERE player_id = ?");
                         $wellsStmt->execute([$sourceId]);
                         foreach ($wellsStmt->fetchAll() as $w) {
@@ -226,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ]);
                         }
 
-                        // Klonuj rurocig
+ // Klonuj rurocig
                         try {
                             $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Rurocig gwny')")
                                ->execute([$newId]);
@@ -246,19 +246,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    //  CZYSZCZENIE DANYCH 
+ // CZYSZCZENIE DANYCH 
     elseif ($action === 'cleanup') {
         $cleaned = 0;
-        // Wygase kandydaci
+ // Wygase kandydaci
         $r = $db->exec("DELETE FROM candidates WHERE expires_at < NOW()");
         $cleaned += $r;
-        // Stare logi
+ // Stare logi
         $r = $db->exec("DELETE FROM admin_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)");
         $cleaned += $r;
-        // Zakoczone rekrutacje starsze ni 7 dni
+ // Zakoczone rekrutacje starsze ni 7 dni
         $r = $db->exec("DELETE FROM recruitment_requests WHERE status = 'completed' AND ready_at < DATE_SUB(NOW(), INTERVAL 7 DAY)");
         $cleaned += $r;
-        // Przeczytane hr_events starsze ni 30 dni
+ // Przeczytane hr_events starsze ni 30 dni
         $r = $db->exec("DELETE FROM hr_events WHERE is_read = 1 AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
         $cleaned += $r;
 
@@ -266,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = "Wyczyszczono {$cleaned} starych rekordw."; $msgType = 'success';
     }
 
-    //  DODAJ GOTWK WSZYSTKIM 
+ // DODAJ GOTWK WSZYSTKIM 
     elseif ($action === 'bulk_cash') {
         $amount = (int)($_POST['bulk_amount'] ?? 0);
         if ($amount === 0) {
@@ -282,7 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  DANE 
+// DANE 
 
 // Globalna ekonomia
 $econ = $db->query("

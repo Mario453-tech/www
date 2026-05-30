@@ -1,0 +1,115 @@
+﻿<?php
+
+/**
+ * SpillSection — skazenie powierzchniowe przy przepelnieniu magazynu.
+ * SpillSection — surface spill disaster when storage is nearly full.
+ */
+class SpillSection
+{
+    public int   $disastersTriggered = 0;
+    public float $oilLost            = 0.0;
+    public float $cashDelta          = 0.0; // kary srodowiskowe (ujemne) / environmental fines (negative)
+
+    private PDO         $db;
+    private WellService $wellService;
+
+    public function __construct(PDO $db, WellService $wellService)
+    {
+        $this->db          = $db;
+        $this->wellService = $wellService;
+    }
+
+    /**
+     * Sprawdza przepeLnienie magazynu i ewentualnie wyzwala wyciek.
+     * Checks storage overflow and optionally triggers a surface spill.
+     *
+     * @param array<string, mixed> $hseBonus
+     * @return float Zaktualizowana zawartoSC magazynu po wycieku / Updated storage contents after the spill
+     */
+    public function process(
+        int    $playerId,
+        float  $currentStorage,
+        float  $storageCapacity,
+        array  $hseBonus,
+        ?object $tsvc
+    ): float {
+        try {
+            $storagePct = $storageCapacity > 0 ? ($currentStorage / $storageCapacity) : 0;
+
+            if ($storagePct >= 0.95) {
+                $overflowTicks = $this->getOverflowTicks($playerId);
+                $overflowTicks++;
+
+                if ($overflowTicks >= 2) {
+                    $spillChance = 0.001;
+                    if (!empty($hseBonus['audit_bonus'])) {
+                        $spillChance = 0.0;
+                    } else {
+                        $spillChance *= ($hseBonus['catastrophe_mult'] ?? 1.0);
+                    }
+
+                    if ($spillChance > 0 && mt_rand(1, 100000) <= (int)($spillChance * 100000)) {
+                        $disaster = $this->wellService->triggerSurfaceSpill($playerId, $currentStorage, $hseBonus);
+                        if (!empty($disaster['disaster'])) {
+                            $this->disastersTriggered++;
+                            $oilLost        = $disaster['oil_lost'] ?? 0;
+                            $envFine        = $disaster['env_fine'] ?? 0;
+                            $currentStorage = max(0, $currentStorage - $oilLost);
+                            $this->oilLost  += $oilLost;
+                            $this->cashDelta -= $envFine;
+                            GameLog::error('tick', 'SURFACE SPILL', null, [
+                                'player_id' => $playerId,
+                                'oil_lost'  => $oilLost,
+                                'env_fine'  => $envFine,
+                            ]);
+                            $tsvc?->notify('disaster_surface_spill', null, t('tick.notify.surface_spill', ['desc' => $disaster['desc'] ?? '']));
+                            $overflowTicks = 0;
+                        }
+                    }
+                }
+
+                $this->saveOverflowTicks($playerId, $overflowTicks);
+            } else {
+                $this->resetOverflowTicks($playerId);
+            }
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'surface spill check FAILED', $e, ['player_id' => $playerId]);
+        }
+
+        return $currentStorage;
+    }
+
+    private function getOverflowTicks(int $playerId): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT meta_value FROM player_meta WHERE player_id = ? AND meta_key = 'storage_overflow_ticks'"
+            );
+            $stmt->execute([$playerId]);
+            $row = $stmt->fetch();
+            return $row ? (int)$row['meta_value'] : 0;
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+
+    private function saveOverflowTicks(int $playerId, int $ticks): void
+    {
+        try {
+            $this->db->prepare("
+                INSERT INTO player_meta (player_id, meta_key, meta_value, updated_at)
+                VALUES (?, 'storage_overflow_ticks', ?, NOW())
+                ON DUPLICATE KEY UPDATE meta_value = ?, updated_at = NOW()
+            ")->execute([$playerId, $ticks, $ticks]);
+        } catch (Throwable $e) {}
+    }
+
+    private function resetOverflowTicks(int $playerId): void
+    {
+        try {
+            $this->db->prepare(
+                "UPDATE player_meta SET meta_value = 0, updated_at = NOW() WHERE player_id = ? AND meta_key = 'storage_overflow_ticks'"
+            )->execute([$playerId]);
+        } catch (Throwable $e) {}
+    }
+}

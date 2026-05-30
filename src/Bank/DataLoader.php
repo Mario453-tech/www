@@ -24,10 +24,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Returns all data required by the bank page.
-     * Zwraca wszystkie dane wymagane przez strone banku.
-     */
+ /**
+ * Returns all data required by the bank page.
+ * Zwraca wszystkie dane wymagane przez strone banku.
+ */
     public function load(): array
     {
         $applicationStatus = $this->loadApplicationStatus();
@@ -50,7 +50,7 @@ class BankDataLoader
         $offerReduced = !empty($offer)
             && (float)($offer['amount'] ?? 0) < (float)($offer['requested_amount'] ?? 0);
 
-        [$canApply, $blockReasons, $blockHasActiveLoan] = $this->resolveCanApply($appSt, $applicationStatus, $activeLoans);
+        [$canApply, $blockReasons, $blockHasActiveLoan, $isCrisis] = $this->resolveCanApply($appSt, $applicationStatus, $activeLoans);
         [$creditLimit] = $this->loadCreditLimit($canApply, $blockReasons);
         $hasEverHadLoan = $this->checkHasEverHadLoan();
 
@@ -65,15 +65,16 @@ class BankDataLoader
             'canApply' => $canApply,
             'blockReasons' => $blockReasons,
             'blockHasActiveLoan' => $blockHasActiveLoan,
+            'isCrisis' => $isCrisis,
             'creditLimit' => $creditLimit,
             'hasEverHadLoan' => $hasEverHadLoan,
         ];
     }
 
-    /**
-     * Checks whether the player had any historical loan/application outcome.
-     * Sprawdza, czy gracz mial juz historyczny wynik kredytu lub wniosku.
-     */
+ /**
+ * Checks whether the player had any historical loan/application outcome.
+ * Sprawdza, czy gracz mial juz historyczny wynik kredytu lub wniosku.
+ */
     private function checkHasEverHadLoan(): bool
     {
         if (!$this->db) {
@@ -93,10 +94,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads application status if service is available.
-     * Laduje status wniosku, jesli serwis jest dostepny.
-     */
+ /**
+ * Loads application status if service is available.
+ * Laduje status wniosku, jesli serwis jest dostepny.
+ */
     private function loadApplicationStatus(): array
     {
         if (!$this->bankService) {
@@ -113,10 +114,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads active loans if service is available.
-     * Laduje aktywne kredyty, jesli serwis jest dostepny.
-     */
+ /**
+ * Loads active loans if service is available.
+ * Laduje aktywne kredyty, jesli serwis jest dostepny.
+ */
     private function loadActiveLoans(): array
     {
         if (!$this->bankService) {
@@ -133,10 +134,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads negotiation-related view data for all active loans.
-     * Laduje dane negocjacyjne do widoku dla aktywnych kredytow.
-     */
+ /**
+ * Loads negotiation-related view data for all active loans.
+ * Laduje dane negocjacyjne do widoku dla aktywnych kredytow.
+ */
     private function loadNegData(array $activeLoans): array
     {
         $negData = [];
@@ -210,10 +211,10 @@ class BankDataLoader
         return [$negData, $deferralOpts, $activeLoans];
     }
 
-    /**
-     * Loads recent negotiation events for one active negotiation.
-     * Laduje ostatnie zdarzenia negocjacyjne dla aktywnej negocjacji.
-     */
+ /**
+ * Loads recent negotiation events for one active negotiation.
+ * Laduje ostatnie zdarzenia negocjacyjne dla aktywnej negocjacji.
+ */
     private function loadNegEvents(?array $active): array
     {
         if (!$active || !$this->db) {
@@ -242,10 +243,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Checks whether a bailiff proceeding is active for the given loan.
-     * Sprawdza, czy dla kredytu jest aktywny komornik.
-     */
+ /**
+ * Checks whether a bailiff proceeding is active for the given loan.
+ * Sprawdza, czy dla kredytu jest aktywny komornik.
+ */
     private function checkBailiff(int $loanId): bool
     {
         if (!$this->db) {
@@ -265,10 +266,10 @@ class BankDataLoader
         }
     }
 
-    /**
-     * Loads restructure display helper data.
-     * Laduje pomocnicze dane wyswietlania restrukturyzacji.
-     */
+ /**
+ * Loads restructure display helper data.
+ * Laduje pomocnicze dane wyswietlania restrukturyzacji.
+ */
     private function loadRestructDisplay(int $loanId): ?array
     {
         if (!$this->db) {
@@ -311,14 +312,28 @@ class BankDataLoader
         ];
     }
 
-    /**
-     * Resolves whether the player can apply for a new loan.
-     * Wylicza, czy gracz moze zlozyc nowy wniosek kredytowy.
-     */
+ /**
+ * Resolves whether the player can apply for a new loan.
+ * Wylicza, czy gracz moze zlozyc nowy wniosek kredytowy.
+ */
     private function resolveCanApply(string $appSt, array $applicationStatus, array $activeLoans): array
     {
         $blockReasons = [];
         $blockHasActiveLoan = false;
+        $isCrisis = false;
+
+        if ($this->db) {
+            try {
+                $stmt = $this->db->prepare("SELECT financial_state FROM players WHERE id = ? LIMIT 1");
+                $stmt->execute([$this->playerId]);
+                $row = $stmt->fetch();
+                if ($row && ($row['financial_state'] ?? 'normal') === 'crisis') {
+                    $isCrisis = true;
+                    $blockReasons[] = t('bank.block_crisis');
+                }
+            } catch (Throwable $e) {
+            }
+        }
 
         $canApplyStatuses = ['none', 'accepted', 'expired', 'defaulted', 'unknown', 'error'];
         if ($appSt === 'rejected' && ($applicationStatus['can_reapply'] ?? false)) {
@@ -373,13 +388,13 @@ class BankDataLoader
             $canApply = false;
         }
 
-        return [$canApply, $blockReasons, $blockHasActiveLoan];
+        return [$canApply, $blockReasons, $blockHasActiveLoan, $isCrisis];
     }
 
-    /**
-     * Loads credit limit and related blocking reasons.
-     * Laduje limit kredytowy i powiazane powody blokady.
-     */
+ /**
+ * Loads credit limit and related blocking reasons.
+ * Laduje limit kredytowy i powiazane powody blokady.
+ */
     private function loadCreditLimit(bool $canApply, array &$blockReasons): array
     {
         $creditLimit = 0;
@@ -400,7 +415,8 @@ class BankDataLoader
                        SUM(CASE WHEN status NOT IN ('seized','paused_staff') THEN 1 ELSE 0 END) AS usable,
                        SUM(CASE WHEN well_type = 'offshore' THEN 1 ELSE 0 END) AS offshore_cnt,
                        SUM(CASE WHEN well_type = 'onshore' THEN 1 ELSE 0 END) AS onshore_cnt,
-                       COALESCE(SUM(base_production_per_hour), 0) AS total_prod
+                       COALESCE(SUM(base_production_per_hour), 0) AS total_prod,
+                       COALESCE(AVG(technical_condition), 100) AS avg_condition
                 FROM wells
                 WHERE player_id = :pid AND status NOT IN ('seized')
             ");

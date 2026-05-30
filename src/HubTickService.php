@@ -4,30 +4,30 @@ require_once __DIR__ . '/Hub/TickCalculationsTrait.php';
 require_once __DIR__ . '/Hub/TickPersistTrait.php';
 
 /**
- * HubTickService  processes one tick for a single logistics hub.
+ * HubTickService processes one tick for a single logistics hub.
  *
  * Called from WellLoopSection after well production, before transport.
  * Returns a TickResult with processed/buffered/lost volumes and updated hub state.
  *
  * Traits:
- *   HubTickCalculationsTrait  calcConditionFactor, calcConditionLoss, deriveStatus, buildEmptyResult, calculateRealCapacity
- *   HubTickPersistTrait       persistTickResult
+ * HubTickCalculationsTrait calcConditionFactor, calcConditionLoss, deriveStatus, buildEmptyResult, calculateRealCapacity
+ * HubTickPersistTrait persistTickResult
  */
 class HubTickService
 {
     use HubTickCalculationsTrait;
     use HubTickPersistTrait;
-    // Progi kondycji  wpywaj na przepustowo, wear i status
-    // Condition thresholds  affect throughput, wear and status
+ // Progi kondycji wpywaj na przepustowo, wear i status
+ // Condition thresholds affect throughput, wear and status
     private const COND_CRITICAL  = 20.0;   // 20%: stan krytyczny, drastyczne ograniczenia / critical state, drastic limits
     private const COND_DAMAGED   = 30.0;   // 30%: uszkodzony, silne ograniczenia / damaged, heavy limits
     private const COND_DEGRADED  = 50.0;   // 50%: zdegradowany, umiarkowane ograniczenia / degraded, moderate limits
 
-    // Mnoniki przepustowoci per prg (zamiast liniowego max(0.30, cond/100))
-    // Throughput multipliers per threshold (instead of linear max(0.30, cond/100))
+ // Mnoniki przepustowoci per prg (zamiast liniowego max(0.30, cond/100))
+ // Throughput multipliers per threshold (instead of linear max(0.30, cond/100))
     private const THROUGHPUT_FACTOR_CRITICAL = 0.10;  // 20%: max 10% nominal
     private const THROUGHPUT_FACTOR_DAMAGED  = 0.30;  // 30%: max 30%
-    // Powyej 30%: liniowe (cond/100) / Above 30%: linear (cond/100)
+ // Powyej 30%: liniowe (cond/100) / Above 30%: linear (cond/100)
 
     private PDO        $db;
     private HubService $hubSvc;
@@ -38,36 +38,36 @@ class HubTickService
         $this->hubSvc = $hubSvc;
     }
 
-    //  Public API 
+ // Public API 
 
-    /**
-     * Processes a hub tick for a given input volume (bbl for this tick interval).
-     *
-     * @param array<string, mixed> $hub        Full hub row from logistics_hubs
-     * @param float                $inputBbl   Total oil volume arriving at hub this tick
-     * @param float                $deltaHours Tick duration in hours
-     * @return array{
-     *   processed_bbl: float,
-     *   buffered_bbl: float,
-     *   lost_bbl: float,
-     *   condition_lost_bbl: float,
-     *   load_pct: float,
-     *   overloaded: bool,
-     *   new_buffer: float,
-     *   wear_added: float,
-     *   new_condition: float,
-     *   new_efficiency: float,
-     *   new_status: string,
-     *   incident_flag: bool
-     * }
-     */
+ /**
+ * Processes a hub tick for a given input volume (bbl for this tick interval).
+ *
+ * @param array<string, mixed> $hub Full hub row from logistics_hubs
+ * @param float $inputBbl Total oil volume arriving at hub this tick
+ * @param float $deltaHours Tick duration in hours
+ * @return array{
+ * processed_bbl: float,
+ * buffered_bbl: float,
+ * lost_bbl: float,
+ * condition_lost_bbl: float,
+ * load_pct: float,
+ * overloaded: bool,
+ * new_buffer: float,
+ * wear_added: float,
+ * new_condition: float,
+ * new_efficiency: float,
+ * new_status: string,
+ * incident_flag: bool
+ * }
+ */
     public function processTick(array $hub, float $inputBbl, float $deltaHours, array $hseBonus = []): array
     {
         if (in_array($hub['status'], ['disabled', 'building', 'paused'], true)) {
             return $this->buildEmptyResult($hub, $inputBbl, $deltaHours);
         }
 
-        // Apply work mode multipliers
+ // Apply work mode multipliers
         $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
         $throughputMult  = $modeMultipliers['throughput_mult'] ?? 1.0;
         $wearMult        = $modeMultipliers['wear_mult']       ?? 1.0;
@@ -75,7 +75,7 @@ class HubTickService
         $acqDefaults     = $this->hubSvc->getAcquisitionDefaults((string)($hub['acquisition_type'] ?? 'new'));
         $lastMaintenanceAt = $hub['last_maintenance_at'] ?? null;
 
-        // Effective capacity this tick  progowe ograniczenia przepustowoci / threshold throughput limits
+ // Effective capacity this tick progowe ograniczenia przepustowoci / threshold throughput limits
         $condPct         = (float)$hub['condition_pct'];
         $conditionFactor = $this->calcConditionFactor($condPct);
         $realCapBph      = (float)$hub['nominal_capacity_bph'] * $conditionFactor * $throughputMult;
@@ -84,17 +84,17 @@ class HubTickService
         $bufferCap        = (float)$hub['buffer_capacity_bbl'];
         $bufferCurrent    = (float)$hub['buffer_current_bbl'];
 
-        // Volume that can be processed + what goes to buffer
+ // Volume that can be processed + what goes to buffer
         $processed        = min($inputBbl, $tickCapacityBbl);
         $leftover         = $inputBbl - $processed;
 
-        // Try to absorb leftover into buffer
+ // Try to absorb leftover into buffer
         $bufferSpace      = $bufferCap - $bufferCurrent;
         $buffered         = min($leftover, max(0.0, $bufferSpace));
         $lost             = $leftover - $buffered;
         $newBuffer        = $bufferCurrent + $buffered;
 
-        // Also drain buffer if capacity is available
+ // Also drain buffer if capacity is available
         if ($processed < $tickCapacityBbl && $bufferCurrent > 0) {
             $spareCapacity = $tickCapacityBbl - $processed;
             $fromBuffer    = min($bufferCurrent, $spareCapacity);
@@ -102,14 +102,14 @@ class HubTickService
             $newBuffer    -= $fromBuffer;
         }
 
-        // Load percentage based on nominal capacity
+ // Load percentage based on nominal capacity
         $nominalBbl  = (float)$hub['nominal_capacity_bph'] * $deltaHours;
         $loadPct     = $nominalBbl > 0.0
             ? min(200.0, round(($inputBbl / $nominalBbl) * 100.0, 2))
             : 0.0;
         $overloaded  = $loadPct > 100.0;
 
-        // Wear calculation
+ // Wear calculation
         $typeConfig  = $this->hubSvc->getHubTypeDefaults($hub['hub_type'] ?? 'medium', (int)$hub['level']);
         $baseWear    = $typeConfig['wear_per_tick'] ?? 0.04;
         $overWearMul = $typeConfig['overload_wear_mult'] ?? 2.8;
@@ -128,10 +128,10 @@ class HubTickService
                     $wear *= 1.15;
                 }
             } catch (Throwable $e) {
-                // Ignore malformed dates; hub will use default wear.
+ // Ignore malformed dates; hub will use default wear.
             }
         } else {
-            // Hubs without any maintenance history should age a bit harsher from the start.
+ // Hubs without any maintenance history should age a bit harsher from the start.
             $wear *= 1.20;
         }
 
@@ -139,8 +139,8 @@ class HubTickService
             $overloadFactor = min(3.0, $loadPct / 100.0);
             $wear          *= $overWearMul * $overloadFactor;
         }
-        // Stan krytyczny: hub w zym stanie degraduje si szybciej nawet bez overloadu
-        // Critical state: a degraded hub wears out faster even without overload
+ // Stan krytyczny: hub w zym stanie degraduje si szybciej nawet bez overloadu
+ // Critical state: a degraded hub wears out faster even without overload
         if ($condPct <= self::COND_CRITICAL) {
             $wear *= 2.0;
         } elseif ($condPct <= self::COND_DAMAGED) {
@@ -148,34 +148,34 @@ class HubTickService
         }
         $wear = round($wear, 4);
 
-        // Bezporednie straty z kondycji  zy stan = nieszczelnoci, spadki cinienia
-        // Direct condition losses  poor state = leaks, pressure drops
-        // Niezalene od przepustowoci; dotycz wolumenu faktycznie przetworzonego
-        // Independent of throughput; apply to the actually processed volume
+ // Bezporednie straty z kondycji zy stan = nieszczelnoci, spadki cinienia
+ // Direct condition losses poor state = leaks, pressure drops
+ // Niezalene od przepustowoci; dotycz wolumenu faktycznie przetworzonego
+ // Independent of throughput; apply to the actually processed volume
         $condLostBbl = $this->calcConditionLoss($condPct, $processed, $overloaded);
 
-        // Straty z kondycji odejmowane od przetworzonego wolumenu / condition losses deducted from processed volume
+ // Straty z kondycji odejmowane od przetworzonego wolumenu / condition losses deducted from processed volume
         $processed   = max(0.0, $processed - $condLostBbl);
         $lost        += $condLostBbl;
 
-        // Condition degradation (condition_pct decreases by wear points)
+ // Condition degradation (condition_pct decreases by wear points)
         $condBefore   = $condPct;
         $newCondition = max(0.0, round($condBefore - $wear, 2));
 
-        // Efficiency
+ // Efficiency
         $baseEfficiency = max(20.0, $newCondition);
         $newEfficiency  = min(100.0, max(0.0, round($baseEfficiency + $efficiencyMod, 2)));
 
-        // Status logic
+ // Status logic
         $newStatus = $this->deriveStatus($hub['status'], $newCondition, $overloaded);
 
-        // Incident risk (rough heuristic)
+ // Incident risk (rough heuristic)
         $incidentFlag = false;
         if ($overloaded || $newCondition < 40.0) {
             $riskMult    = $modeMultipliers['risk_mult'] ?? 1.0;
             $overRiskMul = $typeConfig['overload_risk_mult'] ?? 2.2;
             $incidentBase = 0.01 * $riskMult * ($overloaded ? $overRiskMul : 1.0)
-                         * (100.0 - $newCondition) / 100.0;
+ * (100.0 - $newCondition) / 100.0;
             $incidentFlag = (mt_rand(0, 9999) / 10000.0) < $incidentBase;
         }
 
@@ -195,12 +195,12 @@ class HubTickService
         ];
     }
 
-    /**
-     * Applies fallback logistics to a well without a hub assignment.
-     * Returns the effective volume that makes it past the fallback constraint.
-     *
-     * @return array{effective_bbl: float, lost_bbl: float, opex_mult: float}
-     */
+ /**
+ * Applies fallback logistics to a well without a hub assignment.
+ * Returns the effective volume that makes it past the fallback constraint.
+ *
+ * @return array{effective_bbl: float, lost_bbl: float, opex_mult: float}
+ */
     public function applyFallback(float $inputBbl, float $deltaHours): array
     {
         $fallback      = $this->hubSvc->getFallbackConfig();

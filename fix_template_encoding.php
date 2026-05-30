@@ -6,14 +6,14 @@
  * Fixes double-encoding in template and PHP source files.
  *
  * Algorytm / Algorithm:
- *   iconv('UTF-8', 'CP1250//IGNORE', $tresc) — odwraca proces podwojnego
- *   kodowania: bajty UTF-8 odczytane jako CP1250 i ponownie zapisane jako UTF-8.
- *   Reverses the double-encoding: UTF-8 bytes read as CP1250 and re-saved as UTF-8.
+ * iconv('UTF-8', 'CP1250//IGNORE', $tresc) - odwraca proces podwojnego
+ * kodowania: bajty UTF-8 odczytane jako CP1250 i ponownie zapisane jako UTF-8.
+ * Reverses the double-encoding: UTF-8 bytes read as CP1250 and re-saved as UTF-8.
  *
  * Uzycie / Usage:
- *   php fix_template_encoding.php              -- naprawia wszystkie pliki
- *   php fix_template_encoding.php --dry-run    -- tylko podglad, brak zapisu
- *   php fix_template_encoding.php --file=templates/components/well_grid.php
+ * php fix_template_encoding.php -- naprawia wszystkie pliki
+ * php fix_template_encoding.php --dry-run -- tylko podglad, brak zapisu
+ * php fix_template_encoding.php --file=templates/components/well_grid.php
  *
  * Kopie zapasowe tworzone automatycznie przed kazdym zapisem.
  * Backups created automatically before every write.
@@ -23,7 +23,7 @@ declare(strict_types=1);
 // ── Lista plikow do naprawy (wzgledem katalogu skryptu) ───────────────────────
 // Files to fix (relative to script directory)
 const TARGETS = [
-    // Roznica iconv (bajty) / iconv diff (bytes) — dla informacji
+ // Roznica iconv (bajty) / iconv diff (bytes) - dla informacji
     'templates/components/well_grid.php',                    // 301 B
     'templates/components/well_grid/equipment.php',          //  ~B (12 seq)
     'templates/components/well_grid/layers.php',             // DONE - has x cdot - re-run iconv CORRUPTS these
@@ -77,7 +77,7 @@ foreach ($targets as $relPath) {
         continue;
     }
 
-    // Wczytaj / Read
+ // Wczytaj / Read
     $content = file_get_contents($fullPath);
     if ($content === false) {
         echo "[BLAD]  Nie mozna odczytac: {$relPath}\n";
@@ -85,13 +85,13 @@ foreach ($targets as $relPath) {
         continue;
     }
 
-    // Usun BOM jesli istnieje / Strip BOM
+ // Usun BOM jesli istnieje / Strip BOM
     $hasBom = (substr($content, 0, 3) === "\xef\xbb\xbf");
     if ($hasBom) {
         $content = substr($content, 3);
     }
 
-    // Zastosuj iconv / Apply iconv
+ // Zastosuj iconv / Apply iconv
     $fixed = iconv('UTF-8', 'CP1250//IGNORE', $content);
     if ($fixed === false) {
         echo "[BLAD]  iconv() zwrocil false dla: {$relPath}\n";
@@ -109,7 +109,7 @@ foreach ($targets as $relPath) {
         continue;
     }
 
-    // Raport / Report
+ // Raport / Report
     $bomNote = $hasBom ? ' [BOM usunieto]' : '';
     echo sprintf(
         "[NAPRAWA] %-55s  %d B -> %d B  (-%d B)%s\n",
@@ -125,7 +125,7 @@ foreach ($targets as $relPath) {
         continue;
     }
 
-    // Kopia zapasowa / Backup
+ // Kopia zapasowa / Backup
     $backup = $fullPath . '.bak_enc_' . date('Ymd_His');
     if (!copy($fullPath, $backup)) {
         echo "  [BLAD]  Nie mozna utworzyc kopii zapasowej!\n";
@@ -134,7 +134,7 @@ foreach ($targets as $relPath) {
     }
     echo "  [BAK]   {$backup}\n";
 
-    // Zapis / Write
+ // Zapis / Write
     if (file_put_contents($fullPath, $fixed) === false) {
         echo "  [BLAD]  Nie mozna zapisac pliku!\n";
         $errors++;

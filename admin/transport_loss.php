@@ -7,7 +7,7 @@ AdminAuth::requireLogin();
 
 $db = Database::getInstance()->getConnection();
 
-//  Globalne statystyki loss 
+// Globalne statystyki loss 
 $globalPipelines = [];
 try {
     $globalPipelines = $db->query("
@@ -22,7 +22,7 @@ try {
     ")->fetch();
 } catch (Throwable $e) {}
 
-//  Loss per typ transportu (odwierty) 
+// Loss per typ transportu (odwierty) 
 $lossByType = $db->query("
     SELECT
         w.transport_type,
@@ -36,7 +36,7 @@ $lossByType = $db->query("
     GROUP BY w.transport_type
 ")->fetchAll();
 
-//  Loss per warstwa geologiczna 
+// Loss per warstwa geologiczna 
 $lossByLayer = [];
 try {
     $lossByLayer = $db->query("
@@ -53,7 +53,7 @@ try {
     ")->fetchAll();
 } catch (Throwable $e) {}
 
-//  Loss per gracz 
+// Loss per gracz 
 $lossPerPlayer = $db->query("
     SELECT
         p.id, p.username AS login,
@@ -73,7 +73,7 @@ $lossPerPlayer = $db->query("
     ORDER BY pipeline_avg_loss DESC, avg_opex DESC
 ")->fetchAll();
 
-//  Loss per odwiert (top 20 najgorszych) 
+// Loss per odwiert (top 20 najgorszych) 
 $worstWells = $db->query("
     SELECT
         w.id, w.name, w.transport_type, w.transport_capacity_pct,
@@ -90,7 +90,7 @@ $worstWells = $db->query("
     LIMIT 20
 ")->fetchAll();
 
-//  Szacunkowa strata wartości per tick 
+// Szacunkowa strata wartosci per tick 
 $oilPrice = (float)$db->query("SELECT current_price FROM market_state WHERE id=1")->fetchColumn();
 if ($oilPrice <= 0) $oilPrice = 70.0;
 

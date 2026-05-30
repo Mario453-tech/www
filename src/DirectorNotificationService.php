@@ -1,15 +1,15 @@
 <?php
 /**
- * DirectorNotificationService - System komunikatów dla dyrektora | DirectorNotificationService - notification system for director
+ * DirectorNotificationService - System komunikatow dla dyrektora | DirectorNotificationService - notification system for director
  * 
  * Zarzadza powiadomieniami wyswietlanymi w dashboardzie | Manages notifications displayed in the dashboard
- * Komunikaty wymagają potwierdzenia przeczytania | Messages require read acknowledgment
+ * Komunikaty wymagaja potwierdzenia przeczytania | Messages require read acknowledgment
  */
 class DirectorNotificationService
 {
     private PDO $db;
     
-    // Szablony komunikatow (20 typow)
+ // Szablony komunikatow (20 typow)
     private const TEMPLATES = [
         'bank_payment_due' => [
             'type' => 'bank',
@@ -210,9 +210,9 @@ class DirectorNotificationService
         }
     }
 
-    /**
-     * Tworzy nowy komunikat dla dyrektora
-     */
+ /**
+ * Tworzy nowy komunikat dla dyrektora
+ */
     public function create(int $playerId, string $templateKey, array $params = [], ?int $expiresInHours = null): int
     {
         if (!isset(self::TEMPLATES[$templateKey])) {
@@ -221,7 +221,7 @@ class DirectorNotificationService
 
         $template = self::TEMPLATES[$templateKey];
 
-        // Przetlumacz title i message przez t(), podstaw parametry
+ // Przetlumacz title i message przez t(), podstaw parametry
         $title   = t($template['title_key']);
         $message = t($template['message_key']);
         foreach ($params as $key => $value) {
@@ -254,7 +254,7 @@ class DirectorNotificationService
 
         $notificationId = (int)$this->db->lastInsertId();
 
-        // Zapisz w historii
+ // Zapisz w historii
         $this->logAction($notificationId, $playerId, 'created');
 
         GameLog::info('DirectorNotificationService', 'Notification created', [
@@ -266,9 +266,9 @@ class DirectorNotificationService
         return $notificationId;
     }
 
-    /**
-     * Pobiera nieprzeczytane komunikaty dla gracza
-     */
+ /**
+ * Pobiera nieprzeczytane komunikaty dla gracza
+ */
     public function getUnread(int $playerId, ?string $type = null): array
     {
         $sql = "
@@ -298,9 +298,9 @@ class DirectorNotificationService
         return $stmt->fetchAll();
     }
 
-    /**
-     * Oznacza komunikat jako przeczytany
-     */
+ /**
+ * Oznacza komunikat jako przeczytany
+ */
     public function markAsRead(int $notificationId, int $playerId): bool
     {
         $stmt = $this->db->prepare("
@@ -321,9 +321,9 @@ class DirectorNotificationService
         return $result;
     }
 
-    /**
-     * Oznacza wszystkie komunikaty jako przeczytane
-     */
+ /**
+ * Oznacza wszystkie komunikaty jako przeczytane
+ */
     public function markAllAsRead(int $playerId): int
     {
         $stmt = $this->db->prepare("
@@ -336,9 +336,9 @@ class DirectorNotificationService
         return $stmt->rowCount();
     }
 
-    /**
-     * Zlicza nieprzeczytane komunikaty
-     */
+ /**
+ * Zlicza nieprzeczytane komunikaty
+ */
     public function countUnread(int $playerId): int
     {
         $stmt = $this->db->prepare("
@@ -352,9 +352,9 @@ class DirectorNotificationService
         return (int)$stmt->fetchColumn();
     }
 
-    /**
-     * Usuwa wygasłe komunikaty
-     */
+ /**
+ * Usuwa wygasle komunikaty
+ */
     public function cleanupExpired(): int
     {
         $stmt = $this->db->prepare("
@@ -366,9 +366,9 @@ class DirectorNotificationService
         return $stmt->rowCount();
     }
 
-    /**
-     * Zapisuje akcję w historii
-     */
+ /**
+ * Zapisuje akcje w historii
+ */
     private function logAction(int $notificationId, int $playerId, string $action): void
     {
         $stmt = $this->db->prepare("
@@ -383,9 +383,9 @@ class DirectorNotificationService
         ]);
     }
 
-    /**
-     * Pobiera historię komunikatów (ostatnie 50)
-     */
+ /**
+ * Pobiera historie komunikatow (ostatnie 50)
+ */
     public function getHistory(int $playerId, int $limit = 50): array
     {
         $stmt = $this->db->prepare("

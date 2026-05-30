@@ -35,12 +35,12 @@ trait TTSTasksTrait
         return $this->getTasks('in_progress');
     }
 
-    // ZLECANIE ZADAN
+ // ZLECANIE ZADAN
 
-    /**
-     * Zlecenie zadania INZYNIEROWI.
-     * Assign a task to an engineer.
-     */
+ /**
+ * Zlecenie zadania INZYNIEROWI.
+ * Assign a task to an engineer.
+ */
     public function assignTask(int $staffId, string $taskType, ?int $wellId = null, ?string $moduleType = null, ?int $hubId = null): array
     {
         $staff = $this->getStaffMember($staffId);
@@ -103,6 +103,27 @@ trait TTSTasksTrait
         $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
         $busyStmt->execute([$staffId]);
         if ($busyStmt->fetch()) {
+ // Prevent duplicate queue entries for the same worker+task+target combination.
+ // Zabezpieczenie przed duplikatami w kolejce dla tego samego pracownika i zadania.
+ // Build null-safe conditions portably (MySQL <=> is not supported by SQLite).
+            $dupConds  = ['staff_id = ?', 'task_type = ?'];
+            $dupParams = [$staffId, $taskType];
+            foreach (['well_id' => $wellId, 'hub_id' => $hubId, 'module_type' => $moduleType] as $col => $val) {
+                if ($val === null) {
+                    $dupConds[] = "$col IS NULL";
+                } else {
+                    $dupConds[] = "$col = ?";
+                    $dupParams[] = $val;
+                }
+            }
+            $dupStmt = $this->db->prepare(
+                "SELECT id FROM technical_task_queue WHERE " . implode(' AND ', $dupConds) . " LIMIT 1"
+            );
+            $dupStmt->execute($dupParams);
+            if ($dupStmt->fetch()) {
+                return ['success' => false, 'message' => t('technical.task_msg.already_queued')];
+            }
+
             $this->db->prepare("
                 INSERT INTO technical_task_queue (player_id, staff_id, task_type, well_id, hub_id, module_type)
                 VALUES (?,?,?,?,?,?)
@@ -196,7 +217,7 @@ trait TTSTasksTrait
         ];
     }
 
-    // TICK zakonczenie zadania  i efekty
+ // TICK zakonczenie zadania i efekty
 
     public function processTick(): void
     {
@@ -214,10 +235,10 @@ trait TTSTasksTrait
         }
     }
 
-    /**
-     * Zastosuj efekty zakonczenia zadania.
-     * Apply effects of a completed task.
-     */
+ /**
+ * Zastosuj efekty zakonczenia zadania.
+ * Apply effects of a completed task.
+ */
     public function completeTask(array $task): void
     {
         $taskId  = (int)$task['id'];
@@ -228,7 +249,7 @@ trait TTSTasksTrait
         $skill   = (int)($task['skill_level'] ?? 5);
         $result  = [];
 
-        // Szansa 
+ // Szansa 
         $failed = ($skill <= 3) && (mt_rand(1, 100) <= (4 - $skill) * 8);
 
         if (!$failed) {
@@ -498,8 +519,8 @@ trait TTSTasksTrait
             ")->execute([$pId, $wellId, 'task', $msg]);
         }
 
-        // Start the next queued task for this worker.
-        // Uruchom nastepne zadanie z kolejki dla tego pracownika.
+ // Start the next queued task for this worker.
+ // Uruchom nastepne zadanie z kolejki dla tego pracownika.
         $qStmt = $this->db->prepare("
             SELECT * FROM technical_task_queue
             WHERE staff_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
@@ -515,7 +536,7 @@ trait TTSTasksTrait
         }
     }
 
-    // KOLEJKA zadan i podglad i anulowanie
+ // KOLEJKA zadan i podglad i anulowanie
 
     public function getQueue(): array
     {

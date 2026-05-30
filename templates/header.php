@@ -13,7 +13,7 @@ try {
         ->query("SELECT * FROM nav_items WHERE active=1 AND location='header' ORDER BY sort_order ASC, id ASC")
         ->fetchAll();
 
-    // Update last_active_at for logged-in player (online or offline detection in tick) / Aktualizuj last_active_at dla zalogowanego gracza (detekcja online lub offline w ticku)
+ // Update last_active_at for logged-in player (online or offline detection in tick) / Aktualizuj last_active_at dla zalogowanego gracza (detekcja online lub offline w ticku)
     if (!empty($_SESSION['user_id'])) {
         try {
             $__cfgDb->prepare("
@@ -22,11 +22,11 @@ try {
                 WHERE id = ? AND (last_active_at IS NULL OR last_active_at < DATE_SUB(NOW(), INTERVAL 1 MINUTE))
             ")->execute([(int) $_SESSION['user_id']]);
         } catch (Throwable $__actEx) {
-            /* columns may not exist yet / kolumny moga jeszcze nie istniec */
+ /* columns may not exist yet / kolumny moga jeszcze nie istniec */
         }
     }
 } catch (Throwable $__cfgEx) {
-    // table may not exist - fallback to default values / tabela moze nie istniec - fallback na wartosci domyslne
+ // table may not exist - fallback to default values / tabela moze nie istniec - fallback na wartosci domyslne
 }
 ?>
 <!DOCTYPE html>
@@ -79,7 +79,7 @@ try {
         <header class="header header--redesign">
 
             <?php
-            //  User data / Dane uzytkownika 
+ // User data / Dane uzytkownika 
             $__topbarName   = '';
             $__topbarAvatar = null;
             if (!empty($_SESSION['user_id'])) {
@@ -95,12 +95,12 @@ try {
                 }
             }
 
-            //  Filter navigation by access rights / Filtruj nawigacje po prawach dostepu 
+ // Filter navigation by access rights / Filtruj nawigacje po prawach dostepu 
             if (!empty($_SESSION['user_id']) && class_exists('BoardAccess', false)) {
                 $__navItems = BoardAccess::filterNav(array_values($__navItems), (int) $_SESSION['user_id']);
             }
 
-            //  Split logout from nav items / Wydziel logout z listy elementow nawigacji 
+ // Split logout from nav items / Wydziel logout z listy elementow nawigacji 
             $__logoutItem    = null;
             $__filteredNav   = [];
             foreach ($__navItems as $__ni) {
@@ -111,7 +111,7 @@ try {
                 }
             }
 
-            //  Current path (for active nav item) / Biezaca sciezka (do oznaczenia aktywnego linka) 
+ // Current path (for active nav item) / Biezaca sciezka (do oznaczenia aktywnego linka) 
             $__curPath = parse_url($_SERVER['REQUEST_URI'] ?? ($_SERVER['PHP_SELF'] ?? '/'), PHP_URL_PATH) ?: '/';
 
             if (!function_exists('__navBtn')) {
@@ -178,7 +178,7 @@ try {
                 <?php
                 $__prevOrder = null;
                 foreach ($__filteredNav as $__ni):
-                    // Separator between sort_order groups (gap >= 10) / Separator miedzy grupami sort_order (odstep >= 10)
+ // Separator between sort_order groups (gap >= 10) / Separator miedzy grupami sort_order (odstep >= 10)
                     if ($__prevOrder !== null && ((int)$__ni['sort_order'] - $__prevOrder) >= 10):
                 ?>
                 <span class="nav-sep" role="separator" aria-hidden="true"></span>
@@ -225,7 +225,7 @@ try {
                 if (e.key === 'Escape') closeNav();
             });
 
-            // Close menu after nav link click / Zamknij menu po kliknieciu linka w menu 
+ // Close menu after nav link click / Zamknij menu po kliknieciu linka w menu 
             nav.querySelectorAll('a.btn').forEach(function (a) {
                 a.addEventListener('click', closeNav);
             });
@@ -257,7 +257,7 @@ try {
 
         <main class="main-content" role="main">
         <?php
-        // Flash: brak dostpu do dziau (BoardAccess::require)
+ // Flash: brak dostpu do dziau (BoardAccess::require)
         if (!empty($_SESSION['board_access_denied'])):
         ?>
         <div class="alert-boardroom">
@@ -268,7 +268,7 @@ try {
         unset($_SESSION['board_access_denied']);
         endif;
 
-        // Globalny baner bankruta
+ // Globalny baner bankruta
         if (!empty($_SESSION['user_id'])) {
             try {
                 $__hDb = Database::getInstance()->getConnection();

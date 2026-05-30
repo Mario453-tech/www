@@ -6,9 +6,9 @@ declare(strict_types=1);
  * Fix double-encoded UTF-8 in lang/pl.php.
  *
  * Problem: bajty UTF-8 polskich znakow zostaly zinterpretowane jako CP1250,
- *          a potem ponownie zakodowane jako UTF-8 (np. "używany" -> "uĹĽywany").
+ * a potem ponownie zakodowane jako UTF-8 (np. "uzywany" -> "uĽywany").
  * Problem: UTF-8 bytes of Polish chars were interpreted as CP1250,
- *          then re-encoded as UTF-8 (e.g. "uzywany" -> garbled).
+ * then re-encoded as UTF-8 (e.g. "uzywany" -> garbled).
  *
  * Algorytm: iconv('UTF-8','CP1250//IGNORE', broken) -> oryginalne bajty UTF-8
  * Algorithm: iconv('UTF-8','CP1250//IGNORE', broken) -> original UTF-8 bytes
@@ -52,13 +52,13 @@ $lines = file($srcFile, FILE_IGNORE_NEW_LINES);
 $out   = [];
 
 foreach ($lines as $line) {
-    // Dopasuj linie z kluczem i wartoscia: '...key...' => '...value...',
-    // Match lines with key + value: '...key...' => '...value...',
+ // Dopasuj linie z kluczem i wartoscia: '...key...' => '...value...',
+ // Match lines with key + value: '...key...' => '...value...',
     if (preg_match("/^(\s*'([^']+)'\s*=>\s*')(.*)(',\s*)$/", $line, $m)) {
         $key       = $m[2];
         $oldVal    = $m[3];
         $newVal    = $fixed[$key] ?? $oldVal;
-        // Zabezpiecz apostrofy w wartosci / Escape apostrophes in value
+ // Zabezpiecz apostrofy w wartosci / Escape apostrophes in value
         $newVal    = str_replace("'", "\\'", $newVal);
         $out[]     = $m[1] . $newVal . $m[4];
     } else {

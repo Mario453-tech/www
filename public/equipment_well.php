@@ -1,6 +1,6 @@
 <?php
 /**
- * equipment_well.php — Zarzadzanie sprzetem odwiertu (endpoint AJAX)
+ * equipment_well.php Zarzadzanie sprzetem odwiertu (endpoint AJAX)
  * Akcje: set_tier, upgrade_level
  * Zawsze zwraca JSON: {"success": bool, "message": string, "data": {...}}
  */

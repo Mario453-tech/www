@@ -1,6 +1,6 @@
 /* 
-   PAGES EDITOR — inicjalizacja TinyMCE
-    */
+   PAGES EDITOR ï¿½ inicjalizacja TinyMCE
+ */
 
 tinymce.init({
     selector: '#tinymce-content',

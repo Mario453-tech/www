@@ -1,5 +1,5 @@
 <?php
-//  DmApi.php — endpoint wiadomosci prywatnych 
+// DmApi.php - endpoint wiadomosci prywatnych 
 ob_start();
 require_once __DIR__ . '/init.php';
 ob_clean();
@@ -13,6 +13,6 @@ try { $db = Database::getInstance()->getConnection(); } catch (Throwable $e) {
     echo json_encode(['error' => t('common.err_db')]); exit;
 }
 
-// Deleguj do ChatApi — ten sam endpoint, inne parametry
+// Deleguj do ChatApi - ten sam endpoint, inne parametry
 $_GET['with'] = $_GET['with'] ?? null;
 require_once __DIR__ . '/ChatApi.php';

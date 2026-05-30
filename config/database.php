@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'host'    => 'localhost',
-    'dbname'  => 'gra1',
-    'user'    => 'root',
-    'password'=> '',
-    'charset' => 'utf8mb4',
+    'host'    => getenv('DB_HOST')    ?: 'localhost',
+    'dbname'  => getenv('DB_NAME')    ?: 'gra1',
+    'user'    => getenv('DB_USER')    ?: 'root',
+    'password'=> getenv('DB_PASS')    ?: '',
+    'charset' => getenv('DB_CHARSET') ?: 'utf8mb4',
 ];

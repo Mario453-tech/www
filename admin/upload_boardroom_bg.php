@@ -1,7 +1,7 @@
 <?php
 /**
  * Dedykowany endpoint do uploadu ta boardroom (chunked base64).
- * Minimalny kod  adnego HTML, adnego bootstrap SQL.
+ * Minimalny kod adnego HTML, adnego bootstrap SQL.
  */
 
 // Wyczy wszystkie bufory zanim cokolwiek wylemy
@@ -35,7 +35,7 @@ try {
     if (!$bgName)    jsonOut(['ok' => false, 'err' => 'Brak nazwy pliku (wybierz rol).']);
     if (!$chunkData) jsonOut(['ok' => false, 'err' => 'Brak danych chunka.']);
 
-    // Katalog tymczasowy dla chunkw  uywamy assets/images/boardroom/
+ // Katalog tymczasowy dla chunkw uywamy assets/images/boardroom/
     $chunkDir = __DIR__ . '/../assets/images/boardroom/';
     if (!is_dir($chunkDir)) {
         if (!mkdir($chunkDir, 0755, true)) {
@@ -43,13 +43,13 @@ try {
         }
     }
 
-    // Zapisz chunk
+ // Zapisz chunk
     $chunkFile = $chunkDir . '.ub_' . $sessId . '_' . $bgName . '_' . $chunkIdx;
     if (file_put_contents($chunkFile, $chunkData) === false) {
         jsonOut(['ok' => false, 'err' => 'Bd zapisu chunka #' . $chunkIdx . '. Sprawd uprawnienia katalogu.']);
     }
 
-    // Ostatni chunk  skadamy plik
+ // Ostatni chunk skadamy plik
     if ($chunkIdx + 1 >= $totalChunks) {
         $fullB64 = '';
         for ($i = 0; $i < $totalChunks; $i++) {
@@ -83,7 +83,7 @@ try {
         }
     }
 
-    // Chunk poredni  czekamy na reszt
+ // Chunk poredni czekamy na reszt
     jsonOut(['ok' => true, 'done' => false, 'chunk' => $chunkIdx]);
 
 } catch (Throwable $e) {

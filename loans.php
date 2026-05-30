@@ -7,7 +7,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  SPRAWD STRUKTURÊ TABEL 
+// SPRAWD STRUKTUR TABEL 
 $loansColumns = [];
 try {
     $cols = $db->query("SHOW COLUMNS FROM loans")->fetchAll(PDO::FETCH_COLUMN);
@@ -23,14 +23,14 @@ $settingsExist = true;
 try { $db->query("SELECT 1 FROM bank_settings LIMIT 1"); }
 catch (PDOException $e) { $settingsExist = false; }
 
-//  AKCJE 
+// AKCJE 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
         die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
 
     $action = $_POST['action'] ?? '';
 
-    // Globalne parametry banku
+ // Globalne parametry banku
     if ($action === 'save_settings' && $settingsExist) {
         $settings = new BankSettings();
         $adminUser = $_SESSION['admin_user'] ?? 'admin';
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($keys as $key) {
             if (isset($_POST[$key])) {
                 $val = round((float)$_POST[$key], 4);
-                $val = max(0.1, min(5.0, $val)); // Zakres bezpieczeñstwa
+                $val = max(0.1, min(5.0, $val)); // Zakres bezpieczeï¿½stwa
                 $old = BankSettings::get($key);
                 $settings->set($key, $val, $adminUser);
                 AdminLog::log(
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $appId  = (int)($_POST['app_id']  ?? 0);
         $procId = (int)($_POST['proc_id'] ?? 0);
 
-        // Override: zatwierdŸ wniosek
+ // Override: zatwierd wniosek
         if ($action === 'admin_approve' && $appId) {
             $amount = (float)($_POST['override_amount'] ?? 0);
             $rate   = (float)($_POST['override_rate']   ?? 18.0);
@@ -68,12 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         expires_at=DATE_ADD(NOW(), INTERVAL 48 HOUR)
                     WHERE id=:id AND status IN ('pending','rejected')
                 ")->execute([':amt'=>$amount,':rate'=>$rate,':reason'=>$reason.' [ADMIN]',':id'=>$appId]);
-                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% — {$reason}", null, 'system', $appId);
+                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% ï¿½ {$reason}", null, 'system', $appId);
                 $msg = t('admin.loans.msg_approved', ['id' => $appId]);
             } else { $err = t('admin.loans.err_amount_zero'); }
         }
 
-        // Override: odrzuæ wniosek
+ // Override: odrzu wniosek
         elseif ($action === 'admin_reject' && $appId) {
             $reason = trim($_POST['reject_reason'] ?? 'Decyzja administracyjna');
             $db->prepare("
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = t('admin.loans.msg_rejected', ['id' => $appId]);
         }
 
-        // Zamknij postêpowanie komornicze
+ // Zamknij postpowanie komornicze
         elseif ($action === 'close_bailiff' && $procId) {
             $row = $db->prepare("SELECT loan_id, player_id FROM bailiff_proceedings WHERE id=:id");
             $row->execute([':id'=>$procId]);
@@ -95,12 +95,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    ->execute([':id'=>$procId]);
                 $db->prepare("UPDATE loans SET status='active', late_since=NULL WHERE id=:id")
                    ->execute([':id'=>$proc['loan_id']]);
-                AdminLog::log('bailiff_closed', "Zamkniêto postêpowanie #{$procId}", $proc['player_id'], 'system', $procId);
+                AdminLog::log('bailiff_closed', "Zamkniï¿½to postï¿½powanie #{$procId}", $proc['player_id'], 'system', $procId);
                 $msg = t('admin.loans.msg_bailiff_closed', ['id' => $procId]);
             }
         }
 
-        // Przesuñ etap komornika
+ // Przesu etap komornika
         elseif ($action === 'bailiff_advance' && $procId) {
             $row = $db->prepare("SELECT stage, player_id FROM bailiff_proceedings WHERE id=:id");
             $row->execute([':id'=>$procId]);
@@ -109,12 +109,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $newStage = $proc['stage'] + 1;
                 $db->prepare("UPDATE bailiff_proceedings SET stage=:s, next_action_at=DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id=:id")
                    ->execute([':s'=>$newStage,':id'=>$procId]);
-                AdminLog::log('bailiff_advance', "Przesuniêto etap {$proc['stage']}{$newStage} dla postêpowania #{$procId}", $proc['player_id'], 'system', $procId);
+                AdminLog::log('bailiff_advance', "Przesuniï¿½to etap {$proc['stage']}{$newStage} dla postï¿½powania #{$procId}", $proc['player_id'], 'system', $procId);
                 $msg = t('admin.loans.msg_bailiff_advanced', ['stage' => $newStage]);
             }
         }
 
-        // Wymuœ bankructwo przez komornika
+ // Wymu bankructwo przez komornika
         elseif ($action === 'bailiff_bankruptcy' && $procId) {
             $row = $db->prepare("SELECT loan_id, player_id FROM bailiff_proceedings WHERE id=:id");
             $row->execute([':id'=>$procId]);
@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  DANE 
+// DANE 
 $filter = $_GET['filter'] ?? 'pending';
 if (!in_array($filter, ['pending','approved','rejected','accepted','expired','all'])) $filter = 'all';
 
@@ -192,7 +192,7 @@ if ($tablesExist && !$needsMigration) {
     $bankruptcies['week'] = (int)$db->query("SELECT COUNT(*) FROM players WHERE bankruptcy_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
 }
 
-//  RENDER 
+// RENDER 
 function aprBadge(float $r): string {
     if ($r >= 40) return "<span class='badge badge-bankrupt'>{$r}% APR</span>";
     if ($r >= 28) return "<span class='badge badge-paused'>{$r}% APR</span>";

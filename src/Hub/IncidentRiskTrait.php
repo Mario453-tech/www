@@ -1,12 +1,12 @@
 <?php
 
 /**
- * HubIncidentRiskTrait — incident type definitions and risk multiplier calculation.
+ * HubIncidentRiskTrait incident type definitions and risk multiplier calculation.
  * Used by HubIncidentService.
  */
 trait HubIncidentRiskTrait
 {
-    /** @var array<string, float> Szansa per godzine ticka — mno¿ona przez deltaHours i riskMult. / Chance per tick hour — multiplied by deltaHours and riskMult. */
+ /** @var array<string, float> Szansa per godzine ticka mnoona przez deltaHours i riskMult. / Chance per tick hour multiplied by deltaHours and riskMult. */
     private const BASE_CHANCE_PER_HOUR = [
         'transfer_failure'  => 0.008,
         'equipment_damage'  => 0.004,
@@ -16,7 +16,7 @@ trait HubIncidentRiskTrait
         'critical_overload' => 0.025,
     ];
 
-    /** @var array<string, array<string, mixed>> Definicje typow incydentow z efektami. / Incident type definitions with effects. */
+ /** @var array<string, array<string, mixed>> Definicje typow incydentow z efektami. / Incident type definitions with effects. */
     private const INCIDENTS = [
         'transfer_failure'  => ['severity' => 'medium',   'condition_dmg' => [1, 3],   'extra_loss_pct' => [5,  20]],
         'equipment_damage'  => ['severity' => 'high',     'condition_dmg' => [3, 8],   'extra_loss_pct' => [10, 25]],
@@ -26,7 +26,7 @@ trait HubIncidentRiskTrait
         'critical_overload' => ['severity' => 'critical', 'condition_dmg' => [5, 15],  'extra_loss_pct' => [20, 60]],
     ];
 
-    /** @var array<string, int> Liczba wariantow komunikatu per typ (lang/pl.php klucze). / Number of message variants per type (lang/pl.php keys). */  
+ /** @var array<string, int> Liczba wariantow komunikatu per typ (lang/pl.php klucze). / Number of message variants per type (lang/pl.php keys). */ 
     private const MSG_COUNT = [
         'transfer_failure'  => 4,
         'equipment_damage'  => 4,
@@ -36,13 +36,13 @@ trait HubIncidentRiskTrait
         'critical_overload' => 4,
     ];
 
-    /**
-     * Oblicza mnoznik ryzyka na podstawie kondycji, obciazenia i trybu pracy.
-     * Calculates risk multiplier based on condition, load, and work mode.
-     *
-     * @param array<string, mixed> $hub
-     * @param array<string, mixed> $tickResult
-     */
+ /**
+ * Oblicza mnoznik ryzyka na podstawie kondycji, obciazenia i trybu pracy.
+ * Calculates risk multiplier based on condition, load, and work mode.
+ *
+ * @param array<string, mixed> $hub
+ * @param array<string, mixed> $tickResult
+ */
     private function calcRiskMultiplier(array $hub, array $tickResult, array $hseBonus = []): float
     {
         $mult = 1.0;

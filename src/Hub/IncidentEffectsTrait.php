@@ -1,19 +1,19 @@
 <?php
 
 /**
- * HubIncidentEffectsTrait — incident generation, DB persistence and player notification.
+ * HubIncidentEffectsTrait incident generation, DB persistence and player notification.
  * Used by HubIncidentService.
  */
 trait HubIncidentEffectsTrait
 {
-    /**
-     * Generuje incydent, zapisuje do DB i zwraca dane zdarzenia.
-     *
-     * @param array<string, mixed> $cfg
-     * @param array<string, mixed> $hub
-     * @param array<string, mixed> $tickResult
-     * @return array<string, mixed>
-     */
+ /**
+ * Generuje incydent, zapisuje do DB i zwraca dane zdarzenia.
+ *
+ * @param array<string, mixed> $cfg
+ * @param array<string, mixed> $hub
+ * @param array<string, mixed> $tickResult
+ * @return array<string, mixed>
+ */
     private function generateIncident(
         string $type,
         array  $cfg,
@@ -84,7 +84,7 @@ trait HubIncidentEffectsTrait
         )->execute([(float)$dmg, $hubId]);
     }
 
-    /** @param array<string, mixed> $meta */
+ /** @param array<string, mixed> $meta */
     private function saveEvent(
         int    $hubId,
         int    $playerId,

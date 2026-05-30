@@ -5,7 +5,7 @@ try {
 require_once __DIR__ . '/../src/init.php';
 require_once __DIR__ . '/../src/AdminAuth.php';
 
-// SSO ó jeúli gracz juø zalogowany i ma konto admina  wejdü bez has≥a
+// SSO jeli gracz ju zalogowany i ma konto admina wejd bez hasa
 if (AdminAuth::trySSO()) {
     $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
     unset($_SESSION['admin_redirect']);

@@ -1,8 +1,8 @@
 /* 
    RECRUITMENT SYSTEM - STYLE
-    */
+ */
 
-/*  RECRUITMENT MODAL  */
+/* RECRUITMENT MODAL */
 .recruitment-modal {
   position: fixed;
   inset: 0;
@@ -30,7 +30,7 @@
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
 
-/*  HEADER  */
+/* HEADER */
 .recruitment-header {
   padding: 24px 32px;
   border-bottom: 1px solid rgba(200,168,75,0.2);
@@ -71,14 +71,14 @@
   border-color: var(--gold);
 }
 
-/*  CONTENT  */
+/* CONTENT */
 .recruitment-content {
   padding: 32px;
   max-height: calc(90vh - 200px);
   overflow-y: auto;
 }
 
-/*  CANDIDATE CARD  */
+/* CANDIDATE CARD */
 .candidate-card {
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(200,168,75,0.2);
@@ -102,7 +102,7 @@
   box-shadow: 0 0 20px rgba(200,168,75,0.2);
 }
 
-/*  CANDIDATE HEADER  */
+/* CANDIDATE HEADER */
 .candidate-header {
   display: flex;
   align-items: flex-start;
@@ -151,7 +151,7 @@
   margin-top: 4px;
 }
 
-/*  SKILLS GRID  */
+/* SKILLS GRID */
 .candidate-skills {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -193,7 +193,7 @@
   font-weight: 600;
 }
 
-/*  EXPERIENCE  */
+/* EXPERIENCE */
 .candidate-experience {
   margin-top: 16px;
   padding-top: 16px;
@@ -215,7 +215,7 @@
   letter-spacing: 0.5px;
 }
 
-/*  ACTIONS  */
+/* ACTIONS */
 .recruitment-actions {
   padding: 24px 32px;
   border-top: 1px solid rgba(200,168,75,0.2);
@@ -261,7 +261,7 @@
   cursor: not-allowed;
 }
 
-/*  WAITING STATE  */
+/* WAITING STATE */
 .recruitment-waiting {
   text-align: center;
   padding: 60px 32px;
@@ -300,7 +300,7 @@
   margin-top: 24px;
 }
 
-/*  EMPTY STATE  */
+/* EMPTY STATE */
 .recruitment-empty {
   text-align: center;
   padding: 60px 32px;
@@ -313,7 +313,7 @@
   opacity: 0.3;
 }
 
-/*  NOTIFICATION BADGE  */
+/* NOTIFICATION BADGE */
 .recruitment-notification {
   position: absolute;
   top: -8px;
@@ -336,7 +336,7 @@
   50% { transform: translateY(-4px); }
 }
 
-/*  SCROLLBAR  */
+/* SCROLLBAR */
 .recruitment-content::-webkit-scrollbar {
   width: 8px;
 }
@@ -355,7 +355,7 @@
   background: rgba(200,168,75,0.5);
 }
 
-/*  PANEL DESCRIPTION  */
+/* PANEL DESCRIPTION */
 .panel-desc {
   color: rgba(255,255,255,0.6);
   font-size: 13px;
@@ -363,7 +363,7 @@
   margin-bottom: 24px;
 }
 
-/*  PANEL STATS GRID  */
+/* PANEL STATS GRID */
 .panel-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -371,7 +371,7 @@
   margin-bottom: 28px;
 }
 
-/*  INFO BLOCK  */
+/* INFO BLOCK */
 .info-block__label {
   font-size: 10px;
   color: rgba(255,255,255,0.4);
@@ -389,7 +389,7 @@
 
 .info-block__value--gold { color: var(--gold); }
 
-/*  PANEL LINK BUTTON  */
+/* PANEL LINK BUTTON */
 .panel-link {
   display: block;
   text-align: center;
@@ -406,7 +406,7 @@
 
 .panel-link:hover { background: var(--gold2); }
 
-/*  DANGER BUTTON  */
+/* DANGER BUTTON */
 .btn-recruitment--danger {
   border-color: var(--red);
   color: var(--red);
@@ -414,7 +414,7 @@
 
 .btn-recruitment--danger:hover { background: rgba(224,85,85,0.1); }
 
-/*  RECRUIT DIALOG  */
+/* RECRUIT DIALOG */
 .recruit-note {
   color: rgba(255,255,255,0.5);
   font-size: 13px;
@@ -441,7 +441,7 @@
   font-family: Montserrat, sans-serif;
 }
 
-/*  REGION GRID (zastêpuje <select>)  */
+/* REGION GRID (zastpuje <select>) */
 .recruit-region-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -493,7 +493,7 @@
     letter-spacing: .5px;
 }
 
-/*  CANDIDATE CARD — RECOMMENDED  */
+/* CANDIDATE CARD RECOMMENDED */
 .candidate-card--rec {
   border-color: rgba(200,168,75,0.5);
   background: rgba(200,168,75,0.04);
@@ -513,13 +513,13 @@
   margin-bottom: 12px;
 }
 
-/*  LOCKED BADGE  */
+/* LOCKED BADGE */
 .hr-badge--locked {
   background: rgba(255,255,255,0.1);
   color: rgba(255,255,255,0.35);
 }
 
-/*  SKILL BAR (boardroom variant)  */
+/* SKILL BAR (boardroom variant) */
 .skill-bar-row {
   margin-bottom: 2px;
 }
@@ -541,7 +541,7 @@
   font-weight: 600;
 }
 
-/*  SKILLS SECTION  */
+/* SKILLS SECTION */
 .skills-section-header {
   font-size: 12px;
   color: rgba(255,255,255,0.4);
@@ -552,7 +552,7 @@
 
 .skills-grid { display: grid; gap: 12px; }
 
-/*  EMPLOYEE STATS GRID  */
+/* EMPLOYEE STATS GRID */
 .employee-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -560,7 +560,7 @@
   margin-bottom: 28px;
 }
 
-/*  BOARDROOM TOAST  */
+/* BOARDROOM TOAST */
 .br-toast {
   position: fixed;
   bottom: 24px;
@@ -596,7 +596,7 @@
   to   { transform: translateX(0);    opacity: 1; }
 }
 
-/*  MAP LOAD ERROR  */
+/* MAP LOAD ERROR */
 .map-load-error {
   display: flex;
   align-items: center;
@@ -611,17 +611,17 @@
 .map-load-error__icon { font-size: 32px; }
 
 /* 
-   RESPONSYWNOŒÆ MOBILNA
+   RESPONSYWNOï¿½ï¿½ MOBILNA
  */
 @media (max-width: 768px) {
-  /* Panel statystyk  2 kolumny */
+ /* Panel statystyk 2 kolumny */
   .panel-stats {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 480px) {
-  /* Panel statystyk  1 kolumna */
+ /* Panel statystyk 1 kolumna */
   .panel-stats {
     grid-template-columns: 1fr;
   }

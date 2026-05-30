@@ -24,7 +24,7 @@ final class HubPlayerQueryTraitTest extends SqliteIntegrationTestCase
             status TEXT NOT NULL,
             base_production_per_hour REAL
         )');
-        // Table includes cooldown_until needed by P1.3 subquery
+ // Table includes cooldown_until needed by P1.3 subquery
         $this->db->exec('CREATE TABLE logistics_hub_assignments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             hub_id INTEGER NOT NULL,
@@ -41,7 +41,7 @@ final class HubPlayerQueryTraitTest extends SqliteIntegrationTestCase
         $this->db->exec("INSERT INTO world_regions (id, name) VALUES (7, 'Bliski Wschód')");
     }
 
-    // Helper: anonymous object that uses the trait
+ // Helper: anonymous object that uses the trait
     private function makeSvc(): object
     {
         $db = $this->db;

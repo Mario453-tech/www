@@ -1,5 +1,5 @@
 /**
- * Czarny Rynek Ropy — obsluga zakladki w markecie
+ * Czarny Rynek Ropy obsluga zakladki w markecie
  */
 (function () {
     'use strict';
@@ -8,17 +8,17 @@
     let _csrfToken = '';
     let _refreshTimer = null;
 
-    //  Init 
+ // Init 
 
     function init() {
         _csrfToken = window.WG_CSRF || '';
         loadOffers();
         loadHistory();
-        // Odswiezaj oferty co 30s
+ // Odswiezaj oferty co 30s
         _refreshTimer = setInterval(loadOffers, 30000);
     }
 
-    //  Oferty 
+ // Oferty 
 
     function loadOffers() {
         fetch(API_URL + '?action=offers', { credentials: 'same-origin' })
@@ -57,7 +57,7 @@
         }).join('');
     }
 
-    //  Sprzedaz 
+ // Sprzedaz 
 
     window.bmSell = function (offerId, bbl, totalStr) {
         const msg = (window.BM_LANG?.confirm_text || '')
@@ -72,11 +72,11 @@
     };
 
     function doSell(offerId) {
-        // Zablokuj wszystkie przyciski sprzedazy podczas transakcji
+ // Zablokuj wszystkie przyciski sprzedazy podczas transakcji
         const btns = document.querySelectorAll('.bm-sell-btn');
         btns.forEach(function (b) {
             b.disabled = true;
-            b.textContent = window.BM_LANG?.loading || '…';
+            b.textContent = window.BM_LANG?.loading || 'ï¿½';
         });
 
         const body = new FormData();
@@ -97,7 +97,7 @@
                 loadHistory();
             } else {
                 showToast(data.message || window.BM_LANG?.error_generic || '', 'error');
-                // Przywroc przyciski przy bledzie
+ // Przywroc przyciski przy bledzie
                 btns.forEach(function (b) { b.disabled = false; });
                 loadOffers();
             }
@@ -110,7 +110,7 @@
         });
     }
 
-    //  Historia 
+ // Historia 
 
     function loadHistory() {
         fetch(API_URL + '?action=history&limit=20', { credentials: 'same-origin' })
@@ -142,7 +142,7 @@
         }).join('');
     }
 
-    //  Helpers 
+ // Helpers 
 
     function escHtml(str) {
         const d = document.createElement('div');
@@ -173,12 +173,12 @@
     }
 
     function showToast(msg, type) {
-        // Probuj uzywac globalnego systemu toastow jezeli istnieje
+ // Probuj uzywac globalnego systemu toastow jezeli istnieje
         if (typeof window.showGameToast === 'function') {
             window.showGameToast(msg, type);
             return;
         }
-        // Fallback — prosty toast
+ // Fallback prosty toast
         const el = document.createElement('div');
         el.className = 'bm-toast bm-toast-' + type;
         el.textContent = msg;
@@ -190,7 +190,7 @@
         }, 4000);
     }
 
-    //  Start 
+ // Start 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

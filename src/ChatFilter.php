@@ -6,11 +6,11 @@
  */
 class ChatFilter
 {
-    /** @var array<int, array{word: string, replacement: string}>|null */
+ /** @var array<int, array{word: string, replacement: string}>|null */
     private static ?array $words = null;
 
-    // Load active blocked words from DB and keep them for the current request.
-    // PL: Laduje aktywne zablokowane slowa z bazy i trzyma je dla biezacego requestu.
+ // Load active blocked words from DB and keep them for the current request.
+ // PL: Laduje aktywne zablokowane slowa z bazy i trzyma je dla biezacego requestu.
     private static function load(PDO $db): void
     {
         if (self::$words !== null) {
@@ -27,8 +27,8 @@ class ChatFilter
         }
     }
 
-    // Check whether the message contains a blocked word.
-    // PL: Sprawdza, czy wiadomosc zawiera zablokowane slowo.
+ // Check whether the message contains a blocked word.
+ // PL: Sprawdza, czy wiadomosc zawiera zablokowane slowo.
     public static function contains(PDO $db, string $message): bool
     {
         self::load($db);
@@ -41,8 +41,8 @@ class ChatFilter
         return false;
     }
 
-    // Replace blocked words with their configured replacement strings.
-    // PL: Zastepuje zablokowane slowa skonfigurowanymi zamiennikami.
+ // Replace blocked words with their configured replacement strings.
+ // PL: Zastepuje zablokowane slowa skonfigurowanymi zamiennikami.
     public static function filter(PDO $db, string $message): string
     {
         self::load($db);
@@ -53,8 +53,8 @@ class ChatFilter
         return $message;
     }
 
-    // Clear in-request cache after admin updates the blocked words list.
-    // PL: Czysci cache requestu po aktualizacji listy zablokowanych slow przez admina.
+ // Clear in-request cache after admin updates the blocked words list.
+ // PL: Czysci cache requestu po aktualizacji listy zablokowanych slow przez admina.
     public static function clearCache(): void
     {
         self::$words = null;

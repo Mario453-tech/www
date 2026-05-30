@@ -1,6 +1,6 @@
 /* 
    CHAT + NEWS  wrapper i panel aktualnoci
-    */
+ */
 
 /* Wrapper: newsy po lewej, czat po prawej */
 .chat-news-wrapper {
@@ -11,7 +11,7 @@
     max-height: none;
 }
 
-/* Panel aktualnoci  zajmuje ~30% szerokoci */
+/* Panel aktualnoci zajmuje ~30% szerokoci */
 .news-panel {
     flex: 0 0 30%;
     min-width: 180px;
@@ -135,7 +135,7 @@
     margin: auto;
 }
 
-/*  Pojedyncza wiadomo  ukad bbelkowy  */
+/* Pojedyncza wiadomo ukad bbelkowy */
 .chat-msg {
     display: flex;
     flex-direction: column;
@@ -156,10 +156,10 @@
     margin-bottom: 3px;
 }
 
-/* Elastyczny separator nick  czas */
+/* Elastyczny separator nick czas */
 .chat-msg-spacer { flex: 1; min-width: 4px; }
 
-/* Avatar  kko 2828 */
+/* Avatar kko 2828 */
 .chat-msg-avatar {
     width: 28px;
     height: 28px;
@@ -204,7 +204,7 @@
 /* Znaczek pin w nicku */
 .chat-pin-badge { font-size: .65rem; margin-right: 2px; }
 
-/*  Bbelek treci  */
+/* Bbelek treci */
 .chat-msg-bubble {
     max-width: 85%;
     padding: 6px 10px;
@@ -218,7 +218,7 @@
     min-width: 0;
     align-self: flex-start;
 }
-/* Moje wiadomoci  bbelek po prawej, zoty akcent */
+/* Moje wiadomoci bbelek po prawej, zoty akcent */
 .chat-msg-bubble--mine {
     background: rgba(200,168,75,.13);
     border: 1px solid rgba(200,168,75,.22);
@@ -238,7 +238,7 @@
     border: 1px solid rgba(200,168,75,.35);
 }
 
-/*  Formularz  */
+/* Formularz */
 .chat-form {
     display: flex;
     gap: 6px;
@@ -270,11 +270,11 @@
     white-space: nowrap;
 }
 
-/*  System / info  */
+/* System / info */
 .chat-msg--system .chat-msg-author { color: rgba(232,232,240,.4); font-weight: normal; }
 .chat-msg--system .chat-msg-bubble { color: rgba(232,232,240,.4); font-style: italic; background: transparent; }
 
-/*  Pasek przypitych  stay, poza scrollem  */
+/* Pasek przypitych stay, poza scrollem */
 .chat-pinned-bar {
     border-bottom: 1px solid rgba(200,168,75,.25);
     background: rgba(200,168,75,.06);
@@ -318,7 +318,7 @@
     word-break: break-word;
 }
 
-/*  Przyciski report i DM  w nagwku wiadomoci  */
+/* Przyciski report i DM w nagwku wiadomoci */
 .chat-msg-opts {
     display: inline-flex;
     gap: 4px;
@@ -337,16 +337,16 @@
 .chat-report-btn:hover { color: #e24b4a; background: rgba(226,75,74,.12); }
 .chat-dm-btn:hover { color: #378add; background: rgba(55,138,221,.12); }
 
-/*  RESPONSIVE  mobile  */
+/* RESPONSIVE mobile */
 
-/* Zabezpieczenie min-width:0 dla flex dzieci  zapobiega amaniu po znaku */
+/* Zabezpieczenie min-width:0 dla flex dzieci zapobiega amaniu po znaku */
 .chat-pinned-entry-text,
 .chat-msg-bubble { min-width: 0; overflow-wrap: break-word; word-break: break-word; }
 .chat-pinned-entry { min-width: 0; }
 
-/* Breakpoint 750px  bezpieczny dla wszystkich telefonw (360480px viewport) */
+/* Breakpoint 750px bezpieczny dla wszystkich telefonw (360480px viewport) */
 @media (max-width: 750px) {
-    /* news + chat stack pionowo */
+ /* news + chat stack pionowo */
     .chat-news-wrapper {
         flex-direction: column;
         gap: 8px;
@@ -354,7 +354,7 @@
         max-height: none !important;
     }
 
-    /* panel newsw  caa szeroko */
+ /* panel newsw caa szeroko */
     .news-panel {
         flex: none !important;
         max-width: none !important;
@@ -364,7 +364,7 @@
     }
     .news-list { max-height: 160px; }
 
-    /* okno czatu  pena szeroko */
+ /* okno czatu pena szeroko */
     .chat-box {
         width: 100% !important;
         min-width: 0 !important;
@@ -376,27 +376,27 @@
         height: 200px;
     }
 
-    /* bbelek  pena szeroko na mobile */
+ /* bbelek pena szeroko na mobile */
     .chat-msg-bubble,
     .chat-msg-bubble--mine { max-width: 92%; }
 
-    /* avatar mniejszy na mobile */
+ /* avatar mniejszy na mobile */
     .chat-msg-avatar { width: 24px; height: 24px; }
 
-    /* nick  nieco krtszy */
+ /* nick nieco krtszy */
     .chat-msg-author {
         max-width: 110px;
         font-size: .74rem;
     }
     .chat-msg-time { font-size: .62rem; }
 
-    /* pasek przypitych  kompaktowy */
+ /* pasek przypitych kompaktowy */
     .chat-pinned-bar {
         max-height: 90px;
         padding: 5px 10px;
     }
 
-    /* formularz */
+ /* formularz */
     .chat-form {
         padding: 6px 8px;
         gap: 5px;
@@ -405,7 +405,7 @@
     .chat-send   { padding: 5px 10px; font-size: .75rem; white-space: nowrap; }
 }
 
-/* DM  Wiadomoci prywatne  */
+/* DM Wiadomoci prywatne */
 .dm-wrap { max-width: 900px; margin: 0 auto; }
 .dm-layout {
     display: flex;
@@ -519,7 +519,7 @@
     padding: 24px 0;
 }
 
-/* DM  mobile */
+/* DM mobile */
 @media (max-width: 600px) {
     .dm-layout {
         flex-direction: column;

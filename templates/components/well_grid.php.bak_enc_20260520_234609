@@ -1,0 +1,768 @@
+<?php
+$wgd = WellGridData::prepare($wells ?? [], $playerData ?? [], $storage ?? null);
+extract($wgd);
+
+if (class_exists('GameLog', false)) {
+    GameLog::step('component/well_grid', 'render', 1, 'wells=' . count($wells ?? []));
+}
+if (empty($showWells)) {
+    echo '<p>' . t('wg.no_wells') . '</p>';
+    return;
+}
+
+// Podsumowanie statusĂłw dla grupy (pure presentation helper)
+if (!function_exists('wgGroupSummary')) {
+    function wgGroupSummary(array $wells, array $statusMap): string {
+        $counts = [];
+        foreach ($wells as $w) {
+            $st = $w['status'] ?? 'active';
+            if (!isset($counts[$st])) $counts[$st] = 0;
+            $counts[$st]++;
+        }
+        $parts = [];
+        foreach ($counts as $st => $cnt) {
+            $icon = $statusMap[$st][2] ?? 'âť“';
+            $parts[] = $icon . ($cnt > 1 ? ' Ă—' . $cnt : '');
+        }
+        return implode('  ', $parts);
+    }
+}
+?>
+
+<div class="wg-regions">
+<?php
+$groupIdx = 0;
+foreach ($groups as $regionName => $group):
+    $groupIdx++;
+    $groupId    = 'wg-group-' . $groupIdx;
+    $regionCode = $group['code'];
+    $icon       = $regionIcons[$regionCode] ?? $regionIcons[''];
+    $color      = $group['color'];
+    $groupWells = $group['wells'];
+    $total      = count($groupWells);
+    $active     = count(array_filter($groupWells, fn($w) => ($w['status'] ?? '') === 'active'));
+    $problems   = count(array_filter($groupWells, fn($w) => in_array($w['status'] ?? '', ['broken','blowout','contaminated','seized'])));
+    $paused     = $total - $active - $problems;
+    $summary    = wgGroupSummary($groupWells, $statusMap);
+    $totalProd  = array_sum(array_map(fn($w) => ($w['status'] ?? '') === 'active' ? (float)($w['base_production_per_hour'] ?? 0) : 0, $groupWells));
+    $isOpen     = $groupIdx === 1;
+?>
+<div class="wg-region-group">
+    <div class="wg-region-header" onclick="wgToggleGroup('<?= $groupId ?>')"
+         id="<?= $groupId ?>-hdr">
+        <div class="wg-region-hdr-left">
+            <span class="wg-region-icon"><?= $icon ?></span>
+            <span class="wg-region-name" style="color:<?= htmlspecialchars($color) ?>">
+                <?= htmlspecialchars($regionName) ?>
+            </span>
+            <span class="wg-region-count"><?= $total ?> <?= t('wg.wells_suffix') ?></span>
+        </div>
+        <div class="wg-region-hdr-right">
+            <div class="wg-region-pills">
+                <?php if ($active > 0): ?>
+                <span class="wg-rpill wg-rpill--active">đźź˘ <?= $active ?></span>
+                <?php endif ?>
+                <?php if ($paused > 0): ?>
+                <span class="wg-rpill wg-rpill--warn">âŹ¸ <?= $paused ?></span>
+                <?php endif ?>
+                <?php if ($problems > 0): ?>
+                <span class="wg-rpill wg-rpill--danger">đź”´ <?= $problems ?></span>
+                <?php endif ?>
+                <?php if ($totalProd > 0): ?>
+                <span class="wg-rpill wg-rpill--prod">â›˝ <?= number_format($totalProd, 0) ?> <?= t('common.bbl_h') ?></span>
+                <?php endif ?>
+            </div>
+            <span class="wg-region-arrow" id="<?= $groupId ?>-arrow">
+                <?= $isOpen ? 'â–˛' : 'â–Ľ' ?>
+            </span>
+        </div>
+    </div>
+
+    <div class="wg-grid" id="<?= $groupId ?>"
+         style="<?= $isOpen ? '' : 'display:none' ?>">
+        <?php foreach ($groupWells as $w):
+            $wid    = (int)$w['id'];
+            $status = $w['_status'];
+            $st     = $w['_st'];
+        ?>
+        <div class="wg-card" id="wg-card-<?= $wid ?>">
+
+            <!--  NAGĹĂ“WEK KARTY  -->
+            <div class="wg-header wg-header--redesign" onclick="wgToggle(<?= $wid ?>)">
+                <?php
+                $__pillMod = match(true) {
+                    $status === 'active'                                               => 'wg-status-pill--active',
+                    in_array($status, ['paused_staff','paused_cash','paused_storage']) => 'wg-status-pill--warn',
+                    default                                                            => 'wg-status-pill--danger',
+                };
+                ?>
+                <div class="wg-hdr-top">
+                    <div>
+                        <div class="wg-badges">
+                            <span class="wbadge wb-id">#<?= $wid ?></span>
+                            <span class="wbadge wb-type"><?= strtoupper(t('technical.well_type_' . ($w['well_type'] ?? 'onshore'))) ?></span>
+                            <span class="wbadge wb-lvl">POZ. <?= (int)$w['level'] ?></span>
+                        </div>
+                        <div class="wg-well-name"><?= htmlspecialchars($w['location_name'] ?? t('wg.default_well_name')) ?></div>
+                        <?php if (!empty($w['region_name'])): ?>
+                        <div class="wg-well-loc"><?= htmlspecialchars($w['region_name']) ?></div>
+                        <?php endif ?>
+                    </div>
+                    <div class="wg-status-pill <?= $__pillMod ?>">
+                        <span class="wg-pulse"></span> <?= $st[2] ?> <?= $st[0] ?>
+                    </div>
+                </div>
+
+                <?php if ($w['_isActive']): ?>
+                <div class="wg-kpi-grid">
+                    <div class="wg-kpi-card">
+                        <div class="wg-kpi-label"><?= t('wg.stat_production') ?></div>
+                        <div class="wg-kpi-value kv-green">
+                            <?= number_format((float)$w['base_production_per_hour'], 0) ?>
+                            <span class="wg-kpi-unit"><?= t('common.bbl_h') ?></span>
+                        </div>
+                        <div class="wg-kpi-sub"><?= $w['_wEffPct'] ?>% <?= t('wg.stat_pressure') ?></div>
+                    </div>
+                    <div class="wg-kpi-card">
+                        <div class="wg-kpi-label"><?= t('wg.stat_condition') ?></div>
+                        <div class="wg-kpi-value <?= $w['_cond'] >= 70 ? 'kv-green' : ($w['_cond'] >= 40 ? 'kv-orange' : 'kv-red') ?>">
+                            <?= round($w['_cond'], 1) ?>%
+                        </div>
+                        <div class="wg-kpi-sub">
+                            <div class="wg-kpi-bar"><div class="wg-kpi-bar-fill <?= $w['_condCls'] ?>" style="width:<?= $w['_cond'] ?>%"></div></div>
+                        </div>
+                    </div>
+                    <div class="wg-kpi-card">
+                        <div class="wg-kpi-label"><?= t('wg.metric_mode') ?></div>
+                        <div class="wg-kpi-value kv-dim">
+                            <?= match($w['production_mode'] ?? 'normal') { 'eco' => 'đź”‹ Eco', 'boost' => 'âšˇ Boost', default => 'âš™ Auto' } ?>
+                        </div>
+                        <div class="wg-kpi-sub"><?= t('wg.stat_reservoir') ?>: <?= $w['_wResPct'] ?>%</div>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div class="wg-cond">
+                    <div class="wg-cond-row">
+                        <span class="<?= $w['_condCls'] ?>"><?= t('wg.stat_condition') ?></span>
+                        <span class="<?= $w['_condCls'] ?> fw7"><?= round($w['_cond'], 1) ?>%</span>
+                    </div>
+                    <div class="wg-bar"><div class="wg-bar-fill <?= $w['_condCls'] ?>" style="width:<?= $w['_cond'] ?>%"></div></div>
+                </div>
+                <?php endif ?>
+
+                <?php if ($w['_missingSpecs']): ?>
+                <div class="wg-staff-hint"><?= t('wg.missing_label') ?> <?= htmlspecialchars(implode(', ', $w['_missingSpecs'])) ?></div>
+                <?php endif ?>
+                <div class="wg-toggle-hint" id="wg-hint-<?= $wid ?>"><?= t('well_grid.hint_open') ?></div>
+            </div>
+
+            <!--  SZCZEGĂ“ĹY  -->
+            <div class="wg-detail wg-hidden" id="wg-detail-<?= $wid ?>">
+
+                <?php if ($status === 'paused_staff'): ?>
+                <div class="wg-diag wg-diag--staff">
+                    <div class="wg-diag-title"><?= t('wg.diag_staff_title') ?></div>
+                    <p class="wg-diag-note"><?= t('wg.diag_staff_need') ?></p>
+                    <ul class="wg-missing-list">
+                        <?php foreach ($w['_missingSpecs'] as $ms): ?>
+                        <li>đź”´ <?= htmlspecialchars($ms) ?></li>
+                        <?php endforeach ?>
+                    </ul>
+                    <p class="wg-diag-note"><?= t('wg.diag_staff_resume') ?></p>
+                    <p class="wg-diag-note wg-diag-note--danger">
+                        âš ď¸Ź <strong><?= t('wg.diag_staff_danger') ?></strong>
+                        <?= t('wg.stat_condition') ?>: <?= number_format($w['_cond'], 1) ?>%
+                    </p>
+                    <a href="<?= url('technical', ['tab' => 'candidates']) ?>" class="btn btn-primary btn-sm"><?= t('wg.btn_candidates') ?></a>
+                </div>
+
+                <?php elseif ($status === 'paused_cash'): ?>
+                <div class="wg-diag wg-diag--cash">
+                    <div class="wg-diag-title"><?= t('wg.diag_cash_title') ?></div>
+                    <p class="wg-diag-note"><?= t('wg.diag_cash_opex_pre') ?><strong><?= number_format((float)($w['upkeep_cost_per_hour'] ?? 0), 0) ?></strong><?= t('wg.diag_cash_opex_post') ?></p>
+                    <a href="<?= url('market') ?>" class="btn btn-primary btn-sm"><?= t('wg.btn_sell_oil') ?></a>
+                </div>
+
+                <?php elseif ($status === 'paused_storage'): ?>
+                <div class="wg-diag wg-diag--storage">
+                    <div class="wg-diag-title"><?= t('wg.diag_storage_title') ?></div>
+                    <p class="wg-diag-note"><?= t('wg.diag_storage_note') ?></p>
+                    <a href="<?= url('market') ?>" class="btn btn-primary btn-sm"><?= t('wg.btn_sell_oil') ?></a>
+                </div>
+
+                <?php elseif (in_array($status, ['blowout','contaminated','broken'])): ?>
+                <div class="wg-diag wg-diag--disaster">
+                    <div class="wg-diag-title"><?= $st[2] ?> <?= $st[0] ?></div>
+                    <p class="wg-diag-note"><?= t('wg.diag_repair_note') ?></p>
+                    <a href="<?= url('technical', ['tab' => 'tasks']) ?>" class="btn btn-primary btn-sm"><?= t('wg.btn_repair') ?></a>
+                </div>
+
+                <?php elseif ($status === 'seized'): ?>
+                <div class="wg-diag wg-diag--disaster">
+                    <div class="wg-diag-title"><?= t('wg.diag_seized_title') ?></div>
+                    <p class="wg-diag-note"><?= t('wg.diag_seized_note') ?></p>
+                    <a href="<?= url('bank') ?>" class="btn btn-primary btn-sm"><?= t('wg.btn_bank') ?></a>
+                </div>
+
+                <?php else: ?>
+                <?php if (!empty($w['region_name'])): ?>
+                <?php
+                $__risk       = (int)($w['region_political_risk'] ?? 1);
+                $__riskLabels = [1=>'Bardzo niskie',2=>'Niskie',3=>'Umiarkowane',4=>'Wysokie',5=>'Bardzo wysokie'];
+                $__riskCls    = $__risk >= 4 ? 'cv-bad' : ($__risk >= 3 ? 'cv-warn' : 'cv-good');
+                $__riskPipCls = $__risk >= 4 ? 'wg-risk-pip--red' : ($__risk >= 3 ? 'wg-risk-pip--orange' : 'wg-risk-pip--green');
+                ?>
+                <div class="wg-meta-grid">
+                    <div class="wg-meta-cell">
+                        <div class="wg-meta-label"><?= t('wg.loc_richness') ?></div>
+                        <div class="wg-meta-value cv-warn">
+                            Ă—<?= number_format((float)($w['oil_richness'] ?? 1.0), 1) ?>
+                            <span class="wg-meta-unit">mnoĹĽnik</span>
+                        </div>
+                    </div>
+                    <div class="wg-meta-cell">
+                        <div class="wg-meta-label"><?= t('wg.loc_tax') ?></div>
+                        <div class="wg-meta-value cv-bad">
+                            <?= round((float)($w['region_tax_rate'] ?? $w['regional_tax_rate'] ?? 0) * 100, 1) ?>%
+                            <span class="wg-meta-unit">/ godz.</span>
+                        </div>
+                    </div>
+                    <div class="wg-meta-cell wg-meta-cell--full">
+                        <div class="wg-meta-label"><?= t('wg.loc_political_risk') ?></div>
+                        <div class="wg-risk-meter">
+                            <div class="wg-risk-pips">
+                                <?php for ($__i = 1; $__i <= 5; $__i++): ?>
+                                <span class="wg-risk-pip <?= $__i <= $__risk ? 'wg-risk-pip--on ' . $__riskPipCls : '' ?>"></span>
+                                <?php endfor ?>
+                            </div>
+                            <span class="wg-risk-label <?= $__riskCls ?>"><?= $__riskLabels[$__risk] ?? '' ?> (<?= $__risk ?>/5)</span>
+                            <?php if ($__risk >= 4): ?>
+                            <span class="wg-risk-advice">â€” RozwaĹĽ ubezpieczenie</span>
+                            <?php endif ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endif ?>
+                <?php endif /* else: active well */ ?>
+
+                <!-- Panel sprzÄ™tu odwiertu -->
+                <?php if ($status !== 'seized' && $w['_eqMults'] !== null): ?>
+                <?php
+                // Base tier multipliers (at upgrade level 0)
+                $__tierMults = [
+                    'black_market' => ['prod' => 1.10, 'wear' => 1.30, 'incident' => 1.25, 'spiral' => 1.20],
+                    'standard'     => ['prod' => 1.00, 'wear' => 1.00, 'incident' => 1.00, 'spiral' => 1.00],
+                    'premium'      => ['prod' => 1.20, 'wear' => 0.75, 'incident' => 0.80, 'spiral' => 0.85],
+                ];
+                if (!function_exists('wgFmtMult')) {
+                    function wgFmtMult(float $mult, bool $lowerIsBetter = false): array {
+                        $pct = (int) round(($mult - 1) * 100);
+                        $str = ($pct > 0 ? '+' : '') . $pct . '%';
+                        if ($pct === 0) return ['mv-neu', '0%'];
+                        return [($lowerIsBetter ? $pct < 0 : $pct > 0) ? 'mv-good' : 'mv-bad', $str];
+                    }
+                }
+                $__badgeCls = match($w['_eqTier']) {
+                    'premium'      => 'nsb-ok',
+                    'black_market' => 'nsb-danger',
+                    default        => 'nsb-warn',
+                };
+                ?>
+                <div class="wg-equipment-wrap">
+                    <div class="wg-section-hdr" onclick="wgToggleEquipment(<?= $wid ?>)">
+                        <div class="wg-section-title"><span class="wg-section-ico">đź”§</span> <?= t('wg.eq_title') ?></div>
+                        <span class="wg-section-badge <?= $__badgeCls ?>">
+                            <?= $w['_tierLabel'][0] ?><?= $w['_eqLevel'] > 0 ? ' Â· poz. ' . $w['_eqLevel'] : '' ?>
+                        </span>
+                        <span class="wg-section-arrow" id="wg-earrow-<?= $wid ?>">â–Ľ</span>
+                    </div>
+                    <div class="wg-section-body" id="wg-equipment-<?= $wid ?>">
+
+                        <!-- Current equipment stats -->
+                        <?php
+                        [$__pc, $__pv] = wgFmtMult($w['_eqMults']['prod'], false);
+                        [$__ic, $__iv] = wgFmtMult($w['_eqMults']['incident'], true);
+                        [$__wc, $__wv] = wgFmtMult($w['_eqMults']['wear'], true);
+                        [$__sc, $__sv] = wgFmtMult($w['_eqMults']['spiral'], true);
+                        ?>
+                        <div class="wg-cur-stats">
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.eq_stat_prod') ?></div>
+                                <div class="wg-cs-val <?= $__pc ?>"><?= $__pv ?></div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.eq_stat_incident') ?></div>
+                                <div class="wg-cs-val <?= $__ic ?>"><?= $__iv ?></div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.eq_stat_wear') ?></div>
+                                <div class="wg-cs-val <?= $__wc ?>"><?= $__wv ?></div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.eq_stat_spiral') ?></div>
+                                <div class="wg-cs-val <?= $__sc ?>"><?= $__sv ?></div>
+                            </div>
+                        </div>
+
+                        <?php if (($w['status'] ?? '') === 'equipment_swap' && !empty($w['equipment_swap_until'])): ?>
+                        <div class="wg-eq-swap-banner" id="wg-swap-banner-<?= $wid ?>"
+                             data-until="<?= htmlspecialchars($w['equipment_swap_until']) ?>">
+                            <span class="wg-eq-swap-icon">đź”§</span>
+                            <div class="wg-eq-swap-info">
+                                <strong><?= t('wg.eq_swap_in_progress') ?></strong>
+                                <span class="wg-eq-swap-timer" id="wg-swap-timer-<?= $wid ?>">â€”</span>
+                            </div>
+                        </div>
+                        <?php else: ?>
+
+                        <div class="wg-opt-label"><?= t('wg.eq_change_tier') ?></div>
+                        <div class="wg-opt-cards">
+                            <?php foreach ([
+                                'black_market' => [t('wg.eq_tier_bm_label'),   t('wg.eq_tier_bm_desc'),   true],
+                                'standard'     => [t('wg.eq_tier_std_label'),  t('wg.eq_tier_std_desc'),  false],
+                                'premium'      => [t('wg.eq_tier_prem_label'), t('wg.eq_tier_prem_desc'), false],
+                            ] as $t_key => [$tLabel, $tDesc, $isDanger]):
+                                $isCurrent  = $t_key === $w['_eqTier'];
+                                $tCost      = $w['_tierCosts'][$t_key];
+                                $canAffordT = $playerCash >= $tCost;
+                                $tm         = $__tierMults[$t_key];
+                                [$__tpc, $__tpv] = wgFmtMult($tm['prod'], false);
+                                [$__tic, $__tiv] = wgFmtMult($tm['incident'], true);
+                                [$__twc, $__twv] = wgFmtMult($tm['wear'], true);
+                                [$__tsc, $__tsv] = wgFmtMult($tm['spiral'], true);
+                                $cardCls = 'wg-opt-card' . ($isCurrent ? ' wg-opt-card--active' : ($isDanger ? ' wg-opt-card--danger' : ''));
+                            ?>
+                            <div class="<?= $cardCls ?>">
+                                <div class="wg-opt-card-top">
+                                    <div>
+                                        <div class="wg-opt-name"><?= $tLabel ?></div>
+                                        <div class="wg-opt-desc"><?= $tDesc ?></div>
+                                    </div>
+                                    <?php if ($isCurrent): ?>
+                                    <span class="wg-opt-active-badge"><?= t('wg.eq_current') ?></span>
+                                    <?php endif ?>
+                                </div>
+                                <div class="wg-mult-grid">
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.eq_stat_prod') ?></div>
+                                        <div class="wg-mult-val <?= $__tpc ?>"><?= $__tpv ?></div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.eq_stat_incident') ?></div>
+                                        <div class="wg-mult-val <?= $__tic ?>"><?= $__tiv ?></div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.eq_stat_wear') ?></div>
+                                        <div class="wg-mult-val <?= $__twc ?>"><?= $__twv ?></div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.eq_stat_spiral') ?></div>
+                                        <div class="wg-mult-val <?= $__tsc ?>"><?= $__tsv ?></div>
+                                    </div>
+                                </div>
+                                <?php if (!$isCurrent): ?>
+                                <div class="wg-opt-footer">
+                                    <span class="wg-opt-cost">đź’° $<?= number_format($tCost, 0, '.', ' ') ?></span>
+                                    <button type="button"
+                                        class="wg-opt-btn <?= $isDanger ? 'wg-opt-btn--danger' : 'wg-opt-btn--primary' ?> <?= $canAffordT ? '' : 'wg-opt-btn--disabled' ?>"
+                                        onclick="wgSetTier(<?= $wid ?>, '<?= $t_key ?>', <?= $tCost ?>)"
+                                        <?= $canAffordT ? '' : 'disabled' ?>>
+                                        <?= t('wg.eq_btn_install') ?>
+                                    </button>
+                                </div>
+                                <?php endif ?>
+                            </div>
+                            <?php endforeach ?>
+                        </div>
+
+                        <?php endif /* swap */ ?>
+
+                        <?php if ($w['_eqLevel'] < 3): ?>
+                        <div class="wg-upgrade-box">
+                            <div class="wg-upgrade-title">â¬† <?= t('wg.eq_upgrade_title', ['cur' => $w['_eqLevel']]) ?></div>
+                            <div class="wg-upgrade-desc"><?= t('wg.eq_upgrade_desc') ?></div>
+                            <div class="wg-upgrade-footer">
+                                <span class="wg-upgrade-cost <?= $playerCash >= $w['_nextUpgCost'] ? 'cv-gold' : 'cv-bad' ?>">
+                                    $<?= number_format($w['_nextUpgCost'], 0, '.', ' ') ?>
+                                </span>
+                                <button type="button"
+                                    class="wg-opt-btn wg-opt-btn--primary <?= $playerCash >= $w['_nextUpgCost'] ? '' : 'wg-opt-btn--disabled' ?>"
+                                    onclick="wgUpgradeEquipment(<?= $wid ?>, <?= $w['_nextUpgCost'] ?>)"
+                                    <?= $playerCash >= $w['_nextUpgCost'] ? '' : 'disabled' ?>>
+                                    <?= t('wg.eq_btn_upgrade', ['level' => $w['_eqLevel'] + 1]) ?>
+                                </button>
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <div class="wg-eq-maxlvl"><?= t('wg.eq_max_level') ?></div>
+                        <?php endif ?>
+
+                    </div>
+                </div>
+                <?php endif ?>
+
+                <!-- Rozbudowa magazynu -->
+                <?php if ($storageData && $status !== 'seized'): ?>
+                <?php
+                $__storeUsed = (float)($storageData['used'] ?? 0);
+                $__storePct  = $storageCap > 0 ? min(100, round($__storeUsed / $storageCap * 100)) : 0;
+                ?>
+                <div class="wg-storage-wrap">
+                    <div class="wg-section-hdr" onclick="wgToggleStorage(<?= $wid ?>)">
+                        <div class="wg-section-title"><span class="wg-section-ico">đź›˘ď¸Ź</span> <?= t('wg.storage_title') ?></div>
+                        <span class="wg-section-badge <?= $__storePct >= 80 ? 'nsb-danger' : 'nsb-ok' ?>"><?= $__storePct ?>% pojemnoĹ›ci</span>
+                        <span class="wg-section-arrow" id="wg-sarrow-<?= $wid ?>">â–Ľ</span>
+                    </div>
+                    <div class="wg-section-body" id="wg-storage-<?= $wid ?>">
+                        <div class="wg-storage-card">
+                            <div class="wg-storage-row">
+                                <div>
+                                    <div class="wg-storage-title"><?= t('wg.storage_after') ?></div>
+                                    <div class="wg-storage-cap">
+                                        <?= number_format($storageCap, 0, '.', ' ') ?> â†’
+                                        <strong class="cv-good"><?= number_format($storageAfter, 0, '.', ' ') ?> <?= t('common.bbl') ?></strong>
+                                    </div>
+                                </div>
+                                <?php if ($canAffordUpg): ?>
+                                <button type="button" class="wg-opt-btn wg-opt-btn--primary"
+                                        onclick="wgConfirmStorage(<?= $wid ?>, <?= (int)$storageCap ?>, <?= (int)$storageAfter ?>, <?= (int)$upgradeCost ?>)">
+                                    Rozbuduj
+                                </button>
+                                <?php endif ?>
+                            </div>
+                            <div class="wg-storage-track">
+                                <div class="wg-storage-fill" style="width:<?= $__storePct ?>%"></div>
+                            </div>
+                            <div class="wg-storage-footer">
+                                <span class="wg-storage-cost">
+                                    <?= t('wg.storage_cost') ?>: <strong class="cv-gold"><?= number_format($upgradeCost, 0, '.', ' ') ?> <?= t('common.pln') ?></strong>
+                                </span>
+                                <span class="wg-storage-budget <?= $canAffordUpg ? 'cv-good' : 'cv-bad' ?>">
+                                    <?= $canAffordUpg ? 'StaÄ‡ CiÄ™ âś“' : t('wg.storage_blocked', ['amount' => number_format($upgradeCost - $playerCash, 0, '.', ' ')]) ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif ?>
+
+
+                <!-- Transport panel / Panel transportu -->
+                <div class="wg-transport-wrap">
+                    <div class="wg-section-hdr" onclick="wgToggleTransport(<?= $wid ?>)">
+                        <div class="wg-section-title"><span class="wg-section-ico">🚛</span> <?= t('wg.transport_title') ?></div>
+                        <span class="wg-section-badge nsb-warn">
+                            <span class="<?= $w['_trCls'] ?>"><?= $w['_trLabel'] ?></span>
+                            · <?= $w['_trCapPct'] ?>%
+                        </span>
+                        <span class="wg-section-arrow" id="wg-tarrow-<?= $wid ?>">▼</span>
+                    </div>
+                    <div class="wg-section-body" id="wg-transport-<?= $wid ?>">
+                        <?php
+                        $__trRiskMap = [
+                            'rurociag'   => ['kv-green', '-20%'],
+                            'ciezarowki' => ['kv-red',   '+30%'],
+                            'tankowiec'  => ['mv-neu',    '0%'],
+                        ];
+                        $__effectiveTransport = (string)($w['_trTypeEffective'] ?? $w['_trType']);
+                        ?>
+                        <div class="wg-cur-stats" style="grid-template-columns:repeat(3,1fr)">
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-lbl"><?= t('wg.transport_capacity') ?></div>
+                                <div class="wg-cs-val <?= $w['_trCapPct'] >= 100 ? 'kv-green' : 'kv-orange' ?>"><?= $w['_trCapPct'] ?>%</div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-lbl">OPEX</div>
+                                <div class="wg-cs-val <?= $w['_trOpexPct'] <= 10 ? 'kv-green' : ($w['_trOpexPct'] <= 15 ? 'kv-orange' : 'kv-red') ?>"><?= $w['_trOpexPct'] ?>%</div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-lbl"><?= t('wg.transport_incident_risk') ?></div>
+                                <div class="wg-cs-val <?= $__trRiskMap[$__effectiveTransport][0] ?? 'mv-neu' ?>">
+                                    <?= $__trRiskMap[$__effectiveTransport][1] ?? '0%' ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <?php if (!$w['_isOffshore'] && !empty($w['_pipelineOwned'])): ?>
+                        <div class="wg-staff-hint"><?= t('logistics.pipeline.title') ?> · <?= t('technical.pipe_ok') ?></div>
+                        <?php elseif (!$w['_isOffshore'] && ($w['_trType'] ?? '') === 'rurociag'): ?>
+                        <div class="wg-staff-hint"><?= t('wg.transport_truck_label') ?> · <?= t('wg.transport_truck_desc') ?></div>
+                        <?php endif ?>
+
+                        <div class="wg-opt-cards">
+                        <?php foreach ($w['_trDefs'] as $tCode => [$tName, $tCls2, $tCap, $tOpex, $tDesc, $available]):
+                            $isCurrent  = ($tCode === $__effectiveTransport);
+                            $isDisabled = !$available && !$isCurrent;
+                            [$__rCls, $__rVal] = $__trRiskMap[$tCode] ?? ['mv-neu', '0%'];
+                            $__capCls  = $tCap  >= 100 ? 'kv-green' : 'kv-orange';
+                            $__opxCls  = $tOpex <= 10  ? 'kv-green' : ($tOpex <= 15 ? 'kv-orange' : 'kv-red');
+                            $__cardCls = $isCurrent ? 'wg-opt-card--active' : ($isDisabled ? 'wg-opt-card--disabled' : '');
+                        ?>
+                            <div class="wg-opt-card <?= $__cardCls ?>">
+                                <div class="wg-opt-hdr">
+                                    <span class="wg-opt-name"><?= $tName ?></span>
+                                    <?php if ($isCurrent): ?>
+                                    <span class="wg-opt-badge wg-opt-badge--ok">✓ <?= t('wg.eq_current') ?></span>
+                                    <?php endif ?>
+                                </div>
+                                <div class="wg-opt-desc"><?= $tDesc ?></div>
+
+                                <?php if ($isDisabled): ?>
+                                <div class="wg-opt-unavail">
+                                    ⛔ <?= $w['_isOffshore'] ? t('wg.transport_no_offshore') : t('wg.transport_offshore_only') ?>
+                                </div>
+                                <?php else: ?>
+                                <?php if ($tCode === 'rurociag' && !$w['_isOffshore'] && empty($w['_pipelineOwned'])): ?>
+                                <div class="wg-opt-desc">
+                                    <?= t('technical.pipe_build_cost') ?>:
+                                    <strong class="cv-gold"><?= number_format((float)($w['_pipelineBuildCost'] ?? 0), 0, '.', ' ') ?> <?= t('common.pln') ?></strong>
+                                </div>
+                                <?php endif ?>
+                                <div class="wg-mult-grid" style="grid-template-columns:repeat(3,1fr)">
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-lbl"><?= t('wg.transport_capacity') ?></div>
+                                        <div class="wg-mult-val <?= $__capCls ?>"><?= $tCap ?>%</div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-lbl">OPEX</div>
+                                        <div class="wg-mult-val <?= $__opxCls ?>"><?= $tOpex ?>%</div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-lbl">Ryzyko</div>
+                                        <div class="wg-mult-val <?= $__rCls ?>"><?= $__rVal ?></div>
+                                    </div>
+                                </div>
+                                <?php if (!$isCurrent): ?>
+                                <div class="wg-opt-footer">
+                                    <button class="wg-opt-btn wg-opt-btn--primary"
+                                        onclick="wgSetTransport(<?= $wid ?>, '<?= $tCode ?>', <?= !empty($w['_pipelineOwned']) ? 'true' : 'false' ?>, <?= json_encode((float)($w['_pipelineBuildCost'] ?? 0), JSON_UNESCAPED_UNICODE) ?>)">
+                                        <?= t('wg.transport_btn_switch') ?>
+                                    </button>
+                                </div>
+                                <?php endif ?>
+                                <?php endif ?>
+                            </div>
+                        <?php endforeach ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel warstw geologicznych -->
+                <?php if ($status !== 'seized' && $w['_glCur'] !== null): ?>
+                <?php
+                $__glR   = (float)($w['_glCur']['richness_mult'] ?? 1.0);
+                $__glDesc = (string)($w['_glCur']['name'] ?? t('wg.layer_default_name'));
+                if ($__glR < 1.0)      $__glDesc .= ' â€” niska zasobnoĹ›Ä‡';
+                elseif ($__glR >= 2.0) $__glDesc .= ' â€” wysoka zasobnoĹ›Ä‡';
+                $__layerBadgeCls = $__glR >= 1.5 ? 'nsb-ok' : ($__glR >= 1.0 ? 'nsb-warn' : 'nsb-danger');
+                ?>
+                <div class="wg-layer-wrap">
+                    <div class="wg-section-hdr" onclick="wgToggleLayer(<?= $wid ?>)">
+                        <div class="wg-section-title"><span class="wg-section-ico">đźŞ¨</span> <?= t('wg.layer_title') ?></div>
+                        <span class="wg-section-badge <?= $__layerBadgeCls ?>">
+                            <?= htmlspecialchars($__glDesc) ?>
+                            <?php if ($w['_glSwitchHoursLeft'] > 0): ?> Â· âŹł <?= $w['_glSwitchHoursLeft'] ?>h<?php endif ?>
+                        </span>
+                        <span class="wg-section-arrow" id="wg-larrow-<?= $wid ?>">â–Ľ</span>
+                    </div>
+
+                    <div class="wg-section-body" id="wg-layer-<?= $wid ?>" style="display:none">
+
+                        <?php if ($w['_glSwitchHoursLeft'] > 0): ?>
+                        <div class="wg-layer-switching">
+                            <?= t('wg.layer_switching', ['hours' => $w['_glSwitchHoursLeft']]) ?>
+                        </div>
+                        <?php endif ?>
+
+                        <!-- Current layer stats -->
+                        <div class="wg-cur-stats">
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.layer_stat_richness') ?></div>
+                                <div class="wg-cs-val <?= (float)($w['_glCur']['richness_mult'] ?? 1.0) >= 1.0 ? 'mv-good' : 'mv-warn' ?>">
+                                    Ă—<?= number_format((float)($w['_glCur']['richness_mult'] ?? 1.0), 2) ?>
+                                </div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.layer_stat_risk') ?></div>
+                                <div class="wg-cs-val <?= (float)($w['_glCur']['risk_mult'] ?? 1.0) <= 7 ? 'mv-warn' : 'mv-bad' ?>">
+                                    Ă—<?= number_format((float)($w['_glCur']['risk_mult'] ?? 1.0), 1) ?>
+                                </div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.layer_stat_wear') ?></div>
+                                <div class="wg-cs-val mv-neu">Ă—<?= number_format((float)($w['_glCur']['wear_mult'] ?? 1.0), 1) ?></div>
+                            </div>
+                            <div class="wg-cs-item">
+                                <div class="wg-cs-label"><?= t('wg.layer_stat_spiral') ?></div>
+                                <div class="wg-cs-val mv-neu">Ă—<?= number_format((float)($w['_glCur']['spiral_mult'] ?? 1.0), 1) ?></div>
+                            </div>
+                        </div>
+
+                        <div class="wg-opt-label"><?= t('wg.layer_change') ?></div>
+                        <div class="wg-opt-cards">
+                            <?php
+                            $__curR  = (float)($w['_glCur']['richness_mult'] ?? 1.0);
+                            $__curRk = (float)($w['_glCur']['risk_mult'] ?? 1.0);
+                            $__curW  = (float)($w['_glCur']['wear_mult'] ?? 1.0);
+                            $__curSp = (float)($w['_glCur']['spiral_mult'] ?? 1.0);
+                            $__curRes = (float)($glAll[$w['_glCurId']]['reservoir_bbl'] ?? 1);
+                            foreach ($glAll as $layerId => $layer):
+                                $layerId   = (int)($layer['id'] ?? $layerId);
+                                $isCur     = $layerId === $w['_glCurId'];
+                                $cost      = (int)($layer['switch_cost'] ?? 0);
+                                $hours     = (int)($layer['switch_hours'] ?? 0);
+                                $canSwitch = !$isCur && $w['_glSwitchHoursLeft'] <= 0;
+                                $__lR      = (float)($layer['richness_mult'] ?? 1.0);
+                                $__lRk     = (float)($layer['risk_mult'] ?? 1.0);
+                                $__lW      = (float)($layer['wear_mult'] ?? 1.0);
+                                $__lSp     = (float)($layer['spiral_mult'] ?? 1.0);
+                                $__resMax  = (float)($layer['reservoir_bbl'] ?? 0);
+                                $__resMult = $__curRes > 0 ? (int)round($__resMax / max(1, $__curRes)) : 0;
+                            ?>
+                            <div class="wg-opt-card <?= $isCur ? 'wg-opt-card--active' : '' ?>">
+                                <div class="wg-opt-card-top">
+                                    <div>
+                                        <div class="wg-opt-name"><?= htmlspecialchars((string)($layer['name'] ?? '')) ?></div>
+                                        <div class="wg-opt-zloza">
+                                            <?= t('wg.layer_reservoir', ['amount' => number_format($__resMax, 0, '.', ' ')]) ?>
+                                            <?php if (!$isCur && $__resMult > 1): ?>
+                                            <span class="wg-layer-growth">â–˛ <?= $__resMult ?>Ă—</span>
+                                            <?php endif ?>
+                                        </div>
+                                    </div>
+                                    <?php if ($isCur): ?>
+                                    <span class="wg-opt-active-badge"><?= t('wg.layer_active') ?></span>
+                                    <?php endif ?>
+                                </div>
+                                <div class="wg-mult-grid">
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.layer_stat_richness') ?></div>
+                                        <div class="wg-mult-val <?= $__lR >= 1.3 ? 'mv-good' : ($__lR >= 1.0 ? 'mv-warn' : 'mv-bad') ?>">
+                                            Ă—<?= number_format($__lR, 2) ?>
+                                            <?php if (!$isCur && $__lR != $__curR): ?><span class="wg-delta <?= $__lR > $__curR ? 'wg-delta--up' : 'wg-delta--down' ?>"><?= $__lR > $__curR ? 'â–˛' : 'â–Ľ' ?></span><?php endif ?>
+                                        </div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.layer_stat_risk') ?></div>
+                                        <div class="wg-mult-val <?= $__lRk <= 7 ? 'mv-warn' : 'mv-bad' ?>">
+                                            Ă—<?= number_format($__lRk, 1) ?>
+                                            <?php if (!$isCur && $__lRk != $__curRk): ?><span class="wg-delta <?= $__lRk < $__curRk ? 'wg-delta--up' : 'wg-delta--down' ?>"><?= $__lRk < $__curRk ? 'â–˛' : 'â–Ľ' ?></span><?php endif ?>
+                                        </div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.layer_stat_wear') ?></div>
+                                        <div class="wg-mult-val mv-neu">
+                                            Ă—<?= number_format($__lW, 1) ?>
+                                            <?php if (!$isCur && $__lW != $__curW): ?><span class="wg-delta <?= $__lW < $__curW ? 'wg-delta--up' : 'wg-delta--down' ?>"><?= $__lW < $__curW ? 'â–˛' : 'â–Ľ' ?></span><?php endif ?>
+                                        </div>
+                                    </div>
+                                    <div class="wg-mult-item">
+                                        <div class="wg-mult-label"><?= t('wg.layer_stat_spiral') ?></div>
+                                        <div class="wg-mult-val mv-neu">
+                                            Ă—<?= number_format($__lSp, 1) ?>
+                                            <?php if (!$isCur && $__lSp != $__curSp): ?><span class="wg-delta <?= $__lSp < $__curSp ? 'wg-delta--up' : 'wg-delta--down' ?>"><?= $__lSp < $__curSp ? 'â–˛' : 'â–Ľ' ?></span><?php endif ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php if (!$isCur): ?>
+                                <div class="wg-opt-footer">
+                                    <div>
+                                        <div class="wg-opt-cost">đź’° $<?= number_format($cost, 0, '.', ' ') ?></div>
+                                        <?php if ($hours > 0): ?>
+                                        <div class="wg-opt-time">âŹ± <?= $hours ?> <?= $hours === 1 ? 'godzina' : ($hours < 5 ? 'godziny' : 'godzin') ?> przestoju</div>
+                                        <?php endif ?>
+                                    </div>
+                                    <button type="button"
+                                        class="wg-opt-btn wg-opt-btn--primary <?= ($canSwitch && $playerCash >= $cost) ? '' : 'wg-opt-btn--disabled' ?>"
+                                        onclick="wgSwitchLayer(<?= $wid ?>, <?= $layerId ?>, <?= $cost ?>, '<?= htmlspecialchars((string)($layer['name'] ?? ''), ENT_QUOTES) ?>', <?= $hours ?>)"
+                                        <?= ($canSwitch && $playerCash >= $cost) ? '' : 'disabled' ?>>
+                                        <?= t('wg.layer_btn_switch') ?>
+                                    </button>
+                                </div>
+                                <?php endif ?>
+                            </div>
+                            <?php endforeach ?>
+                        </div>
+
+                    </div>
+                </div>
+                <?php endif ?>
+
+                <?php if (!in_array($status, ['seized','blowout','sold'])): ?>
+                <div class="wg-danger-zone">
+                    <div class="wg-danger-zone__label">â”€â”€â”€ Strefa niebezpieczna â”€â”€â”€</div>
+                    <button type="button" class="wg-btn-sell wg-btn-sell--danger-zone" onclick="wgSellPreview(<?= $wid ?>)">
+                        đź”´ <?= t('wg.btn_sell_well') ?>
+                    </button>
+                </div>
+                <?php endif ?>
+
+            </div><!-- /.wg-detail -->
+        </div><!-- /.wg-card -->
+        <?php endforeach ?>
+    </div><!-- /.wg-grid -->
+</div><!-- /.wg-region-group -->
+<?php endforeach ?>
+</div><!-- /.wg-regions -->
+
+<script>
+window.WG_CSRF = '<?= CSRF::generateToken() ?>';
+window.WG_LANG = <?= json_encode([
+    'pln'                  => t('common.pln'),
+    'bbl'                  => t('common.bbl'),
+    'cancel'               => t('common.cancel'),
+    'err_prefix'           => t('common.error_prefix'),
+    'err_retry'            => t('common.err_retry'),
+    'err_connection'       => t('common.err_connection'),
+    'err_connection_msg'   => t('common.err_connection_msg'),
+    'err_unknown'          => t('common.err_unknown'),
+    'hint_open'            => t('well_grid.hint_open'),
+    'hint_close'           => t('well_grid.hint_close'),
+    'storage_modal_title'  => t('well_grid.storage_modal_title'),
+    'storage_cap_before'   => t('well_grid.storage_cap_before'),
+    'storage_cap_after'    => t('well_grid.storage_cap_after'),
+    'storage_cost_label'   => t('well_grid.storage_cost_label'),
+    'storage_confirm_btn'  => t('well_grid.storage_confirm_btn'),
+    'storage_upgrading'    => t('well_grid.storage_upgrading'),
+    'storage_done'         => t('well_grid.storage_done'),
+    'tier_black_market'    => t('well_grid.tier_black_market'),
+    'tier_standard'        => t('well_grid.tier_standard'),
+    'tier_premium'         => t('well_grid.tier_premium'),
+    'eq_swap_remaining'    => t('wg.eq_swap_remaining'),
+    'tier_confirm'         => t('well_grid.tier_confirm'),
+    'tier_change_title'    => t('well_grid.tier_change_title'),
+    'upgrade_confirm'      => t('well_grid.upgrade_confirm'),
+    'upgrade_title'        => t('well_grid.upgrade_title'),
+    'eq_confirm_title'     => t('well_grid.eq_confirm_title'),
+    'eq_confirm_ok'        => t('well_grid.eq_confirm_ok'),
+    'layer_confirm'        => t('well_grid.layer_confirm'),
+    'layer_confirm_title'  => t('well_grid.layer_confirm_title'),
+    'layer_confirm_ok'     => t('well_grid.layer_confirm_ok'),
+    'layer_cost'           => t('well_grid.layer_cost'),
+    'layer_paused'         => t('well_grid.layer_paused'),
+    'layer_reset'          => t('well_grid.layer_reset'),
+    'sell_title'           => t('well_grid.sell_title'),
+    'sell_modal_title'     => t('well_grid.sell_modal_title'),
+    'sell_confirm_btn'     => t('well_grid.sell_confirm_btn'),
+    'sell_row_base'        => t('well_grid.sell_row_base'),
+    'sell_row_condition'   => t('well_grid.sell_row_condition'),
+    'sell_row_wear'        => t('well_grid.sell_row_wear'),
+    'sell_row_risk'        => t('well_grid.sell_row_risk'),
+    'sell_row_equipment'   => t('well_grid.sell_row_equipment'),
+    'sell_row_depth'       => t('well_grid.sell_row_depth'),
+    'sell_row_incident'    => t('well_grid.sell_row_incident'),
+    'sell_reservoir_label' => t('well_grid.sell_reservoir_label'),
+    'sell_reservoir_val'   => t('well_grid.sell_reservoir_val'),
+    'sell_price_label'     => t('well_grid.sell_price_label'),
+    'sell_note'            => t('well_grid.sell_note'),
+    'sold_toast'           => t('well_grid.sold_toast'),
+    'err_sell'             => t('well_grid.err_sell'),
+    'swap_done'            => t('well_grid.swap_done'),
+    'transport_switched'   => t('well_grid.transport_switched'),
+    'transport_pipe_label' => t('wg.transport_pipe_label'),
+    'transport_pipe_desc'  => t('wg.transport_pipe_desc'),
+    'pipe_build_cost'      => t('technical.pipe_build_cost'),
+    'transport_title'      => t('wg.transport_title'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="<?= asset('/assets/js/well_grid.js') ?>"></script>

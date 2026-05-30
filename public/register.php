@@ -45,7 +45,7 @@ if ($_POST) {
                 try {
                     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-                    // Generuj unikalny username z emaila (czesc przed @)
+ // Generuj unikalny username z emaila (czesc przed @)
                     $baseUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $email)[0]));
                     $baseUsername = substr($baseUsername ?: 'player', 0, 28);
                     $username = $baseUsername;
@@ -79,21 +79,21 @@ if ($_POST) {
 
                     $playerId = (int)$db->lastInsertId();
 
-                    // Magazyn startowy
+ // Magazyn startowy
                     $insertStorage = $db->prepare("
                         INSERT INTO storage (player_id, capacity, used, updated_at)
                         VALUES (:player_id, 200, 0, NOW())
                     ");
                     $insertStorage->execute([':player_id' => $playerId]);
 
-                    // Gotowka startowa — bez odwiertu, gracz kupuje przez Mape
+ // Gotowka startowa bez odwiertu, gracz kupuje przez Mape
                     $db->prepare("
                         UPDATE players SET cash = 10000000 WHERE id = ?
                     ")->execute([$playerId]);
 
                     $db->commit();
 
-                    // Wyslij e-mail weryfikacyjny (poza transakcja)
+ // Wyslij e-mail weryfikacyjny (poza transakcja)
                     Auth::sendVerificationEmail($playerId, $email, $username);
 
                     GameLog::info('public/register.php', 'Player registered, verification email sent', [

@@ -13,7 +13,7 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
 {
     private MarineDeliveryService $svc;
 
-    // Port ID poza zakresem trackedIds (seed+10)
+ // Port ID poza zakresem trackedIds (seed+10)
     private int $portId;
 
     protected function setUp(): void
@@ -25,7 +25,7 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
 
     protected function tearDown(): void
     {
-        // Usun dane morskie przed czyszczeniem glownym
+ // Usun dane morskie przed czyszczeniem glownym
         $playerId = $this->getTrackedIds()['playerId'];
         try { $this->db->prepare('DELETE FROM port_queue WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
         try { $this->db->prepare('DELETE FROM marine_deliveries WHERE player_id = ?')->execute([$playerId]); } catch (\Throwable $e) {}
@@ -34,9 +34,9 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         parent::tearDown();
     }
 
-    // 
-    // Helper: wstaw port bezposrednio do bazy
-    // 
+ // 
+ // Helper: wstaw port bezposrednio do bazy
+ // 
 
     private function seedPort(int $regionId = 77, string $status = 'active'): int
     {
@@ -52,9 +52,9 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         return $this->portId;
     }
 
-    // 
-    // createDelivery
-    // 
+ // 
+ // createDelivery
+ // 
 
     public function testCreateDeliveryReturnsPositiveId(): void
     {
@@ -109,7 +109,7 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
     {
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
-        // Region 998 — nie ma portu
+ // Region 998 nie ma portu
         $this->seedWell($playerId, $ids['wellId'], 'active', 998, 'A1', 'tankowiec', 100.0, 50.0);
 
         $well = ['region_id' => 998];
@@ -119,8 +119,8 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         $stmt->execute([$id]);
         $row = $stmt->fetch();
 
-        // Brak portu dla regionu 998 — port_id moze byc null lub fallback
-        // Test sprawdza tylko ze rekord istnieje (port_id null lub int)
+ // Brak portu dla regionu 998 port_id moze byc null lub fallback
+ // Test sprawdza tylko ze rekord istnieje (port_id null lub int)
         $this->assertArrayHasKey('port_id', $row);
     }
 
@@ -145,9 +145,9 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         $this->assertGreaterThan($departure, $eta,    'ETA powinno byc po departure');
     }
 
-    // 
-    // getActiveForPlayer
-    // 
+ // 
+ // getActiveForPlayer
+ // 
 
     public function testGetActiveForPlayerReturnsCreatedDeliveries(): void
     {
@@ -177,7 +177,7 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         $well = ['region_id' => 77];
         $id   = $this->svc->createDelivery($playerId, $ids['wellId'], 50.0, 1.0, $well, []);
 
-        // Oznacz jako delivered
+ // Oznacz jako delivered
         $this->db->prepare("UPDATE marine_deliveries SET status = 'delivered' WHERE id = ?")->execute([$id]);
 
         $active = $this->svc->getActiveForPlayer($playerId);
@@ -194,15 +194,15 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         $well = ['region_id' => 77];
         $this->svc->createDelivery($playerId, $ids['wellId'], 30.0, 1.0, $well, []);
 
-        // Inny gracz nie ma dostaw
+ // Inny gracz nie ma dostaw
         $other = $this->svc->getActiveForPlayer($playerId + 99999);
 
         $this->assertCount(0, $other, 'Inny gracz nie ma zadnych dostaw');
     }
 
-    // 
-    // getHistoryForPlayer
-    // 
+ // 
+ // getHistoryForPlayer
+ // 
 
     public function testGetHistoryForPlayerReturnsDeliveredEntries(): void
     {
@@ -214,7 +214,7 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         $id1  = $this->svc->createDelivery($playerId, $ids['wellId'], 55.0, 1.0, $well, []);
         $id2  = $this->svc->createDelivery($playerId, $ids['wellId'], 30.0, 1.0, $well, []);
 
-        // id1 delivered, id2 nadal departing
+ // id1 delivered, id2 nadal departing
         $this->db->prepare("UPDATE marine_deliveries SET status = 'delivered', delivered_at = NOW() WHERE id = ?")
             ->execute([$id1]);
 
@@ -242,9 +242,9 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         $this->assertCount(3, $history, 'Limit = 3, powinny byc 3 wpisy w historii');
     }
 
-    // 
-    // getInTransitBbl
-    // 
+ // 
+ // getInTransitBbl
+ // 
 
     public function testGetInTransitBblSumsActiveDeparting(): void
     {

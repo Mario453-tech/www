@@ -10,8 +10,8 @@ class AdminAuth
     private const MAX_ATTEMPTS = 3; // lock after this many bad attempts
     private const LOCKOUT_MINUTES = 30; // account lock duration in minutes
 
-    // Login by username or email.
-    // PL: Logowanie po nazwie uzytkownika lub emailu.
+ // Login by username or email.
+ // PL: Logowanie po nazwie uzytkownika lub emailu.
     public static function login(string $login, string $password): bool
     {
         $db = Database::getInstance()->getConnection();
@@ -29,8 +29,8 @@ class AdminAuth
             return false;
         }
 
-        // Check account lock status.
-        // PL: Sprawdz blokade konta.
+ // Check account lock status.
+ // PL: Sprawdz blokade konta.
         if ($admin['lock_until'] && strtotime($admin['lock_until']) > time()) {
             $minutesLeft = (int)ceil((strtotime($admin['lock_until']) - time()) / 60);
             self::log('ACCOUNT_LOCKED', "Login attempt on locked account '$login' - {$minutesLeft} min left");
@@ -42,8 +42,8 @@ class AdminAuth
             return false;
         }
 
-        // Successful login clears failed-attempt counters.
-        // PL: Udane logowanie zeruje liczniki bledow.
+ // Successful login clears failed-attempt counters.
+ // PL: Udane logowanie zeruje liczniki bledow.
         self::setSession($admin);
         $db->prepare("UPDATE admins SET last_login_at = NOW(), last_login_ip = ?, failed_attempts = 0, lock_until = NULL WHERE id = ?")
             ->execute([$_SERVER['REMOTE_ADDR'] ?? '', $admin['id']]);
@@ -51,8 +51,8 @@ class AdminAuth
         return true;
     }
 
-    // Auto-login if a logged-in player also has an admin account.
-    // PL: Auto-login, jesli zalogowany gracz ma tez konto admina.
+ // Auto-login if a logged-in player also has an admin account.
+ // PL: Auto-login, jesli zalogowany gracz ma tez konto admina.
     public static function trySSO(): bool
     {
         if (self::isLoggedIn()) {
@@ -82,8 +82,8 @@ class AdminAuth
         return true;
     }
 
-    // Store admin session fields.
-    // PL: Zapisz pola sesji admina.
+ // Store admin session fields.
+ // PL: Zapisz pola sesji admina.
     private static function setSession(array $admin): void
     {
         session_regenerate_id(true);
@@ -98,8 +98,8 @@ class AdminAuth
 
     public static function requireLogin(): void
     {
-        // Try SSO first if player session exists.
-        // PL: Najpierw sproboj SSO, jesli istnieje sesja gracza.
+ // Try SSO first if player session exists.
+ // PL: Najpierw sproboj SSO, jesli istnieje sesja gracza.
         if (!self::isLoggedIn()) {
             self::trySSO();
         }
@@ -129,8 +129,8 @@ class AdminAuth
         $user = $_SESSION['admin_user'] ?? '?';
         self::log('LOGOUT', "Logged out: '$user'");
 
-        // Destroy the whole session, including the player SSO session.
-        // PL: Zniszcz cala sesje, razem z sesja gracza od SSO.
+ // Destroy the whole session, including the player SSO session.
+ // PL: Zniszcz cala sesje, razem z sesja gracza od SSO.
         session_unset();
         session_destroy();
         $_SESSION = [];
@@ -138,7 +138,6 @@ class AdminAuth
             $p = session_get_cookie_params();
             setcookie(session_name(), '', time() - 3600, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
         }
-        session_destroy();
 
         if ($redirect) {
             header('Location: /admin/login.php?logged_out=1');
@@ -161,8 +160,8 @@ class AdminAuth
         return $_SESSION['admin_email'] ?? '';
     }
 
-    // Password reset flow.
-    // PL: Obsluga resetu hasla.
+ // Password reset flow.
+ // PL: Obsluga resetu hasla.
     public static function sendPasswordReset(string $email): array
     {
         $db = Database::getInstance()->getConnection();
@@ -170,8 +169,8 @@ class AdminAuth
         $stmt->execute([$email]);
         $admin = $stmt->fetch();
 
-        // Always return success, do not reveal account existence.
-        // PL: Zawsze zwracaj sukces, bez ujawniania czy konto istnieje.
+ // Always return success, do not reveal account existence.
+ // PL: Zawsze zwracaj sukces, bez ujawniania czy konto istnieje.
         if (!$admin) {
             self::log('RESET_NOTFOUND', "Password reset - no account: $email");
             return ['success' => true];
@@ -240,8 +239,8 @@ class AdminAuth
         return ['success' => true, 'message' => t('admin_auth.msg_password_changed')];
     }
 
-    // Simple IP rate limiting.
-    // PL: Prosty rate limiting po IP.
+ // Simple IP rate limiting.
+ // PL: Prosty rate limiting po IP.
     public static function isIpBlocked(): bool
     {
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -259,8 +258,8 @@ class AdminAuth
         }
     }
 
-    // Used when no admin account exists for the login attempt.
-    // PL: Uzywane, gdy dla probowanego loginu nie ma konta admina.
+ // Used when no admin account exists for the login attempt.
+ // PL: Uzywane, gdy dla probowanego loginu nie ma konta admina.
     private static function logFail(string $login, string $reason): void
     {
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -278,8 +277,8 @@ class AdminAuth
         self::log('LOGIN_FAIL', "$reason | login='$login'");
     }
 
-    // Used when admin exists and failed attempts must be updated.
-    // PL: Uzywane, gdy admin istnieje i trzeba zaktualizowac liczniki bledow.
+ // Used when admin exists and failed attempts must be updated.
+ // PL: Uzywane, gdy admin istnieje i trzeba zaktualizowac liczniki bledow.
     private static function logFailAccount(array $admin, string $login): void
     {
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -335,8 +334,8 @@ class AdminAuth
         );
     }
 
-    // Backward-compatible alias for legacy callers.
-    // PL: Alias wsteczny dla starszych wywolan.
+ // Backward-compatible alias for legacy callers.
+ // PL: Alias wsteczny dla starszych wywolan.
     public static function writeLog(string $level, string $message): void
     {
         self::log($level, $message);

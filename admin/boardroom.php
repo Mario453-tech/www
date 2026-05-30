@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin — Boardroom management
+ * Admin Boardroom management
  * Manage header/footer config, roles (CRUD), role images.
  */
 require_once __DIR__ . '/init.php';
@@ -14,12 +14,12 @@ $success = [];
 $uploadDir = __DIR__ . '/../assets/images/boardroom/';
 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
-//  POST HANDLERS 
+// POST HANDLERS 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    // Add new role
+ // Add new role
     if ($action === 'add_role') {
         try {
             $code = preg_replace('/[^a-z0-9_]/', '', strtolower(trim($_POST['role_code'] ?? '')));
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$code || !$name) {
                 $errors[] = t('boardroom.err_code_name_required');
             } else {
-                // Check if code exists
+ // Check if code exists
                 $chk = $db->prepare("SELECT id FROM board_roles WHERE code = ?");
                 $chk->execute([$code]);
                 if ($chk->fetch()) {
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Update role
+ // Update role
     if ($action === 'update_role') {
         try {
             $roleId = (int)($_POST['role_id'] ?? 0);
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $db->prepare("UPDATE board_roles SET name=?, description=?, icon=?, sort_order=?, is_active=? WHERE id=?");
                 $stmt->execute([$name, $desc, $icon, $sort, $active, $roleId]);
 
-                // Avatar upload for role
+ // Avatar upload for role
                 if (isset($_FILES['role_avatar']) && $_FILES['role_avatar']['error'] === UPLOAD_ERR_OK) {
                     $file = $_FILES['role_avatar'];
                     $allowed = ['image/jpeg', 'image/png', 'image/webp'];
@@ -86,11 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Delete role
+ // Delete role
     if ($action === 'delete_role') {
         try {
             $roleId = (int)($_POST['role_id'] ?? 0);
-            // Check if any active members use this role
+ // Check if any active members use this role
             $chk = $db->prepare("SELECT COUNT(*) FROM board_members WHERE role_id=? AND status='active'");
             $chk->execute([$roleId]);
             if ((int)$chk->fetchColumn() > 0) {
@@ -106,12 +106,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 }
 
-//  FETCH DATA 
+// FETCH DATA 
 
 try {
     $roles = $db->query("SELECT * FROM board_roles ORDER BY sort_order, id")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
-    // Fallback gdy brak kolumny sort_order — dodaj j¹ przez panel DB lub uruchom migracjê
+ // Fallback gdy brak kolumny sort_order dodaj j przez panel DB lub uruchom migracj
     $roles = $db->query("SELECT * FROM board_roles ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 }
 

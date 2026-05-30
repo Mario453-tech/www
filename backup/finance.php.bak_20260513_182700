@@ -1,0 +1,124 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../src/init.php';
+
+Auth::requireLogin();
+BoardAccess::require(Auth::getUserId(), 'finance');
+
+$db       = Database::getInstance()->getConnection();
+$playerId = Auth::getUserId();
+
+require_once __DIR__ . '/../src/FinanceService.php';
+require_once __DIR__ . '/../src/FinancePolicyService.php';
+$finSvc = new FinanceService();
+$policySvc = new FinancePolicyService();
+
+$hours = (int)($_GET['hours'] ?? 24);
+if (!in_array($hours, [24, 168], true)) {
+    $hours = 24;
+}
+
+$tab = (string)($_GET['tab'] ?? 'overview');
+if (!in_array($tab, ['overview', 'budgets', 'liquidity', 'risk', 'history'], true)) {
+    $tab = 'overview';
+}
+
+$msg = '';
+$err = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        die(t('common.csrf_error'));
+    }
+
+    $action = (string)($_POST['action'] ?? '');
+    if ($action === 'save_finance_settings') {
+        $policySvc->saveSettings($playerId, [
+            'technical_budget' => (string)($_POST['technical_budget'] ?? 'standard'),
+            'logistics_budget' => (string)($_POST['logistics_budget'] ?? 'standard'),
+            'hr_budget' => (string)($_POST['hr_budget'] ?? 'standard'),
+            'safety_budget' => (string)($_POST['safety_budget'] ?? 'standard'),
+            'reserve_policy' => (string)($_POST['reserve_policy'] ?? 'standard'),
+        ]);
+        $msg = t('finance.msg_settings_saved');
+        $tab = 'budgets';
+    }
+}
+
+$last     = $finSvc->getLastTick($playerId);
+$summary  = $finSvc->getSummary($playerId, $hours);
+$summary24 = $finSvc->getSummary($playerId, 24);
+$history  = $finSvc->getHistory($playerId, $hours);
+$perWell  = $finSvc->getPerWellStats($playerId);
+$alerts   = $finSvc->getAlerts($playerId, $last ?? [], $finSvc->getSummary($playerId, 24));
+$settings = $policySvc->getSettings($playerId);
+$liquidity = $finSvc->getLiquidityOverview($playerId, $settings, $last, $summary24);
+$riskOverview = $finSvc->getRiskOverview($settings, $last, $summary24, $perWell);
+$decisionHistory = $policySvc->getDecisionHistory($playerId, 20);
+$oilPrice = (float)($db->query("SELECT current_price FROM market_state WHERE id = 1")->fetchColumn() ?? 70);
+$cash     = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
+
+$budgetLevelOptions = [
+    'low' => t('finance.level_low'),
+    'standard' => t('finance.level_standard'),
+    'high' => t('finance.level_high'),
+];
+$reserveOptions = [
+    'low' => t('finance.reserve_low'),
+    'standard' => t('finance.reserve_standard'),
+    'high' => t('finance.reserve_high'),
+];
+
+function fmtPLN(float $value, bool $sign = false): string
+{
+    $formatted = number_format(abs($value), 0, ',', ' ') . ' PLN';
+    if ($sign) {
+        return ($value >= 0 ? '+' : '&minus;') . $formatted;
+    }
+
+    return $value < 0 ? '&minus;' . $formatted : $formatted;
+}
+
+function fmtPct(float $value): string
+{
+    return number_format(abs($value), 1, ',', ' ') . '%';
+}
+
+function pct(float $part, float $base): string
+{
+    return $base > 0 ? number_format(abs($part / $base * 100), 1, ',', ' ') . '%' : '&mdash;';
+}
+
+$pageTitle = t('finance.page_title');
+$extraCss  = ['/assets/css/finance.css'];
+$viewData  = compact(
+    'alerts',
+    'hours',
+    'tab',
+    'msg',
+    'err',
+    'last',
+    'summary',
+    'summary24',
+    'history',
+    'perWell',
+    'oilPrice',
+    'cash',
+    'settings',
+    'budgetLevelOptions',
+    'reserveOptions',
+    'liquidity',
+    'riskOverview',
+    'decisionHistory'
+);
+$viewData  = array_merge($viewData, GameShell::data($playerId));
+
+$gameShellTitle = t('finance.page_title');
+$gameShellView  = __DIR__ . '/../templates/views/public/finance/main.php';
+
+require_once __DIR__ . '/../templates/header.php';
+extract($viewData, EXTR_SKIP);
+$actions     = $viewData['actions'] ?? [];
+$statusItems = $viewData['statusItems'] ?? [];
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';

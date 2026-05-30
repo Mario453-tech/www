@@ -6,8 +6,8 @@
  */
 trait TTSNotificationsTrait
 {
-    // Notifications.
-    // Powiadomienia.
+ // Notifications.
+ // Powiadomienia.
 
     public function countUnreadNotifications(): int
     {

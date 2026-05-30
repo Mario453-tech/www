@@ -54,8 +54,8 @@ GameLog::info('HRApi', 'Incoming action', [
 try {
     switch ($action) {
         case 'get_panel_data':
-            // processReadyRecruitments() is only triggered by tick.php.
-            // PL: processReadyRecruitments() jest wywolywane tylko przez tick.php.
+ // processReadyRecruitments() is only triggered by tick.php.
+ // PL: processReadyRecruitments() jest wywolywane tylko przez tick.php.
             echo json_encode([
                 'success' => true,
                 'employees' => $hr->getActiveEmployees(),
@@ -107,8 +107,8 @@ try {
                 $specCode = null;
             }
 
-            // Max 2 parallel recruitments.
-            // PL: Maksymalnie 2 rownolegle rekrutacje.
+ // Max 2 parallel recruitments.
+ // PL: Maksymalnie 2 rownolegle rekrutacje.
             if ($initiator === 'director') {
                 $cntStmt = $db->prepare("
                     SELECT COUNT(*)
@@ -134,8 +134,8 @@ try {
                 respondJson(['success' => false, 'error' => t('hr.err_max_recruitments')], 422);
             }
 
-            // Prevent duplicate recruitment for the same role.
-            // PL: Nie pozwalaj na duplikat rekrutacji dla tej samej roli.
+ // Prevent duplicate recruitment for the same role.
+ // PL: Nie pozwalaj na duplikat rekrutacji dla tej samej roli.
             if ($initiator === 'director') {
                 $dupStmt = $db->prepare("
                     SELECT COUNT(*)

@@ -1,0 +1,261 @@
+/* 
+   OILCORP - mobile.css
+   Pelna responsywnosc 768px i 480px dla wszystkich modulow.
+   Ladowany po wszystkich innych CSS w <head>.
+*/
+
+/* GLOBALNE */
+@media (max-width: 768px) {
+
+    .container { padding: 0 10px 0; }
+
+    /* Header / logo */
+    .header { padding: 12px 0; margin-bottom: 16px; gap: 2px 0; }
+    .header h1 { font-size: 15px; letter-spacing: 4px; }
+    .header h1 small { font-size: 6px; letter-spacing: 3px; margin-top: 3px; }
+    .user-greeting { display: none; }
+    .user-nav { gap: 4px; }
+
+    /* Karty */
+    .card { padding: 12px 12px; }
+    .card h2 { font-size: 9px; letter-spacing: 2px; padding-bottom: 10px; margin-bottom: 12px; }
+
+    /* Przyciski */
+    .btn { padding: 9px 14px; font-size: 10px; letter-spacing: 1px; }
+    .btn-sm { padding: 6px 10px; font-size: 9px; }
+
+    /* Module tabs - scroll poziomy */
+    .module-tabs {
+        padding: 0 2px;
+        gap: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+    }
+
+    /* Action grid - 2 kolumny */
+    .action-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+    /* Action btn row stack na mobile / Stack action buttons on mobile */
+    .action-btn-row { flex-direction: column; }
+    .action-btn-row > * { flex: none; width: 100%; }
+
+    /* Page-nav */
+    .page-nav { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 14px; }
+
+    /* Stat-bar (strona glowna) */
+    .db-stats-row,
+    .stat-bar,
+    .stats-row { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+
+    /* Tabele - scroll poziomy */
+    .table-scroll,
+    .contracts-table,
+    .specs-table,
+    .history-table,
+    .logistics-table,
+    .fin-table { overflow-x: auto; }
+
+    /* Modalne */
+    .modal-content,
+    .repay-modal { max-width: 94vw !important; padding: 20px 16px !important; }
+}
+
+/* STRONA GLOWNA (index / home) */
+@media (max-width: 768px) {
+
+    /* Trend alert */
+    .trend-alert__body { padding: 12px 14px; gap: 10px; }
+
+    /* Bailiff */
+    .bailiff-actions { flex-direction: column; gap: 8px; }
+
+    /* Bank approved - inline */
+    .card--bank-approved { flex-direction: column; gap: 8px; }
+}
+
+/* RYNEK */
+@media (max-width: 768px) {
+
+    /* Tabs rynku - scroll */
+    .market-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+
+    /* Wykres cen - mniejsza wysokosc */
+    .price-chart-bars { height: 70px; }
+
+    /* My offers - scroll poziomy */
+    .my-offers-head,
+    .my-offers-row { grid-template-columns: 2fr 1fr 1fr 2fr; }
+
+    /* Formularz sprzedazy */
+    .market-sell-form,
+    .market-instant-form { gap: 10px; }
+
+    /* Black market grid */
+    .bm-offer-row,
+    .bm-history-row { min-width: 500px; }
+}
+
+/* BANK */
+@media (max-width: 768px) {
+
+    .loan-card { padding: 12px !important; }
+
+    /* Repay options */
+    .repay-options { flex-direction: column; }
+
+    /* Formularze */
+    .form-group input,
+    .form-group select {
+        min-height: 48px !important;
+        font-size: 15px !important;
+    }
+}
+
+/* FINANSE */
+@media (max-width: 768px) {
+
+    .fin-policy-grid { grid-template-columns: 1fr !important; }
+
+    /* Overview stat grid */
+    .fin-overview-grid,
+    .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+    /* History table */
+    .fin-history-list { overflow-x: auto; }
+
+    /* Budget sliders */
+    .fin-budget-row { flex-direction: column; }
+}
+
+/* TECHNICZNY */
+@media (max-width: 768px) {
+
+    /* Manager card */
+    .manager-card { flex-direction: column; }
+
+    /* Staff grid */
+    .staff-grid { grid-template-columns: 1fr 1fr !important; }
+
+    /* Well detail */
+    .well-detail-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+    /* Tabs sekcji */
+    .t-section-tabs { overflow-x: auto; }
+}
+
+/* HR / KADRY */
+@media (max-width: 768px) {
+
+    .recruit-form-grid { grid-template-columns: 1fr !important; }
+
+    /* Historia kontraktow - scroll */
+    .contracts-table th,
+    .contracts-table td { font-size: 11px; }
+}
+
+/* LOGISTYKA */
+@media (max-width: 768px) {
+
+    .logistics-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+    .logistics-table-row { min-width: 600px; }
+}
+
+/* BOARDROOM */
+@media (max-width: 768px) {
+
+    /* Naglowek boardroom */
+    .br-header-content { flex-direction: column; }
+
+    /* Scena - wieksza proporcja */
+    .scene { aspect-ratio: 3 / 2 !important; }
+
+    /* Sloty */
+    .slot-num,
+    .slot-label { font-size: 8px !important; }
+
+    /* Licznik miejsc */
+    .seat-count-num { font-size: 20px; }
+}
+
+/* CZAT + NEWSY */
+@media (max-width: 768px) {
+
+    .chat-news-wrapper {
+        flex-direction: column !important;
+    }
+
+    .chat-messages { height: 200px; }
+}
+
+/* MAPA */
+@media (max-width: 768px) {
+
+    .map-layout { flex-direction: column !important; }
+
+    .map-canvas { min-height: 260px; }
+}
+
+/* WELL-GRID (odwierty) */
+@media (max-width: 768px) {
+
+    .well-grid { grid-template-columns: 1fr !important; }
+}
+
+/* MODAL globalny */
+@media (max-width: 768px) {
+
+    .modal-overlay { align-items: flex-end; }
+}
+
+/* NAVBAR - kompaktowy na tabletach */
+@media (max-width: 900px) {
+
+    /* Logo - mniejszy font */
+    .header h1 {
+        font-size: 14px;
+    }
+
+    /* Avatar - kompaktowy */
+    .topbar-avatar {
+        width: 22px !important;
+    }
+}
+
+/* BURGER MENU - nawigacja mobilna */
+
+/* Burger button - ukryty domyslnie */
+.nav-burger {
+    display: none;
+}
+
+/* Backdrop - ukryty domyslnie */
+.nav-backdrop {
+    display: none;
+}
+
+@media (max-width: 600px) {
+
+    /* Pokaz przycisk burgera */
+    .nav-burger { display: flex; }
+
+    /* Nav - wysuwany panel */
+    .user-nav {
+        position: fixed !important;
+    }
+
+    /* Avatar sekcja */
+    .user-nav .topbar-user-link {
+        display: flex !important;
+    }
+
+    /* Przyciski - pelna szerokosc */
+    .user-nav .btn {
+        width: 100% !important;
+    }
+}

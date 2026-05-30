@@ -6,13 +6,13 @@
  * Skanuje .php, .js, .css, .html rekurencyjnie od katalogu skryptu.
  *
  * Algorytm: iconv('UTF-8','CP1250//IGNORE') odwraca double-encoding.
- * NIE jest idempotentny — pliki juz naprawione sa wykluczone przez SKIP_FILES.
+ * NIE jest idempotentny - pliki juz naprawione sa wykluczone przez SKIP_FILES.
  *
  * Uzycie:
- *   php fix_encoding_mass.php              -- skanuj i napraw
- *   php fix_encoding_mass.php --dry-run    -- tylko podglad, brak zapisu
- *   php fix_encoding_mass.php --scan-only  -- pokaz pliki wymagajace naprawy
- *   php fix_encoding_mass.php --min-diff=N -- minimalny diff w bajtach (domyslnie 4)
+ * php fix_encoding_mass.php -- skanuj i napraw
+ * php fix_encoding_mass.php --dry-run -- tylko podglad, brak zapisu
+ * php fix_encoding_mass.php --scan-only -- pokaz pliki wymagajace naprawy
+ * php fix_encoding_mass.php --min-diff=N -- minimalny diff w bajtach (domyslnie 4)
  */
 declare(strict_types=1);
 
@@ -36,15 +36,15 @@ const SKIP_DIRS = [
 ];
 
 // Pliki juz naprawione recznie lub z Unicode > CP1250 (emoji, znaki specjalne).
-// NIE uruchamiac na nich iconv ponownie — zniszczy poprawne znaki.
+// NIE uruchamiac na nich iconv ponownie - zniszczy poprawne znaki.
 const SKIP_FILES = [
-    // well_grid — naprawione recznie (maja x U+00D7, middot U+00B7, emoji SVG)
+ // well_grid - naprawione recznie (maja x U+00D7, middot U+00B7, emoji SVG)
     'templates/components/well_grid/layers.php',
     'templates/components/well_grid/transport.php',
     'assets/js/well_grid.js',
-    // emoji.js ma realne emoji 4-bajtowe UTF-8 — iconv by je zniszczyl
+ // emoji.js ma realne emoji 4-bajtowe UTF-8 - iconv by je zniszczyl
     'assets/js/emoji.js',
-    // skrypty naprawcze — ten skrypt sam w sobie
+ // skrypty naprawcze - ten skrypt sam w sobie
     'fix_encoding_mass.php',
     'fix_template_encoding.php',
     'fix_emoji_to_svg.php',
@@ -96,7 +96,7 @@ function inSkipDir(string $path, string $root): bool
         }
         foreach (SKIP_DIRS as $sd) {
             $sd = strtolower(rtrim($sd, '/\\'));
-            // Dokladne dopasowanie lub prefix (dla _backup_20260503 itp.)
+ // Dokladne dopasowanie lub prefix (dla _backup_20260503 itp.)
             if ($part === $sd || str_starts_with($part, $sd)) {
                 return true;
             }
@@ -142,7 +142,7 @@ foreach ($iter as $fileInfo) {
         continue;
     }
 
-    // Wczytaj plik
+ // Wczytaj plik
     $content = file_get_contents($fullPath);
     if ($content === false) {
         echo "[BLAD]  Nie mozna odczytac: {$fullPath}\n";
@@ -150,13 +150,13 @@ foreach ($iter as $fileInfo) {
         continue;
     }
 
-    // Usun BOM
+ // Usun BOM
     $hasBom = str_starts_with($content, "\xef\xbb\xbf");
     if ($hasBom) {
         $content = substr($content, 3);
     }
 
-    // Sprawdz iconv diff
+ // Sprawdz iconv diff
     $fixed = iconv('UTF-8', 'CP1250//IGNORE', $content);
     if ($fixed === false) {
         echo "[BLAD]  iconv() fail: {$fullPath}\n";
@@ -196,7 +196,7 @@ if (empty($needFix)) {
             continue;
         }
 
-        // Kopia zapasowa
+ // Kopia zapasowa
         $backup = $item['full'] . '.bak_mass_' . date('Ymd_His');
         if (!copy($item['full'], $backup)) {
             echo "    [BLAD] Nie mozna utworzyc kopii zapasowej!\n";
@@ -204,7 +204,7 @@ if (empty($needFix)) {
             continue;
         }
 
-        // Zapis
+ // Zapis
         if (file_put_contents($item['full'], $item['fixed']) === false) {
             echo "    [BLAD] Nie mozna zapisac!\n";
             $stats['errors']++;

@@ -6,7 +6,7 @@
  */
 trait BankRepaymentTrait
 {
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getActiveLoans(int $playerId): array
     {
         try {
@@ -26,19 +26,19 @@ trait BankRepaymentTrait
         }
     }
 
-    /**
-     * Repayment mode can be installment, multiple or full.
-     * Tryb splaty moze byc installment, multiple albo full.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Repayment mode can be installment, multiple or full.
+ * Tryb splaty moze byc installment, multiple albo full.
+ *
+ * @return array<string, mixed>
+ */
     public function repay(int $loanId, int $playerId, string $mode, int $count = 1): array
     {
         try {
             $db = $this->db;
 
-            // Auto-migrate missing loan columns before repayment logic.
-            // Automatycznie dodaj brakujace kolumny loans przed logika splaty.
+ // Auto-migrate missing loan columns before repayment logic.
+ // Automatycznie dodaj brakujace kolumny loans przed logika splaty.
             $this->ensureLoanColumnsExist();
 
             $stmt = $db->prepare("
@@ -99,8 +99,8 @@ trait BankRepaymentTrait
                     WHERE id = :id
                 ")->execute([':id' => $loanId]);
 
-                // Close active negotiations linked to the paid-off loan.
-                // Zamknij aktywne negocjacje powiazane z splaconym kredytem.
+ // Close active negotiations linked to the paid-off loan.
+ // Zamknij aktywne negocjacje powiazane z splaconym kredytem.
                 $db->prepare("
                     UPDATE bank_negotiations
                     SET status = 'cancelled', resolved_at = NOW()
@@ -136,8 +136,8 @@ trait BankRepaymentTrait
                 ")->execute([':pid' => $playerId]);
             }
 
-            // Resume wells paused for cash shortage if player has cash again.
-            // Wznow odwierty paused_cash, jesli gracz znow ma gotowke.
+ // Resume wells paused for cash shortage if player has cash again.
+ // Wznow odwierty paused_cash, jesli gracz znow ma gotowke.
             $cashAfter = $cash - $toPay;
             if ($cashAfter > 0) {
                 $db->prepare("
@@ -194,10 +194,10 @@ trait BankRepaymentTrait
         }
     }
 
-    /**
-     * Keeps backward compatibility for older callers.
-     * Zachowuje zgodnosc wsteczna dla starszych wywolan.
-     */
+ /**
+ * Keeps backward compatibility for older callers.
+ * Zachowuje zgodnosc wsteczna dla starszych wywolan.
+ */
     public function repayInstallment(int $loanId, int $playerId): array
     {
         return $this->repay($loanId, $playerId, 'installment');

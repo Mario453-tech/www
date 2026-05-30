@@ -73,6 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $wellId = (int)($_POST['well_id'] ?? 0);
         $requestedType = trim((string)($_POST['pipeline_type'] ?? 'standard'));
         $type = $pipelineSvc->normalizePipelineType($requestedType);
+ // Transport leg: 'inbound' (well->hub) or 'outbound' (hub->storage)
+        $leg = trim((string)($_POST['leg'] ?? 'inbound'));
+        $leg = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
 
         try {
             if ($wellId <= 0) {
@@ -117,8 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException(tPlain('admin.pipelines.err_grant_no_hub'));
             }
 
-            $existingStmt = $db->prepare('SELECT id FROM well_pipelines WHERE well_id = ? LIMIT 1');
-            $existingStmt->execute([$wellId]);
+            $existingStmt = $db->prepare('SELECT id FROM well_pipelines WHERE well_id = ? AND leg = ? LIMIT 1');
+            $existingStmt->execute([$wellId, $leg]);
             if ($existingStmt->fetchColumn()) {
                 throw new RuntimeException(tPlain('admin.pipelines.err_grant_exists'));
             }
@@ -131,15 +134,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
             $insertStmt = $db->prepare(
                 "INSERT INTO well_pipelines
-                    (player_id, well_id, hub_id, name, pipeline_type, status, condition_pct, transport_loss,
+                    (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
                      nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
                      opex_per_tick, opex_per_bbl, build_cost, last_inspected_at, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, 'active', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())"
+                 VALUES (?, ?, ?, ?, ?, ?, 'active', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())"
             );
             $insertStmt->execute([
                 (int)$well['player_id'],
                 $wellId,
                 (int)$hub['hub_id'],
+                $leg,
                 $name,
                 $type,
                 $capacity,
@@ -239,8 +243,12 @@ try {
            JOIN players p ON p.id = w.player_id
            JOIN logistics_hub_assignments a ON a.well_id = w.id AND a.status = 'active'
            JOIN logistics_hubs h ON h.id = a.hub_id AND h.status NOT IN ('disabled', 'building')
-           LEFT JOIN well_pipelines wp ON wp.well_id = w.id
-          WHERE wp.id IS NULL
+           LEFT JOIN (
+                SELECT well_id, COUNT(*) AS leg_count
+                  FROM well_pipelines
+                 GROUP BY well_id
+           ) wp ON wp.well_id = w.id
+          WHERE COALESCE(wp.leg_count, 0) < 2
             AND COALESCE(w.well_type, 'onshore') <> 'offshore'
             AND w.status NOT IN ('sold', 'seized', 'blowout')
           ORDER BY p.username ASC, w.id ASC"
@@ -288,6 +296,7 @@ try {
                 w.location_name,
                 wp.name AS pipeline_name,
                 wp.pipeline_type,
+                wp.leg AS pipeline_leg,
                 wp.status AS pipeline_status
            FROM well_pipeline_events e
            LEFT JOIN players p ON p.id = e.player_id
@@ -295,9 +304,9 @@ try {
            LEFT JOIN well_pipelines wp ON wp.id = e.pipeline_id
            {$historyWhereSql}
           ORDER BY e.created_at DESC, e.id DESC
-          LIMIT ? OFFSET ?"
+          LIMIT {$historyFilters['per_page']} OFFSET {$offset}"
     );
-    $historyStmt->execute(array_merge($historyParams, [$historyFilters['per_page'], $offset]));
+    $historyStmt->execute($historyParams);
     $historyRows = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     GameLog::error('admin/pipelines.php', 'Pipeline history lookup failed', $e);

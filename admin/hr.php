@@ -1,8 +1,8 @@
 <?php
 
 /**
- * admin/hr.php ó panel HR: kandydaci, historia, statystyki, edycja specjalizacji.
- * admin/hr.php ó HR panel: candidates, history, stats, specialization editor.
+ * admin/hr.php panel HR: kandydaci, historia, statystyki, edycja specjalizacji.
+ * admin/hr.php HR panel: candidates, history, stats, specialization editor.
  */
 
 require_once __DIR__ . '/init.php';
@@ -13,7 +13,7 @@ $tab = $_GET['tab'] ?? 'candidates';
 $msg = '';
 $err = '';
 
-//  POST: nowa specjalizacja techniczna (staff_specializations) 
+// POST: nowa specjalizacja techniczna (staff_specializations) 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
     }
 }
 
-//  POST: nowa specjalizacja kandydatÛw (hr_specializations) 
+// POST: nowa specjalizacja kandydatw (hr_specializations) 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_hr_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_hr_spec'])) {
     }
 }
 
-//  POST: usuÒ specjalizacjÍ technicznπ 
+// POST: usu specjalizacj techniczn 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_spec'])) {
         if ($code !== '') {
             try {
                 $db->prepare("DELETE FROM staff_specializations WHERE code = ?")->execute([$code]);
-                AdminLog::log('hr_spec_delete', "UsuniÍto specjalizacjÍ: {$code}", null, AdminAuth::getAdminUsername());
+                AdminLog::log('hr_spec_delete', "Usuniƒè≈ºÀùto specjalizacjƒè≈ºÀù: {$code}", null, AdminAuth::getAdminUsername());
                 $msg = t('admin.hr.msg_spec_deleted', ['code' => $code]);
             } catch (Throwable $e) {
                 $err = t('common.db_error');
@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_spec'])) {
     }
 }
 
-//  POST: usuÒ hr_specialization 
+// POST: usu hr_specialization 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_hr_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_hr_spec'])) {
         if ($id > 0) {
             try {
                 $db->prepare("DELETE FROM hr_specializations WHERE id = ?")->execute([$id]);
-                AdminLog::log('hr_hrspec_delete', "UsuniÍto hr_spec id={$id}", null, AdminAuth::getAdminUsername());
+                AdminLog::log('hr_hrspec_delete', "Usuniƒè≈ºÀùto hr_spec id={$id}", null, AdminAuth::getAdminUsername());
                 $msg = t('admin.hr.msg_hrspec_deleted');
             } catch (Throwable $e) {
                 $err = t('common.db_error');
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_hr_spec'])) {
     }
 }
 
-//  POST: edycja specjalizacji technicznej 
+// POST: edycja specjalizacji technicznej 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_spec'])) {
     }
 }
 
-//  POST: edycja hr_specializations (kandydaci) 
+// POST: edycja hr_specializations (kandydaci) 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -173,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_spec'])) {
     }
 }
 
-//  POST: usuÒ wygas≥ych kandydatÛw 
+// POST: usu wygasych kandydatw 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_candidates'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_candidates'])
     }
 }
 
-//  Dane: kandydaci aktywni 
+// Dane: kandydaci aktywni 
 $candidates = [];
 if ($tab === 'candidates') {
     try {
@@ -213,7 +213,7 @@ if ($tab === 'candidates') {
     } catch (Throwable $e) {}
 }
 
-//  Dane: historia zatrudnienia 
+// Dane: historia zatrudnienia 
 $history    = [];
 $histPage   = max(1, (int)($_GET['hpage'] ?? 1));
 $histPer    = 50;
@@ -242,7 +242,7 @@ if ($tab === 'history') {
 }
 $histPages = max(1, (int)ceil($histTotal / $histPer));
 
-//  Dane: statystyki HR graczy 
+// Dane: statystyki HR graczy 
 $stats = [];
 if ($tab === 'stats') {
     try {
@@ -263,7 +263,7 @@ if ($tab === 'stats') {
     } catch (Throwable $e) {}
 }
 
-//  Dane: specjalizacje techniczne (staff_specializations) 
+// Dane: specjalizacje techniczne (staff_specializations) 
 $staffSpecs = [];
 $hrSpecs    = [];
 if ($tab === 'specializations') {

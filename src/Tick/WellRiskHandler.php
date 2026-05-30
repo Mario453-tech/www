@@ -5,9 +5,9 @@
  * WellRiskHandler - well degradation, disasters and incidents.
  *
  * Odpowiada za: / Responsible for:
- *   - degradacje stanu technicznego, risk score i zuzycie spiralne / technical degradation, risk score and spiral wear
- *   - rzut katastrofy (blowout, pozar itp.) / disaster roll (blowout, fire, etc.)
- *   - incydenty produkcyjne (awarie, wycieki, przestoje) / production incidents (failures, leaks, downtime)
+ * - degradacje stanu technicznego, risk score i zuzycie spiralne / technical degradation, risk score and spiral wear
+ * - rzut katastrofy (blowout, pozar itp.) / disaster roll (blowout, fire, etc.)
+ * - incydenty produkcyjne (awarie, wycieki, przestoje) / production incidents (failures, leaks, downtime)
  */
 class WellRiskHandler
 {
@@ -18,14 +18,14 @@ class WellRiskHandler
         $this->ctx = $ctx;
     }
 
-    /**
-     * Degradacja stanu technicznego, risk score i zuzycie (wear + spiral decay).
-     * Technical condition degradation, risk score update and wear (wear + spiral decay).
-     *
-     * @param array<string, mixed> $well
-     * @param array<string, mixed> $hseBonus
-     * @param array<string, mixed> $mults
-     */
+ /**
+ * Degradacja stanu technicznego, risk score i zuzycie (wear + spiral decay).
+ * Technical condition degradation, risk score update and wear (wear + spiral decay).
+ *
+ * @param array<string, mixed> $well
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, mixed> $mults
+ */
     public function processDegradationAndRisk(
         array $well, int $wellId, float $deltaHours, array $hseBonus,
         array $mults, float $transportWearMult, float $offlineRiskMult,
@@ -34,8 +34,8 @@ class WellRiskHandler
         $ws = $this->ctx->wellService;
         try { $ws->processDegradation($wellId, $deltaHours, $hseBonus,
             $mults['techDegradefMult'] * $mults['wearDegMult'] * $mults['spiralMultEffective']
-            * $mults['eqMults']['wear'] * $this->ctx->gBalanceMults['degradation'] * $offlineRiskMult
-            * (float)($this->ctx->financeTechnicalMods['degradation_mult'] ?? 1.0));
+ * $mults['eqMults']['wear'] * $this->ctx->gBalanceMults['degradation'] * $offlineRiskMult
+ * (float)($this->ctx->financeTechnicalMods['degradation_mult'] ?? 1.0));
         } catch (Throwable $e) { GameLog::error('tick', 'processDegradation FAILED', $e, ['well_id' => $wellId]); }
 
         try { $ws->updateRiskScore($wellId, $deltaHours, $hseBonus); }
@@ -45,8 +45,8 @@ class WellRiskHandler
             try { $ws->processWear($wellId, $deltaHours, (float)$well['base_production_per_hour'],
                 (float)($well['oil_richness'] ?? 1.0), false,
                 $mults['spiralWearMult'] * $mults['perkWearMult'] * $mults['eqMults']['wear']
-                * $transportWearMult * $this->ctx->gBalanceMults['wear'] * $mults['layerWearMult']
-                * (float)($this->ctx->financeTechnicalMods['wear_mult'] ?? 1.0));
+ * $transportWearMult * $this->ctx->gBalanceMults['wear'] * $mults['layerWearMult']
+ * (float)($this->ctx->financeTechnicalMods['wear_mult'] ?? 1.0));
             } catch (Throwable $e) { GameLog::error('tick', 'well wear FAILED', $e, ['well_id' => $wellId]); }
 
             try { $ws->processSpiralDecay($wellId, $deltaHours, $hseBonus); }
@@ -54,14 +54,14 @@ class WellRiskHandler
         }
     }
 
-    /**
-     * Rzut katastrofy; zwraca true jezeli katastrofa wystapila (well zostaje pominiety).
-     * Disaster roll; returns true if a disaster occurred (well is skipped).
-     *
-     * @param array<string, mixed> $well
-     * @param array<string, mixed> $hseBonus
-     * @param array<string, mixed> $mults
-     */
+ /**
+ * Rzut katastrofy; zwraca true jezeli katastrofa wystapila (well zostaje pominiety).
+ * Disaster roll; returns true if a disaster occurred (well is skipped).
+ *
+ * @param array<string, mixed> $well
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, mixed> $mults
+ */
     public function processDisasterRoll(
         array $well, int $wellId, int $playerId, float $deltaHours,
         array $hseBonus, array $mults,
@@ -72,13 +72,13 @@ class WellRiskHandler
             $hseForDisaster = $hseBonus;
             $hseForDisaster['catastrophe_mult'] =
                 ($hseBonus['catastrophe_mult'] ?? 1.0)
-                * $mults['techSpecCatMult']
-                * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0);
+ * $mults['techSpecCatMult']
+ * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0);
 
             $disaster = $this->ctx->wellService->processDisasterRoll(
                 $wellId, $deltaHours, $hseForDisaster,
                 $transportDisasterMult * $this->ctx->gBalanceMults['disaster']
-                * $offlineRiskMult * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0)
+ * $offlineRiskMult * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0)
             );
 
             if (!empty($disaster['disaster'])) {
@@ -104,18 +104,18 @@ class WellRiskHandler
         return false;
     }
 
-    /**
-     * Incydenty produkcyjne. Zwraca prod_drop [0.0-1.0] lub 0.0.
-     * Production incidents. Returns prod_drop [0.0-1.0] or 0.0.
-     *
-     * @param  array<string, mixed>      $well
-     * @param  array<string, mixed>      $hseBonus
-     * @param  array<string, mixed>      $mults
-     * @param  array<string, mixed>|null $opRow
-     * @param  array<string, mixed>|null $techRow
-     * @param  array<string, mixed>|null $opPerk
-     * @param  array<string, mixed>|null $techPerk
-     */
+ /**
+ * Incydenty produkcyjne. Zwraca prod_drop [0.0-1.0] lub 0.0.
+ * Production incidents. Returns prod_drop [0.0-1.0] or 0.0.
+ *
+ * @param array<string, mixed> $well
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, mixed> $mults
+ * @param array<string, mixed>|null $opRow
+ * @param array<string, mixed>|null $techRow
+ * @param array<string, mixed>|null $opPerk
+ * @param array<string, mixed>|null $techPerk
+ */
     public function processIncidents(
         array $well, int $wellId, int $playerId, float $deltaHours,
         array $hseBonus, ?int $operatorId, ?int $technicianId,
@@ -137,9 +137,9 @@ class WellRiskHandler
                 'perk_incident_reduction'   => $perkIncidentReduction,
                 'perk_catastrophe_reduction'=> $perkCatRed,
                 'transport_incident_mult'   => $transportIncidentMult
-                    * $this->ctx->gBalanceMults['incident']
-                    * (float)($this->ctx->financeLogisticsMods['incident_mult'] ?? 1.0)
-                    * (float)($this->ctx->financeSafetyMods['incident_mult']    ?? 1.0),
+ * $this->ctx->gBalanceMults['incident']
+ * (float)($this->ctx->financeLogisticsMods['incident_mult'] ?? 1.0)
+ * (float)($this->ctx->financeSafetyMods['incident_mult'] ?? 1.0),
             ];
 
             $incidentResult = $this->ctx->incidentSvc !== null

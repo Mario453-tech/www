@@ -67,9 +67,16 @@ if (file_exists($_tabFile)) include $_tabFile;
 <script>
 window.TECH_LANG = <?= json_encode([
     'ready'                => t('tech_js.ready'),
-    'confirm_assign_title' => t('technical.confirm_assign_title'),
-    'confirm_assign_task'  => t('technical.confirm_assign_task'),
-    'confirm_assign_ok'    => t('technical.confirm_assign_ok'),
+    'confirm_assign_title'    => t('technical.confirm_assign_title'),
+    'confirm_assign_task'     => t('technical.confirm_assign_task'),
+    'confirm_assign_ok'       => t('technical.confirm_assign_ok'),
+    'review_val_no_score'     => t('technical.review_val_no_score'),
+    'review_val_no_rec'       => t('technical.review_val_no_rec'),
+    'review_confirm_title'    => t('technical.review_confirm_title'),
+    'review_confirm_msg'      => t('technical.review_confirm_msg'),
+    'review_confirm_ok'       => t('technical.review_confirm_ok'),
+    'rec_hire_label'          => t('technical.rec_hire'),
+    'rec_reject_label'        => t('technical.rec_reject'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="/assets/js/technical.js"></script>

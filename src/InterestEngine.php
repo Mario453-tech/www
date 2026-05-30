@@ -16,10 +16,10 @@ class InterestEngine
         }
     }
 
-    /**
-     * Accrues interest on all active loans.
-     * Called by the TICK loop.
-     */
+ /**
+ * Accrues interest on all active loans.
+ * Called by the TICK loop.
+ */
     public function calculateInterest(): void
     {
         try {
@@ -40,9 +40,9 @@ class InterestEngine
         }
     }
 
-    /**
-     * Accrues interest for a single loan.
-     */
+ /**
+ * Accrues interest for a single loan.
+ */
     private function calculateLoanInterest(int $loanId): void
     {
         try {
@@ -54,17 +54,17 @@ class InterestEngine
                 return;
             }
 
-            // Calculate time elapsed since last interest accrual
+ // Calculate time elapsed since last interest accrual
             $lastCalc = new DateTime($loan['last_interest_calc_at']);
             $now = new DateTime();
             $timeDiff = $now->getTimestamp() - $lastCalc->getTimestamp();
 
-            // Skip if less than 1 hour has elapsed
+ // Skip if less than 1 hour has elapsed
             if ($timeDiff < 3600) {
                 return;
             }
 
-            // interest = remaining * (APR / 100) * (elapsed / year)
+ // interest = remaining * (APR / 100) * (elapsed / year)
             $apr = $loan['interest_rate'] / 100; // Convert percentage to fraction
             $yearInSeconds = 365 * 24 * 3600;
             $timeFraction = $timeDiff / $yearInSeconds;
@@ -72,10 +72,10 @@ class InterestEngine
             $interest = $loan['remaining_amount'] * $apr * $timeFraction;
             $interest = round($interest, 2);
 
-            // Add interest to remaining balance
+ // Add interest to remaining balance
             $newRemaining = $loan['remaining_amount'] + $interest;
 
-            // Persist
+ // Persist
             $update = $this->db->prepare("
                 UPDATE loans
                 SET remaining_amount = :remaining,
@@ -90,7 +90,7 @@ class InterestEngine
                 ':id' => $loanId
             ]);
 
-            // Record in payment history
+ // Record in payment history
             $payment = $this->db->prepare("
                 INSERT INTO loan_payments
                 (loan_id, player_id, amount, payment_type, created_at)

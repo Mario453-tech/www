@@ -7,6 +7,7 @@ class Database
     
     private function __construct()
     {
+        self::loadEnv(__DIR__ . '/../.env');
         $configFile = __DIR__ . '/../config/database.php';
         
         if (!file_exists($configFile)) {
@@ -66,14 +67,14 @@ class Database
         return $this->pdo;
     }
 
-    /**
-     * Dodaje kolumne do tabeli jesli nie istnieje - kompatybilne z MySQL 8.0.
-     * Adds a column to a table if it does not exist - compatible with MySQL 8.0.
-     *
-     * Uzycie / Usage:
-     *   Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL');
-     *   Database::addColumnIfMissing('players', 'recovery_mode', "TINYINT(1) NOT NULL DEFAULT 0 AFTER bankruptcy_status");
-     */
+ /**
+ * Dodaje kolumne do tabeli jesli nie istnieje - kompatybilne z MySQL 8.0.
+ * Adds a column to a table if it does not exist - compatible with MySQL 8.0.
+ *
+ * Uzycie / Usage:
+ * Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL');
+ * Database::addColumnIfMissing('players', 'recovery_mode', "TINYINT(1) NOT NULL DEFAULT 0 AFTER bankruptcy_status");
+ */
     public static function addColumnIfMissing(string $table, string $column, string $definition): void
     {
         $db     = self::getInstance()->getConnection();

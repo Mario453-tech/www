@@ -6,10 +6,10 @@
  */
 trait HubAssignmentQueryTrait
 {
-    /**
-     * Returns the active assignment record for a well, or null.
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Returns the active assignment record for a well, or null.
+ * @return array<string, mixed>|null
+ */
     public function getWellAssignment(int $wellId): ?array
     {
         $stmt = $this->db->prepare(
@@ -24,10 +24,10 @@ trait HubAssignmentQueryTrait
         return $row ?: null;
     }
 
-    /**
-     * Returns active wells assigned to a hub (all players combined).
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns active wells assigned to a hub (all players combined).
+ * @return list<array<string, mixed>>
+ */
     public function getHubWells(int $hubId): array
     {
         $stmt = $this->db->prepare(
@@ -46,10 +46,10 @@ trait HubAssignmentQueryTrait
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Returns active wells of a specific player assigned to a hub.
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns active wells of a specific player assigned to a hub.
+ * @return list<array<string, mixed>>
+ */
     public function getHubWellsForPlayer(int $hubId, int $playerId): array
     {
         $stmt = $this->db->prepare(

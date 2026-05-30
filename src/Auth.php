@@ -8,13 +8,13 @@ class Auth
 {
     private const SESSION_TTL = 7200; // 2h
 
-    /**
-     * Player login by email or username.
-     * PL: Logowanie gracza po emailu lub nazwie uzytkownika.
-     *
-     * Returns true on success, or an error key string on failure.
-     * PL: Zwraca true przy sukcesie lub klucz bledu przy porazce.
-     */
+ /**
+ * Player login by email or username.
+ * PL: Logowanie gracza po emailu lub nazwie uzytkownika.
+ *
+ * Returns true on success, or an error key string on failure.
+ * PL: Zwraca true przy sukcesie lub klucz bledu przy porazce.
+ */
     public static function login(string $login, string $password): bool|string
     {
         try {
@@ -42,8 +42,8 @@ class Auth
                 return false;
             }
 
-            // Block login if email is not verified.
-            // PL: Blokuj logowanie, jesli email nie jest potwierdzony.
+ // Block login if email is not verified.
+ // PL: Blokuj logowanie, jesli email nie jest potwierdzony.
             if (!(int)$player['email_verified']) {
                 GameLog::warn('Auth', 'Login blocked: email not verified', [
                     'player_id' => $player['id'],
@@ -71,10 +71,10 @@ class Auth
         }
     }
 
-    /**
-     * Sends a verification email to a newly registered player.
-     * PL: Wysyla email weryfikacyjny do nowo zarejestrowanego gracza.
-     */
+ /**
+ * Sends a verification email to a newly registered player.
+ * PL: Wysyla email weryfikacyjny do nowo zarejestrowanego gracza.
+ */
     public static function sendVerificationEmail(int $playerId, string $email, string $username): bool
     {
         try {
@@ -84,8 +84,8 @@ class Auth
 
             $db = Database::getInstance()->getConnection();
 
-            // Remove any previous token for this player.
-            // PL: Usun poprzedni token tego gracza.
+ // Remove any previous token for this player.
+ // PL: Usun poprzedni token tego gracza.
             $db->prepare("DELETE FROM email_verifications WHERE player_id = ?")
                 ->execute([$playerId]);
 
@@ -130,13 +130,13 @@ class Auth
         }
     }
 
-    /**
-     * Verifies email token.
-     * PL: Weryfikuje token emaila.
-     *
-     * Returns ['success'=>true] or ['success'=>false,'message'=>'...'].
-     * PL: Zwraca ['success'=>true] albo ['success'=>false,'message'=>'...'].
-     */
+ /**
+ * Verifies email token.
+ * PL: Weryfikuje token emaila.
+ *
+ * Returns ['success'=>true] or ['success'=>false,'message'=>'...'].
+ * PL: Zwraca ['success'=>true] albo ['success'=>false,'message'=>'...'].
+ */
     public static function verifyEmail(string $token): array
     {
         try {
@@ -183,10 +183,10 @@ class Auth
         }
     }
 
-    /**
-     * Registers a new player.
-     * PL: Rejestruje nowego gracza.
-     */
+ /**
+ * Registers a new player.
+ * PL: Rejestruje nowego gracza.
+ */
     public static function register(string $username, string $email, string $password): array
     {
         if (strlen($username) < 3 || strlen($username) > 20) {
@@ -253,10 +253,10 @@ class Auth
         }
     }
 
-    /**
-     * Stores authenticated player session data.
-     * PL: Zapisuje dane sesji zalogowanego gracza.
-     */
+ /**
+ * Stores authenticated player session data.
+ * PL: Zapisuje dane sesji zalogowanego gracza.
+ */
     private static function setSession(array $player): void
     {
         try {
@@ -272,10 +272,10 @@ class Auth
         }
     }
 
-    /**
-     * Requires an authenticated player session.
-     * PL: Wymaga zalogowanej sesji gracza.
-     */
+ /**
+ * Requires an authenticated player session.
+ * PL: Wymaga zalogowanej sesji gracza.
+ */
     public static function requireLogin(): void
     {
         try {
@@ -292,10 +292,10 @@ class Auth
         }
     }
 
-    /**
-     * Checks whether the player is logged in and session is still valid.
-     * PL: Sprawdza czy gracz jest zalogowany i czy sesja jest wazna.
-     */
+ /**
+ * Checks whether the player is logged in and session is still valid.
+ * PL: Sprawdza czy gracz jest zalogowany i czy sesja jest wazna.
+ */
     public static function isLoggedIn(): bool
     {
         try {
@@ -315,10 +315,10 @@ class Auth
         }
     }
 
-    /**
-     * Logs out the player and optionally redirects to login.
-     * PL: Wylogowuje gracza i opcjonalnie przekierowuje na logowanie.
-     */
+ /**
+ * Logs out the player and optionally redirects to login.
+ * PL: Wylogowuje gracza i opcjonalnie przekierowuje na logowanie.
+ */
     public static function logout(bool $redirect = true): void
     {
         try {
@@ -367,10 +367,10 @@ class Auth
         }
     }
 
-    /**
-     * Changes player password.
-     * PL: Zmienia haslo gracza.
-     */
+ /**
+ * Changes player password.
+ * PL: Zmienia haslo gracza.
+ */
     public static function changePassword(int $playerId, string $newPassword): bool
     {
         if (strlen($newPassword) < 6) {
@@ -392,10 +392,10 @@ class Auth
         }
     }
 
-    /**
-     * Sends password reset email and does not reveal account existence.
-     * PL: Wysyla reset hasla bez ujawniania czy konto istnieje.
-     */
+ /**
+ * Sends password reset email and does not reveal account existence.
+ * PL: Wysyla reset hasla bez ujawniania czy konto istnieje.
+ */
     public static function sendPasswordReset(string $email): array
     {
         try {
@@ -457,10 +457,10 @@ class Auth
         }
     }
 
-    /**
-     * Verifies password reset token.
-     * PL: Weryfikuje token resetu hasla.
-     */
+ /**
+ * Verifies password reset token.
+ * PL: Weryfikuje token resetu hasla.
+ */
     public static function verifyResetToken(string $token): ?array
     {
         try {
@@ -488,10 +488,10 @@ class Auth
         }
     }
 
-    /**
-     * Resets password using a valid token.
-     * PL: Resetuje haslo przy pomocy waznego tokenu.
-     */
+ /**
+ * Resets password using a valid token.
+ * PL: Resetuje haslo przy pomocy waznego tokenu.
+ */
     public static function resetPassword(string $token, string $newPassword): array
     {
         if (strlen($newPassword) < 6) {

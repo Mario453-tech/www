@@ -1,6 +1,6 @@
 <?php
 
-// ERROR LOGGING � zbiera WSZYSTKIE b��dy do error_log / collects ALL errors to error_log
+// ERROR LOGGING zbiera WSZYSTKIE bdy do error_log / collects ALL errors to error_log
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
@@ -54,12 +54,12 @@ set_error_handler(function (int $errno, string $errstr, string $errfile, int $er
     return false;
 });
 
-//  KLASY CORE 
+// KLASY CORE 
 require_once __DIR__ . '/GameLog.php';
 
 GameLog::init(__DIR__ . '/../game_debug.log');
 
-// Automatyczne logowanie request�w w plikach bez r�cznego pageStart/pageEnd
+// Automatyczne logowanie requestw w plikach bez rcznego pageStart/pageEnd
 // Automatic request logging in files without manual pageStart/pageEnd
 if (PHP_SAPI !== 'cli') {
     $autoPage = basename($_SERVER['SCRIPT_NAME'] ?? 'request');
@@ -75,13 +75,13 @@ if (PHP_SAPI !== 'cli') {
     });
 }
 
-//  SERWISY 
+// SERWISY 
 require_once __DIR__ . '/Security.php';
 require_once __DIR__ . '/CSRF.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Validator.php';
 
-// WA�NE: Auth.php zawiera klas� AdminAuth (panel admina)
+// WANE: Auth.php zawiera klas AdminAuth (panel admina)
 // IMPORTANT: Auth.php contains the AdminAuth class (admin panel)
 require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/EmailTemplate.php';
@@ -104,7 +104,50 @@ require_once __DIR__ . '/HRService.php';
 require_once __DIR__ . '/WellStaffService.php';
 require_once __DIR__ . '/HeadhunterService.php';
 require_once __DIR__ . '/DirectorNotificationService.php';
-require_once __DIR__ . '/BankNegotiationService.php';
+
+ // Load bank negotiation traits, then the service, with OPcache self-healing.
+ // PL: Laduj traity negocjacji, potem serwis, z samonaprawą OPcache.
+ // FTP+OPcache race: an upload can leave OPcache holding an EMPTY cached
+ // version of a trait file, so require_once "succeeds" but defines nothing,
+ // and the later "use TraitName" fatals (500 on every page via init.php).
+ // PL: Wyscig FTP+OPcache moze zostawic w cache pusty plik traitu, przez co
+ // require_once nie definiuje nic, a pozniejsze "use" wywala 500 na kazdej stronie.
+$bankNegFiles = [
+    'BankNegotiationContextTrait'      => __DIR__ . '/BankNegotiation/ContextTrait.php',
+    'BankNegotiationMessagesTrait'     => __DIR__ . '/BankNegotiation/MessagesTrait.php',
+    'BankNegotiationRandomEventsTrait' => __DIR__ . '/BankNegotiation/RandomEventsTrait.php',
+    'BankNegotiationRequestsTrait'     => __DIR__ . '/BankNegotiation/RequestsTrait.php',
+    'BankNegotiationProcessorTrait'    => __DIR__ . '/BankNegotiation/ProcessorTrait.php',
+];
+
+$bankNegReady = true;
+foreach ($bankNegFiles as $traitName => $traitFile) {
+    require_once $traitFile;
+    if (!trait_exists($traitName, false)) {
+        $bankNegReady = false;
+ // Force a fresh recompile on the NEXT request to self-heal the stale cache.
+ // PL: Wymus swieza rekompilacje przy nastepnym zadaniu, by naprawic cache.
+        if (function_exists('opcache_invalidate')) {
+            opcache_invalidate($traitFile, true);
+        }
+        if (class_exists('GameLog', false)) {
+            GameLog::error('init', 'Bank negotiation trait missing after require (OPcache stale?)', null, [
+                'trait' => $traitName,
+                'file'  => $traitFile,
+            ]);
+        }
+    }
+}
+
+ // Only load the service if all its traits are defined — otherwise skip it for
+ // this one request so the rest of the site keeps working (bank.php guards with
+ // class_exists). Next request, post-invalidation, loads cleanly.
+ // PL: Laduj serwis tylko gdy wszystkie traity sa zdefiniowane; w przeciwnym
+ // razie pomin go na to jedno zadanie (reszta strony dziala, bank.php sprawdza
+ // class_exists). Kolejne zadanie, po unieważnieniu cache, zaladuje sie poprawnie.
+if ($bankNegReady) {
+    require_once __DIR__ . '/BankNegotiationService.php';
+}
 require_once __DIR__ . '/WorldMap.php';
 require_once __DIR__ . '/RegionalEventService.php';
 require_once __DIR__ . '/Cache.php';
@@ -125,10 +168,10 @@ spl_autoload_register(function ($class) {
     }
 });
 
-// SESJA I NAG��WKI / SESSION AND HEADERS
+// SESJA I NAGWKI / SESSION AND HEADERS
 if (session_status() === PHP_SESSION_NONE) {
-    // Na shared hostingu /tmp mo�e by� niedost�pny � u�ywamy katalogu sessions/ w projekcie.
-    // On shared hosting /tmp may be unavailable � use sessions/ directory within the project.
+ // Na shared hostingu /tmp moe by niedostpny uywamy katalogu sessions/ w projekcie.
+ // On shared hosting /tmp may be unavailable use sessions/ directory within the project.
     $sessionPath = __DIR__ . '/../sessions';
     if (!is_dir($sessionPath)) {
         @mkdir($sessionPath, 0700, true);
@@ -141,7 +184,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 Security::setHeaders();
 
-//  BANKRUPTCY BOOTSTRAP
+// BANKRUPTCY BOOTSTRAP
 require_once __DIR__ . '/BankruptcyBootstrap.php';
 
 ensureBankruptcyRecoverySchema();
@@ -153,11 +196,11 @@ if (PHP_SAPI !== 'cli') {
     try {
         TransportConfigService::ensureTransportSchema(Database::getInstance()->getConnection());
     } catch (Throwable $__tsEx) {
-        // Non-fatal - game runs without this migration
+ // Non-fatal - game runs without this migration
     }
 }
 
-//  ROUTING 
+// ROUTING 
 const ROUTES = [
     'home'            => '/',
     'login'           => '/login',
@@ -192,7 +235,7 @@ function url(string $name, array $query = []): string
 /**
  * Zwraca URL assetu z automatycznym cache-bustingiem opartym na filemtime().
  * Returns asset URL with automatic cache-busting based on filemtime().
- * Gdy plik zmienisz � przegl�darka automatycznie pobierze now� wersj�.
+ * Gdy plik zmienisz przegldarka automatycznie pobierze now wersj.
  * When the file changes, the browser automatically fetches the new version.
  * Usuwa ewentualne stare ?v=X przed wyliczeniem nowego timestampu.
  * Strips any old ?v=X before computing the new timestamp.

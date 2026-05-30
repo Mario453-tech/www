@@ -5,66 +5,66 @@
  * WellProductionSection - orchestrator for processing a single well within a tick.
  *
  * Odpowiada za: / Responsible for:
- *   - delegowanie do handlerow: status, ryzyko, produkcja / delegating to handlers: status, risk, production
- *   - przechowywanie wspolnego stanu (db, serwisy, cache) / holding shared state (db, services, caches)
+ * - delegowanie do handlerow: status, ryzyko, produkcja / delegating to handlers: status, risk, production
+ * - przechowywanie wspolnego stanu (db, serwisy, cache) / holding shared state (db, services, caches)
  *
  * Pola sa publiczne, by handlery mogly dostepu przez $this->ctx->*.
  * Fields are public so handlers can access them via $this->ctx->*.
  */
 class WellProductionSection
 {
-    // Kontekst petli (finanse, produkcja, liczniki) / Loop context (financials, production, counters)
+ // Kontekst petli (finanse, produkcja, liczniki) / Loop context (financials, production, counters)
     public WellLoopSection $loopCtx;
 
-    // Wspolne zaleznosci / Shared dependencies
+ // Wspolne zaleznosci / Shared dependencies
     public PDO         $db;
     public WellService $wellService;
     public float       $oilPrice;
 
-    /** @var array<string, mixed> */
+ /** @var array<string, mixed> */
     public array $gBalanceMults;
-    /** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     public array $financeTechnicalMods;
-    /** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     public array $financeLogisticsMods;
-    /** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     public array $financeSafetyMods;
-    /** @var array<string, array<string, float>> */
+ /** @var array<string, array<string, float>> */
     public array $transportConfig;
 
-    // Cache / Cache
-    /** @var array<int, array<string, mixed>> */
+ // Cache / Cache
+ /** @var array<int, array<string, mixed>> */
     public array $staffCache;
-    /** @var array<int, array<string, mixed>> */
+ /** @var array<int, array<string, mixed>> */
     public array $wellPipelineCache;
-    /** @var array<int, array<string, mixed>> */
+ /** @var array<int, array<string, mixed>> */
     public array $roadConfigCache;
-    /** @var array<int, array<string, mixed>> */
+ /** @var array<int, array<string, mixed>> */
     public array $offshoreConfigCache;
 
-    // Serwisy opcjonalne / Optional services
+ // Serwisy opcjonalne / Optional services
     public ?object                   $geoSvc;
     public ?object                   $incidentSvc;
     public ?RoadTransportService     $roadTransportSvc;
     public ?OffshoreTransportService $offshoreTransportSvc;
     public ?MarineDeliveryService    $marineDeliverySvc;   // Etap 5: dostawy morskie / Etap 5: marine deliveries
 
-    // Handlery / Handlers
+ // Handlery / Handlers
     private WellStatusHandler     $statusHandler;
     private WellRiskHandler       $riskHandler;
     private WellProductionHandler $productionHandler;
 
-    /**
-     * @param array<string, mixed>              $gBalanceMults
-     * @param array<string, float|string>       $financeTechnicalMods
-     * @param array<string, float|string>       $financeLogisticsMods
-     * @param array<string, float|string>       $financeSafetyMods
-     * @param array<string, array<string,float>>$transportConfig
-     * @param array<int, array<string, mixed>>  $staffCache
-     * @param array<int, array<string, mixed>>  $wellPipelineCache
-     * @param array<int, array<string, mixed>>  $roadConfigCache
-     * @param array<int, array<string, mixed>>  $offshoreConfigCache
-     */
+ /**
+ * @param array<string, mixed> $gBalanceMults
+ * @param array<string, float|string> $financeTechnicalMods
+ * @param array<string, float|string> $financeLogisticsMods
+ * @param array<string, float|string> $financeSafetyMods
+ * @param array<string, array<string,float>>$transportConfig
+ * @param array<int, array<string, mixed>> $staffCache
+ * @param array<int, array<string, mixed>> $wellPipelineCache
+ * @param array<int, array<string, mixed>> $roadConfigCache
+ * @param array<int, array<string, mixed>> $offshoreConfigCache
+ */
     public function __construct(
         WellLoopSection              $loopCtx,
         PDO                          $db,
@@ -109,15 +109,15 @@ class WellProductionSection
         $this->productionHandler = new WellProductionHandler($this);
     }
 
-    /**
-     * Przetwarza jeden odwiert: produkcja, OPEX, transport, zdarzenia.
-     * Processes one well: production, OPEX, transport, events.
-     *
-     * @param array<string, mixed>       $well
-     * @param array<string, mixed>       $hseBonus
-     * @param array<string, mixed>       $staffCheck
-     * @param list<array<string, mixed>> $activeRegEvents
-     */
+ /**
+ * Przetwarza jeden odwiert: produkcja, OPEX, transport, zdarzenia.
+ * Processes one well: production, OPEX, transport, events.
+ *
+ * @param array<string, mixed> $well
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, mixed> $staffCheck
+ * @param list<array<string, mixed>> $activeRegEvents
+ */
     public function process(
         int     $playerId,
         array   $well,
@@ -134,36 +134,36 @@ class WellProductionSection
     ): void {
         if (in_array($well['status'], ['seized', 'blowout', 'broken'])) return;
 
-        // Montaz sprzetu - odwiert wstrzymany przez 1h / Equipment installation - well paused for 1h
+ // Montaz sprzetu - odwiert wstrzymany przez 1h / Equipment installation - well paused for 1h
         if ($well['status'] === 'equipment_swap') {
             $well = $this->statusHandler->handleEquipmentSwap($well, $wellId, $tsvc);
             if ($well === null) return;
         }
 
-        // Zakonczenie wiercenia warstwy geologicznej / Geological layer drilling completed
+ // Zakonczenie wiercenia warstwy geologicznej / Geological layer drilling completed
         if (!empty($well['layer_switch_until']) && $this->geoSvc !== null) {
             $well = $this->statusHandler->handleGeoLayerSwitch($well, $wellId);
         }
 
-        // Kontrola personelu / Staff check
+ // Kontrola personelu / Staff check
         $well = $this->statusHandler->handleStaffCheck($well, $wellId, $playerId, $staffCheck, $tsvc);
 
-        // Operator / Technician
+ // Operator / Technician
         [$operatorId, $technicianId, $opRow, $techRow, $opPerk, $techPerk, $opSkill]
             = $this->statusHandler->resolveStaff($well, $wellId, $playerId);
 
-        // Mnozniki warstwy geologicznej, sprzetu, spirali i perkow / Layer, equipment, spiral and perk multipliers
+ // Mnozniki warstwy geologicznej, sprzetu, spirali i perkow / Layer, equipment, spiral and perk multipliers
         $mults = $this->statusHandler->calcMultipliers($well, $wellId, $operatorId, $technicianId, $opRow, $techRow, $opPerk, $techPerk, $opSkill);
 
-        // Transport config / Pipeline status
+ // Transport config / Pipeline status
         [$transportType, $transportCfg, $transportCapPct, $transportOpexPct,
          $transportIncidentMult, $transportDisasterMult, $transportWearMult, $wellPipeline]
             = $this->productionHandler->resolveTransportConfig($well, $wellId);
 
-        // Degradacja, ryzyko, zuzycie / Degradation, risk, wear
+ // Degradacja, ryzyko, zuzycie / Degradation, risk, wear
         $statusAllowsDegradation = in_array($well['status'], ['active','contaminated','paused_staff','paused_cash','paused_storage','no_technician','no_operator']);
-        // Katastrofy i incydenty - tylko gdy odwiert realnie pracuje / Disasters and incidents - only when well is actually running
-        // (nie gdy jest wstrzymany brakiem kadry, cashu lub miejsca w magazynie) / (not when paused due to missing staff, cash, or storage space)
+ // Katastrofy i incydenty - tylko gdy odwiert realnie pracuje / Disasters and incidents - only when well is actually running
+ // (nie gdy jest wstrzymany brakiem kadry, cashu lub miejsca w magazynie) / (not when paused due to missing staff, cash, or storage space)
         $statusAllowsIncidents   = in_array($well['status'], ['active','contaminated','no_technician','no_operator']);
 
         if ($statusAllowsDegradation) {
@@ -176,11 +176,11 @@ class WellProductionSection
 
         $incidentProdDrop = 0.0;
         if ($statusAllowsIncidents) {
-            // Katastrofa / Disaster
+ // Katastrofa / Disaster
             if ($this->riskHandler->processDisasterRoll($well, $wellId, $playerId, $deltaHours, $hseBonus, $mults, $transportDisasterMult, $offlineRiskMult, $tsvc)) {
-                return; // dotkniety katastrofa — pomijamy produkcje / disaster hit — skip production
+                return; // dotkniety katastrofa ï¿½ pomijamy produkcje / disaster hit ï¿½ skip production
             }
-            // Incydenty produkcyjne / Production incidents
+ // Incydenty produkcyjne / Production incidents
             $incidentProdDrop = $this->riskHandler->processIncidents(
                 $well, $wellId, $playerId, $deltaHours, $hseBonus,
                 $operatorId, $technicianId, $opRow, $techRow,
@@ -188,7 +188,7 @@ class WellProductionSection
             );
         }
 
-        // OPEX
+ // OPEX
         if (!$this->productionHandler->processOpex($well, $wellId, $playerId, $deltaHours, $storageCapacity, $tsvc)) {
             return;
         }
@@ -199,7 +199,7 @@ class WellProductionSection
         }
         if (!in_array($well['status'], ['active','contaminated','no_technician'])) return;
 
-        // Produkcja - uwzglednij richness_mult warstwy geologicznej / Production - apply geological layer richness_mult
+ // Produkcja - uwzglednij richness_mult warstwy geologicznej / Production - apply geological layer richness_mult
         $this->productionHandler->processProduction(
             $well, $wellId, $playerId, $deltaHours,
             $storageCapacity, $hseBonus,

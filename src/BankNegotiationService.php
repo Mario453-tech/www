@@ -12,12 +12,12 @@ require_once __DIR__ . '/BankNegotiation/ProcessorTrait.php';
  *
  * Negotiation types (max 3).
  * PL: Typy negocjacji (max 3).
- *   1. deferral    - repayment deferral (30/90/180 days)
- *      PL: odroczenie splaty (30/90/180 dni)
- *   2. restructure - schedule restructuring
- *      PL: restrukturyzacja harmonogramu
- *   3. recovery    - recovery plan that suspends bailiff until full repayment
- *      PL: plan naprawczy zawieszajacy komornika do pelnej splaty
+ * 1. deferral - repayment deferral (30/90/180 days)
+ * PL: odroczenie splaty (30/90/180 dni)
+ * 2. restructure - schedule restructuring
+ * PL: restrukturyzacja harmonogramu
+ * 3. recovery - recovery plan that suspends bailiff until full repayment
+ * PL: plan naprawczy zawieszajacy komornika do pelnej splaty
  *
  * Trust score is an internal bank parameter (0-100) hidden from the player.
  * PL: Trust score to wewnetrzny parametr banku (0-100), niewidoczny dla gracza.
@@ -26,10 +26,10 @@ require_once __DIR__ . '/BankNegotiation/ProcessorTrait.php';
  *
  * Dynamic fee formula:
  * PL: Formula dynamicznej prowizji:
- *   fee = remaining x base_rate x all factors (LTV, market, wells, CFO, trust)
- *   PL: fee = remaining x base_rate x wszystkie czynniki (LTV, rynek, odwierty, CFO, trust)
- *   cap: min 0.5%, max 14%
- *   PL: limit: min 0.5%, max 14%
+ * fee = remaining x base_rate x all factors (LTV, market, wells, CFO, trust)
+ * PL: fee = remaining x base_rate x wszystkie czynniki (LTV, rynek, odwierty, CFO, trust)
+ * cap: min 0.5%, max 14%
+ * PL: limit: min 0.5%, max 14%
  *
  * Decision time is built from base hours and extensions.
  * PL: Czas decyzji sklada sie z bazowych godzin i przedluzen.
@@ -43,16 +43,16 @@ require_once __DIR__ . '/BankNegotiation/ProcessorTrait.php';
  *
  * Logic is split into traits in src/BankNegotiation/.
  * PL: Logika jest podzielona na traity w src/BankNegotiation/.
- *   - ContextTrait.php       - buildContext, trust score, time and fee calculations
- *      PL: buildContext, trust score, obliczenia czasu i prowizji
- *   - MessagesTrait.php      - opening and decision messages
- *      PL: wiadomosci otwierajace i decyzyjne
- *   - RandomEventsTrait.php  - triggerRandomEvent
- *      PL: triggerRandomEvent
- *   - RequestsTrait.php      - negotiation request entry points
- *      PL: glowne wejscia dla wnioskow negocjacyjnych
- *   - ProcessorTrait.php     - processing, applying, querying and helpers
- *      PL: przetwarzanie, zatwierdzanie, odczyty i helpery
+ * - ContextTrait.php - buildContext, trust score, time and fee calculations
+ * PL: buildContext, trust score, obliczenia czasu i prowizji
+ * - MessagesTrait.php - opening and decision messages
+ * PL: wiadomosci otwierajace i decyzyjne
+ * - RandomEventsTrait.php - triggerRandomEvent
+ * PL: triggerRandomEvent
+ * - RequestsTrait.php - negotiation request entry points
+ * PL: glowne wejscia dla wnioskow negocjacyjnych
+ * - ProcessorTrait.php - processing, applying, querying and helpers
+ * PL: przetwarzanie, zatwierdzanie, odczyty i helpery
  */
 class BankNegotiationService
 {
@@ -62,8 +62,8 @@ class BankNegotiationService
     use BankNegotiationRequestsTrait;
     use BankNegotiationProcessorTrait;
 
-    // Base fee rates per type.
-    // PL: Bazowe stawki prowizji per typ.
+ // Base fee rates per type.
+ // PL: Bazowe stawki prowizji per typ.
     const BASE_FEE = [
         'deferral_30'  => 0.020,
         'deferral_90'  => 0.040,
@@ -82,8 +82,8 @@ class BankNegotiationService
 
     const APPROVAL_VALID_HOURS = 48;
 
-    // Trust score change per event, stored for DB and GM/admin review.
-    // PL: Zmiana trust score per zdarzenie, zapisywana do DB i panelu GM/admin.
+ // Trust score change per event, stored for DB and GM/admin review.
+ // PL: Zmiana trust score per zdarzenie, zapisywana do DB i panelu GM/admin.
     const TRUST = [
         'rata_na_czas'          => +5,
         'negocjacja_sukces'     => +8,

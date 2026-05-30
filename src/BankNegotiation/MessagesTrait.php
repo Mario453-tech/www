@@ -6,10 +6,10 @@
  */
 trait BankNegotiationMessagesTrait
 {
-    /**
-     * Builds the opening bank message shown after request submission.
-     * Buduje startowy komunikat banku po zlozeniu wniosku.
-     */
+ /**
+ * Builds the opening bank message shown after request submission.
+ * Buduje startowy komunikat banku po zlozeniu wniosku.
+ */
     private function buildBankOpeningMessage(float $hours, array $messages, string $dueAt): string
     {
         $dueF = date('d.m.Y H:i', strtotime($dueAt));
@@ -32,10 +32,10 @@ trait BankNegotiationMessagesTrait
         return $base;
     }
 
-    /**
-     * Builds the optional CFO opening comment.
-     * Buduje opcjonalny komentarz otwarcia od CFO.
-     */
+ /**
+ * Builds the optional CFO opening comment.
+ * Buduje opcjonalny komentarz otwarcia od CFO.
+ */
     private function buildCfoOpeningMessage(string $cfoName, int $skill, string $dueAt): string
     {
         $dueF = date('d.m.Y H:i', strtotime($dueAt));
@@ -63,10 +63,10 @@ trait BankNegotiationMessagesTrait
         return $msgs[array_rand($msgs)];
     }
 
-    /**
-     * Builds the approval decision message.
-     * Buduje komunikat decyzji pozytywnej.
-     */
+ /**
+ * Builds the approval decision message.
+ * Buduje komunikat decyzji pozytywnej.
+ */
     private function buildApprovalMessage(array $neg, array $ctx): string
     {
         $fee = number_format((float)$neg['additional_fee']);
@@ -106,20 +106,20 @@ trait BankNegotiationMessagesTrait
         return $base;
     }
 
-    /**
-     * Builds both public and internal rejection reasons.
-     * Buduje publiczny i wewnetrzny powod odrzucenia.
-     *
-     * @return array{public:string, internal:string}
-     */
+ /**
+ * Builds both public and internal rejection reasons.
+ * Buduje publiczny i wewnetrzny powod odrzucenia.
+ *
+ * @return array{public:string, internal:string}
+ */
     private function buildRejectionMessage(array $neg, array $ctx): array
     {
         $trustScore = $ctx['trustScore'] ?? 50;
         $creditScore = (int)($neg['credit_score'] ?? 50);
         $loanStatus = $neg['loan_status'] ?? '';
 
-        // Public reason excludes internal-only trust numbers.
-        // Publiczny powod nie pokazuje wewnetrznych wartosci trust.
+ // Public reason excludes internal-only trust numbers.
+ // Publiczny powod nie pokazuje wewnetrznych wartosci trust.
         if ($creditScore < 30) {
             $public = t('bank_neg.rejection_low_score');
             $internal = "credit_score={$creditScore}<30";

@@ -1,0 +1,161 @@
+// 
+// Definicje slotow — pozycje jako % viewportu
+// Stol zajmuje centralna czesc obrazka
+// Perspektywa: stol owalny, widoczny z gory-przodu
+// 
+
+// Oœ sto³u: centrum ~50% x, ~55% y (stó³ jest bardziej wycentrowany)
+// Stó³ okr¹g³y: promieñ ~32% ekranu (wiêkszy stó³ na nowym obrazie)
+// Miejsca rozmieszczone równomiernie wokó³ okrêgu
+
+const CX = 50;   // centrum X (%)
+const CY = 52;   // centrum Y (%) - jeszcze wy¿ej
+const RX = 30;   // promieñ X (%)
+const RY = 16;   // promieñ Y (%) - lekka perspektywa
+
+// 10 miejsc - DOK£ADNIE dopasowane do rzeczywistych krzese³ na zdjêciu
+// Analiza zdjêcia: Dyrektor i HR na górze, po 4 krzes³a po bokach, 
+// DU¯A PRZERWA miêdzy prawym do³em (#4) a lewym do³em (#5)
+const seats = [
+  //  DYREKTOR — facet w garniturze (lewo od centrum góry) 
+  { id:  0, angle: 348, scale: 0.75, label: 'DYREKTOR', role: 'director' },
+
+  //  HR — kobieta obok dyrektora (prawo od centrum góry) 
+  { id: 99, angle:  9, scale: 0.75, label: 'Dzia³ HR', role: 'occupied',
+    tooltip: 'Dzia³ kadr (HR) — obsadzone' },
+
+  //  PRAWA STRONA (4 krzes³a równomiernie rozmieszczone) 
+  { id:  1, angle:  40, scale: 0.82, label: 'Stanowisko 1',  role: 'empty' },
+  { id:  2, angle:  58, scale: 0.92, label: 'Stanowisko 2',  role: 'empty' },
+  { id:  3, angle:  92, scale: 1.02, label: 'Stanowisko 3',  role: 'empty' },
+  { id:  4, angle: 140, scale: 1.10, label: 'Stanowisko 4',  role: 'empty' },
+
+  //  DÓ£ LEWO (du¿a przerwa po #4) 
+  { id:  5, angle: 220, scale: 1.15, label: 'Stanowisko 5',  role: 'empty' },
+
+  //  LEWA STRONA (3 krzes³a równomiernie rozmieszczone) 
+  { id:  6, angle: 268, scale: 1.10, label: 'Stanowisko 6',  role: 'empty' },
+  { id:  7, angle: 296, scale: 1.02, label: 'Stanowisko 7',  role: 'empty' },
+  { id:  8, angle: 324, scale: 0.92, label: 'Stanowisko 8',  role: 'empty' },
+];
+
+// Sylwetka SVG
+function avatarSVG(color = 'white', size = 28) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="7" r="4"/>
+    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+  </svg>`;
+}
+
+function toRad(deg) { return deg * Math.PI / 180; }
+
+// 
+// SYSTEM DYNAMICZNEGO T£A
+// 
+// Koncepcja: Zamiast nak³adaæ sloty na statyczny obraz, 
+// generujemy ró¿ne wersje t³a z obsadzonymi miejscami.
+// 
+// Przyk³ad:
+// - boardroom_bg.png           tylko dyrektor (start)
+// - boardroom_bg_hr.png        dyrektor + HR
+// - boardroom_bg_hr_tech.png   dyrektor + HR + techniczny
+// itd.
+//
+// Sloty pozostaj¹ jako interaktywne punkty klikniêcia
+// 
+
+// Stan obsadzonych stanowisk
+const occupiedPositions = ['director', 'hr']; // dyrektor + HR ju¿ obsadzone
+
+// Funkcja zwracaj¹ca nazwê pliku t³a na podstawie obsadzonych stanowisk
+function getBackgroundImage() {
+  if (occupiedPositions.length === 1 && occupiedPositions[0] === 'director') {
+    return 'boardroom_bg.png'; // tylko dyrektor
+  }
+  
+  // Sortujemy alfabetycznie dla spójnoœci nazw
+  const sorted = [...occupiedPositions].filter(p => p !== 'director').sort();
+  
+  if (sorted.length === 0) return 'boardroom_bg.png';
+  
+  // Przyk³ad: boardroom_bg_hr.png, boardroom_bg_hr_tech.png
+  return `boardroom_bg_${sorted.join('_')}.png`;
+}
+
+// Funkcja aktualizuj¹ca t³o
+function updateBackground() {
+  const bgElement = document.querySelector('.scene-bg');
+  const newBg = getBackgroundImage();
+  bgElement.style.backgroundImage = `url('${newBg}')`;
+}
+
+const container = document.getElementById('slots');
+const sceneEl   = document.querySelector('.scene');
+
+function render() {
+  container.innerHTML = '';
+  const W = sceneEl.offsetWidth;
+  const H = sceneEl.offsetHeight;
+
+  seats.forEach(seat => {
+    const rad = toRad(seat.angle - 90); // -90 ¿eby 0° = góra
+    const x = CX + RX * Math.cos(rad);
+    const y = CY + RY * Math.sin(rad);
+
+    const div = document.createElement('div');
+    div.className = 'slot' +
+      (seat.role === 'director' ? ' slot-director' : '') +
+      (seat.role === 'hr'       ? ' slot-hr'       : '') +
+      (seat.role === 'occupied' ? ' slot-occupied' : '');
+    div.style.left = x + '%';
+    div.style.top  = y + '%';
+
+    const tooltipText = seat.tooltip ||
+      (seat.role === 'director' ? 'Dyrektor — to Ty' :
+       seat.role === 'occupied' ? seat.label + ' — obsadzone' :
+       seat.role === 'empty'    ? 'Stanowisko nieobsadzone. Brak dzia³u kadr.' :
+       seat.label);
+
+    const hrBadge = seat.role === 'hr'
+      ? `<div class="hr-badge"> Wymagane</div>` : '';
+
+    div.innerHTML = `
+      <div class="slot-avatar" style="transform:scale(${seat.scale})">
+        ${hrBadge}
+        ${avatarSVG(
+            seat.role === 'director' ? '#c8a84b' :
+            seat.role === 'occupied' ? '#4ec97a' :
+            seat.role === 'hr'       ? '#e8cc7a' : 'white',
+            seat.role === 'director' ? 32 : 26
+          )}
+        <div class="slot-num">${seat.role === 'director' ? 'DYREKTOR' : seat.role === 'occupied' ? seat.label.toUpperCase() : seat.role === 'hr' ? 'HR' : '#' + String(seat.id).padStart(2,'0')}</div>
+      </div>
+      <div class="slot-tooltip">${tooltipText}</div>
+    `;
+    
+    // Obs³uga klikniêcia - rozpoczêcie rekrutacji dla pustych stanowisk
+    if (seat.role === 'empty' || seat.role === 'hr') {
+      div.addEventListener('click', () => {
+        if (typeof recruitment !== 'undefined') {
+          // ID roli HR = 1 (zgodnie z SQL)
+          recruitment.startRecruitment(1, 'Dzia³ Kadr', 1);
+        }
+      });
+    }
+    
+    // Obs³uga klikniêcia - opcje dla obsadzonych stanowisk
+    if (seat.role === 'occupied') {
+      div.addEventListener('click', () => {
+        // TODO: Pokazaæ opcje pracownika (zwolnienie, informacje)
+        console.log('Klikniêto w obsadzone stanowisko:', seat.label);
+      });
+    }
+
+    container.appendChild(div);
+  });
+}
+
+// Inicjalizacja
+updateBackground(); // Za³aduj odpowiednie t³o na podstawie occupiedPositions
+render();
+window.addEventListener('resize', render);

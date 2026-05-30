@@ -1,6 +1,6 @@
 /* 
-   STATIC PAGE — styl podstron statycznych (Regulamin, Polityka itp.)
-    */
+   STATIC PAGE ï¿½ styl podstron statycznych (Regulamin, Polityka itp.)
+ */
 
 .static-page-wrap {
     max-width: 820px;
@@ -37,7 +37,7 @@
     margin: 0;
 }
 
-/*  Treœæ WYSIWYG  */
+/* Tre WYSIWYG */
 .static-page-content {
     font-size: 14px;
     line-height: 1.75;
@@ -105,7 +105,7 @@
     color: var(--gold);
 }
 
-/*  Przycisk powrót  */
+/* Przycisk powrt */
 .static-page-back {
     margin-top: 40px;
     padding-top: 20px;

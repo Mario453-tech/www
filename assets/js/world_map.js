@@ -7,7 +7,7 @@
 (function () {
     'use strict';
 
-    // i18n dictionary / Slownik i18n
+ // i18n dictionary / Slownik i18n
     var _ML = window.MAP_LANG || {};
     function mlt(k, p) {
         var s = _ML[k] || k;
@@ -15,7 +15,7 @@
         return s;
     }
 
-    // Data from PHP / Dane z PHP
+ // Data from PHP / Dane z PHP
     var RAW        = JSON.parse(document.getElementById('map-data-json').value);
     var CSRF       = document.getElementById('csrf-token').value;
     var playerCash = parseFloat(document.getElementById('player-cash').value);
@@ -33,7 +33,7 @@
         locByRegion[l.region_id].push(l);
     });
 
-    // Status colors / Kolory statusow
+ // Status colors / Kolory statusow
     var STATUS_COLOR = {
         'active':         0x2ecc71,
         'paused_cash':    0xf1c40f,
@@ -47,7 +47,7 @@
         'seized':         0x9b59b6,
     };
 
-    // Region centers / Centra regionow
+ // Region centers / Centra regionow
     var REGION_CENTERS = {
         'middle_east':    { lat: 24,  lng: 47   },
         'russia':         { lat: 62,  lng: 100  },
@@ -58,7 +58,7 @@
         'latam':          { lat: -22, lng: -60  },
     };
 
-    // Filtering and sorting / Filtrowanie i sortowanie
+ // Filtering and sorting / Filtrowanie i sortowanie
     var sortMode   = 'default';
     var tierFilter = 'all';
 
@@ -86,9 +86,9 @@
     var TIER_LABEL = { starter: ' Starter', medium: ' Średni', advanced: ' Zaawansowany' };
     var TIER_CLS   = { starter: 'tier-starter', medium: 'tier-medium', advanced: 'tier-advanced' };
 
-    // 
-    // GLOBE / GLOBUS
-    // 
+ // 
+ // GLOBE / GLOBUS
+ // 
 
     var container = document.getElementById('globe-container');
     if (!container || typeof THREE === 'undefined') return;
@@ -96,7 +96,7 @@
     var W = container.clientWidth;
     var H = container.clientHeight;
 
-    // Build starfield / Zbuduj pole gwiazd
+ // Build starfield / Zbuduj pole gwiazd
     function getStarfield(opts) {
         var numStars = (opts && opts.numStars) ? opts.numStars : 500;
         function randomSpherePoint() {
@@ -127,7 +127,7 @@
         }));
     }
 
-    // Build Fresnel material / Zbuduj material Fresnela
+ // Build Fresnel material / Zbuduj material Fresnela
     function getFresnelMat(opts) {
         var rimHex    = (opts && opts.rimHex)    ? opts.rimHex    : 0x0088ff;
         var facingHex = (opts && opts.facingHex) ? opts.facingHex : 0x000000;
@@ -167,7 +167,7 @@
         });
     }
 
-    // Scene setup / Konfiguracja sceny
+ // Scene setup / Konfiguracja sceny
     var scene  = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(75, W / H, 0.1, 1000);
     camera.position.z = 5;
@@ -177,7 +177,7 @@
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     container.appendChild(renderer.domElement);
 
-    // Earth group / Grupa Ziemi
+ // Earth group / Grupa Ziemi
     var earthGroup = new THREE.Group();
     earthGroup.rotation.z = -23.4 * Math.PI / 180;
     scene.add(earthGroup);
@@ -192,7 +192,7 @@
     var loader   = new THREE.TextureLoader();
     var geometry = new THREE.IcosahedronGeometry(GLOBE_R, 12);
 
-    // Layer 1: day map / Warstwa 1: mapa dzienna
+ // Layer 1: day map / Warstwa 1: mapa dzienna
     var earthMesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({
         map:         loader.load('/textures/00_earthmap1k.jpg'),
         specularMap: loader.load('/textures/02_earthspec1k.jpg'),
@@ -201,14 +201,14 @@
     }));
     earthGroup.add(earthMesh);
 
-    // Layer 2: night lights / Warstwa 2: swiatla nocne
+ // Layer 2: night lights / Warstwa 2: swiatla nocne
     var lightsMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
         map:      loader.load('/textures/03_earthlights1k.jpg'),
         blending: THREE.AdditiveBlending,
     }));
     earthGroup.add(lightsMesh);
 
-    // Layer 3: clouds / Warstwa 3: chmury
+ // Layer 3: clouds / Warstwa 3: chmury
     var cloudsMesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
         map:         loader.load('/textures/04_earthcloudmap.jpg'),
         transparent: true,
@@ -219,25 +219,25 @@
     cloudsMesh.scale.setScalar(1.003);
     earthGroup.add(cloudsMesh);
 
-    // Layer 4: Fresnel glow / Warstwa 4: poswiata Fresnela
+ // Layer 4: Fresnel glow / Warstwa 4: poswiata Fresnela
     var glowMesh = new THREE.Mesh(geometry, getFresnelMat());
     glowMesh.scale.setScalar(1.01);
     earthGroup.add(glowMesh);
 
-    // Stars / Gwiazdy
+ // Stars / Gwiazdy
     var stars = getStarfield({ numStars: 2000 });
     scene.add(stars);
 
-    // Lighting / Oswietlenie
+ // Lighting / Oswietlenie
     scene.add(new THREE.AmbientLight(0x404040, 1.5));
 
     var sunLight = new THREE.DirectionalLight(0xffffff, 3.5);
     sunLight.position.set(0, 0, 3);
     scene.add(sunLight);
 
-    // 
-    // MAP MARKERS / PINEZKI
-    // 
+ // 
+ // MAP MARKERS / PINEZKI
+ // 
 
     function latLngToVec3(lat, lng, r) {
         var phi   = (90 - lat)  * Math.PI / 180;
@@ -357,7 +357,7 @@
         allScalable.push(halo);
     });
 
-    // Raycasting / Raycasting
+ // Raycasting / Raycasting
     var raycaster    = new THREE.Raycaster();
     var mouse        = new THREE.Vector2();
     var mouseDownPos = { x: 0, y: 0 };
@@ -379,7 +379,7 @@
         else if (obj.userData.type === 'region') showRegion(obj.userData.regionId);
     });
 
-    // Tooltip / Podpowiedz
+ // Tooltip / Podpowiedz
     var tooltip = document.createElement('div');
     tooltip.style.cssText = [
         'position:fixed', 'background:rgba(5,10,20,.90)', 'color:#e0eeff',
@@ -417,7 +417,7 @@
         renderer.domElement.style.cursor = 'grab';
     });
 
-    // Animation loop / Petla animacji
+ // Animation loop / Petla animacji
     var clock = new THREE.Clock();
 
     function animate() {
@@ -460,9 +460,9 @@
         renderer.setSize(w, h);
     });
 
-    // 
-    //  PANEL BOCZNY
-    // 
+ // 
+ // PANEL BOCZNY
+ // 
 
     var elPlaceholder   = document.getElementById('sidebar-placeholder');
     var elRegionPanel   = document.getElementById('sidebar-region');

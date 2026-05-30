@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * OffshoreTransportService  morski transport ropy jako system rejsw tankowcw.
- * OffshoreTransportService  offshore oil transport as a tanker voyage system.
+ * OffshoreTransportService morski transport ropy jako system rejsw tankowcw.
+ * OffshoreTransportService offshore oil transport as a tanker voyage system.
  *
  * Kady rejs jest osobn jednostk ryzyka.
  * Each voyage is an independent unit of risk.
@@ -13,18 +13,18 @@ declare(strict_types=1);
  * Storm and delay = partial loss.
  *
  * Tabele / Tables:
- *   well_offshore_configs        konfiguracja per odwiert (typ tankowca, pojemno rejsu, koszt)
- *                               config per well (tanker type, voyage capacity, cost)
- *   well_offshore_incident_logs  log incydentw per tick / incident log per tick
+ * well_offshore_configs konfiguracja per odwiert (typ tankowca, pojemno rejsu, koszt)
+ * config per well (tanker type, voyage capacity, cost)
+ * well_offshore_incident_logs log incydentw per tick / incident log per tick
  */
 class OffshoreTransportService
 {
     private PDO $db;
 
-    /** Bazowe prawdopodobiestwo incydentu na rejs na godzin / Base incident probability per voyage per hour */
+ /** Bazowe prawdopodobiestwo incydentu na rejs na godzin / Base incident probability per voyage per hour */
     private const BASE_INCIDENT_CHANCE_PER_HOUR = 0.012;
 
-    /** Wagi typw incydentw przy losowaniu / Incident type weights for random selection */
+ /** Wagi typw incydentw przy losowaniu / Incident type weights for random selection */
     private const INCIDENT_WEIGHTS = [
         'storm'     => 4,
         'breakdown' => 2,
@@ -32,7 +32,7 @@ class OffshoreTransportService
         'piracy'    => 1,
     ];
 
-    /** Parametry domylne typw tankowcw / Default parameters for tanker types */
+ /** Parametry domylne typw tankowcw / Default parameters for tanker types */
     private const TANKER_DEFAULTS = [
         'small'  => ['shipment_capacity_bbl' =>  30.0, 'cost_per_shipment' =>  800.0, 'incident_risk_mult' => 1.000],
         'medium' => ['shipment_capacity_bbl' =>  75.0, 'cost_per_shipment' => 1800.0, 'incident_risk_mult' => 0.850],
@@ -45,9 +45,9 @@ class OffshoreTransportService
         $this->ensureSchema();
     }
 
-    // 
-    // Schemat
-    // 
+ // 
+ // Schemat
+ // 
 
     private function ensureSchema(): void
     {
@@ -113,14 +113,14 @@ class OffshoreTransportService
         }
     }
 
-    // Configuration management
+ // Configuration management
 
-    /**
-     * Tworzy domyln konfiguracj dla odwiertw offshore, ktre jej jeszcze nie maj.
-     * Creates default configuration for offshore wells that do not have one yet.
-     *
-     * @param list<array<string, mixed>> $wells
-     */
+ /**
+ * Tworzy domyln konfiguracj dla odwiertw offshore, ktre jej jeszcze nie maj.
+ * Creates default configuration for offshore wells that do not have one yet.
+ *
+ * @param list<array<string, mixed>> $wells
+ */
     public function ensureConfigsForPlayerWells(int $playerId, array $wells): void
     {
         if ($wells === []) {
@@ -157,10 +157,10 @@ class OffshoreTransportService
         }
     }
 
-    /**
-     * @param  list<int>                          $wellIds
-     * @return array<int, array<string, mixed>>   indexed by well_id
-     */
+ /**
+ * @param list<int> $wellIds
+ * @return array<int, array<string, mixed>> indexed by well_id
+ */
     public function getConfigsByWellIds(int $playerId, array $wellIds): array
     {
         $wellIds = array_values(array_unique(array_map('intval', $wellIds)));
@@ -182,31 +182,31 @@ class OffshoreTransportService
         return $rows;
     }
 
-    // Tick  voyage logic
+ // Tick voyage logic
 
-    /**
-     * Przetwarza transport morski dla jednego odwiertu w ticku.
-     * Processes maritime transport for one well in a tick.
-     *
-     * Kady rejs jest niezalen jednostk ryzyka.
-     * Each voyage is an independent unit of risk.
-     * Piractwo i awaria = cay rejs stracony. Sztorm i opnienie = strata czciowa.
-     * Piracy and breakdown = entire voyage lost. Storm and delay = partial loss.
-     * Opata za rejs naliczana od wszystkich wysanych rejsw, nie tylko dostarczonych.
-     * Voyage fee charged for all dispatched voyages, not just delivered ones.
-     *
-     * @param  array<string, mixed>|null $config    wiersz z well_offshore_configs lub null (-> defaults)
-     * @param  array<string, mixed>      $hseBonus
-     * @return array{
-     *     shipments_total:     int,
-     *     shipments_delivered: int,
-     *     shipments_lost:      int,
-     *     delivered_bbl:       float,
-     *     lost_bbl:            float,
-     *     cost:                float,
-     *     incidents:           list<array<string, mixed>>
-     * }
-     */
+ /**
+ * Przetwarza transport morski dla jednego odwiertu w ticku.
+ * Processes maritime transport for one well in a tick.
+ *
+ * Kady rejs jest niezalen jednostk ryzyka.
+ * Each voyage is an independent unit of risk.
+ * Piractwo i awaria = cay rejs stracony. Sztorm i opnienie = strata czciowa.
+ * Piracy and breakdown = entire voyage lost. Storm and delay = partial loss.
+ * Opata za rejs naliczana od wszystkich wysanych rejsw, nie tylko dostarczonych.
+ * Voyage fee charged for all dispatched voyages, not just delivered ones.
+ *
+ * @param array<string, mixed>|null $config wiersz z well_offshore_configs lub null (-> defaults)
+ * @param array<string, mixed> $hseBonus
+ * @return array{
+ * shipments_total: int,
+ * shipments_delivered: int,
+ * shipments_lost: int,
+ * delivered_bbl: float,
+ * lost_bbl: float,
+ * cost: float,
+ * incidents: list<array<string, mixed>>
+ * }
+ */
     public function processTick(
         int    $playerId,
         int    $wellId,
@@ -227,7 +227,7 @@ class OffshoreTransportService
         $shipmentsTotal = max(1, (int)ceil($inputBbl / $shipmentCap));
         $volPerShipment = $inputBbl / $shipmentsTotal;
 
-        // Szansa incydentu per rejs (skalowana przez czas, ryzyko polityczne i BHP)
+ // Szansa incydentu per rejs (skalowana przez czas, ryzyko polityczne i BHP)
         $politicalScale = match (true) {
             $politicalRiskLevel >= 4 => 2.5,
             $politicalRiskLevel >= 3 => 1.8,
@@ -250,12 +250,12 @@ class OffshoreTransportService
 
         for ($i = 0; $i < $shipmentsTotal; $i++) {
             if (mt_rand(1, 1_000_000) > $threshold) {
-                // Rejs dostarczony bez incydentu
+ // Rejs dostarczony bez incydentu
                 $deliveredBbl += $volPerShipment;
                 continue;
             }
 
-            // Losowanie typu incydentu
+ // Losowanie typu incydentu
             $type = $this->rollIncidentType($totalWeight);
             $loss = $this->computeShipmentLoss($type, $volPerShipment);
             $loss = min($volPerShipment, round($loss, 4));
@@ -293,9 +293,9 @@ class OffshoreTransportService
         ];
     }
 
-    // 
-    // Helpery prywatne
-    // 
+ // 
+ // Helpery prywatne
+ // 
 
     private function rollIncidentType(int $totalWeight): string
     {
@@ -319,9 +319,9 @@ class OffshoreTransportService
         };
     }
 
-    /**
-     * @param list<array<string, mixed>> $incidents
-     */
+ /**
+ * @param list<array<string, mixed>> $incidents
+ */
     private function logIncidents(
         int   $wellId,
         int   $playerId,
@@ -330,16 +330,16 @@ class OffshoreTransportService
         array $incidents
     ): void {
         try {
-            // Grupuj per typ  jeden wiersz logu per typ incydentu per tick
+ // Grupuj per typ jeden wiersz logu per typ incydentu per tick
             $byType = [];
             foreach ($incidents as $inc) {
                 $t = $inc['type'];
                 if (!isset($byType[$t])) {
                     $byType[$t] = ['shipments_lost' => 0, 'vol_lost_bbl' => 0.0];
                 }
-                // Liczymy rejs jako stracony gdy strata >= 99% pojemnoci / count voyage as lost when loss >= 99% capacity
+ // Liczymy rejs jako stracony gdy strata >= 99% pojemnoci / count voyage as lost when loss >= 99% capacity
                 if ($inc['lost_bbl'] >= ($inc['lost_bbl'] + 0.001)) {
-                    // partial  count volume only
+ // partial count volume only
                 }
                 $byType[$t]['shipments_lost']++;
                 $byType[$t]['vol_lost_bbl'] += $inc['lost_bbl'];
@@ -371,9 +371,9 @@ class OffshoreTransportService
         }
     }
 
-    /**
-     * @return array{shipments_total:int, shipments_delivered:int, shipments_lost:int, delivered_bbl:float, lost_bbl:float, cost:float, incidents:list<array<string,mixed>>}
-     */
+ /**
+ * @return array{shipments_total:int, shipments_delivered:int, shipments_lost:int, delivered_bbl:float, lost_bbl:float, cost:float, incidents:list<array<string,mixed>>}
+ */
     private function emptyResult(): array
     {
         return [

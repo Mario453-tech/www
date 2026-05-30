@@ -1,21 +1,21 @@
 <?php
 trait WellDisastersTrait
 {
-    /**
-     * Katastrofa: eksplozja rurociagu.
-     * Disaster: pipeline explosion.
-     * Kara srodowiskowa: 20 mln PLN.
-     * Environmental fine: 20 mln PLN.
-     * Triggered from the tick based on pipeline condition.
-     * Wywolywana z ticka na podstawie stanu rurociagu.
-     */
+ /**
+ * Katastrofa: eksplozja rurociagu.
+ * Disaster: pipeline explosion.
+ * Kara srodowiskowa: 20 mln PLN.
+ * Environmental fine: 20 mln PLN.
+ * Triggered from the tick based on pipeline condition.
+ * Wywolywana z ticka na podstawie stanu rurociagu.
+ */
     public function triggerPipelineExplosion(int $pipelineId, int $playerId, float $oilInTransit, array $hseBonus = []): array
     {
         $hseActive = ($hseBonus['active_hse'] ?? 0) > 0;
 
         GameLog::step('WellService', 'pipelineExplosion', 1, "pipeline={$pipelineId}");
 
-        // Kara srodowiskowa: 20 mln PLN, BHP redukuje ja o 30%. / Environmental fine: 20 mln PLN, HSE reduces it by 30%.
+ // Kara srodowiskowa: 20 mln PLN, BHP redukuje ja o 30%. / Environmental fine: 20 mln PLN, HSE reduces it by 30%.
         $envFine = (int) round(20_000_000 * ($hseActive ? 0.7 : 1.0));
         $repairCost = mt_rand(1_000_000, 4_000_000);
         $costMult = $hseActive ? ($hseBonus['repair_cost_mult'] ?? 1.0) : 1.0;
@@ -29,8 +29,8 @@ trait WellDisastersTrait
 
         $this->db->beginTransaction();
         try {
-            // Uszkodz rurociag - najpierw nowy model per odwiert, potem fallback do starej tabeli.
-            // Damage the pipeline - try new per-well model first, then fallback to legacy table.
+ // Uszkodz rurociag - najpierw nowy model per odwiert, potem fallback do starej tabeli.
+ // Damage the pipeline - try new per-well model first, then fallback to legacy table.
             $stmt = $this->db->prepare("
                 UPDATE well_pipelines
                    SET status='damaged', condition_pct=0, damaged_at=NOW()
@@ -112,23 +112,23 @@ trait WellDisastersTrait
         }
     }
 
-    /**
-     * Katastrofa: Skazenie powierzchniowe (Surface Spill)
-     * Disaster: Surface contamination spill.
-     * Warunek: magazyn > 95% przez 2+ ticki
-     * Condition: storage > 95% for 2+ ticks.
-     */
+ /**
+ * Katastrofa: Skazenie powierzchniowe (Surface Spill)
+ * Disaster: Surface contamination spill.
+ * Warunek: magazyn > 95% przez 2+ ticki
+ * Condition: storage > 95% for 2+ ticks.
+ */
     public function triggerSurfaceSpill(int $playerId, float $storageUsed, array $hseBonus = []): array
     {
         $hseActive = ($hseBonus['active_hse'] ?? 0) > 0;
 
         GameLog::step('WellService', 'surfaceSpill', 1, "player={$playerId}");
 
-        // Kara: 200k-800k PLN, BHP redukuje o 50% / Fine: 200k-800k PLN, HSE reduces by 50%
+ // Kara: 200k-800k PLN, BHP redukuje o 50% / Fine: 200k-800k PLN, HSE reduces by 50%
         $envFine = mt_rand(200_000, 800_000);
         $envFine = (int)round($envFine * ($hseActive ? 0.5 : 1.0));
 
-        // Oil loss: 10-25% of storage contents / Utrata ropy: 10-25% zawartosci magazynu
+ // Oil loss: 10-25% of storage contents / Utrata ropy: 10-25% zawartosci magazynu
         $spillPct = mt_rand(10, 25);
         $oilLost  = round($storageUsed * $spillPct / 100, 2);
 
@@ -140,20 +140,20 @@ trait WellDisastersTrait
 
         $this->db->beginTransaction();
         try {
-            // Usun rope ze storage / Remove oil from storage
+ // Usun rope ze storage / Remove oil from storage
             $this->db->prepare("
                 UPDATE storage SET used = GREATEST(0, used - ?)
                 WHERE player_id = ?
             ")->execute([$oilLost, $playerId]);
 
-            // Kara finansowa / Financial penalty
+ // Kara finansowa / Financial penalty
             $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
                 ->execute([$envFine, $playerId]);
 
-            // Wpis w failure_log / Insert into failure_log
+ // Wpis w failure_log / Insert into failure_log
             $this->insertFailureLog($playerId, null, 'surface_spill', 0, $envFine, $oilLost, 0, $desc, resolved: true);
 
-            // Wpis w industrial_disasters / Insert into industrial_disasters
+ // Wpis w industrial_disasters / Insert into industrial_disasters
             $this->db->prepare("
                 INSERT INTO industrial_disasters
                     (player_id, disaster_type, severity, repair_cost, env_fine,
@@ -172,7 +172,7 @@ trait WellDisastersTrait
 
             $this->db->commit();
 
-            // Powiadom Dyrektora z losowym komunikatem BHP / Notify Director with a random HSE message
+ // Powiadom Dyrektora z losowym komunikatem BHP / Notify Director with a random HSE message
             $this->notifyDirectorDisaster($playerId, 'surface_spill', $hseActive, [
                 'oil' => number_format((int)$oilLost), 'fine' => number_format($envFine),
             ]);
@@ -199,12 +199,12 @@ trait WellDisastersTrait
         }
     }
 
-    /**
-     * Wysyla powiadomienie o katastrofie do panelu Dyrektora.
-     * Sends a disaster notification to the Director panel.
-     * Uzywa DisasterMessages do losowego komunikatu.
-     * Uses DisasterMessages to pick a random message.
-     */
+ /**
+ * Wysyla powiadomienie o katastrofie do panelu Dyrektora.
+ * Sends a disaster notification to the Director panel.
+ * Uzywa DisasterMessages do losowego komunikatu.
+ * Uses DisasterMessages to pick a random message.
+ */
     public function notifyDirectorDisaster(
         int    $playerId,
         string $disasterType,
@@ -244,12 +244,12 @@ trait WellDisastersTrait
         }
     }
 
-    /**
-     * Aplikuje boost spirali katastrof (+15%, max 0.45, wygasa po 48h).
-     * Applies disaster spiral risk boost (+15%, max 0.45, expires after 48h).
-     * Wyodrebione z triggerBlowout + triggerReservoirContamination.
-     * Extracted from triggerBlowout + triggerReservoirContamination.
-     */
+ /**
+ * Aplikuje boost spirali katastrof (+15%, max 0.45, wygasa po 48h).
+ * Applies disaster spiral risk boost (+15%, max 0.45, expires after 48h).
+ * Wyodrebione z triggerBlowout + triggerReservoirContamination.
+ * Extracted from triggerBlowout + triggerReservoirContamination.
+ */
     private function applyDisasterRiskBoost(int $wellId): void
     {
         try {
@@ -271,12 +271,12 @@ trait WellDisastersTrait
         }
     }
 
-    /**
-     * Zapisuje zdarzenie awaryjne do failure_log.
-     * Inserts a failure event into failure_log.
-     * Wyodrebione z 4 triggerow (blowout, contamination, pipeline, spill).
-     * Extracted from 4 trigger methods (blowout, contamination, pipeline, spill).
-     */
+ /**
+ * Zapisuje zdarzenie awaryjne do failure_log.
+ * Inserts a failure event into failure_log.
+ * Wyodrebione z 4 triggerow (blowout, contamination, pipeline, spill).
+ * Extracted from 4 trigger methods (blowout, contamination, pipeline, spill).
+ */
     private function insertFailureLog(
         int     $playerId,
         ?int    $wellId,

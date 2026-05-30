@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * PortService — zarzadzanie systemowymi portami morskimi.
- * PortService — management of system-owned maritime ports.
+ * PortService zarzadzanie systemowymi portami morskimi.
+ * PortService management of system-owned maritime ports.
  *
  * Porty naleza do systemu (nie do graczy).
  * Ports belong to the system (not to players).
@@ -20,9 +20,9 @@ class PortService
         $this->ensureSchema();
     }
 
-    // 
-    // Schema
-    // 
+ // 
+ // Schema
+ // 
 
     public function ensureSchema(): void
     {
@@ -47,21 +47,21 @@ class PortService
         );
     }
 
-    // 
-    // Queries
-    // 
+ // 
+ // Queries
+ // 
 
-    /**
-     * Znajdz aktywny port dla regionu odwiertu.
-     * Find an active port for a well's region.
-     * Preferuje port aktywny nad przeciazonym, blizszy regionowi.
-     * Prefers active over overloaded, closer to the region.
-     *
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Znajdz aktywny port dla regionu odwiertu.
+ * Find an active port for a well's region.
+ * Preferuje port aktywny nad przeciazonym, blizszy regionowi.
+ * Prefers active over overloaded, closer to the region.
+ *
+ * @return array<string, mixed>|null
+ */
     public function findForRegion(int $regionId): ?array
     {
-        // Szukaj portu w tym samym regionie / Look for port in the same region
+ // Szukaj portu w tym samym regionie / Look for port in the same region
         $stmt = $this->db->prepare(
             "SELECT * FROM ports
               WHERE region_id = ?
@@ -73,7 +73,7 @@ class PortService
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row) return $row;
 
-        // Fallback: dowolny aktywny port / Fallback: any active port
+ // Fallback: dowolny aktywny port / Fallback: any active port
         $row = $this->db->query(
             "SELECT * FROM ports WHERE status = 'active' ORDER BY RAND() LIMIT 1"
         )->fetch(PDO::FETCH_ASSOC);
@@ -81,9 +81,9 @@ class PortService
         return $row ?: null;
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+ /**
+ * @return array<string, mixed>|null
+ */
     public function getById(int $portId): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM ports WHERE id = ?");
@@ -92,10 +92,10 @@ class PortService
         return $row ?: null;
     }
 
-    /**
-     * Zlicz oczekujace dostawy w kolejce portu.
-     * Count deliveries waiting in the port queue.
-     */
+ /**
+ * Zlicz oczekujace dostawy w kolejce portu.
+ * Count deliveries waiting in the port queue.
+ */
     public function getQueueSize(int $portId): int
     {
         $stmt = $this->db->prepare(
@@ -105,10 +105,10 @@ class PortService
         return (int)$stmt->fetchColumn();
     }
 
-    /**
-     * Zaktualizuj status portu na podstawie rozmiaru kolejki.
-     * Update port status based on queue size.
-     */
+ /**
+ * Zaktualizuj status portu na podstawie rozmiaru kolejki.
+ * Update port status based on queue size.
+ */
     public function refreshStatuses(): void
     {
         try {
@@ -133,17 +133,17 @@ class PortService
         }
     }
 
-    // 
-    // Admin seed — tworzy domyslne porty dla kazdego regionu
-    // Admin seed — creates default ports for every region
-    // 
+ // 
+ // Admin seed tworzy domyslne porty dla kazdego regionu
+ // Admin seed creates default ports for every region
+ // 
 
-    /**
-     * Tworzy po 1 porcie na region jesli nie istnieja.
-     * Creates 1 port per region if none exist.
-     *
-     * @return int liczba utworzonych portow / number of ports created
-     */
+ /**
+ * Tworzy po 1 porcie na region jesli nie istnieja.
+ * Creates 1 port per region if none exist.
+ *
+ * @return int liczba utworzonych portow / number of ports created
+ */
     public function seedDefaultPorts(): int
     {
         $created = 0;
@@ -155,7 +155,7 @@ class PortService
             foreach ($regions as $region) {
                 $regionId = (int)$region['id'];
 
-                // Sprawdz czy port juz istnieje / Check if port already exists
+ // Sprawdz czy port juz istnieje / Check if port already exists
                 $stmt = $this->db->prepare(
                     "SELECT id FROM ports WHERE region_id = ? LIMIT 1"
                 );
@@ -178,12 +178,12 @@ class PortService
         return $created;
     }
 
-    /**
-     * Zwraca wszystkie porty z liczba oczekujacych dostaw.
-     * Returns all ports with waiting delivery count.
-     *
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Zwraca wszystkie porty z liczba oczekujacych dostaw.
+ * Returns all ports with waiting delivery count.
+ *
+ * @return list<array<string, mixed>>
+ */
     public function getAllWithQueueStats(): array
     {
         try {

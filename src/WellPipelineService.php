@@ -48,7 +48,8 @@ class WellPipelineService
                 id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 player_id INT NOT NULL,
                 well_id INT NOT NULL,
-                hub_id INT NULL DEFAULT NULL,
+                hub_id INT NOT NULL DEFAULT 0,
+                leg ENUM('inbound','outbound') NOT NULL DEFAULT 'inbound',
                 name VARCHAR(120) NOT NULL,
                 pipeline_type VARCHAR(32) NOT NULL DEFAULT 'standard',
                 status ENUM('active','degraded','critical','damaged','disabled','building','leak') NOT NULL DEFAULT 'active',
@@ -67,33 +68,52 @@ class WellPipelineService
                 leak_started_at DATETIME NULL DEFAULT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_well_pipeline_well (well_id),
+                UNIQUE KEY uq_wp_well_hub_leg (well_id, hub_id, leg),
                 KEY idx_well_pipeline_player (player_id),
                 KEY idx_well_pipeline_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
 
         $this->ensureColumn('well_pipelines', 'pipeline_type', "VARCHAR(32) NOT NULL DEFAULT 'standard' AFTER name");
-        $this->ensureColumn('well_pipelines', 'hub_id', "INT NULL DEFAULT NULL AFTER well_id");
+        $this->ensureColumn('well_pipelines', 'hub_id', "INT NOT NULL DEFAULT 0 AFTER well_id");
+ // Fix up pre-existing NULL values and column definition before unique key migration
+        try {
+            $this->db->exec("UPDATE well_pipelines SET hub_id = 0 WHERE hub_id IS NULL");
+            $this->db->exec("ALTER TABLE well_pipelines MODIFY COLUMN hub_id INT NOT NULL DEFAULT 0");
+        } catch (Throwable) {}
+
         $this->ensureColumn('well_pipelines', 'opex_per_tick', "DECIMAL(12,2) NOT NULL DEFAULT 140.00 AFTER incident_risk_mult");
         $this->ensureColumn('well_pipelines', 'opex_per_bbl', "DECIMAL(12,4) NOT NULL DEFAULT 0.2500 AFTER opex_per_tick");
         $this->ensureColumn('well_pipelines', 'build_cost', "DECIMAL(12,2) NOT NULL DEFAULT 18000.00 AFTER opex_per_bbl");
-        // Build timer columns - added in migration etap6_logistics_v2
+ // Build timer columns - added in migration etap6_logistics_v2
         $this->ensureColumn('well_pipelines', 'build_started_at', "DATETIME DEFAULT NULL AFTER build_cost");
         $this->ensureColumn('well_pipelines', 'build_finish_at',  "DATETIME DEFAULT NULL AFTER build_started_at");
-        // Leak tracking column - added in migration etap7_pipeline_leak
+ // Leak tracking column - added in migration etap7_pipeline_leak
         $this->ensureColumn('well_pipelines', 'leak_started_at',  "DATETIME DEFAULT NULL AFTER damaged_at");
+ // Transport leg column - ETAP 3 (second transport leg: hub -> storage).
+ // Kolumna odcinka transportu: 'inbound' (odwiert->hub), 'outbound' (hub->magazyn).
+        $this->ensureColumn('well_pipelines', 'leg', "ENUM('inbound','outbound') NOT NULL DEFAULT 'inbound' AFTER hub_id");
+ // Migrate the per-well unique key to per-(well, leg) so a well can have both legs.
+        $this->ensurePipelineLegUniqueKey();
+ // ETAP 5: pipeline degradation (PipelineSection) reads wells.hub_outbound_transport_type
+ // to pick the outbound leg. Ensure the column exists here too (idempotent, defensive),
+ // since PipelineSection always constructs this service before degrading pipelines.
+        $this->ensureColumn(
+            'wells',
+            'hub_outbound_transport_type',
+            "ENUM('nieustawiony','rurociag','ciezarowki','tankowiec') NOT NULL DEFAULT 'nieustawiony'"
+        );
 
-        // Extend ENUM to include building and leak states for existing installations
+ // Extend ENUM to include building and leak states for existing installations
         try {
             $this->db->exec(
                 "ALTER TABLE well_pipelines
                  MODIFY COLUMN status
-                     ENUM('active','degraded','critical','damaged','disabled','building','leak')
+                     ENUM('active','degraded','critical','damaged','disabled','building','leak','suspended')
                      NOT NULL DEFAULT 'active'"
             );
         } catch (Throwable) {
-            // Ignore - column may already have correct definition
+ // Ignore - column may already have correct definition
         }
 
         $this->db->exec(
@@ -113,7 +133,7 @@ class WellPipelineService
                 KEY idx_pipeline_events_level (level)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
-        // Incident level column - added for pipeline incident tracking
+ // Incident level column - added for pipeline incident tracking
         $this->ensureColumn('well_pipeline_events', 'level', "VARCHAR(16) NULL DEFAULT NULL AFTER severity");
 
         $this->db->exec(
@@ -138,23 +158,23 @@ class WellPipelineService
         );
     }
 
-    /**
-     * @param list<array<string, mixed>> $wells
-     */
+ /**
+ * @param list<array<string, mixed>> $wells
+ */
     public function ensurePipelinesForPlayerWells(int $playerId, array $wells): void
     {
-        // Legacy no-op: pipelines are no longer auto-created from transport_type.
-        // Rurociag powstaje tylko po jawnym wyborze / zakupie przez gracza.
+ // Legacy no-op: pipelines are no longer auto-created from transport_type.
+ // Rurociag powstaje tylko po jawnym wyborze / zakupie przez gracza.
         return;
     }
 
-    /**
-     * Creates a purchased pipeline for a single well if it does not exist yet.
-     * Tworzy zakupiony rurociag dla pojedynczego odwiertu, jesli jeszcze nie istnieje.
-     *
-     * @param array<string, mixed> $well
-     * @return array<string, mixed>
-     */
+ /**
+ * Creates a purchased pipeline for a single well if it does not exist yet.
+ * Tworzy zakupiony rurociag dla pojedynczego odwiertu, jesli jeszcze nie istnieje.
+ *
+ * @param array<string, mixed> $well
+ * @return array<string, mixed>
+ */
     public function createPipelineForWell(int $playerId, array $well, ?string $requestedType = null): array
     {
         $wellId = (int)($well['id'] ?? 0);
@@ -208,16 +228,18 @@ class WellPipelineService
         return $this->getByPlayerAndWellIds($playerId, [$wellId])[$wellId] ?? [];
     }
 
-    /**
-     * @param list<int> $wellIds
-     * @return array<int, array<string, mixed>>
-     */
-    public function getByPlayerAndWellIds(int $playerId, array $wellIds): array
+ /**
+ * @param list<int> $wellIds
+ * @param string $leg 'inbound' (well->hub) or 'outbound' (hub->storage)
+ * @return array<int, array<string, mixed>>
+ */
+    public function getByPlayerAndWellIds(int $playerId, array $wellIds, string $leg = 'inbound'): array
     {
         $wellIds = array_values(array_unique(array_map('intval', $wellIds)));
         if ($wellIds === []) {
             return [];
         }
+        $leg = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
 
         $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
         $stmt = $this->db->prepare(
@@ -231,9 +253,10 @@ class WellPipelineService
                  ON a.well_id = wp.well_id
                 AND a.status = 'active'
               WHERE wp.player_id = ?
+                AND wp.leg = ?
                 AND wp.well_id IN ({$placeholders})"
         );
-        $stmt->execute(array_merge([$playerId], $wellIds));
+        $stmt->execute(array_merge([$playerId, $leg], $wellIds));
 
         $rows = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -244,9 +267,121 @@ class WellPipelineService
         return $rows;
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns outbound pipeline rows keyed by hub_id (well_id=0 sentinel, leg='outbound').
+ * ETAP 11: outbound pipelines belong to the hub, not the well.
+ *
+ * @param list<int> $hubIds
+ * @return array<int, array<string, mixed>>
+ */
+    public function getByPlayerHubIds(int $playerId, array $hubIds): array
+    {
+        $hubIds = array_values(array_unique(array_map('intval', $hubIds)));
+        if ($hubIds === []) return [];
+        $placeholders = implode(',', array_fill(0, count($hubIds), '?'));
+        $stmt = $this->db->prepare(
+            "SELECT wp.*,
+                    h.name AS hub_name,
+                    h.status AS hub_status
+               FROM well_pipelines wp
+               LEFT JOIN logistics_hubs h ON h.id = wp.hub_id
+              WHERE wp.player_id = ?
+                AND wp.leg = 'outbound'
+                AND wp.well_id = 0
+                AND wp.hub_id IN ({$placeholders})"
+        );
+        $stmt->execute(array_merge([$playerId], $hubIds));
+        $rows = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $row = $this->normalizePipelineRow($row);
+            $rows[(int)$row['hub_id']] = $row;
+        }
+        return $rows;
+    }
+
+ /**
+ * Player purchases an outbound pipeline for a hub (hub -> storage, leg='outbound').
+ * ETAP 11: one outbound pipeline per hub, keyed by hub_id (well_id=0 sentinel).
+ * Gracz kupuje rurociag wylotowy dla huba (hub->magazyn, odcinek 2).
+ *
+ * @return array{success:bool, pipeline_id?:int, pipeline_type?:string, build_cost?:float, build_hours?:int, build_finish_at?:string, error?:string, status?:string}
+ */
+    public function purchaseHubOutboundPipeline(int $playerId, int $hubId, string $type = 'standard'): array
+    {
+        $type    = $this->normalizePipelineType($type);
+        $profile = $this->getProfile($type);
+        $buildCost  = $profile['build_cost'];
+        $buildHours = $profile['build_hours'];
+
+ // Validate hub belongs to player (owner or tenant)
+        $hubStmt = $this->db->prepare(
+            "SELECT id, nominal_capacity_bph FROM logistics_hubs
+              WHERE id = ? AND (player_id = ? OR tenant_player_id = ?) AND status NOT IN ('disabled','building')"
+        );
+        $hubStmt->execute([$hubId, $playerId, $playerId]);
+        $hub = $hubStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$hub) {
+            return ['success' => false, 'error' => 'hub_not_found'];
+        }
+
+ // Reject if outbound pipeline already exists for this hub
+        $existingStmt = $this->db->prepare(
+            "SELECT id, status FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound'"
+        );
+        $existingStmt->execute([$hubId]);
+        $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
+        }
+
+ // Atomic deduction
+        $deductStmt = $this->db->prepare(
+            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        );
+        $deductStmt->execute([$buildCost, $playerId, $buildCost]);
+        if ($deductStmt->rowCount() === 0) {
+            return ['success' => false, 'error' => 'insufficient_funds'];
+        }
+
+        $capacity = max(1.0, round((float)($hub['nominal_capacity_bph'] ?? 100.0) * ((float)($profile['capacity_pct'] ?? 100.0) / 100.0), 2));
+        $name = tPlain('pipeline.default_name_hub', ['id' => $hubId]);
+
+        $insertStmt = $this->db->prepare(
+            "INSERT INTO well_pipelines
+                (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
+                 nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
+                 opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
+                 last_inspected_at, created_at, updated_at)
+             VALUES (?, 0, ?, 'outbound', ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
+                     NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
+        );
+        $insertStmt->execute([
+            $playerId, $hubId, $name, $type,
+            $capacity, $capacity,
+            $profile['degradation_rate_per_hour'],
+            $profile['incident_risk_mult'],
+            $profile['opex_per_tick'],
+            $profile['opex_per_bbl'],
+            $buildCost,
+            $buildHours,
+        ]);
+        $pipelineId = (int)$this->db->lastInsertId();
+        $buildFinishAt = (new DateTime())->modify("+{$buildHours} hours")->format('Y-m-d H:i:s');
+
+        $this->recordEvent($playerId, 0, $pipelineId, 'pipeline_build_started', 'info',
+            tPlain('pipeline.event_build_started', ['id' => $pipelineId, 'hours' => $buildHours, 'cost' => number_format($buildCost, 2, '.', '')]));
+
+        GameLog::info('WellPipelineService', 'Hub outbound pipeline purchased', [
+            'player_id' => $playerId, 'hub_id' => $hubId, 'pipeline_id' => $pipelineId, 'type' => $type,
+        ]);
+
+        return ['success' => true, 'pipeline_id' => $pipelineId, 'pipeline_type' => $type,
+                'build_cost' => $buildCost, 'build_hours' => $buildHours, 'build_finish_at' => $buildFinishAt];
+    }
+
+ /**
+ * @return list<array<string, mixed>>
+ */
     public function getPlayerPipelines(int $playerId): array
     {
         $stmt = $this->db->prepare(
@@ -331,12 +466,12 @@ class WellPipelineService
         }
     }
 
-    /**
-     * Reads pipeline incident config for given level from well_config.
-     * Returns defaults if not configured.
-     *
-     * @return array{loss_add_min:float,loss_add_max:float,cond_drop_min:float,cond_drop_max:float,base_chance:float}
-     */
+ /**
+ * Reads pipeline incident config for given level from well_config.
+ * Returns defaults if not configured.
+ *
+ * @return array{loss_add_min:float,loss_add_max:float,cond_drop_min:float,cond_drop_max:float,base_chance:float}
+ */
     public function getPipelineIncidentConfig(string $level): array
     {
         static $defaults = [
@@ -351,7 +486,7 @@ class WellPipelineService
             $in = implode(',', array_fill(0, count($keys), '?'));
             $rows = $this->db->prepare("SELECT `key`,`value` FROM well_config WHERE `key` IN ($in)")
                 ->execute($keys) ? [] : [];
-            // Re-fetch properly
+ // Re-fetch properly
             $stmt = $this->db->prepare("SELECT `key`,`value` FROM well_config WHERE `key` IN ($in)");
             $stmt->execute($keys);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -364,21 +499,22 @@ class WellPipelineService
         return $base;
     }
 
-    /**
-     * Player purchases a pipeline for a well.
-     * Gracz kupuje rurociag dla odwiertu - trwa budowa zanim zacznie dzialac.
-     *
-     * @return array{success:bool, pipeline_id?:int, pipeline_type?:string, build_cost?:float, build_hours?:int, build_finish_at?:string, error?:string}
-     */
-    public function purchasePipeline(int $playerId, int $wellId, string $type = 'standard'): array
+ /**
+ * Player purchases a pipeline for a well.
+ * Gracz kupuje rurociag dla odwiertu - trwa budowa zanim zacznie dzialac.
+ *
+ * @return array{success:bool, pipeline_id?:int, pipeline_type?:string, build_cost?:float, build_hours?:int, build_finish_at?:string, error?:string}
+ */
+    public function purchasePipeline(int $playerId, int $wellId, string $type = 'standard', string $leg = 'inbound'): array
     {
         $type    = $this->normalizePipelineType($type);
+        $leg     = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
         $profile = $this->getProfile($type);
         $buildCost  = $profile['build_cost'];
         $buildHours = $profile['build_hours'];
 
-        // Validate well belongs to player and is onshore.
-        // Pipeline purchase requires an active hub assignment for the well.
+ // Validate well belongs to player and is onshore.
+ // Pipeline purchase requires an active hub assignment for the well.
         $wellStmt = $this->db->prepare(
             "SELECT id, base_production_per_hour, transport_capacity_pct, well_type
                FROM wells
@@ -398,17 +534,17 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_required'];
         }
 
-        // Reject if pipeline already exists (any status)
+ // Reject if a pipeline already exists for this leg (one per well per leg).
         $existingStmt = $this->db->prepare(
-            "SELECT id, status FROM well_pipelines WHERE well_id = ?"
+            "SELECT id, status FROM well_pipelines WHERE well_id = ? AND leg = ?"
         );
-        $existingStmt->execute([$wellId]);
+        $existingStmt->execute([$wellId, $leg]);
         $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
         if ($existing) {
             return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
         }
 
-        // Atomic deduction - fail if insufficient funds
+ // Atomic deduction - fail if insufficient funds
         $deductStmt = $this->db->prepare(
             "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
         );
@@ -422,20 +558,21 @@ class WellPipelineService
         $capacity = max(1.0, round($baseProd * ($capPct / 100.0), 2));
         $name     = tPlain('pipeline.default_name', ['id' => $wellId]);
 
-        // Insert pipeline with building status and timer
+ // Insert pipeline with building status and timer
         $insertStmt = $this->db->prepare(
             "INSERT INTO well_pipelines
-                (player_id, well_id, hub_id, name, pipeline_type, status, condition_pct, transport_loss,
+                (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
                  nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
                  opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
                  last_inspected_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
+             VALUES (?, ?, ?, ?, ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
                      NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
         );
         $insertStmt->execute([
             $playerId,
             $wellId,
             (int)$hubAssignment['hub_id'],
+            $leg,
             $name,
             $type,
             $capacity,
@@ -469,6 +606,7 @@ class WellPipelineService
             'well_id'     => $wellId,
             'pipeline_id' => $pipelineId,
             'type'        => $type,
+            'leg'         => $leg,
             'build_hours' => $buildHours,
         ]);
 
@@ -476,17 +614,18 @@ class WellPipelineService
             'success'       => true,
             'pipeline_id'   => $pipelineId,
             'pipeline_type' => $type,
+            'leg'           => $leg,
             'build_cost'    => $buildCost,
             'build_hours'   => $buildHours,
             'build_finish_at' => $buildFinishAt,
         ];
     }
 
-    /**
-     * Rebind an existing pipeline to the currently active hub assignment for the well.
-     *
-     * @return array{success:bool, error?:string}
-     */
+ /**
+ * Rebind an existing pipeline to the currently active hub assignment for the well.
+ *
+ * @return array{success:bool, error?:string}
+ */
     public function bindPipelineToActiveHub(int $playerId, int $wellId): array
     {
         $hubAssignment = $this->getActiveHubAssignmentForWell($wellId);
@@ -522,16 +661,16 @@ class WellPipelineService
         return ['success' => true];
     }
 
-    /**
-     * Completes building pipelines whose build_finish_at has passed.
-     * Called each tick - returns list of newly activated pipelines.
-     * Finalizuje budowe rurociagow ktorych czas minal - wywolywane w ticku.
-     *
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Completes building pipelines whose build_finish_at has passed.
+ * Called each tick - returns list of newly activated pipelines.
+ * Finalizuje budowe rurociagow ktorych czas minal - wywolywane w ticku.
+ *
+ * @return list<array<string, mixed>>
+ */
     public function completeBuildingPipelines(int $playerId): array
     {
-        // Find finished builds
+ // Find finished builds
         $findStmt = $this->db->prepare(
             "SELECT id, well_id, pipeline_type
                FROM well_pipelines
@@ -570,12 +709,12 @@ class WellPipelineService
         return $completed;
     }
 
-    /**
-     * Returns pipelines currently under construction for a player.
-     * Zwraca rurociagi bedace aktualnie w budowie dla gracza.
-     *
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns pipelines currently under construction for a player.
+ * Zwraca rurociagi bedace aktualnie w budowie dla gracza.
+ *
+ * @return list<array<string, mixed>>
+ */
     public function getBuildingForPlayer(int $playerId): array
     {
         $stmt = $this->db->prepare(
@@ -594,19 +733,19 @@ class WellPipelineService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * @return array{
-     *   pipeline_type:string,
-     *   price_pct:float,
-     *   capacity_pct:float,
-     *   durability_pct:float,
-     *   degradation_rate_per_hour:float,
-     *   incident_risk_mult:float,
-     *   opex_per_tick:float,
-     *   opex_per_bbl:float,
-     *   build_cost:float
-     * }
-     */
+ /**
+ * @return array{
+ * pipeline_type:string,
+ * price_pct:float,
+ * capacity_pct:float,
+ * durability_pct:float,
+ * degradation_rate_per_hour:float,
+ * incident_risk_mult:float,
+ * opex_per_tick:float,
+ * opex_per_bbl:float,
+ * build_cost:float
+ * }
+ */
     public function getProfile(string $pipelineType): array
     {
         $pipelineType = $this->normalizePipelineType($pipelineType);
@@ -633,11 +772,11 @@ class WellPipelineService
         ];
     }
 
-    /**
-     * Returns editable pipeline type profiles for admin panels.
-     *
-     * @return array<string, array<string, mixed>>
-     */
+ /**
+ * Returns editable pipeline type profiles for admin panels.
+ *
+ * @return array<string, array<string, mixed>>
+ */
     public function getEditableProfiles(): array
     {
         $profiles = [];
@@ -647,9 +786,9 @@ class WellPipelineService
         return $profiles;
     }
 
-    /**
-     * @return list<string>
-     */
+ /**
+ * @return list<string>
+ */
     public function getProfileTypes(): array
     {
         return ['light', 'standard', 'heavy'];
@@ -682,18 +821,18 @@ class WellPipelineService
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Player actions: repair, maintenance, toggle (suspend/resume)
-    // Akcje gracza: naprawa, konserwacja, wstrzymanie/wznowienie
-    // -------------------------------------------------------------------------
+ // -------------------------------------------------------------------------
+ // Player actions: repair, maintenance, toggle (suspend/resume)
+ // Akcje gracza: naprawa, konserwacja, wstrzymanie/wznowienie
+ // -------------------------------------------------------------------------
 
-    /**
-     * Repair a player's pipeline to 100% condition.
-     * Cost: MAX(2000, build_cost * damage_pct * 0.30).
-     * Naprawa rurociagu gracza do 100% stanu.
-     *
-     * @return array{success:bool,error?:string,repair_cost?:float,condition_after?:float}
-     */
+ /**
+ * Repair a player's pipeline to 100% condition.
+ * Cost: MAX(2000, build_cost * damage_pct * 0.30).
+ * Naprawa rurociagu gracza do 100% stanu.
+ *
+ * @return array{success:bool,error?:string,repair_cost?:float,condition_after?:float}
+ */
     public function repairPipeline(int $playerId, int $pipelineId): array
     {
         $stmt = $this->db->prepare(
@@ -719,7 +858,7 @@ class WellPipelineService
             return ['success' => false, 'error' => 'pipeline_already_full'];
         }
 
-        // Atomically deduct cash
+ // Atomically deduct cash
         $deduct = $this->db->prepare(
             "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
         );
@@ -728,7 +867,7 @@ class WellPipelineService
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
 
-        // Restore condition, reduce transport_loss by 60%, update status
+ // Restore condition, reduce transport_loss by 60%, update status
         $newStatus = match(true) {
             in_array((string)$pipe['status'], ['suspended'], true) => $pipe['status'],
             default => 'active',
@@ -765,14 +904,14 @@ class WellPipelineService
         ];
     }
 
-    /**
-     * Perform scheduled maintenance on a pipeline.
-     * Cost: MAX(500, opex_per_tick * 24 * 0.4).
-     * Resets last_maintenance_at, restores +2 condition points.
-     * Konserwacja rurociagu — reset timera i +2 pkt stanu.
-     *
-     * @return array{success:bool,error?:string,maint_cost?:float}
-     */
+ /**
+ * Perform scheduled maintenance on a pipeline.
+ * Cost: MAX(500, opex_per_tick * 24 * 0.4).
+ * Resets last_maintenance_at, restores +2 condition points.
+ * Konserwacja rurociagu - reset timera i +2 pkt stanu.
+ *
+ * @return array{success:bool,error?:string,maint_cost?:float}
+ */
     public function maintenancePipeline(int $playerId, int $pipelineId): array
     {
         $stmt = $this->db->prepare(
@@ -830,13 +969,13 @@ class WellPipelineService
         ];
     }
 
-    /**
-     * Toggle pipeline between active and suspended.
-     * When suspended: well uses road transport (at road transport costs).
-     * Wstrzymanie/wznowienie rurociagu — brak kosztow, ale droga jest drozszym zamiennikiem.
-     *
-     * @return array{success:bool,error?:string,new_status?:string}
-     */
+ /**
+ * Toggle pipeline between active and suspended.
+ * When suspended: well uses road transport (at road transport costs).
+ * Wstrzymanie/wznowienie rurociagu - brak kosztow, ale droga jest drozszym zamiennikiem.
+ *
+ * @return array{success:bool,error?:string,new_status?:string}
+ */
     public function togglePipeline(int $playerId, int $pipelineId): array
     {
         $stmt = $this->db->prepare(
@@ -857,7 +996,7 @@ class WellPipelineService
         }
 
         if ($current === 'suspended') {
-            // Resume: restore status based on condition_pct
+ // Resume: restore status based on condition_pct
             $cond      = (float)$pipe['condition_pct'];
             $newStatus = match(true) {
                 $cond < 30.0 => 'critical',
@@ -867,7 +1006,7 @@ class WellPipelineService
             $eventType = 'pipeline_resumed';
             $eventMsg  = "[Player] Pipeline resumed. Status restored to {$newStatus}.";
         } else {
-            // Suspend: active/degraded/critical/damaged/leak -> suspended
+ // Suspend: active/degraded/critical/damaged/leak -> suspended
             $newStatus = 'suspended';
             $eventType = 'pipeline_suspended';
             $eventMsg  = "[Player] Pipeline suspended. Well switches to road transport.";
@@ -891,9 +1030,9 @@ class WellPipelineService
         return ['success' => true, 'new_status' => $newStatus, 'old_status' => $current];
     }
 
-    /**
-     * @return array{price_pct:float,capacity_pct:float,durability_pct:float}
-     */
+ /**
+ * @return array{price_pct:float,capacity_pct:float,durability_pct:float}
+ */
     private function getPipelineTypeSettings(string $pipelineType): array
     {
         $pipelineType = $this->normalizePipelineType($pipelineType);
@@ -937,17 +1076,17 @@ class WellPipelineService
         return 'pipeline_type_' . $pipelineType . '_' . $field;
     }
 
-    /**
-     * @param array<string, mixed> $well
-     * @return array{
-     *   pipeline_type:string,
-     *   degradation_rate_per_hour:float,
-     *   incident_risk_mult:float,
-     *   opex_per_tick:float,
-     *   opex_per_bbl:float,
-     *   build_cost:float
-     * }
-     */
+ /**
+ * @param array<string, mixed> $well
+ * @return array{
+ * pipeline_type:string,
+ * degradation_rate_per_hour:float,
+ * incident_risk_mult:float,
+ * opex_per_tick:float,
+ * opex_per_bbl:float,
+ * build_cost:float
+ * }
+ */
     private function getProfileForWell(array $well): array
     {
         return $this->getProfile((string)($well['pipeline_type'] ?? 'standard'));
@@ -963,10 +1102,10 @@ class WellPipelineService
         };
     }
 
-    /**
-     * @param array<string, mixed> $row
-     * @return array<string, mixed>
-     */
+ /**
+ * @param array<string, mixed> $row
+ * @return array<string, mixed>
+ */
     private function normalizePipelineRow(array $row): array
     {
         $row['pipeline_type'] = $this->normalizePipelineType((string)($row['pipeline_type'] ?? 'standard'));
@@ -982,9 +1121,9 @@ class WellPipelineService
         return $row;
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+ /**
+ * @return array<string, mixed>|null
+ */
     private function getActiveHubAssignmentForWell(int $wellId): ?array
     {
         try {
@@ -1033,6 +1172,52 @@ class WellPipelineService
         } catch (Throwable $e) {
             GameLog::error('WellPipelineService', 'ensureColumn FAILED', $e, ['table' => $table, 'column' => $column]);
         }
+    }
+
+ /**
+ * Migrates unique keys for well_pipelines to the composite (well_id, hub_id, leg) key.
+ * ETAP 11: outbound pipelines are now keyed per hub (well_id=0, hub_id), not per well.
+ * Removes legacy keys (uq_well_pipeline_well, uq_well_pipeline_well_leg) and adds
+ * the new key uq_wp_well_hub_leg (well_id, hub_id, leg). Idempotent. MySQL only.
+ * Migruje klucze unikalne na (well_id, hub_id, leg) - rurociag outbound per hub.
+ */
+    private function ensurePipelineLegUniqueKey(): void
+    {
+        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            return;
+        }
+        try {
+ // Drop the old per-(well, leg) key if present.
+            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well_leg')) {
+                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well_leg");
+            }
+ // Drop the even older single-column key if still present.
+            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well')) {
+                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well");
+            }
+ // Add the new composite key if not present.
+            if (!$this->indexExists('well_pipelines', 'uq_wp_well_hub_leg')) {
+                $this->db->exec(
+                    "ALTER TABLE well_pipelines ADD UNIQUE KEY uq_wp_well_hub_leg (well_id, hub_id, leg)"
+                );
+            }
+        } catch (Throwable $e) {
+            GameLog::error('WellPipelineService', 'ensurePipelineLegUniqueKey FAILED', $e);
+        }
+    }
+
+    private function indexExists(string $table, string $indexName): bool
+    {
+        $stmt = $this->db->prepare(
+            "SELECT 1
+               FROM information_schema.STATISTICS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME   = ?
+                AND INDEX_NAME   = ?
+              LIMIT 1"
+        );
+        $stmt->execute([$table, $indexName]);
+        return (bool)$stmt->fetchColumn();
     }
 
     private function columnExists(string $table, string $column): bool

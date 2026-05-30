@@ -6,10 +6,10 @@
  */
 trait HubAdminQueryTrait
 {
-    /**
-     * Returns all hubs in the system with optional status filter (admin use).
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns all hubs in the system with optional status filter (admin use).
+ * @return list<array<string, mixed>>
+ */
     public function getAllHubs(string $statusFilter = '', int $regionFilter = 0): array
     {
         $conditions = [];
@@ -40,10 +40,10 @@ trait HubAdminQueryTrait
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Returns the most recent tick stats for a hub.
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Returns the most recent tick stats for a hub.
+ * @return array<string, mixed>|null
+ */
     public function getLastTickStats(int $hubId): ?array
     {
         $stmt = $this->db->prepare(
@@ -57,10 +57,10 @@ trait HubAdminQueryTrait
         return $row ?: null;
     }
 
-    /**
-     * Returns recent tick stats history for a hub (chronological order).
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns recent tick stats history for a hub (chronological order).
+ * @return list<array<string, mixed>>
+ */
     public function getTickStatsHistory(int $hubId, int $limit = 24): array
     {
         $stmt = $this->db->prepare(
@@ -73,10 +73,10 @@ trait HubAdminQueryTrait
         return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    /**
-     * Returns unread events for a player.
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns unread events for a player.
+ * @return list<array<string, mixed>>
+ */
     public function getUnreadEvents(int $playerId, int $limit = 20): array
     {
         $stmt = $this->db->prepare(

@@ -1,5 +1,5 @@
 /**
- * market.js  Rynek ropy
+ * market.js Rynek ropy
  * Confirm dla sprzedazy / wystawienia oferty + toast dla komunikatow PHP.
  */
 (function () {
@@ -9,7 +9,7 @@
         var price = window.MARKET_PRICE || 0;
         var lang  = window.MARKET_LANG  || {};
 
-        /*  Confirm dla formularzy sprzedazy  */
+ /* Confirm dla formularzy sprzedazy */
         document.querySelectorAll('.form-sell').forEach(function (form) {
             form.addEventListener('submit', function (e) {
                 var actionInput = form.querySelector('input[name="action"]');
@@ -45,7 +45,7 @@
             });
         });
 
-        /*  Toast dla $success / $error z PHP  */
+ /* Toast dla $success / $error z PHP */
         var msg = window.MARKET_MSG || '';
         var err = window.MARKET_ERR || '';
 

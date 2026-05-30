@@ -9,7 +9,7 @@ trait TTSRecruitmentTrait
     private const TECH_RECRUITMENT_MAX_PER_SPEC = 2;
     private const TECH_RECRUITMENT_MAX_TOTAL = 6;
 
-    // Helpers / Helpery
+ // Helpers / Helpery
 
     public static function formatTime(int $seconds): string
     {
@@ -29,7 +29,7 @@ trait TTSRecruitmentTrait
         return '$' . number_format($n, 0, '.', ' ');
     }
 
-    // Candidate review / Ocena kandydatow
+ // Candidate review / Ocena kandydatow
 
     public function getTechnicalCandidates(): array
     {
@@ -100,10 +100,10 @@ trait TTSRecruitmentTrait
         ])];
     }
 
-    /**
-     * Marks recruitment as completed.
-     * Oznacza rekrutacje jako zakonczona.
-     */
+ /**
+ * Marks recruitment as completed.
+ * Oznacza rekrutacje jako zakonczona.
+ */
     public function completeRecruitment(int $requestId): void
     {
         $this->db->prepare("

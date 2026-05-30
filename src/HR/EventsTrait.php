@@ -6,8 +6,8 @@
  */
 trait HREventsTrait
 {
-    // Employee termination actions.
-    // PL: Akcje zwiazane ze zwalnianiem pracownikow.
+ // Employee termination actions.
+ // PL: Akcje zwiazane ze zwalnianiem pracownikow.
 
     public function fireEmployee(int $memberId, string $reason = ''): array
     {
@@ -59,8 +59,8 @@ trait HREventsTrait
         ];
     }
 
-    // HR events and notifications.
-    // PL: Zdarzenia i powiadomienia HR.
+ // HR events and notifications.
+ // PL: Zdarzenia i powiadomienia HR.
 
     public function createEvent(int $playerId, string $type, string $title, string $message, ?int $memberId): void
     {
@@ -88,10 +88,10 @@ trait HREventsTrait
             ->execute([$playerId]);
     }
 
-    /**
-     * Check contracts that are about to expire and create HR events.
-     * PL: Sprawdza kontrakty bliskie konca i tworzy zdarzenia HR.
-     */
+ /**
+ * Check contracts that are about to expire and create HR events.
+ * PL: Sprawdza kontrakty bliskie konca i tworzy zdarzenia HR.
+ */
     public function checkExpiringContracts(): void
     {
         $stmt = $this->db->prepare("

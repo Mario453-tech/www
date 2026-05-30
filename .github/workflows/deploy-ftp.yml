@@ -1,0 +1,90 @@
+name: Deploy via FTP
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    name: Upload to FTP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # needed for changed-files detection
+
+      - name: Write .env from secret
+        run: printf '%s' "$ENV_FILE" > .env
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+
+      - name: Deploy via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:   ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port:     ${{ secrets.FTP_PORT }}
+          protocol: ftps
+          local-dir:  ./
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          exclude: |
+            **/.git/**
+            **/.github/**
+            **/.vscode/**
+            **/.claude/**
+            **/.phpunit_cache/**
+            **/.idea/**
+            **/tests/**
+            **/vendor/**
+            **/node_modules/**
+            **/cache/**
+            **/coverage/**
+            **/build/**
+            **/dist/**
+            **/tmp/**
+            **/temp/**
+            **/backups/**
+            **/svn_repo/**
+            **/migrations/**
+            **/backup/**
+            **/sessions/**
+            **/.env.*
+            **/.gitignore
+            **/composer.json
+            **/composer.lock
+            **/phpstan.neon
+            **/phpstan_errors.txt
+            **/phpunit.xml.dist
+            **/deploy.ps1
+            **/diag*.php
+            **/check_log_cfg.php
+            **/diag.php
+            **/reset_db.php
+            **/*.bak
+            **/*_server.php
+            **/*.log
+            **/winscp.log
+            **/winscp_sync.txt
+            **/*.sql
+            **/*.zip
+            **/*.rar
+            **/database.php
+
+      # Odczekaj, az zapisy FTP sie ustabilizuja, zanim wyczyscimy OPcache.
+      # Wait for FTP writes to settle before clearing OPcache.
+      - name: Odczekaj po wgraniu / Settle delay
+        run: sleep 20
+
+      # Wyczysc OPcache na produkcji, by usunac ewentualne nieaktualne wpisy.
+      # Clear production OPcache to drop any stale cached files.
+      - name: Reset OPcache
+        run: |
+          curl -fsS --max-time 30 \
+            "${{ secrets.SITE_URL }}/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
+            && echo "" && echo "OPcache reset OK" \
+            || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"

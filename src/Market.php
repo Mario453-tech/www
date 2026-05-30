@@ -16,7 +16,7 @@ class Market
         }
     }
     
-    /** @return array<string, mixed>|false|null */
+ /** @return array<string, mixed>|false|null */
     public function getState(): array|false|null
     {
         try {

@@ -3,33 +3,33 @@
  * LogisticsService.php -- Transport optimizer for wells
  *
  * Three modes:
- *   balans    -- maximize transported - cost x 0.001
- *   max_prod  -- maximize capacity (ignore cost)
- *   min_cost  -- minimize unit cost (cost_per_bbl)
+ * balans -- maximize transported - cost x 0.001
+ * max_prod -- maximize capacity (ignore cost)
+ * min_cost -- minimize unit cost (cost_per_bbl)
  *
  * Rules:
- *   - offshore -> tanker only
- *   - onshore  -> pipeline or trucks (by mode)
- *   - Change only if new score > current score (never downgrade)
- *   - Cooldown 5 min (PHP session)
+ * - offshore -> tanker only
+ * - onshore -> pipeline or trucks (by mode)
+ * - Change only if new score > current score (never downgrade)
+ * - Cooldown 5 min (PHP session)
  */
 
 class LogisticsService
 {
     private PDO $db;
     private int $playerId;
-    /** @var array<int, true> */
+ /** @var array<int, true> */
     private array $ownedPipelineWellIds = [];
-    /** @var array<int, true> */
+ /** @var array<int, true> */
     private array $existingPipelineWellIds = [];
 
-    // Transport config -- same as transport_config + WellLoopSection
+ // Transport config -- same as transport_config + WellLoopSection
     private array $transportConfig = [];
 
     private const COOLDOWN_KEY    = 'logistics_optimize_last';
     private const COOLDOWN_SECS   = 300; // 5 minut
 
-    // Cost to run the optimizer per mode (in PLN)
+ // Cost to run the optimizer per mode (in PLN)
     public const MODE_COSTS = [
         'balans'   => 2500,
         'max_prod' => 5000,
@@ -45,13 +45,13 @@ class LogisticsService
         $this->ownedPipelineWellIds = $this->loadOwnedPipelineWellIds();
     }
 
-    /** Returns mode cost in PLN */
+ /** Returns mode cost in PLN */
     public function getModeCost(string $mode): int
     {
         return self::MODE_COSTS[$mode] ?? 2500;
     }
 
-    // -- Cooldown ---
+ // -- Cooldown ---
     public function getRemainingCooldown(): int
     {
         $last = $_SESSION[self::COOLDOWN_KEY] ?? 0;
@@ -64,7 +64,7 @@ class LogisticsService
         $_SESSION[self::COOLDOWN_KEY] = time();
     }
 
-    // -- Main optimization method ---
+ // -- Main optimization method ---
     public function optimize(string $mode = 'balans'): array
     {
         if (!in_array($mode, ['balans', 'max_prod', 'min_cost'], true)) {
@@ -80,7 +80,7 @@ class LogisticsService
             ];
         }
 
-        // Check player cash
+ // Check player cash
         $modeCost = self::MODE_COSTS[$mode];
         $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
         $cashStmt->execute([$this->playerId]);
@@ -96,7 +96,7 @@ class LogisticsService
             ];
         }
 
-        // Fetch all player wells (active + paused -- not broken/blowout)
+ // Fetch all player wells (active + paused -- not broken/blowout)
         $stmt = $this->db->prepare("
             SELECT id, well_type,
                    base_production_per_hour,
@@ -129,17 +129,17 @@ class LogisticsService
             $hasAnyPipeline = isset($this->existingPipelineWellIds[$wellId]);
             $effectiveCurrType = $this->resolveEffectiveTransport($wType, $currType, $hasPipeline, $hasAnyPipeline);
 
-            // Calculate stats BEFORE change
+ // Calculate stats BEFORE change
             $before = $this->calcStats($prod, $effectiveCurrType);
             $statsBefore['transported'] += $before['transported'];
             $statsBefore['cost']        += $before['cost'];
             $statsBefore['loss']        += $before['loss'];
 
-            // Select best transport for this well
+ // Select best transport for this well
             $bestType = $this->chooseBest($wType, $mode, $prod, $currType, $hasPipeline);
             $effectiveBestType = $this->resolveEffectiveTransport($wType, $bestType, $hasPipeline, $hasAnyPipeline);
 
-            // Calculate stats AFTER change
+ // Calculate stats AFTER change
             $after = $this->calcStats($prod, $effectiveBestType);
             $statsAfter['transported'] += $after['transported'];
             $statsAfter['cost']        += $after['cost'];
@@ -161,12 +161,12 @@ class LogisticsService
             }
         }
 
-        // Apply changes + deduct cost -- all in one transaction
+ // Apply changes + deduct cost -- all in one transaction
         $appliedCount = 0;
         try {
             $this->db->beginTransaction();
 
-            // Deduct optimizer cost from player (row lock)
+ // Deduct optimizer cost from player (row lock)
             $deduct = $this->db->prepare(
                 "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
             );
@@ -209,7 +209,7 @@ class LogisticsService
 
         $this->setCooldown();
 
-        // Efficiency = transported / (prod_all * 100%)
+ // Efficiency = transported / (prod_all * 100%)
         $totalProd = array_sum(array_map(fn($w) => (float)$w['base_production_per_hour'], $wells));
         $effBefore = $totalProd > 0 ? round($statsBefore['transported'] / $totalProd * 100, 1) : 0;
         $effAfter  = $totalProd > 0 ? round($statsAfter['transported']  / $totalProd * 100, 1) : 0;
@@ -237,23 +237,23 @@ class LogisticsService
         ];
     }
 
-    // -- Choosing the best transport ---
+ // -- Choosing the best transport ---
     private function chooseBest(string $wellType, string $mode, float $prod, string $currType, bool $hasPipeline): string
     {
-        // Offshore -- tanker only
+ // Offshore -- tanker only
         if ($wellType === 'offshore') {
             return 'tankowiec';
         }
 
-        // Onshore -- without an owned pipeline the only valid local transport is trucks.
-        // Onshore -- bez kupionego rurociagu jedynym poprawnym transportem lokalnym sa ciezarowki.
+ // Onshore -- without an owned pipeline the only valid local transport is trucks.
+ // Onshore -- bez kupionego rurociagu jedynym poprawnym transportem lokalnym sa ciezarowki.
         if (!$hasPipeline) {
             return 'ciezarowki';
         }
 
-        // Onshore -- pipeline or trucks only (no tanker allowed)
-        // Start from the first candidate (not currType)
-        // so a tanker set on onshore is always replaced
+ // Onshore -- pipeline or trucks only (no tanker allowed)
+ // Start from the first candidate (not currType)
+ // so a tanker set on onshore is always replaced
         $candidates = ['rurociag', 'ciezarowki'];
         $best       = $candidates[0];
         $bestScore  = $this->score($mode, $prod, $best);
@@ -269,7 +269,7 @@ class LogisticsService
         return $best;
     }
 
-    // -- Scoring function ---
+ // -- Scoring function ---
     private function score(string $mode, float $prod, string $type): float
     {
         $cfg         = $this->transportConfig[$type] ?? TransportConfigService::getDefaults()['nieustawiony'];
@@ -284,7 +284,7 @@ class LogisticsService
         };
     }
 
-    // -- Stats for a single well ---
+ // -- Stats for a single well ---
     private function calcStats(float $prod, string $type): array
     {
         $cfg         = $this->transportConfig[$type] ?? TransportConfigService::getDefaults()['nieustawiony'];
@@ -299,7 +299,7 @@ class LogisticsService
         ];
     }
 
-    // -- Get current transport summary (for preview) ---
+ // -- Get current transport summary (for preview) ---
     public function getCurrentSummary(): array
     {
         $stmt = $this->db->prepare("
@@ -345,9 +345,9 @@ class LogisticsService
         return $summary;
     }
 
-    /**
-     * @return array<int, true>
-     */
+ /**
+ * @return array<int, true>
+ */
     private function loadOwnedPipelineWellIds(): array
     {
         $rows = [];
@@ -376,9 +376,9 @@ class LogisticsService
         return $rows;
     }
 
-    /**
-     * @return array<int, true>
-     */
+ /**
+ * @return array<int, true>
+ */
     private function loadExistingPipelineWellIds(): array
     {
         $rows = [];

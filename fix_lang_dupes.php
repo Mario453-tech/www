@@ -18,7 +18,7 @@ echo "BAK: $bak\n";
 // ── 1. Usun drugi blok (duplikat) ─────────────────────────────────────────────
 // Drugi blok zaczyna sie od "\n// Bank action handler" (druga w pliku)
 // i konczy na "'news.time_days_ago' => ':count dni temu',"
-// Po nim jest "\n\t\n    // Director notifications"
+// Po nim jest "\n\t\n // Director notifications"
 
 $marker   = "// Bank action handler";
 $endKey   = "'news.time_days_ago'";
@@ -30,16 +30,16 @@ $second = strpos($content, $marker, $first + strlen($marker));
 if ($second === false) {
     echo "[INFO] Drugi blok nie znaleziony.\n";
 } else {
-    // Znajdz koniec bloku: ostatnia linia zawierajaca news.time_days_ago
+ // Znajdz koniec bloku: ostatnia linia zawierajaca news.time_days_ago
     $endKeyPos = strpos($content, $endKey, $second);
     if ($endKeyPos !== false) {
-        // Koniec tej linii
+ // Koniec tej linii
         $lineEnd = strpos($content, "\n", $endKeyPos);
         if ($lineEnd === false) $lineEnd = strlen($content) - 1;
 
-        // Usun od poczatku drugiego markera do konca linii news.time_days_ago
-        // Ale zachowaj newline przed // Director notifications
-        // Wylicz od czego zaczyna sie drugi blok: szukaj newline przed nim
+ // Usun od poczatku drugiego markera do konca linii news.time_days_ago
+ // Ale zachowaj newline przed // Director notifications
+ // Wylicz od czego zaczyna sie drugi blok: szukaj newline przed nim
         $blockStart = strrpos($content, "\n", $second - strlen($content) - 1);
         if ($blockStart === false) $blockStart = $second;
 
@@ -51,15 +51,15 @@ if ($second === false) {
 
 // ── 2. Napraw pozostale krzaki w pierwszym bloku auth.* itp. ─────────────────
 $fixes = [
-    // auth.email_verify
+ // auth.email_verify
     ["'Potwierd adres e-mail'",                    "'Potwierdź adres e-mail'"],
     ["'Cze <strong style=\\'color:#c8a84b\\'>:name</strong>,'",
      "'Cześć <strong style=\\'color:#c8a84b\\'>:name</strong>,'"],
     ["'POTWIERD E-MAIL '",                          "'POTWIERDŹ E-MAIL »'"],
     ["'[OilCorp] Potwierd swj adres e-mail'",      "'[OilCorp] Potwierdź swój adres e-mail'"],
-    // auth.reset_email_greeting
+ // auth.reset_email_greeting
     ["'Cze <strong>:name</strong>,'",              "'Cześć <strong>:name</strong>,'"],
-    // black_market.player_error
+ // black_market.player_error
     ["=> 'Bd gracza'",                             "=> 'Błąd gracza'"],
 ];
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * WellStaffApi.php — AJAX endpoint dla przypisania personelu do odwiertów
+ * WellStaffApi.php - AJAX endpoint dla przypisania personelu do odwiertow
  * URL: /src/WellStaffApi.php
  * Metoda: POST (assign/unassign) | GET (get_status, get_available)
  */

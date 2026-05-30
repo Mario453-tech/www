@@ -111,9 +111,9 @@ try {
 
                 $transportProfile = TransportConfigService::getTypeConfig($db, $transportType);
 
-                // Buy pipeline on first switch to pipeline transport.
-                // Kup rurociag przy pierwszym przelaczeniu na transport rurociagowy.
-                // Keep this path aligned with the dedicated build-timer purchase flow.
+ // Buy pipeline on first switch to pipeline transport.
+ // Kup rurociag przy pierwszym przelaczeniu na transport rurociagowy.
+ // Keep this path aligned with the dedicated build-timer purchase flow.
                 if (!$isOffshore && $transportType === 'rurociag') {
                     $ownedPipeline = $pipelineService->getByPlayerAndWellIds($playerId, [$wellId])[$wellId] ?? null;
 
@@ -132,8 +132,8 @@ try {
                     }
 
                     if ($ownedPipeline === null) {
-                        // Read requested pipeline type from POST; fall back to well record then 'standard'.
-                        // Odczytaj typ rurociagu z POST; fallback do rekordu odwiertu, potem 'standard'.
+ // Read requested pipeline type from POST; fall back to well record then 'standard'.
+ // Odczytaj typ rurociagu z POST; fallback do rekordu odwiertu, potem 'standard'.
                         $allowedPipelineTypes = ['light', 'standard', 'heavy'];
                         $requestedPipelineType = trim((string)($_POST['pipeline_type'] ?? $wellRow['pipeline_type'] ?? 'standard'));
                         if (!in_array($requestedPipelineType, $allowedPipelineTypes, true)) {
@@ -213,6 +213,90 @@ try {
                 'success' => true,
                 'message' => $message,
             ]);
+
+ // Choose the second transport leg (hub -> storage) for a well's hub.
+ // ETAP 11: the setting is now stored per hub (logistics_hubs.outbound_transport_type).
+ // Allowed: 'nieustawiony' (direct), 'rurociag' (outbound pipeline) and
+ // 'ciezarowki' (road haul, per-tick cost + incidents). Tanker second leg N/A
+ // (the second leg is land-based hub -> storage).
+        case 'set_outbound_transport':
+            $wellId        = (int)($_POST['well_id'] ?? 0);
+            $transportType = trim((string)($_POST['transport_type'] ?? ''));
+            $allowedOut    = ['nieustawiony', 'rurociag', 'ciezarowki'];
+            $pipelineBuildStarted = false;
+
+            if ($wellId <= 0 || !in_array($transportType, $allowedOut, true)) {
+                jsonOut(['success' => false, 'message' => t('common.invalid_data')], 400);
+            }
+
+            $db->beginTransaction();
+            try {
+ // Find the hub for this well (ETAP 11: outbound setting is per hub).
+                $hubStmt = $db->prepare(
+                    'SELECT a.hub_id FROM logistics_hub_assignments a WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
+                );
+                $hubStmt->execute([$wellId]);
+                $hubRow = $hubStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$hubRow) {
+                    $db->rollBack();
+                    jsonOut(['success' => false, 'message' => t('well_staff.transport_err_hub_required')], 400);
+                }
+                $hubId = (int)$hubRow['hub_id'];
+
+                if ($transportType === 'rurociag') {
+                    $pipelineService = new WellPipelineService($db);
+                    $ownedOutbound   = $pipelineService->getByPlayerHubIds($playerId, [$hubId])[$hubId] ?? null;
+
+                    if ($ownedOutbound === null) {
+                        $allowedPipelineTypes  = ['light', 'standard', 'heavy'];
+                        $requestedPipelineType = trim((string)($_POST['pipeline_type'] ?? 'standard'));
+                        if (!in_array($requestedPipelineType, $allowedPipelineTypes, true)) {
+                            $requestedPipelineType = 'standard';
+                        }
+                        $purchase = $pipelineService->purchaseHubOutboundPipeline($playerId, $hubId, $requestedPipelineType);
+                        if (!($purchase['success'] ?? false)) {
+                            $db->rollBack();
+                            $errMsg = match ($purchase['error'] ?? '') {
+                                'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
+                                'pipeline_already_exists' => t('pipeline.err_already_exists'),
+                                'hub_not_found'           => t('well_staff.transport_err_hub_required'),
+                                default                   => t('common.generic_error'),
+                            };
+                            jsonOut(['success' => false, 'message' => $errMsg], 400);
+                        }
+                        $pipelineBuildStarted = true;
+                    }
+                }
+
+                $db->prepare(
+                    'UPDATE logistics_hubs SET outbound_transport_type = ? WHERE id = ?'
+                )->execute([$transportType, $hubId]);
+
+                $db->commit();
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $e;
+            }
+
+            $transportNames = [
+                'nieustawiony' => t('well_staff.transport_unset'),
+                'rurociag'     => t('well_staff.transport_pipeline'),
+                'ciezarowki'   => t('well_staff.transport_trucks'),
+            ];
+
+            GameLog::info('WellStaffApi', 'set_outbound_transport', [
+                'well_id'   => $wellId,
+                'transport' => $transportType,
+            ]);
+
+            $message = t('well_staff.msg_outbound_transport_set', ['name' => $transportNames[$transportType] ?? $transportType]);
+            if ($pipelineBuildStarted) {
+                $message = t('pipeline.ok_build_started') . ' ' . $message;
+            }
+
+            jsonOut(['success' => true, 'message' => $message]);
 
         default:
             jsonOut(['success' => false, 'error' => t('well_staff.err_unknown_action', ['action' => $action])], 400);

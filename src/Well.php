@@ -18,7 +18,7 @@ class Well
         }
     }
 
-    /** @return array<int, array<string, mixed>> */
+ /** @return array<int, array<string, mixed>> */
     public function getWells(): array
     {
         try {
@@ -50,7 +50,7 @@ class Well
         }
     }
 
-    /** @return array<string, mixed>|false|null */
+ /** @return array<string, mixed>|false|null */
     public function getWell(int $wellId): array|false|null
     {
         try {

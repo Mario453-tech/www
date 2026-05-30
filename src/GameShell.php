@@ -2,7 +2,7 @@
 
 class GameShell
 {
-    /** @return array<int, array<string, mixed>> */
+ /** @return array<int, array<string, mixed>> */
     public static function statusItems(int $playerId): array
     {
         $playerData = ['cash' => 0, 'status' => 'active', 'capacity' => 0, 'used' => 0, 'created_at' => null];
@@ -75,13 +75,13 @@ class GameShell
         ];
     }
 
-    /** @return array<int, array<string, mixed>> */
+ /** @return array<int, array<string, mixed>> */
     public static function actionItems(int $playerId): array
     {
         return self::actionItemsFromConfig($playerId);
     }
 
-    /** @return array<int, array<string, string>> */
+ /** @return array<int, array<string, string>> */
     private static function actionItemsFromConfig(int $playerId): array
     {
         try {
@@ -171,7 +171,7 @@ class GameShell
         };
     }
 
-    /** @return array{statusItems:array<int,array<string,mixed>>,actions:array<int,array<string,mixed>>} */
+ /** @return array{statusItems:array<int,array<string,mixed>>,actions:array<int,array<string,mixed>>} */
     public static function data(int $playerId): array
     {
         return [

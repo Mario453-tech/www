@@ -1,4 +1,4 @@
-/* logistics.js  Optymalizator logistyki odwiertw */
+/* logistics.js Optymalizator logistyki odwiertw */
 
 var _LL = window.LOGISTICS_LANG || {};
 function ll(k, p) {
@@ -31,7 +31,7 @@ async function logisticsApi(action, data) {
     return res.json();
 }
 
-//  Sownik typw odwiertw 
+// Sownik typw odwiertw 
 function wellTypePL(type) {
     const map = {
         'onshore':  ll('well_type_onshore')  || 'Ldowy',
@@ -40,7 +40,7 @@ function wellTypePL(type) {
     return map[type] || type;
 }
 
-//  Koszty trybw 
+// Koszty trybw 
 const MODE_COSTS = {
     'balans':   2500,
     'max_prod': 5000,
@@ -51,20 +51,20 @@ function getModeLabel(mode) {
     return ll('mode_' + mode) || mode;
 }
 
-//  Otwrz modal 
+// Otwrz modal 
 function openLogisticsModal() {
     document.getElementById('logistics-modal').style.display = 'flex';
     document.getElementById('logistics-results').style.display = 'none';
     _logisticsResetFooter();
     loadLogisticsSummary();
 
-    // Obsuga kliknicia kart trybu + poka koszt na karcie
+ // Obsuga kliknicia kart trybu + poka koszt na karcie
     document.querySelectorAll('.logistics-mode-card').forEach(card => {
         const modeInput = card.querySelector('input[name="logistics-mode"]');
         const modeVal   = modeInput ? modeInput.value : 'balans';
         const cost      = MODE_COSTS[modeVal] || 0;
 
-        // Dodaj etykiet kosztu jeli jeszcze nie ma
+ // Dodaj etykiet kosztu jeli jeszcze nie ma
         if (!card.querySelector('.logistics-mode-cost')) {
             const costEl = document.createElement('span');
             costEl.className = 'logistics-mode-cost';
@@ -85,7 +85,7 @@ function closeLogisticsModal() {
     _logisticsResetFooter();
 }
 
-//  Przywr oryginalny footer modal 
+// Przywr oryginalny footer modal 
 function _logisticsResetFooter() {
     const footer = document.querySelector('.logistics-modal-footer');
     if (!footer) return;
@@ -98,7 +98,7 @@ function _logisticsResetFooter() {
         </button>`;
 }
 
-//  Krok 1: Poka potwierdzenie z kosztem 
+// Krok 1: Poka potwierdzenie z kosztem 
 function _logisticsAskConfirm() {
     const modeInput = document.querySelector('input[name="logistics-mode"]:checked');
     const mode      = modeInput ? modeInput.value : 'balans';
@@ -125,7 +125,7 @@ function _logisticsAskConfirm() {
         </div>`;
 }
 
-//  aduj aktualny stan transportu 
+// aduj aktualny stan transportu 
 async function loadLogisticsSummary() {
     const body = document.getElementById('logistics-current-body');
     body.innerHTML = `<span class="logistics-loading">${ll('loading')}</span>`;
@@ -136,7 +136,7 @@ async function loadLogisticsSummary() {
         const t = data.totals || {};
         const typeIcons = { rurociag: '', ciezarowki: '', tankowiec: '' };
 
-        // Podsumowanie globalne
+ // Podsumowanie globalne
         let html = `
         <div class="logistics-summary-grid">
             <div class="logistics-stat">
@@ -149,7 +149,7 @@ async function loadLogisticsSummary() {
             </div>
         </div>`;
 
-        // Lista odwiertw
+ // Lista odwiertw
         if (data.wells && data.wells.length > 0) {
             html += '<div class="logistics-wells-list">';
             data.wells.forEach(w => {
@@ -169,7 +169,7 @@ async function loadLogisticsSummary() {
         }
         body.innerHTML = html;
 
-        // Sprawd cooldown i ewentualnie zablokuj przycisk
+ // Sprawd cooldown i ewentualnie zablokuj przycisk
         const cdData = await logisticsApi('cooldown');
         if (cdData.cooldown > 0) {
             const btn = document.getElementById('btn-logistics-run');
@@ -183,7 +183,7 @@ async function loadLogisticsSummary() {
     }
 }
 
-//  Krok 2: Uruchom optymalizacj (po potwierdzeniu) 
+// Krok 2: Uruchom optymalizacj (po potwierdzeniu) 
 async function runLogisticsOptimize() {
     const modeInput = document.querySelector('input[name="logistics-mode"]:checked');
     const mode      = modeInput ? modeInput.value : 'balans';
@@ -199,7 +199,7 @@ async function runLogisticsOptimize() {
         const result = await logisticsApi('optimize', { mode });
 
         if (!result.success) {
-            // Cooldown lub brak rodkw lub inny bd
+ // Cooldown lub brak rodkw lub inny bd
             if (result.cooldown) {
                 _logisticsResetFooter();
                 const btn = document.getElementById('btn-logistics-run');
@@ -213,7 +213,7 @@ async function runLogisticsOptimize() {
             return;
         }
 
-        // Sukces  poka wyniki
+ // Sukces poka wyniki
         const bef = result.before || {};
         const aft = result.after  || {};
         const typeIcons = { rurociag: '', ciezarowki: '', tankowiec: '' };
@@ -261,12 +261,12 @@ async function runLogisticsOptimize() {
         resBody.innerHTML = html;
         resBox.style.display = 'block';
 
-        // Uruchom timer cooldown i przywr footer
+ // Uruchom timer cooldown i przywr footer
         _logisticsResetFooter();
         const runBtn = document.getElementById('btn-logistics-run');
         if (runBtn) startCooldownTimer(runBtn, result.cooldown_secs || 300);
 
-        // Odwie podsumowanie
+ // Odwie podsumowanie
         loadLogisticsSummary();
 
     } catch(e) {
@@ -276,7 +276,7 @@ async function runLogisticsOptimize() {
     }
 }
 
-//  Timer cooldown na przycisku 
+// Timer cooldown na przycisku 
 function startCooldownTimer(btn, secs) {
     if (!window._logisticsRunLabel) {
         window._logisticsRunLabel = ' ' + (ll('run') || 'Uruchom optymalizacj');

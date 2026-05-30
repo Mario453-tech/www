@@ -1,7 +1,7 @@
 /* 
-   NEWSLETTER EDITOR — TinyMCE + panel logic
+   NEWSLETTER EDITOR ï¿½ TinyMCE + panel logic
    Config passed from PHP via window.NL_CONFIG
-    */
+ */
 
 tinymce.init({
     selector: '#nl-content',
@@ -47,14 +47,14 @@ function nlBindEvents() {
     _nlBound = true;
     var cfg = window.NL_CONFIG || {};
 
-    // Radio — toggle single email field
+ // Radio toggle single email field
     document.querySelectorAll('input[name="send_target"]').forEach(function (radio) {
         radio.addEventListener('change', function () {
             nlToggleSingle(this.value === 'single');
         });
     });
 
-    // Preview button
+ // Preview button
     var btnPreview = document.getElementById('nl-btn-preview');
     if (btnPreview) {
         btnPreview.addEventListener('click', function () {
@@ -64,7 +64,7 @@ function nlBindEvents() {
         });
     }
 
-    // Send button
+ // Send button
     var btnSend = document.getElementById('nl-send-btn');
     if (btnSend) {
         btnSend.addEventListener('click', function () {

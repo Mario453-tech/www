@@ -7,7 +7,7 @@ AdminAuth::requireLogin();
 
 $db = Database::getInstance()->getConnection();
 
-//  Stan rynku 
+// Stan rynku 
 $market = $db->query("SELECT * FROM market_state WHERE id = 1")->fetch();
 $activeTrend = $db->query("
     SELECT * FROM market_trends
@@ -16,7 +16,7 @@ $activeTrend = $db->query("
     ORDER BY activated_at DESC LIMIT 1
 ")->fetch();
 
-//  Produkcja globalna 
+// Produkcja globalna 
 $prodGlobal = $db->query("
     SELECT
         COUNT(DISTINCT w.player_id) AS active_players,
@@ -28,7 +28,7 @@ $prodGlobal = $db->query("
     WHERE w.status NOT IN ('seized','blowout')
 ")->fetch();
 
-//  Produkcja per typ transportu 
+// Produkcja per typ transportu 
 $prodByTransport = $db->query("
     SELECT
         w.transport_type,
@@ -42,7 +42,7 @@ $prodByTransport = $db->query("
     GROUP BY w.transport_type
 ")->fetchAll();
 
-//  Magazyn globalny 
+// Magazyn globalny 
 $storageGlobal = $db->query("
     SELECT
         SUM(s.capacity) AS total_capacity,
@@ -53,7 +53,7 @@ $storageGlobal = $db->query("
     WHERE p.status != 'bankrupt'
 ")->fetch();
 
-//  Szacunkowy transport loss 
+// Szacunkowy transport loss 
 $pipelineLoss = [];
 try {
     $pipelineLoss = $db->query("
@@ -67,13 +67,13 @@ try {
     ")->fetch();
 } catch (Throwable $e) {}
 
-//  Cena vs oczekiwana (supply/demand) 
+// Cena vs oczekiwana (supply/demand) 
 $demandData = [];
 try {
     $demandData = $db->query("SELECT * FROM market_demand_state WHERE id = 1")->fetch();
 } catch (Throwable $e) {}
 
-//  Historia supply/demand z MarketTick 
+// Historia supply/demand z MarketTick 
 $supplyDemandHistory = [];
 try {
     $supplyDemandHistory = $db->query("
@@ -85,7 +85,7 @@ try {
     $supplyDemandHistory = array_reverse($supplyDemandHistory);
 } catch (Throwable $e) {}
 
-//  Historia ceny (ostatnie 20 ticków) 
+// Historia ceny (ostatnie 20 tickow) 
 $priceHistory = [];
 try {
     $priceHistory = $db->query("
@@ -97,7 +97,7 @@ try {
     $priceHistory = array_reverse($priceHistory);
 } catch (Throwable $e) {}
 
-//  Sprzedaż graczy (ostatni tick lub agregat) 
+// Sprzedaz graczy (ostatni tick lub agregat) 
 $playerEconomy = $db->query("
     SELECT
         p.id,

@@ -6,10 +6,10 @@
  */
 trait BankNegotiationProcessorTrait
 {
-    /**
-     * Processes all pending negotiations whose decision time has passed.
-     * Przetwarza wszystkie oczekujace negocjacje po czasie decyzji.
-     */
+ /**
+ * Processes all pending negotiations whose decision time has passed.
+ * Przetwarza wszystkie oczekujace negocjacje po czasie decyzji.
+ */
     public function processPendingNegotiations(): int
     {
         GameLog::step('BankNeg', 'processPending', 1, 'start');
@@ -45,13 +45,13 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Resolves a single negotiation by approval chance roll.
-     * Rozwiazuje pojedyncza negocjacje na podstawie losowania szansy.
-     *
-     * @param array<string, mixed> $neg
-     * @param array<string, mixed> $ctx
-     */
+ /**
+ * Resolves a single negotiation by approval chance roll.
+ * Rozwiazuje pojedyncza negocjacje na podstawie losowania szansy.
+ *
+ * @param array<string, mixed> $neg
+ * @param array<string, mixed> $ctx
+ */
     private function resolveNegotiation(array $neg, array $ctx): void
     {
         $chance = (int)($neg['approval_chance'] ?? 75);
@@ -95,8 +95,8 @@ trait BankNegotiationProcessorTrait
                 ':id' => $neg['id'],
             ]);
 
-            // Restore bailiff when a suspended negotiation path is rejected.
-            // Przywroc komornika, gdy odrzucono zawieszona sciezke negocjacji.
+ // Restore bailiff when a suspended negotiation path is rejected.
+ // Przywroc komornika, gdy odrzucono zawieszona sciezke negocjacji.
             $this->db->prepare("
                 UPDATE bailiff_proceedings SET status='active'
                 WHERE loan_id=:lid AND status='suspended'
@@ -117,10 +117,10 @@ trait BankNegotiationProcessorTrait
         );
     }
 
-    /**
-     * Applies an approved negotiation chosen by the player.
-     * Zastosowuje zatwierdzona negocjacje wybrana przez gracza.
-     */
+ /**
+ * Applies an approved negotiation chosen by the player.
+ * Zastosowuje zatwierdzona negocjacje wybrana przez gracza.
+ */
     public function applyNegotiation(int $negotiationId, int $playerId): array
     {
         GameLog::step('BankNeg', 'applyNegotiation', 1, 'start', [
@@ -184,8 +184,8 @@ trait BankNegotiationProcessorTrait
                     ':id' => $neg['loan_id'],
                 ]);
 
-                // Suspend bailiff until the shifted installment date.
-                // Zawies komornika do przesunietej daty raty.
+ // Suspend bailiff until the shifted installment date.
+ // Zawies komornika do przesunietej daty raty.
                 $this->db->prepare("
                     UPDATE bailiff_proceedings
                     SET status         = 'suspended',
@@ -218,8 +218,8 @@ trait BankNegotiationProcessorTrait
                     WHERE id=:id
                 ")->execute([':inst' => $newInst, ':id' => $neg['loan_id']]);
             } elseif ($neg['type'] === 'recovery') {
-                // Recovery plan suspends bailiff until full repayment or violation.
-                // Plan naprawczy zawiesza komornika do pelnej splaty lub naruszenia.
+ // Recovery plan suspends bailiff until full repayment or violation.
+ // Plan naprawczy zawiesza komornika do pelnej splaty lub naruszenia.
                 $this->db->prepare("
                     UPDATE bailiff_proceedings
                     SET status='suspended_recovery', negotiation_used=1,
@@ -258,10 +258,10 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Reactivates bailiff when recovery plan is violated.
-     * Reaktywuje komornika przy naruszeniu planu naprawczego.
-     */
+ /**
+ * Reactivates bailiff when recovery plan is violated.
+ * Reaktywuje komornika przy naruszeniu planu naprawczego.
+ */
     public function checkRecoveryPlanViolations(): int
     {
         $violations = 0;
@@ -301,10 +301,10 @@ trait BankNegotiationProcessorTrait
         return $violations;
     }
 
-    /**
-     * Checks suspended deferrals and reactivates bailiff when needed.
-     * Sprawdza zawieszone odroczenia i reaktywuje komornika gdy trzeba.
-     */
+ /**
+ * Checks suspended deferrals and reactivates bailiff when needed.
+ * Sprawdza zawieszone odroczenia i reaktywuje komornika gdy trzeba.
+ */
     public function checkDeferralSuspensions(): int
     {
         $reactivated = 0;
@@ -346,8 +346,8 @@ trait BankNegotiationProcessorTrait
 
                         $reactivated++;
                     } else {
-                        // Installment was paid, clear the suspension timer.
-                        // Rata zostala splacona, wyczysc licznik zawieszenia.
+ // Installment was paid, clear the suspension timer.
+ // Rata zostala splacona, wyczysc licznik zawieszenia.
                         $this->db->prepare("
                             UPDATE bailiff_proceedings
                             SET suspended_until = NULL
@@ -369,10 +369,10 @@ trait BankNegotiationProcessorTrait
         return $reactivated;
     }
 
-    /**
-     * Dismisses recovery plan suspensions after full repayment.
-     * Zamyka zawieszenia planu naprawczego po pelnej splacie.
-     */
+ /**
+ * Dismisses recovery plan suspensions after full repayment.
+ * Zamyka zawieszenia planu naprawczego po pelnej splacie.
+ */
     public function checkRecoveryPlanCompleted(): int
     {
         $completed = 0;
@@ -412,10 +412,10 @@ trait BankNegotiationProcessorTrait
         return $completed;
     }
 
-    /**
-     * Checks if a player is currently allowed to negotiate a loan.
-     * Sprawdza, czy gracz moze teraz negocjowac kredyt.
-     */
+ /**
+ * Checks if a player is currently allowed to negotiate a loan.
+ * Sprawdza, czy gracz moze teraz negocjowac kredyt.
+ */
     public function canNegotiate(int $playerId, int $loanId): array
     {
         try {
@@ -427,8 +427,8 @@ trait BankNegotiationProcessorTrait
                 return ['can_negotiate' => false, 'reason' => t('bank_neg.err_negotiate_status')];
             }
 
-            // Negotiations are available only after bailiff reaches wells.
-            // Negocjacje sa dostepne dopiero po zajeciu odwiertow przez komornika.
+ // Negotiations are available only after bailiff reaches wells.
+ // Negocjacje sa dostepne dopiero po zajeciu odwiertow przez komornika.
             $bStmt = $this->db->prepare("
                 SELECT id, negotiation_used FROM bailiff_proceedings
                 WHERE loan_id = :lid AND status = 'active' LIMIT 1
@@ -475,10 +475,10 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Returns active approved negotiations for one loan.
-     * Zwraca aktywne zatwierdzone negocjacje dla jednego kredytu.
-     */
+ /**
+ * Returns active approved negotiations for one loan.
+ * Zwraca aktywne zatwierdzone negocjacje dla jednego kredytu.
+ */
     public function getActiveNegotiationsForLoan(int $playerId, int $loanId): array
     {
         try {
@@ -496,10 +496,10 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Returns the first active pending or approved negotiation for a loan.
-     * Zwraca pierwsza aktywna negocjacje pending lub approved dla kredytu.
-     */
+ /**
+ * Returns the first active pending or approved negotiation for a loan.
+ * Zwraca pierwsza aktywna negocjacje pending lub approved dla kredytu.
+ */
     public function getActivePendingOrApproved(int $loanId): ?array
     {
         try {
@@ -516,10 +516,10 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Returns negotiation history for a player.
-     * Zwraca historie negocjacji dla gracza.
-     */
+ /**
+ * Returns negotiation history for a player.
+ * Zwraca historie negocjacji dla gracza.
+ */
     public function getNegotiationHistory(int $playerId, int $limit = 20): array
     {
         try {
@@ -538,10 +538,10 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Loads one loan for the player.
-     * Laduje pojedynczy kredyt gracza.
-     */
+ /**
+ * Loads one loan for the player.
+ * Laduje pojedynczy kredyt gracza.
+ */
     private function getLoan(int $loanId, int $playerId): ?array
     {
         try {
@@ -554,10 +554,10 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Checks for an active pending or approved negotiation.
-     * Sprawdza, czy istnieje aktywna negocjacja pending lub approved.
-     */
+ /**
+ * Checks for an active pending or approved negotiation.
+ * Sprawdza, czy istnieje aktywna negocjacja pending lub approved.
+ */
     private function hasPendingOrApproved(int $loanId): bool
     {
         try {
@@ -574,10 +574,10 @@ trait BankNegotiationProcessorTrait
         }
     }
 
-    /**
-     * Sends a director notification for negotiation events.
-     * Wysyla powiadomienie dyrektora dla zdarzen negocjacyjnych.
-     */
+ /**
+ * Sends a director notification for negotiation events.
+ * Wysyla powiadomienie dyrektora dla zdarzen negocjacyjnych.
+ */
     private function notifyDirector(int $playerId, string $tplKey, array $params = []): void
     {
         try {

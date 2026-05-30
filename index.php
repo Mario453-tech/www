@@ -1,7 +1,7 @@
 <?php
 /**
  * public_html/index.php
- * Punkt wejœcia — zalogowany  dashboard, niezalogowany  login
+ * Punkt wejcia zalogowany dashboard, niezalogowany login
  */
 require_once __DIR__ . '/src/init.php';
 

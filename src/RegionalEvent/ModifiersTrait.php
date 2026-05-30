@@ -2,15 +2,15 @@
 
 /**
  * ModifiersTrait - pobieranie aktywnych zdarzen i obliczanie modyfikatorow produkcji/podatku
- * Modifiers trait — fetching active events and calculating production/tax modifiers.
+ * Modifiers trait fetching active events and calculating production/tax modifiers.
  */
 trait RegionalModifiersTrait
 {
-    /**
-     *  Pobierz aktywne zdarzenia dla gracza - uzywane w tick do modyfikacji produkcji/podatku
-     * Fetch active events for a player — used in tick to modify production/tax.
-     */
-    /** @return list<array<string, mixed>> */
+ /**
+ * Pobierz aktywne zdarzenia dla gracza - uzywane w tick do modyfikacji produkcji/podatku
+ * Fetch active events for a player used in tick to modify production/tax.
+ */
+ /** @return list<array<string, mixed>> */
     public function getActiveEvents(int $playerId): array
     {
         try {
@@ -29,16 +29,16 @@ trait RegionalModifiersTrait
         }
     }
 
-    /**
-     * Oblicz efektywne modyfikatory z aktywnych zdarzen dla konkretnego odwiertu.
-     * Calculate effective modifiers from active events for a specific well.
-     * Zwraca: ['prod_mult' => float, 'tax_extra' => float]
-     * Returns: ['prod_mult' => float, 'tax_extra' => float]
-     */
-    /**
-     * @param list<array<string, mixed>> $activeEvents
-     * @return array<string, mixed>
-     */
+ /**
+ * Oblicz efektywne modyfikatory z aktywnych zdarzen dla konkretnego odwiertu.
+ * Calculate effective modifiers from active events for a specific well.
+ * Zwraca: ['prod_mult' => float, 'tax_extra' => float]
+ * Returns: ['prod_mult' => float, 'tax_extra' => float]
+ */
+ /**
+ * @param list<array<string, mixed>> $activeEvents
+ * @return array<string, mixed>
+ */
     public function getWellModifiers(int $playerId, string $regionCode, array $activeEvents): array
     {
         $prodMult = 1.0;
@@ -75,7 +75,7 @@ trait RegionalModifiersTrait
 
     private function getBonusPct(array $event): float
     {
-        // Bonus produkcji: severity 1->+15%, 2->+25% / Production bonus: severity 1->+15%, 2->+25%
+ // Bonus produkcji: severity 1->+15%, 2->+25% / Production bonus: severity 1->+15%, 2->+25%
         return match((int)$event['severity']) {
             2 => 0.25, default => 0.15
         };
@@ -83,7 +83,7 @@ trait RegionalModifiersTrait
 
     private function getTaxExtra(array $event): float
     {
-        // Severity  tax_extra: 1=2%, 2=5%, 3=8%
+ // Severity tax_extra: 1=2%, 2=5%, 3=8%
         return match((int)$event['severity']) {
             3 => 0.08, 2 => 0.05, default => 0.02
         };

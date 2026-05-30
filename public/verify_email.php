@@ -1,13 +1,13 @@
 <?php
 /**
- * verify_email.php — email verification token handler.
+ * verify_email.php email verification token handler.
  * Route: /verify-email?token=xxx
  */
 require_once __DIR__ . '/../src/init.php';
 
 $_pageStart = GameLog::pageStart('public/verify_email.php');
 
-// Already logged in  redirect home
+// Already logged in redirect home
 if (Auth::isLoggedIn()) {
     header('Location: /');
     exit();

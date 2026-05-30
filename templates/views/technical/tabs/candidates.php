@@ -141,7 +141,7 @@
     <?php else: ?>
     <details <?= !$reviewed ? 'open' : '' ?>>
         <summary class="task-assign-toggle"><?= $reviewed ? t('technical.change_review') : t('technical.give_review') ?></summary>
-        <form method="post" class="cand-review-form">
+        <form method="post" class="cand-review-form" onsubmit="return candReviewConfirm(this)">
             <input type="hidden" name="_token" value="<?= $csrf ?>">
             <input type="hidden" name="action" value="review_candidate">
             <input type="hidden" name="candidate_id" value="<?= $candidate['id'] ?>">
@@ -171,7 +171,7 @@
                             <?= t('technical.rec_ok_short') ?> <?= t('technical.rec_hire') ?>
                         </label>
                         <label class="rec-btn rec-reject <?= ($reviewed && !$recommendedHire) ? 'selected' : '' ?>">
-                            <input type="radio" name="recommendation" value="reject" <?= ($reviewed && !$recommendedHire) ? 'checked' : '' ?>>
+                            <input type="radio" name="recommendation" value="reject" <?= ($reviewed && !$recommendedHire) ? 'checked' : '' ?> required>
                             &times; <?= t('technical.rec_reject') ?>
                         </label>
                     </div>

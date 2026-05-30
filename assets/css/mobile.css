@@ -9,22 +9,22 @@
 
     .container { padding: 0 10px 0; }
 
-    /* Header / logo */
+ /* Header / logo */
     .header { padding: 12px 0; margin-bottom: 16px; gap: 2px 0; }
     .header h1 { font-size: 15px; letter-spacing: 4px; }
     .header h1 small { font-size: 6px; letter-spacing: 3px; margin-top: 3px; }
     .user-greeting { display: none; }
     .user-nav { gap: 4px; }
 
-    /* Karty */
+ /* Karty */
     .card { padding: 12px 12px; }
     .card h2 { font-size: 9px; letter-spacing: 2px; padding-bottom: 10px; margin-bottom: 12px; }
 
-    /* Przyciski */
+ /* Przyciski */
     .btn { padding: 9px 14px; font-size: 10px; letter-spacing: 1px; }
     .btn-sm { padding: 6px 10px; font-size: 9px; }
 
-    /* Module tabs - scroll poziomy */
+ /* Module tabs - scroll poziomy */
     .module-tabs {
         padding: 0 2px;
         gap: 0;
@@ -34,22 +34,22 @@
         scrollbar-width: none;
     }
 
-    /* Action grid - 2 kolumny */
+ /* Action grid - 2 kolumny */
     .action-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
 
-    /* Action btn row stack na mobile / Stack action buttons on mobile */
+ /* Action btn row stack na mobile / Stack action buttons on mobile */
     .action-btn-row { flex-direction: column; }
     .action-btn-row > * { flex: none; width: 100%; }
 
-    /* Page-nav */
+ /* Page-nav */
     .page-nav { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 14px; }
 
-    /* Stat-bar (strona glowna) */
+ /* Stat-bar (strona glowna) */
     .db-stats-row,
     .stat-bar,
     .stats-row { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
 
-    /* Tabele - scroll poziomy */
+ /* Tabele - scroll poziomy */
     .table-scroll,
     .contracts-table,
     .specs-table,
@@ -57,7 +57,7 @@
     .logistics-table,
     .fin-table { overflow-x: auto; }
 
-    /* Modalne */
+ /* Modalne */
     .modal-content,
     .repay-modal { max-width: 94vw !important; padding: 20px 16px !important; }
 }
@@ -65,37 +65,37 @@
 /* STRONA GLOWNA (index / home) */
 @media (max-width: 768px) {
 
-    /* Trend alert */
+ /* Trend alert */
     .trend-alert__body { padding: 12px 14px; gap: 10px; }
 
-    /* Bailiff */
+ /* Bailiff */
     .bailiff-actions { flex-direction: column; gap: 8px; }
 
-    /* Bank approved - inline */
+ /* Bank approved - inline */
     .card--bank-approved { flex-direction: column; gap: 8px; }
 }
 
 /* RYNEK */
 @media (max-width: 768px) {
 
-    /* Tabs rynku - scroll */
+ /* Tabs rynku - scroll */
     .market-tabs {
         overflow-x: auto;
         flex-wrap: nowrap;
     }
 
-    /* Wykres cen - mniejsza wysokosc */
+ /* Wykres cen - mniejsza wysokosc */
     .price-chart-bars { height: 70px; }
 
-    /* My offers - scroll poziomy */
+ /* My offers - scroll poziomy */
     .my-offers-head,
     .my-offers-row { grid-template-columns: 2fr 1fr 1fr 2fr; }
 
-    /* Formularz sprzedazy */
+ /* Formularz sprzedazy */
     .market-sell-form,
     .market-instant-form { gap: 10px; }
 
-    /* Black market grid */
+ /* Black market grid */
     .bm-offer-row,
     .bm-history-row { min-width: 500px; }
 }
@@ -105,10 +105,10 @@
 
     .loan-card { padding: 12px !important; }
 
-    /* Repay options */
+ /* Repay options */
     .repay-options { flex-direction: column; }
 
-    /* Formularze */
+ /* Formularze */
     .form-group input,
     .form-group select {
         min-height: 48px !important;
@@ -121,30 +121,30 @@
 
     .fin-policy-grid { grid-template-columns: 1fr !important; }
 
-    /* Overview stat grid */
+ /* Overview stat grid */
     .fin-overview-grid,
     .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
 
-    /* History table */
+ /* History table */
     .fin-history-list { overflow-x: auto; }
 
-    /* Budget sliders */
+ /* Budget sliders */
     .fin-budget-row { flex-direction: column; }
 }
 
 /* TECHNICZNY */
 @media (max-width: 768px) {
 
-    /* Manager card */
+ /* Manager card */
     .manager-card { flex-direction: column; }
 
-    /* Staff grid */
+ /* Staff grid */
     .staff-grid { grid-template-columns: 1fr 1fr !important; }
 
-    /* Well detail */
+ /* Well detail */
     .well-detail-grid { grid-template-columns: repeat(2, 1fr) !important; }
 
-    /* Tabs sekcji */
+ /* Tabs sekcji */
     .t-section-tabs { overflow-x: auto; }
 }
 
@@ -153,7 +153,7 @@
 
     .recruit-form-grid { grid-template-columns: 1fr !important; }
 
-    /* Historia kontraktow - scroll */
+ /* Historia kontraktow - scroll */
     .contracts-table th,
     .contracts-table td { font-size: 11px; }
 }
@@ -169,17 +169,17 @@
 /* BOARDROOM */
 @media (max-width: 768px) {
 
-    /* Naglowek boardroom */
+ /* Naglowek boardroom */
     .br-header-content { flex-direction: column; }
 
-    /* Scena - wieksza proporcja */
+ /* Scena - wieksza proporcja */
     .scene { aspect-ratio: 3 / 2 !important; }
 
-    /* Sloty */
+ /* Sloty */
     .slot-num,
     .slot-label { font-size: 8px !important; }
 
-    /* Licznik miejsc */
+ /* Licznik miejsc */
     .seat-count-num { font-size: 20px; }
 }
 
@@ -216,12 +216,12 @@
 /* NAVBAR - kompaktowy na tabletach */
 @media (max-width: 900px) {
 
-    /* Logo - mniejszy font */
+ /* Logo - mniejszy font */
     .header h1 {
         font-size: 14px;
     }
 
-    /* Avatar - kompaktowy */
+ /* Avatar - kompaktowy */
     .topbar-avatar {
         width: 22px !important;
     }
@@ -241,20 +241,20 @@
 
 @media (max-width: 600px) {
 
-    /* Pokaz przycisk burgera */
+ /* Pokaz przycisk burgera */
     .nav-burger { display: flex; }
 
-    /* Nav - wysuwany panel */
+ /* Nav - wysuwany panel */
     .user-nav {
         position: fixed !important;
     }
 
-    /* Avatar sekcja */
+ /* Avatar sekcja */
     .user-nav .topbar-user-link {
         display: flex !important;
     }
 
-    /* Przyciski - pelna szerokosc */
+ /* Przyciski - pelna szerokosc */
     .user-nav .btn {
         width: 100% !important;
     }

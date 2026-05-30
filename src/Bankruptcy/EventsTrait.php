@@ -6,8 +6,8 @@
  */
 trait BankruptcyEventsTrait
 {
-    // Bankruptcy flow invoked during state reads and option application.
-    // PL: Flow bankructwa wywolywany podczas odczytu stanu i stosowania opcji.
+ // Bankruptcy flow invoked during state reads and option application.
+ // PL: Flow bankructwa wywolywany podczas odczytu stanu i stosowania opcji.
     private function tickBankruptcyFlow(): void
     {
         $this->processOverdueCriticalEvents();
@@ -99,8 +99,8 @@ trait BankruptcyEventsTrait
         }
     }
 
-    // Liquidation and fallback restart.
-    // PL: Likwidacja i awaryjny restart.
+ // Liquidation and fallback restart.
+ // PL: Likwidacja i awaryjny restart.
     private function applyLiquidationResetIfNeeded(bool $force): bool
     {
         try {
@@ -173,8 +173,8 @@ trait BankruptcyEventsTrait
         }
     }
 
-    // Event and notification helpers.
-    // PL: Helpery eventow i notyfikacji.
+ // Event and notification helpers.
+ // PL: Helpery eventow i notyfikacji.
     private function logEvent(string $type, string $message, array $payload, string $severity, int $isCritical, ?string $dueAt): void
     {
         try {

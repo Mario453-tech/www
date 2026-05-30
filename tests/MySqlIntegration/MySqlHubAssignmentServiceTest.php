@@ -53,7 +53,7 @@ final class MySqlHubAssignmentServiceTest extends MySqlIntegrationTestCase
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer(); // cash = 50 000 000
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1');
-        // opex_per_tick = 100, slot_limit = 4 -> slot_cost = 25 -> fee(new) = 25*5 = 125
+ // opex_per_tick = 100, slot_limit = 4 -> slot_cost = 25 -> fee(new) = 25*5 = 125
         $this->seedHub($ids['hubId'], 'PHPUnit Hub Fee', 77, 'A1', 100.0, 'active', 'new');
 
         $cashBefore = (float)$this->db->prepare('SELECT cash FROM players WHERE id = ?')
@@ -104,7 +104,7 @@ final class MySqlHubAssignmentServiceTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1');
 
-        // Insert detached assignment with a future cooldown directly (no UPDATE needed)
+ // Insert detached assignment with a future cooldown directly (no UPDATE needed)
         $future = date('Y-m-d H:i:s', time() + 14400); // 4 hours ahead - far enough to survive any TZ offset
         $this->db->prepare(
             "INSERT INTO logistics_hub_assignments

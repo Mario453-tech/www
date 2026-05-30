@@ -9,20 +9,20 @@
  */
 trait AdminHubPostActionsTrait
 {
-    /**
-     * Process a POST action and return a UI message payload.
-     * PL: Przetwarza akcje POST i zwraca ladunek komunikatu UI.
-     *
-     * @return array{msg: string, err: bool}
-     */
+ /**
+ * Process a POST action and return a UI message payload.
+ * PL: Przetwarza akcje POST i zwraca ladunek komunikatu UI.
+ *
+ * @return array{msg: string, err: bool}
+ */
     public function handlePostAction(PDO $db, HubService $hubSvc, string $action, int $adminId): array
     {
         $msg = '';
         $err = false;
 
         switch ($action) {
-            // Create a single hub.
-            // PL: Utworz pojedynczy hub.
+ // Create a single hub.
+ // PL: Utworz pojedynczy hub.
             case 'create_hub':
                 $result = $hubSvc->buildHub($adminId, [
                     'name'             => trim($_POST['name'] ?? ''),
@@ -37,8 +37,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Bulk seed hubs for one region.
-            // PL: Masowy seed hubow dla jednego regionu.
+ // Bulk seed hubs for one region.
+ // PL: Masowy seed hubow dla jednego regionu.
             case 'seed_region':
                 $regionId = (int)($_POST['region_id'] ?? 0);
                 $count = min((int)($_POST['count'] ?? 20), 50);
@@ -80,8 +80,8 @@ trait AdminHubPostActionsTrait
                 $err = $errors > 0;
                 break;
 
-            // Repair hub state.
-            // PL: Napraw stan huba.
+ // Repair hub state.
+ // PL: Napraw stan huba.
             case 'repair_hub':
                 $hubId = (int)($_POST['hub_id'] ?? 0);
                 $result = $hubSvc->repairHub($hubId, $adminId);
@@ -91,8 +91,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Change runtime status.
-            // PL: Zmien status runtime.
+ // Change runtime status.
+ // PL: Zmien status runtime.
             case 'set_status':
                 $hubId = (int)($_POST['hub_id'] ?? 0);
                 $status = trim($_POST['status'] ?? '');
@@ -103,8 +103,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Change condition values.
-            // PL: Zmien wartosci kondycji.
+ // Change condition values.
+ // PL: Zmien wartosci kondycji.
             case 'set_condition':
                 $hubId = (int)($_POST['hub_id'] ?? 0);
                 $condPct = (float)($_POST['condition_pct'] ?? 100);
@@ -116,8 +116,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Change work mode.
-            // PL: Zmien tryb pracy.
+ // Change work mode.
+ // PL: Zmien tryb pracy.
             case 'set_mode':
                 $hubId = (int)($_POST['hub_id'] ?? 0);
                 $mode = trim($_POST['mode'] ?? 'standard');
@@ -128,8 +128,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Pause or resume a hub.
-            // PL: Wstrzymaj albo wznow hub.
+ // Pause or resume a hub.
+ // PL: Wstrzymaj albo wznow hub.
             case 'toggle_pause':
                 $hubId = (int)($_POST['hub_id'] ?? 0);
                 $result = $hubSvc->toggleHubPause($hubId, $adminId);
@@ -142,8 +142,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Rename hub.
-            // PL: Zmien nazwe huba.
+ // Rename hub.
+ // PL: Zmien nazwe huba.
             case 'rename_hub':
                 $hubId = (int)($_POST['hub_id'] ?? 0);
                 $name = trim($_POST['name'] ?? '');
@@ -154,8 +154,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Force an incident on a hub immediately (admin tool).
-            // PL: Wymus awarie na hubie natychmiast (narzedzie admina).
+ // Force an incident on a hub immediately (admin tool).
+ // PL: Wymus awarie na hubie natychmiast (narzedzie admina).
             case 'force_incident':
                 $hubId     = (int)($_POST['hub_id']        ?? 0);
                 $type      = trim($_POST['incident_type']  ?? '');
@@ -172,8 +172,8 @@ trait AdminHubPostActionsTrait
                 $err = !$result['success'];
                 break;
 
-            // Save global config value.
-            // PL: Zapisz globalna wartosc configu.
+ // Save global config value.
+ // PL: Zapisz globalna wartosc configu.
             case 'save_config':
                 $group = trim($_POST['config_group'] ?? '');
                 $key = trim($_POST['config_key'] ?? '');

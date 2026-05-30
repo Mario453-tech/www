@@ -63,10 +63,10 @@
                                 && !empty($w['_pipelineBuilding'])
                                 && (($w['_trType'] ?? '') === 'rurociag')
                             );
-                            // Zaden typ nie jest oznaczony jako "biezacy" - gracz wybiera sam,
-                            // a kazdy dostepny typ ma zawsze widoczny przycisk przelaczenia.
-                            // No transport type is pre-marked as current - the player always chooses,
-                            // every available type keeps a visible switch button.
+ // Zaden typ nie jest oznaczony jako "biezacy" - gracz wybiera sam,
+ // a kazdy dostepny typ ma zawsze widoczny przycisk przelaczenia.
+ // No transport type is pre-marked as current - the player always chooses,
+ // every available type keeps a visible switch button.
                             $isCurrent  = false;
                             $isDisabled = !$available && !$isCurrent;
                             if ($tCode === 'rurociag' && !$w['_isOffshore'] && empty($w['_hasHubAssignment'])) {
@@ -140,6 +140,57 @@
                                 <?php endif ?>
                             </div>
                         <?php endforeach ?>
+                        </div>
+
+                        <?php
+ // Second transport leg: hub -> storage / Odcinek 2: hub -> magazyn
+                        $__outType        = (string)($w['_outboundType'] ?? 'nieustawiony');
+                        $__outOwned       = !empty($w['_outboundPipelineOwned']);
+                        $__outBuilding    = !empty($w['_outboundPipelineBuilding']);
+                        $__outBuildCost   = (float)($w['_outboundPipelineBuildCost'] ?? 0);
+                        $__outLabel       = match ($__outType) {
+                            'rurociag'   => t('well_staff.transport_pipeline'),
+                            'ciezarowki' => t('well_staff.transport_trucks'),
+                            default      => t('well_staff.transport_unset'),
+                        };
+                        ?>
+                        <div class="wg-leg2">
+                            <div class="wg-leg2-hdr">
+                                <span class="wg-leg2-title"><?= t('well_grid.leg2_title') ?></span>
+                                <span class="wg-section-badge <?= $__outType === 'rurociag' ? 'nsb-ok' : 'nsb-warn' ?>"><?= $__outLabel ?></span>
+                            </div>
+                            <div class="wg-leg2-desc"><?= t('well_grid.leg2_desc') ?></div>
+
+                            <?php if (empty($w['_hasHubAssignment'])): ?>
+                            <div class="wg-staff-hint"><?= t('well_grid.leg2_hub_required') ?></div>
+                            <?php else: ?>
+                                <?php if ($__outBuilding): ?>
+                                <div class="wg-staff-hint"><?= t('well_grid.leg2_pipeline_building') ?></div>
+                                <?php elseif ($__outOwned): ?>
+                                <div class="wg-staff-hint"><?= t('well_grid.leg2_pipeline_owned') ?></div>
+                                <?php endif ?>
+                                <div class="wg-leg2-actions">
+                                    <?php if (!$__outOwned): ?>
+                                    <button class="wg-opt-btn wg-opt-btn--primary"
+                                        onclick="wgSetOutboundTransport(<?= $wid ?>, 'rurociag', <?= htmlspecialchars(json_encode($__outBuildCost, JSON_UNESCAPED_UNICODE), ENT_QUOTES) ?>)">
+                                        <?= t('well_grid.leg2_btn_pipeline') ?>
+                                        (<?= number_format($__outBuildCost, 0, '.', ' ') ?> <?= t('common.pln') ?>)
+                                    </button>
+                                    <?php endif ?>
+                                    <?php if ($__outType !== 'ciezarowki'): ?>
+                                    <button class="wg-opt-btn"
+                                        onclick="wgSetOutboundTransport(<?= $wid ?>, 'ciezarowki', 0)">
+                                        <?= t('well_grid.leg2_btn_road') ?>
+                                    </button>
+                                    <?php endif ?>
+                                    <?php if ($__outType !== 'nieustawiony'): ?>
+                                    <button class="wg-opt-btn"
+                                        onclick="wgSetOutboundTransport(<?= $wid ?>, 'nieustawiony', 0)">
+                                        <?= t('well_grid.leg2_btn_direct') ?>
+                                    </button>
+                                    <?php endif ?>
+                                </div>
+                            <?php endif ?>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,22 @@
+<?php
+/**
+ * /assets/audio/list.php
+ * Zwraca JSON z listą plików MP3/OGG/WAV w tym samym katalogu.
+ * Nie wymaga autoryzacji — pliki i tak są publiczne.
+ */
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: public, max-age=300'); // 5 min cache
+
+$dir   = __DIR__;
+$exts  = ['mp3', 'ogg', 'wav', 'm4a'];
+$files = [];
+
+foreach (new DirectoryIterator($dir) as $f) {
+    if ($f->isDot() || !$f->isFile()) continue;
+    if (!in_array(strtolower($f->getExtension()), $exts, true)) continue;
+    $files[] = '/assets/audio/' . $f->getFilename();
+}
+
+sort($files); // powtarzalna kolejność — losowanie po stronie JS
+
+echo json_encode($files, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -6,9 +6,9 @@ require_once dirname(__DIR__, 2) . '/src/RoadTransportService.php';
 
 final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
 {
-    // 
-    // ensureConfigsForPlayerWells
-    // 
+ // 
+ // ensureConfigsForPlayerWells
+ // 
 
     public function testEnsureCreatesConfigOnlyForCiezarowkiWells(): void
     {
@@ -23,7 +23,7 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
             ['id' => $ids['auxWellId'], 'transport_type' => 'rurociag'],
         ];
         $svc->ensureConfigsForPlayerWells($playerId, $wells);
-        // Idempotentne  drugi call nie powinien duplikowa
+ // Idempotentne drugi call nie powinien duplikowa
         $svc->ensureConfigsForPlayerWells($playerId, $wells);
 
         $stmt = $this->db->prepare('SELECT well_id, truck_type FROM well_road_configs WHERE player_id = ? ORDER BY id');
@@ -35,9 +35,9 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('standard', $rows[0]['truck_type']);
     }
 
-    // 
-    // getConfigsByWellIds
-    // 
+ // 
+ // getConfigsByWellIds
+ // 
 
     public function testGetConfigsByWellIdsReturnsKeyedByWellId(): void
     {
@@ -57,9 +57,9 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertArrayNotHasKey(999999, $configs);
     }
 
-    // 
-    // processTick  cieka zero incydentw (risk_mult = 0)
-    // 
+ // 
+ // processTick cieka zero incydentw (risk_mult = 0)
+ // 
 
     public function testProcessTickWithZeroRiskDeliversAllVolume(): void
     {
@@ -67,7 +67,7 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 70.0, 50.0);
 
-        // risk_mult = 0.0  szansa incydentu = 0  wszystkie kursy dostarczone
+ // risk_mult = 0.0 szansa incydentu = 0 wszystkie kursy dostarczone
         $config = [
             'trip_capacity_bbl'  => 25.0,
             'cost_per_trip'      => 500.0,
@@ -88,15 +88,15 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(2000.0, $result['cost'],                    '4  500 = 2000');
         $this->assertSame([], $result['incidents']);
 
-        // Brak incydentw  brak wpisw w logu
+ // Brak incydentw brak wpisw w logu
         $stmt = $this->db->prepare('SELECT COUNT(*) FROM well_road_incident_logs WHERE well_id = ?');
         $stmt->execute([$ids['wellId']]);
         $this->assertSame('0', (string)$stmt->fetchColumn());
     }
 
-    // 
-    // processTick  wymuszone incydenty (bardzo duy risk_mult)
-    // 
+ // 
+ // processTick wymuszone incydenty (bardzo duy risk_mult)
+ // 
 
     public function testProcessTickWithMaxRiskCreatesIncidentLogs(): void
     {
@@ -104,7 +104,7 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 70.0, 50.0);
 
-        // Bardzo maa pojemno kursu = duo kursw  przy 95% szansie prawie na pewno incydent
+ // Bardzo maa pojemno kursu = duo kursw przy 95% szansie prawie na pewno incydent
         $config = [
             'trip_capacity_bbl'  => 0.5,   // 100 bbl / 0.5 = 200 kursw
             'cost_per_trip'      => 10.0,
@@ -117,12 +117,12 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
             $config, ['failure_reduction' => 1.0], 1
         );
 
-        // Przy 200 kursach i 95% szansie incydentu P(0 incydentw)  (0.05)^200  0
+ // Przy 200 kursach i 95% szansie incydentu P(0 incydentw) (0.05)^200 0
         $this->assertGreaterThan(0, $result['trips_lost'],  'Powinien by co najmniej 1 utracony kurs');
         $this->assertGreaterThan(0.0, $result['lost_bbl'],  'Powinna by strata bbl');
         $this->assertNotEmpty($result['incidents']);
 
-        // Weryfikacja struktury incydentw
+ // Weryfikacja struktury incydentw
         foreach ($result['incidents'] as $inc) {
             $this->assertArrayHasKey('type', $inc);
             $this->assertArrayHasKey('trip_idx', $inc);
@@ -130,7 +130,7 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
             $this->assertContains($inc['type'], ['theft', 'raid', 'accident', 'sabotage', 'route_block']);
         }
 
-        // Wpisy w logu incydentw w bazie
+ // Wpisy w logu incydentw w bazie
         $stmt = $this->db->prepare(
             'SELECT SUM(trips_lost) AS total_lost, SUM(vol_lost_bbl) AS total_vol
                FROM well_road_incident_logs WHERE well_id = ? AND player_id = ?'
@@ -142,9 +142,9 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertGreaterThan(0.0, (float)$logRow['total_vol']);
     }
 
-    // 
-    // processTick  bilans: delivered + lost = input
-    // 
+ // 
+ // processTick bilans: delivered + lost = input
+ // 
 
     public function testProcessTickVolumeBalance(): void
     {
@@ -164,7 +164,7 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
             $config, ['failure_reduction' => 1.0], 2
         );
 
-        // Niezmiennik: delivered + lost = input (z tolerancj zaokrgle)
+ // Niezmiennik: delivered + lost = input (z tolerancj zaokrgle)
         $this->assertEqualsWithDelta(
             50.0,
             $result['delivered_bbl'] + $result['lost_bbl'],
@@ -172,20 +172,20 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
             'delivered + lost powinno sumowa si do inputBbl'
         );
 
-        // Koszt = trips_total * cost_per_trip
+ // Koszt = trips_total * cost_per_trip
         $expectedCost = $result['trips_total'] * 200.0;
         $this->assertEqualsWithDelta($expectedCost, $result['cost'], 0.01);
 
-        // trips_delivered + trips_lost = trips_total
+ // trips_delivered + trips_lost = trips_total
         $this->assertSame(
             $result['trips_total'],
             $result['trips_delivered'] + $result['trips_lost']
         );
     }
 
-    //
-    // processTick  pusty input
-    //
+ //
+ // processTick pusty input
+ //
 
     public function testProcessTickWithZeroInputReturnsEmpty(): void
     {
@@ -201,9 +201,9 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame([], $result['incidents']);
     }
 
-    //
-    // dispatchTrips (P1.2  model czasowy / time-based model)
-    //
+ //
+ // dispatchTrips (P1.2 model czasowy / time-based model)
+ //
 
     public function testDispatchTripsCreatesInTransitRecord(): void
     {
@@ -267,9 +267,9 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(0, (int)$stmt->fetchColumn());
     }
 
-    //
-    // processCompletedTrips (P1.2)
-    //
+ //
+ // processCompletedTrips (P1.2)
+ //
 
     public function testProcessCompletedTripsDeliversOilWhenEtaPassed(): void
     {
@@ -277,7 +277,7 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $playerId = $this->seedPlayer();
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 100.0, 50.0);
 
-        // Kurs z eta w przeszlosci, incident_risk_mult = 0 => zero strat
+ // Kurs z eta w przeszlosci, incident_risk_mult = 0 => zero strat
         $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, truck_type, trips_count, trip_hours, cost,
@@ -329,7 +329,7 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->seedWell($playerId, $ids['wellId'],    'active', 77, 'A1', 'ciezarowki', 100.0, 50.0);
         $this->seedWell($playerId, $ids['auxWellId'], 'active', 77, 'A1', 'ciezarowki', 100.0, 30.0);
 
-        // Dwa minione kursy, zero ryzyka incydentow
+ // Dwa minione kursy, zero ryzyka incydentow
         $insert = $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, truck_type, trips_count, trip_hours, cost,
@@ -347,9 +347,9 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertEqualsWithDelta(0.0, $result['lost_bbl'], 0.001);
     }
 
-    //
-    // getActiveTripsForPlayer (P1.2)
-    //
+ //
+ // getActiveTripsForPlayer (P1.2)
+ //
 
     public function testGetActiveTripsForPlayerReturnsInTransitWithSecondsRemaining(): void
     {

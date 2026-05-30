@@ -6,7 +6,7 @@
  */
 class BankSettings
 {
-    /** @var array<string, mixed>|null */
+ /** @var array<string, mixed>|null */
     private static ?array $cache = null;
     private PDO $db;
 
@@ -42,7 +42,7 @@ class BankSettings
         }
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getAll(): array
     {
         try {
@@ -94,8 +94,8 @@ class BankSettings
         return self::get('max_amount_multiplier', 1.0);
     }
 
-    // Credit score thresholds for loan decisions.
-    // PL: Progi score dla decyzji kredytowej.
+ // Credit score thresholds for loan decisions.
+ // PL: Progi score dla decyzji kredytowej.
     public static function scoreThresholdReject(): int
     {
         return (int)self::get('score_threshold_reject', 30);
@@ -111,8 +111,8 @@ class BankSettings
         return (int)self::get('score_threshold_full', 75);
     }
 
-    // APR rates per decision tier.
-    // PL: Stawki APR per tier decyzji.
+ // APR rates per decision tier.
+ // PL: Stawki APR per tier decyzji.
     public static function aprConditional(): float
     {
         return self::get('apr_tier_conditional', 40.0);

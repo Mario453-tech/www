@@ -1,17 +1,17 @@
 /* 
    DASHBOARD DYREKTORA � v2
    Mobile-first, dark theme
-    */
+ */
 
-/*  Zmienne dashboard-specyficzne (--gold, --green, --red, --text, --warn z variables.css)  */
+/* Zmienne dashboard-specyficzne (--gold, --green, --red, --text, --warn z variables.css) */
 :root {
-    /* --gold2 celowo nadpisane: w dashboard p�przezroczyste t�o */
+ /* --gold2 celowo nadpisane: w dashboard pprzezroczyste to */
     --gold2: rgba(200,168,75,.15);
-    /* t�a dashboard � nieznacznie r�ne od gry-g��wnej */
+ /* ta dashboard nieznacznie rne od gry-gwnej */
     --bg:    #0d0d18;
     --bg2:   #12121f;
     --bg3:   rgba(255,255,255,.04);
-    --brd:   rgba(255,255,255,.08);    /* delikatna bia�a ramka dashboard */
+    --brd:   rgba(255,255,255,.08);    /* delikatna biaa ramka dashboard */
     --muted: rgba(232,232,240,.45);
 }
 
@@ -25,7 +25,7 @@
     color: var(--text);
 }
 
-/*  TOPBAR  */
+/* TOPBAR */
 .db-topbar {
     background: #080810;
     border-bottom: 2px solid rgba(200,168,75,.3);
@@ -78,14 +78,14 @@
 }
 .db-topbar-link:hover { color: var(--gold); }
 
-/*  CONTAINER  */
+/* CONTAINER */
 .db-container {
     max-width: 700px;
     margin: 0 auto;
     padding: 16px;
 }
 
-/*  ALERTS  */
+/* ALERTS */
 .db-alert {
     display: flex;
     align-items: center;
@@ -113,7 +113,7 @@
 }
 .db-bankruptcy-bar a { color: var(--red); }
 
-/*  STATYSTYKI  */
+/* STATYSTYKI */
 .db-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -140,7 +140,7 @@
 .db-stat--ok     .db-stat-val { color: var(--green); }
 .db-stat-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
 
-/*  SEKCJE  */
+/* SEKCJE */
 .db-section {
     background: var(--bg2);
     border: 1px solid var(--brd);
@@ -178,7 +178,7 @@
     border-bottom: 1px solid var(--brd);
 }
 
-/*  KARTA KANDYDATA  */
+/* KARTA KANDYDATA */
 .db-cand-card {
     padding: 14px 16px;
     border-bottom: 1px solid rgba(255,255,255,.04);
@@ -203,7 +203,7 @@
     margin-bottom: 10px;
 }
 
-/* Paski umiej�tno�ci */
+/* Paski umiejtnoci */
 .db-skills { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
 .db-skill  { display: grid; grid-template-columns: 40px 1fr 24px; align-items: center; gap: 6px; }
 .db-skill-lbl  { font-size: 10px; color: var(--muted); }
@@ -218,7 +218,7 @@
     flex-wrap: wrap;
 }
 
-/*  LISTA (rekrutacje, zarz�d)  */
+/* LISTA (rekrutacje, zarzd) */
 .db-list { padding: 4px 0; }
 .db-list-row {
     display: flex;
@@ -234,14 +234,14 @@
 .db-list-role  { font-size: 11px; color: var(--gold); }
 .db-list-meta  { font-size: 11px; color: var(--muted); }
 
-/*  BAD�E  */
+/* BADE */
 .db-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .db-badge--wait { background: rgba(230,180,60,.12); color: var(--warn); border: 1px solid rgba(230,180,60,.25); }
 .db-badge--ok   { background: rgba(78,201,122,.12); color: var(--green); border: 1px solid rgba(78,201,122,.25); }
 
-/*  PRZYCISKI  ( u�ywa globalnych klas: btn, btn-cta, btn-success, btn-danger) */
+/* PRZYCISKI ( uywa globalnych klas: btn, btn-cta, btn-success, btn-danger) */
 
-/*  HISTORIA  */
+/* HISTORIA */
 .db-history { padding: 4px 0; }
 .db-history-row {
     display: flex;
@@ -259,7 +259,7 @@
 .db-history-text { flex: 1; color: rgba(232,232,240,.7); }
 .db-history-time { font-size: 10px; color: var(--muted); white-space: nowrap; }
 
-/*  EMPTY  */
+/* EMPTY */
 .db-empty {
     padding: 20px 16px;
     font-size: 12px;
@@ -268,7 +268,7 @@
 }
 .db-empty a { color: var(--gold); }
 
-/*  MOBILE  */
+/* MOBILE */
 @media (max-width: 480px) {
     .db-stats { grid-template-columns: repeat(2, 1fr); }
     .db-cand-header { flex-direction: column; gap: 4px; }
@@ -397,7 +397,7 @@
     flex: 1 1 260px;
 }
 
-/* .db-btn--primary usuni�ty  btn btn-cta */
+/* .db-btn--primary usunity btn btn-cta */
 
 .db-empty--inline {
     text-align: left;

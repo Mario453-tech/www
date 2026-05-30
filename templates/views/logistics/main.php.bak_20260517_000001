@@ -1,0 +1,498 @@
+<div class="logistics-page">
+    <section class="logistics-kpi-grid" aria-label="<?= htmlspecialchars(t('logistics.kpi_aria')) ?>">
+        <div class="logistics-kpi">
+            <span class="logistics-kpi-label"><?= t('logistics.kpi_efficiency') ?></span>
+            <strong class="<?= $efficiency >= 90 ? 'c-good' : ($efficiency >= 75 ? 'c-warn' : 'c-bad') ?>"><?= number_format($efficiency, 1, ',', ' ') ?>%</strong>
+        </div>
+        <div class="logistics-kpi">
+            <span class="logistics-kpi-label"><?= t('logistics.kpi_loss') ?></span>
+            <strong class="<?= $lossPct >= 15 ? 'c-bad' : ($lossPct >= 8 ? 'c-warn' : 'c-good') ?>"><?= number_format((float)$totals['loss'], 1, ',', ' ') ?> bbl/h</strong>
+        </div>
+        <div class="logistics-kpi">
+            <span class="logistics-kpi-label"><?= t('logistics.kpi_cost') ?></span>
+            <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> PLN/h</strong>
+        </div>
+        <div class="logistics-kpi">
+            <span class="logistics-kpi-label"><?= t('logistics.kpi_wells') ?></span>
+            <strong><?= count($wells) ?></strong>
+        </div>
+    </section>
+
+    <section class="logistics-alerts">
+        <?php foreach ($alerts as $alert): ?>
+        <div class="logistics-alert logistics-alert--<?= htmlspecialchars($alert['type']) ?>">
+            <?= htmlspecialchars($alert['text']) ?>
+        </div>
+        <?php endforeach ?>
+    </section>
+
+    <section class="logistics-panel" aria-labelledby="logistics-overview-heading">
+        <div class="logistics-panel-head">
+            <h3 id="logistics-overview-heading"><?= t('logistics.overview_title') ?></h3>
+            <span><?= t('logistics.overview_subtitle') ?></span>
+        </div>
+        <div class="logistics-mix-grid">
+            <?php foreach (['rurociag', 'ciezarowki', 'tankowiec'] as $type):
+                $row = $transportMix[$type] ?? ['count' => 0, 'transported' => 0, 'loss' => 0, 'cost' => 0];
+            ?>
+            <article class="logistics-mix-card">
+                <div class="logistics-mix-title"><?= t('logistics.type_' . $type) ?></div>
+                <div class="logistics-mix-meta"><?= t('logistics.mix_wells', ['count' => (int)$row['count']]) ?></div>
+                <div class="logistics-mix-stats">
+                    <span><?= t('logistics.label_flow') ?> <strong><?= number_format((float)$row['transported'], 1, ',', ' ') ?> bbl/h</strong></span>
+                    <span><?= t('logistics.label_loss') ?> <strong><?= number_format((float)$row['loss'], 1, ',', ' ') ?> bbl/h</strong></span>
+                    <span><?= t('logistics.label_cost') ?> <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> PLN/h</strong></span>
+                </div>
+            </article>
+            <?php endforeach ?>
+        </div>
+    </section>
+
+    <section class="logistics-panel" aria-labelledby="logistics-optimizer-heading">
+        <div class="logistics-panel-head">
+            <h3 id="logistics-optimizer-heading"><?= t('logistics.optimizer_title') ?></h3>
+            <span><?= t('logistics.optimizer_desc') ?></span>
+        </div>
+        <div class="logistics-optimizer-bar logistics-optimizer-bar--page">
+            <div class="logistics-optimizer-info">
+                <span class="logistics-icon">🚛</span>
+                <div>
+                    <div class="logistics-title"><?= t('logistics.optimizer_card_title') ?></div>
+                    <div class="logistics-desc"><?= t('logistics.optimizer_card_desc') ?></div>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm logistics-btn" onclick="openLogisticsModal()" id="btn-logistics-open">
+                ⚡ <?= t('logistics.optimizer_btn') ?>
+            </button>
+        </div>
+    </section>
+
+    <section class="logistics-panel" aria-labelledby="logistics-transport-heading">
+        <div class="logistics-panel-head">
+            <h3 id="logistics-transport-heading"><?= t('logistics.transport_title') ?></h3>
+            <span><?= t('logistics.transport_desc') ?></span>
+        </div>
+        <?php if (empty($wells)): ?>
+            <div class="logistics-empty"><?= t('logistics.no_wells') ?></div>
+        <?php else: ?>
+        <div class="logistics-table">
+            <div class="logistics-table-head">
+                <span><?= t('logistics.col_well') ?></span>
+                <span><?= t('logistics.col_type') ?></span>
+                <span><?= t('logistics.col_transport') ?></span>
+                <span><?= t('logistics.col_capacity') ?></span>
+                <span><?= t('logistics.col_loss') ?></span>
+                <span><?= t('logistics.col_cost') ?></span>
+            </div>
+            <?php foreach ($wells as $well): ?>
+            <div class="logistics-table-row">
+                <span>#<?= (int)$well['id'] ?></span>
+                <span><?= t('logistics.well_type_' . ($well['well_type'] ?? 'onshore')) ?></span>
+                <span><?= t('logistics.type_' . ($well['transport'] ?? 'rurociag')) ?></span>
+                <span><?= number_format((float)$well['capacity_pct'], 1, ',', ' ') ?>%</span>
+                <span class="<?= (float)$well['loss'] > 0 ? 'c-warn' : 'c-good' ?>"><?= number_format((float)$well['loss'], 1, ',', ' ') ?> bbl/h</span>
+                <span><?= number_format((float)$well['cost'], 2, ',', ' ') ?> PLN/h</span>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SEKCJA: Twoje przypisane huby                                      -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section class="logistics-panel" aria-labelledby="logistics-hubs-heading">
+        <div class="logistics-panel-head">
+            <h3 id="logistics-hubs-heading"><?= t('logistics.hub.my_hubs_title') ?></h3>
+            <span><?= t('logistics.hub.my_hubs_desc') ?></span>
+        </div>
+
+        <?php if (!empty($hubAlerts)): ?>
+        <div class="logistics-hub-alerts">
+            <?php foreach ($hubAlerts as $ha): ?>
+            <div class="logistics-alert logistics-alert--<?= $ha['severity'] === 'critical' ? 'danger' : 'warn' ?>">
+                <?= htmlspecialchars($ha['message']) ?>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+
+        <?php if (empty($hubCards)): ?>
+            <div class="logistics-empty"><?= t('logistics.hub.no_hubs_assigned') ?></div>
+        <?php else: ?>
+        <div class="logistics-hub-grid">
+            <?php foreach ($hubCards as $card):
+                $hub       = $card['hub'];
+                $hubId     = (int)$hub['id'];
+                $lastStats = $card['last_stats'];
+                $loadPct   = (float)($lastStats['load_pct'] ?? 0);
+                $condPct   = (float)$hub['condition_pct'];
+                $condClass = $condPct <= 20 ? 'c-bad' : ($condPct < 60 ? 'c-warn' : 'c-good');
+                $loadClass = $loadPct > 100 ? 'c-bad' : ($loadPct > 80 ? 'c-warn' : 'c-good');
+                // Poziom ryzyka łącznego (condition + load)
+                $riskLevel = 'none';
+                if ($condPct <= 20 || ($condPct <= 40 && $loadPct > 80)) {
+                    $riskLevel = 'critical';
+                } elseif ($condPct <= 40 || ($condPct <= 60 && $loadPct > 100)) {
+                    $riskLevel = 'high';
+                } elseif ($condPct <= 60 || $loadPct > 80) {
+                    $riskLevel = 'medium';
+                }
+                $myWells   = count($card['wells']);
+            ?>
+            <article class="logistics-hub-card hub-status-<?= htmlspecialchars($hub['status']) ?>"
+                     data-hub-id="<?= $hubId ?>"
+                     data-hub-region-id="<?= (int)$hub['region_id'] ?>"
+                     data-hub-zone-key="<?= htmlspecialchars((string)($hub['zone_key'] ?? ''), ENT_QUOTES) ?>"
+                     data-hub-name="<?= htmlspecialchars((string)$hub['name'], ENT_QUOTES) ?>">
+
+                <div class="logistics-hub-card-hdr">
+                    <span class="logistics-hub-name"><?= htmlspecialchars($hub['name']) ?></span>
+                    <span class="badge <?= $card['status_class'] ?>">
+                        <?= t('logistics.hub.status_' . $hub['status']) ?>
+                    </span>
+                    <?php if ($riskLevel !== 'none'): ?>
+                    <span class="badge hub-risk-badge hub-risk-badge--<?= $riskLevel ?>">
+                        <?= t('logistics.hub.risk_' . $riskLevel) ?>
+                    </span>
+                    <?php endif ?>
+                </div>
+
+                <div class="logistics-hub-meta">
+                    <span><?= t('logistics.hub.type_' . $hub['hub_type']) ?></span>
+                    <span class="sep">·</span>
+                    <span><?= htmlspecialchars($hub['region_name'] ?? 'Region #' . $hub['region_id']) ?></span>
+                    <?php if (($hub['zone_key'] ?? '') !== ''): ?>
+                    <span class="sep">·</span>
+                    <span><?= htmlspecialchars($hub['zone_key']) ?></span>
+                    <?php endif ?>
+                    <span class="sep">·</span>
+                    <span><?= t('logistics.hub.mode_' . ($hub['work_mode'] ?? 'standard')) ?></span>
+                </div>
+
+                <div class="logistics-hub-stats">
+                    <div class="logistics-hub-stat">
+                        <span><?= t('logistics.hub.label_condition') ?></span>
+                        <strong class="<?= $condClass ?>"><?= number_format($condPct, 1, ',', ' ') ?>%</strong>
+                    </div>
+                    <div class="logistics-hub-stat">
+                        <span><?= t('logistics.hub.label_load') ?></span>
+                        <strong class="<?= $loadClass ?>"><?= number_format($loadPct, 1, ',', ' ') ?>%</strong>
+                    </div>
+                    <div class="logistics-hub-stat">
+                        <span><?= t('logistics.hub.label_slots') ?></span>
+                        <strong><?= (int)$hub['assigned_count'] ?>/<?= (int)$hub['slot_limit'] ?></strong>
+                    </div>
+                    <div class="logistics-hub-stat">
+                        <span><?= t('logistics.hub.label_my_wells') ?></span>
+                        <strong><?= $myWells ?></strong>
+                    </div>
+                </div>
+
+                <div class="logistics-hub-actions">
+                    <?php if (!empty($hubUnassigned) && (int)$hub['assigned_count'] < (int)$hub['slot_limit']): ?>
+                    <button class="btn btn-sm btn-primary" onclick="hubAssignWellToHubModal(<?= $hubId ?>)">
+                        <?= t('logistics.hub.btn_assign_well') ?>
+                    </button>
+                    <?php endif; ?>
+                    <button class="btn btn-sm btn-secondary" onclick="hubWellsModal(<?= $hubId ?>)">
+                        🛢 <?= t('logistics.hub.btn_my_wells') ?> (<?= $myWells ?>)
+                    </button>
+                </div>
+            </article>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SEKCJA: Odwierty bez huba                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <?php if (!empty($hubUnassigned)): ?>
+    <section class="logistics-panel logistics-panel--warn" aria-labelledby="logistics-unassigned-heading">
+        <div class="logistics-panel-head">
+            <h3 id="logistics-unassigned-heading"><?= t('logistics.hub.unassigned_title') ?></h3>
+            <span><?= t('logistics.hub.unassigned_desc') ?></span>
+        </div>
+        <div class="logistics-table">
+            <div class="logistics-table-head">
+                <span><?= t('logistics.col_well') ?></span>
+                <span><?= t('logistics.hub.label_region') ?></span>
+                <span><?= t('logistics.col_capacity') ?></span>
+                <span></span>
+            </div>
+            <?php foreach ($hubUnassigned as $uw): ?>
+            <div class="logistics-table-row">
+                <span>#<?= (int)$uw['id'] ?> <?= htmlspecialchars($uw['name'] ?? $uw['location_name'] ?? '') ?></span>
+                <span><?= htmlspecialchars($uw['region_name'] ?? 'Region #' . $uw['region_id']) ?>
+                    <?= ($uw['zone_key'] ?? '') !== '' ? '/ ' . htmlspecialchars($uw['zone_key']) : '' ?>
+                </span>
+                <span><?= number_format((float)$uw['base_production_per_hour'], 1, ',', ' ') ?> bph</span>
+                <span>
+                    <button class="btn btn-xs btn-primary" onclick="hubAssignModal(<?= (int)$uw['id'] ?>)">
+                        🔗 <?= t('logistics.hub.unassigned_assign') ?>
+                    </button>
+                </span>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php if ($unassignedTotalPages > 1): ?>
+        <div class="logistics-pagination">
+            <div class="logistics-pagination-info">
+                <?= $unassignedPage ?> / <?= $unassignedTotalPages ?> (<?= $unassignedTotal ?>)
+            </div>
+            <div class="logistics-pagination-buttons">
+                <?php if ($unassignedPage > 1): ?>
+                <a href="?tab=logistics&unassigned_page=<?= $unassignedPage - 1 ?>" class="btn btn-xs btn-secondary">
+                    ← <?= t('logistics.pagination_prev') ?>
+                </a>
+                <?php endif ?>
+                <?php if ($unassignedPage < $unassignedTotalPages): ?>
+                <a href="?tab=logistics&unassigned_page=<?= $unassignedPage + 1 ?>" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_next') ?> →
+                </a>
+                <?php endif ?>
+            </div>
+        </div>
+        <?php endif ?>
+    </section>
+    <?php endif ?>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SEKCJA: Incydenty logistyczne hubów                                -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <?php if (!empty($hubIncidents)): ?>
+    <section class="logistics-panel" aria-labelledby="logistics-hub-incidents-heading">
+        <div class="logistics-panel-head">
+            <h3 id="logistics-hub-incidents-heading"><?= t('logistics.hub.incidents_title') ?></h3>
+            <span><?= t('logistics.hub.incidents_desc') ?></span>
+        </div>
+        <div class="logistics-hub-incidents-list">
+        <?php foreach ($hubIncidents as $hi):
+            $sev     = $hi['severity'] ?? 'low';
+            $sevIcon = match($sev) {
+                'critical' => '🔴',
+                'high'     => '🟠',
+                'medium'   => '🟡',
+                default    => '⚙',
+            };
+            $evType  = $hi['event_type'] ?? '';
+            $typeKey = str_replace('hub_incident_', '', $evType);
+        ?>
+        <div class="logistics-hub-incident-row logistics-hub-incident--<?= htmlspecialchars($sev) ?>">
+            <div class="logistics-hub-incident-icon"><?= $sevIcon ?></div>
+            <div class="logistics-hub-incident-body">
+                <div class="logistics-hub-incident-title">
+                    <strong><?= htmlspecialchars($hi['title'] ?? t('logistics.hub.incident.title.' . $typeKey)) ?></strong>
+                    <span class="logistics-hub-incident-hub">
+                        — <?= htmlspecialchars($hi['hub_name'] ?? 'Hub #' . $hi['hub_id']) ?>
+                    </span>
+                </div>
+                <div class="logistics-hub-incident-msg"><?= htmlspecialchars($hi['message']) ?></div>
+                <div class="logistics-hub-incident-meta">
+                    <span class="c-muted2"><?= date('d.m H:i', strtotime($hi['created_at'])) ?></span>
+                </div>
+            </div>
+        </div>
+        <?php endforeach ?>
+        </div>
+    </section>
+    <?php endif ?>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Moje odwierty na hubie                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="hub-wells-modal" class="logistics-modal-overlay" style="display:none"
+     onclick="if(event.target===this)closeHubModal('hub-wells-modal')">
+    <div class="logistics-modal-box">
+        <div class="logistics-modal-hdr">
+            <span id="hub-wells-modal-title">🛢 <?= t('logistics.hub.wells_modal_title') ?></span>
+            <button class="logistics-modal-close" onclick="closeHubModal('hub-wells-modal')">✕</button>
+        </div>
+        <div id="hub-wells-modal-body" class="logistics-loading"><?= t('logistics.loading') ?></div>
+        <div class="logistics-modal-footer">
+            <button class="btn btn-secondary btn-sm" onclick="closeHubModal('hub-wells-modal')">
+                <?= t('logistics.cancel') ?>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Przenieś odwiert do innego huba                                 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="hub-transfer-modal" class="logistics-modal-overlay" style="display:none"
+     onclick="if(event.target===this)closeHubModal('hub-transfer-modal')">
+    <div class="logistics-modal-box">
+        <div class="logistics-modal-hdr">
+            <span id="hub-transfer-modal-title">↔ <?= t('logistics.hub.transfer_modal_title') ?></span>
+            <button class="logistics-modal-close" onclick="closeHubModal('hub-transfer-modal')">✕</button>
+        </div>
+        <div id="hub-transfer-modal-body" class="logistics-loading"><?= t('logistics.loading') ?></div>
+        <div class="logistics-modal-footer">
+            <button class="btn btn-secondary btn-sm" onclick="closeHubModal('hub-transfer-modal')">
+                <?= t('logistics.cancel') ?>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Uniwersalny dialog (komunikaty + potwierdzenia)                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="hub-dialog-modal" class="logistics-modal-overlay" style="display:none">
+    <div class="logistics-modal-box hub-dialog-box">
+        <div class="hub-dialog-icon-wrap">
+            <span id="hub-dialog-icon" class="hub-dialog-icon"></span>
+        </div>
+        <div id="hub-dialog-text" class="hub-dialog-text"></div>
+        <div class="logistics-modal-footer">
+            <button id="hub-dialog-cancel" class="btn btn-secondary btn-sm" style="display:none">
+                <?= t('common.cancel') ?>
+            </button>
+            <button id="hub-dialog-ok" class="btn btn-primary btn-sm">
+                <?= t('common.confirm') ?>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Przypisz odwiert do huba                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="hub-assign-modal" class="logistics-modal-overlay" style="display:none"
+     onclick="if(event.target===this)closeHubModal('hub-assign-modal')">
+    <div class="logistics-modal-box">
+        <div class="logistics-modal-hdr">
+            <span>🔗 <?= t('logistics.hub.avail_title') ?></span>
+            <button class="logistics-modal-close" onclick="closeHubModal('hub-assign-modal')">✕</button>
+        </div>
+        <div id="hub-assign-modal-body" class="logistics-loading"><?= t('logistics.loading') ?></div>
+        <div class="logistics-modal-footer">
+            <button class="btn btn-secondary btn-sm" onclick="closeHubModal('hub-assign-modal')">
+                <?= t('logistics.cancel') ?>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+window.HUB_API   = '/src/HubApi.php';
+window.HUB_CSRF  = document.querySelector('meta[name="csrf-token"]')?.content || '';
+window.HUB_LANG  = <?= json_encode([
+    'loading'        => t('logistics.loading'),
+    'err_generic'    => t('logistics.hub.err_generic'),
+    'ok_assign'      => t('logistics.hub.ok_assign'),
+    'ok_detach'      => t('logistics.hub.ok_detach'),
+    'wells_none'     => t('logistics.hub.wells_none'),
+    'avail_none'     => t('logistics.hub.avail_none'),
+    'avail_title'    => t('logistics.hub.avail_title'),
+    'detach_confirm' => t('logistics.hub.wells_detach_confirm', ['id' => '{id}']),
+    'col_well'       => t('logistics.hub.wells_col_well'),
+    'col_region'     => t('logistics.hub.wells_col_region'),
+    'col_prod'       => t('logistics.hub.wells_col_prod'),
+    'col_status'     => t('logistics.hub.wells_col_status'),
+    'col_actions'    => t('logistics.hub.wells_col_actions'),
+    'btn_detach'     => t('logistics.hub.wells_btn_detach'),
+    'btn_transfer'   => t('logistics.hub.wells_btn_transfer'),
+    'ok_transfer'    => t('logistics.hub.ok_transfer'),
+    'transfer_none'  => t('logistics.hub.transfer_none'),
+    'assign_well_title' => t('logistics.hub.assign_well_title'),
+    'assign_well_none'  => t('logistics.hub.assign_well_none'),
+    'btn_assign_well'   => t('logistics.hub.btn_assign_well'),
+    'avail_slots'    => t('logistics.hub.avail_slots', ['free' => '{free}', 'total' => '{total}']),
+    'avail_zone_pen' => t('logistics.hub.avail_zone_penalty', ['pct' => '{pct}']),
+    'btn_assign'     => t('logistics.hub.avail_btn_assign'),
+    'type_small'          => t('logistics.hub.type_small'),
+    'type_medium'         => t('logistics.hub.type_medium'),
+    'type_large'          => t('logistics.hub.type_large'),
+    'cond_critical_short'    => t('logistics.hub.cond_critical_short'),
+    'cond_low_short'         => t('logistics.hub.cond_low_short'),
+    'avail_fee'              => t('logistics.hub.avail_fee', ['fee' => '{fee}']),
+    'warn_condition_critical'=> t('logistics.hub.warn_condition_critical'),
+    'warn_condition_low'     => t('logistics.hub.warn_condition_low'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>
+
+<div id="logistics-modal" class="logistics-modal-overlay" style="display:none" onclick="if(event.target===this)closeLogisticsModal()">
+    <div class="logistics-modal-box">
+        <div class="logistics-modal-hdr">
+            <span>🚛 <?= t('logistics.modal_title') ?></span>
+            <button class="logistics-modal-close" onclick="closeLogisticsModal()" title="<?= t('common.close') ?>">✕</button>
+        </div>
+
+        <div id="logistics-current" class="logistics-section">
+            <div class="logistics-section-title"><?= t('logistics.current_title') ?></div>
+            <div id="logistics-current-body" class="logistics-loading"><?= t('logistics.loading') ?></div>
+        </div>
+
+        <div class="logistics-section">
+            <div class="logistics-section-title"><?= t('logistics.mode_title') ?></div>
+            <div class="logistics-modes">
+                <label class="logistics-mode-card selected">
+                    <input type="radio" name="logistics-mode" value="balans" checked>
+                    <div class="logistics-mode-icon">⚖️</div>
+                    <div class="logistics-mode-name"><?= t('logistics.mode_balans') ?></div>
+                    <div class="logistics-mode-desc"><?= t('logistics.mode_balans_desc') ?></div>
+                </label>
+                <label class="logistics-mode-card">
+                    <input type="radio" name="logistics-mode" value="max_prod">
+                    <div class="logistics-mode-icon">🚀</div>
+                    <div class="logistics-mode-name"><?= t('logistics.mode_maxprod') ?></div>
+                    <div class="logistics-mode-desc"><?= t('logistics.mode_maxprod_desc') ?></div>
+                </label>
+                <label class="logistics-mode-card">
+                    <input type="radio" name="logistics-mode" value="min_cost">
+                    <div class="logistics-mode-icon">💰</div>
+                    <div class="logistics-mode-name"><?= t('logistics.mode_mincost') ?></div>
+                    <div class="logistics-mode-desc"><?= t('logistics.mode_mincost_desc') ?></div>
+                </label>
+            </div>
+        </div>
+
+        <div id="logistics-results" class="logistics-section" style="display:none">
+            <div class="logistics-section-title"><?= t('logistics.results_title') ?></div>
+            <div id="logistics-results-body"></div>
+        </div>
+
+        <div class="logistics-modal-footer">
+            <button class="btn btn-secondary btn-sm" onclick="closeLogisticsModal()"><?= t('logistics.cancel') ?></button>
+            <button class="btn btn-primary btn-sm" id="btn-logistics-run" onclick="runLogisticsOptimize()">
+                ⚡ <?= t('logistics.run') ?>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+window.LOGISTICS_API  = '/src/LogisticsApi.php';
+window.LOGISTICS_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+window.LOGISTICS_LANG = <?= json_encode([
+    'api_missing'       => t('logistics_js.api_missing'),
+    'loading'           => t('logistics.loading'),
+    'err'               => t('logistics.err'),
+    'optimizing'        => t('logistics_js.optimizing'),
+    'run'               => t('logistics.run'),
+    'cancel'            => t('logistics.cancel'),
+    'no_changes'        => t('logistics.no_changes'),
+    'changed_count'     => t('logistics.changed_count'),
+    'confirm_btn'       => t('logistics.confirm_btn'),
+    'label_mode'        => t('logistics.label_mode'),
+    'label_fee'         => t('logistics.label_fee'),
+    'type_rurociag'     => t('logistics.type_rurociag'),
+    'type_ciezarowki'   => t('logistics.type_ciezarowki'),
+    'type_tankowiec'    => t('logistics.type_tankowiec'),
+    'label_loss'        => t('logistics.label_loss'),
+    'label_cost'        => t('logistics.label_cost'),
+    'label_eff'         => t('logistics.label_eff'),
+    'label_before'      => t('logistics.label_before'),
+    'label_after'       => t('logistics.label_after'),
+    'well_type_onshore' => t('logistics_js.well_type_onshore'),
+    'well_type_offshore'=> t('logistics_js.well_type_offshore'),
+    'mode_balans'       => t('logistics.mode_balans'),
+    'mode_max_prod'     => t('logistics.mode_maxprod'),
+    'mode_min_cost'     => t('logistics.mode_mincost'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>

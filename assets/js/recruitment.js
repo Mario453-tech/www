@@ -26,11 +26,11 @@ class RecruitmentSystem {
         this.initModal();
     }
     
-    /**
-     * Inicjalizacja modalu rekrutacji
-     */
+ /**
+ * Inicjalizacja modalu rekrutacji
+ */
     initModal() {
-        // Sprawd czy modal ju istnieje
+ // Sprawd czy modal ju istnieje
         if (document.getElementById('recruitment-modal')) return;
         
         const modal = document.createElement('div');
@@ -57,9 +57,9 @@ class RecruitmentSystem {
         document.body.appendChild(modal);
     }
     
-    /**
-     * Rozpoczyna proces rekrutacji
-     */
+ /**
+ * Rozpoczyna proces rekrutacji
+ */
     async startRecruitment(roleId, roleName, waitMinutes = 1) {
         this.currentRoleId = roleId;
         
@@ -83,9 +83,9 @@ class RecruitmentSystem {
         }
     }
     
-    /**
-     * Otwiera modal rekrutacji
-     */
+ /**
+ * Otwiera modal rekrutacji
+ */
     openModal(roleName) {
         const modal = document.getElementById('recruitment-modal');
         const roleNameEl = document.getElementById('recruitment-role-name');
@@ -94,9 +94,9 @@ class RecruitmentSystem {
         modal.classList.add('active');
     }
     
-    /**
-     * Zamyka modal rekrutacji
-     */
+ /**
+ * Zamyka modal rekrutacji
+ */
     closeModal() {
         const modal = document.getElementById('recruitment-modal');
         modal.classList.remove('active');
@@ -107,9 +107,9 @@ class RecruitmentSystem {
         }
     }
     
-    /**
-     * Wywietla stan oczekiwania
-     */
+ /**
+ * Wywietla stan oczekiwania
+ */
     showWaitingState(readyAt) {
         const content = document.getElementById('recruitment-content');
         const actions = document.getElementById('recruitment-actions');
@@ -130,9 +130,9 @@ class RecruitmentSystem {
         this.updateTimer(readyAt);
     }
     
-    /**
-     * Aktualizuje timer odliczania
-     */
+ /**
+ * Aktualizuje timer odliczania
+ */
     updateTimer(readyAt) {
         const timerEl = document.getElementById('waiting-timer');
         if (!timerEl) return;
@@ -157,18 +157,18 @@ class RecruitmentSystem {
         setInterval(updateTime, 1000);
     }
     
-    /**
-     * Rozpoczyna cykliczne sprawdzanie statusu
-     */
+ /**
+ * Rozpoczyna cykliczne sprawdzanie statusu
+ */
     startStatusCheck() {
         this.checkInterval = setInterval(async () => {
             await this.checkStatus();
         }, 5000); // Co 5 sekund
     }
     
-    /**
-     * Sprawdza status rekrutacji
-     */
+ /**
+ * Sprawdza status rekrutacji
+ */
     async checkStatus() {
         if (!this.currentRequestId) return;
         
@@ -187,9 +187,9 @@ class RecruitmentSystem {
         }
     }
     
-    /**
-     * aduje list kandydatw
-     */
+ /**
+ * aduje list kandydatw
+ */
     async loadCandidates() {
         try {
             const response = await this.apiCall('get_candidates', {
@@ -207,18 +207,18 @@ class RecruitmentSystem {
         }
     }
     
-    /**
-     * Pokazuje kandydatw dla danej roli (bez rozpoczynania nowej rekrutacji)
-     */
+ /**
+ * Pokazuje kandydatw dla danej roli (bez rozpoczynania nowej rekrutacji)
+ */
     async showCandidatesForRole(roleId, roleName) {
         this.currentRoleId = roleId;
         this.openModal(roleName);
         await this.loadCandidates();
     }
     
-    /**
-     * Wywietla list kandydatw
-     */
+ /**
+ * Wywietla list kandydatw
+ */
     showCandidates(candidates) {
         const content = document.getElementById('recruitment-content');
         const actions = document.getElementById('recruitment-actions');
@@ -245,7 +245,7 @@ class RecruitmentSystem {
             </button>
         `;
 
-        // Bind card click events
+ // Bind card click events
         document.querySelectorAll('.candidate-card').forEach(card => {
             card.addEventListener('click', () => {
                 this.selectCandidate(card.dataset.candidateId);
@@ -253,9 +253,9 @@ class RecruitmentSystem {
         });
     }
     
-    /**
-     * Renderuje kart kandydata
-     */
+ /**
+ * Renderuje kart kandydata
+ */
     renderCandidateCard(candidate) {
         const avgSkill = (
             parseInt(candidate.skill_organization) +
@@ -308,9 +308,9 @@ class RecruitmentSystem {
         `;
     }
     
-    /**
-     * Renderuje pasek umiejtnoci
-     */
+ /**
+ * Renderuje pasek umiejtnoci
+ */
     renderSkill(label, value) {
         return `
             <div class="skill-item">
@@ -323,30 +323,30 @@ class RecruitmentSystem {
         `;
     }
     
-    /**
-     * Wybiera kandydata
-     */
+ /**
+ * Wybiera kandydata
+ */
     selectCandidate(candidateId) {
-        // Usu poprzednie zaznaczenie
+ // Usu poprzednie zaznaczenie
         document.querySelectorAll('.candidate-card').forEach(card => {
             card.classList.remove('selected');
         });
         
-        // Zaznacz nowego kandydata
+ // Zaznacz nowego kandydata
         const card = document.querySelector(`[data-candidate-id="${candidateId}"]`);
         if (card) {
             card.classList.add('selected');
             this.selectedCandidateId = candidateId;
             
-            // Aktywuj przycisk zatrudnienia
+ // Aktywuj przycisk zatrudnienia
             const hireBtn = document.getElementById('hire-btn');
             if (hireBtn) hireBtn.disabled = false;
         }
     }
     
-    /**
-     * Zatrudnia wybranego kandydata
-     */
+ /**
+ * Zatrudnia wybranego kandydata
+ */
     async hireSelected() {
         if (!this.selectedCandidateId) {
             alertWarning(recl('alert_select'));
@@ -381,9 +381,9 @@ class RecruitmentSystem {
         }, { type: 'confirm', confirmLabel: recl('hire_btn') });
     }
     
-    /**
-     * Wywoanie API
-     */
+ /**
+ * Wywoanie API
+ */
     async apiCall(action, data = {}) {
         const formData = new FormData();
         formData.append('action', action);
@@ -401,9 +401,9 @@ class RecruitmentSystem {
         return await response.json();
     }
     
-    /**
-     * Formatuje kwot pienidzy
-     */
+ /**
+ * Formatuje kwot pienidzy
+ */
     formatMoney(amount) {
         return new Intl.NumberFormat(window.APP_LOCALE, {
             style: 'currency',
@@ -412,9 +412,9 @@ class RecruitmentSystem {
         }).format(amount);
     }
     
-    /**
-     * Zwraca nazw narodowoci
-     */
+ /**
+ * Zwraca nazw narodowoci
+ */
     getNationalityName(code) {
         const key = 'nat_' + code;
         const val = _RECL[key];

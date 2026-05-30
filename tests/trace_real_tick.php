@@ -2,14 +2,14 @@
 
 require_once '../src/init.php';
 
-echo "=== ŒLAD PRAWDZIWEGO TICK ===\n";
+echo "=== ï¿½LAD PRAWDZIWEGO TICK ===\n";
 
 $db = Database::getInstance()->getConnection();
 
 // 1. Ustaw na 54
 $db->prepare("UPDATE market_state SET current_price = 54 WHERE id = 1")->execute();
 
-// 2. SprawdŸ stan PRZED tick
+// 2. Sprawd stan PRZED tick
 $stmt = $db->query("SELECT * FROM market_state WHERE id = 1");
 $stateBefore = $stmt->fetch();
 echo "Stan PRZED tick:\n";
@@ -23,10 +23,10 @@ $activeTrend = $marketTrend->getActiveTrend();
 echo "\nAktywny trend: " . $activeTrend['trend_name'] . "\n";
 echo "Modyfikator: " . $activeTrend['price_modifier'] . "\n";
 
-// 4. Uruchom tick i przechwyæ wartoœci
+// 4. Uruchom tick i przechwy wartoci
 echo "\n--- Tick w trakcie ---\n";
 
-// Dodajemy logowanie do MarketTick - stworzymy tymczasow¹ wersjê
+// Dodajemy logowanie do MarketTick - stworzymy tymczasow wersj
 class MarketTickDebug extends MarketTick {
     public function updatePricesDebug($activeTrend = null) {
         $db = Database::getInstance()->getConnection();
@@ -38,13 +38,13 @@ class MarketTickDebug extends MarketTick {
         
         echo "Start: current_price=$currentPrice, base_price=$basePrice, volatility=$volatility\n";
         
-        // Bazowa zmiana ceny
+ // Bazowa zmiana ceny
         $change = rand(-$volatility, $volatility);
         echo "Losowa zmiana: $change\n";
         $newPrice = $currentPrice + $change;
         echo "Po zmianie: $newPrice\n";
         
-        // Zastosuj modyfikator trendu
+ // Zastosuj modyfikator trendu
         if ($activeTrend) {
             $trendModifier = $activeTrend['price_modifier'];
             echo "Trend modyfikator: $trendModifier\n";
@@ -52,25 +52,25 @@ class MarketTickDebug extends MarketTick {
             echo "Po trendzie: $newPrice\n";
         }
         
-        // Ograniczenie do granic
+ // Ograniczenie do granic
         $newPrice = max(10, min(500, $newPrice));
         echo "Po ograniczeniach: $newPrice\n";
         
-        // Grawitacja
+ // Grawitacja
         $gravity = ($basePrice - $newPrice) * 0.05;
         echo "Grawitacja: $gravity\n";
         $newPrice += $gravity;
         echo "Po grawitacji: $newPrice\n";
         
-        // Zaokr¹glenie
+ // Zaokrglenie
         $newPrice = round($newPrice);
-        echo "Po zaokr¹gleniu: $newPrice\n";
+        echo "Po zaokrï¿½gleniu: $newPrice\n";
         
         return $newPrice;
     }
 }
 
-// 5. Uruchom debug wersjê
+// 5. Uruchom debug wersj
 $marketTickDebug = new MarketTickDebug();
 $debugPrice = $marketTickDebug->updatePricesDebug($activeTrend);
 echo "\nDebug tick: $debugPrice\n";
@@ -80,7 +80,7 @@ $marketTick = new MarketTick();
 $realPrice = $marketTick->updatePrices($activeTrend);
 echo "Prawdziwy tick: $realPrice\n";
 
-// 7. SprawdŸ stan PO tick
+// 7. Sprawd stan PO tick
 $stmt = $db->query("SELECT * FROM market_state WHERE id = 1");
 $stateAfter = $stmt->fetch();
 echo "\nStan PO tick:\n";

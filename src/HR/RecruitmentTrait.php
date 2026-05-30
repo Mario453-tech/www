@@ -7,12 +7,12 @@ require_once __DIR__ . '/../FinancePolicyService.php';
  */
 trait HRRecruitmentTrait
 {
-    /**
-     * Zleca rekrutacje na dane stanowisko.
-     * Starts a recruitment request for the given role.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Zleca rekrutacje na dane stanowisko.
+ * Starts a recruitment request for the given role.
+ *
+ * @return array<string, mixed>
+ */
     public function startRecruitment(
         int $playerId,
         int $roleId,
@@ -93,17 +93,17 @@ trait HRRecruitmentTrait
         ];
     }
 
-    /**
-     * Sprawdza gotowe rekrutacje i generuje kandydatow.
-     * Checks completed recruitments and generates candidates.
-     * Call from cron or when loading board or HR views.
-     * Wywolywac z crona lub przy zaladowaniu widokow zarzadu albo HR.
-     */
+ /**
+ * Sprawdza gotowe rekrutacje i generuje kandydatow.
+ * Checks completed recruitments and generates candidates.
+ * Call from cron or when loading board or HR views.
+ * Wywolywac z crona lub przy zaladowaniu widokow zarzadu albo HR.
+ */
     public function processReadyRecruitments(): int
     {
-        // Najpierw oznacz rekordy jako processing, aby uniknac podwojnego przetwarzania
-        // przez jednoczesne wejscie na strone i tick/crona.
-        // First mark records as processing to avoid double-processing from simultaneous page load and tick/cron.
+ // Najpierw oznacz rekordy jako processing, aby uniknac podwojnego przetwarzania
+ // przez jednoczesne wejscie na strone i tick/crona.
+ // First mark records as processing to avoid double-processing from simultaneous page load and tick/cron.
         $this->db->exec("
             UPDATE recruitment_requests
             SET status = 'processing'

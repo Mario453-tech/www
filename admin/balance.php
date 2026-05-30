@@ -9,7 +9,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  Klucze konfiguracji balansu w well_config 
+// Klucze konfiguracji balansu w well_config 
 $BALANCE_KEYS = [
     'global_loss_multiplier'     => [t('admin.balance.key_loss'),        '1.0', t('admin.balance.hint_loss')],
     'global_incident_multiplier' => [t('admin.balance.key_incident'),    '1.0', t('admin.balance.hint_incident')],
@@ -20,7 +20,7 @@ $BALANCE_KEYS = [
     'global_production_mult'     => [t('admin.balance.key_production'),  '1.0', t('admin.balance.hint_production')],
 ];
 
-//  Odczyt aktualnych wartoœci z well_config 
+// Odczyt aktualnych wartoci z well_config 
 $currentConfig = [];
 try {
     $rows = $db->query("SELECT `key`, `value` FROM well_config")->fetchAll();
@@ -29,7 +29,7 @@ try {
     }
 } catch (Throwable $e) {}
 
-//  Akcje POST 
+// Akcje POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
         die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Statystyki do kontekstu 
+// Statystyki do kontekstu 
 $market    = $db->query("SELECT current_price FROM market_state WHERE id = 1")->fetch();
 $oilPrice  = (float)($market['current_price'] ?? 70);
 
@@ -124,7 +124,7 @@ try {
 
 $activePlayerCount = (int)$db->query("SELECT COUNT(*) FROM players WHERE status = 'active'")->fetchColumn();
 
-//  Szacunkowy dochód per gracz (bez mno¿ników) 
+// Szacunkowy dochd per gracz (bez mnonikw) 
 $avgProdPerPlayer = ($activePlayerCount > 0 && (float)($prodStats['total_base_prod'] ?? 0) > 0)
     ? (float)$prodStats['total_base_prod'] / $activePlayerCount
     : 0.0;

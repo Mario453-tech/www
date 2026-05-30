@@ -1,0 +1,339 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<div class="admin-content">
+    <div class="page-header">
+        <h1><?= t('admin.hr.page_title') ?></h1>
+    </div>
+
+    <?php if ($msg): ?>
+    <div class="alert alert-success"><?= htmlspecialchars($msg) ?></div>
+    <?php endif ?>
+    <?php if ($err): ?>
+    <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
+    <?php endif ?>
+
+    <nav class="hr-tabs">
+        <a href="?tab=candidates"      class="hr-tab <?= $tab === 'candidates'      ? 'active' : '' ?>"><?= t('admin.hr.tab_candidates') ?></a>
+        <a href="?tab=history"         class="hr-tab <?= $tab === 'history'         ? 'active' : '' ?>"><?= t('admin.hr.tab_history') ?></a>
+        <a href="?tab=stats"           class="hr-tab <?= $tab === 'stats'           ? 'active' : '' ?>"><?= t('admin.hr.tab_stats') ?></a>
+        <a href="?tab=specializations" class="hr-tab <?= $tab === 'specializations' ? 'active' : '' ?>"><?= t('admin.hr.tab_specializations') ?></a>
+    </nav>
+
+    <?php if ($tab === 'candidates'): ?>
+    <!-- ══ KANDYDACI ══════════════════════════════════════════════════════════ -->
+    <section class="hr-section">
+        <div class="section-toolbar">
+            <h2><?= t('admin.hr.section_candidates') ?> <span class="badge badge-inactive"><?= count($candidates) ?></span></h2>
+            <form method="post" onsubmit="return confirm('<?= t('admin.hr.confirm_cleanup') ?>')">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                <input type="hidden" name="cleanup_candidates" value="1">
+                <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.hr.btn_cleanup_candidates') ?></button>
+            </form>
+        </div>
+
+        <?php if (empty($candidates)): ?>
+        <p class="muted"><?= t('admin.hr.empty_candidates') ?></p>
+        <?php else: ?>
+        <div class="data-list hr-candidates-grid">
+            <div class="list-header" role="row">
+                <span><?= t('admin.hr.col_name') ?></span>
+                <span><?= t('admin.hr.col_role') ?></span>
+                <span><?= t('admin.hr.col_spec') ?></span>
+                <span><?= t('admin.hr.col_region') ?></span>
+                <span><?= t('admin.hr.col_player') ?></span>
+                <span><?= t('admin.hr.col_skill_avg') ?></span>
+                <span><?= t('admin.hr.col_expires') ?></span>
+            </div>
+            <?php foreach ($candidates as $c): ?>
+            <article class="list-row" role="row">
+                <span><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></span>
+                <span><?= htmlspecialchars($c['role_name'] ?? '—') ?></span>
+                <span>
+                    <?php if ($c['spec_name']): ?>
+                    <span class="badge badge-<?= $c['rarity'] === 'rare' ? 'active' : ($c['rarity'] === 'uncommon' ? 'paused' : 'inactive') ?>">
+                        <?= htmlspecialchars($c['spec_name']) ?>
+                    </span>
+                    <?php else: ?>
+                    <span class="muted">—</span>
+                    <?php endif ?>
+                </span>
+                <span><?= htmlspecialchars($c['region_name'] ?? $c['region_code'] ?? '—') ?></span>
+                <span><?= $c['player_email'] ? '<a href="/admin/player.php?id=' . (int)$c['player_id'] . '">' . htmlspecialchars($c['player_email']) . '</a>' : '<span class="muted">rynek</span>' ?></span>
+                <span>
+                    <?php
+                    $skills = [$c['skill_organization'] ?? 0, $c['skill_negotiation'] ?? 0, $c['skill_analysis'] ?? 0, $c['skill_stress'] ?? 0, $c['skill_ethics'] ?? 0];
+                    $avg = count($skills) ? round(array_sum($skills) / count($skills), 1) : 0;
+                    ?>
+                    <?= $avg ?>/10
+                </span>
+                <span class="<?= ($c['hours_remaining'] ?? 99) < 6 ? 'text-danger' : 'muted' ?>">
+                    <?= (int)($c['hours_remaining'] ?? 0) ?>h
+                </span>
+            </article>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+    </section>
+
+    <?php elseif ($tab === 'history'): ?>
+    <!-- ══ HISTORIA ZATRUDNIENIA ══════════════════════════════════════════════ -->
+    <section class="hr-section">
+        <div class="section-toolbar">
+            <h2><?= t('admin.hr.section_history') ?> <span class="badge badge-inactive"><?= number_format($histTotal) ?></span></h2>
+        </div>
+
+        <?php if (empty($history)): ?>
+        <p class="muted"><?= t('admin.hr.empty_history') ?></p>
+        <?php else: ?>
+        <div class="data-list hr-history-grid">
+            <div class="list-header" role="row">
+                <span><?= t('admin.hr.col_date') ?></span>
+                <span><?= t('admin.hr.col_player') ?></span>
+                <span><?= t('admin.hr.col_name') ?></span>
+                <span><?= t('admin.hr.col_role') ?></span>
+                <span><?= t('admin.hr.col_action') ?></span>
+                <span><?= t('admin.hr.col_reason') ?></span>
+            </div>
+            <?php foreach ($history as $h): ?>
+            <article class="list-row" role="row">
+                <span class="muted font-xs"><?= htmlspecialchars(substr($h['created_at'], 0, 16)) ?></span>
+                <span>
+                    <?php if ($h['player_email'] ?? null): ?>
+                    <a href="/admin/player.php?id=<?= (int)($h['player_id'] ?? 0) ?>"><?= htmlspecialchars($h['player_email']) ?></a>
+                    <?php else: ?>
+                    <span class="muted">—</span>
+                    <?php endif ?>
+                </span>
+                <span><?= htmlspecialchars(($h['first_name'] ?? '') . ' ' . ($h['last_name'] ?? '')) ?></span>
+                <span><?= htmlspecialchars($h['role_name'] ?? '—') ?></span>
+                <span>
+                    <span class="badge badge-<?= match($h['action'] ?? '') { 'hired' => 'active', 'fired' => 'bankrupt', 'resigned' => 'inactive', default => 'paused' } ?>">
+                        <?= htmlspecialchars($h['action'] ?? '—') ?>
+                    </span>
+                </span>
+                <span class="muted font-xs"><?= htmlspecialchars($h['reason'] ?? '—') ?></span>
+            </article>
+            <?php endforeach ?>
+        </div>
+
+        <?php if ($histPages > 1): ?>
+        <nav class="pagination" aria-label="<?= t('admin.hr.pagination_label') ?>">
+            <?php if ($histPage > 1): ?>
+            <a href="?tab=history&hpage=<?= $histPage - 1 ?>" class="btn btn-sm"><?= t('common.prev') ?></a>
+            <?php endif ?>
+            <span class="muted"><?= t('admin.tick_log.page_of', ['page' => $histPage, 'total' => $histPages]) ?></span>
+            <?php if ($histPage < $histPages): ?>
+            <a href="?tab=history&hpage=<?= $histPage + 1 ?>" class="btn btn-sm"><?= t('common.next') ?></a>
+            <?php endif ?>
+        </nav>
+        <?php endif ?>
+        <?php endif ?>
+    </section>
+
+    <?php elseif ($tab === 'stats'): ?>
+    <!-- ══ STATYSTYKI HR GRACZY ════════════════════════════════════════════════ -->
+    <section class="hr-section">
+        <div class="section-toolbar">
+            <h2><?= t('admin.hr.section_stats') ?></h2>
+        </div>
+
+        <?php if (empty($stats)): ?>
+        <p class="muted"><?= t('admin.hr.empty_stats') ?></p>
+        <?php else: ?>
+        <div class="data-list hr-stats-grid">
+            <div class="list-header" role="row">
+                <span><?= t('admin.hr.col_player') ?></span>
+                <span><?= t('admin.hr.col_staff_count') ?></span>
+                <span><?= t('admin.hr.col_avg_skill') ?></span>
+                <span><?= t('admin.hr.col_active') ?></span>
+                <span><?= t('admin.hr.col_busy') ?></span>
+                <span><?= t('admin.hr.col_salary_hour') ?></span>
+            </div>
+            <?php foreach ($stats as $s): ?>
+            <article class="list-row" role="row">
+                <span><a href="/admin/player.php?id=<?= (int)$s['player_id'] ?>"><?= htmlspecialchars($s['player_email']) ?></a></span>
+                <span><?= (int)$s['staff_count'] ?></span>
+                <span><?= $s['avg_skill'] ?? '—' ?></span>
+                <span class="badge badge-active"><?= (int)$s['active_count'] ?></span>
+                <span class="badge badge-paused"><?= (int)$s['busy_count'] ?></span>
+                <span class="muted"><?= number_format((float)$s['salary_per_hour'], 2) ?> PLN/h</span>
+            </article>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+    </section>
+
+    <?php elseif ($tab === 'specializations'): ?>
+    <!-- ══ SPECJALIZACJE ══════════════════════════════════════════════════════ -->
+    <section class="hr-section">
+        <h2><?= t('admin.hr.section_staff_specs') ?></h2>
+        <p class="muted font-xs"><?= t('admin.hr.staff_specs_desc') ?></p>
+
+        <form method="post" class="add-spec-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+            <input type="hidden" name="add_spec"   value="1">
+            <div class="add-spec-fields">
+                <div class="spec-field">
+                    <label for="new_spec_code"><?= t('admin.hr.field_code') ?></label>
+                    <input type="text" id="new_spec_code" name="new_spec_code" placeholder="np. geologist" pattern="[a-z0-9_]+" class="input-sm" required>
+                </div>
+                <div class="spec-field">
+                    <label for="new_spec_name"><?= t('admin.hr.field_name_pl') ?></label>
+                    <input type="text" id="new_spec_name" name="new_spec_name" placeholder="np. Geolog" class="input-sm" required>
+                </div>
+                <div class="spec-field">
+                    <label for="new_spec_role"><?= t('admin.hr.field_role') ?></label>
+                    <select id="new_spec_role" name="new_spec_role" class="input-sm">
+                        <option value="operator">operator</option>
+                        <option value="technician">technician</option>
+                    </select>
+                </div>
+                <div class="spec-field">
+                    <label for="new_spec_rarity"><?= t('admin.hr.col_rarity') ?></label>
+                    <select id="new_spec_rarity" name="new_spec_rarity" class="input-sm">
+                        <option value="common"><?= t('hr.rarity.common') ?></option>
+                        <option value="uncommon"><?= t('hr.rarity.uncommon') ?></option>
+                        <option value="rare"><?= t('hr.rarity.rare') ?></option>
+                    </select>
+                </div>
+                <div class="spec-field spec-field--action">
+                    <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.hr.btn_add_spec') ?></button>
+                </div>
+            </div>
+            <p class="muted font-xs"><?= t('admin.hr.add_spec_hint') ?></p>
+        </form>
+
+        <?php
+        $roleLabels = ['operator' => '⛏ Operatorzy', 'technician' => '🔧 Technicy', 'inne' => '📁 Pozostałe'];
+        $numFields = [
+            'prod_bonus'                => t('admin.hr.field_prod_bonus'),
+            'wear_reduction'            => t('admin.hr.field_wear_reduction'),
+            'incident_reduction'        => t('admin.hr.field_incident_reduction'),
+            'spiral_reduction'          => t('admin.hr.field_spiral_reduction'),
+            'repair_speed'              => t('admin.hr.field_repair_speed'),
+            'incident_return_reduction' => t('admin.hr.field_incident_return'),
+            'catastrophe_reduction'     => t('admin.hr.field_catastrophe_reduction'),
+        ];
+        foreach ($staffSpecs as $roleKey => $specs): ?>
+        <div class="spec-group">
+            <h3 class="spec-group-title"><?= htmlspecialchars($roleLabels[$roleKey] ?? $roleKey) ?> <span class="badge badge-inactive"><?= count($specs) ?></span></h3>
+            <?php foreach ($specs as $spec): ?>
+            <details class="spec-card">
+                <summary class="spec-card-summary">
+                    <strong><?= htmlspecialchars($spec['name'] ?? $spec['code']) ?></strong>
+                    <span class="muted font-xs"><?= htmlspecialchars($spec['code']) ?></span>
+                    <?php $rarityKey = 'hr.rarity.' . ($spec['rarity'] ?? 'common'); $rarityLabel = t($rarityKey); ?>
+                    <span class="badge badge-<?= match($spec['rarity'] ?? 'common') { 'rare' => 'active', 'uncommon' => 'paused', default => 'inactive' } ?>"><?= $rarityLabel === $rarityKey ? htmlspecialchars($spec['rarity'] ?? 'common') : $rarityLabel ?></span>
+                </summary>
+                <form method="post" class="spec-form">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                    <input type="hidden" name="save_spec"  value="1">
+                    <input type="hidden" name="code"       value="<?= htmlspecialchars($spec['code']) ?>">
+                    <div class="spec-fields">
+                        <div class="spec-field spec-field--full">
+                            <label for="spec_<?= $spec['code'] ?>_name"><?= t('admin.hr.field_name_pl') ?></label>
+                            <input type="text" id="spec_<?= $spec['code'] ?>_name" name="spec_name" value="<?= htmlspecialchars($spec['name'] ?? '') ?>" class="input-sm" required>
+                        </div>
+                        <?php foreach ($numFields as $field => $label): ?>
+                        <div class="spec-field">
+                            <label for="spec_<?= $spec['code'] ?>_<?= $field ?>"><?= $label ?></label>
+                            <input type="number" id="spec_<?= $spec['code'] ?>_<?= $field ?>" name="<?= $field ?>" value="<?= htmlspecialchars($spec[$field] ?? '0') ?>" step="0.001" min="0" max="1" class="input-sm">
+                        </div>
+                        <?php endforeach ?>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary"><?= t('common.save') ?></button>
+                </form>
+                <form method="post" id="del-spec-<?= htmlspecialchars($spec['code']) ?>" class="spec-delete-form">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                    <input type="hidden" name="delete_spec" value="1">
+                    <input type="hidden" name="code" value="<?= htmlspecialchars($spec['code']) ?>">
+                    <button type="button" class="btn btn-sm btn-danger"
+                        onclick="confirmAction('<?= t('admin.hr.confirm_delete_spec') ?> (<?= htmlspecialchars($spec['code']) ?>)?',function(){document.getElementById('del-spec-<?= htmlspecialchars($spec['code']) ?>').submit();},{type:'danger',confirmLabel:'<?= t('common.delete') ?>'})">
+                        <?= t('common.delete') ?>
+                    </button>
+                </form>
+            </details>
+            <?php endforeach ?>
+        </div>
+        <?php endforeach ?>
+
+        <hr class="hr-divider">
+        <h2><?= t('admin.hr.section_hr_specs') ?></h2>
+        <p class="muted font-xs"><?= t('admin.hr.hr_specs_desc') ?></p>
+
+        <form method="post" class="add-spec-form">
+            <input type="hidden" name="csrf_token"  value="<?= htmlspecialchars($csrfToken) ?>">
+            <input type="hidden" name="add_hr_spec" value="1">
+            <div class="add-spec-fields">
+                <div class="spec-field">
+                    <label for="new_hr_code"><?= t('admin.hr.field_code') ?></label>
+                    <input type="text" id="new_hr_code" name="new_hr_code" placeholder="np. risk_manager" pattern="[a-z0-9_]+" class="input-sm" required>
+                </div>
+                <div class="spec-field">
+                    <label for="new_hr_name"><?= t('admin.hr.field_name_pl') ?></label>
+                    <input type="text" id="new_hr_name" name="new_hr_name" placeholder="np. Menadżer Ryzyka" class="input-sm" required>
+                </div>
+                <div class="spec-field">
+                    <label for="new_hr_dept"><?= t('admin.hr.col_department') ?></label>
+                    <input type="text" id="new_hr_dept" name="new_hr_dept" placeholder="np. finance" class="input-sm">
+                </div>
+                <div class="spec-field">
+                    <label for="new_hr_rarity"><?= t('admin.hr.col_rarity') ?></label>
+                    <select id="new_hr_rarity" name="new_hr_rarity" class="input-sm">
+                        <option value="common"><?= t('hr.rarity.common') ?></option>
+                        <option value="uncommon"><?= t('hr.rarity.uncommon') ?></option>
+                        <option value="rare"><?= t('hr.rarity.rare') ?></option>
+                    </select>
+                </div>
+                <div class="spec-field spec-field--action">
+                    <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.hr.btn_add_spec') ?></button>
+                </div>
+            </div>
+        </form>
+
+        <div class="data-list hr-hrspecs-grid">
+            <div class="list-header" role="row">
+                <span><?= t('admin.hr.col_spec_name') ?></span>
+                <span><?= t('admin.hr.col_department') ?></span>
+                <span><?= t('admin.hr.col_rarity') ?></span>
+                <span></span>
+            </div>
+            <?php foreach ($hrSpecs as $deptKey => $deptSpecs): ?>
+            <div class="spec-group-inline">
+                <h4 class="spec-group-subtitle">📂 <?= htmlspecialchars($deptKey) ?> <span class="badge badge-inactive"><?= count($deptSpecs) ?></span></h4>
+                <?php foreach ($deptSpecs as $hs): ?>
+                <article class="list-row" role="row">
+                    <form method="post" class="inline-form">
+                        <input type="hidden" name="csrf_token"    value="<?= htmlspecialchars($csrfToken) ?>">
+                        <input type="hidden" name="save_hr_spec"  value="1">
+                        <input type="hidden" name="hr_spec_id"    value="<?= (int)$hs['id'] ?>">
+                        <span><input type="text" name="hr_spec_name" value="<?= htmlspecialchars($hs['name']) ?>" class="input-sm input-inline"></span>
+                        <span><input type="text" name="hr_spec_dept" value="<?= htmlspecialchars($hs['department'] ?? '') ?>" class="input-sm input-inline"></span>
+                        <span>
+                            <select name="hr_spec_rarity" class="input-sm">
+                                <?php foreach (['common' => t('hr.rarity.common'), 'uncommon' => t('hr.rarity.uncommon'), 'rare' => t('hr.rarity.rare')] as $r => $rl): ?>
+                                <option value="<?= $r ?>" <?= ($hs['rarity'] ?? 'common') === $r ? 'selected' : '' ?>><?= $rl ?></option>
+                                <?php endforeach ?>
+                            </select>
+                        </span>
+                        <span><button type="submit" class="btn btn-sm btn-primary"><?= t('common.save') ?></button></span>
+                    </form>
+                    <form method="post" id="del-hs-<?= (int)$hs['id'] ?>" class="hidden">
+                        <input type="hidden" name="csrf_token"     value="<?= htmlspecialchars($csrfToken) ?>">
+                        <input type="hidden" name="delete_hr_spec" value="1">
+                        <input type="hidden" name="hr_spec_id"     value="<?= (int)$hs['id'] ?>">
+                    </form>
+                    <span>
+                        <button type="button" class="btn btn-sm btn-danger"
+                            onclick="confirmAction('<?= t('admin.hr.confirm_delete_spec') ?>',function(){document.getElementById('del-hs-<?= (int)$hs['id'] ?>').submit();},{type:'danger',confirmLabel:'<?= t('common.delete') ?>'})">
+                            <?= t('common.delete') ?>
+                        </button>
+                    </span>
+                </article>
+                <?php endforeach ?>
+            </div>
+            <?php endforeach ?>
+        </div>
+    </section>
+    <?php endif ?>
+</div>

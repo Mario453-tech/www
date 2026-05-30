@@ -2,10 +2,10 @@
 
 trait TechnicalPageViewDataTrait
 {
-    /**
-     * Build the full data payload for the technical page.
-     * Buduje pelny zestaw danych dla strony technicznej.
-     */
+ /**
+ * Build the full data payload for the technical page.
+ * Buduje pelny zestaw danych dla strony technicznej.
+ */
     public function buildViewData(string $msg, string $msgType): array
     {
         $_dataStart = microtime(true);

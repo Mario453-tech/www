@@ -272,7 +272,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
-//  Globe picker 
+// Globe picker 
 (function() {
     var gpScene, gpCamera, gpRenderer, gpEarth, gpGroup, gpMarker, gpControls;
     var gpPicked = null;
@@ -322,7 +322,7 @@
         }));
         gpGroup.add(gpEarth);
 
-        // Marker  czerwona kulka
+ // Marker czerwona kulka
         gpMarker = new THREE.Mesh(
             new THREE.SphereGeometry(0.025, 12, 12),
             new THREE.MeshBasicMaterial({ color: 0xff2222 })
@@ -342,7 +342,7 @@
         gpControls.maxDistance    = 6;
         gpControls.enablePan      = false;
 
-        // Klik  raycasting
+ // Klik raycasting
         gpRenderer.domElement.addEventListener('click', function(e) {
             var rect   = gpRenderer.domElement.getBoundingClientRect();
             var mouse  = new THREE.Vector2(
@@ -354,7 +354,7 @@
             var hits = ray.intersectObject(gpEarth);
             if (!hits.length) return;
 
-            // Punkt przecicia  do lokalnego ukadu grupy (uwzgldnia rotacj)
+ // Punkt przecicia do lokalnego ukadu grupy (uwzgldnia rotacj)
             var local = gpGroup.worldToLocal(hits[0].point.clone());
             var ll    = vec3ToLatLng(local);
             gpPicked  = ll;
@@ -386,7 +386,7 @@
         document.getElementById('globe-picker-confirm').disabled = true;
 
         if (!ready) {
-            // Three.js zaadowany?
+ // Three.js zaadowany?
             if (typeof THREE === 'undefined') {
                 alert('Three.js nie jest zaadowany na tej stronie. Wpisz wsprzdne rcznie.');
                 modal.style.display = 'none';
@@ -395,7 +395,7 @@
             initGlobe();
         } else {
             if (gpMarker) gpMarker.visible = false;
-            // Poka aktualn pozycj z pl formularza
+ // Poka aktualn pozycj z pl formularza
             var lat = parseFloat(document.getElementById('edit-lat').value);
             var lng = parseFloat(document.getElementById('edit-lng').value);
             if (!isNaN(lat) && !isNaN(lng)) {

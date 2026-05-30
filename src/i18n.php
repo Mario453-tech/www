@@ -21,10 +21,10 @@ function _langLoad(): array
 }
 
 /**
- * Tlumaczenie z HTML-escaping  do uzycia bezposrednio w szablonach HTML.
- * Translation with HTML-escaping  use directly in HTML templates.
+ * Tlumaczenie z HTML-escaping do uzycia bezposrednio w szablonach HTML.
+ * Translation with HTML-escaping use directly in HTML templates.
  *
- * @param string               $key     Klucz w formacie modul.klucz / Key in module.key format
+ * @param string $key Klucz w formacie modul.klucz / Key in module.key format
  * @param array<string, mixed> $replace Zamienniki :placeholder i {placeholder} / Placeholder replacements
  */
 function t(string $key, array $replace = []): string
@@ -41,10 +41,10 @@ function t(string $key, array $replace = []): string
 }
 
 /**
- * Tlumaczenie BEZ HTML-escaping  do zapisu do bazy danych, logow, maili.
- * Translation WITHOUT HTML-escaping  use for DB storage, logs, emails.
+ * Tlumaczenie BEZ HTML-escaping do zapisu do bazy danych, logow, maili.
+ * Translation WITHOUT HTML-escaping use for DB storage, logs, emails.
  *
- * @param string               $key     Klucz w formacie modul.klucz / Key in module.key format
+ * @param string $key Klucz w formacie modul.klucz / Key in module.key format
  * @param array<string, mixed> $replace Zamienniki :placeholder i {placeholder} / Placeholder replacements
  */
 function tPlain(string $key, array $replace = []): string

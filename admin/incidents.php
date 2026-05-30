@@ -31,11 +31,11 @@ $PIPE_DEFAULTS = [
     'pipe_medium' => ['loss_add_min'=>1.5, 'loss_add_max'=>4.0,  'cond_drop_min'=>4.0, 'cond_drop_max'=>10.0, 'base_chance'=>0.0012],
 ];
 
-//  Retencja historii incydentw 
+// Retencja historii incydentw 
 $retentionDefault = 30;
 $retentionKey     = 'incident_retention_days';
 
-//  Odczyt konfiguracji z well_config 
+// Odczyt konfiguracji z well_config 
 $incCfg = [];
 try {
     $rows = $db->query("SELECT `key`, `value` FROM well_config WHERE `key` LIKE 'incident_cfg_%'")->fetchAll();
@@ -51,7 +51,7 @@ try {
     if ($r !== false) $retentionDays = max(1, (int)$r);
 } catch (Throwable $e) {}
 
-// Build working config (DB override or default) — well incidents
+// Build working config (DB override or default) - well incidents
 $config = [];
 foreach ($LEVELS as $lvl) {
     $config[$lvl] = [];
@@ -79,7 +79,7 @@ foreach ($PIPE_LEVELS as $lvl) {
     }
 }
 
-//  Akcje POST 
+// Akcje POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
         die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $posted = $_POST["inc_{$lvl}_{$f}"] ?? null;
                     if ($posted === null) continue;
                     $val = (float)$posted;
-                    // Validation ranges
+ // Validation ranges
                     $val = match($f) {
                         'prod_drop_min','prod_drop_max' => max(0, min(100,  $val)),
                         'deg_min','deg_max'             => max(0, min(100,  $val)),
@@ -247,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $err = t('admin.incidents.err_pipe_trig_missing');
         } else {
             try {
-                // Sprawd ze rurociag nalezy do gracza
+ // Sprawd ze rurociag nalezy do gracza
                 $pStmt = $db->prepare("SELECT id, well_id, name, condition_pct, transport_loss, status FROM well_pipelines WHERE id = ? AND player_id = ? LIMIT 1");
                 $pStmt->execute([$tPipeId, $tPlayerId]);
                 $pipeline = $pStmt->fetch();
@@ -255,7 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pc = $pipeConfig[$tPipeLevel];
 
-                // Losuj wartosci zmiennoprzecinkowe z zakresu konfiguracji
+ // Losuj wartosci zmiennoprzecinkowe z zakresu konfiguracji
                 $range    = (float)$pc['loss_add_max'] - (float)$pc['loss_add_min'];
                 $lossAdd  = round((float)$pc['loss_add_min'] + ($range > 0 ? (mt_rand(0, 1000) / 1000.0) * $range : 0), 2);
                 $range2   = (float)$pc['cond_drop_max'] - (float)$pc['cond_drop_min'];
@@ -266,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $levelLabels = ['pipe_micro' => 'mikro', 'pipe_minor' => 'drobny', 'pipe_medium' => 'powazny'];
                 $message = "[GM] Recznie wywolany incydent rurociagu ({$levelLabels[$tPipeLevel]}) na \"{$pipeName}\". Skok strat: +{$lossAdd}%, spadek stanu: -{$condDrop}%.";
 
-                // Zastosuj efekty na rurociagu
+ // Zastosuj efekty na rurociagu
                 $db->prepare("
                     UPDATE well_pipelines
                     SET transport_loss  = LEAST(10,  transport_loss  + ?),
@@ -275,7 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE id = ?
                 ")->execute([$lossAdd, $condDrop, $tPipeId]);
 
-                // Zapisz zdarzenie do historii
+ // Zapisz zdarzenie do historii
                 $wellId = (int)($pipeline['well_id'] ?? 0);
                 $db->prepare("
                     INSERT INTO well_pipeline_events (pipeline_id, well_id, player_id, event_type, severity, level, message)
@@ -304,7 +304,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $err = t('admin.incidents.err_trig_missing');
         } else {
             try {
-                // Sprawd e odwiert naley do gracza
+ // Sprawd e odwiert naley do gracza
                 $wRow = $db->prepare("SELECT id, location_name, technical_condition, risk_score, status FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
                 $wRow->execute([$tWellId, $tPlayerId]);
                 $well = $wRow->fetch();
@@ -312,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $c = $config[$tLevel];
 
-                // Losuj wartoci z zakresu konfiguracji
+ // Losuj wartoci z zakresu konfiguracji
                 $drop    = (int)$c['prod_drop_min'] === (int)$c['prod_drop_max']
                            ? (int)$c['prod_drop_min']
                            : mt_rand((int)$c['prod_drop_min'], (int)$c['prod_drop_max']);
@@ -333,7 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $autoRepair = in_array($tLevel, ['micro','minor']) ? 1 : 0;
 
-                // INSERT do well_incidents
+ // INSERT do well_incidents
                 $db->prepare("
                     INSERT INTO well_incidents
                         (well_id, player_id, level, cause_type, prod_drop, hours,
@@ -344,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $drop, $hours, $deg, $cost, $riskAdd, $autoRepair, 0, $message,
                 ]);
 
-                // applyEffects inline
+ // applyEffects inline
                 if ($deg > 0) {
                     $db->prepare("UPDATE wells SET technical_condition = GREATEST(0, technical_condition - ?) WHERE id = ?")
                        ->execute([$deg, $tWellId]);
@@ -377,7 +377,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  Statystyki incydentw (ostatnie 7 dni) 
+// Statystyki incydentw (ostatnie 7 dni) 
 $stats = [];
 try {
     $rows = $db->query("
@@ -394,7 +394,7 @@ try {
     foreach ($rows as $r) $stats[$r['level']] = $r;
 } catch (Throwable $e) {}
 
-//  Historia incydentow z filtrowaniem i paginacja (well + pipeline UNION ALL)
+// Historia incydentow z filtrowaniem i paginacja (well + pipeline UNION ALL)
 $hPage    = max(1, (int)($_GET['hpage']   ?? 1));
 $hPerPage = in_array((int)($_GET['hper']  ?? 20), [10,20,50,100], true) ? (int)($_GET['hper'] ?? 20) : 20;
 $hSource  = in_array($_GET['hsource'] ?? '', ['','well','pipeline'], true) ? ($_GET['hsource'] ?? '') : '';
@@ -435,11 +435,11 @@ $unionParams = [];
 
 // Explicit collation on non-NULL text columns prevents UNION collation mismatch
 // (tables use different defaults: general_ci vs unicode_ci).
-// NULL literals must NOT get COLLATE — NULL has charset binary and rejects it.
+// NULL literals must NOT get COLLATE - NULL has charset binary and rejects it.
 $COL = 'COLLATE utf8mb4_unicode_ci';
 
 // COLLATE columns must have explicit aliases so the outer SELECT can reference them by name.
-// NULL literals cannot take COLLATE (binary charset) — use CAST(NULL AS CHAR) instead.
+// NULL literals cannot take COLLATE (binary charset) - use CAST(NULL AS CHAR) instead.
 $COL = 'COLLATE utf8mb4_unicode_ci';
 
 if ($includeWell) {
@@ -493,7 +493,7 @@ if ($includePipe) {
 }
 
 if (empty($unionParts)) {
-    // Edge case: no sources selected — return empty result set
+ // Edge case: no sources selected - return empty result set
     $unionParts[] = "
         SELECT 'well' $COL  AS src,
                id, player_id, well_id,
@@ -546,7 +546,7 @@ try {
     if (class_exists('GameLog', false)) GameLog::error('admin/incidents', 'history_list FAILED', $e);
 }
 
-//  Dane do formularza rcznego wywoania incydentu 
+// Dane do formularza rcznego wywoania incydentu 
 $trigPlayers = [];
 try {
     $rows = $db->query("SELECT id, username FROM players WHERE status != 'bankrupt' ORDER BY username")->fetchAll();

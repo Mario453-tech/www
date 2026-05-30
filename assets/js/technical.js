@@ -133,7 +133,14 @@ function techTaskConfirm(form) {
     const locale   = window.APP_LOCALE || 'pl-PL';
     const fmt      = (n) => n.toLocaleString(locale, { maximumFractionDigits: 0 });
 
-    if (costMin <= 0) return true; // free task - no confirm needed
+    const btn = form.querySelector('button[type="submit"]');
+
+ // Disable submit button to prevent double-submit on free tasks.
+ // Blokada przycisku po kliknieciu - zapobiega wielokrotnemu wyslaniu.
+    if (costMin <= 0) {
+        if (btn) { btn.disabled = true; btn.textContent = '...'; }
+        return true;
+    }
 
     const costRange = fmt(costMin) + ' – ' + fmt(costMax) + ' zł';
     const msg = (window.TECH_LANG && window.TECH_LANG.confirm_assign_task)
@@ -143,12 +150,49 @@ function techTaskConfirm(form) {
         : ('Przypisać zadanie?\n' + label + '\nSzacowany koszt: ' + costRange);
 
     if (typeof window.confirmAction === 'function') {
-        window.confirmAction(msg, function () { form.submit(); }, {
+        window.confirmAction(msg, function () {
+            if (btn) { btn.disabled = true; btn.textContent = '...'; }
+            form.submit();
+        }, {
             title: (window.TECH_LANG && window.TECH_LANG.confirm_assign_title) || 'Potwierdź zadanie',
             type: 'confirm',
             confirmLabel: (window.TECH_LANG && window.TECH_LANG.confirm_assign_ok) || 'Przypisz'
         });
         return false; // block native submit - confirmAction calls form.submit()
+    }
+
+    return window.confirm(msg);
+}
+
+// Validate and confirm candidate review before submit.
+// Walidacja i potwierdzenie oceny kandydata przed wyslaniem formularza.
+function candReviewConfirm(form) {
+    var scoreEl = form.querySelector('input[name="technical_score"]:checked');
+    var recEl   = form.querySelector('input[name="recommendation"]:checked');
+
+    if (!scoreEl) {
+        alert(techl('review_val_no_score'));
+        return false;
+    }
+    if (!recEl) {
+        alert(techl('review_val_no_rec'));
+        return false;
+    }
+
+    var score   = scoreEl.value;
+    var recVal  = recEl.value;
+    var recLabel = recVal === 'hire' ? techl('rec_hire_label') : techl('rec_reject_label');
+    var msg = techl('review_confirm_msg')
+        .replace(':score', score)
+        .replace(':rec', recLabel);
+
+    if (typeof window.confirmAction === 'function') {
+        window.confirmAction(msg, function () { form.submit(); }, {
+            title: techl('review_confirm_title'),
+            type: 'confirm',
+            confirmLabel: techl('review_confirm_ok'),
+        });
+        return false;
     }
 
     return window.confirm(msg);

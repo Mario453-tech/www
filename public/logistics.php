@@ -9,6 +9,7 @@ $db       = Database::getInstance()->getConnection();
 $srcDir = __DIR__ . '/../src';
 require_once $srcDir . '/LogisticsService.php';
 require_once $srcDir . '/HubService.php';
+require_once $srcDir . '/HubIncidentService.php';
 require_once $srcDir . '/HubViewService.php';
 require_once $srcDir . '/HubEconomyService.php';
 require_once $srcDir . '/RoadTransportService.php';
@@ -67,6 +68,8 @@ $hubCards          = [];
 $hubAlerts         = [];
 $hubUnassigned     = [];
 $hubIncidents      = [];
+$playerHubRegions  = [];
+$hubTypeOptions    = [];
 $hubAvailByRegion  = [];
 $unassignedPage    = 1;
 $unassignedTotal   = 0;
@@ -114,11 +117,15 @@ $hoursSince = static function (?string $dateTime): ?int {
 };
 
 try {
-    $hubCards         = $viewSvc->getHubCards($playerId);
+ // Private ownership model: "Moje huby" = owned + rented; browser = market hubs to buy/rent.
+    $hubCards         = $viewSvc->getMyHubCards($playerId);
     $hubAlerts        = $viewSvc->getAlerts($playerId);
-    $hubAvailByRegion = $viewSvc->getAvailableHubsByRegion($playerId);
+    $hubAvailByRegion = $viewSvc->getMarketHubsByRegion($playerId);
     $hubUnassignedAll = $hubSvc->getUnassignedWells($playerId);
-    $hubIncidents     = $hubSvc->getUnreadEvents($playerId, 20);
+ // Use HubIncidentService to get only hub_incident_* events (all, regardless of is_read).
+ // HubService::getUnreadEvents() returns all event types filtered by is_read=0 - wrong for incidents panel.
+    $hubIncidentSvc   = new HubIncidentService($db, $hubSvc);
+    $hubIncidents     = $hubIncidentSvc->getPlayerRecentIncidents($playerId, 20);
 
     $perPage = 5;
     $unassignedPage = max(1, (int)($_GET['unassigned_page'] ?? 1));
@@ -127,6 +134,26 @@ try {
     $unassignedPage = min($unassignedPage, max(1, $unassignedTotalPages));
     $unassignedOffset = ($unassignedPage - 1) * $perPage;
     $hubUnassigned = array_slice($hubUnassignedAll, $unassignedOffset, $perPage);
+
+ // Regions where the player operates (for the "buy new hub" modal).
+    $regionIds = $hubSvc->getPlayerRegionIds($playerId);
+    if (!empty($regionIds)) {
+        $ph    = implode(',', array_fill(0, count($regionIds), '?'));
+        $rStmt = $db->prepare("SELECT id, name FROM world_regions WHERE id IN ($ph) ORDER BY name");
+        $rStmt->execute($regionIds);
+        $playerHubRegions = $rStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+ // Hub type options with base build cost (for the "buy new hub" modal).
+    foreach (['small', 'medium', 'large'] as $htype) {
+        $defs = $hubSvc->getHubTypeDefaults($htype, 1);
+        $hubTypeOptions[] = [
+            'key'        => $htype,
+            'build_cost' => (float)$defs['build_cost'],
+            'slot_limit' => (int)$defs['slot_limit'],
+            'nominal'    => (float)$defs['nominal_bph'],
+        ];
+    }
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Hub data load failed', $e, ['player' => $playerId]);
 }
@@ -258,6 +285,28 @@ try {
     }
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Pipeline data load failed', $e, ['player' => $playerId]);
+}
+
+// Wells with active hub assignment but no pipeline yet (candidates for pipeline purchase)
+$wellsWithoutPipeline = [];
+try {
+    $woPipelineStmt = $db->prepare("
+        SELECT w.id, w.name AS well_name, w.status AS well_status,
+               w.location_name, w.transport_type,
+               h.id AS hub_id, h.name AS hub_name
+          FROM wells w
+          JOIN logistics_hub_assignments a ON a.well_id = w.id AND a.status = 'active'
+          JOIN logistics_hubs h ON h.id = a.hub_id AND h.status NOT IN ('disabled','building')
+          LEFT JOIN well_pipelines p ON p.well_id = w.id
+         WHERE w.player_id = ?
+           AND p.id IS NULL
+           AND w.status NOT IN ('sold','seized','blowout','broken')
+         ORDER BY w.id
+    ");
+    $woPipelineStmt->execute([$playerId]);
+    $wellsWithoutPipeline = $woPipelineStmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'Wells without pipeline query failed', $e, ['player' => $playerId]);
 }
 
 $lossWells = array_values(array_filter(
@@ -394,6 +443,8 @@ $viewData = compact(
     'hubAlerts',
     'hubUnassigned',
     'hubIncidents',
+    'playerHubRegions',
+    'hubTypeOptions',
     'unassignedPage',
     'unassignedTotalPages',
     'unassignedTotal',

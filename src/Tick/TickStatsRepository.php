@@ -1,8 +1,8 @@
 <?php
 
 /**
- * TickStatsRepository — zapis i odczyt statystyk tickow gry.
- * Tick stats repository — save and read game tick statistics.
+ * TickStatsRepository zapis i odczyt statystyk tickow gry.
+ * Tick stats repository save and read game tick statistics.
  */
 class TickStatsRepository
 {
@@ -13,11 +13,11 @@ class TickStatsRepository
         $this->db = Database::getInstance()->getConnection();
     }
 
-    /**
-     * Zapisuje wiersz statystyk po zakonczeniu ticka.
-     * Saves a stats row after tick completion.
-     */
-    /** @param array<string, mixed> $stats */
+ /**
+ * Zapisuje wiersz statystyk po zakonczeniu ticka.
+ * Saves a stats row after tick completion.
+ */
+ /** @param array<string, mixed> $stats */
     public function save(array $stats): void
     {
         $this->db->prepare("
@@ -66,11 +66,11 @@ class TickStatsRepository
         ]);
     }
 
-    /**
-     * Zwraca ostatnie N tickow posortowane malejaco.
-     * Returns last N ticks sorted descending.
-     */
-    /** @return list<array<string, mixed>> */
+ /**
+ * Zwraca ostatnie N tickow posortowane malejaco.
+ * Returns last N ticks sorted descending.
+ */
+ /** @return list<array<string, mixed>> */
     public function getRecent(int $limit = 50): array
     {
         $stmt = $this->db->prepare("
@@ -83,11 +83,11 @@ class TickStatsRepository
         return $stmt->fetchAll();
     }
 
-    /**
-     * Zwraca zagregowane statystyki z ostatnich 24h.
-     * Returns aggregated stats from last 24h.
-     */
-    /** @return array<string, mixed>|false */
+ /**
+ * Zwraca zagregowane statystyki z ostatnich 24h.
+ * Returns aggregated stats from last 24h.
+ */
+ /** @return array<string, mixed>|false */
     public function getSummary24h(): array|false
     {
         return $this->db->query("
@@ -109,10 +109,10 @@ class TickStatsRepository
         ")->fetch();
     }
 
-    /**
-     * Usuwa wpisy starsze niz N dni (cleanup).
-     * Deletes entries older than N days (cleanup).
-     */
+ /**
+ * Usuwa wpisy starsze niz N dni (cleanup).
+ * Deletes entries older than N days (cleanup).
+ */
     public function cleanup(int $keepDays = 7): int
     {
         $stmt = $this->db->prepare("

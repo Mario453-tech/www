@@ -1,7 +1,7 @@
 <?php
 /**
  * admin/init.php
- * Ładuje src/init.php gry oraz klasy admina.
+ * Laduje src/init.php gry oraz klasy admina.
  */
 $_codexGuardStart = microtime(true);
 try {

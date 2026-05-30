@@ -1,4 +1,4 @@
-﻿/* logistics.css
+/* logistics.css
    Style specyficzne dla modułu logistyki i hubów.
    Wspólne komponenty (.btn, .badge, .card, layout shell) pozostają w style.css.
 */
@@ -916,7 +916,7 @@
     color: var(--text);
 }
 
-/*  Etap 5: buffer stat row  */
+/* Etap 5: buffer stat row */
 .logistics-hub-stat--buffer {
     grid-column: 1 / -1;          /* spans full width */
     flex-direction: column;
@@ -1115,7 +1115,7 @@
     font-weight: 600;
 }
 
-/*  Acquisition type breakdown (assign modal)  */
+/* Acquisition type breakdown (assign modal) */
 .hub-acq-breakdown {
     display: flex;
     flex-wrap: wrap;
@@ -1155,7 +1155,7 @@
     cursor: default;
 }
 
-/*  Acquisition badge (hub cards — static)  */
+/* Acquisition badge (hub cards - static) */
 .acq-badge {
     display: inline-block;
     padding: .12rem .38rem;
@@ -1410,20 +1410,20 @@
         display: none;
     }
 
-    #hub-wells-modal .logistics-table-head,
-    #hub-wells-modal .logistics-table-row {
+ #hub-wells-modal .logistics-table-head,
+ #hub-wells-modal .logistics-table-row {
         grid-template-columns: 1fr 1fr 1fr;
     }
 
-    #hub-assign-modal .logistics-table-head,
-    #hub-assign-modal .logistics-table-row {
+ #hub-assign-modal .logistics-table-head,
+ #hub-assign-modal .logistics-table-row {
         min-width: 760px;
     }
 }
 
 /* 
    REDESIGN — transport KPI + hub browser
-    */
+ */
 
 /* Transport KPI accents / Akcenty KPI transportu */
 .logistics-kpi {
@@ -1660,7 +1660,7 @@
     background: rgba(200, 168, 75, .04);
 }
 
-/* Mój hub — zielone wyróżnienie */
+/* Moj hub - zielone wyroznienie */
 .logistics-hub-tbl-row.is-mine {
     background: rgba(78, 201, 122, .04);
     border-left: 2px solid var(--green, #4ec97a);
@@ -1671,7 +1671,7 @@
     background: rgba(78, 201, 122, .07);
 }
 
-/*  Nazwa hubu w tabeli  */
+/* Nazwa hubu w tabeli */
 .logistics-hub-tbl-name {
     display: flex;
     align-items: center;
@@ -1742,7 +1742,7 @@
 .logistics-tier-elite { background: rgba(91,141,217,.12);  color:var(--blue,#5b8dd9);  border:1px solid rgba(91,141,217,.28); }
 .logistics-tier-used  { background: rgba(240,160,80,.12);  color:var(--orange,#f0a050); border:1px solid rgba(240,160,80,.25); }
 
-/*  Type badge (Duży/Mały)  */
+/* Type badge (Duzy/Maly) */
 .logistics-hub-type-badge {
     display: inline-block;
     padding: 1px 6px;
@@ -1756,12 +1756,12 @@
 .logistics-hub-type-medium { background:rgba(200,168,75,.12); color:var(--gold,#c8a84b);  border:1px solid rgba(200,168,75,.22); }
 .logistics-hub-type-small  { background:rgba(240,160,80,.12); color:var(--orange,#f0a050); border:1px solid rgba(240,160,80,.22); }
 
-/*  Kondycja  */
+/* Kondycja */
 .logi-cond-good { color: var(--green,  #4ec97a); font-weight: 600; }
 .logi-cond-warn { color: var(--orange, #f0a050); font-weight: 600; }
 .logi-cond-bad  { color: var(--red,    #e05555); font-weight: 600; }
 
-/*  Przycisk przypisz (w tabeli)  */
+/* Przycisk przypisz (w tabeli) */
 .logistics-hub-assign-btn {
     padding: 4px 10px;
     font-size: .75rem;
@@ -1795,6 +1795,88 @@
     background: transparent;
     border-color: rgba(255, 255, 255, .1);
     color: rgba(232, 232, 240, .4);
+}
+
+/* Market buy / rent buttons / Przyciski kupna i wynajmu na rynku */
+.logistics-hub-buy-btn {
+    border-color: rgba(78, 201, 122, .35);
+    background: rgba(78, 201, 122, .12);
+    color: var(--green, #4ec97a);
+}
+.logistics-hub-buy-btn:hover {
+    background: rgba(78, 201, 122, .22);
+    border-color: rgba(78, 201, 122, .55);
+}
+.logistics-hub-rent-btn {
+    border-color: rgba(100, 160, 240, .35);
+    background: rgba(100, 160, 240, .12);
+    color: #64a0f0;
+}
+.logistics-hub-rent-btn:hover {
+    background: rgba(100, 160, 240, .22);
+    border-color: rgba(100, 160, 240, .55);
+}
+
+/* Market price rows / Wiersze cen na karcie rynku */
+.logistics-hub-avail-prices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1rem;
+    margin-top: .35rem;
+    padding-top: .35rem;
+    border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.logistics-hub-avail-price {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.logistics-hub-avail-price strong {
+    font-size: .85rem;
+    color: var(--gold, #c8a84b);
+}
+
+.logistics-hub-avail-badge-muted {
+    opacity: .35;
+    font-size: .7rem;
+}
+
+/* Ownership badge (owned / rented) / Znacznik wlasnosci huba */
+.hub-ownership-badge--owned {
+    background: rgba(78, 201, 122, .15);
+    color: #4ec97a;
+}
+.hub-ownership-badge--rented {
+    background: rgba(100, 160, 240, .15);
+    color: #64a0f0;
+}
+
+/* Buy-new modal form fields / Pola formularza modala kupna nowego huba */
+.logistics-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    margin-bottom: .85rem;
+    font-size: .82rem;
+    color: rgba(232, 232, 240, .85);
+}
+.logistics-form-field > span {
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+.logistics-form-field input[type="text"],
+.logistics-form-field select {
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .04);
+    color: inherit;
+    font-size: .85rem;
+}
+.logistics-form-field input[type="text"]:focus,
+.logistics-form-field select:focus {
+    outline: none;
+    border-color: rgba(200, 168, 75, .5);
 }
 
 /* Region footer more row / Stopka grupy wiecej */
@@ -2006,6 +2088,60 @@
     font-size: .75rem;
     padding: 3px 10px;
     line-height: 1.5;
+}
+
+/* Wells without pipeline subsection / Odwierty bez rurociagu */
+.logistics-pipeline-nopipe {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color, rgba(255,255,255,.07));
+}
+
+.logistics-pipeline-nopipe-title {
+    font-size: .85rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--text-muted, #aaa);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.logistics-pipeline-nopipe-desc {
+    font-size: .8rem;
+    color: var(--text-muted2, #888);
+    margin: 0 0 12px;
+}
+
+.logistics-pipeline-nopipe-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.logistics-pipeline-nopipe-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 14px;
+    background: var(--card-bg2, rgba(255,255,255,.04));
+    border: 1px solid var(--border-color, rgba(255,255,255,.07));
+    border-radius: 6px;
+    min-width: 200px;
+}
+
+.logistics-pipeline-nopipe-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.logistics-pipeline-nopipe-card-head strong {
+    font-size: .85rem;
+}
+
+.logistics-pipeline-nopipe-card-hub {
+    font-size: .78rem;
+    color: var(--text-muted2, #888);
 }
 
 /* Mobile layout / Uklad mobilny */

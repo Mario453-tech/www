@@ -9,15 +9,15 @@ require_once __DIR__ . '/Well/DisastersTrait.php';
 require_once __DIR__ . '/Well/SellTrait.php';
 
 /**
- * WellService — main well management class.
+ * WellService main well management class.
  * Logic split into traits in src/Well/:
- *   ConfigTrait    — configuration (well_config)
- *   QueryTrait     — data retrieval (getWell, getPlayerWells)
- *   CostsTrait     — cost and production calculators
- *   ActionsTrait   — player actions (upgrade, maintenance)
- *   TickTrait      — tick processors (degradation, wear, risk, spiral)
- *   DisastersTrait — disaster triggers (blowout, contamination, spill)
- *   SellTrait      — well sale
+ * ConfigTrait configuration (well_config)
+ * QueryTrait data retrieval (getWell, getPlayerWells)
+ * CostsTrait cost and production calculators
+ * ActionsTrait player actions (upgrade, maintenance)
+ * TickTrait tick processors (degradation, wear, risk, spiral)
+ * DisastersTrait disaster triggers (blowout, contamination, spill)
+ * SellTrait well sale
  */
 class WellService
 {
@@ -29,7 +29,7 @@ class WellService
     use WellDisastersTrait;
     use WellSellTrait;
 
-    // Required by traits
+ // Required by traits
     private PDO $db;
 
     public function __construct()

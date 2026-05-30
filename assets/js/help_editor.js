@@ -1,6 +1,6 @@
 /* 
-   HELP EDITOR — inicjalizacja TinyMCE
-    */
+   HELP EDITOR ï¿½ inicjalizacja TinyMCE
+ */
 
 tinymce.init({
     selector: '#tinymce-content',

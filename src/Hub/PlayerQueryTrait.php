@@ -6,10 +6,10 @@
  */
 trait HubPlayerQueryTrait
 {
-    /**
-     * Returns hubs where a given player has at least one active well assigned.
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns hubs where a given player has at least one active well assigned.
+ * @return list<array<string, mixed>>
+ */
     public function getPlayerHubs(int $playerId): array
     {
         $stmt = $this->db->prepare(
@@ -28,12 +28,76 @@ trait HubPlayerQueryTrait
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Returns ALL active system hubs in a region (no player filter).
-     * Players browse this list when choosing where to assign their wells.
-     *
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns hubs OWNED by the player (player_id = playerId).
+ * @return list<array<string, mixed>>
+ */
+    public function getMyOwnedHubs(int $playerId): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT h.*,
+                    wr.name AS region_name,
+                    (SELECT COUNT(*) FROM logistics_hub_assignments a2
+                      WHERE a2.hub_id = h.id AND a2.status = 'active') AS assigned_count
+               FROM logistics_hubs h
+               LEFT JOIN world_regions wr ON wr.id = h.region_id
+              WHERE h.player_id = ?
+                AND h.status NOT IN ('disabled')
+              ORDER BY h.region_id, h.zone_key, h.name"
+        );
+        $stmt->execute([$playerId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+ /**
+ * Returns hubs RENTED by the player (player_id = 0, tenant_player_id = playerId).
+ * @return list<array<string, mixed>>
+ */
+    public function getMyRentedHubs(int $playerId): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT h.*,
+                    wr.name AS region_name,
+                    (SELECT COUNT(*) FROM logistics_hub_assignments a2
+                      WHERE a2.hub_id = h.id AND a2.status = 'active') AS assigned_count
+               FROM logistics_hubs h
+               LEFT JOIN world_regions wr ON wr.id = h.region_id
+              WHERE h.player_id = 0
+                AND h.tenant_player_id = ?
+                AND h.status NOT IN ('disabled')
+              ORDER BY h.region_id, h.zone_key, h.name"
+        );
+        $stmt->execute([$playerId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+ /**
+ * Returns available market hubs in a region (player_id=0, no active tenant, available to buy/rent).
+ * @return list<array<string, mixed>>
+ */
+    public function getMarketHubs(int $regionId): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT h.*,
+                    wr.name AS region_name,
+                    0 AS assigned_count
+               FROM logistics_hubs h
+               LEFT JOIN world_regions wr ON wr.id = h.region_id
+              WHERE h.region_id = ?
+                AND h.player_id = 0
+                AND h.tenant_player_id = 0
+                AND h.status NOT IN ('disabled','building')
+              ORDER BY h.hub_type, h.zone_key, h.name"
+        );
+        $stmt->execute([$regionId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+ /**
+ * Returns ALL active hubs in a region accessible to the player (owned + rented + legacy market).
+ * Used for well assignment - only player's own hubs shown.
+ * @return list<array<string, mixed>>
+ */
     public function getRegionHubs(int $regionId): array
     {
         $stmt = $this->db->prepare(
@@ -51,11 +115,11 @@ trait HubPlayerQueryTrait
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Returns wells of a player that have no active hub assignment.
-     * Includes cooldown_until when the well is still in detach cooldown (blocks re-assignment).
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns wells of a player that have no active hub assignment.
+ * Includes cooldown_until when the well is still in detach cooldown (blocks re-assignment).
+ * @return list<array<string, mixed>>
+ */
     public function getUnassignedWells(int $playerId): array
     {
         $stmt = $this->db->prepare(
@@ -84,10 +148,10 @@ trait HubPlayerQueryTrait
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Returns distinct region_ids where a player has active wells.
-     * @return list<int>
-     */
+ /**
+ * Returns distinct region_ids where a player has active wells.
+ * @return list<int>
+ */
     public function getPlayerRegionIds(int $playerId): array
     {
         $stmt = $this->db->prepare(
@@ -99,10 +163,10 @@ trait HubPlayerQueryTrait
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
-    /**
-     * Returns zone definitions for a region.
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Returns zone definitions for a region.
+ * @return list<array<string, mixed>>
+ */
     public function getRegionZones(int $regionId): array
     {
         $stmt = $this->db->prepare(

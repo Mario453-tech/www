@@ -9,7 +9,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  Migracja: sold_at + well_config keys 
+// Migracja: sold_at + well_config keys 
 try { Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL'); } catch (Throwable $e) {}
 try {
     $defaults = [
@@ -26,7 +26,7 @@ try {
     foreach ($defaults as $d) $ins->execute($d);
 } catch (Throwable $e) {}
 
-//  POST: aktualizacja konfiguracji 
+// POST: aktualizacja konfiguracji 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
     }
 }
 
-//  POST: usuñ wpis / oznacz exploit 
+// POST: usu wpis / oznacz exploit 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_action'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_action'])) {
     }
 }
 
-//  Pobierz dane 
+// Pobierz dane 
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 25;
 $offset  = ($page - 1) * $perPage;
@@ -82,7 +82,7 @@ $sales = $db->prepare("
 $sales->execute();
 $sales = $sales->fetchAll();
 
-//  Statystyki 24h 
+// Statystyki 24h 
 $stats24 = $db->query("
     SELECT COUNT(*) as cnt,
            AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.payout')) AS DECIMAL(15,2))) as avg_val,
@@ -133,7 +133,7 @@ try {
     }
 } catch (Throwable $e) {}
 
-//  Analiza graczy 
+// Analiza graczy 
 $playerStats = $db->query("
     SELECT p.username, p.id as pid,
            COUNT(be.id) as sell_count,
@@ -145,7 +145,7 @@ $playerStats = $db->query("
     GROUP BY be.player_id ORDER BY sell_count DESC LIMIT 10
 ")->fetchAll();
 
-//  Konfiguracja 
+// Konfiguracja 
 $cfg = $db->query("SELECT `key`,value FROM well_config WHERE category='sell'")->fetchAll(PDO::FETCH_KEY_PAIR);
 
 $tab = $_GET['tab'] ?? 'list';

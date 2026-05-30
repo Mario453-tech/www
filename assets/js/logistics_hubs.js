@@ -1,5 +1,5 @@
 /**
- * logistics_hubs.js  obsuga moduu hubw logistycznych.
+ * logistics_hubs.js obsuga moduu hubw logistycznych.
  * Zaley od: HUB_API, HUB_CSRF, HUB_LANG (zdefiniowane w templates/views/logistics/main.php)
  */
 (function () {
@@ -123,7 +123,7 @@
         });
     }
 
-    //  Helpers 
+ // Helpers 
 
     function closeHubModal(id) {
         const el = document.getElementById(id);
@@ -155,7 +155,7 @@
         setTimeout(() => window.location.reload(), delay);
     }
 
-    //  Budowa huba 
+ // Budowa huba 
 
     window.hubBuildModal = function () {
         openHubModal('hub-build-modal');
@@ -188,7 +188,7 @@
         }
     };
 
-    //  Naprawa huba 
+ // Naprawa huba 
 
     window.hubRepair = async function (hubId) {
         const card = document.querySelector(`[data-hub-id="${hubId}"]`);
@@ -209,7 +209,7 @@
         }
     };
 
-    //  Ulepszenie huba 
+ // Ulepszenie huba 
 
     window.hubUpgrade = async function (hubId) {
         const card = document.querySelector(`[data-hub-id="${hubId}"]`);
@@ -231,7 +231,7 @@
         }
     };
 
-    //  Tryb pracy 
+ // Tryb pracy 
 
     window.hubSetMode = async function (hubId, mode) {
         try {
@@ -249,7 +249,7 @@
         }
     };
 
-    //  Pause / Resume 
+ // Pause / Resume 
 
     window.hubTogglePause = async function (hubId, isPaused) {
         try {
@@ -266,7 +266,7 @@
         }
     };
 
-    //  Odwierty huba (modal) 
+ // Odwierty huba (modal) 
 
     window.hubWellsModal = async function (hubId) {
         const body  = document.getElementById('hub-wells-modal-body');
@@ -304,7 +304,7 @@
                     <span>#${w.id} ${esc(w.name || w.location_name || '')}</span>
                     <span>${esc(w.region_name || '')}${w.zone_key ? ' / ' + esc(w.zone_key) : ''}</span>
                     <span>${parseFloat(w.base_production_per_hour || 0).toFixed(1)}</span>
-                    <span>${esc(w.status || '')}</span>
+                    <span>${esc(lang()['ws_' + w.status] || w.status || '')}</span>
                     <span style="display:flex;gap:.35rem;flex-wrap:wrap">
                         <button class="btn btn-xs btn-warn" onclick="hubDetachWell(${w.id}, ${hubId})">
                             ${lang().btn_detach || 'Odepnij'}
@@ -341,7 +341,7 @@
         }
     };
 
-    //  Przypisz odwiert do huba (modal) 
+ // Przypisz odwiert do huba (modal) 
 
     window.hubAssignWellToHubModal = async function (hubId) {
         const body = document.getElementById('hub-assign-modal-body');
@@ -464,7 +464,7 @@
                         ? `<span class="c-warn">  ${lang().cond_low_short || 'Zy stan'}</span>`
                         : '';
 
-                // Acquisition type badge + economic breakdown
+ // Acquisition type badge + economic breakdown
                 const acqType     = entry.acq_type || h.acquisition_type || 'new';
                 const acqLabel    = lang()['acq_' + acqType] || acqType;
                 const wearMult    = parseFloat(entry.acq_wear_mult || 1);
@@ -505,7 +505,7 @@
             }
             html += '</div>';
 
-            // Paginacja
+ // Paginacja
             if (totalPages > 1) {
                 html += `<div class="logistics-pagination logistics-pagination--modal">`;
                 html += `<div class="logistics-pagination-info">${currentPage} / ${totalPages} (${total})</div>`;
@@ -535,7 +535,7 @@
         const accessFee    = btn ? parseFloat(btn.dataset.acqAccessFee || 0) : 0;
         const fmt          = (v) => v.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // 1. Ostrzezenie kondycji (stan krytyczny / zly) / Condition warning
+ // 1. Ostrzezenie kondycji (stan krytyczny / zly) / Condition warning
         if (condWarnType) {
             const warnMsg = condWarnType === 'critical'
                 ? (lang().warn_condition_critical || 'Hub w stanie krytycznym! Wysokie koszty i ryzyko strat.')
@@ -543,7 +543,7 @@
             if (!await hubConfirm(warnMsg)) return;
         }
 
-        // 2. Ujednolicone potwierdzenie kosztow dla wszystkich typow / Unified cost confirmation
+ // 2. Ujednolicone potwierdzenie kosztow dla wszystkich typow / Unified cost confirmation
         const hasAnyCost = accessFee > 0 || leaseFee > 0 || fee > 0;
         if (hasAnyCost) {
             const acqLabel  = lang()['acq_' + acqType] || acqType;
@@ -589,7 +589,7 @@
         }
     };
 
-    //  Transfer odwiertu midzy hubami (modal) 
+ // Transfer odwiertu midzy hubami (modal) 
 
     window.hubTransferModal = async function (wellId, currentHubId) {
         const body = document.getElementById('hub-transfer-modal-body');
@@ -633,7 +633,7 @@
                         ? `<span class="c-warn">  ${lang().cond_low_short || 'Zy stan'}</span>`
                         : '';
 
-                // Acquisition type badge + breakdown (jak w hubAssignModal)
+ // Acquisition type badge + breakdown (jak w hubAssignModal)
                 const tAcqType  = entry.acq_type || h.acquisition_type || 'new';
                 const tAcqLabel = lang()['acq_' + tAcqType] || tAcqType;
                 const tWear     = parseFloat(entry.acq_wear_mult || 1);
@@ -682,8 +682,8 @@
         const accessFee = btn ? parseFloat(btn.dataset.acqAccessFee || 0) : 0;
         const fmt       = (v) => v.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // Ujednolicone potwierdzenie kosztow przy transferze / Unified cost confirmation on transfer
-        // accessFee shown for info only - transfer does not charge a new connection fee
+ // Ujednolicone potwierdzenie kosztow przy transferze / Unified cost confirmation on transfer
+ // accessFee shown for info only - transfer does not charge a new connection fee
         const hasAnyCost = leaseFee > 0 || accessFee > 0;
         if (hasAnyCost) {
             const acqLabel = lang()['acq_' + acqType] || acqType;
@@ -723,7 +723,107 @@
         }
     };
 
-    //  Browser dostepnych hubow 
+ // Rynek hubow: kupno / wynajem / Hub market: buy / rent
+
+    const fmtPln = (v) => Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+ // Kup uzywany hub z rynku / Buy a used market hub
+    window.hubBuyUsed = async function (hubId) {
+        const btn   = document.querySelector(`.logistics-hub-buy-btn[onclick*="hubBuyUsed(${hubId})"]`);
+        const name  = btn ? (btn.dataset.hubName  || '') : '';
+        const price = btn ? parseFloat(btn.dataset.buyPrice || 0) : 0;
+        const msg   = (lang().market_confirm_buy || 'Kupic hub {name} za {price} PLN?')
+            .replace('{name}', name)
+            .replace('{price}', fmtPln(price));
+        if (!await hubConfirm(msg, { title: lang().market_ok_buy })) return;
+
+        try {
+            const res = await hubPost('buy_used_hub', { hub_id: hubId });
+            if (res.success) {
+                await hubDialog(res.message || lang().market_ok_buy, 'success');
+                reloadAfterAction();
+            } else {
+                hubDialog(res.error || lang().err_generic, 'error');
+            }
+        } catch (err) {
+            hubDialog(lang().err_generic, 'error');
+        }
+    };
+
+ // Wynajmij hub z rynku / Rent a market hub
+    window.hubRent = async function (hubId) {
+        const btn      = document.querySelector(`.logistics-hub-rent-btn[onclick*="hubRent(${hubId})"]`);
+        const name     = btn ? (btn.dataset.hubName    || '') : '';
+        const deposit  = btn ? parseFloat(btn.dataset.rentDeposit || 0) : 0;
+        const lease    = btn ? parseFloat(btn.dataset.leaseFee    || 0) : 0;
+        const msg      = (lang().market_confirm_rent || 'Wynajac hub {name}? Kaucja: {deposit} PLN, czynsz: {lease} PLN/tick.')
+            .replace('{name}', name)
+            .replace('{deposit}', fmtPln(deposit))
+            .replace('{lease}', fmtPln(lease));
+        if (!await hubConfirm(msg, { title: lang().market_ok_rent })) return;
+
+        try {
+            const res = await hubPost('rent_hub', { hub_id: hubId });
+            if (res.success) {
+                await hubDialog(res.message || lang().market_ok_rent, 'success');
+                reloadAfterAction();
+            } else {
+                hubDialog(res.error || lang().err_generic, 'error');
+            }
+        } catch (err) {
+            hubDialog(lang().err_generic, 'error');
+        }
+    };
+
+ // Modal: kup nowy hub / Buy new hub modal
+    window.hubBuyNewModal = function () {
+        openHubModal('hub-buy-new-modal');
+    };
+
+    window.hubBuyNewTypeChange = function (radio) {
+        document.querySelectorAll('#hub-buy-new-modal .logistics-mode-card')
+            .forEach(el => el.classList.remove('selected'));
+        const card = radio.closest('.logistics-mode-card');
+        if (card) card.classList.add('selected');
+    };
+
+    window.hubBuyNewSubmit = async function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const form = document.getElementById('hub-buy-new-form');
+        if (!form) return;
+        const data = Object.fromEntries(new FormData(form));
+        const name = String(data.name || '').trim();
+        if (name === '') {
+            hubDialog(lang().market_name_required || 'Podaj nazwe huba.', 'warning');
+            return;
+        }
+
+        const typeRadio = form.querySelector('input[name="hub_type"]:checked');
+        const price     = typeRadio ? parseFloat(typeRadio.dataset.buildCost || 0) : 0;
+        const msg = (lang().market_confirm_buy_new || 'Wybudowac nowy hub {name} za {price} PLN?')
+            .replace('{name}', name)
+            .replace('{price}', fmtPln(price));
+        if (!await hubConfirm(msg, { title: lang().market_ok_buy_new })) return;
+
+        const btn = document.getElementById('hub-buy-new-submit');
+        if (btn) btn.disabled = true;
+        try {
+            const res = await hubPost('buy_new_hub', data);
+            if (res.success) {
+                closeHubModal('hub-buy-new-modal');
+                await hubDialog(res.message || lang().market_ok_buy_new, 'success');
+                reloadAfterAction();
+            } else {
+                hubDialog(res.error || lang().err_generic, 'error');
+            }
+        } catch (err) {
+            hubDialog(lang().err_generic, 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
+ // Browser dostepnych hubow
 
     (function initAvailableHubsBrowser() {
         const browser = document.getElementById('lhb-browser');
@@ -834,9 +934,9 @@
         applyFilter();
     })();
 
-    //  Cooldown badge live timer
-    // Updates .hub-cooldown-badge every 60s so the displayed remaining time stays current.
-    // When a cooldown expires the badge is replaced with an inline reload prompt.
+ // Cooldown badge live timer
+ // Updates .hub-cooldown-badge every 60s so the displayed remaining time stays current.
+ // When a cooldown expires the badge is replaced with an inline reload prompt.
 
     (function initCooldownTimers() {
         function formatRemaining(until) {
@@ -852,7 +952,7 @@
                 const until = el.dataset.cooldownUntil;
                 const label = formatRemaining(until);
                 if (!label) {
-                    // Cooldown expired - prompt reload
+ // Cooldown expired - prompt reload
                     el.textContent = '⏳ 0min';
                     el.style.opacity = '0.5';
                     if (!el.dataset.expiredHandled) {
@@ -871,7 +971,7 @@
         }
     })();
 
-    //  Utils
+ // Utils
 
     function esc(str) {
         return String(str)

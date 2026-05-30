@@ -1,14 +1,14 @@
 <?php
 /**
- * tick_test.php  diagnostyczny test tiku i logw AdminHub.
- * tick_test.php  diagnostic test for tick execution and AdminHub logs.
+ * tick_test.php diagnostyczny test tiku i logw AdminHub.
+ * tick_test.php diagnostic test for tick execution and AdminHub logs.
  */
 require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
 
 $db = Database::getInstance()->getConnection();
 
-//  1. Ostatni tick w tick_stats 
+// 1. Ostatni tick w tick_stats 
 $lastTickStat = null;
 $tickStatsExists = false;
 try {
@@ -20,7 +20,7 @@ try {
     }
 } catch (Throwable $e) { /* ignore */ }
 
-//  2. Ostatni tick w players.last_tick_at 
+// 2. Ostatni tick w players.last_tick_at 
 $lastPlayerTick = null;
 try {
     $lastPlayerTick = $db->query(
@@ -28,7 +28,7 @@ try {
     )->fetch(PDO::FETCH_ASSOC);
 } catch (Throwable $e) { /* ignore */ }
 
-//  3. Ostatni wpis tick_log 
+// 3. Ostatni wpis tick_log 
 $lastTickLog = null;
 $tickLogExists = false;
 try {
@@ -40,7 +40,7 @@ try {
     }
 } catch (Throwable $e) { /* ignore */ }
 
-//  4. Status tabel logistics 
+// 4. Status tabel logistics 
 $logTables = [];
 foreach (['logistics_hubs', 'logistics_hub_assignments', 'logistics_hub_config'] as $tbl) {
     try {
@@ -51,7 +51,7 @@ foreach (['logistics_hubs', 'logistics_hub_assignments', 'logistics_hub_config']
     }
 }
 
-//  5. Test: czy GameLog::info dziaa i zapisuje 
+// 5. Test: czy GameLog::info dziaa i zapisuje 
 $logFile = __DIR__ . '/../game_debug.log';
 $logSizeBefore = file_exists($logFile) ? filesize($logFile) : 0;
 GameLog::info('AdminHub', 'TICK_TEST manual probe', [
@@ -61,14 +61,14 @@ GameLog::info('AdminHub', 'TICK_TEST manual probe', [
 $logSizeAfter = file_exists($logFile) ? filesize($logFile) : 0;
 $logWritten = $logSizeAfter > $logSizeBefore;
 
-//  6. Ostatnie 10 linii z logu 
+// 6. Ostatnie 10 linii z logu 
 $lastLogLines = [];
 if (file_exists($logFile)) {
     $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     $lastLogLines = array_slice($lines, -20);
 }
 
-//  7. Czas od ostatniego ticku 
+// 7. Czas od ostatniego ticku 
 $tickAgoMin = null;
 if (!empty($lastPlayerTick['lt'])) {
     $tickAgoMin = round((time() - strtotime($lastPlayerTick['lt'])) / 60, 1);

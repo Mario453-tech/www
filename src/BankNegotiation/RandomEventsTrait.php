@@ -6,10 +6,10 @@
  */
 trait BankNegotiationRandomEventsTrait
 {
-    /**
-     * Tries to trigger a random event for the given negotiation.
-     * Probouje uruchomic zdarzenie losowe dla danej negocjacji.
-     */
+ /**
+ * Tries to trigger a random event for the given negotiation.
+ * Probouje uruchomic zdarzenie losowe dla danej negocjacji.
+ */
     public function triggerRandomEvent(int $negotiationId): ?array
     {
         try {
@@ -25,8 +25,8 @@ trait BankNegotiationRandomEventsTrait
                 return null;
             }
 
-            // Enforce a minimum 3h cooldown between events for one negotiation.
-            // Wymus minimum 3h cooldown miedzy zdarzeniami dla jednej negocjacji.
+ // Enforce a minimum 3h cooldown between events for one negotiation.
+ // Wymus minimum 3h cooldown miedzy zdarzeniami dla jednej negocjacji.
             $lastEvtStmt = $this->db->prepare("
                 SELECT created_at FROM bank_negotiation_events
                 WHERE negotiation_id = :nid
@@ -41,16 +41,16 @@ trait BankNegotiationRandomEventsTrait
                 }
             }
 
-            // Cap total decision time growth to max 48h from now.
-            // Ogranicz laczny wzrost czasu decyzji do max 48h od teraz.
+ // Cap total decision time growth to max 48h from now.
+ // Ogranicz laczny wzrost czasu decyzji do max 48h od teraz.
             $maxDue = time() + 48 * 3600;
             $currentDue = strtotime($neg['decision_due_at']);
             if ($currentDue >= $maxDue) {
                 return null;
             }
 
-            // Roll event chance at 25% per call.
-            // Losuj szanse zdarzenia 25% na jedno wywolanie.
+ // Roll event chance at 25% per call.
+ // Losuj szanse zdarzenia 25% na jedno wywolanie.
             if (rand(1, 100) > 25) {
                 return null;
             }
@@ -104,13 +104,13 @@ trait BankNegotiationRandomEventsTrait
                 ],
             ];
 
-            // Filter conditional events before choosing a pool.
-            // Odfiltruj zdarzenia warunkowe przed wyborem puli.
+ // Filter conditional events before choosing a pool.
+ // Odfiltruj zdarzenia warunkowe przed wyborem puli.
             $negative = array_filter($negative, fn($event) => !isset($event['condition']) || $event['condition']);
             $positive = array_filter($positive, fn($event) => !isset($event['condition']) || $event['condition']);
 
-            // Pick negative events 60% of the time, positive 40%.
-            // Wybieraj negatywne zdarzenia w 60%, pozytywne w 40%.
+ // Pick negative events 60% of the time, positive 40%.
+ // Wybieraj negatywne zdarzenia w 60%, pozytywne w 40%.
             $pool = (rand(1, 100) <= 60) ? array_values($negative) : array_values($positive);
             if (empty($pool)) {
                 return null;
@@ -118,8 +118,8 @@ trait BankNegotiationRandomEventsTrait
 
             $event = $pool[array_rand($pool)];
 
-            // Replace {hours} placeholder with correctly formatted time text.
-            // Zastap placeholder {hours} poprawnie sformatowanym czasem.
+ // Replace {hours} placeholder with correctly formatted time text.
+ // Zastap placeholder {hours} poprawnie sformatowanym czasem.
             $hoursFormatted = isset($event['add_hours']) && $event['add_hours'] > 0
                 ? $this->formatHours($event['add_hours'])
                 : ((isset($event['sub_hours']) && $event['sub_hours'] > 0)
@@ -127,8 +127,8 @@ trait BankNegotiationRandomEventsTrait
                     : '');
             $message = t($event['template'], ['hours' => $hoursFormatted]);
 
-            // Apply event effects while respecting the total time cap.
-            // Zastosuj efekty zdarzenia z zachowaniem limitu czasu.
+ // Apply event effects while respecting the total time cap.
+ // Zastosuj efekty zdarzenia z zachowaniem limitu czasu.
             $newDue = null;
             if (($event['add_hours'] ?? 0) > 0) {
                 $addSeconds = (int)($event['add_hours'] * 3600);
@@ -152,8 +152,8 @@ trait BankNegotiationRandomEventsTrait
                 $this->adjustTrustScore($neg['player_id'], $event['trust_evt']);
             }
 
-            // Persist the fired event for history and UI.
-            // Zapisz uruchomione zdarzenie do historii i UI.
+ // Persist the fired event for history and UI.
+ // Zapisz uruchomione zdarzenie do historii i UI.
             $this->db->prepare("
                 INSERT INTO bank_negotiation_events
                     (negotiation_id, event_key, event_type, message, hours_added, created_at)

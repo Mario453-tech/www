@@ -1,5 +1,5 @@
 <?php
-// Wgraj do /admin/redirect_diag.php i otwórz BEZ logowania
+// Wgraj do /admin/redirect_diag.php i otworz BEZ logowania / Upload to /admin/redirect_diag.php and open WITHOUT login
 // NIE ma requireLogin() - celowo
 require_once __DIR__ . '/init.php';
 GameLog::info('admin/redirect_diag.php', 'entry');
@@ -7,7 +7,7 @@ GameLog::info('admin/redirect_diag.php', 'entry');
 session_start();
 
 echo "<pre style='font-family:monospace;background:#111;color:#0f0;padding:20px'>";
-echo "=== DIAGNOSTYKA PRZEKIEROWAÑ ===\n\n";
+echo "=== DIAGNOSTYKA PRZEKIEROWAÅƒ ===\n\n";
 
 echo "PHP_SELF: " . $_SERVER['PHP_SELF'] . "\n";
 echo "REQUEST_URI: " . $_SERVER['REQUEST_URI'] . "\n";
@@ -52,7 +52,7 @@ try {
     echo "init.php: OK\n";
     echo "AdminAuth::isLoggedIn(): " . var_export(AdminAuth::isLoggedIn(), true) . "\n";
 } catch (Throwable $e) {
-    echo "init.php B£¥D: " . $e->getMessage() . "\n";
+    echo "init.php BÅÄ„D: " . $e->getMessage() . "\n";
 }
 
 echo "</pre>";

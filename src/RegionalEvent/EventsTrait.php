@@ -1,18 +1,18 @@
 <?php
 
 /**
- * EventsTrait — rolling, saving and resolving regional events.
+ * EventsTrait rolling, saving and resolving regional events.
  */
 trait RegionalEventsTrait
 {
-    /**
-     * Check and roll regional events for a player.
-     * Called once per tick per player.
-     */
+ /**
+ * Check and roll regional events for a player.
+ * Called once per tick per player.
+ */
     public function processTick(int $playerId, float $deltaHours): void
     {
         try {
-            // Fetch distinct regions from the player's active wells
+ // Fetch distinct regions from the player's active wells
             $stmt = $this->db->prepare("
                 SELECT DISTINCT w.region_id, wr.code AS region_code, wr.name AS region_name
                 FROM wells w
@@ -26,12 +26,12 @@ trait RegionalEventsTrait
                 $code      = $region['region_code'];
                 $chance24h = self::EVENT_CHANCE[$code] ?? 0.0;
 
-                // Scale 24h probability to this tick's deltaHours
+ // Scale 24h probability to this tick's deltaHours
                 $tickChance = $chance24h * ($deltaHours / 24.0);
 
                 if ((mt_rand(1, 100000) / 100000.0) > $tickChance) continue;
 
-                // Cooldown check — no event fires if one is active or cooling down for this region
+ // Cooldown check no event fires if one is active or cooling down for this region
                 $cooldownCheck = $this->db->prepare("
                     SELECT id FROM regional_events
                     WHERE player_id = ? AND region_id = ?
@@ -60,10 +60,10 @@ trait RegionalEventsTrait
             $event = $pool[array_rand($pool)];
 
             $expiresAt     = date('Y-m-d H:i:s', time() + $event['duration_h'] * 3600);
-            // Next event in this region not earlier than 8h from now
+ // Next event in this region not earlier than 8h from now
             $cooldownUntil = date('Y-m-d H:i:s', time() + 8 * 3600);
 
-            // Resolve lang key to translated message before storing
+ // Resolve lang key to translated message before storing
             $message = t($event['msg']);
 
             $this->db->prepare("
@@ -85,7 +85,7 @@ trait RegionalEventsTrait
                 'expires_at' => $expiresAt,
             ]);
 
-            // Notify player
+ // Notify player
             try {
                 $this->db->prepare("
                     INSERT INTO technical_notifications (player_id, well_id, type, message)
@@ -106,9 +106,9 @@ trait RegionalEventsTrait
         }
     }
 
-    /**
-     * Mark expired events as resolved.
-     */
+ /**
+ * Mark expired events as resolved.
+ */
     public function resolveExpired(): void
     {
         try {

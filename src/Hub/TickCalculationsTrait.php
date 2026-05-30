@@ -1,15 +1,15 @@
 <?php
 
 /**
- * HubTickCalculationsTrait — pure calculations for one hub tick.
+ * HubTickCalculationsTrait pure calculations for one hub tick.
  * No DB access. Used by HubTickService.
  */
 trait HubTickCalculationsTrait
 {
-    /**
-     * Oblicza czynnik przepustowoœci na podstawie kondycji (progowe, nie liniowe).
-     * Calculates throughput factor based on condition (threshold-based, not linear).
-     */
+ /**
+ * Oblicza czynnik przepustowoci na podstawie kondycji (progowe, nie liniowe).
+ * Calculates throughput factor based on condition (threshold-based, not linear).
+ */
     private function calcConditionFactor(float $condPct): float
     {
         if ($condPct <= self::COND_CRITICAL) {
@@ -21,12 +21,12 @@ trait HubTickCalculationsTrait
         return $condPct / 100.0;
     }
 
-    /**
-     * Bezposrednie straty wolumenu z powodu zlego stanu technicznego.
-     * Direct volume loss due to poor technical condition.
-     * Przy kondycji 70% — brak strat.
-     * At condition >=70% — no losses.
-     */
+ /**
+ * Bezposrednie straty wolumenu z powodu zlego stanu technicznego.
+ * Direct volume loss due to poor technical condition.
+ * Przy kondycji 70% brak strat.
+ * At condition >=70% no losses.
+ */
     private function calcConditionLoss(float $condPct, float $processedBbl, bool $overloaded): float
     {
         if ($condPct >= 70.0 || $processedBbl < 0.001) {
@@ -67,10 +67,10 @@ trait HubTickCalculationsTrait
         return $currentStatus;
     }
 
-    /**
-     * @param array<string, mixed> $hub
-     * @param array<string, mixed> $result
-     */
+ /**
+ * @param array<string, mixed> $hub
+ * @param array<string, mixed> $result
+ */
     private function calculateRealCapacity(array $hub, array $result): float
     {
         $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
@@ -79,12 +79,12 @@ trait HubTickCalculationsTrait
         return round((float)$hub['nominal_capacity_bph'] * $conditionFactor * $throughputMult, 2);
     }
 
-    /**
-     * Wynik gdy hub jest nieaktywny (disabled / building / paused).
-     * Result when the hub is inactive (disabled / building / paused).
-     * @param array<string, mixed> $hub
-     * @return array<string, mixed>
-     */
+ /**
+ * Wynik gdy hub jest nieaktywny (disabled / building / paused).
+ * Result when the hub is inactive (disabled / building / paused).
+ * @param array<string, mixed> $hub
+ * @return array<string, mixed>
+ */
     private function buildEmptyResult(array $hub, float $inputBbl, float $deltaHours): array
     {
         $fallback = $this->applyFallback($inputBbl, $deltaHours);

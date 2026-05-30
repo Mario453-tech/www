@@ -1,0 +1,196 @@
+<?php
+
+/**
+ * AdminHubPostActionsTrait - handles POST actions for the admin logistics hubs panel.
+ * PL: AdminHubPostActionsTrait - obsluga akcji POST panelu admina hubow.
+ *
+ * Used by: admin/logistics_hubs.php
+ * PL: Uzywane przez: admin/logistics_hubs.php
+ */
+trait AdminHubPostActionsTrait
+{
+    /**
+     * Process a POST action and return a UI message payload.
+     * PL: Przetwarza akcje POST i zwraca ladunek komunikatu UI.
+     *
+     * @return array{msg: string, err: bool}
+     */
+    public function handlePostAction(PDO $db, HubService $hubSvc, string $action, int $adminId): array
+    {
+        $msg = '';
+        $err = false;
+
+        switch ($action) {
+            // Create a single hub.
+            // PL: Utworz pojedynczy hub.
+            case 'create_hub':
+                $result = $hubSvc->buildHub($adminId, [
+                    'name'             => trim($_POST['name'] ?? ''),
+                    'hub_type'         => trim($_POST['hub_type'] ?? 'small'),
+                    'acquisition_type' => trim($_POST['acquisition_type'] ?? 'new'),
+                    'region_id'        => (int)($_POST['region_id'] ?? 0),
+                    'zone_key'         => trim($_POST['zone_key'] ?? ''),
+                ]);
+                $msg = $result['success']
+                    ? t('admin.logistics.create_ok', ['id' => $result['hub_id']])
+                    : t('admin.logistics.create_err', ['error' => $result['error'] ?? 'unknown']);
+                $err = !$result['success'];
+                break;
+
+            // Bulk seed hubs for one region.
+            // PL: Masowy seed hubow dla jednego regionu.
+            case 'seed_region':
+                $regionId = (int)($_POST['region_id'] ?? 0);
+                $count = min((int)($_POST['count'] ?? 20), 50);
+                if ($regionId <= 0) {
+                    $msg = t('admin.logistics.seed_err_no_region');
+                    $err = true;
+                    break;
+                }
+
+                $rStmt = $db->prepare("SELECT name FROM world_regions WHERE id = ? LIMIT 1");
+                $rStmt->execute([$regionId]);
+                $regionName = (string)($rStmt->fetchColumn() ?: "Region#{$regionId}");
+
+                $created = 0;
+                $errors = 0;
+                $letters = range('A', 'Z');
+
+                foreach (['small', 'medium', 'large'] as $type) {
+                    for ($i = 1; $i <= $count; $i++) {
+                        $letter = $letters[($i - 1) % 26];
+                        $name = match ($type) {
+                            'small'  => t('admin.logistics.cfg_type_small') . " {$regionName} {$letter}{$i}",
+                            'medium' => t('admin.logistics.cfg_type_medium') . " {$regionName} {$letter}{$i}",
+                            'large'  => t('admin.logistics.cfg_type_large') . " {$regionName} {$letter}{$i}",
+                        };
+                        $res = $hubSvc->buildHub($adminId, [
+                            'name'      => $name,
+                            'hub_type'  => $type,
+                            'region_id' => $regionId,
+                            'zone_key'  => '',
+                        ]);
+                        $res['success'] ? $created++ : $errors++;
+                    }
+                }
+
+                $msg = $errors > 0
+                    ? t('admin.logistics.seed_ok_errors', ['id' => $regionId, 'count' => $created, 'errors' => $errors])
+                    : t('admin.logistics.seed_ok', ['id' => $regionId, 'count' => $created]);
+                $err = $errors > 0;
+                break;
+
+            // Repair hub state.
+            // PL: Napraw stan huba.
+            case 'repair_hub':
+                $hubId = (int)($_POST['hub_id'] ?? 0);
+                $result = $hubSvc->repairHub($hubId, $adminId);
+                $msg = $result['success']
+                    ? t('admin.logistics.ok_repair', ['id' => $hubId])
+                    : t('admin.logistics.err_generic');
+                $err = !$result['success'];
+                break;
+
+            // Change runtime status.
+            // PL: Zmien status runtime.
+            case 'set_status':
+                $hubId = (int)($_POST['hub_id'] ?? 0);
+                $status = trim($_POST['status'] ?? '');
+                $result = $hubSvc->adminSetStatus($hubId, $status);
+                $msg = $result['success']
+                    ? t('admin.logistics.ok_status', ['id' => $hubId, 'status' => $status])
+                    : t('admin.logistics.err_generic');
+                $err = !$result['success'];
+                break;
+
+            // Change condition values.
+            // PL: Zmien wartosci kondycji.
+            case 'set_condition':
+                $hubId = (int)($_POST['hub_id'] ?? 0);
+                $condPct = (float)($_POST['condition_pct'] ?? 100);
+                $wearLvl = (float)($_POST['wear_level'] ?? 0);
+                $result = $hubSvc->adminSetCondition($hubId, $condPct, $wearLvl);
+                $msg = $result['success']
+                    ? t('admin.logistics.ok_condition', ['id' => $hubId])
+                    : t('admin.logistics.err_generic');
+                $err = !$result['success'];
+                break;
+
+            // Change work mode.
+            // PL: Zmien tryb pracy.
+            case 'set_mode':
+                $hubId = (int)($_POST['hub_id'] ?? 0);
+                $mode = trim($_POST['mode'] ?? 'standard');
+                $result = $hubSvc->setWorkMode($hubId, $adminId, $mode);
+                $msg = $result['success']
+                    ? t('admin.logistics.ok_mode', ['id' => $hubId, 'mode' => $mode])
+                    : t('admin.logistics.err_generic');
+                $err = !$result['success'];
+                break;
+
+            // Pause or resume a hub.
+            // PL: Wstrzymaj albo wznow hub.
+            case 'toggle_pause':
+                $hubId = (int)($_POST['hub_id'] ?? 0);
+                $result = $hubSvc->toggleHubPause($hubId, $adminId);
+                $ns = $result['new_status'] ?? '';
+                $msg = $result['success']
+                    ? ($ns === 'paused'
+                        ? t('admin.logistics.ok_pause', ['id' => $hubId])
+                        : t('admin.logistics.ok_resume', ['id' => $hubId]))
+                    : t('admin.logistics.err_generic');
+                $err = !$result['success'];
+                break;
+
+            // Rename hub.
+            // PL: Zmien nazwe huba.
+            case 'rename_hub':
+                $hubId = (int)($_POST['hub_id'] ?? 0);
+                $name = trim($_POST['name'] ?? '');
+                $result = $hubSvc->renameHub($hubId, $adminId, $name);
+                $msg = $result['success']
+                    ? t('admin.logistics.ok_rename', ['id' => $hubId])
+                    : t('admin.logistics.err_generic');
+                $err = !$result['success'];
+                break;
+
+            // Force an incident on a hub immediately (admin tool).
+            // PL: Wymus awarie na hubie natychmiast (narzedzie admina).
+            case 'force_incident':
+                $hubId     = (int)($_POST['hub_id']        ?? 0);
+                $type      = trim($_POST['incident_type']  ?? '');
+                $playerId  = (int)($_POST['notify_player'] ?? 0);
+                $incSvc    = new HubIncidentService($db);
+                $result    = $incSvc->forceIncident($hubId, $type, $playerId);
+                $msg = $result['success']
+                    ? t('admin.logistics.incident_force_ok', [
+                        'type'     => $type,
+                        'id'       => $hubId,
+                        'cond_dmg' => $result['cond_dmg'] ?? 0,
+                      ])
+                    : t('admin.logistics.incident_force_err', ['error' => $result['error'] ?? 'unknown']);
+                $err = !$result['success'];
+                break;
+
+            // Save global config value.
+            // PL: Zapisz globalna wartosc configu.
+            case 'save_config':
+                $group = trim($_POST['config_group'] ?? '');
+                $key = trim($_POST['config_key'] ?? '');
+                $val = trim($_POST['config_value'] ?? '');
+                if ($group === '' || $key === '') {
+                    $msg = t('admin.logistics.cfg_err_no_key');
+                    $err = true;
+                    break;
+                }
+                $ok = $hubSvc->saveConfigValue($group, $key, 'global', $val);
+                $msg = $ok
+                    ? t('admin.logistics.cfg_ok', ['group' => $group, 'key' => $key, 'value' => $val])
+                    : t('admin.logistics.cfg_err');
+                $err = !$ok;
+                break;
+        }
+
+        return ['msg' => $msg, 'err' => $err];
+    }
+}

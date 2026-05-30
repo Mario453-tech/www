@@ -1,5 +1,5 @@
 /**
- * dashboard.js  logika panelu zarzdzania
+ * dashboard.js logika panelu zarzdzania
  */
 
 async function hireCandidate(candidateId, candidateName) {

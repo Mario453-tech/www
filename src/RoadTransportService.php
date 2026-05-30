@@ -2,29 +2,29 @@
 declare(strict_types=1);
 
 /**
- * RoadTransportService  transport drogowy jako system kursw.
- * RoadTransportService  road transport as a trip system.
+ * RoadTransportService transport drogowy jako system kursw.
+ * RoadTransportService road transport as a trip system.
  *
  * Kady kurs jest osobn jednostk ryzyka.
  * Each trip is an independent unit of risk.
  * Kradzie i napad = cay kurs stracony (nie procent wolumenu).
  * Theft and raid = the entire trip is lost (not a percentage of volume).
- * Strata nie jest obcinana procentowo  kady kurs wypada niezalenie.
- * Loss is not clipped as a percentage  each trip fails independently.
+ * Strata nie jest obcinana procentowo kady kurs wypada niezalenie.
+ * Loss is not clipped as a percentage each trip fails independently.
  *
  * Tabele / Tables:
- *   well_road_configs        konfiguracja per odwiert (typ ciarwki, pojemno kursu, koszt)
- *                           config per well (truck type, trip capacity, cost)
- *   well_road_incident_logs  log incydentw kursw per tick / trip incident log per tick
+ * well_road_configs konfiguracja per odwiert (typ ciarwki, pojemno kursu, koszt)
+ * config per well (truck type, trip capacity, cost)
+ * well_road_incident_logs log incydentw kursw per tick / trip incident log per tick
  */
 class RoadTransportService
 {
     private PDO $db;
 
-    /** Bazowe prawdopodobiestwo incydentu na kurs na godzin / Base incident probability per trip per hour */
+ /** Bazowe prawdopodobiestwo incydentu na kurs na godzin / Base incident probability per trip per hour */
     private const BASE_INCIDENT_CHANCE_PER_HOUR = 0.015;
 
-    /** Wagi typw incydentw przy losowaniu / Incident type weights for random selection */
+ /** Wagi typw incydentw przy losowaniu / Incident type weights for random selection */
     private const INCIDENT_WEIGHTS = [
         'theft'       => 3,
         'raid'        => 2,
@@ -33,7 +33,7 @@ class RoadTransportService
         'route_block' => 2,
     ];
 
-    /** Parametry domylne typw ciarwek / Default parameters for truck types */
+ /** Parametry domylne typw ciarwek / Default parameters for truck types */
     private const TRUCK_DEFAULTS = [
         'standard' => ['trip_capacity_bbl' => 25.0, 'cost_per_trip' =>  500.0, 'incident_risk_mult' => 1.000, 'trip_hours' => 2],
         'heavy'    => ['trip_capacity_bbl' => 50.0, 'cost_per_trip' =>  900.0, 'incident_risk_mult' => 0.800, 'trip_hours' => 3],
@@ -46,9 +46,9 @@ class RoadTransportService
         $this->ensureSchema();
     }
 
-    // 
-    // Schemat
-    // 
+ // 
+ // Schemat
+ // 
 
     private function ensureSchema(): void
     {
@@ -111,7 +111,7 @@ class RoadTransportService
                     KEY idx_road_inc_created (created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
-            // Tabela kursow drogowych w czasie (P1.2) / Time-based road trips table (P1.2)
+ // Tabela kursow drogowych w czasie (P1.2) / Time-based road trips table (P1.2)
             $this->db->exec(
                 "CREATE TABLE IF NOT EXISTS well_road_trips (
                     id                   INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -136,8 +136,8 @@ class RoadTransportService
                     KEY idx_road_trips_status (status)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
-            // Migracja brakujacych kolumn (istniejace tabele z wczesniejszego schematu)
-            // Column migration (existing tables from earlier schema version)
+ // Migracja brakujacych kolumn (istniejace tabele z wczesniejszego schematu)
+ // Column migration (existing tables from earlier schema version)
             $this->ensureRoadTripColumn('delivered_bbl',        'DECIMAL(12,4) NOT NULL DEFAULT 0.0000 AFTER volume_bbl');
             $this->ensureRoadTripColumn('trips_count',          'SMALLINT UNSIGNED NOT NULL DEFAULT 1 AFTER truck_type');
             $this->ensureRoadTripColumn('trip_hours',           'TINYINT UNSIGNED NOT NULL DEFAULT 2 AFTER trips_count');
@@ -146,14 +146,14 @@ class RoadTransportService
         }
     }
 
-    // Configuration management
+ // Configuration management
 
-    /**
-     * Tworzy domyln konfiguracj dla odwiertw ciezarowki, ktre jej jeszcze nie maj.
-     * Creates default configuration for truck-type wells that do not have one yet.
-     *
-     * @param list<array<string, mixed>> $wells
-     */
+ /**
+ * Tworzy domyln konfiguracj dla odwiertw ciezarowki, ktre jej jeszcze nie maj.
+ * Creates default configuration for truck-type wells that do not have one yet.
+ *
+ * @param list<array<string, mixed>> $wells
+ */
     public function ensureConfigsForPlayerWells(int $playerId, array $wells): void
     {
         if ($wells === []) {
@@ -190,10 +190,10 @@ class RoadTransportService
         }
     }
 
-    /**
-     * @param  list<int>                          $wellIds
-     * @return array<int, array<string, mixed>>   indexed by well_id
-     */
+ /**
+ * @param list<int> $wellIds
+ * @return array<int, array<string, mixed>> indexed by well_id
+ */
     public function getConfigsByWellIds(int $playerId, array $wellIds): array
     {
         $wellIds = array_values(array_unique(array_map('intval', $wellIds)));
@@ -215,15 +215,15 @@ class RoadTransportService
         return $rows;
     }
 
-    // Time-based trip dispatch and completion (MySQL only)
+ // Time-based trip dispatch and completion (MySQL only)
 
-    /**
-     * MySQL only. Tworzy rekord kursu w well_road_trips; olej jest w tranzycie.
-     * MySQL only. Creates a trip record in well_road_trips; oil is in transit.
-     *
-     * @param  array<string, mixed>|null $config  wiersz well_road_configs lub null / well_road_configs row or null
-     * @return array{trips_count:int, volume_bbl:float, cost:float, truck_type:string, eta_at:string}
-     */
+ /**
+ * MySQL only. Tworzy rekord kursu w well_road_trips; olej jest w tranzycie.
+ * MySQL only. Creates a trip record in well_road_trips; oil is in transit.
+ *
+ * @param array<string, mixed>|null $config wiersz well_road_configs lub null / well_road_configs row or null
+ * @return array{trips_count:int, volume_bbl:float, cost:float, truck_type:string, eta_at:string}
+ */
     public function dispatchTrips(
         int    $playerId,
         int    $wellId,
@@ -248,8 +248,8 @@ class RoadTransportService
         $tripsCount = max(1, (int)ceil($volumeBbl / $tripCap));
         $cost       = round($tripsCount * $costPerTrip, 2);
 
-        // Uzyj NOW() MySQL zamiast PHP DateTime zeby uniknac roznic stref czasowych.
-        // Use MySQL NOW() instead of PHP DateTime to avoid timezone mismatches.
+ // Uzyj NOW() MySQL zamiast PHP DateTime zeby uniknac roznic stref czasowych.
+ // Use MySQL NOW() instead of PHP DateTime to avoid timezone mismatches.
         $etaStmt = $this->db->prepare("SELECT DATE_ADD(NOW(), INTERVAL ? HOUR) AS eta_at");
         $etaStmt->execute([$tripHours]);
         $etaAt = (string)$etaStmt->fetchColumn();
@@ -273,18 +273,20 @@ class RoadTransportService
         ];
     }
 
-    /**
-     * Przetwarza ukonczone kursy (eta_at <= NOW()). Stosuje incydenty, aktualizuje rekordy.
-     * Processes completed trips (eta_at <= NOW()). Applies incidents, updates records.
-     *
-     * @param  array<string, mixed> $hseBonus
-     * @return array{delivered_bbl:float, lost_bbl:float, completed_count:int}
-     */
+ /**
+ * Przetwarza ukonczone kursy (eta_at <= NOW()). Stosuje incydenty, aktualizuje rekordy.
+ * Processes completed trips (eta_at <= NOW()). Applies incidents, updates records.
+ *
+ * @param array<string, mixed> $hseBonus
+ * @return array{delivered_bbl:float, lost_bbl:float, completed_count:int}
+ */
     public function processCompletedTrips(int $playerId, array $hseBonus): array
     {
         $totalDelivered = 0.0;
         $totalLost      = 0.0;
         $completed      = 0;
+ /** @var array<int, float> well_id => delivered bbl (basis for the second transport leg) */
+        $deliveredByWell = [];
 
         try {
             $stmt = $this->db->prepare(
@@ -300,7 +302,7 @@ class RoadTransportService
             if (class_exists('GameLog', false)) {
                 GameLog::error('RoadTransportService', 'processCompletedTrips fetch FAILED', $e, ['player_id' => $playerId]);
             }
-            return ['delivered_bbl' => 0.0, 'lost_bbl' => 0.0, 'completed_count' => 0];
+            return ['delivered_bbl' => 0.0, 'lost_bbl' => 0.0, 'completed_count' => 0, 'delivered_by_well' => []];
         }
 
         foreach ($trips as $trip) {
@@ -335,21 +337,25 @@ class RoadTransportService
             $totalDelivered += $delivered;
             $totalLost      += $lost;
             $completed++;
+
+            $wid = (int)$trip['well_id'];
+            $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
         }
 
         return [
-            'delivered_bbl'  => round($totalDelivered, 4),
-            'lost_bbl'       => round($totalLost, 4),
+            'delivered_bbl'   => round($totalDelivered, 4),
+            'lost_bbl'        => round($totalLost, 4),
             'completed_count' => $completed,
+            'delivered_by_well' => $deliveredByWell,
         ];
     }
 
-    /**
-     * Zwraca aktywne kursy gracza (status=in_transit) z danymi odwiertu i pozostalym czasem.
-     * Returns active trips for a player (status=in_transit) with well data and time remaining.
-     *
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * Zwraca aktywne kursy gracza (status=in_transit) z danymi odwiertu i pozostalym czasem.
+ * Returns active trips for a player (status=in_transit) with well data and time remaining.
+ *
+ * @return list<array<string, mixed>>
+ */
     public function getActiveTripsForPlayer(int $playerId): array
     {
         try {
@@ -373,29 +379,29 @@ class RoadTransportService
         }
     }
 
-    // Tick  trip logic (stateless model - used for SQLite / legacy)
+ // Tick trip logic (stateless model - used for SQLite / legacy)
 
-    /**
-     * Przetwarza transport kursowy dla jednego odwiertu w ticku.
-     * Processes road transport for one well in a tick.
-     *
-     * Kady kurs jest niezalen jednostk ryzyka. Kradzie/napad = cay kurs stracony.
-     * Each trip is an independent unit of risk. Theft/raid = entire trip lost.
-     * Opata za kurs liczy si od wszystkich kursw wysanych, nie tylko dostarczonych.
-     * Trip fee is charged for all dispatched trips, not just delivered ones.
-     *
-     * @param  array<string, mixed>|null $config    wiersz z well_road_configs lub null (-> defaults)
-     * @param  array<string, mixed>      $hseBonus
-     * @return array{
-     *     trips_total:     int,
-     *     trips_delivered: int,
-     *     trips_lost:      int,
-     *     delivered_bbl:   float,
-     *     lost_bbl:        float,
-     *     cost:            float,
-     *     incidents:       list<array<string, mixed>>
-     * }
-     */
+ /**
+ * Przetwarza transport kursowy dla jednego odwiertu w ticku.
+ * Processes road transport for one well in a tick.
+ *
+ * Kady kurs jest niezalen jednostk ryzyka. Kradzie/napad = cay kurs stracony.
+ * Each trip is an independent unit of risk. Theft/raid = entire trip lost.
+ * Opata za kurs liczy si od wszystkich kursw wysanych, nie tylko dostarczonych.
+ * Trip fee is charged for all dispatched trips, not just delivered ones.
+ *
+ * @param array<string, mixed>|null $config wiersz z well_road_configs lub null (-> defaults)
+ * @param array<string, mixed> $hseBonus
+ * @return array{
+ * trips_total: int,
+ * trips_delivered: int,
+ * trips_lost: int,
+ * delivered_bbl: float,
+ * lost_bbl: float,
+ * cost: float,
+ * incidents: list<array<string, mixed>>
+ * }
+ */
     public function processTick(
         int    $playerId,
         int    $wellId,
@@ -416,7 +422,7 @@ class RoadTransportService
         $tripsTotal  = max(1, (int)ceil($inputBbl / $tripCap));
         $volPerTrip  = $inputBbl / $tripsTotal;
 
-        // Szansa incydentu per kurs (skalowana przez czas, ryzyko polityczne i BHP)
+ // Szansa incydentu per kurs (skalowana przez czas, ryzyko polityczne i BHP)
         $politicalScale = match (true) {
             $politicalRiskLevel >= 4 => 2.0,
             $politicalRiskLevel >= 3 => 1.5,
@@ -439,12 +445,12 @@ class RoadTransportService
 
         for ($i = 0; $i < $tripsTotal; $i++) {
             if (mt_rand(1, 1_000_000) > $threshold) {
-                // Kurs dostarczony bez incydentu
+ // Kurs dostarczony bez incydentu
                 $deliveredBbl += $volPerTrip;
                 continue;
             }
 
-            // Losowanie typu incydentu
+ // Losowanie typu incydentu
             $type  = $this->rollIncidentType($totalWeight);
             $loss  = $this->computeTripLoss($type, $volPerTrip);
             $loss  = min($volPerTrip, round($loss, 4));
@@ -478,14 +484,14 @@ class RoadTransportService
         ];
     }
 
-    //
-    // Helpery prywatne
-    //
+ //
+ // Helpery prywatne
+ //
 
-    /**
-     * Dodaje kolumne do well_road_trips jesli nie istnieje (migracja).
-     * Adds column to well_road_trips if it does not exist (migration).
-     */
+ /**
+ * Dodaje kolumne do well_road_trips jesli nie istnieje (migracja).
+ * Adds column to well_road_trips if it does not exist (migration).
+ */
     private function ensureRoadTripColumn(string $column, string $definition): void
     {
         try {
@@ -507,13 +513,13 @@ class RoadTransportService
         }
     }
 
-    /**
-     * Stosuje incydenty per-kurs dla paczki kursow. Zwraca [delivered, lost, incidents].
-     * Applies per-trip incidents for a batch of trips. Returns [delivered, lost, incidents].
-     *
-     * @param  array<string, mixed>                             $hseBonus
-     * @return array{float, float, list<array<string, mixed>>}
-     */
+ /**
+ * Stosuje incydenty per-kurs dla paczki kursow. Zwraca [delivered, lost, incidents].
+ * Applies per-trip incidents for a batch of trips. Returns [delivered, lost, incidents].
+ *
+ * @param array<string, mixed> $hseBonus
+ * @return array{float, float, list<array<string, mixed>>}
+ */
     private function applyTripIncidents(
         float $totalVolume,
         int   $tripsCount,
@@ -581,9 +587,9 @@ class RoadTransportService
         };
     }
 
-    /**
-     * @param list<array<string, mixed>> $incidents
-     */
+ /**
+ * @param list<array<string, mixed>> $incidents
+ */
     private function logIncidents(
         int   $wellId,
         int   $playerId,
@@ -592,7 +598,7 @@ class RoadTransportService
         array $incidents
     ): void {
         try {
-            // Grupuj per typ  jeden wiersz logu per typ incydentu per tick
+ // Grupuj per typ jeden wiersz logu per typ incydentu per tick
             $byType = [];
             foreach ($incidents as $inc) {
                 $t = $inc['type'];
@@ -629,9 +635,9 @@ class RoadTransportService
         }
     }
 
-    /**
-     * @return array{trips_total:int, trips_delivered:int, trips_lost:int, delivered_bbl:float, lost_bbl:float, cost:float, incidents:list<array<string,mixed>>}
-     */
+ /**
+ * @return array{trips_total:int, trips_delivered:int, trips_lost:int, delivered_bbl:float, lost_bbl:float, cost:float, incidents:list<array<string,mixed>>}
+ */
     private function emptyResult(): array
     {
         return [

@@ -1,5 +1,5 @@
 <?php
-// Compatibility redirect: /admin/player.php?id=X  player_clean.php, else  players.php
+// Compatibility redirect: /admin/player.php?id=X player_clean.php, else players.php
 if (!empty($_GET['id'])) {
     header('Location: /admin/player_clean.php?id=' . (int)$_GET['id']);
 } else {

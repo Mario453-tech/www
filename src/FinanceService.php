@@ -114,9 +114,9 @@ class FinanceService
         }
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+ /**
+ * @return array<string, mixed>|null
+ */
     public function getLastTick(int $playerId): ?array
     {
         $stmt = $this->db->prepare(
@@ -133,9 +133,9 @@ class FinanceService
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
-    /**
-     * @return array<string, float>
-     */
+ /**
+ * @return array<string, float>
+ */
     public function getSummary(int $playerId, int $hours = 24): array
     {
         $stmt = $this->db->prepare(
@@ -179,9 +179,9 @@ class FinanceService
         );
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * @return list<array<string, mixed>>
+ */
     public function getHistory(int $playerId, int $hours = 24): array
     {
         $stmt = $this->db->prepare(
@@ -210,9 +210,9 @@ class FinanceService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * @return list<array<string, mixed>>
+ */
     public function getPerWellStats(int $playerId): array
     {
         try {
@@ -247,11 +247,11 @@ class FinanceService
         }
     }
 
-    /**
-     * @param array<string, mixed> $last
-     * @param array<string, float> $summary24h
-     * @return list<array{level:string, icon:string, msg:string}>
-     */
+ /**
+ * @param array<string, mixed> $last
+ * @param array<string, float> $summary24h
+ * @return list<array{level:string, icon:string, msg:string}>
+ */
     public function getAlerts(int $playerId, array $last, array $summary24h): array
     {
         $alerts = [];
@@ -346,9 +346,9 @@ class FinanceService
         return $alerts;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     public function getGlobalStats(int $hours = 24): array
     {
         $stmt = $this->db->prepare(
@@ -376,9 +376,9 @@ class FinanceService
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * @return list<array<string, mixed>>
+ */
     public function getPerPlayerStats(int $hours = 24): array
     {
         $stmt = $this->db->prepare(
@@ -409,9 +409,9 @@ class FinanceService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * @return list<array{level:string, icon:string, msg:string}>
-     */
+ /**
+ * @return list<array{level:string, icon:string, msg:string}>
+ */
     public function getAdminAlerts(int $hours = 24): array
     {
         $alerts = [];
@@ -473,11 +473,11 @@ class FinanceService
         return $alerts;
     }
 
-    /**
-     * Odczytuje progi alertów z well_config. Fallback do bezpiecznych wartoœci domyœlnych.
-     * Reads alert thresholds from well_config. Falls back to safe defaults.
-     * @return array{alert_loss_pct: float, alert_hub_loss_pct: float, alert_fallback_min_pln: float, alert_loss_player_min: int}
-     */
+ /**
+ * Odczytuje progi alertw z well_config. Fallback do bezpiecznych wartoci domylnych.
+ * Reads alert thresholds from well_config. Falls back to safe defaults.
+ * @return array{alert_loss_pct: float, alert_hub_loss_pct: float, alert_fallback_min_pln: float, alert_loss_player_min: int}
+ */
     private function getAlertThresholds(): array
     {
         $defaults = [
@@ -501,17 +501,17 @@ class FinanceService
             }
             unset($v);
         } catch (Throwable $e) {
-            // well_config not available — using default values
+ // well_config not available using default values
         }
         return $defaults;
     }
 
-    /**
-     * @param array<string, string> $settings
-     * @param array<string, mixed>|null $last
-     * @param array<string, float> $summary24h
-     * @return array<string, float|string>
-     */
+ /**
+ * @param array<string, string> $settings
+ * @param array<string, mixed>|null $last
+ * @param array<string, float> $summary24h
+ * @return array<string, float|string>
+ */
     public function getLiquidityOverview(int $playerId, array $settings, ?array $last, array $summary24h): array
     {
         $cash = 0.0;
@@ -588,12 +588,12 @@ class FinanceService
         ];
     }
 
-    /**
-     * @param array<string, string> $settings
-     * @param array<string, float|string> $liquidity
-     * @param array<string, float> $summary24h
-     * @return list<array{level:string,icon:string,msg:string}>
-     */
+ /**
+ * @param array<string, string> $settings
+ * @param array<string, float|string> $liquidity
+ * @param array<string, float> $summary24h
+ * @return list<array{level:string,icon:string,msg:string}>
+ */
     public function getStage3Alerts(array $settings, array $liquidity, array $summary24h): array
     {
         $alerts = [];
@@ -635,14 +635,14 @@ class FinanceService
         return $alerts;
     }
 
-    /**
-     * @param array<string, string> $settings
-     * @param array<string, mixed>|null $last
-     * @param array<string, float> $summary24h
-     * @param list<array<string, mixed>> $perWell
-     * @param array<string, mixed>|null $liquidity
-     * @return list<array<string, string|float|int>>
-     */
+ /**
+ * @param array<string, string> $settings
+ * @param array<string, mixed>|null $last
+ * @param array<string, float> $summary24h
+ * @param list<array<string, mixed>> $perWell
+ * @param array<string, mixed>|null $liquidity
+ * @return list<array<string, string|float|int>>
+ */
     public function getRiskOverview(array $settings, ?array $last, array $summary24h, array $perWell, ?array $liquidity = null): array
     {
         $revenue          = (float)($summary24h['total_revenue'] ?? 0.0);
@@ -748,16 +748,16 @@ class FinanceService
         ];
     }
 
-    /**
-     * Zbiorczy snapshot aktywnego wp³ywu polityki finansowej.
-     * Aggregated snapshot of the active financial policy impact.
-     *
-     * @param array<string, string> $settings
-     * @param array<string, mixed>|null $last
-     * @param array<string, mixed> $summary24h
-     * @param array<string, mixed> $policySnapshot
-     * @return array<string, mixed>
-     */
+ /**
+ * Zbiorczy snapshot aktywnego wpywu polityki finansowej.
+ * Aggregated snapshot of the active financial policy impact.
+ *
+ * @param array<string, string> $settings
+ * @param array<string, mixed>|null $last
+ * @param array<string, mixed> $summary24h
+ * @param array<string, mixed> $policySnapshot
+ * @return array<string, mixed>
+ */
     public function getPolicyImpactOverview(int $playerId, array $settings, ?array $last, array $summary24h, array $policySnapshot = []): array
     {
         $defaults = [
@@ -917,15 +917,15 @@ class FinanceService
         }
     }
 
-    /**
-     * Rekomendacje dla aktywnej polityki finansowej.
-     *
-     * @param array<string, string> $settings
-     * @param array<string, mixed> $liquidity
-     * @param array<string, mixed> $summary24h
-     * @param array<string, mixed> $policyImpact
-     * @return array<string, mixed>
-     */
+ /**
+ * Rekomendacje dla aktywnej polityki finansowej.
+ *
+ * @param array<string, string> $settings
+ * @param array<string, mixed> $liquidity
+ * @param array<string, mixed> $summary24h
+ * @param array<string, mixed> $policyImpact
+ * @return array<string, mixed>
+ */
     public function getPolicyRecommendationOverview(array $settings, array $liquidity, array $summary24h, array $policyImpact): array
     {
         $mode = (string)($settings['savings_plan_mode'] ?? 'off');
@@ -1066,9 +1066,9 @@ class FinanceService
         ];
     }
 
-    /**
-     * @return array<string, string|float|int>
-     */
+ /**
+ * @return array<string, string|float|int>
+ */
     private function buildRiskItem(string $key, string $label, string $level, string $desc, string $hint, ?string $actionTab = null, ?string $actionLabel = null): array
     {
         return [
@@ -1083,9 +1083,9 @@ class FinanceService
         ];
     }
 
-    /**
-     * @return array<string, string|float|bool>
-     */
+ /**
+ * @return array<string, string|float|bool>
+ */
     private function buildPolicyEffect(string $key, string $label, float $multiplier, bool $higherIsGood): array
     {
         $deltaPct = round(($multiplier - 1.0) * 100.0, 1);

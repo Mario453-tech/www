@@ -10,7 +10,7 @@ try {
     $err      = '';
     $editNews = null;
 
-    // POST actions / Akcje POST
+ // POST actions / Akcje POST
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
             $err = t('common.csrf_error');
@@ -55,7 +55,7 @@ try {
                 $id = (int) ($_POST['news_id'] ?? 0);
 
                 if ($id > 0) {
-                    // Max 3 pinned items / Maksymalnie 3 przypiete wpisy
+ // Max 3 pinned items / Maksymalnie 3 przypiete wpisy
                     $pinCount = (int) $db->query("SELECT COUNT(*) FROM admin_news WHERE is_pinned = 1 AND active = 1")->fetchColumn();
                     if ($pinCount >= 3) {
                         $err = t('admin.news.max_pinned_warn');
@@ -77,7 +77,7 @@ try {
         }
     }
 
-    // Edit mode - load item into the form / Tryb edycji - zaladuj news do formularza
+ // Edit mode - load item into the form / Tryb edycji - zaladuj news do formularza
     if (isset($_GET['edit'])) {
         $editId = (int) $_GET['edit'];
         if ($editId > 0) {
@@ -91,7 +91,7 @@ try {
         }
     }
 
-    // News list / Lista newsow
+ // News list / Lista newsow
     $newsList = [];
     try {
         $newsList = $db->query("

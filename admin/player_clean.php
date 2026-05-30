@@ -13,7 +13,7 @@ if (!$pid) {
     exit();
 }
 
-//  FUNKCJE POBIERANIA DANYCH 
+// FUNKCJE POBIERANIA DANYCH 
 
 function fetchPlayer(PDO $db, int $pid): array|false
 {
@@ -194,7 +194,7 @@ function fetchBankruptcy(PDO $db, int $pid): array
     try {
         GameLog::step('admin/player', 'fetchBankruptcy', 1, 'start', ['pid' => $pid]);
 
-        // Dane statusu bankruta z tabeli players
+ // Dane statusu bankruta z tabeli players
         $pStmt = $db->prepare("
             SELECT
                 COALESCE(recovery_mode, 0)          AS recovery_mode,
@@ -207,7 +207,7 @@ function fetchBankruptcy(PDO $db, int $pid): array
         $playerRow = $pStmt->fetch();
         GameLog::dbResult('admin/player', 'fetchBankruptcy playerRow', $playerRow ? 1 : 0);
 
-        // Historia zdarze bankruta (ostatnie 30)
+ // Historia zdarze bankruta (ostatnie 30)
         $evStmt = $db->prepare("
             SELECT id, event_type, message, severity, is_critical,
                    due_at, resolved_at, resolution_note, created_at
@@ -246,7 +246,7 @@ function fetchBankruptcy(PDO $db, int $pid): array
     }
 }
 
-//  INICJALIZACJA DANYCH 
+// INICJALIZACJA DANYCH 
 
 $trustPage    = max(1, (int)($_GET['tp'] ?? 1));
 $trustPerPage = 10;
@@ -305,7 +305,7 @@ $wellStatusLabels = [
     'sold'           => t('well.status.sold'),
 ];
 
-//  OBSUGA AKCJI POST 
+// OBSUGA AKCJI POST 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -317,7 +317,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     GameLog::step('admin/player', 'POST', 1, 'action=' . $action, ['pid' => $pid]);
 
-    //  Ustawienie gotwki (warto absolutna) 
+ // Ustawienie gotwki (warto absolutna) 
     if ($action === 'set_cash') {
         $setAmount = (float)($_POST['set_amount'] ?? 0);
         if ($setAmount >= 0) {
@@ -335,7 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = t('admin.player.err_cash_negative');
         }
 
-    //  Zmiana gotwki (delta) 
+ // Zmiana gotwki (delta) 
     } elseif ($action === 'cash') {
         $amount = (int)($_POST['amount'] ?? 0);
         $reason = trim($_POST['reason'] ?? '');
@@ -355,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             GameLog::warn('admin/player', 'cash change - kwota 0', ['pid' => $pid]);
         }
 
-    //  Zmiana statusu gracza 
+ // Zmiana statusu gracza 
     } elseif ($action === 'status') {
         $new     = $_POST['new_status'] ?? '';
         $allowed = ['active', 'financial_risk', 'under_bailiff', 'bankrupt'];
@@ -376,7 +376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             GameLog::warn('admin/player', 'nieprawidowy status gracza', ['pid' => $pid, 'value' => $new]);
         }
 
-    //  Zmiana statusu odwiertu 
+ // Zmiana statusu odwiertu 
     } elseif ($action === 'well_set_status') {
         $wid       = (int)($_POST['well_id'] ?? 0);
         $newStatus = $_POST['new_well_status'] ?? '';
@@ -398,11 +398,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             GameLog::warn('admin/player', 'nieprawidowy status odwiertu', ['pid' => $pid, 'well_id' => $wid, 'status' => $newStatus]);
         }
 
-    //  Toggle newsletter subscription
+ // Toggle newsletter subscription
     } elseif ($action === 'toggle_newsletter') {
         try {
             $cur = (int)$db->prepare("SELECT COALESCE(newsletter_subscribed,1) FROM players WHERE id=?")->execute([$pid]) ? 1 : 1;
-            // Fetch current value properly
+ // Fetch current value properly
             $curStmt = $db->prepare("SELECT COALESCE(newsletter_subscribed,1) AS ns FROM players WHERE id=? LIMIT 1");
             $curStmt->execute([$pid]);
             $cur = (int)$curStmt->fetchColumn();
@@ -419,7 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Bd zmiany subskrypcji: ' . $e->getMessage();
         }
 
-    //  Rczny tick
+ // Rczny tick
     } elseif ($action === 'manual_tick') {
         try {
             $now     = new DateTime();
@@ -499,7 +499,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = t('admin.player.err_tick') . $e->getMessage();
         }
 
-    //  Rczna korekta Trust Score 
+ // Rczna korekta Trust Score 
     } elseif ($action === 'trust_adjust') {
         $delta  = max(-100, min(100, (int)($_POST['trust_delta']  ?? 0)));
         $reason = trim($_POST['trust_reason'] ?? 'korekta_admin');
@@ -546,7 +546,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     } elseif ($action === 'set_credit_score') {
-        //  Bezporednie ustawienie players.credit_score 
+ // Bezporednie ustawienie players.credit_score 
         $newCs = max(0, min(1000, (int)($_POST['credit_score_value'] ?? 0)));
         try {
             $db->prepare("UPDATE players SET credit_score = :cs WHERE id = :pid")
@@ -560,7 +560,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     } elseif ($action === 'clear_trust_log') {
-        //  Czyszczenie historii trust score 
+ // Czyszczenie historii trust score 
         try {
             $db->prepare("DELETE FROM bank_trust_log WHERE player_id = :pid")
                ->execute([':pid' => $pid]);
@@ -573,7 +573,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     } elseif ($action === 'clear_bk_events') {
-        //  Czyszczenie historii zdarze bankructwa 
+ // Czyszczenie historii zdarze bankructwa 
         try {
             $db->prepare("DELETE FROM bankruptcy_events WHERE player_id = :pid")
                ->execute([':pid' => $pid]);
@@ -586,7 +586,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     } elseif ($action === 'bankruptcy_reset') {
-        //  Rczny reset trybu bankruta przez admina 
+ // Rczny reset trybu bankruta przez admina 
         $newStatus = (string)($_POST['bankruptcy_new_status'] ?? 'none');
         GameLog::step('admin/player', 'POST', 1, 'bankruptcy_reset', [
             'pid'        => $pid,
@@ -602,7 +602,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->beginTransaction();
 
                 if ($newStatus === 'none' || $newStatus === 'recovered') {
-                    // Peny reset  gracz wychodzi z bankructwa
+ // Peny reset gracz wychodzi z bankructwa
                     $db->prepare("
                         UPDATE players
                         SET recovery_mode     = 0,
@@ -612,7 +612,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         WHERE id = :pid
                     ")->execute([':bs' => $newStatus, ':pid' => $pid]);
                 } else {
-                    // Zmiana statusu bez wychodzenia z bankructwa
+ // Zmiana statusu bez wychodzenia z bankructwa
                     $db->prepare("
                         UPDATE players
                         SET recovery_mode     = 1,
@@ -649,7 +649,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = t('admin.player.err_unknown_action');
     }
 
-    // Odwie dane po akcji
+ // Odwie dane po akcji
     try {
         $player           = fetchPlayer($db, $pid);
         $wells            = fetchWells($db, $pid);
@@ -668,7 +668,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  HELPERS RENDER 
+// HELPERS RENDER 
 
 function playerBadgeClass(string $status): string
 {

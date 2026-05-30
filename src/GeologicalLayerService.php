@@ -12,25 +12,25 @@
  *
  * geological_layers table:
  * PL: Tabela geological_layers:
- *   id, code, name, depth_m_max, reservoir_bbl, richness_mult,
- *   risk_mult, wear_depth_factor, spiral_boost,
- *   switch_cost, switch_hours
+ * id, code, name, depth_m_max, reservoir_bbl, richness_mult,
+ * risk_mult, wear_depth_factor, spiral_boost,
+ * switch_cost, switch_hours
  *
  * wells columns:
  * PL: Kolumny w wells:
- *   active_layer_id, layer_reservoir_used, layer_switch_until
+ * active_layer_id, layer_reservoir_used, layer_switch_until
  */
 class GeologicalLayerService
 {
     private PDO $db;
 
-    // Layer cache loaded once per request.
-    // PL: Cache warstw ladowany raz na request.
-    /** @var array<int, array<string, mixed>>|null */
+ // Layer cache loaded once per request.
+ // PL: Cache warstw ladowany raz na request.
+ /** @var array<int, array<string, mixed>>|null */
     private static ?array $layerCache = null;
 
-    // Equipment rule: ultra/deep requires better gear.
-    // PL: Zasada sprzetu: ultra/deep wymaga lepszego wyposazenia.
+ // Equipment rule: ultra/deep requires better gear.
+ // PL: Zasada sprzetu: ultra/deep wymaga lepszego wyposazenia.
     private const BLACKMARKET_DEEP_PENALTY = 1.50;
 
     public function __construct()
@@ -38,15 +38,15 @@ class GeologicalLayerService
         $this->db = Database::getInstance()->getConnection();
     }
 
-    // Layer reads.
-    // PL: Odczyt warstw.
+ // Layer reads.
+ // PL: Odczyt warstw.
 
-    /**
-     * Return all available geological layers.
-     * PL: Zwraca wszystkie dostepne warstwy geologiczne.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+ /**
+ * Return all available geological layers.
+ * PL: Zwraca wszystkie dostepne warstwy geologiczne.
+ *
+ * @return array<int, array<string, mixed>>
+ */
     public function getAllLayers(): array
     {
         if (self::$layerCache !== null) {
@@ -59,31 +59,31 @@ class GeologicalLayerService
                 self::$layerCache[$row['id']] = $row;
             }
         } catch (Throwable $e) {
-            // Table may not exist yet before migration - use a single fallback layer.
-            // PL: Tabela moze jeszcze nie istniec przed migracja - uzyj jednej warstwy fallback.
+ // Table may not exist yet before migration - use a single fallback layer.
+ // PL: Tabela moze jeszcze nie istniec przed migracja - uzyj jednej warstwy fallback.
             self::$layerCache = [1 => $this->getFallbackLayer()];
         }
         return self::$layerCache;
     }
 
-    /**
-     * Return one layer by id.
-     * PL: Zwraca warstwe po id.
-     *
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Return one layer by id.
+ * PL: Zwraca warstwe po id.
+ *
+ * @return array<string, mixed>|null
+ */
     public function getLayer(int $layerId): ?array
     {
         $layers = $this->getAllLayers();
         return $layers[$layerId] ?? null;
     }
 
-    /**
-     * Return one layer by code.
-     * PL: Zwraca warstwe po kodzie.
-     *
-     * @return array<string, mixed>|null
-     */
+ /**
+ * Return one layer by code.
+ * PL: Zwraca warstwe po kodzie.
+ *
+ * @return array<string, mixed>|null
+ */
     public function getLayerByCode(string $code): ?array
     {
         foreach ($this->getAllLayers() as $layer) {
@@ -94,12 +94,12 @@ class GeologicalLayerService
         return null;
     }
 
-    /**
-     * Return the active layer for a well.
-     * PL: Zwraca aktywna warstwe dla odwiertu.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Return the active layer for a well.
+ * PL: Zwraca aktywna warstwe dla odwiertu.
+ *
+ * @return array<string, mixed>
+ */
     public function getActiveLayer(int $wellId): array
     {
         try {
@@ -107,30 +107,30 @@ class GeologicalLayerService
             $stmt->execute([$wellId]);
             $layerId = (int)($stmt->fetchColumn() ?? 1);
         } catch (Throwable $e) {
-            // active_layer_id may not exist yet - use shallow fallback.
-            // PL: active_layer_id moze jeszcze nie istniec - uzyj plytkiego fallback.
+ // active_layer_id may not exist yet - use shallow fallback.
+ // PL: active_layer_id moze jeszcze nie istniec - uzyj plytkiego fallback.
             $layerId = 1;
         }
         return $this->getLayer($layerId) ?? $this->getFallbackLayer();
     }
 
-    // Multipliers used by tick and incidents.
-    // PL: Mnozniki uzywane przez tick i incydenty.
+ // Multipliers used by tick and incidents.
+ // PL: Mnozniki uzywane przez tick i incydenty.
 
-    /**
-     * Return multipliers for the well's active layer.
-     * PL: Zwraca mnozniki dla aktywnej warstwy odwiertu.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Return multipliers for the well's active layer.
+ * PL: Zwraca mnozniki dla aktywnej warstwy odwiertu.
+ *
+ * @return array<string, mixed>
+ */
     public function getLayerMultipliers(int $wellId, string $equipmentTier = 'standard'): array
     {
         $layer = $this->getActiveLayer($wellId);
 
         $riskMult = (float)$layer['risk_mult'];
 
-        // Penalty: black_market + deep/ultra means extra failures.
-        // PL: Kara: black_market + deep/ultra oznacza dodatkowe awarie.
+ // Penalty: black_market + deep/ultra means extra failures.
+ // PL: Kara: black_market + deep/ultra oznacza dodatkowe awarie.
         if ($equipmentTier === 'black_market'
             && in_array($layer['code'], ['deep', 'ultra'], true)) {
             $riskMult *= self::BLACKMARKET_DEEP_PENALTY;
@@ -147,13 +147,13 @@ class GeologicalLayerService
         ];
     }
 
-    /**
-     * Static multipliers helper for PHP templates.
-     * PL: Statyczny helper mnoznikow dla szablonow PHP.
-     *
-     * @param array<string, mixed> $layer
-     * @return array<string, mixed>
-     */
+ /**
+ * Static multipliers helper for PHP templates.
+ * PL: Statyczny helper mnoznikow dla szablonow PHP.
+ *
+ * @param array<string, mixed> $layer
+ * @return array<string, mixed>
+ */
     public static function multipliersFromLayer(array $layer, string $equipmentTier = 'standard'): array
     {
         $riskMult = (float)$layer['risk_mult'];
@@ -169,13 +169,13 @@ class GeologicalLayerService
         ];
     }
 
-    // Reservoir tracking.
-    // PL: Obsluga zasobow warstwy.
+ // Reservoir tracking.
+ // PL: Obsluga zasobow warstwy.
 
-    /**
-     * Return remaining barrels in the active layer.
-     * PL: Zwraca pozostale barylki w aktywnej warstwie.
-     */
+ /**
+ * Return remaining barrels in the active layer.
+ * PL: Zwraca pozostale barylki w aktywnej warstwie.
+ */
     public function getRemainingReservoir(int $wellId): ?int
     {
         $stmt = $this->db->prepare("
@@ -195,10 +195,10 @@ class GeologicalLayerService
         return max(0, $remaining);
     }
 
-    /**
-     * Register produced oil consumption in the current layer reservoir.
-     * PL: Rejestruje zuzycie zasobu aktualnej warstwy przez wydobycie.
-     */
+ /**
+ * Register produced oil consumption in the current layer reservoir.
+ * PL: Rejestruje zuzycie zasobu aktualnej warstwy przez wydobycie.
+ */
     public function consumeReservoir(int $wellId, float $bblProduced): bool
     {
         $this->db->prepare("
@@ -211,25 +211,25 @@ class GeologicalLayerService
         return $remaining === null || $remaining > 0;
     }
 
-    /**
-     * Check whether the active layer is exhausted.
-     * PL: Sprawdza, czy aktywna warstwa jest wyczerpana.
-     */
+ /**
+ * Check whether the active layer is exhausted.
+ * PL: Sprawdza, czy aktywna warstwa jest wyczerpana.
+ */
     public function isLayerExhausted(int $wellId): bool
     {
         $remaining = $this->getRemainingReservoir($wellId);
         return $remaining !== null && $remaining <= 0;
     }
 
-    // Layer switching flow.
-    // PL: Obsluga zmiany warstwy.
+ // Layer switching flow.
+ // PL: Obsluga zmiany warstwy.
 
-    /**
-     * Switch the active layer for a well.
-     * PL: Zmienia aktywna warstwe odwiertu.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Switch the active layer for a well.
+ * PL: Zmienia aktywna warstwe odwiertu.
+ *
+ * @return array<string, mixed>
+ */
     public function switchLayer(int $wellId, int $playerId, int $targetLayerId): array
     {
         try {
@@ -312,10 +312,10 @@ class GeologicalLayerService
         }
     }
 
-    /**
-     * Unlock wells after drilling downtime finishes.
-     * PL: Odblokowuje odwiert po zakonczeniu przestoju wiercenia.
-     */
+ /**
+ * Unlock wells after drilling downtime finishes.
+ * PL: Odblokowuje odwiert po zakonczeniu przestoju wiercenia.
+ */
     public function processSwitchCompletion(int $wellId): bool
     {
         $stmt = $this->db->prepare("SELECT layer_switch_until, status FROM wells WHERE id = ? LIMIT 1");
@@ -329,8 +329,8 @@ class GeologicalLayerService
             return false;
         }
 
-        // Downtime has ended - clear it and resume.
-        // PL: Przestoj skonczyl sie - wyczysc go i wznow odwiert.
+ // Downtime has ended - clear it and resume.
+ // PL: Przestoj skonczyl sie - wyczysc go i wznow odwiert.
         $this->db->prepare("
             UPDATE wells
             SET layer_switch_until = NULL,
@@ -345,15 +345,15 @@ class GeologicalLayerService
         return true;
     }
 
-    // Fallback helpers.
-    // PL: Helpery fallback.
+ // Fallback helpers.
+ // PL: Helpery fallback.
 
-    /**
-     * Return fallback layer data when DB rows are unavailable.
-     * PL: Zwraca dane fallback warstwy, gdy brakuje rekordow w bazie.
-     *
-     * @return array<string, mixed>
-     */
+ /**
+ * Return fallback layer data when DB rows are unavailable.
+ * PL: Zwraca dane fallback warstwy, gdy brakuje rekordow w bazie.
+ *
+ * @return array<string, mixed>
+ */
     private function getFallbackLayer(): array
     {
         return [

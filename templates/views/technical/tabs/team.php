@@ -167,7 +167,7 @@
                                     <option value=""><?= t('technical.no_hub_option') ?></option>
                                     <?php foreach (($playerHubs ?? []) as $hub): ?>
                                     <option value="<?= (int)$hub['id'] ?>">
-                                        #<?= (int)$hub['id'] ?> <?= htmlspecialchars($hub['name'] ?? ('Hub #' . (int)$hub['id'])) ?>
+ #<?= (int)$hub['id'] ?> <?= htmlspecialchars($hub['name'] ?? ('Hub #' . (int)$hub['id'])) ?>
                                     </option>
                                     <?php endforeach ?>
                                 </select>

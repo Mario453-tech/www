@@ -606,8 +606,8 @@
         grid-template-columns: 1fr;
     }
 
-    #globe-container,
-    #world-map {
+ #globe-container,
+ #world-map {
         height: 380px;
     }
 
@@ -615,13 +615,13 @@
         flex-wrap: wrap;
     }
 
-    #map-audio-widget {
+ #map-audio-widget {
         right: 10px;
         bottom: 10px;
         padding: 5px 10px 5px 6px;
     }
 
-    #map-audio-vol {
+ #map-audio-vol {
         width: 60px;
     }
 }

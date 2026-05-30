@@ -1,0 +1,396 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/incidents.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+
+$db  = Database::getInstance()->getConnection();
+$msg = '';
+$err = '';
+
+//  Klucze konfiguracji incydentów w well_config 
+// Format: incident_cfg_{level}_{field}
+// Poziomy: micro, minor, medium, major
+// Pola: prod_drop_min, prod_drop_max, deg_min, deg_max, cost_min, cost_max,
+//       risk_add, hours_min, hours_max, base_chance
+$LEVELS = ['micro', 'minor', 'medium', 'major'];
+
+// Domyślne wartości (spójne z IncidentService::LEVEL_CONFIG)
+$DEFAULTS = [
+    'micro'  => ['prod_drop_min'=>5,  'prod_drop_max'=>10,  'deg_min'=>0, 'deg_max'=>1,  'cost_min'=>0,      'cost_max'=>0,       'risk_add'=>0,  'hours_min'=>1,  'hours_max'=>2,  'base_chance'=>0.15],
+    'minor'  => ['prod_drop_min'=>10, 'prod_drop_max'=>30,  'deg_min'=>1, 'deg_max'=>3,  'cost_min'=>0,      'cost_max'=>0,       'risk_add'=>0,  'hours_min'=>2,  'hours_max'=>6,  'base_chance'=>0.055],
+    'medium' => ['prod_drop_min'=>40, 'prod_drop_max'=>60,  'deg_min'=>3, 'deg_max'=>8,  'cost_min'=>50000,  'cost_max'=>500000,  'risk_add'=>5,  'hours_min'=>6,  'hours_max'=>24, 'base_chance'=>0.018],
+    'major'  => ['prod_drop_min'=>80, 'prod_drop_max'=>100, 'deg_min'=>8, 'deg_max'=>20, 'cost_min'=>200000, 'cost_max'=>2000000, 'risk_add'=>15, 'hours_min'=>24, 'hours_max'=>72, 'base_chance'=>0.004],
+];
+
+$FIELDS = ['prod_drop_min','prod_drop_max','deg_min','deg_max','cost_min','cost_max','risk_add','hours_min','hours_max','base_chance'];
+
+//  Retencja historii incydentów 
+$retentionDefault = 30;
+$retentionKey     = 'incident_retention_days';
+
+//  Odczyt konfiguracji z well_config 
+$incCfg = [];
+try {
+    $rows = $db->query("SELECT `key`, `value` FROM well_config WHERE `key` LIKE 'incident_cfg_%'")->fetchAll();
+    foreach ($rows as $r) {
+        $incCfg[$r['key']] = $r['value'];
+    }
+} catch (Throwable $e) {}
+
+// Odczyt retencji z well_config
+$retentionDays = $retentionDefault;
+try {
+    $r = $db->query("SELECT `value` FROM well_config WHERE `key` = '{$retentionKey}' LIMIT 1")->fetchColumn();
+    if ($r !== false) $retentionDays = max(1, (int)$r);
+} catch (Throwable $e) {}
+
+// Build working config (DB override or default)
+$config = [];
+foreach ($LEVELS as $lvl) {
+    $config[$lvl] = [];
+    foreach ($FIELDS as $f) {
+        $key = "incident_cfg_{$lvl}_{$f}";
+        $config[$lvl][$f] = array_key_exists($key, $incCfg) ? (float)$incCfg[$key] : $DEFAULTS[$lvl][$f];
+    }
+}
+
+//  Akcje POST 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
+        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'save_incident_cfg') {
+        $changed = [];
+        try {
+            $stmt = $db->prepare("INSERT INTO well_config (`key`, `value`, label, category) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)");
+            foreach ($LEVELS as $lvl) {
+                foreach ($FIELDS as $f) {
+                    $posted = $_POST["inc_{$lvl}_{$f}"] ?? null;
+                    if ($posted === null) continue;
+                    $val = (float)$posted;
+                    // Validation ranges
+                    $val = match($f) {
+                        'prod_drop_min','prod_drop_max' => max(0, min(100,  $val)),
+                        'deg_min','deg_max'             => max(0, min(100,  $val)),
+                        'cost_min','cost_max'           => max(0, min(1e8,  $val)),
+                        'risk_add'                      => max(0, min(50,   $val)),
+                        'hours_min','hours_max'         => max(1, min(720,  $val)),
+                        'base_chance'                   => max(0.0, min(1.0, $val)),
+                        default                         => $val,
+                    };
+                    $key   = "incident_cfg_{$lvl}_{$f}";
+                    $label = t('admin.incidents.cfg_label', ['level' => $lvl, 'field' => $f]);
+                    $stmt->execute([$key, $val, $label, 'incident']);
+                    $config[$lvl][$f] = $val;
+                    $changed[] = "{$key}={$val}";
+                }
+            }
+            if (!$err) {
+                AdminLog::log('incident_cfg_save', 'Incident config: ' . implode(', ', $changed));
+                $msg = t('admin.incidents.msg_saved');
+            }
+        } catch (Throwable $e) {
+            $err = t('admin.incidents.err_save') . ': ' . $e->getMessage();
+        }
+
+    } elseif ($action === 'reset_incident_cfg') {
+        try {
+            $db->query("DELETE FROM well_config WHERE `key` LIKE 'incident_cfg_%'");
+            $config = $DEFAULTS;
+            AdminLog::log('incident_cfg_reset', 'Incident config reset to defaults');
+            $msg = t('admin.incidents.msg_reset');
+        } catch (Throwable $e) {
+            $err = t('admin.incidents.err_reset') . ': ' . $e->getMessage();
+        }
+
+    } elseif ($action === 'delete_incident') {
+        $delId = (int)($_POST['incident_id'] ?? 0);
+        if ($delId > 0) {
+            try {
+                $db->prepare("DELETE FROM well_incidents WHERE id=?")->execute([$delId]);
+                AdminLog::log('incident_delete', "Deleted incident #$delId");
+                $msg = t('admin.incidents.msg_deleted');
+            } catch (Throwable $e) {
+                $err = t('admin.incidents.err_delete') . ': ' . $e->getMessage();
+            }
+        }
+
+    } elseif ($action === 'delete_history_bulk') {
+        $filterLevel  = trim($_POST['filter_level']  ?? '');
+        $filterPlayer = trim($_POST['filter_player'] ?? '');
+        $filterStatus = trim($_POST['filter_status'] ?? '');
+        $filterDays   = (int)($_POST['filter_days']  ?? 0);
+        try {
+            $where = ['1=1'];
+            $params = [];
+            if ($filterLevel && in_array($filterLevel, $LEVELS, true)) {
+                $where[] = 'level = ?'; $params[] = $filterLevel;
+            }
+            if ($filterPlayer !== '') {
+                $where[] = 'player_id = (SELECT id FROM players WHERE username = ? LIMIT 1)';
+                $params[] = $filterPlayer;
+            }
+            if ($filterStatus === 'open') {
+                $where[] = 'repaired_at IS NULL AND auto_repair = 0';
+            } elseif ($filterStatus === 'repaired') {
+                $where[] = 'repaired_at IS NOT NULL';
+            } elseif ($filterStatus === 'auto') {
+                $where[] = 'auto_repair = 1 AND repaired_at IS NULL';
+            }
+            if ($filterDays > 0) {
+                $where[] = 'created_at < NOW() - INTERVAL ? DAY'; $params[] = $filterDays;
+            }
+            $sql  = 'DELETE FROM well_incidents WHERE ' . implode(' AND ', $where);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $cnt  = $stmt->rowCount();
+            AdminLog::log('incident_bulk_delete', "Bulk deleted $cnt incidents (filters: level=$filterLevel player=$filterPlayer status=$filterStatus days=$filterDays)");
+            $msg = t('admin.incidents.msg_bulk_deleted', ['cnt' => $cnt]);
+        } catch (Throwable $e) {
+            $err = t('admin.incidents.err_delete') . ': ' . $e->getMessage();
+        }
+
+    } elseif ($action === 'save_retention') {
+        $days = max(1, min(3650, (int)($_POST['retention_days'] ?? 30)));
+        try {
+            $db->prepare("INSERT INTO well_config (`key`, `value`, label, category) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)")
+               ->execute([$retentionKey, $days, 'Auto-cleanup historii incydentów (dni)', 'incident']);
+            $retentionDays = $days;
+            AdminLog::log('incident_retention_save', "Incident retention set to {$days} days");
+            $msg = t('admin.incidents.msg_retention_saved', ['days' => $days]);
+        } catch (Throwable $e) {
+            $err = t('admin.incidents.err_save') . ': ' . $e->getMessage();
+        }
+
+    } elseif ($action === 'run_retention_now') {
+        $runDays = isset($_POST['retention_days']) ? max(1, min(3650, (int)$_POST['retention_days'])) : $retentionDays;
+        try {
+            $stmt = $db->prepare("DELETE FROM well_incidents WHERE created_at < NOW() - INTERVAL ? DAY");
+            $stmt->bindValue(1, $runDays, PDO::PARAM_INT);
+            $stmt->execute();
+            $cnt = $stmt->rowCount();
+            AdminLog::log('incident_retention_run', "Manual retention cleanup: deleted $cnt incidents older than {$runDays} days");
+            $msg = t('admin.incidents.msg_retention_run', ['cnt' => $cnt, 'days' => $runDays]);
+        } catch (Throwable $e) {
+            $err = t('admin.incidents.err_delete') . ': ' . $e->getMessage();
+        }
+    } elseif ($action === 'trigger_incident') {
+        $tLevel    = in_array($_POST['trig_level']  ?? '', $LEVELS, true) ? $_POST['trig_level'] : '';
+        $tWellId   = (int)($_POST['trig_well_id']   ?? 0);
+        $tPlayerId = (int)($_POST['trig_player_id'] ?? 0);
+
+        if (!$tLevel || $tWellId <= 0 || $tPlayerId <= 0) {
+            $err = t('admin.incidents.err_trig_missing');
+        } else {
+            try {
+                // Sprawdź że odwiert należy do gracza
+                $wRow = $db->prepare("SELECT id, location_name, technical_condition, risk_score, status FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
+                $wRow->execute([$tWellId, $tPlayerId]);
+                $well = $wRow->fetch();
+                if (!$well) throw new RuntimeException('Odwiert nie istnieje lub nie należy do gracza');
+
+                $c = $config[$tLevel];
+
+                // Losuj wartości z zakresu konfiguracji
+                $drop    = (int)$c['prod_drop_min'] === (int)$c['prod_drop_max']
+                           ? (int)$c['prod_drop_min']
+                           : mt_rand((int)$c['prod_drop_min'], (int)$c['prod_drop_max']);
+                $hours   = (int)$c['hours_min'] === (int)$c['hours_max']
+                           ? (int)$c['hours_min']
+                           : mt_rand((int)$c['hours_min'], (int)$c['hours_max']);
+                $deg     = (int)$c['deg_min'] === (int)$c['deg_max']
+                           ? (int)$c['deg_min']
+                           : mt_rand((int)$c['deg_min'], (int)$c['deg_max']);
+                $cost    = (int)$c['cost_min'] === (int)$c['cost_max']
+                           ? (int)$c['cost_min']
+                           : mt_rand((int)$c['cost_min'], (int)$c['cost_max']);
+                $riskAdd = (int)$c['risk_add'];
+
+                $levelLabels = ['micro'=>'mikro','minor'=>'drobny','medium'=>'poważny','major'=>'krytyczny'];
+                $wellName    = $well['location_name'] ?? "#{$tWellId}";
+                $message     = "[GM] Ręcznie wywołany incydent poziomu {$levelLabels[$tLevel]} na odwiercie {$wellName}. Strata produkcji: {$drop}%.";
+
+                $autoRepair = in_array($tLevel, ['micro','minor']) ? 1 : 0;
+
+                // INSERT do well_incidents
+                $db->prepare("
+                    INSERT INTO well_incidents
+                        (well_id, player_id, level, cause_type, prod_drop, hours,
+                         deg_damage, cost, risk_add, auto_repair, hse_active, message)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                ")->execute([
+                    $tWellId, $tPlayerId, $tLevel, 'system',
+                    $drop, $hours, $deg, $cost, $riskAdd, $autoRepair, 0, $message,
+                ]);
+
+                // applyEffects inline
+                if ($deg > 0) {
+                    $db->prepare("UPDATE wells SET technical_condition = GREATEST(0, technical_condition - ?) WHERE id = ?")
+                       ->execute([$deg, $tWellId]);
+                }
+                if ($riskAdd > 0) {
+                    $db->prepare("UPDATE wells SET risk_score = LEAST(100, risk_score + ?) WHERE id = ?")
+                       ->execute([$riskAdd, $tWellId]);
+                }
+                if ($cost > 0) {
+                    $db->prepare("UPDATE players SET cash = GREATEST(0, cash - ?) WHERE id = ?")
+                       ->execute([$cost, $tPlayerId]);
+                    $db->prepare("
+                        INSERT INTO well_events (well_id, player_id, event_type, cost, description,
+                            technical_condition_before, technical_condition_after)
+                        SELECT ?, ?, ?, ?, ?, technical_condition + ?, technical_condition FROM wells WHERE id = ?
+                    ")->execute([$tWellId, $tPlayerId, "incident_{$tLevel}", $cost, $message, $deg, $tWellId]);
+                }
+                if ($tLevel === 'major') {
+                    $db->prepare("UPDATE wells SET status = 'broken' WHERE id = ? AND status = 'active'")
+                       ->execute([$tWellId]);
+                }
+
+                AdminLog::log('incident_trigger', "GM triggered {$tLevel} incident on well #{$tWellId} (player #{$tPlayerId}): drop={$drop}% cost={$cost}");
+                $msg = t('admin.incidents.msg_triggered', ['level' => $levelLabels[$tLevel], 'well' => $wellName, 'drop' => $drop, 'cost' => $cost]);
+
+            } catch (Throwable $e) {
+                $err = t('admin.incidents.err_trig_failed') . ': ' . $e->getMessage();
+            }
+        }
+    }
+}
+
+//  Statystyki incydentów (ostatnie 7 dni) 
+$stats = [];
+try {
+    $rows = $db->query("
+        SELECT level,
+               COUNT(*)                  AS cnt,
+               AVG(prod_drop)            AS avg_drop,
+               SUM(cost)                 AS total_cost,
+               SUM(CASE WHEN repaired_at IS NULL AND auto_repair=0 THEN 1 ELSE 0 END) AS unrepaired
+        FROM well_incidents
+        WHERE created_at >= NOW() - INTERVAL 7 DAY
+        GROUP BY level
+        ORDER BY FIELD(level,'micro','minor','medium','major')
+    ")->fetchAll();
+    foreach ($rows as $r) $stats[$r['level']] = $r;
+} catch (Throwable $e) {}
+
+//  Historia incydentów z filtrowaniem i paginacją 
+$hPage       = max(1, (int)($_GET['hpage']    ?? 1));
+$hPerPage    = in_array((int)($_GET['hper']   ?? 20), [10,20,50,100], true) ? (int)($_GET['hper'] ?? 20) : 20;
+$hLevel      = in_array($_GET['hlevel'] ?? '', array_merge([''], $LEVELS), true) ? ($_GET['hlevel'] ?? '') : '';
+$hPlayer     = trim($_GET['hplayer']  ?? '');
+$hStatus     = in_array($_GET['hstatus'] ?? '', ['','open','repaired','auto'], true) ? ($_GET['hstatus'] ?? '') : '';
+$hDays       = max(0, (int)($_GET['hdays'] ?? 0));
+
+$hWhere  = ['1=1'];
+$hParams = [];
+if ($hLevel !== '') { $hWhere[] = 'wi.level = ?'; $hParams[] = $hLevel; }
+if ($hPlayer !== '') { $hWhere[] = 'p.username LIKE ?'; $hParams[] = '%' . $hPlayer . '%'; }
+if ($hStatus === 'open')     { $hWhere[] = 'wi.repaired_at IS NULL AND wi.auto_repair = 0'; }
+if ($hStatus === 'repaired') { $hWhere[] = 'wi.repaired_at IS NOT NULL'; }
+if ($hStatus === 'auto')     { $hWhere[] = 'wi.auto_repair = 1 AND wi.repaired_at IS NULL'; }
+if ($hDays > 0)              { $hWhere[] = 'wi.created_at >= NOW() - INTERVAL ? DAY'; $hParams[] = $hDays; }
+
+$hWhereSQL = implode(' AND ', $hWhere);
+
+$hTotal = 0;
+try {
+    $cntStmt = $db->prepare("
+        SELECT COUNT(*) FROM well_incidents wi
+        LEFT JOIN players p ON p.id = wi.player_id
+        WHERE $hWhereSQL
+    ");
+    $cntStmt->execute($hParams);
+    $hTotal = (int)$cntStmt->fetchColumn();
+} catch (Throwable $e) {
+    $err = 'Błąd pobierania historii: ' . $e->getMessage();
+    if (class_exists('GameLog', false)) GameLog::error('admin/incidents', 'history_count FAILED', $e);
+}
+
+$hTotalPages = ($hTotal > 0 && $hPerPage > 0) ? (int)ceil($hTotal / $hPerPage) : 1;
+$hPage       = min($hPage, $hTotalPages);
+$hOffset     = ($hPage - 1) * $hPerPage;
+
+$recentIncidents = [];
+try {
+    $stmt = $db->prepare("
+        SELECT wi.*, w.location_name AS well_name, p.username AS player_name
+        FROM well_incidents wi
+        LEFT JOIN wells   w ON w.id  = wi.well_id
+        LEFT JOIN players p ON p.id  = wi.player_id
+        WHERE $hWhereSQL
+        ORDER BY wi.created_at DESC
+        LIMIT ? OFFSET ?
+    ");
+    foreach ($hParams as $i => $v) {
+        $stmt->bindValue($i + 1, $v);
+    }
+    $stmt->bindValue(count($hParams) + 1, $hPerPage, PDO::PARAM_INT);
+    $stmt->bindValue(count($hParams) + 2, $hOffset,  PDO::PARAM_INT);
+    $stmt->execute();
+    $recentIncidents = $stmt->fetchAll();
+} catch (Throwable $e) {
+    $err = 'Błąd pobierania historii: ' . $e->getMessage();
+    if (class_exists('GameLog', false)) GameLog::error('admin/incidents', 'history_list FAILED', $e);
+}
+
+//  Dane do formularza ręcznego wywołania incydentu 
+$trigPlayers = [];
+try {
+    $rows = $db->query("SELECT id, username FROM players WHERE status != 'bankrupt' ORDER BY username")->fetchAll();
+    foreach ($rows as $r) {
+        $trigPlayers[(int)$r['id']] = $r['username'];
+    }
+} catch (Throwable $e) {}
+
+$trigWells = [];
+try {
+    $rows = $db->query("
+        SELECT id, player_id, location_name, status, technical_condition
+        FROM wells
+        WHERE status NOT IN ('sold','blowout')
+        ORDER BY player_id, location_name
+    ")->fetchAll();
+    foreach ($rows as $r) {
+        $trigWells[(int)$r['player_id']][] = $r;
+    }
+} catch (Throwable $e) {}
+
+$pageTitle = t('admin.incidents.page_title');
+$viewData = [
+    'retentionDays'   => $retentionDays,
+    'retentionDefault'=> $retentionDefault,
+    'msg'             => $msg,
+    'err'             => $err,
+    'config'          => $config,
+    'LEVELS'          => $LEVELS,
+    'FIELDS'          => $FIELDS,
+    'DEFAULTS'        => $DEFAULTS,
+    'stats'           => $stats,
+    'recentIncidents' => $recentIncidents,
+    'hTotal'          => $hTotal,
+    'hPage'           => $hPage,
+    'hPerPage'        => $hPerPage,
+    'hTotalPages'     => $hTotalPages,
+    'hLevel'          => $hLevel,
+    'hPlayer'         => $hPlayer,
+    'hStatus'         => $hStatus,
+    'hDays'           => $hDays,
+    'trigPlayers'     => $trigPlayers,
+    'trigWells'       => $trigWells,
+];
+
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/incidents/main.php';
+require_once __DIR__ . '/partials/footer.php';
+
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) GameLog::error('admin/incidents.php', 'Unhandled exception', $e);
+    if (!headers_sent()) http_response_code(500);
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) GameLog::pageEnd('admin/incidents.php', $_codexGuardStart);
+}

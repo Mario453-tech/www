@@ -1,8 +1,8 @@
 <?php
 /**
  * WellSellApi.php - well sale endpoint
- * GET  ?well_id=X            -> valuation (calculateSellValue)
- * POST {well_id,csrf_token}  -> sell well (sellWell)
+ * GET ?well_id=X -> valuation (calculateSellValue)
+ * POST {well_id,csrf_token} -> sell well (sellWell)
  */
 header('Content-Type: application/json; charset=utf-8');
 
@@ -13,7 +13,7 @@ try {
     $db       = Database::getInstance()->getConnection();
     $playerId = (int)$_SESSION['user_id'];
 
-    // Migration: add sold_at column to wells if missing (silent)
+ // Migration: add sold_at column to wells if missing (silent)
     try { Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL'); } catch (Throwable $e) {}
 
     require_once __DIR__ . '/WellService.php';
@@ -29,7 +29,7 @@ try {
         }
         $result = $svc->calculateSellValue($wellId, $playerId);
 
-        // Append reservoir state to response
+ // Append reservoir state to response
         if (empty($result['error']) && isset($result['well'])) {
             $well              = $result['well'];
             $resRemaining      = (float)($well['reservoir_remaining'] ?? 0);

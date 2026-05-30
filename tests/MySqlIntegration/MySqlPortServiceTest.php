@@ -12,7 +12,7 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
 {
     private PortService $svc;
 
-    // Port IDs poza zakresem trackedIds
+ // Port IDs poza zakresem trackedIds
     private int $portId;
     private int $portId2;
 
@@ -26,16 +26,16 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
 
     protected function tearDown(): void
     {
-        // Usun kolejki i porty testowe
+ // Usun kolejki i porty testowe
         try { $this->db->prepare('DELETE FROM port_queue WHERE port_id IN (?,?)')->execute([$this->portId, $this->portId2]); } catch (\Throwable $e) {}
         try { $this->db->prepare('DELETE FROM ports WHERE id IN (?,?)')->execute([$this->portId, $this->portId2]); } catch (\Throwable $e) {}
 
         parent::tearDown();
     }
 
-    // 
-    // Helper
-    // 
+ // 
+ // Helper
+ // 
 
     private function insertPort(int $id, int $regionId, string $status = 'active', int $queueLimit = 25): void
     {
@@ -58,20 +58,20 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
         )->execute([$portId, $deliveryId, $playerId, $status]);
     }
 
-    // 
-    // ensureSchema
-    // 
+ // 
+ // ensureSchema
+ // 
 
     public function testEnsureSchemaPasses(): void
     {
-        // Jezeli nie rzuca wyjatku — tabele zostaly utworzone lub juz istnieja
+ // Jezeli nie rzuca wyjatku tabele zostaly utworzone lub juz istnieja
         $this->svc->ensureSchema();
         $this->assertTrue(true, 'ensureSchema() nie rzucilo wyjatku');
     }
 
-    // 
-    // findForRegion
-    // 
+ // 
+ // findForRegion
+ // 
 
     public function testFindForRegionReturnsActivePortForRegion(): void
     {
@@ -97,28 +97,28 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
 
     public function testFindForRegionReturnsNullWhenNoActivePort(): void
     {
-        // Nie wstawiamy zadnego portu dla regionu 999
-        // (upewniamy sie ze nie ma zadnego aktywnego portu w bazie lub brak dla tego regionu)
-        // Jezeli inna tabela ma port aktywny — fallback moze zwrocic go — to akceptowalne
-        // Testujemy tylko szczesliwy scenariusz gdy port istnieje dla regionu
+ // Nie wstawiamy zadnego portu dla regionu 999
+ // (upewniamy sie ze nie ma zadnego aktywnego portu w bazie lub brak dla tego regionu)
+ // Jezeli inna tabela ma port aktywny fallback moze zwrocic go to akceptowalne
+ // Testujemy tylko szczesliwy scenariusz gdy port istnieje dla regionu
 
-        // Wstaw port ale zamkniety
+ // Wstaw port ale zamkniety
         $this->insertPort($this->portId, 999, 'closed');
 
         $port = $this->svc->findForRegion(999);
 
-        // closed nie spelnia warunki — dla regionu 999 nie ma portu; fallback do dowolnego aktywnego
-        // Wynik moze byc null lub port z innego regionu (fallback)
-        // Testujemy ze metoda nie rzuca wyjatku
+ // closed nie spelnia warunki dla regionu 999 nie ma portu; fallback do dowolnego aktywnego
+ // Wynik moze byc null lub port z innego regionu (fallback)
+ // Testujemy ze metoda nie rzuca wyjatku
         $this->assertTrue(
             $port === null || is_array($port),
             'findForRegion zwraca null lub tablice portu'
         );
     }
 
-    // 
-    // getById
-    // 
+ // 
+ // getById
+ // 
 
     public function testGetByIdReturnsPort(): void
     {
@@ -138,9 +138,9 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
         $this->assertNull($port, 'Nieznany ID powinien zwrocic null');
     }
 
-    // 
-    // getQueueSize
-    // 
+ // 
+ // getQueueSize
+ // 
 
     public function testGetQueueSizeReturnsZeroForEmptyPort(): void
     {
@@ -154,7 +154,7 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
     public function testGetQueueSizeCountsWaitingAndProcessing(): void
     {
         $this->insertPort($this->portId, 77, 'active');
-        // delivery_id w zakresie seed+20..+22 — nie ma FK na marine_deliveries (lub jest nullable)
+ // delivery_id w zakresie seed+20..+22 nie ma FK na marine_deliveries (lub jest nullable)
         $this->insertQueueEntry($this->portId, $this->seed + 20, 'waiting');
         $this->insertQueueEntry($this->portId, $this->seed + 21, 'processing');
         $this->insertQueueEntry($this->portId, $this->seed + 22, 'done'); // done nie liczy sie
@@ -174,13 +174,13 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(0, $size, 'Done nie liczy sie do rozmiaru kolejki');
     }
 
-    // 
-    // refreshStatuses
-    // 
+ // 
+ // refreshStatuses
+ // 
 
     public function testRefreshStatusesSetsOverloadedWhenQueueExceeds80Pct(): void
     {
-        // queue_limit = 5; 80% = 4 — wstaw 4 wpisow waiting
+ // queue_limit = 5; 80% = 4 wstaw 4 wpisow waiting
         $this->insertPort($this->portId, 77, 'active', 5);
 
         for ($i = 0; $i < 4; $i++) {
@@ -198,7 +198,7 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
 
     public function testRefreshStatusesSetsActiveWhenQueueDropsBelow80Pct(): void
     {
-        // Port overloaded ale kolejka pusta — powinno wrocic do active
+ // Port overloaded ale kolejka pusta powinno wrocic do active
         $this->insertPort($this->portId, 77, 'overloaded', 10);
 
         $this->svc->refreshStatuses();
@@ -213,7 +213,7 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
     public function testRefreshStatusesDoesNotTouchClosedPort(): void
     {
         $this->insertPort($this->portId, 77, 'closed', 5);
-        // Dodaj wpisy do kolejki (ponad 80%)
+ // Dodaj wpisy do kolejki (ponad 80%)
         for ($i = 0; $i < 5; $i++) {
             $this->insertQueueEntry($this->portId, $this->seed + 20 + $i, 'waiting');
         }
@@ -227,9 +227,9 @@ final class MySqlPortServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('closed', $status, 'Zamkniety port nie powinien zmienic statusu');
     }
 
-    // 
-    // getAllWithQueueStats
-    // 
+ // 
+ // getAllWithQueueStats
+ // 
 
     public function testGetAllWithQueueStatsReturnsInsertedPort(): void
     {

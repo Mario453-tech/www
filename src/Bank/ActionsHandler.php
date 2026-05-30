@@ -20,10 +20,10 @@ class BankActionsHandler
         $this->bankNeg = $bankNeg;
     }
 
-    /**
-     * Handles POST request and returns true if an action was executed.
-     * Obsluguje zadanie POST i zwraca true, jesli wykonano akcje.
-     */
+ /**
+ * Handles POST request and returns true if an action was executed.
+ * Obsluguje zadanie POST i zwraca true, jesli wykonano akcje.
+ */
     public function handle(): bool
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['action'])) {
@@ -53,10 +53,10 @@ class BankActionsHandler
         return true;
     }
 
-    /**
-     * Submits a loan application for the player.
-     * Wysyla wniosek kredytowy dla gracza.
-     */
+ /**
+ * Submits a loan application for the player.
+ * Wysyla wniosek kredytowy dla gracza.
+ */
     private function submitApplication(): void
     {
         if (!$this->bankService) {
@@ -82,10 +82,10 @@ class BankActionsHandler
         }
     }
 
-    /**
-     * Rejects a prepared bank offer.
-     * Odrzuca przygotowana oferte banku.
-     */
+ /**
+ * Rejects a prepared bank offer.
+ * Odrzuca przygotowana oferte banku.
+ */
     private function rejectOffer(): void
     {
         if (!$this->bankService) {
@@ -110,10 +110,10 @@ class BankActionsHandler
         }
     }
 
-    /**
-     * Accepts an approved bank offer.
-     * Akceptuje zatwierdzona oferte banku.
-     */
+ /**
+ * Accepts an approved bank offer.
+ * Akceptuje zatwierdzona oferte banku.
+ */
     private function acceptOffer(): void
     {
         if (!$this->bankService) {
@@ -139,10 +139,10 @@ class BankActionsHandler
         }
     }
 
-    /**
-     * Repays a selected bank loan.
-     * Splca wybrany kredyt bankowy.
-     */
+ /**
+ * Repays a selected bank loan.
+ * Splca wybrany kredyt bankowy.
+ */
     private function repayLoan(): void
     {
         if (!$this->bankService) {
@@ -171,10 +171,10 @@ class BankActionsHandler
         }
     }
 
-    /**
-     * Sends a deferral negotiation request.
-     * Wysyla wniosek negocjacyjny o odroczenie.
-     */
+ /**
+ * Sends a deferral negotiation request.
+ * Wysyla wniosek negocjacyjny o odroczenie.
+ */
     private function negDeferral(): void
     {
         if (!$this->bankNeg) {
@@ -203,10 +203,10 @@ class BankActionsHandler
         }
     }
 
-    /**
-     * Sends a restructure negotiation request.
-     * Wysyla wniosek negocjacyjny o restrukturyzacje.
-     */
+ /**
+ * Sends a restructure negotiation request.
+ * Wysyla wniosek negocjacyjny o restrukturyzacje.
+ */
     private function negRestructure(): void
     {
         if (!$this->bankNeg) {
@@ -235,10 +235,10 @@ class BankActionsHandler
         }
     }
 
-    /**
-     * Sends a recovery plan negotiation request.
-     * Wysyla wniosek negocjacyjny o plan naprawczy.
-     */
+ /**
+ * Sends a recovery plan negotiation request.
+ * Wysyla wniosek negocjacyjny o plan naprawczy.
+ */
     private function negRecovery(): void
     {
         if (!$this->bankNeg) {
@@ -269,10 +269,10 @@ class BankActionsHandler
         }
     }
 
-    /**
-     * Applies an approved negotiation result.
-     * Zastosowuje zatwierdzony wynik negocjacji.
-     */
+ /**
+ * Applies an approved negotiation result.
+ * Zastosowuje zatwierdzony wynik negocjacji.
+ */
     private function negApply(): void
     {
         if (!$this->bankNeg) {

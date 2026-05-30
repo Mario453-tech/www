@@ -1,6 +1,6 @@
 <?php
 // Naprawa broken UTF-8 bytes w well-grid.css
-// Usuwa nieważne sekwencje UTF-8 (orphaned CP1250 bytes z emoji)
+// Usuwa niewazne sekwencje UTF-8 (orphaned CP1250 bytes z emoji)
 $f    = __DIR__ . '/assets/css/well-grid.css';
 $c    = file_get_contents($f);
 $before = strlen($c);

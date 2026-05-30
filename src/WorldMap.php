@@ -1,7 +1,7 @@
 <?php
 
 /**
- * WorldMap — world map service.
+ * WorldMap - world map service.
  * Handles regions, locations and well purchases via the map.
  */
 class WorldMap
@@ -19,7 +19,7 @@ class WorldMap
         }
     }
 
-    // Regions
+ // Regions
 
     public function getRegions(): array
     {
@@ -43,7 +43,7 @@ class WorldMap
         }
     }
 
-    // Locations
+ // Locations
 
     public function getLocations(): array
     {
@@ -90,9 +90,9 @@ class WorldMap
         }
     }
 
-    /**
-     * Returns locations occupied by the player (location_id => well data).
-     */
+ /**
+ * Returns locations occupied by the player (location_id => well data).
+ */
     public function getPlayerOccupiedLocations(int $playerId): array
     {
         try {
@@ -121,28 +121,28 @@ class WorldMap
         }
     }
 
-    // Well purchase
+ // Well purchase
 
-    /**
-     * Purchases a well at the chosen map location.
-     * Replaces WellShop::buyWell() — players now buy through the map.
-     */
+ /**
+ * Purchases a well at the chosen map location.
+ * Replaces WellShop::buyWell() - players now buy through the map.
+ */
     public function buyWellAtLocation(int $playerId, int $locationId): array
     {
         try {
-            // Player validation
+ // Player validation
             $player = new Player($playerId);
             if ($player->isBankrupt()) {
                 return ['success' => false, 'message' => t('world_map.err_bankrupt')];
             }
 
-            // Fetch location with region data
+ // Fetch location with region data
             $loc = $this->getLocation($locationId);
             if (!$loc) {
                 return ['success' => false, 'message' => t('world_map.err_location_unavailable')];
             }
 
-            // Check if this location is already occupied by anyone
+ // Check if this location is already occupied by anyone
             $occStmt = $this->db->prepare("
                 SELECT id FROM wells WHERE location_id = ? AND status NOT IN ('seized','sold') LIMIT 1
             ");
@@ -151,7 +151,7 @@ class WorldMap
                 return ['success' => false, 'message' => t('world_map.err_location_occupied')];
             }
 
-            // Check if the player already has a well at this location
+ // Check if the player already has a well at this location
             $ownStmt = $this->db->prepare("
                 SELECT id FROM wells WHERE player_id = ? AND location_id = ? LIMIT 1
             ");
@@ -160,14 +160,14 @@ class WorldMap
                 return ['success' => false, 'message' => t('world_map.err_already_own')];
             }
 
-            // Well limit
+ // Well limit
             $countStmt = $this->db->prepare("SELECT COUNT(*) FROM wells WHERE player_id = ?");
             $countStmt->execute([$playerId]);
             if ((int)$countStmt->fetchColumn() >= 10) {
                 return ['success' => false, 'message' => t('world_map.err_well_limit')];
             }
 
-            // Cost = effective_entry_cost (override or region) x oil_richness
+ // Cost = effective_entry_cost (override or region) x oil_richness
             $entryBase = (float)$loc['effective_entry_cost'];
             $richness  = (float)$loc['oil_richness'];
             $totalCost = (int)round($entryBase * max(1.0, $richness * 0.8));
@@ -180,18 +180,18 @@ class WorldMap
                 ];
             }
 
-            // Calculate well parameters from region and location data
+ // Calculate well parameters from region and location data
             $prodBonus   = (float)$loc['production_bonus'];
             $taxRate     = (float)$loc['effective_tax_rate']; // override or region default
             $opexMult    = (float)($loc['opex_mult'] ?? 1.0);
 
-            // Base production: onshore 54 bbl/h, offshore 59 bbl/h (x richness x prodBonus)
-            // Target: 4 wells -> ~300 bbl/h -> fills 1800 bbl in ~6h
+ // Base production: onshore 54 bbl/h, offshore 59 bbl/h (x richness x prodBonus)
+ // Target: 4 wells -> ~300 bbl/h -> fills 1800 bbl in ~6h
             $baseProduction = $loc['well_type'] === 'offshore'
                 ? round(59 * (1 + $prodBonus) * $richness, 2)
                 : round(54 * (1 + $prodBonus) * $richness, 2);
 
-            // Base OPEX x regional cost multiplier (logistics, infrastructure)
+ // Base OPEX x regional cost multiplier (logistics, infrastructure)
             $baseUpkeepRaw = $loc['well_type'] === 'offshore' ? 4000.0 : 1458.33;
             $baseUpkeep    = round($baseUpkeepRaw * $opexMult, 2);
             $reservoir     = (int)round(300000 * $richness);
@@ -202,8 +202,8 @@ class WorldMap
             try {
                 $player->updateCash(-$totalCost);
 
-                // Check if a well was previously sold at this location
-                // If so, the reservoir is already partially depleted
+ // Check if a well was previously sold at this location
+ // If so, the reservoir is already partially depleted
                 $prevStmt = $this->db->prepare("
                     SELECT reservoir_remaining, reservoir_max
                     FROM wells
@@ -215,11 +215,11 @@ class WorldMap
                 $prevWell = $prevStmt->fetch();
 
                 if ($prevWell) {
-                    // Inherit depleted reservoir — use what was left by the previous owner
+ // Inherit depleted reservoir - use what was left by the previous owner
                     $reservoirRemaining = max(0, (float)$prevWell['reservoir_remaining']);
                     $reservoirMax       = (float)$prevWell['reservoir_max'];
                 } else {
-                    // Fresh reservoir — full resources
+ // Fresh reservoir - full resources
                     $reservoirRemaining = $reservoir;
                     $reservoirMax       = $reservoir;
                 }
@@ -301,11 +301,11 @@ class WorldMap
         }
     }
 
-    // JSON API
+ // JSON API
 
-    /**
-     * Returns map data for the frontend (regions + locations + player occupancy).
-     */
+ /**
+ * Returns map data for the frontend (regions + locations + player occupancy).
+ */
     public function getMapData(int $playerId): array
     {
         try {
@@ -313,7 +313,7 @@ class WorldMap
             $locations = $this->getLocations();
             $occupied  = $this->getPlayerOccupiedLocations($playerId);
 
-            // Well count per region
+ // Well count per region
             $wellsPerRegion = [];
             $stmt = $this->db->prepare("
                 SELECT region_id, COUNT(*) AS cnt
@@ -326,7 +326,7 @@ class WorldMap
                 $wellsPerRegion[(int)$row['region_id']] = (int)$row['cnt'];
             }
 
-            // Attach occupancy flags to each location
+ // Attach occupancy flags to each location
             foreach ($locations as &$loc) {
                 $locId = (int)$loc['id'];
                 $loc['occupied_by_me']       = isset($occupied[$locId]);

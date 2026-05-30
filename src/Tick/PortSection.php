@@ -2,29 +2,31 @@
 declare(strict_types=1);
 
 /**
- * PortSection — tick: obsluga kolejki portowej i kredytowanie magazynu.
- * PortSection — tick: port queue processing and storage crediting.
+ * PortSection tick: obsluga kolejki portowej i kredytowanie magazynu.
+ * PortSection tick: port queue processing and storage crediting.
  *
  * Odpowiada za: / Responsible for:
- *   - przetwarzanie dostaw 'waiting' w kolejce portowej / processing 'waiting' deliveries in port queue
- *   - obliczanie oplat portowych per bbl / calculating port fees per bbl
- *   - zwrot liczby bbl do dodania do magazynu gracza / returning bbl count to add to player storage
- *   - aktualizacje statusow portow (overloaded/active) / updating port statuses
+ * - przetwarzanie dostaw 'waiting' w kolejce portowej / processing 'waiting' deliveries in port queue
+ * - obliczanie oplat portowych per bbl / calculating port fees per bbl
+ * - zwrot liczby bbl do dodania do magazynu gracza / returning bbl count to add to player storage
+ * - aktualizacje statusow portow (overloaded/active) / updating port statuses
  *
- * NIE zapisuje bezposrednio do storage — zwraca deliveredBbl,
+ * NIE zapisuje bezposrednio do storage zwraca deliveredBbl,
  * PlayersSection dodaje je do currentStorage przed finalnym zapisem.
- * Does NOT write directly to storage — returns deliveredBbl,
+ * Does NOT write directly to storage returns deliveredBbl,
  * PlayersSection adds them to currentStorage before the final save.
  *
- * Wywo³ywana per gracz w PlayersSection po MarineDeliverySection.
+ * Wywoywana per gracz w PlayersSection po MarineDeliverySection.
  * Called per player in PlayersSection after MarineDeliverySection.
  */
 class PortSection
 {
-    // Wyniki per gracz / Per-player results
+ // Wyniki per gracz / Per-player results
     public float $deliveredBbl      = 0.0;  // bbl dodane do magazynu / bbl added to storage
     public float $handlingCost      = 0.0;  // oplaty portowe do odliczenia / port fees to deduct
     public int   $processedCount    = 0;    // liczba przetworzonych dostaw / processed delivery count
+ /** @var array<int, float> well_id => credited bbl (basis for the second transport leg) */
+    public array $deliveredByWell   = [];
 
     private PDO      $db;
     private DateTime $now;
@@ -35,13 +37,13 @@ class PortSection
         $this->now = $now;
     }
 
-    /**
-     * Przetwarza kolejke portowa gracza.
-     * Processes the player's port queue.
-     *
-     * Zwraca nowy poziom magazynu po doliczeniu dostaw morskich.
-     * Returns the new storage level after crediting marine deliveries.
-     */
+ /**
+ * Przetwarza kolejke portowa gracza.
+ * Processes the player's port queue.
+ *
+ * Zwraca nowy poziom magazynu po doliczeniu dostaw morskich.
+ * Returns the new storage level after crediting marine deliveries.
+ */
     public function process(
         int   $playerId,
         float $currentStorage,
@@ -49,14 +51,16 @@ class PortSection
         float $oilPrice
     ): float {
         try {
-            // Pobierz do 10 oczekujacych dostaw per tick / Fetch up to 10 waiting deliveries per tick
+ // Pobierz do 10 oczekujacych dostaw per tick / Fetch up to 10 waiting deliveries per tick
             $stmt = $this->db->prepare(
                 "SELECT pq.*,
                         p.throughput_per_tick,
                         p.handling_cost_per_bbl,
-                        p.status AS port_status
+                        p.status AS port_status,
+                        md.well_id AS well_id
                    FROM port_queue pq
                    JOIN ports p ON p.id = pq.port_id
+                   LEFT JOIN marine_deliveries md ON md.id = pq.delivery_id
                   WHERE pq.player_id = ?
                     AND pq.status = 'waiting'
                     AND p.status != 'closed'
@@ -69,8 +73,8 @@ class PortSection
             foreach ($entries as $entry) {
                 $freeSpace = $storageCapacity - $currentStorage;
                 if ($freeSpace <= 0.0) {
-                    // Magazyn pelny — zostawiamy w kolejce na nastepny tick
-                    // Storage full — leave in queue for next tick
+ // Magazyn pelny zostawiamy w kolejce na nastepny tick
+ // Storage full leave in queue for next tick
                     break;
                 }
                 $currentStorage = $this->processEntry(
@@ -78,7 +82,7 @@ class PortSection
                 );
             }
 
-            // Odswiez statusy portow / Refresh port statuses
+ // Odswiez statusy portow / Refresh port statuses
             $this->refreshPortStatuses();
 
         } catch (Throwable $e) {
@@ -88,13 +92,13 @@ class PortSection
         return $currentStorage;
     }
 
-    // 
-    // Per-entry logic
-    // 
+ // 
+ // Per-entry logic
+ // 
 
-    /**
-     * @param  array<string, mixed> $entry
-     */
+ /**
+ * @param array<string, mixed> $entry
+ */
     private function processEntry(
         array $entry,
         int   $playerId,
@@ -108,29 +112,34 @@ class PortSection
         $costPerBbl   = (float)($entry['handling_cost_per_bbl'] ?? 0.50);
         $nowStr       = $this->now->format('Y-m-d H:i:s');
 
-        // Kredytuj tyle ile miesci sie w magazynie / Credit only what fits in storage
+ // Kredytuj tyle ile miesci sie w magazynie / Credit only what fits in storage
         $actual       = min($volumeBbl, $freeSpace);
         $handlingCost = round($actual * $costPerBbl, 2);
 
-        // Oznacz wpis w kolejce jako done / Mark queue entry as done
+ // Oznacz wpis w kolejce jako done / Mark queue entry as done
         $this->db->prepare(
             "UPDATE port_queue
                 SET status = 'done', processed_at = ?
               WHERE id = ?"
         )->execute([$nowStr, $entryId]);
 
-        // Oznacz dostawe jako delivered / Mark delivery as delivered
+ // Oznacz dostawe jako delivered / Mark delivery as delivered
         $this->db->prepare(
             "UPDATE marine_deliveries
                 SET status = 'delivered', delivered_at = ?, handling_cost = ?
               WHERE id = ?"
         )->execute([$nowStr, $handlingCost, $deliveryId]);
 
-        // Akumuluj wyniki (PlayersSection doda do storage i cash) / Accumulate results
+ // Akumuluj wyniki (PlayersSection doda do storage i cash) / Accumulate results
         $currentStorage      += $actual;
         $this->deliveredBbl  += $actual;
         $this->handlingCost  += $handlingCost;
         $this->processedCount++;
+
+        $wellId = (int)($entry['well_id'] ?? 0);
+        if ($wellId > 0 && $actual > 0.0) {
+            $this->deliveredByWell[$wellId] = ($this->deliveredByWell[$wellId] ?? 0.0) + $actual;
+        }
 
         GameLog::info('tick', 'port_delivery_processed', [
             'delivery_id'   => $deliveryId,
@@ -143,10 +152,10 @@ class PortSection
         return $currentStorage;
     }
 
-    /**
-     * Odswiez statusy portow na podstawie rozmiaru kolejki.
-     * Refresh port statuses based on queue size.
-     */
+ /**
+ * Odswiez statusy portow na podstawie rozmiaru kolejki.
+ * Refresh port statuses based on queue size.
+ */
     private function refreshPortStatuses(): void
     {
         try {

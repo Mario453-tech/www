@@ -1,4 +1,4 @@
-﻿<div class="logistics-page">
+<div class="logistics-page">
     <section class="logistics-kpi-grid" aria-label="<?= htmlspecialchars(t('logistics.kpi_aria')) ?>">
         <div class="logistics-kpi">
             <span class="logistics-kpi-label"><?= t('logistics.kpi_efficiency') ?></span>
@@ -28,12 +28,7 @@
             <span><?= t('logistics.hub.avail_section_desc') ?></span>
         </div>
 
-        <?php if (!$hasUnassignedWells): ?>
-        <div class="logistics-alert logistics-alert--info"><?= t('logistics.hub.avail_info_no_unassigned') ?></div>
-        <?php endif ?>
-
-        <?php if (!$hasUnassignedWells): ?>
-        <?php elseif (!$hasAvailableRegions): ?>
+        <?php if (!$hasAvailableRegions): ?>
         <div class="logistics-empty"><?= t('logistics.hub.avail_no_regions') ?></div>
         <?php else: ?>
 
@@ -108,7 +103,7 @@
                         'elite'   => 'elite',
                         default   => 'std',
                     };
-                    // Dots: show up to 8; use slotLimit if known, else slotsAvail
+ // Dots: show up to 8; use slotLimit if known, else slotsAvail
                     $dotTotal   = $slotLimit > 0 ? min(8, $slotLimit) : min(8, max(1, $slotsAvail));
                     $hRegionId  = (int)($regionGroup['region_id'] ?? 0);
                     $hZoneKey   = (string)($hub['zone_key'] ?? '');
@@ -178,15 +173,42 @@
                         </div>
                     </div>
 
+                    <?php
+                        $buyPrice    = (float)($hub['buy_price']    ?? 0);
+                        $rentDeposit = (float)($hub['rent_deposit'] ?? 0);
+                    ?>
+                    <div class="logistics-hub-avail-prices">
+                        <div class="logistics-hub-avail-price">
+                            <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_buy_price') ?></span>
+                            <strong><?= number_format($buyPrice, 0, ',', ' ') ?> PLN</strong>
+                        </div>
+                        <?php if ($leaseFee > 0): ?>
+                        <div class="logistics-hub-avail-price">
+                            <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_rent_deposit') ?></span>
+                            <strong><?= number_format($rentDeposit, 0, ',', ' ') ?> PLN</strong>
+                        </div>
+                        <?php endif ?>
+                    </div>
+
                     <div class="logistics-hub-avail-footer">
                         <?php if ($hStatus === 'disabled'): ?>
-                        <span class="badge" style="opacity:.35;font-size:.7rem"><?= t('logistics.hub.badge_disabled') ?></span>
-                        <?php elseif ($isFull): ?>
-                        <span class="badge" style="opacity:.35;font-size:.7rem"><?= t('logistics.hub.badge_full') ?></span>
+                        <span class="badge logistics-hub-avail-badge-muted"><?= t('logistics.hub.badge_disabled') ?></span>
                         <?php else: ?>
-                        <button class="logistics-hub-assign-btn" type="button" onclick="hubAssignWellToHubModal(<?= $hId ?>)">
-                            <?= t('logistics.hub.avail_btn_assign') ?>
+                        <button class="logistics-hub-assign-btn logistics-hub-buy-btn" type="button"
+                                onclick="hubBuyUsed(<?= $hId ?>)"
+                                data-hub-name="<?= htmlspecialchars($hName, ENT_QUOTES) ?>"
+                                data-buy-price="<?= number_format($buyPrice, 2, '.', '') ?>">
+                            <?= t('logistics.hub.market_btn_buy') ?>
                         </button>
+                        <?php if ($leaseFee > 0): ?>
+                        <button class="logistics-hub-assign-btn logistics-hub-rent-btn" type="button"
+                                onclick="hubRent(<?= $hId ?>)"
+                                data-hub-name="<?= htmlspecialchars($hName, ENT_QUOTES) ?>"
+                                data-rent-deposit="<?= number_format($rentDeposit, 2, '.', '') ?>"
+                                data-lease-fee="<?= number_format($leaseFee, 2, '.', '') ?>">
+                            <?= t('logistics.hub.market_btn_rent') ?>
+                        </button>
+                        <?php endif ?>
                         <?php endif ?>
                     </div>
                 </article>
@@ -425,7 +447,7 @@
                 </div>
 
                 <?php
-                // Estimated action costs for confirm dialogs
+ // Estimated action costs for confirm dialogs
                 $pDamage     = max(0.0, 100.0 - $conditionPct);
                 $pRepairCost = max(2000.0, round((float)($pipe['build_cost'] ?? 0) * ($pDamage / 100.0) * 0.30));
                 $pMaintCost  = max(500.0, round((float)($pipe['tick_cost_est'] ?? 0) * 24.0 * 0.4));
@@ -449,17 +471,52 @@
                         <?= t('logistics.pipeline.btn_maintenance') ?>
                     </button>
                     <?php endif ?>
-                    <?php if ($canToggle): ?>
+                    <?php if ($canToggle):
+                        $pipeName    = (string)($pipe['name'] ?? ('#' . (int)$pipe['id']));
+                        $confirmSusp = t('logistics.pipeline.confirm_suspend_named', ['name' => $pipeName]);
+                        $confirmRes  = t('logistics.pipeline.confirm_resume_named',  ['name' => $pipeName]);
+                        $labelSusp   = t('logistics.pipeline.btn_suspend');
+                        $labelRes    = t('logistics.pipeline.btn_resume');
+                    ?>
                     <button class="btn btn-xs <?= $isSuspended ? 'btn-secondary' : 'btn-danger' ?>"
-                            onclick="pipelineActionConfirm(<?= (int)$pipe['id'] ?>, 'toggle_pipeline',
-                                <?= htmlspecialchars(json_encode($isSuspended ? t('logistics.pipeline.confirm_resume') : t('logistics.pipeline.confirm_suspend')), ENT_QUOTES) ?>)">
-                        <?= $isSuspended ? t('logistics.pipeline.btn_resume') : t('logistics.pipeline.btn_suspend') ?>
+                            data-pipeline-toggle="<?= (int)$pipe['id'] ?>"
+                            data-suspended="<?= $isSuspended ? '1' : '0' ?>"
+                            data-confirm-suspend="<?= htmlspecialchars($confirmSusp, ENT_QUOTES) ?>"
+                            data-confirm-resume="<?= htmlspecialchars($confirmRes, ENT_QUOTES) ?>"
+                            data-label-suspend="<?= htmlspecialchars($labelSusp, ENT_QUOTES) ?>"
+                            data-label-resume="<?= htmlspecialchars($labelRes, ENT_QUOTES) ?>"
+                            onclick="pipelineToggleConfirm(this)">
+                        <?= $isSuspended ? $labelRes : $labelSusp ?>
                     </button>
                     <?php endif ?>
                 </div>
             </article>
             <?php endif ?><!-- end building/active branch -->
             <?php endforeach ?>
+        </div>
+        <?php endif ?>
+
+        <?php if (!empty($wellsWithoutPipeline)): ?>
+        <div class="logistics-pipeline-nopipe">
+            <h4 class="logistics-pipeline-nopipe-title"><?= t('logistics.pipeline.nopipe_title') ?></h4>
+            <p class="logistics-pipeline-nopipe-desc"><?= t('logistics.pipeline.nopipe_desc') ?></p>
+            <div class="logistics-pipeline-nopipe-grid">
+                <?php foreach ($wellsWithoutPipeline as $npw): ?>
+                <div class="logistics-pipeline-nopipe-card">
+                    <div class="logistics-pipeline-nopipe-card-head">
+                        <strong><?= htmlspecialchars((string)($npw['well_name'] ?? ('#' . (int)($npw['id'] ?? 0)))) ?></strong>
+                        <span class="c-muted2"><?= htmlspecialchars((string)($npw['location_name'] ?? '')) ?></span>
+                    </div>
+                    <div class="logistics-pipeline-nopipe-card-hub">
+                        <?= t('logistics.pipeline.nopipe_hub') ?>: <em><?= htmlspecialchars((string)($npw['hub_name'] ?? ('#' . (int)($npw['hub_id'] ?? 0)))) ?></em>
+                    </div>
+                    <button class="btn btn-xs btn-primary"
+                            onclick="openPipelineBuyModal(<?= (int)($npw['id'] ?? 0) ?>)">
+                        <?= t('logistics.pipeline.nopipe_btn') ?>
+                    </button>
+                </div>
+                <?php endforeach ?>
+            </div>
         </div>
         <?php endif ?>
     </section>
@@ -842,8 +899,13 @@
     <!--  -->
     <section class="logistics-panel" aria-labelledby="logistics-hubs-heading">
         <div class="logistics-panel-head">
-            <h3 id="logistics-hubs-heading"><?= t('logistics.hub.my_hubs_title') ?></h3>
-            <span><?= t('logistics.hub.my_hubs_desc') ?></span>
+            <div>
+                <h3 id="logistics-hubs-heading"><?= t('logistics.hub.my_hubs_title') ?></h3>
+                <span><?= t('logistics.hub.my_hubs_desc') ?></span>
+            </div>
+            <button class="btn btn-sm btn-primary" type="button" onclick="hubBuyNewModal()">
+                <?= t('logistics.hub.market_btn_buy_new') ?>
+            </button>
         </div>
 
         <?php if (!empty($hubAlerts)): ?>
@@ -868,7 +930,7 @@
                 $condPct   = (float)$hub['condition_pct'];
                 $condClass = $condPct <= 20 ? 'c-bad' : ($condPct < 60 ? 'c-warn' : 'c-good');
                 $loadClass = $loadPct > 100 ? 'c-bad' : ($loadPct > 80 ? 'c-warn' : 'c-good');
-                // Combined risk level (condition + load)
+ // Combined risk level (condition + load)
                 $riskLevel = 'none';
                 if ($condPct <= 20 || ($condPct <= 40 && $loadPct > 80)) {
                     $riskLevel = 'critical';
@@ -887,6 +949,10 @@
 
                 <div class="logistics-hub-card-hdr">
                     <span class="logistics-hub-name"><?= htmlspecialchars($hub['name']) ?></span>
+                    <?php $ownership = $card['ownership'] ?? 'owned'; ?>
+                    <span class="badge hub-ownership-badge hub-ownership-badge--<?= htmlspecialchars($ownership) ?>">
+                        <?= t('logistics.hub.ownership_' . $ownership) ?>
+                    </span>
                     <span class="badge <?= $card['status_class'] ?>">
                         <?= t('logistics.hub.status_' . $hub['status']) ?>
                     </span>
@@ -1087,24 +1153,48 @@
 
 <script>
 /* Pipeline player actions: repair / maintenance / toggle */
-/* Akcje gracza na rurociagach — modal potwierdzenia zamiast confirm() */
+/* Akcje gracza na rurociagach - modal potwierdzenia zamiast confirm() */
 (function() {
     var PIPELINE_API  = '/src/PipelineApi.php';
     var PIPELINE_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-    /* State for pending action / Stan oczekujacej akcji */
+ /* State for pending action / Stan oczekujacej akcji */
     var _pendingId     = 0;
     var _pendingAction = '';
     var _pendingBtn    = null;
 
-    /* Action title map / Mapa tytulow dla akcji */
+ /* Action title map / Mapa tytulow dla akcji */
     var ACTION_TITLES = {
         repair_pipeline:      '<?= t('logistics.pipeline.btn_repair') ?>',
         maintenance_pipeline: '<?= t('logistics.pipeline.btn_maintenance') ?>',
         toggle_pipeline:      '<?= t('logistics.pipeline.btn_suspend') ?> / <?= t('logistics.pipeline.btn_resume') ?>',
     };
 
-    /* Open confirm modal / Otworz modal potwierdzenia */
+ /* Toggle confirm: reads state from data-* attrs, no page reload on success */
+ /* Potwierdzenie toggle: odczytuje stan z data-*, po sukcesie aktualizuje przycisk */
+    window.pipelineToggleConfirm = function(btn) {
+        var pipelineId  = parseInt(btn.dataset.pipelineToggle, 10);
+        var isSuspended = btn.dataset.suspended === '1';
+        var confirmMsg  = isSuspended ? btn.dataset.confirmResume : btn.dataset.confirmSuspend;
+
+        _pendingId     = pipelineId;
+        _pendingAction = 'toggle_pipeline';
+        _pendingBtn    = btn;
+
+        var modal = document.getElementById('pipeline-action-modal');
+        modal.querySelector('.pipeline-action-modal-title').textContent =
+            isSuspended ? btn.dataset.labelResume : btn.dataset.labelSuspend;
+        modal.querySelector('.pipeline-action-modal-msg').textContent = confirmMsg;
+
+        var confirmBtn = modal.querySelector('.pipeline-action-modal-confirm');
+        confirmBtn.disabled     = false;
+        confirmBtn.style.opacity = '';
+
+        modal.style.display = '';
+        confirmBtn.focus();
+    };
+
+ /* Open confirm modal / Otworz modal potwierdzenia */
     window.pipelineActionConfirm = function(pipelineId, action, confirmMsg) {
         _pendingId     = pipelineId;
         _pendingAction = action;
@@ -1115,7 +1205,7 @@
             ACTION_TITLES[action] || '<?= t('modal.confirm') ?>';
         modal.querySelector('.pipeline-action-modal-msg').textContent = confirmMsg;
 
-        /* Reset confirm btn state / Resetuj stan przycisku */
+ /* Reset confirm btn state / Resetuj stan przycisku */
         var confirmBtn = modal.querySelector('.pipeline-action-modal-confirm');
         confirmBtn.disabled    = false;
         confirmBtn.style.opacity = '';
@@ -1124,7 +1214,7 @@
         confirmBtn.focus();
     };
 
-    /* Close confirm modal / Zamknij modal */
+ /* Close confirm modal / Zamknij modal */
     window.closePipelineActionModal = function() {
         document.getElementById('pipeline-action-modal').style.display = 'none';
         _pendingId     = 0;
@@ -1132,7 +1222,7 @@
         _pendingBtn    = null;
     };
 
-    /* Execute action after confirmation / Wykonaj akcje po potwierdzeniu */
+ /* Execute action after confirmation / Wykonaj akcje po potwierdzeniu */
     window.executePipelineAction = function() {
         if (!_pendingId || !_pendingAction) return;
 
@@ -1145,20 +1235,35 @@
             _token:      PIPELINE_CSRF,
         });
 
+        var pendingAction = _pendingAction;
+        var pendingBtn    = _pendingBtn;
+
         fetch(PIPELINE_API, { method: 'POST', body: body,
             headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 closePipelineActionModal();
-                if (data.success) {
-                    location.reload();
+                if (!data.success) {
+ // Use global modal instead of native alert / Modal zamiast natywnego alert
+                    window.alertError('<?= t('logistics.pipeline.action_error') ?>: ' + (data.error || '?'));
+                    return;
+                }
+                if (pendingAction === 'toggle_pipeline' && pendingBtn) {
+ /* Update button in-place without reload */
+                    var nowSuspended = (data.new_status === 'suspended');
+                    pendingBtn.dataset.suspended = nowSuspended ? '1' : '0';
+                    pendingBtn.textContent = nowSuspended
+                        ? pendingBtn.dataset.labelResume
+                        : pendingBtn.dataset.labelSuspend;
+                    pendingBtn.className = 'btn btn-xs ' + (nowSuspended ? 'btn-secondary' : 'btn-danger');
                 } else {
-                    alert('<?= t('logistics.pipeline.action_error') ?>: ' + (data.error || '?'));
+                    location.reload();
                 }
             })
             .catch(function() {
                 closePipelineActionModal();
-                alert('<?= t('logistics.pipeline.action_error') ?>');
+ // Use global modal instead of native alert / Modal zamiast natywnego alert
+                window.alertError('<?= t('logistics.pipeline.action_error') ?>');
             });
     };
 })();
@@ -1224,20 +1329,92 @@
     </div>
 </div>
 
+<!--  -->
+<!-- MODAL: Kup nowy hub                                                     -->
+<!--  -->
+<div id="hub-buy-new-modal" class="logistics-modal-overlay" style="display:none"
+     onclick="if(event.target===this)closeHubModal('hub-buy-new-modal')">
+    <div class="logistics-modal-box">
+        <div class="logistics-modal-hdr">
+            <span><?= t('logistics.hub.market_buy_new_title') ?></span>
+            <button class="logistics-modal-close" onclick="closeHubModal('hub-buy-new-modal')"></button>
+        </div>
+        <?php if (empty($playerHubRegions)): ?>
+        <div class="logistics-modal-body">
+            <div class="logistics-empty"><?= t('logistics.hub.avail_no_regions') ?></div>
+        </div>
+        <div class="logistics-modal-footer">
+            <button class="btn btn-secondary btn-sm" onclick="closeHubModal('hub-buy-new-modal')">
+                <?= t('logistics.cancel') ?>
+            </button>
+        </div>
+        <?php else: ?>
+        <form id="hub-buy-new-form" class="logistics-modal-body" onsubmit="hubBuyNewSubmit(event)">
+            <label class="logistics-form-field">
+                <span><?= t('logistics.hub.market_field_name') ?></span>
+                <input type="text" name="name" maxlength="120" required
+                       placeholder="<?= htmlspecialchars(t('logistics.hub.market_field_name_ph'), ENT_QUOTES) ?>">
+            </label>
+
+            <label class="logistics-form-field">
+                <span><?= t('logistics.hub.market_field_region') ?></span>
+                <select name="region_id" required>
+                    <?php foreach ($playerHubRegions as $reg): ?>
+                    <option value="<?= (int)$reg['id'] ?>"><?= htmlspecialchars($reg['name']) ?></option>
+                    <?php endforeach ?>
+                </select>
+            </label>
+
+            <label class="logistics-form-field">
+                <span><?= t('logistics.hub.market_field_zone') ?></span>
+                <input type="text" name="zone_key" maxlength="16"
+                       placeholder="<?= htmlspecialchars(t('logistics.hub.market_field_zone_ph'), ENT_QUOTES) ?>">
+            </label>
+
+            <div class="logistics-form-field">
+                <span><?= t('logistics.hub.market_field_type') ?></span>
+                <div class="logistics-modes">
+                    <?php foreach ($hubTypeOptions as $i => $opt): ?>
+                    <label class="logistics-mode-card<?= $i === 0 ? ' selected' : '' ?>">
+                        <input type="radio" name="hub_type" value="<?= htmlspecialchars($opt['key']) ?>"
+                               data-build-cost="<?= number_format($opt['build_cost'], 2, '.', '') ?>"
+                               onchange="hubBuyNewTypeChange(this)" <?= $i === 0 ? 'checked' : '' ?>>
+                        <div class="logistics-mode-name"><?= t('logistics.hub.type_' . $opt['key']) ?></div>
+                        <div class="logistics-mode-desc">
+                            <?= number_format($opt['build_cost'], 0, ',', ' ') ?> PLN
+                            &middot; <?= (int)$opt['slot_limit'] ?> <?= t('logistics.hub.col_slots') ?>
+                        </div>
+                    </label>
+                    <?php endforeach ?>
+                </div>
+            </div>
+        </form>
+        <div class="logistics-modal-footer">
+            <button class="btn btn-secondary btn-sm" onclick="closeHubModal('hub-buy-new-modal')">
+                <?= t('logistics.cancel') ?>
+            </button>
+            <button class="btn btn-primary btn-sm" id="hub-buy-new-submit" onclick="hubBuyNewSubmit(event)">
+                <?= t('logistics.hub.market_btn_buy_new_confirm') ?>
+            </button>
+        </div>
+        <?php endif ?>
+    </div>
+</div>
+
 <script>
 window.HUB_API   = '/src/HubApi.php';
 window.HUB_CSRF  = document.querySelector('meta[name="csrf-token"]')?.content || '';
 window.HUB_LANG  = <?= json_encode([
-    // Stan i ladowanie / State and loading
+ // Stan i ladowanie / State and loading
     'loading'        => t('logistics.loading'),
     'err_generic'    => t('logistics.hub.err_generic'),
-    // Dialogi  tytuly i przyciski / Dialog titles and buttons
+ // Dialogi tytuly i przyciski / Dialog titles and buttons
     'title_info'     => t('logistics.hub.title_info'),
     'title_error'    => t('logistics.hub.title_error'),
     'title_warning'  => t('logistics.hub.title_warning'),
     'confirm_title'  => t('logistics.hub.confirm_title'),
     'confirm_label'  => t('logistics.hub.confirm_label'),
-    // Akcje sukcesu / Success messages
+ // Akcje sukcesu / Success messages
     'ok_build'       => t('logistics.hub.ok_build'),
     'ok_repair'      => t('logistics.hub.ok_repair'),
     'ok_upgrade'     => t('logistics.hub.ok_upgrade',     ['level' => '{level}']),
@@ -1247,11 +1424,11 @@ window.HUB_LANG  = <?= json_encode([
     'ok_assign'      => t('logistics.hub.ok_assign'),
     'ok_detach'      => t('logistics.hub.ok_detach'),
     'ok_transfer'    => t('logistics.hub.ok_transfer'),
-    // Potwierdzenia operacji / Confirm dialogs
+ // Potwierdzenia operacji / Confirm dialogs
     'repair_confirm'  => t('logistics.hub.repair_confirm',  ['cost' => '{cost}']),
     'upgrade_confirm' => t('logistics.hub.upgrade_confirm', ['cost' => '{cost}']),
     'detach_confirm'  => t('logistics.hub.wells_detach_confirm', ['id' => '{id}']),
-    // Modal odwiertow huba / Hub wells modal
+ // Modal odwiertow huba / Hub wells modal
     'wells_none'     => t('logistics.hub.wells_none'),
     'col_well'       => t('logistics.hub.wells_col_well'),
     'col_region'     => t('logistics.hub.wells_col_region'),
@@ -1260,36 +1437,36 @@ window.HUB_LANG  = <?= json_encode([
     'col_actions'    => t('logistics.hub.wells_col_actions'),
     'btn_detach'     => t('logistics.hub.wells_btn_detach'),
     'btn_transfer'   => t('logistics.hub.wells_btn_transfer'),
-    // Modal transferu / Transfer modal
+ // Modal transferu / Transfer modal
     'transfer_none'  => t('logistics.hub.transfer_none'),
-    // Modal przypisania odwiertu / Well assign modal
+ // Modal przypisania odwiertu / Well assign modal
     'assign_well_title' => t('logistics.hub.assign_well_title'),
     'assign_well_none'  => t('logistics.hub.assign_well_none'),
     'btn_assign_well'   => t('logistics.hub.btn_assign_well'),
     'btn_assign'        => t('logistics.hub.avail_btn_assign'),
-    // Dostepne huby / Assignable hubs
+ // Dostepne huby / Assignable hubs
     'avail_title'    => t('logistics.hub.avail_title'),
     'avail_none'     => t('logistics.hub.avail_none'),
     'avail_slots'    => t('logistics.hub.avail_slots',    ['free' => '{free}', 'total' => '{total}']),
     'avail_zone_pen' => t('logistics.hub.avail_zone_penalty', ['pct' => '{pct}']),
     'avail_fee'      => t('logistics.hub.avail_fee',      ['fee' => '{fee}']),
-    // Kondycja / Condition
+ // Kondycja / Condition
     'cond_critical_short'     => t('logistics.hub.cond_critical_short'),
     'cond_low_short'          => t('logistics.hub.cond_low_short'),
     'warn_condition_critical' => t('logistics.hub.warn_condition_critical'),
     'warn_condition_low'      => t('logistics.hub.warn_condition_low'),
-    // Typy hubow / Hub types
+ // Typy hubow / Hub types
     'type_small'     => t('logistics.hub.type_small'),
     'type_medium'    => t('logistics.hub.type_medium'),
     'type_large'     => t('logistics.hub.type_large'),
-    // Tryby pracy / Operation modes
+ // Tryby pracy / Operation modes
     'mode_eco'       => t('logistics.hub.mode_eco'),
     'mode_standard'  => t('logistics.hub.mode_standard'),
     'mode_max'       => t('logistics.hub.mode_max'),
-    // Paginacja / Pagination
+ // Paginacja / Pagination
     'pagination_prev'=> t('logistics.hub.pagination_prev'),
     'pagination_next'=> t('logistics.hub.pagination_next'),
-    // Model pozyskania / Acquisition type labels
+ // Model pozyskania / Acquisition type labels
     'acq_new'        => t('logistics.hub.acquisition_new'),
     'acq_used'       => t('logistics.hub.acquisition_used'),
     'acq_rental'     => t('logistics.hub.acquisition_rental'),
@@ -1299,13 +1476,13 @@ window.HUB_LANG  = <?= json_encode([
     'acq_opex'       => t('logistics.hub.acq_opex'),
     'acq_start_cond' => t('logistics.hub.acq_start_cond'),
     'acq_lease'      => t('logistics.hub.acq_lease'),
-    // Wynajem potwierdzenia i komunikaty / Rental confirmations and messages
+ // Wynajem potwierdzenia i komunikaty / Rental confirmations and messages
     'confirm_rental'          => t('logistics.hub.confirm_rental'),
     'confirm_rental_transfer' => t('logistics.hub.confirm_rental_transfer'),
     'ok_assign_with_lease'    => t('logistics.hub.ok_assign_with_lease'),
     'ok_assign_with_fee'      => t('logistics.hub.ok_assign_with_fee',   ['fee' => '{fee}']),
     'ok_transfer_with_lease'  => t('logistics.hub.ok_transfer_with_lease'),
-    // Potwierdzenie kosztow przypisania / Assignment cost breakdown confirmation
+ // Potwierdzenie kosztow przypisania / Assignment cost breakdown confirmation
     'confirm_assign_costs'    => t('logistics.hub.confirm_assign_costs'),
     'confirm_access_fee'      => t('logistics.hub.confirm_access_fee'),
     'confirm_usage_fee'       => t('logistics.hub.confirm_usage_fee'),
@@ -1313,6 +1490,30 @@ window.HUB_LANG  = <?= json_encode([
     'confirm_per_tick'        => t('logistics.hub.confirm_per_tick'),
     'confirm_question'        => t('logistics.hub.confirm_question'),
     'err_insufficient_funds'  => t('logistics.hub.err_insufficient_funds'),
+ // Rynek hubow: kupno / wynajem / Hub market: buy / rent
+    'market_confirm_buy'      => t('logistics.hub.market_confirm_buy',  ['name' => '{name}', 'price' => '{price}']),
+    'market_confirm_rent'     => t('logistics.hub.market_confirm_rent', ['name' => '{name}', 'deposit' => '{deposit}', 'lease' => '{lease}']),
+    'market_confirm_buy_new'  => t('logistics.hub.market_confirm_buy_new', ['name' => '{name}', 'price' => '{price}']),
+    'market_ok_buy'           => t('logistics.hub.ok_buy_used'),
+    'market_ok_rent'          => t('logistics.hub.ok_rent'),
+    'market_ok_buy_new'       => t('logistics.hub.ok_buy_new'),
+    'market_name_required'    => t('logistics.hub.market_name_required'),
+    'err_hub_already_owned'   => t('logistics.hub.err_hub_already_owned'),
+    'err_hub_already_rented'  => t('logistics.hub.err_hub_already_rented'),
+    'err_hub_unavailable'     => t('logistics.hub.err_hub_unavailable'),
+ // Well status labels for hub wells modal / Tlumaczenia statusow odwiertow w modalu huba
+    'ws_active'          => t('technical.ws_active'),
+    'ws_paused_staff'    => t('technical.ws_paused_staff'),
+    'ws_paused_cash'     => t('technical.ws_paused_cash'),
+    'ws_paused_storage'  => t('technical.ws_paused_storage'),
+    'ws_contaminated'    => t('technical.ws_contaminated'),
+    'ws_blowout'         => t('technical.ws_blowout'),
+    'ws_seized'          => t('technical.ws_seized'),
+    'ws_broken'          => t('technical.ws_broken'),
+    'ws_no_operator'     => t('technical.ws_no_operator'),
+    'ws_no_technician'   => t('technical.ws_no_technician'),
+    'ws_sold'            => t('technical.ws_sold'),
+    'ws_layer_switch'    => t('technical.ws_layer_switch'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 
@@ -1598,7 +1799,7 @@ function confirmPipelinePurchase() {
     var btn  = document.getElementById('pipeline-buy-confirm-btn');
     var body = document.getElementById('pipeline-buy-modal-body');
 
-    // Step 1: show cost summary before committing
+ // Step 1: show cost summary before committing
     if (!_pipelineBuyConfirming) {
         var p = _pipelineBuyProfiles ? _pipelineBuyProfiles[_pipelineBuyType] : null;
         if (!p) return;
@@ -1621,7 +1822,7 @@ function confirmPipelinePurchase() {
         return;
     }
 
-    // Step 2: execute purchase
+ // Step 2: execute purchase
     btn.disabled = true;
 
     var fd = new FormData();
@@ -1640,7 +1841,7 @@ function confirmPipelinePurchase() {
                 btn.style.display = 'none';
                 setTimeout(function () { window.location.reload(); }, 4500);
             } else {
-                // On error go back to step 1 so user can retry
+ // On error go back to step 1 so user can retry
                 _pipelineBuyConfirming = false;
                 btn.textContent = PIPELINE_LANG.buy_confirm_btn;
                 body.innerHTML += '<p class="c-bad" style="margin-top:10px">' + (data.error || PIPELINE_LANG.err) + '</p>';

@@ -1,6 +1,6 @@
 <?php
 /**
- * technical.php — Panel Dzia³u Technicznego
+ * technical.php Panel Dziau Technicznego
  */
 require_once __DIR__ . '/src/init.php';
 Auth::requireLogin();
@@ -12,7 +12,7 @@ $_pageStart = GameLog::pageStart('technical.php');
 $playerId   = Auth::getUserId();
 GameLog::info('technical.php', 'Player logged in', ['player_id' => $playerId]);
 
-//  Inicjalizacja serwisów 
+// Inicjalizacja serwisw 
 try {
     $svc = new TechnicalTeamService($playerId);
     GameLog::info('technical.php', 'TechnicalTeamService initialized OK');
@@ -33,11 +33,11 @@ try {
     $incidentSvc = new IncidentService();
     GameLog::info('technical.php', 'IncidentService initialized OK');
 } catch (Throwable $e) {
-    GameLog::error('technical.php', 'IncidentService init failed — continuing without', $e);
+    GameLog::error('technical.php', 'IncidentService init failed ï¿½ continuing without', $e);
     $incidentSvc = null;
 }
 
-//  AKCJE POST 
+// AKCJE POST 
 $msg = $msgType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -188,9 +188,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// processReadyRecruitments() — wywo³ywane tylko przez cron/tick.php, nie przy pageview
+// processReadyRecruitments() wywoywane tylko przez cron/tick.php, nie przy pageview
 
-//  DANE 
+// DANE 
 $_dataStart = microtime(true);
 
 try { $manager = $svc->getManager(); GameLog::info('technical.php', 'getManager', ['found' => $manager ? 'yes' : 'no']); }
@@ -211,7 +211,7 @@ catch (Throwable $e) { GameLog::error('technical.php', 'getActiveTasks FAIL', $e
 try { $allTasks = $svc->getTasks(); GameLog::dbResult('technical.php', 'getTasks', count($allTasks)); }
 catch (Throwable $e) { GameLog::error('technical.php', 'getTasks FAIL', $e); $allTasks = []; }
 
-// Auto-zakoñcz zadania których end_time min¹³ (na wypadek gdy cron nie zd¹¿y³)
+// Auto-zakocz zadania ktrych end_time min (na wypadek gdy cron nie zdy)
 try {
     $svc->processTick();
     $allTasks = $svc->getTasks();
@@ -249,7 +249,7 @@ $activeWells = array_filter($wells, fn($w) => $w['status'] === 'active');
 $totalProd = array_sum(array_map(fn($w) => (float)$w['base_production_per_hour'], $activeWells));
 $avgCond   = count($wells) ? round(array_sum(array_map(fn($w) => (float)$w['technical_condition'], $wells)) / count($wells), 1) : 0;
 
-// Dane personelu odwiertów
+// Dane personelu odwiertw
 try {
     $wellStaffSvc     = new WellStaffService($playerId);
     $wellsStaffStatus = $wellStaffSvc->getWellsStaffStatus();
@@ -281,7 +281,7 @@ try {
     $procStatus = ['level' => 0, 'integrity' => 100.0, 'last_decay_at' => null];
 }
 
-//  Pipelines 
+// Pipelines 
 try {
     $db = Database::getInstance()->getConnection();
 
@@ -296,8 +296,8 @@ try {
     GameLog::dbResult('technical.php', 'pipelines', count($pipelines));
 
     if (empty($pipelines)) {
-        GameLog::info('technical.php', 'No pipelines — creating default');
-        $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Ruroci¹g g³ówny')")->execute([$playerId]);
+        GameLog::info('technical.php', 'No pipelines ï¿½ creating default');
+        $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Rurociï¿½g gï¿½ï¿½wny')")->execute([$playerId]);
         $pipeStmt->execute([$playerId]);
         $pipelines = $pipeStmt->fetchAll();
     }
@@ -306,7 +306,7 @@ try {
     $pipelines = [];
 }
 
-//  Warunki upgrade procedur BHP 
+// Warunki upgrade procedur BHP 
 $auditDone   = false;
 $hasHseStaff = ['officer' => false, 'engineer' => false];
 try {
@@ -336,7 +336,7 @@ try {
 
 $canUpgradeProcedures = $auditDone && $hasHseStaff['officer'] && $hasHseStaff['engineer'];
 
-//  Aktywne katastrofy 
+// Aktywne katastrofy 
 $activeDisasters = [];
 try {
     $dsStmt = $db->prepare("
@@ -352,7 +352,7 @@ try {
     GameLog::error('technical.php', 'activeDisasters query FAILED', $e);
 }
 
-//  Historia awarii 
+// Historia awarii 
 $failures = [];
 try {
     $failStmt = $db->prepare("

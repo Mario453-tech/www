@@ -9,7 +9,7 @@ $pageTitle = t('black_market.admin_heading');
 $success   = '';
 $error     = '';
 
-//  POST: edycja black_score lub konfiguracji 
+// POST: edycja black_score lub konfiguracji 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && CSRF::validateToken($_POST['csrf_token'] ?? '')) {
     $action = $_POST['action'] ?? '';
 
@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && CSRF::validateToken($_POST['csrf_to
     }
 }
 
-//  Dane 
+// Dane 
 $globalStats = $bm->getGlobalStats();
 $playersData = $bm->getPlayersBlackMarketData();
 

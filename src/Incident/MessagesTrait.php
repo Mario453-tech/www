@@ -1,18 +1,18 @@
 <?php
 
 /**
- * MessagesTrait — generowanie tresci zdarzenia incydentowego.
- * Messages trait — incident event content generation.
+ * MessagesTrait generowanie tresci zdarzenia incydentowego.
+ * Messages trait incident event content generation.
  *
  * Komunikaty pobierane z lang/pl.php (lub aktywnego locale) przez tPlain().
  * Klucze: incident.{level}.{cause}.{index}
  */
 trait IncidentMessagesTrait
 {
-    // Liczba wariantow komunikatu per poziom + przyczyna. / Number of message variants per level + cause.
-    // Musi odpowiadac kluczom w lang/pl.php: incident.{level}.{cause}.0 … N-1
-    // Must match keys in lang/pl.php: incident.{level}.{cause}.0 … N-1
-    /** @var array<string, array<string, int>> */
+ // Liczba wariantow komunikatu per poziom + przyczyna. / Number of message variants per level + cause.
+ // Musi odpowiadac kluczom w lang/pl.php: incident.{level}.{cause}.0 N-1
+ // Must match keys in lang/pl.php: incident.{level}.{cause}.0 N-1
+ /** @var array<string, array<string, int>> */
     private const MSG_COUNT = [
         'micro'  => ['operator' => 4, 'system' => 3],
         'minor'  => ['operator' => 3, 'technician' => 2, 'system' => 2],
@@ -20,7 +20,7 @@ trait IncidentMessagesTrait
         'major'  => ['operator' => 1, 'technician' => 1, 'hse' => 1],
     ];
 
-    //  GENEROWANIE ZDARZENIA / Incident generation
+ // GENEROWANIE ZDARZENIA / Incident generation
 
     private function generateIncident(
         string $level,
@@ -35,8 +35,8 @@ trait IncidentMessagesTrait
         $techSkill = $staffData['technician_skill'] ?? null;
         $hseActive = !empty($hseBonus['active_hse']);
 
-        // Wybierz przyczyne (cause_type) zaleznie od kto jest / kto ma wysoki error_rate
-        // Select cause_type based on who is assigned and who has a high error_rate
+ // Wybierz przyczyne (cause_type) zaleznie od kto jest / kto ma wysoki error_rate
+ // Select cause_type based on who is assigned and who has a high error_rate
         $causeWeights = ['system' => 40];
         if ($opSkill !== null)   $causeWeights['operator']   = 35;
         if ($techSkill !== null) $causeWeights['technician'] = 20;
@@ -46,17 +46,17 @@ trait IncidentMessagesTrait
 
         $cause = $this->weightedRand($causeWeights);
 
-        // Parametry liczbowe / Numeric parameters
+ // Parametry liczbowe / Numeric parameters
         $drop  = mt_rand($cfg['prod_drop_min'], $cfg['prod_drop_max']);
         $hours = mt_rand($cfg['hours_min'], $cfg['hours_max']);
         $deg   = mt_rand($cfg['deg_min'], $cfg['deg_max']);
         $cost  = $cfg['cost_min'] > 0 ? mt_rand($cfg['cost_min'], $cfg['cost_max']) : 0;
         $risk  = $cfg['risk_add'];
 
-        // ImiEê pracownika / Worker name
+ // ImiE pracownika / Worker name
         $name = $this->getWorkerName($cause, $staffData);
 
-        // BHP aktywne -> Lagodzi skutki medium/major / HSE active -> mitigates effects for medium/major
+ // BHP aktywne -> Lagodzi skutki medium/major / HSE active -> mitigates effects for medium/major
         if ($hseActive && in_array($level, ['medium', 'major'])) {
             $drop = (int)round($drop * 0.70);
             $cost = (int)round($cost * 0.60);
@@ -64,8 +64,8 @@ trait IncidentMessagesTrait
             $risk = (int)round($risk * 0.60);
         }
 
-        // Wybierz wariant komunikatu — fallback na 'system', potem na klucz ogolny
-        // Select message variant — fallback to 'system', then to a generic key
+ // Wybierz wariant komunikatu fallback na 'system', potem na klucz ogolny
+ // Select message variant fallback to 'system', then to a generic key
         $causeCount  = self::MSG_COUNT[$level][$cause] ?? null;
         $systemCount = self::MSG_COUNT[$level]['system'] ?? 0;
 

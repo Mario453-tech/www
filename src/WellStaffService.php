@@ -1,10 +1,10 @@
 <?php
 /**
- * WellStaffService — manages operator and technician assignments to wells.
+ * WellStaffService manages operator and technician assignments to wells.
  *
  * Roles:
- *   operator   — well operation (absent -> production = 0)
- *   technician — maintenance    (absent -> degradation x1.5)
+ * operator well operation (absent -> production = 0)
+ * technician maintenance (absent -> degradation x1.5)
  *
  * Assignments are per-well, not global.
  * Cache columns (operator_id, technician_id) in wells for fast tick access.
@@ -20,19 +20,19 @@ class WellStaffService
         $this->playerId = $playerId;
     }
 
-    // Assignment
+ // Assignment
 
-    /**
-     * Assign a staff member (operator/technician) to a well.
-     * Automatically unassigns the previous occupant of that role.
-     */
+ /**
+ * Assign a staff member (operator/technician) to a well.
+ * Automatically unassigns the previous occupant of that role.
+ */
     public function assign(int $wellId, int $staffId, string $role): array
     {
         if (!in_array($role, ['operator', 'technician'])) {
             return ['success' => false, 'message' => t('well_staff.svc.err_invalid_role')];
         }
 
-        // Well validation
+ // Well validation
         $well = $this->getWell($wellId);
         if (!$well) {
             return ['success' => false, 'message' => t('well_staff.svc.err_well_not_found')];
@@ -41,7 +41,7 @@ class WellStaffService
             return ['success' => false, 'message' => t('well_staff.svc.err_well_unavailable', ['status' => $well['status']])];
         }
 
-        // Staff validation
+ // Staff validation
         $staff = $this->getStaff($staffId);
         if (!$staff) {
             return ['success' => false, 'message' => t('well_staff.svc.err_staff_not_found')];
@@ -50,7 +50,7 @@ class WellStaffService
             return ['success' => false, 'message' => t('well_staff.svc.err_staff_fired')];
         }
 
-        // Spec code check
+ // Spec code check
         $allowedSpecs = $role === 'operator'
             ? ['drilling_engineer']
             : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer'];
@@ -65,8 +65,8 @@ class WellStaffService
             ];
         }
 
-        // Check if the staff member already has another active assignment
-        // (excludes the same role on the same well — unassignRole will replace them)
+ // Check if the staff member already has another active assignment
+ // (excludes the same role on the same well unassignRole will replace them)
         $alreadyStmt = $this->db->prepare("
             SELECT w.location_name, wsa.role FROM well_staff_assignments wsa
             JOIN wells w ON w.id = wsa.well_id
@@ -89,22 +89,22 @@ class WellStaffService
 
         $this->db->beginTransaction();
         try {
-            // Unassign the current occupant of this role
+ // Unassign the current occupant of this role
             $this->unassignRole($wellId, $role);
 
-            // New assignment
+ // New assignment
             $this->db->prepare("
                 INSERT INTO well_staff_assignments
                     (well_id, player_id, staff_id, role, assigned_at)
                 VALUES (?, ?, ?, ?, NOW())
             ")->execute([$wellId, $this->playerId, $staffId, $role]);
 
-            // Update cache in wells table
+ // Update cache in wells table
             $col = $role === 'operator' ? 'operator_id' : 'technician_id';
             $this->db->prepare("UPDATE wells SET {$col} = ? WHERE id = ?")
                      ->execute([$staffId, $wellId]);
 
-            // Refresh well status (may change to active)
+ // Refresh well status (may change to active)
             $this->refreshWellStatus($wellId);
 
             $this->db->commit();
@@ -131,9 +131,9 @@ class WellStaffService
         }
     }
 
-    /**
-     * Unassign a staff member from a well (specific role).
-     */
+ /**
+ * Unassign a staff member from a well (specific role).
+ */
     public function unassign(int $wellId, string $role): array
     {
         $well = $this->getWell($wellId);
@@ -162,12 +162,12 @@ class WellStaffService
         }
     }
 
-    // Well status
+ // Well status
 
-    /**
-     * Refreshes well status based on currently assigned staff.
-     * Called after every assignment change.
-     */
+ /**
+ * Refreshes well status based on currently assigned staff.
+ * Called after every assignment change.
+ */
     public function refreshWellStatus(int $wellId): void
     {
         $well = $this->db->prepare("
@@ -179,7 +179,7 @@ class WellStaffService
 
         $currentStatus = $w['status'];
 
-        // Do not override critical statuses
+ // Do not override critical statuses
         if (in_array($currentStatus, ['seized', 'blowout', 'sold', 'paused_cash', 'paused_storage'])) {
             return;
         }
@@ -194,7 +194,7 @@ class WellStaffService
         } elseif (!$hasTechnician) {
             $newStatus = 'no_technician';
         } else {
-            // Both assigned — activate if status was no_operator/no_technician
+ // Both assigned activate if status was no_operator/no_technician
             $newStatus = in_array($currentStatus, ['no_operator', 'no_technician'])
                 ? 'active'
                 : $currentStatus;
@@ -209,12 +209,12 @@ class WellStaffService
         }
     }
 
-    // Queries / Reads
+ // Queries / Reads
 
-    /**
-     * Staff status for each of the player's wells.
-     * Used in tick and UI.
-     */
+ /**
+ * Staff status for each of the player's wells.
+ * Used in tick and UI.
+ */
     public function getWellsStaffStatus(): array
     {
         $stmt = $this->db->prepare("
@@ -260,10 +260,10 @@ class WellStaffService
         return $result;
     }
 
-    /**
-     * List of staff available for assignment.
-     * Excludes already-assigned and dismissed staff.
-     */
+ /**
+ * List of staff available for assignment.
+ * Excludes already-assigned and dismissed staff.
+ */
     public function getAvailableStaff(string $role): array
     {
         $allowedSpecs = $role === 'operator'
@@ -308,7 +308,7 @@ class WellStaffService
         return $stmt->fetchAll();
     }
 
-    // Helpers
+ // Helpers
 
     private function unassignRole(int $wellId, string $role): void
     {

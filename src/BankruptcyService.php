@@ -10,12 +10,12 @@ require_once __DIR__ . '/Bankruptcy/EventsTrait.php';
  *
  * Logic is split into traits in src/Bankruptcy/.
  * PL: Logika jest podzielona na traity w src/Bankruptcy/.
- *   - StateTrait.php   - state loading, recovery mode, events and counters
- *      PL: odczyt stanu, recovery mode, eventy i liczniki
- *   - OptionsTrait.php - applying bankruptcy options
- *      PL: stosowanie opcji bankructwa
- *   - EventsTrait.php  - ticking bankruptcy flow and critical events
- *      PL: tick bankructwa i obsluga krytycznych eventow
+ * - StateTrait.php - state loading, recovery mode, events and counters
+ * PL: odczyt stanu, recovery mode, eventy i liczniki
+ * - OptionsTrait.php - applying bankruptcy options
+ * PL: stosowanie opcji bankructwa
+ * - EventsTrait.php - ticking bankruptcy flow and critical events
+ * PL: tick bankructwa i obsluga krytycznych eventow
  */
 class BankruptcyService
 {

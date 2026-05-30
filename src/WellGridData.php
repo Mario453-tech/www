@@ -1,22 +1,22 @@
-﻿<?php
+<?php
 
 /**
- * WellGridData — prepares all data needed by the well_grid component template.
+ * WellGridData - prepares all data needed by the well_grid component template.
  */
 class WellGridData
 {
-    /**
-     * @param array      $wells      Raw well rows from the DB / controller
-     * @param array      $playerData Player row (cash, bankruptcy_status, …)
-     * @param mixed|null $storage    Storage object (has getData() method) or null
-     *
-     * @return array  Keys: groups, storageData, storageCap, storageAfter, upgradeCost,
-     *                      canAffordUpg, playerCash, statusMap, specNames, regionIcons,
-     *                      showWells, glAll
-     */
+ /**
+ * @param array $wells Raw well rows from the DB / controller
+ * @param array $playerData Player row (cash, bankruptcy_status, ...)
+ * @param mixed|null $storage Storage object (has getData() method) or null
+ *
+ * @return array Keys: groups, storageData, storageCap, storageAfter, upgradeCost,
+ * canAffordUpg, playerCash, statusMap, specNames, regionIcons,
+ * showWells, glAll
+ */
     public static function prepare(array $wells, array $playerData, $storage): array
     {
-        //  Status map 
+ // Status map 
         $statusMap = [
             'active'         => [t('technical.ws_active'),          'wbadge--active',  ''],
             'paused_storage' => [t('well.status.paused_storage'),   'wbadge--warn',    ''],
@@ -31,7 +31,7 @@ class WellGridData
             'equipment_swap' => [t('well.status.equipment_swap'),   'wbadge--warn',    ''],
         ];
 
-        //  Specialist names 
+ // Specialist names 
         $specNames = [
             'safety_officer'       => t('hr.spec.safety_officer'),
             'safety_engineer'      => t('hr.spec.safety_engineer'),
@@ -39,13 +39,13 @@ class WellGridData
             'production_engineer'  => t('hr.spec.production_engineer'),
         ];
 
-        //  Filter wells by bankruptcy status 
+ // Filter wells by bankruptcy status 
         $playerStatus = $playerData['bankruptcy_status'] ?? 'none';
         $showWells = in_array($playerStatus, ['none', 'recovered'])
             ? array_filter($wells, fn($w) => !in_array($w['status'] ?? '', ['seized', 'sold']))
             : array_filter($wells, fn($w) => ($w['status'] ?? '') !== 'sold');
 
-        //  Storage computations 
+ // Storage computations 
         $storageData  = isset($storage) ? $storage->getData() : null;
         $storageCap   = $storageData ? (float)$storageData['capacity'] : 0;
         $upgradeCost  = $storageCap * 50;
@@ -53,7 +53,7 @@ class WellGridData
         $playerCash   = (float)($playerData['cash'] ?? 0);
         $canAffordUpg = $playerCash >= $upgradeCost && $upgradeCost > 0;
 
-        //  Region icons 
+ // Region icons 
         $regionIcons = [
             'middle_east'    => '',
             'russia'         => '',
@@ -65,14 +65,15 @@ class WellGridData
             ''               => '',
         ];
 
-        //  Geological layers (loaded once for all wells) 
+ // Geological layers (loaded once for all wells) 
         $glAll = class_exists('GeologicalLayerService')
             ? (new GeologicalLayerService())->getAllLayers()
             : [];
 
-        // Preload owned pipelines for all visible wells.
-        // Preload zakupionych rurociagow dla wszystkich widocznych odwiertow.
+ // Preload owned pipelines for all visible wells.
+ // Preload zakupionych rurociagow dla wszystkich widocznych odwiertow.
         $pipelineByWell = [];
+        $outboundPipelineByHub = [];  // ETAP 11: keyed by hub_id (not well_id)
         $hubAssignmentByWell = [];
         if (!empty($showWells)) {
             $wellIds = array_values(array_filter(array_map(static fn($w): int => (int)($w['id'] ?? 0), $showWells)));
@@ -82,7 +83,7 @@ class WellGridData
                     $pipelineSvc = new WellPipelineService($db);
                     $playerId = (int)($playerData['id'] ?? 0);
                     if ($playerId > 0) {
-                        $pipelineByWell = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds);
+                        $pipelineByWell = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
                     }
                 } catch (Throwable $e) {
                     GameLog::error('WellGridData', 'pipeline preload FAILED', $e);
@@ -91,8 +92,9 @@ class WellGridData
                 try {
                     $db = Database::getInstance()->getConnection();
                     $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
+ // ETAP 11: also fetch outbound_transport_type from logistics_hubs for second leg display.
                     $stmt = $db->prepare(
-                        "SELECT a.well_id, a.hub_id, h.name AS hub_name
+                        "SELECT a.well_id, a.hub_id, h.name AS hub_name, h.outbound_transport_type
                            FROM logistics_hub_assignments a
                            JOIN logistics_hubs h ON h.id = a.hub_id
                           WHERE a.status = 'active'
@@ -105,10 +107,28 @@ class WellGridData
                 } catch (Throwable $e) {
                     GameLog::error('WellGridData', 'hub assignment preload FAILED', $e);
                 }
+
+ // ETAP 11: load outbound pipelines keyed by hub_id (well_id=0 sentinel).
+                try {
+                    $db = Database::getInstance()->getConnection();
+                    $pipelineSvc = new WellPipelineService($db);
+                    $playerId = (int)($playerData['id'] ?? 0);
+                    if ($playerId > 0) {
+                        $hubIds = array_values(array_unique(array_map(
+                            static fn($a): int => (int)($a['hub_id'] ?? 0),
+                            $hubAssignmentByWell
+                        )));
+                        if ($hubIds !== []) {
+                            $outboundPipelineByHub = $pipelineSvc->getByPlayerHubIds($playerId, $hubIds);
+                        }
+                    }
+                } catch (Throwable $e) {
+                    GameLog::error('WellGridData', 'hub outbound pipeline preload FAILED', $e);
+                }
             }
         }
 
-        //  Group wells by region, enriching each well 
+ // Group wells by region, enriching each well 
         $groups = [];
         foreach ($showWells as $w) {
             $regionKey   = !empty($w['region_name']) ? $w['region_name'] : t('wg.no_location');
@@ -120,7 +140,7 @@ class WellGridData
                     'code'  => $w['region_code'] ?? '',
                 ];
             }
-            $groups[$regionKey]['wells'][] = self::prepareWell($w, $statusMap, $specNames, $playerCash, $pipelineByWell, $hubAssignmentByWell);
+            $groups[$regionKey]['wells'][] = self::prepareWell($w, $statusMap, $specNames, $playerCash, $pipelineByWell, $hubAssignmentByWell, $outboundPipelineByHub);
         }
         ksort($groups);
 
@@ -140,19 +160,20 @@ class WellGridData
         ];
     }
 
-    /**
-     * Enriches a single well row with all computed display data.
-     */
-    private static function prepareWell(array $w, array $statusMap, array $specNames, float $playerCash, array $pipelineByWell, array $hubAssignmentByWell): array
+ /**
+ * Enriches a single well row with all computed display data.
+ * ETAP 11: $outboundPipelineByHub is keyed by hub_id (not well_id).
+ */
+    private static function prepareWell(array $w, array $statusMap, array $specNames, float $playerCash, array $pipelineByWell, array $hubAssignmentByWell, array $outboundPipelineByHub = []): array
     {
-        //  Status & condition 
+ // Status & condition 
         $status   = $w['status'] ?? 'active';
         $st       = $statusMap[$status] ?? [ucfirst($status), 'wbadge--warn', ''];
         $isActive = $status === 'active';
         $cond     = (float)($w['technical_condition'] ?? 100);
         $condCls  = $cond >= 70 ? 'cg-good' : ($cond >= 40 ? 'cg-warn' : 'cg-bad');
 
-        //  Pressure & reservoir 
+ // Pressure & reservoir 
         $wEffPress = class_exists('WellService')
             ? WellService::getEffectivePressure($w)
             : ['effective' => (float)($w['pressure'] ?? 1.0), 'depletion' => 1.0];
@@ -163,7 +184,7 @@ class WellGridData
             : 0;
         $wResCls   = $wResPct >= 40 ? 'cv-good' : ($wResPct >= 20 ? 'cv-warn' : 'cv-bad');
 
-        //  Missing specialists 
+ // Missing specialists 
         $missingSpecs = [];
         if ($status === 'paused_staff') {
             if (!empty($w['paused_staff_reason'])) {
@@ -178,7 +199,7 @@ class WellGridData
 
         $spiralBoost = (float)($w['post_incident_risk_boost'] ?? 0);
 
-        //  Transport 
+ // Transport 
         $wellId     = (int)($w['id'] ?? 0);
         $wellType   = $w['well_type'] ?? 'onshore';
         $isOffshore = ($wellType === 'offshore');
@@ -203,6 +224,15 @@ class WellGridData
                 $pipelineBuildCost = 18000.0;
             }
         }
+ // Second transport leg (hub -> storage). ETAP 11: type stored per hub, pipeline keyed by hub_id.
+        $hubId               = (int)($hubAssignment['hub_id'] ?? 0);
+        $outboundType        = (string)($hubAssignment['outbound_transport_type'] ?? $w['hub_outbound_transport_type'] ?? 'nieustawiony');
+        $outboundPipeline    = ($hubId > 0) ? ($outboundPipelineByHub[$hubId] ?? null) : null;
+        $hasOutboundPipeline = $outboundPipeline !== null;
+        $outboundStatus      = (string)($outboundPipeline['status'] ?? '');
+        $outboundOperational = (bool)($outboundPipeline['_is_operational'] ?? ($hasOutboundPipeline && $outboundStatus !== 'building'));
+        $outboundBuilding    = $outboundStatus === 'building';
+
         $displayTransportType = $legacyPipelineSelection ? 'nieustawiony' : $trType;
         $effectiveTransportType = $displayTransportType;
         if (!$isOffshore && $displayTransportType === 'rurociag' && !$hasOperationalPipeline) {
@@ -228,7 +258,7 @@ class WellGridData
         $trLabel = $trDefs[$effectiveTransportType][0] ?? t('wg.transport_unset_label');
         $trCls   = $trDefs[$effectiveTransportType][1] ?? 'cv-bad';
 
-        //  Equipment 
+ // Equipment 
         $eqTier  = $w['equipment_tier'] ?? 'standard';
         $eqLevel = (int)($w['equipment_upgrade_level'] ?? 0);
         $eqMults = (class_exists('WellService') && method_exists('WellService', 'getEquipmentMultipliers'))
@@ -243,7 +273,7 @@ class WellGridData
         $upgCosts    = [1 => 30_000_000, 2 => 60_000_000, 3 => 100_000_000];
         $nextUpgCost = $eqLevel < 3 ? ($upgCosts[$eqLevel + 1] ?? null) : null;
 
-        //  Geological layer 
+ // Geological layer 
         $glCur             = null;
         $glCurId           = (int)($w['active_layer_id'] ?? 1);
         $glSwitchHoursLeft = 0;
@@ -291,6 +321,13 @@ class WellGridData
             '_legacyPipelineSelection' => $legacyPipelineSelection,
             '_pipelineBuildCost'  => $pipelineBuildCost,
             '_pipelineData'       => $ownedPipeline,
+ // Second leg (hub -> storage)
+            '_outboundType'           => $outboundType,
+            '_outboundPipelineOwned'  => $hasOutboundPipeline,
+            '_outboundPipelineOperational' => $outboundOperational,
+            '_outboundPipelineBuilding'    => $outboundBuilding,
+            '_outboundPipelineBuildCost'   => $pipelineBuildCost,
+            '_outboundPipelineData'        => $outboundPipeline,
             '_eqTier'             => $eqTier,
             '_eqLevel'            => $eqLevel,
             '_eqMults'            => $eqMults,

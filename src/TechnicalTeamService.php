@@ -5,20 +5,20 @@
  * Technical team management and task system.
  *
  * Hierarchy / Hierarchia:
- *   board_members (role=technical) Technical Manager
- *   technical_staff Drilling/Reservoir/Production/Maintenance/Pipeline/HSE
+ * board_members (role=technical) Technical Manager
+ * technical_staff Drilling/Reservoir/Production/Maintenance/Pipeline/HSE
  *
  * Logic split into traits in src/TTS/:
  * Logika podzielona na traity w src/TTS/:
- *   ManagerTrait.php       getManager, getManagerBonus, getHSEBonus
- *   ProceduresTrait.php    getProcedureStatus, upgradeProcedures, repairProcedureIntegrity,
- *                           processProcedureDecay, getStaffRequirementCheck
- *   StaffTrait.php         getStaff, getStaffMember, getStaffBonus, hireEngineer, fireEngineer
- *   TasksTrait.php         getTasks, getActiveTasks, assignTask, processTick, completeTask,
- *                           getQueue, cancelTask, cancelQueueItem
- *   NotificationsTrait.php  countUnreadNotifications, getUnreadNotifications, markRead, notify
- *   RecruitmentTrait.php   getTechnicalCandidates, reviewCandidate, completeRecruitment,
- *                           getActiveRecruitment, requestRecruitment, formatTime, fmt
+ * ManagerTrait.php getManager, getManagerBonus, getHSEBonus
+ * ProceduresTrait.php getProcedureStatus, upgradeProcedures, repairProcedureIntegrity,
+ * processProcedureDecay, getStaffRequirementCheck
+ * StaffTrait.php getStaff, getStaffMember, getStaffBonus, hireEngineer, fireEngineer
+ * TasksTrait.php getTasks, getActiveTasks, assignTask, processTick, completeTask,
+ * getQueue, cancelTask, cancelQueueItem
+ * NotificationsTrait.php countUnreadNotifications, getUnreadNotifications, markRead, notify
+ * RecruitmentTrait.php getTechnicalCandidates, reviewCandidate, completeRecruitment,
+ * getActiveRecruitment, requestRecruitment, formatTime, fmt
  */
 
 require_once __DIR__ . '/TTS/ManagerTrait.php';
@@ -40,12 +40,12 @@ class TechnicalTeamService
     private PDO $db;
     private int $playerId;
 
-    // Engineer specs catalog / Katalog specjalizacji inzyniera
+ // Engineer specs catalog / Katalog specjalizacji inzyniera
     const SPECS = [
         'drilling_engineer'    => [
             'name_key'  => 'technical.spec.drilling_engineer',
             'icon'      => 'DRL',
-            'tasks'     => ['well_maintenance','install_module'],
+            'tasks'     => ['install_module','blowout_control'],
             'salary_range' => [8000, 18000],
             'description_key' => 'technical.spec_desc.drilling_engineer',
         ],
@@ -93,7 +93,7 @@ class TechnicalTeamService
         ],
     ];
 
-    // HSE procedure upgrade costs / Koszty ulepszenia procedur BHP
+ // HSE procedure upgrade costs / Koszty ulepszenia procedur BHP
     const PROCEDURE_UPGRADE_COSTS = [
         1 => 500_000,
         2 => 1_000_000,
@@ -102,12 +102,12 @@ class TechnicalTeamService
         5 => 8_000_000,
     ];
 
-    // Task catalog / Katalog zadan
+ // Task catalog / Katalog zadan
     const TASKS = [
         'well_maintenance' => [
             'label_key'   => 'technical.task.well_maintenance',
             'icon'        => 'MNT',
-            'assignable'  => ['drilling_engineer','maintenance_engineer'],
+            'assignable'  => ['maintenance_engineer'],
             'hours_min'   => 6,
             'hours_max'   => 12,
             'cost_min'    => 200_000,
@@ -217,11 +217,11 @@ class TechnicalTeamService
             'effect_key'  => 'technical.task_effect.safety_audit',
         ],
 
-        // Emergency tasks / Zadania ratunkowe
+ // Emergency tasks / Zadania ratunkowe
         'blowout_control' => [
             'label_key'   => 'technical.task.blowout_control',
             'icon'        => 'EMR',
-            'assignable'  => ['drilling_engineer', 'maintenance_engineer'],
+            'assignable'  => ['drilling_engineer'],
             'hours_min'   => 72,
             'hours_max'   => 120,
             'cost_min'    => 0,
@@ -311,7 +311,7 @@ class TechnicalTeamService
         return $modules[$code] ?? null;
     }
 
-    /** @return list<string> */
+ /** @return list<string> */
     private static function getTaskTypeEnumValues(): array
     {
         return [
@@ -336,7 +336,7 @@ class TechnicalTeamService
         ];
     }
 
-    /** @return list<string> */
+ /** @return list<string> */
     private static function getQueueTaskTypeEnumValues(): array
     {
         return self::getTaskTypeEnumValues();
@@ -351,9 +351,9 @@ class TechnicalTeamService
         $this->ensureEnumContainsValues('technical_task_queue', 'task_type', self::getQueueTaskTypeEnumValues(), 'well_maintenance');
     }
 
-    /**
-     * @param list<string> $expectedValues
-     */
+ /**
+ * @param list<string> $expectedValues
+ */
     private function ensureEnumContainsValues(string $table, string $column, array $expectedValues, string $defaultValue): void
     {
         try {

@@ -1,13 +1,13 @@
 <?php
 trait WellTickTrait
 {
-    /**
-     * Each active well degrades by 0.1% per hour and low condition raises failure risk.
-     * Kazdy aktywny odwiert degraduje sie o 0.1% na godzine, a niski stan podnosi ryzyko awarii.
-     *
-     * @param array<string, mixed> $hseBonus Optional bonus array from getHSEBonus()
-     * @return array<string, mixed>
-     */
+ /**
+ * Each active well degrades by 0.1% per hour and low condition raises failure risk.
+ * Kazdy aktywny odwiert degraduje sie o 0.1% na godzine, a niski stan podnosi ryzyko awarii.
+ *
+ * @param array<string, mixed> $hseBonus Optional bonus array from getHSEBonus()
+ * @return array<string, mixed>
+ */
     public function processDegradation(int $wellId, float $deltaHours, array $hseBonus = [], float $techMult = 1.0): array
     {
         $stmt = $this->db->prepare("
@@ -19,59 +19,59 @@ trait WellTickTrait
         $stmt->execute([$wellId]);
         $well = $stmt->fetch();
 
-        // Degradation applies to active and paused operational states.
-        // Degradacja dziala dla aktywnych i wstrzymanych stanow operacyjnych.
-        // NIE dla: seized, blowout (juz zniszczony)
+ // Degradation applies to active and paused operational states.
+ // Degradacja dziala dla aktywnych i wstrzymanych stanow operacyjnych.
+ // NIE dla: seized, blowout (juz zniszczony)
         if (!$well || in_array($well['status'], ['seized', 'blowout'])) {
             return [];
         }
 
         $upgrades = $this->getInstalledUpgrades($wellId);
 
-        // Base degradation is 0.1% per hour; monitoring and HSE can reduce it.
-        // Bazowa degradacja to 0.1% na godzine; monitoring i BHP moga ja zmniejszyc.
+ // Base degradation is 0.1% per hour; monitoring and HSE can reduce it.
+ // Bazowa degradacja to 0.1% na godzine; monitoring i BHP moga ja zmniejszyc.
         $degradeRate = 0.10;
         if (in_array('monitoring', $upgrades, true)) {
             $degradeRate *= 0.70;
         }
         $degradeRate *= ($hseBonus['degrade_mult'] ?? 1.0);
 
-        // Missing staff globally causes much faster degradation.
-        // Brak personelu globalnie daje duzo szybsza degradacje.
+ // Missing staff globally causes much faster degradation.
+ // Brak personelu globalnie daje duzo szybsza degradacje.
         if ($well['status'] === 'paused_staff') {
             $degradeRate *= 10.0;
         }
 
-        // Missing technician on the well adds extra degradation.
-        // Brak technika odwiertu dodaje dodatkowa degradacje.
+ // Missing technician on the well adds extra degradation.
+ // Brak technika odwiertu dodaje dodatkowa degradacje.
         $degradeRate *= $techMult;
 
-        // Political risk accelerates degradation in harder operating regions.
-        // Ryzyko polityczne przyspiesza degradacje w trudniejszych regionach.
-        // political_risk 1->x1.0 | 2->x1.07 | 3->x1.15 | 4->x1.22 | 5->x1.30
+ // Political risk accelerates degradation in harder operating regions.
+ // Ryzyko polityczne przyspiesza degradacje w trudniejszych regionach.
+ // political_risk 1->x1.0 | 2->x1.07 | 3->x1.15 | 4->x1.22 | 5->x1.30
         $politicalRisk = (int) ($well['region_political_risk'] ?? 1);
         $politMult = [1 => 1.00, 2 => 1.07, 3 => 1.15, 4 => 1.22, 5 => 1.30][$politicalRisk] ?? 1.0;
         $degradeRate *= $politMult;
 
-        // Regional stability bonus can slow degradation.
-        // Bonus stabilnosci regionu moze spowolnic degradacje.
+ // Regional stability bonus can slow degradation.
+ // Bonus stabilnosci regionu moze spowolnic degradacje.
         $stabilityBonus = (float) ($well['region_stability_bonus'] ?? 1.0);
         if ($stabilityBonus > 0 && $stabilityBonus !== 1.0) {
             $degradeRate *= $stabilityBonus;
         }
 
-        // Post-disaster spiral increases future degradation.
-        // Spirala po katastrofie zwieksza przyszla degradacje.
+ // Post-disaster spiral increases future degradation.
+ // Spirala po katastrofie zwieksza przyszla degradacje.
         $postDisasterBoost = (float) ($well['post_disaster_risk_boost'] ?? 0.0);
         if ($postDisasterBoost > 0) {
-            // Check whether the temporary boost has expired.
-            // Sprawdz, czy czasowy boost juz wygasl.
+ // Check whether the temporary boost has expired.
+ // Sprawdz, czy czasowy boost juz wygasl.
             $expiresAt = $well['post_disaster_expires_at'] ?? null;
             if ($expiresAt && strtotime($expiresAt) > time()) {
                 $degradeRate *= (1.0 + $postDisasterBoost);
             } else {
-                // Expired - clear stored values.
-                // Wygasl - wyczysc zapisane wartosci.
+ // Expired - clear stored values.
+ // Wygasl - wyczysc zapisane wartosci.
                 $this->db->prepare("
                     UPDATE wells
                     SET post_disaster_risk_boost = 0, post_disaster_expires_at = NULL
@@ -83,8 +83,8 @@ trait WellTickTrait
         $condBefore = (int) $well['technical_condition'];
         $condAfter = max(0, $condBefore - ($degradeRate * $deltaHours));
 
-        // Condition at 0% forces the well into broken state.
-        // Stan 0% wymusza przejscie odwiertu w broken.
+ // Condition at 0% forces the well into broken state.
+ // Stan 0% wymusza przejscie odwiertu w broken.
         if ($condAfter <= 0 && $well['status'] === 'active') {
             $this->db->prepare("UPDATE wells SET status = 'broken', technical_condition = 0 WHERE id = ?")
                 ->execute([$wellId]);
@@ -102,27 +102,27 @@ trait WellTickTrait
 
         $failureOccurred = false;
         if ($condAfter < 70) {
-            // Base failure chance grows for each percent below 70 condition.
-            // Bazowa szansa awarii rosnie za kazdy procent ponizej 70 stanu.
+ // Base failure chance grows for each percent below 70 condition.
+ // Bazowa szansa awarii rosnie za kazdy procent ponizej 70 stanu.
             $failureChance = (70 - $condAfter) * 0.005;
             if (in_array('monitoring', $upgrades, true)) {
                 $failureChance *= 0.70;
             }
 
-            // HSE lowers the failure chance.
-            // BHP zmniejsza szanse awarii.
+ // HSE lowers the failure chance.
+ // BHP zmniejsza szanse awarii.
             $failureChance *= ($hseBonus['failure_reduction'] ?? 1.0);
 
             if (mt_rand(1, 10000) <= (int) ($failureChance * 10000)) {
                 $failureOccurred = true;
 
-                // HSE can reduce repair cost.
-                // BHP moze obnizyc koszt naprawy.
+ // HSE can reduce repair cost.
+ // BHP moze obnizyc koszt naprawy.
                 $repairCostBase = (int) ($condBefore * 5000);
                 $repairCost = (int) round($repairCostBase * ($hseBonus['repair_cost_mult'] ?? 1.0));
 
-                // Failure removes condition and pauses the well.
-                // Awaria zabiera stan i pauzuje odwiert.
+ // Failure removes condition and pauses the well.
+ // Awaria zabiera stan i pauzuje odwiert.
                 $condAfter = max(1, $condAfter - 20);
                 $this->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = ?")->execute([$wellId]);
                 $this->logEvent(
@@ -140,15 +140,15 @@ trait WellTickTrait
             }
         }
 
-        // Blowout chance appears only at very poor condition.
-        // Szansa blowout pojawia sie tylko przy bardzo slabym stanie.
+ // Blowout chance appears only at very poor condition.
+ // Szansa blowout pojawia sie tylko przy bardzo slabym stanie.
         if ($condAfter < 30 && !$failureOccurred) {
             $blowoutChance = (30 - $condAfter) * 0.0002; // 0.02% za kazdy % ponizej 30
             $blowoutChance *= ($hseBonus['catastrophe_mult'] ?? 1.0);
 
             if (mt_rand(1, 1000000) <= (int) ($blowoutChance * 1000000)) {
-                // Blowout is catastrophic and nearly destroys the well.
-                // Blowout jest katastrofalny i niemal niszczy odwiert.
+ // Blowout is catastrophic and nearly destroys the well.
+ // Blowout jest katastrofalny i niemal niszczy odwiert.
                 $condAfter = 1;
                 $this->db->prepare("UPDATE wells SET status = 'paused_cash', technical_condition = 1 WHERE id = ?")->execute([$wellId]);
                 $this->logEvent(
@@ -170,20 +170,20 @@ trait WellTickTrait
         return ['failure' => $failureOccurred, 'condition' => round($condAfter, 1)];
     }
 
-    /**
-     * Accumulate well risk_score during the tick.
-     * Akumuluje risk_score odwiertu podczas ticka.
-     *
-     * Formula:
-     * Wzor:
-     *   delta_risk  = wear_factor x 0.2
-     *   delta_risk += stress_factor x 0.3
-     *   delta_risk += (1 - safety_level) x 0.5
-     *   delta_risk *= deltaHours x mode_multiplier
-     *
-     * Natural decay when condition > 80 and HSE is active: -0.1/h
-     * risk_score utrzymywany w zakresie 0-100.
-     */
+ /**
+ * Accumulate well risk_score during the tick.
+ * Akumuluje risk_score odwiertu podczas ticka.
+ *
+ * Formula:
+ * Wzor:
+ * delta_risk = wear_factor x 0.2
+ * delta_risk += stress_factor x 0.3
+ * delta_risk += (1 - safety_level) x 0.5
+ * delta_risk *= deltaHours x mode_multiplier
+ *
+ * Natural decay when condition > 80 and HSE is active: -0.1/h
+ * risk_score utrzymywany w zakresie 0-100.
+ */
     public function updateRiskScore(int $wellId, float $deltaHours, array $hseBonus = []): void
     {
         try {
@@ -200,8 +200,8 @@ trait WellTickTrait
             $mode = $well['production_mode'] ?? 'normal';
             $hseActive = ($hseBonus['active_hse'] ?? 0) > 0;
 
-            // Risk components (0.0-1.0 each).
-            // Skladowe ryzyka (0.0-1.0 kazda).
+ // Risk components (0.0-1.0 each).
+ // Skladowe ryzyka (0.0-1.0 kazda).
             $wearFactor = max(0, (100 - $cond) / 100);    // brak serwisu
             $stressFactor = max(0, min(1, $pressure - 1.0)); // nadcisnienie
             $safetyLevel = 1.0 - ($hseBonus['failure_reduction'] ?? 1.0); // BHP (0=brak, 1=max)
@@ -211,8 +211,8 @@ trait WellTickTrait
             $deltaRisk += (1 - $safetyLevel) * 0.5;
             $deltaRisk *= $deltaHours;
 
-            // Production mode modifier.
-            // Modyfikator trybu produkcji.
+ // Production mode modifier.
+ // Modyfikator trybu produkcji.
             $modeMult = match ($mode) {
                 'eco' => 0.80,
                 'boost' => 1.30,
@@ -220,8 +220,8 @@ trait WellTickTrait
             };
             $deltaRisk *= $modeMult;
 
-            // Natural decrease when the well is healthy and HSE is active.
-            // Naturalny spadek, gdy odwiert jest zadbany i BHP aktywne.
+ // Natural decrease when the well is healthy and HSE is active.
+ // Naturalny spadek, gdy odwiert jest zadbany i BHP aktywne.
             if ($cond > 80 && $hseActive) {
                 $deltaRisk -= 0.10 * $deltaHours;
             }
@@ -246,12 +246,12 @@ trait WellTickTrait
         }
     }
 
-    /**
-     * Add spiral boost after an incident.
-     * Dodaje boost spirali po incydencie.
-     *
-     * minor +1, medium +6, major +15; cap=50; BHP redukuje gain.
-     */
+ /**
+ * Add spiral boost after an incident.
+ * Dodaje boost spirali po incydencie.
+ *
+ * minor +1, medium +6, major +15; cap=50; BHP redukuje gain.
+ */
     public function addSpiralBoost(int $wellId, string $incidentLevel, array $hseBonus = [], float $transportSpiralMult = 1.0): float
     {
         $boostMap = ['micro' => 0.0, 'minor' => 1.0, 'medium' => 6.0, 'major' => 15.0];
@@ -297,12 +297,12 @@ trait WellTickTrait
         }
     }
 
-    /**
-     * Decay spiral boost on every tick.
-     * Wygasza boost spirali na kazdym ticku.
-     *
-     * Bazowy decay: 0.4/h; BHP (proc_factor) przyspiesza powrot.
-     */
+ /**
+ * Decay spiral boost on every tick.
+ * Wygasza boost spirali na kazdym ticku.
+ *
+ * Bazowy decay: 0.4/h; BHP (proc_factor) przyspiesza powrot.
+ */
     public function processSpiralDecay(int $wellId, float $deltaHours, array $hseBonus = []): float
     {
         try {
@@ -333,13 +333,13 @@ trait WellTickTrait
         }
     }
 
-    /**
-     * Accumulate operational wear for the well.
-     * Akumuluje zuzycie eksploatacyjne odwiertu.
-     *
-     * wear_level 0->100 (soft cap).
-     * Wzrost: base x richness x incident_mult x spiral_mult
-     */
+ /**
+ * Accumulate operational wear for the well.
+ * Akumuluje zuzycie eksploatacyjne odwiertu.
+ *
+ * wear_level 0->100 (soft cap).
+ * Wzrost: base x richness x incident_mult x spiral_mult
+ */
     public function processWear(
         int $wellId,
         float $deltaHours,
@@ -349,8 +349,8 @@ trait WellTickTrait
         float $spiralMult = 1.0
     ): float {
         try {
-            // Use one SELECT instead of two for the same row.
-            // Uzyj jednego SELECT zamiast dwoch dla tego samego wiersza.
+ // Use one SELECT instead of two for the same row.
+ // Uzyj jednego SELECT zamiast dwoch dla tego samego wiersza.
             $stmt = $this->db->prepare("SELECT wear_level, equipment_tier, equipment_upgrade_level FROM wells WHERE id = ? LIMIT 1");
             $stmt->execute([$wellId]);
             $eqRow = $stmt->fetch();

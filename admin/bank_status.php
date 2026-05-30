@@ -1,8 +1,8 @@
 <?php
 /**
  * admin/bank_status.php
- * JSON endpoint — zwraca aktualny stan kredytów i komornika gracza
- * U¿ywany przez JS polling w player.php
+ * JSON endpoint zwraca aktualny stan kredytw i komornika gracza
+ * Uywany przez JS polling w player.php
  */
 require_once __DIR__ . '/init.php';
 GameLog::info('admin/bank_status.php', 'entry');
@@ -15,7 +15,7 @@ if (!$pid) { echo json_encode(['error' => 'brak pid']); exit; }
 
 $db = Database::getInstance()->getConnection();
 
-// SprawdŸ strukturê
+// Sprawd struktur
 try {
     $cols = $db->query("SHOW COLUMNS FROM loans")->fetchAll(PDO::FETCH_COLUMN);
     if (!in_array('remaining_amount', $cols)) {
@@ -30,7 +30,7 @@ $loans = $db->prepare("SELECT * FROM loans WHERE player_id=:pid ORDER BY created
 $loans->execute([':pid' => $pid]);
 $loans = $loans->fetchAll(PDO::FETCH_ASSOC);
 
-// Postêpowania
+// Postpowania
 $procs = $db->prepare("
     SELECT bp.*, l.remaining_amount AS debt
     FROM bailiff_proceedings bp

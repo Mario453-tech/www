@@ -1,5 +1,5 @@
 // 
-// Definicje slotow  pozycje jako % viewportu
+// Definicje slotow pozycje jako % viewportu
 // Stol zajmuje centralna czesc obrazka
 // Perspektywa: stol owalny, widoczny z gory-przodu
 // 
@@ -17,23 +17,23 @@ const RY = 16;   // promie Y (%) - lekka perspektywa
 // Analiza zdjcia: Dyrektor i HR na grze, po 4 krzesa po bokach, 
 // DUA PRZERWA midzy prawym doem (#4) a lewym doem (#5)
 const seats = [
-  //  DYREKTOR  facet w garniturze (lewo od centrum gry) 
+ // DYREKTOR facet w garniturze (lewo od centrum gry) 
   { id:  0, angle: 348, scale: 0.75, label: 'DYREKTOR', role: 'director' },
 
-  //  HR  kobieta obok dyrektora (prawo od centrum gry) 
+ // HR kobieta obok dyrektora (prawo od centrum gry) 
   { id: 99, angle:  9, scale: 0.75, label: 'Dzia HR', role: 'occupied',
     tooltip: 'Dzia kadr (HR)  obsadzone' },
 
-  //  PRAWA STRONA (4 krzesa rwnomiernie rozmieszczone) 
+ // PRAWA STRONA (4 krzesa rwnomiernie rozmieszczone) 
   { id:  1, angle:  40, scale: 0.82, label: 'Stanowisko 1',  role: 'empty' },
   { id:  2, angle:  58, scale: 0.92, label: 'Stanowisko 2',  role: 'empty' },
   { id:  3, angle:  92, scale: 1.02, label: 'Stanowisko 3',  role: 'empty' },
   { id:  4, angle: 140, scale: 1.10, label: 'Stanowisko 4',  role: 'empty' },
 
-  //  D LEWO (dua przerwa po #4) 
+ // D LEWO (dua przerwa po #4) 
   { id:  5, angle: 220, scale: 1.15, label: 'Stanowisko 5',  role: 'empty' },
 
-  //  LEWA STRONA (3 krzesa rwnomiernie rozmieszczone) 
+ // LEWA STRONA (3 krzesa rwnomiernie rozmieszczone) 
   { id:  6, angle: 268, scale: 1.10, label: 'Stanowisko 6',  role: 'empty' },
   { id:  7, angle: 296, scale: 1.02, label: 'Stanowisko 7',  role: 'empty' },
   { id:  8, angle: 324, scale: 0.92, label: 'Stanowisko 8',  role: 'empty' },
@@ -56,9 +56,9 @@ function toRad(deg) { return deg * Math.PI / 180; }
 // generujemy rne wersje ta z obsadzonymi miejscami.
 // 
 // Przykad:
-// - boardroom_bg.png           tylko dyrektor (start)
-// - boardroom_bg_hr.png        dyrektor + HR
-// - boardroom_bg_hr_tech.png   dyrektor + HR + techniczny
+// - boardroom_bg.png tylko dyrektor (start)
+// - boardroom_bg_hr.png dyrektor + HR
+// - boardroom_bg_hr_tech.png dyrektor + HR + techniczny
 // itd.
 //
 // Sloty pozostaj jako interaktywne punkty kliknicia
@@ -73,12 +73,12 @@ function getBackgroundImage() {
     return 'boardroom_bg.png'; // tylko dyrektor
   }
   
-  // Sortujemy alfabetycznie dla spjnoci nazw
+ // Sortujemy alfabetycznie dla spjnoci nazw
   const sorted = [...occupiedPositions].filter(p => p !== 'director').sort();
   
   if (sorted.length === 0) return 'boardroom_bg.png';
   
-  // Przykad: boardroom_bg_hr.png, boardroom_bg_hr_tech.png
+ // Przykad: boardroom_bg_hr.png, boardroom_bg_hr_tech.png
   return `boardroom_bg_${sorted.join('_')}.png`;
 }
 
@@ -133,20 +133,20 @@ function render() {
       <div class="slot-tooltip">${tooltipText}</div>
     `;
     
-    // Obsuga kliknicia - rozpoczcie rekrutacji dla pustych stanowisk
+ // Obsuga kliknicia - rozpoczcie rekrutacji dla pustych stanowisk
     if (seat.role === 'empty' || seat.role === 'hr') {
       div.addEventListener('click', () => {
         if (typeof recruitment !== 'undefined') {
-          // ID roli HR = 1 (zgodnie z SQL)
+ // ID roli HR = 1 (zgodnie z SQL)
           recruitment.startRecruitment(1, 'Dzia Kadr', 1);
         }
       });
     }
     
-    // Obsuga kliknicia - opcje dla obsadzonych stanowisk
+ // Obsuga kliknicia - opcje dla obsadzonych stanowisk
     if (seat.role === 'occupied') {
       div.addEventListener('click', () => {
-        // TODO: Pokaza opcje pracownika (zwolnienie, informacje)
+ // TODO: Pokaza opcje pracownika (zwolnienie, informacje)
         console.log('Kliknito w obsadzone stanowisko:', seat.label);
       });
     }

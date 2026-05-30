@@ -55,7 +55,7 @@ foreach ($lines as $i => $line) {
     $lineNum = $i + 1;
     if ($lineNum < 3856) continue; // Tylko od linii 3856
 
-    // Sprawdz czy to linia z wartoscia klucza
+ // Sprawdz czy to linia z wartoscia klucza
     if (!str_contains($line, "=>")) continue;
     if (!preg_match('/\'[^\']+\'\s*=>/', $line)) continue;
 

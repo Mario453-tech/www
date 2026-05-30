@@ -4,14 +4,14 @@
  * LoanDecisionService - credit decision engine.
  *
  * Score thresholds -> decision (after market modifiers):
- *   score < 30   -> rejected
- *   score 30-49  -> conditional: 30% of amount, 40% APR
- *   score 50-74  -> partial:     50-80% of amount, 28% APR
- *   score 75+    -> full:        100% of amount, 18% APR
+ * score < 30 -> rejected
+ * score 30-49 -> conditional: 30% of amount, 40% APR
+ * score 50-74 -> partial: 50-80% of amount, 28% APR
+ * score 75+ -> full: 100% of amount, 18% APR
  *
  * Market modifiers (applied to approved offers):
- *   CRISIS (sentiment=negative): APR +12%, amount -30%; score<50 -> auto-reject
- *   BOOM   (sentiment=positive): APR -3% (min 15%),   amount +10%
+ * CRISIS (sentiment=negative): APR +12%, amount -30%; score<50 -> auto-reject
+ * BOOM (sentiment=positive): APR -3% (min 15%), amount +10%
  */
 class LoanDecisionService
 {
@@ -31,7 +31,7 @@ class LoanDecisionService
         }
     }
 
-    /** @return array<string, mixed>|false */
+ /** @return array<string, mixed>|false */
     public function processApplication(int $applicationId): array|false
     {
         try {
@@ -66,18 +66,18 @@ class LoanDecisionService
         }
     }
 
-    // 
+ // 
 
-    /**
-     * @param array<string, mixed> $breakdown
-     * @return array<string, mixed>
-     */
+ /**
+ * @param array<string, mixed> $breakdown
+ * @return array<string, mixed>
+ */
     private function makeDecision(int $score, float $requestedAmount, array $breakdown): array
     {
         $marketScore = $breakdown['market']['points'] ?? 0;
         $sentiment   = $breakdown['market']['sentiment'] ?? 'neutral';
 
-        // Score thresholds and APR rates from BankSettings (configurable in admin panel)
+ // Score thresholds and APR rates from BankSettings (configurable in admin panel)
         $threshReject = BankSettings::scoreThresholdReject(); // default 30
         $threshCond   = BankSettings::scoreThresholdCond();   // default 50
         $threshFull   = BankSettings::scoreThresholdFull();   // default 75
@@ -92,27 +92,27 @@ class LoanDecisionService
             'reason'          => '',
         ];
 
-        // AUTO-REJECT: crisis market + weak player score
+ // AUTO-REJECT: crisis market + weak player score
         if ($sentiment === 'negative' && $score < $threshCond) {
             $decision['reason'] = t('loan_decision.err_crisis_auto_reject');
             return $decision;
         }
 
-        // BASE DECISION
+ // BASE DECISION
 
         if ($score < $threshReject) {
             $decision['status'] = 'rejected';
             $decision['reason'] = t('loan_decision.err_rejected_high_risk');
 
         } elseif ($score < $threshCond) {
-            // Conditional: 30% of requested amount
+ // Conditional: 30% of requested amount
             $decision['status']          = 'approved';
             $decision['approved_amount'] = round($requestedAmount * 0.30);
             $decision['interest_rate']   = $aprCond;
             $decision['reason']          = t('loan_decision.msg_conditional');
 
         } elseif ($score < $threshFull) {
-            // Partial: 50-80% of requested amount, scaled
+ // Partial: 50-80% of requested amount, scaled
             $pct = 0.50 + (($score - $threshCond) / ($threshFull - $threshCond)) * 0.30;
             $decision['status']          = 'approved';
             $decision['approved_amount'] = round($requestedAmount * $pct);
@@ -120,31 +120,31 @@ class LoanDecisionService
             $decision['reason']          = t('loan_decision.msg_partial');
 
         } else {
-            // Full approval: 100% of requested amount
+ // Full approval: 100% of requested amount
             $decision['status']          = 'approved';
             $decision['approved_amount'] = $requestedAmount;
             $decision['interest_rate']   = $aprFull;
             $decision['reason']          = t('loan_decision.msg_approved');
         }
 
-        // MARKET MODIFIERS
+ // MARKET MODIFIERS
 
         if ($decision['status'] === 'approved') {
 
             if ($sentiment === 'negative') {
-                // Crisis: higher rate, lower amount
+ // Crisis: higher rate, lower amount
                 $decision['interest_rate']   += 12.0;
                 $decision['approved_amount']  = round($decision['approved_amount'] * 0.70);
                 $decision['reason']          .= ' ' . t('loan_decision.msg_crisis_modifier');
 
             } elseif ($sentiment === 'positive') {
-                // Boom: lower rate, higher amount
+ // Boom: lower rate, higher amount
                 $decision['interest_rate']   = max(15.0, $decision['interest_rate'] - 3.0);
                 $decision['approved_amount'] = round($decision['approved_amount'] * 1.10);
                 $decision['reason']         .= ' ' . t('loan_decision.msg_boom_modifier');
             }
 
-            // Guard against absurdly small approved amounts
+ // Guard against absurdly small approved amounts
             if ($decision['approved_amount'] < 5000) {
                 $decision['status'] = 'rejected';
                 $decision['reason'] = t('loan_decision.err_amount_too_low');
@@ -154,12 +154,12 @@ class LoanDecisionService
         return $decision;
     }
 
-    // 
+ // 
 
-    /**
-     * @param array<string, mixed> $breakdown
-     * @param array<string, mixed> $decision
-     */
+ /**
+ * @param array<string, mixed> $breakdown
+ * @param array<string, mixed> $decision
+ */
     private function saveDecision(
         int    $applicationId,
         int    $score,

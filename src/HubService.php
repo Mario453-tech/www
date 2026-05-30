@@ -9,16 +9,16 @@ require_once __DIR__ . '/Hub/AdminActionsTrait.php';
 require_once __DIR__ . '/Hub/EventsTrait.php';
 
 /**
- * HubService — main logistics hub service.
+ * HubService main logistics hub service.
  *
  * Traits:
- *   HubConfigTrait          — config loading and accessors (cfg, cfgFloat, cfgInt, getHubTypeDefaults)
- *   HubQueryTrait           — getHub (shared base)
- *   HubAdminQueryTrait      — getAllHubs, getLastTickStats, getTickStatsHistory, getUnreadEvents
- *   HubPlayerQueryTrait     — getPlayerHubs, getRegionHubs, getUnassignedWells, getPlayerRegionIds, getRegionZones
- *   HubAssignmentQueryTrait — getWellAssignment, getHubWells, getHubWellsForPlayer
- *   HubAdminActionsTrait    — buildHub, repairHub, upgradeHub, setWorkMode, toggleHubPause, renameHub, adminSetStatus, adminSetCondition
- *   HubEventsTrait          — createEvent, getRepairCost
+ * HubConfigTrait config loading and accessors (cfg, cfgFloat, cfgInt, getHubTypeDefaults)
+ * HubQueryTrait getHub (shared base)
+ * HubAdminQueryTrait getAllHubs, getLastTickStats, getTickStatsHistory, getUnreadEvents
+ * HubPlayerQueryTrait getPlayerHubs, getRegionHubs, getUnassignedWells, getPlayerRegionIds, getRegionZones
+ * HubAssignmentQueryTrait getWellAssignment, getHubWells, getHubWellsForPlayer
+ * HubAdminActionsTrait buildHub, repairHub, upgradeHub, setWorkMode, toggleHubPause, renameHub, adminSetStatus, adminSetCondition
+ * HubEventsTrait createEvent, getRepairCost
  */
 class HubService
 {

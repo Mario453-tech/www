@@ -1,13 +1,13 @@
 /*
- * Globalny system modali i powiadomieñ dla gry oraz panelu admina.
+ * Globalny system modali i powiadomie dla gry oraz panelu admina.
  * API:
- *   confirmAction(text, callback, options?)
- *   promptInput(text, defaultValue, callback, options?)
- *   alertInfo(text, title?)
- *   alertError(text, title?)
- *   alertWarning(text, title?)
- *   showGameToast(message, type?)
- *   showGameToast(title, message, type?)
+ * confirmAction(text, callback, options?)
+ * promptInput(text, defaultValue, callback, options?)
+ * alertInfo(text, title?)
+ * alertError(text, title?)
+ * alertWarning(text, title?)
+ * showGameToast(message, type?)
+ * showGameToast(title, message, type?)
  */
 
 (function () {
@@ -25,10 +25,10 @@
     var TYPES = ['success', 'error', 'warning', 'info'];
     var _L = window.MODAL_LANG || {};
     var LABELS = {
-        confirm: _L.confirm || 'PotwierdŸ',
+        confirm: _L.confirm || 'Potwierdï¿½',
         cancel: _L.cancel || 'Anuluj',
         ok: _L.ok || 'OK',
-        title_error: _L.title_error || 'B³¹d',
+        title_error: _L.title_error || 'Bï¿½ï¿½d',
         title_info: _L.title_info || 'Informacja',
         title_warn: _L.title_warn || 'Uwaga',
         title_success: _L.title_success || 'Sukces',
@@ -204,7 +204,7 @@
         close.type = 'button';
         close.className = 'app-toast__close';
         close.setAttribute('aria-label', LABELS.close);
-        close.textContent = '×';
+        close.textContent = 'ï¿½';
 
         content.appendChild(title);
         content.appendChild(message);

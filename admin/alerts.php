@@ -7,7 +7,7 @@ AdminAuth::requireLogin();
 
 $db = Database::getInstance()->getConnection();
 
-//  Progi alertów — domyœlne wartoœci 
+// Progi alertw domylne wartoci 
 $THRESHOLD_DEFAULTS = [
     'alert_loss_pct_warn'      => 8.0,
     'alert_loss_pct_critical'  => 15.0,
@@ -20,7 +20,7 @@ $THRESHOLD_DEFAULTS = [
     'alert_storage_full_pct'   => 90.0,
 ];
 
-//  Zapisz progi jeœli POST 
+// Zapisz progi jeli POST 
 $threshMsg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_thresholds'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_thresholds'])) {
     }
 }
 
-//  Wczytaj progi z well_config (fallback na domyœlne) 
+// Wczytaj progi z well_config (fallback na domylne) 
 $cfgRows = $db->query("
     SELECT `key`, `value` FROM well_config
     WHERE `key` LIKE 'alert_%'
@@ -57,7 +57,7 @@ $THRESHOLDS = [
     'storage_full_pct'   => (float)($cfgRows['alert_storage_full_pct']   ?? $THRESHOLD_DEFAULTS['alert_storage_full_pct']),
 ];
 
-//  Zbierz dane do alertów 
+// Zbierz dane do alertw 
 $alerts = [];
 
 // 1. Cena ropy
@@ -126,7 +126,7 @@ if ($critCond > 0) {
     ];
 }
 
-// 3. Stan techniczny odwiertów
+// 3. Stan techniczny odwiertw
 $condStats = $db->query("
     SELECT
         SUM(technical_condition < 40) AS critical_count,
@@ -171,7 +171,7 @@ if ($highWear > 0) {
     ];
 }
 
-// 4. Magazyn pe³ny
+// 4. Magazyn peny
 $storageStmt = $db->prepare("
     SELECT
         SUM(used / capacity > ?) AS full_count,
@@ -225,7 +225,7 @@ if ($negativeCash > 0) {
     ];
 }
 
-// 6. ROI — szacunkowy
+// 6. ROI szacunkowy
 $roiStats = $db->query("
     SELECT
         p.cash,
@@ -269,7 +269,7 @@ if (!empty($roiStats)) {
     }
 }
 
-// 7. Ostatni tick — sprawdŸ systemowy timestamp ticka (well_config), fallback na players
+// 7. Ostatni tick sprawd systemowy timestamp ticka (well_config), fallback na players
 $lastTickTs  = (int)$db->query("SELECT `value` FROM well_config WHERE `key` = 'last_system_tick_at' LIMIT 1")->fetchColumn();
 if (!$lastTickTs) {
     $lastTickStr = $db->query("SELECT MAX(last_tick_at) FROM players")->fetchColumn();

@@ -12,7 +12,7 @@
         try { sessionStorage.setItem('inc_tab', name); } catch (e) {}
     };
 
-    // Restore last tab or default to stats
+ // Restore last tab or default to stats
     var saved = '';
     try { saved = sessionStorage.getItem('inc_tab') || ''; } catch (e) {}
     incShowTab(tabs.indexOf(saved) >= 0 ? saved : 'stats');

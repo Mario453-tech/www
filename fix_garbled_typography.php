@@ -6,36 +6,36 @@
  * Removes garbled typographic chars from lang/pl.php (double-encoded CP1252).
  *
  * Uzycie / Usage:
- *   php fix_garbled_typography.php              -- podmienia na poprawny znak
- *   php fix_garbled_typography.php --dry-run    -- tylko podglad, brak zapisu
- *   php fix_garbled_typography.php --remove     -- kasuje krzaki (pusty string)
+ * php fix_garbled_typography.php -- podmienia na poprawny znak
+ * php fix_garbled_typography.php --dry-run -- tylko podglad, brak zapisu
+ * php fix_garbled_typography.php --remove -- kasuje krzaki (pusty string)
  *
  * UWAGA: skrypt sam tworzy kopie zapasowa przed zapisem.
- * NOTE:  script creates a backup before saving.
+ * NOTE: script creates a backup before saving.
  */
 declare(strict_types=1);
 
 const FILE_PATH = __DIR__ . '/lang/pl.php';
 
-//  Tabela podmiany (krzak => poprawny znak Unicode) 
+// Tabela podmiany (krzak => poprawny znak Unicode) 
 // Kazdy krzak to 3 bajty UTF-8 oryginalnego znaku odczytane jako CP1252
 // i ponownie zakodowane jako UTF-8.
 // Each garbled seq = 3 UTF-8 bytes of original char read as CP1252, re-encoded.
 
 $replacements = [
-    // Opis           Krzak (hex)                              Poprawny znak
-    'em-dash  E2809D' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9d" => "\xe2\x80\x94"],  // a(EUR)" => —
-    'en-dash  E2809C' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9c" => "\xe2\x80\x93"],  // a(EUR)" => –
-    'en-dash  E28093' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x93" => "\xe2\x80\x93"],  // a(EUR)- => –
-    'em-dash  E28094' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x94" => "\xe2\x80\x94"],  // a(EUR)- => —
-    'ellipsis C2A6'   => ["\xc3\xa2\xe2\x82\xac\xc2\xa6"     => "\xe2\x80\xa6"],  // a(EUR)¦ => …
+ // Opis Krzak (hex) Poprawny znak
+    'em-dash  E2809D' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9d" => "\xe2\x80\x94"],  // a(EUR)" => ï¿½
+    'en-dash  E2809C' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9c" => "\xe2\x80\x93"],  // a(EUR)" => ï¿½
+    'en-dash  E28093' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x93" => "\xe2\x80\x93"],  // a(EUR)- => ï¿½
+    'em-dash  E28094' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x94" => "\xe2\x80\x94"],  // a(EUR)- => ï¿½
+    'ellipsis C2A6'   => ["\xc3\xa2\xe2\x82\xac\xc2\xa6"     => "\xe2\x80\xa6"],  // a(EUR)ï¿½ => ï¿½
     'lsquote  E28098' => ["\xc3\xa2\xe2\x82\xac\xcb\x9c"     => "\xe2\x80\x98"],  // a(EUR)~ => '
     'rsquote  E28099' => ["\xc3\xa2\xe2\x82\xac\xe2\x84\xa2" => "\xe2\x80\x99"],  // a(EUR)tm => '
     'ldquote  E2809C' => ["\xc3\xa2\xe2\x82\xac\xc5\x93"     => "\xe2\x80\x9c"],  // a(EUR)oe => "
     'bullet   E280A2' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\xa2" => "\xe2\x80\xa2"],  // a(EUR)* => *
 ];
 
-//  Argumenty CLI 
+// Argumenty CLI 
 
 $args     = $_SERVER['argv'] ?? $argv ?? [];
 $dryRun   = in_array('--dry-run', $args, true);
@@ -43,11 +43,11 @@ $doRemove = in_array('--remove',  $args, true);
 
 echo "=== fix_garbled_typography.php ===\n";
 echo "Plik / File: " . FILE_PATH . "\n";
-if ($dryRun)   echo "[TRYB] Dry-run — tylko podglad, brak zapisu.\n";
-if ($doRemove) echo "[TRYB] Remove — krzaki beda kasowane (pusty string).\n";
+if ($dryRun)   echo "[TRYB] Dry-run ï¿½ tylko podglad, brak zapisu.\n";
+if ($doRemove) echo "[TRYB] Remove ï¿½ krzaki beda kasowane (pusty string).\n";
 echo "\n";
 
-//  Odczyt pliku 
+// Odczyt pliku 
 
 $content = file_get_contents(FILE_PATH);
 if ($content === false) {
@@ -57,11 +57,11 @@ if ($content === false) {
 
 // Sprawdz BOM / Check BOM
 if (substr($content, 0, 3) === "\xef\xbb\xbf") {
-    echo "[WARN] Plik ma BOM — zostanie usuniety przy zapisie.\n";
+    echo "[WARN] Plik ma BOM ï¿½ zostanie usuniety przy zapisie.\n";
     $content = substr($content, 3);
 }
 
-//  Skanuj i zamieniaj 
+// Skanuj i zamieniaj 
 
 $fixed      = $content;
 $totalFound = 0;
@@ -93,7 +93,7 @@ if ($totalFound === 0) {
 
 echo "\nLacznie / Total: {$totalFound} sekwencji.\n";
 
-//  Zapis 
+// Zapis 
 
 if ($dryRun) {
     echo "\n[DRY-RUN] Brak zmian w pliku. Uruchom bez --dry-run aby zapisac.\n";

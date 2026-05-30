@@ -346,11 +346,11 @@
    OilCorp dark-luxury design system
    ============================================================= */
 
-/* STATUS KPI GRID � style przeniesione do style.css (globalne) */
+/* STATUS KPI GRID style przeniesione do style.css (globalne) */
 
 /* 
    SECTION 2 � TREND ALERT REDESIGN
-    */
+ */
 
 .trend-alert--redesign {
     display: flex;
@@ -520,7 +520,7 @@
 
 /* 
    SECTION 3 � ALERT STRIP
-    */
+ */
 
 .alert-strip {
     display: flex;
@@ -588,7 +588,7 @@
 
 /* 
    SECTION 4 � TIP PANEL
-    */
+ */
 
 .tip-panel {
     display: flex;
@@ -636,7 +636,7 @@
 
 /* 
    SECTION 5 � ACTION GRID REDESIGN
-    */
+ */
 
 .action-grid--redesign {
     display: flex;
@@ -689,7 +689,7 @@
 
 /* 
    SECTION 6 � WELL GRID ADDITIONS
-    */
+ */
 
 .wg-risk-meter {
     display: flex;
@@ -767,7 +767,7 @@
 
 /* 
    SECTION 7 � LAYER MULT GRID + DELTA + COST BLOCK
-    */
+ */
 
 .wg-layer-item-stats--labeled {
     display: flex;
@@ -836,7 +836,7 @@
 
 /* 
    SECTION 8 � MOBILE RESPONSIVE
-    */
+ */
 
 @media (max-width: 768px) {
     .status-grid--redesign {

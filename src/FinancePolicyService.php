@@ -5,21 +5,21 @@ class FinancePolicyService
 {
     private PDO $db;
 
-    /** @var array<string, string> */
+ /** @var array<string, string> */
     private const BUDGET_LEVELS = [
         'low' => 'low',
         'standard' => 'standard',
         'high' => 'high',
     ];
 
-    /** @var array<string, string> */
+ /** @var array<string, string> */
     private const RESERVE_LEVELS = [
         'low' => 'low',
         'standard' => 'standard',
         'high' => 'high',
     ];
 
-    /** @var array<string, string> */
+ /** @var array<string, string> */
     private const SAVINGS_MODES = [
         'off' => 'off',
         'moderate' => 'moderate',
@@ -28,11 +28,11 @@ class FinancePolicyService
 
     private const SAVINGS_PLAN_COOLDOWN_HOURS = 6;
 
-    /**
-     * Domylne wartoci mnonikw planu oszczdnoci (uywane jako fallback gdy DB nie ma klucza).
-     * Default savings plan multipliers (fallback when DB key is missing).
-     * @var array<string, float>
-     */
+ /**
+ * Domylne wartoci mnonikw planu oszczdnoci (uywane jako fallback gdy DB nie ma klucza).
+ * Default savings plan multipliers (fallback when DB key is missing).
+ * @var array<string, float>
+ */
     private const SAVINGS_MULT_DEFAULTS = [
         'sp_tech_wear_mod'        => 1.06,
         'sp_tech_wear_agg'        => 1.14,
@@ -54,16 +54,16 @@ class FinancePolicyService
         'sp_safety_disaster_agg'  => 1.02,
     ];
 
-    /** @var array<string, float>|null  cache loaded once per request */
+ /** @var array<string, float>|null cache loaded once per request */
     private ?array $savingsMults = null;
 
-    /**
-     * aduje mnoniki planu oszczdnoci z well_config (klucze sp_*).
-     * Loads savings plan multipliers from well_config (sp_* keys).
-     * Niezdefiniowane klucze uzupeniane s wartociami z SAVINGS_MULT_DEFAULTS.
-     * Undefined keys fall back to SAVINGS_MULT_DEFAULTS.
-     * @return array<string, float>
-     */
+ /**
+ * aduje mnoniki planu oszczdnoci z well_config (klucze sp_*).
+ * Loads savings plan multipliers from well_config (sp_* keys).
+ * Niezdefiniowane klucze uzupeniane s wartociami z SAVINGS_MULT_DEFAULTS.
+ * Undefined keys fall back to SAVINGS_MULT_DEFAULTS.
+ * @return array<string, float>
+ */
     private function loadSavingsMultipliers(): array
     {
         if ($this->savingsMults !== null) {
@@ -83,15 +83,15 @@ class FinancePolicyService
             }
             unset($v);
         } catch (Throwable $e) {
-            // well_config not available  using default values
+ // well_config not available using default values
         }
         return $this->savingsMults = $result;
     }
 
-    /**
-     * Odczytuje cooldown z well_config (klucz savings_plan_cooldown_hours), fallback do staej.
-     * Reads cooldown from well_config (key savings_plan_cooldown_hours), falls back to the constant.
-     */
+ /**
+ * Odczytuje cooldown z well_config (klucz savings_plan_cooldown_hours), fallback do staej.
+ * Reads cooldown from well_config (key savings_plan_cooldown_hours), falls back to the constant.
+ */
     private function getCooldownHours(): int
     {
         try {
@@ -104,7 +104,7 @@ class FinancePolicyService
                 return max(1, min(168, (int)$v));
             }
         } catch (Throwable $e) {
-            // table is optional  fall back to the default constant
+ // table is optional fall back to the default constant
         }
         return self::SAVINGS_PLAN_COOLDOWN_HOURS;
     }
@@ -158,9 +158,9 @@ class FinancePolicyService
         }
     }
 
-    /**
-     * @return array<string, string>
-     */
+ /**
+ * @return array<string, string>
+ */
     public function getSettings(int $playerId): array
     {
         $defaults = $this->getDefaultSettings();
@@ -193,10 +193,10 @@ class FinancePolicyService
         }
     }
 
-    /**
-     * @param array<string, string> $input
-     * @return array<string, string>
-     */
+ /**
+ * @param array<string, string> $input
+ * @return array<string, string>
+ */
     public function saveSettings(int $playerId, array $input): array
     {
         $old = $this->getSettings($playerId);
@@ -267,10 +267,10 @@ class FinancePolicyService
         return $new;
     }
 
-    /**
-     * @param array<string, string> $input
-     * @return array{ok:bool,error:string,settings:array<string,string>}
-     */
+ /**
+ * @param array<string, string> $input
+ * @return array{ok:bool,error:string,settings:array<string,string>}
+ */
     public function savePolicySettings(int $playerId, array $input): array
     {
         $old = $this->getSettings($playerId);
@@ -357,9 +357,9 @@ class FinancePolicyService
         ];
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+ /**
+ * @return list<array<string, mixed>>
+ */
     public function getDecisionHistory(int $playerId, int $limit = 20): array
     {
         try {
@@ -384,9 +384,9 @@ class FinancePolicyService
         }
     }
 
-    /**
-     * @return array<string, float|string>
-     */
+ /**
+ * @return array<string, float|string>
+ */
     public function getTechnicalModifiers(int $playerId): array
     {
         $settings = $this->getSettings($playerId);
@@ -400,9 +400,9 @@ class FinancePolicyService
         return $this->applySavingsToTechnical($mods, $settings['savings_plan_mode'] ?? 'off');
     }
 
-    /**
-     * @return array<string, float|string>
-     */
+ /**
+ * @return array<string, float|string>
+ */
     public function getLogisticsModifiers(int $playerId): array
     {
         $settings = $this->getSettings($playerId);
@@ -416,9 +416,9 @@ class FinancePolicyService
         return $this->applySavingsToLogistics($mods, $settings['savings_plan_mode'] ?? 'off');
     }
 
-    /**
-     * @return array<string, float|string>
-     */
+ /**
+ * @return array<string, float|string>
+ */
     public function getHRModifiers(int $playerId): array
     {
         $settings = $this->getSettings($playerId);
@@ -432,9 +432,9 @@ class FinancePolicyService
         return $this->applySavingsToHr($mods, $settings['savings_plan_mode'] ?? 'off');
     }
 
-    /**
-     * @return array<string, float|string>
-     */
+ /**
+ * @return array<string, float|string>
+ */
     public function getSafetyModifiers(int $playerId): array
     {
         $settings = $this->getSettings($playerId);
@@ -458,10 +458,10 @@ class FinancePolicyService
         };
     }
 
-    /**
-     * @param array<string, string> $settings
-     * @return array<string, mixed>
-     */
+ /**
+ * @param array<string, string> $settings
+ * @return array<string, mixed>
+ */
     public function getSavingsPlanStatus(int $playerId, ?array $settings = null): array
     {
         $settings ??= $this->getSettings($playerId);
@@ -487,9 +487,9 @@ class FinancePolicyService
         ];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+ /**
+ * @return array<string, mixed>
+ */
     public function getPolicySnapshot(int $playerId, float $hourlyCost, float $cash): array
     {
         $settings = $this->getSettings($playerId);
@@ -517,33 +517,33 @@ class FinancePolicyService
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
+ /**
+ * @return array<string, string>
+ */
     public static function getBudgetLevelOptions(): array
     {
         return self::BUDGET_LEVELS;
     }
 
-    /**
-     * @return array<string, string>
-     */
+ /**
+ * @return array<string, string>
+ */
     public static function getReserveLevelOptions(): array
     {
         return self::RESERVE_LEVELS;
     }
 
-    /**
-     * @return array<string, string>
-     */
+ /**
+ * @return array<string, string>
+ */
     public static function getSavingsModeOptions(): array
     {
         return self::SAVINGS_MODES;
     }
 
-    /**
-     * @return array<string, string>
-     */
+ /**
+ * @return array<string, string>
+ */
     private function getDefaultSettings(): array
     {
         return [
@@ -572,10 +572,10 @@ class FinancePolicyService
         return self::SAVINGS_MODES[$mode] ?? 'off';
     }
 
-    /**
-     * @param array<string, float|string> $mods
-     * @return array<string, float|string>
-     */
+ /**
+ * @param array<string, float|string> $mods
+ * @return array<string, float|string>
+ */
     private function applySavingsToTechnical(array $mods, string $mode): array
     {
         $m = $this->loadSavingsMultipliers();
@@ -592,10 +592,10 @@ class FinancePolicyService
         };
     }
 
-    /**
-     * @param array<string, float|string> $mods
-     * @return array<string, float|string>
-     */
+ /**
+ * @param array<string, float|string> $mods
+ * @return array<string, float|string>
+ */
     private function applySavingsToLogistics(array $mods, string $mode): array
     {
         $m = $this->loadSavingsMultipliers();
@@ -616,10 +616,10 @@ class FinancePolicyService
         };
     }
 
-    /**
-     * @param array<string, float|string> $mods
-     * @return array<string, float|string>
-     */
+ /**
+ * @param array<string, float|string> $mods
+ * @return array<string, float|string>
+ */
     private function applySavingsToHr(array $mods, string $mode): array
     {
         $m = $this->loadSavingsMultipliers();
@@ -636,10 +636,10 @@ class FinancePolicyService
         };
     }
 
-    /**
-     * @param array<string, float|string> $mods
-     * @return array<string, float|string>
-     */
+ /**
+ * @param array<string, float|string> $mods
+ * @return array<string, float|string>
+ */
     private function applySavingsToSafety(array $mods, string $mode): array
     {
         $m = $this->loadSavingsMultipliers();

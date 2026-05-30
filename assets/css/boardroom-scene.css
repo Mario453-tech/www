@@ -1,16 +1,16 @@
 /* 
-   BOARDROOM — Sala Zarz¹du (scene view)
-    */
+   BOARDROOM ï¿½ Sala Zarzï¿½du (scene view)
+ */
 
-/*  ZMIENNE (boardroom-scene ³aduje variables.css bezpoœrednio, nie przez header.php)  */
+/* ZMIENNE (boardroom-scene aduje variables.css bezporednio, nie przez header.php) */
 :root {
     --gold:  #c8a84b;
-    --gold2: #e8cc7a;   /* wyrównane do variables.css (by³o: #e0c060) */
+    --gold2: #e8cc7a;   /* wyrwnane do variables.css (byo: #e0c060) */
     --red:   #e05555;
     --green: #4ec97a;
 }
 
-/*  BASE  */
+/* BASE */
 
 .br-body {
     margin: 0;
@@ -20,7 +20,7 @@
     font-size: 14px;
 }
 
-/*  HEADER  */
+/* HEADER */
 
 .br-shell-summary {
     display: flex;
@@ -98,7 +98,7 @@
 }
 .br-header-link:hover { color: #fff; }
 
-/*  FOOTER  */
+/* FOOTER */
 
 .br-footer {
     background: #080810;
@@ -133,7 +133,7 @@
 }
 .br-footer-links a:hover { color: var(--gold, #c8a84b); }
 
-/*  SCENE  */
+/* SCENE */
 
 .scene {
     position: relative;
@@ -162,7 +162,7 @@
     z-index: 1;
 }
 
-/*  SLOT  */
+/* SLOT */
 
 .slot {
     position: absolute;
@@ -256,7 +256,7 @@
     letter-spacing: .5px;
 }
 
-/*  LEGEND  */
+/* LEGEND */
 
 .legend {
     position: absolute;
@@ -302,7 +302,7 @@
     color: rgba(255,255,255,.35);
 }
 
-/*  RECRUITMENT MODAL  */
+/* RECRUITMENT MODAL */
 
 .recruitment-modal {
     position: fixed;
@@ -328,7 +328,7 @@
     color: #e8e8f0;
 }
 
-/*  RESPONSIVE  */
+/* RESPONSIVE */
 
 @media (max-width: 600px) {
     .scene { aspect-ratio: 4 / 3; padding: 12px; }

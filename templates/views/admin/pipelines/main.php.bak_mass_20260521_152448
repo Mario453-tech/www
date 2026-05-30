@@ -1,0 +1,199 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<?php
+$crit = (int)($stats['critical_count'] ?? 0);
+$warn = (int)($stats['warning_count']  ?? 0);
+$avgL = (float)($stats['avg_loss']     ?? 0);
+$avgC = (float)($stats['avg_condition'] ?? 100);
+?>
+
+<h1>🛢️ <?= t('admin.pipelines.title') ?></h1>
+
+<?php if ($msg): ?><p role="status" class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p role="alert"  class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
+
+<!-- ═══ STATYSTYKI ══════════════════════════════════════════════════════════ -->
+<section aria-label="<?= t('admin.pipelines.stats_label') ?>">
+    <div class="cards">
+        <div class="card">
+            <p class="label"><?= t('admin.pipelines.stat_total') ?></p>
+            <p class="value"><?= (int)($stats['total'] ?? 0) ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.pipelines.stat_active') ?></p>
+            <p class="value green"><?= (int)($stats['active_count'] ?? 0) ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.pipelines.stat_critical') ?></p>
+            <p class="value <?= $crit > 0 ? 'red' : 'green' ?>"><?= $crit ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.pipelines.stat_warning') ?></p>
+            <p class="value <?= $warn > 0 ? 'orange' : 'green' ?>"><?= $warn ?></p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.pipelines.stat_avg_loss') ?></p>
+            <p class="value <?= $avgL > 15 ? 'red' : ($avgL > 5 ? 'orange' : 'green') ?>">
+                <?= number_format($avgL, 2) ?>%
+            </p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.pipelines.stat_avg_condition') ?></p>
+            <p class="value <?= $avgC < 40 ? 'red' : ($avgC < 70 ? 'orange' : 'green') ?>">
+                <?= number_format($avgC, 1) ?>%
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- ═══ AKCJA MASOWA ════════════════════════════════════════════════════════ -->
+<?php if ($crit > 0): ?>
+<div class="action-row">
+    <section class="panel panel-danger panel-no-flex">
+        <p class="panel-title panel-title-danger">⚠️ <?= t('admin.pipelines.bulk_title') ?></p>
+        <form method="post">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="repair_all_critical">
+            <p class="panel-hint"><?= t('admin.pipelines.bulk_hint') ?></p>
+            <button type="submit" class="btn btn-danger"
+                    onclick="confirmSubmit(this, '<?= t('admin.pipelines.confirm_repair_all') ?>'); return false;">
+                🔧 <?= t('admin.pipelines.btn_repair_all', ['count' => $crit]) ?>
+            </button>
+        </form>
+    </section>
+</div>
+<?php endif ?>
+
+<!-- ═══ LISTA RUROCIĄGÓW ═════════════════════════════════════════════════════ -->
+<section>
+    <h2><?= t('admin.pipelines.list_title') ?></h2>
+
+    <?php if (empty($pipelines)): ?>
+    <p class="empty-state"><?= t('admin.pipelines.no_pipelines') ?></p>
+    <?php else: ?>
+
+    <div class="pipelines-grid">
+    <div class="list-header">
+        <span>ID</span>
+        <span><?= t('admin.pipelines.col_player') ?></span>
+        <span><?= t('admin.pipelines.col_status') ?></span>
+        <span><?= t('admin.pipelines.col_condition') ?></span>
+        <span><?= t('admin.pipelines.col_loss') ?></span>
+        <span><?= t('admin.pipelines.col_degradation') ?></span>
+        <span><?= t('admin.pipelines.col_updated') ?></span>
+        <span><?= t('admin.pipelines.col_actions') ?></span>
+    </div>
+
+    <div class="data-list">
+    <?php foreach ($pipelines as $p):
+        $cond      = (float)$p['condition_pct'];
+        $loss      = (float)$p['transport_loss'];
+        $condClass = $cond < 30 ? 'text-red' : ($cond < 70 ? 'text-orange' : 'text-green');
+        $lossClass = $loss > 15 ? 'text-red' : ($loss > 5 ? 'text-orange' : 'text-green');
+        $isCritical = $cond < 30;
+    ?>
+    <article class="list-row <?= $isCritical ? 'bk-row-critical' : '' ?>">
+
+        <span class="muted">#<?= $p['id'] ?></span>
+
+        <span>
+            <div class="row-name-primary">
+                <a href="/admin/player.php?id=<?= $p['player_id'] ?>"><?= htmlspecialchars($p['player_login'] ?? '?') ?></a>
+            </div>
+            <?php if (!empty($p['name'])): ?>
+            <div class="row-name-secondary"><?= htmlspecialchars($p['name']) ?></div>
+            <?php endif ?>
+        </span>
+
+        <span>
+            <span class="badge badge-<?= $p['status'] === 'active' ? 'active' : 'inactive' ?>">
+                <?= htmlspecialchars($p['status']) ?>
+            </span>
+        </span>
+
+        <span>
+            <div class="<?= $condClass ?> text-bold"><?= number_format($cond, 1) ?>%</div>
+            <div class="progress-wrap">
+                <div class="progress-bar progress-bar--<?= $cond < 30 ? 'red' : ($cond < 70 ? 'orange' : 'green') ?>"
+                     style="width:<?= min(100, $cond) ?>%"></div>
+            </div>
+        </span>
+
+        <span class="<?= $lossClass ?> text-bold"><?= number_format($loss, 2) ?>%</span>
+
+        <span class="muted font-sm">
+            <?php
+            $degRate = 0.05;
+            $hasEngineer = false;
+            echo number_format($degRate * ($hasEngineer ? 1 : 2), 3) . '%/h';
+            ?>
+        </span>
+
+        <span class="muted font-sm"><?= $p['updated_at'] ?? t('common.dash') ?></span>
+
+        <span>
+            <div class="action-btns">
+                <form method="post" class="form-inline">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="repair">
+                    <input type="hidden" name="pipeline_id" value="<?= $p['id'] ?>">
+                    <button type="submit" class="btn btn-success btn-sm"
+                            onclick="confirmSubmit(this, '<?= t('admin.pipelines.confirm_repair', ['id' => $p['id']]) ?>'); return false;">
+                        🔧 <?= t('admin.pipelines.btn_repair') ?>
+                    </button>
+                </form>
+
+                <form method="post" class="form-inline">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="set_loss">
+                    <input type="hidden" name="pipeline_id" value="<?= $p['id'] ?>">
+                    <input type="number" name="new_loss" value="<?= round($loss, 1) ?>"
+                           min="0" max="100" step="0.1" class="input-w-loss">
+                    <button type="submit" class="btn btn-secondary btn-sm">
+                        <?= t('admin.pipelines.btn_set_loss') ?>
+                    </button>
+                </form>
+
+                <form method="post" class="form-inline">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="force_failure">
+                    <input type="hidden" name="pipeline_id" value="<?= $p['id'] ?>">
+                    <button type="submit" class="btn btn-danger btn-sm"
+                            onclick="confirmSubmit(this, '<?= t('admin.pipelines.confirm_failure', ['id' => $p['id']]) ?>'); return false;">
+                        💥 <?= t('admin.pipelines.btn_failure') ?>
+                    </button>
+                </form>
+            </div>
+        </span>
+
+    </article>
+    <?php endforeach ?>
+    </div>
+    </div>
+    <?php endif ?>
+</section>
+
+<!-- ═══ HISTORIA AWARII ══════════════════════════════════════════════════════ -->
+<?php if (!empty($failureHistory)): ?>
+<section class="panel mt-4">
+    <p class="panel-title">💥 <?= t('admin.pipelines.panel_history') ?></p>
+    <div class="pipeline-history-grid">
+    <div class="list-header">
+        <span><?= t('admin.pipelines.col_date') ?></span>
+        <span><?= t('admin.pipelines.col_message') ?></span>
+        <span><?= t('admin.pipelines.col_player') ?></span>
+    </div>
+    <div class="data-list">
+    <?php foreach ($failureHistory as $ev): ?>
+    <article class="list-row">
+        <span class="muted text-sm"><?= $ev['created_at'] ?? t('common.dash') ?></span>
+        <span class="font-md"><?= htmlspecialchars($ev['message'] ?? '') ?></span>
+        <span class="muted text-sm">
+            <a href="/admin/player.php?id=<?= $ev['player_id'] ?>"><?= htmlspecialchars($ev['player_login'] ?? '?') ?></a>
+        </span>
+    </article>
+    <?php endforeach ?>
+    </div>
+    </div>
+</section>
+<?php endif ?>

@@ -1,4 +1,4 @@
-/* well_staff.js — Personel Odwiertów (Operator + Technik) */
+/* well_staff.js Personel Odwiertw (Operator + Technik) */
 
 var _WSL = window.WS_LANG || {};
 function wsl(k, p) {
@@ -10,7 +10,7 @@ function wsl(k, p) {
 let _wsCurrentWellId = null;
 let _wsCurrentRole   = null;
 
-//  ASSIGN MODAL 
+// ASSIGN MODAL 
 async function wsOpenAssign(wellId, role, wellName) {
     _wsCurrentWellId = wellId;
     _wsCurrentRole   = role;

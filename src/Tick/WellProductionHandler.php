@@ -5,10 +5,10 @@
  * WellProductionHandler - well transport, OPEX and production.
  *
  * Odpowiada za: / Responsible for:
- *   - ustalanie konfiguracji transportu i statusu rurociagu / resolving transport config and pipeline status
- *   - obliczanie i pobieranie OPEX-u, pauzowanie/wznawianie odwiertu / OPEX calculation, charging and well pause/resume
- *   - produkcje ropy z uwzglednieniem mnoznikow / oil production with multipliers applied
- *   - zdarzenia transportowe (stary model + drogowy + morski) / transport events (old model + road + offshore)
+ * - ustalanie konfiguracji transportu i statusu rurociagu / resolving transport config and pipeline status
+ * - obliczanie i pobieranie OPEX-u, pauzowanie/wznawianie odwiertu / OPEX calculation, charging and well pause/resume
+ * - produkcje ropy z uwzglednieniem mnoznikow / oil production with multipliers applied
+ * - zdarzenia transportowe (stary model + drogowy + morski) / transport events (old model + road + offshore)
  */
 class WellProductionHandler
 {
@@ -19,13 +19,13 @@ class WellProductionHandler
         $this->ctx = $ctx;
     }
 
-    /**
-     * Ustala typ transportu, config i status rurociagu.
-     * Resolves transport type, config and pipeline status.
-     *
-     * @param  array<string, mixed> $well
-     * @return array<int, mixed>
-     */
+ /**
+ * Ustala typ transportu, config i status rurociagu.
+ * Resolves transport type, config and pipeline status.
+ *
+ * @param array<string, mixed> $well
+ * @return array<int, mixed>
+ */
     public function resolveTransportConfig(array $well, int $wellId): array
     {
         $wellType         = (string)($well['well_type'] ?? 'onshore');
@@ -54,8 +54,8 @@ class WellProductionHandler
             ];
         }
 
-        // Legacy stale selection: pipeline was prefilled in old data, but no pipeline exists.
-        // Stary autopreset: w danych siedzi rurociag, ale odwiert nie ma zadnego wpisu pipeline.
+ // Legacy stale selection: pipeline was prefilled in old data, but no pipeline exists.
+ // Stary autopreset: w danych siedzi rurociag, ale odwiert nie ma zadnego wpisu pipeline.
         if ($transportType === 'rurociag' && $wellPipeline === null && $wellType !== 'offshore') {
             return [
                 'nieustawiony',
@@ -69,8 +69,8 @@ class WellProductionHandler
             ];
         }
 
-        // Land wells with an existing but not-yet-operational pipeline fall back to road transport.
-        // Odwierty ladowe z istniejacym, ale nieaktywnym rurociagiem przechodza tymczasowo na fallback drogowy.
+ // Land wells with an existing but not-yet-operational pipeline fall back to road transport.
+ // Odwierty ladowe z istniejacym, ale nieaktywnym rurociagiem przechodza tymczasowo na fallback drogowy.
         if ($transportType === 'rurociag' && !$hasOperationalPipeline && $wellType !== 'offshore') {
             $transportType = 'ciezarowki';
             $transportCfg = $this->ctx->transportConfig[$transportType] ?? TransportConfigService::getDefaults()['ciezarowki'];
@@ -85,7 +85,7 @@ class WellProductionHandler
             if (in_array($pipelineStatus, ['damaged','disabled'], true)) {
                 $transportCapPct = 0.0;
             } elseif ($pipelineStatus === 'leak') {
-                // Leaking pipeline: reduced throughput; extra transport_loss applied in PipelineSection
+ // Leaking pipeline: reduced throughput; extra transport_loss applied in PipelineSection
                 $transportCapPct *= 0.75;
             } elseif ($pipelineStatus === 'critical') {
                 $transportCapPct *= 0.60;
@@ -103,21 +103,21 @@ class WellProductionHandler
                 $transportIncidentMult, $transportDisasterMult, $transportWearMult, $wellPipeline];
     }
 
-    /**
-     * OPEX - pobiera koszt, pauzuje lub wznawia odwiert.
-     * OPEX - charges cost, pauses or resumes well.
-     * Zwraca false jezeli produkcja ma byc pominieta (brak kasy / pelny magazyn).
-     * Returns false if production should be skipped (no cash / full storage).
-     *
-     * @param array<string, mixed> $well
-     */
+ /**
+ * OPEX - pobiera koszt, pauzuje lub wznawia odwiert.
+ * OPEX - charges cost, pauses or resumes well.
+ * Zwraca false jezeli produkcja ma byc pominieta (brak kasy / pelny magazyn).
+ * Returns false if production should be skipped (no cash / full storage).
+ *
+ * @param array<string, mixed> $well
+ */
     public function processOpex(array &$well, int $wellId, int $playerId, float $deltaHours, float $storageCapacity, ?object $tsvc): bool
     {
         $opexPerHour = $this->ctx->wellService->getOpexPerHour($well);
         if ($well['status'] === 'paused_storage') $opexPerHour *= 0.30;
         $opexTotal = $opexPerHour * $deltaHours
-            * $this->ctx->gBalanceMults['opex']
-            * (float)($this->ctx->financeTechnicalMods['opex_mult'] ?? 1.0);
+ * $this->ctx->gBalanceMults['opex']
+ * (float)($this->ctx->financeTechnicalMods['opex_mult'] ?? 1.0);
 
         if ($this->ctx->loopCtx->playerCash < $opexTotal) {
             if (in_array($well['status'], ['active','contaminated','no_technician','paused_storage','paused_cash'])) {
@@ -149,17 +149,17 @@ class WellProductionHandler
         return true;
     }
 
-    /**
-     * Produkcja, transport i finanse odwiertu.
-     * Well production, transport and financials.
-     *
-     * @param array<string, mixed>       $well
-     * @param array<string, mixed>       $hseBonus
-     * @param array<string, mixed>       $mults
-     * @param array<string, mixed>       $transportCfg
-     * @param array<string, mixed>|null  $wellPipeline
-     * @param list<array<string, mixed>> $activeRegEvents
-     */
+ /**
+ * Produkcja, transport i finanse odwiertu.
+ * Well production, transport and financials.
+ *
+ * @param array<string, mixed> $well
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, mixed> $mults
+ * @param array<string, mixed> $transportCfg
+ * @param array<string, mixed>|null $wellPipeline
+ * @param list<array<string, mixed>> $activeRegEvents
+ */
     public function processProduction(
         array   $well, int $wellId, int $playerId, float $deltaHours,
         float   $storageCapacity, array $hseBonus,
@@ -184,7 +184,7 @@ class WellProductionHandler
         $effectiveProd *= $mults['opEfficiencyMult'] * $mults['eqMults']['prod'] * $mults['opProdPerkMult'] * $offlineProdMult * $mults['layerRichnessMult'];
         if ($incidentProdDrop > 0) $effectiveProd *= max(0, 1.0 - $incidentProdDrop);
 
-        // Zdarzenia regionalne / Regional events
+ // Zdarzenia regionalne / Regional events
         $regEventTaxExtra = 0.0;
         $regionCode       = $well['region_code'] ?? null;
         if ($regionCode && $regionalSvc && !empty($activeRegEvents)) {
@@ -200,7 +200,7 @@ class WellProductionHandler
         $this->ctx->loopCtx->producedBbl += $producedBbl;
         $this->ctx->loopCtx->finGross    += round($producedBbl * $price, 2);
 
-        // Transport capacity limit
+ // Transport capacity limit
         $transportLimitedBbl = min($producedBbl, $producedBbl * ($transportCapPct / 100.0));
         $freeSpace           = $storageCapacity - $this->ctx->loopCtx->currentStorage;
 
@@ -210,7 +210,7 @@ class WellProductionHandler
             $this->ctx->loopCtx->recordPreStorageLoss($transportCapacityLoss, $price);
         }
 
-        // Pelny magazyn / Full storage
+ // Pelny magazyn / Full storage
         if ($freeSpace <= 0) {
             if ($transportLimitedBbl > 0.0) {
                 $this->ctx->loopCtx->storageBlockedBbl += $transportLimitedBbl;
@@ -228,10 +228,10 @@ class WellProductionHandler
             $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
         }
 
-        // Hub logistics / Fallback cap
+ // Hub logistics / Fallback cap
         $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
 
-        // Straty transportowe (rurociag) / Pipeline transport losses
+ // Straty transportowe (rurociag) / Pipeline transport losses
         if ($actual > 0 && $transportType === 'rurociag' && $wellPipeline !== null) {
             $transportLossPct = (float)($wellPipeline['transport_loss'] ?? 0.0);
             if ($transportLossPct > 0) {
@@ -256,8 +256,8 @@ class WellProductionHandler
 
         $this->ctx->db->prepare("UPDATE wells SET status = 'active', last_production_at = NOW() WHERE id = :id")->execute([':id' => $wellId]);
 
-        // Zdarzenia transportowe - przed dodaniem do magazynu i liczeniem finansow.
-        // Transport events - before adding to storage and calculating financials.
+ // Zdarzenia transportowe - przed dodaniem do magazynu i liczeniem finansow.
+ // Transport events - before adding to storage and calculating financials.
         $actualBeforeEvent = $actual;
         $storageLossBbl    = 0.0;
 
@@ -267,8 +267,8 @@ class WellProductionHandler
             $isMysql       = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
 
             if ($isMysql) {
-                // Model czasowy: kurs zapisywany w well_road_trips, ropa kreditowana po dostawie.
-                // Time-based model: trip saved in well_road_trips, oil credited at delivery.
+ // Model czasowy: kurs zapisywany w well_road_trips, ropa kreditowana po dostawie.
+ // Time-based model: trip saved in well_road_trips, oil credited at delivery.
                 $dispatch = $this->ctx->roadTransportSvc->dispatchTrips(
                     $playerId, $wellId, $actual, $roadCfg, $politicalRisk
                 );
@@ -287,8 +287,8 @@ class WellProductionHandler
                 return; // Ropa w tranzycie, nie trafia teraz do magazynu. / Oil in transit, not added to storage now.
             }
 
-            // Fallback SQLite: bezstanowe przetwarzanie per tick (testy jednostkowe).
-            // SQLite fallback: stateless per-tick processing (unit tests).
+ // Fallback SQLite: bezstanowe przetwarzanie per tick (testy jednostkowe).
+ // SQLite fallback: stateless per-tick processing (unit tests).
             $roadResult  = $this->ctx->roadTransportSvc->processTick($playerId, $wellId, $actual, $deltaHours, $roadCfg, $hseBonus, $politicalRisk);
             $actual      = $roadResult['delivered_bbl'];
             $roadLostBbl = $roadResult['lost_bbl'];
@@ -313,29 +313,29 @@ class WellProductionHandler
 
         } elseif ($transportType === 'tankowiec') {
             if ($this->ctx->marineDeliverySvc !== null) {
-                // Etap 5: nowy model � ropa jedzie morzem jako oddzielna dostawa w czasie.
-                // Etap 5: new model � oil travels by sea as a separate time-based delivery.
-                // Ropa trafi do magazynu dopiero gdy port ja przetworzy (PortSection).
-                // Oil credited to storage only when port processes it (PortSection).
+ // Etap 5: nowy model ropa jedzie morzem jako oddzielna dostawa w czasie.
+ // Etap 5: new model oil travels by sea as a separate time-based delivery.
+ // Ropa trafi do magazynu dopiero gdy port ja przetworzy (PortSection).
+ // Oil credited to storage only when port processes it (PortSection).
                 $this->ctx->marineDeliverySvc->createDelivery(
                     $playerId, $wellId, $actual, $deltaHours, $well, $hseBonus
                 );
                 $this->ctx->loopCtx->marineInTransitBbl += $actual;
-                // Nalicz koszt rejsu (staly per bbl konfigurowany w transport_config).
-                // Charge voyage cost (fixed per-bbl configured in transport_config).
+ // Nalicz koszt rejsu (staly per bbl konfigurowany w transport_config).
+ // Charge voyage cost (fixed per-bbl configured in transport_config).
                 $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
                 if ($costPerBbl > 0.0) {
                     $voyageCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex']
-                        * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
+ * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
                     $this->ctx->loopCtx->finTransport += $voyageCost;
                     $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                 }
-                // Ropa nie trafia teraz do storage � koniec przetwarzania odwiertu.
-                // Oil not added to storage now � end of well processing.
+ // Ropa nie trafia teraz do storage koniec przetwarzania odwiertu.
+ // Oil not added to storage now end of well processing.
                 return;
             }
-            // Fallback: stary model natychmiastowy (offshoreTransportSvc).
-            // Fallback: old immediate model (offshoreTransportSvc).
+ // Fallback: stary model natychmiastowy (offshoreTransportSvc).
+ // Fallback: old immediate model (offshoreTransportSvc).
             if ($this->ctx->offshoreTransportSvc !== null) {
             $offshoreCfg    = $this->ctx->offshoreConfigCache[$wellId] ?? null;
             $politicalRisk  = (int)($well['region_political_risk'] ?? 1);
@@ -363,8 +363,8 @@ class WellProductionHandler
             } // end fallback
 
         } else {
-            // Stary model: rurociag i fallback (tankowiec bez serwisu = stary model).
-            // Old model: pipeline and fallback (tanker without service = old model).
+ // Stary model: rurociag i fallback (tankowiec bez serwisu = stary model).
+ // Old model: pipeline and fallback (tanker without service = old model).
             $eventResult = $this->handleTransportEvent($playerId, $wellId, $transportType, $deltaHours, $hseBonus, $well, $actual, $tsvc);
             $lostBbl = $actualBeforeEvent - $actual;
             if ($lostBbl > 0) {
@@ -387,18 +387,22 @@ class WellProductionHandler
         $this->ctx->loopCtx->finRevenue     += round($actual * $price, 2);
         $this->ctx->loopCtx->currentStorage += $actual;
 
+ // ETAP 4: record what reached storage via this well's hub so WellHubSection
+ // can apply the second transport leg (hub -> storage). No-hub wells are ignored.
+        $this->ctx->loopCtx->recordHubWellDelivered($wellId, $actual);
+
         if ($transportType === 'rurociag' && $wellPipeline !== null) {
             $pipelineTickCost = round(
                 (float)($wellPipeline['opex_per_tick'] ?? 0.0)
-                * $this->ctx->gBalanceMults['opex']
-                * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
+ * $this->ctx->gBalanceMults['opex']
+ * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
                 2
             );
             $pipelineFlowCost = round(
                 $actual
-                * (float)($wellPipeline['opex_per_bbl'] ?? 0.0)
-                * $this->ctx->gBalanceMults['opex']
-                * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
+ * (float)($wellPipeline['opex_per_bbl'] ?? 0.0)
+ * $this->ctx->gBalanceMults['opex']
+ * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
                 2
             );
             $pipelineCost = round($pipelineTickCost + $pipelineFlowCost, 2);
@@ -415,7 +419,7 @@ class WellProductionHandler
             }
         }
 
-        // Transport OPEX (procentowy od przychodu) / Transport OPEX (percentage of revenue)
+ // Transport OPEX (procentowy od przychodu) / Transport OPEX (percentage of revenue)
         if ($transportOpexPct > 0) {
             $transportOpex = round($actual * $price * ($transportOpexPct / 100.0) * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $this->ctx->loopCtx->finTransport += $transportOpex;
@@ -423,7 +427,7 @@ class WellProductionHandler
             GameLog::info('tick', 'transport_opex', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'opex_pct' => $transportOpexPct, 'opex_pln' => $transportOpex]);
         }
 
-        // Koszt staly transportu: PLN za kazda przetransportowana barylke. / Fixed transport cost: PLN per transported barrel.
+ // Koszt staly transportu: PLN za kazda przetransportowana barylke. / Fixed transport cost: PLN per transported barrel.
         $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
         if ($costPerBbl > 0) {
             $transportFixedCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
@@ -432,7 +436,7 @@ class WellProductionHandler
             GameLog::info('tick', 'transport_cost_per_bbl', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'cost_per_bbl' => $costPerBbl, 'total_pln' => $transportFixedCost]);
         }
 
-        // Podatek regionalny / Regional tax
+ // Podatek regionalny / Regional tax
         $taxRate = (float)($well['regional_tax_rate'] ?? 0.0);
         if ($taxRate <= 0 && !empty($well['region_tax_rate'])) $taxRate = (float)$well['region_tax_rate'];
         $taxRate += $regEventTaxExtra;
@@ -449,14 +453,14 @@ class WellProductionHandler
         }
     }
 
-    /**
-     * Stary model zdarzen transportowych (rurociag + fallback tankowiec).
-     * Old model transport events (pipeline + tanker fallback).
-     *
-     * @param  array<string, mixed> $hseBonus
-     * @param  array<string, mixed> $well
-     * @return array{storage_loss_bbl: float}
-     */
+ /**
+ * Stary model zdarzen transportowych (rurociag + fallback tankowiec).
+ * Old model transport events (pipeline + tanker fallback).
+ *
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, mixed> $well
+ * @return array{storage_loss_bbl: float}
+ */
     public function handleTransportEvent(
         int $playerId, int $wellId, string $transportType, float $deltaHours,
         array $hseBonus, array $well, float &$actual, ?object $tsvc

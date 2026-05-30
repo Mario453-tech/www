@@ -1,7 +1,7 @@
 <?php
 trait WellQueryTrait
 {
-    /** @return array<string, mixed>|null */
+ /** @return array<string, mixed>|null */
     public function getWell(int $wellId, int $playerId): ?array
     {
         try {
@@ -23,7 +23,7 @@ trait WellQueryTrait
         }
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getPlayerWells(int $playerId): array
     {
         try {
@@ -46,7 +46,7 @@ trait WellQueryTrait
         }
     }
 
-    /** @return list<array<string, mixed>> */
+ /** @return list<array<string, mixed>> */
     public function getWellEvents(int $wellId, int $limit = 20): array
     {
         try {
@@ -66,7 +66,7 @@ trait WellQueryTrait
         }
     }
 
-    /** @return list<string> */
+ /** @return list<string> */
     private function getInstalledUpgrades(int $wellId): array
     {
         try {

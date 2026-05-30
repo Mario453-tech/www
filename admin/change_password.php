@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new      = $_POST['new_password']     ?? '';
         $confirm  = $_POST['confirm_password'] ?? '';
 
-        // Weryfikacja obecnego has³a
+ // Weryfikacja obecnego hasa
         $stmt = $db->prepare("SELECT password_hash FROM admins WHERE id = :id");
         $stmt->execute([':id' => AdminAuth::getAdminId()]);
         $row = $stmt->fetch();

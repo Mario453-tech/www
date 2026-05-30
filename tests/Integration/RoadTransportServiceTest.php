@@ -7,7 +7,7 @@ require_once dirname(__DIR__, 2) . '/src/RoadTransportService.php';
 /**
  * SQLite integration tests for RoadTransportService.
  *
- * Uywa SQLite :memory:  niezaleny od MySQL, szybki, deterministyczny.
+ * Uywa SQLite :memory: niezaleny od MySQL, szybki, deterministyczny.
  */
 final class RoadTransportServiceTest extends SqliteIntegrationTestCase
 {
@@ -19,12 +19,12 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         parent::setUp();
         $this->db  = $this->createSqlitePdo();
         $this->svc = new RoadTransportService($this->db);
-        // ensureSchema() tworzy tabele automatycznie w konstruktorze
+ // ensureSchema() tworzy tabele automatycznie w konstruktorze
     }
 
-    // 
-    // Schema auto-creation
-    // 
+ // 
+ // Schema auto-creation
+ // 
 
     public function testSchemaCreatedOnConstruct(): void
     {
@@ -35,9 +35,9 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         $this->assertNotFalse($stmt->fetchColumn(), 'Tabela well_road_incident_logs powinna istnie');
     }
 
-    // 
-    // ensureConfigsForPlayerWells
-    // 
+ // 
+ // ensureConfigsForPlayerWells
+ // 
 
     public function testEnsureCreatesConfigOnlyForCiezarowkiWells(): void
     {
@@ -48,7 +48,7 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         ];
 
         $this->svc->ensureConfigsForPlayerWells(1, $wells);
-        // Idempotentne  drugi call nie powinien duplikowa
+ // Idempotentne drugi call nie powinien duplikowa
         $this->svc->ensureConfigsForPlayerWells(1, $wells);
 
         $stmt = $this->db->query("SELECT well_id, truck_type FROM well_road_configs WHERE player_id = 1 ORDER BY well_id");
@@ -66,13 +66,13 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('0', (string)$stmt->fetchColumn());
     }
 
-    // 
-    // getConfigsByWellIds
-    // 
+ // 
+ // getConfigsByWellIds
+ // 
 
     public function testGetConfigsByWellIdsReturnsCorrectRow(): void
     {
-        // Wstaw manualnie konfiguracj heavy
+ // Wstaw manualnie konfiguracj heavy
         $this->db->exec(
             "INSERT INTO well_road_configs (player_id, well_id, truck_type, trip_capacity_bbl, cost_per_trip, incident_risk_mult)
              VALUES (1, 20, 'heavy', 50.0, 900.0, 0.8)"
@@ -93,9 +93,9 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         $this->assertSame([], $this->svc->getConfigsByWellIds(1, []));
     }
 
-    // 
-    // processTick  brak produkcji (guard clause)
-    // 
+ // 
+ // processTick brak produkcji (guard clause)
+ // 
 
     public function testProcessTickZeroInputReturnsEmptyResult(): void
     {
@@ -116,9 +116,9 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(0, $result['trips_total']);
     }
 
-    // 
-    // processTick  risk_mult = 0  zero incydentw
-    // 
+ // 
+ // processTick risk_mult = 0 zero incydentw
+ // 
 
     public function testProcessTickZeroRiskDeliversAllVolume(): void
     {
@@ -133,14 +133,14 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(2000.0, $result['cost'],                       '4  500 = 2000');
         $this->assertSame([], $result['incidents']);
 
-        // Brak logu incydentw
+ // Brak logu incydentw
         $cnt = $this->db->query("SELECT COUNT(*) FROM well_road_incident_logs")->fetchColumn();
         $this->assertSame('0', (string)$cnt);
     }
 
-    // 
-    // processTick  bilans wolumenu (delivered + lost = input)
-    // 
+ // 
+ // processTick bilans wolumenu (delivered + lost = input)
+ // 
 
     public function testProcessTickVolumeBalanceInvariant(): void
     {
@@ -164,16 +164,16 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
         $this->assertEqualsWithDelta($expectedCost, $result['cost'], 0.01);
     }
 
-    // 
-    // processTick  wymuszone incydenty (risk_mult ekstremalny)
-    // 
+ // 
+ // processTick wymuszone incydenty (risk_mult ekstremalny)
+ // 
 
     public function testProcessTickMaxRiskCreatesIncidents(): void
     {
         $config = ['trip_capacity_bbl' => 0.5, 'cost_per_trip' => 10.0, 'incident_risk_mult' => 99999.0];
         $result = $this->svc->processTick(1, 10, 100.0, 1.0, $config, ['failure_reduction' => 1.0], 1);
 
-        // 200 kursw  95% szansie incydentu  P(0 incydentw)  0
+ // 200 kursw 95% szansie incydentu P(0 incydentw) 0
         $this->assertGreaterThan(0.0, $result['lost_bbl']);
         $this->assertNotEmpty($result['incidents']);
 
@@ -183,20 +183,20 @@ final class RoadTransportServiceTest extends SqliteIntegrationTestCase
             $this->assertArrayHasKey('lost_bbl', $inc);
         }
 
-        // Wpis w logu incydentw
+ // Wpis w logu incydentw
         $cnt = (int)$this->db->query("SELECT COUNT(*) FROM well_road_incident_logs")->fetchColumn();
         $this->assertGreaterThan(0, $cnt, 'Powinien by co najmniej 1 wiersz logu incydentw');
     }
 
-    // 
-    // processTick  domylne wartoci gdy config = null
-    // 
+ // 
+ // processTick domylne wartoci gdy config = null
+ // 
 
     public function testProcessTickUsesDefaultsWhenConfigIsNull(): void
     {
-        // null config  domylne: 25 bbl/kurs, 500/kurs, risk=1.0
+ // null config domylne: 25 bbl/kurs, 500/kurs, risk=1.0
         $result = $this->svc->processTick(1, 10, 25.0, 0.0001, null, ['failure_reduction' => 0.0], 1);
-        // deltaHours bardzo maa  szansa incydentu bliska 0, 1 kurs
+ // deltaHours bardzo maa szansa incydentu bliska 0, 1 kurs
         $this->assertSame(1, $result['trips_total']);
         $this->assertSame(500.0, $result['cost'], '1  domylne 500 = 500');
     }

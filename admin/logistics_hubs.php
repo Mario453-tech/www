@@ -1,11 +1,11 @@
 <?php
 /**
- * admin/logistics_hubs.php — Panel zarz¹dzania systemowymi hubami logistycznymi.
+ * admin/logistics_hubs.php Panel zarzdzania systemowymi hubami logistycznymi.
  *
  * Logika podzielona na traity w src/AdminHub/:
- *   - AdminHubPostActionsTrait  — obs³uga POST
- *   - AdminHubDataFetchTrait    — pobieranie danych
- *   - AdminHubConfigFieldTrait  — renderowanie pól konfiguracji
+ * - AdminHubPostActionsTrait obsuga POST
+ * - AdminHubDataFetchTrait pobieranie danych
+ * - AdminHubConfigFieldTrait renderowanie pl konfiguracji
  *
  * Widok: templates/views/admin/logistics/main.php
  */
@@ -27,7 +27,7 @@ $csrf   = CSRF::generateToken();
 $msg    = '';
 $msgErr = false;
 
-//  Obs³uga POST 
+// Obsuga POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $msg    = t('admin.logistics.err_csrf');
@@ -49,14 +49,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-//  Flash message 
+// Flash message 
 if (!empty($_SESSION['admin_hub_msg'])) {
     $msg    = $_SESSION['admin_hub_msg'];
     $msgErr = (bool) ($_SESSION['admin_hub_msg_err'] ?? false);
     unset($_SESSION['admin_hub_msg'], $_SESSION['admin_hub_msg_err']);
 }
 
-//  Dane do widoku 
+// Dane do widoku 
 $hubSvc       = new HubService($db);
 $filterStatus = trim($_GET['status']     ?? '');
 $filterRegion = (int) ($_GET['region_id'] ?? 0);
@@ -138,5 +138,5 @@ $viewHub       = $detail['hub'];
 $viewWells     = $detail['wells'];
 $viewLastStats = $detail['lastStats'];
 
-//  Widok 
+// Widok 
 require __DIR__ . '/../templates/views/admin/logistics/main.php';
