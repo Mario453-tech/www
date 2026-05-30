@@ -76,7 +76,7 @@ jobs:
           mysql -h 127.0.0.1 -u ci_user -pci_pass ci_test < tests/ci-schema.sql
 
       - name: Uruchom wszystkie testy / Run all tests
-        run: vendor/bin/phpunit --no-coverage
+        run: php vendor/bin/phpunit --no-coverage
         env:
           DB_HOST:    127.0.0.1
           DB_NAME:    ci_test
