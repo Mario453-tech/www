@@ -9,12 +9,28 @@ on:
 jobs:
 
   # -------------------------------------------------------------------
-  # Job 1: testy jednostkowe PHPUnit
-  # Job 1: PHPUnit unit tests
+  # Job 1: testy — Unit (bez DB), Integration (SQLite), MySqlIntegration
+  # Job 1: tests — Unit (no DB), Integration (SQLite), MySqlIntegration
   # -------------------------------------------------------------------
   test:
     name: Testy PHPUnit / PHPUnit tests
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root
+          MYSQL_DATABASE:      ci_test
+          MYSQL_USER:          ci_user
+          MYSQL_PASSWORD:      ci_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=ci_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: Checkout
@@ -24,7 +40,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo, pdo_mysql, mbstring
+          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring
           coverage: none
 
       - name: Cache Composer
@@ -37,8 +53,33 @@ jobs:
       - name: Instalacja zaleznosci / Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Uruchom testy jednostkowe / Run unit tests
-        run: vendor/bin/phpunit --testsuite Unit --no-coverage
+      # Skonfiguruj polaczenie z MySQL dla testow integracyjnych.
+      # Configure MySQL connection for integration tests.
+      - name: Przygotuj .env dla testow / Prepare test .env
+        run: |
+          cat > .env <<'EOF'
+          DB_HOST=127.0.0.1
+          DB_NAME=ci_test
+          DB_USER=ci_user
+          DB_PASS=ci_pass
+          DB_CHARSET=utf8mb4
+          OPCACHE_RESET_TOKEN=ci_not_used
+          EOF
+
+      # Zaladuj schemat bazy danych do MySQL CI.
+      # Load database schema into CI MySQL.
+      - name: Zaladuj schemat CI / Load CI schema
+        run: |
+          mysql -h 127.0.0.1 -u ci_user -pci_pass ci_test < tests/ci-schema.sql
+
+      - name: Uruchom wszystkie testy / Run all tests
+        run: vendor/bin/phpunit --no-coverage
+        env:
+          DB_HOST:    127.0.0.1
+          DB_NAME:    ci_test
+          DB_USER:    ci_user
+          DB_PASS:    ci_pass
+          DB_CHARSET: utf8mb4
 
   # -------------------------------------------------------------------
   # Job 2: deploy FTP — odpala sie TYLKO gdy testy przeszly
