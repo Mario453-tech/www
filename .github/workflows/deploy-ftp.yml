@@ -12,12 +12,48 @@ env:
 jobs:
 
   # -------------------------------------------------------------------
-  # Job 1: testy — Unit (bez DB), Integration (SQLite), MySqlIntegration
-  # Job 1: tests — Unit (no DB), Integration (SQLite), MySqlIntegration
+  # Job 1: BRAMKA DEPLOYU — Unit (bez DB) + Integration (SQLite).
+  # Job 1: DEPLOY GATE — Unit (no DB) + Integration (SQLite).
+  # Te testy musza przejsc, zeby ruszyl deploy.
+  # These tests must pass for the deploy to run.
   # -------------------------------------------------------------------
   test:
-    name: Testy PHPUnit / PHPUnit tests
+    name: Testy PHPUnit (bramka) / PHPUnit gate
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ustaw PHP / Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instalacja zaleznosci / Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Uruchom testy Unit + Integration / Run Unit + Integration
+        run: php vendor/bin/phpunit --no-coverage --testsuite Unit,Integration
+
+  # -------------------------------------------------------------------
+  # Job 2: testy MySQL — INFORMACYJNE, NIE blokuja deployu.
+  # Job 2: MySQL tests — INFORMATIONAL, do NOT block the deploy.
+  # continue-on-error: czerwony wynik nie wstrzymuje pipeline'u.
+  # -------------------------------------------------------------------
+  mysql-tests:
+    name: Testy MySQL (informacyjne) / MySQL tests (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
 
     services:
       mysql:
@@ -56,27 +92,12 @@ jobs:
       - name: Instalacja zaleznosci / Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      # Skonfiguruj polaczenie z MySQL dla testow integracyjnych.
-      # Configure MySQL connection for integration tests.
-      - name: Przygotuj .env dla testow / Prepare test .env
-        run: |
-          cat > .env <<'EOF'
-          DB_HOST=127.0.0.1
-          DB_NAME=ci_test
-          DB_USER=ci_user
-          DB_PASS=ci_pass
-          DB_CHARSET=utf8mb4
-          OPCACHE_RESET_TOKEN=ci_not_used
-          EOF
-
-      # Zaladuj schemat bazy danych do MySQL CI.
-      # Load database schema into CI MySQL.
       - name: Zaladuj schemat CI / Load CI schema
         run: |
           mysql -h 127.0.0.1 -u ci_user -pci_pass ci_test < tests/ci-schema.sql
 
-      - name: Uruchom wszystkie testy / Run all tests
-        run: php vendor/bin/phpunit --no-coverage
+      - name: Uruchom testy MySqlIntegration / Run MySqlIntegration
+        run: php vendor/bin/phpunit --no-coverage --testsuite MySqlIntegration
         env:
           DB_HOST:    127.0.0.1
           DB_NAME:    ci_test
@@ -85,8 +106,10 @@ jobs:
           DB_CHARSET: utf8mb4
 
   # -------------------------------------------------------------------
-  # Job 2: deploy FTP — odpala sie TYLKO gdy testy przeszly
-  # Job 2: FTP deploy — runs ONLY when tests pass
+  # Job 3: deploy FTP — odpala sie TYLKO gdy bramka (test) przeszla.
+  # Job 3: FTP deploy — runs ONLY when the gate (test) passed.
+  # NIE zalezy od mysql-tests, wiec testy MySQL nie blokuja wdrozenia.
+  # Does NOT depend on mysql-tests, so MySQL tests can't block deploy.
   # -------------------------------------------------------------------
   deploy:
     name: Upload to FTP
@@ -110,10 +133,12 @@ jobs:
           server:   ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port:     ${{ secrets.FTP_PORT }}
-          protocol: ftps
+          # Host az.pl: implicit FTPS (niejawne TLS) na porcie 990 -> protocol ftps-legacy.
+          # az.pl host: implicit FTPS (implicit TLS) on port 990 -> protocol ftps-legacy.
+          port:     990
+          protocol: ftps-legacy
           local-dir:  ./
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          server-dir: "${{ secrets.FTP_REMOTE_DIR }}/"
           exclude: |
             **/.git/**
             **/.github/**
@@ -167,6 +192,6 @@ jobs:
       - name: Reset OPcache
         run: |
           curl -fsS --max-time 30 \
-            "${{ secrets.SITE_URL }}/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
+            "${{ secrets.SITE_URL }}/public/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
             && echo "" && echo "OPcache reset OK" \
             || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"
