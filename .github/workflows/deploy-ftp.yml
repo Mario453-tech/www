@@ -133,7 +133,9 @@ jobs:
           server:   ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port:     ${{ secrets.FTP_PORT }}
+          # Port FTPS explicit = 21 (domyslny). Sekret FTP_PORT mial bledna wartosc.
+          # FTPS explicit port = 21 (default). The FTP_PORT secret had an invalid value.
+          port:     21
           protocol: ftps
           local-dir:  ./
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
