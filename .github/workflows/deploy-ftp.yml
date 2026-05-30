@@ -138,7 +138,7 @@ jobs:
           port:     990
           protocol: ftps-legacy
           local-dir:  ./
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          server-dir: "${{ secrets.FTP_REMOTE_DIR }}/"
           exclude: |
             **/.git/**
             **/.github/**
