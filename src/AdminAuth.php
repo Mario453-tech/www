@@ -138,7 +138,6 @@ class AdminAuth
             $p = session_get_cookie_params();
             setcookie(session_name(), '', time() - 3600, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
         }
-        session_destroy();
 
         if ($redirect) {
             header('Location: /admin/login.php?logged_out=1');
