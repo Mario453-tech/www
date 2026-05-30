@@ -1,4 +1,4 @@
-<?php extract($viewData, EXTR_SKIP); ?>
+﻿<?php extract($viewData, EXTR_SKIP); ?>
 
 <div class="dashboard fade-in">
 

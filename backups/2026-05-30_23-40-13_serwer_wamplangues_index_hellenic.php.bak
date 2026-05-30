@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 $langues = array(
 	'langue' => 'Ελληνικά',
 	'locale' => 'hellenic',
