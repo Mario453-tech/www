@@ -104,12 +104,50 @@ require_once __DIR__ . '/HRService.php';
 require_once __DIR__ . '/WellStaffService.php';
 require_once __DIR__ . '/HeadhunterService.php';
 require_once __DIR__ . '/DirectorNotificationService.php';
-require_once __DIR__ . '/BankNegotiation/ContextTrait.php';
-require_once __DIR__ . '/BankNegotiation/MessagesTrait.php';
-require_once __DIR__ . '/BankNegotiation/RandomEventsTrait.php';
-require_once __DIR__ . '/BankNegotiation/RequestsTrait.php';
-require_once __DIR__ . '/BankNegotiation/ProcessorTrait.php';
-require_once __DIR__ . '/BankNegotiationService.php';
+
+ // Load bank negotiation traits, then the service, with OPcache self-healing.
+ // PL: Laduj traity negocjacji, potem serwis, z samonaprawą OPcache.
+ // FTP+OPcache race: an upload can leave OPcache holding an EMPTY cached
+ // version of a trait file, so require_once "succeeds" but defines nothing,
+ // and the later "use TraitName" fatals (500 on every page via init.php).
+ // PL: Wyscig FTP+OPcache moze zostawic w cache pusty plik traitu, przez co
+ // require_once nie definiuje nic, a pozniejsze "use" wywala 500 na kazdej stronie.
+$bankNegFiles = [
+    'BankNegotiationContextTrait'      => __DIR__ . '/BankNegotiation/ContextTrait.php',
+    'BankNegotiationMessagesTrait'     => __DIR__ . '/BankNegotiation/MessagesTrait.php',
+    'BankNegotiationRandomEventsTrait' => __DIR__ . '/BankNegotiation/RandomEventsTrait.php',
+    'BankNegotiationRequestsTrait'     => __DIR__ . '/BankNegotiation/RequestsTrait.php',
+    'BankNegotiationProcessorTrait'    => __DIR__ . '/BankNegotiation/ProcessorTrait.php',
+];
+
+$bankNegReady = true;
+foreach ($bankNegFiles as $traitName => $traitFile) {
+    require_once $traitFile;
+    if (!trait_exists($traitName, false)) {
+        $bankNegReady = false;
+ // Force a fresh recompile on the NEXT request to self-heal the stale cache.
+ // PL: Wymus swieza rekompilacje przy nastepnym zadaniu, by naprawic cache.
+        if (function_exists('opcache_invalidate')) {
+            opcache_invalidate($traitFile, true);
+        }
+        if (class_exists('GameLog', false)) {
+            GameLog::error('init', 'Bank negotiation trait missing after require (OPcache stale?)', null, [
+                'trait' => $traitName,
+                'file'  => $traitFile,
+            ]);
+        }
+    }
+}
+
+ // Only load the service if all its traits are defined — otherwise skip it for
+ // this one request so the rest of the site keeps working (bank.php guards with
+ // class_exists). Next request, post-invalidation, loads cleanly.
+ // PL: Laduj serwis tylko gdy wszystkie traity sa zdefiniowane; w przeciwnym
+ // razie pomin go na to jedno zadanie (reszta strony dziala, bank.php sprawdza
+ // class_exists). Kolejne zadanie, po unieważnieniu cache, zaladuje sie poprawnie.
+if ($bankNegReady) {
+    require_once __DIR__ . '/BankNegotiationService.php';
+}
 require_once __DIR__ . '/WorldMap.php';
 require_once __DIR__ . '/RegionalEventService.php';
 require_once __DIR__ . '/Cache.php';
