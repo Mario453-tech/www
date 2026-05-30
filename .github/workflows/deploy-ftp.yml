@@ -130,62 +130,41 @@ jobs:
         env:
           ENV_FILE: ${{ secrets.ENV_FILE }}
 
-      - name: Deploy via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          # Host FTP az.pl wpisany na sztywno — sekret FTP_HOST mial bledna wartosc (ENOTFOUND).
-          # az.pl FTP host hardcoded — FTP_HOST secret had a bad value (ENOTFOUND).
-          server:   hosting2629304.online.pro
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          # Host az.pl: implicit FTPS (niejawne TLS) na porcie 990 -> protocol ftps-legacy.
-          # az.pl host: implicit FTPS (implicit TLS) on port 990 -> protocol ftps-legacy.
-          port:     990
-          protocol: ftps-legacy
-          local-dir:  ./
-          server-dir: "${{ secrets.FTP_REMOTE_DIR }}/"
-          exclude: |
-            **/.git/**
-            **/.github/**
-            **/.vscode/**
-            **/.claude/**
-            **/.phpunit_cache/**
-            **/.idea/**
-            **/tests/**
-            **/vendor/**
-            **/node_modules/**
-            **/cache/**
-            **/coverage/**
-            **/build/**
-            **/dist/**
-            **/tmp/**
-            **/temp/**
-            **/backups/**
-            **/svn_repo/**
-            **/migrations/**
-            **/backup/**
-            **/sessions/**
-            **/.env.*
-            **/.gitignore
-            **/composer.json
-            **/composer.lock
-            **/phpstan.neon
-            **/phpstan_errors.txt
-            **/phpunit.xml.dist
-            **/deploy.ps1
-            **/diag*.php
-            **/check_log_cfg.php
-            **/diag.php
-            **/reset_db.php
-            **/*.bak
-            **/*_server.php
-            **/*.log
-            **/winscp.log
-            **/winscp_sync.txt
-            **/*.sql
-            **/*.zip
-            **/*.rar
-            **/database.php
+      # Instalacja lftp — uzywa OpenSSL i POPRAWNIE wznawia sesje TLS na kanale
+      # danych (jak WinSCP). basic-ftp w Node tego nie potrafi -> "data socket" TLS reset.
+      # Install lftp — uses OpenSSL and properly reuses the TLS session on the data
+      # channel (like WinSCP). Node's basic-ftp cannot -> "data socket" TLS reset.
+      - name: Zainstaluj lftp / Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      # Deploy przez lftp: implicit FTPS na porcie 990.
+      # BEZ --delete: nie ruszamy plikow na serwerze (config/database.php, .env serwera).
+      # Wykluczenia odwzorowuja dawna liste 'exclude' akcji; *.sql blokuje wielki dump.
+      # Deploy via lftp: implicit FTPS on port 990.
+      # NO --delete: we do not touch server-only files (config/database.php, server .env).
+      - name: Deploy via lftp (implicit FTPS 990)
+        env:
+          FTP_HOST: hosting2629304.online.pro
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR:  ${{ secrets.FTP_REMOTE_DIR }}
+        run: |
+          set -euo pipefail
+          lftp <<LFTP
+          set ssl:verify-certificate no
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ftp:ssl-protect-list true
+          set ftp:passive-mode true
+          set net:max-retries 3
+          set net:timeout 30
+          set net:reconnect-interval-base 5
+          set mirror:parallel-transfer-count 1
+          open ftps://$FTP_HOST:990
+          user "$FTP_USER" "$FTP_PASS"
+          mirror --reverse --verbose --continue --no-perms --ignore-time -X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php ./ "$FTP_DIR"
+          bye
+          LFTP
 
       # Odczekaj, az zapisy FTP sie ustabilizuja, zanim wyczyscimy OPcache.
       # Wait for FTP writes to settle before clearing OPcache.
