@@ -6,8 +6,11 @@ on:
       - main
       - master
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# UWAGA: NIE wymuszamy Node.js 24 (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24).
+# Node 24 psuje wznawianie sesji TLS na kanale danych FTPS -> blad
+# "Client network socket disconnected ... (data socket)". Akcja FTP musi
+# dzialac na natywnym Node 20 (ostrzezenie o deprecacji jest nieszkodliwe).
+# NOTE: do NOT force Node 24 — it breaks FTPS data-channel TLS session reuse.
 
 jobs:
 
