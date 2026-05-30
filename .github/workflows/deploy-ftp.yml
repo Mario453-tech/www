@@ -133,10 +133,10 @@ jobs:
           server:   ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Port FTPS explicit = 21 (domyslny). Sekret FTP_PORT mial bledna wartosc.
-          # FTPS explicit port = 21 (default). The FTP_PORT secret had an invalid value.
-          port:     21
-          protocol: ftps
+          # Host az.pl: implicit FTPS (niejawne TLS) na porcie 990 -> protocol ftps-legacy.
+          # az.pl host: implicit FTPS (implicit TLS) on port 990 -> protocol ftps-legacy.
+          port:     990
+          protocol: ftps-legacy
           local-dir:  ./
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           exclude: |
@@ -192,6 +192,6 @@ jobs:
       - name: Reset OPcache
         run: |
           curl -fsS --max-time 30 \
-            "${{ secrets.SITE_URL }}/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
+            "${{ secrets.SITE_URL }}/public/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
             && echo "" && echo "OPcache reset OK" \
             || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"
