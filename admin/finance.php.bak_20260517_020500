@@ -1,0 +1,562 @@
+<?php
+declare(strict_types=1);
+
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/finance.php') : microtime(true);
+
+try {
+    require_once __DIR__ . '/init.php';
+    AdminAuth::requireLogin();
+
+    $db = Database::getInstance()->getConnection();
+    require_once __DIR__ . '/../src/FinanceService.php';
+    require_once __DIR__ . '/../src/FinancePolicyService.php';
+
+    $finSvc = new FinanceService();
+    $policySvc = new FinancePolicyService($db);
+    $msg    = '';
+    $err    = '';
+
+    $hours = (int)($_GET['hours'] ?? 24);
+    if (!in_array($hours, [24, 168, 720], true)) {
+        $hours = 24;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+            die(t('common.csrf_error'));
+        }
+
+        $action = $_POST['action'] ?? '';
+
+        if ($action === 'reset_player_policy') {
+            $targetPid = (int)($_POST['target_player_id'] ?? 0);
+            if ($targetPid > 0) {
+                try {
+                    $db->prepare("DELETE FROM player_finance_settings WHERE player_id = ?")->execute([$targetPid]);
+                    $db->prepare("DELETE FROM player_finance_decisions WHERE player_id = ?")->execute([$targetPid]);
+                    AdminLog::log('finance_policy_reset', "Reset polityki finansowej gracza #" . $targetPid);
+                    $msg = t('admin.finance.msg_policy_reset');
+                } catch (Throwable $e) {
+                    GameLog::error('admin/finance.php', 'reset_player_policy FAILED', $e);
+                    $err = t('admin.finance.err_policy_reset');
+                }
+            }
+        }
+
+        if ($action === 'save_multipliers') {
+            // Mnożniki planu oszczędności — 18 wartości, klucze sp_*
+            // Zakres: technika/HR 0.50–2.00; logistyka koszty 0.50–1.50; logistyka straty/ryzyko 0.80–2.00; BHP 1.00–2.00
+            $multBounds = [
+                'sp_tech_wear_mod'        => [0.50, 2.00, 1.06],
+                'sp_tech_wear_agg'        => [0.50, 2.00, 1.14],
+                'sp_tech_degr_mod'        => [0.50, 2.00, 1.06],
+                'sp_tech_degr_agg'        => [0.50, 2.00, 1.12],
+                'sp_log_transport_mod'    => [0.50, 1.50, 0.96],
+                'sp_log_transport_agg'    => [0.50, 1.50, 0.90],
+                'sp_log_hub_mod'          => [0.50, 1.50, 0.96],
+                'sp_log_hub_agg'          => [0.50, 1.50, 0.90],
+                'sp_log_loss_mod'         => [0.80, 2.00, 1.08],
+                'sp_log_loss_agg'         => [0.80, 2.00, 1.18],
+                'sp_log_incident_mod'     => [0.80, 2.00, 1.05],
+                'sp_log_incident_agg'     => [0.80, 2.00, 1.12],
+                'sp_hr_duration_mod'      => [0.50, 2.00, 1.08],
+                'sp_hr_duration_agg'      => [0.50, 2.00, 1.18],
+                'sp_hr_quality_mod'       => [0.50, 1.50, 0.94],
+                'sp_hr_quality_agg'       => [0.50, 1.50, 0.86],
+                'sp_safety_incident_agg'  => [1.00, 2.00, 1.04],
+                'sp_safety_disaster_agg'  => [1.00, 2.00, 1.02],
+            ];
+            $labels = [
+                'sp_tech_wear_mod'        => 'Zużycie sprzętu (umiarkowany)',
+                'sp_tech_wear_agg'        => 'Zużycie sprzętu (agresywny)',
+                'sp_tech_degr_mod'        => 'Degradacja (umiarkowany)',
+                'sp_tech_degr_agg'        => 'Degradacja (agresywny)',
+                'sp_log_transport_mod'    => 'Koszt transportu (umiarkowany)',
+                'sp_log_transport_agg'    => 'Koszt transportu (agresywny)',
+                'sp_log_hub_mod'          => 'Koszt huba (umiarkowany)',
+                'sp_log_hub_agg'          => 'Koszt huba (agresywny)',
+                'sp_log_loss_mod'         => 'Straty transportowe (umiarkowany)',
+                'sp_log_loss_agg'         => 'Straty transportowe (agresywny)',
+                'sp_log_incident_mod'     => 'Incydenty logistyki (umiarkowany)',
+                'sp_log_incident_agg'     => 'Incydenty logistyki (agresywny)',
+                'sp_hr_duration_mod'      => 'Czas wiercenia (umiarkowany)',
+                'sp_hr_duration_agg'      => 'Czas wiercenia (agresywny)',
+                'sp_hr_quality_mod'       => 'Jakość wiercenia (umiarkowany)',
+                'sp_hr_quality_agg'       => 'Jakość wiercenia (agresywny)',
+                'sp_safety_incident_agg'  => 'Incydenty BHP (agresywny)',
+                'sp_safety_disaster_agg'  => 'Awarie BHP (agresywny)',
+            ];
+            try {
+                foreach ($multBounds as $key => [$min, $max, $default]) {
+                    $val = round(max($min, min($max, (float)($_POST[$key] ?? $default))), 4);
+                    $db->prepare(
+                        "INSERT INTO well_config (`key`, value, label, category)
+                         VALUES (?, ?, ?, 'finance_savings')
+                         ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)"
+                    )->execute([$key, $val, $labels[$key]]);
+                }
+                AdminLog::log('finance_multipliers_saved', 'Zaktualizowano mnożniki planu oszczędności (D2)');
+                $msg = t('admin.finance.msg_multipliers_saved');
+            } catch (Throwable $e) {
+                GameLog::error('admin/finance.php', 'save_multipliers FAILED', $e);
+                $err = t('admin.finance.err_multipliers_save');
+            }
+        }
+
+        if ($action === 'save_config') {
+            $keys = [
+                'global_tax_modifier'  => 'Mnożnik podatków globalnych',
+                'global_cost_modifier' => 'Mnożnik kosztów globalnych',
+                'global_loss_modifier' => 'Mnożnik strat globalnych',
+            ];
+
+            // Cooldown — osobna walidacja (int, zakres 1–168h)
+            $cooldownVal = max(1, min(168, (int)($_POST['savings_plan_cooldown_hours'] ?? 6)));
+            $db->prepare(
+                "INSERT INTO well_config (`key`, value, label, category)
+                 VALUES ('savings_plan_cooldown_hours', ?, 'Cooldown planu oszczędności (h)', 'finance')
+                 ON DUPLICATE KEY UPDATE value = VALUES(value)"
+            )->execute([$cooldownVal]);
+
+            foreach ($keys as $key => $label) {
+                $value = (float)($_POST[$key] ?? 1.0);
+                $value = max(0.1, min(5.0, $value));
+
+                $db->prepare(
+                    "
+                    INSERT INTO well_config (`key`, value, label, category)
+                    VALUES (?, ?, ?, 'finance')
+                    ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)
+                    "
+                )->execute([$key, $value, $label]);
+            }
+
+            // Progi alertów — osobna walidacja
+            $alertFields = [
+                'alert_loss_pct'         => ['label' => 'Próg alertu strat globalnych (%)',   'min' => 0.0,  'max' => 100.0],
+                'alert_hub_loss_pct'     => ['label' => 'Próg alertu strat hubowych (%)',      'min' => 0.0,  'max' => 100.0],
+                'alert_fallback_min_pln' => ['label' => 'Min straty fallback do alertu (PLN)', 'min' => 0.0,  'max' => 1000000.0],
+                'alert_loss_player_min'  => ['label' => 'Min graczy z ujemnym netto',          'min' => 1,    'max' => 100],
+            ];
+            foreach ($alertFields as $aKey => $aMeta) {
+                $aVal = max($aMeta['min'], min($aMeta['max'], (float)($_POST[$aKey] ?? 0)));
+                $db->prepare(
+                    "INSERT INTO well_config (`key`, value, label, category)
+                     VALUES (?, ?, ?, 'finance')
+                     ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)"
+                )->execute([$aKey, $aVal, $aMeta['label']]);
+            }
+
+            AdminLog::log('finance_config_save', 'Saved finance department configuration');
+            $msg = t('admin.finance.msg_config_saved');
+        }
+    }
+
+    $global      = $finSvc->getGlobalStats($hours);
+    $perPlayer   = $finSvc->getPerPlayerStats($hours);
+    $admAlerts   = $finSvc->getAdminAlerts($hours);
+    $oilPrice    = (float)($db->query("SELECT current_price FROM market_state WHERE id = 1")->fetchColumn() ?? 70);
+
+    $config = [];
+    try {
+        $rows = $db->query("SELECT `key`, value FROM well_config WHERE category = 'finance'")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $config[$row['key']] = (float)$row['value'];
+        }
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'load config FAILED', $e);
+    }
+
+    $config += [
+        'global_tax_modifier'          => 1.0,
+        'global_cost_modifier'         => 1.0,
+        'global_loss_modifier'         => 1.0,
+        'savings_plan_cooldown_hours'  => 6,
+        'alert_loss_pct'               => 10.0,
+        'alert_hub_loss_pct'           => 5.0,
+        'alert_fallback_min_pln'       => 1.0,
+        'alert_loss_player_min'        => 1,
+    ];
+
+    // Mnożniki planu oszczędności (D2) — ładowane z well_config (kategoria finance_savings)
+    $multDefaults = [
+        'sp_tech_wear_mod'        => 1.06,
+        'sp_tech_wear_agg'        => 1.14,
+        'sp_tech_degr_mod'        => 1.06,
+        'sp_tech_degr_agg'        => 1.12,
+        'sp_log_transport_mod'    => 0.96,
+        'sp_log_transport_agg'    => 0.90,
+        'sp_log_hub_mod'          => 0.96,
+        'sp_log_hub_agg'          => 0.90,
+        'sp_log_loss_mod'         => 1.08,
+        'sp_log_loss_agg'         => 1.18,
+        'sp_log_incident_mod'     => 1.05,
+        'sp_log_incident_agg'     => 1.12,
+        'sp_hr_duration_mod'      => 1.08,
+        'sp_hr_duration_agg'      => 1.18,
+        'sp_hr_quality_mod'       => 0.94,
+        'sp_hr_quality_agg'       => 0.86,
+        'sp_safety_incident_agg'  => 1.04,
+        'sp_safety_disaster_agg'  => 1.02,
+    ];
+    $mults = $multDefaults;
+    try {
+        $multRows = $db->query(
+            "SELECT `key`, value FROM well_config WHERE `key` LIKE 'sp_%'"
+        )->fetchAll(PDO::FETCH_KEY_PAIR);
+        foreach ($mults as $k => &$v) {
+            if (isset($multRows[$k]) && is_numeric($multRows[$k])) {
+                $v = round((float)$multRows[$k], 4);
+            }
+        }
+        unset($v);
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'load multipliers FAILED', $e);
+    }
+
+    $historyStmt = [];
+    try {
+        $historyStmt = $db->prepare(
+            "
+            SELECT
+                DATE_FORMAT(tick_at, '%d.%m %H:%i') AS label,
+                SUM(revenue)                        AS revenue,
+                SUM(net_profit)                     AS net_profit,
+                SUM(loss_value)                     AS loss_value,
+                AVG(oil_price)                      AS oil_price
+            FROM finance_logs
+            WHERE tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            GROUP BY DATE_FORMAT(tick_at, '%Y-%m-%d %H:%i')
+            ORDER BY tick_at ASC
+            "
+        );
+        $historyStmt->execute([$hours]);
+        $globalHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $globalHistory = [];
+        GameLog::error('admin/finance.php', 'load history FAILED', $e);
+    }
+
+    $fmtAdminPln = static function (float $value, bool $sign = false): string {
+        $formatted = number_format(abs($value), 0, ',', ' ') . ' PLN';
+        if ($sign) {
+            return ($value >= 0 ? '+' : '&minus;') . $formatted;
+        }
+
+        return $value < 0 ? '&minus;' . $formatted : $formatted;
+    };
+
+    $gRev          = (float)($global['total_revenue'] ?? 0);
+    $gNet          = (float)($global['total_net'] ?? 0);
+    $gLoss         = (float)($global['total_loss'] ?? 0);
+    $gBbl          = (float)($global['total_bbl'] ?? 0);
+    $gPlayers      = (int)($global['player_count'] ?? 0);
+    $gHubUsage     = (float)($global['total_hub_usage_cost'] ?? 0);
+    $gHubLoss      = (float)($global['total_hub_loss_value'] ?? 0);
+    $gFallbackLoss = (float)($global['total_fallback_loss_value'] ?? 0);
+    $gHubIncLoss   = (float)($global['total_hub_incident_loss_value'] ?? 0);
+    $lossPct       = $gRev > 0 ? round($gLoss / $gRev * 100, 1) : 0;
+
+    $globalStatCards = [
+        ['title' => t('admin.finance.stat_revenue'), 'val' => $fmtAdminPln($gRev), 'cls' => 'fin-green'],
+        ['title' => t('admin.finance.stat_net'), 'val' => $fmtAdminPln($gNet, true), 'cls' => $gNet >= 0 ? 'fin-green' : 'fin-red'],
+        ['title' => t('admin.finance.stat_loss'), 'val' => $fmtAdminPln($gLoss) . " ({$lossPct}%)", 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_hub_cost'), 'val' => $fmtAdminPln($gHubUsage), 'cls' => 'fin-red'],
+        ['title' => t('admin.finance.stat_hub_loss'), 'val' => $fmtAdminPln($gHubLoss), 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_prod'), 'val' => number_format($gBbl, 1, ',', ' ') . ' bbl', 'cls' => ''],
+        ['title' => t('admin.finance.stat_players'), 'val' => (string)$gPlayers, 'cls' => ''],
+        ['title' => t('admin.finance.stat_oil_price'), 'val' => number_format($oilPrice, 2, ',', ' ') . ' PLN/bbl', 'cls' => 'fin-green'],
+    ];
+
+    $hubStatCards = [
+        ['title' => t('admin.finance.stat_hub_cost'), 'val' => $fmtAdminPln($gHubUsage), 'cls' => 'fin-red'],
+        ['title' => t('admin.finance.stat_hub_loss'), 'val' => $fmtAdminPln($gHubLoss), 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_fallback_loss'), 'val' => $fmtAdminPln($gFallbackLoss), 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_hub_incident_loss'), 'val' => $fmtAdminPln($gHubIncLoss), 'cls' => 'fin-red'],
+    ];
+
+    // Monitoring hubów — per hub: obciążenie, kondycja, straty, incydenty (24h)
+    $hubMonitor = [];
+    try {
+        $stmtHub = $db->prepare("
+            SELECT
+                h.id, h.name, h.hub_type, h.status, h.level,
+                h.slot_limit, h.condition_pct, h.efficiency_pct, h.opex_per_tick,
+                h.player_id AS owner_id, p.company AS owner_company,
+                COALESCE(asgn.active_wells, 0)            AS active_wells,
+                COALESCE(stats.avg_load_pct,    0.0)      AS avg_load_pct,
+                COALESCE(stats.max_load_pct,    0.0)      AS max_load_pct,
+                COALESCE(stats.total_lost_bbl,  0.0)      AS total_lost_bbl,
+                COALESCE(stats.incident_count,  0)        AS incident_count,
+                COALESCE(stats.overload_count,  0)        AS overload_count,
+                COALESCE(stats.tick_count,      0)        AS tick_count
+            FROM logistics_hubs h
+            LEFT JOIN players p ON p.id = h.player_id
+            LEFT JOIN (
+                SELECT hub_id, COUNT(*) AS active_wells
+                FROM   logistics_hub_assignments
+                WHERE  status = 'active'
+                GROUP  BY hub_id
+            ) asgn ON asgn.hub_id = h.id
+            LEFT JOIN (
+                SELECT hub_id,
+                       AVG(load_pct)        AS avg_load_pct,
+                       MAX(load_pct)        AS max_load_pct,
+                       SUM(lost_volume_bbl) AS total_lost_bbl,
+                       SUM(incident_flag)   AS incident_count,
+                       SUM(overload_flag)   AS overload_count,
+                       COUNT(*)             AS tick_count
+                FROM   logistics_hub_tick_stats
+                WHERE  tick_time >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+                GROUP  BY hub_id
+            ) stats ON stats.hub_id = h.id
+            WHERE h.status != 'disabled'
+            ORDER BY avg_load_pct DESC, total_lost_bbl DESC, h.name ASC
+        ");
+        $stmtHub->execute([$hours]);
+        $hubMonitor = $stmtHub->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $hubMonitor = [];
+        GameLog::error('admin/finance.php', 'hubMonitor FAILED', $e);
+    }
+
+    $configFields = [
+        ['key' => 'global_tax_modifier',         'label' => t('admin.finance.cfg_tax_label'),      'desc' => t('admin.finance.cfg_tax_desc'),      'val' => $config['global_tax_modifier'],         'type' => 'float', 'min' => 0.1,  'max' => 5.0,   'step' => '0.01'],
+        ['key' => 'global_cost_modifier',        'label' => t('admin.finance.cfg_cost_label'),     'desc' => t('admin.finance.cfg_cost_desc'),     'val' => $config['global_cost_modifier'],        'type' => 'float', 'min' => 0.1,  'max' => 5.0,   'step' => '0.01'],
+        ['key' => 'global_loss_modifier',        'label' => t('admin.finance.cfg_loss_label'),     'desc' => t('admin.finance.cfg_loss_desc'),     'val' => $config['global_loss_modifier'],        'type' => 'float', 'min' => 0.1,  'max' => 5.0,   'step' => '0.01'],
+        ['key' => 'savings_plan_cooldown_hours', 'label' => t('admin.finance.cfg_cooldown_label'), 'desc' => t('admin.finance.cfg_cooldown_desc'), 'val' => $config['savings_plan_cooldown_hours'], 'type' => 'int',   'min' => 1,    'max' => 168.0, 'step' => '1'],
+        ['key' => 'alert_loss_pct',              'label' => t('admin.finance.cfg_alert_loss_pct_label'),    'desc' => t('admin.finance.cfg_alert_loss_pct_desc'),    'val' => $config['alert_loss_pct'],              'type' => 'float', 'min' => 0.0,  'max' => 100.0, 'step' => '0.5'],
+        ['key' => 'alert_hub_loss_pct',          'label' => t('admin.finance.cfg_alert_hub_loss_pct_label'),'desc' => t('admin.finance.cfg_alert_hub_loss_pct_desc'),'val' => $config['alert_hub_loss_pct'],          'type' => 'float', 'min' => 0.0,  'max' => 100.0, 'step' => '0.5'],
+        ['key' => 'alert_fallback_min_pln',      'label' => t('admin.finance.cfg_alert_fallback_label'),    'desc' => t('admin.finance.cfg_alert_fallback_desc'),    'val' => $config['alert_fallback_min_pln'],      'type' => 'float', 'min' => 0.0,  'max' => 1000000.0, 'step' => '1'],
+        ['key' => 'alert_loss_player_min',       'label' => t('admin.finance.cfg_alert_player_min_label'),  'desc' => t('admin.finance.cfg_alert_player_min_desc'),  'val' => $config['alert_loss_player_min'],       'type' => 'int',   'min' => 1,    'max' => 100.0, 'step' => '1'],
+    ];
+
+    $policyDistribution = [];
+    try {
+        $distributionKeys = [
+            'technical_budget' => t('admin.finance.policy_technical'),
+            'logistics_budget' => t('admin.finance.policy_logistics'),
+            'hr_budget' => t('admin.finance.policy_hr'),
+            'safety_budget' => t('admin.finance.policy_safety'),
+            'reserve_policy' => t('admin.finance.policy_reserve'),
+        ];
+
+        foreach ($distributionKeys as $column => $label) {
+            $stmt = $db->query(
+                "SELECT {$column} AS level_key, COUNT(*) AS cnt
+                 FROM player_finance_settings
+                 GROUP BY {$column}"
+            );
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $map = ['low' => 0, 'standard' => 0, 'high' => 0];
+            foreach ($rows as $row) {
+                $levelKey = (string)($row['level_key'] ?? 'standard');
+                if (isset($map[$levelKey])) {
+                    $map[$levelKey] = (int)$row['cnt'];
+                }
+            }
+            $policyDistribution[] = [
+                'label' => $label,
+                'low' => $map['low'],
+                'standard' => $map['standard'],
+                'high' => $map['high'],
+            ];
+        }
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'load policyDistribution FAILED', $e);
+    }
+
+    // Monitoring planu oszczędności — rozkład trybów
+    $savingsModes = ['off' => 0, 'moderate' => 0, 'aggressive' => 0];
+    try {
+        $rows = $db->query(
+            "SELECT COALESCE(savings_plan_mode,'off') AS mode, COUNT(*) AS cnt
+             FROM player_finance_settings GROUP BY savings_plan_mode"
+        )->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $m = (string)($row['mode'] ?? 'off');
+            if (isset($savingsModes[$m])) $savingsModes[$m] = (int)$row['cnt'];
+        }
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'savingsModes FAILED', $e);
+    }
+
+    // Polityki per gracz — savings mode, rezerwa, cooldown, budżety
+    $playerPolicies = [];
+    $now_ts = time();
+    try {
+        $rows = $db->query("
+            SELECT p.id AS player_id, p.company, p.cash,
+                   COALESCE(pfs.savings_plan_mode, 'off')        AS savings_plan_mode,
+                   COALESCE(pfs.reserve_policy, 'standard')      AS reserve_policy,
+                   pfs.savings_plan_changed_at,
+                   COALESCE(pfs.technical_budget, 'standard')    AS technical_budget,
+                   COALESCE(pfs.logistics_budget, 'standard')    AS logistics_budget,
+                   COALESCE(pfs.hr_budget, 'standard')           AS hr_budget,
+                   COALESCE(pfs.safety_budget, 'standard')       AS safety_budget
+            FROM players p
+            LEFT JOIN player_finance_settings pfs ON pfs.player_id = p.id
+            WHERE p.status != 'bankrupt'
+            ORDER BY pfs.savings_plan_mode DESC, p.company ASC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $changedAt = (string)($row['savings_plan_changed_at'] ?? '');
+            $cooldownActive = false;
+            $cooldownLeft   = 0;
+            if ($changedAt !== '') {
+                $ts = strtotime($changedAt);
+                if ($ts !== false) {
+                    $until = $ts + 6 * 3600;
+                    if ($until > $now_ts) {
+                        $cooldownActive = true;
+                        $cooldownLeft   = $until - $now_ts;
+                    }
+                }
+            }
+            $row['cooldown_active'] = $cooldownActive;
+            $row['cooldown_left']   = $cooldownLeft; // sekundy
+            $playerPolicies[] = $row;
+        }
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'playerPolicies FAILED', $e);
+    }
+
+    // Historia decyzji finansowych graczy
+    $historyPid      = max(0, (int)($_GET['history_pid'] ?? 0));
+    $decisionHistory = [];
+    try {
+        if ($historyPid > 0) {
+            $stmtH = $db->prepare("
+                SELECT pfd.id, pfd.player_id, pfd.decision_key,
+                       pfd.old_value, pfd.new_value, pfd.source, pfd.created_at,
+                       p.company
+                FROM player_finance_decisions pfd
+                JOIN players p ON p.id = pfd.player_id
+                WHERE pfd.player_id = ?
+                ORDER BY pfd.created_at DESC
+                LIMIT 200
+            ");
+            $stmtH->execute([$historyPid]);
+        } else {
+            $stmtH = $db->query("
+                SELECT pfd.id, pfd.player_id, pfd.decision_key,
+                       pfd.old_value, pfd.new_value, pfd.source, pfd.created_at,
+                       p.company
+                FROM player_finance_decisions pfd
+                JOIN players p ON p.id = pfd.player_id
+                ORDER BY pfd.created_at DESC
+                LIMIT 100
+            ");
+        }
+        $decisionHistory = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'decisionHistory FAILED', $e);
+    }
+
+    // Lista graczy do GM reset (id => company)
+    $playerList = [];
+    try {
+        $playerList = $db->query(
+            "SELECT id, company FROM players WHERE status != 'bankrupt' ORDER BY company ASC"
+        )->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'playerList FAILED', $e);
+    }
+
+    // Monitoring rezerwy — gracze poniżej celu (koszty z ostatnich 24h)
+    $reserveStatus  = [];
+    $reserveCounts  = ['critical' => 0, 'warning' => 0, 'caution' => 0];
+    try {
+        $rsRows = $db->query("
+            SELECT p.id AS player_id, p.company, p.cash,
+                   COALESCE(pfs.reserve_policy, 'standard')   AS reserve_policy,
+                   COALESCE(pfs.savings_plan_mode, 'off')     AS savings_plan_mode,
+                   COALESCE(
+                       (SELECT (SUM(fl.opex) + SUM(fl.salary_cost) + SUM(fl.transport_cost)
+                               + SUM(fl.hub_usage_cost) + SUM(fl.incident_cost)) / 24.0
+                        FROM finance_logs fl
+                        WHERE fl.player_id = p.id
+                          AND fl.tick_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                       ), 0
+                   ) AS hourly_cost
+            FROM players p
+            LEFT JOIN player_finance_settings pfs ON pfs.player_id = p.id
+            WHERE p.status != 'bankrupt'
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rsRows as $rsRow) {
+            $hourlyCost   = (float)$rsRow['hourly_cost'];
+            $reserveHours = match((string)$rsRow['reserve_policy']) {
+                'low'  => 6.0,
+                'high' => 24.0,
+                default => 12.0,
+            };
+            $reserveTarget = $hourlyCost * $reserveHours;
+            $cash          = (float)$rsRow['cash'];
+            $coveragePct   = $reserveTarget > 0 ? ($cash / $reserveTarget * 100) : 999.0;
+
+            $state = 'good';
+            if ($coveragePct < 50)       $state = 'critical';
+            elseif ($coveragePct < 100)  $state = 'warning';
+            elseif ($coveragePct < 125)  $state = 'caution';
+
+            if ($state !== 'good') {
+                $reserveStatus[] = array_merge($rsRow, [
+                    'hourly_cost'    => $hourlyCost,
+                    'reserve_hours'  => $reserveHours,
+                    'reserve_target' => $reserveTarget,
+                    'coverage_pct'   => $coveragePct,
+                    'state'          => $state,
+                ]);
+                $reserveCounts[$state]++;
+            }
+        }
+        usort($reserveStatus, fn($a, $b) => $a['coverage_pct'] <=> $b['coverage_pct']);
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'reserveStatus FAILED', $e);
+    }
+
+    $viewData = compact(
+        'msg',
+        'err',
+        'hours',
+        'admAlerts',
+        'globalStatCards',
+        'hubStatCards',
+        'perPlayer',
+        'configFields',
+        'policyDistribution',
+        'savingsModes',
+        'playerPolicies',
+        'playerList',
+        'reserveStatus',
+        'reserveCounts',
+        'global',
+        'oilPrice',
+        'globalHistory',
+        'fmtAdminPln',
+        'mults',
+        'multDefaults',
+        'hubMonitor',
+        'decisionHistory',
+        'historyPid'
+    );
+
+    $rangeOptions = [24 => '24h', 168 => '7 dni', 720 => '30 dni'];
+    $viewData['rangeOptions'] = $rangeOptions;
+
+    $pageTitle = t('admin.finance.page_title');
+    require_once __DIR__ . '/partials/header.php';
+    require __DIR__ . '/../templates/views/admin/finance/main.php';
+    require_once __DIR__ . '/partials/footer.php';
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) {
+        GameLog::error('admin/finance.php', 'Exception', $e);
+    }
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) {
+        GameLog::pageEnd('admin/finance.php', $_codexGuardStart);
+    }
+}

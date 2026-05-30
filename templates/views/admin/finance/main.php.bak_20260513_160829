@@ -1,0 +1,106 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1>💼 <?= t('admin.finance.heading') ?></h1>
+
+<?php if ($msg): ?>
+<p class="alert alert-success"><?= htmlspecialchars($msg) ?></p>
+<?php endif ?>
+<?php if ($err): ?>
+<p class="alert alert-error"><?= htmlspecialchars($err) ?></p>
+<?php endif ?>
+
+<?php if (!empty($admAlerts)): ?>
+<div class="fin-admin-alerts">
+    <?php foreach ($admAlerts as $a): ?>
+    <div class="finance-alert finance-alert--<?= htmlspecialchars($a['level']) ?>">
+        <span><?= $a['icon'] ?></span>
+        <span><?= htmlspecialchars($a['msg']) ?></span>
+    </div>
+    <?php endforeach ?>
+</div>
+<?php endif ?>
+
+<div class="fin-range-bar">
+    <span class="muted fin-range-label"><?= t('admin.finance.range_label') ?>:</span>
+    <?php foreach ($rangeOptions as $h => $label): ?>
+    <a href="?hours=<?= $h ?>" class="btn btn-sm <?= $hours === $h ? 'btn-primary' : 'btn-secondary' ?>"><?= htmlspecialchars($label) ?></a>
+    <?php endforeach ?>
+</div>
+
+<section class="panel">
+    <p class="panel-title">📊 <?= t('admin.finance.global_stats_title', ['hours' => $hours]) ?></p>
+    <div class="fin-global-grid-3">
+        <?php foreach ($globalStatCards as $card): ?>
+        <div class="card fin-global-stat">
+            <div class="muted fin-stat-label"><?= $card['title'] ?></div>
+            <div class="fin-global-val <?= htmlspecialchars($card['cls']) ?>"><?= $card['val'] ?></div>
+        </div>
+        <?php endforeach ?>
+    </div>
+</section>
+
+<section class="panel">
+    <p class="panel-title">👤 <?= t('admin.finance.per_player_title', ['hours' => $hours]) ?></p>
+    <?php if (empty($perPlayer)): ?>
+    <p class="empty-state"><?= t('admin.finance.no_data') ?></p>
+    <?php else: ?>
+    <div class="fin-player-list">
+        <div class="fin-player-header">
+            <span><?= t('admin.finance.col_company') ?></span>
+            <span><?= t('admin.finance.col_balance') ?></span>
+            <span><?= t('admin.finance.col_revenue') ?></span>
+            <span><?= t('admin.finance.col_net') ?></span>
+            <span><?= t('admin.finance.col_loss') ?></span>
+            <span><?= t('admin.finance.col_wells') ?></span>
+            <span><?= t('admin.finance.col_avg_tick') ?></span>
+        </div>
+        <?php foreach ($perPlayer as $p):
+            $pNet     = (float)$p['total_net'];
+            $pLoss    = (float)$p['total_loss'];
+            $pRev     = (float)$p['total_revenue'];
+            $pLossPct = $pRev > 0 ? round($pLoss / $pRev * 100, 1) : 0;
+        ?>
+        <div class="fin-player-row">
+            <span>
+                <a href="/admin/player.php?id=<?= (int)$p['player_id'] ?>" class="fin-player-link">
+                    <?= htmlspecialchars($p['company'] ?? '?') ?>
+                </a>
+            </span>
+            <span class="fin-num"><?= fmtA((float)$p['cash']) ?></span>
+            <span class="fin-num fin-green"><?= fmtA($pRev) ?></span>
+            <span class="fin-num <?= $pNet >= 0 ? 'fin-green' : 'fin-red' ?>"><?= fmtA($pNet, true) ?></span>
+            <span class="fin-num fin-orange">
+                <?= fmtA($pLoss) ?>
+                <span class="fin-muted fin-small">(<?= $pLossPct ?>%)</span>
+            </span>
+            <span class="fin-num"><?= (int)$p['wells_active'] ?></span>
+            <span class="fin-num fin-muted"><?= fmtA((float)$p['avg_net_per_tick'], true) ?></span>
+        </div>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<section class="panel">
+    <p class="panel-title">⚙️ <?= t('admin.finance.config_title') ?></p>
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_config">
+        <div class="fin-config-grid">
+            <?php foreach ($configFields as $field): ?>
+            <div class="card fin-config-card">
+                <label class="fin-config-label" for="<?= htmlspecialchars($field['key']) ?>"><?= $field['label'] ?></label>
+                <input type="number"
+                       id="<?= htmlspecialchars($field['key']) ?>"
+                       name="<?= htmlspecialchars($field['key']) ?>"
+                       value="<?= $field['val'] ?>"
+                       min="0.1" max="5" step="0.01"
+                       class="fin-config-input">
+                <div class="fin-config-desc"><?= $field['desc'] ?></div>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <button type="submit" class="btn btn-primary">💾 <?= t('admin.finance.btn_save') ?></button>
+        <span class="muted fin-save-hint"><?= t('admin.finance.save_hint') ?></span>
+    </form>
+</section>

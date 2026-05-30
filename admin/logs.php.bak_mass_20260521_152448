@@ -1,0 +1,227 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/logs.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+
+require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
+
+$db     = Database::getInstance()->getConnection();
+$tab    = in_array($_GET['tab'] ?? 'admin', ['admin', 'game', 'tick']) ? ($_GET['tab'] ?? 'admin') : 'admin';
+$filter = $_GET['filter'] ?? '';
+$limit  = min((int)($_GET['limit'] ?? 100), 1000);
+$page   = max(1, (int)($_GET['page'] ?? 1));
+$offset = ($page - 1) * $limit;
+$msg    = '';
+$err    = '';
+
+//  USTAWIENIA RETENCJI 
+$cfgStmt = $db->query("SELECT `key`, `value` FROM site_config WHERE `key` IN ('log_retention_admin_days','log_retention_game_days')");
+$cfg     = $cfgStmt ? $cfgStmt->fetchAll(PDO::FETCH_KEY_PAIR) : [];
+$retentionAdmin = (int)($cfg['log_retention_admin_days'] ?? 0);
+$retentionGame  = (int)($cfg['log_retention_game_days']  ?? 0);
+
+//  AUTO-CZYSZCZENIE przy każdym żądaniu (jeśli ustawione) 
+if ($retentionAdmin > 0) {
+    $db->prepare("DELETE FROM admin_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL :d DAY)")
+       ->execute([':d' => $retentionAdmin]);
+}
+
+//  DANE: TICK LOG 
+$tickRepo       = new TickStatsRepository();
+$tickSummary24h = null;
+$ticks          = [];
+$tickTotalRows  = 0;
+$tickTotalPages = 1;
+$tickFilterSource = in_array($_GET['tsource'] ?? '', ['cron','force','cron_http']) ? $_GET['tsource'] : '';
+$tickDeleteMsg  = '';
+$tickCleanupMsg = '';
+
+//  AKCJE 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
+        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'clear_admin_logs') {
+        $db->exec("DELETE FROM admin_logs");
+        AdminLog::log('admin_logs_cleared', t('admin.logs.msg_admin_cleared'));
+        $msg = t('admin.logs.msg_admin_cleared');
+    }
+
+    if ($action === 'clear_game_log') {
+        $logFile = __DIR__ . '/../game_debug.log';
+        if (file_exists($logFile)) {
+            file_put_contents($logFile, '');
+        }
+        $msg = t('admin.logs.msg_game_cleared');
+    }
+
+    if ($action === 'tick_log_delete') {
+        $delId = (int)($_POST['delete_id'] ?? 0);
+        if ($delId > 0) {
+            $db->prepare("DELETE FROM tick_stats WHERE id = ?")->execute([$delId]);
+            AdminLog::log('tick_log_delete', "Usunięto wpis tick_stats #{$delId}", null, AdminAuth::getAdminUsername());
+            $tickDeleteMsg = 'ok:' . t('admin.tick_log.msg_deleted');
+        }
+    }
+
+    if ($action === 'tick_log_cleanup') {
+        $days    = max(1, min(365, (int)($_POST['cleanup_days'] ?? 7)));
+        $deleted = $tickRepo->cleanup($days);
+        AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usunięto {$deleted} wpisów starszych niż {$days} dni", null, AdminAuth::getAdminUsername());
+        $tickCleanupMsg = 'ok:' . t('admin.tick_log.msg_cleanup', ['count' => $deleted, 'days' => $days]);
+    }
+
+    if ($action === 'save_retention') {
+        $rAdmin = max(0, (int)($_POST['retention_admin'] ?? 0));
+        $rGame  = max(0, (int)($_POST['retention_game']  ?? 0));
+        $who    = AdminAuth::getAdminUsername();
+        $upd    = $db->prepare("INSERT INTO site_config (`key`,`value`,`updated_by`) VALUES (?,?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`), updated_by=VALUES(updated_by)");
+        $upd->execute(['log_retention_admin_days', $rAdmin, $who]);
+        $upd->execute(['log_retention_game_days',  $rGame,  $who]);
+        $retentionAdmin = $rAdmin;
+        $retentionGame  = $rGame;
+        AdminLog::log('log_retention_saved', "Retencja: admin={$rAdmin}d, game={$rGame}d");
+        $msg = t('admin.logs.msg_retention_saved');
+    }
+}
+
+//  DANE: LOGI ADMINA 
+$logs      = [];
+$totalLogs = 0;
+$totalPages = 1;
+
+if ($tab === 'admin') {
+    $where   = $filter ? "WHERE al.action LIKE :f OR al.description LIKE :f2" : "";
+    $cntStmt = $db->prepare("SELECT COUNT(*) FROM admin_logs al {$where}");
+    if ($filter) { $f = "%{$filter}%"; $cntStmt->bindValue(':f', $f); $cntStmt->bindValue(':f2', $f); }
+    $cntStmt->execute();
+    $totalLogs  = (int)$cntStmt->fetchColumn();
+    $totalPages = max(1, (int)ceil($totalLogs / $limit));
+    $page       = min($page, $totalPages);
+    $offset     = ($page - 1) * $limit;
+
+    $stmt = $db->prepare("
+        SELECT al.*,
+               p.email     AS player_email,
+               a.username  AS admin_username,
+               a.email     AS admin_email
+        FROM admin_logs al
+        LEFT JOIN players p ON al.target_player_id = p.id
+        LEFT JOIN admins  a ON al.admin_id         = a.id
+        {$where}
+        ORDER BY al.created_at DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    if ($filter) { $stmt->bindValue(':f', $f); $stmt->bindValue(':f2', $f); }
+    $stmt->bindValue(':limit',  $limit,  PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    $logs = $stmt->fetchAll();
+}
+
+//  DANE: TICK LOG (ładuj tylko gdy tab=tick) 
+if ($tab === 'tick') {
+    $tickSummary24h = $tickRepo->getSummary24h();
+    $tickPerPage    = 50;
+    $tickWhere      = $tickFilterSource ? "WHERE source = :src" : "";
+
+    $cntStmt = $db->prepare("SELECT COUNT(*) FROM tick_stats {$tickWhere}");
+    if ($tickFilterSource) $cntStmt->bindValue(':src', $tickFilterSource);
+    $cntStmt->execute();
+    $tickTotalRows  = (int)$cntStmt->fetchColumn();
+    $tickTotalPages = max(1, (int)ceil($tickTotalRows / $tickPerPage));
+    $tickPage       = max(1, min($page, $tickTotalPages));
+    $tickOffset     = ($tickPage - 1) * $tickPerPage;
+
+    $lstStmt = $db->prepare("SELECT * FROM tick_stats {$tickWhere} ORDER BY ran_at DESC LIMIT :lim OFFSET :off");
+    if ($tickFilterSource) $lstStmt->bindValue(':src', $tickFilterSource);
+    $lstStmt->bindValue(':lim', $tickPerPage, PDO::PARAM_INT);
+    $lstStmt->bindValue(':off', $tickOffset,  PDO::PARAM_INT);
+    $lstStmt->execute();
+    $ticks = $lstStmt->fetchAll();
+} else {
+    $tickPage = 1;
+}
+
+//  DANE: GAME LOG 
+$gameLogLines = [];
+$gameLogFile  = __DIR__ . '/../game_debug.log';
+$gameLogSize  = 0;
+
+if (file_exists($gameLogFile)) {
+    $allLines = file($gameLogFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+
+    // Auto-przycinanie: usuwaj linie starsze niż N dni (retencja czasowa, nie limit linii)
+    if ($retentionGame > 0 && count($allLines) > 0) {
+        $cutoff = strtotime("-{$retentionGame} days");
+        $filtered = array_filter($allLines, function (string $line) use ($cutoff): bool {
+            // Format linii: [2026-04-19 02:04:16] ...
+            if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $m)) {
+                return strtotime($m[1]) >= $cutoff;
+            }
+            return true; // linie bez daty — zostaw
+        });
+        if (count($filtered) < count($allLines)) {
+            $allLines = array_values($filtered);
+            file_put_contents($gameLogFile, implode("\n", $allLines) . "\n", LOCK_EX);
+        }
+    }
+
+    if ($tab === 'game') {
+        $gameLogSize  = filesize($gameLogFile);
+        $reversed     = array_reverse($allLines);
+        $totalLogs    = count($reversed);
+        $totalPages   = max(1, (int)ceil($totalLogs / $limit));
+        $gameLogLines = array_slice($reversed, ($page - 1) * $limit, $limit);
+    }
+}
+
+$csrfToken = CSRF::generateToken();
+
+$viewData = [
+    'tab'              => $tab,
+    'logs'             => $logs,
+    'filter'           => $filter,
+    'limit'            => $limit,
+    'page'             => $page,
+    'totalPages'       => $totalPages,
+    'totalLogs'        => $totalLogs,
+    'gameLogLines'     => $gameLogLines,
+    'gameLogSize'      => $gameLogSize,
+    'msg'              => $msg,
+    'err'              => $err,
+    'retentionAdmin'   => $retentionAdmin,
+    'retentionGame'    => $retentionGame,
+    'csrfToken'        => $csrfToken,
+    'ticks'            => $ticks,
+    'tickSummary24h'   => $tickSummary24h,
+    'tickTotalRows'    => $tickTotalRows,
+    'tickTotalPages'   => $tickTotalPages,
+    'tickPage'         => $tickPage,
+    'tickFilterSource' => $tickFilterSource,
+    'tickDeleteMsg'    => $tickDeleteMsg,
+    'tickCleanupMsg'   => $tickCleanupMsg,
+];
+
+$pageTitle = 'Logi';
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/logs/main.php';
+require_once __DIR__ . '/partials/footer.php';
+
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) {
+        GameLog::error('admin/logs.php', t('common.unhandled_exception'), $e);
+    }
+    if (!headers_sent()) {
+        http_response_code(500);
+    }
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) {
+        GameLog::pageEnd('admin/logs.php', $_codexGuardStart);
+    }
+}

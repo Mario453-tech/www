@@ -1,0 +1,116 @@
+﻿<?php
+
+/**
+ * OfflineSection — detekcja offline gracza, freeze mode, zapis offline_reports.
+ * OfflineSection — player offline detection, freeze mode, offline_reports persistence.
+ */
+class OfflineSection
+{
+    public bool  $isOffline               = false;
+    public bool  $offlineProtectionActive = false;
+    public bool  $freezeMode              = false;
+    public float $offlineProdMult         = 1.0;
+    public float $offlineRiskMult         = 1.0;
+
+    private PDO      $db;
+    private DateTime $now;
+
+    public function __construct(PDO $db, DateTime $now)
+    {
+        $this->db  = $db;
+        $this->now = $now;
+    }
+
+    /**
+     * Przetwarza stan offline dla jednego gracza.
+     * Returns false jesli gracz jest w freeze mode i tick powinien zostac pominiety.
+     *
+     * Processes offline state for one player.
+     * Returns false if player is in freeze mode and tick should be skipped.
+     */
+    /** @param array<string, mixed> $playerData */
+    public function process(int $playerId, array $playerData, float $playerCash): bool
+    {
+        $offlineThresholdMin   = 30;
+        $offlineMaxProtectionH = 24;
+
+        $lastActiveAt   = $playerData['last_active_at'] ?? null;
+        $offlineSince   = $playerData['offline_since']  ?? null;
+        $wasOfflineMode = (bool)($playerData['offline_mode'] ?? false);
+
+        $minutesSinceActive = $lastActiveAt
+            ? (int)(($this->now->getTimestamp() - strtotime($lastActiveAt)) / 60)
+            : 9999;
+
+        $this->isOffline = ($minutesSinceActive >= $offlineThresholdMin);
+
+        $offlineHours = 0;
+        if ($this->isOffline && $offlineSince) {
+            $offlineHours = ($this->now->getTimestamp() - strtotime($offlineSince)) / 3600;
+        }
+
+        $this->offlineProtectionActive = $this->isOffline && ($offlineHours < $offlineMaxProtectionH);
+        $this->offlineProdMult         = $this->offlineProtectionActive ? 0.80 : 1.0;
+        $this->offlineRiskMult         = $this->offlineProtectionActive ? 0.50 : 1.0;
+        $this->freezeMode              = $this->offlineProtectionActive && ($playerCash <= 0);
+
+        // Ustaw offline_mode = 1 gdy gracz wlasnie przeszedl w tryb offline / Set offline_mode = 1 when player just went offline
+        if ($this->isOffline && !$wasOfflineMode) {
+            try {
+                $this->db->prepare("UPDATE players SET offline_mode=1, offline_since=? WHERE id=?")
+                         ->execute([$this->now->format('Y-m-d H:i:s'), $playerId]);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'offline_mode SET FAILED', $e, ['player_id' => $playerId]);
+            }
+        }
+
+        // Gracz wrocil online — zapisz raport offline / Player came back online — save offline report
+        if (!$this->isOffline && $wasOfflineMode) {
+            $offlineFromTs      = $offlineSince ? strtotime($offlineSince) : ($this->now->getTimestamp() - 1800);
+            $offlineReportHours = round(($this->now->getTimestamp() - $offlineFromTs) / 3600, 2);
+            try {
+                $this->db->prepare("
+                    INSERT INTO offline_reports
+                        (player_id, offline_from, offline_to, offline_hours, was_frozen, summary_json)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ")->execute([
+                    $playerId,
+                    date('Y-m-d H:i:s', $offlineFromTs),
+                    $this->now->format('Y-m-d H:i:s'),
+                    $offlineReportHours,
+                    0,
+                    json_encode(['offline_hours' => $offlineReportHours]),
+                ]);
+                $this->db->prepare("UPDATE players SET offline_mode=0, offline_since=NULL WHERE id=?")
+                         ->execute([$playerId]);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'offline_report INSERT FAILED', $e, ['player_id' => $playerId]);
+            }
+        }
+
+        if ($this->offlineProtectionActive) {
+            GameLog::info('tick', 'offline protection', [
+                'player_id'    => $playerId,
+                'minutes_idle' => $minutesSinceActive,
+                'offline_h'    => round($offlineHours, 1),
+                'freeze'       => $this->freezeMode,
+            ]);
+        }
+
+        if ($this->freezeMode) {
+            GameLog::info('tick', 'FREEZE MODE — player offline, cash=0, tick skipped', [
+                'player_id' => $playerId,
+                'cash'      => $playerCash,
+            ]);
+            try {
+                $this->db->prepare(
+                    "UPDATE offline_reports SET was_frozen=1 WHERE player_id=? ORDER BY id DESC LIMIT 1"
+                )->execute([$playerId]);
+            } catch (Throwable $e) {}
+
+            return false; // pomin tick / skip tick
+        }
+
+        return true;
+    }
+}

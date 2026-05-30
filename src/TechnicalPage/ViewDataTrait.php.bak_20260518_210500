@@ -1,0 +1,144 @@
+<?php
+
+trait TechnicalPageViewDataTrait
+{
+    public function buildViewData(string $msg, string $msgType): array
+    {
+        $_dataStart = microtime(true);
+
+        $manager = $this->safeLoad(fn() => $this->svc->getManager(), 'getManager', null, fn($value) => ['found' => $value ? 'yes' : 'no']);
+        $mBonus = $this->safeLoad(fn() => $this->svc->getManagerBonus($manager), 'getManagerBonus', ['skill' => 0, 'time_mult' => 1, 'cost_mult' => 1, 'label' => '']);
+        $staff = $this->safeLoad(fn() => $this->svc->getStaff(), 'getStaff', [], fn($value) => count($value), true);
+        $wells = $this->safeLoad(fn() => $this->wellSvc->getPlayerWells($this->playerId), 'getPlayerWells', [], fn($value) => count($value), true);
+        $activeTasks = $this->safeLoad(fn() => $this->svc->getActiveTasks(), 'getActiveTasks', [], fn($value) => count($value), true);
+        $allTasks = $this->safeLoad(fn() => $this->svc->getTasks(), 'getTasks', [], fn($value) => count($value), true);
+
+        try {
+            $this->svc->processTick();
+            $allTasks = $this->svc->getTasks();
+        } catch (Throwable $e) {
+            GameLog::error('technical.php', 'processTick FAIL', $e);
+        }
+
+        $taskQueue = $this->safeLoad(fn() => $this->svc->getQueue(), 'getQueue', [], fn($value) => count($value), true);
+        $notifTotal = $this->safeLoad(fn() => $this->svc->countUnreadNotifications(), 'countUnreadNotifications', 0);
+        $notifications = $this->safeLoad(fn() => $this->svc->getUnreadNotifications(10), 'getUnreadNotifications', [], fn($value) => count($value), true);
+        $incidentData    = $this->loadIncidentData();
+        $hubIncidentData = $this->loadHubIncidentData();
+
+        $activeTab = $_GET['tab'] ?? 'team';
+        GameLog::info('technical.php', "Active tab: {$activeTab}");
+
+        $candidates = $this->safeLoad(fn() => $this->svc->getTechnicalCandidates(), 'getTechnicalCandidates', [], fn($value) => count($value), true);
+        $activeRecruitments = $this->safeLoad(fn() => $this->svc->getActiveRecruitments(), 'getActiveRecruitments', [], fn($value) => count($value), true);
+        $recruitmentUi = $this->prepareRecruitmentUiData($staff, $wells, $activeRecruitments);
+
+        $unreviewed = count(array_filter($candidates, static fn($candidate) => $candidate['review_id'] === null));
+        $csrf = CSRF::generateToken();
+
+        $staffBySpec = [];
+        foreach ($staff as $staffMember) {
+            $staffBySpec[$staffMember['spec_code']][] = $staffMember;
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $playerCash = $this->loadPlayerCash($db);
+        $wells = $this->normalizeWellStatuses($db, $wells, $playerCash);
+
+        $brokenWells = array_filter($wells, static fn($well) =>
+            in_array($well['status'], ['broken', 'paused_staff', 'blowout', 'contaminated'], true)
+            || ($well['status'] === 'paused_cash' && $playerCash <= 0)
+        );
+        $activeWells = array_filter($wells, static fn($well) => $well['status'] === 'active');
+        $totalProd = array_sum(array_map(static fn($well) => (float)$well['base_production_per_hour'], $activeWells));
+        $avgCond = count($wells) > 0
+            ? round(array_sum(array_map(static fn($well) => (float)$well['technical_condition'], $wells)) / count($wells), 1)
+            : 0;
+
+        $wellStaffData = $this->loadWellStaffData();
+        $hseBonus = $this->safeLoad(fn() => $this->svc->getHSEBonus(), 'getHSEBonus', [
+            'active_hse' => 0,
+            'failure_reduction' => 1.0,
+            'repair_cost_mult' => 1.0,
+            'catastrophe_mult' => 1.0,
+            'uptime_bonus' => 0.0,
+            'degrade_mult' => 1.0,
+            'audit_bonus' => false,
+            'proc_level' => 0,
+            'proc_integrity' => 100.0,
+            'proc_factor' => 0.0,
+            'label' => t('technical.hse_read_error'),
+        ]);
+        $procStatus = $this->safeLoad(fn() => $this->svc->getProcedureStatus(), 'getProcedureStatus', [
+            'level' => 0,
+            'integrity' => 100.0,
+            'last_decay_at' => null,
+        ]);
+
+        $pipelines = $this->loadPipelines($db);
+        $procedureRequirements = $this->loadProcedureRequirements($db);
+        $activeDisasters = $this->loadActiveDisasters($db);
+        $failures = $this->loadFailures($db);
+
+        GameLog::perf('technical.php', 'All data loaded', $_dataStart);
+        GameLog::info('technical.php', 'Rendering HTML', [
+            'manager' => $manager ? 'yes' : 'no',
+            'staff' => count($staff),
+            'wells' => count($wells),
+            'active_wells' => count($activeWells),
+            'broken_wells' => count($brokenWells),
+            'active_tasks' => count($activeTasks),
+            'candidates' => count($candidates),
+            'unreviewed' => $unreviewed,
+            'pipelines' => count($pipelines),
+            'total_prod' => $totalProd,
+            'avg_condition' => $avgCond,
+            'incidents' => count($incidentData['incidents']),
+        ]);
+
+        return array_merge([
+            'msg' => $msg,
+            'msgType' => $msgType,
+            'manager' => $manager,
+            'mBonus' => $mBonus,
+            'staff' => $staff,
+            'staffBySpec' => $staffBySpec,
+            'wells' => $wells,
+            'activeWells' => $activeWells,
+            'brokenWells' => $brokenWells,
+            'activeTasks' => $activeTasks,
+            'allTasks' => $allTasks,
+            'taskQueue' => $taskQueue,
+            'notifications' => $notifications,
+            'notifTotal' => $notifTotal,
+            'incidents' => $incidentData['incidents'],
+            'incPage' => $incidentData['incPage'],
+            'incTotalPages' => $incidentData['incTotalPages'],
+            'incTotal' => $incidentData['incTotal'],
+            'hubIncidents' => $hubIncidentData['hubIncidents'],
+            'hubIncTotal'  => $hubIncidentData['hubIncTotal'],
+            'candidates' => $candidates,
+            'activeRecruitments' => $activeRecruitments,
+            'pendingRecruitments' => $recruitmentUi['pendingRecruitments'],
+            'specRecruitmentCards' => $recruitmentUi['specRecruitmentCards'],
+            'unreviewed' => $unreviewed,
+            'csrf' => $csrf,
+            'activeTab' => $activeTab,
+            'totalProd' => $totalProd,
+            'avgCond' => $avgCond,
+            'wellsWithoutStaff' => $wellStaffData['wellsWithoutStaff'],
+            'wellsStaffStatus' => $wellStaffData['wellsStaffStatus'],
+            'hseBonus' => $hseBonus,
+            'procStatus' => $procStatus,
+            'canUpgradeProcedures' => $procedureRequirements['canUpgradeProcedures'],
+            'auditDone' => $procedureRequirements['auditDone'],
+            'hasHseStaff' => $procedureRequirements['hasHseStaff'],
+            'pipelines' => $pipelines,
+            'activeDisasters' => $activeDisasters,
+            'failures' => $failures,
+            'db' => $db,
+            'playerId' => $this->playerId,
+            'svc' => $this->svc,
+        ], GameShell::data($this->playerId));
+    }
+}

@@ -1,0 +1,99 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/wells.php') : microtime(true);
+try {
+
+/**
+ * admin/wells.php — Konfiguracja kosztów odwiertów
+ */
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+require_once __DIR__ . '/../src/WellService.php';
+
+$wellSvc = new WellService();
+$db      = Database::getInstance()->getConnection();
+$msg     = $msgType = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config'])) {
+    $updated = 0;
+    foreach ($_POST['config'] as $key => $val) {
+        $val = str_replace([' ', ','], ['', '.'], $val);
+        if (is_numeric($val) && $wellSvc->updateConfig($key, (float)$val)) $updated++;
+    }
+    $msg = "Zapisano $updated parametrów.";
+    $msgType = 'success';
+}
+
+// Edycja pojedynczego odwiertu (pressure, reservoir) z panelu admina
+// Edit single well (pressure, reservoir) from admin panel
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_well_id'])) {
+    $editId  = (int)$_POST['edit_well_id'];
+    $fields  = [];
+    $params  = [];
+    $allowed = ['pressure', 'reservoir_remaining', 'reservoir_max'];
+    foreach ($allowed as $col) {
+        if (isset($_POST[$col]) && $_POST[$col] !== '') {
+            $val = str_replace([' ', ','], ['', '.'], $_POST[$col]);
+            if (is_numeric($val)) {
+                $fields[] = "`$col` = ?";
+                $params[] = (float)$val;
+            }
+        }
+    }
+    if ($fields && $editId > 0) {
+        $params[] = $editId;
+        $db->prepare('UPDATE wells SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+        $msg     = "Odwiert #$editId zaktualizowany.";
+        $msgType = 'success';
+    }
+}
+
+$config  = $wellSvc->getAllConfig();
+$grouped = [];
+foreach ($config as $c) $grouped[$c['category']][] = $c;
+
+
+$wells = $db->query("
+    SELECT w.*, p.email AS username,
+           GROUP_CONCAT(wu.upgrade_type SEPARATOR ', ') AS upgrades
+    FROM wells w
+    JOIN players p ON w.player_id = p.id
+    LEFT JOIN well_upgrades wu ON wu.well_id = w.id
+    GROUP BY w.id
+    ORDER BY w.player_id, w.id
+")->fetchAll();
+
+$events = $db->query("
+    SELECT we.*, p.email AS username
+    FROM well_events we
+    JOIN wells w  ON we.well_id   = w.id
+    JOIN players p ON we.player_id = p.id
+    ORDER BY we.created_at DESC
+    LIMIT 50
+")->fetchAll();
+
+$viewData = [
+    'msg'     => $msg,
+    'msgType' => $msgType,
+    'grouped' => $grouped,
+    'wells'   => $wells,
+    'events'  => $events,
+];
+
+$pageTitle = 'Koszty odwiertów';
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/wells/main.php';
+require_once __DIR__ . '/partials/footer.php';
+
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) {
+        GameLog::error('admin/wells.php', 'Unhandled exception', $e);
+    }
+    if (!headers_sent()) {
+        http_response_code(500);
+    }
+    echo 'Wystapil blad aplikacji.';
+} finally {
+    if (class_exists('GameLog', false)) {
+        GameLog::pageEnd('admin/wells.php', $_codexGuardStart);
+    }
+}

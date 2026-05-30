@@ -1,0 +1,214 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/well_sales.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+
+$db  = Database::getInstance()->getConnection();
+$msg = '';
+$err = '';
+
+//  Migracja: sold_at + well_config keys 
+try { Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL'); } catch (Throwable $e) {}
+try {
+    $defaults = [
+        ['sell_base_days_mult',  '1.2',  'sell', t('admin.well_sales.cfg_base_mult')],
+        ['sell_min_hours',       '12',   'sell', t('admin.well_sales.cfg_min_hours')],
+        ['sell_max_hours',       '36',   'sell', t('admin.well_sales.cfg_max_hours')],
+        ['sell_wear_divisor',    '120',  'sell', t('admin.well_sales.cfg_wear_divisor')],
+        ['sell_risk_divisor',    '300',  'sell', t('admin.well_sales.cfg_risk_divisor')],
+        ['sell_eq_premium',      '1.1',  'sell', t('admin.well_sales.cfg_eq_premium')],
+        ['sell_eq_standard',     '1.0',  'sell', t('admin.well_sales.cfg_eq_standard')],
+        ['sell_eq_black_market', '0.8',  'sell', t('admin.well_sales.cfg_eq_black_market')],
+    ];
+    $ins = $db->prepare("INSERT IGNORE INTO well_config (`key`, value, category, label) VALUES (?,?,?,?)");
+    foreach ($defaults as $d) $ins->execute($d);
+} catch (Throwable $e) {}
+
+//  POST: aktualizacja konfiguracji 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $err = t('common.csrf_error');
+    } else {
+        $keys = ['sell_base_days_mult','sell_min_hours','sell_max_hours',
+                 'sell_wear_divisor','sell_risk_divisor',
+                 'sell_eq_premium','sell_eq_standard','sell_eq_black_market'];
+        $upd = $db->prepare("UPDATE well_config SET value=? WHERE `key`=?");
+        foreach ($keys as $k) {
+            if (isset($_POST[$k])) $upd->execute([(float)$_POST[$k], $k]);
+        }
+        AdminLog::log('well_sell_config_updated', t('admin.well_sales.log_config_saved'));
+        $msg = t('admin.well_sales.msg_config_saved');
+    }
+}
+
+//  POST: usuń wpis / oznacz exploit 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_action'])) {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $err = t('common.csrf_error');
+    } else {
+        $evId   = (int)($_POST['event_id'] ?? 0);
+        $action = $_POST['admin_action'] ?? '';
+
+        if ($action === 'delete' && $evId > 0) {
+            $db->prepare("DELETE FROM bankruptcy_events WHERE id=? AND event_type='well_sold'")->execute([$evId]);
+            AdminLog::log('well_sell_deleted', "#$evId");
+            $msg = t('admin.well_sales.msg_deleted');
+        } elseif ($action === 'flag_exploit' && $evId > 0) {
+            $db->prepare("UPDATE bankruptcy_events SET resolution_note='[EXPLOIT]', severity='critical' WHERE id=? AND event_type='well_sold'")->execute([$evId]);
+            AdminLog::log('well_sell_exploit', "#$evId");
+            $msg = t('admin.well_sales.msg_flagged');
+        }
+    }
+}
+
+//  Pobierz dane 
+$page    = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 25;
+$offset  = ($page - 1) * $perPage;
+
+$total = (int)$db->query("SELECT COUNT(*) FROM bankruptcy_events WHERE event_type='well_sold'")->fetchColumn();
+$sales = $db->prepare("
+    SELECT be.id, be.player_id, be.message, be.severity, be.resolution_note,
+           be.payload_json, be.created_at,
+           p.username
+    FROM bankruptcy_events be
+    LEFT JOIN players p ON p.id = be.player_id
+    WHERE be.event_type = 'well_sold'
+    ORDER BY be.id DESC
+    LIMIT $perPage OFFSET $offset
+");
+$sales->execute();
+$sales = $sales->fetchAll();
+
+//  Statystyki 24h 
+$stats24 = $db->query("
+    SELECT COUNT(*) as cnt,
+           AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.payout')) AS DECIMAL(15,2))) as avg_val,
+           MAX(CAST(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.payout')) AS DECIMAL(15,2))) as max_val
+    FROM bankruptcy_events
+    WHERE event_type='well_sold' AND created_at >= NOW() - INTERVAL 24 HOUR
+")->fetch();
+
+$topUser24 = $db->query("
+    SELECT p.username, COUNT(*) as cnt
+    FROM bankruptcy_events be
+    LEFT JOIN players p ON p.id = be.player_id
+    WHERE be.event_type='well_sold' AND be.created_at >= NOW() - INTERVAL 24 HOUR
+    GROUP BY be.player_id ORDER BY cnt DESC LIMIT 1
+")->fetch();
+
+// Alerty balansu
+$avgDays = 0;
+$alertBalance = null;
+try {
+    $cfgRows = $db->query("SELECT `key`,value FROM well_config WHERE `key` IN ('sell_min_hours','sell_max_hours')")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $minH = (float)($cfgRows['sell_min_hours'] ?? 12);
+    $maxH = (float)($cfgRows['sell_max_hours'] ?? 36);
+    $midH = ($minH + $maxH) / 2;
+
+    $avgPayout = $db->query("
+        SELECT AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.payout')) AS DECIMAL(15,2)))
+        FROM bankruptcy_events WHERE event_type='well_sold' AND created_at >= NOW() - INTERVAL 7 DAY
+    ")->fetchColumn();
+
+    $avgProfitH = $db->query("
+        SELECT AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.breakdown.profit_h')) AS DECIMAL(15,2)))
+        FROM bankruptcy_events WHERE event_type='well_sold' AND created_at >= NOW() - INTERVAL 7 DAY
+    ")->fetchColumn();
+
+    if ($avgPayout > 0 && $avgProfitH > 0) {
+        $avgDays = round($avgPayout / ($avgProfitH * 24), 2);
+        if ($avgDays > 1.5) $alertBalance = ['type'=>'warn','msg'=> t('admin.well_sales.alert_high', ['days' => $avgDays])];
+        if ($avgDays > 0 && $avgDays < 0.5) $alertBalance = ['type'=>'info','msg'=> t('admin.well_sales.alert_low', ['days' => $avgDays])];
+    }
+
+    $countExploit = $db->query("
+        SELECT COUNT(*) FROM bankruptcy_events
+        WHERE event_type='well_sold' AND created_at >= NOW() - INTERVAL 1 HOUR
+    ")->fetchColumn();
+    if ($countExploit > 10) {
+        $alertBalance = ['type'=>'danger','msg'=> t('admin.well_sales.alert_exploit')];
+    }
+} catch (Throwable $e) {}
+
+//  Analiza graczy 
+$playerStats = $db->query("
+    SELECT p.username, p.id as pid,
+           COUNT(be.id) as sell_count,
+           AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(be.payload_json,'$.payout')) AS DECIMAL(15,2))) as avg_payout,
+           SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(be.payload_json,'$.payout')) AS DECIMAL(15,2))) as total_payout
+    FROM bankruptcy_events be
+    LEFT JOIN players p ON p.id = be.player_id
+    WHERE be.event_type='well_sold'
+    GROUP BY be.player_id ORDER BY sell_count DESC LIMIT 10
+")->fetchAll();
+
+//  Konfiguracja 
+$cfg = $db->query("SELECT `key`,value FROM well_config WHERE category='sell'")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$tab = $_GET['tab'] ?? 'list';
+
+$cfgFieldGroups = [
+    'base' => [
+        'title' => t('admin.well_sales.cfg_group_base'),
+        'fields' => [
+            'sell_base_days_mult' => [t('admin.well_sales.cfg_base_mult'),     t('admin.well_sales.cfg_base_mult_hint'),     '0.1','3.0','0.05'],
+            'sell_min_hours'      => [t('admin.well_sales.cfg_min_hours'),      t('admin.well_sales.cfg_min_hours_hint'),      '1','72','1'],
+            'sell_max_hours'      => [t('admin.well_sales.cfg_max_hours'),      t('admin.well_sales.cfg_max_hours_hint'),      '1','168','1'],
+        ],
+    ],
+    'degradation' => [
+        'title' => t('admin.well_sales.cfg_group_degradation'),
+        'fields' => [
+            'sell_wear_divisor' => [t('admin.well_sales.cfg_wear_divisor'), t('admin.well_sales.cfg_wear_divisor_hint'), '50','500','10'],
+            'sell_risk_divisor' => [t('admin.well_sales.cfg_risk_divisor'), t('admin.well_sales.cfg_risk_divisor_hint'), '50','1000','10'],
+        ],
+    ],
+    'equipment' => [
+        'title' => t('admin.well_sales.cfg_group_equipment'),
+        'fields' => [
+            'sell_eq_premium'      => [t('admin.well_sales.cfg_eq_premium'),      t('admin.well_sales.cfg_eq_premium_hint'),      '0.5','2.0','0.05'],
+            'sell_eq_standard'     => [t('admin.well_sales.cfg_eq_standard'),     t('admin.well_sales.cfg_eq_standard_hint'),     '0.5','2.0','0.05'],
+            'sell_eq_black_market' => [t('admin.well_sales.cfg_eq_black_market'), t('admin.well_sales.cfg_eq_black_market_hint'), '0.1','1.5','0.05'],
+        ],
+    ],
+];
+
+$tabs = [
+    'list'    => '📋 ' . t('admin.well_sales.tab_list'),
+    'players' => '👤 ' . t('admin.well_sales.tab_players'),
+    'config'  => '⚙️ ' . t('admin.well_sales.tab_config'),
+];
+
+$viewData = [
+    'msg'            => $msg,
+    'err'            => $err,
+    'tab'            => $tab,
+    'tabs'           => $tabs,
+    'sales'          => $sales,
+    'total'          => $total,
+    'page'           => $page,
+    'perPage'        => $perPage,
+    'stats24'        => $stats24,
+    'topUser24'      => $topUser24,
+    'avgDays'        => $avgDays,
+    'alertBalance'   => $alertBalance,
+    'playerStats'    => $playerStats,
+    'cfg'            => $cfg,
+    'cfgFieldGroups' => $cfgFieldGroups,
+];
+
+$pageTitle = t('admin.well_sales.title');
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/well_sales/main.php';
+require_once __DIR__ . '/partials/footer.php';
+
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) GameLog::error('admin/well_sales.php', t('common.unhandled_exception'), $e);
+    if (!headers_sent()) http_response_code(500);
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) GameLog::pageEnd('admin/well_sales.php', $_codexGuardStart);
+}

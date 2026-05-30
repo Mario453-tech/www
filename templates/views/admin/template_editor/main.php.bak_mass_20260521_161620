@@ -1,0 +1,615 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<link rel="stylesheet" href="/assets/css/template_editor.css">
+
+<h1> <?= t('admin.template_editor.heading') ?></h1>
+<p class="muted te-desc"><?= t('admin.template_editor.desc') ?></p>
+
+<?php if ($msg): ?><p class="alert alert-success"> <?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p class="alert alert-error"> <?= htmlspecialchars($err) ?></p><?php endif ?>
+
+<div class="te-tabs">
+    <a href="?tab=nav<?= $editNavId ? '&nav='.$editNavId : '' ?>" class="te-tab <?= $activeTab === 'nav' ? 'active' : '' ?>"> <?= t('admin.template_editor.tab_nav') ?></a>
+    <a href="?tab=footer<?= $editNavId ? '&nav='.$editNavId : '' ?>" class="te-tab <?= $activeTab === 'footer' ? 'active' : '' ?>"> <?= t('admin.template_editor.tab_footer') ?></a>
+    <a href="?tab=actions<?= $editNavId ? '&nav='.$editNavId : '' ?>" class="te-tab <?= $activeTab === 'actions' ? 'active' : '' ?>"> <?= t('admin.template_editor.tab_actions') ?></a>
+    <a href="?tab=config" class="te-tab <?= $activeTab === 'config' ? 'active' : '' ?>"> <?= t('admin.template_editor.tab_config') ?></a>
+    <a href="?tab=boardroom" class="te-tab <?= $activeTab === 'boardroom' ? 'active' : '' ?>"> <?= t('admin.template_editor.tab_boardroom') ?></a>
+</div>
+
+<?php if ($activeTab === 'nav'): ?>
+<!--  ZAK£ADKA: NAWIGACJA  -->
+<div class="te-layout">
+    <aside>
+        <div class="te-sidebar">
+            <div class="te-sidebar-hdr"><?= t('admin.template_editor.sidebar_nav', ['count' => count($navItems)]) ?></div>
+            <ul class="te-list">
+            <?php foreach ($navItems as $n): ?>
+                <li>
+                    <a href="?tab=nav&nav=<?= $n['id'] ?>" class="<?= (int)$n['id'] === $editNavId ? 'active' : '' ?>">
+                        <span class="te-icon"><?= htmlspecialchars($n['icon'] ?: '•') ?></span>
+                        <span><?= htmlspecialchars($n['label']) ?></span>
+                        <span class="te-sort">#<?= (int)$n['sort_order'] ?></span>
+                        <?php if (!$n['active']): ?>
+                            <span class="te-badge"><?= t('admin.template_editor.badge_hidden') ?></span>
+                        <?php else: ?>
+                            <span class="te-ok"></span>
+                        <?php endif ?>
+                    </a>
+                </li>
+            <?php endforeach ?>
+            </ul>
+            <div class="te-add-form">
+                <form method="post">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="add_nav">
+                    <input type="hidden" name="new_location" value="header">
+                    <label><?= t('admin.template_editor.label_label') ?></label>
+                    <input type="text" name="new_label" placeholder="<?= t('admin.template_editor.placeholder_label_nav') ?>" required>
+                    <label><?= t('admin.template_editor.label_url_key') ?></label>
+                    <input type="text" name="new_url_key" placeholder="<?= t('admin.template_editor.placeholder_url_nav') ?>" required>
+                    <label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="new_icon" placeholder="" maxlength="4">
+                    <button type="submit" class="btn btn-secondary te-add-btn">+ <?= t('admin.template_editor.btn_add_nav') ?></button>
+                </form>
+            </div>
+        </div>
+    </aside>
+    <div class="te-editor">
+        <?php if ($editNav && $editNav['location'] === 'header'): ?>
+        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars($editNav['icon'] . ' ' . $editNav['label']) ?></h2>
+        <form method="post" id="editNavForm">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="save_nav">
+            <input type="hidden" name="nav_id" value="<?= (int)$editNav['id'] ?>">
+            <div class="te-meta">
+                <div><label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="icon" value="<?= htmlspecialchars($editNav['icon']) ?>" maxlength="4"></div>
+                <div><label><?= t('admin.template_editor.label_label') ?></label>
+                    <input type="text" name="label" value="<?= htmlspecialchars($editNav['label']) ?>" required></div>
+                <div><label><?= t('admin.template_editor.label_url_key') ?></label>
+                    <input type="text" name="url_key" value="<?= htmlspecialchars($editNav['url_key']) ?>" required>
+                    <small class="muted"><?= t('admin.template_editor.hint_url_key') ?></small></div>
+                <div><label><?= t('admin.template_editor.label_css_class') ?></label>
+                    <input type="text" name="css_class" value="<?= htmlspecialchars($editNav['css_class']) ?>"></div>
+                <div><label><?= t('admin.template_editor.label_order') ?></label>
+                    <input type="number" name="sort_order" value="<?= (int)$editNav['sort_order'] ?>" min="0"></div>
+                <div class="te-visible-row">
+                    <label><input type="checkbox" name="active" value="1" <?= $editNav['active'] ? 'checked' : '' ?>> <?= t('admin.template_editor.label_visible') ?></label>
+                </div>
+            </div>
+            <div class="te-preview">
+                <span class="muted te-preview-label"><?= t('admin.template_editor.preview_btn') ?></span><br>
+                <a class="btn btn-secondary btn-sm <?= htmlspecialchars($editNav['css_class']) ?> te-preview-btn">
+                    <?= htmlspecialchars($editNav['icon'] . ' ' . $editNav['label']) ?>
+                </a>
+            </div>
+            <div class="te-form-actions">
+                <button type="submit" class="btn btn-primary"> <?= t('admin.template_editor.btn_save') ?></button>
+                <button type="button" class="btn btn-danger"
+                    onclick="if(confirm('<?= t('admin.template_editor.confirm_delete') ?>')) document.getElementById('deleteNavForm').submit()">
+                     <?= t('admin.template_editor.btn_delete') ?>
+                </button>
+            </div>
+        </form>
+        <form method="post" id="deleteNavForm" class="hidden">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="delete_nav">
+            <input type="hidden" name="nav_id" value="<?= (int)$editNav['id'] ?>">
+        </form>
+        <?php else: ?>
+        <p class="muted te-empty"> <?= t('admin.template_editor.no_item_selected') ?></p>
+        <?php endif ?>
+    </div>
+</div>
+
+<?php elseif ($activeTab === 'footer'): ?>
+<!--  ZAK£ADKA: LINKI STOPKI  -->
+<div class="te-layout">
+    <aside>
+        <div class="te-sidebar">
+            <div class="te-sidebar-hdr"><?= t('admin.template_editor.sidebar_footer', ['count' => count($footerItems)]) ?></div>
+            <ul class="te-list">
+            <?php foreach ($footerItems as $n): ?>
+                <li>
+                    <a href="?tab=footer&nav=<?= $n['id'] ?>" class="<?= (int)$n['id'] === $editNavId ? 'active' : '' ?>">
+                        <span class="te-icon"><?= htmlspecialchars($n['icon'] ?: '•') ?></span>
+                        <span><?= htmlspecialchars($n['label']) ?></span>
+                        <span class="te-sort">#<?= (int)$n['sort_order'] ?></span>
+                        <?php if (!$n['active']): ?>
+                            <span class="te-badge"><?= t('admin.template_editor.badge_hidden') ?></span>
+                        <?php else: ?>
+                            <span class="te-ok"></span>
+                        <?php endif ?>
+                    </a>
+                </li>
+            <?php endforeach ?>
+            </ul>
+            <div class="te-add-form">
+                <form method="post">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="add_nav">
+                    <input type="hidden" name="new_location" value="footer">
+                    <label><?= t('admin.template_editor.label_label') ?></label>
+                    <input type="text" name="new_label" placeholder="<?= t('admin.template_editor.placeholder_label_footer') ?>" required>
+                    <label><?= t('admin.template_editor.label_url_key') ?></label>
+                    <input type="text" name="new_url_key" placeholder="<?= t('admin.template_editor.placeholder_url_footer') ?>" required>
+                    <label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="new_icon" placeholder="" maxlength="4">
+                    <button type="submit" class="btn btn-secondary te-add-btn">+ <?= t('admin.template_editor.btn_add_footer') ?></button>
+                </form>
+            </div>
+        </div>
+    </aside>
+    <div class="te-editor">
+        <?php
+        $editFooterNav = null;
+        foreach ($footerItems as $n) { if ((int)$n['id'] === $editNavId) { $editFooterNav = $n; break; } }
+        ?>
+        <?php if ($editFooterNav): ?>
+        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars($editFooterNav['icon'] . ' ' . $editFooterNav['label']) ?></h2>
+        <form method="post" id="editFooterForm">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="save_nav">
+            <input type="hidden" name="nav_id" value="<?= (int)$editFooterNav['id'] ?>">
+            <div class="te-meta">
+                <div><label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="icon" value="<?= htmlspecialchars($editFooterNav['icon']) ?>" maxlength="4"></div>
+                <div><label><?= t('admin.template_editor.label_label') ?></label>
+                    <input type="text" name="label" value="<?= htmlspecialchars($editFooterNav['label']) ?>" required></div>
+                <div><label><?= t('admin.template_editor.label_url_key') ?></label>
+                    <input type="text" name="url_key" value="<?= htmlspecialchars($editFooterNav['url_key']) ?>" required>
+                    <small class="muted"><?= t('admin.template_editor.hint_url_key') ?></small></div>
+                <div><label><?= t('admin.template_editor.label_css_class') ?></label>
+                    <input type="text" name="css_class" value="<?= htmlspecialchars($editFooterNav['css_class']) ?>"></div>
+                <div><label><?= t('admin.template_editor.label_order') ?></label>
+                    <input type="number" name="sort_order" value="<?= (int)$editFooterNav['sort_order'] ?>" min="0"></div>
+                <div class="te-visible-row">
+                    <label><input type="checkbox" name="active" value="1" <?= $editFooterNav['active'] ? 'checked' : '' ?>> <?= t('admin.template_editor.label_visible') ?></label>
+                </div>
+            </div>
+            <div class="te-preview">
+                <span class="muted te-preview-label"><?= t('admin.template_editor.preview_link') ?></span><br>
+                <a class="footer-link <?= htmlspecialchars($editFooterNav['css_class']) ?> te-preview-link">
+                    <?= htmlspecialchars($editFooterNav['icon'] . ' ' . $editFooterNav['label']) ?>
+                </a>
+            </div>
+            <div class="te-form-actions">
+                <button type="submit" class="btn btn-primary"> <?= t('admin.template_editor.btn_save') ?></button>
+                <button type="button" class="btn btn-danger"
+                    onclick="if(confirm('<?= t('admin.template_editor.confirm_delete') ?>')) document.getElementById('deleteFooterForm').submit()">
+                     <?= t('admin.template_editor.btn_delete') ?>
+                </button>
+            </div>
+        </form>
+        <form method="post" id="deleteFooterForm" class="hidden">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="delete_nav">
+            <input type="hidden" name="nav_id" value="<?= (int)$editFooterNav['id'] ?>">
+        </form>
+        <?php else: ?>
+        <p class="muted te-empty"> <?= t('admin.template_editor.no_item_selected') ?></p>
+        <?php endif ?>
+    </div>
+</div>
+
+<?php elseif ($activeTab === 'actions'): ?>
+<!--  ZAK£ADKA: PRZYCISKI AKCJE  -->
+<div class="te-layout">
+    <aside>
+        <div class="te-sidebar">
+            <div class="te-sidebar-hdr"><?= t('admin.template_editor.sidebar_actions', ['count' => count($actionItems)]) ?></div>
+            <ul class="te-list">
+            <?php foreach ($actionItems as $n): ?>
+                <li>
+                    <a href="?tab=actions&nav=<?= $n['id'] ?>" class="<?= (int)$n['id'] === $editNavId ? 'active' : '' ?>">
+                        <span class="te-icon"><?= htmlspecialchars($n['icon'] ?: '•') ?></span>
+                        <span><?= htmlspecialchars($n['label']) ?></span>
+                        <span class="te-sort">#<?= (int)$n['sort_order'] ?></span>
+                        <?php if (!$n['active']): ?>
+                            <span class="te-badge"><?= t('admin.template_editor.badge_hidden') ?></span>
+                        <?php else: ?>
+                            <span class="te-ok"></span>
+                        <?php endif ?>
+                    </a>
+                </li>
+            <?php endforeach ?>
+            </ul>
+            <div class="te-add-form">
+                <form method="post">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="add_nav">
+                    <input type="hidden" name="new_location" value="actions">
+                    <label><?= t('admin.template_editor.label_label') ?></label>
+                    <input type="text" name="new_label" placeholder="<?= t('admin.template_editor.placeholder_label_nav') ?>" required>
+                    <label><?= t('admin.template_editor.label_url_key') ?></label>
+                    <input type="text" name="new_url_key" placeholder="<?= t('admin.template_editor.placeholder_url_actions') ?>" required>
+                    <label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="new_icon" placeholder="" maxlength="4">
+                    <button type="submit" class="btn btn-secondary te-add-btn">+ <?= t('admin.template_editor.btn_add_action') ?></button>
+                </form>
+            </div>
+        </div>
+    </aside>
+    <div class="te-editor">
+        <?php
+        $editActionNav = null;
+        foreach ($actionItems as $n) { if ((int)$n['id'] === $editNavId) { $editActionNav = $n; break; } }
+        ?>
+        <?php if ($editActionNav): ?>
+        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars($editActionNav['icon'] . ' ' . $editActionNav['label']) ?></h2>
+        <form method="post" id="editActionForm">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="save_nav">
+            <input type="hidden" name="nav_id" value="<?= (int)$editActionNav['id'] ?>">
+            <div class="te-meta">
+                <div><label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="icon" value="<?= htmlspecialchars($editActionNav['icon']) ?>" maxlength="4"></div>
+                <div><label><?= t('admin.template_editor.label_label') ?></label>
+                    <input type="text" name="label" value="<?= htmlspecialchars($editActionNav['label']) ?>" required></div>
+                <div><label><?= t('admin.template_editor.label_url_key') ?></label>
+                    <input type="text" name="url_key" value="<?= htmlspecialchars($editActionNav['url_key']) ?>" required>
+                    <small class="muted"><?= t('admin.template_editor.hint_url_key') ?></small></div>
+                <div><label><?= t('admin.template_editor.label_css_class_btn') ?></label>
+                    <input type="text" name="css_class" value="<?= htmlspecialchars($editActionNav['css_class']) ?>" placeholder="btn-success">
+                    <small class="muted"><?= t('admin.template_editor.hint_css_class') ?></small></div>
+                <div><label><?= t('admin.template_editor.label_order') ?></label>
+                    <input type="number" name="sort_order" value="<?= (int)$editActionNav['sort_order'] ?>" min="0"></div>
+                <div class="te-visible-row">
+                    <label><input type="checkbox" name="active" value="1" <?= $editActionNav['active'] ? 'checked' : '' ?>> <?= t('admin.template_editor.label_visible') ?></label>
+                </div>
+            </div>
+            <div class="te-preview">
+                <span class="muted te-preview-label"><?= t('admin.template_editor.preview_btn') ?></span><br>
+                <a class="btn <?= htmlspecialchars($editActionNav['css_class']) ?> te-preview-btn">
+                    <?= htmlspecialchars($editActionNav['icon'] . ' ' . $editActionNav['label']) ?>
+                </a>
+            </div>
+            <div class="te-form-actions">
+                <button type="submit" class="btn btn-primary"> <?= t('admin.template_editor.btn_save') ?></button>
+                <button type="button" class="btn btn-danger"
+                    onclick="if(confirm('<?= t('admin.template_editor.confirm_delete_action') ?>')) document.getElementById('deleteActionForm').submit()">
+                     <?= t('admin.template_editor.btn_delete') ?>
+                </button>
+            </div>
+        </form>
+        <form method="post" id="deleteActionForm" class="hidden">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="delete_nav">
+            <input type="hidden" name="nav_id" value="<?= (int)$editActionNav['id'] ?>">
+        </form>
+        <?php else: ?>
+        <p class="muted te-empty"> <?= t('admin.template_editor.no_item_selected') ?></p>
+        <?php endif ?>
+    </div>
+</div>
+
+<?php elseif ($activeTab === 'boardroom'): ?>
+<!--  ZAK£ADKA: BOARDROOM  -->
+<div class="te-config-wrap">
+    <form method="post" enctype="multipart/form-data">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_boardroom">
+
+        <div class="panel te-panel">
+            <p class="panel-title"><?= t('admin.template_editor.br_section_header') ?></p>
+            <div class="te-config-fields">
+                <div>
+                    <label class="te-label"><?= t('admin.template_editor.br_label_title') ?></label>
+                    <input type="text" name="header_title" value="<?= htmlspecialchars($brConfig['header_title'] ?? '') ?>" maxlength="100" class="te-input-md">
+                </div>
+                <div>
+                    <label class="te-label"><?= t('admin.template_editor.br_label_subtitle') ?></label>
+                    <input type="text" name="header_subtitle" value="<?= htmlspecialchars($brConfig['header_subtitle'] ?? '') ?>" maxlength="200" class="te-input-lg">
+                </div>
+            </div>
+            <div class="br-field">
+                <label class="te-label"><?= t('admin.template_editor.br_label_image') ?></label>
+                <?php $brImg = $brConfig['header_image'] ?? ''; ?>
+                <?php if ($brImg): ?>
+                    <div class="br-img-preview">
+                        <img src="<?= htmlspecialchars($brImg) ?>" alt="Header" class="br-img-thumb">
+                        <button type="submit" name="action" value="remove_boardroom_image" class="br-btn-remove">
+                            <?= t('admin.template_editor.br_btn_remove_img') ?>
+                        </button>
+                    </div>
+                <?php endif ?>
+                <input type="file" name="header_image" accept="image/jpeg,image/png,image/webp" class="br-file-input">
+                <div class="br-file-hint"><?= t('admin.template_editor.br_file_hint') ?></div>
+            </div>
+        </div>
+
+        <div class="panel te-panel">
+            <p class="panel-title"><?= t('admin.template_editor.br_section_footer') ?></p>
+            <div class="te-config-fields">
+                <div>
+                    <label class="te-label"><?= t('admin.template_editor.br_label_footer') ?></label>
+                    <input type="text" name="footer_text" value="<?= htmlspecialchars($brConfig['footer_text'] ?? '') ?>" maxlength="300" placeholder="<?= t('admin.template_editor.br_ph_footer') ?>" class="te-input-xl">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel te-panel">
+            <p class="panel-title"><?= t('admin.template_editor.br_section_links') ?></p>
+            <div id="br-footer-links-list">
+            <?php foreach ($brFooterLinks as $link): ?>
+                <div class="br-link-row">
+                    <input type="text" name="footer_link_label[]" value="<?= htmlspecialchars($link['label'] ?? '') ?>" placeholder="<?= t('admin.template_editor.br_label_link_label') ?>">
+                    <input type="text" name="footer_link_url[]" value="<?= htmlspecialchars($link['url'] ?? '') ?>" placeholder="<?= t('admin.template_editor.br_label_link_url') ?>">
+                    <button type="button" onclick="this.parentElement.remove()" class="br-btn-remove-link"></button>
+                </div>
+            <?php endforeach ?>
+            </div>
+            <button type="button" onclick="addBrFooterLink()" class="br-btn-add-link">
+                <?= t('admin.template_editor.br_btn_add_link') ?>
+            </button>
+        </div>
+
+        <div class="form-row">
+            <button type="submit" class="btn btn-primary"><?= t('admin.template_editor.br_btn_save') ?></button>
+            <a href="/boardroom" target="_blank" class="btn btn-secondary"> Podgl¹d Boardroom</a>
+        </div>
+    </form>
+
+    <!--  T³a sceny (kombinacje ról + p³eæ)  -->
+    <div class="panel te-panel">
+        <p class="panel-title"> <?= t('admin.template_editor.br_section_backgrounds') ?></p>
+        <p class="te-hint"><?= t('admin.template_editor.br_bg_hint') ?></p>
+
+        <div class="br-bg-info">
+            <strong><?= t('admin.template_editor.br_bg_naming_title') ?></strong>
+            <code>boardroom_bg.png</code> — <?= t('admin.template_editor.br_bg_naming_default') ?><br>
+            <code>boardroom_bg_hr_M.png</code> — <?= t('admin.template_editor.br_bg_naming_single') ?><br>
+            <code>boardroom_bg_hr_M_tech_F.png</code> — <?= t('admin.template_editor.br_bg_naming_multi') ?>
+        </div>
+
+        <!-- Istniej¹ce pliki -->
+        <?php $existingBgs = array_filter($brBgMatrix, fn($b) => $b['exists']); ?>
+        <?php if (!empty($existingBgs)): ?>
+        <div class="br-bg-grid">
+            <?php foreach ($existingBgs as $bg): ?>
+            <div class="br-bg-card br-bg-exists">
+                <div class="br-bg-thumb-wrap">
+                    <img src="<?= htmlspecialchars($bg['preview']) ?>?v=<?= time() ?>" alt="" class="br-bg-thumb" onerror="this.style.display='none'">
+                </div>
+                <div class="br-bg-card-info">
+                    <code class="br-bg-fname"><?= htmlspecialchars($bg['file']) ?></code>
+                    <span class="br-bg-label"><?= htmlspecialchars($bg['label']) ?></span>
+                </div>
+                <form method="post" class="br-bg-delete-form">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action"  value="delete_boardroom_bg">
+                    <input type="hidden" name="bg_name" value="<?= htmlspecialchars($bg['name']) ?>">
+                    <button type="submit" class="br-btn-remove"
+                            onclick="return confirm('<?= t('admin.template_editor.br_bg_confirm_delete') ?>')"></button>
+                </form>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+
+        <!-- Upload nowego t³a (base64 — omija upload_tmp_dir) -->
+        <details class="br-bg-upload-wrap">
+            <summary class="btn btn-secondary btn-sm"><?= t('admin.template_editor.br_bg_btn_upload') ?></summary>
+            <div class="br-bg-upload-body">
+                <form method="post" id="br-bg-upload-form">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action"       value="save_boardroom_bg">
+                    <input type="hidden" name="bg_name"      id="br-bg-name-input" value="">
+                    <input type="hidden" name="bg_file_b64"  id="br-bg-file-b64" value="">
+                    <input type="hidden" name="bg_file_mime" id="br-bg-file-mime" value="">
+
+                    <div class="br-bg-upload-fields">
+                        <div>
+                            <label class="te-label"><?= t('admin.template_editor.br_bg_label_roles') ?></label>
+                            <div class="br-bg-role-checks">
+                                <?php foreach ($brSceneRoles as $code => $roleLabel): ?>
+                                <label class="br-bg-role-check">
+                                    <input type="checkbox" class="br-bg-role-cb" data-role="<?= $code ?>">
+                                    <?= htmlspecialchars($roleLabel) ?>
+                                    <select class="br-bg-gender-sel" data-role="<?= $code ?>" disabled>
+                                        <option value="M">M</option>
+                                        <option value="F">F</option>
+                                        <option value="">—</option>
+                                    </select>
+                                </label>
+                                <?php endforeach ?>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="te-label"><?= t('admin.template_editor.br_bg_label_preview_name') ?></label>
+                            <div class="br-bg-name-preview">
+                                <code id="br-bg-name-preview">boardroom_bg.png</code>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="te-label"><?= t('admin.template_editor.br_bg_label_file') ?></label>
+                            <input type="file" id="br-bg-file-picker" accept="image/jpeg,image/png,image/webp" class="br-file-input">
+                            <div class="br-file-hint"><?= t('admin.template_editor.br_bg_file_hint') ?></div>
+                            <div id="br-bg-file-status" class="mt-xs font-sm muted2"></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-sm" id="br-bg-submit-btn"><?= t('admin.template_editor.br_bg_btn_save') ?></button>
+                </form>
+            </div>
+        </details>
+    </div>
+</div>
+
+<script>
+//  Boardroom background filename builder 
+(function() {
+    const roleOrder = ['hr','tech','finance','legal','logistics'];
+
+    function updateBgName() {
+        const parts = [];
+        roleOrder.forEach(role => {
+            const cb  = document.querySelector('.br-bg-role-cb[data-role="' + role + '"]');
+            const sel = document.querySelector('.br-bg-gender-sel[data-role="' + role + '"]');
+            if (cb && cb.checked) {
+                const g = sel ? sel.value : '';
+                parts.push(g ? role + '_' + g : role);
+            }
+        });
+        const name    = parts.join('_');
+        const display = name ? 'boardroom_bg_' + name + '.png' : 'boardroom_bg.png';
+        const preview = document.getElementById('br-bg-name-preview');
+        const input   = document.getElementById('br-bg-name-input');
+        if (preview) preview.textContent = display;
+        if (input)   input.value = name;
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('br-bg-role-cb')) {
+            const role = e.target.dataset.role;
+            const sel  = document.querySelector('.br-bg-gender-sel[data-role="' + role + '"]');
+            if (sel) sel.disabled = !e.target.checked;
+            updateBgName();
+        }
+        if (e.target.classList.contains('br-bg-gender-sel')) {
+            updateBgName();
+        }
+    });
+
+    //  Chunked AJAX upload — surowe bajty w body, metadane w URL 
+    // application/octet-stream omija Suhosin i WAF na az.pl
+    const picker  = document.getElementById('br-bg-file-picker');
+    const status  = document.getElementById('br-bg-file-status');
+    const form    = document.getElementById('br-bg-upload-form');
+    const btn     = document.getElementById('br-bg-submit-btn');
+    const CHUNK   = 8 * 1024; // 8 KB — limit az.pl: body  16 KB jest blokowane przez WAF
+
+    function getCsrfToken() {
+        const inp = form ? form.querySelector('input[name="csrf_token"]') : document.querySelector('input[name="csrf_token"]');
+        return inp ? inp.value : '';
+    }
+
+    async function sendChunk(uploadId, bgName, mime, bytes, idx, total) {
+        const chunk = bytes.slice(idx * CHUNK, (idx + 1) * CHUNK);
+        const url   = new URL('/admin/template_editor.php', window.location.origin);
+        url.searchParams.set('ajax_upload',   '1');
+        url.searchParams.set('csrf_token',    getCsrfToken());
+        url.searchParams.set('upload_id',     uploadId);
+        url.searchParams.set('bg_name',       bgName);
+        url.searchParams.set('bg_file_mime',  mime);
+        url.searchParams.set('chunk_index',   idx);
+        url.searchParams.set('total_chunks',  total);
+
+        const resp = await fetch(url.toString(), {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type':     'application/octet-stream',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: chunk,
+        });
+        const text = await resp.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            const preview = text.substring(0, 400).replace(/</g, '&lt;');
+            throw new Error('Serwer zwróci³ nieoczekiwan¹ odpowiedŸ:<br><code style="font-size:0.8em">' + preview + '</code>');
+        }
+    }
+
+    if (picker && btn) {
+        btn.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            const file   = picker.files[0];
+            const bgName = document.getElementById('br-bg-name-input').value;
+
+            if (!bgName) { alert('Wybierz przynajmniej jedn¹ rolê, ¿eby ustaliæ nazwê pliku.'); return; }
+            if (!file)   { alert('Wybierz plik graficzny.'); return; }
+
+            btn.disabled = true;
+            status.textContent = ' Wczytujê plik…';
+
+            try {
+                const buffer   = await file.arrayBuffer();
+                const bytes    = new Uint8Array(buffer);
+                const total    = Math.ceil(bytes.length / CHUNK);
+                const uploadId = Math.random().toString(36).substring(2, 14);
+
+                for (let i = 0; i < total; i++) {
+                    status.textContent = ' Wysy³am czêœæ ' + (i + 1) + ' z ' + total + '…';
+                    const res = await sendChunk(uploadId, bgName, file.type, bytes, i, total);
+                    if (!res.ok) throw new Error(res.err || 'B³¹d serwera.');
+                    if (res.done) {
+                        status.innerHTML = ' ' + (res.msg || 'Zapisano!');
+                        setTimeout(() => window.location.reload(), 1200);
+                        return;
+                    }
+                }
+            } catch (err) {
+                status.innerHTML = ' ' + err.message;
+                btn.disabled = false;
+            }
+        });
+    }
+})();
+
+function addBrFooterLink() {
+    const list = document.getElementById('br-footer-links-list');
+    const row = document.createElement('div');
+    row.className = 'br-link-row';
+    row.innerHTML = `
+        <input type="text" name="footer_link_label[]" placeholder="<?= t('admin.template_editor.br_label_link_label') ?>">
+        <input type="text" name="footer_link_url[]" placeholder="<?= t('admin.template_editor.br_label_link_url') ?>">
+        <button type="button" onclick="this.parentElement.remove()" class="br-btn-remove-link"></button>
+    `;
+    list.appendChild(row);
+}
+</script>
+
+<?php else: ?>
+<!--  ZAK£ADKA: NAG£ÓWEK & STOPKA  -->
+<div class="te-config-wrap">
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_config">
+
+        <div class="panel te-panel">
+            <p class="panel-title"> <?= t('admin.template_editor.section_header') ?></p>
+            <div class="te-config-fields">
+                <div>
+                    <label class="te-label"><?= t('admin.template_editor.label_site_name') ?></label>
+                    <input type="text" name="site_name" value="<?= htmlspecialchars($cfgRows['site_name'] ?? 'OilCorp') ?>" class="te-input-md">
+                </div>
+                <div>
+                    <label class="te-label"><?= t('admin.template_editor.label_site_tagline') ?></label>
+                    <input type="text" name="site_tagline" value="<?= htmlspecialchars($cfgRows['site_tagline'] ?? '') ?>" class="te-input-lg">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel te-panel">
+            <p class="panel-title"> <?= t('admin.template_editor.section_footer') ?></p>
+            <div class="te-config-fields">
+                <div>
+                    <label class="te-label"><?= t('admin.template_editor.label_footer_text') ?></label>
+                    <input type="text" name="footer_text" value="<?= htmlspecialchars($cfgRows['footer_text'] ?? '') ?>" class="te-input-xl">
+                </div>
+                <div>
+                    <label class="te-label"><?= t('admin.template_editor.label_footer_js') ?></label>
+                    <input type="text" name="footer_js" value="<?= htmlspecialchars($cfgRows['footer_js'] ?? '/assets/js/game.js') ?>" class="te-input-md">
+                    <small class="muted"><?= t('admin.template_editor.hint_footer_js') ?></small>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <button type="submit" class="btn btn-primary"> <?= t('admin.template_editor.btn_save_config') ?></button>
+            <a href="/" target="_blank" class="btn btn-secondary"> <?= t('admin.template_editor.btn_preview_site') ?></a>
+        </div>
+    </form>
+
+    <div class="panel te-panel">
+        <p class="panel-title"><?= t('admin.template_editor.footer_preview') ?></p>
+        <div class="te-footer-preview">
+            <?= str_replace('{year}', date('Y'), $cfgRows['footer_text'] ?? '') ?>
+        </div>
+    </div>
+</div>
+<?php endif ?>

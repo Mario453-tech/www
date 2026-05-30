@@ -1,0 +1,195 @@
+/**
+ * Czarny Rynek Ropy — obsługa zakładki w markecie
+ */
+(function () {
+    'use strict';
+
+    const API_URL = '/src/BlackMarketApi.php';
+    let _csrfToken = '';
+    let _refreshTimer = null;
+
+    // ── Init ────────────────────────────────────────────────────
+
+    function init() {
+        _csrfToken = window.WG_CSRF || '';
+        loadOffers();
+        loadHistory();
+        // Odświeżaj oferty co 30s
+        _refreshTimer = setInterval(loadOffers, 30000);
+    }
+
+    // ── Oferty ──────────────────────────────────────────────────
+
+    function loadOffers() {
+        fetch(API_URL + '?action=offers', { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                renderOffers(data.offers || []);
+            })
+            .catch(err => console.error('BM offers error:', err));
+    }
+
+    function renderOffers(offers) {
+        const container = document.getElementById('bm-offers-body');
+        if (!container) return;
+
+        if (offers.length === 0) {
+            container.innerHTML = '<div class="bm-empty">' + escHtml(window.BM_LANG?.no_offers || '') + '</div>';
+            return;
+        }
+
+        container.innerHTML = offers.map(o => {
+            const riskClass = o.effective_risk < 25 ? 'bm-risk-low'
+                            : o.effective_risk < 40 ? 'bm-risk-mid'
+                            : 'bm-risk-high';
+            const expiresIn = getTimeLeft(o.expires_at);
+            const total = formatMoney(o.total_value);
+
+            return `<div class="bm-offer-row">
+                <span class="bm-buyer">${escHtml(o.buyer_name)}</span>
+                <span class="bm-bbl">${formatNum(o.bbl)} bbl</span>
+                <span class="bm-price">${formatMoney(o.price_per_bbl)} PLN</span>
+                <span class="bm-total money">${total} PLN</span>
+                <span class="${riskClass}">${o.effective_risk}%</span>
+                <span class="bm-expires">${expiresIn}</span>
+                <span><button class="btn btn-danger btn-sm bm-sell-btn" onclick="bmSell(${o.id}, ${o.bbl}, '${total}')">${escHtml(window.BM_LANG?.btn_sell || '')}</button></span>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Sprzedaż ────────────────────────────────────────────────
+
+    window.bmSell = function (offerId, bbl, totalStr) {
+        const msg = (window.BM_LANG?.confirm_text || '')
+            .replace(':bbl', formatNum(bbl))
+            .replace(':total', totalStr);
+
+        confirmAction(msg, function () { doSell(offerId); }, { type: 'danger', confirmLabel: window.BM_LANG?.btn_confirm || '' });
+    };
+
+    function doSell(offerId) {
+        // Zablokuj wszystkie przyciski sprzedaży podczas transakcji
+        const btns = document.querySelectorAll('.bm-sell-btn');
+        btns.forEach(function (b) {
+            b.disabled = true;
+            b.textContent = window.BM_LANG?.loading || '…';
+        });
+
+        const body = new FormData();
+        body.append('action', 'sell');
+        body.append('offer_id', offerId);
+        body.append('csrf_token', _csrfToken);
+
+        fetch(API_URL, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: body
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, data.detected ? 'error' : 'success');
+                loadOffers();
+                loadHistory();
+            } else {
+                showToast(data.message || window.BM_LANG?.error_generic || '', 'error');
+                // Przywróć przyciski przy błędzie
+                btns.forEach(function (b) { b.disabled = false; });
+                loadOffers();
+            }
+        })
+        .catch(function (err) {
+            console.error('BM sell error:', err);
+            showToast(window.BM_LANG?.error_connection || '', 'error');
+            btns.forEach(function (b) { b.disabled = false; });
+            loadOffers();
+        });
+    }
+
+    // ── Historia ────────────────────────────────────────────────
+
+    function loadHistory() {
+        fetch(API_URL + '?action=history&limit=20', { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => renderHistory(data.transactions || []))
+            .catch(err => console.error('BM history error:', err));
+    }
+
+    function renderHistory(txs) {
+        const container = document.getElementById('bm-history-body');
+        if (!container) return;
+
+        if (txs.length === 0) {
+            container.innerHTML = '<div class="bm-empty">' + escHtml(window.BM_LANG?.history_empty || '') + '</div>';
+            return;
+        }
+
+        container.innerHTML = txs.map(tx => {
+            const detected = parseInt(tx.detected);
+            const statusCls = detected ? 'bm-status-detected' : 'bm-status-ok';
+            const statusTxt = detected ? (window.BM_LANG?.status_detected || '') : (window.BM_LANG?.status_ok || '');
+            return `<div class="bm-history-row${detected ? ' bm-row-detected' : ''}">
+                <span class="bm-cell-date">${formatDate(tx.created_at)}</span>
+                <span>${formatNum(tx.bbl)} bbl</span>
+                <span class="money">${formatMoney(tx.revenue)} PLN</span>
+                <span class="${statusCls}">${statusTxt}</span>
+                <span class="${detected ? 'bm-penalty' : ''}">${detected ? formatMoney(tx.penalty) + ' PLN' : (window.BM_LANG?.no_penalty || '')}</span>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────
+
+    function escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    function formatNum(n) {
+        return Number(n).toLocaleString(window.APP_LOCALE);
+    }
+
+    function formatMoney(n) {
+        return Number(n).toLocaleString(window.APP_LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+
+    function formatDate(dateStr) {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString(window.APP_LOCALE) + ' ' + d.toLocaleTimeString(window.APP_LOCALE, { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getTimeLeft(expiresAt) {
+        const diff = new Date(expiresAt) - new Date();
+        if (diff <= 0) return window.BM_LANG?.offer_expired || '';
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return mins + ' min';
+        const hrs = Math.floor(mins / 60);
+        return hrs + 'h ' + (mins % 60) + 'min';
+    }
+
+    function showToast(msg, type) {
+        // Próbuj użyć globalnego systemu toastów jeśli istnieje
+        if (typeof window.showGameToast === 'function') {
+            window.showGameToast(msg, type);
+            return;
+        }
+        // Fallback — prosty toast
+        const el = document.createElement('div');
+        el.className = 'bm-toast bm-toast-' + type;
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.classList.add('bm-toast-show'), 10);
+        setTimeout(() => {
+            el.classList.remove('bm-toast-show');
+            setTimeout(() => el.remove(), 300);
+        }, 4000);
+    }
+
+    // ── Start ───────────────────────────────────────────────────
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

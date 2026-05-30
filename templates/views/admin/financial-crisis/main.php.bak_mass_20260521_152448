@@ -1,0 +1,139 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1>🚨 <?= t('admin.crisis.title') ?></h1>
+
+<?php if ($msg): ?><p class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
+
+<!-- ═══ STATYSTYKI ══════════════════════════════════════════════════════════ -->
+<section class="crisis-admin-stats">
+    <div class="card crisis-admin-stat-card">
+        <div class="crisis-admin-stat-label"><?= t('admin.crisis.stat_total') ?></div>
+        <div class="crisis-admin-stat-val"><?= (int)($stats['total_players'] ?? 0) ?></div>
+    </div>
+    <div class="card crisis-admin-stat-card crisis-admin-stat--warn">
+        <div class="crisis-admin-stat-label">⚠️ <?= t('admin.crisis.stat_warning') ?></div>
+        <div class="crisis-admin-stat-val"><?= (int)($stats['warning_count'] ?? 0) ?></div>
+    </div>
+    <div class="card crisis-admin-stat-card crisis-admin-stat--crisis">
+        <div class="crisis-admin-stat-label">🚨 <?= t('admin.crisis.stat_crisis') ?></div>
+        <div class="crisis-admin-stat-val"><?= (int)($stats['crisis_count'] ?? 0) ?></div>
+    </div>
+    <div class="card crisis-admin-stat-card crisis-admin-stat--bankrupt">
+        <div class="crisis-admin-stat-label">💀 <?= t('admin.crisis.stat_bankrupt') ?></div>
+        <div class="crisis-admin-stat-val"><?= (int)($stats['bankrupt_count'] ?? 0) ?></div>
+    </div>
+</section>
+
+<!-- ═══ FIRMY W KRYZYSIE ════════════════════════════════════════════════════ -->
+<section class="panel mt-4">
+    <div class="panel-title">📋 <?= t('admin.crisis.panel_list') ?></div>
+    <?php if (empty($crisisPlayers)): ?>
+    <p class="empty-state"><?= t('admin.crisis.no_crisis_players') ?></p>
+    <?php else: ?>
+    <div class="crisis-admin-list">
+        <div class="crisis-admin-header">
+            <span><?= t('admin.crisis.col_company') ?></span>
+            <span><?= t('admin.crisis.col_state') ?></span>
+            <span><?= t('admin.crisis.col_cash') ?></span>
+            <span><?= t('admin.crisis.col_crisis_ticks') ?></span>
+            <span><?= t('admin.crisis.col_credit_score') ?></span>
+            <span><?= t('admin.crisis.col_wells') ?></span>
+            <span><?= t('admin.crisis.col_actions') ?></span>
+        </div>
+        <?php foreach ($crisisPlayers as $p):
+            $isCrisis = $p['financial_state'] === 'crisis';
+        ?>
+        <div class="crisis-admin-row <?= $isCrisis ? 'crisis-admin-row--crisis' : 'crisis-admin-row--warn' ?>">
+            <span>
+                <a href="/admin/player.php?id=<?= $p['id'] ?>" class="crisis-player-link">
+                    <?= htmlspecialchars($p['company']) ?>
+                </a>
+            </span>
+            <span>
+                <span class="crisis-state-badge crisis-state-badge--<?= $p['financial_state'] ?>">
+                    <?= $isCrisis ? '🚨 ' . t('admin.crisis.state_crisis') : '⚠️ ' . t('admin.crisis.state_warning') ?>
+                </span>
+            </span>
+            <span class="crisis-num <?= (float)$p['cash'] <= 0 ? 'crisis-val--red' : 'crisis-val--orange' ?>">
+                <?= number_format((float)$p['cash'], 0, ',', ' ') ?> <?= t('common.pln') ?>
+            </span>
+            <span class="crisis-num"><?= (int)$p['crisis_ticks'] ?></span>
+            <span class="crisis-num"><?= (int)$p['credit_score'] ?></span>
+            <span class="crisis-num"><?= (int)$p['active_wells'] ?></span>
+            <span class="crisis-admin-actions">
+                <form method="post">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="reset_crisis">
+                    <input type="hidden" name="player_id" value="<?= $p['id'] ?>">
+                    <button class="btn btn-sm btn-success" title="<?= t('admin.crisis.btn_reset_title') ?>">
+                        ✅ <?= t('admin.crisis.btn_reset') ?>
+                    </button>
+                </form>
+                <form method="post">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="force_bankruptcy">
+                    <input type="hidden" name="player_id" value="<?= $p['id'] ?>">
+                    <button class="btn btn-sm btn-danger"
+                            onclick="confirmSubmit(this, '<?= t('admin.crisis.confirm_bankruptcy', ['company' => htmlspecialchars($p['company'], ENT_QUOTES)]) ?>'); return false;">
+                        💀 <?= t('admin.crisis.btn_bankruptcy') ?>
+                    </button>
+                </form>
+            </span>
+        </div>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<!-- ═══ KONFIGURACJA ════════════════════════════════════════════════════════ -->
+<section class="panel mt-4">
+    <div class="panel-title">⚙️ <?= t('admin.crisis.panel_config') ?></div>
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="save_config">
+        <div class="crisis-config-grid">
+            <?php foreach ($configFields as [$key, $label, $desc, $step]): ?>
+            <div class="card crisis-config-card">
+                <label class="crisis-config-label"><?= $label ?></label>
+                <input type="number" name="<?= $key ?>"
+                       value="<?= $config[$key] ?? 0 ?>"
+                       class="crisis-config-input"
+                       step="<?= $step ?>"
+                       min="0">
+                <div class="crisis-config-desc"><?= $desc ?></div>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <button type="submit" class="btn btn-primary"
+                onclick="confirmSubmit(this, '<?= t('admin.crisis.confirm_config') ?>'); return false;">
+            💾 <?= t('admin.crisis.btn_save_config') ?>
+        </button>
+        <span class="crisis-save-hint"><?= t('admin.crisis.save_hint') ?></span>
+    </form>
+</section>
+
+<!-- ═══ OSTATNIE BANKRUCTWA ═════════════════════════════════════════════════ -->
+<?php if (!empty($recentBankrupt)): ?>
+<section class="panel mt-4">
+    <div class="panel-title">💀 <?= t('admin.crisis.panel_bankruptcies') ?></div>
+    <div class="crisis-bankrupt-list">
+        <div class="crisis-bankrupt-header">
+            <span><?= t('admin.crisis.col_company') ?></span>
+            <span><?= t('admin.crisis.col_bankruptcy_date') ?></span>
+            <span><?= t('admin.crisis.col_credit_score') ?></span>
+        </div>
+        <?php foreach ($recentBankrupt as $b): ?>
+        <div class="crisis-bankrupt-row">
+            <span>
+                <a href="/admin/player.php?id=<?= $b['id'] ?>" class="crisis-player-link">
+                    <?= htmlspecialchars($b['company']) ?>
+                </a>
+            </span>
+            <span class="crisis-num"><?= $b['bankruptcy_at'] ?? t('common.dash') ?></span>
+            <span class="crisis-num"><?= (int)$b['credit_score'] ?></span>
+        </div>
+        <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
