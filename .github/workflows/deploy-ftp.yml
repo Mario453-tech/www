@@ -74,3 +74,17 @@ jobs:
             **/*.zip
             **/*.rar
             **/database.php
+
+      # Odczekaj, az zapisy FTP sie ustabilizuja, zanim wyczyscimy OPcache.
+      # Wait for FTP writes to settle before clearing OPcache.
+      - name: Odczekaj po wgraniu / Settle delay
+        run: sleep 20
+
+      # Wyczysc OPcache na produkcji, by usunac ewentualne nieaktualne wpisy.
+      # Clear production OPcache to drop any stale cached files.
+      - name: Reset OPcache
+        run: |
+          curl -fsS --max-time 30 \
+            "${{ secrets.SITE_URL }}/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
+            && echo "" && echo "OPcache reset OK" \
+            || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"
