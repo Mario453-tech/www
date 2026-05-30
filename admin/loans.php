@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         expires_at=DATE_ADD(NOW(), INTERVAL 48 HOUR)
                     WHERE id=:id AND status IN ('pending','rejected')
                 ")->execute([':amt'=>$amount,':rate'=>$rate,':reason'=>$reason.' [ADMIN]',':id'=>$appId]);
-                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% � {$reason}", null, 'system', $appId);
+                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% ďż˝ {$reason}", null, 'system', $appId);
                 $msg = t('admin.loans.msg_approved', ['id' => $appId]);
             } else { $err = t('admin.loans.err_amount_zero'); }
         }

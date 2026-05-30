@@ -117,7 +117,7 @@ $activeTrend = $db->query("
     ORDER BY activated_at DESC LIMIT 1
 ")->fetch();
 
-$trendTimeLeft = '�';
+$trendTimeLeft = 'ďż˝';
 if ($activeTrend) {
     $expires = (new DateTime($activeTrend['activated_at']))->modify('+' . (int)$activeTrend['duration_hours'] . ' hours');
     $diff    = (new DateTime())->diff($expires);

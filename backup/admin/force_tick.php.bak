@@ -1,7 +1,7 @@
 <?php
 /**
- * force_tick.php – Wymuœ globalny tick (identyczna logika jak cron/tick.php)
- * Wywo³ywany POST-em z dashboard lub market.php
+ * force_tick.php Wymu globalny tick (identyczna logika jak cron/tick.php)
+ * Wywoywany POST-em z dashboard lub market.php
  */
 require_once __DIR__ . '/init.php';
 GameLog::info('admin/force_tick.php', 'entry');
@@ -41,7 +41,7 @@ try {
     if (preg_match('/Gracze:\s*(\d+)/', $tickOutput, $m)) $processed = (int)$m[1];
     if (preg_match('/Cena:\s*([\d.]+)/', $tickOutput, $m)) $newPrice  = $m[1];
 
-    AdminLog::log('force_global_tick', "Force tick OK — processed {$processed} players, price: {$newPrice}", null, 'system');
+    AdminLog::log('force_global_tick', "Force tick OK ï¿½ processed {$processed} players, price: {$newPrice}", null, 'system');
     $msg = t('admin.force_tick.msg_ok', ['processed' => $processed, 'price' => $newPrice]);
     $_SESSION['force_tick_msg']   = $msg;
     $_SESSION['force_tick_error'] = false;

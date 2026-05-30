@@ -81,14 +81,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $logId = (int)($_POST['log_id'] ?? 0);
             if ($logId > 0) {
                 $db->prepare("DELETE FROM newsletter_log WHERE id = ?")->execute([$logId]);
-                AdminLog::log('newsletter_log_delete', "Usuni�to wpis newsletter_log #{$logId}");
+                AdminLog::log('newsletter_log_delete', "Usuniďż˝to wpis newsletter_log #{$logId}");
                 GameLog::info('admin/newsletter', 'Newsletter log entry deleted', ['id' => $logId, 'by' => $admin]);
             }
             $msg = t('admin.newsletter.msg_log_deleted');
 
         } elseif ($action === 'clear_log') {
             $db->exec("DELETE FROM newsletter_log");
-            AdminLog::log('newsletter_log_clear', 'Wyczyszczono ca�� histori� newsletter_log');
+            AdminLog::log('newsletter_log_clear', 'Wyczyszczono caďż˝ďż˝ historiďż˝ newsletter_log');
             GameLog::info('admin/newsletter', 'Newsletter log cleared', ['by' => $admin]);
             $msg = t('admin.newsletter.msg_log_cleared');
 
@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $tok  = nlGetToken($db, (int)$singlePlayer['id']);
                     $unsub = nlUnsubUrl($tok);
-                    $greeting = 'Cze�� <strong style="color:#c8a84b">'
+                    $greeting = 'Czeďż˝ďż˝ <strong style="color:#c8a84b">'
                         . htmlspecialchars($singlePlayer['username']) . '</strong>,';
                     $footerHtml = nlFooterHtml($unsub);
 
@@ -183,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($recipients as $r) {
                         $tok  = $r['newsletter_token'] ?: nlGetToken($db, (int)$r['id']);
                         $unsub = nlUnsubUrl($tok);
-                        $greeting = 'Cze�� <strong style="color:#c8a84b">'
+                        $greeting = 'Czeďż˝ďż˝ <strong style="color:#c8a84b">'
                             . htmlspecialchars($r['username']) . '</strong>,';
                         $footerHtml = nlFooterHtml($unsub);
 
@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->prepare("INSERT INTO newsletter_log (subject,body_html,sent_to,sent_by,status,notes)
                                   VALUES (?,?,?,?,?,?)")
                        ->execute([$subject, $bodyHtml, $sent, $admin, $status,
-                                  $failed > 0 ? "B��dy: {$failed}" : null]);
+                                  $failed > 0 ? "Bďż˝ďż˝dy: {$failed}" : null]);
 
                     AdminLog::log('newsletter_sent', "Newsletter '{$subject}'  {$sent} graczy");
                     GameLog::info('admin/newsletter', 'Newsletter bulk sent', [

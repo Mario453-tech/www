@@ -60,9 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $portSvc = new PortService($db);
             $created = $portSvc->seedDefaultPorts();
             AdminLog::log('ports_seed', "Created {$created} default ports.");
-            $msg = "Seed portów zakoñczony. Utworzono: {$created} portów.";
+            $msg = "Seed portï¿½w zakoï¿½czony. Utworzono: {$created} portï¿½w.";
         } catch (Throwable $e) {
-            $err = 'B³¹d seed portów: ' . $e->getMessage();
+            $err = 'Bï¿½ï¿½d seed portï¿½w: ' . $e->getMessage();
         }
     }
 
@@ -134,7 +134,7 @@ try {
         $portsData = $portSvc->getAllWithQueueStats();
     }
 } catch (Throwable $e) {
-    // tabela moze nie istniec jeszcze / table may not exist yet
+ // tabela moze nie istniec jeszcze / table may not exist yet
 }
 
 $viewData = [

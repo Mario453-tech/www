@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $delId = (int)($_POST['delete_id'] ?? 0);
         if ($delId > 0) {
             $db->prepare("DELETE FROM tick_stats WHERE id = ?")->execute([$delId]);
-            AdminLog::log('tick_log_delete', "Usuni�to wpis tick_stats #{$delId}", null, AdminAuth::getAdminUsername());
+            AdminLog::log('tick_log_delete', "Usuniďż˝to wpis tick_stats #{$delId}", null, AdminAuth::getAdminUsername());
             $tickDeleteMsg = 'ok:' . t('admin.tick_log.msg_deleted');
         }
     }
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'tick_log_cleanup') {
         $days    = max(1, min(365, (int)($_POST['cleanup_days'] ?? 7)));
         $deleted = $tickRepo->cleanup($days);
-        AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usuni�to {$deleted} wpis�w starszych ni� {$days} dni", null, AdminAuth::getAdminUsername());
+        AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usuniďż˝to {$deleted} wpisďż˝w starszych niďż˝ {$days} dni", null, AdminAuth::getAdminUsername());
         $tickCleanupMsg = 'ok:' . t('admin.tick_log.msg_cleanup', ['count' => $deleted, 'days' => $days]);
     }
 
@@ -163,7 +163,7 @@ if (file_exists($gameLogFile)) {
             if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $m)) {
                 return strtotime($m[1]) >= $cutoff;
             }
-            return true; // linie bez daty � zostaw
+            return true; // linie bez daty ďż˝ zostaw
         });
         if (count($filtered) < count($allLines)) {
             $allLines = array_values($filtered);

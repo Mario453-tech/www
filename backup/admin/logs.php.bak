@@ -16,19 +16,19 @@ $offset = ($page - 1) * $limit;
 $msg    = '';
 $err    = '';
 
-//  USTAWIENIA RETENCJI 
+// USTAWIENIA RETENCJI 
 $cfgStmt = $db->query("SELECT `key`, `value` FROM site_config WHERE `key` IN ('log_retention_admin_days','log_retention_game_days')");
 $cfg     = $cfgStmt ? $cfgStmt->fetchAll(PDO::FETCH_KEY_PAIR) : [];
 $retentionAdmin = (int)($cfg['log_retention_admin_days'] ?? 0);
 $retentionGame  = (int)($cfg['log_retention_game_days']  ?? 0);
 
-//  AUTO-CZYSZCZENIE przy ka¿dym ¿¹daniu (jeœli ustawione) 
+// AUTO-CZYSZCZENIE przy kadym daniu (jeli ustawione) 
 if ($retentionAdmin > 0) {
     $db->prepare("DELETE FROM admin_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL :d DAY)")
        ->execute([':d' => $retentionAdmin]);
 }
 
-//  DANE: TICK LOG 
+// DANE: TICK LOG 
 $tickRepo       = new TickStatsRepository();
 $tickSummary24h = null;
 $ticks          = [];
@@ -38,7 +38,7 @@ $tickFilterSource = in_array($_GET['tsource'] ?? '', ['cron','force','cron_http'
 $tickDeleteMsg  = '';
 $tickCleanupMsg = '';
 
-//  AKCJE 
+// AKCJE 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
         die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $delId = (int)($_POST['delete_id'] ?? 0);
         if ($delId > 0) {
             $db->prepare("DELETE FROM tick_stats WHERE id = ?")->execute([$delId]);
-            AdminLog::log('tick_log_delete', "Usuniêto wpis tick_stats #{$delId}", null, AdminAuth::getAdminUsername());
+            AdminLog::log('tick_log_delete', "Usuniï¿½to wpis tick_stats #{$delId}", null, AdminAuth::getAdminUsername());
             $tickDeleteMsg = 'ok:' . t('admin.tick_log.msg_deleted');
         }
     }
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'tick_log_cleanup') {
         $days    = max(1, min(365, (int)($_POST['cleanup_days'] ?? 7)));
         $deleted = $tickRepo->cleanup($days);
-        AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usuniêto {$deleted} wpisów starszych ni¿ {$days} dni", null, AdminAuth::getAdminUsername());
+        AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usuniï¿½to {$deleted} wpisï¿½w starszych niï¿½ {$days} dni", null, AdminAuth::getAdminUsername());
         $tickCleanupMsg = 'ok:' . t('admin.tick_log.msg_cleanup', ['count' => $deleted, 'days' => $days]);
     }
 
@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  DANE: LOGI ADMINA 
+// DANE: LOGI ADMINA 
 $logs      = [];
 $totalLogs = 0;
 $totalPages = 1;
@@ -123,7 +123,7 @@ if ($tab === 'admin') {
     $logs = $stmt->fetchAll();
 }
 
-//  DANE: TICK LOG (³aduj tylko gdy tab=tick) 
+// DANE: TICK LOG (aduj tylko gdy tab=tick) 
 if ($tab === 'tick') {
     $tickSummary24h = $tickRepo->getSummary24h();
     $tickPerPage    = 50;
@@ -147,7 +147,7 @@ if ($tab === 'tick') {
     $tickPage = 1;
 }
 
-//  DANE: GAME LOG 
+// DANE: GAME LOG 
 $gameLogLines = [];
 $gameLogFile  = __DIR__ . '/../game_debug.log';
 $gameLogSize  = 0;
@@ -155,15 +155,15 @@ $gameLogSize  = 0;
 if (file_exists($gameLogFile)) {
     $allLines = file($gameLogFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
 
-    // Auto-przycinanie: usuwaj linie starsze ni¿ N dni (retencja czasowa, nie limit linii)
+ // Auto-przycinanie: usuwaj linie starsze ni N dni (retencja czasowa, nie limit linii)
     if ($retentionGame > 0 && count($allLines) > 0) {
         $cutoff = strtotime("-{$retentionGame} days");
         $filtered = array_filter($allLines, function (string $line) use ($cutoff): bool {
-            // Format linii: [2026-04-19 02:04:16] ...
+ // Format linii: [2026-04-19 02:04:16] ...
             if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $m)) {
                 return strtotime($m[1]) >= $cutoff;
             }
-            return true; // linie bez daty — zostaw
+            return true; // linie bez daty ï¿½ zostaw
         });
         if (count($filtered) < count($allLines)) {
             $allLines = array_values($filtered);

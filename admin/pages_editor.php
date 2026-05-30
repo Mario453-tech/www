@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($slug && $title) {
                 try {
                     $db->prepare("INSERT INTO static_pages (slug,title,icon,sort_order,content,updated_by) VALUES (?,?,?,?,?,?)")
-                       ->execute([$slug, $title, $icon, $sort, '<p>Tre�� strony <strong>' . htmlspecialchars($title) . '</strong> � edytuj poni�ej.</p>', $who]);
+                       ->execute([$slug, $title, $icon, $sort, '<p>Treďż˝ďż˝ strony <strong>' . htmlspecialchars($title) . '</strong> ďż˝ edytuj poniďż˝ej.</p>', $who]);
                     pagesRebuildHtaccess($db);
                     $newId = (int)$db->lastInsertId();
                     $msg = t('admin.pages_editor.msg_added', ['slug' => htmlspecialchars($slug)]);

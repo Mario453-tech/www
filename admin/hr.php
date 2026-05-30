@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_spec'])) {
         if ($code !== '') {
             try {
                 $db->prepare("DELETE FROM staff_specializations WHERE code = ?")->execute([$code]);
-                AdminLog::log('hr_spec_delete', "Usuni�to specjalizacj�: {$code}", null, AdminAuth::getAdminUsername());
+                AdminLog::log('hr_spec_delete', "Usuniďż˝to specjalizacjďż˝: {$code}", null, AdminAuth::getAdminUsername());
                 $msg = t('admin.hr.msg_spec_deleted', ['code' => $code]);
             } catch (Throwable $e) {
                 $err = t('common.db_error');
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_hr_spec'])) {
         if ($id > 0) {
             try {
                 $db->prepare("DELETE FROM hr_specializations WHERE id = ?")->execute([$id]);
-                AdminLog::log('hr_hrspec_delete', "Usuni�to hr_spec id={$id}", null, AdminAuth::getAdminUsername());
+                AdminLog::log('hr_hrspec_delete', "Usuniďż˝to hr_spec id={$id}", null, AdminAuth::getAdminUsername());
                 $msg = t('admin.hr.msg_hrspec_deleted');
             } catch (Throwable $e) {
                 $err = t('common.db_error');

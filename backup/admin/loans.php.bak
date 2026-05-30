@@ -7,7 +7,7 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-//  SPRAWD STRUKTURÊ TABEL 
+// SPRAWD STRUKTUR TABEL 
 $loansColumns = [];
 try {
     $cols = $db->query("SHOW COLUMNS FROM loans")->fetchAll(PDO::FETCH_COLUMN);
@@ -23,7 +23,7 @@ $settingsExist = true;
 try { $db->query("SELECT 1 FROM bank_settings LIMIT 1"); }
 catch (PDOException $e) { $settingsExist = false; }
 
-//  AKCJE 
+// AKCJE 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
         die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         expires_at=DATE_ADD(NOW(), INTERVAL 48 HOUR)
                     WHERE id=:id AND status IN ('pending','rejected')
                 ")->execute([':amt'=>$amount,':rate'=>$rate,':reason'=>$reason.' [ADMIN]',':id'=>$appId]);
-                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% — {$reason}", null, 'system', $appId);
+                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% ï¿½ {$reason}", null, 'system', $appId);
                 $msg = t('admin.loans.msg_approved', ['id' => $appId]);
             } else { $err = t('admin.loans.err_amount_zero'); }
         }
@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-//  DANE 
+// DANE 
 $filter = $_GET['filter'] ?? 'pending';
 if (!in_array($filter, ['pending','approved','rejected','accepted','expired','all'])) $filter = 'all';
 
@@ -193,7 +193,7 @@ if ($tablesExist && !$needsMigration) {
     $bankruptcies['week'] = (int)$db->query("SELECT COUNT(*) FROM players WHERE bankruptcy_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
 }
 
-//  RISK SCORE LIVE (dla wniosków pending) 
+// RISK SCORE LIVE (dla wnioskw pending) 
 $liveScores = [];
 if ($tablesExist) {
     require_once __DIR__ . '/../src/RiskScoreEngine.php';
@@ -220,7 +220,7 @@ $riskSectionDescriptions = [
     'credit_score' => ['label' => t('risk.section_credit_score'), 'desc' => t('risk.section_credit_score_desc'), 'max' => 15],
 ];
 
-//  FUNKCJE POMOCNICZE 
+// FUNKCJE POMOCNICZE 
 if (!function_exists('aprBadge')) {
     function aprBadge(float $r): string {
         if ($r >= 40) return "<span class='badge badge-bankrupt'>{$r}% APR</span>";
