@@ -5,16 +5,24 @@ try {
 require_once __DIR__ . '/../src/init.php';
 require_once __DIR__ . '/../src/AdminAuth.php';
 
-// SSO jeli gracz ju zalogowany i ma konto admina wejd bez hasa
-if (AdminAuth::trySSO()) {
-    $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
-    unset($_SESSION['admin_redirect']);
-    header('Location: ' . $dest);
+// Pelna sesja admina (juz po 2FA) -> prosto do panelu.
+// Full admin session (already past 2FA) -> straight to the panel.
+if (AdminAuth::isLoggedIn()) {
+    header('Location: /admin/index.php');
     exit();
 }
 
-if (AdminAuth::isLoggedIn()) {
-    header('Location: /admin/index.php');
+// Haslo/SSO juz podane, czekamy na kod 2FA -> krok kodu.
+// Password/SSO already provided, awaiting 2FA code -> code step.
+if (AdminAuth::hasPending()) {
+    header('Location: /admin/2fa.php');
+    exit();
+}
+
+// SSO: jesli zalogowany gracz ma konto admina, ustaw stan oczekujacy 2FA.
+// SSO: if a logged-in player has an admin account, set the pending 2FA state.
+if (AdminAuth::trySSO()) {
+    header('Location: /admin/2fa.php');
     exit();
 }
 
@@ -33,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = $_POST['password'] ?? '';
 
         if (AdminAuth::login($login, $password)) {
-            $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
-            unset($_SESSION['admin_redirect']);
-            header('Location: ' . $dest);
+            // Haslo OK -> krok kodu 2FA (pelna sesja dopiero po weryfikacji).
+            // Password OK -> 2FA code step (full session only after verification).
+            header('Location: /admin/2fa.php');
             exit();
         }
         $error = t('admin.login.err_invalid_credentials');
