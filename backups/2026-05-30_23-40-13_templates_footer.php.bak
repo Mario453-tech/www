@@ -1,4 +1,4 @@
-<?php if ($authPage ?? false): ?>
+﻿<?php if ($authPage ?? false): ?>
     </div><?php /* close .auth-bg */ ?>
     <?php if (!empty($extraJs)): foreach ((array)$extraJs as $__js): ?>
     <script src="<?= htmlspecialchars(asset($__js)) ?>"></script>
