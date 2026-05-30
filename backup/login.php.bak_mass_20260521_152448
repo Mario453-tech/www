@@ -1,113 +1,68 @@
-﻿<?php
-$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('public/login.php') : microtime(true);
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/login.php') : microtime(true);
 try {
 
-require_once(__DIR__ . '/../src/init.php');
+require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/AdminAuth.php';
 
-if (Auth::isLoggedIn()) {
-    header('Location: /');
+// SSO — jeśli gracz już zalogowany i ma konto admina → wejdź bez hasła
+if (AdminAuth::trySSO()) {
+    $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
+    unset($_SESSION['admin_redirect']);
+    header('Location: ' . $dest);
     exit();
 }
 
-$error = '';
+if (AdminAuth::isLoggedIn()) {
+    header('Location: /admin/index.php');
+    exit();
+}
 
-if ($_POST) {
-    if (!RateLimiter::check('login')) {
-        $error = t('auth.err_too_many_attempts');
-    } elseif (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-        $error = t('auth.err_csrf');
+$error = $success = '';
+if (isset($_GET['logged_out'])) $success = t('admin.login.msg_logged_out');
+if (isset($_GET['reset']))      $success = t('admin.login.msg_reset_sent');
+if (isset($_GET['locked']))     $error   = t('admin.login.err_locked');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = t('common.csrf_error');
+    } elseif (AdminAuth::isIpBlocked()) {
+        $error = t('admin.login.err_ip_blocked');
     } else {
-        $email    = Validator::sanitize($_POST['email']);
-        $password = $_POST['password'];
+        $login    = Validator::sanitize($_POST['login'] ?? '');
+        $password = $_POST['password'] ?? '';
 
-        $loginResult = Auth::login($email, $password);
-        if ($loginResult === true) {
-            header('Location: /');
+        if (AdminAuth::login($login, $password)) {
+            $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
+            unset($_SESSION['admin_redirect']);
+            header('Location: ' . $dest);
             exit();
-        } elseif ($loginResult === 'not_verified') {
-            $error = t('auth.err_not_verified');
-        } else {
-            $error = t('auth.err_invalid_credentials');
         }
+        $error = t('admin.login.err_invalid_credentials');
     }
 }
 
-$pageTitle = t('auth.login_title');
-$authPage  = true;
-$extraJs   = ['/assets/js/auth.js'];
-require_once __DIR__ . '/../templates/header.php';
-?>
+$csrf = CSRF::generateToken();
 
-<div class="login-container">
-     <section class="login-card fade-in" aria-labelledby="login-heading">
-        <h1 id="login-heading"><?= t('auth.login_heading') ?></h1>
-        <p class="login-subtitle"><?= t('auth.login_subtitle') ?></p>
+$viewData = [
+    'error'   => $error,
+    'success' => $success,
+    'csrf'    => $csrf,
+    'login'   => $_POST['login'] ?? '',
+    'hasSso'  => !empty($_SESSION['user_id']),
+];
+require __DIR__ . '/../templates/views/admin/login/main.php';
 
-        <?php if ($error): ?>
-            <div class="alert alert-error" role="alert"><?= htmlspecialchars($error) ?></div>
-        <?php endif ?>
-
-        <form method="post" aria-label="<?= t('auth.form_aria') ?>" novalidate>
-            <?= CSRF::field() ?>
-
-            <div class="form-group">
-                <label class="form-label" for="email"><?= t('auth.label_email') ?></label>
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    class="form-input"
-                    placeholder="<?= t('auth.placeholder_email') ?>"
-                    required
-                    autocomplete="email"
-                    value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
-                >
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="password"><?= t('auth.label_password') ?></label>
-                <div class="password-wrap">
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        class="form-input"
-                        placeholder="<?= t('auth.placeholder_password') ?>"
-                        required
-                        autocomplete="current-password"
-                    >
-                    <button type="button" class="btn-show-pass" onclick="togglePassword('password', this)" aria-label="<?= t('auth.show_password') ?>">👁</button>
-                </div>
-            </div>
-
-            <p class="forgot-link">
-                <a href="<?= url('forgot-password') ?>" class="link-primary"><?= t('auth.forgot_password') ?></a>
-            </p>
-
-            <button type="submit" class="btn btn-primary btn-full">
-                <?= t('auth.btn_login') ?>
-            </button>
-        </form>
-
-        <p class="login-footer">
-            <?= t('auth.no_account') ?> <a href="<?= url('register') ?>" class="link-primary"><?= t('auth.register_link') ?></a>
-        </p>
-    </section>
-</div>
-
-<script>window.AUTH_LANG = <?= json_encode(['show_pass' => tPlain('auth.show_password'), 'hide_pass' => tPlain('auth.hide_password')], JSON_UNESCAPED_UNICODE) ?>;</script>
-<?php require_once __DIR__ . '/../templates/footer.php' ?>
-<?php
 } catch (Throwable $e) {
     if (class_exists('GameLog', false)) {
-        GameLog::error('public/login.php', 'Unhandled exception', $e);
+        GameLog::error('admin/login.php', 'Unhandled exception', $e);
     }
     if (!headers_sent()) {
         http_response_code(500);
     }
-    echo tPlain('common.app_error');
+    echo t('common.app_error');
 } finally {
     if (class_exists('GameLog', false)) {
-        GameLog::pageEnd('public/login.php', $_codexGuardStart);
+        GameLog::pageEnd('admin/login.php', $_codexGuardStart);
     }
 }

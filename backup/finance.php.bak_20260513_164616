@@ -1,61 +1,172 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../src/init.php';
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/finance.php') : microtime(true);
 
-Auth::requireLogin();
-BoardAccess::require(Auth::getUserId(), 'finance');
+try {
+    require_once __DIR__ . '/init.php';
+    AdminAuth::requireLogin();
 
-$db       = Database::getInstance()->getConnection();
-$playerId = Auth::getUserId();
+    $db = Database::getInstance()->getConnection();
+    require_once __DIR__ . '/../src/FinanceService.php';
 
-require_once __DIR__ . '/../src/FinanceService.php';
-$finSvc = new FinanceService();
+    $finSvc = new FinanceService();
+    $msg    = '';
+    $err    = '';
 
-$hours = (int)($_GET['hours'] ?? 24);
-if (!in_array($hours, [24, 168], true)) {
-    $hours = 24;
-}
-
-$last     = $finSvc->getLastTick($playerId);
-$summary  = $finSvc->getSummary($playerId, $hours);
-$history  = $finSvc->getHistory($playerId, $hours);
-$perWell  = $finSvc->getPerWellStats($playerId);
-$alerts   = $finSvc->getAlerts($playerId, $last ?? [], $finSvc->getSummary($playerId, 24));
-$oilPrice = (float)($db->query("SELECT current_price FROM market_state WHERE id = 1")->fetchColumn() ?? 70);
-$cash     = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
-
-function fmtPLN(float $value, bool $sign = false): string
-{
-    $formatted = number_format(abs($value), 0, ',', ' ') . ' PLN';
-    if ($sign) {
-        return ($value >= 0 ? '+' : '&minus;') . $formatted;
+    $hours = (int)($_GET['hours'] ?? 24);
+    if (!in_array($hours, [24, 168, 720], true)) {
+        $hours = 24;
     }
 
-    return $value < 0 ? '&minus;' . $formatted : $formatted;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+            die(t('common.csrf_error'));
+        }
+
+        $action = $_POST['action'] ?? '';
+        if ($action === 'save_config') {
+            $keys = [
+                'global_tax_modifier'  => 'Mnożnik podatków globalnych',
+                'global_cost_modifier' => 'Mnożnik kosztów globalnych',
+                'global_loss_modifier' => 'Mnożnik strat globalnych',
+            ];
+
+            foreach ($keys as $key => $label) {
+                $value = (float)($_POST[$key] ?? 1.0);
+                $value = max(0.1, min(5.0, $value));
+
+                $db->prepare(
+                    "
+                    INSERT INTO well_config (`key`, value, label, category)
+                    VALUES (?, ?, ?, 'finance')
+                    ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)
+                    "
+                )->execute([$key, $value, $label]);
+            }
+
+            AdminLog::log('finance_config_save', 'Saved finance department configuration');
+            $msg = t('admin.finance.msg_config_saved');
+        }
+    }
+
+    $global      = $finSvc->getGlobalStats($hours);
+    $perPlayer   = $finSvc->getPerPlayerStats($hours);
+    $admAlerts   = $finSvc->getAdminAlerts($hours);
+    $oilPrice    = (float)($db->query("SELECT current_price FROM market_state WHERE id = 1")->fetchColumn() ?? 70);
+
+    $config = [];
+    try {
+        $rows = $db->query("SELECT `key`, value FROM well_config WHERE category = 'finance'")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $config[$row['key']] = (float)$row['value'];
+        }
+    } catch (Throwable $e) {
+        GameLog::error('admin/finance.php', 'load config FAILED', $e);
+    }
+
+    $config += [
+        'global_tax_modifier'  => 1.0,
+        'global_cost_modifier' => 1.0,
+        'global_loss_modifier' => 1.0,
+    ];
+
+    $historyStmt = [];
+    try {
+        $historyStmt = $db->prepare(
+            "
+            SELECT
+                DATE_FORMAT(tick_at, '%d.%m %H:%i') AS label,
+                SUM(revenue)                        AS revenue,
+                SUM(net_profit)                     AS net_profit,
+                SUM(loss_value)                     AS loss_value,
+                AVG(oil_price)                      AS oil_price
+            FROM finance_logs
+            WHERE tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            GROUP BY DATE_FORMAT(tick_at, '%Y-%m-%d %H:%i')
+            ORDER BY tick_at ASC
+            "
+        );
+        $historyStmt->execute([$hours]);
+        $globalHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $globalHistory = [];
+        GameLog::error('admin/finance.php', 'load history FAILED', $e);
+    }
+
+    $fmtAdminPln = static function (float $value, bool $sign = false): string {
+        $formatted = number_format(abs($value), 0, ',', ' ') . ' PLN';
+        if ($sign) {
+            return ($value >= 0 ? '+' : '&minus;') . $formatted;
+        }
+
+        return $value < 0 ? '&minus;' . $formatted : $formatted;
+    };
+
+    $gRev          = (float)($global['total_revenue'] ?? 0);
+    $gNet          = (float)($global['total_net'] ?? 0);
+    $gLoss         = (float)($global['total_loss'] ?? 0);
+    $gBbl          = (float)($global['total_bbl'] ?? 0);
+    $gPlayers      = (int)($global['player_count'] ?? 0);
+    $gHubUsage     = (float)($global['total_hub_usage_cost'] ?? 0);
+    $gHubLoss      = (float)($global['total_hub_loss_value'] ?? 0);
+    $gFallbackLoss = (float)($global['total_fallback_loss_value'] ?? 0);
+    $gHubIncLoss   = (float)($global['total_hub_incident_loss_value'] ?? 0);
+    $lossPct       = $gRev > 0 ? round($gLoss / $gRev * 100, 1) : 0;
+
+    $globalStatCards = [
+        ['title' => t('admin.finance.stat_revenue'), 'val' => $fmtAdminPln($gRev), 'cls' => 'fin-green'],
+        ['title' => t('admin.finance.stat_net'), 'val' => $fmtAdminPln($gNet, true), 'cls' => $gNet >= 0 ? 'fin-green' : 'fin-red'],
+        ['title' => t('admin.finance.stat_loss'), 'val' => $fmtAdminPln($gLoss) . " ({$lossPct}%)", 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_hub_cost'), 'val' => $fmtAdminPln($gHubUsage), 'cls' => 'fin-red'],
+        ['title' => t('admin.finance.stat_hub_loss'), 'val' => $fmtAdminPln($gHubLoss), 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_prod'), 'val' => number_format($gBbl, 1, ',', ' ') . ' bbl', 'cls' => ''],
+        ['title' => t('admin.finance.stat_players'), 'val' => (string)$gPlayers, 'cls' => ''],
+        ['title' => t('admin.finance.stat_oil_price'), 'val' => number_format($oilPrice, 2, ',', ' ') . ' PLN/bbl', 'cls' => 'fin-green'],
+    ];
+
+    $hubStatCards = [
+        ['title' => t('admin.finance.stat_hub_cost'), 'val' => $fmtAdminPln($gHubUsage), 'cls' => 'fin-red'],
+        ['title' => t('admin.finance.stat_hub_loss'), 'val' => $fmtAdminPln($gHubLoss), 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_fallback_loss'), 'val' => $fmtAdminPln($gFallbackLoss), 'cls' => 'fin-orange'],
+        ['title' => t('admin.finance.stat_hub_incident_loss'), 'val' => $fmtAdminPln($gHubIncLoss), 'cls' => 'fin-red'],
+    ];
+
+    $configFields = [
+        ['key' => 'global_tax_modifier', 'label' => t('admin.finance.cfg_tax_label'), 'desc' => t('admin.finance.cfg_tax_desc'), 'val' => $config['global_tax_modifier']],
+        ['key' => 'global_cost_modifier', 'label' => t('admin.finance.cfg_cost_label'), 'desc' => t('admin.finance.cfg_cost_desc'), 'val' => $config['global_cost_modifier']],
+        ['key' => 'global_loss_modifier', 'label' => t('admin.finance.cfg_loss_label'), 'desc' => t('admin.finance.cfg_loss_desc'), 'val' => $config['global_loss_modifier']],
+    ];
+
+    $viewData = compact(
+        'msg',
+        'err',
+        'hours',
+        'admAlerts',
+        'globalStatCards',
+        'hubStatCards',
+        'perPlayer',
+        'configFields',
+        'global',
+        'oilPrice',
+        'globalHistory',
+        'fmtAdminPln'
+    );
+
+    $rangeOptions = [24 => '24h', 168 => '7 dni', 720 => '30 dni'];
+    $viewData['rangeOptions'] = $rangeOptions;
+
+    $pageTitle = t('admin.finance.page_title');
+    require_once __DIR__ . '/partials/header.php';
+    require __DIR__ . '/../templates/views/admin/finance/main.php';
+    require_once __DIR__ . '/partials/footer.php';
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) {
+        GameLog::error('admin/finance.php', 'Exception', $e);
+    }
+    echo t('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) {
+        GameLog::pageEnd('admin/finance.php', $_codexGuardStart);
+    }
 }
-
-function fmtPct(float $value): string
-{
-    return number_format(abs($value), 1, ',', ' ') . '%';
-}
-
-function pct(float $part, float $base): string
-{
-    return $base > 0 ? number_format(abs($part / $base * 100), 1, ',', ' ') . '%' : '&mdash;';
-}
-
-$pageTitle = t('finance.page_title');
-$extraCss  = ['/assets/css/finance.css'];
-$viewData  = compact('alerts', 'hours', 'last', 'summary', 'history', 'perWell', 'oilPrice', 'cash');
-$viewData  = array_merge($viewData, GameShell::data($playerId));
-
-$gameShellTitle = t('finance.page_title');
-$gameShellView  = __DIR__ . '/../templates/views/public/finance/main.php';
-
-require_once __DIR__ . '/../templates/header.php';
-extract($viewData, EXTR_SKIP);
-$actions     = $viewData['actions'] ?? [];
-$statusItems = $viewData['statusItems'] ?? [];
-require __DIR__ . '/../templates/components/game_shell.php';
-require_once __DIR__ . '/../templates/footer.php';
