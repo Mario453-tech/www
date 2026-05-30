@@ -10,3 +10,163 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+
+  # -------------------------------------------------------------------
+  # Job 1: testy — Unit (bez DB), Integration (SQLite), MySqlIntegration
+  # Job 1: tests — Unit (no DB), Integration (SQLite), MySqlIntegration
+  # -------------------------------------------------------------------
+  test:
+    name: Testy PHPUnit / PHPUnit tests
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root
+          MYSQL_DATABASE:      ci_test
+          MYSQL_USER:          ci_user
+          MYSQL_PASSWORD:      ci_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=ci_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ustaw PHP / Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instalacja zaleznosci / Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # Skonfiguruj polaczenie z MySQL dla testow integracyjnych.
+      # Configure MySQL connection for integration tests.
+      - name: Przygotuj .env dla testow / Prepare test .env
+        run: |
+          cat > .env <<'EOF'
+          DB_HOST=127.0.0.1
+          DB_NAME=ci_test
+          DB_USER=ci_user
+          DB_PASS=ci_pass
+          DB_CHARSET=utf8mb4
+          OPCACHE_RESET_TOKEN=ci_not_used
+          EOF
+
+      # Zaladuj schemat bazy danych do MySQL CI.
+      # Load database schema into CI MySQL.
+      - name: Zaladuj schemat CI / Load CI schema
+        run: |
+          mysql -h 127.0.0.1 -u ci_user -pci_pass ci_test < tests/ci-schema.sql
+
+      - name: Uruchom wszystkie testy / Run all tests
+        run: php vendor/bin/phpunit --no-coverage
+        env:
+          DB_HOST:    127.0.0.1
+          DB_NAME:    ci_test
+          DB_USER:    ci_user
+          DB_PASS:    ci_pass
+          DB_CHARSET: utf8mb4
+
+  # -------------------------------------------------------------------
+  # Job 2: deploy FTP — odpala sie TYLKO gdy testy przeszly
+  # Job 2: FTP deploy — runs ONLY when tests pass
+  # -------------------------------------------------------------------
+  deploy:
+    name: Upload to FTP
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Write .env from secret
+        run: printf '%s' "$ENV_FILE" > .env
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+
+      - name: Deploy via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:   ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port:     ${{ secrets.FTP_PORT }}
+          protocol: ftps
+          local-dir:  ./
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          exclude: |
+            **/.git/**
+            **/.github/**
+            **/.vscode/**
+            **/.claude/**
+            **/.phpunit_cache/**
+            **/.idea/**
+            **/tests/**
+            **/vendor/**
+            **/node_modules/**
+            **/cache/**
+            **/coverage/**
+            **/build/**
+            **/dist/**
+            **/tmp/**
+            **/temp/**
+            **/backups/**
+            **/svn_repo/**
+            **/migrations/**
+            **/backup/**
+            **/sessions/**
+            **/.env.*
+            **/.gitignore
+            **/composer.json
+            **/composer.lock
+            **/phpstan.neon
+            **/phpstan_errors.txt
+            **/phpunit.xml.dist
+            **/deploy.ps1
+            **/diag*.php
+            **/check_log_cfg.php
+            **/diag.php
+            **/reset_db.php
+            **/*.bak
+            **/*_server.php
+            **/*.log
+            **/winscp.log
+            **/winscp_sync.txt
+            **/*.sql
+            **/*.zip
+            **/*.rar
+            **/database.php
+
+      # Odczekaj, az zapisy FTP sie ustabilizuja, zanim wyczyscimy OPcache.
+      # Wait for FTP writes to settle before clearing OPcache.
+      - name: Odczekaj po wgraniu / Settle delay
+        run: sleep 20
+
+      # Wyczysc OPcache na produkcji, by usunac ewentualne nieaktualne wpisy.
+      # Clear production OPcache to drop any stale cached files.
+      - name: Reset OPcache
+        run: |
+          curl -fsS --max-time 30 \
+            "${{ secrets.SITE_URL }}/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
+            && echo "" && echo "OPcache reset OK" \
+            || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"

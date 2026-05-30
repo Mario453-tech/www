@@ -67,6 +67,25 @@ class Database
         return $this->pdo;
     }
 
+    private static function loadEnv(string $path): void
+    {
+        if (!file_exists($path)) {
+            return;
+        }
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+            [$key, $value] = array_pad(explode('=', $line, 2), 2, '');
+            $key   = trim($key);
+            $value = trim($value, " \t\"'");
+            if ($key !== '' && getenv($key) === false) {
+                putenv("{$key}={$value}");
+            }
+        }
+    }
+
  /**
  * Dodaje kolumne do tabeli jesli nie istnieje - kompatybilne z MySQL 8.0.
  * Adds a column to a table if it does not exist - compatible with MySQL 8.0.
