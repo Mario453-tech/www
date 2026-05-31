@@ -2,14 +2,12 @@
 
 <div class="profile-wrap">
 
-    <?php if (!empty($errors)): ?>
-    <noscript><?php foreach ($errors as $e): ?><div class="msg-bar msg-error"><?= htmlspecialchars($e) ?></div><?php endforeach ?></noscript>
-    <script>(function(){var msgs=<?= json_encode(array_values($errors), JSON_UNESCAPED_UNICODE) ?>;function s(){var m=msgs.join('\n');if(typeof window.alertError==='function'){window.alertError(m);}else if(typeof window.showGameToast==='function'){msgs.forEach(function(t){window.showGameToast(t,'error');});}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
-    <?php endif ?>
-    <?php if (!empty($success)): ?>
-    <noscript><?php foreach ($success as $s): ?><div class="msg-bar msg-success"><?= htmlspecialchars($s) ?></div><?php endforeach ?></noscript>
-    <script>(function(){var msgs=<?= json_encode(array_values($success), JSON_UNESCAPED_UNICODE) ?>;function s(){var m=msgs.join('\n');if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){msgs.forEach(function(t){window.showGameToast(t,'success');});}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
-    <?php endif ?>
+    <?php foreach ($errors as $e): ?>
+    <div class="msg-bar msg-error"><?= htmlspecialchars($e) ?></div>
+    <?php endforeach ?>
+    <?php foreach ($success as $s): ?>
+    <div class="msg-bar msg-success"><?= htmlspecialchars($s) ?></div>
+    <?php endforeach ?>
 
     <div class="profile-grid">
         <div class="profile-left">
@@ -246,18 +244,6 @@ function profileShowMessage(kind, text) {
     wrap.insertBefore(bar, wrap.firstChild);
 }
 
-function profileShowResult(kind, text) {
-    if (kind === 'error' && typeof window.alertError === 'function') {
-        window.alertError(text);
-    } else if (kind === 'success' && typeof window.alertInfo === 'function') {
-        window.alertInfo(text);
-    } else if (typeof window.showGameToast === 'function') {
-        window.showGameToast(text, kind === 'error' ? 'error' : 'success');
-    } else {
-        profileShowMessage(kind, text);
-    }
-}
-
 function updateTopbarAvatar(url) {
     var link = document.querySelector('.topbar-user-link');
     if (!link) return;
@@ -401,15 +387,11 @@ function previewAndSubmitAvatar(input) {
                 updateTopbarAvatar(data.avatar_url);
             }
 
-            var wrap = document.querySelector('.profile-wrap');
-            if (wrap) { wrap.querySelectorAll('.msg-bar.msg-dynamic').forEach(function(n) { n.remove(); }); }
-            profileShowResult('success', data.message || PROFILE_LANG.uploading);
+            profileShowMessage('success', data.message || PROFILE_LANG.uploading);
             input.value = '';
         })
         .catch(function(err) {
-            var wrap = document.querySelector('.profile-wrap');
-            if (wrap) { wrap.querySelectorAll('.msg-bar.msg-dynamic').forEach(function(n) { n.remove(); }); }
-            profileShowResult('error', err && err.message ? err.message : PROFILE_LANG.uploadFailed);
+            profileShowMessage('error', err && err.message ? err.message : PROFILE_LANG.uploadFailed);
             input.value = '';
         });
 }

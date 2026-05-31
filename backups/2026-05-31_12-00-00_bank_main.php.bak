@@ -31,13 +31,17 @@
     <?php endif ?>
 
     <?php if (!empty($error)): ?>
-    <noscript><div class="bank-flash bank-flash--error"><span class="bank-flash-icon"></span><span><?= htmlspecialchars($error) ?></span></div></noscript>
-    <script>(function(){var m=<?= json_encode($error, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertError==='function'){window.alertError(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'error');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
+    <div class="bank-flash bank-flash--error">
+        <span class="bank-flash-icon"></span>
+        <span><?= htmlspecialchars($error) ?></span>
+    </div>
     <?php endif ?>
 
     <?php if (!empty($success)): ?>
-    <noscript><div class="bank-flash bank-flash--success"><span class="bank-flash-icon"></span><span><?= htmlspecialchars($success) ?></span></div></noscript>
-    <script>(function(){var m=<?= json_encode($success, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'success');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
+    <div class="bank-flash bank-flash--success">
+        <span class="bank-flash-icon"></span>
+        <span><?= $success ?></span>
+    </div>
     <?php endif ?>
 
     <!-- Wniosek kredytowy -->
@@ -87,10 +91,7 @@
             <?php endif ?>
         </div>
         <div class="offer-actions">
-            <form method="post"
-                  data-confirm="<?= htmlspecialchars(t('bank.offer_accept_confirm'), ENT_QUOTES) ?>"
-                  data-confirm-title="<?= htmlspecialchars(t('bank.offer_accept_title'), ENT_QUOTES) ?>"
-                  data-confirm-label="<?= htmlspecialchars(t('bank.offer_accept_label'), ENT_QUOTES) ?>">
+            <form method="post">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="accept_offer">
                 <input type="hidden" name="application_id" value="<?= (int)($applicationStatus['application']['id'] ?? 0) ?>">
@@ -379,10 +380,7 @@
                         </div>
                         <?php endif ?>
                     </div>
-                    <form method="post" class="neg-apply-form"
-                          data-confirm="<?= htmlspecialchars(t('bank_neg.confirm_apply'), ENT_QUOTES) ?>"
-                          data-confirm-title="<?= htmlspecialchars(t('bank_neg.confirm_apply_title'), ENT_QUOTES) ?>"
-                          data-confirm-label="<?= htmlspecialchars(t('bank.neg_accept'), ENT_QUOTES) ?>">
+                    <form method="post" class="neg-apply-form">
                         <?= CSRF::field() ?>
                         <input type="hidden" name="action" value="neg_apply">
                         <input type="hidden" name="negotiation_id" value="<?= (int)$active['id'] ?>">
@@ -427,9 +425,7 @@
                             </summary>
                             <div class="neg-panel-body">
                                 <p class="neg-desc"><?= t('bank.neg_deferral_desc') ?></p>
-                                <form method="post"
-                                      data-confirm="<?= htmlspecialchars(t('bank_neg.confirm_deferral'), ENT_QUOTES) ?>"
-                                      data-confirm-title="<?= htmlspecialchars(t('bank_neg.confirm_deferral_title'), ENT_QUOTES) ?>">
+                                <form method="post">
                                     <?= CSRF::field() ?>
                                     <input type="hidden" name="action" value="neg_deferral">
                                     <input type="hidden" name="loan_id" value="<?= $loanId ?>">
@@ -460,9 +456,7 @@
                             </summary>
                             <div class="neg-panel-body">
                                 <p class="neg-desc"><?= t('bank.neg_restructure_desc') ?></p>
-                                <form method="post"
-                                      data-confirm="<?= htmlspecialchars(t('bank_neg.confirm_restructure'), ENT_QUOTES) ?>"
-                                      data-confirm-title="<?= htmlspecialchars(t('bank_neg.confirm_restructure_title'), ENT_QUOTES) ?>">
+                                <form method="post">
                                     <?= CSRF::field() ?>
                                     <input type="hidden" name="action" value="neg_restructure">
                                     <input type="hidden" name="loan_id" value="<?= $loanId ?>">
@@ -494,11 +488,7 @@
                                     <?= t('bank.neg_recovery_warning') ?>
                                 </div>
                                 <p class="neg-desc"><?= t('bank.neg_recovery_desc') ?></p>
-                                <form method="post"
-                                      data-confirm="<?= htmlspecialchars(t('bank_neg.confirm_recovery'), ENT_QUOTES) ?>"
-                                      data-confirm-title="<?= htmlspecialchars(t('bank_neg.confirm_recovery_title'), ENT_QUOTES) ?>"
-                                      data-confirm-type="danger"
-                                      data-confirm-label="<?= htmlspecialchars(t('bank.neg_recovery_submit'), ENT_QUOTES) ?>">
+                                <form method="post">
                                     <?= CSRF::field() ?>
                                     <input type="hidden" name="action" value="neg_recovery">
                                     <input type="hidden" name="loan_id" value="<?= $loanId ?>">

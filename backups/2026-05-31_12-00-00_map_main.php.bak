@@ -2,14 +2,8 @@
 
 <div class="fade-in">
 
-<?php if ($error): ?>
-<noscript><div class="msg-bar msg-error"><?= htmlspecialchars($error) ?></div></noscript>
-<script>(function(){var m=<?= json_encode($error, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertError==='function'){window.alertError(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'error');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
-<?php endif ?>
-<?php if ($success): ?>
-<noscript><div class="msg-bar msg-success"><?= htmlspecialchars($success) ?></div></noscript>
-<script>(function(){var m=<?= json_encode($success, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'success');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
-<?php endif ?>
+<?php if ($error):   ?><div class="msg-bar msg-error"><?= htmlspecialchars($error) ?></div><?php endif ?>
+<?php if ($success): ?><div class="msg-bar msg-success"><?= htmlspecialchars($success) ?></div><?php endif ?>
 
 
 <!-- Region legend and filters / Legenda regionow i filtry -->
