@@ -6,3 +6,8 @@ ENV_FILE.env
 
 # Runtime logs (nie wersjonujemy — zmieniaja sie przy kazdym requescie)
 error_log
+game_debug.log
+*.log
+
+# Pliki sesji PHP (runtime — nie wersjonujemy)
+sessions/sess_*
