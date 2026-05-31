@@ -209,7 +209,7 @@ foreach ($groups as $regionName => $group):
                 <div class="wg-diag wg-diag--disaster">
                     <div class="wg-diag-title"><?= $st[2] ?> <?= $st[0] ?></div>
                     <p class="wg-diag-note"><?= t('wg.diag_repair_note') ?></p>
-                    <a href="<?= url('technical', ['tab' => 'team', 'repair_well' => (int)$w['id']]) ?>#tech-mnt" class="btn btn-primary btn-sm"><?= t('wg.btn_repair') ?></a>
+                    <a href="<?= url('technical', ['tab' => 'tasks']) ?>" class="btn btn-primary btn-sm"><?= t('wg.btn_repair') ?></a>
                 </div>
 
                 <?php elseif ($status === 'seized'): ?>
