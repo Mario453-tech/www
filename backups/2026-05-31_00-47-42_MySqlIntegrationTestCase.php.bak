@@ -284,7 +284,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $roleId = $roleStmt->fetchColumn();
         if ($roleId === false) {
             $this->db->prepare(
-                "INSERT INTO board_roles (id, code, name, created_at) VALUES (?, 'technical', 'Technical', NOW())"
+                "INSERT INTO board_roles (id, code, name, slots_limit, created_at) VALUES (?, 'technical', 'Technical', 1, NOW())"
             )->execute([$ids['roleId']]);
             $roleId = $ids['roleId'];
         }
@@ -293,12 +293,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $existsStmt->execute([$ids['managerId']]);
         if ($existsStmt->fetchColumn() === false) {
             $this->db->prepare(
-                'INSERT INTO board_members
-                    (id, role_id, status, first_name, last_name, birth_date, nationality,
-                     experience_years, skill_organization, skill_negotiation, skill_analysis,
-                     skill_stress, skill_ethics, trait_loyalty, trait_corruption_risk, trait_ambition, salary)
-                 VALUES (?, ?, \'active\', \'Jan\', \'MySql\', \'1980-01-01\', \'PL\',
-                     10, 5, 5, 5, 5, 5, 5, 5, 5, 10000.00)'
+                'INSERT INTO board_members (id, role_id, status, skill_organization) VALUES (?, ?, \'active\', 5)'
             )->execute([$ids['managerId'], $roleId]);
         }
     }
