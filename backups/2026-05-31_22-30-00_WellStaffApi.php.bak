@@ -229,10 +229,6 @@ try {
                 jsonOut(['success' => false, 'message' => t('common.invalid_data')], 400);
             }
 
-            // Instantiate before beginTransaction: constructor runs DDL (ensureSchema) which
-            // causes MySQL implicit commit and would silently end any open transaction.
-            $pipelineService = new WellPipelineService($db);
-
             $db->beginTransaction();
             try {
  // Find the hub for this well (ETAP 11: outbound setting is per hub).
@@ -248,6 +244,7 @@ try {
                 $hubId = (int)$hubRow['hub_id'];
 
                 if ($transportType === 'rurociag') {
+                    $pipelineService = new WellPipelineService($db);
                     $ownedOutbound   = $pipelineService->getByPlayerHubIds($playerId, [$hubId])[$hubId] ?? null;
 
                     if ($ownedOutbound === null) {
