@@ -16,7 +16,6 @@ return [
     'common.locale' => 'pl-PL',
     'common.currency' => 'zł',
     'common.currency_code' => 'PLN',
-    'common.pln' => 'zł',
     'common.bbl' => 'bbl',
     'common.bbl_h' => 'bbl/h',
     'common.days' => 'dni',

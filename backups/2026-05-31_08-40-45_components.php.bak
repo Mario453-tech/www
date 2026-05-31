@@ -138,8 +138,6 @@ return [
     'well_grid.leg2_pipeline_building' => 'Rurociąg hub→magazyn jest w budowie.',
     'well_grid.leg2_pipeline_owned' => 'Rurociąg hub→magazyn kupiony i aktywny.',
     'well_grid.leg2_btn_pipeline' => 'Rurociąg hub→magazyn',
-    'well_grid.leg2_active' => 'Aktywny',
-    'well_grid.pipeline_active' => 'Aktywny',
     'well_grid.leg2_btn_road' => 'Transport drogowy',
     'well_grid.leg2_btn_direct' => 'Dostawa bezpośrednia',
     'well_grid.leg2_confirm_pipeline' => 'Wybudować rurociąg hub→magazyn za :cost PLN? Po zbudowaniu ropa z huba popłynie tym rurociągiem.',
