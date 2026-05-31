@@ -186,23 +186,6 @@
             .catch(function () {});
     }
 
-    // Polling z pauzą gdy karta nieaktywna (oszczędza zapytania przy wielu graczach).
-    // Polling paused when the tab is hidden (saves queries with many players).
-    function startPolling() {
-        stopPolling();
-        if (document.hidden) return;
-        interval = setInterval(poll, 8000);
-        pinnedInterval = setInterval(pollPinned, 30000);
-    }
-    function stopPolling() {
-        if (interval) { clearInterval(interval); interval = null; }
-        if (pinnedInterval) { clearInterval(pinnedInterval); pinnedInterval = null; }
-    }
-    document.addEventListener('visibilitychange', function () {
-        if (document.hidden) { stopPolling(); }
-        else { poll(); startPolling(); }
-    });
-
     function initialLoad() {
         fetch(API, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
@@ -213,7 +196,8 @@
                 renderPinned(data.pinned || []);
                 appendMessages(data.messages || []);
                 box.scrollTop = box.scrollHeight;
-                startPolling();
+                interval = setInterval(poll, 4000);
+                pinnedInterval = setInterval(pollPinned, 15000);
             })
             .catch(function () {
                 var loading = box.querySelector('.chat-loading');

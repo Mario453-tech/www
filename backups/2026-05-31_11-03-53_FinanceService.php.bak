@@ -11,17 +11,8 @@ class FinanceService
         $this->ensureSchema();
     }
 
-    /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */
-    private static array $schemaEnsured = [];
-
     private function ensureSchema(): void
     {
-        $schemaConnId = spl_object_id($this->db);
-        if (isset(self::$schemaEnsured[$schemaConnId])) {
-            return;
-        }
-        self::$schemaEnsured[$schemaConnId] = true;
-
         try {
             Database::addColumnIfMissing('finance_logs', 'produced_bbl', 'DECIMAL(14,4) NOT NULL DEFAULT 0.0000 AFTER oil_price');
             Database::addColumnIfMissing('finance_logs', 'delivered_bbl', 'DECIMAL(14,4) NOT NULL DEFAULT 0.0000 AFTER produced_bbl');

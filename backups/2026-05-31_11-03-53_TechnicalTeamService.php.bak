@@ -342,17 +342,8 @@ class TechnicalTeamService
         return self::getTaskTypeEnumValues();
     }
 
-    /** @var array<int,bool> strażnik per połączenie (raz na proces, ponownie dla nowego PDO w testach) */
-    private static array $hubTaskSchemaEnsured = [];
-
     private function ensureHubTaskSchema(): void
     {
-        $schemaConnId = spl_object_id($this->db);
-        if (isset(self::$hubTaskSchemaEnsured[$schemaConnId])) {
-            return;
-        }
-        self::$hubTaskSchemaEnsured[$schemaConnId] = true;
-
         Database::addColumnIfMissing('technical_tasks', 'hub_id', 'INT NULL DEFAULT NULL AFTER well_id');
         Database::addColumnIfMissing('technical_task_queue', 'hub_id', 'INT NULL DEFAULT NULL AFTER well_id');
 
