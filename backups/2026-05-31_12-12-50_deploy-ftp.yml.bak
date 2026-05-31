@@ -123,10 +123,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Pelna historia — potrzebna do policzenia roznicy plikow miedzy
-          # poprzednim a obecnym commitem (deploy tylko zmienionych plikow).
-          # Full history — needed to diff changed files between pushes.
-          fetch-depth: 0
+          fetch-depth: 2
 
       - name: Write .env from secret
         run: printf '%s' "$ENV_FILE" > .env
@@ -141,79 +138,18 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       # Deploy przez lftp: implicit FTPS na porcie 990.
-      # WYSYLAMY TYLKO PLIKI ZMIENIONE w danym pushu (git diff BEFORE..AFTER),
-      # bo swiezy git clone resetuje czasy modyfikacji i mirror po czasie wyslalby
-      # wszystko. Fallback do pelnego mirrora gdy brak prawidlowego BEFORE_SHA
-      # (pierwszy deploy / force-push). BEZ --delete: nie ruszamy plikow serwera.
-      # Deploy via lftp (implicit FTPS 990): upload ONLY files changed in this push.
-      # Fresh git clone resets mtimes, so a time-based mirror would re-send everything.
-      # Falls back to a full mirror when BEFORE_SHA is missing. NO --delete.
+      # BEZ --delete: nie ruszamy plikow na serwerze (config/database.php, .env serwera).
+      # Wykluczenia odwzorowuja dawna liste 'exclude' akcji; *.sql blokuje wielki dump.
+      # Deploy via lftp: implicit FTPS on port 990.
+      # NO --delete: we do not touch server-only files (config/database.php, server .env).
       - name: Deploy via lftp (implicit FTPS 990)
         env:
           FTP_HOST: hosting2629304.online.pro
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASSWORD }}
           FTP_DIR:  ${{ secrets.FTP_REMOTE_DIR }}
-          BEFORE_SHA: ${{ github.event.before }}
-          AFTER_SHA:  ${{ github.event.after }}
         run: |
           set -euo pipefail
-
-          EXCLUDES='-X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php'
-
-          # Czy plik jest wykluczony z deployu (te same reguly co lista -X powyzej)?
-          is_excluded() {
-            case "$1" in
-              .git/*|.github/*|.vscode/*|.claude/*|.phpunit_cache/*|.idea/*|tests/*|vendor/*|node_modules/*|cache/*|coverage/*|build/*|dist/*|tmp/*|temp/*|backups/*|svn_repo/*|migrations/*|backup/*|sessions/*) return 0 ;;
-              .env|.gitignore|CLAUDE.md|composer.json|composer.lock|phpstan.neon|phpstan_errors.txt|phpunit.xml.dist|deploy.ps1|check_log_cfg.php|diag.php|reset_db.php|winscp.log|winscp_sync.txt|database.php) return 0 ;;
-              .env.*|diag*.php|*.bak|*_server.php|*.log|*.sql|*.zip|*.rar|*/database.php) return 0 ;;
-            esac
-            return 1
-          }
-
-          MODE=partial
-          if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
-            echo "Brak prawidlowego BEFORE_SHA -> pelny mirror (fallback)."
-            MODE=full
-          fi
-
-          STAGE=/tmp/ftp_deploy
-          rm -rf "$STAGE"
-          mkdir -p "$STAGE"
-
-          if [ "$MODE" = "partial" ]; then
-            if ! git diff --name-only --diff-filter=ACMRT "$BEFORE_SHA" "$AFTER_SHA" > /tmp/changed.txt; then
-              echo "git diff nieudany -> pelny mirror (fallback)."
-              MODE=full
-            fi
-          fi
-
-          if [ "$MODE" = "partial" ]; then
-            COUNT=0
-            echo "Zmienione pliki ($BEFORE_SHA -> $AFTER_SHA):"
-            while IFS= read -r f; do
-              [ -z "$f" ] && continue
-              if is_excluded "$f"; then echo "  - pomijam (wykluczony): $f"; continue; fi
-              if [ ! -f "$f" ]; then echo "  - pomijam (brak/usuniety): $f"; continue; fi
-              mkdir -p "$STAGE/$(dirname "$f")"
-              cp -p "$f" "$STAGE/$f"
-              echo "  + $f"
-              COUNT=$((COUNT + 1))
-            done < /tmp/changed.txt
-
-            # .env zawsze odswiezany z sekretu (gitignored, wiec nie pojawi sie w diffie).
-            if [ -f .env ]; then cp -p .env "$STAGE/.env"; COUNT=$((COUNT + 1)); fi
-
-            echo "Plikow do wgrania: $COUNT"
-            if [ "$COUNT" -eq 0 ]; then
-              echo "Brak zmian do wgrania - pomijam upload FTP."
-              exit 0
-            fi
-            MIRROR_CMD="mirror --reverse --verbose --transfer-all --no-perms $STAGE/ \"$FTP_DIR\""
-          else
-            MIRROR_CMD="mirror --reverse --verbose --transfer-all --no-perms $EXCLUDES ./ \"$FTP_DIR\""
-          fi
-
           lftp <<LFTP
           set ssl:verify-certificate no
           set ftp:ssl-force true
@@ -226,7 +162,7 @@ jobs:
           set mirror:parallel-transfer-count 1
           open ftps://$FTP_HOST:990
           user "$FTP_USER" "$FTP_PASS"
-          $MIRROR_CMD
+          mirror --reverse --verbose --transfer-all --no-perms -X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php ./ "$FTP_DIR"
           bye
           LFTP
 
