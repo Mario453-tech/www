@@ -72,19 +72,15 @@
                             if ($tCode === 'rurociag' && !$w['_isOffshore'] && empty($w['_hasHubAssignment'])) {
                                 $isDisabled = true;
                             }
- // Rurociag odwiert->hub kupiony i operacyjny -> stan aktywny (zielona ramka + "Aktywny")
-                            $isActivePipe = ($tCode === 'rurociag' && !$w['_isOffshore'] && !empty($w['_pipelineOperational']));
                             [$__rCls, $__rVal] = $__trRiskMap[$tCode] ?? ['mv-neu', '0%'];
                             $__capCls  = $tCap  >= 100 ? 'kv-green' : 'kv-orange';
                             $__opxCls  = $tOpex <= 10  ? 'kv-green' : ($tOpex <= 15 ? 'kv-orange' : 'kv-red');
-                            $__cardCls = ($isCurrent || $isActivePipe) ? 'wg-opt-card--active' : ($isDisabled ? 'wg-opt-card--disabled' : '');
+                            $__cardCls = $isCurrent ? 'wg-opt-card--active' : ($isDisabled ? 'wg-opt-card--disabled' : '');
                         ?>
                             <div class="wg-opt-card <?= $__cardCls ?>">
                                 <div class="wg-opt-hdr">
                                     <span class="wg-opt-name"><?= $tName ?></span>
-                                    <?php if ($isActivePipe): ?>
-                                    <span class="wg-opt-badge wg-opt-badge--ok">&#9679; <?= t('well_grid.pipeline_active') ?></span>
-                                    <?php elseif ($isCurrent): ?>
+                                    <?php if ($isCurrent): ?>
                                     <span class="wg-opt-badge wg-opt-badge--ok">
                                         <?= $isPendingPipeline ? t('logistics.pipeline.status_building') : t('wg.eq_current') ?>
                                     </span>
@@ -151,9 +147,6 @@
                         $__outType        = (string)($w['_outboundType'] ?? 'nieustawiony');
                         $__outOwned       = !empty($w['_outboundPipelineOwned']);
                         $__outBuilding    = !empty($w['_outboundPipelineBuilding']);
-                        $__outOperational = !empty($w['_outboundPipelineOperational']);
- // Rurociag hub->magazyn kupiony, dziala i nie jest w budowie -> stan aktywny (zielona ramka)
-                        $__outActive      = $__outType === 'rurociag' && $__outOwned && $__outOperational && !$__outBuilding;
                         $__outBuildCost   = (float)($w['_outboundPipelineBuildCost'] ?? 0);
                         $__outLabel       = match ($__outType) {
                             'rurociag'   => t('well_staff.transport_pipeline'),
@@ -161,13 +154,10 @@
                             default      => t('well_staff.transport_unset'),
                         };
                         ?>
-                        <div class="wg-leg2<?= $__outActive ? ' wg-leg2--active' : '' ?>">
+                        <div class="wg-leg2">
                             <div class="wg-leg2-hdr">
                                 <span class="wg-leg2-title"><?= t('well_grid.leg2_title') ?></span>
                                 <span class="wg-section-badge <?= $__outType === 'rurociag' ? 'nsb-ok' : 'nsb-warn' ?>"><?= $__outLabel ?></span>
-                                <?php if ($__outActive): ?>
-                                <span class="wg-leg2-active-badge">&#9679; <?= t('well_grid.leg2_active') ?></span>
-                                <?php endif ?>
                             </div>
                             <div class="wg-leg2-desc"><?= t('well_grid.leg2_desc') ?></div>
 

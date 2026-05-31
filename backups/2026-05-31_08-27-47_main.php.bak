@@ -1,29 +1,7 @@
 <div class="t-wrap">
 
 <?php if ($msg): ?>
-<noscript>
 <div class="msg-bar msg-<?= $msgType ?>"><?= htmlspecialchars($msg) ?></div>
-</noscript>
-<script>
-(function () {
-    var m = <?= json_encode($msg, JSON_UNESCAPED_UNICODE) ?>;
-    var t = <?= json_encode($msgType, JSON_UNESCAPED_UNICODE) ?>;
-    function show() {
-        if (t === 'error' && typeof window.alertError === 'function') {
-            window.alertError(m);
-        } else if (typeof window.alertInfo === 'function') {
-            window.alertInfo(m);
-        } else if (typeof window.showGameToast === 'function') {
-            window.showGameToast(m, t === 'error' ? 'error' : 'success');
-        }
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', show);
-    } else {
-        show();
-    }
-})();
-</script>
 <?php endif ?>
 
 <!-- POWIADOMIENIA -->
@@ -93,9 +71,6 @@ window.TECH_LANG = <?= json_encode([
     'confirm_assign_task'     => t('technical.confirm_assign_task'),
     'confirm_assign_ok'       => t('technical.confirm_assign_ok'),
     'task_result_title'       => t('technical.task_result_title'),
-    'repair_no_mnt'           => t('technical.repair_no_mnt'),
-    'repair_no_mnt_title'     => t('technical.repair_no_mnt_title'),
-    'repair_mnt_busy'         => t('technical.repair_mnt_busy'),
     'review_val_no_score'     => t('technical.review_val_no_score'),
     'review_val_no_rec'       => t('technical.review_val_no_rec'),
     'review_confirm_title'    => t('technical.review_confirm_title'),

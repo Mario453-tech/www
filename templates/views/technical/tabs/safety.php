@@ -97,7 +97,8 @@ $repairCost  = $pLevel > 0 ? 500_000 * $pLevel : 0;
         <?php endif ?>
 
         <?php if ($pIntegrity < 100): ?>
-        <form method="post" class="proc-action-form">
+        <form method="post" class="proc-action-form"
+              onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.proc_repair_confirm', ['cost' => number_format($repairCost, 0, '.', ' ')]), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.proc_repair_title'), ENT_QUOTES, 'UTF-8') ?>', confirmLabel: '<?= htmlspecialchars(t('technical.btn_confirm_generic'), ENT_QUOTES, 'UTF-8') ?>' })">
             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf) ?>">
             <input type="hidden" name="action" value="repair_procedure_integrity">
             <button type="submit" class="btn-proc-repair">
@@ -139,7 +140,8 @@ $repairCost  = $pLevel > 0 ? 500_000 * $pLevel : 0;
             <div class="proc-upgrade-info">
                 <?= t('technical.proc_upgrade_cost', ['cost' => number_format($upgradeCost, 0, '.', ' ')]) ?>
             </div>
-            <form method="post" class="proc-action-form">
+            <form method="post" class="proc-action-form"
+                  onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.proc_upgrade_confirm', ['level' => $nextLevel, 'cost' => number_format($upgradeCost, 0, '.', ' ')]), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.proc_upgrade_title'), ENT_QUOTES, 'UTF-8') ?>', confirmLabel: '<?= htmlspecialchars(t('technical.btn_confirm_generic'), ENT_QUOTES, 'UTF-8') ?>' })">
                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf) ?>">
                 <input type="hidden" name="action" value="upgrade_procedures">
                 <button type="submit" class="btn-proc-upgrade">

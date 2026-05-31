@@ -135,13 +135,13 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertTrue($assignResult['success'],
             'Hub assignment must succeed: ' . ($assignResult['error'] ?? 'no error'));
 
+        // access_fee = 0: opłata przeniesiona na etap akwizycji huba
         $accessFee = (float)($assignResult['access_fee'] ?? 0.0);
-        $this->assertEqualsWithDelta(self::ACCESS_FEE_NEW_HUB, $accessFee, 0.01,
-            'Access fee for new hub must be 125');
+        $this->assertSame(0.0, $accessFee, 'Access fee must be 0 — paid at hub acquisition time');
 
         $cashAfterAssign = $this->getCash($playerId);
-        $this->assertEqualsWithDelta($cashAfterBuy - $accessFee, $cashAfterAssign, 0.01,
-            'Cash must be reduced by access fee after assignment');
+        $this->assertEqualsWithDelta($cashAfterBuy, $cashAfterAssign, 0.01,
+            'Cash must not change on well assignment (fee paid at acquisition)');
 
         $assignStmt = $this->db->prepare(
             "SELECT hub_id, access_fee_paid FROM logistics_hub_assignments
@@ -151,8 +151,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $assignment = $assignStmt->fetch();
         $this->assertNotFalse($assignment, 'Active assignment row must exist');
         $this->assertSame((string)$ids['hubId'], (string)$assignment['hub_id']);
-        $this->assertEqualsWithDelta($accessFee, (float)$assignment['access_fee_paid'], 0.01,
-            'access_fee_paid stored in DB must match returned access_fee');
+        $this->assertSame(0.0, (float)$assignment['access_fee_paid'], 'access_fee_paid in DB must be 0');
 
  // ---- 3. Purchase standard pipeline ----
         $pipelineSvc = new WellPipelineService($this->db);
@@ -294,16 +293,15 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
  // Others are cleaned by player_id deletion at teardown
     }
 
-    public function testHubAssignmentFailsWithInsufficientFunds(): void
+    public function testHubAssignmentSucceedsWithLowCashWhenAccessFeeIsZero(): void
     {
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
- // seed well with nieustawiony to match real post-purchase state
         $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'nieustawiony');
- // Default hub: opex=100, slots=4 -> access_fee=125 PLN (new)
-        $this->seedHub($ids['hubId'], 'PHPUnit Hub Broke', 77, 'A1', 95.0, 'active', 'new');
+        $this->seedHub($ids['hubId'], 'PHPUnit Hub LowCash', 77, 'A1', 95.0, 'active', 'new');
 
- // Drain player to 1 PLN (far below 125 fee)
+        // access_fee = 0: przypisanie odwiertu do własnego huba nie pobiera opłaty.
+        // Nawet z 1 PLN na koncie assignment powinien się udać.
         $this->db->prepare('UPDATE players SET cash = 1.00 WHERE id = ?')->execute([$playerId]);
 
         $hubSvc        = new HubService($this->db);
@@ -311,20 +309,17 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
 
         $result = $assignmentSvc->assignWell($playerId, $ids['hubId'], $ids['wellId']);
 
-        $this->assertFalse($result['success']);
-        $this->assertSame('insufficient_funds', $result['error']);
+        $this->assertTrue($result['success'], 'Assignment must succeed (no access fee charged)');
+        $this->assertSame(0.0, (float)($result['access_fee'] ?? 0.0), 'access_fee must be 0');
 
- // Cash must not have been deducted
         $cashAfter = $this->getCash($playerId);
-        $this->assertEqualsWithDelta(1.0, $cashAfter, 0.01,
-            'Cash must remain 1 PLN after failed assignment');
+        $this->assertEqualsWithDelta(1.0, $cashAfter, 0.01, 'Cash must remain 1 PLN (no deduction)');
 
- // No assignment row must exist
         $cnt = $this->db->prepare(
             "SELECT COUNT(*) FROM logistics_hub_assignments WHERE well_id = ? AND status = 'active'"
         );
         $cnt->execute([$ids['wellId']]);
-        $this->assertSame(0, (int)$cnt->fetchColumn(), 'No active assignment must be created on failure');
+        $this->assertSame(1, (int)$cnt->fetchColumn(), 'Active assignment must be created');
     }
 
     public function testPipelinePurchaseRequiresActiveHubAssignment(): void
@@ -547,8 +542,9 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $result = $assignmentSvc->assignWell($playerId, $ids['hubId'], $ids['wellId']);
         $this->assertTrue($result['success']);
 
+        // access_fee = 0: opłata przeniesiona na etap akwizycji huba
         $returnedFee = (float)($result['access_fee'] ?? 0.0);
-        $this->assertEqualsWithDelta(self::ACCESS_FEE_NEW_HUB, $returnedFee, 0.01);
+        $this->assertSame(0.0, $returnedFee, 'access_fee must be 0 — paid at hub acquisition time');
 
         $stmt = $this->db->prepare(
             "SELECT access_fee_paid FROM logistics_hub_assignments WHERE well_id = ? AND status = 'active'"
@@ -556,8 +552,7 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $stmt->execute([$ids['wellId']]);
         $storedFee = (float)$stmt->fetchColumn();
 
-        $this->assertEqualsWithDelta($returnedFee, $storedFee, 0.01,
-            'access_fee_paid in DB must match the value returned by assignWell()');
+        $this->assertSame(0.0, $storedFee, 'access_fee_paid in DB must be 0');
     }
 
     public function testUnassignedWellsListShowsCooldownAfterDetach(): void

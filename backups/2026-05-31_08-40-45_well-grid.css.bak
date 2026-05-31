@@ -1174,26 +1174,6 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 .wg-leg2-desc { font-size: 11px; color: rgba(232, 232, 240, .5); margin-bottom: 8px; }
 .wg-leg2-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* Aktywny rurociag hub->magazyn: zielona ramka + odznaka */
-.wg-leg2--active {
-    border: 1px solid rgba(78, 201, 122, .45);
-    border-top: 1px solid rgba(78, 201, 122, .45);
-    border-radius: 8px;
-    padding: 12px 14px;
-    background: rgba(78, 201, 122, .04);
-}
-.wg-leg2-active-badge {
-    margin-left: auto;
-    font-size: 11px;
-    font-weight: 700;
-    color: #4ec97a;
-    background: #0a1e10;
-    border: 1px solid #1a4020;
-    border-radius: 6px;
-    padding: 2px 8px;
-    white-space: nowrap;
-}
-
 /* Upgrade box */
 .wg-upgrade-box {
     background: #0e1428; border: 1px solid rgba(30,46,80,.9);

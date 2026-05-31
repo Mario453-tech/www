@@ -210,7 +210,7 @@ class WellPipelineService
         $stmt->execute([
             $playerId,
             $wellId,
-            (int)($hubAssignment['hub_id'] ?? 0),
+            (int)($hubAssignment['hub_id'] ?? 0) ?: null,
             $name,
             $profile['pipeline_type'],
             100.0,
@@ -1040,7 +1040,7 @@ class WellPipelineService
         $standardProfile = self::PIPELINE_DEFAULTS['standard'];
 
         $settings = [
-            'price_pct' => round(((float)$profile['build_cost'] / (float)$standardProfile['build_cost']) * 100.0, 6),
+            'price_pct' => round(((float)$profile['build_cost'] / (float)$standardProfile['build_cost']) * 100.0, 2),
             'capacity_pct' => (float)($profile['capacity_pct'] ?? 100.0),
             'durability_pct' => round(((float)$standardProfile['degradation_rate_per_hour'] / (float)$profile['degradation_rate_per_hour']) * 100.0, 2),
         ];

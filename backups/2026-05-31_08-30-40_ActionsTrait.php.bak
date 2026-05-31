@@ -26,32 +26,23 @@ trait TechnicalPageActionsTrait
 
         switch ($action) {
             case 'assign_task':
-                [$msg, $msgType] = $this->handleAssignTask();
-                break;
+                return $this->handleAssignTask();
             case 'fire_engineer':
-                [$msg, $msgType] = $this->handleFireEngineer();
-                break;
+                return $this->handleFireEngineer();
             case 'review_candidate':
-                [$msg, $msgType] = $this->handleReviewCandidate();
-                break;
+                return $this->handleReviewCandidate();
             case 'request_recruitment':
-                [$msg, $msgType] = $this->handleRequestRecruitment();
-                break;
+                return $this->handleRequestRecruitment();
             case 'cancel_recruitment':
-                [$msg, $msgType] = $this->handleCancelRecruitment();
-                break;
+                return $this->handleCancelRecruitment();
             case 'cancel_task':
-                [$msg, $msgType] = $this->handleCancelTask();
-                break;
+                return $this->handleCancelTask();
             case 'cancel_queue_item':
-                [$msg, $msgType] = $this->handleCancelQueueItem();
-                break;
+                return $this->handleCancelQueueItem();
             case 'upgrade_procedures':
-                [$msg, $msgType] = $this->handleUpgradeProcedures();
-                break;
+                return $this->handleUpgradeProcedures();
             case 'repair_procedure_integrity':
-                [$msg, $msgType] = $this->handleRepairProcedureIntegrity();
-                break;
+                return $this->handleRepairProcedureIntegrity();
             case 'dismiss_notification':
                 $this->handleDismissNotification();
                 exit;
@@ -59,22 +50,6 @@ trait TechnicalPageActionsTrait
                 GameLog::warn('technical.php', "Unknown POST action: {$action}");
                 return [$msg, $msgType];
         }
-
- // Zadania AJAX (X-Requested-With) dostaja JSON i modal po stronie klienta,
- // zamiast przeladowania strony z bialym paskiem komunikatu.
-        if (
-            !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
-        ) {
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => $msgType === 'success',
-                'message' => $msg,
-            ], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        return [$msg, $msgType];
     }
 
     private function handleAssignTask(): array

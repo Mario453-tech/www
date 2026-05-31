@@ -202,19 +202,11 @@ function candReviewConfirm(form) {
     var recEl   = form.querySelector('input[name="recommendation"]:checked');
 
     if (!scoreEl) {
-        if (typeof window.alertWarning === 'function') {
-            window.alertWarning(techl('review_val_no_score'));
-        } else {
-            alert(techl('review_val_no_score'));
-        }
+        alert(techl('review_val_no_score'));
         return false;
     }
     if (!recEl) {
-        if (typeof window.alertWarning === 'function') {
-            window.alertWarning(techl('review_val_no_rec'));
-        } else {
-            alert(techl('review_val_no_rec'));
-        }
+        alert(techl('review_val_no_rec'));
         return false;
     }
 
@@ -238,79 +230,3 @@ function candReviewConfirm(form) {
 }
 
 setTimeout(() => location.reload(), 60000);
-
-// Deep-link "Zleć naprawę u MNT" ze strony głównej (?repair_well=ID#tech-mnt):
-// przewija do Inżyniera Utrzymania Ruchu, otwiera formularz zlecenia,
-// wybiera odwiert i zadanie naprawcze.
-(function initRepairDeepLink() {
-    var params = new URLSearchParams(location.search);
-    var repairWell = params.get('repair_well');
-    if (!repairWell) {
-        return;
-    }
-
-    function run() {
-        var cards = document.querySelectorAll('.staff-card[data-spec="maintenance_engineer"]');
-
-        if (!cards.length) {
-            if (typeof window.alertWarning === 'function') {
-                window.alertWarning(techl('repair_no_mnt'), techl('repair_no_mnt_title'));
-            }
-            return;
-        }
-
- // Preferuj wolnego inżyniera (karta bez klasy busy ma formularz zlecenia).
-        var target = null;
-        cards.forEach(function (c) {
-            if (!target && !c.classList.contains('busy')) {
-                target = c;
-            }
-        });
-
-        if (!target) {
- // Wszyscy zajęci — przewiń do pierwszego i poinformuj, że są zajęci.
-            cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-            cards[0].classList.add('staff-card--repair-target');
-            if (typeof window.alertWarning === 'function') {
-                window.alertWarning(techl('repair_mnt_busy'), techl('repair_no_mnt_title'));
-            }
-            return;
-        }
-
- // Otwórz formularz zlecenia (details) i wstępnie ustaw odwiert + zadanie.
-        var details = target.querySelector('details');
-        if (details) {
-            details.open = true;
-        }
-
-        var staffIdInput = target.querySelector('input[name="staff_id"]');
-        var staffId      = staffIdInput ? staffIdInput.value : '';
-        var taskSel      = target.querySelector('select[name="task_type"]');
-
-        if (taskSel) {
-            var hasRepair = Array.prototype.some.call(taskSel.options, function (o) {
-                return o.value === 'well_repair';
-            });
-            if (hasRepair) {
-                taskSel.value = 'well_repair';
-            }
-            if (typeof toggleWellSelect === 'function' && staffId) {
-                toggleWellSelect(taskSel, staffId);
-            }
-        }
-
-        var wellSel = target.querySelector('select[name="well_id"]');
-        if (wellSel) {
-            wellSel.value = repairWell;
-        }
-
-        target.classList.add('staff-card--repair-target');
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', run);
-    } else {
-        run();
-    }
-})();

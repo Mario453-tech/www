@@ -52,9 +52,6 @@
         $sec = $sectionMap[$s['spec_code']]['label'] ?? t('technical.section_other');
         $sections[$sec][] = $s;
     }
- // Kotwica #tech-mnt umieszczana na pierwszej karcie Inzyniera Utrzymania Ruchu
- // (deep-link "Zlec naprawe u MNT" ze strony glownej).
-    $__mntAnchorPlaced = false;
     foreach ($sections as $sectionLabel => $sectionStaff):
     ?>
     <div class="staff-section-title"><?= htmlspecialchars($sectionLabel) ?> <span class="muted">(<?= count($sectionStaff) ?>)</span></div>
@@ -78,11 +75,8 @@
             }
         }
         $safeName = htmlspecialchars($s['first_name'].' '.$s['last_name'], ENT_QUOTES);
-        $__isMnt        = ($s['spec_code'] === 'maintenance_engineer');
-        $__placeAnchor  = ($__isMnt && !$__mntAnchorPlaced);
-        if ($__placeAnchor) { $__mntAnchorPlaced = true; }
     ?>
-    <div class="staff-card <?= $isBusy ? 'busy' : '' ?>" data-spec="<?= htmlspecialchars($s['spec_code'], ENT_QUOTES) ?>"<?= $__placeAnchor ? ' id="tech-mnt"' : '' ?>>
+    <div class="staff-card <?= $isBusy ? 'busy' : '' ?>">
         <div class="staff-hdr">
             <div>
                 <span class="staff-spec-icon"><?= $specDef['icon'] ?></span>

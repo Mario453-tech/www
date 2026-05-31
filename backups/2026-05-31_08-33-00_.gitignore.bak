@@ -1,0 +1,5 @@
+.phpunit.cache/
+.env
+.env.*
+!.env.example
+ENV_FILE.env

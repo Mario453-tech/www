@@ -200,17 +200,6 @@
 .staff-card:hover { border-color: rgba(200,168,75,.2); }
 .staff-card.busy { border-left: 3px solid #c8a84b; }
 
-/* Karta wskazana przez deep-link "Zleć naprawę u MNT" */
-.staff-card--repair-target {
-    border-color: rgba(78,201,122,.6) !important;
-    box-shadow: 0 0 0 2px rgba(78,201,122,.25), 0 0 18px rgba(78,201,122,.18);
-    animation: staffRepairPulse 1.2s ease-in-out 2;
-}
-@keyframes staffRepairPulse {
-    0%, 100% { box-shadow: 0 0 0 2px rgba(78,201,122,.25), 0 0 18px rgba(78,201,122,.18); }
-    50%      { box-shadow: 0 0 0 3px rgba(78,201,122,.5),  0 0 26px rgba(78,201,122,.35); }
-}
-
 .staff-hdr {
     display: flex;
     justify-content: space-between;

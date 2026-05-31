@@ -3,3 +3,6 @@
 .env.*
 !.env.example
 ENV_FILE.env
+
+# Runtime logs (nie wersjonujemy — zmieniaja sie przy kazdym requescie)
+error_log
