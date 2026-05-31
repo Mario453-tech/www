@@ -162,7 +162,7 @@ jobs:
           set mirror:parallel-transfer-count 1
           open ftps://$FTP_HOST:990
           user "$FTP_USER" "$FTP_PASS"
-          mirror --reverse --verbose --transfer-all --no-perms -X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php ./ "$FTP_DIR"
+          mirror --reverse --verbose --continue --no-perms --ignore-time -X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php ./ "$FTP_DIR"
           bye
           LFTP
 
