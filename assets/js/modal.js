@@ -3,9 +3,9 @@
  * API:
  * confirmAction(text, callback, options?)
  * promptInput(text, defaultValue, callback, options?)
- * alertInfo(text, title?)
- * alertError(text, title?)
- * alertWarning(text, title?)
+ * alertInfo(text, title?, callback?)
+ * alertError(text, title?, callback?)
+ * alertWarning(text, title?, callback?)
  * showGameToast(message, type?)
  * showGameToast(title, message, type?)
  */
@@ -298,33 +298,42 @@
         }, 30);
     };
 
-    window.alertInfo = function (text, title) {
+    window.alertInfo = function (text, title, callback) {
         buildModal();
         setType('info');
         titleEl.textContent = title || LABELS.title_info;
         bodyEl.textContent = text;
         actionsEl.innerHTML = '';
-        actionsEl.appendChild(makeBtn(LABELS.ok, 'modal-btn--confirm', closeModal));
+        actionsEl.appendChild(makeBtn(LABELS.ok, 'modal-btn--confirm', function () {
+            closeModal();
+            if (typeof callback === 'function') callback();
+        }));
         openModal();
     };
 
-    window.alertError = function (text, title) {
+    window.alertError = function (text, title, callback) {
         buildModal();
         setType('danger');
         titleEl.textContent = title || LABELS.title_error;
         bodyEl.textContent = text;
         actionsEl.innerHTML = '';
-        actionsEl.appendChild(makeBtn(LABELS.ok, 'modal-btn--danger', closeModal));
+        actionsEl.appendChild(makeBtn(LABELS.ok, 'modal-btn--danger', function () {
+            closeModal();
+            if (typeof callback === 'function') callback();
+        }));
         openModal();
     };
 
-    window.alertWarning = function (text, title) {
+    window.alertWarning = function (text, title, callback) {
         buildModal();
         setType('warning');
         titleEl.textContent = title || LABELS.title_warn;
         bodyEl.textContent = text;
         actionsEl.innerHTML = '';
-        actionsEl.appendChild(makeBtn(LABELS.ok, 'modal-btn--confirm', closeModal));
+        actionsEl.appendChild(makeBtn(LABELS.ok, 'modal-btn--confirm', function () {
+            closeModal();
+            if (typeof callback === 'function') callback();
+        }));
         openModal();
     };
 

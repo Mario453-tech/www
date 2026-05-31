@@ -123,6 +123,7 @@ return [
     'technical.confirm_assign_title' => 'Potwierdź zlecenie zadania',
     'technical.confirm_assign_task' => 'Zlecić zadanie::task Szacowany koszt: :cost',
     'technical.confirm_assign_ok' => 'Zleć zadanie',
+    'technical.task_result_title' => 'Zadanie zlecone',
     'technical.cancel_task_title' => 'Anuluj zadanie',
     'technical.btn_cancel' => 'Anuluj',
     'technical.finalizing' => 'Finalizacja',

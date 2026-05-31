@@ -66,20 +66,18 @@ final class MySqlHubAssignmentServiceTest extends MySqlIntegrationTestCase
         $result = $assignmentSvc->assignWell($playerId, $ids['hubId'], $ids['wellId']);
         $this->assertTrue($result['success'], 'assignWell should succeed');
 
+        // access_fee = 0: opłata przeniesiona na etap akwizycji huba (nie przy przypisaniu odwiertu).
         $accessFee = (float)($result['access_fee'] ?? 0);
-        $this->assertGreaterThan(0.0, $accessFee, 'access_fee must be > 0 for new hub');
+        $this->assertSame(0.0, $accessFee, 'access_fee must be 0 — paid at hub acquisition time');
 
         $cashAfter = (float)$this->db->query("SELECT cash FROM players WHERE id = {$playerId}")->fetchColumn();
-        $this->assertEqualsWithDelta($cashBefore - $accessFee, $cashAfter, 0.01,
-            'Player cash should be reduced by exactly the access fee');
+        $this->assertEqualsWithDelta($cashBefore, $cashAfter, 0.01,
+            'Player cash must not change on well assignment');
 
-        $feeInDb = (float)$this->db->prepare("SELECT access_fee_paid FROM logistics_hub_assignments WHERE well_id = ? AND status='active'")
-            ->execute([$ids['wellId']]) ?: 0;
         $stmt = $this->db->prepare("SELECT access_fee_paid FROM logistics_hub_assignments WHERE well_id = ? AND status='active'");
         $stmt->execute([$ids['wellId']]);
         $feeInDb = (float)$stmt->fetchColumn();
-        $this->assertEqualsWithDelta($accessFee, $feeInDb, 0.01,
-            'access_fee_paid column must match returned access_fee');
+        $this->assertSame(0.0, $feeInDb, 'access_fee_paid in DB must be 0');
     }
 
     public function testGetUnassignedWellsIncludesNullCooldownWhenNoCooldownActive(): void

@@ -70,6 +70,7 @@ window.TECH_LANG = <?= json_encode([
     'confirm_assign_title'    => t('technical.confirm_assign_title'),
     'confirm_assign_task'     => t('technical.confirm_assign_task'),
     'confirm_assign_ok'       => t('technical.confirm_assign_ok'),
+    'task_result_title'       => t('technical.task_result_title'),
     'review_val_no_score'     => t('technical.review_val_no_score'),
     'review_val_no_rec'       => t('technical.review_val_no_rec'),
     'review_confirm_title'    => t('technical.review_confirm_title'),

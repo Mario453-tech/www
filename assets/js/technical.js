@@ -122,6 +122,7 @@ function toggleWellSelect(sel, staffId) {
 
 // Confirm dialog for paid task assignment.
 // Shows cost range when task has cost > 0.
+// Submits via AJAX and shows result in a modal instead of page reload.
 function techTaskConfirm(form) {
     const sel = form.querySelector('select[name="task_type"]');
     if (!sel) return true;
@@ -132,36 +133,66 @@ function techTaskConfirm(form) {
     const label    = opt.textContent.trim();
     const locale   = window.APP_LOCALE || 'pl-PL';
     const fmt      = (n) => n.toLocaleString(locale, { maximumFractionDigits: 0 });
+    const btn      = form.querySelector('button[type="submit"]');
+    const btnText  = btn ? btn.textContent : '';
 
-    const btn = form.querySelector('button[type="submit"]');
-
- // Disable submit button to prevent double-submit on free tasks.
- // Blokada przycisku po kliknieciu - zapobiega wielokrotnemu wyslaniu.
-    if (costMin <= 0) {
+    function doSubmit() {
         if (btn) { btn.disabled = true; btn.textContent = '...'; }
-        return true;
+        const fd = new FormData(form);
+        fetch(location.pathname, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            const msg = data.message || '';
+            if (data.success) {
+                const title = (window.TECH_LANG && window.TECH_LANG.task_result_title) || 'Zlecono';
+                if (typeof window.alertInfo === 'function') {
+                    window.alertInfo(msg, title, function () { location.reload(); });
+                } else {
+                    location.reload();
+                }
+            } else {
+                if (btn) { btn.disabled = false; btn.textContent = btnText; }
+                if (typeof window.alertError === 'function') {
+                    window.alertError(msg);
+                } else if (typeof window.showGameToast === 'function') {
+                    window.showGameToast(msg, 'error');
+                }
+            }
+        })
+        .catch(function () {
+            location.reload();
+        });
+    }
+
+    if (costMin <= 0) {
+        doSubmit();
+        return false;
     }
 
     const costRange = fmt(costMin) + ' – ' + fmt(costMax) + ' zł';
-    const msg = (window.TECH_LANG && window.TECH_LANG.confirm_assign_task)
+    const confirmMsg = (window.TECH_LANG && window.TECH_LANG.confirm_assign_task)
         ? window.TECH_LANG.confirm_assign_task
               .replace(':task', label)
               .replace(':cost', costRange)
         : ('Przypisać zadanie?\n' + label + '\nSzacowany koszt: ' + costRange);
 
     if (typeof window.confirmAction === 'function') {
-        window.confirmAction(msg, function () {
-            if (btn) { btn.disabled = true; btn.textContent = '...'; }
-            form.submit();
-        }, {
+        window.confirmAction(confirmMsg, doSubmit, {
             title: (window.TECH_LANG && window.TECH_LANG.confirm_assign_title) || 'Potwierdź zadanie',
             type: 'confirm',
-            confirmLabel: (window.TECH_LANG && window.TECH_LANG.confirm_assign_ok) || 'Przypisz'
+            confirmLabel: (window.TECH_LANG && window.TECH_LANG.confirm_assign_ok) || 'Przypisz',
         });
-        return false; // block native submit - confirmAction calls form.submit()
+        return false;
     }
 
-    return window.confirm(msg);
+    if (window.confirm(confirmMsg)) {
+        doSubmit();
+    }
+    return false;
 }
 
 // Validate and confirm candidate review before submit.

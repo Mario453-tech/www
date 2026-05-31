@@ -68,6 +68,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $msg = t('technical.err_assign_task'); $msgType = 'error';
                     GameLog::error('technical.php', 'assign_task EXCEPTION', $e);
                 }
+                if (
+                    !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+                    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+                ) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => $msgType === 'success', 'message' => $msg]);
+                    exit;
+                }
                 break;
 
             case 'fire_engineer':

@@ -136,14 +136,17 @@ abstract class MySqlIntegrationTestCase extends TestCase
         string $status = 'active',
         string $acquisitionType = 'new',
         string $workMode = 'standard',
-        float $bufferCurrent = 0.0
+        float $bufferCurrent = 0.0,
+        ?int $playerId = null
     ): void {
+        $ownerId = $playerId ?? $this->getTrackedIds()['playerId'];
         $stmt = $this->db->prepare(
             'INSERT INTO logistics_hubs (id, player_id, region_id, zone_key, name, hub_type, acquisition_type, status, work_mode, slot_limit, condition_pct, initial_condition_pct, nominal_capacity_bph, real_capacity_bph, buffer_capacity_bbl, buffer_current_bbl, opex_per_tick, lease_fee_per_tick, build_cost, repair_cost_estimate)
-             VALUES (?, 0, ?, ?, ?, \'medium\', ?, ?, ?, 4, ?, ?, 200.00, 200.00, 500.00, ?, 100.00, 0.00, 100000.00, 200000.00)'
+             VALUES (?, ?, ?, ?, ?, \'medium\', ?, ?, ?, 4, ?, ?, 200.00, 200.00, 500.00, ?, 100.00, 0.00, 100000.00, 200000.00)'
         );
         $stmt->execute([
             $hubId,
+            $ownerId,
             $regionId,
             $zoneKey,
             $name,
