@@ -75,6 +75,7 @@
                     var v=this.form.querySelector('[name=region_code]').value;
                     var intl=['NO','US_CA','ME','ASIA'];
                     r.value=intl.includes(v)?'international':'local';
+                    return confirmSubmit(this, '<?= htmlspecialchars(t('technical.recruit_confirm'), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.recruit_confirm_title'), ENT_QUOTES, 'UTF-8') ?>', confirmLabel: '<?= htmlspecialchars(t('technical.btn_recruit'), ENT_QUOTES, 'UTF-8') ?>' });
                 "
             ><?= t('technical.btn_recruit') ?></button>
         </form>

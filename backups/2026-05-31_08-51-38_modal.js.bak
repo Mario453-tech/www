@@ -259,52 +259,6 @@
         openModal();
     };
 
-    /*
-     * confirmSubmit(el, message, opts?) — pytanie w modalu przed wyslaniem formularza.
-     * el moze byc <form>, przyciskiem (uzywa el.form) lub dowolnym elementem w formularzu.
-     * Uzycie:
-     *   <form onsubmit="return confirmSubmit(this, 'Na pewno?')">
-     *   <button onclick="confirmSubmit(this, 'Na pewno?', {type:'danger'}); return false;">
-     * Zwraca false (blokuje natywne wyslanie); po potwierdzeniu wysyla formularz.
-     */
-    window.confirmSubmit = function (el, message, opts) {
-        opts = opts || {};
-
-        var form = null;
-        if (el) {
-            if (el.tagName === 'FORM') {
-                form = el;
-            } else if (el.form) {
-                form = el.form;
-            } else if (typeof el.closest === 'function') {
-                form = el.closest('form');
-            }
-        }
-        if (!form) {
-            return false;
-        }
-
- // Drugie przejscie (po potwierdzeniu) — pozwol wyslac.
-        if (form.dataset.confirmed === '1') {
-            form.dataset.confirmed = '';
-            return true;
-        }
-
-        confirmAction(message, function () {
-            form.dataset.confirmed = '1';
- // form.submit() nie wywoluje ponownie onsubmit — brak petli.
-            if (typeof form.submit === 'function') {
-                form.submit();
-            }
-        }, {
-            title: opts.title || LABELS.confirm,
-            type: opts.type || 'confirm',
-            confirmLabel: opts.confirmLabel || LABELS.confirm
-        });
-
-        return false;
-    };
-
     window.promptInput = function (text, defaultValue, callback, opts) {
         buildModal();
         opts = opts || {};

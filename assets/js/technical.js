@@ -202,11 +202,19 @@ function candReviewConfirm(form) {
     var recEl   = form.querySelector('input[name="recommendation"]:checked');
 
     if (!scoreEl) {
-        alert(techl('review_val_no_score'));
+        if (typeof window.alertWarning === 'function') {
+            window.alertWarning(techl('review_val_no_score'));
+        } else {
+            alert(techl('review_val_no_score'));
+        }
         return false;
     }
     if (!recEl) {
-        alert(techl('review_val_no_rec'));
+        if (typeof window.alertWarning === 'function') {
+            window.alertWarning(techl('review_val_no_rec'));
+        } else {
+            alert(techl('review_val_no_rec'));
+        }
         return false;
     }
 
