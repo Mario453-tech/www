@@ -29,7 +29,6 @@ return [
     'common.of' => 'z',
     'common.save' => 'Zapisz',
     'common.save_changes' => 'Zapisz zmiany',
-    'common.cancel' => 'Anuluj',
     'common.edit' => 'Edytuj',
     'common.delete' => 'Usuń',
     'common.actions' => 'Akcje',

@@ -172,15 +172,13 @@ function wgConfirmStorage(wellId, capNow, capAfter, cost) {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.success) {
-                btn.disabled = false;
                 btn.textContent = wgt('storage_done');
-                btn.addEventListener('click', function() { wgCloseModal(); window.location.reload(); });
                 msgEl.className = 'wg-modal-success';
                 msgEl.textContent = data.message;
                 setTimeout(function() {
                     wgCloseModal();
                     window.location.reload();
-                }, 3000);
+                }, 12000);
             } else {
                 btn.disabled = false;
                 btn.textContent = wgt('storage_confirm_btn');
