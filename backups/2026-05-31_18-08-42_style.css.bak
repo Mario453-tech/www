@@ -1235,7 +1235,6 @@ body.nav-open .nav-burger span:nth-child(3) {
         border-left: 1px solid var(--border, rgba(255,255,255,.08)) !important;
         flex-direction: column !important;
         align-items: stretch !important;
-        justify-content: flex-start !important;
         flex-wrap: nowrap !important;
         overflow-x: hidden !important;
         overflow-y: auto !important;
