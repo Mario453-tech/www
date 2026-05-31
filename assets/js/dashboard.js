@@ -55,5 +55,8 @@ async function fireEmployee(memberId, memberName) {
     );
 }
 
-// Auto-refresh co 30 sekund
-setTimeout(() => location.reload(), 30000);
+// Auto-odświeżanie co 60 s — pomijane gdy karta jest nieaktywna (oszczędza obciążenie serwera).
+// Auto-refresh every 60s — skipped while the tab is hidden (saves server load).
+setInterval(() => {
+    if (!document.hidden) location.reload();
+}, 60000);

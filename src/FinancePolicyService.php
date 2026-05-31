@@ -115,8 +115,17 @@ class FinancePolicyService
         $this->ensureSchema();
     }
 
+    /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */
+    private static array $schemaEnsured = [];
+
     private function ensureSchema(): void
     {
+        $schemaConnId = spl_object_id($this->db);
+        if (isset(self::$schemaEnsured[$schemaConnId])) {
+            return;
+        }
+        self::$schemaEnsured[$schemaConnId] = true;
+
         try {
             $this->db->exec(
                 "CREATE TABLE IF NOT EXISTS player_finance_settings (

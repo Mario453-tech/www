@@ -456,6 +456,21 @@
         }
     }
 
+    // Polling z pauzą gdy karta nieaktywna (oszczędza zapytania przy wielu graczach).
+    // Polling paused when the tab is hidden (saves queries with many players).
+    function startDmPolling() {
+        stopDmPolling();
+        if (document.hidden) return;
+        if (WITH_ID) {
+            interval = setInterval(pollMessages, 8000);
+        }
+        conversationsInterval = setInterval(loadConversations, 15000);
+    }
+    function stopDmPolling() {
+        if (interval) { clearInterval(interval); interval = null; }
+        if (conversationsInterval) { clearInterval(conversationsInterval); conversationsInterval = null; }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         buildEmojiMenu();
         syncSettingsUi();
@@ -464,9 +479,17 @@
 
         if (WITH_ID) {
             loadMessages();
-            interval = setInterval(pollMessages, 4000);
         }
-        conversationsInterval = setInterval(loadConversations, 12000);
+        startDmPolling();
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                stopDmPolling();
+            } else {
+                if (WITH_ID) pollMessages();
+                loadConversations();
+                startDmPolling();
+            }
+        });
 
         var input = document.getElementById('dmInput');
         if (input) {

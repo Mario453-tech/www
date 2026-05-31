@@ -49,8 +49,17 @@ class OffshoreTransportService
  // Schemat
  // 
 
+    /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */
+    private static array $schemaEnsured = [];
+
     private function ensureSchema(): void
     {
+        $schemaConnId = spl_object_id($this->db);
+        if (isset(self::$schemaEnsured[$schemaConnId])) {
+            return;
+        }
+        self::$schemaEnsured[$schemaConnId] = true;
+
         $isSqlite = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
 
         if ($isSqlite) {

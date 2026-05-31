@@ -94,8 +94,18 @@ class Database
  * Database::addColumnIfMissing('wells', 'sold_at', 'DATETIME NULL DEFAULT NULL');
  * Database::addColumnIfMissing('players', 'recovery_mode', "TINYINT(1) NOT NULL DEFAULT 0 AFTER bankruptcy_status");
  */
+    /** @var array<string,bool> cache sprawdzonych/dodanych kolumn (raz na proces) */
+    private static array $ensuredColumns = [];
+
     public static function addColumnIfMissing(string $table, string $column, string $definition): void
     {
+        // Cache w obrebie procesu: po pierwszym sprawdzeniu kolumny pomijamy
+        // kosztowne zapytania do INFORMATION_SCHEMA (wolane wielokrotnie per tick/gracz).
+        $cacheKey = $table . '.' . $column;
+        if (isset(self::$ensuredColumns[$cacheKey])) {
+            return;
+        }
+
         $db     = self::getInstance()->getConnection();
         $dbName = $db->query("SELECT DATABASE()")->fetchColumn();
         $stmt   = $db->prepare(
@@ -106,5 +116,7 @@ class Database
         if ((int)$stmt->fetchColumn() === 0) {
             $db->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
         }
+
+        self::$ensuredColumns[$cacheKey] = true;
     }
 }

@@ -35,8 +35,17 @@ class MarineDeliveryService
  // Schema
  // 
 
+    /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */
+    private static array $schemaEnsured = [];
+
     public function ensureSchema(): void
     {
+        $schemaConnId = spl_object_id($this->db);
+        if (isset(self::$schemaEnsured[$schemaConnId])) {
+            return;
+        }
+        self::$schemaEnsured[$schemaConnId] = true;
+
         $this->db->exec(
             "CREATE TABLE IF NOT EXISTS marine_deliveries (
                 id            BIGINT        NOT NULL AUTO_INCREMENT PRIMARY KEY,

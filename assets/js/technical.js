@@ -237,7 +237,10 @@ function candReviewConfirm(form) {
     return window.confirm(msg);
 }
 
-setTimeout(() => location.reload(), 60000);
+// Auto-odświeżanie — pomijane gdy karta nieaktywna (oszczędza obciążenie serwera).
+setInterval(() => {
+    if (!document.hidden) location.reload();
+}, 60000);
 
 // Deep-link "Zleć naprawę u MNT" ze strony głównej (?repair_well=ID#tech-mnt):
 // przewija do Inżyniera Utrzymania Ruchu, otwiera formularz zlecenia,
