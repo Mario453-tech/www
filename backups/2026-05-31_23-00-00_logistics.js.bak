@@ -134,7 +134,7 @@ async function loadLogisticsSummary() {
         if (!data.success) { body.innerHTML = `<span class="c-bad">${ll('err')}</span>`; return; }
 
         const t = data.totals || {};
-        const typeIcons = { rurociag: '', ciezarowki: '', tankowiec: '', nieustawiony: '' };
+        const typeIcons = { rurociag: '', ciezarowki: '', tankowiec: '' };
 
  // Podsumowanie globalne
         let html = `
@@ -216,7 +216,7 @@ async function runLogisticsOptimize() {
  // Sukces poka wyniki
         const bef = result.before || {};
         const aft = result.after  || {};
-        const typeIcons = { rurociag: '', ciezarowki: '', tankowiec: '', nieustawiony: '' };
+        const typeIcons = { rurociag: '', ciezarowki: '', tankowiec: '' };
         const modeCost  = result.mode_cost || MODE_COSTS[mode] || 0;
 
         let html = `

@@ -1585,7 +1585,6 @@ window.LOGISTICS_LANG = <?= json_encode([
     'type_rurociag'     => t('logistics.type_rurociag'),
     'type_ciezarowki'   => t('logistics.type_ciezarowki'),
     'type_tankowiec'    => t('logistics.type_tankowiec'),
-    'type_nieustawiony' => t('logistics.type_nieustawiony'),
     'label_loss'        => t('logistics.label_loss'),
     'label_cost'        => t('logistics.label_cost'),
     'label_eff'         => t('logistics.label_eff'),
