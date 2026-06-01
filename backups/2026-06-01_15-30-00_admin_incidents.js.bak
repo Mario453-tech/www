@@ -1,6 +1,6 @@
 /* Admin incidents panel - tab switching */
 (function () {
-    var tabs = ['stats', 'micro', 'minor', 'medium', 'major', 'pipe_micro', 'pipe_minor', 'pipe_medium', 'cooldown', 'recent', 'help', 'trigger'];
+    var tabs = ['stats', 'micro', 'minor', 'medium', 'major', 'pipe_micro', 'pipe_minor', 'pipe_medium', 'recent', 'help', 'trigger'];
 
     window.incShowTab = function (name) {
         tabs.forEach(function (id) {

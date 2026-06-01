@@ -837,4 +837,4 @@ foreach ($PIPE_LEVELS as $lvl):
     </script>
 </div><!-- end inc-tab-trigger -->
 
-<script src="/assets/js/admin_incidents.js?v=<?= filemtime(__DIR__ . '/../../../../assets/js/admin_incidents.js') ?>"></script>
+<script src="/assets/js/admin_incidents.js"></script>
