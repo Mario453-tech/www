@@ -19,7 +19,7 @@ $BALANCE_KEYS = [
     'global_degradation_mult'    => [tPlain('admin.balance.key_degradation'), '1.0', tPlain('admin.balance.hint_degradation')],
     'global_opex_multiplier'     => [tPlain('admin.balance.key_opex'),        '1.0', tPlain('admin.balance.hint_opex')],
     'global_production_mult'     => [tPlain('admin.balance.key_production'),  '1.0', tPlain('admin.balance.hint_production')],
-    'global_tax_multiplier'      => [tPlain('admin.finance.cfg_tax_label'),   '1.0', tPlain('admin.finance.cfg_tax_desc')],
+    'global_tax_multiplier'      => [tPlain('admin.balance.key_tax'),         '1.0', tPlain('admin.balance.hint_tax')],
 ];
 
 // Load current values from well_config.
@@ -115,6 +115,8 @@ $prodStats = $db->query("
     SELECT
         COUNT(*) AS active_wells,
         SUM(base_production_per_hour) AS total_base_prod,
+        SUM(upkeep_cost_per_hour) AS total_base_opex,
+        AVG(COALESCE(regional_tax_rate, 0)) AS avg_tax_rate,
         AVG(technical_condition) AS avg_condition,
         AVG(wear_level) AS avg_wear
     FROM wells WHERE status = 'active'
@@ -148,6 +150,15 @@ $activePlayerCount = (int)$db->query("SELECT COUNT(*) FROM players WHERE status 
 $productionMult = isset($currentConfig['global_production_mult'])
     ? max(0.1, min(10.0, (float)$currentConfig['global_production_mult']))
     : 1.0;
+$opexMult = isset($currentConfig['global_opex_multiplier'])
+    ? max(0.1, min(10.0, (float)$currentConfig['global_opex_multiplier']))
+    : 1.0;
+$lossMult = isset($currentConfig['global_loss_multiplier'])
+    ? max(0.1, min(10.0, (float)$currentConfig['global_loss_multiplier']))
+    : 1.0;
+$taxMult = isset($currentConfig['global_tax_multiplier'])
+    ? max(0.1, min(10.0, (float)$currentConfig['global_tax_multiplier']))
+    : 1.0;
 
 // Estimated revenue per player after the global production multiplier.
 // PL: Szacunkowy przychod per gracz po globalnym mnozniku produkcji.
@@ -155,6 +166,21 @@ $avgProdPerPlayer = ($activePlayerCount > 0 && (float)($prodStats['total_base_pr
     ? (float)$prodStats['total_base_prod'] / $activePlayerCount
     : 0.0;
 $estRevenuePerDay = $avgProdPerPlayer * $productionMult * $oilPrice * 24 * 0.7;
+
+$baseProductionPerHour = (float)($prodStats['total_base_prod'] ?? 0.0);
+$baseOpexPerHour = (float)($prodStats['total_base_opex'] ?? 0.0);
+$avgPipelineLoss = (float)($pipeStats['avg_loss'] ?? 0.0);
+$avgTaxRatePct = (float)($prodStats['avg_tax_rate'] ?? 0.0) * 100.0;
+$impactStats = [
+    'production_before' => $baseProductionPerHour,
+    'production_after'  => $baseProductionPerHour * $productionMult,
+    'opex_before'       => $baseOpexPerHour,
+    'opex_after'        => $baseOpexPerHour * $opexMult,
+    'loss_before'       => $avgPipelineLoss,
+    'loss_after'        => $avgPipelineLoss * $lossMult,
+    'tax_before'        => $avgTaxRatePct,
+    'tax_after'         => $avgTaxRatePct * $taxMult,
+];
 
 $viewData = [
     'msg'               => $msg,
@@ -166,6 +192,7 @@ $viewData = [
     'estRevenuePerDay'  => $estRevenuePerDay,
     'BALANCE_KEYS'      => $BALANCE_KEYS,
     'currentConfig'     => $currentConfig,
+    'impactStats'       => $impactStats,
 ];
 
 $pageTitle = t('admin.balance.title');

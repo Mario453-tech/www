@@ -606,6 +606,10 @@ $totalBelowReserve = $reserveCounts['critical'] + $reserveCounts['warning'] + $r
 
 <section class="panel">
     <p class="panel-title">&#9881; <?= t('admin.finance.config_title') ?></p>
+    <p class="fin-config-desc">
+        <?= t('admin.finance.balance_link_note') ?>
+        <a href="/admin/balance.php"><?= t('admin.finance.balance_link_label') ?></a>.
+    </p>
     <form method="post"
           data-confirm="<?= htmlspecialchars(t('admin.finance.confirm_save_config')) ?>"
           data-confirm-type="info"
@@ -668,12 +672,12 @@ $totalBelowReserve = $reserveCounts['critical'] + $reserveCounts['warning'] + $r
 
 $decisionKeyLabel = static function(string $key): string {
     return match($key) {
-        'technical_budget'  => 'Budet techniczny',
-        'logistics_budget'  => 'Budet logistyki',
-        'hr_budget'         => 'Budet HR',
-        'safety_budget'     => 'Budet BHP',
+        'technical_budget'  => 'Budżet techniczny',
+        'logistics_budget'  => 'Budżet logistyki',
+        'hr_budget'         => 'Budżet HR',
+        'safety_budget'     => 'Budżet BHP',
         'reserve_policy'    => 'Rezerwa awaryjna',
-        'savings_plan_mode' => 'Plan oszczdnoci',
+        'savings_plan_mode' => 'Plan oszczędności',
         default             => htmlspecialchars($key),
     };
 };
@@ -683,7 +687,7 @@ $decisionValLabel = static function(string $val): string {
         'low'        => 'Niski',
         'standard'   => 'Standard',
         'high'       => 'Wysoki',
-        'off'        => 'Wyczony',
+        'off'        => 'Wyłączony',
         'moderate'   => 'Umiarkowany',
         'aggressive' => 'Agresywny',
         default      => htmlspecialchars($val),

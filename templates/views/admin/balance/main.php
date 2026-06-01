@@ -38,6 +38,46 @@
     </div>
 </section>
 
+<!-- Settings impact preview / PL: Podglad wplywu ustawien -->
+<section class="panel mb-8" aria-label="<?= t('admin.balance.impact_title') ?>">
+    <p class="panel-title"> <?= t('admin.balance.impact_title') ?></p>
+    <div class="cards">
+        <div class="card">
+            <p class="label"><?= t('admin.balance.impact_production') ?></p>
+            <p class="value green">
+                <?= number_format((float)($impactStats['production_before'] ?? 0), 1, ',', ' ') ?>
+                &rarr;
+                <?= number_format((float)($impactStats['production_after'] ?? 0), 1, ',', ' ') ?>
+            </p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.balance.impact_opex') ?></p>
+            <p class="value orange">
+                <?= number_format((float)($impactStats['opex_before'] ?? 0), 0, ',', ' ') ?>
+                &rarr;
+                <?= number_format((float)($impactStats['opex_after'] ?? 0), 0, ',', ' ') ?>
+            </p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.balance.impact_loss') ?></p>
+            <?php $lossAfter = (float)($impactStats['loss_after'] ?? 0); ?>
+            <p class="value <?= $lossAfter > 10 ? 'red' : 'green' ?>">
+                <?= number_format((float)($impactStats['loss_before'] ?? 0), 1, ',', ' ') ?>%
+                &rarr;
+                <?= number_format($lossAfter, 1, ',', ' ') ?>%
+            </p>
+        </div>
+        <div class="card">
+            <p class="label"><?= t('admin.balance.impact_tax') ?></p>
+            <p class="value sm">
+                <?= number_format((float)($impactStats['tax_before'] ?? 0), 1, ',', ' ') ?>%
+                &rarr;
+                <?= number_format((float)($impactStats['tax_after'] ?? 0), 1, ',', ' ') ?>%
+            </p>
+        </div>
+    </div>
+</section>
+
 <!-- Emergency actions and reset / PL: Akcje awaryjne i reset -->
 <div class="action-row">
 
@@ -56,7 +96,7 @@
                         'loss'       => ' ' . t('admin.balance.nerf_loss'),
                         'all_risk'   => ' ' . t('admin.balance.nerf_all_risk'),
                         'production' => ' ' . t('admin.balance.nerf_production'),
-                        'tax'        => ' ' . t('admin.finance.cfg_tax_label'),
+                        'tax'        => ' ' . t('admin.balance.nerf_tax'),
                     ] as $val => $lbl): ?>
                     <option value="<?= $val ?>"><?= $lbl ?></option>
                     <?php endforeach ?>

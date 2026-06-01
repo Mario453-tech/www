@@ -52,8 +52,8 @@ function adminFinanceMultiplierBounds(): array
 function adminFinanceMultiplierLabels(): array
 {
     return [
-        'sp_tech_wear_mod'        => 'Zuycie sprztu (umiarkowany)',
-        'sp_tech_wear_agg'        => 'Zuycie sprztu (agresywny)',
+        'sp_tech_wear_mod'        => 'Zużycie sprzętu (umiarkowany)',
+        'sp_tech_wear_agg'        => 'Zużycie sprzętu (agresywny)',
         'sp_tech_degr_mod'        => 'Degradacja (umiarkowany)',
         'sp_tech_degr_agg'        => 'Degradacja (agresywny)',
         'sp_log_transport_mod'    => 'Koszt transportu (umiarkowany)',
@@ -66,8 +66,8 @@ function adminFinanceMultiplierLabels(): array
         'sp_log_incident_agg'     => 'Incydenty logistyki (agresywny)',
         'sp_hr_duration_mod'      => 'Czas wiercenia (umiarkowany)',
         'sp_hr_duration_agg'      => 'Czas wiercenia (agresywny)',
-        'sp_hr_quality_mod'       => 'Jako wiercenia (umiarkowany)',
-        'sp_hr_quality_agg'       => 'Jako wiercenia (agresywny)',
+        'sp_hr_quality_mod'       => 'Jakość wiercenia (umiarkowany)',
+        'sp_hr_quality_agg'       => 'Jakość wiercenia (agresywny)',
         'sp_safety_incident_agg'  => 'Incydenty BHP (agresywny)',
         'sp_safety_disaster_agg'  => 'Awarie BHP (agresywny)',
     ];
@@ -76,32 +76,11 @@ function adminFinanceMultiplierLabels(): array
 function adminFinanceConfigDefaults(): array
 {
     return [
-        'global_tax_modifier'         => 1.0,
-        'global_cost_modifier'        => 1.0,
-        'global_loss_modifier'        => 1.0,
         'savings_plan_cooldown_hours' => 6,
         'alert_loss_pct'              => 10.0,
         'alert_hub_loss_pct'          => 5.0,
         'alert_fallback_min_pln'      => 1.0,
         'alert_loss_player_min'       => 1,
-    ];
-}
-
-function adminFinanceConfigRuntimeMap(): array
-{
-    return [
-        'global_tax_modifier' => [
-            ['key' => 'global_tax_modifier', 'label' => 'Mnonik podatkw globalnych'],
-            ['key' => 'global_tax_multiplier', 'label' => 'Globalny mnonik podatkw'],
-        ],
-        'global_cost_modifier' => [
-            ['key' => 'global_cost_modifier', 'label' => 'Mnonik kosztw globalnych'],
-            ['key' => 'global_opex_multiplier', 'label' => 'Globalny mnonik kosztw i OPEX'],
-        ],
-        'global_loss_modifier' => [
-            ['key' => 'global_loss_modifier', 'label' => 'Mnonik strat globalnych'],
-            ['key' => 'global_loss_multiplier', 'label' => 'Globalny mnonik strat'],
-        ],
     ];
 }
 
@@ -115,27 +94,6 @@ function adminFinanceLoadConfig(PDO $db): array
         }
     } catch (Throwable $e) {
         GameLog::error('admin/finance.php', 'load config FAILED', $e);
-    }
-
-    try {
-        $runtimeRows = $db->query("
-            SELECT `key`, value
-            FROM well_config
-            WHERE `key` IN ('global_tax_multiplier','global_opex_multiplier','global_loss_multiplier')
-        ")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($runtimeRows as $row) {
-            $mappedKey = match ($row['key']) {
-                'global_tax_multiplier'  => 'global_tax_modifier',
-                'global_opex_multiplier' => 'global_cost_modifier',
-                'global_loss_multiplier' => 'global_loss_modifier',
-                default                  => null,
-            };
-            if ($mappedKey !== null) {
-                $config[$mappedKey] = (float)$row['value'];
-            }
-        }
-    } catch (Throwable $e) {
-        GameLog::error('admin/finance.php', 'load runtime config FAILED', $e);
     }
 
     return $config + adminFinanceConfigDefaults();
@@ -162,9 +120,6 @@ function adminFinanceLoadSavingsMultipliers(PDO $db): array
 function adminFinanceConfigFields(array $config): array
 {
     return [
-        ['key' => 'global_tax_modifier',         'label' => t('admin.finance.cfg_tax_label'),      'desc' => t('admin.finance.cfg_tax_desc'),      'val' => $config['global_tax_modifier'],         'type' => 'float', 'min' => 0.1,  'max' => 5.0,   'step' => '0.01'],
-        ['key' => 'global_cost_modifier',        'label' => t('admin.finance.cfg_cost_label'),     'desc' => t('admin.finance.cfg_cost_desc'),     'val' => $config['global_cost_modifier'],        'type' => 'float', 'min' => 0.1,  'max' => 5.0,   'step' => '0.01'],
-        ['key' => 'global_loss_modifier',        'label' => t('admin.finance.cfg_loss_label'),     'desc' => t('admin.finance.cfg_loss_desc'),     'val' => $config['global_loss_modifier'],        'type' => 'float', 'min' => 0.1,  'max' => 5.0,   'step' => '0.01'],
         ['key' => 'savings_plan_cooldown_hours', 'label' => t('admin.finance.cfg_cooldown_label'), 'desc' => t('admin.finance.cfg_cooldown_desc'), 'val' => $config['savings_plan_cooldown_hours'], 'type' => 'int',   'min' => 1,    'max' => 168.0, 'step' => '1'],
         ['key' => 'alert_loss_pct',              'label' => t('admin.finance.cfg_alert_loss_pct_label'),    'desc' => t('admin.finance.cfg_alert_loss_pct_desc'),    'val' => $config['alert_loss_pct'],              'type' => 'float', 'min' => 0.0,  'max' => 100.0, 'step' => '0.5'],
         ['key' => 'alert_hub_loss_pct',          'label' => t('admin.finance.cfg_alert_hub_loss_pct_label'),'desc' => t('admin.finance.cfg_alert_hub_loss_pct_desc'),'val' => $config['alert_hub_loss_pct'],          'type' => 'float', 'min' => 0.0,  'max' => 100.0, 'step' => '0.5'],
@@ -205,7 +160,7 @@ function adminFinanceHandlePost(PDO $db, string $action, array $post): array
                      ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)"
                 )->execute([$key, $val, $labels[$key]]);
             }
-            AdminLog::log('finance_multipliers_saved', 'Zaktualizowano mnoniki planu oszczdnoci (D2)');
+            AdminLog::log('finance_multipliers_saved', 'Saved savings plan multipliers (D2)');
             $msg = t('admin.finance.msg_multipliers_saved');
         } catch (Throwable $e) {
             GameLog::error('admin/finance.php', 'save_multipliers FAILED', $e);
@@ -218,25 +173,14 @@ function adminFinanceHandlePost(PDO $db, string $action, array $post): array
             $cooldownVal = max(1, min(168, (int)($post['savings_plan_cooldown_hours'] ?? 6)));
             $db->prepare(
                 "INSERT INTO well_config (`key`, value, label, category)
-                 VALUES ('savings_plan_cooldown_hours', ?, 'Cooldown planu oszczdnoci (h)', 'finance')
+                 VALUES ('savings_plan_cooldown_hours', ?, 'Cooldown planu oszczędności (h)', 'finance')
                  ON DUPLICATE KEY UPDATE value = VALUES(value)"
             )->execute([$cooldownVal]);
 
-            foreach (adminFinanceConfigRuntimeMap() as $fieldKey => $targets) {
-                $value = max(0.1, min(5.0, (float)($post[$fieldKey] ?? 1.0)));
-                foreach ($targets as $target) {
-                    $db->prepare(
-                        "INSERT INTO well_config (`key`, value, label, category)
-                         VALUES (?, ?, ?, 'finance')
-                         ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)"
-                    )->execute([$target['key'], $value, $target['label']]);
-                }
-            }
-
             $alertFields = [
-                'alert_loss_pct'         => ['label' => 'Prg alertu strat globalnych (%)',   'min' => 0.0, 'max' => 100.0],
-                'alert_hub_loss_pct'     => ['label' => 'Prg alertu strat hubowych (%)',      'min' => 0.0, 'max' => 100.0],
-                'alert_fallback_min_pln' => ['label' => 'Min straty odwiertw bez huba do alertu (PLN)', 'min' => 0.0, 'max' => 1000000.0],
+                'alert_loss_pct'         => ['label' => 'Próg alertu strat globalnych (%)',   'min' => 0.0, 'max' => 100.0],
+                'alert_hub_loss_pct'     => ['label' => 'Próg alertu strat hubowych (%)',      'min' => 0.0, 'max' => 100.0],
+                'alert_fallback_min_pln' => ['label' => 'Min. straty odwiertów bez huba do alertu (PLN)', 'min' => 0.0, 'max' => 1000000.0],
                 'alert_loss_player_min'  => ['label' => 'Min graczy z ujemnym netto',          'min' => 1,   'max' => 100],
             ];
             foreach ($alertFields as $key => $meta) {
