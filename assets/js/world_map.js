@@ -45,6 +45,7 @@
         'broken':         0xe74c3c,
         'blowout':        0xff1100,
         'seized':         0x9b59b6,
+        'servicing':      0x3498db,
     };
 
  // Region centers / Centra regionow

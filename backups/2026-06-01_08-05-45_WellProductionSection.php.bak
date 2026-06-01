@@ -132,11 +132,7 @@ class WellProductionSection
         array   $activeRegEvents,
         float   $storageCapacity
     ): void {
- // 'servicing' = odwiert w naprawie przez serwisanta: zamrozony (brak produkcji,
- // incydentow, degradacji i OPEX) az do zakonczenia zadania technicznego.
- // 'servicing' = well under technician service: frozen (no production, incidents,
- // degradation or OPEX) until the technical task completes.
-        if (in_array($well['status'], ['seized', 'blowout', 'broken', 'servicing'])) return;
+        if (in_array($well['status'], ['seized', 'blowout', 'broken'])) return;
 
  // Montaz sprzetu - odwiert wstrzymany przez 1h / Equipment installation - well paused for 1h
         if ($well['status'] === 'equipment_swap') {

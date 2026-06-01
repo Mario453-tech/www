@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gm_edit_well_id'])) {
         $enumDefs = [
             'status'          => ['active','paused_storage','paused_cash','paused_staff',
                                   'no_operator','no_technician','broken','blowout',
-                                  'contaminated','seized','layer_switch','sold'],
+                                  'contaminated','seized','layer_switch','sold','servicing'],
             'transport_type'  => ['rurociag','ciezarowki','tankowiec'],
             'hub_outbound_transport_type' => ['nieustawiony','rurociag','ciezarowki','tankowiec'],
             'production_mode' => ['eco','normal','boost'],

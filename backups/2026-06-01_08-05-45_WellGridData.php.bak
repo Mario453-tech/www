@@ -29,7 +29,6 @@ class WellGridData
             'contaminated'   => [t('technical.ws_contaminated'),    'wbadge--danger',  ''],
             'seized'         => [t('technical.ws_seized'),          'wbadge--danger',  ''],
             'equipment_swap' => [t('well.status.equipment_swap'),   'wbadge--warn',    ''],
-            'servicing'      => [t('well.status.servicing'),        'wbadge--warn',    ''],
         ];
 
  // Specialist names 

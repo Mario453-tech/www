@@ -6,9 +6,6 @@
  */
 trait TTSTasksTrait
 {
- // Zadania, ktore fizycznie wstrzymuja odwiert ("W naprawie") na czas pracy serwisanta.
- // Tasks that physically pause the well ("servicing") while the technician works.
-    private const WELL_SERVICE_TASKS = ['well_maintenance', 'well_repair', 'blowout_control', 'reservoir_rehabilitation'];
 
     public function getTasks(string $statusFilter = ''): array
     {
@@ -199,18 +196,6 @@ trait TTSTasksTrait
                 $this->playerId, $staffId, $taskType, $wellId, $hubId, $title, $moduleType,
                 $startTime, $endTime, $hours, $cost,
             ]);
-
- // Zamroz odwiert na czas fizycznego serwisu (status "W naprawie").
- // Freeze the well during physical service work (status "servicing").
-            if ($wellId && in_array($taskType, self::WELL_SERVICE_TASKS, true)) {
-                $this->db->prepare("
-                    UPDATE wells
-                    SET service_prev_status = status, status = 'servicing'
-                    WHERE id = ? AND player_id = ?
-                      AND status NOT IN ('seized','sold','layer_switch','equipment_swap','servicing')
-                ")->execute([$wellId, $this->playerId]);
-            }
-
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();
@@ -264,29 +249,7 @@ trait TTSTasksTrait
         $skill   = (int)($task['skill_level'] ?? 5);
         $result  = [];
 
- // Odmroz odwiert po serwisie (przywroc status sprzed "W naprawie"), o ile nie trwa
- // jeszcze inne zadanie serwisowe na tym odwiercie. Robione PRZED efektami zadania,
- // aby logika typu well_repair (broken -> active) widziala realny status.
- // Un-freeze the well after service (restore pre-"servicing" status) unless another
- // service task is still running on it. Done BEFORE task effects so logic like
- // well_repair (broken -> active) sees the real status.
-        if ($wellId && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
-            $otherStmt = $this->db->prepare("
-                SELECT COUNT(*) FROM technical_tasks
-                WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
-                  AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
-            ");
-            $otherStmt->execute([$wellId, $pId, $taskId]);
-            if ((int)$otherStmt->fetchColumn() === 0) {
-                $this->db->prepare("
-                    UPDATE wells
-                    SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
-                    WHERE id = ? AND player_id = ? AND status = 'servicing'
-                ")->execute([$wellId, $pId]);
-            }
-        }
-
- // Szansa
+ // Szansa 
         $failed = ($skill <= 3) && (mt_rand(1, 100) <= (4 - $skill) * 8);
 
         if (!$failed) {
@@ -626,24 +589,6 @@ trait TTSTasksTrait
                 UPDATE technical_staff SET status = 'active'
                 WHERE id = ? AND player_id = ?
             ")->execute([$task['staff_id'], $this->playerId]);
-
- // Odmroz odwiert jezeli anulowane zadanie go serwisowalo (i brak innych serwisow).
- // Un-freeze the well if the cancelled task was servicing it (and no other service runs).
-            if (!empty($task['well_id']) && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
-                $otherStmt = $this->db->prepare("
-                    SELECT COUNT(*) FROM technical_tasks
-                    WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
-                      AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
-                ");
-                $otherStmt->execute([(int)$task['well_id'], $this->playerId, $taskId]);
-                if ((int)$otherStmt->fetchColumn() === 0) {
-                    $this->db->prepare("
-                        UPDATE wells
-                        SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
-                        WHERE id = ? AND player_id = ? AND status = 'servicing'
-                    ")->execute([(int)$task['well_id'], $this->playerId]);
-                }
-            }
 
             $next = $this->db->prepare("
                 SELECT * FROM technical_task_queue WHERE staff_id = ?

@@ -87,12 +87,11 @@ class WellService
                 static fn ($v) => trim($v, "'"),
                 str_getcsv($m[1], ',', "'")
             );
-            $needed = array_values(array_diff(['equipment_swap', 'servicing'], $existing));
-            if ($needed === []) {
+            if (in_array('equipment_swap', $existing, true)) {
                 return; // enum już poprawny / enum already correct
             }
 
-            $allValues = array_merge($existing, $needed);
+            $allValues = array_merge($existing, ['equipment_swap']);
             $quoted    = implode(',', array_map(fn ($v) => $this->db->quote($v), $allValues));
             $this->db->exec(
                 "ALTER TABLE `wells` MODIFY COLUMN `status` ENUM({$quoted}) NOT NULL DEFAULT 'active'"
@@ -135,21 +134,6 @@ class WellService
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('WellService', 'ensureSchema ticks_since_incident failed', $e);
-            }
-        }
-
-        // Add service_prev_status (status frozen during a technical service task)
-        try {
-            $col = $this->db->query("SHOW COLUMNS FROM `wells` LIKE 'service_prev_status'")->fetch();
-            if (!$col) {
-                $this->db->exec("ALTER TABLE `wells` ADD COLUMN `service_prev_status` VARCHAR(32) DEFAULT NULL");
-                if (class_exists('GameLog', false)) {
-                    GameLog::info('WellService', 'wells.service_prev_status column added');
-                }
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('WellService', 'ensureSchema service_prev_status failed', $e);
             }
         }
     }

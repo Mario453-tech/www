@@ -15,7 +15,6 @@ $statusLabels = [
     'blowout'        => ['lbl' => t('technical.ws_blowout'),        'cls' => 'b-broken',  'icon' => t('technical.short_blowout')],
     'seized'         => ['lbl' => t('technical.ws_seized'),         'cls' => 'b-broken',  'icon' => t('technical.short_seized')],
     'broken'         => ['lbl' => t('technical.ws_broken'),         'cls' => 'b-broken',  'icon' => t('technical.short_error')],
-    'servicing'      => ['lbl' => t('technical.ws_servicing'),      'cls' => 'b-paused',  'icon' => t('technical.short_repair')],
 ];
 
 $specLabels = [
@@ -46,7 +45,7 @@ $specLabels = [
     $status    = $w['status'] ?? 'active';
     $stInfo    = $statusLabels[$status] ?? ['lbl' => $status, 'cls' => 'b-paused', 'icon' => 'STOP'];
     $isActive  = $status === 'active';
-    $isPaused  = str_starts_with($status, 'paused') || in_array($status, ['broken', 'seized', 'blowout', 'contaminated', 'servicing'], true);
+    $isPaused  = str_starts_with($status, 'paused') || in_array($status, ['broken', 'seized', 'blowout', 'contaminated'], true);
     $wellTasks = $tasksByWell[$wId] ?? [];
     $boostPct  = (float)($w['production_boost_pct'] ?? 0);
     $riskCls   = $riskScore >= 60 ? 'c-bad' : ($riskScore >= 30 ? 'c-warn' : 'c-good');
