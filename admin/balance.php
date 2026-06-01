@@ -12,14 +12,14 @@ $err = '';
 // Balance configuration keys stored in well_config.
 // PL: Klucze konfiguracji balansu zapisane w well_config.
 $BALANCE_KEYS = [
-    'global_loss_multiplier'     => [t('admin.balance.key_loss'),        '1.0', t('admin.balance.hint_loss')],
-    'global_incident_multiplier' => [t('admin.balance.key_incident'),    '1.0', t('admin.balance.hint_incident')],
-    'global_disaster_multiplier' => [t('admin.balance.key_disaster'),    '1.0', t('admin.balance.hint_disaster')],
-    'global_wear_multiplier'     => [t('admin.balance.key_wear'),        '1.0', t('admin.balance.hint_wear')],
-    'global_degradation_mult'    => [t('admin.balance.key_degradation'), '1.0', t('admin.balance.hint_degradation')],
-    'global_opex_multiplier'     => [t('admin.balance.key_opex'),        '1.0', t('admin.balance.hint_opex')],
-    'global_production_mult'     => [t('admin.balance.key_production'),  '1.0', t('admin.balance.hint_production')],
-    'global_tax_multiplier'      => [t('admin.finance.cfg_tax_label'),   '1.0', t('admin.finance.cfg_tax_desc')],
+    'global_loss_multiplier'     => [tPlain('admin.balance.key_loss'),        '1.0', tPlain('admin.balance.hint_loss')],
+    'global_incident_multiplier' => [tPlain('admin.balance.key_incident'),    '1.0', tPlain('admin.balance.hint_incident')],
+    'global_disaster_multiplier' => [tPlain('admin.balance.key_disaster'),    '1.0', tPlain('admin.balance.hint_disaster')],
+    'global_wear_multiplier'     => [tPlain('admin.balance.key_wear'),        '1.0', tPlain('admin.balance.hint_wear')],
+    'global_degradation_mult'    => [tPlain('admin.balance.key_degradation'), '1.0', tPlain('admin.balance.hint_degradation')],
+    'global_opex_multiplier'     => [tPlain('admin.balance.key_opex'),        '1.0', tPlain('admin.balance.hint_opex')],
+    'global_production_mult'     => [tPlain('admin.balance.key_production'),  '1.0', tPlain('admin.balance.hint_production')],
+    'global_tax_multiplier'      => [tPlain('admin.finance.cfg_tax_label'),   '1.0', tPlain('admin.finance.cfg_tax_desc')],
 ];
 
 // Load current values from well_config.
