@@ -9,7 +9,8 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-// Klucze konfiguracji balansu w well_config 
+// Balance configuration keys stored in well_config.
+// PL: Klucze konfiguracji balansu zapisane w well_config.
 $BALANCE_KEYS = [
     'global_loss_multiplier'     => [t('admin.balance.key_loss'),        '1.0', t('admin.balance.hint_loss')],
     'global_incident_multiplier' => [t('admin.balance.key_incident'),    '1.0', t('admin.balance.hint_incident')],
@@ -18,9 +19,11 @@ $BALANCE_KEYS = [
     'global_degradation_mult'    => [t('admin.balance.key_degradation'), '1.0', t('admin.balance.hint_degradation')],
     'global_opex_multiplier'     => [t('admin.balance.key_opex'),        '1.0', t('admin.balance.hint_opex')],
     'global_production_mult'     => [t('admin.balance.key_production'),  '1.0', t('admin.balance.hint_production')],
+    'global_tax_multiplier'      => [t('admin.finance.cfg_tax_label'),   '1.0', t('admin.finance.cfg_tax_desc')],
 ];
 
-// Odczyt aktualnych wartoci z well_config 
+// Load current values from well_config.
+// PL: Wczytaj aktualne wartosci z well_config.
 $currentConfig = [];
 try {
     $rows = $db->query("SELECT `key`, `value` FROM well_config")->fetchAll();
@@ -29,7 +32,8 @@ try {
     }
 } catch (Throwable $e) {}
 
-// Akcje POST 
+// POST actions.
+// PL: Akcje POST.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
         die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
@@ -83,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'loss'      => ['global_loss_multiplier', 'global_opex_multiplier'],
             'all_risk'  => ['global_incident_multiplier', 'global_disaster_multiplier', 'global_wear_multiplier', 'global_degradation_mult'],
             'production'=> ['global_production_mult'],
+            'tax'       => ['global_tax_multiplier'],
         ];
         if (isset($nerfKeys[$target])) {
             foreach ($nerfKeys[$target] as $key) {
@@ -101,7 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Statystyki do kontekstu 
+// Context statistics.
+// PL: Statystyki kontekstu.
 $market    = $db->query("SELECT current_price FROM market_state WHERE id = 1")->fetch();
 $oilPrice  = (float)($market['current_price'] ?? 70);
 
@@ -117,18 +123,38 @@ $prodStats = $db->query("
 $pipeStats = [];
 try {
     $pipeStats = $db->query("
-        SELECT AVG(CASE WHEN status='active' THEN transport_loss END) AS avg_loss
-        FROM pipelines
+        SELECT
+            AVG(CASE WHEN status IN ('active','degraded','leak','critical') THEN transport_loss END) AS avg_loss,
+            AVG(CASE WHEN status IN ('active','degraded','leak','critical') THEN condition_pct END) AS avg_condition,
+            SUM(CASE WHEN status IN ('active','degraded','leak','critical') THEN 1 ELSE 0 END) AS active_count,
+            COUNT(*) AS total_count
+        FROM well_pipelines
     ")->fetch();
-} catch (Throwable $e) {}
+} catch (Throwable $e) {
+    try {
+        $pipeStats = $db->query("
+            SELECT
+                AVG(CASE WHEN status='active' THEN transport_loss END) AS avg_loss,
+                AVG(CASE WHEN status='active' THEN condition_pct END) AS avg_condition,
+                SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS active_count,
+                COUNT(*) AS total_count
+            FROM pipelines
+        ")->fetch();
+    } catch (Throwable $fallbackError) {}
+}
 
 $activePlayerCount = (int)$db->query("SELECT COUNT(*) FROM players WHERE status = 'active'")->fetchColumn();
 
-// Szacunkowy dochd per gracz (bez mnonikw) 
+$productionMult = isset($currentConfig['global_production_mult'])
+    ? max(0.1, min(10.0, (float)$currentConfig['global_production_mult']))
+    : 1.0;
+
+// Estimated revenue per player after the global production multiplier.
+// PL: Szacunkowy przychod per gracz po globalnym mnozniku produkcji.
 $avgProdPerPlayer = ($activePlayerCount > 0 && (float)($prodStats['total_base_prod'] ?? 0) > 0)
     ? (float)$prodStats['total_base_prod'] / $activePlayerCount
     : 0.0;
-$estRevenuePerDay = $avgProdPerPlayer * $oilPrice * 24 * 0.7;
+$estRevenuePerDay = $avgProdPerPlayer * $productionMult * $oilPrice * 24 * 0.7;
 
 $viewData = [
     'msg'               => $msg,

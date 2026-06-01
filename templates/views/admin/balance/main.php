@@ -6,7 +6,7 @@
 <?php if ($msg): ?><p role="status" class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
 <?php if ($err): ?><p role="alert"  class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
 
-<!--  KONTEKST EKONOMII  -->
+<!-- Economy context / PL: Kontekst ekonomii -->
 <section class="panel mb-8" aria-label="<?= t('admin.balance.context_title') ?>">
     <p class="panel-title"> <?= t('admin.balance.context_title') ?></p>
     <div class="cards">
@@ -38,7 +38,7 @@
     </div>
 </section>
 
-<!--  EMERGENCY + RESET  -->
+<!-- Emergency actions and reset / PL: Akcje awaryjne i reset -->
 <div class="action-row">
 
 <section class="panel" aria-label="<?= t('admin.balance.emergency_title') ?>">
@@ -56,6 +56,7 @@
                         'loss'       => ' ' . t('admin.balance.nerf_loss'),
                         'all_risk'   => ' ' . t('admin.balance.nerf_all_risk'),
                         'production' => ' ' . t('admin.balance.nerf_production'),
+                        'tax'        => ' ' . t('admin.finance.cfg_tax_label'),
                     ] as $val => $lbl): ?>
                     <option value="<?= $val ?>"><?= $lbl ?></option>
                     <?php endforeach ?>
@@ -89,7 +90,7 @@
 
 </div>
 
-<!--  MNO¯NIKI GLOBALNE  -->
+<!-- Global multipliers / PL: Mnozniki globalne -->
 <form method="post">
     <?= CSRF::field() ?>
     <input type="hidden" name="action" value="save_balance">
@@ -140,25 +141,25 @@
     </div>
 </form>
 
-<!--  PORADNIK  -->
+<!-- Guide / PL: Poradnik -->
 <section class="panel mt-4">
     <p class="panel-title"> <?= t('admin.balance.guide_title') ?></p>
     <div class="panel-info-2col">
         <p><strong><?= t('admin.balance.guide_too_hard') ?></strong></p>
         <ul>
-            <li><?= t('admin.balance.key_incident') ?>  0.5–0.7</li>
-            <li><?= t('admin.balance.key_degradation') ?>  0.6–0.8</li>
-            <li><?= t('admin.balance.key_opex') ?>  0.7–0.9</li>
+            <li><?= t('admin.balance.key_incident') ?>  0.5-0.7</li>
+            <li><?= t('admin.balance.key_degradation') ?>  0.6-0.8</li>
+            <li><?= t('admin.balance.key_opex') ?>  0.7-0.9</li>
         </ul>
         <p><strong><?= t('admin.balance.guide_too_easy') ?></strong></p>
         <ul>
-            <li><?= t('admin.balance.key_wear') ?>  1.3–1.5</li>
-            <li><?= t('admin.balance.key_disaster') ?>  1.2–1.5</li>
-            <li><?= t('admin.balance.key_loss') ?>  1.2–1.4</li>
+            <li><?= t('admin.balance.key_wear') ?>  1.3-1.5</li>
+            <li><?= t('admin.balance.key_disaster') ?>  1.2-1.5</li>
+            <li><?= t('admin.balance.key_loss') ?>  1.2-1.4</li>
         </ul>
         <p><strong><?= t('admin.balance.guide_low_price') ?></strong></p>
         <ul>
-            <li><?= t('admin.balance.key_production') ?>  0.7–0.8 (<?= t('admin.balance.guide_reduce_supply') ?>)</li>
+            <li><?= t('admin.balance.key_production') ?>  0.7-0.8 (<?= t('admin.balance.guide_reduce_supply') ?>)</li>
             <li><?= t('admin.balance.guide_or_trend') ?>  <a href="/admin/market.php"><?= t('admin.balance.guide_market_link') ?></a></li>
         </ul>
     </div>
