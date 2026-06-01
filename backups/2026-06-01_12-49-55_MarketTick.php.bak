@@ -17,7 +17,7 @@
 class MarketTick
 {
     const MIN_PRICE       = 30;
-    const MAX_PRICE       = 150;
+    const MAX_PRICE       = 300;
     const SENSITIVITY     = 0.40;
     const GRAVITY_RATE    = 0.03;
     const OPEC_CUT_PRICE  = 60;
