@@ -49,21 +49,6 @@ trait IncidentTickTrait
  // Immunity + pressure system.
  // System odpornosci + rosnaca presja.
         $ticksSince = (int) ($wellData['ticks_since_incident'] ?? 999);
-        // Fallback: if column missing or still at default (999), derive from well_incidents table.
-        if ($ticksSince >= 999) {
-            try {
-                $stmt = $this->db->prepare(
-                    "SELECT TIMESTAMPDIFF(SECOND, MAX(created_at), NOW()) AS secs FROM well_incidents WHERE well_id = ?"
-                );
-                $stmt->execute([$wellId]);
-                $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-                if ($row && $row['secs'] !== null) {
-                    $ticksSince = max(0, (int)((int)$row['secs'] / 300));
-                }
-            } catch (\Throwable $e) {
-                GameLog::error('IncidentService', 'immunity_fallback FAILED', $e, ['well_id' => $wellId]);
-            }
-        }
         if ($ticksSince < $this->immunityTicks) {
             try {
                 $this->db->prepare("UPDATE wells SET ticks_since_incident = LEAST(9999, ticks_since_incident + 1) WHERE id = ?")
