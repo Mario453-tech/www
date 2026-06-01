@@ -173,18 +173,6 @@
 
         <!-- GM edit panel / Panel edycji GM -->
         <div class="aw-gm-panel" id="aw-form-<?= $wId ?>" style="display:none">
-
-            <!-- Quick restore condition form -->
-            <form method="POST" class="aw-quick-restore">
-                <input type="hidden" name="gm_edit_well_id" value="<?= $wId ?>">
-                <span class="aw-quick-restore-label"><?= t('admin.wells.quick_restore_label') ?>:</span>
-                <span class="aw-quick-restore-current <?= $condClass ?>"><?= $cond ?>%</span>
-                <span class="aw-quick-restore-arrow">→</span>
-                <input type="number" name="technical_condition" min="0" max="100" value="<?= $cond ?>" required>
-                <span class="aw-quick-restore-unit">%</span>
-                <button type="submit" class="btn-restore"><?= t('admin.wells.quick_restore_btn') ?></button>
-            </form>
-
             <form method="POST" class="aw-gm-form">
                 <input type="hidden" name="gm_edit_well_id" value="<?= $wId ?>">
                 <input type="hidden" name="gm_upgrades_submitted" value="1">
