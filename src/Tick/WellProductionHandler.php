@@ -82,7 +82,9 @@ class WellProductionHandler
         }
 
         if ($transportType === 'rurociag' && $hasOperationalPipeline) {
-            if (in_array($pipelineStatus, ['damaged','disabled'], true)) {
+ // 'servicing' = rurociag w naprawie: brak przesylu (jak przy damaged/disabled).
+ // 'servicing' = pipeline under repair: no throughput (like damaged/disabled).
+            if (in_array($pipelineStatus, ['damaged','disabled','servicing'], true)) {
                 $transportCapPct = 0.0;
             } elseif ($pipelineStatus === 'leak') {
  // Leaking pipeline: reduced throughput; extra transport_loss applied in PipelineSection

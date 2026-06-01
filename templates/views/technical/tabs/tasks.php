@@ -17,9 +17,9 @@
             <span><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></span>
             <span class="sep">&middot;</span>
             <span><?= htmlspecialchars($t['spec_name']) ?></span>
-            <?php if ($t['well_name'] || $t['hub_name']): ?>
+            <?php if ($t['well_name'] || $t['hub_name'] || !empty($t['pipeline_name'])): ?>
                 <span class="sep">&middot;</span>
-                <span><?= htmlspecialchars($t['well_name'] ?: $t['hub_name']) ?></span>
+                <span><?= htmlspecialchars($t['well_name'] ?: ($t['hub_name'] ?: $t['pipeline_name'])) ?></span>
             <?php endif ?>
             <?php if ($t['cost'] > 0): ?>
                 <span class="sep">&middot;</span>

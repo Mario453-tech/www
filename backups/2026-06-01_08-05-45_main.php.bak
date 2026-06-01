@@ -208,7 +208,7 @@
                             <div class="aw-field">
                                 <label><?= t('admin.wells.gm_field_status') ?></label>
                                 <select name="status" class="aw-select">
-                                    <?php foreach (['active','paused_storage','paused_cash','paused_staff','no_operator','no_technician','broken','blowout','contaminated','seized','layer_switch','sold','servicing'] as $sv): ?>
+                                    <?php foreach (['active','paused_storage','paused_cash','paused_staff','no_operator','no_technician','broken','blowout','contaminated','seized','layer_switch','sold'] as $sv): ?>
                                     <option value="<?= $sv ?>"<?= $status === $sv ? ' selected' : '' ?>><?= $sv ?></option>
                                     <?php endforeach ?>
                                 </select>

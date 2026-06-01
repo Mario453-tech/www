@@ -107,7 +107,7 @@ foreach ($groups as $regionName => $group):
                 <?php
                 $__pillMod = match(true) {
                     $status === 'active'                                               => 'wg-status-pill--active',
-                    in_array($status, ['paused_staff','paused_cash','paused_storage','servicing']) => 'wg-status-pill--warn',
+                    in_array($status, ['paused_staff','paused_cash','paused_storage']) => 'wg-status-pill--warn',
                     default                                                            => 'wg-status-pill--danger',
                 };
                 ?>

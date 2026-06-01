@@ -91,6 +91,7 @@ return [
     'map_js.well_status_blowout' => 'Wybuch',
     'map_js.well_status_contaminated' => 'Skażony',
     'map_js.well_status_seized' => 'Zajęty przez komornika',
+    'map_js.well_status_servicing' => 'W naprawie',
     'map_js.well_go_technical' => 'Przejdź do działu technicznego',
     'map_js.no_filter_results' => 'Brak wyników dla wybranych filtrów.',
 

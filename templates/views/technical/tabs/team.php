@@ -149,6 +149,7 @@
                                     <option value="<?= $code ?>"
                                             data-needs-well="<?= $td['needs_well'] ? '1' : '0' ?>"
                                             data-needs-hub="<?= !empty($td['needs_hub']) ? '1' : '0' ?>"
+                                            data-needs-pipeline="<?= !empty($td['needs_pipeline']) ? '1' : '0' ?>"
                                             data-needs-module="<?= $code === 'install_module' ? '1' : '0' ?>"
                                             data-cost-min="<?= $costMin ?>"
                                             data-cost-max="<?= $costMax ?>">
@@ -175,6 +176,16 @@
                                     <option value="<?= (int)$hub['id'] ?>">
  #<?= (int)$hub['id'] ?> <?= htmlspecialchars($hub['name'] ?? ('Hub #' . (int)$hub['id'])) ?>
                                     </option>
+                                    <?php endforeach ?>
+                                </select>
+                            </div>
+                            <div class="form-group form-group--flush form-group--hidden" id="pipe-sel-<?= $s['id'] ?>" style="display:none">
+                                <label class="form-label"><?= t('technical.pipeline_label') ?></label>
+                                <select name="pipeline_id" class="form-input">
+                                    <option value=""><?= t('technical.no_pipeline_option') ?></option>
+                                    <?php foreach (($pipelines ?? []) as $pp): ?>
+                                    <?php $ppSt = $pp['status'] ?? 'active'; ?>
+                                    <option value="<?= (int)$pp['id'] ?>">#<?= (int)$pp['id'] ?> <?= htmlspecialchars((string)($pp['name'] ?? ('Rurociąg #' . (int)$pp['id']))) ?> — <?= htmlspecialchars((string)($pp['location_name'] ?? $pp['well_name'] ?? '')) ?> (<?= round((float)($pp['condition_pct'] ?? 0)) ?>%, <?= htmlspecialchars((string)$ppSt) ?>)</option>
                                     <?php endforeach ?>
                                 </select>
                             </div>

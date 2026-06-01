@@ -105,9 +105,11 @@ function toggleWellSelect(sel, staffId) {
     const needsWell = opt.dataset.needsWell === '1';
     const needsHub = opt.dataset.needsHub === '1';
     const needsMod = opt.dataset.needsModule === '1';
+    const needsPipe = opt.dataset.needsPipeline === '1';
     const wDiv = document.getElementById('well-sel-' + staffId);
     const hDiv = document.getElementById('hub-sel-' + staffId);
     const mDiv = document.getElementById('mod-sel-' + staffId);
+    const pDiv = document.getElementById('pipe-sel-' + staffId);
 
     if (wDiv) {
         wDiv.style.display = needsWell ? '' : 'none';
@@ -117,6 +119,9 @@ function toggleWellSelect(sel, staffId) {
     }
     if (mDiv) {
         mDiv.style.display = needsMod ? '' : 'none';
+    }
+    if (pDiv) {
+        pDiv.style.display = needsPipe ? '' : 'none';
     }
 }
 
