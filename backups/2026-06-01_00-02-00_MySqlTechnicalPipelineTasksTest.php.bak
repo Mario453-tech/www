@@ -22,10 +22,6 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
             'transport_capacity_pct' => 120.0,
         ]);
 
-        $pipelineIdStmt = $this->db->prepare('SELECT id FROM well_pipelines WHERE player_id = ? AND well_id = ? LIMIT 1');
-        $pipelineIdStmt->execute([$playerId, $ids['wellId']]);
-        $pipelineId = (int)$pipelineIdStmt->fetchColumn();
-
         $this->db->prepare(
             "UPDATE well_pipelines
                 SET condition_pct = 64.00,
@@ -36,7 +32,7 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
         )->execute([$playerId, $ids['wellId']]);
 
         $service = new TechnicalTeamService($playerId);
-        $assign = $service->assignTask($staffId, 'pipeline_maintenance', null, null, null, $pipelineId);
+        $assign = $service->assignTask($staffId, 'pipeline_maintenance');
 
         $this->assertTrue($assign['success']);
         $this->assertArrayNotHasKey('queued', $assign);
@@ -93,10 +89,6 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
             'transport_capacity_pct' => 120.0,
         ]);
 
-        $pipelineIdStmt = $this->db->prepare('SELECT id FROM well_pipelines WHERE player_id = ? AND well_id = ? LIMIT 1');
-        $pipelineIdStmt->execute([$playerId, $ids['wellId']]);
-        $pipelineId = (int)$pipelineIdStmt->fetchColumn();
-
         $this->db->prepare(
             "UPDATE well_pipelines
                 SET condition_pct = 12.00,
@@ -107,7 +99,7 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
         )->execute([$playerId, $ids['wellId']]);
 
         $service = new TechnicalTeamService($playerId);
-        $assign = $service->assignTask($staffId, 'pipeline_repair', null, null, null, $pipelineId);
+        $assign = $service->assignTask($staffId, 'pipeline_repair');
 
         $this->assertTrue($assign['success']);
 
