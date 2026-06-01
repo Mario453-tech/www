@@ -344,29 +344,21 @@ $policyRecoSecondary = (array)($policyRecommendation['secondary_action'] ?? []);
         <?php
         $maxAbsNetPerH = 0.0;
         foreach ($perWell as $w2) {
-            $effP2      = (float)($w2['_effectiveProd'] ?? $w2['base_production_per_hour']);
-            $deliv2     = $effP2 * ((float)($w2['_trCapPct'] ?? 0) / 100.0);
-            $rev2       = $deliv2 * $oilPrice;
-            $opex2      = (float)$w2['upkeep_cost_per_hour'] * (float)($w2['_regionOpexMult'] ?? 1.0);
-            $tr2        = $rev2 * ((float)$w2['transport_opex_pct'] / 100) + $deliv2 * (float)($w2['_costPerBbl'] ?? 0);
-            $tax2       = $rev2 * (float)$w2['regional_tax_rate'];
-            $n2         = $rev2 - $opex2 - $tr2 - $tax2;
+            $g2 = (float)$w2['base_production_per_hour'] * $oilPrice;
+            $n2 = $g2 - (float)$w2['upkeep_cost_per_hour'] - $g2 * ((float)$w2['transport_opex_pct'] / 100) - $g2 * (float)$w2['regional_tax_rate'];
             if (abs($n2) > $maxAbsNetPerH) { $maxAbsNetPerH = abs($n2); }
         }
         ?>
         <?php foreach ($perWell as $well):
-            $prod       = (float)($well['_effectiveProd'] ?? $well['base_production_per_hour']);
-            $trCapPct   = (float)($well['_trCapPct'] ?? 0.0);
-            $deliveredH = $prod * ($trCapPct / 100.0);
-            $netRevH    = $deliveredH * $oilPrice;
-            $opexH      = (float)$well['upkeep_cost_per_hour'] * (float)($well['_regionOpexMult'] ?? 1.0);
-            $trPct      = (float)$well['transport_opex_pct'];
-            $costPerBbl = (float)($well['_costPerBbl'] ?? 0.0);
-            $trCostH    = $netRevH * ($trPct / 100) + $deliveredH * $costPerBbl;
-            $taxRate    = (float)$well['regional_tax_rate'];
-            $taxH       = $netRevH * $taxRate;
-            $netPerH    = $netRevH - $opexH - $trCostH - $taxH;
-            $isActive   = in_array($well['status'], ['active', 'no_technician', 'contaminated'], true);
+            $prod     = (float)$well['base_production_per_hour'];
+            $opexH    = (float)$well['upkeep_cost_per_hour'];
+            $trPct    = (float)$well['transport_opex_pct'];
+            $taxRate  = (float)$well['regional_tax_rate'];
+            $grossH   = $prod * $oilPrice;
+            $trCostH  = $grossH * ($trPct / 100);
+            $taxH     = $grossH * $taxRate;
+            $netPerH  = $grossH - $opexH - $trCostH - $taxH;
+            $isActive = in_array($well['status'], ['active', 'no_technician', 'contaminated'], true);
         ?>
         <div class="fin-well-row<?= $netPerH < 0 ? ' fin-well-row--loss' : '' ?><?= $isActive ? '' : ' fin-well-row--inactive' ?>">
             <span>
@@ -376,9 +368,9 @@ $policyRecoSecondary = (array)($policyRecommendation['secondary_action'] ?? []);
             </span>
             <span><span class="fin-type-badge fin-type-<?= htmlspecialchars((string)($well['well_type'] ?? 'onshore')) ?>"><?= t('technical.well_type_' . ($well['well_type'] ?? 'onshore')) ?></span></span>
             <span><span class="fin-status-badge"><?= t('technical.ws_' . ($well['status'] ?? 'active')) ?></span></span>
-            <span class="fin-num"><?= number_format($prod, 1, ',', ' ') ?> <?= t('common.bbl') ?><span class="fin-muted fin-small"> &times;<?= number_format($trCapPct, 0) ?>%</span></span>
+            <span class="fin-num"><?= number_format($prod, 1, ',', ' ') ?> <?= t('common.bbl') ?></span>
             <span class="fin-num fin-red"><?= fmtPLN($opexH) ?></span>
-            <span class="fin-num fin-muted"><?= $trCostH > 0 ? fmtPLN($trCostH) : '&mdash;' ?></span>
+            <span class="fin-num fin-muted"><?= $trPct > 0 ? fmtPct($trPct) : '&mdash;' ?></span>
             <span class="fin-num fin-muted"><?= $taxRate > 0 ? fmtPct($taxRate * 100) : '&mdash;' ?></span>
             <?php $barPct = $maxAbsNetPerH > 0 ? min(100, (int)round(abs($netPerH) / $maxAbsNetPerH * 100)) : 0; ?>
             <span class="fin-num fin-bold <?= $netPerH >= 0 ? 'fin-green' : 'fin-red' ?>">

@@ -224,16 +224,9 @@ class FinanceService
  */
     public function getPerWellStats(int $playerId): array
     {
-        // Per-barrel transport costs (PLN/bbl delivered)
-        static $trCostPerBbl = [
-            'nieustawiony' => 0.00,
-            'rurociag'     => 0.50,
-            'ciezarowki'   => 2.50,
-            'tankowiec'    => 1.50,
-        ];
-
         try {
-            $stmt = $this->db->prepare("
+            $stmt = $this->db->prepare(
+                "
                 SELECT
                     w.id,
                     w.name,
@@ -243,76 +236,20 @@ class FinanceService
                     w.upkeep_cost_per_hour,
                     w.transport_type,
                     w.transport_opex_pct,
-                    w.transport_capacity_pct,
                     w.technical_condition,
                     w.wear_level,
                     w.regional_tax_rate,
-                    COALESCE(w.region_opex_mult, 1.0) AS region_opex_mult,
                     w.well_type,
-                    w.location_name,
-                    COALESCE(w.equipment_tier, 'standard') AS equipment_tier,
-                    COALESCE(w.equipment_upgrade_level, 0) AS equipment_upgrade_level,
-                    COALESCE(w.pressure, 1.0) AS pressure,
-                    COALESCE(w.reservoir_remaining, 0) AS reservoir_remaining,
-                    COALESCE(w.reservoir_max, 800000) AS reservoir_max,
-                    COALESCE(w.production_boost_pct, 0.0) AS production_boost_pct,
-                    COALESCE(w.oil_richness, 1.0) AS oil_richness,
-                    COALESCE(w.region_production_bonus, 0.0) AS region_production_bonus,
-                    COALESCE(w.production_mode, 'normal') AS production_mode
+                    w.location_name
                 FROM wells w
                 WHERE w.player_id = ?
                   AND w.status NOT IN ('seized', 'blowout')
                 ORDER BY w.status ASC, w.id ASC
-            ");
+                "
+            );
             $stmt->execute([$playerId]);
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            foreach ($rows as &$row) {
-                $base = (float)($row['base_production_per_hour'] ?? 0);
-
-                // Equipment multiplier
-                if (class_exists('WellService')) {
-                    $eqMults = WellService::getEquipmentMultipliers(
-                        (string)($row['equipment_tier'] ?? 'standard'),
-                        (int)($row['equipment_upgrade_level'] ?? 0)
-                    );
-                    $base *= (float)($eqMults['prod'] ?? 1.0);
-
-                    // Effective pressure (depletion + equipment factor)
-                    $effPressure = WellService::getEffectivePressure($row)['effective'];
-                    if ($effPressure !== 1.0) {
-                        $base *= $effPressure;
-                    }
-                }
-
-                $boostPct = (float)($row['production_boost_pct'] ?? 0.0);
-                if ($boostPct > 0) {
-                    $base *= (1 + $boostPct / 100);
-                }
-
-                $richness = (float)($row['oil_richness'] ?? 1.0);
-                if ($richness > 0) {
-                    $richnessMult = $richness <= 2.0 ? $richness : 2.0 + ($richness - 2.0) * 0.5;
-                    $base *= $richnessMult;
-                }
-
-                $regionBonus = (float)($row['region_production_bonus'] ?? 0.0);
-                if ($regionBonus > 0) {
-                    $base *= (1 + min($regionBonus, 0.10));
-                }
-
-                $mode = $row['production_mode'] ?? 'normal';
-                $base *= match($mode) { 'eco' => 0.70, 'boost' => 1.40, default => 1.00 };
-
-                $trType = (string)($row['transport_type'] ?? 'nieustawiony');
-                $row['_effectiveProd']  = max(0.0, round($base, 2));
-                $row['_trCapPct']       = (float)($row['transport_capacity_pct'] ?? 0.0);
-                $row['_costPerBbl']     = $trCostPerBbl[$trType] ?? 0.0;
-                $row['_regionOpexMult'] = max(1.0, (float)($row['region_opex_mult'] ?? 1.0));
-            }
-            unset($row);
-
-            return $rows;
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
             GameLog::error('FinanceService', 'getPerWellStats FAILED', $e, ['player_id' => $playerId]);
             return [];
