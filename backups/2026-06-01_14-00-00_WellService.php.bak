@@ -121,20 +121,5 @@ class WellService
                 GameLog::error('WellService', 'ensureSchema failed', $e);
             }
         }
-
-        // Add ticks_since_incident counter (immunity / pressure system)
-        try {
-            $col = $this->db->query("SHOW COLUMNS FROM `wells` LIKE 'ticks_since_incident'")->fetch();
-            if (!$col) {
-                $this->db->exec("ALTER TABLE `wells` ADD COLUMN `ticks_since_incident` INT NOT NULL DEFAULT 999 AFTER `post_incident_risk_boost`");
-                if (class_exists('GameLog', false)) {
-                    GameLog::info('WellService', 'wells.ticks_since_incident column added');
-                }
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('WellService', 'ensureSchema ticks_since_incident failed', $e);
-            }
-        }
     }
 }
