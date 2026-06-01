@@ -287,7 +287,7 @@ class RoadTransportService
  * Processes completed trips (eta_at <= NOW()). Applies incidents, updates records.
  *
  * @param array<string, mixed> $hseBonus
- * @return array{delivered_bbl:float, lost_bbl:float, completed_count:int}
+ * @return array{delivered_bbl:float, lost_bbl:float, completed_count:int, delivered_by_well:array<int,float>}
  */
     public function processCompletedTrips(int $playerId, array $hseBonus): array
     {
