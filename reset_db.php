@@ -37,11 +37,11 @@ try {
 
  // Check for players_old
     if (strpos($sql, 'players_old') !== false) {
-        echo "<p class='warn'> Found 'players_old' in SQL � fixing...</p>";
+        echo "<p class='warn'> Found 'players_old' in SQL - fixing...</p>";
         $sql = str_replace('`players_old`', '`players`', $sql);
         echo "<p class='ok'> Fixed players_old  players</p>";
     } else {
-        echo "<p class='ok'> No players_old found � file is clean</p>";
+        echo "<p class='ok'> No players_old found - file is clean</p>";
     }
 
  // Increase packet size for large imports

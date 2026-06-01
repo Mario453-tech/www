@@ -174,7 +174,7 @@ class MarketTrend
 
  // Check cooldown when was any trend last active?
             if ($this->isCooldownActive()) {
-                GameLog::info('MarketTrend', 'checkAndActivate: cooldown active � skipping');
+                GameLog::info('MarketTrend', 'checkAndActivate: cooldown active - skipping');
                 return null;
             }
 
@@ -218,7 +218,7 @@ class MarketTrend
             ")->fetchColumn();
 
             if (!$lastActivated) {
-                return false; // No trend has ever been active � no cooldown
+                return false; // No trend has ever been active - no cooldown
             }
 
             $minutesSince = (time() - strtotime($lastActivated)) / 60;

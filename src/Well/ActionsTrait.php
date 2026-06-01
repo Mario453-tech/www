@@ -115,7 +115,7 @@ trait WellActionsTrait
             ")->execute([$wellId]);
 
             $this->logEvent($wellId, $playerId, 'maintenance', $cost,
-                "Maintenance � condition: {$condBefore}%  {$condAfter}%", $condBefore, $condAfter);
+                "Maintenance - condition: {$condBefore}%  {$condAfter}%", $condBefore, $condAfter);
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();

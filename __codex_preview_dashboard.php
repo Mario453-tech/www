@@ -29,7 +29,7 @@ $viewData = [
     ],
     'candidates' => [[
         'id' => 31,
-        'first_name' => 'Pawe³',
+        'first_name' => 'PaweÅ‚',
         'last_name' => 'Lewandowski',
         'role_name' => 'Dyrektor Techniczny',
         'expected_salary' => 28000,

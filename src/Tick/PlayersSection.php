@@ -131,7 +131,7 @@ class PlayersSection
  // 1. OFFLINE 
         $offline = new OfflineSection($db, $now);
         if (!$offline->process($playerId, $playerData, $playerCash)) {
-            return; // freeze mode � skip tick
+            return; // freeze mode - skip tick
         }
 
  // BHP + zdarzenia regionalne / HSE + regional events

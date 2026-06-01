@@ -27,7 +27,7 @@ class Storage
             $stmt->execute([':player_id' => $this->playerId]);
             $row = $stmt->fetch();
             if (!$row) {
-                // No storage record found — auto-create it
+                // No storage record found â€” auto-create it
                 try {
                     $this->db->prepare("INSERT IGNORE INTO storage (player_id, capacity, used, updated_at) VALUES (?, 1200, 0, NOW())")
                         ->execute([$this->playerId]);
@@ -79,7 +79,7 @@ class Storage
             $storage = $this->getData();
 
             if (!$storage || $storage['used'] == 0) {
-                GameLog::info('Storage', 'sellAll — no oil to sell', ['player_id' => $this->playerId]);
+                GameLog::info('Storage', 'sellAll â€” no oil to sell', ['player_id' => $this->playerId]);
                 return 0;
             }
 

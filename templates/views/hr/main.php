@@ -39,9 +39,9 @@
                     <div class="emp-name"><?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?></div>
                     <div class="emp-role"><?= htmlspecialchars($emp['role_name']) ?></div>
                     <div class="emp-meta">
-                        <?= $age !== null ? $age . ' ' . t('hr.years_age') . ' · ' : '' ?><?= $emp['experience_years'] ?><?= t('hr.years_exp') ?>&nbsp;·&nbsp;
+                        <?= $age !== null ? $age . ' ' . t('hr.years_age') . ' Â· ' : '' ?><?= $emp['experience_years'] ?><?= t('hr.years_exp') ?>&nbsp;Â·&nbsp;
                         <span class="exp-badge exp-<?= strtolower($expLevel) ?>"><?= $expLevel ?></span>
-                        &nbsp;·&nbsp; <?= htmlspecialchars($emp['nationality'] ?? '') ?>
+                        &nbsp;Â·&nbsp; <?= htmlspecialchars($emp['nationality'] ?? '') ?>
                     </div>
                 </div>
                 <div class="emp-salary-block">
@@ -129,9 +129,9 @@
                     <div class="cand-name"><?= htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']) ?></div>
                     <div class="cand-meta">
                         <?= htmlspecialchars($candidate['spec_name'] ?? $candidate['role_name']) ?>
-                        &nbsp;·&nbsp;<?= (int)$candidate['age'] ?> <?= t('hr.years_age') ?>
-                        &nbsp;·&nbsp;<?= htmlspecialchars($candidate['nationality'] ?? '') ?>
-                        &nbsp;·&nbsp;<span class="exp-badge exp-<?= strtolower($expLevel) ?>"><?= $expLevel ?> (<?= (int)$candidate['experience_years'] ?> <?= t('hr.years_exp_short') ?>)</span>
+                        &nbsp;Â·&nbsp;<?= (int)$candidate['age'] ?> <?= t('hr.years_age') ?>
+                        &nbsp;Â·&nbsp;<?= htmlspecialchars($candidate['nationality'] ?? '') ?>
+                        &nbsp;Â·&nbsp;<span class="exp-badge exp-<?= strtolower($expLevel) ?>"><?= $expLevel ?> (<?= (int)$candidate['experience_years'] ?> <?= t('hr.years_exp_short') ?>)</span>
                     </div>
                 </div>
                 <div class="cand-salary">
@@ -220,9 +220,9 @@
                     <div class="emp-name"><?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?></div>
                     <div class="emp-role"><?= htmlspecialchars($emp['role_name']) ?></div>
                     <div class="emp-meta">
-                        <?= $age ?> <?= t('hr.years_age') ?> &nbsp;·&nbsp; <?= $emp['experience_years'] ?><?= t('hr.years_exp') ?>&nbsp;·&nbsp;
+                        <?= $age ?> <?= t('hr.years_age') ?> &nbsp;Â·&nbsp; <?= $emp['experience_years'] ?><?= t('hr.years_exp') ?>&nbsp;Â·&nbsp;
                         <span class="exp-badge exp-<?= strtolower($expLevel) ?>"><?= $expLevel ?></span>
-                        &nbsp;·&nbsp; <?= htmlspecialchars($emp['nationality'] ?? '') ?>
+                        &nbsp;Â·&nbsp; <?= htmlspecialchars($emp['nationality'] ?? '') ?>
                     </div>
                 </div>
                 <div class="emp-salary-block">
@@ -378,7 +378,7 @@
             <div class="hh-status-title"><?= t('hr.hh_searching_for') ?>: <?= htmlspecialchars($hhActiveSearch['spec_name']) ?></div>
             <div class="hh-status-meta">
                 <?= t('hr.hh_cost_label') ?>: <?= isset($hhActiveSearch['cost']) ? HeadhunterService::fmt((float)$hhActiveSearch['cost']) : t('hr.hh_cost_settled') ?>
-                · <?= t('hr.hh_remaining') ?>: <span class="countdown" data-end="<?= strtotime($hhActiveSearch['finished_at']) ?>"></span>
+                Â· <?= t('hr.hh_remaining') ?>: <span class="countdown" data-end="<?= strtotime($hhActiveSearch['finished_at']) ?>"></span>
             </div>
         </div>
     </div>

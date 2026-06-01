@@ -1,5 +1,5 @@
 /* 
-   NEWSLETTER EDITOR � TinyMCE + panel logic
+   NEWSLETTER EDITOR - TinyMCE + panel logic
    Config passed from PHP via window.NL_CONFIG
  */
 

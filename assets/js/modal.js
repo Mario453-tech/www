@@ -25,10 +25,10 @@
     var TYPES = ['success', 'error', 'warning', 'info'];
     var _L = window.MODAL_LANG || {};
     var LABELS = {
-        confirm: _L.confirm || 'Potwierd�',
+        confirm: _L.confirm || 'Potwierdź',
         cancel: _L.cancel || 'Anuluj',
         ok: _L.ok || 'OK',
-        title_error: _L.title_error || 'B��d',
+        title_error: _L.title_error || 'Błąd',
         title_info: _L.title_info || 'Informacja',
         title_warn: _L.title_warn || 'Uwaga',
         title_success: _L.title_success || 'Sukces',
@@ -204,7 +204,7 @@
         close.type = 'button';
         close.className = 'app-toast__close';
         close.setAttribute('aria-label', LABELS.close);
-        close.textContent = '�';
+        close.textContent = 'x';
 
         content.appendChild(title);
         content.appendChild(message);

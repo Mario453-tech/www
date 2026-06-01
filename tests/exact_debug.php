@@ -2,7 +2,7 @@
 
 require_once '../src/init.php';
 
-echo "=== DOK£ADNY DEBUG ===\n";
+echo "=== DOKÅADNY DEBUG ===\n";
 
 $db = Database::getInstance()->getConnection();
 
@@ -28,7 +28,7 @@ echo "\nTrend:\n";
 echo "Nazwa: " . $activeTrend['trend_name'] . "\n";
 echo "Modyfikator: " . $activeTrend['price_modifier'] . "\n";
 
-// 4. Dok³adne obliczenia jak w MarketTick
+// 4. DokÅ‚adne obliczenia jak w MarketTick
 echo "\n--- Obliczenia jak w MarketTick ---\n";
 
 // Bazowa zmiana ceny
@@ -53,21 +53,21 @@ echo "   Po ograniczeniu: $newPrice\n";
 // Grawitacja
 echo "4. Grawitacja (($basePrice - $newPrice) * 0.05)\n";
 $gravity = ($basePrice - $newPrice) * 0.05;
-echo "   Wartoœæ grawitacji: $gravity\n";
+echo "   WartoÅ›Ä‡ grawitacji: $gravity\n";
 $newPrice += $gravity;
 echo "   Po grawitacji: $newPrice\n";
 
-// Zaokr¹glenie
-echo "5. Zaokr¹glenie (round($newPrice))\n";
+// ZaokrÄ…glenie
+echo "5. ZaokrÄ…glenie (round($newPrice))\n";
 $newPrice = round($newPrice);
-echo "   Koñcowa cena: $newPrice\n";
+echo "   KoÅ„cowa cena: $newPrice\n";
 
-// 5. Porównaj z prawdziwym tick
-echo "\n--- Porównanie ---\n";
+// 5. PorÃ³wnaj z prawdziwym tick
+echo "\n--- PorÃ³wnanie ---\n";
 $marketTick = new MarketTick();
 $realPrice = $marketTick->updatePrices($activeTrend);
 echo "Prawdziwy tick: $realPrice\n";
 echo "Nasze obliczenia: $newPrice\n";
-echo "Ró¿nica: " . ($realPrice - $newPrice) . "\n";
+echo "RÃ³Å¼nica: " . ($realPrice - $newPrice) . "\n";
 
 ?>

@@ -119,10 +119,10 @@ require_once __DIR__ . '/../templates/header.php';
             
             <div class="info-box info-box-blue">
                 <strong><?= t('market_offers.info_title') ?></strong><br>
-                • <?= t('market_offers.info_1') ?><br>
-                • <?= t('market_offers.info_2') ?><br>
-                • <?= t('market_offers.info_3') ?><br>
-                • <?= t('market_offers.info_4') ?>
+                â€¢ <?= t('market_offers.info_1') ?><br>
+                â€¢ <?= t('market_offers.info_2') ?><br>
+                â€¢ <?= t('market_offers.info_3') ?><br>
+                â€¢ <?= t('market_offers.info_4') ?>
             </div>
         </section>
     <?php endif ?>

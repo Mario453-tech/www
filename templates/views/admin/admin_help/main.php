@@ -33,7 +33,7 @@
         <?php endif ?>
         </ul>
 
-        <!-- Dodaj now¹ sekcjê -->
+        <!-- Dodaj nowÄ… sekcjÄ™ -->
         <div class="he-add-form">
             <form method="post">
                 <?= CSRF::field() ?>
@@ -42,7 +42,7 @@
                 <input type="text" name="new_slug" placeholder="np. rynek_ropy"
                        pattern="[a-z0-9_]+" title="<?= t('admin.help.hint_slug') ?>" required>
                 <label class="he-form-label"><?= t('admin.help.field_title') ?></label>
-                <input type="text" name="new_title" placeholder="Tytu³ sekcji" required>
+                <input type="text" name="new_title" placeholder="TytuÅ‚ sekcji" required>
                 <label class="he-form-label"><?= t('admin.help.field_icon') ?></label>
                 <input type="text" name="new_icon" placeholder="" maxlength="4" value="">
                 <button type="submit" class="btn btn-secondary he-add-btn">+ <?= t('admin.help.btn_add') ?></button>
@@ -57,7 +57,7 @@
     <h2><?= htmlspecialchars($editPage['icon'] . ' ' . $editPage['title']) ?></h2>
     <p class="muted he-meta-info">
         Slug: <code><?= htmlspecialchars($editPage['slug']) ?></code>
-        &nbsp;·&nbsp; Ostatnia zmiana: <?= $editPage['updated_at'] ?>
+        &nbsp;Â·&nbsp; Ostatnia zmiana: <?= $editPage['updated_at'] ?>
         <?php if ($editPage['updated_by']): ?>&nbsp;(<?= htmlspecialchars($editPage['updated_by']) ?>)<?php endif ?>
     </p>
 
@@ -106,7 +106,7 @@
         <input type="hidden" name="page_id" value="<?= (int)$editPage['id'] ?>">
     </form>
 
-    <!-- Podgl¹d sekcji -->
+    <!-- PodglÄ…d sekcji -->
     <div class="he-preview-wrap">
         <p class="he-sidebar-hdr"> <?= t('admin.help.preview_title') ?></p>
         <div class="he-preview-body">

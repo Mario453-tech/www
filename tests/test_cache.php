@@ -13,7 +13,7 @@ function assert_eq(mixed $actual, mixed $expected, string $label): void
         echo " $label\n";
         $pass++;
     } else {
-        echo " $label — oczekiwano: " . var_export($expected, true) . ", otrzymano: " . var_export($actual, true) . "\n";
+        echo " $label â€” oczekiwano: " . var_export($expected, true) . ", otrzymano: " . var_export($actual, true) . "\n";
         $fail++;
     }
 }
@@ -21,11 +21,11 @@ function assert_eq(mixed $actual, mixed $expected, string $label): void
 // Test 1: set/get
 Cache::set('test_key', ['foo' => 'bar'], 60);
 $val = Cache::get('test_key');
-assert_eq($val['foo'] ?? null, 'bar', 'Cache set/get dzia³a');
+assert_eq($val['foo'] ?? null, 'bar', 'Cache set/get dziaÅ‚a');
 
 // Test 2: delete
 Cache::delete('test_key');
-assert_eq(Cache::get('test_key'), null, 'Cache delete dzia³a');
+assert_eq(Cache::get('test_key'), null, 'Cache delete dziaÅ‚a');
 
 // Test 3: TTL wygasa
 Cache::set('test_ttl', 'value', 1);
@@ -36,7 +36,7 @@ assert_eq(Cache::get('test_ttl'), null, 'Cache TTL wygasa po 1s');
 Cache::set('flush_a', 'x', 60);
 Cache::set('flush_b', 'y', 60);
 Cache::flush();
-assert_eq(Cache::get('flush_a'), null, 'Cache flush — klucz A usuniêty');
-assert_eq(Cache::get('flush_b'), null, 'Cache flush — klucz B usuniêty');
+assert_eq(Cache::get('flush_a'), null, 'Cache flush â€” klucz A usuniÄ™ty');
+assert_eq(Cache::get('flush_b'), null, 'Cache flush â€” klucz B usuniÄ™ty');
 
-echo "\n--- Wynik: $pass OK, $fail B£ÊDÓW ---\n";
+echo "\n--- Wynik: $pass OK, $fail BÅÄ˜DÃ“W ---\n";

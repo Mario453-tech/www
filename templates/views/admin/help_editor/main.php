@@ -32,7 +32,7 @@
         <?php endforeach ?>
         </ul>
 
-        <!-- Dodaj now¹ sekcjê -->
+        <!-- Dodaj nowÄ… sekcjÄ™ -->
         <div class="he-add-form">
             <form method="post">
                 <?= CSRF::field() ?>
@@ -55,7 +55,7 @@
     <h2><?= htmlspecialchars($editPage['icon'] . ' ' . $editPage['title']) ?></h2>
     <p class="muted he-meta-info">
         <?= t('admin.help_editor.slug_label') ?>: <code><?= htmlspecialchars($editPage['slug']) ?></code>
-        &nbsp;·&nbsp; <?= t('admin.help_editor.last_change') ?>: <?= $editPage['updated_at'] ?>
+        &nbsp;Â·&nbsp; <?= t('admin.help_editor.last_change') ?>: <?= $editPage['updated_at'] ?>
         <?php if ($editPage['updated_by']): ?>&nbsp;(<?= htmlspecialchars($editPage['updated_by']) ?>)<?php endif ?>
     </p>
 

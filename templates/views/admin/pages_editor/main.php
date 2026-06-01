@@ -54,7 +54,7 @@
     <h2><?= htmlspecialchars($editPage['icon'] . ' ' . $editPage['title']) ?></h2>
     <p class="muted he-meta-info">
         URL: <a href="/<?= htmlspecialchars($editPage['slug']) ?>" target="_blank"><code>/<?= htmlspecialchars($editPage['slug']) ?></code></a>
-        &nbsp;·&nbsp; <?= t('admin.pages_editor.last_change') ?>: <?= $editPage['updated_at'] ?>
+        &nbsp;Â·&nbsp; <?= t('admin.pages_editor.last_change') ?>: <?= $editPage['updated_at'] ?>
         <?php if ($editPage['updated_by']): ?>&nbsp;(<?= htmlspecialchars($editPage['updated_by']) ?>)<?php endif ?>
     </p>
 

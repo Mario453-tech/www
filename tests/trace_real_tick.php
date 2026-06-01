@@ -2,7 +2,7 @@
 
 require_once '../src/init.php';
 
-echo "=== �LAD PRAWDZIWEGO TICK ===\n";
+echo "=== ŚLAD PRAWDZIWEGO TICK ===\n";
 
 $db = Database::getInstance()->getConnection();
 
@@ -64,7 +64,7 @@ class MarketTickDebug extends MarketTick {
         
  // Zaokrglenie
         $newPrice = round($newPrice);
-        echo "Po zaokr�gleniu: $newPrice\n";
+        echo "Po zaokrągleniu: $newPrice\n";
         
         return $newPrice;
     }

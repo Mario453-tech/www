@@ -11,7 +11,7 @@ if (class_exists('GameLog', false)) {
 
 if (!isset($notifications) || empty($notifications)) {
     if (class_exists('GameLog', false)) {
-        GameLog::info('component/director_notifications', 'No notifications — component hidden');
+        GameLog::info('component/director_notifications', 'No notifications â€” component hidden');
     }
     return;
 }

@@ -98,7 +98,7 @@ class OfflineSection
         }
 
         if ($this->freezeMode) {
-            GameLog::info('tick', 'FREEZE MODE � player offline, cash=0, tick skipped', [
+            GameLog::info('tick', 'FREEZE MODE - player offline, cash=0, tick skipped', [
                 'player_id' => $playerId,
                 'cash'      => $playerCash,
             ]);

@@ -167,7 +167,7 @@ class DisasterMessages
             );
 
         } catch (Throwable $e) {
-            GameLog::error('DisasterMessages', 'loadPool FAILED � using fallback', $e, [
+            GameLog::error('DisasterMessages', 'loadPool FAILED - using fallback', $e, [
                 'type'       => $type,
                 'hse_active' => $hseActive,
             ]);

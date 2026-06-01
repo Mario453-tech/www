@@ -20,7 +20,7 @@ if (class_exists('GameLog', false)) {
         </div>
         <?php foreach ($myOffers as $offer): ?>
         <div class="my-offers-row">
-            <span> <?= number_format($offer['amount']) ?> bary≥ek</span>
+            <span> <?= number_format($offer['amount']) ?> bary≈Çek</span>
             <span class="money"><?= number_format($offer['limit_price']) ?></span>
             <span>
                 <?php if ($offer['status'] === 'pending'): ?>

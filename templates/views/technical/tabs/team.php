@@ -23,7 +23,7 @@
     <?php if ($mgrSkill > 0): ?>
     <div class="mgr-perks">
         <span class="mgr-perk mgr-perk--time"> -<?= $mgrSkill * 2.5 ?>% czasu</span>
-        <span class="mgr-perk mgr-perk--cost"> -<?= $mgrSkill * 1.5 ?>% koszt�w</span>
+        <span class="mgr-perk mgr-perk--cost"> -<?= $mgrSkill * 1.5 ?>% kosztów</span>
         <span class="mgr-perk mgr-perk--skill"> Org. <?= $mgrSkill ?>/10</span>
         <div class="mgr-skill-track"><div class="mgr-skill-fill" style="width:<?= min(100,$mgrSkill*10) ?>%"></div></div>
     </div>

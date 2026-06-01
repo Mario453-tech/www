@@ -17,7 +17,7 @@ try {
 }
 
 
-// Pobierz aktywnych pracowników TEGO GRACZA
+// Pobierz aktywnych pracownikÃ³w TEGO GRACZA
 $stmt = $db->prepare("
     SELECT bm.*, br.code as role_code, br.name as role_name,
            TIMESTAMPDIFF(YEAR, bm.birth_date, CURDATE()) as age,
@@ -75,7 +75,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $candidateCounts[$row['role_id']] = $row['count'];
 }
 
-// Mapowanie pracowników wed³ug roli
+// Mapowanie pracownikÃ³w wedÅ‚ug roli
 $membersByRole = [];
 foreach ($boardMembers as $member) {
     $membersByRole[$member['role_code']] = $member;
@@ -100,7 +100,7 @@ try {
 } catch (Throwable $e) {
     GameLog::error('boardroom.php', 'boardroom_config query failed', $e);
 }
-$headerTitle    = htmlspecialchars($brConfig['header_title']    ?? 'Sala Zarz¹du');
+$headerTitle    = htmlspecialchars($brConfig['header_title']    ?? 'Sala ZarzÄ…du');
 $headerSubtitle = htmlspecialchars($brConfig['header_subtitle'] ?? '');
 $headerImage    = $brConfig['header_image'] ?? '';
 $footerText     = htmlspecialchars($brConfig['footer_text']     ?? '');

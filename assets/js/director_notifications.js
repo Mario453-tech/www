@@ -31,7 +31,7 @@ function markNotificationRead(notificationId) {
 }
 
 function markAllNotificationsRead() {
-    confirmAction('Oznaczy� wszystkie komunikaty jako przeczytane?', function () {
+    confirmAction('Oznaczyć wszystkie komunikaty jako przeczytane?', function () {
         fetch('/api/notifications/mark-all-read.php', {
             method: 'POST',
             headers: {

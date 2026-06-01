@@ -55,7 +55,7 @@ class MarketOffer
             $affected = $stmtUpd->rowCount();
             if ($affected === 0) {
                 $this->db->rollBack();
-                GameLog::warn('MarketOffer', 'createOffer: race condition � not enough oil', [
+                GameLog::warn('MarketOffer', 'createOffer: race condition - not enough oil', [
                     'player_id' => $playerId,
                     'amount'    => $amount,
                 ]);

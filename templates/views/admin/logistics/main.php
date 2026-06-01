@@ -95,7 +95,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
     </form>
 </div>
 
-<!--  UtwÛrz pojedynczy hub  -->
+<!--  Utw√≥rz pojedynczy hub  -->
 <details class="admin-details">
     <summary><?= t('admin.logistics.create_title') ?></summary>
     <form method="POST" class="admin-details-form">
@@ -181,7 +181,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
     <a href="/admin/logistics_hubs.php" class="btn btn-secondary btn-sm"><?= t('admin.logistics.filter_reset') ?></a>
 </form>
 
-<!--  SzczegÛ≥y huba (po klikniÍciu)  -->
+<!--  Szczeg√≥≈Çy huba (po klikniƒôciu)  -->
 <?php if ($viewHub):
     $condPctView = (float)$viewHub['condition_pct'];
     $condClsView = $condPctView < 30 ? 'c-bad' : ($condPctView < 60 ? 'c-warn' : 'c-good');
@@ -264,7 +264,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
         </div>
 
         <div class="hub-param-card">
-            <div class="hub-param-label"><?= t('admin.logistics.hub_condition') ?> <small class="c-muted">(0ñ100%)</small></div>
+            <div class="hub-param-label"><?= t('admin.logistics.hub_condition') ?> <small class="c-muted">(0‚Äì100%)</small></div>
             <div class="hub-param-current <?= $condClsView ?>"><?= number_format($condPctView, 1) ?>%</div>
             <form method="POST" class="hub-param-form">
                 <input type="hidden" name="action"     value="set_condition">
@@ -358,7 +358,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
 </div>
 <?php endif ?>
 
-<!--  Lista hubÛw  -->
+<!--  Lista hub√≥w  -->
 <div class="hub-list-header">
     <h3><?= t('admin.logistics.list_title') ?> <small class="c-muted">(<?= $totalHubs ?>)</small></h3>
     <?php if ($totalPages > 1): ?>
@@ -474,7 +474,7 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
 
     <?php $prev = null; foreach ($visible as $p):
         if ($prev !== null && $p - $prev > 1): ?>
-        <span class="hub-pagination-dots">Ö</span>
+        <span class="hub-pagination-dots">‚Ä¶</span>
     <?php endif ?>
     <a href="<?= $pageUrl($p) ?>" class="btn btn-sm <?= $p === $page ? 'btn-primary' : 'btn-secondary' ?>"><?= $p ?></a>
     <?php $prev = $p; endforeach ?>
@@ -494,7 +494,7 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
         <div class="hub-admin-modal-icon">?</div>
         <div id="hub-admin-confirm-text" class="hub-admin-modal-text"></div>
         <div class="hub-admin-modal-btns">
-            <button class="btn btn-sm btn-primary"   id="hub-admin-confirm-ok">Potwierdü</button>
+            <button class="btn btn-sm btn-primary"   id="hub-admin-confirm-ok">Potwierd≈∫</button>
             <button class="btn btn-sm btn-secondary" onclick="document.getElementById('hub-admin-confirm-modal').style.display='none'">Anuluj</button>
         </div>
     </div>

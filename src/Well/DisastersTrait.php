@@ -219,7 +219,7 @@ trait WellDisastersTrait
                 INSERT INTO director_notifications
                     (player_id, type, priority, title, message, icon,
                      requires_action, action_url, action_label, expires_at)
-                VALUES (?, 'urgent', ?, ?, ?, ?, 1, ?, 'PrzejdÄąĹź do BHP',
+                VALUES (?, 'urgent', ?, ?, ?, ?, 1, ?, 'Przejdź do BHP',
                         DATE_ADD(NOW(), INTERVAL 72 HOUR))
             ")->execute([
                 $playerId,

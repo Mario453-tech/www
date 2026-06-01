@@ -24,11 +24,11 @@ const FILE_PATH = __DIR__ . '/lang/pl.php';
 
 $replacements = [
  // Opis Krzak (hex) Poprawny znak
-    'em-dash  E2809D' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9d" => "\xe2\x80\x94"],  // a(EUR)" => �
-    'en-dash  E2809C' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9c" => "\xe2\x80\x93"],  // a(EUR)" => �
-    'en-dash  E28093' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x93" => "\xe2\x80\x93"],  // a(EUR)- => �
-    'em-dash  E28094' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x94" => "\xe2\x80\x94"],  // a(EUR)- => �
-    'ellipsis C2A6'   => ["\xc3\xa2\xe2\x82\xac\xc2\xa6"     => "\xe2\x80\xa6"],  // a(EUR)� => �
+    'em-dash  E2809D' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9d" => "\xe2\x80\x94"],
+    'en-dash  E2809C' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x9c" => "\xe2\x80\x93"],
+    'en-dash  E28093' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x93" => "\xe2\x80\x93"],
+    'em-dash  E28094' => ["\xc3\xa2\xe2\x82\xac\xe2\x80\x94" => "\xe2\x80\x94"],
+    'ellipsis C2A6'   => ["\xc3\xa2\xe2\x82\xac\xc2\xa6"     => "\xe2\x80\xa6"],
     'lsquote  E28098' => ["\xc3\xa2\xe2\x82\xac\xcb\x9c"     => "\xe2\x80\x98"],  // a(EUR)~ => '
     'rsquote  E28099' => ["\xc3\xa2\xe2\x82\xac\xe2\x84\xa2" => "\xe2\x80\x99"],  // a(EUR)tm => '
     'ldquote  E2809C' => ["\xc3\xa2\xe2\x82\xac\xc5\x93"     => "\xe2\x80\x9c"],  // a(EUR)oe => "
@@ -43,8 +43,8 @@ $doRemove = in_array('--remove',  $args, true);
 
 echo "=== fix_garbled_typography.php ===\n";
 echo "Plik / File: " . FILE_PATH . "\n";
-if ($dryRun)   echo "[TRYB] Dry-run � tylko podglad, brak zapisu.\n";
-if ($doRemove) echo "[TRYB] Remove � krzaki beda kasowane (pusty string).\n";
+if ($dryRun)   echo "[TRYB] Dry-run - tylko podglad, brak zapisu.\n";
+if ($doRemove) echo "[TRYB] Remove - krzaki beda kasowane (pusty string).\n";
 echo "\n";
 
 // Odczyt pliku 
@@ -57,7 +57,7 @@ if ($content === false) {
 
 // Sprawdz BOM / Check BOM
 if (substr($content, 0, 3) === "\xef\xbb\xbf") {
-    echo "[WARN] Plik ma BOM � zostanie usuniety przy zapisie.\n";
+    echo "[WARN] Plik ma BOM - zostanie usuniety przy zapisie.\n";
     $content = substr($content, 3);
 }
 

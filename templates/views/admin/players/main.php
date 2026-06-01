@@ -55,10 +55,10 @@
                 <span class="badge <?= badgeClass($p['status']) ?>"><?= t('player.status.' . $p['status']) ?></span>
             </span>
             <span class="col-storage muted">
-                <?= $p['storage_capacity'] ? (int)$p['storage_used'] . ' / ' . (int)$p['storage_capacity'] : '—' ?>
+                <?= $p['storage_capacity'] ? (int)$p['storage_used'] . ' / ' . (int)$p['storage_capacity'] : 'â€”' ?>
             </span>
             <span class="col-wells"><?= (int)$p['well_count'] ?></span>
-            <span class="col-lasttick muted"><?= htmlspecialchars($p['last_login_at'] ?? '—') ?></span>
+            <span class="col-lasttick muted"><?= htmlspecialchars($p['last_login_at'] ?? 'â€”') ?></span>
             <span>
                 <a href="/admin/player_clean.php?id=<?= (int)$p['id'] ?>" class="btn btn-sm btn-secondary">
                     <?= t('admin.players.btn_details') ?>

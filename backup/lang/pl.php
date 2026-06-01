@@ -6092,7 +6092,7 @@ return [
     'logistics_hub.mode_eco'           => 'Eco',
     'logistics_hub.mode_standard'      => 'Standard',
     'logistics_hub.mode_max'           => 'Max',
-    // Etap 1 Modelu B â€” hub acquisition
+    // Etap 1 Modelu B - hub acquisition
     'logistics.hub.acquisition_new'          => 'Nowy',
     'logistics.hub.acquisition_used'         => 'Używany',
     'logistics.hub.acquisition_rental'       => 'Wynajem',

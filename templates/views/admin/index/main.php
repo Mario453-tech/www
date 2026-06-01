@@ -42,7 +42,7 @@
         </div>
         <div class="card">
             <p class="label"><?= t('admin.index.stat_last_tick') ?></p>
-            <p class="value sm"><?= $lastTick ? htmlspecialchars($lastTick) : '—' ?></p>
+            <p class="value sm"><?= $lastTick ? htmlspecialchars($lastTick) : 'â€”' ?></p>
         </div>
     </div>
 </section>

@@ -179,9 +179,9 @@ class MarketTick
     private function adjustWorldProduction(float $current, float $price): float
     {
         if ($price > self::OPEC_BOOM_PRICE) {
-            $current *= 1.10;  // high price � pump more
+            $current *= 1.10;  // high price - pump more
         } elseif ($price < self::OPEC_CUT_PRICE) {
-            $current *= 0.88;  // low price � cut production
+            $current *= 0.88;  // low price - cut production
         } else {
             $current += (self::WORLD_PROD_BASE - $current) * 0.02;  // return to base
         }
