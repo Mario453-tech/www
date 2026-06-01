@@ -113,7 +113,6 @@ trait WellCostsTrait
  * oil_richness (soft cap > 2.0)
  * region_production_bonus (max +10%)
  * production_mode (eco/normal/boost)
- * global_production_multiplier (z well_config)
  */
     public function getEffectiveProduction(array $well): float
     {
@@ -158,11 +157,6 @@ trait WellCostsTrait
             'boost' => 1.40,
             default => 1.00,
             };
-            
- // 7. Globalny mnoznik produkcji (z well_config, admin/balance.php) / Global production multiplier (from well_config, admin/balance.php)
-            $globalMult = $this->cfg('global_production_multiplier', 1.0);
-            if ($globalMult !== 1.0) $base *= $globalMult;
-            
             return max(0.0, $base);
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
