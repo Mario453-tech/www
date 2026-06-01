@@ -23,7 +23,7 @@
 
     $statusBadgeClass = match ($status) {
         'damaged', 'disabled' => 'b-broken',
-        'critical', 'degraded' => 'b-paused',
+        'critical', 'degraded', 'servicing', 'suspended' => 'b-paused',
         default => 'b-active',
     };
     $statusLabelKey = 'technical.pipe_status_' . $status;

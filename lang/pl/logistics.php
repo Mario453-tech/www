@@ -438,6 +438,8 @@ return [
     'logistics.pipeline.status_critical' => 'Krytyczny',
     'logistics.pipeline.status_damaged' => 'Uszkodzony',
     'logistics.pipeline.status_disabled' => 'Wyłączony',
+    'logistics.pipeline.status_servicing' => 'W naprawie',
+    'logistics.pipeline.servicing_no_actions' => 'serwis w toku, akcje niedostępne',
     'logistics.pipeline.label_flow' => 'Przepływ',
     'logistics.pipeline.label_capacity' => 'Przepustowość',
     'logistics.pipeline.label_loss' => 'Straty',

@@ -451,12 +451,18 @@
                 $pDamage     = max(0.0, 100.0 - $conditionPct);
                 $pRepairCost = max(2000.0, round((float)($pipe['build_cost'] ?? 0) * ($pDamage / 100.0) * 0.30));
                 $pMaintCost  = max(500.0, round((float)($pipe['tick_cost_est'] ?? 0) * 24.0 * 0.4));
-                $isSuspended = ($status === 'suspended');
-                $canRepair   = ($pDamage > 0.1) && !$isSuspended && !in_array($status, ['building','disabled'], true);
-                $canMaint    = !in_array($status, ['building','disabled'], true);
-                $canToggle   = !in_array($status, ['building','disabled','planned'], true);
+                $isSuspended  = ($status === 'suspended');
+                $isServicing  = ($status === 'servicing');
+                $canRepair    = ($pDamage > 0.1) && !$isSuspended && !in_array($status, ['building','disabled','servicing'], true);
+                $canMaint     = !in_array($status, ['building','disabled','servicing'], true);
+                $canToggle    = !in_array($status, ['building','disabled','planned','servicing'], true);
                 ?>
                 <div class="logistics-pipeline-actions">
+                    <?php if ($isServicing): ?>
+                    <span class="badge logistics-pipeline-badge logistics-pipeline-badge--servicing" style="padding:4px 10px">
+                        <?= t('logistics.pipeline.status_servicing') ?> &mdash; <?= t('logistics.pipeline.servicing_no_actions') ?>
+                    </span>
+                    <?php endif ?>
                     <?php if ($canRepair): ?>
                     <button class="btn btn-xs btn-primary"
                             onclick="pipelineActionConfirm(<?= (int)$pipe['id'] ?>, 'repair_pipeline',
@@ -510,10 +516,14 @@
                     <div class="logistics-pipeline-nopipe-card-hub">
                         <?= t('logistics.pipeline.nopipe_hub') ?>: <em><?= htmlspecialchars((string)($npw['hub_name'] ?? ('#' . (int)($npw['hub_id'] ?? 0)))) ?></em>
                     </div>
+                    <?php if (($npw['well_status'] ?? '') === 'servicing'): ?>
+                    <span class="badge logistics-pipeline-badge logistics-pipeline-badge--servicing" style="font-size:.7rem;padding:2px 6px"><?= t('logistics.pipeline.status_servicing') ?></span>
+                    <?php else: ?>
                     <button class="btn btn-xs btn-primary"
                             onclick="openPipelineBuyModal(<?= (int)($npw['id'] ?? 0) ?>)">
                         <?= t('logistics.pipeline.nopipe_btn') ?>
                     </button>
+                    <?php endif ?>
                 </div>
                 <?php endforeach ?>
             </div>
@@ -842,7 +852,12 @@
             </div>
             <?php foreach ($wells as $well): ?>
             <div class="logistics-table-row">
-                <span>#<?= (int)$well['id'] ?></span>
+                <span>
+                    #<?= (int)$well['id'] ?>
+                    <?php if (($well['status'] ?? '') === 'servicing'): ?>
+                    <span class="badge logistics-pipeline-badge logistics-pipeline-badge--servicing" style="margin-left:4px;font-size:.65rem;padding:1px 5px"><?= t('logistics.pipeline.status_servicing') ?></span>
+                    <?php endif ?>
+                </span>
                 <span><?= t('logistics.well_type_' . ($well['well_type'] ?? 'onshore')) ?></span>
                 <span><?= t('logistics.type_' . ($well['transport'] ?? 'nieustawiony')) ?></span>
                 <span><?= number_format((float)$well['capacity_pct'], 1, ',', ' ') ?>%</span>

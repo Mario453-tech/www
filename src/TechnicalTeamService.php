@@ -184,26 +184,28 @@ class TechnicalTeamService
             'effect_key'  => 'technical.task_effect.install_module',
         ],
         'pipeline_maintenance' => [
-            'label_key'   => 'technical.task.pipeline_maintenance',
-            'icon'        => 'RUR',
-            'assignable'  => ['pipeline_engineer'],
-            'hours_min'   => 6,
-            'hours_max'   => 12,
-            'cost_min'    => 0,
-            'cost_max'    => 0,
-            'needs_well'  => false,
-            'effect_key'  => 'technical.task_effect.pipeline_maintenance',
+            'label_key'      => 'technical.task.pipeline_maintenance',
+            'icon'           => 'RUR',
+            'assignable'     => ['pipeline_engineer'],
+            'hours_min'      => 6,
+            'hours_max'      => 12,
+            'cost_min'       => 0,
+            'cost_max'       => 0,
+            'needs_well'     => false,
+            'needs_pipeline' => true,
+            'effect_key'     => 'technical.task_effect.pipeline_maintenance',
         ],
         'pipeline_inspection' => [
-            'label_key'   => 'technical.task.pipeline_inspection',
-            'icon'        => 'RUR',
-            'assignable'  => ['pipeline_engineer'],
-            'hours_min'   => 6,
-            'hours_max'   => 12,
-            'cost_min'    => 0,
-            'cost_max'    => 0,
-            'needs_well'  => false,
-            'effect_key'  => 'technical.task_effect.pipeline_inspection',
+            'label_key'      => 'technical.task.pipeline_inspection',
+            'icon'           => 'RUR',
+            'assignable'     => ['pipeline_engineer'],
+            'hours_min'      => 6,
+            'hours_max'      => 12,
+            'cost_min'       => 0,
+            'cost_max'       => 0,
+            'needs_well'     => false,
+            'needs_pipeline' => true,
+            'effect_key'     => 'technical.task_effect.pipeline_inspection',
         ],
         'safety_audit' => [
             'label_key'   => 'technical.task.safety_audit',
@@ -231,16 +233,17 @@ class TechnicalTeamService
             'emergency'   => true,
         ],
         'pipeline_repair' => [
-            'label_key'   => 'technical.task.pipeline_repair',
-            'icon'        => 'RUR',
-            'assignable'  => ['pipeline_engineer'],
-            'hours_min'   => 24,
-            'hours_max'   => 48,
-            'cost_min'    => 0,
-            'cost_max'    => 0,
-            'needs_well'  => false,
-            'effect_key'  => 'technical.task_effect.pipeline_repair',
-            'emergency'   => true,
+            'label_key'      => 'technical.task.pipeline_repair',
+            'icon'           => 'RUR',
+            'assignable'     => ['pipeline_engineer'],
+            'hours_min'      => 24,
+            'hours_max'      => 48,
+            'cost_min'       => 0,
+            'cost_max'       => 0,
+            'needs_well'     => false,
+            'needs_pipeline' => true,
+            'effect_key'     => 'technical.task_effect.pipeline_repair',
+            'emergency'      => true,
         ],
         'reservoir_rehabilitation' => [
             'label_key'   => 'technical.task.reservoir_rehabilitation',
@@ -355,6 +358,8 @@ class TechnicalTeamService
 
         Database::addColumnIfMissing('technical_tasks', 'hub_id', 'INT NULL DEFAULT NULL AFTER well_id');
         Database::addColumnIfMissing('technical_task_queue', 'hub_id', 'INT NULL DEFAULT NULL AFTER well_id');
+        Database::addColumnIfMissing('technical_tasks', 'pipeline_id', 'INT UNSIGNED NULL DEFAULT NULL AFTER hub_id');
+        Database::addColumnIfMissing('technical_task_queue', 'pipeline_id', 'INT UNSIGNED NULL DEFAULT NULL AFTER hub_id');
 
         $this->ensureEnumContainsValues('technical_tasks', 'task_type', self::getTaskTypeEnumValues(), 'well_maintenance');
         $this->ensureEnumContainsValues('technical_task_queue', 'task_type', self::getQueueTaskTypeEnumValues(), 'well_maintenance');

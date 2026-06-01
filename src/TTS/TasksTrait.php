@@ -9,6 +9,9 @@ trait TTSTasksTrait
  // Zadania, ktore fizycznie wstrzymuja odwiert ("W naprawie") na czas pracy serwisanta.
  // Tasks that physically pause the well ("servicing") while the technician works.
     private const WELL_SERVICE_TASKS = ['well_maintenance', 'well_repair', 'blowout_control', 'reservoir_rehabilitation'];
+ // Zadania, ktore fizycznie wstrzymuja rurociag ("W naprawie") na czas pracy serwisanta.
+ // Tasks that physically pause the pipeline ("servicing") while the technician works.
+    private const PIPELINE_SERVICE_TASKS = ['pipeline_maintenance', 'pipeline_repair'];
 
     public function getTasks(string $statusFilter = ''): array
     {
@@ -18,11 +21,13 @@ trait TTSTasksTrait
                    ts.first_name, ts.last_name, ts.spec_code, ts.spec_name, ts.skill_level,
                    w.location_name AS well_name,
                    h.name AS hub_name,
+                   wp.name AS pipeline_name,
                    GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), tt.end_time)) AS seconds_remaining
             FROM technical_tasks tt
             JOIN technical_staff ts ON tt.staff_id = ts.id
             LEFT JOIN wells w ON tt.well_id = w.id
             LEFT JOIN logistics_hubs h ON tt.hub_id = h.id
+            LEFT JOIN well_pipelines wp ON tt.pipeline_id = wp.id
             WHERE tt.player_id = ? {$where}
             ORDER BY tt.created_at DESC
             LIMIT 50
@@ -44,7 +49,7 @@ trait TTSTasksTrait
  * Zlecenie zadania INZYNIEROWI.
  * Assign a task to an engineer.
  */
-    public function assignTask(int $staffId, string $taskType, ?int $wellId = null, ?string $moduleType = null, ?int $hubId = null): array
+    public function assignTask(int $staffId, string $taskType, ?int $wellId = null, ?string $moduleType = null, ?int $hubId = null, ?int $pipelineId = null): array
     {
         $staff = $this->getStaffMember($staffId);
         if (!$staff) return ['success' => false, 'message' => t('technical.task_msg.staff_missing')];
@@ -67,6 +72,23 @@ trait TTSTasksTrait
 
         if (($taskDef['needs_hub'] ?? false) && !$hubId) {
             return ['success' => false, 'message' => t('technical.task_msg.task_requires_hub')];
+        }
+
+        if (($taskDef['needs_pipeline'] ?? false)) {
+            if (!$pipelineId) {
+                return ['success' => false, 'message' => t('technical.task_msg.task_requires_pipeline')];
+            }
+            $pipeStmt = $this->db->prepare("SELECT status FROM well_pipelines WHERE id = ? AND player_id = ? LIMIT 1");
+            $pipeStmt->execute([$pipelineId, $this->playerId]);
+            $pipeRow = $pipeStmt->fetch();
+            if (!$pipeRow) {
+                return ['success' => false, 'message' => t('technical.task_msg.pipeline_not_owned')];
+            }
+            if ($pipeRow['status'] === 'building') {
+                return ['success' => false, 'message' => t('technical.task_msg.pipeline_unavailable', ['status' => $pipeRow['status']])];
+            }
+        } else {
+            $pipelineId = null; // ignore stray pipeline id for non-pipeline tasks
         }
 
         if ($wellId && $taskDef['needs_well']) {
@@ -111,7 +133,7 @@ trait TTSTasksTrait
  // Build null-safe conditions portably (MySQL <=> is not supported by SQLite).
             $dupConds  = ['staff_id = ?', 'task_type = ?'];
             $dupParams = [$staffId, $taskType];
-            foreach (['well_id' => $wellId, 'hub_id' => $hubId, 'module_type' => $moduleType] as $col => $val) {
+            foreach (['well_id' => $wellId, 'hub_id' => $hubId, 'pipeline_id' => $pipelineId, 'module_type' => $moduleType] as $col => $val) {
                 if ($val === null) {
                     $dupConds[] = "$col IS NULL";
                 } else {
@@ -128,16 +150,16 @@ trait TTSTasksTrait
             }
 
             $this->db->prepare("
-                INSERT INTO technical_task_queue (player_id, staff_id, task_type, well_id, hub_id, module_type)
-                VALUES (?,?,?,?,?,?)
-            ")->execute([$this->playerId, $staffId, $taskType, $wellId, $hubId, $moduleType]);
+                INSERT INTO technical_task_queue (player_id, staff_id, task_type, well_id, hub_id, pipeline_id, module_type)
+                VALUES (?,?,?,?,?,?,?)
+            ")->execute([$this->playerId, $staffId, $taskType, $wellId, $hubId, $pipelineId, $moduleType]);
             return ['success' => true, 'message' => t('technical.task_msg.worker_busy_queued'), 'queued' => true];
         }
 
-        return $this->startTask($staffId, $taskType, $wellId, $moduleType, $staff, $hubId);
+        return $this->startTask($staffId, $taskType, $wellId, $moduleType, $staff, $hubId, $pipelineId);
     }
 
-    private function startTask(int $staffId, string $taskType, ?int $wellId, ?string $moduleType, array $staff, ?int $hubId = null): array
+    private function startTask(int $staffId, string $taskType, ?int $wellId, ?string $moduleType, array $staff, ?int $hubId = null, ?int $pipelineId = null): array
     {
         $taskDef = self::getTaskDefinition($taskType);
         $manager = $this->getManager();
@@ -192,11 +214,11 @@ trait TTSTasksTrait
             $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ?")->execute([$staffId]);
             $this->db->prepare("
                 INSERT INTO technical_tasks
-                    (player_id, staff_id, task_type, well_id, hub_id, title, module_type,
+                    (player_id, staff_id, task_type, well_id, hub_id, pipeline_id, title, module_type,
                      start_time, end_time, duration_hours, cost, status)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?, 'in_progress')
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'in_progress')
             ")->execute([
-                $this->playerId, $staffId, $taskType, $wellId, $hubId, $title, $moduleType,
+                $this->playerId, $staffId, $taskType, $wellId, $hubId, $pipelineId, $title, $moduleType,
                 $startTime, $endTime, $hours, $cost,
             ]);
 
@@ -209,6 +231,17 @@ trait TTSTasksTrait
                     WHERE id = ? AND player_id = ?
                       AND status NOT IN ('seized','sold','layer_switch','equipment_swap','servicing')
                 ")->execute([$wellId, $this->playerId]);
+            }
+
+ // Zamroz rurociąg na czas serwisu (status "W naprawie").
+ // Freeze the pipeline during service work (status "servicing").
+            if ($pipelineId && in_array($taskType, self::PIPELINE_SERVICE_TASKS, true)) {
+                $this->db->prepare("
+                    UPDATE well_pipelines
+                    SET service_prev_status = status, status = 'servicing'
+                    WHERE id = ? AND player_id = ?
+                      AND status NOT IN ('building','servicing')
+                ")->execute([$pipelineId, $this->playerId]);
             }
 
             $this->db->commit();
@@ -260,6 +293,7 @@ trait TTSTasksTrait
         $staffId = (int)$task['staff_id'];
         $wellId  = $task['well_id'] ? (int)$task['well_id'] : null;
         $hubId   = $task['hub_id'] ? (int)$task['hub_id'] : null;
+        $pipeId  = !empty($task['pipeline_id']) ? (int)$task['pipeline_id'] : null;
         $pId     = (int)$task['player_id'];
         $skill   = (int)($task['skill_level'] ?? 5);
         $result  = [];
@@ -283,6 +317,24 @@ trait TTSTasksTrait
                     SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
                     WHERE id = ? AND player_id = ? AND status = 'servicing'
                 ")->execute([$wellId, $pId]);
+            }
+        }
+
+ // Odmroz rurociag po serwisie (analogicznie do odwiertu).
+ // Un-freeze the pipeline after service (analogous to the well).
+        if ($pipeId && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
+            $otherStmt = $this->db->prepare("
+                SELECT COUNT(*) FROM technical_tasks
+                WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
+                  AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
+            ");
+            $otherStmt->execute([$pipeId, $pId, $taskId]);
+            if ((int)$otherStmt->fetchColumn() === 0) {
+                $this->db->prepare("
+                    UPDATE well_pipelines
+                    SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
+                    WHERE id = ? AND player_id = ? AND status = 'servicing'
+                ")->execute([$pipeId, $pId]);
             }
         }
 
@@ -425,18 +477,20 @@ trait TTSTasksTrait
                     break;
                 case 'pipeline_maintenance':
                 case 'pipeline_inspection':
-                    $this->db->prepare("
-                        UPDATE well_pipelines
-                        SET transport_loss = GREATEST(0.5, transport_loss - 0.3),
-                            condition_pct  = LEAST(100, condition_pct + 10),
-                            status         = CASE
-                                WHEN LEAST(100, condition_pct + 10) < 40 THEN 'critical'
-                                WHEN LEAST(100, condition_pct + 10) < 70 THEN 'degraded'
-                                ELSE 'active'
-                            END,
-                            last_inspected_at = NOW()
-                        WHERE player_id = ?
-                    ")->execute([$pId]);
+                    if ($pipeId) {
+                        $this->db->prepare("
+                            UPDATE well_pipelines
+                            SET transport_loss = GREATEST(0.5, transport_loss - 0.3),
+                                condition_pct  = LEAST(100, condition_pct + 10),
+                                status         = CASE
+                                    WHEN LEAST(100, condition_pct + 10) < 40 THEN 'critical'
+                                    WHEN LEAST(100, condition_pct + 10) < 70 THEN 'degraded'
+                                    ELSE 'active'
+                                END,
+                                last_inspected_at = NOW()
+                            WHERE id = ? AND player_id = ?
+                        ")->execute([$pipeId, $pId]);
+                    }
                     $result = ['transport_loss_reduced' => 0.3];
                     $msg = t('technical.task_msg.pipeline_maintenance_done');
                     break;
@@ -493,20 +547,22 @@ trait TTSTasksTrait
                     break;
 
                 case 'pipeline_repair':
-                    $this->db->prepare("
-                        UPDATE well_pipelines
-                        SET status = 'active',
-                            condition_pct = LEAST(100, 40 + ? * 5),
-                            transport_loss = GREATEST(0.5, transport_loss - 0.5),
-                            damaged_at = NULL,
-                            leak_started_at = NULL,
-                            last_inspected_at = NOW()
-                        WHERE player_id = ? AND status IN ('damaged', 'leak')
-                    ")->execute([$skill, $pId]);
-                    $this->db->prepare("
-                        UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
-                        WHERE player_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
-                    ")->execute([$pId]);
+                    if ($pipeId) {
+                        $this->db->prepare("
+                            UPDATE well_pipelines
+                            SET status = 'active',
+                                condition_pct = LEAST(100, 40 + ? * 5),
+                                transport_loss = GREATEST(0.5, transport_loss - 0.5),
+                                damaged_at = NULL,
+                                leak_started_at = NULL,
+                                last_inspected_at = NOW()
+                            WHERE id = ? AND player_id = ?
+                        ")->execute([$skill, $pipeId, $pId]);
+                        $this->db->prepare("
+                            UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                            WHERE player_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
+                        ")->execute([$pId]);
+                    }
                     $result = ['pipeline_repaired' => true];
                     $msg = t('technical.task_msg.pipeline_repair_done');
                     break;
@@ -568,7 +624,7 @@ trait TTSTasksTrait
             $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$next['id']]);
             $staffRow = $this->getStaffMember($staffId);
             if ($staffRow) {
-                $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null);
+                $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
             }
         }
     }
@@ -645,6 +701,24 @@ trait TTSTasksTrait
                 }
             }
 
+ // Odmroz rurociag jezeli anulowane zadanie go serwisowalo (i brak innych serwisow).
+ // Un-freeze the pipeline if the cancelled task was servicing it (and no other service runs).
+            if (!empty($task['pipeline_id']) && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
+                $otherStmt = $this->db->prepare("
+                    SELECT COUNT(*) FROM technical_tasks
+                    WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
+                      AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
+                ");
+                $otherStmt->execute([(int)$task['pipeline_id'], $this->playerId, $taskId]);
+                if ((int)$otherStmt->fetchColumn() === 0) {
+                    $this->db->prepare("
+                        UPDATE well_pipelines
+                        SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
+                        WHERE id = ? AND player_id = ? AND status = 'servicing'
+                    ")->execute([(int)$task['pipeline_id'], $this->playerId]);
+                }
+            }
+
             $next = $this->db->prepare("
                 SELECT * FROM technical_task_queue WHERE staff_id = ?
                 ORDER BY priority DESC, queued_at ASC LIMIT 1
@@ -655,7 +729,7 @@ trait TTSTasksTrait
                 $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$nextTask['id']]);
                 $staffRow = $this->getStaffMember((int)$task['staff_id']);
                 if ($staffRow) {
-                    $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null);
+                    $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null, $nextTask['pipeline_id'] ?? null);
                 }
             }
 

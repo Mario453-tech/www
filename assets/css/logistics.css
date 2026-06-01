@@ -2033,6 +2033,13 @@
     color: #ff9a20;
 }
 
+.logistics-pipeline-badge--servicing,
+.logistics-pipeline-badge--suspended {
+    background: rgba(52, 152, 219, .14);
+    border-color: rgba(52, 152, 219, .38);
+    color: #5dade2;
+}
+
 .logistics-pipeline-stats {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -85,7 +85,8 @@ trait TechnicalPageActionsTrait
                 $_POST['task_type'] ?? '',
                 ($_POST['well_id'] ?? '') !== '' ? (int)$_POST['well_id'] : null,
                 ($_POST['module_type'] ?? '') !== '' ? $_POST['module_type'] : null,
-                ($_POST['hub_id'] ?? '') !== '' ? (int)$_POST['hub_id'] : null
+                ($_POST['hub_id'] ?? '') !== '' ? (int)$_POST['hub_id'] : null,
+                ($_POST['pipeline_id'] ?? '') !== '' ? (int)$_POST['pipeline_id'] : null
             );
             GameLog::info('technical.php', 'assign_task result', $result);
             return [$result['message'], $result['success'] ? 'success' : 'error'];

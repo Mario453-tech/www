@@ -330,6 +330,7 @@ class LogisticsService
             $summary['wells'][] = [
                 'id'           => $wellId,
                 'well_type'    => $w['well_type'],
+                'status'       => (string)($w['status'] ?? 'active'),
                 'selected_transport' => $selectedTransport,
                 'transport'    => $effectiveTransport,
                 'capacity_pct' => (float)($effectiveCfg['capacity'] ?? 0.0),

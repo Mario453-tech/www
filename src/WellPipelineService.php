@@ -113,17 +113,21 @@ class WellPipelineService
             "ENUM('nieustawiony','rurociag','ciezarowki','tankowiec') NOT NULL DEFAULT 'nieustawiony'"
         );
 
- // Extend ENUM to include building and leak states for existing installations
+ // Extend ENUM to include building, leak and servicing states for existing installations
         try {
             $this->db->exec(
                 "ALTER TABLE well_pipelines
                  MODIFY COLUMN status
-                     ENUM('active','degraded','critical','damaged','disabled','building','leak','suspended')
+                     ENUM('active','degraded','critical','damaged','disabled','building','leak','suspended','servicing')
                      NOT NULL DEFAULT 'active'"
             );
         } catch (Throwable) {
  // Ignore - column may already have correct definition
         }
+
+ // Status sprzed serwisu rurociagu (przywracany po zakonczeniu zadania).
+ // Pipeline status before service (restored when the task completes).
+        $this->ensureColumn('well_pipelines', 'service_prev_status', "VARCHAR(32) DEFAULT NULL");
 
         $this->db->exec(
             "CREATE TABLE IF NOT EXISTS well_pipeline_events (
