@@ -31,27 +31,7 @@ $PIPE_DEFAULTS = [
     'pipe_medium' => ['loss_add_min'=>1.5, 'loss_add_max'=>4.0,  'cond_drop_min'=>4.0, 'cond_drop_max'=>10.0, 'base_chance'=>0.0012],
 ];
 
-// Cooldown / pressure config
-$PRESSURE_DEFAULTS = [
-    'incident_immunity_ticks'       => 6,
-    'incident_pressure_growth_pct'  => 0.5,
-    'incident_pressure_cap_pct'     => 100.0,
-];
-$pressureCfg = $PRESSURE_DEFAULTS;
-try {
-    $pRows = $db->query(
-        "SELECT `key`, `value` FROM well_config WHERE `key` IN ('incident_immunity_ticks','incident_pressure_growth_pct','incident_pressure_cap_pct')"
-    )->fetchAll(\PDO::FETCH_KEY_PAIR);
-    if ($pRows !== false) {
-        foreach ($PRESSURE_DEFAULTS as $k => $def) {
-            if (isset($pRows[$k])) {
-                $pressureCfg[$k] = is_int($def) ? max(0, (int)$pRows[$k]) : max(0.0, (float)$pRows[$k]);
-            }
-        }
-    }
-} catch (Throwable $e) {}
-
-// Retencja historii incydentw
+// Retencja historii incydentw 
 $retentionDefault = 30;
 $retentionKey     = 'incident_retention_days';
 
@@ -244,36 +224,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = t('admin.incidents.msg_retention_saved', ['days' => $days]);
         } catch (Throwable $e) {
             $err = t('admin.incidents.err_save') . ': ' . $e->getMessage();
-        }
-
-    } elseif ($action === 'save_pressure_cfg') {
-        try {
-            $immunityTicks    = max(0,   min(100,   (int)($_POST['immunity_ticks']      ?? $PRESSURE_DEFAULTS['incident_immunity_ticks'])));
-            $pressureGrowth   = max(0.0, min(50.0,  (float)($_POST['pressure_growth_pct'] ?? $PRESSURE_DEFAULTS['incident_pressure_growth_pct'])));
-            $pressureCap      = max(0.0, min(1000.0,(float)($_POST['pressure_cap_pct']    ?? $PRESSURE_DEFAULTS['incident_pressure_cap_pct'])));
-            $stmt = $db->prepare("INSERT INTO well_config (`key`, `value`, label, category) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)");
-            $stmt->execute(['incident_immunity_ticks',      $immunityTicks,  'Immunitet po incydencie (cykle)', 'incident']);
-            $stmt->execute(['incident_pressure_growth_pct', $pressureGrowth, 'Wzrost szansy po immunitetcie (%/cykl)', 'incident']);
-            $stmt->execute(['incident_pressure_cap_pct',    $pressureCap,    'Max wzrost szansy przez presje (%)', 'incident']);
-            $pressureCfg = [
-                'incident_immunity_ticks'      => $immunityTicks,
-                'incident_pressure_growth_pct' => $pressureGrowth,
-                'incident_pressure_cap_pct'    => $pressureCap,
-            ];
-            AdminLog::log('pressure_cfg_save', "Pressure cfg: immunity={$immunityTicks} growth={$pressureGrowth}% cap={$pressureCap}%");
-            $msg = t('admin.incidents.msg_pressure_saved');
-        } catch (Throwable $e) {
-            $err = t('admin.incidents.err_save') . ': ' . $e->getMessage();
-        }
-
-    } elseif ($action === 'reset_pressure_cfg') {
-        try {
-            $db->query("DELETE FROM well_config WHERE `key` IN ('incident_immunity_ticks','incident_pressure_growth_pct','incident_pressure_cap_pct')");
-            $pressureCfg = $PRESSURE_DEFAULTS;
-            AdminLog::log('pressure_cfg_reset', 'Pressure config reset to defaults');
-            $msg = t('admin.incidents.msg_pressure_reset');
-        } catch (Throwable $e) {
-            $err = t('admin.incidents.err_reset') . ': ' . $e->getMessage();
         }
 
     } elseif ($action === 'run_retention_now') {
@@ -660,8 +610,6 @@ $viewData = [
     'trigPlayers'     => $trigPlayers,
     'trigWells'       => $trigWells,
     'trigPipelines'   => $trigPipelines,
-    'pressureCfg'     => $pressureCfg,
-    'PRESSURE_DEFAULTS' => $PRESSURE_DEFAULTS,
 ];
 
 require_once __DIR__ . '/partials/header.php';

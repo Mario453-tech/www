@@ -29,7 +29,6 @@ $pipeLevelMeta = [
     <button id="inc-btn-pipe_micro"  onclick="incShowTab('pipe_micro')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_pipe_micro') ?></button>
     <button id="inc-btn-pipe_minor"  onclick="incShowTab('pipe_minor')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_pipe_minor') ?></button>
     <button id="inc-btn-pipe_medium" onclick="incShowTab('pipe_medium')" class="admin-tab" role="tab"><?= t('admin.incidents.tab_pipe_medium') ?></button>
-    <button id="inc-btn-cooldown" onclick="incShowTab('cooldown')" class="admin-tab" role="tab"><?= t('admin.incidents.tab_cooldown') ?></button>
     <button id="inc-btn-recent" onclick="incShowTab('recent')" class="admin-tab" role="tab"><?= t('admin.incidents.tab_recent') ?></button>
     <button id="inc-btn-help"    onclick="incShowTab('help')"    class="admin-tab" role="tab"><?= t('admin.incidents.tab_help') ?></button>
     <button id="inc-btn-trigger" onclick="incShowTab('trigger')" class="admin-tab admin-tab--danger" role="tab"><?= t('admin.incidents.tab_trigger') ?></button>
@@ -293,98 +292,6 @@ foreach ($PIPE_LEVELS as $lvl):
 <?php endforeach ?>
 
 <?= $formPipeReset ?>
-
-<!--  TAB: COOLDOWN / PRESJA  -->
-<div id="inc-tab-cooldown" class="admin-tab-content" role="tabpanel">
-    <section class="panel" aria-label="<?= t('admin.incidents.cooldown_title') ?>">
-        <p class="panel-title"><?= t('admin.incidents.cooldown_title') ?></p>
-        <p class="panel-hint"><?= t('admin.incidents.cooldown_hint') ?></p>
-
-        <form method="post">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="save_pressure_cfg">
-            <table class="admin-table" style="max-width:620px">
-                <thead>
-                    <tr><th><?= t('admin.incidents.field_min') ?> / parametr</th><th>Wartość</th><th><?= t('admin.incidents.cfg_default') ?></th></tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            <strong><?= t('admin.incidents.immunity_ticks_label') ?></strong><br>
-                            <small class="text-muted"><?= t('admin.incidents.immunity_ticks_hint') ?></small>
-                        </td>
-                        <td><input type="number" name="immunity_ticks" value="<?= (int)$pressureCfg['incident_immunity_ticks'] ?>" min="0" max="100" step="1" class="input-narrow" required></td>
-                        <td class="text-muted"><?= (int)$PRESSURE_DEFAULTS['incident_immunity_ticks'] ?></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <strong><?= t('admin.incidents.pressure_growth_label') ?></strong><br>
-                            <small class="text-muted"><?= t('admin.incidents.pressure_growth_hint') ?></small>
-                        </td>
-                        <td><input type="number" name="pressure_growth_pct" value="<?= number_format((float)$pressureCfg['incident_pressure_growth_pct'], 2, '.', '') ?>" min="0" max="50" step="0.01" class="input-narrow" required></td>
-                        <td class="text-muted"><?= number_format((float)$PRESSURE_DEFAULTS['incident_pressure_growth_pct'], 2, '.', '') ?></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <strong><?= t('admin.incidents.pressure_cap_label') ?></strong><br>
-                            <small class="text-muted"><?= t('admin.incidents.pressure_cap_hint') ?></small>
-                        </td>
-                        <td><input type="number" name="pressure_cap_pct" value="<?= number_format((float)$pressureCfg['incident_pressure_cap_pct'], 1, '.', '') ?>" min="0" max="1000" step="0.1" class="input-narrow" required></td>
-                        <td class="text-muted"><?= number_format((float)$PRESSURE_DEFAULTS['incident_pressure_cap_pct'], 1, '.', '') ?></td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="form-actions" style="margin-top:1rem">
-                <button type="submit" class="btn btn-primary"><?= t('admin.incidents.btn_save_pressure') ?></button>
-                <button type="button" class="btn btn-secondary" onclick="if(confirm('<?= t('admin.incidents.confirm_reset_pressure') ?>')) document.getElementById('pressure-reset-form').submit()"><?= t('admin.incidents.btn_reset_pressure') ?></button>
-            </div>
-        </form>
-        <form method="post" id="pressure-reset-form">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="reset_pressure_cfg">
-        </form>
-    </section>
-
-    <section class="panel" aria-label="<?= t('admin.incidents.pressure_table_title') ?>" style="margin-top:1.5rem">
-        <p class="panel-title"><?= t('admin.incidents.pressure_table_title') ?></p>
-        <?php
-        $immTicks   = (int)$pressureCfg['incident_immunity_ticks'];
-        $growthPct  = (float)$pressureCfg['incident_pressure_growth_pct'];
-        $capPct     = (float)$pressureCfg['incident_pressure_cap_pct'];
-        $previewRows = [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 50, 100];
-        ?>
-        <table class="admin-table" style="max-width:500px">
-            <thead>
-                <tr>
-                    <th><?= t('admin.incidents.pressure_table_ticks') ?></th>
-                    <th><?= t('admin.incidents.pressure_table_mult') ?></th>
-                    <th><?= t('admin.incidents.pressure_table_state') ?></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($previewRows as $t_val):
-                    if ($t_val < $immTicks) {
-                        $mult  = 1.0;
-                        $state = t('admin.incidents.pressure_state_immunity');
-                        $cls   = 'badge-ok';
-                    } else {
-                        $pt    = $t_val - $immTicks;
-                        $add   = min($capPct, $pt * $growthPct);
-                        $mult  = 1.0 + $add / 100.0;
-                        $state = $add >= $capPct ? t('admin.incidents.pressure_state_capped') : t('admin.incidents.pressure_state_growing');
-                        $cls   = $add >= $capPct ? 'badge-error' : 'badge-warn';
-                    }
-                ?>
-                <tr>
-                    <td><?= $t_val ?></td>
-                    <td>×<?= number_format($mult, 3) ?></td>
-                    <td><span class="badge <?= $cls ?>"><?= htmlspecialchars($state) ?></span></td>
-                </tr>
-                <?php endforeach ?>
-            </tbody>
-        </table>
-    </section>
-</div>
 
 <!--  TAB: HISTORIA INCYDENTOW  -->
 <div id="inc-tab-recent" class="admin-tab-content" role="tabpanel">

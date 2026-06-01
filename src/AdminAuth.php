@@ -115,6 +115,7 @@ class AdminAuth
  // Time allowed to finish 2FA after the password step (seconds).
     private const PENDING_TTL = 600; // 10 min
 
+    /** @param array<string,mixed> $admin */
     private static function setPending(array $admin): void
     {
         session_regenerate_id(true);
@@ -135,6 +136,7 @@ class AdminAuth
             && (time() - ($_SESSION['admin_pending']['ts'] ?? 0) < self::PENDING_TTL);
     }
 
+    /** @return array<string,mixed>|null */
     public static function getPending(): ?array
     {
         return self::hasPending() ? $_SESSION['admin_pending'] : null;

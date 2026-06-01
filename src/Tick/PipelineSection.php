@@ -302,6 +302,7 @@ class PipelineSection
  /**
  * Rolls for a random pipeline incident (micro/minor/medium) and applies effects.
  * Rolls for a random pipeline incident and applies condition drop + transport loss spike.
+ * @param array<string,mixed> $hseBonus
  */
     private function rollPipelineIncident(
         int $playerId,

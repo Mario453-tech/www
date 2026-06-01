@@ -17,6 +17,7 @@ ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 
 // Helper: send JSON and exit / Wysyla JSON i konczy skrypt
+/** @param array<string,mixed> $data */
 function pipelineApiOut(array $data, int $code = 200): never
 {
     http_response_code($code);

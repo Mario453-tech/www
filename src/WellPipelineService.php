@@ -752,7 +752,8 @@ class WellPipelineService
  * incident_risk_mult:float,
  * opex_per_tick:float,
  * opex_per_bbl:float,
- * build_cost:float
+ * build_cost:float,
+ * build_hours:int
  * }
  */
     public function getProfile(string $pipelineType): array
@@ -1083,22 +1084,6 @@ class WellPipelineService
     private function pipelineTypeConfigKey(string $pipelineType, string $field): string
     {
         return 'pipeline_type_' . $pipelineType . '_' . $field;
-    }
-
- /**
- * @param array<string, mixed> $well
- * @return array{
- * pipeline_type:string,
- * degradation_rate_per_hour:float,
- * incident_risk_mult:float,
- * opex_per_tick:float,
- * opex_per_bbl:float,
- * build_cost:float
- * }
- */
-    private function getProfileForWell(array $well): array
-    {
-        return $this->getProfile((string)($well['pipeline_type'] ?? 'standard'));
     }
 
     public function normalizePipelineType(string $pipelineType): string

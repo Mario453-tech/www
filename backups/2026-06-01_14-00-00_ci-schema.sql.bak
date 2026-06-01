@@ -2093,7 +2093,6 @@ CREATE TABLE `wells` (
   `equipment_swap_until` datetime DEFAULT NULL,
   `equipment_swap_prev_status` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `post_incident_risk_boost` decimal(8,4) NOT NULL DEFAULT '0.0000',
-  `ticks_since_incident` int NOT NULL DEFAULT '999',
   `active_layer_id` tinyint UNSIGNED NOT NULL DEFAULT '1',
   `layer_reservoir_used` bigint NOT NULL DEFAULT '0',
   `layer_switch_until` datetime DEFAULT NULL,

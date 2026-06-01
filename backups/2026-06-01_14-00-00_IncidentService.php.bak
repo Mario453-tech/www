@@ -48,17 +48,12 @@ class IncidentService
         'major'  => 0.004,
     ];
 
+ // Floor = fixed chance per tick (NOT scaled by deltaHours)
+ // Guarantees minimum ~3%/tick for micro regardless of gaps
  /** @var array<string, array<string, float>> */
     private array $levelCfg = [];
  /** @var array<string, float> */
     private array $baseChance = [];
-
- // Immunity + pressure system (configurable via admin → Incydenty → Cooldown)
- // Immunitet: X cykli po incydencie bez możliwości nowego.
- // Presja: po immunitetcie szansa rośnie o Y% za cykl, max Z%.
-    public int   $immunityTicks     = 6;    // default: 6 cykli = 30 min
-    public float $pressureGrowthPct = 0.5;  // default: +0.5% szansy bazowej za cykl
-    public float $pressureCapPct    = 100.0; // default: max +100% (2× szansy bazowej)
 
     public function __construct()
     {
@@ -95,22 +90,7 @@ class IncidentService
                 }
             }
         } catch (\Throwable $e) {
-            GameLog::error('IncidentService', 'loadConfigOverrides FAILED – using defaults', $e);
-        }
-
-        // Load immunity / pressure config
-        try {
-            $pRows = $this->db->query(
-                "SELECT `key`, `value` FROM well_config
-                  WHERE `key` IN ('incident_immunity_ticks','incident_pressure_growth_pct','incident_pressure_cap_pct')"
-            )->fetchAll(\PDO::FETCH_KEY_PAIR);
-            if ($pRows !== false) {
-                $this->immunityTicks     = max(0,   (int)($pRows['incident_immunity_ticks']       ?? 6));
-                $this->pressureGrowthPct = max(0.0, (float)($pRows['incident_pressure_growth_pct'] ?? 0.5));
-                $this->pressureCapPct    = max(0.0, (float)($pRows['incident_pressure_cap_pct']    ?? 100.0));
-            }
-        } catch (\Throwable $e) {
-            // keep defaults
+            GameLog::error('IncidentService', 'loadConfigOverrides FAILED � using defaults', $e);
         }
     }
 

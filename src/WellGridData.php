@@ -163,6 +163,10 @@ class WellGridData
  /**
  * Enriches a single well row with all computed display data.
  * ETAP 11: $outboundPipelineByHub is keyed by hub_id (not well_id).
+ * @param array<int, array<string,mixed>> $pipelineByWell
+ * @param array<int, mixed>               $hubAssignmentByWell
+ * @param array<int, array<string,mixed>> $outboundPipelineByHub
+ * @return array<string,mixed>
  */
     private static function prepareWell(array $w, array $statusMap, array $specNames, float $playerCash, array $pipelineByWell, array $hubAssignmentByWell, array $outboundPipelineByHub = []): array
     {

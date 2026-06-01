@@ -25,6 +25,7 @@ class WellRoadTripSection
  /** @var array<int, float> well_id => credited bbl (basis for the second transport leg) */
     public array $deliveredByWell = [];
 
+    /** @phpstan-ignore property.onlyWritten */
     private PDO      $db;
     private DateTime $now;
 
