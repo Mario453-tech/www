@@ -161,6 +161,12 @@
     color: var(--orange) !important;
 }
 
+/* Kolory poziomu ryzyka / Risk level colors */
+.legal-risk-low      { color: var(--green);  font-weight: 600; }
+.legal-risk-medium   { color: var(--gold);   font-weight: 600; }
+.legal-risk-high     { color: var(--orange); font-weight: 600; }
+.legal-risk-critical { color: var(--red);    font-weight: 600; }
+
 /* Cooldown / Cooldown notice */
 .legal-cooldown {
     color: var(--red) !important;
