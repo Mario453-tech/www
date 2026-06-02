@@ -171,63 +171,6 @@ trait WellTickTrait
     }
 
  /**
- * Rzut katastrofy odwiertu oparty o risk_score.
- * Well disaster roll based on risk_score.
- *
- * Prawdopodobienstwo rosnie kwadratowo z risk_score (0-100).
- * Probability grows quadratically with risk_score (0-100).
- * Przy risk_score=100 i combinedMult=1.0: ~0.20% na godzine.
- * At risk_score=100 with combinedMult=1.0: ~0.20% per hour.
- *
- * @param array<string, mixed> $hseBonus musi zawierac catastrophe_mult / must contain catastrophe_mult
- * @return array{disaster: string|null, cost?: int, env_fine?: int, desc?: string}
- */
-    public function processDisasterRoll(
-        int $wellId, float $deltaHours, array $hseBonus, float $combinedMult = 1.0
-    ): array {
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT id, player_id, status, technical_condition, risk_score FROM wells WHERE id = ? LIMIT 1"
-            );
-            $stmt->execute([$wellId]);
-            $well = $stmt->fetch();
-
- // Tylko aktywne/wstrzymane odwierty kwalifikuja sie do katastrofy. / Only active/paused wells qualify.
-            if (!$well || !in_array($well['status'], ['active', 'contaminated', 'paused_cash', 'paused_storage', 'paused_staff'], true)) {
-                return ['disaster' => null];
-            }
-
-            $riskScore = (float)($well['risk_score'] ?? 0);
-            if ($riskScore <= 0) {
-                return ['disaster' => null];
-            }
-
- // Prawdopodobienstwo bazowe na godzine: (risk/100)^2 * 0.0020. / Base probability per hour: (risk/100)^2 * 0.0020.
-            $baseProbPerHour = ($riskScore / 100.0) ** 2 * 0.0020;
-            $catastropheMult = (float)($hseBonus['catastrophe_mult'] ?? 1.0);
-            $prob = $baseProbPerHour * $deltaHours * $combinedMult * $catastropheMult;
-            $prob = min($prob, 0.05); // twardy limit 5% na tick / hard cap 5% per tick
-
-            if (mt_rand(1, 1_000_000) > (int)round($prob * 1_000_000)) {
-                return ['disaster' => null];
-            }
-
-            $playerId = (int)$well['player_id'];
-            $cond     = (float)$well['technical_condition'];
-
- // Blowout gdy stan < 40, inaczej skazenie rezerwuaru. / Blowout when condition < 40, else reservoir contamination.
-            if ($cond < 40) {
-                return $this->triggerBlowout($wellId, $playerId, $hseBonus);
-            }
-            return $this->triggerReservoirContamination($wellId, $playerId, $hseBonus);
-
-        } catch (Throwable $e) {
-            GameLog::error('WellService', 'processDisasterRoll FAILED', $e, ['well_id' => $wellId]);
-            return ['disaster' => null];
-        }
-    }
-
- /**
  * Accumulate well risk_score during the tick.
  * Akumuluje risk_score odwiertu podczas ticka.
  *

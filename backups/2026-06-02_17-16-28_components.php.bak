@@ -142,12 +142,8 @@ return [
     'well_grid.leg2_desc' => 'Transport ropy z huba przeładunkowego do magazynu. Każdy odcinek ma własną infrastrukturę i incydenty.',
     'well_grid.leg2_hub_required' => 'Drugi odcinek wymaga aktywnego przypisania odwiertu do huba.',
     'well_grid.leg2_pipeline_building' => 'Rurociąg hub→magazyn jest w budowie.',
-    'well_grid.leg2_pipeline_owned' => 'Rurociąg hub→magazyn jest już wybudowany.',
+    'well_grid.leg2_pipeline_owned' => 'Rurociąg hub→magazyn kupiony i aktywny.',
     'well_grid.leg2_btn_pipeline' => 'Rurociąg hub→magazyn',
-    // Przełączenie z powrotem na rurociąg, gdy jest już wybudowany (bez opłaty).
-    // Switch back to the pipeline when it is already built (no fee).
-    'well_grid.leg2_btn_pipeline_switch' => 'Przełącz na rurociąg',
-    'well_grid.leg2_confirm_pipeline_switch' => 'Przełączyć drugi odcinek (hub→magazyn) z powrotem na rurociąg? Rurociąg jest już wybudowany — bez dodatkowych kosztów.',
     'well_grid.leg2_active' => 'Aktywny',
     'well_grid.pipeline_active' => 'Aktywny',
     'well_grid.leg2_btn_road' => 'Transport drogowy',

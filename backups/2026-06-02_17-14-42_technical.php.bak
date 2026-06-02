@@ -79,12 +79,6 @@ return [
     'technical.cancel_recruitment_title' => 'Anuluj rekrutację',
     'technical.cancel_recruitment_hint' => 'Wyszukiwanie zostanie przerwane, a slot rekrutacyjny wróci do puli Działu technicznego.',
     'technical.btn_cancel_recruitment_confirm' => 'Tak, anuluj',
-    // Wyniki zlecenia rekrutacji (pojedynczo / wsadowo).
-    // Recruitment request results (single / batch).
-    'technical.recruitment_batch_ok' => 'Zlecono rekrutację :count kandydatów. Dział kadr rozpoczął wyszukiwanie.',
-    'technical.recruitment_batch_partial' => 'Zlecono rekrutację :count z :requested (:spec). Brakło wolnych slotów na pozostałe.',
-    'technical.recruitment_batch_err' => 'Zlecono :count rekrutacji. Szczegóły: :detail',
-    'technical.err_recruitment' => 'Nie udało się zlecić rekrutacji. Spróbuj ponownie.',
     'technical.spec_hired' => ':cnt :label',
     'technical.hired_single' => 'zatrudniony',
     'technical.hired_plural' => 'zatrudnionych',
