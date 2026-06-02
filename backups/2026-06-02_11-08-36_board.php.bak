@@ -146,7 +146,6 @@ return [
     'br_js.skill_str' => 'Stres',
     'br_js.skill_eth' => 'Etyka',
     'br_js.hr_badge_required' => ' Wymagane',
-    'br_js.hire_badge' => 'Zatrudnij',
     'br_js.rec_badge' => ' Rekomendacja :name',
     'board_access.denied' => 'Aby odblokować ten dział, zatrudnij najpierw :label w Sali Zarządu.',
     'board_access.role_hr' => 'Dyrektor Kadr',

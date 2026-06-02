@@ -515,14 +515,11 @@
             var r          = regionById[loc.region_id];
             var cls        = isMine ? 'loc-item--mine' : isOccupied ? 'loc-item--taken' : 'loc-item--free';
             var tier       = loc.tier || 'medium';
-            var needsPermit = !isMine && !isOccupied && r && r.has_permit === false;
             var badge      = isMine
                 ? '<span class="loc-badge loc-badge--mine">'  + mlt('badge_mine')  + '</span>'
                 : isOccupied
                     ? '<span class="loc-badge loc-badge--taken">' + mlt('badge_taken') + '</span>'
-                    : needsPermit
-                        ? '<span class="loc-badge loc-badge--permit">' + mlt('badge_permit') + '</span>'
-                        : '<span class="loc-badge loc-badge--free">'  + mlt('badge_free')  + '</span>';
+                    : '<span class="loc-badge loc-badge--free">'  + mlt('badge_free')  + '</span>';
             var regionTag = containerId === 'browse-list'
                 ? '<span style="color:' + (r ? r.color_hex : '#aaa') + '">' + escHtml(r ? r.name : '') + '</span> - ' : '';
             return '<div class="loc-item ' + cls + '" onclick="window.__mapShowLocation(' + loc.id + ')">'
@@ -610,13 +607,6 @@
               + '<a href="/technical" class="btn-well-technical">' + mlt('well_go_technical') + '</a>';
         } else if (isOccupied) {
             buyHtml = '<div class="loc-taken-badge">' + mlt('taken_badge') + '</div>';
-        } else if (r && r.has_permit === false) {
-            buyHtml =
-                '<div class="loc-permit-required">'
-              + '<div class="loc-permit-title">' + mlt('permit_required_title') + '</div>'
-              + '<div class="loc-permit-text">'  + mlt('permit_required_text')  + '</div>'
-              + '<a href="/legal" class="btn-permit-legal">' + mlt('permit_required_btn') + '</a>'
-              + '</div>';
         } else if (playerCash < totalCost) {
             buyHtml =
                 '<div class="loc-nofunds">'
