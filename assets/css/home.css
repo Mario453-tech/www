@@ -839,10 +839,6 @@
  */
 
 @media (max-width: 768px) {
-    .status-grid--redesign {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
     .trend-alert--redesign {
         flex-wrap: wrap;
         padding: 12px 14px;
@@ -874,6 +870,6 @@
 
 @media (max-width: 480px) {
     .status-grid--redesign {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 }
