@@ -51,18 +51,10 @@
     text-align: center;
     z-index: 2;
     transition: transform 0.2s ease;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
 }
 
 .slot:hover {
     transform: translate(-50%, -50%) scale(1.1);
-}
-
-.slot-occupied,
-.slot-ready,
-.slot-hr {
-    cursor: pointer;
 }
 
 .slot-avatar {

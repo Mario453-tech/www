@@ -18,9 +18,6 @@ class LegalSection
     private PDO      $db;
     private DateTime $now;
 
-    /** @var array<int,string> Cache nazw regionów w obrębie jednego ticku. */
-    private array $regionNames = [];
-
     public function __construct(PDO $db, DateTime $now)
     {
         $this->db  = $db;
@@ -224,44 +221,38 @@ class LegalSection
     /** @return array{string,string,string,string} [title, message, icon, priority] */
     private function buildNotification(string $outcome, int $regionId, string $riskLevel): array
     {
-        $region = $this->regionName($regionId);
-
-        [$key, $icon, $priority] = match ($outcome) {
-            'granted'     => ['granted',     '✅', 'high'],
-            'refused'     => ['refused',     '❌', 'high'],
-            'delayed'     => ['delayed',     '⏳', 'medium'],
-            'no_decision' => ['no_decision', '⚠️', 'medium'],
-            default       => ['default',     'ℹ️', 'low'],
+        return match ($outcome) {
+            'granted' => [
+                'Zezwolenie na wiercenie przyznane',
+                "Twój wniosek o zezwolenie na wiercenie w regionie #{$regionId} został rozpatrzony pozytywnie.",
+                '✅',
+                'high',
+            ],
+            'refused' => [
+                'Wniosek o zezwolenie odrzucony',
+                "Urząd odmówił wydania zezwolenia na wiercenie w regionie #{$regionId}. Sprawdź kiedy możesz złożyć ponowny wniosek.",
+                '❌',
+                'high',
+            ],
+            'delayed' => [
+                'Decyzja o zezwoleniu opóźniona',
+                "Rozpatrzenie wniosku o zezwolenie na wiercenie w regionie #{$regionId} zostało opóźnione. Nowy termin decyzji został wyznaczony.",
+                '⏳',
+                'medium',
+            ],
+            'no_decision' => [
+                'Brak decyzji w sprawie zezwolenia',
+                "Urząd nie wydał decyzji w sprawie zezwolenia na wiercenie w regionie #{$regionId}. Wniosek pozostaje bez rozpatrzenia.",
+                '⚠️',
+                'medium',
+            ],
+            default => [
+                'Aktualizacja wniosku o zezwolenie',
+                "Status Twojego wniosku o zezwolenie na wiercenie w regionie #{$regionId} został zaktualizowany.",
+                'ℹ️',
+                'low',
+            ],
         };
-
-        return [
-            tPlain("legal.notif.{$key}.title"),
-            tPlain("legal.notif.{$key}.message", ['region' => $region]),
-            $icon,
-            $priority,
-        ];
-    }
-
-    /** Zwraca nazwę regionu (z fallbackiem "#id"). Wyniki cache'owane w obrębie ticku. */
-    private function regionName(int $regionId): string
-    {
-        if (isset($this->regionNames[$regionId])) {
-            return $this->regionNames[$regionId];
-        }
-        $name = '#' . $regionId;
-        try {
-            $stmt = $this->db->prepare("SELECT name FROM world_regions WHERE id = ? LIMIT 1");
-            $stmt->execute([$regionId]);
-            $row = $stmt->fetch();
-            if ($row && !empty($row['name'])) {
-                $name = (string)$row['name'];
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalSection', 'regionName FAILED', $e, ['region_id' => $regionId]);
-            }
-        }
-        return $this->regionNames[$regionId] = $name;
     }
 
     private function addMinutes(string $datetime, int $minutes): string

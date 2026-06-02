@@ -23,7 +23,7 @@ return [
 
     // Tabela regionów
     'admin.legal.regions_title'  => 'Parametry regionów',
-    'admin.legal.no_regions'     => 'Brak skonfigurowanych regionów. Kliknij „Seeduj regiony", aby załadować regiony z mapy świata.',
+    'admin.legal.no_regions'     => 'Brak skonfigurowanych regionów. Uruchom seedRegionConfig() aby załadować regiony z mapy.',
     'admin.legal.col_region'     => 'Region',
     'admin.legal.col_risk'       => 'Ryzyko',
     'admin.legal.col_enabled'    => 'Włączony',
@@ -67,14 +67,6 @@ return [
     'admin.legal.err_action'     => 'Błąd wykonania akcji',
     'admin.legal.err_load_apps'  => 'Błąd ładowania wniosków',
     'admin.legal.err_migration'  => 'Błąd migracji',
-
-    // Seed konfiguracji regionów
-    'admin.legal.seed_title'       => 'Konfiguracja regionów — seed',
-    'admin.legal.seed_hint'        => 'Załaduj konfigurację działu prawnego dla wszystkich regionów z mapy świata (world_regions). Poziom ryzyka mapowany automatycznie z ryzyka politycznego regionu. Operacja jest idempotentna — nie nadpisuje istniejących wpisów. Uruchom raz po wdrożeniu, aby gracze mogli składać wnioski.',
-    'admin.legal.btn_seed_regions' => 'Seeduj regiony',
-    'admin.legal.seed_confirm'     => 'Załadować konfigurację regionów z mapy świata? Operacja jest bezpieczna i idempotentna.',
-    'admin.legal.msg_seed_done'    => 'Seed zakończony. Nowe regiony skonfigurowane: :n.',
-    'admin.legal.err_seed'         => 'Błąd seedowania regionów',
 
     // Migracja przejściowa
     'admin.legal.migration_title'   => 'Migracja — zezwolenia przejściowe',

@@ -26,20 +26,6 @@
 <!-- ===== TAB: KONFIGURACJA REGIONÓW ===== -->
 <?php if ($tab === 'regions'): ?>
 
-<!-- Seed konfiguracji regionów -->
-<section class="panel mb-8">
-    <p class="panel-title"><?= t('admin.legal.seed_title') ?></p>
-    <p class="panel-hint"><?= t('admin.legal.seed_hint') ?></p>
-    <form method="post" action="/admin/legal.php?tab=regions">
-        <?= CSRF::field() ?>
-        <input type="hidden" name="action" value="seed_regions">
-        <button type="submit" class="btn btn-primary"
-                onclick="return confirm(<?= json_encode(tPlain('admin.legal.seed_confirm'), JSON_UNESCAPED_UNICODE) ?>)">
-            <?= t('admin.legal.btn_seed_regions') ?>
-        </button>
-    </form>
-</section>
-
 <!-- Migracja przejściowa -->
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.legal.migration_title') ?></p>
@@ -59,11 +45,6 @@
 
     <?php if (empty($regions)): ?>
     <p class="panel-hint"><?= t('admin.legal.no_regions') ?></p>
-    <form method="post" action="/admin/legal.php?tab=regions" style="margin-top:10px">
-        <?= CSRF::field() ?>
-        <input type="hidden" name="action" value="seed_regions">
-        <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
-    </form>
     <?php else: ?>
 
     <div class="table-scroll-wrap">

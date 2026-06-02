@@ -30,20 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $regionId = (int)($_POST['region_id'] ?? 0);
     $appId    = (int)($_POST['app_id'] ?? 0);
 
-    // Seed konfiguracji regionów z mapy (world_regions -> legal_region_config)
-    if ($action === 'seed_regions') {
-        try {
-            $seeded = $legal->seedRegionConfig();
-            AdminLog::log('legal_seed_regions', "Seed regionów: {$seeded} nowych wpisów");
-            $msg = t('admin.legal.msg_seed_done', ['n' => $seeded]);
-        } catch (Throwable $e) {
-            $err = t('admin.legal.err_seed') . ': ' . $e->getMessage();
-        }
-        $tab = 'regions';
-    }
-
     // Migracja przejściowa
-    elseif ($action === 'run_migration') {
+    if ($action === 'run_migration') {
         try {
             $migrated = $legal->migrateTransitionalPermits();
             AdminLog::log('legal_migration_run', "Migracja: {$migrated} wpisów transitional");

@@ -58,16 +58,4 @@ return [
     'legal.status.refused'      => 'Wniosek odrzucony',
     'legal.status.transitional' => 'Zezwolenie przejściowe',
 
-    // --- Powiadomienia dyrektora (tick — etap 4) ---
-    'legal.notif.granted.title'       => 'Zezwolenie na wiercenie przyznane',
-    'legal.notif.granted.message'     => 'Twój wniosek o zezwolenie na wiercenie w regionie :region został rozpatrzony pozytywnie.',
-    'legal.notif.refused.title'       => 'Wniosek o zezwolenie odrzucony',
-    'legal.notif.refused.message'     => 'Urząd odmówił wydania zezwolenia na wiercenie w regionie :region. Sprawdź, kiedy możesz złożyć ponowny wniosek.',
-    'legal.notif.delayed.title'       => 'Decyzja o zezwoleniu opóźniona',
-    'legal.notif.delayed.message'     => 'Rozpatrzenie wniosku o zezwolenie na wiercenie w regionie :region zostało opóźnione. Wyznaczono nowy termin decyzji.',
-    'legal.notif.no_decision.title'   => 'Brak decyzji w sprawie zezwolenia',
-    'legal.notif.no_decision.message' => 'Urząd nie wydał decyzji w sprawie zezwolenia na wiercenie w regionie :region. Wniosek pozostaje bez rozpatrzenia.',
-    'legal.notif.default.title'       => 'Aktualizacja wniosku o zezwolenie',
-    'legal.notif.default.message'     => 'Status Twojego wniosku o zezwolenie na wiercenie w regionie :region został zaktualizowany.',
-
 ];

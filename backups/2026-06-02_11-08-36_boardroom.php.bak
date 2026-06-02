@@ -17,7 +17,7 @@ try {
 }
 
 
-// Pobierz aktywnych pracowników TEGO GRACZA
+// Pobierz aktywnych pracownik�w TEGO GRACZA
 $stmt = $db->prepare("
     SELECT bm.*, br.code as role_code, br.name as role_name,
            TIMESTAMPDIFF(YEAR, bm.birth_date, CURDATE()) as age,
@@ -75,7 +75,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $candidateCounts[$row['role_id']] = $row['count'];
 }
 
-// Mapowanie pracowników według roli
+// Mapowanie pracownik�w wed�ug roli
 $membersByRole = [];
 foreach ($boardMembers as $member) {
     $membersByRole[$member['role_code']] = $member;
@@ -100,7 +100,7 @@ try {
 } catch (Throwable $e) {
     GameLog::error('boardroom.php', 'boardroom_config query failed', $e);
 }
-$headerTitle    = htmlspecialchars($brConfig['header_title']    ?? 'Sala Zarządu');
+$headerTitle    = htmlspecialchars($brConfig['header_title']    ?? 'Sala Zarz�du');
 $headerSubtitle = htmlspecialchars($brConfig['header_subtitle'] ?? '');
 $headerImage    = $brConfig['header_image'] ?? '';
 $footerText     = htmlspecialchars($brConfig['footer_text']     ?? '');
@@ -114,14 +114,80 @@ try {
     GameLog::error('boardroom.php', 'board_roles query failed', $e);
 }
 
-// PL: Buduj $brLang dynamicznie ze wszystkich kluczy 'br_js.*' w pliku jezyka,
-// dzieki czemu kazdy nowy klucz br_js automatycznie trafia do JS (window.BR_LANG).
-$brLang = [];
-foreach (_langLoad() as $__bk => $__bv) {
-    if (strncmp($__bk, 'br_js.', 6) === 0) {
-        $brLang[substr($__bk, 6)] = t($__bk);
-    }
-}
+$brLang = [
+    'tooltip_director'         => t('br_js.tooltip_director'),
+    'tooltip_hr_required'      => t('br_js.tooltip_hr_required'),
+    'tooltip_locked'           => t('br_js.tooltip_locked'),
+    'tooltip_recruit'          => t('br_js.tooltip_recruit'),
+    'tooltip_occupied'         => t('br_js.tooltip_occupied'),
+    'tooltip_candidates'       => t('br_js.tooltip_candidates'),
+    'tooltip_recruiting'       => t('br_js.tooltip_recruiting'),
+    'tooltip_recruiting_no_hr' => t('br_js.tooltip_recruiting_no_hr'),
+    'hr_panel_title'           => t('br_js.hr_panel_title'),
+    'hr_panel_desc'            => t('br_js.hr_panel_desc'),
+    'hr_open_btn'              => t('br_js.hr_open_btn'),
+    'tech_panel_title'         => t('br_js.tech_panel_title'),
+    'tech_panel_desc'          => t('br_js.tech_panel_desc'),
+    'tech_open_btn'            => t('br_js.tech_open_btn'),
+    'logistics_panel_title'    => t('br_js.logistics_panel_title'),
+    'logistics_panel_desc'     => t('br_js.logistics_panel_desc'),
+    'logistics_open_btn'       => t('br_js.logistics_open_btn'),
+    'legal_panel_title'        => t('br_js.legal_panel_title'),
+    'legal_panel_desc'         => t('br_js.legal_panel_desc'),
+    'legal_open_btn'           => t('br_js.legal_open_btn'),
+    'fire_btn'                 => t('br_js.fire_btn'),
+    'close_btn'                => t('br_js.close_btn'),
+    'cancel_btn'               => t('br_js.cancel_btn'),
+    'hire_selected_btn'        => t('br_js.hire_selected_btn'),
+    'recruit_title'            => t('br_js.recruit_title'),
+    'recruit_hr_note'          => t('br_js.recruit_hr_note'),
+    'recruit_director_note'    => t('br_js.recruit_director_note'),
+    'recruit_region_label'     => t('br_js.recruit_region_label'),
+    'seat_director'            => t('br_js.seat_director'),
+    'seat_hr'                  => t('br_js.seat_hr'),
+    'seat_technical'           => t('br_js.seat_technical'),
+    'seat_finance'             => t('br_js.seat_finance'),
+    'seat_legal'               => t('br_js.seat_legal'),
+    'seat_logistics'           => t('br_js.seat_logistics'),
+    'region_PL'                => t('br_js.region_PL'),
+    'region_UK'                => t('br_js.region_UK'),
+    'region_US'                => t('br_js.region_US'),
+    'region_NO'                => t('br_js.region_NO'),
+    'region_RU'                => t('br_js.region_RU'),
+    'region_PH'                => t('br_js.region_PH'),
+    'region_AE'                => t('br_js.region_AE'),
+    'region_dur_1'             => t('br_js.region_dur_1'),
+    'region_dur_2'             => t('br_js.region_dur_2'),
+    'region_dur_4'             => t('br_js.region_dur_4'),
+    'recruit_submit_btn'       => t('br_js.recruit_submit_btn'),
+    'candidates_subtitle'      => t('br_js.candidates_subtitle'),
+    'confirm_hire'             => t('br_js.confirm_hire'),
+    'confirm_fire'             => t('br_js.confirm_fire'),
+    'prompt_fire_reason'       => t('br_js.prompt_fire_reason'),
+    'prompt_fire_default'      => t('br_js.prompt_fire_default'),
+    'toast_recruited'          => t('br_js.toast_recruited'),
+    'toast_hired'              => t('br_js.toast_hired'),
+    'toast_err'                => t('br_js.toast_err'),
+    'toast_fired'              => t('br_js.toast_fired'),
+    'age'                      => t('br_js.age'),
+    'experience'               => t('br_js.experience'),
+    'experience_meta'          => t('br_js.experience_meta'),
+    'salary'                   => t('br_js.salary'),
+    'seniority'                => t('br_js.seniority'),
+    'days_unit'                => t('br_js.days_unit'),
+    'years_unit'               => t('br_js.years_unit'),
+    'skills_header'            => t('br_js.skills_header'),
+    'expected_salary'          => t('br_js.expected_salary'),
+    'avg_score'                => t('br_js.avg_score'),
+    'expires_in'               => t('br_js.expires_in'),
+    'skill_org'                => t('br_js.skill_org'),
+    'skill_neg'                => t('br_js.skill_neg'),
+    'skill_ana'                => t('br_js.skill_ana'),
+    'skill_str'                => t('br_js.skill_str'),
+    'skill_eth'                => t('br_js.skill_eth'),
+    'hr_badge_required'        => t('br_js.hr_badge_required'),
+    'rec_badge'                => t('br_js.rec_badge'),
+];
 
 $recLang = [
     'modal_title'    => t('rec_js.modal_title'),
