@@ -337,7 +337,7 @@ class RiskScoreEngine
             'trend_name' => $trend['trend_name'],
             'modifier'   => $modifier,
             'sentiment'  => $sentiment,
-            'details'    => "Trend: {$trend['trend_name']} ({$sentimentLabel}, modifier: �{$modifier})",
+            'details'    => "Trend: {$trend['trend_name']} ({$sentimentLabel}, modifier: x{$modifier})",
         ];
     }
 

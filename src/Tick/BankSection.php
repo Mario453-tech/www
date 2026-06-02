@@ -106,7 +106,7 @@ class BankSection
     private function runNegotiations(): void
     {
         if (!$this->bankNegAvailable) {
-            GameLog::warn('tick', 'BankNegotiationService.php not found � blocks 4f-4i disabled');
+            GameLog::warn('tick', 'BankNegotiationService.php not found - blocks 4f-4i disabled');
             return;
         }
 
@@ -198,7 +198,7 @@ class BankSection
     private function runBankruptcy(): void
     {
         if (!$this->bankruptcyAvailable) {
-            GameLog::warn('tick', 'BankruptcyService.php not found � block 4k disabled');
+            GameLog::warn('tick', 'BankruptcyService.php not found - block 4k disabled');
             return;
         }
 

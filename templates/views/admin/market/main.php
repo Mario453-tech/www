@@ -19,7 +19,7 @@
         </div>
         <div class="card">
             <p class="label"><?= t('admin.market.volatility') ?></p>
-            <p class="value"><?= htmlspecialchars((string)($market['volatility'] ?? '�')) ?></p>
+            <p class="value"><?= htmlspecialchars((string)($market['volatility'] ?? '-')) ?></p>
         </div>
         <div class="card">
             <p class="label"><?= t('admin.market.active_trend') ?></p>
@@ -39,7 +39,7 @@
         <?php endif ?>
         <div class="card">
             <p class="label"><?= t('admin.market.last_tick') ?></p>
-            <p class="value sm"><?= htmlspecialchars($market['last_market_tick_at'] ?? '�') ?></p>
+            <p class="value sm"><?= htmlspecialchars($market['last_market_tick_at'] ?? '-') ?></p>
         </div>
     </div>
 </section>
@@ -87,7 +87,7 @@
                     <option value="0"><?= t('admin.market.no_trend') ?></option>
                     <?php foreach ($allTrends as $tr): ?>
                     <option value="<?= (int)$tr['id'] ?>" <?= ($activeTrend && $activeTrend['id'] === $tr['id']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($tr['trend_name']) ?> (�<?= $tr['price_modifier'] ?>, <?= $tr['duration_hours'] ?>h)
+                        <?= htmlspecialchars($tr['trend_name']) ?> (x<?= $tr['price_modifier'] ?>, <?= $tr['duration_hours'] ?>h)
                     </option>
                     <?php endforeach ?>
                 </select>
@@ -154,7 +154,7 @@ $cancelUrl   = '?page=' . $page . '&per_page=' . $perPage . '&cat=' . urlencode(
                 <label class="form-label"><?= t('admin.market.col_template') ?></label>
                 <input type="text" name="message_template" class="trend-input-tpl" maxlength="255"
                        value="<?= htmlspecialchars($editTrend['message_template'] ?? '') ?>"
-                       placeholder=" {name} � ceny ropy +{percent}%!">
+                       placeholder=" {name} - ceny ropy +{percent}%!">
             </div>
             <div class="trend-form-field trend-form-field--btn">
                 <label class="form-label">&nbsp;</label>
@@ -169,7 +169,7 @@ $cancelUrl   = '?page=' . $page . '&per_page=' . $perPage . '&cat=' . urlencode(
     </form>
 </section>
 
-<!--  LISTA TREND�W Z FILTREM I PAGINACJ�  -->
+<!-- Trend list with filter and pagination -->
 <section class="panel" aria-label="<?= t('admin.market.all_trends_title') ?>">
     <p class="panel-title"><?= t('admin.market.all_trends_title') ?> <span class="badge badge-inactive"><?= $totalTrends ?></span></p>
 
@@ -213,7 +213,7 @@ $cancelUrl   = '?page=' . $page . '&per_page=' . $perPage . '&cat=' . urlencode(
             <span class="bold"><?= htmlspecialchars($tr['trend_name']) ?></span>
             <span class="muted"><?= htmlspecialchars($tr['category']) ?></span>
             <span class="<?= (float)$tr['price_modifier'] > 1 ? 'text-green' : ((float)$tr['price_modifier'] < 1 ? 'text-red' : '') ?>">
-                �<?= htmlspecialchars((string)$tr['price_modifier']) ?>
+                x<?= htmlspecialchars((string)$tr['price_modifier']) ?>
             </span>
             <span><?= (int)$tr['duration_hours'] ?>h</span>
             <span>
@@ -223,7 +223,7 @@ $cancelUrl   = '?page=' . $page . '&per_page=' . $perPage . '&cat=' . urlencode(
                 <span class="badge badge-inactive"><?= t('admin.market.status_inactive') ?></span>
                 <?php endif ?>
             </span>
-            <span class="muted"><?= $tr['activated_at'] ? date('d.m H:i', strtotime($tr['activated_at'])) : '�' ?></span>
+            <span class="muted"><?= $tr['activated_at'] ? date('d.m H:i', strtotime($tr['activated_at'])) : '-' ?></span>
             <span class="trend-actions">
                 <a href="?edit=<?= (int)$tr['id'] ?>&page=<?= $page ?>&per_page=<?= $perPage ?>&cat=<?= urlencode($filterCat) ?>&search=<?= urlencode($filterName) ?>"
                    class="btn btn-xs btn-secondary"><?= t('admin.market.btn_edit') ?></a>

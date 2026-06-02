@@ -182,7 +182,7 @@ class WellProductionSection
         if ($statusAllowsIncidents) {
  // Katastrofa / Disaster
             if ($this->riskHandler->processDisasterRoll($well, $wellId, $playerId, $deltaHours, $hseBonus, $mults, $transportDisasterMult, $offlineRiskMult, $tsvc)) {
-                return; // dotkniety katastrofa � pomijamy produkcje / disaster hit � skip production
+                return; // disaster hit - skip production
             }
  // Incydenty produkcyjne / Production incidents
             $incidentProdDrop = $this->riskHandler->processIncidents(

@@ -1,5 +1,5 @@
 /* 
-   CZARNY RYNEK ROPY � style
+   OIL BLACK MARKET - styles
  */
 
 /* Subtitle */
@@ -391,7 +391,7 @@
 .bm-toast-error   { background: var(--red);   color: #fff; }
 
 /* 
-   RESPONSYWNO��
+   RESPONSIVE
  */
 
 @media (max-width: 900px) {

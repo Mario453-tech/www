@@ -59,15 +59,15 @@
             <p><strong><?= htmlspecialchars((string)($ev['message'] ?? '')) ?></strong></p>
             <p class="muted2 recovery-event-meta">
                 <?= t('recovery.event_type') ?>: <code><?= htmlspecialchars((string)($ev['event_type'] ?? '')) ?></code>
-                &nbsp;·&nbsp; <?= htmlspecialchars((string)($ev['created_at'] ?? '—')) ?>
+                &nbsp;Â·&nbsp; <?= htmlspecialchars((string)($ev['created_at'] ?? 'â€”')) ?>
                 <?php if (!empty($ev['due_at'])): ?>
-                    &nbsp;·&nbsp; <?= t('recovery.event_deadline') ?>:
+                    &nbsp;Â·&nbsp; <?= t('recovery.event_deadline') ?>:
                     <span class="<?= strtotime($ev['due_at']) < time() && $isOpen ? 'red' : '' ?>">
                         <?= htmlspecialchars(date('d.m.Y H:i', strtotime($ev['due_at']))) ?>
                         <?= strtotime($ev['due_at']) < time() && $isOpen ? ' ' : '' ?>
                     </span>
                 <?php endif ?>
-                &nbsp;·&nbsp; <span class="<?= $isOpen ? 'red' : 'green' ?>"><?= $isOpen ? t('recovery.event_open') : t('recovery.event_closed') ?></span>
+                &nbsp;Â·&nbsp; <span class="<?= $isOpen ? 'red' : 'green' ?>"><?= $isOpen ? t('recovery.event_open') : t('recovery.event_closed') ?></span>
             </p>
             <?php if (!$isOpen && !empty($ev['resolution_note'])): ?>
                 <p class="muted recovery-event-note"><?= t('recovery.event_resolution') ?>: <?= htmlspecialchars((string)$ev['resolution_note']) ?></p>
@@ -82,7 +82,7 @@
 
     <div class="recovery-options-grid">
 
-        <!-- 1. Sprzeda¿ aktywów -->
+        <!-- 1. SprzedaÅ¼ aktywÃ³w -->
         <section class="card" aria-labelledby="opt1">
             <h2 id="opt1">1) <?= t('recovery.opt1_title') ?></h2>
             <p class="muted"><?= t('recovery.opt1_desc') ?></p>
@@ -119,7 +119,7 @@
             </form>
         </section>
 
-        <!-- 2. Przejêcie przez bank -->
+        <!-- 2. PrzejÄ™cie przez bank -->
         <section class="card" aria-labelledby="opt2">
             <h2 id="opt2">2) <?= t('recovery.opt2_title') ?></h2>
             <p class="muted"><?= t('recovery.opt2_desc') ?></p>
@@ -133,12 +133,12 @@
             </form>
         </section>
 
-        <!-- 3. Po¿yczka ratunkowa -->
+        <!-- 3. PoÅ¼yczka ratunkowa -->
         <section class="card" aria-labelledby="opt3">
             <h2 id="opt3">3) <?= t('recovery.opt3_title') ?></h2>
             <p class="muted"><?= t('recovery.opt3_desc') ?></p>
             <?php if (!empty($options['emergency_loan']['enabled'])): ?>
-                <div class="info-box recovery-info"><?= t('recovery.opt3_available') ?>: <?= htmlspecialchars($options['emergency_loan']['apr_range'] ?? '15–25%') ?></div>
+                <div class="info-box recovery-info"><?= t('recovery.opt3_available') ?>: <?= htmlspecialchars($options['emergency_loan']['apr_range'] ?? '15â€“25%') ?></div>
             <?php else: ?>
                 <div class="info-box recovery-info"><?= t('recovery.opt3_unavailable') ?></div>
             <?php endif ?>
@@ -152,7 +152,7 @@
             </form>
         </section>
 
-        <!-- 4. Ciêcia kosztów -->
+        <!-- 4. CiÄ™cia kosztÃ³w -->
         <section class="card" aria-labelledby="opt4">
             <h2 id="opt4">4) <?= t('recovery.opt4_title') ?></h2>
             <p class="muted"><?= t('recovery.opt4_desc') ?></p>

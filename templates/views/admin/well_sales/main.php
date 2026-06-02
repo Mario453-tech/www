@@ -20,7 +20,7 @@
     <div class="card">
         <p class="label"><?= t('admin.well_sales.stat_top_player_24h') ?></p>
         <p class="value">
-            <?= $topUser24 ? htmlspecialchars($topUser24['username']) . ' ×' . $topUser24['cnt'] : t('common.dash') ?>
+            <?= $topUser24 ? htmlspecialchars($topUser24['username']) . ' Ã—' . $topUser24['cnt'] : t('common.dash') ?>
         </p>
     </div>
     <div class="card">
@@ -37,7 +37,7 @@
 </p>
 <?php endif ?>
 
-<!--  ZAK£ADKI  -->
+<!--  ZAKÅADKI  -->
 <nav class="tab-nav">
     <?php foreach ($tabs as $tKey => $tLabel): ?>
     <a href="?tab=<?= $tKey ?>" class="tab-link <?= $tab === $tKey ? 'active' : '' ?>"><?= $tLabel ?></a>
@@ -45,7 +45,7 @@
 </nav>
 
 <?php if ($tab === 'list'): ?>
-<!--  LISTA SPRZEDA¯Y  -->
+<!--  LISTA SPRZEDAÅ»Y  -->
 
 <?php if (empty($sales)): ?>
 <p class="empty-state"><?= t('admin.well_sales.no_sales') ?></p>

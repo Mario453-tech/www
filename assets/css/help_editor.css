@@ -1,5 +1,5 @@
 /* 
-   HELP EDITOR � Panel admina, edytor instrukcji obs�ugi
+   HELP EDITOR - admin game manual editor
  */
 
 .he-layout      { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: start; }

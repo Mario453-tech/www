@@ -1,4 +1,4 @@
-﻿php : Note: Using configuration file C:\xampp\htdocs\phpstan.neon.
+php : Note: Using configuration file C:\xampp\htdocs\phpstan.neon.
 At line:1 char:1
 + php vendor/bin/phpstan analyse --no-progress 2>&1 | Out-File -Encodin ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

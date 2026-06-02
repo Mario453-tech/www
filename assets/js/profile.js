@@ -18,7 +18,7 @@ function checkPassStrength(val) {
     if (/[A-Z]/.test(val)) score++;
     if (/[0-9]/.test(val)) score++;
     if (/[^A-Za-z0-9]/.test(val)) score++;
-    const labels = ['', 'Bardzo s�abe', 'S�abe', '�rednie', 'Silne', 'Bardzo silne'];
+    const labels = ['', 'Bardzo słabe', 'Słabe', 'Średnie', 'Silne', 'Bardzo silne'];
     const colors = ['', '#e05555', '#e07b55', '#e0b44c', '#7ec97a', '#4ec97a'];
     el.textContent  = labels[score] || '';
     el.style.color  = colors[score] || '';
@@ -29,10 +29,10 @@ document.getElementById('confirmPass')?.addEventListener('input', function() {
     const newVal = document.getElementById('newPass').value;
     if (!this.value) { match.textContent = ''; return; }
     if (this.value === newVal) {
-        match.textContent = ' Has�a s� identyczne';
+        match.textContent = ' Hasła są identyczne';
         match.style.color = '#4ec97a';
     } else {
-        match.textContent = ' Has�a si� r�ni�';
+        match.textContent = ' Hasła się różnią';
         match.style.color = '#e05555';
     }
 });

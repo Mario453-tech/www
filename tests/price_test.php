@@ -2,18 +2,18 @@
 
 require_once '../src/init.php';
 
-echo "=== TEST CENY (SZCZEGÓ£OWY) ===\n";
+echo "=== TEST CENY (SZCZEGÃ“ÅOWY) ===\n";
 
-// 1. SprawdŸ aktualn¹ cenê
+// 1. SprawdÅº aktualnÄ… cenÄ™
 $market = new Market();
 $currentPrice = $market->getCurrentPrice();
 echo "Cena z Market::getCurrentPrice(): $currentPrice\n";
 
-// 2. SprawdŸ bezpoœrednio w bazie
+// 2. SprawdÅº bezpoÅ›rednio w bazie
 $db = Database::getInstance()->getConnection();
 $stmt = $db->query("SELECT * FROM market_state WHERE id = 1");
 $state = $stmt->fetch();
-echo "Cena bezpoœrednio z bazy: " . $state['current_price'] . "\n";
+echo "Cena bezpoÅ›rednio z bazy: " . $state['current_price'] . "\n";
 echo "Base price: " . $state['base_price'] . "\n";
 echo "Volatility: " . $state['volatility'] . "\n";
 
@@ -21,12 +21,12 @@ echo "Volatility: " . $state['volatility'] . "\n";
 echo "\n--- Ustawiam na 54 ---\n";
 $db->prepare("UPDATE market_state SET current_price = 54 WHERE id = 1")->execute();
 
-// 4. SprawdŸ ponownie
+// 4. SprawdÅº ponownie
 $stmt = $db->query("SELECT * FROM market_state WHERE id = 1");
 $state = $stmt->fetch();
 echo "Cena po ustawieniu: " . $state['current_price'] . "\n";
 
-// 5. SprawdŸ trendy
+// 5. SprawdÅº trendy
 echo "\n--- Sprawdzam trendy ---\n";
 $marketTrend = new MarketTrend();
 $activeTrend = $marketTrend->getActiveTrend();
@@ -36,14 +36,14 @@ if ($activeTrend) {
     echo "Kategoria: " . $activeTrend['category'] . "\n";
     echo "Aktywowany: " . $activeTrend['activated_at'] . "\n";
 } else {
-    echo "Brak aktywnych trendów\n";
+    echo "Brak aktywnych trendÃ³w\n";
 }
 
-// 6. Uruchom tick BEZ trendów
-echo "\n--- Tick BEZ trendów ---\n";
+// 6. Uruchom tick BEZ trendÃ³w
+echo "\n--- Tick BEZ trendÃ³w ---\n";
 $marketTick = new MarketTick();
 $newPrice = $marketTick->updatePrices(null);
-echo "Cena po tick (bez trendów): $newPrice\n";
+echo "Cena po tick (bez trendÃ³w): $newPrice\n";
 
 // 7. Resetuj na 54
 $db->prepare("UPDATE market_state SET current_price = 54 WHERE id = 1")->execute();
@@ -53,7 +53,7 @@ echo "\n--- Tick Z trendami ---\n";
 $newPriceWithTrend = $marketTick->updatePrices($activeTrend);
 echo "Cena po tick (z trendami): $newPriceWithTrend\n";
 
-// 9. SprawdŸ w bazie
+// 9. SprawdÅº w bazie
 $stmt = $db->query("SELECT * FROM market_state WHERE id = 1");
 $state = $stmt->fetch();
 echo "Cena w bazie po tick: " . $state['current_price'] . "\n";

@@ -176,7 +176,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
             $ids['staffId'],
             $playerId,
             'maintenance_engineer',
-            'In�ynier Utrzymania Ruchu',
+            'Inżynier Utrzymania Ruchu',
             $skill,
             9000
         );

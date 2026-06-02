@@ -29,13 +29,13 @@
         <div class="card">
             <p class="label"><?= t('admin.market_debug.trend_modifier') ?></p>
             <p class="value <?= (float)$activeTrend['price_modifier'] >= 1.0 ? 'green' : 'red' ?>">
-                ×<?= $activeTrend['price_modifier'] ?>
+                Ã—<?= $activeTrend['price_modifier'] ?>
             </p>
         </div>
         <?php endif ?>
         <div class="card">
             <p class="label"><?= t('admin.market_debug.volatility') ?></p>
-            <p class="value sm"><?= $market['volatility'] ?? '—' ?></p>
+            <p class="value sm"><?= $market['volatility'] ?? 'â€”' ?></p>
         </div>
     </div>
 </section>
@@ -112,7 +112,7 @@
         </article>
         <article>
             <p class="dl"><?= t('admin.market_debug.last_update') ?></p>
-            <p class="dv sm"><?= $demandData['updated_at'] ?? '—' ?></p>
+            <p class="dv sm"><?= $demandData['updated_at'] ?? 'â€”' ?></p>
         </article>
     </div>
 </section>

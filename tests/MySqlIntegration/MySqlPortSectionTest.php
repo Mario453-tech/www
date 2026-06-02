@@ -170,7 +170,7 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $section    = new PortSection($this->db, new \DateTime());
         $newStorage = $section->process($playerId, 100.0, 100.0, 50.0);
 
-        $this->assertEqualsWithDelta(100.0, $newStorage, 0.001, 'Pelny magazyn � bez zmian');
+        $this->assertEqualsWithDelta(100.0, $newStorage, 0.001, 'Pełny magazyn - bez zmian');
         $this->assertEqualsWithDelta(0.0, $section->deliveredBbl, 0.001, 'Brak dostarczonego przy pelnym magazynie');
         $this->assertSame(0, $section->processedCount);
     }
@@ -188,7 +188,7 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $section    = new PortSection($this->db, new \DateTime());
         $newStorage = $section->process($playerId, 200.0, 5000.0, 50.0);
 
-        $this->assertEqualsWithDelta(200.0, $newStorage, 0.001, 'Pusta kolejka � magazyn bez zmian');
+        $this->assertEqualsWithDelta(200.0, $newStorage, 0.001, 'Pusta kolejka - magazyn bez zmian');
         $this->assertSame(0, $section->processedCount);
         $this->assertEqualsWithDelta(0.0, $section->handlingCost, 0.001);
     }
@@ -211,7 +211,7 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $section->process($playerId, 0.0, 10000.0, 50.0);
 
  // 60 bbl 2.00 PLN/bbl = 120 PLN
-        $this->assertEqualsWithDelta(120.0, $section->handlingCost, 0.01, 'Koszt portowy: 60 bbl � 2.00 = 120 PLN');
+        $this->assertEqualsWithDelta(120.0, $section->handlingCost, 0.01, 'Koszt portowy: 60 bbl x 2.00 = 120 PLN');
     }
 
  // 
@@ -245,7 +245,7 @@ final class MySqlPortSectionTest extends MySqlIntegrationTestCase
         $newStorage = $section->process($playerId, 0.0, 10000.0, 50.0);
 
  // Zamkniety port nie powinien byc uzywany przez PortSection (JOIN filtruje closed)
-        $this->assertEqualsWithDelta(0.0, $newStorage, 0.001, 'Zamkniety port � magazyn bez zmian');
-        $this->assertSame(0, $section->processedCount, 'Zamkniety port � brak przetworzonych dostaw');
+        $this->assertEqualsWithDelta(0.0, $newStorage, 0.001, 'Zamknięty port - magazyn bez zmian');
+        $this->assertSame(0, $section->processedCount, 'Zamknięty port - brak przetworzonych dostaw');
     }
 }

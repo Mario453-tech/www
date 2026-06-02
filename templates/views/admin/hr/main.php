@@ -47,17 +47,17 @@
             <?php foreach ($candidates as $c): ?>
             <article class="list-row" role="row">
                 <span><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></span>
-                <span><?= htmlspecialchars($c['role_name'] ?? '—') ?></span>
+                <span><?= htmlspecialchars($c['role_name'] ?? 'â€”') ?></span>
                 <span>
                     <?php if ($c['spec_name']): ?>
                     <span class="badge badge-<?= $c['rarity'] === 'rare' ? 'active' : ($c['rarity'] === 'uncommon' ? 'paused' : 'inactive') ?>">
                         <?= htmlspecialchars($c['spec_name']) ?>
                     </span>
                     <?php else: ?>
-                    <span class="muted">—</span>
+                    <span class="muted">â€”</span>
                     <?php endif ?>
                 </span>
-                <span><?= htmlspecialchars($c['region_name'] ?? $c['region_code'] ?? '—') ?></span>
+                <span><?= htmlspecialchars($c['region_name'] ?? $c['region_code'] ?? 'â€”') ?></span>
                 <span><?= $c['player_email'] ? '<a href="/admin/player.php?id=' . (int)$c['player_id'] . '">' . htmlspecialchars($c['player_email']) . '</a>' : '<span class="muted">rynek</span>' ?></span>
                 <span>
                     <?php
@@ -101,17 +101,17 @@
                     <?php if ($h['player_email'] ?? null): ?>
                     <a href="/admin/player.php?id=<?= (int)($h['player_id'] ?? 0) ?>"><?= htmlspecialchars($h['player_email']) ?></a>
                     <?php else: ?>
-                    <span class="muted">—</span>
+                    <span class="muted">â€”</span>
                     <?php endif ?>
                 </span>
                 <span><?= htmlspecialchars(($h['first_name'] ?? '') . ' ' . ($h['last_name'] ?? '')) ?></span>
-                <span><?= htmlspecialchars($h['role_name'] ?? '—') ?></span>
+                <span><?= htmlspecialchars($h['role_name'] ?? 'â€”') ?></span>
                 <span>
                     <span class="badge badge-<?= match($h['action'] ?? '') { 'hired' => 'active', 'fired' => 'bankrupt', 'resigned' => 'inactive', default => 'paused' } ?>">
-                        <?= htmlspecialchars($h['action'] ?? '—') ?>
+                        <?= htmlspecialchars($h['action'] ?? 'â€”') ?>
                     </span>
                 </span>
-                <span class="muted font-xs"><?= htmlspecialchars($h['reason'] ?? '—') ?></span>
+                <span class="muted font-xs"><?= htmlspecialchars($h['reason'] ?? 'â€”') ?></span>
             </article>
             <?php endforeach ?>
         </div>
@@ -153,7 +153,7 @@
             <article class="list-row" role="row">
                 <span><a href="/admin/player.php?id=<?= (int)$s['player_id'] ?>"><?= htmlspecialchars($s['player_email']) ?></a></span>
                 <span><?= (int)$s['staff_count'] ?></span>
-                <span><?= $s['avg_skill'] ?? '—' ?></span>
+                <span><?= $s['avg_skill'] ?? 'â€”' ?></span>
                 <span class="badge badge-active"><?= (int)$s['active_count'] ?></span>
                 <span class="badge badge-paused"><?= (int)$s['busy_count'] ?></span>
                 <span class="muted"><?= number_format((float)$s['salary_per_hour'], 2) ?> PLN/h</span>
@@ -204,7 +204,7 @@
         </form>
 
         <?php
-        $roleLabels = ['operator' => ' Operatorzy', 'technician' => ' Technicy', 'inne' => ' Pozosta³e'];
+        $roleLabels = ['operator' => ' Operatorzy', 'technician' => ' Technicy', 'inne' => ' PozostaÅ‚e'];
         $numFields = [
             'prod_bonus'                => t('admin.hr.field_prod_bonus'),
             'wear_reduction'            => t('admin.hr.field_wear_reduction'),
@@ -271,7 +271,7 @@
                 </div>
                 <div class="spec-field">
                     <label for="new_hr_name"><?= t('admin.hr.field_name_pl') ?></label>
-                    <input type="text" id="new_hr_name" name="new_hr_name" placeholder="np. Menad¿er Ryzyka" class="input-sm" required>
+                    <input type="text" id="new_hr_name" name="new_hr_name" placeholder="np. MenadÅ¼er Ryzyka" class="input-sm" required>
                 </div>
                 <div class="spec-field">
                     <label for="new_hr_dept"><?= t('admin.hr.col_department') ?></label>

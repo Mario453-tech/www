@@ -30,7 +30,7 @@ if (!$page) {
     exit();
 }
 
-$pageTitle = htmlspecialchars($page['title']) . ' � OilCorp';
+$pageTitle = htmlspecialchars($page['title']) . ' - OilCorp';
 require_once __DIR__ . '/../templates/header.php';
 ?>
 <link rel="stylesheet" href="/assets/css/static_page.css">

@@ -11,10 +11,10 @@
         <?php if ($success): ?>
             <div class="alert alert-success" role="alert"><?= htmlspecialchars($success) ?></div>
             <p style="text-align:center;margin-top:20px;font-size:.9rem;color:rgba(232,232,240,.55)">
-                 SprawdŸ folder Odebrane (i Spam) i kliknij link aktywacyjny.
+                 SprawdÅº folder Odebrane (i Spam) i kliknij link aktywacyjny.
             </p>
             <p style="text-align:center;margin-top:16px">
-                <a href="<?= url('login') ?>" class="link-primary"> Wróæ do logowania</a>
+                <a href="<?= url('login') ?>" class="link-primary"> WrÃ³Ä‡ do logowania</a>
             </p>
         <?php else: ?>
 
@@ -53,7 +53,7 @@
             require __DIR__ . '/../../../../templates/components/form_input.php';
             ?>
 
-            <!-- Regulamin — obowi¹zkowy -->
+            <!-- Regulamin â€” obowiÄ…zkowy -->
             <div class="form-check-group">
                 <label class="form-check-label">
                     <input
@@ -72,7 +72,7 @@
                 </label>
             </div>
 
-            <!-- Newsletter — opcjonalny -->
+            <!-- Newsletter â€” opcjonalny -->
             <div class="form-check-group">
                 <label class="form-check-label">
                     <input

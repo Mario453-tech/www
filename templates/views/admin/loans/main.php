@@ -26,7 +26,7 @@
         <div class="card"><p class="label"><?= t('admin.loans.stat_bailiff') ?></p><p class="value red"><?= count($proceedings) ?></p></div>
         <div class="card"><p class="label"><?= t('admin.loans.stat_bankruptcies') ?></p><p class="value red"><?= $bankruptcies['day'] ?> / <?= $bankruptcies['week'] ?></p></div>
         <div class="card"><p class="label"><?= t('admin.loans.stat_total_debt') ?></p><p class="value orange"><?= number_format((float)($loanStats['total_debt'] ?? 0)) ?> <?= t('common.pln') ?></p></div>
-        <div class="card"><p class="label"><?= t('admin.loans.stat_avg_apr') ?></p><p class="value"><?= $loanStats['avg_apr'] ?? '—' ?>%</p></div>
+        <div class="card"><p class="label"><?= t('admin.loans.stat_avg_apr') ?></p><p class="value"><?= $loanStats['avg_apr'] ?? 'â€”' ?>%</p></div>
     </div>
 </section>
 
@@ -63,7 +63,7 @@
     <?php endif ?>
 </section>
 
-<!--  3. POSTÊPOWANIA KOMORNICZE  -->
+<!--  3. POSTÄ˜POWANIA KOMORNICZE  -->
 <?php if (!empty($proceedings)): ?>
 <section class="panel panel-danger">
     <p class="panel-title panel-title-danger"> <?= t('admin.loans.bailiff_title') ?> (<?= count($proceedings) ?>)</p>
@@ -184,7 +184,7 @@
             </span>
             <span class="font-sm">
                 <?php if ($a['rejection_reason']): ?>
-                <span class="muted"><?= htmlspecialchars(mb_substr($a['rejection_reason'], 0, 90)) ?><?= mb_strlen($a['rejection_reason']) > 90 ? '…' : '' ?></span>
+                <span class="muted"><?= htmlspecialchars(mb_substr($a['rejection_reason'], 0, 90)) ?><?= mb_strlen($a['rejection_reason']) > 90 ? 'â€¦' : '' ?></span>
                 <?php endif ?>
                 <?php if ($useBd && isset($useBd['market'])): ?>
                 <br><span class="text-blue"> <?= htmlspecialchars($useBd['market']['details'] ?? '') ?></span>
@@ -214,14 +214,14 @@
                         <div class="risk-bar-bg">
                             <div class="risk-bar-fill" style="width:<?= $pct ?>%;background:<?= $barColor ?>"></div>
                         </div>
-                        <p class="risk-row-detail muted font-xs"><?= htmlspecialchars($sec['details'] ?? '—') ?></p>
+                        <p class="risk-row-detail muted font-xs"><?= htmlspecialchars($sec['details'] ?? 'â€”') ?></p>
                         <p class="risk-row-desc font-xs"><?= htmlspecialchars($info['desc']) ?></p>
                     </div>
                     <?php endforeach ?>
                     </div>
                 </details>
                 <?php endif ?>
-                <?php else: ?><span class="muted">—</span><?php endif ?>
+                <?php else: ?><span class="muted">â€”</span><?php endif ?>
             </span>
             <span><?php
                 $st = $a['status'];
@@ -314,7 +314,7 @@
             </span>
             <span><?= aprBadge((float)$l['interest_rate']) ?></span>
             <span><?= number_format((float)$l['installment_amount']) ?> <?= t('common.pln') ?></span>
-            <span class="muted"><?= htmlspecialchars($l['next_installment_at'] ?? '—') ?></span>
+            <span class="muted"><?= htmlspecialchars($l['next_installment_at'] ?? 'â€”') ?></span>
             <span>
                 <?php if ($l['status'] === 'late'): ?>
                 <span class="badge badge-bankrupt"> <?= t('loan.status.late') ?></span>

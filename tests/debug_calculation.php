@@ -2,7 +2,7 @@
 
 require_once '../src/init.php';
 
-echo "=== DEBUG OBLICZEÑ ===\n";
+echo "=== DEBUG OBLICZEÅƒ ===\n";
 
 $db = Database::getInstance()->getConnection();
 
@@ -45,17 +45,17 @@ echo "Grawitacja: $gravity\n";
 $newPrice += $gravity;
 echo "Po grawitacji: $newPrice\n";
 
-// Zaokr¹glenie
+// ZaokrÄ…glenie
 $newPrice = round($newPrice);
-echo "Po zaokr¹gleniu: $newPrice\n";
+echo "Po zaokrÄ…gleniu: $newPrice\n";
 
-// 4. Uruchom prawdziwy tick i porównaj
+// 4. Uruchom prawdziwy tick i porÃ³wnaj
 echo "\n--- Prawdziwy tick ---\n";
 $marketTick = new MarketTick();
 $realPrice = $marketTick->updatePrices($activeTrend);
 echo "Rzeczywista cena: $realPrice\n";
 
-// 5. SprawdŸ w bazie
+// 5. SprawdÅº w bazie
 $stmt = $db->query("SELECT * FROM market_state WHERE id = 1");
 $state = $stmt->fetch();
 echo "Cena w bazie: " . $state['current_price'] . "\n";

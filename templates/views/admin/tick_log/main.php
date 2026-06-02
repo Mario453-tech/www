@@ -29,41 +29,41 @@ $tickCount = (int)($s['tick_count'] ?? 0);
         </div>
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_avg_duration') ?></div>
-            <div class="stat-value"><?= $tickCount ? round((float)$s['avg_duration_ms']) : '—' ?> ms</div>
+            <div class="stat-value"><?= $tickCount ? round((float)$s['avg_duration_ms']) : 'â€”' ?> ms</div>
         </div>
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_max_duration') ?></div>
             <div class="stat-value <?= (int)($s['max_duration_ms'] ?? 0) > 30000 ? 'red' : '' ?>">
-                <?= $tickCount ? round((float)$s['max_duration_ms']) : '—' ?> ms
+                <?= $tickCount ? round((float)$s['max_duration_ms']) : 'â€”' ?> ms
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_total_bbl') ?></div>
-            <div class="stat-value"><?= $tickCount ? number_format((float)$s['total_bbl'], 1) : '—' ?></div>
+            <div class="stat-value"><?= $tickCount ? number_format((float)$s['total_bbl'], 1) : 'â€”' ?></div>
         </div>
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_total_revenue') ?></div>
-            <div class="stat-value"><?= $tickCount ? '$' . number_format((float)$s['total_revenue'], 0, '.', ' ') : '—' ?></div>
+            <div class="stat-value"><?= $tickCount ? '$' . number_format((float)$s['total_revenue'], 0, '.', ' ') : 'â€”' ?></div>
         </div>
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_disasters') ?></div>
             <div class="stat-value <?= (int)($s['total_disasters'] ?? 0) > 0 ? 'red' : 'green' ?>">
-                <?= $tickCount ? (int)$s['total_disasters'] : '—' ?>
+                <?= $tickCount ? (int)$s['total_disasters'] : 'â€”' ?>
             </div>
         </div>
     </div>
     <div class="stats-grid stats-grid--3 mt-sm">
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_price_min') ?></div>
-            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_min'], 2) : '—' ?></div>
+            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_min'], 2) : 'â€”' ?></div>
         </div>
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_price_avg') ?></div>
-            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_avg'], 2) : '—' ?></div>
+            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_avg'], 2) : 'â€”' ?></div>
         </div>
         <div class="stat-card">
             <div class="stat-label"><?= t('admin.tick_log.stat_price_max') ?></div>
-            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_max'], 2) : '—' ?></div>
+            <div class="stat-value">$<?= $tickCount ? number_format((float)$s['price_max'], 2) : 'â€”' ?></div>
         </div>
     </div>
 </section>
@@ -124,9 +124,9 @@ $tickCount = (int)($s['tick_count'] ?? 0);
                 </span>
             </span>
             <span class="<?= $isSlow ? 'red' : 'muted' ?>">
-                <?= $tick['duration_ms'] !== null ? (int)$tick['duration_ms'] . ' ms' : '—' ?>
+                <?= $tick['duration_ms'] !== null ? (int)$tick['duration_ms'] . ' ms' : 'â€”' ?>
             </span>
-            <span>$<?= $tick['oil_price'] !== null ? number_format((float)$tick['oil_price'], 2) : '—' ?></span>
+            <span>$<?= $tick['oil_price'] !== null ? number_format((float)$tick['oil_price'], 2) : 'â€”' ?></span>
             <span>
                 <?php if ($tick['trend_name']): ?>
                 <span class="badge badge--<?= $tick['trend_new'] ? 'green' : 'neutral' ?>">
@@ -134,16 +134,16 @@ $tickCount = (int)($s['tick_count'] ?? 0);
                     <?= $tick['trend_new'] ? ' ' : '' ?>
                 </span>
                 <?php else: ?>
-                <span class="muted">—</span>
+                <span class="muted">â€”</span>
                 <?php endif ?>
             </span>
-            <span><?= $tick['players_processed'] !== null ? (int)$tick['players_processed'] : '—' ?></span>
-            <span><?= $tick['total_production_bbl'] !== null ? number_format((float)$tick['total_production_bbl'], 1) : '—' ?></span>
-            <span><?= $tick['total_revenue_pln'] !== null ? '$' . number_format((float)$tick['total_revenue_pln'], 0, '.', ' ') : '—' ?></span>
+            <span><?= $tick['players_processed'] !== null ? (int)$tick['players_processed'] : 'â€”' ?></span>
+            <span><?= $tick['total_production_bbl'] !== null ? number_format((float)$tick['total_production_bbl'], 1) : 'â€”' ?></span>
+            <span><?= $tick['total_revenue_pln'] !== null ? '$' . number_format((float)$tick['total_revenue_pln'], 0, '.', ' ') : 'â€”' ?></span>
             <span class="<?= $hasDis ? 'red' : 'muted' ?>">
-                <?= $tick['disasters_triggered'] !== null ? (int)$tick['disasters_triggered'] : '—' ?>
+                <?= $tick['disasters_triggered'] !== null ? (int)$tick['disasters_triggered'] : 'â€”' ?>
             </span>
-            <span class="muted"><?= $tick['incidents_triggered'] !== null ? (int)$tick['incidents_triggered'] : '—' ?></span>
+            <span class="muted"><?= $tick['incidents_triggered'] !== null ? (int)$tick['incidents_triggered'] : 'â€”' ?></span>
             <span class="muted">
                 <?= t('admin.tick_log.bank_neg') ?>: <?= (int)($tick['bank_negotiations_resolved'] ?? 0) ?>
                 / <?= t('admin.tick_log.bank_loans') ?>: <?= (int)($tick['bank_loan_decisions'] ?? 0) ?>

@@ -1,10 +1,10 @@
 /* market.css
-   Style dla modu�u rynku ropy (Rynek Ropy + zak�adki).
+   Styles for the oil market module (Oil Market + tabs).
    Czarny rynek zostaje w black_market.css.
 */
 
 /* 
-   ZAK�ADKI
+   TABS
  */
 
 .market-tabs {
@@ -102,7 +102,7 @@
 }
 
 /* 
-   FORMULARZ SPRZEDA�Y
+   SALE FORM
  */
 
 .form-sell {
@@ -187,7 +187,7 @@
 }
 
 /* 
-   LISTA OFERT (offers-list, u�ytkownicy publiczni)
+   OFFER LIST (offers-list, public users)
  */
 
 .offers-list {
@@ -222,7 +222,7 @@
 }
 
 /* 
-   RESPONSYWNO��
+   RESPONSIVE
  */
 
 @media (max-width: 700px) {

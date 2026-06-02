@@ -217,7 +217,7 @@
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_next_installment') ?></span>
-                            <span><?= htmlspecialchars($loan['next_installment_fmt'] ?? '�') ?></span>
+                            <span><?= htmlspecialchars($loan['next_installment_fmt'] ?? '-') ?></span>
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_installment_amount') ?></span>
@@ -266,7 +266,7 @@
 
             </div>
 
-            <!-- Sp�ata -->
+            <!-- Repayment -->
             <div class="repay-block">
                 <h3 class="repay-block-title"><?= t('bank.repay_title') ?></h3>
                 <form method="post" class="repay-form" id="repay-form-<?= $loanId ?>"
@@ -316,7 +316,7 @@
                 </form>
             </div>
 
-            <!-- Negocjacje � tylko gdy kredyt late lub jest aktywna negocjacja -->
+            <!-- Negotiations - only when the loan is late or negotiation is active -->
             <?php
             $showNeg = $bankNeg && (
                 $loan['status'] === 'late'
@@ -344,7 +344,7 @@
 
                     <?php if ($active['status'] === 'pending' && !empty($active['decision_due_at'])): ?>
                     <div class="neg-due">
-                        <?= t('bank.neg_due', ['date' => htmlspecialchars($active['decision_due_at_fmt'] ?? '�')]) ?>
+                        <?= t('bank.neg_due', ['date' => htmlspecialchars($active['decision_due_at_fmt'] ?? '-')]) ?>
                     </div>
                     <?php endif ?>
 
@@ -375,7 +375,7 @@
                         <?php if (!empty($active['expires_at'])): ?>
                         <div class="neg-offer-item neg-expire">
                             <span><?= t('bank.neg_expires') ?></span>
-                            <strong><?= htmlspecialchars($active['expires_at_fmt'] ?? '�') ?></strong>
+                            <strong><?= htmlspecialchars($active['expires_at_fmt'] ?? '-') ?></strong>
                         </div>
                         <?php endif ?>
                     </div>
@@ -441,7 +441,7 @@
                                                 <input type="radio" name="days" value="<?= $days ?>" <?= $days === 30 ? 'required' : '' ?>>
                                                 <span class="neg-option-label">
                                                     <?= $days ?> <?= t('common.days') ?>
-                                                    <small><?= htmlspecialchars($opt['apr']) ?> � prowizja: ~<?= number_format($opt['fee']) ?> PLN</small>
+                                                    <small><?= htmlspecialchars($opt['apr']) ?> - prowizja: ~<?= number_format($opt['fee']) ?> PLN</small>
                                                 </span>
                                             </label>
                                             <?php endforeach ?>
@@ -469,12 +469,12 @@
                                     <div class="form-group">
                                         <label for="months_<?= $loanId ?>"><?= t('bank.neg_restructure_period') ?></label>
                                         <select name="months" id="months_<?= $loanId ?>">
-                                            <option value="1">1 miesi�c</option>
-                                            <option value="2">2 miesi�ce</option>
-                                            <option value="3">3 miesi�ce</option>
-                                            <option value="6" selected>6 miesi�cy</option>
-                                            <option value="9">9 miesi�cy</option>
-                                            <option value="12">12 miesi�cy</option>
+                                            <option value="1">1 miesiąc</option>
+                                            <option value="2">2 miesiące</option>
+                                            <option value="3">3 miesiące</option>
+                                            <option value="6" selected>6 miesięcy</option>
+                                            <option value="9">9 miesięcy</option>
+                                            <option value="12">12 miesięcy</option>
                                         </select>
                                         <small class="neg-fee-note"><?= t('bank.neg_restructure_fee_note') ?></small>
                                     </div>
@@ -529,7 +529,7 @@
 
 </div>
 
-<!-- Modal potwierdzenia sp�aty -->
+<!-- Repayment confirmation modal -->
 <div id="repay-modal" class="repay-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="repay-modal-title">
     <div class="repay-modal">
         <div class="repay-modal-icon"></div>

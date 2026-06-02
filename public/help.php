@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../src/init.php';
 Auth::requireLogin();
 
-$pageTitle = 'Instrukcja obslugi � OilCorp';
+$pageTitle = 'Instrukcja obsługi - OilCorp';
 
 // Pobierz sekcje z bazy; fallback = pusta tablica (wyswietli info admina)
 $helpPages   = [];
@@ -28,7 +28,7 @@ require_once __DIR__ . '/../templates/header.php';
 
 <?php if (!empty($helpPages)): ?>
 
-<!-- SPIS TRESCI � dynamiczny -->
+<!-- Table of contents - dynamic -->
 <div class="help-toc">
     <h2>Spis tresci</h2>
     <ul>
@@ -38,7 +38,7 @@ require_once __DIR__ . '/../templates/header.php';
     </ul>
 </div>
 
-<!-- SEKCJE � tresc z bazy, renderowana jako raw HTML (admin odpowiada za bezpieczenstwo) -->
+<!-- Sections - DB content rendered as raw HTML; admin is responsible for safety. -->
 <?php foreach ($helpPages as $p): ?>
 <div class="help-section" id="<?= htmlspecialchars($p['slug']) ?>">
     <div class="help-section-hdr">

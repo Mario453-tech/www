@@ -29,7 +29,7 @@ function checkControllerFile(string $path): array
     $htmlBlocks = preg_match_all('/<(div|section|article|main|nav|aside|h[1-6]|p|ul|ol)\b/i', $content);
 
     if ($htmlBlocks > 5) {
-        $errors[] = " Zbyt duøo HTML w kontrolerze ($htmlBlocks tagÛw): $path";
+        $errors[] = " Zbyt du≈ºo HTML w kontrolerze ($htmlBlocks tag√≥w): $path";
     }
     if (!preg_match('/require.*templates\/views\//i', $content)) {
         $errors[] = "  Brak require templates/views/ w kontrolerze: $path";
@@ -46,5 +46,5 @@ foreach (glob($viewDir . '**/*.php', GLOB_BRACE) as $file) {
 }
 
 echo empty($errors)
-    ? " Wszystkie testy separacji przesz≥y\n"
+    ? " Wszystkie testy separacji przesz≈Çy\n"
     : implode("\n", $errors) . "\n";

@@ -1,5 +1,5 @@
 /* 
-   HELP EDITOR � inicjalizacja TinyMCE
+   HELP EDITOR - TinyMCE initialization
  */
 
 tinymce.init({

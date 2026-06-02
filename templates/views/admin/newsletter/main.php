@@ -102,9 +102,9 @@
         </div>
         <?php
         $statusMap = [
-            'sent'    => '<span class="badge badge-green">WYS£ANY</span>',
-            'failed'  => '<span class="badge badge-red">B£•D</span>',
-            'partial' => '<span class="badge badge-yellow">CZ åCIOWY</span>',
+            'sent'    => '<span class="badge badge-green">WYS≈ÅANY</span>',
+            'failed'  => '<span class="badge badge-red">B≈ÅƒÑD</span>',
+            'partial' => '<span class="badge badge-yellow">CZƒò≈öCIOWY</span>',
         ];
         foreach ($history as $h):
         ?>
@@ -116,7 +116,7 @@
             <span>
                 <?= $statusMap[$h['status']] ?? htmlspecialchars($h['status']) ?>
                 <?php if ($h['notes']): ?>
-                <small class="muted"> ó <?= htmlspecialchars($h['notes']) ?></small>
+                <small class="muted"> ‚Äî <?= htmlspecialchars($h['notes']) ?></small>
                 <?php endif ?>
             </span>
             <span>
@@ -124,7 +124,7 @@
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action"  value="delete_log">
                     <input type="hidden" name="log_id"  value="<?= (int)$h['id'] ?>">
-                    <button type="submit" class="btn btn-xs btn-danger" title="UsuÒ wpis"
+                    <button type="submit" class="btn btn-xs btn-danger" title="Usu≈Ñ wpis"
                             onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('admin.newsletter.confirm_delete_log')), ENT_QUOTES) ?>, {type:'danger'}); return false;"></button>
                 </form>
             </span>

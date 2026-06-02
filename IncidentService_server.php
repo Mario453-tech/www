@@ -92,7 +92,7 @@ class IncidentService
                 }
             }
         } catch (\Throwable $e) {
-            GameLog::error('IncidentService', 'loadConfigOverrides FAILED � using defaults', $e);
+            GameLog::error('IncidentService', 'loadConfigOverrides FAILED - using defaults', $e);
         }
     }
 

@@ -2558,7 +2558,7 @@ Sprawdzić:
 - czy w panelu gracza i admina nie ma:
   - `finance.xxx`
   - `admin.finance.xxx`
-  - `â`, `Ä`, `Ĺ`, `Â`
+  - mojibake patterns tracked by tools/git_encoding_audit.php
 - czy wszystkie teksty są po polsku.
 
 ### 31.17. Layout i spójność UI
