@@ -119,6 +119,14 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
     {
         $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL DEFAULT 0)');
         $this->db->exec(
+            'CREATE TABLE wells (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id INTEGER NOT NULL,
+                region_id INTEGER NULL,
+                status TEXT NOT NULL DEFAULT \'active\'
+            )'
+        );
+        $this->db->exec(
             'CREATE TABLE world_regions (
                 id INTEGER PRIMARY KEY,
                 code TEXT,
@@ -325,5 +333,105 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
         $res = $this->service->submitApplication(100, 1);
         $this->assertFalse($res['success']);
         $this->assertSame('unknown_region', $res['code']);
+    }
+
+    // ------------------------------------------------ migrateTransitionalPermits
+
+    public function testMigrateCreatesTransitionalForPlayerWithWell(): void
+    {
+        $this->seedRegions();
+        $this->service->seedRegionConfig();
+        $this->seedPlayer(200, 0.0);
+        $this->insertWell(200, 1, 'active');
+
+        $count = $this->service->migrateTransitionalPermits();
+
+        $this->assertSame(1, $count);
+        $status = $this->service->getPermitStatus(200, 1);
+        $this->assertSame('transitional', $status['status']);
+        $this->assertTrue($status['has_active']);
+    }
+
+    public function testMigrateIsIdempotent(): void
+    {
+        $this->seedRegions();
+        $this->service->seedRegionConfig();
+        $this->seedPlayer(201, 0.0);
+        $this->insertWell(201, 1, 'active');
+
+        $this->assertSame(1, $this->service->migrateTransitionalPermits());
+        // Drugi przebieg nie dodaje duplikatu.
+        $this->assertSame(0, $this->service->migrateTransitionalPermits());
+
+        $appCount = (int)$this->db->query(
+            "SELECT COUNT(*) FROM drilling_permit_applications WHERE player_id = 201 AND region_id = 1"
+        )->fetchColumn();
+        $this->assertSame(1, $appCount);
+    }
+
+    public function testMigrateSkipsPlayerWhoAlreadyHasPermit(): void
+    {
+        $this->seedRegions();
+        $this->service->seedRegionConfig();
+        $this->seedPlayer(202, 0.0);
+        $this->insertWell(202, 1, 'active');
+        $this->insertApplication(202, 1, LegalService::STATUS_GRANTED);
+
+        $count = $this->service->migrateTransitionalPermits();
+
+        $this->assertSame(0, $count);
+        // Status pozostaje granted, nie nadpisany.
+        $this->assertSame('granted', $this->service->getPermitStatus(202, 1)['status']);
+    }
+
+    public function testMigrateSkipsSeizedAndSoldWells(): void
+    {
+        $this->seedRegions();
+        $this->service->seedRegionConfig();
+        $this->seedPlayer(203, 0.0);
+        $this->insertWell(203, 1, 'seized');
+        $this->insertWell(203, 2, 'sold');
+
+        $count = $this->service->migrateTransitionalPermits();
+
+        $this->assertSame(0, $count);
+    }
+
+    public function testMigrateSkipsRegionWithoutConfig(): void
+    {
+        // Region 1 w wells, ale bez legal_region_config (seedRegionConfig nie wywołane)
+        $this->seedRegions();
+        $this->seedPlayer(204, 0.0);
+        $this->insertWell(204, 1, 'active');
+
+        $count = $this->service->migrateTransitionalPermits();
+
+        $this->assertSame(0, $count);
+    }
+
+    public function testMigrateHandlesMultiplePlayersAndRegions(): void
+    {
+        $this->seedRegions();
+        $this->service->seedRegionConfig();
+        $this->seedPlayer(210, 0.0);
+        $this->seedPlayer(211, 0.0);
+        $this->insertWell(210, 1, 'active');
+        $this->insertWell(210, 2, 'active'); // gracz 210: 2 regiony
+        $this->insertWell(211, 1, 'active'); // gracz 211: 1 region, już ma zezwolenie
+        $this->insertApplication(211, 1, LegalService::STATUS_PENDING); // in progress → skip
+
+        $count = $this->service->migrateTransitionalPermits();
+
+        // 210→region1, 210→region2 = 2 nowe; 211→region1 ma już pending → skip
+        $this->assertSame(2, $count);
+    }
+
+    // ------------------------------------------------------ helpers (migration)
+
+    private function insertWell(int $playerId, int $regionId, string $status): void
+    {
+        $this->db->prepare(
+            "INSERT INTO wells (player_id, region_id, status) VALUES (?, ?, ?)"
+        )->execute([$playerId, $regionId, $status]);
     }
 }

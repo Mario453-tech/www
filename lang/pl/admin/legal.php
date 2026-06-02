@@ -66,4 +66,12 @@ return [
     'admin.legal.err_save'       => 'Błąd zapisu konfiguracji',
     'admin.legal.err_action'     => 'Błąd wykonania akcji',
     'admin.legal.err_load_apps'  => 'Błąd ładowania wniosków',
+    'admin.legal.err_migration'  => 'Błąd migracji',
+
+    // Migracja przejściowa
+    'admin.legal.migration_title'   => 'Migracja — zezwolenia przejściowe',
+    'admin.legal.migration_hint'    => 'Uruchom raz po wdrożeniu P1. Dla każdego gracza który ma odwiert w regionie lecz nie ma jeszcze zezwolenia zostanie automatycznie przyznane zezwolenie przejściowe (transitional). Operacja jest idempotentna.',
+    'admin.legal.btn_run_migration' => 'Uruchom migrację',
+    'admin.legal.migration_confirm' => 'Uruchomić migrację zezwoleń przejściowych? Operacja jest bezpieczna i idempotentna.',
+    'admin.legal.msg_migration_done'=> 'Migracja zakończona. Nowe wpisy przejściowe: :n.',
 ];

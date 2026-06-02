@@ -13,10 +13,12 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-$tab = (string)($_GET['tab'] ?? 'regions');
+$tab   = (string)($_GET['tab'] ?? 'regions');
 if (!in_array($tab, ['regions', 'applications'], true)) {
     $tab = 'regions';
 }
+
+$legal = new LegalService($db);
 
 // == OBSŁUGA FORMULARZY ==
 
@@ -28,8 +30,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $regionId = (int)($_POST['region_id'] ?? 0);
     $appId    = (int)($_POST['app_id'] ?? 0);
 
+    // Migracja przejściowa
+    if ($action === 'run_migration') {
+        try {
+            $migrated = $legal->migrateTransitionalPermits();
+            AdminLog::log('legal_migration_run', "Migracja: {$migrated} wpisów transitional");
+            $msg = t('admin.legal.msg_migration_done', ['n' => $migrated]);
+        } catch (Throwable $e) {
+            $err = t('admin.legal.err_migration') . ': ' . $e->getMessage();
+        }
+        $tab = 'regions';
+    }
+
     // Zapis konfiguracji regionu
-    if ($action === 'save_region_config' && $regionId > 0) {
+    elseif ($action === 'save_region_config' && $regionId > 0) {
         $fields = [
             'enabled'                => max(0, min(1, (int)($_POST['enabled'] ?? 1))),
             'is_offshore'            => max(0, min(1, (int)($_POST['is_offshore'] ?? 0))),
@@ -147,7 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // == DANE DLA WIDOKU ==
 
-$legal   = new LegalService($db);
 $regions = $legal->getAllRegionConfigs();
 
 $applications = [];

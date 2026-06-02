@@ -26,6 +26,20 @@
 <!-- ===== TAB: KONFIGURACJA REGIONÓW ===== -->
 <?php if ($tab === 'regions'): ?>
 
+<!-- Migracja przejściowa -->
+<section class="panel mb-8">
+    <p class="panel-title"><?= t('admin.legal.migration_title') ?></p>
+    <p class="panel-hint"><?= t('admin.legal.migration_hint') ?></p>
+    <form method="post" action="/admin/legal.php?tab=regions">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="run_migration">
+        <button type="submit" class="btn btn-warning"
+                onclick="return confirm(<?= json_encode(tPlain('admin.legal.migration_confirm'), JSON_UNESCAPED_UNICODE) ?>)">
+            <?= t('admin.legal.btn_run_migration') ?>
+        </button>
+    </form>
+</section>
+
 <section class="panel">
     <p class="panel-title"><?= t('admin.legal.regions_title') ?></p>
 
