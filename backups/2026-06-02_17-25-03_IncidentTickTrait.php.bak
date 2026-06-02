@@ -49,8 +49,7 @@ trait IncidentTickTrait
  // Immunity + pressure system.
  // System odpornosci + rosnaca presja.
         $ticksSince = (int) ($wellData['ticks_since_incident'] ?? 999);
- // Fallback: jezeli kolumna brakuje lub ma domyslna (999), wylicz z tabeli well_incidents.
- // Fallback: if column missing or still at default (999), derive from well_incidents table.
+        // Fallback: if column missing or still at default (999), derive from well_incidents table.
         if ($ticksSince >= 999) {
             try {
                 $stmt = $this->db->prepare(
@@ -65,16 +64,17 @@ trait IncidentTickTrait
                 GameLog::error('IncidentService', 'immunity_fallback FAILED', $e, ['well_id' => $wellId]);
             }
         }
-
- // Licznik rosnie zawsze — niezaleznie od tego, co wyzwoli tick (takze micro).
- // Counter always grows — regardless of what fires this tick (including micro).
-        try {
-            $this->db->prepare("UPDATE wells SET ticks_since_incident = LEAST(9999, ticks_since_incident + 1) WHERE id = ?")
-                ->execute([$wellId]);
-        } catch (\Throwable $e) {}
-        $ticksSince++;
-
-        $pressureTicks = max(0, $ticksSince - $this->immunityTicks);
+        if ($ticksSince < $this->immunityTicks) {
+            try {
+                $this->db->prepare("UPDATE wells SET ticks_since_incident = LEAST(9999, ticks_since_incident + 1) WHERE id = ?")
+                    ->execute([$wellId]);
+            } catch (\Throwable $e) {}
+            GameLog::step('IncidentService', 'processTick', 2, 'immunity_active', [
+                'well_id' => $wellId, 'ticks_since' => $ticksSince, 'immunity_ticks' => $this->immunityTicks,
+            ]);
+            return ['incident' => null];
+        }
+        $pressureTicks = $ticksSince - $this->immunityTicks;
         $pressureMult  = 1.0 + min($this->pressureCapPct, $pressureTicks * $this->pressureGrowthPct) / 100.0;
 
  // Spiral increases human error under pressure.
@@ -142,17 +142,6 @@ trait IncidentTickTrait
         ]);
 
         foreach ($this->levelCfg as $level => $cfg) {
- // Micro omija immunitet — to szum (auto-naprawa, koszt $0), nie resetuje licznika.
- // Micro bypasses immunity — it is noise (auto-repair, $0 cost) and does not reset the counter.
-            if ($level !== 'micro' && $ticksSince <= $this->immunityTicks) {
-                if ($level === 'minor') {
-                    GameLog::step('IncidentService', 'processTick', 2, 'immunity_active', [
-                        'well_id' => $wellId, 'ticks_since' => $ticksSince, 'immunity_ticks' => $this->immunityTicks,
-                    ]);
-                }
-                continue;
-            }
-
             $baseChance = $this->baseChance[$level] * $deltaHours;
 
  // Apply condition, risk, wear, spiral, equipment, layer, and transport modifiers.
@@ -201,23 +190,21 @@ trait IncidentTickTrait
             $this->saveIncident($incident);
             $this->applyEffects($incident, $wellId, $playerId);
 
- // Resetuj licznik i dodaj spiral boost tylko dla awarii powazniejszych niz micro.
- // Reset counter and add spiral boost only for failures more serious than micro.
-            if ($level !== 'micro') {
-                $boostMap  = ['minor' => 1.0, 'medium' => 6.0, 'major' => 15.0];
-                $spiralAdd = (float) ($boostMap[$level] ?? 0.0);
-                try {
-                    if ($spiralAdd > 0.0) {
-                        $this->db->prepare(
-                            "UPDATE wells SET ticks_since_incident = 0, post_incident_risk_boost = LEAST(50.0, post_incident_risk_boost + ?) WHERE id = ?"
-                        )->execute([$spiralAdd, $wellId]);
-                    } else {
-                        $this->db->prepare("UPDATE wells SET ticks_since_incident = 0 WHERE id = ?")
-                            ->execute([$wellId]);
-                    }
-                } catch (\Throwable $e) {
-                    GameLog::error('IncidentService', 'reset_immunity FAILED', $e, ['well_id' => $wellId]);
+ // Reset immunity counter and apply spiral boost (addSpiralBoost was never called — fixed here).
+ // Resetuj licznik odpornosci i dodaj wzmocnienie spirali.
+            $boostMap  = ['micro' => 0.0, 'minor' => 1.0, 'medium' => 6.0, 'major' => 15.0];
+            $spiralAdd = (float) ($boostMap[$level] ?? 0.0);
+            try {
+                if ($spiralAdd > 0.0) {
+                    $this->db->prepare(
+                        "UPDATE wells SET ticks_since_incident = 0, post_incident_risk_boost = LEAST(50.0, post_incident_risk_boost + ?) WHERE id = ?"
+                    )->execute([$spiralAdd, $wellId]);
+                } else {
+                    $this->db->prepare("UPDATE wells SET ticks_since_incident = 0 WHERE id = ?")
+                        ->execute([$wellId]);
                 }
+            } catch (\Throwable $e) {
+                GameLog::error('IncidentService', 'reset_immunity FAILED', $e, ['well_id' => $wellId]);
             }
 
             GameLog::info('IncidentService', "incident_{$level}", [
@@ -231,8 +218,13 @@ trait IncidentTickTrait
             return ['incident' => array_merge($incident, ['spiral_boost' => $spiralBoost])];
         }
 
- // Licznik zostal juz zinkrementowany na poczatku ticka — nie ma co powtarzac.
- // Counter was already incremented at the top of this tick — no need to repeat.
+        // Increment counter when no incident occurred.
+        // Zwieksz licznik gdy brak incydentu.
+        try {
+            $this->db->prepare("UPDATE wells SET ticks_since_incident = LEAST(9999, ticks_since_incident + 1) WHERE id = ?")
+                ->execute([$wellId]);
+        } catch (\Throwable $e) {}
+
         GameLog::step('IncidentService', 'processTick', 3, 'no_incident', ['well_id' => $wellId]);
         return ['incident' => null];
     }
