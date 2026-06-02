@@ -94,7 +94,6 @@ return [
     'br_js.logistics_open_btn' => 'Otwórz Panel Logistyki',
     'br_js.legal_panel_title' => 'Dział Prawny',
     'br_js.legal_panel_desc' => 'Dział Prawny obsługuje zgodność regulacyjną, kontrakty i sprawy korporacyjne spółki.',
-    'br_js.legal_open_btn' => 'Przejdź do Działu Prawnego',
     'br_js.fire_btn' => 'Zwolnij',
     'br_js.close_btn' => 'Zamknij',
     'br_js.cancel_btn' => 'Anuluj',

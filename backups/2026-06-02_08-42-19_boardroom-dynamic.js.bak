@@ -329,7 +329,6 @@ function showLegalPanel(member) {
                 ${infoBlock(brl('experience'), member.experience_years + brl('years_unit'))}
                 ${infoBlock(brl('salary'), formatMoney(member.salary), true)}
             </div>
-            <a href="/legal" class="panel-link">${brl('legal_open_btn')}</a>
         </div>
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
