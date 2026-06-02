@@ -1,0 +1,95 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/LegalService.php';
+
+Auth::requireLogin();
+
+$playerId = Auth::getUserId();
+$db       = Database::getInstance()->getConnection();
+$legal    = new LegalService($db);
+
+$error   = '';
+$success = '';
+
+// == OBSŁUGA FORMULARZA ==
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!RateLimiter::check('action')) {
+        $error = t('common.ratelimit');
+    } elseif (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = t('common.csrf_error');
+    } else {
+        $action   = (string)($_POST['action'] ?? '');
+        $regionId = (int)($_POST['region_id'] ?? 0);
+
+        if ($action === 'submit_application' && $regionId > 0) {
+            $res = $legal->submitApplication($playerId, $regionId);
+            if ($res['success']) {
+                $success = $res['message'];
+            } else {
+                $error = $res['message'];
+            }
+        }
+    }
+}
+
+// == DANE DLA WIDOKU ==
+
+$configs = $legal->getAllRegionConfigs();
+
+// Zbieramy statusy wszystkich regionów i klasyfikujemy je
+$permitsByRegion = [];
+foreach ($configs as $cfg) {
+    $rid = (int)$cfg['region_id'];
+    $permitsByRegion[$rid] = $legal->getPermitStatus($playerId, $rid);
+}
+
+// Pogrupowane regiony
+$active     = []; // granted / transitional
+$inProgress = []; // pending / delayed / no_decision
+$available  = []; // none lub refused (po cooldown)
+$locked     = []; // refused (w cooldown)
+
+$now = new DateTime();
+foreach ($configs as $cfg) {
+    if (!(int)$cfg['enabled']) {
+        continue;
+    }
+    $rid    = (int)$cfg['region_id'];
+    $permit = $permitsByRegion[$rid];
+    $status = $permit['status'];
+
+    if ($permit['has_active']) {
+        $active[] = ['config' => $cfg, 'permit' => $permit];
+    } elseif (in_array($status, ['pending', 'delayed', 'no_decision'], true)) {
+        $inProgress[] = ['config' => $cfg, 'permit' => $permit];
+    } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])) {
+        $cooldown = new DateTime((string)$permit['application']['refusal_cooldown_until']);
+        if ($cooldown > $now) {
+            $locked[] = ['config' => $cfg, 'permit' => $permit, 'cooldown_until' => $cooldown];
+        } else {
+            $available[] = ['config' => $cfg, 'permit' => $permit];
+        }
+    } else {
+        $available[] = ['config' => $cfg, 'permit' => $permit];
+    }
+}
+
+// Pobranie salda gracza
+$cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
+
+$viewData = compact(
+    'active', 'inProgress', 'available', 'locked',
+    'cash', 'error', 'success'
+);
+$viewData = array_merge($viewData, GameShell::data($playerId));
+
+$extraCss = ['/assets/css/legal.css'];
+require_once __DIR__ . '/../templates/header.php';
+extract($viewData, EXTR_SKIP);
+$gameShellTitle = t('legal.page_title');
+$gameShellView  = __DIR__ . '/../templates/views/legal/main.php';
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';

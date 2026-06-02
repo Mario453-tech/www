@@ -89,7 +89,7 @@
     </form>
 </section>
 
-<!--  Globalna gotówka  -->
+<!--  Globalna gotÃ³wka  -->
 <section class="panel" aria-label="<?= t('admin.gm.bulk_title') ?>">
     <p class="panel-title"> <?= t('admin.gm.bulk_title') ?></p>
     <p class="muted text-sm"><?= t('admin.gm.bulk_desc') ?></p>
@@ -118,9 +118,9 @@
                 <div>
                     <label class="gm-label"><?= t('admin.gm.reset_player_label') ?></label>
                     <select name="reset_player_id" class="gm-input" required>
-                        <option value="">— <?= t('admin.gm.select_player') ?> —</option>
+                        <option value="">â€” <?= t('admin.gm.select_player') ?> â€”</option>
                         <?php foreach ($players as $p): ?>
-                        <option value="<?= $p['id'] ?>">#<?= $p['id'] ?> — <?= htmlspecialchars($p['email']) ?></option>
+                        <option value="<?= $p['id'] ?>">#<?= $p['id'] ?> â€” <?= htmlspecialchars($p['email']) ?></option>
                         <?php endforeach ?>
                     </select>
                 </div>
@@ -149,9 +149,9 @@
                 <div>
                     <label class="gm-label"><?= t('admin.gm.clone_source_label') ?></label>
                     <select name="source_id" class="gm-input" required>
-                        <option value="">— <?= t('admin.gm.select_player') ?> —</option>
+                        <option value="">â€” <?= t('admin.gm.select_player') ?> â€”</option>
                         <?php foreach ($players as $p): ?>
-                        <option value="<?= $p['id'] ?>">#<?= $p['id'] ?> — <?= htmlspecialchars($p['email']) ?></option>
+                        <option value="<?= $p['id'] ?>">#<?= $p['id'] ?> â€” <?= htmlspecialchars($p['email']) ?></option>
                         <?php endforeach ?>
                     </select>
                 </div>

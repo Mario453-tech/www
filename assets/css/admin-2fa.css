@@ -1,0 +1,44 @@
+/**
+ * Admin 2FA styles.
+ */
+
+.tfa-steps {
+    font-size: 13px;
+    color: #bbb;
+    line-height: 1.7;
+    margin: 0 0 18px;
+    padding-left: 18px;
+}
+
+.tfa-key {
+    font-family: monospace;
+    font-size: 18px;
+    letter-spacing: 2px;
+    background: #111;
+    border: 1px solid #333;
+    color: #f90;
+    padding: 12px;
+    border-radius: 6px;
+    text-align: center;
+    margin: 8px 0 4px;
+    user-select: all;
+    word-break: break-all;
+}
+
+.tfa-hint {
+    font-size: 11px;
+    color: #777;
+    margin: 0 0 16px;
+    text-align: center;
+}
+
+.tfa-hint--verify {
+    margin-bottom: 18px;
+}
+
+.tfa-code-input {
+    font-family: monospace;
+    font-size: 24px;
+    letter-spacing: 8px;
+    text-align: center;
+}

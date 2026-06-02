@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($keys as $key) {
             if (isset($_POST[$key])) {
                 $val = round((float)$_POST[$key], 4);
-                $val = max(0.1, min(5.0, $val)); // Zakres bezpiecze�stwa
+                $val = max(0.1, min(5.0, $val)); // Safety range
                 $old = BankSettings::get($key);
                 $settings->set($key, $val, $adminUser);
                 AdminLog::log(
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         expires_at=DATE_ADD(NOW(), INTERVAL 48 HOUR)
                     WHERE id=:id AND status IN ('pending','rejected')
                 ")->execute([':amt'=>$amount,':rate'=>$rate,':reason'=>$reason.' [ADMIN]',':id'=>$appId]);
-                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% � {$reason}", null, 'system', $appId);
+                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% - {$reason}", null, 'system', $appId);
                 $msg = t('admin.loans.msg_approved', ['id' => $appId]);
             } else { $err = t('admin.loans.err_amount_zero'); }
         }
@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    ->execute([':id'=>$procId]);
                 $db->prepare("UPDATE loans SET status='active', late_since=NULL WHERE id=:id")
                    ->execute([':id'=>$proc['loan_id']]);
-                AdminLog::log('bailiff_closed', "Zamkni�to post�powanie #{$procId}", $proc['player_id'], 'system', $procId);
+                AdminLog::log('bailiff_closed', "Closed bailiff proceeding #{$procId}", $proc['player_id'], 'system', $procId);
                 $msg = t('admin.loans.msg_bailiff_closed', ['id' => $procId]);
             }
         }
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $newStage = $proc['stage'] + 1;
                 $db->prepare("UPDATE bailiff_proceedings SET stage=:s, next_action_at=DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id=:id")
                    ->execute([':s'=>$newStage,':id'=>$procId]);
-                AdminLog::log('bailiff_advance', "Przesuni�to etap {$proc['stage']}{$newStage} dla post�powania #{$procId}", $proc['player_id'], 'system', $procId);
+                AdminLog::log('bailiff_advance', "Advanced stage {$proc['stage']} -> {$newStage} for bailiff proceeding #{$procId}", $proc['player_id'], 'system', $procId);
                 $msg = t('admin.loans.msg_bailiff_advanced', ['stage' => $newStage]);
             }
         }

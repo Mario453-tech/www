@@ -33,7 +33,7 @@ try {
     $incidentSvc = new IncidentService();
     GameLog::info('technical.php', 'IncidentService initialized OK');
 } catch (Throwable $e) {
-    GameLog::error('technical.php', 'IncidentService init failed � continuing without', $e);
+    GameLog::error('technical.php', 'IncidentService init failed - continuing without', $e);
     $incidentSvc = null;
 }
 
@@ -296,8 +296,8 @@ try {
     GameLog::dbResult('technical.php', 'pipelines', count($pipelines));
 
     if (empty($pipelines)) {
-        GameLog::info('technical.php', 'No pipelines � creating default');
-        $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Ruroci�g g��wny')")->execute([$playerId]);
+        GameLog::info('technical.php', 'No pipelines - creating default');
+        $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Rurociąg główny')")->execute([$playerId]);
         $pipeStmt->execute([$playerId]);
         $pipelines = $pipeStmt->fetchAll();
     }

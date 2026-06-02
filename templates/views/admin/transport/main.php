@@ -200,7 +200,7 @@
     <p class="help-text">Porty systemowe obsuguj dostawy tankowcw. Kady region powinien mie co najmniej 1 aktywny port.</p>
 
     <form method="post" style="margin-bottom:16px">
-        <input type="hidden" name="csrf_token" value="<?= CSRF::getToken() ?>">
+        <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_ports">
         <button type="submit" class="btn btn-primary btn-sm"
                 onclick="return confirm('Seed portw  tworzy 1 port na region (pomija istniejce). Kontynuowa?')">

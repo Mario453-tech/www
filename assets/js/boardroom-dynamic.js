@@ -40,6 +40,17 @@ function avatarSVG(color='white', size=28) {
     </svg>`;
 }
 
+// Ikona pustego miejsca (krzeso + znak +) dla niezajętych slotów wymaganych.
+// Empty seat icon (chair outline + plus) for required-but-unfilled slots.
+function emptySeatSVG(color='white', size=28) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="3" width="14" height="9" rx="2"/>
+        <path d="M5 12v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/>
+        <line x1="12" y1="6" x2="12" y2="9"/>
+        <line x1="10.5" y1="7.5" x2="13.5" y2="7.5"/>
+    </svg>`;
+}
+
 function avgSkill(c) {
     return (parseInt(c.skill_organization||0)+parseInt(c.skill_negotiation||0)+
             parseInt(c.skill_analysis||0)+parseInt(c.skill_stress||0)+
@@ -84,7 +95,7 @@ function render() {
         const x   = CX + RX * Math.cos(rad);
         const y   = CY + RY * Math.sin(rad);
 
-        let cls='', avatarColor='white', avatarSize=26, badge='', tooltip='', clickFn=null;
+        let cls='', avatarColor='white', avatarSize=26, badge='', tooltip='', clickFn=null, useEmptySeat=false;
 
         if (seat.role_code === 'director') {
             cls='slot-director'; avatarColor='#0400ff'; avatarSize=32;
@@ -132,7 +143,7 @@ function render() {
                     : brl('tooltip_recruiting_no_hr', { role: seat.label, mins: mins });
 
             } else if (seat.role_code === 'hr') {
-                cls='slot-hr'; avatarColor='#e8cc7a';
+                cls='slot-hr'; avatarColor='#e8cc7a'; useEmptySeat=true;
                 badge=`<div class="hr-badge">${brl('hr_badge_required')}</div>`;
                 tooltip=brl('tooltip_hr_required');
                 clickFn = () => showDirectorHirePanel(roleId, seat.label);
@@ -155,7 +166,7 @@ function render() {
         div.innerHTML = `
             <div class="slot-avatar" style="transform:scale(${seat.scale})">
                 ${badge}
-                ${avatarSVG(avatarColor, avatarSize)}
+                ${useEmptySeat ? emptySeatSVG(avatarColor, avatarSize) : avatarSVG(avatarColor, avatarSize)}
                 <div class="slot-num">${seat.label ? seat.label.toUpperCase() : ''}</div>
             </div>
             <div class="slot-tooltip">${tooltip}</div>
@@ -329,6 +340,7 @@ function showLegalPanel(member) {
                 ${infoBlock(brl('experience'), member.experience_years + brl('years_unit'))}
                 ${infoBlock(brl('salary'), formatMoney(member.salary), true)}
             </div>
+            <a href="/legal" class="panel-link">${brl('legal_open_btn')}</a>
         </div>
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>

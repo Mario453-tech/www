@@ -24,6 +24,8 @@ require_once __DIR__ . '/../src/Tick/MarketSection.php';
 require_once __DIR__ . '/../src/Tick/BankSection.php';
 require_once __DIR__ . '/../src/Tick/PlayersSection.php';
 require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
+require_once __DIR__ . '/../src/LegalService.php';
+require_once __DIR__ . '/../src/Tick/LegalSection.php';
 
 // Opcjonalne serwisy
 $bankNegAvailable       = file_exists(__DIR__ . '/../src/BankNegotiationService.php');
@@ -144,7 +146,23 @@ try {
     GameLog::error('tick', 'Black market section FAILED', $e);
 }
 
-// PODSUMOWANIE + ZAPIS STATYSTYK 
+// 7. DZIAŁ PRAWNY — rozpatrywanie wniosków o zezwolenia
+
+$legalDecided  = 0;
+$legalNotified = 0;
+try {
+    $legal = new LegalSection($db, $now);
+    $legal->run();
+    $legalDecided  = $legal->decided;
+    $legalNotified = $legal->notified;
+    if ($legalDecided > 0) {
+        GameLog::info('tick', "Dział prawny: rozpatrzono {$legalDecided} wniosków, powiadomień: {$legalNotified}");
+    }
+} catch (Throwable $e) {
+    GameLog::error('tick', 'Legal section FAILED', $e);
+}
+
+// PODSUMOWANIE + ZAPIS STATYSTYK
 
 $trendInfo = $activeTrend
     ? " | Trend: {$activeTrend['trend_name']}" . ($isNewTrend ? ' [NOWY]' : '')

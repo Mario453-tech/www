@@ -1,0 +1,195 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<h1><?= t('admin.legal.title') ?></h1>
+<p class="panel-hint"><?= t('admin.legal.subtitle') ?></p>
+
+<?php if ($msg): ?><p class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
+
+<!-- Statystyki -->
+<section class="panel mb-8">
+    <div class="cards">
+        <div class="card"><p class="label"><?= t('admin.legal.stat_total') ?></p><p class="value"><?= (int)$stats['total'] ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.legal.stat_pending') ?></p><p class="value orange"><?= (int)$stats['pending'] + (int)($stats['delayed'] ?? 0) ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.legal.stat_granted') ?></p><p class="value green"><?= (int)$stats['granted'] ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.legal.stat_refused') ?></p><p class="value red"><?= (int)$stats['refused'] ?></p></div>
+        <div class="card"><p class="label"><?= t('admin.legal.stat_regions') ?></p><p class="value"><?= count($regions) ?></p></div>
+    </div>
+</section>
+
+<!-- Zakładki -->
+<nav class="admin-tabs">
+    <a href="?tab=regions"      class="admin-tab <?= $tab === 'regions'      ? 'active' : '' ?>"><?= t('admin.legal.tab_regions') ?></a>
+    <a href="?tab=applications" class="admin-tab <?= $tab === 'applications' ? 'active' : '' ?>"><?= t('admin.legal.tab_applications') ?></a>
+</nav>
+
+<!-- ===== TAB: KONFIGURACJA REGIONÓW ===== -->
+<?php if ($tab === 'regions'): ?>
+
+<!-- Seed konfiguracji regionów -->
+<section class="panel mb-8">
+    <p class="panel-title"><?= t('admin.legal.seed_title') ?></p>
+    <p class="panel-hint"><?= t('admin.legal.seed_hint') ?></p>
+    <form method="post" action="/admin/legal.php?tab=regions">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="seed_regions">
+        <button type="submit" class="btn btn-primary"
+                onclick="return confirm(<?= json_encode(tPlain('admin.legal.seed_confirm'), JSON_UNESCAPED_UNICODE) ?>)">
+            <?= t('admin.legal.btn_seed_regions') ?>
+        </button>
+    </form>
+</section>
+
+<!-- Migracja przejściowa -->
+<section class="panel mb-8">
+    <p class="panel-title"><?= t('admin.legal.migration_title') ?></p>
+    <p class="panel-hint"><?= t('admin.legal.migration_hint') ?></p>
+    <form method="post" action="/admin/legal.php?tab=regions">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="run_migration">
+        <button type="submit" class="btn btn-warning"
+                onclick="return confirm(<?= json_encode(tPlain('admin.legal.migration_confirm'), JSON_UNESCAPED_UNICODE) ?>)">
+            <?= t('admin.legal.btn_run_migration') ?>
+        </button>
+    </form>
+</section>
+
+<section class="panel">
+    <p class="panel-title"><?= t('admin.legal.regions_title') ?></p>
+
+    <?php if (empty($regions)): ?>
+    <p class="panel-hint"><?= t('admin.legal.no_regions') ?></p>
+    <form method="post" action="/admin/legal.php?tab=regions" style="margin-top:10px">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="seed_regions">
+        <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
+    </form>
+    <?php else: ?>
+
+    <div class="table-scroll-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th><?= t('admin.legal.col_region') ?></th>
+                <th><?= t('admin.legal.col_risk') ?></th>
+                <th><?= t('admin.legal.col_enabled') ?></th>
+                <th><?= t('admin.legal.col_cost') ?></th>
+                <th><?= t('admin.legal.col_review_min') ?></th>
+                <th><?= t('admin.legal.col_delay_pct') ?></th>
+                <th><?= t('admin.legal.col_refusal_pct') ?></th>
+                <th><?= t('admin.legal.col_nodec_pct') ?></th>
+                <th><?= t('admin.legal.col_cooldown') ?></th>
+                <th><?= t('admin.legal.col_capital') ?></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($regions as $cfg): ?>
+        <tr>
+            <form method="post" action="/admin/legal.php?tab=regions">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action"    value="save_region_config">
+            <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
+            <td><strong><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></strong><br><small><?= htmlspecialchars((string)($cfg['region_code'] ?? '')) ?> #<?= (int)$cfg['region_id'] ?></small></td>
+            <td>
+                <select name="risk_level" class="input-sm">
+                    <?php foreach (['low','medium','high','critical'] as $rl): ?>
+                    <option value="<?= $rl ?>" <?= $cfg['risk_level'] === $rl ? 'selected' : '' ?>><?= $rl ?></option>
+                    <?php endforeach ?>
+                </select>
+            </td>
+            <td><input type="checkbox" name="enabled" value="1" <?= (int)$cfg['enabled'] ? 'checked' : '' ?>></td>
+            <td><input type="number" name="application_cost"     value="<?= (float)$cfg['application_cost'] ?>"    min="0"   step="1000"  class="input-sm" style="width:110px"></td>
+            <td><input type="number" name="base_review_minutes"  value="<?= (int)$cfg['base_review_minutes'] ?>"   min="1"   step="5"     class="input-sm" style="width:70px"></td>
+            <td><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm" style="width:70px"></td>
+            <td><input type="number" name="required_capital"     value="<?= (float)$cfg['required_capital'] ?>"    min="0"   step="100000" class="input-sm" style="width:110px"></td>
+            <td><button type="submit" class="btn btn-sm btn-primary"><?= t('admin.legal.btn_save') ?></button></td>
+            </form>
+        </tr>
+        <?php endforeach ?>
+        </tbody>
+    </table>
+    </div>
+    <?php endif ?>
+</section>
+
+<!-- ===== TAB: WNIOSKI GRACZY ===== -->
+<?php elseif ($tab === 'applications'): ?>
+
+<section class="panel">
+    <p class="panel-title"><?= t('admin.legal.applications_title') ?></p>
+
+    <?php if (empty($applications)): ?>
+    <p class="panel-hint"><?= t('admin.legal.no_applications') ?></p>
+    <?php else: ?>
+
+    <div class="table-scroll-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th><?= t('admin.legal.col_player') ?></th>
+                <th><?= t('admin.legal.col_region_app') ?></th>
+                <th><?= t('admin.legal.col_status') ?></th>
+                <th><?= t('admin.legal.col_submitted') ?></th>
+                <th><?= t('admin.legal.col_due') ?></th>
+                <th><?= t('admin.legal.col_decided') ?></th>
+                <th><?= t('admin.legal.col_actions') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($applications as $app): ?>
+        <?php
+        $statusCss = match ((string)$app['status']) {
+            'granted', 'transitional' => 'badge-active',
+            'pending', 'delayed'      => 'badge-pending',
+            'refused', 'no_decision'  => 'badge-inactive',
+            default                   => '',
+        };
+        ?>
+        <tr>
+            <td><?= (int)$app['id'] ?></td>
+            <td>
+                <?= htmlspecialchars((string)($app['company_name'] ?? $app['username'] ?? 'ID ' . $app['player_id'])) ?>
+                <br><small>#<?= (int)$app['player_id'] ?></small>
+            </td>
+            <td><?= htmlspecialchars((string)($app['region_name'] ?? '#' . $app['region_id'])) ?></td>
+            <td><span class="badge <?= $statusCss ?>"><?= htmlspecialchars((string)$app['status']) ?></span>
+                <?php if ((int)($app['delay_count'] ?? 0) > 0): ?>
+                <br><small>opóźnień: <?= (int)$app['delay_count'] ?></small>
+                <?php endif ?>
+            </td>
+            <td><small><?= htmlspecialchars(substr((string)($app['submitted_at'] ?? '—'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['decision_due_at'] ?? '—'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['decided_at'] ?? '—'), 0, 16)) ?></small></td>
+            <td>
+                <div class="legal-admin-actions">
+                <?php foreach ([
+                    'manual_grant'        => ['btn-success', t('admin.legal.action_grant')],
+                    'manual_transitional' => ['btn-secondary', t('admin.legal.action_transitional')],
+                    'manual_no_decision'  => ['btn-warning', t('admin.legal.action_no_decision')],
+                    'manual_refuse'       => ['btn-danger',  t('admin.legal.action_refuse')],
+                    'manual_reset_pending'=> ['btn-secondary', t('admin.legal.action_reset')],
+                ] as $act => [$btnCss, $btnLabel]): ?>
+                <form method="post" action="/admin/legal.php?tab=applications" style="display:inline">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="<?= $act ?>">
+                    <input type="hidden" name="app_id" value="<?= (int)$app['id'] ?>">
+                    <button type="submit" class="btn btn-xs <?= $btnCss ?>"
+                            onclick="return confirm('<?= t('admin.legal.confirm_action') ?>')"><?= $btnLabel ?></button>
+                </form>
+                <?php endforeach ?>
+                </div>
+            </td>
+        </tr>
+        <?php endforeach ?>
+        </tbody>
+    </table>
+    </div>
+    <?php endif ?>
+</section>
+
+<?php endif ?>

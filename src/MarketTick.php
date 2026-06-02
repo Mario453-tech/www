@@ -10,18 +10,18 @@
  * new_price = clamp(current + sd_pressure + gravity + noise, MIN, MAX)
  *
  * WORLD_PRODUCTION (OPEC-like):
- * price > 150 -> +10%/tick (max 1500)
+ * price > 120 -> +10%/tick (max 1500)
  * price < 60 -> -12%/tick (min 200)
  * otherwise -> return to 800 at 2%/tick
  */
 class MarketTick
 {
     const MIN_PRICE       = 30;
-    const MAX_PRICE       = 300;
+    const MAX_PRICE       = 150;
     const SENSITIVITY     = 0.40;
     const GRAVITY_RATE    = 0.03;
     const OPEC_CUT_PRICE  = 60;
-    const OPEC_BOOM_PRICE = 150;
+    const OPEC_BOOM_PRICE = 120;
     const WORLD_PROD_BASE = 800.0;
     const WORLD_PROD_MIN  = 200.0;
     const WORLD_PROD_MAX  = 1500.0;
@@ -179,9 +179,9 @@ class MarketTick
     private function adjustWorldProduction(float $current, float $price): float
     {
         if ($price > self::OPEC_BOOM_PRICE) {
-            $current *= 1.10;  // high price � pump more
+            $current *= 1.10;  // high price - pump more
         } elseif ($price < self::OPEC_CUT_PRICE) {
-            $current *= 0.88;  // low price � cut production
+            $current *= 0.88;  // low price - cut production
         } else {
             $current += (self::WORLD_PROD_BASE - $current) * 0.02;  // return to base
         }

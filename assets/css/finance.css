@@ -1,5 +1,5 @@
 /* 
-   finance.css � Dzia� Finansowy OilCorp
+   finance.css - OilCorp finance module
  */
 
 /* Karta bazowa */
@@ -820,11 +820,11 @@
     gap: 5px;
 }
 .fin-savings-row::before {
-    content: "�";
+    content: "-";
     color: var(--text3);
     flex-shrink: 0;
 }
-
+/* Savings / reserve mode picker */
 /* Picker trybu oszczdnoci / rezerwy */
 .fin-mode-picker {
     display: grid;

@@ -17,6 +17,6 @@ foreach (new DirectoryIterator($dir) as $f) {
     $files[] = '/assets/audio/' . $f->getFilename();
 }
 
-sort($files); // powtarzalna kolejno�� � losowanie po stronie JS
+sort($files); // Stable order; JS handles random playback.
 
 echo json_encode($files, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

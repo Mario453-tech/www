@@ -1,5 +1,5 @@
 /* 
-   TEMPLATE EDITOR � Panel admina, edytor header/footer/nawigacji
+   TEMPLATE EDITOR - admin header/footer/navigation editor
  */
 
 .te-tabs        { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 0; }

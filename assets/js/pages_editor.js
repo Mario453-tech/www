@@ -1,5 +1,5 @@
 /* 
-   PAGES EDITOR � inicjalizacja TinyMCE
+   PAGES EDITOR - TinyMCE initialization
  */
 
 tinymce.init({

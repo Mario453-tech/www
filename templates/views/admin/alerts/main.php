@@ -36,7 +36,7 @@ $tickAgeMin = $lastTick ? round((time() - strtotime($lastTick)) / 60) : 999;
     </div>
 </div>
 
-<!--  LISTA ALERTÓW  -->
+<!--  LISTA ALERTÃ“W  -->
 <?php if (empty($alerts)): ?>
 <div class="empty-state-lg">
     <p class="empty-state-emoji"></p>
@@ -69,7 +69,7 @@ $tickAgeMin = $lastTick ? round((time() - strtotime($lastTick)) / 60) : 999;
 </div>
 <?php endif ?>
 
-<!--  PROGI ALERTÓW  -->
+<!--  PROGI ALERTÃ“W  -->
 <section class="panel mt-4">
     <p class="panel-title"> <?= t('admin.alerts.thresholds_title') ?></p>
 

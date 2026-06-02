@@ -113,6 +113,7 @@ class GameShell
                     'finance' => self::actionIconHtml('finance'),
                     'logistics' => self::actionIconHtml('logistics'),
                     'help' => self::actionIconHtml('help'),
+                    'legal' => self::actionIconHtml('legal'),
                 ];
 
                 $icon = $iconMap[$key] ?? '';
@@ -120,6 +121,8 @@ class GameShell
                     $labelLower = function_exists('mb_strtolower') ? mb_strtolower($labelText, 'UTF-8') : strtolower($labelText);
                     if (str_contains($labelLower, 'kup odwiert')) {
                         $icon = self::actionIconHtml('buy');
+                    } elseif (str_contains($labelLower, 'prawny') || str_contains($labelLower, 'zezwolen')) {
+                        $icon = self::actionIconHtml('legal');
                     } elseif (str_contains($labelLower, 'rynek')) {
                         $icon = self::actionIconHtml('market');
                     } elseif (str_contains($labelLower, 'bank')) {
@@ -205,6 +208,7 @@ class GameShell
             'finance' => self::statusIconHtml('cash'),
             'logistics' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10v8H4V7Zm10 2h3l3 3v3h-2.25a2.25 2.25 0 1 1-4.5 0H12V9Zm-7.75 7.25A2.25 2.25 0 1 1 8.5 14a2.25 2.25 0 0 1-2.25 2.25Zm9 0A2.25 2.25 0 1 1 17.5 14a2.25 2.25 0 0 1-2.25 2.25Z" fill="currentColor"></path></svg>',
             'help' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18.5a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm.02-14c-3.02 0-5.02 1.75-5.02 4.31h1.8c0-1.53 1.29-2.57 3.2-2.57 1.76 0 3 .92 3 2.31 0 1.03-.58 1.69-1.99 2.48-1.76.98-2.36 1.88-2.36 3.68v.44h1.8v-.36c0-1.16.43-1.73 1.77-2.49 1.67-.94 2.58-2 2.58-3.82 0-2.41-2-3.98-4.78-3.98Z" fill="currentColor"></path></svg>',
+            'legal' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v3c0 5.25 3.41 10.17 8 11.38C16.59 19.17 20 14.25 20 9V6l-8-3Zm0 2.18 6 2.25v1.58c0 4.27-2.77 8.27-6 9.56-3.23-1.29-6-5.29-6-9.56V7.43l6-2.25ZM10 13.17l-1.59-1.58L7 13l3 3 5-5-1.42-1.42L10 13.17Z" fill="currentColor"></path></svg>',
             default => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>',
         };
     }

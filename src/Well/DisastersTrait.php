@@ -219,7 +219,7 @@ trait WellDisastersTrait
                 INSERT INTO director_notifications
                     (player_id, type, priority, title, message, icon,
                      requires_action, action_url, action_label, expires_at)
-                VALUES (?, 'urgent', ?, ?, ?, ?, 1, ?, 'PrzejdÄąĹź do BHP',
+                VALUES (?, 'urgent', ?, ?, ?, ?, 1, ?, 'Przejdź do BHP',
                         DATE_ADD(NOW(), INTERVAL 72 HOUR))
             ")->execute([
                 $playerId,
@@ -241,6 +241,164 @@ trait WellDisastersTrait
                 'player_id' => $playerId,
                 'type'      => $disasterType,
             ]);
+        }
+    }
+
+ /**
+ * Katastrofa: Blowout — eksplozja odwiertu.
+ * Disaster: Blowout — well explosion.
+ * Odwiert przechodzi w status 'blowout', wymaga zadania blowout_control.
+ * Well transitions to 'blowout' status, requires blowout_control task.
+ */
+    public function triggerBlowout(int $wellId, int $playerId, array $hseBonus = []): array
+    {
+        $hseActive = ($hseBonus['active_hse'] ?? 0) > 0;
+
+        GameLog::step('WellService', 'blowout', 1, "well={$wellId}");
+
+ // Kara srodowiskowa: 5-15 mln PLN, BHP redukuje o 30%. / Environmental fine: 5-15 mln PLN, HSE reduces by 30%.
+        $envFine    = mt_rand(5_000_000, 15_000_000);
+        $envFine    = (int) round($envFine * ($hseActive ? 0.7 : 1.0));
+        $repairCost = mt_rand(2_000_000, 8_000_000);
+        $costMult   = $hseActive ? (float)($hseBonus['repair_cost_mult'] ?? 1.0) : 1.0;
+        $repairCost = (int) round($repairCost * $costMult);
+
+        $desc = DisasterMessages::get('blowout', $hseActive, [
+            'well' => $wellId,
+            'fine' => number_format($envFine),
+        ]) . ' | Kara: ' . number_format($envFine) . ' PLN.';
+
+        $this->db->beginTransaction();
+        try {
+ // Odwiert przechodzi w tryb blowout (wstrzymana produkcja). / Well enters blowout mode (production halted).
+            $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1 WHERE id=? AND player_id=?")
+                ->execute([$wellId, $playerId]);
+
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id=?")
+                ->execute([$envFine + $repairCost, $playerId]);
+
+            $this->insertFailureLog($playerId, $wellId, 'blowout', $repairCost, $envFine, 0, 0, $desc);
+
+            $this->db->prepare("
+                INSERT INTO industrial_disasters
+                    (player_id, well_id, disaster_type, severity, repair_cost, env_fine,
+                     oil_lost, hse_active, hse_skill, proc_level, proc_integrity,
+                     description, status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ")->execute([
+                $playerId, $wellId, 'blowout', 'critical',
+                $repairCost, $envFine, 0,
+                $hseActive ? 1 : 0,
+                $hseBonus['active_hse']     ?? 0,
+                $hseBonus['proc_level']     ?? 0,
+                $hseBonus['proc_integrity'] ?? 0.0,
+                $desc, 'active',
+            ]);
+
+            $this->db->commit();
+
+            $this->applyDisasterRiskBoost($wellId);
+            $this->notifyDirectorDisaster($playerId, 'blowout', $hseActive, [
+                'well' => $wellId, 'fine' => number_format($envFine),
+            ]);
+
+            GameLog::error('WellService', 'BLOWOUT', null, [
+                'well_id'    => $wellId,
+                'player_id'  => $playerId,
+                'env_fine'   => $envFine,
+                'repair_cost'=> $repairCost,
+                'hse_active' => $hseActive,
+            ]);
+
+            return [
+                'disaster' => 'blowout',
+                'cost'     => $repairCost,
+                'env_fine' => $envFine,
+                'desc'     => $desc,
+            ];
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            GameLog::error('WellService', 'triggerBlowout FAILED', $e, ['well_id' => $wellId]);
+            return ['disaster' => null];
+        }
+    }
+
+ /**
+ * Katastrofa: Skazenie rezerwuaru.
+ * Disaster: Reservoir contamination.
+ * Odwiert przechodzi w status 'contaminated', wymaga zadania reservoir_rehabilitation.
+ * Well transitions to 'contaminated' status, requires reservoir_rehabilitation task.
+ */
+    public function triggerReservoirContamination(int $wellId, int $playerId, array $hseBonus = []): array
+    {
+        $hseActive = ($hseBonus['active_hse'] ?? 0) > 0;
+
+        GameLog::step('WellService', 'reservoirContamination', 1, "well={$wellId}");
+
+ // Kara: 1-5 mln PLN, BHP redukuje o 40%. / Fine: 1-5 mln PLN, HSE reduces by 40%.
+        $envFine    = mt_rand(1_000_000, 5_000_000);
+        $envFine    = (int) round($envFine * ($hseActive ? 0.6 : 1.0));
+        $repairCost = mt_rand(500_000, 3_000_000);
+        $costMult   = $hseActive ? (float)($hseBonus['repair_cost_mult'] ?? 1.0) : 1.0;
+        $repairCost = (int) round($repairCost * $costMult);
+
+        $desc = DisasterMessages::get('reservoir_contamination', $hseActive, [
+            'well' => $wellId,
+            'fine' => number_format($envFine),
+        ]) . ' | Kara: ' . number_format($envFine) . ' PLN.';
+
+        $this->db->beginTransaction();
+        try {
+ // Odwiert dziala w ograniczonym trybie 'contaminated'. / Well operates in limited 'contaminated' mode.
+            $this->db->prepare("UPDATE wells SET status='contaminated' WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage')")
+                ->execute([$wellId, $playerId]);
+
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id=?")
+                ->execute([$envFine + $repairCost, $playerId]);
+
+            $this->insertFailureLog($playerId, $wellId, 'reservoir_contamination', $repairCost, $envFine, 0, 5, $desc);
+
+            $this->db->prepare("
+                INSERT INTO industrial_disasters
+                    (player_id, well_id, disaster_type, severity, repair_cost, env_fine,
+                     oil_lost, hse_active, hse_skill, proc_level, proc_integrity,
+                     description, status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ")->execute([
+                $playerId, $wellId, 'reservoir_contamination', 'major',
+                $repairCost, $envFine, 0,
+                $hseActive ? 1 : 0,
+                $hseBonus['active_hse']     ?? 0,
+                $hseBonus['proc_level']     ?? 0,
+                $hseBonus['proc_integrity'] ?? 0.0,
+                $desc, 'active',
+            ]);
+
+            $this->db->commit();
+
+            $this->applyDisasterRiskBoost($wellId);
+            $this->notifyDirectorDisaster($playerId, 'reservoir_contamination', $hseActive, [
+                'well' => $wellId, 'fine' => number_format($envFine),
+            ], 'technical.php?tab=safety');
+
+            GameLog::error('WellService', 'RESERVOIR CONTAMINATION', null, [
+                'well_id'    => $wellId,
+                'player_id'  => $playerId,
+                'env_fine'   => $envFine,
+                'repair_cost'=> $repairCost,
+                'hse_active' => $hseActive,
+            ]);
+
+            return [
+                'disaster' => 'reservoir_contamination',
+                'cost'     => $repairCost,
+                'env_fine' => $envFine,
+                'desc'     => $desc,
+            ];
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            GameLog::error('WellService', 'triggerReservoirContamination FAILED', $e, ['well_id' => $wellId]);
+            return ['disaster' => null];
         }
     }
 

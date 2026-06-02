@@ -59,8 +59,8 @@ if (class_exists('GameLog', false)) {
 
         <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 0.9rem;">
             <strong> <?= t('form_sell.options_title') ?></strong><br>
-            • <?= t('form_sell.option_instant') ?><br>
-            • <?= t('form_sell.option_limit') ?>
+            â€¢ <?= t('form_sell.option_instant') ?><br>
+            â€¢ <?= t('form_sell.option_limit') ?>
         </div>
     </div>
 <?php endif ?>

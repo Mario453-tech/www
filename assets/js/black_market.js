@@ -72,11 +72,11 @@
     };
 
     function doSell(offerId) {
- // Zablokuj wszystkie przyciski sprzedazy podczas transakcji
+            // Block all sell buttons during the transaction.
         const btns = document.querySelectorAll('.bm-sell-btn');
         btns.forEach(function (b) {
             b.disabled = true;
-            b.textContent = window.BM_LANG?.loading || '�';
+            b.textContent = window.BM_LANG?.loading || '...';
         });
 
         const body = new FormData();

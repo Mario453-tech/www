@@ -1,6 +1,6 @@
 /* home.css
-   Style specyficzne dla strony g��wnej oraz wsp�dzielonych komponent�w
-   u�ywanych przez dashboard i alert pilnych ofert.
+   Styles for the home page and shared components
+   used by the dashboard and urgent offer alert.
 */
 
 .trend-alert {
@@ -342,14 +342,14 @@
 }
 
 /* =============================================================
-   HOME.CSS � REDESIGN ADDITIONS
+   HOME.CSS - REDESIGN ADDITIONS
    OilCorp dark-luxury design system
    ============================================================= */
 
 /* STATUS KPI GRID style przeniesione do style.css (globalne) */
 
 /* 
-   SECTION 2 � TREND ALERT REDESIGN
+   SECTION 2 - TREND ALERT REDESIGN
  */
 
 .trend-alert--redesign {
@@ -519,7 +519,7 @@
 }
 
 /* 
-   SECTION 3 � ALERT STRIP
+   SECTION 3 - ALERT STRIP
  */
 
 .alert-strip {
@@ -587,7 +587,7 @@
 }
 
 /* 
-   SECTION 4 � TIP PANEL
+   SECTION 4 - TIP PANEL
  */
 
 .tip-panel {
@@ -635,7 +635,7 @@
 }
 
 /* 
-   SECTION 5 � ACTION GRID REDESIGN
+   SECTION 5 - ACTION GRID REDESIGN
  */
 
 .action-grid--redesign {
@@ -688,7 +688,7 @@
 }
 
 /* 
-   SECTION 6 � WELL GRID ADDITIONS
+   SECTION 6 - WELL GRID ADDITIONS
  */
 
 .wg-risk-meter {
@@ -766,7 +766,7 @@
 }
 
 /* 
-   SECTION 7 � LAYER MULT GRID + DELTA + COST BLOCK
+   SECTION 7 - LAYER MULT GRID + DELTA + COST BLOCK
  */
 
 .wg-layer-item-stats--labeled {
@@ -835,7 +835,7 @@
 }
 
 /* 
-   SECTION 8 � MOBILE RESPONSIVE
+   SECTION 8 - MOBILE RESPONSIVE
  */
 
 @media (max-width: 768px) {

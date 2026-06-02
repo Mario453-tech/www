@@ -149,7 +149,7 @@ $pCond = (float)($globalPipelines['avg_condition']  ?? 100);
     <?php endif ?>
 </section>
 
-<!--  TOP 20 NAJGORSZYCH ODWIERTÓW  -->
+<!--  TOP 20 NAJGORSZYCH ODWIERTÃ“W  -->
 <section class="panel">
     <p class="panel-title"> <?= t('admin.transport_loss.panel_worst_wells') ?></p>
     <?php if (empty($worstWells)): ?>

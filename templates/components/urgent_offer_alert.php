@@ -1,5 +1,5 @@
 <?php
-// SprawdŸ czy s¹ oferty bliskie realizacji
+// SprawdÅº czy sÄ… oferty bliskie realizacji
 if (class_exists('GameLog', false)) {
     GameLog::step('component/urgent_offer_alert', 'render', 1,
         'offers=' . count($myOffers ?? []) . ' price=' . ($marketData['current_price'] ?? '?'));
@@ -45,7 +45,7 @@ if (!empty($urgentOffers)):
             <div class="urgent-alert-header">
                 <span class="urgent-alert-icon"></span>
                 <span class="urgent-alert-title"><?= t('urgent_offer.title') ?></span>
-                <button class="urgent-alert-close" onclick="closeUrgentAlert()">×</button>
+                <button class="urgent-alert-close" onclick="closeUrgentAlert()">Ã—</button>
             </div>
             <div class="urgent-alert-content">
                 <?php if (count($urgentOffers) === 1):

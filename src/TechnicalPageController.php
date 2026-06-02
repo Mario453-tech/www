@@ -42,7 +42,7 @@ class TechnicalPageController
             $this->incidentSvc = new IncidentService();
             GameLog::info('technical.php', 'IncidentService initialized OK');
         } catch (Throwable $e) {
-            GameLog::error('technical.php', 'IncidentService init failed — continuing without', $e);
+            GameLog::error('technical.php', 'IncidentService init failed â€” continuing without', $e);
             $this->incidentSvc = null;
         }
 
@@ -51,7 +51,7 @@ class TechnicalPageController
                 $db = Database::getInstance()->getConnection();
                 $this->hubIncidentSvc = new HubIncidentService($db);
             } catch (Throwable $e) {
-                GameLog::error('technical.php', 'HubIncidentService init failed — continuing without', $e);
+                GameLog::error('technical.php', 'HubIncidentService init failed â€” continuing without', $e);
                 $this->hubIncidentSvc = null;
             }
         }

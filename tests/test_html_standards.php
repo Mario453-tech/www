@@ -28,5 +28,5 @@ if (empty($errors)) {
     echo " Wszystkie pliki zgodne ze standardem HTML5\n";
 } else {
     echo implode("\n", $errors) . "\n";
-    echo "\nB³êdów: " . count($errors) . "\n";
+    echo "\nBÅ‚Ä™dÃ³w: " . count($errors) . "\n";
 }

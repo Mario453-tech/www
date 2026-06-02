@@ -403,11 +403,11 @@ window.WG_LANG = <?= json_encode([
  // Second transport leg (hub -> storage) / Odcinek 2 (hub -> magazyn)
     'leg2_title'                   => t('well_grid.leg2_title'),
     'leg2_btn_pipeline'            => t('well_grid.leg2_btn_pipeline'),
+    'leg2_btn_pipeline_switch'     => t('well_grid.leg2_btn_pipeline_switch'),
     'leg2_btn_road'                => t('well_grid.leg2_btn_road'),
-    'leg2_btn_direct'              => t('well_grid.leg2_btn_direct'),
     'leg2_confirm_pipeline'        => t('well_grid.leg2_confirm_pipeline', ['cost' => '{cost}']),
+    'leg2_confirm_pipeline_switch' => t('well_grid.leg2_confirm_pipeline_switch'),
     'leg2_confirm_road'            => t('well_grid.leg2_confirm_road'),
-    'leg2_confirm_direct'          => t('well_grid.leg2_confirm_direct'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 window.WG_PIPELINE_API = '/src/PipelineApi.php';
 </script>

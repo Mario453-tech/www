@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+PHP_BIN="${PHP_BIN:-php}"
+
+if ! command -v "$PHP_BIN" >/dev/null 2>&1; then
+    for candidate in \
+        "/c/xampp1/bin/php/php8.3.28/php.exe" \
+        "/c/xampp1/bin/php/php8.4.15/php.exe" \
+        "/c/wamp64/bin/php/php8.3.0/php.exe" \
+        "/c/wamp64/bin/php/php8.2.0/php.exe"
+    do
+        if [ -x "$candidate" ]; then
+            PHP_BIN="$candidate"
+            break
+        fi
+    done
+fi
+
+if ! command -v "$PHP_BIN" >/dev/null 2>&1 && [ ! -x "$PHP_BIN" ]; then
+    echo "PHP not found. Set PHP_BIN or add php to PATH." >&2
+    exit 1
+fi
+
+"$PHP_BIN" tools/check_encoding.php --staged

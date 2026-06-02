@@ -51,10 +51,18 @@
     text-align: center;
     z-index: 2;
     transition: transform 0.2s ease;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .slot:hover {
     transform: translate(-50%, -50%) scale(1.1);
+}
+
+.slot-occupied,
+.slot-ready,
+.slot-hr {
+    cursor: pointer;
 }
 
 .slot-avatar {
@@ -105,9 +113,17 @@
     filter: drop-shadow(0 0 4px rgba(78, 201, 122, 0.4));
 }
 
+/* Pusty slot HR — ikonka krzesa (stroke), wolniejszy puls by odrnic od zajętych.
+   Empty HR slot — chair icon (stroke), slower pulse to differ from occupied. */
 .slot-hr svg {
-    filter: drop-shadow(0 0 6px rgba(232, 204, 122, 0.5));
-    animation: pulse-glow 2s infinite;
+    filter: drop-shadow(0 0 5px rgba(232, 204, 122, 0.4));
+    animation: pulse-glow-hr 3s ease-in-out infinite;
+    opacity: 0.85;
+}
+
+@keyframes pulse-glow-hr {
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(232, 204, 122, 0.25)); opacity: 0.75; }
+    50%       { filter: drop-shadow(0 0 9px rgba(232, 204, 122, 0.55)); opacity: 1; }
 }
 
 .slot-ready svg {

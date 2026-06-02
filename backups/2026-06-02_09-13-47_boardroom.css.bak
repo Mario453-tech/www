@@ -1,0 +1,256 @@
+.br-shell-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    color: rgba(232, 232, 240, 0.58);
+    font-size: 12px;
+}
+
+.br-shell-summary span {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.035);
+    border-radius: 8px;
+    padding: 7px 10px;
+}
+
+.br-shell-summary strong {
+    color: var(--gold);
+}
+
+.scene {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+}
+
+.scene-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 12px;
+    opacity: 0.35;
+    z-index: 0;
+}
+
+.slots {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.slot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 2;
+    transition: transform 0.2s ease;
+}
+
+.slot:hover {
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.slot-avatar {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.slot-num {
+    font-size: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.slot-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 10;
+}
+
+.slot:hover .slot-tooltip {
+    opacity: 1;
+}
+
+.slot-director svg {
+    filter: drop-shadow(0 0 6px rgba(200, 168, 75, 0.5));
+}
+
+.slot-occupied svg {
+    filter: drop-shadow(0 0 4px rgba(78, 201, 122, 0.4));
+}
+
+.slot-hr svg {
+    filter: drop-shadow(0 0 6px rgba(232, 204, 122, 0.5));
+    animation: pulse-glow 2s infinite;
+}
+
+.slot-ready svg {
+    filter: drop-shadow(0 0 6px rgba(224, 180, 68, 0.6));
+}
+
+.slot-recruiting {
+    opacity: 0.6;
+}
+
+.slot-locked {
+    opacity: 0.3;
+}
+
+.slot-director .slot-num {
+    color: var(--gold);
+}
+
+.slot-occupied .slot-num {
+    color: var(--green);
+}
+
+@keyframes pulse-glow {
+    0%,
+    100% {
+        filter: drop-shadow(0 0 6px rgba(232, 204, 122, 0.3));
+    }
+
+    50% {
+        filter: drop-shadow(0 0 12px rgba(232, 204, 122, 0.7));
+    }
+}
+
+.recruitment-notification {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background: var(--red);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+}
+
+.hr-badge {
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(200, 168, 75, 0.2);
+    color: var(--gold);
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+}
+
+.legend {
+    position: absolute;
+    bottom: 12px;
+    left: 16px;
+    display: flex;
+    gap: 12px;
+    z-index: 5;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.legend-dot-director {
+    background: var(--gold);
+}
+
+.legend-dot-occupied {
+    background: var(--green);
+}
+
+.legend-dot-empty {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.seat-count {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    text-align: center;
+    z-index: 5;
+}
+
+.seat-count-num {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--gold);
+    line-height: 1;
+}
+
+.seat-count-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+@media (max-width: 600px) {
+    .scene {
+        aspect-ratio: 4 / 3;
+        padding: 12px;
+    }
+
+    .slot-num {
+        font-size: 7px;
+        max-width: 60px;
+    }
+
+    .legend {
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .legend-item {
+        font-size: 9px;
+    }
+
+    .seat-count-num {
+        font-size: 22px;
+    }
+}

@@ -353,7 +353,7 @@
                         <strong>
                             <?php
                                 $finishTs = !empty($pipe['build_finish_at']) ? strtotime($pipe['build_finish_at']) : 0;
-                                echo $finishTs ? date('d.m H:i', $finishTs) : 'â€”';
+                                echo $finishTs ? date('d.m H:i', $finishTs) : '-';
                             ?>
                         </strong>
                     </div>
@@ -1621,7 +1621,7 @@ window.LOGISTICS_LANG = <?= json_encode([
     if (!countdowns.length) return;
 
     function fmtSec(sec) {
-        if (sec <= 0) return 'â€”';
+        if (sec <= 0) return '-';
         var h = Math.floor(sec / 3600);
         var m = Math.floor((sec % 3600) / 60);
         var s = sec % 60;
@@ -1636,7 +1636,7 @@ window.LOGISTICS_LANG = <?= json_encode([
             if (rem > 0) {
                 setTimeout(tick, 1000);
             } else {
-                el.textContent = 'â€”';
+                el.textContent = '-';
                 setTimeout(function () { window.location.reload(); }, 3000);
             }
         }
@@ -1666,7 +1666,7 @@ window.LOGISTICS_LANG = <?= json_encode([
             if (cur > 0) {
                 setTimeout(tick, 30000); // aktualizacja co 30s / update every 30s
             } else {
-                el.textContent = 'â€”';
+                el.textContent = '-';
                 setTimeout(function () { window.location.reload(); }, 5000);
             }
         }

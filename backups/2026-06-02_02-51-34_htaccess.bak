@@ -1,0 +1,142 @@
+# ═══════════════════════════════════════════════════════════════
+# GŁÓWNY PLIK .HTACCESS
+# ═══════════════════════════════════════════════════════════════
+
+# Wymusza konkretny plik startowy - zapobiega listingowi
+DirectoryIndex index.php index.html
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    RewriteCond %{THE_REQUEST} \s/public/login\.php[\s?]
+    RewriteRule ^public/login\.php$ /login [R=301,L]
+
+    # ── Pliki statyczne - bez przekierowania ──
+    RewriteCond %{REQUEST_URI} ^/v2/
+    RewriteRule ^ - [L]
+
+    RewriteCond %{REQUEST_URI} ^/assets/ [OR]
+    RewriteCond %{REQUEST_URI} ^/admin/ [OR]
+    RewriteCond %{REQUEST_URI} ^/public/ [OR]
+    RewriteCond %{REQUEST_URI} ^/cron/
+    RewriteRule ^ - [L]
+
+    # ── Pliki w rocie z wyjątkami ──
+    RewriteCond %{REQUEST_URI} ^/boardroom\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/boardroom_status\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/dashboard\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/db_connection_check\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/diag\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/diag_upload\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/mail_test\.php$
+    RewriteRule ^ - [L]
+
+    # ── Wyjątki dla endpointów AJAX w /src/ ──
+    RewriteCond %{REQUEST_URI} ^/src/RecruitmentAPI\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/HRApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/WellStaffApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/ChatApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/TechNotifApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/WellSellApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/DmApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/BlackMarketApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/LogisticsApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/AdminNewsApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/HubApi\.php$ [OR]
+    RewriteCond %{REQUEST_URI} ^/src/PipelineApi\.php$
+    RewriteRule ^ - [L]
+
+    # ── Blokada dostępu do wrażliwych katalogów ──
+    RewriteCond %{REQUEST_URI} ^/src/
+    RewriteCond %{REQUEST_URI} !^/src/(RecruitmentAPI\.php|HRApi\.php|WellStaffApi\.php|ChatApi\.php|TechNotifApi\.php|WellSellApi\.php|DmApi\.php|BlackMarketApi\.php|LogisticsApi\.php|AdminNewsApi\.php|HubApi\.php|PipelineApi\.php)$
+    RewriteRule ^ - [F,L]
+
+    RewriteCond %{REQUEST_URI} ^/config/ [OR]
+    RewriteCond %{REQUEST_URI} ^/sql/ [OR]
+    RewriteCond %{REQUEST_URI} ^/tests/ [OR]
+    RewriteCond %{REQUEST_URI} ^/templates/ [OR]
+    RewriteCond %{REQUEST_URI} ^/sessions/
+    RewriteRule ^ - [F,L]
+
+    # ── Clean URLs — MUSZĄ BYĆ PRZED OGÓLNĄ REGUŁĄ ──
+    # Pliki w ROOT
+    RewriteRule ^change-password$ /change_password.php [L,PT]
+    RewriteRule ^boardroom$       /boardroom.php [L,PT]
+    RewriteRule ^hr$              /hr.php [L,PT]
+    RewriteRule ^technical$       /technical.php [L,PT]
+    RewriteRule ^logistics$       /logistics.php [L,PT]
+    RewriteRule ^dashboard$       /dashboard.php [L,PT]
+    RewriteRule ^loans$           /loans.php [L,PT]
+    RewriteRule ^profile$         /profile.php [L,PT]
+    RewriteRule ^db-check$        /db_connection_check.php [L,PT]
+    # Pliki w /public/
+    RewriteRule ^login$           /public/login.php [L,PT]
+    RewriteRule ^register$        /public/register.php [L,PT]
+    RewriteRule ^bank$            /public/bank.php [L,PT]
+    RewriteRule ^sell$            /public/sell.php [L,PT]
+    RewriteRule ^forgot-password$ /public/forgot_password.php [L,PT]
+    RewriteRule ^reset-password$  /public/reset_password.php [L,PT]
+    RewriteRule ^logout$          /public/logout.php [L,PT]
+    RewriteRule ^map$             /public/map.php [L,PT]
+    RewriteRule ^market$          /public/market.php [L,PT]
+    RewriteRule ^market-offers$   /public/market_offers.php [L,PT]
+    RewriteRule ^recovery$        /public/recovery.php [L,PT]
+    RewriteRule ^upgrade-storage$ /public/upgrade_storage.php [L,PT]
+    RewriteRule ^upgrade-well$    /public/upgrade_well.php [L,PT]
+    RewriteRule ^help$            /public/help.php [L,PT]
+    RewriteRule ^verify-email$              /public/verify_email.php [L,PT]
+    RewriteRule ^newsletter-unsubscribe$    /public/newsletter_unsubscribe.php [L,PT]
+
+
+
+    RewriteRule ^dm$             /dm.php [L,PT]
+    RewriteRule ^finance$        /public/finance.php [L,PT]
+    RewriteRule ^diag-upload$    /diag_upload.php [L,PT]
+
+# ── BEGIN static_pages ──
+    RewriteRule ^regulamin$ /public/page.php?slug=regulamin [L,QSA]
+# ── END static_pages ──
+
+    # ── Wszystko inne → public/ ──
+    RewriteRule ^$ /public/index.php [L]
+
+    # Brak fallbacku - nieznane URL dają 404 domyślnie
+</IfModule>
+
+
+# ── Blokada plików wrażliwych ──
+<FilesMatch "\.(sql|log|md|env|git|sh|bak)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^(\.htaccess|\.gitignore|\.env|debug\.log|debug_log\.php|check_files\.php|test_db\.php|view_log\.php|dashboard_safe\.php|debug_recruitment\.php|cron-5min\.php)$">
+    Require all denied
+</FilesMatch>
+
+# ── Nagłówki bezpieczeństwa ──
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ── Kompresja ──
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json
+</IfModule>
+
+# ── Cache ──
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType text/html "access plus 0 seconds"
+</IfModule>

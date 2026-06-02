@@ -1480,6 +1480,8 @@ CREATE TABLE `nav_items` (
 -- Dumping data for table `nav_items`
 --
 
+INSERT INTO `nav_items` (`id`, `label`, `url_key`, `icon`, `sort_order`, `active`, `css_class`, `location`) VALUES
+(100, 'Dział prawny', 'legal', '', 50, 1, 'btn-secondary', 'actions');
 
 -- --------------------------------------------------------
 
@@ -2507,6 +2509,63 @@ CREATE TABLE `world_regions` (
   `opex_mult` decimal(4,2) NOT NULL DEFAULT '1.00' COMMENT 'Mnożnik kosztów operacyjnych (logistyka, infrastruktura)',
   `stability_bonus` decimal(4,3) NOT NULL DEFAULT '0.000' COMMENT 'Mnożnik degradacji: <1.0 = wolniejsza (USA), >1.0 = szybsza'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `world_regions`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Dział prawny P1 — konfiguracja prawna regionów
+--
+
+CREATE TABLE IF NOT EXISTS `legal_region_config` (
+  `region_id` int UNSIGNED NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `is_offshore` tinyint(1) NOT NULL DEFAULT '0',
+  `risk_level` enum('low','medium','high','critical') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'low',
+  `application_cost` decimal(14,2) NOT NULL DEFAULT '100000.00',
+  `base_review_minutes` int UNSIGNED NOT NULL DEFAULT '60',
+  `delay_risk_pct` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `delay_min_minutes` int UNSIGNED NOT NULL DEFAULT '10',
+  `delay_max_minutes` int UNSIGNED NOT NULL DEFAULT '30',
+  `no_decision_risk_pct` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `refusal_risk_pct` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `refusal_cooldown_minutes` int UNSIGNED NOT NULL DEFAULT '120',
+  `required_capital` decimal(20,2) NOT NULL DEFAULT '0.00',
+  `required_legal_level` int UNSIGNED NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`region_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Dział prawny P1 — wnioski i zezwolenia na wiercenie (jeden wiersz = stan per gracz/region)
+--
+
+CREATE TABLE IF NOT EXISTS `drilling_permit_applications` (
+  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
+  `player_id` int UNSIGNED NOT NULL,
+  `region_id` int UNSIGNED NOT NULL,
+  `status` enum('pending','delayed','no_decision','granted','refused','transitional') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending',
+  `cost` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `submitted_at` datetime DEFAULT NULL,
+  `decision_due_at` datetime DEFAULT NULL,
+  `decided_at` datetime DEFAULT NULL,
+  `refusal_cooldown_until` datetime DEFAULT NULL,
+  `delay_count` int UNSIGNED NOT NULL DEFAULT '0',
+  `source` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'player',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_player_region` (`player_id`,`region_id`),
+  KEY `idx_status_due` (`status`,`decision_due_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
 
 --
 -- Dumping data for table `world_regions`

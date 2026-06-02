@@ -13,21 +13,21 @@
     <h1> Testy Oil Game</h1>
     
     <h2> Testy cen</h2>
-    <a href="price_test.php" class="test-link"> Szczegó³owy test cen</a>
+    <a href="price_test.php" class="test-link"> SzczegÃ³Å‚owy test cen</a>
     
     <h2> Inne testy</h2>
-    <p>Wiêcej testów wkrótce...</p>
+    <p>WiÄ™cej testÃ³w wkrÃ³tce...</p>
     
-    <h2> U¿ytkowanie</h2>
+    <h2> UÅ¼ytkowanie</h2>
     <pre>
 1. Kliknij na test
 2. Zobacz wyniki
 3. Kopiuj wyniki do debugowania
-4. Folder /tests/ ma wy³¹czone przekierowania .htaccess
+4. Folder /tests/ ma wyÅ‚Ä…czone przekierowania .htaccess
     </pre>
     
     <div style="margin-top: 30px; padding: 10px; background: #fff3cd; border-radius: 5px;">
-        <strong> Uwaga:</strong> Pliki testowe mog¹ modyfikowaæ dane w bazie!
+        <strong> Uwaga:</strong> Pliki testowe mogÄ… modyfikowaÄ‡ dane w bazie!
     </div>
 </body>
 </html>

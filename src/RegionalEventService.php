@@ -26,13 +26,13 @@ class RegionalEventService
 
  // Event probability per region per 24h (fraction); checked each tick, scaled by deltaHours
     private const EVENT_CHANCE = [
-        'middle_east'    => 0.12,  // 12%/24h � conflicts, embargoes
-        'russia'         => 0.10,  // 10%/24h � sanctions, blockades
-        'africa'         => 0.15,  // 15%/24h � outages, infrastructure failures
-        'usa_canada'     => 0.02,  // 2%/24h  � near-zero risk
-        'north_europe'   => 0.03,  // 3%/24h  � weather conditions
+        'middle_east'    => 0.12,  // 12%/24h - conflicts, embargoes
+        'russia'         => 0.10,  // 10%/24h - sanctions, blockades
+        'africa'         => 0.15,  // 15%/24h - outages, infrastructure failures
+        'usa_canada'     => 0.02,  // 2%/24h - near-zero risk
+        'north_europe'   => 0.03,  // 3%/24h - weather conditions
         'southeast_asia' => 0.07,  // 7%/24h
-        'latam'          => 0.09,  // 9%/24h  � strikes, nationalisation
+        'latam'          => 0.09,  // 9%/24h - strikes, nationalisation
     ];
 
  // Event definitions per region (msg keys resolved via t() at display time)
