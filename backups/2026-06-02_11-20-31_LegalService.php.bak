@@ -68,47 +68,10 @@ class LegalService
     /** @var array<int,bool> cache zapewnionego schematu per połączenie */
     private static array $schemaEnsured = [];
 
-    /** @var array<int,bool> Guard auto-seedu per połączenie (raz na żądanie). */
-    private static array $autoSeeded = [];
-
     public function __construct(?PDO $db = null)
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
         $this->ensureSchema();
-        $this->autoSeedIfEmpty();
-    }
-
-    /**
-     * Auto-seed: jeśli legal_region_config jest pusta (pierwsze uruchomienie po
-     * wdrożeniu), wypełnia ją na podstawie world_regions, aby gracze nie utknęli
-     * (bez configu nie da się złożyć wniosku, a bramka zakupu blokuje fail-closed).
-     * Tylko MySQL (produkcja) — na SQLite testy budują własny schemat. Raz na
-     * połączenie w ramach żądania.
-     */
-    private function autoSeedIfEmpty(): void
-    {
-        if ($this->driver() !== 'mysql') {
-            return;
-        }
-        $connId = spl_object_id($this->db);
-        if (isset(self::$autoSeeded[$connId])) {
-            return;
-        }
-        self::$autoSeeded[$connId] = true;
-
-        try {
-            $hasConfig = $this->db->query("SELECT 1 FROM legal_region_config LIMIT 1")->fetchColumn();
-            if ($hasConfig === false) {
-                $n = $this->seedRegionConfig();
-                if ($n > 0 && class_exists('GameLog', false)) {
-                    GameLog::info('LegalService', "Auto-seed: skonfigurowano {$n} regionów (pierwsze uruchomienie).");
-                }
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'autoSeedIfEmpty FAILED', $e);
-            }
-        }
     }
 
     // ----------------------------------------------------------------- Schema
