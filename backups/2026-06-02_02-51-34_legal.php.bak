@@ -8,26 +8,6 @@ declare(strict_types=1);
 
 return [
 
-    // --- Strona gracza (etap 5) ---
-    'legal.page_title'   => 'Dział prawny',
-    'legal.page_intro'   => 'Tu możesz złożyć wniosek o zezwolenie na wiercenie w wybranym regionie. Zezwolenie jest wymagane przed zakupem odwiertu. Decyzja zapada automatycznie po upływie czasu rozpatrzenia.',
-
-    'legal.section_active'      => 'Aktywne zezwolenia',
-    'legal.section_in_progress' => 'Wnioski w toku',
-    'legal.section_available'   => 'Dostępne regiony',
-    'legal.section_locked'      => 'Regiony zablokowane (cooldown)',
-
-    'legal.risk_label'        => 'Poziom ryzyka',
-    'legal.cost_label'        => 'Opłata za wniosek',
-    'legal.review_time_label' => 'Szacowany czas rozpatrzenia',
-    'legal.decided_at'        => 'Decyzja wydana',
-    'legal.decision_due'      => 'Decyzja spodziewana do',
-    'legal.delay_count'       => 'Opóźnienie nr :n',
-
-    'legal.btn_submit'      => 'Złóż wniosek',
-    'legal.confirm_submit'  => 'Złożyć wniosek o zezwolenie na wiercenie w regionie ":region"? Opłata: :cost PLN zostanie pobrana natychmiast.',
-    'legal.no_regions'      => 'Brak dostępnych regionów do zarządzania zezwoleniami. Skontaktuj się z administratorem.',
-
     // --- Bramka zakupu na mapie (etap 2) ---
     'legal.err_no_drilling_permit' => 'Nie możesz kupić odwiertu w tym regionie, ponieważ Twoja firma nie ma aktywnego zezwolenia na wiercenie. Złóż wniosek w dziale prawnym, aby odblokować region :region.',
 

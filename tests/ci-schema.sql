@@ -1480,6 +1480,8 @@ CREATE TABLE `nav_items` (
 -- Dumping data for table `nav_items`
 --
 
+INSERT INTO `nav_items` (`id`, `label`, `url_key`, `icon`, `sort_order`, `active`, `css_class`, `location`) VALUES
+(100, 'Dział prawny', 'legal', '', 50, 1, 'btn-secondary', 'actions');
 
 -- --------------------------------------------------------
 
