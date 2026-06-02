@@ -18,6 +18,22 @@ Nigdy inaczej niż wg poniższego schematu:
 Czyli zawsze: nazwa pliku + data, rozszerzenie `.bak`, kopia w katalogu `backups/`.
 Nigdy nie nadpisuj pliku bez wcześniejszego zrobienia takiej kopii.
 
+## Git — ZASADA OBOWIĄZKOWA
+
+Po każdej zmianie pliku ZAWSZE rób commit i push bezpośrednio do `main`.
+Nie używaj feature branchy — każda zmiana musi od razu trafić na `main`,
+żeby GitHub Actions wydeployował ją na serwer.
+
+Kolejność zawsze:
+1. Zrób backup (patrz niżej)
+2. Wprowadź zmiany
+3. Zweryfikuj kodowanie
+4. `git add` zmienionych plików + backupów
+5. `git commit -m "..."` z opisem po polsku/angielsku
+6. `git push -u origin main`
+
+Jeśli push odrzucony (remote ma nowe commity): `git pull origin main --no-rebase` a potem push.
+
 ## Kodowanie i komentarze — ZASADA OBOWIĄZKOWA
 
 Przy KAŻDEJ zmianie istniejącego pliku ORAZ przy tworzeniu nowego pliku
