@@ -39,9 +39,6 @@ $navSections = [
         'pipelines.php'       => ['', t('admin.nav.pipelines')],
         'logistics_hubs.php'  => ['', t('admin.nav.logistics_hubs')],
     ],
-    t('admin.nav.section_legal') => [
-        'legal.php' => ['', t('admin.nav.legal')],
-    ],
     t('admin.nav.section_finance') => [
         'finance.php'          => ['', t('admin.nav.finance')],
         'financial-crisis.php' => ['', t('admin.nav.financial_crisis')],
