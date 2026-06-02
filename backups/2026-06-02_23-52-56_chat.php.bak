@@ -2,7 +2,7 @@
 // Komponent: Czat globalny graczy
 ?>
 <section class="card chat-box" aria-labelledby="chat-heading">
-    <h2 id="chat-heading">Czat graczy<span class="chat-online" id="chatOnline"></span></h2>
+    <h2 id="chat-heading">Czat graczy</h2>
     <!-- Pasek przypiętych wiadomości admina — poza obszarem scrollowania -->
     <div class="chat-pinned-bar" id="chatPinnedBar" style="display:none"></div>
     <div class="chat-messages" id="chatMessages" role="log" aria-live="polite">
