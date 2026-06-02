@@ -11,7 +11,7 @@
 -- ============================================================
 
 INSERT INTO `nav_items` (`label`, `url_key`, `icon`, `sort_order`, `active`, `css_class`, `location`)
-SELECT 'Dział prawny', 'legal', '', 50, 1, 'btn-secondary', 'actions'
+SELECT 'Dział prawny', 'legal', '', 50, 1, 'btn-secondary', 'actions' FROM DUAL
 WHERE NOT EXISTS (
     SELECT 1 FROM `nav_items` WHERE `url_key` = 'legal' AND `location` = 'actions'
 );
