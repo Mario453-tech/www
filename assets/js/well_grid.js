@@ -653,13 +653,18 @@ async function wgSetOutboundTransport(wellId, transportType, buildCost) {
     };
 
     if (transportType === 'rurociag') {
+        // Rurociag juz kupiony (koszt 0) -> przelaczenie bez oplaty, inny komunikat.
+        // Pipeline already owned (cost 0) -> free switch, different prompt.
+        var owned = !buildCost || Number(buildCost) <= 0;
         confirmAction(
-            wgt('leg2_confirm_pipeline', { cost: Number(buildCost || 0).toLocaleString('pl-PL') }),
+            owned
+                ? wgt('leg2_confirm_pipeline_switch')
+                : wgt('leg2_confirm_pipeline', { cost: Number(buildCost || 0).toLocaleString('pl-PL') }),
             doIt,
             {
                 title: wgt('leg2_title'),
                 type: 'confirm',
-                confirmLabel: wgt('leg2_btn_pipeline')
+                confirmLabel: owned ? wgt('leg2_btn_pipeline_switch') : wgt('leg2_btn_pipeline')
             }
         );
         return;

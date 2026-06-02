@@ -181,22 +181,24 @@
                                 <?php endif ?>
                                 <div class="wg-leg2-actions">
                                     <?php if (!$__outOwned): ?>
+                                    <?php /* Rurociag jeszcze niekupiony — budowa za oplata. Pipeline not owned yet — build for a fee. */ ?>
                                     <button class="wg-opt-btn wg-opt-btn--primary"
                                         onclick="wgSetOutboundTransport(<?= $wid ?>, 'rurociag', <?= htmlspecialchars(json_encode($__outBuildCost, JSON_UNESCAPED_UNICODE), ENT_QUOTES) ?>)">
                                         <?= t('well_grid.leg2_btn_pipeline') ?>
                                         (<?= number_format($__outBuildCost, 0, '.', ' ') ?> <?= t('common.pln') ?>)
+                                    </button>
+                                    <?php elseif ($__outType !== 'rurociag'): ?>
+                                    <?php /* Rurociag juz kupiony, ale aktywny inny tryb — przelacz z powrotem bez oplaty.
+                                            Pipeline already owned but another mode active — switch back for free. */ ?>
+                                    <button class="wg-opt-btn wg-opt-btn--primary"
+                                        onclick="wgSetOutboundTransport(<?= $wid ?>, 'rurociag', 0)">
+                                        <?= t('well_grid.leg2_btn_pipeline_switch') ?>
                                     </button>
                                     <?php endif ?>
                                     <?php if ($__outType !== 'ciezarowki'): ?>
                                     <button class="wg-opt-btn"
                                         onclick="wgSetOutboundTransport(<?= $wid ?>, 'ciezarowki', 0)">
                                         <?= t('well_grid.leg2_btn_road') ?>
-                                    </button>
-                                    <?php endif ?>
-                                    <?php if ($__outType !== 'nieustawiony'): ?>
-                                    <button class="wg-opt-btn"
-                                        onclick="wgSetOutboundTransport(<?= $wid ?>, 'nieustawiony', 0)">
-                                        <?= t('well_grid.leg2_btn_direct') ?>
                                     </button>
                                     <?php endif ?>
                                 </div>

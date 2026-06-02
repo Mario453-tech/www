@@ -8,14 +8,52 @@ class WorldMap
 {
     private PDO $db;
 
-    public function __construct()
+    public function __construct(?PDO $db = null)
     {
         try {
-            $this->db = Database::getInstance()->getConnection();
+            $this->db = $db ?? Database::getInstance()->getConnection();
             GameLog::info('WorldMap', 'Service initialized');
         } catch (Throwable $e) {
             GameLog::error('WorldMap', 'Initialization failed', $e);
             throw $e;
+        }
+    }
+
+    /**
+     * Dział prawny P1 — bramka zakupu odwiertów w regionie.
+     * Zwraca null, jeśli gracz ma aktywne zezwolenie na wiercenie w regionie
+     * (granted/transitional). W przeciwnym razie zwraca gotowy wynik błędu do
+     * przekazania graczowi (zakup zablokowany).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function regionPurchaseBlock(int $playerId, int $regionId): ?array
+    {
+        try {
+            $legal = new LegalService($this->db);
+            if ($legal->hasActivePermit($playerId, $regionId)) {
+                return null;
+            }
+            $region     = $this->getRegion($regionId);
+            $regionName = $region['name'] ?? ('#' . $regionId);
+            return [
+                'success'   => false,
+                'message'   => t('legal.err_no_drilling_permit', ['region' => $regionName]),
+                'no_permit' => true,
+                'region_id' => $regionId,
+            ];
+        } catch (Throwable $e) {
+            GameLog::error('WorldMap', 'regionPurchaseBlock FAILED', $e, [
+                'player_id' => $playerId,
+                'region_id' => $regionId,
+            ]);
+            // Fail-closed: przy błędzie bramki blokujemy zakup (zasada nadrzędna P1).
+            return [
+                'success'   => false,
+                'message'   => t('legal.err_no_drilling_permit', ['region' => '#' . $regionId]),
+                'no_permit' => true,
+                'region_id' => $regionId,
+            ];
         }
     }
 
@@ -167,6 +205,12 @@ class WorldMap
                 return ['success' => false, 'message' => t('world_map.err_well_limit')];
             }
 
+ // Dział prawny P1: bez aktywnego zezwolenia na wiercenie w regionie zakup jest zablokowany.
+            $permitBlock = $this->regionPurchaseBlock($playerId, (int)$loc['region_id']);
+            if ($permitBlock !== null) {
+                return $permitBlock;
+            }
+
  // Cost = effective_entry_cost (override or region) x oil_richness
             $entryBase = (float)$loc['effective_entry_cost'];
             $richness  = (float)$loc['oil_richness'];
@@ -312,6 +356,27 @@ class WorldMap
             $regions   = $this->getRegions();
             $locations = $this->getLocations();
             $occupied  = $this->getPlayerOccupiedLocations($playerId);
+
+ // Dział prawny P1: status zezwolenia gracza per region (granted/transitional).
+ // Pozwala mapie pokazać wymóg zezwolenia ZANIM gracz kliknie zakup.
+            $permitByRegion = [];
+            try {
+                $legal = new LegalService($this->db);
+                foreach ($regions as $reg) {
+                    $rid = (int)$reg['id'];
+                    $permitByRegion[$rid] = $legal->hasActivePermit($playerId, $rid);
+                }
+            } catch (Throwable $e) {
+                GameLog::error('WorldMap', 'getMapData permit status FAILED', $e, ['player_id' => $playerId]);
+ // Fail-closed: przy błędzie traktuj wszystkie regiony jako bez zezwolenia.
+                foreach ($regions as $reg) {
+                    $permitByRegion[(int)$reg['id']] = false;
+                }
+            }
+            foreach ($regions as &$reg) {
+                $reg['has_permit'] = $permitByRegion[(int)$reg['id']] ?? false;
+            }
+            unset($reg);
 
  // Well count per region
             $wellsPerRegion = [];

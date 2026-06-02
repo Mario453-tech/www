@@ -121,6 +121,7 @@ try {
         ['footer_text',  '&copy; {year} OilCorp. Wszystkie prawa zastrzeone.'],
         ['footer_js',    '/assets/js/game.js'],
         ['nav_items_seeded', '0'],
+        ['legal_nav_ensured', '0'],
     ];
     $ins = $db->prepare("INSERT IGNORE INTO site_config (`key`, `value`) VALUES (?, ?)");
     foreach ($defaults as [$k, $v]) { $ins->execute([$k, $v]); }
@@ -150,6 +151,7 @@ try {
             ['Kup odwiert',   'map',          '', 20, 1, 'btn-info',      'actions'],
             ['Zarzd / HR',   'hr',           '', 30, 1, 'btn-secondary', 'actions'],
             ['Bank',          'bank',         '', 40, 1, 'btn-secondary', 'actions'],
+            ['Dział prawny', 'legal',        '', 50, 1, 'btn-secondary', 'actions'],
         ];
         $actIns = $db->prepare("INSERT INTO nav_items (label,url_key,icon,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
         foreach ($actionsDefaults as $row) { $actIns->execute($row); }
@@ -165,6 +167,21 @@ try {
         $footerIns = $db->prepare("INSERT INTO nav_items (label,url_key,icon,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
         foreach ($footerDefaults as $row) { $footerIns->execute($row); }
         $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='nav_items_seeded'")->execute();
+    }
+
+    // Jednorazowe domniemanie pozycji "Dzia prawny" dla istniejcych instalacji,
+    // gdzie nawigacja zostaa zaseedowana ZANIM dzia prawny powsta. Wykonuje si
+    // raz (flaga legal_nav_ensured) i nie nadpisuje rcznych decyzji admina.
+    $legalNavEnsured = (string)($db->query("SELECT `value` FROM site_config WHERE `key`='legal_nav_ensured' LIMIT 1")->fetchColumn() ?: '0');
+    if ($legalNavEnsured !== '1') {
+        $db->exec(
+            "INSERT INTO nav_items (label, url_key, icon, sort_order, active, css_class, location)
+             SELECT 'Dział prawny', 'legal', '', 50, 1, 'btn-secondary', 'actions' FROM DUAL
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM nav_items WHERE url_key = 'legal' AND location = 'actions'
+             )"
+        );
+        $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='legal_nav_ensured'")->execute();
     }
 } catch (Throwable $e) {
     GameLog::error('admin/template_editor', 'bootstrap failed', $e);

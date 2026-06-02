@@ -37,8 +37,10 @@ try {
     <meta name="description" content="<?= htmlspecialchars($__siteName) ?> - <?= htmlspecialchars($__siteTagline) ?>">
     <meta name="theme-color" content="#08080f">
     <title><?= htmlspecialchars($pageTitle ?? $__siteName) ?></title>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/favicon.png">
     <!-- preconnect: speeds up Google Fonts WOFF2 loading (critical for Polish latin-ext subset) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
