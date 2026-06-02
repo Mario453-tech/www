@@ -313,7 +313,158 @@ class LegalService
         }
     }
 
+    // ------------------------------------------------------------- Mutations
+
+    /**
+     * Składa wniosek o zezwolenie na wiercenie w regionie (etap 3).
+     *
+     * Walidacja kolejno: region skonfigurowany i włączony, brak aktywnego
+     * zezwolenia, brak wniosku w toku, cooldown po odmowie, wymagany kapitał
+     * (region wysokiego ryzyka), środki na opłatę. Po przejściu walidacji
+     * pobiera opłatę z players.cash i tworzy wniosek 'pending' z terminem
+     * decyzji = teraz + base_review_minutes (rozpatruje tick — etap 4).
+     *
+     * Cała operacja w transakcji. Zwraca ['success'=>bool, 'code'=>string, ...].
+     *
+     * @return array<string,mixed>
+     */
+    public function submitApplication(int $playerId, int $regionId, ?DateTimeInterface $now = null): array
+    {
+        $now = $now ? DateTime::createFromInterface($now) : new DateTime();
+        $nowStr = $now->format('Y-m-d H:i:s');
+
+        $config = $this->getRegionConfig($regionId);
+        if ($config === null) {
+            return ['success' => false, 'code' => 'unknown_region', 'message' => tPlain('legal.err.unknown_region')];
+        }
+        if ((int)$config['enabled'] !== 1) {
+            return ['success' => false, 'code' => 'region_disabled', 'message' => tPlain('legal.err.region_disabled')];
+        }
+
+        $existing = $this->getPermitStatus($playerId, $regionId)['application'];
+        $existingStatus = $existing['status'] ?? 'none';
+
+        if (in_array($existingStatus, self::ACTIVE_STATUSES, true)) {
+            return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.err.already_active')];
+        }
+        if (in_array($existingStatus, self::PENDING_STATUSES, true) || $existingStatus === self::STATUS_NO_DECISION) {
+            return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
+        }
+        if ($existingStatus === self::STATUS_REFUSED && !empty($existing['refusal_cooldown_until'])) {
+            $cooldownUntil = new DateTime((string)$existing['refusal_cooldown_until']);
+            if ($cooldownUntil > $now) {
+                $remainingMin = (int)ceil(($cooldownUntil->getTimestamp() - $now->getTimestamp()) / 60);
+                return [
+                    'success' => false,
+                    'code'    => 'cooldown',
+                    'message' => tPlain('legal.err.cooldown', ['time' => self::minutesToHuman($remainingMin)]),
+                ];
+            }
+        }
+
+        $requiredCapital = (float)$config['required_capital'];
+        $applicationCost = (float)$config['application_cost'];
+
+        $this->db->beginTransaction();
+        try {
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
+            $cashStmt->execute([$playerId]);
+            $cashRow = $cashStmt->fetch();
+            if (!$cashRow) {
+                $this->db->rollBack();
+                return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.err.unknown_player')];
+            }
+            $cash = (float)$cashRow['cash'];
+
+            // Region wysokiego ryzyka: firma nie spełnia wymogu kapitałowego.
+            if ($requiredCapital > 0 && $cash < $requiredCapital) {
+                $this->db->rollBack();
+                return [
+                    'success'          => false,
+                    'code'             => 'region_locked',
+                    'message'          => tPlain('legal.err.region_locked'),
+                    'required_capital' => $requiredCapital,
+                ];
+            }
+
+            // Środki na opłatę za wniosek.
+            if ($cash < $applicationCost) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'code'    => 'insufficient_funds',
+                    'message' => tPlain('legal.err.insufficient_funds', [
+                        'cost' => number_format($applicationCost, 0, '.', ' '),
+                    ]),
+                    'cost'    => $applicationCost,
+                ];
+            }
+
+            // Pobranie opłaty.
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
+                ->execute([$applicationCost, $playerId]);
+
+            // Termin decyzji = teraz + bazowy czas rozpatrzenia.
+            $dueStr = (clone $now)
+                ->modify('+' . (int)$config['base_review_minutes'] . ' minutes')
+                ->format('Y-m-d H:i:s');
+
+            // Jeden wiersz na parę (gracz, region) — wstaw lub zaktualizuj po odmowie.
+            if ($existing) {
+                $this->db->prepare(
+                    "UPDATE drilling_permit_applications
+                        SET status = 'pending', cost = ?, submitted_at = ?, decision_due_at = ?,
+                            decided_at = NULL, refusal_cooldown_until = NULL, delay_count = 0,
+                            source = 'player', updated_at = ?
+                      WHERE player_id = ? AND region_id = ?"
+                )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
+            } else {
+                $this->db->prepare(
+                    "INSERT INTO drilling_permit_applications
+                        (player_id, region_id, status, cost, submitted_at, decision_due_at, source, created_at, updated_at)
+                     VALUES (?, ?, 'pending', ?, ?, ?, 'player', ?, ?)"
+                )->execute([$playerId, $regionId, $applicationCost, $nowStr, $dueStr, $nowStr, $nowStr]);
+            }
+
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            if (class_exists('GameLog', false)) {
+                GameLog::error('LegalService', 'submitApplication FAILED', $e, [
+                    'player_id' => $playerId,
+                    'region_id' => $regionId,
+                ]);
+            }
+            return ['success' => false, 'code' => 'error', 'message' => tPlain('legal.err.generic')];
+        }
+
+        return [
+            'success'         => true,
+            'code'            => 'submitted',
+            'message'         => tPlain('legal.msg.application_submitted', [
+                'time' => self::minutesToHuman((int)$config['base_review_minutes']),
+            ]),
+            'cost'            => $applicationCost,
+            'review_minutes'  => (int)$config['base_review_minutes'],
+        ];
+    }
+
     // ---------------------------------------------------------------- Helpers
+
+    /**
+     * Zamienia minuty na ludzki opis czasu dla UI gracza (bez ticków).
+     * Do ~90 min pokazujemy minuty, powyżej — zaokrąglone godziny.
+     */
+    public static function minutesToHuman(int $minutes): string
+    {
+        $minutes = max(0, $minutes);
+        if ($minutes < 90) {
+            return $minutes . ' min';
+        }
+        return (int)round($minutes / 60) . ' h';
+    }
 
     /** Mapuje world_regions.political_risk (1..4+) na poziom ryzyka regionu. */
     public static function riskLevelFromPolitical(int $politicalRisk): string

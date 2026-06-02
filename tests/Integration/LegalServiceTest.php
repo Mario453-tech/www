@@ -117,6 +117,7 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
 
     private function createSchema(): void
     {
+        $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL DEFAULT 0)');
         $this->db->exec(
             'CREATE TABLE world_regions (
                 id INTEGER PRIMARY KEY,
@@ -178,5 +179,151 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
              VALUES (?, ?, ?, datetime('now'))"
         );
         $stmt->execute([$playerId, $regionId, $status]);
+    }
+
+    private function seedPlayer(int $id, float $cash): void
+    {
+        $this->db->prepare("INSERT INTO players (id, cash) VALUES (?, ?)")->execute([$id, $cash]);
+    }
+
+    /** @param array<string,mixed> $over */
+    private function seedConfig(int $regionId, array $over = []): void
+    {
+        $cfg = array_merge([
+            'enabled' => 1, 'risk_level' => 'medium', 'application_cost' => 250000.0,
+            'base_review_minutes' => 60, 'refusal_cooldown_minutes' => 120,
+            'required_capital' => 0.0,
+        ], $over);
+        $this->db->prepare(
+            "INSERT INTO legal_region_config
+                (region_id, enabled, risk_level, application_cost, base_review_minutes,
+                 refusal_cooldown_minutes, required_capital)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )->execute([
+            $regionId, $cfg['enabled'], $cfg['risk_level'], $cfg['application_cost'],
+            $cfg['base_review_minutes'], $cfg['refusal_cooldown_minutes'], $cfg['required_capital'],
+        ]);
+    }
+
+    private function cashOf(int $playerId): float
+    {
+        return (float)$this->db->query("SELECT cash FROM players WHERE id = {$playerId}")->fetchColumn();
+    }
+
+    // --------------------------------------------------- submitApplication
+
+    public function testSubmitApplicationChargesCostAndCreatesPending(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1, ['application_cost' => 250000.0, 'base_review_minutes' => 60]);
+        $this->seedPlayer(100, 1000000.0);
+
+        $now = new DateTime('2026-06-02 12:00:00');
+        $res = $this->service->submitApplication(100, 1, $now);
+
+        $this->assertTrue($res['success']);
+        $this->assertSame('submitted', $res['code']);
+        $this->assertSame(750000.0, $this->cashOf(100)); // 1 000 000 - 250 000
+
+        $status = $this->service->getPermitStatus(100, 1);
+        $this->assertSame('pending', $status['status']);
+        $this->assertSame('2026-06-02 13:00:00', $status['application']['decision_due_at']);
+        $this->assertEqualsWithDelta(250000.0, (float)$status['application']['cost'], 0.001);
+    }
+
+    public function testSubmitBlockedWhenAlreadyActive(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1);
+        $this->seedPlayer(100, 1000000.0);
+        $this->insertApplication(100, 1, LegalService::STATUS_GRANTED);
+
+        $res = $this->service->submitApplication(100, 1);
+        $this->assertFalse($res['success']);
+        $this->assertSame('already_active', $res['code']);
+        $this->assertSame(1000000.0, $this->cashOf(100)); // bez pobrania opłaty
+    }
+
+    public function testSubmitBlockedWhenInProgress(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1);
+        $this->seedPlayer(100, 1000000.0);
+        $this->insertApplication(100, 1, LegalService::STATUS_PENDING);
+
+        $res = $this->service->submitApplication(100, 1);
+        $this->assertFalse($res['success']);
+        $this->assertSame('in_progress', $res['code']);
+    }
+
+    public function testSubmitBlockedWhenCapitalRequirementNotMet(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(2, ['risk_level' => 'high', 'required_capital' => 5000000.0, 'application_cost' => 500000.0]);
+        $this->seedPlayer(100, 1000000.0); // < required_capital
+
+        $res = $this->service->submitApplication(100, 2);
+        $this->assertFalse($res['success']);
+        $this->assertSame('region_locked', $res['code']);
+        $this->assertSame(1000000.0, $this->cashOf(100)); // bez pobrania
+    }
+
+    public function testSubmitBlockedWhenInsufficientFunds(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1, ['application_cost' => 250000.0, 'required_capital' => 0.0]);
+        $this->seedPlayer(100, 100000.0); // < application_cost
+
+        $res = $this->service->submitApplication(100, 1);
+        $this->assertFalse($res['success']);
+        $this->assertSame('insufficient_funds', $res['code']);
+        $this->assertSame(100000.0, $this->cashOf(100));
+    }
+
+    public function testSubmitBlockedDuringRefusalCooldown(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1);
+        $this->seedPlayer(100, 1000000.0);
+        // Odmowa z cooldownem do przyszłości.
+        $this->db->prepare(
+            "INSERT INTO drilling_permit_applications (player_id, region_id, status, refusal_cooldown_until)
+             VALUES (100, 1, 'refused', datetime('now','+1 hour'))"
+        )->execute();
+
+        $res = $this->service->submitApplication(100, 1);
+        $this->assertFalse($res['success']);
+        $this->assertSame('cooldown', $res['code']);
+    }
+
+    public function testSubmitAllowedAfterRefusalCooldownElapsed(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1, ['application_cost' => 250000.0]);
+        $this->seedPlayer(100, 1000000.0);
+        // Odmowa z cooldownem w przeszłości -> ponowny wniosek dozwolony, aktualizuje wiersz.
+        $this->db->prepare(
+            "INSERT INTO drilling_permit_applications (player_id, region_id, status, refusal_cooldown_until)
+             VALUES (100, 1, 'refused', datetime('now','-1 hour'))"
+        )->execute();
+
+        $res = $this->service->submitApplication(100, 1);
+        $this->assertTrue($res['success']);
+        $this->assertSame('pending', $this->service->getPermitStatus(100, 1)['status']);
+        $this->assertSame(750000.0, $this->cashOf(100));
+
+        // Nadal jeden wiersz (UPDATE, nie INSERT).
+        $count = (int)$this->db->query("SELECT COUNT(*) FROM drilling_permit_applications WHERE player_id=100 AND region_id=1")->fetchColumn();
+        $this->assertSame(1, $count);
+    }
+
+    public function testSubmitUnknownRegionReturnsError(): void
+    {
+        $this->seedRegions();
+        $this->seedPlayer(100, 1000000.0);
+        // brak konfiguracji regionu 1
+        $res = $this->service->submitApplication(100, 1);
+        $this->assertFalse($res['success']);
+        $this->assertSame('unknown_region', $res['code']);
     }
 }

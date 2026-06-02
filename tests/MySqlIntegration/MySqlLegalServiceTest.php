@@ -77,7 +77,36 @@ final class MySqlLegalServiceTest extends MySqlIntegrationTestCase
         $this->insertApplication($playerId, $this->legalRegionId, LegalService::STATUS_PENDING);
     }
 
+    public function testSubmitApplicationChargesAndCreatesPendingOnRealMySql(): void
+    {
+        $playerId = $this->seedPlayer();          // cash 50 000 000
+        $this->insertRegion($this->legalRegionId, 2);
+        $this->insertConfig($this->legalRegionId, 'medium', 250000.00, 60, 0.00);
+
+        $cashBefore = (float)$this->db->query("SELECT cash FROM players WHERE id = {$playerId}")->fetchColumn();
+
+        $res = $this->service->submitApplication($playerId, $this->legalRegionId);
+        $this->assertTrue($res['success'], $res['message'] ?? '');
+        $this->assertSame('submitted', $res['code']);
+
+        $cashAfter = (float)$this->db->query("SELECT cash FROM players WHERE id = {$playerId}")->fetchColumn();
+        $this->assertEqualsWithDelta($cashBefore - 250000.0, $cashAfter, 0.01);
+
+        $status = $this->service->getPermitStatus($playerId, $this->legalRegionId);
+        $this->assertSame('pending', $status['status']);
+        $this->assertNotEmpty($status['application']['decision_due_at']);
+    }
+
     // --------------------------------------------------------------- Helpers
+
+    private function insertConfig(int $regionId, string $risk, float $cost, int $reviewMin, float $reqCapital): void
+    {
+        $this->db->prepare(
+            "INSERT INTO legal_region_config
+                (region_id, enabled, risk_level, application_cost, base_review_minutes, required_capital)
+             VALUES (?, 1, ?, ?, ?, ?)"
+        )->execute([$regionId, $risk, $cost, $reviewMin, $reqCapital]);
+    }
 
     private function insertRegion(int $regionId, int $politicalRisk): void
     {
