@@ -42,7 +42,7 @@ extract($viewData, EXTR_SKIP);
                 <span class="legal-badge legal-badge--granted"><?= t('legal.status.' . $permit['status']) ?></span>
             </div>
             <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.risk_label') ?>: <?= t('legal.risk.' . $cfg['risk_level']) ?></span>
                 <?php if (!empty($app['decided_at'])): ?>
                 <span><?= t('legal.decided_at') ?>: <?= htmlspecialchars(substr((string)$app['decided_at'], 0, 16)) ?></span>
                 <?php endif ?>
@@ -76,7 +76,7 @@ extract($viewData, EXTR_SKIP);
                 <span class="legal-badge <?= $badgeCss ?>"><?= t('legal.status.' . $permit['status']) ?></span>
             </div>
             <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.risk_label') ?>: <?= t('legal.risk.' . $cfg['risk_level']) ?></span>
                 <?php if (!empty($app['decision_due_at'])): ?>
                 <span><?= t('legal.decision_due') ?>: <?= htmlspecialchars(substr((string)$app['decision_due_at'], 0, 16)) ?></span>
                 <?php endif ?>
@@ -114,7 +114,7 @@ extract($viewData, EXTR_SKIP);
                 <?php endif ?>
             </div>
             <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.risk_label') ?>: <?= t('legal.risk.' . $cfg['risk_level']) ?></span>
                 <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
@@ -162,7 +162,7 @@ extract($viewData, EXTR_SKIP);
                 <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
             </div>
             <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.risk_label') ?>: <?= t('legal.risk.' . $cfg['risk_level']) ?></span>
                 <span class="legal-cooldown">
                     <?= t('legal.err.cooldown', ['time' => LegalService::minutesToHuman($remainMin)]) ?>
                 </span>

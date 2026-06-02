@@ -86,7 +86,6 @@ $viewData = compact(
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
-$extraCss = ['/assets/css/legal.css'];
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
 $gameShellTitle = t('legal.page_title');
