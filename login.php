@@ -29,8 +29,10 @@ if ($_POST) {
 
         $loginResult = Auth::login($email, $password);
         if ($loginResult === true) {
-            // Zapamiętaj zawsze — automatyczne, bez checkboxa / Always remember — automatic, no checkbox.
-            Auth::setRememberMe(Auth::getUserId());
+            if (!empty($_POST['remember_login'])) {
+                Auth::setRememberMe((int) Auth::getUserId());
+            }
+
             header('Location: ' . url('home'));
             exit();
         } elseif ($loginResult === 'not_verified') {
@@ -93,7 +95,19 @@ require_once __DIR__ . '/templates/header.php';
                 <a href="<?= url('forgot-password') ?>" class="link-primary"><?= t('auth.forgot_password') ?></a>
             </p>
 
-            <p class="login-remember-note">Zapamiętaj hasło</p>
+            <div class="form-check-group form-check-group--remember">
+                <label class="form-check-label" for="remember_login">
+                    <input
+                        type="checkbox"
+                        id="remember_login"
+                        name="remember_login"
+                        value="1"
+                        class="form-check-input"
+                        <?= !empty($_POST['remember_login']) ? 'checked' : '' ?>
+                    >
+                    <span><?= t('auth.remember_login_30_days') ?></span>
+                </label>
+            </div>
 
             <button type="submit" class="btn btn-primary btn-full">
                 <?= t('auth.btn_login') ?>
