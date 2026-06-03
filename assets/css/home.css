@@ -56,40 +56,35 @@
     line-height: 1.4;
 }
 
-.trend-crisis {
-    background: rgba(224, 85, 85, .1);
-    border-left-color: var(--red);
-    color: var(--red);
-}
+/* Stare stile dla .trend-alert (nie-redesign) */
+.trend-crisis    { background: rgba(224, 85, 85, .1); border-left-color: var(--red); color: var(--red); }
+.trend-boom      { background: rgba(78, 201, 122, .08); border-left-color: var(--green); color: var(--green); }
+.trend-war       { background: rgba(240, 160, 80, .08); border-left-color: var(--orange); color: var(--orange); }
+.trend-discovery { background: rgba(91, 156, 246, .08); border-left-color: var(--blue); color: var(--blue); }
+.trend-winter    { background: rgba(155, 89, 182, .08); border-left-color: #9b59b6; color: #c39bd3; }
+.trend-opec      { background: rgba(200, 168, 75, .08); border-left-color: var(--gold); color: var(--gold); }
 
-.trend-boom {
-    background: rgba(78, 201, 122, .08);
-    border-left-color: var(--green);
-    color: var(--green);
+/* REDESIGN — kolorowe obwódki per typ eventu */
+.trend-alert--redesign.trend-crisis {
+    border-color: rgba(224, 85, 85, .45) !important;
+    background: linear-gradient(145deg, rgba(224, 85, 85, .08), rgba(224, 85, 85, .02)) !important;
 }
-
-.trend-war {
-    background: rgba(240, 160, 80, .08);
-    border-left-color: var(--orange);
-    color: var(--orange);
+.trend-alert--redesign.trend-war {
+    border-color: rgba(240, 160, 80, .4) !important;
+    background: linear-gradient(145deg, rgba(240, 160, 80, .07), transparent) !important;
 }
-
-.trend-discovery {
-    background: rgba(91, 156, 246, .08);
-    border-left-color: var(--blue);
-    color: var(--blue);
+.trend-alert--redesign.trend-boom,
+.trend-alert--redesign.trend-discovery {
+    border-color: rgba(78, 201, 122, .35) !important;
+    background: linear-gradient(145deg, rgba(78, 201, 122, .06), transparent) !important;
 }
-
-.trend-winter {
-    background: rgba(155, 89, 182, .08);
-    border-left-color: #9b59b6;
-    color: #c39bd3;
+.trend-alert--redesign.trend-opec {
+    border-color: rgba(200, 168, 75, .4) !important;
+    background: linear-gradient(145deg, rgba(200, 168, 75, .07), transparent) !important;
 }
-
-.trend-opec {
-    background: rgba(200, 168, 75, .08);
-    border-left-color: var(--gold);
-    color: var(--gold);
+.trend-alert--redesign.trend-winter {
+    border-color: rgba(155, 89, 182, .35) !important;
+    background: linear-gradient(145deg, rgba(155, 89, 182, .07), transparent) !important;
 }
 
 .bailiff-alert {
@@ -365,10 +360,6 @@
     padding: 14px 18px;
     border-radius: 12px;
 }
-.trend-crisis.trend-alert--redesign  { border-color: rgba(224,85,85,.3); background: linear-gradient(145deg,rgba(224,85,85,.06),transparent); }
-.trend-boom.trend-alert--redesign,
-.trend-opec.trend-alert--redesign    { border-color: rgba(200,168,75,.3); background: linear-gradient(145deg,rgba(200,168,75,.06),transparent); }
-.trend-war.trend-alert--redesign     { border-color: rgba(240,160,80,.3); background: linear-gradient(145deg,rgba(240,160,80,.05),transparent); }
 
 .trend-pulse-dot {
     position: absolute;
