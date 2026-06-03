@@ -220,14 +220,6 @@ class AdminAuth
             return;
         }
 
- // Auto-login przez zaufane urządzenie — pomija hasło i 2FA.
- // Auto-login via trusted device — skips both password and 2FA.
-        if (self::tryTrustedDevice()) {
-            self::clearPending(); // wyczyść pending ustawiony przez SSO / clear pending set by SSO
-            $_SESSION['admin_last_active'] = time();
-            return;
-        }
-
         $_SESSION['admin_redirect'] = $_SERVER['REQUEST_URI'] ?? '/admin/';
 
  // Haslo OK ale brak 2FA -> krok kodu / password OK but 2FA pending -> code step
@@ -485,8 +477,8 @@ class AdminAuth
         ]);
     }
 
- // Sprawdź cookie zaufanego urządzenia znając admin_id (używane w 2fa.php po haśle).
- // Check trusted-device cookie knowing the admin_id (used in 2fa.php after password).
+ // Sprawdź czy cookie wskazuje na aktywny, ważny token w DB.
+ // Check whether the cookie matches an active, valid token in DB.
     public static function checkTrustedDevice(int $adminId): bool
     {
         $cookie = $_COOKIE[self::TRUSTED_DEVICE_COOKIE] ?? '';
@@ -508,48 +500,6 @@ class AdminAuth
             $db->prepare("UPDATE admin_trusted_devices SET last_used_at = NOW() WHERE id = ?")
                 ->execute([$row['id']]);
             self::log('TRUSTED_DEVICE', "Trusted-device bypass for admin_id={$adminId}");
-            return true;
-        } catch (\Throwable $e) {
-            return false;
-        }
-    }
-
- // Auto-login przez cookie zaufanego urządzenia bez znajomości admin_id.
- // Auto-login via trusted-device cookie without a known admin_id upfront.
- // Używane w requireLogin() i login.php przed wyświetleniem formularza.
- // Used in requireLogin() and login.php before showing the form.
-    public static function tryTrustedDevice(): bool
-    {
-        $cookie = $_COOKIE[self::TRUSTED_DEVICE_COOKIE] ?? '';
-        if (!$cookie || strlen($cookie) !== 64) {
-            return false;
-        }
-        $tokenHash = hash('sha256', $cookie);
-
-        try {
-            $db = Database::getInstance()->getConnection();
-            self::ensureTrustedDevicesTable($db);
-            $stmt = $db->prepare(
-                "SELECT td.id, a.id AS admin_id, a.username, a.email, a.is_active
-                 FROM admin_trusted_devices td
-                 JOIN admins a ON a.id = td.admin_id
-                 WHERE td.token_hash = ? AND td.expires_at > NOW()
-                 LIMIT 1"
-            );
-            $stmt->execute([$tokenHash]);
-            $row = $stmt->fetch();
-            if (!$row || !(int)$row['is_active']) {
-                return false;
-            }
- // Odśwież last_used_at i ustaw pełną sesję adminA / Refresh last_used_at and set full admin session.
-            $db->prepare("UPDATE admin_trusted_devices SET last_used_at = NOW() WHERE id = ?")
-                ->execute([$row['id']]);
-            self::setSession(['id' => $row['admin_id'], 'username' => $row['username'], 'email' => $row['email']]);
-            try {
-                $db->prepare("UPDATE admins SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?")
-                    ->execute([$_SERVER['REMOTE_ADDR'] ?? '', $row['admin_id']]);
-            } catch (\Throwable $ignored) {}
-            self::log('TRUSTED_DEVICE_AUTO', "Auto-login via trusted device: '{$row['username']}'");
             return true;
         } catch (\Throwable $e) {
             return false;
