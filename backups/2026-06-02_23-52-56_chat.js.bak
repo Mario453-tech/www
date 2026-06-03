@@ -135,23 +135,9 @@
         if (loading) loading.remove();
 
         box.insertAdjacentHTML('beforeend', html);
-        updateOnlineCount();
         if (atBottom) {
             box.scrollTop = box.scrollHeight;
         }
-    }
-
-    // Polska odmiana slowa "wiadomosc" / Polish plural of "wiadomosc"
-    function chatMsgWord(n) {
-        return n === 1 ? 'wiadomość' : 'wiadomości';
-    }
-
-    // Aktualizuj licznik wiadomosci w naglowku / Update message counter in the header
-    function updateOnlineCount() {
-        var el = document.getElementById('chatOnline');
-        if (!el || !box) return;
-        var n = box.querySelectorAll('.chat-msg').length;
-        el.textContent = n + ' ' + chatMsgWord(n) + ' online';
     }
 
     function renderPinned(pinned) {
@@ -226,7 +212,6 @@
                 if (loading) loading.remove();
                 renderPinned(data.pinned || []);
                 appendMessages(data.messages || []);
-                updateOnlineCount();
                 box.scrollTop = box.scrollHeight;
                 startPolling();
             })
