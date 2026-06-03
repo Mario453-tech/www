@@ -9,6 +9,12 @@ if (Auth::isLoggedIn()) {
     exit();
 }
 
+// Auto-logowanie przez cookie "zapamietaj mnie" / Auto-login via remember-me cookie.
+if (Auth::tryRememberMe()) {
+    header('Location: /');
+    exit();
+}
+
 $error = '';
 
 if ($_POST) {
@@ -22,6 +28,10 @@ if ($_POST) {
 
         $loginResult = Auth::login($email, $password);
         if ($loginResult === true) {
+            if (!empty($_POST['remember_login'])) {
+                Auth::setRememberMe((int) Auth::getUserId());
+            }
+
             header('Location: /');
             exit();
         } elseif ($loginResult === 'not_verified') {
@@ -83,6 +93,20 @@ require_once __DIR__ . '/../templates/header.php';
             <p class="forgot-link">
                 <a href="<?= url('forgot-password') ?>" class="link-primary"><?= t('auth.forgot_password') ?></a>
             </p>
+
+            <div class="form-check-group form-check-group--remember">
+                <label class="form-check-label" for="remember_login">
+                    <input
+                        type="checkbox"
+                        id="remember_login"
+                        name="remember_login"
+                        value="1"
+                        class="form-check-input"
+                        <?= !empty($_POST['remember_login']) ? 'checked' : '' ?>
+                    >
+                    <span><?= t('auth.remember_login_30_days') ?></span>
+                </label>
+            </div>
 
             <button type="submit" class="btn btn-primary btn-full">
                 <?= t('auth.btn_login') ?>
