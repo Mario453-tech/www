@@ -202,14 +202,6 @@ body.auth-page {
 /* -- Forgot link ----------------------------------------------- */
 .forgot-link { margin: 0 0 16px; font-size: .82rem; text-align: right; }
 
-/* Informacja o zapamiętywaniu hasła / Remember-password info note */
-.login-remember-note {
-    font-size: .75rem;
-    color: rgba(232,232,240,.35);
-    margin: 0 0 14px;
-    text-align: center;
-}
-
 /* -- Buttons ---------------------------------------------------- */
 .btn-full { width: 100%; justify-content: center; }
 
