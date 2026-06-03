@@ -204,8 +204,8 @@ body.auth-page {
 
 /* Informacja o zapamiętywaniu hasła / Remember-password info note */
 .login-remember-note {
-    font-size: .8rem;
-    color: rgba(200,168,75,.75);
+    font-size: .75rem;
+    color: rgba(232,232,240,.35);
     margin: 0 0 14px;
     text-align: center;
 }
