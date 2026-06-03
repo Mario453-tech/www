@@ -569,7 +569,7 @@
 .task-item.completed   { border-left: 3px solid #4ec97a; opacity: .75; }
 .task-item.failed      { border-left: 3px solid #e05555; opacity: .6; }
 .task-item.cancelled   { border-left: 3px solid #555; opacity: .5; }
-.task-item.task-overdue { border-left: 3px solid #5b9cf6; background: rgba(91,156,246,.04); }
+.task-item.task-overdue { border-left: 3px solid #f0a050; background: rgba(240,160,80,.04); }
 
 .task-icon { font-size: 20px; flex-shrink: 0; }
 .task-info { flex: 1; min-width: 0; }

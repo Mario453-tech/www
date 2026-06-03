@@ -1213,7 +1213,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 .wg-storage-title  { font-size: 12px; font-weight: 700; color: rgba(232,232,240,.8); margin-bottom: 3px; }
 .wg-storage-cap    { font-size: 11px; color: rgba(232,232,240,.4); }
 .wg-storage-track  { height: 5px; background: rgba(255,255,255,.07); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
-.wg-storage-fill   { height: 100%; background: #20b2aa; border-radius: 3px; }
+.wg-storage-fill   { height: 100%; background: linear-gradient(90deg, #a08030, #c8a84b); border-radius: 3px; }
 .wg-storage-footer { display: flex; justify-content: space-between; align-items: center; }
 .wg-storage-cost   { font-size: 12px; color: rgba(232,232,240,.4); }
 .wg-storage-budget { font-size: 11px; font-weight: 600; }
@@ -1488,10 +1488,6 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 }
 
 
-/* ── LAYOUT FIX — karta odwiertu na pełną szerokość ─────────── */
-.wg-grid {
-    grid-template-columns: 1fr !important;
-}
 
 /* Wewnątrz karty — szczegóły w 2 kolumnach gdy jest miejsce */
 .wg-body-inner {

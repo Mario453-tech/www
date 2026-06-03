@@ -805,7 +805,7 @@
    VISUAL FIXES — złoty motyw, spójny z resztą UI
    ═══════════════════════════════════════════════════════════════ */
 
-/* Nagłówki sekcji — złoty styl */
+/* Nagłowki sekcji — zloty styl */
 .news-panel h2,
 .chat-box h2 {
     font-size: 9px !important;
@@ -839,7 +839,7 @@
     text-transform: none !important;
 }
 
-/* Bąbelki — subtelniejsze */
+/* Bąabelki — subtelniejsze */
 .chat-msg-bubble {
     background: rgba(255,255,255,.04) !important;
     border: 1px solid rgba(255,255,255,.06) !important;
