@@ -25,16 +25,6 @@ $enabled = !empty($pending['totp_enabled']) && !empty($pending['totp_secret']);
 $mode    = $enabled ? 'verify' : 'setup';
 $error   = '';
 
-// Zaufane urządzenie — pomiń formularz 2FA jeśli token jest ważny.
-// Trusted device — skip 2FA form if a valid token cookie exists.
-if ($mode === 'verify' && AdminAuth::checkTrustedDevice($pending['id'])) {
-    AdminAuth::completeLogin();
-    $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
-    unset($_SESSION['admin_redirect']);
-    header('Location: ' . $dest);
-    exit();
-}
-
 // Setup mode: generate the secret once and keep it across the POST cycle.
 $setupSecret = null;
 if ($mode === 'setup') {
@@ -54,11 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($mode === 'verify') {
             if (Totp::verify($pending['totp_secret'], $code)) {
- // Ustaw ciasteczko zaufanego urządzenia jeśli zaznaczono checkbox.
- // Set trusted-device cookie if the checkbox was checked.
-                if (!empty($_POST['remember_device'])) {
-                    AdminAuth::setTrustedDevice($pending['id']);
-                }
                 AdminAuth::completeLogin();
                 $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
                 unset($_SESSION['admin_redirect']);
@@ -140,12 +125,6 @@ if ($mode === 'setup') {
                     inputmode="numeric" pattern="[0-9]*" maxlength="6"
                     placeholder="000000" autocomplete="one-time-code" autofocus required>
             </div>
-            <?php if ($mode === 'verify'): ?>
-            <label class="auth-remember-label">
-                <input type="checkbox" name="remember_device" value="1">
-                Pamiętaj to urządzenie przez 30 dni
-            </label>
-            <?php endif ?>
             <button type="submit" class="auth-btn">
                 <?= $mode === 'setup' ? t('admin.2fa.btn_setup') : t('admin.2fa.btn_verify') ?>
             </button>
