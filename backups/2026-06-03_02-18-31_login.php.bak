@@ -9,13 +9,6 @@ if (Auth::isLoggedIn()) {
     exit();
 }
 
-// Auto-logowanie przez cookie "zapamiętaj mnie" — pomiń formularz.
-// Auto-login via remember-me cookie — skip the login form.
-if (Auth::tryRememberMe()) {
-    header('Location: ' . url('home'));
-    exit();
-}
-
 $error = '';
 
 if ($_POST) {
@@ -29,10 +22,6 @@ if ($_POST) {
 
         $loginResult = Auth::login($email, $password);
         if ($loginResult === true) {
-            // Zapamiętaj urządzenie jeśli checkbox zaznaczony / Remember device if checkbox checked.
-            if (!empty($_POST['remember_me'])) {
-                Auth::setRememberMe(Auth::getUserId());
-            }
             header('Location: ' . url('home'));
             exit();
         } elseif ($loginResult === 'not_verified') {
@@ -94,13 +83,6 @@ require_once __DIR__ . '/templates/header.php';
             <p class="forgot-link">
                 <a href="<?= url('forgot-password') ?>" class="link-primary"><?= t('auth.forgot_password') ?></a>
             </p>
-
-            <div class="form-check-group">
-                <label class="form-check-label" for="remember_me">
-                    <input class="form-check-input" type="checkbox" id="remember_me" name="remember_me" value="1">
-                    Zapamiętaj mnie na 30 dni
-                </label>
-            </div>
 
             <button type="submit" class="btn btn-primary btn-full">
                 <?= t('auth.btn_login') ?>
