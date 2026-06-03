@@ -234,35 +234,21 @@ function url(string $name, array $query = []): string
 }
 
 /**
- * Zwraca URL assetu z globalnym cache-bustingiem opartym na wersji deployu.
- * Returns asset URL with global cache-busting based on the deploy version.
- *
- * Wersja buildu pochodzi z assets/version.txt (tworzony przez deploy FTP).
- * Build version comes from assets/version.txt (created by FTP deploy script).
- * Gdy serwer wgra nowe pliki, version.txt zmienia się → wszystkie URL-e assetów
- * zmieniają się → przeglądarka zawsze pobiera nowe CSS/JS po każdym deployu.
- * When server uploads new files, version.txt changes → all asset URLs change
- * → browser always fetches fresh CSS/JS after every deploy.
- *
- * Fallback: filemtime(__FILE__) gdy version.txt nie istnieje.
- * Fallback: filemtime(__FILE__) when version.txt doesn't exist.
+ * Zwraca URL assetu z automatycznym cache-bustingiem opartym na filemtime().
+ * Returns asset URL with automatic cache-busting based on filemtime().
+ * Gdy plik zmienisz przegldarka automatycznie pobierze now wersj.
+ * When the file changes, the browser automatically fetches the new version.
+ * Usuwa ewentualne stare ?v=X przed wyliczeniem nowego timestampu.
+ * Strips any old ?v=X before computing the new timestamp.
  */
 function asset(string $path): string
 {
     if (preg_match('~^(https?:)?//~i', $path) === 1 || str_starts_with($path, 'data:')) {
         return $path;
     }
-
- // Wersja buildu — odczytywana raz na żądanie (static cache).
- // Build version — read once per request (static cache).
-    static $buildVer = null;
-    if ($buildVer === null) {
-        $docRoot  = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/\\');
-        $verFile  = $docRoot . '/assets/version.txt';
-        $contents = is_readable($verFile) ? trim((string)file_get_contents($verFile)) : '';
-        $buildVer = ($contents !== '') ? $contents : (string)(int)filemtime(__FILE__);
-    }
-
-    $cleanPath = (string) strtok($path, '?'); // strip old ?v=X
-    return $cleanPath . '?v=' . $buildVer;
+    $cleanPath = (string) strtok($path, '?');          // strip old ?v=X
+    $docRoot   = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/\\');
+    $fullPath  = $docRoot . '/' . ltrim($cleanPath, '/');
+    $ts        = is_file($fullPath) ? (int) filemtime($fullPath) : time();
+    return $cleanPath . '?v=' . $ts;
 }
