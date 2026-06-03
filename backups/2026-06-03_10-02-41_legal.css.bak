@@ -75,20 +75,14 @@
 /* Wiersz: nazwa + odznaka / Row: name + badge */
 .legal-region-name {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
     font-size: 15px;
     font-weight: 600;
     color: var(--text);
     margin-bottom: 10px;
-    flex-wrap: nowrap;
-}
-
-/* Tekst nazwy regionu — kurczy się jeśli za długi / Region name text — shrinks when too long */
-.legal-region-name__text {
-    min-width: 0;
-    word-break: break-word;
+    flex-wrap: wrap;
 }
 
 /* Odznaki statusu / Status badges */

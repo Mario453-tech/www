@@ -879,19 +879,9 @@
     .trend-alert__timer-wrap {
         width: 100%;
         flex-direction: row;
-        justify-content: flex-start;
-        align-items: center;
-        gap: 10px;
+        justify-content: space-between;
         min-width: 0;
         padding: 8px 12px;
-        text-align: left;
-    }
-
-    .trend-alert__timer-label,
-    .trend-alert__timer-sub {
-        text-align: left;
-        margin-bottom: 0;
-        margin-top: 0;
     }
 
     .action-btn-row {

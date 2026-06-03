@@ -38,7 +38,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--active">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge legal-badge--granted"><?= t('legal.status.' . $permit['status']) ?></span>
             </div>
             <div class="legal-region-meta">
@@ -72,7 +72,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--pending">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge <?= $badgeCss ?>"><?= t('legal.status.' . $permit['status']) ?></span>
             </div>
             <div class="legal-region-meta">
@@ -106,7 +106,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--available">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <?php if ($wasRefused): ?>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
                 <?php else: ?>
@@ -158,7 +158,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--locked">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
             </div>
             <div class="legal-region-meta">
