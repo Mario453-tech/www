@@ -586,16 +586,4 @@ return [
     'technical.task_msg.queue_item_removed' => 'Zadanie usunięto z kolejki.',
     'technical.task_msg.cancel_queue_failed' => 'Wystąpił błąd podczas usuwania zadania z kolejki.',
 
-    // --- Rekrutacja — wiadomości serwera / Recruitment — server messages ---
-    'technical.recruitment_msg.ready_now'              => 'gotowe',
-    'technical.recruitment_msg.score_range'            => 'Ocena musi być w zakresie 1–10.',
-    'technical.recruitment_msg.invalid_recommendation' => 'Nieprawidłowa rekomendacja.',
-    'technical.recruitment_msg.candidate_missing'      => 'Kandydat nie istnieje lub oferta wygasła.',
-    'technical.recruitment_msg.recommend_hire'         => 'Rekomenduję zatrudnienie',
-    'technical.recruitment_msg.recommend_reject'       => 'Nie rekomenduję',
-    'technical.recruitment_msg.review_saved'           => 'Ocena zapisana. :label (ocena techniczna: :score/10).',
-    'technical.recruitment_msg.unknown_spec'           => 'Nieznana specjalizacja.',
-    'technical.recruitment_msg.missing_role'           => 'Brak roli technical w systemie.',
-    'technical.recruitment_msg.requested'              => 'Zlecono poszukiwania: :spec. Dział Kadr dostarczy kandydatów za ~:mins min.',
-
 ];
