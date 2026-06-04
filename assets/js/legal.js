@@ -9,6 +9,41 @@
 
     var L = window.LEGAL_LANG || {};
 
+    function showFlashMessage() {
+        var flash = document.getElementById('legal-flash');
+        if (!flash) return;
+
+        var error = flash.dataset.error || '';
+        var success = flash.dataset.success || '';
+        if (error) {
+            if (typeof window.alertError === 'function') {
+                window.alertError(error);
+            } else if (typeof window.showGameToast === 'function') {
+                window.showGameToast(error, 'error');
+            }
+        } else if (success) {
+            if (typeof window.alertInfo === 'function') {
+                window.alertInfo(success);
+            } else if (typeof window.showGameToast === 'function') {
+                window.showGameToast(success, 'success');
+            }
+        }
+    }
+
+    function escHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showFlashMessage);
+    } else {
+        showFlashMessage();
+    }
+
     document.addEventListener('submit', function (e) {
         var form = e.target.closest('form.legal-submit-form');
         if (!form) return;
@@ -36,16 +71,16 @@
             '<div class="legal-confirm-rows">' +
                 '<div class="legal-confirm-row">' +
                     '<span class="legal-confirm-label">' + (L.label_region || 'Region') + '</span>' +
-                    '<span class="legal-confirm-val">'   + regionName + '</span>' +
+                    '<span class="legal-confirm-val">'   + escHtml(regionName) + '</span>' +
                 '</div>' +
                 '<div class="legal-confirm-row">' +
                     '<span class="legal-confirm-label">' + (L.label_time || 'Czas rozpatrzenia') + '</span>' +
-                    '<span class="legal-confirm-val">'   + reviewTime + '</span>' +
+                    '<span class="legal-confirm-val">'   + escHtml(reviewTime) + '</span>' +
                 '</div>' +
             '</div>' +
             '<div class="legal-confirm-total">' +
                 '<span>' + (L.label_cost || 'Opłata za wniosek') + '</span>' +
-                '<span class="legal-confirm-cost">' + cost + ' PLN</span>' +
+                '<span class="legal-confirm-cost">' + escHtml(cost) + ' PLN</span>' +
             '</div>' +
             '<p class="legal-confirm-note">' + (L.modal_cost_note || 'Opłata zostanie pobrana natychmiast.') + '</p>';
 

@@ -17,6 +17,7 @@ return [
     'legal.section_available'      => 'Dostępne regiony',
     'legal.section_locked'         => 'Regiony zablokowane (cooldown)',
     'legal.section_capital_locked' => 'Regiony wysokiego ryzyka (wymagany kapitał)',
+    'legal.section_level_locked'   => 'Regiony wymagające wyższego poziomu działu prawnego',
 
     'legal.risk_label'        => 'Poziom ryzyka',
     'legal.cost_label'        => 'Opłata za wniosek',
@@ -36,6 +37,9 @@ return [
     'legal.badge_high_risk'        => 'Region wysokiego ryzyka',
     'legal.required_capital_label' => 'Wymagany kapitał',
     'legal.capital_missing'        => 'Brakuje jeszcze :amount PLN',
+    'legal.badge_level_locked'     => 'Wymagany dział prawny',
+    'legal.required_legal_level_label' => 'Wymagany poziom działu prawnego',
+    'legal.current_legal_level_label'  => 'Twój poziom działu prawnego',
 
     'legal.btn_submit'      => 'Złóż wniosek',
     'legal.confirm_submit'  => 'Złożyć wniosek o zezwolenie na wiercenie w regionie ":region"? Opłata: :cost PLN zostanie pobrana natychmiast.',
@@ -60,6 +64,7 @@ return [
     'legal.err.in_progress'        => 'Wniosek o zezwolenie na ten region jest już rozpatrywany.',
     'legal.err.cooldown'           => 'Możesz złożyć ponowny wniosek za około :time.',
     'legal.err.region_locked'      => 'Twoja firma nie spełnia jeszcze warunków, aby ubiegać się o zezwolenie w tym regionie. Rozwiń firmę i zwiększ kapitał, aby odblokować trudniejsze regiony.',
+    'legal.err.legal_level_locked' => 'Ten region wymaga działu prawnego na poziomie :level. Aktualny poziom Twojego działu prawnego: :current.',
     'legal.err.insufficient_funds' => 'Brak środków na opłatę za wniosek. Potrzebujesz :cost PLN.',
     'legal.err.unknown_player'     => 'Nie znaleziono firmy gracza.',
     'legal.err.generic'            => 'Nie udało się złożyć wniosku. Spróbuj ponownie.',

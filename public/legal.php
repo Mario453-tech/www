@@ -7,6 +7,7 @@ require_once __DIR__ . '/../src/LegalService.php';
 Auth::requireLogin();
 
 $playerId = Auth::getUserId();
+BoardAccess::require($playerId, 'legal');
 $db       = Database::getInstance()->getConnection();
 $legal    = new LegalService($db);
 
@@ -49,6 +50,7 @@ foreach ($configs as $cfg) {
 // Pobranie salda gracza (potrzebne też do klasyfikacji blokady kapitałowej §7.3)
 // Player cash (also needed to classify capital lock §7.3)
 $cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
+$legalLevel = $legal->getLegalLevelForPlayer($playerId);
 
 // Pogrupowane regiony
 $active        = []; // granted / transitional
@@ -56,6 +58,8 @@ $inProgress    = []; // pending / delayed / no_decision
 $available     = []; // none lub refused (po cooldown), firma spełnia wymóg kapitału
 $locked        = []; // refused (w cooldown)
 $capitalLocked = []; // brief §7.3: region wysokiego ryzyka — brak wymaganego kapitału
+
+$levelLocked = []; // P2: wymagany wyzszy poziom dzialu prawnego / Required higher legal department level
 
 $now = new DateTime();
 foreach ($configs as $cfg) {
@@ -82,8 +86,15 @@ foreach ($configs as $cfg) {
         // zablokowany kapitałowo (brief §7.3: nie pozwalamy złożyć wniosku).
         // No active permit nor cooldown — region available OR capital-locked
         // (brief §7.3: applying is blocked until the company meets the capital).
+        $reqLevel = (int)($cfg['required_legal_level'] ?? 0);
         $reqCapital = (float)$cfg['required_capital'];
-        if ($reqCapital > 0.0 && $cash < $reqCapital) {
+        if ($reqLevel > 0 && $legalLevel < $reqLevel) {
+            $levelLocked[] = [
+                'config' => $cfg,
+                'permit' => $permit,
+                'required_legal_level' => $reqLevel,
+            ];
+        } elseif ($reqCapital > 0.0 && $cash < $reqCapital) {
             $capitalLocked[] = ['config' => $cfg, 'permit' => $permit, 'required_capital' => $reqCapital];
         } else {
             $available[] = ['config' => $cfg, 'permit' => $permit];
@@ -92,8 +103,8 @@ foreach ($configs as $cfg) {
 }
 
 $viewData = compact(
-    'active', 'inProgress', 'available', 'locked', 'capitalLocked',
-    'cash', 'error', 'success'
+    'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'levelLocked',
+    'cash', 'legalLevel', 'error', 'success'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 

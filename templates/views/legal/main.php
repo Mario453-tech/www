@@ -4,7 +4,9 @@
 /** @var array<int,array<string,mixed>> $available */
 /** @var array<int,array<string,mixed>> $locked */
 /** @var array<int,array<string,mixed>> $capitalLocked */
+/** @var array<int,array<string,mixed>> $levelLocked */
 /** @var float $cash */
+/** @var int $legalLevel */
 /** @var string $error */
 /** @var string $success */
 extract($viewData, EXTR_SKIP);
@@ -14,11 +16,15 @@ extract($viewData, EXTR_SKIP);
 
 <?php if ($error): ?>
 <noscript><div class="msg-bar msg-error"><?= htmlspecialchars($error) ?></div></noscript>
-<script>(function(){var m=<?= json_encode($error, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertError==='function'){window.alertError(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'error');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
 <?php endif ?>
 <?php if ($success): ?>
 <noscript><div class="msg-bar msg-success"><?= htmlspecialchars($success) ?></div></noscript>
-<script>(function(){var m=<?= json_encode($success, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'success');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
+<?php endif ?>
+<?php if ($error || $success): ?>
+<div id="legal-flash"
+     hidden
+     data-error="<?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>"
+     data-success="<?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>"></div>
 <?php endif ?>
 
 <!-- Intro -->
@@ -183,6 +189,34 @@ extract($viewData, EXTR_SKIP);
 <?php endif ?>
 
 <!-- Region wysokiego ryzyka — brak wymaganego kapitału (brief §7.3 / §8.1) -->
+<?php if (!empty($levelLocked)): ?>
+<section class="card">
+    <h3><?= t('legal.section_level_locked') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($levelLocked as $entry): ?>
+        <?php
+        $cfg = $entry['config'];
+        $reqLevel = (int)$entry['required_legal_level'];
+        ?>
+        <div class="legal-region-card legal-region-card--level-locked">
+            <div class="legal-region-name">
+                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <span class="legal-badge legal-badge--level-locked"><?= t('legal.badge_level_locked') ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.required_legal_level_label') ?>: <strong><?= $reqLevel ?></strong></span>
+                <span class="legal-level-missing"><?= t('legal.current_legal_level_label') ?>: <strong><?= (int)$legalLevel ?></strong></span>
+            </div>
+            <p class="legal-region-note legal-region-note--level-locked">
+                <?= t('legal.err.legal_level_locked', ['level' => $reqLevel, 'current' => (int)$legalLevel]) ?>
+            </p>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
 <?php if (!empty($capitalLocked)): ?>
 <section class="card">
     <h3><?= t('legal.section_capital_locked') ?></h3>
@@ -214,7 +248,7 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked)): ?>
+<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked) && empty($levelLocked)): ?>
 <section class="card">
     <p><?= t('legal.no_regions') ?></p>
 </section>

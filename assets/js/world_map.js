@@ -494,6 +494,18 @@
             refreshCurrentPanel();
         });
     });
+    document.addEventListener('click', function(e) {
+        var locItem = e.target.closest('.loc-item[data-location-id]');
+        if (locItem) {
+            window.__mapShowLocation(parseInt(locItem.dataset.locationId, 10));
+            return;
+        }
+
+        var mapAction = e.target.closest('[data-map-action="back-to-region"]');
+        if (mapAction && window.__mapBackToRegion) {
+            window.__mapBackToRegion();
+        }
+    });
 
     function refreshCurrentPanel() {
         if (elRegionPanel.style.display !== 'none' && currentRegionId !== null) refreshRegionLocations();
@@ -528,7 +540,7 @@
                         : '<span class="loc-badge loc-badge--free">'  + mlt('badge_free')  + '</span>';
             var regionTag = containerId === 'browse-list'
                 ? '<span style="color:' + (r ? r.color_hex : '#aaa') + '">' + escHtml(r ? r.name : '') + '</span> - ' : '';
-            return '<div class="loc-item ' + cls + '" onclick="window.__mapShowLocation(' + loc.id + ')">'
+            return '<div class="loc-item ' + cls + '" data-location-id="' + loc.id + '">'
                 + '<div class="loc-item-name">' + escHtml(loc.name)
                 + '<span class="loc-tier-badge ' + (TIER_CLS[tier] || '') + '">' + (TIER_LABEL[tier] || tier) + '</span></div>'
                 + '<div class="loc-item-meta">'
@@ -755,6 +767,8 @@
                 return '<span class="loc-badge loc-badge--permit-refused">' + mlt('badge_permit_refused')     + '</span>';
             case 'locked':
                 return '<span class="loc-badge loc-badge--permit-locked">'  + mlt('badge_permit_locked')      + '</span>';
+            case 'legal_locked':
+                return '<span class="loc-badge loc-badge--permit-legal">'  + mlt('badge_permit_legal_locked') + '</span>';
             default:
                 return '<span class="loc-badge loc-badge--permit">'         + mlt('badge_permit')             + '</span>';
         }
@@ -764,9 +778,9 @@
     // Brief §6.2-§6.5 / §7.3 / §14.1-§14.4: buy-section content per permit status.
     function buildPermitHtml(ps, r) {
         var goLegal = '<a href="/legal" class="btn-permit-legal">' + mlt('permit_btn_go_legal') + '</a>';
-        var closeBtn = '<button type="button" class="btn-permit-cancel" onclick="window.__mapBackToRegion && window.__mapBackToRegion()">'
+        var closeBtn = '<button type="button" class="btn-permit-cancel" data-map-action="back-to-region">'
                      + mlt('permit_btn_close') + '</button>';
-        var cancelBtn = '<button type="button" class="btn-permit-cancel" onclick="window.__mapBackToRegion && window.__mapBackToRegion()">'
+        var cancelBtn = '<button type="button" class="btn-permit-cancel" data-map-action="back-to-region">'
                       + mlt('permit_cancel_btn') + '</button>';
 
         if (ps === 'pending' || ps === 'delayed') {
@@ -820,6 +834,20 @@
                 + '</div>';
         }
 
+        if (ps === 'legal_locked') {
+            var reqLevel = r && r.permit_required_legal_level != null ? r.permit_required_legal_level : null;
+            var curLevel = r && r.permit_legal_level != null ? r.permit_legal_level : null;
+            var levelLine = reqLevel != null
+                ? '<div class="loc-permit-capital">' + mlt('permit_legal_locked_level').replace(':level', reqLevel).replace(':current', curLevel != null ? curLevel : 0) + '</div>'
+                : '';
+            return '<div class="loc-permit-required loc-permit-required--legal-locked">'
+                + '<div class="loc-permit-title">' + mlt('permit_legal_locked_title') + '</div>'
+                + '<div class="loc-permit-text">'  + mlt('permit_legal_locked_text')  + '</div>'
+                + levelLine
+                + '<div class="loc-permit-actions">' + closeBtn + goLegal + '</div>'
+                + '</div>';
+        }
+
         // Domyślnie: §6.2 "Brak zezwolenia na wiercenie" / Default: §6.2 "No drilling permit"
         return '<div class="loc-permit-required">'
             + '<div class="loc-permit-title">' + mlt('permit_required_title')   + '</div>'
@@ -833,8 +861,8 @@
             + '</div>';
     }
 
-    // Zamienia minuty na czytelny czas (< 90 min → minuty, inaczej → godziny).
-    // Converts minutes to human-readable time (< 90 min → minutes, else → hours).
+    // Zamienia minuty na czytelny czas (< 90 min: minuty, inaczej: godziny).
+    // Converts minutes to human-readable time (< 90 min: minutes, else: hours).
     function fmtMinutes(m) {
         m = Math.max(0, Math.round(m));
         if (m < 90) return m + ' min';

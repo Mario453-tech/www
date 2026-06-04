@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 /**
- * LegalSection — Etap 4: tick rozpatrujący wnioski o zezwolenia na wiercenie.
+ * LegalSection - etap 4: tick rozpatrujacy wnioski o zezwolenia.
+ * LegalSection - stage 4: tick processing drilling permit applications.
  *
- * Uruchamiany raz per tick globalnie (nie per gracz).
- * Pobiera wszystkie wnioski ze statusem pending/delayed gdzie decision_due_at <= now,
- * losuje wynik wg parametrów admin (no_decision → refused → delayed → granted)
- * i wysyła powiadomienia dyrektora (type='legal').
+ * PL: Uruchamiany raz per tick globalnie, pobiera pending/delayed, losuje wynik
+ * i wysyla powiadomienia dyrektora.
+ * EN: Runs once per global tick, reads pending/delayed applications, rolls the
+ * outcome and sends director notifications.
  */
 class LegalSection
 {
@@ -227,11 +228,11 @@ class LegalSection
         $region = $this->regionName($regionId);
 
         [$key, $icon, $priority] = match ($outcome) {
-            'granted'     => ['granted',     '✅', 'high'],
-            'refused'     => ['refused',     '❌', 'high'],
-            'delayed'     => ['delayed',     '⏳', 'medium'],
-            'no_decision' => ['no_decision', '⚠️', 'medium'],
-            default       => ['default',     'ℹ️', 'low'],
+            'granted'     => ['granted',     '', 'high'],
+            'refused'     => ['refused',     '', 'high'],
+            'delayed'     => ['delayed',     '', 'medium'],
+            'no_decision' => ['no_decision', '', 'medium'],
+            default       => ['default',     '', 'low'],
         };
 
         return [

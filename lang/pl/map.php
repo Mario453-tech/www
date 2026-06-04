@@ -89,6 +89,11 @@ return [
     'map_js.permit_locked_capital'  => 'Wymagany kapitał: :amount PLN',
     'map_js.badge_permit_locked'    => 'Region zablokowany',
 
+    'map_js.permit_legal_locked_title' => 'Wymagany silniejszy dział prawny',
+    'map_js.permit_legal_locked_text'  => 'Ten region wymaga wyższego poziomu działu prawnego. Zatrudnij lub rozwiń dyrektora prawnego, aby odblokować możliwość złożenia wniosku.',
+    'map_js.permit_legal_locked_level' => 'Wymagany poziom: :level. Aktualny poziom: :current.',
+    'map_js.badge_permit_legal_locked' => 'Dział prawny',
+
     // Wspólne przyciski modali zezwoleń / Shared permit modal buttons.
     'map_js.permit_btn_go_legal' => 'Przejdź do działu prawnego',
     'map_js.permit_btn_close'    => 'Zamknij',
@@ -113,7 +118,7 @@ return [
     'map.region_legend' => 'Podatek',
     'map.sidebar_prompt' => 'Kliknij region lub pinezkę na mapie aby zobaczyć szczegóły i kupić odwiert.',
     'map.locations_available' => 'Dostępne lokalizacje',
-    'map.back_to_region' => '← Wróć do regionu',
+    'map.back_to_region' => 'Wróć do regionu',
     'map.filter_label' => 'Filtruj:',
     'map.filter_all' => 'Wszystkie',
     'map.tier_starter' => 'Starter',

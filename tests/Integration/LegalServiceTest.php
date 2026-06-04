@@ -200,17 +200,48 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
         $cfg = array_merge([
             'enabled' => 1, 'risk_level' => 'medium', 'application_cost' => 250000.0,
             'base_review_minutes' => 60, 'refusal_cooldown_minutes' => 120,
-            'required_capital' => 0.0,
+            'required_capital' => 0.0, 'required_legal_level' => 0,
         ], $over);
         $this->db->prepare(
             "INSERT INTO legal_region_config
                 (region_id, enabled, risk_level, application_cost, base_review_minutes,
-                 refusal_cooldown_minutes, required_capital)
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+                 refusal_cooldown_minutes, required_capital, required_legal_level)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         )->execute([
             $regionId, $cfg['enabled'], $cfg['risk_level'], $cfg['application_cost'],
             $cfg['base_review_minutes'], $cfg['refusal_cooldown_minutes'], $cfg['required_capital'],
+            $cfg['required_legal_level'],
         ]);
+    }
+
+    private function createBoardSchema(): void
+    {
+        $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT NOT NULL)');
+        $this->db->exec(
+            'CREATE TABLE board_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id INTEGER NOT NULL,
+                role_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                skill_organization INTEGER DEFAULT 0,
+                skill_analysis INTEGER DEFAULT 0,
+                skill_ethics INTEGER DEFAULT 0
+            )'
+        );
+        $this->db->exec("INSERT INTO board_roles (id, code) VALUES (1, 'legal')");
+    }
+
+    private function seedLegalDirector(
+        int $playerId,
+        int $organization,
+        int $analysis,
+        int $ethics
+    ): void {
+        $this->db->prepare(
+            'INSERT INTO board_members
+                (player_id, role_id, status, skill_organization, skill_analysis, skill_ethics)
+             VALUES (?, 1, \'active\', ?, ?, ?)'
+        )->execute([$playerId, $organization, $analysis, $ethics]);
     }
 
     private function cashOf(int $playerId): float
@@ -274,6 +305,46 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
         $this->assertFalse($res['success']);
         $this->assertSame('region_locked', $res['code']);
         $this->assertSame(1000000.0, $this->cashOf(100)); // bez pobrania
+    }
+
+    public function testSubmitBlockedWhenLegalLevelRequirementNotMet(): void
+    {
+        $this->createBoardSchema();
+        $this->seedRegions();
+        $this->seedConfig(2, [
+            'required_legal_level' => 7,
+            'required_capital' => 0.0,
+            'application_cost' => 500000.0,
+        ]);
+        $this->seedPlayer(100, 1000000.0);
+        $this->seedLegalDirector(100, 5, 5, 5);
+
+        $res = $this->service->submitApplication(100, 2);
+
+        $this->assertFalse($res['success']);
+        $this->assertSame('legal_level_locked', $res['code']);
+        $this->assertSame(7, $res['required_legal_level']);
+        $this->assertSame(5, $res['legal_level']);
+        $this->assertSame(1000000.0, $this->cashOf(100));
+    }
+
+    public function testSubmitAllowedWhenLegalLevelRequirementMet(): void
+    {
+        $this->createBoardSchema();
+        $this->seedRegions();
+        $this->seedConfig(2, [
+            'required_legal_level' => 7,
+            'required_capital' => 0.0,
+            'application_cost' => 250000.0,
+        ]);
+        $this->seedPlayer(100, 1000000.0);
+        $this->seedLegalDirector(100, 8, 8, 8);
+
+        $res = $this->service->submitApplication(100, 2);
+
+        $this->assertTrue($res['success']);
+        $this->assertSame('submitted', $res['code']);
+        $this->assertSame(750000.0, $this->cashOf(100));
     }
 
     public function testSubmitBlockedWhenInsufficientFunds(): void

@@ -162,6 +162,31 @@ final class LegalMapPermitDataTest extends SqliteIntegrationTestCase
         $this->assertNull($data[2]['required_capital']);
     }
 
+    public function testLegalLevelMissingReturnsLegalLocked(): void
+    {
+        $this->createBoardSchema();
+        $this->seedConfig(2, ['required_legal_level' => 7, 'required_capital' => 0.0]);
+        $this->seedLegalDirector(100, 5, 5, 5);
+
+        $data = $this->service->getMapPermitData(100, [2], 5000000.0, $this->now);
+
+        $this->assertSame('legal_locked', $data[2]['status']);
+        $this->assertSame(7, $data[2]['required_legal_level']);
+        $this->assertSame(5, $data[2]['legal_level']);
+    }
+
+    public function testLegalLevelMetReturnsNoneNotLegalLocked(): void
+    {
+        $this->createBoardSchema();
+        $this->seedConfig(2, ['required_legal_level' => 7, 'required_capital' => 0.0]);
+        $this->seedLegalDirector(100, 8, 8, 8);
+
+        $data = $this->service->getMapPermitData(100, [2], 5000000.0, $this->now);
+
+        $this->assertSame('none', $data[2]['status']);
+        $this->assertNull($data[2]['required_legal_level']);
+    }
+
     public function testActiveOverridesCapitalLock(): void
     {
         // Aktywne zezwolenie ma pierwszeństwo nad blokadą kapitałową.
@@ -246,15 +271,47 @@ final class LegalMapPermitDataTest extends SqliteIntegrationTestCase
         $cfg = array_merge([
             'enabled' => 1, 'risk_level' => 'low', 'application_cost' => 100000.0,
             'base_review_minutes' => 60, 'required_capital' => 0.0,
+            'required_legal_level' => 0,
         ], $over);
         $this->db->prepare(
             "INSERT INTO legal_region_config
-                (region_id, enabled, risk_level, application_cost, base_review_minutes, required_capital)
-             VALUES (?, ?, ?, ?, ?, ?)"
+                (region_id, enabled, risk_level, application_cost, base_review_minutes,
+                 required_capital, required_legal_level)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
         )->execute([
             $regionId, $cfg['enabled'], $cfg['risk_level'], $cfg['application_cost'],
-            $cfg['base_review_minutes'], $cfg['required_capital'],
+            $cfg['base_review_minutes'], $cfg['required_capital'], $cfg['required_legal_level'],
         ]);
+    }
+
+    private function createBoardSchema(): void
+    {
+        $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT NOT NULL)');
+        $this->db->exec(
+            'CREATE TABLE board_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id INTEGER NOT NULL,
+                role_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                skill_organization INTEGER DEFAULT 0,
+                skill_analysis INTEGER DEFAULT 0,
+                skill_ethics INTEGER DEFAULT 0
+            )'
+        );
+        $this->db->exec("INSERT INTO board_roles (id, code) VALUES (1, 'legal')");
+    }
+
+    private function seedLegalDirector(
+        int $playerId,
+        int $organization,
+        int $analysis,
+        int $ethics
+    ): void {
+        $this->db->prepare(
+            'INSERT INTO board_members
+                (player_id, role_id, status, skill_organization, skill_analysis, skill_ethics)
+             VALUES (?, 1, \'active\', ?, ?, ?)'
+        )->execute([$playerId, $organization, $analysis, $ethics]);
     }
 
     /** @param array<string,mixed> $over */

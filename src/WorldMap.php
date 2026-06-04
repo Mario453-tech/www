@@ -362,7 +362,14 @@ class WorldMap
  // Brief §5: full permit status per region for the map.
  // Batch: 2 SQL queries for all regions (instead of N in a loop).
             $permitData = [];
-            $permitFallback = ['status' => 'none', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
+            $permitFallback = [
+                'status' => 'none',
+                'minutes_left' => null,
+                'cooldown_minutes' => null,
+                'required_capital' => null,
+                'required_legal_level' => null,
+                'legal_level' => null,
+            ];
             try {
                 $legal      = new LegalService($this->db);
                 $cashStmt   = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
@@ -386,6 +393,8 @@ class WorldMap
                 $reg['permit_minutes_left']     = $pd['minutes_left'];
                 $reg['permit_cooldown_minutes'] = $pd['cooldown_minutes'];
                 $reg['permit_required_capital'] = $pd['required_capital'];
+                $reg['permit_required_legal_level'] = $pd['required_legal_level'] ?? null;
+                $reg['permit_legal_level']      = $pd['legal_level'] ?? null;
             }
             unset($reg);
 

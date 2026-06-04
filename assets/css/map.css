@@ -644,6 +644,16 @@
     color: #95a5a6;
 }
 
+.loc-badge--permit-legal {
+    background: rgba(111, 168, 220, .18);
+    color: #9fc5e8;
+}
+
+.loc-permit-required--legal-locked {
+    border-color: rgba(111, 168, 220, .24);
+    background: rgba(111, 168, 220, .06);
+}
+
 .map-top-filters {
     display: flex;
     align-items: center;

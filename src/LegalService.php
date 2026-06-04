@@ -350,6 +350,48 @@ class LegalService
         }
     }
 
+    /**
+     * Wylicza poziom dzialu prawnego gracza z aktywnego dyrektora prawnego.
+     * Calculates the player's legal department level from the active legal director.
+     */
+    public function getLegalLevelForPlayer(int $playerId): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT bm.skill_organization, bm.skill_analysis, bm.skill_ethics
+                   FROM board_members bm
+                   JOIN board_roles br ON br.id = bm.role_id
+                  WHERE bm.player_id = ?
+                    AND bm.status = 'active'
+                    AND br.code = 'legal'
+                  ORDER BY (
+                      COALESCE(bm.skill_organization, 0)
+                    + COALESCE(bm.skill_analysis, 0)
+                    + COALESCE(bm.skill_ethics, 0)
+                  ) DESC
+                  LIMIT 1"
+            );
+            $stmt->execute([$playerId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return 0;
+            }
+
+            $score = (
+                (int)($row['skill_organization'] ?? 0)
+                + (int)($row['skill_analysis'] ?? 0)
+                + (int)($row['skill_ethics'] ?? 0)
+            ) / 3;
+
+            return max(0, min(10, (int)round($score)));
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('LegalService', 'getLegalLevelForPlayer FAILED', $e, ['player_id' => $playerId]);
+            }
+            return 0;
+        }
+    }
+
     // ------------------------------------------------------------- Mutations
 
     /**
@@ -401,6 +443,7 @@ class LegalService
 
         $requiredCapital = (float)$config['required_capital'];
         $applicationCost = (float)$config['application_cost'];
+        $requiredLegalLevel = (int)($config['required_legal_level'] ?? 0);
 
         $this->db->beginTransaction();
         try {
@@ -412,6 +455,25 @@ class LegalService
                 return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.err.unknown_player')];
             }
             $cash = (float)$cashRow['cash'];
+
+            // Wymagany poziom dzialu prawnego dla trudniejszych regionow.
+            // Required legal department level for more demanding regions.
+            if ($requiredLegalLevel > 0) {
+                $legalLevel = $this->getLegalLevelForPlayer($playerId);
+                if ($legalLevel < $requiredLegalLevel) {
+                    $this->db->rollBack();
+                    return [
+                        'success'              => false,
+                        'code'                 => 'legal_level_locked',
+                        'message'              => tPlain('legal.err.legal_level_locked', [
+                            'level'   => $requiredLegalLevel,
+                            'current' => $legalLevel,
+                        ]),
+                        'required_legal_level' => $requiredLegalLevel,
+                        'legal_level'          => $legalLevel,
+                    ];
+                }
+            }
 
             // Region wysokiego ryzyka: firma nie spełnia wymogu kapitałowego.
             if ($requiredCapital > 0 && $cash < $requiredCapital) {
@@ -485,7 +547,7 @@ class LegalService
         $this->notifyDirector($playerId, 'submitted', [
             'region' => $regionName,
             'time'   => self::minutesToHuman((int)$config['base_review_minutes']),
-        ], '📝', 'low');
+        ], '', 'low');
 
         return [
             'success'         => true,
@@ -678,7 +740,7 @@ class LegalService
                     // Brief §13 / §12.2: notification about the transitional permit grant.
                     $this->notifyDirector((int)$pair['player_id'], 'transitional', [
                         'region' => $this->resolveRegionName((int)$pair['region_id']),
-                    ], '🪪', 'low');
+                    ], '', 'low');
                 }
             } catch (Throwable $e) {
                 if (class_exists('GameLog', false)) {
@@ -745,6 +807,8 @@ class LegalService
                 'minutes_left'      => null,
                 'cooldown_minutes'  => null,
                 'required_capital'  => null,
+                'required_legal_level' => null,
+                'legal_level'       => null,
             ];
         }
 
@@ -769,20 +833,30 @@ class LegalService
         // --- Zapytanie 2: wymagany kapitał per region (blokada §7.2).
         // --- Query 2: required capital per region (lock §7.2).
         $capitals = [];
+        $legalLevelsRequired = [];
         try {
             $ph   = implode(',', array_fill(0, count($regionIds), '?'));
             $stmt = $this->db->prepare(
-                "SELECT region_id, required_capital
+                "SELECT region_id, required_capital, required_legal_level
                    FROM legal_region_config
                   WHERE region_id IN ({$ph})"
             );
             $stmt->execute(array_map('intval', $regionIds));
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $capitals[(int)$row['region_id']] = (float)$row['required_capital'];
+                $legalLevelsRequired[(int)$row['region_id']] = (int)($row['required_legal_level'] ?? 0);
             }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('LegalService', 'getMapPermitData: capitals query FAILED', $e, ['player_id' => $playerId]);
+            }
+        }
+
+        $playerLegalLevel = 0;
+        foreach ($legalLevelsRequired as $requiredLevel) {
+            if ($requiredLevel > 0) {
+                $playerLegalLevel = $this->getLegalLevelForPlayer($playerId);
+                break;
             }
         }
 
@@ -828,6 +902,14 @@ class LegalService
         // --- For regions with no active entry: check capital lock §7.2.
         foreach ($result as $rid => &$entry) {
             if ($entry['status'] === 'none') {
+                $reqLevel = $legalLevelsRequired[$rid] ?? 0;
+                if ($reqLevel > 0 && $playerLegalLevel < $reqLevel) {
+                    $entry['status'] = 'legal_locked';
+                    $entry['required_legal_level'] = $reqLevel;
+                    $entry['legal_level'] = $playerLegalLevel;
+                    continue;
+                }
+
                 $req = $capitals[$rid] ?? 0.0;
                 if ($req > 0.0 && $playerCash < $req) {
                     $entry['status']           = 'locked';

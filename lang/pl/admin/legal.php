@@ -42,6 +42,7 @@ return [
     'admin.legal.col_nodec_pct_hint'  => 'Ryzyko braku decyzji urzędu',
     'admin.legal.col_cooldown'   => 'Cooldown (min)',
     'admin.legal.col_capital'    => 'Min. kapitał',
+    'admin.legal.col_legal_level' => 'Poz. prawny',
     'admin.legal.btn_save'       => 'Zapisz',
 
     // Tabela wniosków
@@ -61,7 +62,7 @@ return [
     'admin.legal.action_transitional' => 'Przejściowe',
     'admin.legal.action_no_decision'  => 'Brak dec.',
     'admin.legal.action_refuse'       => 'Odrzuć',
-    'admin.legal.action_reset'        => 'Reset →pending',
+    'admin.legal.action_reset'        => 'Reset do pending',
     'admin.legal.confirm_action'      => 'Potwierdzasz wykonanie tej akcji?',
     // Brief §16.3: modal potwierdzenia z konkretnym graczem i regionem.
     // Brief §16.3: confirmation modal naming the specific player and region.

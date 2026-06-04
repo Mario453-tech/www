@@ -70,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'refusal_risk_pct'       => max(0.0, min(100.0, (float)($_POST['refusal_risk_pct'] ?? 0))),
             'refusal_cooldown_minutes' => max(0, (int)($_POST['refusal_cooldown_minutes'] ?? 120)),
             'required_capital'       => max(0.0, (float)($_POST['required_capital'] ?? 0)),
+            'required_legal_level'   => max(0, min(10, (int)($_POST['required_legal_level'] ?? 0))),
         ];
         try {
             $db->prepare(
@@ -78,7 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         application_cost = ?, base_review_minutes = ?,
                         delay_risk_pct = ?, delay_min_minutes = ?, delay_max_minutes = ?,
                         no_decision_risk_pct = ?, refusal_risk_pct = ?,
-                        refusal_cooldown_minutes = ?, required_capital = ?
+                        refusal_cooldown_minutes = ?, required_capital = ?,
+                        required_legal_level = ?
                   WHERE region_id = ?"
             )->execute([
                 $fields['enabled'], $fields['is_offshore'], $fields['risk_level'],
@@ -86,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $fields['delay_risk_pct'], $fields['delay_min_minutes'], $fields['delay_max_minutes'],
                 $fields['no_decision_risk_pct'], $fields['refusal_risk_pct'],
                 $fields['refusal_cooldown_minutes'], $fields['required_capital'],
+                $fields['required_legal_level'],
                 $regionId,
             ]);
             AdminLog::log('legal_region_config_save', "Region {$regionId}: " . json_encode($fields));
@@ -202,6 +205,7 @@ foreach ($applications as $a) {
 $viewData = compact('regions', 'applications', 'stats', 'tab', 'msg', 'err');
 
 $pageTitle = t('admin.legal.title');
+$extraJs = ['/assets/js/admin_legal.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/legal/main.php';
 require_once __DIR__ . '/partials/footer.php';

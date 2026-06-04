@@ -3310,6 +3310,22 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     background: rgba(80, 140, 255, .38);
 }
 
+.admin-legal-seed-form {
+    margin-top: 10px;
+}
+
+.input-num-60 {
+    width: 60px;
+}
+
+.input-num-70 {
+    width: 70px;
+}
+
+.input-num-110 {
+    width: 110px;
+}
+
 /* Wells admin list - mobile responsive */
 @media (max-width: 640px) {
     .aw-list-head,

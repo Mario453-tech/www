@@ -64,7 +64,7 @@
 
     <?php if (empty($regions)): ?>
     <p class="panel-hint"><?= t('admin.legal.no_regions') ?></p>
-    <form method="post" action="/admin/legal.php?tab=regions" style="margin-top:10px">
+    <form method="post" action="/admin/legal.php?tab=regions" class="admin-legal-seed-form">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_regions">
         <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
@@ -88,6 +88,7 @@
                 <th title="<?= htmlspecialchars(tPlain('admin.legal.col_nodec_pct_hint')) ?>"><?= t('admin.legal.col_nodec_pct') ?></th>
                 <th><?= t('admin.legal.col_cooldown') ?></th>
                 <th><?= t('admin.legal.col_capital') ?></th>
+                <th><?= t('admin.legal.col_legal_level') ?></th>
                 <th></th>
             </tr>
         </thead>
@@ -108,15 +109,16 @@
             </td>
             <td><input type="checkbox" name="enabled" value="1" <?= (int)$cfg['enabled'] ? 'checked' : '' ?>></td>
             <td><input type="checkbox" name="is_offshore" value="1" <?= (int)($cfg['is_offshore'] ?? 0) ? 'checked' : '' ?>></td>
-            <td><input type="number" name="application_cost"     value="<?= (float)$cfg['application_cost'] ?>"    min="0"   step="1000"  class="input-sm" style="width:110px"></td>
-            <td><input type="number" name="base_review_minutes"  value="<?= (int)$cfg['base_review_minutes'] ?>"   min="1"   step="5"     class="input-sm" style="width:70px"></td>
-            <td><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="delay_min_minutes"    value="<?= (int)($cfg['delay_min_minutes'] ?? 10) ?>" min="1" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="delay_max_minutes"    value="<?= (int)($cfg['delay_max_minutes'] ?? 30) ?>" min="1" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm" style="width:70px"></td>
-            <td><input type="number" name="required_capital"     value="<?= (float)$cfg['required_capital'] ?>"    min="0"   step="100000" class="input-sm" style="width:110px"></td>
+            <td><input type="number" name="application_cost"     value="<?= (float)$cfg['application_cost'] ?>"    min="0"   step="1000"  class="input-sm input-num-110"></td>
+            <td><input type="number" name="base_review_minutes"  value="<?= (int)$cfg['base_review_minutes'] ?>"   min="1"   step="5"     class="input-sm input-num-70"></td>
+            <td><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm input-num-60"></td>
+            <td><input type="number" name="delay_min_minutes"    value="<?= (int)($cfg['delay_min_minutes'] ?? 10) ?>" min="1" step="1" class="input-sm input-num-60"></td>
+            <td><input type="number" name="delay_max_minutes"    value="<?= (int)($cfg['delay_max_minutes'] ?? 30) ?>" min="1" step="1" class="input-sm input-num-60"></td>
+            <td><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm input-num-60"></td>
+            <td><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm input-num-60"></td>
+            <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm input-num-70"></td>
+            <td><input type="number" name="required_capital"     value="<?= (float)$cfg['required_capital'] ?>"    min="0"   step="100000" class="input-sm input-num-110"></td>
+            <td><input type="number" name="required_legal_level" value="<?= (int)($cfg['required_legal_level'] ?? 0) ?>" min="0" max="10" step="1" class="input-sm input-num-60"></td>
             <td><button type="submit" class="btn btn-sm btn-primary"><?= t('admin.legal.btn_save') ?></button></td>
             </form>
         </tr>
@@ -198,7 +200,7 @@
                     'region' => $confRegion,
                 ]);
                 ?>
-                <form method="post" action="/admin/legal.php?tab=applications" style="display:inline"
+                <form method="post" action="/admin/legal.php?tab=applications"
                       class="js-confirm-form"
                       data-confirm="<?= htmlspecialchars($confMsg) ?>"
                       data-confirm-title="<?= htmlspecialchars($btnLabel) ?>">
@@ -219,39 +221,3 @@
 </section>
 
 <?php endif ?>
-
-<script>
-/* Brief §14 / §16.3: wszystkie ważne akcje admina (seed, migracja, akcje
-   ręczne na wnioskach) przechodzą przez systemowy modal potwierdzenia
-   zamiast natywnego confirm(). Natywny confirm() tylko jako awaryjny fallback.
-   Brief §14 / §16.3: all important admin actions go through the system
-   confirmation modal instead of native confirm(). Native confirm() only as
-   emergency fallback. */
-(function () {
-    'use strict';
-    document.addEventListener('submit', function (e) {
-        var form = e.target.closest('form.js-confirm-form');
-        if (!form) return;
-        if (form.dataset.confirmed === '1') { form.dataset.confirmed = ''; return; }
-
-        var msg   = form.dataset.confirm || '';
-        var title = form.dataset.confirmTitle || '';
-        var type  = form.dataset.confirmType || 'confirm';
-
-        e.preventDefault();
-
-        if (typeof window.confirmAction !== 'function') {
-            // Awaryjny fallback / Emergency fallback.
-            if (window.confirm(msg)) { form.dataset.confirmed = '1'; form.submit(); }
-            return;
-        }
-
-        window.confirmAction(msg, function () {
-            form.dataset.confirmed = '1';
-            if (typeof form.requestSubmit === 'function') { form.requestSubmit(); }
-            else { form.submit(); }
-            setTimeout(function () { form.dataset.confirmed = ''; }, 0);
-        }, { title: title, type: type });
-    }, true);
-})();
-</script>
