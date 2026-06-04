@@ -119,17 +119,17 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
             <?php if ($canAfford): ?>
-            <form method="post" action="<?= url('legal') ?>" class="legal-submit-form"
-                  data-confirm="<?= htmlspecialchars(tPlain('legal.confirm_submit', [
-                      'region' => $cfg['region_name'] ?? 'Region ' . $cfg['region_id'],
-                      'cost'   => number_format($cost, 0, ',', ' '),
-                  ])) ?>"
-                  data-confirm-type="confirm"
-                  data-confirm-label="<?= htmlspecialchars(tPlain('legal.btn_submit')) ?>">
+            <form method="post" action="<?= url('legal') ?>" class="legal-submit-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action"    value="submit_application">
                 <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
-                <button type="submit" class="btn btn-primary legal-submit-btn">
+                <button type="submit" class="btn btn-primary legal-submit-btn"
+                        onclick="return confirm(<?= json_encode(
+                            tPlain('legal.confirm_submit', [
+                                'region' => $cfg['region_name'] ?? 'Region ' . $cfg['region_id'],
+                                'cost'   => number_format($cost, 0, ',', ' '),
+                            ])
+                        , JSON_UNESCAPED_UNICODE) ?>)">
                     <?= t('legal.btn_submit') ?>
                 </button>
             </form>
