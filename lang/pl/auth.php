@@ -103,7 +103,7 @@ return [
     'auth_js.str_good' => 'Dobre',
     'auth_js.str_strong' => 'Silne',
     'auth.forgot_password' => 'Nie pamiętasz hasła?',
-    'auth.remember_login_30_days' => 'Zapamiętaj logowanie na 30 dni',
+    'auth.remember_login_30_days' => 'Zapamiętaj logowanie',
     'auth.btn_login' => 'Zaloguj się',
     'auth.no_account' => 'Nie masz konta?',
     'auth.register_link' => 'Zarejestruj się',
