@@ -4,7 +4,7 @@ declare(strict_types=1);
 /**
  * Technical department — wells, staff, tasks, safety.
  * Dział techniczny — odwierty, personel, zadania, BHP.
- * Keys: 532
+ * Keys: 498
  */
 
 return [
@@ -585,54 +585,6 @@ return [
     'technical.task_msg.queue_item_not_found' => 'Nie znaleziono pozycji w kolejce.',
     'technical.task_msg.queue_item_removed' => 'Zadanie usunięto z kolejki.',
     'technical.task_msg.cancel_queue_failed' => 'Wystąpił błąd podczas usuwania zadania z kolejki.',
-
-    // --- Błędy akcji (fallback wyjątków) / Action error fallbacks (exceptions) ---
-    'technical.err_assign_task'        => 'Wystąpił nieoczekiwany błąd podczas zlecania zadania. Spróbuj ponownie.',
-    'technical.err_fire_engineer'      => 'Wystąpił nieoczekiwany błąd podczas zwalniania pracownika.',
-    'technical.err_review'             => 'Wystąpił nieoczekiwany błąd podczas zapisywania oceny.',
-    'technical.err_cancel_recruitment' => 'Wystąpił nieoczekiwany błąd podczas anulowania rekrutacji.',
-    'technical.err_cancel_task'        => 'Wystąpił nieoczekiwany błąd podczas anulowania zadania.',
-    'technical.err_cancel_queue'       => 'Wystąpił nieoczekiwany błąd podczas usuwania zadania z kolejki.',
-    'technical.err_upgrade_proc'       => 'Wystąpił nieoczekiwany błąd podczas wdrażania procedur BHP.',
-    'technical.err_repair_proc'        => 'Wystąpił nieoczekiwany błąd podczas przeglądu procedur BHP.',
-
-    // --- Stan BHP — fallback odczytu / HSE state read fallback ---
-    'technical.hse_read_error'         => 'Błąd odczytu stanu BHP',
-
-    // --- Bonus kierownika / Manager bonus label ---
-    'technical.manager_bonus.label'    => 'Org. :skill/10 — -:time_pct% czasu, -:cost_pct% kosztów',
-
-    // --- Wiadomości personelu / Staff messages ---
-    'technical.staff_msg.skill_bonus'    => 'Umiejętność :skill/10 — zadania :speed% szybciej',
-    'technical.staff_msg.unknown_spec'   => 'Nieznana specjalizacja pracownika.',
-    'technical.staff_msg.no_funds'       => 'Brak środków na zatrudnienie. Wymagana pensja: :salary zł.',
-    'technical.staff_msg.hire_failed'    => 'Błąd zatrudnienia pracownika: :error',
-    'technical.staff_msg.hired'          => 'Zatrudniono :spec — :first :last. Pensja: :salary zł/mies.',
-    'technical.staff_msg.staff_missing'  => 'Pracownik nie istnieje lub nie należy do Ciebie.',
-    'technical.staff_msg.staff_busy'     => 'Pracownik jest zajęty aktywnym zadaniem. Poczekaj na jego zakończenie.',
-    'technical.staff_msg.fired'          => 'Pracownik :first :last został zwolniony.',
-
-    // --- Wiadomości procedur BHP / HSE procedure messages ---
-    'technical.proc_msg.max_level'           => 'Procedury BHP są już na maksymalnym poziomie (5/5).',
-    'technical.proc_msg.missing_staff'       => 'Brak wymaganego personelu BHP: :missing. Zatrudnij brakujących specjalistów.',
-    'technical.proc_msg.audit_required'      => 'Przed wdrożeniem procedur wymagane jest zakończenie audytu bezpieczeństwa.',
-    'technical.proc_msg.no_funds_upgrade'    => 'Brak środków na wdrożenie poziomu :level. Wymagany koszt: :cost zł.',
-    'technical.proc_msg.upgraded'            => 'Wdrożono procedury BHP na poziom :level. Koszt: :cost zł.',
-    'technical.proc_msg.upgrade_failed'      => 'Błąd wdrożenia procedur BHP: :error',
-    'technical.proc_msg.none_to_review'      => 'Brak wdrożonych procedur BHP do przeglądu.',
-    'technical.proc_msg.integrity_max'       => 'Integralność procedur jest już na poziomie 100%.',
-    'technical.proc_msg.review_requires_staff' => 'Do przeprowadzenia przeglądu wymagany jest Oficer BHP lub Inżynier BHP.',
-    'technical.proc_msg.review_no_funds'     => 'Brak środków na przegląd BHP. Wymagany koszt: :cost zł.',
-    'technical.proc_msg.review_done'         => 'Przegląd BHP zakończony. Integralność: :from% → :to%. Koszt: :cost zł.',
-    'technical.proc_msg.review_failed'       => 'Błąd przeglądu procedur BHP: :error',
-
-    // --- Powiadomienia procedur BHP / HSE procedure notifications ---
-    'technical.proc_notify.warning'  => 'Uwaga: integralność procedur BHP spadła do :integrity%. Zlec przegląd, aby uniknąć utraty ochrony.',
-    'technical.proc_notify.critical' => 'Procedury BHP utraciły integralność (0%). Ochrona nieaktywna — odwierty bez zabezpieczenia. Zlec natychmiastowy przegląd.',
-
-    // --- Anulowanie rekrutacji — serwis / Recruitment cancellation service ---
-    'technical.err_cancel_recruitment_state' => 'Nie można anulować — rekrutacja nie jest już w stanie oczekującym.',
-    'technical.msg_recruitment_cancelled'    => 'Rekrutacja została anulowana. Slot rekrutacyjny jest ponownie dostępny.',
 
     // --- Rekrutacja — wiadomości serwera / Recruitment — server messages ---
     'technical.recruitment_msg.ready_now'              => 'gotowe',
