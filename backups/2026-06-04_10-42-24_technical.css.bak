@@ -200,7 +200,7 @@
 .staff-card:hover { border-color: rgba(200,168,75,.38); transform: translateY(-1px); }
 .staff-card.busy { border-left: 3px solid #c8a84b; }
 
-/* Karta wskazana przez deep-link "Zlec naprawe u MNT" */
+/* Karta wskazana przez deep-link "Zleć naprawę u MNT" */
 .staff-card--repair-target {
     border-color: rgba(78,201,122,.6) !important;
     box-shadow: 0 0 0 2px rgba(78,201,122,.25), 0 0 18px rgba(78,201,122,.18);

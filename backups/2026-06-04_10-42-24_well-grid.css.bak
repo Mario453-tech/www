@@ -129,7 +129,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 
 /* Legenda */
 
-/*
+/* 
    WELL GRID v2  well_grid.php (JS accordion)
  */
 
@@ -282,7 +282,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     background: rgba(224,85,85,.07); border-radius: 5px; padding: 8px 10px;
 }
 
-/* Panel sprzetu odwiertu */
+/* Panel sprztu odwiertu */
 .wg-equipment-wrap {
     border: 1px solid rgba(255,255,255,.08);
     border-radius: 7px; overflow: hidden;
@@ -491,7 +491,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     opacity: .85;
 }
 
-/* Dane lokalizacji w rozwinięciu aktywnego odwiertu */
+/* Dane lokalizacji w rozwiniciu aktywnego odwiertu */
 .wg-location-info {
     background: rgba(0,0,0,.15);
     border: 1px solid rgba(255,255,255,.06);
@@ -514,7 +514,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 /* Sekcja splaty kredytu */
 /* bank.css */
 
-/*
+/* 
    GRUPY REGIONALNE  accordion per kontynent/region
  */
 
@@ -656,14 +656,14 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     border-color: rgba(200,168,75,.4) !important;
     color: #c8a84b !important;
 }
-/*
+/* 
    WELL STAFF - Well staff
    Personel odwiertow
  */
 /* Blokada wniosku kredytowego */
 /* bank.css */
 
-/*
+/* 
    PROFIL GRACZA
  */
 
@@ -946,7 +946,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     line-height: 1.4;
 }
 
-/*
+/* 
    WELL GRID v3  Redesign (spec: /well-detail)
  */
 
@@ -1023,7 +1023,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 .wg-header--redesign .wg-staff-hint { margin: 0 16px 6px; }
 .wg-header--redesign .wg-toggle-hint { padding: 4px 16px 10px; text-align: right; }
 
-/* Meta grid (zasobnosc podatek ryzyko) */
+/* Meta grid (zasobno podatek ryzyko) */
 .wg-meta-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     gap: 1px; background: rgba(255,255,255,.06);
@@ -1220,7 +1220,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 
 /* Responsive */
 @media (max-width: 640px) {
-    .wg-kpi-grid  { grid-template-columns: repeat(3, 1fr); }
+    .wg-kpi-grid  { grid-template-columns: repeat(3, 1fr); gap: 4px; }
     .wg-kpi-value { font-size: 14px; }
     .wg-well-name { font-size: 15px; }
     .wg-cur-stats { grid-template-columns: repeat(2, 1fr); }
@@ -1258,7 +1258,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 .nsb-warn   { background: rgba(200,168,75,.1) !important; border: 1px solid rgba(200,168,75,.22) !important; color: #c8a84b !important; border-radius: 999px; }
 .nsb-danger { background: rgba(224,85,85,.1)  !important; border: 1px solid rgba(224,85,85,.2)  !important; color: #e05555 !important; border-radius: 999px; }
 
-/* ── Current stats — lepsze tlo, jasniejsze etykiety ────────── */
+/* ── Current stats — lepsze tło, jaśniejsze etykiety ────────── */
 .wg-cs-item {
     background: rgba(255,255,255,.025) !important;
     border: 1px solid rgba(255,255,255,.07) !important;
@@ -1307,7 +1307,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     padding: 2px 8px !important;
 }
 
-/* ── Mult grid — jasniejsze tlo, czytelniejsze wartosci ─────── */
+/* ── Mult grid — jaśniejsze tło, czytelniejsze wartości ─────── */
 .wg-mult-grid { gap: 5px !important; margin-bottom: 10px !important; }
 .wg-mult-item {
     background: rgba(255,255,255,.03) !important;
@@ -1323,11 +1323,11 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 }
 .wg-mult-val { font-size: 12px !important; font-weight: 700 !important; }
 
-/* ── Opt footer — spojna zlota cena ─────────────────────────── */
+/* ── Opt footer — spójna złota cena ─────────────────────────── */
 .wg-opt-footer { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.05); }
 .wg-opt-cost { font-size: 13px !important; font-weight: 700 !important; color: #c8a84b !important; }
 
-/* ── Przyciski — zloty primary ───────────────────────────────── */
+/* ── Przyciski — złoty primary ───────────────────────────────── */
 .wg-opt-btn {
     font-size: 10px !important;
     font-weight: 700 !important;
@@ -1367,7 +1367,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     margin-top: 4px;
 }
 
-/* ── Upgrade box — niebieski -> zloty akcent ──────────────────── */
+/* ── Upgrade box — niebieski → złoty akcent ──────────────────── */
 .wg-upgrade-box {
     background: rgba(200,168,75,.05) !important;
     border: 1px solid rgba(200,168,75,.2) !important;
@@ -1457,7 +1457,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 .wg-geo-badge--medium { background: rgba(240,160,80,.1) !important; border-color: rgba(240,160,80,.2) !important; color: #f0a050 !important; }
 .wg-geo-badge--high   { background: rgba(78,201,122,.1) !important; border-color: rgba(78,201,122,.2) !important; color: #4ec97a !important; }
 
-/* ── Storage card — turkus -> zloty ───────────────────────────── */
+/* ── Storage card — turkus → złoty ───────────────────────────── */
 .wg-storage-card { background: rgba(255,255,255,.02) !important; border: 1px solid rgba(255,255,255,.07) !important; border-radius: 10px !important; }
 .wg-storage-fill { background: linear-gradient(90deg, #a08030, #c8a84b) !important; }
 .wg-storage-title { color: rgba(232,232,240,.85) !important; font-weight: 700 !important; }
@@ -1489,7 +1489,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 
 
 
-/* Wewnatrz karty — szczegoly w 2 kolumnach gdy jest miejsce */
+/* Wewnątrz karty — szczegóły w 2 kolumnach gdy jest miejsce */
 .wg-body-inner {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1497,7 +1497,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     align-items: start;
 }
 
-/* Sekcje wyposazenie + transport obok siebie na desktop */
+/* Sekcje wyposażenie + transport obok siebie na desktop */
 .wg-sections-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1505,7 +1505,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 }
 .wg-sections-grid .wg-equipment-wrap { border-right: 1px solid rgba(255,255,255,.05); }
 
-/* KPI grid — wiecej kolumn gdy karta jest szeroka */
+/* KPI grid — więcej kolumn gdy karta jest szeroka */
 .wg-kpi-grid {
     grid-template-columns: repeat(6, 1fr) !important;
 }
@@ -1513,7 +1513,7 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
     grid-template-columns: repeat(4, 1fr) !important;
 }
 
-/* Card hover — zlota obwodka */
+/* Card hover — złota obwódka */
 .wg-card:hover {
     border-color: rgba(200,168,75,.25) !important;
 }
