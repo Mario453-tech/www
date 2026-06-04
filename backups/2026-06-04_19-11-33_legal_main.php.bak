@@ -3,7 +3,6 @@
 /** @var array<int,array<string,mixed>> $inProgress */
 /** @var array<int,array<string,mixed>> $available */
 /** @var array<int,array<string,mixed>> $locked */
-/** @var array<int,array<string,mixed>> $capitalLocked */
 /** @var float $cash */
 /** @var string $error */
 /** @var string $success */
@@ -48,14 +47,6 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.decided_at') ?>: <?= htmlspecialchars(substr((string)$app['decided_at'], 0, 16)) ?></span>
                 <?php endif ?>
             </div>
-            <?php if ($permit['status'] === 'transitional'): ?>
-            <!-- Brief §12.2: opis zezwolenia przejściowego dla obecnych graczy. -->
-            <!-- Brief §12.2: transitional permit description for existing players. -->
-            <p class="legal-region-note legal-region-note--transitional"><?= t('legal.transitional_note') ?></p>
-            <?php endif ?>
-            <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
-            <!-- Brief §15.1 / §8.1: simple description of what the permit unlocks. -->
-            <p class="legal-region-unlocks"><?= t('legal.unlocks_note') ?></p>
         </div>
     <?php endforeach ?>
     </div>
@@ -127,9 +118,6 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
-            <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
-            <!-- Brief §15.1 / §8.1: simple description of what the permit unlocks. -->
-            <p class="legal-region-unlocks"><?= t('legal.unlocks_note') ?></p>
             <?php if ($canAfford): ?>
             <form method="post" action="<?= url('legal') ?>" class="legal-submit-form"
                   data-region-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>"
@@ -182,39 +170,7 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<!-- Region wysokiego ryzyka — brak wymaganego kapitału (brief §7.3 / §8.1) -->
-<?php if (!empty($capitalLocked)): ?>
-<section class="card">
-    <h3><?= t('legal.section_capital_locked') ?></h3>
-    <div class="legal-region-list">
-    <?php foreach ($capitalLocked as $entry): ?>
-        <?php
-        $cfg     = $entry['config'];
-        $reqCap  = (float)$entry['required_capital'];
-        $missing = max(0.0, $reqCap - $cash);
-        ?>
-        <div class="legal-region-card legal-region-card--capital-locked">
-            <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
-                <span class="legal-badge legal-badge--locked"><?= t('legal.badge_high_risk') ?></span>
-            </div>
-            <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-            </div>
-            <p class="legal-region-note legal-region-note--locked"><?= t('legal.err.region_locked') ?></p>
-            <!-- Brief §8.1: konkretny wymagany kapitał (gracz widzi wartość). -->
-            <!-- Brief §8.1: concrete required capital (player sees the value). -->
-            <div class="legal-region-meta">
-                <span><?= t('legal.required_capital_label') ?>: <strong><?= number_format($reqCap, 0, ',', ' ') ?> PLN</strong></span>
-                <span class="legal-capital-missing"><?= t('legal.capital_missing', ['amount' => number_format($missing, 0, ',', ' ')]) ?></span>
-            </div>
-        </div>
-    <?php endforeach ?>
-    </div>
-</section>
-<?php endif ?>
-
-<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked)): ?>
+<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked)): ?>
 <section class="card">
     <p><?= t('legal.no_regions') ?></p>
 </section>

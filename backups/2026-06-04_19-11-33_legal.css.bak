@@ -71,12 +71,6 @@
     background: linear-gradient(145deg, rgba(224,85,85,.04) 0%, #0f0f18 60%);
     opacity: .88;
 }
-/* Brief §7.3: region wysokiego ryzyka — blokada kapitałowa. */
-/* Brief §7.3: high-risk region — capital lock. */
-.legal-region-card--capital-locked {
-    border-left-color: #95a5a6;
-    background: linear-gradient(145deg, rgba(149,165,166,.05) 0%, #0f0f18 60%);
-}
 
 /* ── Nagłówek karty: nazwa + badge ─────────────────────────── */
 .legal-region-name {
@@ -137,41 +131,6 @@
     background: rgba(255,255,255,.04);
     color: rgba(232,232,240,.3);
     border: 1px solid rgba(255,255,255,.07);
-}
-.legal-badge--locked {
-    background: rgba(149,165,166,.14);
-    color: #b8c2c3;
-    border: 1px solid rgba(149,165,166,.3);
-}
-
-/* ── Opisy: co odblokowuje, zezwolenie przejściowe, blokada (§8.1,§12.2,§15.1) ── */
-/* ── Notes: unlocks, transitional permit, lock (§8.1, §12.2, §15.1) ── */
-.legal-region-unlocks {
-    margin: 0 0 10px;
-    font-size: 11px;
-    font-style: italic;
-    color: rgba(232,232,240,.45);
-    line-height: 1.5;
-}
-.legal-region-note {
-    margin: 0 0 10px;
-    padding: 8px 11px;
-    border-radius: 6px;
-    font-size: 11.5px;
-    line-height: 1.55;
-}
-.legal-region-note--transitional {
-    background: rgba(78,201,122,.06);
-    border: 1px solid rgba(78,201,122,.2);
-    color: rgba(232,232,240,.7);
-}
-.legal-region-note--locked {
-    background: rgba(149,165,166,.06);
-    border: 1px solid rgba(149,165,166,.2);
-    color: rgba(232,232,240,.7);
-}
-.legal-capital-missing {
-    color: var(--red) !important;
 }
 
 /* ── Meta tagi ──────────────────────────────────────────────── */

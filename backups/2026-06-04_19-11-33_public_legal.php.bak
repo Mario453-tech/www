@@ -46,16 +46,11 @@ foreach ($configs as $cfg) {
     $permitsByRegion[$rid] = $legal->getPermitStatus($playerId, $rid);
 }
 
-// Pobranie salda gracza (potrzebne też do klasyfikacji blokady kapitałowej §7.3)
-// Player cash (also needed to classify capital lock §7.3)
-$cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
-
 // Pogrupowane regiony
-$active        = []; // granted / transitional
-$inProgress    = []; // pending / delayed / no_decision
-$available     = []; // none lub refused (po cooldown), firma spełnia wymóg kapitału
-$locked        = []; // refused (w cooldown)
-$capitalLocked = []; // brief §7.3: region wysokiego ryzyka — brak wymaganego kapitału
+$active     = []; // granted / transitional
+$inProgress = []; // pending / delayed / no_decision
+$available  = []; // none lub refused (po cooldown)
+$locked     = []; // refused (w cooldown)
 
 $now = new DateTime();
 foreach ($configs as $cfg) {
@@ -70,29 +65,23 @@ foreach ($configs as $cfg) {
         $active[] = ['config' => $cfg, 'permit' => $permit];
     } elseif (in_array($status, ['pending', 'delayed', 'no_decision'], true)) {
         $inProgress[] = ['config' => $cfg, 'permit' => $permit];
-    } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])
-              && new DateTime((string)$permit['application']['refusal_cooldown_until']) > $now) {
-        $locked[] = [
-            'config'         => $cfg,
-            'permit'         => $permit,
-            'cooldown_until' => new DateTime((string)$permit['application']['refusal_cooldown_until']),
-        ];
-    } else {
-        // Brak aktywnego zezwolenia ani cooldownu — region dostępny LUB
-        // zablokowany kapitałowo (brief §7.3: nie pozwalamy złożyć wniosku).
-        // No active permit nor cooldown — region available OR capital-locked
-        // (brief §7.3: applying is blocked until the company meets the capital).
-        $reqCapital = (float)$cfg['required_capital'];
-        if ($reqCapital > 0.0 && $cash < $reqCapital) {
-            $capitalLocked[] = ['config' => $cfg, 'permit' => $permit, 'required_capital' => $reqCapital];
+    } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])) {
+        $cooldown = new DateTime((string)$permit['application']['refusal_cooldown_until']);
+        if ($cooldown > $now) {
+            $locked[] = ['config' => $cfg, 'permit' => $permit, 'cooldown_until' => $cooldown];
         } else {
             $available[] = ['config' => $cfg, 'permit' => $permit];
         }
+    } else {
+        $available[] = ['config' => $cfg, 'permit' => $permit];
     }
 }
 
+// Pobranie salda gracza
+$cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
+
 $viewData = compact(
-    'active', 'inProgress', 'available', 'locked', 'capitalLocked',
+    'active', 'inProgress', 'available', 'locked',
     'cash', 'error', 'success'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));

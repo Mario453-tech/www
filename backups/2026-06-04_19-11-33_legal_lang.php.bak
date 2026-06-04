@@ -12,11 +12,10 @@ return [
     'legal.page_title'   => 'Dział prawny',
     'legal.page_intro'   => 'Tu możesz złożyć wniosek o zezwolenie na wiercenie w wybranym regionie. Zezwolenie jest wymagane przed zakupem odwiertu. Decyzja zapada automatycznie po upływie czasu rozpatrzenia.',
 
-    'legal.section_active'         => 'Aktywne zezwolenia',
-    'legal.section_in_progress'    => 'Wnioski w toku',
-    'legal.section_available'      => 'Dostępne regiony',
-    'legal.section_locked'         => 'Regiony zablokowane (cooldown)',
-    'legal.section_capital_locked' => 'Regiony wysokiego ryzyka (wymagany kapitał)',
+    'legal.section_active'      => 'Aktywne zezwolenia',
+    'legal.section_in_progress' => 'Wnioski w toku',
+    'legal.section_available'   => 'Dostępne regiony',
+    'legal.section_locked'      => 'Regiony zablokowane (cooldown)',
 
     'legal.risk_label'        => 'Poziom ryzyka',
     'legal.cost_label'        => 'Opłata za wniosek',
@@ -24,18 +23,6 @@ return [
     'legal.decided_at'        => 'Decyzja wydana',
     'legal.decision_due'      => 'Decyzja spodziewana do',
     'legal.delay_count'       => 'Opóźnienie nr :n',
-
-    // Brief §15.1 / §8.1: co zezwolenie odblokowuje (widoczne dla gracza).
-    // Brief §15.1 / §8.1: what the permit unlocks (shown to the player).
-    'legal.unlocks_note'      => 'Zezwolenie odblokowuje zakup i obsługę odwiertów w tym regionie.',
-    // Brief §12.2: opis zezwolenia przejściowego dla obecnych graczy.
-    // Brief §12.2: transitional permit description for existing players.
-    'legal.transitional_note' => 'Ten region został tymczasowo odblokowany, ponieważ Twoja firma prowadziła tu działalność przed wprowadzeniem działu prawnego. Nowe inwestycje mogą wymagać normalnego zezwolenia.',
-    // Brief §7.3 / §8.1: blokada kapitałowa regionu wysokiego ryzyka.
-    // Brief §7.3 / §8.1: capital lock of a high-risk region.
-    'legal.badge_high_risk'        => 'Region wysokiego ryzyka',
-    'legal.required_capital_label' => 'Wymagany kapitał',
-    'legal.capital_missing'        => 'Brakuje jeszcze :amount PLN',
 
     'legal.btn_submit'      => 'Złóż wniosek',
     'legal.confirm_submit'  => 'Złożyć wniosek o zezwolenie na wiercenie w regionie ":region"? Opłata: :cost PLN zostanie pobrana natychmiast.',
