@@ -611,24 +611,11 @@
         } else if (isOccupied) {
             buyHtml = '<div class="loc-taken-badge">' + mlt('taken_badge') + '</div>';
         } else if (r && r.has_permit === false) {
-            // Brief §6.2 / §14.1: modal "Brak zezwolenia na wiercenie" — tytuł,
-            // treść, typ zezwolenia, opis co odblokowuje oraz przyciski
-            // "Anuluj" + "Przejdź do działu prawnego".
-            // Brief §6.2 / §14.1: "no drilling permit" modal — title, body,
-            // permit type, what it unlocks and "Cancel" + "Go to legal" buttons.
             buyHtml =
                 '<div class="loc-permit-required">'
               + '<div class="loc-permit-title">' + mlt('permit_required_title') + '</div>'
               + '<div class="loc-permit-text">'  + mlt('permit_required_text')  + '</div>'
-              + '<div class="loc-permit-rows">'
-              +     '<div class="loc-permit-row"><span class="loc-permit-lbl">' + mlt('permit_type_label') + '</span>'
-              +         '<span class="loc-permit-val">' + mlt('permit_type_drilling') + '</span></div>'
-              + '</div>'
-              + '<div class="loc-permit-unlocks">' + mlt('permit_required_unlocks') + '</div>'
-              + '<div class="loc-permit-actions">'
-              +     '<button type="button" class="btn-permit-cancel" onclick="window.__mapBackToRegion && window.__mapBackToRegion()">' + mlt('permit_cancel_btn') + '</button>'
-              +     '<a href="/legal" class="btn-permit-legal">' + mlt('permit_required_btn') + '</a>'
-              + '</div>'
+              + '<a href="/legal" class="btn-permit-legal">' + mlt('permit_required_btn') + '</a>'
               + '</div>';
         } else if (playerCash < totalCost) {
             buyHtml =
@@ -728,13 +715,6 @@
 
     window.__mapShowLocation = showLocation;
     window.__mapShowAllLoc   = showAllLocations;
-    // Brief §6.2: przycisk "Anuluj" w modalu braku zezwolenia — powrót do
-    // panelu regionu (lub placeholder, jeśli brak aktywnego regionu).
-    // Brief §6.2: "Cancel" button in the no-permit modal — back to the region
-    // panel (or placeholder when no region is active).
-    window.__mapBackToRegion = function () {
-        if (currentRegionId) showRegion(currentRegionId); else showPanel('placeholder');
-    };
 
     function fmt(n) {
         return new Intl.NumberFormat(window.APP_LOCALE || 'pl-PL', { maximumFractionDigits: 0 }).format(n);

@@ -30,9 +30,7 @@ return [
     'worldmap.msg_well_purchased' => 'Odwiert uruchomiony: :name (:region). Produkcja: :prod bbl/h.',
     'map_js.prod_bonus' => 'Bonus produkcji',
     'map_js.tax_rate' => 'Podatek/h',
-    // Brief §3: nazewnictwo — "ryzyko regionu", nigdy "ryzyko polityczne".
-    // Brief §3: naming — "region risk", never "political risk".
-    'map_js.political_risk' => 'Ryzyko regionu',
+    'map_js.political_risk' => 'Ryzyko polit.',
     'map_js.entry_cost' => 'Koszt wejścia',
     'map_js.badge_mine' => 'Twój',
     'map_js.badge_taken' => 'Zajęty',
@@ -49,17 +47,9 @@ return [
     'map_js.tax_suffix' => '%/h przychodu',
     'map_js.buy_btn' => 'Kup odwiert - :cost PLN',
     'map_js.buying' => 'Kupowanie...',
-    // Brief §6.2 / §14.1: modal "Brak zezwolenia na wiercenie" — tytuł, treść,
-    // opis co zezwolenie odblokowuje, typ zezwolenia i przyciski.
-    // Brief §6.2 / §14.1: "no drilling permit" modal — title, body, what the
-    // permit unlocks, permit type and buttons.
-    'map_js.permit_required_title' => 'Brak zezwolenia na wiercenie',
-    'map_js.permit_required_text' => 'Nie możesz kupić odwiertu w tym regionie, ponieważ Twoja firma nie ma aktywnego zezwolenia na wiercenie. Złóż wniosek w dziale prawnym, aby odblokować ten region.',
-    'map_js.permit_required_unlocks' => 'Aktywne zezwolenie pozwala kupować i obsługiwać odwierty w tym regionie.',
-    'map_js.permit_type_label' => 'Typ zezwolenia',
-    'map_js.permit_type_drilling' => 'Zezwolenie na wiercenie',
+    'map_js.permit_required_title' => 'Wymagane zezwolenie na wiercenie',
+    'map_js.permit_required_text' => 'Zanim kupisz odwiert w tym regionie, musisz uzyskać aktywne zezwolenie na wiercenie. Złóż wniosek w dziale prawnym.',
     'map_js.permit_required_btn' => 'Przejdź do działu prawnego',
-    'map_js.permit_cancel_btn' => 'Anuluj',
     'map_js.badge_permit' => 'Zezwolenie',
     'map_js.buy_confirm_title' => 'Potwierdź zakup',
     'map_js.buy_confirm_text' => 'Kupić odwiert w lokalizacji :location za :cost PLN?',
