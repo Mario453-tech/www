@@ -30,13 +30,11 @@
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.legal.seed_title') ?></p>
     <p class="panel-hint"><?= t('admin.legal.seed_hint') ?></p>
-    <form method="post" action="/admin/legal.php?tab=regions"
-          class="js-confirm-form"
-          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.seed_confirm')) ?>"
-          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_seed_regions')) ?>">
+    <form method="post" action="/admin/legal.php?tab=regions">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_regions">
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary"
+                onclick="return confirm(<?= json_encode(tPlain('admin.legal.seed_confirm'), JSON_UNESCAPED_UNICODE) ?>)">
             <?= t('admin.legal.btn_seed_regions') ?>
         </button>
     </form>
@@ -46,14 +44,11 @@
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.legal.migration_title') ?></p>
     <p class="panel-hint"><?= t('admin.legal.migration_hint') ?></p>
-    <form method="post" action="/admin/legal.php?tab=regions"
-          class="js-confirm-form"
-          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.migration_confirm')) ?>"
-          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_run_migration')) ?>"
-          data-confirm-type="warning">
+    <form method="post" action="/admin/legal.php?tab=regions">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="run_migration">
-        <button type="submit" class="btn btn-warning">
+        <button type="submit" class="btn btn-warning"
+                onclick="return confirm(<?= json_encode(tPlain('admin.legal.migration_confirm'), JSON_UNESCAPED_UNICODE) ?>)">
             <?= t('admin.legal.btn_run_migration') ?>
         </button>
     </form>
@@ -78,14 +73,11 @@
                 <th><?= t('admin.legal.col_region') ?></th>
                 <th><?= t('admin.legal.col_risk') ?></th>
                 <th><?= t('admin.legal.col_enabled') ?></th>
-                <th><?= t('admin.legal.col_offshore') ?></th>
                 <th><?= t('admin.legal.col_cost') ?></th>
                 <th><?= t('admin.legal.col_review_min') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_delay_pct_hint')) ?>"><?= t('admin.legal.col_delay_pct') ?></th>
-                <th><?= t('admin.legal.col_delay_min') ?></th>
-                <th><?= t('admin.legal.col_delay_max') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_refusal_pct_hint')) ?>"><?= t('admin.legal.col_refusal_pct') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_nodec_pct_hint')) ?>"><?= t('admin.legal.col_nodec_pct') ?></th>
+                <th><?= t('admin.legal.col_delay_pct') ?></th>
+                <th><?= t('admin.legal.col_refusal_pct') ?></th>
+                <th><?= t('admin.legal.col_nodec_pct') ?></th>
                 <th><?= t('admin.legal.col_cooldown') ?></th>
                 <th><?= t('admin.legal.col_capital') ?></th>
                 <th></th>
@@ -107,12 +99,9 @@
                 </select>
             </td>
             <td><input type="checkbox" name="enabled" value="1" <?= (int)$cfg['enabled'] ? 'checked' : '' ?>></td>
-            <td><input type="checkbox" name="is_offshore" value="1" <?= (int)($cfg['is_offshore'] ?? 0) ? 'checked' : '' ?>></td>
             <td><input type="number" name="application_cost"     value="<?= (float)$cfg['application_cost'] ?>"    min="0"   step="1000"  class="input-sm" style="width:110px"></td>
             <td><input type="number" name="base_review_minutes"  value="<?= (int)$cfg['base_review_minutes'] ?>"   min="1"   step="5"     class="input-sm" style="width:70px"></td>
             <td><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="delay_min_minutes"    value="<?= (int)($cfg['delay_min_minutes'] ?? 10) ?>" min="1" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="delay_max_minutes"    value="<?= (int)($cfg['delay_max_minutes'] ?? 30) ?>" min="1" step="1" class="input-sm" style="width:60px"></td>
             <td><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
             <td><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm" style="width:60px"></td>
             <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm" style="width:70px"></td>
@@ -170,19 +159,13 @@
             <td><?= htmlspecialchars((string)($app['region_name'] ?? '#' . $app['region_id'])) ?></td>
             <td><span class="badge <?= $statusCss ?>"><?= htmlspecialchars((string)$app['status']) ?></span>
                 <?php if ((int)($app['delay_count'] ?? 0) > 0): ?>
-                <br><small><?= t('admin.legal.delay_count_label', ['n' => (int)$app['delay_count']]) ?></small>
+                <br><small>opóźnień: <?= (int)$app['delay_count'] ?></small>
                 <?php endif ?>
             </td>
             <td><small><?= htmlspecialchars(substr((string)($app['submitted_at'] ?? '—'), 0, 16)) ?></small></td>
             <td><small><?= htmlspecialchars(substr((string)($app['decision_due_at'] ?? '—'), 0, 16)) ?></small></td>
             <td><small><?= htmlspecialchars(substr((string)($app['decided_at'] ?? '—'), 0, 16)) ?></small></td>
             <td>
-                <?php
-                // Brief §16.3: nazwa gracza i regionu do treści modalu potwierdzenia.
-                // Brief §16.3: player and region names for the confirmation modal body.
-                $confPlayer = (string)($app['company_name'] ?? $app['username'] ?? ('#' . $app['player_id']));
-                $confRegion = (string)($app['region_name'] ?? ('#' . $app['region_id']));
-                ?>
                 <div class="legal-admin-actions">
                 <?php foreach ([
                     'manual_grant'        => ['btn-success', t('admin.legal.action_grant')],
@@ -191,21 +174,12 @@
                     'manual_refuse'       => ['btn-danger',  t('admin.legal.action_refuse')],
                     'manual_reset_pending'=> ['btn-secondary', t('admin.legal.action_reset')],
                 ] as $act => [$btnCss, $btnLabel]): ?>
-                <?php
-                $confMsg = tPlain('admin.legal.confirm_manual', [
-                    'action' => $btnLabel,
-                    'player' => $confPlayer,
-                    'region' => $confRegion,
-                ]);
-                ?>
-                <form method="post" action="/admin/legal.php?tab=applications" style="display:inline"
-                      class="js-confirm-form"
-                      data-confirm="<?= htmlspecialchars($confMsg) ?>"
-                      data-confirm-title="<?= htmlspecialchars($btnLabel) ?>">
+                <form method="post" action="/admin/legal.php?tab=applications" style="display:inline">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action" value="<?= $act ?>">
                     <input type="hidden" name="app_id" value="<?= (int)$app['id'] ?>">
-                    <button type="submit" class="btn btn-xs <?= $btnCss ?>"><?= $btnLabel ?></button>
+                    <button type="submit" class="btn btn-xs <?= $btnCss ?>"
+                            onclick="return confirm('<?= t('admin.legal.confirm_action') ?>')"><?= $btnLabel ?></button>
                 </form>
                 <?php endforeach ?>
                 </div>
@@ -219,39 +193,3 @@
 </section>
 
 <?php endif ?>
-
-<script>
-/* Brief §14 / §16.3: wszystkie ważne akcje admina (seed, migracja, akcje
-   ręczne na wnioskach) przechodzą przez systemowy modal potwierdzenia
-   zamiast natywnego confirm(). Natywny confirm() tylko jako awaryjny fallback.
-   Brief §14 / §16.3: all important admin actions go through the system
-   confirmation modal instead of native confirm(). Native confirm() only as
-   emergency fallback. */
-(function () {
-    'use strict';
-    document.addEventListener('submit', function (e) {
-        var form = e.target.closest('form.js-confirm-form');
-        if (!form) return;
-        if (form.dataset.confirmed === '1') { form.dataset.confirmed = ''; return; }
-
-        var msg   = form.dataset.confirm || '';
-        var title = form.dataset.confirmTitle || '';
-        var type  = form.dataset.confirmType || 'confirm';
-
-        e.preventDefault();
-
-        if (typeof window.confirmAction !== 'function') {
-            // Awaryjny fallback / Emergency fallback.
-            if (window.confirm(msg)) { form.dataset.confirmed = '1'; form.submit(); }
-            return;
-        }
-
-        window.confirmAction(msg, function () {
-            form.dataset.confirmed = '1';
-            if (typeof form.requestSubmit === 'function') { form.requestSubmit(); }
-            else { form.submit(); }
-            setTimeout(function () { form.dataset.confirmed = ''; }, 0);
-        }, { title: title, type: type });
-    }, true);
-})();
-</script>

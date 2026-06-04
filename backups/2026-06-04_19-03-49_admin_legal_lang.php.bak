@@ -27,19 +27,11 @@ return [
     'admin.legal.col_region'     => 'Region',
     'admin.legal.col_risk'       => 'Ryzyko',
     'admin.legal.col_enabled'    => 'Włączony',
-    'admin.legal.col_offshore'   => 'Offshore',
     'admin.legal.col_cost'       => 'Koszt (PLN)',
     'admin.legal.col_review_min' => 'Czas (min)',
-    // Brief §10.2: pełne, jednoznaczne nazwy pól ryzyka (nie samo „opóźnienie").
-    // Brief §10.2: full, unambiguous risk field names (not bare "delay").
-    'admin.legal.col_delay_pct'       => 'Ryzyko opóźn. %',
-    'admin.legal.col_delay_pct_hint'  => 'Ryzyko opóźnienia decyzji',
-    'admin.legal.col_delay_min'       => 'Min opóźn. (min)',
-    'admin.legal.col_delay_max'       => 'Max opóźn. (min)',
-    'admin.legal.col_refusal_pct'     => 'Ryzyko odmowy %',
-    'admin.legal.col_refusal_pct_hint'=> 'Ryzyko odmowy wydania zezwolenia',
-    'admin.legal.col_nodec_pct'       => 'Ryzyko braku dec. %',
-    'admin.legal.col_nodec_pct_hint'  => 'Ryzyko braku decyzji urzędu',
+    'admin.legal.col_delay_pct'  => 'Opóźn. %',
+    'admin.legal.col_refusal_pct'=> 'Odmowa %',
+    'admin.legal.col_nodec_pct'  => 'Brak dec. %',
     'admin.legal.col_cooldown'   => 'Cooldown (min)',
     'admin.legal.col_capital'    => 'Min. kapitał',
     'admin.legal.btn_save'       => 'Zapisz',
@@ -54,7 +46,6 @@ return [
     'admin.legal.col_due'            => 'Termin decyzji',
     'admin.legal.col_decided'        => 'Decyzja wydana',
     'admin.legal.col_actions'        => 'Akcje',
-    'admin.legal.delay_count_label'  => 'opóźnień: :n',
 
     // Przyciski akcji manualnych
     'admin.legal.action_grant'        => 'Przyznaj',
@@ -63,9 +54,6 @@ return [
     'admin.legal.action_refuse'       => 'Odrzuć',
     'admin.legal.action_reset'        => 'Reset →pending',
     'admin.legal.confirm_action'      => 'Potwierdzasz wykonanie tej akcji?',
-    // Brief §16.3: modal potwierdzenia z konkretnym graczem i regionem.
-    // Brief §16.3: confirmation modal naming the specific player and region.
-    'admin.legal.confirm_manual'      => 'Akcja „:action" dla gracza :player (region: :region). Czy na pewno wykonać?',
 
     // Komunikaty sukcesu / błędu
     'admin.legal.msg_region_saved'      => 'Konfiguracja regionu #:id została zapisana.',
