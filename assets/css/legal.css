@@ -1,25 +1,22 @@
 /*
-   DZIA PRAWNY — STYL WIDOKU GRACZA
-   Legal Department — player-facing view styles.
-   Zaley od: variables.css, style.css (.card, .btn-primary).
-   Depends on: variables.css, style.css (.card, .btn-primary).
+   DZIAŁ PRAWNY — STYL WIDOKU GRACZA v2
+   Zależy od: variables.css, style.css (.card, .btn-primary)
 */
 
-/* Naglwek sekcji (h3 wewntrz .card) / Section heading inside .card */
+/* ── Nagłówek sekcji h3 ─────────────────────────────────────── */
 .card h3 {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 3px;
+    letter-spacing: .12em;
     text-transform: uppercase;
     color: var(--gold);
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(200,168,75,.12);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
-
 .card h3::before {
     content: '';
     display: inline-block;
@@ -30,175 +27,180 @@
     flex-shrink: 0;
 }
 
-/* Lista regionw / Region list container */
+/* ── Lista regionów ─────────────────────────────────────────── */
 .legal-region-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
-/* Karta pojedynczego regionu / Single region card */
+/* ── Karta regionu ──────────────────────────────────────────── */
 .legal-region-card {
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(200,168,75,.15);
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(255,255,255,.07);
     border-left: 3px solid rgba(200,168,75,.3);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    transition: border-color .2s, background .2s;
+    border-radius: 10px;
+    padding: 14px 18px;
+    transition: border-color .18s, background .18s, transform .15s;
 }
-
 .legal-region-card:hover {
-    background: rgba(255,255,255,.05);
-    border-color: rgba(200,168,75,.3);
-    border-left-color: rgba(200,168,75,.6);
+    background: linear-gradient(145deg, #18182a, #111120);
+    border-color: rgba(200,168,75,.25);
+    border-left-color: rgba(200,168,75,.7);
+    transform: translateY(-1px);
 }
 
-/* Warianty stanu karty / Card state variants */
+/* Warianty stanu */
 .legal-region-card--active {
     border-left-color: var(--green);
-    background: rgba(78,201,122,.03);
+    background: linear-gradient(145deg, rgba(78,201,122,.05) 0%, #0f0f18 60%);
 }
 .legal-region-card--active:hover {
     border-left-color: var(--green);
-    background: rgba(78,201,122,.05);
+    background: linear-gradient(145deg, rgba(78,201,122,.08) 0%, #0f0f18 60%);
 }
-
 .legal-region-card--pending {
     border-left-color: var(--gold);
+    background: linear-gradient(145deg, rgba(200,168,75,.05) 0%, #0f0f18 60%);
 }
-
+.legal-region-card--available {
+    border-left-color: rgba(200,168,75,.35);
+}
 .legal-region-card--locked {
     border-left-color: var(--red);
-    opacity: .85;
+    background: linear-gradient(145deg, rgba(224,85,85,.04) 0%, #0f0f18 60%);
+    opacity: .88;
 }
 
-/* Wiersz: nazwa + odznaka / Row: name + badge */
+/* ── Nagłówek karty: nazwa + badge ─────────────────────────── */
 .legal-region-name {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text);
     margin-bottom: 10px;
-    flex-wrap: nowrap;
 }
-
-/* Tekst nazwy regionu — kurczy się jeśli za długi / Region name text — shrinks when too long */
 .legal-region-name__text {
     min-width: 0;
     word-break: break-word;
+    line-height: 1.3;
 }
 
-/* Odznaki statusu / Status badges */
+/* ── Badge statusu ──────────────────────────────────────────── */
 .legal-badge {
-    display: inline-block;
-    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: .07em;
     text-transform: uppercase;
-    padding: 3px 10px;
-    border-radius: 20px;
+    padding: 4px 11px;
+    border-radius: 999px;
     white-space: nowrap;
     flex-shrink: 0;
 }
-
 .legal-badge--granted {
-    background: rgba(78,201,122,.15);
+    background: rgba(78,201,122,.12);
     color: var(--green);
-    border: 1px solid rgba(78,201,122,.3);
+    border: 1px solid rgba(78,201,122,.28);
 }
-
 .legal-badge--pending {
-    background: rgba(200,168,75,.15);
-    color: var(--gold);
-    border: 1px solid rgba(200,168,75,.35);
+    background: rgba(200,168,75,.12);
+    color: var(--gold2);
+    border: 1px solid rgba(200,168,75,.3);
 }
-
 .legal-badge--delayed {
-    background: rgba(240,160,80,.15);
+    background: rgba(240,160,80,.12);
     color: var(--orange);
-    border: 1px solid rgba(240,160,80,.35);
+    border: 1px solid rgba(240,160,80,.3);
 }
-
 .legal-badge--no-decision {
-    background: rgba(255,255,255,.06);
-    color: rgba(232,232,240,.45);
-    border: 1px solid rgba(255,255,255,.1);
-}
-
-.legal-badge--refused {
-    background: rgba(224,85,85,.15);
-    color: var(--red);
-    border: 1px solid rgba(224,85,85,.3);
-}
-
-.legal-badge--none {
     background: rgba(255,255,255,.05);
-    color: rgba(232,232,240,.35);
-    border: 1px solid rgba(255,255,255,.08);
+    color: rgba(232,232,240,.4);
+    border: 1px solid rgba(255,255,255,.09);
+}
+.legal-badge--refused {
+    background: rgba(224,85,85,.12);
+    color: var(--red);
+    border: 1px solid rgba(224,85,85,.28);
+}
+.legal-badge--none {
+    background: rgba(255,255,255,.04);
+    color: rgba(232,232,240,.3);
+    border: 1px solid rgba(255,255,255,.07);
 }
 
-/* Metadane regionu — tabsy waciwoci / Region meta — property tags */
+/* ── Meta tagi ──────────────────────────────────────────────── */
 .legal-region-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
+    gap: 6px;
     margin-bottom: 12px;
 }
-
 .legal-region-meta span {
     display: inline-flex;
     align-items: center;
-    background: rgba(255,255,255,.04);
+    gap: 4px;
+    background: rgba(255,255,255,.03);
     border: 1px solid rgba(255,255,255,.07);
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 4px 10px;
     font-size: 11px;
-    color: rgba(232,232,240,.6);
+    color: rgba(232,232,240,.5);
     line-height: 1.4;
 }
+.legal-region-meta span strong {
+    color: rgba(232,232,240,.8);
+    font-weight: 600;
+}
 
-/* Opnienie / Delay count pill */
+/* ── Kolory poziomu ryzyka ──────────────────────────────────── */
+.legal-risk-low      { color: var(--green);  font-weight: 700; }
+.legal-risk-medium   { color: var(--gold2);  font-weight: 700; }
+.legal-risk-high     { color: var(--orange); font-weight: 700; }
+.legal-risk-critical { color: var(--red);    font-weight: 700; }
+
+/* ── Delay pill ─────────────────────────────────────────────── */
 .legal-delay-count {
     background: rgba(240,160,80,.1) !important;
     border-color: rgba(240,160,80,.25) !important;
     color: var(--orange) !important;
+    font-weight: 700 !important;
 }
 
-/* Kolory poziomu ryzyka / Risk level colors */
-.legal-risk-low      { color: var(--green);  font-weight: 600; }
-.legal-risk-medium   { color: var(--gold);   font-weight: 600; }
-.legal-risk-high     { color: var(--orange); font-weight: 600; }
-.legal-risk-critical { color: var(--red);    font-weight: 600; }
-
-/* Cooldown / Cooldown notice */
+/* ── Cooldown ───────────────────────────────────────────────── */
 .legal-cooldown {
-    color: var(--red) !important;
-    border-color: rgba(224,85,85,.25) !important;
     background: rgba(224,85,85,.08) !important;
+    border-color: rgba(224,85,85,.22) !important;
+    color: var(--red) !important;
 }
 
-/* Przycisk zoenia wniosku / Submit button row */
-.legal-submit-form {
+/* ── Przycisk złóż wniosek ──────────────────────────────────── */
+.legal-submit-form { margin-top: 4px; }
+.legal-submit-btn  {
+    min-width: 160px;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: .07em !important;
+    text-transform: uppercase !important;
+}
+
+/* ── Brak środków ───────────────────────────────────────────── */
+.legal-insufficient {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--red);
+    background: rgba(224,85,85,.07);
+    border: 1px solid rgba(224,85,85,.2);
+    border-radius: 8px;
+    padding: 7px 12px;
     margin-top: 4px;
 }
-
-.legal-submit-btn {
-    min-width: 160px;
-}
-
-/* Brak rodkw / Insufficient funds notice */
-.legal-insufficient {
-    font-size: 12px;
-    color: rgba(224,85,85,.8);
-    padding: 6px 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 .legal-insufficient::before {
     content: '!';
     display: inline-flex;
@@ -211,27 +213,22 @@
     border: 1px solid rgba(224,85,85,.3);
     font-size: 11px;
     font-weight: 700;
-    color: var(--red);
     flex-shrink: 0;
 }
 
-/* === RESPONSYWNO MOBILNA / MOBILE RESPONSIVE === */
+/* ── Intro card ─────────────────────────────────────────────── */
+.card > p:first-child {
+    font-size: 13px;
+    color: rgba(232,232,240,.6);
+    line-height: 1.65;
+}
 
+/* ── Mobile ─────────────────────────────────────────────────── */
 @media (max-width: 600px) {
-    .legal-region-name {
-        font-size: 14px;
-    }
-
-    .legal-region-meta {
-        gap: 5px;
-    }
-
-    .legal-region-meta span {
-        font-size: 10px;
-        padding: 3px 8px;
-    }
-
-    .legal-submit-btn {
-        width: 100%;
-    }
+    .legal-region-card { padding: 12px 14px; }
+    .legal-region-name { font-size: 14px; }
+    .legal-region-meta { gap: 5px; }
+    .legal-region-meta span { font-size: 10px; padding: 3px 8px; }
+    .legal-submit-btn { width: 100%; }
+    .legal-region-name { flex-wrap: wrap; }
 }
