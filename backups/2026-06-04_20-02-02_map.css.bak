@@ -311,31 +311,6 @@
     color: #c8a84b;
 }
 
-/* Warianty statusów zezwolenia na liście lokalizacji / Permit status badge variants */
-.loc-badge--permit-pending {
-    background: rgba(100, 140, 220, .12);
-    border: 1px solid rgba(100, 140, 220, .3);
-    color: #7ea8f0;
-}
-
-.loc-badge--permit-no-decision {
-    background: rgba(200, 140, 60, .12);
-    border: 1px solid rgba(200, 140, 60, .3);
-    color: #e09840;
-}
-
-.loc-badge--permit-refused {
-    background: rgba(210, 80, 80, .12);
-    border: 1px solid rgba(210, 80, 80, .3);
-    color: #e06060;
-}
-
-.loc-badge--permit-locked {
-    background: rgba(130, 100, 180, .12);
-    border: 1px solid rgba(130, 100, 180, .3);
-    color: #a080d0;
-}
-
 .loc-back {
     margin-bottom: 14px;
     padding: 0;
@@ -482,64 +457,12 @@
     font-size: 12px;
 }
 
-/* Banner aktywnego zezwolenia w panelu regionu (§6.1) / Active permit banner in region panel */
-.sr-permit--active {
-    padding: 8px 12px;
-    background: rgba(60, 180, 100, .12);
-    border: 1px solid rgba(60, 180, 100, .3);
-    border-radius: 6px;
-    color: #5ccc80;
-    font-size: 12px;
-    font-weight: 600;
-    text-align: center;
-    margin-bottom: 8px;
-}
-
 .loc-permit-required {
     padding: 14px;
     background: rgba(200, 168, 75, .08);
     border: 1px solid rgba(200, 168, 75, .25);
     border-radius: 6px;
     text-align: center;
-}
-
-/* Warianty panelu zezwolenia per status / Permit panel color variants per status */
-.loc-permit-required--pending,
-.loc-permit-required--delayed {
-    background: rgba(100, 140, 220, .08);
-    border-color: rgba(100, 140, 220, .25);
-}
-
-.loc-permit-required--pending .loc-permit-title,
-.loc-permit-required--delayed .loc-permit-title {
-    color: #7ea8f0;
-}
-
-.loc-permit-required--no-decision {
-    background: rgba(200, 140, 60, .08);
-    border-color: rgba(200, 140, 60, .25);
-}
-
-.loc-permit-required--no-decision .loc-permit-title {
-    color: #e09840;
-}
-
-.loc-permit-required--refused {
-    background: rgba(210, 80, 80, .08);
-    border-color: rgba(210, 80, 80, .25);
-}
-
-.loc-permit-required--refused .loc-permit-title {
-    color: #e06060;
-}
-
-.loc-permit-required--locked {
-    background: rgba(130, 100, 180, .08);
-    border-color: rgba(130, 100, 180, .25);
-}
-
-.loc-permit-required--locked .loc-permit-title {
-    color: #a080d0;
 }
 
 .loc-permit-title {

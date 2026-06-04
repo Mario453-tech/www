@@ -357,30 +357,24 @@ class WorldMap
             $locations = $this->getLocations();
             $occupied  = $this->getPlayerOccupiedLocations($playerId);
 
- // Dział prawny P1: batch status zezwolenia per region (§5).
- // 2 zapytania SQL zamiast N+1 hasActivePermit per region.
- // Legal P1: batch permit status per region — 2 SQL queries instead of N+1.
+ // Dział prawny P1: status zezwolenia gracza per region (granted/transitional).
+ // Pozwala mapie pokazać wymóg zezwolenia ZANIM gracz kliknie zakup.
             $permitByRegion = [];
             try {
-                $legal      = new LegalService($this->db);
-                $cashStmt   = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
-                $cashStmt->execute([$playerId]);
-                $playerCash = (float)($cashStmt->fetchColumn() ?? 0.0);
-                $regionIds  = array_map(fn($r) => (int)$r['id'], $regions);
-                $permitByRegion = $legal->getMapPermitData($playerId, $regionIds, $playerCash);
+                $legal = new LegalService($this->db);
+                foreach ($regions as $reg) {
+                    $rid = (int)$reg['id'];
+                    $permitByRegion[$rid] = $legal->hasActivePermit($playerId, $rid);
+                }
             } catch (Throwable $e) {
                 GameLog::error('WorldMap', 'getMapData permit status FAILED', $e, ['player_id' => $playerId]);
- // Fail-closed: przy błędzie traktuj wszystkie regiony jako none.
- // Fail-closed: on error treat all regions as no-permit.
+ // Fail-closed: przy błędzie traktuj wszystkie regiony jako bez zezwolenia.
+                foreach ($regions as $reg) {
+                    $permitByRegion[(int)$reg['id']] = false;
+                }
             }
             foreach ($regions as &$reg) {
-                $rid = (int)$reg['id'];
-                $pd  = $permitByRegion[$rid] ?? ['status' => 'none', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
-                $reg['has_permit']              = ($pd['status'] === 'active');
-                $reg['permit_status']           = $pd['status'];
-                $reg['permit_minutes_left']     = $pd['minutes_left'];
-                $reg['permit_cooldown_minutes'] = $pd['cooldown_minutes'];
-                $reg['permit_required_capital'] = $pd['required_capital'];
+                $reg['has_permit'] = $permitByRegion[(int)$reg['id']] ?? false;
             }
             unset($reg);
 

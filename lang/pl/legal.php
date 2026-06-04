@@ -15,7 +15,8 @@ return [
     'legal.section_active'      => 'Aktywne zezwolenia',
     'legal.section_in_progress' => 'Wnioski w toku',
     'legal.section_available'   => 'Dostępne regiony',
-    'legal.section_locked'      => 'Regiony zablokowane (cooldown)',
+    'legal.section_locked'         => 'Regiony zablokowane (cooldown)',
+    'legal.section_capital_locked' => 'Regiony wysokiego ryzyka — wymagany kapitał',
 
     'legal.risk_label'        => 'Poziom ryzyka',
     'legal.cost_label'        => 'Opłata za wniosek',
@@ -27,6 +28,12 @@ return [
     'legal.btn_submit'      => 'Złóż wniosek',
     'legal.confirm_submit'  => 'Złożyć wniosek o zezwolenie na wiercenie w regionie ":region"? Opłata: :cost PLN zostanie pobrana natychmiast.',
     'legal.no_regions'      => 'Brak dostępnych regionów do zarządzania zezwoleniami. Skontaktuj się z administratorem.',
+
+    'legal.badge_high_risk'         => 'Wysokie ryzyko',
+    'legal.required_capital_label'  => 'Wymagany kapitał firmy',
+    'legal.capital_missing'         => 'Brakuje: :amount PLN',
+    'legal.unlocks_note'            => 'Zezwolenie odblokowuje dostęp do odwiertów w tym regionie.',
+    'legal.transitional_note'       => 'Twoja firma otrzymała tymczasowe zezwolenie przejściowe — region jest tymczasowo odblokowany. Złóż wniosek o pełne zezwolenie, aby zachować dostęp.',
 
     // --- Bramka zakupu na mapie (etap 2) ---
     'legal.err_no_drilling_permit' => 'Nie możesz kupić odwiertu w tym regionie, ponieważ Twoja firma nie ma aktywnego zezwolenia na wiercenie. Złóż wniosek w dziale prawnym, aby odblokować region :region.',
@@ -57,6 +64,12 @@ return [
     'legal.status.granted'      => 'Zezwolenie aktywne',
     'legal.status.refused'      => 'Wniosek odrzucony',
     'legal.status.transitional' => 'Zezwolenie przejściowe',
+
+    // --- Powiadomienia dyrektora (§13) ---
+    'legal.notif.submitted.title'     => 'Wniosek o zezwolenie złożony',
+    'legal.notif.submitted.message'   => 'Wniosek o zezwolenie na wiercenie w regionie :region został złożony. Decyzja spodziewana za :time.',
+    'legal.notif.transitional.title'  => 'Zezwolenie przejściowe nadane',
+    'legal.notif.transitional.message' => 'Twoja firma otrzymała tymczasowe zezwolenie na wiercenie w regionie :region. Region jest tymczasowo odblokowany — złóż wniosek o pełne zezwolenie, aby zachować dostęp.',
 
     // --- Powiadomienia dyrektora (tick — etap 4) ---
     'legal.notif.granted.title'       => 'Zezwolenie na wiercenie przyznane',

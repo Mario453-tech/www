@@ -65,9 +65,6 @@ class LegalService
 
     private PDO $db;
 
-    /** @var array<int,string> Cache nazw regionów per instancja (używany w notifyDirector). */
-    private array $regionNameCache = [];
-
     /** @var array<int,bool> cache zapewnionego schematu per połączenie */
     private static array $schemaEnsured = [];
 
@@ -353,134 +350,6 @@ class LegalService
         }
     }
 
-    /**
-     * Batch-owy status zezwolenia per region dla widoku mapy (§5).
-     * Batch permit status per region for the map view.
-     *
-     * 2 zapytania SQL niezależnie od liczby regionów (nie N+1).
-     * 2 SQL queries regardless of region count (not N+1).
-     *
-     * Zwraca 7 statusów: active / pending / delayed / no_decision /
-     * refused / locked / none.
-     *
-     * @param  int[]              $regionIds
-     * @param  ?DateTimeInterface $now       Testowalność — domyślnie now()
-     * @return array<int,array{status:string,minutes_left:?int,cooldown_minutes:?int,required_capital:?float}>
-     */
-    public function getMapPermitData(
-        int                $playerId,
-        array              $regionIds,
-        float              $playerCash,
-        ?DateTimeInterface $now = null
-    ): array {
-        if (empty($regionIds)) {
-            return [];
-        }
-
-        $now   = $now ? DateTime::createFromInterface($now) : new DateTime();
-        $nowTs = $now->getTimestamp();
-        $ph    = implode(',', array_fill(0, count($regionIds), '?'));
-
-        // Zapytanie 1: wnioski gracza dla danych regionów.
-        // Query 1: player's applications for the given regions.
-        $apps = [];
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT region_id, status, decision_due_at, refusal_cooldown_until
-                   FROM drilling_permit_applications
-                  WHERE player_id = ? AND region_id IN ({$ph})"
-            );
-            $stmt->execute(array_merge([$playerId], $regionIds));
-            foreach ($stmt->fetchAll() as $row) {
-                $apps[(int)$row['region_id']] = $row;
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'getMapPermitData apps FAILED', $e, ['player_id' => $playerId]);
-            }
-        }
-
-        // Zapytanie 2: konfiguracje regionów (required_capital).
-        // Query 2: region configs (required_capital).
-        $configs = [];
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT region_id, required_capital
-                   FROM legal_region_config
-                  WHERE region_id IN ({$ph})"
-            );
-            $stmt->execute($regionIds);
-            foreach ($stmt->fetchAll() as $row) {
-                $configs[(int)$row['region_id']] = $row;
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'getMapPermitData configs FAILED', $e);
-            }
-        }
-
-        $result = [];
-        foreach ($regionIds as $rid) {
-            $rid             = (int)$rid;
-            $app             = $apps[$rid]    ?? null;
-            $cfg             = $configs[$rid] ?? null;
-            $requiredCapital = (float)($cfg['required_capital'] ?? 0.0);
-            $appStatus       = $app ? (string)$app['status'] : 'none';
-
-            // Aktywne zezwolenie (granted / transitional) — najwyższy priorytet.
-            // Active permit — highest priority.
-            if (in_array($appStatus, self::ACTIVE_STATUSES, true)) {
-                $result[$rid] = ['status' => 'active', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
-                continue;
-            }
-
-            // Wniosek w toku (pending / delayed) — zwróć minuty do decyzji.
-            // Application in progress — return minutes to decision.
-            if ($appStatus === self::STATUS_PENDING || $appStatus === self::STATUS_DELAYED) {
-                $minutesLeft = null;
-                if (!empty($app['decision_due_at'])) {
-                    $dueSecs     = (new DateTime((string)$app['decision_due_at']))->getTimestamp();
-                    $minutesLeft = max(0, (int)ceil(($dueSecs - $nowTs) / 60));
-                }
-                $result[$rid] = ['status' => $appStatus, 'minutes_left' => $minutesLeft, 'cooldown_minutes' => null, 'required_capital' => null];
-                continue;
-            }
-
-            // Brak decyzji.
-            // No decision issued.
-            if ($appStatus === self::STATUS_NO_DECISION) {
-                $result[$rid] = ['status' => 'no_decision', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
-                continue;
-            }
-
-            // Odmowa — cooldown aktywny.
-            // Refusal — cooldown still active.
-            if ($appStatus === self::STATUS_REFUSED && !empty($app['refusal_cooldown_until'])) {
-                $cdTs = (new DateTime((string)$app['refusal_cooldown_until']))->getTimestamp();
-                if ($cdTs > $nowTs) {
-                    $cdMin = max(0, (int)ceil(($cdTs - $nowTs) / 60));
-                    $result[$rid] = ['status' => 'refused', 'minutes_left' => null, 'cooldown_minutes' => $cdMin, 'required_capital' => null];
-                    continue;
-                }
-            }
-
-            // Brak aktywnego zezwolenia i brak cooldownu:
-            // — zablokowany kapitałowo → locked
-            // — w przeciwnym razie → none
-            // No active permit and no active cooldown:
-            // — capital-locked → locked
-            // — otherwise → none
-            if ($requiredCapital > 0.0 && $playerCash < $requiredCapital) {
-                $result[$rid] = ['status' => 'locked', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => $requiredCapital];
-                continue;
-            }
-
-            $result[$rid] = ['status' => 'none', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
-        }
-
-        return $result;
-    }
-
     // ------------------------------------------------------------- Mutations
 
     /**
@@ -608,13 +477,6 @@ class LegalService
             return ['success' => false, 'code' => 'error', 'message' => tPlain('legal.err.generic')];
         }
 
-        // Brief §13: powiadomienie dyrektora o złożeniu wniosku (po transakcji — nigdy nie cofa opłaty).
-        // Brief §13: director notification on submission (after commit — never rolls back the fee).
-        $this->notifyDirector($playerId, 'submitted', [
-            'region' => (string)($config['region_name'] ?? ('#' . $regionId)),
-            'time'   => self::minutesToHuman((int)$config['base_review_minutes']),
-        ], '📝', 'low');
-
         return [
             'success'         => true,
             'code'            => 'submitted',
@@ -731,11 +593,6 @@ class LegalService
                 ]);
                 if ($insert->rowCount() > 0) {
                     $migrated++;
-                    // Brief §13 / §12.2: powiadomienie o nadaniu zezwolenia przejściowego.
-                    // Brief §13 / §12.2: notification about the transitional permit grant.
-                    $this->notifyDirector((int)$pair['player_id'], 'transitional', [
-                        'region' => $this->resolveRegionName((int)$pair['region_id']),
-                    ], '🪪', 'low');
                 }
             } catch (Throwable $e) {
                 if (class_exists('GameLog', false)) {
@@ -755,69 +612,5 @@ class LegalService
         }
 
         return $migrated;
-    }
-
-    // -------------------------------------------------- Notification helpers
-
-    /**
-     * Wstawia powiadomienie dyrektora dla gracza (typ 'legal').
-     * Inserts a director notification for the player (type 'legal').
-     *
-     * W pełni owinięte try/catch — nigdy nie przerywa nadrzędnej operacji.
-     * Fully try/catch guarded — never breaks the parent operation.
-     *
-     * @param array<string,string> $params parametry do interpolacji wiadomości / message interpolation params
-     */
-    private function notifyDirector(
-        int    $playerId,
-        string $key,
-        array  $params,
-        string $icon,
-        string $priority = 'low'
-    ): void {
-        try {
-            $title   = tPlain("legal.notif.{$key}.title");
-            $message = tPlain("legal.notif.{$key}.message", $params);
-            $expires = (new DateTime())->modify('+72 hours')->format('Y-m-d H:i:s');
-
-            $this->db->prepare(
-                "INSERT INTO director_notifications
-                    (player_id, type, priority, title, message, icon,
-                     requires_action, action_url, action_label, expires_at)
-                 VALUES (?, 'legal', ?, ?, ?, ?, 0, 'legal.php', 'Dział prawny', ?)"
-            )->execute([$playerId, $priority, $title, $message, $icon, $expires]);
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'notifyDirector FAILED', $e, [
-                    'player_id' => $playerId,
-                    'key'       => $key,
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Zwraca nazwę regionu z cache'em per instancja.
-     * Returns region name with per-instance cache.
-     */
-    private function resolveRegionName(int $regionId): string
-    {
-        if (isset($this->regionNameCache[$regionId])) {
-            return $this->regionNameCache[$regionId];
-        }
-        $name = '#' . $regionId;
-        try {
-            $stmt = $this->db->prepare("SELECT name FROM world_regions WHERE id = ? LIMIT 1");
-            $stmt->execute([$regionId]);
-            $row = $stmt->fetch();
-            if ($row && !empty($row['name'])) {
-                $name = (string)$row['name'];
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'resolveRegionName FAILED', $e, ['region_id' => $regionId]);
-            }
-        }
-        return $this->regionNameCache[$regionId] = $name;
     }
 }

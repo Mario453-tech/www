@@ -3,7 +3,6 @@
 /** @var array<int,array<string,mixed>> $inProgress */
 /** @var array<int,array<string,mixed>> $available */
 /** @var array<int,array<string,mixed>> $locked */
-/** @var array<int,array<string,mixed>> $capitalLocked */
 /** @var float $cash */
 /** @var string $error */
 /** @var string $success */
@@ -48,10 +47,6 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.decided_at') ?>: <?= htmlspecialchars(substr((string)$app['decided_at'], 0, 16)) ?></span>
                 <?php endif ?>
             </div>
-            <?php if ($permit['status'] === 'transitional'): ?>
-            <p class="legal-region-note legal-region-note--transitional"><?= t('legal.transitional_note') ?></p>
-            <?php endif ?>
-            <p class="legal-region-note"><?= t('legal.unlocks_note') ?></p>
         </div>
     <?php endforeach ?>
     </div>
@@ -178,36 +173,7 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<!-- Regiony zablokowane kapitałowo (§7.3) / Capital-locked regions -->
-<?php if (!empty($capitalLocked)): ?>
-<section class="card">
-    <h3><?= t('legal.section_capital_locked') ?></h3>
-    <div class="legal-region-list">
-    <?php foreach ($capitalLocked as $entry): ?>
-        <?php
-        $cfg    = $entry['config'];
-        $requiredCapital = (float)$cfg['required_capital'];
-        $missing = max(0.0, $requiredCapital - $cash);
-        ?>
-        <div class="legal-region-card legal-region-card--capital-locked">
-            <div class="legal-region-name">
-                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
-                <span class="legal-badge legal-badge--locked"><?= t('legal.badge_high_risk') ?></span>
-            </div>
-            <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-                <span><?= t('legal.required_capital_label') ?>: <?= number_format($requiredCapital, 0, ',', ' ') ?> PLN</span>
-            </div>
-            <div class="legal-capital-missing">
-                <?= t('legal.capital_missing', ['amount' => number_format($missing, 0, ',', ' ')]) ?>
-            </div>
-        </div>
-    <?php endforeach ?>
-    </div>
-</section>
-<?php endif ?>
-
-<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked)): ?>
+<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked)): ?>
 <section class="card">
     <p><?= t('legal.no_regions') ?></p>
 </section>

@@ -501,66 +501,6 @@
         else showAllLocations();
     }
 
-    // Formatuje minuty jako "X min" lub "Y h" / Formats minutes as "X min" or "Y h".
-    function fmtMinutes(m) {
-        return m < 90 ? m + ' min' : Math.round(m / 60) + ' h';
-    }
-
-    // Badge lokalizacji na liście dla danego statusu zezwolenia.
-    // Location list badge for the given permit status.
-    function permitBadge(ps) {
-        var map = {
-            'pending':     ['loc-badge--permit-pending',     'badge_permit_pending'],
-            'delayed':     ['loc-badge--permit-pending',     'badge_permit_pending'],
-            'no_decision': ['loc-badge--permit-no-decision', 'badge_permit_no_decision'],
-            'refused':     ['loc-badge--permit-refused',     'badge_permit_refused'],
-            'locked':      ['loc-badge--permit-locked',      'badge_permit_locked'],
-        };
-        var m = map[ps];
-        if (m) return '<span class="loc-badge ' + m[0] + '">' + mlt(m[1]) + '</span>';
-        return '<span class="loc-badge loc-badge--permit">' + mlt('badge_permit') + '</span>';
-    }
-
-    // Panel zezwolenia w widoku lokalizacji (7 wariantów statusu).
-    // Permit panel in location view (7 status variants).
-    function buildPermitHtml(ps, r) {
-        var goLegal = '<a href="/legal" class="btn-permit-legal">' + mlt('permit_btn_go_legal') + '</a>';
-        if (ps === 'pending' || ps === 'delayed') {
-            var t = r && r.permit_minutes_left != null ? fmtMinutes(r.permit_minutes_left) : '?';
-            var tk = ps === 'pending' ? 'permit_pending_title' : 'permit_delayed_title';
-            var tx = ps === 'pending' ? 'permit_pending_text'  : 'permit_delayed_text';
-            return '<div class="loc-permit-required loc-permit-required--' + ps + '">'
-                 + '<div class="loc-permit-title">' + mlt(tk) + '</div>'
-                 + '<div class="loc-permit-text">'  + mlt(tx).replace(':time', t) + '</div>'
-                 + goLegal + '</div>';
-        }
-        if (ps === 'no_decision') {
-            return '<div class="loc-permit-required loc-permit-required--no-decision">'
-                 + '<div class="loc-permit-title">' + mlt('permit_no_decision_title') + '</div>'
-                 + '<div class="loc-permit-text">'  + mlt('permit_no_decision_text')  + '</div>'
-                 + goLegal + '</div>';
-        }
-        if (ps === 'refused') {
-            var cd = r && r.permit_cooldown_minutes != null ? fmtMinutes(r.permit_cooldown_minutes) : '?';
-            return '<div class="loc-permit-required loc-permit-required--refused">'
-                 + '<div class="loc-permit-title">' + mlt('permit_refused_title') + '</div>'
-                 + '<div class="loc-permit-text">'  + mlt('permit_refused_text').replace(':time', cd) + '</div>'
-                 + goLegal + '</div>';
-        }
-        if (ps === 'locked') {
-            var cap = r && r.permit_required_capital != null ? fmt(r.permit_required_capital) : '?';
-            return '<div class="loc-permit-required loc-permit-required--locked">'
-                 + '<div class="loc-permit-title">' + mlt('permit_locked_title') + '</div>'
-                 + '<div class="loc-permit-text">'  + mlt('permit_locked_text').replace(':capital', cap) + '</div>'
-                 + '</div>';
-        }
-        // Fallback: status 'none' — brak zezwolenia, można złożyć wniosek.
-        return '<div class="loc-permit-required">'
-             + '<div class="loc-permit-title">' + mlt('permit_required_title') + '</div>'
-             + '<div class="loc-permit-text">'  + mlt('permit_required_text')  + '</div>'
-             + goLegal + '</div>';
-    }
-
     function renderLocList(locs, containerId) {
         var el = document.getElementById(containerId);
         if (!el) return;
@@ -575,13 +515,13 @@
             var r          = regionById[loc.region_id];
             var cls        = isMine ? 'loc-item--mine' : isOccupied ? 'loc-item--taken' : 'loc-item--free';
             var tier       = loc.tier || 'medium';
-            var ps         = (!isMine && !isOccupied && r) ? (r.permit_status || 'none') : 'active';
+            var needsPermit = !isMine && !isOccupied && r && r.has_permit === false;
             var badge      = isMine
                 ? '<span class="loc-badge loc-badge--mine">'  + mlt('badge_mine')  + '</span>'
                 : isOccupied
                     ? '<span class="loc-badge loc-badge--taken">' + mlt('badge_taken') + '</span>'
-                    : (ps !== 'active')
-                        ? permitBadge(ps)
+                    : needsPermit
+                        ? '<span class="loc-badge loc-badge--permit">' + mlt('badge_permit') + '</span>'
                         : '<span class="loc-badge loc-badge--free">'  + mlt('badge_free')  + '</span>';
             var regionTag = containerId === 'browse-list'
                 ? '<span style="color:' + (r ? r.color_hex : '#aaa') + '">' + escHtml(r ? r.name : '') + '</span> - ' : '';
@@ -615,18 +555,6 @@
           + '<div class="sr-metric"><div class="sr-m-val c-warn">'  + Math.round(r.tax_rate * 100)        + '%</div><div class="sr-m-lbl">' + mlt('tax_rate')       + '</div></div>'
           + '<div class="sr-metric"><div class="sr-m-val">'         + riskStars                           + '</div><div class="sr-m-lbl">' + mlt('political_risk')  + '</div></div>'
           + '<div class="sr-metric"><div class="sr-m-val c-gold">'  + fmt(r.entry_cost)                   + '</div><div class="sr-m-lbl">' + mlt('entry_cost')      + '</div></div>';
-        // Banner aktywnego zezwolenia w panelu regionu (§6.1).
-        // Active permit banner in region panel.
-        var permitEl = document.getElementById('sr-permit');
-        if (permitEl) {
-            if (r.permit_status === 'active') {
-                permitEl.innerHTML = '<div class="sr-permit--active">' + mlt('permit_active_banner') + '</div>';
-                permitEl.style.display = '';
-            } else {
-                permitEl.innerHTML = '';
-                permitEl.style.display = 'none';
-            }
-        }
         refreshRegionLocations();
         showPanel('region');
     }
@@ -682,8 +610,13 @@
               + '<a href="/technical" class="btn-well-technical">' + mlt('well_go_technical') + '</a>';
         } else if (isOccupied) {
             buyHtml = '<div class="loc-taken-badge">' + mlt('taken_badge') + '</div>';
-        } else if (r && r.permit_status !== 'active') {
-            buyHtml = buildPermitHtml(r.permit_status || 'none', r);
+        } else if (r && r.has_permit === false) {
+            buyHtml =
+                '<div class="loc-permit-required">'
+              + '<div class="loc-permit-title">' + mlt('permit_required_title') + '</div>'
+              + '<div class="loc-permit-text">'  + mlt('permit_required_text')  + '</div>'
+              + '<a href="/legal" class="btn-permit-legal">' + mlt('permit_required_btn') + '</a>'
+              + '</div>';
         } else if (playerCash < totalCost) {
             buyHtml =
                 '<div class="loc-nofunds">'

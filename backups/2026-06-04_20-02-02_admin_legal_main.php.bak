@@ -73,14 +73,11 @@
                 <th><?= t('admin.legal.col_region') ?></th>
                 <th><?= t('admin.legal.col_risk') ?></th>
                 <th><?= t('admin.legal.col_enabled') ?></th>
-                <th><?= t('admin.legal.col_offshore') ?></th>
                 <th><?= t('admin.legal.col_cost') ?></th>
                 <th><?= t('admin.legal.col_review_min') ?></th>
-                <th title="<?= t('admin.legal.col_delay_pct_hint') ?>"><?= t('admin.legal.col_delay_pct') ?></th>
-                <th><?= t('admin.legal.col_delay_min') ?></th>
-                <th><?= t('admin.legal.col_delay_max') ?></th>
-                <th title="<?= t('admin.legal.col_refusal_pct_hint') ?>"><?= t('admin.legal.col_refusal_pct') ?></th>
-                <th title="<?= t('admin.legal.col_nodec_pct_hint') ?>"><?= t('admin.legal.col_nodec_pct') ?></th>
+                <th><?= t('admin.legal.col_delay_pct') ?></th>
+                <th><?= t('admin.legal.col_refusal_pct') ?></th>
+                <th><?= t('admin.legal.col_nodec_pct') ?></th>
                 <th><?= t('admin.legal.col_cooldown') ?></th>
                 <th><?= t('admin.legal.col_capital') ?></th>
                 <th></th>
@@ -101,13 +98,10 @@
                     <?php endforeach ?>
                 </select>
             </td>
-            <td><input type="checkbox" name="enabled"    value="1" <?= (int)$cfg['enabled']     ? 'checked' : '' ?>></td>
-            <td><input type="checkbox" name="is_offshore" value="1" <?= (int)($cfg['is_offshore'] ?? 0) ? 'checked' : '' ?>></td>
+            <td><input type="checkbox" name="enabled" value="1" <?= (int)$cfg['enabled'] ? 'checked' : '' ?>></td>
             <td><input type="number" name="application_cost"     value="<?= (float)$cfg['application_cost'] ?>"    min="0"   step="1000"  class="input-sm" style="width:110px"></td>
             <td><input type="number" name="base_review_minutes"  value="<?= (int)$cfg['base_review_minutes'] ?>"   min="1"   step="5"     class="input-sm" style="width:70px"></td>
             <td><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="delay_min_minutes"    value="<?= (int)$cfg['delay_min_minutes'] ?>"     min="0"   step="5"  class="input-sm" style="width:60px"></td>
-            <td><input type="number" name="delay_max_minutes"    value="<?= (int)$cfg['delay_max_minutes'] ?>"     min="0"   step="5"  class="input-sm" style="width:60px"></td>
             <td><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm" style="width:60px"></td>
             <td><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm" style="width:60px"></td>
             <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm" style="width:70px"></td>
@@ -165,7 +159,7 @@
             <td><?= htmlspecialchars((string)($app['region_name'] ?? '#' . $app['region_id'])) ?></td>
             <td><span class="badge <?= $statusCss ?>"><?= htmlspecialchars((string)$app['status']) ?></span>
                 <?php if ((int)($app['delay_count'] ?? 0) > 0): ?>
-                <br><small><?= t('admin.legal.delay_count_label', ['n' => (int)$app['delay_count']]) ?></small>
+                <br><small>opóźnień: <?= (int)$app['delay_count'] ?></small>
                 <?php endif ?>
             </td>
             <td><small><?= htmlspecialchars(substr((string)($app['submitted_at'] ?? '—'), 0, 16)) ?></small></td>

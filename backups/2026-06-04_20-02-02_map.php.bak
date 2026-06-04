@@ -99,28 +99,4 @@ return [
     'map_js.well_go_technical' => 'Przejdź do działu technicznego',
     'map_js.no_filter_results' => 'Brak wyników dla wybranych filtrów.',
 
-    // --- Zezwolenia na mapie — 7 statusów (§5–§7) / Map permit statuses ---
-    'map_js.political_risk'           => 'Ryzyko regionu',
-
-    'map_js.badge_permit_active'      => 'Zezwolenie aktywne',
-    'map_js.badge_permit_pending'     => 'Wniosek w toku',
-    'map_js.badge_permit_no_decision' => 'Brak decyzji',
-    'map_js.badge_permit_refused'     => 'Odmowa',
-    'map_js.badge_permit_locked'      => 'Zablokowany',
-
-    'map_js.permit_active_banner'     => 'Masz aktywne zezwolenie na wiercenie w tym regionie.',
-
-    'map_js.permit_pending_title'     => 'Wniosek w toku',
-    'map_js.permit_pending_text'      => 'Twój wniosek o zezwolenie na wiercenie jest rozpatrywany. Decyzja za: :time.',
-    'map_js.permit_delayed_title'     => 'Decyzja opóźniona',
-    'map_js.permit_delayed_text'      => 'Rozpatrzenie wniosku zostało opóźnione. Nowy termin decyzji za: :time.',
-    'map_js.permit_no_decision_title' => 'Brak decyzji',
-    'map_js.permit_no_decision_text'  => 'Urząd nie wydał decyzji w terminie. Możesz złożyć nowy wniosek w dziale prawnym.',
-    'map_js.permit_refused_title'     => 'Wniosek odrzucony',
-    'map_js.permit_refused_text'      => 'Wniosek o zezwolenie został odrzucony. Będziesz mógł złożyć nowy za: :time.',
-    'map_js.permit_locked_title'      => 'Region zablokowany',
-    'map_js.permit_locked_text'       => 'Twoja firma nie spełnia wymogu kapitałowego dla tego regionu. Wymagany kapitał: :capital PLN.',
-    'map_js.permit_btn_go_legal'      => 'Przejdź do działu prawnego',
-    'map_js.permit_btn_close'         => 'Zamknij',
-
 ];

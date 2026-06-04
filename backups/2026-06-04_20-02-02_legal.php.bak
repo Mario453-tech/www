@@ -39,10 +39,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $configs = $legal->getAllRegionConfigs();
 
-// Saldo gracza musi być znane przed klasyfikacją (blokada kapitałowa §7.3).
-// Player cash must be fetched before classification (capital lock §7.3).
-$cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
-
 // Zbieramy statusy wszystkich regionów i klasyfikujemy je
 $permitsByRegion = [];
 foreach ($configs as $cfg) {
@@ -50,12 +46,11 @@ foreach ($configs as $cfg) {
     $permitsByRegion[$rid] = $legal->getPermitStatus($playerId, $rid);
 }
 
-// Pogrupowane regiony / Grouped regions
-$active        = []; // granted / transitional
-$inProgress    = []; // pending / delayed / no_decision
-$available     = []; // none lub refused (po cooldown) — bez blokady kapitałowej
-$locked        = []; // refused (w cooldown)
-$capitalLocked = []; // brak zezwolenia + required_capital > cash (§7.3)
+// Pogrupowane regiony
+$active     = []; // granted / transitional
+$inProgress = []; // pending / delayed / no_decision
+$available  = []; // none lub refused (po cooldown)
+$locked     = []; // refused (w cooldown)
 
 $now = new DateTime();
 foreach ($configs as $cfg) {
@@ -65,7 +60,6 @@ foreach ($configs as $cfg) {
     $rid    = (int)$cfg['region_id'];
     $permit = $permitsByRegion[$rid];
     $status = $permit['status'];
-    $requiredCapital = (float)$cfg['required_capital'];
 
     if ($permit['has_active']) {
         $active[] = ['config' => $cfg, 'permit' => $permit];
@@ -75,24 +69,19 @@ foreach ($configs as $cfg) {
         $cooldown = new DateTime((string)$permit['application']['refusal_cooldown_until']);
         if ($cooldown > $now) {
             $locked[] = ['config' => $cfg, 'permit' => $permit, 'cooldown_until' => $cooldown];
-        } elseif ($requiredCapital > 0 && $cash < $requiredCapital) {
-            // Cooldown minął, ale brak kapitału — zablokowany kapitałowo.
-            // Cooldown expired but insufficient capital — capital locked.
-            $capitalLocked[] = ['config' => $cfg, 'permit' => $permit];
         } else {
             $available[] = ['config' => $cfg, 'permit' => $permit];
         }
-    } elseif ($requiredCapital > 0 && $cash < $requiredCapital) {
-        // Region bez wniosku, ale firma nie spełnia progu kapitałowego (§7.3).
-        // No application, but player doesn't meet capital threshold.
-        $capitalLocked[] = ['config' => $cfg, 'permit' => $permit];
     } else {
         $available[] = ['config' => $cfg, 'permit' => $permit];
     }
 }
 
+// Pobranie salda gracza
+$cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
+
 $viewData = compact(
-    'active', 'inProgress', 'available', 'locked', 'capitalLocked',
+    'active', 'inProgress', 'available', 'locked',
     'cash', 'error', 'success'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
