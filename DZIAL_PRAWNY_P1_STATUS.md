@@ -70,10 +70,9 @@ Data analizy: 2026-06-03
       na `/legal` (zwraca `region_locked`), a nie jako uprzedzający modal na mapie.
 - **Fix:** pokazać modal z warunkami (wymagany kapitał) zanim gracz spróbuje złożyć wniosek.
 
-### 4.3. ⚠️ `confirm()` natywny zamiast wspólnego systemu modali (sekcja 14)
-- [ ] Szablon gracza używa `onclick="return confirm(...)"` przy składaniu wniosku.
-- Komunikaty błędów/sukcesu już idą przez `alertError` / `alertInfo` / `showGameToast`.
-- **Fix:** zamienić `confirm()` na wspólny modal potwierdzenia.
+### 4.3. ✅ `confirm()` natywny → wspólny modal (sekcja 14) — WDROŻONE
+- [x] Formularz składania wniosku używa teraz `data-confirm` / `data-confirm-label`
+      obsługiwanych przez `modal.js` — spójne z resztą gry.
 
 ### 4.4. ⏳ `required_legal_level` — placeholder
 - [ ] Kolumna istnieje w schemacie i seedzie, ale nie jest używana: panel admina jej nie ustawia
