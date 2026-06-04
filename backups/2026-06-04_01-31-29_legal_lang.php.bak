@@ -26,8 +26,6 @@ return [
 
     'legal.btn_submit'      => 'Złóż wniosek',
     'legal.confirm_submit'  => 'Złożyć wniosek o zezwolenie na wiercenie w regionie ":region"? Opłata: :cost PLN zostanie pobrana natychmiast.',
-    'legal.modal_region_label' => 'Region',
-    'legal.modal_cost_note'    => 'Opłata zostanie pobrana natychmiast.',
     'legal.no_regions'      => 'Brak dostępnych regionów do zarządzania zezwoleniami. Skontaktuj się z administratorem.',
 
     // --- Bramka zakupu na mapie (etap 2) ---
