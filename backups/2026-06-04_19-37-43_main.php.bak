@@ -6,8 +6,6 @@
 
     <?php require __DIR__ . '/../../components/trend_alert.php'; ?>
 
-    <?php require __DIR__ . '/../../components/director_notifications.php'; ?>
-
     <?php if (!empty($alertWells)): ?>
     <div class="alert-strip" role="alert">
         <span class="alert-strip__icon"></span>
