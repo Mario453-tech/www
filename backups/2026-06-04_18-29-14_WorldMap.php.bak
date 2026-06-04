@@ -357,35 +357,24 @@ class WorldMap
             $locations = $this->getLocations();
             $occupied  = $this->getPlayerOccupiedLocations($playerId);
 
- // Dział prawny P1 — brief §5: pełny status zezwolenia per region dla mapy.
- // Batch: 2 zapytania SQL na wszystkie regiony (zamiast N pętlowych).
- // Brief §5: full permit status per region for the map.
- // Batch: 2 SQL queries for all regions (instead of N in a loop).
-            $permitData = [];
-            $permitFallback = ['status' => 'none', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
+ // Dział prawny P1: status zezwolenia gracza per region (granted/transitional).
+ // Pozwala mapie pokazać wymóg zezwolenia ZANIM gracz kliknie zakup.
+            $permitByRegion = [];
             try {
-                $legal      = new LegalService($this->db);
-                $cashStmt   = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
-                $cashStmt->execute([$playerId]);
-                $playerCash = (float)($cashStmt->fetchColumn() ?? 0);
-                $regionIds  = array_column($regions, 'id');
-                $permitData = $legal->getMapPermitData($playerId, $regionIds, $playerCash);
-            } catch (Throwable $e) {
-                GameLog::error('WorldMap', 'getMapData permit data FAILED', $e, ['player_id' => $playerId]);
- // Fail-closed: przy błędzie traktuj wszystkie regiony jako 'none' (brak zezwolenia).
- // Fail-closed: on error treat all regions as 'none' (no permit).
+                $legal = new LegalService($this->db);
                 foreach ($regions as $reg) {
-                    $permitData[(int)$reg['id']] = $permitFallback;
+                    $rid = (int)$reg['id'];
+                    $permitByRegion[$rid] = $legal->hasActivePermit($playerId, $rid);
+                }
+            } catch (Throwable $e) {
+                GameLog::error('WorldMap', 'getMapData permit status FAILED', $e, ['player_id' => $playerId]);
+ // Fail-closed: przy błędzie traktuj wszystkie regiony jako bez zezwolenia.
+                foreach ($regions as $reg) {
+                    $permitByRegion[(int)$reg['id']] = false;
                 }
             }
             foreach ($regions as &$reg) {
-                $rid = (int)$reg['id'];
-                $pd  = $permitData[$rid] ?? $permitFallback;
-                $reg['has_permit']              = ($pd['status'] === 'active');
-                $reg['permit_status']           = $pd['status'];
-                $reg['permit_minutes_left']     = $pd['minutes_left'];
-                $reg['permit_cooldown_minutes'] = $pd['cooldown_minutes'];
-                $reg['permit_required_capital'] = $pd['required_capital'];
+                $reg['has_permit'] = $permitByRegion[(int)$reg['id']] ?? false;
             }
             unset($reg);
 

@@ -561,6 +561,74 @@
     width: auto;
 }
 
+/* Brief §6.3-§6.5, §7.3: warianty kolorystyczne kontenera modalu zezwolenia.
+   Brief §6.3-§6.5, §7.3: colour variants of the permit modal container. */
+.loc-permit-required--pending {
+    border-color: rgba(241, 196, 15, .35);
+    background:   rgba(241, 196, 15, .07);
+}
+
+.loc-permit-required--pending .loc-permit-title {
+    color: #f1c40f;
+}
+
+.loc-permit-required--no-decision {
+    border-color: rgba(231, 76, 60, .35);
+    background:   rgba(231, 76, 60, .07);
+}
+
+.loc-permit-required--no-decision .loc-permit-title {
+    color: #e74c3c;
+}
+
+.loc-permit-required--refused {
+    border-color: rgba(231, 76, 60, .35);
+    background:   rgba(231, 76, 60, .07);
+}
+
+.loc-permit-required--refused .loc-permit-title {
+    color: #e74c3c;
+}
+
+.loc-permit-required--locked {
+    border-color: rgba(149, 165, 166, .35);
+    background:   rgba(149, 165, 166, .07);
+}
+
+.loc-permit-required--locked .loc-permit-title {
+    color: #95a5a6;
+}
+
+/* Linia cooldownu (§6.5) i wymaganego kapitału (§7.3). */
+/* Cooldown line (§6.5) and required capital line (§7.3). */
+.loc-permit-cooldown,
+.loc-permit-capital {
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, .05);
+    border-radius: 4px;
+    color: rgba(232, 232, 240, .75);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Badge listy lokalizacji — różne statusy zezwoleń.
+   Location list badges — different permit statuses. */
+.loc-badge--permit-pending {
+    background: rgba(241, 196, 15, .18);
+    color: #f1c40f;
+}
+
+.loc-badge--permit-refused {
+    background: rgba(231, 76, 60, .18);
+    color: #e74c3c;
+}
+
+.loc-badge--permit-locked {
+    background: rgba(149, 165, 166, .18);
+    color: #95a5a6;
+}
+
 .map-top-filters {
     display: flex;
     align-items: center;

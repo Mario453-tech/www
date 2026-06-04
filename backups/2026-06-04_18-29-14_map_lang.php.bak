@@ -61,37 +61,6 @@ return [
     'map_js.permit_required_btn' => 'Przejdź do działu prawnego',
     'map_js.permit_cancel_btn' => 'Anuluj',
     'map_js.badge_permit' => 'Zezwolenie',
-
-    // Brief §6.3 / §14.3: modal "Wniosek w trakcie" (status pending / delayed).
-    // Brief §6.3 / §14.3: "Application in progress" modal (pending / delayed).
-    'map_js.permit_pending_title' => 'Wniosek w trakcie',
-    'map_js.permit_pending_text'  => 'Wniosek o zezwolenie na ten region jest już rozpatrywany. Decyzja będzie dostępna za około :time.',
-    'map_js.permit_pending_text_unknown' => 'Wniosek o zezwolenie na ten region jest już rozpatrywany.',
-    'map_js.badge_permit_pending' => 'Wniosek w trakcie',
-
-    // Brief §6.4 / §14.4: modal "Brak decyzji" (status no_decision).
-    // Brief §6.4 / §14.4: "No decision" modal (no_decision status).
-    'map_js.permit_no_decision_title' => 'Brak decyzji',
-    'map_js.permit_no_decision_text'  => 'Urząd nie wydał jeszcze decyzji w sprawie zezwolenia na ten region. Wniosek pozostaje w trakcie rozpatrywania.',
-    'map_js.badge_permit_no_decision' => 'Brak decyzji',
-
-    // Brief §6.5: modal "Wniosek odrzucony" (status refused, cooldown aktywny).
-    // Brief §6.5: "Application refused" modal (refused, cooldown active).
-    'map_js.permit_refused_title'    => 'Wniosek odrzucony',
-    'map_js.permit_refused_text'     => 'Wniosek o zezwolenie na ten region został odrzucony.',
-    'map_js.permit_refused_cooldown' => 'Ponowny wniosek możliwy za: :time',
-    'map_js.badge_permit_refused'    => 'Wniosek odrzucony',
-
-    // Brief §7.3 / §14.2: modal "Region wysokiego ryzyka" (status locked — brak kapitału).
-    // Brief §7.3 / §14.2: "High-risk region" modal (locked — insufficient capital).
-    'map_js.permit_locked_title'    => 'Region wysokiego ryzyka',
-    'map_js.permit_locked_text'     => 'Twoja firma nie spełnia jeszcze warunków, aby ubiegać się o zezwolenie w tym regionie. Rozwiń firmę i zwiększ kapitał, aby odblokować trudniejsze regiony.',
-    'map_js.permit_locked_capital'  => 'Wymagany kapitał: :amount PLN',
-    'map_js.badge_permit_locked'    => 'Region zablokowany',
-
-    // Wspólne przyciski modali zezwoleń / Shared permit modal buttons.
-    'map_js.permit_btn_go_legal' => 'Przejdź do działu prawnego',
-    'map_js.permit_btn_close'    => 'Zamknij',
     'map_js.buy_confirm_title' => 'Potwierdź zakup',
     'map_js.buy_confirm_text' => 'Kupić odwiert w lokalizacji :location za :cost PLN?',
     'map_js.buy_confirm_btn' => 'Kup odwiert',

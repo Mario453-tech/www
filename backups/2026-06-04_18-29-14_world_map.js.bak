@@ -515,16 +515,13 @@
             var r          = regionById[loc.region_id];
             var cls        = isMine ? 'loc-item--mine' : isOccupied ? 'loc-item--taken' : 'loc-item--free';
             var tier       = loc.tier || 'medium';
-            // Brief §5: badge zależy od pełnego permit_status, nie tylko has_permit.
-            // Brief §5: badge depends on full permit_status, not just has_permit.
-            var ps = r ? (r.permit_status || (r.has_permit ? 'active' : 'none')) : 'active';
-            var needsPermit = !isMine && !isOccupied && ps !== 'active';
+            var needsPermit = !isMine && !isOccupied && r && r.has_permit === false;
             var badge      = isMine
                 ? '<span class="loc-badge loc-badge--mine">'  + mlt('badge_mine')  + '</span>'
                 : isOccupied
                     ? '<span class="loc-badge loc-badge--taken">' + mlt('badge_taken') + '</span>'
                     : needsPermit
-                        ? permitBadge(ps)
+                        ? '<span class="loc-badge loc-badge--permit">' + mlt('badge_permit') + '</span>'
                         : '<span class="loc-badge loc-badge--free">'  + mlt('badge_free')  + '</span>';
             var regionTag = containerId === 'browse-list'
                 ? '<span style="color:' + (r ? r.color_hex : '#aaa') + '">' + escHtml(r ? r.name : '') + '</span> - ' : '';
@@ -613,11 +610,26 @@
               + '<a href="/technical" class="btn-well-technical">' + mlt('well_go_technical') + '</a>';
         } else if (isOccupied) {
             buyHtml = '<div class="loc-taken-badge">' + mlt('taken_badge') + '</div>';
-        } else if (!r || r.permit_status !== 'active') {
-            // Brief §5-§7, §14: 5 wariantów modalu zależnie od permit_status.
-            // Brief §5-§7, §14: 5 modal variants depending on permit_status.
-            var permitPs = r ? (r.permit_status || 'none') : 'none';
-            buyHtml = buildPermitHtml(permitPs, r);
+        } else if (r && r.has_permit === false) {
+            // Brief §6.2 / §14.1: modal "Brak zezwolenia na wiercenie" — tytuł,
+            // treść, typ zezwolenia, opis co odblokowuje oraz przyciski
+            // "Anuluj" + "Przejdź do działu prawnego".
+            // Brief §6.2 / §14.1: "no drilling permit" modal — title, body,
+            // permit type, what it unlocks and "Cancel" + "Go to legal" buttons.
+            buyHtml =
+                '<div class="loc-permit-required">'
+              + '<div class="loc-permit-title">' + mlt('permit_required_title') + '</div>'
+              + '<div class="loc-permit-text">'  + mlt('permit_required_text')  + '</div>'
+              + '<div class="loc-permit-rows">'
+              +     '<div class="loc-permit-row"><span class="loc-permit-lbl">' + mlt('permit_type_label') + '</span>'
+              +         '<span class="loc-permit-val">' + mlt('permit_type_drilling') + '</span></div>'
+              + '</div>'
+              + '<div class="loc-permit-unlocks">' + mlt('permit_required_unlocks') + '</div>'
+              + '<div class="loc-permit-actions">'
+              +     '<button type="button" class="btn-permit-cancel" onclick="window.__mapBackToRegion && window.__mapBackToRegion()">' + mlt('permit_cancel_btn') + '</button>'
+              +     '<a href="/legal" class="btn-permit-legal">' + mlt('permit_required_btn') + '</a>'
+              + '</div>'
+              + '</div>';
         } else if (playerCash < totalCost) {
             buyHtml =
                 '<div class="loc-nofunds">'
@@ -723,107 +735,6 @@
     window.__mapBackToRegion = function () {
         if (currentRegionId) showRegion(currentRegionId); else showPanel('placeholder');
     };
-
-    // ---- Pomocnicze funkcje modali zezwoleń / Permit modal helper functions ----
-
-    // Brief §5: badge listy lokalizacji — różne dla każdego statusu.
-    // Brief §5: location list badge — distinct per status.
-    function permitBadge(ps) {
-        switch (ps) {
-            case 'pending':
-            case 'delayed':
-                return '<span class="loc-badge loc-badge--permit-pending">' + mlt('badge_permit_pending')     + '</span>';
-            case 'no_decision':
-                return '<span class="loc-badge loc-badge--permit-pending">' + mlt('badge_permit_no_decision') + '</span>';
-            case 'refused':
-                return '<span class="loc-badge loc-badge--permit-refused">' + mlt('badge_permit_refused')     + '</span>';
-            case 'locked':
-                return '<span class="loc-badge loc-badge--permit-locked">'  + mlt('badge_permit_locked')      + '</span>';
-            default:
-                return '<span class="loc-badge loc-badge--permit">'         + mlt('badge_permit')             + '</span>';
-        }
-    }
-
-    // Brief §6.2-§6.5 / §7.3 / §14.1-§14.4: treść sekcji zakupu zależna od statusu.
-    // Brief §6.2-§6.5 / §7.3 / §14.1-§14.4: buy-section content per permit status.
-    function buildPermitHtml(ps, r) {
-        var goLegal = '<a href="/legal" class="btn-permit-legal">' + mlt('permit_btn_go_legal') + '</a>';
-        var closeBtn = '<button type="button" class="btn-permit-cancel" onclick="window.__mapBackToRegion && window.__mapBackToRegion()">'
-                     + mlt('permit_btn_close') + '</button>';
-        var cancelBtn = '<button type="button" class="btn-permit-cancel" onclick="window.__mapBackToRegion && window.__mapBackToRegion()">'
-                      + mlt('permit_cancel_btn') + '</button>';
-
-        if (ps === 'pending' || ps === 'delayed') {
-            // Brief §6.3 / §14.3: "Wniosek w trakcie" / "Application in progress"
-            var minLeft = r && r.permit_minutes_left != null ? r.permit_minutes_left : null;
-            var timeStr = minLeft != null ? fmtMinutes(minLeft) : null;
-            var bodyText = timeStr
-                ? mlt('permit_pending_text').replace(':time', timeStr)
-                : mlt('permit_pending_text_unknown');
-            return '<div class="loc-permit-required loc-permit-required--pending">'
-                + '<div class="loc-permit-title">' + mlt('permit_pending_title') + '</div>'
-                + '<div class="loc-permit-text">'  + bodyText + '</div>'
-                + '<div class="loc-permit-actions">' + closeBtn + goLegal + '</div>'
-                + '</div>';
-        }
-
-        if (ps === 'no_decision') {
-            // Brief §6.4 / §14.4: "Brak decyzji" / "No decision"
-            return '<div class="loc-permit-required loc-permit-required--no-decision">'
-                + '<div class="loc-permit-title">' + mlt('permit_no_decision_title') + '</div>'
-                + '<div class="loc-permit-text">'  + mlt('permit_no_decision_text')  + '</div>'
-                + '<div class="loc-permit-actions">' + closeBtn + goLegal + '</div>'
-                + '</div>';
-        }
-
-        if (ps === 'refused') {
-            // Brief §6.5: "Wniosek odrzucony" / "Application refused"
-            var coolMin  = r && r.permit_cooldown_minutes != null ? r.permit_cooldown_minutes : null;
-            var coolLine = coolMin != null
-                ? '<div class="loc-permit-cooldown">' + mlt('permit_refused_cooldown').replace(':time', fmtMinutes(coolMin)) + '</div>'
-                : '';
-            return '<div class="loc-permit-required loc-permit-required--refused">'
-                + '<div class="loc-permit-title">' + mlt('permit_refused_title') + '</div>'
-                + '<div class="loc-permit-text">'  + mlt('permit_refused_text')  + '</div>'
-                + coolLine
-                + '<div class="loc-permit-actions">' + closeBtn + goLegal + '</div>'
-                + '</div>';
-        }
-
-        if (ps === 'locked') {
-            // Brief §7.3 / §14.2: "Region wysokiego ryzyka" / "High-risk region"
-            var cap = r && r.permit_required_capital != null ? r.permit_required_capital : null;
-            var capLine = cap != null
-                ? '<div class="loc-permit-capital">' + mlt('permit_locked_capital').replace(':amount', fmt(cap)) + '</div>'
-                : '';
-            return '<div class="loc-permit-required loc-permit-required--locked">'
-                + '<div class="loc-permit-title">' + mlt('permit_locked_title') + '</div>'
-                + '<div class="loc-permit-text">'  + mlt('permit_locked_text')  + '</div>'
-                + capLine
-                + '<div class="loc-permit-actions">' + closeBtn + goLegal + '</div>'
-                + '</div>';
-        }
-
-        // Domyślnie: §6.2 "Brak zezwolenia na wiercenie" / Default: §6.2 "No drilling permit"
-        return '<div class="loc-permit-required">'
-            + '<div class="loc-permit-title">' + mlt('permit_required_title')   + '</div>'
-            + '<div class="loc-permit-text">'  + mlt('permit_required_text')    + '</div>'
-            + '<div class="loc-permit-rows">'
-            +     '<div class="loc-permit-row"><span class="loc-permit-lbl">' + mlt('permit_type_label') + '</span>'
-            +         '<span class="loc-permit-val">' + mlt('permit_type_drilling') + '</span></div>'
-            + '</div>'
-            + '<div class="loc-permit-unlocks">' + mlt('permit_required_unlocks') + '</div>'
-            + '<div class="loc-permit-actions">' + cancelBtn + goLegal + '</div>'
-            + '</div>';
-    }
-
-    // Zamienia minuty na czytelny czas (< 90 min → minuty, inaczej → godziny).
-    // Converts minutes to human-readable time (< 90 min → minutes, else → hours).
-    function fmtMinutes(m) {
-        m = Math.max(0, Math.round(m));
-        if (m < 90) return m + ' min';
-        return Math.round(m / 60) + ' h';
-    }
 
     function fmt(n) {
         return new Intl.NumberFormat(window.APP_LOCALE || 'pl-PL', { maximumFractionDigits: 0 }).format(n);
