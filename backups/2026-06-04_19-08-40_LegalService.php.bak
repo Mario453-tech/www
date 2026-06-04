@@ -477,16 +477,6 @@ class LegalService
             return ['success' => false, 'code' => 'error', 'message' => tPlain('legal.err.generic')];
         }
 
-        // Brief §13: powiadomienie dyrektora o złożeniu wniosku (po commit, poza
-        // transakcją — nigdy nie cofa pobranej opłaty ani utworzonego wniosku).
-        // Brief §13: director notification on submission (after commit, outside
-        // the transaction — never rolls back the fee or the created application).
-        $regionName = (string)($config['region_name'] ?? ('#' . $regionId));
-        $this->notifyDirector($playerId, 'submitted', [
-            'region' => $regionName,
-            'time'   => self::minutesToHuman((int)$config['base_review_minutes']),
-        ], '📝', 'low');
-
         return [
             'success'         => true,
             'code'            => 'submitted',
@@ -496,77 +486,6 @@ class LegalService
             'cost'            => $applicationCost,
             'review_minutes'  => (int)$config['base_review_minutes'],
         ];
-    }
-
-    // -------------------------------------------------------- Notifications
-
-    /** @var array<int,string> Cache nazw regionów w obrębie obiektu serwisu. */
-    private array $regionNameCache = [];
-
-    /**
-     * Wstawia powiadomienie dyrektora działu prawnego (brief §13). Spójne z
-     * LegalSection: type='legal', action_url='legal.php'. Całość w try/catch —
-     * brak tabeli/błąd nigdy nie przerywa operacji nadrzędnej (np. składania
-     * wniosku czy migracji).
-     *
-     * Inserts a legal director notification (brief §13). Consistent with
-     * LegalSection. Fully guarded — a missing table/error never breaks the
-     * parent operation (e.g. submitting an application or migration).
-     *
-     * @param array<string,string> $params parametry do interpolacji wiadomości
-     */
-    private function notifyDirector(
-        int $playerId,
-        string $key,
-        array $params,
-        string $icon,
-        string $priority = 'low'
-    ): void {
-        try {
-            $title   = tPlain("legal.notif.{$key}.title");
-            $message = tPlain("legal.notif.{$key}.message", $params);
-            $expires = (new DateTime())->modify('+72 hours')->format('Y-m-d H:i:s');
-
-            $this->db->prepare(
-                "INSERT INTO director_notifications
-                    (player_id, type, priority, title, message, icon,
-                     requires_action, action_url, action_label, expires_at)
-                 VALUES (?, 'legal', ?, ?, ?, ?, 0, 'legal.php', 'Dział prawny', ?)"
-            )->execute([$playerId, $priority, $title, $message, $icon, $expires]);
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'notifyDirector FAILED', $e, [
-                    'player_id' => $playerId,
-                    'key'       => $key,
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Nazwa regionu z cache (fallback "#id"). Zapytanie w try/catch — brak
-     * tabeli world_regions nie przerywa operacji nadrzędnej.
-     * Region name with cache (fallback "#id"). Guarded query.
-     */
-    private function resolveRegionName(int $regionId): string
-    {
-        if (isset($this->regionNameCache[$regionId])) {
-            return $this->regionNameCache[$regionId];
-        }
-        $name = '#' . $regionId;
-        try {
-            $stmt = $this->db->prepare("SELECT name FROM world_regions WHERE id = ? LIMIT 1");
-            $stmt->execute([$regionId]);
-            $row = $stmt->fetch();
-            if ($row && !empty($row['name'])) {
-                $name = (string)$row['name'];
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'resolveRegionName FAILED', $e, ['region_id' => $regionId]);
-            }
-        }
-        return $this->regionNameCache[$regionId] = $name;
     }
 
     // ---------------------------------------------------------------- Helpers
@@ -674,11 +593,6 @@ class LegalService
                 ]);
                 if ($insert->rowCount() > 0) {
                     $migrated++;
-                    // Brief §13 / §12.2: powiadomienie o nadaniu zezwolenia przejściowego.
-                    // Brief §13 / §12.2: notification about the transitional permit grant.
-                    $this->notifyDirector((int)$pair['player_id'], 'transitional', [
-                        'region' => $this->resolveRegionName((int)$pair['region_id']),
-                    ], '🪪', 'low');
                 }
             } catch (Throwable $e) {
                 if (class_exists('GameLog', false)) {
