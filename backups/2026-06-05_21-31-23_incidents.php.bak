@@ -808,12 +808,6 @@ try {
 } catch (Throwable $e) {}
 
 // Dane do formularza recznego wywolania incydentu morskiego / Data for manual marine incident trigger form.
-// Brief: tylko REALNE, aktywne transporty morskie wybranego gracza — odwierty offshore (tankowiec),
-// statusy departing/in_transit oraz delayed wylacznie dla aktualnego rejsu (nie zalegajace smieci),
-// max 15 najblizszych pozycji per gracz (grupowanie po stronie JS).
-// Brief: only REAL, active marine transports per player — offshore wells (tanker), statuses
-// departing/in_transit plus delayed only for a current voyage (no stale junk), capped at the
-// 15 nearest deliveries per player (grouped client-side in JS).
 $trigMarineDeliveries = [];
 try {
     $marineDeliveryLimit = 15;
@@ -826,14 +820,10 @@ try {
                    ROW_NUMBER() OVER (PARTITION BY md.player_id ORDER BY md.eta_at ASC, md.id ASC) AS row_no,
                    COUNT(*) OVER (PARTITION BY md.player_id) AS player_delivery_total
               FROM marine_deliveries md
-              INNER JOIN wells w ON w.id = md.well_id
-                                AND w.player_id = md.player_id
-                                AND w.well_type = 'offshore'
+              LEFT JOIN wells w ON w.id = md.well_id
               LEFT JOIN ports p ON p.id = md.port_id
-             WHERE (
-                       md.status IN ('departing','in_transit')
-                    OR (md.status = 'delayed' AND md.eta_at >= NOW() - INTERVAL 1 DAY)
-                   )
+             WHERE md.status IN ('departing','in_transit','delayed')
+               AND (w.id IS NULL OR w.player_id = md.player_id)
           ) q
          WHERE q.row_no <= ?
          ORDER BY q.player_id, q.eta_at ASC, q.id ASC
