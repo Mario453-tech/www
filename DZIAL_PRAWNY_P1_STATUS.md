@@ -103,6 +103,8 @@ Data analizy: 2026-06-05
 
 - [x] Fundament wyniku, historia, panel admina, karta gracza, hooki i wpływ na dział prawny.
 - [ ] Dodać wpływ wiarygodności na inne działy dopiero po decyzji projektowej: bank, kontrakty, partnerzy, aukcje, koszty ubezpieczeń.
+- [x] Zdarzenia transportowe są księgowane finansowo: `theft` i `accident` w transporcie drogowym, `leak` i `pressure_drop` w modelu rurociągowym oraz utracone dostawy morskie (`piracy` / `catastrophe`) trafiają do `finance_logs.transport_event_loss_bbl`; `storm` w aktualnym modelu dostaw morskich pozostaje opóźnieniem bez utraty ropy.
+- [x] Panel admina incydentów ma osobny toolbar do ręcznej ingerencji w dostawy morskie: `piracy`, `catastrophe`, `storm`, `breakdown`.
 - [ ] Dodać więcej źródeł negatywnych zdarzeń, gdy będą gotowe moduły: poważne incydenty środowiskowe, cofnięcie zezwolenia, kara prawna, przegrana sprawa sądowa.
 - [ ] Dodać więcej źródeł pozytywnych zdarzeń, jeśli gameplay tego potrzebuje: długi okres bez awarii, audyt prawny zakończony pozytywnie, ugoda bez eskalacji.
 - [ ] Doprecyzować politykę dla graczy bez historii: obecnie pierwszy tick bez negatywnych zdarzeń może przyznać `+3`; to jest proste i zgodne z aktualnym briefem, ale może wymagać balansu.

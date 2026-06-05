@@ -190,6 +190,15 @@ class PlayersSection
             try {
                 $marineSec = new MarineDeliverySection($db, $now);
                 $marineSec->process($playerId, $hseBonus, $deltaHours);
+                if ($marineSec->lostBbl > 0.0) {
+                    $wellLoop->transportEventLossBbl += $marineSec->lostBbl;
+                    $wellLoop->recordPreStorageLoss($marineSec->lostBbl, $this->oilPrice);
+                    GameLog::info('tick', 'marine_delivery_loss_finance_recorded', [
+                        'player_id' => $playerId,
+                        'lost_bbl' => round($marineSec->lostBbl, 4),
+                        'lost_deliveries' => $marineSec->lostDeliveries,
+                    ]);
+                }
             } catch (Throwable $e) {
                 GameLog::error('tick', 'MarineDeliverySection FAILED', $e, ['player_id' => $playerId]);
             }

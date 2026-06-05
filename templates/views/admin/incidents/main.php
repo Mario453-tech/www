@@ -402,6 +402,7 @@ foreach ($PIPE_LEVELS as $lvl):
                     <option value=""><?= t('admin.incidents.source_all') ?></option>
                     <option value="well"     <?= $hSource === 'well'     ? 'selected' : '' ?>><?= t('admin.incidents.source_well') ?></option>
                     <option value="pipeline" <?= $hSource === 'pipeline' ? 'selected' : '' ?>><?= t('admin.incidents.source_pipeline') ?></option>
+                    <option value="marine"   <?= $hSource === 'marine'   ? 'selected' : '' ?>><?= t('admin.incidents.source_marine') ?></option>
                 </select>
             </div>
             <div class="inc-filter-field">
@@ -519,8 +520,12 @@ foreach ($PIPE_LEVELS as $lvl):
             </div>
             <?php foreach ($recentIncidents as $inc):
                 $isPipeline = ($inc['src'] === 'pipeline');
+                $isMarine   = ($inc['src'] === 'marine');
 
-                if ($isPipeline) {
+                if ($isMarine) {
+                    $lvlCls  = in_array($inc['level'], ['piracy', 'catastrophe'], true) ? 'badge-error' : 'badge-warn';
+                    $lvlText = t('admin.incidents.marine_type_' . ($inc['level'] ?? 'storm'));
+                } elseif ($isPipeline) {
  // Map pipeline level (micro/minor/medium) to pipeLevelMeta key
                     $pipeKey = 'pipe_' . ($inc['level'] ?? 'micro');
                     $pmeta   = $pipeLevelMeta[$pipeKey] ?? [t('admin.incidents.pipe_micro_label'), 'badge-blue', ''];
@@ -535,7 +540,9 @@ foreach ($PIPE_LEVELS as $lvl):
             <article class="list-row" role="row" title="<?= htmlspecialchars($inc['message'] ?? '') ?>">
                 <span class="muted"><?= (int)$inc['id'] ?></span>
                 <span>
-                    <?php if ($isPipeline): ?>
+                    <?php if ($isMarine): ?>
+                    <span class="badge badge-warn"><?= t('admin.incidents.source_marine') ?></span>
+                    <?php elseif ($isPipeline): ?>
                     <span class="badge badge-blue"><?= t('admin.incidents.source_pipeline') ?></span>
                     <?php else: ?>
                     <span class="badge badge-inactive"><?= t('admin.incidents.source_well') ?></span>
@@ -550,7 +557,7 @@ foreach ($PIPE_LEVELS as $lvl):
                     <?php endif ?>
                 </span>
                 <span><?= htmlspecialchars((string)($inc['cause_type'] ?? '')) ?></span>
-                <?php if (!$isPipeline): ?>
+                <?php if (!$isPipeline && !$isMarine): ?>
                 <span class="<?= ($inc['prod_drop'] ?? 0) >= 40 ? 'text-red' : '' ?>"><?= $inc['prod_drop'] ?>%</span>
                 <span><?= ($inc['cost'] ?? 0) > 0 ? '$'.number_format((float)$inc['cost'],0,'.',' ') : '' ?></span>
                 <span>
@@ -565,7 +572,7 @@ foreach ($PIPE_LEVELS as $lvl):
                 <?php endif ?>
                 <span class="muted"><?= date('d.m H:i', strtotime($inc['created_at'])) ?></span>
                 <span>
-                    <?php if (!$isPipeline): ?>
+                    <?php if (!$isPipeline && !$isMarine): ?>
                     <form method="post" class="form-inline">
                         <?= CSRF::field() ?>
                         <input type="hidden" name="action"      value="delete_incident">
@@ -740,9 +747,66 @@ foreach ($PIPE_LEVELS as $lvl):
         </form>
     </section>
 
+    <!-- Sekcja toolbara incydentow morskich / Marine incident toolbar section -->
+    <section class="panel mt-md" aria-label="<?= t('admin.incidents.trig_marine_title') ?>">
+        <p class="panel-title"><?= t('admin.incidents.trig_marine_title') ?></p>
+        <p class="panel-hint"><?= t('admin.incidents.trig_marine_hint') ?></p>
+
+        <form method="post" id="inc-trig-marine-form" class="inc-trig-form">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="trigger_marine_incident">
+
+            <div class="inc-trig-row">
+                <div class="inc-trig-field">
+                    <label class="form-label" for="trig-marine-player"><?= t('admin.incidents.trig_marine_player') ?></label>
+                    <select name="trig_marine_player_id" id="trig-marine-player" class="trend-input-cat"
+                            onchange="incTrigUpdateMarineDeliveries(this.value)" required>
+                        <option value=""><?= t('admin.incidents.trig_marine_select_player') ?></option>
+                        <?php foreach ($trigPlayers as $pid => $uname): ?>
+                        <option value="<?= $pid ?>"><?= htmlspecialchars($uname) ?></option>
+                        <?php endforeach ?>
+                    </select>
+                </div>
+
+                <div class="inc-trig-field">
+                    <label class="form-label" for="trig-marine-delivery"><?= t('admin.incidents.trig_marine_delivery') ?></label>
+                    <select name="trig_marine_delivery_id" id="trig-marine-delivery" class="trend-input-cat" required>
+                        <option value=""><?= t('admin.incidents.trig_marine_select_delivery') ?></option>
+                    </select>
+                </div>
+            </div>
+
+            <p class="form-label"><?= t('admin.incidents.trig_marine_type_label') ?></p>
+            <div class="inc-trig-levels">
+                <?php
+                $trigMarineMeta = [
+                    'piracy'      => [t('admin.incidents.marine_type_piracy'),      'trig-card--major',  t('admin.incidents.trig_marine_piracy_desc')],
+                    'catastrophe' => [t('admin.incidents.marine_type_catastrophe'), 'trig-card--major',  t('admin.incidents.trig_marine_catastrophe_desc')],
+                    'storm'       => [t('admin.incidents.marine_type_storm'),       'trig-card--minor',  t('admin.incidents.trig_marine_storm_desc')],
+                    'breakdown'   => [t('admin.incidents.marine_type_breakdown'),   'trig-card--medium', t('admin.incidents.trig_marine_breakdown_desc')],
+                ];
+                foreach ($trigMarineMeta as $type => [$label, $cls, $desc]):
+                ?>
+                <label class="inc-trig-card <?= $cls ?>">
+                    <input type="radio" name="trig_marine_type" value="<?= $type ?>" required>
+                    <span class="trig-card-label"><?= $label ?></span>
+                    <span class="trig-card-desc"><?= $desc ?></span>
+                </label>
+                <?php endforeach ?>
+            </div>
+
+            <div class="form-row form-row--gap mt-md">
+                <button type="button" class="btn btn-danger"
+                        onclick="confirmSubmit(this, '<?= t('admin.incidents.trig_marine_confirm') ?>')">
+                    <?= t('admin.incidents.trig_marine_btn') ?>
+                </button>
+            </div>
+        </form>
+    </section>
+
     <!-- Sekcja: wywolanie incydentu rurociagu -->
     <section class="panel mt-md" aria-label="<?= t('admin.incidents.trig_pipe_title') ?>">
-        <p class="panel-title">⚡ <?= t('admin.incidents.trig_pipe_title') ?></p>
+        <p class="panel-title"><?= t('admin.incidents.trig_pipe_title') ?></p>
         <p class="panel-hint"><?= t('admin.incidents.trig_pipe_hint') ?></p>
 
         <form method="post" id="inc-trig-pipe-form" class="inc-trig-form">
@@ -805,35 +869,18 @@ foreach ($PIPE_LEVELS as $lvl):
         </form>
     </section>
 
-    <!-- Dane odwiertow per gracz jako JSON dla JS -->
     <script>
-    var incTrigWells = <?= json_encode($trigWells, JSON_UNESCAPED_UNICODE) ?>;
-    function incTrigUpdateWells(playerId) {
-        var sel = document.getElementById('trig-well');
-        sel.innerHTML = '<option value=""><?= t('admin.incidents.trig_select_well') ?></option>';
-        var wells = incTrigWells[playerId] || [];
-        wells.forEach(function(w) {
-            var opt = document.createElement('option');
-            opt.value = w.id;
-            opt.textContent = w.location_name + ' [' + w.status + ', cond:' + w.technical_condition + '%]';
-            sel.appendChild(opt);
-        });
-    }
-    </script>
-    <script>
- /* Pipeline trigger data and selector */
-    var incTrigPipelines = <?= json_encode($trigPipelines, JSON_UNESCAPED_UNICODE) ?>;
-    function incTrigUpdatePipelines(playerId) {
-        var sel = document.getElementById('trig-pipe-pipeline');
-        sel.innerHTML = '<option value=""><?= t('admin.incidents.trig_pipe_select_pipeline') ?></option>';
-        var pipes = incTrigPipelines[playerId] || [];
-        pipes.forEach(function(p) {
-            var opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.name + ' [' + p.status + ', cond:' + p.condition_pct + '%, loss:' + p.transport_loss + '%]';
-            sel.appendChild(opt);
-        });
-    }
+    window.INCIDENTS_TRIGGER_DATA = <?= json_encode([
+        'wells' => $trigWells,
+        'pipelines' => $trigPipelines,
+        'marineDeliveries' => $trigMarineDeliveries,
+        'labels' => [
+            'selectWell' => t('admin.incidents.trig_select_well'),
+            'selectPipeline' => t('admin.incidents.trig_pipe_select_pipeline'),
+            'selectMarineDelivery' => t('admin.incidents.trig_marine_select_delivery'),
+            'portUnknown' => t('marine.port_unknown'),
+        ],
+    ], JSON_UNESCAPED_UNICODE) ?>;
     </script>
 </div><!-- end inc-tab-trigger -->
 
