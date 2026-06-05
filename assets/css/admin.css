@@ -3386,3 +3386,136 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
         grid-template-columns: 1fr;
     }
 }
+
+/* =============================================================
+   WIARYGODNOSC FIRMY (admin) / Company credibility (admin)
+   Odznaki poziomu, kolory delty, modal recznej korekty.
+   Level badges, delta colors, manual adjustment modal.
+   ============================================================= */
+
+.cred-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.cred-badge--critical { background: rgba(224, 85, 85, .15);  color: #e05555; border: 1px solid rgba(224, 85, 85, .35); }
+.cred-badge--low      { background: rgba(240, 160, 80, .15); color: #f0a050; border: 1px solid rgba(240, 160, 80, .35); }
+.cred-badge--shaky    { background: rgba(200, 168, 75, .15); color: #c8a84b; border: 1px solid rgba(200, 168, 75, .35); }
+.cred-badge--stable   { background: rgba(78, 201, 122, .14); color: #4ec97a; border: 1px solid rgba(78, 201, 122, .3); }
+.cred-badge--high     { background: rgba(78, 201, 122, .2);  color: #4ec97a; border: 1px solid rgba(78, 201, 122, .45); }
+
+.cred-delta--pos { color: #4ec97a; font-weight: 700; }
+.cred-delta--neg { color: #e05555; font-weight: 700; }
+
+.cred-current {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+}
+.cred-current-score { font-size: 24px; font-weight: 800; }
+
+/* Modal recznej korekty / Manual adjustment modal */
+.cred-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+.cred-modal-overlay[hidden] { display: none; }
+
+.cred-modal {
+    background: #1b1d24;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 10px;
+    padding: 22px 24px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+}
+.cred-modal h2 { margin: 0 0 8px; font-size: 16px; }
+.cred-modal-intro { font-size: 13px; color: rgba(232, 232, 240, .65); margin: 0 0 14px; line-height: 1.5; }
+.cred-modal-player { font-size: 13px; font-weight: 600; margin: 0 0 14px; }
+
+.cred-field { display: block; margin-bottom: 14px; }
+.cred-field > span { display: block; font-size: 12px; color: rgba(232, 232, 240, .7); margin-bottom: 5px; }
+
+.cred-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+body.cred-modal-open { overflow: hidden; }
+
+/* Lista wiarygodnosci jako CSS Grid (zero tabel HTML) / Credibility list as CSS Grid (no HTML tables) */
+.cred-grid { display: flex; flex-direction: column; gap: 6px; }
+
+.cred-grid__head,
+.cred-grid__row {
+    display: grid;
+    align-items: center;
+    gap: 12px;
+}
+
+.cred-grid--players .cred-grid__head,
+.cred-grid--players .cred-grid__row {
+    grid-template-columns: minmax(160px, 2fr) 110px 130px minmax(160px, 1fr);
+}
+
+.cred-grid--history .cred-grid__head,
+.cred-grid--history .cred-grid__row {
+    grid-template-columns: 130px minmax(160px, 1.6fr) 80px 70px 70px minmax(140px, 1.4fr);
+}
+
+.cred-grid__head {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: rgba(232, 232, 240, .5);
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.cred-grid__row {
+    background: rgba(255, 255, 255, .03);
+    border: 1px solid rgba(255, 255, 255, .06);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 13px;
+}
+.cred-grid__row:hover { background: rgba(255, 255, 255, .05); }
+
+.cred-grid__cell { min-width: 0; word-break: break-word; }
+.cred-grid__cell--actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Mobile: zwijanie grida do kart z etykietami / Mobile: collapse grid into labeled cards */
+@media (max-width: 760px) {
+    .cred-grid__head { display: none; }
+    .cred-grid--players .cred-grid__row,
+    .cred-grid--history .cred-grid__row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    .cred-grid__cell { display: flex; justify-content: space-between; gap: 12px; }
+    .cred-grid__cell::before {
+        content: attr(data-label);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: rgba(232, 232, 240, .45);
+    }
+    .cred-grid__cell--actions { justify-content: flex-start; }
+    .cred-grid__cell--actions::before { align-self: center; }
+}

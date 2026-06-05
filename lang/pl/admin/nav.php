@@ -14,6 +14,7 @@ return [
     'admin.nav.brand' => 'ADMIN',
     'admin.nav.change_password' => 'Zmień hasło',
     'admin.nav.chat' => 'Czat',
+    'admin.nav.credibility' => 'Wiarygodność firm',
     'admin.nav.finance' => 'Dział finansowy',
     'admin.nav.financial_crisis' => 'Kryzys finansowy',
     'admin.nav.gm_tools' => 'GM Tools',

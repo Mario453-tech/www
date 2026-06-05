@@ -88,6 +88,8 @@
                     <span class="profile-stat-value"><?= (int) $bmStats['times_detected'] ?></span>
                 </div>
             </div>
+
+            <?php require __DIR__ . '/../../components/company_credibility.php'; ?>
         </div>
 
         <div class="profile-right">

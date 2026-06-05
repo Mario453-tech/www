@@ -1,0 +1,1531 @@
+/* well-grid.css
+   Wspolny komponent odwiertow z dashboardu gracza.
+   Uzywany obecnie na stronie glownej przez templates/components/well_grid.php.
+*/
+
+/* SVG icon helper wgIco() output */
+.wg-ico {
+    display: inline-block;
+    width:  1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    overflow: visible;
+}
+
+/* Arrow rotation for collapse/expand toggles */
+.wg-section-arrow .wg-ico,
+.wg-storage-arrow .wg-ico,
+.wg-equipment-arrow .wg-ico,
+.wg-layer-arrow .wg-ico {
+    transition: transform 0.2s ease;
+}
+.wg-arrow-open .wg-ico {
+    transform: rotate(180deg);
+}
+
+.well-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+/* <details> karta */
+details.well-card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--radius, 8px);
+    overflow: hidden;
+    transition: border-color .2s;
+}
+details.well-card:hover        { border-color: rgba(255,255,255,.16); }
+details.well-card.well-card-paused { border-color: rgba(230,180,60,.2); background: rgba(230,180,60,.03); }
+details.well-card.well-card-seized { border-color: rgba(224,85,85,.25); background: rgba(224,85,85,.04); }
+
+details.well-card summary.well-card-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    outline: none;
+    user-select: none;
+}
+details.well-card summary::-webkit-details-marker { display: none; }
+
+.well-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.well-card-header h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text);
+}
+
+.well-status-badge {
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 20px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+.well-status-badge.success { background: rgba(78,201,122,.12); color: #4ec97a; border: 1px solid rgba(78,201,122,.2); }
+.well-status-badge.warning { background: rgba(230,180,60,.12); color: #e6b43c; border: 1px solid rgba(230,180,60,.2); }
+.well-status-badge.danger  { background: rgba(224,85,85,.12);  color: #e05555; border: 1px solid rgba(224,85,85,.2); }
+
+.well-card-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-muted, rgba(232,232,240,.6));
+}
+.well-card-stats span strong { color: var(--text); }
+
+.well-expand-hint {
+    font-size: 11px;
+    color: rgba(232,232,240,.25);
+    text-align: right;
+    margin-top: 8px;
+}
+details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5); }
+
+.well-detail-section {
+    border-top: 1px solid rgba(255,255,255,.07);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Alerty statusu */
+.well-alert {
+    font-size: 13px;
+    border-radius: 6px;
+    padding: 10px 14px;
+    line-height: 1.5;
+}
+.well-alert a { color: var(--gold, #c8a84b); }
+.well-alert--warning { background: rgba(230,180,60,.08); border: 1px solid rgba(230,180,60,.2); color: rgba(232,232,240,.8); }
+.well-alert--danger  { background: rgba(224,85,85,.08);  border: 1px solid rgba(224,85,85,.2);  color: rgba(232,232,240,.8); }
+
+/* Statystyki odwiertu */
+.well-detail-stats { display: flex; flex-direction: column; gap: 6px; }
+.well-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-muted, rgba(232,232,240,.6));
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.well-detail-row strong { color: var(--text); font-weight: 600; }
+
+/* Storage upgrade section - separate <details> */
+/* Sekcja rozbudowy magazynu - osobny <details> */
+
+
+/* Legenda */
+
+/*
+   WELL GRID v2  well_grid.php (JS accordion)
+ */
+
+.wg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+/* Karta odwiertu */
+.wg-card {
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(200,168,75,.15);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color .18s, transform .15s;
+}
+.wg-card:hover { border-color: rgba(200,168,75,.38); transform: translateY(-1px); }
+
+/* Clickable header */
+/* Klikalny naglowek */
+.wg-header {
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+    display: block;
+}
+.wg-header:hover .wg-toggle-hint { color: rgba(232,232,240,.6); }
+
+.wg-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.wg-title-wrap { display: flex; flex-direction: column; gap: 2px; }
+.wg-num  { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--gold3, #a08030); }
+.wg-name { font-size: 14px; font-weight: 700; color: var(--text); }
+
+/* Badge statusu */
+.wbadge {
+    font-size: 9px; font-weight: 700; letter-spacing: .06em;
+    padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+    flex-shrink: 0;
+}
+.wbadge--active  { background: rgba(78,201,122,.12);  color: #4ec97a; border: 1px solid rgba(78,201,122,.25); }
+.wbadge--warn    { background: rgba(230,180,60,.12);  color: #e6b43c; border: 1px solid rgba(230,180,60,.25); }
+.wbadge--danger  { background: rgba(224,85,85,.12);   color: #e05555; border: 1px solid rgba(224,85,85,.25); }
+
+/* Header stats */
+/* Statystyki w naglowku */
+.wg-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.wg-stat-lbl { font-size: 8px; letter-spacing: .08em; text-transform: uppercase; color: rgba(232,232,240,.3); margin-bottom: 3px; }
+.wg-stat-val { font-size: 13px; font-weight: 700; }
+
+/* Pasek stanu technicznego */
+.wg-cond { margin-bottom: 8px; }
+.wg-cond-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+.wg-bar { height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+.wg-bar-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+.wg-bar-fill.cg-good { background: #4ec97a; }
+.wg-bar-fill.cg-warn { background: #e6b43c; }
+.wg-bar-fill.cg-bad  { background: #e05555; }
+
+/* Missing staff hint */
+/* Hint brakujacego personelu */
+.wg-staff-hint {
+    font-size: 11px; color: #e6b43c;
+    background: rgba(230,180,60,.07); border-radius: 4px;
+    padding: 4px 8px; margin-bottom: 6px;
+}
+
+/* Toggle hint */
+.wg-toggle-hint {
+    font-size: 10px; color: rgba(232,232,240,.25);
+    text-align: right; margin-top: 6px;
+}
+
+/* Details section */
+/* Sekcja szczegolow */
+.wg-detail {
+    border-top: 1px solid rgba(255,255,255,.07);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Diagnozy */
+.wg-diag { border-radius: 8px; padding: 12px 14px; }
+.wg-diag--staff   { background: rgba(230,180,60,.07); border: 1px solid rgba(230,180,60,.2); }
+.wg-diag--cash    { background: rgba(224,85,85,.07);  border: 1px solid rgba(224,85,85,.2); }
+.wg-diag--storage { background: rgba(230,180,60,.07); border: 1px solid rgba(230,180,60,.2); }
+.wg-diag--disaster{ background: rgba(224,85,85,.07);  border: 1px solid rgba(224,85,85,.2); }
+.wg-diag-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.wg-diag-note  { font-size: 12px; color: rgba(232,232,240,.65); line-height: 1.5; margin-bottom: 8px; }
+.wg-missing-list { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 5px; }
+.wg-missing-list li { font-size: 12px; font-weight: 600; color: #e05555; }
+
+/* Metryki aktywnego odwiertu */
+.wg-metrics {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 8px;
+}
+.wg-metric {
+    background: rgba(0,0,0,.2); border-radius: 6px; padding: 10px 8px; text-align: center;
+}
+.wg-metric-val { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.wg-metric-lbl { font-size: 9px; color: rgba(232,232,240,.35); letter-spacing: .3px; }
+
+/* Rozbudowa magazynu */
+.wg-storage-wrap {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 7px; overflow: hidden;
+}
+.wg-storage-toggle {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    font-size: 12px; font-weight: 600; color: rgba(232,232,240,.7);
+    cursor: pointer; user-select: none;
+    transition: background .15s;
+}
+.wg-storage-toggle:hover { background: rgba(255,255,255,.05); }
+.wg-storage-meta { font-size: 11px; font-weight: 400; color: rgba(232,232,240,.4); margin-left: auto; }
+.wg-storage-arrow { font-size: 10px; color: rgba(232,232,240,.3); }
+.wg-storage-body {
+    border-top: 1px solid rgba(255,255,255,.07);
+    padding: 12px;
+}
+.wg-storage-stats {
+    display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px;
+}
+.wg-ssstat { display: flex; flex-direction: column; gap: 2px; }
+.wg-sslbl  { font-size: 10px; color: rgba(232,232,240,.4); }
+.wg-ssstat strong { font-size: 13px; font-weight: 700; }
+.wg-btn-upgrade {
+    width: 100%; padding: 10px; border-radius: 6px;
+    background: rgba(78,201,122,.1); border: 1px solid rgba(78,201,122,.25);
+    color: #4ec97a; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: background .15s;
+}
+.wg-btn-upgrade:hover { background: rgba(78,201,122,.2); }
+.wg-storage-blocked {
+    font-size: 12px; color: rgba(224,85,85,.8);
+    background: rgba(224,85,85,.07); border-radius: 5px; padding: 8px 10px;
+}
+
+/* Panel sprzetu odwiertu */
+.wg-equipment-wrap {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 7px; overflow: hidden;
+    margin-top: 8px;
+}
+.wg-equipment-toggle {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    font-size: 12px; font-weight: 600; color: rgba(232,232,240,.7);
+    cursor: pointer; user-select: none;
+    transition: background .15s;
+}
+.wg-equipment-toggle:hover { background: rgba(255,255,255,.05); }
+.wg-equipment-meta { font-size: 11px; font-weight: 400; color: rgba(232,232,240,.4); margin-left: auto; }
+.wg-equipment-arrow { font-size: 10px; color: rgba(232,232,240,.3); }
+.wg-equipment-body {
+    border-top: 1px solid rgba(255,255,255,.07);
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.wg-eq-stats {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 6px;
+}
+.wg-eq-stat { display: flex; flex-direction: column; gap: 2px; }
+.wg-eq-lbl { font-size: 9px; color: rgba(232,232,240,.35); letter-spacing: .3px; }
+.wg-eq-val { font-size: 13px; font-weight: 700; }
+.wg-eq-section-title {
+    font-size: 10px; font-weight: 600; color: rgba(232,232,240,.4);
+    text-transform: uppercase; letter-spacing: .5px;
+    padding-top: 4px; border-top: 1px solid rgba(255,255,255,.06);
+}
+.wg-eq-tiers { display: flex; flex-direction: column; gap: 6px; }
+.wg-eq-tier {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 10px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.02);
+}
+.wg-eq-tier--active {
+    border-color: rgba(78,201,122,.3);
+    background: rgba(78,201,122,.05);
+}
+.wg-eq-tier--disabled {
+    opacity: .4;
+    pointer-events: none;
+}
+.wg-eq-tier-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.wg-eq-swap-banner {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 8px;
+    background: rgba(230,180,60,.08);
+    border: 1px solid rgba(230,180,60,.3);
+    animation: swapPulse 2s ease-in-out infinite;
+}
+@keyframes swapPulse {
+    0%, 100% { border-color: rgba(230,180,60,.3); }
+    50%       { border-color: rgba(230,180,60,.65); }
+}
+.wg-eq-swap-icon { font-size: 22px; flex-shrink: 0; }
+.wg-eq-swap-info { display: flex; flex-direction: column; gap: 3px; }
+.wg-eq-swap-info strong { font-size: 12px; color: rgba(230,180,60,.9); }
+.wg-eq-swap-timer { font-size: 13px; font-weight: 700; color: #e6b43c; font-variant-numeric: tabular-nums; }
+
+.wg-eq-tier-desc { font-size: 10px; color: rgba(232,232,240,.4); }
+.wg-eq-tier-cost { font-size: 11px; font-weight: 600; }
+.wg-eq-upgrade {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 10px; border-radius: 6px;
+    border: 1px solid rgba(230,180,60,.2);
+    background: rgba(230,180,60,.04);
+}
+.wg-eq-upgrade-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.wg-eq-maxlvl {
+    font-size: 12px; color: #4ec97a;
+    background: rgba(78,201,122,.07); border-radius: 5px; padding: 8px 10px;
+    text-align: center;
+}
+.wg-btn-eq {
+    padding: 6px 12px; border-radius: 5px; border: none; cursor: pointer;
+    font-size: 11px; font-weight: 600;
+    background: rgba(78,201,122,.15); color: #4ec97a;
+    transition: background .15s; white-space: nowrap;
+}
+.wg-btn-eq:hover { background: rgba(78,201,122,.25); }
+.wg-btn-eq--disabled { opacity: .4; cursor: not-allowed; }
+
+/* Panel warstw geologicznych */
+.wg-layer-wrap {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 7px; overflow: hidden;
+    margin-top: 8px;
+}
+.wg-layer-toggle {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    font-size: 12px; font-weight: 600; color: rgba(232,232,240,.7);
+    cursor: pointer; user-select: none;
+    transition: background .15s;
+}
+.wg-layer-toggle:hover { background: rgba(255,255,255,.05); }
+.wg-layer-meta { font-size: 11px; font-weight: 400; color: rgba(232,232,240,.4); margin-left: auto; }
+.wg-layer-arrow { font-size: 10px; color: rgba(232,232,240,.3); }
+.wg-layer-body {
+    border-top: 1px solid rgba(255,255,255,.07);
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.wg-layer-switching {
+    font-size: 12px; color: #e6b43c;
+    background: rgba(230,180,60,.07); border-radius: 5px; padding: 10px 12px;
+    text-align: center;
+}
+.wg-layer-active-stats {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 6px;
+}
+.wg-layer-stat { display: flex; flex-direction: column; gap: 2px; }
+.wg-layer-stat-lbl { font-size: 9px; color: rgba(232,232,240,.35); letter-spacing: .3px; }
+.wg-layer-stat-val { font-size: 13px; font-weight: 700; }
+.wg-layer-section-title {
+    font-size: 10px; font-weight: 600; color: rgba(232,232,240,.4);
+    text-transform: uppercase; letter-spacing: .5px;
+    padding-top: 4px; border-top: 1px solid rgba(255,255,255,.06);
+}
+.wg-layers-list { display: flex; flex-direction: column; gap: 6px; }
+.wg-layer-item {
+    padding: 9px 10px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.02);
+    display: flex; flex-direction: column; gap: 5px;
+}
+.wg-layer-item--active {
+    border-color: rgba(78,201,122,.3);
+    background: rgba(78,201,122,.05);
+}
+.wg-layer-item-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px;
+}
+.wg-layer-depth { font-size: 10px; color: rgba(232,232,240,.35); }
+.wg-layer-item-stats {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    font-size: 10px; font-weight: 600;
+}
+.wg-layer-item-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 600;
+}
+.wg-btn-layer {
+    padding: 5px 11px; border-radius: 5px; border: none; cursor: pointer;
+    font-size: 11px; font-weight: 600;
+    background: rgba(200,168,75,.15); color: #c8a84b;
+    transition: background .15s; white-space: nowrap;
+}
+.wg-btn-layer:hover { background: rgba(200,168,75,.28); }
+.wg-btn-layer--disabled { opacity: .4; cursor: not-allowed; }
+.cv-orange { color: #e07d2a; }
+
+/* Value colors */
+/* Kolory wartosci */
+.cv-gold  { color: #c8a84b; }
+.cv-good  { color: #4ec97a; }
+.cv-warn  { color: #e6b43c; }
+.cv-bad   { color: #e05555; }
+.cv-muted { color: rgba(232,232,240,.4); }
+.cg-good  { color: #4ec97a; }
+.cg-warn  { color: #e6b43c; }
+.cg-bad   { color: #e05555; }
+
+/* Paginacja well_grid */
+.wg-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.wg-page-info { font-size: 12px; color: rgba(232,232,240,.4); }
+.wg-page-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+.wg-page-btn {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1);
+    color: rgba(232,232,240,.6);
+    text-decoration: none;
+    transition: background .15s;
+}
+.wg-page-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+.wg-page-btn--active {
+    background: rgba(200,168,75,.15);
+    border-color: rgba(200,168,75,.4);
+    color: #c8a84b;
+    font-weight: 700;
+}
+
+/* Region in well card header */
+/* Region w naglowku karty odwiertu */
+.wg-region {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    margin-top: 1px;
+    opacity: .85;
+}
+
+/* Dane lokalizacji w rozwinięciu aktywnego odwiertu */
+.wg-location-info {
+    background: rgba(0,0,0,.15);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.wg-loc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+}
+.wg-loc-lbl { color: rgba(232,232,240,.45); }
+.wg-loc-val { font-weight: 600; }
+
+/* Loan repayment section */
+/* Sekcja splaty kredytu */
+/* bank.css */
+
+/*
+   GRUPY REGIONALNE  accordion per kontynent/region
+ */
+
+.wg-regions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wg-region-group {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Group header */
+/* Naglowek grupy */
+.wg-region-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(255,255,255,.03);
+    transition: background .15s;
+}
+.wg-region-header:hover { background: rgba(255,255,255,.06); }
+
+.wg-region-hdr-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.wg-region-icon  { font-size: 18px; flex-shrink: 0; }
+.wg-region-name  { font-size: 14px; font-weight: 700; }
+.wg-region-count { font-size: 11px; color: rgba(232,232,240,.35); font-weight: 400; }
+
+.wg-region-hdr-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+.wg-region-pills { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Status pills */
+/* Pilulki statusow */
+.wg-rpill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.wg-rpill--active  { background: rgba(78,201,122,.12);  color: #4ec97a; border: 1px solid rgba(78,201,122,.25); }
+.wg-rpill--warn    { background: rgba(230,180,60,.12);  color: #e6b43c; border: 1px solid rgba(230,180,60,.25); }
+.wg-rpill--danger  { background: rgba(224,85,85,.12);   color: #e05555; border: 1px solid rgba(224,85,85,.25); }
+.wg-rpill--prod    { background: rgba(200,168,75,.10);  color: #c8a84b; border: 1px solid rgba(200,168,75,.2);  }
+
+.wg-region-arrow {
+    font-size: 11px;
+    color: rgba(232,232,240,.3);
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+}
+
+/* Grid of cards inside a group */
+/* Siatka kart wewnatrz grupy */
+.wg-region-group .wg-grid {
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    background: rgba(0,0,0,.15);
+}
+
+/* Modal potwierdzenia magazynu */
+.wg-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+    animation: wgFadeIn .15s ease;
+}
+.wg-modal-closing { opacity: 0; transition: opacity .2s; }
+@keyframes wgFadeIn { from { opacity:0 } to { opacity:1 } }
+
+.wg-modal {
+    background: #1a1a28;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    padding: 24px;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    animation: wgSlideUp .15s ease;
+}
+@keyframes wgSlideUp { from { transform:translateY(20px); opacity:0 } to { transform:none; opacity:1 } }
+
+.wg-modal-title {
+    font-size: 16px; font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+}
+.wg-modal-body { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.wg-modal-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.wg-modal-row--cost { border-bottom: none; padding-top: 10px; margin-top: 2px; }
+.wg-modal-actions {
+    display: flex; gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+.wg-modal-actions .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+/* Modal success and error messages */
+/* Modal - komunikaty sukcesu i bledu */
+.wg-modal-msg {
+    min-height: 20px;
+    font-size: 12px;
+    padding: 6px 0 0;
+    border-radius: 4px;
+}
+.wg-modal-success { color: #4ec97a; }
+.wg-modal-error   { color: #e05555; }
+
+/* Aktywny link nawigacji */
+.user-nav .nav-active {
+    background: rgba(200,168,75,.15) !important;
+    border-color: rgba(200,168,75,.4) !important;
+    color: #c8a84b !important;
+}
+/*
+   WELL STAFF - Well staff
+   Personel odwiertow
+ */
+/* Blokada wniosku kredytowego */
+/* bank.css */
+
+/*
+   PROFIL GRACZA
+ */
+
+.topbar-user-link {
+    display: inline-flex; align-items: center; gap: 7px;
+    text-decoration: none;
+    padding: 3px 8px 3px 4px;
+    border-radius: 20px;
+    border: 1px solid rgba(200,168,75,.2);
+    transition: all .2s;
+}
+.topbar-user-link:hover {
+    background: rgba(200,168,75,.1);
+    border-color: rgba(200,168,75,.4);
+}
+.topbar-avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%; object-fit: cover;
+    border: 1px solid rgba(200,168,75,.4);
+    flex-shrink: 0;
+}
+.topbar-avatar-initials {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(200,168,75,.2);
+    color: #c8a84b;
+    font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+
+.card--hr-alert {
+    border-left: 4px solid var(--gold);
+    background: linear-gradient(145deg, rgba(200,168,75,.1), rgba(200,168,75,.05));
+}
+
+.inc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.inc-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    transition: background .15s;
+}
+.inc-row:hover { background: rgba(255,255,255,.055); }
+
+.inc-row.inc-micro  { border-left: 3px solid rgba(78,201,122,.4); }
+.inc-row.inc-minor  { border-left: 3px solid rgba(224,180,60,.5); }
+.inc-row.inc-medium { border-left: 3px solid rgba(224,130,50,.6); background: rgba(224,130,50,.04); }
+.inc-row.inc-major  { border-left: 3px solid rgba(224,85,85,.7);  background: rgba(224,85,85,.06); }
+.inc-row.inc-repaired { opacity: .55; }
+
+.inc-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+.inc-body { flex: 1; min-width: 0; }
+.inc-msg  { font-size: 13px; color: #e8e8f0; line-height: 1.5; }
+.inc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    font-size: 11px;
+    color: rgba(232,232,240,.45);
+}
+.inc-meta .sep { opacity: .35; }
+
+.inc-right {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+.inc-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+.inc-micro  .inc-badge { background: rgba(78,201,122,.12);  color: #4ec97a; }
+.inc-minor  .inc-badge { background: rgba(224,180,60,.12);  color: #e0b43c; }
+.inc-medium .inc-badge { background: rgba(224,130,50,.15);  color: #e08232; }
+.inc-major  .inc-badge { background: rgba(224,85,85,.18);   color: #e05555; }
+.inc-repaired .inc-badge { background: rgba(200,168,75,.12);  color: #c8a84b; }
+
+.inc-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,.07);
+}
+.inc-page-info {
+    font-size: 12px;
+    color: rgba(232,232,240,.45);
+    min-width: 48px;
+    text-align: center;
+}
+
+.g-card-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,.08);
+    color: rgba(232,232,240,.6);
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 1px 8px;
+    margin-left: 8px;
+}
+
+.wg-transport-wrap {
+    margin-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding-top: 10px;
+}
+.wg-transport-toggle {
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,.75);
+    padding: 4px 0;
+    user-select: none;
+}
+.wg-transport-toggle:hover { color: #e8e8f0; }
+.wg-transport-meta {
+    font-size: 11px; font-weight: 400;
+    color: rgba(255,255,255,.45);
+    margin-left: 4px;
+}
+.wg-transport-body { padding-top: 10px; }
+
+/* Well sale */
+/* Sprzedaz odwiertu */
+.wg-sell-wrap {
+    margin-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding-top: 10px;
+}
+.wg-btn-sell {
+    width: 100%;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid rgba(192,57,43,.5);
+    background: rgba(192,57,43,.15);
+    color: #e8a09a;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.wg-btn-sell:hover {
+    background: rgba(192,57,43,.3);
+    border-color: rgba(192,57,43,.8);
+    color: #fff;
+}
+
+/* TREND ALERT */
+
+
+.badge-offline {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(90, 120, 200, .15);
+    border: 1px solid rgba(100, 140, 255, .35);
+    color: #8ba8ff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: .03em;
+}
+.badge-offline::before { content: ''; font-size: 10px; }
+
+/* well_grid utility classes */
+.wg-hidden { display: none; }
+.wg-diag-note--danger { color: var(--red); margin-top: 6px; }
+.wg-sold-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg3, #1e2533);
+    border: 1px solid rgba(78,201,122,.35);
+    border-radius: 10px;
+    padding: 12px 24px;
+    color: var(--text, #e8eaf0);
+    font-size: 14px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .35s, transform .35s;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+.wg-sold-toast strong { color: #4ec97a; }
+.wg-sold-toast--show  { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.wg-sell-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+.wg-sell-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    gap: 12px;
+}
+.wg-sell-row-label { color: var(--text3, #8899aa); }
+.wg-sell-row-val   { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wg-sell-plus      { color: #4ec97a; }
+.wg-sell-minus     { color: #e05555; }
+
+.wg-sell-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0 8px;
+    border-top: 1px solid var(--border, #2e3a4a);
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+.wg-sell-price { color: var(--gold, #c8a84b); font-size: 16px; }
+
+/* Pasek */
+.wg-sell-reservoir {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+.wg-sell-res-label {
+    display: block;
+    color: var(--text3, #8899aa);
+    margin-bottom: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.wg-sell-res-bar-wrap {
+    display: block;
+    background: rgba(255,255,255,.08);
+    border-radius: 4px;
+    height: 6px;
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+.wg-sell-res-bar {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    transition: width .4s;
+}
+.wg-sell-res-val { font-weight: 600; }
+
+.wg-sell-note {
+    font-size: 11px;
+    color: var(--text3, #8899aa);
+    margin: 0;
+    line-height: 1.4;
+}
+
+/*
+   WELL GRID v3  Redesign (spec: /well-detail)
+ */
+
+/* Card header redesign */
+.wg-header--redesign {
+    padding: 0 !important;
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.wg-hdr-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 16px 10px;
+}
+.wg-badges {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+.wbadge.wb-id   { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);  color: rgba(232,232,240,.4); }
+.wbadge.wb-type { background: #0e1e0e; border: 1px solid #1a3a1a; color: #70b070; }
+.wbadge.wb-lvl  { background: #1a1200; border: 1px solid #3a2800; color: #c8a84b; }
+.wg-well-name {
+    font-size: 17px; font-weight: 800; color: #fff; line-height: 1.15;
+}
+.wg-well-loc {
+    font-size: 11px; color: rgba(232,232,240,.35); margin-top: 3px;
+}
+
+/* Status pill in header */
+.wg-status-pill {
+    display: flex; align-items: center; gap: 5px;
+    border-radius: 14px; padding: 4px 11px;
+    font-size: 11px; font-weight: 600;
+    flex-shrink: 0; white-space: nowrap;
+}
+.wg-status-pill--active { background: #081e10; border: 1px solid #1a4028; color: #4ec97a; }
+.wg-status-pill--warn   { background: #1e1400; border: 1px solid #3a2800; color: #e6b43c; }
+.wg-status-pill--danger { background: #1e0808; border: 1px solid #3a1010; color: #e05555; }
+.wg-pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; flex-shrink: 0;
+}
+
+/* 3-col KPI grid in header */
+.wg-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 0 16px 14px;
+}
+.wg-kpi-card {
+    background: rgba(255,255,255,.025); border: 1px solid rgba(200,168,75,.1);
+    border-radius: 8px; padding: 9px 11px;
+}
+.wg-kpi-label { font-size: 8px; color: rgba(232,232,240,.35); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 3px; }
+.wg-kpi-value { font-size: 16px; font-weight: 800; line-height: 1; }
+.wg-kpi-unit  { font-size: 10px; font-weight: 400; color: rgba(232,232,240,.35); }
+.wg-kpi-sub   { font-size: 10px; color: rgba(232,232,240,.35); margin-top: 4px; }
+.kv-green  { color: #4ec97a; }
+.kv-orange { color: #e07d2a; }
+.kv-red    { color: #e05555; }
+.kv-dim    { color: #aaa !important; font-size: 12px !important; }
+.wg-kpi-bar { height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; margin-top: 5px; }
+.wg-kpi-bar-fill { height: 100%; border-radius: 2px; }
+.wg-kpi-bar-fill.cg-good { background: #4ec97a; }
+.wg-kpi-bar-fill.cg-warn { background: #e6b43c; }
+.wg-kpi-bar-fill.cg-bad  { background: #e05555; }
+
+/* override old padding for cond/staff-hint/hint inside redesign header */
+.wg-header--redesign .wg-cond       { padding: 4px 16px 12px; }
+.wg-header--redesign .wg-staff-hint { margin: 0 16px 6px; }
+.wg-header--redesign .wg-toggle-hint { padding: 4px 16px 10px; text-align: right; }
+
+/* Meta grid (zasobnosc podatek ryzyko) */
+.wg-meta-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: rgba(255,255,255,.06);
+    border-radius: 6px; overflow: hidden; margin-bottom: 2px;
+}
+.wg-meta-cell { background: #16161d; padding: 10px 13px; }
+.wg-meta-cell--full { grid-column: 1 / -1; }
+.wg-meta-label {
+    font-size: 9px; color: rgba(232,232,240,.35);
+    text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px;
+}
+.wg-meta-value { font-size: 14px; font-weight: 700; }
+.wg-meta-unit  { font-size: 11px; font-weight: 400; color: rgba(232,232,240,.4); margin-left: 3px; }
+
+/* Risk pips (replace stars) */
+.wg-risk-meter { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: wrap; }
+.wg-risk-pips  { display: flex; gap: 3px; }
+.wg-risk-pip {
+    width: 14px; height: 6px; border-radius: 2px;
+    background: rgba(255,255,255,.1);
+}
+.wg-risk-pip--on              { background: rgba(200,168,75,.25); }
+.wg-risk-pip--on.wg-risk-pip--red    { background: #e05555; }
+.wg-risk-pip--on.wg-risk-pip--orange { background: #e07d2a; }
+.wg-risk-pip--on.wg-risk-pip--green  { background: #4ec97a; }
+.wg-risk-label  { font-size: 11px; font-weight: 700; }
+.wg-risk-advice { font-size: 10px; color: rgba(232,232,240,.35); }
+
+/* Unified section toggle (equipment layer storage transport) */
+.wg-section-hdr {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 14px; cursor: pointer; user-select: none;
+    border-top: 1px solid rgba(255,255,255,.05);
+    transition: background .15s;
+}
+.wg-section-hdr:hover { background: rgba(255,255,255,.03); }
+.wg-section-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 700; color: rgba(232,232,240,.8);
+}
+.wg-section-ico { font-size: 14px; }
+.wg-section-badge {
+    font-size: 10px; padding: 2px 9px; border-radius: 10px;
+    font-weight: 600; margin-left: auto; flex-shrink: 0;
+}
+.nsb-ok     { background: #0a1e10; border: 1px solid #1a4020; color: #4ec97a; }
+.nsb-warn   { background: #1e1a00; border: 1px solid #3a3000; color: #e6b43c; }
+.nsb-danger { background: #1e0808; border: 1px solid #3a1010; color: #e05555; }
+.wg-section-arrow { font-size: 10px; color: rgba(232,232,240,.3); flex-shrink: 0; }
+.wg-section-body  { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Current stats 4-col */
+.wg-cur-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.wg-cs-item {
+    background: #0f0f1a; border: 1px solid rgba(255,255,255,.07);
+    border-radius: 6px; padding: 7px 9px;
+}
+.wg-cs-label { font-size: 8px; color: rgba(232,232,240,.35); text-transform: uppercase; letter-spacing: .7px; margin-bottom: 3px; }
+.wg-cs-val   { font-size: 13px; font-weight: 700; }
+
+/* Option cards */
+.wg-opt-label {
+    font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: rgba(232,232,240,.3); padding-top: 2px;
+}
+.wg-opt-cards { display: flex; flex-direction: column; gap: 7px; }
+.wg-opt-card {
+    background: #0f0f1a; border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px; padding: 11px 13px;
+    transition: border-color .15s;
+}
+.wg-opt-card:not(.wg-opt-card--active):not(.wg-opt-card--danger):hover { border-color: rgba(200,168,75,.5); }
+.wg-opt-card--active { border-color: rgba(78,201,122,.4); background: rgba(78,201,122,.03); }
+.wg-opt-card--danger { border-color: rgba(224,85,85,.25); }
+.wg-opt-card--danger:hover { border-color: rgba(224,85,85,.7); }
+.wg-opt-card--disabled { opacity: .45; pointer-events: none; }
+.wg-opt-hdr { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+.wg-opt-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; white-space: nowrap; }
+.wg-opt-badge--ok { background: #0a1e10; border: 1px solid #1a4020; color: #4ec97a; }
+.wg-opt-unavail { font-size: 11px; color: #e05555; margin-top: 6px; }
+.wg-opt-card-top {
+    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 9px;
+}
+.wg-opt-name  { font-size: 13px; font-weight: 700; color: #ddd; margin-bottom: 2px; }
+.wg-opt-desc  { font-size: 11px; color: rgba(232,232,240,.4); }
+.wg-opt-zloza { font-size: 10px; color: rgba(232,232,240,.35); margin-top: 2px; }
+.wg-opt-active-badge {
+    font-size: 10px; font-weight: 700; color: #4ec97a;
+    display: flex; align-items: center; gap: 3px; flex-shrink: 0;
+}
+.wg-opt-active-badge::before { content: ' '; }
+.wg-layer-growth { color: #4ec97a; font-size: 10px; margin-left: 5px; }
+
+/* Multiplier grid within opt-cards */
+.wg-mult-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 9px;
+}
+.wg-mult-item {
+    background: #0a0a14; border: 1px solid rgba(255,255,255,.06);
+    border-radius: 5px; padding: 5px 7px;
+}
+.wg-mult-label { font-size: 8px; color: rgba(232,232,240,.35); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
+.wg-mult-val   { font-size: 12px; font-weight: 700; }
+.mv-good { color: #4ec97a; }
+.mv-warn { color: #e6b43c; }
+.mv-bad  { color: #e05555; }
+.mv-neu  { color: rgba(232,232,240,.45); }
+
+/* delta indicators within mult vals */
+.wg-delta { font-size: 10px; margin-left: 2px; font-weight: 600; }
+.wg-delta--up   { color: #4ec97a; }
+.wg-delta--down { color: #e05555; }
+
+/* Option card footer */
+.wg-opt-footer {
+    display: flex; justify-content: space-between; align-items: center;
+}
+.wg-opt-cost { font-size: 12px; font-weight: 700; color: #c8a84b; }
+.wg-opt-time { font-size: 10px; color: rgba(232,232,240,.4); margin-top: 2px; }
+
+/* Option buttons */
+.wg-opt-btn {
+    font-size: 11px; font-weight: 700; padding: 6px 14px;
+    border-radius: 6px; cursor: pointer; letter-spacing: .4px;
+    border: none; transition: all .15s; white-space: nowrap;
+}
+.wg-opt-btn--primary { background: linear-gradient(135deg, #c8860a, #e09a20); color: #fff; }
+.wg-opt-btn--primary:hover { box-shadow: 0 2px 10px rgba(200,134,10,.4); }
+.wg-opt-btn--danger  { background: #2a1010; border: 1px solid #5a2020; color: #e08080; }
+.wg-opt-btn--danger:hover  { background: #3a1010; border-color: #e05555; color: #e05555; }
+.wg-opt-btn--disabled { opacity: .4; cursor: not-allowed; }
+
+/* Second transport leg (hub -> storage) / Odcinek 2 (hub -> magazyn) */
+.wg-leg2 {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(232, 232, 240, .12);
+}
+.wg-leg2-hdr {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.wg-leg2-title { font-size: 12px; font-weight: 700; color: #e8e8f0; }
+.wg-leg2-desc { font-size: 11px; color: rgba(232, 232, 240, .5); margin-bottom: 8px; }
+.wg-leg2-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Aktywny rurociag hub->magazyn: zielona ramka + odznaka */
+.wg-leg2--active {
+    border: 1px solid rgba(78, 201, 122, .45);
+    border-top: 1px solid rgba(78, 201, 122, .45);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: rgba(78, 201, 122, .04);
+}
+.wg-leg2-active-badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4ec97a;
+    background: #0a1e10;
+    border: 1px solid #1a4020;
+    border-radius: 6px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+/* Upgrade box */
+.wg-upgrade-box {
+    background: #0e1428; border: 1px solid rgba(30,46,80,.9);
+    border-radius: 8px; padding: 12px 14px;
+}
+.wg-upgrade-title  { font-size: 12px; font-weight: 700; color: #93c5fd; margin-bottom: 4px; }
+.wg-upgrade-desc   { font-size: 11px; color: #607090; margin-bottom: 10px; line-height: 1.5; }
+.wg-upgrade-footer { display: flex; justify-content: space-between; align-items: center; }
+.wg-upgrade-cost   { font-size: 13px; font-weight: 700; }
+
+/* Storage card redesign */
+.wg-storage-card {
+    background: #0f0f1a; border: 1px solid rgba(255,255,255,.07);
+    border-radius: 8px; padding: 12px 14px;
+}
+.wg-storage-row    { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.wg-storage-title  { font-size: 12px; font-weight: 700; color: rgba(232,232,240,.8); margin-bottom: 3px; }
+.wg-storage-cap    { font-size: 11px; color: rgba(232,232,240,.4); }
+.wg-storage-track  { height: 5px; background: rgba(255,255,255,.07); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.wg-storage-fill   { height: 100%; background: linear-gradient(90deg, #a08030, #c8a84b); border-radius: 3px; }
+.wg-storage-footer { display: flex; justify-content: space-between; align-items: center; }
+.wg-storage-cost   { font-size: 12px; color: rgba(232,232,240,.4); }
+.wg-storage-budget { font-size: 11px; font-weight: 600; }
+
+/* Responsive */
+@media (max-width: 640px) {
+    .wg-kpi-grid  { grid-template-columns: repeat(3, 1fr); }
+    .wg-kpi-value { font-size: 14px; }
+    .wg-well-name { font-size: 15px; }
+    .wg-cur-stats { grid-template-columns: repeat(2, 1fr); }
+    .wg-mult-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VISUAL OVERRIDES — well-grid v2
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Section header — bardziej wyrazisty ────────────────────── */
+.wg-section-hdr {
+    padding: 12px 14px;
+    border-top: 1px solid rgba(200,168,75,.1);
+    border-radius: 0;
+}
+.wg-section-hdr:hover {
+    background: rgba(200,168,75,.04) !important;
+}
+.wg-section-title {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: var(--gold, #c8a84b) !important;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.wg-section-badge {
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 999px !important;
+    font-weight: 700;
+    letter-spacing: .05em;
+}
+.nsb-ok     { background: rgba(78,201,122,.1) !important; border: 1px solid rgba(78,201,122,.2) !important; color: #4ec97a !important; border-radius: 999px; }
+.nsb-warn   { background: rgba(200,168,75,.1) !important; border: 1px solid rgba(200,168,75,.22) !important; color: #c8a84b !important; border-radius: 999px; }
+.nsb-danger { background: rgba(224,85,85,.1)  !important; border: 1px solid rgba(224,85,85,.2)  !important; color: #e05555 !important; border-radius: 999px; }
+
+/* ── Current stats — lepsze tlo, jasniejsze etykiety ────────── */
+.wg-cs-item {
+    background: rgba(255,255,255,.025) !important;
+    border: 1px solid rgba(255,255,255,.07) !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+}
+.wg-cs-label,
+.wg-cs-lbl {
+    font-size: 8px !important;
+    color: rgba(232,232,240,.4) !important;
+    text-transform: uppercase !important;
+    letter-spacing: .7px !important;
+    margin-bottom: 4px !important;
+}
+.wg-cs-val { font-size: 14px !important; font-weight: 700 !important; }
+
+/* ── Opt cards — lepsza hierarchia ─────────────────────────── */
+.wg-opt-cards { gap: 8px !important; }
+.wg-opt-card {
+    background: rgba(255,255,255,.02) !important;
+    border: 1px solid rgba(255,255,255,.07) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+}
+.wg-opt-card:not(.wg-opt-card--active):not(.wg-opt-card--danger):hover {
+    border-color: rgba(200,168,75,.4) !important;
+    background: rgba(200,168,75,.03) !important;
+}
+.wg-opt-card--active {
+    border-color: rgba(78,201,122,.35) !important;
+    background: rgba(78,201,122,.04) !important;
+}
+.wg-opt-card--danger {
+    border-color: rgba(224,85,85,.22) !important;
+    background: rgba(224,85,85,.03) !important;
+}
+.wg-opt-name { font-size: 13px !important; font-weight: 700 !important; color: #e8e8f0 !important; }
+.wg-opt-desc { font-size: 11px !important; color: rgba(232,232,240,.45) !important; line-height: 1.5; margin-top: 2px; }
+.wg-opt-active-badge {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    color: #4ec97a !important;
+    background: rgba(78,201,122,.1) !important;
+    border: 1px solid rgba(78,201,122,.2) !important;
+    border-radius: 999px !important;
+    padding: 2px 8px !important;
+}
+
+/* ── Mult grid — jasniejsze tlo, czytelniejsze wartosci ─────── */
+.wg-mult-grid { gap: 5px !important; margin-bottom: 10px !important; }
+.wg-mult-item {
+    background: rgba(255,255,255,.03) !important;
+    border: 1px solid rgba(255,255,255,.06) !important;
+    border-radius: 6px !important;
+    padding: 6px 8px !important;
+}
+.wg-mult-label {
+    font-size: 8px !important;
+    color: rgba(232,232,240,.38) !important;
+    letter-spacing: .5px !important;
+    margin-bottom: 3px !important;
+}
+.wg-mult-val { font-size: 12px !important; font-weight: 700 !important; }
+
+/* ── Opt footer — spojna zlota cena ─────────────────────────── */
+.wg-opt-footer { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.05); }
+.wg-opt-cost { font-size: 13px !important; font-weight: 700 !important; color: #c8a84b !important; }
+
+/* ── Przyciski — zloty primary ───────────────────────────────── */
+.wg-opt-btn {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    padding: 7px 14px !important;
+    border-radius: 8px !important;
+    letter-spacing: .06em !important;
+    text-transform: uppercase !important;
+}
+.wg-opt-btn--primary {
+    background: rgba(200,168,75,.15) !important;
+    border: 1px solid rgba(200,168,75,.35) !important;
+    color: #c8a84b !important;
+}
+.wg-opt-btn--primary:hover {
+    background: rgba(200,168,75,.25) !important;
+    border-color: rgba(200,168,75,.6) !important;
+    color: #e8cc7a !important;
+    box-shadow: none !important;
+}
+.wg-opt-btn--danger {
+    background: rgba(224,85,85,.08) !important;
+    border: 1px solid rgba(224,85,85,.25) !important;
+    color: #e05555 !important;
+}
+.wg-opt-btn--danger:hover {
+    background: rgba(224,85,85,.16) !important;
+    border-color: rgba(224,85,85,.5) !important;
+}
+
+/* ── Opt label separator ──────────────────────────────────────── */
+.wg-opt-label {
+    font-size: 9px !important;
+    color: rgba(232,232,240,.3) !important;
+    letter-spacing: 1.5px !important;
+    padding: 4px 0 2px !important;
+    border-top: 1px solid rgba(255,255,255,.04);
+    margin-top: 4px;
+}
+
+/* ── Upgrade box — niebieski -> zloty akcent ──────────────────── */
+.wg-upgrade-box {
+    background: rgba(200,168,75,.05) !important;
+    border: 1px solid rgba(200,168,75,.2) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+}
+.wg-upgrade-title {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #c8a84b !important;
+    margin-bottom: 4px !important;
+}
+.wg-upgrade-desc { font-size: 11px !important; color: rgba(232,232,240,.45) !important; }
+.wg-upgrade-cost { font-size: 13px !important; color: #c8a84b !important; }
+.wg-eq-maxlvl { font-size: 11px; color: rgba(232,232,240,.35); text-align: center; padding: 8px 0; }
+
+/* ── Transport leg2 — lepszy separator ───────────────────────── */
+.wg-leg2 {
+    border-top: 1px dashed rgba(200,168,75,.15) !important;
+    margin-top: 14px !important;
+    padding-top: 14px !important;
+}
+.wg-leg2-title { font-size: 12px !important; font-weight: 700 !important; color: #e8e8f0 !important; }
+.wg-leg2-desc  { font-size: 11px !important; color: rgba(232,232,240,.4) !important; line-height: 1.5; }
+.wg-leg2--active {
+    border: 1px solid rgba(78,201,122,.3) !important;
+    background: rgba(78,201,122,.03) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+}
+.wg-leg2-active-badge {
+    background: rgba(78,201,122,.1) !important;
+    border: 1px solid rgba(78,201,122,.2) !important;
+    border-radius: 999px !important;
+    color: #4ec97a !important;
+    font-size: 10px !important;
+    padding: 2px 9px !important;
+}
+.wg-leg2-actions { gap: 8px !important; flex-wrap: wrap; }
+
+/* ── Staff hint ──────────────────────────────────────────────── */
+.wg-staff-hint {
+    font-size: 11px;
+    color: rgba(200,168,75,.7);
+    background: rgba(200,168,75,.06);
+    border: 1px solid rgba(200,168,75,.15);
+    border-radius: 8px;
+    padding: 7px 11px;
+    line-height: 1.5;
+}
+
+/* ── Danger zone ──────────────────────────────────────────────── */
+.wg-danger-zone {
+    margin-top: 8px;
+    border: 1px solid rgba(224,85,85,.25) !important;
+    background: rgba(224,85,85,.04) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+}
+.wg-danger-zone-label {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: .1em !important;
+    text-transform: uppercase !important;
+    color: rgba(224,85,85,.6) !important;
+    margin-bottom: 8px !important;
+}
+.wg-sell-btn,
+.wg-danger-zone .wg-opt-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    background: rgba(224,85,85,.08) !important;
+    border: 1px solid rgba(224,85,85,.3) !important;
+    color: #e05555 !important;
+}
+.wg-sell-btn:hover,
+.wg-danger-zone .wg-opt-btn:hover {
+    background: rgba(224,85,85,.16) !important;
+    border-color: rgba(224,85,85,.55) !important;
+}
+
+/* ── Geological layer ─────────────────────────────────────────── */
+.wg-geo-wrap {
+    border-top: 1px solid rgba(255,255,255,.05);
+}
+.wg-geo-badge--low    { background: rgba(224,85,85,.1)  !important; border-color: rgba(224,85,85,.2)  !important; color: #e05555 !important; }
+.wg-geo-badge--medium { background: rgba(240,160,80,.1) !important; border-color: rgba(240,160,80,.2) !important; color: #f0a050 !important; }
+.wg-geo-badge--high   { background: rgba(78,201,122,.1) !important; border-color: rgba(78,201,122,.2) !important; color: #4ec97a !important; }
+
+/* ── Storage card — turkus -> zloty ───────────────────────────── */
+.wg-storage-card { background: rgba(255,255,255,.02) !important; border: 1px solid rgba(255,255,255,.07) !important; border-radius: 10px !important; }
+.wg-storage-fill { background: linear-gradient(90deg, #a08030, #c8a84b) !important; }
+.wg-storage-title { color: rgba(232,232,240,.85) !important; font-weight: 700 !important; }
+
+/* ── Eq swap banner ───────────────────────────────────────────── */
+.wg-eq-swap-banner {
+    background: rgba(91,156,246,.06);
+    border: 1px solid rgba(91,156,246,.2);
+    border-radius: 8px;
+    padding: 10px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.wg-eq-swap-info { display: flex; flex-direction: column; gap: 2px; }
+.wg-eq-swap-info strong { font-size: 12px; color: #e8e8f0; font-weight: 700; }
+.wg-eq-swap-timer { font-size: 11px; color: rgba(232,232,240,.5); }
+
+/* ── Mobile ───────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .wg-cur-stats { grid-template-columns: repeat(2, 1fr) !important; }
+    .wg-mult-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .wg-opt-cards { gap: 7px !important; }
+    .wg-opt-card  { padding: 10px 11px !important; }
+    .wg-leg2-actions { flex-direction: column !important; }
+    .wg-leg2-actions .wg-opt-btn { width: 100% !important; }
+    .wg-upgrade-box { padding: 10px 11px !important; }
+}
+
+
+
+/* Wewnatrz karty — szczegoly w 2 kolumnach gdy jest miejsce */
+.wg-body-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: start;
+}
+
+/* Sekcje wyposazenie + transport obok siebie na desktop */
+.wg-sections-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+.wg-sections-grid .wg-equipment-wrap { border-right: 1px solid rgba(255,255,255,.05); }
+
+/* KPI grid — wiecej kolumn gdy karta jest szeroka */
+.wg-kpi-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+}
+.wg-region-group .wg-kpi-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+}
+
+/* Card hover — zlota obwodka */
+.wg-card:hover {
+    border-color: rgba(200,168,75,.25) !important;
+}
+
+/* Na tablet — z powrotem 1 kolumna w sekcjach */
+@media (max-width: 900px) {
+    .wg-body-inner      { grid-template-columns: 1fr !important; }
+    .wg-sections-grid   { grid-template-columns: 1fr !important; }
+    .wg-sections-grid .wg-equipment-wrap { border-right: none; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .wg-kpi-grid        { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+@media (max-width: 600px) {
+    .wg-kpi-grid        { grid-template-columns: repeat(2, 1fr) !important; }
+}

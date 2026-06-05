@@ -6,6 +6,10 @@
 
     <?php require __DIR__ . '/../../components/trend_alert.php'; ?>
 
+    <?php require __DIR__ . '/../../components/director_notifications.php'; ?>
+
+    <?php require __DIR__ . '/../../components/tech_notifications.php'; ?>
+
     <?php if (!empty($alertWells)): ?>
     <?php $__firstAlert = $alertWells[array_key_first($alertWells)]; ?>
     <div class="alert-strip" role="alert">
@@ -18,7 +22,7 @@
                 <?php foreach ($alertWells as $__aw): ?>
                 <a class="alert-strip__chip <?= (float)($__aw['_cond'] ?? 100) < 30 ? 'alert-strip__chip--crit' : 'alert-strip__chip--warn' ?>"
                    href="#wg-card-<?= (int)$__aw['id'] ?>"
-                   onclick="wgToggle(<?= (int)$__aw['id'] ?>); setTimeout(function(){ var el=document.getElementById('wg-card-<?= (int)$__aw['id'] ?>'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }, 150); return false;">
+                   onclick="return wgFocusWell(<?= (int)$__aw['id'] ?>);">
                     <?= htmlspecialchars($__aw['location_name'] ?? ('Odwiert #' . $__aw['id'])) ?>
                      <?= round((float)($__aw['_cond'] ?? 0), 0) ?>%
                 </a>
@@ -27,7 +31,7 @@
         </div>
         <a class="alert-strip__cta"
            href="#wg-card-<?= (int)$__firstAlert['id'] ?>"
-           onclick="wgToggle(<?= (int)$__firstAlert['id'] ?>); setTimeout(function(){ var el=document.getElementById('wg-card-<?= (int)$__firstAlert['id'] ?>'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }, 150); return false;">
+           onclick="return wgFocusWell(<?= (int)$__firstAlert['id'] ?>);">
             PRZEJDŹ →
         </a>
     </div>

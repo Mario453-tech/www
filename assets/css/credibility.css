@@ -1,0 +1,100 @@
+/*
+   WIARYGODNOSC FIRMY — KARTA NA DASHBOARDZIE
+   Company credibility — dashboard card.
+   Zalezy od: variables.css, style.css (.card).
+   Depends on: variables.css, style.css (.card).
+*/
+
+.credibility-card {
+    border-left: 3px solid rgba(200, 168, 75, .35);
+}
+
+.credibility-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Wiersz wyniku / Score row */
+.credibility-score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.credibility-score {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text);
+}
+
+.credibility-score-suffix {
+    font-size: 14px;
+    color: rgba(232, 232, 240, .5);
+    font-weight: 600;
+}
+
+/* Odznaka poziomu / Level badge */
+.credibility-status-badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.credibility-badge--critical { background: rgba(224, 85, 85, .15);  color: var(--red);    border: 1px solid rgba(224, 85, 85, .35); }
+.credibility-badge--low      { background: rgba(240, 160, 80, .15); color: var(--orange); border: 1px solid rgba(240, 160, 80, .35); }
+.credibility-badge--shaky    { background: rgba(200, 168, 75, .15); color: var(--gold);   border: 1px solid rgba(200, 168, 75, .35); }
+.credibility-badge--stable   { background: rgba(78, 201, 122, .14); color: var(--green);  border: 1px solid rgba(78, 201, 122, .3); }
+.credibility-badge--high     { background: rgba(78, 201, 122, .2);  color: var(--green);  border: 1px solid rgba(78, 201, 122, .45); }
+
+/* Pasek postepu / Progress bar */
+.credibility-bar {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, .07);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.credibility-bar__fill {
+    display: block;
+    height: 100%;
+    border-radius: 6px;
+    transition: width .4s ease;
+    background: var(--gold);
+}
+
+/* Kolor paska wg poziomu / Bar color by level */
+.credibility-level--critical .credibility-bar__fill { background: var(--red); }
+.credibility-level--low      .credibility-bar__fill { background: var(--orange); }
+.credibility-level--shaky    .credibility-bar__fill { background: var(--gold); }
+.credibility-level--stable   .credibility-bar__fill { background: var(--green); }
+.credibility-level--high     .credibility-bar__fill { background: var(--green); }
+
+/* Opisy / Descriptions */
+.credibility-desc {
+    font-size: 13px;
+    color: rgba(232, 232, 240, .8);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.credibility-hint {
+    font-size: 11px;
+    color: rgba(232, 232, 240, .45);
+    line-height: 1.45;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .credibility-score { font-size: 28px; }
+    .credibility-status-badge { margin-left: 0; }
+}

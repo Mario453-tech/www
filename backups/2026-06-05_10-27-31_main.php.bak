@@ -1,0 +1,139 @@
+<?php extract($viewData, EXTR_SKIP); ?>
+
+<script>
+function switchMarketTab(ev, tab) {
+    var target = document.getElementById('tab-' + tab);
+    if (!target) {
+        console.error('switchMarketTab: element #tab-' + tab + ' not found in DOM');
+        return;
+    }
+    document.querySelectorAll('.market-tab').forEach(function (el) { el.classList.remove('active'); });
+    document.querySelectorAll('.market-tab-content').forEach(function (el) { el.classList.remove('active'); });
+    target.classList.add('active');
+    ev.currentTarget.classList.add('active');
+    var u = new URL(window.location);
+    u.searchParams.set('tab', tab);
+    history.replaceState(null, '', u);
+}
+</script>
+
+<div class="fade-in">
+
+    <div class="market-tabs">
+        <button class="market-tab <?= $activeTab === 'market' ? 'active' : '' ?>"
+                onclick="switchMarketTab(event,'market')"> <?= t('market.heading') ?></button>
+        <button class="market-tab <?= $activeTab === 'black_market' ? 'active' : '' ?>"
+                onclick="switchMarketTab(event,'black_market')"><?= t('black_market.tab_title') ?></button>
+    </div>
+
+    <div id="tab-market" class="market-tab-content <?= $activeTab === 'market' ? 'active' : '' ?>">
+        <section class="card" aria-labelledby="market-heading">
+            <h2 id="market-heading"><?= t('market.heading') ?></h2>
+            <?php
+            require __DIR__ . '/../../components/alert.php';
+            require __DIR__ . '/../../components/price_chart.php';
+            ?>
+        </section>
+
+        <section class="card" aria-labelledby="instant-sell-heading">
+            <h2 id="instant-sell-heading"><?= t('market.instant_sell_title') ?></h2>
+            <p><?= t('market.instant_sell_desc') ?>: <strong class="money"><?= htmlspecialchars(number_format($marketData['current_price'])) ?></strong></p>
+            <?php
+            $formAction  = 'sell_instant';
+            $maxAmount   = $storageData['used'];
+            $buttonClass = 'btn-success';
+            $buttonLabel = t('market.instant_sell_btn');
+            require __DIR__ . '/../../components/form_sell.php';
+            ?>
+        </section>
+
+        <section class="card" aria-labelledby="limit-offer-heading">
+            <h2 id="limit-offer-heading"><?= t('market.limit_offer_title') ?></h2>
+            <p><?= t('market.limit_offer_desc') ?></p>
+            <?php
+            $formAction     = 'create_offer';
+            $maxAmount      = $storageData['used'];
+            $currentPrice   = $marketData['current_price'];
+            $showLimitPrice = true;
+            $buttonClass    = 'btn-warning';
+            $buttonLabel    = t('market.limit_offer_btn');
+            require __DIR__ . '/../../components/form_sell.php';
+            ?>
+        </section>
+
+        <section class="card" aria-labelledby="active-offers-heading">
+            <h2 id="active-offers-heading"> <?= t('market.active_offers') ?></h2>
+            <?php require __DIR__ . '/../../components/my_offers_table.php'; ?>
+        </section>
+    </div>
+
+    <div id="tab-black_market" class="market-tab-content <?= $activeTab === 'black_market' ? 'active' : '' ?>">
+        <section class="card">
+            <h2> <?= t('black_market.heading') ?></h2>
+            <p class="bm-subtitle"><?= t('black_market.subtitle') ?></p>
+
+            <div class="bm-detection-notice"> <?= t('black_market.detection_notice') ?></div>
+
+            <h3 class="bm-section-heading"><?= t('black_market.offers_heading') ?></h3>
+            <div class="bm-offers-grid">
+                <div class="bm-offer-head">
+                    <span><?= t('black_market.col_buyer') ?></span>
+                    <span><?= t('black_market.col_amount') ?></span>
+                    <span><?= t('black_market.col_price') ?></span>
+                    <span><?= t('black_market.col_total') ?></span>
+                    <span><?= t('black_market.col_risk') ?></span>
+                    <span><?= t('black_market.col_expires') ?></span>
+                    <span><?= t('black_market.col_action') ?></span>
+                </div>
+                <div id="bm-offers-body">
+                    <div class="bm-empty"><?= t('black_market.no_offers') ?></div>
+                </div>
+            </div>
+
+            <h3 class="bm-section-heading"><?= t('black_market.history_heading') ?></h3>
+            <div class="bm-history-grid">
+                <div class="bm-history-head">
+                    <span><?= t('black_market.col_date') ?></span>
+                    <span><?= t('black_market.col_bbl') ?></span>
+                    <span><?= t('black_market.col_revenue') ?></span>
+                    <span><?= t('black_market.col_status') ?></span>
+                    <span><?= t('black_market.col_penalty') ?></span>
+                </div>
+                <div id="bm-history-body">
+                    <div class="bm-empty"><?= t('black_market.history_empty') ?></div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+window.MARKET_PRICE = <?= json_encode((float)($marketData['current_price'] ?? 0)) ?>;
+window.MARKET_MSG   = <?= json_encode($success ?? '') ?>;
+window.MARKET_ERR   = <?= json_encode($error ?? '') ?>;
+window.MARKET_LANG  = <?= json_encode([
+    'confirm_sell'      => t('market.confirm_sell_instant'),
+    'confirm_sell_btn'  => t('market.confirm_sell_btn'),
+    'confirm_offer'     => t('market.confirm_create_offer'),
+    'confirm_offer_btn' => t('market.confirm_offer_btn'),
+], JSON_UNESCAPED_UNICODE) ?>;
+
+window.WG_CSRF = <?= json_encode(CSRF::generateToken()) ?>;
+window.BM_LANG = {
+    no_offers:        <?= json_encode(t('black_market.no_offers')) ?>,
+    btn_sell:         <?= json_encode(t('black_market.btn_sell')) ?>,
+    btn_confirm:      <?= json_encode(t('black_market.btn_confirm')) ?>,
+    confirm_title:    <?= json_encode(t('black_market.confirm_title')) ?>,
+    confirm_text:     <?= json_encode(t('black_market.confirm_text')) ?>,
+    history_empty:    <?= json_encode(t('black_market.history_empty')) ?>,
+    status_ok:        <?= json_encode(t('black_market.status_ok')) ?>,
+    status_detected:  <?= json_encode(t('black_market.status_detected')) ?>,
+    error_generic:    <?= json_encode(t('black_market.error_generic')) ?>,
+    error_connection: <?= json_encode(t('black_market.error_connection')) ?>,
+    offer_expired:    <?= json_encode(t('black_market.offer_expired')) ?>,
+    no_penalty:       <?= json_encode(t('black_market.no_penalty')) ?>,
+    loading:          <?= json_encode(t('black_market.loading')) ?>
+};
+</script>
+<script src="/assets/js/market.js"></script>
+<script src="/assets/js/black_market.js?v=2"></script>

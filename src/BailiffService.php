@@ -60,6 +60,16 @@ class BailiffService
                 ':loan_id' => $loan['id'],
                 ':player_id' => $loan['player_id'],
             ]);
+
+            // Wiarygodnosc firmy: aktywacja komornika / Company credibility: bailiff activated
+            try {
+                (new CompanyCredibilityService($this->db))
+                    ->applyEvent((int)$loan['player_id'], 'bailiff_activated');
+            } catch (Throwable $e) {
+                if (class_exists('GameLog', false)) {
+                    GameLog::error('BailiffService', 'credibility hook (bailiff) FAILED', $e, ['player_id' => $loan['player_id']]);
+                }
+            }
         }
     }
 
@@ -277,6 +287,16 @@ class BailiffService
             ':pid' => $proc['player_id'],
             ':msg' => t('bailiff.bankruptcy_event'),
         ]);
+
+        // Wiarygodnosc firmy: wejscie w bankructwo / Company credibility: bankruptcy entered
+        try {
+            (new CompanyCredibilityService($this->db))
+                ->applyEvent((int)$proc['player_id'], 'bankruptcy_entered');
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('BailiffService', 'credibility hook (bankruptcy) FAILED', $e, ['player_id' => $proc['player_id']]);
+            }
+        }
     }
 
     private function completeProceeding(int $procId): void

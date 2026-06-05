@@ -316,6 +316,17 @@ try {
 } catch (Throwable $e) {
 }
 
+// Wiarygodnosc firmy / Company credibility
+$credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
+$credibilityLevel = 'shaky';
+try {
+    $credService    = new CompanyCredibilityService($db);
+    $credibilityScore = $credService->getScore($playerId);
+    $credibilityLevel = $credService->getLevel($credibilityScore);
+} catch (Throwable $e) {
+    GameLog::error('profile.php', 'CompanyCredibilityService failed', $e, ['player_id' => $playerId]);
+}
+
 $avatarUrl = $playerData['avatar_path']
     ? '/' . htmlspecialchars($playerData['avatar_path']) . '?v=' . time()
     : null;
@@ -338,11 +349,13 @@ $viewData = compact(
     'lastLogin',
     'sellStats',
     'bmStats',
-    'bmScore'
+    'bmScore',
+    'credibilityScore',
+    'credibilityLevel'
 );
 
 $pageTitle = t('profile.page_title');
-$extraCss = ['/assets/css/profile.css'];
+$extraCss = ['/assets/css/profile.css', '/assets/css/credibility.css'];
 require_once __DIR__ . '/templates/header.php';
 require __DIR__ . '/templates/views/profile/main.php';
 require_once __DIR__ . '/templates/footer.php';

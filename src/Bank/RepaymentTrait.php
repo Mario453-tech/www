@@ -149,6 +149,15 @@ trait BankRepaymentTrait
             $db->commit();
 
             if ($isPaidOff) {
+                // Wiarygodnosc firmy: splata kredytu przed czasem (recznie, po commit).
+                // Company credibility: early loan repayment (manual, after commit).
+                try {
+                    (new CompanyCredibilityService($db))
+                        ->applyEvent((int)$playerId, 'loan_repaid_early');
+                } catch (Throwable $ce) {
+                    GameLog::error('BankService', 'credibility hook (early repay) FAILED', $ce, ['player_id' => $playerId]);
+                }
+
                 GameLog::info('BankService', 'Loan fully repaid', [
                     'loan_id' => $loanId,
                     'player_id' => $playerId,

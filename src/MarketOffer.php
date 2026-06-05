@@ -4,12 +4,42 @@ class MarketOffer
 {
     private PDO $db;
 
+ // Ensures market_sale_history table exists (runs once per connection).
+ // Tworzy tabele market_sale_history jesli nie istnieje (raz na polaczenie).
+    private static bool $schemaEnsured = false;
+
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
+        $this->ensureSchema();
     }
 
- // Offer creation
+    private function ensureSchema(): void
+    {
+        if (self::$schemaEnsured) {
+            return;
+        }
+        self::$schemaEnsured = true;
+
+        try {
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS market_sale_history (
+                    id            INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    player_id     INT            NOT NULL,
+                    offer_id      INT            NOT NULL,
+                    listed_at     DATETIME       NOT NULL,
+                    sold_at       DATETIME       NOT NULL,
+                    price_per_bbl INT            NOT NULL,
+                    barrels_sold  INT            NOT NULL,
+                    total_earned  DECIMAL(14,2)  NOT NULL,
+                    KEY idx_player_sold (player_id, sold_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+        } catch (Throwable $e) {
+            GameLog::error('MarketOffer', 'ensureSchema FAILED', $e);
+        }
+    }
+
 
     public function createOffer(int $playerId, float $amount, float $limitPrice): array
     {
@@ -289,7 +319,7 @@ class MarketOffer
 
             $earnings = (float)$offer['amount'] * $currentPrice;
 
- // Credit player account
+ // Credit player account / Przelej srodki na konto gracza
             $this->db->prepare("
                 UPDATE players
                 SET cash = cash + :earnings
@@ -299,7 +329,7 @@ class MarketOffer
                 ':player_id' => $offer['player_id'],
             ]);
 
- // Close the offer
+ // Close the offer / Zamknij oferte
             $this->db->prepare("
                 UPDATE market_offers
                 SET status       = 'completed',
@@ -311,6 +341,21 @@ class MarketOffer
                 ':amount' => $offer['amount'],
                 ':price'  => $currentPrice,
                 ':id'     => $offer['id'],
+            ]);
+
+ // Log to sale history / Zapisz do historii sprzedazy
+            $this->db->prepare("
+                INSERT INTO market_sale_history
+                    (player_id, offer_id, listed_at, sold_at, price_per_bbl, barrels_sold, total_earned)
+                VALUES
+                    (:player_id, :offer_id, :listed_at, NOW(), :price, :barrels, :total)
+            ")->execute([
+                ':player_id' => $offer['player_id'],
+                ':offer_id'  => $offer['id'],
+                ':listed_at' => $offer['created_at'],
+                ':price'     => $currentPrice,
+                ':barrels'   => $offer['amount'],
+                ':total'     => $earnings,
             ]);
 
             $this->db->commit();
@@ -326,7 +371,57 @@ class MarketOffer
                 'offer_id'  => $offer['id'],
                 'player_id' => $offer['player_id'],
             ]);
- // Do not rethrow one failure must not block remaining offers
+ // Do not rethrow — one failure must not block remaining offers
+        }
+    }
+
+ // Sale history — paginated / Historia sprzedazy z paginacja
+
+    public function getSaleHistory(int $playerId, int $page, int $perPage): array
+    {
+        try {
+            $offset = ($page - 1) * $perPage;
+
+            $stmtCount = $this->db->prepare("
+                SELECT COUNT(*) FROM market_sale_history WHERE player_id = :pid
+            ");
+            $stmtCount->execute([':pid' => $playerId]);
+            $total = (int)$stmtCount->fetchColumn();
+
+            $stmt = $this->db->prepare("
+                SELECT id, offer_id, listed_at, sold_at, price_per_bbl, barrels_sold, total_earned
+                FROM market_sale_history
+                WHERE player_id = :pid
+                ORDER BY sold_at DESC
+                LIMIT :lim OFFSET :off
+            ");
+            $stmt->bindValue(':pid', $playerId, PDO::PARAM_INT);
+            $stmt->bindValue(':lim', $perPage,  PDO::PARAM_INT);
+            $stmt->bindValue(':off', $offset,   PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+
+            return ['rows' => $rows, 'total' => (int)$total];
+
+        } catch (Throwable $e) {
+            GameLog::error('MarketOffer', 'getSaleHistory FAILED', $e, ['player_id' => $playerId]);
+            return ['rows' => [], 'total' => 0];
+        }
+    }
+
+ // Delete history entries older than 7 days / Usun wpisy starsze niz 7 dni
+    public function purgeOldSaleHistory(): void
+    {
+        try {
+            $deleted = $this->db->exec("
+                DELETE FROM market_sale_history
+                WHERE sold_at < NOW() - INTERVAL 7 DAY
+            ");
+            if ($deleted > 0) {
+                GameLog::info('MarketOffer', 'purgeOldSaleHistory', ['deleted' => $deleted]);
+            }
+        } catch (Throwable $e) {
+            GameLog::error('MarketOffer', 'purgeOldSaleHistory FAILED', $e);
         }
     }
 }

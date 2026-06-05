@@ -108,6 +108,14 @@ $offers   = $myOffers; // alias for backwards compatibility
 
 $priceHistory = $marketTick->getPriceHistory(6);
 
+// Sale history with pagination / Historia sprzedazy z paginacja
+$historyPerPage = 5;
+$historyPage    = max(1, (int)($_GET['hpage'] ?? 1));
+$historyData    = $marketOffer->getSaleHistory(Auth::getUserId(), $historyPage, $historyPerPage);
+$historyRows    = $historyData['rows'];
+$historyTotal   = $historyData['total'];
+$historyPages   = (int)ceil($historyTotal / $historyPerPage);
+
 $marketTitlePlain = html_entity_decode(strip_tags(tPlain('market.page_title')), ENT_QUOTES, 'UTF-8');
 $pageTitle = $marketTitlePlain;
 
@@ -119,7 +127,8 @@ if (!in_array($activeTab, ['market', 'black_market'])) {
 $viewData = compact(
     'error', 'success', 'activeTab',
     'marketData', 'storageData', 'playerData',
-    'offers', 'myOffers', 'priceHistory'
+    'offers', 'myOffers', 'priceHistory',
+    'historyRows', 'historyTotal', 'historyPage', 'historyPages', 'historyPerPage'
 );
 $viewData = array_merge(GameShell::data(Auth::getUserId()), $viewData);
 $extraCss = [

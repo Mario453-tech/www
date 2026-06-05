@@ -238,6 +238,24 @@ try {
     GameLog::error('index.php', 'DirectorNotificationService failed', $e, ['player_id' => $playerId]);
 }
 
+// Powiadomienia techniczne (awarie, incydenty odwiertow) — tylko nieprzeczytane, bez rutynowych zadan.
+// Technical notifications (well failures, incidents) — unread only, excluding routine tasks.
+$techNotifications = [];
+try {
+    $tnStmt = Database::getInstance()->getConnection()->prepare(
+        "SELECT id, well_id, type, message, created_at
+           FROM technical_notifications
+          WHERE player_id = ? AND is_read = 0
+            AND type != 'task'
+          ORDER BY created_at DESC
+          LIMIT 10"
+    );
+    $tnStmt->execute([$playerId]);
+    $techNotifications = $tnStmt->fetchAll();
+} catch (Throwable $e) {
+    GameLog::error('index.php', 'techNotifications query FAILED', $e, ['player_id' => $playerId]);
+}
+
 // Akcje
 $actions = [
     [
@@ -280,7 +298,8 @@ $viewData = compact(
     'activeBailiff', 'bailiffHoursLeft', 'bailiffStageName', 'seizedWells',
     'financialState', 'crisisTicks', 'crisisLimit', 'crisisTicksLeft', 'creditScore',
     'notifications', 'actions',
-    'alertWells', 'eventImpactPerHour', 'eventRemainingSeconds', 'trendPricePct'
+    'alertWells', 'eventImpactPerHour', 'eventRemainingSeconds', 'trendPricePct',
+    'techNotifications'
 );
 
 $pageTitle  = t('index.title');

@@ -27,6 +27,9 @@ extract($viewData, EXTR_SKIP);
      data-success="<?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>"></div>
 <?php endif ?>
 
+<!-- Wiarygodnosc firmy / Company credibility card -->
+<?php require __DIR__ . '/../../components/company_credibility.php'; ?>
+
 <!-- Intro -->
 <section class="card">
     <p><?= t('legal.page_intro') ?></p>

@@ -290,6 +290,14 @@ trait BankNegotiationProcessorTrait
                         'loan_id' => $row['loan_id'],
                     ]);
 
+                    // Wiarygodnosc firmy: zlamany plan naprawczy / Company credibility: recovery plan broken
+                    try {
+                        (new CompanyCredibilityService($this->db))
+                            ->applyEvent((int)$row['player_id'], 'recovery_plan_broken');
+                    } catch (Throwable $ce) {
+                        GameLog::error('BankNeg', 'credibility hook (recovery) FAILED', $ce, ['player_id' => $row['player_id']]);
+                    }
+
                     $violations++;
                 } catch (Throwable $e) {
                     GameLog::error('BankNeg', 'checkRecoveryViolation FAILED', $e, ['loan' => $row['loan_id']]);

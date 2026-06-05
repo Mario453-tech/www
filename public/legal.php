@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/init.php';
 require_once __DIR__ . '/../src/LegalService.php';
+require_once __DIR__ . '/../src/CompanyCredibilityService.php';
 
 Auth::requireLogin();
 
@@ -102,13 +103,25 @@ foreach ($configs as $cfg) {
     }
 }
 
+// Wiarygodnosc firmy / Company credibility (karta w dziale prawnym)
+$credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
+$credibilityLevel = 'shaky';
+try {
+    $credService      = new CompanyCredibilityService();
+    $credibilityScore = $credService->getScore($playerId);
+    $credibilityLevel = $credService->getLevel($credibilityScore);
+} catch (Throwable $e) {
+    GameLog::error('legal.php', 'CompanyCredibilityService failed', $e, ['player_id' => $playerId]);
+}
+
 $viewData = compact(
     'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'levelLocked',
-    'cash', 'legalLevel', 'error', 'success'
+    'cash', 'legalLevel', 'error', 'success',
+    'credibilityScore', 'credibilityLevel'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
-$extraCss = ['/assets/css/legal.css'];
+$extraCss = ['/assets/css/legal.css', '/assets/css/credibility.css'];
 $extraJs  = ['/assets/js/legal.js'];
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);

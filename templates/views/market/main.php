@@ -65,6 +65,72 @@ function switchMarketTab(ev, tab) {
             <h2 id="active-offers-heading"> <?= t('market.active_offers') ?></h2>
             <?php require __DIR__ . '/../../components/my_offers_table.php'; ?>
         </section>
+
+        <section class="card" aria-labelledby="sale-history-heading">
+            <h2 id="sale-history-heading"><?= t('market.sale_history_heading') ?></h2>
+
+            <?php if (empty($historyRows)): ?>
+                <p class="no-data-msg"><?= t('market.sale_history_empty') ?></p>
+            <?php else: ?>
+                <div class="sale-history-table-wrap">
+                    <table class="sale-history-table">
+                        <thead>
+                            <tr>
+                                <th><?= t('market.sale_history_col_id') ?></th>
+                                <th><?= t('market.sale_history_col_listed') ?></th>
+                                <th><?= t('market.sale_history_col_sold') ?></th>
+                                <th><?= t('market.sale_history_col_price') ?></th>
+                                <th><?= t('market.sale_history_col_bbls') ?></th>
+                                <th><?= t('market.sale_history_col_total') ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($historyRows as $row): ?>
+                                <tr>
+                                    <td>#<?= htmlspecialchars((string)$row['id']) ?></td>
+                                    <td><?= htmlspecialchars($row['listed_at']) ?></td>
+                                    <td><?= htmlspecialchars($row['sold_at']) ?></td>
+                                    <td class="money"><?= number_format((int)$row['price_per_bbl']) ?></td>
+                                    <td><?= number_format((int)$row['barrels_sold']) ?></td>
+                                    <td class="money"><?= number_format((float)$row['total_earned'], 2) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <?php if ($historyPages > 1): ?>
+                    <nav class="sale-history-pagination" aria-label="<?= t('market.sale_history_heading') ?>">
+                        <?php
+                        $baseUrl = strtok($_SERVER['REQUEST_URI'], '?');
+                        $params  = $_GET;
+                        unset($params['hpage']);
+                        $qs = $params ? '&' . http_build_query($params) : '';
+                        ?>
+
+                        <?php if ($historyPage > 1): ?>
+                            <a href="<?= htmlspecialchars($baseUrl . '?hpage=' . ($historyPage - 1) . $qs) ?>"
+                               class="btn btn-sm btn-secondary"><?= t('market.sale_history_prev') ?></a>
+                        <?php else: ?>
+                            <span class="btn btn-sm btn-secondary disabled"><?= t('market.sale_history_prev') ?></span>
+                        <?php endif; ?>
+
+                        <span class="sale-history-page-info">
+                            <?= tPlain('market.sale_history_page', ['cur' => $historyPage, 'total' => $historyPages]) ?>
+                        </span>
+
+                        <?php if ($historyPage < $historyPages): ?>
+                            <a href="<?= htmlspecialchars($baseUrl . '?hpage=' . ($historyPage + 1) . $qs) ?>"
+                               class="btn btn-sm btn-secondary"><?= t('market.sale_history_next') ?></a>
+                        <?php else: ?>
+                            <span class="btn btn-sm btn-secondary disabled"><?= t('market.sale_history_next') ?></span>
+                        <?php endif; ?>
+                    </nav>
+                <?php endif; ?>
+
+                <p class="sale-history-info"><?= t('market.sale_history_info') ?></p>
+            <?php endif; ?>
+        </section>
     </div>
 
     <div id="tab-black_market" class="market-tab-content <?= $activeTab === 'black_market' ? 'active' : '' ?>">

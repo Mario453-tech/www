@@ -2600,6 +2600,167 @@ Komunikaty do bazy przez `tPlain()` (bez htmlspecialchars).
 
 ---
 
+### Aktualizacja (05.06.2026) — Wiarygodność firmy: fundament systemu
+
+#### Cel
+
+Ogólny wskaźnik reputacji firmy wobec świata gry (`company_credibility`, skala 0–100, start 50).
+NIE zastępuje `credit_score`, `bank_trust_scores` ani `black_market_score` — to osobny, nadrzędny wskaźnik
+pod przyszły dział prawny, trudniejsze regiony, kontrakty i przetargi.
+
+#### Architektura
+
+| Plik | Zmiany |
+|------|--------|
+| `src/CompanyCredibilityService.php` | Nowy serwis: `getScore`, `getLevel`, `changeScore`, `logChange`, `applyEvent`, `getHistory`, `ensureSchema` (guarded, DDL odraczane poza transakcję) |
+| `migrations/etap12_company_credibility.sql` | Pole `players.company_credibility` + tabela `company_credibility_log` |
+| `templates/components/company_credibility.php` | Karta na dashboardzie gracza (wynik, poziom, opis) |
+| `assets/css/credibility.css` | Style karty gracza |
+| `public/index.php` | Pobranie wyniku + przekazanie do widoku, podpięcie CSS |
+| `templates/views/index/main.php` | Włączenie komponentu karty |
+| `admin/credibility.php` | Panel admina: lista graczy, historia, ręczna korekta |
+| `templates/views/admin/credibility/main.php` | Widok admina — CSS Grid (zero tabel HTML), modal korekty |
+| `assets/js/admin_credibility.js` | Sterowanie modalem ręcznej korekty |
+| `assets/css/admin.css` | Style admina: odznaki, grid listy, modal |
+| `admin/partials/header.php` | Pozycja w nawigacji (sekcja Finanse) |
+| `lang/pl/credibility.php` | Tłumaczenia gracza (`credibility.*`) |
+| `lang/pl/admin/credibility.php` | Tłumaczenia admina (`admin.credibility.*`) |
+| `lang/pl/admin/nav.php` | Klucz nawigacji |
+| `lang/pl.php` | Rejestracja loadera `credibility.php` |
+| `tests/Integration/CompanyCredibilityServiceTest.php` | 21 testów (zakres, log, poziomy, próg powiadomienia, guard) |
+
+#### Poziomy (sekcja 2 briefu)
+
+| Zakres | Poziom |
+|--------|--------|
+| 0–19 | krytyczna |
+| 20–39 | niska |
+| 40–59 | chwiejna |
+| 60–79 | stabilna |
+| 80–100 | wysoka |
+
+#### Podpięte zdarzenia (sekcja 6)
+
+| Zdarzenie | Delta | Punkt podpięcia |
+|-----------|-------|-----------------|
+| `black_market_detected` | −12 | `BlackMarketService::executeTransaction` (po commit) |
+| `bailiff_activated` | −20 | `BailiffService::startNewProceedings` |
+| `bankruptcy_entered` | −25 | `BailiffService::declareBankruptcy` |
+| `recovery_plan_broken` | −10 | `BankNegotiation/ProcessorTrait::checkRecoveryPlanViolations` |
+| `major_payment_delay` | −6 | `LoanRepository::processInstallment` (przejście w `late`) |
+| `loan_installment_paid_on_time` | +2 | `LoanRepository::processInstallment` (rata) |
+| `loan_fully_repaid` | +8 | `LoanRepository::processInstallment` (spłata) |
+| `loan_repaid_early` | +6 | `Bank/RepaymentTrait::repay` (po commit) |
+
+`clean_operation_period` (+3) i `admin_manual_adjustment` — pierwszy odłożony (brief 6.2),
+drugi sterowany ręcznie z panelu admina.
+
+#### Zasady
+
+- Każda zmiana przechodzi wyłącznie przez `CompanyCredibilityService` (sekcja 4).
+- Każda zmiana jest logowana w `company_credibility_log` (sekcja 3).
+- Wynik twardo przycinany do 0–100 (sekcja 1.1).
+- Powiadomienie dyrektora tylko przy `|delta| >= 5` (sekcja 9), typ `credibility`, guarded.
+- Wszystkie podpięcia są try/catch — nigdy nie wywracają operacji nadrzędnej.
+
+#### Co nie wchodzi w fundament (TODO, sekcja 14–15)
+
+Wpływ na dział prawny, regiony, kontrakty, przetargi, łapówki, audyty, partnerów,
+offshore oraz automatyczna odbudowa wyniku — odłożone na kolejne etapy.
+
+---
+
+### Aktualizacja (04.06.2026) — Dział prawny P1: zezwolenia na wiercenie
+
+#### Cel
+
+Gracz musi uzyskać **zezwolenie na wiercenie** w każdym regionie zanim kupi tam odwiert.
+System działa per-region i obejmuje 7 statusów (none / pending / delayed / no_decision / granted / refused / transitional / locked).
+
+#### Architektura
+
+| Plik | Zmiany |
+|------|--------|
+| `src/LegalService.php` | Nowy serwis: `ensureSchema`, `seedRegionConfig`, `submitApplication`, `migrateTransitionalPermits`, `getMapPermitData`, `notifyDirector` (prywatna) |
+| `public/legal.php` | Nowy kontroler gracza — klasyfikuje regiony do 4 kubełków: `$activePermits`, `$pendingApplications`, `$capitalLocked`, `$available` |
+| `templates/views/legal/main.php` | Nowy widok gracza — lista regionów z badge'ami statusów i formularzem złożenia wniosku |
+| `assets/css/legal.css` | Nowy plik CSS dla widoku gracza (karty regionów, badge'e, kapita-locked, notatki) |
+| `src/WorldMap.php` | `getMapData()`: zastąpiono N+1 `hasActivePermit()` jednym batch-requestem `getMapPermitData()` |
+| `assets/js/world_map.js` | Dodano `fmtMinutes()`, `permitBadge()`, `buildPermitHtml()` — badge'e i modale na mapie per status |
+| `assets/css/map.css` | Nowe klasy `.loc-badge--permit-*`, `.sr-permit--active`, `.loc-permit-required--*` |
+| `templates/views/map/main.php` | Klucze `MAP_LANG` rozszerzone o 15 kluczy `map_js.permit_*`; div `#sr-permit` w panelu regionu |
+| `admin/legal.php` | Nowy panel admina: konfiguracja regionów, lista wniosków, 5 akcji manualnych (grant/transitional/no_decision/refuse/reset→pending), seed, migracja |
+| `templates/views/admin/legal/main.php` | Widok admina — tabela konfiguracji regionów z edycją inline, tabela wniosków z akcjami |
+| `lang/pl/legal.php` | Nowy plik tłumaczeń działu prawnego gracza (klucze `legal.*`) |
+| `lang/pl/admin/legal.php` | Nowy plik tłumaczeń panelu admina (klucze `admin.legal.*`) |
+| `lang/pl/map.php` | +15 kluczy `map_js.permit_*` i `map_js.political_risk` |
+| `templates/views/index/main.php` | Podpięcie komponentu `director_notifications.php` (powiadomienia na dashboardzie) |
+| `tests/Integration/LegalMapPermitDataTest.php` | Nowy — 15 testów SQLite in-memory dla `getMapPermitData()` |
+| `tests/Integration/LegalNotificationsTest.php` | Nowy — 6 testów SQLite in-memory dla powiadomień §13 |
+
+#### Tabele bazy danych
+
+```sql
+legal_region_config           -- parametry per region: koszt, czasy, ryzyko, required_capital
+drilling_permit_applications  -- wnioski i zezwolenia: status, submitted_at, decision_due_at, refusal_cooldown_until
+```
+
+#### Statusy zezwoleń
+
+| Status | Znaczenie | Aktywne zezwolenie? |
+|--------|-----------|---------------------|
+| `none` | Brak wniosku — można składać | nie |
+| `pending` | Wniosek w toku — oczekiwanie na decyzję | nie |
+| `delayed` | Decyzja opóźniona — nowy termin | nie |
+| `no_decision` | Brak decyzji (bez cooldownu) | nie |
+| `granted` | Zezwolenie aktywne | **tak** |
+| `transitional` | Zezwolenie przejściowe (nadane przez migrację) | **tak** |
+| `refused` | Odrzucony — cooldown przed ponownym wnioskiem | nie |
+| `locked` | Wymagany kapitał > gotówka gracza (widok mapy, §7.3) | nie |
+
+#### Kluczowe metody LegalService
+
+```php
+// Batch-odczyt statusów dla mapy: 2 SQL queries, brak N+1
+getMapPermitData(int $playerId, array $regionIds, float $playerCash, ?DateTimeInterface $now): array
+
+// Złożenie wniosku: walidacja, pobranie opłaty (transakcja), powiadomienie §13
+submitApplication(int $playerId, int $regionId, ?DateTimeInterface $now): array
+// → ['success' => bool, 'code' => string, 'application_id' => int, ...]
+
+// Migracja: gracze z odwiertami bez zezwolenia → status transitional (idempotentna)
+migrateTransitionalPermits(?DateTimeInterface $now): int  // → liczba nowych wpisów
+
+// Seed konfiguracji regionów z world_regions (idempotentny)
+seedRegionConfig(): int  // → liczba nowych wpisów
+```
+
+#### Powiadomienia dyrektora (§13)
+
+`notifyDirector()` (prywatna, try/catch-guarded) wysyła powiadomienie do `director_notifications`:
+- po `submitApplication()` — tytuł/treść z `legal.notif.submitted.*`, z nazwą regionu
+- po `migrateTransitionalPermits()` — `legal.notif.transitional.*` per zmigrowany region
+- brak tabeli `director_notifications` **nie przerywa** operacji nadrzędnej
+
+#### Parametry domyślne per poziom ryzyka
+
+| Poziom | Koszt (PLN) | Czas rozpatrzenia | Wymagany kapitał |
+|--------|-------------|-------------------|-----------------|
+| `low` | 100 000 | 30 min | 0 |
+| `medium` | 250 000 | 60 min | 0 |
+| `high` | 500 000 | 90 min | 5 000 000 |
+| `critical` | 1 000 000 | 120 min | 25 000 000 |
+
+Poziom ryzyka mapowany automatycznie z `political_risk` regionu przy seedzie.
+
+#### Co nie jest w P1 (planowane P2+)
+
+- Automatyczne przetwarzanie wniosków przez tick (losowanie wyniku, cooldowny)
+- Twarda blokada zakupu odwiertu w `WorldMap` (backend — mapa pokazuje badge'e informacyjnie)
+- Wygasanie aktywnych zezwoleń
+
+---
+
 ### Aktualizacja (24.05.2026) - logistyka: jawny wybor transportu i hub-bound pipeline
 
 - Odwiert ladowy nie startuje juz domyslnie z `rurociag`.
