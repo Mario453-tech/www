@@ -29,6 +29,7 @@ $pipeLevelMeta = [
     <button id="inc-btn-pipe_micro"  onclick="incShowTab('pipe_micro')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_pipe_micro') ?></button>
     <button id="inc-btn-pipe_minor"  onclick="incShowTab('pipe_minor')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_pipe_minor') ?></button>
     <button id="inc-btn-pipe_medium" onclick="incShowTab('pipe_medium')" class="admin-tab" role="tab"><?= t('admin.incidents.tab_pipe_medium') ?></button>
+    <button id="inc-btn-marine" onclick="incShowTab('marine')" class="admin-tab admin-tab--danger" role="tab"><?= t('admin.incidents.tab_marine') ?></button>
     <button id="inc-btn-cooldown" onclick="incShowTab('cooldown')" class="admin-tab" role="tab"><?= t('admin.incidents.tab_cooldown') ?></button>
     <button id="inc-btn-recent" onclick="incShowTab('recent')" class="admin-tab" role="tab"><?= t('admin.incidents.tab_recent') ?></button>
     <button id="inc-btn-help"    onclick="incShowTab('help')"    class="admin-tab" role="tab"><?= t('admin.incidents.tab_help') ?></button>
@@ -679,76 +680,10 @@ foreach ($PIPE_LEVELS as $lvl):
     </section>
 </div>
 
-<!--  TAB: WYWOAJ INCYDENT  -->
-<div id="inc-tab-trigger" class="admin-tab-content" role="tabpanel">
-    <section class="panel" aria-label="<?= t('admin.incidents.trig_title') ?>">
-        <p class="panel-title"> <?= t('admin.incidents.trig_title') ?></p>
-        <p class="panel-hint"><?= t('admin.incidents.trig_hint') ?></p>
-
-        <form method="post" id="inc-trig-form" class="inc-trig-form">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="trigger_incident">
-
-            <div class="inc-trig-row">
-                <!-- Gracz -->
-                <div class="inc-trig-field">
-                    <label class="form-label" for="trig-player"><?= t('admin.incidents.trig_player') ?></label>
-                    <select name="trig_player_id" id="trig-player" class="trend-input-cat" onchange="incTrigUpdateWells(this.value)" required>
-                        <option value=""><?= t('admin.incidents.trig_select_player') ?></option>
-                        <?php foreach ($trigPlayers as $pid => $uname): ?>
-                        <option value="<?= $pid ?>"><?= htmlspecialchars($uname) ?></option>
-                        <?php endforeach ?>
-                    </select>
-                </div>
-
-                <!-- Odwiert -->
-                <div class="inc-trig-field">
-                    <label class="form-label" for="trig-well"><?= t('admin.incidents.trig_well') ?></label>
-                    <select name="trig_well_id" id="trig-well" class="trend-input-cat" required>
-                        <option value=""><?= t('admin.incidents.trig_select_well') ?></option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Poziom incydentu -->
-            <p class="form-label"><?= t('admin.incidents.trig_level_label') ?></p>
-            <div class="inc-trig-levels">
-                <?php
-                $trigLevelMeta = [
-                    'micro'  => ['', t('admin.incidents.level_micro'),  'trig-card--micro',  t('admin.incidents.trig_micro_desc')],
-                    'minor'  => ['', t('admin.incidents.level_minor'),  'trig-card--minor',  t('admin.incidents.trig_minor_desc')],
-                    'medium' => ['', t('admin.incidents.level_medium'), 'trig-card--medium', t('admin.incidents.trig_medium_desc')],
-                    'major'  => ['', t('admin.incidents.level_major'),  'trig-card--major',  t('admin.incidents.trig_major_desc')],
-                ];
-                foreach ($trigLevelMeta as $lvl => [$icon, $label, $cls, $desc]):
-                    $c = $config[$lvl];
-                ?>
-                <label class="inc-trig-card <?= $cls ?>">
-                    <input type="radio" name="trig_level" value="<?= $lvl ?>" required>
-                    <span class="trig-card-icon"><?= $icon ?></span>
-                    <span class="trig-card-label"><?= $label ?></span>
-                    <span class="trig-card-range">
-                        <?= t('admin.incidents.cfg_default') ?>:
-                        drop <?= (int)$c['prod_drop_min'] ?><?= (int)$c['prod_drop_max'] ?>%,
-                        <?= (int)$c['hours_min'] ?><?= (int)$c['hours_max'] ?>h
-                        <?php if ($c['cost_max'] > 0): ?>, koszt $<?= number_format($c['cost_min'],0,'.','.')?>$<?= number_format($c['cost_max'],0,'.','.') ?><?php endif ?>
-                    </span>
-                    <span class="trig-card-desc"><?= $desc ?></span>
-                </label>
-                <?php endforeach ?>
-            </div>
-
-            <div class="form-row form-row--gap mt-md">
-                <button type="button" class="btn btn-danger"
-                        onclick="confirmSubmit(this, '<?= t('admin.incidents.trig_confirm') ?>')">
-                     <?= t('admin.incidents.trig_btn') ?>
-                </button>
-            </div>
-        </form>
-    </section>
-
+<!--  TAB: INCYDENTY MORSKIE / MARINE INCIDENTS TAB  -->
+<div id="inc-tab-marine" class="admin-tab-content" role="tabpanel">
     <!-- Sekcja toolbara incydentow morskich / Marine incident toolbar section -->
-    <section class="panel mt-md" aria-label="<?= t('admin.incidents.trig_marine_title') ?>">
+    <section class="panel" aria-label="<?= t('admin.incidents.trig_marine_title') ?>">
         <p class="panel-title"><?= t('admin.incidents.trig_marine_title') ?></p>
         <p class="panel-hint"><?= t('admin.incidents.trig_marine_hint') ?></p>
 
@@ -803,8 +738,77 @@ foreach ($PIPE_LEVELS as $lvl):
             </div>
         </form>
     </section>
+</div>
 
-    <!-- Sekcja: wywolanie incydentu rurociagu -->
+<!--  TAB: WYWOAJ INCYDENT / INCIDENT TRIGGER TAB  -->
+<div id="inc-tab-trigger" class="admin-tab-content" role="tabpanel">
+    <section class="panel" aria-label="<?= t('admin.incidents.trig_title') ?>">
+        <p class="panel-title"> <?= t('admin.incidents.trig_title') ?></p>
+        <p class="panel-hint"><?= t('admin.incidents.trig_hint') ?></p>
+
+        <form method="post" id="inc-trig-form" class="inc-trig-form">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="trigger_incident">
+
+            <div class="inc-trig-row">
+                <!-- Gracz / Player -->
+                <div class="inc-trig-field">
+                    <label class="form-label" for="trig-player"><?= t('admin.incidents.trig_player') ?></label>
+                    <select name="trig_player_id" id="trig-player" class="trend-input-cat" onchange="incTrigUpdateWells(this.value)" required>
+                        <option value=""><?= t('admin.incidents.trig_select_player') ?></option>
+                        <?php foreach ($trigPlayers as $pid => $uname): ?>
+                        <option value="<?= $pid ?>"><?= htmlspecialchars($uname) ?></option>
+                        <?php endforeach ?>
+                    </select>
+                </div>
+
+                <!-- Odwiert / Well -->
+                <div class="inc-trig-field">
+                    <label class="form-label" for="trig-well"><?= t('admin.incidents.trig_well') ?></label>
+                    <select name="trig_well_id" id="trig-well" class="trend-input-cat" required>
+                        <option value=""><?= t('admin.incidents.trig_select_well') ?></option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Poziom incydentu / Incident level -->
+            <p class="form-label"><?= t('admin.incidents.trig_level_label') ?></p>
+            <div class="inc-trig-levels">
+                <?php
+                $trigLevelMeta = [
+                    'micro'  => ['', t('admin.incidents.level_micro'),  'trig-card--micro',  t('admin.incidents.trig_micro_desc')],
+                    'minor'  => ['', t('admin.incidents.level_minor'),  'trig-card--minor',  t('admin.incidents.trig_minor_desc')],
+                    'medium' => ['', t('admin.incidents.level_medium'), 'trig-card--medium', t('admin.incidents.trig_medium_desc')],
+                    'major'  => ['', t('admin.incidents.level_major'),  'trig-card--major',  t('admin.incidents.trig_major_desc')],
+                ];
+                foreach ($trigLevelMeta as $lvl => [$icon, $label, $cls, $desc]):
+                    $c = $config[$lvl];
+                ?>
+                <label class="inc-trig-card <?= $cls ?>">
+                    <input type="radio" name="trig_level" value="<?= $lvl ?>" required>
+                    <span class="trig-card-icon"><?= $icon ?></span>
+                    <span class="trig-card-label"><?= $label ?></span>
+                    <span class="trig-card-range">
+                        <?= t('admin.incidents.cfg_default') ?>:
+                        drop <?= (int)$c['prod_drop_min'] ?><?= (int)$c['prod_drop_max'] ?>%,
+                        <?= (int)$c['hours_min'] ?><?= (int)$c['hours_max'] ?>h
+                        <?php if ($c['cost_max'] > 0): ?>, koszt $<?= number_format($c['cost_min'],0,'.','.')?>$<?= number_format($c['cost_max'],0,'.','.') ?><?php endif ?>
+                    </span>
+                    <span class="trig-card-desc"><?= $desc ?></span>
+                </label>
+                <?php endforeach ?>
+            </div>
+
+            <div class="form-row form-row--gap mt-md">
+                <button type="button" class="btn btn-danger"
+                        onclick="confirmSubmit(this, '<?= t('admin.incidents.trig_confirm') ?>')">
+                     <?= t('admin.incidents.trig_btn') ?>
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Sekcja wywolania incydentu rurociagu / Pipeline incident trigger section -->
     <section class="panel mt-md" aria-label="<?= t('admin.incidents.trig_pipe_title') ?>">
         <p class="panel-title"><?= t('admin.incidents.trig_pipe_title') ?></p>
         <p class="panel-hint"><?= t('admin.incidents.trig_pipe_hint') ?></p>
@@ -814,7 +818,7 @@ foreach ($PIPE_LEVELS as $lvl):
             <input type="hidden" name="action" value="trigger_pipeline_incident">
 
             <div class="inc-trig-row">
-                <!-- Gracz -->
+                <!-- Gracz / Player -->
                 <div class="inc-trig-field">
                     <label class="form-label" for="trig-pipe-player"><?= t('admin.incidents.trig_pipe_player') ?></label>
                     <select name="trig_pipe_player_id" id="trig-pipe-player" class="trend-input-cat"
@@ -826,7 +830,7 @@ foreach ($PIPE_LEVELS as $lvl):
                     </select>
                 </div>
 
-                <!-- Rurociag -->
+                <!-- Rurociag / Pipeline -->
                 <div class="inc-trig-field">
                     <label class="form-label" for="trig-pipe-pipeline"><?= t('admin.incidents.trig_pipe_pipeline') ?></label>
                     <select name="trig_pipeline_id" id="trig-pipe-pipeline" class="trend-input-cat" required>
@@ -835,7 +839,7 @@ foreach ($PIPE_LEVELS as $lvl):
                 </div>
             </div>
 
-            <!-- Poziom incydentu rurociagu -->
+            <!-- Poziom incydentu rurociagu / Pipeline incident level -->
             <p class="form-label"><?= t('admin.incidents.trig_pipe_level_label') ?></p>
             <div class="inc-trig-levels">
                 <?php

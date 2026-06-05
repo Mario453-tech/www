@@ -150,6 +150,7 @@ return [
     'admin.incidents.tab_medium' => 'Poważny',
     'admin.incidents.tab_micro' => 'Mikro',
     'admin.incidents.tab_minor' => 'Drobny',
+    'admin.incidents.tab_marine' => 'Morskie',
     'admin.incidents.tab_pipe_medium' => 'Rurociąg - poważny',
     'admin.incidents.tab_pipe_micro' => 'Rurociąg - mikro',
     'admin.incidents.tab_pipe_minor' => 'Rurociąg - drobny',
