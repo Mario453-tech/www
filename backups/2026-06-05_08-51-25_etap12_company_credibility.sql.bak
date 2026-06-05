@@ -33,12 +33,3 @@ CREATE TABLE IF NOT EXISTS `company_credibility_log` (
     KEY `idx_player_created` (`player_id`, `created_at`),
     KEY `idx_event` (`event_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- 3. Rozszerzenie ENUM director_notifications.type o 'credibility' (sekcja 9).
---    Bez tego INSERT powiadomienia z notify() wywala sie w trybie strict (blad 1265).
---    Extend director_notifications.type ENUM with 'credibility' (section 9).
---    Without it the notify() INSERT fails in MySQL strict mode (error 1265).
-ALTER TABLE `director_notifications`
-    MODIFY COLUMN `type`
-    ENUM('bank','hr','technical','market','legal','urgent','info','credibility')
-    COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'info';
