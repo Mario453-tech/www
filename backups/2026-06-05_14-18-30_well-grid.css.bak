@@ -149,15 +149,6 @@ details.well-card summary:hover .well-expand-hint { color: rgba(232,232,240,.5);
 }
 .wg-card:hover { border-color: rgba(200,168,75,.38); transform: translateY(-1px); }
 
-/* Podswietlenie karty po przejsciu z paska alertu / Card highlight after jumping from the alert strip */
-.wg-card--flash {
-    animation: wgCardFlash 1.6s ease-out;
-}
-@keyframes wgCardFlash {
-    0%   { box-shadow: 0 0 0 2px rgba(240,160,80,.9), 0 0 22px rgba(240,160,80,.55); border-color: rgba(240,160,80,.9); }
-    100% { box-shadow: 0 0 0 0 rgba(240,160,80,0),  0 0 0 rgba(240,160,80,0);   border-color: rgba(200,168,75,.15); }
-}
-
 /* Clickable header */
 /* Klikalny naglowek */
 .wg-header {
