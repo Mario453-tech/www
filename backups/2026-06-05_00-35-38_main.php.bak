@@ -8,32 +8,23 @@
 
     <?php require __DIR__ . '/../../components/director_notifications.php'; ?>
 
-    <?php require __DIR__ . '/../../components/company_credibility.php'; ?>
-
     <?php if (!empty($alertWells)): ?>
-    <?php $__firstAlert = $alertWells[array_key_first($alertWells)]; ?>
     <div class="alert-strip" role="alert">
-        <span class="alert-strip__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </span>
+        <span class="alert-strip__icon"></span>
         <div class="alert-strip__body">
             <strong><?= count($alertWells) ?> <?= count($alertWells) === 1 ? 'odwiert wymaga' : (count($alertWells) < 5 ? 'odwierty wymagają' : 'odwiertów wymaga') ?> uwagi</strong>
             <div class="alert-strip__chips">
                 <?php foreach ($alertWells as $__aw): ?>
                 <a class="alert-strip__chip <?= (float)($__aw['_cond'] ?? 100) < 30 ? 'alert-strip__chip--crit' : 'alert-strip__chip--warn' ?>"
                    href="#wg-card-<?= (int)$__aw['id'] ?>"
-                   onclick="return wgFocusWell(<?= (int)$__aw['id'] ?>);">
+                   onclick="wgToggle(<?= (int)$__aw['id'] ?>)">
+                    <?= (float)($__aw['_cond'] ?? 100) < 30 ? '' : '' ?>
                     <?= htmlspecialchars($__aw['location_name'] ?? ('Odwiert #' . $__aw['id'])) ?>
                      <?= round((float)($__aw['_cond'] ?? 0), 0) ?>%
                 </a>
                 <?php endforeach ?>
             </div>
         </div>
-        <a class="alert-strip__cta"
-           href="#wg-card-<?= (int)$__firstAlert['id'] ?>"
-           onclick="return wgFocusWell(<?= (int)$__firstAlert['id'] ?>);">
-            PRZEJDŹ →
-        </a>
     </div>
     <?php endif ?>
 
