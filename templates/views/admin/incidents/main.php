@@ -882,6 +882,7 @@ foreach ($PIPE_LEVELS as $lvl):
             'selectWell' => t('admin.incidents.trig_select_well'),
             'selectPipeline' => t('admin.incidents.trig_pipe_select_pipeline'),
             'selectMarineDelivery' => t('admin.incidents.trig_marine_select_delivery'),
+            'marineLimitInfo' => t('admin.incidents.trig_marine_limit_info', ['shown' => '{shown}', 'total' => '{total}']),
             'portUnknown' => t('marine.port_unknown'),
         ],
     ], JSON_UNESCAPED_UNICODE) ?>;

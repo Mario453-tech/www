@@ -810,16 +810,27 @@ try {
 // Dane do formularza recznego wywolania incydentu morskiego / Data for manual marine incident trigger form.
 $trigMarineDeliveries = [];
 try {
-    $rows = $db->query("
-        SELECT md.id, md.player_id, md.well_id, md.volume_bbl, md.status, md.eta_at,
-               COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name,
-               COALESCE(p.name, 'port nieprzypisany') AS port_name
-          FROM marine_deliveries md
-          LEFT JOIN wells w ON w.id = md.well_id
-          LEFT JOIN ports p ON p.id = md.port_id
-         WHERE md.status IN ('departing','in_transit','delayed')
-         ORDER BY md.player_id, md.eta_at ASC
-    ")->fetchAll();
+    $marineDeliveryLimit = 15;
+    $stmt = $db->prepare("
+        SELECT *
+          FROM (
+            SELECT md.id, md.player_id, md.well_id, md.volume_bbl, md.status, md.eta_at, md.delay_ticks,
+                   COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name,
+                   COALESCE(p.name, 'port nieprzypisany') AS port_name,
+                   ROW_NUMBER() OVER (PARTITION BY md.player_id ORDER BY md.eta_at ASC, md.id ASC) AS row_no,
+                   COUNT(*) OVER (PARTITION BY md.player_id) AS player_delivery_total
+              FROM marine_deliveries md
+              LEFT JOIN wells w ON w.id = md.well_id
+              LEFT JOIN ports p ON p.id = md.port_id
+             WHERE md.status IN ('departing','in_transit','delayed')
+               AND (w.id IS NULL OR w.player_id = md.player_id)
+          ) q
+         WHERE q.row_no <= ?
+         ORDER BY q.player_id, q.eta_at ASC, q.id ASC
+    ");
+    $stmt->bindValue(1, $marineDeliveryLimit, PDO::PARAM_INT);
+    $stmt->execute();
+    $rows = $stmt->fetchAll();
     foreach ($rows as $r) {
         $trigMarineDeliveries[(int)$r['player_id']][] = $r;
     }

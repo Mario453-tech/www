@@ -171,6 +171,7 @@ return [
     'admin.incidents.trig_marine_confirm' => 'Na pewno wywołać incydent morski? Efekty zostaną zastosowane natychmiast.',
     'admin.incidents.trig_marine_delivery' => 'Dostawa morska',
     'admin.incidents.trig_marine_hint' => 'Osobny toolbar do ingerencji w aktywne dostawy morskie. Piraci i katastrofa oznaczają utratę ładunku oraz zapis straty transportowej w finansach.',
+    'admin.incidents.trig_marine_limit_info' => 'Pokazano {shown} z {total} aktywnych dostaw tego gracza',
     'admin.incidents.trig_marine_piracy_desc' => 'Utrata całego ładunku i natychmiastowy zapis straty finansowej.',
     'admin.incidents.trig_marine_player' => 'Gracz',
     'admin.incidents.trig_marine_select_delivery' => '- najpierw wybierz gracza -',

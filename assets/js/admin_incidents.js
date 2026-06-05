@@ -67,6 +67,7 @@
         var selectEl = document.getElementById('trig-marine-delivery');
         clearSelect(selectEl, labels.selectMarineDelivery);
         var deliveries = (data.marineDeliveries || {})[playerId] || [];
+        var total = deliveries.length > 0 ? parseInt(deliveries[0].player_delivery_total || deliveries.length, 10) : 0;
         deliveries.forEach(function (delivery) {
             var option = document.createElement('option');
             var portName = delivery.port_name || labels.portUnknown || '-';
@@ -74,5 +75,14 @@
             option.textContent = '#' + delivery.id + ' ' + delivery.well_name + ' -> ' + portName + ' [' + delivery.status + ', ' + delivery.volume_bbl + ' bbl]';
             selectEl.appendChild(option);
         });
+        if (total > deliveries.length) {
+            var info = document.createElement('option');
+            var label = labels.marineLimitInfo || '{shown} / {total}';
+            info.disabled = true;
+            info.textContent = label
+                .replace('{shown}', deliveries.length)
+                .replace('{total}', total);
+            selectEl.appendChild(info);
+        }
     };
 }());

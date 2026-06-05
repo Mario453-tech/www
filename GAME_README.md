@@ -13,6 +13,7 @@
 - `DZIAL_PRAWNY_P1_STATUS.md` - zweryfikowano zdarzenia transportowe: drogowe, rurociagowe i utracone dostawy morskie trafiaja do `finance_logs`; morski `storm` pozostaje opoznieniem bez utraty ropy.
 - `admin/incidents.php`, `templates/views/admin/incidents/main.php`, `assets/js/admin_incidents.js`, `lang/pl/admin/incidents.php` - dodano osobny toolbar admina do recznego wywolywania incydentow morskich (`piracy`, `catastrophe`, `storm`, `breakdown`) oraz zrodlo `marine` w historii incydentow.
 - `templates/views/admin/incidents/main.php`, `assets/js/admin_incidents.js`, `lang/pl/admin/incidents.php` - toolbar incydentow morskich przeniesiono do widocznej zakladki `Morskie`, zamiast chowac go w zakladce wywolywania incydentow odwiertow.
+- `admin/incidents.php`, `assets/js/admin_incidents.js`, `templates/views/admin/incidents/main.php`, `lang/pl/admin/incidents.php` - lista dostaw morskich w toolbarze admina jest limitowana do 15 aktywnych dostaw wybranego gracza i odrzuca transporty, ktorych odwiert nie nalezy do tego gracza.
 
 ### 2026-06-05 - Strona glowna: status uszkodzony przy 1% stanu
 - `src/WellGridData.php` - aktywny odwiert ze stanem technicznym `<= 1%` jest na stronie glownej prezentowany jako `broken`, zamiast jako aktywny.
