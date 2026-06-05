@@ -3,6 +3,7 @@
 ### 2026-06-05 - Aktualnosci spolki: render HTML z TinyMCE
 - `src/AdminNewsApi.php` - dodano bezpieczne czyszczenie HTML aktualnosci i pole `content_html`, aby tresc z TinyMCE zachowala naglowki, linki i kolory tekstu.
 - `assets/js/chat.js` - panel aktualnosci renderuje teraz HTML zwrocony przez API zamiast wyswietlac tresc jako zwykly tekst.
+- `assets/js/chat.js` - poprawiono scope helpera renderowania HTML i tekst komunikatu ladowania, aby panel nie pokazywal `Bd adowania.` przy poprawnej odpowiedzi API.
 - `assets/css/chat.css` - dodano style dla akapitow, list, naglowkow, cytatow i linkow w panelu aktualnosci spolki.
 
 ### 2026-06-04 — Dział prawny: domknięcie P1 i start P2

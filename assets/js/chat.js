@@ -23,12 +23,6 @@
             .replace(/"/g, '&quot;');
     }
 
-    function newsHtml(str) {
-        return typeof str === 'string' ? str : '';
-    }
-
-
-
     function renderAvatar(username, avatarPath) {
         if (avatarPath) {
             return '<img class="chat-msg-avatar" src="/' + escHtml(avatarPath) + '" alt="' + escHtml((username || '?').charAt(0).toUpperCase()) + '">';
@@ -308,6 +302,8 @@
 
     var NEWS_API = '/src/AdminNewsApi.php';
     var newsList = null;
+    var NEWS_EMPTY_TEXT = 'Brak aktualno\u015bci.';
+    var NEWS_LOAD_ERROR_TEXT = 'B\u0142\u0105d \u0142adowania.';
 
     function escHtml(str) {
         return String(str)
@@ -317,10 +313,14 @@
             .replace(/"/g, '&quot;');
     }
 
+    function newsHtml(str) {
+        return typeof str === 'string' ? str : '';
+    }
+
     function renderNews(items) {
         if (!newsList) return;
         if (!items || !items.length) {
-            newsList.innerHTML = '<p class="news-loading">Brak aktualnoci.</p>';
+            newsList.innerHTML = '<p class="news-loading">' + escHtml(NEWS_EMPTY_TEXT) + '</p>';
             return;
         }
         var html = '';
@@ -341,7 +341,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) { renderNews(data.news || []); })
             .catch(function () {
-                if (newsList) newsList.innerHTML = '<p class="news-loading">Bd adowania.</p>';
+                if (newsList) newsList.innerHTML = '<p class="news-loading">' + escHtml(NEWS_LOAD_ERROR_TEXT) + '</p>';
             });
     }
 
