@@ -1373,28 +1373,6 @@ CREATE TABLE `market_offers` (
 -- --------------------------------------------------------
 
 --
--- Struktura tabeli dla tabeli `market_sale_history`
---
-
-CREATE TABLE `market_sale_history` (
-  `id` int NOT NULL,
-  `player_id` int NOT NULL,
-  `offer_id` int NOT NULL,
-  `listed_at` datetime NOT NULL,
-  `sold_at` datetime NOT NULL,
-  `price_per_bbl` int NOT NULL,
-  `barrels_sold` int NOT NULL,
-  `total_earned` decimal(14,2) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `market_sale_history`
---
-
-
--- --------------------------------------------------------
-
---
 -- Struktura tabeli dla tabeli `market_state`
 --
 
@@ -3074,13 +3052,6 @@ ALTER TABLE `market_offers`
   ADD KEY `idx_auto_execute` (`auto_execute`);
 
 --
--- Indeksy dla tabeli `market_sale_history`
---
-ALTER TABLE `market_sale_history`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_player_sold` (`player_id`,`sold_at`);
-
---
 -- Indeksy dla tabeli `market_state`
 --
 ALTER TABLE `market_state`
@@ -3760,12 +3731,6 @@ ALTER TABLE `market_demand_shocks`
 --
 ALTER TABLE `market_offers`
   MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
-
---
--- AUTO_INCREMENT for table `market_sale_history`
---
-ALTER TABLE `market_sale_history`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `market_supply_demand_log`

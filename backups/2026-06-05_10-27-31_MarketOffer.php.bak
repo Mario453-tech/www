@@ -289,7 +289,7 @@ class MarketOffer
 
             $earnings = (float)$offer['amount'] * $currentPrice;
 
- // Credit player account / Przelej srodki na konto gracza
+ // Credit player account
             $this->db->prepare("
                 UPDATE players
                 SET cash = cash + :earnings
@@ -299,7 +299,7 @@ class MarketOffer
                 ':player_id' => $offer['player_id'],
             ]);
 
- // Close the offer / Zamknij oferte
+ // Close the offer
             $this->db->prepare("
                 UPDATE market_offers
                 SET status       = 'completed',
@@ -311,21 +311,6 @@ class MarketOffer
                 ':amount' => $offer['amount'],
                 ':price'  => $currentPrice,
                 ':id'     => $offer['id'],
-            ]);
-
- // Log to sale history / Zapisz do historii sprzedazy
-            $this->db->prepare("
-                INSERT INTO market_sale_history
-                    (player_id, offer_id, listed_at, sold_at, price_per_bbl, barrels_sold, total_earned)
-                VALUES
-                    (:player_id, :offer_id, :listed_at, NOW(), :price, :barrels, :total)
-            ")->execute([
-                ':player_id' => $offer['player_id'],
-                ':offer_id'  => $offer['id'],
-                ':listed_at' => $offer['created_at'],
-                ':price'     => $currentPrice,
-                ':barrels'   => $offer['amount'],
-                ':total'     => $earnings,
             ]);
 
             $this->db->commit();
@@ -341,57 +326,7 @@ class MarketOffer
                 'offer_id'  => $offer['id'],
                 'player_id' => $offer['player_id'],
             ]);
- // Do not rethrow — one failure must not block remaining offers
-        }
-    }
-
- // Sale history — paginated / Historia sprzedazy z paginacja
-
-    public function getSaleHistory(int $playerId, int $page, int $perPage): array
-    {
-        try {
-            $offset = ($page - 1) * $perPage;
-
-            $stmtCount = $this->db->prepare("
-                SELECT COUNT(*) FROM market_sale_history WHERE player_id = :pid
-            ");
-            $stmtCount->execute([':pid' => $playerId]);
-            $total = (int)$stmtCount->fetchColumn();
-
-            $stmt = $this->db->prepare("
-                SELECT id, offer_id, listed_at, sold_at, price_per_bbl, barrels_sold, total_earned
-                FROM market_sale_history
-                WHERE player_id = :pid
-                ORDER BY sold_at DESC
-                LIMIT :lim OFFSET :off
-            ");
-            $stmt->bindValue(':pid', $playerId, PDO::PARAM_INT);
-            $stmt->bindValue(':lim', $perPage,  PDO::PARAM_INT);
-            $stmt->bindValue(':off', $offset,   PDO::PARAM_INT);
-            $stmt->execute();
-            $rows = $stmt->fetchAll();
-
-            return ['rows' => $rows, 'total' => (int)$total];
-
-        } catch (Throwable $e) {
-            GameLog::error('MarketOffer', 'getSaleHistory FAILED', $e, ['player_id' => $playerId]);
-            return ['rows' => [], 'total' => 0];
-        }
-    }
-
- // Delete history entries older than 7 days / Usun wpisy starsze niz 7 dni
-    public function purgeOldSaleHistory(): void
-    {
-        try {
-            $deleted = $this->db->exec("
-                DELETE FROM market_sale_history
-                WHERE sold_at < NOW() - INTERVAL 7 DAY
-            ");
-            if ($deleted > 0) {
-                GameLog::info('MarketOffer', 'purgeOldSaleHistory', ['deleted' => $deleted]);
-            }
-        } catch (Throwable $e) {
-            GameLog::error('MarketOffer', 'purgeOldSaleHistory FAILED', $e);
+ // Do not rethrow one failure must not block remaining offers
         }
     }
 }

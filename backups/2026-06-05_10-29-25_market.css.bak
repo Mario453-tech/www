@@ -3,34 +3,31 @@
    Czarny rynek zostaje w black_market.css.
 */
 
-/*
+/* 
    TABS
  */
 
 .market-tabs {
     display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    padding: 4px;
-    background: linear-gradient(145deg, #161622, #0f0f18);
-    border: 1px solid rgba(200,168,75,.15);
-    border-radius: 10px;
+    gap: 6px;
+    margin-bottom: 22px;
+    padding: 5px;
+    background: var(--bg4);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
     overflow-x: auto;
-    scrollbar-width: none;
 }
-.market-tabs::-webkit-scrollbar { display: none; }
 
 .market-tab {
-    padding: .55rem 1rem;
+    padding: .6rem 1.2rem;
     cursor: pointer;
     border: 1px solid transparent;
     background: transparent;
-    color: rgba(232,232,240,.55);
-    font-weight: 700;
-    font-size: .82rem;
-    letter-spacing: .04em;
-    border-radius: 8px;
-    transition: all .15s;
+    color: var(--text2);
+    font-weight: 600;
+    font-size: .9rem;
+    border-radius: calc(var(--radius) - 2px);
+    transition: all .18s;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -41,10 +38,9 @@
 }
 
 .market-tab.active {
-    color: var(--gold2, #e8cc7a);
-    background: rgba(200,168,75,.14);
-    border-color: rgba(200,168,75,.35);
-    box-shadow: 0 1px 6px rgba(200,168,75,.1);
+    color: var(--gold);
+    background: rgba(200, 168, 75, .12);
+    border-color: rgba(200, 168, 75, .3);
 }
 
 .market-tab-content {
@@ -55,24 +51,24 @@
     display: block;
 }
 
-/*
+/* 
    WYKRES CEN
  */
 
 .price-chart-wrap {
-    margin: 1rem 0;
-    background: linear-gradient(145deg, #161622, #0f0f18);
-    border: 1px solid rgba(200,168,75,.15);
-    border-radius: 10px;
-    padding: 14px 16px;
+    margin: 1.25rem 0;
+    background: rgba(255, 255, 255, .025);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 14px 18px;
 }
 
 .price-chart-title {
-    font-size: .75rem;
+    font-size: .85rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: .04em;
     text-transform: uppercase;
-    color: rgba(200,168,75,.6);
+    color: var(--text3);
     margin: 0 0 12px;
 }
 
@@ -80,7 +76,7 @@
     display: flex;
     gap: 3px;
     align-items: flex-end;
-    height: 90px;
+    height: 80px;
 }
 
 .price-chart-bar {
@@ -105,7 +101,7 @@
     border-top: 1px solid var(--border2);
 }
 
-/*
+/* 
    SALE FORM
  */
 
@@ -133,10 +129,10 @@
 }
 
 .form-sell-input {
-    padding: .5rem .8rem;
-    background: #0f0f18;
-    border: 1px solid rgba(200,168,75,.2);
-    border-radius: 8px;
+    padding: .45rem .7rem;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     color: var(--text);
     font-size: .95rem;
     font-weight: 600;
@@ -150,7 +146,7 @@
     box-shadow: 0 0 0 3px rgba(200, 168, 75, .15);
 }
 
-/*
+/* 
    AKTYWNE OFERTY (my-offers)
  */
 
@@ -190,7 +186,7 @@
     border-bottom: none;
 }
 
-/*
+/* 
    OFFER LIST (offers-list, public users)
  */
 
@@ -225,7 +221,7 @@
     background: rgba(255, 255, 255, .03);
 }
 
-/*
+/* 
    RESPONSIVE
  */
 
@@ -263,105 +259,5 @@
     .offers-list-head,
     .offers-list-row {
         min-width: 320px;
-    }
-}
-
-@media (max-width: 480px) {
-    .market-tab { padding: .45rem .75rem; font-size: .78rem; }
-    .price-chart-bars { height: 70px; }
-    .form-sell { flex-direction: column; }
-    .form-sell-field { min-width: 0; width: 100%; }
-}
-
-/* ===================================================
-   HISTORIA SPRZEDAZY / SALE HISTORY
-   =================================================== */
-
-.sale-history-table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-.sale-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.92rem;
-    min-width: 520px;
-}
-
-.sale-history-table thead th {
-    background: var(--bg4);
-    color: var(--text2);
-    font-weight: 600;
-    padding: 8px 12px;
-    text-align: left;
-    border-bottom: 2px solid var(--border2);
-    white-space: nowrap;
-}
-
-.sale-history-table tbody tr {
-    border-bottom: 1px solid var(--border1);
-    transition: background 0.15s;
-}
-
-.sale-history-table tbody tr:hover {
-    background: var(--bg3);
-}
-
-.sale-history-table tbody td {
-    padding: 8px 12px;
-    color: var(--text1);
-    white-space: nowrap;
-}
-
-.sale-history-table td.money {
-    color: var(--green);
-    font-weight: 600;
-    text-align: right;
-}
-
-.sale-history-table th:nth-child(4),
-.sale-history-table th:nth-child(5),
-.sale-history-table th:nth-child(6) {
-    text-align: right;
-}
-
-/* Paginacja / Pagination */
-
-.sale-history-pagination {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 14px;
-    flex-wrap: wrap;
-}
-
-.sale-history-page-info {
-    color: var(--text2);
-    font-size: 0.88rem;
-}
-
-.sale-history-pagination .btn.disabled {
-    opacity: 0.4;
-    pointer-events: none;
-    cursor: default;
-}
-
-.sale-history-info {
-    margin-top: 10px;
-    font-size: 0.82rem;
-    color: var(--text3);
-}
-
-/* Mobile / Mobilny */
-
-@media (max-width: 600px) {
-    .sale-history-table {
-        font-size: 0.82rem;
-    }
-
-    .sale-history-table thead th,
-    .sale-history-table tbody td {
-        padding: 6px 8px;
     }
 }
