@@ -211,16 +211,11 @@ final class CompanyCredibilityServiceTest extends SqliteIntegrationTestCase
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )'
         );
-        // CHECK odzwierciedla produkcyjny ENUM director_notifications.type (wraz z 'credibility').
-        // Chroni przed regresem: wstawienie typu spoza listy wywali test, tak jak strict MySQL.
-        // CHECK mirrors the production director_notifications.type ENUM (incl. 'credibility').
-        // Guards against regressions: inserting an out-of-list type fails the test, like strict MySQL.
         $this->db->exec(
             "CREATE TABLE director_notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 player_id INTEGER NOT NULL,
-                type TEXT NOT NULL CHECK (type IN
-                    ('bank','hr','technical','market','legal','urgent','info','credibility')),
+                type TEXT NOT NULL,
                 priority TEXT NOT NULL DEFAULT 'low',
                 title TEXT NOT NULL,
                 message TEXT NOT NULL,

@@ -134,59 +134,9 @@ class CompanyCredibilityService
                     KEY idx_event (event_key)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
-
-            // Powiadomienia typu 'credibility' (sekcja 9): kolumna director_notifications.type
-            // to ENUM, ktory domyslnie NIE zawiera 'credibility'. Bez tego INSERT w notify()
-            // sie wywala (MySQL strict 1265) i powiadomienie ginie. Rozszerzamy ENUM idempotentnie.
-            // 'credibility' notifications (section 9): director_notifications.type is an ENUM that
-            // by default does NOT include 'credibility'. Without this the notify() INSERT fails
-            // (MySQL strict, 1265) and the notification is lost. Extend the ENUM idempotently.
-            $this->ensureNotificationType();
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('CompanyCredibilityService', 'ensureSchema FAILED', $e);
-            }
-        }
-    }
-
-    /**
-     * Dodaje wartosc 'credibility' do ENUM director_notifications.type, jesli jej brak.
-     * Idempotentne: czyta aktualny typ kolumny i robi ALTER tylko gdy trzeba.
-     * Adds 'credibility' to the director_notifications.type ENUM when missing.
-     * Idempotent: reads the current column type and ALTERs only if needed.
-     */
-    private function ensureNotificationType(): void
-    {
-        try {
-            // Tabela moze nie istniec w niektorych srodowiskach — wtedy nic nie robimy.
-            // The table may not exist in some environments — then do nothing.
-            $stmt = $this->db->query(
-                "SELECT COLUMN_TYPE
-                   FROM information_schema.COLUMNS
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME = 'director_notifications'
-                    AND COLUMN_NAME = 'type'
-                  LIMIT 1"
-            );
-            $columnType = $stmt ? (string)$stmt->fetchColumn() : '';
-            if ($columnType === '' || str_contains($columnType, "'credibility'")) {
-                return; // brak tabeli lub wartosc juz jest / no table or value already present
-            }
-
-            // Wstawiamy 'credibility' do listy wartosci ENUM, zachowujac reszte definicji.
-            // Inject 'credibility' into the ENUM value list, preserving the rest of the definition.
-            $newType = preg_replace('/^enum\((.*)\)$/i', "enum($1,'credibility')", $columnType);
-            if (!is_string($newType) || $newType === $columnType) {
-                return;
-            }
-
-            $this->db->exec(
-                "ALTER TABLE director_notifications
-                 MODIFY COLUMN type {$newType} COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'info'"
-            );
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('CompanyCredibilityService', 'ensureNotificationType FAILED', $e);
             }
         }
     }
