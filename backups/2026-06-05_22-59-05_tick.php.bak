@@ -68,6 +68,21 @@ $activeTrend = $market->activeTrend;
 $isNewTrend  = $market->isNewTrend;
 $newPrice    = $market->newPrice;
 
+// 2a. ZASIEW PORTOW MORSKICH (raz na tick, idempotentny — pomija istniejace)
+// 2a. SEED MARINE PORTS (once per tick, idempotent — skips existing ones)
+// Bez aktywnego portu kazda dostawa morska utyka w 'delayed' na zawsze
+// (findPort zwraca null) i akumuluje sie w nieskonczonosc. Gwarantujemy,
+// ze kazdy region ma aktywny port, wiec dostawy maja dokad dotrzec.
+// Without an active port every marine delivery is stuck in 'delayed' forever
+// (findPort returns null) and accumulates endlessly. We guarantee every region
+// has an active port so deliveries always have a destination.
+require_once __DIR__ . '/../src/PortService.php';
+try {
+    (new PortService($db))->seedDefaultPorts();
+} catch (Throwable $e) {
+    GameLog::error('tick', 'PortService::seedDefaultPorts FAILED', $e);
+}
+
 // 2b. CZYSZCZENIE ZALEGAJACYCH DOSTAW MORSKICH (raz na tick, globalnie)
 // 2b. PURGE STALE MARINE DELIVERIES (once per tick, global)
 require_once __DIR__ . '/../src/Tick/MarineDeliverySection.php';

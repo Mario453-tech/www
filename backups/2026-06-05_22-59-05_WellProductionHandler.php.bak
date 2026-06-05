@@ -180,24 +180,6 @@ class WellProductionHandler
             return;
         }
 
- // BRAMKA PORTU: odwiert tankowcowy produkuje i wysyla rope dopiero gdy w jego
- // regionie istnieje aktywny port. Brak portu = produkcja wstrzymana (zero ropy,
- // zero kosztu, zero rejsu) — nie tworzymy dostaw, ktore i tak nie maja dokad plynac.
- // PORT GATE: a tanker well produces and ships oil only once an active port exists
- // in its region. No port = production paused (no oil, no cost, no voyage) — we do
- // not create deliveries that would have nowhere to go.
-        if ($transportType === 'tankowiec'
-            && $this->ctx->marineDeliverySvc !== null
-            && !$this->ctx->marineDeliverySvc->regionHasPort((int)($well['region_id'] ?? 0))
-        ) {
-            GameLog::info('tick', 'marine well paused (no port in region)', [
-                'well_id'   => $wellId,
-                'player_id' => $playerId,
-                'region_id' => (int)($well['region_id'] ?? 0),
-            ]);
-            return;
-        }
-
         $price = $this->ctx->oilPrice > 0 ? $this->ctx->oilPrice : 70.0;
 
         $effectiveProd  = $this->ctx->wellService->getEffectiveProduction($well) * $this->ctx->gBalanceMults['production'];

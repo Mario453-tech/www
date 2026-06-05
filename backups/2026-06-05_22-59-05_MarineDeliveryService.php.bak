@@ -31,18 +31,6 @@ class MarineDeliveryService
         $this->ensureSchema();
     }
 
- /**
- * Czy region odwiertu ma aktywny port? (bramka produkcji morskiej).
- * Does the well's region have an active port? (marine production gate).
- *
- * Odwiert tankowcowy wysyla rope dopiero gdy istnieje port w jego regionie.
- * A tanker well ships oil only once a port exists in its region.
- */
-    public function regionHasPort(int $regionId): bool
-    {
-        return $this->portService->hasActivePortForRegion($regionId);
-    }
-
  // 
  // Schema
  // 
