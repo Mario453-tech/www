@@ -1,5 +1,19 @@
 ## Changelog
 
+### 2026-06-05 - Wiarygodnosc firmy: tick i bramka dzialu prawnego
+- `src/CompanyCredibilityService.php` - dodano przyznawanie eventu `clean_operation_period` raz na 7 dni, jesli gracz nie mial w tym okresie negatywnych zdarzen wiarygodnosci.
+- `src/Tick/CredibilitySection.php`, `cron/tick.php` - dodano sekcje ticku przyznajaca bonus +3 za czysty okres dzialania; przed zmiana ticka wykonano backup `backups/2026-06-05_19-51-17_tick.php.bak`.
+- `src/LegalService.php`, `public/legal.php`, `templates/views/legal/main.php` - regiony `high/critical` wymagaja wiarygodnosci firmy min. 40/100 do skladania wnioskow, a widok pokazuje osobna grupe blokady.
+- `src/WorldMap.php`, `templates/views/map/main.php`, `assets/js/world_map.js`, `assets/css/map.css` - mapa rozpoznaje status `credibility_locked` i pokazuje wymagany oraz aktualny wynik wiarygodnosci.
+- `lang/pl/legal.php`, `lang/pl/map.php`, `lang/pl/credibility.php`, `assets/css/legal.css` - dodano teksty i style dla blokady wiarygodnoscia oraz notatke historii czystego okresu.
+- `tests/Integration/CompanyCredibilityServiceTest.php`, `tests/Integration/LegalServiceTest.php`, `tests/Integration/LegalMapPermitDataTest.php` - dodano testy bonusu czystego okresu i blokady wnioskow przez niska wiarygodnosc.
+- `DZIAL_PRAWNY_P1_STATUS.md` - zaktualizowano status dzialu prawnego po wdrozeniu punktu `18.6`, dodano TODO i rekomendowana kolejnosc dalszych prac.
+- `DZIAL_PRAWNY_P1_STATUS.md` - doprecyzowano, ze `18.6` jest wdrozone jako zamkniety fundament, a pozostale pozycje to przyszle rozszerzenia balansu i kolejnych dzialow.
+
+### 2026-06-05 - Strona glowna: status uszkodzony przy 1% stanu
+- `src/WellGridData.php` - aktywny odwiert ze stanem technicznym `<= 1%` jest na stronie glownej prezentowany jako `broken`, zamiast jako aktywny.
+- `templates/components/well_grid.php` - podsumowanie regionu i laczne wydobycie licza status wyswietlany (`_status/_isActive`), wiec odwiert krytyczny nie zawyza aktywnych KPI.
+
 ### 2026-06-05 - Karty odwiertow: stale KPI przy wstrzymaniu
 - `templates/components/well_grid.php` - karty odwiertow pokazuja teraz wydobycie, stan, tryb i zloze takze dla statusow wstrzymanych; wydobycie aktywne pokazuje wartosc normalnie, a wstrzymane pokazuje `0 bbl/h` z bazowym potencjalem.
 - `lang/pl/components.php` - dodano etykiety `wg.stat_paused` i `wg.stat_base` dla informacji pod KPI wydobycia.

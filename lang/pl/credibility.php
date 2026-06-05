@@ -38,7 +38,11 @@ return [
     'credibility.notif.msg_recovery_plan_broken'  => 'Wiarygodność firmy spadła po złamaniu planu naprawczego. Aktualny poziom: :score / 100 (:level).',
     'credibility.notif.msg_loan_fully_repaid'     => 'Wiarygodność firmy wzrosła po pełnej spłacie kredytu. Aktualny poziom: :score / 100 (:level).',
     'credibility.notif.msg_loan_repaid_early'     => 'Wiarygodność firmy wzrosła po spłacie kredytu przed czasem. Aktualny poziom: :score / 100 (:level).',
+    'credibility.notif.msg_clean_operation_period' => 'Wiarygodność firmy wzrosła po okresie bez negatywnych zdarzeń. Aktualny poziom: :score / 100 (:level).',
     'credibility.notif.msg_admin_manual_adjustment' => 'Wiarygodność firmy została skorygowana. Aktualny poziom: :score / 100 (:level).',
+
+    // Notatki historii / History notes
+    'credibility.note_clean_operation_period' => 'Okres bez negatywnych zdarzeń: :days dni.',
 
     // Komunikaty ogolne (fallback) / Generic fallback messages
     'credibility.notif.msg_generic_up'   => 'Wiarygodność firmy wzrosła. Aktualny poziom: :score / 100 (:level).',

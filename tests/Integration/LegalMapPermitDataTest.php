@@ -187,6 +187,29 @@ final class LegalMapPermitDataTest extends SqliteIntegrationTestCase
         $this->assertNull($data[2]['required_legal_level']);
     }
 
+    public function testCredibilityMissingReturnsCredibilityLockedForHighRisk(): void
+    {
+        $this->seedConfig(2, ['risk_level' => 'high', 'required_capital' => 0.0]);
+        $this->seedPlayerCredibility(100, 35);
+
+        $data = $this->service->getMapPermitData(100, [2], 5000000.0, $this->now);
+
+        $this->assertSame('credibility_locked', $data[2]['status']);
+        $this->assertSame(40, $data[2]['required_company_credibility']);
+        $this->assertSame(35, $data[2]['company_credibility']);
+    }
+
+    public function testCredibilityMetReturnsNoneForHighRisk(): void
+    {
+        $this->seedConfig(2, ['risk_level' => 'high', 'required_capital' => 0.0]);
+        $this->seedPlayerCredibility(100, 40);
+
+        $data = $this->service->getMapPermitData(100, [2], 5000000.0, $this->now);
+
+        $this->assertSame('none', $data[2]['status']);
+        $this->assertNull($data[2]['required_company_credibility']);
+    }
+
     public function testActiveOverridesCapitalLock(): void
     {
         // Aktywne zezwolenie ma pierwszeństwo nad blokadą kapitałową.
@@ -228,6 +251,12 @@ final class LegalMapPermitDataTest extends SqliteIntegrationTestCase
 
     private function createSchema(): void
     {
+        $this->db->exec(
+            'CREATE TABLE players (
+                id INTEGER PRIMARY KEY,
+                company_credibility INTEGER NOT NULL DEFAULT 50
+            )'
+        );
         $this->db->exec(
             "CREATE TABLE legal_region_config (
                 region_id INTEGER PRIMARY KEY,
@@ -312,6 +341,12 @@ final class LegalMapPermitDataTest extends SqliteIntegrationTestCase
                 (player_id, role_id, status, skill_organization, skill_analysis, skill_ethics)
              VALUES (?, 1, \'active\', ?, ?, ?)'
         )->execute([$playerId, $organization, $analysis, $ethics]);
+    }
+
+    private function seedPlayerCredibility(int $playerId, int $score): void
+    {
+        $this->db->prepare("INSERT INTO players (id, company_credibility) VALUES (?, ?)")
+            ->execute([$playerId, $score]);
     }
 
     /** @param array<string,mixed> $over */

@@ -32,7 +32,7 @@ if (!function_exists('wgGroupSummary')) {
     function wgGroupSummary(array $wells, array $statusMap): string {
         $counts = [];
         foreach ($wells as $w) {
-            $st = $w['status'] ?? 'active';
+            $st = $w['_status'] ?? ($w['status'] ?? 'active');
             if (!isset($counts[$st])) $counts[$st] = 0;
             $counts[$st]++;
         }
@@ -57,11 +57,11 @@ foreach ($groups as $regionName => $group):
     $color      = $group['color'];
     $groupWells = $group['wells'];
     $total      = count($groupWells);
-    $active     = count(array_filter($groupWells, fn($w) => ($w['status'] ?? '') === 'active'));
-    $problems   = count(array_filter($groupWells, fn($w) => in_array($w['status'] ?? '', ['broken','blowout','contaminated','seized'])));
+    $active     = count(array_filter($groupWells, fn($w) => ($w['_status'] ?? $w['status'] ?? '') === 'active'));
+    $problems   = count(array_filter($groupWells, fn($w) => in_array($w['_status'] ?? $w['status'] ?? '', ['broken','blowout','contaminated','seized'])));
     $paused     = $total - $active - $problems;
     $summary    = wgGroupSummary($groupWells, $statusMap);
-    $totalProd  = array_sum(array_map(fn($w) => ($w['status'] ?? '') === 'active' ? (float)($w['base_production_per_hour'] ?? 0) : 0, $groupWells));
+    $totalProd  = array_sum(array_map(fn($w) => ($w['_isActive'] ?? false) ? (float)($w['base_production_per_hour'] ?? 0) : 0, $groupWells));
     $isOpen     = $groupIdx === 1;
 ?>
 <div class="wg-region-group">

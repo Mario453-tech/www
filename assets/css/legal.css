@@ -82,6 +82,10 @@
     border-left-color: #6fa8dc;
     background: linear-gradient(145deg, rgba(111,168,220,.06) 0%, #0f0f18 60%);
 }
+.legal-region-card--credibility-locked {
+    border-left-color: #d6a84f;
+    background: linear-gradient(145deg, rgba(214,168,79,.06) 0%, #0f0f18 60%);
+}
 
 /* ── Nagłówek karty: nazwa + badge ─────────────────────────── */
 .legal-region-name {
@@ -153,6 +157,11 @@
     color: #9fc5e8;
     border: 1px solid rgba(111,168,220,.34);
 }
+.legal-badge--credibility-locked {
+    background: rgba(214,168,79,.14);
+    color: #e0bd69;
+    border: 1px solid rgba(214,168,79,.34);
+}
 
 /* ── Opisy: co odblokowuje, zezwolenie przejściowe, blokada (§8.1,§12.2,§15.1) ── */
 /* ── Notes: unlocks, transitional permit, lock (§8.1, §12.2, §15.1) ── */
@@ -185,11 +194,19 @@
     border: 1px solid rgba(111,168,220,.22);
     color: rgba(232,232,240,.72);
 }
+.legal-region-note--credibility-locked {
+    background: rgba(214,168,79,.07);
+    border: 1px solid rgba(214,168,79,.22);
+    color: rgba(232,232,240,.72);
+}
 .legal-capital-missing {
     color: var(--red) !important;
 }
 .legal-level-missing {
     color: #9fc5e8 !important;
+}
+.legal-credibility-missing {
+    color: #e0bd69 !important;
 }
 
 /* ── Meta tagi ──────────────────────────────────────────────── */

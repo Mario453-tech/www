@@ -649,9 +649,23 @@
     color: #9fc5e8;
 }
 
+.loc-badge--permit-credibility {
+    background: rgba(214, 168, 79, .18);
+    color: #e0bd69;
+}
+
 .loc-permit-required--legal-locked {
     border-color: rgba(111, 168, 220, .24);
     background: rgba(111, 168, 220, .06);
+}
+
+.loc-permit-required--credibility-locked {
+    border-color: rgba(214, 168, 79, .28);
+    background: rgba(214, 168, 79, .06);
+}
+
+.loc-permit-required--credibility-locked .loc-permit-title {
+    color: #e0bd69;
 }
 
 .map-top-filters {

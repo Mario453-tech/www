@@ -4,9 +4,12 @@
 /** @var array<int,array<string,mixed>> $available */
 /** @var array<int,array<string,mixed>> $locked */
 /** @var array<int,array<string,mixed>> $capitalLocked */
+/** @var array<int,array<string,mixed>> $credibilityLocked */
 /** @var array<int,array<string,mixed>> $levelLocked */
 /** @var float $cash */
 /** @var int $legalLevel */
+/** @var int $credibilityScore */
+/** @var int $credibilityMin */
 /** @var string $error */
 /** @var string $success */
 extract($viewData, EXTR_SKIP);
@@ -220,6 +223,34 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
+<?php if (!empty($credibilityLocked)): ?>
+<section class="card">
+    <h3><?= t('legal.section_credibility_locked') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($credibilityLocked as $entry): ?>
+        <?php
+        $cfg = $entry['config'];
+        $reqCredibility = (int)$entry['required_company_credibility'];
+        ?>
+        <div class="legal-region-card legal-region-card--credibility-locked">
+            <div class="legal-region-name">
+                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <span class="legal-badge legal-badge--credibility-locked"><?= t('legal.badge_credibility_locked') ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.required_credibility_label') ?>: <strong><?= $reqCredibility ?></strong> / 100</span>
+                <span class="legal-credibility-missing"><?= t('legal.current_credibility_label') ?>: <strong><?= (int)$credibilityScore ?></strong> / 100</span>
+            </div>
+            <p class="legal-region-note legal-region-note--credibility-locked">
+                <?= t('legal.err.credibility_locked', ['min' => $reqCredibility, 'current' => (int)$credibilityScore]) ?>
+            </p>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
 <?php if (!empty($capitalLocked)): ?>
 <section class="card">
     <h3><?= t('legal.section_capital_locked') ?></h3>
@@ -251,7 +282,7 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked) && empty($levelLocked)): ?>
+<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked) && empty($credibilityLocked) && empty($levelLocked)): ?>
 <section class="card">
     <p><?= t('legal.no_regions') ?></p>
 </section>

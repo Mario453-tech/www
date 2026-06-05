@@ -117,7 +117,7 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
 
     private function createSchema(): void
     {
-        $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL DEFAULT 0)');
+        $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL DEFAULT 0, company_credibility INTEGER DEFAULT 50)');
         $this->db->exec(
             'CREATE TABLE wells (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -305,6 +305,44 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
         $this->assertFalse($res['success']);
         $this->assertSame('region_locked', $res['code']);
         $this->assertSame(1000000.0, $this->cashOf(100)); // bez pobrania
+    }
+
+    public function testSubmitBlockedWhenCompanyCredibilityTooLowForHighRisk(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(2, [
+            'risk_level' => 'high',
+            'required_capital' => 0.0,
+            'application_cost' => 500000.0,
+        ]);
+        $this->seedPlayer(100, 1000000.0);
+        $this->db->prepare("UPDATE players SET company_credibility = ? WHERE id = ?")->execute([35, 100]);
+
+        $res = $this->service->submitApplication(100, 2);
+
+        $this->assertFalse($res['success']);
+        $this->assertSame('credibility_locked', $res['code']);
+        $this->assertSame(40, $res['required_company_credibility']);
+        $this->assertSame(35, $res['company_credibility']);
+        $this->assertSame(1000000.0, $this->cashOf(100));
+    }
+
+    public function testSubmitAllowedWhenCompanyCredibilityMeetsHighRiskMinimum(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(2, [
+            'risk_level' => 'high',
+            'required_capital' => 0.0,
+            'application_cost' => 250000.0,
+        ]);
+        $this->seedPlayer(100, 1000000.0);
+        $this->db->prepare("UPDATE players SET company_credibility = ? WHERE id = ?")->execute([40, 100]);
+
+        $res = $this->service->submitApplication(100, 2);
+
+        $this->assertTrue($res['success']);
+        $this->assertSame('submitted', $res['code']);
+        $this->assertSame(750000.0, $this->cashOf(100));
     }
 
     public function testSubmitBlockedWhenLegalLevelRequirementNotMet(): void

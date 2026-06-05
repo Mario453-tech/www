@@ -769,6 +769,8 @@
                 return '<span class="loc-badge loc-badge--permit-locked">'  + mlt('badge_permit_locked')      + '</span>';
             case 'legal_locked':
                 return '<span class="loc-badge loc-badge--permit-legal">'  + mlt('badge_permit_legal_locked') + '</span>';
+            case 'credibility_locked':
+                return '<span class="loc-badge loc-badge--permit-credibility">'  + mlt('badge_permit_credibility_locked') + '</span>';
             default:
                 return '<span class="loc-badge loc-badge--permit">'         + mlt('badge_permit')             + '</span>';
         }
@@ -844,6 +846,20 @@
                 + '<div class="loc-permit-title">' + mlt('permit_legal_locked_title') + '</div>'
                 + '<div class="loc-permit-text">'  + mlt('permit_legal_locked_text')  + '</div>'
                 + levelLine
+                + '<div class="loc-permit-actions">' + closeBtn + goLegal + '</div>'
+                + '</div>';
+        }
+
+        if (ps === 'credibility_locked') {
+            var reqCredibility = r && r.permit_required_company_credibility != null ? r.permit_required_company_credibility : null;
+            var curCredibility = r && r.permit_company_credibility != null ? r.permit_company_credibility : null;
+            var credibilityLine = reqCredibility != null
+                ? '<div class="loc-permit-capital">' + mlt('permit_credibility_locked_level').replace(':min', reqCredibility).replace(':current', curCredibility != null ? curCredibility : 0) + '</div>'
+                : '';
+            return '<div class="loc-permit-required loc-permit-required--credibility-locked">'
+                + '<div class="loc-permit-title">' + mlt('permit_credibility_locked_title') + '</div>'
+                + '<div class="loc-permit-text">'  + mlt('permit_credibility_locked_text')  + '</div>'
+                + credibilityLine
                 + '<div class="loc-permit-actions">' + closeBtn + goLegal + '</div>'
                 + '</div>';
         }

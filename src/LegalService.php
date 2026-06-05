@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/CompanyCredibilityService.php';
+
 /**
  * LegalService — Dział prawny P1: zezwolenia na wiercenie per region.
  *
@@ -34,6 +36,11 @@ class LegalService
 
     /** Statusy oznaczające trwającą sprawę (wniosek w toku). */
     public const PENDING_STATUSES = [self::STATUS_PENDING, self::STATUS_DELAYED];
+
+    /** Minimalna wiarygodnosc dla wnioskow w regionach high/critical. */
+    public const HIGH_RISK_CREDIBILITY_MIN = 40;
+
+    private const CREDIBILITY_GATED_RISK_LEVELS = ['high' => true, 'critical' => true];
 
     /** Domyślne parametry konfiguracji per poziom ryzyka (seed; balans w etapie 6). */
     private const RISK_DEFAULTS = [
@@ -76,6 +83,11 @@ class LegalService
         $this->db = $db ?? Database::getInstance()->getConnection();
         $this->ensureSchema();
         $this->autoSeedIfEmpty();
+    }
+
+    public static function requiresCompanyCredibility(string $riskLevel): bool
+    {
+        return isset(self::CREDIBILITY_GATED_RISK_LEVELS[$riskLevel]);
     }
 
     /**
@@ -444,6 +456,25 @@ class LegalService
         $requiredCapital = (float)$config['required_capital'];
         $applicationCost = (float)$config['application_cost'];
         $requiredLegalLevel = (int)($config['required_legal_level'] ?? 0);
+        $riskLevel = (string)($config['risk_level'] ?? 'low');
+
+        // Wiarygodnosc firmy blokuje wnioski w regionach high/critical.
+        // Company credibility blocks applications in high/critical-risk regions.
+        if (self::requiresCompanyCredibility($riskLevel)) {
+            $credibilityScore = (new CompanyCredibilityService($this->db))->getScore($playerId);
+            if ($credibilityScore < self::HIGH_RISK_CREDIBILITY_MIN) {
+                return [
+                    'success'                      => false,
+                    'code'                         => 'credibility_locked',
+                    'message'                      => tPlain('legal.err.credibility_locked', [
+                        'min'     => self::HIGH_RISK_CREDIBILITY_MIN,
+                        'current' => $credibilityScore,
+                    ]),
+                    'required_company_credibility' => self::HIGH_RISK_CREDIBILITY_MIN,
+                    'company_credibility'          => $credibilityScore,
+                ];
+            }
+        }
 
         $this->db->beginTransaction();
         try {
@@ -809,6 +840,8 @@ class LegalService
                 'required_capital'  => null,
                 'required_legal_level' => null,
                 'legal_level'       => null,
+                'required_company_credibility' => null,
+                'company_credibility' => null,
             ];
         }
 
@@ -834,10 +867,11 @@ class LegalService
         // --- Query 2: required capital per region (lock §7.2).
         $capitals = [];
         $legalLevelsRequired = [];
+        $credibilityRequired = [];
         try {
             $ph   = implode(',', array_fill(0, count($regionIds), '?'));
             $stmt = $this->db->prepare(
-                "SELECT region_id, required_capital, required_legal_level
+                "SELECT region_id, required_capital, required_legal_level, risk_level
                    FROM legal_region_config
                   WHERE region_id IN ({$ph})"
             );
@@ -845,6 +879,9 @@ class LegalService
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $capitals[(int)$row['region_id']] = (float)$row['required_capital'];
                 $legalLevelsRequired[(int)$row['region_id']] = (int)($row['required_legal_level'] ?? 0);
+                $credibilityRequired[(int)$row['region_id']] = self::requiresCompanyCredibility((string)($row['risk_level'] ?? 'low'))
+                    ? self::HIGH_RISK_CREDIBILITY_MIN
+                    : 0;
             }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
@@ -860,6 +897,14 @@ class LegalService
             }
         }
 
+        $playerCredibility = CompanyCredibilityService::DEFAULT_SCORE;
+        foreach ($credibilityRequired as $requiredCredibility) {
+            if ($requiredCredibility > 0) {
+                $playerCredibility = (new CompanyCredibilityService($this->db))->getScore($playerId);
+                break;
+            }
+        }
+
         // --- Oblicz status mapy per region na podstawie aplikacji.
         // --- Compute map status per region from applications.
         foreach ($apps as $app) {
@@ -867,7 +912,9 @@ class LegalService
             $status = (string)$app['status'];
 
             if (in_array($status, self::ACTIVE_STATUSES, true)) {
-                $result[$rid] = ['status' => 'active', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
+                $result[$rid] = array_merge($result[$rid], [
+                    'status' => 'active', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null,
+                ]);
                 continue;
             }
 
@@ -877,12 +924,16 @@ class LegalService
                     $due = new DateTime((string)$app['decision_due_at']);
                     $minutesLeft = max(0, (int)ceil(($due->getTimestamp() - $now->getTimestamp()) / 60));
                 }
-                $result[$rid] = ['status' => $status, 'minutes_left' => $minutesLeft, 'cooldown_minutes' => null, 'required_capital' => null];
+                $result[$rid] = array_merge($result[$rid], [
+                    'status' => $status, 'minutes_left' => $minutesLeft, 'cooldown_minutes' => null, 'required_capital' => null,
+                ]);
                 continue;
             }
 
             if ($status === self::STATUS_NO_DECISION) {
-                $result[$rid] = ['status' => 'no_decision', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
+                $result[$rid] = array_merge($result[$rid], [
+                    'status' => 'no_decision', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null,
+                ]);
                 continue;
             }
 
@@ -890,7 +941,9 @@ class LegalService
                 $cooldownUntil = new DateTime((string)$app['refusal_cooldown_until']);
                 $remaining     = (int)ceil(($cooldownUntil->getTimestamp() - $now->getTimestamp()) / 60);
                 if ($remaining > 0) {
-                    $result[$rid] = ['status' => 'refused', 'minutes_left' => null, 'cooldown_minutes' => $remaining, 'required_capital' => null];
+                    $result[$rid] = array_merge($result[$rid], [
+                        'status' => 'refused', 'minutes_left' => null, 'cooldown_minutes' => $remaining, 'required_capital' => null,
+                    ]);
                     continue;
                 }
             }
@@ -907,6 +960,14 @@ class LegalService
                     $entry['status'] = 'legal_locked';
                     $entry['required_legal_level'] = $reqLevel;
                     $entry['legal_level'] = $playerLegalLevel;
+                    continue;
+                }
+
+                $reqCredibility = $credibilityRequired[$rid] ?? 0;
+                if ($reqCredibility > 0 && $playerCredibility < $reqCredibility) {
+                    $entry['status'] = 'credibility_locked';
+                    $entry['required_company_credibility'] = $reqCredibility;
+                    $entry['company_credibility'] = $playerCredibility;
                     continue;
                 }
 

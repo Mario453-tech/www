@@ -53,6 +53,18 @@ foreach ($configs as $cfg) {
 $cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
 $legalLevel = $legal->getLegalLevelForPlayer($playerId);
 
+// Wiarygodnosc firmy / Company credibility (card and legal locks)
+$credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
+$credibilityLevel = 'shaky';
+try {
+    $credService      = new CompanyCredibilityService($db);
+    $credibilityScore = $credService->getScore($playerId);
+    $credibilityLevel = $credService->getLevel($credibilityScore);
+} catch (Throwable $e) {
+    GameLog::error('legal.php', 'CompanyCredibilityService failed', $e, ['player_id' => $playerId]);
+}
+$credibilityMin = LegalService::HIGH_RISK_CREDIBILITY_MIN;
+
 // Pogrupowane regiony
 $active        = []; // granted / transitional
 $inProgress    = []; // pending / delayed / no_decision
@@ -60,6 +72,7 @@ $available     = []; // none lub refused (po cooldown), firma spełnia wymóg ka
 $locked        = []; // refused (w cooldown)
 $capitalLocked = []; // brief §7.3: region wysokiego ryzyka — brak wymaganego kapitału
 
+$credibilityLocked = []; // Wiarygodnosc firmy za niska dla regionow high/critical
 $levelLocked = []; // P2: wymagany wyzszy poziom dzialu prawnego / Required higher legal department level
 
 $now = new DateTime();
@@ -95,6 +108,15 @@ foreach ($configs as $cfg) {
                 'permit' => $permit,
                 'required_legal_level' => $reqLevel,
             ];
+        } elseif (
+            LegalService::requiresCompanyCredibility((string)($cfg['risk_level'] ?? 'low'))
+            && $credibilityScore < $credibilityMin
+        ) {
+            $credibilityLocked[] = [
+                'config' => $cfg,
+                'permit' => $permit,
+                'required_company_credibility' => $credibilityMin,
+            ];
         } elseif ($reqCapital > 0.0 && $cash < $reqCapital) {
             $capitalLocked[] = ['config' => $cfg, 'permit' => $permit, 'required_capital' => $reqCapital];
         } else {
@@ -103,21 +125,10 @@ foreach ($configs as $cfg) {
     }
 }
 
-// Wiarygodnosc firmy / Company credibility (karta w dziale prawnym)
-$credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
-$credibilityLevel = 'shaky';
-try {
-    $credService      = new CompanyCredibilityService();
-    $credibilityScore = $credService->getScore($playerId);
-    $credibilityLevel = $credService->getLevel($credibilityScore);
-} catch (Throwable $e) {
-    GameLog::error('legal.php', 'CompanyCredibilityService failed', $e, ['player_id' => $playerId]);
-}
-
 $viewData = compact(
-    'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'levelLocked',
+    'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'credibilityLocked', 'levelLocked',
     'cash', 'legalLevel', 'error', 'success',
-    'credibilityScore', 'credibilityLevel'
+    'credibilityScore', 'credibilityLevel', 'credibilityMin'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 

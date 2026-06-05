@@ -94,6 +94,11 @@ return [
     'map_js.permit_legal_locked_level' => 'Wymagany poziom: :level. Aktualny poziom: :current.',
     'map_js.badge_permit_legal_locked' => 'Dział prawny',
 
+    'map_js.permit_credibility_locked_title' => 'Wymagana wiarygodność firmy',
+    'map_js.permit_credibility_locked_text'  => 'Ten region wymaga wyższej wiarygodności firmy. Ustabilizuj działania i unikaj negatywnych zdarzeń, aby odblokować możliwość złożenia wniosku.',
+    'map_js.permit_credibility_locked_level' => 'Wymagane minimum: :min / 100. Aktualnie: :current / 100.',
+    'map_js.badge_permit_credibility_locked' => 'Wiarygodność',
+
     // Wspólne przyciski modali zezwoleń / Shared permit modal buttons.
     'map_js.permit_btn_go_legal' => 'Przejdź do działu prawnego',
     'map_js.permit_btn_close'    => 'Zamknij',

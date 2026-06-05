@@ -20,13 +20,11 @@ require_once __DIR__ . '/../src/TechnicalTeamService.php';
 require_once __DIR__ . '/../src/IncidentService.php';
 require_once __DIR__ . '/../src/FinanceService.php';
 require_once __DIR__ . '/../src/BlackMarketService.php';
-require_once __DIR__ . '/../src/CompanyCredibilityService.php';
 require_once __DIR__ . '/../src/Tick/MarketSection.php';
 require_once __DIR__ . '/../src/Tick/BankSection.php';
 require_once __DIR__ . '/../src/Tick/PlayersSection.php';
 require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
 require_once __DIR__ . '/../src/LegalService.php';
-require_once __DIR__ . '/../src/Tick/CredibilitySection.php';
 require_once __DIR__ . '/../src/Tick/LegalSection.php';
 
 // Opcjonalne serwisy
@@ -148,21 +146,7 @@ try {
     GameLog::error('tick', 'Black market section FAILED', $e);
 }
 
-// 7. WIARYGODNOSC FIRMY
-
-$credibilityCleanBonuses = 0;
-try {
-    $credibility = new CredibilitySection($db, $now);
-    $credibility->run();
-    $credibilityCleanBonuses = $credibility->cleanBonuses;
-    if ($credibilityCleanBonuses > 0) {
-        GameLog::info('tick', "Wiarygodnosc firmy: przyznano {$credibilityCleanBonuses} bonusow za czysty okres");
-    }
-} catch (Throwable $e) {
-    GameLog::error('tick', 'Credibility section FAILED', $e);
-}
-
-// 8. DZIAŁ PRAWNY — rozpatrywanie wniosków o zezwolenia
+// 7. DZIAŁ PRAWNY — rozpatrywanie wniosków o zezwolenia
 
 $legalDecided  = 0;
 $legalNotified = 0;
@@ -272,3 +256,4 @@ try {
 
 echo "Tick OK: " . $now->format('Y-m-d H:i:s') . " | Cena: {$newPrice}\${$trendInfo}"
     . " | Gracze: {$players->playersProcessed} | Bbl: " . round($players->totalBbl, 1) . "\n";
+

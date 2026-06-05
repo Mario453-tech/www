@@ -369,6 +369,8 @@ class WorldMap
                 'required_capital' => null,
                 'required_legal_level' => null,
                 'legal_level' => null,
+                'required_company_credibility' => null,
+                'company_credibility' => null,
             ];
             try {
                 $legal      = new LegalService($this->db);
@@ -395,6 +397,8 @@ class WorldMap
                 $reg['permit_required_capital'] = $pd['required_capital'];
                 $reg['permit_required_legal_level'] = $pd['required_legal_level'] ?? null;
                 $reg['permit_legal_level']      = $pd['legal_level'] ?? null;
+                $reg['permit_required_company_credibility'] = $pd['required_company_credibility'] ?? null;
+                $reg['permit_company_credibility'] = $pd['company_credibility'] ?? null;
             }
             unset($reg);
 
