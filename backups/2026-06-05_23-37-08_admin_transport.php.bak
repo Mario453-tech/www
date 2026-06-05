@@ -60,9 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $portSvc = new PortService($db);
             $created = $portSvc->seedDefaultPorts();
             AdminLog::log('ports_seed', "Created {$created} default ports.");
-            $msg = "Seed portów zakończony. Utworzono: {$created} portów.";
+            $msg = "Seed portďż˝w zakoďż˝czony. Utworzono: {$created} portďż˝w.";
         } catch (Throwable $e) {
-            $err = 'Błąd seed portów: ' . $e->getMessage();
+            $err = 'Bďż˝ďż˝d seed portďż˝w: ' . $e->getMessage();
         }
     }
 

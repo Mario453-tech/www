@@ -193,24 +193,24 @@
 </script>
 
 <!--  -->
-<!-- PORTY MORSKIE (Etap 5) — seed i podgląd                               -->
+<!-- PORTY MORSKIE (Etap 5)  seed i podglad                               -->
 <!--  -->
 <section class="admin-card" style="margin-top:24px">
-    <h2>⚓ Porty morskie (Etap 5)</h2>
-    <p class="help-text">Porty systemowe obsługują dostawy tankowców. Każdy region z odwiertem morskim musi mieć co najmniej 1 aktywny port — bez portu odwiert morski wstrzymuje produkcję.</p>
+    <h2> Porty morskie (Etap 5)</h2>
+    <p class="help-text">Porty systemowe obsuguj dostawy tankowcw. Kady region powinien mie co najmniej 1 aktywny port.</p>
 
     <form method="post" style="margin-bottom:16px">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_ports">
         <button type="submit" class="btn btn-primary btn-sm"
-                onclick="return confirm('Seed portów: tworzy 1 port na region (pomija istniejące). Kontynuować?')">
-            Zasiej domyślne porty (1 na region)
+                onclick="return confirm('Seed portw  tworzy 1 port na region (pomija istniejce). Kontynuowa?')">
+             Seed domylnych portw (1 na region)
         </button>
-        <span class="help-text" style="margin-left:8px">Bezpieczne — nie nadpisze istniejących portów.</span>
+        <span class="help-text" style="margin-left:8px">Bezpieczne  nie nadpisze istniejcych portw.</span>
     </form>
 
     <?php if (empty($portsData)): ?>
-        <div class="alert alert-info">Brak portów w bazie. Uruchom seed lub wykonaj migrację <code>migrations/etap5_marine_ports.sql</code>.</div>
+        <div class="alert alert-info">Brak portw w bazie. Uruchom seed lub wykonaj migracj <code>migrations/etap5_marine_ports.sql</code>.</div>
     <?php else: ?>
     <table class="admin-table" style="font-size:.83rem">
         <thead>
