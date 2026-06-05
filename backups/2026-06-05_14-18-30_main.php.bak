@@ -8,8 +8,6 @@
 
     <?php require __DIR__ . '/../../components/director_notifications.php'; ?>
 
-    <?php require __DIR__ . '/../../components/tech_notifications.php'; ?>
-
     <?php require __DIR__ . '/../../components/company_credibility.php'; ?>
 
     <?php if (!empty($alertWells)): ?>
