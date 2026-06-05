@@ -32,16 +32,16 @@ $csrfField = '<input type="hidden" name="csrf_token" value="' . htmlspecialchars
 
             <div class="news-field">
                 <label class="news-label" for="admin-news-title"><?= t('admin.news.title_label') ?></label>
-                <input
-                    type="text"
+                <div class="news-title-editor-wrap">
+                <textarea
                     id="admin-news-title"
                     name="title"
-                    class="news-input"
-                    maxlength="120"
+                    class="news-textarea news-title-textarea"
+                    rows="4"
                     required
                     placeholder="<?= t('admin.news.placeholder_title') ?>"
-                    value="<?= htmlspecialchars($editNews['title'] ?? '') ?>"
-                >
+                ><?= htmlspecialchars($editNews['title_html'] ?? $editNews['title'] ?? '') ?></textarea>
+                </div>
             </div>
 
             <div class="news-field">
@@ -98,9 +98,9 @@ $csrfField = '<input type="hidden" name="csrf_token" value="' . htmlspecialchars
                     </div>
                 </div>
 
-                <h3 class="news-card-title"><?= htmlspecialchars($n['title']) ?></h3>
+                <div class="news-card-title"><?= $n['title_html'] ?></div>
 
-                <p class="news-card-content"><?= htmlspecialchars(mb_strimwidth($n['content'], 0, 120, '...')) ?></p>
+                <p class="news-card-content"><?= htmlspecialchars($n['content_plain']) ?></p>
 
                 <div class="news-card-footer">
                     <span class="news-card-author"><?= t('admin.news.author_prefix') ?> <?= htmlspecialchars($n['created_by']) ?></span>

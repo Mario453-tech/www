@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-06-05 - Aktualnosci spolki: tytul z TinyMCE
+- `src/AdminNewsHtml.php` - dodano wspolny sanitizer HTML dla tytulu i tresci aktualnosci admina.
+- `admin/news.php`, `templates/views/admin/news/main.php`, `assets/js/admin_news_editor.js` - tytul aktualnosci jest edytowany przez TinyMCE, zapisywany w `admin_news.title_html`, a `admin_news.title` zostaje tekstowym fallbackiem.
+- `src/AdminNewsApi.php`, `assets/js/chat.js`, `assets/css/chat.css` - API zwraca bezpieczne `title_html`, a panel aktualnosci renderuje formatowany tytul.
+- `assets/css/admin.css` - dodano style podgladu formatowanego tytulu w liscie aktualnosci admina.
+
 ### 2026-06-05 - Aktualnosci spolki: render HTML z TinyMCE
 - `src/AdminNewsApi.php` - dodano bezpieczne czyszczenie HTML aktualnosci i pole `content_html`, aby tresc z TinyMCE zachowala naglowki, linki i kolory tekstu.
 - `assets/js/chat.js` - panel aktualnosci renderuje teraz HTML zwrocony przez API zamiast wyswietlac tresc jako zwykly tekst.

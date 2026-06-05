@@ -327,8 +327,12 @@
         items.forEach(function (n) {
             var pinCls = n.is_pinned ? ' news-item--pinned' : '';
             var pinBadge = n.is_pinned ? '<span class="news-item-pin"></span>' : '';
+            var titleHtml = newsHtml(n.title_html || '');
+            if (!titleHtml) {
+                titleHtml = escHtml(n.title || '');
+            }
             html += '<div class="news-item' + pinCls + '">' +
-                '<div class="news-item-title">' + pinBadge + escHtml(n.title) + '</div>' +
+                '<div class="news-item-title">' + pinBadge + '<div class="news-item-title-text">' + titleHtml + '</div></div>' +
                 '<div class="news-item-content">' + newsHtml(n.content_html || '') + '</div>' +
                 '<div class="news-item-date">' + escHtml(n.date_fmt) + '</div>' +
                 '</div>';
