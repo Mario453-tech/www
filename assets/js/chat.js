@@ -23,6 +23,10 @@
             .replace(/"/g, '&quot;');
     }
 
+    function newsHtml(str) {
+        return typeof str === 'string' ? str : '';
+    }
+
 
 
     function renderAvatar(username, avatarPath) {
@@ -325,7 +329,7 @@
             var pinBadge = n.is_pinned ? '<span class="news-item-pin"></span>' : '';
             html += '<div class="news-item' + pinCls + '">' +
                 '<div class="news-item-title">' + pinBadge + escHtml(n.title) + '</div>' +
-                '<div class="news-item-content">' + escHtml(n.content) + '</div>' +
+                '<div class="news-item-content">' + newsHtml(n.content_html || '') + '</div>' +
                 '<div class="news-item-date">' + escHtml(n.date_fmt) + '</div>' +
                 '</div>';
         });

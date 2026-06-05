@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-06-05 - Aktualnosci spolki: render HTML z TinyMCE
+- `src/AdminNewsApi.php` - dodano bezpieczne czyszczenie HTML aktualnosci i pole `content_html`, aby tresc z TinyMCE zachowala naglowki, linki i kolory tekstu.
+- `assets/js/chat.js` - panel aktualnosci renderuje teraz HTML zwrocony przez API zamiast wyswietlac tresc jako zwykly tekst.
+- `assets/css/chat.css` - dodano style dla akapitow, list, naglowkow, cytatow i linkow w panelu aktualnosci spolki.
+
 ### 2026-06-04 — Dział prawny: domknięcie P1 i start P2
 - `src/LegalService.php` — podpięto `required_legal_level` do walidacji wniosku i danych mapy; poziom działu prawnego liczony jest z aktywnego dyrektora roli `legal`.
 - `public/legal.php`, `templates/views/legal/main.php`, `assets/js/legal.js`, `assets/css/legal.css` — dodano grupę regionów blokowanych poziomem prawnym i przeniesiono komunikaty flash do JS modułu.
