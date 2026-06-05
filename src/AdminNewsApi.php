@@ -7,6 +7,28 @@ ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 
 /**
+ * Sends JSON with UTF-8 fallback and logs encode failures.
+ * PL: Wysyla JSON z fallbackiem UTF-8 i loguje bledy kodowania.
+ *
+ * @param array<string,mixed> $payload
+ */
+function sendNewsJson(array $payload): void
+{
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        if (class_exists('GameLog', false)) {
+            GameLog::error('AdminNewsApi', 'json_encode FAILED', [
+                'error' => json_last_error_msg(),
+            ]);
+        }
+        echo '{"news":[]}';
+        return;
+    }
+
+    echo $json;
+}
+
+/**
  * Sanitizes admin news HTML before exposing it to the player UI.
  * PL: Czyci HTML aktualnosci admina przed pokazaniem w UI gracza.
  */
@@ -204,7 +226,10 @@ function humanNewsTime(string $dateTime): string
 try {
     $db = Database::getInstance()->getConnection();
 } catch (Throwable $e) {
-    echo json_encode(['news' => [], 'pinned' => []]);
+    if (class_exists('GameLog', false)) {
+        GameLog::error('AdminNewsApi', 'database connection FAILED', $e);
+    }
+    sendNewsJson(['news' => [], 'pinned' => []]);
     exit;
 }
 
@@ -224,10 +249,14 @@ try {
         $row['date_fmt'] = humanNewsTime((string)$row['created_at']);
         $row['is_pinned'] = (int)$row['is_pinned'];
         $row['content_html'] = sanitizeNewsHtml((string)($row['content'] ?? ''));
+        unset($row['content']);
     }
     unset($row);
 
-    echo json_encode(['news' => $rows]);
+    sendNewsJson(['news' => $rows]);
 } catch (Throwable $e) {
-    echo json_encode(['news' => []]);
+    if (class_exists('GameLog', false)) {
+        GameLog::error('AdminNewsApi', 'news fetch FAILED', $e);
+    }
+    sendNewsJson(['news' => []]);
 }
