@@ -128,15 +128,18 @@ foreach ($groups as $regionName => $group):
                     </div>
                 </div>
 
-                <?php if ($w['_isActive']): ?>
                 <div class="wg-kpi-grid">
                     <div class="wg-kpi-card">
                         <div class="wg-kpi-label"><?= t('wg.stat_production') ?></div>
-                        <div class="wg-kpi-value kv-green">
-                            <?= number_format((float)$w['base_production_per_hour'], 0) ?>
+                        <div class="wg-kpi-value <?= $w['_isActive'] ? 'kv-green' : 'kv-dim' ?>">
+                            <?= $w['_isActive'] ? number_format((float)$w['base_production_per_hour'], 0) : '0' ?>
                             <span class="wg-kpi-unit"><?= t('common.bbl_h') ?></span>
                         </div>
-                        <div class="wg-kpi-sub"><?= $w['_wEffPct'] ?>% <?= t('wg.stat_pressure') ?></div>
+                        <div class="wg-kpi-sub">
+                            <?= $w['_isActive']
+                                ? $w['_wEffPct'] . '% ' . t('wg.stat_pressure')
+                                : t('wg.stat_paused') . ' - ' . t('wg.stat_base') . ': ' . number_format((float)$w['base_production_per_hour'], 0) . ' ' . t('common.bbl_h') ?>
+                        </div>
                     </div>
                     <div class="wg-kpi-card">
                         <div class="wg-kpi-label"><?= t('wg.stat_condition') ?></div>
@@ -155,15 +158,6 @@ foreach ($groups as $regionName => $group):
                         <div class="wg-kpi-sub"><?= t('wg.stat_reservoir') ?>: <?= $w['_wResPct'] ?>%</div>
                     </div>
                 </div>
-                <?php else: ?>
-                <div class="wg-cond">
-                    <div class="wg-cond-row">
-                        <span class="<?= $w['_condCls'] ?>"><?= t('wg.stat_condition') ?></span>
-                        <span class="<?= $w['_condCls'] ?> fw7"><?= round($w['_cond'], 1) ?>%</span>
-                    </div>
-                    <div class="wg-bar"><div class="wg-bar-fill <?= $w['_condCls'] ?>" style="width:<?= $w['_cond'] ?>%"></div></div>
-                </div>
-                <?php endif ?>
 
                 <?php if ($w['_missingSpecs']): ?>
                 <div class="wg-staff-hint"><?= t('wg.missing_label') ?> <?= htmlspecialchars(implode(', ', $w['_missingSpecs'])) ?></div>

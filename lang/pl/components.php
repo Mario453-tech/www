@@ -167,6 +167,8 @@ return [
     'wg.stat_reservoir' => 'Złoże',
     'wg.stat_depth' => 'Głębokość',
     'wg.stat_condition' => 'Stan techniczny',
+    'wg.stat_paused' => 'wstrzymane',
+    'wg.stat_base' => 'bazowo',
     'wg.missing_label' => 'Brak personelu:',
     'wg.btn_candidates' => 'Rekrutuj pracowników',
     'wg.btn_sell_oil' => 'Sprzedaj ropę',

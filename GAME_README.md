@@ -1,5 +1,9 @@
 ## Changelog
 
+### 2026-06-05 - Karty odwiertow: stale KPI przy wstrzymaniu
+- `templates/components/well_grid.php` - karty odwiertow pokazuja teraz wydobycie, stan, tryb i zloze takze dla statusow wstrzymanych; wydobycie aktywne pokazuje wartosc normalnie, a wstrzymane pokazuje `0 bbl/h` z bazowym potencjalem.
+- `lang/pl/components.php` - dodano etykiety `wg.stat_paused` i `wg.stat_base` dla informacji pod KPI wydobycia.
+
 ### 2026-06-05 - Aktualnosci spolki: tytul z TinyMCE
 - `src/AdminNewsHtml.php` - dodano wspolny sanitizer HTML dla tytulu i tresci aktualnosci admina.
 - `admin/news.php`, `templates/views/admin/news/main.php`, `assets/js/admin_news_editor.js` - tytul aktualnosci jest edytowany przez TinyMCE, zapisywany w `admin_news.title_html`, a `admin_news.title` zostaje tekstowym fallbackiem.
