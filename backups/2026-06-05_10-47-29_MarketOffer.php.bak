@@ -4,42 +4,12 @@ class MarketOffer
 {
     private PDO $db;
 
- // Ensures market_sale_history table exists (runs once per connection).
- // Tworzy tabele market_sale_history jesli nie istnieje (raz na polaczenie).
-    private static bool $schemaEnsured = false;
-
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
-        $this->ensureSchema();
     }
 
-    private function ensureSchema(): void
-    {
-        if (self::$schemaEnsured) {
-            return;
-        }
-        self::$schemaEnsured = true;
-
-        try {
-            $this->db->exec("
-                CREATE TABLE IF NOT EXISTS market_sale_history (
-                    id            INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                    player_id     INT            NOT NULL,
-                    offer_id      INT            NOT NULL,
-                    listed_at     DATETIME       NOT NULL,
-                    sold_at       DATETIME       NOT NULL,
-                    price_per_bbl INT            NOT NULL,
-                    barrels_sold  INT            NOT NULL,
-                    total_earned  DECIMAL(14,2)  NOT NULL,
-                    KEY idx_player_sold (player_id, sold_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ");
-        } catch (Throwable $e) {
-            GameLog::error('MarketOffer', 'ensureSchema FAILED', $e);
-        }
-    }
-
+ // Offer creation
 
     public function createOffer(int $playerId, float $amount, float $limitPrice): array
     {
