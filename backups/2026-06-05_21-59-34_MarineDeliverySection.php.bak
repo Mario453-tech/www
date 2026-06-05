@@ -33,59 +33,6 @@ class MarineDeliverySection
     }
 
  /**
- * Globalne czyszczenie zalegajacych dostaw morskich (raz na tick, nie per gracz).
- * Global cleanup of stale marine deliveries (once per tick, not per player).
- *
- * Usuwa dwie kategorie smieci / Removes two categories of junk:
- *  1. dostawy zakonczone (delivered/lost) starsze niz 7 dni — balast historii,
- *     finished deliveries (delivered/lost) older than 7 days — history bloat;
- *  2. utkniete rejsy (departing/in_transit/delayed) ktore wyruszyly ponad 2 dni
- *     temu i nigdy sie nie rozwiazaly (brak portu w regionie) — te stany nie maja
- *     wpisu w port_queue, wiec usuniecie jest bezpieczne (brak osieroconych rekordow).
- *     stuck voyages that departed over 2 days ago and never resolved (no port for
- *     the region); these states have no port_queue row, so deletion is safe.
- *
- * Prog 2 dni jest spojny z filtrem dropdownu w admin/incidents.php (departure_at).
- * The 2-day window matches the admin/incidents.php dropdown filter (departure_at).
- *
- * @return array{terminal:int,stuck:int} liczba usunietych rekordow / deleted row counts
- */
-    public static function purgeStale(PDO $db): array
-    {
-        $terminal = 0;
-        $stuck    = 0;
-        try {
- // 1) Zakonczone dostawy starsze niz 7 dni / Finished deliveries older than 7 days
-            $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
-                  WHERE status IN ('delivered','lost')
-                    AND COALESCE(delivered_at, arrived_at, eta_at, created_at) < NOW() - INTERVAL 7 DAY"
-            );
-            $stmt->execute();
-            $terminal = $stmt->rowCount();
-
- // 2) Utkniete rejsy morskie starsze niz 2 dni / Stuck sea voyages older than 2 days
-            $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
-                  WHERE status IN ('departing','in_transit','delayed')
-                    AND departure_at < NOW() - INTERVAL 2 DAY"
-            );
-            $stmt->execute();
-            $stuck = $stmt->rowCount();
-
-            if ($terminal > 0 || $stuck > 0) {
-                GameLog::info('tick', 'marine_deliveries_purged', [
-                    'terminal' => $terminal, 'stuck' => $stuck,
-                ]);
-            }
-        } catch (Throwable $e) {
-            GameLog::error('tick', 'MarineDeliverySection::purgeStale FAILED', $e);
-        }
-
-        return ['terminal' => $terminal, 'stuck' => $stuck];
-    }
-
- /**
  * Przetwarza wszystkie aktywne dostawy morskie gracza.
  * Processes all active marine deliveries for a player.
  *

@@ -68,12 +68,7 @@ $activeTrend = $market->activeTrend;
 $isNewTrend  = $market->isNewTrend;
 $newPrice    = $market->newPrice;
 
-// 2b. CZYSZCZENIE ZALEGAJACYCH DOSTAW MORSKICH (raz na tick, globalnie)
-// 2b. PURGE STALE MARINE DELIVERIES (once per tick, global)
-require_once __DIR__ . '/../src/Tick/MarineDeliverySection.php';
-MarineDeliverySection::purgeStale($db);
-
-// 3-4k. SYSTEM BANKOWY / HR / BANKRUCI
+// 3-4k. SYSTEM BANKOWY / HR / BANKRUCI 
 
 $bank = new BankSection($db, $bankNegAvailable, $bankruptcyAvailable);
 $bank->run();
