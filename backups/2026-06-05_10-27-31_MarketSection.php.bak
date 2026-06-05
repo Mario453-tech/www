@@ -15,7 +15,6 @@ class MarketSection
     {
         $this->runTrends();
         $this->runPrice();
-        $this->purgeHistory();
     }
 
     private function runTrends(): void
@@ -51,16 +50,6 @@ class MarketSection
             GameLog::info('tick', 'new oil price', ['price' => $this->newPrice]);
         } catch (Throwable $e) {
             GameLog::error('tick', 'MarketTick::updatePrices FAILED', $e);
-        }
-    }
-
- // Remove sale history entries older than 7 days / Usun wpisy historii starsze niz 7 dni
-    private function purgeHistory(): void
-    {
-        try {
-            (new MarketOffer())->purgeOldSaleHistory();
-        } catch (Throwable $e) {
-            GameLog::error('tick', 'purgeOldSaleHistory FAILED', $e);
         }
     }
 }
