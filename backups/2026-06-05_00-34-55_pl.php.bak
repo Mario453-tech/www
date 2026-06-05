@@ -36,7 +36,6 @@ $lang += require __DIR__ . '/pl/bank.php';
 $lang += require __DIR__ . '/pl/board.php';
 $lang += require __DIR__ . '/pl/common.php';
 $lang += require __DIR__ . '/pl/components.php';
-$lang += require __DIR__ . '/pl/credibility.php';
 $lang += require __DIR__ . '/pl/director.php';
 $lang += require __DIR__ . '/pl/finance.php';
 $lang += require __DIR__ . '/pl/hr.php';

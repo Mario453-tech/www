@@ -257,19 +257,6 @@ class BlackMarketService
 
             $this->db->commit();
 
-            // Wiarygodnosc firmy: wykrycie czarnego rynku (po commit, poza transakcja).
-            // Company credibility: black market detection (after commit, outside the transaction).
-            if ($detected) {
-                try {
-                    (new CompanyCredibilityService($this->db))
-                        ->applyEvent($playerId, 'black_market_detected');
-                } catch (Throwable $e) {
-                    if (class_exists('GameLog', false)) {
-                        GameLog::error('BlackMarketService', 'credibility hook FAILED', $e, ['player_id' => $playerId]);
-                    }
-                }
-            }
-
             $message = $detected
                 ? t('black_market.detected', [':penalty' => number_format($penalty, 0, ',', ' ')])
                 : t('black_market.success', [':revenue' => number_format($revenue, 0, ',', ' ')]);

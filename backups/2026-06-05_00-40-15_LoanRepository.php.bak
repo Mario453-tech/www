@@ -85,9 +85,6 @@ class LoanRepository
                     ");
                     $updateLoan->execute([':id' => $loan['id']]);
 
-                    // Wiarygodnosc firmy: pelna splata kredytu / Company credibility: loan fully repaid
-                    $this->applyCredibility((int)$loan['player_id'], 'loan_fully_repaid');
-
                 } else {
  // Schedule next installment
                     $updateLoan = $this->db->prepare("
@@ -102,9 +99,6 @@ class LoanRepository
                         ':hours' => $loan['installment_frequency'],
                         ':id' => $loan['id']
                     ]);
-
-                    // Wiarygodnosc firmy: rata splacona w terminie / Company credibility: installment paid on time
-                    $this->applyCredibility((int)$loan['player_id'], 'loan_installment_paid_on_time');
                 }
 
  // Record payment
@@ -128,33 +122,12 @@ class LoanRepository
                     WHERE id = :id
                 ");
                 $updateLoan->execute([':id' => $loan['id']]);
-
-                // Wiarygodnosc firmy: duze opoznienie w splacie (przejscie w 'late').
-                // Company credibility: major payment delay (transition into 'late').
-                $this->applyCredibility((int)$loan['player_id'], 'major_payment_delay');
             }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('LoanRepository', 'processInstallment failed', $e, [
                     'loan_id' => $loan['id'] ?? null,
                     'player_id' => $loan['player_id'] ?? null,
-                ]);
-            }
-        }
-    }
-
- /**
- * Stosuje zdarzenie wiarygodnosci firmy (guarded — nigdy nie wywraca splaty).
- * Applies a company-credibility event (guarded — never breaks repayment).
- */
-    private function applyCredibility(int $playerId, string $eventKey): void
-    {
-        try {
-            (new CompanyCredibilityService($this->db))->applyEvent($playerId, $eventKey);
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LoanRepository', 'credibility hook FAILED', $e, [
-                    'player_id' => $playerId, 'event_key' => $eventKey,
                 ]);
             }
         }

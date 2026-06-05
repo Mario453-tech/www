@@ -1,0 +1,46 @@
+<?php
+/**
+ * Komponent: Wiarygodnosc firmy (karta na dashboardzie).
+ * Component: Company credibility (dashboard card).
+ *
+ * Oczekuje / Expects:
+ *   $credibilityScore (int 0-100), $credibilityLevel (string key)
+ * Gracz nie widzi matematyki — tylko wynik, poziom i krotki opis (sekcja 7).
+ * The player sees no math — only score, level and a short description (section 7).
+ */
+
+if (class_exists('GameLog', false)) {
+    GameLog::step('component/company_credibility', 'render', 1,
+        'score=' . ($credibilityScore ?? '?'));
+}
+
+// Bezpieczne wartosci domyslne / Safe defaults
+$__score = (int)($credibilityScore ?? 50);
+$__score = max(0, min(100, $__score));
+$__level = (string)($credibilityLevel ?? 'shaky');
+$__allowed = ['critical', 'low', 'shaky', 'stable', 'high'];
+if (!in_array($__level, $__allowed, true)) {
+    $__level = 'shaky';
+}
+?>
+<section class="card credibility-card credibility-level--<?= $__level ?>" aria-labelledby="credibility-heading">
+    <h3 id="credibility-heading"><?= t('credibility.card_title') ?></h3>
+
+    <div class="credibility-body">
+        <div class="credibility-score-row">
+            <span class="credibility-score"><?= $__score ?></span>
+            <span class="credibility-score-suffix"><?= t('credibility.score_suffix') ?></span>
+            <span class="credibility-status-badge credibility-badge--<?= $__level ?>">
+                <?= t('credibility.level_' . $__level) ?>
+            </span>
+        </div>
+
+        <div class="credibility-bar" role="img"
+             aria-label="<?= t('credibility.card_title') ?>: <?= $__score ?> <?= t('credibility.score_suffix') ?>">
+            <span class="credibility-bar__fill" style="width:<?= $__score ?>%"></span>
+        </div>
+
+        <p class="credibility-desc"><?= t('credibility.level_desc_' . $__level) ?></p>
+        <p class="credibility-hint"><?= t('credibility.hint') ?></p>
+    </div>
+</section>
