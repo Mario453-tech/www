@@ -950,3 +950,111 @@
         gap: 8px;
     }
 }
+
+/* ── Alerty techniczne / Technical alert notifications panel ── */
+
+.tech-notif-panel h2 .tech-notif-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: var(--orange);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-left: 4px;
+}
+
+.tech-notif-mark-all {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    text-transform: none;
+    padding: 3px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.tech-notif-mark-all:hover {
+    background: rgba(255,255,255,.05);
+    color: var(--text);
+}
+
+.tech-notif-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tech-notif-item {
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.02);
+}
+
+/* Kolor lewej krawedzi wg krytycznosci / Left-border color by severity */
+.tech-notif--disaster  { border-left: 3px solid var(--red);    background: rgba(224,85,85,.05); }
+.tech-notif--critical  { border-left: 3px solid var(--red);    background: rgba(224,85,85,.05); }
+.tech-notif--warning   { border-left: 3px solid var(--orange); background: rgba(240,160,80,.05); }
+.tech-notif--default   { border-left: 3px solid var(--border); }
+
+.tech-notif-item__header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.tech-notif-type-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.tech-notif--disaster  .tech-notif-type-badge,
+.tech-notif--critical  .tech-notif-type-badge { background: rgba(224,85,85,.2);  color: var(--red); }
+.tech-notif--warning   .tech-notif-type-badge { background: rgba(240,160,80,.2); color: var(--orange); }
+.tech-notif--default   .tech-notif-type-badge { background: rgba(200,168,75,.15); color: var(--gold); }
+
+.tech-notif-well {
+    font-size: 11px;
+    color: var(--text3);
+}
+
+.tech-notif-time {
+    margin-left: auto;
+    font-size: 10px;
+    color: rgba(232,232,240,.4);
+    white-space: nowrap;
+}
+
+.tech-notif-item__msg {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+    margin: 0 0 8px;
+}
+
+.tech-notif-item__actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+    .tech-notif-time { margin-left: 0; }
+    .tech-notif-item__header { gap: 6px; }
+}
