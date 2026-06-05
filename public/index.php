@@ -288,6 +288,7 @@ $extraCss   = [
     '/assets/css/well-grid.css',
     '/assets/css/home.css',
     '/assets/css/chat.css',
+    '/assets/css/director.css',
 ];
 $extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js'];
 require_once __DIR__ . '/../templates/header.php';

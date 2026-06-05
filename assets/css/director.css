@@ -1,0 +1,432 @@
+/*
+   director.css — Komunikaty dla Dyrektora
+   Zależy od: variables.css, style.css
+*/
+
+/* ── Panel główny ───────────────────────────────────────────── */
+.notifications-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* ── Nagłówek panelu ────────────────────────────────────────── */
+.notifications-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(200,168,75,.12);
+    flex-wrap: wrap;
+}
+.notifications-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: .12em !important;
+    text-transform: uppercase !important;
+    color: var(--gold) !important;
+    margin: 0 !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+}
+.notifications-header h2::before {
+    content: '';
+    width: 3px;
+    height: 13px;
+    background: var(--gold);
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+.notifications-icon { display: none; }
+
+/* ── Licznik notyfikacji ────────────────────────────────────── */
+.notifications-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: rgba(200,168,75,.18);
+    border: 1px solid rgba(200,168,75,.3);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gold2, #e8cc7a);
+    line-height: 1;
+}
+
+/* ── Przycisk "Oznacz wszystkie" ────────────────────────────── */
+.btn-mark-all-read {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.09);
+    background: rgba(255,255,255,.035);
+    color: rgba(232,232,240,.5);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+    white-space: nowrap;
+}
+.btn-mark-all-read:hover {
+    border-color: rgba(200,168,75,.3);
+    color: var(--gold);
+    background: rgba(200,168,75,.06);
+}
+
+/* ── Alert krytyczny ────────────────────────────────────────── */
+.notifications-alert {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+.notifications-alert.critical {
+    background: rgba(224,85,85,.08);
+    border: 1px solid rgba(224,85,85,.28);
+    color: var(--red, #e05555);
+}
+.notifications-alert.critical strong {
+    font-weight: 700;
+}
+
+/* ── Lista notyfikacji ──────────────────────────────────────── */
+.notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ── Pojedynczy item ────────────────────────────────────────── */
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(255,255,255,.07);
+    border-left: 3px solid rgba(255,255,255,.1);
+    border-radius: 10px;
+    transition: border-color .18s, background .18s;
+}
+.notification-item:hover {
+    background: linear-gradient(145deg, #18182a, #111120);
+    border-color: rgba(200,168,75,.2);
+    border-left-color: rgba(200,168,75,.5);
+}
+
+/* Priorytet — kolor lewej kreski */
+.notification-item.priority-critical {
+    border-left-color: var(--red, #e05555);
+    background: linear-gradient(145deg, rgba(224,85,85,.05) 0%, #0f0f18 60%);
+}
+.notification-item.priority-critical:hover { border-left-color: var(--red); }
+
+.notification-item.priority-high {
+    border-left-color: var(--orange, #f0a050);
+    background: linear-gradient(145deg, rgba(240,160,80,.05) 0%, #0f0f18 60%);
+}
+.notification-item.priority-high:hover { border-left-color: var(--orange); }
+
+.notification-item.priority-medium {
+    border-left-color: var(--gold, #c8a84b);
+    background: linear-gradient(145deg, rgba(200,168,75,.04) 0%, #0f0f18 60%);
+}
+.notification-item.priority-medium:hover { border-left-color: var(--gold); }
+
+.notification-item.priority-low {
+    border-left-color: rgba(78,201,122,.4);
+}
+
+/* ── Ikona ──────────────────────────────────────────────────── */
+.notification-icon {
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 1px;
+    min-width: 22px;
+    text-align: center;
+}
+
+/* ── Content ────────────────────────────────────────────────── */
+.notification-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ── Header row: tytuł + badge ──────────────────────────────── */
+.notification-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.notification-title {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--text, #e8e8f0) !important;
+    margin: 0 !important;
+    line-height: 1.35 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+}
+.notification-title::before { display: none !important; }
+
+/* ── Badge priorytetu ───────────────────────────────────────── */
+.notification-priority-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.priority-critical .notification-priority-badge {
+    background: rgba(224,85,85,.12);
+    border: 1px solid rgba(224,85,85,.28);
+    color: var(--red);
+}
+.priority-high .notification-priority-badge {
+    background: rgba(240,160,80,.12);
+    border: 1px solid rgba(240,160,80,.28);
+    color: var(--orange);
+}
+.priority-medium .notification-priority-badge {
+    background: rgba(200,168,75,.12);
+    border: 1px solid rgba(200,168,75,.28);
+    color: var(--gold2, #e8cc7a);
+}
+.priority-low .notification-priority-badge {
+    background: rgba(78,201,122,.1);
+    border: 1px solid rgba(78,201,122,.2);
+    color: var(--green);
+}
+
+/* ── Treść wiadomości ───────────────────────────────────────── */
+.notification-message {
+    font-size: 13px;
+    color: rgba(232,232,240,.6);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── Meta: czas + wygaśnięcie ───────────────────────────────── */
+.notification-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.notification-time {
+    font-size: 11px;
+    color: rgba(232,232,240,.3);
+    font-weight: 500;
+}
+.notification-expires {
+    font-size: 11px;
+    color: rgba(240,160,80,.6);
+}
+
+/* ── Akcje ──────────────────────────────────────────────────── */
+.notification-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+/* Przycisk akcji — złoty */
+.notification-action-btn.btn-primary {
+    background: rgba(200,168,75,.12) !important;
+    border: 1px solid rgba(200,168,75,.3) !important;
+    color: var(--gold) !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: .08em !important;
+    padding: 5px 12px !important;
+    border-radius: 8px !important;
+    text-decoration: none;
+    transition: background .15s, border-color .15s, color .15s !important;
+}
+.notification-action-btn.btn-primary:hover {
+    background: rgba(200,168,75,.2) !important;
+    border-color: rgba(200,168,75,.5) !important;
+    color: var(--gold2) !important;
+}
+/* Przycisk "Odczytaj" / "Przeczytane" — szary */
+.notification-actions .btn-secondary {
+    background: rgba(255,255,255,.04) !important;
+    border: 1px solid rgba(255,255,255,.09) !important;
+    color: rgba(232,232,240,.4) !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: .08em !important;
+    padding: 5px 12px !important;
+    border-radius: 8px !important;
+    transition: border-color .15s, color .15s !important;
+}
+.notification-actions .btn-secondary:hover {
+    border-color: rgba(200,168,75,.25) !important;
+    color: rgba(232,232,240,.7) !important;
+}
+
+/* ── Sekcja alertów technicznych ────────────────────────────── */
+.alert-tech-section {
+    margin-top: 14px;
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(200,168,75,.15);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.alert-tech-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(200,168,75,.1);
+}
+.alert-tech-title {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.alert-tech-title::before {
+    content: '';
+    width: 3px;
+    height: 12px;
+    background: var(--gold);
+    border-radius: 2px;
+}
+.alert-tech-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background: rgba(224,85,85,.14);
+    border: 1px solid rgba(224,85,85,.28);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--red);
+}
+.alert-tech-btn-all {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.09);
+    background: rgba(255,255,255,.03);
+    color: rgba(232,232,240,.45);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.alert-tech-btn-all:hover {
+    border-color: rgba(200,168,75,.3);
+    color: var(--gold);
+}
+.alert-tech-list {
+    display: flex;
+    flex-direction: column;
+}
+.alert-tech-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    transition: background .15s;
+}
+.alert-tech-item:last-child { border-bottom: none; }
+.alert-tech-item:hover { background: rgba(255,255,255,.025); }
+.alert-tech-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.alert-tech-well {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text3);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.alert-tech-time {
+    font-size: 10px;
+    color: rgba(232,232,240,.28);
+    flex-shrink: 0;
+}
+.alert-tech-msg {
+    font-size: 12px;
+    color: rgba(232,232,240,.6);
+    line-height: 1.55;
+}
+.alert-tech-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.alert-tech-read-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 11px;
+    border-radius: 7px;
+    border: 1px solid rgba(255,255,255,.09);
+    background: rgba(255,255,255,.03);
+    color: rgba(232,232,240,.4);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.alert-tech-read-btn:hover {
+    border-color: rgba(200,168,75,.3);
+    color: var(--gold);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .notification-item { padding: 12px 13px; gap: 10px; }
+    .notification-title { font-size: 13px !important; }
+    .notification-message { font-size: 12px; }
+    .notification-header-row { flex-wrap: wrap; gap: 6px; }
+    .notification-actions { gap: 6px; }
+    .btn-mark-all-read { font-size: 9px; padding: 5px 10px; }
+    .notifications-header { flex-wrap: wrap; gap: 8px; }
+    .alert-tech-item { padding: 10px 13px; }
+}
+
