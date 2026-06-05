@@ -73,21 +73,6 @@ class MarineDeliverySection
             $stmt->execute();
             $stuck = $stmt->rowCount();
 
- // 3) Dostawy 'delayed' bez przypisanego portu (port_id IS NULL) starsze niz 2 godziny.
- //    Sa definitywnie nieodwracalne: przy tworzeniu nie bylo portu, przy przybyciu
- //    tez nie bylo (findPort zwrocil null) — nigdy nie dotrza do magazynu.
- //    Delayed deliveries with no port assigned (port_id IS NULL) older than 2 hours.
- //    These are definitively undeliverable: no port at creation, no port at arrival
- //    (findPort returned null) — they will never reach storage.
-            $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
-                  WHERE status = 'delayed'
-                    AND port_id IS NULL
-                    AND departure_at < NOW() - INTERVAL 2 HOUR"
-            );
-            $stmt->execute();
-            $stuck += $stmt->rowCount();
-
             if ($terminal > 0 || $stuck > 0) {
                 GameLog::info('tick', 'marine_deliveries_purged', [
                     'terminal' => $terminal, 'stuck' => $stuck,
