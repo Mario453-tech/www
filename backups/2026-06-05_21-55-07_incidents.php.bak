@@ -809,12 +809,11 @@ try {
 
 // Dane do formularza recznego wywolania incydentu morskiego / Data for manual marine incident trigger form.
 // Brief: tylko REALNE, aktywne transporty morskie wybranego gracza — odwierty offshore (tankowiec),
-// statusy departing/in_transit zawsze, delayed tylko dla rejsow ktore wyruszyly max 2 dni temu
-// (tranzyt bazowy 3h ± 1h, wielokrotne opoznienia nie moga przekraczac 2 dni od departure_at).
-// Stare rekordy delayed z przeszlosci sa automatycznie wykluczone przez filtr departure_at.
-// Brief: only REAL, active marine transports — offshore wells (tanker), departing/in_transit always,
-// delayed only for voyages that departed at most 2 days ago (base transit 3h ± 1h; stale historical
-// delayed rows are excluded by the departure_at guard).
+// statusy departing/in_transit oraz delayed wylacznie dla aktualnego rejsu (nie zalegajace smieci),
+// max 15 najblizszych pozycji per gracz (grupowanie po stronie JS).
+// Brief: only REAL, active marine transports per player — offshore wells (tanker), statuses
+// departing/in_transit plus delayed only for a current voyage (no stale junk), capped at the
+// 15 nearest deliveries per player (grouped client-side in JS).
 $trigMarineDeliveries = [];
 try {
     $marineDeliveryLimit = 15;
@@ -831,10 +830,9 @@ try {
                                 AND w.player_id = md.player_id
                                 AND w.well_type = 'offshore'
               LEFT JOIN ports p ON p.id = md.port_id
-             WHERE md.status IN ('departing', 'in_transit')
-                OR (
-                       md.status = 'delayed'
-                   AND md.departure_at >= NOW() - INTERVAL 2 DAY
+             WHERE (
+                       md.status IN ('departing','in_transit')
+                    OR (md.status = 'delayed' AND md.eta_at >= NOW() - INTERVAL 1 DAY)
                    )
           ) q
          WHERE q.row_no <= ?
