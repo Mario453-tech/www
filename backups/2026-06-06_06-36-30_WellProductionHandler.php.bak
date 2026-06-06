@@ -337,18 +337,19 @@ class WellProductionHandler
  // prog min_load_bbl, wtedy tankowiec wyrusza z pelnym ladunkiem.
  // Stage 5 — accumulation model: oil builds up in the well buffer until it reaches
  // min_load_bbl threshold, then the tanker departs with a full load.
- // min_load_bbl = 0 oznacza wysylke natychmiastowa (per tick), wieksze wartosci = akumulacja.
- // min_load_bbl = 0 means immediate dispatch (per tick); larger values = buffer accumulation.
-                $minLoadBbl = max(0.0, (float)($transportCfg['min_load_bbl'] ?? 5000.0));
+                $minLoadBbl = max(1.0, (float)($transportCfg['min_load_bbl'] ?? 5000.0));
 
- // Bufor: wartosc sprzed ticka (z SELECT w.* w PlayersSection) + produkcja tego ticka.
- // Buffer: pre-tick value (from SELECT w.* in PlayersSection) + this tick's production.
-                $bufferBbl = (float)($well['marine_buffer_bbl'] ?? 0.0) + round($actual, 4);
-
- // Zapisz nowy stan bufora / Persist updated buffer level
+ // Dodaj produkcje do bufora odwiertu / Add production to well buffer
                 $this->ctx->db->prepare(
                     "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ?"
                 )->execute([round($actual, 4), $wellId]);
+
+ // Pobierz zaktualizowany stan bufora / Read updated buffer level
+                $bufStmt = $this->ctx->db->prepare(
+                    "SELECT COALESCE(marine_buffer_bbl, 0) FROM wells WHERE id = ?"
+                );
+                $bufStmt->execute([$wellId]);
+                $bufferBbl = (float)$bufStmt->fetchColumn();
 
                 $this->ctx->loopCtx->marineInTransitBbl += $actual;
 
@@ -361,34 +362,22 @@ class WellProductionHandler
                 ]);
 
                 if ($bufferBbl >= $minLoadBbl) {
- // Bufor pelny: tankowiec wyrusza. createDelivery i reset bufora sa atomowe — jesli createDelivery
- // rzuci wyjatkiem, bufor NIE jest zerowany i przy nastepnym ticku zostanie sczerpany ponownie.
- // Buffer full: tanker departs. createDelivery and buffer reset are atomic — if createDelivery
- // throws, the buffer is NOT zeroed and will be dispatched again on the next tick.
-                    try {
-                        $this->ctx->marineDeliverySvc->createDelivery(
-                            $playerId, $wellId, $bufferBbl, $deltaHours, $well, $hseBonus
-                        );
-                        $this->ctx->db->prepare(
-                            "UPDATE wells SET marine_buffer_bbl = 0 WHERE id = ?"
-                        )->execute([$wellId]);
+ // Bufor pelny: tankowiec wyrusza z pelnym ladunkiem i bufor resetowany do zera.
+ // Buffer full: tanker departs with full load and buffer is reset to zero.
+                    $this->ctx->marineDeliverySvc->createDelivery(
+                        $playerId, $wellId, $bufferBbl, $deltaHours, $well, $hseBonus
+                    );
+                    $this->ctx->db->prepare(
+                        "UPDATE wells SET marine_buffer_bbl = 0 WHERE id = ?"
+                    )->execute([$wellId]);
 
  // Nalicz koszt rejsu od pelnego ladunku / Charge voyage cost for the full load
-                        $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
-                        if ($costPerBbl > 0.0) {
-                            $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
+                    $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
+                    if ($costPerBbl > 0.0) {
+                        $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
  * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-                            $this->ctx->loopCtx->finTransport += $voyageCost;
-                            $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
-                        }
-                    } catch (Throwable $e) {
-                        GameLog::error('tick', 'marine_dispatch_failed — buffer retained for next tick', $e, [
-                            'well_id'    => $wellId,
-                            'player_id'  => $playerId,
-                            'buffer_bbl' => round($bufferBbl, 3),
-                        ]);
- // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
- // Buffer stays non-zero — dispatch will be retried next tick.
+                        $this->ctx->loopCtx->finTransport += $voyageCost;
+                        $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                     }
                 }
  // Ropa nie trafia do storage (w buforze lub w tranzycie) / Oil not added to storage now (in buffer or in transit)

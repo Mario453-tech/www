@@ -60,11 +60,7 @@
             <span class="panel-title-sub"><?= $typeLabels[$type][1] ?></span>
         </p>
         <div class="config-rows">
-            <?php foreach ($fieldDefs as $key => [$label, $hint, $min, $max]):
-                // min_load_bbl dotyczy tylko tankowcow; dla rurociagu i ciezarowek jest pomijane.
-                // min_load_bbl applies to tankers only; skipped for pipelines and trucks.
-                if ($key === 'min_load_bbl' && $type !== 'tankowiec') continue;
-            ?>
+            <?php foreach ($fieldDefs as $key => [$label, $hint, $min, $max]): ?>
             <div class="config-row">
                 <div>
                     <div class="config-key-label"><?= $label ?></div>

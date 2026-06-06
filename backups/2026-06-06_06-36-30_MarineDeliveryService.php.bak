@@ -58,20 +58,6 @@ class MarineDeliveryService
         }
         self::$schemaEnsured[$schemaConnId] = true;
 
-        // Dodaj kolumne bufora do wells jesli nie istnieje (potrzebna rowniez w CLI / cron).
-        // Add buffer column to wells if missing (needed in CLI / cron context too).
-        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
-            try {
-                Database::addColumnIfMissing(
-                    'wells',
-                    'marine_buffer_bbl',
-                    "DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT 'Bufor ropy tankowca / Tanker oil buffer'"
-                );
-            } catch (Throwable $e) {
-                GameLog::error('MarineDeliveryService', 'ensureSchema marine_buffer_bbl FAILED', $e);
-            }
-        }
-
         $this->db->exec(
             "CREATE TABLE IF NOT EXISTS marine_deliveries (
                 id            BIGINT        NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -236,19 +222,12 @@ class MarineDeliveryService
     }
 
  /**
- * Ile bbl jest aktualnie w drodze lub w buforze przy odwiercie dla gracza.
- * How many bbl are currently in transit OR buffered at the well for a player.
- *
- * Bufor (marine_buffer_bbl) zawiera rope zgromadzona przy odwiercie ktora jeszcze nie
- * wyruszyla — jest dla gracza niewidoczna dopoki nie zostanie wliczona do sumy.
- * Buffer (marine_buffer_bbl) holds oil accumulated at the well that hasn't departed yet —
- * invisible to the player unless included in the total.
+ * Ile bbl jest aktualnie w drodze dla gracza.
+ * How many bbl are currently in transit for a player.
  */
     public function getInTransitBbl(int $playerId): float
     {
-        $total = 0.0;
         try {
- // Dostawy aktualnie w tranzycie / Deliveries currently in transit
             $stmt = $this->db->prepare(
                 "SELECT COALESCE(SUM(volume_bbl), 0)
                    FROM marine_deliveries
@@ -256,23 +235,9 @@ class MarineDeliveryService
                     AND status IN ('departing','in_transit','waiting_for_port','delayed')"
             );
             $stmt->execute([$playerId]);
-            $total += (float)$stmt->fetchColumn();
+            return (float)$stmt->fetchColumn();
         } catch (Throwable $e) {
+            return 0.0;
         }
-        try {
- // Bufor przy odwiertach tankowcowych (jeszcze nie wyruszyl) / Tanker well buffers (not yet departed)
-            $stmt = $this->db->prepare(
-                "SELECT COALESCE(SUM(marine_buffer_bbl), 0)
-                   FROM wells
-                  WHERE player_id = ?
-                    AND transport_type = 'tankowiec'
-                    AND status NOT IN ('seized','blowout','sold')"
-            );
-            $stmt->execute([$playerId]);
-            $total += (float)$stmt->fetchColumn();
-        } catch (Throwable $e) {
- // Kolumna moze nie istniec na starym deploymencie / Column may not exist on old deployment
-        }
-        return $total;
     }
 }
