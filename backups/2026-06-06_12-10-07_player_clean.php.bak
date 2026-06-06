@@ -317,18 +317,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     GameLog::step('admin/player', 'POST', 1, 'action=' . $action, ['pid' => $pid]);
 
- // Ustawienie gotwki (warto absolutna) — sanityzacja wejscia
-    // Set cash (absolute value) — input sanitization
-    // Przegladarki mobilne moga przeslac sformatowana liczbe "600 000" zamiast "600000";
-    // PHP (float)"600 000" = 600 — stripujemy spacje i zamieniamy przecinek dziesiętny na kropkę.
-    // Mobile browsers may send "600 000" instead of "600000";
-    // PHP (float)"600 000" = 600 — strip whitespace and convert Polish decimal comma to dot.
+ // Ustawienie gotwki (warto absolutna) 
     if ($action === 'set_cash') {
-        $rawInput = preg_replace('/\s+/u', '', (string)($_POST['set_amount'] ?? '0'));
-        if (strpos($rawInput, '.') === false && strpos($rawInput, ',') !== false) {
-            $rawInput = str_replace(',', '.', $rawInput);
-        }
-        $setAmount = max(0, (float)$rawInput);
+        $setAmount = (float)($_POST['set_amount'] ?? 0);
         if ($setAmount >= 0) {
             try {
                 $db->prepare("UPDATE players SET cash = :a WHERE id = :id")
