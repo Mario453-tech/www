@@ -165,12 +165,8 @@ trait BankruptcyOptionsTrait
         $this->db->beginTransaction();
         try {
             $this->db->prepare("UPDATE wells SET status='seized', marine_buffer_bbl=0 WHERE id=? AND player_id=?")->execute([$well['id'], $this->playerId]);
- // Uwaga: MySQL ewaluuje SET left-to-right, wiec w CASE remaining_amount jest juz zaktualizowane.
- // Note: MySQL evaluates SET left-to-right, so in the CASE remaining_amount is already updated.
- // Sprawdzamy remaining_amount <= 0 (nowa wartosc po GREATEST), nie odejmujemy ponownie debtReduction.
- // We check remaining_amount <= 0 (the new value after GREATEST), not subtract debtReduction again.
-            $this->db->prepare("UPDATE loans SET remaining_amount = GREATEST(0, remaining_amount - ?), status = CASE WHEN remaining_amount <= 0 THEN 'paid_off' ELSE status END WHERE id=?")
-                ->execute([$debtReduction, $loanId]);
+            $this->db->prepare("UPDATE loans SET remaining_amount = GREATEST(0, remaining_amount - ?), status = CASE WHEN GREATEST(0, remaining_amount - ?) = 0 THEN 'paid_off' ELSE status END WHERE id=?")
+                ->execute([$debtReduction, $debtReduction, $loanId]);
             $this->logEvent('bank_takeover', t('bankruptcy.log_bank_takeover'), ['well_id' => (int)$well['id'], 'loan_id' => $loanId, 'debt_reduction' => $debtReduction], 'high', 0, null);
             $this->addNotification(t('bankruptcy.notif_bank_takeover', ['amount' => number_format($debtReduction)]));
             $this->db->commit();
@@ -315,9 +311,7 @@ trait BankruptcyOptionsTrait
                         break;
                     }
                     $repay = min($remaining, (float)$loan['remaining_amount']);
- // Ten sam wzorzec co bank_takeover: CASE sprawdza juz zaktualizowane remaining_amount <= 0.
- // Same pattern as bank_takeover: CASE checks the already-updated remaining_amount <= 0.
-                    $this->db->prepare("UPDATE loans SET remaining_amount=GREATEST(0,remaining_amount-?), status=CASE WHEN remaining_amount<=0 THEN 'paid_off' ELSE 'active' END, late_since=NULL WHERE id=?")->execute([$repay, $loan['id']]);
+                    $this->db->prepare("UPDATE loans SET remaining_amount=GREATEST(0,remaining_amount-?), status=CASE WHEN GREATEST(0,remaining_amount-?)<=0 THEN 'paid_off' ELSE 'active' END, late_since=NULL WHERE id=?")->execute([$repay, $repay, $loan['id']]);
                     $remaining -= $repay;
                 }
             }

@@ -89,7 +89,7 @@ class BailiffService
     {
  // Always check if the debt has already been cleared.
  // PL: Zawsze najpierw sprawdz czy dlug nie zostal juz splacony.
-        if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
+        if ($this->isDebtCleared((int)$proc['loan_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
         }
@@ -112,12 +112,10 @@ class BailiffService
         }
     }
 
-    private function isDebtCleared(int $loanId, int $playerId): bool
+    private function isDebtCleared(int $loanId): bool
     {
- // Weryfikacja player_id zapobiega bledom gdy proc.loan_id wskazuje na pozyczke innego gracza.
- // Verifying player_id prevents errors when proc.loan_id points to another player's loan.
-        $stmt = $this->db->prepare("SELECT status FROM loans WHERE id = :id AND player_id = :pid");
-        $stmt->execute([':id' => $loanId, ':pid' => $playerId]);
+        $stmt = $this->db->prepare("SELECT status FROM loans WHERE id = :id");
+        $stmt->execute([':id' => $loanId]);
         $loan = $stmt->fetch();
         return $loan && $loan['status'] !== 'late';
     }
@@ -156,7 +154,7 @@ class BailiffService
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $seized, 'bailiff_seizure');
         }
 
-        if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
+        if ($this->isDebtCleared((int)$proc['loan_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
         }
@@ -195,7 +193,7 @@ class BailiffService
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $cashValue, 'bailiff_seizure');
         }
 
-        if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
+        if ($this->isDebtCleared((int)$proc['loan_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
         }
@@ -237,7 +235,7 @@ class BailiffService
                 return;
             }
 
-            if (!$this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
+            if (!$this->isDebtCleared((int)$proc['loan_id'])) {
                 $this->db->prepare("
                     UPDATE bailiff_proceedings
                     SET next_action_at = DATE_ADD(NOW(), INTERVAL 72 HOUR)
