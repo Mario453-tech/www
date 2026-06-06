@@ -235,6 +235,38 @@ class MarineDeliveryService
         }
     }
 
+    /**
+     * Zwraca bufory tankowcow przy odwiertach gracza.
+     * Returns tanker buffers accumulated at the player's wells.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getBufferedForPlayer(int $playerId, float $minLoadBbl): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT w.id AS well_id,
+                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', w.id)) AS well_name,
+                        w.status,
+                        w.marine_buffer_bbl,
+                        ? AS min_load_bbl
+                   FROM wells w
+                  WHERE w.player_id = ?
+                    AND w.transport_type = 'tankowiec'
+                    AND w.status NOT IN ('seized','blowout','sold')
+                    AND COALESCE(w.marine_buffer_bbl, 0) > 0
+                  ORDER BY w.marine_buffer_bbl DESC, w.id ASC"
+            );
+            $stmt->bindValue(1, $minLoadBbl, PDO::PARAM_STR);
+            $stmt->bindValue(2, $playerId, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'getBufferedForPlayer FAILED', $e, ['player_id' => $playerId]);
+            return [];
+        }
+    }
+
  /**
  * Ile bbl jest aktualnie w drodze lub w buforze przy odwiercie dla gracza.
  * How many bbl are currently in transit OR buffered at the well for a player.

@@ -703,10 +703,14 @@
     <!--  -->
     <?php
         $marineDeliveriesList = is_array($marineDeliveries ?? null) ? $marineDeliveries : [];
+        $marineBuffersList = is_array($marineBuffers ?? null) ? $marineBuffers : [];
         $marineHistoryList = is_array($marineHistory ?? null) ? $marineHistory : [];
         $marineInTransitBbl = (float)($marineInTransitBbl ?? 0.0);
+        $marineBufferedBbl = array_sum(array_map(static fn($row) => (float)($row['marine_buffer_bbl'] ?? 0.0), $marineBuffersList));
+        $marineTransitOnlyBbl = max(0.0, $marineInTransitBbl - $marineBufferedBbl);
+        $marineMinLoadBbl = max(0.0, (float)($marineMinLoadBbl ?? 0.0));
         $wellTransportTypes = array_column(array_filter($wells, 'is_array'), 'transport');
-        $hasMarineSection = !empty($marineDeliveriesList) || !empty($marineHistoryList) || $marineInTransitBbl > 0;
+        $hasMarineSection = !empty($marineDeliveriesList) || !empty($marineBuffersList) || !empty($marineHistoryList) || $marineInTransitBbl > 0;
         if ($hasMarineSection || in_array('tankowiec', $wellTransportTypes, true)):
     ?>
     <section class="logistics-panel" aria-labelledby="logistics-marine-heading">
@@ -717,15 +721,59 @@
 
         <!-- KPI morskie / Marine KPI -->
         <div class="logistics-insight-summary">
-            <div class="logistics-insight-pill <?= $marineInTransitBbl > 0 ? 'logistics-insight-pill--info' : 'logistics-insight-pill--ok' ?>">
+            <div class="logistics-insight-pill <?= $marineTransitOnlyBbl > 0 ? 'logistics-insight-pill--info' : 'logistics-insight-pill--ok' ?>">
                 <span><?= t('marine.kpi_in_transit') ?></span>
-                <strong><?= number_format($marineInTransitBbl, 1, ',', ' ') ?> <?= t('common.bbl') ?></strong>
+                <strong><?= number_format($marineTransitOnlyBbl, 1, ',', ' ') ?> <?= t('common.bbl') ?></strong>
+            </div>
+            <div class="logistics-insight-pill <?= $marineBufferedBbl > 0 ? 'logistics-insight-pill--warn' : 'logistics-insight-pill--ok' ?>">
+                <span><?= t('marine.kpi_buffered') ?></span>
+                <strong><?= number_format($marineBufferedBbl, 1, ',', ' ') ?> <?= t('common.bbl') ?></strong>
             </div>
             <div class="logistics-insight-pill logistics-insight-pill--info">
                 <span><?= t('marine.kpi_active') ?></span>
                 <strong><?= count($marineDeliveriesList) ?></strong>
             </div>
         </div>
+
+        <!-- Bufory tankowcow / Tanker buffers -->
+        <?php if (!empty($marineBuffersList)): ?>
+        <div class="logistics-section-title"><?= t('marine.buffer_title') ?></div>
+        <div class="logistics-table logistics-table--marine-buffer">
+            <div class="logistics-table-head">
+                <span><?= t('marine.col_well') ?></span>
+                <span><?= t('marine.col_buffer') ?></span>
+                <span><?= t('marine.col_missing') ?></span>
+                <span><?= t('marine.col_progress') ?></span>
+            </div>
+            <?php foreach ($marineBuffersList as $buffer):
+                $bufferBbl = max(0.0, (float)($buffer['marine_buffer_bbl'] ?? 0.0));
+                $thresholdBbl = max(0.0, (float)($buffer['min_load_bbl'] ?? $marineMinLoadBbl));
+                $missingBbl = $thresholdBbl > 0 ? max(0.0, $thresholdBbl - $bufferBbl) : 0.0;
+                $bufferPct = $thresholdBbl > 0 ? min(100.0, round($bufferBbl / $thresholdBbl * 100, 1)) : 100.0;
+                $bufferClass = $bufferPct >= 90 ? 'full' : ($bufferPct >= 60 ? 'mid' : 'low');
+                $bufferTextClass = $bufferPct >= 90 ? 'c-good' : ($bufferPct >= 60 ? 'c-warn' : 'c-muted2');
+                $bufferWellLabel = ($buffer['well_name'] ?? null)
+                    ? htmlspecialchars((string)$buffer['well_name'])
+                    : t('marine.well_unknown', ['id' => (int)($buffer['well_id'] ?? 0)]);
+            ?>
+            <div class="logistics-table-row">
+                <span><?= $bufferWellLabel ?></span>
+                <span><?= number_format($bufferBbl, 1, ',', ' ') ?> / <?= number_format($thresholdBbl, 0, ',', ' ') ?> <?= t('common.bbl') ?></span>
+                <span class="<?= $missingBbl <= 0.0 ? 'c-good' : 'c-warn' ?>">
+                    <?= $missingBbl <= 0.0
+                        ? t('marine.buffer_ready')
+                        : t('marine.buffer_missing', ['bbl' => number_format($missingBbl, 1, ',', ' ')]) ?>
+                </span>
+                <span class="marine-buffer-progress">
+                    <span class="hub-buffer-bar">
+                        <span class="hub-buffer-bar__fill hub-buffer-bar__fill--<?= $bufferClass ?>" style="width:<?= $bufferPct ?>%"></span>
+                    </span>
+                    <small class="<?= $bufferTextClass ?>"><?= number_format($bufferPct, 1, ',', ' ') ?>%</small>
+                </span>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
 
         <!-- Aktywne dostawy / Active deliveries -->
         <?php if (empty($marineDeliveriesList)): ?>

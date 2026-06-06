@@ -433,6 +433,16 @@
     padding: .65rem .75rem;
 }
 
+.logistics-table--marine-buffer .logistics-table-head,
+.logistics-table--marine-buffer .logistics-table-row {
+    grid-template-columns: 1.1fr .9fr .9fr 1fr;
+}
+
+.marine-buffer-progress {
+    display: grid;
+    gap: .25rem;
+}
+
 .logistics-empty {
     color: var(--text2);
     font-size: .9rem;
@@ -953,6 +963,7 @@
 }
 
 .hub-buffer-bar {
+    display: block;
     width: 100%;
     height: 6px;
     background: rgba(255, 255, 255, .1);
@@ -961,6 +972,7 @@
 }
 
 .hub-buffer-bar__fill {
+    display: block;
     height: 100%;
     border-radius: 3px;
     transition: width .4s ease;

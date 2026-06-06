@@ -420,10 +420,15 @@ if ($logisticsInsights['recommendations'] === []) {
 $marineDeliveries   = [];
 $marineHistory      = [];
 $marineInTransitBbl = 0.0;
+$marineBuffers      = [];
+$marineMinLoadBbl   = 0.0;
 if (class_exists('MarineDeliveryService')) {
     try {
         $marineSvc          = new MarineDeliveryService($db);
+        $marineCfg          = TransportConfigService::getTypeConfig($db, 'tankowiec');
+        $marineMinLoadBbl   = max(0.0, (float)($marineCfg['min_load_bbl'] ?? 0.0));
         $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
+        $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
         $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
         $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
     } catch (Throwable $e) {
@@ -454,6 +459,8 @@ $viewData = compact(
     'logisticsInsights',
     'activeRoadTrips',
     'marineDeliveries',
+    'marineBuffers',
+    'marineMinLoadBbl',
     'marineHistory',
     'marineInTransitBbl'
 );
