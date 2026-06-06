@@ -122,15 +122,15 @@ final class CompanyCredibilityServiceTest extends SqliteIntegrationTestCase
 
     // ---------------------------------------------------- Prog powiadomienia
 
-    public function testLargeChangeDoesNotCreateNotification(): void
+    public function testLargeChangeCreatesNotification(): void
     {
         $this->seedPlayer(1, 50);
         $this->service->applyEvent(1, 'bailiff_activated'); // -20
 
-        // Powiadomienia gracza sa wylaczone — wiarygodnosc jest widoczna tylko w panelu admina.
-        // Player notifications are disabled — credibility is visible only in the admin panel.
-        $this->assertCount(0, $this->notificationsOf(1), 'Wiarygodnosc nie tworzy powiadomieniagracza (info tylko dla admina).');
-        $this->assertCount(1, $this->logOf(1), 'Ale log w company_credibility_log powstaje zawsze.');
+        $notifs = $this->notificationsOf(1);
+        $this->assertCount(1, $notifs, 'Zmiana |delta| >= 5 tworzy powiadomienie.');
+        $this->assertSame('credibility', $notifs[0]['type']);
+        $this->assertSame('high', $notifs[0]['priority'], 'Duzy spadek (<= -15) ma priorytet high.');
     }
 
     public function testSmallChangeDoesNotNotify(): void
