@@ -396,10 +396,11 @@ class CompanyCredibilityService
             // so history explains why the score did not move.
             $this->logChange($playerId, $eventKey, $effectiveDelta, $before, $after, $note);
 
-            // Powiadomienia gracza sa wylaczone — wiarygodnosc to informacja wyacznie dla admina.
-            // Historia pozostaje w company_credibility_log (widoczna w panelu admina).
-            // Player notifications are disabled — credibility is admin-only information.
-            // History remains in company_credibility_log (visible in the admin panel).
+            // Powiadomienie tylko przy wiekszych zmianach (sekcja 9): |delta| >= 5
+            // Notify only on larger changes (section 9): |delta| >= 5
+            if (abs($effectiveDelta) >= self::NOTIFY_THRESHOLD) {
+                $this->notify($playerId, $eventKey, $effectiveDelta, $after);
+            }
 
             if (class_exists('GameLog', false)) {
                 GameLog::info('CompanyCredibilityService', 'changeScore', [
