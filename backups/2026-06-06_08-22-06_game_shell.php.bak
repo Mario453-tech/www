@@ -11,8 +11,8 @@ $gameShellTitle = $gameShellTitle ?? '';
     <?php require __DIR__ . '/status_grid.php'; ?>
 
     <?php if ($gameShellTitle !== ''): ?>
-    <section class="game-shell-heading" aria-label="<?= htmlspecialchars(strip_tags($gameShellTitle)) ?>">
-        <h2><?= isset($gameShellTitleHtml) ? $gameShellTitleHtml : htmlspecialchars($gameShellTitle) ?></h2>
+    <section class="game-shell-heading" aria-label="<?= htmlspecialchars($gameShellTitle) ?>">
+        <h2><?= htmlspecialchars($gameShellTitle) ?></h2>
     </section>
     <?php endif ?>
 

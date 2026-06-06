@@ -97,7 +97,10 @@ $pageTitle = $bankTitlePlain . ' - Oil Empire';
 $extraCss  = ['/assets/css/bank.css'];
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData);
-$gameShellTitle = tPlain('bank.title');
+// tPlain zwraca surowy HTML (np. z <span>) — przekazany jako HTML do szablonu przez $gameShellTitleHtml.
+// tPlain returns raw HTML (e.g. with <span>) — passed as HTML to template via $gameShellTitleHtml.
+$gameShellTitle    = strip_tags(tPlain('bank.title')); // plain text dla aria-label / for aria-label
+$gameShellTitleHtml = tPlain('bank.title');             // HTML dla h2 / HTML for h2
 $gameShellView  = __DIR__ . '/../templates/views/bank/main.php';
 require __DIR__ . '/../templates/components/game_shell.php';
 
