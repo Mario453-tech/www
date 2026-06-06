@@ -54,23 +54,6 @@ $actions->handle();
 $error   = $actions->error;
 $success = $actions->success;
 
-// PRG (Post/Redirect/Get): po udanej akcji kredytowej przekieruj na GET zamiast przerenderowywac.
-// PRG (Post/Redirect/Get): after a successful loan action redirect to GET instead of re-rendering.
-// Zapobiega pokazywaniu starych danych na mobilnych przegladarkach z BFCache.
-// Prevents stale data on mobile browsers with BFCache after loan accept/repay.
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $success && empty($error)) {
-    $action = $_POST['action'] ?? '';
-    if (in_array($action, ['accept_offer', 'repay_loan', 'neg_apply'], true)) {
-        $_SESSION['bank_flash_success'] = $success;
-        header('Location: /bank');
-        exit();
-    }
-}
-if (!empty($_SESSION['bank_flash_success'])) {
-    $success = $_SESSION['bank_flash_success'];
-    unset($_SESSION['bank_flash_success']);
-}
-
 // == POBIERANIE DANYCH ==
 
 $data       = (new BankDataLoader($playerId, $bankService, $bankNeg))->load();
