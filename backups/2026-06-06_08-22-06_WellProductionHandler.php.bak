@@ -350,6 +350,8 @@ class WellProductionHandler
                     "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ?"
                 )->execute([round($actual, 4), $wellId]);
 
+                $this->ctx->loopCtx->marineInTransitBbl += $actual;
+
                 GameLog::info('tick', 'marine_buffer_add', [
                     'well_id'    => $wellId,
                     'player_id'  => $playerId,

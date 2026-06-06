@@ -161,26 +161,6 @@ class TransportConfigService
         }
 
         try {
- // Poszerz config_value z DECIMAL(8,4) na DECIMAL(14,4) — min_load_bbl moze wynosic > 9999.
- // Widen config_value from DECIMAL(8,4) to DECIMAL(14,4) — min_load_bbl can exceed 9999 bbl.
-            $stmt = $db->prepare("
-                SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-                 WHERE TABLE_SCHEMA = DATABASE()
-                   AND TABLE_NAME   = 'transport_config'
-                   AND COLUMN_NAME  = 'config_value'
-            ");
-            $stmt->execute();
-            $colType = strtolower((string)($stmt->fetchColumn() ?? ''));
-
-            if ($colType === 'decimal(8,4)') {
-                $db->exec("ALTER TABLE transport_config MODIFY COLUMN config_value DECIMAL(14,4) NOT NULL");
-                GameLog::info('TransportConfigService', 'transport_config.config_value widened to DECIMAL(14,4)');
-            }
-        } catch (Throwable $e) {
-            GameLog::error('TransportConfigService', 'ensureTransportSchema transport_config config_value widen failed', $e);
-        }
-
-        try {
  // Seed nieustawiony config rows if missing
             $existing = $db->query(
                 "SELECT COUNT(*) FROM transport_config WHERE transport_type = 'nieustawiony'"
