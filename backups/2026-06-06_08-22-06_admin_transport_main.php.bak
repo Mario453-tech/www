@@ -18,7 +18,7 @@
   id             INT AUTO_INCREMENT PRIMARY KEY,
   transport_type ENUM('rurociag','ciezarowki','tankowiec') NOT NULL,
   config_key     VARCHAR(30) NOT NULL,
-  config_value   DECIMAL(14,4) NOT NULL,
+  config_value   DECIMAL(8,4) NOT NULL,
   updated_at     DATETIME NOT NULL,
   UNIQUE KEY uq_type_key (transport_type, config_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;</pre>
