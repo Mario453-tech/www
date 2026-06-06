@@ -6,12 +6,10 @@ class TransportConfigService
     public static function getDefaults(): array
     {
         return [
-            // min_load_bbl: minimalna ilosc bbl w buforze, zeby tankowiec wyruszyl (0 = bez bufora).
-            // min_load_bbl: minimum bbl in buffer before tanker departs (0 = no buffer, dispatch immediately).
-            'nieustawiony' => ['incident' => 0.00, 'disaster' => 0.00, 'wear' => 1.00, 'spiral' => 1.00, 'capacity' => 0.0,   'opex' => 0.0,  'cost_per_bbl' => 0.00, 'min_load_bbl' => 0.0],
-            'rurociag'   => ['incident' => 0.80, 'disaster' => 0.90, 'wear' => 0.95, 'spiral' => 0.95, 'capacity' => 120.0, 'opex' => 7.5,  'cost_per_bbl' => 0.50, 'min_load_bbl' => 0.0],
-            'ciezarowki' => ['incident' => 1.30, 'disaster' => 1.25, 'wear' => 1.15, 'spiral' => 1.10, 'capacity' => 70.0,  'opex' => 20.0, 'cost_per_bbl' => 2.50, 'min_load_bbl' => 0.0],
-            'tankowiec'  => ['incident' => 1.00, 'disaster' => 1.15, 'wear' => 1.05, 'spiral' => 1.05, 'capacity' => 110.0, 'opex' => 12.0, 'cost_per_bbl' => 1.50, 'min_load_bbl' => 5000.0],
+            'nieustawiony' => ['incident' => 0.00, 'disaster' => 0.00, 'wear' => 1.00, 'spiral' => 1.00, 'capacity' => 0.0,   'opex' => 0.0,  'cost_per_bbl' => 0.00],
+            'rurociag'   => ['incident' => 0.80, 'disaster' => 0.90, 'wear' => 0.95, 'spiral' => 0.95, 'capacity' => 120.0, 'opex' => 7.5,  'cost_per_bbl' => 0.50],
+            'ciezarowki' => ['incident' => 1.30, 'disaster' => 1.25, 'wear' => 1.15, 'spiral' => 1.10, 'capacity' => 70.0,  'opex' => 20.0, 'cost_per_bbl' => 2.50],
+            'tankowiec'  => ['incident' => 1.00, 'disaster' => 1.15, 'wear' => 1.05, 'spiral' => 1.05, 'capacity' => 110.0, 'opex' => 12.0, 'cost_per_bbl' => 1.50],
         ];
     }
 
@@ -138,18 +136,6 @@ class TransportConfigService
             }
         } catch (Throwable $e) {
             GameLog::error('TransportConfigService', 'ensureTransportSchema transport_config ALTER failed', $e);
-        }
-
-        try {
- // Kolumna bufora morskiego: ropa akumuluje sie przy odwiercie tankowcowym az do progu min_load_bbl.
- // Marine buffer column: oil accumulates at a tanker well until the min_load_bbl threshold is reached.
-            Database::addColumnIfMissing(
-                'wells',
-                'marine_buffer_bbl',
-                "DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT 'Bufor ropy tankowca (akumulacja do progu) / Tanker oil buffer (accumulation threshold)'"
-            );
-        } catch (Throwable $e) {
-            GameLog::error('TransportConfigService', 'ensureTransportSchema wells marine_buffer_bbl failed', $e);
         }
 
         try {

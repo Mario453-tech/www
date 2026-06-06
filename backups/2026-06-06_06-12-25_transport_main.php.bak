@@ -167,7 +167,6 @@
             <li><strong><?= t('admin.transport.field_capacity') ?></strong>: <?= t('admin.transport.guide_capacity') ?></li>
             <li><strong><?= t('admin.transport.field_opex') ?></strong>: <?= t('admin.transport.guide_opex') ?></li>
             <li><strong><?= t('admin.transport.field_cost_per_bbl') ?></strong>: <?= t('admin.transport.guide_cost_per_bbl') ?></li>
-            <li><strong><?= t('admin.transport.field_min_load_bbl') ?></strong>: <?= t('admin.transport.guide_min_load_bbl') ?></li>
         </ul>
         <p><?= t('admin.transport.guide_blackmarket') ?></p>
     </div>
