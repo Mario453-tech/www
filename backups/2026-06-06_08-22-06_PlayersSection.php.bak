@@ -125,7 +125,6 @@ class PlayersSection
         }
 
         $playerCash      = (float)$playerData['cash'];
-        $initialCash     = $playerCash; // gotowka na poczatku ticka (do roznicowego zapisu) / cash at tick start (for differential save)
         $storageCapacity = (float)$storage['capacity'];
         $currentStorage  = (float)$storage['used'];
 
@@ -312,7 +311,7 @@ class PlayersSection
             $wellLoop->finRevenue, $wellLoop->finOpex, $wellLoop->finSalary,
             $wellLoop->finTransport, $wellLoop->finIncident, $wellLoop->finTax
         );
-        $finState->saveCashAndTick($playerId, $playerCash, $initialCash);
+        $finState->saveCashAndTick($playerId, $playerCash);
 
  // Aktualizuj liczniki globalne / Update global counters
         $this->playersProcessed++;
