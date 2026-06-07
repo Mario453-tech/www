@@ -185,9 +185,10 @@ class MarineDeliveryService
  *
  * @return list<array<string, mixed>>
  */
-    public function getActiveForPlayer(int $playerId): array
+    public function getActiveForPlayer(int $playerId, int $limit = 50): array
     {
         try {
+            $limit = max(1, min(500, $limit));
             $stmt = $this->db->prepare(
                 "SELECT md.*, p.name AS port_name, w.name AS well_name
                    FROM marine_deliveries md
@@ -208,7 +209,7 @@ class MarineDeliveryService
                            END,
                            md.eta_at ASC,
                            md.id ASC
-                  LIMIT 50"
+                  LIMIT {$limit}"
             );
             $stmt->execute([$playerId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -337,8 +338,9 @@ class MarineDeliveryService
  *   in_transit_bbl: float
  * }
  */
-    public static function loadPanelFallback(PDO $db, int $playerId, float $minLoadBbl): array
+    public static function loadPanelFallback(PDO $db, int $playerId, float $minLoadBbl, int $activeLimit = 50): array
     {
+        $activeLimit = max(1, min(500, $activeLimit));
         $data = [
             'deliveries'     => [],
             'buffers'        => [],
@@ -369,7 +371,7 @@ class MarineDeliveryService
                            END,
                            md.eta_at ASC,
                            md.id ASC
-                  LIMIT 50"
+                  LIMIT {$activeLimit}"
             );
             $stmt->execute([$playerId]);
             $data['deliveries'] = $stmt->fetchAll(PDO::FETCH_ASSOC);

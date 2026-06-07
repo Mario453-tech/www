@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-08 - Logistyka: paginacja transportu morskiego i drogowego
+- `logistics.php`, `templates/views/logistics/main.php`, `src/MarineDeliveryService.php` - aktywne kursy drogowe i dostawy morskie sa stronicowane po 5 pozycji; panel morski pokazuje laczna liczbe aktywnych dostaw w KPI oraz nawigacje poprzednia/nastepna dla `marine_page`.
+
 ### 2026-06-08 - Logistyka: aktywne dostawy morskie w glownym kontrolerze
 - `logistics.php` - glowny kontroler routingu `/logistics` laduje teraz `MarineDeliveryService`, bufory tankowcow, aktywne rejsy, historie i fallback panelu; wczesniej dane byly ustawiane na puste tablice, wiec widok pokazywal `0` mimo aktywnych dostaw w adminie.
 

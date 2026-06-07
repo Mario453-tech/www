@@ -731,7 +731,7 @@
             </div>
             <div class="logistics-insight-pill logistics-insight-pill--info">
                 <span><?= t('marine.kpi_active') ?></span>
-                <strong><?= count($marineDeliveriesList) ?></strong>
+                <strong><?= (int)($marineDeliveriesTotal ?? count($marineDeliveriesList)) ?></strong>
             </div>
         </div>
 
@@ -821,6 +821,34 @@
                 <span><?= htmlspecialchars($etaStr) ?></span>
             </div>
             <?php endforeach ?>
+        </div>
+        <?php endif ?>
+        <?php if ((int)($marineDeliveriesTotalPages ?? 1) > 1):
+            $marinePage = (int)($marineDeliveriesPage ?? 1);
+            $marineTotalPages = (int)($marineDeliveriesTotalPages ?? 1);
+            $marineBaseParams = $_GET;
+            $marineBaseParams['tab'] = $marineBaseParams['tab'] ?? 'logistics';
+        ?>
+        <div class="logistics-pagination">
+            <div class="logistics-pagination-info">
+                <?= $marinePage ?> / <?= $marineTotalPages ?> (<?= (int)($marineDeliveriesTotal ?? 0) ?>)
+            </div>
+            <div class="logistics-pagination-buttons">
+                <?php if ($marinePage > 1):
+                    $marineBaseParams['marine_page'] = $marinePage - 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($marineBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_prev') ?>
+                </a>
+                <?php endif ?>
+                <?php if ($marinePage < $marineTotalPages):
+                    $marineBaseParams['marine_page'] = $marinePage + 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($marineBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_next') ?>
+                </a>
+                <?php endif ?>
+            </div>
         </div>
         <?php endif ?>
 

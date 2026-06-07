@@ -106,6 +106,9 @@ try {
     $marineInTransitBbl = 0.0;
     $marineBuffers      = [];
     $marineMinLoadBbl   = 0.0;
+    $marineDeliveriesTotal = 0;
+    $marineDeliveriesPage = 1;
+    $marineDeliveriesTotalPages = 1;
 
     if (class_exists('WellPipelineService')) {
         try {
@@ -337,10 +340,20 @@ try {
 
  // Aktywne kursy drogowe (P1.2) / Active road trips (P1.2)
     $activeRoadTrips = [];
+    $activeRoadTripsTotal = 0;
+    $activeRoadTripsPage = 1;
+    $activeRoadTripsTotalPages = 1;
     if (class_exists('RoadTransportService')) {
         try {
             $roadSvc = new RoadTransportService($db);
-            $activeRoadTrips = $roadSvc->getActiveTripsForPlayer($playerId);
+            $activeRoadTripsAll = $roadSvc->getActiveTripsForPlayer($playerId);
+            $activeRoadTripsPerPage = 5;
+            $activeRoadTripsTotal = count($activeRoadTripsAll);
+            $activeRoadTripsTotalPages = (int)ceil($activeRoadTripsTotal / $activeRoadTripsPerPage);
+            $activeRoadTripsPage = max(1, (int)($_GET['road_page'] ?? 1));
+            $activeRoadTripsPage = min($activeRoadTripsPage, max(1, $activeRoadTripsTotalPages));
+            $activeRoadTripsOffset = ($activeRoadTripsPage - 1) * $activeRoadTripsPerPage;
+            $activeRoadTrips = array_slice($activeRoadTripsAll, $activeRoadTripsOffset, $activeRoadTripsPerPage);
         } catch (Throwable $e) {
             GameLog::error('logistics.php', 'road trips data load FAILED', $e, ['player_id' => $playerId]);
         }
@@ -352,7 +365,7 @@ try {
         $marineMinLoadBbl = max(0.0, (float)($marineCfg['min_load_bbl'] ?? 0.0));
         $marineSvc        = new MarineDeliveryService($db);
 
-        $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
+        $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId, 500);
         $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
         $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
         $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
@@ -361,7 +374,7 @@ try {
     }
 
     if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] || $marineInTransitBbl <= 0.0) {
-        $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl);
+        $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl, 500);
         if ($marineDeliveries === []) {
             $marineDeliveries = $marineFallback['deliveries'];
         }
@@ -375,6 +388,13 @@ try {
             $marineInTransitBbl = $marineFallback['in_transit_bbl'];
         }
     }
+    $marineDeliveriesPerPage = 5;
+    $marineDeliveriesTotal = count($marineDeliveries);
+    $marineDeliveriesTotalPages = (int)ceil($marineDeliveriesTotal / $marineDeliveriesPerPage);
+    $marineDeliveriesPage = max(1, (int)($_GET['marine_page'] ?? 1));
+    $marineDeliveriesPage = min($marineDeliveriesPage, max(1, $marineDeliveriesTotalPages));
+    $marineDeliveriesOffset = ($marineDeliveriesPage - 1) * $marineDeliveriesPerPage;
+    $marineDeliveries = array_slice($marineDeliveries, $marineDeliveriesOffset, $marineDeliveriesPerPage);
 
     $viewData = array_merge(GameShell::data($playerId), [
         'summary'          => $summary,
@@ -401,6 +421,9 @@ try {
         'pipelineSummary'  => $pipelineSummary,
         'pipelineHse'      => $pipelineHse,
         'marineDeliveries' => $marineDeliveries,
+        'marineDeliveriesTotal' => $marineDeliveriesTotal,
+        'marineDeliveriesPage' => $marineDeliveriesPage,
+        'marineDeliveriesTotalPages' => $marineDeliveriesTotalPages,
         'marineBuffers'    => $marineBuffers,
         'marineMinLoadBbl' => $marineMinLoadBbl,
         'marineHistory'    => $marineHistory,
@@ -409,6 +432,9 @@ try {
         'buildingPipelines' => array_values(array_filter($pipelines, static fn(array $p): bool => ($p['status'] ?? '') === 'building')),
  // P1.2: active road trips in transit / aktywne kursy drogowe w tranzycie
         'activeRoadTrips'  => $activeRoadTrips,
+        'activeRoadTripsTotal' => $activeRoadTripsTotal,
+        'activeRoadTripsPage' => $activeRoadTripsPage,
+        'activeRoadTripsTotalPages' => $activeRoadTripsTotalPages,
     ]);
 
     $pageTitle = t('logistics.page_title');
