@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-08 - Logistyka: paginacja bez przeskoku strony
+- `assets/js/logistics.js` - linki paginacji w module logistyki dzialaja teraz jako czesciowe odswiezenie `.logistics-page`: klikniecie pobiera nowy HTML w tle, podmienia tylko modul logistyki, aktualizuje URL i przewija do aktualnej sekcji zamiast ladowac strone od gory.
+
 ### 2026-06-08 - Logistyka: paginacja historii i incydentow
 - `logistics.php`, `templates/views/logistics/main.php`, `src/MarineDeliveryService.php` - historia dostaw morskich i incydenty logistyczne hubow sa stronicowane po 5 pozycji; historia dostaw morskich w ticku jest czyszczona po 7 dniach dla statusow `delivered` i `lost`.
 

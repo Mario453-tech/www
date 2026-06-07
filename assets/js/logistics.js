@@ -298,3 +298,145 @@ function startCooldownTimer(btn, secs) {
     };
     tick();
 }
+
+// Paginacja bez pelnego przeladowania / Pagination without full page reload.
+(function () {
+    var isLoading = false;
+
+    function getSectionHash(link) {
+        try {
+            var targetUrl = new URL(link.href, window.location.href);
+            if (targetUrl.hash) {
+                return targetUrl.hash;
+            }
+        } catch (e) {}
+
+        var section = link.closest('section[id], section[aria-labelledby]');
+        if (!section) {
+            return '#logistics-overview-heading';
+        }
+
+        if (section.id) {
+            return '#' + section.id;
+        }
+
+        var headingId = section.getAttribute('aria-labelledby');
+        return headingId ? '#' + headingId : '#logistics-overview-heading';
+    }
+
+    function scrollToHash(hash) {
+        var selector = hash || '#logistics-overview-heading';
+        var target = document.querySelector(selector);
+        if (!target && selector.charAt(0) === '#') {
+            target = document.getElementById(selector.slice(1));
+        }
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function initRoadTripCountdowns(root) {
+        (root || document).querySelectorAll('.road-trip-countdown[data-seconds]').forEach(function (el) {
+            if (el.dataset.ajaxCountdownInit === '1') {
+                return;
+            }
+            el.dataset.ajaxCountdownInit = '1';
+
+            var total = parseInt(el.dataset.seconds, 10) || 0;
+            var start = Date.now();
+
+            function fmtSec(sec) {
+                if (sec <= 0) return '0h 00m';
+                var h = Math.floor(sec / 3600);
+                var m = Math.floor((sec % 3600) / 60);
+                return h + 'h ' + (m < 10 ? '0' : '') + m + 'm';
+            }
+
+            function tick() {
+                if (!document.documentElement.contains(el)) {
+                    return;
+                }
+                var elapsed = Math.floor((Date.now() - start) / 1000);
+                var current = Math.max(0, total - elapsed);
+                el.textContent = fmtSec(current);
+                if (current > 0) {
+                    setTimeout(tick, 30000);
+                }
+            }
+
+            tick();
+        });
+    }
+
+    async function loadPage(url, hash, pushHistory) {
+        if (isLoading) {
+            return;
+        }
+
+        var currentPage = document.querySelector('.logistics-page');
+        if (!currentPage) {
+            window.location.href = url;
+            return;
+        }
+
+        isLoading = true;
+        currentPage.style.opacity = '0.55';
+
+        try {
+            var response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+
+            var html = await response.text();
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var nextPage = doc.querySelector('.logistics-page');
+            if (!nextPage) {
+                window.location.href = url;
+                return;
+            }
+
+            currentPage.replaceWith(nextPage);
+            if (pushHistory !== false) {
+                history.pushState({ logisticsAjax: true }, '', url);
+            }
+            initRoadTripCountdowns(nextPage);
+            scrollToHash(hash);
+        } catch (e) {
+            window.location.href = url;
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    document.addEventListener('click', function (event) {
+        var link = event.target.closest('.logistics-pagination a[href]');
+        if (!link) {
+            return;
+        }
+
+        var targetUrl = new URL(link.href, window.location.href);
+        if (targetUrl.origin !== window.location.origin || targetUrl.pathname !== window.location.pathname) {
+            return;
+        }
+
+        event.preventDefault();
+        var hash = getSectionHash(link);
+        loadPage(targetUrl.toString(), hash, true);
+    });
+
+    window.addEventListener('popstate', function () {
+        loadPage(window.location.href, window.location.hash, false);
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            initRoadTripCountdowns(document);
+        });
+    } else {
+        initRoadTripCountdowns(document);
+    }
+}());
