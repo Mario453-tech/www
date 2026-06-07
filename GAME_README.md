@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-06-07 - Logistyka: poprawka rozbudowy wlasnych hubow
+- `assets/js/logistics_hubs.js`, `templates/views/logistics/main.php`, `lang/pl/logistics.php` - akcje `Napraw` i `Rozbuduj` w sekcji `Twoje huby` pobieraja teraz dane z karty wlasnego huba, a nie z rynku hubow; usunieto efekt `NaN PLN`, poprawiono stary tekst `Uaktualnij` na `Rozbuduj` i zachowano blokade rozbudowy hubow wynajmowanych/systemowych.
+
+### 2026-06-07 - Logistyka: rozbudowa wlasnych hubow
+- `src/Hub/ViewHubsTrait.php`, `templates/views/logistics/main.php`, `assets/js/logistics_hubs.js`, `lang/pl/logistics.php` - w sekcji `Twoje huby` podlaczono przycisk `Rozbuduj` dla hubow nalezacych do gracza; widok korzysta z istniejacego backendu `HubApi.php` / `HubAcquisitionService.php`, ktory pobiera koszt, respektuje maksymalny poziom 3 i odpala modal potwierdzenia.
+
 ### 2026-06-07 - Logistyka: paginacja kursow drogowych
 - `public/logistics.php`, `templates/views/logistics/main.php`, `assets/css/logistics.css`, `lang/pl/logistics.php` - sekcja `Kursy drogowe w tranzycie` pokazuje teraz kursy po 10 na strone, z licznikiem wszystkich aktywnych kursow i nawigacja poprzednia/nastepna.
 

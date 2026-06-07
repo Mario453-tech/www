@@ -1025,13 +1025,13 @@
                 $condClass = $condPct <= 20 ? 'c-bad' : ($condPct < 60 ? 'c-warn' : 'c-good');
                 $loadClass = $loadPct > 100 ? 'c-bad' : ($loadPct > 80 ? 'c-warn' : 'c-good');
                 $hubLevel  = (int)($hub['level'] ?? 1);
-                $hubDefaults = $hubSvc->getHubTypeDefaults((string)$hub['hub_type'], $hubLevel);
-                $hubMaxLevel = (int)($hubDefaults['max_level'] ?? 3);
+                $hubMaxLevel = (int)($card['max_level'] ?? 3);
+                $hubRepairCost = (float)($card['repair_cost'] ?? 0.0);
                 $hubUpgradeCost = (float)($card['upgrade_cost'] ?? 0.0);
                 $hubCanUpgrade = ($card['ownership'] ?? 'owned') === 'owned'
-                    && $hubLevel < $hubMaxLevel
+                    && !empty($card['can_upgrade'])
                     && !in_array((string)($hub['status'] ?? ''), ['disabled', 'building'], true);
- // Combined risk level (condition + load)
+ // Laczony poziom ryzyka (stan + obciazenie) / Combined risk level (condition + load)
                 $riskLevel = 'none';
                 if ($condPct <= 20 || ($condPct <= 40 && $loadPct > 80)) {
                     $riskLevel = 'critical';
@@ -1047,6 +1047,7 @@
                      data-hub-region-id="<?= (int)$hub['region_id'] ?>"
                      data-hub-zone-key="<?= htmlspecialchars((string)($hub['zone_key'] ?? ''), ENT_QUOTES) ?>"
                      data-hub-name="<?= htmlspecialchars((string)$hub['name'], ENT_QUOTES) ?>"
+                     data-repair-cost="<?= htmlspecialchars((string)$hubRepairCost, ENT_QUOTES) ?>"
                      data-upgrade-cost="<?= htmlspecialchars((string)$hubUpgradeCost, ENT_QUOTES) ?>">
 
                 <div class="logistics-hub-card-hdr">

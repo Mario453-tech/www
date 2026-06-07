@@ -176,10 +176,11 @@ return [
     'logistics.hub.label_wells' => 'Odwierty: :used/:limit',
     'logistics.hub.label_my_wells' => 'Moje odwierty',
     'logistics.hub.label_mode' => 'Tryb',
+    'logistics.hub.label_level' => 'Poziom :level/:max',
     'logistics.hub.btn_my_wells' => 'Moje odwierty',
     'logistics.hub.btn_assign_well' => 'Przypisz odwiert',
     'logistics.hub.btn_repair' => 'Napraw',
-    'logistics.hub.btn_upgrade' => 'Uaktualnij',
+    'logistics.hub.btn_upgrade' => 'Rozbuduj',
     'logistics.hub.btn_pause' => 'Wstrzymaj',
     'logistics.hub.btn_resume' => 'Wznów',
     'logistics.hub.btn_wells' => 'Odwierty',
@@ -232,7 +233,7 @@ return [
     'logistics.hub.avail_fee' => 'Koszt: :fee PLN/tick',
     'logistics.hub.ok_build' => 'Hub zbudowany pomyślnie.',
     'logistics.hub.ok_repair' => 'Hub naprawiony.',
-    'logistics.hub.ok_upgrade' => 'Hub uaktualniony do poziomu :level.',
+    'logistics.hub.ok_upgrade' => 'Hub rozbudowany do poziomu :level.',
     'logistics.hub.ok_mode' => 'Tryb pracy zmieniony na: :mode.',
     'logistics.hub.ok_pause' => 'Hub wstrzymany.',
     'logistics.hub.ok_resume' => 'Hub wznowiony.',
@@ -247,7 +248,7 @@ return [
     'logistics.hub.ok_assign_with_fee' => 'Odwiert przypisany. Opłata przyłączeniowa: :fee PLN.',
     'logistics.hub.ok_transfer_with_lease' => 'Odwiert przeniesiony (wynajem aktywny).',
     'logistics.hub.repair_confirm' => 'Naprawić hub za :cost PLN?',
-    'logistics.hub.upgrade_confirm' => 'Uaktualnić hub za :cost PLN?',
+    'logistics.hub.upgrade_confirm' => 'Rozbudować hub za :cost PLN?',
     'logistics.hub.title_info' => 'Informacja',
     'logistics.hub.title_error' => 'Błąd',
     'logistics.hub.title_warning' => 'Uwaga',
@@ -534,5 +535,9 @@ return [
     'logistics.road_trips.truck_standard'     => 'Standardowa',
     'logistics.road_trips.truck_heavy'        => 'Ciężka',
     'logistics.road_trips.truck_armored'      => 'Opancerzona',
+
+    // Nadpisanie starych kluczy JS / Legacy JS key override
+    'logistics_hub.ok_upgrade'                => 'Hub rozbudowany do poziomu :level.',
+    'logistics_hub.upgrade_confirm'           => 'Rozbudować hub za :cost PLN?',
 
 ];
