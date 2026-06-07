@@ -54,6 +54,9 @@ try {
     $hubUnassigned    = [];   // odwierty bez huba
     $hubAvailByRegion = [];   // wszystkie dostepne huby systemowe w regionach gracza
     $hubIncidents     = [];   // ostatnie incydenty logistyczne
+    $hubIncidentsTotal = 0;
+    $hubIncidentsPage = 1;
+    $hubIncidentsTotalPages = 1;
 
     if (class_exists('HubService') && class_exists('HubEconomyService') && class_exists('HubViewService')) {
         try {
@@ -74,7 +77,14 @@ try {
     if (class_exists('HubIncidentService')) {
         try {
             $hubIncSvc    = new HubIncidentService($db);
-            $hubIncidents = $hubIncSvc->getPlayerRecentIncidents($playerId, 15);
+            $hubIncidentsAll = $hubIncSvc->getPlayerRecentIncidents($playerId, 100);
+            $hubIncidentsPerPage = 5;
+            $hubIncidentsTotal = count($hubIncidentsAll);
+            $hubIncidentsTotalPages = (int)ceil($hubIncidentsTotal / $hubIncidentsPerPage);
+            $hubIncidentsPage = max(1, (int)($_GET['hub_incident_page'] ?? 1));
+            $hubIncidentsPage = min($hubIncidentsPage, max(1, $hubIncidentsTotalPages));
+            $hubIncidentsOffset = ($hubIncidentsPage - 1) * $hubIncidentsPerPage;
+            $hubIncidents = array_slice($hubIncidentsAll, $hubIncidentsOffset, $hubIncidentsPerPage);
         } catch (Throwable $e) {
             GameLog::error('logistics.php', 'hub incident data load FAILED', $e, ['player_id' => $playerId]);
         }
@@ -109,6 +119,9 @@ try {
     $marineDeliveriesTotal = 0;
     $marineDeliveriesPage = 1;
     $marineDeliveriesTotalPages = 1;
+    $marineHistoryTotal = 0;
+    $marineHistoryPage = 1;
+    $marineHistoryTotalPages = 1;
 
     if (class_exists('WellPipelineService')) {
         try {
@@ -367,14 +380,14 @@ try {
 
         $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId, 500);
         $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
-        $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
+        $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 100);
         $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
     } catch (Throwable $e) {
         GameLog::error('logistics.php', 'marine data load FAILED', $e, ['player_id' => $playerId]);
     }
 
     if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] || $marineInTransitBbl <= 0.0) {
-        $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl, 500);
+        $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl, 500, 100);
         if ($marineDeliveries === []) {
             $marineDeliveries = $marineFallback['deliveries'];
         }
@@ -395,6 +408,13 @@ try {
     $marineDeliveriesPage = min($marineDeliveriesPage, max(1, $marineDeliveriesTotalPages));
     $marineDeliveriesOffset = ($marineDeliveriesPage - 1) * $marineDeliveriesPerPage;
     $marineDeliveries = array_slice($marineDeliveries, $marineDeliveriesOffset, $marineDeliveriesPerPage);
+    $marineHistoryPerPage = 5;
+    $marineHistoryTotal = count($marineHistory);
+    $marineHistoryTotalPages = (int)ceil($marineHistoryTotal / $marineHistoryPerPage);
+    $marineHistoryPage = max(1, (int)($_GET['marine_history_page'] ?? 1));
+    $marineHistoryPage = min($marineHistoryPage, max(1, $marineHistoryTotalPages));
+    $marineHistoryOffset = ($marineHistoryPage - 1) * $marineHistoryPerPage;
+    $marineHistory = array_slice($marineHistory, $marineHistoryOffset, $marineHistoryPerPage);
 
     $viewData = array_merge(GameShell::data($playerId), [
         'summary'          => $summary,
@@ -416,6 +436,9 @@ try {
         'unassignedTotal'  => count($hubUnassigned),
         'hubAvailByRegion' => $hubAvailByRegion,
         'hubIncidents'     => $hubIncidents,
+        'hubIncidentsTotal' => $hubIncidentsTotal,
+        'hubIncidentsPage' => $hubIncidentsPage,
+        'hubIncidentsTotalPages' => $hubIncidentsTotalPages,
         'logisticsInsights'=> $logisticsInsights,
         'pipelines'        => $pipelines,
         'pipelineSummary'  => $pipelineSummary,
@@ -427,6 +450,9 @@ try {
         'marineBuffers'    => $marineBuffers,
         'marineMinLoadBbl' => $marineMinLoadBbl,
         'marineHistory'    => $marineHistory,
+        'marineHistoryTotal' => $marineHistoryTotal,
+        'marineHistoryPage' => $marineHistoryPage,
+        'marineHistoryTotalPages' => $marineHistoryTotalPages,
         'marineInTransitBbl' => $marineInTransitBbl,
  // Building pipelines are already in $pipelines - filter here for convenience
         'buildingPipelines' => array_values(array_filter($pipelines, static fn(array $p): bool => ($p['status'] ?? '') === 'building')),

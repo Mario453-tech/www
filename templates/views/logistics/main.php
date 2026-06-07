@@ -887,6 +887,34 @@
                 </div>
                 <?php endforeach ?>
             </div>
+            <?php if ((int)($marineHistoryTotalPages ?? 1) > 1):
+                $marineHistoryPage = (int)($marineHistoryPage ?? 1);
+                $marineHistoryTotalPages = (int)($marineHistoryTotalPages ?? 1);
+                $marineHistoryBaseParams = $_GET;
+                $marineHistoryBaseParams['tab'] = $marineHistoryBaseParams['tab'] ?? 'logistics';
+            ?>
+            <div class="logistics-pagination">
+                <div class="logistics-pagination-info">
+                    <?= $marineHistoryPage ?> / <?= $marineHistoryTotalPages ?> (<?= (int)($marineHistoryTotal ?? 0) ?>)
+                </div>
+                <div class="logistics-pagination-buttons">
+                    <?php if ($marineHistoryPage > 1):
+                        $marineHistoryBaseParams['marine_history_page'] = $marineHistoryPage - 1;
+                    ?>
+                    <a href="?<?= htmlspecialchars(http_build_query($marineHistoryBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                        <?= t('logistics.pagination_prev') ?>
+                    </a>
+                    <?php endif ?>
+                    <?php if ($marineHistoryPage < $marineHistoryTotalPages):
+                        $marineHistoryBaseParams['marine_history_page'] = $marineHistoryPage + 1;
+                    ?>
+                    <a href="?<?= htmlspecialchars(http_build_query($marineHistoryBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                        <?= t('logistics.pagination_next') ?>
+                    </a>
+                    <?php endif ?>
+                </div>
+            </div>
+            <?php endif ?>
             <?php endif ?>
         </div>
     </section>
@@ -1284,6 +1312,34 @@
         </div>
         <?php endforeach ?>
         </div>
+        <?php if ((int)($hubIncidentsTotalPages ?? 1) > 1):
+            $hubIncidentsPage = (int)($hubIncidentsPage ?? 1);
+            $hubIncidentsTotalPages = (int)($hubIncidentsTotalPages ?? 1);
+            $hubIncidentsBaseParams = $_GET;
+            $hubIncidentsBaseParams['tab'] = $hubIncidentsBaseParams['tab'] ?? 'logistics';
+        ?>
+        <div class="logistics-pagination">
+            <div class="logistics-pagination-info">
+                <?= $hubIncidentsPage ?> / <?= $hubIncidentsTotalPages ?> (<?= (int)($hubIncidentsTotal ?? 0) ?>)
+            </div>
+            <div class="logistics-pagination-buttons">
+                <?php if ($hubIncidentsPage > 1):
+                    $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage - 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams)) ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_prev') ?>
+                </a>
+                <?php endif ?>
+                <?php if ($hubIncidentsPage < $hubIncidentsTotalPages):
+                    $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage + 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams)) ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_next') ?>
+                </a>
+                <?php endif ?>
+            </div>
+        </div>
+        <?php endif ?>
     </section>
     <?php endif ?>
 

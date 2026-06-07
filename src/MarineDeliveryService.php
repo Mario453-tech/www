@@ -338,9 +338,10 @@ class MarineDeliveryService
  *   in_transit_bbl: float
  * }
  */
-    public static function loadPanelFallback(PDO $db, int $playerId, float $minLoadBbl, int $activeLimit = 50): array
+    public static function loadPanelFallback(PDO $db, int $playerId, float $minLoadBbl, int $activeLimit = 50, int $historyLimit = 10): array
     {
         $activeLimit = max(1, min(500, $activeLimit));
+        $historyLimit = max(1, min(500, $historyLimit));
         $data = [
             'deliveries'     => [],
             'buffers'        => [],
@@ -412,7 +413,7 @@ class MarineDeliveryService
                   WHERE md.player_id = ?
                     AND md.status IN ('delivered','lost')
                   ORDER BY COALESCE(md.delivered_at, md.arrived_at, md.eta_at, md.created_at) DESC
-                  LIMIT 10"
+                  LIMIT {$historyLimit}"
             );
             $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
             $stmt->execute();

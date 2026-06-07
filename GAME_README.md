@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-08 - Logistyka: paginacja historii i incydentow
+- `logistics.php`, `templates/views/logistics/main.php`, `src/MarineDeliveryService.php` - historia dostaw morskich i incydenty logistyczne hubow sa stronicowane po 5 pozycji; historia dostaw morskich w ticku jest czyszczona po 7 dniach dla statusow `delivered` i `lost`.
+
 ### 2026-06-08 - Logistyka: paginacja transportu morskiego i drogowego
 - `logistics.php`, `templates/views/logistics/main.php`, `src/MarineDeliveryService.php` - aktywne kursy drogowe i dostawy morskie sa stronicowane po 5 pozycji; panel morski pokazuje laczna liczbe aktywnych dostaw w KPI oraz nawigacje poprzednia/nastepna dla `marine_page`.
 
