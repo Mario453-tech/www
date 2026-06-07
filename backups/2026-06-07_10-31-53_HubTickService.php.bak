@@ -49,10 +49,8 @@ class HubTickService
  * @return array{
  * processed_bbl: float,
  * buffered_bbl: float,
- * drained_buffer_bbl: float,
  * lost_bbl: float,
  * condition_lost_bbl: float,
- * input_bbl: float,
  * load_pct: float,
  * overloaded: bool,
  * new_buffer: float,
@@ -85,7 +83,6 @@ class HubTickService
 
         $bufferCap        = (float)$hub['buffer_capacity_bbl'];
         $bufferCurrent    = (float)$hub['buffer_current_bbl'];
-        $fromBuffer       = 0.0;
 
  // Volume that can be processed + what goes to buffer
         $processed        = min($inputBbl, $tickCapacityBbl);
@@ -185,10 +182,8 @@ class HubTickService
         return [
             'processed_bbl'      => round($processed, 2),
             'buffered_bbl'       => round($buffered, 2),
-            'drained_buffer_bbl' => round($fromBuffer, 2),
             'lost_bbl'           => round($lost, 2),
             'condition_lost_bbl' => round($condLostBbl, 2),
-            'input_bbl'          => round($inputBbl, 2),
             'load_pct'           => $loadPct,
             'overloaded'         => $overloaded,
             'new_buffer'         => round($newBuffer, 2),
