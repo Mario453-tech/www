@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-07 - Transport morski: historia rejsow w logistyce
+- `src/MarineDeliveryService.php`, `templates/views/logistics/main.php`, `assets/css/logistics.css`, `lang/pl/logistics.php` - pod sekcja `Dostawy morskie` dodano widoczny blok krotkiej historii rejsow tankowca; historia korzysta z biezacych rekordow `marine_deliveries`, sortuje po dacie zakonczenia i moze znikac po czyszczeniu ticka, bez stalego archiwum.
+
 ### 2026-06-07 - Transport morski: bufor tankowca
 - `src/Tick/WellProductionHandler.php`, `src/TransportConfigService.php`, `admin/transport.php`, `templates/views/admin/transport/main.php`, `lang/pl/admin/transport.php` - transport morski nie wysyla juz mikrorejsow co tick; ropa z odwiertu tankowcowego trafia najpierw do bufora `wells.marine_buffer_bbl`, a tankowiec wyrusza dopiero po osiagnieciu progu `min_load_bbl`.
 - `admin/transport.php` - prog startu tankowca jest edytowalny w panelu admina dla typu `tankowiec` jako `Minimalna ladownosc tankowca (bbl)`; aktualny balans produkcyjny: `4000 bbl`, a wartosc `0` oznacza stary model wysylki natychmiastowej.

@@ -216,13 +216,15 @@ class MarineDeliveryService
     {
         try {
             $stmt = $this->db->prepare(
-                "SELECT md.*, p.name AS port_name, w.name AS well_name
+                "SELECT md.*,
+                        p.name AS port_name,
+                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
                    FROM marine_deliveries md
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
                   WHERE md.player_id = ?
                     AND md.status IN ('delivered','lost')
-                  ORDER BY md.created_at DESC
+                  ORDER BY COALESCE(md.delivered_at, md.arrived_at, md.eta_at, md.created_at) DESC
                   LIMIT ?"
             );
  // LIMIT musi byc zbindowany jako INT PDO z execute([]) binduje string (cudzyslowy) co MySQL odrzuca

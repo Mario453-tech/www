@@ -825,16 +825,18 @@
         <?php endif ?>
 
         <!-- Historia dostaw / Delivery history -->
-        <?php if (!empty($marineHistoryList)): ?>
-        <div style="margin-top:18px">
-            <div class="logistics-section-title" style="margin-bottom:8px"><?= t('marine.history_title') ?></div>
-            <div class="logistics-table">
-                <div class="logistics-table-head" style="grid-template-columns:1fr 1.2fr 0.7fr 1fr 0.9fr">
+        <div class="marine-history-section">
+            <div class="logistics-section-title"><?= t('marine.history_title') ?></div>
+            <?php if (empty($marineHistoryList)): ?>
+                <div class="logistics-empty"><?= t('marine.no_history') ?></div>
+            <?php else: ?>
+            <div class="logistics-table logistics-table--marine-history">
+                <div class="logistics-table-head">
                     <span><?= t('marine.col_well') ?></span>
                     <span><?= t('marine.col_port') ?></span>
                     <span><?= t('marine.col_volume') ?></span>
                     <span><?= t('marine.col_status') ?></span>
-                    <span><?= t('marine.col_eta') ?></span>
+                    <span><?= t('marine.col_completed_at') ?></span>
                 </div>
                 <?php foreach ($marineHistoryList as $hist):
                     $hStatus = (string)($hist['status'] ?? 'delivered');
@@ -848,7 +850,7 @@
                         ? htmlspecialchars($hist['port_name'])
                         : t('marine.port_unknown');
                 ?>
-                <div class="logistics-table-row" style="grid-template-columns:1fr 1.2fr 0.7fr 1fr 0.9fr;opacity:.7">
+                <div class="logistics-table-row logistics-table-row--history">
                     <span><?= $hWell ?></span>
                     <span><?= $hPort ?></span>
                     <span><?= number_format((float)($hist['volume_bbl'] ?? 0), 1, ',', ' ') ?> bbl</span>
@@ -857,8 +859,8 @@
                 </div>
                 <?php endforeach ?>
             </div>
+            <?php endif ?>
         </div>
-        <?php endif ?>
     </section>
     <?php endif ?>
 

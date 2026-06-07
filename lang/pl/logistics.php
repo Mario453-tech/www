@@ -401,6 +401,7 @@ return [
     'marine.col_buffer' => 'Bufor',
     'marine.col_missing' => 'Do wypłynięcia',
     'marine.col_progress' => 'Postęp',
+    'marine.col_completed_at' => 'Zakończono',
     'marine.status_departing' => 'Wyrusza',
     'marine.status_in_transit' => 'W drodze',
     'marine.status_waiting_for_port' => 'Czeka na port',

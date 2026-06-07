@@ -443,6 +443,19 @@
     gap: .25rem;
 }
 
+.marine-history-section {
+    margin-top: 1.1rem;
+}
+
+.logistics-table--marine-history .logistics-table-head,
+.logistics-table--marine-history .logistics-table-row {
+    grid-template-columns: 1fr 1.2fr .7fr 1fr .9fr;
+}
+
+.logistics-table-row--history {
+    opacity: .72;
+}
+
 .logistics-empty {
     color: var(--text2);
     font-size: .9rem;
