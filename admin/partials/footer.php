@@ -23,6 +23,7 @@ window.MODAL_LANG = <?= json_encode([
 <?php foreach (($extraJs ?? []) as $src): ?>
 <script src="<?= asset($src) ?>"></script>
 <?php endforeach ?>
+<script src="<?= asset('/assets/js/ajax_pagination.js') ?>"></script>
 <script>
 (function () {
     var burger = document.getElementById('admin-mobile-burger');

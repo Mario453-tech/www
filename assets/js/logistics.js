@@ -303,6 +303,11 @@ function startCooldownTimer(btn, secs) {
 (function () {
     var isLoading = false;
 
+    function getCleanLogisticsUrl() {
+        var path = window.location.pathname.replace(/\/logistics\.php$/, '/logistics');
+        return window.location.origin + path;
+    }
+
     function getSectionHash(link) {
         try {
             var targetUrl = new URL(link.href, window.location.href);
@@ -401,7 +406,11 @@ function startCooldownTimer(btn, secs) {
 
             currentPage.replaceWith(nextPage);
             if (pushHistory !== false) {
-                history.pushState({ logisticsAjax: true }, '', url);
+                history.pushState({
+                    logisticsAjax: true,
+                    ajaxUrl: url,
+                    scrollHash: hash,
+                }, '', getCleanLogisticsUrl());
             }
             initRoadTripCountdowns(nextPage);
             scrollToHash(hash);
@@ -429,8 +438,19 @@ function startCooldownTimer(btn, secs) {
     });
 
     window.addEventListener('popstate', function () {
-        loadPage(window.location.href, window.location.hash, false);
+        var state = history.state || {};
+        var ajaxUrl = state.ajaxUrl || window.location.href;
+        var hash = state.scrollHash || window.location.hash;
+        loadPage(ajaxUrl, hash, false);
     });
+
+    if (window.location.search || window.location.hash) {
+        history.replaceState({
+            logisticsAjax: true,
+            ajaxUrl: window.location.href,
+            scrollHash: window.location.hash,
+        }, '', getCleanLogisticsUrl());
+    }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
