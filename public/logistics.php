@@ -102,6 +102,9 @@ $logisticsInsights = [
     'recommendations' => [],
 ];
 $activeRoadTrips = [];
+$activeRoadTripsTotal = 0;
+$activeRoadTripsPage = 1;
+$activeRoadTripsTotalPages = 1;
 
 $hoursSince = static function (?string $dateTime): ?int {
     if (!$dateTime) {
@@ -160,7 +163,14 @@ try {
 
 try {
     $roadTransportSvc = new RoadTransportService($db);
-    $activeRoadTrips  = $roadTransportSvc->getActiveTripsForPlayer($playerId);
+    $activeRoadTripsAll = $roadTransportSvc->getActiveTripsForPlayer($playerId);
+    $activeRoadTripsPerPage = 10;
+    $activeRoadTripsTotal = count($activeRoadTripsAll);
+    $activeRoadTripsTotalPages = (int)ceil($activeRoadTripsTotal / $activeRoadTripsPerPage);
+    $activeRoadTripsPage = max(1, (int)($_GET['road_page'] ?? 1));
+    $activeRoadTripsPage = min($activeRoadTripsPage, max(1, $activeRoadTripsTotalPages));
+    $activeRoadTripsOffset = ($activeRoadTripsPage - 1) * $activeRoadTripsPerPage;
+    $activeRoadTrips = array_slice($activeRoadTripsAll, $activeRoadTripsOffset, $activeRoadTripsPerPage);
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Road transport data load failed', $e, ['player' => $playerId]);
 }
@@ -458,6 +468,9 @@ $viewData = compact(
     'pipelineHse',
     'logisticsInsights',
     'activeRoadTrips',
+    'activeRoadTripsTotal',
+    'activeRoadTripsPage',
+    'activeRoadTripsTotalPages',
     'marineDeliveries',
     'marineBuffers',
     'marineMinLoadBbl',

@@ -456,6 +456,11 @@
     opacity: .72;
 }
 
+.logistics-table--road-trips .logistics-table-head,
+.logistics-table--road-trips .logistics-table-row {
+    grid-template-columns: 2fr 1fr 1fr 1fr 2fr 1fr;
+}
+
 .logistics-empty {
     color: var(--text2);
     font-size: .9rem;

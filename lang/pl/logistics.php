@@ -523,6 +523,7 @@ return [
 
     // P1.2 Road trips / Kursy drogowe
     'logistics.road_trips.section_title'      => 'Kursy drogowe w tranzycie',
+    'logistics.road_trips.count_suffix'       => 'aktywnych kursów',
     'logistics.road_trips.empty'              => 'Brak aktywnych kursów drogowych.',
     'logistics.road_trips.col_well'           => 'Odwiert',
     'logistics.road_trips.col_volume'         => 'Wolumen',

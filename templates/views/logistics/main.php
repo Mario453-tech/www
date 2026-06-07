@@ -927,9 +927,10 @@
     <section class="logistics-panel" aria-labelledby="logistics-road-trips-heading">
         <div class="logistics-panel-head">
             <h3 id="logistics-road-trips-heading"><?= t('logistics.road_trips.section_title') ?></h3>
+            <span><?= (int)($activeRoadTripsTotal ?? count($activeRoadTrips)) ?> <?= t('logistics.road_trips.count_suffix') ?></span>
         </div>
-        <div class="logistics-table">
-            <div class="logistics-table-head" style="grid-template-columns:2fr 1fr 1fr 1fr 2fr 1fr">
+        <div class="logistics-table logistics-table--road-trips">
+            <div class="logistics-table-head">
                 <span><?= t('logistics.road_trips.col_well') ?></span>
                 <span><?= t('logistics.road_trips.col_volume') ?></span>
                 <span><?= t('logistics.road_trips.col_trips') ?></span>
@@ -943,7 +944,7 @@
                 $mRem   = (int)floor(($secRem % 3600) / 60);
                 $truckKey = 'logistics.road_trips.truck_' . ($trip['truck_type'] ?? 'standard');
             ?>
-            <div class="logistics-table-row" style="grid-template-columns:2fr 1fr 1fr 1fr 2fr 1fr">
+            <div class="logistics-table-row">
                 <span><?= htmlspecialchars((string)($trip['well_name'] ?? ('#' . (int)$trip['well_id']))) ?></span>
                 <span><?= number_format((float)($trip['volume_bbl'] ?? 0), 1, ',', ' ') ?> bbl</span>
                 <span><?= (int)($trip['trips_count'] ?? 1) ?></span>
@@ -956,6 +957,34 @@
             </div>
             <?php endforeach ?>
         </div>
+        <?php if ((int)($activeRoadTripsTotalPages ?? 1) > 1):
+            $roadPage = (int)($activeRoadTripsPage ?? 1);
+            $roadTotalPages = (int)($activeRoadTripsTotalPages ?? 1);
+            $roadBaseParams = $_GET;
+            $roadBaseParams['tab'] = $roadBaseParams['tab'] ?? 'logistics';
+        ?>
+        <div class="logistics-pagination">
+            <div class="logistics-pagination-info">
+                <?= $roadPage ?> / <?= $roadTotalPages ?> (<?= (int)($activeRoadTripsTotal ?? 0) ?>)
+            </div>
+            <div class="logistics-pagination-buttons">
+                <?php if ($roadPage > 1):
+                    $roadBaseParams['road_page'] = $roadPage - 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($roadBaseParams)) ?>#logistics-road-trips-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_prev') ?>
+                </a>
+                <?php endif ?>
+                <?php if ($roadPage < $roadTotalPages):
+                    $roadBaseParams['road_page'] = $roadPage + 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($roadBaseParams)) ?>#logistics-road-trips-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_next') ?>
+                </a>
+                <?php endif ?>
+            </div>
+        </div>
+        <?php endif ?>
     </section>
     <?php endif ?>
 
@@ -995,6 +1024,13 @@
                 $condPct   = (float)$hub['condition_pct'];
                 $condClass = $condPct <= 20 ? 'c-bad' : ($condPct < 60 ? 'c-warn' : 'c-good');
                 $loadClass = $loadPct > 100 ? 'c-bad' : ($loadPct > 80 ? 'c-warn' : 'c-good');
+                $hubLevel  = (int)($hub['level'] ?? 1);
+                $hubDefaults = $hubSvc->getHubTypeDefaults((string)$hub['hub_type'], $hubLevel);
+                $hubMaxLevel = (int)($hubDefaults['max_level'] ?? 3);
+                $hubUpgradeCost = (float)($card['upgrade_cost'] ?? 0.0);
+                $hubCanUpgrade = ($card['ownership'] ?? 'owned') === 'owned'
+                    && $hubLevel < $hubMaxLevel
+                    && !in_array((string)($hub['status'] ?? ''), ['disabled', 'building'], true);
  // Combined risk level (condition + load)
                 $riskLevel = 'none';
                 if ($condPct <= 20 || ($condPct <= 40 && $loadPct > 80)) {
@@ -1010,7 +1046,8 @@
                      data-hub-id="<?= $hubId ?>"
                      data-hub-region-id="<?= (int)$hub['region_id'] ?>"
                      data-hub-zone-key="<?= htmlspecialchars((string)($hub['zone_key'] ?? ''), ENT_QUOTES) ?>"
-                     data-hub-name="<?= htmlspecialchars((string)$hub['name'], ENT_QUOTES) ?>">
+                     data-hub-name="<?= htmlspecialchars((string)$hub['name'], ENT_QUOTES) ?>"
+                     data-upgrade-cost="<?= htmlspecialchars((string)$hubUpgradeCost, ENT_QUOTES) ?>">
 
                 <div class="logistics-hub-card-hdr">
                     <span class="logistics-hub-name"><?= htmlspecialchars($hub['name']) ?></span>
@@ -1039,6 +1076,8 @@
                     <span class="sep">&middot;</span>
                     <span><?= htmlspecialchars($hub['zone_key']) ?></span>
                     <?php endif ?>
+                    <span class="sep">&middot;</span>
+                    <span><?= t('logistics.hub.label_level', ['level' => $hubLevel, 'max' => $hubMaxLevel]) ?></span>
                     <span class="sep">&middot;</span>
                     <span><?= t('logistics.hub.mode_' . ($hub['work_mode'] ?? 'standard')) ?></span>
                 </div>
@@ -1098,6 +1137,11 @@
                     <button class="btn btn-sm btn-secondary" onclick="hubWellsModal(<?= $hubId ?>)">
                          <?= t('logistics.hub.btn_my_wells') ?> (<?= $myWells ?>)
                     </button>
+                    <?php if ($hubCanUpgrade): ?>
+                    <button class="btn btn-sm btn-primary" onclick="hubUpgrade(<?= $hubId ?>)">
+                        <?= t('logistics.hub.btn_upgrade') ?>
+                    </button>
+                    <?php endif; ?>
                 </div>
             </article>
             <?php endforeach ?>
