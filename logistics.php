@@ -101,9 +101,11 @@ try {
         'pipelines' => 0,
         'supervised_units' => 0,
     ];
-    $marineDeliveries = [];
-    $marineHistory = [];
+    $marineDeliveries   = [];
+    $marineHistory      = [];
     $marineInTransitBbl = 0.0;
+    $marineBuffers      = [];
+    $marineMinLoadBbl   = 0.0;
 
     if (class_exists('WellPipelineService')) {
         try {
@@ -344,6 +346,36 @@ try {
         }
     }
 
+ // Dostawy morskie gracza / Player marine deliveries
+    try {
+        $marineCfg        = TransportConfigService::getTypeConfig($db, 'tankowiec');
+        $marineMinLoadBbl = max(0.0, (float)($marineCfg['min_load_bbl'] ?? 0.0));
+        $marineSvc        = new MarineDeliveryService($db);
+
+        $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
+        $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
+        $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
+        $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
+    } catch (Throwable $e) {
+        GameLog::error('logistics.php', 'marine data load FAILED', $e, ['player_id' => $playerId]);
+    }
+
+    if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] || $marineInTransitBbl <= 0.0) {
+        $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl);
+        if ($marineDeliveries === []) {
+            $marineDeliveries = $marineFallback['deliveries'];
+        }
+        if ($marineBuffers === []) {
+            $marineBuffers = $marineFallback['buffers'];
+        }
+        if ($marineHistory === []) {
+            $marineHistory = $marineFallback['history'];
+        }
+        if ($marineInTransitBbl <= 0.0) {
+            $marineInTransitBbl = $marineFallback['in_transit_bbl'];
+        }
+    }
+
     $viewData = array_merge(GameShell::data($playerId), [
         'summary'          => $summary,
         'totals'           => $totals,
@@ -369,6 +401,8 @@ try {
         'pipelineSummary'  => $pipelineSummary,
         'pipelineHse'      => $pipelineHse,
         'marineDeliveries' => $marineDeliveries,
+        'marineBuffers'    => $marineBuffers,
+        'marineMinLoadBbl' => $marineMinLoadBbl,
         'marineHistory'    => $marineHistory,
         'marineInTransitBbl' => $marineInTransitBbl,
  // Building pipelines are already in $pipelines - filter here for convenience

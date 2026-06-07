@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-08 - Logistyka: aktywne dostawy morskie w glownym kontrolerze
+- `logistics.php` - glowny kontroler routingu `/logistics` laduje teraz `MarineDeliveryService`, bufory tankowcow, aktywne rejsy, historie i fallback panelu; wczesniej dane byly ustawiane na puste tablice, wiec widok pokazywal `0` mimo aktywnych dostaw w adminie.
+
 ### 2026-06-07 - Logistyka: priorytet aktywnych rejsow morskich
 - `src/MarineDeliveryService.php` - aktywne dostawy morskie w panelu logistyki sortuja teraz realne rejsy (`departing`, `in_transit`, `delayed`) przed kolejka portowa, a liczniki nie uwzgledniaja starych opoznionych rekordow spoza 2-dniowego okna; dzieki temu rejs widoczny w adminie jako `in_transit` nie znika pod zaleglymi wpisami `waiting_for_port`.
 
