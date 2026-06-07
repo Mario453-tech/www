@@ -194,8 +194,20 @@ class MarineDeliveryService
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
                   WHERE md.player_id = ?
-                    AND md.status NOT IN ('delivered','lost')
-                  ORDER BY md.eta_at ASC
+                    AND (
+                           md.status IN ('departing','in_transit','waiting_for_port','processing')
+                        OR (md.status = 'delayed' AND md.departure_at >= NOW() - INTERVAL 2 DAY)
+                    )
+                  ORDER BY CASE md.status
+                               WHEN 'departing' THEN 1
+                               WHEN 'in_transit' THEN 2
+                               WHEN 'delayed' THEN 3
+                               WHEN 'waiting_for_port' THEN 4
+                               WHEN 'processing' THEN 5
+                               ELSE 9
+                           END,
+                           md.eta_at ASC,
+                           md.id ASC
                   LIMIT 50"
             );
             $stmt->execute([$playerId]);
@@ -288,7 +300,10 @@ class MarineDeliveryService
                 "SELECT COALESCE(SUM(volume_bbl), 0)
                    FROM marine_deliveries
                   WHERE player_id = ?
-                    AND status IN ('departing','in_transit','waiting_for_port','delayed')"
+                    AND (
+                           status IN ('departing','in_transit','waiting_for_port','processing')
+                        OR (status = 'delayed' AND departure_at >= NOW() - INTERVAL 2 DAY)
+                    )"
             );
             $stmt->execute([$playerId]);
             $total += (float)$stmt->fetchColumn();
@@ -340,8 +355,20 @@ class MarineDeliveryService
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
                   WHERE md.player_id = ?
-                    AND md.status NOT IN ('delivered','lost')
-                  ORDER BY md.eta_at ASC
+                    AND (
+                           md.status IN ('departing','in_transit','waiting_for_port','processing')
+                        OR (md.status = 'delayed' AND md.departure_at >= NOW() - INTERVAL 2 DAY)
+                    )
+                  ORDER BY CASE md.status
+                               WHEN 'departing' THEN 1
+                               WHEN 'in_transit' THEN 2
+                               WHEN 'delayed' THEN 3
+                               WHEN 'waiting_for_port' THEN 4
+                               WHEN 'processing' THEN 5
+                               ELSE 9
+                           END,
+                           md.eta_at ASC,
+                           md.id ASC
                   LIMIT 50"
             );
             $stmt->execute([$playerId]);
@@ -398,7 +425,10 @@ class MarineDeliveryService
                     (SELECT COALESCE(SUM(volume_bbl), 0)
                        FROM marine_deliveries
                       WHERE player_id = ?
-                        AND status IN ('departing','in_transit','waiting_for_port','delayed'))
+                        AND (
+                               status IN ('departing','in_transit','waiting_for_port','processing')
+                            OR (status = 'delayed' AND departure_at >= NOW() - INTERVAL 2 DAY)
+                        ))
                     +
                     (SELECT COALESCE(SUM(marine_buffer_bbl), 0)
                        FROM wells

@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-07 - Logistyka: priorytet aktywnych rejsow morskich
+- `src/MarineDeliveryService.php` - aktywne dostawy morskie w panelu logistyki sortuja teraz realne rejsy (`departing`, `in_transit`, `delayed`) przed kolejka portowa, a liczniki nie uwzgledniaja starych opoznionych rekordow spoza 2-dniowego okna; dzieki temu rejs widoczny w adminie jako `in_transit` nie znika pod zaleglymi wpisami `waiting_for_port`.
+
 ### 2026-06-07 - Logistyka: widocznosc dostaw morskich
 - `public/logistics.php`, `src/MarineDeliveryService.php` - panel logistyki jawnie laduje serwisy portow i dostaw morskich oraz ma awaryjne pobieranie danych z `marine_deliveries`, `ports` i `wells.marine_buffer_bbl`, zeby aktywne rejsy, historia i bufor tankowca nie zerowaly sie przy bledzie serwisu.
 
