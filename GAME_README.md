@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-07 - Logistyka: widocznosc dostaw morskich
+- `public/logistics.php`, `src/MarineDeliveryService.php` - panel logistyki jawnie laduje serwisy portow i dostaw morskich oraz ma awaryjne pobieranie danych z `marine_deliveries`, `ports` i `wells.marine_buffer_bbl`, zeby aktywne rejsy, historia i bufor tankowca nie zerowaly sie przy bledzie serwisu.
+
 ### 2026-06-07 - Logistyka: korekta bufora hubow w ticku
 - `src/Tick/WellProductionHandler.php`, `src/Tick/PlayersSection.php`, `src/Tick/WellLoopSection.php`, `src/Tick/WellHubSection.php`, `src/HubTickService.php`, `src/Hub/TickPersistTrait.php`, `src/Hub/TickCalculationsTrait.php` - transport czasowy (`ciezarowki`, `tankowiec`) nie dopisuje juz produkcji do huba przed realna dostawa, a dostawy po dotarciu przechodza przez finalizacje huba; tick rozroznia rope przetworzona, pozostawiona w buforze i spuszczona z bufora, z korekta magazynu oraz finansow.
 

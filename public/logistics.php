@@ -15,6 +15,8 @@ require_once $srcDir . '/HubEconomyService.php';
 require_once $srcDir . '/RoadTransportService.php';
 require_once $srcDir . '/TechnicalTeamService.php';
 require_once $srcDir . '/WellPipelineService.php';
+require_once $srcDir . '/PortService.php';
+require_once $srcDir . '/MarineDeliveryService.php';
 
 $logisticsSvc = new LogisticsService($playerId);
 $hubSvc       = new HubService($db);
@@ -432,17 +434,31 @@ $marineHistory      = [];
 $marineInTransitBbl = 0.0;
 $marineBuffers      = [];
 $marineMinLoadBbl   = 0.0;
-if (class_exists('MarineDeliveryService')) {
-    try {
-        $marineSvc          = new MarineDeliveryService($db);
-        $marineCfg          = TransportConfigService::getTypeConfig($db, 'tankowiec');
-        $marineMinLoadBbl   = max(0.0, (float)($marineCfg['min_load_bbl'] ?? 0.0));
-        $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
-        $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
-        $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
-        $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
-    } catch (Throwable $e) {
-        GameLog::error('logistics', 'MarineDeliveryService load failed', $e, ['player' => $playerId]);
+$marineCfg        = TransportConfigService::getTypeConfig($db, 'tankowiec');
+$marineMinLoadBbl = max(0.0, (float)($marineCfg['min_load_bbl'] ?? 0.0));
+try {
+    $marineSvc          = new MarineDeliveryService($db);
+    $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
+    $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
+    $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
+    $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'MarineDeliveryService load failed', $e, ['player' => $playerId]);
+}
+
+if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] || $marineInTransitBbl <= 0.0) {
+    $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl);
+    if ($marineDeliveries === []) {
+        $marineDeliveries = $marineFallback['deliveries'];
+    }
+    if ($marineBuffers === []) {
+        $marineBuffers = $marineFallback['buffers'];
+    }
+    if ($marineHistory === []) {
+        $marineHistory = $marineFallback['history'];
+    }
+    if ($marineInTransitBbl <= 0.0) {
+        $marineInTransitBbl = $marineFallback['in_transit_bbl'];
     }
 }
 
