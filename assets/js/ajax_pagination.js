@@ -2,11 +2,13 @@
 (function () {
     var paginationSelector = [
         '.pagination',
+        '.logistics-pagination',
         '.sale-history-pagination',
         '.inc-pagination',
         '.hub-pagination',
         '.pipeline-pagination'
     ].join(',');
+    var ajaxLinkContainerSelector = paginationSelector + ', .module-tabs';
     var rootSelectors = ['.game-shell-module', '.admin-wrap', 'main.main-content'];
     var isLoading = false;
 
@@ -16,7 +18,16 @@
     }
 
     function cleanUrl(url) {
-        return url.origin + url.pathname;
+        var path = url.pathname;
+        if (!path.startsWith('/admin/')) {
+            path = path.replace(/^\/public\/([^/]+)\.php$/, '/$1');
+            path = path.replace(/^\/([^/]+)\.php$/, '/$1');
+        }
+        return url.origin + path;
+    }
+
+    function visibleCleanUrl(ajaxUrl) {
+        return cleanUrl(new URL(ajaxUrl, window.location.href));
     }
 
     function findRoot(doc) {
@@ -46,7 +57,7 @@
         var target = selector ? document.querySelector(selector) : null;
         if (!target && typeof paginationIndex === 'number' && paginationIndex >= 0) {
             var scope = root || document;
-            target = scope.querySelectorAll(paginationSelector)[paginationIndex] || null;
+            target = scope.querySelectorAll(ajaxLinkContainerSelector)[paginationIndex] || null;
         }
         if (!target) {
             target = root || document.querySelector('main.main-content') || document.body;
@@ -89,13 +100,12 @@
 
             current.node.replaceWith(next);
             if (pushHistory !== false) {
-                var visibleUrl = cleanUrl(new URL(ajaxUrl, window.location.href));
                 history.pushState({
                     ajaxPagination: true,
                     ajaxUrl: ajaxUrl,
                     scrollSelector: scrollSelector,
                     paginationIndex: paginationIndex
-                }, '', visibleUrl);
+                }, '', visibleCleanUrl(ajaxUrl));
             }
 
             document.dispatchEvent(new CustomEvent('ajax-pagination:updated', {
@@ -119,8 +129,8 @@
             return;
         }
 
-        var pagination = link.closest(paginationSelector);
-        if (!pagination) {
+        var ajaxContainer = link.closest(ajaxLinkContainerSelector);
+        if (!ajaxContainer) {
             return;
         }
 
@@ -130,8 +140,8 @@
         }
 
         event.preventDefault();
-        var paginationIndex = Array.prototype.indexOf.call(document.querySelectorAll(paginationSelector), pagination);
-        loadPartial(targetUrl.toString(), findScrollTarget(link, pagination), paginationIndex, true);
+        var paginationIndex = Array.prototype.indexOf.call(document.querySelectorAll(ajaxLinkContainerSelector), ajaxContainer);
+        loadPartial(targetUrl.toString(), findScrollTarget(link, ajaxContainer), paginationIndex, true);
     });
 
     window.addEventListener('popstate', function () {
@@ -141,4 +151,13 @@
         }
         loadPartial(state.ajaxUrl, state.scrollSelector || null, state.paginationIndex, false);
     });
+
+    if ((window.location.search || window.location.hash) && document.querySelector(ajaxLinkContainerSelector)) {
+        history.replaceState({
+            ajaxPagination: true,
+            ajaxUrl: window.location.href,
+            scrollSelector: window.location.hash || null,
+            paginationIndex: -1
+        }, '', visibleCleanUrl(window.location.href));
+    }
 }());

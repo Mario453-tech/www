@@ -13,7 +13,7 @@ function switchMarketTab(ev, tab) {
     ev.currentTarget.classList.add('active');
     var u = new URL(window.location);
     u.searchParams.set('tab', tab);
-    history.replaceState(null, '', u);
+    history.replaceState({ marketTab: tab, ajaxUrl: u.toString() }, '', u.origin + u.pathname);
 }
 </script>
 

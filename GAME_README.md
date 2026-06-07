@@ -1,7 +1,7 @@
 ## Changelog
 
 ### 2026-06-08 - Globalna paginacja bez przeladowania
-- `assets/js/ajax_pagination.js`, `templates/footer.php`, `admin/partials/footer.php` - dodano wspolny mechanizm czesciowej paginacji dla pozostalych stron gry i admina: linki w kontenerach paginacji podmieniaja glowna tresc strony, zostawiaja czysty adres bez query stringa i przewijaja do tej samej sekcji/paginacji.
+- `assets/js/ajax_pagination.js`, `templates/footer.php`, `admin/partials/footer.php`, `templates/views/market/main.php`, `assets/js/logistics.js` - dodano jeden wspolny mechanizm czesciowej paginacji i zakladek modulow dla stron gry oraz admina: market, technical, logistyka i pozostale kontenery paginacji podmieniaja glowna tresc strony, zostawiaja czysty adres bez query stringa i przewijaja do tej samej sekcji/paginacji.
 
 ### 2026-06-08 - Logistyka: czysty adres przy paginacji
 - `assets/js/logistics.js` - paginacja AJAX w logistyce zapisuje techniczny adres z parametrami tylko w `history.state`, a w pasku przegladarki zostawia czysty adres `/logistics` bez query stringa i hashy sekcji.
