@@ -8,7 +8,7 @@
  * 1. processTick() -> wear, condition, status, przetworzone/stracone barylki
  * -> wear, condition, status, processed/lost barrels
  * 2. persistTickResult() -> zapisuje stan huba / persists hub state
- * 3. Reconciliacja strat -> koryguje currentStorage i fin* / reconciles currentStorage and fin*
+ * 3. Reconciliacja bufora i strat -> koryguje currentStorage i fin* / reconciles buffer and losses in currentStorage and fin*
  * 4. Hub OPEX -> koszt per slot, per gracz / per-slot cost per player
  */
 class WellHubSection
@@ -70,15 +70,56 @@ class WellHubSection
                 $result = $this->hubTickSvc->processTick($hub, $inputBbl, $deltaHours, $hseBonus);
                 $this->hubTickSvc->persistTickResult($hub, $result, $this->now);
 
- // Reconciliacja strat. / Loss reconciliation.
- // Podczas petli wells dodalismy $inputBbl do storage/revenue.
- // During the well loop we added $inputBbl to storage/revenue.
- // Teraz odejmujemy to, co hub stracil (ponad przepustowosc).
- // Now we subtract what the hub lost (above throughput capacity).
+ // Reconciliacja bufora i strat. / Buffer and loss reconciliation.
+ // Petla wells kredytuje wejscie huba optymistycznie dla transportu synchronicznego.
+ // The well loop optimistically credits synchronous hub input.
+ // Barylki zostajace w buforze nie sa jeszcze dostarczone do magazynu.
+ // Barrels kept in the hub buffer are not delivered to storage yet.
                 $hubLostBbl        = (float)$result['lost_bbl'];
+                $hubBufferedBbl    = (float)($result['buffered_bbl'] ?? 0.0);
+                $hubDrainedBbl     = (float)($result['drained_buffer_bbl'] ?? 0.0);
                 $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
                 if ($hubLostBbl > 0.0 && $logisticsLossMult !== 1.0) {
-                    $hubLostBbl = min($inputBbl, round($hubLostBbl * $logisticsLossMult, 4));
+                    $hubLostBbl = min($inputBbl + $hubDrainedBbl, round($hubLostBbl * $logisticsLossMult, 4));
+                }
+
+                if ($hubDrainedBbl > 0.001) {
+                    $freeSpace  = max(0.0, $this->ctx->storageCapacity - $this->ctx->currentStorage);
+                    $credited   = min($hubDrainedBbl, $freeSpace);
+                    $blockedBbl = max(0.0, $hubDrainedBbl - $credited);
+                    if ($credited > 0.001) {
+                        $creditVal = round($credited * $this->oilPrice, 2);
+                        $this->ctx->currentStorage += $credited;
+                        $this->ctx->finBbl         += $credited;
+                        $this->ctx->deliveredBbl   += $credited;
+                        $this->ctx->finRevenue     += $creditVal;
+                    }
+                    if ($blockedBbl > 0.001) {
+                        $blockedVal = round($blockedBbl * $this->oilPrice, 2);
+                        $this->ctx->storageBlockedBbl += $blockedBbl;
+                        $this->ctx->finLossBbl        += $blockedBbl;
+                        $this->ctx->finLossValue      += $blockedVal;
+                        $this->ctx->finHubLossBbl     += $blockedBbl;
+                        $this->ctx->finHubLossValue   += $blockedVal;
+                    }
+                }
+
+                if ($hubBufferedBbl > 0.001) {
+                    $bufferVal = round($hubBufferedBbl * $this->oilPrice, 2);
+                    $this->ctx->currentStorage = max(0.0, $this->ctx->currentStorage - $hubBufferedBbl);
+                    $this->ctx->finBbl       -= $hubBufferedBbl;
+                    $this->ctx->deliveredBbl -= $hubBufferedBbl;
+                    $this->ctx->finRevenue   -= $bufferVal;
+                    GameLog::info('tick', 'hub_tick_buffered', [
+                        'hub_id'     => $hubId,
+                        'player_id'  => $playerId,
+                        'input_bbl'  => round($inputBbl, 2),
+                        'processed'  => round($result['processed_bbl'], 2),
+                        'buffered'   => round($hubBufferedBbl, 2),
+                        'drained'    => round($hubDrainedBbl, 2),
+                        'new_buffer' => round((float)$result['new_buffer'], 2),
+                        'load_pct'   => $result['load_pct'],
+                    ]);
                 }
 
                 if ($hubLostBbl > 0.001) {
@@ -96,21 +137,12 @@ class WellHubSection
                         'player_id'  => $playerId,
                         'input_bbl'  => round($inputBbl, 2),
                         'processed'  => round($result['processed_bbl'], 2),
-                        'buffered'   => round((float)$result['buffered_bbl'], 2),
+                        'buffered'   => round($hubBufferedBbl, 2),
+                        'drained'    => round($hubDrainedBbl, 2),
                         'lost_bbl'   => round($hubLostBbl, 2),
                         'load_pct'   => $result['load_pct'],
                         'new_buffer' => round((float)$result['new_buffer'], 2),
                         'new_status' => $result['new_status'],
-                    ]);
-                } elseif (($result['buffered_bbl'] ?? 0.0) > 0.001) {
-                    GameLog::info('tick', 'hub_tick_buffered', [
-                        'hub_id'     => $hubId,
-                        'player_id'  => $playerId,
-                        'input_bbl'  => round($inputBbl, 2),
-                        'processed'  => round($result['processed_bbl'], 2),
-                        'buffered'   => round((float)$result['buffered_bbl'], 2),
-                        'new_buffer' => round((float)$result['new_buffer'], 2),
-                        'load_pct'   => $result['load_pct'],
                     ]);
                 }
 

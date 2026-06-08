@@ -6,10 +6,12 @@ class TransportConfigService
     public static function getDefaults(): array
     {
         return [
-            'nieustawiony' => ['incident' => 0.00, 'disaster' => 0.00, 'wear' => 1.00, 'spiral' => 1.00, 'capacity' => 0.0,   'opex' => 0.0,  'cost_per_bbl' => 0.00],
-            'rurociag'   => ['incident' => 0.80, 'disaster' => 0.90, 'wear' => 0.95, 'spiral' => 0.95, 'capacity' => 120.0, 'opex' => 7.5,  'cost_per_bbl' => 0.50],
-            'ciezarowki' => ['incident' => 1.30, 'disaster' => 1.25, 'wear' => 1.15, 'spiral' => 1.10, 'capacity' => 70.0,  'opex' => 20.0, 'cost_per_bbl' => 2.50],
-            'tankowiec'  => ['incident' => 1.00, 'disaster' => 1.15, 'wear' => 1.05, 'spiral' => 1.05, 'capacity' => 110.0, 'opex' => 12.0, 'cost_per_bbl' => 1.50],
+            // min_load_bbl: minimalna ilosc bbl w buforze, zeby tankowiec wyruszyl (0 = bez bufora).
+            // min_load_bbl: minimum bbl in buffer before tanker departs (0 = no buffer, dispatch immediately).
+            'nieustawiony' => ['incident' => 0.00, 'disaster' => 0.00, 'wear' => 1.00, 'spiral' => 1.00, 'capacity' => 0.0,   'opex' => 0.0,  'cost_per_bbl' => 0.00, 'min_load_bbl' => 0.0],
+            'rurociag'   => ['incident' => 0.80, 'disaster' => 0.90, 'wear' => 0.95, 'spiral' => 0.95, 'capacity' => 120.0, 'opex' => 7.5,  'cost_per_bbl' => 0.50, 'min_load_bbl' => 0.0],
+            'ciezarowki' => ['incident' => 1.30, 'disaster' => 1.25, 'wear' => 1.15, 'spiral' => 1.10, 'capacity' => 70.0,  'opex' => 20.0, 'cost_per_bbl' => 2.50, 'min_load_bbl' => 0.0],
+            'tankowiec'  => ['incident' => 1.00, 'disaster' => 1.15, 'wear' => 1.05, 'spiral' => 1.05, 'capacity' => 110.0, 'opex' => 12.0, 'cost_per_bbl' => 1.50, 'min_load_bbl' => 5000.0],
         ];
     }
 
@@ -60,8 +62,16 @@ class TransportConfigService
  * and transport_config has rows for 'nieustawiony'.
  * Safe to call on every boot - checks before ALTER.
  */
+    /** Flaga dedup: DDL uruchamiane tylko raz per process (nie per request/tick). / Dedup flag: DDL runs only once per process (not per request/tick). */
+    private static bool $schemaEnsured = false;
+
     public static function ensureTransportSchema(PDO $db): void
     {
+        if (self::$schemaEnsured) {
+            return;
+        }
+        self::$schemaEnsured = true;
+
         if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
             return;
         }
@@ -136,6 +146,38 @@ class TransportConfigService
             }
         } catch (Throwable $e) {
             GameLog::error('TransportConfigService', 'ensureTransportSchema transport_config ALTER failed', $e);
+        }
+
+        try {
+ // Kolumna bufora morskiego: ropa akumuluje sie przy odwiercie tankowcowym az do progu min_load_bbl.
+ // Marine buffer column: oil accumulates at a tanker well until the min_load_bbl threshold is reached.
+            Database::addColumnIfMissing(
+                'wells',
+                'marine_buffer_bbl',
+                "DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT 'Bufor ropy tankowca (akumulacja do progu) / Tanker oil buffer (accumulation threshold)'"
+            );
+        } catch (Throwable $e) {
+            GameLog::error('TransportConfigService', 'ensureTransportSchema wells marine_buffer_bbl failed', $e);
+        }
+
+        try {
+ // Poszerz config_value z DECIMAL(8,4) na DECIMAL(14,4) — min_load_bbl moze wynosic > 9999.
+ // Widen config_value from DECIMAL(8,4) to DECIMAL(14,4) — min_load_bbl can exceed 9999 bbl.
+            $stmt = $db->prepare("
+                SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME   = 'transport_config'
+                   AND COLUMN_NAME  = 'config_value'
+            ");
+            $stmt->execute();
+            $colType = strtolower((string)($stmt->fetchColumn() ?? ''));
+
+            if ($colType === 'decimal(8,4)') {
+                $db->exec("ALTER TABLE transport_config MODIFY COLUMN config_value DECIMAL(14,4) NOT NULL");
+                GameLog::info('TransportConfigService', 'transport_config.config_value widened to DECIMAL(14,4)');
+            }
+        } catch (Throwable $e) {
+            GameLog::error('TransportConfigService', 'ensureTransportSchema transport_config config_value widen failed', $e);
         }
 
         try {

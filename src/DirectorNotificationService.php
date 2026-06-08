@@ -10,11 +10,13 @@ class DirectorNotificationService
     private PDO $db;
     
  // Szablony komunikatow (20 typow)
+    // Szablony komunikatow — ikony jako identyfikatory SVG (bez emoji, emoji rozwalaja kodowanie).
+    // Notification templates — icons as SVG identifier strings (no emoji, emoji breaks encoding).
     private const TEMPLATES = [
         'bank_payment_due' => [
             'type' => 'bank',
             'priority' => 'high',
-            'icon' => '🏦',
+            'icon' => 'bank',
             'title_key' => 'director.bank_payment_due.title',
             'message_key' => 'director.bank_payment_due.message',
             'requires_action' => true,
@@ -24,7 +26,7 @@ class DirectorNotificationService
         'bank_overdue' => [
             'type' => 'bank',
             'priority' => 'critical',
-            'icon' => '⚠️',
+            'icon' => 'warning',
             'title_key' => 'director.bank_overdue.title',
             'message_key' => 'director.bank_overdue.message',
             'requires_action' => true,
@@ -34,7 +36,7 @@ class DirectorNotificationService
         'bank_restructure_offer' => [
             'type' => 'bank',
             'priority' => 'high',
-            'icon' => '💼',
+            'icon' => 'briefcase',
             'title_key' => 'director.bank_restructure_offer.title',
             'message_key' => 'director.bank_restructure_offer.message',
             'requires_action' => true,
@@ -44,7 +46,7 @@ class DirectorNotificationService
         'bank_negotiation_approved' => [
             'type' => 'bank',
             'priority' => 'medium',
-            'icon' => '✅',
+            'icon' => 'check',
             'title_key' => 'director.bank_negotiation_approved.title',
             'message_key' => 'director.bank_negotiation_approved.message',
             'requires_action' => false
@@ -52,7 +54,7 @@ class DirectorNotificationService
         'bank_negotiation_rejected' => [
             'type' => 'bank',
             'priority' => 'medium',
-            'icon' => '❌',
+            'icon' => 'cross',
             'title_key' => 'director.bank_negotiation_rejected.title',
             'message_key' => 'director.bank_negotiation_rejected.message',
             'requires_action' => false
@@ -60,7 +62,7 @@ class DirectorNotificationService
         'hr_new_candidates' => [
             'type' => 'hr',
             'priority' => 'high',
-            'icon' => '👥',
+            'icon' => 'people',
             'title_key' => 'director.hr_new_candidates.title',
             'message_key' => 'director.hr_new_candidates.message',
             'requires_action' => true,
@@ -70,7 +72,7 @@ class DirectorNotificationService
         'hr_contract_expiring' => [
             'type' => 'hr',
             'priority' => 'medium',
-            'icon' => '📋',
+            'icon' => 'document',
             'title_key' => 'director.hr_contract_expiring.title',
             'message_key' => 'director.hr_contract_expiring.message',
             'requires_action' => true,
@@ -80,7 +82,7 @@ class DirectorNotificationService
         'technical_well_failure' => [
             'type' => 'technical',
             'priority' => 'critical',
-            'icon' => '🔴',
+            'icon' => 'alert',
             'title_key' => 'director.technical_well_failure.title',
             'message_key' => 'director.technical_well_failure.message',
             'requires_action' => true,
@@ -90,7 +92,7 @@ class DirectorNotificationService
         'technical_low_condition' => [
             'type' => 'technical',
             'priority' => 'high',
-            'icon' => '⚙️',
+            'icon' => 'gear',
             'title_key' => 'director.technical_low_condition.title',
             'message_key' => 'director.technical_low_condition.message',
             'requires_action' => true,
@@ -100,7 +102,7 @@ class DirectorNotificationService
         'technical_task_completed' => [
             'type' => 'technical',
             'priority' => 'low',
-            'icon' => '✅',
+            'icon' => 'check',
             'title_key' => 'director.technical_task_completed.title',
             'message_key' => 'director.technical_task_completed.message',
             'requires_action' => false
@@ -108,7 +110,7 @@ class DirectorNotificationService
         'market_price_drop' => [
             'type' => 'market',
             'priority' => 'high',
-            'icon' => '📉',
+            'icon' => 'arrow-down',
             'title_key' => 'director.market_price_drop.title',
             'message_key' => 'director.market_price_drop.message',
             'requires_action' => true,
@@ -118,7 +120,7 @@ class DirectorNotificationService
         'market_price_surge' => [
             'type' => 'market',
             'priority' => 'high',
-            'icon' => '📈',
+            'icon' => 'arrow-up',
             'title_key' => 'director.market_price_surge.title',
             'message_key' => 'director.market_price_surge.message',
             'requires_action' => true,
@@ -128,7 +130,7 @@ class DirectorNotificationService
         'market_new_trend' => [
             'type' => 'market',
             'priority' => 'medium',
-            'icon' => '🌍',
+            'icon' => 'globe',
             'title_key' => 'director.market_new_trend.title',
             'message_key' => 'director.market_new_trend.message',
             'requires_action' => false
@@ -136,7 +138,7 @@ class DirectorNotificationService
         'storage_full' => [
             'type' => 'urgent',
             'priority' => 'critical',
-            'icon' => '🛢️',
+            'icon' => 'barrel',
             'title_key' => 'director.storage_full.title',
             'message_key' => 'director.storage_full.message',
             'requires_action' => true,
@@ -146,7 +148,7 @@ class DirectorNotificationService
         'storage_empty' => [
             'type' => 'info',
             'priority' => 'low',
-            'icon' => '📦',
+            'icon' => 'box',
             'title_key' => 'director.storage_empty.title',
             'message_key' => 'director.storage_empty.message',
             'requires_action' => false
@@ -154,7 +156,7 @@ class DirectorNotificationService
         'legal_bailiff_started' => [
             'type' => 'legal',
             'priority' => 'critical',
-            'icon' => '⚖️',
+            'icon' => 'scales',
             'title_key' => 'director.legal_bailiff_started.title',
             'message_key' => 'director.legal_bailiff_started.message',
             'requires_action' => true,
@@ -164,7 +166,7 @@ class DirectorNotificationService
         'legal_asset_seized' => [
             'type' => 'legal',
             'priority' => 'critical',
-            'icon' => '🚨',
+            'icon' => 'siren',
             'title_key' => 'director.legal_asset_seized.title',
             'message_key' => 'director.legal_asset_seized.message',
             'requires_action' => true,
@@ -174,7 +176,7 @@ class DirectorNotificationService
         'urgent_bankruptcy_risk' => [
             'type' => 'urgent',
             'priority' => 'critical',
-            'icon' => '💀',
+            'icon' => 'warning',
             'title_key' => 'director.urgent_bankruptcy_risk.title',
             'message_key' => 'director.urgent_bankruptcy_risk.message',
             'requires_action' => true,
@@ -184,7 +186,7 @@ class DirectorNotificationService
         'info_new_feature' => [
             'type' => 'info',
             'priority' => 'low',
-            'icon' => '🎉',
+            'icon' => 'star',
             'title_key' => 'director.info_new_feature.title',
             'message_key' => 'director.info_new_feature.message',
             'requires_action' => false
@@ -192,11 +194,44 @@ class DirectorNotificationService
         'info_monthly_report' => [
             'type' => 'info',
             'priority' => 'low',
-            'icon' => '📊',
+            'icon' => 'chart',
             'title_key' => 'director.info_monthly_report.title',
             'message_key' => 'director.info_monthly_report.message',
             'requires_action' => false
-        ]
+        ],
+
+        // Etap 7: korekta salda przez admina / Stage 7: balance adjustment by admin.
+        'admin_adjustment' => [
+            'type'             => 'bank',
+            'priority'         => 'medium',
+            'icon'             => 'admin',
+            'title_key'        => 'director.admin_adjustment.title',
+            'message_key'      => 'director.admin_adjustment.message',
+            'requires_action'  => false,
+        ],
+
+        // Etap 6: powiadomienia o przelewach P2P (brief, sekcja "Powiadomienia").
+        // Stage 6: P2P transfer notifications (brief, "Notifications" section).
+        'bank_transfer_sent' => [
+            'type'             => 'bank',
+            'priority'         => 'low',
+            'icon'             => 'send',
+            'title_key'        => 'director.bank_transfer_sent.title',
+            'message_key'      => 'director.bank_transfer_sent.message',
+            'requires_action'  => false,
+            'action_url'       => 'bank.php',
+            'action_label_key' => 'director.bank_transfer_sent.action',
+        ],
+        'bank_transfer_received' => [
+            'type'             => 'bank',
+            'priority'         => 'medium',
+            'icon'             => 'receive',
+            'title_key'        => 'director.bank_transfer_received.title',
+            'message_key'      => 'director.bank_transfer_received.message',
+            'requires_action'  => false,
+            'action_url'       => 'bank.php',
+            'action_label_key' => 'director.bank_transfer_received.action',
+        ],
     ];
 
     public function __construct()

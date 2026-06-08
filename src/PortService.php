@@ -52,6 +52,28 @@ class PortService
  // 
 
  /**
+ * Czy region ma wlasny aktywny port? (bez globalnego fallbacku).
+ * Does the region have its own active port? (no global fallback).
+ *
+ * Bramka produkcji morskiej: odwiert tankowcowy produkuje i wysyla rope
+ * tylko gdy w jego regionie istnieje port. Brak portu = produkcja wstrzymana.
+ * Marine production gate: a tanker well only produces and ships oil when a
+ * port exists in its own region. No port = production paused.
+ */
+    public function hasActivePortForRegion(int $regionId): bool
+    {
+        if ($regionId <= 0) return false;
+        $stmt = $this->db->prepare(
+            "SELECT 1 FROM ports
+              WHERE region_id = ?
+                AND status IN ('active','overloaded')
+              LIMIT 1"
+        );
+        $stmt->execute([$regionId]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+ /**
  * Znajdz aktywny port dla regionu odwiertu.
  * Find an active port for a well's region.
  * Preferuje port aktywny nad przeciazonym, blizszy regionowi.

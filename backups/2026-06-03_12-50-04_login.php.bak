@@ -1,0 +1,131 @@
+<?php
+$_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('public/login.php') : microtime(true);
+try {
+
+require_once __DIR__ . '/src/init.php';
+
+if (Auth::isLoggedIn()) {
+    header('Location: ' . url('home'));
+    exit();
+}
+
+// Auto-logowanie przez cookie "zapamiętaj mnie" — pomiń formularz.
+// Auto-login via remember-me cookie — skip the login form.
+if (Auth::tryRememberMe()) {
+    header('Location: ' . url('home'));
+    exit();
+}
+
+$error = '';
+
+if ($_POST) {
+    if (!RateLimiter::check('login')) {
+        $error = t('auth.err_too_many_attempts');
+    } elseif (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = t('auth.err_csrf');
+    } else {
+        $email    = Validator::sanitize($_POST['email']);
+        $password = $_POST['password'];
+
+        $loginResult = Auth::login($email, $password);
+        if ($loginResult === true) {
+            // Zapamiętaj urządzenie jeśli checkbox zaznaczony / Remember device if checkbox checked.
+            if (!empty($_POST['remember_me'])) {
+                Auth::setRememberMe(Auth::getUserId());
+            }
+            header('Location: ' . url('home'));
+            exit();
+        } elseif ($loginResult === 'not_verified') {
+            $error = t('auth.err_not_verified');
+        } else {
+            $error = t('auth.err_invalid_credentials');
+        }
+    }
+}
+
+$pageTitle = t('auth.login_title');
+$authPage  = true;
+$extraJs   = ['/assets/js/auth.js'];
+require_once __DIR__ . '/templates/header.php';
+?>
+
+<div class="login-container">
+    <section class="login-card fade-in" aria-labelledby="login-heading">
+        <h1 id="login-heading"><?= t('auth.login_heading') ?></h1>
+        <p class="login-subtitle"><?= t('auth.login_subtitle') ?></p>
+
+        <?php if ($error): ?>
+            <div class="alert alert-error" role="alert"><?= htmlspecialchars($error) ?></div>
+        <?php endif ?>
+
+        <form method="post" aria-label="<?= t('auth.form_aria') ?>" novalidate>
+            <?= CSRF::field() ?>
+
+            <div class="form-group">
+                <label class="form-label" for="email"><?= t('auth.label_email') ?></label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="form-input"
+                    placeholder="<?= t('auth.placeholder_email') ?>"
+                    required
+                    autocomplete="email"
+                    value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password"><?= t('auth.label_password') ?></label>
+                <div class="password-wrap">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-input"
+                        placeholder="<?= t('auth.placeholder_password') ?>"
+                        required
+                        autocomplete="current-password"
+                    >
+                    <button type="button" class="btn-show-pass" onclick="togglePassword('password', this)" aria-label="<?= t('auth.show_password') ?>"><svg class="auth-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+                </div>
+            </div>
+
+            <p class="forgot-link">
+                <a href="<?= url('forgot-password') ?>" class="link-primary"><?= t('auth.forgot_password') ?></a>
+            </p>
+
+            <div class="form-check-group">
+                <label class="form-check-label" for="remember_me">
+                    <input class="form-check-input" type="checkbox" id="remember_me" name="remember_me" value="1">
+                    Zapamiętaj mnie na 30 dni
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full">
+                <?= t('auth.btn_login') ?>
+            </button>
+        </form>
+
+        <p class="login-footer">
+            <?= t('auth.no_account') ?> <a href="<?= url('register') ?>" class="link-primary"><?= t('auth.register_link') ?></a>
+        </p>
+    </section>
+</div>
+
+<script>window.AUTH_LANG = <?= json_encode(['show_pass' => tPlain('auth.show_password'), 'hide_pass' => tPlain('auth.hide_password')], JSON_UNESCAPED_UNICODE) ?>;</script>
+<?php require_once __DIR__ . '/templates/footer.php' ?>
+<?php
+} catch (Throwable $e) {
+    if (class_exists('GameLog', false)) {
+        GameLog::error('public/login.php', 'Unhandled exception', $e);
+    }
+    if (!headers_sent()) {
+        http_response_code(500);
+    }
+    echo tPlain('common.app_error');
+} finally {
+    if (class_exists('GameLog', false)) {
+        GameLog::pageEnd('public/login.php', $_codexGuardStart);
+    }
+}

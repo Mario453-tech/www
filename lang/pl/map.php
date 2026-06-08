@@ -30,7 +30,9 @@ return [
     'worldmap.msg_well_purchased' => 'Odwiert uruchomiony: :name (:region). Produkcja: :prod bbl/h.',
     'map_js.prod_bonus' => 'Bonus produkcji',
     'map_js.tax_rate' => 'Podatek/h',
-    'map_js.political_risk' => 'Ryzyko polit.',
+    // Brief §3: nazewnictwo — "ryzyko regionu", nigdy "ryzyko polityczne".
+    // Brief §3: naming — "region risk", never "political risk".
+    'map_js.political_risk' => 'Ryzyko regionu',
     'map_js.entry_cost' => 'Koszt wejścia',
     'map_js.badge_mine' => 'Twój',
     'map_js.badge_taken' => 'Zajęty',
@@ -47,10 +49,63 @@ return [
     'map_js.tax_suffix' => '%/h przychodu',
     'map_js.buy_btn' => 'Kup odwiert - :cost PLN',
     'map_js.buying' => 'Kupowanie...',
-    'map_js.permit_required_title' => 'Wymagane zezwolenie na wiercenie',
-    'map_js.permit_required_text' => 'Zanim kupisz odwiert w tym regionie, musisz uzyskać aktywne zezwolenie na wiercenie. Złóż wniosek w dziale prawnym.',
+    // Brief §6.2 / §14.1: modal "Brak zezwolenia na wiercenie" — tytuł, treść,
+    // opis co zezwolenie odblokowuje, typ zezwolenia i przyciski.
+    // Brief §6.2 / §14.1: "no drilling permit" modal — title, body, what the
+    // permit unlocks, permit type and buttons.
+    'map_js.permit_required_title' => 'Brak zezwolenia na wiercenie',
+    'map_js.permit_required_text' => 'Nie możesz kupić odwiertu w tym regionie, ponieważ Twoja firma nie ma aktywnego zezwolenia na wiercenie. Złóż wniosek w dziale prawnym, aby odblokować ten region.',
+    'map_js.permit_required_unlocks' => 'Aktywne zezwolenie pozwala kupować i obsługiwać odwierty w tym regionie.',
+    'map_js.permit_type_label' => 'Typ zezwolenia',
+    'map_js.permit_type_drilling' => 'Zezwolenie na wiercenie',
     'map_js.permit_required_btn' => 'Przejdź do działu prawnego',
+    'map_js.permit_cancel_btn' => 'Anuluj',
     'map_js.badge_permit' => 'Zezwolenie',
+
+    // Brief §6.3 / §14.3: modal "Wniosek w trakcie" (status pending / delayed).
+    // Brief §6.3 / §14.3: "Application in progress" modal (pending / delayed).
+    'map_js.permit_pending_title' => 'Wniosek w trakcie',
+    'map_js.permit_pending_text'  => 'Wniosek o zezwolenie na ten region jest już rozpatrywany. Decyzja będzie dostępna za około :time.',
+    'map_js.permit_pending_text_unknown' => 'Wniosek o zezwolenie na ten region jest już rozpatrywany.',
+    'map_js.badge_permit_pending' => 'Wniosek w trakcie',
+
+    // Brief §6.4 / §14.4: modal "Brak decyzji" (status no_decision).
+    // Brief §6.4 / §14.4: "No decision" modal (no_decision status).
+    'map_js.permit_no_decision_title' => 'Brak decyzji',
+    'map_js.permit_no_decision_text'  => 'Urząd nie wydał jeszcze decyzji w sprawie zezwolenia na ten region. Wniosek pozostaje w trakcie rozpatrywania.',
+    'map_js.badge_permit_no_decision' => 'Brak decyzji',
+
+    // Brief §6.5: modal "Wniosek odrzucony" (status refused, cooldown aktywny).
+    // Brief §6.5: "Application refused" modal (refused, cooldown active).
+    'map_js.permit_refused_title'    => 'Wniosek odrzucony',
+    'map_js.permit_refused_text'     => 'Wniosek o zezwolenie na ten region został odrzucony.',
+    'map_js.permit_refused_cooldown' => 'Ponowny wniosek możliwy za: :time',
+    'map_js.badge_permit_refused'    => 'Wniosek odrzucony',
+
+    // Brief §7.3 / §14.2: modal "Region wysokiego ryzyka" (status locked — brak kapitału).
+    // Brief §7.3 / §14.2: "High-risk region" modal (locked — insufficient capital).
+    'map_js.permit_locked_title'    => 'Region wysokiego ryzyka',
+    'map_js.permit_locked_text'     => 'Twoja firma nie spełnia jeszcze warunków, aby ubiegać się o zezwolenie w tym regionie. Rozwiń firmę i zwiększ kapitał, aby odblokować trudniejsze regiony.',
+    'map_js.permit_locked_capital'  => 'Wymagany kapitał: :amount PLN',
+    'map_js.badge_permit_locked'    => 'Region zablokowany',
+
+    'map_js.permit_legal_locked_title' => 'Wymagany silniejszy dział prawny',
+    'map_js.permit_legal_locked_text'  => 'Ten region wymaga wyższego poziomu działu prawnego. Zatrudnij lub rozwiń dyrektora prawnego, aby odblokować możliwość złożenia wniosku.',
+    'map_js.permit_legal_locked_level' => 'Wymagany poziom: :level. Aktualny poziom: :current.',
+    'map_js.badge_permit_legal_locked' => 'Dział prawny',
+
+    'map_js.permit_credibility_locked_title' => 'Wymagana wiarygodność firmy',
+    'map_js.permit_credibility_locked_text'  => 'Ten region wymaga wyższej wiarygodności firmy. Ustabilizuj działania i unikaj negatywnych zdarzeń, aby odblokować możliwość złożenia wniosku.',
+    'map_js.permit_credibility_locked_level' => 'Wymagane minimum: :min / 100. Aktualnie: :current / 100.',
+    'map_js.badge_permit_credibility_locked' => 'Wiarygodność',
+
+    // Wspólne przyciski modali zezwoleń / Shared permit modal buttons.
+    'map_js.permit_btn_go_legal' => 'Przejdź do działu prawnego',
+    'map_js.permit_btn_close'    => 'Zamknij',
+
+    // Brief §6.1: baner aktywnego zezwolenia w panelu regionu.
+    // Brief §6.1: active-permit banner in the region panel.
+    'map_js.permit_active_banner' => 'Masz aktywne zezwolenie na wiercenie w tym regionie. Możesz kupować i obsługiwać odwierty objęte tym zezwoleniem.',
     'map_js.buy_confirm_title' => 'Potwierdź zakup',
     'map_js.buy_confirm_text' => 'Kupić odwiert w lokalizacji :location za :cost PLN?',
     'map_js.buy_confirm_btn' => 'Kup odwiert',
@@ -68,7 +123,7 @@ return [
     'map.region_legend' => 'Podatek',
     'map.sidebar_prompt' => 'Kliknij region lub pinezkę na mapie aby zobaczyć szczegóły i kupić odwiert.',
     'map.locations_available' => 'Dostępne lokalizacje',
-    'map.back_to_region' => '← Wróć do regionu',
+    'map.back_to_region' => 'Wróć do regionu',
     'map.filter_label' => 'Filtruj:',
     'map.filter_all' => 'Wszystkie',
     'map.tier_starter' => 'Starter',

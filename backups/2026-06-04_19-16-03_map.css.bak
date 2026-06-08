@@ -1,0 +1,820 @@
+/* map.css
+   Map-specific styles / Style specyficzne dla modulu mapy swiata.
+   Shared components and shell stay in style.css / Wspolne komponenty i shell zostaja w style.css.
+*/
+
+.map-legend-card {
+    padding: 12px 16px;
+    margin-bottom: 12px;
+}
+
+.map-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.legend-item:hover {
+    background: rgba(255, 255, 255, .05);
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.legend-name {
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.legend-tax {
+    color: rgba(232, 232, 240, .4);
+    font-size: 10px;
+}
+
+.map-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.map-wrap {
+    padding: 0;
+    overflow: hidden;
+}
+
+#globe-container,
+#world-map {
+    width: 100%;
+    height: 560px;
+    background: #0b0f1a;
+    border-radius: var(--radius, 8px);
+    overflow: hidden;
+}
+
+#globe-container {
+    cursor: grab;
+}
+
+#globe-container:active {
+    cursor: grabbing;
+}
+
+.region-label-text {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .9), 0 0 10px rgba(0, 0, 0, .8);
+    white-space: nowrap;
+    pointer-events: none;
+    text-transform: uppercase;
+    opacity: .85;
+}
+
+.map-pin {
+    border: 2px solid;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform .15s;
+}
+
+.map-pin:hover {
+    transform: scale(1.4);
+}
+
+.map-pin--available {
+    width: 12px;
+    height: 12px;
+    opacity: .85;
+}
+
+.map-pin--mine {
+    width: 20px;
+    height: 20px;
+    background: transparent !important;
+    border: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.map-pin--taken {
+    width: 10px;
+    height: 10px;
+    background: rgba(120, 120, 130, .4);
+    border-color: rgba(120, 120, 130, .6);
+}
+
+.map-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 560px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: rgba(255, 255, 255, .03);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: var(--radius, 8px);
+}
+
+.sidebar-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    height: 100%;
+    padding: 40px 24px;
+    text-align: center;
+}
+
+.sidebar-ph-icon {
+    margin-bottom: 16px;
+    font-size: 48px;
+    opacity: .4;
+}
+
+.sidebar-ph-text {
+    color: rgba(232, 232, 240, .45);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.sidebar-region,
+.sidebar-location {
+    padding: 20px;
+}
+
+.sidebar-region-hdr {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.sr-icon {
+    font-size: 28px;
+}
+
+.sr-name {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.sr-sub {
+    margin-top: 3px;
+    color: rgba(232, 232, 240, .45);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.sr-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.sr-metric {
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, .2);
+    border-radius: 6px;
+    text-align: center;
+}
+
+.sr-m-val {
+    margin-bottom: 3px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.sr-m-lbl {
+    color: rgba(232, 232, 240, .4);
+    font-size: 10px;
+    letter-spacing: .3px;
+}
+
+.sr-desc {
+    margin-bottom: 14px;
+    color: rgba(232, 232, 240, .5);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.sr-locations-title {
+    margin-bottom: 8px;
+    color: rgba(232, 232, 240, .4);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.sr-locations {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.loc-item {
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, .07);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+
+.loc-item:hover {
+    background: rgba(255, 255, 255, .06);
+    border-color: rgba(255, 255, 255, .15);
+}
+
+.loc-item--mine {
+    border-color: rgba(78, 201, 122, .2);
+    background: rgba(78, 201, 122, .04);
+}
+
+.loc-item--taken {
+    opacity: .5;
+    cursor: default;
+}
+
+.loc-item-name {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 3px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.loc-item-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+    color: rgba(232, 232, 240, .5);
+    font-size: 11px;
+}
+
+.loc-badge {
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+
+.loc-badge--free {
+    background: rgba(78, 201, 122, .12);
+    border: 1px solid rgba(78, 201, 122, .25);
+    color: #4ec97a;
+}
+
+.loc-badge--mine {
+    background: rgba(200, 168, 75, .12);
+    border: 1px solid rgba(200, 168, 75, .25);
+    color: #c8a84b;
+}
+
+.loc-badge--taken {
+    background: rgba(120, 120, 130, .1);
+    border: 1px solid rgba(120, 120, 130, .2);
+    color: rgba(232, 232, 240, .4);
+}
+
+.loc-badge--permit {
+    background: rgba(200, 168, 75, .12);
+    border: 1px solid rgba(200, 168, 75, .3);
+    color: #c8a84b;
+}
+
+.loc-back {
+    margin-bottom: 14px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: rgba(232, 232, 240, .5);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color .15s;
+}
+
+.loc-back:hover {
+    color: var(--text);
+}
+
+.loc-hdr {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.loc-name {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.loc-region {
+    margin-top: 3px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.loc-type {
+    margin-top: 2px;
+    color: rgba(232, 232, 240, .45);
+    font-size: 11px;
+}
+
+.loc-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.loc-desc {
+    margin-bottom: 16px;
+    color: rgba(232, 232, 240, .5);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.buy-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, .2);
+    border-radius: 6px;
+}
+
+.buy-sum-row {
+    display: flex;
+    justify-content: space-between;
+    color: rgba(232, 232, 240, .6);
+    font-size: 12px;
+}
+
+.buy-sum-row strong {
+    color: var(--text);
+}
+
+.buy-sum-total {
+    margin-top: 4px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    font-size: 13px;
+}
+
+.buy-sum-total strong {
+    font-size: 15px;
+}
+
+.btn-buy-well {
+    width: 100%;
+    padding: 12px;
+    background: rgba(78, 201, 122, .12);
+    border: 1px solid rgba(78, 201, 122, .3);
+    border-radius: 6px;
+    color: #4ec97a;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.btn-buy-well:hover {
+    background: rgba(78, 201, 122, .22);
+}
+
+.btn-buy-well:disabled {
+    opacity: .5;
+    cursor: default;
+}
+
+.loc-owned-badge,
+.loc-taken-badge {
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.loc-owned-badge {
+    background: rgba(200, 168, 75, .1);
+    border: 1px solid rgba(200, 168, 75, .25);
+    color: #c8a84b;
+}
+
+.loc-taken-badge {
+    background: rgba(224, 85, 85, .08);
+    border: 1px solid rgba(224, 85, 85, .2);
+    color: rgba(224, 85, 85, .8);
+}
+
+.loc-nofunds {
+    padding: 14px;
+    background: rgba(224, 85, 85, .08);
+    border: 1px solid rgba(224, 85, 85, .2);
+    border-radius: 6px;
+}
+
+.loc-nofunds-title {
+    margin-bottom: 4px;
+    color: #e05555;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.loc-nofunds-diff {
+    color: rgba(232, 232, 240, .6);
+    font-size: 12px;
+}
+
+/* Brief §6.1: baner aktywnego zezwolenia w panelu regionu.
+   Brief §6.1: active-permit banner in the region panel. */
+.sr-permit {
+    margin: 10px 0 0;
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.sr-permit--active {
+    background: rgba(46, 204, 113, .08);
+    border: 1px solid rgba(46, 204, 113, .28);
+    color: #7fe0a6;
+}
+
+.loc-permit-required {
+    padding: 14px;
+    background: rgba(200, 168, 75, .08);
+    border: 1px solid rgba(200, 168, 75, .25);
+    border-radius: 6px;
+    text-align: center;
+}
+
+.loc-permit-title {
+    margin-bottom: 6px;
+    color: #c8a84b;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.loc-permit-text {
+    margin-bottom: 12px;
+    color: rgba(232, 232, 240, .65);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.btn-permit-legal {
+    display: inline-block;
+    width: 100%;
+    padding: 11px 16px;
+    background: linear-gradient(135deg, #c8a84b, #e8cc7a);
+    color: #1a1a24;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: filter .15s;
+}
+
+.btn-permit-legal:hover {
+    filter: brightness(1.08);
+}
+
+/* Brief §6.2: szczegóły modalu braku zezwolenia — typ zezwolenia, opis
+   odblokowania oraz wiersz przycisków "Anuluj" + "Przejdź do działu prawnego".
+   Brief §6.2: no-permit modal details — permit type, unlock note and the
+   "Cancel" + "Go to legal" button row. */
+.loc-permit-rows {
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+.loc-permit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(200, 168, 75, .12);
+    font-size: 12px;
+}
+
+.loc-permit-lbl {
+    color: rgba(232, 232, 240, .55);
+}
+
+.loc-permit-val {
+    color: #e8e8f0;
+    font-weight: 600;
+}
+
+.loc-permit-unlocks {
+    margin-bottom: 12px;
+    color: rgba(232, 232, 240, .55);
+    font-size: 11px;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.loc-permit-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-permit-cancel {
+    flex: 0 0 auto;
+    padding: 11px 16px;
+    background: rgba(255, 255, 255, .06);
+    color: rgba(232, 232, 240, .8);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.btn-permit-cancel:hover {
+    background: rgba(255, 255, 255, .1);
+}
+
+.loc-permit-actions .btn-permit-legal {
+    flex: 1 1 auto;
+    width: auto;
+}
+
+/* Brief §6.3-§6.5, §7.3: warianty kolorystyczne kontenera modalu zezwolenia.
+   Brief §6.3-§6.5, §7.3: colour variants of the permit modal container. */
+.loc-permit-required--pending {
+    border-color: rgba(241, 196, 15, .35);
+    background:   rgba(241, 196, 15, .07);
+}
+
+.loc-permit-required--pending .loc-permit-title {
+    color: #f1c40f;
+}
+
+.loc-permit-required--no-decision {
+    border-color: rgba(231, 76, 60, .35);
+    background:   rgba(231, 76, 60, .07);
+}
+
+.loc-permit-required--no-decision .loc-permit-title {
+    color: #e74c3c;
+}
+
+.loc-permit-required--refused {
+    border-color: rgba(231, 76, 60, .35);
+    background:   rgba(231, 76, 60, .07);
+}
+
+.loc-permit-required--refused .loc-permit-title {
+    color: #e74c3c;
+}
+
+.loc-permit-required--locked {
+    border-color: rgba(149, 165, 166, .35);
+    background:   rgba(149, 165, 166, .07);
+}
+
+.loc-permit-required--locked .loc-permit-title {
+    color: #95a5a6;
+}
+
+/* Linia cooldownu (§6.5) i wymaganego kapitału (§7.3). */
+/* Cooldown line (§6.5) and required capital line (§7.3). */
+.loc-permit-cooldown,
+.loc-permit-capital {
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, .05);
+    border-radius: 4px;
+    color: rgba(232, 232, 240, .75);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Badge listy lokalizacji — różne statusy zezwoleń.
+   Location list badges — different permit statuses. */
+.loc-badge--permit-pending {
+    background: rgba(241, 196, 15, .18);
+    color: #f1c40f;
+}
+
+.loc-badge--permit-refused {
+    background: rgba(231, 76, 60, .18);
+    color: #e74c3c;
+}
+
+.loc-badge--permit-locked {
+    background: rgba(149, 165, 166, .18);
+    color: #95a5a6;
+}
+
+.map-top-filters {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, .07);
+}
+
+.map-top-filters__sep {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: rgba(255, 255, 255, .12);
+    flex-shrink: 0;
+}
+
+.map-top-filters__label {
+    color: rgba(232, 232, 240, .4);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.map-top-filters__group {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+}
+
+.btn-browse-all {
+    display: block;
+    width: 100%;
+    margin-top: 14px;
+    padding: 9px 14px;
+    background: rgba(200, 168, 75, .15);
+    border: 1px solid rgba(200, 168, 75, .35);
+    border-radius: 8px;
+    color: #c8a84b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: background .15s;
+}
+
+.btn-browse-all:hover {
+    background: rgba(200, 168, 75, .28);
+}
+
+.map-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 8px 0 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.map-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.map-filter-btn,
+.map-sort-btn {
+    padding: 4px 9px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .15);
+    border-radius: 5px;
+    color: rgba(232, 232, 240, .7);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+}
+
+.map-filter-btn:hover,
+.map-sort-btn:hover {
+    background: rgba(255, 255, 255, .12);
+    color: #e8e8f0;
+}
+
+.map-filter-btn.active,
+.map-sort-btn.active {
+    background: rgba(200, 168, 75, .25);
+    border-color: rgba(200, 168, 75, .5);
+    color: #c8a84b;
+}
+
+.loc-tier-badge {
+    display: inline-block;
+    margin-left: 5px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    vertical-align: middle;
+}
+
+.tier-starter {
+    background: rgba(78, 201, 122, .18);
+    border: 1px solid rgba(78, 201, 122, .3);
+    color: #4ec97a;
+}
+
+.tier-medium {
+    background: rgba(224, 165, 0, .15);
+    border: 1px solid rgba(224, 165, 0, .3);
+    color: #e0a500;
+}
+
+.tier-advanced {
+    background: rgba(224, 85, 85, .18);
+    border: 1px solid rgba(224, 85, 85, .3);
+    color: #e07878;
+}
+
+.sidebar-browse {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.browse-hdr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.browse-title {
+    color: #e8e8f0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.browse-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+    .map-layout {
+        grid-template-columns: 1fr;
+    }
+
+ #globe-container,
+ #world-map {
+        height: 380px;
+    }
+
+    .map-top-filters__group {
+        flex-wrap: wrap;
+    }
+
+ #map-audio-widget {
+        right: 10px;
+        bottom: 10px;
+        padding: 5px 10px 5px 6px;
+    }
+
+ #map-audio-vol {
+        width: 60px;
+    }
+}

@@ -9,6 +9,14 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
+try {
+    if (class_exists('MarineDeliveryService')) {
+        new MarineDeliveryService($db);
+    }
+} catch (Throwable $e) {
+    GameLog::error('admin/incidents', 'MarineDeliveryService schema init FAILED', $e);
+}
+
 // Well incident config keys: incident_cfg_{level}_{field}
 // Pipeline incident config keys: pipeline_inc_cfg_{level}_{field}
 $LEVELS = ['micro', 'minor', 'medium', 'major'];
@@ -30,6 +38,7 @@ $PIPE_DEFAULTS = [
     'pipe_minor'  => ['loss_add_min'=>0.5, 'loss_add_max'=>1.5,  'cond_drop_min'=>1.5, 'cond_drop_max'=>4.0,  'base_chance'=>0.005],
     'pipe_medium' => ['loss_add_min'=>1.5, 'loss_add_max'=>4.0,  'cond_drop_min'=>4.0, 'cond_drop_max'=>10.0, 'base_chance'=>0.0012],
 ];
+$MARINE_INCIDENT_TYPES = ['piracy', 'catastrophe', 'storm', 'breakdown'];
 
 // Cooldown / pressure config
 $PRESSURE_DEFAULTS = [
@@ -345,6 +354,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+    } elseif ($action === 'trigger_marine_incident') {
+        $tMarineType       = in_array($_POST['trig_marine_type'] ?? '', $MARINE_INCIDENT_TYPES, true) ? $_POST['trig_marine_type'] : '';
+        $tMarineDeliveryId = (int)($_POST['trig_marine_delivery_id'] ?? 0);
+        $tMarinePlayerId   = (int)($_POST['trig_marine_player_id'] ?? 0);
+
+        if (!$tMarineType || $tMarineDeliveryId <= 0 || $tMarinePlayerId <= 0) {
+            $err = t('admin.incidents.err_marine_trig_missing');
+        } else {
+            try {
+                $finSvc = in_array($tMarineType, ['piracy', 'catastrophe'], true) ? new FinanceService() : null;
+                $db->beginTransaction();
+
+                $dStmt = $db->prepare("
+                    SELECT md.id, md.player_id, md.well_id, md.volume_bbl, md.status,
+                           md.incident_type, w.name AS well_name
+                      FROM marine_deliveries md
+                      LEFT JOIN wells w ON w.id = md.well_id
+                     WHERE md.id = ? AND md.player_id = ?
+                     LIMIT 1
+                     FOR UPDATE
+                ");
+                $dStmt->execute([$tMarineDeliveryId, $tMarinePlayerId]);
+                $delivery = $dStmt->fetch();
+                if (!$delivery) {
+                    throw new RuntimeException(t('admin.incidents.err_marine_delivery_missing'));
+                }
+
+                $currentStatus = (string)($delivery['status'] ?? '');
+                if (in_array($currentStatus, ['delivered', 'lost'], true)) {
+                    throw new RuntimeException(t('admin.incidents.err_marine_delivery_closed'));
+                }
+
+                $volumeBbl = max(0.0, (float)($delivery['volume_bbl'] ?? 0));
+                $wellLabel = $delivery['well_name'] ?: ('#' . (int)$delivery['well_id']);
+                $typeLabel = t('admin.incidents.marine_type_' . $tMarineType);
+
+                if (in_array($tMarineType, ['piracy', 'catastrophe'], true)) {
+                    $tickAt = date('Y-m-d H:i:s');
+                    $db->prepare("
+                        UPDATE marine_deliveries
+                           SET status = 'lost',
+                               incident_type = ?,
+                               delivered_at = NOW()
+                         WHERE id = ?
+                    ")->execute([$tMarineType, $tMarineDeliveryId]);
+
+                    $price = 70.0;
+                    try {
+                        $priceRow = $db->query("SELECT current_price FROM market_state WHERE id = 1 LIMIT 1")->fetch();
+                        if ($priceRow && (float)$priceRow['current_price'] > 0) {
+                            $price = (float)$priceRow['current_price'];
+                        }
+                    } catch (Throwable $e) {}
+
+                    $cashAfter = 0.0;
+                    try {
+                        $cashStmt = $db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
+                        $cashStmt->execute([$tMarinePlayerId]);
+                        $cashAfter = (float)($cashStmt->fetchColumn() ?: 0.0);
+                    } catch (Throwable $e) {}
+
+                    $lossValue = round($volumeBbl * $price, 2);
+                    $finSvc?->saveTick(
+                        $tMarinePlayerId,
+                        $tickAt,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        $volumeBbl,
+                        $lossValue,
+                        $cashAfter,
+                        $price,
+                        0.0,
+                        0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        $volumeBbl,
+                        0.0,
+                        $volumeBbl
+                    );
+
+                    $checkStmt = $db->prepare("
+                        SELECT COUNT(*)
+                          FROM finance_logs
+                         WHERE player_id = ?
+                           AND tick_at = ?
+                           AND transport_event_loss_bbl = ?
+                    ");
+                    $checkStmt->execute([$tMarinePlayerId, $tickAt, round($volumeBbl, 4)]);
+                    if ((int)$checkStmt->fetchColumn() < 1) {
+                        throw new RuntimeException(t('admin.incidents.err_marine_finance_missing'));
+                    }
+                } else {
+                    $delayHours = $tMarineType === 'storm' ? 2 : 1;
+                    $db->prepare("
+                        UPDATE marine_deliveries
+                           SET status = 'delayed',
+                               incident_type = ?,
+                               delay_ticks = delay_ticks + 1,
+                               eta_at = DATE_ADD(eta_at, INTERVAL ? HOUR)
+                         WHERE id = ?
+                    ")->execute([$tMarineType, $delayHours, $tMarineDeliveryId]);
+                }
+
+                AdminLog::log('marine_incident_trigger', "GM triggered {$tMarineType} on marine delivery #{$tMarineDeliveryId} (player #{$tMarinePlayerId}, volume={$volumeBbl})");
+                $db->commit();
+                $msg = t('admin.incidents.msg_marine_triggered', [
+                    'type' => $typeLabel,
+                    'delivery' => $tMarineDeliveryId,
+                    'well' => $wellLabel,
+                    'bbl' => number_format($volumeBbl, 1, '.', ' '),
+                ]);
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                $err = t('admin.incidents.err_marine_trig_failed') . ': ' . $e->getMessage();
+            }
+        }
+
     } elseif ($action === 'trigger_incident') {
         $tLevel    = in_array($_POST['trig_level']  ?? '', $LEVELS, true) ? $_POST['trig_level'] : '';
         $tWellId   = (int)($_POST['trig_well_id']   ?? 0);
@@ -447,7 +587,7 @@ try {
 // Historia incydentow z filtrowaniem i paginacja (well + pipeline UNION ALL)
 $hPage    = max(1, (int)($_GET['hpage']   ?? 1));
 $hPerPage = in_array((int)($_GET['hper']  ?? 20), [10,20,50,100], true) ? (int)($_GET['hper'] ?? 20) : 20;
-$hSource  = in_array($_GET['hsource'] ?? '', ['','well','pipeline'], true) ? ($_GET['hsource'] ?? '') : '';
+$hSource  = in_array($_GET['hsource'] ?? '', ['','well','pipeline','marine'], true) ? ($_GET['hsource'] ?? '') : '';
 $hLevel   = in_array($_GET['hlevel']  ?? '', array_merge([''], $LEVELS), true) ? ($_GET['hlevel'] ?? '') : '';
 $hPlayer  = trim($_GET['hplayer']  ?? '');
 $hStatus  = in_array($_GET['hstatus'] ?? '', ['','open','repaired','auto'], true) ? ($_GET['hstatus'] ?? '') : '';
@@ -474,10 +614,20 @@ if ($hDays > 0)              { $pipeWhere[] = 'wpe.created_at >= NOW() - INTERVA
 // status filter does not apply to pipeline events (no repaired_at)
 $pipeWhereSQL = implode(' AND ', $pipeWhere);
 
+// Filtry historii dostaw morskich / Build WHERE for marine delivery incidents.
+$marineWhere  = ['md.incident_type IS NOT NULL'];
+$marineParams = [];
+if ($hLevel !== '')          { $marineWhere[] = '1=0'; }
+if ($hPlayer !== '')         { $marineWhere[] = 'mp.username LIKE ?'; $marineParams[] = '%' . $hPlayer . '%'; }
+if ($hDays > 0)              { $marineWhere[] = 'COALESCE(md.delivered_at, md.arrived_at, md.eta_at, md.created_at) >= NOW() - INTERVAL ? DAY'; $marineParams[] = $hDays; }
+$marineWhereSQL = implode(' AND ', $marineWhere);
+
 // Decide which sources to include
 $includeWell = ($hSource === '' || $hSource === 'well');
 $includePipe = ($hSource === '' || $hSource === 'pipeline')
                && ($hStatus === '' || $hSource === 'pipeline'); // status filter excludes pipelines in 'all' view
+$includeMarine = ($hSource === '' || $hSource === 'marine')
+                 && ($hStatus === '' || $hSource === 'marine'); // status filter excludes marine in 'all' view
 
 // Build UNION ALL SQL parts
 $unionParts  = [];
@@ -540,6 +690,31 @@ if ($includePipe) {
         WHERE $pipeWhereSQL
     ";
     $unionParams = array_merge($unionParams, $pipeParams);
+}
+
+if ($includeMarine) {
+    $unionParts[] = "
+        SELECT 'marine' $COL          AS src,
+               md.id,
+               md.player_id,
+               md.well_id,
+               NULL                   AS pipeline_id,
+               md.incident_type $COL  AS level,
+               COALESCE(md.delivered_at, md.arrived_at, md.eta_at, md.created_at) AS created_at,
+               CONCAT('Dostawa morska ', md.status, ': ', md.incident_type, ' (', ROUND(md.volume_bbl, 1), ' bbl)') $COL AS message,
+               NULL                   AS prod_drop,
+               NULL                   AS cost,
+               NULL                   AS repaired_at,
+               0                      AS auto_repair,
+               'marine_delivery' $COL AS cause_type,
+               mp.username  $COL      AS player_name,
+               mw.name      $COL      AS well_name
+        FROM marine_deliveries md
+        LEFT JOIN players mp ON mp.id = md.player_id
+        LEFT JOIN wells   mw ON mw.id = md.well_id
+        WHERE $marineWhereSQL
+    ";
+    $unionParams = array_merge($unionParams, $marineParams);
 }
 
 if (empty($unionParts)) {
@@ -632,6 +807,47 @@ try {
     }
 } catch (Throwable $e) {}
 
+// Dane do formularza recznego wywolania incydentu morskiego / Data for manual marine incident trigger form.
+// Brief: tylko REALNE, aktywne transporty morskie wybranego gracza — odwierty offshore (tankowiec),
+// statusy departing/in_transit zawsze, delayed tylko dla rejsow ktore wyruszyly max 2 dni temu
+// (tranzyt bazowy 3h ± 1h, wielokrotne opoznienia nie moga przekraczac 2 dni od departure_at).
+// Stare rekordy delayed z przeszlosci sa automatycznie wykluczone przez filtr departure_at.
+// Brief: only REAL, active marine transports — offshore wells (tanker), departing/in_transit always,
+// delayed only for voyages that departed at most 2 days ago (base transit 3h ± 1h; stale historical
+// delayed rows are excluded by the departure_at guard).
+$trigMarineDeliveries = [];
+try {
+    $marineDeliveryLimit = 15;
+    $stmt = $db->prepare("
+        SELECT *
+          FROM (
+            SELECT md.id, md.player_id, md.well_id, md.volume_bbl, md.status, md.eta_at, md.delay_ticks,
+                   COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name,
+                   COALESCE(p.name, 'port nieprzypisany') AS port_name,
+                   ROW_NUMBER() OVER (PARTITION BY md.player_id ORDER BY md.eta_at ASC, md.id ASC) AS row_no,
+                   COUNT(*) OVER (PARTITION BY md.player_id) AS player_delivery_total
+              FROM marine_deliveries md
+              INNER JOIN wells w ON w.id = md.well_id
+                                AND w.player_id = md.player_id
+                                AND w.well_type = 'offshore'
+              LEFT JOIN ports p ON p.id = md.port_id
+             WHERE md.status IN ('departing', 'in_transit')
+                OR (
+                       md.status = 'delayed'
+                   AND md.departure_at >= NOW() - INTERVAL 2 DAY
+                   )
+          ) q
+         WHERE q.row_no <= ?
+         ORDER BY q.player_id, q.eta_at ASC, q.id ASC
+    ");
+    $stmt->bindValue(1, $marineDeliveryLimit, PDO::PARAM_INT);
+    $stmt->execute();
+    $rows = $stmt->fetchAll();
+    foreach ($rows as $r) {
+        $trigMarineDeliveries[(int)$r['player_id']][] = $r;
+    }
+} catch (Throwable $e) {}
+
 $pageTitle = t('admin.incidents.page_title');
 $viewData = [
     'retentionDays'   => $retentionDays,
@@ -660,6 +876,8 @@ $viewData = [
     'trigPlayers'     => $trigPlayers,
     'trigWells'       => $trigWells,
     'trigPipelines'   => $trigPipelines,
+    'trigMarineDeliveries' => $trigMarineDeliveries,
+    'MARINE_INCIDENT_TYPES' => $MARINE_INCIDENT_TYPES,
     'pressureCfg'     => $pressureCfg,
     'PRESSURE_DEFAULTS' => $PRESSURE_DEFAULTS,
 ];

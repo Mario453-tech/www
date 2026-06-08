@@ -220,6 +220,14 @@ class AdminAuth
             return;
         }
 
+ // Auto-login przez zaufane urządzenie — pomija hasło i 2FA.
+ // Auto-login via trusted device — skips both password and 2FA.
+        if (self::tryTrustedDevice()) {
+            self::clearPending(); // wyczyść pending ustawiony przez SSO / clear pending set by SSO
+            $_SESSION['admin_last_active'] = time();
+            return;
+        }
+
         $_SESSION['admin_redirect'] = $_SERVER['REQUEST_URI'] ?? '/admin/';
 
  // Haslo OK ale brak 2FA -> krok kodu / password OK but 2FA pending -> code step
@@ -437,6 +445,138 @@ class AdminAuth
         $hash = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 12]);
         $db = Database::getInstance()->getConnection();
         return $db->prepare("UPDATE admins SET password_hash = ? WHERE id = ?")->execute([$hash, $adminId]);
+    }
+
+ // ── Zaufane urządzenia (pomijanie 2FA przez 30 dni) ──
+ // ── Trusted devices (skip 2FA for 30 days) ──
+
+    private const TRUSTED_DEVICE_DAYS   = 30;
+    private const TRUSTED_DEVICE_COOKIE = 'admin_td';
+
+ // Zapisz token zaufanego urządzenia w DB i ustaw cookie na 30 dni.
+ // Save trusted-device token in DB and set a 30-day cookie.
+    public static function setTrustedDevice(int $adminId): void
+    {
+        $token     = bin2hex(random_bytes(32)); // 64-char hex token
+        $tokenHash = hash('sha256', $token);
+        $expiresAt = date('Y-m-d H:i:s', time() + self::TRUSTED_DEVICE_DAYS * 86400);
+        $ip        = $_SERVER['REMOTE_ADDR'] ?? '';
+
+        try {
+            $db = Database::getInstance()->getConnection();
+            self::ensureTrustedDevicesTable($db);
+ // Usuń wygasłe tokeny dla tego admina / Remove expired tokens for this admin.
+            $db->prepare("DELETE FROM admin_trusted_devices WHERE admin_id = ? AND expires_at < NOW()")
+                ->execute([$adminId]);
+            $db->prepare("INSERT INTO admin_trusted_devices (admin_id, token_hash, expires_at, created_ip) VALUES (?,?,?,?)")
+                ->execute([$adminId, $tokenHash, $expiresAt, $ip]);
+        } catch (\Throwable $e) {
+ // Nie blokuj logowania gdy zapis się nie uda / Don't block login if storage fails.
+            return;
+        }
+
+        $secure = !empty($_SERVER['HTTPS']);
+        setcookie(self::TRUSTED_DEVICE_COOKIE, $token, [
+            'expires'  => time() + self::TRUSTED_DEVICE_DAYS * 86400,
+            'path'     => '/admin',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Strict',
+        ]);
+    }
+
+ // Sprawdź cookie zaufanego urządzenia znając admin_id (używane w 2fa.php po haśle).
+ // Check trusted-device cookie knowing the admin_id (used in 2fa.php after password).
+    public static function checkTrustedDevice(int $adminId): bool
+    {
+        $cookie = $_COOKIE[self::TRUSTED_DEVICE_COOKIE] ?? '';
+        if (!$cookie || strlen($cookie) !== 64) {
+            return false;
+        }
+        $tokenHash = hash('sha256', $cookie);
+
+        try {
+            $db = Database::getInstance()->getConnection();
+            self::ensureTrustedDevicesTable($db);
+            $stmt = $db->prepare("SELECT id FROM admin_trusted_devices WHERE admin_id = ? AND token_hash = ? AND expires_at > NOW() LIMIT 1");
+            $stmt->execute([$adminId, $tokenHash]);
+            $row = $stmt->fetch();
+            if (!$row) {
+                return false;
+            }
+ // Odśwież czas ostatniego użycia / Refresh last-used timestamp.
+            $db->prepare("UPDATE admin_trusted_devices SET last_used_at = NOW() WHERE id = ?")
+                ->execute([$row['id']]);
+            self::log('TRUSTED_DEVICE', "Trusted-device bypass for admin_id={$adminId}");
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+ // Auto-login przez cookie zaufanego urządzenia bez znajomości admin_id.
+ // Auto-login via trusted-device cookie without a known admin_id upfront.
+ // Używane w requireLogin() i login.php przed wyświetleniem formularza.
+ // Used in requireLogin() and login.php before showing the form.
+    public static function tryTrustedDevice(): bool
+    {
+        $cookie = $_COOKIE[self::TRUSTED_DEVICE_COOKIE] ?? '';
+        if (!$cookie || strlen($cookie) !== 64) {
+            return false;
+        }
+        $tokenHash = hash('sha256', $cookie);
+
+        try {
+            $db = Database::getInstance()->getConnection();
+            self::ensureTrustedDevicesTable($db);
+            $stmt = $db->prepare(
+                "SELECT td.id, a.id AS admin_id, a.username, a.email, a.is_active
+                 FROM admin_trusted_devices td
+                 JOIN admins a ON a.id = td.admin_id
+                 WHERE td.token_hash = ? AND td.expires_at > NOW()
+                 LIMIT 1"
+            );
+            $stmt->execute([$tokenHash]);
+            $row = $stmt->fetch();
+            if (!$row || !(int)$row['is_active']) {
+                return false;
+            }
+ // Odśwież last_used_at i ustaw pełną sesję adminA / Refresh last_used_at and set full admin session.
+            $db->prepare("UPDATE admin_trusted_devices SET last_used_at = NOW() WHERE id = ?")
+                ->execute([$row['id']]);
+            self::setSession(['id' => $row['admin_id'], 'username' => $row['username'], 'email' => $row['email']]);
+            try {
+                $db->prepare("UPDATE admins SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?")
+                    ->execute([$_SERVER['REMOTE_ADDR'] ?? '', $row['admin_id']]);
+            } catch (\Throwable $ignored) {}
+            self::log('TRUSTED_DEVICE_AUTO', "Auto-login via trusted device: '{$row['username']}'");
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+ // Utwórz tabelę jeśli nie istnieje (idempotentne).
+ // Create the table if it doesn't exist (idempotent).
+    private static function ensureTrustedDevicesTable(PDO $db): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $db->exec("CREATE TABLE IF NOT EXISTS admin_trusted_devices (
+            id            INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            admin_id      INT          NOT NULL,
+            token_hash    CHAR(64)     NOT NULL,
+            created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at    DATETIME     NOT NULL,
+            last_used_at  DATETIME         NULL,
+            created_ip    VARCHAR(45)  NOT NULL DEFAULT '',
+            UNIQUE KEY uq_td_token  (token_hash),
+            KEY           idx_td_admin   (admin_id),
+            KEY           idx_td_expires (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $checked = true;
     }
 
     public static function log(string $level, string $message): void

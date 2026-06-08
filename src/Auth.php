@@ -280,6 +280,11 @@ class Auth
     {
         try {
             if (!self::isLoggedIn()) {
+ // Auto-logowanie przez cookie "zapamiętaj mnie" / Auto-login via remember-me cookie.
+                if (self::tryRememberMe()) {
+                    $_SESSION['last_active'] = time();
+                    return;
+                }
                 $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/';
                 header('Location: /login');
                 exit();
@@ -322,6 +327,8 @@ class Auth
     public static function logout(bool $redirect = true): void
     {
         try {
+ // Usuń token "zapamiętaj mnie" / Remove remember-me token.
+            self::clearRememberMe();
             unset($_SESSION['logged_in'], $_SESSION['user_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['login_time'], $_SESSION['last_active']);
 
             if ($redirect) {
@@ -486,6 +493,140 @@ class Auth
             GameLog::error('Auth', 'verifyResetToken failed', ['error' => $e->getMessage()]);
             return null;
         }
+    }
+
+ // ── Zapamiętaj mnie (pomijanie logowania przez 30 dni) ──
+ // ── Remember-me (skip login for 30 days) ──
+
+    private const REMEMBER_DAYS   = 30;
+    private const REMEMBER_COOKIE = 'player_rt';
+
+ // Zapisz token "zapamiętaj mnie" w DB i ustaw cookie na 30 dni.
+ // Save "remember-me" token in DB and set a 30-day cookie.
+    public static function setRememberMe(int $playerId): void
+    {
+        try {
+            $token     = bin2hex(random_bytes(32)); // 64-char hex token
+            $tokenHash = hash('sha256', $token);
+            $expiresAt = date('Y-m-d H:i:s', time() + self::REMEMBER_DAYS * 86400);
+            $ip        = $_SERVER['REMOTE_ADDR'] ?? '';
+
+            $db = Database::getInstance()->getConnection();
+            self::ensureRememberTokensTable($db);
+ // Usuń wygasłe tokeny tego gracza / Remove expired tokens for this player.
+            $db->prepare("DELETE FROM player_remember_tokens WHERE player_id = ? AND expires_at < NOW()")
+                ->execute([$playerId]);
+            $db->prepare("INSERT INTO player_remember_tokens (player_id, token_hash, expires_at, created_ip) VALUES (?,?,?,?)")
+                ->execute([$playerId, $tokenHash, $expiresAt, $ip]);
+
+            $secure = !empty($_SERVER['HTTPS']);
+            setcookie(self::REMEMBER_COOKIE, $token, [
+                'expires'  => time() + self::REMEMBER_DAYS * 86400,
+                'path'     => '/',
+                'secure'   => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        } catch (Throwable $e) {
+ // Nie blokuj logowania gdy zapis się nie uda / Don't block login if storage fails.
+            GameLog::error('Auth', 'setRememberMe failed', [
+                'player_id' => $playerId,
+                'error'     => $e->getMessage(),
+            ]);
+        }
+    }
+
+ // Sprawdź cookie i zaloguj automatycznie bez hasła.
+ // Check cookie and auto-login without a password.
+    public static function tryRememberMe(): bool
+    {
+        try {
+            $cookie = $_COOKIE[self::REMEMBER_COOKIE] ?? '';
+            if (!$cookie || strlen($cookie) !== 64) {
+                return false;
+            }
+            $tokenHash = hash('sha256', $cookie);
+
+            $db = Database::getInstance()->getConnection();
+            self::ensureRememberTokensTable($db);
+            $stmt = $db->prepare(
+                "SELECT rt.id, p.id AS player_id, p.username, p.email,
+                        COALESCE(p.email_verified, 1) AS email_verified
+                 FROM player_remember_tokens rt
+                 JOIN players p ON p.id = rt.player_id
+                 WHERE rt.token_hash = ? AND rt.expires_at > NOW()
+                 LIMIT 1"
+            );
+            $stmt->execute([$tokenHash]);
+            $row = $stmt->fetch();
+
+            if (!$row || !(int)$row['email_verified']) {
+                return false;
+            }
+
+ // Odśwież last_used_at i ustaw sesję / Refresh last_used_at and set session.
+            $db->prepare("UPDATE player_remember_tokens SET last_used_at = NOW() WHERE id = ?")
+                ->execute([$row['id']]);
+            self::setSession(['id' => $row['player_id'], 'username' => $row['username'], 'email' => $row['email']]);
+            $db->prepare("UPDATE players SET last_login_at = NOW() WHERE id = ?")
+                ->execute([$row['player_id']]);
+
+            GameLog::info('Auth', 'Auto-login via remember-me', ['player_id' => $row['player_id']]);
+            return true;
+        } catch (Throwable $e) {
+            GameLog::error('Auth', 'tryRememberMe failed', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+ // Usuń token "zapamiętaj mnie" podczas wylogowania.
+ // Delete "remember-me" token on logout.
+    public static function clearRememberMe(): void
+    {
+        try {
+            $cookie = $_COOKIE[self::REMEMBER_COOKIE] ?? '';
+            if ($cookie && strlen($cookie) === 64) {
+                $tokenHash = hash('sha256', $cookie);
+                $db = Database::getInstance()->getConnection();
+                self::ensureRememberTokensTable($db);
+                $db->prepare("DELETE FROM player_remember_tokens WHERE token_hash = ?")
+                    ->execute([$tokenHash]);
+            }
+        } catch (Throwable $e) {
+            GameLog::error('Auth', 'clearRememberMe failed', ['error' => $e->getMessage()]);
+        }
+ // Usuń cookie niezależnie od błędu DB / Delete cookie regardless of DB errors.
+        $secure = !empty($_SERVER['HTTPS']);
+        setcookie(self::REMEMBER_COOKIE, '', [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+
+ // Utwórz tabelę tokenów jeśli nie istnieje (idempotentne).
+ // Create remember-me tokens table if it doesn't exist (idempotent).
+    private static function ensureRememberTokensTable(PDO $db): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $db->exec("CREATE TABLE IF NOT EXISTS player_remember_tokens (
+            id            INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            player_id     INT          NOT NULL,
+            token_hash    CHAR(64)     NOT NULL,
+            created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at    DATETIME     NOT NULL,
+            last_used_at  DATETIME         NULL,
+            created_ip    VARCHAR(45)  NOT NULL DEFAULT '',
+            UNIQUE KEY uq_prt_token   (token_hash),
+            KEY           idx_prt_player  (player_id),
+            KEY           idx_prt_expires (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $checked = true;
     }
 
  /**

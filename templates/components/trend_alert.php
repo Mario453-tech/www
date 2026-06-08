@@ -22,17 +22,20 @@ if (class_exists('GameLog', false)) {
         <span class="trend-alert__icon"><?= $trendIcon ?></span>
     </div>
     <div class="trend-alert__content">
-        <div class="trend-alert__tags">
-            <span class="trend-tag trend-tag--event"> <?= t('trend_alert.active_event') ?></span>
-            <?php if ($trendPricePct ?? 0): ?>
-            <span class="trend-tag trend-tag--price <?= $isPriceDrop ? 'trend-tag--neg' : 'trend-tag--pos' ?>"><?= htmlspecialchars($pctLabel) ?> <?= t('trend_alert.price_tag_suffix') ?></span>
-            <?php endif ?>
-            <span class="trend-tag trend-tag--date"><?= htmlspecialchars(date('d.m.Y', strtotime($activeTrend['activated_at']))) ?></span>
+        <!-- Header row: event label left, price + date badges right / Wiersz nagłówka: etykieta po lewej, odznaki po prawej -->
+        <div class="trend-alert__header-row">
+            <span class="trend-tag trend-tag--event"><?= t('trend_alert.active_event') ?></span>
+            <div class="trend-alert__event-badges">
+                <?php if ($trendPricePct ?? 0): ?>
+                <span class="trend-tag trend-tag--price <?= $isPriceDrop ? 'trend-tag--neg' : 'trend-tag--pos' ?>"><?= htmlspecialchars($pctLabel) ?> <?= t('trend_alert.price_tag_suffix') ?></span>
+                <?php endif ?>
+                <span class="trend-tag trend-tag--date"><?= htmlspecialchars(date('d.m.Y', strtotime($activeTrend['activated_at']))) ?></span>
+            </div>
         </div>
         <div class="trend-alert__message"><?= htmlspecialchars($trendMessage) ?></div>
         <?php if ($eventImpactPerHour ?? 0): ?>
         <div class="trend-alert__impact <?= ($eventImpactPerHour < 0) ? 'trend-impact--neg' : 'trend-impact--pos' ?>">
-            <?= $eventImpactPerHour < 0 ? '' : '' ?> <?= t('trend_alert.impact_label') ?>
+            <?= t('trend_alert.impact_label') ?>
             ~<?= ($eventImpactPerHour < 0 ? '' : '+') . number_format(abs($eventImpactPerHour), 0, ',', ' ') ?> $/h
         </div>
         <?php endif ?>

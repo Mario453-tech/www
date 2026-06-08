@@ -311,31 +311,6 @@
     color: #c8a84b;
 }
 
-/* Warianty statusów zezwolenia na liście lokalizacji / Permit status badge variants */
-.loc-badge--permit-pending {
-    background: rgba(100, 140, 220, .12);
-    border: 1px solid rgba(100, 140, 220, .3);
-    color: #7ea8f0;
-}
-
-.loc-badge--permit-no-decision {
-    background: rgba(200, 140, 60, .12);
-    border: 1px solid rgba(200, 140, 60, .3);
-    color: #e09840;
-}
-
-.loc-badge--permit-refused {
-    background: rgba(210, 80, 80, .12);
-    border: 1px solid rgba(210, 80, 80, .3);
-    color: #e06060;
-}
-
-.loc-badge--permit-locked {
-    background: rgba(130, 100, 180, .12);
-    border: 1px solid rgba(130, 100, 180, .3);
-    color: #a080d0;
-}
-
 .loc-back {
     margin-bottom: 14px;
     padding: 0;
@@ -482,17 +457,19 @@
     font-size: 12px;
 }
 
-/* Banner aktywnego zezwolenia w panelu regionu (§6.1) / Active permit banner in region panel */
-.sr-permit--active {
-    padding: 8px 12px;
-    background: rgba(60, 180, 100, .12);
-    border: 1px solid rgba(60, 180, 100, .3);
+/* Brief §6.1: baner aktywnego zezwolenia w panelu regionu.
+   Brief §6.1: active-permit banner in the region panel. */
+.sr-permit {
+    margin: 10px 0 0;
+    padding: 9px 12px;
     border-radius: 6px;
-    color: #5ccc80;
     font-size: 12px;
-    font-weight: 600;
-    text-align: center;
-    margin-bottom: 8px;
+    line-height: 1.5;
+}
+.sr-permit--active {
+    background: rgba(46, 204, 113, .08);
+    border: 1px solid rgba(46, 204, 113, .28);
+    color: #7fe0a6;
 }
 
 .loc-permit-required {
@@ -501,45 +478,6 @@
     border: 1px solid rgba(200, 168, 75, .25);
     border-radius: 6px;
     text-align: center;
-}
-
-/* Warianty panelu zezwolenia per status / Permit panel color variants per status */
-.loc-permit-required--pending,
-.loc-permit-required--delayed {
-    background: rgba(100, 140, 220, .08);
-    border-color: rgba(100, 140, 220, .25);
-}
-
-.loc-permit-required--pending .loc-permit-title,
-.loc-permit-required--delayed .loc-permit-title {
-    color: #7ea8f0;
-}
-
-.loc-permit-required--no-decision {
-    background: rgba(200, 140, 60, .08);
-    border-color: rgba(200, 140, 60, .25);
-}
-
-.loc-permit-required--no-decision .loc-permit-title {
-    color: #e09840;
-}
-
-.loc-permit-required--refused {
-    background: rgba(210, 80, 80, .08);
-    border-color: rgba(210, 80, 80, .25);
-}
-
-.loc-permit-required--refused .loc-permit-title {
-    color: #e06060;
-}
-
-.loc-permit-required--locked {
-    background: rgba(130, 100, 180, .08);
-    border-color: rgba(130, 100, 180, .25);
-}
-
-.loc-permit-required--locked .loc-permit-title {
-    color: #a080d0;
 }
 
 .loc-permit-title {
@@ -572,6 +510,162 @@
 
 .btn-permit-legal:hover {
     filter: brightness(1.08);
+}
+
+/* Brief §6.2: szczegóły modalu braku zezwolenia — typ zezwolenia, opis
+   odblokowania oraz wiersz przycisków "Anuluj" + "Przejdź do działu prawnego".
+   Brief §6.2: no-permit modal details — permit type, unlock note and the
+   "Cancel" + "Go to legal" button row. */
+.loc-permit-rows {
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+.loc-permit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(200, 168, 75, .12);
+    font-size: 12px;
+}
+
+.loc-permit-lbl {
+    color: rgba(232, 232, 240, .55);
+}
+
+.loc-permit-val {
+    color: #e8e8f0;
+    font-weight: 600;
+}
+
+.loc-permit-unlocks {
+    margin-bottom: 12px;
+    color: rgba(232, 232, 240, .55);
+    font-size: 11px;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.loc-permit-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-permit-cancel {
+    flex: 0 0 auto;
+    padding: 11px 16px;
+    background: rgba(255, 255, 255, .06);
+    color: rgba(232, 232, 240, .8);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.btn-permit-cancel:hover {
+    background: rgba(255, 255, 255, .1);
+}
+
+.loc-permit-actions .btn-permit-legal {
+    flex: 1 1 auto;
+    width: auto;
+}
+
+/* Brief §6.3-§6.5, §7.3: warianty kolorystyczne kontenera modalu zezwolenia.
+   Brief §6.3-§6.5, §7.3: colour variants of the permit modal container. */
+.loc-permit-required--pending {
+    border-color: rgba(241, 196, 15, .35);
+    background:   rgba(241, 196, 15, .07);
+}
+
+.loc-permit-required--pending .loc-permit-title {
+    color: #f1c40f;
+}
+
+.loc-permit-required--no-decision {
+    border-color: rgba(231, 76, 60, .35);
+    background:   rgba(231, 76, 60, .07);
+}
+
+.loc-permit-required--no-decision .loc-permit-title {
+    color: #e74c3c;
+}
+
+.loc-permit-required--refused {
+    border-color: rgba(231, 76, 60, .35);
+    background:   rgba(231, 76, 60, .07);
+}
+
+.loc-permit-required--refused .loc-permit-title {
+    color: #e74c3c;
+}
+
+.loc-permit-required--locked {
+    border-color: rgba(149, 165, 166, .35);
+    background:   rgba(149, 165, 166, .07);
+}
+
+.loc-permit-required--locked .loc-permit-title {
+    color: #95a5a6;
+}
+
+/* Linia cooldownu (§6.5) i wymaganego kapitału (§7.3). */
+/* Cooldown line (§6.5) and required capital line (§7.3). */
+.loc-permit-cooldown,
+.loc-permit-capital {
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, .05);
+    border-radius: 4px;
+    color: rgba(232, 232, 240, .75);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Badge listy lokalizacji — różne statusy zezwoleń.
+   Location list badges — different permit statuses. */
+.loc-badge--permit-pending {
+    background: rgba(241, 196, 15, .18);
+    color: #f1c40f;
+}
+
+.loc-badge--permit-refused {
+    background: rgba(231, 76, 60, .18);
+    color: #e74c3c;
+}
+
+.loc-badge--permit-locked {
+    background: rgba(149, 165, 166, .18);
+    color: #95a5a6;
+}
+
+.loc-badge--permit-legal {
+    background: rgba(111, 168, 220, .18);
+    color: #9fc5e8;
+}
+
+.loc-badge--permit-credibility {
+    background: rgba(214, 168, 79, .18);
+    color: #e0bd69;
+}
+
+.loc-permit-required--legal-locked {
+    border-color: rgba(111, 168, 220, .24);
+    background: rgba(111, 168, 220, .06);
+}
+
+.loc-permit-required--credibility-locked {
+    border-color: rgba(214, 168, 79, .28);
+    background: rgba(214, 168, 79, .06);
+}
+
+.loc-permit-required--credibility-locked .loc-permit-title {
+    color: #e0bd69;
 }
 
 .map-top-filters {

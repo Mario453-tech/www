@@ -2608,72 +2608,65 @@ Ogólny wskaźnik reputacji firmy wobec świata gry (`company_credibility`, skal
 NIE zastępuje `credit_score`, `bank_trust_scores` ani `black_market_score` — to osobny, nadrzędny wskaźnik
 pod przyszły dział prawny, trudniejsze regiony, kontrakty i przetargi.
 
----
+#### Architektura
 
-#### Co działa — potwierdzone testami (21/21 testów OK)
-
-**Fundament logiki (serwis):**
-- Wynik gracza w skali 0–100, domyślnie 50. Wynik nigdy nie może spaść poniżej 0 ani przekroczyć 100 — twarde przycinanie przy każdej operacji.
-- Pięć poziomów opisowych: krytyczna (0–19), niska (20–39), chwiejna (40–59), stabilna (60–79), wysoka (80–100).
-- Każda zmiana wyniku logowana w tabeli historii — nawet jeśli wynik nie zmienił się bo uderzył w sufit lub podłogę.
-- Wszystkie zmiany przechodzą wyłącznie przez jeden serwis — żaden inny kod nie może modyfikować pola bezpośrednio.
-
-**Zdarzenia wbudowane w grę:**
-- Wykrycie czarnego rynku → −12 punktów.
-- Aktywacja komornika → −20 punktów.
-- Bankructwo → −25 punktów.
-- Złamanie planu naprawczego → −10 punktów.
-- Duże opóźnienie spłaty → −6 punktów.
-- Terminowa rata kredytu → +2 punkty.
-- Pełna spłata kredytu → +8 punktów.
-- Wcześniejsza spłata kredytu → +6 punktów.
-
-**Powiadomienia:**
-- Powiadomienie dyrektora tylko przy zmianie o co najmniej 5 punktów.
-- Duże spadki (komornik, bankructwo) → priorytet wysoki.
-- Brak tabeli powiadomień nie przerywa zmiany wyniku — w pełni zabezpieczone.
-
-**Widok dla gracza:**
-- Karta na dashboardzie: wynik (np. 62 / 100), poziom opisowy, krótki opis, pasek wizualny.
-- Gracz nie widzi wzorów ani listy zdarzeń.
-
-**Panel admina:**
-- Lista wszystkich graczy z aktualnym wynikiem i poziomem.
-- Historia zmian: data, zdarzenie, delta, wynik przed, wynik po, notatka.
-- Ręczna korekta przez modal — wymaga podania zmiany i powodu; zapis w historii jako `admin_manual_adjustment`.
-
-**Infrastruktura:**
-- Tabela `company_credibility_log` tworzona automatycznie przy pierwszym uruchomieniu — bez ręcznych migracji.
-- Pole `company_credibility` dodawane do tabeli graczy automatycznie przy pierwszym wejściu na dashboard lub panel admina.
-
----
-
-#### Co nie zostało wdrożone (celowo — poza zakresem fundamentu)
-
-- Zdarzenie "długi okres bez naruszeń" (+3) — odłożone do momentu aż będzie naturalne miejsce podpięcia w ticku.
-- Wpływ na zezwolenia regionalne — np. trudniejszy region wymaga min. 60/100 wiarygodności.
-- Wpływ na warunki kredytowe w banku.
-- Kontrakty i partnerzy biznesowi wymagający określonego progu.
-- Przetargi, offshore, duże inwestycje.
-- Automatyczna powolna odbudowa wyniku przy stabilnej działalności.
-- Audyty, łapówki, system kar prawnych.
-
----
-
-#### Pliki modułu
-
-| Plik | Rola |
-|------|------|
-| `src/CompanyCredibilityService.php` | Cała logika — jedyny punkt zmiany wyniku |
-| `migrations/etap12_company_credibility.sql` | Migracja ręczna (lub poczekać na auto-schemat) |
-| `templates/components/company_credibility.php` | Karta gracza na dashboardzie |
+| Plik | Zmiany |
+|------|--------|
+| `src/CompanyCredibilityService.php` | Nowy serwis: `getScore`, `getLevel`, `changeScore`, `logChange`, `applyEvent`, `getHistory`, `ensureSchema` (guarded, DDL odraczane poza transakcję) |
+| `migrations/etap12_company_credibility.sql` | Pole `players.company_credibility` + tabela `company_credibility_log` |
+| `templates/components/company_credibility.php` | Karta na dashboardzie gracza (wynik, poziom, opis) |
 | `assets/css/credibility.css` | Style karty gracza |
-| `admin/credibility.php` | Panel admina: lista, historia, korekta |
-| `templates/views/admin/credibility/main.php` | Widok admina |
-| `assets/js/admin_credibility.js` | Modal ręcznej korekty |
-| `lang/pl/credibility.php` | Tłumaczenia gracza |
-| `lang/pl/admin/credibility.php` | Tłumaczenia admina |
-| `tests/Integration/CompanyCredibilityServiceTest.php` | 21 testów integracyjnych |
+| `public/index.php` | Pobranie wyniku + przekazanie do widoku, podpięcie CSS |
+| `templates/views/index/main.php` | Włączenie komponentu karty |
+| `admin/credibility.php` | Panel admina: lista graczy, historia, ręczna korekta |
+| `templates/views/admin/credibility/main.php` | Widok admina — CSS Grid (zero tabel HTML), modal korekty |
+| `assets/js/admin_credibility.js` | Sterowanie modalem ręcznej korekty |
+| `assets/css/admin.css` | Style admina: odznaki, grid listy, modal |
+| `admin/partials/header.php` | Pozycja w nawigacji (sekcja Finanse) |
+| `lang/pl/credibility.php` | Tłumaczenia gracza (`credibility.*`) |
+| `lang/pl/admin/credibility.php` | Tłumaczenia admina (`admin.credibility.*`) |
+| `lang/pl/admin/nav.php` | Klucz nawigacji |
+| `lang/pl.php` | Rejestracja loadera `credibility.php` |
+| `tests/Integration/CompanyCredibilityServiceTest.php` | 21 testów (zakres, log, poziomy, próg powiadomienia, guard) |
+
+#### Poziomy (sekcja 2 briefu)
+
+| Zakres | Poziom |
+|--------|--------|
+| 0–19 | krytyczna |
+| 20–39 | niska |
+| 40–59 | chwiejna |
+| 60–79 | stabilna |
+| 80–100 | wysoka |
+
+#### Podpięte zdarzenia (sekcja 6)
+
+| Zdarzenie | Delta | Punkt podpięcia |
+|-----------|-------|-----------------|
+| `black_market_detected` | −12 | `BlackMarketService::executeTransaction` (po commit) |
+| `bailiff_activated` | −20 | `BailiffService::startNewProceedings` |
+| `bankruptcy_entered` | −25 | `BailiffService::declareBankruptcy` |
+| `recovery_plan_broken` | −10 | `BankNegotiation/ProcessorTrait::checkRecoveryPlanViolations` |
+| `major_payment_delay` | −6 | `LoanRepository::processInstallment` (przejście w `late`) |
+| `loan_installment_paid_on_time` | +2 | `LoanRepository::processInstallment` (rata) |
+| `loan_fully_repaid` | +8 | `LoanRepository::processInstallment` (spłata) |
+| `loan_repaid_early` | +6 | `Bank/RepaymentTrait::repay` (po commit) |
+
+`clean_operation_period` (+3) i `admin_manual_adjustment` — pierwszy odłożony (brief 6.2),
+drugi sterowany ręcznie z panelu admina.
+
+#### Zasady
+
+- Każda zmiana przechodzi wyłącznie przez `CompanyCredibilityService` (sekcja 4).
+- Każda zmiana jest logowana w `company_credibility_log` (sekcja 3).
+- Wynik twardo przycinany do 0–100 (sekcja 1.1).
+- Powiadomienie dyrektora tylko przy `|delta| >= 5` (sekcja 9), typ `credibility`, guarded.
+- Wszystkie podpięcia są try/catch — nigdy nie wywracają operacji nadrzędnej.
+
+#### Co nie wchodzi w fundament (TODO, sekcja 14–15)
+
+Wpływ na dział prawny, regiony, kontrakty, przetargi, łapówki, audyty, partnerów,
+offshore oraz automatyczna odbudowa wyniku — odłożone na kolejne etapy.
 
 ---
 
@@ -2777,36 +2770,3 @@ Poziom ryzyka mapowany automatycznie z `political_risk` regionu przy seedzie.
 - `well_pipelines` dostaje `hub_id`, a aktywny pipeline jest liczony jako gotowy tylko wtedy, gdy ma przypiety aktywny hub i nie jest w statusie `building`.
 - Gdy gracz nie wybierze transportu dla odwiertu ladowego, tick nie produkuje ropy "na niby" i loguje oczekiwanie na wybor.
 - Dodana migracja: `migrations/etap7_transport_selection.sql`.
-
----
-
-### Aktualizacja (05.06.2026) — SessionStart hook: automatyczny start MariaDB w sesjach Claude Code on the web
-
-#### Problem
-Zdalne sesje Claude Code on the web startuja w swiezym kontenerze bez uruchomionego MySQL.
-Poprzedni schemat wymagal recznego eksportu zmiennych srodowiskowych i recznego startu MariaDB przed kazdym uruchomieniem testow.
-
-#### Rozwiazanie
-Dodano hook `SessionStart` w `.claude/hooks/session-start.sh`, rejestrowany przez `.claude/settings.json`.
-Hook uruchamia sie automatycznie przy kazdym starcie sesji webowej (flaga `CLAUDE_CODE_REMOTE=true`).
-
-**Kroki wykonywane przez hook przy starcie sesji:**
-1. Naprawia wlasciciela `/var/lib/mysql` (`root → mysql`) — zapobiega crashowi MariaDB po resecie kontenera.
-2. Startuje `mariadbd` jezeli nie dziala; czeka max 40 s az wstanie.
-3. Tworzy baze `gra1` (idempotentnie — `CREATE DATABASE IF NOT EXISTS`).
-4. Tworzy uzytkownika TCP `oiltest:oiltest` — root loguje sie przez `unix_socket`, testy lacza sie przez `127.0.0.1`.
-5. Laduje `tests/ci-schema.sql` tylko gdy baza jest pusta (< 10 tabel); pomija gdy tabele juz istnieja.
-6. Eksportuje `DB_HOST / DB_NAME / DB_USER / DB_PASS / DB_CHARSET` do zmiennych sesji przez `$CLAUDE_ENV_FILE`.
-
-**Hook jest idempotentny** — drugie uruchomienie w tej samej sesji nie powoduje bledow ani duplikatow.
-
-#### Nowe pliki
-| Plik | Rola |
-|------|------|
-| `.claude/hooks/session-start.sh` | Skrypt hooka (bash, `chmod +x`) |
-| `.claude/settings.json` | Rejestracja hooka `SessionStart` w konfiguracji Claude Code |
-
-#### Wyniki testow po wdrozeniu
-- 21/21 testow SQLite integracyjnych — OK
-- 12/12 testow MySQL integracyjnych — OK
-- Hook exit 0 przy starcie i przy powtorium (idempotentny)

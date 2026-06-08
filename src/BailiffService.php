@@ -89,7 +89,7 @@ class BailiffService
     {
  // Always check if the debt has already been cleared.
  // PL: Zawsze najpierw sprawdz czy dlug nie zostal juz splacony.
-        if ($this->isDebtCleared((int)$proc['loan_id'])) {
+        if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
         }
@@ -112,10 +112,12 @@ class BailiffService
         }
     }
 
-    private function isDebtCleared(int $loanId): bool
+    private function isDebtCleared(int $loanId, int $playerId): bool
     {
-        $stmt = $this->db->prepare("SELECT status FROM loans WHERE id = :id");
-        $stmt->execute([':id' => $loanId]);
+ // Weryfikacja player_id zapobiega bledom gdy proc.loan_id wskazuje na pozyczke innego gracza.
+ // Verifying player_id prevents errors when proc.loan_id points to another player's loan.
+        $stmt = $this->db->prepare("SELECT status FROM loans WHERE id = :id AND player_id = :pid");
+        $stmt->execute([':id' => $loanId, ':pid' => $playerId]);
         $loan = $stmt->fetch();
         return $loan && $loan['status'] !== 'late';
     }
@@ -144,6 +146,15 @@ class BailiffService
 
             $this->db->prepare("UPDATE players SET cash = cash - :amt WHERE id = :id")
                 ->execute([':amt' => $seized, ':id' => $proc['player_id']]);
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        (int)$proc['player_id'], null, (float)$seized,
+                        FinancialTransactionService::TYPE_BAILIFF_SEIZURE,
+                        'Zajecie gotowki przez komornika (postepowanie #' . (int)$proc['id'] . ')'
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             $this->db->prepare("UPDATE loans SET remaining_amount = remaining_amount - :amt WHERE id = :id")
                 ->execute([':amt' => $seized, ':id' => $proc['loan_id']]);
@@ -154,7 +165,7 @@ class BailiffService
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $seized, 'bailiff_seizure');
         }
 
-        if ($this->isDebtCleared((int)$proc['loan_id'])) {
+        if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
         }
@@ -193,7 +204,7 @@ class BailiffService
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $cashValue, 'bailiff_seizure');
         }
 
-        if ($this->isDebtCleared((int)$proc['loan_id'])) {
+        if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
         }
@@ -219,7 +230,7 @@ class BailiffService
         $well = $wellStmt->fetch();
 
         if ($well) {
-            $this->db->prepare("UPDATE wells SET status = 'seized' WHERE id = :id")
+            $this->db->prepare("UPDATE wells SET status = 'seized', marine_buffer_bbl = 0 WHERE id = :id")
                 ->execute([':id' => $well['id']]);
 
             $this->db->prepare("UPDATE bailiff_proceedings SET wells_seized = wells_seized + 1 WHERE id = :id")
@@ -235,7 +246,7 @@ class BailiffService
                 return;
             }
 
-            if (!$this->isDebtCleared((int)$proc['loan_id'])) {
+            if (!$this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
                 $this->db->prepare("
                     UPDATE bailiff_proceedings
                     SET next_action_at = DATE_ADD(NOW(), INTERVAL 72 HOUR)

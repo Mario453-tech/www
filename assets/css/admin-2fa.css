@@ -42,3 +42,22 @@
     letter-spacing: 8px;
     text-align: center;
 }
+
+/* Checkbox "pamiętaj urządzenie" / "remember this device" checkbox */
+.auth-remember-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #888;
+    margin: 12px 0 16px;
+    cursor: pointer;
+    user-select: none;
+}
+.auth-remember-label input[type="checkbox"] {
+    accent-color: #f90;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    cursor: pointer;
+}

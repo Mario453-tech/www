@@ -1,6 +1,16 @@
 var _GAMEL = window.GAME_LANG || {};
 function gamel(k) { return _GAMEL[k] || k; }
 
+// BFCache fix: gdy przegladarka serwuje strone z pamieci (przycisk Wstecz),
+// wymuś pelne przeladowanie zeby dane (gotowka, magazyn) byly aktualne.
+// BFCache fix: when browser restores page from memory cache (back button),
+// force a full reload so data (cash, storage) is always fresh.
+window.addEventListener('pageshow', function (e) {
+    if (e.persisted) {
+        window.location.reload();
+    }
+});
+
 // Auto refresh every 5 minutes
 // Auto odswiezanie co 5 minut
 setTimeout(() => {

@@ -95,6 +95,57 @@ function wgToggle(id) {
     }
 }
 
+// Przewija do odwiertu z paska alertu: rozwija grupe regionu (jesli zwinieta),
+// otwiera szczegoly karty i przewija do niej. Naprawia "PRZEJDZ" gdy odwiert jest
+// w zwinietej grupie (domyslnie otwarta jest tylko pierwsza grupa).
+// Scrolls to a well from the alert strip: expands the region group (if collapsed),
+// opens the card detail and scrolls to it. Fixes "PRZEJDZ" when the well sits in a
+// collapsed group (only the first group is open by default).
+function wgFocusWell(id) {
+    var card = document.getElementById('wg-card-' + id);
+    if (!card) {
+        return false;
+    }
+
+    // 1) Rozwin grupe regionu jesli zwinieta / Expand the region group if collapsed
+    var grid = card.closest('.wg-grid');
+    if (grid && grid.style.display === 'none') {
+        grid.style.display = '';
+        var arrow = document.getElementById(grid.id + '-arrow');
+        if (arrow) {
+            arrow.classList.add('wg-arrow-open');
+        }
+    }
+
+    // 2) Otworz szczegoly docelowej karty (zamykajac inne) / Open target card detail (closing others)
+    var detail = document.getElementById('wg-detail-' + id);
+    var hint   = document.getElementById('wg-hint-' + id);
+    if (detail) {
+        document.querySelectorAll('.wg-detail').forEach(function (el) {
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('.wg-toggle-hint').forEach(function (el) {
+            el.textContent = wgt('hint_open');
+        });
+        detail.style.display = 'block';
+        if (hint) {
+            hint.textContent = wgt('hint_close');
+        }
+    }
+
+    // 3) Przewin do karty po rozwinieciu / Scroll to the card after expansion
+    setTimeout(function () {
+        var el = document.getElementById('wg-card-' + id);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            el.classList.add('wg-card--flash');
+            setTimeout(function () { el.classList.remove('wg-card--flash'); }, 1600);
+        }
+    }, 160);
+
+    return false;
+}
+
 function wgToggleStorage(id) {
     var body  = document.getElementById('wg-storage-' + id);
     var arrow = document.getElementById('wg-sarrow-' + id);

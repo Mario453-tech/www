@@ -180,6 +180,24 @@ class WellProductionHandler
             return;
         }
 
+ // BRAMKA PORTU: odwiert tankowcowy produkuje i wysyla rope dopiero gdy w jego
+ // regionie istnieje aktywny port. Brak portu = produkcja wstrzymana (zero ropy,
+ // zero kosztu, zero rejsu) — nie tworzymy dostaw, ktore i tak nie maja dokad plynac.
+ // PORT GATE: a tanker well produces and ships oil only once an active port exists
+ // in its region. No port = production paused (no oil, no cost, no voyage) — we do
+ // not create deliveries that would have nowhere to go.
+        if ($transportType === 'tankowiec'
+            && $this->ctx->marineDeliverySvc !== null
+            && !$this->ctx->marineDeliverySvc->regionHasPort((int)($well['region_id'] ?? 0))
+        ) {
+            GameLog::info('tick', 'marine well paused (no port in region)', [
+                'well_id'   => $wellId,
+                'player_id' => $playerId,
+                'region_id' => (int)($well['region_id'] ?? 0),
+            ]);
+            return;
+        }
+
         $price = $this->ctx->oilPrice > 0 ? $this->ctx->oilPrice : 70.0;
 
         $effectiveProd  = $this->ctx->wellService->getEffectiveProduction($well) * $this->ctx->gBalanceMults['production'];
@@ -230,8 +248,21 @@ class WellProductionHandler
             $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
         }
 
- // Hub logistics / Fallback cap
-        $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
+ // Hub logistics / Fallback cap.
+ // Transport czasowy zasila hub dopiero po fizycznej dostawie, nie przy produkcji.
+ // Time-based transport feeds the hub after physical delivery, not at production time.
+        $isMysqlDriver = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
+        $deferredHubInput = (
+            $transportType === 'ciezarowki'
+            && $this->ctx->roadTransportSvc !== null
+            && $isMysqlDriver
+        ) || (
+            $transportType === 'tankowiec'
+            && $this->ctx->marineDeliverySvc !== null
+        );
+        if (!$deferredHubInput) {
+            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
+        }
 
  // Straty transportowe (rurociag) / Pipeline transport losses
         if ($actual > 0 && $transportType === 'rurociag' && $wellPipeline !== null) {
@@ -266,7 +297,7 @@ class WellProductionHandler
         if ($transportType === 'ciezarowki' && $this->ctx->roadTransportSvc !== null) {
             $roadCfg       = $this->ctx->roadConfigCache[$wellId] ?? null;
             $politicalRisk = (int)($well['region_political_risk'] ?? 1);
-            $isMysql       = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
+            $isMysql       = $isMysqlDriver;
 
             if ($isMysql) {
  // Model czasowy: kurs zapisywany w well_road_trips, ropa kreditowana po dostawie.
@@ -315,25 +346,63 @@ class WellProductionHandler
 
         } elseif ($transportType === 'tankowiec') {
             if ($this->ctx->marineDeliverySvc !== null) {
- // Etap 5: nowy model ropa jedzie morzem jako oddzielna dostawa w czasie.
- // Etap 5: new model oil travels by sea as a separate time-based delivery.
- // Ropa trafi do magazynu dopiero gdy port ja przetworzy (PortSection).
- // Oil credited to storage only when port processes it (PortSection).
-                $this->ctx->marineDeliverySvc->createDelivery(
-                    $playerId, $wellId, $actual, $deltaHours, $well, $hseBonus
-                );
-                $this->ctx->loopCtx->marineInTransitBbl += $actual;
- // Nalicz koszt rejsu (staly per bbl konfigurowany w transport_config).
- // Charge voyage cost (fixed per-bbl configured in transport_config).
-                $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
-                if ($costPerBbl > 0.0) {
-                    $voyageCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex']
+ // Etap 5 — model akumulacji: ropa gromadzi sie w buforze odwiertu az osiagnie
+ // prog min_load_bbl, wtedy tankowiec wyrusza z pelnym ladunkiem.
+ // Stage 5 — accumulation model: oil builds up in the well buffer until it reaches
+ // min_load_bbl threshold, then the tanker departs with a full load.
+ // min_load_bbl = 0 oznacza wysylke natychmiastowa (per tick), wieksze wartosci = akumulacja.
+ // min_load_bbl = 0 means immediate dispatch (per tick); larger values = buffer accumulation.
+                $minLoadBbl = max(0.0, (float)($transportCfg['min_load_bbl'] ?? 5000.0));
+
+ // Bufor: wartosc sprzed ticka (z SELECT w.* w PlayersSection) + produkcja tego ticka.
+ // Buffer: pre-tick value (from SELECT w.* in PlayersSection) + this tick's production.
+                $bufferBbl = (float)($well['marine_buffer_bbl'] ?? 0.0) + round($actual, 4);
+
+ // Zapisz nowy stan bufora / Persist updated buffer level
+                $this->ctx->db->prepare(
+                    "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ?"
+                )->execute([round($actual, 4), $wellId]);
+
+                GameLog::info('tick', 'marine_buffer_add', [
+                    'well_id'    => $wellId,
+                    'player_id'  => $playerId,
+                    'added_bbl'  => round($actual, 3),
+                    'buffer_bbl' => round($bufferBbl, 3),
+                    'threshold'  => $minLoadBbl,
+                ]);
+
+                if ($bufferBbl >= $minLoadBbl) {
+ // Bufor pelny: tankowiec wyrusza. createDelivery i reset bufora sa atomowe — jesli createDelivery
+ // rzuci wyjatkiem, bufor NIE jest zerowany i przy nastepnym ticku zostanie sczerpany ponownie.
+ // Buffer full: tanker departs. createDelivery and buffer reset are atomic — if createDelivery
+ // throws, the buffer is NOT zeroed and will be dispatched again on the next tick.
+                    try {
+                        $this->ctx->marineDeliverySvc->createDelivery(
+                            $playerId, $wellId, $bufferBbl, $deltaHours, $well, $hseBonus
+                        );
+                        $this->ctx->db->prepare(
+                            "UPDATE wells SET marine_buffer_bbl = 0 WHERE id = ?"
+                        )->execute([$wellId]);
+
+ // Nalicz koszt rejsu od pelnego ladunku / Charge voyage cost for the full load
+                        $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
+                        if ($costPerBbl > 0.0) {
+                            $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
  * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-                    $this->ctx->loopCtx->finTransport += $voyageCost;
-                    $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
+                            $this->ctx->loopCtx->finTransport += $voyageCost;
+                            $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
+                        }
+                    } catch (Throwable $e) {
+                        GameLog::error('tick', 'marine_dispatch_failed — buffer retained for next tick', $e, [
+                            'well_id'    => $wellId,
+                            'player_id'  => $playerId,
+                            'buffer_bbl' => round($bufferBbl, 3),
+                        ]);
+ // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
+ // Buffer stays non-zero — dispatch will be retried next tick.
+                    }
                 }
- // Ropa nie trafia teraz do storage koniec przetwarzania odwiertu.
- // Oil not added to storage now end of well processing.
+ // Ropa nie trafia do storage (w buforze lub w tranzycie) / Oil not added to storage now (in buffer or in transit)
                 return;
             }
  // Fallback: stary model natychmiastowy (offshoreTransportSvc).

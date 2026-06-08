@@ -2902,6 +2902,10 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     width: 100%;
 }
 
+.news-title-editor-wrap {
+    width: 100%;
+}
+
 .news-form-panel .tox-tinymce {
     border-radius: 10px;
     border: 1px solid var(--border);
@@ -2910,6 +2914,31 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 .news-form-panel .tox .tox-editor-header {
     border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.news-card-title > :first-child {
+    margin-top: 0;
+}
+
+.news-card-title > :last-child {
+    margin-bottom: 0;
+}
+
+.news-card-title p,
+.news-card-title div,
+.news-card-title h1,
+.news-card-title h2,
+.news-card-title h3,
+.news-card-title h4 {
+    margin: 0 0 6px;
+}
+
+.news-card-title h1,
+.news-card-title h2,
+.news-card-title h3,
+.news-card-title h4 {
+    color: var(--orange, #c8a84b);
+    line-height: 1.25;
 }
 
 /* Pipeline type configuration */
@@ -3308,6 +3337,22 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 .btn-restore:hover {
     background: rgba(80, 140, 255, .38);
+}
+
+.admin-legal-seed-form {
+    margin-top: 10px;
+}
+
+.input-num-60 {
+    width: 60px;
+}
+
+.input-num-70 {
+    width: 70px;
+}
+
+.input-num-110 {
+    width: 110px;
 }
 
 /* Wells admin list - mobile responsive */

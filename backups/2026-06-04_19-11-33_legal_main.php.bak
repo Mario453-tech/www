@@ -1,0 +1,189 @@
+<?php
+/** @var array<int,array<string,mixed>> $active */
+/** @var array<int,array<string,mixed>> $inProgress */
+/** @var array<int,array<string,mixed>> $available */
+/** @var array<int,array<string,mixed>> $locked */
+/** @var float $cash */
+/** @var string $error */
+/** @var string $success */
+extract($viewData, EXTR_SKIP);
+?>
+
+<div class="fade-in">
+
+<?php if ($error): ?>
+<noscript><div class="msg-bar msg-error"><?= htmlspecialchars($error) ?></div></noscript>
+<script>(function(){var m=<?= json_encode($error, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertError==='function'){window.alertError(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'error');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
+<?php endif ?>
+<?php if ($success): ?>
+<noscript><div class="msg-bar msg-success"><?= htmlspecialchars($success) ?></div></noscript>
+<script>(function(){var m=<?= json_encode($success, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'success');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
+<?php endif ?>
+
+<!-- Intro -->
+<section class="card">
+    <p><?= t('legal.page_intro') ?></p>
+</section>
+
+<!-- Aktywne zezwolenia -->
+<?php if (!empty($active)): ?>
+<section class="card">
+    <h3><?= t('legal.section_active') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($active as $entry): ?>
+        <?php
+        $cfg    = $entry['config'];
+        $permit = $entry['permit'];
+        $app    = $permit['application'];
+        ?>
+        <div class="legal-region-card legal-region-card--active">
+            <div class="legal-region-name">
+                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <span class="legal-badge legal-badge--granted"><?= t('legal.status.' . $permit['status']) ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <?php if (!empty($app['decided_at'])): ?>
+                <span><?= t('legal.decided_at') ?>: <?= htmlspecialchars(substr((string)$app['decided_at'], 0, 16)) ?></span>
+                <?php endif ?>
+            </div>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<!-- Wnioski w toku -->
+<?php if (!empty($inProgress)): ?>
+<section class="card">
+    <h3><?= t('legal.section_in_progress') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($inProgress as $entry): ?>
+        <?php
+        $cfg    = $entry['config'];
+        $permit = $entry['permit'];
+        $app    = $permit['application'];
+        $badgeCss = match ($permit['status']) {
+            'pending'     => 'legal-badge--pending',
+            'delayed'     => 'legal-badge--delayed',
+            'no_decision' => 'legal-badge--no-decision',
+            default       => '',
+        };
+        ?>
+        <div class="legal-region-card legal-region-card--pending">
+            <div class="legal-region-name">
+                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <span class="legal-badge <?= $badgeCss ?>"><?= t('legal.status.' . $permit['status']) ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <?php if (!empty($app['decision_due_at'])): ?>
+                <span><?= t('legal.decision_due') ?>: <?= htmlspecialchars(substr((string)$app['decision_due_at'], 0, 16)) ?></span>
+                <?php endif ?>
+                <?php if (!empty($app['delay_count']) && (int)$app['delay_count'] > 0): ?>
+                <span class="legal-delay-count"><?= t('legal.delay_count', ['n' => (int)$app['delay_count']]) ?></span>
+                <?php endif ?>
+            </div>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<!-- Dostępne regiony -->
+<?php if (!empty($available)): ?>
+<section class="card">
+    <h3><?= t('legal.section_available') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($available as $entry): ?>
+        <?php
+        $cfg    = $entry['config'];
+        $permit = $entry['permit'];
+        $cost   = (float)$cfg['application_cost'];
+        $reviewMin = (int)$cfg['base_review_minutes'];
+        $canAfford = $cash >= $cost;
+        $wasRefused = ($permit['status'] === 'refused');
+        ?>
+        <div class="legal-region-card legal-region-card--available">
+            <div class="legal-region-name">
+                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?php if ($wasRefused): ?>
+                <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
+                <?php else: ?>
+                <span class="legal-badge legal-badge--none"><?= t('legal.status.none') ?></span>
+                <?php endif ?>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
+                <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
+            </div>
+            <?php if ($canAfford): ?>
+            <form method="post" action="<?= url('legal') ?>" class="legal-submit-form"
+                  data-region-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>"
+                  data-cost="<?= htmlspecialchars(number_format($cost, 0, ',', ' ')) ?>"
+                  data-review-time="<?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?>">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="action"    value="submit_application">
+                <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
+                <button type="submit" class="btn btn-primary legal-submit-btn">
+                    <?= t('legal.btn_submit') ?>
+                </button>
+            </form>
+            <?php else: ?>
+            <div class="legal-insufficient">
+                <?= t('legal.err.insufficient_funds', ['cost' => number_format($cost, 0, ',', ' ')]) ?>
+            </div>
+            <?php endif ?>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<!-- Zablokowane (cooldown po odmowie) -->
+<?php if (!empty($locked)): ?>
+<section class="card">
+    <h3><?= t('legal.section_locked') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($locked as $entry): ?>
+        <?php
+        $cfg         = $entry['config'];
+        $permit      = $entry['permit'];
+        $cooldownDt  = $entry['cooldown_until'];
+        $remainMin   = (int)ceil(($cooldownDt->getTimestamp() - time()) / 60);
+        ?>
+        <div class="legal-region-card legal-region-card--locked">
+            <div class="legal-region-name">
+                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span class="legal-cooldown">
+                    <?= t('legal.err.cooldown', ['time' => LegalService::minutesToHuman($remainMin)]) ?>
+                </span>
+            </div>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked)): ?>
+<section class="card">
+    <p><?= t('legal.no_regions') ?></p>
+</section>
+<?php endif ?>
+
+</div>
+<script>
+window.LEGAL_LANG = <?= json_encode([
+    'modal_title'     => tPlain('legal.btn_submit'),
+    'modal_confirm'   => tPlain('legal.btn_submit'),
+    'label_region'    => tPlain('legal.modal_region_label'),
+    'label_cost'      => tPlain('legal.cost_label'),
+    'label_time'      => tPlain('legal.review_time_label'),
+    'modal_cost_note' => tPlain('legal.modal_cost_note'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>

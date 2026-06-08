@@ -51,6 +51,9 @@ class CompanyCredibilityService
     /** Prog generowania powiadomienia gracza (sekcja 9): |delta| >= 5. */
     public const NOTIFY_THRESHOLD = 5;
 
+    /** Okres bez naruszen do bonusu +3 / Clean period for the +3 bonus. */
+    public const CLEAN_OPERATION_DAYS = 7;
+
     private PDO $db;
 
     /** @var array<int,bool> cache zapewnionego schematu per polaczenie / schema-ensured cache per connection */
@@ -262,6 +265,70 @@ class CompanyCredibilityService
         }
     }
 
+    /**
+     * Przyznaje bonus za okres bez negatywnych zdarzen wiarygodnosci.
+     * Grants the clean-operation bonus when no negative credibility events occurred.
+     */
+    public function applyCleanOperationBonus(int $playerId, int $days = self::CLEAN_OPERATION_DAYS, ?DateTimeInterface $now = null): bool
+    {
+        $days = max(1, min(365, $days));
+        $nowDt = $now ? DateTime::createFromInterface($now) : new DateTime();
+        $cutoff = (clone $nowDt)->modify("-{$days} days")->format('Y-m-d H:i:s');
+
+        try {
+            $negativeEvents = [];
+            foreach (self::EVENT_DELTAS as $eventKey => $delta) {
+                if ($delta < 0) {
+                    $negativeEvents[] = $eventKey;
+                }
+            }
+
+            if ($this->countEventsSince($playerId, $negativeEvents, $cutoff) > 0) {
+                return false;
+            }
+            if ($this->countEventsSince($playerId, ['clean_operation_period'], $cutoff) > 0) {
+                return false;
+            }
+            $note = function_exists('tPlain')
+                ? tPlain('credibility.note_clean_operation_period', ['days' => $days])
+                : "Clean operation period: {$days} days";
+            $before = $this->getScore($playerId);
+            $after = $this->changeScore($playerId, self::EVENT_DELTAS['clean_operation_period'], 'clean_operation_period', $note);
+
+            return $after > $before;
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('CompanyCredibilityService', 'applyCleanOperationBonus FAILED', $e, [
+                    'player_id' => $playerId,
+                    'days'      => $days,
+                ]);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Liczy wskazane zdarzenia od podanej daty / Counts selected events since cutoff.
+     * @param string[] $eventKeys
+     */
+    private function countEventsSince(int $playerId, array $eventKeys, string $cutoff): int
+    {
+        if (empty($eventKeys)) {
+            return 0;
+        }
+        $placeholders = implode(',', array_fill(0, count($eventKeys), '?'));
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*)
+               FROM company_credibility_log
+              WHERE player_id = ?
+                AND event_key IN ({$placeholders})
+                AND created_at >= ?"
+        );
+        $stmt->execute(array_merge([$playerId], $eventKeys, [$cutoff]));
+
+        return (int)$stmt->fetchColumn();
+    }
+
     // ----------------------------------------------------------- Zmiana / Mutate
 
     /**
@@ -329,11 +396,10 @@ class CompanyCredibilityService
             // so history explains why the score did not move.
             $this->logChange($playerId, $eventKey, $effectiveDelta, $before, $after, $note);
 
-            // Powiadomienie tylko przy wiekszych zmianach (sekcja 9): |delta| >= 5
-            // Notify only on larger changes (section 9): |delta| >= 5
-            if (abs($effectiveDelta) >= self::NOTIFY_THRESHOLD) {
-                $this->notify($playerId, $eventKey, $effectiveDelta, $after);
-            }
+            // Powiadomienia gracza sa wylaczone — wiarygodnosc to informacja wyacznie dla admina.
+            // Historia pozostaje w company_credibility_log (widoczna w panelu admina).
+            // Player notifications are disabled — credibility is admin-only information.
+            // History remains in company_credibility_log (visible in the admin panel).
 
             if (class_exists('GameLog', false)) {
                 GameLog::info('CompanyCredibilityService', 'changeScore', [

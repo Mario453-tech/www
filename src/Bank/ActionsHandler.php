@@ -47,10 +47,110 @@ class BankActionsHandler
             'neg_restructure' => $this->negRestructure(),
             'neg_recovery' => $this->negRecovery(),
             'neg_apply' => $this->negApply(),
+            'bank_transfer' => $this->bankTransfer(),
             default => GameLog::warn('bank', 'nieznana akcja POST', ['action' => $_POST['action'] ?? '', 'player' => $this->playerId]),
         };
 
         return true;
+    }
+
+ /**
+ * Wykonuje przelew P2P z konta gracza na inne konto (brief, sekcja "Formularz przelewu").
+ * Walidacja: numer konta istnieje, nie wlasny, kwota > 0, srodki wystarczajace.
+ *
+ * Performs a P2P transfer from the player's account to another account (brief, "Transfer form").
+ * Validation: account exists, not self, amount > 0, sufficient funds.
+ */
+    private function bankTransfer(): void
+    {
+        if (!class_exists('FinancialTransactionService', false) && !@class_exists('FinancialTransactionService')) {
+            $this->error = t('bank.action_err_service');
+            return;
+        }
+        if (!class_exists('BankAccountService', false) && !@class_exists('BankAccountService')) {
+            $this->error = t('bank.action_err_service');
+            return;
+        }
+
+        try {
+            $rawAccount = trim((string)($_POST['recipient_account'] ?? ''));
+            // Sanityzacja kwoty - obsluga separatorow tysiecznych i polskiego przecinka.
+            // Amount sanitization - handle thousands separators and Polish decimal comma.
+            $rawAmount = preg_replace('/\s+/u', '', (string)($_POST['amount'] ?? '0'));
+            if (strpos($rawAmount, '.') === false && strpos($rawAmount, ',') !== false) {
+                $rawAmount = str_replace(',', '.', $rawAmount);
+            }
+            $amount = (float)$rawAmount;
+            $description = trim((string)($_POST['description'] ?? ''));
+            if (strlen($description) > 255) {
+                $description = substr($description, 0, 255);
+            }
+
+            GameLog::step('bank', 'POST', 2, 'bank_transfer', [
+                'recipient_account' => $rawAccount,
+                'amount' => $amount,
+            ]);
+
+            if ($rawAccount === '') {
+                $this->error = t('bank.account.err_account_empty');
+                return;
+            }
+            if ($amount <= 0) {
+                $this->error = t('bank.account.err_amount_invalid');
+                return;
+            }
+
+            $accSvc = new BankAccountService();
+            $recipientId = $accSvc->findPlayerIdByAccount($rawAccount);
+            if ($recipientId === null) {
+                $this->error = t('bank.account.err_account_not_found');
+                return;
+            }
+            if ($recipientId === $this->playerId) {
+                $this->error = t('bank.account.err_self_transfer');
+                return;
+            }
+
+            $txSvc = new FinancialTransactionService();
+            $result = $txSvc->transfer($this->playerId, $recipientId, $amount, $description !== '' ? $description : null);
+
+            if ($result['success']) {
+                $this->success = t('bank.account.msg_transfer_ok', [
+                    'amount' => number_format($result['amount'], 2, ',', ' '),
+                    'account' => $rawAccount,
+                ]);
+                GameLog::info('bank', 'transfer OK', [
+                    'tx_id' => $result['transaction_id'],
+                    'from' => $this->playerId,
+                    'to' => $recipientId,
+                    'amount' => $result['amount'],
+                ]);
+
+                // Etap 6: powiadomienia dla nadawcy i odbiorcy (brief, sekcja "Powiadomienia").
+                // Pelnie guarded - blad powiadomien nie cofa juz wykonanego przelewu.
+                // Stage 6: notifications for sender and recipient (brief, "Notifications").
+                // Fully guarded - notification failure does not roll back the completed transfer.
+                $this->notifyTransferParties(
+                    $this->playerId,
+                    $recipientId,
+                    $rawAccount,
+                    (float)$result['amount'],
+                    $description
+                );
+            } else {
+                $this->error = match ($result['error']) {
+                    'insufficient_funds'   => t('bank.account.err_insufficient_funds'),
+                    'invalid_amount'       => t('bank.account.err_amount_invalid'),
+                    'self_transfer'        => t('bank.account.err_self_transfer'),
+                    'sender_not_found',
+                    'recipient_not_found'  => t('bank.account.err_account_not_found'),
+                    default                => t('bank.account.err_generic'),
+                };
+            }
+        } catch (Throwable $e) {
+            $this->error = t('bank.account.err_generic');
+            GameLog::error('bank', 'bank_transfer FAILED', $e, ['player' => $this->playerId]);
+        }
     }
 
  /**
@@ -294,6 +394,86 @@ class BankActionsHandler
         } catch (Throwable $e) {
             $this->error = t('bank.action_err_neg_apply');
             GameLog::error('bank', 'neg_apply FAILED', $e, ['player' => $this->playerId]);
+        }
+    }
+
+ /**
+ * Tworzy 2 powiadomienia po udanym przelewie: dla nadawcy i dla odbiorcy.
+ * Brief, sekcja "Powiadomienia": kwota, data, opis.
+ * Pelnie guarded - blad powiadomien nie cofa juz wykonanego przelewu.
+ *
+ * Creates 2 notifications after a successful transfer: sender and recipient.
+ * Brief, "Notifications": amount, date, description.
+ * Fully guarded - notification failure does not roll back the completed transfer.
+ */
+    private function notifyTransferParties(
+        int $senderId,
+        int $recipientId,
+        string $recipientAccount,
+        float $amount,
+        string $description
+    ): void {
+        if (!class_exists('DirectorNotificationService', false) && !@class_exists('DirectorNotificationService')) {
+            return;
+        }
+        if (!class_exists('BankAccountService', false) && !@class_exists('BankAccountService')) {
+            return;
+        }
+
+        try {
+            $accSvc = new BankAccountService();
+            $senderAccount = (string)($accSvc->getAccount($senderId) ?? '-');
+
+            // Nazwy firm dla czytelnego komunikatu (fallback: numer rachunku).
+            // Company names for a readable message (fallback: account number).
+            $db = Database::getInstance()->getConnection();
+            $nameStmt = $db->prepare(
+                "SELECT id, COALESCE(NULLIF(company_name, ''), username) AS display_name
+                   FROM players WHERE id IN (?, ?)"
+            );
+            $nameStmt->execute([$senderId, $recipientId]);
+            $names = [];
+            foreach ($nameStmt->fetchAll() as $r) {
+                $names[(int)$r['id']] = (string)$r['display_name'];
+            }
+            $senderName    = $names[$senderId]    ?? $senderAccount;
+            $recipientName = $names[$recipientId] ?? $recipientAccount;
+
+            $amountFmt = number_format($amount, 2, ',', ' ');
+            $dateFmt   = date('d.m.Y H:i');
+            $descFmt   = $description !== '' ? $description : '(brak opisu)';
+
+            $notifSvc = new DirectorNotificationService();
+
+            // Powiadomienie dla nadawcy.
+            // Sender notification.
+            try {
+                $notifSvc->create($senderId, 'bank_transfer_sent', [
+                    'amount'      => $amountFmt,
+                    'recipient'   => $recipientAccount . ' (' . $recipientName . ')',
+                    'date'        => $dateFmt,
+                    'description' => $descFmt,
+                ], 72);
+            } catch (Throwable $e) {
+                GameLog::error('bank', 'notify sender FAILED', $e, ['player' => $senderId]);
+            }
+
+            // Powiadomienie dla odbiorcy.
+            // Recipient notification.
+            try {
+                $notifSvc->create($recipientId, 'bank_transfer_received', [
+                    'amount'      => $amountFmt,
+                    'sender'      => $senderName . ' (' . $senderAccount . ')',
+                    'date'        => $dateFmt,
+                    'description' => $descFmt,
+                ], 72);
+            } catch (Throwable $e) {
+                GameLog::error('bank', 'notify recipient FAILED', $e, ['player' => $recipientId]);
+            }
+        } catch (Throwable $e) {
+            GameLog::error('bank', 'notifyTransferParties FAILED', $e, [
+                'sender' => $senderId, 'recipient' => $recipientId,
+            ]);
         }
     }
 }

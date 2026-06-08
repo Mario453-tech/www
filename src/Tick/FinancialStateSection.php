@@ -106,15 +106,29 @@ class FinancialStateSection
  /**
  * Zapisuje gotowke i last_tick_at gracza.
  * Saves player cash and last_tick_at timestamp.
+ *
+ * WAZNE: zapis ROZNICOWY (cash = cash + delta), nie absolutny. Tick odczytuje gotowke
+ * na poczatku, a moze ona ulec zmianie w trakcie obliczen (kredyt, sprzedaz ropy, oferty
+ * rynkowe wykonane przez gracza rownolegle). Absolutny zapis nadpisywalby te zmiany i gubil
+ * przyrost gotowki. Roznicowy update dodaje tylko delte ticka do aktualnej wartosci w bazie.
+ *
+ * IMPORTANT: DIFFERENTIAL write (cash = cash + delta), not absolute. The tick reads cash at the
+ * start, but it may change mid-calculation (a loan, an oil sale, market offers the player runs in
+ * parallel). An absolute write would overwrite those changes and lose the cash gain. The
+ * differential update only adds the tick's delta to the current DB value.
+ *
+ * @param float $initialCash gotowka odczytana na poczatku ticka / cash read at tick start
+ * @param float $finalCash    gotowka po obliczeniach ticka / cash after tick calculations
  */
-    public function saveCashAndTick(int $playerId, float $playerCash): void
+    public function saveCashAndTick(int $playerId, float $finalCash, float $initialCash): void
     {
+        $delta = round($finalCash - $initialCash, 4);
         $this->db->prepare(
-            "UPDATE players SET cash = :cash, last_tick_at = :now WHERE id = :pid"
+            "UPDATE players SET cash = GREATEST(0, cash + :delta), last_tick_at = :now WHERE id = :pid"
         )->execute([
-            ':cash' => $playerCash,
-            ':now'  => $this->now->format('Y-m-d H:i:s'),
-            ':pid'  => $playerId,
+            ':delta' => $delta,
+            ':now'   => $this->now->format('Y-m-d H:i:s'),
+            ':pid'   => $playerId,
         ]);
     }
 

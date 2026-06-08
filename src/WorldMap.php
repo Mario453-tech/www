@@ -244,7 +244,7 @@ class WorldMap
 
             $this->db->beginTransaction();
             try {
-                $player->updateCash(-$totalCost);
+                $player->updateCash(-$totalCost, 'map_purchase', 'Zakup lokalizacji na mapie');
 
  // Check if a well was previously sold at this location
  // If so, the reservoir is already partially depleted
@@ -357,30 +357,48 @@ class WorldMap
             $locations = $this->getLocations();
             $occupied  = $this->getPlayerOccupiedLocations($playerId);
 
- // Dział prawny P1: batch status zezwolenia per region (§5).
- // 2 zapytania SQL zamiast N+1 hasActivePermit per region.
- // Legal P1: batch permit status per region — 2 SQL queries instead of N+1.
-            $permitByRegion = [];
+ // Dział prawny P1 — brief §5: pełny status zezwolenia per region dla mapy.
+ // Batch: 2 zapytania SQL na wszystkie regiony (zamiast N pętlowych).
+ // Brief §5: full permit status per region for the map.
+ // Batch: 2 SQL queries for all regions (instead of N in a loop).
+            $permitData = [];
+            $permitFallback = [
+                'status' => 'none',
+                'minutes_left' => null,
+                'cooldown_minutes' => null,
+                'required_capital' => null,
+                'required_legal_level' => null,
+                'legal_level' => null,
+                'required_company_credibility' => null,
+                'company_credibility' => null,
+            ];
             try {
                 $legal      = new LegalService($this->db);
                 $cashStmt   = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
                 $cashStmt->execute([$playerId]);
-                $playerCash = (float)($cashStmt->fetchColumn() ?? 0.0);
-                $regionIds  = array_map(fn($r) => (int)$r['id'], $regions);
-                $permitByRegion = $legal->getMapPermitData($playerId, $regionIds, $playerCash);
+                $playerCash = (float)($cashStmt->fetchColumn() ?? 0);
+                $regionIds  = array_column($regions, 'id');
+                $permitData = $legal->getMapPermitData($playerId, $regionIds, $playerCash);
             } catch (Throwable $e) {
-                GameLog::error('WorldMap', 'getMapData permit status FAILED', $e, ['player_id' => $playerId]);
- // Fail-closed: przy błędzie traktuj wszystkie regiony jako none.
- // Fail-closed: on error treat all regions as no-permit.
+                GameLog::error('WorldMap', 'getMapData permit data FAILED', $e, ['player_id' => $playerId]);
+ // Fail-closed: przy błędzie traktuj wszystkie regiony jako 'none' (brak zezwolenia).
+ // Fail-closed: on error treat all regions as 'none' (no permit).
+                foreach ($regions as $reg) {
+                    $permitData[(int)$reg['id']] = $permitFallback;
+                }
             }
             foreach ($regions as &$reg) {
                 $rid = (int)$reg['id'];
-                $pd  = $permitByRegion[$rid] ?? ['status' => 'none', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
+                $pd  = $permitData[$rid] ?? $permitFallback;
                 $reg['has_permit']              = ($pd['status'] === 'active');
                 $reg['permit_status']           = $pd['status'];
                 $reg['permit_minutes_left']     = $pd['minutes_left'];
                 $reg['permit_cooldown_minutes'] = $pd['cooldown_minutes'];
                 $reg['permit_required_capital'] = $pd['required_capital'];
+                $reg['permit_required_legal_level'] = $pd['required_legal_level'] ?? null;
+                $reg['permit_legal_level']      = $pd['legal_level'] ?? null;
+                $reg['permit_required_company_credibility'] = $pd['required_company_credibility'] ?? null;
+                $reg['permit_company_credibility'] = $pd['company_credibility'] ?? null;
             }
             unset($reg);
 

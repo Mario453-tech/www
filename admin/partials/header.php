@@ -46,6 +46,7 @@ $navSections = [
         'finance.php'          => ['', t('admin.nav.finance')],
         'financial-crisis.php' => ['', t('admin.nav.financial_crisis')],
         'credibility.php'      => ['', t('admin.nav.credibility')],
+        'bank.php'             => ['', 'Bank — konta'],
     ],
     t('admin.nav.section_tools') => [
         'alerts.php'      => ['', t('admin.nav.alerts')],

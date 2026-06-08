@@ -45,6 +45,7 @@ class WellLoopSection
     public float $transportCapacityLossBbl = 0.0;
     public float $storageBlockedBbl        = 0.0;
     public float $currentStorage           = 0.0;
+    public float $storageCapacity          = 0.0;
     public float $playerCash               = 0.0;
  // Stage 5: oil dispatched by sea and not yet delivered
  // Etap 5: ropa wyslana morzem i jeszcze niedostarczona
@@ -216,6 +217,7 @@ class WellLoopSection
     ): void {
         $this->playerCash     = $playerCash;
         $this->currentStorage = $currentStorage;
+        $this->storageCapacity = $storageCapacity;
         $this->preloadFinancePolicies($playerId);
 
  // Pensje / Salaries
@@ -261,7 +263,16 @@ class WellLoopSection
             }
         }
 
- // Finalizacja hubow: wear/status, reconciliacja strat, OPEX hubow / Hub finalization: wear/status, loss reconciliation, hub OPEX
+    }
+
+ /**
+ * Finalizacja hubow po wszystkich dostawach gracza w ticku.
+ * Finalizes hubs after all player deliveries in this tick.
+ *
+ * @param array<string, mixed> $hseBonus
+ */
+    public function finalizeHubTicks(int $playerId, float $deltaHours, array $hseBonus): void
+    {
         $wellHub = new WellHubSection(
             $this,
             $this->now,
@@ -320,6 +331,25 @@ class WellLoopSection
             }
             $actual = $fallback['effective_bbl'];
         }
+    }
+
+ /**
+ * Dodaje realnie dostarczona rope do wejscia huba.
+ * Adds physically delivered oil to hub input.
+ */
+    public function addDeliveredHubInput(int $wellId, float $bbl): bool
+    {
+        if ($bbl <= 0.0) {
+            return false;
+        }
+
+        $hubId = $this->wellHubMap[$wellId] ?? null;
+        if ($hubId === null) {
+            return false;
+        }
+
+        $this->hubInputAccum[$hubId] = ($this->hubInputAccum[$hubId] ?? 0.0) + $bbl;
+        return true;
     }
 
  /**

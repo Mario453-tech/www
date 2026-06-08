@@ -210,6 +210,15 @@ trait TTSTasksTrait
         try {
             if ($cost > 0) {
                 $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
+                try {
+                    if (class_exists('FinancialTransactionService', false)) {
+                        (new FinancialTransactionService($this->db))->logTransaction(
+                            $this->playerId, null, $cost,
+                            FinancialTransactionService::TYPE_TTS_FEE,
+                            'Koszt zadania technicznego: ' . ($taskType ?? 'task')
+                        );
+                    }
+                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             }
             $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ?")->execute([$staffId]);
             $this->db->prepare("
@@ -750,10 +759,13 @@ trait TTSTasksTrait
                 DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?
             ");
             $stmt->execute([$queueId, $this->playerId]);
+            // Jesli rowCount=0, element zostal juz przetworzony przez tick — traktujemy jako sukces (idempotentne).
+            // If rowCount=0, the item was already processed by the tick — treat as success (idempotent).
             if ($stmt->rowCount() === 0) {
-                return ['success' => false, 'message' => t('technical.task_msg.queue_item_not_found')];
+                GameLog::info('TTS', 'cancelQueueItem: already gone', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
+            } else {
+                GameLog::info('TTS', 'cancelQueueItem OK', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
             }
-            GameLog::info('TTS', 'cancelQueueItem OK', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
             return ['success' => true, 'message' => t('technical.task_msg.queue_item_removed')];
         } catch (Throwable $e) {
             GameLog::error('TTS', 'cancelQueueItem FAILED', $e, ['queue_id' => $queueId]);

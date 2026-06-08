@@ -23,8 +23,6 @@
             .replace(/"/g, '&quot;');
     }
 
-
-
     function renderAvatar(username, avatarPath) {
         if (avatarPath) {
             return '<img class="chat-msg-avatar" src="/' + escHtml(avatarPath) + '" alt="' + escHtml((username || '?').charAt(0).toUpperCase()) + '">';
@@ -135,9 +133,23 @@
         if (loading) loading.remove();
 
         box.insertAdjacentHTML('beforeend', html);
+        updateOnlineCount();
         if (atBottom) {
             box.scrollTop = box.scrollHeight;
         }
+    }
+
+    // Polska odmiana slowa "wiadomosc" / Polish plural of "wiadomosc"
+    function chatMsgWord(n) {
+        return n === 1 ? 'wiadomość' : 'wiadomości';
+    }
+
+    // Aktualizuj licznik wiadomosci w naglowku / Update message counter in the header
+    function updateOnlineCount() {
+        var el = document.getElementById('chatOnline');
+        if (!el || !box) return;
+        var n = box.querySelectorAll('.chat-msg').length;
+        el.textContent = n + ' ' + chatMsgWord(n) + ' online';
     }
 
     function renderPinned(pinned) {
@@ -212,6 +224,7 @@
                 if (loading) loading.remove();
                 renderPinned(data.pinned || []);
                 appendMessages(data.messages || []);
+                updateOnlineCount();
                 box.scrollTop = box.scrollHeight;
                 startPolling();
             })
@@ -289,6 +302,8 @@
 
     var NEWS_API = '/src/AdminNewsApi.php';
     var newsList = null;
+    var NEWS_EMPTY_TEXT = 'Brak aktualno\u015bci.';
+    var NEWS_LOAD_ERROR_TEXT = 'B\u0142\u0105d \u0142adowania.';
 
     function escHtml(str) {
         return String(str)
@@ -298,19 +313,27 @@
             .replace(/"/g, '&quot;');
     }
 
+    function newsHtml(str) {
+        return typeof str === 'string' ? str : '';
+    }
+
     function renderNews(items) {
         if (!newsList) return;
         if (!items || !items.length) {
-            newsList.innerHTML = '<p class="news-loading">Brak aktualnoci.</p>';
+            newsList.innerHTML = '<p class="news-loading">' + escHtml(NEWS_EMPTY_TEXT) + '</p>';
             return;
         }
         var html = '';
         items.forEach(function (n) {
             var pinCls = n.is_pinned ? ' news-item--pinned' : '';
             var pinBadge = n.is_pinned ? '<span class="news-item-pin"></span>' : '';
+            var titleHtml = newsHtml(n.title_html || '');
+            if (!titleHtml) {
+                titleHtml = escHtml(n.title || '');
+            }
             html += '<div class="news-item' + pinCls + '">' +
-                '<div class="news-item-title">' + pinBadge + escHtml(n.title) + '</div>' +
-                '<div class="news-item-content">' + escHtml(n.content) + '</div>' +
+                '<div class="news-item-title">' + pinBadge + '<div class="news-item-title-text">' + titleHtml + '</div></div>' +
+                '<div class="news-item-content">' + newsHtml(n.content_html || '') + '</div>' +
                 '<div class="news-item-date">' + escHtml(n.date_fmt) + '</div>' +
                 '</div>';
         });
@@ -322,7 +345,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) { renderNews(data.news || []); })
             .catch(function () {
-                if (newsList) newsList.innerHTML = '<p class="news-loading">Bd adowania.</p>';
+                if (newsList) newsList.innerHTML = '<p class="news-loading">' + escHtml(NEWS_LOAD_ERROR_TEXT) + '</p>';
             });
     }
 

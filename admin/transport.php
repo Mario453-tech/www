@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_multipliers' && $configTableExists) {
         try {
             foreach (['rurociag', 'ciezarowki', 'tankowiec'] as $type) {
-                foreach (['incident', 'disaster', 'wear', 'spiral', 'capacity', 'opex', 'cost_per_bbl'] as $key) {
+                foreach (['incident', 'disaster', 'wear', 'spiral', 'capacity', 'opex', 'cost_per_bbl', 'min_load_bbl'] as $key) {
                     $val = (float)($_POST[$type . '_' . $key] ?? $defaults[$type][$key]);
                     $db->prepare("
                         INSERT INTO transport_config (transport_type, config_key, config_value)
@@ -60,9 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $portSvc = new PortService($db);
             $created = $portSvc->seedDefaultPorts();
             AdminLog::log('ports_seed', "Created {$created} default ports.");
-            $msg = "Seed portďż˝w zakoďż˝czony. Utworzono: {$created} portďż˝w.";
+            $msg = "Seed portów zakończony. Utworzono: {$created} portów.";
         } catch (Throwable $e) {
-            $err = 'Bďż˝ďż˝d seed portďż˝w: ' . $e->getMessage();
+            $err = 'Błąd seed portów: ' . $e->getMessage();
         }
     }
 
@@ -124,6 +124,7 @@ $fieldDefs = [
     'capacity'     => [t('admin.transport.field_capacity'), t('admin.transport.field_capacity_hint'), '50', '200'],
     'opex'         => [t('admin.transport.field_opex'), t('admin.transport.field_opex_hint'), '0', '50'],
     'cost_per_bbl' => [t('admin.transport.field_cost_per_bbl'), t('admin.transport.field_cost_per_bbl_hint'), '0', '20'],
+    'min_load_bbl' => [t('admin.transport.field_min_load_bbl'), t('admin.transport.field_min_load_bbl_hint'), '0', '999999'],
 ];
 
 // Porty morskie / Marine ports

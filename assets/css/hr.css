@@ -1,18 +1,21 @@
-/* 
-   HR PANEL  STYLE
+/*
+   HR PANEL — STYLE / HR PANEL STYLES
  */
 
 /* Zmienne HR-specyficzne (--gold, --red, --green, --text z variables.css) */
+/* HR-specific variables (--gold, --red, --green, --text from variables.css) */
 :root {
- /* --gold2 celowo nadpisane: w HR uywane jako pprzezroczyste to (nie solid jak w style.css) */
+ /* --gold2 celowo nadpisane: w HR używane jako półprzezroczyste tło (nie solid jak w style.css) */
+ /* --gold2 intentionally overridden: in HR used as semi-transparent background (not solid like in style.css) */
   --gold2:  rgba(200,168,75,0.15);
- /* kolory ta HR-panelu ciemniejsze ni gra-gwna */
+ /* kolory tła HR-panelu ciemniejsze niż gra-główna / HR panel background colors darker than main game */
   --dark:   #0a0a0f;
   --bg2:    #12121f;
   --glass:  rgba(255,255,255,0.06);
   --yellow: #e0b644;
   --muted:  rgba(232,232,240,0.45);
- /* --border celowo nadpisane: w HR delikatna biaa ramka zamiast zotej */
+ /* --border celowo nadpisane: w HR delikatna biała ramka zamiast złotej */
+ /* --border intentionally overridden: in HR a subtle white border instead of gold */
   --border: rgba(255,255,255,0.08);
 }
 
@@ -106,7 +109,8 @@ body.hr-body {
 }
 .hr-select-small option { background: #1a1a24; }
 
-/* BUTTONS ( uywa globalnych klas: btn, btn-sm, btn-primary, btn-danger, btn-cta, btn-full) */
+/* BUTTONS (używa globalnych klas: btn, btn-sm, btn-primary, btn-danger, btn-cta, btn-full) */
+/* BUTTONS (uses global classes: btn, btn-sm, btn-primary, btn-danger, btn-cta, btn-full) */
 
 /* EMPTY STATE */
 .hr-empty {
@@ -116,8 +120,9 @@ body.hr-body {
   padding: 20px 0;
 }
 
-/* 
+/*
    NOWA REKRUTACJA (formularz w hr.php)
+   NEW RECRUITMENT (form in hr.php)
  */
 .new-recruit-card {
   margin-top: 28px;
@@ -161,7 +166,7 @@ body.hr-body {
 .nrc-slots-partial { background: rgba(200,168,75,0.12); color: #c8a84b; border: 1px solid rgba(200,168,75,0.35); }
 .nrc-slots-full    { background: rgba(220,80,80,0.12);  color: #e05050; border: 1px solid rgba(220,80,80,0.3); }
 
-/* Alert box w formularzu rekrutacji */
+/* Alert box w formularzu rekrutacji / Alert box in recruitment form */
 .hr-alert {
   padding: 12px 16px;
   border-radius: 8px;
@@ -171,7 +176,7 @@ body.hr-body {
 .hr-alert--warn { background: rgba(200,168,75,0.08); border: 1px solid rgba(200,168,75,0.25); color: rgba(232,232,240,0.8); }
 .hr-alert--info { background: rgba(100,140,200,0.08); border: 1px solid rgba(100,140,200,0.2); color: rgba(232,232,240,0.7); }
 
-/* Kontynentalne grupowanie regionw */
+/* Kontynentalne grupowanie regionów / Continental grouping of regions */
 .nr-continent-group {
   margin-bottom: 10px;
 }
@@ -200,8 +205,8 @@ body.hr-body {
 .region-info-label { font-size: 11px; color: rgba(232,232,240,0.45); }
 .region-info-val { font-size: 13px; font-weight: 600; color: #e8e8f0; }
 
-/* 
-   REKRUTACJA
+/*
+   REKRUTACJA / RECRUITMENT
  */
 .recruit-form-grid {
   display: grid;
@@ -238,7 +243,7 @@ body.hr-body {
   font-weight: 600;
 }
 
-/* Aktywna rekrutacja */
+/* Aktywna rekrutacja / Active recruitment */
 .active-recruitment-card {
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(200,168,75,0.2);
@@ -287,8 +292,8 @@ body.hr-body {
   font-weight: 600;
 }
 
-/* 
-   KANDYDACI
+/*
+   KANDYDACI / CANDIDATES
  */
 .candidates-section { margin-bottom: 40px; }
 .candidates-role-header {
@@ -348,10 +353,10 @@ body.hr-body {
 }
 .cand-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 22px;
+  font-size: 20px;
   color: #fff;
-  font-weight: 600;
-  margin-bottom: 6px;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 .cand-meta {
   font-size: 12px;
@@ -373,8 +378,8 @@ body.hr-body {
 .cand-skills {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 .cand-footer {
   display: flex;
@@ -408,8 +413,8 @@ body.hr-body {
 .exp-mid    { background: rgba(224,182,68,0.15); color: var(--yellow); border: 1px solid rgba(224,182,68,0.3); }
 .exp-senior { background: rgba(78,201,122,0.15); color: var(--green); border: 1px solid rgba(78,201,122,0.3); }
 
-/* 
-   PRACOWNICY
+/*
+   PRACOWNICY / EMPLOYEES
  */
 .employees-grid {
   display: grid;
@@ -489,8 +494,8 @@ body.hr-body {
 .text-warning { color: var(--yellow) !important; }
 .emp-actions { display: flex; justify-content: flex-end; }
 
-/* 
-   KONTRAKTY
+/*
+   KONTRAKTY / CONTRACTS
  */
 .contracts-table {
   border: 1px solid rgba(200,168,75,0.2);
@@ -552,8 +557,8 @@ body.hr-body {
   font-weight: 600;
 }
 
-/* 
-   RYNEK PRACY
+/*
+   RYNEK PRACY / LABOUR MARKET
  */
 .market-regions-grid {
   display: grid;
@@ -652,8 +657,8 @@ body.hr-body {
 .rarity-rare      { background: rgba(200,168,75,0.12); color: var(--gold); }
 .rarity-very_rare { background: rgba(224,85,85,0.12); color: var(--red); }
 
-/* 
-   TOASTY / ZDARZENIA HR
+/*
+   TOASTY / ZDARZENIA HR / HR TOAST NOTIFICATIONS
  */
 #hr-events-container {
   position: fixed;
@@ -695,7 +700,7 @@ body.hr-body {
 ::-webkit-scrollbar-thumb { background: rgba(200,168,75,0.25); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(200,168,75,0.4); }
 
-/* 
+/*
    CV SECTION LABEL
  */
 .cv-section-label {
@@ -709,8 +714,8 @@ body.hr-body {
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
-/* 
-   TRAITS  CECHY CHARAKTERU
+/*
+   TRAITS — CECHY CHARAKTERU / CHARACTER TRAITS
  */
 .cand-traits {
   display: flex;
@@ -731,9 +736,9 @@ body.hr-body {
 }
 .trait-bar {
   flex: 1;
-  height: 5px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 3px;
+  height: 4px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
   overflow: hidden;
 }
 .trait-fill {
@@ -753,8 +758,8 @@ body.hr-body {
   font-weight: 600;
 }
 
-/* 
-   HISTORIA ZATRUDNIE
+/*
+   HISTORIA ZATRUDNIEŃ / EMPLOYMENT HISTORY
  */
 .history-table {
   border: 1px solid rgba(200,168,75,0.2);
@@ -810,7 +815,7 @@ body.hr-body {
 .hr-empty--big  { padding: 60px; text-align: center; }
 .hr-empty-icon  { font-size: 48px; opacity: .3; margin-bottom: 16px; }
 
-/* Kandydaci count */
+/* Kandydaci count / Candidate count */
 .cand-count-label { font-size: 12px; color: rgba(255,255,255,.4); }
 
 /* Cand footer actions */
@@ -872,8 +877,8 @@ body.hr-body {
   box-shadow: 0 0 12px rgba(78,201,122,0.3);
 }
 
-/* 
-   UTILITY KOLORY
+/*
+   UTILITY KOLORY / UTILITY COLORS
  */
 .c-gold   { color: #c8a84b; }
 .c-blue   { color: #5b9cf6; }
@@ -885,7 +890,7 @@ body.hr-body {
 .fw6 { font-weight: 600; }
 .fw7 { font-weight: 700; }
 
-/* 
+/*
    DATA LIST
  */
 .data-list { display: flex; flex-direction: column; }
@@ -913,7 +918,7 @@ body.hr-body {
 .data-list-row:last-child { border-bottom: none; }
 .data-list-row:hover { background: rgba(255,255,255,.025); }
 
-/* 
+/*
    TASK ASSIGN TOGGLE (details/summary)
  */
 .task-assign-toggle {
@@ -929,7 +934,7 @@ body.hr-body {
 .task-assign-toggle:hover { color: #d4b460; }
 details[open] .task-assign-toggle { color: rgba(200,168,75,.6); }
 
-/* 
+/*
    HEADHUNTER
  */
 .hh-launch-form {
@@ -1038,31 +1043,31 @@ details[open] .task-assign-toggle { color: rgba(200,168,75,.6); }
   .hh-offer-grid  { grid-template-columns: 1fr; }
 }
 
-/* hr body override (przeniesione z inline <style>) */
-/* Override boardroom.css - hr nie uywa boardroom layout */
-/* 
-   RESPONSYWNO MOBILNA
+/* Override boardroom.css — hr nie używa boardroom layout / hr does not use boardroom layout */
+
+/*
+   RESPONSYWNOŚĆ MOBILNA / MOBILE RESPONSIVENESS
  */
 
-/* Tablet ( 900px) */
+/* Tablet (≤ 900px) */
 @media (max-width: 900px) {
- /* Rekrutacja: formularz + sidebar 1 kolumna */
+ /* Rekrutacja: formularz + sidebar 1 kolumna / Recruitment: form + sidebar 1 column */
   .recruit-form-grid {
     grid-template-columns: 1fr;
     gap: 20px;
   }
 
- /* Pracownicy: karty 1 kolumna */
+ /* Pracownicy: karty 1 kolumna / Employees: cards 1 column */
   .employees-grid {
     grid-template-columns: 1fr;
   }
 
- /* Kandydaci: karty 1 kolumna */
+ /* Kandydaci: karty 1 kolumna / Candidates: cards 1 column */
   .candidates-grid {
     grid-template-columns: 1fr;
   }
 
- /* Tabele kontraktw scroll poziomy */
+ /* Tabele kontraktów scroll poziomy / Contracts tables horizontal scroll */
   .contracts-table,
   .specs-table,
   .history-table {
@@ -1083,32 +1088,30 @@ details[open] .task-assign-toggle { color: rgba(200,168,75,.6); }
   }
 }
 
-/* Mobile ( 600px) */
+/* Mobile (≤ 600px) */
 @media (max-width: 600px) {
- /* Tabs HR */
-
- /* Region info 1 kolumna */
+ /* Region info 1 kolumna / Region info 1 column */
   .region-info {
     grid-template-columns: 1fr;
   }
 
- /* Karta kandydata skill grid mniej kolumn */
+ /* Karta kandydata skill grid mniej kolumn / Candidate card skill grid fewer columns */
   .cand-skills {
     grid-template-columns: repeat(3, 1fr);
   }
 
- /* Pracownik skill grid */
+ /* Pracownik skill grid / Employee skill grid */
   .emp-skills-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
- /* Statystyki pracownika 2 kolumny */
+ /* Statystyki pracownika 2 kolumny / Employee stats 2 columns */
   .emp-stats-grid,
   .panel-stats {
     grid-template-columns: repeat(2, 1fr);
   }
 
- /* Formularz rekrutacji pola */
+ /* Formularz rekrutacji pola / Recruitment form fields */
   .recruit-form-card {
     padding: 16px;
   }
@@ -1189,4 +1192,12 @@ details[open] .task-assign-toggle { color: rgba(200,168,75,.6); }
   .hh-offer-grid {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 600px) {
+    .cand-skills { grid-template-columns: repeat(2, 1fr) !important; }
+    .cand-name { font-size: 17px; }
+    .cand-salary { font-size: 16px; }
+    .cand-header { flex-wrap: wrap; gap: 6px; }
+    .trait-label { width: 90px; font-size: 10px; }
 }

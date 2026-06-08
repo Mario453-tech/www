@@ -1,0 +1,696 @@
+<?php
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+
+$db  = Database::getInstance()->getConnection();
+$pid = (int)($_GET['id'] ?? 0);
+
+GameLog::step('admin/player', 'init', 1, 'start', ['pid' => $pid]);
+
+if (!$pid) {
+    GameLog::warn('admin/player', 'brak pid - redirect', []);
+    header('Location: /admin/players.php');
+    exit();
+}
+
+// FUNKCJE POBIERANIA DANYCH 
+
+function fetchPlayer(PDO $db, int $pid): array|false
+{
+    try {
+        $stmt = $db->prepare("
+            SELECT p.*, s.capacity, s.used
+            FROM players p
+            LEFT JOIN storage s ON p.id = s.player_id
+            WHERE p.id = :id
+        ");
+        $stmt->execute([':id' => $pid]);
+        $row = $stmt->fetch();
+        GameLog::dbResult('admin/player', 'fetchPlayer', $row ? 1 : 0);
+        return $row;
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchPlayer FAILED', $e, ['pid' => $pid]);
+        return false;
+    }
+}
+
+function fetchWells(PDO $db, int $pid): array
+{
+    try {
+        $stmt = $db->prepare("
+            SELECT w.id, w.status, w.base_production_per_hour, w.technical_condition,
+                   w.level, w.upkeep_cost_per_hour,
+                   COALESCE(w.location_name, wl.name, '') AS display_name,
+                   wr.name AS region_name
+            FROM wells w
+            LEFT JOIN world_locations wl ON wl.id = w.location_id
+            LEFT JOIN world_regions   wr ON wr.id = w.region_id
+            WHERE w.player_id = :id AND w.status != 'sold'
+            ORDER BY w.id
+        ");
+        $stmt->execute([':id' => $pid]);
+        $rows = $stmt->fetchAll();
+        GameLog::dbResult('admin/player', 'fetchWells', count($rows));
+        return $rows;
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchWells FAILED', $e, ['pid' => $pid]);
+        return [];
+    }
+}
+
+function fetchLoans(PDO $db, int $pid): array
+{
+    try {
+        $s = $db->prepare("
+            SELECT id, principal_amount, remaining_amount, status,
+                   installment_amount, next_payment_at, created_at
+            FROM loans
+            WHERE player_id=:pid
+            ORDER BY created_at DESC
+        ");
+        $s->execute([':pid' => $pid]);
+        $rows = $s->fetchAll();
+        GameLog::dbResult('admin/player', 'fetchLoans', count($rows));
+        return $rows;
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchLoans FAILED', $e, ['pid' => $pid]);
+        return [];
+    }
+}
+
+function fetchActiveLoansCount(PDO $db, int $pid): int
+{
+    try {
+        $s = $db->prepare("SELECT COUNT(*) FROM loans WHERE player_id=:pid AND status IN ('active','late')");
+        $s->execute([':pid' => $pid]);
+        return (int)$s->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function fetchTrustScore(PDO $db, int $pid): array
+{
+    try {
+        $s = $db->prepare("SELECT score, last_event, last_updated FROM bank_trust_scores WHERE player_id=:pid");
+        $s->execute([':pid' => $pid]);
+        $row = $s->fetch();
+        GameLog::dbResult('admin/player', 'fetchTrustScore', $row ? 1 : 0);
+        return $row ?: ['score' => 50, 'last_event' => null, 'last_updated' => null];
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchTrustScore FAILED', $e, ['pid' => $pid]);
+        return ['score' => 50, 'last_event' => null, 'last_updated' => null];
+    }
+}
+
+function fetchTrustLog(PDO $db, int $pid, int $page = 1, int $perPage = 10): array
+{
+    try {
+        $offset = ($page - 1) * $perPage;
+        $s = $db->prepare("
+            SELECT id, event, delta, note, created_at
+            FROM bank_trust_log
+            WHERE player_id=:pid
+            ORDER BY created_at DESC
+            LIMIT :lim OFFSET :off
+        ");
+        $s->bindValue(':pid', $pid, PDO::PARAM_INT);
+        $s->bindValue(':lim', $perPage, PDO::PARAM_INT);
+        $s->bindValue(':off', $offset, PDO::PARAM_INT);
+        $s->execute();
+        $rows = $s->fetchAll();
+        GameLog::dbResult('admin/player', 'fetchTrustLog', count($rows));
+        return $rows;
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchTrustLog FAILED', $e, ['pid' => $pid]);
+        return [];
+    }
+}
+
+function fetchTrustLogCount(PDO $db, int $pid): int
+{
+    try {
+        $s = $db->prepare("SELECT COUNT(*) FROM bank_trust_log WHERE player_id=:pid");
+        $s->execute([':pid' => $pid]);
+        return (int)$s->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function fetchNegotiations(PDO $db, int $pid): array
+{
+    try {
+        $s = $db->prepare("
+            SELECT bn.*, l.remaining_amount, l.principal_amount
+            FROM bank_negotiations bn
+            JOIN loans l ON l.id = bn.loan_id
+            WHERE bn.player_id=:pid ORDER BY bn.requested_at DESC LIMIT 20
+        ");
+        $s->execute([':pid' => $pid]);
+        $rows = $s->fetchAll();
+        GameLog::dbResult('admin/player', 'fetchNegotiations', count($rows));
+        return $rows;
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchNegotiations FAILED', $e, ['pid' => $pid]);
+        return [];
+    }
+}
+
+function fetchNegEvents(PDO $db, int $negId): array
+{
+    try {
+        $s = $db->prepare("
+            SELECT * FROM bank_negotiation_events
+            WHERE negotiation_id=:nid ORDER BY created_at DESC LIMIT 5
+        ");
+        $s->execute([':nid' => $negId]);
+        return $s->fetchAll();
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchNegEvents FAILED', $e, ['neg_id' => $negId]);
+        return [];
+    }
+}
+
+function fetchBailiff(PDO $db, int $pid): array
+{
+    try {
+        $s = $db->prepare("
+            SELECT * FROM bailiff_proceedings
+            WHERE player_id=:pid ORDER BY id DESC LIMIT 10
+        ");
+        $s->execute([':pid' => $pid]);
+        $rows = $s->fetchAll();
+        GameLog::dbResult('admin/player', 'fetchBailiff', count($rows));
+        return $rows;
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchBailiff FAILED', $e, ['pid' => $pid]);
+        return [];
+    }
+}
+
+function fetchBankruptcy(PDO $db, int $pid): array
+{
+    try {
+        GameLog::step('admin/player', 'fetchBankruptcy', 1, 'start', ['pid' => $pid]);
+
+ // Dane statusu bankruta z tabeli players
+        $pStmt = $db->prepare("
+            SELECT
+                COALESCE(recovery_mode, 0)          AS recovery_mode,
+                COALESCE(bankruptcy_status, 'none') AS bankruptcy_status,
+                bankruptcy_at,
+                status
+            FROM players WHERE id = :pid LIMIT 1
+        ");
+        $pStmt->execute([':pid' => $pid]);
+        $playerRow = $pStmt->fetch();
+        GameLog::dbResult('admin/player', 'fetchBankruptcy playerRow', $playerRow ? 1 : 0);
+
+ // Historia zdarze bankruta (ostatnie 30)
+        $evStmt = $db->prepare("
+            SELECT id, event_type, message, severity, is_critical,
+                   due_at, resolved_at, resolution_note, created_at
+            FROM bankruptcy_events
+            WHERE player_id = :pid
+            ORDER BY id DESC
+            LIMIT 30
+        ");
+        $evStmt->execute([':pid' => $pid]);
+        $events = $evStmt->fetchAll();
+
+        GameLog::dbResult('admin/player', 'fetchBankruptcy events', count($events));
+
+        $isBankrupt = $playerRow && (
+            (string)$playerRow['status'] === 'bankrupt'
+            || (int)$playerRow['recovery_mode'] === 1
+            || !in_array((string)$playerRow['bankruptcy_status'], ['none', 'recovered'], true)
+        );
+
+        return [
+            'is_bankrupt'       => $isBankrupt,
+            'recovery_mode'     => (int)($playerRow['recovery_mode'] ?? 0),
+            'bankruptcy_status' => (string)($playerRow['bankruptcy_status'] ?? 'none'),
+            'bankruptcy_at'     => $playerRow['bankruptcy_at'] ?? null,
+            'events'            => $events,
+        ];
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'fetchBankruptcy FAILED', $e, ['pid' => $pid]);
+        return [
+            'is_bankrupt'       => false,
+            'recovery_mode'     => 0,
+            'bankruptcy_status' => 'none',
+            'bankruptcy_at'     => null,
+            'events'            => [],
+        ];
+    }
+}
+
+// INICJALIZACJA DANYCH 
+
+$trustPage    = max(1, (int)($_GET['tp'] ?? 1));
+$trustPerPage = 10;
+
+$player = fetchPlayer($db, $pid);
+if (!$player) {
+    GameLog::warn('admin/player', 'gracz nie istnieje', ['pid' => $pid]);
+    echo '<div class="admin-wrap"><p class="alert alert-error">' . t('admin.player.err_not_found') . '</p></div>';
+    exit();
+}
+
+$wells           = fetchWells($db, $pid);
+$loans           = fetchLoans($db, $pid);
+$activeLoansCount = fetchActiveLoansCount($db, $pid);
+$trustData       = fetchTrustScore($db, $pid);
+$trustLogTotal   = fetchTrustLogCount($db, $pid);
+$trustLog        = fetchTrustLog($db, $pid, $trustPage, $trustPerPage);
+$trustPages      = max(1, (int)ceil($trustLogTotal / $trustPerPage));
+$negotiations    = fetchNegotiations($db, $pid);
+$bailiffRows     = fetchBailiff($db, $pid);
+$bankruptcyData  = fetchBankruptcy($db, $pid);
+
+GameLog::info('admin/player', 'dane zaadowane', [
+    'pid'           => $pid,
+    'wells'         => count($wells),
+    'loans'         => count($loans),
+    'trust'         => $trustData['score'],
+    'negotiations'  => count($negotiations),
+    'bailiff'       => count($bailiffRows),
+    'is_bankrupt'   => $bankruptcyData['is_bankrupt'],
+    'bk_status'     => $bankruptcyData['bankruptcy_status'],
+]);
+
+$msg   = '';
+$error = '';
+
+// Etykiety statusow
+$playerStatusLabels = [
+    'active'         => t('player.status.active'),
+    'financial_risk' => t('player.status.financial_risk'),
+    'under_bailiff'  => t('player.status.under_bailiff'),
+    'bankrupt'       => t('player.status.bankrupt'),
+];
+
+$wellStatusLabels = [
+    'active'         => t('well.status.active'),
+    'paused_storage' => t('well.status.paused_storage'),
+    'paused_cash'    => t('well.status.paused_cash'),
+    'paused_staff'   => t('well.status.paused_staff'),
+    'no_operator'    => t('well.status.no_operator'),
+    'no_technician'  => t('well.status.no_technician'),
+    'broken'         => t('well.status.broken'),
+    'blowout'        => t('well.status.blowout'),
+    'contaminated'   => t('well.status.contaminated'),
+    'seized'         => t('well.status.seized'),
+    'sold'           => t('well.status.sold'),
+];
+
+// OBSUGA AKCJI POST 
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        GameLog::warn('admin/player', 'CSRF walidacja nieudana', ['pid' => $pid]);
+        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+    }
+
+    $action = $_POST['action'] ?? '';
+    GameLog::step('admin/player', 'POST', 1, 'action=' . $action, ['pid' => $pid]);
+
+ // Ustawienie gotwki (warto absolutna) 
+    if ($action === 'set_cash') {
+        $setAmount = (float)($_POST['set_amount'] ?? 0);
+        if ($setAmount >= 0) {
+            try {
+                $db->prepare("UPDATE players SET cash = :a WHERE id = :id")
+                   ->execute([':a' => $setAmount, ':id' => $pid]);
+                AdminLog::log('cash_set', t('admin.player.log_cash_set', ['amount' => $setAmount]), $pid);
+                GameLog::info('admin/player', 'gotwka ustawiona', ['pid' => $pid, 'value' => $setAmount]);
+                $msg = t('admin.player.msg_cash_set', ['amount' => number_format($setAmount, 2, ',', ' ')]);
+            } catch (Throwable $e) {
+                GameLog::error('admin/player', 'set_cash FAILED', $e, ['pid' => $pid, 'amount' => $setAmount]);
+                $error = t('admin.player.err_cash_change') . $e->getMessage();
+            }
+        } else {
+            $error = t('admin.player.err_cash_negative');
+        }
+
+ // Zmiana gotwki (delta) 
+    } elseif ($action === 'cash') {
+        $amount = (int)($_POST['amount'] ?? 0);
+        $reason = trim($_POST['reason'] ?? '');
+        if ($amount !== 0) {
+            try {
+                $db->prepare("UPDATE players SET cash = cash + :a WHERE id = :id")
+                   ->execute([':a' => $amount, ':id' => $pid]);
+                AdminLog::log('cash_change', t('admin.player.log_cash_change', ['amount' => $amount, 'reason' => $reason]), $pid);
+                GameLog::info('admin/player', 'gotwka zmieniona', ['pid' => $pid, 'delta' => $amount, 'reason' => $reason]);
+                $msg = t('admin.player.msg_cash_changed', ['amount' => $amount]);
+            } catch (Throwable $e) {
+                GameLog::error('admin/player', 'cash change FAILED', $e, ['pid' => $pid, 'amount' => $amount]);
+                $error = t('admin.player.err_cash_change') . $e->getMessage();
+            }
+        } else {
+            $error = t('admin.player.err_amount_zero');
+            GameLog::warn('admin/player', 'cash change - kwota 0', ['pid' => $pid]);
+        }
+
+ // Zmiana statusu gracza 
+    } elseif ($action === 'status') {
+        $new     = $_POST['new_status'] ?? '';
+        $allowed = ['active', 'financial_risk', 'under_bailiff', 'bankrupt'];
+        if (in_array($new, $allowed)) {
+            try {
+                $db->prepare("UPDATE players SET status = :s WHERE id = :id")
+                   ->execute([':s' => $new, ':id' => $pid]);
+                $label = $playerStatusLabels[$new] ?? $new;
+                AdminLog::log('status_change', t('admin.player.log_status_change', ['label' => $label]), $pid);
+                GameLog::info('admin/player', 'status gracza zmieniony', ['pid' => $pid, 'new_status' => $new]);
+                $msg = t('admin.player.msg_status_changed', ['label' => $label]);
+            } catch (Throwable $e) {
+                GameLog::error('admin/player', 'status change FAILED', $e, ['pid' => $pid, 'new' => $new]);
+                $error = t('admin.player.err_status_change') . $e->getMessage();
+            }
+        } else {
+            $error = t('admin.player.err_invalid_status');
+            GameLog::warn('admin/player', 'nieprawidowy status gracza', ['pid' => $pid, 'value' => $new]);
+        }
+
+ // Zmiana statusu odwiertu 
+    } elseif ($action === 'well_set_status') {
+        $wid       = (int)($_POST['well_id'] ?? 0);
+        $newStatus = $_POST['new_well_status'] ?? '';
+        $allowed   = ['active', 'paused_storage', 'paused_cash', 'paused_staff', 'no_operator', 'no_technician', 'broken', 'blowout', 'contaminated', 'seized', 'sold'];
+        if ($wid && in_array($newStatus, $allowed)) {
+            try {
+                $db->prepare("UPDATE wells SET status = :s WHERE id = :wid AND player_id = :pid")
+                   ->execute([':s' => $newStatus, ':wid' => $wid, ':pid' => $pid]);
+                $label = $wellStatusLabels[$newStatus] ?? $newStatus;
+                AdminLog::log('well_status_change', t('admin.player.log_well_status_change', ['id' => $wid, 'label' => $label]), $pid, 'well', $wid);
+                GameLog::info('admin/player', 'status odwiertu zmieniony', ['pid' => $pid, 'well_id' => $wid, 'new_status' => $newStatus]);
+                $msg = t('admin.player.msg_well_status_changed', ['id' => $wid, 'label' => $label]);
+            } catch (Throwable $e) {
+                GameLog::error('admin/player', 'well_set_status FAILED', $e, ['pid' => $pid, 'well_id' => $wid]);
+                $error = t('admin.player.err_well_status_change') . $e->getMessage();
+            }
+        } else {
+            $error = t('admin.player.err_invalid_well_status');
+            GameLog::warn('admin/player', 'nieprawidowy status odwiertu', ['pid' => $pid, 'well_id' => $wid, 'status' => $newStatus]);
+        }
+
+ // Toggle newsletter subscription
+    } elseif ($action === 'toggle_newsletter') {
+        try {
+            $cur = (int)$db->prepare("SELECT COALESCE(newsletter_subscribed,1) FROM players WHERE id=?")->execute([$pid]) ? 1 : 1;
+ // Fetch current value properly
+            $curStmt = $db->prepare("SELECT COALESCE(newsletter_subscribed,1) AS ns FROM players WHERE id=? LIMIT 1");
+            $curStmt->execute([$pid]);
+            $cur = (int)$curStmt->fetchColumn();
+            $new = $cur ? 0 : 1;
+            $db->prepare("UPDATE players SET newsletter_subscribed = ? WHERE id = ?")->execute([$new, $pid]);
+            $label = $new ? 'Subskrybent' : 'Wypisany';
+            AdminLog::log('newsletter_toggle', "Newsletter: {$label}", $pid);
+            GameLog::info('admin/player', 'newsletter_subscribed toggled', ['pid' => $pid, 'new' => $new]);
+            $msg = $new
+                ? t('admin.player.msg_newsletter_subscribed')
+                : t('admin.player.msg_newsletter_unsubscribed');
+        } catch (Throwable $e) {
+            GameLog::error('admin/player', 'toggle_newsletter FAILED', $e, ['pid' => $pid]);
+            $error = 'Bd zmiany subskrypcji: ' . $e->getMessage();
+        }
+
+ // Rczny tick
+    } elseif ($action === 'manual_tick') {
+        try {
+            $now     = new DateTime();
+            $rowStmt = $db->prepare("SELECT last_tick_at FROM players WHERE id = :id");
+            $rowStmt->execute([':id' => $pid]);
+            $lastRow = $rowStmt->fetch();
+
+            if (!$lastRow || empty($lastRow['last_tick_at'])) {
+                $error = t('admin.player.err_no_last_tick');
+                GameLog::warn('admin/player', 'manual_tick - brak last_tick_at', ['pid' => $pid]);
+            } else {
+                $delta = $now->getTimestamp() - (new DateTime($lastRow['last_tick_at']))->getTimestamp();
+
+                if ($delta > 0) {
+                    if ($delta > 86400) $delta = 86400;
+
+                    $wellsStmt = $db->prepare("
+                        SELECT id, status, base_production_per_hour, upkeep_cost_per_hour
+                        FROM wells WHERE player_id = :pid AND status = 'active'
+                    ");
+                    $wellsStmt->execute([':pid' => $pid]);
+                    $activeWells = $wellsStmt->fetchAll();
+
+                    $storStmt = $db->prepare("SELECT capacity, used FROM storage WHERE player_id = :pid");
+                    $storStmt->execute([':pid' => $pid]);
+                    $storage = $storStmt->fetch();
+
+                    $totalProd = $totalCost = 0;
+
+                    if ($storage) {
+                        $freeSpace = (float)$storage['capacity'] - (float)$storage['used'];
+                        foreach ($activeWells as $w) {
+                            try {
+                                $potential = ((float)$w['base_production_per_hour'] * $delta) / 3600;
+                                $actual    = min($potential, $freeSpace);
+                                if ($actual > 0) {
+                                    $totalProd += $actual;
+                                    $totalCost += ((float)$w['upkeep_cost_per_hour'] * $delta) / 3600;
+                                    $freeSpace -= $actual;
+                                }
+                            } catch (Throwable $e) {
+                                GameLog::error('admin/player', 'manual_tick well loop FAILED', $e, ['well_id' => $w['id']]);
+                            }
+                        }
+                    } else {
+                        GameLog::warn('admin/player', 'manual_tick - brak magazynu', ['pid' => $pid]);
+                    }
+
+                    if ($totalProd > 0) {
+                        $db->prepare("UPDATE storage SET used = used + :p, updated_at = NOW() WHERE player_id = :pid")
+                           ->execute([':p' => $totalProd, ':pid' => $pid]);
+                    }
+                    if ($totalCost > 0) {
+                        $db->prepare("UPDATE players SET cash = cash - :c WHERE id = :pid")
+                           ->execute([':c' => $totalCost, ':pid' => $pid]);
+                    }
+                    $db->prepare("UPDATE players SET last_tick_at = :now WHERE id = :id")
+                       ->execute([':now' => $now->format('Y-m-d H:i:s'), ':id' => $pid]);
+
+                    $prodRound = round($totalProd, 2);
+                    $costRound = round($totalCost, 2);
+                    AdminLog::log('player_force_tick', t('admin.player.log_manual_tick', ['prod' => $prodRound, 'cost' => $costRound, 'delta' => $delta]), $pid);
+                    GameLog::info('admin/player', 'manual_tick wykonany', [
+                        'pid'   => $pid,
+                        'delta' => $delta,
+                        'prod'  => $prodRound,
+                        'cost'  => $costRound,
+                    ]);
+                    $msg = t('admin.player.msg_tick_done', ['prod' => $prodRound, 'cost' => $costRound, 'delta' => $delta]);
+                } else {
+                    $msg = t('admin.player.msg_tick_no_delta');
+                    GameLog::info('admin/player', 'manual_tick - delta=0', ['pid' => $pid]);
+                }
+            }
+        } catch (Throwable $e) {
+            GameLog::error('admin/player', 'manual_tick FAILED', $e, ['pid' => $pid]);
+            $error = t('admin.player.err_tick') . $e->getMessage();
+        }
+
+ // Rczna korekta Trust Score 
+    } elseif ($action === 'trust_adjust') {
+        $delta  = max(-100, min(100, (int)($_POST['trust_delta']  ?? 0)));
+        $reason = trim($_POST['trust_reason'] ?? 'korekta_admin');
+        if ($delta !== 0) {
+            try {
+                $db->prepare("
+                    INSERT INTO bank_trust_scores (player_id, score, last_event, last_updated)
+                    VALUES (:pid, GREATEST(0, LEAST(100, 50 + :delta)), :ev, NOW())
+                    ON DUPLICATE KEY UPDATE
+                        score        = GREATEST(0, LEAST(100, score + :delta2)),
+                        last_event   = :ev2,
+                        last_updated = NOW()
+                ")->execute([
+                    ':pid'    => $pid,
+                    ':delta'  => $delta,
+                    ':ev'     => 'admin:' . $reason,
+                    ':delta2' => $delta,
+                    ':ev2'    => 'admin:' . $reason,
+                ]);
+
+                $db->prepare("
+                    INSERT INTO bank_trust_log (player_id, event, delta, note, created_at)
+                    VALUES (:pid, 'admin_adjustment', :delta, :note, NOW())
+                ")->execute([
+                    ':pid'   => $pid,
+                    ':delta' => $delta,
+                    ':note'  => 'Admin: ' . $reason,
+                ]);
+
+                AdminLog::log('trust_adjust', t('admin.player.log_trust_adjust', ['delta' => $delta, 'reason' => $reason]), $pid);
+                GameLog::info('admin/player', 'trust_score zmieniony', [
+                    'pid'    => $pid,
+                    'delta'  => $delta,
+                    'reason' => $reason,
+                ]);
+                $msg = t('admin.player.msg_trust_adjusted', ['delta' => $delta]);
+            } catch (Throwable $e) {
+                GameLog::error('admin/player', 'trust_adjust FAILED', $e, ['pid' => $pid, 'delta' => $delta]);
+                $error = t('admin.player.err_trust_adjust') . $e->getMessage();
+            }
+        } else {
+            $error = t('admin.player.err_delta_zero');
+            GameLog::warn('admin/player', 'trust_adjust - delta 0', ['pid' => $pid]);
+        }
+
+    } elseif ($action === 'set_credit_score') {
+ // Bezporednie ustawienie players.credit_score 
+        $newCs = max(0, min(1000, (int)($_POST['credit_score_value'] ?? 0)));
+        try {
+            $db->prepare("UPDATE players SET credit_score = :cs WHERE id = :pid")
+               ->execute([':cs' => $newCs, ':pid' => $pid]);
+            AdminLog::log('set_credit_score', t('admin.player.log_credit_score_set', ['value' => $newCs]), $pid);
+            GameLog::info('admin/player', 'credit_score ustawiony', ['pid' => $pid, 'value' => $newCs]);
+            $msg = t('admin.player.msg_credit_score_set', ['value' => $newCs]);
+        } catch (Throwable $e) {
+            GameLog::error('admin/player', 'set_credit_score FAILED', $e, ['pid' => $pid]);
+            $error = t('admin.player.err_credit_score_set') . $e->getMessage();
+        }
+
+    } elseif ($action === 'clear_trust_log') {
+ // Czyszczenie historii trust score 
+        try {
+            $db->prepare("DELETE FROM bank_trust_log WHERE player_id = :pid")
+               ->execute([':pid' => $pid]);
+            AdminLog::log('trust_log_cleared', t('admin.player.log_trust_cleared'), $pid);
+            GameLog::info('admin/player', 'trust_log wyczyszczony', ['pid' => $pid]);
+            $msg = t('admin.player.msg_trust_cleared');
+        } catch (Throwable $e) {
+            GameLog::error('admin/player', 'clear_trust_log FAILED', $e, ['pid' => $pid]);
+            $error = t('admin.player.err_trust_adjust') . $e->getMessage();
+        }
+
+    } elseif ($action === 'clear_bk_events') {
+ // Czyszczenie historii zdarze bankructwa 
+        try {
+            $db->prepare("DELETE FROM bankruptcy_events WHERE player_id = :pid")
+               ->execute([':pid' => $pid]);
+            AdminLog::log('bk_events_cleared', t('admin.player.log_bk_cleared'), $pid);
+            GameLog::info('admin/player', 'bk_events wyczyszczone', ['pid' => $pid]);
+            $msg = t('admin.player.msg_bk_cleared');
+        } catch (Throwable $e) {
+            GameLog::error('admin/player', 'clear_bk_events FAILED', $e, ['pid' => $pid]);
+            $error = t('admin.player.err_bk_reset') . $e->getMessage();
+        }
+
+    } elseif ($action === 'bankruptcy_reset') {
+ // Rczny reset trybu bankruta przez admina 
+        $newStatus = (string)($_POST['bankruptcy_new_status'] ?? 'none');
+        GameLog::step('admin/player', 'POST', 1, 'bankruptcy_reset', [
+            'pid'        => $pid,
+            'new_status' => $newStatus,
+        ]);
+        $allowed   = ['none', 'restructuring', 'liquidation', 'recovered'];
+        if (!in_array($newStatus, $allowed, true)) {
+            $error = t('admin.player.err_invalid_bk_status');
+
+            GameLog::warn('admin/player', 'bankruptcy_reset  zy status', ['pid' => $pid, 'status' => $newStatus]);
+        } else {
+            try {
+                $db->beginTransaction();
+
+                if ($newStatus === 'none' || $newStatus === 'recovered') {
+ // Peny reset gracz wychodzi z bankructwa
+                    $db->prepare("
+                        UPDATE players
+                        SET recovery_mode     = 0,
+                            bankruptcy_status = :bs,
+                            bankruptcy_at     = NULL,
+                            status            = 'active'
+                        WHERE id = :pid
+                    ")->execute([':bs' => $newStatus, ':pid' => $pid]);
+                } else {
+ // Zmiana statusu bez wychodzenia z bankructwa
+                    $db->prepare("
+                        UPDATE players
+                        SET recovery_mode     = 1,
+                            bankruptcy_status = :bs
+                        WHERE id = :pid
+                    ")->execute([':bs' => $newStatus, ':pid' => $pid]);
+                }
+
+                $adminNote = t('admin.player.log_bk_status_change', ['status' => $newStatus]);
+                $db->prepare("
+                    INSERT INTO bankruptcy_events
+                        (player_id, event_type, message, severity, is_critical, created_at)
+                    VALUES (:pid, 'admin_override', :msg, 'low', 0, NOW())
+                ")->execute([':pid' => $pid, ':msg' => $adminNote]);
+
+                $db->commit();
+
+                AdminLog::log('bankruptcy_reset', $adminNote, $pid);
+                GameLog::info('admin/player', 'bankruptcy_reset', [
+                    'pid'        => $pid,
+                    'new_status' => $newStatus,
+                ]);
+                $msg = t('admin.player.msg_bk_status_changed', ['status' => $newStatus]);
+
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) $db->rollBack();
+                GameLog::error('admin/player', 'bankruptcy_reset FAILED', $e, ['pid' => $pid]);
+                $error = t('admin.player.err_bk_reset') . $e->getMessage();
+            }
+        }
+
+    } else {
+        GameLog::warn('admin/player', 'unknown POST action', ['action' => $action, 'pid' => $pid]);
+        $error = t('admin.player.err_unknown_action');
+    }
+
+ // Odwie dane po akcji
+    try {
+        $player           = fetchPlayer($db, $pid);
+        $wells            = fetchWells($db, $pid);
+        $loans            = fetchLoans($db, $pid);
+        $activeLoansCount = fetchActiveLoansCount($db, $pid);
+        $trustData        = fetchTrustScore($db, $pid);
+        $trustLogTotal    = fetchTrustLogCount($db, $pid);
+        $trustPages       = max(1, (int)ceil($trustLogTotal / $trustPerPage));
+        $trustLog         = fetchTrustLog($db, $pid, $trustPage, $trustPerPage);
+        $negotiations     = fetchNegotiations($db, $pid);
+        $bailiffRows      = fetchBailiff($db, $pid);
+        $bankruptcyData   = fetchBankruptcy($db, $pid);
+        GameLog::step('admin/player', 'POST', 2, 'dane odswiezone po akcji');
+    } catch (Throwable $e) {
+        GameLog::error('admin/player', 'odswiezenie danych po POST FAILED', $e, ['pid' => $pid]);
+    }
+}
+
+// HELPERS RENDER 
+
+function playerBadgeClass(string $status): string
+{
+    return match($status) {
+        'active'         => 'badge-active',
+        'financial_risk' => 'badge-paused',
+        'under_bailiff'  => 'badge-paused',
+        'bankrupt'       => 'badge-bankrupt',
+        default          => 'badge-inactive',
+    };
+}
+
+// == WIDOK ==
+
+$viewData = compact(
+    'pid', 'player', 'wells', 'loans', 'activeLoansCount',
+    'trustData', 'trustLog', 'trustLogTotal', 'trustPages', 'trustPage', 'trustPerPage',
+    'negotiations', 'bailiffRows', 'bankruptcyData',
+    'msg', 'error'
+);
+
+$pageTitle = t('admin.player.page_title', ['pid' => $pid]);
+require_once __DIR__ . '/partials/header.php';
+require __DIR__ . '/../templates/views/admin/player/main.php';
+require_once __DIR__ . '/partials/footer.php';

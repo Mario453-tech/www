@@ -241,6 +241,70 @@ class HubAcquisitionService
         }
     }
 
+    /**
+     * Gracz rozbudowuje wlasny hub do kolejnego poziomu.
+     * Player upgrades an owned hub to the next level.
+     *
+     * @return array{success: bool, new_level?: int, cost?: float, error?: string}
+     */
+    public function upgradeOwned(int $playerId, int $hubId): array
+    {
+        $hub = $this->hubSvc->getHub($hubId);
+        if (!$hub) {
+            return ['success' => false, 'error' => 'hub_not_found'];
+        }
+        if ((int)($hub['player_id'] ?? 0) !== $playerId) {
+            return ['success' => false, 'error' => 'hub_not_owned'];
+        }
+        if (in_array((string)($hub['status'] ?? ''), ['disabled', 'building'], true)) {
+            return ['success' => false, 'error' => 'hub_unavailable'];
+        }
+
+        $currentLevel = (int)($hub['level'] ?? 1);
+        $defaults = $this->hubSvc->getHubTypeDefaults((string)$hub['hub_type'], $currentLevel);
+        if ($currentLevel >= (int)($defaults['max_level'] ?? 3)) {
+            return ['success' => false, 'error' => 'max_level'];
+        }
+
+        $cost = round((float)($defaults['upgrade_cost'] ?? 0.0), 2);
+        $cashCheck = $this->checkAndDeductCash($playerId, $cost);
+        if (!$cashCheck['ok']) {
+            return ['success' => false, 'error' => 'insufficient_funds', 'cost' => $cost];
+        }
+
+        try {
+            $result = $this->hubSvc->upgradeHub($hubId, $playerId);
+            if (!$result['success']) {
+                $this->refundCash($playerId, $cost);
+                return [
+                    'success' => false,
+                    'error'   => $result['error'] ?? 'db_error',
+                    'cost'    => $cost,
+                ];
+            }
+
+            GameLog::info('HubAcquisitionService', 'Player upgraded owned hub', [
+                'player_id' => $playerId,
+                'hub_id'    => $hubId,
+                'level'     => $result['new_level'] ?? null,
+                'cost'      => $cost,
+            ]);
+
+            return [
+                'success'   => true,
+                'new_level' => (int)($result['new_level'] ?? ($currentLevel + 1)),
+                'cost'      => $cost,
+            ];
+        } catch (Throwable $e) {
+            $this->refundCash($playerId, $cost);
+            GameLog::error('HubAcquisitionService', 'upgradeOwned failed', $e, [
+                'player_id' => $playerId,
+                'hub_id'    => $hubId,
+            ]);
+            return ['success' => false, 'error' => 'db_error', 'cost' => $cost];
+        }
+    }
+
  /**
  * One-time migration: players with active well assignments become tenants.
  * Runs during ETAP 1 deploy; idempotent (skips hubs that already have tenant/owner).
@@ -315,6 +379,15 @@ class HubAcquisitionService
         }
         $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
             ->execute([$amount, $playerId]);
+        try {
+            if (class_exists('FinancialTransactionService', false)) {
+                (new FinancialTransactionService($this->db))->logTransaction(
+                    $playerId, null, $amount,
+                    FinancialTransactionService::TYPE_HUB_PURCHASE,
+                    'Zakup/wynajem hubu logistycznego'
+                );
+            }
+        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
         return ['ok' => true];
     }
 
@@ -326,6 +399,13 @@ class HubAcquisitionService
         try {
             $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id = ?")
                 ->execute([$amount, $playerId]);
+            if (class_exists('FinancialTransactionService', false)) {
+                (new FinancialTransactionService($this->db))->logTransaction(
+                    null, $playerId, $amount,
+                    FinancialTransactionService::TYPE_HUB_PURCHASE,
+                    'Zwrot oplaty za hub logistyczny'
+                );
+            }
         } catch (Throwable $e) {
             GameLog::error('HubAcquisitionService', 'Cash refund failed', $e, [
                 'player_id' => $playerId,

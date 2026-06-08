@@ -273,7 +273,7 @@ class GeologicalLayerService
                         'message' => t('geology.err_no_funds', ['cost' => number_format($cost, 0, '.', ' ')]),
                     ];
                 }
-                $player->updateCash(-$cost);
+                $player->updateCash(-$cost, 'geological_fee', 'Oplata za zmiane warstwy geologicznej');
             }
 
             $switchUntil = $hours > 0

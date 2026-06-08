@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 /**
- * LegalSection — Etap 4+P2a: tick rozpatruajcy wnioski o zezwolenia (wiercenie + huby).
- * LegalSection — Step 4+P2a: tick processing permit applications (drilling + hubs).
+ * LegalSection - etap 4+P2a: tick rozpatrujacy wnioski o zezwolenia (wiercenie + huby).
+ * LegalSection - stage 4+P2a: tick processing permit applications (drilling + hubs).
  *
- * Uruchamiany raz per tick globalnie (nie per gracz).
- * Pobiera wszystkie wnioski ze statusem pending/delayed gdzie decision_due_at <= now.
- * Losuje wynik wg parametrow admin (no_decision > refused > delayed > granted).
+ * PL: Uruchamiany raz per tick globalnie, pobiera pending/delayed, losuje wynik
+ * (no_decision > refused > delayed > granted) i wysyla powiadomienia dyrektora.
+ * EN: Runs once per global tick, reads pending/delayed applications, rolls the
+ * outcome and sends director notifications. P2a adds hub permit processing.
  */
 class LegalSection
 {
@@ -402,11 +403,11 @@ class LegalSection
         $region = $this->regionName($regionId);
 
         [$key, $icon, $priority] = match ($outcome) {
-            'granted'     => ['granted',     '✅', 'high'],
-            'refused'     => ['refused',     '❌', 'high'],
-            'delayed'     => ['delayed',     '⏳', 'medium'],
-            'no_decision' => ['no_decision', '⚠️', 'medium'],
-            default       => ['default',     'ℹ️', 'low'],
+            'granted'     => ['granted',     '', 'high'],
+            'refused'     => ['refused',     '', 'high'],
+            'delayed'     => ['delayed',     '', 'medium'],
+            'no_decision' => ['no_decision', '', 'medium'],
+            default       => ['default',     '', 'low'],
         };
 
         return [

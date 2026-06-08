@@ -122,15 +122,15 @@ final class CompanyCredibilityServiceTest extends SqliteIntegrationTestCase
 
     // ---------------------------------------------------- Prog powiadomienia
 
-    public function testLargeChangeCreatesNotification(): void
+    public function testLargeChangeDoesNotCreateNotification(): void
     {
         $this->seedPlayer(1, 50);
         $this->service->applyEvent(1, 'bailiff_activated'); // -20
 
-        $notifs = $this->notificationsOf(1);
-        $this->assertCount(1, $notifs, 'Zmiana |delta| >= 5 tworzy powiadomienie.');
-        $this->assertSame('credibility', $notifs[0]['type']);
-        $this->assertSame('high', $notifs[0]['priority'], 'Duzy spadek (<= -15) ma priorytet high.');
+        // Powiadomienia gracza sa wylaczone — wiarygodnosc jest widoczna tylko w panelu admina.
+        // Player notifications are disabled — credibility is visible only in the admin panel.
+        $this->assertCount(0, $this->notificationsOf(1), 'Wiarygodnosc nie tworzy powiadomieniagracza (info tylko dla admina).');
+        $this->assertCount(1, $this->logOf(1), 'Ale log w company_credibility_log powstaje zawsze.');
     }
 
     public function testSmallChangeDoesNotNotify(): void
@@ -141,6 +141,28 @@ final class CompanyCredibilityServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(52, $this->scoreOf(1));
         $this->assertCount(0, $this->notificationsOf(1), 'Mala zmiana (|delta| < 5) nie tworzy powiadomienia.');
         $this->assertCount(1, $this->logOf(1), 'Ale log powstaje zawsze.');
+    }
+
+    public function testCleanOperationBonusAppliesOncePerPeriod(): void
+    {
+        $this->seedPlayer(1, 50);
+        $now = new DateTime('2026-06-05 12:00:00');
+
+        $this->assertTrue($this->service->applyCleanOperationBonus(1, 7, $now));
+        $this->assertSame(53, $this->scoreOf(1));
+
+        $this->assertFalse($this->service->applyCleanOperationBonus(1, 7, $now));
+        $this->assertSame(53, $this->scoreOf(1));
+        $this->assertCount(1, $this->logOf(1));
+    }
+
+    public function testCleanOperationBonusBlockedByRecentNegativeEvent(): void
+    {
+        $this->seedPlayer(1, 50);
+        $this->insertLog(1, 'black_market_detected', -12, '2026-06-03 12:00:00');
+
+        $this->assertFalse($this->service->applyCleanOperationBonus(1, 7, new DateTime('2026-06-05 12:00:00')));
+        $this->assertSame(50, $this->scoreOf(1));
     }
 
     // ----------------------------------------------------------------- Guard
@@ -189,6 +211,15 @@ final class CompanyCredibilityServiceTest extends SqliteIntegrationTestCase
     private function seedPlayer(int $id, int $score): void
     {
         $this->db->prepare("INSERT INTO players (id, company_credibility) VALUES (?, ?)")->execute([$id, $score]);
+    }
+
+    private function insertLog(int $playerId, string $eventKey, int $delta, string $createdAt): void
+    {
+        $this->db->prepare(
+            "INSERT INTO company_credibility_log
+                (player_id, event_key, delta, score_before, score_after, note, created_at)
+             VALUES (?, ?, ?, 50, 50, 'test', ?)"
+        )->execute([$playerId, $eventKey, $delta, $createdAt]);
     }
 
     private function createSchema(): void

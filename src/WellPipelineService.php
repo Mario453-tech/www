@@ -355,6 +355,15 @@ class WellPipelineService
         if ($deductStmt->rowCount() === 0) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
+        try {
+            if (class_exists('FinancialTransactionService', false)) {
+                (new FinancialTransactionService($this->db))->logTransaction(
+                    $playerId, null, $buildCost,
+                    FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+                    'Budowa rurociagu od hubu #' . $hubId
+                );
+            }
+        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $capacity = max(1.0, round((float)($hub['nominal_capacity_bph'] ?? 100.0) * ((float)($profile['capacity_pct'] ?? 100.0) / 100.0), 2));
         $name = tPlain('pipeline.default_name_hub', ['id' => $hubId]);
@@ -565,6 +574,15 @@ class WellPipelineService
         if ($deductStmt->rowCount() === 0) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
+        try {
+            if (class_exists('FinancialTransactionService', false)) {
+                (new FinancialTransactionService($this->db))->logTransaction(
+                    $playerId, null, $buildCost,
+                    FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+                    'Budowa rurociagu od odwiertu #' . $wellId
+                );
+            }
+        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $baseProd = (float)($well['base_production_per_hour'] ?? 100.0);
         $capPct   = (float)($profile['capacity_pct'] ?? 100.0);
@@ -880,6 +898,15 @@ class WellPipelineService
         if ($deduct->rowCount() === 0) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
+        try {
+            if (class_exists('FinancialTransactionService', false)) {
+                (new FinancialTransactionService($this->db))->logTransaction(
+                    $playerId, null, $repairCost,
+                    FinancialTransactionService::TYPE_PIPELINE_REPAIR,
+                    'Naprawa rurociagu #' . $pipelineId
+                );
+            }
+        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
  // Restore condition, reduce transport_loss by 60%, update status
         $newStatus = match(true) {
@@ -953,6 +980,15 @@ class WellPipelineService
         if ($deduct->rowCount() === 0) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
+        try {
+            if (class_exists('FinancialTransactionService', false)) {
+                (new FinancialTransactionService($this->db))->logTransaction(
+                    $playerId, null, $maintCost,
+                    FinancialTransactionService::TYPE_PIPELINE_MAINTENANCE,
+                    'Konserwacja rurociagu #' . $pipelineId
+                );
+            }
+        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $newCond = min(100.0, (float)$pipe['condition_pct'] + 2.0);
 

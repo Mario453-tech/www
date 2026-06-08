@@ -105,9 +105,16 @@ $activeTab    = $_GET['tab'] ?? 'info';
             <input type="hidden" name="action" value="set_cash">
             <label class="form-label"><?= t('admin.player.cash_set_label') ?></label>
             <div class="form-row">
-                <input type="number" name="set_amount" value="<?= (int)($player['cash'] ?? 0) ?>" step="1" class="input-full form-group--flex">
+                <input type="text" inputmode="numeric" pattern="[0-9 .,]*" name="set_amount"
+                       value="<?= (int)($player['cash'] ?? 0) ?>"
+                       class="input-full form-group--flex"
+                       placeholder="np. 1000000">
                 <button type="submit" class="btn btn-primary btn-sm"><?= t('admin.player.cash_save') ?></button>
             </div>
+            <p class="form-hint mt-xs muted" style="font-size:.8em">
+                Wpisz liczb cakowit PLN bez spacji i przecinkw, np.&nbsp;<code>6000000</code>&nbsp;=&nbsp;6&nbsp;mln&nbsp;PLN.<br>
+                Enter a plain integer (PLN, no spaces/commas), e.g.&nbsp;<code>6000000</code>&nbsp;=&nbsp;6M&nbsp;PLN.
+            </p>
         </form>
 
         <form method="post" class="admin-action-form">

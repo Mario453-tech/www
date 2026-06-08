@@ -18,7 +18,7 @@
   id             INT AUTO_INCREMENT PRIMARY KEY,
   transport_type ENUM('rurociag','ciezarowki','tankowiec') NOT NULL,
   config_key     VARCHAR(30) NOT NULL,
-  config_value   DECIMAL(8,4) NOT NULL,
+  config_value   DECIMAL(14,4) NOT NULL,
   updated_at     DATETIME NOT NULL,
   UNIQUE KEY uq_type_key (transport_type, config_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;</pre>
@@ -60,7 +60,11 @@
             <span class="panel-title-sub"><?= $typeLabels[$type][1] ?></span>
         </p>
         <div class="config-rows">
-            <?php foreach ($fieldDefs as $key => [$label, $hint, $min, $max]): ?>
+            <?php foreach ($fieldDefs as $key => [$label, $hint, $min, $max]):
+                // min_load_bbl dotyczy tylko tankowcow; dla rurociagu i ciezarowek jest pomijane.
+                // min_load_bbl applies to tankers only; skipped for pipelines and trucks.
+                if ($key === 'min_load_bbl' && $type !== 'tankowiec') continue;
+            ?>
             <div class="config-row">
                 <div>
                     <div class="config-key-label"><?= $label ?></div>
@@ -167,6 +171,7 @@
             <li><strong><?= t('admin.transport.field_capacity') ?></strong>: <?= t('admin.transport.guide_capacity') ?></li>
             <li><strong><?= t('admin.transport.field_opex') ?></strong>: <?= t('admin.transport.guide_opex') ?></li>
             <li><strong><?= t('admin.transport.field_cost_per_bbl') ?></strong>: <?= t('admin.transport.guide_cost_per_bbl') ?></li>
+            <li><strong><?= t('admin.transport.field_min_load_bbl') ?></strong>: <?= t('admin.transport.guide_min_load_bbl') ?></li>
         </ul>
         <p><?= t('admin.transport.guide_blackmarket') ?></p>
     </div>
@@ -193,24 +198,24 @@
 </script>
 
 <!--  -->
-<!-- PORTY MORSKIE (Etap 5)  seed i podglad                               -->
+<!-- PORTY MORSKIE (Etap 5) — seed i podgląd                               -->
 <!--  -->
 <section class="admin-card" style="margin-top:24px">
-    <h2> Porty morskie (Etap 5)</h2>
-    <p class="help-text">Porty systemowe obsuguj dostawy tankowcw. Kady region powinien mie co najmniej 1 aktywny port.</p>
+    <h2>⚓ Porty morskie (Etap 5)</h2>
+    <p class="help-text">Porty systemowe obsługują dostawy tankowców. Każdy region z odwiertem morskim musi mieć co najmniej 1 aktywny port — bez portu odwiert morski wstrzymuje produkcję.</p>
 
     <form method="post" style="margin-bottom:16px">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_ports">
         <button type="submit" class="btn btn-primary btn-sm"
-                onclick="return confirm('Seed portw  tworzy 1 port na region (pomija istniejce). Kontynuowa?')">
-             Seed domylnych portw (1 na region)
+                onclick="return confirm('Seed portów: tworzy 1 port na region (pomija istniejące). Kontynuować?')">
+            Zasiej domyślne porty (1 na region)
         </button>
-        <span class="help-text" style="margin-left:8px">Bezpieczne  nie nadpisze istniejcych portw.</span>
+        <span class="help-text" style="margin-left:8px">Bezpieczne — nie nadpisze istniejących portów.</span>
     </form>
 
     <?php if (empty($portsData)): ?>
-        <div class="alert alert-info">Brak portw w bazie. Uruchom seed lub wykonaj migracj <code>migrations/etap5_marine_ports.sql</code>.</div>
+        <div class="alert alert-info">Brak portów w bazie. Uruchom seed lub wykonaj migrację <code>migrations/etap5_marine_ports.sql</code>.</div>
     <?php else: ?>
     <table class="admin-table" style="font-size:.83rem">
         <thead>

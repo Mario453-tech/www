@@ -54,6 +54,23 @@ $actions->handle();
 $error   = $actions->error;
 $success = $actions->success;
 
+// PRG (Post/Redirect/Get): po udanej akcji kredytowej przekieruj na GET zamiast przerenderowywac.
+// PRG (Post/Redirect/Get): after a successful loan action redirect to GET instead of re-rendering.
+// Zapobiega pokazywaniu starych danych na mobilnych przegladarkach z BFCache.
+// Prevents stale data on mobile browsers with BFCache after loan accept/repay.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $success && empty($error)) {
+    $action = $_POST['action'] ?? '';
+    if (in_array($action, ['accept_offer', 'repay_loan', 'neg_apply', 'bank_transfer'], true)) {
+        $_SESSION['bank_flash_success'] = $success;
+        header('Location: /bank');
+        exit();
+    }
+}
+if (!empty($_SESSION['bank_flash_success'])) {
+    $success = $_SESSION['bank_flash_success'];
+    unset($_SESSION['bank_flash_success']);
+}
+
 // == POBIERANIE DANYCH ==
 
 $data       = (new BankDataLoader($playerId, $bankService, $bankNeg))->load();
@@ -80,7 +97,10 @@ $pageTitle = $bankTitlePlain . ' - Oil Empire';
 $extraCss  = ['/assets/css/bank.css'];
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData);
-$gameShellTitle = tPlain('bank.title');
+// tPlain zwraca surowy HTML (np. z <span>) — przekazany jako HTML do szablonu przez $gameShellTitleHtml.
+// tPlain returns raw HTML (e.g. with <span>) — passed as HTML to template via $gameShellTitleHtml.
+$gameShellTitle    = strip_tags(tPlain('bank.title')); // plain text dla aria-label / for aria-label
+$gameShellTitleHtml = tPlain('bank.title');             // HTML dla h2 / HTML for h2
 $gameShellView  = __DIR__ . '/../templates/views/bank/main.php';
 require __DIR__ . '/../templates/components/game_shell.php';
 

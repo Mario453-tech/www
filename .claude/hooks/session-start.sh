@@ -1,81 +1,55 @@
 #!/bin/bash
-# SessionStart hook — uruchamia MariaDB + laduje schemat dla sesji webowych.
-# SessionStart hook — starts MariaDB + loads schema for web sessions.
+# SessionStart hook: uruchamia MariaDB w tle, zeby testy PHPUnit z
+# tests/MySqlIntegration/ mogly sie polaczyc z baza 'gra1'.
+# SessionStart hook: starts MariaDB in the background so PHPUnit tests in
+# tests/MySqlIntegration/ can connect to the 'gra1' database.
 #
-# Uruchamiany tylko w zdalnym srodowisku Claude Code on the web.
-# Only runs in the remote Claude Code on the web environment.
+# Idempotentny: jezeli MariaDB juz dziala, nic nie robi.
+# Idempotent: if MariaDB is already running, this script is a no-op.
+
 set -euo pipefail
 
+# Tylko w srodowisku Claude Code on the web (kontener z preinstalowana MariaDB).
+# Only in the Claude Code on the web environment (container with pre-installed MariaDB).
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
     exit 0
 fi
 
-PROJ="${CLAUDE_PROJECT_DIR:-/home/user/www}"
-DB_NAME="gra1"
-DB_USER="oiltest"
-DB_PASS="oiltest"
-SOCKET="/run/mysqld/mysqld.sock"
-LOG="/tmp/mariadb-session.log"
-
-# --- 1. Napraw wlasciciela katalogu danych (po resecie kontenera bedziemy root).
-# --- 1. Fix datadir ownership (after a container reset we run as root).
-mkdir -p /run/mysqld
-chown mysql:mysql /run/mysqld 2>/dev/null || true
-chown -R mysql:mysql /var/lib/mysql 2>/dev/null || true
-
-# --- 2. Uruchom mariadbd jesli nie dziala / Start mariadbd if not running.
-if ! mysql -uroot --protocol=socket -e "SELECT 1" >/dev/null 2>&1; then
-    setsid mariadbd \
-        --user=mysql \
-        --datadir=/var/lib/mysql \
-        --socket="$SOCKET" \
-        --pid-file=/run/mysqld/mysqld.pid \
-        --bind-address=127.0.0.1 \
-        --port=3306 \
-        >"$LOG" 2>&1 < /dev/null &
-    disown 2>/dev/null || true
-
-    # Czekaj az wstanie (max 40s) / Wait until up (max 40 s)
-    for i in $(seq 1 40); do
-        if mysql -uroot --protocol=socket -e "SELECT 1" >/dev/null 2>&1; then
-            break
-        fi
-        sleep 1
-    done
+# Jezeli port 3306 juz nasluchuje, MariaDB dziala.
+# If port 3306 is already listening, MariaDB is running.
+if ss -tln 2>/dev/null | grep -q ':3306'; then
+    echo "[session-start] MariaDB already running on :3306"
+    exit 0
 fi
 
-# --- 3. Baza danych / Database
-mysql -uroot --protocol=socket -e \
-    "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true
+# Wymagane katalogi runtime (socket, pid file).
+# Required runtime directories (socket, pid file).
+mkdir -p /var/run/mysqld
+chown mysql:mysql /var/run/mysqld
 
-# --- 4. Uzytkownik TCP (root loguje sie przez unix_socket, testy uzywaja 127.0.0.1).
-# --- 4. TCP user (root authenticates via unix_socket; tests connect via 127.0.0.1).
-mysql -uroot --protocol=socket <<SQL 2>/dev/null || true
-CREATE USER IF NOT EXISTS '${DB_USER}'@'%'         IDENTIFIED BY '${DB_PASS}';
-CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost'  IDENTIFIED BY '${DB_PASS}';
-GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%';
-GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
-FLUSH PRIVILEGES;
-SQL
+# Start daemona w tle. Logi -> /tmp/mariadb.log (sesja jest ephemeralna).
+# Start the daemon in the background. Logs -> /tmp/mariadb.log (ephemeral session).
+nohup sudo -u mysql /usr/sbin/mariadbd \
+    --datadir=/var/lib/mysql \
+    --socket=/var/run/mysqld/mysqld.sock \
+    --pid-file=/var/run/mysqld/mariadbd.pid \
+    --user=mysql \
+    > /tmp/mariadb.log 2>&1 &
 
-# --- 5. Schemat (tylko jesli baza jest pusta) / Schema (only when the db is empty).
-TABLE_COUNT=$(mysql -uroot --protocol=socket -e \
-    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" \
-    --skip-column-names 2>/dev/null || echo "0")
+# Poczekaj az port 3306 zacznie nasluchiwac (do 15 sekund).
+# Wait until port 3306 starts listening (up to 15 seconds).
+for i in $(seq 1 15); do
+    if ss -tln 2>/dev/null | grep -q ':3306'; then
+        echo "[session-start] MariaDB up after ${i}s"
+        exit 0
+    fi
+    sleep 1
+done
 
-if [ "${TABLE_COUNT:-0}" -lt "10" ]; then
-    mysql -uroot --protocol=socket "${DB_NAME}" < "${PROJ}/tests/ci-schema.sql"
-fi
-
-# --- 6. Zapisz zmienne srodowiskowe / Export env vars for the session.
-if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-    cat >> "$CLAUDE_ENV_FILE" <<ENV
-export DB_HOST=127.0.0.1
-export DB_NAME=${DB_NAME}
-export DB_USER=${DB_USER}
-export DB_PASS=${DB_PASS}
-export DB_CHARSET=utf8mb4
-ENV
-fi
-
-echo "[session-start] MariaDB OK — ${DB_NAME}@127.0.0.1 (user: ${DB_USER})"
+echo "[session-start] WARNING: MariaDB did not open :3306 within 15s" >&2
+tail -20 /tmp/mariadb.log >&2 || true
+# Nie blokujemy sesji - testy MySQL po prostu beda failowac z PDOException
+# i to bedzie czytelny sygnal w wynikach testow.
+# Do not block the session - MySQL tests will fail with PDOException
+# which is a clear signal in the test results.
+exit 0

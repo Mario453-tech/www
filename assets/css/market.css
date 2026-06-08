@@ -3,31 +3,34 @@
    Czarny rynek zostaje w black_market.css.
 */
 
-/* 
+/*
    TABS
  */
 
 .market-tabs {
     display: flex;
-    gap: 6px;
-    margin-bottom: 22px;
-    padding: 5px;
-    background: var(--bg4);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 4px;
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(200,168,75,.15);
+    border-radius: 10px;
     overflow-x: auto;
+    scrollbar-width: none;
 }
+.market-tabs::-webkit-scrollbar { display: none; }
 
 .market-tab {
-    padding: .6rem 1.2rem;
+    padding: .55rem 1rem;
     cursor: pointer;
     border: 1px solid transparent;
     background: transparent;
-    color: var(--text2);
-    font-weight: 600;
-    font-size: .9rem;
-    border-radius: calc(var(--radius) - 2px);
-    transition: all .18s;
+    color: rgba(232,232,240,.55);
+    font-weight: 700;
+    font-size: .82rem;
+    letter-spacing: .04em;
+    border-radius: 8px;
+    transition: all .15s;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -38,9 +41,10 @@
 }
 
 .market-tab.active {
-    color: var(--gold);
-    background: rgba(200, 168, 75, .12);
-    border-color: rgba(200, 168, 75, .3);
+    color: var(--gold2, #e8cc7a);
+    background: rgba(200,168,75,.14);
+    border-color: rgba(200,168,75,.35);
+    box-shadow: 0 1px 6px rgba(200,168,75,.1);
 }
 
 .market-tab-content {
@@ -51,24 +55,24 @@
     display: block;
 }
 
-/* 
+/*
    WYKRES CEN
  */
 
 .price-chart-wrap {
-    margin: 1.25rem 0;
-    background: rgba(255, 255, 255, .025);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 14px 18px;
+    margin: 1rem 0;
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(200,168,75,.15);
+    border-radius: 10px;
+    padding: 14px 16px;
 }
 
 .price-chart-title {
-    font-size: .85rem;
+    font-size: .75rem;
     font-weight: 700;
-    letter-spacing: .04em;
+    letter-spacing: .1em;
     text-transform: uppercase;
-    color: var(--text3);
+    color: rgba(200,168,75,.6);
     margin: 0 0 12px;
 }
 
@@ -76,7 +80,7 @@
     display: flex;
     gap: 3px;
     align-items: flex-end;
-    height: 80px;
+    height: 90px;
 }
 
 .price-chart-bar {
@@ -101,7 +105,7 @@
     border-top: 1px solid var(--border2);
 }
 
-/* 
+/*
    SALE FORM
  */
 
@@ -129,10 +133,10 @@
 }
 
 .form-sell-input {
-    padding: .45rem .7rem;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    padding: .5rem .8rem;
+    background: #0f0f18;
+    border: 1px solid rgba(200,168,75,.2);
+    border-radius: 8px;
     color: var(--text);
     font-size: .95rem;
     font-weight: 600;
@@ -146,7 +150,7 @@
     box-shadow: 0 0 0 3px rgba(200, 168, 75, .15);
 }
 
-/* 
+/*
    AKTYWNE OFERTY (my-offers)
  */
 
@@ -186,7 +190,7 @@
     border-bottom: none;
 }
 
-/* 
+/*
    OFFER LIST (offers-list, public users)
  */
 
@@ -221,7 +225,7 @@
     background: rgba(255, 255, 255, .03);
 }
 
-/* 
+/*
    RESPONSIVE
  */
 
@@ -260,6 +264,13 @@
     .offers-list-row {
         min-width: 320px;
     }
+}
+
+@media (max-width: 480px) {
+    .market-tab { padding: .45rem .75rem; font-size: .78rem; }
+    .price-chart-bars { height: 70px; }
+    .form-sell { flex-direction: column; }
+    .form-sell-field { min-width: 0; width: 100%; }
 }
 
 /* ===================================================

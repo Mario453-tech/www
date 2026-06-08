@@ -173,9 +173,13 @@ class WellGridData
     {
  // Status & condition 
         $status   = $w['status'] ?? 'active';
+        $cond     = (float)($w['technical_condition'] ?? 100);
+        if ($status === 'active' && $cond <= 1.0) {
+            $status = 'broken';
+        }
+
         $st       = $statusMap[$status] ?? [ucfirst($status), 'wbadge--warn', ''];
         $isActive = $status === 'active';
-        $cond     = (float)($w['technical_condition'] ?? 100);
         $condCls  = $cond >= 70 ? 'cg-good' : ($cond >= 40 ? 'cg-warn' : 'cg-bad');
 
  // Pressure & reservoir 

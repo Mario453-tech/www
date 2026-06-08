@@ -1,4 +1,4 @@
-/* 
+/*
    finance.css - OilCorp finance module
  */
 
@@ -229,25 +229,33 @@
 }
 @media (max-width: 640px) {
     .fin-policy-summary-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+}
+@media (max-width: 400px) {
+    .fin-policy-summary-grid {
         grid-template-columns: 1fr;
     }
 }
 
 .fin-policy-summary-stat {
     padding: 12px 14px;
-    border: 1px solid var(--border2);
+    border: 1px solid rgba(200,168,75,.15);
     border-radius: 10px;
-    background: rgba(255,255,255,.02);
+    background: linear-gradient(145deg, #161622, #0f0f18);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
+    transition: border-color .18s;
 }
 
 .fin-policy-summary-label {
-    color: var(--text3);
-    font-size: 11px;
+    color: rgba(232,232,240,.35);
+    font-size: 9px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .06em;
+    letter-spacing: .1em;
 }
 
 .fin-panel-intro {
@@ -466,9 +474,10 @@
 
 /* Polityka finansowa */
 .fin-policy-reco-card {
-    margin-top: 16px;
-    border: 1px solid var(--border2);
-    background: rgba(255,255,255,.02);
+    margin-top: 14px;
+    border: 1px solid rgba(200,168,75,.15);
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border-radius: 12px;
 }
 
 .fin-policy-reco-card--good {
@@ -520,13 +529,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 5px 10px;
-    border-radius: 8px;
-    font-size: 10px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: .07em;
     text-transform: uppercase;
     border: 1px solid var(--border2);
+    white-space: nowrap;
 }
 
 .fin-policy-reco-badge--good {
@@ -719,7 +729,7 @@
     font-size: 12px;
 }
 
-/* Nagwek karty z ikon i accent barem */
+/* Nagłówek karty z ikoną i accent barem / Card header with icon and accent bar */
 .fin-policy-card-head {
     display: flex;
     align-items: center;
@@ -733,7 +743,7 @@
     flex: 1;
 }
 
-/* Badge aktualnego trybu (obok opisu) */
+/* Badge aktualnego trybu (obok opisu) / Current mode badge (next to description) */
 .fin-policy-mode-badge {
     display: inline-block;
     font-size: 10px;
@@ -749,7 +759,7 @@
     text-transform: uppercase;
 }
 
-/* Wiersz cooldown / mona zmieni */
+/* Wiersz cooldown / można zmienić / Cooldown row / can change */
 .fin-policy-lock-row {
     display: flex;
     align-items: center;
@@ -763,7 +773,7 @@
     border: 1px solid var(--border2);
 }
 
-/* Etykieta sekcji */
+/* Etykieta sekcji / Section label */
 .fin-policy-section-label {
     font-size: 10px;
     font-weight: 600;
@@ -773,7 +783,7 @@
     margin-bottom: 8px;
 }
 
-/* Efekty pros/cons */
+/* Efekty pros/cons / Pros/cons effects */
 .fin-savings-effects {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -825,7 +835,7 @@
     flex-shrink: 0;
 }
 /* Savings / reserve mode picker */
-/* Picker trybu oszczdnoci / rezerwy */
+/* Picker trybu oszczędności / rezerwy / Savings / reserve mode picker */
 .fin-mode-picker {
     display: grid;
     grid-template-columns: 1fr;
@@ -917,7 +927,7 @@
 }
 .fin-mode-option--active .fin-mode-option-value { color: var(--gold); }
 
-/* Przycisk polityki */
+/* Przycisk polityki / Policy submit button */
 .fin-policy-submit {
     width: 100%;
     text-transform: uppercase;
@@ -926,7 +936,7 @@
     font-weight: 700;
 }
 
-/* Badge trybu (pill w nagwku) */
+/* Badge trybu (pill w nagłówku) / Mode badge (pill in header) */
 .fin-mode-badge {
     display: inline-flex;
     align-items: center;
@@ -941,7 +951,7 @@
 .fin-mode-moderate   { background: rgba(240,160,80,.14);  color: var(--orange); }
 .fin-mode-aggressive { background: rgba(224,85,85,.14);   color: var(--red); }
 
-/* Status rezerwy awaryjnej */
+/* Status rezerwy awaryjnej / Emergency reserve status */
 .fin-policy-hero {
     display: flex;
     justify-content: space-between;
@@ -974,7 +984,7 @@
     flex-shrink: 0;
 }
 
-/* Stan rezerwy blok z metrykami */
+/* Stan rezerwy — blok z metrykami / Reserve state block with metrics */
 .fin-reserve-status {
     padding: 14px 16px;
     border-radius: 10px;
@@ -1003,7 +1013,7 @@
 .fin-reserve-status--warning  .fin-reserve-state-label { color: var(--orange); }
 .fin-reserve-status--critical .fin-reserve-state-label { color: var(--red); }
 
-/* Stary .fin-policy-status (cooldown box) */
+/* Stary .fin-policy-status (cooldown box) / Legacy cooldown box */
 .fin-policy-status {
     display: flex;
     flex-direction: column;
@@ -1093,7 +1103,7 @@
     font-size: 15px;
 }
 
-/* Miniaturowe paski zysku (per-well tabela) */
+/* Miniaturowe paski zysku (per-well tabela) / Miniature profit bars (per-well table) */
 .fin-profit-bar {
     display: block;
     width: 100%;
@@ -1112,7 +1122,7 @@
 .fin-profit-bar-fill--pos { background: var(--green); }
 .fin-profit-bar-fill--neg { background: var(--red); }
 
-/* Etykieta sekcji bez karty (hub) */
+/* Etykieta sekcji bez karty (hub) / Section label without card (hub) */
 .fin-section-label {
     font-size: 10px;
     letter-spacing: 3px;
@@ -1133,7 +1143,7 @@
     flex-shrink: 0;
 }
 
-/* Dynamiczny badge poziomu budetu */
+/* Dynamiczny badge poziomu budżetu / Dynamic budget level badge */
 .fin-level-badge {
     display: inline-flex;
     align-items: center;

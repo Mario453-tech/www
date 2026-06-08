@@ -199,8 +199,20 @@ body.auth-page {
 
 .form-check-required { color: #e05555; font-weight: 700; margin-left: 2px; }
 
+.form-check-group--remember {
+    margin: -4px 0 16px;
+}
+
 /* -- Forgot link ----------------------------------------------- */
 .forgot-link { margin: 0 0 16px; font-size: .82rem; text-align: right; }
+
+/* Informacja o zapamiętywaniu hasła / Remember-password info note */
+.login-remember-note {
+    font-size: .8rem;
+    color: rgba(200,168,75,.75);
+    margin: 0 0 14px;
+    text-align: center;
+}
 
 /* -- Buttons ---------------------------------------------------- */
 .btn-full { width: 100%; justify-content: center; }

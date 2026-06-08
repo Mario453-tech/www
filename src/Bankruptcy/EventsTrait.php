@@ -33,7 +33,7 @@ trait BankruptcyEventsTrait
                         $wStmt->execute([$this->playerId]);
                         $wellId = (int)$wStmt->fetchColumn();
                         if ($wellId > 0) {
-                            $this->db->prepare("UPDATE wells SET status='seized' WHERE id=? AND player_id=?")->execute([$wellId, $this->playerId]);
+                            $this->db->prepare("UPDATE wells SET status='seized', marine_buffer_bbl=0 WHERE id=? AND player_id=?")->execute([$wellId, $this->playerId]);
                             $note = t('bankruptcy.evt_deadline_well_seized', ['id' => $wellId]);
                         } else {
                             $note = t('bankruptcy.evt_deadline_no_assets');
@@ -44,6 +44,15 @@ trait BankruptcyEventsTrait
                         $cash = (float)$cStmt->fetchColumn();
                         $penalty = (int)max(20000, min(90000, round($cash * 0.2)));
                         $this->db->prepare("UPDATE players SET cash = GREATEST(0, cash - ?) WHERE id=?")->execute([$penalty, $this->playerId]);
+                        try {
+                            if (class_exists('FinancialTransactionService', false)) {
+                                (new FinancialTransactionService($this->db))->logTransaction(
+                                    $this->playerId, null, (float)$penalty,
+                                    FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
+                                    'Kara za przejecie przez konkurenta (bankructwo)'
+                                );
+                            }
+                        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
                         $note = t('bankruptcy.evt_competitor_buyout', ['amount' => number_format($penalty)]);
                     } elseif ($type === 'investor_offer_40') {
                         $this->db->prepare("UPDATE players SET credit_score = GREATEST(0, credit_score - 20) WHERE id=?")->execute([$this->playerId]);

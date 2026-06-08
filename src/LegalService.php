@@ -2,21 +2,29 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/CompanyCredibilityService.php';
 require_once __DIR__ . '/Legal/HubPermitTrait.php';
 
 /**
- * LegalService — Dzial prawny P1+P2a: zezwolenia na wiercenie i huby per region.
- * LegalService — Legal dept P1+P2a: drilling and hub permits per region.
+ * LegalService — Dział prawny P1+P2a: zezwolenia na wiercenie i huby per region.
  *
- * P1: zezwolenia na wiercenie (drilling_permit_applications).
+ * Etap 1: warstwa danych + odczyt.
+ *  - ensureSchema(): tworzy tabele konfiguracji regionów i wniosków/zezwoleń (MySQL).
+ *  - seedRegionConfig(): seeduje konfigurację dla regionów z world_regions
+ *    (poziom ryzyka mapowany z political_risk).
+ *  - metody odczytu: getRegionConfig, getAllRegionConfigs, getPermitStatus,
+ *    hasActivePermit.
+ *
  * P2a: zezwolenia na huby logistyczne (hub_permit_applications) — LegalHubPermitTrait.
  *
- * Zasada nadrzedna: zakup wymaga aktywnego zezwolenia. Bramka fail-closed.
- * Core rule: purchase requires active permit. Gate is fail-closed.
+ * Zasada nadrzędna: gracz nie może kupić odwiertu w regionie bez aktywnego
+ * zezwolenia (granted lub transitional). Bramka jest egzekwowana w WorldMap
+ * (etap 2). Gracz nie widzi procentów ryzyka — to parametry admina/ticka.
  */
 class LegalService
 {
     use LegalHubPermitTrait;
+
     /** Poziomy ryzyka regionu widziane przez gracza jako prosty opis. */
     public const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
 
@@ -33,6 +41,11 @@ class LegalService
 
     /** Statusy oznaczające trwającą sprawę (wniosek w toku). */
     public const PENDING_STATUSES = [self::STATUS_PENDING, self::STATUS_DELAYED];
+
+    /** Minimalna wiarygodnosc dla wnioskow w regionach high/critical. */
+    public const HIGH_RISK_CREDIBILITY_MIN = 40;
+
+    private const CREDIBILITY_GATED_RISK_LEVELS = ['high' => true, 'critical' => true];
 
     /** Domyślne parametry konfiguracji per poziom ryzyka (seed; balans w etapie 6). */
     private const RISK_DEFAULTS = [
@@ -64,9 +77,6 @@ class LegalService
 
     private PDO $db;
 
-    /** @var array<int,string> Cache nazw regionów per instancja (używany w notifyDirector). */
-    private array $regionNameCache = [];
-
     /** @var array<int,bool> cache zapewnionego schematu per połączenie */
     private static array $schemaEnsured = [];
 
@@ -78,6 +88,11 @@ class LegalService
         $this->db = $db ?? Database::getInstance()->getConnection();
         $this->ensureSchema();
         $this->autoSeedIfEmpty();
+    }
+
+    public static function requiresCompanyCredibility(string $riskLevel): bool
+    {
+        return isset(self::CREDIBILITY_GATED_RISK_LEVELS[$riskLevel]);
     }
 
     /**
@@ -153,9 +168,6 @@ class LegalService
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
 
-            // P2a: kolumny i tabela zezwolen na huby / P2a: hub permit columns and table
-            $this->ensureHubPermitSchema();
-
             $this->db->exec(
                 "CREATE TABLE IF NOT EXISTS drilling_permit_applications (
                     id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -176,6 +188,9 @@ class LegalService
                     KEY idx_status_due (status, decision_due_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
+
+            // P2a: kolumny i tabela zezwolen na huby / P2a: hub permit columns and table
+            $this->ensureHubPermitSchema();
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('LegalService', 'ensureSchema FAILED', $e);
@@ -356,131 +371,45 @@ class LegalService
     }
 
     /**
-     * Batch-owy status zezwolenia per region dla widoku mapy (§5).
-     * Batch permit status per region for the map view.
-     *
-     * 2 zapytania SQL niezależnie od liczby regionów (nie N+1).
-     * 2 SQL queries regardless of region count (not N+1).
-     *
-     * Zwraca 7 statusów: active / pending / delayed / no_decision /
-     * refused / locked / none.
-     *
-     * @param  int[]              $regionIds
-     * @param  ?DateTimeInterface $now       Testowalność — domyślnie now()
-     * @return array<int,array{status:string,minutes_left:?int,cooldown_minutes:?int,required_capital:?float}>
+     * Wylicza poziom dzialu prawnego gracza z aktywnego dyrektora prawnego.
+     * Calculates the player's legal department level from the active legal director.
      */
-    public function getMapPermitData(
-        int                $playerId,
-        array              $regionIds,
-        float              $playerCash,
-        ?DateTimeInterface $now = null
-    ): array {
-        if (empty($regionIds)) {
-            return [];
-        }
-
-        $now   = $now ? DateTime::createFromInterface($now) : new DateTime();
-        $nowTs = $now->getTimestamp();
-        $ph    = implode(',', array_fill(0, count($regionIds), '?'));
-
-        // Zapytanie 1: wnioski gracza dla danych regionów.
-        // Query 1: player's applications for the given regions.
-        $apps = [];
+    public function getLegalLevelForPlayer(int $playerId): int
+    {
         try {
             $stmt = $this->db->prepare(
-                "SELECT region_id, status, decision_due_at, refusal_cooldown_until
-                   FROM drilling_permit_applications
-                  WHERE player_id = ? AND region_id IN ({$ph})"
+                "SELECT bm.skill_organization, bm.skill_analysis, bm.skill_ethics
+                   FROM board_members bm
+                   JOIN board_roles br ON br.id = bm.role_id
+                  WHERE bm.player_id = ?
+                    AND bm.status = 'active'
+                    AND br.code = 'legal'
+                  ORDER BY (
+                      COALESCE(bm.skill_organization, 0)
+                    + COALESCE(bm.skill_analysis, 0)
+                    + COALESCE(bm.skill_ethics, 0)
+                  ) DESC
+                  LIMIT 1"
             );
-            $stmt->execute(array_merge([$playerId], $regionIds));
-            foreach ($stmt->fetchAll() as $row) {
-                $apps[(int)$row['region_id']] = $row;
+            $stmt->execute([$playerId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return 0;
             }
+
+            $score = (
+                (int)($row['skill_organization'] ?? 0)
+                + (int)($row['skill_analysis'] ?? 0)
+                + (int)($row['skill_ethics'] ?? 0)
+            ) / 3;
+
+            return max(0, min(10, (int)round($score)));
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'getMapPermitData apps FAILED', $e, ['player_id' => $playerId]);
+                GameLog::error('LegalService', 'getLegalLevelForPlayer FAILED', $e, ['player_id' => $playerId]);
             }
+            return 0;
         }
-
-        // Zapytanie 2: konfiguracje regionów (required_capital).
-        // Query 2: region configs (required_capital).
-        $configs = [];
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT region_id, required_capital
-                   FROM legal_region_config
-                  WHERE region_id IN ({$ph})"
-            );
-            $stmt->execute($regionIds);
-            foreach ($stmt->fetchAll() as $row) {
-                $configs[(int)$row['region_id']] = $row;
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'getMapPermitData configs FAILED', $e);
-            }
-        }
-
-        $result = [];
-        foreach ($regionIds as $rid) {
-            $rid             = (int)$rid;
-            $app             = $apps[$rid]    ?? null;
-            $cfg             = $configs[$rid] ?? null;
-            $requiredCapital = (float)($cfg['required_capital'] ?? 0.0);
-            $appStatus       = $app ? (string)$app['status'] : 'none';
-
-            // Aktywne zezwolenie (granted / transitional) — najwyższy priorytet.
-            // Active permit — highest priority.
-            if (in_array($appStatus, self::ACTIVE_STATUSES, true)) {
-                $result[$rid] = ['status' => 'active', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
-                continue;
-            }
-
-            // Wniosek w toku (pending / delayed) — zwróć minuty do decyzji.
-            // Application in progress — return minutes to decision.
-            if ($appStatus === self::STATUS_PENDING || $appStatus === self::STATUS_DELAYED) {
-                $minutesLeft = null;
-                if (!empty($app['decision_due_at'])) {
-                    $dueSecs     = (new DateTime((string)$app['decision_due_at']))->getTimestamp();
-                    $minutesLeft = max(0, (int)ceil(($dueSecs - $nowTs) / 60));
-                }
-                $result[$rid] = ['status' => $appStatus, 'minutes_left' => $minutesLeft, 'cooldown_minutes' => null, 'required_capital' => null];
-                continue;
-            }
-
-            // Brak decyzji.
-            // No decision issued.
-            if ($appStatus === self::STATUS_NO_DECISION) {
-                $result[$rid] = ['status' => 'no_decision', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
-                continue;
-            }
-
-            // Odmowa — cooldown aktywny.
-            // Refusal — cooldown still active.
-            if ($appStatus === self::STATUS_REFUSED && !empty($app['refusal_cooldown_until'])) {
-                $cdTs = (new DateTime((string)$app['refusal_cooldown_until']))->getTimestamp();
-                if ($cdTs > $nowTs) {
-                    $cdMin = max(0, (int)ceil(($cdTs - $nowTs) / 60));
-                    $result[$rid] = ['status' => 'refused', 'minutes_left' => null, 'cooldown_minutes' => $cdMin, 'required_capital' => null];
-                    continue;
-                }
-            }
-
-            // Brak aktywnego zezwolenia i brak cooldownu:
-            // — zablokowany kapitałowo → locked
-            // — w przeciwnym razie → none
-            // No active permit and no active cooldown:
-            // — capital-locked → locked
-            // — otherwise → none
-            if ($requiredCapital > 0.0 && $playerCash < $requiredCapital) {
-                $result[$rid] = ['status' => 'locked', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => $requiredCapital];
-                continue;
-            }
-
-            $result[$rid] = ['status' => 'none', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null];
-        }
-
-        return $result;
     }
 
     // ------------------------------------------------------------- Mutations
@@ -534,6 +463,26 @@ class LegalService
 
         $requiredCapital = (float)$config['required_capital'];
         $applicationCost = (float)$config['application_cost'];
+        $requiredLegalLevel = (int)($config['required_legal_level'] ?? 0);
+        $riskLevel = (string)($config['risk_level'] ?? 'low');
+
+        // Wiarygodnosc firmy blokuje wnioski w regionach high/critical.
+        // Company credibility blocks applications in high/critical-risk regions.
+        if (self::requiresCompanyCredibility($riskLevel)) {
+            $credibilityScore = (new CompanyCredibilityService($this->db))->getScore($playerId);
+            if ($credibilityScore < self::HIGH_RISK_CREDIBILITY_MIN) {
+                return [
+                    'success'                      => false,
+                    'code'                         => 'credibility_locked',
+                    'message'                      => tPlain('legal.err.credibility_locked', [
+                        'min'     => self::HIGH_RISK_CREDIBILITY_MIN,
+                        'current' => $credibilityScore,
+                    ]),
+                    'required_company_credibility' => self::HIGH_RISK_CREDIBILITY_MIN,
+                    'company_credibility'          => $credibilityScore,
+                ];
+            }
+        }
 
         $this->db->beginTransaction();
         try {
@@ -545,6 +494,25 @@ class LegalService
                 return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.err.unknown_player')];
             }
             $cash = (float)$cashRow['cash'];
+
+            // Wymagany poziom dzialu prawnego dla trudniejszych regionow.
+            // Required legal department level for more demanding regions.
+            if ($requiredLegalLevel > 0) {
+                $legalLevel = $this->getLegalLevelForPlayer($playerId);
+                if ($legalLevel < $requiredLegalLevel) {
+                    $this->db->rollBack();
+                    return [
+                        'success'              => false,
+                        'code'                 => 'legal_level_locked',
+                        'message'              => tPlain('legal.err.legal_level_locked', [
+                            'level'   => $requiredLegalLevel,
+                            'current' => $legalLevel,
+                        ]),
+                        'required_legal_level' => $requiredLegalLevel,
+                        'legal_level'          => $legalLevel,
+                    ];
+                }
+            }
 
             // Region wysokiego ryzyka: firma nie spełnia wymogu kapitałowego.
             if ($requiredCapital > 0 && $cash < $requiredCapital) {
@@ -570,9 +538,19 @@ class LegalService
                 ];
             }
 
-            // Pobranie opłaty.
+            // Pobranie oplaty.
+            // Deduct legal application fee.
             $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
                 ->execute([$applicationCost, $playerId]);
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        $playerId, null, $applicationCost,
+                        FinancialTransactionService::TYPE_LEGAL_FEE,
+                        'Oplata za wniosek o pozwolenie na wiercenie'
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             // Termin decyzji = teraz + bazowy czas rozpatrzenia.
             $dueStr = (clone $now)
@@ -610,12 +588,15 @@ class LegalService
             return ['success' => false, 'code' => 'error', 'message' => tPlain('legal.err.generic')];
         }
 
-        // Brief §13: powiadomienie dyrektora o złożeniu wniosku (po transakcji — nigdy nie cofa opłaty).
-        // Brief §13: director notification on submission (after commit — never rolls back the fee).
+        // Brief §13: powiadomienie dyrektora o złożeniu wniosku (po commit, poza
+        // transakcją — nigdy nie cofa pobranej opłaty ani utworzonego wniosku).
+        // Brief §13: director notification on submission (after commit, outside
+        // the transaction — never rolls back the fee or the created application).
+        $regionName = (string)($config['region_name'] ?? ('#' . $regionId));
         $this->notifyDirector($playerId, 'submitted', [
-            'region' => (string)($config['region_name'] ?? ('#' . $regionId)),
+            'region' => $regionName,
             'time'   => self::minutesToHuman((int)$config['base_review_minutes']),
-        ], '📝', 'low');
+        ], '', 'low');
 
         return [
             'success'         => true,
@@ -626,6 +607,77 @@ class LegalService
             'cost'            => $applicationCost,
             'review_minutes'  => (int)$config['base_review_minutes'],
         ];
+    }
+
+    // -------------------------------------------------------- Notifications
+
+    /** @var array<int,string> Cache nazw regionów w obrębie obiektu serwisu. */
+    private array $regionNameCache = [];
+
+    /**
+     * Wstawia powiadomienie dyrektora działu prawnego (brief §13). Spójne z
+     * LegalSection: type='legal', action_url='legal.php'. Całość w try/catch —
+     * brak tabeli/błąd nigdy nie przerywa operacji nadrzędnej (np. składania
+     * wniosku czy migracji).
+     *
+     * Inserts a legal director notification (brief §13). Consistent with
+     * LegalSection. Fully guarded — a missing table/error never breaks the
+     * parent operation (e.g. submitting an application or migration).
+     *
+     * @param array<string,string> $params parametry do interpolacji wiadomości
+     */
+    private function notifyDirector(
+        int $playerId,
+        string $key,
+        array $params,
+        string $icon,
+        string $priority = 'low'
+    ): void {
+        try {
+            $title   = tPlain("legal.notif.{$key}.title");
+            $message = tPlain("legal.notif.{$key}.message", $params);
+            $expires = (new DateTime())->modify('+72 hours')->format('Y-m-d H:i:s');
+
+            $this->db->prepare(
+                "INSERT INTO director_notifications
+                    (player_id, type, priority, title, message, icon,
+                     requires_action, action_url, action_label, expires_at)
+                 VALUES (?, 'legal', ?, ?, ?, ?, 0, 'legal.php', 'Dział prawny', ?)"
+            )->execute([$playerId, $priority, $title, $message, $icon, $expires]);
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('LegalService', 'notifyDirector FAILED', $e, [
+                    'player_id' => $playerId,
+                    'key'       => $key,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Nazwa regionu z cache (fallback "#id"). Zapytanie w try/catch — brak
+     * tabeli world_regions nie przerywa operacji nadrzędnej.
+     * Region name with cache (fallback "#id"). Guarded query.
+     */
+    private function resolveRegionName(int $regionId): string
+    {
+        if (isset($this->regionNameCache[$regionId])) {
+            return $this->regionNameCache[$regionId];
+        }
+        $name = '#' . $regionId;
+        try {
+            $stmt = $this->db->prepare("SELECT name FROM world_regions WHERE id = ? LIMIT 1");
+            $stmt->execute([$regionId]);
+            $row = $stmt->fetch();
+            if ($row && !empty($row['name'])) {
+                $name = (string)$row['name'];
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('LegalService', 'resolveRegionName FAILED', $e, ['region_id' => $regionId]);
+            }
+        }
+        return $this->regionNameCache[$regionId] = $name;
     }
 
     // ---------------------------------------------------------------- Helpers
@@ -737,7 +789,7 @@ class LegalService
                     // Brief §13 / §12.2: notification about the transitional permit grant.
                     $this->notifyDirector((int)$pair['player_id'], 'transitional', [
                         'region' => $this->resolveRegionName((int)$pair['region_id']),
-                    ], '🪪', 'low');
+                    ], '', 'low');
                 }
             } catch (Throwable $e) {
                 if (class_exists('GameLog', false)) {
@@ -759,67 +811,193 @@ class LegalService
         return $migrated;
     }
 
-    // -------------------------------------------------- Notification helpers
+    // ------------------------------------------------------- Map permit data
 
     /**
-     * Wstawia powiadomienie dyrektora dla gracza (typ 'legal').
-     * Inserts a director notification for the player (type 'legal').
+     * Pobiera status zezwoleń dla wielu regionów jednocześnie (batch) na potrzeby
+     * mapy — brief §5. Zastępuje N wywołań hasActivePermit() dwoma zapytaniami.
      *
-     * W pełni owinięte try/catch — nigdy nie przerywa nadrzędnej operacji.
-     * Fully try/catch guarded — never breaks the parent operation.
+     * Zwracany status (pole 'status') przyjmuje wartości:
+     *   'active'      — granted lub transitional (mapa pokazuje odwierty normalnie)
+     *   'pending'     — wniosek czeka na decyzję
+     *   'delayed'     — decyzja opóźniona (nowy termin)
+     *   'no_decision' — urząd nie wydał decyzji
+     *   'refused'     — wniosek odrzucony, cooldown jeszcze trwa
+     *   'locked'      — gracz nie spełnia wymogu kapitałowego regionu
+     *   'none'        — brak wniosku (lub cooldown minął)
      *
-     * @param array<string,string> $params parametry do interpolacji wiadomości / message interpolation params
+     * Returns permit status for multiple regions at once (batch) for map use —
+     * brief §5. Replaces N hasActivePermit() calls with two queries.
+     *
+     * @param int   $playerId
+     * @param int[] $regionIds
+     * @param float $playerCash  Player cash (for capital lock check).
+     * @param ?DateTimeInterface $now
+     * @return array<int,array{status:string,minutes_left:int|null,cooldown_minutes:int|null,required_capital:float|null}>
      */
-    private function notifyDirector(
-        int    $playerId,
-        string $key,
-        array  $params,
-        string $icon,
-        string $priority = 'low'
-    ): void {
-        try {
-            $title   = tPlain("legal.notif.{$key}.title");
-            $message = tPlain("legal.notif.{$key}.message", $params);
-            $expires = (new DateTime())->modify('+72 hours')->format('Y-m-d H:i:s');
+    public function getMapPermitData(
+        int $playerId,
+        array $regionIds,
+        float $playerCash,
+        ?DateTimeInterface $now = null
+    ): array {
+        if (empty($regionIds)) {
+            return [];
+        }
 
-            $this->db->prepare(
-                "INSERT INTO director_notifications
-                    (player_id, type, priority, title, message, icon,
-                     requires_action, action_url, action_label, expires_at)
-                 VALUES (?, 'legal', ?, ?, ?, ?, 0, 'legal.php', 'Dział prawny', ?)"
-            )->execute([$playerId, $priority, $title, $message, $icon, $expires]);
+        $now = $now ? DateTime::createFromInterface($now) : new DateTime();
+
+        // Inicjuj wszystkie regiony jako 'none'.
+        // Initialise all regions as 'none'.
+        $result = [];
+        foreach ($regionIds as $rid) {
+            $result[(int)$rid] = [
+                'status'            => 'none',
+                'minutes_left'      => null,
+                'cooldown_minutes'  => null,
+                'required_capital'  => null,
+                'required_legal_level' => null,
+                'legal_level'       => null,
+                'required_company_credibility' => null,
+                'company_credibility' => null,
+            ];
+        }
+
+        // --- Zapytanie 1: aplikacje gracza dla tych regionów.
+        // --- Query 1: player applications for these regions.
+        $apps = [];
+        try {
+            $ph   = implode(',', array_fill(0, count($regionIds), '?'));
+            $stmt = $this->db->prepare(
+                "SELECT region_id, status, decision_due_at, refusal_cooldown_until
+                   FROM drilling_permit_applications
+                  WHERE player_id = ? AND region_id IN ({$ph})"
+            );
+            $stmt->execute(array_merge([$playerId], array_map('intval', $regionIds)));
+            $apps = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'notifyDirector FAILED', $e, [
-                    'player_id' => $playerId,
-                    'key'       => $key,
+                GameLog::error('LegalService', 'getMapPermitData: apps query FAILED', $e, ['player_id' => $playerId]);
+            }
+        }
+
+        // --- Zapytanie 2: wymagany kapitał per region (blokada §7.2).
+        // --- Query 2: required capital per region (lock §7.2).
+        $capitals = [];
+        $legalLevelsRequired = [];
+        $credibilityRequired = [];
+        try {
+            $ph   = implode(',', array_fill(0, count($regionIds), '?'));
+            $stmt = $this->db->prepare(
+                "SELECT region_id, required_capital, required_legal_level, risk_level
+                   FROM legal_region_config
+                  WHERE region_id IN ({$ph})"
+            );
+            $stmt->execute(array_map('intval', $regionIds));
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $capitals[(int)$row['region_id']] = (float)$row['required_capital'];
+                $legalLevelsRequired[(int)$row['region_id']] = (int)($row['required_legal_level'] ?? 0);
+                $credibilityRequired[(int)$row['region_id']] = self::requiresCompanyCredibility((string)($row['risk_level'] ?? 'low'))
+                    ? self::HIGH_RISK_CREDIBILITY_MIN
+                    : 0;
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('LegalService', 'getMapPermitData: capitals query FAILED', $e, ['player_id' => $playerId]);
+            }
+        }
+
+        $playerLegalLevel = 0;
+        foreach ($legalLevelsRequired as $requiredLevel) {
+            if ($requiredLevel > 0) {
+                $playerLegalLevel = $this->getLegalLevelForPlayer($playerId);
+                break;
+            }
+        }
+
+        $playerCredibility = CompanyCredibilityService::DEFAULT_SCORE;
+        foreach ($credibilityRequired as $requiredCredibility) {
+            if ($requiredCredibility > 0) {
+                $playerCredibility = (new CompanyCredibilityService($this->db))->getScore($playerId);
+                break;
+            }
+        }
+
+        // --- Oblicz status mapy per region na podstawie aplikacji.
+        // --- Compute map status per region from applications.
+        foreach ($apps as $app) {
+            $rid    = (int)$app['region_id'];
+            $status = (string)$app['status'];
+
+            if (in_array($status, self::ACTIVE_STATUSES, true)) {
+                $result[$rid] = array_merge($result[$rid], [
+                    'status' => 'active', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null,
                 ]);
+                continue;
             }
-        }
-    }
 
-    /**
-     * Zwraca nazwę regionu z cache'em per instancja.
-     * Returns region name with per-instance cache.
-     */
-    private function resolveRegionName(int $regionId): string
-    {
-        if (isset($this->regionNameCache[$regionId])) {
-            return $this->regionNameCache[$regionId];
-        }
-        $name = '#' . $regionId;
-        try {
-            $stmt = $this->db->prepare("SELECT name FROM world_regions WHERE id = ? LIMIT 1");
-            $stmt->execute([$regionId]);
-            $row = $stmt->fetch();
-            if ($row && !empty($row['name'])) {
-                $name = (string)$row['name'];
+            if (in_array($status, ['pending', 'delayed'], true)) {
+                $minutesLeft = null;
+                if (!empty($app['decision_due_at'])) {
+                    $due = new DateTime((string)$app['decision_due_at']);
+                    $minutesLeft = max(0, (int)ceil(($due->getTimestamp() - $now->getTimestamp()) / 60));
+                }
+                $result[$rid] = array_merge($result[$rid], [
+                    'status' => $status, 'minutes_left' => $minutesLeft, 'cooldown_minutes' => null, 'required_capital' => null,
+                ]);
+                continue;
             }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('LegalService', 'resolveRegionName FAILED', $e, ['region_id' => $regionId]);
+
+            if ($status === self::STATUS_NO_DECISION) {
+                $result[$rid] = array_merge($result[$rid], [
+                    'status' => 'no_decision', 'minutes_left' => null, 'cooldown_minutes' => null, 'required_capital' => null,
+                ]);
+                continue;
+            }
+
+            if ($status === self::STATUS_REFUSED && !empty($app['refusal_cooldown_until'])) {
+                $cooldownUntil = new DateTime((string)$app['refusal_cooldown_until']);
+                $remaining     = (int)ceil(($cooldownUntil->getTimestamp() - $now->getTimestamp()) / 60);
+                if ($remaining > 0) {
+                    $result[$rid] = array_merge($result[$rid], [
+                        'status' => 'refused', 'minutes_left' => null, 'cooldown_minutes' => $remaining, 'required_capital' => null,
+                    ]);
+                    continue;
+                }
+            }
+            // STATUS_REFUSED po cooldownie lub STATUS_NONE — sprawdź blokadę.
+            // Refused past cooldown or no application — fall through to lock check.
+        }
+
+        // --- Dla regionów bez aktywnego wpisu: sprawdź blokadę kapitałową §7.2.
+        // --- For regions with no active entry: check capital lock §7.2.
+        foreach ($result as $rid => &$entry) {
+            if ($entry['status'] === 'none') {
+                $reqLevel = $legalLevelsRequired[$rid] ?? 0;
+                if ($reqLevel > 0 && $playerLegalLevel < $reqLevel) {
+                    $entry['status'] = 'legal_locked';
+                    $entry['required_legal_level'] = $reqLevel;
+                    $entry['legal_level'] = $playerLegalLevel;
+                    continue;
+                }
+
+                $reqCredibility = $credibilityRequired[$rid] ?? 0;
+                if ($reqCredibility > 0 && $playerCredibility < $reqCredibility) {
+                    $entry['status'] = 'credibility_locked';
+                    $entry['required_company_credibility'] = $reqCredibility;
+                    $entry['company_credibility'] = $playerCredibility;
+                    continue;
+                }
+
+                $req = $capitals[$rid] ?? 0.0;
+                if ($req > 0.0 && $playerCash < $req) {
+                    $entry['status']           = 'locked';
+                    $entry['required_capital'] = $req;
+                }
             }
         }
-        return $this->regionNameCache[$regionId] = $name;
+        unset($entry);
+
+        return $result;
     }
 }

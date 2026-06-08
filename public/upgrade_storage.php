@@ -55,7 +55,7 @@ $db = Database::getInstance()->getConnection();
 $db->beginTransaction();
 
 try {
-    $player->updateCash(-$upgradeCost);
+    $player->updateCash(-$upgradeCost, 'storage_upgrade', 'Rozbudowa magazynu');
     $storage->upgrade();
     $db->commit();
 

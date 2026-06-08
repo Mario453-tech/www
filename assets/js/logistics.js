@@ -298,3 +298,51 @@ function startCooldownTimer(btn, secs) {
     };
     tick();
 }
+
+// Odnowienie licznikow po paginacji AJAX / Refresh counters after AJAX pagination.
+(function () {
+    function initRoadTripCountdowns(root) {
+        (root || document).querySelectorAll('.road-trip-countdown[data-seconds]').forEach(function (el) {
+            if (el.dataset.ajaxCountdownInit === '1') {
+                return;
+            }
+            el.dataset.ajaxCountdownInit = '1';
+
+            var total = parseInt(el.dataset.seconds, 10) || 0;
+            var start = Date.now();
+
+            function fmtSec(sec) {
+                if (sec <= 0) return '0h 00m';
+                var h = Math.floor(sec / 3600);
+                var m = Math.floor((sec % 3600) / 60);
+                return h + 'h ' + (m < 10 ? '0' : '') + m + 'm';
+            }
+
+            function tick() {
+                if (!document.documentElement.contains(el)) {
+                    return;
+                }
+                var elapsed = Math.floor((Date.now() - start) / 1000);
+                var current = Math.max(0, total - elapsed);
+                el.textContent = fmtSec(current);
+                if (current > 0) {
+                    setTimeout(tick, 30000);
+                }
+            }
+
+            tick();
+        });
+    }
+
+    document.addEventListener('ajax-pagination:updated', function (event) {
+        initRoadTripCountdowns(event.detail && event.detail.root ? event.detail.root : document);
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            initRoadTripCountdowns(document);
+        });
+    } else {
+        initRoadTripCountdowns(document);
+    }
+}());

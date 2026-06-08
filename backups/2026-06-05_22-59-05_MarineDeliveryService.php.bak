@@ -1,0 +1,231 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * MarineDeliveryService tworzenie i zarzadzanie dostawami morskimi.
+ * MarineDeliveryService creation and management of marine deliveries.
+ *
+ * Dostawa morska to osobny obiekt: ropa jest w drodze i trafia do magazynu
+ * dopiero po przetworzeniu przez port (przez PortSection w ticku).
+ *
+ * A marine delivery is a standalone object: oil is in transit and credited
+ * to storage only after the port processes it (via PortSection in the tick).
+ *
+ * Tabele / Tables: marine_deliveries, port_queue
+ */
+class MarineDeliveryService
+{
+    private PDO         $db;
+    private PortService $portService;
+
+ /** Bazowy czas tranzytu w godzinach (konfigurowalny) / Base transit time in hours (configurable) */
+    private const BASE_TRANSIT_HOURS = 3.0;
+
+ /** Wariancja czasu tranzytu (losowe +/- X godzin) / Transit time variance (random +/- X hours) */
+    private const TRANSIT_VARIANCE_HOURS = 1.0;
+
+    public function __construct(PDO $db)
+    {
+        $this->db          = $db;
+        $this->portService = new PortService($db);
+        $this->ensureSchema();
+    }
+
+ // 
+ // Schema
+ // 
+
+    /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */
+    private static array $schemaEnsured = [];
+
+    public function ensureSchema(): void
+    {
+        $schemaConnId = spl_object_id($this->db);
+        if (isset(self::$schemaEnsured[$schemaConnId])) {
+            return;
+        }
+        self::$schemaEnsured[$schemaConnId] = true;
+
+        $this->db->exec(
+            "CREATE TABLE IF NOT EXISTS marine_deliveries (
+                id            BIGINT        NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                player_id     INT           NOT NULL,
+                well_id       INT           NOT NULL,
+                port_id       INT           NULL DEFAULT NULL,
+                volume_bbl    DECIMAL(12,4) NOT NULL DEFAULT 0.0000,
+                status        ENUM('departing','in_transit','waiting_for_port','processing','delivered','delayed','lost')
+                                            NOT NULL DEFAULT 'departing',
+                departure_at  DATETIME      NOT NULL,
+                eta_at        DATETIME      NOT NULL,
+                arrived_at    DATETIME      NULL DEFAULT NULL,
+                delivered_at  DATETIME      NULL DEFAULT NULL,
+                delay_ticks   SMALLINT      NOT NULL DEFAULT 0,
+                incident_type VARCHAR(64)   NULL DEFAULT NULL,
+                handling_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_marine_player (player_id),
+                KEY idx_marine_well   (well_id),
+                KEY idx_marine_port   (port_id),
+                KEY idx_marine_status (status),
+                KEY idx_marine_eta    (eta_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $this->db->exec(
+            "CREATE TABLE IF NOT EXISTS port_queue (
+                id                    BIGINT   NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                port_id               INT      NOT NULL,
+                delivery_id           BIGINT   NOT NULL,
+                player_id             INT      NOT NULL,
+                volume_bbl            DECIMAL(12,4) NOT NULL,
+                queued_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                processing_started_at DATETIME NULL DEFAULT NULL,
+                processed_at          DATETIME NULL DEFAULT NULL,
+                status                ENUM('waiting','processing','done','abandoned') NOT NULL DEFAULT 'waiting',
+                UNIQUE KEY uq_port_queue_delivery (delivery_id),
+                KEY idx_port_queue_port   (port_id),
+                KEY idx_port_queue_player (player_id),
+                KEY idx_port_queue_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+    }
+
+ // 
+ // Create
+ // 
+
+ /**
+ * Tworzy nowa dostawe morska (ropa wyruszyla z odwiertu).
+ * Creates a new marine delivery (oil departing from well).
+ *
+ * @param array<string, mixed> $well pelny rekord odwiertu / full well record
+ * @param array<string, mixed> $hseBonus aktywne bonusy BHP / active HSE bonuses
+ * @return int ID nowej dostawy / new delivery ID
+ */
+    public function createDelivery(
+        int   $playerId,
+        int   $wellId,
+        float $volumeBbl,
+        float $deltaHours,
+        array $well,
+        array $hseBonus
+    ): int {
+        $now      = new DateTime();
+        $nowStr   = $now->format('Y-m-d H:i:s');
+        $regionId = (int)($well['region_id'] ?? 0);
+
+ // Czas tranzytu: baza +/- wariancja / Transit time: base +/- variance
+        $transitHours = self::BASE_TRANSIT_HOURS
+            + (mt_rand(-100, 100) / 100.0) * self::TRANSIT_VARIANCE_HOURS;
+        $transitHours = max(1.0, $transitHours);
+
+        $eta = clone $now;
+        $eta->modify('+' . (int)round($transitHours * 3600) . ' seconds');
+        $etaStr = $eta->format('Y-m-d H:i:s');
+
+ // Znajdz port docelowy dla regionu / Find destination port for region
+        $port   = $this->portService->findForRegion($regionId);
+        $portId = $port ? (int)$port['id'] : null;
+
+        $stmt = $this->db->prepare(
+            "INSERT INTO marine_deliveries
+                (player_id, well_id, port_id, volume_bbl, status,
+                 departure_at, eta_at, created_at)
+             VALUES (?, ?, ?, ?, 'departing', ?, ?, ?)"
+        );
+        $stmt->execute([$playerId, $wellId, $portId, round($volumeBbl, 4), $nowStr, $etaStr, $nowStr]);
+
+        $deliveryId = (int)$this->db->lastInsertId();
+
+        GameLog::info('tick', 'marine_delivery_created', [
+            'delivery_id' => $deliveryId,
+            'player_id'   => $playerId,
+            'well_id'     => $wellId,
+            'port_id'     => $portId,
+            'vol_bbl'     => round($volumeBbl, 3),
+            'eta_hours'   => round($transitHours, 2),
+        ]);
+
+        return $deliveryId;
+    }
+
+ // 
+ // Queries for player panel
+ // 
+
+ /**
+ * Zwraca aktywne dostawy gracza (w drodze + w kolejce portowej).
+ * Returns active deliveries for a player (in transit + in port queue).
+ *
+ * @return list<array<string, mixed>>
+ */
+    public function getActiveForPlayer(int $playerId): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT md.*, p.name AS port_name, w.name AS well_name
+                   FROM marine_deliveries md
+                   LEFT JOIN ports p ON p.id = md.port_id
+                   LEFT JOIN wells w ON w.id = md.well_id
+                  WHERE md.player_id = ?
+                    AND md.status NOT IN ('delivered','lost')
+                  ORDER BY md.eta_at ASC
+                  LIMIT 50"
+            );
+            $stmt->execute([$playerId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'getActiveForPlayer FAILED', $e, ['player_id' => $playerId]);
+            return [];
+        }
+    }
+
+ /**
+ * Historia dostaw gracza (ostatnie 20 dostarczonych/utraconych).
+ * Player delivery history (last 20 delivered/lost).
+ *
+ * @return list<array<string, mixed>>
+ */
+    public function getHistoryForPlayer(int $playerId, int $limit = 20): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT md.*, p.name AS port_name, w.name AS well_name
+                   FROM marine_deliveries md
+                   LEFT JOIN ports p ON p.id = md.port_id
+                   LEFT JOIN wells w ON w.id = md.well_id
+                  WHERE md.player_id = ?
+                    AND md.status IN ('delivered','lost')
+                  ORDER BY md.created_at DESC
+                  LIMIT ?"
+            );
+ // LIMIT musi byc zbindowany jako INT PDO z execute([]) binduje string (cudzyslowy) co MySQL odrzuca
+            $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
+            $stmt->bindValue(2, $limit,    PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+ /**
+ * Ile bbl jest aktualnie w drodze dla gracza.
+ * How many bbl are currently in transit for a player.
+ */
+    public function getInTransitBbl(int $playerId): float
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COALESCE(SUM(volume_bbl), 0)
+                   FROM marine_deliveries
+                  WHERE player_id = ?
+                    AND status IN ('departing','in_transit','waiting_for_port','delayed')"
+            );
+            $stmt->execute([$playerId]);
+            return (float)$stmt->fetchColumn();
+        } catch (Throwable $e) {
+            return 0.0;
+        }
+    }
+}

@@ -13,7 +13,8 @@ trait TTSManagerTrait
     {
         $stmt = $this->db->prepare("
             SELECT bm.*, br.code as role_code,
-                   hs.name as spec_name, hs.code as spec_code
+                   hs.name as spec_name, hs.code as spec_code,
+                   DATEDIFF(CURDATE(), bm.hired_at) as days_employed
             FROM board_members bm
             JOIN board_roles br ON bm.role_id = br.id
             LEFT JOIN hr_specializations hs ON bm.specialization_id = hs.id

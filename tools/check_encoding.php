@@ -34,6 +34,16 @@ $ignoredDirs = [
     'vendor' => true,
 ];
 
+// Konkretne pliki wykluczone z kontroli kodowania (dane, nie kod zrodlowy).
+// Specific files excluded from encoding checks (data files, not source code).
+// Dumpy baz danych moga zawierac dane wpisane przez uzytkownikow z roznym
+// kodowaniem — nie mamy nad tym kontroli.
+// Database dumps may contain user-entered data with arbitrary encoding —
+// we have no control over it.
+$ignoredFiles = [
+    '01240275_oil.sql' => true,
+];
+
 $suspicious = [
     hex2bin('efbfbd') => 'replacement-character',
     hex2bin('c4b9') => 'mojibake-L',
@@ -60,9 +70,14 @@ function isIgnored(string $path, array $ignoredDirs): bool
     return false;
 }
 
-function shouldCheckFile(string $path, array $allowedExtensions, array $ignoredDirs): bool
+function shouldCheckFile(string $path, array $allowedExtensions, array $ignoredDirs, array $ignoredFiles = []): bool
 {
     if (isIgnored($path, $ignoredDirs)) {
+        return false;
+    }
+
+    $basename = basename(normalizePath($path));
+    if (isset($ignoredFiles[$basename])) {
         return false;
     }
 
@@ -70,10 +85,10 @@ function shouldCheckFile(string $path, array $allowedExtensions, array $ignoredD
     return isset($allowedExtensions[$ext]);
 }
 
-function collectFilesFromPath(string $path, array $allowedExtensions, array $ignoredDirs): array
+function collectFilesFromPath(string $path, array $allowedExtensions, array $ignoredDirs, array $ignoredFiles = []): array
 {
     if (is_file($path)) {
-        return shouldCheckFile($path, $allowedExtensions, $ignoredDirs) ? [$path] : [];
+        return shouldCheckFile($path, $allowedExtensions, $ignoredDirs, $ignoredFiles) ? [$path] : [];
     }
 
     if (!is_dir($path)) {
@@ -99,7 +114,7 @@ function collectFilesFromPath(string $path, array $allowedExtensions, array $ign
         }
 
         $filePath = $file->getPathname();
-        if (shouldCheckFile($filePath, $allowedExtensions, $ignoredDirs)) {
+        if (shouldCheckFile($filePath, $allowedExtensions, $ignoredDirs, $ignoredFiles)) {
             $files[] = $filePath;
         }
     }
@@ -107,7 +122,7 @@ function collectFilesFromPath(string $path, array $allowedExtensions, array $ign
     return $files;
 }
 
-function stagedFiles(string $root, array $allowedExtensions, array $ignoredDirs): array
+function stagedFiles(string $root, array $allowedExtensions, array $ignoredDirs, array $ignoredFiles = []): array
 {
     $cmd = 'git -C ' . escapeshellarg($root) . ' diff --cached --name-only --diff-filter=ACMR';
     $output = shell_exec($cmd);
@@ -118,7 +133,7 @@ function stagedFiles(string $root, array $allowedExtensions, array $ignoredDirs)
     $files = [];
     foreach (preg_split('/\R/', trim($output)) ?: [] as $relativePath) {
         $path = $root . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relativePath);
-        if (is_file($path) && shouldCheckFile($path, $allowedExtensions, $ignoredDirs)) {
+        if (is_file($path) && shouldCheckFile($path, $allowedExtensions, $ignoredDirs, $ignoredFiles)) {
             $files[] = $path;
         }
     }
@@ -138,7 +153,7 @@ function lineOfNeedle(string $contents, string $needle): int
 
 $files = [];
 if ($staged) {
-    $files = stagedFiles($root, $allowedExtensions, $ignoredDirs);
+    $files = stagedFiles($root, $allowedExtensions, $ignoredDirs, $ignoredFiles);
 } else {
     $targets = $pathArgs ?: [$root];
     foreach ($targets as $target) {
@@ -146,7 +161,7 @@ if ($staged) {
         if (!preg_match('/^[A-Za-z]:[\/\\\\]/', $path) && !str_starts_with($path, '/')) {
             $path = $root . DIRECTORY_SEPARATOR . $target;
         }
-        $files = array_merge($files, collectFilesFromPath($path, $allowedExtensions, $ignoredDirs));
+        $files = array_merge($files, collectFilesFromPath($path, $allowedExtensions, $ignoredDirs, $ignoredFiles));
     }
 }
 

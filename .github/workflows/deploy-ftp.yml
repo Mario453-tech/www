@@ -204,13 +204,23 @@ jobs:
             # .env zawsze odswiezany z sekretu (gitignored, wiec nie pojawi sie w diffie).
             if [ -f .env ]; then cp -p .env "$STAGE/.env"; COUNT=$((COUNT + 1)); fi
 
+            # assets/version.txt — globalny timestamp deployu do cache-bustingu CSS/JS.
+            # assets/version.txt — global deploy timestamp for CSS/JS cache-busting.
+            # Dodawany przy kazdym deployu -> wszystkie ?v= URL assetow sie zmieniaja.
+            # Added on every deploy -> all ?v= asset URLs change, browsers fetch fresh files.
+            mkdir -p "$STAGE/assets"
+            echo "$(date +%s)" > "$STAGE/assets/version.txt"
+            echo "  + assets/version.txt (build: $(cat $STAGE/assets/version.txt))"
+            COUNT=$((COUNT + 1))
+
             echo "Plikow do wgrania: $COUNT"
-            if [ "$COUNT" -eq 0 ]; then
-              echo "Brak zmian do wgrania - pomijam upload FTP."
-              exit 0
-            fi
             MIRROR_CMD="mirror --reverse --verbose --transfer-all --no-perms $STAGE/ \"$FTP_DIR\""
           else
+            # Pelny mirror: rowniez dodaj version.txt z aktualnym timestampem.
+            # Full mirror: also add version.txt with current timestamp.
+            mkdir -p ./assets
+            echo "$(date +%s)" > ./assets/version.txt
+            echo "  + assets/version.txt (build: $(cat ./assets/version.txt)) [full mirror]"
             MIRROR_CMD="mirror --reverse --verbose --transfer-all --no-perms $EXCLUDES ./ \"$FTP_DIR\""
           fi
 

@@ -15,15 +15,27 @@ if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
     die(tPlain('auth.err_csrf'));
 }
 
-$player = new Player(Auth::getUserId());
+$db      = Database::getInstance()->getConnection();
+$player  = new Player(Auth::getUserId());
 $storage = new Storage(Auth::getUserId());
-$market = new Market();
+$market  = new Market();
 
 $currentPrice = $market->getCurrentPrice();
-$earnings = $storage->sellAll($currentPrice);
 
-if ($earnings > 0) {
-    $player->updateCash($earnings);
+// Transakcja: usun rope i dodaj gotowke atomowo — zapobiega utracie ropy bez wyplaty.
+// Transaction: remove oil and add cash atomically — prevents oil loss without cash payout.
+$db->beginTransaction();
+try {
+    $earnings = $storage->sellAll($currentPrice);
+    if ($earnings > 0) {
+        $player->updateCash($earnings, 'market_sale', 'Sprzedaz ropy ze skladowiska');
+    }
+    $db->commit();
+} catch (Throwable $e) {
+    if ($db->inTransaction()) {
+        $db->rollBack();
+    }
+    GameLog::error('sell.php', 'sell transaction FAILED', $e, ['player_id' => Auth::getUserId()]);
 }
 
 header('Location: /');

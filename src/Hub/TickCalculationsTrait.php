@@ -92,8 +92,10 @@ trait HubTickCalculationsTrait
         return [
             'processed_bbl'      => $fallback['effective_bbl'],
             'buffered_bbl'       => 0.0,
+            'drained_buffer_bbl' => 0.0,
             'lost_bbl'           => $fallback['lost_bbl'],
             'condition_lost_bbl' => 0.0,
+            'input_bbl'          => round($inputBbl, 2),
             'load_pct'           => 0.0,
             'overloaded'         => false,
             'new_buffer'         => (float)$hub['buffer_current_bbl'],

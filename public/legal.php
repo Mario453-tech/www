@@ -3,10 +3,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/init.php';
 require_once __DIR__ . '/../src/LegalService.php';
+require_once __DIR__ . '/../src/CompanyCredibilityService.php';
 
 Auth::requireLogin();
 
 $playerId = Auth::getUserId();
+BoardAccess::require($playerId, 'legal');
 $db       = Database::getInstance()->getConnection();
 $legal    = new LegalService($db);
 
@@ -60,12 +62,29 @@ foreach ($configs as $cfg) {
     $permitsByRegion[$rid] = $legal->getPermitStatus($playerId, $rid);
 }
 
-// Pogrupowane regiony / Grouped regions
+$legalLevel = $legal->getLegalLevelForPlayer($playerId);
+
+// Wiarygodnosc firmy / Company credibility (card and legal locks)
+$credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
+$credibilityLevel = 'shaky';
+try {
+    $credService      = new CompanyCredibilityService($db);
+    $credibilityScore = $credService->getScore($playerId);
+    $credibilityLevel = $credService->getLevel($credibilityScore);
+} catch (Throwable $e) {
+    GameLog::error('legal.php', 'CompanyCredibilityService failed', $e, ['player_id' => $playerId]);
+}
+$credibilityMin = LegalService::HIGH_RISK_CREDIBILITY_MIN;
+
+// Pogrupowane regiony
 $active        = []; // granted / transitional
 $inProgress    = []; // pending / delayed / no_decision
-$available     = []; // none lub refused (po cooldown) — bez blokady kapitałowej
+$available     = []; // none lub refused (po cooldown), firma spełnia wymóg kapitału
 $locked        = []; // refused (w cooldown)
-$capitalLocked = []; // brak zezwolenia + required_capital > cash (§7.3)
+$capitalLocked = []; // brief §7.3: region wysokiego ryzyka — brak wymaganego kapitału
+
+$credibilityLocked = []; // Wiarygodnosc firmy za niska dla regionow high/critical
+$levelLocked = []; // P2: wymagany wyzszy poziom dzialu prawnego / Required higher legal department level
 
 $now = new DateTime();
 foreach ($configs as $cfg) {
@@ -81,23 +100,40 @@ foreach ($configs as $cfg) {
         $active[] = ['config' => $cfg, 'permit' => $permit];
     } elseif (in_array($status, ['pending', 'delayed', 'no_decision'], true)) {
         $inProgress[] = ['config' => $cfg, 'permit' => $permit];
-    } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])) {
-        $cooldown = new DateTime((string)$permit['application']['refusal_cooldown_until']);
-        if ($cooldown > $now) {
-            $locked[] = ['config' => $cfg, 'permit' => $permit, 'cooldown_until' => $cooldown];
-        } elseif ($requiredCapital > 0 && $cash < $requiredCapital) {
-            // Cooldown minął, ale brak kapitału — zablokowany kapitałowo.
-            // Cooldown expired but insufficient capital — capital locked.
-            $capitalLocked[] = ['config' => $cfg, 'permit' => $permit];
+    } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])
+              && new DateTime((string)$permit['application']['refusal_cooldown_until']) > $now) {
+        $locked[] = [
+            'config'         => $cfg,
+            'permit'         => $permit,
+            'cooldown_until' => new DateTime((string)$permit['application']['refusal_cooldown_until']),
+        ];
+    } else {
+        // Brak aktywnego zezwolenia ani cooldownu — region dostępny LUB
+        // zablokowany kapitałowo (brief §7.3: nie pozwalamy złożyć wniosku).
+        // No active permit nor cooldown — region available OR capital-locked
+        // (brief §7.3: applying is blocked until the company meets the capital).
+        $reqLevel = (int)($cfg['required_legal_level'] ?? 0);
+        $reqCapital = (float)$cfg['required_capital'];
+        if ($reqLevel > 0 && $legalLevel < $reqLevel) {
+            $levelLocked[] = [
+                'config' => $cfg,
+                'permit' => $permit,
+                'required_legal_level' => $reqLevel,
+            ];
+        } elseif (
+            LegalService::requiresCompanyCredibility((string)($cfg['risk_level'] ?? 'low'))
+            && $credibilityScore < $credibilityMin
+        ) {
+            $credibilityLocked[] = [
+                'config' => $cfg,
+                'permit' => $permit,
+                'required_company_credibility' => $credibilityMin,
+            ];
+        } elseif ($reqCapital > 0.0 && $cash < $reqCapital) {
+            $capitalLocked[] = ['config' => $cfg, 'permit' => $permit, 'required_capital' => $reqCapital];
         } else {
             $available[] = ['config' => $cfg, 'permit' => $permit];
         }
-    } elseif ($requiredCapital > 0 && $cash < $requiredCapital) {
-        // Region bez wniosku, ale firma nie spełnia progu kapitałowego (§7.3).
-        // No application, but player doesn't meet capital threshold.
-        $capitalLocked[] = ['config' => $cfg, 'permit' => $permit];
-    } else {
-        $available[] = ['config' => $cfg, 'permit' => $permit];
     }
 }
 
@@ -144,13 +180,15 @@ if (!empty($hubRegionIds)) {
 $hasHubSection = !empty($hubEnabledConfigs);
 
 $viewData = compact(
-    'active', 'inProgress', 'available', 'locked', 'capitalLocked',
+    'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'credibilityLocked', 'levelLocked',
     'hubActive', 'hubInProgress', 'hubAvailable', 'hubLocked', 'hasHubSection',
-    'cash', 'error', 'success'
+    'cash', 'legalLevel', 'error', 'success',
+    'credibilityScore', 'credibilityLevel', 'credibilityMin'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
-$extraCss = ['/assets/css/legal.css'];
+$extraCss = ['/assets/css/legal.css', '/assets/css/credibility.css'];
+$extraJs  = ['/assets/js/legal.js'];
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
 $gameShellTitle = t('legal.page_title');

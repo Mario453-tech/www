@@ -256,17 +256,6 @@ try {
     GameLog::error('index.php', 'techNotifications query FAILED', $e, ['player_id' => $playerId]);
 }
 
-// Wiarygodnosc firmy / Company credibility (karta dashboardu)
-$credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
-$credibilityLevel = 'shaky';
-try {
-    $credibilityService = new CompanyCredibilityService();
-    $credibilityScore   = $credibilityService->getScore($playerId);
-    $credibilityLevel   = $credibilityService->getLevel($credibilityScore);
-} catch (Throwable $e) {
-    GameLog::error('index.php', 'CompanyCredibilityService failed', $e, ['player_id' => $playerId]);
-}
-
 // Akcje
 $actions = [
     [
@@ -310,7 +299,6 @@ $viewData = compact(
     'financialState', 'crisisTicks', 'crisisLimit', 'crisisTicksLeft', 'creditScore',
     'notifications', 'actions',
     'alertWells', 'eventImpactPerHour', 'eventRemainingSeconds', 'trendPricePct',
-    'credibilityScore', 'credibilityLevel',
     'techNotifications'
 );
 
@@ -319,7 +307,7 @@ $extraCss   = [
     '/assets/css/well-grid.css',
     '/assets/css/home.css',
     '/assets/css/chat.css',
-    '/assets/css/credibility.css',
+    '/assets/css/director.css',
 ];
 $extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js'];
 require_once __DIR__ . '/../templates/header.php';

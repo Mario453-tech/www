@@ -15,6 +15,11 @@ require_once $srcDir . '/HubEconomyService.php';
 require_once $srcDir . '/RoadTransportService.php';
 require_once $srcDir . '/TechnicalTeamService.php';
 require_once $srcDir . '/WellPipelineService.php';
+require_once $srcDir . '/PortService.php';
+require_once $srcDir . '/MarineDeliveryService.php';
+
+// Jednorazowe czyszczenie osieroconych rejsow po starej logice mikro-dostaw / One-time cleanup of orphan voyages from the legacy micro-delivery logic
+MarineDeliveryService::purgeOrphanActiveForPlayer($db, $playerId);
 
 $logisticsSvc = new LogisticsService($playerId);
 $hubSvc       = new HubService($db);
@@ -102,6 +107,9 @@ $logisticsInsights = [
     'recommendations' => [],
 ];
 $activeRoadTrips = [];
+$activeRoadTripsTotal = 0;
+$activeRoadTripsPage = 1;
+$activeRoadTripsTotalPages = 1;
 
 $hoursSince = static function (?string $dateTime): ?int {
     if (!$dateTime) {
@@ -160,7 +168,14 @@ try {
 
 try {
     $roadTransportSvc = new RoadTransportService($db);
-    $activeRoadTrips  = $roadTransportSvc->getActiveTripsForPlayer($playerId);
+    $activeRoadTripsAll = $roadTransportSvc->getActiveTripsForPlayer($playerId);
+    $activeRoadTripsPerPage = 10;
+    $activeRoadTripsTotal = count($activeRoadTripsAll);
+    $activeRoadTripsTotalPages = (int)ceil($activeRoadTripsTotal / $activeRoadTripsPerPage);
+    $activeRoadTripsPage = max(1, (int)($_GET['road_page'] ?? 1));
+    $activeRoadTripsPage = min($activeRoadTripsPage, max(1, $activeRoadTripsTotalPages));
+    $activeRoadTripsOffset = ($activeRoadTripsPage - 1) * $activeRoadTripsPerPage;
+    $activeRoadTrips = array_slice($activeRoadTripsAll, $activeRoadTripsOffset, $activeRoadTripsPerPage);
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Road transport data load failed', $e, ['player' => $playerId]);
 }
@@ -420,14 +435,33 @@ if ($logisticsInsights['recommendations'] === []) {
 $marineDeliveries   = [];
 $marineHistory      = [];
 $marineInTransitBbl = 0.0;
-if (class_exists('MarineDeliveryService')) {
-    try {
-        $marineSvc          = new MarineDeliveryService($db);
-        $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
-        $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
-        $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
-    } catch (Throwable $e) {
-        GameLog::error('logistics', 'MarineDeliveryService load failed', $e, ['player' => $playerId]);
+$marineBuffers      = [];
+$marineMinLoadBbl   = 0.0;
+$marineCfg        = TransportConfigService::getTypeConfig($db, 'tankowiec');
+$marineMinLoadBbl = max(0.0, (float)($marineCfg['min_load_bbl'] ?? 0.0));
+try {
+    $marineSvc          = new MarineDeliveryService($db);
+    $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
+    $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
+    $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
+    $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'MarineDeliveryService load failed', $e, ['player' => $playerId]);
+}
+
+if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] || $marineInTransitBbl <= 0.0) {
+    $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl);
+    if ($marineDeliveries === []) {
+        $marineDeliveries = $marineFallback['deliveries'];
+    }
+    if ($marineBuffers === []) {
+        $marineBuffers = $marineFallback['buffers'];
+    }
+    if ($marineHistory === []) {
+        $marineHistory = $marineFallback['history'];
+    }
+    if ($marineInTransitBbl <= 0.0) {
+        $marineInTransitBbl = $marineFallback['in_transit_bbl'];
     }
 }
 
@@ -453,7 +487,12 @@ $viewData = compact(
     'pipelineHse',
     'logisticsInsights',
     'activeRoadTrips',
+    'activeRoadTripsTotal',
+    'activeRoadTripsPage',
+    'activeRoadTripsTotalPages',
     'marineDeliveries',
+    'marineBuffers',
+    'marineMinLoadBbl',
     'marineHistory',
     'marineInTransitBbl'
 );

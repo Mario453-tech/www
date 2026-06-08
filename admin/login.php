@@ -12,6 +12,13 @@ if (AdminAuth::isLoggedIn()) {
     exit();
 }
 
+// Auto-login przez zaufane urządzenie -> pomiń formularz.
+// Auto-login via trusted device -> skip the login form entirely.
+if (AdminAuth::tryTrustedDevice()) {
+    header('Location: /admin/index.php');
+    exit();
+}
+
 // Haslo/SSO juz podane, czekamy na kod 2FA -> krok kodu.
 // Password/SSO already provided, awaiting 2FA code -> code step.
 if (AdminAuth::hasPending()) {

@@ -42,7 +42,9 @@ class Player
         }
     }
 
-    public function updateCash(float $amount): bool
+    // $type - opcjonalny typ transakcji do audit trail (etap 8).
+    // $type - optional transaction type for the audit trail (stage 8).
+    public function updateCash(float $amount, string $type = '', ?string $description = null): bool
     {
         try {
             $stmt = $this->db->prepare("
@@ -53,6 +55,20 @@ class Player
             $ok = $stmt->execute([':amount' => $amount, ':id' => $this->playerId]);
             if (class_exists('GameLog', false)) {
                 GameLog::dbResult('Player', 'updateCash', $stmt->rowCount(), $ok ? 'OK' : 'FAIL');
+            }
+            // Audit trail - loguj transakcje jesli podano typ (etap 8).
+            // Audit trail - log transaction when type is provided (stage 8).
+            if ($ok && $type !== '' && class_exists('FinancialTransactionService', false)) {
+                try {
+                    $abs = abs($amount);
+                    $from = $amount < 0 ? $this->playerId : null;
+                    $to   = $amount >= 0 ? $this->playerId : null;
+                    (new FinancialTransactionService($this->db))->logTransaction($from, $to, $abs, $type, $description);
+                } catch (Throwable $le) {
+                    if (class_exists('GameLog', false)) {
+                        GameLog::warn('Player', 'updateCash audit trail failed', ['error' => $le->getMessage()]);
+                    }
+                }
             }
             return $ok;
         } catch (Throwable $e) {

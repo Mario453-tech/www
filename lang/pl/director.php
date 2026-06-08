@@ -217,4 +217,28 @@ return [
     'dm.err_delete_attachment' => 'Nie udało się usunąć załącznika.',
     'director.err_unknown_template' => 'Nieznany szablon powiadomienia: :template',
 
+    // --- Etap 6: powiadomienia o przelewach bankowych P2P ---
+    // {amount} - kwota (sformatowana), {date} - data wyslania, {recipient}/{sender} - druga strona,
+    // {description} - tytul przelewu (lub "(brak opisu)")
+    'director.bank_transfer_sent.title'   => 'Przelew został wysłany',
+    'director.bank_transfer_sent.message' =>
+        "Wysłano przelew {amount} PLN na rachunek {recipient}.\n"
+        . "Data: {date}\n"
+        . "Tytuł: {description}",
+    'director.bank_transfer_sent.action'  => 'Zobacz historię',
+
+    'director.bank_transfer_received.title'   => 'Otrzymano przelew',
+    'director.bank_transfer_received.message' =>
+        "Otrzymano przelew {amount} PLN od firmy {sender}.\n"
+        . "Data: {date}\n"
+        . "Tytuł: {description}",
+    'director.bank_transfer_received.action'  => 'Zobacz historię',
+
+    // --- Etap 7: korekta salda przez administratora ---
+    // {amount} - kwota, {direction} - "dodano" / "pobrano", {note} - opis korekty
+    'director.admin_adjustment.title'   => 'Korekta salda przez administratora',
+    'director.admin_adjustment.message' =>
+        "Administrator {direction} {amount} PLN z Twojego konta.\n"
+        . "Opis: {note}",
+
 ];
