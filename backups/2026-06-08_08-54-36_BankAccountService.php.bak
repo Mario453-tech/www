@@ -6,18 +6,18 @@ declare(strict_types=1);
  * BankAccountService — fundament systemu bankowego (Etap 1: schemat).
  * BankAccountService — banking system foundation (Stage 1: schema).
  *
- * Zakres etapu 1 (zgodnie z briefem, sekcja "Zalozenia architektoniczne"):
+ * Zakres etapu 1 (zgodnie z briefem § "Założenia architektoniczne"):
  *  - dodanie kolumny players.bank_account_number (VARCHAR(32) UNIQUE NULL),
  *  - utworzenie tabeli historii bank_transactions.
  *
- * Stage 1 scope (per brief, "Architectural assumptions"):
+ * Stage 1 scope (per brief § "Architectural assumptions"):
  *  - add players.bank_account_number column (VARCHAR(32) UNIQUE NULL),
  *  - create the bank_transactions history table.
  *
- * NIE wdrazamy tu (zgodnie z briefem):
- *  - drugiej tabeli kont (player_bank_accounts) - saldo players.cash pozostaje zrodlem prawdy,
- *  - migracji srodkow,
- *  - logiki przelewow (etap 3 / FinancialTransactionService).
+ * NIE wdrażamy tu (zgodnie z briefem):
+ *  - drugiej tabeli kont (player_bank_accounts) — saldo `players.cash` pozostaje źródłem prawdy,
+ *  - migracji środków,
+ *  - logiki przelewów (etap 3 / FinancialTransactionService).
  *
  * NOT in scope here (per brief):
  *  - a second accounts table (player_bank_accounts) — `players.cash` remains source of truth,
@@ -85,7 +85,7 @@ class BankAccountService
         try {
             // Nowe pole numeru rachunku w graczach (brief § "Nowe pole w tabeli graczy").
             // New account number field on players (brief § "New player field").
-            // UNIQUE dodajemy osobno (ALTER ADD COLUMN UNIQUE bywa kaprysny przy istniejacych NULLach).
+            // UNIQUE dodajemy osobno (ALTER ADD COLUMN UNIQUE bywa kapryśny przy istniejących NULLach).
             // UNIQUE added separately (ALTER ADD COLUMN UNIQUE can be flaky with existing NULLs).
             Database::addColumnIfMissing(
                 'players',
