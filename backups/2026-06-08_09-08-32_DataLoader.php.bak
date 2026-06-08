@@ -54,10 +54,6 @@ class BankDataLoader
         [$creditLimit] = $this->loadCreditLimit($canApply, $blockReasons);
         $hasEverHadLoan = $this->checkHasEverHadLoan();
 
-        // Etap 4: dane konta bankowego (numer, saldo, historia operacji).
-        // Stage 4: bank account data (number, balance, operation history).
-        $accountData = $this->loadAccountData();
-
         return [
             'applicationStatus' => $applicationStatus,
             'activeLoans' => $activeLoans,
@@ -72,103 +68,7 @@ class BankDataLoader
             'isCrisis' => $isCrisis,
             'creditLimit' => $creditLimit,
             'hasEverHadLoan' => $hasEverHadLoan,
-            'accountNumber'    => $accountData['number'],
-            'accountBalance'   => $accountData['balance'],
-            'accountHistory'   => $accountData['history'],
         ];
-    }
-
- /**
- * Etap 4: laduje numer rachunku, saldo i historie ostatnich operacji.
- * Stage 4: loads account number, balance and recent transaction history.
- *
- * @return array{number:string,balance:float,history:array<int,array<string,mixed>>}
- */
-    private function loadAccountData(): array
-    {
-        $result = ['number' => '', 'balance' => 0.0, 'history' => []];
-
-        if (!$this->db) {
-            return $result;
-        }
-
-        try {
-            // ensureAccount: generuje numer jesli gracz go nie ma (lazy backfill).
-            // ensureAccount: generates a number if the player has none (lazy backfill).
-            if (class_exists('BankAccountService', false) || @class_exists('BankAccountService')) {
-                $accSvc = new BankAccountService($this->db);
-                $num = $accSvc->ensureAccount($this->playerId);
-                $result['number'] = (string)($num ?? '');
-            }
-
-            $stmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
-            $stmt->execute([$this->playerId]);
-            $result['balance'] = (float)$stmt->fetchColumn();
-
-            // Historia: ostatnie 25 operacji gracza (jako nadawca lub odbiorca).
-            // History: last 25 player operations (as sender or recipient).
-            $hStmt = $this->db->prepare(
-                "SELECT bt.*,
-                        pf.bank_account_number AS from_account,
-                        pf.username           AS from_username,
-                        pt.bank_account_number AS to_account,
-                        pt.username           AS to_username
-                   FROM bank_transactions bt
-                   LEFT JOIN players pf ON pf.id = bt.from_player_id
-                   LEFT JOIN players pt ON pt.id = bt.to_player_id
-                  WHERE bt.from_player_id = :pid OR bt.to_player_id = :pid
-                  ORDER BY bt.id DESC
-                  LIMIT 25"
-            );
-            $hStmt->execute([':pid' => $this->playerId]);
-            $rows = $hStmt->fetchAll();
-
-            foreach ($rows as &$row) {
-                $row['is_inflow'] = ((int)($row['to_player_id'] ?? 0) === $this->playerId);
-                $row['signed_amount'] = $row['is_inflow']
-                    ? (float)$row['amount']
-                    : -1 * (float)$row['amount'];
-                $row['counterparty_label'] = $this->formatCounterparty($row);
-                $row['created_at_fmt'] = !empty($row['created_at'])
-                    ? date('d.m.Y H:i', strtotime((string)$row['created_at']))
-                    : '';
-            }
-            unset($row);
-            $result['history'] = $rows;
-        } catch (Throwable $e) {
-            GameLog::error('bank', 'loadAccountData FAILED', $e, ['player' => $this->playerId]);
-        }
-
-        return $result;
-    }
-
- /**
- * Buduje etykiete drugiej strony transakcji: numer konta + nazwa firmy gracza,
- * albo "Bank / System" gdy from/to == NULL (np. wyplata kredytu, podatek).
- * Builds the counterparty label: account number + player name, or "Bank / System"
- * when from/to == NULL (e.g. loan disbursement, tax).
- *
- * @param array<string,mixed> $row
- */
-    private function formatCounterparty(array $row): string
-    {
-        $isInflow = !empty($row['is_inflow']);
-        if ($isInflow) {
-            $acc = (string)($row['from_account'] ?? '');
-            $name = (string)($row['from_username'] ?? '');
-        } else {
-            $acc = (string)($row['to_account'] ?? '');
-            $name = (string)($row['to_username'] ?? '');
-        }
-
-        if ($acc === '' && $name === '') {
-            return t('bank.account.counterparty_system');
-        }
-
-        $parts = [];
-        if ($acc !== '')  { $parts[] = $acc; }
-        if ($name !== '') { $parts[] = $name; }
-        return implode(' - ', $parts);
     }
 
  /**

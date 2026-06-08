@@ -60,7 +60,7 @@ $success = $actions->success;
 // Prevents stale data on mobile browsers with BFCache after loan accept/repay.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $success && empty($error)) {
     $action = $_POST['action'] ?? '';
-    if (in_array($action, ['accept_offer', 'repay_loan', 'neg_apply'], true)) {
+    if (in_array($action, ['accept_offer', 'repay_loan', 'neg_apply', 'bank_transfer'], true)) {
         $_SESSION['bank_flash_success'] = $success;
         header('Location: /bank');
         exit();
