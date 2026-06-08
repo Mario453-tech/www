@@ -28,7 +28,7 @@ $db->beginTransaction();
 try {
     $earnings = $storage->sellAll($currentPrice);
     if ($earnings > 0) {
-        $player->updateCash($earnings, 'market_sale', 'Sprzedaz ropy ze skladowiska');
+        $player->updateCash($earnings);
     }
     $db->commit();
 } catch (Throwable $e) {

@@ -38,7 +38,7 @@ if ($_POST && isset($_POST['action'])) {
                 $db->beginTransaction();
 
                 try {
-                    $player->updateCash($earnings, 'market_sale', 'Sprzedaz ropy na rynku');
+                    $player->updateCash($earnings);
 
                     $db->prepare("
                         UPDATE storage

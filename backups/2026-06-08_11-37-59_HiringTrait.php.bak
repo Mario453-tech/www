@@ -142,15 +142,6 @@ trait HRHiringTrait
         $this->db->beginTransaction();
         try {
             $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$salary, $playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $playerId, null, $salary,
-                        FinancialTransactionService::TYPE_HR_FEE,
-                        'Zatrudnienie pracownika technicznego (pierwsza pensja)'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             $staffPerk = $this->rollStaffSpecialization($spec['code'], $skillLevel);
 

@@ -78,7 +78,7 @@ class WellShop
 
             $this->db->beginTransaction();
             try {
-                $player->updateCash(-(float)$well['base_cost'], 'well_purchase', 'Zakup odwiertu');
+                $player->updateCash(-(float)$well['base_cost']);
                 $transportProfile = TransportConfigService::getTypeConfig($this->db, 'nieustawiony');
 
                 $insertWell = $this->db->prepare("

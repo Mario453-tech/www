@@ -40,27 +40,16 @@ class FinancialTransactionService
      * Dozwolone typy operacji (brief, sekcja "Historia operacji").
      * Allowed transaction types (brief, "Transaction history").
      */
-    public const TYPE_PLAYER_TRANSFER    = 'player_transfer';
-    public const TYPE_LOAN               = 'loan';
-    public const TYPE_LOAN_PAYMENT       = 'loan_payment';
-    public const TYPE_MARKET_SALE        = 'market_sale';
-    public const TYPE_TAX                = 'tax';
-    public const TYPE_WELL_PURCHASE      = 'well_purchase';
-    public const TYPE_WELL_UPGRADE       = 'well_upgrade';
-    public const TYPE_WELL_MAINTENANCE   = 'well_maintenance';
-    public const TYPE_HUB_PURCHASE       = 'hub_purchase';
-    public const TYPE_PIPELINE_PURCHASE  = 'pipeline_purchase';
-    public const TYPE_PIPELINE_REPAIR    = 'pipeline_repair';
-    public const TYPE_PIPELINE_MAINTENANCE = 'pipeline_maintenance';
-    public const TYPE_LEGAL_FEE          = 'legal_fee';
-    public const TYPE_ADMIN_ADJUSTMENT   = 'admin_adjustment';
-    public const TYPE_BAILIFF_SEIZURE    = 'bailiff_seizure';
-    public const TYPE_HR_FEE             = 'hr_fee';
-    public const TYPE_TTS_FEE            = 'tts_fee';
-    public const TYPE_BANKRUPTCY_EVENT   = 'bankruptcy_event';
-    public const TYPE_GEOLOGICAL_FEE     = 'geological_fee';
-    public const TYPE_MAP_PURCHASE       = 'map_purchase';
-    public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
+    public const TYPE_PLAYER_TRANSFER   = 'player_transfer';
+    public const TYPE_LOAN              = 'loan';
+    public const TYPE_LOAN_PAYMENT      = 'loan_payment';
+    public const TYPE_MARKET_SALE       = 'market_sale';
+    public const TYPE_TAX               = 'tax';
+    public const TYPE_WELL_PURCHASE     = 'well_purchase';
+    public const TYPE_HUB_PURCHASE      = 'hub_purchase';
+    public const TYPE_PIPELINE_PURCHASE = 'pipeline_purchase';
+    public const TYPE_LEGAL_FEE         = 'legal_fee';
+    public const TYPE_ADMIN_ADJUSTMENT  = 'admin_adjustment';
 
     /** Pelna lista dozwolonych typow / Full list of allowed types. */
     public const ALLOWED_TYPES = [
@@ -70,21 +59,10 @@ class FinancialTransactionService
         self::TYPE_MARKET_SALE,
         self::TYPE_TAX,
         self::TYPE_WELL_PURCHASE,
-        self::TYPE_WELL_UPGRADE,
-        self::TYPE_WELL_MAINTENANCE,
         self::TYPE_HUB_PURCHASE,
         self::TYPE_PIPELINE_PURCHASE,
-        self::TYPE_PIPELINE_REPAIR,
-        self::TYPE_PIPELINE_MAINTENANCE,
         self::TYPE_LEGAL_FEE,
         self::TYPE_ADMIN_ADJUSTMENT,
-        self::TYPE_BAILIFF_SEIZURE,
-        self::TYPE_HR_FEE,
-        self::TYPE_TTS_FEE,
-        self::TYPE_BANKRUPTCY_EVENT,
-        self::TYPE_GEOLOGICAL_FEE,
-        self::TYPE_MAP_PURCHASE,
-        self::TYPE_STORAGE_UPGRADE,
     ];
 
     /**

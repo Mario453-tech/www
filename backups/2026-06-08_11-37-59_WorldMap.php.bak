@@ -244,7 +244,7 @@ class WorldMap
 
             $this->db->beginTransaction();
             try {
-                $player->updateCash(-$totalCost, 'map_purchase', 'Zakup lokalizacji na mapie');
+                $player->updateCash(-$totalCost);
 
  // Check if a well was previously sold at this location
  // If so, the reservoir is already partially depleted

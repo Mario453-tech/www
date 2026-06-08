@@ -328,15 +328,6 @@ class MarketOffer
                 ':earnings'  => $earnings,
                 ':player_id' => $offer['player_id'],
             ]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        null, (int)$offer['player_id'], $earnings,
-                        FinancialTransactionService::TYPE_MARKET_SALE,
-                        'Sprzedaz ropy na rynku (oferta #' . (int)$offer['id'] . ')'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
  // Close the offer / Zamknij oferte
             $this->db->prepare("

@@ -79,15 +79,6 @@ class HeadhunterService
             try {
                 $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
                          ->execute([$cost, $this->playerId]);
-                try {
-                    if (class_exists('FinancialTransactionService', false)) {
-                        (new FinancialTransactionService($this->db))->logTransaction(
-                            $this->playerId, null, $cost,
-                            FinancialTransactionService::TYPE_HR_FEE,
-                            'Oplata za wyszukiwanie pracownika (headhunter)'
-                        );
-                    }
-                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
                 $this->db->prepare("
                     INSERT INTO headhunter_searches
@@ -370,15 +361,6 @@ class HeadhunterService
             try {
                 $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
                          ->execute([$bonus, $this->playerId]);
-                try {
-                    if (class_exists('FinancialTransactionService', false)) {
-                        (new FinancialTransactionService($this->db))->logTransaction(
-                            $this->playerId, null, $bonus,
-                            FinancialTransactionService::TYPE_HR_FEE,
-                            'Premia za zatrudnienie pracownika przez headhuntera'
-                        );
-                    }
-                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
                 $birthDate = date('Y-m-d', mktime(0, 0, 0, rand(1, 12), rand(1, 28), date('Y') - rand(28, 55)));
                 $skill = (int)$c['skill_level'];

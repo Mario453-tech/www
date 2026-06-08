@@ -80,7 +80,7 @@ try {
     $db = Database::getInstance()->getConnection();
     $db->beginTransaction();
 
-    $player->updateCash(-$upgradeCost, 'well_upgrade', 'Ulepszenie odwiertu');
+    $player->updateCash(-$upgradeCost);
     $ok = $well->upgrade($wellId);
 
     if (!$ok) {

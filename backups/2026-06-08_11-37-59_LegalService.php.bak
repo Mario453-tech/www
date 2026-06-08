@@ -530,19 +530,9 @@ class LegalService
                 ];
             }
 
-            // Pobranie oplaty.
-            // Deduct legal application fee.
+            // Pobranie opłaty.
             $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
                 ->execute([$applicationCost, $playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $playerId, null, $applicationCost,
-                        FinancialTransactionService::TYPE_LEGAL_FEE,
-                        'Oplata za wniosek o pozwolenie na wiercenie'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             // Termin decyzji = teraz + bazowy czas rozpatrzenia.
             $dueStr = (clone $now)

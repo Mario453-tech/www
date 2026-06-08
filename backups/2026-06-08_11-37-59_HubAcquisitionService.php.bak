@@ -363,15 +363,6 @@ class HubAcquisitionService
         }
         $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
             ->execute([$amount, $playerId]);
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $amount,
-                    FinancialTransactionService::TYPE_HUB_PURCHASE,
-                    'Zakup/wynajem hubu logistycznego'
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
         return ['ok' => true];
     }
 
@@ -383,13 +374,6 @@ class HubAcquisitionService
         try {
             $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id = ?")
                 ->execute([$amount, $playerId]);
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    null, $playerId, $amount,
-                    FinancialTransactionService::TYPE_HUB_PURCHASE,
-                    'Zwrot oplaty za hub logistyczny'
-                );
-            }
         } catch (Throwable $e) {
             GameLog::error('HubAcquisitionService', 'Cash refund failed', $e, [
                 'player_id' => $playerId,

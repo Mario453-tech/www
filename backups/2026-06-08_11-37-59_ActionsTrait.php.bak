@@ -28,7 +28,7 @@ trait WellActionsTrait
                 return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
             }
 
-            $player->updateCash(-$cost, 'well_upgrade', 'Zmiana tieru wyposazenia odwiertu');
+            $player->updateCash(-$cost);
             $swapMinutes  = 60;
             $swapUntil    = date('Y-m-d H:i:s', time() + $swapMinutes * 60);
             $prevStatus   = $well['status'] ?? 'active';
@@ -67,7 +67,7 @@ trait WellActionsTrait
                 return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
             }
 
-            $player->updateCash(-$cost, 'well_upgrade', 'Ulepszenie poziomu wyposazenia odwiertu');
+            $player->updateCash(-$cost);
             $this->db->prepare("UPDATE wells SET equipment_upgrade_level = ? WHERE id = ?")
                      ->execute([$nextLevel, $wellId]);
             $this->logEvent($wellId, $playerId, 'upgrade', $cost,
@@ -104,7 +104,7 @@ trait WellActionsTrait
 
         $this->db->beginTransaction();
         try {
-            $player->updateCash(-$cost, 'well_maintenance', 'Konserwacja odwiertu');
+            $player->updateCash(-$cost);
             $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ?")->execute([$condAfter, $wellId]);
 
  // Konserwacja redukuje spirale katastrof o 1 stack (-0.10) / Maintenance reduces the disaster spiral by 1 stack (-0.10)
