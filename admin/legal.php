@@ -205,7 +205,6 @@ foreach ($applications as $a) {
 $viewData = compact('regions', 'applications', 'stats', 'tab', 'msg', 'err');
 
 $pageTitle = t('admin.legal.title');
-$extraJs = ['/assets/js/admin_legal.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/legal/main.php';
 require_once __DIR__ . '/partials/footer.php';

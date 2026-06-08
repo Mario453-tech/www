@@ -64,7 +64,10 @@
 
     <?php if (empty($regions)): ?>
     <p class="panel-hint"><?= t('admin.legal.no_regions') ?></p>
-    <form method="post" action="/admin/legal.php?tab=regions" class="admin-legal-seed-form">
+    <form method="post" action="/admin/legal.php?tab=regions"
+          class="admin-legal-seed-form"
+          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.seed_confirm')) ?>"
+          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_seed_regions')) ?>">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_regions">
         <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
