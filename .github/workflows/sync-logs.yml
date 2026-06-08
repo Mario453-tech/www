@@ -1,0 +1,45 @@
+name: Sync game logs
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # co godzine / every hour on the hour
+  workflow_dispatch:       # mozna uruchomic recznie / manual trigger
+
+jobs:
+  sync:
+    name: Fetch logs from production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch last 5000 lines of game_debug.log
+        run: |
+          mkdir -p logs
+          HTTP_STATUS=$(curl -o logs/game_debug.txt \
+            -w "%{http_code}" \
+            -sS --max-time 60 \
+            -H "Authorization: Bearer ${{ secrets.LOG_EXPORT_TOKEN }}" \
+            "${{ secrets.SITE_URL }}/admin/api/logs_export.php?lines=5000")
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "ERROR: server responded with HTTP $HTTP_STATUS"
+            cat logs/game_debug.txt || true
+            exit 1
+          fi
+          echo "Fetched $(wc -l < logs/game_debug.txt) lines (HTTP $HTTP_STATUS)"
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add logs/game_debug.txt
+          if git diff --cached --quiet; then
+            echo "Brak zmian w logach. / No log changes — nothing to commit."
+          else
+            LINES=$(wc -l < logs/game_debug.txt)
+            git commit -m "chore: sync game_debug.log [$LINES lines, $(date -u '+%Y-%m-%d %H:%M UTC')]"
+            git push
+          fi

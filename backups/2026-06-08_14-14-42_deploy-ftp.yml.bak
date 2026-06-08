@@ -159,12 +159,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          EXCLUDES='-X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X logs/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php'
+          EXCLUDES='-X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php'
 
           # Czy plik jest wykluczony z deployu (te same reguly co lista -X powyzej)?
           is_excluded() {
             case "$1" in
-              .git/*|.github/*|.vscode/*|.claude/*|.phpunit_cache/*|.idea/*|tests/*|vendor/*|node_modules/*|cache/*|coverage/*|build/*|dist/*|tmp/*|temp/*|backups/*|logs/*|svn_repo/*|migrations/*|backup/*|sessions/*) return 0 ;;
+              .git/*|.github/*|.vscode/*|.claude/*|.phpunit_cache/*|.idea/*|tests/*|vendor/*|node_modules/*|cache/*|coverage/*|build/*|dist/*|tmp/*|temp/*|backups/*|svn_repo/*|migrations/*|backup/*|sessions/*) return 0 ;;
               .env|.gitignore|CLAUDE.md|composer.json|composer.lock|phpstan.neon|phpstan_errors.txt|phpunit.xml.dist|deploy.ps1|check_log_cfg.php|diag.php|reset_db.php|winscp.log|winscp_sync.txt|database.php) return 0 ;;
               .env.*|diag*.php|*.bak|*_server.php|*.log|*.sql|*.zip|*.rar|*/database.php) return 0 ;;
             esac
