@@ -39,7 +39,7 @@ $selectedId = (int)($_GET['player_id'] ?? 0);
 
 // ---- Obsluga POST (PRG) / Handle POST (PRG) ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+    if (!CSRF::validate($_POST['csrf_token'] ?? '')) {
         $flash = ['type' => 'error', 'msg' => 'Nieprawidlowy token CSRF. / Invalid CSRF token.'];
     } else {
         $action    = $_POST['action'] ?? '';
