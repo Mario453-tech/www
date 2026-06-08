@@ -2,6 +2,8 @@
 
 Data: 2026-06-05
 
+Aktualizacja: 2026-06-07
+
 ## Co wdrożono
 
 Dodano obsługę incydentów transportu morskiego w panelu administracyjnym incydentów:
@@ -12,6 +14,21 @@ Dodano obsługę incydentów transportu morskiego w panelu administracyjnym incy
 - źródło `marine` w historii incydentów,
 - księgowanie utraconych dostaw morskich jako strata transportowa w `finance_logs`,
 - limit listy dostaw w selectcie do 15 aktywnych pozycji dla wybranego gracza.
+
+## Model wysyłki tankowca
+
+Transport morski nie działa jak transport drogowy z wieloma małymi kursami po kilkadziesiąt baryłek.
+
+Aktualny model:
+
+- ropa z odwiertu tankowcowego odkłada się w buforze `wells.marine_buffer_bbl`,
+- tankowiec wyrusza dopiero po osiągnięciu progu `min_load_bbl`,
+- próg jest edytowalny w panelu admina transportu dla typu `tankowiec`,
+- aktualne ustawienie balansowe: `4000 bbl`,
+- wartość `0` dla `min_load_bbl` oznacza wysyłkę natychmiastową, czyli stary model per tick.
+- panel logistyki gracza pokazuje bufory tankowców per odwiert: aktualne bbl, próg wypłynięcia, brakujący wolumen i pasek postępu.
+
+Kodowo próg jest czytany z `transport_config` przez `TransportConfigService::load()`. Fallback w kodzie dla `tankowiec.min_load_bbl` wynosi `5000 bbl`, ale wartość ustawiona w adminie nadpisuje fallback.
 
 ## Zakres funkcjonalny
 
@@ -31,6 +48,10 @@ To nie dotyczy:
 - `assets/js/admin_incidents.js` - filtrowanie dostaw morskich po wybranym graczu i komunikat przy limicie listy.
 - `lang/pl/admin/incidents.php` - tłumaczenia dla zakładki i formularza incydentów morskich.
 - `src/Tick/PlayersSection.php` - utracone dostawy morskie z ticka trafiają do strat transportowych w `finance_logs`.
+- `src/Tick/WellProductionHandler.php` - produkcja morska zasila bufor tankowca i tworzy dostawę dopiero po osiągnięciu `min_load_bbl`.
+- `src/TransportConfigService.php` - dodano konfigurację `min_load_bbl` i kolumnę `wells.marine_buffer_bbl`.
+- `admin/transport.php`, `templates/views/admin/transport/main.php`, `lang/pl/admin/transport.php` - próg startu tankowca jest edytowalny z panelu admina.
+- `src/MarineDeliveryService.php`, `public/logistics.php`, `templates/views/logistics/main.php`, `assets/css/logistics.css`, `lang/pl/logistics.php` - widoczność bufora tankowca w panelu logistyki gracza.
 - `GAME_README.md` - changelog wdrożenia.
 - `DZIAL_PRAWNY_P1_STATUS.md` - dopisany status weryfikacji zdarzeń transportowych.
 

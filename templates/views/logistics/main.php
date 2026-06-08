@@ -703,10 +703,14 @@
     <!--  -->
     <?php
         $marineDeliveriesList = is_array($marineDeliveries ?? null) ? $marineDeliveries : [];
+        $marineBuffersList = is_array($marineBuffers ?? null) ? $marineBuffers : [];
         $marineHistoryList = is_array($marineHistory ?? null) ? $marineHistory : [];
         $marineInTransitBbl = (float)($marineInTransitBbl ?? 0.0);
+        $marineBufferedBbl = array_sum(array_map(static fn($row) => (float)($row['marine_buffer_bbl'] ?? 0.0), $marineBuffersList));
+        $marineTransitOnlyBbl = max(0.0, $marineInTransitBbl - $marineBufferedBbl);
+        $marineMinLoadBbl = max(0.0, (float)($marineMinLoadBbl ?? 0.0));
         $wellTransportTypes = array_column(array_filter($wells, 'is_array'), 'transport');
-        $hasMarineSection = !empty($marineDeliveriesList) || !empty($marineHistoryList) || $marineInTransitBbl > 0;
+        $hasMarineSection = !empty($marineDeliveriesList) || !empty($marineBuffersList) || !empty($marineHistoryList) || $marineInTransitBbl > 0;
         if ($hasMarineSection || in_array('tankowiec', $wellTransportTypes, true)):
     ?>
     <section class="logistics-panel" aria-labelledby="logistics-marine-heading">
@@ -717,15 +721,59 @@
 
         <!-- KPI morskie / Marine KPI -->
         <div class="logistics-insight-summary">
-            <div class="logistics-insight-pill <?= $marineInTransitBbl > 0 ? 'logistics-insight-pill--info' : 'logistics-insight-pill--ok' ?>">
+            <div class="logistics-insight-pill <?= $marineTransitOnlyBbl > 0 ? 'logistics-insight-pill--info' : 'logistics-insight-pill--ok' ?>">
                 <span><?= t('marine.kpi_in_transit') ?></span>
-                <strong><?= number_format($marineInTransitBbl, 1, ',', ' ') ?> <?= t('common.bbl') ?></strong>
+                <strong><?= number_format($marineTransitOnlyBbl, 1, ',', ' ') ?> <?= t('common.bbl') ?></strong>
+            </div>
+            <div class="logistics-insight-pill <?= $marineBufferedBbl > 0 ? 'logistics-insight-pill--warn' : 'logistics-insight-pill--ok' ?>">
+                <span><?= t('marine.kpi_buffered') ?></span>
+                <strong><?= number_format($marineBufferedBbl, 1, ',', ' ') ?> <?= t('common.bbl') ?></strong>
             </div>
             <div class="logistics-insight-pill logistics-insight-pill--info">
                 <span><?= t('marine.kpi_active') ?></span>
-                <strong><?= count($marineDeliveriesList) ?></strong>
+                <strong><?= (int)($marineDeliveriesTotal ?? count($marineDeliveriesList)) ?></strong>
             </div>
         </div>
+
+        <!-- Bufory tankowcow / Tanker buffers -->
+        <?php if (!empty($marineBuffersList)): ?>
+        <div class="logistics-section-title"><?= t('marine.buffer_title') ?></div>
+        <div class="logistics-table logistics-table--marine-buffer">
+            <div class="logistics-table-head">
+                <span><?= t('marine.col_well') ?></span>
+                <span><?= t('marine.col_buffer') ?></span>
+                <span><?= t('marine.col_missing') ?></span>
+                <span><?= t('marine.col_progress') ?></span>
+            </div>
+            <?php foreach ($marineBuffersList as $buffer):
+                $bufferBbl = max(0.0, (float)($buffer['marine_buffer_bbl'] ?? 0.0));
+                $thresholdBbl = max(0.0, (float)($buffer['min_load_bbl'] ?? $marineMinLoadBbl));
+                $missingBbl = $thresholdBbl > 0 ? max(0.0, $thresholdBbl - $bufferBbl) : 0.0;
+                $bufferPct = $thresholdBbl > 0 ? min(100.0, round($bufferBbl / $thresholdBbl * 100, 1)) : 100.0;
+                $bufferClass = $bufferPct >= 90 ? 'full' : ($bufferPct >= 60 ? 'mid' : 'low');
+                $bufferTextClass = $bufferPct >= 90 ? 'c-good' : ($bufferPct >= 60 ? 'c-warn' : 'c-muted2');
+                $bufferWellLabel = ($buffer['well_name'] ?? null)
+                    ? htmlspecialchars((string)$buffer['well_name'])
+                    : t('marine.well_unknown', ['id' => (int)($buffer['well_id'] ?? 0)]);
+            ?>
+            <div class="logistics-table-row">
+                <span><?= $bufferWellLabel ?></span>
+                <span><?= number_format($bufferBbl, 1, ',', ' ') ?> / <?= number_format($thresholdBbl, 0, ',', ' ') ?> <?= t('common.bbl') ?></span>
+                <span class="<?= $missingBbl <= 0.0 ? 'c-good' : 'c-warn' ?>">
+                    <?= $missingBbl <= 0.0
+                        ? t('marine.buffer_ready')
+                        : t('marine.buffer_missing', ['bbl' => number_format($missingBbl, 1, ',', ' ')]) ?>
+                </span>
+                <span class="marine-buffer-progress">
+                    <span class="hub-buffer-bar">
+                        <span class="hub-buffer-bar__fill hub-buffer-bar__fill--<?= $bufferClass ?>" style="width:<?= $bufferPct ?>%"></span>
+                    </span>
+                    <small class="<?= $bufferTextClass ?>"><?= number_format($bufferPct, 1, ',', ' ') ?>%</small>
+                </span>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
 
         <!-- Aktywne dostawy / Active deliveries -->
         <?php if (empty($marineDeliveriesList)): ?>
@@ -775,18 +823,48 @@
             <?php endforeach ?>
         </div>
         <?php endif ?>
+        <?php if ((int)($marineDeliveriesTotalPages ?? 1) > 1):
+            $marinePage = (int)($marineDeliveriesPage ?? 1);
+            $marineTotalPages = (int)($marineDeliveriesTotalPages ?? 1);
+            $marineBaseParams = $_GET;
+            $marineBaseParams['tab'] = $marineBaseParams['tab'] ?? 'logistics';
+        ?>
+        <div class="logistics-pagination">
+            <div class="logistics-pagination-info">
+                <?= $marinePage ?> / <?= $marineTotalPages ?> (<?= (int)($marineDeliveriesTotal ?? 0) ?>)
+            </div>
+            <div class="logistics-pagination-buttons">
+                <?php if ($marinePage > 1):
+                    $marineBaseParams['marine_page'] = $marinePage - 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($marineBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_prev') ?>
+                </a>
+                <?php endif ?>
+                <?php if ($marinePage < $marineTotalPages):
+                    $marineBaseParams['marine_page'] = $marinePage + 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($marineBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_next') ?>
+                </a>
+                <?php endif ?>
+            </div>
+        </div>
+        <?php endif ?>
 
         <!-- Historia dostaw / Delivery history -->
-        <?php if (!empty($marineHistoryList)): ?>
-        <div style="margin-top:18px">
-            <div class="logistics-section-title" style="margin-bottom:8px"><?= t('marine.history_title') ?></div>
-            <div class="logistics-table">
-                <div class="logistics-table-head" style="grid-template-columns:1fr 1.2fr 0.7fr 1fr 0.9fr">
+        <div class="marine-history-section">
+            <div class="logistics-section-title"><?= t('marine.history_title') ?></div>
+            <?php if (empty($marineHistoryList)): ?>
+                <div class="logistics-empty"><?= t('marine.no_history') ?></div>
+            <?php else: ?>
+            <div class="logistics-table logistics-table--marine-history">
+                <div class="logistics-table-head">
                     <span><?= t('marine.col_well') ?></span>
                     <span><?= t('marine.col_port') ?></span>
                     <span><?= t('marine.col_volume') ?></span>
                     <span><?= t('marine.col_status') ?></span>
-                    <span><?= t('marine.col_eta') ?></span>
+                    <span><?= t('marine.col_completed_at') ?></span>
                 </div>
                 <?php foreach ($marineHistoryList as $hist):
                     $hStatus = (string)($hist['status'] ?? 'delivered');
@@ -800,7 +878,7 @@
                         ? htmlspecialchars($hist['port_name'])
                         : t('marine.port_unknown');
                 ?>
-                <div class="logistics-table-row" style="grid-template-columns:1fr 1.2fr 0.7fr 1fr 0.9fr;opacity:.7">
+                <div class="logistics-table-row logistics-table-row--history">
                     <span><?= $hWell ?></span>
                     <span><?= $hPort ?></span>
                     <span><?= number_format((float)($hist['volume_bbl'] ?? 0), 1, ',', ' ') ?> bbl</span>
@@ -809,8 +887,36 @@
                 </div>
                 <?php endforeach ?>
             </div>
+            <?php if ((int)($marineHistoryTotalPages ?? 1) > 1):
+                $marineHistoryPage = (int)($marineHistoryPage ?? 1);
+                $marineHistoryTotalPages = (int)($marineHistoryTotalPages ?? 1);
+                $marineHistoryBaseParams = $_GET;
+                $marineHistoryBaseParams['tab'] = $marineHistoryBaseParams['tab'] ?? 'logistics';
+            ?>
+            <div class="logistics-pagination">
+                <div class="logistics-pagination-info">
+                    <?= $marineHistoryPage ?> / <?= $marineHistoryTotalPages ?> (<?= (int)($marineHistoryTotal ?? 0) ?>)
+                </div>
+                <div class="logistics-pagination-buttons">
+                    <?php if ($marineHistoryPage > 1):
+                        $marineHistoryBaseParams['marine_history_page'] = $marineHistoryPage - 1;
+                    ?>
+                    <a href="?<?= htmlspecialchars(http_build_query($marineHistoryBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                        <?= t('logistics.pagination_prev') ?>
+                    </a>
+                    <?php endif ?>
+                    <?php if ($marineHistoryPage < $marineHistoryTotalPages):
+                        $marineHistoryBaseParams['marine_history_page'] = $marineHistoryPage + 1;
+                    ?>
+                    <a href="?<?= htmlspecialchars(http_build_query($marineHistoryBaseParams)) ?>#logistics-marine-heading" class="btn btn-xs btn-secondary">
+                        <?= t('logistics.pagination_next') ?>
+                    </a>
+                    <?php endif ?>
+                </div>
+            </div>
+            <?php endif ?>
+            <?php endif ?>
         </div>
-        <?php endif ?>
     </section>
     <?php endif ?>
 
@@ -877,9 +983,10 @@
     <section class="logistics-panel" aria-labelledby="logistics-road-trips-heading">
         <div class="logistics-panel-head">
             <h3 id="logistics-road-trips-heading"><?= t('logistics.road_trips.section_title') ?></h3>
+            <span><?= (int)($activeRoadTripsTotal ?? count($activeRoadTrips)) ?> <?= t('logistics.road_trips.count_suffix') ?></span>
         </div>
-        <div class="logistics-table">
-            <div class="logistics-table-head" style="grid-template-columns:2fr 1fr 1fr 1fr 2fr 1fr">
+        <div class="logistics-table logistics-table--road-trips">
+            <div class="logistics-table-head">
                 <span><?= t('logistics.road_trips.col_well') ?></span>
                 <span><?= t('logistics.road_trips.col_volume') ?></span>
                 <span><?= t('logistics.road_trips.col_trips') ?></span>
@@ -893,7 +1000,7 @@
                 $mRem   = (int)floor(($secRem % 3600) / 60);
                 $truckKey = 'logistics.road_trips.truck_' . ($trip['truck_type'] ?? 'standard');
             ?>
-            <div class="logistics-table-row" style="grid-template-columns:2fr 1fr 1fr 1fr 2fr 1fr">
+            <div class="logistics-table-row">
                 <span><?= htmlspecialchars((string)($trip['well_name'] ?? ('#' . (int)$trip['well_id']))) ?></span>
                 <span><?= number_format((float)($trip['volume_bbl'] ?? 0), 1, ',', ' ') ?> bbl</span>
                 <span><?= (int)($trip['trips_count'] ?? 1) ?></span>
@@ -906,6 +1013,34 @@
             </div>
             <?php endforeach ?>
         </div>
+        <?php if ((int)($activeRoadTripsTotalPages ?? 1) > 1):
+            $roadPage = (int)($activeRoadTripsPage ?? 1);
+            $roadTotalPages = (int)($activeRoadTripsTotalPages ?? 1);
+            $roadBaseParams = $_GET;
+            $roadBaseParams['tab'] = $roadBaseParams['tab'] ?? 'logistics';
+        ?>
+        <div class="logistics-pagination">
+            <div class="logistics-pagination-info">
+                <?= $roadPage ?> / <?= $roadTotalPages ?> (<?= (int)($activeRoadTripsTotal ?? 0) ?>)
+            </div>
+            <div class="logistics-pagination-buttons">
+                <?php if ($roadPage > 1):
+                    $roadBaseParams['road_page'] = $roadPage - 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($roadBaseParams)) ?>#logistics-road-trips-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_prev') ?>
+                </a>
+                <?php endif ?>
+                <?php if ($roadPage < $roadTotalPages):
+                    $roadBaseParams['road_page'] = $roadPage + 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($roadBaseParams)) ?>#logistics-road-trips-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_next') ?>
+                </a>
+                <?php endif ?>
+            </div>
+        </div>
+        <?php endif ?>
     </section>
     <?php endif ?>
 
@@ -945,7 +1080,14 @@
                 $condPct   = (float)$hub['condition_pct'];
                 $condClass = $condPct <= 20 ? 'c-bad' : ($condPct < 60 ? 'c-warn' : 'c-good');
                 $loadClass = $loadPct > 100 ? 'c-bad' : ($loadPct > 80 ? 'c-warn' : 'c-good');
- // Combined risk level (condition + load)
+                $hubLevel  = (int)($hub['level'] ?? 1);
+                $hubMaxLevel = (int)($card['max_level'] ?? 3);
+                $hubRepairCost = (float)($card['repair_cost'] ?? 0.0);
+                $hubUpgradeCost = (float)($card['upgrade_cost'] ?? 0.0);
+                $hubCanUpgrade = ($card['ownership'] ?? 'owned') === 'owned'
+                    && !empty($card['can_upgrade'])
+                    && !in_array((string)($hub['status'] ?? ''), ['disabled', 'building'], true);
+ // Laczony poziom ryzyka (stan + obciazenie) / Combined risk level (condition + load)
                 $riskLevel = 'none';
                 if ($condPct <= 20 || ($condPct <= 40 && $loadPct > 80)) {
                     $riskLevel = 'critical';
@@ -960,7 +1102,9 @@
                      data-hub-id="<?= $hubId ?>"
                      data-hub-region-id="<?= (int)$hub['region_id'] ?>"
                      data-hub-zone-key="<?= htmlspecialchars((string)($hub['zone_key'] ?? ''), ENT_QUOTES) ?>"
-                     data-hub-name="<?= htmlspecialchars((string)$hub['name'], ENT_QUOTES) ?>">
+                     data-hub-name="<?= htmlspecialchars((string)$hub['name'], ENT_QUOTES) ?>"
+                     data-repair-cost="<?= htmlspecialchars((string)$hubRepairCost, ENT_QUOTES) ?>"
+                     data-upgrade-cost="<?= htmlspecialchars((string)$hubUpgradeCost, ENT_QUOTES) ?>">
 
                 <div class="logistics-hub-card-hdr">
                     <span class="logistics-hub-name"><?= htmlspecialchars($hub['name']) ?></span>
@@ -989,6 +1133,8 @@
                     <span class="sep">&middot;</span>
                     <span><?= htmlspecialchars($hub['zone_key']) ?></span>
                     <?php endif ?>
+                    <span class="sep">&middot;</span>
+                    <span><?= t('logistics.hub.label_level', ['level' => $hubLevel, 'max' => $hubMaxLevel]) ?></span>
                     <span class="sep">&middot;</span>
                     <span><?= t('logistics.hub.mode_' . ($hub['work_mode'] ?? 'standard')) ?></span>
                 </div>
@@ -1048,6 +1194,11 @@
                     <button class="btn btn-sm btn-secondary" onclick="hubWellsModal(<?= $hubId ?>)">
                          <?= t('logistics.hub.btn_my_wells') ?> (<?= $myWells ?>)
                     </button>
+                    <?php if ($hubCanUpgrade): ?>
+                    <button class="btn btn-sm btn-primary" onclick="hubUpgrade(<?= $hubId ?>)">
+                        <?= t('logistics.hub.btn_upgrade') ?>
+                    </button>
+                    <?php endif; ?>
                 </div>
             </article>
             <?php endforeach ?>
@@ -1161,6 +1312,34 @@
         </div>
         <?php endforeach ?>
         </div>
+        <?php if ((int)($hubIncidentsTotalPages ?? 1) > 1):
+            $hubIncidentsPage = (int)($hubIncidentsPage ?? 1);
+            $hubIncidentsTotalPages = (int)($hubIncidentsTotalPages ?? 1);
+            $hubIncidentsBaseParams = $_GET;
+            $hubIncidentsBaseParams['tab'] = $hubIncidentsBaseParams['tab'] ?? 'logistics';
+        ?>
+        <div class="logistics-pagination">
+            <div class="logistics-pagination-info">
+                <?= $hubIncidentsPage ?> / <?= $hubIncidentsTotalPages ?> (<?= (int)($hubIncidentsTotal ?? 0) ?>)
+            </div>
+            <div class="logistics-pagination-buttons">
+                <?php if ($hubIncidentsPage > 1):
+                    $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage - 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams)) ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_prev') ?>
+                </a>
+                <?php endif ?>
+                <?php if ($hubIncidentsPage < $hubIncidentsTotalPages):
+                    $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage + 1;
+                ?>
+                <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams)) ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary">
+                    <?= t('logistics.pagination_next') ?>
+                </a>
+                <?php endif ?>
+            </div>
+        </div>
+        <?php endif ?>
     </section>
     <?php endif ?>
 

@@ -248,8 +248,21 @@ class WellProductionHandler
             $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
         }
 
- // Hub logistics / Fallback cap
-        $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
+ // Hub logistics / Fallback cap.
+ // Transport czasowy zasila hub dopiero po fizycznej dostawie, nie przy produkcji.
+ // Time-based transport feeds the hub after physical delivery, not at production time.
+        $isMysqlDriver = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
+        $deferredHubInput = (
+            $transportType === 'ciezarowki'
+            && $this->ctx->roadTransportSvc !== null
+            && $isMysqlDriver
+        ) || (
+            $transportType === 'tankowiec'
+            && $this->ctx->marineDeliverySvc !== null
+        );
+        if (!$deferredHubInput) {
+            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
+        }
 
  // Straty transportowe (rurociag) / Pipeline transport losses
         if ($actual > 0 && $transportType === 'rurociag' && $wellPipeline !== null) {
@@ -284,7 +297,7 @@ class WellProductionHandler
         if ($transportType === 'ciezarowki' && $this->ctx->roadTransportSvc !== null) {
             $roadCfg       = $this->ctx->roadConfigCache[$wellId] ?? null;
             $politicalRisk = (int)($well['region_political_risk'] ?? 1);
-            $isMysql       = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
+            $isMysql       = $isMysqlDriver;
 
             if ($isMysql) {
  // Model czasowy: kurs zapisywany w well_road_trips, ropa kreditowana po dostawie.

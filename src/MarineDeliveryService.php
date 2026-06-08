@@ -175,28 +175,78 @@ class MarineDeliveryService
         return $deliveryId;
     }
 
+    /**
+     * Usuwa osierocone aktywne dostawy gracza pozostale po starej logice mikro-kursow.
+     * Removes orphan active player deliveries left over from the legacy micro-shipment logic.
+     *
+     * Czyści tylko rekordy bez wpisu w kolejce portowej, z ETA starszym niz 12 godzin.
+     * Cleans only rows with no port queue entry and ETA older than 12 hours.
+     */
+    public static function purgeOrphanActiveForPlayer(PDO $db, int $playerId): int
+    {
+        try {
+            $stmt = $db->prepare(
+                "DELETE md
+                   FROM marine_deliveries md
+              LEFT JOIN port_queue pq
+                     ON pq.delivery_id = md.id
+                  WHERE md.player_id = ?
+                    AND md.status IN ('departing','in_transit','delayed','waiting_for_port','processing')
+                    AND md.eta_at < NOW() - INTERVAL 12 HOUR
+                    AND pq.delivery_id IS NULL"
+            );
+            $stmt->execute([$playerId]);
+
+            $deleted = $stmt->rowCount();
+            if ($deleted > 0) {
+                GameLog::info('marine', 'purgeOrphanActiveForPlayer removed legacy rows', [
+                    'player_id' => $playerId,
+                    'deleted'   => $deleted,
+                ]);
+            }
+
+            return $deleted;
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'purgeOrphanActiveForPlayer FAILED', $e, ['player_id' => $playerId]);
+            return 0;
+        }
+    }
+
  // 
  // Queries for player panel
  // 
 
- /**
+/**
  * Zwraca aktywne dostawy gracza (w drodze + w kolejce portowej).
  * Returns active deliveries for a player (in transit + in port queue).
  *
  * @return list<array<string, mixed>>
  */
-    public function getActiveForPlayer(int $playerId): array
+    public function getActiveForPlayer(int $playerId, int $limit = 50): array
     {
         try {
+            $limit = max(1, min(500, $limit));
             $stmt = $this->db->prepare(
                 "SELECT md.*, p.name AS port_name, w.name AS well_name
                    FROM marine_deliveries md
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
                   WHERE md.player_id = ?
-                    AND md.status NOT IN ('delivered','lost')
-                  ORDER BY md.eta_at ASC
-                  LIMIT 50"
+                    AND (
+                           md.status IN ('departing','in_transit','waiting_for_port','processing')
+                        OR (md.status = 'delayed' AND md.departure_at >= NOW() - INTERVAL 2 DAY)
+                    )
+                  ORDER BY CASE md.status
+                               WHEN 'departing' THEN 1
+                               WHEN 'in_transit' THEN 2
+                               WHEN 'delayed' THEN 3
+                               WHEN 'waiting_for_port' THEN 4
+                               WHEN 'processing' THEN 5
+                               ELSE 9
+                           END,
+                           md.eta_at ASC,
+                           md.id ASC
+                  LIMIT {$limit}"
             );
             $stmt->execute([$playerId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -216,13 +266,15 @@ class MarineDeliveryService
     {
         try {
             $stmt = $this->db->prepare(
-                "SELECT md.*, p.name AS port_name, w.name AS well_name
+                "SELECT md.*,
+                        p.name AS port_name,
+                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
                    FROM marine_deliveries md
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
                   WHERE md.player_id = ?
                     AND md.status IN ('delivered','lost')
-                  ORDER BY md.created_at DESC
+                  ORDER BY COALESCE(md.delivered_at, md.arrived_at, md.eta_at, md.created_at) DESC
                   LIMIT ?"
             );
  // LIMIT musi byc zbindowany jako INT PDO z execute([]) binduje string (cudzyslowy) co MySQL odrzuca
@@ -231,6 +283,39 @@ class MarineDeliveryService
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
+            GameLog::error('marine', 'getHistoryForPlayer FAILED', $e, ['player_id' => $playerId]);
+            return [];
+        }
+    }
+
+    /**
+     * Zwraca bufory tankowcow przy odwiertach gracza.
+     * Returns tanker buffers accumulated at the player's wells.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getBufferedForPlayer(int $playerId, float $minLoadBbl): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT w.id AS well_id,
+                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', w.id)) AS well_name,
+                        w.status,
+                        w.marine_buffer_bbl,
+                        ? AS min_load_bbl
+                   FROM wells w
+                  WHERE w.player_id = ?
+                    AND w.transport_type = 'tankowiec'
+                    AND w.status NOT IN ('seized','blowout','sold')
+                    AND COALESCE(w.marine_buffer_bbl, 0) > 0
+                  ORDER BY w.marine_buffer_bbl DESC, w.id ASC"
+            );
+            $stmt->bindValue(1, $minLoadBbl, PDO::PARAM_STR);
+            $stmt->bindValue(2, $playerId, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'getBufferedForPlayer FAILED', $e, ['player_id' => $playerId]);
             return [];
         }
     }
@@ -253,7 +338,10 @@ class MarineDeliveryService
                 "SELECT COALESCE(SUM(volume_bbl), 0)
                    FROM marine_deliveries
                   WHERE player_id = ?
-                    AND status IN ('departing','in_transit','waiting_for_port','delayed')"
+                    AND (
+                           status IN ('departing','in_transit','waiting_for_port','processing')
+                        OR (status = 'delayed' AND departure_at >= NOW() - INTERVAL 2 DAY)
+                    )"
             );
             $stmt->execute([$playerId]);
             $total += (float)$stmt->fetchColumn();
@@ -274,5 +362,126 @@ class MarineDeliveryService
  // Kolumna moze nie istniec na starym deploymencie / Column may not exist on old deployment
         }
         return $total;
+    }
+
+ /**
+ * Awaryjne dane panelu logistyki, bez konstruktora serwisu.
+ * Fallback logistics panel data, without constructing the service.
+ *
+ * @return array{
+ *   deliveries: list<array<string, mixed>>,
+ *   buffers: list<array<string, mixed>>,
+ *   history: list<array<string, mixed>>,
+ *   in_transit_bbl: float
+ * }
+ */
+    public static function loadPanelFallback(PDO $db, int $playerId, float $minLoadBbl, int $activeLimit = 50, int $historyLimit = 10): array
+    {
+        $activeLimit = max(1, min(500, $activeLimit));
+        $historyLimit = max(1, min(500, $historyLimit));
+        $data = [
+            'deliveries'     => [],
+            'buffers'        => [],
+            'history'        => [],
+            'in_transit_bbl' => 0.0,
+        ];
+
+        try {
+            $stmt = $db->prepare(
+                "SELECT md.*,
+                        p.name AS port_name,
+                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
+                   FROM marine_deliveries md
+                   LEFT JOIN ports p ON p.id = md.port_id
+                   LEFT JOIN wells w ON w.id = md.well_id
+                  WHERE md.player_id = ?
+                    AND (
+                           md.status IN ('departing','in_transit','waiting_for_port','processing')
+                        OR (md.status = 'delayed' AND md.departure_at >= NOW() - INTERVAL 2 DAY)
+                    )
+                  ORDER BY CASE md.status
+                               WHEN 'departing' THEN 1
+                               WHEN 'in_transit' THEN 2
+                               WHEN 'delayed' THEN 3
+                               WHEN 'waiting_for_port' THEN 4
+                               WHEN 'processing' THEN 5
+                               ELSE 9
+                           END,
+                           md.eta_at ASC,
+                           md.id ASC
+                  LIMIT {$activeLimit}"
+            );
+            $stmt->execute([$playerId]);
+            $data['deliveries'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'loadPanelFallback active deliveries FAILED', $e, ['player_id' => $playerId]);
+        }
+
+        try {
+            $stmt = $db->prepare(
+                "SELECT w.id AS well_id,
+                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', w.id)) AS well_name,
+                        w.status,
+                        w.marine_buffer_bbl,
+                        ? AS min_load_bbl
+                   FROM wells w
+                  WHERE w.player_id = ?
+                    AND w.transport_type = 'tankowiec'
+                    AND w.status NOT IN ('seized','blowout','sold')
+                    AND COALESCE(w.marine_buffer_bbl, 0) > 0
+                  ORDER BY w.marine_buffer_bbl DESC, w.id ASC"
+            );
+            $stmt->bindValue(1, $minLoadBbl, PDO::PARAM_STR);
+            $stmt->bindValue(2, $playerId, PDO::PARAM_INT);
+            $stmt->execute();
+            $data['buffers'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'loadPanelFallback buffers FAILED', $e, ['player_id' => $playerId]);
+        }
+
+        try {
+            $stmt = $db->prepare(
+                "SELECT md.*,
+                        p.name AS port_name,
+                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
+                   FROM marine_deliveries md
+                   LEFT JOIN ports p ON p.id = md.port_id
+                   LEFT JOIN wells w ON w.id = md.well_id
+                  WHERE md.player_id = ?
+                    AND md.status IN ('delivered','lost')
+                  ORDER BY COALESCE(md.delivered_at, md.arrived_at, md.eta_at, md.created_at) DESC
+                  LIMIT {$historyLimit}"
+            );
+            $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
+            $stmt->execute();
+            $data['history'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'loadPanelFallback history FAILED', $e, ['player_id' => $playerId]);
+        }
+
+        try {
+            $stmt = $db->prepare(
+                "SELECT
+                    (SELECT COALESCE(SUM(volume_bbl), 0)
+                       FROM marine_deliveries
+                      WHERE player_id = ?
+                        AND (
+                               status IN ('departing','in_transit','waiting_for_port','processing')
+                            OR (status = 'delayed' AND departure_at >= NOW() - INTERVAL 2 DAY)
+                        ))
+                    +
+                    (SELECT COALESCE(SUM(marine_buffer_bbl), 0)
+                       FROM wells
+                      WHERE player_id = ?
+                        AND transport_type = 'tankowiec'
+                        AND status NOT IN ('seized','blowout','sold')) AS total_bbl"
+            );
+            $stmt->execute([$playerId, $playerId]);
+            $data['in_transit_bbl'] = (float)$stmt->fetchColumn();
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'loadPanelFallback totals FAILED', $e, ['player_id' => $playerId]);
+        }
+
+        return $data;
     }
 }

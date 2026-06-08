@@ -1,5 +1,58 @@
 ## Changelog
 
+### 2026-06-08 - Auth: poprawka zapamietania logowania
+- `src/Auth.php` - wygasniecie zwyklej sesji gracza nie usuwa juz tokenu `zapamietaj logowanie`; po przekroczeniu limitu 2h czyszczony jest tylko stan sesji, a cookie 30-dniowe nadal pozwala na automatyczne zalogowanie przy kolejnym wejsciu.
+
+### 2026-06-08 - Logistyka: cleanup starych aktywnych dostaw morskich
+- `src/MarineDeliveryService.php`, `public/logistics.php` - dodano bezpieczne czyszczenie osieroconych aktywnych dostaw morskich bez wpisu w `port_queue`, z ETA starszym niz 12 godzin; usuwa to stare mikro-kursy po poprzednim modelu i zostawia aktualne, prawidlowe rejsy w logistyce.
+
+### 2026-06-08 - Czyste zakladki technical i black market
+- `assets/js/ajax_pagination.js`, `templates/views/market/main.php`, `lang/pl/logistics.php` - wspolny mechanizm czysci teraz takze adresy zakladek `technical` oraz `market/black_market`; w dostawach morskich etykiete `ETA` zmieniono na bardziej czytelne `Planowane dotarcie`.
+
+### 2026-06-08 - Globalna paginacja bez przeladowania
+- `assets/js/ajax_pagination.js`, `templates/footer.php`, `admin/partials/footer.php`, `templates/views/market/main.php`, `assets/js/logistics.js` - dodano jeden wspolny mechanizm czesciowej paginacji i zakladek modulow dla stron gry oraz admina: market, technical, logistyka i pozostale kontenery paginacji podmieniaja glowna tresc strony, zostawiaja czysty adres bez query stringa i przewijaja do tej samej sekcji/paginacji.
+
+### 2026-06-08 - Logistyka: czysty adres przy paginacji
+- `assets/js/logistics.js` - paginacja AJAX w logistyce zapisuje techniczny adres z parametrami tylko w `history.state`, a w pasku przegladarki zostawia czysty adres `/logistics` bez query stringa i hashy sekcji.
+
+### 2026-06-08 - Logistyka: paginacja bez przeskoku strony
+- `assets/js/logistics.js` - linki paginacji w module logistyki dzialaja teraz jako czesciowe odswiezenie `.logistics-page`: klikniecie pobiera nowy HTML w tle, podmienia tylko modul logistyki, aktualizuje URL i przewija do aktualnej sekcji zamiast ladowac strone od gory.
+
+### 2026-06-08 - Logistyka: paginacja historii i incydentow
+- `logistics.php`, `templates/views/logistics/main.php`, `src/MarineDeliveryService.php` - historia dostaw morskich i incydenty logistyczne hubow sa stronicowane po 5 pozycji; historia dostaw morskich w ticku jest czyszczona po 7 dniach dla statusow `delivered` i `lost`.
+
+### 2026-06-08 - Logistyka: paginacja transportu morskiego i drogowego
+- `logistics.php`, `templates/views/logistics/main.php`, `src/MarineDeliveryService.php` - aktywne kursy drogowe i dostawy morskie sa stronicowane po 5 pozycji; panel morski pokazuje laczna liczbe aktywnych dostaw w KPI oraz nawigacje poprzednia/nastepna dla `marine_page`.
+
+### 2026-06-08 - Logistyka: aktywne dostawy morskie w glownym kontrolerze
+- `logistics.php` - glowny kontroler routingu `/logistics` laduje teraz `MarineDeliveryService`, bufory tankowcow, aktywne rejsy, historie i fallback panelu; wczesniej dane byly ustawiane na puste tablice, wiec widok pokazywal `0` mimo aktywnych dostaw w adminie.
+
+### 2026-06-07 - Logistyka: priorytet aktywnych rejsow morskich
+- `src/MarineDeliveryService.php` - aktywne dostawy morskie w panelu logistyki sortuja teraz realne rejsy (`departing`, `in_transit`, `delayed`) przed kolejka portowa, a liczniki nie uwzgledniaja starych opoznionych rekordow spoza 2-dniowego okna; dzieki temu rejs widoczny w adminie jako `in_transit` nie znika pod zaleglymi wpisami `waiting_for_port`.
+
+### 2026-06-07 - Logistyka: widocznosc dostaw morskich
+- `public/logistics.php`, `src/MarineDeliveryService.php` - panel logistyki jawnie laduje serwisy portow i dostaw morskich oraz ma awaryjne pobieranie danych z `marine_deliveries`, `ports` i `wells.marine_buffer_bbl`, zeby aktywne rejsy, historia i bufor tankowca nie zerowaly sie przy bledzie serwisu.
+
+### 2026-06-07 - Logistyka: korekta bufora hubow w ticku
+- `src/Tick/WellProductionHandler.php`, `src/Tick/PlayersSection.php`, `src/Tick/WellLoopSection.php`, `src/Tick/WellHubSection.php`, `src/HubTickService.php`, `src/Hub/TickPersistTrait.php`, `src/Hub/TickCalculationsTrait.php` - transport czasowy (`ciezarowki`, `tankowiec`) nie dopisuje juz produkcji do huba przed realna dostawa, a dostawy po dotarciu przechodza przez finalizacje huba; tick rozroznia rope przetworzona, pozostawiona w buforze i spuszczona z bufora, z korekta magazynu oraz finansow.
+
+### 2026-06-07 - Logistyka: poprawka rozbudowy wlasnych hubow
+- `assets/js/logistics_hubs.js`, `templates/views/logistics/main.php`, `lang/pl/logistics.php` - akcje `Napraw` i `Rozbuduj` w sekcji `Twoje huby` pobieraja teraz dane z karty wlasnego huba, a nie z rynku hubow; usunieto efekt `NaN PLN`, poprawiono stary tekst `Uaktualnij` na `Rozbuduj` i zachowano blokade rozbudowy hubow wynajmowanych/systemowych.
+
+### 2026-06-07 - Logistyka: rozbudowa wlasnych hubow
+- `src/Hub/ViewHubsTrait.php`, `templates/views/logistics/main.php`, `assets/js/logistics_hubs.js`, `lang/pl/logistics.php` - w sekcji `Twoje huby` podlaczono przycisk `Rozbuduj` dla hubow nalezacych do gracza; widok korzysta z istniejacego backendu `HubApi.php` / `HubAcquisitionService.php`, ktory pobiera koszt, respektuje maksymalny poziom 3 i odpala modal potwierdzenia.
+
+### 2026-06-07 - Logistyka: paginacja kursow drogowych
+- `public/logistics.php`, `templates/views/logistics/main.php`, `assets/css/logistics.css`, `lang/pl/logistics.php` - sekcja `Kursy drogowe w tranzycie` pokazuje teraz kursy po 10 na strone, z licznikiem wszystkich aktywnych kursow i nawigacja poprzednia/nastepna.
+
+### 2026-06-07 - Transport morski: historia rejsow w logistyce
+- `src/MarineDeliveryService.php`, `templates/views/logistics/main.php`, `assets/css/logistics.css`, `lang/pl/logistics.php` - pod sekcja `Dostawy morskie` dodano widoczny blok krotkiej historii rejsow tankowca; historia korzysta z biezacych rekordow `marine_deliveries`, sortuje po dacie zakonczenia i moze znikac po czyszczeniu ticka, bez stalego archiwum.
+
+### 2026-06-07 - Transport morski: bufor tankowca
+- `src/Tick/WellProductionHandler.php`, `src/TransportConfigService.php`, `admin/transport.php`, `templates/views/admin/transport/main.php`, `lang/pl/admin/transport.php` - transport morski nie wysyla juz mikrorejsow co tick; ropa z odwiertu tankowcowego trafia najpierw do bufora `wells.marine_buffer_bbl`, a tankowiec wyrusza dopiero po osiagnieciu progu `min_load_bbl`.
+- `admin/transport.php` - prog startu tankowca jest edytowalny w panelu admina dla typu `tankowiec` jako `Minimalna ladownosc tankowca (bbl)`; aktualny balans produkcyjny: `4000 bbl`, a wartosc `0` oznacza stary model wysylki natychmiastowej.
+- `src/MarineDeliveryService.php`, `public/logistics.php`, `templates/views/logistics/main.php`, `assets/css/logistics.css`, `lang/pl/logistics.php` - panel logistyki gracza pokazuje teraz bufory tankowcow per odwiert: aktualne bbl, prog wyplyniecia, brakujacy wolumen i pasek postepu.
+
 ### 2026-06-05 - Wiarygodnosc firmy: tick i bramka dzialu prawnego
 - `src/CompanyCredibilityService.php` - dodano przyznawanie eventu `clean_operation_period` raz na 7 dni, jesli gracz nie mial w tym okresie negatywnych zdarzen wiarygodnosci.
 - `src/Tick/CredibilitySection.php`, `cron/tick.php` - dodano sekcje ticku przyznajaca bonus +3 za czysty okres dzialania; przed zmiana ticka wykonano backup `backups/2026-06-05_19-51-17_tick.php.bak`.

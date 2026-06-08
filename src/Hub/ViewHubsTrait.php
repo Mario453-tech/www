@@ -55,6 +55,7 @@ trait HubViewHubsTrait
                 $seen[$hubId] = true;
 
                 $lastStats = $this->hubSvc->getLastTickStats($hubId);
+                $defaults  = $this->hubSvc->getHubTypeDefaults($hub['hub_type'], (int)$hub['level']);
                 $cards[]   = [
                     'hub'          => $hub,
                     'wells'        => $this->hubSvc->getHubWellsForPlayer($hubId, $playerId),
@@ -62,6 +63,8 @@ trait HubViewHubsTrait
                     'opex'         => $this->econSvc->getOpex($hub),
                     'repair_cost'  => $this->econSvc->getRepairCost($hub),
                     'upgrade_cost' => $this->econSvc->getUpgradeCost($hub),
+                    'max_level'    => (int)($defaults['max_level'] ?? 3),
+                    'can_upgrade'  => (int)$hub['level'] < (int)($defaults['max_level'] ?? 3),
                     'status_class' => $this->getStatusCssClass($hub['status']),
                     'load_class'   => $this->getLoadCssClass((float)($lastStats['load_pct'] ?? 0)),
                     'ownership'    => $ownership,

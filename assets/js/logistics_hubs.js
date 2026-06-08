@@ -56,6 +56,10 @@
         return Promise.resolve(true);
     }
 
+    function getOwnedHubCard(hubId) {
+        return document.querySelector(`.logistics-hub-card[data-hub-id="${hubId}"]`);
+    }
+
     function hubConfirm(msg, options = {}) {
         return new Promise((resolve) => {
             if (typeof window.confirmAction !== 'function') {
@@ -188,10 +192,10 @@
         }
     };
 
- // Naprawa huba 
+ // Naprawa huba / Hub repair
 
     window.hubRepair = async function (hubId) {
-        const card = document.querySelector(`[data-hub-id="${hubId}"]`);
+        const card = getOwnedHubCard(hubId);
         const cost = card ? card.dataset.repairCost : '?';
         const msg  = (lang().repair_confirm || 'Naprawi hub za {cost} PLN?').replace('{cost}', Number(cost).toLocaleString('pl'));
         if (!await hubConfirm(msg)) return;
@@ -209,18 +213,18 @@
         }
     };
 
- // Ulepszenie huba 
+ // Rozbudowa huba / Hub upgrade
 
     window.hubUpgrade = async function (hubId) {
-        const card = document.querySelector(`[data-hub-id="${hubId}"]`);
-        const cost = card ? card.dataset.upgradeCost : '?';
-        const msg  = (lang().upgrade_confirm || 'Uaktualni hub za {cost} PLN?').replace('{cost}', Number(cost).toLocaleString('pl'));
+        const card = getOwnedHubCard(hubId);
+        const cost = card ? Number(card.dataset.upgradeCost || 0) : 0;
+        const msg  = (lang().upgrade_confirm || 'Rozbudować hub za {cost} PLN?').replace('{cost}', Number(cost).toLocaleString('pl'));
         if (!await hubConfirm(msg)) return;
 
         try {
             const res = await hubPost('upgrade_hub', { hub_id: hubId });
             if (res.success) {
-                const okMsg = (lang().ok_upgrade || ' Uaktualniony do poziomu {level}.').replace('{level}', res.new_level || '?');
+                const okMsg = (lang().ok_upgrade || 'Hub rozbudowany do poziomu {level}.').replace('{level}', res.new_level || '?');
                 await hubDialog(okMsg, 'success');
                 reloadAfterAction();
             } else {
@@ -346,7 +350,7 @@
     window.hubAssignWellToHubModal = async function (hubId) {
         const body = document.getElementById('hub-assign-modal-body');
         const titleEl = document.querySelector('#hub-assign-modal .logistics-modal-hdr span');
-        const card = document.querySelector(`[data-hub-id="${hubId}"]`);
+        const card = getOwnedHubCard(hubId);
         const hubName  = card ? (card.dataset.hubName  || '') : '';
         const regionId = card ? Number(card.dataset.hubRegionId || 0) : 0;
         const zoneKey  = card ? String(card.dataset.hubZoneKey  || '') : '';

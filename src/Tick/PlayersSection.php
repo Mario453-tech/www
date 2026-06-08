@@ -224,9 +224,12 @@ class PlayersSection
                     $wellLoop->finLossBbl            += $roadTripSec->lostBbl;
                     $wellLoop->finLossValue          += round($roadTripSec->lostBbl * $this->oilPrice, 2);
                 }
+ // Dostawy do hubow przechodza przez finalizacje huba; bez huba zostaja przy starym drugim odcinku.
+ // Deliveries to hubs go through hub finalization; no-hub deliveries keep the legacy second leg path.
+                $roadSecondLegByWell = $this->queueHubDeliveredInputs($roadTripSec->deliveredByWell, $wellLoop);
  // Second transport leg (hub -> storage) on the oil just delivered by road.
                 $currentStorage = $this->applyOutboundLeg(
-                    $roadTripSec->deliveredByWell, $wellLoop, $outboundSvc,
+                    $roadSecondLegByWell, $wellLoop, $outboundSvc,
                     $currentStorage, $playerCash, $deltaHours, $hseBonus
                 );
             } catch (Throwable $e) {
@@ -249,15 +252,26 @@ class PlayersSection
                     $wellLoop->finTransport += $portSec->handlingCost;
                     $playerCash              = max(0.0, $playerCash - $portSec->handlingCost);
                 }
+ // Dostawy do hubow przechodza przez finalizacje huba; bez huba zostaja przy starym drugim odcinku.
+ // Deliveries to hubs go through hub finalization; no-hub deliveries keep the legacy second leg path.
+                $portSecondLegByWell = $this->queueHubDeliveredInputs($portSec->deliveredByWell, $wellLoop);
  // Second transport leg (hub -> storage) on the oil just delivered by sea.
                 $currentStorage = $this->applyOutboundLeg(
-                    $portSec->deliveredByWell, $wellLoop, $outboundSvc,
+                    $portSecondLegByWell, $wellLoop, $outboundSvc,
                     $currentStorage, $playerCash, $deltaHours, $hseBonus
                 );
             } catch (Throwable $e) {
                 GameLog::error('tick', 'PortSection FAILED', $e, ['player_id' => $playerId]);
             }
         }
+
+ // Finalizacja hubow po produkcji synchronicznej oraz realnie dotartych dostawach czasowych.
+ // Hub finalization after synchronous production and physically arrived time-based deliveries.
+        $wellLoop->currentStorage = $currentStorage;
+        $wellLoop->playerCash     = $playerCash;
+        $wellLoop->finalizeHubTicks($playerId, $deltaHours, $hseBonus);
+        $currentStorage = $wellLoop->currentStorage;
+        $playerCash     = $wellLoop->playerCash;
 
  // 4. SKAZENIE POWIERZCHNIOWE / Surface spill
         $finSvc = new FinanceService();
@@ -396,5 +410,29 @@ class PlayersSection
         }
 
         return $currentStorage;
+    }
+
+ /**
+ * Przekazuje dostarczona rope do huba, jesli odwiert ma aktywne przypisanie.
+ * Sends delivered oil into the hub if the well has an active assignment.
+ *
+ * @param array<int, float> $deliveredByWell
+ * @return array<int, float>
+ */
+    private function queueHubDeliveredInputs(array $deliveredByWell, WellLoopSection $wellLoop): array
+    {
+        $directByWell = [];
+        foreach ($deliveredByWell as $wellId => $bbl) {
+            $wellId = (int)$wellId;
+            $bbl    = (float)$bbl;
+            if ($bbl <= 0.001) {
+                continue;
+            }
+            if (!$wellLoop->addDeliveredHubInput($wellId, $bbl)) {
+                $directByWell[$wellId] = ($directByWell[$wellId] ?? 0.0) + $bbl;
+            }
+        }
+
+        return $directByWell;
     }
 }

@@ -54,6 +54,9 @@ try {
     $hubUnassigned    = [];   // odwierty bez huba
     $hubAvailByRegion = [];   // wszystkie dostepne huby systemowe w regionach gracza
     $hubIncidents     = [];   // ostatnie incydenty logistyczne
+    $hubIncidentsTotal = 0;
+    $hubIncidentsPage = 1;
+    $hubIncidentsTotalPages = 1;
 
     if (class_exists('HubService') && class_exists('HubEconomyService') && class_exists('HubViewService')) {
         try {
@@ -74,7 +77,14 @@ try {
     if (class_exists('HubIncidentService')) {
         try {
             $hubIncSvc    = new HubIncidentService($db);
-            $hubIncidents = $hubIncSvc->getPlayerRecentIncidents($playerId, 15);
+            $hubIncidentsAll = $hubIncSvc->getPlayerRecentIncidents($playerId, 100);
+            $hubIncidentsPerPage = 5;
+            $hubIncidentsTotal = count($hubIncidentsAll);
+            $hubIncidentsTotalPages = (int)ceil($hubIncidentsTotal / $hubIncidentsPerPage);
+            $hubIncidentsPage = max(1, (int)($_GET['hub_incident_page'] ?? 1));
+            $hubIncidentsPage = min($hubIncidentsPage, max(1, $hubIncidentsTotalPages));
+            $hubIncidentsOffset = ($hubIncidentsPage - 1) * $hubIncidentsPerPage;
+            $hubIncidents = array_slice($hubIncidentsAll, $hubIncidentsOffset, $hubIncidentsPerPage);
         } catch (Throwable $e) {
             GameLog::error('logistics.php', 'hub incident data load FAILED', $e, ['player_id' => $playerId]);
         }
@@ -101,9 +111,17 @@ try {
         'pipelines' => 0,
         'supervised_units' => 0,
     ];
-    $marineDeliveries = [];
-    $marineHistory = [];
+    $marineDeliveries   = [];
+    $marineHistory      = [];
     $marineInTransitBbl = 0.0;
+    $marineBuffers      = [];
+    $marineMinLoadBbl   = 0.0;
+    $marineDeliveriesTotal = 0;
+    $marineDeliveriesPage = 1;
+    $marineDeliveriesTotalPages = 1;
+    $marineHistoryTotal = 0;
+    $marineHistoryPage = 1;
+    $marineHistoryTotalPages = 1;
 
     if (class_exists('WellPipelineService')) {
         try {
@@ -335,14 +353,68 @@ try {
 
  // Aktywne kursy drogowe (P1.2) / Active road trips (P1.2)
     $activeRoadTrips = [];
+    $activeRoadTripsTotal = 0;
+    $activeRoadTripsPage = 1;
+    $activeRoadTripsTotalPages = 1;
     if (class_exists('RoadTransportService')) {
         try {
             $roadSvc = new RoadTransportService($db);
-            $activeRoadTrips = $roadSvc->getActiveTripsForPlayer($playerId);
+            $activeRoadTripsAll = $roadSvc->getActiveTripsForPlayer($playerId);
+            $activeRoadTripsPerPage = 5;
+            $activeRoadTripsTotal = count($activeRoadTripsAll);
+            $activeRoadTripsTotalPages = (int)ceil($activeRoadTripsTotal / $activeRoadTripsPerPage);
+            $activeRoadTripsPage = max(1, (int)($_GET['road_page'] ?? 1));
+            $activeRoadTripsPage = min($activeRoadTripsPage, max(1, $activeRoadTripsTotalPages));
+            $activeRoadTripsOffset = ($activeRoadTripsPage - 1) * $activeRoadTripsPerPage;
+            $activeRoadTrips = array_slice($activeRoadTripsAll, $activeRoadTripsOffset, $activeRoadTripsPerPage);
         } catch (Throwable $e) {
             GameLog::error('logistics.php', 'road trips data load FAILED', $e, ['player_id' => $playerId]);
         }
     }
+
+ // Dostawy morskie gracza / Player marine deliveries
+    try {
+        $marineCfg        = TransportConfigService::getTypeConfig($db, 'tankowiec');
+        $marineMinLoadBbl = max(0.0, (float)($marineCfg['min_load_bbl'] ?? 0.0));
+        $marineSvc        = new MarineDeliveryService($db);
+
+        $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId, 500);
+        $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
+        $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 100);
+        $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
+    } catch (Throwable $e) {
+        GameLog::error('logistics.php', 'marine data load FAILED', $e, ['player_id' => $playerId]);
+    }
+
+    if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] || $marineInTransitBbl <= 0.0) {
+        $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl, 500, 100);
+        if ($marineDeliveries === []) {
+            $marineDeliveries = $marineFallback['deliveries'];
+        }
+        if ($marineBuffers === []) {
+            $marineBuffers = $marineFallback['buffers'];
+        }
+        if ($marineHistory === []) {
+            $marineHistory = $marineFallback['history'];
+        }
+        if ($marineInTransitBbl <= 0.0) {
+            $marineInTransitBbl = $marineFallback['in_transit_bbl'];
+        }
+    }
+    $marineDeliveriesPerPage = 5;
+    $marineDeliveriesTotal = count($marineDeliveries);
+    $marineDeliveriesTotalPages = (int)ceil($marineDeliveriesTotal / $marineDeliveriesPerPage);
+    $marineDeliveriesPage = max(1, (int)($_GET['marine_page'] ?? 1));
+    $marineDeliveriesPage = min($marineDeliveriesPage, max(1, $marineDeliveriesTotalPages));
+    $marineDeliveriesOffset = ($marineDeliveriesPage - 1) * $marineDeliveriesPerPage;
+    $marineDeliveries = array_slice($marineDeliveries, $marineDeliveriesOffset, $marineDeliveriesPerPage);
+    $marineHistoryPerPage = 5;
+    $marineHistoryTotal = count($marineHistory);
+    $marineHistoryTotalPages = (int)ceil($marineHistoryTotal / $marineHistoryPerPage);
+    $marineHistoryPage = max(1, (int)($_GET['marine_history_page'] ?? 1));
+    $marineHistoryPage = min($marineHistoryPage, max(1, $marineHistoryTotalPages));
+    $marineHistoryOffset = ($marineHistoryPage - 1) * $marineHistoryPerPage;
+    $marineHistory = array_slice($marineHistory, $marineHistoryOffset, $marineHistoryPerPage);
 
     $viewData = array_merge(GameShell::data($playerId), [
         'summary'          => $summary,
@@ -364,17 +436,31 @@ try {
         'unassignedTotal'  => count($hubUnassigned),
         'hubAvailByRegion' => $hubAvailByRegion,
         'hubIncidents'     => $hubIncidents,
+        'hubIncidentsTotal' => $hubIncidentsTotal,
+        'hubIncidentsPage' => $hubIncidentsPage,
+        'hubIncidentsTotalPages' => $hubIncidentsTotalPages,
         'logisticsInsights'=> $logisticsInsights,
         'pipelines'        => $pipelines,
         'pipelineSummary'  => $pipelineSummary,
         'pipelineHse'      => $pipelineHse,
         'marineDeliveries' => $marineDeliveries,
+        'marineDeliveriesTotal' => $marineDeliveriesTotal,
+        'marineDeliveriesPage' => $marineDeliveriesPage,
+        'marineDeliveriesTotalPages' => $marineDeliveriesTotalPages,
+        'marineBuffers'    => $marineBuffers,
+        'marineMinLoadBbl' => $marineMinLoadBbl,
         'marineHistory'    => $marineHistory,
+        'marineHistoryTotal' => $marineHistoryTotal,
+        'marineHistoryPage' => $marineHistoryPage,
+        'marineHistoryTotalPages' => $marineHistoryTotalPages,
         'marineInTransitBbl' => $marineInTransitBbl,
  // Building pipelines are already in $pipelines - filter here for convenience
         'buildingPipelines' => array_values(array_filter($pipelines, static fn(array $p): bool => ($p['status'] ?? '') === 'building')),
  // P1.2: active road trips in transit / aktywne kursy drogowe w tranzycie
         'activeRoadTrips'  => $activeRoadTrips,
+        'activeRoadTripsTotal' => $activeRoadTripsTotal,
+        'activeRoadTripsPage' => $activeRoadTripsPage,
+        'activeRoadTripsTotalPages' => $activeRoadTripsTotalPages,
     ]);
 
     $pageTitle = t('logistics.page_title');

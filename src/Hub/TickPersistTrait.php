@@ -54,7 +54,7 @@ trait HubTickPersistTrait
             )->execute([
                 $hubId,
                 $tickTime,
-                $result['processed_bbl'] + $result['buffered_bbl'] + $result['lost_bbl'],
+                $result['input_bbl'] ?? ($result['processed_bbl'] + $result['buffered_bbl'] + $result['lost_bbl']),
                 $result['processed_bbl'],
                 $result['buffered_bbl'],
                 $result['lost_bbl'],

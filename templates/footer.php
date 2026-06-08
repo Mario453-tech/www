@@ -48,6 +48,7 @@
     </script>
     <script src="<?= htmlspecialchars(asset($__footerJs ?? '/assets/js/game.js')) ?>"></script>
     <?php endif ?>
+    <script src="<?= htmlspecialchars(asset('/assets/js/ajax_pagination.js')) ?>"></script>
     <?php if (!empty($extraJs)): foreach ((array)$extraJs as $__js): ?>
     <script src="<?= htmlspecialchars(asset($__js)) ?>"></script>
     <?php endforeach; endif; ?>
