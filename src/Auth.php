@@ -273,6 +273,15 @@ class Auth
     }
 
  /**
+ * Clears only the player's session state.
+ * PL: Czysci tylko stan sesji gracza.
+ */
+    private static function clearSessionState(): void
+    {
+        unset($_SESSION['logged_in'], $_SESSION['user_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['login_time'], $_SESSION['last_active']);
+    }
+
+ /**
  * Requires an authenticated player session.
  * PL: Wymaga zalogowanej sesji gracza.
  */
@@ -309,7 +318,8 @@ class Auth
             }
 
             if (time() - ($_SESSION['last_active'] ?? 0) > self::SESSION_TTL) {
-                self::logout(false);
+ // Wygasla sesja nie moze kasowac tokenu 30-dniowego / Expired session must not delete the 30-day remember token
+                self::clearSessionState();
                 return false;
             }
 
@@ -329,7 +339,7 @@ class Auth
         try {
  // Usuń token "zapamiętaj mnie" / Remove remember-me token.
             self::clearRememberMe();
-            unset($_SESSION['logged_in'], $_SESSION['user_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['login_time'], $_SESSION['last_active']);
+            self::clearSessionState();
 
             if ($redirect) {
                 header('Location: /login?logged_out=1');

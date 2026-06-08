@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-08 - Auth: poprawka zapamietania logowania
+- `src/Auth.php` - wygasniecie zwyklej sesji gracza nie usuwa juz tokenu `zapamietaj logowanie`; po przekroczeniu limitu 2h czyszczony jest tylko stan sesji, a cookie 30-dniowe nadal pozwala na automatyczne zalogowanie przy kolejnym wejsciu.
+
 ### 2026-06-08 - Logistyka: cleanup starych aktywnych dostaw morskich
 - `src/MarineDeliveryService.php`, `public/logistics.php` - dodano bezpieczne czyszczenie osieroconych aktywnych dostaw morskich bez wpisu w `port_queue`, z ETA starszym niz 12 godzin; usuwa to stare mikro-kursy po poprzednim modelu i zostawia aktualne, prawidlowe rejsy w logistyce.
 
