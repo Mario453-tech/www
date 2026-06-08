@@ -54,12 +54,6 @@ class HubAcquisitionService
         $regionMult = max(0.1, (float)$this->hubSvc->cfg('region', $regionId . '.build_cost_mult', '1.0'));
         $cost       = round((float)$defaults['build_cost'] * $regionMult * (float)$acqDefault['build_cost_mult'], 2);
 
-        // Bramka P2a: zezwolenie na hub wymagane jesli hub_permit_enabled=1 w regionie.
-        // P2a gate: hub permit required if hub_permit_enabled=1 in the region (fail-closed).
-        if (!$this->hasHubPermitOrNotRequired($playerId, $regionId)) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
-        }
-
         $cashCheck = $this->checkAndDeductCash($playerId, $cost);
         if (!$cashCheck['ok']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
@@ -140,11 +134,6 @@ class HubAcquisitionService
             return ['success' => false, 'error' => 'hub_unavailable'];
         }
 
-        // Bramka P2a: zezwolenie na hub wymagane / P2a permit gate (fail-closed).
-        if (!$this->hasHubPermitOrNotRequired($playerId, (int)$hub['region_id'])) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
-        }
-
         $cost = (float)($hub['acquisition_price'] > 0 ? $hub['acquisition_price'] : $hub['build_cost']);
 
         $cashCheck = $this->checkAndDeductCash($playerId, $cost);
@@ -200,11 +189,6 @@ class HubAcquisitionService
             return ['success' => false, 'error' => 'hub_unavailable'];
         }
 
-        // Bramka P2a: zezwolenie na hub wymagane / P2a permit gate (fail-closed).
-        if (!$this->hasHubPermitOrNotRequired($playerId, (int)$hub['region_id'])) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
-        }
-
  // Deposit = 3 ticks of full lease fee (non-refundable)
         $leaseFee = (float)($hub['lease_fee_per_tick'] ?? 0.0);
         $deposit  = round($leaseFee * 3.0, 2);
@@ -238,70 +222,6 @@ class HubAcquisitionService
             }
             GameLog::error('HubAcquisitionService', 'rent failed', $e, ['player_id' => $playerId]);
             return ['success' => false, 'error' => 'db_error'];
-        }
-    }
-
-    /**
-     * Gracz rozbudowuje wlasny hub do kolejnego poziomu.
-     * Player upgrades an owned hub to the next level.
-     *
-     * @return array{success: bool, new_level?: int, cost?: float, error?: string}
-     */
-    public function upgradeOwned(int $playerId, int $hubId): array
-    {
-        $hub = $this->hubSvc->getHub($hubId);
-        if (!$hub) {
-            return ['success' => false, 'error' => 'hub_not_found'];
-        }
-        if ((int)($hub['player_id'] ?? 0) !== $playerId) {
-            return ['success' => false, 'error' => 'hub_not_owned'];
-        }
-        if (in_array((string)($hub['status'] ?? ''), ['disabled', 'building'], true)) {
-            return ['success' => false, 'error' => 'hub_unavailable'];
-        }
-
-        $currentLevel = (int)($hub['level'] ?? 1);
-        $defaults = $this->hubSvc->getHubTypeDefaults((string)$hub['hub_type'], $currentLevel);
-        if ($currentLevel >= (int)($defaults['max_level'] ?? 3)) {
-            return ['success' => false, 'error' => 'max_level'];
-        }
-
-        $cost = round((float)($defaults['upgrade_cost'] ?? 0.0), 2);
-        $cashCheck = $this->checkAndDeductCash($playerId, $cost);
-        if (!$cashCheck['ok']) {
-            return ['success' => false, 'error' => 'insufficient_funds', 'cost' => $cost];
-        }
-
-        try {
-            $result = $this->hubSvc->upgradeHub($hubId, $playerId);
-            if (!$result['success']) {
-                $this->refundCash($playerId, $cost);
-                return [
-                    'success' => false,
-                    'error'   => $result['error'] ?? 'db_error',
-                    'cost'    => $cost,
-                ];
-            }
-
-            GameLog::info('HubAcquisitionService', 'Player upgraded owned hub', [
-                'player_id' => $playerId,
-                'hub_id'    => $hubId,
-                'level'     => $result['new_level'] ?? null,
-                'cost'      => $cost,
-            ]);
-
-            return [
-                'success'   => true,
-                'new_level' => (int)($result['new_level'] ?? ($currentLevel + 1)),
-                'cost'      => $cost,
-            ];
-        } catch (Throwable $e) {
-            $this->refundCash($playerId, $cost);
-            GameLog::error('HubAcquisitionService', 'upgradeOwned failed', $e, [
-                'player_id' => $playerId,
-                'hub_id'    => $hubId,
-            ]);
-            return ['success' => false, 'error' => 'db_error', 'cost' => $cost];
         }
     }
 
@@ -379,15 +299,6 @@ class HubAcquisitionService
         }
         $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
             ->execute([$amount, $playerId]);
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $amount,
-                    FinancialTransactionService::TYPE_HUB_PURCHASE,
-                    'Zakup/wynajem hubu logistycznego'
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
         return ['ok' => true];
     }
 
@@ -399,54 +310,11 @@ class HubAcquisitionService
         try {
             $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id = ?")
                 ->execute([$amount, $playerId]);
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    null, $playerId, $amount,
-                    FinancialTransactionService::TYPE_HUB_PURCHASE,
-                    'Zwrot oplaty za hub logistyczny'
-                );
-            }
         } catch (Throwable $e) {
             GameLog::error('HubAcquisitionService', 'Cash refund failed', $e, [
                 'player_id' => $playerId,
                 'amount'    => $amount,
             ]);
-        }
-    }
-
-    /**
-     * Bramka P2a: czy gracz moze nabyc hub w tym regionie?
-     * P2a gate: can the player acquire a hub in this region?
-     * Zwraca TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub
-     * brak rekordu w legal_region_config) LUB gracz ma status 'granted'.
-     * Fail-closed: kazdy blad bazy zwraca FALSE.
-     */
-    private function hasHubPermitOrNotRequired(int $playerId, int $regionId): bool
-    {
-        try {
-            $cfgStmt = $this->db->prepare(
-                "SELECT hub_permit_enabled FROM legal_region_config WHERE region_id = ? LIMIT 1"
-            );
-            $cfgStmt->execute([$regionId]);
-            $cfg = $cfgStmt->fetch();
-
-            // Brak rekordu lub flaga off — nie wymagamy zezwolenia.
-            // No record or flag off — permit not required.
-            if (!$cfg || (int)$cfg['hub_permit_enabled'] !== 1) {
-                return true;
-            }
-
-            $permStmt = $this->db->prepare(
-                "SELECT 1 FROM hub_permit_applications
-                  WHERE player_id = ? AND region_id = ? AND status = 'granted' LIMIT 1"
-            );
-            $permStmt->execute([$playerId, $regionId]);
-            return (bool)$permStmt->fetchColumn();
-        } catch (Throwable $e) {
-            GameLog::warn('HubAcquisitionService', 'Hub permit gate failed — blocking (fail-closed)', [
-                'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
-            ]);
-            return false;
         }
     }
 }

@@ -73,7 +73,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'refusal_risk_pct'         => max(0.0, min(100.0, (float)($_POST['refusal_risk_pct'] ?? 0))),
             'refusal_cooldown_minutes' => max(0, (int)($_POST['refusal_cooldown_minutes'] ?? 120)),
             'required_capital'         => max(0.0, (float)($_POST['required_capital'] ?? 0)),
-            'required_legal_level'     => max(0, min(10, (int)($_POST['required_legal_level'] ?? 0))),
             // P2a: hub permit config / Konfiguracja zezwolen na huby
             'hub_permit_enabled'       => isset($_POST['hub_permit_enabled']) ? 1 : 0,
             'hub_permit_cost'          => max(0.0, (float)($_POST['hub_permit_cost'] ?? 500000)),
@@ -87,7 +86,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         delay_risk_pct = ?, delay_min_minutes = ?, delay_max_minutes = ?,
                         no_decision_risk_pct = ?, refusal_risk_pct = ?,
                         refusal_cooldown_minutes = ?, required_capital = ?,
-                        required_legal_level = ?,
                         hub_permit_enabled = ?, hub_permit_cost = ?, hub_review_minutes = ?
                   WHERE region_id = ?"
             )->execute([
@@ -96,7 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $fields['delay_risk_pct'], $fields['delay_min_minutes'], $fields['delay_max_minutes'],
                 $fields['no_decision_risk_pct'], $fields['refusal_risk_pct'],
                 $fields['refusal_cooldown_minutes'], $fields['required_capital'],
-                $fields['required_legal_level'],
                 $fields['hub_permit_enabled'], $fields['hub_permit_cost'], $fields['hub_review_minutes'],
                 $regionId,
             ]);

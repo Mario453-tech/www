@@ -142,3 +142,49 @@ jest wdrożony zgodnie z briefem. Dodatkowo rozpoczęto P2 przez realne podpięc
 mapy i walidacji wniosku. Punkt `18.6` jest wdrożony jako fundament plus pierwszy
 realny wpływ na gameplay: blokada wniosków w regionach wysokiego ryzyka przy
 wiarygodności firmy poniżej `40/100`.
+
+---
+
+## 8. P2a — Zezwolenia na huby logistyczne (2026-06-08)
+
+Niezależna od P1 ścieżka: opt-in per region zezwolenie na budowę/zakup/wynajem hubu logistycznego.
+
+### Architektura
+
+| Warstwa | Pliki |
+|---------|-------|
+| Logika hub permit | `src/Legal/HubPermitTrait.php` (use w `LegalService`) |
+| Tick | `src/Tick/LegalSection.php::runHubPermits()` |
+| Bramka zakupu | `src/HubAcquisitionService.php` (`buyNew`/`buyUsed`/`rent` — `hasHubPermitOrNotRequired`) |
+| API | `src/HubApi.php` — error code `no_hub_permit` |
+| Widok gracza | `templates/views/legal/main.php` (sekcja „Zezwolenia na huby") |
+| Panel admina | `templates/views/admin/legal/main.php` (3 nowe kolumny + zakładka „Wnioski na huby") |
+| Tłumaczenia | `lang/pl/legal.php` (`legal.hub.*`), `lang/pl/admin/legal.php` (`admin.legal.hub.*`) |
+
+### Schema
+
+- Tabela `hub_permit_applications` (identyczna z `drilling_permit_applications`, bez statusu `transitional`)
+- Kolumny w `legal_region_config`: `hub_permit_enabled` (default=0), `hub_permit_cost`, `hub_review_minutes`
+
+### Różnice względem P1
+
+| Cecha | Wiercenie (P1) | Hub (P2a) |
+|-------|---------------|-----------|
+| Domyślny stan | Bramka zawsze aktywna dla `enabled=1` | Opt-in per region (`hub_permit_enabled=0` default) |
+| Status `transitional` | Tak | Nie |
+| Domyślne koszty (low→critical) | 100k / 250k / 500k / 1M PLN | 200k / 500k / 1M / 2M PLN |
+| Czas rozpatrzenia (low→critical) | 30 / 60 / 90 / 120 min | 60 / 120 / 180 / 240 min |
+| Gdzie sprawdzana bramka | `WorldMap` (zakup odwiertu) | `HubAcquisitionService` (kupno/wynajem hubu) |
+
+### Rollout
+
+Po wdrożeniu `hub_permit_enabled=0` dla wszystkich regionów → żaden zakup hubu nie jest blokowany dopóki admin nie włączy wymagania per region:
+
+1. Admin: „Seeduj regiony" → `legal_region_config` + `seedHubPermitDefaults()` ustawia koszty/czasy per ryzyko
+2. Admin: włącza `hub_permit_enabled=1` per region kiedy chce wymagać zezwoleń
+3. Gracze składają wnioski → tick rozpatruje → po `granted` mogą kupić/wynająć hub
+
+### Powiązany bugfix: hub_type config
+
+- Nowa akcja w `admin/logistics_hubs.php`: „Zaseeduj domyślne wartości" wypełnia `logistics_hub_config.hub_type.*` (small=500k, medium=2M, large=8M) — wcześniej wszystkie typy kosztowały 50k (hardcoded fallback)
+- Plik: `src/AdminHub/PostActionsTrait.php` (akcja `seed_hub_type_defaults`)

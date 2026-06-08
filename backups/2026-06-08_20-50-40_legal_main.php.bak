@@ -4,17 +4,12 @@
 /** @var array<int,array<string,mixed>> $available */
 /** @var array<int,array<string,mixed>> $locked */
 /** @var array<int,array<string,mixed>> $capitalLocked */
-/** @var array<int,array<string,mixed>> $credibilityLocked */
-/** @var array<int,array<string,mixed>> $levelLocked */
 /** @var array<int,array<string,mixed>> $hubActive */
 /** @var array<int,array<string,mixed>> $hubInProgress */
 /** @var array<int,array<string,mixed>> $hubAvailable */
 /** @var array<int,array<string,mixed>> $hubLocked */
 /** @var bool $hasHubSection */
 /** @var float $cash */
-/** @var int $legalLevel */
-/** @var int $credibilityScore */
-/** @var int $credibilityMin */
 /** @var string $error */
 /** @var string $success */
 extract($viewData, EXTR_SKIP);
@@ -24,19 +19,12 @@ extract($viewData, EXTR_SKIP);
 
 <?php if ($error): ?>
 <noscript><div class="msg-bar msg-error"><?= htmlspecialchars($error) ?></div></noscript>
+<script>(function(){var m=<?= json_encode($error, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertError==='function'){window.alertError(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'error');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
 <?php endif ?>
 <?php if ($success): ?>
 <noscript><div class="msg-bar msg-success"><?= htmlspecialchars($success) ?></div></noscript>
+<script>(function(){var m=<?= json_encode($success, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'success');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
 <?php endif ?>
-<?php if ($error || $success): ?>
-<div id="legal-flash"
-     hidden
-     data-error="<?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>"
-     data-success="<?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>"></div>
-<?php endif ?>
-
-<!-- Wiarygodnosc firmy / Company credibility card -->
-<?php require __DIR__ . '/../../components/company_credibility.php'; ?>
 
 <!-- Intro -->
 <section class="card">
@@ -56,7 +44,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--active">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge legal-badge--granted"><?= t('legal.status.' . $permit['status']) ?></span>
             </div>
             <div class="legal-region-meta">
@@ -66,13 +54,9 @@ extract($viewData, EXTR_SKIP);
                 <?php endif ?>
             </div>
             <?php if ($permit['status'] === 'transitional'): ?>
-            <!-- Brief §12.2: opis zezwolenia przejściowego dla obecnych graczy. -->
-            <!-- Brief §12.2: transitional permit description for existing players. -->
             <p class="legal-region-note legal-region-note--transitional"><?= t('legal.transitional_note') ?></p>
             <?php endif ?>
-            <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
-            <!-- Brief §15.1 / §8.1: simple description of what the permit unlocks. -->
-            <p class="legal-region-unlocks"><?= t('legal.unlocks_note') ?></p>
+            <p class="legal-region-note"><?= t('legal.unlocks_note') ?></p>
         </div>
     <?php endforeach ?>
     </div>
@@ -98,7 +82,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--pending">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge <?= $badgeCss ?>"><?= t('legal.status.' . $permit['status']) ?></span>
             </div>
             <div class="legal-region-meta">
@@ -132,7 +116,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--available">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <?php if ($wasRefused): ?>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
                 <?php else: ?>
@@ -144,14 +128,13 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
-            <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
-            <!-- Brief §15.1 / §8.1: simple description of what the permit unlocks. -->
-            <p class="legal-region-unlocks"><?= t('legal.unlocks_note') ?></p>
             <?php if ($canAfford): ?>
             <form method="post" action="<?= url('legal') ?>" class="legal-submit-form"
-                  data-region-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>"
-                  data-cost="<?= htmlspecialchars(number_format($cost, 0, ',', ' ')) ?>"
-                  data-review-time="<?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?>">
+                  data-confirm="<?= htmlspecialchars(tPlain('legal.confirm_submit', [
+                      'region' => $cfg['region_name'] ?? 'Region ' . $cfg['region_id'],
+                      'cost'   => number_format($cost, 0, ',', ' '),
+                  ]), ENT_QUOTES) ?>"
+                  data-confirm-label="<?= htmlspecialchars(tPlain('legal.btn_submit'), ENT_QUOTES) ?>">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action"    value="submit_application">
                 <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
@@ -184,7 +167,7 @@ extract($viewData, EXTR_SKIP);
         ?>
         <div class="legal-region-card legal-region-card--locked">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
             </div>
             <div class="legal-region-meta">
@@ -199,87 +182,28 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<!-- Region wysokiego ryzyka — brak wymaganego kapitału (brief §7.3 / §8.1) -->
-<?php if (!empty($levelLocked)): ?>
-<section class="card">
-    <h3><?= t('legal.section_level_locked') ?></h3>
-    <div class="legal-region-list">
-    <?php foreach ($levelLocked as $entry): ?>
-        <?php
-        $cfg = $entry['config'];
-        $reqLevel = (int)$entry['required_legal_level'];
-        ?>
-        <div class="legal-region-card legal-region-card--level-locked">
-            <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
-                <span class="legal-badge legal-badge--level-locked"><?= t('legal.badge_level_locked') ?></span>
-            </div>
-            <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-                <span><?= t('legal.required_legal_level_label') ?>: <strong><?= $reqLevel ?></strong></span>
-                <span class="legal-level-missing"><?= t('legal.current_legal_level_label') ?>: <strong><?= (int)$legalLevel ?></strong></span>
-            </div>
-            <p class="legal-region-note legal-region-note--level-locked">
-                <?= t('legal.err.legal_level_locked', ['level' => $reqLevel, 'current' => (int)$legalLevel]) ?>
-            </p>
-        </div>
-    <?php endforeach ?>
-    </div>
-</section>
-<?php endif ?>
-
-<?php if (!empty($credibilityLocked)): ?>
-<section class="card">
-    <h3><?= t('legal.section_credibility_locked') ?></h3>
-    <div class="legal-region-list">
-    <?php foreach ($credibilityLocked as $entry): ?>
-        <?php
-        $cfg = $entry['config'];
-        $reqCredibility = (int)$entry['required_company_credibility'];
-        ?>
-        <div class="legal-region-card legal-region-card--credibility-locked">
-            <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
-                <span class="legal-badge legal-badge--credibility-locked"><?= t('legal.badge_credibility_locked') ?></span>
-            </div>
-            <div class="legal-region-meta">
-                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-                <span><?= t('legal.required_credibility_label') ?>: <strong><?= $reqCredibility ?></strong> / 100</span>
-                <span class="legal-credibility-missing"><?= t('legal.current_credibility_label') ?>: <strong><?= (int)$credibilityScore ?></strong> / 100</span>
-            </div>
-            <p class="legal-region-note legal-region-note--credibility-locked">
-                <?= t('legal.err.credibility_locked', ['min' => $reqCredibility, 'current' => (int)$credibilityScore]) ?>
-            </p>
-        </div>
-    <?php endforeach ?>
-    </div>
-</section>
-<?php endif ?>
-
+<!-- Regiony zablokowane kapitałowo (§7.3) / Capital-locked regions -->
 <?php if (!empty($capitalLocked)): ?>
 <section class="card">
     <h3><?= t('legal.section_capital_locked') ?></h3>
     <div class="legal-region-list">
     <?php foreach ($capitalLocked as $entry): ?>
         <?php
-        $cfg     = $entry['config'];
-        $reqCap  = (float)$entry['required_capital'];
-        $missing = max(0.0, $reqCap - $cash);
+        $cfg    = $entry['config'];
+        $requiredCapital = (float)$cfg['required_capital'];
+        $missing = max(0.0, $requiredCapital - $cash);
         ?>
         <div class="legal-region-card legal-region-card--capital-locked">
             <div class="legal-region-name">
-                <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge legal-badge--locked"><?= t('legal.badge_high_risk') ?></span>
             </div>
             <div class="legal-region-meta">
                 <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.required_capital_label') ?>: <?= number_format($requiredCapital, 0, ',', ' ') ?> PLN</span>
             </div>
-            <p class="legal-region-note legal-region-note--locked"><?= t('legal.err.region_locked') ?></p>
-            <!-- Brief §8.1: konkretny wymagany kapitał (gracz widzi wartość). -->
-            <!-- Brief §8.1: concrete required capital (player sees the value). -->
-            <div class="legal-region-meta">
-                <span><?= t('legal.required_capital_label') ?>: <strong><?= number_format($reqCap, 0, ',', ' ') ?> PLN</strong></span>
-                <span class="legal-capital-missing"><?= t('legal.capital_missing', ['amount' => number_format($missing, 0, ',', ' ')]) ?></span>
+            <div class="legal-capital-missing">
+                <?= t('legal.capital_missing', ['amount' => number_format($missing, 0, ',', ' ')]) ?>
             </div>
         </div>
     <?php endforeach ?>
@@ -287,7 +211,7 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked) && empty($credibilityLocked) && empty($levelLocked)): ?>
+<?php if (empty($active) && empty($inProgress) && empty($available) && empty($locked) && empty($capitalLocked)): ?>
 <section class="card">
     <p><?= t('legal.no_regions') ?></p>
 </section>
@@ -389,9 +313,11 @@ extract($viewData, EXTR_SKIP);
             </div>
             <?php if ($canAfford): ?>
             <form method="post" action="<?= url('legal') ?>" class="legal-submit-form"
-                  data-region-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>"
-                  data-cost="<?= htmlspecialchars(number_format($cost, 0, ',', ' ')) ?>"
-                  data-review-time="<?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?>">
+                  data-confirm="<?= htmlspecialchars(tPlain('legal.hub.confirm_submit', [
+                      'region' => $cfg['region_name'] ?? 'Region ' . $cfg['region_id'],
+                      'cost'   => number_format($cost, 0, ',', ' '),
+                  ]), ENT_QUOTES) ?>"
+                  data-confirm-label="<?= htmlspecialchars(tPlain('legal.hub.btn_submit'), ENT_QUOTES) ?>">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action"    value="submit_hub_application">
                 <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
@@ -443,13 +369,3 @@ extract($viewData, EXTR_SKIP);
 <?php endif /* $hasHubSection */ ?>
 
 </div>
-<script>
-window.LEGAL_LANG = <?= json_encode([
-    'modal_title'     => tPlain('legal.btn_submit'),
-    'modal_confirm'   => tPlain('legal.btn_submit'),
-    'label_region'    => tPlain('legal.modal_region_label'),
-    'label_cost'      => tPlain('legal.cost_label'),
-    'label_time'      => tPlain('legal.review_time_label'),
-    'modal_cost_note' => tPlain('legal.modal_cost_note'),
-], JSON_UNESCAPED_UNICODE) ?>;
-</script>

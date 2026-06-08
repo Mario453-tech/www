@@ -7,7 +7,7 @@
  * Metody: POST (akcje gracza) | GET (dane odczytu)
  * Methods: POST (player actions) | GET (read data)
  *
- * Akcje gracza POST: assign_well, detach_well, transfer_well, upgrade_hub
+ * Akcje gracza POST: assign_well, detach_well, transfer_well
  * Akcje ADMIN POST: build_hub, repair_hub, upgrade_hub, set_mode, toggle_pause, rename_hub
  * Akcje GET: hub_wells, assignable_hubs, unassigned_wells, hub_detail
  *
@@ -51,7 +51,7 @@ if (!$isAdmin && method_exists('Auth', 'hasRole')) {
 $action   = $_REQUEST['action'] ?? '';
 
 // Admin-only actions block for regular players
-$adminOnlyActions = ['build_hub', 'repair_hub', 'set_mode', 'toggle_pause', 'rename_hub'];
+$adminOnlyActions = ['build_hub', 'repair_hub', 'upgrade_hub', 'set_mode', 'toggle_pause', 'rename_hub'];
 if (in_array($action, $adminOnlyActions, true) && !$isAdmin) {
     hubApiOut(['success' => false, 'error' => t('common.access_denied')], 403);
 }
@@ -100,31 +100,18 @@ try {
             }
             hubApiOut(['success' => true, 'message' => t('logistics.hub.ok_repair')]);
 
- // POST: upgrade hub (player-owned or admin)
+ // POST: upgrade hub (ADMIN ONLY)
         case 'upgrade_hub':
             $hubId = (int)($_POST['hub_id'] ?? 0);
             if ($hubId <= 0) hubApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
-
-            $result = $isAdmin
-                ? $hubSvc->upgradeHub($hubId, $playerId)
-                : $acqSvc->upgradeOwned($playerId, $hubId);
-
+            $result = $hubSvc->upgradeHub($hubId, $playerId);
             if (!$result['success']) {
-                $err = match($result['error'] ?? '') {
-                    'max_level'          => t('logistics.hub.err_max_level'),
-                    'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
-                    'hub_not_owned'      => t('logistics.hub.err_hub_not_yours'),
-                    'hub_unavailable'    => t('logistics.hub.err_hub_unavailable'),
-                    default              => t('logistics.hub.err_generic'),
-                };
+                $err = ($result['error'] ?? '') === 'max_level'
+                    ? t('logistics.hub.err_max_level')
+                    : t('logistics.hub.err_generic');
                 hubApiOut(['success' => false, 'error' => $err]);
             }
-            hubApiOut([
-                'success'   => true,
-                'message'   => t('logistics.hub.ok_upgrade', ['level' => $result['new_level'] ?? '?']),
-                'new_level' => $result['new_level'] ?? null,
-                'cost'      => $result['cost'] ?? 0.0,
-            ]);
+            hubApiOut(['success' => true, 'message' => t('logistics.hub.ok_upgrade', ['level' => $result['new_level'] ?? '?'])]);
 
  // POST: change work mode (ADMIN ONLY)
         case 'set_mode':

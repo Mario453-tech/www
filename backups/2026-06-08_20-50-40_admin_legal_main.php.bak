@@ -35,14 +35,12 @@
     <p class="panel-title"><?= t('admin.legal.seed_title') ?></p>
     <p class="panel-hint"><?= t('admin.legal.seed_hint') ?></p>
     <form method="post" action="/admin/legal.php?tab=regions"
-          class="js-confirm-form"
-          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.seed_confirm')) ?>"
-          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_seed_regions')) ?>">
+          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.seed_confirm'), ENT_QUOTES) ?>"
+          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_seed_regions'), ENT_QUOTES) ?>"
+          data-confirm-label="<?= htmlspecialchars(tPlain('admin.legal.btn_seed_regions'), ENT_QUOTES) ?>">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_regions">
-        <button type="submit" class="btn btn-primary">
-            <?= t('admin.legal.btn_seed_regions') ?>
-        </button>
+        <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
     </form>
 </section>
 
@@ -51,15 +49,13 @@
     <p class="panel-title"><?= t('admin.legal.migration_title') ?></p>
     <p class="panel-hint"><?= t('admin.legal.migration_hint') ?></p>
     <form method="post" action="/admin/legal.php?tab=regions"
-          class="js-confirm-form"
-          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.migration_confirm')) ?>"
-          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_run_migration')) ?>"
-          data-confirm-type="warning">
+          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.migration_confirm'), ENT_QUOTES) ?>"
+          data-confirm-type="warning"
+          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_run_migration'), ENT_QUOTES) ?>"
+          data-confirm-label="<?= htmlspecialchars(tPlain('admin.legal.btn_run_migration'), ENT_QUOTES) ?>">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="run_migration">
-        <button type="submit" class="btn btn-warning">
-            <?= t('admin.legal.btn_run_migration') ?>
-        </button>
+        <button type="submit" class="btn btn-warning"><?= t('admin.legal.btn_run_migration') ?></button>
     </form>
 </section>
 
@@ -68,10 +64,7 @@
 
     <?php if (empty($regions)): ?>
     <p class="panel-hint"><?= t('admin.legal.no_regions') ?></p>
-    <form method="post" action="/admin/legal.php?tab=regions"
-          class="admin-legal-seed-form"
-          data-confirm="<?= htmlspecialchars(tPlain('admin.legal.seed_confirm')) ?>"
-          data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_seed_regions')) ?>">
+    <form method="post" action="/admin/legal.php?tab=regions" style="margin-top:10px">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_regions">
         <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
@@ -88,16 +81,15 @@
                 <th><?= t('admin.legal.col_offshore') ?></th>
                 <th><?= t('admin.legal.col_cost') ?></th>
                 <th><?= t('admin.legal.col_review_min') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_delay_pct_hint')) ?>"><?= t('admin.legal.col_delay_pct') ?></th>
+                <th title="<?= t('admin.legal.col_delay_pct_hint') ?>"><?= t('admin.legal.col_delay_pct') ?></th>
                 <th><?= t('admin.legal.col_delay_min') ?></th>
                 <th><?= t('admin.legal.col_delay_max') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_refusal_pct_hint')) ?>"><?= t('admin.legal.col_refusal_pct') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_nodec_pct_hint')) ?>"><?= t('admin.legal.col_nodec_pct') ?></th>
+                <th title="<?= t('admin.legal.col_refusal_pct_hint') ?>"><?= t('admin.legal.col_refusal_pct') ?></th>
+                <th title="<?= t('admin.legal.col_nodec_pct_hint') ?>"><?= t('admin.legal.col_nodec_pct') ?></th>
                 <th><?= t('admin.legal.col_cooldown') ?></th>
                 <th><?= t('admin.legal.col_capital') ?></th>
-                <th><?= t('admin.legal.col_legal_level') ?></th>
                 <!-- P2a: hub permit columns / Kolumny zezwolen na huby -->
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.hub.col_enabled_hint')) ?>"><?= t('admin.legal.hub.col_enabled') ?></th>
+                <th title="<?= t('admin.legal.hub.col_enabled_hint') ?>"><?= t('admin.legal.hub.col_enabled') ?></th>
                 <th><?= t('admin.legal.hub.col_cost') ?></th>
                 <th><?= t('admin.legal.hub.col_review_min') ?></th>
                 <th></th>
@@ -118,22 +110,21 @@
                     <?php endforeach ?>
                 </select>
             </td>
-            <td><input type="checkbox" name="enabled" value="1" <?= (int)$cfg['enabled'] ? 'checked' : '' ?>></td>
+            <td><input type="checkbox" name="enabled"     value="1" <?= (int)$cfg['enabled']          ? 'checked' : '' ?>></td>
             <td><input type="checkbox" name="is_offshore" value="1" <?= (int)($cfg['is_offshore'] ?? 0) ? 'checked' : '' ?>></td>
-            <td><input type="number" name="application_cost"     value="<?= (float)$cfg['application_cost'] ?>"    min="0"   step="1000"  class="input-sm input-num-110"></td>
-            <td><input type="number" name="base_review_minutes"  value="<?= (int)$cfg['base_review_minutes'] ?>"   min="1"   step="5"     class="input-sm input-num-70"></td>
-            <td><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="delay_min_minutes"    value="<?= (int)($cfg['delay_min_minutes'] ?? 10) ?>" min="1" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="delay_max_minutes"    value="<?= (int)($cfg['delay_max_minutes'] ?? 30) ?>" min="1" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm input-num-70"></td>
-            <td><input type="number" name="required_capital"     value="<?= (float)$cfg['required_capital'] ?>"    min="0"   step="100000" class="input-sm input-num-110"></td>
-            <td><input type="number" name="required_legal_level" value="<?= (int)($cfg['required_legal_level'] ?? 0) ?>" min="0" max="10" step="1" class="input-sm input-num-60"></td>
+            <td><input type="number" name="application_cost"        value="<?= (float)$cfg['application_cost'] ?>"       min="0" step="1000"   class="input-sm" style="width:110px"></td>
+            <td><input type="number" name="base_review_minutes"     value="<?= (int)$cfg['base_review_minutes'] ?>"      min="1" step="5"      class="input-sm" style="width:70px"></td>
+            <td><input type="number" name="delay_risk_pct"          value="<?= (float)$cfg['delay_risk_pct'] ?>"         min="0" max="100" step="1" class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="delay_min_minutes"       value="<?= (int)$cfg['delay_min_minutes'] ?>"        min="0" step="5"  class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="delay_max_minutes"       value="<?= (int)$cfg['delay_max_minutes'] ?>"        min="0" step="5"  class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="refusal_risk_pct"        value="<?= (float)$cfg['refusal_risk_pct'] ?>"       min="0" max="100" step="1" class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="no_decision_risk_pct"    value="<?= (float)$cfg['no_decision_risk_pct'] ?>"   min="0" max="100" step="1" class="input-sm" style="width:60px"></td>
+            <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm" style="width:70px"></td>
+            <td><input type="number" name="required_capital"        value="<?= (float)$cfg['required_capital'] ?>"       min="0" step="100000" class="input-sm" style="width:110px"></td>
             <!-- P2a: hub permit fields / Pola zezwolen na huby -->
             <td><input type="checkbox" name="hub_permit_enabled" value="1" <?= (int)($cfg['hub_permit_enabled'] ?? 0) ? 'checked' : '' ?>></td>
-            <td><input type="number"   name="hub_permit_cost"    value="<?= (float)($cfg['hub_permit_cost'] ?? 500000) ?>" min="0" step="10000" class="input-sm input-num-110"></td>
-            <td><input type="number"   name="hub_review_minutes" value="<?= (int)($cfg['hub_review_minutes'] ?? 120) ?>"   min="1" step="5"      class="input-sm input-num-70"></td>
+            <td><input type="number"   name="hub_permit_cost"    value="<?= (float)($cfg['hub_permit_cost'] ?? 500000) ?>" min="0" step="10000" class="input-sm" style="width:110px"></td>
+            <td><input type="number"   name="hub_review_minutes" value="<?= (int)($cfg['hub_review_minutes'] ?? 120) ?>"   min="1" step="5"      class="input-sm" style="width:70px"></td>
             <td><button type="submit" class="btn btn-sm btn-primary"><?= t('admin.legal.btn_save') ?></button></td>
             </form>
         </tr>
@@ -194,12 +185,6 @@
             <td><small><?= htmlspecialchars(substr((string)($app['decision_due_at'] ?? '—'), 0, 16)) ?></small></td>
             <td><small><?= htmlspecialchars(substr((string)($app['decided_at'] ?? '—'), 0, 16)) ?></small></td>
             <td>
-                <?php
-                // Brief §16.3: nazwa gracza i regionu do treści modalu potwierdzenia.
-                // Brief §16.3: player and region names for the confirmation modal body.
-                $confPlayer = (string)($app['company_name'] ?? $app['username'] ?? ('#' . $app['player_id']));
-                $confRegion = (string)($app['region_name'] ?? ('#' . $app['region_id']));
-                ?>
                 <div class="legal-admin-actions">
                 <?php foreach ([
                     'manual_grant'        => ['btn-success', t('admin.legal.action_grant')],
@@ -208,17 +193,9 @@
                     'manual_refuse'       => ['btn-danger',  t('admin.legal.action_refuse')],
                     'manual_reset_pending'=> ['btn-secondary', t('admin.legal.action_reset')],
                 ] as $act => [$btnCss, $btnLabel]): ?>
-                <?php
-                $confMsg = tPlain('admin.legal.confirm_manual', [
-                    'action' => $btnLabel,
-                    'player' => $confPlayer,
-                    'region' => $confRegion,
-                ]);
-                ?>
-                <form method="post" action="/admin/legal.php?tab=applications"
-                      class="js-confirm-form"
-                      data-confirm="<?= htmlspecialchars($confMsg) ?>"
-                      data-confirm-title="<?= htmlspecialchars($btnLabel) ?>">
+                <form method="post" action="/admin/legal.php?tab=applications" style="display:inline"
+                      data-confirm="<?= htmlspecialchars(tPlain('admin.legal.confirm_action'), ENT_QUOTES) ?>"
+                      data-confirm-label="<?= htmlspecialchars($btnLabel, ENT_QUOTES) ?>">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action" value="<?= $act ?>">
                     <input type="hidden" name="app_id" value="<?= (int)$app['id'] ?>">
