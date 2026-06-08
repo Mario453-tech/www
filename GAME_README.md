@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-09 - Dzial prawny: poprawka bootstrapu hub permits
+- `src/Legal/HubPermitTrait.php` - usunieto niekompatybilne dla aktualnego MySQL `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`; schema hub permits korzysta teraz z `Database::addColumnIfMissing()`, dzieki czemu poprawnie tworza sie kolumny `hub_permit_*` oraz tabela `hub_permit_applications`.
+
 ### 2026-06-08 - Admin legal: naprawa potwierdzen akcji
 - `admin/legal.php`, `templates/views/admin/legal/main.php` - dzial prawny admina korzysta juz tylko z jednego globalnego handlera `modal.js` dla formularzy `data-confirm`; usunieto dodatkowe podpiete `admin_legal.js`, ktore dublowalo przechwycenie submitu i blokowalo akcje `Seeduj regiony` oraz `Uruchom migracje`.
 

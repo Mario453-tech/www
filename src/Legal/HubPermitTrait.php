@@ -44,12 +44,21 @@ trait LegalHubPermitTrait
             return;
         }
         try {
-            // Nowe kolumny w legal_region_config / New columns in legal_region_config
-            $this->db->exec(
-                "ALTER TABLE legal_region_config
-                    ADD COLUMN IF NOT EXISTS hub_permit_enabled TINYINT(1) NOT NULL DEFAULT 0,
-                    ADD COLUMN IF NOT EXISTS hub_permit_cost DECIMAL(14,2) NOT NULL DEFAULT 500000.00,
-                    ADD COLUMN IF NOT EXISTS hub_review_minutes INT UNSIGNED NOT NULL DEFAULT 120"
+            // Bezpieczne dodanie kolumn zgodne z helperem projektu / Safe column bootstrap using project helper
+            Database::addColumnIfMissing(
+                'legal_region_config',
+                'hub_permit_enabled',
+                'TINYINT(1) NOT NULL DEFAULT 0'
+            );
+            Database::addColumnIfMissing(
+                'legal_region_config',
+                'hub_permit_cost',
+                'DECIMAL(14,2) NOT NULL DEFAULT 500000.00'
+            );
+            Database::addColumnIfMissing(
+                'legal_region_config',
+                'hub_review_minutes',
+                'INT UNSIGNED NOT NULL DEFAULT 120'
             );
 
             // Tabela wnioskow o zezwolenia na huby / Hub permit applications table
