@@ -1,535 +1,731 @@
 <?php
 /**
- * Admin view: panel bankowy
- * Admin view: banking panel
+ * Admin view: panel bankowy — bank account management panel
+ * Mobile-first layout, SVG icons (no emoji), proper translations.
  */
 extract($viewData, EXTR_SKIP);
+
+// Mapa statusow gracza / Player status label map
+$statusLabels = [
+    'active'         => t('player.status.active'),
+    'financial_risk' => t('player.status.financial_risk'),
+    'under_bailiff'  => t('player.status.under_bailiff'),
+    'bankrupt'       => t('player.status.bankrupt'),
+    'banned'         => t('player.status.banned'),
+];
+// Mapa typow transakcji / Transaction type label map
+$typeLabels = [
+    'player_transfer'   => t('bank.account.type.player_transfer'),
+    'loan'              => t('bank.account.type.loan'),
+    'loan_payment'      => t('bank.account.type.loan_payment'),
+    'market_sale'       => t('bank.account.type.market_sale'),
+    'tax'               => t('bank.account.type.tax'),
+    'well_purchase'     => t('bank.account.type.well_purchase'),
+    'hub_purchase'      => t('bank.account.type.hub_purchase'),
+    'pipeline_purchase' => t('bank.account.type.pipeline_purchase'),
+    'legal_fee'         => t('bank.account.type.legal_fee'),
+    'admin_adjustment'  => t('bank.account.type.admin_adjustment'),
+];
 ?>
 
-<h1 style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="24" height="24" aria-hidden="true">
+<h1 class="abp-page-title">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" aria-hidden="true">
         <line x1="3" y1="22" x2="21" y2="22"/>
         <rect x="5" y="11" width="2" height="9"/>
         <rect x="11" y="11" width="2" height="9"/>
         <rect x="17" y="11" width="2" height="9"/>
         <path d="M12 2L2 9h20z"/>
     </svg>
-    Bank — panel administratora
+    Bank — konta graczy
 </h1>
 
 <?php if (!empty($flash)): ?>
-<div class="admin-bank-flash admin-bank-flash--<?= htmlspecialchars($flash['type']) ?>">
+<div class="abp-flash abp-flash--<?= htmlspecialchars($flash['type']) ?>">
     <?= htmlspecialchars($flash['msg']) ?>
 </div>
 <?php endif ?>
 
-<div class="admin-bank-layout">
+<!-- Mobile: select dropdown zamiast sidebaru / Mobile: select dropdown instead of sidebar -->
+<div class="abp-mobile-picker">
+    <label for="abp-player-select" class="abp-select-label">Wybierz gracza</label>
+    <select id="abp-player-select" class="abp-select"
+            onchange="if(this.value) location.href='/admin/bank.php?player_id='+this.value">
+        <option value="">— wybierz gracza —</option>
+        <?php foreach ($players as $p):
+            $hasAcc = !empty($p['bank_account_number']);
+        ?>
+        <option value="<?= (int)$p['id'] ?>" <?= (int)$p['id'] === $selectedId ? 'selected' : '' ?>>
+            #<?= (int)$p['id'] ?>
+            <?= htmlspecialchars($p['email']) ?>
+            <?= $hasAcc ? '(' . htmlspecialchars($p['bank_account_number']) . ')' : '(brak konta)' ?>
+            — <?= number_format((float)$p['cash'], 2, ',', ' ') ?> PLN
+        </option>
+        <?php endforeach ?>
+    </select>
+</div>
 
-    <!-- Lewa kolumna: lista graczy / Left column: player list -->
-    <aside class="admin-bank-sidebar">
-        <h2 class="admin-bank-sidebar-title">Gracze</h2>
-        <div class="admin-bank-player-list">
-            <?php foreach ($players as $p): ?>
-            <?php
-                $hasAccount = !empty($p['bank_account_number']);
-                $isSelected = (int)$p['id'] === (int)$selectedId;
+<div class="abp-layout">
+
+    <!-- Sidebar: lista graczy / Sidebar: player list -->
+    <aside class="abp-sidebar">
+        <div class="abp-sidebar-head">Gracze (<?= count($players) ?>)</div>
+        <div class="abp-player-list">
+            <?php foreach ($players as $p):
+                $hasAcc   = !empty($p['bank_account_number']);
+                $isActive = (int)$p['id'] === $selectedId;
             ?>
             <a href="/admin/bank.php?player_id=<?= (int)$p['id'] ?>"
-               class="admin-bank-player-row <?= $isSelected ? 'admin-bank-player-row--active' : '' ?>">
-                <span class="abp-id">#<?= (int)$p['id'] ?></span>
-                <span class="abp-email"><?= htmlspecialchars($p['email']) ?></span>
-                <?php if ($hasAccount): ?>
-                <span class="abp-number"><?= htmlspecialchars($p['bank_account_number']) ?></span>
-                <?php else: ?>
-                <span class="abp-no-account">brak konta</span>
-                <?php endif ?>
-                <span class="abp-balance"><?= number_format((float)$p['cash'], 2, ',', ' ') ?> PLN</span>
+               class="abp-player-row <?= $isActive ? 'abp-player-row--on' : '' ?>">
+                <span class="abp-pr-id">#<?= (int)$p['id'] ?></span>
+                <span class="abp-pr-body">
+                    <span class="abp-pr-email"><?= htmlspecialchars($p['email']) ?></span>
+                    <span class="abp-pr-sub">
+                        <?php if ($hasAcc): ?>
+                            <span class="abp-pr-acc"><?= htmlspecialchars($p['bank_account_number']) ?></span>
+                        <?php else: ?>
+                            <span class="abp-pr-noacc">brak konta</span>
+                        <?php endif ?>
+                    </span>
+                </span>
+                <span class="abp-pr-bal"><?= number_format((float)$p['cash'], 2, ',', ' ') ?>&nbsp;PLN</span>
             </a>
             <?php endforeach ?>
             <?php if (empty($players)): ?>
-            <div class="admin-bank-empty">Brak graczy w bazie.</div>
+            <div class="abp-empty">Brak graczy w bazie.</div>
             <?php endif ?>
         </div>
     </aside>
 
-    <!-- Prawa kolumna: szczegoly + korekty / Right column: details + adjustments -->
-    <main class="admin-bank-main">
+    <!-- Glowny panel / Main panel -->
+    <main class="abp-main">
         <?php if (!$selectedPlayer): ?>
-        <div class="admin-bank-placeholder">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" width="48" height="48" aria-hidden="true" style="opacity:.3">
+        <div class="abp-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" width="44" height="44" aria-hidden="true" class="abp-placeholder-icon">
                 <line x1="3" y1="22" x2="21" y2="22"/>
                 <rect x="5" y="11" width="2" height="9"/>
                 <rect x="11" y="11" width="2" height="9"/>
                 <rect x="17" y="11" width="2" height="9"/>
                 <path d="M12 2L2 9h20z"/>
             </svg>
-            <p>Wybierz gracza z listy po lewej, aby zobaczyc szczegoly konta.</p>
-            <p style="font-size:12px;color:#666">Select a player from the left list to view account details.</p>
+            <p>Wybierz gracza z listy, aby zobaczyc szczegoly konta.</p>
         </div>
 
         <?php else: ?>
 
         <!-- Naglowek gracza / Player header -->
-        <div class="admin-bank-player-header">
-            <div class="admin-bank-player-meta">
-                <span class="admin-bank-player-id">#<?= (int)$selectedPlayer['id'] ?></span>
-                <strong class="admin-bank-player-email"><?= htmlspecialchars($selectedPlayer['email']) ?></strong>
-                <span class="badge badge-<?= htmlspecialchars($selectedPlayer['status']) ?>"><?= htmlspecialchars($selectedPlayer['status']) ?></span>
+        <div class="abp-player-head">
+            <span class="abp-ph-id">#<?= (int)$selectedPlayer['id'] ?></span>
+            <span class="abp-ph-email"><?= htmlspecialchars($selectedPlayer['email']) ?></span>
+            <?php
+                $st = (string)($selectedPlayer['status'] ?? '');
+                $stLabel = $statusLabels[$st] ?? $st;
+            ?>
+            <span class="abp-status abp-status--<?= htmlspecialchars($st) ?>"><?= htmlspecialchars($stLabel) ?></span>
+        </div>
+
+        <!-- Kafelki: numer konta + saldo / Tiles: account number + balance -->
+        <div class="abp-tiles">
+            <div class="abp-tile">
+                <span class="abp-tile-lbl">Numer konta</span>
+                <?php if (!empty($selectedPlayer['bank_account_number'])): ?>
+                <span class="abp-tile-val abp-tile-val--mono"><?= htmlspecialchars($selectedPlayer['bank_account_number']) ?></span>
+                <?php else: ?>
+                <span class="abp-tile-val abp-tile-val--muted">brak konta bankowego</span>
+                <?php endif ?>
+            </div>
+            <div class="abp-tile abp-tile--bal">
+                <span class="abp-tile-lbl">Saldo</span>
+                <span class="abp-tile-val"><?= number_format((float)$selectedPlayer['cash'], 2, ',', ' ') ?> PLN</span>
             </div>
         </div>
 
-        <!-- Kafelki: numer konta + saldo / Account number + balance tiles -->
-        <div class="admin-bank-tiles">
-            <div class="admin-bank-tile">
-                <span class="admin-bank-tile-label">Numer konta</span>
-                <?php if (!empty($selectedPlayer['bank_account_number'])): ?>
-                <span class="admin-bank-tile-value admin-bank-tile-value--mono"><?= htmlspecialchars($selectedPlayer['bank_account_number']) ?></span>
-                <?php else: ?>
-                <span class="admin-bank-tile-value admin-bank-tile-value--muted">brak konta bankowego</span>
-                <?php endif ?>
-            </div>
-            <div class="admin-bank-tile admin-bank-tile--balance">
-                <span class="admin-bank-tile-label">Saldo (cash)</span>
-                <span class="admin-bank-tile-value money"><?= number_format((float)$selectedPlayer['cash'], 2, ',', ' ') ?> PLN</span>
-            </div>
-            <div class="admin-bank-tile admin-bank-tile--actions">
-                <button type="button"
-                        class="btn btn-success"
-                        id="admin-bank-credit-trigger"
-                        data-player-id="<?= (int)$selectedPlayer['id'] ?>"
-                        data-player-email="<?= htmlspecialchars($selectedPlayer['email'], ENT_QUOTES) ?>">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Dodaj srodki
-                </button>
-                <button type="button"
-                        class="btn btn-danger"
-                        id="admin-bank-debit-trigger"
-                        data-player-id="<?= (int)$selectedPlayer['id'] ?>"
-                        data-player-email="<?= htmlspecialchars($selectedPlayer['email'], ENT_QUOTES) ?>">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Pobierz srodki
-                </button>
-            </div>
+        <!-- Przyciski akcji / Action buttons -->
+        <div class="abp-actions">
+            <button type="button"
+                    class="btn btn-success abp-btn-action"
+                    id="abp-credit-btn"
+                    data-player-id="<?= (int)$selectedPlayer['id'] ?>"
+                    data-player-email="<?= htmlspecialchars($selectedPlayer['email'], ENT_QUOTES) ?>">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Dodaj srodki
+            </button>
+            <button type="button"
+                    class="btn btn-danger abp-btn-action"
+                    id="abp-debit-btn"
+                    data-player-id="<?= (int)$selectedPlayer['id'] ?>"
+                    data-player-email="<?= htmlspecialchars($selectedPlayer['email'], ENT_QUOTES) ?>">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Pobierz srodki
+            </button>
         </div>
 
         <!-- Historia transakcji / Transaction history -->
-        <div class="admin-bank-history-wrap">
-            <h3 class="admin-bank-section-title">Historia transakcji (ostatnie 50)</h3>
+        <section class="abp-hist-wrap">
+            <h2 class="abp-sect-title">Historia transakcji <span class="abp-hist-count">(<?= count($selectedHistory) ?>)</span></h2>
 
             <?php if (empty($selectedHistory)): ?>
-            <div class="admin-bank-empty">Brak transakcji dla tego gracza.</div>
+            <div class="abp-empty">Brak transakcji dla tego gracza.</div>
+
             <?php else: ?>
-            <div class="admin-bank-history">
-                <div class="admin-bank-history-header">
+
+            <!-- Desktop table / Mobile cards -->
+            <div class="abp-hist-table">
+                <div class="abp-hist-header">
                     <span>Data</span>
                     <span>Typ</span>
                     <span>Strona</span>
                     <span>Opis</span>
-                    <span style="text-align:right">Kwota</span>
+                    <span class="abp-col-r">Kwota</span>
                 </div>
                 <?php foreach ($selectedHistory as $row):
-                    $isIn = !empty($row['is_inflow']);
-                    $amt  = (float)($row['signed_amount'] ?? 0);
-                    $sign = $isIn ? '+' : '';
-                    $cls  = $isIn ? 'admin-bh-in' : 'admin-bh-out';
-                    $type = (string)($row['transaction_type'] ?? '-');
+                    $isIn  = !empty($row['is_inflow']);
+                    $amt   = (float)($row['signed_amount'] ?? 0);
+                    $sign  = $isIn ? '+' : '';
+                    $cls   = $isIn ? 'abp-in' : 'abp-out';
+                    $type  = (string)($row['transaction_type'] ?? '');
+                    $tLbl  = $typeLabels[$type] ?? $type;
+                    $desc  = (string)($row['description'] ?? '');
+                    $cpart = (string)($row['counterparty_label'] ?? '');
+                    $isAdm = ($type === 'admin_adjustment');
                 ?>
-                <div class="admin-bank-history-row">
-                    <span class="admin-bh-date"><?= htmlspecialchars($row['created_at_fmt'] ?? '') ?></span>
-                    <span>
-                        <span class="admin-bh-type admin-bh-type-<?= htmlspecialchars($type) ?>"><?= htmlspecialchars($type) ?></span>
-                        <?php if ($type === 'admin_adjustment'): ?>
-                        <span class="admin-bh-badge-admin">ADMIN</span>
-                        <?php endif ?>
+                <div class="abp-hist-row">
+                    <span class="abp-col-date"><?= htmlspecialchars($row['created_at_fmt'] ?? '') ?></span>
+                    <span class="abp-col-type">
+                        <span class="abp-type-pill abp-type-<?= htmlspecialchars($type) ?>"><?= htmlspecialchars($tLbl) ?></span>
+                        <?php if ($isAdm): ?><span class="abp-adm-badge">ADMIN</span><?php endif ?>
                     </span>
-                    <span class="admin-bh-counterparty"><?= htmlspecialchars($row['counterparty_label'] ?? '') ?></span>
-                    <span class="admin-bh-desc"><?= htmlspecialchars((string)($row['description'] ?? '')) ?></span>
-                    <span class="admin-bh-amount <?= $cls ?>">
+                    <span class="abp-col-party"><?= htmlspecialchars($cpart) ?></span>
+                    <span class="abp-col-desc"><?= $desc !== '' ? htmlspecialchars($desc) : '<span class="abp-muted">—</span>' ?></span>
+                    <span class="abp-col-amt <?= $cls ?>">
                         <?= $sign ?><?= number_format($amt, 2, ',', ' ') ?> PLN
                     </span>
                 </div>
                 <?php endforeach ?>
             </div>
-            <?php endif ?>
-        </div>
 
-        <?php endif // selectedPlayer ?>
+            <?php endif ?>
+        </section>
+
+        <?php endif ?>
     </main>
 </div>
 
 <!-- Modal korekty salda / Balance adjustment modal -->
-<div id="admin-bank-modal" class="admin-bank-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="admin-bank-modal-title">
-    <div class="admin-bank-modal">
-        <button type="button" class="admin-bank-modal-close" id="admin-bank-modal-close" aria-label="Zamknij">&times;</button>
-        <div class="admin-bank-modal-icon" aria-hidden="true" id="admin-bank-modal-icon">
-            <!-- dynamicznie / dynamically set via JS -->
-        </div>
-        <h3 id="admin-bank-modal-title" class="admin-bank-modal-title" id="admin-bank-modal-title-text">Korekta salda</h3>
-        <p class="admin-bank-modal-desc" id="admin-bank-modal-desc">Gracz: <strong id="admin-bank-modal-player"></strong></p>
+<div id="abp-modal" class="abp-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="abp-modal-title">
+    <div class="abp-modal">
+        <button type="button" class="abp-modal-x" id="abp-modal-close" aria-label="Zamknij">&times;</button>
 
-        <form method="post" id="admin-bank-modal-form">
+        <div class="abp-modal-icon" id="abp-modal-icon" aria-hidden="true"></div>
+        <h3 class="abp-modal-title" id="abp-modal-title">Korekta salda</h3>
+        <p class="abp-modal-sub" id="abp-modal-sub">Gracz: <strong id="abp-modal-player-lbl"></strong></p>
+
+        <form method="post" id="abp-modal-form">
             <?= CSRF::field() ?>
-            <input type="hidden" name="action"    id="admin-bank-modal-action"    value="">
-            <input type="hidden" name="player_id" id="admin-bank-modal-player-id" value="">
+            <input type="hidden" name="action"    id="abp-modal-action"    value="">
+            <input type="hidden" name="player_id" id="abp-modal-pid"       value="">
 
-            <div class="admin-bank-form-group">
-                <label for="admin-bank-modal-amount">Kwota (PLN)</label>
-                <input type="text"
-                       inputmode="numeric"
-                       pattern="[0-9 .,]*"
-                       id="admin-bank-modal-amount"
-                       name="amount"
-                       placeholder="np. 10 000,00"
-                       autocomplete="off"
-                       required>
+            <div class="abp-field">
+                <label for="abp-modal-amount">Kwota (PLN)</label>
+                <input type="text" inputmode="decimal" id="abp-modal-amount" name="amount"
+                       placeholder="np. 10 000,00" autocomplete="off" required>
             </div>
 
-            <div class="admin-bank-form-group">
-                <label for="admin-bank-modal-note">Opis korekty <span style="color:var(--red,#e05555)">*</span></label>
-                <textarea id="admin-bank-modal-note"
-                          name="note"
-                          rows="3"
-                          maxlength="255"
-                          placeholder="Obowiazkowy opis powodu korekty..."
-                          required></textarea>
-                <small>Opis jest wymagany i trafi do historii transakcji oraz powiadomienia gracza.</small>
+            <div class="abp-field">
+                <label for="abp-modal-note">
+                    Opis korekty
+                    <span class="abp-required" aria-hidden="true">*</span>
+                </label>
+                <textarea id="abp-modal-note" name="note" rows="3" maxlength="255"
+                          placeholder="Obowiazkowy opis powodu korekty..." required></textarea>
+                <small>Opis zostanie zapisany w historii i wyslany do gracza jako powiadomienie.</small>
             </div>
 
-            <div class="admin-bank-modal-actions">
-                <button type="button" class="btn btn-ghost" id="admin-bank-modal-cancel">Anuluj</button>
-                <button type="submit" class="btn" id="admin-bank-modal-submit">Zatwierdz</button>
+            <div class="abp-modal-btns">
+                <button type="button" class="btn btn-ghost" id="abp-modal-cancel">Anuluj</button>
+                <button type="submit" class="btn" id="abp-modal-submit">Zatwierdz</button>
             </div>
         </form>
     </div>
 </div>
 
 <style>
-/* ---- Admin Bank Panel styles ---- */
-.admin-bank-flash {
-    padding: 12px 16px;
+/* ===========================================================
+   ADMIN BANK PANEL — mobile-first styles
+   =========================================================== */
+
+/* Page title */
+.abp-page-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 16px;
+    color: var(--text, #eee);
+}
+
+/* Flash message */
+.abp-flash {
+    padding: 11px 14px;
     border-radius: 8px;
     border: 1px solid;
-    margin-bottom: 16px;
-    font-size: 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.5;
 }
-.admin-bank-flash--success { background: rgba(78,201,122,.1); border-color: rgba(78,201,122,.3); color: #4ec97a; }
-.admin-bank-flash--error   { background: rgba(224,85,85,.08); border-color: rgba(224,85,85,.3); color: #e05555; }
+.abp-flash--success { background: rgba(78,201,122,.08); border-color: rgba(78,201,122,.3); color: #4ec97a; }
+.abp-flash--error   { background: rgba(224,85,85,.08);  border-color: rgba(224,85,85,.3);  color: #e05555; }
 
-.admin-bank-layout {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 20px;
-    align-items: start;
+/* Mobile select picker — visible only on small screens */
+.abp-mobile-picker {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
 }
-@media (max-width: 900px) {
-    .admin-bank-layout { grid-template-columns: 1fr; }
-    .admin-bank-sidebar { max-height: 320px; }
+.abp-select-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted, #888);
+    font-weight: 700;
+}
+.abp-select {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg3, #1a1a1a);
+    border: 1px solid var(--border, #333);
+    border-radius: 8px;
+    color: var(--text, #eee);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+}
+.abp-select:focus { border-color: var(--orange, #c8860a); }
+
+/* Two-column layout (desktop) */
+.abp-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 16px;
+    align-items: start;
 }
 
 /* Sidebar */
-.admin-bank-sidebar {
-    background: var(--bg2, #1a1a1a);
-    border: 1px solid var(--border2, #2a2a2a);
+.abp-sidebar {
+    background: var(--bg2, #161616);
+    border: 1px solid var(--border, #2a2a2a);
     border-radius: 10px;
     overflow: hidden;
     position: sticky;
-    top: 16px;
-    max-height: calc(100vh - 120px);
+    top: 12px;
+    max-height: calc(100vh - 80px);
     display: flex;
     flex-direction: column;
 }
-.admin-bank-sidebar-title {
-    font-size: 11px;
+.abp-sidebar-head {
+    padding: 10px 13px 8px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: var(--text3, #888);
-    padding: 12px 14px 10px;
-    border-bottom: 1px solid var(--border2, #2a2a2a);
-    margin: 0;
+    color: var(--muted, #888);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border, #2a2a2a);
     flex-shrink: 0;
 }
-.admin-bank-player-list {
-    overflow-y: auto;
-    flex: 1;
-}
-.admin-bank-player-row {
+.abp-player-list { overflow-y: auto; flex: 1; }
+.abp-player-row {
     display: grid;
-    grid-template-columns: 36px 1fr auto;
-    grid-template-rows: auto auto;
-    gap: 2px 8px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border2, #2a2a2a);
+    grid-template-columns: 32px 1fr auto;
+    gap: 6px;
+    align-items: center;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border, #2a2a2a);
     text-decoration: none;
     color: inherit;
-    transition: background .12s;
+    transition: background .1s;
     cursor: pointer;
 }
-.admin-bank-player-row:hover { background: rgba(255,255,255,.03); }
-.admin-bank-player-row--active { background: rgba(200,134,10,.08); border-left: 3px solid var(--orange, #c8860a); }
-.abp-id { grid-column: 1; grid-row: 1 / -1; display:flex; align-items:center; font-size: 11px; color: var(--text3, #888); font-weight: 700; }
-.abp-email { grid-column: 2; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.abp-balance { grid-column: 3; font-size: 12px; font-weight: 700; color: var(--green, #4ec97a); text-align: right; white-space: nowrap; }
-.abp-number { grid-column: 2; font-size: 10px; font-family: monospace; color: var(--orange, #c8860a); }
-.abp-no-account { grid-column: 2; font-size: 10px; color: var(--text3, #888); font-style: italic; }
-.admin-bank-empty { padding: 16px; font-size: 13px; color: var(--text3, #888); text-align: center; }
+.abp-player-row:last-child { border-bottom: none; }
+.abp-player-row:hover { background: rgba(255,255,255,.03); }
+.abp-player-row--on {
+    background: rgba(200,134,10,.07);
+    border-left: 3px solid var(--orange, #c8860a);
+}
+.abp-pr-id  { font-size: 10px; color: var(--muted, #888); font-weight: 700; }
+.abp-pr-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.abp-pr-email { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: inherit; }
+.abp-pr-sub { font-size: 10px; }
+.abp-pr-acc   { color: var(--orange, #c8860a); font-family: monospace; }
+.abp-pr-noacc { color: var(--muted, #888); font-style: italic; }
+.abp-pr-bal { font-size: 11px; font-weight: 700; color: var(--green, #4ec97a); text-align: right; white-space: nowrap; }
 
 /* Main area */
-.admin-bank-main { min-height: 300px; }
-.admin-bank-placeholder {
+.abp-main { min-height: 200px; }
+
+/* Placeholder */
+.abp-placeholder {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 240px;
-    gap: 12px;
-    color: var(--text3, #888);
-    font-size: 14px;
+    min-height: 200px;
+    gap: 10px;
+    color: var(--muted, #888);
+    font-size: 13px;
     text-align: center;
 }
+.abp-placeholder-icon { opacity: .2; }
 
 /* Player header */
-.admin-bank-player-header {
+.abp-player-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
     padding-bottom: 12px;
-    border-bottom: 1px solid var(--border2, #2a2a2a);
+    border-bottom: 1px solid var(--border, #2a2a2a);
 }
-.admin-bank-player-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.admin-bank-player-id { font-size: 12px; color: var(--text3, #888); font-weight: 700; }
-.admin-bank-player-email { font-size: 15px; }
+.abp-ph-id    { font-size: 11px; color: var(--muted, #888); font-weight: 700; }
+.abp-ph-email { font-size: 14px; font-weight: 700; font-family: inherit; word-break: break-all; }
+/* Status badges */
+.abp-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    border: 1px solid;
+}
+.abp-status--active         { color: #4ec97a; border-color: rgba(78,201,122,.4); background: rgba(78,201,122,.08); }
+.abp-status--financial_risk { color: var(--orange, #c8860a); border-color: rgba(200,134,10,.4); background: rgba(200,134,10,.07); }
+.abp-status--under_bailiff  { color: #e0b35a; border-color: rgba(224,179,90,.4); background: rgba(224,179,90,.07); }
+.abp-status--bankrupt       { color: #e05555; border-color: rgba(224,85,85,.4); background: rgba(224,85,85,.08); }
+.abp-status--banned         { color: var(--muted, #888); border-color: rgba(128,128,128,.3); background: rgba(128,128,128,.05); }
 
 /* Tiles */
-.admin-bank-tiles {
+.abp-tiles {
     display: grid;
-    grid-template-columns: 1.2fr 1fr auto;
-    gap: 12px;
-    margin-bottom: 20px;
-    align-items: stretch;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
 }
-@media (max-width: 700px) { .admin-bank-tiles { grid-template-columns: 1fr; } }
-.admin-bank-tile {
-    background: var(--bg2, #1a1a1a);
-    border: 1px solid var(--border2, #2a2a2a);
+.abp-tile {
+    background: var(--bg2, #161616);
+    border: 1px solid var(--border, #2a2a2a);
     border-radius: 10px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-height: 80px;
+    gap: 5px;
 }
-.admin-bank-tile-label {
+.abp-tile-lbl {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .05em;
-    color: var(--text3, #888);
+    color: var(--muted, #888);
     font-weight: 700;
 }
-.admin-bank-tile-value {
-    font-size: 18px;
+.abp-tile-val {
+    font-size: 16px;
     font-weight: 700;
+    color: var(--text, #eee);
     word-break: break-all;
+    line-height: 1.3;
 }
-.admin-bank-tile-value--mono { font-family: monospace; color: var(--orange, #c8860a); font-size: 15px; }
-.admin-bank-tile-value--muted { color: var(--text3, #888); font-size: 13px; font-style: italic; font-weight: 400; }
-.admin-bank-tile--balance .admin-bank-tile-value { color: var(--green, #4ec97a); }
-.admin-bank-tile--actions {
-    background: transparent;
-    border: 0;
-    padding: 0;
-    justify-content: center;
+.abp-tile-val--mono  { font-family: monospace; color: var(--orange, #c8860a); font-size: 14px; }
+.abp-tile-val--muted { color: var(--muted, #888); font-size: 12px; font-style: italic; font-weight: 400; }
+.abp-tile--bal .abp-tile-val { color: var(--green, #4ec97a); }
+
+/* Action buttons row */
+.abp-actions {
+    display: flex;
     gap: 8px;
-    min-height: 0;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+.abp-btn-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    justify-content: center;
+    min-width: 120px;
+    font-size: 12px;
 }
 
 /* Section title */
-.admin-bank-section-title {
+.abp-sect-title {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: var(--text3, #888);
-    margin: 0 0 10px;
+    color: var(--muted, #888);
     font-weight: 700;
+    margin: 0 0 10px;
 }
+.abp-hist-count { font-weight: 400; opacity: .7; }
 
-/* History table */
-.admin-bank-history-wrap {
-    background: var(--bg2, #1a1a1a);
-    border: 1px solid var(--border2, #2a2a2a);
+/* History — desktop table */
+.abp-hist-wrap {
+    background: var(--bg2, #161616);
+    border: 1px solid var(--border, #2a2a2a);
     border-radius: 10px;
-    padding: 16px;
-    overflow-x: auto;
+    padding: 14px;
 }
-.admin-bank-history { min-width: 600px; }
-.admin-bank-history-header,
-.admin-bank-history-row {
+.abp-hist-table { width: 100%; }
+.abp-hist-header,
+.abp-hist-row {
     display: grid;
-    grid-template-columns: 130px 150px 160px 1fr 140px;
+    grid-template-columns: 130px 160px 160px 1fr 140px;
     gap: 8px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border2, #2a2a2a);
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border, #2a2a2a);
     align-items: center;
-    font-size: 13px;
+    font-size: 12px;
 }
-.admin-bank-history-header {
+.abp-hist-header {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .04em;
-    color: var(--text3, #888);
+    color: var(--muted, #888);
     font-weight: 700;
-    background: var(--bg3, #222);
+    background: var(--bg3, #1e1e1e);
     border-radius: 6px;
     padding: 6px 8px;
     margin-bottom: 4px;
     border: none;
 }
-.admin-bank-history-row:last-child { border-bottom: none; }
-.admin-bank-history-row:hover { background: rgba(255,255,255,.015); }
-.admin-bh-date { color: var(--text3, #888); font-size: 12px; white-space: nowrap; }
-.admin-bh-type {
+.abp-hist-row:last-child { border-bottom: none; }
+.abp-hist-row:hover { background: rgba(255,255,255,.015); border-radius: 4px; }
+.abp-col-date  { color: var(--muted, #888); white-space: nowrap; font-size: 11px; }
+.abp-col-type  { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.abp-col-party { font-family: monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.abp-col-desc  { font-size: 11px; color: var(--muted, #888); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.abp-col-r     { text-align: right; }
+.abp-col-amt   { font-weight: 700; text-align: right; white-space: nowrap; }
+.abp-in  { color: var(--green, #4ec97a); }
+.abp-out { color: var(--red, #e05555); }
+
+/* Type pill */
+.abp-type-pill {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-    background: var(--bg3, #222);
-    border: 1px solid var(--border2, #2a2a2a);
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--bg3, #1e1e1e);
+    border: 1px solid var(--border, #2a2a2a);
+    white-space: nowrap;
 }
-.admin-bh-type-admin_adjustment { color: var(--orange, #c8860a); border-color: rgba(200,134,10,.4); }
-.admin-bh-type-player_transfer  { color: #58c4dd; border-color: rgba(88,196,221,.3); }
-.admin-bh-type-loan             { color: var(--green, #4ec97a); border-color: rgba(78,201,122,.3); }
-.admin-bh-type-loan_payment     { color: #e0b35a; border-color: rgba(224,179,90,.3); }
-.admin-bh-badge-admin {
+.abp-type-admin_adjustment { color: var(--orange, #c8860a); border-color: rgba(200,134,10,.4); }
+.abp-type-player_transfer  { color: #58c4dd; border-color: rgba(88,196,221,.3); }
+.abp-type-loan             { color: var(--green, #4ec97a); border-color: rgba(78,201,122,.3); }
+.abp-type-loan_payment     { color: #e0b35a; border-color: rgba(224,179,90,.3); }
+.abp-type-tax              { color: var(--red, #e05555); border-color: rgba(224,85,85,.3); }
+.abp-adm-badge {
     display: inline-block;
-    padding: 1px 5px;
-    border-radius: 4px;
+    padding: 1px 4px;
+    border-radius: 3px;
     font-size: 9px;
     font-weight: 800;
     background: rgba(200,134,10,.15);
     color: var(--orange, #c8860a);
-    letter-spacing: .04em;
-    margin-left: 4px;
-    vertical-align: middle;
+    letter-spacing: .03em;
 }
-.admin-bh-counterparty { font-family: monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
-.admin-bh-desc { font-size: 12px; color: var(--text3, #888); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-bh-amount { font-weight: 700; font-size: 13px; text-align: right; white-space: nowrap; }
-.admin-bh-in  { color: var(--green, #4ec97a); }
-.admin-bh-out { color: var(--red, #e05555); }
+.abp-empty  { padding: 12px 4px; font-size: 13px; color: var(--muted, #888); }
+.abp-muted  { color: var(--muted, #888); }
+.abp-required { color: var(--red, #e05555); }
 
 /* Modal */
-.admin-bank-modal-overlay {
+.abp-modal-overlay {
     position: fixed;
     inset: 0;
     z-index: 9999;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
     background: rgba(0,0,0,.65);
     backdrop-filter: blur(2px);
+    padding: 0;
 }
-.admin-bank-modal {
+.abp-modal {
     position: relative;
-    width: min(480px, 92vw);
-    background: var(--bg, #0f0f0f);
-    border: 1px solid var(--border2, #2a2a2a);
-    border-radius: 14px;
-    padding: 28px 28px 24px;
-    box-shadow: 0 24px 60px rgba(0,0,0,.6);
-    animation: abm-pop .2s ease;
+    width: 100%;
+    max-width: 520px;
+    background: var(--bg, #111);
+    border: 1px solid var(--border, #2a2a2a);
+    border-radius: 16px 16px 0 0;
+    padding: 20px 20px 28px;
+    box-shadow: 0 -12px 40px rgba(0,0,0,.5);
+    animation: abp-slide-up .22s ease;
+    max-height: 92vh;
+    overflow-y: auto;
 }
-@keyframes abm-pop {
-    from { opacity: 0; transform: translateY(10px) scale(.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes abp-slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
 }
-.admin-bank-modal-close {
+.abp-modal-x {
     position: absolute;
     top: 10px; right: 14px;
     background: transparent; border: 0;
-    color: var(--text3, #888);
-    font-size: 24px; line-height: 1;
-    cursor: pointer; padding: 4px 10px;
+    color: var(--muted, #888);
+    font-size: 22px; line-height: 1;
+    cursor: pointer; padding: 4px 8px;
     border-radius: 6px;
     transition: background .12s, color .12s;
 }
-.admin-bank-modal-close:hover { background: rgba(255,255,255,.05); color: var(--text, #eee); }
-.admin-bank-modal-icon { text-align: center; margin-bottom: 8px; }
-.admin-bank-modal-icon svg { width: 36px; height: 36px; }
-.admin-bank-modal-title { text-align: center; font-size: 18px; margin: 0 0 4px; }
-.admin-bank-modal-desc  { text-align: center; font-size: 13px; color: var(--text3, #888); margin: 0 0 16px; }
-.admin-bank-form-group { margin-bottom: 14px; }
-.admin-bank-form-group label {
-    display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-    color: var(--text3, #888); font-weight: 700; margin-bottom: 6px;
+.abp-modal-x:hover { background: rgba(255,255,255,.06); color: var(--text, #eee); }
+.abp-modal-icon { text-align: center; margin-bottom: 6px; }
+.abp-modal-icon svg { width: 34px; height: 34px; }
+.abp-modal-title { text-align: center; font-size: 17px; font-weight: 700; margin: 0 0 3px; }
+.abp-modal-sub   { text-align: center; font-size: 12px; color: var(--muted, #888); margin: 0 0 16px; }
+.abp-field { margin-bottom: 12px; }
+.abp-field label {
+    display: block;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted, #888); font-weight: 700; margin-bottom: 5px;
 }
-.admin-bank-form-group input,
-.admin-bank-form-group textarea {
+.abp-field input,
+.abp-field textarea {
     width: 100%; box-sizing: border-box;
-    background: var(--bg2, #1a1a1a);
-    border: 1px solid var(--border2, #2a2a2a);
+    background: var(--bg2, #161616);
+    border: 1px solid var(--border, #2a2a2a);
     border-radius: 8px;
     color: var(--text, #eee);
-    font-size: 14px;
+    font-size: 15px;
     padding: 10px 12px;
     transition: border-color .12s, box-shadow .12s;
     outline: none;
     font-family: inherit;
     resize: vertical;
 }
-.admin-bank-form-group input:focus,
-.admin-bank-form-group textarea:focus {
+.abp-field input:focus,
+.abp-field textarea:focus {
     border-color: var(--orange, #c8860a);
-    box-shadow: 0 0 0 3px rgba(200,134,10,.15);
+    box-shadow: 0 0 0 3px rgba(200,134,10,.14);
 }
-.admin-bank-form-group small { display: block; font-size: 11px; color: var(--text3, #888); margin-top: 5px; }
-.admin-bank-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.abp-field small { display: block; font-size: 10px; color: var(--muted, #888); margin-top: 4px; line-height: 1.4; }
+.abp-modal-btns { display: flex; gap: 8px; margin-top: 14px; }
+.abp-modal-btns .btn { flex: 1; justify-content: center; }
+
+/* -------- RESPONSIVE -------- */
+
+/* Tablet: compact sidebar */
+@media (max-width: 1080px) {
+    .abp-layout { grid-template-columns: 240px 1fr; }
+    .abp-pr-email { font-size: 11px; }
+}
+
+/* Mobile breakpoint: switch to single column + dropdown */
+@media (max-width: 760px) {
+    .abp-mobile-picker { display: flex; }
+    .abp-layout { display: block; }
+    .abp-sidebar { display: none; }
+    .abp-modal {
+        border-radius: 16px 16px 0 0;
+        max-width: 100%;
+    }
+
+    /* Tiles full width on mobile */
+    .abp-tiles { grid-template-columns: 1fr 1fr; }
+    .abp-tile-val--mono { font-size: 12px; }
+
+    /* Action buttons stacked */
+    .abp-actions { flex-direction: column; }
+    .abp-btn-action { min-width: unset; flex: none; width: 100%; }
+
+    /* History: card layout instead of table */
+    .abp-hist-header { display: none; }
+    .abp-hist-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto auto;
+        gap: 3px 8px;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--border, #2a2a2a);
+        border-radius: 0;
+    }
+    .abp-col-date  { grid-column: 1; grid-row: 1; font-size: 10px; }
+    .abp-col-amt   { grid-column: 2; grid-row: 1; font-size: 14px; text-align: right; }
+    .abp-col-type  { grid-column: 1 / -1; grid-row: 2; }
+    .abp-col-party { grid-column: 1 / -1; grid-row: 3; font-size: 11px; color: var(--muted, #888); white-space: normal; }
+    .abp-col-desc  { grid-column: 1 / -1; grid-row: 4; font-size: 11px; white-space: normal; }
+}
+
+/* Very small screens */
+@media (max-width: 380px) {
+    .abp-tiles { grid-template-columns: 1fr; }
+    .abp-tile-val { font-size: 15px; }
+    .abp-modal { padding: 18px 16px 24px; }
+}
+
+/* Desktop: modal as centered dialog instead of bottom sheet */
+@media (min-width: 761px) {
+    .abp-modal-overlay {
+        align-items: center;
+        padding: 20px;
+    }
+    .abp-modal {
+        border-radius: 14px;
+        max-width: 480px;
+        animation: abp-pop .2s ease;
+        max-height: 90vh;
+    }
+    @keyframes abp-pop {
+        from { opacity: 0; transform: scale(.96) translateY(8px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+}
 </style>
 
 <script>
 (function () {
     'use strict';
 
-    var modal      = document.getElementById('admin-bank-modal');
-    var form       = document.getElementById('admin-bank-modal-form');
-    var btnClose   = document.getElementById('admin-bank-modal-close');
-    var btnCancel  = document.getElementById('admin-bank-modal-cancel');
-    var btnCredit  = document.getElementById('admin-bank-credit-trigger');
-    var btnDebit   = document.getElementById('admin-bank-debit-trigger');
-    var inputAction  = document.getElementById('admin-bank-modal-action');
-    var inputPid     = document.getElementById('admin-bank-modal-player-id');
-    var elPlayer     = document.getElementById('admin-bank-modal-player');
-    var elTitle      = document.getElementById('admin-bank-modal-title');
-    var elSubmit     = document.getElementById('admin-bank-modal-submit');
-    var elIcon       = document.getElementById('admin-bank-modal-icon');
+    var modal   = document.getElementById('abp-modal');
+    var form    = document.getElementById('abp-modal-form');
+    var btnX    = document.getElementById('abp-modal-close');
+    var btnCnl  = document.getElementById('abp-modal-cancel');
+    var credit  = document.getElementById('abp-credit-btn');
+    var debit   = document.getElementById('abp-debit-btn');
+    var elAct   = document.getElementById('abp-modal-action');
+    var elPid   = document.getElementById('abp-modal-pid');
+    var elPlr   = document.getElementById('abp-modal-player-lbl');
+    var elTitle = document.getElementById('abp-modal-title');
+    var elSubmit= document.getElementById('abp-modal-submit');
+    var elIcon  = document.getElementById('abp-modal-icon');
 
     if (!modal || !form) return;
 
-    // SVG dla kredytu i debetu (brak emoji) / SVG for credit and debit (no emoji)
-    var svgCredit = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4ec97a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
-    var svgDebit  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#e05555" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+    // SVG ikony bez emoji / SVG icons (no emoji)
+    var svgPlus = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4ec97a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+    var svgMinus = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#e05555" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
 
     function openModal(action, pid, email) {
-        inputAction.value = action;
-        inputPid.value    = pid;
-        if (elPlayer) elPlayer.textContent = '#' + pid + ' ' + email;
+        elAct.value = action;
+        elPid.value = pid;
+        if (elPlr)   elPlr.textContent = '#' + pid + ' ' + email;
         if (action === 'admin_credit') {
-            if (elTitle)  elTitle.textContent  = 'Dodaj srodki';
+            if (elTitle)  elTitle.textContent   = 'Dodaj srodki';
             if (elSubmit) { elSubmit.textContent = 'Dodaj srodki'; elSubmit.className = 'btn btn-success'; }
-            if (elIcon)   elIcon.innerHTML = svgCredit;
+            if (elIcon)   elIcon.innerHTML = svgPlus;
         } else {
-            if (elTitle)  elTitle.textContent  = 'Pobierz srodki';
+            if (elTitle)  elTitle.textContent   = 'Pobierz srodki';
             if (elSubmit) { elSubmit.textContent = 'Pobierz srodki'; elSubmit.className = 'btn btn-danger'; }
-            if (elIcon)   elIcon.innerHTML = svgDebit;
+            if (elIcon)   elIcon.innerHTML = svgMinus;
         }
-        // Wyczysc pola / Clear fields
-        var amt  = document.getElementById('admin-bank-modal-amount');
-        var note = document.getElementById('admin-bank-modal-note');
-        if (amt)  amt.value  = '';
-        if (note) note.value = '';
+        var fAmt  = document.getElementById('abp-modal-amount');
+        var fNote = document.getElementById('abp-modal-note');
+        if (fAmt)  fAmt.value  = '';
+        if (fNote) fNote.value = '';
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
-        setTimeout(function () { if (amt) amt.focus(); }, 30);
+        setTimeout(function () { if (fAmt) fAmt.focus(); }, 40);
     }
 
     function closeModal() {
@@ -537,23 +733,11 @@ extract($viewData, EXTR_SKIP);
         document.body.style.overflow = '';
     }
 
-    if (btnCredit) {
-        btnCredit.addEventListener('click', function () {
-            openModal('admin_credit', this.dataset.playerId, this.dataset.playerEmail);
-        });
-    }
-    if (btnDebit) {
-        btnDebit.addEventListener('click', function () {
-            openModal('admin_debit', this.dataset.playerId, this.dataset.playerEmail);
-        });
-    }
-    btnClose  && btnClose.addEventListener('click', closeModal);
-    btnCancel && btnCancel.addEventListener('click', closeModal);
-    modal.addEventListener('click', function (e) {
-        if (e.target === modal) closeModal();
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal.style.display === 'flex') closeModal();
-    });
+    credit  && credit.addEventListener('click',  function () { openModal('admin_credit', this.dataset.playerId, this.dataset.playerEmail); });
+    debit   && debit.addEventListener('click',   function () { openModal('admin_debit',  this.dataset.playerId, this.dataset.playerEmail); });
+    btnX    && btnX.addEventListener('click',    closeModal);
+    btnCnl  && btnCnl.addEventListener('click',  closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.style.display === 'flex') closeModal(); });
 })();
 </script>
