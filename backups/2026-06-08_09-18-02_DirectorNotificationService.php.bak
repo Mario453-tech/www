@@ -196,30 +196,7 @@ class DirectorNotificationService
             'title_key' => 'director.info_monthly_report.title',
             'message_key' => 'director.info_monthly_report.message',
             'requires_action' => false
-        ],
-
-        // Etap 6: powiadomienia o przelewach P2P (brief, sekcja "Powiadomienia").
-        // Stage 6: P2P transfer notifications (brief, "Notifications" section).
-        'bank_transfer_sent' => [
-            'type'             => 'bank',
-            'priority'         => 'low',
-            'icon'             => '💸',
-            'title_key'        => 'director.bank_transfer_sent.title',
-            'message_key'      => 'director.bank_transfer_sent.message',
-            'requires_action'  => false,
-            'action_url'       => 'bank.php',
-            'action_label_key' => 'director.bank_transfer_sent.action',
-        ],
-        'bank_transfer_received' => [
-            'type'             => 'bank',
-            'priority'         => 'medium',
-            'icon'             => '💰',
-            'title_key'        => 'director.bank_transfer_received.title',
-            'message_key'      => 'director.bank_transfer_received.message',
-            'requires_action'  => false,
-            'action_url'       => 'bank.php',
-            'action_label_key' => 'director.bank_transfer_received.action',
-        ],
+        ]
     ];
 
     public function __construct()
