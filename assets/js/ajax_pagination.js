@@ -8,7 +8,7 @@
         '.hub-pagination',
         '.pipeline-pagination'
     ].join(',');
-    var ajaxLinkContainerSelector = paginationSelector + ', .module-tabs';
+    var ajaxLinkContainerSelector = paginationSelector + ', .module-tabs, .market-tabs';
     var rootSelectors = ['.game-shell-module', '.admin-wrap', 'main.main-content'];
     var isLoading = false;
 
@@ -121,7 +121,7 @@
 
     document.addEventListener('click', function (event) {
         var link = event.target.closest('a[href]');
-        if (!link || link.closest('.logistics-pagination')) {
+        if (!link) {
             return;
         }
 

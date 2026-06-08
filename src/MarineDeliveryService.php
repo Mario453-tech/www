@@ -175,11 +175,48 @@ class MarineDeliveryService
         return $deliveryId;
     }
 
+    /**
+     * Usuwa osierocone aktywne dostawy gracza pozostale po starej logice mikro-kursow.
+     * Removes orphan active player deliveries left over from the legacy micro-shipment logic.
+     *
+     * Czyści tylko rekordy bez wpisu w kolejce portowej, z ETA starszym niz 12 godzin.
+     * Cleans only rows with no port queue entry and ETA older than 12 hours.
+     */
+    public static function purgeOrphanActiveForPlayer(PDO $db, int $playerId): int
+    {
+        try {
+            $stmt = $db->prepare(
+                "DELETE md
+                   FROM marine_deliveries md
+              LEFT JOIN port_queue pq
+                     ON pq.delivery_id = md.id
+                  WHERE md.player_id = ?
+                    AND md.status IN ('departing','in_transit','delayed','waiting_for_port','processing')
+                    AND md.eta_at < NOW() - INTERVAL 12 HOUR
+                    AND pq.delivery_id IS NULL"
+            );
+            $stmt->execute([$playerId]);
+
+            $deleted = $stmt->rowCount();
+            if ($deleted > 0) {
+                GameLog::info('marine', 'purgeOrphanActiveForPlayer removed legacy rows', [
+                    'player_id' => $playerId,
+                    'deleted'   => $deleted,
+                ]);
+            }
+
+            return $deleted;
+        } catch (Throwable $e) {
+            GameLog::error('marine', 'purgeOrphanActiveForPlayer FAILED', $e, ['player_id' => $playerId]);
+            return 0;
+        }
+    }
+
  // 
  // Queries for player panel
  // 
 
- /**
+/**
  * Zwraca aktywne dostawy gracza (w drodze + w kolejce portowej).
  * Returns active deliveries for a player (in transit + in port queue).
  *

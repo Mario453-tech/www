@@ -15,6 +15,15 @@ function switchMarketTab(ev, tab) {
     u.searchParams.set('tab', tab);
     history.replaceState({ marketTab: tab, ajaxUrl: u.toString() }, '', u.origin + u.pathname);
 }
+
+(function () {
+    if (window.location.search.indexOf('tab=') === -1) {
+        return;
+    }
+
+    var u = new URL(window.location);
+    history.replaceState({ marketTab: u.searchParams.get('tab') || 'market', ajaxUrl: u.toString() }, '', u.origin + u.pathname);
+}());
 </script>
 
 <div class="fade-in">

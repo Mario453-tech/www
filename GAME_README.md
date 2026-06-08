@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-06-08 - Logistyka: cleanup starych aktywnych dostaw morskich
+- `src/MarineDeliveryService.php`, `public/logistics.php` - dodano bezpieczne czyszczenie osieroconych aktywnych dostaw morskich bez wpisu w `port_queue`, z ETA starszym niz 12 godzin; usuwa to stare mikro-kursy po poprzednim modelu i zostawia aktualne, prawidlowe rejsy w logistyce.
+
+### 2026-06-08 - Czyste zakladki technical i black market
+- `assets/js/ajax_pagination.js`, `templates/views/market/main.php`, `lang/pl/logistics.php` - wspolny mechanizm czysci teraz takze adresy zakladek `technical` oraz `market/black_market`; w dostawach morskich etykiete `ETA` zmieniono na bardziej czytelne `Planowane dotarcie`.
+
 ### 2026-06-08 - Globalna paginacja bez przeladowania
 - `assets/js/ajax_pagination.js`, `templates/footer.php`, `admin/partials/footer.php`, `templates/views/market/main.php`, `assets/js/logistics.js` - dodano jeden wspolny mechanizm czesciowej paginacji i zakladek modulow dla stron gry oraz admina: market, technical, logistyka i pozostale kontenery paginacji podmieniaja glowna tresc strony, zostawiaja czysty adres bez query stringa i przewijaja do tej samej sekcji/paginacji.
 

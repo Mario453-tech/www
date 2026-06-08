@@ -397,7 +397,7 @@ return [
     'marine.col_port' => 'Port docelowy',
     'marine.col_volume' => 'Objętość',
     'marine.col_status' => 'Status',
-    'marine.col_eta' => 'ETA',
+    'marine.col_eta' => 'Planowane dotarcie',
     'marine.col_incident' => 'Zdarzenie',
     'marine.col_buffer' => 'Bufor',
     'marine.col_missing' => 'Do wypłynięcia',

@@ -18,6 +18,9 @@ require_once $srcDir . '/WellPipelineService.php';
 require_once $srcDir . '/PortService.php';
 require_once $srcDir . '/MarineDeliveryService.php';
 
+// Jednorazowe czyszczenie osieroconych rejsow po starej logice mikro-dostaw / One-time cleanup of orphan voyages from the legacy micro-delivery logic
+MarineDeliveryService::purgeOrphanActiveForPlayer($db, $playerId);
+
 $logisticsSvc = new LogisticsService($playerId);
 $hubSvc       = new HubService($db);
 $econSvc      = new HubEconomyService($hubSvc);
