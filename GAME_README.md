@@ -1,5 +1,8 @@
 ## Changelog
 
+### 2026-06-09 - Dzial prawny admin: czytelniejsza konfiguracja regionow
+- `templates/views/admin/legal/main.php`, `lang/pl/admin/legal.php`, `assets/css/admin.css` - sekcja konfiguracji regionow dostala prosty opis dla laika, grupowane naglowki tabeli, lepsze wyróznienie pierwszej i ostatniej kolumny oraz czytelniejsze formularze dla parametrow odwiertow i hubow; dodatkowo formularze akcji w zakladce wnioskow hubow korzystaja juz ze wspolnej klasy `js-confirm-form` bez inline `style`.
+
 ### 2026-06-09 - Dzial prawny: poprawka bootstrapu hub permits
 - `src/Legal/HubPermitTrait.php` - usunieto niekompatybilne dla aktualnego MySQL `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`; schema hub permits korzysta teraz z `Database::addColumnIfMissing()`, dzieki czemu poprawnie tworza sie kolumny `hub_permit_*` oraz tabela `hub_permit_applications`.
 

@@ -23,7 +23,12 @@ return [
 
     // Tabela regionów
     'admin.legal.regions_title'  => 'Parametry regionów',
+    'admin.legal.regions_intro'  => 'Tutaj ustawiasz, jak trudne i kosztowne są decyzje urzędowe w każdym regionie. W skrócie: ile gracz płaci, ile czeka, jakie ma ryzyko odmowy i czy potrzebuje dodatkowej zgody na hub logistyczny.',
     'admin.legal.no_regions'     => 'Brak skonfigurowanych regionów. Kliknij „Seeduj regiony", aby załadować regiony z mapy świata.',
+    'admin.legal.group_region_state' => 'Stan regionu',
+    'admin.legal.group_drilling_permit' => 'Wniosek o odwiert',
+    'admin.legal.group_player_requirements' => 'Warunki wejścia',
+    'admin.legal.group_hub_permit' => 'Hub logistyczny',
     'admin.legal.col_region'     => 'Region',
     'admin.legal.col_risk'       => 'Ryzyko',
     'admin.legal.col_enabled'    => 'Włączony',
@@ -43,7 +48,16 @@ return [
     'admin.legal.col_cooldown'   => 'Cooldown (min)',
     'admin.legal.col_capital'    => 'Min. kapitał',
     'admin.legal.col_legal_level' => 'Poz. prawny',
+    'admin.legal.col_actions_short' => 'Zapis',
     'admin.legal.btn_save'       => 'Zapisz',
+    'admin.legal.guide_basics_title' => 'Koszt i czas',
+    'admin.legal.guide_basics_text' => 'To podstawowe ustawienia wniosku. Określają, ile gracz płaci za złożenie papierów i jak długo zwykle czeka na odpowiedź urzędu.',
+    'admin.legal.guide_risk_title' => 'Ryzyka decyzji',
+    'admin.legal.guide_risk_text' => 'Te pola mówią, co może pójść nie po myśli gracza: urząd może się spóźnić, odmówić albo nie wydać decyzji wcale.',
+    'admin.legal.guide_requirements_title' => 'Warunki wejścia',
+    'admin.legal.guide_requirements_text' => 'To minimalne progi dla firmy. Jeśli gracz nie ma tyle kapitału albo za słaby dział prawny, nie złoży wniosku w tym regionie.',
+    'admin.legal.guide_hub_title' => 'Hub logistyczny',
+    'admin.legal.guide_hub_text' => 'To osobna zgoda na budowę hubu. Włącz ją tam, gdzie chcesz utrudnić rozwój logistyki i dodać drugi etap formalności.',
 
     // Tabela wniosków
     'admin.legal.applications_title' => 'Wnioski o zezwolenia (ostatnie 500)',

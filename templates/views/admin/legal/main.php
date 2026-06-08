@@ -65,6 +65,7 @@
 
 <section class="panel">
     <p class="panel-title"><?= t('admin.legal.regions_title') ?></p>
+    <p class="panel-hint"><?= t('admin.legal.regions_intro') ?></p>
 
     <?php if (empty($regions)): ?>
     <p class="panel-hint"><?= t('admin.legal.no_regions') ?></p>
@@ -74,15 +75,41 @@
           data-confirm-title="<?= htmlspecialchars(tPlain('admin.legal.btn_seed_regions')) ?>">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_regions">
-        <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
+    <button type="submit" class="btn btn-primary"><?= t('admin.legal.btn_seed_regions') ?></button>
     </form>
     <?php else: ?>
 
+    <div class="detail-grid legal-admin-guide">
+        <article>
+            <p class="dl"><?= t('admin.legal.guide_basics_title') ?></p>
+            <p class="detail-note-sm"><?= t('admin.legal.guide_basics_text') ?></p>
+        </article>
+        <article>
+            <p class="dl"><?= t('admin.legal.guide_risk_title') ?></p>
+            <p class="detail-note-sm"><?= t('admin.legal.guide_risk_text') ?></p>
+        </article>
+        <article>
+            <p class="dl"><?= t('admin.legal.guide_requirements_title') ?></p>
+            <p class="detail-note-sm"><?= t('admin.legal.guide_requirements_text') ?></p>
+        </article>
+        <article>
+            <p class="dl"><?= t('admin.legal.guide_hub_title') ?></p>
+            <p class="detail-note-sm"><?= t('admin.legal.guide_hub_text') ?></p>
+        </article>
+    </div>
+
     <div class="table-scroll-wrap">
-    <table class="data-table">
+    <table class="data-table legal-config-table">
         <thead>
             <tr>
-                <th><?= t('admin.legal.col_region') ?></th>
+                <th rowspan="2"><?= t('admin.legal.col_region') ?></th>
+                <th colspan="3"><?= t('admin.legal.group_region_state') ?></th>
+                <th colspan="8"><?= t('admin.legal.group_drilling_permit') ?></th>
+                <th colspan="2"><?= t('admin.legal.group_player_requirements') ?></th>
+                <th colspan="3"><?= t('admin.legal.group_hub_permit') ?></th>
+                <th rowspan="2"><?= t('admin.legal.col_actions_short') ?></th>
+            </tr>
+            <tr>
                 <th><?= t('admin.legal.col_risk') ?></th>
                 <th><?= t('admin.legal.col_enabled') ?></th>
                 <th><?= t('admin.legal.col_offshore') ?></th>
@@ -96,11 +123,9 @@
                 <th><?= t('admin.legal.col_cooldown') ?></th>
                 <th><?= t('admin.legal.col_capital') ?></th>
                 <th><?= t('admin.legal.col_legal_level') ?></th>
-                <!-- P2a: hub permit columns / Kolumny zezwolen na huby -->
                 <th title="<?= htmlspecialchars(tPlain('admin.legal.hub.col_enabled_hint')) ?>"><?= t('admin.legal.hub.col_enabled') ?></th>
                 <th><?= t('admin.legal.hub.col_cost') ?></th>
                 <th><?= t('admin.legal.hub.col_review_min') ?></th>
-                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -110,7 +135,10 @@
             <?= CSRF::field() ?>
             <input type="hidden" name="action"    value="save_region_config">
             <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
-            <td><strong><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></strong><br><small><?= htmlspecialchars((string)($cfg['region_code'] ?? '')) ?> #<?= (int)$cfg['region_id'] ?></small></td>
+            <td class="legal-config-table__region">
+                <strong><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></strong><br>
+                <small><?= htmlspecialchars((string)($cfg['region_code'] ?? '')) ?> #<?= (int)$cfg['region_id'] ?></small>
+            </td>
             <td>
                 <select name="risk_level" class="input-sm">
                     <?php foreach (['low','medium','high','critical'] as $rl): ?>
@@ -295,7 +323,8 @@
                     'hub_manual_refuse'      => ['btn-danger',    t('admin.legal.action_refuse')],
                     'hub_manual_reset'       => ['btn-secondary', t('admin.legal.action_reset')],
                 ] as $act => [$btnCss, $btnLabel]): ?>
-                <form method="post" action="/admin/legal.php?tab=hub_applications" style="display:inline"
+                <form method="post" action="/admin/legal.php?tab=hub_applications"
+                      class="js-confirm-form"
                       data-confirm="<?= htmlspecialchars(tPlain('admin.legal.confirm_action'), ENT_QUOTES) ?>"
                       data-confirm-label="<?= htmlspecialchars($btnLabel, ENT_QUOTES) ?>">
                     <?= CSRF::field() ?>
