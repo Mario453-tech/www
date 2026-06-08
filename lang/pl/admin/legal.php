@@ -89,4 +89,23 @@ return [
     'admin.legal.btn_run_migration' => 'Uruchom migrację',
     'admin.legal.migration_confirm' => 'Uruchomić migrację zezwoleń przejściowych? Operacja jest bezpieczna i idempotentna.',
     'admin.legal.msg_migration_done'=> 'Migracja zakończona. Nowe wpisy przejściowe: :n.',
+
+    // =========== P2a: Zezwolenia na huby / Hub permit admin ===========
+
+    'admin.legal.hub.tab_applications'  => 'Wnioski na huby',
+    'admin.legal.hub.applications_title'=> 'Wnioski o zezwolenia na huby (ostatnie 500)',
+    'admin.legal.hub.no_applications'   => 'Brak wniosków o zezwolenia na huby.',
+
+    'admin.legal.hub.stat_total'   => 'Wnioski na huby',
+    'admin.legal.hub.stat_granted' => 'Przyznane (hub)',
+
+    'admin.legal.hub.col_enabled'      => 'Hub wymagany',
+    'admin.legal.hub.col_enabled_hint' => 'Czy zezwolenie na hub jest wymagane w tym regionie?',
+    'admin.legal.hub.col_cost'         => 'Koszt (hub)',
+    'admin.legal.hub.col_review_min'   => 'Czas (hub, min)',
+
+    'admin.legal.hub.msg_manual_grant'       => 'Zezwolenie na hub przyznane ręcznie.',
+    'admin.legal.hub.msg_manual_no_decision' => 'Wniosek (hub) oznaczony jako brak decyzji.',
+    'admin.legal.hub.msg_manual_refuse'      => 'Wniosek (hub) odrzucony ręcznie.',
+    'admin.legal.hub.msg_manual_reset'       => 'Wniosek (hub) zresetowany do statusu pending.',
 ];

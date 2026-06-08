@@ -4,6 +4,11 @@
 /** @var array<int,array<string,mixed>> $available */
 /** @var array<int,array<string,mixed>> $locked */
 /** @var array<int,array<string,mixed>> $capitalLocked */
+/** @var array<int,array<string,mixed>> $hubActive */
+/** @var array<int,array<string,mixed>> $hubInProgress */
+/** @var array<int,array<string,mixed>> $hubAvailable */
+/** @var array<int,array<string,mixed>> $hubLocked */
+/** @var bool $hasHubSection */
 /** @var float $cash */
 /** @var string $error */
 /** @var string $success */
@@ -212,5 +217,157 @@ extract($viewData, EXTR_SKIP);
     <p><?= t('legal.no_regions') ?></p>
 </section>
 <?php endif ?>
+
+<?php if ($hasHubSection): ?>
+<!-- ========= SEKCJA: ZEZWOLENIA NA HUBY LOGISTYCZNE / HUB PERMITS ========= -->
+<section class="card">
+    <h3><?= t('legal.hub.section_title') ?></h3>
+    <p class="legal-section-hint"><?= t('legal.hub.page_intro') ?></p>
+</section>
+
+<?php if (!empty($hubActive)): ?>
+<section class="card">
+    <h3><?= t('legal.hub.section_active') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($hubActive as $entry): ?>
+        <?php $cfg = $entry['config']; $permit = $entry['permit']; $app = $permit['application']; ?>
+        <div class="legal-region-card legal-region-card--active">
+            <div class="legal-region-name">
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
+                <span class="legal-badge legal-badge--granted"><?= t('legal.hub.status.granted') ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <?php if (!empty($app['decided_at'])): ?>
+                <span><?= t('legal.decided_at') ?>: <?= htmlspecialchars(substr((string)$app['decided_at'], 0, 16)) ?></span>
+                <?php endif ?>
+            </div>
+            <p class="legal-region-note"><?= t('legal.hub.unlocks_note') ?></p>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<?php if (!empty($hubInProgress)): ?>
+<section class="card">
+    <h3><?= t('legal.hub.section_in_progress') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($hubInProgress as $entry): ?>
+        <?php
+        $cfg    = $entry['config'];
+        $permit = $entry['permit'];
+        $app    = $permit['application'];
+        $badgeCss = match ($permit['status']) {
+            'pending'     => 'legal-badge--pending',
+            'delayed'     => 'legal-badge--delayed',
+            'no_decision' => 'legal-badge--no-decision',
+            default       => '',
+        };
+        ?>
+        <div class="legal-region-card legal-region-card--pending">
+            <div class="legal-region-name">
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
+                <span class="legal-badge <?= $badgeCss ?>"><?= t('legal.hub.status.' . $permit['status']) ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <?php if (!empty($app['decision_due_at'])): ?>
+                <span><?= t('legal.decision_due') ?>: <?= htmlspecialchars(substr((string)$app['decision_due_at'], 0, 16)) ?></span>
+                <?php endif ?>
+                <?php if (!empty($app['delay_count']) && (int)$app['delay_count'] > 0): ?>
+                <span class="legal-delay-count"><?= t('legal.delay_count', ['n' => (int)$app['delay_count']]) ?></span>
+                <?php endif ?>
+            </div>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<?php if (!empty($hubAvailable)): ?>
+<section class="card">
+    <h3><?= t('legal.hub.section_available') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($hubAvailable as $entry): ?>
+        <?php
+        $cfg       = $entry['config'];
+        $permit    = $entry['permit'];
+        $cost      = (float)$cfg['hub_permit_cost'];
+        $reviewMin = (int)$cfg['hub_review_minutes'];
+        $canAfford = $cash >= $cost;
+        $wasRefused = ($permit['status'] === 'refused');
+        ?>
+        <div class="legal-region-card legal-region-card--available">
+            <div class="legal-region-name">
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
+                <?php if ($wasRefused): ?>
+                <span class="legal-badge legal-badge--refused"><?= t('legal.hub.status.refused') ?></span>
+                <?php else: ?>
+                <span class="legal-badge legal-badge--none"><?= t('legal.hub.status.none') ?></span>
+                <?php endif ?>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
+                <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
+            </div>
+            <?php if ($canAfford): ?>
+            <form method="post" action="<?= url('legal') ?>" class="legal-submit-form">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="action"    value="submit_hub_application">
+                <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
+                <button type="submit" class="btn btn-primary legal-submit-btn"
+                        onclick="return confirm(<?= json_encode(
+                            tPlain('legal.hub.confirm_submit', [
+                                'region' => $cfg['region_name'] ?? 'Region ' . $cfg['region_id'],
+                                'cost'   => number_format($cost, 0, ',', ' '),
+                            ])
+                        , JSON_UNESCAPED_UNICODE) ?>)">
+                    <?= t('legal.hub.btn_submit') ?>
+                </button>
+            </form>
+            <?php else: ?>
+            <div class="legal-insufficient">
+                <?= t('legal.hub.err.insufficient_funds', ['cost' => number_format($cost, 0, ',', ' ')]) ?>
+            </div>
+            <?php endif ?>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<?php if (!empty($hubLocked)): ?>
+<section class="card">
+    <h3><?= t('legal.hub.section_locked') ?></h3>
+    <div class="legal-region-list">
+    <?php foreach ($hubLocked as $entry): ?>
+        <?php
+        $cfg        = $entry['config'];
+        $cooldownDt = $entry['cooldown_until'];
+        $remainMin  = (int)ceil(($cooldownDt->getTimestamp() - time()) / 60);
+        ?>
+        <div class="legal-region-card legal-region-card--locked">
+            <div class="legal-region-name">
+                <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
+                <span class="legal-badge legal-badge--refused"><?= t('legal.hub.status.refused') ?></span>
+            </div>
+            <div class="legal-region-meta">
+                <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
+                <span class="legal-cooldown"><?= t('legal.hub.err.cooldown', ['time' => LegalService::minutesToHuman($remainMin)]) ?></span>
+            </div>
+        </div>
+    <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+
+<?php if (empty($hubActive) && empty($hubInProgress) && empty($hubAvailable) && empty($hubLocked)): ?>
+<section class="card">
+    <p><?= t('legal.hub.no_regions_active') ?></p>
+</section>
+<?php endif ?>
+<?php endif /* $hasHubSection */ ?>
 
 </div>

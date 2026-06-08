@@ -54,6 +54,31 @@ class HubAcquisitionService
         $regionMult = max(0.1, (float)$this->hubSvc->cfg('region', $regionId . '.build_cost_mult', '1.0'));
         $cost       = round((float)$defaults['build_cost'] * $regionMult * (float)$acqDefault['build_cost_mult'], 2);
 
+        // Bramka P2a: zezwolenie na hub wymagane jesli hub_permit_enabled=1 w regionie.
+        // P2a gate: hub permit required if hub_permit_enabled=1 in the region (fail-closed).
+        try {
+            $cfgRow = $this->db->prepare(
+                "SELECT hub_permit_enabled FROM legal_region_config WHERE region_id = ? LIMIT 1"
+            );
+            $cfgRow->execute([$regionId]);
+            $cfg = $cfgRow->fetch();
+            if ($cfg && (int)$cfg['hub_permit_enabled'] === 1) {
+                $permStmt = $this->db->prepare(
+                    "SELECT 1 FROM hub_permit_applications
+                      WHERE player_id = ? AND region_id = ? AND status = 'granted' LIMIT 1"
+                );
+                $permStmt->execute([$playerId, $regionId]);
+                if (!$permStmt->fetchColumn()) {
+                    return ['success' => false, 'error' => 'no_hub_permit'];
+                }
+            }
+        } catch (Throwable $e) {
+            GameLog::warn('HubAcquisitionService', 'Hub permit gate failed — blocking (fail-closed)', [
+                'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
+            ]);
+            return ['success' => false, 'error' => 'no_hub_permit'];
+        }
+
         $cashCheck = $this->checkAndDeductCash($playerId, $cost);
         if (!$cashCheck['ok']) {
             return ['success' => false, 'error' => 'insufficient_funds'];

@@ -2,22 +2,21 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Legal/HubPermitTrait.php';
+
 /**
- * LegalService — Dział prawny P1: zezwolenia na wiercenie per region.
+ * LegalService — Dzial prawny P1+P2a: zezwolenia na wiercenie i huby per region.
+ * LegalService — Legal dept P1+P2a: drilling and hub permits per region.
  *
- * Etap 1: warstwa danych + odczyt.
- *  - ensureSchema(): tworzy tabele konfiguracji regionów i wniosków/zezwoleń (MySQL).
- *  - seedRegionConfig(): seeduje konfigurację dla regionów z world_regions
- *    (poziom ryzyka mapowany z political_risk).
- *  - metody odczytu: getRegionConfig, getAllRegionConfigs, getPermitStatus,
- *    hasActivePermit.
+ * P1: zezwolenia na wiercenie (drilling_permit_applications).
+ * P2a: zezwolenia na huby logistyczne (hub_permit_applications) — LegalHubPermitTrait.
  *
- * Zasada nadrzędna: gracz nie może kupić odwiertu w regionie bez aktywnego
- * zezwolenia (granted lub transitional). Bramka jest egzekwowana w WorldMap
- * (etap 2). Gracz nie widzi procentów ryzyka — to parametry admina/ticka.
+ * Zasada nadrzedna: zakup wymaga aktywnego zezwolenia. Bramka fail-closed.
+ * Core rule: purchase requires active permit. Gate is fail-closed.
  */
 class LegalService
 {
+    use LegalHubPermitTrait;
     /** Poziomy ryzyka regionu widziane przez gracza jako prosty opis. */
     public const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
 
@@ -153,6 +152,9 @@ class LegalService
                     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
+
+            // P2a: kolumny i tabela zezwolen na huby / P2a: hub permit columns and table
+            $this->ensureHubPermitSchema();
 
             $this->db->exec(
                 "CREATE TABLE IF NOT EXISTS drilling_permit_applications (

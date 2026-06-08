@@ -32,6 +32,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = $res['message'];
             }
         }
+
+        // P2a: wniosek o zezwolenie na hub / P2a: hub permit application
+        if ($action === 'submit_hub_application' && $regionId > 0) {
+            $res = $legal->submitHubApplication($playerId, $regionId);
+            if ($res['success']) {
+                $success = $res['message'];
+            } else {
+                $error = $res['message'];
+            }
+        }
     }
 }
 
@@ -91,8 +101,46 @@ foreach ($configs as $cfg) {
     }
 }
 
+// P2a: zezwolenia na huby — tylko regiony z hub_permit_enabled=1.
+// P2a: hub permits — only regions with hub_permit_enabled=1.
+$hubEnabledConfigs = array_values(array_filter($configs, static fn($c) => (int)($c['hub_permit_enabled'] ?? 0) === 1));
+$hubRegionIds      = array_column($hubEnabledConfigs, 'region_id');
+
+$hubActive     = []; // granted
+$hubInProgress = []; // pending / delayed / no_decision
+$hubAvailable  = []; // none lub refused (cooldown minął)
+$hubLocked     = []; // refused (w cooldown)
+
+if (!empty($hubRegionIds)) {
+    $hubPermitsByRegion = $legal->getHubPermitBatch($playerId, $hubRegionIds);
+
+    foreach ($hubEnabledConfigs as $cfg) {
+        $rid    = (int)$cfg['region_id'];
+        $permit = $hubPermitsByRegion[$rid] ?? ['status' => 'none', 'has_active' => false, 'application' => null];
+        $status = $permit['status'];
+
+        if ($permit['has_active']) {
+            $hubActive[] = ['config' => $cfg, 'permit' => $permit];
+        } elseif (in_array($status, ['pending', 'delayed', 'no_decision'], true)) {
+            $hubInProgress[] = ['config' => $cfg, 'permit' => $permit];
+        } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])) {
+            $cooldown = new DateTime((string)$permit['application']['refusal_cooldown_until']);
+            if ($cooldown > $now) {
+                $hubLocked[] = ['config' => $cfg, 'permit' => $permit, 'cooldown_until' => $cooldown];
+            } else {
+                $hubAvailable[] = ['config' => $cfg, 'permit' => $permit];
+            }
+        } else {
+            $hubAvailable[] = ['config' => $cfg, 'permit' => $permit];
+        }
+    }
+}
+
+$hasHubSection = !empty($hubEnabledConfigs);
+
 $viewData = compact(
     'active', 'inProgress', 'available', 'locked', 'capitalLocked',
+    'hubActive', 'hubInProgress', 'hubAvailable', 'hubLocked', 'hasHubSection',
     'cash', 'error', 'success'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));

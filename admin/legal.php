@@ -13,8 +13,8 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
-$tab   = (string)($_GET['tab'] ?? 'regions');
-if (!in_array($tab, ['regions', 'applications'], true)) {
+$tab = (string)($_GET['tab'] ?? 'regions');
+if (!in_array($tab, ['regions', 'applications', 'hub_applications'], true)) {
     $tab = 'regions';
 }
 
@@ -54,22 +54,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tab = 'regions';
     }
 
-    // Zapis konfiguracji regionu
+    // Zapis konfiguracji regionu (drilling + hub)
     elseif ($action === 'save_region_config' && $regionId > 0) {
         $fields = [
-            'enabled'                => max(0, min(1, (int)($_POST['enabled'] ?? 1))),
-            'is_offshore'            => max(0, min(1, (int)($_POST['is_offshore'] ?? 0))),
-            'risk_level'             => in_array($_POST['risk_level'] ?? '', LegalService::RISK_LEVELS, true)
-                                            ? $_POST['risk_level'] : 'low',
-            'application_cost'       => max(0.0, (float)($_POST['application_cost'] ?? 0)),
-            'base_review_minutes'    => max(1, (int)($_POST['base_review_minutes'] ?? 60)),
-            'delay_risk_pct'         => max(0.0, min(100.0, (float)($_POST['delay_risk_pct'] ?? 0))),
-            'delay_min_minutes'      => max(1, (int)($_POST['delay_min_minutes'] ?? 10)),
-            'delay_max_minutes'      => max(1, (int)($_POST['delay_max_minutes'] ?? 30)),
-            'no_decision_risk_pct'   => max(0.0, min(100.0, (float)($_POST['no_decision_risk_pct'] ?? 0))),
-            'refusal_risk_pct'       => max(0.0, min(100.0, (float)($_POST['refusal_risk_pct'] ?? 0))),
+            'enabled'                  => max(0, min(1, (int)($_POST['enabled'] ?? 1))),
+            'is_offshore'              => max(0, min(1, (int)($_POST['is_offshore'] ?? 0))),
+            'risk_level'               => in_array($_POST['risk_level'] ?? '', LegalService::RISK_LEVELS, true)
+                                              ? $_POST['risk_level'] : 'low',
+            'application_cost'         => max(0.0, (float)($_POST['application_cost'] ?? 0)),
+            'base_review_minutes'      => max(1, (int)($_POST['base_review_minutes'] ?? 60)),
+            'delay_risk_pct'           => max(0.0, min(100.0, (float)($_POST['delay_risk_pct'] ?? 0))),
+            'delay_min_minutes'        => max(1, (int)($_POST['delay_min_minutes'] ?? 10)),
+            'delay_max_minutes'        => max(1, (int)($_POST['delay_max_minutes'] ?? 30)),
+            'no_decision_risk_pct'     => max(0.0, min(100.0, (float)($_POST['no_decision_risk_pct'] ?? 0))),
+            'refusal_risk_pct'         => max(0.0, min(100.0, (float)($_POST['refusal_risk_pct'] ?? 0))),
             'refusal_cooldown_minutes' => max(0, (int)($_POST['refusal_cooldown_minutes'] ?? 120)),
-            'required_capital'       => max(0.0, (float)($_POST['required_capital'] ?? 0)),
+            'required_capital'         => max(0.0, (float)($_POST['required_capital'] ?? 0)),
+            // P2a: hub permit config / Konfiguracja zezwolen na huby
+            'hub_permit_enabled'       => isset($_POST['hub_permit_enabled']) ? 1 : 0,
+            'hub_permit_cost'          => max(0.0, (float)($_POST['hub_permit_cost'] ?? 500000)),
+            'hub_review_minutes'       => max(1, (int)($_POST['hub_review_minutes'] ?? 120)),
         ];
         try {
             $db->prepare(
@@ -78,7 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         application_cost = ?, base_review_minutes = ?,
                         delay_risk_pct = ?, delay_min_minutes = ?, delay_max_minutes = ?,
                         no_decision_risk_pct = ?, refusal_risk_pct = ?,
-                        refusal_cooldown_minutes = ?, required_capital = ?
+                        refusal_cooldown_minutes = ?, required_capital = ?,
+                        hub_permit_enabled = ?, hub_permit_cost = ?, hub_review_minutes = ?
                   WHERE region_id = ?"
             )->execute([
                 $fields['enabled'], $fields['is_offshore'], $fields['risk_level'],
@@ -86,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $fields['delay_risk_pct'], $fields['delay_min_minutes'], $fields['delay_max_minutes'],
                 $fields['no_decision_risk_pct'], $fields['refusal_risk_pct'],
                 $fields['refusal_cooldown_minutes'], $fields['required_capital'],
+                $fields['hub_permit_enabled'], $fields['hub_permit_cost'], $fields['hub_review_minutes'],
                 $regionId,
             ]);
             AdminLog::log('legal_region_config_save', "Region {$regionId}: " . json_encode($fields));
@@ -94,6 +100,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $err = t('admin.legal.err_save') . ': ' . $e->getMessage();
         }
         $tab = 'regions';
+    }
+
+    // Akcje manualne dla wnioskow o hub / Manual actions for hub permit applications
+    elseif (str_starts_with($action, 'hub_manual_') && $appId > 0) {
+        $nowStr = date('Y-m-d H:i:s');
+        try {
+            if ($action === 'hub_manual_grant') {
+                $db->prepare(
+                    "UPDATE hub_permit_applications
+                        SET status = 'granted', decided_at = ?, refusal_cooldown_until = NULL
+                      WHERE id = ?"
+                )->execute([$nowStr, $appId]);
+                AdminLog::log('hub_permit_manual_grant', "Hub app {$appId} granted manually");
+                $msg = t('admin.legal.hub.msg_manual_grant');
+            } elseif ($action === 'hub_manual_no_decision') {
+                $db->prepare(
+                    "UPDATE hub_permit_applications SET status = 'no_decision', decided_at = ? WHERE id = ?"
+                )->execute([$nowStr, $appId]);
+                AdminLog::log('hub_permit_manual_no_decision', "Hub app {$appId} set no_decision");
+                $msg = t('admin.legal.hub.msg_manual_no_decision');
+            } elseif ($action === 'hub_manual_refuse') {
+                $appRow = $db->prepare("SELECT region_id FROM hub_permit_applications WHERE id = ?");
+                $appRow->execute([$appId]);
+                $ar = $appRow->fetch();
+                $cooldownMin = 120;
+                if ($ar) {
+                    $cfgS = $db->prepare("SELECT refusal_cooldown_minutes FROM legal_region_config WHERE region_id = ?");
+                    $cfgS->execute([(int)$ar['region_id']]);
+                    $cfgRow = $cfgS->fetch();
+                    if ($cfgRow) {
+                        $cooldownMin = (int)$cfgRow['refusal_cooldown_minutes'];
+                    }
+                }
+                $cooldownUntil = date('Y-m-d H:i:s', strtotime("+{$cooldownMin} minutes"));
+                $db->prepare(
+                    "UPDATE hub_permit_applications
+                        SET status = 'refused', decided_at = ?, refusal_cooldown_until = ?
+                      WHERE id = ?"
+                )->execute([$nowStr, $cooldownUntil, $appId]);
+                AdminLog::log('hub_permit_manual_refuse', "Hub app {$appId} refused manually");
+                $msg = t('admin.legal.hub.msg_manual_refuse');
+            } elseif ($action === 'hub_manual_reset') {
+                $appRow = $db->prepare("SELECT region_id FROM hub_permit_applications WHERE id = ?");
+                $appRow->execute([$appId]);
+                $ar = $appRow->fetch();
+                $reviewMin = 120;
+                if ($ar) {
+                    $cfgS = $db->prepare("SELECT hub_review_minutes FROM legal_region_config WHERE region_id = ?");
+                    $cfgS->execute([(int)$ar['region_id']]);
+                    $cfgRow = $cfgS->fetch();
+                    if ($cfgRow) {
+                        $reviewMin = (int)$cfgRow['hub_review_minutes'];
+                    }
+                }
+                $newDueAt = date('Y-m-d H:i:s', strtotime("+{$reviewMin} minutes"));
+                $db->prepare(
+                    "UPDATE hub_permit_applications
+                        SET status = 'pending', decided_at = NULL, refusal_cooldown_until = NULL,
+                            delay_count = 0, decision_due_at = ?
+                      WHERE id = ?"
+                )->execute([$newDueAt, $appId]);
+                AdminLog::log('hub_permit_manual_reset', "Hub app {$appId} reset to pending");
+                $msg = t('admin.legal.hub.msg_manual_reset');
+            }
+        } catch (Throwable $e) {
+            $err = t('admin.legal.err_action') . ': ' . $e->getMessage();
+        }
+        $tab = 'hub_applications';
     }
 
     // Ręczna decyzja nad wnioskiem
@@ -199,7 +273,23 @@ foreach ($applications as $a) {
     elseif (!in_array($s, ['total'], true)) $stats['other']++;
 }
 
-$viewData = compact('regions', 'applications', 'stats', 'tab', 'msg', 'err');
+// P2a: wnioski na huby / P2a: hub permit applications
+$hubApplications = [];
+$hubStats = ['total' => 0, 'pending' => 0, 'granted' => 0, 'refused' => 0, 'delayed' => 0];
+try {
+    $hubApplications = $legal->getAllHubApplications();
+    foreach ($hubApplications as $ha) {
+        $hubStats['total']++;
+        $s = (string)$ha['status'];
+        if (isset($hubStats[$s])) {
+            $hubStats[$s]++;
+        }
+    }
+} catch (Throwable $e) {
+    $err = t('admin.legal.err_load_apps') . ': ' . $e->getMessage();
+}
+
+$viewData = compact('regions', 'applications', 'stats', 'hubApplications', 'hubStats', 'tab', 'msg', 'err');
 
 $pageTitle = t('admin.legal.title');
 require_once __DIR__ . '/partials/header.php';
