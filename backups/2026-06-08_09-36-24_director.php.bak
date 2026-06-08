@@ -234,11 +234,4 @@ return [
         . "Tytuł: {description}",
     'director.bank_transfer_received.action'  => 'Zobacz historię',
 
-    // --- Etap 7: korekta salda przez administratora ---
-    // {amount} - kwota, {direction} - "dodano" / "pobrano", {note} - opis korekty
-    'director.admin_adjustment.title'   => 'Korekta salda przez administratora',
-    'director.admin_adjustment.message' =>
-        "Administrator {direction} {amount} PLN z Twojego konta.\n"
-        . "Opis: {note}",
-
 ];

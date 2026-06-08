@@ -1002,14 +1002,9 @@ section.card p small {
     margin: 0 0 6px;
     font-size: 18px;
 }
-/* SVG bank icon (no emoji) | ikona banku w SVG */
-.bank-account-icon {
-    display: inline-flex;
-    align-items: center;
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c8860a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='3' y1='22' x2='21' y2='22'/%3E%3Crect x='5' y='11' width='2' height='9'/%3E%3Crect x='11' y='11' width='2' height='9'/%3E%3Crect x='17' y='11' width='2' height='9'/%3E%3Cpath d='M12 2L2 9h20L12 2z'/%3E%3C/svg%3E") no-repeat center / contain;
+.bank-account-icon::before {
+    content: "\1F3E6";
+    font-size: 22px;
 }
 .bank-account-subtitle {
     margin: 0;
@@ -1092,14 +1087,9 @@ section.card p small {
     margin: 0 0 14px;
     font-size: 17px;
 }
-/* SVG history/list icon (no emoji) | ikona historii w SVG */
-.bank-history-icon {
-    display: inline-flex;
-    align-items: center;
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c8860a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='2'/%3E%3Cline x1='8' y1='8' x2='16' y2='8'/%3E%3Cline x1='8' y1='12' x2='16' y2='12'/%3E%3Cline x1='8' y1='16' x2='12' y2='16'/%3E%3C/svg%3E") no-repeat center / contain;
+.bank-history-icon::before {
+    content: "\1F4DC";
+    font-size: 20px;
 }
 .bank-history-empty {
     margin-top: 4px;
@@ -1225,17 +1215,13 @@ section.card p small {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text, #eee);
 }
-/* SVG transfer/send icon (no emoji) | ikona przelewu w SVG */
 .bank-modal-icon {
     text-align: center;
     margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
-.bank-modal-icon svg {
-    width: 38px;
-    height: 38px;
+.bank-modal-icon::before {
+    content: "\1F4B8";
+    font-size: 34px;
 }
 .bank-modal-title {
     text-align: center;
