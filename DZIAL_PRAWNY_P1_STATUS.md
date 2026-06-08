@@ -1,108 +1,117 @@
-# Dział prawny P1 — status wdrożenia
+# Dział prawny — status wdrożenia (P1 + P2a)
 
-> Porównanie kodu z briefem: `svn_repo/BRIEF DLA AI — Dział prawny P1: zezwolenia na wiercenie i mapa.pdf` (19 sekcji).
-> Legenda: ✅ zrobione · ⚠️ częściowe / odstępstwo · ⏳ do zrobienia · 🚫 TODO świadomie odłożone (poza zakresem P1).
-
-Data analizy: 2026-06-04
+> Legenda: ✅ zrobione · ⚠️ częściowe / odstępstwo · ⏳ do zrobienia · 🚫 TODO świadomie odłożone.
 
 ---
 
-## 1. Architektura wdrożenia
+## Etapy
 
-| Warstwa | Plik |
-|---|---|
-| Logika / dane | `src/LegalService.php` (schema, seed, submit, migracja, gettery, `getMapPermitData`, `notifyDirector`) |
-| Tick | `src/Tick/LegalSection.php` → podpięty w `cron/tick.php` (sekcja 7) |
-| Bramka mapy | `src/WorldMap.php` (`regionPurchaseBlock`, `getMapData` — batch `getMapPermitData`) |
-| Widok gracza | `public/legal.php` + `templates/views/legal/main.php` |
-| Panel admina | `admin/legal.php` + `templates/views/admin/legal/main.php` |
-| Mapa frontend | `assets/js/world_map.js` (`fmtMinutes`, `permitBadge`, `buildPermitHtml` — 6 wariantów modalnych) |
-| Style | `assets/css/legal.css`, `assets/css/map.css` (klasy per status) |
-| Tłumaczenia | `lang/pl/legal.php`, `lang/pl/admin/legal.php`, `lang/pl/map.php` (`map_js.permit_*`) |
-| Powiadomienia | `director_notifications` — `notifyDirector()` (try/catch guard) |
-| Testy | `tests/Integration/LegalMapPermitDataTest.php` (15 testów), `tests/Integration/LegalNotificationsTest.php` (6 testów) |
+| Etap | Zakres | Data | Status |
+|------|--------|------|--------|
+| **P1** | Zezwolenia na wiercenie per region | 2026-06-04 | ✅ ukończony |
+| **P2a** | Zezwolenia na huby logistyczne per region | 2026-06-08 | ✅ ukończony |
+| P2b | Zezwolenia na rurociągi / transport morski | — | 🚫 poza zakresem |
+| P3+ | Kary, cofnięcia, łapówki, sprawy sądowe | — | 🚫 poza zakresem |
 
 ---
 
-## 2. Zakres P1 (sekcja 17 briefu) — 15 punktów
+## Architektura
 
-- [x] **1. Status zezwoleń na regiony** — enum `pending/delayed/no_decision/granted/refused/transitional` ✅
-- [x] **2. Panel działu prawnego z listą regionów** — 4 grupy: aktywne / w toku / dostępne / zablokowane kapitałowo ✅
-- [x] **3. Składanie wniosku** — `submitApplication()` + formularz POST ✅
-- [x] **4. Koszt wniosku** — `application_cost`, pokazany graczowi ✅
-- [x] **5. Czas rozpatrzenia w minutach** — `minutesToHuman()` → „X min" / „X h", bez ticków ✅
-- [x] **6. Tick rozpatrujący wnioski** — `LegalSection::run()` raz/tick globalnie ✅
-- [x] **7. Opóźnienie decyzji** — `applyDelay` + `delay_count`, nowy termin ✅
-- [x] **8. Brak decyzji** — `applyNoDecision`, wniosek w zawieszeniu ✅
-- [x] **9. Odmowa** — `applyRefusal` + `refusal_cooldown_until` ✅
-- [x] **10. Zezwolenie aktywne** — `granted`, `ACTIVE_STATUSES` ✅
-- [x] **11. Blokada zakupu bez zezwolenia** — bramka w `buyWellAtLocation` + fail-closed ✅
-- [x] **12. Modale na mapie** — 6 wariantów per status: active / pending / delayed / no_decision / refused / locked ✅
-- [x] **13. Zezwolenia przejściowe (migracja)** — `migrateTransitionalPermits()` + przycisk admina ✅
-- [x] **14. Panel admina do konfiguracji** — regiony + wnioski + decyzje ręczne ✅
-- [x] **15. Powiadomienia jak w dziale technicznym** — `director_notifications` type=`legal` ✅
-
----
-
-## 3. Zgodność z zasadami briefu
-
-- [x] Priorytet losowania ticka `no_decision > refusal > delay > granted` (sekcja 10.3) ✅
-- [x] Nazewnictwo „ryzyko regionu" / `risk_level`, NIE „ryzyko polityczne" (sekcja 3, 10.2) ✅
-- [x] Gracz nie widzi procentów ryzyka — tylko poziom słownie, koszt, czas (sekcja 8) ✅
-- [x] Poziomy ryzyka regionu: low / medium / high / critical (sekcja 7.1) ✅
-- [x] Wymóg kapitałowy bramkuje regiony wysokiego ryzyka (sekcja 7.2, `required_capital`) ✅
-- [x] Fail-closed: przy błędzie bramki zakup zablokowany (zasada nadrzędna) ✅
-- [x] Auto-seed configu przy pierwszym uruchomieniu (gracze nie utkną) ✅
-- [x] Decyzje ręczne admina: grant / transitional / no_decision / refuse / reset (sekcja 16.2) ✅
+| Warstwa | Pliki |
+|---------|-------|
+| **Logika / dane** | `src/LegalService.php` (fasada) + `src/Legal/HubPermitTrait.php` (P2a) |
+| **Tick** | `src/Tick/LegalSection.php` → `cron/tick.php` (przetwarza wiercenia + huby) |
+| **Bramka wiercenie** | `src/WorldMap.php` (`regionPurchaseBlock`, `getMapPermitData`) |
+| **Bramka hub** | `src/HubAcquisitionService.php` (`buyNew`, `buyUsed`, `rent`) |
+| **API hubów** | `src/HubApi.php` (error code `no_hub_permit` → komunikat gracza) |
+| **Widok gracza** | `public/legal.php` + `templates/views/legal/main.php` |
+| **Panel admina** | `admin/legal.php` + `templates/views/admin/legal/main.php` |
+| **Mapa frontend** | `assets/js/world_map.js` (`buildPermitHtml`, `permitBadge`) |
+| **Style** | `assets/css/legal.css`, `assets/css/map.css` |
+| **Tłumaczenia** | `lang/pl/legal.php`, `lang/pl/admin/legal.php`, `lang/pl/map.php` |
+| **Powiadomienia** | `director_notifications` type=`legal` |
+| **Testy** | `tests/Integration/LegalMapPermitDataTest.php`, `LegalNotificationsTest.php` |
 
 ---
 
-## 4. Do zrobienia / odstępstwa względem briefu
+## P1 — Zezwolenia na wiercenie
 
-### 4.1. ✅ Modale mapy — WDROŻONE (04.06.2026)
-- [x] `LegalService::getMapPermitData()` zwraca pełny status per region (2 SQL queries, brak N+1).
-- [x] `WorldMap::getMapData()` korzysta z batch-requestu — przekazuje `permit_status`,
-      `permit_minutes_left`, `permit_cooldown_minutes`, `permit_required_capital` per region.
-- [x] `buildPermitHtml(ps, r)` w `world_map.js` rozgałęzia 6 wariantów modalnych:
-      `active` / `pending` / `delayed` / `no_decision` / `refused` / `locked`.
-- [x] `permitBadge(ps)` renderuje kolorowy badge per status w liście lokacji.
-- [x] Klucze i18n: `map_js.permit_*` w `lang/pl/map.php`.
-- [x] CSS: `.loc-badge--permit-*`, `.sr-permit--active`, `.loc-permit-required--*` w `map.css`.
+### Zakres (15 punktów)
 
-### 4.2. ✅ Modal „Region zablokowany kapitałowo" na mapie — WDROŻONE (04.06.2026)
-- [x] `getMapPermitData()` zwraca status `locked` gdy `required_capital > playerCash`.
-- [x] `buildPermitHtml()` pokazuje dedykowany modal z wymaganym kapitałem i brakującą kwotą.
-- [x] Widoczne na mapie zanim gracz spróbuje złożyć wniosek (§7.3).
+- [x] Status enum `pending/delayed/no_decision/granted/refused/transitional`
+- [x] Panel gracza — 4 grupy: aktywne / w toku / dostępne / zablokowane kapitałowo
+- [x] Składanie wniosku — `submitApplication()` + formularz POST
+- [x] Koszt wniosku `application_cost`, pokazany graczowi
+- [x] Czas rozpatrzenia `minutesToHuman()` — bez ticków, w minutach/godzinach
+- [x] Tick `LegalSection::run()` — raz/tick globalnie
+- [x] Opóźnienie decyzji — `applyDelay` + `delay_count`, nowy termin
+- [x] Brak decyzji — `applyNoDecision`, wniosek w zawieszeniu
+- [x] Odmowa — `applyRefusal` + `refusal_cooldown_until`
+- [x] Zezwolenie aktywne — `granted`, `ACTIVE_STATUSES`
+- [x] Bramka zakupu fail-closed — `WorldMap::regionPurchaseBlock()`
+- [x] Modale mapy — 6 wariantów per status (active/pending/delayed/no_decision/refused/locked)
+- [x] Zezwolenia przejściowe (migracja) — `migrateTransitionalPermits()` + przycisk admina
+- [x] Panel admina — konfiguracja regionów + wnioski + decyzje ręczne
+- [x] Powiadomienia dyrektora — `director_notifications` type=`legal`
 
-### 4.3. ✅ `confirm()` natywny → wspólny modal (sekcja 14) — WDROŻONE
-- [x] Formularz składania wniosku używa teraz `data-confirm` / `data-confirm-label`
-      obsługiwanych przez `modal.js` — spójne z resztą gry.
+### Zasady ogólne P1
 
-### 4.4. ⏳ `required_legal_level` — placeholder
-- [ ] Kolumna istnieje w schemacie i seedzie, ale nie jest używana: panel admina jej nie ustawia
-      (`save_region_config` pomija pole), `submitApplication()` jej nie sprawdza.
-- Zgodne z briefem („wymagany poziom działu prawnego, JEŚLI istnieje / zostanie wdrożony") —
-      system poziomu działu jeszcze nie istnieje. Świadomy placeholder, do podpięcia przy P2.
-
----
-
-## 5. 🚫 TODO świadomie odłożone (sekcja 18 — poza zakresem P1)
-
-Poprawnie NIE wdrożone, zgodnie z briefem:
-
-- [ ] 🚫 Zezwolenia infrastrukturalne (huby, rurociągi, transport morski) — 18.1
-- [ ] 🚫 Zezwolenia warunkowe (limit odwiertów, krótszy czas ważności) — 18.2
-- [ ] 🚫 Zezwolenia wygasłe (odnowienie) — 18.3
-- [ ] 🚫 Zezwolenia cofnięte (blokada regionu) — 18.4
-- [ ] 🚫 Kary i blokady prawne (po incydentach, sabotażu) — 18.5
-- [ ] 🚫 Wiarygodność firmy (score jak bank / czarny rynek) — 18.6
-- [ ] 🚫 Łapówki i nielegalne przyspieszanie decyzji — 18.7
-- [ ] 🚫 Sprawy sądowe, ugody, umowy — 18.8
+- Priorytet ticka: `no_decision > refusal > delay > granted`
+- Gracz nie widzi procentów ryzyka — tylko poziom słownie, koszt, czas
+- Poziomy ryzyka: `low / medium / high / critical`
+- Wymóg kapitałowy (`required_capital`) bramkuje regiony wysokiego ryzyka
+- Fail-closed: błąd DB = zakup zablokowany
+- Auto-seed configu przy pierwszym uruchomieniu
+- Bramka **zawsze aktywna** dla każdego regionu z `enabled=1` — brak opt-in
 
 ---
 
-## 6. Podsumowanie
+## P2a — Zezwolenia na huby logistyczne
 
-P1 **ukończony w całości** zgodnie z briefem. Wszystkie 15 punktów zakresu wdrożone,
-w tym modale mapy (6 wariantów per status) i blokada kapitałowa widoczna na mapie.
-Jedyny świadomy placeholder: `required_legal_level` (system poziomu działu nie istnieje w P1).
+### Zakres
+
+- [x] Tabela `hub_permit_applications` (schema identyczna z `drilling_permit_applications`, bez `transitional`)
+- [x] Kolumny w `legal_region_config`: `hub_permit_enabled` (default=0), `hub_permit_cost`, `hub_review_minutes`
+- [x] Tick `LegalSection::runHubPermits()` — ta sama logika losowania wyników co P1
+- [x] Bramka fail-closed w `buyNew / buyUsed / rent` (helper `hasHubPermitOrNotRequired`)
+- [x] API `HubApi.php` — error code `no_hub_permit` → czytelny komunikat gracza
+- [x] Widok gracza — sekcja „Zezwolenia na huby" (4 grupy: aktywne/w toku/dostępne/cooldown)
+- [x] Widok gracza — sekcja widoczna tylko gdy ≥1 region ma `hub_permit_enabled=1`
+- [x] Panel admina — 3 nowe kolumny w tabeli regionów (hub wymagany / koszt / czas)
+- [x] Panel admina — zakładka „Wnioski na huby" z akcjami: grant / no_decision / refuse / reset→pending
+- [x] `seedHubPermitDefaults()` — ustawia koszty/czasy per poziom ryzyka przy akcji „Seeduj regiony"
+- [x] Powiadomienia dyrektora — emoji per wynik (📝 submit, ✅ granted, ❌ refused, ⏳ delayed, ⚠️ no_decision)
+
+### Różnice względem P1 (projektowe)
+
+| Cecha | Wiercenie (P1) | Hub (P2a) |
+|-------|---------------|-----------|
+| Domyślny stan | Bramka zawsze aktywna dla `enabled=1` | Opt-in per region (`hub_permit_enabled=0` default) |
+| Status `transitional` | Tak (migracja starych graczy) | Nie (gracze startują od zera) |
+| Poziomy kosztów (low→critical) | 100k / 250k / 500k / 1M PLN | 200k / 500k / 1M / 2M PLN |
+| Czas rozpatrzenia (low→critical) | 30 / 60 / 90 / 120 min | 60 / 120 / 180 / 240 min |
+| Gdzie sprawdzana bramka | `WorldMap` (zakup odwiertu) | `HubAcquisitionService` (kupno/wynajem hubu) |
+
+### Rollout
+
+Po wdrożeniu `hub_permit_enabled=0` dla wszystkich regionów → **żaden zakup hubu nie jest blokowany** dopóki admin nie włączy wymagania per region w panelu admina. Istniejące huby nie są dotknięte (bramka tylko dla nowych zakupów).
+
+Kolejność uruchomienia:
+1. Wdrożyć kod (schema tworzy się automatycznie przy pierwszym żądaniu przez `ensureSchema`)
+2. Admin: „Seeduj regiony" → uzupełnia domyślne koszty/czasy hubów per poziom ryzyka
+3. Admin: włącza `hub_permit_enabled=1` per region kiedy chce wymagać zezwoleń
+4. Gracze składają wnioski → tick rozpatruje → po `granted` mogą kupić hub
+
+---
+
+## Świadome placeholdery / TODO
+
+- [ ] ⚠️ `required_legal_level` — kolumna w schemacie, ale nigdzie nie używana (system poziomu działu nie istnieje)
+- [ ] 🚫 Zezwolenia infrastrukturalne (rurociągi, transport morski) — P2b
+- [ ] 🚫 Zezwolenia warunkowe (limit, krótszy czas ważności) — P2+
+- [ ] 🚫 Zezwolenia wygasłe (odnowienie) — P2+
+- [ ] 🚫 Zezwolenia cofnięte (blokada regionu) — P3
+- [ ] 🚫 Kary i blokady prawne (po incydentach) — P3
+- [ ] 🚫 Wiarygodność firmy (score) — P3
+- [ ] 🚫 Łapówki i nielegalne przyspieszanie decyzji — P3
+- [ ] 🚫 Sprawy sądowe, ugody, umowy — P3
