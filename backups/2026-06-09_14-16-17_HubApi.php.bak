@@ -186,15 +186,6 @@ try {
                         'cooldown_remaining_s'=> $remainSecs,
                     ]);
                 }
- // Permit gate: include error_code so JS can show the 3-button permit modal.
- // Bramka zezwolenia: error_code umozliwia wyswietlenie 3-przyciskowego modalu w JS.
-                if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut([
-                        'success'    => false,
-                        'error'      => t('legal.hub.err_no_hub_permit'),
-                        'error_code' => 'no_hub_permit',
-                    ]);
-                }
                 $err = match($result['error'] ?? '') {
                     'slots_full'         => t('logistics.hub.err_slots_full'),
                     'region_mismatch'    => t('logistics.hub.err_region_mismatch'),
@@ -261,13 +252,11 @@ try {
                 'name'      => $name,
             ]);
             if (!$result['success']) {
-                if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut(['success' => false, 'error' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit']);
-                }
                 $err = match($result['error'] ?? '') {
                     'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
                     'invalid_hub_type'   => t('common.validation_error'),
                     'invalid_region'     => t('common.validation_error'),
+                    'no_hub_permit'      => t('legal.hub.err_no_hub_permit'),
                     default              => t('logistics.hub.err_generic'),
                 };
                 hubApiOut(['success' => false, 'error' => $err]);
@@ -285,14 +274,12 @@ try {
             if ($hubId <= 0) hubApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
             $result = $acqSvc->buyUsed($playerId, $hubId);
             if (!$result['success']) {
-                if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut(['success' => false, 'error' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit']);
-                }
                 $err = match($result['error'] ?? '') {
                     'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
                     'hub_already_owned'  => t('logistics.hub.err_hub_already_owned'),
                     'hub_already_rented' => t('logistics.hub.err_hub_already_rented'),
                     'hub_unavailable'    => t('logistics.hub.err_hub_unavailable'),
+                    'no_hub_permit'      => t('legal.hub.err_no_hub_permit'),
                     default              => t('logistics.hub.err_generic'),
                 };
                 hubApiOut(['success' => false, 'error' => $err]);
@@ -309,14 +296,12 @@ try {
             if ($hubId <= 0) hubApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
             $result = $acqSvc->rent($playerId, $hubId);
             if (!$result['success']) {
-                if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut(['success' => false, 'error' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit']);
-                }
                 $err = match($result['error'] ?? '') {
                     'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
                     'hub_already_owned'  => t('logistics.hub.err_hub_already_owned'),
                     'hub_already_rented' => t('logistics.hub.err_hub_already_rented'),
                     'hub_unavailable'    => t('logistics.hub.err_hub_unavailable'),
+                    'no_hub_permit'      => t('legal.hub.err_no_hub_permit'),
                     default              => t('logistics.hub.err_generic'),
                 };
                 hubApiOut(['success' => false, 'error' => $err]);

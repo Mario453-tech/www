@@ -297,35 +297,17 @@ trait HubConfigTrait
         $lvlMult = 1.0 + ($level - 1) * 0.20;
         $bufMult = 1.0 + ($level - 1) * 0.15;
 
- // Rozsadne minimum ceny budowy/ulepszenia per typ — hub NIGDY nie moze byc
- // za darmo, nawet gdy konfiguracja zwraca 0 lub puste (np. blad w panelu admina).
- // Wartosc poprawnie ustawiona (>0) jest zawsze uzywana bez zmian.
- // Sensible minimum build/upgrade cost per type — a hub must NEVER be free even
- // if config returns 0/empty (e.g. an admin-panel mistake). A properly set
- // value (>0) is always used as-is.
-        $buildCostFloor = ['small' => 50000.0, 'medium' => 150000.0, 'large' => 400000.0][$hubType] ?? 50000.0;
-        $upgradeCostFloor = ['small' => 30000.0, 'medium' => 80000.0, 'large' => 200000.0][$hubType] ?? 30000.0;
-
-        $buildCost   = (float)($base['build_cost'] ?? 0);
-        $upgradeCost = (float)($base['upgrade_cost'] ?? 0);
-        if ($buildCost <= 0.0) {
-            $buildCost = $buildCostFloor;
-        }
-        if ($upgradeCost <= 0.0) {
-            $upgradeCost = $upgradeCostFloor;
-        }
-
         return [
             'slot_limit'       => (int)($base['slot_limit'] ?? 2),
             'nominal_bph'      => round((float)($base['nominal_bph'] ?? 500) * $lvlMult, 2),
             'buffer_bbl'       => round((float)($base['buffer_bbl'] ?? 200) * $bufMult, 2),
             'opex_per_tick'    => (float)($base['opex_per_tick'] ?? 500),
-            'build_cost'       => $buildCost,
+            'build_cost'       => (float)($base['build_cost'] ?? 50000),
             'repair_cost_pct'  => (float)($base['repair_cost_pct'] ?? 0.40),
             'wear_per_tick'    => (float)($base['wear_per_tick'] ?? 0.05),
             'overload_wear_mult' => (float)($base['overload_wear_mult'] ?? 3.0),
             'overload_risk_mult' => (float)($base['overload_risk_mult'] ?? 2.5),
-            'upgrade_cost'     => $upgradeCost,
+            'upgrade_cost'     => (float)($base['upgrade_cost'] ?? 30000),
             'max_level'        => (int)($base['max_level'] ?? 3),
         ];
     }
