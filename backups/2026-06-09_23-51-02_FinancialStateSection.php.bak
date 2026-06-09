@@ -63,7 +63,7 @@ class FinancialStateSection
             $newCrisisTicks      = $crisisTicks;
             $newLastCrisisTickAt = $playerData['last_crisis_tick_at'] ?? null;
             $lastCrisisHour      = $newLastCrisisTickAt
-                ? (int)floor(($this->now->getTimestamp() - strtotime($newLastCrisisTickAt)) / 3600)
+                ? (int)floor((time() - strtotime($newLastCrisisTickAt)) / 3600)
                 : 999;
             $canIncrementCrisis = ($lastCrisisHour >= 1);
 
@@ -71,7 +71,7 @@ class FinancialStateSection
                 $newFinancialState = 'crisis';
                 if ($canIncrementCrisis) {
                     $newCrisisTicks      = $crisisTicks + 1;
-                    $newLastCrisisTickAt = $this->now->format('Y-m-d H:i:s');
+                    $newLastCrisisTickAt = date('Y-m-d H:i:s');
                     GameLog::warn('tick', 'financial_crisis', [
                         'player_id'    => $playerId,
                         'cash'         => $playerCash,

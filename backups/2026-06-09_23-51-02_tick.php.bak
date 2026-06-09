@@ -49,36 +49,13 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
         if ($r !== false) $cronKey = (string)$r;
     } catch (Throwable $e) {}
 
-    $provided = (string)($_GET['key'] ?? $_SERVER['HTTP_X_CRON_KEY'] ?? '');
- // hash_equals zamiast !== - stala czasowo, odporna na timing attack.
- // hash_equals instead of !== - constant-time, resistant to timing attacks.
-    if ($cronKey === '' || !hash_equals($cronKey, $provided)) {
+    $provided = $_GET['key'] ?? $_SERVER['HTTP_X_CRON_KEY'] ?? '';
+    if ($cronKey === '' || $provided !== $cronKey) {
         http_response_code(403);
         exit('Forbidden');
     }
     $source = 'cron_http';
 }
-
-// Lock wykonania: zapobiega nakladaniu sie tickow gdy poprzedni trwa > interwal crona.
-// Bez tego drugi proces przetwarzalby tych samych graczy z tym samym deltaSeconds
-// (podwojona produkcja, koszty i incydenty). Lock zwalniany automatycznie na shutdown.
-// Execution lock: prevents overlapping ticks when a previous run exceeds the cron interval.
-// Without it a second process would reprocess the same players with the same deltaSeconds
-// (doubled production, costs and incidents). Lock auto-released on shutdown.
-$GLOBALS['__tick_lock_handle'] = fopen(sys_get_temp_dir() . '/oilcorp_tick.lock', 'c');
-if ($GLOBALS['__tick_lock_handle'] === false
-    || !flock($GLOBALS['__tick_lock_handle'], LOCK_EX | LOCK_NB)) {
-    GameLog::warn('tick', 'tick juz trwa - pomijam ten przebieg / tick already running - skipping this run');
-    echo "Tick skipped: another run in progress\n";
-    exit(0);
-}
-register_shutdown_function(static function () {
-    $h = $GLOBALS['__tick_lock_handle'] ?? null;
-    if (is_resource($h)) {
-        @flock($h, LOCK_UN);
-        @fclose($h);
-    }
-});
 
 GameLog::info('tick', '== START ==', ['time' => $now->format('Y-m-d H:i:s'), 'source' => $source]);
 
@@ -296,6 +273,16 @@ try {
     $stmt->execute();
 } catch (Throwable $e) {
     GameLog::error('tick', 'notif_old_unread_cleanup FAILED', $e);
+}
+
+// Cleanup zbiorczych wpisow tickowych w historii bankowej (ta sama retencja co incydenty).
+// Przelewy, kredyty i zakupy zostaja na zawsze - usuwane sa tylko typy tickowe.
+// Aggregated tick entries cleanup in bank history (same retention as incidents).
+// Transfers, loans and purchases are kept forever - only tick types are purged.
+try {
+    (new FinancialTransactionService($db))->purgeTickAudit($incRetention);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'bank_tick_audit_cleanup FAILED', $e);
 }
 
 echo "Tick OK: " . $now->format('Y-m-d H:i:s') . " | Cena: {$newPrice}\${$trendInfo}"

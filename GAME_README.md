@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-06-09 - Tick: audyt bezpieczenstwa i naprawa bledow
+- `src/Tick/PlayersSection.php` - naprawiono blokujacy blad nowych graczy: `last_tick_at = NULL` powodowal `TypeError` w `new DateTime()` i gracz nigdy nie dostawal pierwszego ticka; query uzywa teraz `COALESCE(last_tick_at, '2000-01-01 00:00:00')`.
+- `src/Tick/PlayersSection.php` - wykrywanie kryzysu finansowego (`FinancialStateSection::process`) uwzglednia teraz pelny koszt incydentow (odwierty + katastrofy rurociagow + kary za wyciek). Wczesniej eksplozja rurociagu mogla wyzerowac gotowke bez wyzwolenia kryzysu.
+- `src/Tick/PlayersSection.php` - odliczenia gotowki za rurociagi i wyciek dostaly floor `max(0.0, ...)` jak pozostale koszty, zeby ujemne saldo nie psulo logiki kryzysu.
+- `src/Tick/FinancialStateSection.php` - licznik godzin kryzysu uzywa wstrzyknietego `$this->now` zamiast `time()`/`date()` (spojnosc z reszta ticka, testowalnosc).
+- `cron/tick.php` - dodano lock wykonania (`flock`) zapobiegajacy nakladaniu sie tickow gdy poprzedni przebieg trwa dluzej niz interwal crona (ochrona przed podwojona produkcja/kosztami). Klucz crona porownywany teraz przez `hash_equals` (odpornosc na timing attack).
+
 ### 2026-06-09 - Dzial prawny admin: czytelniejsza konfiguracja regionow
 - `templates/views/admin/legal/main.php`, `lang/pl/admin/legal.php`, `assets/css/admin.css` - sekcja konfiguracji regionow dostala prosty opis dla laika, grupowane naglowki tabeli, lepsze wyróznienie pierwszej i ostatniej kolumny oraz czytelniejsze formularze dla parametrow odwiertow i hubow; dodatkowo formularze akcji w zakladce wnioskow hubow korzystaja juz ze wspolnej klasy `js-confirm-form` bez inline `style`.
 
