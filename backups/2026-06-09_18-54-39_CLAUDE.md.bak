@@ -2,44 +2,6 @@
 
 Wskazówki dla Claude Code przy pracy w tym repozytorium.
 
-> **PRZECZYTAJ NAJPIERW `AGENTS.md`** — to pełne wytyczne agenta (rola, architektura,
-> SoC, modale, baza, tick, testy). `GAME_README.md` = stan wdrożonych funkcji + changelog.
-> Ten plik (`CLAUDE.md`) zawiera tylko wyciąg najważniejszych zasad, które zawsze muszą
-> być w kontekście. W razie konfliktu obowiązuje `AGENTS.md`.
-
-## Zasady bezwzględne — NIGDY nie łam (wyciąg z AGENTS.md §2, §22)
-
-### HTML / CSS
-- **ZERO tabel HTML** (`table/tr/td/th/thead/tbody`) w layoutcie — layout tylko
-  CSS Grid / Flexbox. (Tabele w **bazie danych** SQL `CREATE TABLE` to co innego — są OK.)
-- **ZERO inline `style=""`** — wyjątek: dynamiczne wartości PHP (`--bar-w:<?=?>%`, `width`, `color`).
-- **ZERO bloków `<style>`** w plikach PHP. Style → `assets/css/[modul].css`, ładowane osobnym `<link>`.
-- **ZERO emoji Unicode** w kodzie/UI/komunikatach — zamiast emoji SVG (check/warning/error).
-
-### JavaScript
-- **ZERO logiki JS inline w PHP** — cały JS w `assets/js/[modul].js`. Wyjątek: blok
-  `<script>` tylko z konfiguracją PHP→JS (`window.MODAL_LANG`, `*_LANG`), zero logiki.
-- **Nigdy** natywnych `confirm()` / `alert()` / `prompt()` — zawsze funkcje z `modal.js`
-  (`confirmAction`, `promptInput`, `alertInfo/Error/Warning`, `showGameToast`).
-
-### PHP / architektura (SoC)
-- Każdy polski string dla gracza → `lang/pl/[modul].php` jako `t('modul.klucz')`. Nigdy nie hardkoduj.
-- Separacja: logika w `src/`, HTML w `templates/views/`, SQL nigdy w widoku.
-- Schemat feature: `src/[Nazwa]Service.php` + `[Nazwa]Api.php` + `public/[nazwa].php`
-  + `templates/views/[nazwa]/main.php` + `assets/js/[nazwa].js` + `assets/css/[nazwa].css` + `admin/[nazwa].php`.
-- Limit **~500 linii** na plik PHP/JS/CSS — dziel na traity / podwidoki / moduły.
-- **GameLog obowiązkowy** w serwisach: `__construct`, każda metoda publiczna, każdy `catch`.
-
-### Baza danych
-- MySQL 8.0, PDO prepared statements (zero interpolacji), DECIMAL (nie FLOAT) dla finansów.
-- `Database::addColumnIfMissing()` zamiast ręcznych ALTER. Migracje idempotentne.
-- Nigdy `DROP`/`TRUNCATE` bez wyraźnej zgody użytkownika.
-
-### Zasada minimalnej zmiany
-- Najmniejsza bezpieczna zmiana rozwiązująca problem. Nie przebudowuj architektury bez polecenia.
-- Nie ruszaj kodu, którego nie trzeba. Przed zmianą funkcji/nazwy/SQL — sprawdź użycia w innych plikach.
-- Po zmianie modułu — dopisz changelog w `GAME_README.md`.
-
 ## Kopie zapasowe (backup) — ZASADA OBOWIĄZKOWA
 
 Przed każdą zmianą pliku, którą warto cofnąć, ZAWSZE rób kopię zapasową.
