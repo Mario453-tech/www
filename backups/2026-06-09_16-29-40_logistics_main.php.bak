@@ -1685,10 +1685,8 @@ window.HUB_LANG  = <?= json_encode([
     'confirm_question'        => t('logistics.hub.confirm_question'),
     'err_insufficient_funds'  => t('logistics.hub.err_insufficient_funds'),
  // Rynek hubow: kupno / wynajem / Hub market: buy / rent
-    'market_confirm_buy'       => t('logistics.hub.market_confirm_buy',  ['name' => '{name}', 'price' => '{price}']),
-    'market_confirm_buy_title' => t('logistics.hub.market_confirm_buy_title'),
-    'market_confirm_rent'      => t('logistics.hub.market_confirm_rent', ['name' => '{name}', 'deposit' => '{deposit}', 'lease' => '{lease}']),
-    'market_confirm_rent_title'=> t('logistics.hub.market_confirm_rent_title'),
+    'market_confirm_buy'      => t('logistics.hub.market_confirm_buy',  ['name' => '{name}', 'price' => '{price}']),
+    'market_confirm_rent'     => t('logistics.hub.market_confirm_rent', ['name' => '{name}', 'deposit' => '{deposit}', 'lease' => '{lease}']),
     'market_confirm_buy_new'  => t('logistics.hub.market_confirm_buy_new', ['name' => '{name}', 'price' => '{price}']),
     'market_ok_buy'           => t('logistics.hub.ok_buy_used'),
     'market_ok_rent'          => t('logistics.hub.ok_rent'),

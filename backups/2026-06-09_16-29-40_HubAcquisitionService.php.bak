@@ -146,12 +146,6 @@ class HubAcquisitionService
         }
 
         $cost = (float)($hub['acquisition_price'] > 0 ? $hub['acquisition_price'] : $hub['build_cost']);
- // Floor: zapobiegamy zakupowi za 0 zl gdy kolumna w DB jest zerowa.
- // Floor: prevents 0-PLN purchase when DB values were seeded from a zeroed config.
-        static $buyFloors = ['small' => 31000.0, 'medium' => 93000.0, 'large' => 248000.0];
-        if ($cost <= 0.0) {
-            $cost = $buyFloors[$hub['hub_type'] ?? 'small'] ?? 31000.0;
-        }
 
         $cashCheck = $this->checkAndDeductCash($playerId, $cost);
         if (!$cashCheck['ok']) {
@@ -213,12 +207,6 @@ class HubAcquisitionService
 
  // Deposit = 3 ticks of full lease fee (non-refundable)
         $leaseFee = (float)($hub['lease_fee_per_tick'] ?? 0.0);
- // Floor: zapobiegamy depozycie 0 zl gdy lease_fee w DB jest zerowe.
- // Floor: prevents 0-PLN deposit when lease_fee_per_tick was seeded from a zeroed config.
-        static $leaseFloors = ['small' => 200.0, 'medium' => 600.0, 'large' => 1600.0];
-        if ($leaseFee <= 0.0) {
-            $leaseFee = $leaseFloors[$hub['hub_type'] ?? 'small'] ?? 200.0;
-        }
         $deposit  = round($leaseFee * 3.0, 2);
 
         if ($deposit > 0.0) {

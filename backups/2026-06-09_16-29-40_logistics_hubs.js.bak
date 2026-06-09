@@ -774,7 +774,7 @@
         const msg   = (lang().market_confirm_buy || 'Kupic hub {name} za {price} PLN?')
             .replace('{name}', name)
             .replace('{price}', fmtPln(price));
-        if (!await hubConfirm(msg, { title: lang().market_confirm_buy_title || 'Potwierdz zakup huba' })) return;
+        if (!await hubConfirm(msg, { title: lang().market_ok_buy })) return;
 
         try {
             const res = await hubPost('buy_used_hub', { hub_id: hubId });
@@ -801,7 +801,7 @@
             .replace('{name}', name)
             .replace('{deposit}', fmtPln(deposit))
             .replace('{lease}', fmtPln(lease));
-        if (!await hubConfirm(msg, { title: lang().market_confirm_rent_title || 'Potwierdz wynajem huba' })) return;
+        if (!await hubConfirm(msg, { title: lang().market_ok_rent })) return;
 
         try {
             const res = await hubPost('rent_hub', { hub_id: hubId });
