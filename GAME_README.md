@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-06-09 - Tick: audyt bezpieczenstwa i naprawa bledow
+- `src/Tick/PlayersSection.php` - naprawiono blokujacy blad nowych graczy: `last_tick_at = NULL` powodowal `TypeError` w `new DateTime()` i gracz nigdy nie dostawal pierwszego ticka; query uzywa teraz `COALESCE(last_tick_at, '2000-01-01 00:00:00')`.
+- `src/Tick/PlayersSection.php` - wykrywanie kryzysu finansowego (`FinancialStateSection::process`) uwzglednia teraz pelny koszt incydentow (odwierty + katastrofy rurociagow + kary za wyciek). Wczesniej eksplozja rurociagu mogla wyzerowac gotowke bez wyzwolenia kryzysu.
+- `src/Tick/PlayersSection.php` - odliczenia gotowki za rurociagi i wyciek dostaly floor `max(0.0, ...)` jak pozostale koszty, zeby ujemne saldo nie psulo logiki kryzysu.
+- `src/Tick/FinancialStateSection.php` - licznik godzin kryzysu uzywa wstrzyknietego `$this->now` zamiast `time()`/`date()` (spojnosc z reszta ticka, testowalnosc).
+- `cron/tick.php` - dodano lock wykonania (`flock`) zapobiegajacy nakladaniu sie tickow gdy poprzedni przebieg trwa dluzej niz interwal crona (ochrona przed podwojona produkcja/kosztami). Klucz crona porownywany teraz przez `hash_equals` (odpornosc na timing attack).
+
 ### 2026-06-09 - Bank: koszty tickowe i sprzedaż ropy w historii bankowej
 - `src/MarketOffer.php` - automatyczna sprzedaż ropy (oferty rynkowe wykonywane w ticku) przeszła ze starego `UPDATE players SET cash +` na `FinancialTransactionService::credit()` z opisem i referencją do oferty (`market_offer`).
 - `src/FinancialTransactionService.php` - nowe typy operacji tickowych: `tick_opex`, `tick_salary`, `tick_transport`, `tick_incident`, `hub_usage`; nowa stała `TICK_AUDIT_TYPES` (razem z `tax`) oraz metoda `purgeTickAudit()` usuwająca stare wpisy tickowe (przelewy, kredyty i zakupy zostają na zawsze).
