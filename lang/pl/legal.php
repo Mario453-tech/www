@@ -115,23 +115,24 @@ return [
     'legal.notif.transitional.title'   => 'Zezwolenie przejściowe nadane',
     'legal.notif.transitional.message' => 'Nadano zezwolenie przejściowe dla regionu :region. Region został tymczasowo odblokowany, ponieważ Twoja firma prowadziła tu działalność przed wprowadzeniem działu prawnego. Nowe inwestycje mogą wymagać normalnego zezwolenia.',
 
-    // =========== P2a: Zezwolenia na huby logistyczne / Hub construction permits ===========
+    // =========== Zezwolenie na prace lokalne (infrastruktura: huby, rurociagi, podlaczenia) ===========
+    // Local infrastructure works permit (per region): hubs, pipelines, well-to-hub assignment.
 
-    'legal.hub.section_title'      => 'Zezwolenia na huby logistyczne',
-    'legal.hub.page_intro'         => 'W niektórych regionach wymagane jest oddzielne zezwolenie na budowę hubu logistycznego. Złóż wniosek przed zakupem hubu w danym regionie.',
+    'legal.hub.section_title'      => 'Zezwolenie na prace lokalne',
+    'legal.hub.page_intro'         => 'W niektórych regionach wymagane jest osobne zezwolenie na prace lokalne. Jedno zezwolenie na region odblokowuje całą infrastrukturę logistyczną: huby, rurociągi oraz przypisanie odwiertów do hubów. Złóż wniosek, zanim zaczniesz prace w danym regionie. Zezwolenie na prace lokalne jest niezależne od zezwolenia na wiercenie.',
 
-    'legal.hub.section_active'      => 'Aktywne zezwolenia na huby',
-    'legal.hub.section_in_progress' => 'Wnioski o hub w toku',
-    'legal.hub.section_available'   => 'Dostępne regiony (hub)',
-    'legal.hub.section_locked'      => 'Zablokowane — cooldown po odmowie (hub)',
+    'legal.hub.section_active'      => 'Aktywne zezwolenia na prace lokalne',
+    'legal.hub.section_in_progress' => 'Wnioski o prace lokalne w toku',
+    'legal.hub.section_available'   => 'Dostępne regiony (prace lokalne)',
+    'legal.hub.section_locked'      => 'Zablokowane — cooldown po odmowie (prace lokalne)',
 
-    'legal.hub.unlocks_note'      => 'Zezwolenie aktywne — możesz budować hub logistyczny w tym regionie.',
-    'legal.hub.no_regions_active' => 'Brak aktywnych regionów wymagających zezwoleń na huby.',
+    'legal.hub.unlocks_note'      => 'Zezwolenie aktywne — możesz prowadzić prace lokalne w tym regionie: huby, rurociągi i przypisanie odwiertów do hubów.',
+    'legal.hub.no_regions_active' => 'Brak aktywnych regionów wymagających zezwolenia na prace lokalne.',
 
-    'legal.hub.btn_submit'     => 'Złóż wniosek (hub)',
-    'legal.hub.confirm_submit' => 'Złożyć wniosek o zezwolenie na hub w regionie ":region"? Opłata: :cost PLN zostanie pobrana natychmiast.',
+    'legal.hub.btn_submit'     => 'Złóż wniosek (prace lokalne)',
+    'legal.hub.confirm_submit' => 'Złożyć wniosek o zezwolenie na prace lokalne w regionie ":region"? Opłata: :cost PLN zostanie pobrana natychmiast.',
 
-    // --- Statusy zezwoleń na hub ---
+    // --- Statusy zezwolenia na prace lokalne ---
     'legal.hub.status.none'        => 'Brak zezwolenia',
     'legal.hub.status.pending'     => 'Wniosek w trakcie',
     'legal.hub.status.delayed'     => 'Opóźnienie decyzji',
@@ -139,33 +140,40 @@ return [
     'legal.hub.status.granted'     => 'Zezwolenie aktywne',
     'legal.hub.status.refused'     => 'Wniosek odrzucony',
 
-    // --- Błędy składania wniosku o hub ---
+    // --- Błędy składania wniosku o prace lokalne ---
     'legal.hub.err.unknown_region'     => 'Ten region nie jest obsługiwany przez dział prawny.',
     'legal.hub.err.region_disabled'    => 'Składanie wniosków dla tego regionu jest obecnie wyłączone.',
-    'legal.hub.err.hub_not_required'   => 'Ten region nie wymaga zezwolenia na hub.',
-    'legal.hub.err.already_active'     => 'Masz już aktywne zezwolenie na hub w tym regionie.',
-    'legal.hub.err.in_progress'        => 'Wniosek o zezwolenie na hub w tym regionie jest już rozpatrywany.',
+    'legal.hub.err.hub_not_required'   => 'Ten region nie wymaga zezwolenia na prace lokalne.',
+    'legal.hub.err.already_active'     => 'Masz już aktywne zezwolenie na prace lokalne w tym regionie.',
+    'legal.hub.err.in_progress'        => 'Wniosek o zezwolenie na prace lokalne w tym regionie jest już rozpatrywany.',
     'legal.hub.err.cooldown'           => 'Możesz złożyć ponowny wniosek za około :time.',
     'legal.hub.err.insufficient_funds' => 'Brak środków na opłatę za wniosek. Potrzebujesz :cost PLN.',
     'legal.hub.err.unknown_player'     => 'Nie znaleziono firmy gracza.',
     'legal.hub.err.generic'            => 'Nie udało się złożyć wniosku. Spróbuj ponownie.',
 
     // --- Komunikat po złożeniu ---
-    'legal.hub.msg.submitted' => 'Wniosek o zezwolenie na hub złożony. Decyzja przewidywana za około :time.',
+    'legal.hub.msg.submitted' => 'Wniosek o zezwolenie na prace lokalne złożony. Decyzja przewidywana za około :time.',
 
-    // --- Powiadomienia dyrektora (hub) ---
-    'legal.hub.notif.submitted.title'   => 'Wniosek o zezwolenie na hub złożony',
-    'legal.hub.notif.submitted.message' => 'Złożono wniosek o zezwolenie na budowę hubu w regionie :region. Decyzja spodziewana za :time.',
-    'legal.hub.notif.granted.title'     => 'Zezwolenie na hub przyznane',
-    'legal.hub.notif.granted.message'   => 'Twój wniosek o zezwolenie na hub w regionie :region został rozpatrzony pozytywnie.',
-    'legal.hub.notif.refused.title'     => 'Wniosek o zezwolenie na hub odrzucony',
-    'legal.hub.notif.refused.message'   => 'Urząd odmówił zezwolenia na hub w regionie :region. Sprawdź, kiedy możesz złożyć ponowny wniosek.',
-    'legal.hub.notif.delayed.title'     => 'Decyzja w sprawie hubu opóźniona',
-    'legal.hub.notif.delayed.message'   => 'Rozpatrzenie wniosku o hub w regionie :region zostało opóźnione. Wyznaczono nowy termin decyzji.',
-    'legal.hub.notif.no_decision.title'   => 'Brak decyzji w sprawie hubu',
-    'legal.hub.notif.no_decision.message' => 'Urząd nie wydał decyzji w sprawie zezwolenia na hub w regionie :region.',
+    // --- Powiadomienia dyrektora (prace lokalne) ---
+    'legal.hub.notif.submitted.title'   => 'Wniosek o zezwolenie na prace lokalne złożony',
+    'legal.hub.notif.submitted.message' => 'Złożono wniosek o zezwolenie na prace lokalne w regionie :region. Decyzja spodziewana za :time.',
+    'legal.hub.notif.granted.title'     => 'Zezwolenie na prace lokalne przyznane',
+    'legal.hub.notif.granted.message'   => 'Twój wniosek o zezwolenie na prace lokalne w regionie :region został rozpatrzony pozytywnie. Możesz teraz budować huby, rurociągi i przypisywać odwierty do hubów.',
+    'legal.hub.notif.refused.title'     => 'Wniosek o zezwolenie na prace lokalne odrzucony',
+    'legal.hub.notif.refused.message'   => 'Urząd odmówił zezwolenia na prace lokalne w regionie :region. Sprawdź, kiedy możesz złożyć ponowny wniosek.',
+    'legal.hub.notif.delayed.title'     => 'Decyzja w sprawie prac lokalnych opóźniona',
+    'legal.hub.notif.delayed.message'   => 'Rozpatrzenie wniosku o prace lokalne w regionie :region zostało opóźnione. Wyznaczono nowy termin decyzji.',
+    'legal.hub.notif.no_decision.title'   => 'Brak decyzji w sprawie prac lokalnych',
+    'legal.hub.notif.no_decision.message' => 'Urząd nie wydał decyzji w sprawie zezwolenia na prace lokalne w regionie :region.',
 
-    // --- Bramka zakupu hubu (HubAcquisitionService) ---
-    'legal.hub.err_no_hub_permit' => 'Twoja firma nie ma aktywnego zezwolenia na budowę hubu w tym regionie. Złóż wniosek w dziale prawnym.',
+    // --- Bramka prac lokalnych (huby, rurociagi, przypisanie odwiertow) ---
+    'legal.hub.err_no_hub_permit' => 'Twoja firma nie ma aktywnego zezwolenia na prace lokalne w tym regionie (huby, rurociągi, przypisanie odwiertów do hubów). Złóż wniosek w dziale prawnym.',
+
+    // --- Modal braku zezwolenia na prace lokalne (3 przyciski) ---
+    // Permit-required modal strings (3 buttons: cancel / apply / go to legal dept).
+    'legal.hub.permit_modal_title' => 'Brak zezwolenia na prace lokalne',
+    'legal.hub.permit_btn_cancel'  => 'Anuluj',
+    'legal.hub.permit_btn_apply'   => 'Złóż wniosek',
+    'legal.hub.permit_btn_legal'   => 'Przejdź do działu prawnego',
 
 ];

@@ -40,6 +40,39 @@
         window.alert(msg);
     }
 
+ // Modal braku zezwolenia na prace lokalne (3 przyciski) / Local permit required modal (3 buttons)
+    function hubPermitModal(msg) {
+        const l = lang();
+        const url = l.permit_url || '/legal.php';
+        if (typeof window.alertWithActions === 'function') {
+            window.alertWithActions(
+                msg,
+                l.permit_modal_title || 'Brak zezwolenia na prace lokalne',
+                [
+                    {
+                        label:   l.permit_btn_cancel || 'Anuluj',
+                        cls:     'modal-btn--cancel',
+                        onClick: null,
+                    },
+                    {
+                        label:   l.permit_btn_apply || 'Zloz wniosek',
+                        cls:     'modal-btn--confirm',
+                        onClick: function () { window.location.href = url; },
+                    },
+                    {
+                        label:   l.permit_btn_legal || 'Dzial prawny',
+                        cls:     'modal-btn--secondary',
+                        onClick: function () { window.location.href = url; },
+                    },
+                ],
+                'warning'
+            );
+        } else {
+            errorAlert(msg);
+        }
+    }
+    window.hubPermitModal = hubPermitModal;
+
     function hubDialog(msg, type = 'info') {
         if (type === 'success') {
             return successToast(msg);
@@ -585,6 +618,8 @@
                 }
                 await hubDialog(successMsg, 'success');
                 reloadAfterAction();
+            } else if (res.error_code === 'no_hub_permit') {
+                hubPermitModal(res.error || lang().err_generic);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }
@@ -739,13 +774,15 @@
         const msg   = (lang().market_confirm_buy || 'Kupic hub {name} za {price} PLN?')
             .replace('{name}', name)
             .replace('{price}', fmtPln(price));
-        if (!await hubConfirm(msg, { title: lang().market_ok_buy })) return;
+        if (!await hubConfirm(msg, { title: lang().market_confirm_buy_title || 'Potwierdz zakup huba' })) return;
 
         try {
             const res = await hubPost('buy_used_hub', { hub_id: hubId });
             if (res.success) {
                 await hubDialog(res.message || lang().market_ok_buy, 'success');
                 reloadAfterAction();
+            } else if (res.error_code === 'no_hub_permit') {
+                hubPermitModal(res.error || lang().err_generic);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }
@@ -764,13 +801,15 @@
             .replace('{name}', name)
             .replace('{deposit}', fmtPln(deposit))
             .replace('{lease}', fmtPln(lease));
-        if (!await hubConfirm(msg, { title: lang().market_ok_rent })) return;
+        if (!await hubConfirm(msg, { title: lang().market_confirm_rent_title || 'Potwierdz wynajem huba' })) return;
 
         try {
             const res = await hubPost('rent_hub', { hub_id: hubId });
             if (res.success) {
                 await hubDialog(res.message || lang().market_ok_rent, 'success');
                 reloadAfterAction();
+            } else if (res.error_code === 'no_hub_permit') {
+                hubPermitModal(res.error || lang().err_generic);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }
@@ -817,6 +856,8 @@
                 closeHubModal('hub-buy-new-modal');
                 await hubDialog(res.message || lang().market_ok_buy_new, 'success');
                 reloadAfterAction();
+            } else if (res.error_code === 'no_hub_permit') {
+                hubPermitModal(res.error || lang().err_generic);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }

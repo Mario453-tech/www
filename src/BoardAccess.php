@@ -78,15 +78,23 @@ class BoardAccess
                 }
             }
         } catch (Throwable $e) {
- // Quiet degradation - do not block the page on DB failure.
- // PL: Cicha degradacja - nie blokuj strony przy bledzie DB.
             if (class_exists('GameLog', false)) {
                 GameLog::error('BoardAccess', 'get FAILED', $e, ['player_id' => $playerId]);
             }
 
- // Fail-open to avoid blocking gameplay completely.
- // PL: Fail-open, aby nie blokowac rozgrywki calkowicie.
-            return array_fill_keys(self::PROTECTED_ROLES, true);
+ // Brak tabeli/schematu (nowa instalacja) -> fail-open (nie blokuj setupu).
+ // Missing table/schema (fresh install) -> fail-open (do not block initial setup).
+            $msg = $e->getMessage();
+            $missingSchema = stripos($msg, '42S02') !== false
+                          || stripos($msg, "doesn't exist") !== false
+                          || stripos($msg, 'no such table') !== false;
+            if ($missingSchema) {
+                return array_fill_keys(self::PROTECTED_ROLES, true);
+            }
+
+ // Prawdziwy blad DB -> fail-closed (nie dawaj dostepu przy bledzie).
+ // Real DB error -> fail-closed (do not grant access on error).
+            return array_fill_keys(self::PROTECTED_ROLES, false);
         }
 
         self::$cache[$playerId] = $result;

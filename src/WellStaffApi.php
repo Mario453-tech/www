@@ -147,6 +147,10 @@ try {
 
                         if (!($purchase['success'] ?? false)) {
                             $db->rollBack();
+ // error_code dla JS permit modal / error_code for JS permit modal
+                            if (($purchase['error'] ?? '') === 'no_hub_permit') {
+                                jsonOut(['success' => false, 'message' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit'], 400);
+                            }
                             $errMsg = match ($purchase['error'] ?? '') {
                                 'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
                                 'pipeline_already_exists' => t('pipeline.err_already_exists'),
@@ -259,6 +263,10 @@ try {
                         $purchase = $pipelineService->purchaseHubOutboundPipeline($playerId, $hubId, $requestedPipelineType);
                         if (!($purchase['success'] ?? false)) {
                             $db->rollBack();
+ // error_code dla JS permit modal / error_code for JS permit modal
+                            if (($purchase['error'] ?? '') === 'no_hub_permit') {
+                                jsonOut(['success' => false, 'message' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit'], 400);
+                            }
                             $errMsg = match ($purchase['error'] ?? '') {
                                 'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
                                 'pipeline_already_exists' => t('pipeline.err_already_exists'),

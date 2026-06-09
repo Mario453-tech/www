@@ -383,6 +383,30 @@
         openModal();
     };
 
+    /*
+     * alertWithActions(text, title, buttons, type?) — modal z dowolna liczba przyciskow.
+     * alertWithActions(text, title, buttons, type?) — modal with arbitrary action buttons.
+     * buttons: [{label, cls, onClick}]  cls defaults to 'modal-btn--confirm'
+     */
+    window.alertWithActions = function (text, title, buttons, type) {
+        buildModal();
+        setType(type || 'warning');
+        titleEl.textContent = title || LABELS.title_warn;
+        bodyEl.textContent = text;
+        actionsEl.innerHTML = '';
+        (buttons || []).forEach(function (def) {
+            actionsEl.appendChild(makeBtn(
+                def.label || LABELS.ok,
+                def.cls || 'modal-btn--confirm',
+                function () {
+                    closeModal();
+                    if (typeof def.onClick === 'function') { def.onClick(); }
+                }
+            ));
+        });
+        openModal();
+    };
+
     document.addEventListener('submit', function (e) {
         var form = e.target.closest('form[data-confirm]');
         if (!form || form.dataset.confirmBound === '1') {

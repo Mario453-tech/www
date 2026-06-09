@@ -6,6 +6,33 @@ Auth::requireLogin();
 $playerId = Auth::getUserId();
 $db       = Database::getInstance()->getConnection();
 
+// === Zezwolenie na prace lokalne: regiony ZABLOKOWANE dla gracza ===
+// Local works permit: regions where the per-region permit is required
+// (hub_permit_enabled=1) but NOT granted yet. Huby i rurociagi z tych regionow
+// sa ukrywane na stronie logistyki do czasu uzyskania zezwolenia (per region).
+$lockedRegionSet = [];
+try {
+    $enabledRegions = array_map('intval',
+        $db->query("SELECT region_id FROM legal_region_config WHERE hub_permit_enabled = 1")
+           ->fetchAll(PDO::FETCH_COLUMN));
+    if (!empty($enabledRegions)) {
+        $grStmt = $db->prepare(
+            "SELECT region_id FROM hub_permit_applications WHERE player_id = ? AND status = 'granted'"
+        );
+        $grStmt->execute([$playerId]);
+        $grantedRegions = array_map('intval', $grStmt->fetchAll(PDO::FETCH_COLUMN));
+        $lockedRegionSet = array_fill_keys(array_values(array_diff($enabledRegions, $grantedRegions)), true);
+    }
+} catch (Throwable $e) {
+    // Brak schematu P2a (tabela/kolumna) -> nic nie ukrywamy.
+    // Missing P2a schema (table/column) -> hide nothing (fail-open for visibility only).
+    $lockedRegionSet = [];
+}
+// Helper: czy region jest zablokowany dla prac lokalnych? / Is the region locked?
+$isLocalRegionLocked = static function ($regionId) use ($lockedRegionSet): bool {
+    return isset($lockedRegionSet[(int)$regionId]);
+};
+
 $srcDir = __DIR__ . '/../src';
 require_once $srcDir . '/LogisticsService.php';
 require_once $srcDir . '/HubService.php';
@@ -166,6 +193,15 @@ try {
     GameLog::error('logistics', 'Hub data load failed', $e, ['player' => $playerId]);
 }
 
+// Ukryj huby (kupione/wynajete) w regionach bez zezwolenia na prace lokalne.
+// Hide owned/rented hubs in regions without the local works permit (per region).
+if (!empty($lockedRegionSet)) {
+    $hubCards = array_values(array_filter(
+        $hubCards,
+        static fn(array $card): bool => !$isLocalRegionLocked($card['hub']['region_id'] ?? 0)
+    ));
+}
+
 try {
     $roadTransportSvc = new RoadTransportService($db);
     $activeRoadTripsAll = $roadTransportSvc->getActiveTripsForPlayer($playerId);
@@ -205,6 +241,11 @@ try {
     $pipelineSummary['engineers'] = (int)($pipelineEngineerStmt->fetchColumn() ?? 0);
 
     foreach ($pipelineRows as $pipe) {
+ // Ukryj rurociagi w regionach bez zezwolenia na prace lokalne (per region).
+ // Hide pipelines in regions without the local works permit (per region).
+        if ($isLocalRegionLocked($pipe['region_id'] ?? 0)) {
+            continue;
+        }
         $status = (string)($pipe['status'] ?? 'active');
         $wellId = (int)($pipe['well_id'] ?? $pipe['source_well_id'] ?? 0);
         $wellSummary = $wellSummaryById[$wellId] ?? null;
@@ -307,7 +348,7 @@ $wellsWithoutPipeline = [];
 try {
     $woPipelineStmt = $db->prepare("
         SELECT w.id, w.name AS well_name, w.status AS well_status,
-               w.location_name, w.transport_type,
+               w.location_name, w.transport_type, w.region_id,
                h.id AS hub_id, h.name AS hub_name
           FROM wells w
           JOIN logistics_hub_assignments a ON a.well_id = w.id AND a.status = 'active'
@@ -322,6 +363,16 @@ try {
     $wellsWithoutPipeline = $woPipelineStmt->fetchAll();
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Wells without pipeline query failed', $e, ['player' => $playerId]);
+}
+
+// Ukryj kandydatow do podlaczenia rurociagu w regionach bez zezwolenia na prace
+// lokalne — nie mozna podlaczyc rurociagu, dopoki nie ma zezwolenia (per region).
+// Hide pipeline-connect candidates in regions without the local works permit.
+if (!empty($lockedRegionSet)) {
+    $wellsWithoutPipeline = array_values(array_filter(
+        $wellsWithoutPipeline,
+        static fn(array $w): bool => !$isLocalRegionLocked($w['region_id'] ?? 0)
+    ));
 }
 
 $lossWells = array_values(array_filter(

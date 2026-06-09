@@ -712,21 +712,21 @@ Admin ma mieć pełny obraz łańcucha:
 
 **odwiert → transport do huba → hub → transport do magazynu**
 
-## 16.1. Ruroci?gi
+## 16.1. Rurociągi
 
-Panel `admin/pipelines.php` nie pokazuje ju? roboczej listy wszystkich ruroci?g?w.
+Panel `admin/pipelines.php` nie pokazuje już roboczej listy wszystkich rurociągów.
 Jego rola jest operacyjna:
 
-- edycja typ?w ruroci?g?w (`light`, `standard`, `heavy`),
-- nadanie ruroci?gu do konkretnego odwiertu gracza z aktywnym hubem,
-- podgl?d historii zmian z filtrami,
-- czyszczenie historii zmian zgodnie z aktualnym filtrem albo w ca?o?ci.
+- edycja typów rurociągów (`light`, `standard`, `heavy`),
+- nadanie rurociągu do konkretnego odwiertu gracza z aktywnym hubem,
+- podgląd historii zmian z filtrami,
+- czyszczenie historii zmian zgodnie z aktualnym filtrem albo w całości.
 
-Nadanie ruroci?gu przez admina nie prze??cza automatycznie transportu odwiertu.
-Gracz dalej sam wybiera, czy u?ywa ruroci?gu, czy transportu drogowego.
+Nadanie rurociągu przez admina nie przełącza automatycznie transportu odwiertu.
+Gracz dalej sam wybiera, czy używa rurociągu, czy transportu drogowego.
 
-Awarie ruroci?g?w nie s? wywo?ywane z panelu ruroci?g?w.
-Je?eli admin ma wywo?a? awari?, robi to z poziomu panelu incydent?w.
+Awarie rurociągów nie są wywoływane z panelu rurociągów.
+Jeżeli admin ma wywołać awarię, robi to z poziomu panelu incydentów.
 
 ## 16.2. Transport drogowy
 

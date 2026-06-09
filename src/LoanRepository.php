@@ -8,6 +8,9 @@ class LoanRepository
     {
         try {
             $this->db = Database::getInstance()->getConnection();
+            if (class_exists('BankAccountService')) {
+                (new BankAccountService($this->db))->ensureSchema();
+            }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('LoanRepository', '__construct failed', $e);
@@ -17,8 +20,7 @@ class LoanRepository
     }
 
  /**
- * Processes due installments for all active loans.
- * Called by the TICK loop.
+ * Przetwarza raty wymagalne w ticku / Processes installments due in the tick loop.
  */
     public function processInstallments(): void
     {
@@ -48,7 +50,7 @@ class LoanRepository
     private function processInstallment(array $loan): void
     {
         try {
- // Fetch current player cash
+ // Pobierz aktualna gotowke gracza / Fetch current player cash.
             $playerStmt = $this->db->prepare("SELECT cash FROM players WHERE id = :id");
             $playerStmt->execute([':id' => $loan['player_id']]);
             $player = $playerStmt->fetch();
@@ -58,24 +60,36 @@ class LoanRepository
             }
 
             if ($player['cash'] >= $loan['installment_amount']) {
- // INSTALLMENT PAID
+ // Rata splacona - trzymaj gotowke, historie banku, kredyt i log raty atomowo.
+ // Installment paid - keep cash, bank history, loan and payment log atomic.
+                $this->db->beginTransaction();
 
- // Deduct cash
-                $updateCash = $this->db->prepare("
-                    UPDATE players
-                    SET cash = cash - :amount
-                    WHERE id = :id
-                ");
-                $updateCash->execute([
-                    ':amount' => $loan['installment_amount'],
-                    ':id' => $loan['player_id']
-                ]);
+                $debitResult = (new FinancialTransactionService($this->db))->debit(
+                    (int)$loan['player_id'],
+                    (float)$loan['installment_amount'],
+                    FinancialTransactionService::TYPE_LOAN_PAYMENT,
+                    t('bank.tx_loan_auto_installment', ['id' => (int)$loan['id']]),
+                    'loan',
+                    (int)$loan['id']
+                );
+                if (empty($debitResult['success'])) {
+                    if ($this->db->inTransaction()) {
+                        $this->db->rollBack();
+                    }
+                    GameLog::warn('LoanRepository', 'automatic installment debit failed', [
+                        'loan_id' => $loan['id'] ?? null,
+                        'player_id' => $loan['player_id'] ?? null,
+                        'error' => $debitResult['error'] ?? 'unknown',
+                    ]);
+                    return;
+                }
 
- // Reduce remaining balance
-                $newRemaining = max(0, $loan['remaining_amount'] - $loan['installment_amount']);
+ // Zmniejsz pozostale zadluzenie / Reduce remaining balance.
+                $newRemaining = max(0, (float)$loan['remaining_amount'] - (float)$loan['installment_amount']);
+                $credibilityEvent = null;
 
                 if ($newRemaining <= 0) {
- // LOAN FULLY REPAID
+ // Kredyt splacony w calosci / Loan fully repaid.
                     $updateLoan = $this->db->prepare("
                         UPDATE loans
                         SET remaining_amount = 0,
@@ -84,12 +98,10 @@ class LoanRepository
                         WHERE id = :id
                     ");
                     $updateLoan->execute([':id' => $loan['id']]);
-
-                    // Wiarygodnosc firmy: pelna splata kredytu / Company credibility: loan fully repaid
-                    $this->applyCredibility((int)$loan['player_id'], 'loan_fully_repaid');
+                    $credibilityEvent = 'loan_fully_repaid';
 
                 } else {
- // Schedule next installment
+ // Zaplanuj kolejna rate / Schedule next installment.
                     $updateLoan = $this->db->prepare("
                         UPDATE loans
                         SET remaining_amount = :remaining,
@@ -102,12 +114,10 @@ class LoanRepository
                         ':hours' => $loan['installment_frequency'],
                         ':id' => $loan['id']
                     ]);
-
-                    // Wiarygodnosc firmy: rata splacona w terminie / Company credibility: installment paid on time
-                    $this->applyCredibility((int)$loan['player_id'], 'loan_installment_paid_on_time');
+                    $credibilityEvent = 'loan_installment_paid_on_time';
                 }
 
- // Record payment
+ // Zapisz wpis splaty raty / Record payment.
                 $payment = $this->db->prepare("
                     INSERT INTO loan_payments
                     (loan_id, player_id, amount, payment_type, created_at)
@@ -116,11 +126,17 @@ class LoanRepository
                 $payment->execute([
                     ':loan_id' => $loan['id'],
                     ':player_id' => $loan['player_id'],
-                    ':amount' => $loan['installment_amount']
+                    ':amount' => $loan['installment_amount'],
                 ]);
 
+                $this->db->commit();
+
+                if ($credibilityEvent !== null) {
+                    $this->applyCredibility((int)$loan['player_id'], $credibilityEvent);
+                }
+
             } else {
- // INSUFFICIENT FUNDS - mark as overdue
+ // Brak srodkow - oznacz rate jako zalegla / Insufficient funds - mark as overdue.
                 $updateLoan = $this->db->prepare("
                     UPDATE loans
                     SET status = 'late',
@@ -134,6 +150,13 @@ class LoanRepository
                 $this->applyCredibility((int)$loan['player_id'], 'major_payment_delay');
             }
         } catch (Throwable $e) {
+            try {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+            } catch (Throwable) {
+                // Blad rollbacku nie zmienia obslugi bledu / Rollback failure is non-fatal here.
+            }
             if (class_exists('GameLog', false)) {
                 GameLog::error('LoanRepository', 'processInstallment failed', $e, [
                     'loan_id' => $loan['id'] ?? null,

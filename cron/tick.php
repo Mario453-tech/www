@@ -298,5 +298,15 @@ try {
     GameLog::error('tick', 'notif_old_unread_cleanup FAILED', $e);
 }
 
+// Cleanup zbiorczych wpisow tickowych w historii bankowej (ta sama retencja co incydenty).
+// Przelewy, kredyty i zakupy zostaja na zawsze - usuwane sa tylko typy tickowe.
+// Aggregated tick entries cleanup in bank history (same retention as incidents).
+// Transfers, loans and purchases are kept forever - only tick types are purged.
+try {
+    (new FinancialTransactionService($db))->purgeTickAudit($incRetention);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'bank_tick_audit_cleanup FAILED', $e);
+}
+
 echo "Tick OK: " . $now->format('Y-m-d H:i:s') . " | Cena: {$newPrice}\${$trendInfo}"
     . " | Gracze: {$players->playersProcessed} | Bbl: " . round($players->totalBbl, 1) . "\n";

@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/FinancialTransactionService.php';
+
 class MarketOffer
 {
     private PDO $db;
@@ -285,6 +287,9 @@ class MarketOffer
         GameLog::step('MarketOffer', 'processOffers', 1, 'start', ['price' => $currentPrice]);
 
         try {
+            // Zapewnij schemat bankowy przed petla transakcji / Ensure bank schema before the offer transaction loop.
+            new FinancialTransactionService($this->db);
+
             $stmt = $this->db->prepare("
                 SELECT * FROM market_offers
                 WHERE status = 'pending'
@@ -319,24 +324,24 @@ class MarketOffer
 
             $earnings = (float)$offer['amount'] * $currentPrice;
 
- // Credit player account / Przelej srodki na konto gracza
-            $this->db->prepare("
-                UPDATE players
-                SET cash = cash + :earnings
-                WHERE id = :player_id
-            ")->execute([
-                ':earnings'  => $earnings,
-                ':player_id' => $offer['player_id'],
-            ]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        null, (int)$offer['player_id'], $earnings,
-                        FinancialTransactionService::TYPE_MARKET_SALE,
-                        'Sprzedaz ropy na rynku (oferta #' . (int)$offer['id'] . ')'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+            // Zasil konto gracza przez centralne API finansowe / Credit player via central financial API.
+            $creditResult = (new FinancialTransactionService($this->db))->credit(
+                (int)$offer['player_id'],
+                $earnings,
+                FinancialTransactionService::TYPE_MARKET_SALE,
+                tPlain('bank.tx_market_sale', ['id' => (int)$offer['id']]),
+                'market_offer',
+                (int)$offer['id']
+            );
+            if (empty($creditResult['success'])) {
+                $this->db->rollBack();
+                GameLog::error('MarketOffer', 'executeOffer: credit FAILED', null, [
+                    'offer_id'  => $offer['id'],
+                    'player_id' => $offer['player_id'],
+                    'error'     => $creditResult['error'] ?? 'unknown',
+                ]);
+                return;
+            }
 
  // Close the offer / Zamknij oferte
             $this->db->prepare("

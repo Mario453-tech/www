@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/BankAccountService.php';
+
 /**
  * FinancialTransactionService - centralne API ruchu srodkow (Etap 3).
  * FinancialTransactionService - central API for money movement (Stage 3).
@@ -62,6 +64,14 @@ class FinancialTransactionService
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
     public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
 
+    // Zbiorcze koszty tickowe (audit trail; gotowka schodzi roznicowo w ticku).
+    // Aggregated tick costs (audit trail; cash is saved differentially by the tick).
+    public const TYPE_TICK_OPEX          = 'tick_opex';
+    public const TYPE_TICK_SALARY        = 'tick_salary';
+    public const TYPE_TICK_TRANSPORT     = 'tick_transport';
+    public const TYPE_TICK_INCIDENT      = 'tick_incident';
+    public const TYPE_HUB_USAGE          = 'hub_usage';
+
     /** Pelna lista dozwolonych typow / Full list of allowed types. */
     public const ALLOWED_TYPES = [
         self::TYPE_PLAYER_TRANSFER,
@@ -85,6 +95,26 @@ class FinancialTransactionService
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
         self::TYPE_STORAGE_UPGRADE,
+        self::TYPE_TICK_OPEX,
+        self::TYPE_TICK_SALARY,
+        self::TYPE_TICK_TRANSPORT,
+        self::TYPE_TICK_INCIDENT,
+        self::TYPE_HUB_USAGE,
+    ];
+
+    /**
+     * Typy generowane co tick - objete retencja (purgeTickAudit), zeby tabela
+     * nie rosla bez konca przy 288 tickach na dobe.
+     * Tick-generated types - covered by retention (purgeTickAudit) so the table
+     * does not grow unbounded at 288 ticks per day.
+     */
+    public const TICK_AUDIT_TYPES = [
+        self::TYPE_TICK_OPEX,
+        self::TYPE_TICK_SALARY,
+        self::TYPE_TICK_TRANSPORT,
+        self::TYPE_TICK_INCIDENT,
+        self::TYPE_HUB_USAGE,
+        self::TYPE_TAX,
     ];
 
     /**
@@ -94,12 +124,13 @@ class FinancialTransactionService
     public const MIN_AMOUNT = 0.01;
 
     private PDO $db;
+    /** @var array<int,bool> Cache schematu per polaczenie / Schema cache per connection. */
+    private static array $schemaReady = [];
 
     public function __construct(?PDO $db = null)
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
-        // Schemat (kolumna + tabela bank_transactions) zapewniamy przez BankAccountService.
-        // The schema (column + bank_transactions table) is ensured via BankAccountService.
+        $this->ensureTransactionSchema();
     }
 
     // ================================================================== Operacje
@@ -234,8 +265,119 @@ class FinancialTransactionService
         }
     }
 
+    /**
+     * Usuwa stare zbiorcze wpisy tickowe (retencja jak incident_retention_days).
+     * Wpisy nietickowe (przelewy, kredyty, zakupy) zostaja na zawsze.
+     * Zwraca liczbe usunietych wierszy.
+     *
+     * Deletes old aggregated tick entries (retention like incident_retention_days).
+     * Non-tick entries (transfers, loans, purchases) are kept forever.
+     * Returns the number of deleted rows.
+     */
+    public function purgeTickAudit(int $days = 30): int
+    {
+        $days = max(1, $days);
+        $placeholders = implode(',', array_fill(0, count(self::TICK_AUDIT_TYPES), '?'));
+
+        try {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        } catch (Throwable) {
+            $driver = 'mysql';
+        }
+
+        // SQLite (testy) nie zna INTERVAL - osobna skladnia daty.
+        // SQLite (tests) has no INTERVAL - separate date syntax.
+        $cutoffSql = ($driver === 'sqlite')
+            ? "datetime('now', ?)"
+            : "NOW() - INTERVAL ? DAY";
+        $cutoffParam = ($driver === 'sqlite') ? "-{$days} days" : $days;
+
+        try {
+            $stmt = $this->db->prepare(
+                "DELETE FROM bank_transactions
+                  WHERE transaction_type IN ({$placeholders})
+                    AND created_at < {$cutoffSql}"
+            );
+            $stmt->execute([...self::TICK_AUDIT_TYPES, $cutoffParam]);
+            $deleted = $stmt->rowCount();
+            if ($deleted > 0 && class_exists('GameLog', false)) {
+                GameLog::info('FinancialTransactionService', 'purgeTickAudit', [
+                    'deleted' => $deleted, 'days' => $days,
+                ]);
+            }
+            return $deleted;
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('FinancialTransactionService', 'purgeTickAudit FAILED', $e, ['days' => $days]);
+            }
+            return 0;
+        }
+    }
+
     // ================================================================== Core
     // ================================================================== Core
+
+    /**
+     * Zapewnia schemat historii finansowej bez ryzyka niejawnego commita MySQL.
+     * Ensures financial history schema without risking an implicit MySQL commit.
+     */
+    private function ensureTransactionSchema(): void
+    {
+        $connId = spl_object_id($this->db);
+        if (isset(self::$schemaReady[$connId])) {
+            return;
+        }
+
+        try {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        } catch (Throwable) {
+            $driver = 'mysql';
+        }
+
+        if ($driver === 'sqlite') {
+            $this->ensureSqliteTransactionSchema();
+            self::$schemaReady[$connId] = true;
+            return;
+        }
+
+        try {
+            if ($this->db->inTransaction()) {
+                return;
+            }
+        } catch (Throwable) {
+            // Kontynuuj poza transakcja / Continue outside an explicit transaction.
+        }
+
+        if (class_exists('BankAccountService')) {
+            new BankAccountService($this->db);
+        }
+        self::$schemaReady[$connId] = true;
+    }
+
+    /**
+     * Minimalny schemat SQLite dla testow integracyjnych.
+     * Minimal SQLite schema for integration tests.
+     */
+    private function ensureSqliteTransactionSchema(): void
+    {
+        $this->db->exec(
+            "CREATE TABLE IF NOT EXISTS bank_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_player_id INTEGER NULL,
+                to_player_id INTEGER NULL,
+                amount REAL NOT NULL,
+                transaction_type TEXT NOT NULL,
+                description TEXT NULL,
+                reference_type TEXT NULL,
+                reference_id INTEGER NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )"
+        );
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_from_created ON bank_transactions (from_player_id, created_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_to_created ON bank_transactions (to_player_id, created_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_type_created ON bank_transactions (transaction_type, created_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_ref ON bank_transactions (reference_type, reference_id)");
+    }
 
     /**
      * Wspolny rdzen credit/debit/transfer. NULL po stronie from/to oznacza

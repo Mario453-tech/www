@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/PlayerPaymentService.php';
+
 class WellPipelineService
 {
     private const PIPELINE_DEFAULTS = [
@@ -337,6 +339,14 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_not_found'];
         }
 
+ // Bramka zezwolenia na prace lokalne: rurociag wylotowy hubu to praca lokalna
+ // i wymaga aktywnego zezwolenia lokalnego w regionie hubu. Fail-closed.
+ // Local works permit gate: hub outbound pipeline is a local work and requires
+ // an active local permit in the hub's region. Fail-closed.
+        if (!$this->hasLocalPermitOrNotRequired($playerId, $this->getHubRegionId($hubId))) {
+            return ['success' => false, 'error' => 'no_hub_permit'];
+        }
+
  // Reject if outbound pipeline already exists for this hub
         $existingStmt = $this->db->prepare(
             "SELECT id, status FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound'"
@@ -347,23 +357,18 @@ class WellPipelineService
             return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
         }
 
- // Atomic deduction
-        $deductStmt = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu budowy / Deduct construction cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $buildCost,
+            FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+            tPlain('bank.tx_pipeline_hub_build', ['id' => $hubId]),
+            'hub',
+            $hubId
         );
-        $deductStmt->execute([$buildCost, $playerId, $buildCost]);
-        if ($deductStmt->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $buildCost,
-                    FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
-                    'Budowa rurociagu od hubu #' . $hubId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $capacity = max(1.0, round((float)($hub['nominal_capacity_bph'] ?? 100.0) * ((float)($profile['capacity_pct'] ?? 100.0) / 100.0), 2));
         $name = tPlain('pipeline.default_name_hub', ['id' => $hubId]);
@@ -412,6 +417,7 @@ class WellPipelineService
                     wp.transport_loss AS transport_loss_pct,
                     wp.incident_risk_mult AS incident_risk_factor,
                     w.id AS source_well_id,
+                    w.region_id AS region_id,
                     COALESCE(NULLIF(w.name, ''), NULLIF(w.well_name, ''), CONCAT('Odwiert #', w.id)) AS well_name,
                     w.location_name,
                     w.transport_type,
@@ -551,6 +557,14 @@ class WellPipelineService
             return ['success' => false, 'error' => 'offshore_no_pipeline'];
         }
 
+ // Bramka zezwolenia na prace lokalne: budowa rurociagu to praca lokalna i
+ // wymaga aktywnego zezwolenia lokalnego w regionie odwiertu. Fail-closed.
+ // Local works permit gate: building a pipeline is a local work and requires
+ // an active local permit in the well's region. Fail-closed.
+        if (!$this->hasLocalPermitOrNotRequired($playerId, $this->getWellRegionId($wellId))) {
+            return ['success' => false, 'error' => 'no_hub_permit'];
+        }
+
         $hubAssignment = $this->getActiveHubAssignmentForWell($wellId);
         if ($hubAssignment === null) {
             return ['success' => false, 'error' => 'hub_required'];
@@ -566,23 +580,18 @@ class WellPipelineService
             return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
         }
 
- // Atomic deduction - fail if insufficient funds
-        $deductStmt = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu budowy / Deduct construction cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $buildCost,
+            FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+            tPlain('bank.tx_pipeline_well_build', ['id' => $wellId]),
+            'well',
+            $wellId
         );
-        $deductStmt->execute([$buildCost, $playerId, $buildCost]);
-        if ($deductStmt->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $buildCost,
-                    FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
-                    'Budowa rurociagu od odwiertu #' . $wellId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $baseProd = (float)($well['base_production_per_hour'] ?? 100.0);
         $capPct   = (float)($profile['capacity_pct'] ?? 100.0);
@@ -750,6 +759,7 @@ class WellPipelineService
     {
         $stmt = $this->db->prepare(
             "SELECT wp.*,
+                    w.region_id AS region_id,
                     COALESCE(NULLIF(w.name,''), NULLIF(w.well_name,''), CONCAT('Odwiert #', w.id)) AS well_name,
                     h.name AS hub_name,
                     GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), wp.build_finish_at)) AS seconds_remaining
@@ -890,23 +900,18 @@ class WellPipelineService
             return ['success' => false, 'error' => 'pipeline_already_full'];
         }
 
- // Atomically deduct cash
-        $deduct = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu naprawy / Deduct repair cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $repairCost,
+            FinancialTransactionService::TYPE_PIPELINE_REPAIR,
+            tPlain('bank.tx_pipeline_repair', ['id' => $pipelineId]),
+            'pipeline',
+            $pipelineId
         );
-        $deduct->execute([$repairCost, $playerId, $repairCost]);
-        if ($deduct->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $repairCost,
-                    FinancialTransactionService::TYPE_PIPELINE_REPAIR,
-                    'Naprawa rurociagu #' . $pipelineId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
  // Restore condition, reduce transport_loss by 60%, update status
         $newStatus = match(true) {
@@ -973,22 +978,18 @@ class WellPipelineService
         $opex      = (float)($pipe['opex_per_tick'] ?? 0.0);
         $maintCost = max(500.0, round($opex * 24.0 * 0.4, 2));
 
-        $deduct = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu konserwacji / Deduct maintenance cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $maintCost,
+            FinancialTransactionService::TYPE_PIPELINE_MAINTENANCE,
+            tPlain('bank.tx_pipeline_maintenance', ['id' => $pipelineId]),
+            'pipeline',
+            $pipelineId
         );
-        $deduct->execute([$maintCost, $playerId, $maintCost]);
-        if ($deduct->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $maintCost,
-                    FinancialTransactionService::TYPE_PIPELINE_MAINTENANCE,
-                    'Konserwacja rurociagu #' . $pipelineId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $newCond = min(100.0, (float)$pipe['condition_pct'] + 2.0);
 
@@ -1192,6 +1193,80 @@ class WellPipelineService
         } catch (Throwable $e) {
             GameLog::error('WellPipelineService', 'legacy pipeline loss lookup FAILED', $e, ['player_id' => $playerId]);
             return 0.0;
+        }
+    }
+
+ /**
+ * Zwraca region_id odwiertu (0 gdy brak). / Returns the well's region_id (0 if none).
+ */
+    private function getWellRegionId(int $wellId): int
+    {
+        try {
+            $stmt = $this->db->prepare("SELECT region_id FROM wells WHERE id = ? LIMIT 1");
+            $stmt->execute([$wellId]);
+            return (int)($stmt->fetchColumn() ?: 0);
+        } catch (Throwable $e) {
+            GameLog::error('WellPipelineService', 'getWellRegionId failed', $e, ['well_id' => $wellId]);
+            return 0;
+        }
+    }
+
+ /**
+ * Zwraca region_id hubu (0 gdy brak). / Returns the hub's region_id (0 if none).
+ */
+    private function getHubRegionId(int $hubId): int
+    {
+        try {
+            $stmt = $this->db->prepare("SELECT region_id FROM logistics_hubs WHERE id = ? LIMIT 1");
+            $stmt->execute([$hubId]);
+            return (int)($stmt->fetchColumn() ?: 0);
+        } catch (Throwable $e) {
+            GameLog::error('WellPipelineService', 'getHubRegionId failed', $e, ['hub_id' => $hubId]);
+            return 0;
+        }
+    }
+
+ /**
+ * Bramka zezwolenia na prace lokalne (per region).
+ * Local works permit gate (per region).
+ * TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub brak rekordu)
+ * LUB gracz ma status 'granted'. Fail-closed: kazdy blad bazy zwraca FALSE.
+ */
+    private function hasLocalPermitOrNotRequired(int $playerId, int $regionId): bool
+    {
+        try {
+            $cfgStmt = $this->db->prepare(
+                "SELECT hub_permit_enabled FROM legal_region_config WHERE region_id = ? LIMIT 1"
+            );
+            $cfgStmt->execute([$regionId]);
+            $cfg = $cfgStmt->fetch();
+
+            if (!$cfg || (int)$cfg['hub_permit_enabled'] !== 1) {
+                return true;
+            }
+
+            $permStmt = $this->db->prepare(
+                "SELECT 1 FROM hub_permit_applications
+                  WHERE player_id = ? AND region_id = ? AND status = 'granted' LIMIT 1"
+            );
+            $permStmt->execute([$playerId, $regionId]);
+            return (bool)$permStmt->fetchColumn();
+        } catch (Throwable $e) {
+ // Brak tabeli/kolumny modulu prawnego = system zezwolen niezainstalowany -> nie wymagamy.
+ // Missing legal-module table/column = permit system not installed -> not required.
+            $msg = $e->getMessage();
+            if (stripos($msg, 'no such table') !== false
+                || stripos($msg, 'no such column') !== false
+                || stripos($msg, 'unknown column') !== false
+                || stripos($msg, "doesn't exist") !== false
+                || stripos($msg, '42S02') !== false
+                || stripos($msg, '42S22') !== false) {
+                return true;
+            }
+            GameLog::warn('WellPipelineService', 'Local permit gate failed — blocking (fail-closed)', [
+                'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
+            ]);
+            return false;
         }
     }
 
