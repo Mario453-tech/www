@@ -3350,17 +3350,11 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     align-self: flex-start;
 }
 
-.input-num-60 {
-    width: 60px;
-}
+.input-num-60  { width: 46px; }
 
-.input-num-70 {
-    width: 70px;
-}
+.input-num-70  { width: 54px; }
 
-.input-num-110 {
-    width: 110px;
-}
+.input-num-110 { width: 80px; }
 
 .legal-admin-guide {
     margin-bottom: 14px;
@@ -3391,7 +3385,8 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 }
 
 .legal-config-table {
-    min-width: 1660px;
+    min-width: unset;
+    width: 100%;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -3400,8 +3395,8 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .legal-config-table td {
     vertical-align: middle;
     white-space: nowrap;
-    padding: 7px 10px;
-    font-size: 12px;
+    padding: 5px 7px;
+    font-size: 11px;
     border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
@@ -3409,33 +3404,35 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .legal-config-table thead tr:first-child th {
     background: rgba(255, 152, 0, .1);
     color: #ff9800;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: .06em;
     text-transform: uppercase;
     border-bottom: 1px solid rgba(255, 152, 0, .25);
-    padding: 8px 10px;
+    padding: 6px 7px;
     text-align: center;
 }
 
 /* Nagłówek kolumn */
 .legal-config-table thead tr:nth-child(2) th {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: .05em;
+    letter-spacing: .04em;
     text-transform: uppercase;
     color: rgba(224,224,224,.55);
     background: #1e1e1e;
     border-bottom: 1px solid rgba(255,152,0,.15);
-    padding: 6px 10px;
+    padding: 5px 7px;
 }
 
 /* Region — nazwa kolumny */
 .legal-config-table__region {
-    min-width: 150px;
+    min-width: 110px;
+    max-width: 140px;
     white-space: normal;
     font-weight: 600;
     color: #e0e0e0;
+    word-break: break-word;
 }
 
 /* Wiersze — lepszy kontrast */
@@ -3457,7 +3454,8 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     z-index: 2;
     background: #1e1e1e;
     border-right: 1px solid rgba(255,152,0,.15);
-    min-width: 130px;
+    min-width: 110px;
+    max-width: 140px;
     font-weight: 700;
     color: #e0e0e0;
 }
@@ -3488,9 +3486,12 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     border: 1px solid rgba(255,152,0,.25);
     border-radius: 4px;
     color: #e0e0e0;
-    font-size: 12px;
-    padding: 3px 6px;
+    font-size: 11px;
+    padding: 2px 4px;
     transition: border-color .15s;
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
 }
 .legal-config-table input[type="number"]:focus {
     border-color: rgba(255,152,0,.6);
@@ -3511,7 +3512,8 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     border-radius: 4px;
     color: #e0e0e0;
     font-size: 11px;
-    padding: 3px 5px;
+    padding: 2px 4px;
+    max-width: 80px;
 }
 
 .legal-admin-actions form {
@@ -3776,4 +3778,58 @@ body.cred-modal-open { overflow: hidden; }
     /* Ukryj kolumny mniej ważne na bardzo małym ekranie */
     .legal-config-table .col-hide-xs { display: none; }
 }
+
+
+/* Kompaktowy Zapisz w tabeli regionów */
+.legal-config-table .btn-sm,
+.legal-config-table .btn-primary.btn-sm {
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+    letter-spacing: .05em !important;
+    white-space: nowrap;
+}
+
+/* admin-wrap bez overflow-x żeby tabela mogła się skalować */
+.admin-wrap {
+    overflow-x: visible;
+}
+
+/* table-scroll-wrap — scroll dopiero gdy naprawdę nie ma miejsca */
+.table-scroll-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.table-scroll-wrap::-webkit-scrollbar { height: 4px; }
+.table-scroll-wrap::-webkit-scrollbar-thumb { background: rgba(255,152,0,.35); border-radius: 2px; }
+
+/* ─── LEGAL CONFIG TABLE — kolumny zaawansowane ukryte domyślnie ─── */
+/* Domyślnie widoczne: Region, Ryzyko, Włączony, Koszt, Czas, Zapisz */
+/* Kolumny zaawansowane ukryte — toggle przyciskiem */
+.legal-config-table .col-advanced {
+    display: none;
+}
+.legal-table-expanded .legal-config-table .col-advanced {
+    display: table-cell;
+}
+
+/* Przycisk rozwijania zaawansowanych kolumn */
+.legal-table-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255,152,0,.3);
+    background: rgba(255,152,0,.08);
+    border-radius: 6px;
+    color: #ff9800;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    cursor: pointer;
+    transition: background .15s;
+}
+.legal-table-toggle:hover { background: rgba(255,152,0,.15); }
+.legal-table-toggle::before { content: '▶'; font-size: 9px; transition: transform .2s; }
+.legal-table-expanded .legal-table-toggle::before { transform: rotate(90deg); }
 

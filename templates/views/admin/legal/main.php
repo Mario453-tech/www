@@ -98,15 +98,19 @@
         </article>
     </div>
 
+    <button class="legal-table-toggle" onclick="this.closest('.panel').querySelector('.table-scroll-wrap').classList.toggle('legal-table-expanded');this.closest('.panel').classList.toggle('legal-table-expanded')">
+        Pokaż zaawansowane kolumny
+    </button>
     <div class="table-scroll-wrap">
     <table class="data-table legal-config-table">
         <thead>
             <tr>
                 <th rowspan="2"><?= t('admin.legal.col_region') ?></th>
                 <th colspan="3"><?= t('admin.legal.group_region_state') ?></th>
-                <th colspan="8"><?= t('admin.legal.group_drilling_permit') ?></th>
+                <th colspan="3"><?= t('admin.legal.group_drilling_permit') ?></th>
+                <th colspan="5" class="col-advanced"><?= t('admin.legal.group_drilling_permit') ?> (zaawansowane)</th>
                 <th colspan="2"><?= t('admin.legal.group_player_requirements') ?></th>
-                <th colspan="3"><?= t('admin.legal.group_hub_permit') ?></th>
+                <th colspan="3" class="col-advanced"><?= t('admin.legal.group_hub_permit') ?></th>
                 <th rowspan="2"><?= t('admin.legal.col_actions_short') ?></th>
             </tr>
             <tr>
@@ -115,17 +119,17 @@
                 <th><?= t('admin.legal.col_offshore') ?></th>
                 <th><?= t('admin.legal.col_cost') ?></th>
                 <th><?= t('admin.legal.col_review_min') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_delay_pct_hint')) ?>"><?= t('admin.legal.col_delay_pct') ?></th>
-                <th><?= t('admin.legal.col_delay_min') ?></th>
-                <th><?= t('admin.legal.col_delay_max') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_refusal_pct_hint')) ?>"><?= t('admin.legal.col_refusal_pct') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.col_nodec_pct_hint')) ?>"><?= t('admin.legal.col_nodec_pct') ?></th>
-                <th><?= t('admin.legal.col_cooldown') ?></th>
+                <th class="col-advanced" title="<?= htmlspecialchars(tPlain('admin.legal.col_delay_pct_hint')) ?>"><?= t('admin.legal.col_delay_pct') ?></th>
+                <th class="col-advanced"><?= t('admin.legal.col_delay_min') ?></th>
+                <th class="col-advanced"><?= t('admin.legal.col_delay_max') ?></th>
+                <th class="col-advanced" title="<?= htmlspecialchars(tPlain('admin.legal.col_refusal_pct_hint')) ?>"><?= t('admin.legal.col_refusal_pct') ?></th>
+                <th class="col-advanced" title="<?= htmlspecialchars(tPlain('admin.legal.col_nodec_pct_hint')) ?>"><?= t('admin.legal.col_nodec_pct') ?></th>
+                <th class="col-advanced"><?= t('admin.legal.col_cooldown') ?></th>
                 <th><?= t('admin.legal.col_capital') ?></th>
                 <th><?= t('admin.legal.col_legal_level') ?></th>
-                <th title="<?= htmlspecialchars(tPlain('admin.legal.hub.col_enabled_hint')) ?>"><?= t('admin.legal.hub.col_enabled') ?></th>
-                <th><?= t('admin.legal.hub.col_cost') ?></th>
-                <th><?= t('admin.legal.hub.col_review_min') ?></th>
+                <th class="col-advanced" title="<?= htmlspecialchars(tPlain('admin.legal.hub.col_enabled_hint')) ?>"><?= t('admin.legal.hub.col_enabled') ?></th>
+                <th class="col-advanced"><?= t('admin.legal.hub.col_cost') ?></th>
+                <th class="col-advanced"><?= t('admin.legal.hub.col_review_min') ?></th>
             </tr>
         </thead>
         <tbody>
@@ -150,18 +154,18 @@
             <td><input type="checkbox" name="is_offshore" value="1" <?= (int)($cfg['is_offshore'] ?? 0) ? 'checked' : '' ?>></td>
             <td><input type="number" name="application_cost"     value="<?= (float)$cfg['application_cost'] ?>"    min="0"   step="1000"  class="input-sm input-num-110"></td>
             <td><input type="number" name="base_review_minutes"  value="<?= (int)$cfg['base_review_minutes'] ?>"   min="1"   step="5"     class="input-sm input-num-70"></td>
-            <td><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="delay_min_minutes"    value="<?= (int)($cfg['delay_min_minutes'] ?? 10) ?>" min="1" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="delay_max_minutes"    value="<?= (int)($cfg['delay_max_minutes'] ?? 30) ?>" min="1" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm input-num-60"></td>
-            <td><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm input-num-70"></td>
+            <td class="col-advanced"><input type="number" name="delay_risk_pct"       value="<?= (float)$cfg['delay_risk_pct'] ?>"      min="0"   max="100" step="1" class="input-sm input-num-60"></td>
+            <td class="col-advanced"><input type="number" name="delay_min_minutes"    value="<?= (int)($cfg['delay_min_minutes'] ?? 10) ?>" min="1" step="1" class="input-sm input-num-60"></td>
+            <td class="col-advanced"><input type="number" name="delay_max_minutes"    value="<?= (int)($cfg['delay_max_minutes'] ?? 30) ?>" min="1" step="1" class="input-sm input-num-60"></td>
+            <td class="col-advanced"><input type="number" name="refusal_risk_pct"     value="<?= (float)$cfg['refusal_risk_pct'] ?>"    min="0"   max="100" step="1" class="input-sm input-num-60"></td>
+            <td class="col-advanced"><input type="number" name="no_decision_risk_pct" value="<?= (float)$cfg['no_decision_risk_pct'] ?>" min="0"  max="100" step="1" class="input-sm input-num-60"></td>
+            <td class="col-advanced"><input type="number" name="refusal_cooldown_minutes" value="<?= (int)$cfg['refusal_cooldown_minutes'] ?>" min="0" step="30" class="input-sm input-num-70"></td>
             <td><input type="number" name="required_capital"     value="<?= (float)$cfg['required_capital'] ?>"    min="0"   step="100000" class="input-sm input-num-110"></td>
             <td><input type="number" name="required_legal_level" value="<?= (int)($cfg['required_legal_level'] ?? 0) ?>" min="0" max="10" step="1" class="input-sm input-num-60"></td>
             <!-- P2a: hub permit fields / Pola zezwolen na huby -->
-            <td><input type="checkbox" name="hub_permit_enabled" value="1" <?= (int)($cfg['hub_permit_enabled'] ?? 0) ? 'checked' : '' ?>></td>
-            <td><input type="number"   name="hub_permit_cost"    value="<?= (float)($cfg['hub_permit_cost'] ?? 500000) ?>" min="0" step="10000" class="input-sm input-num-110"></td>
-            <td><input type="number"   name="hub_review_minutes" value="<?= (int)($cfg['hub_review_minutes'] ?? 120) ?>"   min="1" step="5"      class="input-sm input-num-70"></td>
+            <td class="col-advanced"><input type="checkbox" name="hub_permit_enabled" value="1" <?= (int)($cfg['hub_permit_enabled'] ?? 0) ? 'checked' : '' ?>></td>
+            <td class="col-advanced"><input type="number"   name="hub_permit_cost"    value="<?= (float)($cfg['hub_permit_cost'] ?? 500000) ?>" min="0" step="10000" class="input-sm input-num-110"></td>
+            <td class="col-advanced"><input type="number"   name="hub_review_minutes" value="<?= (int)($cfg['hub_review_minutes'] ?? 120) ?>"   min="1" step="5"      class="input-sm input-num-70"></td>
             <td><button type="submit" class="btn btn-sm btn-primary"><?= t('admin.legal.btn_save') ?></button></td>
             </form>
         </tr>
