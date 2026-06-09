@@ -273,14 +273,6 @@ trait HubViewHubsTrait
         $result = [];
 
         foreach ($this->hubSvc->getPlayerRegionIds($playerId) as $regionId) {
- // Ukryj rynek hubow w regionach bez zezwolenia na prace lokalne — huby
- // pojawiaja sie dopiero po uzyskaniu zezwolenia lokalnego (per region).
- // Hide the hub market in regions without a local works permit — hubs only
- // appear once the local permit (per region) is granted.
-            if (!$this->hasLocalPermitOrNotRequired($playerId, (int)$regionId)) {
-                continue;
-            }
-
             $hubs = $this->hubSvc->getMarketHubs($regionId);
             if (empty($hubs)) {
                 continue;
@@ -314,51 +306,6 @@ trait HubViewHubsTrait
         }
 
         return $result;
-    }
-
- /**
- * Bramka zezwolenia na prace lokalne (per region) — widok rynku hubow.
- * Local works permit gate (per region) — hub market view.
- * TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub brak rekordu)
- * LUB gracz ma status 'granted'. Fail-closed: kazdy blad bazy zwraca FALSE,
- * czyli ukrywa huby (spojnie z bramkami zakupu/przypisania/rurociagu).
- */
-    private function hasLocalPermitOrNotRequired(int $playerId, int $regionId): bool
-    {
-        try {
-            $cfgStmt = $this->db->prepare(
-                "SELECT hub_permit_enabled FROM legal_region_config WHERE region_id = ? LIMIT 1"
-            );
-            $cfgStmt->execute([$regionId]);
-            $cfg = $cfgStmt->fetch();
-
-            if (!$cfg || (int)$cfg['hub_permit_enabled'] !== 1) {
-                return true;
-            }
-
-            $permStmt = $this->db->prepare(
-                "SELECT 1 FROM hub_permit_applications
-                  WHERE player_id = ? AND region_id = ? AND status = 'granted' LIMIT 1"
-            );
-            $permStmt->execute([$playerId, $regionId]);
-            return (bool)$permStmt->fetchColumn();
-        } catch (Throwable $e) {
- // Brak tabeli/kolumny modulu prawnego = system zezwolen niezainstalowany -> nie wymagamy.
- // Missing legal-module table/column = permit system not installed -> not required.
-            $msg = $e->getMessage();
-            if (stripos($msg, 'no such table') !== false
-                || stripos($msg, 'no such column') !== false
-                || stripos($msg, 'unknown column') !== false
-                || stripos($msg, "doesn't exist") !== false
-                || stripos($msg, '42S02') !== false
-                || stripos($msg, '42S22') !== false) {
-                return true;
-            }
-            GameLog::warn('HubViewService', 'Local permit gate failed — hiding market (fail-closed)', [
-                'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
-            ]);
-            return false;
-        }
     }
 
  // CSS helpers

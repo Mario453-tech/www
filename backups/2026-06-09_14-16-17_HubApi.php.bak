@@ -191,7 +191,6 @@ try {
                     'region_mismatch'    => t('logistics.hub.err_region_mismatch'),
                     'already_assigned'   => t('logistics.hub.err_generic'),
                     'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
-                    'no_hub_permit'      => t('legal.hub.err_no_hub_permit'),
                     default              => t('logistics.hub.err_generic'),
                 };
                 hubApiOut(['success' => false, 'error' => $err]);

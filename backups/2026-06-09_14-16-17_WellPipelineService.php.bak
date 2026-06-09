@@ -337,14 +337,6 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_not_found'];
         }
 
- // Bramka zezwolenia na prace lokalne: rurociag wylotowy hubu to praca lokalna
- // i wymaga aktywnego zezwolenia lokalnego w regionie hubu. Fail-closed.
- // Local works permit gate: hub outbound pipeline is a local work and requires
- // an active local permit in the hub's region. Fail-closed.
-        if (!$this->hasLocalPermitOrNotRequired($playerId, $this->getHubRegionId($hubId))) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
-        }
-
  // Reject if outbound pipeline already exists for this hub
         $existingStmt = $this->db->prepare(
             "SELECT id, status FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound'"
@@ -557,14 +549,6 @@ class WellPipelineService
         }
         if (($well['well_type'] ?? 'onshore') === 'offshore') {
             return ['success' => false, 'error' => 'offshore_no_pipeline'];
-        }
-
- // Bramka zezwolenia na prace lokalne: budowa rurociagu to praca lokalna i
- // wymaga aktywnego zezwolenia lokalnego w regionie odwiertu. Fail-closed.
- // Local works permit gate: building a pipeline is a local work and requires
- // an active local permit in the well's region. Fail-closed.
-        if (!$this->hasLocalPermitOrNotRequired($playerId, $this->getWellRegionId($wellId))) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
         }
 
         $hubAssignment = $this->getActiveHubAssignmentForWell($wellId);
@@ -1208,80 +1192,6 @@ class WellPipelineService
         } catch (Throwable $e) {
             GameLog::error('WellPipelineService', 'legacy pipeline loss lookup FAILED', $e, ['player_id' => $playerId]);
             return 0.0;
-        }
-    }
-
- /**
- * Zwraca region_id odwiertu (0 gdy brak). / Returns the well's region_id (0 if none).
- */
-    private function getWellRegionId(int $wellId): int
-    {
-        try {
-            $stmt = $this->db->prepare("SELECT region_id FROM wells WHERE id = ? LIMIT 1");
-            $stmt->execute([$wellId]);
-            return (int)($stmt->fetchColumn() ?: 0);
-        } catch (Throwable $e) {
-            GameLog::error('WellPipelineService', 'getWellRegionId failed', $e, ['well_id' => $wellId]);
-            return 0;
-        }
-    }
-
- /**
- * Zwraca region_id hubu (0 gdy brak). / Returns the hub's region_id (0 if none).
- */
-    private function getHubRegionId(int $hubId): int
-    {
-        try {
-            $stmt = $this->db->prepare("SELECT region_id FROM logistics_hubs WHERE id = ? LIMIT 1");
-            $stmt->execute([$hubId]);
-            return (int)($stmt->fetchColumn() ?: 0);
-        } catch (Throwable $e) {
-            GameLog::error('WellPipelineService', 'getHubRegionId failed', $e, ['hub_id' => $hubId]);
-            return 0;
-        }
-    }
-
- /**
- * Bramka zezwolenia na prace lokalne (per region).
- * Local works permit gate (per region).
- * TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub brak rekordu)
- * LUB gracz ma status 'granted'. Fail-closed: kazdy blad bazy zwraca FALSE.
- */
-    private function hasLocalPermitOrNotRequired(int $playerId, int $regionId): bool
-    {
-        try {
-            $cfgStmt = $this->db->prepare(
-                "SELECT hub_permit_enabled FROM legal_region_config WHERE region_id = ? LIMIT 1"
-            );
-            $cfgStmt->execute([$regionId]);
-            $cfg = $cfgStmt->fetch();
-
-            if (!$cfg || (int)$cfg['hub_permit_enabled'] !== 1) {
-                return true;
-            }
-
-            $permStmt = $this->db->prepare(
-                "SELECT 1 FROM hub_permit_applications
-                  WHERE player_id = ? AND region_id = ? AND status = 'granted' LIMIT 1"
-            );
-            $permStmt->execute([$playerId, $regionId]);
-            return (bool)$permStmt->fetchColumn();
-        } catch (Throwable $e) {
- // Brak tabeli/kolumny modulu prawnego = system zezwolen niezainstalowany -> nie wymagamy.
- // Missing legal-module table/column = permit system not installed -> not required.
-            $msg = $e->getMessage();
-            if (stripos($msg, 'no such table') !== false
-                || stripos($msg, 'no such column') !== false
-                || stripos($msg, 'unknown column') !== false
-                || stripos($msg, "doesn't exist") !== false
-                || stripos($msg, '42S02') !== false
-                || stripos($msg, '42S22') !== false) {
-                return true;
-            }
-            GameLog::warn('WellPipelineService', 'Local permit gate failed — blocking (fail-closed)', [
-                'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
-            ]);
-            return false;
         }
     }
 

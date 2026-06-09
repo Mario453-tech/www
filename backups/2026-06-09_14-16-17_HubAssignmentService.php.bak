@@ -55,18 +55,6 @@ class HubAssignmentService
         $zone = $this->getWellZoneKey($wellId);
         $hub  = $validation['hub'];
 
- // Bramka zezwolenia na prace lokalne: przypisanie odwiertu do hubu jest
- // praca lokalna i wymaga aktywnego zezwolenia lokalnego w regionie hubu.
- // Local works permit gate: assigning a well to a hub is a local work and
- // requires an active local permit in the hub's region. Fail-closed.
-        $regionId = (int)($hub['region_id'] ?? 0);
-        if ($regionId <= 0) {
-            $regionId = $this->getHubRegionId($hubId);
-        }
-        if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
-        }
-
  // No access fee: player paid for hub ownership/tenancy at acquisition time.
  // Hub must already be owned (player_id = playerId) or rented (tenant_player_id = playerId).
         $accessFee = 0.0;
@@ -260,78 +248,6 @@ class HubAssignmentService
         }
 
         return $hubZone ? (float)$hubZone['distance_penalty_pct'] : 0.0;
-    }
-
- /**
- * Zwraca region_id hubu (0 gdy brak). / Returns the hub's region_id (0 if none).
- */
-    private function getHubRegionId(int $hubId): int
-    {
-        try {
-            $stmt = $this->db->prepare("SELECT region_id FROM logistics_hubs WHERE id = ? LIMIT 1");
-            $stmt->execute([$hubId]);
-            return (int)($stmt->fetchColumn() ?: 0);
-        } catch (Throwable $e) {
-            GameLog::error('HubAssignmentService', 'getHubRegionId failed', $e, ['hub_id' => $hubId]);
-            return 0;
-        }
-    }
-
- /**
- * Bramka zezwolenia na prace lokalne (per region).
- * Local works permit gate (per region).
- * TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub brak rekordu)
- * LUB gracz ma status 'granted'. Fail-closed: kazdy blad bazy zwraca FALSE.
- */
-    private function hasLocalPermitOrNotRequired(int $playerId, int $regionId): bool
-    {
-        try {
-            $cfgStmt = $this->db->prepare(
-                "SELECT hub_permit_enabled FROM legal_region_config WHERE region_id = ? LIMIT 1"
-            );
-            $cfgStmt->execute([$regionId]);
-            $cfg = $cfgStmt->fetch();
-
- // Brak rekordu lub flaga off — nie wymagamy zezwolenia.
- // No record or flag off — permit not required.
-            if (!$cfg || (int)$cfg['hub_permit_enabled'] !== 1) {
-                return true;
-            }
-
-            $permStmt = $this->db->prepare(
-                "SELECT 1 FROM hub_permit_applications
-                  WHERE player_id = ? AND region_id = ? AND status = 'granted' LIMIT 1"
-            );
-            $permStmt->execute([$playerId, $regionId]);
-            return (bool)$permStmt->fetchColumn();
-        } catch (Throwable $e) {
- // Brak tabel modulu prawnego = system zezwolen niezainstalowany -> nie wymagamy.
- // Missing legal-module tables = permit system not installed -> not required.
-            if ($this->isMissingPermitTable($e)) {
-                return true;
-            }
-            GameLog::warn('HubAssignmentService', 'Local permit gate failed — blocking (fail-closed)', [
-                'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
-            ]);
-            return false;
-        }
-    }
-
- /**
- * Czy wyjatek oznacza brak tabeli zezwolen (sqlite/MySQL)?
- * Does the exception indicate a missing permit table (sqlite/MySQL)?
- */
-    private function isMissingPermitTable(Throwable $e): bool
-    {
-        $msg = $e->getMessage();
- // Brak tabeli (42S02) lub kolumny (42S22) = schemat zezwolen nieobecny.
- // Missing table (42S02) or column (42S22) = permit schema not present.
-        return stripos($msg, 'no such table') !== false
-            || stripos($msg, 'no such column') !== false
-            || stripos($msg, 'unknown column') !== false
-            || stripos($msg, "doesn't exist") !== false
-            || stripos($msg, '42S02') !== false
-            || stripos($msg, '42S22') !== false;
     }
 
 }
