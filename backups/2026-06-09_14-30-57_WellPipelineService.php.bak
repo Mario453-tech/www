@@ -420,7 +420,6 @@ class WellPipelineService
                     wp.transport_loss AS transport_loss_pct,
                     wp.incident_risk_mult AS incident_risk_factor,
                     w.id AS source_well_id,
-                    w.region_id AS region_id,
                     COALESCE(NULLIF(w.name, ''), NULLIF(w.well_name, ''), CONCAT('Odwiert #', w.id)) AS well_name,
                     w.location_name,
                     w.transport_type,
@@ -767,7 +766,6 @@ class WellPipelineService
     {
         $stmt = $this->db->prepare(
             "SELECT wp.*,
-                    w.region_id AS region_id,
                     COALESCE(NULLIF(w.name,''), NULLIF(w.well_name,''), CONCAT('Odwiert #', w.id)) AS well_name,
                     h.name AS hub_name,
                     GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), wp.build_finish_at)) AS seconds_remaining
