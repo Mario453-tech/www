@@ -324,6 +324,5 @@ return [
     'bank.tx_map_purchase' => 'Zakup lokalizacji na mapie #:id',
     'bank.tx_geological_layer_switch' => 'Zmiana warstwy geologicznej odwiertu #:id',
     'bank.tx_storage_upgrade' => 'Rozbudowa magazynu',
-    'bank.tx_market_sale' => 'Sprzedaż ropy z oferty #:id',
 
 ];
