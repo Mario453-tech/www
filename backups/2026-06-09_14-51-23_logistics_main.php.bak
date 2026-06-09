@@ -1695,12 +1695,6 @@ window.HUB_LANG  = <?= json_encode([
     'err_hub_already_owned'   => t('logistics.hub.err_hub_already_owned'),
     'err_hub_already_rented'  => t('logistics.hub.err_hub_already_rented'),
     'err_hub_unavailable'     => t('logistics.hub.err_hub_unavailable'),
- // Modal braku zezwolenia na prace lokalne / Local permit required modal strings
-    'permit_modal_title' => t('legal.hub.permit_modal_title'),
-    'permit_btn_cancel'  => t('legal.hub.permit_btn_cancel'),
-    'permit_btn_apply'   => t('legal.hub.permit_btn_apply'),
-    'permit_btn_legal'   => t('legal.hub.permit_btn_legal'),
-    'permit_url'         => '/legal.php',
  // Well status labels for hub wells modal / Tlumaczenia statusow odwiertow w modalu huba
     'ws_active'          => t('technical.ws_active'),
     'ws_paused_staff'    => t('technical.ws_paused_staff'),

@@ -169,11 +169,4 @@ return [
     // --- Bramka prac lokalnych (huby, rurociagi, przypisanie odwiertow) ---
     'legal.hub.err_no_hub_permit' => 'Twoja firma nie ma aktywnego zezwolenia na prace lokalne w tym regionie (huby, rurociągi, przypisanie odwiertów do hubów). Złóż wniosek w dziale prawnym.',
 
-    // --- Modal braku zezwolenia na prace lokalne (3 przyciski) ---
-    // Permit-required modal strings (3 buttons: cancel / apply / go to legal dept).
-    'legal.hub.permit_modal_title' => 'Brak zezwolenia na prace lokalne',
-    'legal.hub.permit_btn_cancel'  => 'Anuluj',
-    'legal.hub.permit_btn_apply'   => 'Złóż wniosek',
-    'legal.hub.permit_btn_legal'   => 'Przejdź do działu prawnego',
-
 ];
