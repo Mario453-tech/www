@@ -328,15 +328,6 @@ class PlayersSection
         );
         $finState->saveCashAndTick($playerId, $playerCash, $initialCash);
 
- // 6. AUDIT BANKOWY zbiorcze koszty ticku do bank_transactions (brief: "podatki" itd.).
- // Gotowka juz zeszla roznicowo w saveCashAndTick - tu tylko logTransaction (audit trail).
- // 6. BANK AUDIT aggregated tick costs into bank_transactions (brief: "taxes" etc.).
- // Cash already saved differentially in saveCashAndTick - logTransaction only (audit trail).
-        $this->logTickBankAudit(
-            $playerId, $wellLoop,
-            abs($pipelines->cashDelta), abs($spill->cashDelta)
-        );
-
  // Aktualizuj liczniki globalne / Update global counters
         $this->playersProcessed++;
         $this->wellsActive  += $wellLoop->finWellsActive;
@@ -344,54 +335,6 @@ class PlayersSection
         $this->totalRevenue += $wellLoop->finRevenue;
         $this->totalOpex    += ($wellLoop->finOpex + $wellLoop->finSalary + $wellLoop->finTransport);
 
-    }
-
- /**
- * Zapisuje zbiorcze koszty ticku do bank_transactions jako audit trail (bez ruszania salda;
- * gotowka schodzi roznicowo w FinancialStateSection::saveCashAndTick). Wpis tylko gdy kwota > 0.
- * OPEX pomniejszony o oplaty hubowe (WellHubSection dodaje je do OBU akumulatorow), zeby nie dublowac.
- * Incydenty = incydenty odwiertow + katastrofy rurociagow + kary srodowiskowe (spill).
- *
- * Writes aggregated tick costs into bank_transactions as an audit trail (no balance change;
- * cash is saved differentially in FinancialStateSection::saveCashAndTick). Entry only when > 0.
- * OPEX is reduced by hub fees (WellHubSection adds them to BOTH accumulators) to avoid double-logging.
- * Incidents = well incidents + pipeline disasters + environmental fines (spill).
- */
-    private function logTickBankAudit(
-        int             $playerId,
-        WellLoopSection $wellLoop,
-        float           $pipelineDisasterCost,
-        float           $spillFineCost
-    ): void {
-        if (!class_exists('FinancialTransactionService')) {
-            return;
-        }
-
-        try {
-            $entries = [
-                [FinancialTransactionService::TYPE_TAX,            $wellLoop->finTax,                                              'bank.tx_tick_tax'],
-                [FinancialTransactionService::TYPE_TICK_OPEX,      max(0.0, $wellLoop->finOpex - $wellLoop->finHubUsageCost),      'bank.tx_tick_opex'],
-                [FinancialTransactionService::TYPE_HUB_USAGE,      $wellLoop->finHubUsageCost,                                     'bank.tx_tick_hub_usage'],
-                [FinancialTransactionService::TYPE_TICK_SALARY,    $wellLoop->finSalary,                                           'bank.tx_tick_salary'],
-                [FinancialTransactionService::TYPE_TICK_TRANSPORT, $wellLoop->finTransport,                                        'bank.tx_tick_transport'],
-                [FinancialTransactionService::TYPE_TICK_INCIDENT,  $wellLoop->finIncident + $pipelineDisasterCost + $spillFineCost, 'bank.tx_tick_incident'],
-            ];
-
-            $fts = null;
-            foreach ($entries as [$type, $amount, $descKey]) {
-                $amount = round((float)$amount, 2);
-                if ($amount < 0.01) {
-                    continue;
-                }
-                $fts ??= new FinancialTransactionService($this->db);
-                $fts->logTransaction(
-                    $playerId, null, $amount, $type,
-                    tPlain($descKey), 'tick', null
-                );
-            }
-        } catch (Throwable $e) {
-            GameLog::error('tick', 'logTickBankAudit FAILED', $e, ['player_id' => $playerId]);
-        }
     }
 
  /**

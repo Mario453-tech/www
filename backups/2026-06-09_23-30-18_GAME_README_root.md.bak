@@ -1,13 +1,5 @@
 ## Changelog
 
-### 2026-06-09 - Bank: koszty tickowe i sprzedaż ropy w historii bankowej
-- `src/MarketOffer.php` - automatyczna sprzedaż ropy (oferty rynkowe wykonywane w ticku) przeszła ze starego `UPDATE players SET cash +` na `FinancialTransactionService::credit()` z opisem i referencją do oferty (`market_offer`).
-- `src/FinancialTransactionService.php` - nowe typy operacji tickowych: `tick_opex`, `tick_salary`, `tick_transport`, `tick_incident`, `hub_usage`; nowa stała `TICK_AUDIT_TYPES` (razem z `tax`) oraz metoda `purgeTickAudit()` usuwająca stare wpisy tickowe (przelewy, kredyty i zakupy zostają na zawsze).
-- `src/Tick/PlayersSection.php` - nowa metoda `logTickBankAudit()`: po zapisie gotówki tick dopisuje do `bank_transactions` zbiorcze koszty gracza per kategoria (podatek regionalny, OPEX odwiertów, opłaty hubowe, pensje, transport, incydenty + katastrofy rurociągów + kary środowiskowe); wpis tylko gdy kwota > 0; sam audit trail przez `logTransaction()` - gotówka schodzi różnicowo w `saveCashAndTick`, bez podwójnego pobrania; OPEX pomniejszony o opłaty hubowe (te wpadają do obu akumulatorów w `WellHubSection`).
-- `cron/tick.php` - sekcja cleanup wywołuje `purgeTickAudit()` z tą samą retencją co `incident_retention_days` (domyślnie 30 dni).
-- `lang/pl/bank.php` - opisy operacji `bank.tx_tick_*`, `bank.tx_market_sale` oraz etykiety typów `bank.account.type.tick_*` i `hub_usage` dla pilli w historii konta.
-- `tests/Integration/FinancialTransactionServiceTest.php` - 2 nowe testy: akceptacja typów tickowych przez `logTransaction()` oraz `purgeTickAudit()` usuwający wyłącznie stare wpisy tickowe. Testy zielone: 176/176 SQLite.
-
 ### 2026-06-09 - Bank: zakupy i oplaty gracza przez centralne API finansowe
 - `src/PlayerPaymentService.php` - dodano czytelna klase posrednia dla oplat gracza (`charge()` / `refund()`), oparta o `FinancialTransactionService`.
 - `src/FinancialTransactionService.php`, `src/LegalService.php`, `src/Legal/HubPermitTrait.php`, `src/WorldMap.php`, `public/upgrade_storage.php` - schemat bankowy jest przygotowywany przed recznie otwierana transakcja, zeby pierwsze uzycie na bazie bez nowych tabel nie wywolywalo DDL w srodku transakcji MySQL.

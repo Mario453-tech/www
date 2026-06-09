@@ -64,14 +64,6 @@ class FinancialTransactionService
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
     public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
 
-    // Zbiorcze koszty tickowe (audit trail; gotowka schodzi roznicowo w ticku).
-    // Aggregated tick costs (audit trail; cash is saved differentially by the tick).
-    public const TYPE_TICK_OPEX          = 'tick_opex';
-    public const TYPE_TICK_SALARY        = 'tick_salary';
-    public const TYPE_TICK_TRANSPORT     = 'tick_transport';
-    public const TYPE_TICK_INCIDENT      = 'tick_incident';
-    public const TYPE_HUB_USAGE          = 'hub_usage';
-
     /** Pelna lista dozwolonych typow / Full list of allowed types. */
     public const ALLOWED_TYPES = [
         self::TYPE_PLAYER_TRANSFER,
@@ -95,26 +87,6 @@ class FinancialTransactionService
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
         self::TYPE_STORAGE_UPGRADE,
-        self::TYPE_TICK_OPEX,
-        self::TYPE_TICK_SALARY,
-        self::TYPE_TICK_TRANSPORT,
-        self::TYPE_TICK_INCIDENT,
-        self::TYPE_HUB_USAGE,
-    ];
-
-    /**
-     * Typy generowane co tick - objete retencja (purgeTickAudit), zeby tabela
-     * nie rosla bez konca przy 288 tickach na dobe.
-     * Tick-generated types - covered by retention (purgeTickAudit) so the table
-     * does not grow unbounded at 288 ticks per day.
-     */
-    public const TICK_AUDIT_TYPES = [
-        self::TYPE_TICK_OPEX,
-        self::TYPE_TICK_SALARY,
-        self::TYPE_TICK_TRANSPORT,
-        self::TYPE_TICK_INCIDENT,
-        self::TYPE_HUB_USAGE,
-        self::TYPE_TAX,
     ];
 
     /**
@@ -262,55 +234,6 @@ class FinancialTransactionService
                 ]);
             }
             return null;
-        }
-    }
-
-    /**
-     * Usuwa stare zbiorcze wpisy tickowe (retencja jak incident_retention_days).
-     * Wpisy nietickowe (przelewy, kredyty, zakupy) zostaja na zawsze.
-     * Zwraca liczbe usunietych wierszy.
-     *
-     * Deletes old aggregated tick entries (retention like incident_retention_days).
-     * Non-tick entries (transfers, loans, purchases) are kept forever.
-     * Returns the number of deleted rows.
-     */
-    public function purgeTickAudit(int $days = 30): int
-    {
-        $days = max(1, $days);
-        $placeholders = implode(',', array_fill(0, count(self::TICK_AUDIT_TYPES), '?'));
-
-        try {
-            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-        } catch (Throwable) {
-            $driver = 'mysql';
-        }
-
-        // SQLite (testy) nie zna INTERVAL - osobna skladnia daty.
-        // SQLite (tests) has no INTERVAL - separate date syntax.
-        $cutoffSql = ($driver === 'sqlite')
-            ? "datetime('now', ?)"
-            : "NOW() - INTERVAL ? DAY";
-        $cutoffParam = ($driver === 'sqlite') ? "-{$days} days" : $days;
-
-        try {
-            $stmt = $this->db->prepare(
-                "DELETE FROM bank_transactions
-                  WHERE transaction_type IN ({$placeholders})
-                    AND created_at < {$cutoffSql}"
-            );
-            $stmt->execute([...self::TICK_AUDIT_TYPES, $cutoffParam]);
-            $deleted = $stmt->rowCount();
-            if ($deleted > 0 && class_exists('GameLog', false)) {
-                GameLog::info('FinancialTransactionService', 'purgeTickAudit', [
-                    'deleted' => $deleted, 'days' => $days,
-                ]);
-            }
-            return $deleted;
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('FinancialTransactionService', 'purgeTickAudit FAILED', $e, ['days' => $days]);
-            }
-            return 0;
         }
     }
 

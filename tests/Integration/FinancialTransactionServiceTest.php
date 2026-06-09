@@ -222,7 +222,51 @@ final class FinancialTransactionServiceTest extends SqliteIntegrationTestCase
         $this->assertNull($this->service->logTransaction(1, 2, 0.0, FinancialTransactionService::TYPE_TAX));
     }
 
+    // ============================================================== Tick audit
+
+    public function testTickAuditTypesAreAccepted(): void
+    {
+        $this->seedPlayer(1, 1000.00);
+
+        foreach (FinancialTransactionService::TICK_AUDIT_TYPES as $type) {
+            $id = $this->service->logTransaction(1, null, 12.34, $type, 'tick audit', 'tick', null);
+            $this->assertIsInt($id, "Typ {$type} musi byc dozwolony / type {$type} must be allowed");
+        }
+
+        $this->assertSame(1000.00, $this->cashOf(1), 'Audit nie zmienia salda.');
+        $this->assertCount(count(FinancialTransactionService::TICK_AUDIT_TYPES), $this->allTransactions());
+    }
+
+    public function testPurgeTickAuditDeletesOnlyOldTickEntries(): void
+    {
+        $this->seedPlayer(1, 1000.00);
+
+        // Stary wpis tickowy (40 dni) - do usuniecia / Old tick entry (40 days) - purged.
+        $this->insertTransactionAt(1, FinancialTransactionService::TYPE_TICK_OPEX, "-40 days");
+        // Swiezy wpis tickowy (1 dzien) - zostaje / Fresh tick entry (1 day) - kept.
+        $this->insertTransactionAt(1, FinancialTransactionService::TYPE_TICK_OPEX, "-1 days");
+        // Stary przelew (40 dni) - zostaje na zawsze / Old transfer (40 days) - kept forever.
+        $this->insertTransactionAt(1, FinancialTransactionService::TYPE_PLAYER_TRANSFER, "-40 days");
+
+        $deleted = $this->service->purgeTickAudit(30);
+
+        $this->assertSame(1, $deleted);
+        $remaining = array_column($this->allTransactions(), 'transaction_type');
+        sort($remaining);
+        $this->assertSame(['player_transfer', 'tick_opex'], $remaining);
+    }
+
     // ============================================================== Helpers
+
+    private function insertTransactionAt(int $playerId, string $type, string $ageModifier): void
+    {
+        $this->db->prepare(
+            "INSERT INTO bank_transactions
+                (from_player_id, to_player_id, amount, transaction_type, created_at)
+             VALUES (?, NULL, 10.0, ?, datetime('now', ?))"
+        )->execute([$playerId, $type, $ageModifier]);
+    }
+
 
     private function seedPlayer(int $id, float $cash): void
     {
