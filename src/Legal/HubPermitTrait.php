@@ -270,6 +270,8 @@ trait LegalHubPermitTrait
         $applicationCost = (float)$config['hub_permit_cost'];
         $reviewMinutes   = (int)$config['hub_review_minutes'];
 
+        $paymentService = new PlayerPaymentService($this->db);
+
         $this->db->beginTransaction();
         try {
             $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
@@ -293,9 +295,26 @@ trait LegalHubPermitTrait
                 ];
             }
 
-            // Pobierz oplata / Deduct fee
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                ->execute([$applicationCost, $playerId]);
+            // Pobierz oplate / Deduct fee.
+            $payment = $paymentService->charge(
+                $playerId,
+                $applicationCost,
+                FinancialTransactionService::TYPE_LEGAL_FEE,
+                tPlain('bank.tx_legal_hub_permit', ['id' => $regionId]),
+                'legal_hub_region',
+                $regionId
+            );
+            if (!$payment['success']) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'code'    => 'insufficient_funds',
+                    'message' => tPlain('legal.hub.err.insufficient_funds', [
+                        'cost' => number_format($applicationCost, 0, '.', ' '),
+                    ]),
+                    'cost' => $applicationCost,
+                ];
+            }
 
             $dueStr = (clone $now)->modify("+{$reviewMinutes} minutes")->format('Y-m-d H:i:s');
 

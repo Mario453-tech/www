@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/CompanyCredibilityService.php';
+require_once __DIR__ . '/PlayerPaymentService.php';
 require_once __DIR__ . '/Legal/HubPermitTrait.php';
 
 /**
@@ -484,6 +485,8 @@ class LegalService
             }
         }
 
+        $paymentService = new PlayerPaymentService($this->db);
+
         $this->db->beginTransaction();
         try {
             $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
@@ -538,19 +541,26 @@ class LegalService
                 ];
             }
 
-            // Pobranie oplaty.
-            // Deduct legal application fee.
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                ->execute([$applicationCost, $playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $playerId, null, $applicationCost,
-                        FinancialTransactionService::TYPE_LEGAL_FEE,
-                        'Oplata za wniosek o pozwolenie na wiercenie'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+            // Pobranie oplaty / Deduct legal application fee.
+            $payment = $paymentService->charge(
+                $playerId,
+                $applicationCost,
+                FinancialTransactionService::TYPE_LEGAL_FEE,
+                tPlain('bank.tx_legal_drilling_permit', ['id' => $regionId]),
+                'legal_region',
+                $regionId
+            );
+            if (!$payment['success']) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'code'    => 'insufficient_funds',
+                    'message' => tPlain('legal.err.insufficient_funds', [
+                        'cost' => number_format($applicationCost, 0, '.', ' '),
+                    ]),
+                    'cost'    => $applicationCost,
+                ];
+            }
 
             // Termin decyzji = teraz + bazowy czas rozpatrzenia.
             $dueStr = (clone $now)

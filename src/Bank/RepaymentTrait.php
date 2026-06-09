@@ -37,9 +37,11 @@ trait BankRepaymentTrait
         try {
             $db = $this->db;
 
- // Auto-migrate missing loan columns before repayment logic.
- // Automatycznie dodaj brakujace kolumny loans przed logika splaty.
+ // Automatycznie dodaj brakujace kolumny loans przed logika splaty / Auto-migrate missing loan columns before repayment logic.
             $this->ensureLoanColumnsExist();
+            if (class_exists('BankAccountService')) {
+                (new BankAccountService($db))->ensureSchema();
+            }
 
             $stmt = $db->prepare("
                 SELECT * FROM loans
@@ -89,8 +91,31 @@ trait BankRepaymentTrait
             $newRemaining = round($remaining - $toPay, 2);
             $isPaidOff = $newRemaining <= 0;
 
-            $db->prepare("UPDATE players SET cash = cash - :amt WHERE id = :pid")
-                ->execute([':amt' => $toPay, ':pid' => $playerId]);
+            $debitResult = (new FinancialTransactionService($db))->debit(
+                $playerId,
+                $toPay,
+                FinancialTransactionService::TYPE_LOAN_PAYMENT,
+                $isPaidOff
+                    ? t('bank.tx_loan_repayment_full', ['id' => $loanId])
+                    : t('bank.tx_loan_repayment', ['id' => $loanId]),
+                'loan',
+                $loanId
+            );
+            if (empty($debitResult['success'])) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                if (($debitResult['error'] ?? '') === 'insufficient_funds') {
+                    return [
+                        'success' => false,
+                        'message' => t('bank.err_repay_no_funds', [
+                            'cash' => number_format($cash),
+                            'needed' => number_format($toPay),
+                        ]),
+                    ];
+                }
+                return ['success' => false, 'message' => t('bank.err_financial_transaction')];
+            }
 
             if ($isPaidOff) {
                 $db->prepare("

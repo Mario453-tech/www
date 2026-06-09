@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/PlayerPaymentService.php';
+
 class WellPipelineService
 {
     private const PIPELINE_DEFAULTS = [
@@ -347,23 +349,18 @@ class WellPipelineService
             return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
         }
 
- // Atomic deduction
-        $deductStmt = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu budowy / Deduct construction cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $buildCost,
+            FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+            tPlain('bank.tx_pipeline_hub_build', ['id' => $hubId]),
+            'hub',
+            $hubId
         );
-        $deductStmt->execute([$buildCost, $playerId, $buildCost]);
-        if ($deductStmt->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $buildCost,
-                    FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
-                    'Budowa rurociagu od hubu #' . $hubId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $capacity = max(1.0, round((float)($hub['nominal_capacity_bph'] ?? 100.0) * ((float)($profile['capacity_pct'] ?? 100.0) / 100.0), 2));
         $name = tPlain('pipeline.default_name_hub', ['id' => $hubId]);
@@ -566,23 +563,18 @@ class WellPipelineService
             return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
         }
 
- // Atomic deduction - fail if insufficient funds
-        $deductStmt = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu budowy / Deduct construction cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $buildCost,
+            FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+            tPlain('bank.tx_pipeline_well_build', ['id' => $wellId]),
+            'well',
+            $wellId
         );
-        $deductStmt->execute([$buildCost, $playerId, $buildCost]);
-        if ($deductStmt->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $buildCost,
-                    FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
-                    'Budowa rurociagu od odwiertu #' . $wellId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $baseProd = (float)($well['base_production_per_hour'] ?? 100.0);
         $capPct   = (float)($profile['capacity_pct'] ?? 100.0);
@@ -890,23 +882,18 @@ class WellPipelineService
             return ['success' => false, 'error' => 'pipeline_already_full'];
         }
 
- // Atomically deduct cash
-        $deduct = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu naprawy / Deduct repair cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $repairCost,
+            FinancialTransactionService::TYPE_PIPELINE_REPAIR,
+            tPlain('bank.tx_pipeline_repair', ['id' => $pipelineId]),
+            'pipeline',
+            $pipelineId
         );
-        $deduct->execute([$repairCost, $playerId, $repairCost]);
-        if ($deduct->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $repairCost,
-                    FinancialTransactionService::TYPE_PIPELINE_REPAIR,
-                    'Naprawa rurociagu #' . $pipelineId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
  // Restore condition, reduce transport_loss by 60%, update status
         $newStatus = match(true) {
@@ -973,22 +960,18 @@ class WellPipelineService
         $opex      = (float)($pipe['opex_per_tick'] ?? 0.0);
         $maintCost = max(500.0, round($opex * 24.0 * 0.4, 2));
 
-        $deduct = $this->db->prepare(
-            "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+        // Pobranie kosztu konserwacji / Deduct maintenance cost.
+        $payment = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $maintCost,
+            FinancialTransactionService::TYPE_PIPELINE_MAINTENANCE,
+            tPlain('bank.tx_pipeline_maintenance', ['id' => $pipelineId]),
+            'pipeline',
+            $pipelineId
         );
-        $deduct->execute([$maintCost, $playerId, $maintCost]);
-        if ($deduct->rowCount() === 0) {
+        if (!$payment['success']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $maintCost,
-                    FinancialTransactionService::TYPE_PIPELINE_MAINTENANCE,
-                    'Konserwacja rurociagu #' . $pipelineId
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
         $newCond = min(100.0, (float)$pipe['condition_pct'] + 2.0);
 

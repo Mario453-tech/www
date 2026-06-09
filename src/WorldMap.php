@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/PlayerPaymentService.php';
+
 /**
  * WorldMap - world map service.
  * Handles regions, locations and well purchases via the map.
@@ -242,9 +244,27 @@ class WorldMap
             $transportType = $loc['well_type'] === 'offshore' ? 'tankowiec' : 'nieustawiony';
             $transportProfile = TransportConfigService::getTypeConfig($this->db, $transportType);
 
+            $paymentService = new PlayerPaymentService($this->db);
+
             $this->db->beginTransaction();
             try {
-                $player->updateCash(-$totalCost, 'map_purchase', 'Zakup lokalizacji na mapie');
+                // Pobranie oplaty za lokalizacje / Deduct map location purchase cost.
+                $payment = $paymentService->charge(
+                    $playerId,
+                    $totalCost,
+                    FinancialTransactionService::TYPE_MAP_PURCHASE,
+                    tPlain('bank.tx_map_purchase', ['id' => $locationId]),
+                    'map_location',
+                    $locationId
+                );
+                if (!$payment['success']) {
+                    $this->db->rollBack();
+                    return [
+                        'success' => false,
+                        'message' => t('world_map.err_insufficient_funds', ['cost' => number_format($totalCost, 0, '.', ' ')]),
+                        'cost'    => $totalCost,
+                    ];
+                }
 
  // Check if a well was previously sold at this location
  // If so, the reservoir is already partially depleted

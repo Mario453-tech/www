@@ -1,4 +1,7 @@
 <?php
+
+require_once __DIR__ . '/PlayerPaymentService.php';
+
 /**
  * GeologicalLayerService - geological layer system.
  * PL: GeologicalLayerService - system warstw geologicznych.
@@ -273,7 +276,20 @@ class GeologicalLayerService
                         'message' => t('geology.err_no_funds', ['cost' => number_format($cost, 0, '.', ' ')]),
                     ];
                 }
-                $player->updateCash(-$cost, 'geological_fee', 'Oplata za zmiane warstwy geologicznej');
+                $payment = (new PlayerPaymentService($this->db))->charge(
+                    $playerId,
+                    (float)$cost,
+                    FinancialTransactionService::TYPE_GEOLOGICAL_FEE,
+                    tPlain('bank.tx_geological_layer_switch', ['id' => $wellId]),
+                    'well',
+                    $wellId
+                );
+                if (!$payment['success']) {
+                    return [
+                        'success' => false,
+                        'message' => t('geology.err_no_funds', ['cost' => number_format($cost, 0, '.', ' ')]),
+                    ];
+                }
             }
 
             $switchUntil = $hours > 0

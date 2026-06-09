@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/PlayerPaymentService.php';
+
 /**
  * HubAcquisitionService - player hub ownership actions.
  * Kupno, wynajem i migracja hubw logistycznych.
@@ -60,7 +62,7 @@ class HubAcquisitionService
             return ['success' => false, 'error' => 'no_hub_permit'];
         }
 
-        $cashCheck = $this->checkAndDeductCash($playerId, $cost);
+        $cashCheck = $this->checkAndDeductCash($playerId, $cost, tPlain('bank.tx_hub_build_new'));
         if (!$cashCheck['ok']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
@@ -111,7 +113,7 @@ class HubAcquisitionService
 
             return ['success' => true, 'hub_id' => $hubId, 'cost' => $cost];
         } catch (Throwable $e) {
-            $this->refundCash($playerId, $cost);
+            $this->refundCash($playerId, $cost, tPlain('bank.tx_hub_refund_generic'));
             GameLog::error('HubAcquisitionService', 'buyNew failed', $e, ['player_id' => $playerId]);
             return ['success' => false, 'error' => 'db_error'];
         }
@@ -147,7 +149,13 @@ class HubAcquisitionService
 
         $cost = (float)($hub['acquisition_price'] > 0 ? $hub['acquisition_price'] : $hub['build_cost']);
 
-        $cashCheck = $this->checkAndDeductCash($playerId, $cost);
+        $cashCheck = $this->checkAndDeductCash(
+            $playerId,
+            $cost,
+            tPlain('bank.tx_hub_purchase', ['id' => $hubId]),
+            'hub',
+            $hubId
+        );
         if (!$cashCheck['ok']) {
             return ['success' => false, 'error' => 'insufficient_funds'];
         }
@@ -170,7 +178,7 @@ class HubAcquisitionService
 
             return ['success' => true, 'cost' => $cost];
         } catch (Throwable $e) {
-            $this->refundCash($playerId, $cost);
+            $this->refundCash($playerId, $cost, tPlain('bank.tx_hub_refund', ['id' => $hubId]), 'hub', $hubId);
             GameLog::error('HubAcquisitionService', 'buyUsed failed', $e, ['player_id' => $playerId]);
             return ['success' => false, 'error' => 'db_error'];
         }
@@ -210,7 +218,13 @@ class HubAcquisitionService
         $deposit  = round($leaseFee * 3.0, 2);
 
         if ($deposit > 0.0) {
-            $cashCheck = $this->checkAndDeductCash($playerId, $deposit);
+            $cashCheck = $this->checkAndDeductCash(
+                $playerId,
+                $deposit,
+                tPlain('bank.tx_hub_rent_deposit', ['id' => $hubId]),
+                'hub',
+                $hubId
+            );
             if (!$cashCheck['ok']) {
                 return ['success' => false, 'error' => 'insufficient_funds'];
             }
@@ -234,7 +248,7 @@ class HubAcquisitionService
             return ['success' => true, 'deposit' => $deposit];
         } catch (Throwable $e) {
             if ($deposit > 0.0) {
-                $this->refundCash($playerId, $deposit);
+                $this->refundCash($playerId, $deposit, tPlain('bank.tx_hub_refund', ['id' => $hubId]), 'hub', $hubId);
             }
             GameLog::error('HubAcquisitionService', 'rent failed', $e, ['player_id' => $playerId]);
             return ['success' => false, 'error' => 'db_error'];
@@ -267,7 +281,13 @@ class HubAcquisitionService
         }
 
         $cost = round((float)($defaults['upgrade_cost'] ?? 0.0), 2);
-        $cashCheck = $this->checkAndDeductCash($playerId, $cost);
+        $cashCheck = $this->checkAndDeductCash(
+            $playerId,
+            $cost,
+            tPlain('bank.tx_hub_upgrade', ['id' => $hubId]),
+            'hub',
+            $hubId
+        );
         if (!$cashCheck['ok']) {
             return ['success' => false, 'error' => 'insufficient_funds', 'cost' => $cost];
         }
@@ -275,7 +295,7 @@ class HubAcquisitionService
         try {
             $result = $this->hubSvc->upgradeHub($hubId, $playerId);
             if (!$result['success']) {
-                $this->refundCash($playerId, $cost);
+                $this->refundCash($playerId, $cost, tPlain('bank.tx_hub_refund', ['id' => $hubId]), 'hub', $hubId);
                 return [
                     'success' => false,
                     'error'   => $result['error'] ?? 'db_error',
@@ -296,7 +316,7 @@ class HubAcquisitionService
                 'cost'      => $cost,
             ];
         } catch (Throwable $e) {
-            $this->refundCash($playerId, $cost);
+            $this->refundCash($playerId, $cost, tPlain('bank.tx_hub_refund', ['id' => $hubId]), 'hub', $hubId);
             GameLog::error('HubAcquisitionService', 'upgradeOwned failed', $e, [
                 'player_id' => $playerId,
                 'hub_id'    => $hubId,
@@ -366,46 +386,48 @@ class HubAcquisitionService
  // ------------------------------------------------------------------ private
 
  /** @return array{ok: bool} */
-    private function checkAndDeductCash(int $playerId, float $amount): array
+    private function checkAndDeductCash(
+        int $playerId,
+        float $amount,
+        ?string $description = null,
+        ?string $referenceType = null,
+        ?int $referenceId = null
+    ): array
     {
         if ($amount <= 0.0) {
             return ['ok' => true];
         }
-        $stmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
-        $stmt->execute([$playerId]);
-        $cash = (float)($stmt->fetchColumn() ?? 0.0);
-        if ($cash < $amount) {
-            return ['ok' => false];
-        }
-        $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-            ->execute([$amount, $playerId]);
-        try {
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    $playerId, null, $amount,
-                    FinancialTransactionService::TYPE_HUB_PURCHASE,
-                    'Zakup/wynajem hubu logistycznego'
-                );
-            }
-        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
-        return ['ok' => true];
+        $result = (new PlayerPaymentService($this->db))->charge(
+            $playerId,
+            $amount,
+            FinancialTransactionService::TYPE_HUB_PURCHASE,
+            $description ?? tPlain('bank.tx_hub_purchase_generic'),
+            $referenceType,
+            $referenceId
+        );
+        return ['ok' => (bool)$result['success']];
     }
 
-    private function refundCash(int $playerId, float $amount): void
+    private function refundCash(
+        int $playerId,
+        float $amount,
+        ?string $description = null,
+        ?string $referenceType = null,
+        ?int $referenceId = null
+    ): void
     {
         if ($amount <= 0.0) {
             return;
         }
         try {
-            $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id = ?")
-                ->execute([$amount, $playerId]);
-            if (class_exists('FinancialTransactionService', false)) {
-                (new FinancialTransactionService($this->db))->logTransaction(
-                    null, $playerId, $amount,
-                    FinancialTransactionService::TYPE_HUB_PURCHASE,
-                    'Zwrot oplaty za hub logistyczny'
-                );
-            }
+            (new PlayerPaymentService($this->db))->refund(
+                $playerId,
+                $amount,
+                FinancialTransactionService::TYPE_HUB_PURCHASE,
+                $description ?? tPlain('bank.tx_hub_refund_generic'),
+                $referenceType,
+                $referenceId
+            );
         } catch (Throwable $e) {
             GameLog::error('HubAcquisitionService', 'Cash refund failed', $e, [
                 'player_id' => $playerId,

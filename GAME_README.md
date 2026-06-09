@@ -1,5 +1,20 @@
 ## Changelog
 
+### 2026-06-09 - Bank: zakupy i oplaty gracza przez centralne API finansowe
+- `src/PlayerPaymentService.php` - dodano czytelna klase posrednia dla oplat gracza (`charge()` / `refund()`), oparta o `FinancialTransactionService`.
+- `src/FinancialTransactionService.php`, `src/LegalService.php`, `src/Legal/HubPermitTrait.php`, `src/WorldMap.php`, `public/upgrade_storage.php` - schemat bankowy jest przygotowywany przed recznie otwierana transakcja, zeby pierwsze uzycie na bazie bez nowych tabel nie wywolywalo DDL w srodku transakcji MySQL.
+- `src/HubAcquisitionService.php` - zakup, wynajem, rozbudowa oraz zwroty oplat za huby przechodza przez `PlayerPaymentService` i zapis bankowy typu `hub_purchase`.
+- `src/WellPipelineService.php` - budowa rurociagow, naprawy i konserwacje ksiegowane sa przez `PlayerPaymentService` jako `pipeline_purchase`, `pipeline_repair` i `pipeline_maintenance`, bez osobnego recznego `UPDATE players SET cash`.
+- `src/LegalService.php`, `src/Legal/HubPermitTrait.php` - oplaty za wnioski prawne dla odwiertow i hubow trafiaja do historii bankowej jako `legal_fee`.
+- `src/WorldMap.php`, `src/GeologicalLayerService.php`, `public/upgrade_storage.php` - zakup lokalizacji, zmiana warstwy geologicznej i rozbudowa magazynu korzystaja z centralnego pobrania srodkow przez klase oplat gracza.
+- `lang/pl/bank.php` - dodano czytelne opisy operacji bankowych dla powyzszych zakupow i oplat.
+
+### 2026-06-09 - Bank: kredyty przez centralne API finansowe
+- `src/Bank/ApplicationTrait.php` - akceptacja oferty kredytowej ksieguje wyplate kredytu przez `FinancialTransactionService::credit()` i zapisuje wpis `loan` w `bank_transactions`.
+- `src/Bank/RepaymentTrait.php` - reczna splata rat, kilku rat albo calego kredytu przechodzi przez `FinancialTransactionService::debit()` i zapisuje typ `loan_payment` w historii bankowej.
+- `src/LoanRepository.php` - automatyczne raty obslugiwane w ticku sa teraz atomowe: pobranie gotowki, wpis w `bank_transactions`, aktualizacja kredytu i wpis w `loan_payments` ida w jednej transakcji.
+- `lang/pl/bank.php` - dodano opisy operacji bankowych dla wyplat kredytow, splat recznych i rat automatycznych.
+
 ### 2026-06-09 - Dzial prawny admin: czytelniejsza konfiguracja regionow
 - `templates/views/admin/legal/main.php`, `lang/pl/admin/legal.php`, `assets/css/admin.css` - sekcja konfiguracji regionow dostala prosty opis dla laika, grupowane naglowki tabeli, lepsze wyróznienie pierwszej i ostatniej kolumny oraz czytelniejsze formularze dla parametrow odwiertow i hubow; dodatkowo formularze akcji w zakladce wnioskow hubow korzystaja juz ze wspolnej klasy `js-confirm-form` bez inline `style`.
 

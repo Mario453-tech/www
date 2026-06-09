@@ -52,10 +52,24 @@ if (!$player->canAfford($upgradeCost)) {
 }
 
 $db = Database::getInstance()->getConnection();
+$paymentService = new PlayerPaymentService($db);
 $db->beginTransaction();
 
 try {
-    $player->updateCash(-$upgradeCost, 'storage_upgrade', 'Rozbudowa magazynu');
+    // Pobranie kosztu rozbudowy / Deduct storage upgrade cost.
+    $payment = $paymentService->charge(
+        $playerId,
+        (float)$upgradeCost,
+        FinancialTransactionService::TYPE_STORAGE_UPGRADE,
+        tPlain('bank.tx_storage_upgrade'),
+        'storage',
+        $playerId
+    );
+    if (!$payment['success']) {
+        $db->rollBack();
+        ajaxOrRedirect($isAjax, false, t('upgrade_storage.err_no_funds'), 'index.php?error=no_funds');
+    }
+
     $storage->upgrade();
     $db->commit();
 
