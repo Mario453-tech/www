@@ -1,5 +1,49 @@
 ## Changelog
 
+### 2026-06-10 - Portfel: rozdzielenie gotówki i salda konta bankowego (Faza 1 — struktura + UI)
+
+**Nowa architektura portfela gracza:**
+- `src/WalletConfig.php` (NOWY) — centralny rejestr konfiguracji: nazwy pul (`POOL_CASH='cash'`, `POOL_BANK='bank_balance'`), limity transferu (min 100 PLN, max 500 000 PLN), prowizja (0,5%, min 10 PLN), podział startowy (50/50), mapa routingu fazy 2 (`TYPE_TO_POOL`). Jedyne miejsce do edycji wszystkich parametrów portfela.
+- `src/WalletService.php` (NOWY) — surowe operacje DB: `getBalances()`, `transferBetweenPools()`, `initNewPlayer()`. Migracja schematu w `ensureSchema()`: dodaje kolumny `bank_balance` + `wallet_initialized`, jednorazowo dzieli `cash` 50/50 dla istniejących graczy.
+- `src/CashTransferService.php` (NOWY) — logika biznesowa transferu gracza: walidacja kwoty, obliczenie prowizji, atomowy UPDATE (kwota+prowizja z puli źródłowej, kwota do puli docelowej), audit trail w `bank_transactions`. Metody: `cashToBank()`, `bankToCash()`, `calcFee()`.
+- `public/wallet_transfer.php` (NOWY) — AJAX endpoint POST `/wallet-transfer`: autoryzacja + CSRF + wywołanie `CashTransferService`; zwraca JSON `{success, message, new_cash, new_bank, fee}`.
+- `assets/js/wallet.js` (NOWY) — logika UI: podgląd prowizji przy wpisywaniu kwoty, potwierdzenie przez `confirmAction`, AJAX submit, aktualizacja sald w DOM bez przeładowania strony.
+- `assets/css/wallet.css` (NOWY) — style sekcji portfela w banku: kafelki sald (gotówka/konto), formularze transferu, strzałki kierunkowe.
+
+**Zmiany w istniejących plikach:**
+- `src/FinancialTransactionService.php` — nowy typ `TYPE_POOL_TRANSFER = 'pool_transfer'` (audit trail transferów portfelowych).
+- `src/GameShell.php` — naprawiono etykietę `$ USD` → `PLN`; dodano 5. KPI `index.bank_balance` z `bank_balance`; grid przechodzi przez `new WalletService()` aby zapewnić schemat.
+- `assets/css/style.css` — `.status-grid--redesign`: `repeat(4, 1fr)` → `repeat(auto-fit, minmax(170px, 1fr))` — grid obsługuje teraz dowolną liczbę KPI.
+- `src/Bank/DataLoader.php` — `loadAccountData()` używa teraz `WalletService::getBalances()`: `accountBalance` = `bank_balance` (saldo konta), `cashBalance` = `cash` (gotówka).
+- `templates/views/bank/main.php` — nowa sekcja „Portfel" z kafelkami obu sald i formularzami transferu; konfiguracja `window.WALLET_API/CSRF/FEE_*/LANG` dla `wallet.js`.
+- `public/bank.php` — ładuje `wallet.css` i `wallet.js`.
+- `public/register.php` — nowi gracze: po starcie `WalletService::initNewPlayer()` dzieli 10 000 000 PLN 50/50 (5M gotówka, 5M konto).
+- `lang/pl/bank.php` — klucze `wallet.*` (sekcja, przyciski, błędy, komunikaty).
+- `lang/pl/director.php` — klucz `index.bank_balance` dla HUD.
+- `src/init.php` — trasa `wallet-transfer` w ROUTES.
+- `.htaccess` — reguła `^wallet-transfer$ → /public/wallet_transfer.php`.
+
+**Faza 2 (routing) i Faza 3 (5 zastosowań gotówki) — zaplanowane w `WalletConfig::TYPE_TO_POOL` i `CASH_ONLY_TYPES`, nieaktywne.**
+
+### 2026-06-10 - Bank: negocjacje, restrukturyzacja i HR przez centralne API finansowe
+- `src/FinancialTransactionService.php` - nowy typ `bank_fee` (opłaty bankowe, np. za negocjacje).
+- `src/BankNegotiation/ProcessorTrait.php` - opłata dodatkowa za negocjacje z bankiem przechodzi przez `debit()` (typ `bank_fee`); rollback + komunikat gdy brak środków.
+- `src/Bankruptcy/OptionsTrait.php` - wypłaty za sprzedaż odwiertu i magazynu w restrukturyzacji idą przez `credit()` (typ `bankruptcy_event`) zamiast `UPDATE` + osobny `logTransaction`; rollback gdy księgowanie się nie powiedzie.
+- `src/HR/HiringTrait.php` - pierwsza pensja przy zatrudnieniu pracownika technicznego przez `debit()` (typ `hr_fee`); rollback przy braku środków.
+- `src/HeadhunterService.php` - opłata za wyszukiwanie oraz premia za zatrudnienie przez headhuntera przez `debit()` (typ `hr_fee`); rollback przy braku środków.
+- `lang/pl/bank.php` - etykieta typu `bank_fee` oraz opisy operacji: negocjacje, sprzedaż odwiertu/magazynu w restrukturyzacji, zatrudnienie, headhunter (wyszukiwanie i premia).
+
+### 2026-06-10 - Tick: naprawa podwójnego pobrania gotówki za katastrofy
+- `src/Well/DisastersTrait.php` - usunięto bezpośrednie `UPDATE players SET cash = cash - X` z czterech katastrof (`triggerPipelineExplosion`, `triggerSurfaceSpill`, `triggerBlowout`, `triggerReservoirContamination`). Eksplozja rurociągu i wyciek były pobierane DWUKROTNIE: raz przez bezpośredni `UPDATE`, drugi raz przez tick (`cashDelta` + różnicowy `saveCashAndTick`) - gracz tracił podwójną kwotę kary (np. 40 mln zamiast 20 mln).
+- `src/Tick/WellRiskHandler.php` - blowout i skażenie rezerwuaru doliczają teraz koszt+karę do `finIncident` i `playerCash` w ticku (wcześniej polegały na bezpośrednim `UPDATE`, który właśnie usunięto). Dzięki temu wszystkie cztery katastrofy są pobierane dokładnie raz, przez tick jako jedynego płatnika, i trafiają do audytu bankowego (`tick_incident`) oraz wykrywania kryzysu.
+
+### 2026-06-10 - Bank: komornik, sprzedaż odwiertu i czarny rynek przez centralne API finansowe
+- `src/FinancialTransactionService.php` - nowe typy operacji: `well_sale` (sprzedaż odwiertu) i `black_market_sale` (czarny rynek, przychód i kara).
+- `src/BailiffService.php` - zajęcie 30% gotówki przez komornika przechodzi przez `FinancialTransactionService::debit()` (ruch gotówki + wpis w historii bankowej zamiast osobnego `UPDATE` + `logTransaction`); fallback do bezpośredniego `UPDATE` gdy FTS niedostępny.
+- `src/Well/SellTrait.php` - sprzedaż odwiertu księguje wpływ przez `credit()` (typ `well_sale`, referencja do odwiertu) wewnątrz istniejącej transakcji; rollback + komunikat błędu gdy księgowanie się nie powiedzie.
+- `src/BlackMarketService.php` - przychód i kara za handel na czarnym rynku idą przez `credit()`/`debit()` (typ `black_market_sale`); aktualizacja `black_market_score`/`credit_score` została oddzielona od ruchu gotówki, bez podwójnego pobrania.
+- `lang/pl/bank.php`, `lang/pl/components.php` - etykiety typów i opisy operacji `well_sale`, `black_market_sale`, kary czarnorynkowej oraz komunikat błędu sprzedaży odwiertu.
+
 ### 2026-06-09 - Tick: audyt bezpieczenstwa i naprawa bledow
 - `src/Tick/PlayersSection.php` - naprawiono blokujacy blad nowych graczy: `last_tick_at = NULL` powodowal `TypeError` w `new DateTime()` i gracz nigdy nie dostawal pierwszego ticka; query uzywa teraz `COALESCE(last_tick_at, '2000-01-01 00:00:00')`.
 - `src/Tick/PlayersSection.php` - wykrywanie kryzysu finansowego (`FinancialStateSection::process`) uwzglednia teraz pelny koszt incydentow (odwierty + katastrofy rurociagow + kary za wyciek). Wczesniej eksplozja rurociagu mogla wyzerowac gotowke bez wyzwolenia kryzysu.

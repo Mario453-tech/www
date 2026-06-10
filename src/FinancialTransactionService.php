@@ -33,8 +33,10 @@ require_once __DIR__ . '/BankAccountService.php';
  *  - logTransaction(): public method for existing modules (stage 8),
  *    lets legacy callers append an entry without touching the balance.
  *
- * Saldo zrodlem prawdy: players.cash (DECIMAL(20,2)) - bez drugiej tabeli kont.
- * Source-of-truth balance: players.cash (DECIMAL(20,2)) - no second accounts table.
+ * Pule srodkow: players.cash (gotowka) i players.bank_balance (konto bankowe).
+ * Podzial i transfer miedzy pulami: WalletService + CashTransferService.
+ * Money pools: players.cash (cash) and players.bank_balance (bank account).
+ * Split and transfer between pools: WalletService + CashTransferService.
  */
 class FinancialTransactionService
 {
@@ -63,6 +65,12 @@ class FinancialTransactionService
     public const TYPE_GEOLOGICAL_FEE     = 'geological_fee';
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
     public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
+    public const TYPE_WELL_SALE          = 'well_sale';
+    public const TYPE_BLACK_MARKET_SALE  = 'black_market_sale';
+    public const TYPE_BANK_FEE           = 'bank_fee';
+    // Transfer miedzy pulami portfela gracza (gotowka <-> konto).
+    // Transfer between player wallet pools (cash <-> bank account).
+    public const TYPE_POOL_TRANSFER      = 'pool_transfer';
 
     // Zbiorcze koszty tickowe (audit trail; gotowka schodzi roznicowo w ticku).
     // Aggregated tick costs (audit trail; cash is saved differentially by the tick).
@@ -95,6 +103,10 @@ class FinancialTransactionService
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
         self::TYPE_STORAGE_UPGRADE,
+        self::TYPE_WELL_SALE,
+        self::TYPE_BLACK_MARKET_SALE,
+        self::TYPE_BANK_FEE,
+        self::TYPE_POOL_TRANSFER,
         self::TYPE_TICK_OPEX,
         self::TYPE_TICK_SALARY,
         self::TYPE_TICK_TRANSPORT,
@@ -383,8 +395,16 @@ class FinancialTransactionService
      * Wspolny rdzen credit/debit/transfer. NULL po stronie from/to oznacza
      * operacje systemowa (wplyw spoza gry / wyplyw na zewnatrz).
      *
+     * Faza 2: routing pul portfela przez WalletConfig::TYPE_TO_POOL.
+     * Typy spoza mapy domyslnie trafiaja na cash. Zmiana routingu =
+     * zmiana jednego wpisu w WalletConfig - zero zmian w serwisach.
+     *
      * Common core for credit/debit/transfer. NULL on the from/to side means
      * a system operation (inflow from outside / outflow outside).
+     *
+     * Phase 2: wallet pool routing via WalletConfig::TYPE_TO_POOL.
+     * Types not in the map default to cash. Changing routing =
+     * changing one entry in WalletConfig - zero changes in services.
      *
      * @return array{success:bool,transaction_id:?int,error:?string,amount:float}
      */
@@ -410,6 +430,13 @@ class FinancialTransactionService
             return $this->fail('no_endpoint', $amount);
         }
 
+        // 1b) Routing: wyznacz docelowa pule (kolumne) na podstawie typu transakcji.
+        //     Typy spoza mapy = cash (backwards compat).
+        // 1b) Routing: determine the target pool (column) from the transaction type.
+        //     Types not in the map = cash (backwards compat).
+        $pool = WalletConfig::TYPE_TO_POOL[$type] ?? WalletConfig::POOL_CASH;
+        $col  = ($pool === WalletConfig::POOL_BANK) ? 'bank_balance' : 'cash';
+
         // 2) Decyzja o transakcji: jezeli wywolujacy juz jest w transakcji,
         //    dolaczamy do niej i NIE robimy wlasnego BEGIN/COMMIT (nested guard).
         // 2) Transaction decision: if the caller is already in a transaction,
@@ -429,7 +456,7 @@ class FinancialTransactionService
             // 3) Debit (jezeli source jest graczem): zablokuj wiersz, sprawdz saldo, odejmij.
             // 3) Debit (if source is a player): lock row, check balance, subtract.
             if ($fromPlayerId !== null) {
-                $balance = $this->lockAndReadBalance($fromPlayerId);
+                $balance = $this->lockAndReadBalance($fromPlayerId, $col);
                 if ($balance === null) {
                     if ($ownTransaction) { $this->db->rollBack(); }
                     return $this->fail('sender_not_found', $amount);
@@ -439,12 +466,12 @@ class FinancialTransactionService
                     return $this->fail('insufficient_funds', $amount);
                 }
                 $this->db->prepare(
-                    "UPDATE players SET cash = cash - :a WHERE id = :id"
+                    "UPDATE players SET {$col} = {$col} - :a WHERE id = :id"
                 )->execute([':a' => $amount, ':id' => $fromPlayerId]);
             }
 
-            // 4) Credit (jezeli destination jest graczem): doloz srodki.
-            // 4) Credit (if destination is a player): add funds.
+            // 4) Credit (jezeli destination jest graczem): doloz srodki do wlasciwej puli.
+            // 4) Credit (if destination is a player): add funds to the correct pool.
             if ($toPlayerId !== null) {
                 // Sprawdz ze gracz istnieje (uniknij silent UPDATE 0 row).
                 // Verify recipient exists (avoid silent UPDATE 0 row).
@@ -453,7 +480,7 @@ class FinancialTransactionService
                     return $this->fail('recipient_not_found', $amount);
                 }
                 $this->db->prepare(
-                    "UPDATE players SET cash = cash + :a WHERE id = :id"
+                    "UPDATE players SET {$col} = {$col} + :a WHERE id = :id"
                 )->execute([':a' => $amount, ':id' => $toPlayerId]);
             }
 
@@ -510,12 +537,18 @@ class FinancialTransactionService
     /**
      * Czyta saldo z blokada wiersza (MySQL: FOR UPDATE; SQLite: zwykly SELECT,
      * bo SQLite serializuje zapisy na poziomie pliku).
+     * $col musi byc 'cash' lub 'bank_balance' (weryfikowane przez routing w moveFunds).
      *
      * Reads balance with row lock (MySQL: FOR UPDATE; SQLite: plain SELECT,
      * because SQLite serializes writes at the file level).
+     * $col must be 'cash' or 'bank_balance' (verified by routing in moveFunds).
      */
-    private function lockAndReadBalance(int $playerId): ?float
+    private function lockAndReadBalance(int $playerId, string $col = 'cash'): ?float
     {
+        // Biala lista kolumn - ochrona przed wstrzykiwaniem SQL.
+        // Column whitelist - guard against SQL injection.
+        $col = in_array($col, ['cash', 'bank_balance'], true) ? $col : 'cash';
+
         $driver = 'mysql';
         try {
             $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
@@ -524,7 +557,7 @@ class FinancialTransactionService
         }
         $forUpdate = ($driver === 'mysql') ? ' FOR UPDATE' : '';
 
-        $stmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?{$forUpdate}");
+        $stmt = $this->db->prepare("SELECT {$col} FROM players WHERE id = ?{$forUpdate}");
         $stmt->execute([$playerId]);
         $val = $stmt->fetchColumn();
         if ($val === false || $val === null) {

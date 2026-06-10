@@ -13,11 +13,11 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
     );
 
     public static $prefixLengthsPsr4 = array (
-        'P' =>
+        'P' => 
         array (
             'PhpParser\\' => 10,
         ),
-        'D' =>
+        'D' => 
         array (
             'Doctrine\\Instantiator\\' => 22,
             'DeepCopy\\' => 9,
@@ -25,15 +25,15 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
     );
 
     public static $prefixDirsPsr4 = array (
-        'PhpParser\\' =>
+        'PhpParser\\' => 
         array (
             0 => __DIR__ . '/..' . '/nikic/php-parser/lib/PhpParser',
         ),
-        'Doctrine\\Instantiator\\' =>
+        'Doctrine\\Instantiator\\' => 
         array (
             0 => __DIR__ . '/..' . '/doctrine/instantiator/src/Doctrine/Instantiator',
         ),
-        'DeepCopy\\' =>
+        'DeepCopy\\' => 
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
         ),
@@ -45,8 +45,10 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'AdminHubDataFetchTrait' => __DIR__ . '/../..' . '/src/AdminHub/DataFetchTrait.php',
         'AdminHubPostActionsTrait' => __DIR__ . '/../..' . '/src/AdminHub/PostActionsTrait.php',
         'AdminLog' => __DIR__ . '/../..' . '/src/AdminLog.php',
+        'AdminNewsHtml' => __DIR__ . '/../..' . '/src/AdminNewsHtml.php',
         'Auth' => __DIR__ . '/../..' . '/src/Auth.php',
         'BailiffService' => __DIR__ . '/../..' . '/src/BailiffService.php',
+        'BankAccountService' => __DIR__ . '/../..' . '/src/BankAccountService.php',
         'BankActionsHandler' => __DIR__ . '/../..' . '/src/Bank/ActionsHandler.php',
         'BankApplicationTrait' => __DIR__ . '/../..' . '/src/Bank/ApplicationTrait.php',
         'BankCalculationTrait' => __DIR__ . '/../..' . '/src/Bank/CalculationTrait.php',
@@ -70,8 +72,11 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'CSRF' => __DIR__ . '/../..' . '/src/CSRF.php',
         'Cache' => __DIR__ . '/../..' . '/src/Cache.php',
         'CandidateGenerator' => __DIR__ . '/../..' . '/src/CandidateGenerator.php',
+        'CashTransferService' => __DIR__ . '/../..' . '/src/CashTransferService.php',
         'ChatFilter' => __DIR__ . '/../..' . '/src/ChatFilter.php',
+        'CompanyCredibilityService' => __DIR__ . '/../..' . '/src/CompanyCredibilityService.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+        'CredibilitySection' => __DIR__ . '/../..' . '/src/Tick/CredibilitySection.php',
         'Database' => __DIR__ . '/../..' . '/src/Database.php',
         'DirectorNotificationService' => __DIR__ . '/../..' . '/src/DirectorNotificationService.php',
         'DisasterMessages' => __DIR__ . '/../..' . '/src/DisasterMessages.php',
@@ -79,6 +84,7 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'FinancePolicyService' => __DIR__ . '/../..' . '/src/FinancePolicyService.php',
         'FinanceService' => __DIR__ . '/../..' . '/src/FinanceService.php',
         'FinancialStateSection' => __DIR__ . '/../..' . '/src/Tick/FinancialStateSection.php',
+        'FinancialTransactionService' => __DIR__ . '/../..' . '/src/FinancialTransactionService.php',
         'GameLog' => __DIR__ . '/../..' . '/src/GameLog.php',
         'GameShell' => __DIR__ . '/../..' . '/src/GameShell.php',
         'GeologicalLayerService' => __DIR__ . '/../..' . '/src/GeologicalLayerService.php',
@@ -88,6 +94,7 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'HRRecruitmentTrait' => __DIR__ . '/../..' . '/src/HR/RecruitmentTrait.php',
         'HRService' => __DIR__ . '/../..' . '/src/HRService.php',
         'HeadhunterService' => __DIR__ . '/../..' . '/src/HeadhunterService.php',
+        'HubAcquisitionService' => __DIR__ . '/../..' . '/src/HubAcquisitionService.php',
         'HubAdminActionsTrait' => __DIR__ . '/../..' . '/src/Hub/AdminActionsTrait.php',
         'HubAdminQueryTrait' => __DIR__ . '/../..' . '/src/Hub/AdminQueryTrait.php',
         'HubAssignmentQueryTrait' => __DIR__ . '/../..' . '/src/Hub/AssignmentQueryTrait.php',
@@ -113,16 +120,23 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'IncidentService' => __DIR__ . '/../..' . '/src/IncidentService.php',
         'IncidentTickTrait' => __DIR__ . '/../..' . '/src/Incident/TickTrait.php',
         'InterestEngine' => __DIR__ . '/../..' . '/src/InterestEngine.php',
+        'LegalHubPermitTrait' => __DIR__ . '/../..' . '/src/Legal/HubPermitTrait.php',
+        'LegalSection' => __DIR__ . '/../..' . '/src/Tick/LegalSection.php',
+        'LegalService' => __DIR__ . '/../..' . '/src/LegalService.php',
         'LoanDecisionService' => __DIR__ . '/../..' . '/src/LoanDecisionService.php',
         'LoanRepository' => __DIR__ . '/../..' . '/src/LoanRepository.php',
         'LogisticsService' => __DIR__ . '/../..' . '/src/LogisticsService.php',
         'Mailer' => __DIR__ . '/../..' . '/src/Mailer.php',
+        'MarineDeliverySection' => __DIR__ . '/../..' . '/src/Tick/MarineDeliverySection.php',
+        'MarineDeliveryService' => __DIR__ . '/../..' . '/src/MarineDeliveryService.php',
         'Market' => __DIR__ . '/../..' . '/src/Market.php',
         'MarketOffer' => __DIR__ . '/../..' . '/src/MarketOffer.php',
         'MarketSection' => __DIR__ . '/../..' . '/src/Tick/MarketSection.php',
         'MarketTick' => __DIR__ . '/../..' . '/src/MarketTick.php',
         'MarketTrend' => __DIR__ . '/../..' . '/src/MarketTrend.php',
         'OfflineSection' => __DIR__ . '/../..' . '/src/Tick/OfflineSection.php',
+        'OffshoreTransportService' => __DIR__ . '/../..' . '/src/OffshoreTransportService.php',
+        'OutboundLegService' => __DIR__ . '/../..' . '/src/OutboundLegService.php',
         'PHPMailer\\PHPMailer\\Exception' => __DIR__ . '/../..' . '/src/PHPMailer/Exception.php',
         'PHPMailer\\PHPMailer\\PHPMailer' => __DIR__ . '/../..' . '/src/PHPMailer/PHPMailer.php',
         'PHPMailer\\PHPMailer\\SMTP' => __DIR__ . '/../..' . '/src/PHPMailer/SMTP.php',
@@ -549,13 +563,17 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'PharIo\\Version\\VersionNumber' => __DIR__ . '/..' . '/phar-io/version/src/VersionNumber.php',
         'PipelineSection' => __DIR__ . '/../..' . '/src/Tick/PipelineSection.php',
         'Player' => __DIR__ . '/../..' . '/src/Player.php',
+        'PlayerPaymentService' => __DIR__ . '/../..' . '/src/PlayerPaymentService.php',
         'PlayersSection' => __DIR__ . '/../..' . '/src/Tick/PlayersSection.php',
+        'PortSection' => __DIR__ . '/../..' . '/src/Tick/PortSection.php',
+        'PortService' => __DIR__ . '/../..' . '/src/PortService.php',
         'RateLimiter' => __DIR__ . '/../..' . '/src/RateLimiter.php',
         'RecruitmentAPI' => __DIR__ . '/../..' . '/src/RecruitmentAPI.php',
         'RegionalEventService' => __DIR__ . '/../..' . '/src/RegionalEventService.php',
         'RegionalEventsTrait' => __DIR__ . '/../..' . '/src/RegionalEvent/EventsTrait.php',
         'RegionalModifiersTrait' => __DIR__ . '/../..' . '/src/RegionalEvent/ModifiersTrait.php',
         'RiskScoreEngine' => __DIR__ . '/../..' . '/src/RiskScoreEngine.php',
+        'RoadTransportService' => __DIR__ . '/../..' . '/src/RoadTransportService.php',
         'SebastianBergmann\\CliParser\\AmbiguousOptionException' => __DIR__ . '/..' . '/sebastian/cli-parser/src/exceptions/AmbiguousOptionException.php',
         'SebastianBergmann\\CliParser\\Exception' => __DIR__ . '/..' . '/sebastian/cli-parser/src/exceptions/Exception.php',
         'SebastianBergmann\\CliParser\\OptionDoesNotAllowArgumentException' => __DIR__ . '/..' . '/sebastian/cli-parser/src/exceptions/OptionDoesNotAllowArgumentException.php',
@@ -780,20 +798,30 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'TheSeer\\Tokenizer\\Tokenizer' => __DIR__ . '/..' . '/theseer/tokenizer/src/Tokenizer.php',
         'TheSeer\\Tokenizer\\XMLSerializer' => __DIR__ . '/..' . '/theseer/tokenizer/src/XMLSerializer.php',
         'TickStatsRepository' => __DIR__ . '/../..' . '/src/Tick/TickStatsRepository.php',
+        'Totp' => __DIR__ . '/../..' . '/src/Totp.php',
         'TransportConfigService' => __DIR__ . '/../..' . '/src/TransportConfigService.php',
         'Validator' => __DIR__ . '/../..' . '/src/Validator.php',
+        'WalletConfig' => __DIR__ . '/../..' . '/src/WalletConfig.php',
+        'WalletService' => __DIR__ . '/../..' . '/src/WalletService.php',
         'Well' => __DIR__ . '/../..' . '/src/Well.php',
         'WellActionsTrait' => __DIR__ . '/../..' . '/src/Well/ActionsTrait.php',
         'WellConfigTrait' => __DIR__ . '/../..' . '/src/Well/ConfigTrait.php',
         'WellCostsTrait' => __DIR__ . '/../..' . '/src/Well/CostsTrait.php',
         'WellDisastersTrait' => __DIR__ . '/../..' . '/src/Well/DisastersTrait.php',
         'WellGridData' => __DIR__ . '/../..' . '/src/WellGridData.php',
+        'WellHubSection' => __DIR__ . '/../..' . '/src/Tick/WellHubSection.php',
         'WellLoopSection' => __DIR__ . '/../..' . '/src/Tick/WellLoopSection.php',
+        'WellPipelineService' => __DIR__ . '/../..' . '/src/WellPipelineService.php',
+        'WellProductionHandler' => __DIR__ . '/../..' . '/src/Tick/WellProductionHandler.php',
+        'WellProductionSection' => __DIR__ . '/../..' . '/src/Tick/WellProductionSection.php',
         'WellQueryTrait' => __DIR__ . '/../..' . '/src/Well/QueryTrait.php',
+        'WellRiskHandler' => __DIR__ . '/../..' . '/src/Tick/WellRiskHandler.php',
+        'WellRoadTripSection' => __DIR__ . '/../..' . '/src/Tick/WellRoadTripSection.php',
         'WellSellTrait' => __DIR__ . '/../..' . '/src/Well/SellTrait.php',
         'WellService' => __DIR__ . '/../..' . '/src/WellService.php',
         'WellShop' => __DIR__ . '/../..' . '/src/WellShop.php',
         'WellStaffService' => __DIR__ . '/../..' . '/src/WellStaffService.php',
+        'WellStatusHandler' => __DIR__ . '/../..' . '/src/Tick/WellStatusHandler.php',
         'WellTickTrait' => __DIR__ . '/../..' . '/src/Well/TickTrait.php',
         'WorldMap' => __DIR__ . '/../..' . '/src/WorldMap.php',
     );

@@ -77,17 +77,19 @@ class HeadhunterService
 
             $this->db->beginTransaction();
             try {
-                $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                         ->execute([$cost, $this->playerId]);
-                try {
-                    if (class_exists('FinancialTransactionService', false)) {
-                        (new FinancialTransactionService($this->db))->logTransaction(
-                            $this->playerId, null, $cost,
-                            FinancialTransactionService::TYPE_HR_FEE,
-                            'Oplata za wyszukiwanie pracownika (headhunter)'
-                        );
-                    }
-                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+ // Oplata za wyszukiwanie przez centralne API finansowe (ruch + wpis bankowy; w transakcji).
+ // Search fee via the central finance API (movement + bank entry; inside a transaction).
+                $feeRes = (new FinancialTransactionService($this->db))->debit(
+                    $this->playerId, (float)$cost,
+                    FinancialTransactionService::TYPE_HR_FEE,
+                    tPlain('bank.tx_hr_headhunter_search'),
+                    'headhunter_search', null
+                );
+                if (empty($feeRes['success'])) {
+                    $this->db->rollBack();
+                    GameLog::error('HeadhunterService', 'startSearch: fee debit FAILED', ['player_id' => $this->playerId, 'error' => $feeRes['error'] ?? 'unknown']);
+                    return ['success' => false, 'message' => t('hr_headhunter.err_insufficient_funds', ['cost' => self::fmt($cost)])];
+                }
 
                 $this->db->prepare("
                     INSERT INTO headhunter_searches
@@ -368,17 +370,19 @@ class HeadhunterService
 
             $this->db->beginTransaction();
             try {
-                $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                         ->execute([$bonus, $this->playerId]);
-                try {
-                    if (class_exists('FinancialTransactionService', false)) {
-                        (new FinancialTransactionService($this->db))->logTransaction(
-                            $this->playerId, null, $bonus,
-                            FinancialTransactionService::TYPE_HR_FEE,
-                            'Premia za zatrudnienie pracownika przez headhuntera'
-                        );
-                    }
-                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+ // Premia za zatrudnienie przez centralne API finansowe (ruch + wpis bankowy; w transakcji).
+ // Hire bonus via the central finance API (movement + bank entry; inside a transaction).
+                $bonusRes = (new FinancialTransactionService($this->db))->debit(
+                    $this->playerId, (float)$bonus,
+                    FinancialTransactionService::TYPE_HR_FEE,
+                    tPlain('bank.tx_hr_headhunter_bonus'),
+                    'board_member', null
+                );
+                if (empty($bonusRes['success'])) {
+                    $this->db->rollBack();
+                    GameLog::error('HeadhunterService', 'doHire: bonus debit FAILED', ['player_id' => $this->playerId, 'error' => $bonusRes['error'] ?? 'unknown']);
+                    return ['success' => false, 'message' => t('hr_headhunter.err_bonus_funds', ['cost' => self::fmt($bonus)])];
+                }
 
                 $birthDate = date('Y-m-d', mktime(0, 0, 0, rand(1, 12), rand(1, 28), date('Y') - rand(28, 55)));
                 $skill = (int)$c['skill_level'];

@@ -73,7 +73,8 @@ class BankDataLoader
             'creditLimit' => $creditLimit,
             'hasEverHadLoan' => $hasEverHadLoan,
             'accountNumber'    => $accountData['number'],
-            'accountBalance'   => $accountData['balance'],
+            'accountBalance'   => $accountData['balance'],       // bank_balance (saldo konta)
+            'cashBalance'      => $accountData['cashBalance'],   // cash (gotowka)
             'accountHistory'   => $accountData['history'],
         ];
     }
@@ -86,7 +87,7 @@ class BankDataLoader
  */
     private function loadAccountData(): array
     {
-        $result = ['number' => '', 'balance' => 0.0, 'history' => []];
+        $result = ['number' => '', 'balance' => 0.0, 'cashBalance' => 0.0, 'history' => []];
 
         if (!$this->db) {
             return $result;
@@ -101,9 +102,12 @@ class BankDataLoader
                 $result['number'] = (string)($num ?? '');
             }
 
-            $stmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
-            $stmt->execute([$this->playerId]);
-            $result['balance'] = (float)$stmt->fetchColumn();
+            // Uzyj WalletService dla obu pul: bank_balance = "saldo konta", cash = "gotowka".
+            // Use WalletService for both pools: bank_balance = "account balance", cash = "cash".
+            $walletSvc             = new WalletService($this->db);
+            $pools                 = $walletSvc->getBalances($this->playerId);
+            $result['balance']     = (float)($pools[WalletConfig::POOL_BANK] ?? 0.0);
+            $result['cashBalance'] = (float)($pools[WalletConfig::POOL_CASH] ?? 0.0);
 
             // Historia: ostatnie 25 operacji gracza (jako nadawca lub odbiorca).
             // History: last 25 player operations (as sender or recipient).

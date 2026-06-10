@@ -141,16 +141,22 @@ trait HRHiringTrait
 
         $this->db->beginTransaction();
         try {
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$salary, $playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $playerId, null, $salary,
-                        FinancialTransactionService::TYPE_HR_FEE,
-                        'Zatrudnienie pracownika technicznego (pierwsza pensja)'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+ // Pierwsza pensja przez centralne API finansowe (ruch gotowki + wpis bankowy; w transakcji).
+ // First salary via the central finance API (cash movement + bank entry; inside a transaction).
+            $feeRes = (new FinancialTransactionService($this->db))->debit(
+                $playerId, (float)$salary,
+                FinancialTransactionService::TYPE_HR_FEE,
+                tPlain('bank.tx_hr_hire'),
+                'technical_staff', null
+            );
+            if (empty($feeRes['success'])) {
+                $this->db->rollBack();
+                GameLog::error('HRHiring', 'hireCandidate: salary debit FAILED', null, ['player_id' => $playerId, 'error' => $feeRes['error'] ?? 'unknown']);
+                return ['success' => false, 'message' => t('hr_hiring.err_insufficient_funds', [
+                    'required'  => '$' . number_format($salary, 0, '.', ' '),
+                    'available' => '$' . number_format($cash, 0, '.', ' '),
+                ])];
+            }
 
             $staffPerk = $this->rollStaffSpecialization($spec['code'], $skillLevel);
 

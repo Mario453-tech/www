@@ -112,6 +112,35 @@ class BankActionsHandler
             }
 
             $txSvc = new FinancialTransactionService();
+
+            // Pre-check: przelew bankowy wymaga srodkow na bank_balance (nie gotowce).
+            // Jesli gracz ma dosc lacznie ale nie dosc na koncie, podaj pomocny komunikat
+            // zamiast generycznego "insufficient_funds".
+            // Pre-check: bank wire requires funds in bank_balance (not cash).
+            // If player has enough total but not enough in bank account, show a helpful
+            // message instead of a generic "insufficient_funds" error.
+            if (class_exists('WalletService', false) || class_exists('WalletService')) {
+                try {
+                    $pools = (new WalletService())->getBalances($this->playerId);
+                    if ($pools !== null) {
+                        $bankBal  = (float)($pools[WalletConfig::POOL_BANK] ?? 0.0);
+                        if ($bankBal + 1e-9 < $amount) {
+                            $totalBal = $bankBal + (float)($pools[WalletConfig::POOL_CASH] ?? 0.0);
+                            if ($totalBal + 1e-9 >= $amount) {
+                                $this->error = t('bank.account.err_insufficient_bank_funds', [
+                                    'bank'   => number_format($bankBal, 2, ',', ' '),
+                                    'needed' => number_format($amount, 2, ',', ' '),
+                                ]);
+                                return;
+                            }
+                        }
+                    }
+                } catch (Throwable) {
+                    // Nie blokuj przelewu jesli pre-check rzuci wyjatek.
+                    // Don't block the transfer if the pre-check throws.
+                }
+            }
+
             $result = $txSvc->transfer($this->playerId, $recipientId, $amount, $description !== '' ? $description : null);
 
             if ($result['success']) {
