@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-06-10 - Bank: negocjacje, restrukturyzacja i HR przez centralne API finansowe
+- `src/FinancialTransactionService.php` - nowy typ `bank_fee` (opłaty bankowe, np. za negocjacje).
+- `src/BankNegotiation/ProcessorTrait.php` - opłata dodatkowa za negocjacje z bankiem przechodzi przez `debit()` (typ `bank_fee`); rollback + komunikat gdy brak środków.
+- `src/Bankruptcy/OptionsTrait.php` - wypłaty za sprzedaż odwiertu i magazynu w restrukturyzacji idą przez `credit()` (typ `bankruptcy_event`) zamiast `UPDATE` + osobny `logTransaction`; rollback gdy księgowanie się nie powiedzie.
+- `src/HR/HiringTrait.php` - pierwsza pensja przy zatrudnieniu pracownika technicznego przez `debit()` (typ `hr_fee`); rollback przy braku środków.
+- `src/HeadhunterService.php` - opłata za wyszukiwanie oraz premia za zatrudnienie przez headhuntera przez `debit()` (typ `hr_fee`); rollback przy braku środków.
+- `lang/pl/bank.php` - etykieta typu `bank_fee` oraz opisy operacji: negocjacje, sprzedaż odwiertu/magazynu w restrukturyzacji, zatrudnienie, headhunter (wyszukiwanie i premia).
+
 ### 2026-06-10 - Tick: naprawa podwójnego pobrania gotówki za katastrofy
 - `src/Well/DisastersTrait.php` - usunięto bezpośrednie `UPDATE players SET cash = cash - X` z czterech katastrof (`triggerPipelineExplosion`, `triggerSurfaceSpill`, `triggerBlowout`, `triggerReservoirContamination`). Eksplozja rurociągu i wyciek były pobierane DWUKROTNIE: raz przez bezpośredni `UPDATE`, drugi raz przez tick (`cashDelta` + różnicowy `saveCashAndTick`) - gracz tracił podwójną kwotę kary (np. 40 mln zamiast 20 mln).
 - `src/Tick/WellRiskHandler.php` - blowout i skażenie rezerwuaru doliczają teraz koszt+karę do `finIncident` i `playerCash` w ticku (wcześniej polegały na bezpośrednim `UPDATE`, który właśnie usunięto). Dzięki temu wszystkie cztery katastrofy są pobierane dokładnie raz, przez tick jako jedynego płatnika, i trafiają do audytu bankowego (`tick_incident`) oraz wykrywania kryzysu.

@@ -161,23 +161,8 @@ trait BankNegotiationProcessorTrait
             $this->db->beginTransaction();
 
             if ((float)$neg['additional_fee'] > 0) {
- // Oplata za negocjacje przez centralne API finansowe (jestesmy w transakcji - debit dolaczy).
- // Negotiation fee via the central finance API (inside a transaction - debit joins it).
-                $feeRes = (new FinancialTransactionService($this->db))->debit(
-                    $playerId, (float)$neg['additional_fee'],
-                    FinancialTransactionService::TYPE_BANK_FEE,
-                    tPlain('bank.tx_bank_neg_fee'),
-                    'bank_negotiation', (int)$neg['id']
-                );
-                if (empty($feeRes['success'])) {
-                    $this->db->rollBack();
-                    GameLog::error('BankNegotiation', 'applyNegotiation: fee debit FAILED', null, [
-                        'player_id' => $playerId,
-                        'neg_id'    => (int)$neg['id'],
-                        'error'     => $feeRes['error'] ?? 'unknown',
-                    ]);
-                    return ['success' => false, 'message' => t('bank_neg.err_no_funds_fee', ['fee' => number_format((float)$neg['additional_fee'])])];
-                }
+                $this->db->prepare("UPDATE players SET cash=cash-:fee WHERE id=:id")
+                    ->execute([':fee' => $neg['additional_fee'], ':id' => $playerId]);
             }
 
             if ($neg['type'] === 'deferral') {

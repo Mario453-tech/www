@@ -301,7 +301,6 @@ return [
     'bank.account.type.hub_usage'           => 'Opłaty hubowe',
     'bank.account.type.well_sale'           => 'Sprzedaż odwiertu',
     'bank.account.type.black_market_sale'   => 'Sprzedaż na czarnym rynku',
-    'bank.account.type.bank_fee'            => 'Opłata bankowa',
 
     'bank.account.msg_transfer_ok' => 'Przelew :amount PLN na rachunek :account zaksięgowany.',
     'bank.account.err_account_empty' => 'Podaj numer rachunku odbiorcy.',
@@ -343,11 +342,5 @@ return [
     'bank.tx_bailiff_seizure' => 'Zajęcie gotówki przez komornika (postępowanie #:id)',
     'bank.tx_black_market_sale' => 'Sprzedaż ropy na czarnym rynku',
     'bank.tx_black_market_penalty' => 'Kara za handel na czarnym rynku',
-    'bank.tx_bank_neg_fee' => 'Opłata za negocjacje z bankiem',
-    'bank.tx_bankruptcy_sell_well' => 'Sprzedaż odwiertu #:id w ramach restrukturyzacji',
-    'bank.tx_bankruptcy_sell_storage' => 'Sprzedaż magazynu w ramach restrukturyzacji',
-    'bank.tx_hr_hire' => 'Zatrudnienie pracownika technicznego (pierwsza pensja)',
-    'bank.tx_hr_headhunter_search' => 'Opłata za wyszukiwanie pracownika (headhunter)',
-    'bank.tx_hr_headhunter_bonus' => 'Premia za zatrudnienie pracownika przez headhuntera',
 
 ];
