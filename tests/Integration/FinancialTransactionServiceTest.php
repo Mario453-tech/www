@@ -98,6 +98,23 @@ final class FinancialTransactionServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('tax', $tx['transaction_type']);
     }
 
+    public function testDebitLogisticsFeeComesFromCashNotBank(): void
+    {
+        // logistics_fee -> POOL_CASH (WalletConfig): koszt optymalizatora schodzi
+        // z gotowki, saldo konta bankowego bez zmian.
+        // logistics_fee -> POOL_CASH (WalletConfig): the optimizer cost is taken
+        // from cash, the bank account balance stays untouched.
+        $this->seedPlayer(1, 5000.00, 8000.00);
+
+        $r = $this->service->debit(1, 2500.00, FinancialTransactionService::TYPE_LOGISTICS_FEE, 'Optymalizacja transportu');
+
+        $this->assertTrue($r['success']);
+        $this->assertSame(2500.00, $this->cashOf(1), 'Koszt schodzi z gotowki.');
+        $this->assertSame(8000.00, $this->bankOf(1), 'Konto bankowe bez zmian.');
+        $tx = $this->lastTransaction();
+        $this->assertSame('logistics_fee', $tx['transaction_type']);
+    }
+
     public function testDebitFailsOnInsufficientFunds(): void
     {
         $this->seedPlayer(1, 100.00);

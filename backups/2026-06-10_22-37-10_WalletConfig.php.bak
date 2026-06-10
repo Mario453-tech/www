@@ -11,12 +11,10 @@ declare(strict_types=1);
  *
  * Aby zmienic limit transferu: edytuj TRANSFER_MAX_AMOUNT.
  * Aby zmienic prowizje:        edytuj TRANSFER_FEE_PCT i TRANSFER_MIN_FEE.
- * Routing fazy 2 jest aktywny: FinancialTransactionService::moveFunds() czyta
- * TYPE_TO_POOL i kieruje srodki do wlasciwej puli (cash / bank_balance).
+ * Aby aktywowac routing fazy 2: przeniesc TYPE_TO_POOL do FinancialTransactionService.
  * To change transfer limit: edit TRANSFER_MAX_AMOUNT.
  * To change fee:            edit TRANSFER_FEE_PCT and TRANSFER_MIN_FEE.
- * Phase-2 routing is active: FinancialTransactionService::moveFunds() reads
- * TYPE_TO_POOL and routes funds to the correct pool (cash / bank_balance).
+ * To activate phase-2 routing: move TYPE_TO_POOL to FinancialTransactionService.
  */
 class WalletConfig
 {
@@ -78,7 +76,6 @@ class WalletConfig
         'storage_upgrade'     => self::POOL_CASH,
         'geological_fee'      => self::POOL_CASH,
         'map_purchase'        => self::POOL_CASH,
-        'logistics_fee'       => self::POOL_CASH,
         // Gotowka-only (5 zastosowan fazy 3)
         // Cash-only (5 use cases for phase 3)
         'black_market_sale'   => self::POOL_CASH,

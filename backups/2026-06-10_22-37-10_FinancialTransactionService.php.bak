@@ -68,7 +68,6 @@ class FinancialTransactionService
     public const TYPE_WELL_SALE          = 'well_sale';
     public const TYPE_BLACK_MARKET_SALE  = 'black_market_sale';
     public const TYPE_BANK_FEE           = 'bank_fee';
-    public const TYPE_LOGISTICS_FEE      = 'logistics_fee';
     // Transfer miedzy pulami portfela gracza (gotowka <-> konto).
     // Transfer between player wallet pools (cash <-> bank account).
     public const TYPE_POOL_TRANSFER      = 'pool_transfer';
@@ -107,7 +106,6 @@ class FinancialTransactionService
         self::TYPE_WELL_SALE,
         self::TYPE_BLACK_MARKET_SALE,
         self::TYPE_BANK_FEE,
-        self::TYPE_LOGISTICS_FEE,
         self::TYPE_POOL_TRANSFER,
         self::TYPE_TICK_OPEX,
         self::TYPE_TICK_SALARY,

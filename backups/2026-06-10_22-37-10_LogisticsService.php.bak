@@ -163,25 +163,15 @@ class LogisticsService
 
  // Apply changes + deduct cost -- all in one transaction
         $appliedCount = 0;
-        // FTS konstruujemy przed beginTransaction, zeby setup schematu nie byl
-        // pominiety wewnatrz otwartej transakcji.
-        // Build FTS before beginTransaction so schema setup is not skipped
-        // inside an open transaction.
-        $fts = new FinancialTransactionService($this->db);
         try {
             $this->db->beginTransaction();
 
- // Pobierz koszt optymalizatora przez FTS: gotowka schodzi i powstaje
- // wpis w historii operacji (bank_transactions), wczesniej go brakowalo.
- // Charge the optimizer cost via FTS: cash is deducted and an entry in the
- // transaction history (bank_transactions) is created, which was missing before.
-            $charge = $fts->debit(
-                $this->playerId,
-                (float)$modeCost,
-                FinancialTransactionService::TYPE_LOGISTICS_FEE,
-                t('logistics.tx_optimize', ['mode' => $mode])
+ // Deduct optimizer cost from player (row lock)
+            $deduct = $this->db->prepare(
+                "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
             );
-            if (!$charge['success']) {
+            $deduct->execute([$modeCost, $this->playerId, $modeCost]);
+            if ($deduct->rowCount() === 0) {
                 $this->db->rollBack();
                 return ['success' => false, 'error' => t('logistics.err_insufficient_funds', [
                     'cost' => number_format($modeCost, 0, ',', ' '),

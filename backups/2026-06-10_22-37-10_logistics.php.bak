@@ -116,7 +116,6 @@ return [
     'logistics.label_fee' => 'Opłata',
     'logistics.confirm_btn' => 'Potwierdź i odlicz PLN',
     'logistics.err_insufficient_funds' => 'Za mało środków! Potrzebujesz :cost PLN, masz :cash PLN.',
-    'logistics.tx_optimize' => 'Optymalizacja transportu (tryb: :mode)',
     'logistics.hub.my_hubs_title' => 'Twoje huby',
     'logistics.hub.my_hubs_desc' => 'Huby przeładunkowe, które posiadasz lub wynajmujesz. Przypisz do nich swoje odwierty.',
     'logistics.hub.no_hubs_assigned' => 'Nie masz jeszcze żadnego huba. Kup nowy hub lub kup/wynajmij hub z rynku poniżej.',

@@ -1,5 +1,16 @@
 ## Changelog
 
+### 2026-06-10 - Logistyka: koszt optymalizatora przez FTS + audit trail (uzupełnienie Fazy 2)
+
+**Routing Fazy 2 (`WalletConfig::TYPE_TO_POOL`) jest już aktywny w `FinancialTransactionService::moveFunds()` od commita „Faza 2: aktywacja routingu pul portfela".** To uzupełnienie domyka jedyną ścieżkę kosztową, która omijała centralne API finansowe.
+
+- `src/LogisticsService.php` — koszt uruchomienia optymalizatora transportu (1500–5000 PLN) schodził wcześniej bezpośrednim `UPDATE players SET cash`, bez wpisu w historii operacji. Teraz pobierany przez `FinancialTransactionService::debit(..., TYPE_LOGISTICS_FEE)`: gotówka schodzi tak samo, ale powstaje wpis w `bank_transactions`, więc koszt jest widoczny w historii. FTS budowany przed `beginTransaction()`, aby setup schematu nie został pominięty w otwartej transakcji; przy braku środków zwracany jest dotychczasowy komunikat błędu i rollback.
+- `src/FinancialTransactionService.php` — nowy typ `TYPE_LOGISTICS_FEE = 'logistics_fee'` (dodany też do `ALLOWED_TYPES`).
+- `src/WalletConfig.php` — `logistics_fee` → `POOL_CASH` w `TYPE_TO_POOL`; zaktualizowano nieaktualny komentarz nagłówka (routing Fazy 2 jest aktywny, nie „do przeniesienia").
+- `lang/pl/bank.php` — etykieta `bank.account.type.logistics_fee` = „Optymalizacja transportu" (wyświetlana w historii operacji).
+- `lang/pl/logistics.php` — opis transakcji `logistics.tx_optimize` = „Optymalizacja transportu (tryb: :mode)".
+- `tests/Integration/FinancialTransactionServiceTest.php` — nowy test potwierdzający, że `logistics_fee` schodzi z gotówki, a konto bankowe pozostaje bez zmian.
+
 ### 2026-06-10 - Portfel: rozdzielenie gotówki i salda konta bankowego (Faza 1 — struktura + UI)
 
 **Nowa architektura portfela gracza:**
@@ -23,7 +34,7 @@
 - `src/init.php` — trasa `wallet-transfer` w ROUTES.
 - `.htaccess` — reguła `^wallet-transfer$ → /public/wallet_transfer.php`.
 
-**Faza 2 (routing) i Faza 3 (5 zastosowań gotówki) — zaplanowane w `WalletConfig::TYPE_TO_POOL` i `CASH_ONLY_TYPES`, nieaktywne.**
+**Faza 2 (routing) — AKTYWNA: `FinancialTransactionService::moveFunds()` czyta `WalletConfig::TYPE_TO_POOL` i kieruje przychody na konto bankowe, koszty na gotówkę. Faza 3 (5 zastosowań gotówki) — nadal zaplanowana w `CASH_ONLY_TYPES`, nieaktywna.**
 
 ### 2026-06-10 - Bank: negocjacje, restrukturyzacja i HR przez centralne API finansowe
 - `src/FinancialTransactionService.php` - nowy typ `bank_fee` (opłaty bankowe, np. za negocjacje).
