@@ -206,14 +206,13 @@ class LegalSection
     ): void {
         $region = $this->regionName($regionId);
 
-        // Ikony SVG (identyfikatory dla dirNotifIconSvg) i priorytety spojne z P1 (drilling).
-        // SVG icons (identifiers for dirNotifIconSvg) and priorities consistent with P1 (drilling).
+        // Ikony i priorytety spojne z P1 (drilling) / Icons + priorities consistent with P1 (drilling)
         [$key, $icon, $priority] = match ($outcome) {
-            'granted'     => ['granted',     'check',   'high'],
-            'refused'     => ['refused',     'cross',   'high'],
-            'delayed'     => ['delayed',     'alert',   'medium'],
-            'no_decision' => ['no_decision', 'warning', 'medium'],
-            default       => ['granted',     'check',   'high'],
+            'granted'     => ['granted',     '✅', 'high'],
+            'refused'     => ['refused',     '❌', 'high'],
+            'delayed'     => ['delayed',     '⏳', 'medium'],
+            'no_decision' => ['no_decision', '⚠️', 'medium'],
+            default       => ['granted',     '✅', 'high'],
         };
 
         try {
@@ -404,11 +403,11 @@ class LegalSection
         $region = $this->regionName($regionId);
 
         [$key, $icon, $priority] = match ($outcome) {
-            'granted'     => ['granted',     'check',   'high'],
-            'refused'     => ['refused',     'cross',   'high'],
-            'delayed'     => ['delayed',     'alert',   'medium'],
-            'no_decision' => ['no_decision', 'warning', 'medium'],
-            default       => ['default',     'scales',  'low'],
+            'granted'     => ['granted',     '', 'high'],
+            'refused'     => ['refused',     '', 'high'],
+            'delayed'     => ['delayed',     '', 'medium'],
+            'no_decision' => ['no_decision', '', 'medium'],
+            default       => ['default',     '', 'low'],
         };
 
         return [

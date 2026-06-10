@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-06-10 - Dział prawny: emoji w powiadomieniach ticku zamienione na ikony SVG
+
+**`src/Tick/LegalSection.php` — usunięto emoji Unicode z powiadomień o decyzjach (łamały zasadę „ZERO emoji").** Metoda `notifyHub()` wstawiała do `director_notifications.icon` surowe emoji (`✅❌⏳⚠️`), które trafiały do bazy i nie pasowały do mapy `dirNotifIconSvg()`. Wersja dla wierceń (`buildNotification`) używała pustych ikon (fallback na domyślny okrąg).
+
+- Oba tory powiadomień (wiercenia + huby) używają teraz spójnych identyfikatorów SVG: `granted → check`, `refused → cross`, `delayed → alert`, `no_decision → warning`. Identyfikatory są renderowane przez `dirNotifIconSvg()` w `templates/components/director_notifications.php`.
+- Aktualizacja AGENTS.md §24: zaznaczono, że rozpatrywanie wniosków przez tick (`LegalSection`) i blokada zakupu bez zezwolenia (`WorldMap::regionPurchaseBlock`) **są już wdrożone** — wcześniejszy wpis „Co NIE jest w P1" był nieaktualny.
+
 ### 2026-06-10 - Bankructwo: opcje ratunkowe przez centralne API finansowe (uzupełnienie Fazy 2)
 
 **Trzy metody w `src/Bankruptcy/OptionsTrait.php` przepięte z bezpośredniego `UPDATE players SET cash` + `logTransaction()` na `FinancialTransactionService::credit()`.** Dotychczas `logTransaction()` dodawał tylko wpis w historii bez faktycznego ruchu przez FTS — routing do właściwej puli, walidacja i atomowość były omijane.

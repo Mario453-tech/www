@@ -705,15 +705,24 @@ Frontend (`world_map.js`) używa funkcji:
 | `high` | 500 000 | 90 min | 5 000 000 |
 | `critical` | 1 000 000 | 120 min | 25 000 000 |
 
-### Tick (etapy P2+) / Tick processing (P2+)
+### Tick (rozpatrywanie wniosków) / Tick processing — WDROŻONE
 
-Przetwarzanie wniosków przez tick **nie jest zaimplementowane w P1**.
-Wniosek składa gracz — decyzja jest nadawana manualnie przez admina lub zaplanowana na P2.
+`src/Tick/LegalSection.php` rozpatruje zalegające wnioski raz na tick:
+- Pobiera wnioski `pending`/`delayed` z minionym `decision_due_at`.
+- Losuje wynik wg konfiguracji regionu (priorytet: `no_decision` > `refused` > `delayed` > `granted`).
+- `delayed` przesuwa termin (+`delay_min..max` min) i zwiększa `delay_count`; `refused` ustawia `refusal_cooldown_until`.
+- Wysyła powiadomienie dyrektora (§13) z ikoną SVG (`check`/`cross`/`alert`/`warning`).
+- Analogicznie rozpatruje wnioski o huby (`hub_permit_applications`) w `runHubPermits()`.
+Sekcja jest podpięta w `cron/tick.php` (po `CredibilitySection`).
+
+### Blokada zakupu / Purchase gate — WDROŻONE
+
+`WorldMap::buyWellAtLocation()` woła `regionPurchaseBlock()` przed utworzeniem odwiertu.
+Brak aktywnego zezwolenia (`granted`/`transitional`, sprawdzane przez `LegalService::hasActivePermit()`)
+zwraca błąd `no_permit` i blokuje zakup. Bramka jest fail-closed (błąd = blokada).
 
 ### Co NIE jest w P1 / Not in P1
 
-- Automatyczne przetwarzanie wniosków przez tick (P2)
-- Blokada zakupu odwiertu bez zezwolenia w `WorldMap` (backend — widok mapy ma badge'e)
 - Wielokrotne wnioski (gracz może mieć jeden wniosek per region na raz)
 - Historyczne logi odmów
 
