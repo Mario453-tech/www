@@ -38,14 +38,10 @@ class WalletConfig
      * Mapa routingu transakcji FTS -> pula.
      * Routing map: FTS transaction type -> target pool.
      *
-     * Aktywna od fazy 2 - uzywana w FinancialTransactionService::moveFunds().
-     * Active from phase 2 - used in FinancialTransactionService::moveFunds().
-     *
-     * Typy spoza mapy domyslnie trafiaja na gotowke (cash).
-     * Types not in the map default to cash.
-     *
-     * Aby zmienic routing: edytuj ten array - zero zmian w serwisach zewnetrznych.
-     * To change routing: edit this array - zero changes in external services.
+     * UWAGA: routing NIE jest jeszcze aktywny - przygotowanie do fazy 2.
+     *        Aktywacja: wystarczy uzyc tej mapy w FinancialTransactionService::moveFunds().
+     * NOTE: routing is NOT yet active - preparation for phase 2.
+     *       Activation: just use this map in FinancialTransactionService::moveFunds().
      */
     public const TYPE_TO_POOL = [
         // Przychody -> konto bankowe
@@ -54,9 +50,6 @@ class WalletConfig
         'loan'                => self::POOL_BANK,
         'well_sale'           => self::POOL_BANK,
         'bankruptcy_event'    => self::POOL_BANK,
-        // Przelew P2P miedzy graczami -> konto bankowe (przelew bankowy)
-        // P2P transfer between players -> bank account (bank wire)
-        'player_transfer'     => self::POOL_BANK,
         // Koszty / oplate -> gotowka
         // Costs / fees -> cash
         'tax'                 => self::POOL_CASH,

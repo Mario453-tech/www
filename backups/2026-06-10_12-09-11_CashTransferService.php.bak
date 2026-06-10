@@ -165,17 +165,11 @@ class CashTransferService
             ]);
 
             // 4) Audit trail WEWNATRZ transakcji - cofnie przesuniecie salda gdy zapis nie powiedzie sie.
-            //    logTransaction() polyka wlasny wyjatek i zwraca null przy bledzie, wiec
-            //    sprawdzamy wynik i sami rzucamy wyjatek - inaczej commit ponizej przeszedlby
-            //    mimo braku wpisu audytu (pieniadze ruszone, brak sladu).
             // 4) Audit trail INSIDE transaction - rolls back balance move if log write fails.
-            //    logTransaction() swallows its own exception and returns null on failure, so we
-            //    check the result and throw ourselves - otherwise commit below would proceed
-            //    despite a missing audit row (money moved, no trace).
             $dirLabel = ($fromPool === WalletConfig::POOL_CASH)
                 ? tPlain('wallet.tx_cash_to_bank', ['amount' => number_format($amount, 2, ',', ' ')])
                 : tPlain('wallet.tx_bank_to_cash', ['amount' => number_format($amount, 2, ',', ' ')]);
-            $logId = $this->fts->logTransaction(
+            $this->fts->logTransaction(
                 $this->playerId,
                 null,
                 $amount,
@@ -184,11 +178,6 @@ class CashTransferService
                 'wallet_transfer',
                 null
             );
-            if ($logId === null) {
-                // Zapis audytu nie powiodl sie - wymus rollback przesuniecia salda.
-                // Audit write failed - force rollback of the balance move.
-                throw new RuntimeException('wallet pool transfer: audit log write failed');
-            }
 
             if ($ownTx) {
                 $this->db->commit();
