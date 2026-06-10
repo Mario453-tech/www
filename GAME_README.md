@@ -1,5 +1,20 @@
 ## Changelog
 
+### 2026-06-10 - Bankructwo: opcje ratunkowe przez centralne API finansowe (uzupełnienie Fazy 2)
+
+**Trzy metody w `src/Bankruptcy/OptionsTrait.php` przepięte z bezpośredniego `UPDATE players SET cash` + `logTransaction()` na `FinancialTransactionService::credit()`.** Dotychczas `logTransaction()` dodawał tylko wpis w historii bez faktycznego ruchu przez FTS — routing do właściwej puli, walidacja i atomowość były omijane.
+
+Pula docelowa dla tych operacji — zgodnie z `WalletConfig::TYPE_TO_POOL` — to **konto bankowe** (`bank_balance`):
+- `TYPE_LOAN → POOL_BANK` (kredyt ratunkowy)
+- `TYPE_BANKRUPTCY_EVENT → POOL_BANK` (cięcia kosztów, inwestor ratunkowy)
+
+Zmiany:
+- `applyEmergencyLoan()` — gotówka z kredytu ratunkowego ląduje na koncie bankowym. Pola game-state (`credit_score`, `recovery_mode`, `bankruptcy_status`) zostają w osobnym UPDATE (bez zmian semantyki).
+- `applyCostCuts()` — ulga gotówkowa z cięcia kosztów ląduje na koncie bankowym. Oddzielony UPDATE game-state.
+- `applyRescueInvestor()` — zastrzyk gotówki od inwestora ratunkowego ląduje na koncie bankowym. Oddzielony UPDATE game-state.
+- We wszystkich: FTS budowany przed `beginTransaction()`; przy niepowodzeniu `credit()` — rollback + komunikat błędu.
+- Konkurencja (`competitor_buyout` w `EventsTrait`) — **pozostawiona bez zmian** (clamping `GREATEST(0, cash - ?)` musi być zachowany).
+
 ### 2026-06-10 - TTS: koszty przez centralne API finansowe (uzupełnienie Fazy 2)
 
 **Moduł techniczny (TTS) przepięty z bezpośredniego `UPDATE players SET cash` na `FinancialTransactionService::debit()`.** Wcześniej koszty TTS schodziły bezpośrednim UPDATE, a `logTransaction()` dorzucał tylko wpis w historii bez faktycznego ruchu przez FTS (routing i walidacja salda omijane). Pula się nie zmienia — `hr_fee` i `tts_fee` w `WalletConfig::TYPE_TO_POOL` → gotówka, tak jak dotychczas. Zysk: jeden spójny tor ruchu środków (walidacja salda + atomowy wpis w `bank_transactions`).
