@@ -29,6 +29,13 @@ Wskazówki dla Claude Code przy pracy w tym repozytorium.
   + `templates/views/[nazwa]/main.php` + `assets/js/[nazwa].js` + `assets/css/[nazwa].css` + `admin/[nazwa].php`.
 - Limit **~500 linii** na plik PHP/JS/CSS — dziel na traity / podwidoki / moduły.
 - **GameLog obowiązkowy** w serwisach: `__construct`, każda metoda publiczna, każdy `catch`.
+- **CSRF — TYLKO te metody** (klasa `src/CSRF.php`, NIE wymyślaj innych nazw):
+  - `CSRF::field()` — ukryte pole `<input>` w formularzu HTML (najczęstsze).
+  - `CSRF::generateToken()` — pobranie surowego tokenu (np. do `window.*_CSRF` dla AJAX).
+  - `CSRF::validateToken($token)` — walidacja tokenu po stronie serwera. Zwraca `bool`.
+  - NIE istnieje `CSRF::validate()` ani `CSRF::check()` — walidacja to ZAWSZE
+    `validateToken()`. / CSRF validation is ALWAYS `CSRF::validateToken($token)`,
+    never `validate()` / `check()`.
 
 ### Baza danych
 - MySQL 8.0, PDO prepared statements (zero interpolacji), DECIMAL (nie FLOAT) dla finansów.
