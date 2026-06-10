@@ -32,44 +32,29 @@ class GameShell
             }
         }
 
-        // Upewnij sie ze kolumny portfela istnieja (jednorazowa migracja per PHP-worker).
-        // Ensure wallet columns exist (one-time migration per PHP worker).
-        try {
-            new WalletService();
-        } catch (Throwable) {}
-
-        $used        = (float)($playerData['used'] ?? 0);
-        $capacity    = (float)($playerData['capacity'] ?? 0);
-        $storagePct  = $capacity > 0 ? round(($used / $capacity) * 100, 0) : 0;
+        $used = (float)($playerData['used'] ?? 0);
+        $capacity = (float)($playerData['capacity'] ?? 0);
+        $storagePct = $capacity > 0 ? round(($used / $capacity) * 100, 0) : 0;
         $companyDays = self::companyAgeDays($playerData['created_at'] ?? null);
         $statusLabel = self::statusLabel((string)($playerData['status'] ?? 'active'));
-        $bankBalance = (float)($playerData['bank_balance'] ?? 0.0);
 
         return [
             [
-                'label'      => t('index.cash'),
-                'value'      => number_format((float)$playerData['cash'], 0, ',', ' '),
-                'sub'        => 'PLN',
-                'class'      => 'money',
-                'icon_html'  => self::statusIconHtml('cash'),
+                'label' => t('index.cash'),
+                'value' => number_format((float)$playerData['cash'], 0, ',', ' '),
+                'sub' => '$ USD',
+                'class' => 'money',
+                'icon_html' => self::statusIconHtml('cash'),
                 'icon_color' => '#c8860a',
             ],
             [
-                'label'      => t('index.bank_balance'),
-                'value'      => number_format($bankBalance, 0, ',', ' '),
-                'sub'        => 'PLN',
-                'class'      => 'money',
-                'icon_html'  => self::statusIconHtml('bank'),
+                'label' => t('index.storage'),
+                'value' => number_format($used, 0, ',', ' ') . ' / ' . number_format($capacity, 0, ',', ' '),
+                'sub' => t('game_shell.storage_sub', ['pct' => $storagePct]),
+                'pct' => $storagePct,
+                'class' => 'storage',
+                'icon_html' => self::statusIconHtml('storage'),
                 'icon_color' => '#5b8dd9',
-            ],
-            [
-                'label'      => t('index.storage'),
-                'value'      => number_format($used, 0, ',', ' ') . ' / ' . number_format($capacity, 0, ',', ' '),
-                'sub'        => t('game_shell.storage_sub', ['pct' => $storagePct]),
-                'pct'        => $storagePct,
-                'class'      => 'storage',
-                'icon_html'  => self::statusIconHtml('storage'),
-                'icon_color' => '#2a9d6e',
             ],
             [
                 'label' => t('index.oil_price'),
@@ -202,7 +187,6 @@ class GameShell
     {
         return match ($key) {
             'cash' => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor" opacity=".18"></circle><path d="M12 6.75c-1.86 0-3.25 1.02-3.25 2.5 0 1.58 1.33 2.17 3.08 2.58 1.46.34 2.17.59 2.17 1.32 0 .67-.67 1.1-1.75 1.1-1.12 0-2.2-.39-3.06-1.06l-.94 1.41c.88.71 1.95 1.16 3.13 1.31V18h1.5v-2.05c1.95-.18 3.22-1.23 3.22-2.82 0-1.7-1.36-2.28-3.2-2.7-1.33-.31-2.05-.52-2.05-1.23 0-.62.57-1.01 1.57-1.01.92 0 1.77.27 2.49.79l.88-1.44c-.74-.56-1.67-.92-2.64-1.03V5.5h-1.5v1.25Z" fill="currentColor"></path></svg>',
-            'bank' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5 12 4l9 5.5V11H3V9.5Zm2 3h2v5H5v-5Zm4 0h2v5H9v-5Zm4 0h2v5h-2v-5Zm4 0h2v5h-2v-5ZM3 19h18v1.5H3z" fill="currentColor"></path></svg>',
             'storage' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2" fill="currentColor" opacity=".18"></rect><path d="M9 4.5h6v2H9zM8.5 9h7v3h-7zM8.5 13.5h7v3h-7zM9 18h6v1.5H9z" fill="currentColor"></path></svg>',
             'oil_price' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.7 4.73 5.32.9-3.72 3.86.78 5.31L12 15.55 6.92 17.6l.78-5.31L3.98 8.43l5.32-.9L12 2.8Z" fill="currentColor" opacity=".18"></path><path d="M12 4.8 13.8 8l3.6.61-2.53 2.62.53 3.59L12 13.45 8.6 14.82l.53-3.59L6.6 8.61 10.2 8 12 4.8Zm-.75 3.7v2.45H9.5v1.5h1.75v2.05h1.5v-2.05h1.62c1.21 0 2.13-.79 2.13-1.96 0-1.16-.92-1.99-2.13-1.99h-3.12Zm1.5 1.5h1.47c.37 0 .63.23.63.52 0 .3-.26.48-.63.48h-1.47V10Z" fill="currentColor"></path></svg>',
             'company' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20.5h16v1H4zM6 18V8.5l6-3 6 3V18h-2v-2h-2v2h-4v-2H8v2H6Zm2-1.5h1.5V15H8v1.5Zm0-3h1.5V12H8v1.5Zm0-3H9.5V9H8v1.5Zm3.25 6H12.75V15h-1.5v1.5Zm0-3H12.75V12h-1.5v1.5Zm0-3H12.75V9h-1.5v1.5Zm3.25 6H16V15h-1.5v1.5Zm0-3H16V12h-1.5v1.5Zm0-3H16V9h-1.5v1.5Z" fill="currentColor"></path></svg>',

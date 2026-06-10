@@ -1,5 +1,30 @@
 ## Changelog
 
+### 2026-06-10 - Portfel: rozdzielenie gotówki i salda konta bankowego (Faza 1 — struktura + UI)
+
+**Nowa architektura portfela gracza:**
+- `src/WalletConfig.php` (NOWY) — centralny rejestr konfiguracji: nazwy pul (`POOL_CASH='cash'`, `POOL_BANK='bank_balance'`), limity transferu (min 100 PLN, max 500 000 PLN), prowizja (0,5%, min 10 PLN), podział startowy (50/50), mapa routingu fazy 2 (`TYPE_TO_POOL`). Jedyne miejsce do edycji wszystkich parametrów portfela.
+- `src/WalletService.php` (NOWY) — surowe operacje DB: `getBalances()`, `transferBetweenPools()`, `initNewPlayer()`. Migracja schematu w `ensureSchema()`: dodaje kolumny `bank_balance` + `wallet_initialized`, jednorazowo dzieli `cash` 50/50 dla istniejących graczy.
+- `src/CashTransferService.php` (NOWY) — logika biznesowa transferu gracza: walidacja kwoty, obliczenie prowizji, atomowy UPDATE (kwota+prowizja z puli źródłowej, kwota do puli docelowej), audit trail w `bank_transactions`. Metody: `cashToBank()`, `bankToCash()`, `calcFee()`.
+- `public/wallet_transfer.php` (NOWY) — AJAX endpoint POST `/wallet-transfer`: autoryzacja + CSRF + wywołanie `CashTransferService`; zwraca JSON `{success, message, new_cash, new_bank, fee}`.
+- `assets/js/wallet.js` (NOWY) — logika UI: podgląd prowizji przy wpisywaniu kwoty, potwierdzenie przez `confirmAction`, AJAX submit, aktualizacja sald w DOM bez przeładowania strony.
+- `assets/css/wallet.css` (NOWY) — style sekcji portfela w banku: kafelki sald (gotówka/konto), formularze transferu, strzałki kierunkowe.
+
+**Zmiany w istniejących plikach:**
+- `src/FinancialTransactionService.php` — nowy typ `TYPE_POOL_TRANSFER = 'pool_transfer'` (audit trail transferów portfelowych).
+- `src/GameShell.php` — naprawiono etykietę `$ USD` → `PLN`; dodano 5. KPI `index.bank_balance` z `bank_balance`; grid przechodzi przez `new WalletService()` aby zapewnić schemat.
+- `assets/css/style.css` — `.status-grid--redesign`: `repeat(4, 1fr)` → `repeat(auto-fit, minmax(170px, 1fr))` — grid obsługuje teraz dowolną liczbę KPI.
+- `src/Bank/DataLoader.php` — `loadAccountData()` używa teraz `WalletService::getBalances()`: `accountBalance` = `bank_balance` (saldo konta), `cashBalance` = `cash` (gotówka).
+- `templates/views/bank/main.php` — nowa sekcja „Portfel" z kafelkami obu sald i formularzami transferu; konfiguracja `window.WALLET_API/CSRF/FEE_*/LANG` dla `wallet.js`.
+- `public/bank.php` — ładuje `wallet.css` i `wallet.js`.
+- `public/register.php` — nowi gracze: po starcie `WalletService::initNewPlayer()` dzieli 10 000 000 PLN 50/50 (5M gotówka, 5M konto).
+- `lang/pl/bank.php` — klucze `wallet.*` (sekcja, przyciski, błędy, komunikaty).
+- `lang/pl/director.php` — klucz `index.bank_balance` dla HUD.
+- `src/init.php` — trasa `wallet-transfer` w ROUTES.
+- `.htaccess` — reguła `^wallet-transfer$ → /public/wallet_transfer.php`.
+
+**Faza 2 (routing) i Faza 3 (5 zastosowań gotówki) — zaplanowane w `WalletConfig::TYPE_TO_POOL` i `CASH_ONLY_TYPES`, nieaktywne.**
+
 ### 2026-06-10 - Bank: negocjacje, restrukturyzacja i HR przez centralne API finansowe
 - `src/FinancialTransactionService.php` - nowy typ `bank_fee` (opłaty bankowe, np. za negocjacje).
 - `src/BankNegotiation/ProcessorTrait.php` - opłata dodatkowa za negocjacje z bankiem przechodzi przez `debit()` (typ `bank_fee`); rollback + komunikat gdy brak środków.

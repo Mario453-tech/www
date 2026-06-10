@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * WalletConfig - centralny rejestr konfiguracji portfela gracza.
+ * WalletConfig - central registry for player wallet configuration.
+ *
+ * Jedyne miejsce do edycji: limity, prowizje, routing transakcji.
+ * Single place to edit: limits, fees, transaction routing.
+ *
+ * Aby zmienic limit transferu: edytuj TRANSFER_MAX_AMOUNT.
+ * Aby zmienic prowizje:        edytuj TRANSFER_FEE_PCT i TRANSFER_MIN_FEE.
+ * Aby aktywowac routing fazy 2: przeniesc TYPE_TO_POOL do FinancialTransactionService.
+ * To change transfer limit: edit TRANSFER_MAX_AMOUNT.
+ * To change fee:            edit TRANSFER_FEE_PCT and TRANSFER_MIN_FEE.
+ * To activate phase-2 routing: move TYPE_TO_POOL to FinancialTransactionService.
+ */
+class WalletConfig
+{
+    // Nazwy pul = nazwy kolumn w tabeli players.
+    // Pool names = column names in the players table.
+    public const POOL_CASH = 'cash';          // gotowka fizyczna
+    public const POOL_BANK = 'bank_balance';  // saldo konta bankowego
+
+    // Limity transferu gracza (gotowka <-> konto bankowe).
+    // Player transfer limits (cash <-> bank account).
+    public const TRANSFER_MIN_AMOUNT = 100.00;      // min 100 PLN na transfer
+    public const TRANSFER_MAX_AMOUNT = 500_000.00;  // max 500 000 PLN na transfer
+    public const TRANSFER_FEE_PCT    = 0.005;       // 0.5% prowizji
+    public const TRANSFER_MIN_FEE    = 10.00;       // minimalna prowizja 10 PLN
+
+    // Udzial gotowki przy inicjalizacji nowego gracza (50 % cash, 50 % bank).
+    // Cash share when initialising a new player (50 % cash, 50 % bank).
+    public const NEW_PLAYER_CASH_RATIO = 0.50;
+
+    /**
+     * Mapa routingu transakcji FTS -> pula.
+     * Routing map: FTS transaction type -> target pool.
+     *
+     * UWAGA: routing NIE jest jeszcze aktywny - przygotowanie do fazy 2.
+     *        Aktywacja: wystarczy uzyc tej mapy w FinancialTransactionService::moveFunds().
+     * NOTE: routing is NOT yet active - preparation for phase 2.
+     *       Activation: just use this map in FinancialTransactionService::moveFunds().
+     */
+    public const TYPE_TO_POOL = [
+        // Przychody -> konto bankowe
+        // Revenue -> bank account
+        'market_sale'         => self::POOL_BANK,
+        'loan'                => self::POOL_BANK,
+        'well_sale'           => self::POOL_BANK,
+        'bankruptcy_event'    => self::POOL_BANK,
+        // Koszty / oplate -> gotowka
+        // Costs / fees -> cash
+        'tax'                 => self::POOL_CASH,
+        'hr_fee'              => self::POOL_CASH,
+        'tts_fee'             => self::POOL_CASH,
+        'legal_fee'           => self::POOL_CASH,
+        'well_purchase'       => self::POOL_CASH,
+        'well_upgrade'        => self::POOL_CASH,
+        'well_maintenance'    => self::POOL_CASH,
+        'hub_purchase'        => self::POOL_CASH,
+        'pipeline_purchase'   => self::POOL_CASH,
+        'pipeline_repair'     => self::POOL_CASH,
+        'pipeline_maintenance'=> self::POOL_CASH,
+        'bailiff_seizure'     => self::POOL_CASH,
+        'bank_fee'            => self::POOL_CASH,
+        'loan_payment'        => self::POOL_CASH,
+        'storage_upgrade'     => self::POOL_CASH,
+        'geological_fee'      => self::POOL_CASH,
+        'map_purchase'        => self::POOL_CASH,
+        // Gotowka-only (5 zastosowan fazy 3)
+        // Cash-only (5 use cases for phase 3)
+        'black_market_sale'   => self::POOL_CASH,
+        // 'bribe'             => self::POOL_CASH,  // lapowki - faza 3
+        // 'emergency_repair'  => self::POOL_CASH,  // awaryjne naprawy - faza 3
+        // 'transport_guard'   => self::POOL_CASH,  // ochrona transportu - faza 3
+        // 'bailiff_reserve'   => self::POOL_CASH,  // rezerwa komornik - faza 3
+    ];
+
+    /**
+     * Oblicza prowizje dla danej kwoty.
+     * Computes fee for a given transfer amount.
+     */
+    public static function calcFee(float $amount): float
+    {
+        return max(self::TRANSFER_MIN_FEE, round($amount * self::TRANSFER_FEE_PCT, 2));
+    }
+}

@@ -4,8 +4,7 @@
 // Etap 4: dane konta bankowego (numer, saldo, historia). Bezpieczne defaulty.
 // Stage 4: bank account data (number, balance, history). Safe defaults.
 $bankAccountNumber  = $accountNumber  ?? '';
-$bankAccountBalance = (float)($accountBalance ?? 0);  // bank_balance (saldo konta)
-$playerCashBalance  = (float)($cashBalance   ?? 0);   // cash (gotowka)
+$bankAccountBalance = (float)($accountBalance ?? 0);
 $bankAccountHistory = $accountHistory ?? [];
 ?>
 
@@ -61,101 +60,6 @@ $bankAccountHistory = $accountHistory ?? [];
         </div>
     </section>
     <?php endif ?>
-
-    <!-- PORTFEL: GOTOWKA I KONTO / WALLET: CASH AND BANK ACCOUNT -->
-    <?php if (!$isBankrupt): ?>
-    <section class="card wallet-section" aria-labelledby="wallet-heading" id="wallet-section">
-        <h2 id="wallet-heading"><?= t('wallet.section_title') ?></h2>
-        <p class="muted"><?= t('wallet.section_desc') ?></p>
-
-        <!-- Kafelki sald / Balance tiles -->
-        <div class="wallet-balances">
-            <div class="wallet-bal wallet-bal--cash">
-                <span class="wallet-bal-label"><?= t('wallet.label_cash') ?></span>
-                <span class="wallet-bal-value money"
-                      data-wallet-cash
-                      id="wallet-cash-display">
-                    <?= number_format($playerCashBalance, 2, ',', ' ') ?> PLN
-                </span>
-            </div>
-            <div class="wallet-bal wallet-bal--bank">
-                <span class="wallet-bal-label"><?= t('wallet.label_bank') ?></span>
-                <span class="wallet-bal-value money"
-                      data-wallet-bank
-                      id="wallet-bank-display">
-                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> PLN
-                </span>
-            </div>
-        </div>
-
-        <!-- Formularze transferu / Transfer forms -->
-        <div class="wallet-transfers">
-
-            <!-- Gotowka -> Konto / Cash -> Bank -->
-            <div class="wallet-tf">
-                <div class="wallet-arrow wallet-arrow--to-bank" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" width="16" height="16"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <p class="wallet-tf-title"><?= t('wallet.btn_cash_to_bank') ?></p>
-                <p class="wallet-tf-direction muted"><?= t('wallet.dir_cash_to_bank') ?></p>
-                <form class="wallet-tf-form" id="wallet-form-cash-to-bank" data-action="cash_to_bank" novalidate>
-                    <div class="form-group">
-                        <label class="form-label" for="wallet-amount-ctb"><?= t('wallet.label_amount') ?></label>
-                        <input type="text"
-                               inputmode="numeric"
-                               pattern="[0-9 .,]*"
-                               id="wallet-amount-ctb"
-                               name="amount"
-                               class="input-full"
-                               autocomplete="off"
-                               placeholder="<?= htmlspecialchars(t('wallet.amount_placeholder'), ENT_QUOTES) ?>">
-                    </div>
-                    <p class="wallet-tf-fee-preview"></p>
-                    <button type="submit" class="btn btn-primary btn-sm btn-full">
-                        <?= t('wallet.btn_cash_to_bank') ?>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Konto -> Gotowka / Bank -> Cash -->
-            <div class="wallet-tf">
-                <div class="wallet-arrow wallet-arrow--to-cash" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" width="16" height="16"><path d="M16 10H4M8 14l-4-4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <p class="wallet-tf-title"><?= t('wallet.btn_bank_to_cash') ?></p>
-                <p class="wallet-tf-direction muted"><?= t('wallet.dir_bank_to_cash') ?></p>
-                <form class="wallet-tf-form" id="wallet-form-bank-to-cash" data-action="bank_to_cash" novalidate>
-                    <div class="form-group">
-                        <label class="form-label" for="wallet-amount-btc"><?= t('wallet.label_amount') ?></label>
-                        <input type="text"
-                               inputmode="numeric"
-                               pattern="[0-9 .,]*"
-                               id="wallet-amount-btc"
-                               name="amount"
-                               class="input-full"
-                               autocomplete="off"
-                               placeholder="<?= htmlspecialchars(t('wallet.amount_placeholder'), ENT_QUOTES) ?>">
-                    </div>
-                    <p class="wallet-tf-fee-preview"></p>
-                    <button type="submit" class="btn btn-primary btn-sm btn-full">
-                        <?= t('wallet.btn_bank_to_cash') ?>
-                    </button>
-                </form>
-            </div>
-
-        </div><!-- /.wallet-transfers -->
-
-        <p class="muted" style="font-size:12px;margin-top:10px">
-            <?= t('wallet.fee_info', [
-                'fee_pct' => number_format(WalletConfig::TRANSFER_FEE_PCT * 100, 1, ',', ''),
-                'min'     => number_format(WalletConfig::TRANSFER_MIN_FEE, 0, ',', ' '),
-                'min_amt' => number_format(WalletConfig::TRANSFER_MIN_AMOUNT, 0, ',', ' '),
-                'max_amt' => number_format(WalletConfig::TRANSFER_MAX_AMOUNT, 0, ',', ' '),
-            ]) ?>
-        </p>
-    </section>
-    <?php endif ?>
-    <!-- /PORTFEL -->
 
     <?php if (!$bankService): ?>
     <section class="card">
@@ -825,17 +729,6 @@ $bankAccountHistory = $accountHistory ?? [];
 </div>
 
 <script>
-window.WALLET_API      = '<?= htmlspecialchars(url('wallet-transfer'), ENT_QUOTES) ?>';
-window.WALLET_CSRF     = '<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES) ?>';
-window.WALLET_FEE_PCT  = <?= json_encode(WalletConfig::TRANSFER_FEE_PCT) ?>;
-window.WALLET_FEE_MIN  = <?= json_encode(WalletConfig::TRANSFER_MIN_FEE) ?>;
-window.WALLET_LANG     = <?= json_encode([
-    'fee_preview'          => t('wallet.fee_preview'),
-    'confirm_cash_to_bank' => t('wallet.confirm_cash_to_bank'),
-    'confirm_bank_to_cash' => t('wallet.confirm_bank_to_cash'),
-    'err_generic'          => t('wallet.err_generic'),
-    'err_network'          => t('wallet.err_network'),
-], JSON_UNESCAPED_UNICODE) ?>;
 window.BANK_LANG = <?= json_encode([
     'pln'                  => t('bank_js.pln'),
     'repay_modal_single'   => t('bank.repay_modal_desc_single'),
