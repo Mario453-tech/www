@@ -89,31 +89,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
-
-    // Czyszczenie starych/utknietych dostaw morskich i buforow tankowcow.
-    // Clear old/stuck marine deliveries and tanker marine_buffer_bbl in wells.
-    if ($action === 'clear_marine_deliveries') {
-        $scope = $_POST['clear_scope'] ?? 'stuck'; // 'stuck' lub 'all'
-        try {
-            $db->beginTransaction();
-            if ($scope === 'all') {
-                $deleted = $db->exec("DELETE FROM marine_deliveries");
-                $db->exec("UPDATE wells SET marine_buffer_bbl = 0 WHERE transport_type = 'tankowiec'");
-            } else {
-                // Usun tylko utkniente (nie w trakcie aktywnego transportu).
-                // Delete only stuck ones (not currently in active transport leg).
-                $deleted = $db->exec(
-                    "DELETE FROM marine_deliveries WHERE status NOT IN ('departing','in_transit','processing')"
-                );
-            }
-            $db->commit();
-            AdminLog::log('clear_marine_deliveries', "scope={$scope} deleted={$deleted}");
-            $msg = "Wyczyszczono {$deleted} rekordów marine_deliveries (tryb: {$scope}).";
-        } catch (Throwable $e) {
-            if ($db->inTransaction()) { $db->rollBack(); }
-            $err = 'Blad czyszczenia: ' . $e->getMessage();
-        }
-    }
 }
 
 $config = TransportConfigService::load($db);

@@ -252,25 +252,4 @@
         </tbody>
     </table>
     <?php endif ?>
-
-    <hr style="margin:24px 0">
-
-    <p class="panel-title" style="margin-bottom:8px">Czyszczenie kolejki dostaw morskich</p>
-    <p class="help-text" style="margin-bottom:12px">
-        <strong>Utknięte</strong> — usuwa dostawy ze statusem <code>waiting_for_port</code>, <code>delayed</code>, <code>lost</code>, <code>delivered</code> (zostawia aktywne: departing/in_transit/processing).<br>
-        <strong>Wszystkie</strong> — czyści całą tabelę <code>marine_deliveries</code> i zeruje bufor <code>marine_buffer_bbl</code> we wszystkich odwiertach tankowcowych.
-    </p>
-
-    <form method="post" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <?= CSRF::field() ?>
-        <input type="hidden" name="action" value="clear_marine_deliveries">
-        <button type="submit" name="clear_scope" value="stuck" class="btn btn-warning btn-sm"
-                onclick="return confirm('Usunąć utknięte dostawy (waiting_for_port, delayed, lost, delivered)? Aktywne (in_transit) zostaną.')">
-            Wyczyść utknięte
-        </button>
-        <button type="submit" name="clear_scope" value="all" class="btn btn-danger btn-sm"
-                onclick="return confirm('UWAGA: Usunąć WSZYSTKIE rekordy marine_deliveries i wyzerować marine_buffer_bbl? Tego nie można cofnąć.')">
-            Wyczyść wszystkie
-        </button>
-    </form>
 </section>
