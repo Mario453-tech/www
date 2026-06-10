@@ -215,7 +215,7 @@ trait TTSTasksTrait
                         (new FinancialTransactionService($this->db))->logTransaction(
                             $this->playerId, null, $cost,
                             FinancialTransactionService::TYPE_TTS_FEE,
-                            tPlain('technical.task.' . ($taskType ?? 'task'))
+                            'Koszt zadania technicznego: ' . ($taskType ?? 'task')
                         );
                     }
                 } catch (Throwable $le) { /* audit trail failure must not break the operation */ }

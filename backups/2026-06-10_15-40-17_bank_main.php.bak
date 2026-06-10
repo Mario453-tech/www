@@ -3,14 +3,10 @@
 <?php
 // Etap 4: dane konta bankowego (numer, saldo, historia). Bezpieczne defaulty.
 // Stage 4: bank account data (number, balance, history). Safe defaults.
-$bankAccountNumber    = $accountNumber  ?? '';
-$bankAccountBalance   = (float)($accountBalance ?? 0);  // bank_balance (saldo konta)
-$playerCashBalance    = (float)($cashBalance   ?? 0);   // cash (gotowka)
-$bankAccountHistory   = $accountHistory ?? [];
-$bankHistoryTotal     = (int)($accountHistoryTotal ?? count($bankAccountHistory));
-$bankHistoryPage      = (int)($accountHistoryPage  ?? 1);
-$bankHistoryPerPage   = \BankDataLoader::HISTORY_PER_PAGE;
-$bankHistoryMaxPage   = max(1, (int)ceil($bankHistoryTotal / $bankHistoryPerPage));
+$bankAccountNumber  = $accountNumber  ?? '';
+$bankAccountBalance = (float)($accountBalance ?? 0);  // bank_balance (saldo konta)
+$playerCashBalance  = (float)($cashBalance   ?? 0);   // cash (gotowka)
+$bankAccountHistory = $accountHistory ?? [];
 ?>
 
 <div class="fade-in">
@@ -736,19 +732,6 @@ $bankHistoryMaxPage   = max(1, (int)ceil($bankHistoryTotal / $bankHistoryPerPage
             </div>
             <?php endforeach ?>
         </div>
-
-        <?php if ($bankHistoryMaxPage > 1): ?>
-        <nav class="bank-history-pagination" aria-label="Strony historii">
-            <?php if ($bankHistoryPage > 1): ?>
-            <a class="bank-history-page-btn" href="?txpage=<?= $bankHistoryPage - 1 ?>#bank-history-heading">&laquo; Poprzednia</a>
-            <?php endif ?>
-            <span class="bank-history-page-info">Strona <?= $bankHistoryPage ?> z <?= $bankHistoryMaxPage ?></span>
-            <?php if ($bankHistoryPage < $bankHistoryMaxPage): ?>
-            <a class="bank-history-page-btn" href="?txpage=<?= $bankHistoryPage + 1 ?>#bank-history-heading">Następna &raquo;</a>
-            <?php endif ?>
-        </nav>
-        <?php endif ?>
-
         <?php endif ?>
     </section>
     <?php endif ?>
@@ -847,7 +830,7 @@ window.WALLET_CSRF     = '<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES
 window.WALLET_FEE_PCT  = <?= json_encode(WalletConfig::TRANSFER_FEE_PCT) ?>;
 window.WALLET_FEE_MIN  = <?= json_encode(WalletConfig::TRANSFER_MIN_FEE) ?>;
 window.WALLET_LANG     = <?= json_encode([
-    'fee_preview'          => tPlain('wallet.fee_preview'),
+    'fee_preview'          => t('wallet.fee_preview'),
     'confirm_cash_to_bank' => t('wallet.confirm_cash_to_bank'),
     'confirm_bank_to_cash' => t('wallet.confirm_bank_to_cash'),
     'err_generic'          => t('wallet.err_generic'),
