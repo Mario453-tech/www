@@ -91,6 +91,33 @@ Kolejność zawsze:
 
 Jeśli push odrzucony (remote ma nowe commity): `git pull origin main --no-rebase` a potem push.
 
+## Styl pisania kodu — ZASADA OBOWIĄZKOWA
+
+### Zakres zmian
+- Najmniejsza zmiana rozwiązująca problem. Nie dodawaj funkcji, refaktoryzacji ani abstrakcji
+  ponad to, czego wymaga zadanie.
+- Trzy podobne linie są lepsze niż przedwczesna abstrakcja.
+- Żadnych niedokończonych implementacji — każda zmiana musi działać w całości.
+
+### Obsługa błędów
+- Nie dodawaj obsługi błędów dla scenariuszy, które nie mogą wystąpić.
+- Walidacja tylko na granicach systemu: input użytkownika, zewnętrzne API.
+- Ufaj gwarancjom wewnętrznego kodu i frameworka — nie owijaj w bawełnę.
+
+### Komentarze
+- **Domyślnie zero komentarzy.**
+- Dodaj tylko gdy DLACZEGO jest nieoczywiste: ukryte ograniczenie, subtelny niezmiennik,
+  obejście konkretnego buga. Jeśli usunięcie komentarza nie zmyli przyszłego czytającego —
+  nie pisz go.
+- Nie opisuj CO kod robi — dobrze nazwane identyfikatory to robią same.
+- Nie referencjonuj zadania, ticketu ani callera w komentarzach (np. "dodane dla flow X",
+  "wywoływane przez Y") — to należy do opisu commita, nie kodu.
+
+### Bezpieczeństwo
+- Nigdy nie wprowadzaj SQL injection, XSS, command injection ani innych OWASP Top 10.
+- PDO prepared statements zawsze — zero interpolacji zmiennych w SQL.
+- Jeśli zauważę niebezpieczny kod (nawet istniejący) — naprawiam od razu.
+
 ## Kodowanie i komentarze — ZASADA OBOWIĄZKOWA
 
 Przy KAŻDEJ zmianie istniejącego pliku ORAZ przy tworzeniu nowego pliku
