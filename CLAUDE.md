@@ -74,7 +74,19 @@ Kolejność zawsze:
 2. Wprowadź zmiany
 3. Zweryfikuj kodowanie
 4. `git add` zmienionych plików + backupów
-5. `git commit -m "..."` z opisem po polsku/angielsku
+5. `git commit -m "..."` — opis **szczegółowy**: co konkretnie dodano lub jaki problem rozwiązano.
+   - Pierwsza linia: krótkie podsumowanie (max ~72 znaki), np. `Wallet: naprawiono duplikat PLN PLN w dialogu potwierdzenia`
+   - Kolejne linie (po pustej): szczegółowy opis — co było źródłem problemu, co zmieniono i dlaczego.
+   - Przykład dobrego opisu:
+     ```
+     Admin transport: czyszczenie well_road_trips + modalne potwierdzenia
+
+     - Dodano handler clear_road_trips (stuck/all) analogiczny do clear_marine_deliveries.
+     - Zamieniono natywne confirm() na confirmSubmit() z modal.js — wymóg CLAUDE.md.
+     - Każdy przycisk ma własny formularz z ukrytym clear_scope, bo form.submit() nie
+       przenosi wartości name/value z przycisku po potwierdzeniu w modalu.
+     ```
+   - Nigdy nie pisz tylko `fix`, `update`, `changes` bez kontekstu.
 6. `git push -u origin main`
 
 Jeśli push odrzucony (remote ma nowe commity): `git pull origin main --no-rebase` a potem push.
