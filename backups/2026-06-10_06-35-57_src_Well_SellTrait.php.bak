@@ -155,25 +155,9 @@ trait WellSellTrait
                 WHERE well_id = ? AND player_id = ? AND unassigned_at IS NULL
             ")->execute([$wellId, $playerId]);
 
- // 2. Dodaj kase graczowi przez centralne API finansowe (wpis w historii bankowej).
- //    Jestesmy juz w transakcji - credit() dolacza do niej bez wlasnego BEGIN/COMMIT.
- // 2. Add cash via the central finance API (bank history entry).
- //    We are already inside a transaction - credit() joins it without its own BEGIN/COMMIT.
-            $creditRes = (new FinancialTransactionService($this->db))->credit(
-                $playerId, (float)$sellValue,
-                FinancialTransactionService::TYPE_WELL_SALE,
-                tPlain('bank.tx_well_sale', ['id' => $wellId]),
-                'well', $wellId
-            );
-            if (empty($creditRes['success'])) {
-                $this->db->rollBack();
-                GameLog::error('WellService', 'sellWell: credit FAILED', null, [
-                    'well_id'   => $wellId,
-                    'player_id' => $playerId,
-                    'error'     => $creditRes['error'] ?? 'unknown',
-                ]);
-                return ['success' => false, 'message' => tPlain('well.sell_error_generic')];
-            }
+ // 2. Dodaj kas graczowi / Add cash to player
+            $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id=?")
+                     ->execute([$sellValue, $playerId]);
 
  // 3. Zapis do bankruptcy_events (historia transakcji) / Save to bankruptcy_events (transaction history)
             $payload = json_encode([

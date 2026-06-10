@@ -76,6 +76,7 @@ Options -Indexes
     RewriteRule ^login$           /public/login.php [L,PT]
     RewriteRule ^register$        /public/register.php [L,PT]
     RewriteRule ^bank$            /public/bank.php [L,PT]
+    RewriteRule ^wallet-transfer$ /public/wallet_transfer.php [L,PT]
     RewriteRule ^sell$            /public/sell.php [L,PT]
     RewriteRule ^forgot-password$ /public/forgot_password.php [L,PT]
     RewriteRule ^reset-password$  /public/reset_password.php [L,PT]

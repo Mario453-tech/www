@@ -33,10 +33,8 @@ require_once __DIR__ . '/BankAccountService.php';
  *  - logTransaction(): public method for existing modules (stage 8),
  *    lets legacy callers append an entry without touching the balance.
  *
- * Pule srodkow: players.cash (gotowka) i players.bank_balance (konto bankowe).
- * Podzial i transfer miedzy pulami: WalletService + CashTransferService.
- * Money pools: players.cash (cash) and players.bank_balance (bank account).
- * Split and transfer between pools: WalletService + CashTransferService.
+ * Saldo zrodlem prawdy: players.cash (DECIMAL(20,2)) - bez drugiej tabeli kont.
+ * Source-of-truth balance: players.cash (DECIMAL(20,2)) - no second accounts table.
  */
 class FinancialTransactionService
 {
@@ -65,12 +63,6 @@ class FinancialTransactionService
     public const TYPE_GEOLOGICAL_FEE     = 'geological_fee';
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
     public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
-    public const TYPE_WELL_SALE          = 'well_sale';
-    public const TYPE_BLACK_MARKET_SALE  = 'black_market_sale';
-    public const TYPE_BANK_FEE           = 'bank_fee';
-    // Transfer miedzy pulami portfela gracza (gotowka <-> konto).
-    // Transfer between player wallet pools (cash <-> bank account).
-    public const TYPE_POOL_TRANSFER      = 'pool_transfer';
 
     // Zbiorcze koszty tickowe (audit trail; gotowka schodzi roznicowo w ticku).
     // Aggregated tick costs (audit trail; cash is saved differentially by the tick).
@@ -103,10 +95,6 @@ class FinancialTransactionService
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
         self::TYPE_STORAGE_UPGRADE,
-        self::TYPE_WELL_SALE,
-        self::TYPE_BLACK_MARKET_SALE,
-        self::TYPE_BANK_FEE,
-        self::TYPE_POOL_TRANSFER,
         self::TYPE_TICK_OPEX,
         self::TYPE_TICK_SALARY,
         self::TYPE_TICK_TRANSPORT,

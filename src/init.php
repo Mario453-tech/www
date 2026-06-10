@@ -225,8 +225,9 @@ const ROUTES = [
     'boardroom'       => '/boardroom',
     'loans'           => '/loans',
     'dashboard'       => '/dashboard',
-    'help'            => '/help',
-    'legal'           => '/legal',
+    'help'             => '/help',
+    'legal'            => '/legal',
+    'wallet-transfer'  => '/wallet-transfer',
 ];
 
 /** @param array<string, mixed> $query */

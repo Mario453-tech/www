@@ -76,19 +76,16 @@ trait BankruptcyOptionsTrait
         $this->db->beginTransaction();
         try {
             $this->db->prepare("UPDATE wells SET status='seized', marine_buffer_bbl=0 WHERE id=? AND player_id=?")->execute([$wellId, $this->playerId]);
- // Wyplata przez centralne API finansowe (ruch gotowki + wpis bankowy; w transakcji).
- // Payout via the central finance API (cash movement + bank entry; inside a transaction).
-            $payoutRes = (new FinancialTransactionService($this->db))->credit(
-                $this->playerId, (float)$payout,
-                FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
-                tPlain('bank.tx_bankruptcy_sell_well', ['id' => $wellId]),
-                'well', $wellId
-            );
-            if (empty($payoutRes['success'])) {
-                $this->db->rollBack();
-                GameLog::error('BankruptcyService', 'applySellWellAsset: credit FAILED', null, ['player_id' => $this->playerId, 'well_id' => $wellId]);
-                return ['success' => false, 'message' => t('bankruptcy.err_well_seized')];
-            }
+            $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id=?")->execute([$payout, $this->playerId]);
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        null, $this->playerId, (float)$payout,
+                        FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
+                        'Sprzedaz odwiertu #' . $wellId . ' w ramach restrukturyzacji'
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             $this->logEvent('sell_asset', t('bankruptcy.log_sell_well', ['id' => $wellId, 'payout' => number_format($payout)]), ['asset_type' => 'well', 'well_id' => $wellId, 'payout' => $payout], 'high', 0, null);
             $this->addNotification(t('bankruptcy.notif_sell_well', ['payout' => number_format($payout)]));
             $this->db->commit();
@@ -139,19 +136,16 @@ trait BankruptcyOptionsTrait
         $this->db->beginTransaction();
         try {
             $this->db->prepare("UPDATE storage SET capacity=?, used=? WHERE player_id=?")->execute([$newCapacity, $newUsed, $this->playerId]);
- // Wyplata przez centralne API finansowe (ruch gotowki + wpis bankowy; w transakcji).
- // Payout via the central finance API (cash movement + bank entry; inside a transaction).
-            $payoutRes = (new FinancialTransactionService($this->db))->credit(
-                $this->playerId, (float)$payout,
-                FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
-                tPlain('bank.tx_bankruptcy_sell_storage'),
-                'storage', $this->playerId
-            );
-            if (empty($payoutRes['success'])) {
-                $this->db->rollBack();
-                GameLog::error('BankruptcyService', 'applySellStorageAsset: credit FAILED', null, ['player_id' => $this->playerId]);
-                return ['success' => false, 'message' => t('bankruptcy.err_no_storage')];
-            }
+            $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id=?")->execute([$payout, $this->playerId]);
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        null, $this->playerId, (float)$payout,
+                        FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
+                        'Sprzedaz magazynu w ramach restrukturyzacji'
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             $this->logEvent('sell_asset_storage', t('bankruptcy.log_sell_storage'), ['asset_type' => 'storage', 'capacity_sold' => $sellCap, 'payout' => $payout], 'medium', 0, null);
             $this->addNotification(t('bankruptcy.notif_sell_storage', ['payout' => number_format($payout)]));
             GameLog::info('BankruptcyService', 'applySellStorageAsset OK', ['player_id' => $this->playerId, 'capacity_sold' => $sellCap, 'payout' => $payout]);
