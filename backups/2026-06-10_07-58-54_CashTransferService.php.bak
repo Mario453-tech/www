@@ -131,16 +131,7 @@ class CashTransferService
                 "SELECT {$srcCol} FROM players WHERE id = ? FOR UPDATE"
             );
             $lockStmt->execute([$this->playerId]);
-            $rawLocked = $lockStmt->fetchColumn();
-            if ($rawLocked === false) {
-                // Gracz zostal usuniety miedzy wczesnym sprawdzeniem a blokada.
-                // Player was deleted between early check and lock.
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return $this->fail(tPlain('wallet.err_player_not_found'));
-            }
-            $lockedBalance = (float)$rawLocked;
+            $lockedBalance = (float)$lockStmt->fetchColumn();
             if ($lockedBalance + 1e-9 < $total) {
                 if ($ownTx) {
                     $this->db->rollBack();
@@ -164,21 +155,6 @@ class CashTransferService
                 ':id'     => $this->playerId,
             ]);
 
-            // 4) Audit trail WEWNATRZ transakcji - cofnie przesuniecie salda gdy zapis nie powiedzie sie.
-            // 4) Audit trail INSIDE transaction - rolls back balance move if log write fails.
-            $dirLabel = ($fromPool === WalletConfig::POOL_CASH)
-                ? tPlain('wallet.tx_cash_to_bank', ['amount' => number_format($amount, 2, ',', ' ')])
-                : tPlain('wallet.tx_bank_to_cash', ['amount' => number_format($amount, 2, ',', ' ')]);
-            $this->fts->logTransaction(
-                $this->playerId,
-                null,
-                $amount,
-                self::TYPE_POOL_TRANSFER,
-                $dirLabel,
-                'wallet_transfer',
-                null
-            );
-
             if ($ownTx) {
                 $this->db->commit();
             }
@@ -197,6 +173,21 @@ class CashTransferService
             ]);
             return $this->fail(tPlain('wallet.err_db'));
         }
+
+        // 4) Audit trail w bank_transactions (bez ruszania salda).
+        // 4) Audit trail in bank_transactions (without touching the balance).
+        $dirLabel = ($fromPool === WalletConfig::POOL_CASH)
+            ? tPlain('wallet.tx_cash_to_bank', ['amount' => number_format($amount, 2, ',', ' ')])
+            : tPlain('wallet.tx_bank_to_cash', ['amount' => number_format($amount, 2, ',', ' ')]);
+        $this->fts->logTransaction(
+            $this->playerId,
+            null,
+            $amount,
+            self::TYPE_POOL_TRANSFER,
+            $dirLabel,
+            'wallet_transfer',
+            null
+        );
 
         $newBalances = $this->wallet->getBalances($this->playerId);
         GameLog::info('CashTransferService', 'transfer OK', [

@@ -34,28 +34,16 @@
         return isFinite(v) ? v : 0;
     }
 
-    // Formatuje liczbe jako integer bez jednostki (dla kafli HUD).
-    // Formats a number as integer without unit (for HUD tiles).
-    function fmtInt(v) {
-        return Math.round(parseFloat(v)).toLocaleString('pl-PL');
-    }
-
-    // Ustawia tekst elementu - format zalezy od data-wallet-fmt.
-    // Sets element text - format depends on data-wallet-fmt attribute.
-    function setElValue(el, v) {
-        el.textContent = el.dataset.walletFmt === 'int' ? fmtInt(v) : fmtPLN(v);
-    }
-
     // Aktualizuje wyswietlane salda w DOM.
     // Updates displayed balances in the DOM.
     function updateBalances(newCash, newBank) {
         var cashEls = document.querySelectorAll('[data-wallet-cash]');
         var bankEls = document.querySelectorAll('[data-wallet-bank]');
         cashEls.forEach(function (el) {
-            setElValue(el, newCash);
+            el.textContent = fmtPLN(newCash);
         });
         bankEls.forEach(function (el) {
-            setElValue(el, newBank);
+            el.textContent = fmtPLN(newBank);
         });
         // Zaktualizuj data-balance dla formularza przelewu P2P.
         // Update data-balance for P2P transfer form.

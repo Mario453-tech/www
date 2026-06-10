@@ -201,44 +201,34 @@ class WalletService
             return;
         }
 
-        // Dodaj kolumny jesli nie istnieja. Owijamy w try - jesli rzuci wyjatkiem,
-        // NIE ustawiamy schemaReady, zeby kolejne zadanie moglo sprobowac ponownie.
-        // Add columns if missing. Wrap in try - if it throws, do NOT set schemaReady
-        // so the next request can retry.
+        // Dodaj kolumny jesli nie istnieja (addColumnIfMissing: idempotentne, z cache).
+        // Add columns if missing (addColumnIfMissing: idempotent, with process cache).
+        Database::addColumnIfMissing(
+            'players',
+            'bank_balance',
+            'DECIMAL(20,2) NOT NULL DEFAULT 0.00 AFTER cash'
+        );
+        Database::addColumnIfMissing(
+            'players',
+            'wallet_initialized',
+            'TINYINT(1) NOT NULL DEFAULT 0 AFTER bank_balance'
+        );
+
+        // Jednorazowa migracja: podziel cash 50/50 dla nieprzemigrowanych graczy.
+        // One-time migration: split cash 50/50 for non-migrated players.
         try {
-            Database::addColumnIfMissing(
-                'players',
-                'bank_balance',
-                'DECIMAL(20,2) NOT NULL DEFAULT 0.00 AFTER cash'
+            $this->db->exec(
+                "UPDATE players
+                    SET bank_balance      = ROUND(cash / 2, 2),
+                        cash              = cash - ROUND(cash / 2, 2),
+                        wallet_initialized = 1
+                  WHERE wallet_initialized = 0"
             );
-            Database::addColumnIfMissing(
-                'players',
-                'wallet_initialized',
-                'TINYINT(1) NOT NULL DEFAULT 0 AFTER bank_balance'
-            );
-
-            // Jednorazowa migracja: podziel cash 50/50 dla nieprzemigrowanych graczy.
-            // One-time migration: split cash 50/50 for non-migrated players.
-            try {
-                $this->db->exec(
-                    "UPDATE players
-                        SET bank_balance      = ROUND(cash / 2, 2),
-                            cash              = cash - ROUND(cash / 2, 2),
-                            wallet_initialized = 1
-                      WHERE wallet_initialized = 0"
-                );
-            } catch (Throwable $e) {
-                GameLog::error('WalletService', 'schema migration FAILED', $e);
-            }
-
-            // Ustaw flage dopiero po sukcesie addColumnIfMissing (nie przed).
-            // Set flag only after addColumnIfMissing succeeded (not before).
-            self::$schemaReady = true;
         } catch (Throwable $e) {
-            GameLog::error('WalletService', 'ensureSchema column add FAILED', $e);
-            // Nie ustawiaj schemaReady - nastepne zadanie ponowi probe.
-            // Do not set schemaReady - next request will retry.
+            GameLog::error('WalletService', 'schema migration FAILED', $e);
         }
+
+        self::$schemaReady = true;
     }
 
     /**

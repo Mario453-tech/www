@@ -8,16 +8,6 @@ class GameShell
         $playerData = ['cash' => 0, 'status' => 'active', 'capacity' => 0, 'used' => 0, 'created_at' => null];
         $marketData = ['current_price' => 0];
 
-        // Zapewnij kolumny portfela PRZED Player::getData() (SELECT p.* musi widziec bank_balance).
-        // Ensure wallet columns BEFORE Player::getData() (SELECT p.* must see bank_balance).
-        try {
-            new WalletService();
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('GameShell', 'WalletService ensureSchema failed', $e);
-            }
-        }
-
         try {
             $player = new Player($playerId);
             $data = $player->getData();
@@ -42,6 +32,12 @@ class GameShell
             }
         }
 
+        // Upewnij sie ze kolumny portfela istnieja (jednorazowa migracja per PHP-worker).
+        // Ensure wallet columns exist (one-time migration per PHP worker).
+        try {
+            new WalletService();
+        } catch (Throwable) {}
+
         $used        = (float)($playerData['used'] ?? 0);
         $capacity    = (float)($playerData['capacity'] ?? 0);
         $storagePct  = $capacity > 0 ? round(($used / $capacity) * 100, 0) : 0;
@@ -51,22 +47,20 @@ class GameShell
 
         return [
             [
-                'label'           => t('index.cash'),
-                'value'           => number_format((float)$playerData['cash'], 0, ',', ' '),
-                'sub'             => 'PLN',
-                'class'           => 'money',
-                'icon_html'       => self::statusIconHtml('cash'),
-                'icon_color'      => '#c8860a',
-                'data_wallet_key' => 'cash',
+                'label'      => t('index.cash'),
+                'value'      => number_format((float)$playerData['cash'], 0, ',', ' '),
+                'sub'        => 'PLN',
+                'class'      => 'money',
+                'icon_html'  => self::statusIconHtml('cash'),
+                'icon_color' => '#c8860a',
             ],
             [
-                'label'           => t('index.bank_balance'),
-                'value'           => number_format($bankBalance, 0, ',', ' '),
-                'sub'             => 'PLN',
-                'class'           => 'money',
-                'icon_html'       => self::statusIconHtml('bank'),
-                'icon_color'      => '#5b8dd9',
-                'data_wallet_key' => 'bank',
+                'label'      => t('index.bank_balance'),
+                'value'      => number_format($bankBalance, 0, ',', ' '),
+                'sub'        => 'PLN',
+                'class'      => 'money',
+                'icon_html'  => self::statusIconHtml('bank'),
+                'icon_color' => '#5b8dd9',
             ],
             [
                 'label'      => t('index.storage'),

@@ -33,21 +33,10 @@ if ($_POST) {
             $error = t('register.err_password_mismatch');
         } else {
             $db = Database::getInstance()->getConnection();
-
-            // Uruchom migracje schematu portfela PRZED beginTransaction i PRZED insertem nowego gracza.
-            // addColumnIfMissing moze robic implicit commit wiec musi byc poza transakcja.
-            // Run wallet schema migration BEFORE beginTransaction and BEFORE new player insert.
-            // addColumnIfMissing may do implicit commit so it must be outside any transaction.
-            $walletSvc = null;
-            try {
-                $walletSvc = new WalletService($db);
-            } catch (Throwable $wInitEx) {
-                GameLog::error('register', 'WalletService pre-init FAILED', $wInitEx);
-            }
-
+            
             $checkEmail = $db->prepare("SELECT id FROM players WHERE email = :email");
             $checkEmail->execute([':email' => $email]);
-
+            
             if ($checkEmail->fetch()) {
                 $error = t('register.err_email_taken');
             } else {
@@ -104,12 +93,12 @@ if ($_POST) {
                     ")->execute([$playerId]);
                     $db->commit();
 
-                    // Podziel startowe srodki 50/50 gotowka / konto.
-                    // $walletSvc zostal juz zainicjowany przed transakcja (migracja nie dotknela nowego gracza).
-                    // Split starting funds 50/50 cash / bank.
-                    // $walletSvc was already initialised before the transaction (migration didn't touch new player).
+                    // Podziel startowe srodki na gotowke i konto (poza transakcja - WalletService
+                    // uzywa addColumnIfMissing ktore moze robic implicit commit).
+                    // Split starting funds into cash and bank (outside transaction - WalletService
+                    // uses addColumnIfMissing which may do implicit commit).
                     try {
-                        ($walletSvc ?? new WalletService($db))->initNewPlayer($playerId, 10000000.00);
+                        (new WalletService($db))->initNewPlayer($playerId, 10000000.00);
                     } catch (Throwable $wEx) {
                         GameLog::error('register', 'WalletService initNewPlayer FAILED', $wEx, [
                             'player' => $playerId,
