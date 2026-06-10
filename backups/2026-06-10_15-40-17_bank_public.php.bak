@@ -73,8 +73,7 @@ if (!empty($_SESSION['bank_flash_success'])) {
 
 // == POBIERANIE DANYCH ==
 
-$txPage = max(1, (int)($_GET['txpage'] ?? 1));
-$data   = (new BankDataLoader($playerId, $bankService, $bankNeg, $txPage))->load();
+$data       = (new BankDataLoader($playerId, $bankService, $bankNeg))->load();
 $isBankrupt = !empty($bankruptcyState['is_bankrupt']);
 
 // == CALLABLES HELPEROW ==

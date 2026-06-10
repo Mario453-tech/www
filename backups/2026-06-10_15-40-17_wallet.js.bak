@@ -40,22 +40,10 @@
         return Math.round(parseFloat(v)).toLocaleString('pl-PL');
     }
 
-    // Formatuje liczbe z 2 miejscami dziesietynnymi bez " PLN" (dla kafli HUD z podtytul PLN).
-    // Formats number with 2 decimal places without " PLN" (for HUD tiles that have PLN subtitle).
-    function fmtDec(v) {
-        return parseFloat(v).toLocaleString('pl-PL', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-    }
-
     // Ustawia tekst elementu - format zalezy od data-wallet-fmt.
     // Sets element text - format depends on data-wallet-fmt attribute.
     function setElValue(el, v) {
-        var fmt = el.dataset.walletFmt;
-        if (fmt === 'int') { el.textContent = fmtInt(v); }
-        else if (fmt === 'dec') { el.textContent = fmtDec(v); }
-        else { el.textContent = fmtPLN(v); }
+        el.textContent = el.dataset.walletFmt === 'int' ? fmtInt(v) : fmtPLN(v);
     }
 
     // Aktualizuje wyswietlane salda w DOM.

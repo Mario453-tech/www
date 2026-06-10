@@ -52,23 +52,21 @@ class GameShell
         return [
             [
                 'label'           => t('index.cash'),
-                'value'           => number_format((float)$playerData['cash'], 2, ',', ' '),
+                'value'           => number_format((float)$playerData['cash'], 0, ',', ' '),
                 'sub'             => 'PLN',
                 'class'           => 'money',
                 'icon_html'       => self::statusIconHtml('cash'),
                 'icon_color'      => '#c8860a',
                 'data_wallet_key' => 'cash',
-                'data_wallet_fmt' => 'dec',
             ],
             [
                 'label'           => t('index.bank_balance'),
-                'value'           => number_format($bankBalance, 2, ',', ' '),
+                'value'           => number_format($bankBalance, 0, ',', ' '),
                 'sub'             => 'PLN',
                 'class'           => 'money',
                 'icon_html'       => self::statusIconHtml('bank'),
                 'icon_color'      => '#5b8dd9',
                 'data_wallet_key' => 'bank',
-                'data_wallet_fmt' => 'dec',
             ],
             [
                 'label'      => t('index.storage'),

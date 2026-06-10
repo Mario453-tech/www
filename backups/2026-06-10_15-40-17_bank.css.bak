@@ -1322,29 +1322,3 @@ body.bank-modal-open {
     .bank-modal-title { font-size: 17px; }
     .bank-modal-icon::before { font-size: 28px; }
 }
-
-/* Paginacja historii transakcji / Transaction history pagination */
-.bank-history-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 14px 0 4px;
-    flex-wrap: wrap;
-}
-.bank-history-page-btn {
-    display: inline-block;
-    padding: 6px 16px;
-    border-radius: 6px;
-    background: var(--accent, #c8860a);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: opacity 0.15s;
-}
-.bank-history-page-btn:hover { opacity: 0.85; }
-.bank-history-page-info {
-    font-size: 13px;
-    color: var(--text2, #bbb);
-}
