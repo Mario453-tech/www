@@ -1815,10 +1815,8 @@ window.LOGISTICS_LANG = <?= json_encode([
         return (h > 0 ? h + 'h ' : '') + m + 'min ' + s + 's';
     }
 
-    var pipelineReloadScheduled = false;
     countdowns.forEach(function (el) {
         var finish = new Date(el.dataset.finish.replace(' ', 'T')).getTime();
-        if (Math.floor((finish - Date.now()) / 1000) <= 0) { el.textContent = '-'; return; }
         function tick() {
             var rem = Math.floor((finish - Date.now()) / 1000);
             el.textContent = fmtSec(rem);
@@ -1826,10 +1824,7 @@ window.LOGISTICS_LANG = <?= json_encode([
                 setTimeout(tick, 1000);
             } else {
                 el.textContent = '-';
-                if (!pipelineReloadScheduled) {
-                    pipelineReloadScheduled = true;
-                    setTimeout(function () { window.location.reload(); }, 3000);
-                }
+                setTimeout(function () { window.location.reload(); }, 3000);
             }
         }
         tick();
@@ -1842,7 +1837,6 @@ window.LOGISTICS_LANG = <?= json_encode([
 (function () {
     var els = document.querySelectorAll('.road-trip-countdown[data-seconds]');
     if (!els.length) return;
-    var reloadScheduled = false;
     function fmtSec(sec) {
         if (sec <= 0) return '0h 00m';
         var h = Math.floor(sec / 3600);
@@ -1851,20 +1845,16 @@ window.LOGISTICS_LANG = <?= json_encode([
     }
     els.forEach(function (el) {
         var rem = parseInt(el.dataset.seconds, 10) || 0;
-        if (rem <= 0) { el.textContent = '-'; return; }
         var start = Date.now();
         function tick() {
             var elapsed = Math.floor((Date.now() - start) / 1000);
             var cur = Math.max(0, rem - elapsed);
             el.textContent = fmtSec(cur);
             if (cur > 0) {
-                setTimeout(tick, 30000);
+                setTimeout(tick, 30000); // aktualizacja co 30s / update every 30s
             } else {
                 el.textContent = '-';
-                if (!reloadScheduled) {
-                    reloadScheduled = true;
-                    setTimeout(function () { window.location.reload(); }, 5000);
-                }
+                setTimeout(function () { window.location.reload(); }, 5000);
             }
         }
         tick();
