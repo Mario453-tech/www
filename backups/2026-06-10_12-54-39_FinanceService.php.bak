@@ -256,12 +256,10 @@ class FinanceService
                     COALESCE(w.reservoir_remaining, 0) AS reservoir_remaining,
                     COALESCE(w.reservoir_max, 800000) AS reservoir_max,
                     COALESCE(w.production_boost_pct, 0.0) AS production_boost_pct,
-                    COALESCE(wl.oil_richness, 1.0) AS oil_richness,
-                    COALESCE(wr.production_bonus, 0.0) AS region_production_bonus,
+                    COALESCE(w.oil_richness, 1.0) AS oil_richness,
+                    COALESCE(w.region_production_bonus, 0.0) AS region_production_bonus,
                     COALESCE(w.production_mode, 'normal') AS production_mode
                 FROM wells w
-                LEFT JOIN world_locations wl ON wl.id = w.location_id
-                LEFT JOIN world_regions   wr ON wr.id = w.region_id
                 WHERE w.player_id = ?
                   AND w.status NOT IN ('seized', 'blowout')
                 ORDER BY w.status ASC, w.id ASC
