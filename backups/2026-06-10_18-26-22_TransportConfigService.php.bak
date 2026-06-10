@@ -161,20 +161,6 @@ class TransportConfigService
         }
 
         try {
- // Kolumna bufora drogowego: ropa akumuluje sie przy odwiercie ciezarowkowym az do progu min_load_bbl.
- // Ten sam model co tankowiec — ciezarowka wyrusza dopiero gdy bufor osiagnie ustawiony prog.
- // Road buffer column: oil accumulates at a truck well until min_load_bbl is reached.
- // Same model as the tanker — a truck departs only once the buffer hits the configured threshold.
-            Database::addColumnIfMissing(
-                'wells',
-                'road_buffer_bbl',
-                "DECIMAL(12,4) NOT NULL DEFAULT 0.0000 COMMENT 'Bufor ropy ciezarowki (akumulacja do progu) / Truck oil buffer (accumulation threshold)'"
-            );
-        } catch (Throwable $e) {
-            GameLog::error('TransportConfigService', 'ensureTransportSchema wells road_buffer_bbl failed', $e);
-        }
-
-        try {
  // Poszerz config_value z DECIMAL(8,4) na DECIMAL(14,4) — min_load_bbl moze wynosic > 9999.
  // Widen config_value from DECIMAL(8,4) to DECIMAL(14,4) — min_load_bbl can exceed 9999 bbl.
             $stmt = $db->prepare("
