@@ -63,8 +63,6 @@ class FinancialTransactionService
     public const TYPE_GEOLOGICAL_FEE     = 'geological_fee';
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
     public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
-    public const TYPE_WELL_SALE          = 'well_sale';
-    public const TYPE_BLACK_MARKET_SALE  = 'black_market_sale';
 
     // Zbiorcze koszty tickowe (audit trail; gotowka schodzi roznicowo w ticku).
     // Aggregated tick costs (audit trail; cash is saved differentially by the tick).
@@ -97,8 +95,6 @@ class FinancialTransactionService
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
         self::TYPE_STORAGE_UPGRADE,
-        self::TYPE_WELL_SALE,
-        self::TYPE_BLACK_MARKET_SALE,
         self::TYPE_TICK_OPEX,
         self::TYPE_TICK_SALARY,
         self::TYPE_TICK_TRANSPORT,

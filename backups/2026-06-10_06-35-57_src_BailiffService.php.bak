@@ -144,26 +144,17 @@ class BailiffService
         if ($player && (float)$player['cash'] > 0) {
             $seized = (int)round((float)$player['cash'] * 0.30);
 
- // Pobranie srodkow przez centralne API finansowe (ruch gotowki + wpis w historii bankowej).
- // Fallback do bezposredniego UPDATE gdy FTS niedostepny lub zwroci blad (komornik musi zajac).
- // Withdraw via central finance API (cash movement + bank history entry).
- // Fallback to a direct UPDATE if FTS is unavailable or fails (the bailiff must seize).
-            $charged = false;
-            if (class_exists('FinancialTransactionService', false)) {
-                try {
-                    $res = (new FinancialTransactionService($this->db))->debit(
-                        (int)$proc['player_id'], (float)$seized,
+            $this->db->prepare("UPDATE players SET cash = cash - :amt WHERE id = :id")
+                ->execute([':amt' => $seized, ':id' => $proc['player_id']]);
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        (int)$proc['player_id'], null, (float)$seized,
                         FinancialTransactionService::TYPE_BAILIFF_SEIZURE,
-                        tPlain('bank.tx_bailiff_seizure', ['id' => (int)$proc['id']]),
-                        'bailiff_proceeding', (int)$proc['id']
+                        'Zajecie gotowki przez komornika (postepowanie #' . (int)$proc['id'] . ')'
                     );
-                    $charged = !empty($res['success']);
-                } catch (Throwable $le) { /* obsluga ponizej / handled below */ }
-            }
-            if (!$charged) {
-                $this->db->prepare("UPDATE players SET cash = cash - :amt WHERE id = :id")
-                    ->execute([':amt' => $seized, ':id' => $proc['player_id']]);
-            }
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             $this->db->prepare("UPDATE loans SET remaining_amount = remaining_amount - :amt WHERE id = :id")
                 ->execute([':amt' => $seized, ':id' => $proc['loan_id']]);

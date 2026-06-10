@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-06-10 - Bank: komornik, sprzedaż odwiertu i czarny rynek przez centralne API finansowe
+- `src/FinancialTransactionService.php` - nowe typy operacji: `well_sale` (sprzedaż odwiertu) i `black_market_sale` (czarny rynek, przychód i kara).
+- `src/BailiffService.php` - zajęcie 30% gotówki przez komornika przechodzi przez `FinancialTransactionService::debit()` (ruch gotówki + wpis w historii bankowej zamiast osobnego `UPDATE` + `logTransaction`); fallback do bezpośredniego `UPDATE` gdy FTS niedostępny.
+- `src/Well/SellTrait.php` - sprzedaż odwiertu księguje wpływ przez `credit()` (typ `well_sale`, referencja do odwiertu) wewnątrz istniejącej transakcji; rollback + komunikat błędu gdy księgowanie się nie powiedzie.
+- `src/BlackMarketService.php` - przychód i kara za handel na czarnym rynku idą przez `credit()`/`debit()` (typ `black_market_sale`); aktualizacja `black_market_score`/`credit_score` została oddzielona od ruchu gotówki, bez podwójnego pobrania.
+- `lang/pl/bank.php`, `lang/pl/components.php` - etykiety typów i opisy operacji `well_sale`, `black_market_sale`, kary czarnorynkowej oraz komunikat błędu sprzedaży odwiertu.
+
 ### 2026-06-09 - Tick: audyt bezpieczenstwa i naprawa bledow
 - `src/Tick/PlayersSection.php` - naprawiono blokujacy blad nowych graczy: `last_tick_at = NULL` powodowal `TypeError` w `new DateTime()` i gracz nigdy nie dostawal pierwszego ticka; query uzywa teraz `COALESCE(last_tick_at, '2000-01-01 00:00:00')`.
 - `src/Tick/PlayersSection.php` - wykrywanie kryzysu finansowego (`FinancialStateSection::process`) uwzglednia teraz pelny koszt incydentow (odwierty + katastrofy rurociagow + kary za wyciek). Wczesniej eksplozja rurociagu mogla wyzerowac gotowke bez wyzwolenia kryzysu.

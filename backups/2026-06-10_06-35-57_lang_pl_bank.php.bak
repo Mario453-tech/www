@@ -299,8 +299,6 @@ return [
     'bank.account.type.tick_transport'      => 'Transport',
     'bank.account.type.tick_incident'       => 'Incydenty i kary',
     'bank.account.type.hub_usage'           => 'Opłaty hubowe',
-    'bank.account.type.well_sale'           => 'Sprzedaż odwiertu',
-    'bank.account.type.black_market_sale'   => 'Sprzedaż na czarnym rynku',
 
     'bank.account.msg_transfer_ok' => 'Przelew :amount PLN na rachunek :account zaksięgowany.',
     'bank.account.err_account_empty' => 'Podaj numer rachunku odbiorcy.',
@@ -338,9 +336,5 @@ return [
     'bank.tx_tick_salary' => 'Pensje pracowników',
     'bank.tx_tick_transport' => 'Koszty transportu ropy',
     'bank.tx_tick_incident' => 'Incydenty, awarie i kary środowiskowe',
-    'bank.tx_well_sale' => 'Sprzedaż odwiertu #:id',
-    'bank.tx_bailiff_seizure' => 'Zajęcie gotówki przez komornika (postępowanie #:id)',
-    'bank.tx_black_market_sale' => 'Sprzedaż ropy na czarnym rynku',
-    'bank.tx_black_market_penalty' => 'Kara za handel na czarnym rynku',
 
 ];
