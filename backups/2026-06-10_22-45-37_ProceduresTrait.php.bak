@@ -120,22 +120,8 @@ trait TTSProceduresTrait
                 ];
             }
 
-            $fts = new FinancialTransactionService($this->db);
             $this->db->beginTransaction();
-            // Koszt procedur przez FTS: gotowka schodzi (tts_fee -> cash) + wpis w historii.
-            // Procedure cost via FTS: cash is deducted (tts_fee -> cash) + history entry.
-            $charge = $fts->debit(
-                $this->playerId, (float)$cost,
-                FinancialTransactionService::TYPE_TTS_FEE,
-                'Ulepszenie procedur bezpieczenstwa do poziomu ' . $nextLevel
-            );
-            if (empty($charge['success'])) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.proc_msg.no_funds_upgrade', [
-                    'level' => $nextLevel,
-                    'cost' => number_format($cost, 0, '.', ' '),
-                ])];
-            }
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
             $this->db->prepare("
                 UPDATE players
                 SET safety_procedures_level = ?,
@@ -144,6 +130,15 @@ trait TTSProceduresTrait
                 WHERE id = ?
             ")->execute([$nextLevel, $this->playerId]);
             $this->db->commit();
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        $this->playerId, null, $cost,
+                        FinancialTransactionService::TYPE_TTS_FEE,
+                        'Ulepszenie procedur bezpieczenstwa do poziomu ' . $nextLevel
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             GameLog::info('TTS', 'upgradeProcedures OK', [
                 'player_id' => $this->playerId,
@@ -218,21 +213,8 @@ trait TTSProceduresTrait
 
             $newIntegrity = min(100.0, $proc['integrity'] + 30.0);
 
-            $fts = new FinancialTransactionService($this->db);
             $this->db->beginTransaction();
-            // Koszt przegladu przez FTS: gotowka schodzi (tts_fee -> cash) + wpis w historii.
-            // Review cost via FTS: cash is deducted (tts_fee -> cash) + history entry.
-            $charge = $fts->debit(
-                $this->playerId, (float)$cost,
-                FinancialTransactionService::TYPE_TTS_FEE,
-                'Przeglad/naprawa integralnosci procedur bezpieczenstwa'
-            );
-            if (empty($charge['success'])) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.proc_msg.review_no_funds', [
-                    'cost' => number_format($cost, 0, '.', ' '),
-                ])];
-            }
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
             $this->db->prepare("
                 UPDATE players
                 SET procedure_integrity = ?,
@@ -240,6 +222,15 @@ trait TTSProceduresTrait
                 WHERE id = ?
             ")->execute([$newIntegrity, $this->playerId]);
             $this->db->commit();
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        $this->playerId, null, $cost,
+                        FinancialTransactionService::TYPE_TTS_FEE,
+                        'Przeglad/naprawa integralnosci procedur bezpieczenstwa'
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             GameLog::info('TTS', 'repairProcedureIntegrity OK', [
                 'player_id' => $this->playerId,

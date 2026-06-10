@@ -86,24 +86,18 @@ trait TTSStaffTrait
             ])];
         }
 
-        // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
-        // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
-        $fts = new FinancialTransactionService($this->db);
         $this->db->beginTransaction();
         try {
-            // Pierwsza pensja przez FTS: gotowka schodzi (hr_fee -> cash) i powstaje wpis w historii.
-            // First salary via FTS: cash is deducted (hr_fee -> cash) and a history entry is created.
-            $charge = $fts->debit(
-                $this->playerId, (float)$salary,
-                FinancialTransactionService::TYPE_HR_FEE,
-                'Zatrudnienie pracownika TTS (pierwsza pensja)'
-            );
-            if (empty($charge['success'])) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.staff_msg.no_funds', [
-                    'salary' => number_format($salary, 0, '.', ' '),
-                ])];
-            }
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$salary, $this->playerId]);
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        $this->playerId, null, $salary,
+                        FinancialTransactionService::TYPE_HR_FEE,
+                        'Zatrudnienie pracownika TTS (pierwsza pensja)'
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             $this->db->prepare("
                 INSERT INTO technical_staff
                     (player_id, manager_id, first_name, last_name, spec_code, spec_name, skill_level, salary)

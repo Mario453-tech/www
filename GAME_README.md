@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2026-06-10 - TTS: koszty przez centralne API finansowe (uzupełnienie Fazy 2)
+
+**Moduł techniczny (TTS) przepięty z bezpośredniego `UPDATE players SET cash` na `FinancialTransactionService::debit()`.** Wcześniej koszty TTS schodziły bezpośrednim UPDATE, a `logTransaction()` dorzucał tylko wpis w historii bez faktycznego ruchu przez FTS (routing i walidacja salda omijane). Pula się nie zmienia — `hr_fee` i `tts_fee` w `WalletConfig::TYPE_TO_POOL` → gotówka, tak jak dotychczas. Zysk: jeden spójny tor ruchu środków (walidacja salda + atomowy wpis w `bank_transactions`).
+
+- `src/TTS/StaffTrait.php` — pierwsza pensja przy zatrudnieniu (`hireEngineer`) przez `debit(TYPE_HR_FEE)`. Przy braku środków: rollback + komunikat `no_funds`.
+- `src/TTS/ProceduresTrait.php` — ulepszenie procedur BHP (`upgradeProcedures`) oraz przegląd/naprawa integralności (`repairProcedureIntegrity`) przez `debit(TYPE_TTS_FEE)`. Wcześniej `logTransaction` był wołany PO `commit()` (poza transakcją) — teraz ruch i wpis są w jednej transakcji.
+- `src/TTS/TasksTrait.php` — koszt zadania technicznego (`startTask`) przez `debit(TYPE_TTS_FEE)`.
+- We wszystkich: FTS budowany przed `beginTransaction()`, aby setup schematu nie był pominięty w otwartej transakcji.
+
 ### 2026-06-10 - Logistyka: koszt optymalizatora przez FTS + audit trail (uzupełnienie Fazy 2)
 
 **Routing Fazy 2 (`WalletConfig::TYPE_TO_POOL`) jest już aktywny w `FinancialTransactionService::moveFunds()` od commita „Faza 2: aktywacja routingu pul portfela".** To uzupełnienie domyka jedyną ścieżkę kosztową, która omijała centralne API finansowe.

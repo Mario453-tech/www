@@ -206,25 +206,19 @@ trait TTSTasksTrait
         $startTime   = date('Y-m-d H:i:s');
         $endTime     = date('Y-m-d H:i:s', time() + $hours * 3600);
 
-        // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
-        // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
-        $fts = ($cost > 0) ? new FinancialTransactionService($this->db) : null;
         $this->db->beginTransaction();
         try {
             if ($cost > 0) {
-                // Koszt zadania przez FTS: gotowka schodzi (tts_fee -> cash) + wpis w historii.
-                // Task cost via FTS: cash is deducted (tts_fee -> cash) + history entry.
-                $charge = $fts->debit(
-                    $this->playerId, (float)$cost,
-                    FinancialTransactionService::TYPE_TTS_FEE,
-                    tPlain('technical.task.' . ($taskType ?? 'task'))
-                );
-                if (empty($charge['success'])) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
-                        'cost' => number_format($cost, 0, '.', ' '),
-                    ])];
-                }
+                $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
+                try {
+                    if (class_exists('FinancialTransactionService', false)) {
+                        (new FinancialTransactionService($this->db))->logTransaction(
+                            $this->playerId, null, $cost,
+                            FinancialTransactionService::TYPE_TTS_FEE,
+                            tPlain('technical.task.' . ($taskType ?? 'task'))
+                        );
+                    }
+                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             }
             $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ?")->execute([$staffId]);
             $this->db->prepare("
