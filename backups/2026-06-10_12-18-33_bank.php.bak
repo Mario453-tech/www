@@ -309,7 +309,6 @@ return [
     'bank.account.err_amount_invalid' => 'Kwota musi być dodatnia i większa od zera.',
     'bank.account.err_self_transfer' => 'Nie możesz wykonać przelewu na własny rachunek.',
     'bank.account.err_insufficient_funds' => 'Niewystarczające środki na koncie.',
-    'bank.account.err_insufficient_bank_funds' => 'Za mało środków na koncie bankowym (masz :bank PLN, przelew wymaga :needed PLN). Wpłać gotówkę na konto w sekcji <strong>Portfel → Wpłata na konto</strong>.',
     'bank.account.err_generic' => 'Błąd podczas przetwarzania przelewu. Spróbuj ponownie.',
 
     'bank.err_financial_transaction' => 'Nie udało się zaksięgować operacji bankowej. Spróbuj ponownie.',
