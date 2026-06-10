@@ -7,8 +7,7 @@ AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
 $msg = '';
-$err = (string)($_SESSION['admin_flash_error'] ?? '');
-if ($err !== '') { unset($_SESSION['admin_flash_error']); }
+$err = '';
 
 $defaults = TransportConfigService::getDefaults();
 $configTableExists = TransportConfigService::tableExists($db);
@@ -21,11 +20,7 @@ $typeNames = [
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-        // Token wygas lub sesja odswiezyla sie — wroc na strone z czytelnym komunikatem.
-        // Token expired or session regenerated — redirect back with a readable message.
-        $_SESSION['admin_flash_error'] = t('common.csrf_error');
-        header('Location: ' . $_SERVER['REQUEST_URI']);
-        exit;
+        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
     }
 
     $action = $_POST['action'] ?? '';

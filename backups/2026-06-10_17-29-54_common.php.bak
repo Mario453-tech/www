@@ -35,7 +35,6 @@ return [
     'common.actions' => 'Akcje',
     'news.panel_title' => 'Aktualności spółki',
     'common.db_error' => 'Błąd bazy danych.',
-    'common.csrf_error' => 'Błąd bezpieczeństwa — token wygasł. Odśwież stronę i spróbuj ponownie.',
     'modal.confirm' => 'Potwierdź',
     'modal.cancel' => 'Anuluj',
     'modal.ok' => 'OK',
