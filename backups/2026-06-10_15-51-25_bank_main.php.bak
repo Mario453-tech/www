@@ -847,7 +847,7 @@ window.WALLET_CSRF     = '<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES
 window.WALLET_FEE_PCT  = <?= json_encode(WalletConfig::TRANSFER_FEE_PCT) ?>;
 window.WALLET_FEE_MIN  = <?= json_encode(WalletConfig::TRANSFER_MIN_FEE) ?>;
 window.WALLET_LANG     = <?= json_encode([
-    'fee_preview'          => tPlain('wallet.fee_preview'),
+    'fee_preview'          => t('wallet.fee_preview'),
     'confirm_cash_to_bank' => t('wallet.confirm_cash_to_bank'),
     'confirm_bank_to_cash' => t('wallet.confirm_bank_to_cash'),
     'err_generic'          => t('wallet.err_generic'),
