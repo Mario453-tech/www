@@ -261,59 +261,16 @@
         <strong>Wszystkie</strong> — czyści całą tabelę <code>marine_deliveries</code> i zeruje bufor <code>marine_buffer_bbl</code> we wszystkich odwiertach tankowcowych.
     </p>
 
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <form method="post">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="clear_marine_deliveries">
-            <input type="hidden" name="clear_scope" value="stuck">
-            <button type="submit" class="btn btn-warning btn-sm"
-                    onclick="confirmSubmit(this, 'Usunąć utknięte dostawy morskie (waiting_for_port, delayed, lost, delivered)? Aktywne (in_transit) zostaną.', {type:\'warning\'}); return false;">
-                Wyczyść utknięte
-            </button>
-        </form>
-        <form method="post">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="clear_marine_deliveries">
-            <input type="hidden" name="clear_scope" value="all">
-            <button type="submit" class="btn btn-danger btn-sm"
-                    onclick="confirmSubmit(this, 'UWAGA: Usunąć WSZYSTKIE rekordy marine_deliveries i wyzerować marine_buffer_bbl? Tego nie można cofnąć.', {type:\'danger\'}); return false;">
-                Wyczyść wszystkie
-            </button>
-        </form>
-    </div>
-</section>
-
-<!--  -->
-<!-- KURSY CIEZAROWEK — czyszczenie well_road_trips                         -->
-<!--  -->
-<section class="admin-card" style="margin-top:24px">
-    <h2>Kursy ciężarówek</h2>
-    <p class="help-text">Aktywne kursy ciężarówek (<code>well_road_trips</code>). Czyść tylko gdy masz utknięte lub nieaktualne rekordy — kursy <code>in_transit</code> są aktywne i zostaną pominięte w trybie "utknięte".</p>
-
-    <p class="panel-title" style="margin-bottom:8px">Czyszczenie kursów ciężarówek</p>
-    <p class="help-text" style="margin-bottom:12px">
-        <strong>Utknięte</strong> — usuwa kursy ze statusem <code>delivered</code> i <code>lost</code> (zostawia aktywne: in_transit).<br>
-        <strong>Wszystkie</strong> — czyści całą tabelę <code>well_road_trips</code> i zeruje bufor <code>road_buffer_bbl</code> we wszystkich odwiertach ciężarówkowych.
-    </p>
-
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <form method="post">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="clear_road_trips">
-            <input type="hidden" name="clear_scope" value="stuck">
-            <button type="submit" class="btn btn-warning btn-sm"
-                    onclick="confirmSubmit(this, 'Usunąć zakończone kursy ciężarówek (delivered, lost)? Aktywne (in_transit) zostaną.', {type:\'warning\'}); return false;">
-                Wyczyść utknięte
-            </button>
-        </form>
-        <form method="post">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="clear_road_trips">
-            <input type="hidden" name="clear_scope" value="all">
-            <button type="submit" class="btn btn-danger btn-sm"
-                    onclick="confirmSubmit(this, 'UWAGA: Usunąć WSZYSTKIE kursy ciężarówek i wyzerować road_buffer_bbl? Tego nie można cofnąć.', {type:\'danger\'}); return false;">
-                Wyczyść wszystkie
-            </button>
-        </form>
-    </div>
+    <form method="post" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="clear_marine_deliveries">
+        <button type="submit" name="clear_scope" value="stuck" class="btn btn-warning btn-sm"
+                onclick="return confirm('Usunąć utknięte dostawy (waiting_for_port, delayed, lost, delivered)? Aktywne (in_transit) zostaną.')">
+            Wyczyść utknięte
+        </button>
+        <button type="submit" name="clear_scope" value="all" class="btn btn-danger btn-sm"
+                onclick="return confirm('UWAGA: Usunąć WSZYSTKIE rekordy marine_deliveries i wyzerować marine_buffer_bbl? Tego nie można cofnąć.')">
+            Wyczyść wszystkie
+        </button>
+    </form>
 </section>

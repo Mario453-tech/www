@@ -95,31 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Czyszczenie starych/utknietych kursow ciezarowek i buforow drogowych.
-    // Clear old/stuck road trips and road_buffer_bbl in truck wells.
-    if ($action === 'clear_road_trips') {
-        $scope = $_POST['clear_scope'] ?? 'stuck'; // 'stuck' lub 'all'
-        try {
-            $db->beginTransaction();
-            if ($scope === 'all') {
-                $deleted = $db->exec("DELETE FROM well_road_trips");
-                $db->exec("UPDATE wells SET road_buffer_bbl = 0 WHERE transport_type = 'ciezarowki'");
-            } else {
-                // Usun tylko dostarczone i utracone — w tranzycie zostaja.
-                // Delete only delivered and lost — in_transit trips remain.
-                $deleted = $db->exec(
-                    "DELETE FROM well_road_trips WHERE status NOT IN ('in_transit')"
-                );
-            }
-            $db->commit();
-            AdminLog::log('clear_road_trips', "scope={$scope} deleted={$deleted}");
-            $msg = "Wyczyszczono {$deleted} rekordów well_road_trips (tryb: {$scope}).";
-        } catch (Throwable $e) {
-            if ($db->inTransaction()) { $db->rollBack(); }
-            $err = 'Blad czyszczenia road trips: ' . $e->getMessage();
-        }
-    }
-
     // Czyszczenie starych/utknietych dostaw morskich i buforow tankowcow.
     // Clear old/stuck marine deliveries and tanker marine_buffer_bbl in wells.
     if ($action === 'clear_marine_deliveries') {
