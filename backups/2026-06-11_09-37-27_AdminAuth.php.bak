@@ -98,11 +98,6 @@ class AdminAuth
  // PL: Zapisz pola sesji admina.
     private static function setSession(array $admin): void
     {
-        // Po session_destroy() sesja jest nieaktywna — wymagany ponowny session_start().
-        // After session_destroy() the session is inactive — need session_start() again.
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
         session_regenerate_id(true);
         $_SESSION['admin_logged_in'] = true;
         $_SESSION['admin_id'] = $admin['id'];
