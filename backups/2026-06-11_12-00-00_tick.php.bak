@@ -65,29 +65,20 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
 // Execution lock: prevents overlapping ticks when a previous run exceeds the cron interval.
 // Without it a second process would reprocess the same players with the same deltaSeconds
 // (doubled production, costs and incidents). Lock auto-released on shutdown.
-//
-// FORCE_TICK_INTERNAL (admin/force_tick.php): jestesmy w tym samym procesie, wiec
-// flock nie da nam blokady wspoldzielonej — pomijamy lock, aby force_tick dzialal
-// nawet gdy poprzedni cron zawisl i nadal trzyma plik.
-// FORCE_TICK_INTERNAL (admin/force_tick.php): we are in the same process, so flock
-// would not give us a shared lock — skip the lock so force_tick works even if a
-// previous cron is hung and still holds the file.
-if (!defined('FORCE_TICK_INTERNAL')) {
-    $GLOBALS['__tick_lock_handle'] = fopen(sys_get_temp_dir() . '/oilcorp_tick.lock', 'c');
-    if ($GLOBALS['__tick_lock_handle'] === false
-        || !flock($GLOBALS['__tick_lock_handle'], LOCK_EX | LOCK_NB)) {
-        GameLog::warn('tick', 'tick juz trwa - pomijam ten przebieg / tick already running - skipping this run');
-        echo "Tick skipped: another run in progress\n";
-        exit(0);
-    }
-    register_shutdown_function(static function () {
-        $h = $GLOBALS['__tick_lock_handle'] ?? null;
-        if (is_resource($h)) {
-            @flock($h, LOCK_UN);
-            @fclose($h);
-        }
-    });
+$GLOBALS['__tick_lock_handle'] = fopen(sys_get_temp_dir() . '/oilcorp_tick.lock', 'c');
+if ($GLOBALS['__tick_lock_handle'] === false
+    || !flock($GLOBALS['__tick_lock_handle'], LOCK_EX | LOCK_NB)) {
+    GameLog::warn('tick', 'tick juz trwa - pomijam ten przebieg / tick already running - skipping this run');
+    echo "Tick skipped: another run in progress\n";
+    exit(0);
 }
+register_shutdown_function(static function () {
+    $h = $GLOBALS['__tick_lock_handle'] ?? null;
+    if (is_resource($h)) {
+        @flock($h, LOCK_UN);
+        @fclose($h);
+    }
+});
 
 GameLog::info('tick', '== START ==', ['time' => $now->format('Y-m-d H:i:s'), 'source' => $source]);
 
