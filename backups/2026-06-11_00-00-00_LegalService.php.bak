@@ -199,19 +199,6 @@ class LegalService
                 'DATETIME NULL DEFAULT NULL'
             );
 
-            // Upgrade transitional -> granted: gracz sklada wniosek zachowujac dostep.
-            // Transitional-to-granted upgrade: player applies while keeping access.
-            Database::addColumnIfMissing(
-                'drilling_permit_applications',
-                'upgrade_pending',
-                'TINYINT(1) NOT NULL DEFAULT 0'
-            );
-            Database::addColumnIfMissing(
-                'drilling_permit_applications',
-                'upgrade_decision_due_at',
-                'DATETIME NULL DEFAULT NULL'
-            );
-
             // P2a: kolumny i tabela zezwolen na huby / P2a: hub permit columns and table
             $this->ensureHubPermitSchema();
         } catch (Throwable $e) {
@@ -471,11 +458,6 @@ class LegalService
         if ($existingStatus === self::STATUS_GRANTED) {
             return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.err.already_active')];
         }
-        // Jesli upgrade jest juz w toku (upgrade_pending=1) — blokuj ponowne zlozenie.
-        // If an upgrade is already in progress (upgrade_pending=1) — block resubmission.
-        if ($existingStatus === self::STATUS_TRANSITIONAL && !empty($existing['upgrade_pending'])) {
-            return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
-        }
         if (in_array($existingStatus, self::PENDING_STATUSES, true) || $existingStatus === self::STATUS_NO_DECISION) {
             return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
         }
@@ -596,28 +578,15 @@ class LegalService
                 ->modify('+' . (int)$config['base_review_minutes'] . ' minutes')
                 ->format('Y-m-d H:i:s');
 
-            // Jeden wiersz na pare (gracz, region) — wstaw lub zaktualizuj po odmowie.
-            // One row per (player, region) pair — insert or update after refusal.
+            // Jeden wiersz na parę (gracz, region) — wstaw lub zaktualizuj po odmowie.
             if ($existing) {
-                if ($existingStatus === self::STATUS_TRANSITIONAL) {
-                    // Gracz ma transitional — zachowaj status, oznacz upgrade w toku.
-                    // Player has transitional — keep status, mark upgrade as pending.
-                    $this->db->prepare(
-                        "UPDATE drilling_permit_applications
-                            SET cost = ?, submitted_at = ?, upgrade_pending = 1,
-                                upgrade_decision_due_at = ?, delay_count = 0,
-                                source = 'player', updated_at = ?
-                          WHERE player_id = ? AND region_id = ?"
-                    )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
-                } else {
-                    $this->db->prepare(
-                        "UPDATE drilling_permit_applications
-                            SET status = 'pending', cost = ?, submitted_at = ?, decision_due_at = ?,
-                                decided_at = NULL, refusal_cooldown_until = NULL, delay_count = 0,
-                                source = 'player', updated_at = ?
-                          WHERE player_id = ? AND region_id = ?"
-                    )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
-                }
+                $this->db->prepare(
+                    "UPDATE drilling_permit_applications
+                        SET status = 'pending', cost = ?, submitted_at = ?, decision_due_at = ?,
+                            decided_at = NULL, refusal_cooldown_until = NULL, delay_count = 0,
+                            source = 'player', updated_at = ?
+                      WHERE player_id = ? AND region_id = ?"
+                )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
             } else {
                 $this->db->prepare(
                     "INSERT INTO drilling_permit_applications
