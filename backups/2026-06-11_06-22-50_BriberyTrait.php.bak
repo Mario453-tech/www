@@ -57,13 +57,6 @@ trait LegalBriberyTrait
             return ['success' => false, 'outcome' => 'error', 'message' => tPlain('legal.bribe.err_not_eligible')];
         }
 
-        // Blokada po wpadce: gracz nie moze probowac ponownie do czasu wygasniecia kary.
-        // Post-catch lock: the player cannot attempt again until the penalty expires.
-        $lockUntil = $permit['application']['bribe_locked_until'] ?? null;
-        if ($lockUntil !== null && new DateTime((string)$lockUntil) > new DateTime()) {
-            return ['success' => false, 'outcome' => 'error', 'message' => tPlain('legal.bribe.err_locked')];
-        }
-
         $regionName      = (string)($config['region_name'] ?? ('#' . $regionId));
         $applicationCost = (float)$config['application_cost'];
         $baseCooldown    = (int)$config['refusal_cooldown_minutes'];
@@ -98,10 +91,9 @@ trait LegalBriberyTrait
                     $db->prepare(
                         "UPDATE drilling_permit_applications
                             SET status='refused', decided_at=NOW(), decision_due_at=NULL,
-                                refusal_cooldown_until=?,
-                                bribe_locked_until=?
+                                refusal_cooldown_until=?
                           WHERE player_id=? AND region_id=?"
-                    )->execute([$until, $until, $playerId, $regionId]);
+                    )->execute([$until, $playerId, $regionId]);
                 },
                 'meta' => [
                     'label'        => $regionName,

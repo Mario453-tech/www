@@ -62,7 +62,6 @@ return [
     'legal.bribe.modal_warning' => 'Ryzykujesz wiarygodność firmy. Jeśli sprawa się wyda, stracisz gotówkę i reputację, a region zostanie zablokowany na dłużej.',
     'legal.bribe.err_already_active' => 'Masz już aktywne zezwolenie w tym regionie.',
     'legal.bribe.err_not_eligible'   => 'Łapówka nie jest tu możliwa — najpierw złóż oficjalny wniosek.',
-    'legal.bribe.err_locked'         => 'Łapówka zablokowana — zostałeś przyłapany. Poczekaj na wygaśnięcie blokady.',
 
     'legal.badge_high_risk'         => 'Wysokie ryzyko',
     'legal.required_capital_label'  => 'Wymagany kapitał firmy',

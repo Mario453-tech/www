@@ -192,13 +192,6 @@ class LegalService
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
 
-            // Blokada ponownej lapowki po wpadce / Bribe re-attempt lock after being caught
-            Database::addColumnIfMissing(
-                'drilling_permit_applications',
-                'bribe_locked_until',
-                'DATETIME NULL DEFAULT NULL'
-            );
-
             // P2a: kolumny i tabela zezwolen na huby / P2a: hub permit columns and table
             $this->ensureHubPermitSchema();
         } catch (Throwable $e) {

@@ -205,12 +205,6 @@ if ($briberyEnabled) {
         $bribeQuotes[$rid] = $bribery->quote($playerId, (float)$entry['config']['application_cost']);
     }
     foreach ($locked as $entry) {
-        // Nie pokazuj przycisku lapowki gdy gracz jest w blokadzie po wpadce.
-        // Do not show bribe button when the player is in the post-catch lock period.
-        $lockUntil = $entry['permit']['application']['bribe_locked_until'] ?? null;
-        if ($lockUntil !== null && new DateTime((string)$lockUntil) > $now) {
-            continue;
-        }
         $rid = (int)$entry['config']['region_id'];
         $bribeQuotes[$rid] = $bribery->quote($playerId, (float)$entry['config']['application_cost']);
     }
