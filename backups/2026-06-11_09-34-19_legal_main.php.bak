@@ -71,30 +71,6 @@ extract($viewData, EXTR_SKIP);
             <!-- Brief §12.2: opis zezwolenia przejściowego dla obecnych graczy. -->
             <!-- Brief §12.2: transitional permit description for existing players. -->
             <p class="legal-region-note legal-region-note--transitional"><?= t('legal.transitional_note') ?></p>
-            <?php
-            $__trCost   = (float)$cfg['application_cost'];
-            $__trReview = (int)$cfg['base_review_minutes'];
-            $__trAfford = $cash >= $__trCost;
-            $__trName   = (string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id']);
-            ?>
-            <p class="legal-region-note legal-region-note--locked"><?= t('legal.transitional_apply_warn') ?></p>
-            <?php if ($__trAfford): ?>
-            <form method="post" action="<?= url('legal') ?>" class="legal-submit-form"
-                  data-region-name="<?= htmlspecialchars($__trName) ?>"
-                  data-cost="<?= htmlspecialchars(number_format($__trCost, 0, ',', ' ')) ?>"
-                  data-review-time="<?= htmlspecialchars(LegalService::minutesToHuman($__trReview)) ?>">
-                <?= CSRF::field() ?>
-                <input type="hidden" name="action"    value="submit_application">
-                <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
-                <button type="submit" class="btn btn-primary legal-submit-btn">
-                    <?= t('legal.btn_submit_transitional') ?>
-                </button>
-            </form>
-            <?php else: ?>
-            <div class="legal-insufficient">
-                <?= t('legal.err.insufficient_funds', ['cost' => number_format($__trCost, 0, ',', ' ')]) ?>
-            </div>
-            <?php endif ?>
             <?php endif ?>
             <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
             <!-- Brief §15.1 / §8.1: simple description of what the permit unlocks. -->

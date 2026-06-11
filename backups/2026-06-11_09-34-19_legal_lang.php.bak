@@ -69,8 +69,6 @@ return [
     'legal.capital_missing'         => 'Brakuje: :amount PLN',
     'legal.unlocks_note'            => 'Zezwolenie odblokowuje dostęp do odwiertów w tym regionie.',
     'legal.transitional_note'       => 'Twoja firma otrzymała tymczasowe zezwolenie przejściowe — region jest tymczasowo odblokowany. Złóż wniosek o pełne zezwolenie, aby zachować dostęp.',
-    'legal.transitional_apply_warn' => 'Uwaga: po złożeniu wniosku dostęp tymczasowy zostanie zawieszony do czasu decyzji.',
-    'legal.btn_submit_transitional' => 'Złóż wniosek o pełne zezwolenie',
 
     // --- Bramka zakupu na mapie (etap 2) ---
     'legal.err_no_drilling_permit' => 'Nie możesz kupić odwiertu w tym regionie, ponieważ Twoja firma nie ma aktywnego zezwolenia na wiercenie. Złóż wniosek w dziale prawnym, aby odblokować region :region.',

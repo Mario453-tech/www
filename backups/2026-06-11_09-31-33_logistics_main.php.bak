@@ -175,11 +175,6 @@
 
                     <?php
                         $buyPrice    = (float)($hub['buy_price']    ?? 0);
- // Floor: backup gdyby serwis nie naprawil ceny / Fallback floor if service did not fix price
-                        if ($buyPrice <= 0.0) {
-                            static $__tplBuyFloors = ['small' => 31000.0, 'medium' => 93000.0, 'large' => 248000.0];
-                            $buyPrice = $__tplBuyFloors[$hubType] ?? 31000.0;
-                        }
                         $rentDeposit = (float)($hub['rent_deposit'] ?? 0);
                     ?>
                     <div class="logistics-hub-avail-prices">

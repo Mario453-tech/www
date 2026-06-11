@@ -768,7 +768,7 @@
 
  // Kup uzywany hub z rynku / Buy a used market hub
     window.hubBuyUsed = async function (hubId) {
-        const btn   = document.querySelector(`article[data-hub-id="${hubId}"] .logistics-hub-buy-btn`);
+        const btn   = document.querySelector(`.logistics-hub-buy-btn[onclick*="hubBuyUsed(${hubId})"]`);
         const name  = btn ? (btn.dataset.hubName  || '') : '';
         const price = btn ? parseFloat(btn.dataset.buyPrice || 0) : 0;
         const msg   = (lang().market_confirm_buy || 'Kupic hub {name} za {price} PLN?')
@@ -793,7 +793,7 @@
 
  // Wynajmij hub z rynku / Rent a market hub
     window.hubRent = async function (hubId) {
-        const btn      = document.querySelector(`article[data-hub-id="${hubId}"] .logistics-hub-rent-btn`);
+        const btn      = document.querySelector(`.logistics-hub-rent-btn[onclick*="hubRent(${hubId})"]`);
         const name     = btn ? (btn.dataset.hubName    || '') : '';
         const deposit  = btn ? parseFloat(btn.dataset.rentDeposit || 0) : 0;
         const lease    = btn ? parseFloat(btn.dataset.leaseFee    || 0) : 0;

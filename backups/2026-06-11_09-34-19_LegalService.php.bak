@@ -453,9 +453,7 @@ class LegalService
         $existing = $this->getPermitStatus($playerId, $regionId)['application'];
         $existingStatus = $existing['status'] ?? 'none';
 
-        // Transitional zezwala na zlozenie wniosku o pelne zezwolenie; tylko 'granted' blokuje.
-        // Transitional allows re-application for a full permit; only 'granted' blocks.
-        if ($existingStatus === self::STATUS_GRANTED) {
+        if (in_array($existingStatus, self::ACTIVE_STATUSES, true)) {
             return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.err.already_active')];
         }
         if (in_array($existingStatus, self::PENDING_STATUSES, true) || $existingStatus === self::STATUS_NO_DECISION) {
