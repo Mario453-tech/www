@@ -531,7 +531,7 @@ return [
     'logistics.road_trips.empty'              => 'Brak aktywnych kursów drogowych.',
     'logistics.road_trips.col_well'           => 'Odwiert',
     'logistics.road_trips.col_volume'         => 'Wolumen',
-    'logistics.road_trips.col_trips'          => 'Ciężarówek',
+    'logistics.road_trips.col_trips'          => 'Kursów',
     'logistics.road_trips.col_truck'          => 'Typ ciężarówki',
     'logistics.road_trips.col_eta'            => 'Szacowana dostawa',
     'logistics.road_trips.col_remaining'      => 'Pozostało',

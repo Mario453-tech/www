@@ -372,7 +372,7 @@ class RoadTransportService
                 "SELECT rt.id, rt.well_id, rt.volume_bbl, rt.truck_type, rt.trips_count,
                         rt.cost, rt.status, rt.departure_at, rt.eta_at,
                         GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), rt.eta_at)) AS seconds_remaining,
-                        COALESCE(NULLIF(w.name,''), w.location_name, CONCAT('Odwiert #', rt.well_id)) AS well_name
+                        w.name AS well_name
                    FROM well_road_trips rt
                    LEFT JOIN wells w ON w.id = rt.well_id
                   WHERE rt.player_id = ? AND rt.status = 'in_transit'

@@ -172,32 +172,6 @@
     </form>
 </section>
 
-<!--  Usuwanie kont graczy  -->
-<section class="panel panel-danger" aria-label="<?= t('admin.gm.delete_players_title') ?>">
-    <p class="panel-title panel-title-danger"><?= t('admin.gm.delete_players_title') ?></p>
-    <p class="muted text-sm"><?= t('admin.gm.delete_players_desc') ?></p>
-    <form method="post" id="form-delete-players" data-gm-delete-form>
-        <?= CSRF::field() ?>
-        <input type="hidden" name="action" value="delete_players">
-        <div class="gm-delete-list">
-            <label class="gm-delete-row gm-delete-row--header">
-                <input type="checkbox" id="gm-select-all">
-                <span class="muted text-sm"><?= t('admin.gm.delete_players_select_all') ?></span>
-            </label>
-            <?php foreach ($players as $p): ?>
-            <label class="gm-delete-row">
-                <input type="checkbox" name="player_ids[]" value="<?= $p['id'] ?>">
-                <span>#<?= $p['id'] ?> — <?= htmlspecialchars($p['email']) ?></span>
-            </label>
-            <?php endforeach ?>
-        </div>
-        <button type="submit" class="btn btn-danger" style="margin-top:0.75rem"
-                onclick="confirmAction('<?= t('admin.gm.delete_players_confirm') ?>', () => this.form.submit(), {type:'danger', title:'<?= t('admin.gm.delete_players_confirm_title') ?>', confirmLabel:'<?= t('admin.gm.delete_players_confirm_btn') ?>'}); return false;">
-            <?= t('admin.gm.delete_players_submit') ?>
-        </button>
-    </form>
-</section>
-
 <!--  Czyszczenie bazy  -->
 <section class="panel" aria-label="<?= t('admin.gm.cleanup_title') ?>">
     <p class="panel-title"> <?= t('admin.gm.cleanup_title') ?></p>

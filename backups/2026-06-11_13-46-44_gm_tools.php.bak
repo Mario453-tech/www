@@ -246,68 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
- // USUWANIE KONT GRACZY
-    elseif ($action === 'delete_players') {
-        $rawIds    = $_POST['player_ids'] ?? [];
-        $deleteIds = array_values(array_filter(array_map('intval', (array)$rawIds)));
-
-        if (empty($deleteIds)) {
-            $msg = t('admin.gm.delete_players_none'); $msgType = 'error';
-        } else {
-            $placeholders = implode(',', array_fill(0, count($deleteIds), '?'));
-
- // Kolejnosc ma znaczenie — najpierw dzieci (FK), potem players.
- // Order matters — children first (FK), then players.
-            $allTables = [
-                'well_staff_assignments', 'well_incidents', 'well_events', 'failure_log',
-                'industrial_disasters', 'well_pipeline_events', 'well_pipeline_tick_stats',
-                'well_pipelines', 'well_road_trips', 'marine_deliveries', 'logistics_hub_events',
-                'wells', 'storage', 'market_offers', 'loan_payments', 'loan_applications', 'loans',
-                'bailiff_proceedings', 'bank_negotiations', 'bank_trust_scores', 'bank_trust_log',
-                'bankruptcy_events', 'black_market_transactions', 'recruitment_requests', 'hr_events',
-                'technical_staff', 'technical_tasks', 'technical_task_queue', 'technical_notifications',
-                'player_finance_decisions', 'player_finance_settings', 'finance_logs', 'candidate_reviews',
-                'pipelines', 'board_members', 'director_notifications', 'offline_reports', 'chat_bans',
-                'email_verifications', 'trusted_devices', 'drilling_permit_applications',
-                'hub_permit_applications', 'bribery_attempts', 'company_credibility',
-            ];
-
-            $deleted = 0;
-            $db->beginTransaction();
-            try {
-                foreach ($allTables as $table) {
-                    try {
-                        $db->prepare("DELETE FROM `{$table}` WHERE `player_id` IN ({$placeholders})")
-                           ->execute($deleteIds);
-                    } catch (Throwable $e) {}
-                }
- // Osierocone candidates
-                try {
-                    $db->exec("DELETE c FROM `candidates` c
-                               LEFT JOIN `recruitment_requests` rr ON rr.id = c.request_id
-                               WHERE c.request_id IS NOT NULL AND rr.id IS NULL");
-                    $db->prepare("DELETE FROM `candidates` WHERE `player_id` IN ({$placeholders})")
-                       ->execute($deleteIds);
-                } catch (Throwable $e) {}
-
-                $db->prepare("DELETE FROM `players` WHERE `id` IN ({$placeholders})")->execute($deleteIds);
-                $db->commit();
-
-                $deleted = count($deleteIds);
-                $who = AdminAuth::getAdminUsername();
-                AdminLog::log('delete_players', "Usunieto {$deleted} kont graczy: " . implode(', ', $deleteIds), null, $who);
-                $msg = t('admin.gm.delete_players_ok', ['count' => $deleted]); $msgType = 'success';
- // Odswierz liste graczy po usunieciu.
- // Refresh player list after deletion.
-                $players = $db->query("SELECT id, email FROM players ORDER BY id")->fetchAll();
-            } catch (Throwable $e) {
-                $db->rollBack();
-                $msg = t('admin.gm.delete_players_err', ['msg' => $e->getMessage()]); $msgType = 'error';
-            }
-        }
-    }
-
- // CZYSZCZENIE DANYCH
+ // CZYSZCZENIE DANYCH 
     elseif ($action === 'cleanup') {
         $cleaned = 0;
  // Wygase kandydaci
@@ -402,7 +341,6 @@ $viewData = [
 ];
 
 $pageTitle = 'GM Tools';
-$extraJs   = ['/assets/js/admin_gm.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/gm_tools/main.php';
 require_once __DIR__ . '/partials/footer.php';
