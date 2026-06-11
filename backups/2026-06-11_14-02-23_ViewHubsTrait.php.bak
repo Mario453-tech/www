@@ -301,14 +301,11 @@ trait HubViewHubsTrait
                 if ($buyPrice <= 0.0) {
                     $buyPrice = $buyFloors[$hub['hub_type'] ?? 'small'] ?? 31000.0;
                 }
- // Depozyt/kaucja tylko dla wynajmu — dla innych typow zerujemy.
- // Deposit only for rental acquisition type — zero out for new/used.
-                $acqTypeHub = (string)($hub['acquisition_type'] ?? 'new');
-                if ($acqTypeHub === 'rental' && $leaseFee <= 0.0) {
-                    static $leaseFloors = ['small' => 200.0, 'medium' => 600.0, 'large' => 1600.0];
+ // Lease fee floor: zapobiegamy depozycie 0 zl przy wynajmie.
+ // Lease fee floor: prevents 0-PLN rental deposit when lease_fee is zeroed.
+                static $leaseFloors = ['small' => 200.0, 'medium' => 600.0, 'large' => 1600.0];
+                if ($leaseFee <= 0.0) {
                     $leaseFee = $leaseFloors[$hub['hub_type'] ?? 'small'] ?? 200.0;
-                } elseif ($acqTypeHub !== 'rental') {
-                    $leaseFee = 0.0;
                 }
 
                 $annotated[] = $hub + [

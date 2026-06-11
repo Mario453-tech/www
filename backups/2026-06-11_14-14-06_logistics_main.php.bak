@@ -187,7 +187,7 @@
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_buy_price') ?></span>
                             <strong><?= number_format($buyPrice, 0, ',', ' ') ?> PLN</strong>
                         </div>
-                        <?php if ($leaseFee > 0 && $acqType === 'rental'): ?>
+                        <?php if ($leaseFee > 0): ?>
                         <div class="logistics-hub-avail-price">
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_rent_deposit') ?></span>
                             <strong><?= number_format($rentDeposit, 0, ',', ' ') ?> PLN</strong>
@@ -205,7 +205,7 @@
                                 data-buy-price="<?= number_format($buyPrice, 2, '.', '') ?>">
                             <?= t('logistics.hub.market_btn_buy') ?>
                         </button>
-                        <?php if ($leaseFee > 0 && $acqType === 'rental'): ?>
+                        <?php if ($leaseFee > 0): ?>
                         <button class="logistics-hub-assign-btn logistics-hub-rent-btn" type="button"
                                 onclick="hubRent(<?= $hId ?>)"
                                 data-hub-name="<?= htmlspecialchars($hName, ENT_QUOTES) ?>"
@@ -1184,12 +1184,10 @@
                         <?php $acqStat = $hub['acquisition_type'] ?? 'new'; ?>
                         <strong><span class="acq-badge acq-badge--<?= htmlspecialchars($acqStat) ?>"><?= t('logistics.hub.acquisition_' . $acqStat) ?></span></strong>
                     </div>
-                    <?php if (($hub['acquisition_type'] ?? 'new') === 'rental'): ?>
                     <div class="logistics-hub-stat">
                         <span><?= t('logistics.hub.label_lease_fee') ?></span>
                         <strong><?= number_format((float)($hub['lease_fee_per_tick'] ?? 0), 2, ',', ' ') ?> PLN</strong>
                     </div>
-                    <?php endif ?>
                 </div>
 
                 <div class="logistics-hub-actions">
