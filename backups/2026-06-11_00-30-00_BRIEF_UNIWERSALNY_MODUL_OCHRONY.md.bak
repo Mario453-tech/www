@@ -28,10 +28,8 @@
    z konta bankowego (`bank`/`both`) to przyszłość — kolumna `cost_currency`
    zostaje, ale na starcie honorujemy tylko `cash`.
 5. **Usunięto redundancję**: kolumny `requires_cash`/`requires_bank` skreślone —
-   duplikowały `cost_currency`. `min_legal_level` ZOSTAJE — poziom działu prawnego
-   istnieje w grze: `LegalService::getLegalLevelForPlayer()` zwraca 0–10
-   (ze skilli aktywnego dyrektora prawnego), używany już przy blokadzie
-   trudniejszych regionów (`required_legal_level`).
+   duplikowały `cost_currency`. Skreślono też `min_legal_level` (w grze nie ma
+   numerycznego poziomu działu prawnego; dodamy kolumnę, gdy powstanie taki system).
 6. **Doprecyzowano brakujące reguły**: stackowanie (max 1 aktywna ochrona na
    `player + target_type + target_id + context`), wygasanie (leniwe, po `ends_at`),
    moment naliczenia efektu (przy ROZLICZENIU kursu, nie przy wyjeździe).
@@ -123,7 +121,6 @@ cost_value               DECIMAL(12,2) NOT NULL DEFAULT 0.00
 cost_currency            ENUM('cash','bank','both') NOT NULL DEFAULT 'cash'  -- P1: honorowane tylko 'cash'
 duration_minutes         INT UNSIGNED NOT NULL DEFAULT 60
 min_company_credibility  INT UNSIGNED NOT NULL DEFAULT 0  -- 0 = brak wymogu
-min_legal_level          INT UNSIGNED NOT NULL DEFAULT 0  -- 0 = brak wymogu; skala 0-10
 sort_order               INT NOT NULL DEFAULT 0
 created_at / updated_at  DATETIME
 ```
@@ -137,9 +134,6 @@ Znaczenie kosztów:
 - `per_bbl` — `cost_value` × `referenceValue` (moduł podaje wolumen w bbl).
 
 `min_company_credibility` porównywane ze `CompanyCredibilityService::getScore()`.
-`min_legal_level` porównywane z `LegalService::getLegalLevelForPlayer()` (0–10,
-poziom z aktywnego dyrektora prawnego). Opcje z wymogiem wyższym niż poziom gracza
-są widoczne na liście jako zablokowane (z powodem), ale nie do wykupu.
 
 ---
 
@@ -250,9 +244,8 @@ to daje adminowi odpowiedź „czy ochrona zadziałała".
 getAvailableOptions(int $playerId, string $targetType, string $context): array
 ```
 Zwraca opcje: `is_active = 1`, pasujący `target_type` + `context`, spełnione
-`min_company_credibility` i `min_legal_level`
-(`LegalService::getLegalLevelForPlayer()`). Każda opcja z wyliczonym kosztem
-(jeśli moduł poda `referenceValue`) i flagą `affordable` (stać gracza / nie stać).
+`min_company_credibility`. Każda opcja z wyliczonym kosztem (jeśli moduł poda
+`referenceValue`) i flagą `affordable` (stać gracza / nie stać).
 
 ```php
 quote(int $playerId, string $optionCode, float $referenceValue): array
@@ -263,8 +256,8 @@ Koszt + lista efektów (do UI) + `affordable`, bez ruchu środków.
 activate(int $playerId, string $optionCode, string $targetType, int $targetId,
          float $referenceValue, array $meta = []): array
 ```
-1. waliduje opcję (aktywna, target/context, credibility, legal level, brak
-   aktywnej ochrony na tym celu),
+1. waliduje opcję (aktywna, target/context, credibility, brak aktywnej ochrony
+   na tym celu),
 2. wylicza koszt wg `cost_type`,
 3. `beginTransaction` → `FinancialTransactionService::debit($playerId, $cost,
    FinancialTransactionService::TYPE_PROTECTION, opis)` — przy `success=false`
