@@ -36,18 +36,6 @@ if ($bankNegAvailable)    require_once __DIR__ . '/../src/BankNegotiationService
 if ($bankruptcyAvailable) require_once __DIR__ . '/../src/BankruptcyService.php';
 
 $db        = Database::getInstance()->getConnection();
-
-// Twarde limity, by zawieszony tick nie trzymal GET_LOCK w nieskonczonosc:
-// - cron CLI ma max_execution_time=0 (bez limitu) -> wymuszamy hard limit;
-// - lock_wait_timeout domyslnie ~1 rok, wiec ALTER czekajacy na metadata lock
-//   moze wisiec w nieskonczonosc -> skracamy do 60 s (tick wtedy padnie i zwolni locka).
-// Hard caps so a hung tick cannot hold GET_LOCK forever:
-// - CLI cron has max_execution_time=0 (unlimited) -> enforce a hard limit;
-// - lock_wait_timeout defaults to ~1 year, so an ALTER waiting on a metadata lock
-//   can hang forever -> shorten to 60 s (the tick then fails and releases the lock).
-@set_time_limit(290);
-try { $db->exec('SET SESSION lock_wait_timeout = 60'); } catch (Throwable $e) {}
-
 $now       = new DateTime();
 $startTime = microtime(true);
 $source    = (php_sapi_name() === 'cli') ? 'cron' : 'http';
