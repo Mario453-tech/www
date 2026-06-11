@@ -1,5 +1,21 @@
 ## Changelog
 
+### 2026-06-11 - Łapówki: uniwersalny moduł + wtyczka w dziale prawnym + panel admina
+
+**Nowy, przenośny moduł łapówek (`BriberyService`) — „gniazdko", które łatwo podpiąć pod dowolny inny moduł gry.** Łapówka pozwala graczowi zapłacić gotówką, żeby załatwić coś po cichu — z ryzykiem wpadki i kosztem dla wiarygodności firmy. Silnik liczy cenę i ryzyko z reputacji firmy, pobiera gotówkę, losuje wynik (sukces/wpadka), księguje kary reputacji i wysyła powiadomienie — wszystko w jednej transakcji. Moduł, który chce łapówek, podaje tylko: koszt odniesienia, „co przy sukcesie" i (opcjonalnie) „co przy wpadce".
+
+- `src/BriberyService.php` (NOWY) — silnik: `quote()` (wycena: koszt + ryzyko, bez ruchu środków) i `attempt()` (próba: pobranie gotówki, losowanie, kary, powiadomienie, transakcja).
+- `src/Bribery/BriberyConfig.php` (NOWY) — konfiguracja w tabeli `bribery_config` (klucz-wartość, idempotentny seed), edytowalna z panelu: szanse wpadki i mnożniki ceny per poziom reputacji (critical/low/shaky/stable/high), bazowy % kosztu, kary reputacji (sukces/wpadka), dodatkowa blokada po wpadce.
+- `src/Legal/BriberyTrait.php` (NOWY) — pierwsza wtyczka: `LegalService::bribePermit()` i `bribeQuote()`. Łapówka dostępna dla wniosków `pending`/`delayed` (przyspieszenie) oraz `refused` (ominięcie cooldownu). Sukces → nadaje zezwolenie; wpadka → odmowa + dłuższy cooldown (urząd się zawziął) + alert dyrektora + incydent w historii reputacji.
+- `src/FinancialTransactionService.php` — nowy typ `TYPE_BRIBE = 'bribe'` (+ `ALLOWED_TYPES`).
+- `src/WalletConfig.php` — `bribe` → `POOL_CASH` (łapówka jest zawsze gotówkowa; domyka „gotówkową fazę 3").
+- `public/legal.php` + `templates/views/legal/main.php` + `_bribe_button.php` (NOWY partial) — przycisk „Załatw po cichu" przy odmowie i w trakcie, z kosztem i ryzykiem; obsługa akcji `bribe_permit`.
+- `assets/js/legal.js` + `assets/css/legal.css` — modal potwierdzenia łapówki (typ `danger`, ostrzeżenie o reputacji).
+- `admin/bribery.php` + `templates/views/admin/bribery/main.php` (NOWE) — pełna edycja parametrów z panelu + podgląd ostatnich prób łapówek. Link w nawigacji admina (sekcja „Dział prawny").
+- `lang/pl/bribery.php`, `lang/pl/admin/bribery.php` (NOWE) + wpisy w `lang/pl/legal.php`, `lang/pl/bank.php`, `lang/pl/admin/nav.php`.
+- `tests/Integration/BriberyServiceTest.php` (NOWY) — 5 testów: wycena (% + mnożnik), sukces (pobranie gotówki, lekka kara), wpadka (mocna kara + alert + incydent), brak środków, moduł wyłączony.
+- `AGENTS.md` §26 — instrukcja „jak podpiąć łapówkę do dowolnego modułu w 3 krokach".
+
 ### 2026-06-10 - Dział prawny: emoji w powiadomieniach ticku zamienione na ikony SVG
 
 **`src/Tick/LegalSection.php` — usunięto emoji Unicode z powiadomień o decyzjach (łamały zasadę „ZERO emoji").** Metoda `notifyHub()` wstawiała do `director_notifications.icon` surowe emoji (`✅❌⏳⚠️`), które trafiały do bazy i nie pasowały do mapy `dirNotifIconSvg()`. Wersja dla wierceń (`buildNotification`) używała pustych ikon (fallback na domyślny okrąg).

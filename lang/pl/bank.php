@@ -303,6 +303,7 @@ return [
     'bank.account.type.black_market_sale'   => 'Sprzedaż na czarnym rynku',
     'bank.account.type.bank_fee'            => 'Opłata bankowa',
     'bank.account.type.logistics_fee'       => 'Optymalizacja transportu',
+    'bank.account.type.bribe'               => 'Łapówka',
 
     'bank.account.msg_transfer_ok' => 'Przelew :amount PLN na rachunek :account zaksięgowany.',
     'bank.account.err_account_empty' => 'Podaj numer rachunku odbiorcy.',

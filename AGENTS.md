@@ -763,6 +763,85 @@ Testy używają SQLite in-memory przez `SqliteIntegrationTestCase` w `tests/Inte
 | transitional | Zezwolenie przejściowe — aktywne, nadane przez migrację P1 |
 | capitalLocked | Kubełek regionów zablokowanych przez wymóg kapitałowy (§7.3) |
 | ACTIVE_STATUSES | granted + transitional — odblokowują zakup odwiertów |
+| BriberyService | Uniwersalny silnik łapówek — cena/ryzyko z wiarygodności firmy |
+| BriberyConfig | Konfiguracja łapówek (tabela `bribery_config`), edytowalna w `admin/bribery.php` |
+
+---
+
+## 26. Moduł łapówek (BriberyService) — uniwersalna wtyczka
+
+<!-- Bribery module — universal plug-in -->
+
+### Co to jest / What it is
+
+`BriberyService` to **jedno gniazdko** dla całej gry. Łapówka pozwala graczowi
+zapłacić gotówką, żeby załatwić coś po cichu — z ryzykiem wpadki i kosztem dla
+**wiarygodności firmy** (`CompanyCredibilityService`). Silnik zna tylko trzy rzeczy:
+liczy cenę i ryzyko z reputacji, pobiera gotówkę i losuje wynik, księguje skutki
+reputacyjne + wysyła powiadomienie. **Nie wie**, czym jest pozwolenie/transport —
+to sprawa modułu.
+
+### Pliki modułu / Module files
+
+| Plik | Rola |
+|------|------|
+| `src/BriberyService.php` | Silnik: `quote()` (wycena), `attempt()` (próba łapówki) |
+| `src/Bribery/BriberyConfig.php` | Konfiguracja (tabela `bribery_config`) + sanityzacja |
+| `admin/bribery.php` + `templates/views/admin/bribery/main.php` | Panel edycji parametrów |
+| `lang/pl/bribery.php` | Uniwersalne komunikaty (wspólne) |
+| `lang/pl/admin/bribery.php` | Teksty panelu admina |
+| `src/Legal/BriberyTrait.php` | **Przykładowa** wtyczka (dział prawny) |
+
+- Typ transakcji: `FinancialTransactionService::TYPE_BRIBE` (`bribe`) → `POOL_CASH`
+  (`WalletConfig`) — łapówka jest zawsze gotówkowa.
+- Zdarzenia reputacji: `bribe_paid` (sukces, lekka kara) i `bribe_caught`
+  (wpadka, mocna kara) — zapisywane w `company_credibility_log` przez `changeScore()`.
+
+### Jak podpiąć łapówkę do dowolnego modułu — 3 kroki / 3 steps
+
+**Krok 1 — wymyśl nazwę kontekstu** (do logów i historii), np. `transport_inspection`.
+
+**Krok 2 — wywołaj silnik** z kosztem odniesienia i domknięciem „co przy sukcesie":
+
+```php
+$bribery = new BriberyService($this->db);
+$res = $bribery->attempt(
+    $playerId,
+    'transport_inspection',        // klucz kontekstu / context key
+    $referenceCost,                // np. koszt kontroli — silnik dolicza % bazowy i mnoznik reputacji
+    function () use ($db, $id) {    // SUKCES: odblokuj swoja rzecz (w transakcji silnika)
+        $db->prepare("UPDATE ... SET status='cleared' WHERE id=?")->execute([$id]);
+    },
+    [
+        'on_caught' => function () use ($db, $id) { /* opcjonalnie: dodatkowa kara */ },
+        'meta' => [
+            'label'        => $name,           // nazwa do historii/powiadomienia
+            'notif_type'   => 'legal',         // typ z ENUM director_notifications.type
+            'action_url'   => 'transport.php', // dokad prowadzi alert (opcjonalnie)
+            'action_label' => 'Transport',
+        ],
+    ]
+);
+// $res['outcome']: 'success' | 'caught' | 'no_funds' | 'disabled' | 'error'
+```
+
+**Krok 3 — UI**: dodaj przycisk POST (jak `legal-bribe-form` w
+`templates/views/legal/_bribe_button.php`) i — jeśli chcesz pokazać koszt/ryzyko —
+zawołaj `$bribery->quote($playerId, $referenceCost)` (zwraca `cost`, `catch_pct`).
+
+**To wszystko.** Cena, losowanie, pobranie gotówki, kary reputacji, powiadomienie
+o wpadce i transakcja siedzą w silniku — zero kopiowania, zero dotykania
+`BriberyService`. Parametry (szanse, mnożniki, kary) zmienia admin w
+`admin/bribery.php` i działają wszędzie naraz.
+
+### Zasady / Rules
+
+- Silnik buduje `BriberyConfig` i `CompanyCredibilityService` w konstruktorze
+  (poza transakcją) — twórz `BriberyService` **przed** `beginTransaction()` własnego kodu.
+- Domknięcia `onSuccess` / `on_caught` są wykonywane **wewnątrz** transakcji silnika —
+  rób w nich tylko DML (UPDATE/INSERT), bez DDL i bez własnego `commit`.
+- Każdy nowy kontekst dorzuca swoje teksty `bribery.tx_label` działa generycznie
+  (nazwa z `meta.label`); komunikaty per-moduł trzymaj w `lang/pl/[modul].php`.
 
 ---
 

@@ -40,7 +40,8 @@ $navSections = [
         'logistics_hubs.php'  => ['', t('admin.nav.logistics_hubs')],
     ],
     t('admin.nav.section_legal') => [
-        'legal.php' => ['', t('admin.nav.legal')],
+        'legal.php'   => ['', t('admin.nav.legal')],
+        'bribery.php' => ['', t('admin.nav.bribery')],
     ],
     t('admin.nav.section_finance') => [
         'finance.php'          => ['', t('admin.nav.finance')],

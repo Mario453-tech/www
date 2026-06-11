@@ -330,6 +330,22 @@
 }
 .legal-confirm-cost  { color: var(--gold); font-size: 16px; }
 .legal-confirm-note  { font-size: 11px; color: var(--text3); margin: 0; }
+.legal-confirm-note--danger { color: rgba(224,85,85,.95); }
+
+/* ── Lapowka / Bribe ────────────────────────────────────────── */
+.legal-bribe {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(224,85,85,.35);
+}
+.legal-bribe-hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin: 0 0 6px;
+}
+.legal-bribe-meta { margin-bottom: 8px; }
+.legal-bribe-risk strong { color: rgba(224,85,85,.95); }
+.legal-bribe-btn { width: auto; }
 
 /* ── Mobile ─────────────────────────────────────────────────── */
 @media (max-width: 600px) {
@@ -338,4 +354,5 @@
     .legal-region-meta { gap: 5px; }
     .legal-region-meta span { font-size: 10px; padding: 3px 8px; }
     .legal-submit-btn { width: 100%; }
+    .legal-bribe-btn { width: 100%; }
 }

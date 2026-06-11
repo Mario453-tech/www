@@ -1,0 +1,48 @@
+<?php
+/**
+ * Wspoldzielony przycisk lapowki dla karty regionu (sekcje "w toku" i "po odmowie").
+ * Shared bribe button for a region card (the "in progress" and "refused" sections).
+ *
+ * Oczekuje w zasiegu / Expects in scope:
+ *   $cfg            - wpis konfiguracji regionu (config row)
+ *   $briberyEnabled - bool
+ *   $bribeQuotes    - array<int, array{cost:int,catch_pct:int,level:string}>
+ *   $cash           - float (gotowka gracza)
+ */
+if (empty($briberyEnabled)) {
+    return;
+}
+$briberyRegionId = (int)$cfg['region_id'];
+if (!isset($bribeQuotes[$briberyRegionId])) {
+    return;
+}
+$briberyQuote   = $bribeQuotes[$briberyRegionId];
+$briberyCost    = (int)$briberyQuote['cost'];
+$briberyCatch   = (int)$briberyQuote['catch_pct'];
+$briberyName    = (string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id']));
+$briberyAfford  = $cash >= $briberyCost;
+?>
+<div class="legal-bribe">
+    <p class="legal-bribe-hint"><?= t('legal.bribe.hint') ?></p>
+    <div class="legal-region-meta legal-bribe-meta">
+        <span><?= t('legal.bribe.cost_label') ?>: <strong><?= number_format($briberyCost, 0, ',', ' ') ?> PLN</strong></span>
+        <span class="legal-bribe-risk"><?= t('legal.bribe.risk_label') ?>: <strong><?= $briberyCatch ?>%</strong></span>
+    </div>
+    <?php if ($briberyAfford): ?>
+    <form method="post" action="<?= url('legal') ?>" class="legal-bribe-form"
+          data-region-name="<?= htmlspecialchars($briberyName) ?>"
+          data-cost="<?= htmlspecialchars(number_format($briberyCost, 0, ',', ' ')) ?>"
+          data-catch="<?= $briberyCatch ?>">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action"    value="bribe_permit">
+        <input type="hidden" name="region_id" value="<?= $briberyRegionId ?>">
+        <button type="submit" class="btn btn-danger btn-sm legal-bribe-btn">
+            <?= t('legal.bribe.btn') ?>
+        </button>
+    </form>
+    <?php else: ?>
+    <div class="legal-insufficient">
+        <?= t('legal.err.insufficient_funds', ['cost' => number_format($briberyCost, 0, ',', ' ')]) ?>
+    </div>
+    <?php endif ?>
+</div>

@@ -50,6 +50,18 @@ return [
     'legal.modal_region_label' => 'Region',
     'legal.modal_cost_note'    => 'Opłata zostanie pobrana natychmiast.',
     'legal.no_regions'      => 'Brak dostępnych regionów do zarządzania zezwoleniami. Skontaktuj się z administratorem.',
+    'legal.notif_action_label' => 'Dział prawny',
+
+    // --- Lapowki / Bribery ---
+    'legal.bribe.hint'          => 'Możesz przyspieszyć sprawę nieoficjalnie — bez gwarancji i z ryzykiem dla reputacji firmy.',
+    'legal.bribe.btn'           => 'Załatw po cichu',
+    'legal.bribe.cost_label'    => 'Koszt łapówki',
+    'legal.bribe.risk_label'    => 'Ryzyko wpadki',
+    'legal.bribe.modal_title'   => 'Załatw po cichu',
+    'legal.bribe.modal_confirm' => 'Daję łapówkę',
+    'legal.bribe.modal_warning' => 'Ryzykujesz wiarygodność firmy. Jeśli sprawa się wyda, stracisz gotówkę i reputację, a region zostanie zablokowany na dłużej.',
+    'legal.bribe.err_already_active' => 'Masz już aktywne zezwolenie w tym regionie.',
+    'legal.bribe.err_not_eligible'   => 'Łapówka nie jest tu możliwa — najpierw złóż oficjalny wniosek.',
 
     'legal.badge_high_risk'         => 'Wysokie ryzyko',
     'legal.required_capital_label'  => 'Wymagany kapitał firmy',

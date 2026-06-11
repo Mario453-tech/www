@@ -1,0 +1,107 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../BriberyService.php';
+
+/**
+ * LegalBriberyTrait - wtyczka lapowek w dziale prawnym.
+ * LegalBriberyTrait - bribery plug-in for the legal department.
+ *
+ * Korzysta z uniwersalnego BriberyService. Dostarcza tylko trzy rzeczy specyficzne
+ * dla dzialu prawnego: koszt odniesienia (oplata za wniosek), co zrobic przy sukcesie
+ * (nadaj zezwolenie) i co przy wpadce (urzad sie zawzial - dluzszy cooldown).
+ * Uses the universal BriberyService. Provides only the three legal-specific bits:
+ * reference cost (application fee), success action (grant the permit) and the
+ * caught action (officials get tough - a longer cooldown).
+ */
+trait LegalBriberyTrait
+{
+    /** Statusy wniosku, w ktorych lapowka jest dostepna (w trakcie lub po odmowie). */
+    private const BRIBE_ELIGIBLE_STATUSES = ['pending', 'delayed', 'refused'];
+
+    /**
+     * Wycena lapowki dla regionu (dla UI: koszt + ryzyko). Bez ruchu srodkow.
+     * Bribe quote for a region (UI: cost + risk). No money movement.
+     *
+     * @param array<string,mixed> $regionConfig wpis z getRegionConfig()/getAllRegionConfigs()
+     * @return array{enabled:bool,cost:int,catch_pct:int,level:string}
+     */
+    public function bribeQuote(int $playerId, array $regionConfig): array
+    {
+        return (new BriberyService($this->db))->quote($playerId, (float)($regionConfig['application_cost'] ?? 0));
+    }
+
+    /**
+     * Probuje zalatwic zezwolenie lapowka. Dostepne dla wnioskow pending/delayed
+     * (przyspieszenie) oraz refused (ominiecie cooldownu).
+     * Attempts to settle a permit with a bribe. Available for pending/delayed
+     * (speed-up) and refused (skip the cooldown) applications.
+     *
+     * @return array<string,mixed> wynik z BriberyService::attempt() lub blad walidacji
+     */
+    public function bribePermit(int $playerId, int $regionId): array
+    {
+        $config = $this->getRegionConfig($regionId);
+        if ($config === null || (int)$config['enabled'] !== 1) {
+            return ['success' => false, 'outcome' => 'error', 'message' => tPlain('legal.err.unknown_region')];
+        }
+
+        $permit = $this->getPermitStatus($playerId, $regionId);
+        $status = (string)$permit['status'];
+
+        if (in_array($status, self::ACTIVE_STATUSES, true)) {
+            return ['success' => false, 'outcome' => 'error', 'message' => tPlain('legal.bribe.err_already_active')];
+        }
+        if (!in_array($status, self::BRIBE_ELIGIBLE_STATUSES, true)) {
+            return ['success' => false, 'outcome' => 'error', 'message' => tPlain('legal.bribe.err_not_eligible')];
+        }
+
+        $regionName      = (string)($config['region_name'] ?? ('#' . $regionId));
+        $applicationCost = (float)$config['application_cost'];
+        $baseCooldown    = (int)$config['refusal_cooldown_minutes'];
+
+        $bribery = new BriberyService($this->db);
+        // Sumaryczny cooldown po wpadce liczony PRZED transakcja (bez tworzenia
+        // configu w domknieciu w otwartej transakcji).
+        // Total post-catch cooldown computed BEFORE the transaction (no config
+        // construction inside a closure within an open tx).
+        $caughtCooldownMinutes = $baseCooldown + $bribery->config()->cooldownExtraMinutes();
+
+        $db = $this->db;
+        return $bribery->attempt(
+            $playerId,
+            'legal_permit',
+            $applicationCost,
+            // Sukces: nadaj zezwolenie, wyczysc cooldown i termin decyzji.
+            // Success: grant the permit, clear cooldown and decision deadline.
+            static function () use ($db, $playerId, $regionId): void {
+                $db->prepare(
+                    "UPDATE drilling_permit_applications
+                        SET status='granted', decided_at=NOW(),
+                            refusal_cooldown_until=NULL, decision_due_at=NULL
+                      WHERE player_id=? AND region_id=?"
+                )->execute([$playerId, $regionId]);
+            },
+            [
+                // Wpadka: odmowa + dluzszy cooldown (urzad sie zawzial).
+                // Caught: refusal + a longer cooldown (officials get tough).
+                'on_caught' => static function () use ($db, $playerId, $regionId, $caughtCooldownMinutes): void {
+                    $until = (new DateTime())->modify('+' . $caughtCooldownMinutes . ' minutes')->format('Y-m-d H:i:s');
+                    $db->prepare(
+                        "UPDATE drilling_permit_applications
+                            SET status='refused', decided_at=NOW(), decision_due_at=NULL,
+                                refusal_cooldown_until=?
+                          WHERE player_id=? AND region_id=?"
+                    )->execute([$until, $playerId, $regionId]);
+                },
+                'meta' => [
+                    'label'        => $regionName,
+                    'notif_type'   => 'legal',
+                    'action_url'   => 'legal.php',
+                    'action_label' => tPlain('legal.notif_action_label'),
+                ],
+            ]
+        );
+    }
+}

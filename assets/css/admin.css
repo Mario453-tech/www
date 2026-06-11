@@ -3833,3 +3833,47 @@ body.cred-modal-open { overflow: hidden; }
 .legal-table-toggle::before { content: '▶'; font-size: 9px; transition: transform .2s; }
 .legal-table-expanded .legal-table-toggle::before { transform: rotate(90deg); }
 
+/* ── Panel lapowek / Bribery admin panel ────────────────────── */
+.form-actions { margin-top: 16px; }
+.bribery-levels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+.bribery-level-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,.02);
+}
+.bribery-level-name {
+    margin: 0;
+    font-weight: 700;
+    font-size: 13px;
+}
+.bribery-events {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+.bribery-event {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.03);
+    font-size: 12px;
+}
+.bribery-event--caught { border-left: 3px solid rgba(224,85,85,.9); }
+.bribery-event--paid   { border-left: 3px solid rgba(93,221,153,.7); }
+.bribery-event-player  { font-weight: 600; }
+.bribery-event-delta   { font-weight: 700; color: rgba(224,85,85,.95); }
+.bribery-event-time    { color: var(--text3); white-space: nowrap; }
+
