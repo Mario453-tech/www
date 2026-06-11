@@ -1828,9 +1828,7 @@ window.LOGISTICS_LANG = <?= json_encode([
                 el.textContent = '-';
                 if (!pipelineReloadScheduled) {
                     pipelineReloadScheduled = true;
-                    // Reload bez hasha — inaczej strona skacze do kotwicy paginacji (#...-road-trips-heading).
-                    // Reload without the hash — otherwise the page jumps to the pagination anchor.
-                    setTimeout(function () { window.location.replace(window.location.pathname + window.location.search); }, 3000);
+                    setTimeout(function () { window.location.reload(); }, 3000);
                 }
             }
         }
@@ -1865,9 +1863,7 @@ window.LOGISTICS_LANG = <?= json_encode([
                 el.textContent = '-';
                 if (!reloadScheduled) {
                     reloadScheduled = true;
-                    // Reload bez hasha — inaczej strona skacze do kotwicy paginacji (#...-road-trips-heading).
-                    // Reload without the hash — otherwise the page jumps to the pagination anchor.
-                    setTimeout(function () { window.location.replace(window.location.pathname + window.location.search); }, 5000);
+                    setTimeout(function () { window.location.reload(); }, 5000);
                 }
             }
         }
