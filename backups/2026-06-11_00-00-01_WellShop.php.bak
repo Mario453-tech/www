@@ -76,14 +76,9 @@ class WellShop
                 return ['success' => false, 'message' => t('well_shop.err_max_wells')];
             }
 
-            $fts = new FinancialTransactionService();
             $this->db->beginTransaction();
             try {
-                $res = $fts->debit($playerId, (float)$well['base_cost'], FinancialTransactionService::TYPE_WELL_PURCHASE, 'Zakup odwiertu');
-                if (!$res['success']) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => $res['error'] ?? t('common.app_error')];
-                }
+                $player->updateCash(-(float)$well['base_cost'], 'well_purchase', 'Zakup odwiertu');
                 $transportProfile = TransportConfigService::getTypeConfig($this->db, 'nieustawiony');
 
                 $insertWell = $this->db->prepare("

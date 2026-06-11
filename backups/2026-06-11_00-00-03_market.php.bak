@@ -35,14 +35,10 @@ if ($_POST && isset($_POST['action'])) {
                 $earnings = $amount * $marketData['current_price'];
 
                 $db = Database::getInstance()->getConnection();
-                $fts = new FinancialTransactionService();
                 $db->beginTransaction();
 
                 try {
-                    $res = $fts->credit(Auth::getUserId(), $earnings, FinancialTransactionService::TYPE_MARKET_SALE, 'Sprzedaz ropy na rynku');
-                    if (!$res['success']) {
-                        throw new RuntimeException($res['error'] ?? t('common.app_error'));
-                    }
+                    $player->updateCash($earnings, 'market_sale', 'Sprzedaz ropy na rynku');
 
                     $db->prepare("
                         UPDATE storage

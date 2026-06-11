@@ -28,11 +28,7 @@ trait WellActionsTrait
                 return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
             }
 
-            $fts = new FinancialTransactionService();
-            $res = $fts->debit($playerId, $cost, FinancialTransactionService::TYPE_WELL_UPGRADE, 'Zmiana tieru wyposazenia odwiertu');
-            if (!$res['success']) {
-                return ['success' => false, 'message' => $res['error'] ?? t('well.err_generic')];
-            }
+            $player->updateCash(-$cost, 'well_upgrade', 'Zmiana tieru wyposazenia odwiertu');
             $swapMinutes  = 60;
             $swapUntil    = date('Y-m-d H:i:s', time() + $swapMinutes * 60);
             $prevStatus   = $well['status'] ?? 'active';
@@ -71,11 +67,7 @@ trait WellActionsTrait
                 return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
             }
 
-            $fts2 = new FinancialTransactionService();
-            $res2 = $fts2->debit($playerId, $cost, FinancialTransactionService::TYPE_WELL_UPGRADE, 'Ulepszenie poziomu wyposazenia odwiertu');
-            if (!$res2['success']) {
-                return ['success' => false, 'message' => $res2['error'] ?? t('well.err_generic')];
-            }
+            $player->updateCash(-$cost, 'well_upgrade', 'Ulepszenie poziomu wyposazenia odwiertu');
             $this->db->prepare("UPDATE wells SET equipment_upgrade_level = ? WHERE id = ?")
                      ->execute([$nextLevel, $wellId]);
             $this->logEvent($wellId, $playerId, 'upgrade', $cost,
@@ -110,14 +102,9 @@ trait WellActionsTrait
         $condBefore = (int)$well['technical_condition'];
         $condAfter  = min(100, $condBefore + 30);
 
-        $fts3 = new FinancialTransactionService();
         $this->db->beginTransaction();
         try {
-            $res3 = $fts3->debit($playerId, $cost, FinancialTransactionService::TYPE_WELL_MAINTENANCE, 'Konserwacja odwiertu');
-            if (!$res3['success']) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => $res3['error'] ?? t('well.err_generic')];
-            }
+            $player->updateCash(-$cost, 'well_maintenance', 'Konserwacja odwiertu');
             $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ?")->execute([$condAfter, $wellId]);
 
  // Konserwacja redukuje spirale katastrof o 1 stack (-0.10) / Maintenance reduces the disaster spiral by 1 stack (-0.10)
