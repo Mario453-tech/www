@@ -31,7 +31,8 @@ if (time() - $lastRun < 5) {
 $_SESSION['force_tick_last'] = time();
 
 try {
-    define('FORCE_TICK_INTERNAL', true);
+    define('FORCE_TICK_INTERNAL', true); // pomija guard HTTP w cron/tick.php
+    define('ADMIN_FORCE_TICK', true);    // reczne wymuszenie omija blokade GET_LOCK
     ob_start();
     require __DIR__ . '/../cron/tick.php';
     $tickOutput = ob_get_clean();

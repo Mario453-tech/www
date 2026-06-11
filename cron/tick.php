@@ -61,32 +61,45 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
 
 // Lock wykonania: zapobiega nakladaniu sie tickow gdy poprzedni trwa > interwal crona.
 // Bez tego drugi proces przetwarzalby tych samych graczy z tym samym deltaSeconds
-// (podwojona produkcja, koszty i incydenty). Lock zwalniany automatycznie na shutdown.
+// (podwojona produkcja, koszty i incydenty).
 // Execution lock: prevents overlapping ticks when a previous run exceeds the cron interval.
 // Without it a second process would reprocess the same players with the same deltaSeconds
-// (doubled production, costs and incidents). Lock auto-released on shutdown.
+// (doubled production, costs and incidents).
 //
-// FORCE_TICK_INTERNAL (admin/force_tick.php): jestesmy w tym samym procesie, wiec
-// flock nie da nam blokady wspoldzielonej — pomijamy lock, aby force_tick dzialal
-// nawet gdy poprzedni cron zawisl i nadal trzyma plik.
-// FORCE_TICK_INTERNAL (admin/force_tick.php): we are in the same process, so flock
-// would not give us a shared lock — skip the lock so force_tick works even if a
-// previous cron is hung and still holds the file.
-if (!defined('FORCE_TICK_INTERNAL')) {
-    $GLOBALS['__tick_lock_handle'] = fopen(sys_get_temp_dir() . '/oilcorp_tick.lock', 'c');
-    if ($GLOBALS['__tick_lock_handle'] === false
-        || !flock($GLOBALS['__tick_lock_handle'], LOCK_EX | LOCK_NB)) {
-        GameLog::warn('tick', 'tick juz trwa - pomijam ten przebieg / tick already running - skipping this run');
-        echo "Tick skipped: another run in progress\n";
-        exit(0);
-    }
-    register_shutdown_function(static function () {
-        $h = $GLOBALS['__tick_lock_handle'] ?? null;
-        if (is_resource($h)) {
-            @flock($h, LOCK_UN);
-            @fclose($h);
+// Uzywamy MySQL GET_LOCK zamiast flock: dziala na shared hostingu (az.pl), gdzie
+// fopen(sys_get_temp_dir()) potrafi byc zablokowany przez open_basedir (flock padal
+// przy KAZDYM przebiegu i zatrzymal cron). GET_LOCK jest przypiety do polaczenia DB,
+// wiec gdy proces ticku padnie/zostanie zabity, blokada zwalnia sie automatycznie —
+// zaden zawieszony tick nie zablokuje gry na stale.
+// We use MySQL GET_LOCK instead of flock: it works on shared hosting (az.pl) where
+// fopen(sys_get_temp_dir()) can be blocked by open_basedir (flock failed on EVERY run
+// and stalled the cron). GET_LOCK is bound to the DB connection, so if the tick process
+// dies/is killed the lock auto-releases — no hung tick can block the game permanently.
+//
+// ADMIN_FORCE_TICK (admin/force_tick.php): reczne wymuszenie przez admina zawsze
+// przechodzi, nawet gdy cron akurat trzyma blokade.
+// ADMIN_FORCE_TICK (admin/force_tick.php): manual admin force always runs, even if the
+// cron currently holds the lock.
+if (!defined('ADMIN_FORCE_TICK')) {
+    try {
+        $gotLock = (int)$db->query("SELECT GET_LOCK('oilcorp_tick', 0)")->fetchColumn();
+        if ($gotLock !== 1) {
+            GameLog::warn('tick', 'tick juz trwa - pomijam ten przebieg / tick already running - skipping this run');
+            echo "Tick skipped: another run in progress\n";
+            exit(0);
         }
-    });
+        register_shutdown_function(static function () use ($db) {
+            try {
+                $db->query("SELECT RELEASE_LOCK('oilcorp_tick')");
+            } catch (Throwable $e) {
+                // Polaczenie i tak zwolni lock przy zamknieciu / connection close frees it anyway
+            }
+        });
+    } catch (Throwable $e) {
+        // Brak wsparcia GET_LOCK nie moze zatrzymac gry — kontynuuj bez blokady.
+        // Missing GET_LOCK support must not stall the game — continue without the lock.
+        GameLog::error('tick', 'GET_LOCK FAILED - kontynuuje bez blokady / continuing without lock', $e);
+    }
 }
 
 GameLog::info('tick', '== START ==', ['time' => $now->format('Y-m-d H:i:s'), 'source' => $source]);
