@@ -1087,6 +1087,33 @@ select option { background: var(--bg3); color: var(--text); }
     white-space: nowrap;
 }
 
+/* Header language switcher / Przelacznik jezyka w naglowku */
+.hdr-language {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.hdr-language-select {
+    width: auto;
+    min-width: 58px;
+    height: 30px;
+    padding: 0 26px 0 10px;
+    border-radius: 999px;
+    border-color: rgba(200,168,75,.24);
+    background-color: rgba(255,255,255,.035);
+    color: var(--gold2);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.hdr-language-select:focus {
+    border-color: var(--gold);
+}
+
 /* Logout button */
 .hdr-logout {
     flex-shrink: 0;
@@ -1226,6 +1253,7 @@ body.nav-open .nav-burger span:nth-child(3) {
     .hdr-logo-text { font-size: 13px; letter-spacing: 3px; }
     .hdr-company-pill { display: none; }
     .hdr-logout { display: none; }
+    .hdr-language { margin-left: auto; }
 
  /* Row 2 nav hidden on mobile slides in from burger */
     .user-nav--bar {

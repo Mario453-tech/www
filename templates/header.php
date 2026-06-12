@@ -30,7 +30,7 @@ try {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="<?= t('common.html_lang') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -71,11 +71,31 @@ try {
         ], JSON_UNESCAPED_UNICODE) ?>;
     </script>
     <script src="<?= asset('/assets/js/modal.js') ?>"></script>
+    <script src="<?= asset('/assets/js/language_switcher.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('/assets/css/mobile.css') ?>">
 </head>
 <body<?= ($authPage ?? false) ? ' class="auth-page"' : '' ?>>
 <?php if ($authPage ?? false): ?>
     <div class="auth-bg">
+        <?php
+            $__authCurrentLocale = (string)($_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl');
+            if (!in_array($__authCurrentLocale, ['pl', 'en'], true)) {
+                $__authCurrentLocale = 'pl';
+            }
+            $__authLanguageRedirect = $_SERVER['REQUEST_URI'] ?? '/';
+        ?>
+        <form method="post" action="<?= url('language') ?>" class="auth-language" aria-label="<?= t('language.select_aria') ?>">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="redirect" value="<?= htmlspecialchars($__authLanguageRedirect, ENT_QUOTES, 'UTF-8') ?>">
+            <label class="visually-hidden" for="auth-locale"><?= t('language.label') ?></label>
+            <select id="auth-locale" name="locale" class="auth-language-select" data-language-switcher>
+                <option value="pl"<?= $__authCurrentLocale === 'pl' ? ' selected' : '' ?>>PL</option>
+                <option value="en"<?= $__authCurrentLocale === 'en' ? ' selected' : '' ?>>EN</option>
+            </select>
+            <noscript>
+                <button type="submit" class="btn btn-sm btn-secondary"><?= t('language.change') ?></button>
+            </noscript>
+        </form>
 <?php else: ?>
     <div class="container">
         <header class="header header--redesign">
@@ -150,15 +170,35 @@ try {
 
                 <?php if (isset($_SESSION['user_id'])): ?>
 
-                <a href="/profile" class="hdr-company-pill" title="Profil gracza">
+                <a href="/profile" class="hdr-company-pill" title="<?= t('header.profile_title') ?>">
                     <?php if ($__topbarAvatar): ?>
                     <img src="/<?= htmlspecialchars($__topbarAvatar) ?>" class="topbar-avatar" alt="avatar">
                     <?php else: ?>
                     <span class="topbar-avatar-initials"><?= strtoupper(substr($__topbarName, 0, 1)) ?></span>
                     <?php endif ?>
                     <span class="hdr-company-name"><?= htmlspecialchars($__topbarName) ?></span>
-                    <span class="hdr-company-status">Aktywna</span>
+                    <span class="hdr-company-status"><?= t('header.company_active') ?></span>
                 </a>
+
+                <?php
+                    $__currentLocale = (string)($_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl');
+                    if (!in_array($__currentLocale, ['pl', 'en'], true)) {
+                        $__currentLocale = 'pl';
+                    }
+                    $__languageRedirect = $_SERVER['REQUEST_URI'] ?? '/';
+                ?>
+                <form method="post" action="<?= url('language') ?>" class="hdr-language" aria-label="<?= t('language.select_aria') ?>">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="redirect" value="<?= htmlspecialchars($__languageRedirect, ENT_QUOTES, 'UTF-8') ?>">
+                    <label class="visually-hidden" for="topbar-locale"><?= t('language.label') ?></label>
+                    <select id="topbar-locale" name="locale" class="hdr-language-select" data-language-switcher>
+                        <option value="pl"<?= $__currentLocale === 'pl' ? ' selected' : '' ?>>PL</option>
+                        <option value="en"<?= $__currentLocale === 'en' ? ' selected' : '' ?>>EN</option>
+                    </select>
+                    <noscript>
+                        <button type="submit" class="btn btn-sm btn-secondary"><?= t('language.change') ?></button>
+                    </noscript>
+                </form>
 
                 <?php if ($__logoutItem): ?>
                 <a href="<?= str_starts_with($__logoutItem['url_key'] ?? '', '/') ? $__logoutItem['url_key'] : url($__logoutItem['url_key'] ?? 'logout') ?>"
@@ -167,7 +207,7 @@ try {
                 </a>
                 <?php endif ?>
 
-                <button class="nav-burger" id="nav-burger" aria-label="Otworz menu" aria-expanded="false" aria-controls="user-nav">
+                <button class="nav-burger" id="nav-burger" aria-label="<?= t('header.open_menu') ?>" aria-expanded="false" aria-controls="user-nav">
                     <span></span><span></span><span></span>
                 </button>
 
@@ -176,7 +216,7 @@ try {
 
             <!--  ROW 2: Nav bar  -->
             <?php if (isset($_SESSION['user_id']) && !empty($__filteredNav)): ?>
-            <nav class="user-nav user-nav--bar" id="user-nav" aria-label="Nawigacja uzytkownika">
+            <nav class="user-nav user-nav--bar" id="user-nav" aria-label="<?= t('header.nav_aria') ?>">
                 <?php
                 $__prevOrder = null;
                 foreach ($__filteredNav as $__ni):
@@ -209,12 +249,12 @@ try {
             function openNav() {
                 document.body.classList.add('nav-open');
                 burger.setAttribute('aria-expanded', 'true');
-                burger.setAttribute('aria-label', 'Zamknij menu');
+                burger.setAttribute('aria-label', <?= json_encode(tPlain('header.close_menu'), JSON_UNESCAPED_UNICODE) ?>);
             }
             function closeNav() {
                 document.body.classList.remove('nav-open');
                 burger.setAttribute('aria-expanded', 'false');
-                burger.setAttribute('aria-label', 'Otworz menu');
+                burger.setAttribute('aria-label', <?= json_encode(tPlain('header.open_menu'), JSON_UNESCAPED_UNICODE) ?>);
             }
             function toggleNav() {
                 document.body.classList.contains('nav-open') ? closeNav() : openNav();

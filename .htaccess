@@ -80,6 +80,7 @@ Options -Indexes
     RewriteRule ^sell$            /public/sell.php [L,PT]
     RewriteRule ^forgot-password$ /public/forgot_password.php [L,PT]
     RewriteRule ^reset-password$  /public/reset_password.php [L,PT]
+    RewriteRule ^language$        /public/language.php [L,PT]
     RewriteRule ^logout$          /public/logout.php [L,PT]
     RewriteRule ^map$             /public/map.php [L,PT]
     RewriteRule ^market$          /public/market.php [L,PT]

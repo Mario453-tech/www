@@ -20,6 +20,39 @@ body.auth-page {
     background-color: #08080f;
 }
 
+/* Auth language switcher / Przelacznik jezyka na ekranach logowania */
+.auth-language {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 30;
+    display: inline-flex;
+    align-items: center;
+}
+
+.auth-language-select {
+    width: auto;
+    min-width: 64px;
+    height: 34px;
+    padding: 0 28px 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(200,168,75,.32);
+    background-color: rgba(13,13,26,.78);
+    color: #e8cc7a;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    line-height: 1;
+    text-transform: uppercase;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.auth-language-select:focus {
+    border-color: #c8a84b;
+}
+
 /* -- Card container -------------------------------------------- */
 .login-container {
     position: fixed;
@@ -310,6 +343,7 @@ body.auth-page {
     .auth-card { padding: 28px 20px 24px; border-radius: 10px; }
 
     .auth-bg { align-items: flex-start; padding: 16px 12px 32px; }
+    .auth-language { top: 14px; right: 14px; }
 
     .auth-brand-name { font-size: 2rem; letter-spacing: .2em; }
     .auth-brand-sub  { font-size: .75rem; }

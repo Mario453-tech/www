@@ -211,6 +211,7 @@ const ROUTES = [
     'register'        => '/register',
     'forgot-password' => '/forgot-password',
     'reset-password'  => '/reset-password',
+    'language'        => '/language',
     'market'          => '/market',
     'market-offers'   => '/market-offers',
     'sell'            => '/sell',

@@ -2,9 +2,8 @@
 declare(strict_types=1);
 
 /**
- * Common — shared UI keys, modal, game shell.
- * Wspolne — klucze UI, modal, powloka gry.
- * Keys: 35
+ * Common - shared UI keys, modal, game shell.
+ * Wspolne - klucze UI, modal, powloka gry.
  */
 
 return [
@@ -14,6 +13,7 @@ return [
     'common.unknown_action' => 'Nieznana akcja: :action',
     'common.loading' => 'Ładowanie',
     'common.locale' => 'pl-PL',
+    'common.html_lang' => 'pl',
     'common.currency' => 'zł',
     'common.currency_code' => 'PLN',
     'common.pln' => 'zł',
@@ -33,9 +33,20 @@ return [
     'common.edit' => 'Edytuj',
     'common.delete' => 'Usuń',
     'common.actions' => 'Akcje',
-    'news.panel_title' => 'Aktualności spółki',
+    'common.guest' => 'Gość',
     'common.db_error' => 'Błąd bazy danych.',
-    'common.csrf_error' => 'Błąd bezpieczeństwa — token wygasł. Odśwież stronę i spróbuj ponownie.',
+    'common.csrf_error' => 'Błąd bezpieczeństwa - token wygasł. Odśwież stronę i spróbuj ponownie.',
+    'language.label' => 'Język',
+    'language.select_aria' => 'Wybór języka',
+    'language.polish' => 'Polski',
+    'language.english' => 'English',
+    'language.change' => 'Zmień język',
+    'header.profile_title' => 'Profil gracza',
+    'header.company_active' => 'Aktywna',
+    'header.open_menu' => 'Otwórz menu',
+    'header.close_menu' => 'Zamknij menu',
+    'header.nav_aria' => 'Nawigacja użytkownika',
+    'news.panel_title' => 'Aktualności spółki',
     'modal.confirm' => 'Potwierdź',
     'modal.cancel' => 'Anuluj',
     'modal.ok' => 'OK',
@@ -45,7 +56,6 @@ return [
     'modal.title_success' => 'Sukces',
     'modal.close' => 'Zamknij',
     'game_js.confirm_sell_oil' => 'Czy na pewno chcesz sprzedać całą ropę?',
-    'common.guest' => 'Go',
     'bailiff.bankruptcy_notification' => '[BANKRUCTWO] Firma utraciła płynność. Wejdź do restrukturyzacji i wybierz plan ratunkowy.',
     'bailiff.bankruptcy_event' => 'Panie Dyrektorze, firma utraciła płynność finansową. W ciągu 24h podejmij decyzje ratunkowe.',
 
