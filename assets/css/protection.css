@@ -1,0 +1,78 @@
+/*
+ * protection.css - moduł ochrony: modal wyboru + lista opcji.
+ * protection.css - protection module: picker modal + option list.
+ * Modal bazuje na klasach logistics-modal-*; tutaj tylko warstwa opcji.
+ */
+
+.protection-modal-overlay[hidden] {
+    display: none !important;
+}
+
+.protection-option-list {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.protection-option {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: grid;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.protection-option--locked {
+    opacity: 0.6;
+}
+
+.protection-option__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.protection-option__head span {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.protection-option__desc {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+.protection-option__effects {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.8rem;
+    display: grid;
+    gap: 2px;
+}
+
+.protection-option__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 0.78rem;
+    opacity: 0.75;
+}
+
+.protection-option__blocked {
+    font-size: 0.8rem;
+    color: #fca5a5;
+}
+
+.protection-option .protection-buy-btn {
+    justify-self: start;
+}
+
+.logistics-table--protection .logistics-table-head,
+.logistics-table--protection .logistics-table-row {
+    grid-template-columns: 2fr 1.4fr 1.2fr 1fr;
+}

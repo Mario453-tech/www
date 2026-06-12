@@ -339,10 +339,12 @@ class ProtectionService
     {
         try {
             $stmt = $this->db->prepare(
-                "SELECT * FROM active_protections
-                  WHERE player_id = ? AND target_type = ? AND target_id = ? AND context = ?
-                    AND status = 'active' AND ends_at > ?
-                  ORDER BY ends_at DESC LIMIT 1"
+                "SELECT ap.*, po.name AS option_name, po.code AS option_code
+                   FROM active_protections ap
+                   JOIN protection_options po ON po.id = ap.protection_option_id
+                  WHERE ap.player_id = ? AND ap.target_type = ? AND ap.target_id = ? AND ap.context = ?
+                    AND ap.status = 'active' AND ap.ends_at > ?
+                  ORDER BY ap.ends_at DESC LIMIT 1"
             );
             $stmt->execute([$playerId, $targetType, $targetId, $context, date('Y-m-d H:i:s')]);
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;

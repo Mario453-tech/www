@@ -39,4 +39,30 @@ return [
     'protection.risk.theft_risk_mult'    => 'kradzieży',
     'protection.risk.raid_risk_mult'     => 'napadu',
     'protection.risk.sabotage_risk_mult' => 'sabotażu',
+
+    // Walidacja celu (endpoint) / Target validation (endpoint)
+    'protection.err_target_invalid'  => 'Ten odwiert nie istnieje lub nie należy do Ciebie.',
+    'protection.err_target_not_road' => 'Ochrona kursów działa tylko dla odwiertów z transportem ciężarówkami.',
+    'protection.target_well'         => 'Odwiert #:id',
+
+    // Sekcja w logistyce / Logistics section
+    'protection.section_title'    => 'Ochrona transportu drogowego',
+    'protection.section_desc'     => 'Ochrona zmniejsza ryzyko kradzieży, napadu i sabotażu kursów',
+    'protection.col_well'         => 'Odwiert',
+    'protection.col_protection'   => 'Ochrona',
+    'protection.col_until'        => 'Działa do',
+    'protection.col_action'       => 'Akcja',
+    'protection.status_none'      => 'brak ochrony',
+    'protection.btn_add'          => 'Dodaj ochronę',
+    'protection.btn_buy'          => 'Wykup ochronę',
+    'protection.btn_cancel'       => 'Anuluj',
+    'protection.modal_title'      => 'Wybierz ochronę',
+    'protection.label_cost'       => 'Koszt:',
+    'protection.label_duration'   => 'Czas działania:',
+    'protection.label_payment'    => 'Płatność: gotówką',
+    'protection.duration_minutes' => ':min minut',
+    'protection.locked_credibility' => 'Wymaga wiarygodności firmy :min/100.',
+    'protection.locked_legal'       => 'Wymaga działu prawnego na poziomie :min/10.',
+    'protection.not_affordable'     => 'Brak gotówki.',
+    'protection.confirm_question'   => 'Wykupić ochronę ":name" za :cost PLN?',
 ];

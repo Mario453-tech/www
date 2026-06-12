@@ -208,7 +208,9 @@ class ProtectionSchema
                 'code' => 'basic_escort',
                 'name' => 'Eskorta podstawowa',
                 'description' => 'Cywilna eskorta kursów. Zmniejsza ryzyko kradzieży i napadu.',
-                'cost_type' => 'percent_reference', 'cost_value' => 5.00,
+                // fixed zamiast percent_reference: procent od pustego bufora dalby darmowa ochrone.
+                // fixed instead of percent_reference: a percent of an empty buffer would be free protection.
+                'cost_type' => 'fixed', 'cost_value' => 75000.00,
                 'duration_minutes' => 60, 'min_legal_level' => 0, 'sort_order' => 10,
                 'effects' => ['theft_risk_mult' => 0.80, 'raid_risk_mult' => 0.85],
             ],

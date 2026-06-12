@@ -216,63 +216,6 @@ try {
     GameLog::error('logistics', 'Road transport data load failed', $e, ['player' => $playerId]);
 }
 
-// Ochrona kursow drogowych: odwierty ciezarowkowe + aktywne ochrony + opcje do modala.
-// Road trip protection: truck wells + active protections + options for the modal.
-$roadProtectionWells = [];
-$roadProtectionOptions = [];
-try {
-    require_once $srcDir . '/ProtectionService.php';
-    $roadWellIds = [];
-    foreach ($wells as $wellRow) {
-        if (($wellRow['transport'] ?? '') === 'ciezarowki') {
-            $roadWellIds[] = (int)$wellRow['id'];
-        }
-    }
-    if ($roadWellIds !== []) {
-        $protSvc = new ProtectionService($db);
-
-        $protEffectLines = static function (array $effects): array {
-            $lines = [];
-            foreach (ProtectionService::EFFECT_KEYS_P1 as $key) {
-                $eff = $effects[$key] ?? null;
-                if ($eff === null || $eff['type'] !== 'mult' || $eff['value'] >= 1.0) {
-                    continue;
-                }
-                $strength = $eff['value'] <= 0.60 ? 'strong' : ($eff['value'] <= 0.85 ? 'medium' : 'light');
-                $lines[] = tPlain('protection.effect.' . $strength, ['what' => tPlain('protection.risk.' . $key)]);
-            }
-            $lines[] = tPlain('protection.effect.disclaimer');
-            return $lines;
-        };
-
-        foreach ($protSvc->getAvailableOptions($playerId, 'road_transport', 'road_transport_guard') as $opt) {
-            $opt['effect_lines'] = $protEffectLines($opt['effects']);
-            $roadProtectionOptions[] = $opt;
-        }
-
-        $placeholders = implode(',', array_fill(0, count($roadWellIds), '?'));
-        $nameStmt = $db->prepare(
-            "SELECT id, COALESCE(NULLIF(name,''), location_name) AS well_name FROM wells WHERE id IN ({$placeholders})"
-        );
-        $nameStmt->execute($roadWellIds);
-        $wellNames = $nameStmt->fetchAll(PDO::FETCH_KEY_PAIR);
-
-        foreach ($roadWellIds as $roadWellId) {
-            $activeProt = $protSvc->getActiveProtection($playerId, 'road_transport', $roadWellId, 'road_transport_guard');
-            $roadProtectionWells[] = [
-                'id'     => $roadWellId,
-                'name'   => (string)($wellNames[$roadWellId] ?? ''),
-                'active' => $activeProt === null ? null : [
-                    'name'    => (string)$activeProt['option_name'],
-                    'ends_at' => (string)$activeProt['ends_at'],
-                ],
-            ];
-        }
-    }
-} catch (Throwable $e) {
-    GameLog::error('logistics', 'Protection data load failed', $e, ['player' => $playerId]);
-}
-
 try {
     $pipelineSvc = new WellPipelineService($db);
     $pipelineRows = [];
@@ -598,8 +541,6 @@ $viewData = compact(
     'activeRoadTripsTotal',
     'activeRoadTripsPage',
     'activeRoadTripsTotalPages',
-    'roadProtectionWells',
-    'roadProtectionOptions',
     'marineDeliveries',
     'marineBuffers',
     'marineMinLoadBbl',
@@ -611,8 +552,8 @@ $viewData = array_merge($viewData, GameShell::data($playerId));
 $pageTitle      = t('logistics.page_title') . ' - OilCorp';
 $gameShellTitle = t('logistics.page_title');
 $gameShellView  = __DIR__ . '/../templates/views/logistics/main.php';
-$extraCss       = ['/assets/css/logistics.css', '/assets/css/protection.css'];
-$extraJs        = ['/assets/js/logistics_hubs.js', '/assets/js/protection.js'];
+$extraCss       = ['/assets/css/logistics.css'];
+$extraJs        = ['/assets/js/logistics_hubs.js'];
 
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);

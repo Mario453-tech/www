@@ -24,10 +24,10 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         $this->seedPlayer(1, 1000000.00);
         $svc = new ProtectionService($this->db);
 
-        // percent_reference: 5% z 200000 = 10000
+        // fixed: 75000 niezaleznie od referencji
         $q = $svc->quote(1, 'basic_escort', 200000.00);
         $this->assertTrue($q['success']);
-        $this->assertSame(10000.00, $q['cost']);
+        $this->assertSame(75000.00, $q['cost']);
 
         // fixed: 500000 niezaleznie od referencji
         $q = $svc->quote(1, 'armed_convoy', 200000.00);
@@ -36,6 +36,11 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         // per_hour: 50000 * (120 min / 60) = 100000
         $q = $svc->quote(1, 'drone_patrol', 0.0);
         $this->assertSame(100000.00, $q['cost']);
+
+        // percent_reference: 5% z 200000 = 10000
+        $this->db->exec("UPDATE protection_options SET cost_type = 'percent_reference', cost_value = 5 WHERE code = 'basic_escort'");
+        $q = $svc->quote(1, 'basic_escort', 200000.00);
+        $this->assertSame(10000.00, $q['cost']);
     }
 
     public function testActivateChargesCashAndStoresActiveProtection(): void
@@ -47,8 +52,8 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
 
         $this->assertTrue($res['success'], $res['message'] ?? '');
         $this->assertSame('success', $res['outcome']);
-        $this->assertSame(10000.00, $res['cost']);
-        $this->assertSame(90000.00, $this->cashOf(1), 'Koszt schodzi z gotowki.');
+        $this->assertSame(75000.00, $res['cost']);
+        $this->assertSame(25000.00, $this->cashOf(1), 'Koszt schodzi z gotowki.');
 
         $tx = $this->db->query("SELECT * FROM bank_transactions ORDER BY id DESC LIMIT 1")->fetch();
         $this->assertSame('protection', $tx['transaction_type']);
@@ -70,7 +75,7 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         $this->seedPlayer(1, 5000.00);
         $svc = new ProtectionService($this->db);
 
-        $res = $svc->activate(1, 'basic_escort', 'road_transport', 7, 200000.00); // koszt 10000 > 5000
+        $res = $svc->activate(1, 'basic_escort', 'road_transport', 7, 200000.00); // koszt 75000 > 5000
 
         $this->assertFalse($res['success']);
         $this->assertSame('no_funds', $res['outcome']);
@@ -188,7 +193,7 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
 
     public function testGetAvailableOptionsMarksLockedAndAffordable(): void
     {
-        $this->seedPlayer(1, 50000.00);
+        $this->seedPlayer(1, 80000.00);
         $svc = new ProtectionService($this->db);
 
         $options = $svc->getAvailableOptions(1, 'road_transport', 'road_transport_guard', 200000.00);
@@ -199,10 +204,10 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         }
 
         $this->assertNull($byCode['basic_escort']['locked_reason']);
-        $this->assertTrue($byCode['basic_escort']['affordable']); // 10000 <= 50000
+        $this->assertTrue($byCode['basic_escort']['affordable']); // 75000 <= 80000
         $this->assertSame('legal_level', $byCode['armed_convoy']['locked_reason']);
-        $this->assertFalse($byCode['armed_convoy']['affordable']); // 500000 > 50000
-        $this->assertFalse($byCode['drone_patrol']['affordable']); // 100000 > 50000
+        $this->assertFalse($byCode['armed_convoy']['affordable']); // 500000 > 80000
+        $this->assertFalse($byCode['drone_patrol']['affordable']); // 100000 > 80000
     }
 
     public function testCancelStopsEffectsAndLogs(): void
