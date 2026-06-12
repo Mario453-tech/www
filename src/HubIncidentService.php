@@ -117,10 +117,10 @@ class HubIncidentService
     }
 
     /**
-     * Buduje mape mnoznikow ochrony per typ incydentu dla danego huba.
-     * Builds the per-incident-type protection multiplier map for a hub.
+     * Laduje aktywne ochrony hubow przed petla ticka.
+     * Preloads active hub protections before the tick loop.
      *
-     * @return array<string, float>
+     * @param int[] $hubIds
      */
     public function preloadProtections(int $playerId, array $hubIds, ?ProtectionService $protection): void
     {

@@ -294,6 +294,9 @@ try {
         }
         $hubIds = [];
         foreach ($hubCards as $card) {
+            if (($card['ownership'] ?? '') !== 'owned') {
+                continue;
+            }
             $hubId = (int)(($card['hub'] ?? [])['id'] ?? 0);
             if ($hubId > 0) {
                 $hubIds[] = $hubId;
@@ -302,6 +305,9 @@ try {
         $activeHubProtections = $protSvc->getActiveProtections($playerId, 'hub', $hubIds, 'hub_guard');
 
         foreach ($hubCards as $card) {
+            if (($card['ownership'] ?? '') !== 'owned') {
+                continue;
+            }
             $hub = $card['hub'] ?? [];
             $hubId = (int)($hub['id'] ?? 0);
             if ($hubId <= 0) {

@@ -8,7 +8,8 @@
 - `public/logistics.php` — lista ochron transportu drogowego, hubów i rurociągów używa batchowych odczytów zamiast zapytania per element.
 - `src/Tick/PipelineSection.php`, `src/HubIncidentService.php`, `src/Tick/WellHubSection.php` — tick prefetchuje ochrony hubów i rurociągów oraz loguje `protection_applied_to_incident` z prawidłowym `protection_option_id`.
 - `assets/js/protection.js` — brak poprawnego celu w modalu pokazuje błąd zamiast cicho ignorować kliknięcie.
-- Testy: `ProtectionServiceTest` 16/16, `HubIncidentServiceTest` 2/2, MySQL hub/pipeline 3/3.
+- Dodatkowy przegląd kodu: sekcja ochrony hubów pokazuje tylko huby własne, zgodnie z walidacją backendu; `WellPipelineService::getPlayerPipelines()` zwraca także rurociągi wylotowe `hub -> magazyn` (`well_id=0`) i oznacza je jako operacyjne, gdy hub działa.
+- Testy: Unit 28/28, Integration 200/200, MySQL 118/118.
 
 **Rozszerzenie uniwersalnego modułu ochrony na huby logistyczne i rurociągi** — ten sam silnik (`ProtectionService`), nowe cele. Gracz wykupuje ochronę huba lub rurociągu w panelu logistyki; aktywna ochrona zmniejsza ryzyko incydentów odpowiedniego typu. Architektura bez zmian — tylko nowe `target_type` + `context` i wpięcie efektów w istniejące silniki incydentów.
 
