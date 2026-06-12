@@ -83,8 +83,8 @@ class WalletConfig
         // Cash-only (phase 3 use cases)
         'black_market_sale'   => self::POOL_CASH,
         'bribe'               => self::POOL_CASH,  // lapowki - modul BriberyService
-        'protection'          => self::POOL_CASH,  // ochrona aktywow - modul ProtectionService
         // 'emergency_repair'  => self::POOL_CASH,  // awaryjne naprawy - faza 3
+        // 'transport_guard'   => self::POOL_CASH,  // ochrona transportu - faza 3
         // 'bailiff_reserve'   => self::POOL_CASH,  // rezerwa komornik - faza 3
     ];
 

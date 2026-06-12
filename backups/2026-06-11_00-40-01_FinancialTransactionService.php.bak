@@ -72,9 +72,6 @@ class FinancialTransactionService
     // Lapowka - wydatek wylacznie gotowkowy (modul lapowek / BriberyService).
     // Bribe - cash-only expense (bribery module / BriberyService).
     public const TYPE_BRIBE              = 'bribe';
-    // Ochrona aktywow - wydatek gotowkowy (modul ochrony / ProtectionService).
-    // Asset protection - cash expense (protection module / ProtectionService).
-    public const TYPE_PROTECTION         = 'protection';
     // Transfer miedzy pulami portfela gracza (gotowka <-> konto).
     // Transfer between player wallet pools (cash <-> bank account).
     public const TYPE_POOL_TRANSFER      = 'pool_transfer';
@@ -115,7 +112,6 @@ class FinancialTransactionService
         self::TYPE_BANK_FEE,
         self::TYPE_LOGISTICS_FEE,
         self::TYPE_BRIBE,
-        self::TYPE_PROTECTION,
         self::TYPE_POOL_TRANSFER,
         self::TYPE_TICK_OPEX,
         self::TYPE_TICK_SALARY,

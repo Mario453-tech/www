@@ -1,0 +1,266 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * ProtectionSchema - schemat i seed modulu ochrony (4 tabele).
+ * ProtectionSchema - schema and seed for the protection module (4 tables).
+ *
+ * Tabele / Tables:
+ *  protection_options  - definicje opcji ochrony (edytowalne w adminie)
+ *  protection_effects  - efekty per opcja (effect_key + mult/delta)
+ *  active_protections  - wykupione ochrony graczy
+ *  protection_logs     - historia zdarzen ochrony
+ */
+class ProtectionSchema
+{
+    /**
+     * Cache zapewnionego schematu per polaczenie. WeakMap zamiast spl_object_id,
+     * bo identyfikatory obiektow sa recyklowane po destrukcji (falszywe trafienia).
+     * Per-connection ensured cache. WeakMap instead of spl_object_id because
+     * object ids are recycled after destruction (false positives).
+     */
+    private static ?WeakMap $ensured = null;
+
+    public static function ensure(PDO $db): void
+    {
+        self::$ensured ??= new WeakMap();
+        if (isset(self::$ensured[$db])) {
+            return;
+        }
+        try {
+            if ($db->inTransaction()) {
+                return; // DDL pominiete w otwartej transakcji / DDL skipped inside an open tx
+            }
+        } catch (Throwable) {
+        }
+        self::$ensured[$db] = true;
+
+        try {
+            $driver = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            if ($driver === 'sqlite') {
+                self::createSqlite($db);
+            } else {
+                self::createMysql($db);
+            }
+            self::seedDefaults($db, $driver);
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('ProtectionSchema', 'ensure FAILED', $e);
+            }
+        }
+    }
+
+    private static function createMysql(PDO $db): void
+    {
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS protection_options (
+                id                      INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                code                    VARCHAR(64)  NOT NULL,
+                name                    VARCHAR(128) NOT NULL,
+                description             VARCHAR(512) NOT NULL DEFAULT '',
+                target_type             VARCHAR(32)  NOT NULL,
+                context                 VARCHAR(64)  NOT NULL,
+                is_active               TINYINT(1)   NOT NULL DEFAULT 1,
+                cost_type               ENUM('fixed','percent_reference','per_hour','per_bbl') NOT NULL DEFAULT 'fixed',
+                cost_value              DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                cost_currency           ENUM('cash','bank','both') NOT NULL DEFAULT 'cash',
+                duration_minutes        INT UNSIGNED NOT NULL DEFAULT 60,
+                min_company_credibility INT UNSIGNED NOT NULL DEFAULT 0,
+                min_legal_level         INT UNSIGNED NOT NULL DEFAULT 0,
+                sort_order              INT          NOT NULL DEFAULT 0,
+                created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_protection_code (code),
+                KEY idx_protection_target (target_type, context, is_active)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS protection_effects (
+                id                   INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                protection_option_id INT NOT NULL,
+                effect_key           VARCHAR(64) NOT NULL,
+                effect_type          ENUM('mult','delta') NOT NULL DEFAULT 'mult',
+                effect_value         DECIMAL(8,4) NOT NULL,
+                created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_protection_effect (protection_option_id, effect_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS active_protections (
+                id                   INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                player_id            INT NOT NULL,
+                protection_option_id INT NOT NULL,
+                target_type          VARCHAR(32) NOT NULL,
+                target_id            INT NOT NULL,
+                context              VARCHAR(64) NOT NULL,
+                paid_from            ENUM('cash','bank') NOT NULL DEFAULT 'cash',
+                cost                 DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                starts_at            DATETIME NOT NULL,
+                ends_at              DATETIME NOT NULL,
+                status               ENUM('active','expired','cancelled','failed') NOT NULL DEFAULT 'active',
+                meta_json            TEXT NULL,
+                created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                KEY idx_active_prot_target (player_id, target_type, target_id, context, status),
+                KEY idx_active_prot_status (status, ends_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS protection_logs (
+                id                   INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                player_id            INT NOT NULL,
+                protection_option_id INT NOT NULL,
+                target_type          VARCHAR(32) NOT NULL,
+                target_id            INT NOT NULL,
+                context              VARCHAR(64) NOT NULL,
+                event_key            VARCHAR(64) NOT NULL,
+                amount               DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                message              VARCHAR(512) NOT NULL DEFAULT '',
+                meta_json            TEXT NULL,
+                created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_prot_logs_player  (player_id),
+                KEY idx_prot_logs_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+    }
+
+    private static function createSqlite(PDO $db): void
+    {
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS protection_options (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                code                    TEXT NOT NULL UNIQUE,
+                name                    TEXT NOT NULL,
+                description             TEXT NOT NULL DEFAULT '',
+                target_type             TEXT NOT NULL,
+                context                 TEXT NOT NULL,
+                is_active               INTEGER NOT NULL DEFAULT 1,
+                cost_type               TEXT NOT NULL DEFAULT 'fixed',
+                cost_value              REAL NOT NULL DEFAULT 0.0,
+                cost_currency           TEXT NOT NULL DEFAULT 'cash',
+                duration_minutes        INTEGER NOT NULL DEFAULT 60,
+                min_company_credibility INTEGER NOT NULL DEFAULT 0,
+                min_legal_level         INTEGER NOT NULL DEFAULT 0,
+                sort_order              INTEGER NOT NULL DEFAULT 0,
+                created_at              TEXT,
+                updated_at              TEXT
+            )"
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS protection_effects (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                protection_option_id INTEGER NOT NULL,
+                effect_key           TEXT NOT NULL,
+                effect_type          TEXT NOT NULL DEFAULT 'mult',
+                effect_value         REAL NOT NULL,
+                created_at           TEXT,
+                updated_at           TEXT,
+                UNIQUE (protection_option_id, effect_key)
+            )"
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS active_protections (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id            INTEGER NOT NULL,
+                protection_option_id INTEGER NOT NULL,
+                target_type          TEXT NOT NULL,
+                target_id            INTEGER NOT NULL,
+                context              TEXT NOT NULL,
+                paid_from            TEXT NOT NULL DEFAULT 'cash',
+                cost                 REAL NOT NULL DEFAULT 0.0,
+                starts_at            TEXT NOT NULL,
+                ends_at              TEXT NOT NULL,
+                status               TEXT NOT NULL DEFAULT 'active',
+                meta_json            TEXT,
+                created_at           TEXT,
+                updated_at           TEXT
+            )"
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS protection_logs (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id            INTEGER NOT NULL,
+                protection_option_id INTEGER NOT NULL,
+                target_type          TEXT NOT NULL,
+                target_id            INTEGER NOT NULL,
+                context              TEXT NOT NULL,
+                event_key            TEXT NOT NULL,
+                amount               REAL NOT NULL DEFAULT 0.0,
+                message              TEXT NOT NULL DEFAULT '',
+                meta_json            TEXT,
+                created_at           TEXT
+            )"
+        );
+    }
+
+    /**
+     * Seeduje opcje P1 (transport drogowy) idempotentnie po unikalnym code.
+     * Efekty dosiewane tylko dla brakujacych par (option, effect_key).
+     * Seeds P1 options (road transport) idempotently by unique code.
+     * Effects seeded only for missing (option, effect_key) pairs.
+     */
+    private static function seedDefaults(PDO $db, string $driver): void
+    {
+        $options = [
+            [
+                'code' => 'basic_escort',
+                'name' => 'Eskorta podstawowa',
+                'description' => 'Cywilna eskorta kursów. Zmniejsza ryzyko kradzieży i napadu.',
+                'cost_type' => 'percent_reference', 'cost_value' => 5.00,
+                'duration_minutes' => 60, 'min_legal_level' => 0, 'sort_order' => 10,
+                'effects' => ['theft_risk_mult' => 0.80, 'raid_risk_mult' => 0.85],
+            ],
+            [
+                'code' => 'armed_convoy',
+                'name' => 'Konwój uzbrojony',
+                'description' => 'Uzbrojona obstawa kursów. Mocno zmniejsza ryzyko kradzieży i napadu, lekko sabotażu.',
+                'cost_type' => 'fixed', 'cost_value' => 500000.00,
+                'duration_minutes' => 60, 'min_legal_level' => 3, 'sort_order' => 20,
+                'effects' => ['theft_risk_mult' => 0.55, 'raid_risk_mult' => 0.60, 'sabotage_risk_mult' => 0.85],
+            ],
+            [
+                'code' => 'drone_patrol',
+                'name' => 'Patrol dronami',
+                'description' => 'Monitoring tras z powietrza. Zmniejsza ryzyko sabotażu i lekko kradzieży.',
+                'cost_type' => 'per_hour', 'cost_value' => 50000.00,
+                'duration_minutes' => 120, 'min_legal_level' => 0, 'sort_order' => 30,
+                'effects' => ['sabotage_risk_mult' => 0.70, 'theft_risk_mult' => 0.90],
+            ],
+        ];
+
+        $ignore = $driver === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+        $now = date('Y-m-d H:i:s');
+
+        $insOpt = $db->prepare(
+            "{$ignore} INTO protection_options
+                (code, name, description, target_type, context, is_active,
+                 cost_type, cost_value, cost_currency, duration_minutes,
+                 min_company_credibility, min_legal_level, sort_order, created_at, updated_at)
+             VALUES (?, ?, ?, 'road_transport', 'road_transport_guard', 1, ?, ?, 'cash', ?, 0, ?, ?, ?, ?)"
+        );
+        $selId = $db->prepare("SELECT id FROM protection_options WHERE code = ?");
+        $insEff = $db->prepare(
+            "{$ignore} INTO protection_effects
+                (protection_option_id, effect_key, effect_type, effect_value, created_at, updated_at)
+             VALUES (?, ?, 'mult', ?, ?, ?)"
+        );
+
+        foreach ($options as $opt) {
+            $insOpt->execute([
+                $opt['code'], $opt['name'], $opt['description'],
+                $opt['cost_type'], $opt['cost_value'], $opt['duration_minutes'],
+                $opt['min_legal_level'], $opt['sort_order'], $now, $now,
+            ]);
+            $selId->execute([$opt['code']]);
+            $optionId = (int)($selId->fetchColumn() ?: 0);
+            if ($optionId <= 0) {
+                continue;
+            }
+            foreach ($opt['effects'] as $key => $value) {
+                $insEff->execute([$optionId, $key, $value, $now, $now]);
+            }
+        }
+    }
+}
