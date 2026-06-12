@@ -119,17 +119,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeTab = 'effects';
     } elseif ($action === 'delete_effect') {
         $effectId = (int)($_POST['effect_id'] ?? 0);
-        if ($effectId <= 0) {
-            $err = t('admin.protection.err_effect_required');
-        } else {
-            try {
-                $db->prepare("DELETE FROM protection_effects WHERE id = ?")->execute([$effectId]);
-                AdminLog::log('protection_effect_delete', "Usuniecie efektu ochrony #{$effectId}");
-                $msg = t('admin.protection.msg_effect_deleted');
-            } catch (Throwable $e) {
-                GameLog::error('admin/protection.php', 'delete_effect FAILED', $e);
-                $err = t('admin.protection.err_effect_delete');
-            }
+        try {
+            $db->prepare("DELETE FROM protection_effects WHERE id = ?")->execute([$effectId]);
+            AdminLog::log('protection_effect_delete', "Usuniecie efektu ochrony #{$effectId}");
+            $msg = t('admin.protection.msg_effect_deleted');
+        } catch (Throwable $e) {
+            GameLog::error('admin/protection.php', 'delete_effect FAILED', $e);
+            $err = t('admin.protection.err_effect_delete');
         }
         $activeTab = 'effects';
     } elseif ($action === 'cancel_active') {
@@ -196,21 +192,23 @@ foreach ($options as $optRow) {
     }
 }
 
-// Wszystkie znane klucze efektow ze stalych serwisu / All known effect keys from service constants
+// Wszystkie znane klucze efektow (P1 + P2 hub + P2 pipeline) / All known effect keys (P1 + P2 hub + P2 pipeline)
 $knownEffectKeys = array_merge(
     ProtectionService::EFFECT_KEYS_P1,
-    ProtectionService::EFFECT_KEYS_P2_HUB,
-    ProtectionService::EFFECT_KEYS_P2_PIPELINE,
+    [
+        'equipment_damage_risk_mult',
+        'local_leak_risk_mult',
+        'critical_overload_risk_mult',
+        'transfer_failure_risk_mult',
+        'loading_error_risk_mult',
+        'storage_jam_risk_mult',
+        'pipeline_incident_risk_mult',
+    ]
 );
-
-// Mapa klucz efektu => modul (do dynamicznej tabeli w zakladce Pomoc) / Effect key => module map (for help tab)
-$effectKeyModuleMap = array_fill_keys(ProtectionService::EFFECT_KEYS_P1,         'transport')
-                    + array_fill_keys(ProtectionService::EFFECT_KEYS_P2_HUB,      'hub')
-                    + array_fill_keys(ProtectionService::EFFECT_KEYS_P2_PIPELINE,  'pipeline');
 
 $viewData = compact(
     'options', 'effectsByOption', 'activeProtections', 'historyLogs',
-    'activeTab', 'editOption', 'knownEffectKeys', 'effectKeyModuleMap', 'msg', 'err'
+    'activeTab', 'editOption', 'knownEffectKeys', 'msg', 'err'
 );
 
 $pageTitle = t('admin.protection.title');

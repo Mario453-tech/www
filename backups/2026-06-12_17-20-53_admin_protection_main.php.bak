@@ -8,7 +8,6 @@
 /** @var array<int,string> $knownEffectKeys */
 /** @var string $msg */
 /** @var string $err */
-/** @var array<string, string> $effectKeyModuleMap */
 extract($viewData, EXTR_SKIP);
 
 $tabs = ['options', 'effects', 'active', 'history', 'help'];
@@ -427,24 +426,60 @@ $ctxLabel = static function (string $ctx): string {
 
     <div class="protection-help-block">
         <h3>3. Klucze efektów (effect_key) — pełna lista</h3>
-        <?php
-        // Etykiety modulow dla kolumny "Dotyczy" / Module labels for the "Applies to" column
-        $helpModuleLabels = [
-            'transport' => 'Transport drogowy',
-            'hub'       => 'Hub logistyczny',
-            'pipeline'  => 'Rurociąg',
-        ]; ?>
         <div class="protection-admin-grid protection-admin-grid--help">
             <div class="protection-admin-row protection-admin-row--head">
-                <span>Klucz techniczny</span><span>Dotyczy</span><span>Opis (przyjazna nazwa)</span>
+                <span>Klucz techniczny</span><span>Dotyczy</span><span>Opis</span>
             </div>
-            <?php foreach ($knownEffectKeys as $effectKey): ?>
             <div class="protection-admin-row">
-                <span><code><?= htmlspecialchars($effectKey) ?></code></span>
-                <span><?= htmlspecialchars($helpModuleLabels[$effectKeyModuleMap[$effectKey] ?? ''] ?? ($effectKeyModuleMap[$effectKey] ?? '')) ?></span>
-                <span><?= htmlspecialchars($effKeyLabel($effectKey)) ?></span>
+                <span><code>theft_risk_mult</code></span>
+                <span>Transport drogowy</span>
+                <span>Mnożnik ryzyka kradzieży ładunku podczas trasy.</span>
             </div>
-            <?php endforeach ?>
+            <div class="protection-admin-row">
+                <span><code>raid_risk_mult</code></span>
+                <span>Transport drogowy</span>
+                <span>Mnożnik ryzyka napadu zbrojnego na transport.</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>sabotage_risk_mult</code></span>
+                <span>Transport drogowy</span>
+                <span>Mnożnik ryzyka sabotażu (uszkodzenie pojazdu, skrętka trasy itp.).</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>equipment_damage_risk_mult</code></span>
+                <span>Hub logistyczny</span>
+                <span>Mnożnik ryzyka uszkodzenia sprzętu przeładunkowego w hubie.</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>local_leak_risk_mult</code></span>
+                <span>Hub logistyczny</span>
+                <span>Mnożnik ryzyka wycieku lokalnego (paliwo, surowce) na terenie hubu.</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>critical_overload_risk_mult</code></span>
+                <span>Hub logistyczny</span>
+                <span>Mnożnik ryzyka krytycznego przeciążenia infrastruktury hubu.</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>transfer_failure_risk_mult</code></span>
+                <span>Hub logistyczny</span>
+                <span>Mnożnik ryzyka awarii systemu przeładunkowego (przenośniki, pompy itp.).</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>loading_error_risk_mult</code></span>
+                <span>Hub logistyczny</span>
+                <span>Mnożnik ryzyka błędu załadunku (zły towar, błędna partia itp.).</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>storage_jam_risk_mult</code></span>
+                <span>Hub logistyczny</span>
+                <span>Mnożnik ryzyka zatoru magazynowego (brak miejsca, blokada przepływu).</span>
+            </div>
+            <div class="protection-admin-row">
+                <span><code>pipeline_incident_risk_mult</code></span>
+                <span>Rurociąg</span>
+                <span>Mnożnik łącznego ryzyka awarii rurociągu (pęknięcia, korozja, sabotaż).</span>
+            </div>
         </div>
     </div>
 

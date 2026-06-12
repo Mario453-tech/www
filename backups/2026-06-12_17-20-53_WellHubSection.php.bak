@@ -67,16 +67,8 @@ class WellHubSection
         }
 
         if ($this->hubIncidentSvc !== null && $this->protectionSvc !== null) {
-            // Mapa hub_id => player_id wlasciciela (ochrona kupiona przez wlasciciela, nie dzierzawce).
-            // Map hub_id => owner player_id (protection is bought by owner, not tenant).
-            $hubIdToOwnerPlayerId = [];
-            foreach ($this->ctx->hubCache as $hId => $hubRow) {
-                $ownerId = (int)($hubRow['player_id'] ?? 0);
-                if ($ownerId > 0) {
-                    $hubIdToOwnerPlayerId[(int)$hId] = $ownerId;
-                }
-            }
-            $this->hubIncidentSvc->preloadProtections($hubIdToOwnerPlayerId, $this->protectionSvc);
+            $hubIds = array_map('intval', array_keys($this->ctx->hubCache));
+            $this->hubIncidentSvc->preloadProtections($playerId, $hubIds, $this->protectionSvc);
         }
 
         foreach ($this->ctx->hubCache as $hubId => $hub) {

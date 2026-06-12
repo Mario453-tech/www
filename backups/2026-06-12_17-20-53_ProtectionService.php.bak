@@ -25,19 +25,6 @@ class ProtectionService
     /** Klucze efektow obslugiwane w P1 / Effect keys supported in P1 */
     public const EFFECT_KEYS_P1 = ['theft_risk_mult', 'raid_risk_mult', 'sabotage_risk_mult'];
 
-    /** Klucze efektow P2 hub / Effect keys P2 hub */
-    public const EFFECT_KEYS_P2_HUB = [
-        'equipment_damage_risk_mult',
-        'local_leak_risk_mult',
-        'critical_overload_risk_mult',
-        'transfer_failure_risk_mult',
-        'loading_error_risk_mult',
-        'storage_jam_risk_mult',
-    ];
-
-    /** Klucze efektow P2 rurociag / Effect keys P2 pipeline */
-    public const EFFECT_KEYS_P2_PIPELINE = ['pipeline_incident_risk_mult'];
-
     private PDO $db;
     private CompanyCredibilityService $credibility;
     private ?LegalService $legal = null;
