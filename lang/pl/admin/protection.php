@@ -55,6 +55,7 @@ return [
     'admin.protection.currency_cash' => 'gotówka',
     'admin.protection.currency_bank' => 'konto bankowe (przyszłość)',
     'admin.protection.currency_both' => 'gotówka lub konto (przyszłość)',
+    'admin.protection.cash_only_note' => 'P1: ochrona jest zawsze opłacana gotówką przez centralne API finansowe.',
     'admin.protection.btn_save_option' => 'Zapisz opcję',
     'admin.protection.btn_cancel_edit' => 'Anuluj edycję',
 

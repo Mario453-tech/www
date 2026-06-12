@@ -37,10 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($costType, ['fixed', 'percent_reference', 'per_hour', 'per_bbl'], true)) {
             $costType = 'fixed';
         }
-        $costCurrency = (string)($_POST['cost_currency'] ?? 'cash');
-        if (!in_array($costCurrency, ['cash', 'bank', 'both'], true)) {
-            $costCurrency = 'cash';
-        }
+        $costCurrency = 'cash';
         $values = [
             trim((string)($_POST['target_type'] ?? 'road_transport')) ?: 'road_transport',
             trim((string)($_POST['context'] ?? 'road_transport_guard')) ?: 'road_transport_guard',

@@ -101,6 +101,41 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         $this->assertTrue($other['success']);
     }
 
+    public function testActivateRejectsWrongExpectedContext(): void
+    {
+        $this->seedPlayer(1, 1000000.00);
+        $svc = new ProtectionService($this->db);
+        $this->db->exec("UPDATE protection_options SET context = 'other_context' WHERE code = 'basic_escort'");
+
+        $res = $svc->activate(1, 'basic_escort', 'road_transport', 7, 200000.00, [], 'road_transport_guard');
+
+        $this->assertFalse($res['success']);
+        $this->assertSame('context_mismatch', $res['outcome']);
+        $this->assertSame(1000000.00, $this->cashOf(1));
+        $count = $this->db->query("SELECT COUNT(*) FROM active_protections")->fetchColumn();
+        $this->assertSame(0, (int)$count);
+    }
+
+    public function testSchemaBlocksDuplicateActiveProtectionRows(): void
+    {
+        $this->seedPlayer(1, 1000000.00);
+        $svc = new ProtectionService($this->db);
+        $first = $svc->activate(1, 'basic_escort', 'road_transport', 7, 200000.00);
+        $this->assertTrue($first['success']);
+
+        $optionId = (int)$this->db->query("SELECT id FROM protection_options WHERE code = 'drone_patrol'")->fetchColumn();
+
+        $this->expectException(PDOException::class);
+        $this->db->prepare(
+            "INSERT INTO active_protections
+                (player_id, protection_option_id, target_type, target_id, context,
+                 paid_from, cost, starts_at, ends_at, status, created_at, updated_at)
+             VALUES (1, ?, 'road_transport', 7, 'road_transport_guard',
+                     'cash', 1000, datetime('now'), datetime('now', '+1 hour'), 'active',
+                     datetime('now'), datetime('now'))"
+        )->execute([$optionId]);
+    }
+
     public function testActivateRequiresLegalLevel(): void
     {
         // Gracz bez dyrektora prawnego ma poziom 0, armed_convoy wymaga 3.

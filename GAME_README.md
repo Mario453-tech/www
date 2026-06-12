@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2026-06-12 - Ochrona: domknięcie kontekstu, duplikatów i czasu DB
+
+- `src/ProtectionService.php` — aktywacja może wymagać konkretnego `context` (P1: `road_transport_guard`), używa czasu bazy danych dla startu/końca/logów i zwraca czytelny błąd przy kolizji aktywnej ochrony.
+- `src/Protection/ProtectionSchema.php` — dodano twardą blokadę jednej aktywnej ochrony na `player + target_type + target_id + context`; MySQL używa generowanej kolumny `active_guard`, SQLite częściowego unikalnego indeksu.
+- `public/protection.php` — endpoint gracza wymusza kontekst `road_transport_guard`, więc POST-em nie da się uruchomić innego kontekstu dla transportu drogowego.
+- `src/RoadTransportService.php` — historia `protection_applied_to_incident` zapisuje lekki agregat incydentów zamiast pełnej listy kursów.
+- `admin/protection.php`, `templates/views/admin/protection/main.php` — panel jasno pokazuje, że P1 ochrony jest zawsze płacone gotówką; zapis wymusza `cash`.
+- `tests/Integration/ProtectionServiceTest.php` — dodano testy blokady złego kontekstu i duplikatu aktywnej ochrony na poziomie schematu.
+
 ### 2026-06-12 - Ochrona: uniwersalny moduł + podpięcie transportu drogowego + panel admina
 
 **Nowy, konfigurowalny moduł ochrony aktywów (`ProtectionService`) — opcje ochrony i ich efekty są definiowane w bazie i panelu admina, nie w kodzie.** Gracz wykupuje ochronę na cel (P1: odwiert z transportem ciężarówkami) na określony czas; aktywna ochrona zmniejsza ryzyko kradzieży, napadu i sabotażu kursów drogowych. Architektura gotowa pod kolejne cele (odwierty, huby, rurociągi) — moduł podaje tylko `target_type` + `context` i pyta o efekty. Brief: `BRIEF_UNIWERSALNY_MODUL_OCHRONY.md`.

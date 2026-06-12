@@ -370,7 +370,7 @@ class RoadTransportService
                     'road_transport', $wid, 'road_transport_guard',
                     'protection_applied_to_incident', round($lost, 4),
                     implode(',', $types),
-                    ['incidents' => $incidents]
+                    ['summary' => $this->summarizeProtectionIncidents($incidents)]
                 );
             }
 
@@ -664,6 +664,39 @@ class RoadTransportService
             }
         }
         return 'accident';
+    }
+
+    /**
+     * Agreguje incydenty do lekkiego meta_json, zamiast zapisywac kazdy kurs.
+     * Aggregates incidents into a lightweight meta_json instead of storing every trip.
+     *
+     * @param list<array<string, mixed>> $incidents
+     * @return array<string, mixed>
+     */
+    private function summarizeProtectionIncidents(array $incidents): array
+    {
+        $byType = [];
+        $lostTotal = 0.0;
+        foreach ($incidents as $incident) {
+            $type = (string)($incident['type'] ?? 'unknown');
+            if (!isset($byType[$type])) {
+                $byType[$type] = ['count' => 0, 'lost_bbl' => 0.0];
+            }
+            $loss = (float)($incident['lost_bbl'] ?? 0.0);
+            $byType[$type]['count']++;
+            $byType[$type]['lost_bbl'] += $loss;
+            $lostTotal += $loss;
+        }
+
+        foreach ($byType as $type => $row) {
+            $byType[$type]['lost_bbl'] = round((float)$row['lost_bbl'], 4);
+        }
+
+        return [
+            'total_incidents' => count($incidents),
+            'lost_bbl' => round($lostTotal, 4),
+            'types' => $byType,
+        ];
     }
 
     private function rollIncidentType(int $totalWeight): string

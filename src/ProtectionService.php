@@ -127,11 +127,22 @@ class ProtectionService
      * @param array<string, mixed> $meta
      * @return array<string, mixed>
      */
-    public function activate(int $playerId, string $optionCode, string $targetType, int $targetId, float $referenceValue, array $meta = []): array
+    public function activate(
+        int $playerId,
+        string $optionCode,
+        string $targetType,
+        int $targetId,
+        float $referenceValue,
+        array $meta = [],
+        ?string $expectedContext = null
+    ): array
     {
         $opt = $this->optionByCode($optionCode);
         if ($opt === null || (string)$opt['target_type'] !== $targetType) {
             return ['success' => false, 'outcome' => 'not_found', 'message' => tPlain('protection.err_not_found')];
+        }
+        if ($expectedContext !== null && (string)$opt['context'] !== $expectedContext) {
+            return ['success' => false, 'outcome' => 'context_mismatch', 'message' => tPlain('protection.err_wrong_context')];
         }
         if ((int)$opt['is_active'] !== 1) {
             return ['success' => false, 'outcome' => 'disabled', 'message' => tPlain('protection.err_disabled')];
@@ -154,8 +165,7 @@ class ProtectionService
         }
 
         $cost = $this->computeCost($opt, $referenceValue);
-        $now = date('Y-m-d H:i:s');
-        $endsAt = date('Y-m-d H:i:s', time() + (int)$opt['duration_minutes'] * 60);
+        [$now, $endsAt] = $this->dbNowAndEndsAt((int)$opt['duration_minutes']);
         $optionId = (int)$opt['id'];
         $optionName = (string)$opt['name'];
 
@@ -194,6 +204,13 @@ class ProtectionService
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
+            }
+            if ($e instanceof PDOException && $e->getCode() === '23000') {
+                return [
+                    'success' => false,
+                    'outcome' => 'already_active',
+                    'message' => tPlain('protection.err_already_active_generic'),
+                ];
             }
             GameLog::error('ProtectionService', 'activate FAILED', $e, ['player_id' => $playerId, 'option' => $optionCode]);
             return ['success' => false, 'outcome' => 'error', 'message' => tPlain('protection.err_generic')];
@@ -283,7 +300,7 @@ class ProtectionService
                 $playerId, $optionId, $targetType, $targetId, $context,
                 $eventKey, $amount, $message,
                 $meta !== null ? json_encode($meta, JSON_UNESCAPED_UNICODE) : null,
-                date('Y-m-d H:i:s'),
+                $this->dbNow(),
             ]);
         } catch (Throwable $e) {
             GameLog::error('ProtectionService', 'logEvent FAILED', $e, ['event' => $eventKey]);
@@ -307,7 +324,7 @@ class ProtectionService
             }
             $this->db->prepare(
                 "UPDATE active_protections SET status = 'cancelled', updated_at = ? WHERE id = ?"
-            )->execute([date('Y-m-d H:i:s'), $activeId]);
+            )->execute([$this->dbNow(), $activeId]);
             $this->logEvent((int)$row['player_id'], (int)$row['protection_option_id'],
                 (string)$row['target_type'], (int)$row['target_id'], (string)$row['context'],
                 'protection_cancelled');
@@ -346,7 +363,7 @@ class ProtectionService
                     AND ap.status = 'active' AND ap.ends_at > ?
                   ORDER BY ap.ends_at DESC LIMIT 1"
             );
-            $stmt->execute([$playerId, $targetType, $targetId, $context, date('Y-m-d H:i:s')]);
+            $stmt->execute([$playerId, $targetType, $targetId, $context, $this->dbNow()]);
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
         } catch (Throwable $e) {
             GameLog::error('ProtectionService', 'activeRow FAILED', $e, ['player_id' => $playerId]);
@@ -406,7 +423,7 @@ class ProtectionService
         }
         $this->expiryChecked = true;
         try {
-            $now = date('Y-m-d H:i:s');
+            $now = $this->dbNow();
             $stmt = $this->db->prepare(
                 "SELECT id, player_id, protection_option_id, target_type, target_id, context
                    FROM active_protections WHERE status = 'active' AND ends_at <= ?"
@@ -425,6 +442,37 @@ class ProtectionService
             }
         } catch (Throwable $e) {
             GameLog::error('ProtectionService', 'expireOverdue FAILED', $e);
+        }
+    }
+
+    private function dbNow(): string
+    {
+        try {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $sql = $driver === 'sqlite' ? "SELECT datetime('now')" : "SELECT NOW()";
+            return (string)$this->db->query($sql)->fetchColumn();
+        } catch (Throwable $e) {
+            GameLog::error('ProtectionService', 'dbNow FAILED', $e);
+            return date('Y-m-d H:i:s');
+        }
+    }
+
+    /** @return array{0:string,1:string} */
+    private function dbNowAndEndsAt(int $durationMinutes): array
+    {
+        $durationMinutes = max(1, $durationMinutes);
+        try {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $stmt = $driver === 'sqlite'
+                ? $this->db->prepare("SELECT datetime('now') AS now_at, datetime('now', '+' || ? || ' minutes') AS ends_at")
+                : $this->db->prepare("SELECT NOW() AS now_at, DATE_ADD(NOW(), INTERVAL ? MINUTE) AS ends_at");
+            $stmt->execute([$durationMinutes]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            return [(string)$row['now_at'], (string)$row['ends_at']];
+        } catch (Throwable $e) {
+            GameLog::error('ProtectionService', 'dbNowAndEndsAt FAILED', $e, ['duration' => $durationMinutes]);
+            $now = date('Y-m-d H:i:s');
+            return [$now, date('Y-m-d H:i:s', time() + $durationMinutes * 60)];
         }
     }
 

@@ -56,9 +56,15 @@ try {
     }
 
     $svc = new ProtectionService($db);
-    $res = $svc->activate($playerId, $optionCode, 'road_transport', $wellId, 0.0, [
-        'label' => tPlain('protection.target_well', ['id' => $wellId]),
-    ]);
+    $res = $svc->activate(
+        $playerId,
+        $optionCode,
+        'road_transport',
+        $wellId,
+        0.0,
+        ['label' => tPlain('protection.target_well', ['id' => $wellId])],
+        'road_transport_guard'
+    );
 
     protectionJson($res);
 } catch (Throwable $e) {

@@ -9,10 +9,12 @@ declare(strict_types=1);
 return [
     // Bledy / Errors
     'protection.err_not_found'      => 'Ta opcja ochrony nie istnieje.',
+    'protection.err_wrong_context'  => 'Ta opcja ochrony nie pasuje do wybranego celu.',
     'protection.err_disabled'       => 'Ta ochrona jest obecnie niedostępna.',
     'protection.err_req_credibility'=> 'Wymagana wiarygodność firmy: co najmniej :min/100.',
     'protection.err_req_legal'      => 'Wymagany poziom działu prawnego: co najmniej :min/10.',
     'protection.err_already_active' => 'Ten cel ma już aktywną ochronę (do :ends).',
+    'protection.err_already_active_generic' => 'Ten cel ma już aktywną ochronę.',
     'protection.err_no_funds'       => 'Brakuje gotówki na ochronę (potrzeba :cost PLN).',
     'protection.err_generic'        => 'Nie udało się aktywować ochrony. Spróbuj ponownie.',
 

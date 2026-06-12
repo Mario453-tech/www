@@ -144,13 +144,9 @@ $fmtPln = static fn(float $v): string => number_format($v, 2, ',', ' ');
             </div>
             <div class="form-field">
                 <label><?= t('admin.protection.field_cost_currency') ?></label>
-                <select name="cost_currency" class="input-sm">
-                    <?php foreach (['cash', 'bank', 'both'] as $currency): ?>
-                    <option value="<?= $currency ?>" <?= ($editOption['cost_currency'] ?? 'cash') === $currency ? 'selected' : '' ?>>
-                        <?= t('admin.protection.currency_' . $currency) ?>
-                    </option>
-                    <?php endforeach ?>
-                </select>
+                <input type="hidden" name="cost_currency" value="cash">
+                <input type="text" class="input-sm" value="<?= htmlspecialchars(t('admin.protection.currency_cash')) ?>" disabled>
+                <small class="panel-hint"><?= t('admin.protection.cash_only_note') ?></small>
             </div>
             <div class="form-field">
                 <label><?= t('admin.protection.field_duration') ?></label>

@@ -100,13 +100,16 @@ class ProtectionSchema
                 starts_at            DATETIME NOT NULL,
                 ends_at              DATETIME NOT NULL,
                 status               ENUM('active','expired','cancelled','failed') NOT NULL DEFAULT 'active',
+                active_guard         TINYINT(1) GENERATED ALWAYS AS (CASE WHEN status = 'active' THEN 1 ELSE NULL END) STORED,
                 meta_json            TEXT NULL,
                 created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_active_prot_one_active (player_id, target_type, target_id, context, active_guard),
                 KEY idx_active_prot_target (player_id, target_type, target_id, context, status),
                 KEY idx_active_prot_status (status, ends_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+        self::ensureMysqlActiveGuard($db);
         $db->exec(
             "CREATE TABLE IF NOT EXISTS protection_logs (
                 id                   INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -179,6 +182,11 @@ class ProtectionSchema
             )"
         );
         $db->exec(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_prot_one_active
+               ON active_protections (player_id, target_type, target_id, context)
+              WHERE status = 'active'"
+        );
+        $db->exec(
             "CREATE TABLE IF NOT EXISTS protection_logs (
                 id                   INTEGER PRIMARY KEY AUTOINCREMENT,
                 player_id            INTEGER NOT NULL,
@@ -193,6 +201,63 @@ class ProtectionSchema
                 created_at           TEXT
             )"
         );
+    }
+
+    private static function ensureMysqlActiveGuard(PDO $db): void
+    {
+        try {
+            $db->exec(
+                "UPDATE active_protections ap
+                  JOIN (
+                        SELECT player_id, target_type, target_id, context, MAX(id) AS keep_id
+                          FROM active_protections
+                         WHERE status = 'active'
+                         GROUP BY player_id, target_type, target_id, context
+                        HAVING COUNT(*) > 1
+                  ) dup
+                    ON dup.player_id = ap.player_id
+                   AND dup.target_type = ap.target_type
+                   AND dup.target_id = ap.target_id
+                   AND dup.context = ap.context
+                   SET ap.status = 'cancelled', ap.updated_at = NOW()
+                 WHERE ap.status = 'active' AND ap.id <> dup.keep_id"
+            );
+
+            $colStmt = $db->prepare(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = 'active_protections'
+                    AND COLUMN_NAME = 'active_guard'"
+            );
+            $colStmt->execute();
+            if ((int)$colStmt->fetchColumn() === 0) {
+                $db->exec(
+                    "ALTER TABLE active_protections
+                       ADD COLUMN active_guard TINYINT(1)
+                       GENERATED ALWAYS AS (CASE WHEN status = 'active' THEN 1 ELSE NULL END) STORED
+                       AFTER status"
+                );
+            }
+
+            $idxStmt = $db->prepare(
+                "SELECT COUNT(*) FROM information_schema.STATISTICS
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = 'active_protections'
+                    AND INDEX_NAME = 'uq_active_prot_one_active'"
+            );
+            $idxStmt->execute();
+            if ((int)$idxStmt->fetchColumn() === 0) {
+                $db->exec(
+                    "ALTER TABLE active_protections
+                       ADD UNIQUE KEY uq_active_prot_one_active
+                       (player_id, target_type, target_id, context, active_guard)"
+                );
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('ProtectionSchema', 'ensureMysqlActiveGuard FAILED', $e);
+            }
+        }
     }
 
     /**
