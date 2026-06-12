@@ -1946,6 +1946,7 @@ window.PROTECTION_CSRF = document.querySelector('meta[name="csrf-token"]')?.cont
 window.PROTECTION_LANG = <?= json_encode([
     'confirm_question' => tPlain('protection.confirm_question'),
     'err'              => tPlain('protection.err_generic'),
+    'err_target_invalid' => tPlain('protection.err_target_invalid'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 
@@ -2220,4 +2221,3 @@ function confirmPipelinePurchase() {
         });
 }
 </script>
-

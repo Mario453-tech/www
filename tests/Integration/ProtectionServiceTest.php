@@ -307,6 +307,23 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(2, (int)$count);
     }
 
+    public function testGetActiveProtectionsReturnsBatchMapWithEffects(): void
+    {
+        $this->seedPlayer(1, 5000000.00);
+        $svc = new ProtectionService($this->db);
+
+        $this->assertTrue($svc->activate(1, 'hub_security', 'hub', 12, 0.0, [], 'hub_guard')['success']);
+        $this->assertTrue($svc->activate(1, 'hub_security', 'hub', 13, 0.0, [], 'hub_guard')['success']);
+
+        $protections = $svc->getActiveProtections(1, 'hub', [12, 13, 99], 'hub_guard');
+
+        $this->assertArrayHasKey(12, $protections);
+        $this->assertArrayHasKey(13, $protections);
+        $this->assertArrayNotHasKey(99, $protections);
+        $this->assertSame(0.75, $protections[12]['effects']['equipment_damage_risk_mult']['value']);
+        $this->assertSame('hub_security', $protections[13]['option_code']);
+    }
+
     // ------------------------------------------------------------- helpers
 
     private function seedPlayer(int $id, float $cash, int $credibility = 50): void

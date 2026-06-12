@@ -2,6 +2,14 @@
 
 ### 2026-06-12 - Ochrona P2: huby i rurociągi
 
+**Hotfix po wdrożeniu P2** — domknięto błędy ochrony hubów/rurociągów:
+- `public/protection.php` — ochrona huba może być wykupiona tylko przez właściciela huba. Najemca nie zapłaci już za ochronę, której tick nie zastosuje.
+- `src/ProtectionService.php` — dodano `getActiveProtections()` do batchowego pobierania aktywnych ochron wraz z efektami.
+- `public/logistics.php` — lista ochron transportu drogowego, hubów i rurociągów używa batchowych odczytów zamiast zapytania per element.
+- `src/Tick/PipelineSection.php`, `src/HubIncidentService.php`, `src/Tick/WellHubSection.php` — tick prefetchuje ochrony hubów i rurociągów oraz loguje `protection_applied_to_incident` z prawidłowym `protection_option_id`.
+- `assets/js/protection.js` — brak poprawnego celu w modalu pokazuje błąd zamiast cicho ignorować kliknięcie.
+- Testy: `ProtectionServiceTest` 16/16, `HubIncidentServiceTest` 2/2, MySQL hub/pipeline 3/3.
+
 **Rozszerzenie uniwersalnego modułu ochrony na huby logistyczne i rurociągi** — ten sam silnik (`ProtectionService`), nowe cele. Gracz wykupuje ochronę huba lub rurociągu w panelu logistyki; aktywna ochrona zmniejsza ryzyko incydentów odpowiedniego typu. Architektura bez zmian — tylko nowe `target_type` + `context` i wpięcie efektów w istniejące silniki incydentów.
 
 - `src/Protection/ProtectionSchema.php` — seed 2 nowych opcji: Ochrona huba (`hub_security`, 120 000 PLN/60 min, `target_type='hub'`, `context='hub_guard'`, mnożniki uszkodzenia sprzętu/wycieku/przeciążenia) i Monitoring rurociągu (`pipeline_monitor`, 30 000 PLN/h, 120 min, `target_type='pipeline'`, `context='pipeline_guard'`, mnożnik awarii). Seed uogólniony — `target_type`/`context` per opcja.

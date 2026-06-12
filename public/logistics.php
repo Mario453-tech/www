@@ -266,9 +266,15 @@ try {
         );
         $nameStmt->execute($roadWellIds);
         $wellNames = $nameStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $activeRoadProtections = $protSvc->getActiveProtections(
+            $playerId,
+            'road_transport',
+            $roadWellIds,
+            'road_transport_guard'
+        );
 
         foreach ($roadWellIds as $roadWellId) {
-            $activeProt = $protSvc->getActiveProtection($playerId, 'road_transport', $roadWellId, 'road_transport_guard');
+            $activeProt = $activeRoadProtections[$roadWellId] ?? null;
             $roadProtectionWells[] = [
                 'id'     => $roadWellId,
                 'name'   => (string)($wellNames[$roadWellId] ?? ''),
@@ -286,13 +292,22 @@ try {
             $opt['effect_lines'] = $protEffectLines($opt['effects']);
             $hubProtectionOptions[] = $opt;
         }
+        $hubIds = [];
+        foreach ($hubCards as $card) {
+            $hubId = (int)(($card['hub'] ?? [])['id'] ?? 0);
+            if ($hubId > 0) {
+                $hubIds[] = $hubId;
+            }
+        }
+        $activeHubProtections = $protSvc->getActiveProtections($playerId, 'hub', $hubIds, 'hub_guard');
+
         foreach ($hubCards as $card) {
             $hub = $card['hub'] ?? [];
             $hubId = (int)($hub['id'] ?? 0);
             if ($hubId <= 0) {
                 continue;
             }
-            $activeProt = $protSvc->getActiveProtection($playerId, 'hub', $hubId, 'hub_guard');
+            $activeProt = $activeHubProtections[$hubId] ?? null;
             $hubProtectionTargets[] = [
                 'id'     => $hubId,
                 'name'   => (string)($hub['name'] ?? ('Hub #' . $hubId)),
@@ -442,6 +457,20 @@ if ($protSvc !== null && $pipelines !== []) {
             $opt['effect_lines'] = $protEffectLines($opt['effects']);
             $pipelineProtectionOptions[] = $opt;
         }
+        $pipelineIds = [];
+        foreach ($pipelines as $pipe) {
+            $pipeId = (int)($pipe['id'] ?? 0);
+            if ($pipeId > 0 && ($pipe['status'] ?? '') !== 'building') {
+                $pipelineIds[] = $pipeId;
+            }
+        }
+        $activePipelineProtections = $protSvc->getActiveProtections(
+            $playerId,
+            'pipeline',
+            $pipelineIds,
+            'pipeline_guard'
+        );
+
         foreach ($pipelines as $pipe) {
             $pipeId = (int)($pipe['id'] ?? 0);
             if ($pipeId <= 0 || ($pipe['status'] ?? '') === 'building') {
@@ -450,7 +479,7 @@ if ($protSvc !== null && $pipelines !== []) {
             $legLabel = ($pipe['leg'] ?? 'inbound') === 'outbound'
                 ? tPlain('protection.pipeline_leg_outbound')
                 : tPlain('protection.pipeline_leg_inbound');
-            $activeProt = $protSvc->getActiveProtection($playerId, 'pipeline', $pipeId, 'pipeline_guard');
+            $activeProt = $activePipelineProtections[$pipeId] ?? null;
             $pipelineProtectionTargets[] = [
                 'id'     => $pipeId,
                 'name'   => tPlain('protection.pipeline_target_leg', ['id' => $pipeId, 'leg' => $legLabel]),

@@ -66,6 +66,11 @@ class WellHubSection
             return;
         }
 
+        if ($this->hubIncidentSvc !== null && $this->protectionSvc !== null) {
+            $hubIds = array_map('intval', array_keys($this->ctx->hubCache));
+            $this->hubIncidentSvc->preloadProtections($playerId, $hubIds, $this->protectionSvc);
+        }
+
         foreach ($this->ctx->hubCache as $hubId => $hub) {
             try {
                 $inputBbl = $this->ctx->hubInputAccum[$hubId] ?? 0.0;

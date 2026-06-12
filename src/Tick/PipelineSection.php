@@ -14,6 +14,8 @@ class PipelineSection
     private DateTime $now;
     private WellService $wellService;
     private WellPipelineService $wellPipelineService;
+    /** @var array<int, array<string, mixed>> */
+    private array $pipelineProtectionCache = [];
 
     public function __construct(PDO $db, DateTime $now, WellService $wellService)
     {
@@ -40,6 +42,7 @@ class PipelineSection
         ?object $tsvc,
         ?ProtectionService $protection = null
     ): void {
+        $this->pipelineProtectionCache = [];
         try {
  // Complete pipeline builds that have finished / Finalizuj rurociagi ktore skonczyly budowe
             $completed = $this->wellPipelineService->completeBuildingPipelines($playerId);
@@ -100,6 +103,18 @@ class PipelineSection
             $pipelines = array_merge($inboundPipelines, $outboundPipelines);
 
             $hasPipelineEngineer = $this->checkPipelineEngineer($playerId);
+            if ($protection !== null && $pipelines !== []) {
+                $pipelineIds = array_map(
+                    static fn(array $pipeline): int => (int)($pipeline['id'] ?? 0),
+                    $pipelines
+                );
+                $this->pipelineProtectionCache = $protection->getActiveProtections(
+                    $playerId,
+                    'pipeline',
+                    $pipelineIds,
+                    'pipeline_guard'
+                );
+            }
 
             foreach ($pipelines as $pipeline) {
                 $pipelineId          = (int) $pipeline['id'];
@@ -322,7 +337,8 @@ class PipelineSection
         $condFactor = max(0.2, (100.0 - $conditionPct) / 100.0);
         $engMult    = $hasPipelineEngineer ? 0.5 : 1.0;
         $hseMult    = (float)($hseBonus['failure_reduction'] ?? 1.0);
-        $protMult   = $this->pipelineProtectionMult($protection, $playerId, $pipelineId);
+        $protectionData = $this->pipelineProtectionData($protection, $playerId, $pipelineId);
+        $protMult       = $protectionData['mult'];
 
  // Incident table: level => short name for event log
         $levels = ['pipe_micro' => 'micro', 'pipe_minor' => 'minor', 'pipe_medium' => 'medium'];
@@ -367,7 +383,7 @@ class PipelineSection
                     'loss_add' => number_format($lossAdd, 1, '.', ''),
                     'cond_drop'=> number_format($condDrop, 1, '.', ''),
                 ]),
-                $levelShort   // level column — 'micro', 'minor', 'medium'
+                $levelShort   // level column - 'micro', 'minor', 'medium'
             );
 
             GameLog::info('tick', 'pipeline_incident', [
@@ -380,9 +396,9 @@ class PipelineSection
                 'cond_drop'   => round($condDrop, 1),
             ]);
 
-            if ($protection !== null && $protMult < 1.0) {
+            if ($protection !== null && $protMult < 1.0 && $protectionData['option_id'] > 0) {
                 $protection->logEvent(
-                    $playerId, 0, 'pipeline', $pipelineId, 'pipeline_guard',
+                    $playerId, $protectionData['option_id'], 'pipeline', $pipelineId, 'pipeline_guard',
                     'protection_applied_to_incident', round($lossAdd, 2), $levelShort
                 );
             }
@@ -392,20 +408,28 @@ class PipelineSection
     }
 
     /**
-     * Mnoznik ochrony rurociagu (pipeline_incident_risk_mult) lub 1.0 gdy brak ochrony.
-     * Pipeline protection multiplier (pipeline_incident_risk_mult) or 1.0 when none.
+     * Dane ochrony rurociagu: mnoznik ryzyka i ID opcji do audytu.
+     * Pipeline protection data: risk multiplier and option ID for audit.
+     *
+     * @return array{mult: float, option_id: int}
      */
-    private function pipelineProtectionMult(?ProtectionService $protection, int $playerId, int $pipelineId): float
+    private function pipelineProtectionData(?ProtectionService $protection, int $playerId, int $pipelineId): array
     {
         if ($protection === null) {
-            return 1.0;
+            return ['mult' => 1.0, 'option_id' => 0];
         }
-        $effects = $protection->getActiveEffects($playerId, 'pipeline', $pipelineId, 'pipeline_guard');
+        $row = $this->pipelineProtectionCache[$pipelineId]
+            ?? $protection->getActiveProtection($playerId, 'pipeline', $pipelineId, 'pipeline_guard');
+        if ($row === null) {
+            return ['mult' => 1.0, 'option_id' => 0];
+        }
+        $effects = $row['effects'] ?? [];
         $eff = $effects['pipeline_incident_risk_mult'] ?? null;
+        $mult = 1.0;
         if ($eff !== null && $eff['type'] === 'mult') {
-            return max(0.0, min(1.0, (float)$eff['value']));
+            $mult = max(0.0, min(1.0, (float)$eff['value']));
         }
-        return 1.0;
+        return ['mult' => $mult, 'option_id' => (int)($row['protection_option_id'] ?? 0)];
     }
 
     private function checkPipelineEngineer(int $playerId): bool
