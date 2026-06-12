@@ -33,18 +33,6 @@ class RoadTransportService
         'route_block' => 2,
     ];
 
- /**
- * Mapowanie kluczy efektow ochrony (ProtectionService) na typy incydentow.
- * Typy accident i route_block celowo bez ochrony (awaria/korki).
- * Maps protection effect keys (ProtectionService) to incident types.
- * accident and route_block intentionally unprotected (breakdown/road blocks).
- */
-    private const PROTECTION_EFFECT_TO_TYPE = [
-        'theft_risk_mult'    => 'theft',
-        'raid_risk_mult'     => 'raid',
-        'sabotage_risk_mult' => 'sabotage',
-    ];
-
  /** Parametry domylne typw ciarwek / Default parameters for truck types */
     private const TRUCK_DEFAULTS = [
         'standard' => ['trip_capacity_bbl' => 25.0, 'cost_per_trip' =>  500.0, 'incident_risk_mult' => 1.000, 'trip_hours' => 2],
@@ -298,15 +286,10 @@ class RoadTransportService
  * Przetwarza ukonczone kursy (eta_at <= NOW()). Stosuje incydenty, aktualizuje rekordy.
  * Processes completed trips (eta_at <= NOW()). Applies incidents, updates records.
  *
- * Ochrona (ProtectionService) dziala per odwiert: mnozniki theft/raid/sabotage
- * nakladane na wagi incydentow przy rozliczaniu kursu.
- * Protection (ProtectionService) works per well: theft/raid/sabotage multipliers
- * applied to incident weights when the trip is resolved.
- *
  * @param array<string, mixed> $hseBonus
  * @return array{delivered_bbl:float, lost_bbl:float, completed_count:int, delivered_by_well:array<int,float>}
  */
-    public function processCompletedTrips(int $playerId, array $hseBonus, ?ProtectionService $protection = null): array
+    public function processCompletedTrips(int $playerId, array $hseBonus): array
     {
         $totalDelivered = 0.0;
         $totalLost      = 0.0;
@@ -331,48 +314,15 @@ class RoadTransportService
             return ['delivered_bbl' => 0.0, 'lost_bbl' => 0.0, 'completed_count' => 0, 'delivered_by_well' => []];
         }
 
- /** @var array<int, array<string,mixed>|null> well_id => aktywna ochrona / active protection */
-        $protByWell = [];
-
         foreach ($trips as $trip) {
-            $wid = (int)$trip['well_id'];
-
-            if ($protection !== null && !array_key_exists($wid, $protByWell)) {
-                $protByWell[$wid] = $protection->getActiveProtection(
-                    $playerId, 'road_transport', $wid, 'road_transport_guard'
-                );
-            }
-            $activeProt = $protByWell[$wid] ?? null;
-            $protMults = [];
-            if ($activeProt !== null) {
-                foreach (self::PROTECTION_EFFECT_TO_TYPE as $effectKey => $incidentType) {
-                    $eff = $activeProt['effects'][$effectKey] ?? null;
-                    if ($eff !== null && $eff['type'] === 'mult') {
-                        $protMults[$incidentType] = (float)$eff['value'];
-                    }
-                }
-            }
-
             [$delivered, $lost, $incidents] = $this->applyTripIncidents(
                 (float)$trip['volume_bbl'],
                 (int)$trip['trips_count'],
                 (float)$trip['incident_risk_mult'],
                 (int)$trip['political_risk_level'],
                 (int)$trip['trip_hours'],
-                $hseBonus,
-                $protMults
+                $hseBonus
             );
-
-            if ($protection !== null && $activeProt !== null && $incidents !== []) {
-                $types = array_values(array_unique(array_column($incidents, 'type')));
-                $protection->logEvent(
-                    $playerId, (int)$activeProt['protection_option_id'],
-                    'road_transport', $wid, 'road_transport_guard',
-                    'protection_applied_to_incident', round($lost, 4),
-                    implode(',', $types),
-                    ['incidents' => $incidents]
-                );
-            }
 
             try {
                 $this->db->prepare(
@@ -397,6 +347,7 @@ class RoadTransportService
             $totalLost      += $lost;
             $completed++;
 
+            $wid = (int)$trip['well_id'];
             $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
         }
 
@@ -575,15 +526,7 @@ class RoadTransportService
  * Stosuje incydenty per-kurs dla paczki kursow. Zwraca [delivered, lost, incidents].
  * Applies per-trip incidents for a batch of trips. Returns [delivered, lost, incidents].
  *
- * Mnozniki ochrony dzialaja na wagach typow: w'_i = w_i * mult_i, a laczna szansa
- * jest skalowana przez sum(w')/sum(w) - typy niechronione (accident, route_block)
- * zachowuja dokladnie swoje bazowe prawdopodobienstwa.
- * Protection multipliers act on type weights: w'_i = w_i * mult_i, and the total
- * chance is scaled by sum(w')/sum(w) - unprotected types (accident, route_block)
- * keep exactly their base probabilities.
- *
  * @param array<string, mixed> $hseBonus
- * @param array<string, float> $protMults typ incydentu => mnoznik / incident type => multiplier
  * @return array{float, float, list<array<string, mixed>>}
  */
     private function applyTripIncidents(
@@ -592,8 +535,7 @@ class RoadTransportService
         float $riskMult,
         int   $politicalRiskLevel,
         int   $tripHours,
-        array $hseBonus,
-        array $protMults = []
+        array $hseBonus
     ): array {
         if ($totalVolume <= 0.0 || $tripsCount <= 0) {
             return [0.0, 0.0, []];
@@ -612,20 +554,10 @@ class RoadTransportService
             self::BASE_INCIDENT_CHANCE_PER_HOUR * $riskMult * $politicalScale * $hseScale * $tripHours
         );
 
-        $weights = array_map('floatval', self::INCIDENT_WEIGHTS);
-        if ($protMults !== []) {
-            foreach ($protMults as $type => $mult) {
-                if (isset($weights[$type])) {
-                    $weights[$type] *= max(0.0, min(1.0, $mult));
-                }
-            }
-            $baseWeight = (float)array_sum(self::INCIDENT_WEIGHTS);
-            $incidentChance *= array_sum($weights) / $baseWeight;
-        }
-
         $deliveredBbl = 0.0;
         $lostBbl      = 0.0;
         $incidents    = [];
+        $totalWeight  = (int)array_sum(self::INCIDENT_WEIGHTS);
         $threshold    = (int)($incidentChance * 1_000_000);
 
         for ($i = 0; $i < $tripsCount; $i++) {
@@ -633,7 +565,7 @@ class RoadTransportService
                 $deliveredBbl += $volPerTrip;
                 continue;
             }
-            $type  = $this->rollIncidentTypeWeighted($weights);
+            $type  = $this->rollIncidentType($totalWeight);
             $loss  = min($volPerTrip, round($this->computeTripLoss($type, $volPerTrip), 4));
             $deliveredBbl += max(0.0, $volPerTrip - $loss);
             $lostBbl      += $loss;
@@ -641,29 +573,6 @@ class RoadTransportService
         }
 
         return [round($deliveredBbl, 4), round($lostBbl, 4), $incidents];
-    }
-
- /**
- * Losuje typ incydentu z wag zmiennoprzecinkowych (po nalozeniu ochrony).
- * Rolls the incident type from float weights (after protection is applied).
- *
- * @param array<string, float> $weights
- */
-    private function rollIncidentTypeWeighted(array $weights): string
-    {
-        $total = array_sum($weights);
-        if ($total <= 0.0) {
-            return 'accident';
-        }
-        $roll  = mt_rand(1, 1_000_000) / 1_000_000 * $total;
-        $cumul = 0.0;
-        foreach ($weights as $type => $weight) {
-            $cumul += $weight;
-            if ($roll <= $cumul) {
-                return $type;
-            }
-        }
-        return 'accident';
     }
 
     private function rollIncidentType(int $totalWeight): string

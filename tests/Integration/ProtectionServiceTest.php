@@ -154,6 +154,9 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         $past = date('Y-m-d H:i:s', time() - 60);
         $this->db->exec("UPDATE active_protections SET ends_at = '{$past}' WHERE player_id = 1");
 
+        // Nowa instancja = nowe zadanie (wygaszanie raz na instancje serwisu).
+        // New instance = new request (expiry runs once per service instance).
+        $svc = new ProtectionService($this->db);
         $effects = $svc->getActiveEffects(1, 'road_transport', 7, 'road_transport_guard');
         $this->assertSame([], $effects, 'Przeterminowana ochrona nie daje efektow.');
 

@@ -216,11 +216,8 @@ class PlayersSection
         if (class_exists('WellRoadTripSection') && class_exists('RoadTransportService')) {
             try {
                 $roadSvc        = new RoadTransportService($db);
- // Ochrona kursow (theft/raid/sabotage) - guarded, brak klasy nie blokuje ticka.
- // Trip protection (theft/raid/sabotage) - guarded, a missing class never blocks the tick.
-                $protectionSvc  = class_exists('ProtectionService') ? new ProtectionService($db) : null;
                 $roadTripSec    = new WellRoadTripSection($db, $now);
-                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc, $protectionSvc);
+                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc);
                 if ($roadTripSec->deliveredBbl > 0.0) {
                     $wellLoop->finBbl       += $roadTripSec->deliveredBbl;
                     $wellLoop->deliveredBbl += $roadTripSec->deliveredBbl;

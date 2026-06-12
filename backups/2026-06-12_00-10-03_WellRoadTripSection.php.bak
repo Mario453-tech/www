@@ -46,15 +46,14 @@ class WellRoadTripSection
         float                $currentStorage,
         float                $storageCapacity,
         array                $hseBonus,
-        ?RoadTransportService $roadTransportSvc,
-        ?ProtectionService   $protectionSvc = null
+        ?RoadTransportService $roadTransportSvc
     ): float {
         if ($roadTransportSvc === null) {
             return $currentStorage;
         }
 
         try {
-            $result    = $roadTransportSvc->processCompletedTrips($playerId, $hseBonus, $protectionSvc);
+            $result    = $roadTransportSvc->processCompletedTrips($playerId, $hseBonus);
             $delivered = (float)$result['delivered_bbl'];
             $lost      = (float)$result['lost_bbl'];
             $count     = (int)$result['completed_count'];

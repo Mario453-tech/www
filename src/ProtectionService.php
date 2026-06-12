@@ -28,6 +28,7 @@ class ProtectionService
     private PDO $db;
     private CompanyCredibilityService $credibility;
     private ?LegalService $legal = null;
+    private bool $expiryChecked = false;
 
     public function __construct(?PDO $db = null)
     {
@@ -394,6 +395,14 @@ class ProtectionService
      */
     private function expireOverdue(): void
     {
+        // Raz na instancje - w obrebie jednego zadania/ticka czas praktycznie stoi,
+        // a activeRow i tak filtruje po ends_at.
+        // Once per instance - time barely moves within one request/tick,
+        // and activeRow filters by ends_at anyway.
+        if ($this->expiryChecked) {
+            return;
+        }
+        $this->expiryChecked = true;
         try {
             $now = date('Y-m-d H:i:s');
             $stmt = $this->db->prepare(
