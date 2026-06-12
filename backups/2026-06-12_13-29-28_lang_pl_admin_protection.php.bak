@@ -15,7 +15,6 @@ return [
     'admin.protection.tab_effects' => 'Efekty',
     'admin.protection.tab_active'  => 'Aktywne ochrony',
     'admin.protection.tab_history' => 'Historia',
-    'admin.protection.tab_help'    => 'Pomoc / Instrukcja',
 
     // Lista opcji / Options list
     'admin.protection.options_list_title' => 'Zdefiniowane opcje ochrony',
@@ -68,32 +67,6 @@ return [
     'admin.protection.btn_save_effect'    => 'Zapisz efekt',
     'admin.protection.btn_delete'         => 'Usuń',
     'admin.protection.confirm_delete_effect' => 'Usunąć ten efekt ochrony?',
-
-    // Przyjazne nazwy kluczy efektow / Friendly names for effect keys
-    'admin.protection.ek.theft_risk_mult'            => 'Ryzyko kradzieży ładunku (transport drogowy)',
-    'admin.protection.ek.raid_risk_mult'             => 'Ryzyko napadu na transport (transport drogowy)',
-    'admin.protection.ek.sabotage_risk_mult'         => 'Ryzyko sabotażu transportu (transport drogowy)',
-    'admin.protection.ek.equipment_damage_risk_mult' => 'Ryzyko uszkodzenia sprzętu (hub)',
-    'admin.protection.ek.local_leak_risk_mult'       => 'Ryzyko wycieku lokalnego (hub)',
-    'admin.protection.ek.critical_overload_risk_mult'=> 'Ryzyko krytycznego przeciążenia (hub)',
-    'admin.protection.ek.transfer_failure_risk_mult' => 'Ryzyko awarii przeładunku (hub)',
-    'admin.protection.ek.loading_error_risk_mult'    => 'Ryzyko błędu załadunku (hub)',
-    'admin.protection.ek.storage_jam_risk_mult'      => 'Ryzyko zatoru magazynowego (hub)',
-    'admin.protection.ek.pipeline_incident_risk_mult'=> 'Ryzyko awarii rurociągu (rurociąg)',
-
-    // Przyjazne nazwy typow efektow / Friendly names for effect types
-    'admin.protection.et.mult'  => 'Mnożnik ryzyka (< 1 = redukcja, np. 0,70 = −30%)',
-    'admin.protection.et.delta' => 'Zmiana bezwzględna (+ zwiększa, − zmniejsza ryzyko)',
-
-    // Przyjazne nazwy typow celu / Friendly names for target types
-    'admin.protection.tt.road_transport' => 'Transport drogowy',
-    'admin.protection.tt.hub'            => 'Hub logistyczny',
-    'admin.protection.tt.pipeline'       => 'Rurociąg',
-
-    // Przyjazne nazwy kontekstow / Friendly names for contexts
-    'admin.protection.ctx.road_transport_guard' => 'Ochrona transportu drogowego',
-    'admin.protection.ctx.hub_guard'            => 'Ochrona hubu logistycznego',
-    'admin.protection.ctx.pipeline_guard'       => 'Ochrona rurociągu',
 
     // Aktywne / Active
     'admin.protection.active_title'  => 'Wykupione ochrony (ostatnie 100)',

@@ -10,41 +10,8 @@
 /** @var string $err */
 extract($viewData, EXTR_SKIP);
 
-$tabs = ['options', 'effects', 'active', 'history', 'help'];
+$tabs = ['options', 'effects', 'active', 'history'];
 $fmtPln = static fn(float $v): string => number_format($v, 2, ',', ' ');
-
-// Formatowanie wartosci efektu z kontekstem typu / Format effect value with type context
-$fmtEffVal = static function (string $type, string $rawVal): string {
-    $v = (float)$rawVal;
-    if ($type === 'mult') {
-        $pct = (int)round(abs(1.0 - $v) * 100);
-        $sign = $v < 1.0 ? "\xe2\x88\x92" : '+';
-        return number_format($v, 2, ',', "\xc2\xa0") . "\xc2\xa0(" . $sign . $pct . '%)';
-    }
-    $sign = $v >= 0 ? '+' : "\xe2\x88\x92";
-    return $sign . number_format(abs($v), 2, ',', "\xc2\xa0");
-};
-
-// Przyjazna nazwa klucza efektu lub oryginal / Friendly effect key name or original
-$effKeyLabel = static function (string $key): string {
-    $langKey = 'admin.protection.ek.' . $key;
-    $label = tPlain($langKey);
-    return $label !== $langKey ? $label : $key;
-};
-
-// Przyjazna nazwa typu celu lub oryginal / Friendly target type name or original
-$ttLabel = static function (string $tt): string {
-    $langKey = 'admin.protection.tt.' . $tt;
-    $label = tPlain($langKey);
-    return $label !== $langKey ? $label : $tt;
-};
-
-// Przyjazna nazwa kontekstu lub oryginal / Friendly context name or original
-$ctxLabel = static function (string $ctx): string {
-    $langKey = 'admin.protection.ctx.' . $ctx;
-    $label = tPlain($langKey);
-    return $label !== $langKey ? $label : $ctx;
-};
 ?>
 
 <h1><?= t('admin.protection.title') ?></h1>
@@ -84,10 +51,7 @@ $ctxLabel = static function (string $ctx): string {
         <div class="protection-admin-row">
             <span><code><?= htmlspecialchars((string)$opt['code']) ?></code></span>
             <span><?= htmlspecialchars((string)$opt['name']) ?></span>
-            <span>
-                <?= htmlspecialchars($ttLabel((string)$opt['target_type'])) ?>
-                <br><small class="c-muted2"><?= htmlspecialchars($ctxLabel((string)$opt['context'])) ?></small>
-            </span>
+            <span><?= htmlspecialchars((string)$opt['target_type']) ?><br><small><?= htmlspecialchars((string)$opt['context']) ?></small></span>
             <span><?= $fmtPln((float)$opt['cost_value']) ?><br><small><?= t('admin.protection.cost_type_' . $opt['cost_type']) ?></small></span>
             <span><?= (int)$opt['duration_minutes'] ?> min</span>
             <span>
@@ -234,16 +198,9 @@ $ctxLabel = static function (string $ctx): string {
     <div class="protection-admin-grid protection-admin-grid--effects">
         <?php foreach ($optEffects as $eff): ?>
         <div class="protection-admin-row">
-            <span>
-                <?= htmlspecialchars($effKeyLabel((string)$eff['effect_key'])) ?>
-                <br><small class="c-muted2"><code><?= htmlspecialchars((string)$eff['effect_key']) ?></code></small>
-            </span>
-            <span>
-                <?= t('admin.protection.et.' . $eff['effect_type']) ?>
-            </span>
-            <span class="c-accent">
-                <?= htmlspecialchars($fmtEffVal((string)$eff['effect_type'], (string)$eff['effect_value'])) ?>
-            </span>
+            <span><code><?= htmlspecialchars((string)$eff['effect_key']) ?></code></span>
+            <span><?= htmlspecialchars((string)$eff['effect_type']) ?></span>
+            <span><?= htmlspecialchars((string)$eff['effect_value']) ?></span>
             <span>
                 <form method="post" action="/admin/protection.php?tab=effects" class="protection-inline-form"
                       data-confirm="<?= htmlspecialchars(tPlain('admin.protection.confirm_delete_effect')) ?>">
@@ -270,8 +227,8 @@ $ctxLabel = static function (string $ctx): string {
         <div class="form-field">
             <label><?= t('admin.protection.field_effect_type') ?></label>
             <select name="effect_type" class="input-sm">
-                <option value="mult">mult — mnożnik (0.05–1.0)</option>
-                <option value="delta">delta — zmiana +/- (max ±0.99)</option>
+                <option value="mult">mult</option>
+                <option value="delta">delta</option>
             </select>
         </div>
         <div class="form-field">
@@ -312,7 +269,7 @@ $ctxLabel = static function (string $ctx): string {
         <div class="protection-admin-row">
             <span><?= htmlspecialchars((string)($ap['company_name'] ?? $ap['username'] ?? ('#' . $ap['player_id']))) ?></span>
             <span><?= htmlspecialchars((string)$ap['option_name']) ?></span>
-            <span><?= htmlspecialchars($ttLabel((string)$ap['target_type'])) ?> #<?= (int)$ap['target_id'] ?></span>
+            <span><?= htmlspecialchars((string)$ap['target_type']) ?> #<?= (int)$ap['target_id'] ?></span>
             <span><?= $fmtPln((float)$ap['cost']) ?> PLN</span>
             <span>
                 <small><?= htmlspecialchars(substr((string)$ap['starts_at'], 0, 16)) ?></small><br>
@@ -338,7 +295,7 @@ $ctxLabel = static function (string $ctx): string {
     <?php endif ?>
 </section>
 
-<?php elseif ($activeTab === 'history'): ?>
+<?php else: ?>
 <!-- == HISTORIA OCHRONY / PROTECTION HISTORY == -->
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.protection.history_title') ?></p>
@@ -360,7 +317,7 @@ $ctxLabel = static function (string $ctx): string {
             <span><small><?= htmlspecialchars(substr((string)$logRow['created_at'], 0, 16)) ?></small></span>
             <span><?= htmlspecialchars((string)($logRow['company_name'] ?? $logRow['username'] ?? ('#' . $logRow['player_id']))) ?></span>
             <span><?= htmlspecialchars((string)($logRow['option_name'] ?? ('#' . $logRow['protection_option_id']))) ?></span>
-            <span><?= htmlspecialchars($ttLabel((string)$logRow['target_type'])) ?> #<?= (int)$logRow['target_id'] ?></span>
+            <span><?= htmlspecialchars((string)$logRow['target_type']) ?> #<?= (int)$logRow['target_id'] ?></span>
             <span><code><?= htmlspecialchars((string)$logRow['event_key']) ?></code></span>
             <span><?= $fmtPln((float)$logRow['amount']) ?></span>
             <span><small><?= htmlspecialchars((string)$logRow['message']) ?></small></span>
@@ -368,153 +325,6 @@ $ctxLabel = static function (string $ctx): string {
         <?php endforeach ?>
     </div>
     <?php endif ?>
-</section>
-
-<?php elseif ($activeTab === 'help'): ?>
-<!-- == POMOC / HELP == -->
-<section class="panel mb-8">
-    <p class="panel-title">Jak działa moduł ochrony — instrukcja dla administratora</p>
-
-    <div class="protection-help-block">
-        <h3>1. Typy celów (target_type) i konteksty (context)</h3>
-        <p>Każda opcja ochrony dotyczy konkretnego <strong>typu zasobu</strong> w grze.
-           Razem z polem <em>kontekst</em> tworzą parę, którą system sprawdza przy wykupie i tick-u.</p>
-        <div class="protection-admin-grid protection-admin-grid--help">
-            <div class="protection-admin-row protection-admin-row--head">
-                <span>target_type</span><span>context</span><span>Znaczenie</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>road_transport</code></span>
-                <span><code>road_transport_guard</code></span>
-                <span>Transport drogowy — ochrona odwiertu (szybu), stosowana przy każdym przejechaniu trasy.</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>hub</code></span>
-                <span><code>hub_guard</code></span>
-                <span>Hub logistyczny — ochrona własnego hubu, stosowana w trakcie tick-u zdarzeń hubowych.</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>pipeline</code></span>
-                <span><code>pipeline_guard</code></span>
-                <span>Rurociąg — ochrona odcinka rurociągu, stosowana przy zdarzeniach awarii rurociągu w tick-u.</span>
-            </div>
-        </div>
-        <p class="panel-hint">Ważne: tylko właściciel hubu (nie najemca) może wykupić ochronę hubu — tick liczy ochronę zawsze pod ID właściciela.</p>
-    </div>
-
-    <div class="protection-help-block">
-        <h3>2. Typy efektów (effect_type): <code>mult</code> vs <code>delta</code></h3>
-        <div class="protection-admin-grid protection-admin-grid--help">
-            <div class="protection-admin-row protection-admin-row--head">
-                <span>Typ</span><span>Wzór</span><span>Zakres</span><span>Przykład</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>mult</code></span>
-                <span>ryzyko_końcowe = bazowe &times; wartość</span>
-                <span>0,05 – 1,00</span>
-                <span>0,70 → ryzyko spada o 30%; 1,00 → brak efektu</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>delta</code></span>
-                <span>ryzyko_końcowe = bazowe + wartość</span>
-                <span>&minus;0,99 – +0,99</span>
-                <span>&minus;0,15 → ryzyko spada o 0,15 punktu bazowego</span>
-            </div>
-        </div>
-        <p class="panel-hint">Wartości są obcinane (clamp) przy odczycie — przekroczenie zakresu nie spowoduje błędu, ale silnik użyje granicy zakresu.</p>
-    </div>
-
-    <div class="protection-help-block">
-        <h3>3. Klucze efektów (effect_key) — pełna lista</h3>
-        <div class="protection-admin-grid protection-admin-grid--help">
-            <div class="protection-admin-row protection-admin-row--head">
-                <span>Klucz techniczny</span><span>Dotyczy</span><span>Opis</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>theft_risk_mult</code></span>
-                <span>Transport drogowy</span>
-                <span>Mnożnik ryzyka kradzieży ładunku podczas trasy.</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>raid_risk_mult</code></span>
-                <span>Transport drogowy</span>
-                <span>Mnożnik ryzyka napadu zbrojnego na transport.</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>sabotage_risk_mult</code></span>
-                <span>Transport drogowy</span>
-                <span>Mnożnik ryzyka sabotażu (uszkodzenie pojazdu, skrętka trasy itp.).</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>equipment_damage_risk_mult</code></span>
-                <span>Hub logistyczny</span>
-                <span>Mnożnik ryzyka uszkodzenia sprzętu przeładunkowego w hubie.</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>local_leak_risk_mult</code></span>
-                <span>Hub logistyczny</span>
-                <span>Mnożnik ryzyka wycieku lokalnego (paliwo, surowce) na terenie hubu.</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>critical_overload_risk_mult</code></span>
-                <span>Hub logistyczny</span>
-                <span>Mnożnik ryzyka krytycznego przeciążenia infrastruktury hubu.</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>transfer_failure_risk_mult</code></span>
-                <span>Hub logistyczny</span>
-                <span>Mnożnik ryzyka awarii systemu przeładunkowego (przenośniki, pompy itp.).</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>loading_error_risk_mult</code></span>
-                <span>Hub logistyczny</span>
-                <span>Mnożnik ryzyka błędu załadunku (zły towar, błędna partia itp.).</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>storage_jam_risk_mult</code></span>
-                <span>Hub logistyczny</span>
-                <span>Mnożnik ryzyka zatoru magazynowego (brak miejsca, blokada przepływu).</span>
-            </div>
-            <div class="protection-admin-row">
-                <span><code>pipeline_incident_risk_mult</code></span>
-                <span>Rurociąg</span>
-                <span>Mnożnik łącznego ryzyka awarii rurociągu (pęknięcia, korozja, sabotaż).</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="protection-help-block">
-        <h3>4. Tworzenie opcji ochrony — kroki</h3>
-        <ol>
-            <li>Przejdź do zakładki <strong>Opcje ochrony</strong> i wypełnij formularz na dole.</li>
-            <li><em>Kod techniczny</em> — unikalny identyfikator (małe litery, cyfry, _). Nie zmieniaj po wykupieniu przez gracza.</li>
-            <li><em>Nazwa dla gracza</em> — widoczna w interfejsie gry (zakładka Logistyka).</li>
-            <li><em>target_type / context</em> — wybierz parę z tabeli powyżej (punkt 1).</li>
-            <li><em>Czas działania</em> — w minutach gry; 60 = 1 godzina gry.</li>
-            <li><em>Koszt</em> — kwota stała w PLN, lub inna formuła. Płatność zawsze gotówką przez FTS.</li>
-            <li>Ustaw <em>Opcja włączona</em>, aby gracze widzieli opcję w interfejsie.</li>
-            <li>Zapisz, a następnie przejdź do zakładki <strong>Efekty</strong>, by dodać efekty do nowej opcji.</li>
-        </ol>
-    </div>
-
-    <div class="protection-help-block">
-        <h3>5. Dodawanie efektów — zasady</h3>
-        <ul>
-            <li>Jedna opcja może mieć wiele efektów (różne klucze = różne rodzaje ryzyka).</li>
-            <li>Każdy klucz może wystąpić tylko raz na opcję (upsert — nadpisuje starą wartość).</li>
-            <li>Dla <code>mult</code>: wpisz wartość dziesiętną (np. <code>0.70</code> = redukcja o 30%). Minimum to 0,05.</li>
-            <li>Dla <code>delta</code>: wpisz zmianę (np. <code>-0.10</code> = zmniejszenie ryzyka o 0,10 punktu bazowego).</li>
-            <li>Efekty z nieobsługiwanym kluczem są ignorowane przez silnik gry — upewnij się, że klucz pasuje do modułu obsługującego dany target_type.</li>
-        </ul>
-        <p class="panel-hint">Wskazówka: Jeśli gracz wykupił ochronę, ale efekty nie działają — sprawdź, czy klucz efektu dokładnie pasuje do listy powyżej i czy target_type/context opcji zgadza się z tym, co tick sprawdza.</p>
-    </div>
-
-    <div class="protection-help-block">
-        <h3>6. Anulowanie aktywnej ochrony</h3>
-        <p>Zakładka <strong>Aktywne ochrony</strong> pokazuje wszystkie wykupione ochrony (do 100 ostatnich).
-           Przycisk "Anuluj" ustawia status na <code>cancelled</code> — efekty natychmiast przestają działać.
-           Gracz <strong>nie</strong> dostaje zwrotu środków — operacja jest nieodwracalna.</p>
-    </div>
 </section>
 <?php endif ?>
 

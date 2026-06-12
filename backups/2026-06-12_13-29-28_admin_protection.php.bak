@@ -16,7 +16,7 @@ $err = '';
 $protectionSvc = new ProtectionService($db);
 
 $activeTab = (string)($_GET['tab'] ?? 'options');
-if (!in_array($activeTab, ['options', 'effects', 'active', 'history', 'help'], true)) {
+if (!in_array($activeTab, ['options', 'effects', 'active', 'history'], true)) {
     $activeTab = 'options';
 }
 
@@ -192,19 +192,7 @@ foreach ($options as $optRow) {
     }
 }
 
-// Wszystkie znane klucze efektow (P1 + P2 hub + P2 pipeline) / All known effect keys (P1 + P2 hub + P2 pipeline)
-$knownEffectKeys = array_merge(
-    ProtectionService::EFFECT_KEYS_P1,
-    [
-        'equipment_damage_risk_mult',
-        'local_leak_risk_mult',
-        'critical_overload_risk_mult',
-        'transfer_failure_risk_mult',
-        'loading_error_risk_mult',
-        'storage_jam_risk_mult',
-        'pipeline_incident_risk_mult',
-    ]
-);
+$knownEffectKeys = ProtectionService::EFFECT_KEYS_P1;
 
 $viewData = compact(
     'options', 'effectsByOption', 'activeProtections', 'historyLogs',
