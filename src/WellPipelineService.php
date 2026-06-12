@@ -417,15 +417,18 @@ class WellPipelineService
                     wp.transport_loss AS transport_loss_pct,
                     wp.incident_risk_mult AS incident_risk_factor,
                     w.id AS source_well_id,
-                    w.region_id AS region_id,
-                    COALESCE(NULLIF(w.name, ''), NULLIF(w.well_name, ''), CONCAT('Odwiert #', w.id)) AS well_name,
+                    COALESCE(w.region_id, h.region_id) AS region_id,
+                    CASE
+                        WHEN wp.well_id = 0 THEN NULL
+                        ELSE COALESCE(NULLIF(w.name, ''), NULLIF(w.well_name, ''), CONCAT('Odwiert #', w.id))
+                    END AS well_name,
                     w.location_name,
                     w.transport_type,
                     h.name AS hub_name,
                     h.status AS hub_status,
                     a.hub_id AS assigned_hub_id
                FROM well_pipelines wp
-               JOIN wells w ON w.id = wp.well_id
+               LEFT JOIN wells w ON w.id = wp.well_id
                LEFT JOIN logistics_hubs h ON h.id = wp.hub_id
                LEFT JOIN logistics_hub_assignments a
                  ON a.well_id = wp.well_id
@@ -1147,11 +1150,14 @@ class WellPipelineService
         $hubId = (int)($row['hub_id'] ?? 0);
         $assignedHubId = (int)($row['assigned_hub_id'] ?? 0);
         $hubStatus = (string)($row['hub_status'] ?? 'active');
-        $matchesActiveHub = $hubId > 0 && $assignedHubId > 0 && $hubId === $assignedHubId;
+        $isOutbound = (string)($row['leg'] ?? 'inbound') === 'outbound' && (int)($row['well_id'] ?? 0) === 0;
+        $matchesActiveHub = $isOutbound
+            ? $hubId > 0
+            : $hubId > 0 && $assignedHubId > 0 && $hubId === $assignedHubId;
         $hasHubBinding = $matchesActiveHub && !in_array($hubStatus, ['disabled', 'building'], true);
         $row['_has_hub_binding'] = $hasHubBinding;
         $row['_matches_active_hub'] = $matchesActiveHub;
-        $row['_binding_mismatch'] = $hubId > 0 && $assignedHubId > 0 && $hubId !== $assignedHubId;
+        $row['_binding_mismatch'] = !$isOutbound && $hubId > 0 && $assignedHubId > 0 && $hubId !== $assignedHubId;
         $row['_is_operational'] = $hasHubBinding && (string)($row['status'] ?? 'active') !== 'building';
         return $row;
     }

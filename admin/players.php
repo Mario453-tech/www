@@ -7,6 +7,40 @@ AdminAuth::requireLogin();
 
 $db     = Database::getInstance()->getConnection();
 $filter = $_GET['filter'] ?? '';
+$msg    = '';
+$error  = '';
+
+if (isset($_GET['purged'])) {
+    $msg = t('admin.players.msg_bulk_deleted', ['count' => max(0, (int)$_GET['purged'])]);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = t('common.csrf_error');
+    } else {
+        $action = (string)($_POST['action'] ?? '');
+        if ($action === 'bulk_delete_players') {
+            $ids = array_map('intval', (array)($_POST['player_ids'] ?? []));
+            try {
+                $result = (new AdminPlayerDeletionService($db))->purgeMany($ids);
+                AdminLog::log(
+                    'players_bulk_purged',
+                    'Bulk player purge completed. Deleted=' . $result['deleted'] . ', requested=' . $result['requested'],
+                    null,
+                    'player',
+                    null
+                );
+                $msg = t('admin.players.msg_bulk_deleted', ['count' => $result['deleted']]);
+                if ($result['missing'] > 0) {
+                    $msg .= ' ' . t('admin.players.msg_bulk_missing', ['count' => $result['missing']]);
+                }
+            } catch (Throwable $e) {
+                GameLog::error('admin/players.php', 'bulk_delete_players FAILED', $e);
+                $error = t('admin.players.err_bulk_delete');
+            }
+        }
+    }
+}
 
 $where = match($filter) {
     'active'        => "WHERE p.status = 'active'",
@@ -43,9 +77,12 @@ if (!function_exists('badgeClass')) {
 $viewData = [
     'players' => $players,
     'filter'  => $filter,
+    'msg'     => $msg,
+    'error'   => $error,
 ];
 
 $pageTitle = t('admin.players.page_title');
+$extraJs = ['/assets/js/admin_players.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/players/main.php';
 require_once __DIR__ . '/partials/footer.php';

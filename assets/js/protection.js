@@ -15,6 +15,14 @@
     var LANG = window.PROTECTION_LANG || {};
     var selected = { target: '', id: 0 };
 
+    function showError(message) {
+        if (typeof window.showGameToast === 'function') {
+            window.showGameToast(message, 'error');
+        } else if (typeof window.alertError === 'function') {
+            window.alertError(message);
+        }
+    }
+
     function modalFor(target) {
         return document.getElementById('protection-modal-' + target);
     }
@@ -85,9 +93,7 @@
     document.querySelectorAll('.protection-buy-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
             if (!selected.id) {
-                if (typeof window.showGameToast === 'function') {
-                    window.showGameToast(LANG.err || 'Error', 'error');
-                }
+                showError(LANG.err_target_invalid || LANG.err || 'Invalid protection target.');
                 return;
             }
             var question = (LANG.confirm_question || ':name / :cost')

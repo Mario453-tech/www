@@ -8,6 +8,40 @@ require_once dirname(__DIR__, 2) . '/src/Tick/PipelineSection.php';
 
 final class MySqlPipelineSectionTest extends MySqlIntegrationTestCase
 {
+    public function testPlayerPipelineListIncludesOperationalOutboundHubPipeline(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedHub($ids['hubId'], 'PHPUnit Outbound Hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 0.0, $playerId);
+
+        $pipelineService = new WellPipelineService($this->db);
+        $purchase = $pipelineService->purchaseHubOutboundPipeline($playerId, $ids['hubId'], 'standard');
+        $this->assertTrue($purchase['success'], $purchase['error'] ?? '');
+
+        $this->db->prepare(
+            "UPDATE well_pipelines
+                SET status = 'active',
+                    build_finish_at = NOW()
+              WHERE id = ?"
+        )->execute([(int)$purchase['pipeline_id']]);
+
+        $pipelines = $pipelineService->getPlayerPipelines($playerId);
+        $outbound = null;
+        foreach ($pipelines as $pipeline) {
+            if ((int)($pipeline['id'] ?? 0) === (int)$purchase['pipeline_id']) {
+                $outbound = $pipeline;
+                break;
+            }
+        }
+
+        $this->assertNotNull($outbound, 'Outbound hub pipeline should be visible in player pipeline list.');
+        $this->assertSame('outbound', $outbound['leg']);
+        $this->assertSame(0, (int)$outbound['well_id']);
+        $this->assertSame($ids['hubId'], (int)$outbound['hub_id']);
+        $this->assertSame(77, (int)$outbound['region_id']);
+        $this->assertTrue((bool)$outbound['_is_operational']);
+    }
+
     public function testPipelineTickDegradesRaisesLossAndWritesTickStatsWithoutEngineer(): void
     {
         $ids = $this->getTrackedIds();

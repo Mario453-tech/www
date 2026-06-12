@@ -265,19 +265,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $brUpd->execute(['footer_links', $json, $json]);
                 }
 
- // Header image upload
+                // Header image upload.
+                // PL: Upload obrazka naglowka.
                 $brUploadDir = __DIR__ . '/../assets/images/boardroom/';
                 if (!is_dir($brUploadDir)) mkdir($brUploadDir, 0755, true);
                 if (isset($_FILES['header_image']) && $_FILES['header_image']['error'] === UPLOAD_ERR_OK) {
                     $file = $_FILES['header_image'];
-                    $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-                    if (!in_array($file['type'], $allowed)) {
+                    $allowed = [
+                        'image/jpeg' => 'jpg',
+                        'image/png' => 'png',
+                        'image/webp' => 'webp',
+                    ];
+                    $tmpPath = (string)($file['tmp_name'] ?? '');
+                    $mime = is_file($tmpPath) ? (new finfo(FILEINFO_MIME_TYPE))->file($tmpPath) : false;
+                    $imageInfo = is_file($tmpPath) ? @getimagesize($tmpPath) : false;
+                    if (!is_string($mime) || !isset($allowed[$mime]) || $imageInfo === false) {
                         $err = t('boardroom.err_img_format');
                     } elseif ($file['size'] > 5 * 1024 * 1024) {
                         $err = t('boardroom.err_img_size');
                     } else {
-                        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                        $fname = 'header_' . time() . '.' . $ext;
+                        $fname = 'header_' . bin2hex(random_bytes(8)) . '.' . $allowed[$mime];
                         if (move_uploaded_file($file['tmp_name'], $brUploadDir . $fname)) {
                             $relPath = '/assets/images/boardroom/' . $fname;
                             $brUpd->execute(['header_image', $relPath, $relPath]);

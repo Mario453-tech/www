@@ -43,6 +43,8 @@ class HubIncidentService
 
     private PDO $db;
     private HubService $hubSvc;
+    /** @var array<int, array<string, mixed>> */
+    private array $protectionCache = [];
 
     public function __construct(PDO $db, ?HubService $hubSvc = null)
     {
@@ -88,7 +90,8 @@ class HubIncidentService
 
         $riskMult = $this->calcRiskMultiplier($hub, $tickResult, $hseBonus);
         $loadPct  = (float)($tickResult['load_pct'] ?? 0.0);
-        ['mults' => $protMults, 'option_id' => $protOptionId] = $this->protectionMults($protection, $playerId, (int)$hub['id']);
+        $protectionData = $this->protectionData($protection, $playerId, (int)$hub['id']);
+        $protMults = $protectionData['mults'];
 
         foreach (self::INCIDENTS as $type => $cfg) {
  // critical_overload tylko gdy faktycznie przeciony / only when actually overloaded
@@ -100,9 +103,9 @@ class HubIncidentService
                 * ($protMults[$type] ?? 1.0);
             if ((mt_rand(0, 999999) / 1_000_000.0) < $chance) {
                 $incident = $this->generateIncident($type, $cfg, $hub, $inputBbl, $tickResult, $playerId);
-                if ($protection !== null && isset($protMults[$type])) {
+                if ($protection !== null && isset($protMults[$type]) && $protectionData['option_id'] > 0) {
                     $protection->logEvent(
-                        $playerId, $protOptionId, 'hub', (int)$hub['id'], 'hub_guard',
+                        $playerId, $protectionData['option_id'], 'hub', (int)$hub['id'], 'hub_guard',
                         'protection_applied_to_incident', (float)($incident['extra_loss'] ?? 0.0), $type
                     );
                 }
@@ -114,28 +117,42 @@ class HubIncidentService
     }
 
     /**
-     * Buduje mape mnoznikow ochrony per typ incydentu i option_id dla danego huba.
-     * Builds the per-incident-type protection multiplier map and option_id for a hub.
+     * Laduje aktywne ochrony hubow przed petla ticka.
+     * Preloads active hub protections before the tick loop.
+     *
+     * @param int[] $hubIds
+     */
+    public function preloadProtections(int $playerId, array $hubIds, ?ProtectionService $protection): void
+    {
+        $this->protectionCache = $protection === null
+            ? []
+            : $protection->getActiveProtections($playerId, 'hub', $hubIds, 'hub_guard');
+    }
+
+    /**
+     * Buduje dane ochrony huba: mape mnoznikow i ID opcji do audytu.
+     * Builds hub protection data: multiplier map and option ID for audit.
      *
      * @return array{mults: array<string, float>, option_id: int}
      */
-    private function protectionMults(?ProtectionService $protection, int $playerId, int $hubId): array
+    private function protectionData(?ProtectionService $protection, int $playerId, int $hubId): array
     {
         if ($protection === null) {
             return ['mults' => [], 'option_id' => 0];
         }
-        $row = $protection->getActiveProtection($playerId, 'hub', $hubId, 'hub_guard');
+        $row = $this->protectionCache[$hubId]
+            ?? $protection->getActiveProtection($playerId, 'hub', $hubId, 'hub_guard');
         if ($row === null) {
             return ['mults' => [], 'option_id' => 0];
         }
-        $effects = $row['effects'];
+        $effects = $row['effects'] ?? [];
         $out = [];
         foreach (self::PROTECTION_EFFECT_TO_TYPE as $key => $type) {
             if (isset($effects[$key]) && $effects[$key]['type'] === 'mult') {
                 $out[$type] = (float)$effects[$key]['value'];
             }
         }
-        return ['mults' => $out, 'option_id' => (int)$row['protection_option_id']];
+        return ['mults' => $out, 'option_id' => (int)($row['protection_option_id'] ?? 0)];
     }
 
  // Data getters

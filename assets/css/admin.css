@@ -361,6 +361,32 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .players-grid .list-row {
     grid-template-columns: 36px 1fr 120px 90px 100px 60px 150px 90px;
 }
+.players-grid--bulk .list-header,
+.players-grid--bulk .list-row {
+    grid-template-columns: 32px 36px minmax(180px, 1fr) 120px 90px 100px 60px 150px 90px;
+}
+.players-bulk-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+}
+.players-bulk-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.players-grid .col-select {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.players-grid input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--gold);
+}
 .wells-grid .list-header,
 .wells-grid .list-row {
     grid-template-columns: 46px 64px 100px 120px 110px 1fr;
@@ -937,14 +963,20 @@ select {
 @media (max-width: 1100px) {
     .players-grid .list-header,
     .players-grid .list-row { grid-template-columns: 36px 1fr 110px 90px 90px 90px; }
+    .players-grid--bulk .list-header,
+    .players-grid--bulk .list-row { grid-template-columns: 32px 36px 1fr 110px 90px 90px 90px; }
     .players-grid .col-wells,
     .players-grid .col-lasttick { display: none; }
 }
 @media (max-width: 700px) {
     .players-grid .list-header,
     .players-grid .list-row { grid-template-columns: 1fr 100px 80px; }
+    .players-grid--bulk .list-header,
+    .players-grid--bulk .list-row { grid-template-columns: 32px 1fr 90px 80px; }
     .players-grid .col-id,
     .players-grid .col-storage { display: none; }
+    .players-grid--bulk .col-select { display: flex; }
+    .players-bulk-toolbar { align-items: stretch; flex-direction: column; }
     .logs-grid .col-player,
     .logs-grid .col-ip { display: none; }
 }
@@ -1974,6 +2006,8 @@ select {
 .admin-action-form .form-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .form-label           { display: block; font-size: 11px; color: var(--muted2, #888);
                          text-transform: uppercase; margin-bottom: 4px; }
+.admin-danger-zone    { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(224,78,78,.28); }
+.admin-danger-zone .panel-title { color: var(--red); }
 .cv-good              { color: #4caf50; font-weight: 600; }
 .cv-bad               { color: #e57373; font-weight: 600; }
 

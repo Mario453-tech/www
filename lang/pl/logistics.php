@@ -10,6 +10,7 @@ declare(strict_types=1);
 return [
 
     'pipeline.default_name' => 'Rurociąg odwiertu #:id',
+    'pipeline.default_name_hub' => 'Rurociąg huba #:id',
     'logistics.page_title' => 'OilCorp - Dział Logistyki',
     'logistics.kpi_aria' => 'Wskaźniki logistyki',
     'logistics.kpi_efficiency' => 'Efektywność transportu',

@@ -246,12 +246,14 @@ trait WellDisastersTrait
             ]);
         }
     }
-
  /**
- * Katastrofa: Blowout — eksplozja odwiertu.
- * Disaster: Blowout — well explosion.
+ * Katastrofa: Blowout - eksplozja odwiertu.
+ * Disaster: Blowout - well explosion.
  * Odwiert przechodzi w status 'blowout', wymaga zadania blowout_control.
  * Well transitions to 'blowout' status, requires blowout_control task.
+ *
+ * @param array<string, mixed> $hseBonus
+ * @return array{disaster:string|null,cost?:int,env_fine?:int,desc?:string}
  */
     public function triggerBlowout(int $wellId, int $playerId, array $hseBonus = []): array
     {
@@ -328,12 +330,14 @@ trait WellDisastersTrait
             return ['disaster' => null];
         }
     }
-
  /**
  * Katastrofa: Skazenie rezerwuaru.
  * Disaster: Reservoir contamination.
  * Odwiert przechodzi w status 'contaminated', wymaga zadania reservoir_rehabilitation.
  * Well transitions to 'contaminated' status, requires reservoir_rehabilitation task.
+ *
+ * @param array<string, mixed> $hseBonus
+ * @return array{disaster:string|null,cost?:int,env_fine?:int,desc?:string}
  */
     public function triggerReservoirContamination(int $wellId, int $playerId, array $hseBonus = []): array
     {

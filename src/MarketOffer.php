@@ -385,12 +385,15 @@ class MarketOffer
                 'offer_id'  => $offer['id'],
                 'player_id' => $offer['player_id'],
             ]);
- // Do not rethrow — one failure must not block remaining offers
+ // Do not rethrow - one failure must not block remaining offers
         }
     }
 
- // Sale history — paginated / Historia sprzedazy z paginacja
+ // Sale history - paginated / Historia sprzedazy z paginacja
 
+    /**
+     * @return array{rows: array<int, array<string, mixed>>, total: int}
+     */
     public function getSaleHistory(int $playerId, int $page, int $perPage): array
     {
         try {

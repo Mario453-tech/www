@@ -19,6 +19,8 @@ class ProtectionSchema
      * bo identyfikatory obiektow sa recyklowane po destrukcji (falszywe trafienia).
      * Per-connection ensured cache. WeakMap instead of spl_object_id because
      * object ids are recycled after destruction (false positives).
+     *
+     * @var WeakMap<PDO, bool>|null
      */
     private static ?WeakMap $ensured = null;
 

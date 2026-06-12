@@ -79,6 +79,8 @@ class CashTransferService
     /**
      * Glowna logika transferu: walidacja -> atomowy DB -> log.
      * Core transfer logic: validation -> atomic DB -> log.
+     *
+     * @return array{success:bool,message:string,new_cash:?float,new_bank:?float,fee:?float}
      */
     private function doTransfer(float $amount, string $fromPool, string $toPool): array
     {
@@ -91,7 +93,7 @@ class CashTransferService
         }
 
         $fee   = $this->calcFee($amount);
-        $total = round($amount + $fee, 2);  // lacznie do odjecià z puli zrodlowej
+        $total = round($amount + $fee, 2);  // lacznie do odjecia z puli zrodlowej / total to subtract from source pool
 
         // 2) Sprawdz saldo / Check balance.
         $balances = $this->wallet->getBalances($this->playerId);
