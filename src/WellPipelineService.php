@@ -130,6 +130,7 @@ class WellPipelineService
  // Status sprzed serwisu rurociagu (przywracany po zakonczeniu zadania).
  // Pipeline status before service (restored when the task completes).
         $this->ensureColumn('well_pipelines', 'service_prev_status', "VARCHAR(32) DEFAULT NULL");
+        $this->repairTranslatedPipelineNames();
 
         $this->db->exec(
             "CREATE TABLE IF NOT EXISTS well_pipeline_events (
@@ -1148,9 +1149,16 @@ class WellPipelineService
     {
         $row['pipeline_type'] = $this->normalizePipelineType((string)($row['pipeline_type'] ?? 'standard'));
         $hubId = (int)($row['hub_id'] ?? 0);
+        $wellId = (int)($row['well_id'] ?? 0);
         $assignedHubId = (int)($row['assigned_hub_id'] ?? 0);
         $hubStatus = (string)($row['hub_status'] ?? 'active');
-        $isOutbound = (string)($row['leg'] ?? 'inbound') === 'outbound' && (int)($row['well_id'] ?? 0) === 0;
+        $isOutbound = (string)($row['leg'] ?? 'inbound') === 'outbound' && $wellId === 0;
+        $name = trim((string)($row['name'] ?? ''));
+        if ($name === '' || $name === 'pipeline.default_name_hub' || $name === 'pipeline.default_name') {
+            $row['name'] = $isOutbound
+                ? tPlain('pipeline.default_name_hub', ['id' => $hubId])
+                : tPlain('pipeline.default_name', ['id' => $wellId]);
+        }
         $matchesActiveHub = $isOutbound
             ? $hubId > 0
             : $hubId > 0 && $assignedHubId > 0 && $hubId === $assignedHubId;
@@ -1160,6 +1168,29 @@ class WellPipelineService
         $row['_binding_mismatch'] = !$isOutbound && $hubId > 0 && $assignedHubId > 0 && $hubId !== $assignedHubId;
         $row['_is_operational'] = $hasHubBinding && (string)($row['status'] ?? 'active') !== 'building';
         return $row;
+    }
+
+    private function repairTranslatedPipelineNames(): void
+    {
+        try {
+            $stmt = $this->db->query(
+                "SELECT id, well_id, hub_id, leg, name
+                   FROM well_pipelines
+                  WHERE name IN ('pipeline.default_name', 'pipeline.default_name_hub')"
+            );
+            $update = $this->db->prepare("UPDATE well_pipelines SET name = ? WHERE id = ?");
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $wellId = (int)($row['well_id'] ?? 0);
+                $hubId = (int)($row['hub_id'] ?? 0);
+                $isOutbound = (string)($row['leg'] ?? 'inbound') === 'outbound' && $wellId === 0;
+                $name = $isOutbound
+                    ? tPlain('pipeline.default_name_hub', ['id' => $hubId])
+                    : tPlain('pipeline.default_name', ['id' => $wellId]);
+                $update->execute([$name, (int)$row['id']]);
+            }
+        } catch (Throwable $e) {
+            GameLog::error('WellPipelineService', 'repairTranslatedPipelineNames FAILED', $e);
+        }
     }
 
  /**
