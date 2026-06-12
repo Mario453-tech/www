@@ -87,10 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $effectKey = preg_replace('/[^a-z0-9_]/', '', strtolower((string)($_POST['effect_key'] ?? '')));
         $effectType = (string)($_POST['effect_type'] ?? 'mult') === 'delta' ? 'delta' : 'mult';
         $effectValue = (float)($_POST['effect_value'] ?? 1.0);
-        // Zakres wartosci: mult w [0.01, 1.0], delta w [-0.99, 0.99].
-        // Value range: mult in [0.01, 1.0], delta in [-0.99, 0.99].
+        // Zakres wartosci: mult w [0.05, 1.0] (jak klamp przy odczycie), delta w [-0.99, 0.99].
+        // Value range: mult in [0.05, 1.0] (matches read-time clamp), delta in [-0.99, 0.99].
         if ($effectType === 'mult') {
-            $effectValue = max(0.01, min(1.0, $effectValue));
+            $effectValue = max(0.05, min(1.0, $effectValue));
         } else {
             $effectValue = max(-0.99, min(0.99, $effectValue));
         }
