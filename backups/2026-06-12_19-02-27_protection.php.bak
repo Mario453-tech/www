@@ -84,24 +84,6 @@ try {
 
     $svc = new ProtectionService($db);
 
-    // Oblicz referenceValue dla opcji percent_reference (transport drogowy).
-    // Compute referenceValue for percent_reference options (road transport).
-    $referenceValue = 0.0;
-    if ($target === 'road') {
-        require_once __DIR__ . '/../src/TransportConfigService.php';
-        $truckCfg = TransportConfigService::getTypeConfig($db, 'ciezarowki');
-        $costPerBbl = (float)($truckCfg['cost_per_bbl'] ?? 2.50);
-        $capacityPct = (float)($truckCfg['capacity'] ?? 70.0);
-        $stmt2 = $db->prepare(
-            "SELECT SUM(base_production_per_hour * ? / 100.0 * ?) AS ref
-               FROM wells
-              WHERE player_id = ? AND transport_type = 'ciezarowki'
-                AND status NOT IN ('broken','blowout','seized')"
-        );
-        $stmt2->execute([$capacityPct, $costPerBbl, $playerId]);
-        $referenceValue = (float)($stmt2->fetchColumn() ?: 0.0);
-    }
-
     // Odnowienie: kasuj aktywna ochrone bez zwrotu, potem aktywuj nowa.
     // Renewal: cancel active protection without refund, then activate the new one.
     if (!empty($_POST['renew'])) {
@@ -124,7 +106,7 @@ try {
         $optionCode,
         $targetMap[$target]['target_type'],
         $targetId,
-        $referenceValue,
+        0.0,
         ['label' => $label],
         $targetMap[$target]['context']
     );

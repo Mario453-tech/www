@@ -444,18 +444,14 @@ try {
         $protSvc = new ProtectionService($db);
 
         // -- Transport drogowy / Road transport --
-        // referenceValue = suma kosztu transportu ciezarowkami (PLN/h) — dla percent_reference
-        // referenceValue = sum of truck transport cost (PLN/h) — used for percent_reference options
-        $roadWellIds  = [];
-        $roadRefValue = 0.0;
+        $roadWellIds = [];
         foreach ($wells as $wellRow) {
             if (($wellRow['transport'] ?? '') === 'ciezarowki') {
-                $roadWellIds[]  = (int)$wellRow['id'];
-                $roadRefValue  += (float)($wellRow['cost'] ?? 0.0);
+                $roadWellIds[] = (int)$wellRow['id'];
             }
         }
         if ($roadWellIds !== []) {
-            foreach ($protSvc->getAvailableOptions($playerId, 'road_transport', 'road_transport_guard', $roadRefValue) as $opt) {
+            foreach ($protSvc->getAvailableOptions($playerId, 'road_transport', 'road_transport_guard') as $opt) {
                 $opt['effect_lines'] = $protEffectLines($opt['effects']);
                 $roadProtectionOptions[] = $opt;
             }
