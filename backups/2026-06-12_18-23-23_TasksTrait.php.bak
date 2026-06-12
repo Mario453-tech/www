@@ -173,14 +173,8 @@ trait TTSTasksTrait
         // Session key locking re-rolls of cost for the same task combination.
         $quoteKey = 'tts_q_' . $staffId . '_' . $taskType . '_' . (int)$wellId . '_' . (int)$hubId . '_' . (int)$pipelineId;
 
-        $moduleDef = $moduleType ? self::getModuleDefinition($moduleType) : null;
-
-        // install_module ma staly koszt z konfiguracji (brak losowania) — pomijamy blokade sesji.
-        // install_module has a fixed config cost (no roll) — skip session quote lock.
-        $usesSessionQuote = $taskDef['cost_min'] > 0 && !($taskType === 'install_module' && $moduleDef !== null);
-
         if (
-            $usesSessionQuote
+            $taskDef['cost_min'] > 0
             && isset($_SESSION[$quoteKey])
             && is_array($_SESSION[$quoteKey])
             && (int)($_SESSION[$quoteKey]['expires'] ?? 0) > time()
@@ -192,12 +186,13 @@ trait TTSTasksTrait
         } else {
             $baseCost = $taskDef['cost_min'] > 0 ? rand($taskDef['cost_min'], $taskDef['cost_max']) : 0;
             $cost     = (int)round($baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult']);
-            if ($usesSessionQuote) {
+            if ($taskDef['cost_min'] > 0) {
                 // Zapisz wylosowany koszt w sesji na 5 minut / Store rolled cost in session for 5 minutes
                 $_SESSION[$quoteKey] = ['cost' => $cost, 'expires' => time() + 300];
             }
         }
 
+        $moduleDef = $moduleType ? self::getModuleDefinition($moduleType) : null;
         if ($taskType === 'install_module' && $moduleDef) {
             $cost = $moduleDef['cost'];
         }
@@ -295,9 +290,7 @@ trait TTSTasksTrait
 
         // Usun wycene z sesji po udanym zleceniu — kolejne zlecenie dolosuje koszt od nowa.
         // Remove session quote after successful assignment — next assignment re-rolls cost.
-        if ($usesSessionQuote) {
-            unset($_SESSION[$quoteKey]);
-        }
+        unset($_SESSION[$quoteKey]);
 
         return [
             'success'  => true,

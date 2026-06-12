@@ -94,10 +94,7 @@ try {
             $targetMap[$target]['context']
         );
         if ($existing !== null) {
-            $cancelResult = $svc->cancel((int)$existing['id']);
-            if (empty($cancelResult['success'])) {
-                protectionJson(['success' => false, 'message' => tPlain('common.app_error')]);
-            }
+            $svc->cancel((int)$existing['id']);
         }
     }
 

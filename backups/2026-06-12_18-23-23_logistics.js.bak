@@ -300,11 +300,11 @@ function startCooldownTimer(btn, secs) {
 }
 
 // Sekcja ochrony: otwieranie modalu, zakup / Protection section: modal open, purchase.
-// Target i renew sa zapisywane na elemencie modalu (nie w module-level vars), by unikac
-// nadpisania stanu gdy kilka modali jest otwartych jednoczesnie.
-// Target and renew are stored on the modal element (not in module-level vars) to avoid
-// state overwrite when multiple modals are open simultaneously.
 (function () {
+    var _protTarget   = '';
+    var _protTargetId = 0;
+    var _protIsRenew  = false;
+
     function protLang(k, name, cost) {
         var _l = window.PROTECTION_LANG || {};
         var s = _l[k] || k;
@@ -316,14 +316,11 @@ function startCooldownTimer(btn, secs) {
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.protection-add-btn');
         if (!btn) return;
-        var targetKey = btn.dataset.target   || '';
-        var modal = document.getElementById('protection-modal-' + targetKey);
-        if (!modal) return;
-        // Zapisz kontekst na modalu, nie w zmiennych globalnych modulu.
-        // Store context on the modal, not in module-level variables.
-        modal.dataset.activeTargetId = btn.dataset.targetId || '0';
-        modal.dataset.activeIsRenew  = btn.dataset.renew === '1' ? '1' : '0';
-        modal.removeAttribute('hidden');
+        _protTarget   = btn.dataset.target   || '';
+        _protTargetId = parseInt(btn.dataset.targetId, 10) || 0;
+        _protIsRenew  = btn.dataset.renew === '1';
+        var modal = document.getElementById('protection-modal-' + _protTarget);
+        if (modal) modal.removeAttribute('hidden');
     });
 
     document.addEventListener('click', function (e) {
@@ -337,20 +334,12 @@ function startCooldownTimer(btn, secs) {
 
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.protection-buy-btn');
-        if (!btn) return;
-        // Odczytaj kontekst z zawierajacego modalu — nie z module-level vars.
-        // Read context from the containing modal — not from module-level vars.
-        var modal = btn.closest('.protection-modal');
-        if (!modal) return;
-        var targetType = modal.id.replace('protection-modal-', '');
-        var targetId   = parseInt(modal.dataset.activeTargetId, 10) || 0;
-        var isRenew    = modal.dataset.activeIsRenew === '1';
-        if (targetId <= 0) return;
+        if (!btn || _protTargetId <= 0) return;
 
         var optCode = btn.dataset.optionCode || '';
         var optName = btn.dataset.optionName || '';
         var optCost = btn.dataset.optionCost || '';
-        var confirmKey = isRenew ? 'confirm_renew' : 'confirm_question';
+        var confirmKey = _protIsRenew ? 'confirm_renew' : 'confirm_question';
         var msg = protLang(confirmKey, optName, optCost);
 
         confirmAction(msg, function () {
@@ -358,9 +347,9 @@ function startCooldownTimer(btn, secs) {
             var fd = new FormData();
             fd.append('csrf_token', window.PROTECTION_CSRF || '');
             fd.append('option_code', optCode);
-            fd.append('target',      targetType);
-            fd.append('target_id',   targetId);
-            if (isRenew) fd.append('renew', '1');
+            fd.append('target',      _protTarget);
+            fd.append('target_id',   _protTargetId);
+            if (_protIsRenew) fd.append('renew', '1');
 
             fetch(window.PROTECTION_API, { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })
