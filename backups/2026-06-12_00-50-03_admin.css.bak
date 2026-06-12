@@ -3877,33 +3877,3 @@ body.cred-modal-open { overflow: hidden; }
 .bribery-event-delta   { font-weight: 700; color: rgba(224,85,85,.95); }
 .bribery-event-time    { color: var(--text3); white-space: nowrap; }
 
-
-/* == Moduł ochrony / Protection module (admin/protection.php) == */
-.protection-admin-grid { display: grid; gap: 4px; }
-.protection-admin-row {
-    display: grid;
-    gap: 10px;
-    align-items: center;
-    padding: 8px 10px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.02);
-    font-size: 0.85rem;
-}
-.protection-admin-row--head {
-    background: none;
-    font-weight: 600;
-    color: var(--text3);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-.protection-admin-grid--options .protection-admin-row { grid-template-columns: 1.1fr 1.3fr 1.3fr 1fr 0.6fr 1.1fr 0.7fr 0.6fr; }
-.protection-admin-grid--effects .protection-admin-row { grid-template-columns: 1.5fr 0.6fr 0.8fr 0.6fr; }
-.protection-admin-grid--active .protection-admin-row  { grid-template-columns: 1.2fr 1.1fr 1fr 0.8fr 1.1fr 0.7fr 0.7fr; }
-.protection-admin-grid--history .protection-admin-row { grid-template-columns: 0.9fr 1.1fr 1fr 1fr 1.2fr 0.8fr 1.4fr; }
-.protection-inline-form { display: inline; }
-.protection-effect-form { margin-top: 10px; align-items: flex-end; }
-@media (max-width: 900px) {
-    .protection-admin-row { grid-template-columns: 1fr 1fr !important; }
-    .protection-admin-row--head { display: none; }
-}
