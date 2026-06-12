@@ -444,23 +444,14 @@ try {
         $protSvc = new ProtectionService($db);
 
         // -- Transport drogowy / Road transport --
-        // referenceValue = wartosc ladunku ciezarowkowego: suma(bbl/h) * cena_ropy
-        // referenceValue = truck cargo value: sum(bbl/h) * current oil price
-        $roadWellIds    = [];
-        $roadTotalBblH  = 0.0;
+        // referenceValue = suma kosztu transportu ciezarowkami (PLN/h) — dla percent_reference
+        // referenceValue = sum of truck transport cost (PLN/h) — used for percent_reference options
+        $roadWellIds  = [];
+        $roadRefValue = 0.0;
         foreach ($wells as $wellRow) {
             if (($wellRow['transport'] ?? '') === 'ciezarowki') {
-                $roadWellIds[]   = (int)$wellRow['id'];
-                $roadTotalBblH  += (float)($wellRow['transported'] ?? 0.0);
-            }
-        }
-        $roadRefValue = 0.0;
-        if ($roadWellIds !== [] && $roadTotalBblH > 0.0) {
-            try {
-                $oilPriceRow  = $db->query("SELECT current_price FROM market_state WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
-                $roadRefValue = $roadTotalBblH * (float)($oilPriceRow['current_price'] ?? 0.0);
-            } catch (Throwable) {
-                $roadRefValue = 0.0;
+                $roadWellIds[]  = (int)$wellRow['id'];
+                $roadRefValue  += (float)($wellRow['cost'] ?? 0.0);
             }
         }
         if ($roadWellIds !== []) {

@@ -86,24 +86,20 @@ try {
 
     // Oblicz referenceValue dla opcji percent_reference (transport drogowy).
     // Compute referenceValue for percent_reference options (road transport).
-    // Baza = wartosc ladunku: suma(bbl/h) * cena ropy / Base = cargo value: sum(bbl/h) * oil price
     $referenceValue = 0.0;
     if ($target === 'road') {
         require_once __DIR__ . '/../src/TransportConfigService.php';
-        $truckCfg    = TransportConfigService::getTypeConfig($db, 'ciezarowki');
+        $truckCfg = TransportConfigService::getTypeConfig($db, 'ciezarowki');
+        $costPerBbl = (float)($truckCfg['cost_per_bbl'] ?? 2.50);
         $capacityPct = (float)($truckCfg['capacity'] ?? 70.0);
         $stmt2 = $db->prepare(
-            "SELECT SUM(base_production_per_hour * ? / 100.0) AS total_bbl_h
+            "SELECT SUM(base_production_per_hour * ? / 100.0 * ?) AS ref
                FROM wells
               WHERE player_id = ? AND transport_type = 'ciezarowki'
                 AND status NOT IN ('broken','blowout','seized')"
         );
-        $stmt2->execute([$capacityPct, $playerId]);
-        $totalBblH = (float)($stmt2->fetchColumn() ?: 0.0);
-        if ($totalBblH > 0.0) {
-            $priceRow = $db->query("SELECT current_price FROM market_state WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
-            $referenceValue = $totalBblH * (float)($priceRow['current_price'] ?? 0.0);
-        }
+        $stmt2->execute([$capacityPct, $costPerBbl, $playerId]);
+        $referenceValue = (float)($stmt2->fetchColumn() ?: 0.0);
     }
 
     // Odnowienie: kasuj aktywna ochrone bez zwrotu, potem aktywuj nowa.
