@@ -96,13 +96,15 @@ $__count = count($techNotifications);
 
 <script>
 (function () {
+    var csrfToken = <?= json_encode(CSRF::generateToken(), JSON_UNESCAPED_UNICODE) ?>;
+
     // Oznacza jedno powiadomienie jako przeczytane i usuwa z widoku.
     // Marks one notification as read and removes it from the view.
     window.techNotifMarkRead = function (id, btn) {
         fetch('/src/TechNotifApi.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=mark_read&notif_id=' + id
+            body: 'action=mark_read&notif_id=' + encodeURIComponent(id) + '&_token=' + encodeURIComponent(csrfToken)
         }).then(function () {
             var item = btn ? btn.closest('.tech-notif-item')
                            : document.querySelector('[data-notif-id="' + id + '"]');
@@ -117,7 +119,7 @@ $__count = count($techNotifications);
         fetch('/src/TechNotifApi.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=mark_all_read'
+            body: 'action=mark_all_read&_token=' + encodeURIComponent(csrfToken)
         }).then(function () {
             var panel = document.getElementById('tech-notif-panel');
             if (panel) panel.remove();

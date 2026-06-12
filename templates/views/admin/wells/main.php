@@ -51,6 +51,7 @@
 <!-- TAB: Parametry -->
 <div id="tab-config" class="admin-tab-content" role="tabpanel">
     <form method="POST">
+    <?= CSRF::field() ?>
     <?php foreach ($groupMain as $cat => $rows): wellsRenderSection($cat, $rows); endforeach ?>
     <div class="config-save-bar">
         <button type="submit" class="btn btn-primary"><?= t('admin.wells.config_save') ?></button>
@@ -61,6 +62,7 @@
 <!-- TAB: Wycena i sprzedaz -->
 <div id="tab-sell" class="admin-tab-content" role="tabpanel">
     <form method="POST">
+    <?= CSRF::field() ?>
     <?php foreach ($groupSell as $cat => $rows): wellsRenderSection($cat, $rows); endforeach ?>
     <?php if ($groupSystem): ?>
     <div class="config-group-separator config-group-separator--system">
@@ -176,6 +178,7 @@
 
             <!-- Quick restore condition form -->
             <form method="POST" class="aw-quick-restore">
+                <?= CSRF::field() ?>
                 <input type="hidden" name="gm_edit_well_id" value="<?= $wId ?>">
                 <span class="aw-quick-restore-label"><?= t('admin.wells.quick_restore_label') ?>:</span>
                 <span class="aw-quick-restore-current <?= $condClass ?>"><?= $cond ?>%</span>
@@ -186,6 +189,7 @@
             </form>
 
             <form method="POST" class="aw-gm-form">
+                <?= CSRF::field() ?>
                 <input type="hidden" name="gm_edit_well_id" value="<?= $wId ?>">
                 <input type="hidden" name="gm_upgrades_submitted" value="1">
 

@@ -10,17 +10,59 @@ $db = Database::getInstance()->getConnection();
 $errors  = [];
 $success = [];
 
-// Upload directory for boardroom images
+// Upload directory for boardroom images.
+// PL: Katalog uploadu obrazow boardroomu.
 $uploadDir = __DIR__ . '/../assets/images/boardroom/';
 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
-// POST HANDLERS 
+/**
+ * Validates and stores a boardroom image upload.
+ * PL: Waliduje i zapisuje upload obrazu boardroomu.
+ */
+function boardroomStoreImageUpload(array $file, string $uploadDir, string $prefix, int $maxBytes): ?string
+{
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        return null;
+    }
+    if ((int)($file['size'] ?? 0) <= 0 || (int)$file['size'] > $maxBytes) {
+        throw new RuntimeException(t('boardroom.err_avatar_format'));
+    }
+
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/webp' => 'webp',
+    ];
+
+    $fi = finfo_open(FILEINFO_MIME_TYPE);
+    $realMime = $fi ? finfo_file($fi, (string)$file['tmp_name']) : false;
+    if ($fi) {
+        finfo_close($fi);
+    }
+    if (!$realMime || !isset($allowed[$realMime]) || @getimagesize((string)$file['tmp_name']) === false) {
+        throw new RuntimeException(t('boardroom.err_avatar_format'));
+    }
+
+    $fname = $prefix . '_' . bin2hex(random_bytes(8)) . '.' . $allowed[$realMime];
+    $target = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fname;
+    if (!move_uploaded_file((string)$file['tmp_name'], $target)) {
+        throw new RuntimeException(t('boardroom.err_avatar_format'));
+    }
+
+    return '/assets/images/boardroom/' . $fname;
+}
+
+// POST HANDLERS
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $errors[] = t('common.csrf_error');
+    }
+
     $action = $_POST['action'] ?? '';
 
  // Add new role
-    if ($action === 'add_role') {
+    if (!$errors && $action === 'add_role') {
         try {
             $code = preg_replace('/[^a-z0-9_]/', '', strtolower(trim($_POST['role_code'] ?? '')));
             $name = trim($_POST['role_name'] ?? '');
@@ -48,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
  // Update role
-    if ($action === 'update_role') {
+    if (!$errors && $action === 'update_role') {
         try {
             $roleId = (int)($_POST['role_id'] ?? 0);
             $name   = trim($_POST['role_name'] ?? '');
@@ -65,17 +107,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
  // Avatar upload for role
                 if (isset($_FILES['role_avatar']) && $_FILES['role_avatar']['error'] === UPLOAD_ERR_OK) {
-                    $file = $_FILES['role_avatar'];
-                    $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-                    if (in_array($file['type'], $allowed) && $file['size'] <= 3 * 1024 * 1024) {
-                        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                        $fname = 'role_' . $roleId . '_' . time() . '.' . $ext;
-                        if (move_uploaded_file($file['tmp_name'], $uploadDir . $fname)) {
-                            $relPath = '/assets/images/boardroom/' . $fname;
+                    try {
+                        $relPath = boardroomStoreImageUpload($_FILES['role_avatar'], $uploadDir, 'role_' . $roleId, 3 * 1024 * 1024);
+                        if ($relPath !== null) {
                             $db->prepare("UPDATE board_roles SET avatar_path=? WHERE id=?")->execute([$relPath, $roleId]);
                         }
-                    } else {
-                        $errors[] = t('boardroom.err_avatar_format');
+                    } catch (RuntimeException $uploadError) {
+                        $errors[] = $uploadError->getMessage();
                     }
                 }
 
@@ -87,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
  // Delete role
-    if ($action === 'delete_role') {
+    if (!$errors && $action === 'delete_role') {
         try {
             $roleId = (int)($_POST['role_id'] ?? 0);
  // Check if any active members use this role

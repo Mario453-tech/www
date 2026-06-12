@@ -14,8 +14,13 @@ $wellSvc = new WellService();
 $db      = Database::getInstance()->getConnection();
 $msg     = $msgType = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+    $msg     = t('common.csrf_error');
+    $msgType = 'error';
+}
+
 // --- POST: save global config params ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $msgType !== 'error' && isset($_POST['config'])) {
     $updated = 0;
     foreach ($_POST['config'] as $key => $val) {
         $val = str_replace([' ', ','], ['', '.'], $val);
@@ -26,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config'])) {
 }
 
 // --- POST: GM full well edit ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gm_edit_well_id'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $msgType !== 'error' && isset($_POST['gm_edit_well_id'])) {
     $editId = (int)$_POST['gm_edit_well_id'];
     if ($editId <= 0) {
         $msg     = 'Nieprawidłowe ID odwiertu.';
