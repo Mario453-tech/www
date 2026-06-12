@@ -1,21 +1,5 @@
 ## Changelog
 
-### 2026-06-12 - Ochrona: uniwersalny moduł + podpięcie transportu drogowego + panel admina
-
-**Nowy, konfigurowalny moduł ochrony aktywów (`ProtectionService`) — opcje ochrony i ich efekty są definiowane w bazie i panelu admina, nie w kodzie.** Gracz wykupuje ochronę na cel (P1: odwiert z transportem ciężarówkami) na określony czas; aktywna ochrona zmniejsza ryzyko kradzieży, napadu i sabotażu kursów drogowych. Architektura gotowa pod kolejne cele (odwierty, huby, rurociągi) — moduł podaje tylko `target_type` + `context` i pyta o efekty. Brief: `BRIEF_UNIWERSALNY_MODUL_OCHRONY.md`.
-
-- `src/Protection/ProtectionSchema.php` (NOWY) — 4 tabele (`protection_options`, `protection_effects`, `active_protections`, `protection_logs`) MySQL+SQLite, idempotentny seed 3 opcji P1: Eskorta podstawowa (75 000 PLN/60 min), Konwój uzbrojony (500 000 PLN/60 min, wymaga działu prawnego 3+), Patrol dronami (50 000 PLN/h, 120 min).
-- `src/ProtectionService.php` (NOWY) — silnik: `getAvailableOptions()` (z powodem blokady: wiarygodność/poziom prawny i flagą „stać/nie stać"), `quote()`, `activate()` (FTS debit + zapis + log + powiadomienie, w transakcji), `getActiveProtection()`/`getActiveEffects()` (mnożniki przycinane do [0.05, 1.0] — ochrona nigdy nie zeruje ryzyka), `applyEffects()`, `cancel()`. Wygasanie leniwe po `ends_at` (bez crona). Max 1 aktywna ochrona per gracz+cel+kontekst.
-- `src/RoadTransportService.php` — efekty ochrony nakładane przy rozliczaniu kursów: mnożniki na wagach typów incydentów (`w'=w*mult`) + korekta łącznej szansy (`sum(w')/sum(w)`), więc typy niechronione (awaria, blokada trasy) zachowują dokładnie bazowe prawdopodobieństwa. Incydent pod ochroną → wpis `protection_applied_to_incident`.
-- `src/Tick/PlayersSection.php` + `WellRoadTripSection.php` — przekazanie `ProtectionService` do rozliczania kursów (guarded).
-- `src/FinancialTransactionService.php` — nowy typ `TYPE_PROTECTION = 'protection'`; `src/WalletConfig.php` — `protection` → `POOL_CASH` (P1 tylko gotówka).
-- `public/protection.php` (NOWY) — endpoint AJAX aktywacji (CSRF, rate limit, walidacja własności odwiertu i transportu `ciezarowki`).
-- `public/logistics.php` + `templates/views/logistics/main.php` — sekcja „Ochrona transportu drogowego": lista odwiertów ciężarówkowych z aktywną ochroną (do kiedy) lub przyciskiem „Dodaj ochronę"; modal wyboru z kosztem, czasem i opisowymi efektami (bez mnożników).
-- `assets/js/protection.js`, `assets/css/protection.css` (NOWE) — modal + potwierdzenie `confirmAction` + toast.
-- `admin/protection.php` + `templates/views/admin/protection/main.php` (NOWE) — 4 zakładki: Opcje ochrony (CRUD bez usuwania — tylko wyłączenie), Efekty (upsert/usuwanie per opcja), Aktywne ochrony (anulowanie bez zwrotu), Historia. Link w nav „Transport". `assets/js/admin_protection.js` — potwierdzenia przez `confirmSubmit`.
-- `lang/pl/protection.php`, `lang/pl/admin/protection.php` (NOWE) + loader `lang/pl.php`, `lang/pl/admin/nav.php`.
-- `tests/Integration/ProtectionServiceTest.php` (NOWY, 11 testów) + 2 testy matematyki wag w `RoadTransportServiceTest.php`. Integration 195/195.
-
 ### 2026-06-11 - Łapówki: uniwersalny moduł + wtyczka w dziale prawnym + panel admina
 
 **Nowy, przenośny moduł łapówek (`BriberyService`) — „gniazdko", które łatwo podpiąć pod dowolny inny moduł gry.** Łapówka pozwala graczowi zapłacić gotówką, żeby załatwić coś po cichu — z ryzykiem wpadki i kosztem dla wiarygodności firmy. Silnik liczy cenę i ryzyko z reputacji firmy, pobiera gotówkę, losuje wynik (sukces/wpadka), księguje kary reputacji i wysyła powiadomienie — wszystko w jednej transakcji. Moduł, który chce łapówek, podaje tylko: koszt odniesienia, „co przy sukcesie" i (opcjonalnie) „co przy wpadce".

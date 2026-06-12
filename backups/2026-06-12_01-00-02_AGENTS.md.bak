@@ -765,8 +765,6 @@ Testy używają SQLite in-memory przez `SqliteIntegrationTestCase` w `tests/Inte
 | ACTIVE_STATUSES | granted + transitional — odblokowują zakup odwiertów |
 | BriberyService | Uniwersalny silnik łapówek — cena/ryzyko z wiarygodności firmy |
 | BriberyConfig | Konfiguracja łapówek (tabela `bribery_config`), edytowalna w `admin/bribery.php` |
-| ProtectionService | Uniwersalny silnik ochrony — opcje/efekty w bazie, edytowalne w `admin/protection.php` |
-| ProtectionSchema | Schemat + seed modułu ochrony (4 tabele `protection_*` / `active_protections`) |
 
 ---
 
@@ -844,65 +842,6 @@ o wpadce i transakcja siedzą w silniku — zero kopiowania, zero dotykania
   rób w nich tylko DML (UPDATE/INSERT), bez DDL i bez własnego `commit`.
 - Każdy nowy kontekst dorzuca swoje teksty `bribery.tx_label` działa generycznie
   (nazwa z `meta.label`); komunikaty per-moduł trzymaj w `lang/pl/[modul].php`.
-
----
-
-## 27. Moduł ochrony (ProtectionService) — uniwersalna wtyczka
-
-<!-- Protection module — universal plug-in -->
-
-### Co to jest / What it is
-
-`ProtectionService` to konfigurowalny silnik ochrony aktywów. Opcje ochrony
-(nazwa, koszt, czas, wymagania) i ich efekty (`effect_key` + mnożnik/delta) są
-**w bazie, edytowalne z `admin/protection.php`** — admin dodaje nową ochronę bez
-zmiany kodu. Gracz wykupuje ochronę na cel na czas `duration_minutes`; moduł gry
-pyta o aktywne efekty dla celu i nakłada je na swoje ryzyka. Pełny brief:
-`BRIEF_UNIWERSALNY_MODUL_OCHRONY.md`.
-
-### Pliki modułu / Module files
-
-| Plik | Rola |
-|------|------|
-| `src/ProtectionService.php` | Silnik: `getAvailableOptions`, `quote`, `activate`, `getActiveEffects`, `applyEffects`, `cancel`, `logEvent` |
-| `src/Protection/ProtectionSchema.php` | 4 tabele + idempotentny seed opcji P1 |
-| `admin/protection.php` + widok | Panel: opcje / efekty / aktywne / historia |
-| `public/protection.php` | Endpoint AJAX aktywacji (gracz) |
-| `assets/js/protection.js` + `assets/css/protection.css` | Modal wyboru w logistyce |
-| `lang/pl/protection.php`, `lang/pl/admin/protection.php` | Tłumaczenia |
-
-- Typ transakcji: `FinancialTransactionService::TYPE_PROTECTION` (`protection`)
-  → `POOL_CASH` — P1 tylko gotówka.
-- P1 podpięty: transport drogowy (`target_type='road_transport'`,
-  `target_id=well_id`, `context='road_transport_guard'`) — mnożniki
-  `theft/raid/sabotage_risk_mult` w `RoadTransportService::applyTripIncidents()`.
-
-### Jak podpiąć ochronę do nowego modułu / How to plug in
-
-1. Zdefiniuj w adminie opcję z nowym `target_type` + `context` i efektami.
-2. Przy rozliczaniu ryzyka pobierz efekty i nałóż je:
-   ```php
-   $prot = new ProtectionService($db); // przed beginTransaction (robi DDL-check)
-   $effects = $prot->getActiveEffects($playerId, 'hub', $hubId, 'hub_security');
-   $risks = $prot->applyEffects($baseRisks, $effects); // mult mnozy, delta dodaje
-   ```
-3. W UI celu dodaj przycisk POST do `public/protection.php` (lub własny endpoint)
-   wołający `activate($playerId, $code, $targetType, $targetId, $referenceValue)`.
-
-### Zasady / Rules
-
-- Mnożniki przy odczycie są przycinane do **[0.05, 1.0]** — ochrona nigdy nie
-  zeruje ryzyka; nieznane `effect_key` są ignorowane (dodanie klucza w adminie
-  przed obsługą w kodzie nic nie psuje).
-- Max **1 aktywna ochrona** per `gracz+target_type+target_id+context`;
-  wygasanie leniwe po `ends_at` (bez crona), raz na instancję serwisu.
-- W silniku jednej szansy + wag (transport drogowy) mnożniki nakładaj na wagi
-  z korektą łącznej szansy `sum(w')/sum(w)` — typy niechronione muszą zachować
-  bazowe prawdopodobieństwa (wzór w §8 briefu).
-- Moduł NIE liczy efektów sam — zawsze przez `getActiveEffects`/`applyEffects`.
-- Incydent rozliczony pod aktywną ochroną loguj przez
-  `logEvent(..., 'protection_applied_to_incident', ...)` — to odpowiedź dla
-  admina „czy ochrona zadziałała".
 
 ---
 
