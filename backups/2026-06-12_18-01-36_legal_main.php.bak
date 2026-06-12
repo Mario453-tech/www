@@ -72,8 +72,8 @@ extract($viewData, EXTR_SKIP);
             <!-- Brief §12.2: transitional permit description for existing players. -->
             <p class="legal-region-note legal-region-note--transitional"><?= t('legal.transitional_note') ?></p>
             <?php if (!empty($app['upgrade_pending'])): ?>
-            <!-- Upgrade w toku — pokazuj status i opcjonalny przycisk lapowki. -->
-            <!-- Upgrade in progress — show status and optional bribe button. -->
+            <!-- Upgrade w toku — pokazuj status bez przycisku. -->
+            <!-- Upgrade in progress — show status, no button. -->
             <div class="legal-region-meta legal-upgrade-pending">
                 <span class="legal-badge legal-badge--pending"><?= t('legal.status.pending') ?></span>
                 <span><?= t('legal.transitional_upgrade_pending') ?></span>
@@ -81,7 +81,6 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.transitional_upgrade_due') ?>: <?= htmlspecialchars(substr((string)$app['upgrade_decision_due_at'], 0, 16)) ?></span>
                 <?php endif ?>
             </div>
-            <?php require __DIR__ . '/_bribe_button.php'; ?>
             <?php else: ?>
             <?php
             $__trCost   = (float)$cfg['application_cost'];

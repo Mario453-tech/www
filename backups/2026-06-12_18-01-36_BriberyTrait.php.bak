@@ -49,15 +49,11 @@ trait LegalBriberyTrait
 
         $permit = $this->getPermitStatus($playerId, $regionId);
         $status = (string)$permit['status'];
-        // Transitional + upgrade_pending=1: lapowka przyspiesza pelne zezwolenie.
-        // Transitional + upgrade_pending=1: bribe speeds up the full-permit upgrade.
-        $isTransitionalUpgrade = $status === self::STATUS_TRANSITIONAL
-            && !empty($permit['application']['upgrade_pending']);
 
-        if (in_array($status, self::ACTIVE_STATUSES, true) && !$isTransitionalUpgrade) {
+        if (in_array($status, self::ACTIVE_STATUSES, true)) {
             return ['success' => false, 'outcome' => 'error', 'message' => tPlain('legal.bribe.err_already_active')];
         }
-        if (!in_array($status, self::BRIBE_ELIGIBLE_STATUSES, true) && !$isTransitionalUpgrade) {
+        if (!in_array($status, self::BRIBE_ELIGIBLE_STATUSES, true)) {
             return ['success' => false, 'outcome' => 'error', 'message' => tPlain('legal.bribe.err_not_eligible')];
         }
 
@@ -84,42 +80,28 @@ trait LegalBriberyTrait
             $playerId,
             'legal_permit',
             $applicationCost,
-            // Sukces: nadaj zezwolenie, wyczysc cooldown, termin decyzji i stan upgrade.
-            // Success: grant the permit, clear cooldown, decision deadline and upgrade state.
+            // Sukces: nadaj zezwolenie, wyczysc cooldown i termin decyzji.
+            // Success: grant the permit, clear cooldown and decision deadline.
             static function () use ($db, $playerId, $regionId): void {
                 $db->prepare(
                     "UPDATE drilling_permit_applications
                         SET status='granted', decided_at=NOW(),
-                            refusal_cooldown_until=NULL, decision_due_at=NULL,
-                            upgrade_pending=0, upgrade_decision_due_at=NULL
+                            refusal_cooldown_until=NULL, decision_due_at=NULL
                       WHERE player_id=? AND region_id=?"
                 )->execute([$playerId, $regionId]);
             },
             [
                 // Wpadka: odmowa + dluzszy cooldown (urzad sie zawzial).
                 // Caught: refusal + a longer cooldown (officials get tough).
-                'on_caught' => static function () use ($db, $playerId, $regionId, $caughtCooldownMinutes, $isTransitionalUpgrade): void {
+                'on_caught' => static function () use ($db, $playerId, $regionId, $caughtCooldownMinutes): void {
                     $until = (new DateTime())->modify('+' . $caughtCooldownMinutes . ' minutes')->format('Y-m-d H:i:s');
-                    if ($isTransitionalUpgrade) {
-                        // Wpadka przy upgrade transitional: kasuj upgrade, blokuj lapowke,
-                        // ale zachowaj status transitional (gracz nie traci dostepu).
-                        // Caught on transitional upgrade: cancel upgrade, lock bribe,
-                        // but keep transitional status (player does not lose access).
-                        $db->prepare(
-                            "UPDATE drilling_permit_applications
-                                SET upgrade_pending=0, upgrade_decision_due_at=NULL,
-                                    bribe_locked_until=?
-                              WHERE player_id=? AND region_id=?"
-                        )->execute([$until, $playerId, $regionId]);
-                    } else {
-                        $db->prepare(
-                            "UPDATE drilling_permit_applications
-                                SET status='refused', decided_at=NOW(), decision_due_at=NULL,
-                                    refusal_cooldown_until=?,
-                                    bribe_locked_until=?
-                              WHERE player_id=? AND region_id=?"
-                        )->execute([$until, $until, $playerId, $regionId]);
-                    }
+                    $db->prepare(
+                        "UPDATE drilling_permit_applications
+                            SET status='refused', decided_at=NOW(), decision_due_at=NULL,
+                                refusal_cooldown_until=?,
+                                bribe_locked_until=?
+                          WHERE player_id=? AND region_id=?"
+                    )->execute([$until, $until, $playerId, $regionId]);
                 },
                 'meta' => [
                     'label'        => $regionName,

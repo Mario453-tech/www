@@ -214,19 +214,6 @@ if ($briberyEnabled) {
         $rid = (int)$entry['config']['region_id'];
         $bribeQuotes[$rid] = $bribery->quote($playerId, (float)$entry['config']['application_cost']);
     }
-    // Aktywne zezwolenia z upgrade_pending=1: lapowka przyspiesza upgrade do pelnego.
-    // Active permits with upgrade_pending=1: bribe accelerates the upgrade to full.
-    foreach ($active as $entry) {
-        if (empty($entry['permit']['application']['upgrade_pending'])) {
-            continue;
-        }
-        $lockUntil = $entry['permit']['application']['bribe_locked_until'] ?? null;
-        if ($lockUntil !== null && new DateTime((string)$lockUntil) > $now) {
-            continue;
-        }
-        $rid = (int)$entry['config']['region_id'];
-        $bribeQuotes[$rid] = $bribery->quote($playerId, (float)$entry['config']['application_cost']);
-    }
 }
 
 $viewData = compact(
