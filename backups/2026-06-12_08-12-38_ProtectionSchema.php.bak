@@ -34,6 +34,8 @@ class ProtectionSchema
             }
         } catch (Throwable) {
         }
+        self::$ensured[$db] = true;
+
         try {
             $driver = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME);
             if ($driver === 'sqlite') {
@@ -42,9 +44,6 @@ class ProtectionSchema
                 self::createMysql($db);
             }
             self::seedDefaults($db, $driver);
-            // Cache oznaczamy jako sukces dopiero po udanym DDL.
-            // Mark ensured only after successful DDL so a failed first call can retry.
-            self::$ensured[$db] = true;
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('ProtectionSchema', 'ensure FAILED', $e);

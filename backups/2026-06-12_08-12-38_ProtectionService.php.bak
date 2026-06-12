@@ -79,11 +79,6 @@ class ProtectionService
         $legalLevel = $needsLegal ? $this->legalLevel($playerId) : 0;
         $cash = $this->playerCash($playerId);
 
-        // Batch-fetch efektow jednym zapytaniem zamiast N+1.
-        // Batch-fetch effects in a single query instead of N+1.
-        $optionIds = array_map(static fn(array $o): int => (int)$o['id'], $options);
-        $effectsMap = $this->effectsForMany($optionIds);
-
         $out = [];
         foreach ($options as $opt) {
             $cost = $this->computeCost($opt, $referenceValue);
@@ -97,7 +92,7 @@ class ProtectionService
                 'cost'          => $cost,
                 'affordable'    => $cash >= $cost,
                 'locked_reason' => $lockedReason,
-                'effects'       => $effectsMap[(int)$opt['id']] ?? [],
+                'effects'       => $this->effectsFor((int)$opt['id']),
             ];
         }
         return $out;
@@ -379,45 +374,23 @@ class ProtectionService
     /** @return array<string, array{type:string, value:float}> */
     private function effectsFor(int $optionId): array
     {
-        return $this->effectsForMany([$optionId])[$optionId] ?? [];
-    }
-
-    /**
-     * Batch-fetch efektow dla wielu opcji jednym zapytaniem (unikamy N+1).
-     * Batch-fetch effects for multiple options in a single query (avoids N+1).
-     *
-     * @param int[] $optionIds
-     * @return array<int, array<string, array{type:string, value:float}>>
-     */
-    private function effectsForMany(array $optionIds): array
-    {
-        if ($optionIds === []) {
-            return [];
-        }
         try {
-            $placeholders = implode(',', array_fill(0, count($optionIds), '?'));
             $stmt = $this->db->prepare(
-                "SELECT protection_option_id, effect_key, effect_type, effect_value
-                   FROM protection_effects WHERE protection_option_id IN ({$placeholders})"
+                "SELECT effect_key, effect_type, effect_value FROM protection_effects WHERE protection_option_id = ?"
             );
-            $stmt->execute($optionIds);
+            $stmt->execute([$optionId]);
             $out = [];
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $optId = (int)$row['protection_option_id'];
-                $type  = (string)$row['effect_type'];
+                $type = (string)$row['effect_type'];
                 $value = (float)$row['effect_value'];
                 if ($type === 'mult') {
                     $value = max(0.05, min(1.0, $value));
-                } else {
-                    // delta: ogranicz do [-0.99, +0.99] zeby nie wychodzic poza zakres prawdopodobienstwa.
-                    // delta: clamp to [-0.99, +0.99] to stay within probability range.
-                    $value = max(-0.99, min(0.99, $value));
                 }
-                $out[$optId][(string)$row['effect_key']] = ['type' => $type, 'value' => $value];
+                $out[(string)$row['effect_key']] = ['type' => $type, 'value' => $value];
             }
             return $out;
         } catch (Throwable $e) {
-            GameLog::error('ProtectionService', 'effectsForMany FAILED', $e, ['option_ids' => $optionIds]);
+            GameLog::error('ProtectionService', 'effectsFor FAILED', $e, ['option_id' => $optionId]);
             return [];
         }
     }
