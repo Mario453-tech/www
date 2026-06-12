@@ -83,21 +83,6 @@ try {
     }
 
     $svc = new ProtectionService($db);
-
-    // Odnowienie: kasuj aktywna ochrone bez zwrotu, potem aktywuj nowa.
-    // Renewal: cancel active protection without refund, then activate the new one.
-    if (!empty($_POST['renew'])) {
-        $existing = $svc->getActiveProtection(
-            $playerId,
-            $targetMap[$target]['target_type'],
-            $targetId,
-            $targetMap[$target]['context']
-        );
-        if ($existing !== null) {
-            $svc->cancel((int)$existing['id']);
-        }
-    }
-
     $res = $svc->activate(
         $playerId,
         $optionCode,

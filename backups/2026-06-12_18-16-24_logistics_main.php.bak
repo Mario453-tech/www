@@ -1088,14 +1088,7 @@
                 <?php if ($protTarget['active'] !== null): ?>
                 <span class="c-good"><?= htmlspecialchars($protTarget['active']['name']) ?></span>
                 <span><?= htmlspecialchars(substr($protTarget['active']['ends_at'], 0, 16)) ?></span>
-                <span>
-                    <button type="button" class="btn btn-xs btn-secondary protection-add-btn"
-                            data-target="<?= htmlspecialchars($targetKey) ?>"
-                            data-target-id="<?= (int)$protTarget['id'] ?>"
-                            data-renew="1">
-                        <?= t('protection.btn_renew') ?>
-                    </button>
-                </span>
+                <span></span>
                 <?php else: ?>
                 <span class="c-muted2"><?= t('protection.status_none') ?></span>
                 <span></span>
@@ -1951,9 +1944,8 @@ window.LOGISTICS_LANG = <?= json_encode([
 window.PROTECTION_API  = '/protection.php';
 window.PROTECTION_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 window.PROTECTION_LANG = <?= json_encode([
-    'confirm_question'   => tPlain('protection.confirm_question'),
-    'confirm_renew'      => tPlain('protection.confirm_renew'),
-    'err'                => tPlain('protection.err_generic'),
+    'confirm_question' => tPlain('protection.confirm_question'),
+    'err'              => tPlain('protection.err_generic'),
     'err_target_invalid' => tPlain('protection.err_target_invalid'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>

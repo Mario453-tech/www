@@ -74,7 +74,6 @@ return [
     'protection.col_action'       => 'Akcja',
     'protection.status_none'      => 'brak ochrony',
     'protection.btn_add'          => 'Dodaj ochronę',
-    'protection.btn_renew'        => 'Przedłuż',
     'protection.btn_buy'          => 'Wykup ochronę',
     'protection.btn_cancel'       => 'Anuluj',
     'protection.modal_title'      => 'Wybierz ochronę',
@@ -86,5 +85,4 @@ return [
     'protection.locked_legal'       => 'Wymaga działu prawnego na poziomie :min/10.',
     'protection.not_affordable'     => 'Brak gotówki.',
     'protection.confirm_question'   => 'Wykupić ochronę ":name" za :cost PLN?',
-    'protection.confirm_renew'      => 'Przedłużyć ochronę ":name" za :cost PLN? Obecna ochrona zostanie anulowana bez zwrotu.',
 ];
