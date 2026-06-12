@@ -416,124 +416,6 @@ try {
     $marineHistoryOffset = ($marineHistoryPage - 1) * $marineHistoryPerPage;
     $marineHistory = array_slice($marineHistory, $marineHistoryOffset, $marineHistoryPerPage);
 
-    // Ochrona: transport drogowy, huby, rurociagi / Protection: road, hubs, pipelines
-    $roadProtectionWells      = [];
-    $roadProtectionOptions    = [];
-    $hubProtectionTargets     = [];
-    $hubProtectionOptions     = [];
-    $pipelineProtectionTargets = [];
-    $pipelineProtectionOptions = [];
-
-    $protEffectLines = static function (array $effects): array {
-        $lines = [];
-        foreach ($effects as $key => $eff) {
-            if (($eff['type'] ?? '') !== 'mult' || ($eff['value'] ?? 1.0) >= 1.0) {
-                continue;
-            }
-            $strength = $eff['value'] <= 0.60 ? 'strong' : ($eff['value'] <= 0.85 ? 'medium' : 'light');
-            $lines[] = tPlain('protection.effect.' . $strength, ['what' => tPlain('protection.risk.' . $key)]);
-        }
-        if ($lines !== []) {
-            $lines[] = tPlain('protection.effect.disclaimer');
-        }
-        return $lines;
-    };
-
-    try {
-        require_once __DIR__ . '/src/ProtectionService.php';
-        $protSvc = new ProtectionService($db);
-
-        // -- Transport drogowy / Road transport --
-        $roadWellIds = [];
-        foreach ($wells as $wellRow) {
-            if (($wellRow['transport'] ?? '') === 'ciezarowki') {
-                $roadWellIds[] = (int)$wellRow['id'];
-            }
-        }
-        if ($roadWellIds !== []) {
-            foreach ($protSvc->getAvailableOptions($playerId, 'road_transport', 'road_transport_guard') as $opt) {
-                $opt['effect_lines'] = $protEffectLines($opt['effects']);
-                $roadProtectionOptions[] = $opt;
-            }
-            $phs = implode(',', array_fill(0, count($roadWellIds), '?'));
-            $nameStmt = $db->prepare("SELECT id, COALESCE(NULLIF(name,''), location_name) AS well_name FROM wells WHERE id IN ({$phs})");
-            $nameStmt->execute($roadWellIds);
-            $wellNames = $nameStmt->fetchAll(PDO::FETCH_KEY_PAIR);
-            $activeRoadProt = $protSvc->getActiveProtections($playerId, 'road_transport', $roadWellIds, 'road_transport_guard');
-            foreach ($roadWellIds as $rwId) {
-                $ap = $activeRoadProt[$rwId] ?? null;
-                $roadProtectionWells[] = [
-                    'id'     => $rwId,
-                    'name'   => (string)($wellNames[$rwId] ?? ''),
-                    'active' => $ap === null ? null : ['name' => (string)$ap['option_name'], 'ends_at' => (string)$ap['ends_at']],
-                ];
-            }
-        }
-
-        // -- Huby: ochrona dla hubow nalezacych do gracza (player_id = playerId)
-        // -- Hubs: protection for hubs owned by player (player_id = playerId)
-        foreach ($protSvc->getAvailableOptions($playerId, 'hub', 'hub_guard') as $opt) {
-            $opt['effect_lines'] = $protEffectLines($opt['effects']);
-            $hubProtectionOptions[] = $opt;
-        }
-        $ownedHubIds = [];
-        foreach ($hubCards as $card) {
-            $hub   = $card['hub'] ?? [];
-            $hubId = (int)($hub['id'] ?? 0);
-            if ($hubId > 0 && (int)($hub['player_id'] ?? 0) === $playerId) {
-                $ownedHubIds[] = $hubId;
-            }
-        }
-        if ($ownedHubIds !== []) {
-            $activeHubProt = $protSvc->getActiveProtections($playerId, 'hub', $ownedHubIds, 'hub_guard');
-            foreach ($hubCards as $card) {
-                $hub   = $card['hub'] ?? [];
-                $hubId = (int)($hub['id'] ?? 0);
-                if ($hubId <= 0 || (int)($hub['player_id'] ?? 0) !== $playerId) {
-                    continue;
-                }
-                $ap = $activeHubProt[$hubId] ?? null;
-                $hubProtectionTargets[] = [
-                    'id'     => $hubId,
-                    'name'   => (string)($hub['name'] ?? ('Hub #' . $hubId)),
-                    'active' => $ap === null ? null : ['name' => (string)$ap['option_name'], 'ends_at' => (string)$ap['ends_at']],
-                ];
-            }
-        }
-
-        // -- Rurociagi / Pipelines --
-        if ($pipelines !== []) {
-            foreach ($protSvc->getAvailableOptions($playerId, 'pipeline', 'pipeline_guard') as $opt) {
-                $opt['effect_lines'] = $protEffectLines($opt['effects']);
-                $pipelineProtectionOptions[] = $opt;
-            }
-            $pipeIds = [];
-            foreach ($pipelines as $pipe) {
-                $pid = (int)($pipe['id'] ?? 0);
-                if ($pid > 0 && ($pipe['status'] ?? '') !== 'building') {
-                    $pipeIds[] = $pid;
-                }
-            }
-            if ($pipeIds !== []) {
-                $activePipeProt = $protSvc->getActiveProtections($playerId, 'pipeline', $pipeIds, 'pipeline_guard');
-                foreach ($pipelines as $pipe) {
-                    $pid = (int)($pipe['id'] ?? 0);
-                    if ($pid <= 0 || ($pipe['status'] ?? '') === 'building') {
-                        continue;
-                    }
-                    $ap = $activePipeProt[$pid] ?? null;
-                    $pipelineProtectionTargets[] = [
-                        'id'     => $pid,
-                        'name'   => tPlain('protection.target_pipeline', ['id' => $pid]),
-                        'active' => $ap === null ? null : ['name' => (string)$ap['option_name'], 'ends_at' => (string)$ap['ends_at']],
-                    ];
-                }
-            }
-        }
-    } catch (Throwable $e) {
-        GameLog::error('logistics.php', 'Protection data load failed', $e, ['player' => $playerId]);
-    }
-
     $viewData = array_merge(GameShell::data($playerId), [
         'summary'          => $summary,
         'totals'           => $totals,
@@ -579,18 +461,11 @@ try {
         'activeRoadTripsTotal' => $activeRoadTripsTotal,
         'activeRoadTripsPage' => $activeRoadTripsPage,
         'activeRoadTripsTotalPages' => $activeRoadTripsTotalPages,
- // Ochrona / Protection
-        'roadProtectionWells'       => $roadProtectionWells,
-        'roadProtectionOptions'     => $roadProtectionOptions,
-        'hubProtectionTargets'      => $hubProtectionTargets,
-        'hubProtectionOptions'      => $hubProtectionOptions,
-        'pipelineProtectionTargets' => $pipelineProtectionTargets,
-        'pipelineProtectionOptions' => $pipelineProtectionOptions,
     ]);
 
     $pageTitle = t('logistics.page_title');
     $extraHead = '<meta name="csrf-token" content="' . htmlspecialchars($viewData['csrfToken'], ENT_QUOTES) . '">';
-    $extraCss = ['/assets/css/logistics.css', '/assets/css/protection.css'];
+    $extraCss = ['/assets/css/logistics.css'];
     $extraJs = ['/assets/js/logistics.js', '/assets/js/logistics_hubs.js'];
     $gameShellTitle = t('logistics.page_title');
     $gameShellView = __DIR__ . '/templates/views/logistics/main.php';
