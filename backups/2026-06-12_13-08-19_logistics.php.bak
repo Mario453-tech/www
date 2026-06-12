@@ -267,9 +267,6 @@ try {
         $nameStmt->execute($roadWellIds);
         $wellNames = $nameStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
-        // Pre-fetch aktywnych ochron transportu drogowego jednym zapytaniem (unikamy N+1).
-        // Pre-fetch active road protections in one query (avoids N+1).
-        $protSvc->prefetchForPlayer($playerId, 'road_transport', 'road_transport_guard');
         foreach ($roadWellIds as $roadWellId) {
             $activeProt = $protSvc->getActiveProtection($playerId, 'road_transport', $roadWellId, 'road_transport_guard');
             $roadProtectionWells[] = [
@@ -289,9 +286,6 @@ try {
             $opt['effect_lines'] = $protEffectLines($opt['effects']);
             $hubProtectionOptions[] = $opt;
         }
-        // Pre-fetch aktywnych ochron hubow jednym zapytaniem (unikamy N+1).
-        // Pre-fetch active hub protections in one query (avoids N+1).
-        $protSvc->prefetchForPlayer($playerId, 'hub', 'hub_guard');
         foreach ($hubCards as $card) {
             $hub = $card['hub'] ?? [];
             $hubId = (int)($hub['id'] ?? 0);
@@ -448,9 +442,6 @@ if ($protSvc !== null && $pipelines !== []) {
             $opt['effect_lines'] = $protEffectLines($opt['effects']);
             $pipelineProtectionOptions[] = $opt;
         }
-        // Pre-fetch aktywnych ochron rurociagow jednym zapytaniem (unikamy N+1).
-        // Pre-fetch active pipeline protections in one query (avoids N+1).
-        $protSvc->prefetchForPlayer($playerId, 'pipeline', 'pipeline_guard');
         foreach ($pipelines as $pipe) {
             $pipeId = (int)($pipe['id'] ?? 0);
             if ($pipeId <= 0 || ($pipe['status'] ?? '') === 'building') {

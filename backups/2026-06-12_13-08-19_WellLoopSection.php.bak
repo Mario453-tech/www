@@ -273,11 +273,6 @@ class WellLoopSection
  */
     public function finalizeHubTicks(int $playerId, float $deltaHours, array $hseBonus, ?ProtectionService $protectionSvc = null): void
     {
-        // Pre-fetch aktywnych ochron hubow przed petla incydentow (unikamy N+1 w ticku).
-        // Pre-fetch active hub protections before the incident loop (avoids N+1 tick queries).
-        if ($protectionSvc !== null) {
-            $protectionSvc->prefetchForPlayer($playerId, 'hub', 'hub_guard');
-        }
         $wellHub = new WellHubSection(
             $this,
             $this->now,

@@ -84,12 +84,7 @@
 
     document.querySelectorAll('.protection-buy-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            if (!selected.id) {
-                if (typeof window.showGameToast === 'function') {
-                    window.showGameToast(LANG.err || 'Error', 'error');
-                }
-                return;
-            }
+            if (!selected.id) return;
             var question = (LANG.confirm_question || ':name / :cost')
                 .replace(':name', btn.dataset.optionName || '')
                 .replace(':cost', btn.dataset.optionCost || '');

@@ -29,8 +29,6 @@ class ProtectionService
     private CompanyCredibilityService $credibility;
     private ?LegalService $legal = null;
     private bool $expiryChecked = false;
-    /** @var array<string, array<int, array<string, mixed>>> */
-    private array $batchCache = [];
 
     public function __construct(?PDO $db = null)
     {
@@ -249,11 +247,7 @@ class ProtectionService
         if ($row === null) {
             return null;
         }
-        // Jesli effects nie zostaly dolaczone przez prefetchForPlayer — pobierz je teraz.
-        // If effects were not attached by prefetchForPlayer — fetch them now.
-        if (!array_key_exists('effects', $row)) {
-            $row['effects'] = $this->effectsFor((int)$row['protection_option_id']);
-        }
+        $row['effects'] = $this->effectsFor((int)$row['protection_option_id']);
         return $row;
     }
 
@@ -269,49 +263,6 @@ class ProtectionService
     {
         $row = $this->getActiveProtection($playerId, $targetType, $targetId, $context);
         return $row === null ? [] : $row['effects'];
-    }
-
-    /**
-     * Pre-fetch aktywnych ochron gracza dla danego typu i kontekstu jednym zapytaniem.
-     * Pre-fetch active protections for a player/type/context in one query.
-     * Po wywolaniu tej metody getActiveProtection() / getActiveEffects() uzywaja cache.
-     * After calling this, getActiveProtection() / getActiveEffects() use the cache.
-     */
-    public function prefetchForPlayer(int $playerId, string $targetType, string $context): void
-    {
-        $key = "{$playerId}:{$targetType}:{$context}";
-        if (isset($this->batchCache[$key])) {
-            return;
-        }
-        $this->expireOverdue();
-        try {
-            $now  = $this->dbNow();
-            $stmt = $this->db->prepare(
-                "SELECT ap.*, po.name AS option_name, po.code AS option_code
-                   FROM active_protections ap
-                   JOIN protection_options po ON po.id = ap.protection_option_id
-                  WHERE ap.player_id = ? AND ap.target_type = ? AND ap.context = ?
-                    AND ap.status = 'active' AND ap.ends_at > ?"
-            );
-            $stmt->execute([$playerId, $targetType, $context, $now]);
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $this->batchCache[$key] = [];
-            $optionIds = [];
-            foreach ($rows as $row) {
-                $this->batchCache[$key][(int)$row['target_id']] = $row;
-                $optionIds[] = (int)$row['protection_option_id'];
-            }
-            if ($optionIds !== []) {
-                $effectsMap = $this->effectsForMany(array_unique($optionIds));
-                foreach ($this->batchCache[$key] as $tid => &$r) {
-                    $r['effects'] = $effectsMap[(int)$r['protection_option_id']] ?? [];
-                }
-                unset($r);
-            }
-        } catch (Throwable $e) {
-            GameLog::error('ProtectionService', 'prefetchForPlayer FAILED', $e, ['player_id' => $playerId]);
-            $this->batchCache[$key] = [];
-        }
     }
 
     /**
@@ -408,12 +359,6 @@ class ProtectionService
     /** @return array<string, mixed>|null */
     private function activeRow(int $playerId, string $targetType, int $targetId, string $context): ?array
     {
-        // Sprawdz cache (wypelniony przez prefetchForPlayer) przed zapytaniem SQL.
-        // Check cache (populated by prefetchForPlayer) before SQL query.
-        $key = "{$playerId}:{$targetType}:{$context}";
-        if (isset($this->batchCache[$key])) {
-            return $this->batchCache[$key][$targetId] ?? null;
-        }
         try {
             $stmt = $this->db->prepare(
                 "SELECT ap.*, po.name AS option_name, po.code AS option_code

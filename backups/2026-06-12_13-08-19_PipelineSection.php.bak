@@ -101,12 +101,6 @@ class PipelineSection
 
             $hasPipelineEngineer = $this->checkPipelineEngineer($playerId);
 
-            // Pre-fetch aktywnych ochron rurociagow przed petla (unikamy N+1 zapytan w ticku).
-            // Pre-fetch active pipeline protections before the loop (avoids N+1 tick queries).
-            if ($protection !== null) {
-                $protection->prefetchForPlayer($playerId, 'pipeline', 'pipeline_guard');
-            }
-
             foreach ($pipelines as $pipeline) {
                 $pipelineId          = (int) $pipeline['id'];
                 $wellId              = (int)($pipeline['well_id'] ?? 0);
@@ -328,7 +322,7 @@ class PipelineSection
         $condFactor = max(0.2, (100.0 - $conditionPct) / 100.0);
         $engMult    = $hasPipelineEngineer ? 0.5 : 1.0;
         $hseMult    = (float)($hseBonus['failure_reduction'] ?? 1.0);
-        [$protMult, $protOptionId] = $this->pipelineProtectionMult($protection, $playerId, $pipelineId);
+        $protMult   = $this->pipelineProtectionMult($protection, $playerId, $pipelineId);
 
  // Incident table: level => short name for event log
         $levels = ['pipe_micro' => 'micro', 'pipe_minor' => 'minor', 'pipe_medium' => 'medium'];
@@ -388,7 +382,7 @@ class PipelineSection
 
             if ($protection !== null && $protMult < 1.0) {
                 $protection->logEvent(
-                    $playerId, $protOptionId, 'pipeline', $pipelineId, 'pipeline_guard',
+                    $playerId, 0, 'pipeline', $pipelineId, 'pipeline_guard',
                     'protection_applied_to_incident', round($lossAdd, 2), $levelShort
                 );
             }
@@ -398,25 +392,20 @@ class PipelineSection
     }
 
     /**
-     * Zwraca [mnoznik, option_id] aktywnej ochrony rurociagu lub [1.0, 0] gdy brak.
-     * Returns [multiplier, option_id] of active pipeline protection or [1.0, 0] when none.
-     *
-     * @return array{0:float,1:int}
+     * Mnoznik ochrony rurociagu (pipeline_incident_risk_mult) lub 1.0 gdy brak ochrony.
+     * Pipeline protection multiplier (pipeline_incident_risk_mult) or 1.0 when none.
      */
-    private function pipelineProtectionMult(?ProtectionService $protection, int $playerId, int $pipelineId): array
+    private function pipelineProtectionMult(?ProtectionService $protection, int $playerId, int $pipelineId): float
     {
         if ($protection === null) {
-            return [1.0, 0];
+            return 1.0;
         }
-        $row = $protection->getActiveProtection($playerId, 'pipeline', $pipelineId, 'pipeline_guard');
-        if ($row === null) {
-            return [1.0, 0];
-        }
-        $eff = $row['effects']['pipeline_incident_risk_mult'] ?? null;
+        $effects = $protection->getActiveEffects($playerId, 'pipeline', $pipelineId, 'pipeline_guard');
+        $eff = $effects['pipeline_incident_risk_mult'] ?? null;
         if ($eff !== null && $eff['type'] === 'mult') {
-            return [(float)$eff['value'], (int)$row['protection_option_id']];
+            return max(0.0, min(1.0, (float)$eff['value']));
         }
-        return [1.0, (int)$row['protection_option_id']];
+        return 1.0;
     }
 
     private function checkPipelineEngineer(int $playerId): bool

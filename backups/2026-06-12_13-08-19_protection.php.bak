@@ -66,9 +66,9 @@ try {
         $label = tPlain('protection.target_well', ['id' => $targetId]);
     } elseif ($target === 'hub') {
         $stmt = $db->prepare(
-            "SELECT 1 FROM logistics_hubs WHERE id = ? AND player_id = ?"
+            "SELECT 1 FROM logistics_hubs WHERE id = ? AND (player_id = ? OR tenant_player_id = ?)"
         );
-        $stmt->execute([$targetId, $playerId]);
+        $stmt->execute([$targetId, $playerId, $playerId]);
         if ($stmt->fetchColumn() === false) {
             protectionJson(['success' => false, 'message' => tPlain('protection.err_target_invalid')]);
         }
