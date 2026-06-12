@@ -169,28 +169,8 @@ trait TTSTasksTrait
         $baseHours = rand($taskDef['hours_min'], $taskDef['hours_max']);
         $hours     = max(1, (int)round($baseHours * $mBonus['time_mult'] * $sBonus['time_mult']));
 
-        // Klucz sesji blokujacy ponowne losowanie kosztu dla tej samej kombinacji zlecenia.
-        // Session key locking re-rolls of cost for the same task combination.
-        $quoteKey = 'tts_q_' . $staffId . '_' . $taskType . '_' . (int)$wellId . '_' . (int)$hubId . '_' . (int)$pipelineId;
-
-        if (
-            $taskDef['cost_min'] > 0
-            && isset($_SESSION[$quoteKey])
-            && is_array($_SESSION[$quoteKey])
-            && (int)($_SESSION[$quoteKey]['expires'] ?? 0) > time()
-            && isset($_SESSION[$quoteKey]['cost'])
-        ) {
-            // Uzyj kosztu z sesji (wczesniej wylosowanego) — blokuje re-roll exploit.
-            // Use session-stored cost (previously rolled) — prevents re-roll exploit.
-            $cost = (int)$_SESSION[$quoteKey]['cost'];
-        } else {
-            $baseCost = $taskDef['cost_min'] > 0 ? rand($taskDef['cost_min'], $taskDef['cost_max']) : 0;
-            $cost     = (int)round($baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult']);
-            if ($taskDef['cost_min'] > 0) {
-                // Zapisz wylosowany koszt w sesji na 5 minut / Store rolled cost in session for 5 minutes
-                $_SESSION[$quoteKey] = ['cost' => $cost, 'expires' => time() + 300];
-            }
-        }
+        $baseCost = $taskDef['cost_min'] > 0 ? rand($taskDef['cost_min'], $taskDef['cost_max']) : 0;
+        $cost     = (int)round($baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult']);
 
         $moduleDef = $moduleType ? self::getModuleDefinition($moduleType) : null;
         if ($taskType === 'install_module' && $moduleDef) {
@@ -287,10 +267,6 @@ trait TTSTasksTrait
                 'error' => $e->getMessage(),
             ])];
         }
-
-        // Usun wycene z sesji po udanym zleceniu — kolejne zlecenie dolosuje koszt od nowa.
-        // Remove session quote after successful assignment — next assignment re-rolls cost.
-        unset($_SESSION[$quoteKey]);
 
         return [
             'success'  => true,
