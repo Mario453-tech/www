@@ -260,6 +260,53 @@ final class ProtectionServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(1, (int)$log);
     }
 
+    public function testHubAndPipelineOptionsAreSeeded(): void
+    {
+        $this->seedPlayer(1, 5000000.00);
+        $svc = new ProtectionService($this->db);
+
+        $hub = $svc->getAvailableOptions(1, 'hub', 'hub_guard');
+        $hubByCode = [];
+        foreach ($hub as $opt) {
+            $hubByCode[$opt['code']] = $opt;
+        }
+        $this->assertArrayHasKey('hub_security', $hubByCode);
+        $this->assertSame(120000.00, $hubByCode['hub_security']['cost']);
+        $this->assertSame(0.75, $hubByCode['hub_security']['effects']['equipment_damage_risk_mult']['value']);
+        $this->assertSame(0.70, $hubByCode['hub_security']['effects']['critical_overload_risk_mult']['value']);
+
+        $pipe = $svc->getAvailableOptions(1, 'pipeline', 'pipeline_guard');
+        $pipeByCode = [];
+        foreach ($pipe as $opt) {
+            $pipeByCode[$opt['code']] = $opt;
+        }
+        $this->assertArrayHasKey('pipeline_monitor', $pipeByCode);
+        // per_hour: 30000 * (120/60) = 60000
+        $this->assertSame(60000.00, $pipeByCode['pipeline_monitor']['cost']);
+        $this->assertSame(0.75, $pipeByCode['pipeline_monitor']['effects']['pipeline_incident_risk_mult']['value']);
+    }
+
+    public function testActivateHubAndPipelineProtection(): void
+    {
+        $this->seedPlayer(1, 5000000.00);
+        $svc = new ProtectionService($this->db);
+
+        $hubRes = $svc->activate(1, 'hub_security', 'hub', 12, 0.0, [], 'hub_guard');
+        $this->assertTrue($hubRes['success'], $hubRes['message'] ?? '');
+        $hubEff = $svc->getActiveEffects(1, 'hub', 12, 'hub_guard');
+        $this->assertSame(0.75, $hubEff['equipment_damage_risk_mult']['value']);
+
+        $pipeRes = $svc->activate(1, 'pipeline_monitor', 'pipeline', 33, 0.0, [], 'pipeline_guard');
+        $this->assertTrue($pipeRes['success'], $pipeRes['message'] ?? '');
+        $pipeEff = $svc->getActiveEffects(1, 'pipeline', 33, 'pipeline_guard');
+        $this->assertSame(0.75, $pipeEff['pipeline_incident_risk_mult']['value']);
+
+        // Cel huba i cel rurociagu sa niezalezne (rozne target_type).
+        // Hub target and pipeline target are independent (different target_type).
+        $count = $this->db->query("SELECT COUNT(*) FROM active_protections WHERE player_id = 1 AND status = 'active'")->fetchColumn();
+        $this->assertSame(2, (int)$count);
+    }
+
     // ------------------------------------------------------------- helpers
 
     private function seedPlayer(int $id, float $cash, int $credibility = 50): void

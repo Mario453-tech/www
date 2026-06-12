@@ -182,13 +182,9 @@ class PlayersSection
         $this->disastersTriggered += $wellLoop->disastersTriggered;
         $this->incidentsTriggered += $wellLoop->incidentsTriggered;
 
- // Jedna instancja ochrony na gracza (wygasanie raz, wspolna dla rurociagow/hubow/drogi).
- // One protection instance per player (expiry once, shared by pipelines/hubs/road).
-        $protectionSvc = class_exists('ProtectionService') ? new ProtectionService($db) : null;
-
  // 3. RUROCIAGI / Pipelines
         $pipelines = new PipelineSection($db, $now, $wellService);
-        $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc, $protectionSvc);
+        $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc);
  // Floor na 0 jak pozostale odliczenia gotowki (DB i tak ma GREATEST(0,...)).
  // Floor at 0 like the other cash deductions (DB also applies GREATEST(0,...)).
         $playerCash               = max(0.0, $playerCash - abs($pipelines->cashDelta));
@@ -220,8 +216,9 @@ class PlayersSection
         if (class_exists('WellRoadTripSection') && class_exists('RoadTransportService')) {
             try {
                 $roadSvc        = new RoadTransportService($db);
- // Ochrona kursow (theft/raid/sabotage) - wspolna instancja gracza.
- // Trip protection (theft/raid/sabotage) - shared per-player instance.
+ // Ochrona kursow (theft/raid/sabotage) - guarded, brak klasy nie blokuje ticka.
+ // Trip protection (theft/raid/sabotage) - guarded, a missing class never blocks the tick.
+                $protectionSvc  = class_exists('ProtectionService') ? new ProtectionService($db) : null;
                 $roadTripSec    = new WellRoadTripSection($db, $now);
                 $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc, $protectionSvc);
                 if ($roadTripSec->deliveredBbl > 0.0) {
@@ -279,7 +276,7 @@ class PlayersSection
  // Hub finalization after synchronous production and physically arrived time-based deliveries.
         $wellLoop->currentStorage = $currentStorage;
         $wellLoop->playerCash     = $playerCash;
-        $wellLoop->finalizeHubTicks($playerId, $deltaHours, $hseBonus, $protectionSvc);
+        $wellLoop->finalizeHubTicks($playerId, $deltaHours, $hseBonus);
         $currentStorage = $wellLoop->currentStorage;
         $playerCash     = $wellLoop->playerCash;
 

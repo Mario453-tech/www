@@ -218,36 +218,10 @@ try {
 
 // Ochrona kursow drogowych: odwierty ciezarowkowe + aktywne ochrony + opcje do modala.
 // Road trip protection: truck wells + active protections + options for the modal.
-// Ochrona (uniwersalna) - wspolny serwis + formatter opisow efektow dla drogi/hubow/rurociagow.
-// Protection (universal) - shared service + effect-line formatter for road/hub/pipeline UI.
 $roadProtectionWells = [];
 $roadProtectionOptions = [];
-$hubProtectionTargets = [];
-$hubProtectionOptions = [];
-$pipelineProtectionTargets = [];
-$pipelineProtectionOptions = [];
-$protSvc = null;
-
-$protEffectLines = static function (array $effects): array {
-    $lines = [];
-    foreach ($effects as $key => $eff) {
-        if (($eff['type'] ?? '') !== 'mult' || ($eff['value'] ?? 1.0) >= 1.0) {
-            continue;
-        }
-        $strength = $eff['value'] <= 0.60 ? 'strong' : ($eff['value'] <= 0.85 ? 'medium' : 'light');
-        $lines[] = tPlain('protection.effect.' . $strength, ['what' => tPlain('protection.risk.' . $key)]);
-    }
-    if ($lines !== []) {
-        $lines[] = tPlain('protection.effect.disclaimer');
-    }
-    return $lines;
-};
-
 try {
     require_once $srcDir . '/ProtectionService.php';
-    $protSvc = new ProtectionService($db);
-
-    // -- Transport drogowy / Road transport --
     $roadWellIds = [];
     foreach ($wells as $wellRow) {
         if (($wellRow['transport'] ?? '') === 'ciezarowki') {
@@ -255,6 +229,22 @@ try {
         }
     }
     if ($roadWellIds !== []) {
+        $protSvc = new ProtectionService($db);
+
+        $protEffectLines = static function (array $effects): array {
+            $lines = [];
+            foreach (ProtectionService::EFFECT_KEYS_P1 as $key) {
+                $eff = $effects[$key] ?? null;
+                if ($eff === null || $eff['type'] !== 'mult' || $eff['value'] >= 1.0) {
+                    continue;
+                }
+                $strength = $eff['value'] <= 0.60 ? 'strong' : ($eff['value'] <= 0.85 ? 'medium' : 'light');
+                $lines[] = tPlain('protection.effect.' . $strength, ['what' => tPlain('protection.risk.' . $key)]);
+            }
+            $lines[] = tPlain('protection.effect.disclaimer');
+            return $lines;
+        };
+
         foreach ($protSvc->getAvailableOptions($playerId, 'road_transport', 'road_transport_guard') as $opt) {
             $opt['effect_lines'] = $protEffectLines($opt['effects']);
             $roadProtectionOptions[] = $opt;
@@ -272,30 +262,6 @@ try {
             $roadProtectionWells[] = [
                 'id'     => $roadWellId,
                 'name'   => (string)($wellNames[$roadWellId] ?? ''),
-                'active' => $activeProt === null ? null : [
-                    'name'    => (string)$activeProt['option_name'],
-                    'ends_at' => (string)$activeProt['ends_at'],
-                ],
-            ];
-        }
-    }
-
-    // -- Huby logistyczne / Logistics hubs --
-    if ($hubCards !== []) {
-        foreach ($protSvc->getAvailableOptions($playerId, 'hub', 'hub_guard') as $opt) {
-            $opt['effect_lines'] = $protEffectLines($opt['effects']);
-            $hubProtectionOptions[] = $opt;
-        }
-        foreach ($hubCards as $card) {
-            $hub = $card['hub'] ?? [];
-            $hubId = (int)($hub['id'] ?? 0);
-            if ($hubId <= 0) {
-                continue;
-            }
-            $activeProt = $protSvc->getActiveProtection($playerId, 'hub', $hubId, 'hub_guard');
-            $hubProtectionTargets[] = [
-                'id'     => $hubId,
-                'name'   => (string)($hub['name'] ?? ('Hub #' . $hubId)),
                 'active' => $activeProt === null ? null : [
                     'name'    => (string)$activeProt['option_name'],
                     'ends_at' => (string)$activeProt['ends_at'],
@@ -432,37 +398,6 @@ try {
     }
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Pipeline data load failed', $e, ['player' => $playerId]);
-}
-
-// Ochrona rurociagow - po zaladowaniu listy rurociagow (target_id = well_pipelines.id).
-// Pipeline protection - after the pipeline list is loaded (target_id = well_pipelines.id).
-if ($protSvc !== null && $pipelines !== []) {
-    try {
-        foreach ($protSvc->getAvailableOptions($playerId, 'pipeline', 'pipeline_guard') as $opt) {
-            $opt['effect_lines'] = $protEffectLines($opt['effects']);
-            $pipelineProtectionOptions[] = $opt;
-        }
-        foreach ($pipelines as $pipe) {
-            $pipeId = (int)($pipe['id'] ?? 0);
-            if ($pipeId <= 0 || ($pipe['status'] ?? '') === 'building') {
-                continue;
-            }
-            $legLabel = ($pipe['leg'] ?? 'inbound') === 'outbound'
-                ? tPlain('protection.pipeline_leg_outbound')
-                : tPlain('protection.pipeline_leg_inbound');
-            $activeProt = $protSvc->getActiveProtection($playerId, 'pipeline', $pipeId, 'pipeline_guard');
-            $pipelineProtectionTargets[] = [
-                'id'     => $pipeId,
-                'name'   => tPlain('protection.pipeline_target_leg', ['id' => $pipeId, 'leg' => $legLabel]),
-                'active' => $activeProt === null ? null : [
-                    'name'    => (string)$activeProt['option_name'],
-                    'ends_at' => (string)$activeProt['ends_at'],
-                ],
-            ];
-        }
-    } catch (Throwable $e) {
-        GameLog::error('logistics', 'Pipeline protection load failed', $e, ['player' => $playerId]);
-    }
 }
 
 // Wells with active hub assignment but no pipeline yet (candidates for pipeline purchase)
@@ -665,10 +600,6 @@ $viewData = compact(
     'activeRoadTripsTotalPages',
     'roadProtectionWells',
     'roadProtectionOptions',
-    'hubProtectionTargets',
-    'hubProtectionOptions',
-    'pipelineProtectionTargets',
-    'pipelineProtectionOptions',
     'marineDeliveries',
     'marineBuffers',
     'marineMinLoadBbl',

@@ -24,7 +24,6 @@ class WellHubSection
     private array             $gBalanceMults;
     private float             $oilPrice;
     private OutboundLegService $outboundSvc;
-    private ?ProtectionService $protectionSvc;
 
  /**
  * @param array<string, float|string> $financeLogisticsMods
@@ -39,8 +38,7 @@ class WellHubSection
         array                 $financeLogisticsMods,
         array                 $gBalanceMults,
         float                 $oilPrice,
-        OutboundLegService    $outboundSvc,
-        ?ProtectionService    $protectionSvc = null
+        OutboundLegService    $outboundSvc
     ) {
         $this->ctx                  = $ctx;
         $this->now                  = $now;
@@ -51,7 +49,6 @@ class WellHubSection
         $this->gBalanceMults        = $gBalanceMults;
         $this->oilPrice             = $oilPrice;
         $this->outboundSvc          = $outboundSvc;
-        $this->protectionSvc        = $protectionSvc;
     }
 
  /**
@@ -193,7 +190,7 @@ class WellHubSection
         }
         try {
             $incident = $this->hubIncidentSvc->processTick(
-                $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $this->protectionSvc
+                $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus
             );
             if ($incident !== null && $incident['extra_loss'] > 0.0) {
                 $incLoss = (float)$incident['extra_loss'] * (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);

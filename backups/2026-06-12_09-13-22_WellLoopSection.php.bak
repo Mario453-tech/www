@@ -271,7 +271,7 @@ class WellLoopSection
  *
  * @param array<string, mixed> $hseBonus
  */
-    public function finalizeHubTicks(int $playerId, float $deltaHours, array $hseBonus, ?ProtectionService $protectionSvc = null): void
+    public function finalizeHubTicks(int $playerId, float $deltaHours, array $hseBonus): void
     {
         $wellHub = new WellHubSection(
             $this,
@@ -282,8 +282,7 @@ class WellLoopSection
             $this->financeLogisticsMods,
             $this->gBalanceMults,
             $this->oilPrice,
-            new OutboundLegService($this->transportConfig),
-            $protectionSvc
+            new OutboundLegService($this->transportConfig)
         );
         $wellHub->finalize($playerId, $deltaHours, $hseBonus);
     }

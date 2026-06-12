@@ -1,61 +1,48 @@
 /**
- * protection.js - modal wykupu ochrony (transport drogowy, huby, rurociagi).
- * protection.js - protection purchase modal (road transport, hubs, pipelines).
+ * protection.js - modal wykupu ochrony (transport drogowy).
+ * protection.js - protection purchase modal (road transport).
  *
- * Kazdy typ celu ma wlasny modal #protection-modal-<target> z lista opcji.
- * Each target type has its own modal #protection-modal-<target> with the option list.
- * Przyciski .protection-add-btn niosa data-target (road|hub|pipeline) i data-target-id.
- * Buttons .protection-add-btn carry data-target (road|hub|pipeline) and data-target-id.
- *
- * Konfiguracja z PHP: window.PROTECTION_API, window.PROTECTION_CSRF, window.PROTECTION_LANG.
+ * Konfiguracja z PHP: window.PROTECTION_API, window.PROTECTION_CSRF,
+ * window.PROTECTION_LANG (confirm_question, err).
  */
 (function () {
     'use strict';
 
+    var modal = document.getElementById('protection-modal');
+    if (!modal) return;
+
     var LANG = window.PROTECTION_LANG || {};
-    var selected = { target: '', id: 0 };
+    var selectedWellId = 0;
 
-    function modalFor(target) {
-        return document.getElementById('protection-modal-' + target);
+    function openModal(wellId) {
+        selectedWellId = wellId;
+        modal.hidden = false;
     }
 
-    function closeAll() {
-        selected = { target: '', id: 0 };
-        ['road', 'hub', 'pipeline'].forEach(function (t) {
-            var m = modalFor(t);
-            if (m) m.hidden = true;
-        });
-    }
-
-    function openModal(target, targetId) {
-        var m = modalFor(target);
-        if (!m) return;
-        selected = { target: target, id: targetId };
-        m.hidden = false;
+    function closeModal() {
+        selectedWellId = 0;
+        modal.hidden = true;
     }
 
     document.querySelectorAll('.protection-add-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            openModal(btn.dataset.target || 'road', parseInt(btn.dataset.targetId, 10) || 0);
+            openModal(parseInt(btn.dataset.wellId, 10) || 0);
         });
     });
 
-    document.querySelectorAll('[data-protection-close]').forEach(function (btn) {
-        btn.addEventListener('click', closeAll);
+    modal.querySelectorAll('[data-protection-close]').forEach(function (btn) {
+        btn.addEventListener('click', closeModal);
     });
 
-    document.querySelectorAll('.protection-modal').forEach(function (m) {
-        m.addEventListener('click', function (event) {
-            if (event.target === m) closeAll();
-        });
+    modal.addEventListener('click', function (event) {
+        if (event.target === modal) closeModal();
     });
 
     function buyProtection(optionCode) {
         var body = new URLSearchParams();
         body.set('csrf_token', window.PROTECTION_CSRF || '');
         body.set('option_code', optionCode);
-        body.set('target', selected.target);
-        body.set('target_id', String(selected.id));
+        body.set('well_id', String(selectedWellId));
 
         fetch(window.PROTECTION_API || '/protection.php', {
             method: 'POST',
@@ -69,7 +56,7 @@
                         data.success ? 'success' : 'error');
                 }
                 if (data.success) {
-                    closeAll();
+                    closeModal();
                     setTimeout(function () {
                         window.location.replace(window.location.pathname + window.location.search);
                     }, 1200);
@@ -82,9 +69,9 @@
             });
     }
 
-    document.querySelectorAll('.protection-buy-btn').forEach(function (btn) {
+    modal.querySelectorAll('.protection-buy-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            if (!selected.id) return;
+            if (!selectedWellId) return;
             var question = (LANG.confirm_question || ':name / :cost')
                 .replace(':name', btn.dataset.optionName || '')
                 .replace(':cost', btn.dataset.optionCost || '');

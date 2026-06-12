@@ -873,9 +873,15 @@ pyta o aktywne efekty dla celu i nakłada je na swoje ryzyka. Pełny brief:
 
 - Typ transakcji: `FinancialTransactionService::TYPE_PROTECTION` (`protection`)
   → `POOL_CASH` — P1 tylko gotówka.
-- P1 podpięty: transport drogowy (`target_type='road_transport'`,
-  `target_id=well_id`, `context='road_transport_guard'`) — mnożniki
-  `theft/raid/sabotage_risk_mult` w `RoadTransportService::applyTripIncidents()`.
+- Podpięte cele (`target_type` / `target_id` / `context`):
+  - **transport drogowy**: `road_transport` / `well_id` / `road_transport_guard` —
+    mnożniki `theft/raid/sabotage_risk_mult` w `RoadTransportService::applyTripIncidents()`.
+  - **huby**: `hub` / `logistics_hubs.id` / `hub_guard` — mnożniki per typ incydentu
+    (`equipment_damage/local_leak/critical_overload/...risk_mult`) w `HubIncidentService::processTick()`.
+  - **rurociągi**: `pipeline` / `well_pipelines.id` (per odcinek) / `pipeline_guard` —
+    jeden mnożnik `pipeline_incident_risk_mult` w `PipelineSection::rollPipelineIncident()`.
+- Jedna instancja `ProtectionService` na gracza w ticku (`PlayersSection`), współdzielona
+  przez rurociągi/huby/drogę — wygasanie raz na gracza.
 
 ### Jak podpiąć ochronę do nowego modułu / How to plug in
 
@@ -883,7 +889,7 @@ pyta o aktywne efekty dla celu i nakłada je na swoje ryzyka. Pełny brief:
 2. Przy rozliczaniu ryzyka pobierz efekty i nałóż je:
    ```php
    $prot = new ProtectionService($db); // przed beginTransaction (robi DDL-check)
-   $effects = $prot->getActiveEffects($playerId, 'hub', $hubId, 'hub_security');
+   $effects = $prot->getActiveEffects($playerId, 'hub', $hubId, 'hub_guard');
    $risks = $prot->applyEffects($baseRisks, $effects); // mult mnozy, delta dodaje
    ```
 3. W UI celu dodaj przycisk POST do `public/protection.php` (lub własny endpoint)

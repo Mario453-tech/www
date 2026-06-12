@@ -1,5 +1,20 @@
 ## Changelog
 
+### 2026-06-12 - Ochrona P2: huby i rurociągi
+
+**Rozszerzenie uniwersalnego modułu ochrony na huby logistyczne i rurociągi** — ten sam silnik (`ProtectionService`), nowe cele. Gracz wykupuje ochronę huba lub rurociągu w panelu logistyki; aktywna ochrona zmniejsza ryzyko incydentów odpowiedniego typu. Architektura bez zmian — tylko nowe `target_type` + `context` i wpięcie efektów w istniejące silniki incydentów.
+
+- `src/Protection/ProtectionSchema.php` — seed 2 nowych opcji: Ochrona huba (`hub_security`, 120 000 PLN/60 min, `target_type='hub'`, `context='hub_guard'`, mnożniki uszkodzenia sprzętu/wycieku/przeciążenia) i Monitoring rurociągu (`pipeline_monitor`, 30 000 PLN/h, 120 min, `target_type='pipeline'`, `context='pipeline_guard'`, mnożnik awarii). Seed uogólniony — `target_type`/`context` per opcja.
+- `src/HubIncidentService.php` — `processTick()` przyjmuje `?ProtectionService`; mapa `PROTECTION_EFFECT_TO_TYPE` przekłada efekty na mnożniki per typ incydentu (`<typ>_risk_mult`), nakładane na szansę każdego typu osobno (silnik niezależnych szans — bez renormalizacji). Incydent pod ochroną → `protection_applied_to_incident`.
+- `src/Tick/PipelineSection.php` — `rollPipelineIncident()` mnoży szansę wszystkich poziomów przez `pipeline_incident_risk_mult` aktywnej ochrony danego odcinka (`well_pipelines.id`).
+- `src/Tick/WellHubSection.php` + `WellLoopSection.php` — przekazanie `ProtectionService` do finalizacji hubów (`finalizeHubTicks`).
+- `src/Tick/PlayersSection.php` — jedna instancja `ProtectionService` na gracza, współdzielona przez rurociągi/huby/transport drogowy (wygasanie raz na gracza).
+- `public/protection.php` — endpoint uogólniony: parametr `target` (road/hub/pipeline) + `target_id` z walidacją własności per typ (odwiert ciężarówkowy / hub właściciel-lub-najemca / rurociąg gracza).
+- `public/logistics.php` + `templates/views/logistics/main.php` — sekcje „Ochrona hubów" i „Ochrona rurociągów" (reużywalna closure renderująca tabelę + modal dla dowolnego typu celu); generyczny formatter opisów efektów.
+- `assets/js/protection.js` — generyczna obsługa 3 modali i typów celu (`data-target` + `data-target-id`).
+- `lang/pl/protection.php` — klucze sekcji/kolumn/ryzyk per typ; disclaimer i błąd celu uogólnione.
+- `tests/Integration/ProtectionServiceTest.php` — 2 nowe testy (seed hubów/rurociągów + aktywacja niezależnych celów). Integration 199/199, Unit 28/28.
+
 ### 2026-06-12 - Ochrona: domknięcie kontekstu, duplikatów i czasu DB
 
 - `src/ProtectionService.php` — aktywacja może wymagać konkretnego `context` (P1: `road_transport_guard`), używa czasu bazy danych dla startu/końca/logów i zwraca czytelny błąd przy kolizji aktywnej ochrony.

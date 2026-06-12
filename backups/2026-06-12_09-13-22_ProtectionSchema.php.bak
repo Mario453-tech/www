@@ -274,7 +274,6 @@ class ProtectionSchema
                 'code' => 'basic_escort',
                 'name' => 'Eskorta podstawowa',
                 'description' => 'Cywilna eskorta kursów. Zmniejsza ryzyko kradzieży i napadu.',
-                'target_type' => 'road_transport', 'context' => 'road_transport_guard',
                 // fixed zamiast percent_reference: procent od pustego bufora dalby darmowa ochrone.
                 // fixed instead of percent_reference: a percent of an empty buffer would be free protection.
                 'cost_type' => 'fixed', 'cost_value' => 75000.00,
@@ -285,7 +284,6 @@ class ProtectionSchema
                 'code' => 'armed_convoy',
                 'name' => 'Konwój uzbrojony',
                 'description' => 'Uzbrojona obstawa kursów. Mocno zmniejsza ryzyko kradzieży i napadu, lekko sabotażu.',
-                'target_type' => 'road_transport', 'context' => 'road_transport_guard',
                 'cost_type' => 'fixed', 'cost_value' => 500000.00,
                 'duration_minutes' => 60, 'min_legal_level' => 3, 'sort_order' => 20,
                 'effects' => ['theft_risk_mult' => 0.55, 'raid_risk_mult' => 0.60, 'sabotage_risk_mult' => 0.85],
@@ -294,28 +292,9 @@ class ProtectionSchema
                 'code' => 'drone_patrol',
                 'name' => 'Patrol dronami',
                 'description' => 'Monitoring tras z powietrza. Zmniejsza ryzyko sabotażu i lekko kradzieży.',
-                'target_type' => 'road_transport', 'context' => 'road_transport_guard',
                 'cost_type' => 'per_hour', 'cost_value' => 50000.00,
                 'duration_minutes' => 120, 'min_legal_level' => 0, 'sort_order' => 30,
                 'effects' => ['sabotage_risk_mult' => 0.70, 'theft_risk_mult' => 0.90],
-            ],
-            [
-                'code' => 'hub_security',
-                'name' => 'Ochrona huba',
-                'description' => 'Obstawa i serwis prewencyjny huba. Zmniejsza ryzyko uszkodzenia sprzętu, wycieku i krytycznego przeciążenia.',
-                'target_type' => 'hub', 'context' => 'hub_guard',
-                'cost_type' => 'fixed', 'cost_value' => 120000.00,
-                'duration_minutes' => 60, 'min_legal_level' => 0, 'sort_order' => 40,
-                'effects' => ['equipment_damage_risk_mult' => 0.75, 'critical_overload_risk_mult' => 0.70, 'local_leak_risk_mult' => 0.85],
-            ],
-            [
-                'code' => 'pipeline_monitor',
-                'name' => 'Monitoring rurociągu',
-                'description' => 'Stały nadzór i czujniki ciśnienia na rurociągu. Zmniejsza ryzyko awarii tego odcinka.',
-                'target_type' => 'pipeline', 'context' => 'pipeline_guard',
-                'cost_type' => 'per_hour', 'cost_value' => 30000.00,
-                'duration_minutes' => 120, 'min_legal_level' => 0, 'sort_order' => 50,
-                'effects' => ['pipeline_incident_risk_mult' => 0.75],
             ],
         ];
 
@@ -327,7 +306,7 @@ class ProtectionSchema
                 (code, name, description, target_type, context, is_active,
                  cost_type, cost_value, cost_currency, duration_minutes,
                  min_company_credibility, min_legal_level, sort_order, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'cash', ?, 0, ?, ?, ?, ?)"
+             VALUES (?, ?, ?, 'road_transport', 'road_transport_guard', 1, ?, ?, 'cash', ?, 0, ?, ?, ?, ?)"
         );
         $selId = $db->prepare("SELECT id FROM protection_options WHERE code = ?");
         $insEff = $db->prepare(
@@ -339,7 +318,6 @@ class ProtectionSchema
         foreach ($options as $opt) {
             $insOpt->execute([
                 $opt['code'], $opt['name'], $opt['description'],
-                $opt['target_type'], $opt['context'],
                 $opt['cost_type'], $opt['cost_value'], $opt['duration_minutes'],
                 $opt['min_legal_level'], $opt['sort_order'], $now, $now,
             ]);
