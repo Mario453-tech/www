@@ -90,7 +90,7 @@ class BankDataLoader
  * Etap 4: laduje numer rachunku, saldo i historie operacji ze stronicowaniem.
  * Stage 4: loads account number, balance and paginated transaction history.
  *
- * @return array{number:string,balance:float,history:array<int,array<string,mixed>>,historyTotal:int,historyPage:int}
+ * @return array{number:string,balance:float,cashBalance:float,history:array<int,array<string,mixed>>,historyTotal:int,historyPage:int}
  */
     private function loadAccountData(): array
     {

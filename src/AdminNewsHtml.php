@@ -221,7 +221,6 @@ class AdminNewsHtml
                 'font-weight' => (bool) preg_match('/^(normal|bold|[1-9]00)$/i', $value),
                 'font-style' => in_array(strtolower($value), ['normal', 'italic', 'oblique'], true),
                 'text-decoration' => (bool) preg_match('/^(none|underline|line-through)$/i', strtolower($value)),
-                default => false,
             };
 
             if ($isValid) {
