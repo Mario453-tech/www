@@ -34,7 +34,7 @@ body.auth-page {
     width: auto;
     min-width: 64px;
     height: 34px;
-    padding: 0 28px 0 12px;
+    padding: 0 16px;
     border-radius: 999px;
     border: 1px solid rgba(200,168,75,.32);
     background-color: rgba(13,13,26,.78);
@@ -43,6 +43,8 @@ body.auth-page {
     font-weight: 800;
     letter-spacing: .08em;
     line-height: 1;
+    text-align: center;
+    text-align-last: center;
     text-transform: uppercase;
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
     backdrop-filter: blur(10px);
