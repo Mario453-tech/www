@@ -5,6 +5,7 @@
 /** @var array<int,array<string,mixed>> $historyLogs */
 /** @var string $activeTab */
 /** @var array<string,mixed>|null $editOption */
+/** @var array<string,mixed>|null $editEffect */
 /** @var array<int,string> $knownEffectKeys */
 /** @var string $msg */
 /** @var string $err */
@@ -246,6 +247,10 @@ $ctxLabel = static function (string $ctx): string {
                 <?= htmlspecialchars($fmtEffVal((string)$eff['effect_type'], (string)$eff['effect_value'])) ?>
             </span>
             <span>
+                <a href="/admin/protection.php?tab=effects&effect_edit=<?= (int)$eff['id'] ?>"
+                   class="btn btn-xs btn-secondary">
+                    <?= t('admin.protection.btn_edit') ?>
+                </a>
                 <form method="post" action="/admin/protection.php?tab=effects" class="protection-inline-form"
                       data-confirm="<?= htmlspecialchars(tPlain('admin.protection.confirm_delete_effect')) ?>">
                     <?= CSRF::field() ?>
@@ -259,29 +264,44 @@ $ctxLabel = static function (string $ctx): string {
     </div>
     <?php endif ?>
 
+    <?php
+        $isEditingEffect = $editEffect !== null
+            && (int)($editEffect['protection_option_id'] ?? 0) === (int)$opt['id'];
+    ?>
     <form method="post" action="/admin/protection.php?tab=effects" class="form-row form-row--gap protection-effect-form">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="save_effect">
         <input type="hidden" name="option_id" value="<?= (int)$opt['id'] ?>">
+        <input type="hidden" name="effect_id" value="<?= $isEditingEffect ? (int)$editEffect['id'] : 0 ?>">
         <div class="form-field">
             <label><?= t('admin.protection.field_effect_key') ?></label>
             <input type="text" name="effect_key" required pattern="[a-z0-9_]+" maxlength="64"
-                   list="protection-effect-keys" class="input-sm">
+                   list="protection-effect-keys" class="input-sm"
+                   value="<?= $isEditingEffect ? htmlspecialchars((string)$editEffect['effect_key']) : '' ?>">
         </div>
         <div class="form-field">
             <label><?= t('admin.protection.field_effect_type') ?></label>
             <select name="effect_type" class="input-sm">
-                <option value="mult">mult — mnożnik (0.05–1.0)</option>
-                <option value="delta">delta — zmiana +/- (max ±0.99)</option>
+                <option value="mult" <?= $isEditingEffect && (string)$editEffect['effect_type'] === 'mult' ? 'selected' : '' ?>>
+                    mult - mnoznik (0.05-1.0)
+                </option>
+                <option value="delta" <?= $isEditingEffect && (string)$editEffect['effect_type'] === 'delta' ? 'selected' : '' ?>>
+                    delta - zmiana +/- (max +/-0.99)
+                </option>
             </select>
         </div>
         <div class="form-field">
             <label><?= t('admin.protection.field_effect_value') ?></label>
             <input type="number" name="effect_value" required step="0.01"
-                   value="1.00" class="input-sm input-num-110">
+                   value="<?= htmlspecialchars((string)($isEditingEffect ? $editEffect['effect_value'] : '1.00')) ?>" class="input-sm input-num-110">
         </div>
         <div class="form-actions">
             <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.protection.btn_save_effect') ?></button>
+            <?php if ($isEditingEffect): ?>
+            <a href="/admin/protection.php?tab=effects" class="btn btn-sm btn-secondary">
+                <?= t('admin.protection.btn_cancel_edit') ?>
+            </a>
+            <?php endif ?>
         </div>
     </form>
 </section>

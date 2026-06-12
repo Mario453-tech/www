@@ -83,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     } elseif ($action === 'save_effect') {
+        $effectId = (int)($_POST['effect_id'] ?? 0);
         $optionId = (int)($_POST['option_id'] ?? 0);
         $effectKey = preg_replace('/[^a-z0-9_]/', '', strtolower((string)($_POST['effect_key'] ?? '')));
         $effectType = (string)($_POST['effect_type'] ?? 'mult') === 'delta' ? 'delta' : 'mult';
@@ -99,16 +100,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $err = t('admin.protection.err_effect_required');
         } else {
             try {
-                $isSqlite = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
-                $upsert = $isSqlite
-                    ? "INSERT INTO protection_effects (protection_option_id, effect_key, effect_type, effect_value)
-                         VALUES (?, ?, ?, ?)
-                         ON CONFLICT(protection_option_id, effect_key)
-                         DO UPDATE SET effect_type = excluded.effect_type, effect_value = excluded.effect_value"
-                    : "INSERT INTO protection_effects (protection_option_id, effect_key, effect_type, effect_value)
-                         VALUES (?, ?, ?, ?)
-                         ON DUPLICATE KEY UPDATE effect_type = VALUES(effect_type), effect_value = VALUES(effect_value)";
-                $db->prepare($upsert)->execute([$optionId, $effectKey, $effectType, $effectValue]);
+                if ($effectId > 0) {
+                    $db->prepare(
+                        "UPDATE protection_effects
+                            SET protection_option_id = ?, effect_key = ?, effect_type = ?, effect_value = ?
+                          WHERE id = ?"
+                    )->execute([$optionId, $effectKey, $effectType, $effectValue, $effectId]);
+                } else {
+                    $isSqlite = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+                    $upsert = $isSqlite
+                        ? "INSERT INTO protection_effects (protection_option_id, effect_key, effect_type, effect_value)
+                             VALUES (?, ?, ?, ?)
+                             ON CONFLICT(protection_option_id, effect_key)
+                             DO UPDATE SET effect_type = excluded.effect_type, effect_value = excluded.effect_value"
+                        : "INSERT INTO protection_effects (protection_option_id, effect_key, effect_type, effect_value)
+                             VALUES (?, ?, ?, ?)
+                             ON DUPLICATE KEY UPDATE effect_type = VALUES(effect_type), effect_value = VALUES(effect_value)";
+                    $db->prepare($upsert)->execute([$optionId, $effectKey, $effectType, $effectValue]);
+                }
                 AdminLog::log('protection_effect_save', "Zapis efektu ochrony: opcja {$optionId}, {$effectKey}={$effectValue}");
                 $msg = t('admin.protection.msg_effect_saved');
             } catch (Throwable $e) {
@@ -196,6 +205,19 @@ foreach ($options as $optRow) {
     }
 }
 
+$editEffectId = (int)($_GET['effect_edit'] ?? 0);
+$editEffect = null;
+if ($editEffectId > 0) {
+    foreach ($effectsByOption as $effectRows) {
+        foreach ($effectRows as $effectRow) {
+            if ((int)$effectRow['id'] === $editEffectId) {
+                $editEffect = $effectRow;
+                break 2;
+            }
+        }
+    }
+}
+
 // Wszystkie znane klucze efektow ze stalych serwisu / All known effect keys from service constants
 $knownEffectKeys = array_merge(
     ProtectionService::EFFECT_KEYS_P1,
@@ -210,7 +232,7 @@ $effectKeyModuleMap = array_fill_keys(ProtectionService::EFFECT_KEYS_P1,        
 
 $viewData = compact(
     'options', 'effectsByOption', 'activeProtections', 'historyLogs',
-    'activeTab', 'editOption', 'knownEffectKeys', 'effectKeyModuleMap', 'msg', 'err'
+    'activeTab', 'editOption', 'editEffect', 'knownEffectKeys', 'effectKeyModuleMap', 'msg', 'err'
 );
 
 $pageTitle = t('admin.protection.title');
