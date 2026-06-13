@@ -159,6 +159,12 @@ class SabotageService
         $lossPct = $this->effectValue($effects, 'transport_loss_pct', 0.0);
         $delayMinutes = (int)round($this->effectValue($effects, 'delay_minutes', 0.0));
         $chancePct = max(0.0, min(100.0, (float)($option['base_chance_pct'] ?? 0.0)));
+        // Apply protection sabotage_risk_mult to reduce success chance when active.
+        // Zastosuj sabotage_risk_mult z ochrony, zeby zmniejszyc szanse powodzenia sabotazu.
+        if ($activeProtection !== null) {
+            $mult = (float)($activeProtection['effects']['sabotage_risk_mult']['value'] ?? 1.0);
+            $chancePct = max(0.0, min(100.0, $chancePct * $mult));
+        }
         $rollValue = mt_rand(1, 1_000_000) / 10_000.0;
         $status = $rollValue <= $chancePct ? 'success' : 'failed';
         if ($status !== 'success') {
