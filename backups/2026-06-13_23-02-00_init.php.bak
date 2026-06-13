@@ -159,7 +159,6 @@ spl_autoload_register(function ($class) {
         __DIR__ . '/Tick/' . $class . '.php',
         __DIR__ . '/Well/' . $class . '.php',
         __DIR__ . '/Incident/' . $class . '.php',
-        __DIR__ . '/Sabotage/' . $class . '.php',
     ];
     foreach ($candidates as $file) {
         if (file_exists($file)) {

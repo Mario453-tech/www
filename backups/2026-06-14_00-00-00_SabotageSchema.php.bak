@@ -29,7 +29,6 @@ class SabotageSchema
                 self::createSqlite($db);
             } else {
                 self::createMysql($db);
-                self::migrateMysql($db);
             }
             self::seedDefaults($db, $driver);
             self::$ensured[$db] = true;
@@ -125,27 +124,6 @@ class SabotageSchema
                 KEY idx_sabotage_logs_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
-    }
-
-    private static function migrateMysql(PDO $db): void
-    {
-        // Add player_id index for getPlayerCooldownMap / listAttemptsForPlayer performance.
-        // Dodaj indeks player_id dla wydajnosci getPlayerCooldownMap / listAttemptsForPlayer.
-        try {
-            $has = $db->query(
-                "SELECT COUNT(*) FROM information_schema.STATISTICS
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME = 'sabotage_attempts'
-                    AND INDEX_NAME = 'idx_sabotage_attempt_player'"
-            )->fetchColumn();
-            if ((int)$has === 0) {
-                $db->exec("ALTER TABLE sabotage_attempts ADD INDEX idx_sabotage_attempt_player (player_id)");
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('SabotageSchema', 'migrateMysql: add player_id index FAILED', $e);
-            }
-        }
     }
 
     private static function createSqlite(PDO $db): void
