@@ -214,6 +214,7 @@ const ROUTES = [
     'language'        => '/language',
     'market'          => '/market',
     'market-offers'   => '/market-offers',
+    'sabotage'        => '/sabotage',
     'sell'            => '/sell',
     'bank'            => '/bank',
     'map'             => '/map',

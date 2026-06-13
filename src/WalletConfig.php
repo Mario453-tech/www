@@ -84,6 +84,7 @@ class WalletConfig
         'black_market_sale'   => self::POOL_CASH,
         'bribe'               => self::POOL_CASH,  // lapowki - modul BriberyService
         'protection'          => self::POOL_CASH,  // ochrona aktywow - modul ProtectionService
+        'sabotage'            => self::POOL_CASH,  // sabotaz PvP - modul SabotageService
         // 'emergency_repair'  => self::POOL_CASH,  // awaryjne naprawy - faza 3
         // 'bailiff_reserve'   => self::POOL_CASH,  // rezerwa komornik - faza 3
     ];

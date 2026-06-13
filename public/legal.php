@@ -229,12 +229,21 @@ if ($briberyEnabled) {
     }
 }
 
+$sabotageModuleEnabled = false;
+try {
+    if (class_exists('SabotageService')) {
+        $sabotageModuleEnabled = (new SabotageService($db))->isModuleEnabled();
+    }
+} catch (Throwable $e) {
+    GameLog::error('legal.php', 'SabotageService failed', $e, ['player_id' => $playerId]);
+}
+
 $viewData = compact(
     'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'credibilityLocked', 'levelLocked',
     'hubActive', 'hubInProgress', 'hubAvailable', 'hubLocked', 'hasHubSection',
     'cash', 'legalLevel', 'error', 'success',
     'credibilityScore', 'credibilityLevel', 'credibilityMin',
-    'briberyEnabled', 'bribeQuotes'
+    'briberyEnabled', 'bribeQuotes', 'sabotageModuleEnabled'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 

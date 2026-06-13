@@ -297,6 +297,7 @@ return [
     'bank.account.type.bank_fee' => 'Bank fee',
     'bank.account.type.logistics_fee' => 'Transport optimization',
     'bank.account.type.bribe' => 'Bribe',
+    'bank.account.type.sabotage' => 'Sabotage',
     'bank.account.msg_transfer_ok' => 'Transfer of :amount USD to account :account has been booked.',
     'bank.account.err_account_empty' => 'Enter the recipient account number.',
     'bank.account.err_account_not_found' => 'An account with the given number does not exist.',

@@ -75,6 +75,9 @@ class FinancialTransactionService
     // Ochrona aktywow - wydatek gotowkowy (modul ochrony / ProtectionService).
     // Asset protection - cash expense (protection module / ProtectionService).
     public const TYPE_PROTECTION         = 'protection';
+    // Sabotaz PvP - wydatek gotowkowy po stronie atakujacego.
+    // PvP sabotage - cash expense paid by the attacker.
+    public const TYPE_SABOTAGE           = 'sabotage';
     // Transfer miedzy pulami portfela gracza (gotowka <-> konto).
     // Transfer between player wallet pools (cash <-> bank account).
     public const TYPE_POOL_TRANSFER      = 'pool_transfer';
@@ -116,6 +119,7 @@ class FinancialTransactionService
         self::TYPE_LOGISTICS_FEE,
         self::TYPE_BRIBE,
         self::TYPE_PROTECTION,
+        self::TYPE_SABOTAGE,
         self::TYPE_POOL_TRANSFER,
         self::TYPE_TICK_OPEX,
         self::TYPE_TICK_SALARY,

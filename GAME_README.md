@@ -294,10 +294,12 @@ Zmiany:
 Wdrożono fundament modułu sabotaży zgodny z briefem `BRIEF DLA AI — Uniwersalny system sabotaży.pdf`.
 
 - `src/Sabotage/SabotageSchema.php` — idempotentny schemat 4 tabel: `sabotage_options`, `sabotage_effects`, `sabotage_attempts`, `sabotage_logs`.
-- `src/SabotageService.php` — uniwersalny serwis sabotaży: pobiera aktywne typy, efekty, zapisuje próby i logi.
-- Seed P1: `road_ambush` oraz `road_partial_theft` dla `target_type=road_transport`, `context=road_transport_sabotage`.
+- `src/SabotageService.php` — uniwersalny serwis sabotaży: pobiera aktywne typy, efekty, zapisuje próby i logi oraz obsługuje ręczne akcje PvP na celu `player_company`.
+- Seed P1/P2: `road_ambush` oraz `road_partial_theft` dla `target_type=road_transport`, `context=road_transport_sabotage`, a także `player_budget_hit` i `player_dirty_report` dla `target_type=player_company`, `context=player_company_sabotage`.
 - `src/RoadTransportService.php` — incydent drogowy typu `sabotage` wybiera aktywny typ sabotażu z konfiguracji i stosuje efekt `transport_loss_pct`.
 - `src/Tick/PlayersSection.php`, `src/Tick/WellRoadTripSection.php` — tick tworzy jedną instancję `SabotageService` per gracz i przekazuje ją do rozliczania ukończonych kursów drogowych.
+- `public/sabotage.php`, `templates/views/sabotage/main.php`, `assets/css/sabotage.css` — strona gracza do ręcznego sabotażu PvP; koszt idzie przez `FinancialTransactionService::TYPE_SABOTAGE`, a akcje respektują cooldown, wymóg czarnego rynku i globalny przełącznik modułu.
+- `public/legal.php`, `templates/views/legal/main.php`, `src/GameShell.php`, `src/BoardAccess.php`, `src/init.php` — wejście do modułu sabotażu jest dostępne z działu prawnego, z osobnym route `/sabotage` i ikoną w siatce akcji.
 - `admin/sabotage.php`, `templates/views/admin/sabotage/main.php` — panel Admin → Sabotaże: typy, efekty, próby, logi, pomoc.
 - `lang/pl/sabotage.php`, `lang/pl/admin/sabotage.php`, `lang/pl/admin/nav.php` — tłumaczenia i link w menu admina.
 - `well_config.sabotage_module_enabled` — globalny przełącznik modułu. Gdy jest wyłączony, ryzyko `sabotage` nie jest losowane dla transportu drogowego.

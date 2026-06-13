@@ -1,0 +1,245 @@
+.sabotage-page {
+    display: grid;
+    gap: 18px;
+}
+
+.sabotage-alert {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sabotage-alert p {
+    margin: 8px 0 0;
+    color: #c9c6d8;
+}
+
+.sabotage-alert--error {
+    border-color: rgba(210, 72, 72, 0.45);
+}
+
+.sabotage-alert--success {
+    border-color: rgba(66, 184, 116, 0.45);
+}
+
+.sabotage-alert--warning {
+    border-color: rgba(224, 176, 32, 0.45);
+}
+
+.sabotage-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.sabotage-hero h2 {
+    margin: 0 0 10px;
+}
+
+.sabotage-hero p {
+    margin: 0;
+    color: #c9c6d8;
+    max-width: 760px;
+}
+
+.sabotage-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: 12px;
+    min-width: 300px;
+    margin: 0;
+}
+
+.sabotage-stats div,
+.sabotage-option-card,
+.sabotage-target-card,
+.sabotage-history-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+}
+
+.sabotage-stats div {
+    padding: 14px;
+}
+
+.sabotage-stats dt,
+.sabotage-option-meta dt {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8d89a6;
+    margin-bottom: 6px;
+}
+
+.sabotage-stats dd,
+.sabotage-option-meta dd {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #f2f0fa;
+}
+
+.sabotage-options h3,
+.sabotage-targets h3,
+.sabotage-history h3 {
+    margin: 0 0 16px;
+}
+
+.sabotage-option-grid,
+.sabotage-target-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.sabotage-option-card,
+.sabotage-target-card {
+    padding: 16px;
+}
+
+.sabotage-option-head,
+.sabotage-target-head,
+.sabotage-history-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.sabotage-option-head h4,
+.sabotage-target-head h4 {
+    margin: 0;
+}
+
+.sabotage-option-desc,
+.sabotage-target-head p {
+    margin: 8px 0 0;
+    color: #bdb9cf;
+}
+
+.sabotage-option-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 14px 0 0;
+}
+
+.sabotage-option-meta dd {
+    font-size: 16px;
+}
+
+.sabotage-option-severity,
+.sabotage-target-status,
+.sabotage-history-status,
+.sabotage-option-flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sabotage-option-severity--low,
+.sabotage-history-status--success,
+.sabotage-target-status--active {
+    background: rgba(66, 184, 116, 0.16);
+    color: #65d68e;
+}
+
+.sabotage-option-severity--medium,
+.sabotage-history-status--partially_blocked {
+    background: rgba(224, 176, 32, 0.16);
+    color: #f0c95d;
+}
+
+.sabotage-option-severity--high,
+.sabotage-option-severity--critical,
+.sabotage-history-status--failed,
+.sabotage-history-status--cancelled {
+    background: rgba(210, 72, 72, 0.16);
+    color: #ff8e8e;
+}
+
+.sabotage-option-flag {
+    margin-top: 14px;
+    background: rgba(91, 141, 217, 0.16);
+    color: #8ebaff;
+}
+
+.sabotage-target-actions {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.sabotage-fire-form {
+    display: grid;
+    gap: 6px;
+}
+
+.sabotage-fire-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.sabotage-disabled-note,
+.sabotage-enabled-note,
+.sabotage-empty {
+    color: #a8a3bb;
+    font-size: 13px;
+}
+
+.sabotage-history-list {
+    display: grid;
+    gap: 12px;
+}
+
+.sabotage-history-item {
+    padding: 14px 16px;
+    align-items: center;
+}
+
+.sabotage-history-item p {
+    margin: 6px 0 0;
+    color: #bdb9cf;
+}
+
+.sabotage-history-meta {
+    display: grid;
+    gap: 6px;
+    justify-items: end;
+    text-align: right;
+    color: #a8a3bb;
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+    .sabotage-hero {
+        flex-direction: column;
+    }
+
+    .sabotage-stats {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .sabotage-option-meta,
+    .sabotage-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .sabotage-history-item,
+    .sabotage-target-head,
+    .sabotage-option-head {
+        flex-direction: column;
+    }
+
+    .sabotage-history-meta {
+        justify-items: start;
+        text-align: left;
+    }
+}

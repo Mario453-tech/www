@@ -115,6 +115,24 @@ class GameShell
                 $rows = BoardAccess::filterNav($rows ?: [], $playerId);
             }
 
+            if (class_exists('BoardAccess', false) && BoardAccess::has($playerId, 'legal')) {
+                $hasSabotage = false;
+                foreach ($rows ?: [] as $row) {
+                    if ((string)($row['url_key'] ?? '') === 'sabotage') {
+                        $hasSabotage = true;
+                        break;
+                    }
+                }
+                if (!$hasSabotage) {
+                    $rows[] = [
+                        'label' => tPlain('sabotage.action_label'),
+                        'url_key' => 'sabotage',
+                        'icon' => '',
+                        'css_class' => 'btn-secondary',
+                    ];
+                }
+            }
+
             $rows = array_values(array_filter($rows ?: [], static function (array $row): bool {
                 return (string)($row['url_key'] ?? '') !== 'upgrade-well';
             }));
@@ -137,6 +155,7 @@ class GameShell
                     'logistics' => self::actionIconHtml('logistics'),
                     'help' => self::actionIconHtml('help'),
                     'legal' => self::actionIconHtml('legal'),
+                    'sabotage' => self::actionIconHtml('sabotage'),
                 ];
 
                 $icon = $iconMap[$key] ?? '';
@@ -158,6 +177,8 @@ class GameShell
                         $icon = self::actionIconHtml('logistics');
                     } elseif (str_contains($labelLower, 'finans')) {
                         $icon = self::actionIconHtml('finance');
+                    } elseif (str_contains($labelLower, 'sabot')) {
+                        $icon = self::actionIconHtml('sabotage');
                     }
                 }
 
@@ -233,6 +254,7 @@ class GameShell
             'logistics' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10v8H4V7Zm10 2h3l3 3v3h-2.25a2.25 2.25 0 1 1-4.5 0H12V9Zm-7.75 7.25A2.25 2.25 0 1 1 8.5 14a2.25 2.25 0 0 1-2.25 2.25Zm9 0A2.25 2.25 0 1 1 17.5 14a2.25 2.25 0 0 1-2.25 2.25Z" fill="currentColor"></path></svg>',
             'help' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18.5a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm.02-14c-3.02 0-5.02 1.75-5.02 4.31h1.8c0-1.53 1.29-2.57 3.2-2.57 1.76 0 3 .92 3 2.31 0 1.03-.58 1.69-1.99 2.48-1.76.98-2.36 1.88-2.36 3.68v.44h1.8v-.36c0-1.16.43-1.73 1.77-2.49 1.67-.94 2.58-2 2.58-3.82 0-2.41-2-3.98-4.78-3.98Z" fill="currentColor"></path></svg>',
             'legal' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v3c0 5.25 3.41 10.17 8 11.38C16.59 19.17 20 14.25 20 9V6l-8-3Zm0 2.18 6 2.25v1.58c0 4.27-2.77 8.27-6 9.56-3.23-1.29-6-5.29-6-9.56V7.43l6-2.25ZM10 13.17l-1.59-1.58L7 13l3 3 5-5-1.42-1.42L10 13.17Z" fill="currentColor"></path></svg>',
+            'sabotage' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c2.4 0 4.6 1.06 6.04 2.9l-1.18.92A6.03 6.03 0 0 0 12 5a6 6 0 0 0-4.96 9.37l-1.24.84A7.5 7.5 0 0 1 12 3.5Zm7 8.5v1.5h-2.2a4.8 4.8 0 0 1-1.47 2.88l1.56 1.55-1.06 1.06-1.55-1.56A4.8 4.8 0 0 1 11.4 19V21h-1.5v-2.2a4.8 4.8 0 0 1-2.88-1.47l-1.55 1.56-1.06-1.06 1.56-1.55A4.8 4.8 0 0 1 4.5 13.4H2.3V12h2.2c.14-1.1.63-2.12 1.4-2.96l1.06 1.06A3.3 3.3 0 1 0 12 8.7V6.5h1.5v2.2A4.8 4.8 0 0 1 16.38 10H19Z" fill="currentColor"></path></svg>',
             default => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>',
         };
     }

@@ -225,6 +225,24 @@ class SabotageSchema
                     ['delay_minutes', 'delta', 0.0],
                 ],
             ],
+            [
+                'player_budget_hit', 'Uderzenie w budzet operacyjny',
+                'Sabotaz obciaza budzet rywala i zabiera czesc gotowki z biezacej dzialalnosci.',
+                'player_company', 'player_company_sabotage', 1, 65.0, 'fixed', 150000.0, 'cash',
+                'medium', 180, 0, 1, 30,
+                [
+                    ['target_cash_loss_fixed', 'delta', 300000.0],
+                ],
+            ],
+            [
+                'player_dirty_report', 'Brudny donos',
+                'Cel traci wiarygodnosc firmy po kontrolowanym przecieku i presji regulacyjnej.',
+                'player_company', 'player_company_sabotage', 1, 55.0, 'fixed', 90000.0, 'cash',
+                'high', 180, 0, 0, 40,
+                [
+                    ['target_credibility_delta', 'delta', -8.0],
+                ],
+            ],
         ];
 
         foreach ($options as $row) {

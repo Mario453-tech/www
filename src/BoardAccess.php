@@ -27,6 +27,7 @@ class BoardAccess
         'finance' => 'finance',
         'legal' => 'legal',
         'logistics' => 'logistics',
+        'sabotage' => 'legal',
     ];
 
     private const ROLE_LABELS = [

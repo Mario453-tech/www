@@ -17,6 +17,7 @@
 /** @var int $credibilityMin */
 /** @var bool $briberyEnabled */
 /** @var array<int,array<string,mixed>> $bribeQuotes */
+/** @var bool $sabotageModuleEnabled */
 /** @var string $error */
 /** @var string $success */
 extract($viewData, EXTR_SKIP);
@@ -45,6 +46,20 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 <!-- Intro -->
 <section class="card">
     <p><?= t('legal.page_intro') ?></p>
+</section>
+
+<section class="card">
+    <div class="legal-region-name">
+        <span class="legal-region-name__text"><?= t('sabotage.legal_card_title') ?></span>
+        <span class="legal-badge <?= $sabotageModuleEnabled ? 'legal-badge--granted' : 'legal-badge--pending' ?>">
+            <?= $sabotageModuleEnabled ? t('sabotage.legal_card_enabled') : t('sabotage.legal_card_disabled') ?>
+        </span>
+    </div>
+    <div class="legal-region-meta">
+        <span><?= t('sabotage.legal_card_text') ?></span>
+    </div>
+    <p class="legal-region-unlocks"><?= t('sabotage.legal_card_hint') ?></p>
+    <a href="<?= url('sabotage') ?>" class="btn btn-secondary"><?= t('sabotage.legal_card_button') ?></a>
 </section>
 
 <!-- Active permits -->
