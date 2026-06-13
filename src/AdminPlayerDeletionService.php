@@ -102,6 +102,10 @@ class AdminPlayerDeletionService
             $this->idsFrom('chat_messages', 'id', 'sender_id', $playerId),
             $this->idsFrom('chat_messages', 'id', 'receiver_id', $playerId)
         )));
+        $sabotageAttemptIds = array_values(array_unique(array_merge(
+            $this->idsFrom('sabotage_attempts', 'id', 'player_id', $playerId),
+            $this->idsFrom('sabotage_attempts', 'id', 'target_player_id', $playerId)
+        )));
         $staffIds = $this->idsFrom('technical_staff', 'id', 'player_id', $playerId);
         $memberIds = $this->idsFrom('board_members', 'id', 'player_id', $playerId);
 
@@ -111,6 +115,7 @@ class AdminPlayerDeletionService
         $this->deleteByColumn('bank_negotiation_events', 'negotiation_id', $negotiationIds);
         $this->deleteByColumn('loan_payments', 'loan_id', $loanIds);
         $this->deleteByColumn('bailiff_proceedings', 'loan_id', $loanIds);
+        $this->deleteByColumn('sabotage_logs', 'sabotage_attempt_id', $sabotageAttemptIds);
 
         foreach (['industrial_disasters', 'technical_task_queue', 'technical_tasks', 'well_pipeline_events', 'well_pipeline_tick_stats'] as $table) {
             $this->deleteByColumn($table, 'pipeline_id', $pipelineIds);

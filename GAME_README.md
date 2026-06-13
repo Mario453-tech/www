@@ -289,3 +289,17 @@ Zmiany:
 - `login.php` — ujednolicono rootową kopię formularza logowania z aktywnym ekranem `/login`.
 - `lang/pl/auth.php` — dodano tekst checkboxa logowania.
 - `assets/css/auth.css` — dopasowano odstęp checkboxa na ekranie logowania.
+# 2026-06-13 — Uniwersalny system sabotaży P1
+
+Wdrożono fundament modułu sabotaży zgodny z briefem `BRIEF DLA AI — Uniwersalny system sabotaży.pdf`.
+
+- `src/Sabotage/SabotageSchema.php` — idempotentny schemat 4 tabel: `sabotage_options`, `sabotage_effects`, `sabotage_attempts`, `sabotage_logs`.
+- `src/SabotageService.php` — uniwersalny serwis sabotaży: pobiera aktywne typy, efekty, zapisuje próby i logi.
+- Seed P1: `road_ambush` oraz `road_partial_theft` dla `target_type=road_transport`, `context=road_transport_sabotage`.
+- `src/RoadTransportService.php` — incydent drogowy typu `sabotage` wybiera aktywny typ sabotażu z konfiguracji i stosuje efekt `transport_loss_pct`.
+- `src/Tick/PlayersSection.php`, `src/Tick/WellRoadTripSection.php` — tick tworzy jedną instancję `SabotageService` per gracz i przekazuje ją do rozliczania ukończonych kursów drogowych.
+- `admin/sabotage.php`, `templates/views/admin/sabotage/main.php` — panel Admin → Sabotaże: typy, efekty, próby, logi, pomoc.
+- `lang/pl/sabotage.php`, `lang/pl/admin/sabotage.php`, `lang/pl/admin/nav.php` — tłumaczenia i link w menu admina.
+- `well_config.sabotage_module_enabled` — globalny przełącznik modułu. Gdy jest wyłączony, ryzyko `sabotage` nie jest losowane dla transportu drogowego.
+
+Zakres P1: tylko sabotaż systemowy transportu drogowego. Sabotaż gracz kontra gracz, sądy, odwety, porty/terminale i pełna wojna korporacyjna zostają jako TODO.

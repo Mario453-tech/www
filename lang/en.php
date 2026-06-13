@@ -30,6 +30,7 @@ $lang = array_replace($lang, require __DIR__ . '/en/market.php');
 $lang = array_replace($lang, require __DIR__ . '/en/notifications.php');
 $lang = array_replace($lang, require __DIR__ . '/en/profile.php');
 $lang = array_replace($lang, require __DIR__ . '/en/protection.php');
+$lang = array_replace($lang, require __DIR__ . '/en/sabotage.php');
 $lang = array_replace($lang, require __DIR__ . '/en/technical.php');
 
 return $lang;

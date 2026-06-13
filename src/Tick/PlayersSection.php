@@ -185,6 +185,7 @@ class PlayersSection
  // Jedna instancja ochrony na gracza (wygasanie raz, wspolna dla rurociagow/hubow/drogi).
  // One protection instance per player (expiry once, shared by pipelines/hubs/road).
         $protectionSvc = class_exists('ProtectionService') ? new ProtectionService($db) : null;
+        $sabotageSvc   = class_exists('SabotageService') ? new SabotageService($db) : null;
 
  // 3. RUROCIAGI / Pipelines
         $pipelines = new PipelineSection($db, $now, $wellService);
@@ -223,7 +224,7 @@ class PlayersSection
  // Ochrona kursow (theft/raid/sabotage) - wspolna instancja gracza.
  // Trip protection (theft/raid/sabotage) - shared per-player instance.
                 $roadTripSec    = new WellRoadTripSection($db, $now);
-                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc, $protectionSvc);
+                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc, $protectionSvc, $sabotageSvc);
                 if ($roadTripSec->deliveredBbl > 0.0) {
                     $wellLoop->finBbl       += $roadTripSec->deliveredBbl;
                     $wellLoop->deliveredBbl += $roadTripSec->deliveredBbl;

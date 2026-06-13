@@ -62,7 +62,7 @@ class RoadTransportService
  // Schemat
  // 
 
-    /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */
+    /** @var array<int,bool> schema guard per PDO connection */
     private static array $schemaEnsured = [];
 
     private function ensureSchema(): void
@@ -306,7 +306,12 @@ class RoadTransportService
  * @param array<string, mixed> $hseBonus
  * @return array{delivered_bbl:float, lost_bbl:float, completed_count:int, delivered_by_well:array<int,float>}
  */
-    public function processCompletedTrips(int $playerId, array $hseBonus, ?ProtectionService $protection = null): array
+    public function processCompletedTrips(
+        int $playerId,
+        array $hseBonus,
+        ?ProtectionService $protection = null,
+        ?SabotageService $sabotage = null
+    ): array
     {
         $totalDelivered = 0.0;
         $totalLost      = 0.0;
@@ -360,7 +365,11 @@ class RoadTransportService
                 (int)$trip['political_risk_level'],
                 (int)$trip['trip_hours'],
                 $hseBonus,
-                $protMults
+                $protMults,
+                $sabotage,
+                $playerId,
+                $wid,
+                $activeProt
             );
 
             if ($protection !== null && $activeProt !== null && $incidents !== []) {
@@ -583,7 +592,8 @@ class RoadTransportService
  * keep exactly their base probabilities.
  *
  * @param array<string, mixed> $hseBonus
- * @param array<string, float> $protMults typ incydentu => mnoznik / incident type => multiplier
+ * @param array<string, float> $protMults incident type => multiplier
+ * @param array<string, mixed>|null $activeProtection active protection row
  * @return array{float, float, list<array<string, mixed>>}
  */
     private function applyTripIncidents(
@@ -593,7 +603,11 @@ class RoadTransportService
         int   $politicalRiskLevel,
         int   $tripHours,
         array $hseBonus,
-        array $protMults = []
+        array $protMults = [],
+        ?SabotageService $sabotage = null,
+        int $playerId = 0,
+        int $wellId = 0,
+        ?array $activeProtection = null
     ): array {
         if ($totalVolume <= 0.0 || $tripsCount <= 0) {
             return [0.0, 0.0, []];
@@ -613,6 +627,9 @@ class RoadTransportService
         );
 
         $weights = array_map('floatval', self::INCIDENT_WEIGHTS);
+        if ($sabotage === null || !$sabotage->hasActiveOptions(SabotageService::TARGET_ROAD_TRANSPORT, SabotageService::CONTEXT_ROAD_TRANSPORT)) {
+            $weights['sabotage'] = 0.0;
+        }
         if ($protMults !== []) {
             foreach ($protMults as $type => $mult) {
                 if (isset($weights[$type])) {
@@ -635,9 +652,37 @@ class RoadTransportService
             }
             $type  = $this->rollIncidentTypeWeighted($weights);
             $loss  = min($volPerTrip, round($this->computeTripLoss($type, $volPerTrip), 4));
+            $sabotageAttemptId = 0;
+            $sabotageOption = null;
+
+            if ($type === 'sabotage' && $sabotage !== null && $playerId > 0 && $wellId > 0) {
+                $sabResult = $sabotage->attemptRoadTransportSystem(
+                    $playerId,
+                    $wellId,
+                    $volPerTrip,
+                    $activeProtection,
+                    [
+                        'trip_idx' => $i,
+                        'trips_count' => $tripsCount,
+                        'political_risk_level' => $politicalRiskLevel,
+                    ]
+                );
+                $sabotageAttemptId = (int)$sabResult['attempt_id'];
+                $sabotageOption = $sabResult['option'];
+                $lossPct = max(0.0, min(100.0, (float)$sabResult['transport_loss_pct']));
+                $loss = min($volPerTrip, round($volPerTrip * ($lossPct / 100.0), 4));
+            }
+
             $deliveredBbl += max(0.0, $volPerTrip - $loss);
             $lostBbl      += $loss;
-            $incidents[]   = ['type' => $type, 'trip_idx' => $i, 'lost_bbl' => $loss];
+            $incident = ['type' => $type, 'trip_idx' => $i, 'lost_bbl' => $loss];
+            if ($sabotageAttemptId > 0) {
+                $incident['sabotage_attempt_id'] = $sabotageAttemptId;
+            }
+            if (is_array($sabotageOption)) {
+                $incident['sabotage_code'] = (string)($sabotageOption['code'] ?? '');
+            }
+            $incidents[] = $incident;
         }
 
         return [round($deliveredBbl, 4), round($lostBbl, 4), $incidents];

@@ -37,6 +37,7 @@ return [
     'admin.nav.pipelines' => 'Rurociągi',
     'admin.nav.players' => 'Gracze',
     'admin.nav.protection' => 'Ochrona',
+    'admin.nav.sabotage' => 'Sabotaże',
     'admin.nav.section_content' => 'Treści',
     'admin.nav.section_finance' => 'Finanse',
     'admin.nav.section_game' => 'Gracze i gra',
