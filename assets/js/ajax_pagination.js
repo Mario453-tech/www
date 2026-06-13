@@ -23,7 +23,7 @@
             path = path.replace(/^\/public\/([^/]+)\.php$/, '/$1');
             path = path.replace(/^\/([^/]+)\.php$/, '/$1');
         }
-        return url.origin + path;
+        return url.origin + path + url.search + url.hash;
     }
 
     function visibleCleanUrl(ajaxUrl) {

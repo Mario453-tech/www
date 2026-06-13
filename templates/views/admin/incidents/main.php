@@ -389,7 +389,7 @@ foreach ($PIPE_LEVELS as $lvl):
 
 <!--  TAB: HISTORIA INCYDENTOW  -->
 <div id="inc-tab-recent" class="admin-tab-content" role="tabpanel">
-    <section class="panel" aria-label="<?= t('admin.incidents.history_title') ?>">
+    <section id="inc-history-panel" class="panel" aria-label="<?= t('admin.incidents.history_title') ?>">
         <p class="panel-title"> <?= t('admin.incidents.history_title') ?>
             <span class="badge badge-inactive"><?= $hTotal ?></span>
         </p>
@@ -447,7 +447,7 @@ foreach ($PIPE_LEVELS as $lvl):
             <div class="inc-filter-field inc-filter-btns">
                 <label class="form-label">&nbsp;</label>
                 <button type="submit" class="btn btn-secondary"><?= t('admin.incidents.btn_filter') ?></button>
-                <a href="?hpage=1" class="btn btn-secondary"><?= t('admin.incidents.btn_clear') ?></a>
+                <a href="?hpage=1#inc-tab-recent" class="btn btn-secondary"><?= t('admin.incidents.btn_clear') ?></a>
             </div>
         </form>
 
@@ -590,27 +590,31 @@ foreach ($PIPE_LEVELS as $lvl):
 
         <!-- Paginacja -->
         <?php if ($hTotalPages > 1): ?>
-        <div class="pagination">
+        <div class="pagination inc-pagination">
             <?php
-            $baseUrl = '?hsource=' . urlencode($hSource)
-                     . '&hlevel=' . urlencode($hLevel)
-                     . '&hplayer=' . urlencode($hPlayer)
-                     . '&hstatus=' . urlencode($hStatus)
-                     . '&hdays='   . $hDays
-                     . '&hper='    . $hPerPage;
+            $historyQuery = [
+                'hsource' => $hSource,
+                'hlevel'  => $hLevel,
+                'hplayer' => $hPlayer,
+                'hstatus' => $hStatus,
+                'hdays'   => $hDays,
+                'hper'    => $hPerPage,
+            ];
+            $baseUrl = '?' . http_build_query($historyQuery, '', '&', PHP_QUERY_RFC3986);
+            $historyHash = '#inc-tab-recent';
             $start = max(1, $hPage - 3);
             $end   = min($hTotalPages, $hPage + 3);
             if ($hPage > 1): ?>
-            <a href="<?= $baseUrl ?>&hpage=1" class="page-btn"></a>
-            <a href="<?= $baseUrl ?>&hpage=<?= $hPage - 1 ?>" class="page-btn"></a>
+            <a href="<?= $baseUrl ?>&hpage=1<?= $historyHash ?>" class="page-btn" aria-label="1"></a>
+            <a href="<?= $baseUrl ?>&hpage=<?= $hPage - 1 ?><?= $historyHash ?>" class="page-btn" aria-label="<?= $hPage - 1 ?>"></a>
             <?php endif ?>
             <?php for ($p = $start; $p <= $end; $p++): ?>
-            <a href="<?= $baseUrl ?>&hpage=<?= $p ?>"
+            <a href="<?= $baseUrl ?>&hpage=<?= $p ?><?= $historyHash ?>"
                class="page-btn <?= $p === $hPage ? 'active' : '' ?>"><?= $p ?></a>
             <?php endfor ?>
             <?php if ($hPage < $hTotalPages): ?>
-            <a href="<?= $baseUrl ?>&hpage=<?= $hPage + 1 ?>" class="page-btn"></a>
-            <a href="<?= $baseUrl ?>&hpage=<?= $hTotalPages ?>" class="page-btn"></a>
+            <a href="<?= $baseUrl ?>&hpage=<?= $hPage + 1 ?><?= $historyHash ?>" class="page-btn" aria-label="<?= $hPage + 1 ?>"></a>
+            <a href="<?= $baseUrl ?>&hpage=<?= $hTotalPages ?><?= $historyHash ?>" class="page-btn" aria-label="<?= $hTotalPages ?>"></a>
             <?php endif ?>
             <span class="pagination-info">
                 <?= t('admin.incidents.pagination_info', ['page' => $hPage, 'total' => $hTotalPages, 'count' => $hTotal]) ?>
