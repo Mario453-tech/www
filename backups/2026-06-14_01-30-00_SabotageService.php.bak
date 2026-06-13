@@ -164,11 +164,6 @@ class SabotageService
         if ($status !== 'success') {
             $lossPct = 0.0;
             $delayMinutes = 0;
-            // Nieudany sabotaz na chronionym celu logujemy jako zablokowany przez ochrone.
-            // A failed sabotage on a protected target is logged as blocked by protection.
-            if ($protectionApplied) {
-                $status = 'blocked_by_protection';
-            }
         }
 
         try {
@@ -191,11 +186,7 @@ class SabotageService
                 null
             );
 
-            $messageKey = match ($status) {
-                'success' => 'sabotage.log_road_success',
-                'blocked_by_protection' => 'sabotage.log_road_blocked',
-                default => 'sabotage.log_road_failed',
-            };
+            $messageKey = $status === 'success' ? 'sabotage.log_road_success' : 'sabotage.log_road_failed';
             $this->logEvent(
                 $attemptId,
                 null,
@@ -509,13 +500,7 @@ class SabotageService
                     }
                 }
 
-                // 'partially_blocked' tylko gdy czesc kwoty faktycznie sciagnieto (cel czesciowo
-                // niewyplacalny). Gdy cel nie ma wcale gotowki, sabotaz formalnie sie udal, ale
-                // bez skutku finansowego - nie udajemy ze cos go zablokowalo.
-                // 'partially_blocked' only when part of the amount was actually taken (target
-                // partly insolvent). When the target has no cash at all the sabotage formally
-                // succeeded with no financial effect - we do not pretend something blocked it.
-                if ($requestedCashLoss > 0.0 && $cashLoss > 0.0 && $cashLoss < $requestedCashLoss) {
+                if ($requestedCashLoss > 0.0 && $cashLoss < $requestedCashLoss) {
                     $status = 'partially_blocked';
                 }
             }

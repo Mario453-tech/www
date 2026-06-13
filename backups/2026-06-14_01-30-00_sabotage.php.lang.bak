@@ -55,7 +55,6 @@ return [
     'sabotage.credibility_note' => 'Skutek sabotażu: :name',
     'sabotage.log_road_success' => 'Sabotaz systemowy: :name',
     'sabotage.log_road_failed' => 'Nieudany sabotaz systemowy: :name',
-    'sabotage.log_road_blocked' => 'Sabotaz systemowy zablokowany przez ochrone: :name',
     'sabotage.log_player_success' => 'Sabotaz gracza: :name -> :target',
     'sabotage.log_player_partial' => 'Sabotaz gracza z ograniczonym efektem: :name -> :target',
     'sabotage.log_player_failed' => 'Nieudany sabotaz gracza: :name -> :target',

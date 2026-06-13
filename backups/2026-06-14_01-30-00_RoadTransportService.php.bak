@@ -146,7 +146,7 @@ class RoadTransportService
                     cost                 DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                     incident_risk_mult   DECIMAL(6,3)  NOT NULL DEFAULT 1.000,
                     political_risk_level TINYINT UNSIGNED NOT NULL DEFAULT 1,
-                    status               ENUM('in_transit','delivered','lost','delayed') NOT NULL DEFAULT 'in_transit',
+                    status               ENUM('in_transit','delivered','lost') NOT NULL DEFAULT 'in_transit',
                     departure_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     eta_at               DATETIME NOT NULL,
                     arrived_at           DATETIME NULL DEFAULT NULL,
@@ -164,36 +164,6 @@ class RoadTransportService
             $this->ensureRoadTripColumn('trip_hours',           'TINYINT UNSIGNED NOT NULL DEFAULT 2 AFTER trips_count');
             $this->ensureRoadTripColumn('incident_risk_mult',   'DECIMAL(6,3) NOT NULL DEFAULT 1.000 AFTER cost');
             $this->ensureRoadTripColumn('political_risk_level', 'TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER incident_risk_mult');
-            $this->ensureRoadTripStatusEnum();
-        }
-    }
-
- /**
- * Dodaje wartosc 'delayed' do ENUM status (migracja dla istniejacych tabel).
- * Adds the 'delayed' value to the status ENUM (migration for existing tables).
- */
-    private function ensureRoadTripStatusEnum(): void
-    {
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME   = 'well_road_trips'
-                    AND COLUMN_NAME  = 'status'"
-            );
-            $stmt->execute();
-            $type = (string)$stmt->fetchColumn();
-            if ($type !== '' && !str_contains($type, "'delayed'")) {
-                $this->db->exec(
-                    "ALTER TABLE well_road_trips
-                        MODIFY status ENUM('in_transit','delivered','lost','delayed')
-                        NOT NULL DEFAULT 'in_transit'"
-                );
-            }
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('RoadTransportService', 'ensureRoadTripStatusEnum FAILED', $e);
-            }
         }
     }
 
@@ -351,10 +321,10 @@ class RoadTransportService
 
         try {
             $stmt = $this->db->prepare(
-                "SELECT id, well_id, volume_bbl, delivered_bbl, status, trips_count, trip_hours,
+                "SELECT id, well_id, volume_bbl, trips_count, trip_hours,
                         incident_risk_mult, political_risk_level
                    FROM well_road_trips
-                  WHERE player_id = ? AND status IN ('in_transit','delayed') AND eta_at <= NOW()
+                  WHERE player_id = ? AND status = 'in_transit' AND eta_at <= NOW()
                   ORDER BY eta_at ASC"
             );
             $stmt->execute([$playerId]);
@@ -372,28 +342,6 @@ class RoadTransportService
         foreach ($trips as $trip) {
             $wid = (int)$trip['well_id'];
 
-            // Kurs juz przeliczony i opozniony sabotazem: tylko finalizacja po uplywie ETA.
-            // Trip already computed and delayed by sabotage: just finalize once ETA passes.
-            if ((string)$trip['status'] === 'delayed') {
-                $delivered = (float)$trip['delivered_bbl'];
-                try {
-                    $this->db->prepare(
-                        "UPDATE well_road_trips
-                            SET status = 'delivered', arrived_at = NOW()
-                          WHERE id = ?"
-                    )->execute([(int)$trip['id']]);
-                } catch (Throwable $e) {
-                    if (class_exists('GameLog', false)) {
-                        GameLog::error('RoadTransportService', 'processCompletedTrips finalize delayed FAILED', $e, ['trip_id' => $trip['id']]);
-                    }
-                }
-                $totalDelivered += $delivered;
-                $totalLost      += max(0.0, (float)$trip['volume_bbl'] - $delivered);
-                $completed++;
-                $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
-                continue;
-            }
-
             if ($protection !== null && !array_key_exists($wid, $protByWell)) {
                 $protByWell[$wid] = $protection->getActiveProtection(
                     $playerId, 'road_transport', $wid, 'road_transport_guard'
@@ -410,7 +358,7 @@ class RoadTransportService
                 }
             }
 
-            [$delivered, $lost, $incidents, $delayMinutes] = $this->applyTripIncidents(
+            [$delivered, $lost, $incidents] = $this->applyTripIncidents(
                 (float)$trip['volume_bbl'],
                 (int)$trip['trips_count'],
                 (float)$trip['incident_risk_mult'],
@@ -435,39 +383,19 @@ class RoadTransportService
                 );
             }
 
-            // Incydenty logujemy od razu (sabotaz juz nastapil), niezaleznie od opoznienia.
-            // Log incidents immediately (the sabotage already happened), regardless of delay.
-            if ($incidents !== [] && $lost > 0.0) {
-                $this->logIncidents(
-                    (int)$trip['well_id'], $playerId,
-                    (int)$trip['trips_count'], $lost, $incidents
-                );
-            }
-
-            // Sabotaz z efektem opoznienia: zapisz wynik, przesun ETA, finalizuj w pozniejszym ticku.
-            // Sabotage with a delay effect: store the result, push ETA, finalize on a later tick.
-            if ($delayMinutes > 0) {
-                try {
-                    $this->db->prepare(
-                        "UPDATE well_road_trips
-                            SET status = 'delayed', delivered_bbl = ?,
-                                eta_at = DATE_ADD(NOW(), INTERVAL ? MINUTE)
-                          WHERE id = ?"
-                    )->execute([round($delivered, 4), $delayMinutes, (int)$trip['id']]);
-                } catch (Throwable $e) {
-                    if (class_exists('GameLog', false)) {
-                        GameLog::error('RoadTransportService', 'processCompletedTrips defer delayed FAILED', $e, ['trip_id' => $trip['id']]);
-                    }
-                }
-                continue;
-            }
-
             try {
                 $this->db->prepare(
                     "UPDATE well_road_trips
                         SET status = 'delivered', delivered_bbl = ?, arrived_at = NOW()
                       WHERE id = ?"
                 )->execute([round($delivered, 4), (int)$trip['id']]);
+
+                if ($incidents !== [] && $lost > 0.0) {
+                    $this->logIncidents(
+                        (int)$trip['well_id'], $playerId,
+                        (int)$trip['trips_count'], $lost, $incidents
+                    );
+                }
             } catch (Throwable $e) {
                 if (class_exists('GameLog', false)) {
                     GameLog::error('RoadTransportService', 'processCompletedTrips update FAILED', $e, ['trip_id' => $trip['id']]);
@@ -666,7 +594,7 @@ class RoadTransportService
  * @param array<string, mixed> $hseBonus
  * @param array<string, float> $protMults incident type => multiplier
  * @param array<string, mixed>|null $activeProtection active protection row
- * @return array{float, float, list<array<string, mixed>>, int} delivered, lost, incidents, max delay minutes
+ * @return array{float, float, list<array<string, mixed>>}
  */
     private function applyTripIncidents(
         float $totalVolume,
@@ -682,7 +610,7 @@ class RoadTransportService
         ?array $activeProtection = null
     ): array {
         if ($totalVolume <= 0.0 || $tripsCount <= 0) {
-            return [0.0, 0.0, [], 0];
+            return [0.0, 0.0, []];
         }
 
         $volPerTrip     = $totalVolume / $tripsCount;
@@ -715,7 +643,6 @@ class RoadTransportService
         $deliveredBbl = 0.0;
         $lostBbl      = 0.0;
         $incidents    = [];
-        $maxDelay     = 0;
         $threshold    = (int)($incidentChance * 1_000_000);
 
         for ($i = 0; $i < $tripsCount; $i++) {
@@ -744,7 +671,6 @@ class RoadTransportService
                 $sabotageOption = $sabResult['option'];
                 $lossPct = max(0.0, min(100.0, (float)$sabResult['transport_loss_pct']));
                 $loss = min($volPerTrip, round($volPerTrip * ($lossPct / 100.0), 4));
-                $maxDelay = max($maxDelay, (int)($sabResult['delay_minutes'] ?? 0));
             }
 
             $deliveredBbl += max(0.0, $volPerTrip - $loss);
@@ -759,7 +685,7 @@ class RoadTransportService
             $incidents[] = $incident;
         }
 
-        return [round($deliveredBbl, 4), round($lostBbl, 4), $incidents, $maxDelay];
+        return [round($deliveredBbl, 4), round($lostBbl, 4), $incidents];
     }
 
  /**
