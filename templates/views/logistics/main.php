@@ -1,3 +1,8 @@
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
+?>
 <div class="logistics-page">
     <section class="logistics-kpi-grid" aria-label="<?= htmlspecialchars(t('logistics.kpi_aria')) ?>">
         <div class="logistics-kpi">
@@ -10,7 +15,7 @@
         </div>
         <div class="logistics-kpi">
             <span class="logistics-kpi-label"><?= t('logistics.kpi_cost') ?></span>
-            <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> PLN/h</strong>
+            <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong>
         </div>
         <div class="logistics-kpi">
             <span class="logistics-kpi-label"><?= t('logistics.kpi_wells') ?></span>
@@ -70,7 +75,7 @@
             <button class="logistics-region-toggle" type="button" data-lhb-toggle>
                 <span class="logistics-region-caret"></span>
                 <span class="logistics-region-title-wrap">
-                    <span class="logistics-region-title"><?= htmlspecialchars($regionGroup['region_name'] ?? ('Region #' . (int)($regionGroup['region_id'] ?? $rgIdx))) ?></span>
+                    <span class="logistics-region-title"><?= htmlspecialchars($regionGroup['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . (int)($regionGroup['region_id'] ?? $rgIdx))) ?></span>
                     <span class="logistics-region-subtitle"><?= t('logistics.hub.region_summary', ['count' => $rHubCount]) ?></span>
                 </span>
                 <span class="logistics-region-badge<?= $rHasFree ? ' has-free' : '' ?>">
@@ -107,7 +112,7 @@
                     $dotTotal   = $slotLimit > 0 ? min(8, $slotLimit) : min(8, max(1, $slotsAvail));
                     $hRegionId  = (int)($regionGroup['region_id'] ?? 0);
                     $hZoneKey   = (string)($hub['zone_key'] ?? '');
-                    $hName      = (string)($hub['name'] ?? ('Hub #' . $hId));
+                    $hName      = (string)($hub['name'] ?? (($locale === 'en' ? 'Hub #' : 'Hub #') . $hId));
                     $statusKey  = 'logistics.hub.status_' . $hStatus;
                     $statusText = t($statusKey) !== $statusKey ? t($statusKey) : ucfirst($hStatus);
                     $acqLabelKey = 'logistics.hub.acquisition_' . $acqType;
@@ -168,7 +173,7 @@
                         <div class="logistics-hub-avail-stat">
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.col_fee') ?></span>
                             <span class="logistics-hub-avail-value">
-                                <?= $leaseFee > 0 ? number_format($leaseFee, 2, ',', ' ') . ' PLN' : '&mdash;' ?>
+                                <?= $leaseFee > 0 ? number_format($leaseFee, 2, ',', ' ') . ' ' . $currencyLabel : '&mdash;' ?>
                             </span>
                         </div>
                     </div>
@@ -185,12 +190,12 @@
                     <div class="logistics-hub-avail-prices">
                         <div class="logistics-hub-avail-price">
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_buy_price') ?></span>
-                            <strong><?= number_format($buyPrice, 0, ',', ' ') ?> PLN</strong>
+                            <strong><?= number_format($buyPrice, 0, ',', ' ') ?> <?= $currencyLabel ?></strong>
                         </div>
                         <?php if ($leaseFee > 0 && $acqType === 'rental'): ?>
                         <div class="logistics-hub-avail-price">
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_rent_deposit') ?></span>
-                            <strong><?= number_format($rentDeposit, 0, ',', ' ') ?> PLN</strong>
+                            <strong><?= number_format($rentDeposit, 0, ',', ' ') ?> <?= $currencyLabel ?></strong>
                         </div>
                         <?php endif ?>
                     </div>
@@ -284,7 +289,7 @@
             </div>
             <div class="logistics-insight-pill logistics-insight-pill--info">
                 <span><?= t('logistics.pipeline.pill_cost') ?></span>
-                <strong><?= number_format((float)($pipelineSummary['avg_cost'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                <strong><?= number_format((float)($pipelineSummary['avg_cost'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
             </div>
         </div>
 
@@ -351,7 +356,7 @@
                 <div class="logistics-pipeline-building-info">
                     <div class="logistics-pipeline-building-row">
                         <span><?= t('logistics.pipeline.building_label_cost') ?></span>
-                        <strong><?= number_format((float)($pipe['build_cost'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                        <strong><?= number_format((float)($pipe['build_cost'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
                     </div>
                     <div class="logistics-pipeline-building-row">
                         <span><?= t('logistics.pipeline.building_label_finish') ?></span>
@@ -428,7 +433,7 @@
                     </div>
                     <div>
                         <span><?= t('logistics.pipeline.label_cost') ?></span>
-                        <strong><?= number_format((float)($pipe['total_cost_est'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                        <strong><?= number_format((float)($pipe['total_cost_est'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
                     </div>
                     <div>
                         <span><?= t('logistics.pipeline.label_risk') ?></span>
@@ -556,7 +561,7 @@
             </div>
             <div class="logistics-insight-pill logistics-insight-pill--info">
                 <span><?= t('logistics.insight_pill_cost') ?></span>
-                <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> PLN/h</strong>
+                <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong>
             </div>
         </div>
 
@@ -598,7 +603,7 @@
                                 <strong>#<?= (int)$row['id'] ?></strong>
                                 <span><?= t('logistics.type_' . ($row['transport'] ?? 'nieustawiony')) ?></span>
                             </div>
-                            <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> PLN/h</strong>
+                            <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong>
                         </div>
                         <?php endforeach ?>
                     </div>
@@ -696,7 +701,7 @@
                 <div class="logistics-mix-stats">
                     <span><?= t('logistics.label_flow') ?> <strong><?= number_format((float)$row['transported'], 1, ',', ' ') ?> <?= t('common.bbl_h') ?></strong></span>
                     <span><?= t('logistics.label_loss') ?> <strong><?= number_format((float)$row['loss'], 1, ',', ' ') ?> <?= t('common.bbl_h') ?></strong></span>
-                    <span><?= t('logistics.label_cost') ?> <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> PLN/h</strong></span>
+                    <span><?= t('logistics.label_cost') ?> <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong></span>
                 </div>
             </article>
             <?php endforeach ?>
@@ -973,7 +978,7 @@
                 <span><?= t('logistics.type_' . ($well['transport'] ?? 'nieustawiony')) ?></span>
                 <span><?= number_format((float)$well['capacity_pct'], 1, ',', ' ') ?>%</span>
                 <span class="<?= (float)$well['loss'] > 0 ? 'c-warn' : 'c-good' ?>"><?= number_format((float)$well['loss'], 1, ',', ' ') ?> <?= t('common.bbl_h') ?></span>
-                <span><?= number_format((float)$well['cost'], 2, ',', ' ') ?> PLN/h</span>
+                <span><?= number_format((float)$well['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</span>
             </div>
             <?php endforeach ?>
         </div>
@@ -1133,7 +1138,7 @@
                 <article class="protection-option<?= $protDisabled ? ' protection-option--locked' : '' ?>">
                     <div class="protection-option__head">
                         <strong><?= htmlspecialchars((string)$protOpt['name']) ?></strong>
-                        <span><?= number_format((float)$protOpt['cost'], 0, ',', ' ') ?> PLN</span>
+                        <span><?= number_format((float)$protOpt['cost'], 0, ',', ' ') ?> <?= $currencyLabel ?></span>
                     </div>
                     <p class="protection-option__desc"><?= htmlspecialchars((string)$protOpt['description']) ?></p>
                     <ul class="protection-option__effects">
@@ -1272,7 +1277,7 @@
                     <?php $acqKey = $hub['acquisition_type'] ?? 'new'; ?>
                     <span class="acq-badge acq-badge--<?= htmlspecialchars($acqKey) ?>"><?= t('logistics.hub.acquisition_' . $acqKey) ?></span>
                     <span class="sep">&middot;</span>
-                    <span><?= htmlspecialchars($hub['region_name'] ?? 'Region #' . $hub['region_id']) ?></span>
+                    <span><?= htmlspecialchars($hub['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . $hub['region_id'])) ?></span>
                     <?php if (($hub['zone_key'] ?? '') !== ''): ?>
                     <span class="sep">&middot;</span>
                     <span><?= htmlspecialchars($hub['zone_key']) ?></span>
@@ -1326,7 +1331,7 @@
                     <?php if (($hub['acquisition_type'] ?? 'new') === 'rental'): ?>
                     <div class="logistics-hub-stat">
                         <span><?= t('logistics.hub.label_lease_fee') ?></span>
-                        <strong><?= number_format((float)($hub['lease_fee_per_tick'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                        <strong><?= number_format((float)($hub['lease_fee_per_tick'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
                     </div>
                     <?php endif ?>
                 </div>
@@ -1378,7 +1383,7 @@
             ?>
             <div class="logistics-table-row">
                 <span>#<?= (int)$uw['id'] ?> <?= htmlspecialchars($uw['name'] ?? $uw['location_name'] ?? '') ?></span>
-                <span><?= htmlspecialchars($uw['region_name'] ?? 'Region #' . $uw['region_id']) ?>
+                <span><?= htmlspecialchars($uw['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . $uw['region_id'])) ?>
                     <?= ($uw['zone_key'] ?? '') !== '' ? '/ ' . htmlspecialchars($uw['zone_key']) : '' ?>
                 </span>
                 <span><?= number_format((float)$uw['base_production_per_hour'], 1, ',', ' ') ?> bph</span>
@@ -1447,7 +1452,7 @@
                 <div class="logistics-hub-incident-title">
                     <strong><?= htmlspecialchars($hi['title'] ?? t('logistics.hub.incident.title.' . $typeKey)) ?></strong>
                     <span class="logistics-hub-incident-hub">
-                        &middot; <?= htmlspecialchars($hi['hub_name'] ?? 'Hub #' . $hi['hub_id']) ?>
+                        &middot; <?= htmlspecialchars($hi['hub_name'] ?? (($locale === 'en' ? 'Hub #' : 'Hub #') . $hi['hub_id'])) ?>
                     </span>
                 </div>
                 <div class="logistics-hub-incident-msg"><?= htmlspecialchars($hi['message']) ?></div>
@@ -1721,7 +1726,7 @@
                                onchange="hubBuyNewTypeChange(this)" <?= $i === 0 ? 'checked' : '' ?>>
                         <div class="logistics-mode-name"><?= t('logistics.hub.type_' . $opt['key']) ?></div>
                         <div class="logistics-mode-desc">
-                            <?= number_format($opt['build_cost'], 0, ',', ' ') ?> PLN
+                            <?= number_format($opt['build_cost'], 0, ',', ' ') ?> <?= $currencyLabel ?>
                             &middot; <?= (int)$opt['slot_limit'] ?> <?= t('logistics.hub.col_slots') ?>
                         </div>
                     </label>
@@ -1822,7 +1827,7 @@ window.HUB_LANG  = <?= json_encode([
     'ok_assign_with_lease'    => t('logistics.hub.ok_assign_with_lease'),
     'ok_assign_with_fee'      => t('logistics.hub.ok_assign_with_fee',   ['fee' => '{fee}']),
     'ok_transfer_with_lease'  => t('logistics.hub.ok_transfer_with_lease'),
- // Potwierdzenie kosztow przypisania / Assignment cost breakdown confirmation
+ // Assignment cost breakdown confirmation.
     'confirm_assign_costs'    => t('logistics.hub.confirm_assign_costs'),
     'confirm_access_fee'      => t('logistics.hub.confirm_access_fee'),
     'confirm_usage_fee'       => t('logistics.hub.confirm_usage_fee'),
@@ -2095,6 +2100,8 @@ window.PIPELINE_LANG = <?= json_encode([
     'confirm_header'  => t('logistics.pipeline.confirm_header'),
     'confirm_btn'     => t('logistics.pipeline.confirm_btn'),
     'back_btn'        => t('logistics.pipeline.back_btn'),
+    'currency'        => $currencyLabel,
+    'locale'          => $currencyLocale,
 ], JSON_UNESCAPED_UNICODE) ?>;
 
 var _pipelineBuyWellId      = 0;
@@ -2148,7 +2155,7 @@ function renderPipelineBuyProfiles() {
               + '<input type="radio" name="pipeline-type" value="' + k + '"' + (k === _pipelineBuyType ? ' checked' : '') + '>'
               + '<div class="logistics-mode-name">' + p.label + '</div>'
               + '<div class="logistics-mode-desc">'
-              + PIPELINE_LANG.label_cost + ': <strong>' + p.build_cost.toLocaleString('pl-PL', {minimumFractionDigits:2}) + ' PLN</strong><br>'
+              + PIPELINE_LANG.label_cost + ': <strong>' + p.build_cost.toLocaleString(PIPELINE_LANG.locale || 'pl-PL', {minimumFractionDigits:2}) + ' ' + (PIPELINE_LANG.currency || 'PLN') + '</strong><br>'
               + PIPELINE_LANG.label_hours + ': <strong>' + p.build_hours + 'h</strong>'
               + '</div></label>';
     });
@@ -2185,7 +2192,7 @@ function confirmPipelinePurchase() {
           + ' <strong>' + p.label + '</strong></p>'
           + '<dl class="logistics-confirm-dl">'
           + '<dt>' + PIPELINE_LANG.label_cost  + '</dt>'
-          + '<dd><strong>' + p.build_cost.toLocaleString('pl-PL', {minimumFractionDigits:2}) + ' PLN</strong></dd>'
+          + '<dd><strong>' + p.build_cost.toLocaleString(PIPELINE_LANG.locale || 'pl-PL', {minimumFractionDigits:2}) + ' ' + (PIPELINE_LANG.currency || 'PLN') + '</strong></dd>'
           + '<dt>' + PIPELINE_LANG.label_hours + '</dt>'
           + '<dd><strong>' + p.build_hours + 'h</strong></dd>'
           + '</dl>'

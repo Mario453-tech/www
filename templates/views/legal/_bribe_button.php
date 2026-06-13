@@ -12,6 +12,8 @@
 if (empty($briberyEnabled)) {
     return;
 }
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 $briberyRegionId = (int)$cfg['region_id'];
 if (!isset($bribeQuotes[$briberyRegionId])) {
     return;
@@ -24,7 +26,7 @@ $briberyAfford  = $cash >= $briberyCost;
 <div class="legal-bribe">
     <p class="legal-bribe-hint"><?= t('legal.bribe.hint') ?></p>
     <div class="legal-region-meta legal-bribe-meta">
-        <span><?= t('legal.bribe.cost_label') ?>: <strong><?= number_format($briberyCost, 0, ',', ' ') ?> PLN</strong></span>
+        <span><?= t('legal.bribe.cost_label') ?>: <strong><?= number_format($briberyCost, 0, ',', ' ') ?> <?= $currencyLabel ?></strong></span>
     </div>
     <?php if ($briberyAfford): ?>
     <form method="post" action="<?= url('legal') ?>" class="legal-bribe-form"

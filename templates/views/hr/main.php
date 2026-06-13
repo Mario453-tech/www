@@ -1,4 +1,8 @@
 <?php extract($viewData, EXTR_SKIP); ?>
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+?>
 
 <div class="hr-tabs module-tabs">
     <button type="button" class="hr-tab module-tab active" onclick="switchTab('employees')"><?= t('hr.tab_employees') ?><span class="tab-badge module-tab-badge module-tab-badge--ok"><?= count($employees) ?></span></button>
@@ -45,7 +49,7 @@
                     </div>
                 </div>
                 <div class="emp-salary-block">
-                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> PLN</div>
+                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
                     <div class="emp-salary-label"><?= t('hr.salary_month') ?></div>
                     <?php if ($warn): ?><div class="emp-contract-warn">&#9888; <?= $emp['contract_days_left'] ?> <?= t('common.days') ?></div><?php endif ?>
                 </div>
@@ -135,7 +139,7 @@
                     </div>
                 </div>
                 <div class="cand-salary">
-                    <?= number_format((float)$candidate['expected_salary'], 0, ',', ' ') ?> PLN
+                    <?= number_format((float)$candidate['expected_salary'], 0, ',', ' ') ?> <?= $currencyLabel ?>
                     <div class="cand-salary-label"><?= t('hr.salary_per_month') ?></div>
                 </div>
             </div>
@@ -226,7 +230,7 @@
                     </div>
                 </div>
                 <div class="emp-salary-block">
-                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> PLN</div>
+                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
                     <div class="emp-salary-label"><?= t('hr.salary_month') ?></div>
                 </div>
             </div>
@@ -277,7 +281,7 @@
             <div><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></div>
             <div><?= htmlspecialchars($c['role_name']) ?></div>
             <div class="contract-dates"><?= date('d.m.Y', strtotime($c['contract_start'])) ?> - <?= date('d.m.Y', strtotime($c['contract_end'])) ?></div>
-            <div><?= number_format((float)$c['salary'], 0, ',', ' ') ?> PLN</div>
+            <div><?= number_format((float)$c['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
             <div>
                 <?php if ($isDead): ?><span class="badge-expired"><?= t('hr.badge_expired') ?></span>
                 <?php elseif ($isExp): ?><span class="badge-expiring">&#9888; <?= $c['days_left'] ?> <?= t('common.days') ?></span>

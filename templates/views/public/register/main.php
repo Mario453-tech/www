@@ -1,4 +1,11 @@
 <?php extract($viewData, EXTR_SKIP); ?>
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$registerSuccessHint = $locale === 'en'
+    ? 'Check your Inbox (and Spam) folder and click the activation link.'
+    : 'Sprawdz folder Odebrane (i Spam) i kliknij link aktywacyjny.';
+$registerBackLabel = $locale === 'en' ? 'Back to sign in' : 'Wroc do logowania';
+?>
 
 <div class="register-container">
     <section class="login-card fade-in" aria-labelledby="register-heading">
@@ -11,10 +18,10 @@
         <?php if ($success): ?>
             <div class="alert alert-success" role="alert"><?= htmlspecialchars($success) ?></div>
             <p style="text-align:center;margin-top:20px;font-size:.9rem;color:rgba(232,232,240,.55)">
-                 Sprawdź folder Odebrane (i Spam) i kliknij link aktywacyjny.
+                 <?= htmlspecialchars($registerSuccessHint, ENT_QUOTES, 'UTF-8') ?>
             </p>
             <p style="text-align:center;margin-top:16px">
-                <a href="<?= url('login') ?>" class="link-primary"> Wróć do logowania</a>
+                <a href="<?= url('login') ?>" class="link-primary"><?= htmlspecialchars($registerBackLabel, ENT_QUOTES, 'UTF-8') ?></a>
             </p>
         <?php else: ?>
 
@@ -53,7 +60,7 @@
             require __DIR__ . '/../../../../templates/components/form_input.php';
             ?>
 
-            <!-- Regulamin — obowiązkowy -->
+            <!-- Terms acceptance - required. -->
             <div class="form-check-group">
                 <label class="form-check-label">
                     <input
@@ -72,7 +79,7 @@
                 </label>
             </div>
 
-            <!-- Newsletter — opcjonalny -->
+            <!-- Newsletter opt-in - optional. -->
             <div class="form-check-group">
                 <label class="form-check-label">
                     <input

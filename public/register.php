@@ -97,8 +97,7 @@ if ($_POST) {
                     ");
                     $insertStorage->execute([':player_id' => $playerId]);
 
- // Portfel startowy: 10 000 000 PLN podzielone 50/50 gotowka / konto.
-                    // Starting wallet: 10 000 000 PLN split 50/50 cash / bank account.
+                    // Starting wallet: 10,000,000 split 50/50 between cash and bank account.
                     $db->prepare("
                         UPDATE players SET cash = 10000000 WHERE id = ?
                     ")->execute([$playerId]);

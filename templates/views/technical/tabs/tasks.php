@@ -112,7 +112,7 @@ if (!empty($otherTasks)):
         <div class="task-meta">
             <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
             <?php if ($t['well_name'] || $t['hub_name']): ?> &middot; <?= htmlspecialchars($t['well_name'] ?: $t['hub_name']) ?><?php endif ?>
-            <?php if ($t['cost'] > 0): ?> &middot; <?= number_format($t['cost'], 0, '.', ' ') ?> zł<?php endif ?>
+            <?php if ($t['cost'] > 0): ?> &middot; <?= number_format($t['cost'], 0, '.', ' ') ?> <?= t('common.currency') ?><?php endif ?>
         </div>
     </div>
     <div class="task-time <?= $t['status'] === 'failed' ? 'failed-t' : 'done' ?>">

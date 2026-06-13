@@ -1,4 +1,11 @@
 <?php extract($viewData, EXTR_SKIP); ?>
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$profileAvatarAlt = $locale === 'en' ? 'Avatar' : 'Awatar';
+$profileFallbackInitial = $locale === 'en' ? 'P' : 'G';
+$profileFallbackUser = $locale === 'en' ? 'Player' : 'Gracz';
+?>
 
 <div class="profile-wrap">
 
@@ -16,17 +23,17 @@
             <div class="profile-avatar-card">
                 <div class="profile-avatar-wrap">
                     <?php if ($avatarUrl): ?>
-                    <img src="<?= $avatarUrl ?>" alt="Avatar" class="profile-avatar-img" id="avatarPreview">
+                    <img src="<?= $avatarUrl ?>" alt="<?= htmlspecialchars($profileAvatarAlt, ENT_QUOTES) ?>" class="profile-avatar-img" id="avatarPreview">
                     <?php else: ?>
                     <div class="profile-avatar-placeholder" id="avatarPreview">
-                        <span><?= strtoupper(substr($playerData['username'] ?? 'G', 0, 1)) ?></span>
+                        <span><?= strtoupper(substr($playerData['username'] ?? $profileFallbackInitial, 0, 1)) ?></span>
                     </div>
                     <?php endif ?>
                     <label class="profile-avatar-overlay" for="avatarInput" title="<?= t('profile.avatar_change_title') ?>">
                         &#128247;
                     </label>
                 </div>
-                <div class="profile-username"><?= htmlspecialchars($playerData['username'] ?? 'Gracz') ?></div>
+                <div class="profile-username"><?= htmlspecialchars($playerData['username'] ?? $profileFallbackUser) ?></div>
                 <?php if ($companyName): ?>
                 <div class="profile-company"><?= $companyName ?></div>
                 <?php endif ?>
@@ -77,11 +84,11 @@
                 </div>
                 <div class="profile-stat">
                     <span class="profile-stat-label"><?= t('black_market.profile_revenue') ?></span>
-                    <span class="profile-stat-value money"><?= number_format((float) $bmStats['total_revenue'], 0, ',', ' ') ?> PLN</span>
+                    <span class="profile-stat-value money"><?= number_format((float) $bmStats['total_revenue'], 0, ',', ' ') ?> <?= $currencyLabel ?></span>
                 </div>
                 <div class="profile-stat">
                     <span class="profile-stat-label"><?= t('black_market.profile_penalties') ?></span>
-                    <span class="profile-stat-value profile-bm-score--high"><?= number_format((float) $bmStats['total_penalties'], 0, ',', ' ') ?> PLN</span>
+                    <span class="profile-stat-value profile-bm-score--high"><?= number_format((float) $bmStats['total_penalties'], 0, ',', ' ') ?> <?= $currencyLabel ?></span>
                 </div>
                 <div class="profile-stat">
                     <span class="profile-stat-label"><?= t('black_market.profile_detected') ?></span>

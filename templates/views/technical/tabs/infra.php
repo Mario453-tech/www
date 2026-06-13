@@ -1,3 +1,7 @@
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+?>
 <?php if (empty($pipelines)): ?>
 <div class="pipe-card">
     <div class="pipe-hdr">
@@ -57,15 +61,15 @@
         </div>
         <div>
             <div class="w-stat-lbl"><?= t('technical.pipe_tick_cost') ?></div>
-            <div class="w-stat-val"><?= number_format($tickCost, 2, ',', ' ') ?> PLN</div>
+            <div class="w-stat-val"><?= number_format($tickCost, 2, ',', ' ') ?> <?= $currencyLabel ?></div>
         </div>
         <div>
             <div class="w-stat-lbl"><?= t('technical.pipe_flow_cost') ?></div>
-            <div class="w-stat-val"><?= number_format($flowCost, 2, ',', ' ') ?> PLN/<?= t('common.bbl') ?></div>
+            <div class="w-stat-val"><?= number_format($flowCost, 2, ',', ' ') ?> <?= $currencyLabel ?>/<?= t('common.bbl') ?></div>
         </div>
         <div>
             <div class="w-stat-lbl"><?= t('technical.pipe_build_cost') ?></div>
-            <div class="w-stat-val"><?= number_format($buildCost, 2, ',', ' ') ?> PLN</div>
+            <div class="w-stat-val"><?= number_format($buildCost, 2, ',', ' ') ?> <?= $currencyLabel ?></div>
         </div>
         <div>
             <div class="w-stat-lbl"><?= t('technical.pipe_condition') ?></div>

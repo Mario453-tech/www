@@ -1,4 +1,5 @@
 <?php
+$barrelLabel = t('common.bbl');
 if (class_exists('GameLog', false)) {
     if (!isset($offers)) {
         GameLog::warn('component/offers_table', 'Brak zmiennej $offers');
@@ -16,7 +17,7 @@ if (class_exists('GameLog', false)) {
     </div>
     <?php foreach ($offers as $offer): ?>
     <div class="offers-list-row">
-        <span><?= (int)$offer['amount'] ?> baryłek</span>
+        <span><?= (int)$offer['amount'] ?> <?= $barrelLabel ?></span>
         <span class="money"><?= number_format($offer['limit_price']) ?></span>
         <span class="muted"><?= date('d.m.Y H:i', strtotime($offer['created_at'])) ?></span>
     </div>

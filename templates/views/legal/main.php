@@ -20,6 +20,8 @@
 /** @var string $error */
 /** @var string $success */
 extract($viewData, EXTR_SKIP);
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 ?>
 
 <div class="fade-in">
@@ -37,7 +39,7 @@ extract($viewData, EXTR_SKIP);
      data-success="<?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>"></div>
 <?php endif ?>
 
-<!-- Wiarygodnosc firmy / Company credibility card -->
+<!-- Company credibility card -->
 <?php require __DIR__ . '/../../components/company_credibility.php'; ?>
 
 <!-- Intro -->
@@ -45,7 +47,7 @@ extract($viewData, EXTR_SKIP);
     <p><?= t('legal.page_intro') ?></p>
 </section>
 
-<!-- Aktywne zezwolenia -->
+<!-- Active permits -->
 <?php if (!empty($active)): ?>
 <section class="card">
     <h3><?= t('legal.section_active') ?></h3>
@@ -156,7 +158,7 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<!-- Dostępne regiony -->
+<!-- Available regions -->
 <?php if (!empty($available)): ?>
 <section class="card">
     <h3><?= t('legal.section_available') ?></h3>
@@ -181,7 +183,7 @@ extract($viewData, EXTR_SKIP);
             </div>
             <div class="legal-region-meta">
                 <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
+                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> <?= $currencyLabel ?></span>
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
             <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
@@ -240,7 +242,7 @@ extract($viewData, EXTR_SKIP);
 </section>
 <?php endif ?>
 
-<!-- Region wysokiego ryzyka — brak wymaganego kapitału (brief §7.3 / §8.1) -->
+<!-- High-risk region without required capital (brief 7.3 / 8.1). -->
 <?php if (!empty($levelLocked)): ?>
 <section class="card">
     <h3><?= t('legal.section_level_locked') ?></h3>
@@ -316,10 +318,10 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
             </div>
             <p class="legal-region-note legal-region-note--locked"><?= t('legal.err.region_locked') ?></p>
-            <!-- Brief §8.1: konkretny wymagany kapitał (gracz widzi wartość). -->
+            <!-- Brief 8.1: explicit required capital shown to the player. -->
             <!-- Brief §8.1: concrete required capital (player sees the value). -->
             <div class="legal-region-meta">
-                <span><?= t('legal.required_capital_label') ?>: <strong><?= number_format($reqCap, 0, ',', ' ') ?> PLN</strong></span>
+                <span><?= t('legal.required_capital_label') ?>: <strong><?= number_format($reqCap, 0, ',', ' ') ?> <?= $currencyLabel ?></strong></span>
                 <span class="legal-capital-missing"><?= t('legal.capital_missing', ['amount' => number_format($missing, 0, ',', ' ')]) ?></span>
             </div>
         </div>
@@ -425,7 +427,7 @@ extract($viewData, EXTR_SKIP);
             </div>
             <div class="legal-region-meta">
                 <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
+                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> <?= $currencyLabel ?></span>
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
             <?php if ($canAfford): ?>

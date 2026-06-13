@@ -9,7 +9,7 @@ $db       = Database::getInstance()->getConnection();
 // === Zezwolenie na prace lokalne: regiony ZABLOKOWANE dla gracza ===
 // Local works permit: regions where the per-region permit is required
 // (hub_permit_enabled=1) but NOT granted yet. Huby i rurociagi z tych regionow
-// sa ukrywane na stronie logistyki do czasu uzyskania zezwolenia (per region).
+// They stay hidden on the logistics page until the permit is granted per region.
 $lockedRegionSet = [];
 try {
     $enabledRegions = array_map('intval',

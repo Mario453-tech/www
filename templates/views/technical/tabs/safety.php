@@ -1,4 +1,6 @@
 <?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 $hseActive    = $hseBonus['active_hse'] > 0;
 $failRedPct   = (int)round((1 - $hseBonus['failure_reduction'])  * 100);
 $catRedPct    = (int)round((1 - $hseBonus['catastrophe_mult'])   * 100);
@@ -198,8 +200,8 @@ $specLabelsSafety = [
         ?>
             <li>
                 <span class="fw7"><?= t('technical.well_num', ['id' => $w['id']]) ?></span>
-                <span class="c-muted fs12"> · <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
-                <span class="<?= $condCls ?> fw7"> · <?= t('technical.condition_label') ?>: <?= $cond ?>%</span>
+                <span class="c-muted fs12">&middot; <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
+                <span class="<?= $condCls ?> fw7">&middot; <?= t('technical.condition_label') ?>: <?= $cond ?>%</span>
                 <?php if ($stCode === 'paused_staff' && !empty($w['paused_staff_reason'])): ?>
                 <br><span class="c-muted fs12"><?= t('technical.missing_label') ?>: <?= htmlspecialchars(implode(', ', array_map(fn($c) => $specLabelsSafety[trim($c)] ?? trim($c), explode(',', $w['paused_staff_reason'])))) ?></span>
                 <?php endif ?>
@@ -231,9 +233,9 @@ if (!empty($riskWells)):
         ?>
             <li>
                 <span class="fw7 c-warn"><?= t('technical.well_num', ['id' => $w['id']]) ?></span>
-                <span class="c-muted fs12"> · <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
-                <span class="c-warn fw7"> · <?= t('technical.condition_label') ?>: <?= round($cond, 1) ?>%</span>
-                <span class="c-bad fs12"> · <?= t('technical.failure_risk_per_h', ['risk' => $risk]) ?></span>
+                <span class="c-muted fs12">&middot; <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
+                <span class="c-warn fw7">&middot; <?= t('technical.condition_label') ?>: <?= round($cond, 1) ?>%</span>
+                <span class="c-bad fs12">&middot; <?= t('technical.failure_risk_per_h', ['risk' => $risk]) ?></span>
             </li>
         <?php endforeach ?>
         </ul>
@@ -281,10 +283,10 @@ foreach ($activeDisasters as $d):
     <p class="disaster-desc"><?= htmlspecialchars($d['description'] ?? '') ?></p>
     <div class="disaster-stats">
         <?php if ($d['repair_cost'] > 0): ?>
-        <div class="disaster-stat"><div class="disaster-stat-val cost"><?= number_format($d['repair_cost'], 0, ',', ' ') ?> PLN</div><div class="disaster-stat-lbl"><?= t('technical.disaster_repair_cost') ?></div></div>
+        <div class="disaster-stat"><div class="disaster-stat-val cost"><?= number_format($d['repair_cost'], 0, ',', ' ') ?> <?= $currencyLabel ?></div><div class="disaster-stat-lbl"><?= t('technical.disaster_repair_cost') ?></div></div>
         <?php endif ?>
         <?php if ($d['env_fine'] > 0): ?>
-        <div class="disaster-stat"><div class="disaster-stat-val fine"><?= number_format($d['env_fine'], 0, ',', ' ') ?> PLN</div><div class="disaster-stat-lbl"><?= t('technical.disaster_env_fine') ?></div></div>
+        <div class="disaster-stat"><div class="disaster-stat-val fine"><?= number_format($d['env_fine'], 0, ',', ' ') ?> <?= $currencyLabel ?></div><div class="disaster-stat-lbl"><?= t('technical.disaster_env_fine') ?></div></div>
         <?php endif ?>
         <?php if ($d['reservoir_lost'] > 0): ?>
         <div class="disaster-stat"><div class="disaster-stat-val loss"><?= number_format($d['reservoir_lost'], 0, ',', ' ') ?> bbl</div><div class="disaster-stat-lbl"><?= t('technical.disaster_reservoir_lost') ?></div></div>
@@ -329,14 +331,14 @@ foreach ($failures as $f):
     <span>
         <span class="<?= $ft['cls'] ?>"><?= $ft['label'] ?></span>
         <?php if ($f['well_id'] > 0): ?>
-            <small class="c-muted2"> · #<?= $f['well_id'] ?> <?= htmlspecialchars($f['location_name'] ?? '') ?></small>
+            <small class="c-muted2">&middot; #<?= $f['well_id'] ?> <?= htmlspecialchars($f['location_name'] ?? '') ?></small>
         <?php endif ?>
     </span>
     <span class="<?= $f['repair_cost'] > 0 ? 'c-bad' : 'c-muted' ?>">
-        <?= $f['repair_cost'] > 0 ? number_format($f['repair_cost'], 0, ',', ' ') . ' PLN' : '—' ?>
+        <?= $f['repair_cost'] > 0 ? number_format($f['repair_cost'], 0, ',', ' ') . ' ' . $currencyLabel : '&mdash;' ?>
     </span>
     <span class="<?= ($f['environmental_fine'] ?? 0) > 0 ? 'c-warn' : 'c-muted' ?>">
-        <?= ($f['environmental_fine'] ?? 0) > 0 ? number_format($f['environmental_fine'], 0, ',', ' ') . ' PLN' : '—' ?>
+        <?= ($f['environmental_fine'] ?? 0) > 0 ? number_format($f['environmental_fine'], 0, ',', ' ') . ' ' . $currencyLabel : '&mdash;' ?>
     </span>
     <span class="c-muted2 sm"><?= date('d.m H:i', strtotime($f['occurred_at'])) ?></span>
     <span>

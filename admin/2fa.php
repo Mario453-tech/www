@@ -24,9 +24,12 @@ if (!$pending) {
 $enabled = !empty($pending['totp_enabled']) && !empty($pending['totp_secret']);
 $mode    = $enabled ? 'verify' : 'setup';
 $error   = '';
+$locale  = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$rememberDeviceLabel = $locale === 'en'
+    ? 'Remember this device for 30 days'
+    : 'Pamietaj to urzadzenie przez 30 dni';
 
-// Zaufane urządzenie — pomiń formularz 2FA jeśli token jest ważny.
-// Trusted device — skip 2FA form if a valid token cookie exists.
+// Trusted device - skip the 2FA form if a valid token cookie exists.
 if ($mode === 'verify' && AdminAuth::checkTrustedDevice($pending['id'])) {
     AdminAuth::completeLogin();
     $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
@@ -54,8 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($mode === 'verify') {
             if (Totp::verify($pending['totp_secret'], $code)) {
- // Ustaw ciasteczko zaufanego urządzenia jeśli zaznaczono checkbox.
- // Set trusted-device cookie if the checkbox was checked.
+                // Set the trusted-device cookie if the checkbox was checked.
                 if (!empty($_POST['remember_device'])) {
                     AdminAuth::setTrustedDevice($pending['id']);
                 }
@@ -94,7 +96,7 @@ if ($mode === 'setup') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="<?= htmlspecialchars($locale, ENT_QUOTES, 'UTF-8') ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -143,7 +145,7 @@ if ($mode === 'setup') {
             <?php if ($mode === 'verify'): ?>
             <label class="auth-remember-label">
                 <input type="checkbox" name="remember_device" value="1">
-                Pamiętaj to urządzenie przez 30 dni
+                <?= htmlspecialchars($rememberDeviceLabel, ENT_QUOTES, 'UTF-8') ?>
             </label>
             <?php endif ?>
             <button type="submit" class="auth-btn">
@@ -166,7 +168,7 @@ if ($mode === 'setup') {
     if (!headers_sent()) {
         http_response_code(500);
     }
-    echo function_exists('t') ? t('common.app_error') : 'Błąd aplikacji';
+    echo function_exists('t') ? t('common.app_error') : 'Blad aplikacji';
 } finally {
     if (class_exists('GameLog', false)) {
         GameLog::pageEnd('admin/2fa.php', $_codexGuardStart);

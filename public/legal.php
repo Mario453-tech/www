@@ -15,7 +15,7 @@ $legal    = new LegalService($db);
 $error   = '';
 $success = '';
 
-// == OBSŁUGA FORMULARZA ==
+// Form handling.
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!RateLimiter::check('action')) {
@@ -61,11 +61,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $configs = $legal->getAllRegionConfigs();
 
-// Saldo gracza musi być znane przed klasyfikacją (blokada kapitałowa §7.3).
+// Player cash must be known before classification (capital lock, brief 7.3).
 // Player cash must be fetched before classification (capital lock §7.3).
 $cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
 
-// Zbieramy statusy wszystkich regionów i klasyfikujemy je
+// Collect statuses for all regions and classify them.
 $permitsByRegion = [];
 foreach ($configs as $cfg) {
     $rid = (int)$cfg['region_id'];
@@ -89,9 +89,9 @@ $credibilityMin = LegalService::HIGH_RISK_CREDIBILITY_MIN;
 // Pogrupowane regiony
 $active        = []; // granted / transitional
 $inProgress    = []; // pending / delayed / no_decision
-$available     = []; // none lub refused (po cooldown), firma spełnia wymóg kapitału
+$available     = []; // none or refused after cooldown, company meets capital requirement
 $locked        = []; // refused (w cooldown)
-$capitalLocked = []; // brief §7.3: region wysokiego ryzyka — brak wymaganego kapitału
+$capitalLocked = []; // brief 7.3: high-risk region without required capital
 
 $credibilityLocked = []; // Wiarygodnosc firmy za niska dla regionow high/critical
 $levelLocked = []; // P2: wymagany wyzszy poziom dzialu prawnego / Required higher legal department level
@@ -118,8 +118,8 @@ foreach ($configs as $cfg) {
             'cooldown_until' => new DateTime((string)$permit['application']['refusal_cooldown_until']),
         ];
     } else {
-        // Brak aktywnego zezwolenia ani cooldownu — region dostępny LUB
-        // zablokowany kapitałowo (brief §7.3: nie pozwalamy złożyć wniosku).
+        // No active permit and no cooldown: region is available or capital-locked.
+        // Brief 7.3: do not allow application submission when capital is insufficient.
         // No active permit nor cooldown — region available OR capital-locked
         // (brief §7.3: applying is blocked until the company meets the capital).
         $reqLevel = (int)($cfg['required_legal_level'] ?? 0);
@@ -159,7 +159,7 @@ $hubRegionIds = array_column($hubEnabledConfigs, 'region_id');
 
 $hubActive     = []; // granted
 $hubInProgress = []; // pending / delayed / no_decision
-$hubAvailable  = []; // none lub refused (cooldown minął)
+$hubAvailable  = []; // none or refused after cooldown
 $hubLocked     = []; // refused (w cooldown)
 
 if (!empty($hubRegionIds)) {
