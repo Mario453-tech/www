@@ -88,14 +88,28 @@
 .sabotage-option-grid,
 .sabotage-target-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+@media (max-width: 1200px) {
+    .sabotage-target-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+    .sabotage-target-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+    .sabotage-target-grid { grid-template-columns: 1fr; }
 }
 
-.sabotage-option-card,
+.sabotage-option-card { padding: 16px; }
 .sabotage-target-card {
-    padding: 16px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,.025);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.07);
+    transition: border-color .15s;
 }
+.sabotage-target-card:hover { border-color: rgba(200,168,75,.28); }
 
 .sabotage-option-head,
 .sabotage-target-head,
@@ -243,3 +257,79 @@
         text-align: left;
     }
 }
+
+/* ── Nagłówek sekcji celów ──────────────────────────────────── */
+.sabotage-targets-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 10px;
+}
+.sabotage-targets-head h3 { margin: 0; }
+.sabotage-targets-count {
+    font-size: 11px;
+    color: rgba(232,232,240,.35);
+    font-weight: 500;
+}
+
+/* ── Paginacja ──────────────────────────────────────────────── */
+.sabotage-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,.06);
+}
+.sabotage-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.03);
+    color: rgba(232,232,240,.55);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.sabotage-page-btn:hover {
+    border-color: rgba(200,168,75,.35);
+    color: #c8a84b;
+    background: rgba(200,168,75,.07);
+}
+.sabotage-page-btn.active {
+    border-color: rgba(200,168,75,.5);
+    background: rgba(200,168,75,.14);
+    color: #e8cc7a;
+    font-weight: 700;
+}
+
+/* ── Akcje w karcie — kompaktowe ────────────────────────────── */
+.sabotage-target-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+.sabotage-fire-btn {
+    width: 100%;
+    font-size: 11px !important;
+    padding: 7px 12px !important;
+    text-align: left;
+    letter-spacing: .04em;
+}
+.sabotage-enabled-note,
+.sabotage-disabled-note {
+    font-size: 10px;
+    color: rgba(232,232,240,.35);
+    margin-top: 2px;
+    padding-left: 2px;
+}
+.sabotage-disabled-note { color: rgba(224,85,85,.5); }

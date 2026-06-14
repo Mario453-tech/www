@@ -71,7 +71,7 @@ $ctxLabel = static function (string $ctx): string {
     <?php if (empty($options)): ?>
     <p class="panel-hint"><?= t('admin.protection.options_empty') ?></p>
     <?php else: ?>
-    <div class="protection-admin-grid protection-admin-grid--options">
+    <div class="protection-admin-grid protection-admin-grid--options panel">
         <div class="protection-admin-row protection-admin-row--head">
             <span><?= t('admin.protection.col_code') ?></span>
             <span><?= t('admin.protection.col_name') ?></span>

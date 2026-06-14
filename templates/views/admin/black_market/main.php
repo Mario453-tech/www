@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <?php endif ?>
 
     <!--  ZAKŁADKI  -->
-    <div class="admin-tabs" role="tablist">
+    <div class="admin-tabs admin-tabs--multirow" role="tablist">
         <button id="bm-btn-stats"   onclick="bmShowTab('stats')"   class="admin-tab" role="tab"><?= t('black_market.tab_stats') ?></button>
         <button id="bm-btn-players" onclick="bmShowTab('players')" class="admin-tab" role="tab"><?= t('black_market.tab_players') ?></button>
         <button id="bm-btn-tx"      onclick="bmShowTab('tx')"      class="admin-tab" role="tab"><?= t('black_market.tab_tx') ?><?php if ($filterPid): ?> <span class="badge badge-active">#<?= $filterPid ?></span><?php endif ?></button>

@@ -232,7 +232,20 @@ class SabotageService
     /**
      * @return list<array<string,mixed>>
      */
-    public function getPlayerTargets(int $playerId, int $limit = 24): array
+    public function countPlayerTargets(int $playerId): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) FROM players WHERE id <> ? AND status = 'active'"
+            );
+            $stmt->execute([$playerId]);
+            return (int)$stmt->fetchColumn();
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function getPlayerTargets(int $playerId, int $limit = 12, int $offset = 0): array
     {
         try {
             $stmt = $this->db->prepare(
@@ -240,10 +253,11 @@ class SabotageService
                    FROM players
                   WHERE id <> ? AND status = 'active'
                   ORDER BY company_name ASC, username ASC
-                  LIMIT ?"
+                  LIMIT ? OFFSET ?"
             );
             $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
-            $stmt->bindValue(2, max(1, min(100, $limit)), PDO::PARAM_INT);
+            $stmt->bindValue(2, max(1, min(50, $limit)), PDO::PARAM_INT);
+            $stmt->bindValue(3, max(0, $offset), PDO::PARAM_INT);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
