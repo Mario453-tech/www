@@ -264,7 +264,7 @@ class SabotageService
                 "SELECT sa.*, so.code AS option_code, so.name AS option_name,
                         p.username AS target_username, p.company_name AS target_company
                    FROM sabotage_attempts sa
-                   LEFT JOIN sabotage_options so ON so.id = sa.sabotage_option_id
+                   JOIN sabotage_options so ON so.id = sa.sabotage_option_id
                    LEFT JOIN players p ON p.id = sa.target_player_id
                   WHERE sa.player_id = ?
                   ORDER BY sa.id DESC
@@ -347,35 +347,6 @@ class SabotageService
      * @return array{success:bool,status:string,message:string,option:?array<string,mixed>,target:?array<string,mixed>,cost:float,cash_loss:float,credibility_delta:int,cooldown_until:?string}
      */
     public function executePlayerSabotage(int $playerId, int $targetPlayerId, int $optionId): array
-    {
-        // Serializuj rownoczesne proby tego samego atakujacego, by zamknac wyscig TOCTOU na
-        // cooldownie (dwa zadania z dwoch sesji omijajace ten sam cooldown). Na MySQL nazwany
-        // lock; na innych sterownikach (SQLite/testy) wspolbieznosc nie wystepuje.
-        // Serialize concurrent attempts by the same attacker to close the cooldown TOCTOU race
-        // (two requests from two sessions bypassing the same cooldown). MySQL named lock; on
-        // other drivers (SQLite/tests) there is no concurrency.
-        if ((string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
-            return $this->runPlayerSabotage($playerId, $targetPlayerId, $optionId);
-        }
-
-        $lockName = 'sabotage_exec_' . $playerId;
-        $gotLock = false;
-        try {
-            $lockStmt = $this->db->prepare("SELECT GET_LOCK(?, 5)");
-            $lockStmt->execute([$lockName]);
-            $gotLock = ((int)$lockStmt->fetchColumn() === 1);
-            return $this->runPlayerSabotage($playerId, $targetPlayerId, $optionId);
-        } finally {
-            if ($gotLock) {
-                $this->db->prepare("SELECT RELEASE_LOCK(?)")->execute([$lockName]);
-            }
-        }
-    }
-
-    /**
-     * @return array{success:bool,status:string,message:string,option:?array<string,mixed>,target:?array<string,mixed>,cost:float,cash_loss:float,credibility_delta:int,cooldown_until:?string}
-     */
-    private function runPlayerSabotage(int $playerId, int $targetPlayerId, int $optionId): array
     {
         if (!$this->isModuleEnabled()) {
             return [
@@ -501,22 +472,15 @@ class SabotageService
             $credibilityDelta = 0;
 
             if ($status === 'success') {
-                // Najpierw zablokuj i odczytaj aktualna gotowke celu, dopiero potem licz
-                // procentowa strate od tej swiezej wartosci (snapshot z loadPlayerRow moze byc
-                // nieaktualny po wplatach/wyplatach celu w miedzyczasie).
-                // Lock and read the target's current cash first, then compute the percentage
-                // loss from that fresh value (the loadPlayerRow snapshot may be stale after the
-                // target's deposits/withdrawals in the meantime).
-                $currentTargetCash = $this->lockPlayerCash($targetPlayerId);
-
                 $requestedCashLoss = 0.0;
                 if (isset($effects['target_cash_loss_fixed'])) {
                     $requestedCashLoss += max(0.0, (float)$effects['target_cash_loss_fixed']['value']);
                 }
                 if (isset($effects['target_cash_loss_pct'])) {
-                    $requestedCashLoss += max(0.0, $currentTargetCash * ((float)$effects['target_cash_loss_pct']['value'] / 100.0));
+                    $requestedCashLoss += max(0.0, (float)($target['cash'] ?? 0.0) * ((float)$effects['target_cash_loss_pct']['value'] / 100.0));
                 }
 
+                $currentTargetCash = $this->lockPlayerCash($targetPlayerId);
                 $cashLoss = round(min($requestedCashLoss, max(0.0, $currentTargetCash)), 2);
                 if ($cashLoss >= FinancialTransactionService::MIN_AMOUNT) {
                     $hit = $fts->debit(
@@ -941,10 +905,8 @@ class SabotageService
     private function lockPlayerCash(int $playerId): float
     {
         $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-        // FOR UPDATE tylko na MySQL — spojnie z FinancialTransactionService::lockAndReadBalance.
-        // FOR UPDATE only on MySQL — consistent with FinancialTransactionService::lockAndReadBalance.
         $sql = "SELECT cash FROM players WHERE id = ? LIMIT 1";
-        if ($driver === 'mysql') {
+        if ($driver !== 'sqlite') {
             $sql = "SELECT cash FROM players WHERE id = ? LIMIT 1 FOR UPDATE";
         }
         $stmt = $this->db->prepare($sql);

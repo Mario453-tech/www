@@ -25,11 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $targetPlayerId = (int)($_POST['target_player_id'] ?? 0);
             $optionId = (int)($_POST['option_id'] ?? 0);
             $result = $sabotage->executePlayerSabotage($playerId, $targetPlayerId, $optionId);
-            // Zielony box tylko gdy sabotaz faktycznie zadzialal; nieudany rzut ('failed')
-            // pokazujemy jako blad, mimo ze operacja zostala przetworzona poprawnie.
-            // Green box only when the sabotage actually worked; a missed roll ('failed') is
-            // shown as an error even though the operation itself was processed correctly.
-            if ($result['success'] && $result['status'] !== 'failed') {
+            if ($result['success']) {
                 $success = $result['message'];
             } else {
                 $error = $result['message'];

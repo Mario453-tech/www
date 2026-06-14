@@ -313,8 +313,8 @@ class RoadTransportService
         $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, truck_type, trips_count, trip_hours,
-                 cost, incident_risk_mult, political_risk_level, status, departure_at, eta_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_transit', NOW(), ?)"
+                 cost, incident_risk_mult, political_risk_level, status, eta_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_transit', ?)"
         )->execute([
             $playerId, $wellId, round($volumeBbl, 4), $truckType, $tripsCount, $tripHours,
             $cost, $riskMult, $politicalRiskLevel, $etaAt,
@@ -439,6 +439,17 @@ class RoadTransportService
                 $activeProt
             );
 
+            if ($protection !== null && $activeProt !== null && $incidents !== []) {
+                $types = array_values(array_unique(array_column($incidents, 'type')));
+                $protection->logEvent(
+                    $playerId, (int)$activeProt['protection_option_id'],
+                    'road_transport', $wid, 'road_transport_guard',
+                    'protection_applied_to_incident', round($lost, 4),
+                    implode(',', $types),
+                    ['summary' => $this->summarizeProtectionIncidents($incidents)]
+                );
+            }
+
             // Sabotaz z efektem opoznienia: zapisz wynik, przesun ETA, finalizuj w pozniejszym ticku.
             // Sabotage with a delay effect: store the result, push ETA, finalize on a later tick.
             if ($delayMinutes > 0) {
@@ -456,13 +467,13 @@ class RoadTransportService
                         GameLog::error('RoadTransportService', 'processCompletedTrips defer delayed FAILED', $e, ['trip_id' => $trip['id']]);
                     }
                 }
-                // Logi (ochrona + incydenty) tylko po potwierdzonym zapisie — przy bledzie kurs
-                // zostaje in_transit i wszystko zostanie zalogowane raz przy ponownym przetworzeniu.
-                // Logs (protection + incidents) only after a confirmed write — on failure the trip
-                // stays in_transit and everything is logged once on reprocessing.
-                if ($deferOk) {
-                    $this->logProtectionAndIncidents(
-                        $protection, $activeProt, $playerId, $wid,
+                // Loguj incydenty tylko gdy zapis sie powiodl — przy bledzie kurs zostaje
+                // in_transit i incydenty zostana zalogowane przy ponownym przetworzeniu.
+                // Log incidents only on successful update — on failure the trip stays
+                // in_transit and incidents will be logged when reprocessed next tick.
+                if ($deferOk && $incidents !== [] && $lost > 0.0) {
+                    $this->logIncidents(
+                        (int)$trip['well_id'], $playerId,
                         (int)$trip['trips_count'], $lost, $incidents
                     );
                 }
@@ -475,18 +486,20 @@ class RoadTransportService
                         SET status = 'delivered', delivered_bbl = ?, arrived_at = NOW()
                       WHERE id = ?"
                 )->execute([round($delivered, 4), (int)$trip['id']]);
-                // Akumulacja od razu po udanym UPDATE; logowanie (nierzucajace) na koncu, aby
-                // blad logu nie cofnal rozliczenia dostarczonego wolumenu.
-                // Accumulate right after a successful UPDATE; logging (non-throwing) last so a
-                // log failure cannot undo the delivered-volume accounting.
+                // Incydenty i akumulacja tylko po udanym UPDATE — blad zostawia kurs in_transit
+                // i zostanie ponownie przetworzony bez duplikatow.
+                // Incidents and accumulation only after successful UPDATE — failure leaves the
+                // trip in_transit to be reprocessed without duplicates.
+                if ($incidents !== [] && $lost > 0.0) {
+                    $this->logIncidents(
+                        (int)$trip['well_id'], $playerId,
+                        (int)$trip['trips_count'], $lost, $incidents
+                    );
+                }
                 $totalDelivered += $delivered;
                 $totalLost      += $lost;
                 $completed++;
                 $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
-                $this->logProtectionAndIncidents(
-                    $protection, $activeProt, $playerId, $wid,
-                    (int)$trip['trips_count'], $lost, $incidents
-                );
             } catch (Throwable $e) {
                 if (class_exists('GameLog', false)) {
                     GameLog::error('RoadTransportService', 'processCompletedTrips update FAILED', $e, ['trip_id' => $trip['id']]);
@@ -510,11 +523,6 @@ class RoadTransportService
  */
     public function getActiveTripsForPlayer(int $playerId): array
     {
-        // well_road_trips istnieje tylko w MySQL / well_road_trips exists only in MySQL
-        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            return [];
-        }
-
         try {
             $stmt = $this->db->prepare(
                 "SELECT rt.id, rt.well_id, rt.volume_bbl, rt.truck_type, rt.trips_count,
@@ -834,48 +842,6 @@ class RoadTransportService
             'lost_bbl' => round($lostTotal, 4),
             'types' => $byType,
         ];
-    }
-
-    /**
-     * Loguje skutek kursu (ochrona + incydenty) po potwierdzonym zapisie do bazy.
-     * Nie rzuca: blad logu nie moze cofnac rozliczenia kursu. Loguje takze incydenty
-     * bez straty wolumenu (np. sabotaz typu czyste opoznienie, lost=0).
-     * Logs the trip outcome (protection + incidents) after a confirmed DB write.
-     * Never throws: a logging failure must not undo trip accounting. Also logs incidents
-     * with no volume loss (e.g. pure-delay sabotage, lost=0).
-     *
-     * @param array<string, mixed>|null $activeProt
-     * @param list<array<string, mixed>> $incidents
-     */
-    private function logProtectionAndIncidents(
-        ?ProtectionService $protection,
-        ?array $activeProt,
-        int   $playerId,
-        int   $wellId,
-        int   $tripsCount,
-        float $lost,
-        array $incidents
-    ): void {
-        if ($incidents === []) {
-            return;
-        }
-        if ($protection !== null && $activeProt !== null) {
-            try {
-                $types = array_values(array_unique(array_column($incidents, 'type')));
-                $protection->logEvent(
-                    $playerId, (int)$activeProt['protection_option_id'],
-                    'road_transport', $wellId, 'road_transport_guard',
-                    'protection_applied_to_incident', round($lost, 4),
-                    implode(',', $types),
-                    ['summary' => $this->summarizeProtectionIncidents($incidents)]
-                );
-            } catch (Throwable $e) {
-                if (class_exists('GameLog', false)) {
-                    GameLog::error('RoadTransportService', 'logProtectionAndIncidents protection FAILED', $e, ['well_id' => $wellId]);
-                }
-            }
-        }
-        $this->logIncidents($wellId, $playerId, $tripsCount, $lost, $incidents);
     }
 
     private function rollIncidentType(int $totalWeight): string

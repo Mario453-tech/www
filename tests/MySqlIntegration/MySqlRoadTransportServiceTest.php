@@ -281,8 +281,8 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, truck_type, trips_count, trip_hours, cost,
-                 incident_risk_mult, political_risk_level, status, eta_at)
-             VALUES (?, ?, 50.0, 'standard', 2, 2, 1000.00, 0.0, 1, 'in_transit', NOW() - INTERVAL 1 SECOND)"
+                 incident_risk_mult, political_risk_level, status, departure_at, eta_at)
+             VALUES (?, ?, 50.0, 'standard', 2, 2, 1000.00, 0.0, 1, 'in_transit', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 1 SECOND)"
         )->execute([$playerId, $ids['wellId']]);
 
         $svc    = new RoadTransportService($this->db);
@@ -308,8 +308,8 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, truck_type, trips_count, trip_hours, cost,
-                 incident_risk_mult, political_risk_level, status, eta_at)
-             VALUES (?, ?, 50.0, 'standard', 2, 2, 1000.00, 1.0, 1, 'in_transit', NOW() + INTERVAL 2 HOUR)"
+                 incident_risk_mult, political_risk_level, status, departure_at, eta_at)
+             VALUES (?, ?, 50.0, 'standard', 2, 2, 1000.00, 1.0, 1, 'in_transit', NOW() - INTERVAL 3 HOUR, NOW() + INTERVAL 2 HOUR)"
         )->execute([$playerId, $ids['wellId']]);
 
         $svc    = new RoadTransportService($this->db);
@@ -333,8 +333,8 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $insert = $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, truck_type, trips_count, trip_hours, cost,
-                 incident_risk_mult, political_risk_level, status, eta_at)
-             VALUES (?, ?, ?, 'standard', ?, 2, 500.00, 0.0, 1, 'in_transit', NOW() - INTERVAL 1 MINUTE)"
+                 incident_risk_mult, political_risk_level, status, departure_at, eta_at)
+             VALUES (?, ?, ?, 'standard', ?, 2, 500.00, 0.0, 1, 'in_transit', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 1 MINUTE)"
         );
         $insert->execute([$playerId, $ids['wellId'],    50.0, 2]);
         $insert->execute([$playerId, $ids['auxWellId'], 25.0, 1]);
@@ -379,9 +379,9 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, delivered_bbl, truck_type, trips_count, trip_hours,
-                 cost, incident_risk_mult, political_risk_level, status, eta_at, arrived_at)
+                 cost, incident_risk_mult, political_risk_level, status, departure_at, eta_at, arrived_at)
              VALUES (?, ?, 50.0, 50.0, 'standard', 2, 2, 1000.00, 1.0, 1, 'delivered',
-                     NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 MINUTE)"
+                     NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 MINUTE)"
         )->execute([$playerId, $ids['wellId']]);
 
         $svc   = new RoadTransportService($this->db);
