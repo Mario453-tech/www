@@ -25,7 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $targetPlayerId = (int)($_POST['target_player_id'] ?? 0);
             $optionId = (int)($_POST['option_id'] ?? 0);
             $result = $sabotage->executePlayerSabotage($playerId, $targetPlayerId, $optionId);
-            if ($result['success']) {
+            // Zielony box tylko gdy sabotaz faktycznie zadzialal; nieudany rzut ('failed')
+            // pokazujemy jako blad, mimo ze operacja zostala przetworzona poprawnie.
+            // Green box only when the sabotage actually worked; a missed roll ('failed') is
+            // shown as an error even though the operation itself was processed correctly.
+            if ($result['success'] && $result['status'] !== 'failed') {
                 $success = $result['message'];
             } else {
                 $error = $result['message'];
@@ -50,7 +54,12 @@ $playerData = $playerStmt->fetch(PDO::FETCH_ASSOC) ?: [
 
 $moduleEnabled = $sabotage->isModuleEnabled();
 $options = $sabotage->getAvailableOptions(SabotageService::TARGET_PLAYER_COMPANY, SabotageService::CONTEXT_PLAYER_COMPANY);
-$targets = $sabotage->getPlayerTargets($playerId, 24);
+$perPage      = 12;
+$targetPage   = max(1, (int)($_GET['tpage'] ?? 1));
+$targetOffset = ($targetPage - 1) * $perPage;
+$targetTotal  = $sabotage->countPlayerTargets($playerId);
+$targetPages  = (int)ceil($targetTotal / $perPage);
+$targets      = $sabotage->getPlayerTargets($playerId, $perPage, $targetOffset);
 $attempts = $sabotage->listAttemptsForPlayer($playerId, 20);
 $cooldownMap = $sabotage->getPlayerCooldownMap(
     $playerId,
@@ -63,7 +72,10 @@ $viewData = array_merge(GameShell::data($playerId), [
     'success' => $success,
     'moduleEnabled' => $moduleEnabled,
     'options' => $options,
-    'targets' => $targets,
+    'targets'      => $targets,
+    'targetPage'   => $targetPage,
+    'targetPages'  => $targetPages,
+    'targetTotal'  => $targetTotal,
     'attempts' => $attempts,
     'cooldownMap' => $cooldownMap,
     'playerData' => $playerData,

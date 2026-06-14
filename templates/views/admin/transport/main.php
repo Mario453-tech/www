@@ -200,7 +200,7 @@
 <!--  -->
 <!-- PORTY MORSKIE (Etap 5) — seed i podgląd                               -->
 <!--  -->
-<section class="admin-card" style="margin-top:24px">
+<section class="admin-card">
     <h2>⚓ Porty morskie (Etap 5)</h2>
     <p class="help-text">Porty systemowe obsługują dostawy tankowców. Każdy region z odwiertem morskim musi mieć co najmniej 1 aktywny port — bez portu odwiert morski wstrzymuje produkcję.</p>
 
@@ -211,13 +211,13 @@
                 onclick="return confirm('Seed portów: tworzy 1 port na region (pomija istniejące). Kontynuować?')">
             Zasiej domyślne porty (1 na region)
         </button>
-        <span class="help-text" style="margin-left:8px">Bezpieczne — nie nadpisze istniejących portów.</span>
+        <span class="help-text">Bezpieczne — nie nadpisze istniejących portów.</span>
     </form>
 
     <?php if (empty($portsData)): ?>
         <div class="alert alert-info">Brak portów w bazie. Uruchom seed lub wykonaj migrację <code>migrations/etap5_marine_ports.sql</code>.</div>
     <?php else: ?>
-    <table class="admin-table" style="font-size:.83rem">
+    <div class="table-scroll-wrap"><table class="admin-table">
         <thead>
             <tr>
                 <th>ID</th><th>Nazwa</th><th>Region</th><th>Typ</th>
@@ -251,11 +251,10 @@
         <?php endforeach ?>
         </tbody>
     </table>
-    <?php endif ?>
+    </div><?php endif ?>
+    <hr class="admin-hr">
 
-    <hr style="margin:24px 0">
-
-    <p class="panel-title" style="margin-bottom:8px">Czyszczenie kolejki dostaw morskich</p>
+    <p class="panel-title">Czyszczenie kolejki dostaw morskich</p>
     <p class="help-text" style="margin-bottom:12px">
         <strong>Utknięte</strong> — usuwa dostawy ze statusem <code>waiting_for_port</code>, <code>delayed</code>, <code>lost</code>, <code>delivered</code> (zostawia aktywne: departing/in_transit/processing).<br>
         <strong>Wszystkie</strong> — czyści całą tabelę <code>marine_deliveries</code> i zeruje bufor <code>marine_buffer_bbl</code> we wszystkich odwiertach tankowcowych.
@@ -286,11 +285,11 @@
 <!--  -->
 <!-- KURSY CIEZAROWEK — czyszczenie well_road_trips                         -->
 <!--  -->
-<section class="admin-card" style="margin-top:24px">
+<section class="admin-card">
     <h2>Kursy ciężarówek</h2>
     <p class="help-text">Aktywne kursy ciężarówek (<code>well_road_trips</code>). Czyść tylko gdy masz utknięte lub nieaktualne rekordy — kursy <code>in_transit</code> są aktywne i zostaną pominięte w trybie "utknięte".</p>
 
-    <p class="panel-title" style="margin-bottom:8px">Czyszczenie kursów ciężarówek</p>
+    <p class="panel-title">Czyszczenie kursów ciężarówek</p>
     <p class="help-text" style="margin-bottom:12px">
         <strong>Utknięte</strong> — usuwa kursy ze statusem <code>delivered</code> i <code>lost</code> (zostawia aktywne: in_transit).<br>
         <strong>Wszystkie</strong> — czyści całą tabelę <code>well_road_trips</code> i zeruje bufor <code>road_buffer_bbl</code> we wszystkich odwiertach ciężarówkowych.

@@ -20,7 +20,7 @@ $pipeLevelMeta = [
 <?php if ($err): ?><p role="alert"  class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
 
 <!--  ZAKADKI  -->
-<div class="admin-tabs" role="tablist">
+<div class="admin-tabs admin-tabs--multirow" role="tablist">
     <button id="inc-btn-stats"  onclick="incShowTab('stats')"  class="admin-tab" role="tab"> <?= t('admin.incidents.tab_stats') ?></button>
     <button id="inc-btn-micro"  onclick="incShowTab('micro')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_micro') ?></button>
     <button id="inc-btn-minor"  onclick="incShowTab('minor')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_minor') ?></button>

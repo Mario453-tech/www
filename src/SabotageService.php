@@ -156,7 +156,7 @@ class SabotageService
 
         $protectionApplied = $activeProtection !== null;
         $effects = (array)($option['effects'] ?? []);
-        $lossPct = $this->effectValue($effects, 'transport_loss_pct', 100.0);
+        $lossPct = $this->effectValue($effects, 'transport_loss_pct', 0.0);
         $delayMinutes = (int)round($this->effectValue($effects, 'delay_minutes', 0.0));
         $chancePct = max(0.0, min(100.0, (float)($option['base_chance_pct'] ?? 0.0)));
         $rollValue = mt_rand(1, 1_000_000) / 10_000.0;
@@ -164,6 +164,13 @@ class SabotageService
         if ($status !== 'success') {
             $lossPct = 0.0;
             $delayMinutes = 0;
+            // Zablokowany przez ochrone tylko gdy opcja miala niezerowa szanse — inaczej
+            // ochrona dostaje falszywe zaslugi za zatrzymanie czegos co i tak by nie trafilo.
+            // Blocked by protection only when the option had non-zero chance — otherwise
+            // protection gets spurious credit for stopping something that could not succeed anyway.
+            if ($protectionApplied && $chancePct > 0.0) {
+                $status = 'blocked_by_protection';
+            }
         }
 
         try {
@@ -186,7 +193,11 @@ class SabotageService
                 null
             );
 
-            $messageKey = $status === 'success' ? 'sabotage.log_road_success' : 'sabotage.log_road_failed';
+            $messageKey = match ($status) {
+                'success' => 'sabotage.log_road_success',
+                'blocked_by_protection' => 'sabotage.log_road_blocked',
+                default => 'sabotage.log_road_failed',
+            };
             $this->logEvent(
                 $attemptId,
                 null,
@@ -221,18 +232,32 @@ class SabotageService
     /**
      * @return list<array<string,mixed>>
      */
-    public function getPlayerTargets(int $playerId, int $limit = 24): array
+    public function countPlayerTargets(int $playerId): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) FROM players WHERE id <> ? AND status = 'active'"
+            );
+            $stmt->execute([$playerId]);
+            return (int)$stmt->fetchColumn();
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function getPlayerTargets(int $playerId, int $limit = 12, int $offset = 0): array
     {
         try {
             $stmt = $this->db->prepare(
                 "SELECT id, username, company_name, status, cash, black_market_score
                    FROM players
-                  WHERE id <> ?
+                  WHERE id <> ? AND status = 'active'
                   ORDER BY company_name ASC, username ASC
-                  LIMIT ?"
+                  LIMIT ? OFFSET ?"
             );
             $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
-            $stmt->bindValue(2, max(1, min(100, $limit)), PDO::PARAM_INT);
+            $stmt->bindValue(2, max(1, min(50, $limit)), PDO::PARAM_INT);
+            $stmt->bindValue(3, max(0, $offset), PDO::PARAM_INT);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
@@ -253,7 +278,7 @@ class SabotageService
                 "SELECT sa.*, so.code AS option_code, so.name AS option_name,
                         p.username AS target_username, p.company_name AS target_company
                    FROM sabotage_attempts sa
-                   JOIN sabotage_options so ON so.id = sa.sabotage_option_id
+                   LEFT JOIN sabotage_options so ON so.id = sa.sabotage_option_id
                    LEFT JOIN players p ON p.id = sa.target_player_id
                   WHERE sa.player_id = ?
                   ORDER BY sa.id DESC
@@ -337,6 +362,35 @@ class SabotageService
      */
     public function executePlayerSabotage(int $playerId, int $targetPlayerId, int $optionId): array
     {
+        // Serializuj rownoczesne proby tego samego atakujacego, by zamknac wyscig TOCTOU na
+        // cooldownie (dwa zadania z dwoch sesji omijajace ten sam cooldown). Na MySQL nazwany
+        // lock; na innych sterownikach (SQLite/testy) wspolbieznosc nie wystepuje.
+        // Serialize concurrent attempts by the same attacker to close the cooldown TOCTOU race
+        // (two requests from two sessions bypassing the same cooldown). MySQL named lock; on
+        // other drivers (SQLite/tests) there is no concurrency.
+        if ((string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
+            return $this->runPlayerSabotage($playerId, $targetPlayerId, $optionId);
+        }
+
+        $lockName = 'sabotage_exec_' . $playerId;
+        $gotLock = false;
+        try {
+            $lockStmt = $this->db->prepare("SELECT GET_LOCK(?, 5)");
+            $lockStmt->execute([$lockName]);
+            $gotLock = ((int)$lockStmt->fetchColumn() === 1);
+            return $this->runPlayerSabotage($playerId, $targetPlayerId, $optionId);
+        } finally {
+            if ($gotLock) {
+                $this->db->prepare("SELECT RELEASE_LOCK(?)")->execute([$lockName]);
+            }
+        }
+    }
+
+    /**
+     * @return array{success:bool,status:string,message:string,option:?array<string,mixed>,target:?array<string,mixed>,cost:float,cash_loss:float,credibility_delta:int,cooldown_until:?string}
+     */
+    private function runPlayerSabotage(int $playerId, int $targetPlayerId, int $optionId): array
+    {
         if (!$this->isModuleEnabled()) {
             return [
                 'success' => false,
@@ -383,7 +437,8 @@ class SabotageService
             ];
         }
 
-        if ((int)($option['requires_black_market'] ?? 0) === 1 && (float)($attacker['black_market_score'] ?? 0.0) <= 0.0) {
+        $bmThreshold = $this->getBmSabotageThreshold();
+        if ((int)($option['requires_black_market'] ?? 0) === 1 && (float)($attacker['black_market_score'] ?? 0.0) < $bmThreshold) {
             return [
                 'success' => false,
                 'status' => 'cancelled',
@@ -434,6 +489,9 @@ class SabotageService
                     $optionId
                 );
                 if (!$charge['success']) {
+                    if ($startedTxn && $this->db->inTransaction()) {
+                        $this->db->rollBack();
+                    }
                     return [
                         'success' => false,
                         'status' => 'cancelled',
@@ -458,15 +516,22 @@ class SabotageService
             $credibilityDelta = 0;
 
             if ($status === 'success') {
+                // Najpierw zablokuj i odczytaj aktualna gotowke celu, dopiero potem licz
+                // procentowa strate od tej swiezej wartosci (snapshot z loadPlayerRow moze byc
+                // nieaktualny po wplatach/wyplatach celu w miedzyczasie).
+                // Lock and read the target's current cash first, then compute the percentage
+                // loss from that fresh value (the loadPlayerRow snapshot may be stale after the
+                // target's deposits/withdrawals in the meantime).
+                $currentTargetCash = $this->lockPlayerCash($targetPlayerId);
+
                 $requestedCashLoss = 0.0;
                 if (isset($effects['target_cash_loss_fixed'])) {
                     $requestedCashLoss += max(0.0, (float)$effects['target_cash_loss_fixed']['value']);
                 }
                 if (isset($effects['target_cash_loss_pct'])) {
-                    $requestedCashLoss += max(0.0, (float)($target['cash'] ?? 0.0) * ((float)$effects['target_cash_loss_pct']['value'] / 100.0));
+                    $requestedCashLoss += max(0.0, $currentTargetCash * ((float)$effects['target_cash_loss_pct']['value'] / 100.0));
                 }
 
-                $currentTargetCash = $this->lockPlayerCash($targetPlayerId);
                 $cashLoss = round(min($requestedCashLoss, max(0.0, $currentTargetCash)), 2);
                 if ($cashLoss >= FinancialTransactionService::MIN_AMOUNT) {
                     $hit = $fts->debit(
@@ -497,7 +562,13 @@ class SabotageService
                     }
                 }
 
-                if ($requestedCashLoss > 0.0 && $cashLoss < $requestedCashLoss) {
+                // 'partially_blocked' tylko gdy czesc kwoty faktycznie sciagnieto (cel czesciowo
+                // niewyplacalny). Gdy cel nie ma wcale gotowki, sabotaz formalnie sie udal, ale
+                // bez skutku finansowego - nie udajemy ze cos go zablokowalo.
+                // 'partially_blocked' only when part of the amount was actually taken (target
+                // partly insolvent). When the target has no cash at all the sabotage formally
+                // succeeded with no financial effect - we do not pretend something blocked it.
+                if ($requestedCashLoss > 0.0 && $cashLoss > 0.0 && $cashLoss < $requestedCashLoss) {
                     $status = 'partially_blocked';
                 }
             }
@@ -826,10 +897,11 @@ class SabotageService
         $type = (string)($option['cost_type'] ?? 'fixed');
         $value = max(0.0, (float)($option['cost_value'] ?? 0.0));
 
+        // per_bbl w kontekscie gracza nie ma wolumenu referencyjnego — dziala jak fixed.
+        // per_bbl in player context has no volume reference — behaves like fixed.
         $cost = match ($type) {
             'percent_reference' => $referenceValue * ($value / 100.0),
-            'per_bbl' => $value,
-            default => $value,
+            default             => $value,
         };
 
         return round(max(0.0, $cost), 2);
@@ -884,8 +956,10 @@ class SabotageService
     private function lockPlayerCash(int $playerId): float
     {
         $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        // FOR UPDATE tylko na MySQL — spojnie z FinancialTransactionService::lockAndReadBalance.
+        // FOR UPDATE only on MySQL — consistent with FinancialTransactionService::lockAndReadBalance.
         $sql = "SELECT cash FROM players WHERE id = ? LIMIT 1";
-        if ($driver !== 'sqlite') {
+        if ($driver === 'mysql') {
             $sql = "SELECT cash FROM players WHERE id = ? LIMIT 1 FOR UPDATE";
         }
         $stmt = $this->db->prepare($sql);
@@ -975,5 +1049,19 @@ class SabotageService
             $message,
             $meta !== [] ? json_encode($meta, JSON_UNESCAPED_UNICODE) : null,
         ]);
+    }
+
+    // Prog punktow czarnego rynku wymagany do odblokowania sabotazu.
+    // Minimum black_market_score required to use sabotage options that require black market.
+    private function getBmSabotageThreshold(): float
+    {
+        try {
+            $stmt = $this->db->prepare("SELECT value FROM well_config WHERE `key` = 'bm_sabotage_threshold' LIMIT 1");
+            $stmt->execute();
+            $val = $stmt->fetchColumn();
+            return $val !== false ? (float)$val : 30.0;
+        } catch (Throwable) {
+            return 30.0;
+        }
     }
 }

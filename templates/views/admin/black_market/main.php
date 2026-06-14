@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <?php endif ?>
 
     <!--  ZAKŁADKI  -->
-    <div class="admin-tabs" role="tablist">
+    <div class="admin-tabs admin-tabs--multirow" role="tablist">
         <button id="bm-btn-stats"   onclick="bmShowTab('stats')"   class="admin-tab" role="tab"><?= t('black_market.tab_stats') ?></button>
         <button id="bm-btn-players" onclick="bmShowTab('players')" class="admin-tab" role="tab"><?= t('black_market.tab_players') ?></button>
         <button id="bm-btn-tx"      onclick="bmShowTab('tx')"      class="admin-tab" role="tab"><?= t('black_market.tab_tx') ?><?php if ($filterPid): ?> <span class="badge badge-active">#<?= $filterPid ?></span><?php endif ?></button>
@@ -231,6 +231,28 @@ document.addEventListener('DOMContentLoaded', function() {
                             <input type="number" name="<?= $k ?>" value="<?= $cfgKeys[$k] ?>" step="0.01" min="0" class="bm-cfg-input">
                         </div>
                         <?php endforeach ?>
+                    </div>
+                </div>
+
+                <div class="bm-cfg-section">
+                    <p class="bm-cfg-section-title"><?= t('black_market.cfg_sec_sabotage') ?></p>
+                    <div class="bm-cfg-grid">
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_sabotage_threshold'] ?></label>
+                            <input type="number" name="bm_sabotage_threshold" value="<?= $cfgKeys['bm_sabotage_threshold'] ?>" step="1" min="0" max="100" class="bm-cfg-input">
+                        </div>
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_score_per_pln'] ?></label>
+                            <input type="number" name="bm_score_per_pln" value="<?= $cfgKeys['bm_score_per_pln'] ?>" step="0.0001" min="0" class="bm-cfg-input">
+                        </div>
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_decay_pct'] ?></label>
+                            <input type="number" name="bm_decay_pct" value="<?= $cfgKeys['bm_decay_pct'] ?>" step="0.1" min="0" max="100" class="bm-cfg-input">
+                        </div>
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_decay_interval_hours'] ?></label>
+                            <input type="number" name="bm_decay_interval_hours" value="<?= $cfgKeys['bm_decay_interval_hours'] ?>" step="1" min="1" class="bm-cfg-input">
+                        </div>
                     </div>
                 </div>
 

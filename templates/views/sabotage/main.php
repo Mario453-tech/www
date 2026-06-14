@@ -78,7 +78,15 @@ $blackMarketScore = (float)($playerData['black_market_score'] ?? 0.0);
                     </div>
                     <div>
                         <dt><?= t('sabotage.meta_cost') ?></dt>
-                        <dd><?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') ?></dd>
+                        <dd>
+                        <?php if ((string)$option['cost_type'] === 'percent_reference'): ?>
+                            <?= number_format((float)$option['cost_value'], 1, ',', ' ') ?>% <?= t('sabotage.cost_pct_of_cash') ?>
+                        <?php elseif ((string)$option['cost_type'] === 'per_bbl'): ?>
+                            <?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= t('sabotage.cost_per_bbl') ?>
+                        <?php else: ?>
+                            <?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') ?>
+                        <?php endif; ?>
+                        </dd>
                     </div>
                     <div>
                         <dt><?= t('sabotage.meta_cooldown') ?></dt>
@@ -94,7 +102,10 @@ $blackMarketScore = (float)($playerData['black_market_score'] ?? 0.0);
     </section>
 
     <section class="card sabotage-targets">
-        <h3><?= t('sabotage.targets_title') ?></h3>
+        <div class="sabotage-targets-head">
+            <h3><?= t('sabotage.targets_title') ?></h3>
+            <span class="sabotage-targets-count"><?= (int)($targetTotal ?? 0) ?> graczy</span>
+        </div>
         <?php if ($targets === []): ?>
         <p class="sabotage-empty"><?= t('sabotage.no_targets') ?></p>
         <?php else: ?>
@@ -111,7 +122,7 @@ $blackMarketScore = (float)($playerData['black_market_score'] ?? 0.0);
                         <p><?= htmlspecialchars((string)$target['username'], ENT_QUOTES, 'UTF-8') ?></p>
                     </div>
                     <span class="sabotage-target-status sabotage-target-status--<?= htmlspecialchars((string)($target['status'] ?? 'active'), ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars((string)($target['status'] ?? 'active'), ENT_QUOTES, 'UTF-8') ?>
+                        <?= t('sabotage.player_status_' . (string)($target['status'] ?? 'active')) ?>
                     </span>
                 </div>
 
@@ -154,6 +165,19 @@ $blackMarketScore = (float)($playerData['black_market_score'] ?? 0.0);
             </article>
             <?php endforeach; ?>
         </div>
+        <?php if (($targetPages ?? 1) > 1): ?>
+        <nav class="sabotage-pagination" aria-label="Strony celów">
+            <?php if (($targetPage ?? 1) > 1): ?>
+            <a href="?tpage=<?= ($targetPage ?? 1) - 1 ?>" class="sabotage-page-btn">&larr;</a>
+            <?php endif; ?>
+            <?php for ($p = max(1, ($targetPage ?? 1) - 2); $p <= min(($targetPages ?? 1), ($targetPage ?? 1) + 2); $p++): ?>
+            <a href="?tpage=<?= $p ?>" class="sabotage-page-btn<?= $p === ($targetPage ?? 1) ? ' active' : '' ?>"><?= $p ?></a>
+            <?php endfor; ?>
+            <?php if (($targetPage ?? 1) < ($targetPages ?? 1)): ?>
+            <a href="?tpage=<?= ($targetPage ?? 1) + 1 ?>" class="sabotage-page-btn">&rarr;</a>
+            <?php endif; ?>
+        </nav>
+        <?php endif; ?>
         <?php endif; ?>
     </section>
     <?php endif; ?>
