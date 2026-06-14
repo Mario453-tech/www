@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/../src/WalletConfig.php';
 GameLog::info('admin/loans.php', 'entry');
 AdminAuth::requireLogin();
 
@@ -61,23 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $msg = t('admin.loans.msg_settings_saved');
-    }
-
-    elseif ($action === 'update_transfer_limit') {
-        $newMax = (float)($_POST['wallet_transfer_max'] ?? -1);
-        if ($newMax < 0) {
-            $err = 'Nieprawidlowa kwota limitu przelewu.';
-        } else {
-            $db->prepare("
-                INSERT INTO well_config (`key`, value, label, category)
-                VALUES ('wallet_transfer_max', :v, 'Max przelew portfel', 'wallet')
-                ON DUPLICATE KEY UPDATE value = :v2
-            ")->execute([':v' => $newMax, ':v2' => $newMax]);
-            AdminLog::log('bank_transfer_limit_update', "wallet_transfer_max => $newMax");
-            $msg = $newMax == 0.0
-                ? 'Limit przelewu usuniety — gracze moga przesylac dowolna kwote.'
-                : 'Limit transferu zaktualizowany: ' . number_format($newMax, 0, ',', ' ') . ' PLN.';
-        }
     }
 
     elseif (!$needsMigration && $tablesExist) {
@@ -299,9 +281,6 @@ $viewData = [
     'liveScores'            => $liveScores,
     'riskSectionDescriptions' => $riskSectionDescriptions,
 ];
-
-$currentTransferMax = WalletConfig::getTransferMax($db);
-$viewData['currentTransferMax'] = $currentTransferMax;
 
 $pageTitle = t('admin.loans.page_title');
 require_once __DIR__ . '/partials/header.php';
