@@ -86,12 +86,10 @@ $negEventIcon    = 'negEventIcon';
 
 // == PRZEKAZ DO WIDOKU ==
 
-$transferMax = WalletConfig::getTransferMax($db);
 $viewData = array_merge($data, compact(
     'bankService', 'bankNeg', 'isBankrupt',
     'error', 'success',
-    'loanStatusBadge', 'negStatusBadge', 'negTypeLabel', 'negEventIcon',
-    'transferMax'
+    'loanStatusBadge', 'negStatusBadge', 'negTypeLabel', 'negEventIcon'
 ));
 $viewData = array_merge($viewData, GameShell::data($playerId));
 

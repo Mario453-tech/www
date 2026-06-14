@@ -18,7 +18,6 @@ $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/b
 try {
 
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/../src/WalletConfig.php';
 AdminAuth::requireLogin();
 
 require_once __DIR__ . '/../src/BankAccountService.php';
@@ -98,19 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $selectedId = $targetPid;
             } else {
                 $flash = ['type' => 'error', 'msg' => 'Blad: ' . ($res['error'] ?? 'nieznany') . ' / Error: ' . ($res['error'] ?? 'unknown')];
-            }
-        } elseif ($action === 'update_transfer_limit') {
-            $newMax = (float)($_POST['wallet_transfer_max'] ?? 0);
-            if ($newMax < 100) {
-                $flash = ['type' => 'error', 'msg' => 'Limit musi wynosic co najmniej 100 PLN.'];
-            } else {
-                $db->prepare("
-                    INSERT INTO well_config (`key`, value, label, category)
-                    VALUES ('wallet_transfer_max', :v, 'Max przelew portfel', 'wallet')
-                    ON DUPLICATE KEY UPDATE value = :v2
-                ")->execute([':v' => $newMax, ':v2' => $newMax]);
-                AdminLog::log('bank_transfer_limit_update', "wallet_transfer_max => $newMax");
-                $flash = ['type' => 'success', 'msg' => 'Limit transferu zaktualizowany: ' . number_format($newMax, 0, ',', ' ') . ' PLN.'];
             }
         } else {
             $flash = ['type' => 'error', 'msg' => 'Nieznana akcja. / Unknown action.'];
@@ -199,16 +185,12 @@ if ($selectedId > 0) {
     }
 }
 
-$currentTransferMax = WalletConfig::getTransferMax($db);
-
 $viewData = [
-    'players'            => $players,
-    'selectedId'         => $selectedId,
-    'selectedPlayer'     => $selectedPlayer,
-    'selectedHistory'    => $selectedHistory,
-    'flash'              => $flash,
-    'currentTransferMax' => $currentTransferMax,
-    'csrfToken'          => CSRF::generateToken(),
+    'players'        => $players,
+    'selectedId'     => $selectedId,
+    'selectedPlayer' => $selectedPlayer,
+    'selectedHistory'=> $selectedHistory,
+    'flash'          => $flash,
 ];
 
 $pageTitle = 'Bank — panel administratora';

@@ -28,23 +28,9 @@ class WalletConfig
     // Limity transferu gracza (gotowka <-> konto bankowe).
     // Player transfer limits (cash <-> bank account).
     public const TRANSFER_MIN_AMOUNT = 100.00;      // min 100 PLN na transfer
-    public const TRANSFER_MAX_AMOUNT = 500_000.00;  // domyslny max — nadpisywany przez well_config
+    public const TRANSFER_MAX_AMOUNT = 500_000.00;  // max 500 000 PLN na transfer
     public const TRANSFER_FEE_PCT    = 0.005;       // 0.5% prowizji
     public const TRANSFER_MIN_FEE    = 10.00;       // minimalna prowizja 10 PLN
-
-    // Odczytuje konfigurowalny limit transferu z well_config (klucz wallet_transfer_max).
-    // Reads configurable transfer limit from well_config (key wallet_transfer_max).
-    public static function getTransferMax(PDO $db): float
-    {
-        try {
-            $stmt = $db->prepare("SELECT value FROM well_config WHERE `key` = 'wallet_transfer_max' LIMIT 1");
-            $stmt->execute();
-            $val = $stmt->fetchColumn();
-            return $val !== false && (float)$val > 0 ? (float)$val : self::TRANSFER_MAX_AMOUNT;
-        } catch (Throwable) {
-            return self::TRANSFER_MAX_AMOUNT;
-        }
-    }
 
     // Udzial gotowki przy inicjalizacji nowego gracza (50 % cash, 50 % bank).
     // Cash share when initialising a new player (50 % cash, 50 % bank).
