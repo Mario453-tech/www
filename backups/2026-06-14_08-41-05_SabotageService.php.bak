@@ -423,8 +423,7 @@ class SabotageService
             ];
         }
 
-        $bmThreshold = $this->getBmSabotageThreshold();
-        if ((int)($option['requires_black_market'] ?? 0) === 1 && (float)($attacker['black_market_score'] ?? 0.0) < $bmThreshold) {
+        if ((int)($option['requires_black_market'] ?? 0) === 1 && (float)($attacker['black_market_score'] ?? 0.0) <= 0.0) {
             return [
                 'success' => false,
                 'status' => 'cancelled',
@@ -1035,19 +1034,5 @@ class SabotageService
             $message,
             $meta !== [] ? json_encode($meta, JSON_UNESCAPED_UNICODE) : null,
         ]);
-    }
-
-    // Prog punktow czarnego rynku wymagany do odblokowania sabotazu.
-    // Minimum black_market_score required to use sabotage options that require black market.
-    private function getBmSabotageThreshold(): float
-    {
-        try {
-            $stmt = $this->db->prepare("SELECT value FROM well_config WHERE `key` = 'bm_sabotage_threshold' LIMIT 1");
-            $stmt->execute();
-            $val = $stmt->fetchColumn();
-            return $val !== false ? (float)$val : 30.0;
-        } catch (Throwable) {
-            return 30.0;
-        }
     }
 }
