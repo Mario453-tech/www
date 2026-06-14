@@ -51,11 +51,26 @@ function adminFinanceMultiplierBounds(): array
 
 function adminFinanceMultiplierLabels(): array
 {
-    $labels = [];
-    foreach (array_keys(adminFinanceMultiplierDefaults()) as $key) {
-        $labels[$key] = tPlain('admin.finance.mult_' . $key);
-    }
-    return $labels;
+    return [
+        'sp_tech_wear_mod'        => 'Zużycie sprzętu (umiarkowany)',
+        'sp_tech_wear_agg'        => 'Zużycie sprzętu (agresywny)',
+        'sp_tech_degr_mod'        => 'Degradacja (umiarkowany)',
+        'sp_tech_degr_agg'        => 'Degradacja (agresywny)',
+        'sp_log_transport_mod'    => 'Koszt transportu (umiarkowany)',
+        'sp_log_transport_agg'    => 'Koszt transportu (agresywny)',
+        'sp_log_hub_mod'          => 'Koszt huba (umiarkowany)',
+        'sp_log_hub_agg'          => 'Koszt huba (agresywny)',
+        'sp_log_loss_mod'         => 'Straty transportowe (umiarkowany)',
+        'sp_log_loss_agg'         => 'Straty transportowe (agresywny)',
+        'sp_log_incident_mod'     => 'Incydenty logistyki (umiarkowany)',
+        'sp_log_incident_agg'     => 'Incydenty logistyki (agresywny)',
+        'sp_hr_duration_mod'      => 'Czas wiercenia (umiarkowany)',
+        'sp_hr_duration_agg'      => 'Czas wiercenia (agresywny)',
+        'sp_hr_quality_mod'       => 'Jakość wiercenia (umiarkowany)',
+        'sp_hr_quality_agg'       => 'Jakość wiercenia (agresywny)',
+        'sp_safety_incident_agg'  => 'Incydenty BHP (agresywny)',
+        'sp_safety_disaster_agg'  => 'Awarie BHP (agresywny)',
+    ];
 }
 
 function adminFinanceConfigDefaults(): array
@@ -158,15 +173,15 @@ function adminFinanceHandlePost(PDO $db, string $action, array $post): array
             $cooldownVal = max(1, min(168, (int)($post['savings_plan_cooldown_hours'] ?? 6)));
             $db->prepare(
                 "INSERT INTO well_config (`key`, value, label, category)
-                 VALUES ('savings_plan_cooldown_hours', ?, ?, 'finance')
+                 VALUES ('savings_plan_cooldown_hours', ?, 'Cooldown planu oszczędności (h)', 'finance')
                  ON DUPLICATE KEY UPDATE value = VALUES(value)"
-            )->execute([$cooldownVal, tPlain('admin.finance.cfg_cooldown_label')]);
+            )->execute([$cooldownVal]);
 
             $alertFields = [
-                'alert_loss_pct'         => ['label' => tPlain('admin.finance.cfg_alert_loss_pct_label'),     'min' => 0.0, 'max' => 100.0],
-                'alert_hub_loss_pct'     => ['label' => tPlain('admin.finance.cfg_alert_hub_loss_pct_label'), 'min' => 0.0, 'max' => 100.0],
-                'alert_fallback_min_pln' => ['label' => tPlain('admin.finance.cfg_alert_fallback_label'),     'min' => 0.0, 'max' => 1000000.0],
-                'alert_loss_player_min'  => ['label' => tPlain('admin.finance.cfg_alert_player_min_label'),   'min' => 1,   'max' => 100],
+                'alert_loss_pct'         => ['label' => 'Próg alertu strat globalnych (%)',   'min' => 0.0, 'max' => 100.0],
+                'alert_hub_loss_pct'     => ['label' => 'Próg alertu strat hubowych (%)',      'min' => 0.0, 'max' => 100.0],
+                'alert_fallback_min_pln' => ['label' => 'Min. straty odwiertów bez huba do alertu (PLN)', 'min' => 0.0, 'max' => 1000000.0],
+                'alert_loss_player_min'  => ['label' => 'Min graczy z ujemnym netto',          'min' => 1,   'max' => 100],
             ];
             foreach ($alertFields as $key => $meta) {
                 $value = max($meta['min'], min($meta['max'], (float)($post[$key] ?? 0)));

@@ -105,9 +105,4 @@ return [
     'admin.loans.sys_unknown' => 'Brak danych',
     'admin.loans.title' => 'Bank / Finanse',
     'admin.loans.wells_short' => 'odw.',
-
-    // bank_status.php - JSON endpoint errors
-    'admin.bank_status.err_no_pid'     => 'Brak ID gracza.',
-    'admin.bank_status.err_old_schema' => 'Nieaktualna struktura tabeli kredytów.',
-    'admin.bank_status.err_no_table'   => 'Brak tabeli kredytów.',
 ];

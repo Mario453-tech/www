@@ -522,15 +522,10 @@ foreach ($PIPE_LEVELS as $lvl):
             <?php foreach ($recentIncidents as $inc):
                 $isPipeline = ($inc['src'] === 'pipeline');
                 $isMarine   = ($inc['src'] === 'marine');
-                $rowTitle   = $inc['message'] ?? '';
 
                 if ($isMarine) {
                     $lvlCls  = in_array($inc['level'], ['piracy', 'catastrophe'], true) ? 'badge-error' : 'badge-warn';
                     $lvlText = t('admin.incidents.marine_type_' . ($inc['level'] ?? 'storm'));
-                    $rowTitle = tPlain('admin.incidents.marine_history_msg', [
-                        'type' => tPlain('admin.incidents.marine_type_' . ($inc['level'] ?? 'storm')),
-                        'bbl'  => number_format((float)($inc['prod_drop'] ?? 0), 1, '.', ' '),
-                    ]);
                 } elseif ($isPipeline) {
  // Map pipeline level (micro/minor/medium) to pipeLevelMeta key
                     $pipeKey = 'pipe_' . ($inc['level'] ?? 'micro');
@@ -543,7 +538,7 @@ foreach ($PIPE_LEVELS as $lvl):
                     $lvlText = $lm[1];
                 }
             ?>
-            <article class="list-row" role="row" title="<?= htmlspecialchars($rowTitle) ?>">
+            <article class="list-row" role="row" title="<?= htmlspecialchars($inc['message'] ?? '') ?>">
                 <span class="muted"><?= (int)$inc['id'] ?></span>
                 <span>
                     <?php if ($isMarine): ?>
