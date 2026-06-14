@@ -164,11 +164,9 @@ class SabotageService
         if ($status !== 'success') {
             $lossPct = 0.0;
             $delayMinutes = 0;
-            // Zablokowany przez ochrone tylko gdy opcja miala niezerowa szanse — inaczej
-            // ochrona dostaje falszywe zaslugi za zatrzymanie czegos co i tak by nie trafilo.
-            // Blocked by protection only when the option had non-zero chance — otherwise
-            // protection gets spurious credit for stopping something that could not succeed anyway.
-            if ($protectionApplied && $chancePct > 0.0) {
+            // Nieudany sabotaz na chronionym celu logujemy jako zablokowany przez ochrone.
+            // A failed sabotage on a protected target is logged as blocked by protection.
+            if ($protectionApplied) {
                 $status = 'blocked_by_protection';
             }
         }
@@ -238,7 +236,7 @@ class SabotageService
             $stmt = $this->db->prepare(
                 "SELECT id, username, company_name, status, cash, black_market_score
                    FROM players
-                  WHERE id <> ? AND status = 'active'
+                  WHERE id <> ?
                   ORDER BY company_name ASC, username ASC
                   LIMIT ?"
             );
@@ -846,11 +844,10 @@ class SabotageService
         $type = (string)($option['cost_type'] ?? 'fixed');
         $value = max(0.0, (float)($option['cost_value'] ?? 0.0));
 
-        // per_bbl w kontekscie gracza nie ma wolumenu referencyjnego — dziala jak fixed.
-        // per_bbl in player context has no volume reference — behaves like fixed.
         $cost = match ($type) {
             'percent_reference' => $referenceValue * ($value / 100.0),
-            default             => $value,
+            'per_bbl' => $value,
+            default => $value,
         };
 
         return round(max(0.0, $cost), 2);

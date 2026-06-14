@@ -286,11 +286,6 @@ class RoadTransportService
             return ['trips_count' => 0, 'volume_bbl' => 0.0, 'cost' => 0.0, 'truck_type' => 'standard', 'eta_at' => ''];
         }
 
-        // well_road_trips nie istnieje na SQLite / well_road_trips does not exist on SQLite
-        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            return ['trips_count' => 0, 'volume_bbl' => 0.0, 'cost' => 0.0, 'truck_type' => 'standard', 'eta_at' => ''];
-        }
-
         $truckType = (string)($config['truck_type'] ?? 'standard');
         if (!isset(self::TRUCK_DEFAULTS[$truckType])) {
             $truckType = 'standard';
@@ -354,12 +349,6 @@ class RoadTransportService
  /** @var array<int, float> well_id => delivered bbl (basis for the second transport leg) */
         $deliveredByWell = [];
 
-        // Tabela well_road_trips istnieje tylko w MySQL — na SQLite nie ma kursow czasowych.
-        // well_road_trips exists only in MySQL — time-based trips are not supported on SQLite.
-        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            return ['delivered_bbl' => 0.0, 'lost_bbl' => 0.0, 'completed_count' => 0, 'delivered_by_well' => []];
-        }
-
         try {
             $stmt = $this->db->prepare(
                 "SELECT id, well_id, volume_bbl, delivered_bbl, status, trips_count, trip_hours,
@@ -393,19 +382,15 @@ class RoadTransportService
                             SET status = 'delivered', arrived_at = NOW()
                           WHERE id = ?"
                     )->execute([(int)$trip['id']]);
-                    // Akumulacja tylko po udanym UPDATE — blad zostawia kurs delayed i
-                    // zostanie ponownie przetworzony w nastepnym ticku bez duplikatu.
-                    // Accumulate only after a successful UPDATE — on failure the trip stays
-                    // delayed and is reprocessed next tick without double-crediting.
-                    $totalDelivered += $delivered;
-                    $totalLost      += max(0.0, (float)$trip['volume_bbl'] - $delivered);
-                    $completed++;
-                    $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
                 } catch (Throwable $e) {
                     if (class_exists('GameLog', false)) {
                         GameLog::error('RoadTransportService', 'processCompletedTrips finalize delayed FAILED', $e, ['trip_id' => $trip['id']]);
                     }
                 }
+                $totalDelivered += $delivered;
+                $totalLost      += max(0.0, (float)$trip['volume_bbl'] - $delivered);
+                $completed++;
+                $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
                 continue;
             }
 
@@ -450,10 +435,18 @@ class RoadTransportService
                 );
             }
 
+            // Incydenty logujemy od razu (sabotaz juz nastapil), niezaleznie od opoznienia.
+            // Log incidents immediately (the sabotage already happened), regardless of delay.
+            if ($incidents !== [] && $lost > 0.0) {
+                $this->logIncidents(
+                    (int)$trip['well_id'], $playerId,
+                    (int)$trip['trips_count'], $lost, $incidents
+                );
+            }
+
             // Sabotaz z efektem opoznienia: zapisz wynik, przesun ETA, finalizuj w pozniejszym ticku.
             // Sabotage with a delay effect: store the result, push ETA, finalize on a later tick.
             if ($delayMinutes > 0) {
-                $deferOk = false;
                 try {
                     $this->db->prepare(
                         "UPDATE well_road_trips
@@ -461,21 +454,10 @@ class RoadTransportService
                                 eta_at = DATE_ADD(NOW(), INTERVAL ? MINUTE)
                           WHERE id = ?"
                     )->execute([round($delivered, 4), $delayMinutes, (int)$trip['id']]);
-                    $deferOk = true;
                 } catch (Throwable $e) {
                     if (class_exists('GameLog', false)) {
                         GameLog::error('RoadTransportService', 'processCompletedTrips defer delayed FAILED', $e, ['trip_id' => $trip['id']]);
                     }
-                }
-                // Loguj incydenty tylko gdy zapis sie powiodl — przy bledzie kurs zostaje
-                // in_transit i incydenty zostana zalogowane przy ponownym przetworzeniu.
-                // Log incidents only on successful update — on failure the trip stays
-                // in_transit and incidents will be logged when reprocessed next tick.
-                if ($deferOk && $incidents !== [] && $lost > 0.0) {
-                    $this->logIncidents(
-                        (int)$trip['well_id'], $playerId,
-                        (int)$trip['trips_count'], $lost, $incidents
-                    );
                 }
                 continue;
             }
@@ -486,25 +468,17 @@ class RoadTransportService
                         SET status = 'delivered', delivered_bbl = ?, arrived_at = NOW()
                       WHERE id = ?"
                 )->execute([round($delivered, 4), (int)$trip['id']]);
-                // Incydenty i akumulacja tylko po udanym UPDATE — blad zostawia kurs in_transit
-                // i zostanie ponownie przetworzony bez duplikatow.
-                // Incidents and accumulation only after successful UPDATE — failure leaves the
-                // trip in_transit to be reprocessed without duplicates.
-                if ($incidents !== [] && $lost > 0.0) {
-                    $this->logIncidents(
-                        (int)$trip['well_id'], $playerId,
-                        (int)$trip['trips_count'], $lost, $incidents
-                    );
-                }
-                $totalDelivered += $delivered;
-                $totalLost      += $lost;
-                $completed++;
-                $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
             } catch (Throwable $e) {
                 if (class_exists('GameLog', false)) {
                     GameLog::error('RoadTransportService', 'processCompletedTrips update FAILED', $e, ['trip_id' => $trip['id']]);
                 }
             }
+
+            $totalDelivered += $delivered;
+            $totalLost      += $lost;
+            $completed++;
+
+            $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $delivered;
         }
 
         return [
