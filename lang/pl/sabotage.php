@@ -21,6 +21,8 @@ return [
     'sabotage.no_targets' => 'Brak dostepnych celow.',
     'sabotage.meta_chance' => 'Szansa',
     'sabotage.meta_cost' => 'Koszt',
+    'sabotage.cost_pct_of_cash' => '% gotowki celu',
+    'sabotage.cost_per_bbl' => 'PLN/bbl',
     'sabotage.meta_cooldown' => 'Cooldown',
     'sabotage.requires_black_market' => 'Wymaga sladu czarnego rynku',
     'sabotage.disabled_black_market' => 'Najpierw musisz miec aktywny slad czarnego rynku.',

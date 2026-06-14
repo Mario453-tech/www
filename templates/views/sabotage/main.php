@@ -78,7 +78,15 @@ $blackMarketScore = (float)($playerData['black_market_score'] ?? 0.0);
                     </div>
                     <div>
                         <dt><?= t('sabotage.meta_cost') ?></dt>
-                        <dd><?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') ?></dd>
+                        <dd>
+                        <?php if ((string)$option['cost_type'] === 'percent_reference'): ?>
+                            <?= number_format((float)$option['cost_value'], 1, ',', ' ') ?>% <?= t('sabotage.cost_pct_of_cash') ?>
+                        <?php elseif ((string)$option['cost_type'] === 'per_bbl'): ?>
+                            <?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= t('sabotage.cost_per_bbl') ?>
+                        <?php else: ?>
+                            <?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') ?>
+                        <?php endif; ?>
+                        </dd>
                     </div>
                     <div>
                         <dt><?= t('sabotage.meta_cooldown') ?></dt>
