@@ -361,6 +361,32 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .players-grid .list-row {
     grid-template-columns: 36px 1fr 120px 90px 100px 60px 150px 90px;
 }
+.players-grid--bulk .list-header,
+.players-grid--bulk .list-row {
+    grid-template-columns: 32px 36px minmax(180px, 1fr) 120px 90px 100px 60px 150px 90px;
+}
+.players-bulk-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+}
+.players-bulk-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.players-grid .col-select {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.players-grid input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--gold);
+}
 .wells-grid .list-header,
 .wells-grid .list-row {
     grid-template-columns: 46px 64px 100px 120px 110px 1fr;
@@ -585,19 +611,18 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
 .config-rows { display: flex; flex-direction: column; gap: 2px; }
 .config-row {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 12px;
+    grid-template-columns: 1fr 180px;
+    gap: 16px;
     align-items: center;
-    padding: 10px 14px;
-    background: #1a1a1a;
-    border: 1px solid rgba(255,255,255,.06);
-    border-radius: 8px;
-    transition: background .15s;
+    padding: 8px 12px;
+    background: var(--bg3);
+    border: 1px solid var(--brd2);
+    border-radius: 3px;
 }
 .config-row:hover          { background: #2a2a2a; }
 .config-row--wide          { grid-template-columns: 1fr auto; }
-.config-key-label { font-size: 13px; font-weight: 600; color: #e0e0e0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.config-key-code  { font-size: 10px; color: rgba(255,255,255,.3); margin-top: 2px; }
+.config-key-label { font-size: 13px; color: var(--text); }
+.config-key-code  { font-size: 10px; color: var(--muted2); margin-top: 2px; font-family: monospace; }
 .config-input {
     background: #2a2a2a; border: 1px solid #444; color: var(--text);
     padding: 6px 10px; border-radius: 3px; font-family: monospace;
@@ -938,14 +963,20 @@ select {
 @media (max-width: 1100px) {
     .players-grid .list-header,
     .players-grid .list-row { grid-template-columns: 36px 1fr 110px 90px 90px 90px; }
+    .players-grid--bulk .list-header,
+    .players-grid--bulk .list-row { grid-template-columns: 32px 36px 1fr 110px 90px 90px 90px; }
     .players-grid .col-wells,
     .players-grid .col-lasttick { display: none; }
 }
 @media (max-width: 700px) {
     .players-grid .list-header,
     .players-grid .list-row { grid-template-columns: 1fr 100px 80px; }
+    .players-grid--bulk .list-header,
+    .players-grid--bulk .list-row { grid-template-columns: 32px 1fr 90px 80px; }
     .players-grid .col-id,
     .players-grid .col-storage { display: none; }
+    .players-grid--bulk .col-select { display: flex; }
+    .players-bulk-toolbar { align-items: stretch; flex-direction: column; }
     .logs-grid .col-player,
     .logs-grid .col-ip { display: none; }
 }
@@ -1290,7 +1321,7 @@ select {
     align-items: center;
 }
 .config-input-sm { width: 80px; }
-.config-range { width: 140px; accent-color: var(--orange); cursor: pointer; }
+.config-range { width: 100px; accent-color: var(--orange); }
 
 /* Form label bez marginu (inline w form-row) */
 .form-label-inline {
@@ -1414,22 +1445,19 @@ select {
 /* transport_loss per gracz (7 kolumn) */
 .player-loss-grid .list-header,
 .player-loss-grid .list-row {
-    grid-template-columns: 1fr 60px 70px 70px 75px 110px 90px;
-    font-size: 11px;
+    grid-template-columns: 1fr 70px 80px 80px 90px 120px 100px;
 }
 
 /* transport_loss top wells (8 kolumn) */
 .well-loss-grid .list-header,
 .well-loss-grid .list-row {
-    grid-template-columns: 36px 1fr 70px 70px 70px 70px 70px 90px;
-    font-size: 11px;
+    grid-template-columns: 40px 1fr 80px 80px 80px 80px 80px 100px;
 }
 
 /* pipelines lista rurocigw (8 kolumn) */
 .pipelines-grid .list-header,
 .pipelines-grid .list-row {
-    grid-template-columns: 36px 1fr 80px 70px 80px 80px 80px 160px;
-    font-size: 11px;
+    grid-template-columns: 40px 1fr 90px 80px 90px 90px 90px 200px;
 }
 
 /* pipelines historia awarii (3 kolumny) */
@@ -1978,6 +2006,8 @@ select {
 .admin-action-form .form-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .form-label           { display: block; font-size: 11px; color: var(--muted2, #888);
                          text-transform: uppercase; margin-bottom: 4px; }
+.admin-danger-zone    { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(224,78,78,.28); }
+.admin-danger-zone .panel-title { color: var(--red); }
 .cv-good              { color: #4caf50; font-weight: 600; }
 .cv-bad               { color: #e57373; font-weight: 600; }
 
@@ -2062,10 +2092,10 @@ select {
 .btn-xs             { padding: 2px 7px; font-size: 11px; }
 
 /* Panel HR */
-.hr-tabs            { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
-.hr-tab             { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); text-decoration: none; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); transition: all .15s; }
-.hr-tab:hover       { color: #ff9800; border-color: rgba(255,152,0,.3); background: rgba(255,152,0,.07); }
-.hr-tab.active      { color: #ff9800; border-color: rgba(255,152,0,.4); background: rgba(255,152,0,.1); }
+.hr-tabs            { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+.hr-tab             { padding: 7px 16px; border-radius: 6px; font-size: 13px; color: var(--text-muted); text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); transition: background .15s; }
+.hr-tab:hover       { background: var(--bg-hover); color: var(--text); }
+.hr-tab.active      { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 .hr-section         { margin-bottom: 32px; }
 .hr-divider         { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
@@ -2074,7 +2104,7 @@ select {
 .hr-candidates-grid .list-row { grid-template-columns: 1fr 100px 130px 100px 160px 80px 60px; }
 
 .hr-history-grid .list-header,
-.hr-history-grid .list-row    { grid-template-columns: 110px 150px 1fr 90px 80px 1fr; }
+.hr-history-grid .list-row    { grid-template-columns: 120px 160px 1fr 100px 90px 1fr; }
 
 .hr-stats-grid .list-header,
 .hr-stats-grid .list-row      { grid-template-columns: 1fr 80px 80px 70px 70px 120px; }
@@ -3837,908 +3867,84 @@ body.cred-modal-open { overflow: hidden; }
 .legal-table-toggle::before { content: '▶'; font-size: 9px; transition: transform .2s; }
 .legal-table-expanded .legal-table-toggle::before { transform: rotate(90deg); }
 
-
-/* ═══════════════════════════════════════════════════════════════
-   GM TOOLS — Sekcja usuwania kont graczy
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Panel danger — lewa czerwona kreska */
-.panel-danger,
-.gm-delete-panel {
-    border-left: 3px solid var(--red, #e05555) !important;
-    background: rgba(224,85,85,.04) !important;
-}
-.panel-title-danger,
-.gm-delete-title {
-    color: var(--red, #e05555) !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    letter-spacing: .1em !important;
-    text-transform: uppercase !important;
-}
-
-/* Opis ostrzeżenia */
-.gm-delete-desc,
-.panel-danger .muted {
-    font-size: 12px !important;
-    font-family: inherit !important;
-    color: rgba(255,255,255,.45) !important;
-    line-height: 1.6 !important;
-    margin-bottom: 14px !important;
-    font-weight: 400 !important;
-}
-
-/* Lista graczy — siatka kart */
-.gm-players-list {
+/* ── Panel lapowek / Bribery admin panel ────────────────────── */
+.form-actions { margin-top: 16px; }
+.bribery-levels {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 6px;
-    margin: 12px 0;
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 2px;
-}
-.gm-players-list::-webkit-scrollbar { width: 4px; }
-.gm-players-list::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
-
-/* Karta gracza z checkboxem */
-.gm-player-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    background: #1e1e1e;
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 7px;
-    cursor: pointer;
-    transition: border-color .15s, background .15s;
-}
-.gm-player-item:hover {
-    border-color: rgba(224,85,85,.3);
-    background: rgba(224,85,85,.05);
-}
-.gm-player-item.selected {
-    border-color: rgba(224,85,85,.5);
-    background: rgba(224,85,85,.08);
-}
-
-/* Checkbox w karcie gracza */
-.gm-player-item input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
-    accent-color: #e05555;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-/* ID gracza */
-.gm-player-id {
-    font-size: 10px;
-    font-weight: 700;
-    color: rgba(224,85,85,.7);
-    flex-shrink: 0;
-    font-family: inherit;
-    min-width: 28px;
-}
-
-/* Email gracza */
-.gm-player-email {
-    font-size: 11px;
-    color: rgba(255,255,255,.7);
-    font-family: inherit;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
-}
-
-/* Zaznacz wszystkich — row */
-.gm-select-all-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    margin-bottom: 4px;
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 7px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 600;
-    color: rgba(255,255,255,.55);
-    font-family: inherit;
-<<<<<<< HEAD
-}
-.gm-select-all-row:hover { border-color: rgba(255,152,0,.3); color: #ff9800; }
-.gm-select-all-row input[type="checkbox"] {
-    width: 15px; height: 15px;
-    accent-color: #ff9800;
-    cursor: pointer;
-}
-
-/* Licznik zaznaczonych */
-.gm-selected-count {
-    font-size: 11px;
-    color: rgba(255,255,255,.35);
-    margin-bottom: 10px;
-}
-.gm-selected-count strong {
-    color: var(--red, #e05555);
-}
-
-/* Przycisk usuń */
-.gm-delete-btn,
-.panel-danger .btn-danger {
-    background: rgba(224,85,85,.1) !important;
-    border: 1px solid rgba(224,85,85,.35) !important;
-    color: #e05555 !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    letter-spacing: .07em !important;
-    padding: 8px 18px !important;
-    border-radius: 8px !important;
-    cursor: pointer !important;
-    transition: background .15s, border-color .15s !important;
-}
-.gm-delete-btn:hover,
-.panel-danger .btn-danger:hover {
-    background: rgba(224,85,85,.2) !important;
-    border-color: rgba(224,85,85,.6) !important;
-}
-
-/* Fallback dla surowej listy label+checkbox (jeśli HTML niezmodyfikowany) */
-.panel-danger label,
-.gm-delete-panel label {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
-    margin: 2px;
-    background: #1e1e1e;
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 6px;
-    font-family: inherit !important;
-    font-size: 11px !important;
-    color: rgba(255,255,255,.65) !important;
-    cursor: pointer;
-    transition: border-color .15s;
-}
-.panel-danger label:hover,
-.gm-delete-panel label:hover {
-    border-color: rgba(224,85,85,.35);
-    background: rgba(224,85,85,.06);
-}
-.panel-danger label:has(input:checked),
-.gm-delete-panel label:has(input:checked) {
-    border-color: rgba(224,85,85,.5);
-    background: rgba(224,85,85,.08);
-    color: #fff !important;
-}
-
-/* Ukryj surowy tekst bez struktury (jeśli checkboxy są inline) */
-.panel-danger .text-inline-checkboxes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-/* Mobile */
-@media (max-width: 600px) {
-    .gm-players-list {
-        grid-template-columns: 1fr 1fr;
-        max-height: 320px;
-    }
-    .gm-player-email { font-size: 10px; }
-    .gm-player-id { font-size: 9px; }
-}
-
-@media (max-width: 400px) {
-    .gm-players-list { grid-template-columns: 1fr; }
-}
-
-
-/* ═══════════════════════════════════════════════════════════════
-   ADMIN MOBILE — poprawki dla wszystkich paneli
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ── Balance — slidery ────────────────────────────────────────── */
-.config-rows { gap: 6px !important; }
-.badge-warning {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    background: rgba(255,152,0,.15);
-    color: #ff9800;
-    border: 1px solid rgba(255,152,0,.3);
-    white-space: nowrap;
-}
-.mult-nerf { color: #4ec97a !important; font-weight: 700; }
-.mult-buff { color: #e05555 !important; font-weight: 700; }
-.mult-normal { color: rgba(255,255,255,.6) !important; }
-
-/* ── Incydenty — toolbar z 11 zakładkami → 2 wiersze / scroll ── */
-.admin-tabs-wrap {
-    position: relative;
-}
-/* Grupowanie zakładek w 2 wiersze gdy > 8 */
-.admin-tabs--multirow {
-    flex-wrap: wrap !important;
-    gap: 4px 3px !important;
-    padding-bottom: 2px;
-}
-.admin-tabs--multirow .admin-tab {
-    padding: 5px 10px !important;
-    font-size: 11px !important;
-    border-radius: 6px !important;
-    border: 1px solid rgba(255,255,255,.08) !important;
-    background: rgba(255,255,255,.03) !important;
-    margin-bottom: 0 !important;
-}
-.admin-tabs--multirow .admin-tab:hover {
-    border-color: rgba(255,152,0,.3) !important;
-    background: rgba(255,152,0,.07) !important;
-}
-.admin-tabs--multirow .admin-tab.active {
-    border-color: rgba(255,152,0,.5) !important;
-    background: rgba(255,152,0,.12) !important;
-    color: #ff9800 !important;
-}
-
-/* ── HR history — lista zatrudnień ───────────────────────────── */
-.hr-history-grid {
-    font-size: 12px;
-}
-.hr-history-grid .list-header {
-    font-size: 9px;
-    letter-spacing: .08em;
-    color: rgba(255,255,255,.3);
-}
-
-/* ── Black market — tabela transakcji ────────────────────────── */
-.bm-tx-table-wrap,
-.data-list--bm {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-.bm-tx-table-wrap::-webkit-scrollbar { height: 3px; }
-.bm-tx-table-wrap::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
-
-/* BM players table — kompaktowa */
-.bm-players-table .list-header,
-.bm-players-table .list-row {
-    font-size: 11px !important;
-}
-.bm-players-table .list-header div,
-.bm-players-table .list-row div {
-    padding: 5px 7px !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* ── MOBILE ≤768px ───────────────────────────────────────────── */
-@media (max-width: 768px) {
-
-    /* Balance slidery — pionowo */
-    .config-row {
-        grid-template-columns: 1fr !important;
-        gap: 8px !important;
-    }
-    .config-input-group {
-        flex-wrap: wrap;
-        gap: 6px !important;
-    }
-    .config-range { width: 100% !important; max-width: 220px; }
-    .config-input-sm { width: 64px !important; }
-
-    /* HR history — ukryj mniej ważne kolumny */
-    .hr-history-grid .list-header,
-    .hr-history-grid .list-row {
-        grid-template-columns: 90px 1fr 80px !important;
-    }
-    .hr-history-grid .list-header div:nth-child(2),
-    .hr-history-grid .list-row div:nth-child(2),
-    .hr-history-grid .list-header div:nth-child(5),
-    .hr-history-grid .list-row div:nth-child(5),
-    .hr-history-grid .list-header div:nth-child(6),
-    .hr-history-grid .list-row div:nth-child(6) {
-        display: none !important;
-    }
-
-    /* BM players — ukryj credit score col na mobilnym */
-    .bm-players-table .list-header,
-    .bm-players-table .list-row {
-        grid-template-columns: 1fr auto auto !important;
-    }
-
-    /* Incydenty toolbar — 2 wiersze */
-    .admin-tabs:not(.admin-tabs--single) {
-        flex-wrap: wrap !important;
-        gap: 3px !important;
-    }
-    .admin-tabs:not(.admin-tabs--single) .admin-tab {
-        padding: 5px 9px !important;
-        font-size: 10px !important;
-        border-radius: 6px !important;
-        border: 1px solid rgba(255,255,255,.07) !important;
-        background: rgba(255,255,255,.03) !important;
-        white-space: nowrap;
-    }
-    .admin-tabs:not(.admin-tabs--single) .admin-tab.active {
-        border-color: rgba(255,152,0,.45) !important;
-        background: rgba(255,152,0,.1) !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .config-range { max-width: 160px; }
-    .config-input-sm { width: 56px !important; }
-
-    /* HR history — tylko data + badge */
-    .hr-history-grid .list-header,
-    .hr-history-grid .list-row {
-        grid-template-columns: 80px 1fr 70px !important;
-    }
-
-    /* BM — pełny scroll */
-    .bm-players-table .list-header,
-    .bm-players-table .list-row {
-        min-width: 360px;
-        grid-template-columns: 80px 1fr 60px 60px !important;
-    }
-
-    /* Ikony admina w topbar */
-    .admin-mobile-topbar { padding: 0 10px; }
-}
-
-
-/* ═══════════════════════════════════════════════════════════════
-   TRANSPORT / PIPELINES / MARINE — poprawki mobilne
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ── Wrapper scroll dla szerokich tabel ─────────────────────── */
-.player-loss-grid,
-.well-loss-grid,
-.pipelines-grid,
-.pipeline-history-grid,
-.well-sales-grid {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-.player-loss-grid::-webkit-scrollbar,
-.well-loss-grid::-webkit-scrollbar,
-.pipelines-grid::-webkit-scrollbar { height: 3px; }
-.player-loss-grid::-webkit-scrollbar-thumb,
-.well-loss-grid::-webkit-scrollbar-thumb,
-.pipelines-grid::-webkit-scrollbar-thumb {
-    background: rgba(255,152,0,.3); border-radius: 2px;
-}
-
-/* Minimalna szerokość żeby kolumny nie zgniotły się za bardzo */
-.player-loss-grid .list-header,
-.player-loss-grid .list-row { min-width: 520px; }
-
-.well-loss-grid .list-header,
-.well-loss-grid .list-row   { min-width: 600px; }
-
-.pipelines-grid .list-header,
-.pipelines-grid .list-row   { min-width: 640px; }
-
-/* ── Tabela portów morskich — responsywna ────────────────────── */
-.admin-table {
-    width: 100%;
-    overflow-x: auto;
-    display: block;
-}
-.admin-card {
-    background: #1a1a1a;
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-top: 16px;
-}
-.admin-card h2 {
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    color: #ff9800 !important;
-    margin-bottom: 10px !important;
-    letter-spacing: .05em !important;
-    text-transform: none !important;
-    border-bottom: 1px solid rgba(255,152,0,.15) !important;
-    padding-bottom: 8px !important;
-}
-.admin-card h2::before { display: none !important; }
-.help-text {
-    font-size: 12px;
-    color: rgba(255,255,255,.45);
-    line-height: 1.6;
-    margin-bottom: 10px;
-}
-
-/* Tabela portów */
-.admin-table table,
-table.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-.admin-table th,
-table.admin-table th {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: rgba(255,152,0,.6);
-    padding: 6px 8px;
-    border-bottom: 1px solid rgba(255,152,0,.15);
-    white-space: nowrap;
-}
-.admin-table td,
-table.admin-table td {
-    padding: 6px 8px;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-    color: rgba(255,255,255,.7);
-    white-space: nowrap;
-}
-.admin-table tr:hover td,
-table.admin-table tr:hover td {
-    background: rgba(255,152,0,.04);
-}
-
-/* ── Pipeline type cards — responsywne ──────────────────────── */
-.pipeline-types-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 10px;
-    margin-bottom: 14px;
-}
-.pipeline-type-card {
-    background: #1a1a1a;
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 8px;
-    padding: 12px;
-}
-.pipeline-type-card__head {
-    font-size: 12px;
-    font-weight: 700;
-    color: #ff9800;
-    margin-bottom: 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(255,152,0,.15);
-}
-
-/* ── Marine ports — czyszczenie sekcji ──────────────────────── */
-.marine-cleanup-wrap { margin-top: 16px; }
-.marine-cleanup-wrap .panel-title {
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    color: #ff9800 !important;
-    letter-spacing: .08em !important;
-    text-transform: uppercase !important;
-    margin-bottom: 8px !important;
-}
-
-/* ── MOBILE ≤768px ───────────────────────────────────────────── */
-@media (max-width: 768px) {
-
-    /* Transport loss — ukryj transport-mix na małym */
-    .player-loss-grid .list-header span:nth-child(6),
-    .player-loss-grid .list-row span:nth-child(6) {
-        display: none;
-    }
-    .player-loss-grid .list-header,
-    .player-loss-grid .list-row {
-        grid-template-columns: 1fr 55px 65px 65px 70px 90px !important;
-        min-width: 380px;
-    }
-
-    /* Pipelines — ukryj ostatnią kolumnę (events) */
-    .pipelines-grid .list-header span:last-child,
-    .pipelines-grid .list-row   span:last-child {
-        display: none;
-    }
-    .pipelines-grid .list-header,
-    .pipelines-grid .list-row {
-        grid-template-columns: 32px 1fr 70px 65px 75px 75px 75px !important;
-        min-width: 460px;
-    }
-
-    /* Well loss — ukryj Wear */
-    .well-loss-grid .list-header span:nth-child(7),
-    .well-loss-grid .list-row   span:nth-child(7) {
-        display: none;
-    }
-    .well-loss-grid .list-header,
-    .well-loss-grid .list-row {
-        grid-template-columns: 32px 1fr 65px 65px 65px 65px 85px !important;
-        min-width: 460px;
-    }
-
-    /* Marine port table — scroll */
-    .admin-card { overflow-x: auto; padding: 12px 12px; }
-    .pipeline-types-grid { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 480px) {
-    .admin-card { padding: 10px; }
-    .admin-card h2 { font-size: 12px !important; }
-
-    /* Marine port — ukryj Typ i Koszt */
-    table.admin-table td:nth-child(4),
-    table.admin-table th:nth-child(4),
-    table.admin-table td:nth-child(7),
-    table.admin-table th:nth-child(7) { display: none; }
-}
-
-
-/* ═══════════════════════════════════════════════════════════════
-   ADMIN REDESIGN — rynek, huby, ochrona, sabotaże
-   Paleta: --orange #ff9800, bg #1a1a1a, border rgba(255,152,0,.18)
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ── Globalne ulepszenia kart i paneli ──────────────────────── */
-.card {
-    background: linear-gradient(145deg, #1e1e1e, #181818) !important;
-    border: 1px solid rgba(255,152,0,.18) !important;
-    border-radius: 10px !important;
-    padding: 14px 16px !important;
-    min-width: 130px !important;
-    transition: border-color .18s !important;
-}
-.card:hover { border-color: rgba(255,152,0,.35) !important; }
-.card .label {
-    font-size: 9px !important;
-    font-weight: 700 !important;
-    letter-spacing: .1em !important;
-    text-transform: uppercase !important;
-    color: rgba(255,255,255,.35) !important;
-    margin-bottom: 5px !important;
-}
-.card .value {
-    font-size: 20px !important;
-    font-weight: 800 !important;
-    letter-spacing: -.02em !important;
-    line-height: 1.1 !important;
-}
-.cards { gap: 8px !important; margin-bottom: 12px !important; }
-
-.panel {
-    background: #1a1a1a !important;
-    border: 1px solid rgba(255,255,255,.07) !important;
-    border-radius: 10px !important;
-    padding: 16px 18px !important;
-    margin-bottom: 12px !important;
-}
-.panel-title {
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    letter-spacing: .1em !important;
-    text-transform: uppercase !important;
-    color: #ff9800 !important;
-    margin-bottom: 12px !important;
-    padding-bottom: 9px !important;
-    border-bottom: 1px solid rgba(255,152,0,.12) !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 7px !important;
-}
-.panel-hint {
-    font-size: 12px !important;
-    color: rgba(255,255,255,.4) !important;
-    line-height: 1.6 !important;
-    margin-bottom: 12px !important;
-    font-family: inherit !important;
-}
-
-/* ── RYNEK GLOBALNY — market/main.php ─────────────────────────*/
-.market-form-panel {
-    background: #1a1a1a;
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-}
-.market-form-panel .panel-title { color: #e05555 !important; }
-.market-form-panel--warn .panel-title { color: #e05555 !important; }
-
-/* ── HUBY LOGISTYCZNE — logistics/main.php ────────────────────*/
-/* verify-cards — gradient tło */
-.verify-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
-    gap: 8px !important;
-    margin-top: 10px !important;
-}
-.verify-card {
-    background: linear-gradient(145deg, #1e1e1e, #181818) !important;
-    border: 1px solid rgba(255,255,255,.08) !important;
-    border-radius: 10px !important;
-    padding: 12px 14px !important;
-    text-align: center !important;
-}
-.verify-card--warn {
-    border-color: rgba(255,152,0,.4) !important;
-    background: linear-gradient(145deg, rgba(255,152,0,.07), #181818) !important;
-}
-.verify-value {
-    font-size: 1.6rem !important;
-    font-weight: 800 !important;
-    letter-spacing: -.02em !important;
-    line-height: 1 !important;
-}
-.verify-label {
-    font-size: 9px !important;
-    font-weight: 700 !important;
-    letter-spacing: .09em !important;
-    text-transform: uppercase !important;
-    color: rgba(255,255,255,.35) !important;
-    margin-bottom: 5px !important;
-}
-.verify-sub {
-    font-size: 10px !important;
-    color: rgba(255,255,255,.3) !important;
-    margin-top: 3px !important;
-}
-
-/* Hub admin cards */
-.hub-admin-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
-    gap: 10px !important;
-    margin: 8px 0 14px !important;
-}
-.hub-admin-card {
-    background: linear-gradient(145deg, #1e1e1e, #181818) !important;
-    border: 1px solid rgba(255,255,255,.08) !important;
-    border-radius: 10px !important;
-    padding: 12px 14px !important;
-    transition: border-color .18s !important;
-}
-.hub-admin-card:hover { border-color: rgba(255,152,0,.3) !important; }
-.hub-admin-card h4 {
-    font-size: 12px !important;
-    color: #ff9800 !important;
-    margin-bottom: 8px !important;
-    padding-bottom: 6px !important;
-    border-bottom: 1px solid rgba(255,152,0,.12) !important;
-}
-.hub-stat-row {
-    display: flex !important;
-    justify-content: space-between !important;
-    font-size: 11px !important;
-    padding: 3px 0 !important;
-    border-bottom: 1px solid rgba(255,255,255,.04) !important;
-    color: rgba(255,255,255,.6) !important;
-}
-.hub-stat-row:last-child { border-bottom: none !important; }
-
-/* Hub detail box */
-.hub-detail-box {
-    background: linear-gradient(145deg, #1e1e1e, #181818) !important;
-    border: 1px solid rgba(255,152,0,.3) !important;
-    border-radius: 12px !important;
-    padding: 18px !important;
-    margin: 14px 0 !important;
-}
-.hub-detail-box h4 { color: #ff9800 !important; margin-bottom: 12px !important; }
-.hub-detail-box h5 {
-    font-size: 9px !important;
-    font-weight: 700 !important;
-    letter-spacing: .1em !important;
-    text-transform: uppercase !important;
-    color: rgba(255,152,0,.5) !important;
-    margin: 14px 0 8px !important;
-}
-.hub-detail-dl {
-    display: grid !important;
-    grid-template-columns: max-content 1fr !important;
-    gap: 4px 14px !important;
-    font-size: 12px !important;
-}
-.hub-detail-dl dt { color: rgba(255,255,255,.4) !important; font-weight: 400 !important; }
-.hub-detail-dl dd { color: rgba(255,255,255,.85) !important; font-weight: 600 !important; margin: 0 !important; }
-
-/* Hub modal */
-.hub-admin-modal-box {
-    background: #1e1e1e !important;
-    border: 1px solid rgba(255,152,0,.3) !important;
-    border-radius: 12px !important;
-}
-
-/* ── OCHRONA — protection/main.php ────────────────────────────*/
-.protection-admin-grid {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-.protection-admin-grid--options {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+.bribery-level-card {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,.02);
 }
+.bribery-level-name {
+    margin: 0;
+    font-weight: 700;
+    font-size: 13px;
+}
+.bribery-events {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+.bribery-event {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.03);
+    font-size: 12px;
+}
+.bribery-event--caught { border-left: 3px solid rgba(224,85,85,.9); }
+.bribery-event--paid   { border-left: 3px solid rgba(93,221,153,.7); }
+.bribery-event-player  { font-weight: 600; }
+.bribery-event-delta   { font-weight: 700; color: rgba(224,85,85,.95); }
+.bribery-event-time    { color: var(--text3); white-space: nowrap; }
+
+
+/* == Moduł ochrony / Protection module (admin/protection.php) == */
+.protection-admin-grid { display: grid; gap: 4px; }
 .protection-admin-row {
     display: grid;
-    grid-template-columns: 160px 1fr 130px 80px 90px 80px auto;
-    gap: 0 8px;
+    gap: 10px;
     align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-    font-size: 12px;
-    transition: background .13s;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 0.85rem;
 }
-.protection-admin-row:hover { background: rgba(255,152,0,.04); }
 .protection-admin-row--head {
-    background: #1a1a1a;
-    border-bottom: 1px solid rgba(255,152,0,.15) !important;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: rgba(255,152,0,.55);
-    padding: 7px 12px;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-.protection-admin-row span:first-child {
-    color: rgba(255,255,255,.5);
-    font-size: 11px;
-    font-family: inherit;
-}
-
-/* ── SABOTAŻE — sabotage/main.php ─────────────────────────────*/
-/* Reuse protection-admin-grid + dodatkowe */
-.protection-admin-grid--sabotage .protection-admin-row {
-    grid-template-columns: 180px 1fr 140px 80px 90px 80px auto;
-}
-
-/* Toggle switch moduł aktywny */
-.module-toggle-wrap {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 0;
-}
-.module-toggle-label {
-    font-size: 13px;
+    background: none;
     font-weight: 600;
-    color: rgba(255,255,255,.8);
+    color: var(--text3);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
-
-/* ── MOBILE ≤768px ───────────────────────────────────────────── */
-@media (max-width: 768px) {
-    /* Rynek — karty 2x2 */
-    .cards { flex-direction: column; gap: 6px !important; }
-    .cards .card { min-width: 0 !important; }
-    .card .value { font-size: 16px !important; }
-
-    /* Verify cards — 2 kolumny */
-    .verify-grid { grid-template-columns: 1fr 1fr !important; }
-
-    /* Hub admin grid — 1 kolumna */
-    .hub-admin-grid { grid-template-columns: 1fr !important; }
-
-    /* Hub detail — pełna szerokość */
-    .hub-detail-box { padding: 14px !important; }
-    .hub-detail-params { grid-template-columns: 1fr 1fr !important; }
-
-    /* Protection/Sabotage rows — scroll */
-    .protection-admin-row {
-        grid-template-columns: 120px 1fr 80px auto !important;
-        font-size: 11px;
-    }
-    .protection-admin-row span:nth-child(3),
-    .protection-admin-row span:nth-child(5) { display: none; }
-    .protection-admin-row--head span:nth-child(3),
-    .protection-admin-row--head span:nth-child(5) { display: none; }
+.protection-admin-grid--options .protection-admin-row { grid-template-columns: 1.1fr 1.3fr 1.3fr 1fr 0.6fr 1.1fr 0.7fr 0.6fr; }
+.protection-admin-grid--effects .protection-admin-row { grid-template-columns: 2fr 1.4fr 0.9fr 0.6fr; align-items: start; }
+.protection-admin-grid--active .protection-admin-row  { grid-template-columns: 1.2fr 1.1fr 1fr 0.8fr 1.1fr 0.7fr 0.7fr; }
+.protection-admin-grid--history .protection-admin-row { grid-template-columns: 0.9fr 1.1fr 1fr 1fr 1.2fr 0.8fr 1.4fr; }
+.protection-admin-grid--help .protection-admin-row    { grid-template-columns: 1.2fr 1fr 2.5fr; align-items: start; }
+.protection-help-block { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.07); }
+.protection-help-block:first-child { border-top: none; margin-top: 0; }
+.protection-help-block h3 { font-size: 0.95rem; margin: 0 0 10px; color: var(--text2); }
+.protection-help-block p, .protection-help-block li { font-size: 0.85rem; line-height: 1.55; }
+.protection-help-block ul, .protection-help-block ol { padding-left: 20px; margin: 8px 0; }
+.protection-help-block li { margin-bottom: 4px; }
+.protection-inline-form { display: inline; }
+.protection-effect-form { margin-top: 10px; align-items: flex-end; }
+@media (max-width: 900px) {
+    .protection-admin-row { grid-template-columns: 1fr 1fr !important; }
+    .protection-admin-row--head { display: none; }
 }
-
-@media (max-width: 480px) {
-    .verify-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
-    .verify-value { font-size: 1.3rem !important; }
-    .card .value { font-size: 14px !important; }
-    .protection-admin-row {
-        grid-template-columns: 1fr auto !important;
-        gap: 4px;
-        flex-wrap: wrap;
-    }
-    .protection-admin-row span:nth-child(2),
-    .protection-admin-row span:nth-child(3),
-    .protection-admin-row span:nth-child(4),
-    .protection-admin-row span:nth-child(5) { display: none; }
-=======
-}
-.gm-select-all-row:hover { border-color: rgba(255,152,0,.3); color: #ff9800; }
-.gm-select-all-row input[type="checkbox"] {
-    width: 15px; height: 15px;
-    accent-color: #ff9800;
-    cursor: pointer;
-}
-
-/* Licznik zaznaczonych */
-.gm-selected-count {
-    font-size: 11px;
-    color: rgba(255,255,255,.35);
-    margin-bottom: 10px;
-}
-.gm-selected-count strong {
-    color: var(--red, #e05555);
-}
-
-/* Przycisk usuń */
-.gm-delete-btn,
-.panel-danger .btn-danger {
-    background: rgba(224,85,85,.1) !important;
-    border: 1px solid rgba(224,85,85,.35) !important;
-    color: #e05555 !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    letter-spacing: .07em !important;
-    padding: 8px 18px !important;
-    border-radius: 8px !important;
-    cursor: pointer !important;
-    transition: background .15s, border-color .15s !important;
-}
-.gm-delete-btn:hover,
-.panel-danger .btn-danger:hover {
-    background: rgba(224,85,85,.2) !important;
-    border-color: rgba(224,85,85,.6) !important;
-}
-
-/* Fallback dla surowej listy label+checkbox (jeśli HTML niezmodyfikowany) */
-.panel-danger label,
-.gm-delete-panel label {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
-    margin: 2px;
-    background: #1e1e1e;
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 6px;
-    font-family: inherit !important;
-    font-size: 11px !important;
-    color: rgba(255,255,255,.65) !important;
-    cursor: pointer;
-    transition: border-color .15s;
-}
-.panel-danger label:hover,
-.gm-delete-panel label:hover {
-    border-color: rgba(224,85,85,.35);
-    background: rgba(224,85,85,.06);
-}
-.panel-danger label:has(input:checked),
-.gm-delete-panel label:has(input:checked) {
-    border-color: rgba(224,85,85,.5);
-    background: rgba(224,85,85,.08);
-    color: #fff !important;
-}
-
-/* Ukryj surowy tekst bez struktury (jeśli checkboxy są inline) */
-.panel-danger .text-inline-checkboxes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-/* Mobile */
-@media (max-width: 600px) {
-    .gm-players-list {
-        grid-template-columns: 1fr 1fr;
-        max-height: 320px;
-    }
-    .gm-player-email { font-size: 10px; }
-    .gm-player-id { font-size: 9px; }
-}
-
-@media (max-width: 400px) {
-    .gm-players-list { grid-template-columns: 1fr; }
->>>>>>> 6f6a4a975213a99e1cbc981fb71cebadf1f64d6a
-}
-

@@ -243,9 +243,9 @@ class CashTransferService
                 'min' => number_format(WalletConfig::TRANSFER_MIN_AMOUNT, 0, ',', ' '),
             ]);
         }
-        if ($amount > WalletConfig::getTransferMax($this->db)) {
+        if ($amount > WalletConfig::TRANSFER_MAX_AMOUNT) {
             return tPlain('wallet.err_max', [
-                'max' => number_format(WalletConfig::getTransferMax($this->db), 0, ',', ' '),
+                'max' => number_format(WalletConfig::TRANSFER_MAX_AMOUNT, 0, ',', ' '),
             ]);
         }
         return null;

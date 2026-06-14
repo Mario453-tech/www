@@ -56,7 +56,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && CSRF::validateToken($_POST['csrf_to
             'bm_penalty_low_pct', 'bm_penalty_mid_pct', 'bm_penalty_high_pct',
             'bm_offer_ttl_ticks_min', 'bm_offer_ttl_ticks_max',
             'credit_score_legal_recovery_rate',
-            'bm_score_per_pln', 'bm_decay_pct', 'bm_decay_interval_hours', 'bm_sabotage_threshold',
         ];
         $stmt = $db->prepare("
             INSERT INTO well_config (`key`, `value`) VALUES (:k, :v)
@@ -90,8 +89,6 @@ $cfgKeys = [
     'bm_penalty_low_pct' => 7.5, 'bm_penalty_mid_pct' => 15, 'bm_penalty_high_pct' => 27.5,
     'bm_offer_ttl_ticks_min' => 6, 'bm_offer_ttl_ticks_max' => 18,
     'credit_score_legal_recovery_rate' => 0.1,
-    'bm_score_per_pln' => 0.0, 'bm_decay_pct' => 0.0,
-    'bm_decay_interval_hours' => 24.0, 'bm_sabotage_threshold' => 30.0,
 ];
 try {
     $keys = array_keys($cfgKeys);
@@ -122,10 +119,6 @@ $cfgLabels = [
     'bm_offer_ttl_ticks_min'           => t('black_market.cfg_ttl_min'),
     'bm_offer_ttl_ticks_max'           => t('black_market.cfg_ttl_max'),
     'credit_score_legal_recovery_rate' => t('black_market.cfg_credit_recovery'),
-    'bm_score_per_pln'         => t('black_market.cfg_score_per_pln'),
-    'bm_decay_pct'             => t('black_market.cfg_decay_pct'),
-    'bm_decay_interval_hours'  => t('black_market.cfg_decay_interval_hours'),
-    'bm_sabotage_threshold'    => t('black_market.cfg_sabotage_threshold'),
 ];
 
 $viewData = [

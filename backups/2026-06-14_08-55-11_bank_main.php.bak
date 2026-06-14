@@ -154,7 +154,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                 'fee_pct' => number_format(WalletConfig::TRANSFER_FEE_PCT * 100, 1, ',', ''),
                 'min'     => number_format(WalletConfig::TRANSFER_MIN_FEE, 0, ',', ' '),
                 'min_amt' => number_format(WalletConfig::TRANSFER_MIN_AMOUNT, 0, ',', ' '),
-                'max_amt' => number_format($transferMax, 0, ',', ' '),
+                'max_amt' => number_format(WalletConfig::TRANSFER_MAX_AMOUNT, 0, ',', ' '),
             ]) ?>
         </p>
     </section>
