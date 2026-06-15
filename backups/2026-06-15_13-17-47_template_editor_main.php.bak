@@ -26,7 +26,8 @@
             <?php foreach ($navItems as $n): ?>
                 <li>
                     <a href="?tab=nav&nav=<?= $n['id'] ?>" class="<?= (int)$n['id'] === $editNavId ? 'active' : '' ?>">
-                        <span><?= htmlspecialchars(!empty($n['lang_key']) ? t($n['lang_key']) : $n['label']) ?></span>
+                        <span class="te-icon"><?= htmlspecialchars($n['icon'] ?: '') ?></span>
+                        <span><?= htmlspecialchars($n['label']) ?></span>
                         <span class="te-sort">#<?= (int)$n['sort_order'] ?></span>
                         <?php if (!$n['active']): ?>
                             <span class="te-badge"><?= t('admin.template_editor.badge_hidden') ?></span>
@@ -46,8 +47,8 @@
                     <input type="text" name="new_label" placeholder="<?= t('admin.template_editor.placeholder_label_nav') ?>" required>
                     <label><?= t('admin.template_editor.label_url_key') ?></label>
                     <input type="text" name="new_url_key" placeholder="<?= t('admin.template_editor.placeholder_url_nav') ?>" required>
-                    <label><?= t('admin.template_editor.label_lang_key') ?></label>
-                    <input type="text" name="new_lang_key" placeholder="nav.xxx">
+                    <label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="new_icon" placeholder="" maxlength="4">
                     <button type="submit" class="btn btn-secondary te-add-btn">+ <?= t('admin.template_editor.btn_add_nav') ?></button>
                 </form>
             </div>
@@ -55,14 +56,14 @@
     </aside>
     <div class="te-editor">
         <?php if ($editNav && $editNav['location'] === 'header'): ?>
-        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars(!empty($editNav['lang_key']) ? t($editNav['lang_key']) : $editNav['label']) ?></h2>
+        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars($editNav['icon'] . ' ' . $editNav['label']) ?></h2>
         <form method="post" id="editNavForm">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="save_nav">
             <input type="hidden" name="nav_id" value="<?= (int)$editNav['id'] ?>">
             <div class="te-meta">
-                <div><label><?= t('admin.template_editor.label_lang_key') ?></label>
-                    <input type="text" name="lang_key" value="<?= htmlspecialchars($editNav['lang_key'] ?? '') ?>" placeholder="nav.xxx"></div>
+                <div><label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="icon" value="<?= htmlspecialchars($editNav['icon']) ?>" maxlength="4"></div>
                 <div><label><?= t('admin.template_editor.label_label') ?></label>
                     <input type="text" name="label" value="<?= htmlspecialchars($editNav['label']) ?>" required></div>
                 <div><label><?= t('admin.template_editor.label_url_key') ?></label>
@@ -79,7 +80,7 @@
             <div class="te-preview">
                 <span class="muted te-preview-label"><?= t('admin.template_editor.preview_btn') ?></span><br>
                 <a class="btn btn-secondary btn-sm <?= htmlspecialchars($editNav['css_class']) ?> te-preview-btn">
-                    <?= htmlspecialchars(!empty($editNav['lang_key']) ? t($editNav['lang_key']) : $editNav['label']) ?>
+                    <?= htmlspecialchars($editNav['icon'] . ' ' . $editNav['label']) ?>
                 </a>
             </div>
             <div class="te-form-actions">
@@ -111,7 +112,8 @@
             <?php foreach ($footerItems as $n): ?>
                 <li>
                     <a href="?tab=footer&nav=<?= $n['id'] ?>" class="<?= (int)$n['id'] === $editNavId ? 'active' : '' ?>">
-                        <span><?= htmlspecialchars(!empty($n['lang_key']) ? t($n['lang_key']) : $n['label']) ?></span>
+                        <span class="te-icon"><?= htmlspecialchars($n['icon'] ?: '') ?></span>
+                        <span><?= htmlspecialchars($n['label']) ?></span>
                         <span class="te-sort">#<?= (int)$n['sort_order'] ?></span>
                         <?php if (!$n['active']): ?>
                             <span class="te-badge"><?= t('admin.template_editor.badge_hidden') ?></span>
@@ -131,8 +133,8 @@
                     <input type="text" name="new_label" placeholder="<?= t('admin.template_editor.placeholder_label_footer') ?>" required>
                     <label><?= t('admin.template_editor.label_url_key') ?></label>
                     <input type="text" name="new_url_key" placeholder="<?= t('admin.template_editor.placeholder_url_footer') ?>" required>
-                    <label><?= t('admin.template_editor.label_lang_key') ?></label>
-                    <input type="text" name="new_lang_key" placeholder="nav.footer.xxx">
+                    <label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="new_icon" placeholder="" maxlength="4">
                     <button type="submit" class="btn btn-secondary te-add-btn">+ <?= t('admin.template_editor.btn_add_footer') ?></button>
                 </form>
             </div>
@@ -144,14 +146,14 @@
         foreach ($footerItems as $n) { if ((int)$n['id'] === $editNavId) { $editFooterNav = $n; break; } }
         ?>
         <?php if ($editFooterNav): ?>
-        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars(!empty($editFooterNav['lang_key']) ? t($editFooterNav['lang_key']) : $editFooterNav['label']) ?></h2>
+        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars($editFooterNav['icon'] . ' ' . $editFooterNav['label']) ?></h2>
         <form method="post" id="editFooterForm">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="save_nav">
             <input type="hidden" name="nav_id" value="<?= (int)$editFooterNav['id'] ?>">
             <div class="te-meta">
-                <div><label><?= t('admin.template_editor.label_lang_key') ?></label>
-                    <input type="text" name="lang_key" value="<?= htmlspecialchars($editFooterNav['lang_key'] ?? '') ?>" placeholder="nav.footer.xxx"></div>
+                <div><label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="icon" value="<?= htmlspecialchars($editFooterNav['icon']) ?>" maxlength="4"></div>
                 <div><label><?= t('admin.template_editor.label_label') ?></label>
                     <input type="text" name="label" value="<?= htmlspecialchars($editFooterNav['label']) ?>" required></div>
                 <div><label><?= t('admin.template_editor.label_url_key') ?></label>
@@ -168,7 +170,7 @@
             <div class="te-preview">
                 <span class="muted te-preview-label"><?= t('admin.template_editor.preview_link') ?></span><br>
                 <a class="footer-link <?= htmlspecialchars($editFooterNav['css_class']) ?> te-preview-link">
-                    <?= htmlspecialchars(!empty($editFooterNav['lang_key']) ? t($editFooterNav['lang_key']) : $editFooterNav['label']) ?>
+                    <?= htmlspecialchars($editFooterNav['icon'] . ' ' . $editFooterNav['label']) ?>
                 </a>
             </div>
             <div class="te-form-actions">
@@ -200,7 +202,8 @@
             <?php foreach ($actionItems as $n): ?>
                 <li>
                     <a href="?tab=actions&nav=<?= $n['id'] ?>" class="<?= (int)$n['id'] === $editNavId ? 'active' : '' ?>">
-                        <span><?= htmlspecialchars(!empty($n['lang_key']) ? t($n['lang_key']) : $n['label']) ?></span>
+                        <span class="te-icon"><?= htmlspecialchars($n['icon'] ?: '') ?></span>
+                        <span><?= htmlspecialchars($n['label']) ?></span>
                         <span class="te-sort">#<?= (int)$n['sort_order'] ?></span>
                         <?php if (!$n['active']): ?>
                             <span class="te-badge"><?= t('admin.template_editor.badge_hidden') ?></span>
@@ -220,8 +223,8 @@
                     <input type="text" name="new_label" placeholder="<?= t('admin.template_editor.placeholder_label_nav') ?>" required>
                     <label><?= t('admin.template_editor.label_url_key') ?></label>
                     <input type="text" name="new_url_key" placeholder="<?= t('admin.template_editor.placeholder_url_actions') ?>" required>
-                    <label><?= t('admin.template_editor.label_lang_key') ?></label>
-                    <input type="text" name="new_lang_key" placeholder="nav.action.xxx">
+                    <label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="new_icon" placeholder="" maxlength="4">
                     <button type="submit" class="btn btn-secondary te-add-btn">+ <?= t('admin.template_editor.btn_add_action') ?></button>
                 </form>
             </div>
@@ -233,14 +236,14 @@
         foreach ($actionItems as $n) { if ((int)$n['id'] === $editNavId) { $editActionNav = $n; break; } }
         ?>
         <?php if ($editActionNav): ?>
-        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars(!empty($editActionNav['lang_key']) ? t($editActionNav['lang_key']) : $editActionNav['label']) ?></h2>
+        <h2><?= t('admin.template_editor.edit_heading') ?>: <?= htmlspecialchars($editActionNav['icon'] . ' ' . $editActionNav['label']) ?></h2>
         <form method="post" id="editActionForm">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="save_nav">
             <input type="hidden" name="nav_id" value="<?= (int)$editActionNav['id'] ?>">
             <div class="te-meta">
-                <div><label><?= t('admin.template_editor.label_lang_key') ?></label>
-                    <input type="text" name="lang_key" value="<?= htmlspecialchars($editActionNav['lang_key'] ?? '') ?>" placeholder="nav.action.xxx"></div>
+                <div><label><?= t('admin.template_editor.label_icon') ?></label>
+                    <input type="text" name="icon" value="<?= htmlspecialchars($editActionNav['icon']) ?>" maxlength="4"></div>
                 <div><label><?= t('admin.template_editor.label_label') ?></label>
                     <input type="text" name="label" value="<?= htmlspecialchars($editActionNav['label']) ?>" required></div>
                 <div><label><?= t('admin.template_editor.label_url_key') ?></label>
@@ -258,7 +261,7 @@
             <div class="te-preview">
                 <span class="muted te-preview-label"><?= t('admin.template_editor.preview_btn') ?></span><br>
                 <a class="btn <?= htmlspecialchars($editActionNav['css_class']) ?> te-preview-btn">
-                    <?= htmlspecialchars(!empty($editActionNav['lang_key']) ? t($editActionNav['lang_key']) : $editActionNav['label']) ?>
+                    <?= htmlspecialchars($editActionNav['icon'] . ' ' . $editActionNav['label']) ?>
                 </a>
             </div>
             <div class="te-form-actions">
