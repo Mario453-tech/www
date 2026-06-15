@@ -95,6 +95,7 @@ return [
     'hr.btn_renew' => 'Extend contract',
     'hr.btn_fire' => 'Dismiss',
     'hr.employed_days' => 'Employed %d days ago',
+    'hr.hired_days_ago' => 'Hired :days days ago',
     'hr.contract_to' => 'Contract until',
     'hr.contracts_title' => 'Contracts',
     'hr.contracts_desc' => 'Active employment contracts. Contracts with less than 14 days left require attention.',

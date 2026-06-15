@@ -3,18 +3,20 @@ declare(strict_types=1);
 
 /**
  * Admin translations loader.
- * Polski - ladowacz tlumaczen admina.
+ * English admin translations loader with Polish fallback.
  */
 
 $lang = [];
-$dir = __DIR__ . '/../pl/admin';
-$files = glob($dir . '/*.php') ?: [];
-sort($files, SORT_STRING);
 
-foreach ($files as $file) {
-    $chunk = require $file;
-    if (is_array($chunk)) {
-        $lang += $chunk;
+foreach ([__DIR__ . '/admin', __DIR__ . '/../pl/admin'] as $dir) {
+    $files = glob($dir . '/*.php') ?: [];
+    sort($files, SORT_STRING);
+
+    foreach ($files as $file) {
+        $chunk = require $file;
+        if (is_array($chunk)) {
+            $lang += $chunk;
+        }
     }
 }
 
