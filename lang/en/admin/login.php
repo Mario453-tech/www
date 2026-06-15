@@ -3,26 +3,26 @@ declare(strict_types=1);
 
 /**
  * Admin translations - login.
- * Tlumaczenia admina - login.
+ * Admin translations - login.
  */
 
 return [
-    'admin.login.btn_submit' => 'Zaloguj się',
-    'admin.login.card_title' => 'Logowanie',
-    'admin.login.err_invalid_credentials' => 'Nieprawidłowy login lub adres e-mail albo hasło.',
-    'admin.login.err_ip_blocked' => 'Zbyt wiele nieudanych prób. Spróbuj ponownie za 15 minut.',
-    'admin.login.err_locked' => 'Konto tymczasowo zablokowane. Spróbuj ponownie za chwilę albo zresetuj hasło.',
-    'admin.login.label_login' => 'Login lub adres e-mail',
-    'admin.login.label_password' => 'Hasło',
-    'admin.login.link_back_game' => 'Wróć do gry',
-    'admin.login.link_forgot' => 'Zapomniałem hasła',
-    'admin.login.logo_sub' => 'Panel administracyjny',
-    'admin.login.msg_logged_out' => 'Wylogowano pomyślnie.',
-    'admin.login.msg_reset_sent' => 'Jeśli konto istnieje, link resetujący został wysłany.',
-    'admin.login.page_title' => 'Panel administracyjny - Oil Corp',
-    'admin.login.placeholder_login' => 'login lub email@example.com',
-    'admin.login.sso_click' => 'Kliknij tutaj',
-    'admin.login.sso_desc' => 'aby wejść jako admin bez hasła (SSO).',
-    'admin.login.sso_logged_in' => 'Jesteś zalogowany w grze.',
-    'admin.login.toggle_pw_title' => 'Pokaż lub ukryj hasło',
+    'admin.login.btn_submit' => 'Sign in',
+    'admin.login.card_title' => 'Sign in',
+    'admin.login.err_invalid_credentials' => 'Invalid username, email address, or password.',
+    'admin.login.err_ip_blocked' => 'Too many failed attempts. Try again in 15 minutes.',
+    'admin.login.err_locked' => 'This account is temporarily locked. Try again shortly or reset the password.',
+    'admin.login.label_login' => 'Username or email address',
+    'admin.login.label_password' => 'Password',
+    'admin.login.link_back_game' => 'Back to the game',
+    'admin.login.link_forgot' => 'Forgot password',
+    'admin.login.logo_sub' => 'Administration panel',
+    'admin.login.msg_logged_out' => 'You have been signed out successfully.',
+    'admin.login.msg_reset_sent' => 'If the account exists, a reset link has been sent.',
+    'admin.login.page_title' => 'Administration panel - OilCorp',
+    'admin.login.placeholder_login' => 'username or email@example.com',
+    'admin.login.sso_click' => 'Click here',
+    'admin.login.sso_desc' => 'to sign in as admin without a password (SSO).',
+    'admin.login.sso_logged_in' => 'You are signed in to the game.',
+    'admin.login.toggle_pw_title' => 'Show or hide password',
 ];

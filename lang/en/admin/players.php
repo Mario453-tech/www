@@ -41,5 +41,5 @@ return [
     'admin.players.status_bankrupt' => 'bankrupt',
     'admin.players.status_risk' => 'financial risk',
     'admin.players.title' => 'Players',
-    'admin.players.unselect_all' => 'Unselect all',
+    'admin.players.unselect_all' => 'Clear selection',
 ];

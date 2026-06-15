@@ -1,11 +1,16 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Admin translations - sabotage.
+ * Admin translations - sabotage.
+ */
+
 return [
     'admin.sabotage.title' => 'Sabotage',
     'admin.sabotage.subtitle' => 'Universal sabotage system: types, effects, attempts, and logs.',
     'admin.sabotage.module_title' => 'Sabotage module',
-    'admin.sabotage.module_hint' => 'Global switch. When disabled, the tick and sabotage actions do not use active sabotage types.',
+    'admin.sabotage.module_hint' => 'Global switch. When disabled, ticks and sabotage actions do not use active sabotage types.',
     'admin.sabotage.module_status_enabled' => 'Module enabled',
     'admin.sabotage.module_status_disabled' => 'Module disabled',
     'admin.sabotage.tab_options' => 'Sabotage types',
@@ -79,20 +84,20 @@ return [
     'admin.sabotage.currency_bank' => 'Bank account',
     'admin.sabotage.currency_black_market' => 'Black market',
     'admin.sabotage.err_option_required' => 'Code, name, target type, and context are required.',
-    'admin.sabotage.err_module_toggle' => 'Failed to change sabotage module state.',
+    'admin.sabotage.err_module_toggle' => 'Failed to change the sabotage module state.',
     'admin.sabotage.err_option_save' => 'Failed to save sabotage type.',
     'admin.sabotage.err_effect_required' => 'Sabotage type and effect key are required.',
     'admin.sabotage.err_effect_save' => 'Failed to save effect.',
     'admin.sabotage.err_effect_delete' => 'Failed to delete effect.',
-    'admin.sabotage.msg_module_enabled' => 'Sabotage module has been enabled.',
-    'admin.sabotage.msg_module_disabled' => 'Sabotage module has been disabled.',
+    'admin.sabotage.msg_module_enabled' => 'Sabotage module enabled.',
+    'admin.sabotage.msg_module_disabled' => 'Sabotage module disabled.',
     'admin.sabotage.msg_option_saved' => 'Sabotage type saved.',
     'admin.sabotage.msg_effect_saved' => 'Sabotage effect saved.',
     'admin.sabotage.msg_effect_deleted' => 'Sabotage effect deleted.',
     'admin.sabotage.help_title' => 'How the module works',
     'admin.sabotage.help_body' => 'The system now supports both system sabotage in road transport ticks and manual PvP actions against other players.',
-    'admin.sabotage.help_p1' => 'The road tick rolls an active sabotage type for the transport context and stores the attempt in history.',
+    'admin.sabotage.help_p1' => 'The road transport tick rolls an active sabotage type for the transport context and stores the attempt in history.',
     'admin.sabotage.help_no_pvp' => 'PvP works for the player_company target and uses the cost, chance, cooldown, and effects stored in configuration.',
-    'admin.sabotage.help_protection' => 'Transport protection still reduces the sabotage risk weight before the incident is rolled.',
+    'admin.sabotage.help_protection' => 'Transport protection still reduces sabotage risk weight before the incident roll.',
     'admin.sabotage.help_future_fields' => 'Cost, cooldown, black market, and region risk fields remain ready for future modules and more advanced player actions.',
 ];
