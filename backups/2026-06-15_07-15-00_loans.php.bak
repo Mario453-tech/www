@@ -66,15 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'update_transfer_limit') {
         $rawPost = $_POST['wallet_transfer_max'] ?? '';
         $newMax  = is_numeric($rawPost) ? (float)$rawPost : -1.0;
-        $minAllowed = WalletConfig::TRANSFER_MIN_AMOUNT;
-        if ($newMax < 0 || ($newMax > 0 && $newMax < $minAllowed)) {
+        if ($newMax < 0) {
             $err = t('admin.loans.err_transfer_limit_invalid');
         } else {
             $db->prepare("
                 INSERT INTO well_config (`key`, value, label, category)
-                VALUES ('wallet_transfer_max', :v, :lbl, 'wallet')
-                ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)
-            ")->execute([':v' => $newMax, ':lbl' => tPlain('admin.loans.transfer_limit_label')]);
+                VALUES ('wallet_transfer_max', :v, 'Max przelew portfel', 'wallet')
+                ON DUPLICATE KEY UPDATE value = :v2
+            ")->execute([':v' => $newMax, ':v2' => $newMax]);
             AdminLog::log('bank_transfer_limit_update', 'wallet_transfer_max => ' . $newMax);
             $msg = $newMax == 0.0
                 ? t('admin.loans.msg_transfer_limit_removed')

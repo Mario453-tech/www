@@ -159,7 +159,7 @@ function adminFinanceHandlePost(PDO $db, string $action, array $post): array
             $db->prepare(
                 "INSERT INTO well_config (`key`, value, label, category)
                  VALUES ('savings_plan_cooldown_hours', ?, ?, 'finance')
-                 ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)"
+                 ON DUPLICATE KEY UPDATE value = VALUES(value)"
             )->execute([$cooldownVal, tPlain('admin.finance.cfg_cooldown_label')]);
 
             $alertFields = [
