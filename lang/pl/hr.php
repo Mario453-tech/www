@@ -97,6 +97,7 @@ return [
     'hr.btn_renew' => 'Przedłuż kontrakt',
     'hr.btn_fire' => 'Zwolnij',
     'hr.employed_days' => 'Zatrudniony %d dni temu',
+    'hr.hired_days_ago' => 'Zatrudniony :days dni temu',
     'hr.contract_to' => 'Kontrakt do',
     'hr.contracts_title' => 'Kontrakty',
     'hr.contracts_desc' => 'Aktywne umowy pracownicze. Kontrakty poniżej 14 dni wymagają uwagi.',
