@@ -3948,6 +3948,7 @@ body.cred-modal-open { overflow: hidden; }
     font-weight: 600;
     color: rgba(255,255,255,.55);
     font-family: inherit;
+<<<<<<< HEAD
 }
 .gm-select-all-row:hover { border-color: rgba(255,152,0,.3); color: #ff9800; }
 .gm-select-all-row input[type="checkbox"] {
@@ -4651,5 +4652,93 @@ table.admin-table tr:hover td {
     .protection-admin-row span:nth-child(3),
     .protection-admin-row span:nth-child(4),
     .protection-admin-row span:nth-child(5) { display: none; }
+=======
+}
+.gm-select-all-row:hover { border-color: rgba(255,152,0,.3); color: #ff9800; }
+.gm-select-all-row input[type="checkbox"] {
+    width: 15px; height: 15px;
+    accent-color: #ff9800;
+    cursor: pointer;
+}
+
+/* Licznik zaznaczonych */
+.gm-selected-count {
+    font-size: 11px;
+    color: rgba(255,255,255,.35);
+    margin-bottom: 10px;
+}
+.gm-selected-count strong {
+    color: var(--red, #e05555);
+}
+
+/* Przycisk usuń */
+.gm-delete-btn,
+.panel-danger .btn-danger {
+    background: rgba(224,85,85,.1) !important;
+    border: 1px solid rgba(224,85,85,.35) !important;
+    color: #e05555 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: .07em !important;
+    padding: 8px 18px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    transition: background .15s, border-color .15s !important;
+}
+.gm-delete-btn:hover,
+.panel-danger .btn-danger:hover {
+    background: rgba(224,85,85,.2) !important;
+    border-color: rgba(224,85,85,.6) !important;
+}
+
+/* Fallback dla surowej listy label+checkbox (jeśli HTML niezmodyfikowany) */
+.panel-danger label,
+.gm-delete-panel label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    margin: 2px;
+    background: #1e1e1e;
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 6px;
+    font-family: inherit !important;
+    font-size: 11px !important;
+    color: rgba(255,255,255,.65) !important;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.panel-danger label:hover,
+.gm-delete-panel label:hover {
+    border-color: rgba(224,85,85,.35);
+    background: rgba(224,85,85,.06);
+}
+.panel-danger label:has(input:checked),
+.gm-delete-panel label:has(input:checked) {
+    border-color: rgba(224,85,85,.5);
+    background: rgba(224,85,85,.08);
+    color: #fff !important;
+}
+
+/* Ukryj surowy tekst bez struktury (jeśli checkboxy są inline) */
+.panel-danger .text-inline-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .gm-players-list {
+        grid-template-columns: 1fr 1fr;
+        max-height: 320px;
+    }
+    .gm-player-email { font-size: 10px; }
+    .gm-player-id { font-size: 9px; }
+}
+
+@media (max-width: 400px) {
+    .gm-players-list { grid-template-columns: 1fr; }
+>>>>>>> 6f6a4a975213a99e1cbc981fb71cebadf1f64d6a
 }
 

@@ -1,32 +1,5 @@
 ## Changelog
 
-### 2026-06-14 - Lang: ekstrakcja hardkodowanych tekstów (incydenty, bank, finanse)
-
-**Wszystkie hardkodowane polskie ciągi w panelu admina przeszły przez system lang** — nowe powiadomienie = jeden nowy klucz w `lang/pl/admin/*.php`, zero zmiany w logice.
-
-- `admin/incidents.php` — 8 miejsc z hardkodowanym tekstem zastąpiono `tPlain()`:
-  - etykiety konfiguracji DB (rurociągi, retencja, odporność, ciśnienie) → klucze `cfg_pipe_db_label`, `cfg_retention_db_label`, `cfg_immunity_db_label`, `cfg_pressure_growth_db_label`, `cfg_pressure_cap_db_label`
-  - komunikaty wyzwalanych incydentów odwiertu i rurociągu → `log_well_trigger`, `log_pipe_trigger` (z parametrami `:level`, `:well`/`:pipeline`, `:drop`/`:loss`)
-  - wyjątki „brak odwiertu/rurociągu" → `err_well_missing`, `err_pipe_missing`
-  - błąd pobierania historii → `err_history`
-- `admin/incidents.php` (SQL) — kolumna `message` dla wierszy morskich zmieniona z `CONCAT('Dostawa morska …')` (hardkod SQL) na `CAST(NULL AS CHAR) AS message`; tytuł wiersza budowany w PHP z `tPlain('admin.incidents.marine_history_msg')`.
-- `admin/bank_status.php` — 3 komunikaty błędów JSON (`err_no_pid`, `err_old_schema`, `err_no_table`) → `tPlain()`.
-- `admin/partials/finance_admin_actions.php` — `adminFinanceMultiplierLabels()` i etykiety `save_config` przez `tPlain()` zamiast hardkodowanych stringów.
-- `lang/pl/admin/incidents.php` — 11 nowych kluczy.
-- `lang/pl/admin/loans.php` — 3 nowe klucze (`admin.bank_status.*`).
-- `lang/pl/admin/finance.php` — 18 nowych kluczy (`admin.finance.mult_sp_*`) dla etykiet mnożników planu oszczędności.
-
-### 2026-06-14 - Bank: konfigurowalny limit przelewu + tryb bez limitu
-
-**Limit przelewu portfel ↔ konto stał się konfigurowalny z panelu admina i obsługuje tryb „bez limitu" (wartość 0).**
-
-- `src/WalletConfig.php` — `getTransferMax(PDO)` rozróżnia: brak klucza w DB → fallback 500 000 PLN; klucz = 0 → brak limitu (zwraca `0.0`); klucz > 0 → limit kwotowy.
-- `src/CashTransferService.php` — `validateAmount()` pomija sprawdzenie maksimum gdy `$maxAmount === 0.0` (tryb bez limitu).
-- `admin/loans.php` — handler `update_transfer_limit` (POST), zapis do `well_config` przez prepared statement; przeniesiony z `admin/bank.php`.
-- `admin/bank.php` — usunięto handler i zmienne transfer limitu (były martwe po przeniesieniu do loans).
-- `templates/views/admin/loans/main.php` — nowa sekcja „Limit przelewu portfel ↔ konto" z polem `min=0 step=1` (zero = brak limitu), modal potwierdzenia przez `confirmSubmit()`.
-- `templates/views/admin/bank/main.php` — usunięto sekcję limitu (przeniesiona).
-
 ### 2026-06-12 - Ochrona P2: huby i rurociągi
 
 **Hotfix po wdrożeniu P2** — domknięto błędy ochrony hubów/rurociągów:

@@ -33,19 +33,14 @@ class WalletConfig
     public const TRANSFER_MIN_FEE    = 10.00;       // minimalna prowizja 10 PLN
 
     // Odczytuje konfigurowalny limit transferu z well_config (klucz wallet_transfer_max).
-    // 0.0 = brak limitu kwotowego (unlimited). Jesli klucz nie istnieje — fallback na stala.
     // Reads configurable transfer limit from well_config (key wallet_transfer_max).
-    // 0.0 = no limit (unlimited). If key is absent — fallback to constant.
     public static function getTransferMax(PDO $db): float
     {
         try {
             $stmt = $db->prepare("SELECT value FROM well_config WHERE `key` = 'wallet_transfer_max' LIMIT 1");
             $stmt->execute();
             $val = $stmt->fetchColumn();
-            if ($val === false) return self::TRANSFER_MAX_AMOUNT;
-            $v = (float)$val;
-            if ($v < 0) return self::TRANSFER_MAX_AMOUNT;
-            return $v;
+            return $val !== false && (float)$val > 0 ? (float)$val : self::TRANSFER_MAX_AMOUNT;
         } catch (Throwable) {
             return self::TRANSFER_MAX_AMOUNT;
         }

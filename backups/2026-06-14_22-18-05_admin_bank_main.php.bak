@@ -45,6 +45,22 @@ $typeLabels = [
 </div>
 <?php endif ?>
 
+<section class="panel" style="margin-bottom:1.5rem">
+    <p class="panel-title">Limit przelewu portfel &harr; konto</p>
+    <form method="post" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+        <input type="hidden" name="action" value="update_transfer_limit">
+        <div>
+            <label style="display:block;margin-bottom:4px;font-size:.85rem">Maksymalna kwota przelewu (PLN)</label>
+            <input type="number" name="wallet_transfer_max"
+                   value="<?= number_format($currentTransferMax, 0, '.', '') ?>"
+                   min="100" step="1000"
+                   style="width:200px">
+        </div>
+        <button type="submit" class="btn btn-primary">Zapisz limit</button>
+        <span style="font-size:.85rem;color:#aaa">Aktualnie: <?= number_format($currentTransferMax, 0, ',', ' ') ?> PLN</span>
+    </form>
+</section>
 
 <!-- Mobile: select dropdown zamiast sidebaru / Mobile: select dropdown instead of sidebar -->
 <div class="abp-mobile-picker">

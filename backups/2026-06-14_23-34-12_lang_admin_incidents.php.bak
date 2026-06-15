@@ -220,23 +220,4 @@ return [
     'admin.incidents.btn_save_pressure'        => 'Zapisz cooldown',
     'admin.incidents.btn_reset_pressure'       => 'Przywróć domyślne',
     'admin.incidents.confirm_reset_pressure'   => 'Przywrócić ustawienia cooldownu do domyślnych?',
-
-    // GM-triggered incident messages (zapisywane do bazy, widoczne dla gracza)
-    'admin.incidents.log_well_trigger' => '[GM] Ręcznie wywołany incydent poziomu :level na odwiercie :well. Spadek produkcji: :drop%.',
-    'admin.incidents.log_pipe_trigger' => '[GM] Ręcznie wywołany incydent rurociągu (:level) na ":pipeline". Skok strat: +:loss%, spadek stanu: -:drop%.',
-
-    // Etykiety zapisywane do well_config.label
-    'admin.incidents.cfg_pipe_db_label'            => 'Incydent rurociągu :level - :field',
-    'admin.incidents.cfg_retention_db_label'       => 'Auto-cleanup historii incydentów (dni)',
-    'admin.incidents.cfg_immunity_db_label'        => 'Immunitet po incydencie (cykle)',
-    'admin.incidents.cfg_pressure_growth_db_label' => 'Wzrost szansy po immunitecie (%/cykl)',
-    'admin.incidents.cfg_pressure_cap_db_label'    => 'Max wzrost szansy przez presję (%)',
-
-    // Komunikaty wyjatkow / runtime errors
-    'admin.incidents.err_pipe_missing' => 'Rurociąg nie istnieje lub nie należy do gracza.',
-    'admin.incidents.err_well_missing' => 'Odwiert nie istnieje lub nie należy do gracza.',
-    'admin.incidents.err_history'      => 'Błąd pobierania historii',
-
-    // Historia dostaw morskich (tooltip)
-    'admin.incidents.marine_history_msg' => 'Dostawa morska: :type (:bbl bbl)',
 ];

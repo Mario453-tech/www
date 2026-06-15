@@ -63,35 +63,6 @@
     <?php endif ?>
 </section>
 
-<!-- Limit przelewu portfel <-> konto / Wallet transfer limit -->
-<section class="panel">
-    <p class="panel-title"><?= t('admin.loans.transfer_limit_title') ?></p>
-    <form method="post" class="bank-settings-form">
-        <?= CSRF::field() ?>
-        <input type="hidden" name="action" value="update_transfer_limit">
-        <div class="bank-setting-box">
-            <p class="bank-setting-label"><?= t('admin.loans.transfer_limit_label') ?></p>
-            <input type="number" name="wallet_transfer_max"
-                   value="<?= (int)$currentTransferMax ?>"
-                   min="0" step="1"
-                   class="bank-setting-input">
-            <p class="bank-setting-note">
-                <?= t('admin.loans.transfer_limit_current') ?>
-                <?php if ($currentTransferMax == 0.0): ?>
-                    <strong><?= t('admin.loans.transfer_limit_none') ?></strong>
-                <?php else: ?>
-                    <?= number_format($currentTransferMax, 0, ',', ' ') ?> PLN
-                <?php endif ?>
-                <?= t('admin.loans.transfer_limit_hint') ?>
-            </p>
-        </div>
-        <button type="submit" class="btn btn-primary"
-                onclick="confirmSubmit(this, '<?= t('admin.loans.transfer_limit_confirm') ?>'); return false;">
-            <?= t('admin.loans.transfer_limit_btn') ?>
-        </button>
-    </form>
-</section>
-
 <!--  3. POSTĘPOWANIA KOMORNICZE  -->
 <?php if (!empty($proceedings)): ?>
 <section class="panel panel-danger">

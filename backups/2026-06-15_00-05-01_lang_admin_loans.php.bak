@@ -107,16 +107,9 @@ return [
     'admin.loans.wells_short' => 'odw.',
 
     // Limit przelewu portfel <-> konto
-    'admin.loans.err_transfer_limit_invalid'   => 'Nieprawidłowa kwota limitu przelewu.',
-    'admin.loans.msg_transfer_limit_removed'   => 'Limit przelewu usunięty — gracze mogą przesyłać dowolną kwotę.',
-    'admin.loans.msg_transfer_limit_set'       => 'Limit transferu zaktualizowany: :amount PLN.',
-    'admin.loans.transfer_limit_title'         => 'Limit przelewu portfel ↔ konto',
-    'admin.loans.transfer_limit_label'         => 'Maksymalna kwota przelewu (PLN)',
-    'admin.loans.transfer_limit_current'       => 'Aktualnie:',
-    'admin.loans.transfer_limit_none'          => 'brak limitu',
-    'admin.loans.transfer_limit_hint'          => '— wpisz 0 aby usunąć limit kwotowy.',
-    'admin.loans.transfer_limit_confirm'       => 'Zapisać nowy limit przelewu?',
-    'admin.loans.transfer_limit_btn'           => 'Zapisz limit',
+    'admin.loans.err_transfer_limit_invalid' => 'Nieprawidłowa kwota limitu przelewu.',
+    'admin.loans.msg_transfer_limit_removed' => 'Limit przelewu usunięty — gracze mogą przesyłać dowolną kwotę.',
+    'admin.loans.msg_transfer_limit_set'     => 'Limit transferu zaktualizowany: :amount PLN.',
 
     // bank_status.php - JSON endpoint errors
     'admin.bank_status.err_no_pid'     => 'Brak ID gracza.',

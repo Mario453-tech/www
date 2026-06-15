@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/../src/WalletConfig.php';
 GameLog::info('admin/loans.php', 'entry');
 AdminAuth::requireLogin();
 
@@ -61,24 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $msg = t('admin.loans.msg_settings_saved');
-    }
-
-    elseif ($action === 'update_transfer_limit') {
-        $rawPost = $_POST['wallet_transfer_max'] ?? '';
-        $newMax  = is_numeric($rawPost) ? (float)$rawPost : -1.0;
-        if ($newMax < 0) {
-            $err = t('admin.loans.err_transfer_limit_invalid');
-        } else {
-            $db->prepare("
-                INSERT INTO well_config (`key`, value, label, category)
-                VALUES ('wallet_transfer_max', :v, 'Max przelew portfel', 'wallet')
-                ON DUPLICATE KEY UPDATE value = :v2
-            ")->execute([':v' => $newMax, ':v2' => $newMax]);
-            AdminLog::log('bank_transfer_limit_update', 'wallet_transfer_max => ' . $newMax);
-            $msg = $newMax == 0.0
-                ? t('admin.loans.msg_transfer_limit_removed')
-                : t('admin.loans.msg_transfer_limit_set', ['amount' => number_format($newMax, 0, ',', ' ')]);
-        }
     }
 
     elseif (!$needsMigration && $tablesExist) {
@@ -300,9 +281,6 @@ $viewData = [
     'liveScores'            => $liveScores,
     'riskSectionDescriptions' => $riskSectionDescriptions,
 ];
-
-$currentTransferMax = WalletConfig::getTransferMax($db);
-$viewData['currentTransferMax'] = $currentTransferMax;
 
 $pageTitle = t('admin.loans.page_title');
 require_once __DIR__ . '/partials/header.php';
