@@ -219,11 +219,6 @@ class BankSection
                     $bankruptcyService = new BankruptcyService($bPlayerId);
                     $state             = $bankruptcyService->getState();
                     if (empty($state['is_bankrupt'])) {
- // Gracz ma recovery_mode=1 ale nie jest bankrutem - wyczysc nieaktualna flage.
- // Player has recovery_mode=1 but is no longer bankrupt - clear stale flag.
-                        $this->db->prepare(
-                            "UPDATE players SET recovery_mode = 0 WHERE id = ? AND COALESCE(recovery_mode, 0) = 1"
-                        )->execute([$bPlayerId]);
                         $this->bankruptcyProcessed++;
                         continue;
                     }
