@@ -220,13 +220,6 @@ class WellProductionHandler
         $this->ctx->loopCtx->producedBbl += $producedBbl;
         $this->ctx->loopCtx->finGross    += round($producedBbl * $price, 2);
 
-        // Pomniejsz rezerwuar o wydobyte baryłki w tym tiku. / Deplete reservoir by barrels produced in this tick.
-        if ($producedBbl > 0) {
-            $this->ctx->db->prepare(
-                "UPDATE wells SET reservoir_remaining = GREATEST(0, reservoir_remaining - ?) WHERE id = ?"
-            )->execute([round($producedBbl, 4), $wellId]);
-        }
-
  // Transport capacity limit
         $transportLimitedBbl = min($producedBbl, $producedBbl * ($transportCapPct / 100.0));
         $freeSpace           = $storageCapacity - $this->ctx->loopCtx->currentStorage;
