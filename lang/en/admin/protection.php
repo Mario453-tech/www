@@ -22,7 +22,7 @@ return [
     'admin.protection.col_cost'           => 'Cost',
     'admin.protection.col_duration'       => 'Duration',
     'admin.protection.col_requirements'   => 'Requirements',
-    'admin.protection.col_status'         => 'Status',
+    'admin.protection.col_status' => 'Status',
     'admin.protection.cost_type_fixed'             => 'fixed amount',
     'admin.protection.cost_type_percent_reference' => '% of reference value',
     'admin.protection.cost_type_per_hour'          => 'per hour',

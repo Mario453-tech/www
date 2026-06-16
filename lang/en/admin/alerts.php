@@ -36,7 +36,7 @@ return [
     'admin.alerts.alert_well_cond_msg' => ':count wells are < 40% technical condition - high risk of failure.',
     'admin.alerts.alert_well_cond_title' => 'Boreholes in poor condition (:count)',
     'admin.alerts.btn_save' => 'Save Tiers',
-    'admin.alerts.confirm_save' => 'Save new alert thresholds?',
+    'admin.alerts.confirm_save' => 'Save new alert thresholds"',
     'admin.alerts.level_critical' => 'CRITICAL',
     'admin.alerts.level_warning' => 'CAU T ION',
     'admin.alerts.link_balance' => 'Game balance',
