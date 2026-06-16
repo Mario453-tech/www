@@ -263,10 +263,6 @@ class PlayersSection
                     $wellLoop->finTransport += $portSec->handlingCost;
                     $playerCash              = max(0.0, $playerCash - $portSec->handlingCost);
                 }
-                if ($portSec->overflowLossBbl > 0.0) {
-                    $wellLoop->transportEventLossBbl += $portSec->overflowLossBbl;
-                    $wellLoop->recordPreStorageLoss($portSec->overflowLossBbl, $this->oilPrice);
-                }
  // Dostawy do hubow przechodza przez finalizacje huba; bez huba zostaja przy starym drugim odcinku.
  // Deliveries to hubs go through hub finalization; no-hub deliveries keep the legacy second leg path.
                 $portSecondLegByWell = $this->queueHubDeliveredInputs($portSec->deliveredByWell, $wellLoop);

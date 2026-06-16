@@ -477,13 +477,10 @@ class LegalSection
         string $nowStr,
         string $riskLevel
     ): void {
-        // Brak decyzji = ponowne wejscie w kolejke z godzinnym opoznieniem.
-        // No decision = re-enter queue with 1-hour delay; prevents permanent stuck state.
         $this->db->prepare(
             "UPDATE drilling_permit_applications
-                SET status          = 'pending',
-                    delay_count     = delay_count + 1,
-                    decision_due_at = DATE_ADD(?, INTERVAL 60 MINUTE)
+                SET status     = 'no_decision',
+                    decided_at = ?
               WHERE id = ?"
         )->execute([$nowStr, $appId]);
 

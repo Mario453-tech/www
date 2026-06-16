@@ -24,7 +24,6 @@ class PortSection
  // Wyniki per gracz / Per-player results
     public float $deliveredBbl      = 0.0;  // bbl dodane do magazynu / bbl added to storage
     public float $handlingCost      = 0.0;  // oplaty portowe do odliczenia / port fees to deduct
-    public float $overflowLossBbl   = 0.0;  // bbl utracone przez pelny magazyn / bbl lost due to full storage
     public int   $processedCount    = 0;    // liczba przetworzonych dostaw / processed delivery count
  /** @var array<int, float> well_id => credited bbl (basis for the second transport leg) */
     public array $deliveredByWell   = [];
@@ -116,18 +115,6 @@ class PortSection
  // Kredytuj tyle ile miesci sie w magazynie / Credit only what fits in storage
         $actual       = min($volumeBbl, $freeSpace);
         $handlingCost = round($actual * $costPerBbl, 2);
-
-        $overflowBbl = round($volumeBbl - $actual, 4);
-        if ($overflowBbl > 0.001) {
-            $this->overflowLossBbl += $overflowBbl;
-            GameLog::warn('tick', 'port_storage_overflow_loss', [
-                'delivery_id' => $deliveryId,
-                'player_id'   => $playerId,
-                'vol_bbl'     => round($volumeBbl, 4),
-                'credited'    => round($actual, 4),
-                'lost_bbl'    => $overflowBbl,
-            ]);
-        }
 
  // Oznacz wpis w kolejce jako done / Mark queue entry as done
         $this->db->prepare(

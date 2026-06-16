@@ -164,7 +164,7 @@ class WellRiskHandler
                 $this->ctx->loopCtx->incidentsTriggered++;
                 if ($inc['cost'] > 0) {
                     $this->ctx->loopCtx->finIncident += (float)$inc['cost'];
-                    $this->ctx->loopCtx->playerCash   = max(0.0, $this->ctx->loopCtx->playerCash - (float)$inc['cost']);
+                    $this->ctx->loopCtx->playerCash  -= (float)$inc['cost'];
                 }
                 if ($tsvc) {
                     $tsvc->notify('incident', $wellId, '⚠ ' . ($inc['message'] ?? t('tick.notify.incident_generic', ['id' => $wellId])));

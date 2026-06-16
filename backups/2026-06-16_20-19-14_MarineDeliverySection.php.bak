@@ -153,15 +153,13 @@ class MarineDeliverySection
             $status = 'in_transit';
         }
 
- // Zdarzenie losowe tylko dla rejsow aktywnie plynacych (in_transit), nie opoznionych.
- // Random event only for actively sailing voyages (in_transit), not delayed ones.
- // Delayed deliveries already suffered an incident; re-rolling each tick is a bug.
-        if ($status === 'in_transit') {
-            $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['catastrophe_mult'] ?? 1.0);
-            if (mt_rand(1, 100000) <= (int)($incidentChance * 100000)) {
-                $this->applyIncident($id, $volumeBbl, $delivery['player_id']);
-                return;
-            }
+ // Zdarzenie losowe w tranzycie / Random transit event
+ // Szansa bazowa 4% * deltaHours, zmniejszana przez HSE
+ // Base 4% chance * deltaHours, reduced by HSE bonus
+        $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['catastrophe_mult'] ?? 1.0);
+        if (mt_rand(1, 100000) <= (int)($incidentChance * 100000)) {
+            $this->applyIncident($id, $volumeBbl, $delivery['player_id']);
+            return;
         }
 
  // Sprawdz czy ETA minela / Check if ETA has passed
