@@ -450,7 +450,7 @@ class WellLoopSection
                 $salaryPerHour     = $totalSalaryMonth / 720.0;
                 $salaryCost        = round($salaryPerHour * $deltaHours, 2);
                 $this->finSalary  += $salaryCost;
-                $this->playerCash  = max(0.0, $this->playerCash - $salaryCost);
+                $this->playerCash -= $salaryCost;
                 GameLog::info('tick', 'salary_deducted', [
                     'player_id'       => $playerId,
                     'board_monthly'   => $boardSalaryMonth,

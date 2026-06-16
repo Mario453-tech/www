@@ -146,15 +146,11 @@ class MarineDeliverySection
         $nowStr    = $this->now->format('Y-m-d H:i:s');
 
  // departing in_transit (pierwsze przetworzenie / first processing)
- // Rejs ktory wlasnie wyruszyl nie moze dostac incydentu w tym samym tiku (zero czasu w drodze) -
- // przejscie na in_transit i koniec; rolka incydentu nastapi w kolejnych tikach.
- // A voyage that just departed must not roll an incident the same tick (zero travel time) -
- // transition to in_transit and stop; the incident roll happens on later ticks.
         if ($status === 'departing') {
             $this->db->prepare(
                 "UPDATE marine_deliveries SET status = 'in_transit' WHERE id = ?"
             )->execute([$id]);
-            return;
+            $status = 'in_transit';
         }
 
  // Zdarzenie losowe tylko dla rejsow aktywnie plynacych (in_transit), nie opoznionych.
@@ -313,15 +309,10 @@ class MarineDeliverySection
         $queueSize = (int)$sizeStmt->fetchColumn();
 
         if ($queueSize >= $queueLimit) {
- // Kolejka pelna opoznienie o 1 godzine. Status 'delayed' (nie 'waiting_for_port'),
- // bo bez wpisu w port_queue 'waiting_for_port' nie jest przez nic ponownie pobierane -
- // dostawa utknelaby na zawsze. 'delayed' jest ponownie pobierane przez process() co tick.
- // Queue full 1 hour delay. Status 'delayed' (not 'waiting_for_port'): without a port_queue
- // row, 'waiting_for_port' is never re-fetched and the delivery would be stuck forever.
- // 'delayed' is re-fetched by process() every tick so forwarding retries.
+ // Kolejka pelna opoznienie o 1 godzine / Queue full 1 hour delay
             $this->db->prepare(
                 "UPDATE marine_deliveries
-                    SET status = 'delayed',
+                    SET status = 'waiting_for_port',
                         port_id = ?,
                         arrived_at = ?,
                         delay_ticks = delay_ticks + 1,

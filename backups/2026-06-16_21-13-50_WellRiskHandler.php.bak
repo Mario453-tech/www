@@ -70,13 +70,10 @@ class WellRiskHandler
     ): bool {
         try {
             $hseForDisaster = $hseBonus;
-            // financeSafetyMods['disaster_mult'] aplikowany wylacznie w combinedMult (ponizej),
-            // nie tutaj - inaczej trafialby do prawdopodobienstwa katastrofy podwojnie (kwadratowo).
-            // financeSafetyMods['disaster_mult'] is applied only in combinedMult (below), not here,
-            // otherwise it would hit the disaster probability twice (squared).
             $hseForDisaster['catastrophe_mult'] =
                 ($hseBonus['catastrophe_mult'] ?? 1.0)
- * $mults['techSpecCatMult'];
+ * $mults['techSpecCatMult']
+ * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0);
 
             $disaster = $this->ctx->wellService->processDisasterRoll(
                 $wellId, $deltaHours, $hseForDisaster,

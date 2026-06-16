@@ -79,29 +79,18 @@ class WellStatusHandler
  */
     public function handleStaffCheck(array $well, int $wellId, int $playerId, array $staffCheck, ?object $tsvc): array
     {
-        // Kolumna pamietajaca status sprzed pauzy kadrowej, by nie zgubic 'contaminated'
-        // (skazenie czyszczone wylacznie zadaniem reservoir_rehabilitation, nie wznowieniem).
-        // Column remembering the status before the staff pause, to avoid losing 'contaminated'
-        // (contamination is cleared only by a reservoir_rehabilitation task, not by resuming).
-        static $schemaEnsured = false;
-        if (!$schemaEnsured) {
-            try { Database::addColumnIfMissing('wells', 'paused_staff_prev_status', "VARCHAR(32) NULL DEFAULT NULL"); } catch (Throwable $e) {}
-            $schemaEnsured = true;
-        }
-
         if (!$staffCheck['meets_minimum']) {
             if (in_array($well['status'], ['active','contaminated'])) {
                 $reason = implode(',', $staffCheck['missing']);
-                $this->ctx->db->prepare("UPDATE wells SET status = 'paused_staff', paused_staff_reason = ?, paused_staff_prev_status = ? WHERE id = ?")->execute([$reason, $well['status'], $wellId]);
+                $this->ctx->db->prepare("UPDATE wells SET status = 'paused_staff', paused_staff_reason = ? WHERE id = ?")->execute([$reason, $wellId]);
                 $well['status'] = 'paused_staff';
                 GameLog::info('tick', 'well paused_staff (no staff)', ['well_id' => $wellId, 'player_id' => $playerId, 'missing' => $reason]);
                 $tsvc?->notify('task', $wellId, t('tick.notify.well_paused_staff', ['id' => $wellId, 'missing' => implode(', ', $staffCheck['missing_labels'])]));
             }
         } elseif ($well['status'] === 'paused_staff') {
-            $restore = (($well['paused_staff_prev_status'] ?? '') === 'contaminated') ? 'contaminated' : 'active';
-            $this->ctx->db->prepare("UPDATE wells SET status = ?, paused_staff_reason = NULL, paused_staff_prev_status = NULL WHERE id = ?")->execute([$restore, $wellId]);
-            $well['status'] = $restore;
-            GameLog::info('tick', 'well resumed (staff assigned)', ['well_id' => $wellId, 'player_id' => $playerId, 'restored_status' => $restore]);
+            $this->ctx->db->prepare("UPDATE wells SET status = 'active', paused_staff_reason = NULL WHERE id = ?")->execute([$wellId]);
+            $well['status'] = 'active';
+            GameLog::info('tick', 'well resumed (staff assigned)', ['well_id' => $wellId, 'player_id' => $playerId]);
             $tsvc?->notify('task', $wellId, t('tick.notify.well_resumed_staff', ['id' => $wellId]));
         }
         return $well;

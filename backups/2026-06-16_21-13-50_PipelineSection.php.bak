@@ -291,11 +291,7 @@ class PipelineSection
                             );
                         }
 
-                        // Po eksplozji pomijamy tylko ten rurociag; pozostale rurociagi gracza
-                        // musza byc nadal przetworzone (wczesniej bylo 'break' = utrata reszty petli).
-                        // After an explosion skip only this pipeline; the player's remaining pipelines
-                        // must still be processed (was 'break' = rest of the loop dropped).
-                        continue;
+                        break;
                     }
                 }
 
