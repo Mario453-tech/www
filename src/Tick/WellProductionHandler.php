@@ -202,6 +202,24 @@ class WellProductionHandler
             return;
         }
 
+ // BRAMKA TRANSPORTU: rurociag uszkodzony/wylaczony/w naprawie = zerowa przepustowosc
+ // (resolveTransportConfig ustawia transportCapPct=0 dla damaged/disabled/servicing).
+ // Bez tej bramki odwiert co tick wyczerpywalby rezerwuar i naliczalby finGross, tracac
+ // cala produkcje (transportCapPct=0 -> transportLimitedBbl=0 -> actual=0), bez przychodu
+ // i bez sygnalu. Wstrzymujemy produkcje do naprawy rurociagu (przepustowosc wraca > 0).
+ // TRANSPORT GATE: a damaged/disabled/servicing pipeline has zero throughput
+ // (resolveTransportConfig sets transportCapPct=0). Without this gate the well would drain
+ // its reservoir and book finGross every tick, losing all production
+ // (transportCapPct=0 -> transportLimitedBbl=0 -> actual=0) with zero revenue and no signal.
+ // Pause output until the pipeline is repaired (throughput returns > 0).
+        if ($transportType === 'rurociag' && $transportCapPct <= 0.0) {
+            GameLog::info('tick', 'pipeline well paused (no throughput - pipeline down)', [
+                'well_id'   => $wellId,
+                'player_id' => $playerId,
+            ]);
+            return;
+        }
+
         $price = $this->ctx->oilPrice > 0 ? $this->ctx->oilPrice : 70.0;
 
         $effectiveProd  = $this->ctx->wellService->getEffectiveProduction($well) * $this->ctx->gBalanceMults['production'];
