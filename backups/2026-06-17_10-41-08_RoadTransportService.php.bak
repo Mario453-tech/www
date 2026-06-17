@@ -341,12 +341,6 @@ class RoadTransportService
                 if (class_exists('GameLog', false)) {
                     GameLog::error('RoadTransportService', 'processCompletedTrips update FAILED', $e, ['trip_id' => $trip['id']]);
                 }
- // Bug #2: Jesli zapis statusu do DB sie nie udal, kurs pozostaje 'in_transit'
- // i zostanie ponownie przetworzony w nastepnym tiku. Pomijamy akumulacje bbl
- // zeby uniknac podwojnego kredytu dla gracza.
- // Bug #2: If the DB status write failed, the trip stays 'in_transit' and will
- // be re-processed next tick. Skip accumulation to avoid double-crediting the player.
-                continue;
             }
 
             $totalDelivered += $delivered;
