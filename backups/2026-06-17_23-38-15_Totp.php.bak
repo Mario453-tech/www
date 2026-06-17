@@ -34,20 +34,6 @@ final class Totp
      */
     public static function verify(string $secret, string $code, int $window = 1, ?int $time = null): bool
     {
-        return self::verifyWithCounter($secret, $code, $window, $time) !== false;
-    }
-
-    /**
-     * Zweryfikuj kod i zwroc numer licznika (counter) ktory pasowal, lub false.
-     * Verify code and return the matched TOTP counter step, or false on failure.
-     *
-     * Uzywane do ochrony przed replay attack: wywolujacy zapisuje zwrocony counter
-     * i odrzuca kolejne proby z tym samym lub nizszym counterem.
-     * Used for replay protection: caller stores the returned counter and rejects
-     * any subsequent attempt with the same or lower counter value.
-     */
-    public static function verifyWithCounter(string $secret, string $code, int $window = 1, ?int $time = null): int|false
-    {
         $code = preg_replace('/\D/', '', $code);
         if (strlen($code) !== self::DIGITS) {
             return false;
@@ -56,7 +42,7 @@ final class Totp
         for ($i = -$window; $i <= $window; $i++) {
             $counter = intdiv($time, self::PERIOD) + $i;
             if (hash_equals(self::hotp($secret, $counter), $code)) {
-                return $counter;
+                return true;
             }
         }
         return false;
