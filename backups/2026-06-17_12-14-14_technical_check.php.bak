@@ -57,12 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'assign_task':
                 try {
                     $r = $svc->assignTask(
-                        (int)($_POST['staff_id']    ?? 0),
-                        $_POST['task_type']         ?? '',
-                        ($_POST['well_id']      ?? '') !== '' ? (int)$_POST['well_id']      : null,
-                        ($_POST['module_type']  ?? '') !== '' ? $_POST['module_type']        : null,
-                        ($_POST['hub_id']       ?? '') !== '' ? (int)$_POST['hub_id']        : null,
-                        ($_POST['pipeline_id']  ?? '') !== '' ? (int)$_POST['pipeline_id']   : null
+                        (int)($_POST['staff_id']  ?? 0),
+                        $_POST['task_type']      ?? '',
+                        ($_POST['well_id'] ?? '') !== '' ? (int)$_POST['well_id'] : null,
+                        ($_POST['module_type'] ?? '') !== '' ? $_POST['module_type'] : null
                     );
                     $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
                     GameLog::info('technical.php', 'assign_task result', $r);
@@ -283,31 +281,28 @@ try {
     $procStatus = ['level' => 0, 'integrity' => 100.0, 'last_decay_at' => null];
 }
 
-// Pipelines — laduj z well_pipelines (tu sa ID uzywane przez technical_tasks)
-// Load from well_pipelines (IDs referenced by technical_tasks, not old pipelines table)
+// Pipelines 
 try {
     $db = Database::getInstance()->getConnection();
 
     GameLog::tablesCheck($db, 'technical.php', [
-        'well_pipelines', 'technical_staff', 'technical_tasks',
+        'pipelines', 'technical_staff', 'technical_tasks',
         'technical_notifications', 'candidate_reviews', 'failure_log'
     ]);
 
-    $pipeStmt = $db->prepare("
-        SELECT wp.id, wp.name, wp.status, wp.condition_pct, wp.transport_loss,
-               wp.real_capacity_bph, wp.nominal_capacity_bph, wp.pipeline_type,
-               wp.opex_per_tick, wp.opex_per_bbl, wp.build_cost,
-               w.location_name AS well_name
-          FROM well_pipelines wp
-          LEFT JOIN wells w ON w.id = wp.well_id
-         WHERE wp.player_id = ?
-         ORDER BY wp.id
-    ");
+    $pipeStmt = $db->prepare("SELECT * FROM pipelines WHERE player_id = ? ORDER BY id");
     $pipeStmt->execute([$playerId]);
     $pipelines = $pipeStmt->fetchAll();
-    GameLog::dbResult('technical.php', 'well_pipelines', count($pipelines));
+    GameLog::dbResult('technical.php', 'pipelines', count($pipelines));
+
+    if (empty($pipelines)) {
+        GameLog::info('technical.php', 'No pipelines - creating default');
+        $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Rurociąg główny')")->execute([$playerId]);
+        $pipeStmt->execute([$playerId]);
+        $pipelines = $pipeStmt->fetchAll();
+    }
 } catch (Throwable $e) {
-    GameLog::error('technical.php', 'well_pipelines load FAIL', $e);
+    GameLog::error('technical.php', 'pipelines load/create FAIL', $e);
     $pipelines = [];
 }
 

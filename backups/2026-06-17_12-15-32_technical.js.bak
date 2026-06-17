@@ -242,30 +242,10 @@ function candReviewConfirm(form) {
     return window.confirm(msg);
 }
 
-// Auto-odswiezanie — pomijane gdy karta nieaktywna (oszczedza obciazenie serwera).
-// Auto-refresh — skipped when tab is hidden (saves server load).
+// Auto-odświeżanie — pomijane gdy karta nieaktywna (oszczędza obciążenie serwera).
 setInterval(() => {
     if (!document.hidden) location.reload();
 }, 60000);
-
-// Inicjalizacja widocznosci selectorow dla kazdego formularza przypisania zadania.
-// Initialise selector visibility for each task-assignment form on page load.
-(function initTaskFormSelectors() {
-    function run() {
-        document.querySelectorAll('select[name="task_type"]').forEach(function (sel) {
-            var staffIdInput = sel.closest('form') && sel.closest('form').querySelector('input[name="staff_id"]');
-            var staffId = staffIdInput ? staffIdInput.value : '';
-            if (staffId) {
-                toggleWellSelect(sel, staffId);
-            }
-        });
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', run);
-    } else {
-        run();
-    }
-})();
 
 // Deep-link "Zleć naprawę u MNT" ze strony głównej (?repair_well=ID#tech-mnt):
 // przewija do Inżyniera Utrzymania Ruchu, otwiera formularz zlecenia,
