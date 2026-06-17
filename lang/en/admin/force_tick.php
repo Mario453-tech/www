@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 /**
  * Admin translations - force_tick.
- * Tlumaczenia admina - force_tick.
+ * Admin translations - force_tick.
  */
 
 return [
-    'admin.force_tick.cooldown' => 'Poczekaj chwilę przed kolejnym wymuszonym tickiem (cooldown 5s).',
-    'admin.force_tick.err_failed' => 'Błąd wymuszonego ticku::msg',
-    'admin.force_tick.msg_ok' => 'Wymuszony tick OK — przetworzono:processed graczy, nowa cena rynku::price$',
+    'admin.force_tick.cooldown' => 'Wait a moment before triggering another forced tick (5-second cooldown).',
+    'admin.force_tick.err_failed' => 'Forced tick error: :msg',
+    'admin.force_tick.msg_ok' => 'Forced tick completed successfully - processed :processed players, new market price: :price$',
 ];

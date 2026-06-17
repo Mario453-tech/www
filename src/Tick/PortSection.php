@@ -115,26 +115,58 @@ class PortSection
  // Kredytuj tyle ile miesci sie w magazynie / Credit only what fits in storage
         $actual       = min($volumeBbl, $freeSpace);
         $handlingCost = round($actual * $costPerBbl, 2);
+        $remainder    = round($volumeBbl - $actual, 4);
 
- // Oznacz wpis w kolejce jako done / Mark queue entry as done
-        $this->db->prepare(
-            "UPDATE port_queue
-                SET status = 'done', processed_at = ?
-              WHERE id = ?"
-        )->execute([$nowStr, $entryId]);
-
- // Oznacz dostawe jako delivered / Mark delivery as delivered
-        $this->db->prepare(
-            "UPDATE marine_deliveries
-                SET status = 'delivered', delivered_at = ?, handling_cost = ?
-              WHERE id = ?"
-        )->execute([$nowStr, $handlingCost, $deliveryId]);
+        if ($remainder > 0.001) {
+ // Magazyn nie pomiescil calej dostawy: kredytuj to co weszlo i zostaw reszte w kolejce
+ // (status 'waiting') na nastepny tick - spojnie z przerwaniem petli przy pelnym magazynie,
+ // zamiast cicho gubic nadmiar.
+ // Storage could not fit the whole delivery: credit what fits and keep the remainder queued
+ // ('waiting') for the next tick - consistent with the loop break on full storage, instead
+ // of silently dropping the overflow.
+            $this->db->prepare(
+                "UPDATE port_queue SET volume_bbl = ? WHERE id = ?"
+            )->execute([$remainder, $entryId]);
+            GameLog::info('tick', 'port_delivery_partial', [
+                'delivery_id' => $deliveryId,
+                'player_id'   => $playerId,
+                'credited'    => round($actual, 4),
+                'remainder'   => $remainder,
+            ]);
+        } else {
+ // M2: Oznacz atomowo port_queue + marine_deliveries — awaria miedzy nimi daje split-brain
+ // (done w kolejce ale 'waiting_for_port' w deliveries). Transakcja zapobiega sierocie.
+ // M2: Mark port_queue + marine_deliveries atomically — crash between them creates split-brain
+ // (done in queue but 'waiting_for_port' in deliveries). Transaction prevents orphan state.
+            try {
+                $this->db->beginTransaction();
+                $this->db->prepare(
+                    "UPDATE port_queue
+                        SET status = 'done', processed_at = ?
+                      WHERE id = ?"
+                )->execute([$nowStr, $entryId]);
+                $this->db->prepare(
+                    "UPDATE marine_deliveries
+                        SET status = 'delivered', delivered_at = ?, handling_cost = ?
+                      WHERE id = ?"
+                )->execute([$nowStr, $handlingCost, $deliveryId]);
+                $this->db->commit();
+            } catch (Throwable $e) {
+                if ($this->db->inTransaction()) {
+                    try { $this->db->rollBack(); } catch (Throwable $re) {}
+                }
+                GameLog::error('tick', 'port_delivery_done FAILED — rolled back', $e, [
+                    'entry_id' => $entryId, 'delivery_id' => $deliveryId,
+                ]);
+                return $currentStorage;
+            }
+            $this->processedCount++;
+        }
 
  // Akumuluj wyniki (PlayersSection doda do storage i cash) / Accumulate results
         $currentStorage      += $actual;
         $this->deliveredBbl  += $actual;
         $this->handlingCost  += $handlingCost;
-        $this->processedCount++;
 
         $wellId = (int)($entry['well_id'] ?? 0);
         if ($wellId > 0 && $actual > 0.0) {

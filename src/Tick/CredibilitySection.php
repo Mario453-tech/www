@@ -23,7 +23,7 @@ class CredibilitySection
     public function run(): void
     {
         try {
-            $players = $this->db->query("SELECT id FROM players ORDER BY id ASC")
+            $players = $this->db->query("SELECT id FROM players WHERE status != 'bankrupt' ORDER BY id ASC")
                 ->fetchAll(PDO::FETCH_COLUMN);
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {

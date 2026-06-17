@@ -70,10 +70,13 @@ class WellRiskHandler
     ): bool {
         try {
             $hseForDisaster = $hseBonus;
+            // financeSafetyMods['disaster_mult'] aplikowany wylacznie w combinedMult (ponizej),
+            // nie tutaj - inaczej trafialby do prawdopodobienstwa katastrofy podwojnie (kwadratowo).
+            // financeSafetyMods['disaster_mult'] is applied only in combinedMult (below), not here,
+            // otherwise it would hit the disaster probability twice (squared).
             $hseForDisaster['catastrophe_mult'] =
                 ($hseBonus['catastrophe_mult'] ?? 1.0)
- * $mults['techSpecCatMult']
- * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0);
+ * $mults['techSpecCatMult'];
 
             $disaster = $this->ctx->wellService->processDisasterRoll(
                 $wellId, $deltaHours, $hseForDisaster,
@@ -164,7 +167,7 @@ class WellRiskHandler
                 $this->ctx->loopCtx->incidentsTriggered++;
                 if ($inc['cost'] > 0) {
                     $this->ctx->loopCtx->finIncident += (float)$inc['cost'];
-                    $this->ctx->loopCtx->playerCash  -= (float)$inc['cost'];
+                    $this->ctx->loopCtx->playerCash   = max(0.0, $this->ctx->loopCtx->playerCash - (float)$inc['cost']);
                 }
                 if ($tsvc) {
                     $tsvc->notify('incident', $wellId, '⚠ ' . ($inc['message'] ?? t('tick.notify.incident_generic', ['id' => $wellId])));

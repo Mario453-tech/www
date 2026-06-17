@@ -146,20 +146,26 @@ class MarineDeliverySection
         $nowStr    = $this->now->format('Y-m-d H:i:s');
 
  // departing in_transit (pierwsze przetworzenie / first processing)
+ // Rejs ktory wlasnie wyruszyl nie moze dostac incydentu w tym samym tiku (zero czasu w drodze) -
+ // przejscie na in_transit i koniec; rolka incydentu nastapi w kolejnych tikach.
+ // A voyage that just departed must not roll an incident the same tick (zero travel time) -
+ // transition to in_transit and stop; the incident roll happens on later ticks.
         if ($status === 'departing') {
             $this->db->prepare(
                 "UPDATE marine_deliveries SET status = 'in_transit' WHERE id = ?"
             )->execute([$id]);
-            $status = 'in_transit';
+            return;
         }
 
- // Zdarzenie losowe w tranzycie / Random transit event
- // Szansa bazowa 4% * deltaHours, zmniejszana przez HSE
- // Base 4% chance * deltaHours, reduced by HSE bonus
-        $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['catastrophe_mult'] ?? 1.0);
-        if (mt_rand(1, 100000) <= (int)($incidentChance * 100000)) {
-            $this->applyIncident($id, $volumeBbl, $delivery['player_id']);
-            return;
+ // Zdarzenie losowe tylko dla rejsow aktywnie plynacych (in_transit), nie opoznionych.
+ // Random event only for actively sailing voyages (in_transit), not delayed ones.
+ // Delayed deliveries already suffered an incident; re-rolling each tick is a bug.
+        if ($status === 'in_transit') {
+            $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['catastrophe_mult'] ?? 1.0);
+            if (mt_rand(1, 100000) <= (int)($incidentChance * 100000)) {
+                $this->applyIncident($id, $volumeBbl, $delivery['player_id']);
+                return;
+            }
         }
 
  // Sprawdz czy ETA minela / Check if ETA has passed
@@ -202,11 +208,24 @@ class MarineDeliverySection
 
         if ($roll <= 5) {
  // Piraci caly ladunek utracony / Pirates entire cargo lost
-            $this->db->prepare(
-                "UPDATE marine_deliveries
-                    SET status = 'lost', incident_type = 'piracy', delivered_at = NOW()
-                  WHERE id = ?"
-            )->execute([$deliveryId]);
+            try {
+                $this->db->beginTransaction();
+                $this->db->prepare(
+                    "UPDATE marine_deliveries
+                        SET status = 'lost', incident_type = 'piracy', delivered_at = NOW()
+                      WHERE id = ?"
+                )->execute([$deliveryId]);
+ // H3: Usun z port_queue na wypadek sieroty (dostawa trafila do kolejki przed utrata)
+ // H3: Remove from port_queue in case of orphan (delivery was queued before being lost)
+                $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ?")->execute([$deliveryId]);
+                $this->db->commit();
+            } catch (Throwable $e) {
+                if ($this->db->inTransaction()) {
+                    try { $this->db->rollBack(); } catch (Throwable $re) {}
+                }
+                GameLog::error('tick', 'marine_delivery_lost_piracy FAILED — rolled back', $e, ['delivery_id' => $deliveryId]);
+                return;
+            }
             $this->lostBbl += $volumeBbl;
             $this->lostDeliveries++;
             GameLog::warn('tick', 'marine_delivery_lost_piracy', [
@@ -215,11 +234,23 @@ class MarineDeliverySection
 
         } elseif ($roll <= 15) {
  // Katastrofa caly ladunek utracony / Catastrophe entire cargo lost
-            $this->db->prepare(
-                "UPDATE marine_deliveries
-                    SET status = 'lost', incident_type = 'catastrophe', delivered_at = NOW()
-                  WHERE id = ?"
-            )->execute([$deliveryId]);
+            try {
+                $this->db->beginTransaction();
+                $this->db->prepare(
+                    "UPDATE marine_deliveries
+                        SET status = 'lost', incident_type = 'catastrophe', delivered_at = NOW()
+                      WHERE id = ?"
+                )->execute([$deliveryId]);
+ // H3: Usun z port_queue na wypadek sieroty / H3: Remove from port_queue in case of orphan
+                $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ?")->execute([$deliveryId]);
+                $this->db->commit();
+            } catch (Throwable $e) {
+                if ($this->db->inTransaction()) {
+                    try { $this->db->rollBack(); } catch (Throwable $re) {}
+                }
+                GameLog::error('tick', 'marine_delivery_lost_catastrophe FAILED — rolled back', $e, ['delivery_id' => $deliveryId]);
+                return;
+            }
             $this->lostBbl += $volumeBbl;
             $this->lostDeliveries++;
             GameLog::warn('tick', 'marine_delivery_lost_catastrophe', [
@@ -307,10 +338,15 @@ class MarineDeliverySection
         $queueSize = (int)$sizeStmt->fetchColumn();
 
         if ($queueSize >= $queueLimit) {
- // Kolejka pelna opoznienie o 1 godzine / Queue full 1 hour delay
+ // Kolejka pelna opoznienie o 1 godzine. Status 'delayed' (nie 'waiting_for_port'),
+ // bo bez wpisu w port_queue 'waiting_for_port' nie jest przez nic ponownie pobierane -
+ // dostawa utknelaby na zawsze. 'delayed' jest ponownie pobierane przez process() co tick.
+ // Queue full 1 hour delay. Status 'delayed' (not 'waiting_for_port'): without a port_queue
+ // row, 'waiting_for_port' is never re-fetched and the delivery would be stuck forever.
+ // 'delayed' is re-fetched by process() every tick so forwarding retries.
             $this->db->prepare(
                 "UPDATE marine_deliveries
-                    SET status = 'waiting_for_port',
+                    SET status = 'delayed',
                         port_id = ?,
                         arrived_at = ?,
                         delay_ticks = delay_ticks + 1,
@@ -324,18 +360,34 @@ class MarineDeliverySection
             return;
         }
 
- // Dodaj do kolejki portowej / Add to port queue
-        $this->db->prepare(
-            "UPDATE marine_deliveries
-                SET status = 'waiting_for_port', port_id = ?, arrived_at = ?
-              WHERE id = ?"
-        )->execute([$portId, $nowStr, $deliveryId]);
-
-        $this->db->prepare(
-            "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
-             VALUES (?, ?, ?, ?, ?, 'waiting')
-             ON DUPLICATE KEY UPDATE status = 'waiting', queued_at = VALUES(queued_at)"
-        )->execute([$portId, $deliveryId, $playerId, round($volumeBbl, 4), $nowStr]);
+ // H2: Dodaj do kolejki portowej atomowo — obie operacje musza sie udac lub zadna.
+ // Awaria miedzy UPDATE a INSERT zostawialaby dostawa w 'waiting_for_port' bez wpisu
+ // w port_queue, ktory PortSection nigdy by nie pobrala (utknielaby na zawsze).
+ // H2: Add to port queue atomically — both operations must succeed or neither.
+ // A crash between UPDATE and INSERT would leave the delivery in 'waiting_for_port'
+ // with no port_queue entry, never picked up by PortSection (stuck forever).
+        try {
+            $this->db->beginTransaction();
+            $this->db->prepare(
+                "UPDATE marine_deliveries
+                    SET status = 'waiting_for_port', port_id = ?, arrived_at = ?
+                  WHERE id = ?"
+            )->execute([$portId, $nowStr, $deliveryId]);
+            $this->db->prepare(
+                "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
+                 VALUES (?, ?, ?, ?, ?, 'waiting')
+                 ON DUPLICATE KEY UPDATE status = 'waiting', queued_at = VALUES(queued_at)"
+            )->execute([$portId, $deliveryId, $playerId, round($volumeBbl, 4), $nowStr]);
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                try { $this->db->rollBack(); } catch (Throwable $re) {}
+            }
+            GameLog::error('tick', 'marine_delivery_forwardToPort FAILED — rolled back', $e, [
+                'delivery_id' => $deliveryId, 'port_id' => $portId,
+            ]);
+            return;
+        }
 
         $this->queuedDeliveries++;
 

@@ -292,9 +292,13 @@ class PlayersSection
         $playerCash               = max(0.0, $playerCash - abs($spill->cashDelta));
         $this->disastersTriggered += $spill->disastersTriggered;
 
- // Zapis magazynu / Save storage
+ // H4: Cap storage — uniemozliwia zapis wartosci powyzej max_capacity gdy spill sie nie wyzwolil.
+ // Bez tego currentStorage > storageCapacity moze trafic do bazy po intensywnym tiku.
+ // H4: Cap storage — prevents writing above max_capacity when spill was not triggered.
+ // Without this, currentStorage > storageCapacity can reach the DB after a heavy tick.
+        $safeStorage = min($currentStorage, $storageCapacity);
         $db->prepare("UPDATE storage SET used = :used, updated_at = NOW() WHERE player_id = :pid")
-           ->execute([':used' => $currentStorage, ':pid' => $playerId]);
+           ->execute([':used' => $safeStorage, ':pid' => $playerId]);
 
  // Zapis finansowy / Financial save
         try {

@@ -46,6 +46,7 @@ $lang += require __DIR__ . '/pl/legal.php';
 $lang += require __DIR__ . '/pl/logistics.php';
 $lang += require __DIR__ . '/pl/map.php';
 $lang += require __DIR__ . '/pl/market.php';
+$lang += require __DIR__ . '/pl/nav.php';
 $lang += require __DIR__ . '/pl/notifications.php';
 $lang += require __DIR__ . '/pl/profile.php';
 $lang += require __DIR__ . '/pl/protection.php';

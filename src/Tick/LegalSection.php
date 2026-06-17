@@ -197,8 +197,11 @@ class LegalSection
     private function applyHubNoDecision(
         int $appId, int $playerId, int $regionId, string $nowStr, string $riskLevel
     ): void {
+        // Brak decyzji = status terminalny; gracz sam sklada ponownie.
+        // No decision = terminal status; player resubmits manually.
         $this->db->prepare(
-            "UPDATE hub_permit_applications SET status='no_decision', decided_at=? WHERE id=?"
+            "UPDATE hub_permit_applications
+                SET status='no_decision', decided_at=? WHERE id=?"
         )->execute([$nowStr, $appId]);
         $this->hubDecided++;
         $this->notifyHub($playerId, $regionId, 'no_decision', $riskLevel, $nowStr, true);
@@ -477,6 +480,8 @@ class LegalSection
         string $nowStr,
         string $riskLevel
     ): void {
+        // Brak decyzji = status terminalny; gracz sam sklada ponownie.
+        // No decision = terminal status; player resubmits manually.
         $this->db->prepare(
             "UPDATE drilling_permit_applications
                 SET status     = 'no_decision',

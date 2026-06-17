@@ -18,20 +18,19 @@
                     $__fCfg = $__fDb->query("SELECT `key`, `value` FROM site_config WHERE `key` IN ('footer_text','footer_js')")->fetchAll(PDO::FETCH_KEY_PAIR);
                     if (!empty($__fCfg['footer_text'])) $__footerText = $__fCfg['footer_text'];
                     if (isset($__fCfg['footer_js']))    $__footerJs   = $__fCfg['footer_js'];
-                    $__footerLinks = $__fDb->query("SELECT label, url_key, icon, css_class FROM nav_items WHERE location='footer' AND active=1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+                    $__footerLinks = $__fDb->query("SELECT label, lang_key, url_key, css_class FROM nav_items WHERE location='footer' AND active=1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
                 } catch (Throwable $__fEx) { /* fallback / fallback */ }
             ?>
             <?php if (!empty($__footerLinks)): ?>
             <nav class="footer-nav" aria-label="Linki stopki">
                 <?php foreach ($__footerLinks as $__fl):
-                    $__flKey  = $__fl['url_key'];
-                    $__flHref = (str_starts_with($__flKey, '/')) ? $__flKey : (function_exists('url') ? url($__flKey) : '/' . $__flKey);
-                    $__flCss  = $__fl['css_class'] ? ' ' . htmlspecialchars($__fl['css_class']) : '';
-                    $__icon   = trim((string)($__fl['icon'] ?? ''));
+                    $__flKey   = $__fl['url_key'];
+                    $__flHref  = (str_starts_with($__flKey, '/')) ? $__flKey : (function_exists('url') ? url($__flKey) : '/' . $__flKey);
+                    $__flCss   = $__fl['css_class'] ? ' ' . htmlspecialchars($__fl['css_class']) : '';
+                    $__flLabel = !empty($__fl['lang_key']) ? t($__fl['lang_key']) : htmlspecialchars($__fl['label']);
                 ?>
                 <a href="<?= htmlspecialchars($__flHref) ?>" class="footer-link<?= $__flCss ?>">
-                    <?php if ($__icon !== ''): ?><span class="footer-link-icon"><?= htmlspecialchars($__icon) ?></span><?php endif ?>
-                    <span><?= htmlspecialchars($__fl['label']) ?></span>
+                    <span><?= $__flLabel ?></span>
                 </a>
                 <?php endforeach ?>
             </nav>

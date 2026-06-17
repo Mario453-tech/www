@@ -291,7 +291,11 @@ class PipelineSection
                             );
                         }
 
-                        break;
+                        // Po eksplozji pomijamy tylko ten rurociag; pozostale rurociagi gracza
+                        // musza byc nadal przetworzone (wczesniej bylo 'break' = utrata reszty petli).
+                        // After an explosion skip only this pipeline; the player's remaining pipelines
+                        // must still be processed (was 'break' = rest of the loop dropped).
+                        continue;
                     }
                 }
 
@@ -418,8 +422,19 @@ class PipelineSection
         if ($protection === null) {
             return ['mult' => 1.0, 'option_id' => 0];
         }
-        $row = $this->pipelineProtectionCache[$pipelineId]
-            ?? $protection->getActiveProtection($playerId, 'pipeline', $pipelineId, 'pipeline_guard');
+ // H9: getActiveProtection() bez try/catch ubijalby caly tick rurociagu gracza przez zewnetrzny catch.
+ // H9: Without try/catch, getActiveProtection() exception would abort all pipeline processing via outer catch.
+        $row = $this->pipelineProtectionCache[$pipelineId] ?? null;
+        if ($row === null) {
+            try {
+                $row = $protection->getActiveProtection($playerId, 'pipeline', $pipelineId, 'pipeline_guard');
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'pipelineProtectionData::getActiveProtection FAILED — brak ochrony / no protection applied', $e, [
+                    'pipeline_id' => $pipelineId, 'player_id' => $playerId,
+                ]);
+                return ['mult' => 1.0, 'option_id' => 0];
+            }
+        }
         if ($row === null) {
             return ['mult' => 1.0, 'option_id' => 0];
         }

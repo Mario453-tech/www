@@ -65,6 +65,12 @@ Nigdy nie nadpisuj pliku bez wcześniejszego zrobienia takiej kopii.
 
 ## Git — ZASADA OBOWIĄZKOWA
 
+### Git-first: pliki zawsze najpierw w gicie
+
+**Każdy plik MUSI być w gicie, zanim trafi na serwer przez FTP.**
+Git jest źródłem prawdy — FTP to tylko transport. GitHub Actions deployuje
+automatycznie z `main` przez FTP. Nigdy nie wysyłaj pliku FTP z pominięciem gita.
+
 Po każdej zmianie pliku ZAWSZE rób commit i push bezpośrednio do `main`.
 Nie używaj feature branchy — każda zmiana musi od razu trafić na `main`,
 żeby GitHub Actions wydeployował ją na serwer.

@@ -101,8 +101,8 @@ try {
     $db->exec("CREATE TABLE IF NOT EXISTS `nav_items` (
         `id`         INT AUTO_INCREMENT PRIMARY KEY,
         `label`      VARCHAR(64) NOT NULL,
+        `lang_key`   VARCHAR(64) NOT NULL DEFAULT '',
         `url_key`    VARCHAR(64) NOT NULL,
-        `icon`       VARCHAR(16) NOT NULL DEFAULT '',
         `sort_order` SMALLINT NOT NULL DEFAULT 0,
         `active`     TINYINT(1) NOT NULL DEFAULT 1,
         `css_class`  VARCHAR(32) NOT NULL DEFAULT '',
@@ -114,6 +114,16 @@ try {
     try {
         $db->exec("ALTER TABLE nav_items MODIFY COLUMN `location` ENUM('header','footer','actions') NOT NULL DEFAULT 'header'");
     } catch (Throwable $__e) {}
+    try { Database::addColumnIfMissing('nav_items', 'lang_key', "VARCHAR(64) NOT NULL DEFAULT '' AFTER `label`"); } catch (Throwable $__e) {}
+
+    // Jednorazowe usuniecie kolumny icon (zbyt mala dla SVG, zastapiona SVG z plikow).
+    // One-time removal of the icon column (too small for SVG, replaced by file-based SVG).
+    $navIconColDropped = (string)($db->query("SELECT `value` FROM site_config WHERE `key`='nav_icon_col_dropped' LIMIT 1")->fetchColumn() ?: '0');
+    if ($navIconColDropped !== '1') {
+        try { $db->exec("ALTER TABLE nav_items DROP COLUMN IF EXISTS `icon`"); } catch (Throwable $__e) {}
+        $db->prepare("INSERT IGNORE INTO site_config (`key`, `value`) VALUES ('nav_icon_col_dropped', '1')")->execute();
+        $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='nav_icon_col_dropped'")->execute();
+    }
 
     $defaults = [
         ['site_name',    'OilCorp'],
@@ -122,6 +132,8 @@ try {
         ['footer_js',    '/assets/js/game.js'],
         ['nav_items_seeded', '0'],
         ['legal_nav_ensured', '0'],
+        ['nav_icon_col_dropped', '0'],
+        ['nav_lang_key_seeded', '0'],
     ];
     $ins = $db->prepare("INSERT IGNORE INTO site_config (`key`, `value`) VALUES (?, ?)");
     foreach ($defaults as [$k, $v]) { $ins->execute([$k, $v]); }
@@ -132,39 +144,42 @@ try {
 
     if ($shouldSeedNavItems) {
         $navDefaults = [
-            ['Dashboard', 'home',      '',    10, 1, '', 'header'],
-            ['Mapa',      'map',       '',  20, 1, '', 'header'],
-            ['Rynek',     'market',    '',    30, 1, '', 'header'],
-            ['Bank',      'bank',      '',    40, 1, '', 'header'],
-            ['Zarzd',    'hr',        '',  50, 1, '', 'header'],
-            ['Technika',  'technical', '',  60, 1, '', 'header'],
-            ['Pomoc',     'help',      '',  70, 1, '', 'header'],
-            ['Wyloguj',   'logout',    '',    99, 1, 'btn-danger', 'header'],
+            // label,       url_key,     lang_key,         sort, active, css_class,   location
+            ['Dashboard', 'home',      'nav.home',      10, 1, '', 'header'],
+            ['Mapa',      'map',       'nav.map',       20, 1, '', 'header'],
+            ['Rynek',     'market',    'nav.market',    30, 1, '', 'header'],
+            ['Bank',      'bank',      'nav.bank',      40, 1, '', 'header'],
+            ['Zarząd',    'hr',        'nav.hr',        50, 1, '', 'header'],
+            ['Technika',  'technical', 'nav.technical', 60, 1, '', 'header'],
+            ['Pomoc',     'help',      'nav.help',      70, 1, '', 'header'],
+            ['Wyloguj',   'logout',    'nav.logout',    99, 1, 'btn-danger', 'header'],
         ];
-        $navIns = $db->prepare("INSERT INTO nav_items (label,url_key,icon,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
+        $navIns = $db->prepare("INSERT INTO nav_items (label,url_key,lang_key,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
         foreach ($navDefaults as $row) { $navIns->execute($row); }
     }
 
     if ($shouldSeedNavItems) {
         $actionsDefaults = [
-            ['Rynek ropy',    'market',       '', 10, 1, 'btn-success',   'actions'],
-            ['Kup odwiert',   'map',          '', 20, 1, 'btn-info',      'actions'],
-            ['Zarzd / HR',   'hr',           '', 30, 1, 'btn-secondary', 'actions'],
-            ['Bank',          'bank',         '', 40, 1, 'btn-secondary', 'actions'],
-            ['Dział prawny', 'legal',        '', 50, 1, 'btn-secondary', 'actions'],
+            // label,            url_key,  lang_key,                sort, active, css_class,       location
+            ['Rynek ropy',    'market', 'nav.action.market',    10, 1, 'btn-success',   'actions'],
+            ['Kup odwiert',   'map',    'nav.action.map',       20, 1, 'btn-info',      'actions'],
+            ['Zarząd / HR',   'hr',     'nav.action.hr',        30, 1, 'btn-secondary', 'actions'],
+            ['Bank',          'bank',   'nav.action.bank',      40, 1, 'btn-secondary', 'actions'],
+            ['Dział prawny',  'legal',  'nav.action.legal',     50, 1, 'btn-secondary', 'actions'],
         ];
-        $actIns = $db->prepare("INSERT INTO nav_items (label,url_key,icon,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
+        $actIns = $db->prepare("INSERT INTO nav_items (label,url_key,lang_key,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
         foreach ($actionsDefaults as $row) { $actIns->execute($row); }
     }
 
     if ($shouldSeedNavItems) {
         $footerDefaults = [
-            ['Regulamin',   '/regulamin',  '', 10, 1, '', 'footer'],
-            ['Polityka',    '/polityka',   '', 20, 1, '', 'footer'],
-            ['Kontakt',     '/kontakt',    '', 30, 1, '', 'footer'],
-            ['Instrukcja',  'help',        '', 40, 1, '', 'footer'],
+            // label,        url_key,      lang_key,                  sort, active, css_class, location
+            ['Regulamin',  '/regulamin', 'nav.footer.regulamin', 10, 1, '', 'footer'],
+            ['Polityka',   '/polityka',  'nav.footer.polityka',  20, 1, '', 'footer'],
+            ['Kontakt',    '/kontakt',   'nav.footer.kontakt',   30, 1, '', 'footer'],
+            ['Instrukcja', 'help',       'nav.footer.help',      40, 1, '', 'footer'],
         ];
-        $footerIns = $db->prepare("INSERT INTO nav_items (label,url_key,icon,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
+        $footerIns = $db->prepare("INSERT INTO nav_items (label,url_key,lang_key,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
         foreach ($footerDefaults as $row) { $footerIns->execute($row); }
         $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='nav_items_seeded'")->execute();
     }
@@ -175,13 +190,65 @@ try {
     $legalNavEnsured = (string)($db->query("SELECT `value` FROM site_config WHERE `key`='legal_nav_ensured' LIMIT 1")->fetchColumn() ?: '0');
     if ($legalNavEnsured !== '1') {
         $db->exec(
-            "INSERT INTO nav_items (label, url_key, icon, sort_order, active, css_class, location)
-             SELECT 'Dział prawny', 'legal', '', 50, 1, 'btn-secondary', 'actions' FROM DUAL
+            "INSERT INTO nav_items (label, url_key, lang_key, sort_order, active, css_class, location)
+             SELECT 'Dział prawny', 'legal', 'nav.action.legal', 50, 1, 'btn-secondary', 'actions' FROM DUAL
              WHERE NOT EXISTS (
                  SELECT 1 FROM nav_items WHERE url_key = 'legal' AND location = 'actions'
              )"
         );
         $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='legal_nav_ensured'")->execute();
+    }
+
+    // Jednorazowe uzupelnienie lang_key dla istniejacych wierszy (jesli puste).
+    // One-time backfill of lang_key for existing rows that were seeded before this column existed.
+    $navLangKeySeeded = (string)($db->query("SELECT `value` FROM site_config WHERE `key`='nav_lang_key_seeded' LIMIT 1")->fetchColumn() ?: '0');
+    if ($navLangKeySeeded !== '1') {
+        $keyMap = [
+            // header
+            'home'      => 'nav.home',
+            'map'       => 'nav.map',
+            'market'    => 'nav.market',
+            'bank'      => 'nav.bank',
+            'hr'        => 'nav.hr',
+            'technical' => 'nav.technical',
+            'help'      => 'nav.help',
+            'logout'    => 'nav.logout',
+            'legal'     => 'nav.legal',
+            'logistics' => 'nav.logistics',
+            'finance'   => 'nav.finance',
+            'sabotage'  => 'nav.sabotage',
+        ];
+        $actionKeyMap = [
+            'market'    => 'nav.action.market',
+            'map'       => 'nav.action.map',
+            'hr'        => 'nav.action.hr',
+            'bank'      => 'nav.action.bank',
+            'legal'     => 'nav.action.legal',
+            'technical' => 'nav.action.technical',
+            'logistics' => 'nav.action.logistics',
+            'finance'   => 'nav.action.finance',
+            'sabotage'  => 'nav.action.sabotage',
+        ];
+        $footerKeyMap = [
+            '/regulamin' => 'nav.footer.regulamin',
+            '/polityka'  => 'nav.footer.polityka',
+            '/kontakt'   => 'nav.footer.kontakt',
+            'help'       => 'nav.footer.help',
+        ];
+        try {
+            $upd = $db->prepare("UPDATE nav_items SET lang_key=? WHERE url_key=? AND location=? AND (lang_key IS NULL OR lang_key='')");
+            foreach ($keyMap as $urlKey => $lk) {
+                $upd->execute([$lk, $urlKey, 'header']);
+            }
+            foreach ($actionKeyMap as $urlKey => $lk) {
+                $upd->execute([$lk, $urlKey, 'actions']);
+            }
+            foreach ($footerKeyMap as $urlKey => $lk) {
+                $upd->execute([$lk, $urlKey, 'footer']);
+            }
+        } catch (Throwable $__e) {}
+        $db->prepare("INSERT IGNORE INTO site_config (`key`, `value`) VALUES ('nav_lang_key_seeded', '1')")->execute();
+        $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='nav_lang_key_seeded'")->execute();
     }
 } catch (Throwable $e) {
     GameLog::error('admin/template_editor', 'bootstrap failed', $e);
@@ -208,27 +275,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id       = (int)($_POST['nav_id'] ?? 0);
             $label    = trim($_POST['label']    ?? '');
             $urlKey   = trim($_POST['url_key']  ?? '');
-            $icon     = trim($_POST['icon']     ?? '');
+            $langKey  = trim($_POST['lang_key'] ?? '');
             $sort     = (int)($_POST['sort_order'] ?? 0);
             $active   = isset($_POST['active']) ? 1 : 0;
             $cssClass = trim($_POST['css_class'] ?? '');
             if ($id > 0 && $label && $urlKey) {
-                $db->prepare("UPDATE nav_items SET label=?,url_key=?,icon=?,sort_order=?,active=?,css_class=? WHERE id=?")
-                   ->execute([$label, $urlKey, $icon, $sort, $active, $cssClass, $id]);
+                $db->prepare("UPDATE nav_items SET label=?,url_key=?,lang_key=?,sort_order=?,active=?,css_class=? WHERE id=?")
+                   ->execute([$label, $urlKey, $langKey, $sort, $active, $cssClass, $id]);
                 $msg = t('admin.template_editor.msg_nav_saved');
             } else {
                 $err = t('admin.template_editor.err_invalid_data');
             }
 
         } elseif ($action === 'add_nav') {
-            $label  = trim($_POST['new_label']   ?? '');
-            $urlKey = trim($_POST['new_url_key'] ?? '');
-            $icon   = trim($_POST['new_icon']    ?? '');
-            $loc    = in_array($_POST['new_location'] ?? '', ['header','footer','actions']) ? $_POST['new_location'] : 'header';
-            $sort   = (int)$db->query("SELECT COALESCE(MAX(sort_order),0)+1 FROM nav_items WHERE location=" . $db->quote($loc))->fetchColumn();
+            $label   = trim($_POST['new_label']    ?? '');
+            $urlKey  = trim($_POST['new_url_key']  ?? '');
+            $langKey = trim($_POST['new_lang_key'] ?? '');
+            $loc     = in_array($_POST['new_location'] ?? '', ['header','footer','actions']) ? $_POST['new_location'] : 'header';
+            $sort    = (int)$db->query("SELECT COALESCE(MAX(sort_order),0)+1 FROM nav_items WHERE location=" . $db->quote($loc))->fetchColumn();
             if ($label && $urlKey) {
-                $db->prepare("INSERT INTO nav_items (label,url_key,icon,sort_order,active,css_class,location) VALUES (?,?,?,?,1,'',?)")
-                   ->execute([$label, $urlKey, $icon, $sort, $loc]);
+                $db->prepare("INSERT INTO nav_items (label,url_key,lang_key,sort_order,active,css_class,location) VALUES (?,?,?,?,1,'',?)")
+                   ->execute([$label, $urlKey, $langKey, $sort, $loc]);
                 $msg = t('admin.template_editor.msg_nav_added', ['loc' => $loc]);
             } else {
                 $err = t('admin.template_editor.err_label_url_required');

@@ -203,7 +203,7 @@ try {
                 <?php if ($__logoutItem): ?>
                 <a href="<?= str_starts_with($__logoutItem['url_key'] ?? '', '/') ? $__logoutItem['url_key'] : url($__logoutItem['url_key'] ?? 'logout') ?>"
                    class="btn btn-sm btn-danger hdr-logout">
-                    <?= $__logoutItem['icon'] ? $__logoutItem['icon'] . ' ' : ' ' ?><?= htmlspecialchars($__logoutItem['label'] ?? 'Wyloguj') ?>
+                    <?= htmlspecialchars(!empty($__logoutItem['lang_key']) ? t($__logoutItem['lang_key']) : ($__logoutItem['label'] ?? 'Wyloguj')) ?>
                 </a>
                 <?php endif ?>
 
@@ -228,7 +228,7 @@ try {
                     endif;
                     $__prevOrder = (int)$__ni['sort_order'];
                     $__niHref    = str_starts_with($__ni['url_key'], '/') ? $__ni['url_key'] : url($__ni['url_key']);
-                    $__niLabel   = ($__ni['icon'] ? $__ni['icon'] . ' ' : '') . $__ni['label'];
+                    $__niLabel   = !empty($__ni['lang_key']) ? t($__ni['lang_key']) : ($__ni['label'] ?? '');
                     $__niCss     = $__ni['css_class'] ?: '';
                     echo __navBtn($__niHref, $__niLabel, $__curPath, $__niCss);
                 endforeach;

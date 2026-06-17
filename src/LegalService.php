@@ -476,7 +476,7 @@ class LegalService
         if ($existingStatus === self::STATUS_TRANSITIONAL && !empty($existing['upgrade_pending'])) {
             return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
         }
-        if (in_array($existingStatus, self::PENDING_STATUSES, true) || $existingStatus === self::STATUS_NO_DECISION) {
+        if (in_array($existingStatus, self::PENDING_STATUSES, true)) {
             return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
         }
         if ($existingStatus === self::STATUS_REFUSED && !empty($existing['refusal_cooldown_until'])) {
