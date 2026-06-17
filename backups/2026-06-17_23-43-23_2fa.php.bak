@@ -24,7 +24,6 @@ if (!$pending) {
 $enabled = !empty($pending['totp_enabled']);
 $mode    = $enabled ? 'verify' : 'setup';
 $error   = '';
-$locale  = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 
 // Trusted device - skip the 2FA form if a valid token cookie exists.
 if ($mode === 'verify' && AdminAuth::checkTrustedDevice($pending['id'])) {
@@ -47,65 +46,45 @@ if ($mode === 'setup') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $error = tPlain('common.csrf_error');
+    } elseif (class_exists('RateLimiter') && !RateLimiter::check('admin_2fa')) {
+        $error = tPlain('admin.2fa.err_rate_limit');
     } else {
- // Sesyjny licznik blednych prob — dziala niezaleznie od klasy RateLimiter.
- // Session-based fail counter — works independently of the RateLimiter class.
- // Atakujacy musi ponownie podac haslo po przekroczeniu limitu.
- // Attacker must re-enter the password after exceeding the limit.
-        $totp2faFails = (int)($_SESSION['admin_pending']['totp_fails'] ?? 0);
-        if ($totp2faFails >= 5) {
-            AdminAuth::clearPending();
-            AdminAuth::log('2FA_LOCKED', "Too many TOTP attempts — pending session cleared for admin_id={$pending['id']}");
-            header('Location: /admin/login.php?2fa_locked=1');
-            exit();
-        }
+        $code = preg_replace('/\D/', '', (string)($_POST['code'] ?? ''));
 
- // Dodatkowa warstwa: RateLimiter jezeli dostepny.
- // Extra layer: RateLimiter if available.
-        if (class_exists('RateLimiter') && !RateLimiter::check('admin_2fa')) {
-            $error = tPlain('admin.2fa.err_rate_limit');
-        } else {
-            $code = preg_replace('/\D/', '', (string)($_POST['code'] ?? ''));
-
-            if ($mode === 'verify') {
+        if ($mode === 'verify') {
  // Pobierz sekret z DB (nie z sesji) przy kazdej weryfikacji.
  // Fetch secret from DB (not from session) on every verification attempt.
-                $totpSecret     = AdminAuth::getAdminTotpSecret($pending['id']);
-                $matchedCounter = $totpSecret !== null ? Totp::verifyWithCounter($totpSecret, $code) : false;
+            $totpSecret = AdminAuth::getAdminTotpSecret($pending['id']);
+            $matchedCounter = $totpSecret !== null ? Totp::verifyWithCounter($totpSecret, $code) : false;
 
- // Replay attack: odrzuc ponowne uzycie tego samego kodu w tym samym oknie.
+ // Replay attack: odrzuc ponowne uzycie tego samego kodu w tym samym oknie czasowym.
  // Replay protection: reject reuse of the same code within the same time window.
-                $lastCounter = $_SESSION['admin_pending']['last_totp_counter'] ?? PHP_INT_MIN;
-                if ($matchedCounter !== false && $matchedCounter > $lastCounter) {
-                    $_SESSION['admin_pending']['last_totp_counter'] = $matchedCounter;
-                    if (!empty($_POST['remember_device'])) {
-                        AdminAuth::setTrustedDevice($pending['id']);
-                    }
+            $lastCounter = $_SESSION['admin_pending']['last_totp_counter'] ?? PHP_INT_MIN;
+            if ($matchedCounter !== false && $matchedCounter > $lastCounter) {
+                $_SESSION['admin_pending']['last_totp_counter'] = $matchedCounter;
+                if (!empty($_POST['remember_device'])) {
+                    AdminAuth::setTrustedDevice($pending['id']);
+                }
+                AdminAuth::completeLogin();
+                $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
+                unset($_SESSION['admin_redirect']);
+                header('Location: ' . $dest);
+                exit();
+            }
+            $error = tPlain('admin.2fa.err_invalid_code');
+        } else {
+            if (Totp::verify($setupSecret, $code)) {
+                if (AdminAuth::enableTotpForPending($setupSecret)) {
+                    unset($_SESSION['admin_2fa_setup_secret']);
                     AdminAuth::completeLogin();
                     $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
                     unset($_SESSION['admin_redirect']);
                     header('Location: ' . $dest);
                     exit();
                 }
- // Bledny kod: inkrementuj licznik sesyjny / Wrong code: increment session counter.
-                $_SESSION['admin_pending']['totp_fails'] = $totp2faFails + 1;
-                $error = tPlain('admin.2fa.err_invalid_code');
+                $error = tPlain('admin.2fa.err_setup_save');
             } else {
-                if (Totp::verify($setupSecret, $code)) {
-                    if (AdminAuth::enableTotpForPending($setupSecret)) {
-                        unset($_SESSION['admin_2fa_setup_secret']);
-                        AdminAuth::completeLogin();
-                        $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
-                        unset($_SESSION['admin_redirect']);
-                        header('Location: ' . $dest);
-                        exit();
-                    }
-                    $error = tPlain('admin.2fa.err_setup_save');
-                } else {
- // Bledny kod setupu: inkrementuj licznik / Wrong setup code: increment counter.
-                    $_SESSION['admin_pending']['totp_fails'] = $totp2faFails + 1;
-                    $error = tPlain('admin.2fa.err_setup_code');
-                }
+                $error = tPlain('admin.2fa.err_setup_code');
             }
         }
     }
