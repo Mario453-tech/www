@@ -11,7 +11,7 @@ AdminAuth::requireLogin();
 header('Content-Type: application/json');
 
 $pid = (int)($_GET['pid'] ?? 0);
-if ($pid <= 0) { echo json_encode(['error' => tPlain('admin.bank_status.err_no_pid')]); exit; }
+if (!$pid) { echo json_encode(['error' => tPlain('admin.bank_status.err_no_pid')]); exit; }
 
 $db = Database::getInstance()->getConnection();
 

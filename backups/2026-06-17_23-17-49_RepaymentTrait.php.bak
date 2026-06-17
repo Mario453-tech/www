@@ -18,7 +18,10 @@ trait BankRepaymentTrait
             $stmt->execute([':pid' => $playerId]);
             return $stmt->fetchAll();
         } catch (Throwable $e) {
-            GameLog::error('BankService', 'getActiveLoans failed', $e, ['player_id' => $playerId]);
+            GameLog::error('BankService', 'getActiveLoans failed', [
+                'player_id' => $playerId,
+                'error' => $e->getMessage(),
+            ]);
             return [];
         }
     }

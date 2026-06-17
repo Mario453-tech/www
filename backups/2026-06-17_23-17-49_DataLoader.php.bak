@@ -524,7 +524,7 @@ class BankDataLoader
  * Loads credit limit and related blocking reasons.
  * Laduje limit kredytowy i powiazane powody blokady.
  */
-    private function loadCreditLimit(bool &$canApply, array &$blockReasons): array
+    private function loadCreditLimit(bool $canApply, array &$blockReasons): array
     {
         $creditLimit = 0;
         $playerData = null;

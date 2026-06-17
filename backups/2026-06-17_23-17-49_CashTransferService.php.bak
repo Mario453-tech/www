@@ -211,7 +211,7 @@ class CashTransferService
             return $this->fail(tPlain('wallet.err_db'));
         }
 
-        $newBalances = $this->wallet->getBalances($this->playerId) ?? [];
+        $newBalances = $this->wallet->getBalances($this->playerId);
         GameLog::info('CashTransferService', 'transfer OK', [
             'player' => $this->playerId,
             'from'   => $fromPool,
