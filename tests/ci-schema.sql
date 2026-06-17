@@ -2427,7 +2427,7 @@ CREATE TABLE `well_road_trips` (
   `truck_type` enum('standard','heavy','armored') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'standard',
   `trips_count` smallint UNSIGNED NOT NULL DEFAULT '1',
   `trip_hours` tinyint UNSIGNED NOT NULL DEFAULT '2',
-  `status` enum('in_transit','delayed','lost','delivered') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'in_transit',
+  `status` enum('in_transit','crediting','delayed','lost','delivered') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'in_transit',
   `departure_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `eta_at` datetime NOT NULL,
   `arrived_at` datetime DEFAULT NULL,

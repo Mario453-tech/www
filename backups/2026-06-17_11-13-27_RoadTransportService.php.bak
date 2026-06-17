@@ -134,7 +134,7 @@ class RoadTransportService
                     cost                 DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                     incident_risk_mult   DECIMAL(6,3)  NOT NULL DEFAULT 1.000,
                     political_risk_level TINYINT UNSIGNED NOT NULL DEFAULT 1,
-                    status               ENUM('in_transit','crediting','delivered','lost') NOT NULL DEFAULT 'in_transit',
+                    status               ENUM('in_transit','delivered','lost') NOT NULL DEFAULT 'in_transit',
                     departure_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     eta_at               DATETIME NOT NULL,
                     arrived_at           DATETIME NULL DEFAULT NULL,
@@ -152,43 +152,6 @@ class RoadTransportService
             $this->ensureRoadTripColumn('trip_hours',           'TINYINT UNSIGNED NOT NULL DEFAULT 2 AFTER trips_count');
             $this->ensureRoadTripColumn('incident_risk_mult',   'DECIMAL(6,3) NOT NULL DEFAULT 1.000 AFTER cost');
             $this->ensureRoadTripColumn('political_risk_level', 'TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER incident_risk_mult');
- // M3: Rozszerz ENUM status o 'crediting' (stan przejsciowy: kurs policzony,
- // ale jeszcze nie potwierdzony w magazynie). / M3: extend status ENUM with
- // 'crediting' (transitional: trip computed but not yet confirmed in storage).
-            $this->ensureRoadTripStatusEnum();
-        }
-    }
-
- /**
- * M3: Dodaje wartosc 'crediting' do ENUM status w istniejacych tabelach (migracja).
- * M3: Adds the 'crediting' value to the status ENUM on existing tables (migration).
- */
-    private function ensureRoadTripStatusEnum(): void
-    {
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME   = 'well_road_trips'
-                    AND COLUMN_NAME  = 'status'"
-            );
-            $stmt->execute();
-            $type = (string)$stmt->fetchColumn();
- // Brak tabeli (pusty) lub juz zmigrowane (zawiera 'crediting') -> nic nie rob.
- // No table (empty) or already migrated (contains 'crediting') -> nothing to do.
-            if ($type === '' || strpos($type, "'crediting'") !== false) {
-                return;
-            }
-            $this->db->exec(
-                "ALTER TABLE well_road_trips
-                    MODIFY COLUMN status
-                    ENUM('in_transit','crediting','delivered','lost')
-                    NOT NULL DEFAULT 'in_transit'"
-            );
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('RoadTransportService', 'ensureRoadTripStatusEnum FAILED', $e);
-            }
         }
     }
 
@@ -334,44 +297,6 @@ class RoadTransportService
  /** @var array<int, float> well_id => delivered bbl (basis for the second transport leg) */
         $deliveredByWell = [];
 
- // M3 RECOVERY: ponownie skredytuj osierocone kursy 'crediting' z poprzedniego ticka.
- // Zapis magazynu i potwierdzenie dostawy sa atomowe (patrz PlayersSection::processPlayer),
- // wiec kurs nadal 'crediting' na poczatku ticka oznacza, ze magazyn NIE zostal zapisany —
- // ropa nigdy nie trafila do gracza i trzeba ja skredytowac ponownie. delivered_bbl oraz
- // incydenty sa juz utrwalone z pierwotnego ticka, wiec NIE losujemy i NIE logujemy ponownie.
- // M3 RECOVERY: re-credit orphaned 'crediting' trips from a crashed previous tick.
- // Storage write and delivery confirmation are atomic (see PlayersSection::processPlayer),
- // so a trip still 'crediting' at tick start means storage was NOT committed — the oil never
- // reached the player and must be credited again. delivered_bbl and incidents are already
- // persisted/logged from the original tick, so we DO NOT re-roll or re-log.
-        try {
-            $recoverStmt = $this->db->prepare(
-                "SELECT id, well_id, delivered_bbl
-                   FROM well_road_trips
-                  WHERE player_id = ? AND status = 'crediting'
-                  ORDER BY eta_at ASC"
-            );
-            $recoverStmt->execute([$playerId]);
-            $orphans = $recoverStmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('RoadTransportService', 'processCompletedTrips recovery fetch FAILED', $e, ['player_id' => $playerId]);
-            }
-            $orphans = [];
-        }
-        foreach ($orphans as $orphan) {
-            $recBbl = (float)$orphan['delivered_bbl'];
-            $totalDelivered += $recBbl;
-            $completed++;
-            $wid = (int)$orphan['well_id'];
-            $deliveredByWell[$wid] = ($deliveredByWell[$wid] ?? 0.0) + $recBbl;
-            if (class_exists('GameLog', false)) {
-                GameLog::warn('RoadTransportService', 'road_trip_recovered_after_crash', [
-                    'trip_id' => (int)$orphan['id'], 'player_id' => $playerId, 'bbl' => round($recBbl, 4),
-                ]);
-            }
-        }
-
         try {
             $stmt = $this->db->prepare(
                 "SELECT id, well_id, volume_bbl, trips_count, trip_hours,
@@ -386,9 +311,7 @@ class RoadTransportService
             if (class_exists('GameLog', false)) {
                 GameLog::error('RoadTransportService', 'processCompletedTrips fetch FAILED', $e, ['player_id' => $playerId]);
             }
- // Zwroc to, co odzyskala faza recovery (nie gub odzyskanych kursow).
- // Return what the recovery phase produced (do not drop recovered trips).
-            $trips = [];
+            return ['delivered_bbl' => 0.0, 'lost_bbl' => 0.0, 'completed_count' => 0, 'delivered_by_well' => []];
         }
 
         foreach ($trips as $trip) {
@@ -402,15 +325,9 @@ class RoadTransportService
             );
 
             try {
- // Faza 1: oznacz 'crediting' (NIE 'delivered') i zapisz policzony delivered_bbl.
- // Potwierdzenie na 'delivered' nastapi w confirmCreditedTrips() w tej samej
- // transakcji co zapis magazynu. arrived_at ustawiamy dopiero przy potwierdzeniu.
- // Phase 1: mark 'crediting' (NOT 'delivered') and store the computed delivered_bbl.
- // Confirmation to 'delivered' happens in confirmCreditedTrips() within the same
- // transaction as the storage write. arrived_at is set only at confirmation.
                 $this->db->prepare(
                     "UPDATE well_road_trips
-                        SET status = 'crediting', delivered_bbl = ?
+                        SET status = 'delivered', delivered_bbl = ?, arrived_at = NOW()
                       WHERE id = ?"
                 )->execute([round($delivered, 4), (int)$trip['id']]);
 
@@ -446,27 +363,6 @@ class RoadTransportService
             'completed_count' => $completed,
             'delivered_by_well' => $deliveredByWell,
         ];
-    }
-
- /**
- * M3: Potwierdza kursy 'crediting' gracza jako 'delivered'. MUSI byc wywolane w tej
- * samej transakcji co zapis magazynu, aby kredyt do magazynu i potwierdzenie dostawy
- * commitowaly sie atomowo. Rzuca wyjatek przy bledzie (celowo — aby wycofac transakcje).
- * M3: Confirms a player's 'crediting' trips as 'delivered'. MUST be called within the
- * same transaction as the storage write so that storage credit and delivery confirmation
- * commit atomically. Throws on error by design (to roll back the transaction).
- *
- * @return int liczba potwierdzonych kursow / number of confirmed trips
- */
-    public function confirmCreditedTrips(int $playerId): int
-    {
-        $stmt = $this->db->prepare(
-            "UPDATE well_road_trips
-                SET status = 'delivered', arrived_at = NOW()
-              WHERE player_id = ? AND status = 'crediting'"
-        );
-        $stmt->execute([$playerId]);
-        return $stmt->rowCount();
     }
 
  /**
