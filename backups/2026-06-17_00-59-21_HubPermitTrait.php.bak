@@ -252,7 +252,7 @@ trait LegalHubPermitTrait
         if ($existingStatus === 'granted') {
             return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.hub.err.already_active')];
         }
-        if (in_array($existingStatus, ['pending', 'delayed'], true)) {
+        if (in_array($existingStatus, ['pending', 'delayed', 'no_decision'], true)) {
             return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.hub.err.in_progress')];
         }
         if ($existingStatus === 'refused' && !empty($existing['application']['refusal_cooldown_until'])) {

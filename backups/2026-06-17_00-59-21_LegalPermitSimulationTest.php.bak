@@ -196,12 +196,10 @@ final class LegalPermitSimulationTest extends SqliteIntegrationTestCase
 
         $this->assertSame('no_decision', $this->statusOf(self::PLAYER_B, self::REGION_STRICT));
 
-        // no_decision to status terminalny — gracz moze od razu zlozyc ponownie.
-        // no_decision is terminal — player may immediately resubmit.
-        $this->updateRegionRisks(self::REGION_STRICT, delay: 0, refusal: 0, noDec: 0);
-        $resOk = $this->legal->submitApplication(self::PLAYER_B, self::REGION_STRICT, $t1);
-        $this->assertTrue($resOk['success'], 'Resubmit po no_decision powinien sie udac: ' . ($resOk['message'] ?? ''));
-        $this->assertSame('pending', $this->statusOf(self::PLAYER_B, self::REGION_STRICT));
+        // no_decision traktowany jak in_progress — blokuje ponowny wniosek
+        $resBlock = $this->legal->submitApplication(self::PLAYER_B, self::REGION_STRICT, $t1);
+        $this->assertFalse($resBlock['success']);
+        $this->assertSame('in_progress', $resBlock['code']);
     }
 
     // =====================================================================

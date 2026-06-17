@@ -197,12 +197,17 @@ class LegalSection
     private function applyHubNoDecision(
         int $appId, int $playerId, int $regionId, string $nowStr, string $riskLevel
     ): void {
-        // Brak decyzji = status terminalny; gracz sam sklada ponownie.
-        // No decision = terminal status; player resubmits manually.
+        // Brak decyzji = ponowne wejscie w kolejke z godzinnym opoznieniem (jak przy wierceniach).
+        // Status terminalny 'no_decision' nie jest w WHERE IN ('pending','delayed'), wiec wniosek
+        // utknalby na zawsze bez sciezki do granted/refused.
+        // No decision = re-enter the queue with a 1-hour delay (same as drilling permits).
+        // Terminal 'no_decision' is not in WHERE IN ('pending','delayed'), so the application
+        // would be stuck forever with no path to granted/refused.
+        $newDueAt = $this->addMinutes($nowStr, 60);
         $this->db->prepare(
             "UPDATE hub_permit_applications
-                SET status='no_decision', decided_at=? WHERE id=?"
-        )->execute([$nowStr, $appId]);
+                SET status='pending', decision_due_at=?, delay_count=delay_count+1 WHERE id=?"
+        )->execute([$newDueAt, $appId]);
         $this->hubDecided++;
         $this->notifyHub($playerId, $regionId, 'no_decision', $riskLevel, $nowStr, true);
     }
@@ -480,12 +485,13 @@ class LegalSection
         string $nowStr,
         string $riskLevel
     ): void {
-        // Brak decyzji = status terminalny; gracz sam sklada ponownie.
-        // No decision = terminal status; player resubmits manually.
+        // Brak decyzji = ponowne wejscie w kolejke z godzinnym opoznieniem.
+        // No decision = re-enter queue with 1-hour delay; prevents permanent stuck state.
         $this->db->prepare(
             "UPDATE drilling_permit_applications
-                SET status     = 'no_decision',
-                    decided_at = ?
+                SET status          = 'pending',
+                    delay_count     = delay_count + 1,
+                    decision_due_at = DATE_ADD(?, INTERVAL 60 MINUTE)
               WHERE id = ?"
         )->execute([$nowStr, $appId]);
 
