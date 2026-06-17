@@ -230,10 +230,7 @@ catch (Throwable $e) { GameLog::error('technical.php', 'getUnreadNotifications F
 try { $incidents = $incidentSvc ? $incidentSvc->getPlayerIncidents($playerId, 50) : []; GameLog::dbResult('technical.php', 'getPlayerIncidents', count($incidents)); }
 catch (Throwable $e) { GameLog::error('technical.php', 'getPlayerIncidents FAIL', $e); $incidents = []; }
 
-// Walidacja activeTab — whitelist, zabezpieczenie przed XSS / whitelist validation, prevents XSS
-$__allowedTabs = ['team','well_staff','candidates','tasks','wells','prod','infra','safety','incidents','report'];
-$activeTab = in_array($_GET['tab'] ?? '', $__allowedTabs, true) ? $_GET['tab'] : 'team';
-unset($__allowedTabs);
+$activeTab = $_GET['tab'] ?? 'team';
 GameLog::info('technical.php', "Active tab: {$activeTab}");
 
 try { $candidates = $svc->getTechnicalCandidates(); GameLog::dbResult('technical.php', 'getTechnicalCandidates', count($candidates)); }
@@ -288,9 +285,6 @@ try {
 
 // Pipelines — laduj z well_pipelines (tu sa ID uzywane przez technical_tasks)
 // Load from well_pipelines (IDs referenced by technical_tasks, not old pipelines table)
-// Inicjalizacja $db przed blokiem try — zabezpieczenie przed uzyciem niezainicjowanej zmiennej
-// Initialize $db before try block — guard against use of uninitialized variable if try throws
-$db = null;
 try {
     $db = Database::getInstance()->getConnection();
 
@@ -317,15 +311,10 @@ try {
     $pipelines = [];
 }
 
-// Warunki upgrade procedur BHP
+// Warunki upgrade procedur BHP 
 $auditDone   = false;
 $hasHseStaff = ['officer' => false, 'engineer' => false];
 try {
-    // Fallback: jesli polaczenie nie zostalo utworzone w bloku pipeline, pobierz nowe
-    // Fallback: if connection was not created in pipeline block, obtain a new one
-    if ($db === null) {
-        $db = Database::getInstance()->getConnection();
-    }
     $auditCheckStmt = $db->prepare("
         SELECT id FROM technical_tasks
         WHERE player_id = ? AND task_type = 'safety_audit' AND status = 'completed'
@@ -352,14 +341,9 @@ try {
 
 $canUpgradeProcedures = $auditDone && $hasHseStaff['officer'] && $hasHseStaff['engineer'];
 
-// Aktywne katastrofy
+// Aktywne katastrofy 
 $activeDisasters = [];
 try {
-    // Fallback: jesli $db null (blok pipeline rzucil wyjatek), pobierz polaczenie
-    // Fallback: if $db is null (pipeline block threw), obtain connection
-    if ($db === null) {
-        $db = Database::getInstance()->getConnection();
-    }
     $dsStmt = $db->prepare("
         SELECT d.*, w.location_name AS well_name
         FROM industrial_disasters d
@@ -373,14 +357,9 @@ try {
     GameLog::error('technical.php', 'activeDisasters query FAILED', $e);
 }
 
-// Historia awarii
+// Historia awarii 
 $failures = [];
 try {
-    // Fallback: jesli $db null (poprzednie bloki rzucily wyjatek), pobierz polaczenie
-    // Fallback: if $db is null (previous blocks threw), obtain connection
-    if ($db === null) {
-        $db = Database::getInstance()->getConnection();
-    }
     $failStmt = $db->prepare("
         SELECT fl.*, w.location_name
         FROM failure_log fl

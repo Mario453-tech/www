@@ -125,7 +125,7 @@ trait TTSProceduresTrait
             $this->db->prepare("
                 UPDATE players
                 SET safety_procedures_level = ?,
-                    procedure_integrity = 100.0,
+                    procedure_integrity = 100,
                     procedures_last_decay_at = NOW()
                 WHERE id = ?
             ")->execute([$nextLevel, $this->playerId]);
@@ -183,33 +183,19 @@ trait TTSProceduresTrait
                 return ['success' => false, 'message' => t('technical.proc_msg.integrity_max')];
             }
 
-            // Require both safety_officer AND safety_engineer (same as upgradeProcedures).
-            // Wymagaj zarowno safety_officer JAK I safety_engineer (tak samo jak upgradeProcedures).
             $staffStmt = $this->db->prepare("
-                SELECT spec_code FROM technical_staff
+                SELECT id FROM technical_staff
                 WHERE player_id = ?
                   AND spec_code IN ('safety_officer','safety_engineer')
                   AND status IN ('active','busy')
                   AND (fired_at IS NULL OR fired_at > NOW())
+                LIMIT 1
             ");
             $staffStmt->execute([$this->playerId]);
-            $hseStaff = array_column($staffStmt->fetchAll(), 'spec_code');
-            $hasOfficer  = in_array('safety_officer',  $hseStaff, true);
-            $hasEngineer = in_array('safety_engineer', $hseStaff, true);
-
-            if (!$hasOfficer || !$hasEngineer) {
-                $missing = [];
-                if (!$hasOfficer) {
-                    $missing[] = t('technical.spec.safety_officer');
-                }
-                if (!$hasEngineer) {
-                    $missing[] = t('technical.spec.safety_engineer');
-                }
+            if (!$staffStmt->fetch()) {
                 return [
                     'success' => false,
-                    'message' => t('technical.proc_msg.missing_staff', [
-                        'missing' => implode(' i ', $missing),
-                    ]),
+                    'message' => t('technical.proc_msg.review_requires_staff'),
                 ];
             }
 
@@ -377,9 +363,9 @@ trait TTSProceduresTrait
             );
         } catch (Throwable $e) {
             GameLog::error('TTS', 'getStaffRequirementCheck FAILED', $e, ['player_id' => $this->playerId]);
- // Fail-closed: deny access on read error — safer than granting it.
- // Fail-closed: odmow dostepu przy bledzie odczytu — bezpieczniejsze niz zezwolenie.
-            $result['meets_minimum'] = false;
+ // Fail-safe: do not pause wells because of a read error.
+ // Fail-safe: nie pauzuj odwiertow przez blad odczytu.
+            $result['meets_minimum'] = true;
         }
 
         return $result;

@@ -10,8 +10,6 @@ trait TTSStaffTrait
 
     public function getStaff(): array
     {
-        // Replace correlated subquery with LEFT JOIN on derived table to avoid N+1 per row.
-        // Zastap skorelowane podzapytanie LEFT JOIN na tabeli pochodnej, by uniknac N+1 na wiersz.
         $stmt = $this->db->prepare("
             SELECT ts.*,
                    ss.name  AS specialization_name,
@@ -23,15 +21,10 @@ trait TTSStaffTrait
                    tt.title AS active_task_title,
                    tt.end_time AS active_task_end,
                    tt.status AS active_task_status,
-                   COALESCE(ttq.cnt, 0) AS queued_tasks
+                   (SELECT COUNT(*) FROM technical_task_queue q WHERE q.staff_id = ts.id) AS queued_tasks
             FROM technical_staff ts
             LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
             LEFT JOIN technical_tasks tt ON tt.staff_id = ts.id AND tt.status = 'in_progress'
-            LEFT JOIN (
-                SELECT staff_id, COUNT(*) AS cnt
-                FROM technical_task_queue
-                GROUP BY staff_id
-            ) ttq ON ttq.staff_id = ts.id
             WHERE ts.player_id = ? AND ts.status != 'fired'
             ORDER BY FIELD(ts.spec_code,
                 'drilling_engineer','reservoir_engineer','production_engineer',

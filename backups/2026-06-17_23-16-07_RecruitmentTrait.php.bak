@@ -52,14 +52,12 @@ trait TTSRecruitmentTrait
                                            AND cr.player_id = ?
             WHERE br.code = 'technical'
               AND c.expires_at > NOW()
-              AND (c.player_id = ? OR c.player_id IS NULL)
               AND (c.request_id IS NULL OR c.request_id IN (
                   SELECT id FROM recruitment_requests WHERE player_id = ?
               ))
             ORDER BY c.expires_at ASC
         ");
-        // C2 fix: bind player_id twice (isolation filter + subquery) / Poprawka C2: player_id bindowany dwukrotnie (filtr izolacji + podzapytanie)
-        $stmt->execute([$this->playerId, $this->playerId, $this->playerId]);
+        $stmt->execute([$this->playerId, $this->playerId]);
         return $stmt->fetchAll();
     }
 
@@ -81,26 +79,16 @@ trait TTSRecruitmentTrait
             return ['success' => false, 'message' => t('technical.recruitment_msg.candidate_missing')];
         }
 
-        // H9 fix: wrap INSERT/UPDATE in try-catch, check execute() result
-        // Poprawka H9: INSERT/UPDATE w try-catch, sprawdzenie wyniku execute()
-        try {
-            $insStmt = $this->db->prepare("
-                INSERT INTO candidate_reviews
-                    (candidate_id, reviewer_member_id, player_id, score, recommendation, comment)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    score          = VALUES(score),
-                    recommendation = VALUES(recommendation),
-                    comment        = VALUES(comment),
-                    created_at     = CURRENT_TIMESTAMP
-            ");
-            $ok = $insStmt->execute([$candidateId, $reviewerMemberId, $this->playerId, $score, $recommendation, $comment]);
-            if (!$ok) {
-                return ['success' => false, 'message' => t('technical.task_msg.start_failed', ['error' => 'execute() returned false'])];
-            }
-        } catch (\Throwable $e) {
-            return ['success' => false, 'message' => t('technical.task_msg.start_failed', ['error' => $e->getMessage()])];
-        }
+        $this->db->prepare("
+            INSERT INTO candidate_reviews
+                (candidate_id, reviewer_member_id, player_id, score, recommendation, comment)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                score          = VALUES(score),
+                recommendation = VALUES(recommendation),
+                comment        = VALUES(comment),
+                created_at     = CURRENT_TIMESTAMP
+        ")->execute([$candidateId, $reviewerMemberId, $this->playerId, $score, $recommendation, $comment]);
 
         $recLabel = $recommendation === 'hire'
             ? t('technical.recruitment_msg.recommend_hire')
@@ -276,63 +264,38 @@ trait TTSRecruitmentTrait
             return ['success' => false, 'message' => t('technical.recruitment_msg.unknown_spec')];
         }
 
-        // C3 fix: wrap capacity check + INSERT in a transaction to prevent race conditions
-        // Poprawka C3: check pojemnosci + INSERT w transakcji, zapobiega race condition
-        $ownTx = !$this->db->inTransaction();
-        if ($ownTx) {
-            $this->db->beginTransaction();
+        $summary = $this->getRecruitmentCapacitySummary($specCode);
+        $remaining = (int)$summary['remaining_capacity'];
+        if ($remaining <= 0) {
+            return [
+                'success' => false,
+                'message' => t('technical.rec_limit_reached', [
+                    'spec'             => $spec['name'],
+                    'per_spec_used'    => $summary['per_spec_used'],
+                    'per_spec_limit'   => $summary['per_spec_limit'],
+                    'department_used'  => $summary['department_used'],
+                    'department_limit' => $summary['department_limit'],
+                ]),
+            ];
         }
 
-        try {
-            // Re-fetch capacity inside the transaction / Pobierz pojemnosc wewnatrz transakcji
-            $summary = $this->getRecruitmentCapacitySummary($specCode);
-            $remaining = (int)$summary['remaining_capacity'];
-            if ($remaining <= 0) {
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return [
-                    'success' => false,
-                    'message' => t('technical.rec_limit_reached', [
-                        'spec'             => $spec['name'],
-                        'per_spec_used'    => $summary['per_spec_used'],
-                        'per_spec_limit'   => $summary['per_spec_limit'],
-                        'department_used'  => $summary['department_used'],
-                        'department_limit' => $summary['department_limit'],
-                    ]),
-                ];
-            }
-
-            $roleStmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = 'technical' LIMIT 1");
-            $roleStmt->execute();
-            $role = $roleStmt->fetch();
-            if (!$role) {
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return ['success' => false, 'message' => t('technical.recruitment_msg.missing_role')];
-            }
-
-            $ranges = ['local' => [360, 720], 'international' => [1440, 2880]];
-            $range = $ranges[$recruitmentType] ?? $ranges['local'];
-            $duration = rand($range[0], $range[1]);
-            $readyAt = date('Y-m-d H:i:s', time() + $duration);
-
-            $this->db->prepare("
-                INSERT INTO recruitment_requests
-                    (role_id, region_code, player_id, initiated_by, recruitment_type, spec_code, ready_at, status)
-                VALUES (?, ?, ?, 'technical', ?, ?, ?, 'pending')
-            ")->execute([$role['id'], $regionCode, $this->playerId, $recruitmentType, $specCode, $readyAt]);
-
-            if ($ownTx) {
-                $this->db->commit();
-            }
-        } catch (\Throwable $e) {
-            if ($ownTx && $this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            throw $e;
+        $roleStmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = 'technical' LIMIT 1");
+        $roleStmt->execute();
+        $role = $roleStmt->fetch();
+        if (!$role) {
+            return ['success' => false, 'message' => t('technical.recruitment_msg.missing_role')];
         }
+
+        $ranges = ['local' => [360, 720], 'international' => [1440, 2880]];
+        $range = $ranges[$recruitmentType] ?? $ranges['local'];
+        $duration = rand($range[0], $range[1]);
+        $readyAt = date('Y-m-d H:i:s', time() + $duration);
+
+        $this->db->prepare("
+            INSERT INTO recruitment_requests
+                (role_id, region_code, player_id, initiated_by, recruitment_type, spec_code, ready_at, status)
+            VALUES (?, ?, ?, 'technical', ?, ?, ?, 'pending')
+        ")->execute([$role['id'], $regionCode, $this->playerId, $recruitmentType, $specCode, $readyAt]);
 
         $mins = ceil($duration / 60);
         return [

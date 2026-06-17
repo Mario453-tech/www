@@ -128,44 +128,32 @@ trait TTSTasksTrait
         $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
         $busyStmt->execute([$staffId]);
         if ($busyStmt->fetch()) {
- // Atomowa kontrola duplikatu + wstawienie do kolejki — chroni przed race condition.
- // Atomic duplicate check + queue INSERT — guards against race condition between check and insert.
-            $ownTx = !$this->db->inTransaction();
-            if ($ownTx) $this->db->beginTransaction();
-            try {
  // Prevent duplicate queue entries for the same worker+task+target combination.
  // Zabezpieczenie przed duplikatami w kolejce dla tego samego pracownika i zadania.
  // Build null-safe conditions portably (MySQL <=> is not supported by SQLite).
-                $dupConds  = ['staff_id = ?', 'task_type = ?'];
-                $dupParams = [$staffId, $taskType];
-                foreach (['well_id' => $wellId, 'hub_id' => $hubId, 'pipeline_id' => $pipelineId, 'module_type' => $moduleType] as $col => $val) {
-                    if ($val === null) {
-                        $dupConds[] = "$col IS NULL";
-                    } else {
-                        $dupConds[] = "$col = ?";
-                        $dupParams[] = $val;
-                    }
+            $dupConds  = ['staff_id = ?', 'task_type = ?'];
+            $dupParams = [$staffId, $taskType];
+            foreach (['well_id' => $wellId, 'hub_id' => $hubId, 'pipeline_id' => $pipelineId, 'module_type' => $moduleType] as $col => $val) {
+                if ($val === null) {
+                    $dupConds[] = "$col IS NULL";
+                } else {
+                    $dupConds[] = "$col = ?";
+                    $dupParams[] = $val;
                 }
-                $dupStmt = $this->db->prepare(
-                    "SELECT id FROM technical_task_queue WHERE " . implode(' AND ', $dupConds) . " LIMIT 1"
-                );
-                $dupStmt->execute($dupParams);
-                if ($dupStmt->fetch()) {
-                    if ($ownTx) $this->db->commit();
-                    return ['success' => false, 'message' => t('technical.task_msg.already_queued')];
-                }
-
-                $this->db->prepare("
-                    INSERT INTO technical_task_queue (player_id, staff_id, task_type, well_id, hub_id, pipeline_id, module_type)
-                    VALUES (?,?,?,?,?,?,?)
-                ")->execute([$this->playerId, $staffId, $taskType, $wellId, $hubId, $pipelineId, $moduleType]);
-                if ($ownTx) $this->db->commit();
-                return ['success' => true, 'message' => t('technical.task_msg.worker_busy_queued'), 'queued' => true];
-            } catch (Throwable $e) {
-                if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
-                GameLog::error('TTS', 'assignTask queue FAILED', $e);
-                return ['success' => false, 'message' => t('technical.task_msg.start_failed', ['error' => $e->getMessage()])];
             }
+            $dupStmt = $this->db->prepare(
+                "SELECT id FROM technical_task_queue WHERE " . implode(' AND ', $dupConds) . " LIMIT 1"
+            );
+            $dupStmt->execute($dupParams);
+            if ($dupStmt->fetch()) {
+                return ['success' => false, 'message' => t('technical.task_msg.already_queued')];
+            }
+
+            $this->db->prepare("
+                INSERT INTO technical_task_queue (player_id, staff_id, task_type, well_id, hub_id, pipeline_id, module_type)
+                VALUES (?,?,?,?,?,?,?)
+            ")->execute([$this->playerId, $staffId, $taskType, $wellId, $hubId, $pipelineId, $moduleType]);
+            return ['success' => true, 'message' => t('technical.task_msg.worker_busy_queued'), 'queued' => true];
         }
 
         return $this->startTask($staffId, $taskType, $wellId, $moduleType, $staff, $hubId, $pipelineId);
@@ -620,50 +608,33 @@ trait TTSTasksTrait
             $msg = t('technical.task_msg.task_failed_generic', ['title' => $task['title']]);
         }
 
- // Atomowe zakonczenie zadania: status, pracownik, powiadomienie, nastepne w kolejce.
- // Atomic task completion: status, staff, notification, and next queued task start.
-        $ownTxComplete = !$this->db->inTransaction();
-        if ($ownTxComplete) $this->db->beginTransaction();
-        try {
+        $this->db->prepare("
+            UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ?
+        ")->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId]);
+
+        $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ?")->execute([$staffId]);
+
+        if (!empty($msg)) {
             $this->db->prepare("
-                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ?
-            ")->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId]);
-
-            $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ? AND player_id = ?")->execute([$staffId, $pId]);
-
-            if (!empty($msg)) {
-                $this->db->prepare("
-                    INSERT INTO technical_notifications (player_id, well_id, type, message)
-                    VALUES (?,?,?,?)
-                ")->execute([$pId, $wellId, 'task', $msg]);
-            }
+                INSERT INTO technical_notifications (player_id, well_id, type, message)
+                VALUES (?,?,?,?)
+            ")->execute([$pId, $wellId, 'task', $msg]);
+        }
 
  // Start the next queued task for this worker.
  // Uruchom nastepne zadanie z kolejki dla tego pracownika.
- // startTask() manages its own transaction internally — no double-wrap needed.
-            $qStmt = $this->db->prepare("
-                SELECT * FROM technical_task_queue
-                WHERE staff_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
-            ");
-            $qStmt->execute([$staffId]);
-            $next = $qStmt->fetch();
-            if ($next) {
-                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$next['id']]);
+        $qStmt = $this->db->prepare("
+            SELECT * FROM technical_task_queue
+            WHERE staff_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
+        ");
+        $qStmt->execute([$staffId]);
+        $next = $qStmt->fetch();
+        if ($next) {
+            $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$next['id']]);
+            $staffRow = $this->getStaffMember($staffId);
+            if ($staffRow) {
+                $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
             }
-
-            if ($ownTxComplete) $this->db->commit();
-
- // startTask() opens its own transaction; call it only after outer commit is done.
- // startTask() otwiera wlasna transakcje; wywolujemy go dopiero po zatwierdzeniu zewnetrznej.
-            if ($next) {
-                $staffRow = $this->getStaffMember($staffId);
-                if ($staffRow) {
-                    $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
-                }
-            }
-        } catch (Throwable $e) {
-            if ($ownTxComplete && $this->db->inTransaction()) $this->db->rollBack();
-            GameLog::error('TTS', 'completeTask FAILED', $e, ['task_id' => $taskId]);
         }
     }
 

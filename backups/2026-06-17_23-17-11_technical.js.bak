@@ -3,11 +3,6 @@
  */
 
 var _TECHL = window.TECH_LANG || {};
-
-// Licznik aktywnych zadан sieciowych — zapobiega odswiezeniu podczas in-flight fetch.
-// Counter of in-flight network requests — prevents auto-refresh while a fetch is pending.
-var _pendingFetches = 0;
-
 function techl(key) {
     return _TECHL[key] || key;
 }
@@ -47,16 +42,8 @@ async function dismissAllNotifs() {
         btn.textContent = '...';
     }
 
-    // Zwieksz licznik przed fetch; zmniejsz w kazdym mozliwym scenariuszu zakonczenia.
-    // Increment counter before fetch; decrement in every possible completion path.
-    _pendingFetches++;
-    let data = {};
-    try {
-        const res = await fetch('/src/TechNotifApi.php', { method: 'POST', body: fd });
-        data = await res.json().catch(() => ({}));
-    } finally {
-        _pendingFetches--;
-    }
+    const res = await fetch('/src/TechNotifApi.php', { method: 'POST', body: fd });
+    const data = await res.json().catch(() => ({}));
 
     if (data.success && panel) {
         const rows = panel.querySelectorAll('.notif-row');
@@ -92,16 +79,8 @@ async function dismissNotif(id) {
         el.style.opacity = '0.4';
     }
 
-    // Zwieksz licznik przed fetch; zmniejsz w kazdym mozliwym scenariuszu zakonczenia.
-    // Increment counter before fetch; decrement in every possible completion path.
-    _pendingFetches++;
-    let data = {};
-    try {
-        const res = await fetch(location.pathname, { method: 'POST', body: fd });
-        data = await res.json().catch(() => ({}));
-    } finally {
-        _pendingFetches--;
-    }
+    const res = await fetch(location.pathname, { method: 'POST', body: fd });
+    const data = await res.json().catch(() => ({}));
 
     if (data.success && el) {
         el.style.transition = 'all .3s';
@@ -123,9 +102,6 @@ async function dismissNotif(id) {
 
 function toggleWellSelect(sel, staffId) {
     const opt = sel.options[sel.selectedIndex];
-    // Jesli brak zaznaczonej opcji (selectedIndex == -1), przerwij — opt bylby undefined.
-    // If no option is selected (selectedIndex == -1), bail out — opt would be undefined.
-    if (!opt) return;
     const needsWell = opt.dataset.needsWell === '1';
     const needsHub = opt.dataset.needsHub === '1';
     const needsMod = opt.dataset.needsModule === '1';
@@ -168,9 +144,6 @@ function techTaskConfirm(form) {
     function doSubmit() {
         if (btn) { btn.disabled = true; btn.textContent = '...'; }
         const fd = new FormData(form);
-        // Zwieksz licznik przed fetch; zmniejsz w kazdym mozliwym scenariuszu zakonczenia.
-        // Increment counter before fetch; decrement in every possible completion path.
-        _pendingFetches++;
         fetch(location.pathname, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -178,7 +151,6 @@ function techTaskConfirm(form) {
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            _pendingFetches--;
             const msg = data.message || '';
             if (data.success) {
                 const title = (window.TECH_LANG && window.TECH_LANG.task_result_title) || 'Zlecono';
@@ -197,7 +169,6 @@ function techTaskConfirm(form) {
             }
         })
         .catch(function () {
-            _pendingFetches--;
             location.reload();
         });
     }
@@ -271,10 +242,10 @@ function candReviewConfirm(form) {
     return window.confirm(msg);
 }
 
-// Auto-odswiezanie — pomijane gdy karta nieaktywna lub trwa zadanie sieciowe.
-// Auto-refresh — skipped when tab is hidden or a fetch is in progress.
+// Auto-odswiezanie — pomijane gdy karta nieaktywna (oszczedza obciazenie serwera).
+// Auto-refresh — skipped when tab is hidden (saves server load).
 setInterval(() => {
-    if (!document.hidden && _pendingFetches === 0) location.reload();
+    if (!document.hidden) location.reload();
 }, 60000);
 
 // Inicjalizacja widocznosci selectorow dla kazdego formularza przypisania zadania.
