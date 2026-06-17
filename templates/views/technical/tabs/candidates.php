@@ -22,10 +22,16 @@
                 <input type="hidden" name="_token" value="<?= $csrf ?>">
                 <input type="hidden" name="action" value="cancel_recruitment">
                 <input type="hidden" name="request_id" value="<?= (int)$pendingRecruitment['id'] ?>">
+                <?php
+                // Buduj bodyHtml jako PHP string i koduj przez json_encode, zeby uniknac &quot; w atrybucie onclick
+                // Build bodyHtml as a PHP string and encode via json_encode to avoid &quot; inside onclick attribute
+                $__bodyHtml = '<p>' . t('technical.confirm_cancel_recruitment') . '</p>'
+                    . '<p style="margin-top:8px;opacity:.8;font-size:.92rem;">' . t('technical.cancel_recruitment_hint') . '</p>';
+                ?>
                 <button
                     type="button"
                     class="btn btn-secondary btn-sm rec-cancel-btn"
-                    onclick="confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.cancel_recruitment_title'), ENT_QUOTES, 'UTF-8') ?>', type: 'danger', confirmLabel: '<?= htmlspecialchars(t('technical.btn_cancel_recruitment_confirm'), ENT_QUOTES, 'UTF-8') ?>', bodyHtml: '<p><?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?></p><p style=&quot;margin-top:8px;opacity:.8;font-size:.92rem;&quot;><?= htmlspecialchars(t('technical.cancel_recruitment_hint'), ENT_QUOTES, 'UTF-8') ?></p>' }); return false;"
+                    onclick="confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.cancel_recruitment_title'), ENT_QUOTES, 'UTF-8') ?>', type: 'danger', confirmLabel: '<?= htmlspecialchars(t('technical.btn_cancel_recruitment_confirm'), ENT_QUOTES, 'UTF-8') ?>', bodyHtml: <?= htmlspecialchars(json_encode($__bodyHtml), ENT_QUOTES, 'UTF-8') ?> }); return false;"
                 ><?= t('technical.btn_cancel_recruitment') ?></button>
             </form>
         </div>

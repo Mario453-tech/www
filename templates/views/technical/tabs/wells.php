@@ -225,7 +225,7 @@ $specLabels = [
                 $tM = floor(($tLeft % 3600) / 60);
             ?>
             <div class="well-task-row">
-                <span class="well-task-icon"><?= TechnicalTeamService::getTaskDefinition($t['task_type'])['icon'] ?? t('technical.short_task') ?></span>
+                <span class="well-task-icon"><?= htmlspecialchars((TechnicalTeamService::getTaskDefinition($t['task_type']) ?? [])['icon'] ?? t('technical.short_task'), ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="well-task-name"><?= htmlspecialchars($t['title']) ?></span>
                 <span class="well-task-who c-muted"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></span>
                 <span class="well-task-time c-warn">

@@ -40,8 +40,8 @@
             </div>
             <?php if ($hasOp): ?>
             <div class="ws-assigned">
-                <span class="ws-person-name"><?= htmlspecialchars($ws['operator']['name']) ?></span>
-                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= $ws['operator']['skill'] ?>/10</span>
+                <span class="ws-person-name"><?= htmlspecialchars($ws['operator']['name'] ?? '') ?></span>
+                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= (int)($ws['operator']['skill'] ?? 0) ?>/10</span>
                 <button type="button" class="btn-ws-remove"
                     onclick="wsUnassign(<?= $wsId ?>, 'operator', this)">&times;</button>
             </div>
@@ -69,8 +69,8 @@
             </div>
             <?php if ($hasTe): ?>
             <div class="ws-assigned">
-                <span class="ws-person-name"><?= htmlspecialchars($ws['technician']['name']) ?></span>
-                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= $ws['technician']['skill'] ?>/10</span>
+                <span class="ws-person-name"><?= htmlspecialchars($ws['technician']['name'] ?? '') ?></span>
+                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= (int)($ws['technician']['skill'] ?? 0) ?>/10</span>
                 <button type="button" class="btn-ws-remove"
                     onclick="wsUnassign(<?= $wsId ?>, 'technician', this)">&times;</button>
             </div>
