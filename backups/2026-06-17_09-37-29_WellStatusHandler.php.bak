@@ -125,35 +125,17 @@ class WellStatusHandler
         $technicianId = $this->validateStaff($technicianId, $wellId, 'technician_id');
 
         if (!$operatorId && in_array($well['status'], ['active','contaminated','no_technician'])) {
- // H8: Zapamietaj poprzedni status zeby odwiert mogl wroic do 'contaminated' gdy personel wroci.
- // Przy przejsciu z 'no_technician' przechowaj jego poprzedni status (moglby byc 'contaminated').
- // H8: Store previous status so the well can return to 'contaminated' when staff returns.
- // When transitioning from 'no_technician', preserve its own paused_staff_prev_status (could be 'contaminated').
-            $prevStatus = in_array($well['status'], ['active', 'contaminated'])
-                ? $well['status']
-                : ($well['paused_staff_prev_status'] ?? null);
-            $this->ctx->db->prepare(
-                "UPDATE wells SET status = 'no_operator', paused_staff_prev_status = ? WHERE id = ?"
-            )->execute([$prevStatus, $wellId]);
+            $this->ctx->db->prepare("UPDATE wells SET status = 'no_operator' WHERE id = ?")->execute([$wellId]);
             $well['status'] = 'no_operator';
-            GameLog::info('tick', 'well - no operator', ['well_id' => $wellId, 'prev' => $prevStatus]);
+            GameLog::info('tick', 'well - no operator', ['well_id' => $wellId]);
         } elseif ($operatorId && !$technicianId && in_array($well['status'], ['active','contaminated'])) {
- // H8: Zapamietaj poprzedni status (active lub contaminated) przed przejsciem na no_technician.
- // H8: Store previous status (active or contaminated) before transitioning to no_technician.
-            $this->ctx->db->prepare(
-                "UPDATE wells SET status = 'no_technician', paused_staff_prev_status = ? WHERE id = ?"
-            )->execute([$well['status'], $wellId]);
+            $this->ctx->db->prepare("UPDATE wells SET status = 'no_technician' WHERE id = ?")->execute([$wellId]);
             $well['status'] = 'no_technician';
-            GameLog::info('tick', 'well - no technician', ['well_id' => $wellId, 'prev' => $well['status']]);
+            GameLog::info('tick', 'well - no technician', ['well_id' => $wellId]);
         } elseif ($operatorId && $technicianId && in_array($well['status'], ['no_operator','no_technician'])) {
- // H8: Przywroc poprzedni status ('contaminated' jesli tak bylo, inaczej 'active').
- // H8: Restore previous status ('contaminated' if it was, otherwise 'active').
-            $restore = (($well['paused_staff_prev_status'] ?? '') === 'contaminated') ? 'contaminated' : 'active';
-            $this->ctx->db->prepare(
-                "UPDATE wells SET status = ?, paused_staff_prev_status = NULL WHERE id = ?"
-            )->execute([$restore, $wellId]);
-            $well['status'] = $restore;
-            GameLog::info('tick', 'well restored (operator+technician)', ['well_id' => $wellId, 'restored_to' => $restore]);
+            $this->ctx->db->prepare("UPDATE wells SET status = 'active' WHERE id = ?")->execute([$wellId]);
+            $well['status'] = 'active';
+            GameLog::info('tick', 'well restored to active (operator+technician)', ['well_id' => $wellId]);
         }
 
         $opSkill = 5; $opPerk = null; $techPerk = null;
@@ -289,13 +271,7 @@ class WellStatusHandler
                 $this->ctx->db->prepare("UPDATE wells SET {$column} = NULL WHERE id = ?")->execute([$wellId]);
                 return null;
             }
-        } catch (Throwable $e) {
- // M8: Pusty catch gubi bledy DB — logujemy zamiast cicho ignorowac.
- // M8: Empty catch silently hides DB errors — log instead of silently ignoring.
-            GameLog::error('tick', 'validateStaff FAILED — zachowujemy staffId / keeping staffId as-is', $e, [
-                'staff_id' => $staffId, 'well_id' => $wellId, 'column' => $column,
-            ]);
-        }
+        } catch (Throwable $e) {}
         return $staffId;
     }
 }

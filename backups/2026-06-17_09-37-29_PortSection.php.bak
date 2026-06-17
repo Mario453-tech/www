@@ -134,32 +134,19 @@ class PortSection
                 'remainder'   => $remainder,
             ]);
         } else {
- // M2: Oznacz atomowo port_queue + marine_deliveries — awaria miedzy nimi daje split-brain
- // (done w kolejce ale 'waiting_for_port' w deliveries). Transakcja zapobiega sierocie.
- // M2: Mark port_queue + marine_deliveries atomically — crash between them creates split-brain
- // (done in queue but 'waiting_for_port' in deliveries). Transaction prevents orphan state.
-            try {
-                $this->db->beginTransaction();
-                $this->db->prepare(
-                    "UPDATE port_queue
-                        SET status = 'done', processed_at = ?
-                      WHERE id = ?"
-                )->execute([$nowStr, $entryId]);
-                $this->db->prepare(
-                    "UPDATE marine_deliveries
-                        SET status = 'delivered', delivered_at = ?, handling_cost = ?
-                      WHERE id = ?"
-                )->execute([$nowStr, $handlingCost, $deliveryId]);
-                $this->db->commit();
-            } catch (Throwable $e) {
-                if ($this->db->inTransaction()) {
-                    try { $this->db->rollBack(); } catch (Throwable $re) {}
-                }
-                GameLog::error('tick', 'port_delivery_done FAILED — rolled back', $e, [
-                    'entry_id' => $entryId, 'delivery_id' => $deliveryId,
-                ]);
-                return $currentStorage;
-            }
+ // Oznacz wpis w kolejce jako done / Mark queue entry as done
+            $this->db->prepare(
+                "UPDATE port_queue
+                    SET status = 'done', processed_at = ?
+                  WHERE id = ?"
+            )->execute([$nowStr, $entryId]);
+
+ // Oznacz dostawe jako delivered / Mark delivery as delivered
+            $this->db->prepare(
+                "UPDATE marine_deliveries
+                    SET status = 'delivered', delivered_at = ?, handling_cost = ?
+                  WHERE id = ?"
+            )->execute([$nowStr, $handlingCost, $deliveryId]);
             $this->processedCount++;
         }
 
