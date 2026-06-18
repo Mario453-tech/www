@@ -33,11 +33,10 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $warn = isset($emp['contract_days_left']) && $emp['contract_days_left'] <= 14 && $emp['contract_days_left'] >= 0;
             $age = !empty($emp['birth_date']) ? date_diff(date_create($emp['birth_date']), date_create('today'))->y : null;
-            $safeName = json_encode($emp['first_name'] . ' ' . $emp['last_name'], JSON_HEX_APOS | JSON_HEX_QUOT);
+            $safeName = htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name'], ENT_QUOTES);
             $empDomId = ($emp['source'] ?? 'board_member') . '-' . (int)$emp['id'];
-            $empDomJs = json_encode($empDomId, JSON_HEX_APOS | JSON_HEX_QUOT);
         ?>
-        <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails(<?= $empDomJs ?>)">
+        <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails('<?= $empDomId ?>')">
             <div class="emp-header">
                 <div class="emp-avatar"><?= ($emp['gender'] ?? 'M') === 'F' ? '&#128105;' : '&#128104;' ?></div>
                 <div class="emp-info">
@@ -90,12 +89,12 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                         <option value="6m"><?= t('hr.renew_6m') ?></option>
                         <option value="2y"><?= t('hr.renew_2y') ?></option>
                     </select>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_renew') ?></button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_renew') ?></button>
                     <?php endif ?>
                     <?php if (($emp['source'] ?? 'board_member') === 'technical_staff'): ?>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_fire') ?></button>
                     <?php else: ?>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_fire') ?></button>
                     <?php endif ?>
                 </div>
             </div>
@@ -122,7 +121,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             $avg = round(($candidate['skill_organization'] + $candidate['skill_negotiation'] + $candidate['skill_analysis'] + $candidate['skill_stress'] + $candidate['skill_ethics']) / 5, 1);
             $expLevel = $candidate['experience_years'] <= 5 ? 'Junior' : ($candidate['experience_years'] <= 12 ? 'Mid' : 'Senior');
             $hoursLeft = max(0, (int)$candidate['hours_remaining']);
-            $safeName = json_encode($candidate['first_name'] . ' ' . $candidate['last_name'], JSON_HEX_APOS | JSON_HEX_QUOT);
+            $safeName = htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name'], ENT_QUOTES);
             $isRecommended = ($candidate['tech_recommendation'] ?? '') === 'hire';
             $isRejected = ($candidate['tech_recommendation'] ?? '') === 'reject';
         ?>
@@ -188,8 +187,8 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                         <option value="6m"><?= t('hr.contract_6m') ?></option>
                         <option value="2y"><?= t('hr.contract_2y') ?></option>
                     </select>
-                    <button type="button" class="btn-cv btn-cv-reject" onclick="rejectCandidate(<?= (int)$candidate['id'] ?>, <?= $safeName ?>)"><?= t('hr.btn_reject') ?></button>
-                    <button type="button" class="btn-cv btn-cv-hire <?= $isRecommended ? 'btn-cv-hire-recommended' : '' ?>" onclick="hireCandidate(<?= (int)$candidate['id'] ?>, <?= $safeName ?>)">
+                    <button type="button" class="btn-cv btn-cv-reject" onclick="rejectCandidate(<?= (int)$candidate['id'] ?>, '<?= $safeName ?>')"><?= t('hr.btn_reject') ?></button>
+                    <button type="button" class="btn-cv btn-cv-hire <?= $isRecommended ? 'btn-cv-hire-recommended' : '' ?>" onclick="hireCandidate(<?= (int)$candidate['id'] ?>, '<?= $safeName ?>')">
                         <?= $isRecommended ? t('hr.btn_hire_recommended') : t('hr.btn_hire') ?>
                     </button>
                 </div>
@@ -494,7 +493,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 <div id="hr-events-container"></div>
 
 <script>
-const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
+const CSRF_TOKEN = '<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>';
 const HR_API = '/src/HRApi.php';
 window.HR_LANG = <?= json_encode([
     'contract_1y' => t('hr_js.contract_1y'),

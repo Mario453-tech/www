@@ -172,11 +172,7 @@ trait HRHiringTrait
             );
             if (empty($feeRes['success'])) {
                 $this->db->rollBack();
-                GameLog::error('HRHiring', 'hireCandidate: salary debit FAILED', null, [
-                    'player_id' => $playerId,
-                    'salary' => $salary,
-                    'error' => $feeRes['error'] ?? 'unknown',
-                ]);
+                GameLog::error('HRHiring', 'hireCandidate: salary debit FAILED', null, ['player_id' => $playerId, 'error' => $feeRes['error'] ?? 'unknown']);
                 return ['success' => false, 'message' => t('hr_hiring.err_insufficient_funds', [
                     'required'  => '$' . number_format($salary, 0, '.', ' '),
                     'available' => '$' . number_format($cash, 0, '.', ' '),

@@ -245,11 +245,11 @@ class RecruitmentAPI {
             }
 
             $result = $this->hrService->fireEmployee((int)$memberId, (string)$reason, $playerId);
-            $success = (bool)($result['success'] ?? false);
-            if ($success) {
-                return ['success' => true, 'message' => $result['message'] ?? t('recruitment.msg_fired')];
-            }
-            return ['success' => false, 'error' => $result['message'] ?? t('recruitment.err_employee_not_found')];
+            return [
+                'success' => (bool)($result['success'] ?? false),
+                'message' => $result['message'] ?? t('recruitment.msg_fired'),
+                'error' => $result['message'] ?? t('recruitment.err_employee_not_found'),
+            ];
             
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) {

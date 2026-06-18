@@ -40,7 +40,7 @@ class HeadhunterService
             $this->playerId = $playerId;
             GameLog::info('HeadhunterService', 'Service initialized', ['player_id' => $playerId]);
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'Initialization failed', $e);
+            GameLog::error('HeadhunterService', 'Initialization failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -49,6 +49,14 @@ class HeadhunterService
     public function startSearch(int $specializationId): array
     {
         try {
+            $activeStmt = $this->db->prepare(
+                "SELECT id FROM headhunter_searches WHERE player_id = ? AND status = 'searching' LIMIT 1"
+            );
+            $activeStmt->execute([$this->playerId]);
+            if ($activeStmt->fetch()) {
+                return ['success' => false, 'message' => t('hr_headhunter.err_search_active')];
+            }
+
             $specStmt = $this->db->prepare("SELECT * FROM hr_specializations WHERE id = ?");
             $specStmt->execute([$specializationId]);
             $spec = $specStmt->fetch();
@@ -69,18 +77,6 @@ class HeadhunterService
 
             $this->db->beginTransaction();
             try {
-                $playerLock = $this->db->prepare("SELECT id FROM players WHERE id = ? LIMIT 1 FOR UPDATE");
-                $playerLock->execute([$this->playerId]);
-
-                $activeStmt = $this->db->prepare(
-                    "SELECT id FROM headhunter_searches WHERE player_id = ? AND status = 'searching' LIMIT 1 FOR UPDATE"
-                );
-                $activeStmt->execute([$this->playerId]);
-                if ($activeStmt->fetch()) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('hr_headhunter.err_search_active')];
-                }
-
  // Oplata za wyszukiwanie przez centralne API finansowe (ruch + wpis bankowy; w transakcji).
  // Search fee via the central finance API (movement + bank entry; inside a transaction).
                 $feeRes = (new FinancialTransactionService($this->db))->debit(
@@ -91,7 +87,7 @@ class HeadhunterService
                 );
                 if (empty($feeRes['success'])) {
                     $this->db->rollBack();
-                    GameLog::error('HeadhunterService', 'startSearch: fee debit FAILED', null, ['player_id' => $this->playerId, 'error' => $feeRes['error'] ?? 'unknown']);
+                    GameLog::error('HeadhunterService', 'startSearch: fee debit FAILED', ['player_id' => $this->playerId, 'error' => $feeRes['error'] ?? 'unknown']);
                     return ['success' => false, 'message' => t('hr_headhunter.err_insufficient_funds', ['cost' => self::fmt($cost)])];
                 }
 
@@ -107,9 +103,10 @@ class HeadhunterService
                 if ($this->db->inTransaction()) {
                     $this->db->rollBack();
                 }
-                GameLog::error('HeadhunterService', 'startSearch transaction failed', $e, [
+                GameLog::error('HeadhunterService', 'startSearch transaction failed', [
                     'player_id' => $this->playerId,
                     'specialization_id' => $specializationId,
+                    'error' => $e->getMessage(),
                 ]);
                 return ['success' => false, 'message' => t('hr_headhunter.err_transaction', ['error' => $e->getMessage()])];
             }
@@ -135,9 +132,10 @@ class HeadhunterService
                 ]),
             ];
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'startSearch failed', $e, [
+            GameLog::error('HeadhunterService', 'startSearch failed', [
                 'player_id' => $this->playerId,
                 'specialization_id' => $specializationId,
+                'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_start_failed')];
         }
@@ -151,101 +149,83 @@ class HeadhunterService
                        hsp.base_salary_min, hsp.base_salary_max
                 FROM headhunter_searches hs
                 JOIN hr_specializations hsp ON hs.specialization_id = hsp.id
-                WHERE hs.player_id = ?
-                  AND hs.status = 'searching'
-                  AND hs.finished_at <= NOW()
+                WHERE hs.status = 'searching' AND hs.finished_at <= NOW()
             ");
-            $stmt->execute([$this->playerId]);
+            $stmt->execute();
 
             foreach ($stmt->fetchAll() as $search) {
-                $this->db->beginTransaction();
-                try {
-                    $claim = $this->db->prepare("
-                        UPDATE headhunter_searches
-                        SET status = 'failed'
-                        WHERE id = ?
-                          AND player_id = ?
-                          AND status = 'searching'
-                          AND finished_at <= NOW()
-                    ");
-                    $claim->execute([(int)$search['id'], $this->playerId]);
-                    if ($claim->rowCount() !== 1) {
-                        $this->db->rollBack();
-                        continue;
-                    }
-                    $this->generateCandidates($search);
-                    $this->db->commit();
-                } catch (Throwable $e) {
-                    if ($this->db->inTransaction()) {
-                        $this->db->rollBack();
-                    }
-                    GameLog::error('HeadhunterService', 'processReady search failed', $e, [
-                        'player_id' => $this->playerId,
-                        'search_id' => $search['id'] ?? null,
-                    ]);
-                }
+                $this->generateCandidates($search);
             }
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'processReady failed', $e, [
+            GameLog::error('HeadhunterService', 'processReady failed', [
                 'player_id' => $this->playerId,
+                'error' => $e->getMessage(),
             ]);
         }
     }
 
     private function generateCandidates(array $search): void
     {
-        $count = $this->rollCount();
-        $expiresAt = date('Y-m-d H:i:s', time() + 48 * 3600);
+        try {
+            $count = $this->rollCount();
+            $expiresAt = date('Y-m-d H:i:s', time() + 48 * 3600);
 
-        for ($i = 0; $i < $count; $i++) {
-            $skill = $this->rollSkill();
-            $loyalty = min(9, max(3, $skill - 1 + rand(-1, 2)));
-            $company = self::$companies[array_rand(self::$companies)];
-            $salary = (int)round(
-                rand((int)$search['base_salary_min'], (int)$search['base_salary_max'])
+            for ($i = 0; $i < $count; $i++) {
+                $skill = $this->rollSkill();
+                $loyalty = min(9, max(3, $skill - 1 + rand(-1, 2)));
+                $company = self::$companies[array_rand(self::$companies)];
+                $salary = (int)round(
+                    rand((int)$search['base_salary_min'], (int)$search['base_salary_max'])
  * (0.9 + $skill * 0.02)
-            );
+                );
 
-            $bonusMin = match (true) {
-                $skill >= 9 => 800_000,
-                $skill >= 7 => 300_000,
-                default => 100_000,
-            };
+                $bonusMin = match (true) {
+                    $skill >= 9 => 800_000,
+                    $skill >= 7 => 300_000,
+                    default => 100_000,
+                };
 
-            $baseProb = max(20, 50 - ($loyalty * 3));
-            $firstName = $this->randomName('first_name');
-            $lastName = $this->randomName('last_name');
+                $baseProb = max(20, 50 - ($loyalty * 3));
+                $firstName = $this->randomName('first_name');
+                $lastName = $this->randomName('last_name');
 
-            $this->db->prepare("
-                INSERT INTO headhunter_candidates
-                    (search_id, player_id, first_name, last_name, specialization_id,
-                     skill_level, current_company, salary_expectation,
-                     signing_bonus, join_probability, trait_loyalty, expires_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-            ")->execute([
-                $search['id'], $search['player_id'],
-                $firstName, $lastName, $search['specialization_id'],
-                $skill, $company, $salary, $bonusMin, $baseProb, $loyalty, $expiresAt,
+                $this->db->prepare("
+                    INSERT INTO headhunter_candidates
+                        (search_id, player_id, first_name, last_name, specialization_id,
+                         skill_level, current_company, salary_expectation,
+                         signing_bonus, join_probability, trait_loyalty, expires_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                ")->execute([
+                    $search['id'], $search['player_id'],
+                    $firstName, $lastName, $search['specialization_id'],
+                    $skill, $company, $salary, $bonusMin, $baseProb, $loyalty, $expiresAt,
+                ]);
+            }
+
+            $this->db->prepare(
+                "UPDATE headhunter_searches SET status = ?, result_count = ? WHERE id = ?"
+            )->execute([$count > 0 ? 'completed' : 'failed', $count, $search['id']]);
+
+            $msg = $count > 0
+                ? t('hr_headhunter.notify_candidates_found', ['count' => $count, 'spec' => $search['spec_name']])
+                : t('hr_headhunter.notify_candidates_missing', ['spec' => $search['spec_name']]);
+
+            $this->db->prepare(
+                "INSERT INTO technical_notifications (player_id, well_id, type, message) VALUES (?,NULL,'headhunter',?)"
+            )->execute([$search['player_id'], $msg]);
+
+            GameLog::info('HeadhunterService', 'Candidates generated', [
+                'search_id' => $search['id'],
+                'player_id' => $search['player_id'],
+                'count' => $count,
+            ]);
+        } catch (Throwable $e) {
+            GameLog::error('HeadhunterService', 'generateCandidates failed', [
+                'search_id' => $search['id'] ?? null,
+                'player_id' => $search['player_id'] ?? null,
+                'error' => $e->getMessage(),
             ]);
         }
-
-        $this->db->prepare(
-            "UPDATE headhunter_searches SET status = ?, result_count = ? WHERE id = ?"
-        )->execute([$count > 0 ? 'completed' : 'failed', $count, $search['id']]);
-
-        $msg = $count > 0
-            ? t('hr_headhunter.notify_candidates_found', ['count' => $count, 'spec' => $search['spec_name']])
-            : t('hr_headhunter.notify_candidates_missing', ['spec' => $search['spec_name']]);
-
-        $this->db->prepare(
-            "INSERT INTO technical_notifications (player_id, well_id, type, message) VALUES (?,NULL,'headhunter',?)"
-        )->execute([$search['player_id'], $msg]);
-
-        GameLog::info('HeadhunterService', 'Candidates generated', [
-            'search_id' => $search['id'],
-            'player_id' => $search['player_id'],
-            'count' => $count,
-        ]);
     }
 
     public function makeOffer(int $candidateId, float $offeredSalary, float $signingBonus): array
@@ -283,18 +263,8 @@ class HeadhunterService
             if ($roll <= $prob + 20) {
                 $counterSalary = (int)round($offeredSalary * 1.15);
                 $counterBonus = (int)round($signingBonus * 1.25);
-                $update = $this->db->prepare("
-                    UPDATE headhunter_candidates
-                    SET status = 'offered'
-                    WHERE id = ?
-                      AND player_id = ?
-                      AND status IN ('available', 'offered')
-                      AND expires_at > NOW()
-                ");
-                $update->execute([$candidateId, $this->playerId]);
-                if ($update->rowCount() !== 1) {
-                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
-                }
+                $this->db->prepare("UPDATE headhunter_candidates SET status = 'offered' WHERE id = ?")
+                         ->execute([$candidateId]);
 
                 return [
                     'success' => true,
@@ -309,18 +279,8 @@ class HeadhunterService
                 ];
             }
 
-            $update = $this->db->prepare("
-                UPDATE headhunter_candidates
-                SET status = 'rejected'
-                WHERE id = ?
-                  AND player_id = ?
-                  AND status IN ('available', 'offered')
-                  AND expires_at > NOW()
-            ");
-            $update->execute([$candidateId, $this->playerId]);
-            if ($update->rowCount() !== 1) {
-                return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
-            }
+            $this->db->prepare("UPDATE headhunter_candidates SET status = 'rejected' WHERE id = ?")
+                     ->execute([$candidateId]);
             return [
                 'success' => true,
                 'decision' => 'reject',
@@ -331,9 +291,10 @@ class HeadhunterService
                 'probability' => $prob,
             ];
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'makeOffer failed', $e, [
+            GameLog::error('HeadhunterService', 'makeOffer failed', [
                 'player_id' => $this->playerId,
                 'candidate_id' => $candidateId,
+                'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_offer_failed')];
         }
@@ -381,9 +342,10 @@ class HeadhunterService
 
             return max(5, min(90, $base));
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'calcProbability failed', $e, [
+            GameLog::error('HeadhunterService', 'calcProbability failed', [
                 'player_id' => $this->playerId,
                 'candidate_id' => $c['id'] ?? null,
+                'error' => $e->getMessage(),
             ]);
             return 5;
         }
@@ -408,22 +370,6 @@ class HeadhunterService
 
             $this->db->beginTransaction();
             try {
-                $candidateLock = $this->db->prepare("
-                    SELECT id
-                    FROM headhunter_candidates
-                    WHERE id = ?
-                      AND player_id = ?
-                      AND status IN ('available', 'offered')
-                      AND expires_at > NOW()
-                    LIMIT 1
-                    FOR UPDATE
-                ");
-                $candidateLock->execute([(int)$c['id'], $this->playerId]);
-                if (!$candidateLock->fetch()) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
-                }
-
  // Premia za zatrudnienie przez centralne API finansowe (ruch + wpis bankowy; w transakcji).
  // Hire bonus via the central finance API (movement + bank entry; inside a transaction).
                 $bonusRes = (new FinancialTransactionService($this->db))->debit(
@@ -434,7 +380,7 @@ class HeadhunterService
                 );
                 if (empty($bonusRes['success'])) {
                     $this->db->rollBack();
-                    GameLog::error('HeadhunterService', 'doHire: bonus debit FAILED', null, ['player_id' => $this->playerId, 'error' => $bonusRes['error'] ?? 'unknown']);
+                    GameLog::error('HeadhunterService', 'doHire: bonus debit FAILED', ['player_id' => $this->playerId, 'error' => $bonusRes['error'] ?? 'unknown']);
                     return ['success' => false, 'message' => t('hr_headhunter.err_bonus_funds', ['cost' => self::fmt($bonus)])];
                 }
 
@@ -443,13 +389,13 @@ class HeadhunterService
 
                 $this->db->prepare("
                     INSERT INTO board_members
-                        (player_id, member_type, role_id, first_name, last_name, gender, birth_date,
+                        (player_id, role_id, first_name, last_name, gender, birth_date,
                          nationality, region_code, specialization_id, experience_years,
                          skill_organization, skill_negotiation, skill_analysis,
                          skill_stress, skill_ethics,
                          trait_loyalty, trait_corruption_risk, trait_ambition,
                          salary, hired_at, status)
-                    VALUES (?,'staff',?,?,?, 'M',?,'INT','INT',?,?,?,?,?,?,?,?,3,5,?,NOW(),'active')
+                    VALUES (?,?,?,?,'M',?,'INT','INT',?,?,?,?,?,?,?,?,3,5,?,NOW(),'active')
                 ")->execute([
                     $this->playerId,
                     $role['id'],
@@ -476,12 +422,6 @@ class HeadhunterService
                         $c['first_name'], $c['last_name'],
                         $spec['code'], $spec['name'], $skill, $salary,
                     ]);
-                } else {
-                    GameLog::warn('HeadhunterService', 'doHire: hr_specialization not found, technical_staff skipped', [
-                        'player_id' => $this->playerId,
-                        'member_id' => $memberId,
-                        'specialization_id' => $c['specialization_id'],
-                    ]);
                 }
 
                 $this->db->prepare("
@@ -490,27 +430,18 @@ class HeadhunterService
                     VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR), ?, '1y', 'active')
                 ")->execute([$memberId, $salary]);
 
-                $acceptedUpdate = $this->db->prepare("
-                    UPDATE headhunter_candidates
-                    SET status = 'accepted'
-                    WHERE id = ?
-                      AND player_id = ?
-                      AND status IN ('available', 'offered')
-                ");
-                $acceptedUpdate->execute([$c['id'], $this->playerId]);
-                if ($acceptedUpdate->rowCount() !== 1) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
-                }
+                $this->db->prepare("UPDATE headhunter_candidates SET status = 'accepted' WHERE id = ?")
+                         ->execute([$c['id']]);
 
                 $this->db->commit();
             } catch (Throwable $e) {
                 if ($this->db->inTransaction()) {
                     $this->db->rollBack();
                 }
-                GameLog::error('HeadhunterService', 'doHire transaction failed', $e, [
+                GameLog::error('HeadhunterService', 'doHire transaction failed', [
                     'player_id' => $this->playerId,
                     'candidate_id' => $c['id'] ?? null,
+                    'error' => $e->getMessage(),
                 ]);
                 return ['success' => false, 'message' => t('hr_headhunter.err_hire_transaction', ['error' => $e->getMessage()])];
             }
@@ -526,9 +457,10 @@ class HeadhunterService
                 'probability' => $prob,
             ];
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'doHire failed', $e, [
+            GameLog::error('HeadhunterService', 'doHire failed', [
                 'player_id' => $this->playerId,
                 'candidate_id' => $c['id'] ?? null,
+                'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_hire_failed')];
         }
@@ -551,8 +483,9 @@ class HeadhunterService
             $stmt->execute([$this->playerId]);
             return $stmt->fetch() ?: null;
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'getActiveSearch failed', $e, [
+            GameLog::error('HeadhunterService', 'getActiveSearch failed', [
                 'player_id' => $this->playerId,
+                'error' => $e->getMessage(),
             ]);
             return null;
         }
@@ -575,8 +508,9 @@ class HeadhunterService
             $stmt->execute([$this->playerId]);
             return $stmt->fetchAll();
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'getAvailableCandidates failed', $e, [
+            GameLog::error('HeadhunterService', 'getAvailableCandidates failed', [
                 'player_id' => $this->playerId,
+                'error' => $e->getMessage(),
             ]);
             return [];
         }
@@ -598,9 +532,10 @@ class HeadhunterService
             $stmt->execute([$this->playerId, $limit]);
             return $stmt->fetchAll();
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'getRecentSearches failed', $e, [
+            GameLog::error('HeadhunterService', 'getRecentSearches failed', [
                 'player_id' => $this->playerId,
                 'limit' => $limit,
+                'error' => $e->getMessage(),
             ]);
             return [];
         }
@@ -653,8 +588,9 @@ class HeadhunterService
             $row = $stmt->fetch();
             return $row ? $row['value'] : ($type === 'first_name' ? 'John' : 'Smith');
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'randomName failed', $e, [
+            GameLog::error('HeadhunterService', 'randomName failed', [
                 'type' => $type,
+                'error' => $e->getMessage(),
             ]);
             return $type === 'first_name' ? 'John' : 'Smith';
         }

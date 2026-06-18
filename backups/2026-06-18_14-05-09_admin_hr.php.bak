@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
         if (!in_array($newRole, ['operator', 'technician'], true)) {
             $newRole = 'operator';
         }
-        if (!in_array($newRarity, $validRarities, true)) {
+        if (!in_array($newRarity, ['common', 'uncommon', 'rare'], true)) {
             $newRarity = 'common';
         }
         if ($newCode === '' || $newName === '') {
@@ -154,48 +154,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
     } else {
-        $code     = trim(preg_replace('/[^a-z0-9_]/', '', $_POST['code'] ?? ''));
+        $code     = $_POST['code'] ?? '';
         $specName = trim($_POST['spec_name'] ?? '');
-        if ($code === '' || $specName === '') {
-            $err = t('admin.hr.err_spec_empty');
+        $fields = [
+            'prod_bonus'               => max(0, min(1, (float)($_POST['prod_bonus']               ?? 0))),
+            'wear_reduction'           => max(0, min(1, (float)($_POST['wear_reduction']           ?? 0))),
+            'incident_reduction'       => max(0, min(1, (float)($_POST['incident_reduction']       ?? 0))),
+            'spiral_reduction'         => max(0, min(1, (float)($_POST['spiral_reduction']         ?? 0))),
+            'repair_speed'             => max(0, min(1, (float)($_POST['repair_speed']             ?? 0))),
+            'incident_return_reduction'=> max(0, min(1, (float)($_POST['incident_return_reduction']?? 0))),
+            'catastrophe_reduction'    => max(0, min(1, (float)($_POST['catastrophe_reduction']    ?? 0))),
+        ];
+        try {
+            $db->prepare("
+                UPDATE staff_specializations SET
+                    name                      = :name,
+                    prod_bonus                = :prod_bonus,
+                    wear_reduction            = :wear_reduction,
+                    incident_reduction        = :incident_reduction,
+                    spiral_reduction          = :spiral_reduction,
+                    repair_speed              = :repair_speed,
+                    incident_return_reduction = :incident_return_reduction,
+                    catastrophe_reduction     = :catastrophe_reduction
+                WHERE code = :code
+            ")->execute(array_merge([':code' => $code, ':name' => $specName], array_combine(
+                array_map(fn($k) => ':' . $k, array_keys($fields)),
+                array_values($fields)
+            )));
+            AdminLog::log('hr_spec_edit', "Edycja specjalizacji: {$code}", null, AdminAuth::getAdminUsername());
+            $msg = t('admin.hr.msg_spec_saved');
             $tab = 'specializations';
-        } else {
-            $fields = [
-                'prod_bonus'               => max(0, min(1, (float)($_POST['prod_bonus']               ?? 0))),
-                'wear_reduction'           => max(0, min(1, (float)($_POST['wear_reduction']           ?? 0))),
-                'incident_reduction'       => max(0, min(1, (float)($_POST['incident_reduction']       ?? 0))),
-                'spiral_reduction'         => max(0, min(1, (float)($_POST['spiral_reduction']         ?? 0))),
-                'repair_speed'             => max(0, min(1, (float)($_POST['repair_speed']             ?? 0))),
-                'incident_return_reduction'=> max(0, min(1, (float)($_POST['incident_return_reduction']?? 0))),
-                'catastrophe_reduction'    => max(0, min(1, (float)($_POST['catastrophe_reduction']    ?? 0))),
-            ];
-            try {
-                $stmt = $db->prepare("
-                    UPDATE staff_specializations SET
-                        name                      = :name,
-                        prod_bonus                = :prod_bonus,
-                        wear_reduction            = :wear_reduction,
-                        incident_reduction        = :incident_reduction,
-                        spiral_reduction          = :spiral_reduction,
-                        repair_speed              = :repair_speed,
-                        incident_return_reduction = :incident_return_reduction,
-                        catastrophe_reduction     = :catastrophe_reduction
-                    WHERE code = :code
-                ");
-                $stmt->execute(array_merge([':code' => $code, ':name' => $specName], array_combine(
-                    array_map(fn($k) => ':' . $k, array_keys($fields)),
-                    array_values($fields)
-                )));
-                if ($stmt->rowCount() < 1) {
-                    $err = t('admin.hr.err_spec_empty');
-                } else {
-                    AdminLog::log('hr_spec_edit', "Edycja specjalizacji: {$code}", null, AdminAuth::getAdminUsername());
-                    $msg = t('admin.hr.msg_spec_saved');
-                }
-            } catch (Throwable $e) {
-                $err = t('common.db_error');
-            }
-            $tab = 'specializations';
+        } catch (Throwable $e) {
+            $err = t('common.db_error');
         }
     }
 }

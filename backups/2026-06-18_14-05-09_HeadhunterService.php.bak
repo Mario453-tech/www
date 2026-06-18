@@ -91,7 +91,7 @@ class HeadhunterService
                 );
                 if (empty($feeRes['success'])) {
                     $this->db->rollBack();
-                    GameLog::error('HeadhunterService', 'startSearch: fee debit FAILED', null, ['player_id' => $this->playerId, 'error' => $feeRes['error'] ?? 'unknown']);
+                    GameLog::error('HeadhunterService', 'startSearch: fee debit FAILED', ['player_id' => $this->playerId, 'error' => $feeRes['error'] ?? 'unknown']);
                     return ['success' => false, 'message' => t('hr_headhunter.err_insufficient_funds', ['cost' => self::fmt($cost)])];
                 }
 
@@ -107,9 +107,10 @@ class HeadhunterService
                 if ($this->db->inTransaction()) {
                     $this->db->rollBack();
                 }
-                GameLog::error('HeadhunterService', 'startSearch transaction failed', $e, [
+                GameLog::error('HeadhunterService', 'startSearch transaction failed', [
                     'player_id' => $this->playerId,
                     'specialization_id' => $specializationId,
+                    'error' => $e->getMessage(),
                 ]);
                 return ['success' => false, 'message' => t('hr_headhunter.err_transaction', ['error' => $e->getMessage()])];
             }
@@ -135,9 +136,10 @@ class HeadhunterService
                 ]),
             ];
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'startSearch failed', $e, [
+            GameLog::error('HeadhunterService', 'startSearch failed', [
                 'player_id' => $this->playerId,
                 'specialization_id' => $specializationId,
+                'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_start_failed')];
         }
@@ -186,8 +188,9 @@ class HeadhunterService
                 }
             }
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'processReady failed', $e, [
+            GameLog::error('HeadhunterService', 'processReady failed', [
                 'player_id' => $this->playerId,
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -331,9 +334,10 @@ class HeadhunterService
                 'probability' => $prob,
             ];
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'makeOffer failed', $e, [
+            GameLog::error('HeadhunterService', 'makeOffer failed', [
                 'player_id' => $this->playerId,
                 'candidate_id' => $candidateId,
+                'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_offer_failed')];
         }
@@ -381,9 +385,10 @@ class HeadhunterService
 
             return max(5, min(90, $base));
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'calcProbability failed', $e, [
+            GameLog::error('HeadhunterService', 'calcProbability failed', [
                 'player_id' => $this->playerId,
                 'candidate_id' => $c['id'] ?? null,
+                'error' => $e->getMessage(),
             ]);
             return 5;
         }
@@ -434,7 +439,7 @@ class HeadhunterService
                 );
                 if (empty($bonusRes['success'])) {
                     $this->db->rollBack();
-                    GameLog::error('HeadhunterService', 'doHire: bonus debit FAILED', null, ['player_id' => $this->playerId, 'error' => $bonusRes['error'] ?? 'unknown']);
+                    GameLog::error('HeadhunterService', 'doHire: bonus debit FAILED', ['player_id' => $this->playerId, 'error' => $bonusRes['error'] ?? 'unknown']);
                     return ['success' => false, 'message' => t('hr_headhunter.err_bonus_funds', ['cost' => self::fmt($bonus)])];
                 }
 
@@ -508,9 +513,10 @@ class HeadhunterService
                 if ($this->db->inTransaction()) {
                     $this->db->rollBack();
                 }
-                GameLog::error('HeadhunterService', 'doHire transaction failed', $e, [
+                GameLog::error('HeadhunterService', 'doHire transaction failed', [
                     'player_id' => $this->playerId,
                     'candidate_id' => $c['id'] ?? null,
+                    'error' => $e->getMessage(),
                 ]);
                 return ['success' => false, 'message' => t('hr_headhunter.err_hire_transaction', ['error' => $e->getMessage()])];
             }
@@ -526,9 +532,10 @@ class HeadhunterService
                 'probability' => $prob,
             ];
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'doHire failed', $e, [
+            GameLog::error('HeadhunterService', 'doHire failed', [
                 'player_id' => $this->playerId,
                 'candidate_id' => $c['id'] ?? null,
+                'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_hire_failed')];
         }
@@ -551,8 +558,9 @@ class HeadhunterService
             $stmt->execute([$this->playerId]);
             return $stmt->fetch() ?: null;
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'getActiveSearch failed', $e, [
+            GameLog::error('HeadhunterService', 'getActiveSearch failed', [
                 'player_id' => $this->playerId,
+                'error' => $e->getMessage(),
             ]);
             return null;
         }
@@ -575,8 +583,9 @@ class HeadhunterService
             $stmt->execute([$this->playerId]);
             return $stmt->fetchAll();
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'getAvailableCandidates failed', $e, [
+            GameLog::error('HeadhunterService', 'getAvailableCandidates failed', [
                 'player_id' => $this->playerId,
+                'error' => $e->getMessage(),
             ]);
             return [];
         }
@@ -598,9 +607,10 @@ class HeadhunterService
             $stmt->execute([$this->playerId, $limit]);
             return $stmt->fetchAll();
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'getRecentSearches failed', $e, [
+            GameLog::error('HeadhunterService', 'getRecentSearches failed', [
                 'player_id' => $this->playerId,
                 'limit' => $limit,
+                'error' => $e->getMessage(),
             ]);
             return [];
         }
@@ -653,8 +663,9 @@ class HeadhunterService
             $row = $stmt->fetch();
             return $row ? $row['value'] : ($type === 'first_name' ? 'John' : 'Smith');
         } catch (Throwable $e) {
-            GameLog::error('HeadhunterService', 'randomName failed', $e, [
+            GameLog::error('HeadhunterService', 'randomName failed', [
                 'type' => $type,
+                'error' => $e->getMessage(),
             ]);
             return $type === 'first_name' ? 'John' : 'Smith';
         }
