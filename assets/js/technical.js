@@ -166,21 +166,20 @@ function techTaskConfirm(form) {
     const btn      = form.querySelector('button[type="submit"]');
     const btnText  = btn ? btn.textContent : '';
 
-    function doSubmit() {
+    async function doSubmit() {
         if (btn) { btn.disabled = true; btn.textContent = '...'; }
         const fd = new FormData(form);
-        // Zwieksz licznik przed fetch; zmniejsz w kazdym mozliwym scenariuszu zakonczenia.
-        // Increment counter before fetch; decrement in every possible completion path.
+        // Zwieksz licznik przed fetch; zmniejsz w finally — tak jak w dismissAllNotifs i dismissNotif.
+        // Increment counter before fetch; decrement in finally — consistent with dismissAllNotifs and dismissNotif.
         _pendingFetches++;
-        fetch(location.pathname, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: fd,
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            _pendingFetches--;
-            const msg = data.message || '';
+        try {
+            const r    = await fetch(location.pathname, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            });
+            const data = await r.json().catch(function () { return {}; });
+            const msg  = data.message || '';
             if (data.success) {
                 const title = (window.TECH_LANG && window.TECH_LANG.task_result_title) || 'Zlecono';
                 if (typeof window.alertInfo === 'function') {
@@ -196,11 +195,11 @@ function techTaskConfirm(form) {
                     window.showGameToast(msg, 'error');
                 }
             }
-        })
-        .catch(function () {
-            _pendingFetches--;
+        } catch (_e) {
             location.reload();
-        });
+        } finally {
+            _pendingFetches--;
+        }
     }
 
     if (costMin <= 0) {
