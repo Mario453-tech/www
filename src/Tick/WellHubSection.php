@@ -86,6 +86,16 @@ class WellHubSection
                 $result = $this->hubTickSvc->processTick($hub, $inputBbl, $deltaHours, $hseBonus);
                 $this->hubTickSvc->persistTickResult($hub, $result, $this->now);
 
+ // M10: Zsynchronizuj condition_pct z wynikiem processTick() zanim trafi do
+ // processHubIncident() i processHubUsageFee(). Bez tego obie metody uzywaja
+ // starej kondycji z poczatku ticka — kara OPEX i ryzyko incydentu sa o 1 tick
+ // opoznione wzgledem faktycznego stanu hubu.
+ // M10: Sync condition_pct from processTick() result before it reaches
+ // processHubIncident() and processHubUsageFee(). Without this both methods use
+ // the pre-tick condition — OPEX penalty and incident risk lag 1 tick behind the
+ // hub's actual state.
+                $hub['condition_pct'] = $result['new_condition'];
+
  // Reconciliacja bufora i strat. / Buffer and loss reconciliation.
  // Petla wells kredytuje wejscie huba optymistycznie dla transportu synchronicznego.
  // The well loop optimistically credits synchronous hub input.

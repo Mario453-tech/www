@@ -105,12 +105,16 @@ trait TTSProceduresTrait
                 ];
             }
 
- // Check available cash.
- // Sprawdz dostepna gotowke.
-            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
-            $cashStmt->execute([$this->playerId]);
-            $cash = (float) $cashStmt->fetchColumn();
-            if ($cash < $cost) {
+            $this->db->beginTransaction();
+
+ // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
+ // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
+            $cashStmt = $this->db->prepare(
+                "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+            );
+            $cashStmt->execute([$cost, $this->playerId, $cost]);
+            if ($cashStmt->rowCount() === 0) {
+                $this->db->rollBack();
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.no_funds_upgrade', [
@@ -119,30 +123,20 @@ trait TTSProceduresTrait
                     ]),
                 ];
             }
-
-            $fts = new FinancialTransactionService($this->db);
-            $this->db->beginTransaction();
-            // Koszt procedur przez FTS: gotowka schodzi (tts_fee -> cash) + wpis w historii.
-            // Procedure cost via FTS: cash is deducted (tts_fee -> cash) + history entry.
-            $charge = $fts->debit(
-                $this->playerId, (float)$cost,
-                FinancialTransactionService::TYPE_TTS_FEE,
-                'Ulepszenie procedur bezpieczenstwa do poziomu ' . $nextLevel
-            );
-            if (empty($charge['success'])) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.proc_msg.no_funds_upgrade', [
-                    'level' => $nextLevel,
-                    'cost' => number_format($cost, 0, '.', ' '),
-                ])];
-            }
-            $this->db->prepare("
+ // Atomic level increment: update only if level < 5 (guards against concurrent upgrades).
+ // Atomowe zwiekszenie poziomu: aktualizuj tylko jesli poziom < 5 (ochrona przed rownoleglymi ulepszeniami).
+            $levelStmt = $this->db->prepare("
                 UPDATE players
-                SET safety_procedures_level = ?,
-                    procedure_integrity = 100,
+                SET safety_procedures_level = safety_procedures_level + 1,
+                    procedure_integrity = 100.0,
                     procedures_last_decay_at = NOW()
-                WHERE id = ?
-            ")->execute([$nextLevel, $this->playerId]);
+                WHERE id = ? AND safety_procedures_level < 5
+            ");
+            $levelStmt->execute([$this->playerId]);
+            if ($levelStmt->rowCount() === 0) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
+            }
             $this->db->commit();
 
             GameLog::info('TTS', 'upgradeProcedures OK', [
@@ -188,50 +182,55 @@ trait TTSProceduresTrait
                 return ['success' => false, 'message' => t('technical.proc_msg.integrity_max')];
             }
 
+            // Require both safety_officer AND safety_engineer (same as upgradeProcedures).
+            // Wymagaj zarowno safety_officer JAK I safety_engineer (tak samo jak upgradeProcedures).
             $staffStmt = $this->db->prepare("
-                SELECT id FROM technical_staff
+                SELECT spec_code FROM technical_staff
                 WHERE player_id = ?
                   AND spec_code IN ('safety_officer','safety_engineer')
                   AND status IN ('active','busy')
                   AND (fired_at IS NULL OR fired_at > NOW())
-                LIMIT 1
             ");
             $staffStmt->execute([$this->playerId]);
-            if (!$staffStmt->fetch()) {
+            $hseStaff = array_column($staffStmt->fetchAll(), 'spec_code');
+            $hasOfficer  = in_array('safety_officer',  $hseStaff, true);
+            $hasEngineer = in_array('safety_engineer', $hseStaff, true);
+
+            if (!$hasOfficer || !$hasEngineer) {
+                $missing = [];
+                if (!$hasOfficer) {
+                    $missing[] = t('technical.spec.safety_officer');
+                }
+                if (!$hasEngineer) {
+                    $missing[] = t('technical.spec.safety_engineer');
+                }
                 return [
                     'success' => false,
-                    'message' => t('technical.proc_msg.review_requires_staff'),
+                    'message' => t('technical.proc_msg.missing_staff', [
+                        'missing' => implode(' i ', $missing),
+                    ]),
                 ];
             }
 
             $cost = 500_000 * $proc['level'];
-            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
-            $cashStmt->execute([$this->playerId]);
-            if ((float) $cashStmt->fetchColumn() < $cost) {
+            $newIntegrity = min(100.0, $proc['integrity'] + 30.0);
+
+            $this->db->beginTransaction();
+
+ // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
+ // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
+            $cashStmt = $this->db->prepare(
+                "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
+            );
+            $cashStmt->execute([$cost, $this->playerId, $cost]);
+            if ($cashStmt->rowCount() === 0) {
+                $this->db->rollBack();
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.review_no_funds', [
                         'cost' => number_format($cost, 0, '.', ' '),
                     ]),
                 ];
-            }
-
-            $newIntegrity = min(100.0, $proc['integrity'] + 30.0);
-
-            $fts = new FinancialTransactionService($this->db);
-            $this->db->beginTransaction();
-            // Koszt przegladu przez FTS: gotowka schodzi (tts_fee -> cash) + wpis w historii.
-            // Review cost via FTS: cash is deducted (tts_fee -> cash) + history entry.
-            $charge = $fts->debit(
-                $this->playerId, (float)$cost,
-                FinancialTransactionService::TYPE_TTS_FEE,
-                'Przeglad/naprawa integralnosci procedur bezpieczenstwa'
-            );
-            if (empty($charge['success'])) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.proc_msg.review_no_funds', [
-                    'cost' => number_format($cost, 0, '.', ' '),
-                ])];
             }
             $this->db->prepare("
                 UPDATE players
@@ -372,9 +371,9 @@ trait TTSProceduresTrait
             );
         } catch (Throwable $e) {
             GameLog::error('TTS', 'getStaffRequirementCheck FAILED', $e, ['player_id' => $this->playerId]);
- // Fail-safe: do not pause wells because of a read error.
- // Fail-safe: nie pauzuj odwiertow przez blad odczytu.
-            $result['meets_minimum'] = true;
+ // Fail-closed: deny access on read error — safer than granting it.
+ // Fail-closed: odmow dostepu przy bledzie odczytu — bezpieczniejsze niz zezwolenie.
+            $result['meets_minimum'] = false;
         }
 
         return $result;

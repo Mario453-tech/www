@@ -3,6 +3,11 @@
  */
 
 var _TECHL = window.TECH_LANG || {};
+
+// Licznik aktywnych zadан sieciowych — zapobiega odswiezeniu podczas in-flight fetch.
+// Counter of in-flight network requests — prevents auto-refresh while a fetch is pending.
+var _pendingFetches = 0;
+
 function techl(key) {
     return _TECHL[key] || key;
 }
@@ -42,8 +47,16 @@ async function dismissAllNotifs() {
         btn.textContent = '...';
     }
 
-    const res = await fetch('/src/TechNotifApi.php', { method: 'POST', body: fd });
-    const data = await res.json().catch(() => ({}));
+    // Zwieksz licznik przed fetch; zmniejsz w kazdym mozliwym scenariuszu zakonczenia.
+    // Increment counter before fetch; decrement in every possible completion path.
+    _pendingFetches++;
+    let data = {};
+    try {
+        const res = await fetch('/src/TechNotifApi.php', { method: 'POST', body: fd });
+        data = await res.json().catch(() => ({}));
+    } finally {
+        _pendingFetches--;
+    }
 
     if (data.success && panel) {
         const rows = panel.querySelectorAll('.notif-row');
@@ -79,8 +92,16 @@ async function dismissNotif(id) {
         el.style.opacity = '0.4';
     }
 
-    const res = await fetch(location.pathname, { method: 'POST', body: fd });
-    const data = await res.json().catch(() => ({}));
+    // Zwieksz licznik przed fetch; zmniejsz w kazdym mozliwym scenariuszu zakonczenia.
+    // Increment counter before fetch; decrement in every possible completion path.
+    _pendingFetches++;
+    let data = {};
+    try {
+        const res = await fetch(location.pathname, { method: 'POST', body: fd });
+        data = await res.json().catch(() => ({}));
+    } finally {
+        _pendingFetches--;
+    }
 
     if (data.success && el) {
         el.style.transition = 'all .3s';
@@ -102,6 +123,9 @@ async function dismissNotif(id) {
 
 function toggleWellSelect(sel, staffId) {
     const opt = sel.options[sel.selectedIndex];
+    // Jesli brak zaznaczonej opcji (selectedIndex == -1), przerwij — opt bylby undefined.
+    // If no option is selected (selectedIndex == -1), bail out — opt would be undefined.
+    if (!opt) return;
     const needsWell = opt.dataset.needsWell === '1';
     const needsHub = opt.dataset.needsHub === '1';
     const needsMod = opt.dataset.needsModule === '1';
@@ -133,6 +157,7 @@ function techTaskConfirm(form) {
     if (!sel) return true;
 
     const opt      = sel.options[sel.selectedIndex];
+    if (!opt) return true; // no option selected — allow default form behavior / brak opcji — pozwol na domyslne zachowanie formularza
     const costMin  = parseInt(opt.dataset.costMin || '0', 10);
     const costMax  = parseInt(opt.dataset.costMax || '0', 10);
     const label    = opt.textContent.trim();
@@ -141,17 +166,20 @@ function techTaskConfirm(form) {
     const btn      = form.querySelector('button[type="submit"]');
     const btnText  = btn ? btn.textContent : '';
 
-    function doSubmit() {
+    async function doSubmit() {
         if (btn) { btn.disabled = true; btn.textContent = '...'; }
         const fd = new FormData(form);
-        fetch(location.pathname, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: fd,
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            const msg = data.message || '';
+        // Zwieksz licznik przed fetch; zmniejsz w finally — tak jak w dismissAllNotifs i dismissNotif.
+        // Increment counter before fetch; decrement in finally — consistent with dismissAllNotifs and dismissNotif.
+        _pendingFetches++;
+        try {
+            const r    = await fetch(location.pathname, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            });
+            const data = await r.json().catch(function () { return {}; });
+            const msg  = data.message || '';
             if (data.success) {
                 const title = (window.TECH_LANG && window.TECH_LANG.task_result_title) || 'Zlecono';
                 if (typeof window.alertInfo === 'function') {
@@ -167,10 +195,11 @@ function techTaskConfirm(form) {
                     window.showGameToast(msg, 'error');
                 }
             }
-        })
-        .catch(function () {
+        } catch (_e) {
             location.reload();
-        });
+        } finally {
+            _pendingFetches--;
+        }
     }
 
     if (costMin <= 0) {
@@ -242,10 +271,30 @@ function candReviewConfirm(form) {
     return window.confirm(msg);
 }
 
-// Auto-odświeżanie — pomijane gdy karta nieaktywna (oszczędza obciążenie serwera).
+// Auto-odswiezanie — pomijane gdy karta nieaktywna lub trwa zadanie sieciowe.
+// Auto-refresh — skipped when tab is hidden or a fetch is in progress.
 setInterval(() => {
-    if (!document.hidden) location.reload();
+    if (!document.hidden && _pendingFetches === 0) location.reload();
 }, 60000);
+
+// Inicjalizacja widocznosci selectorow dla kazdego formularza przypisania zadania.
+// Initialise selector visibility for each task-assignment form on page load.
+(function initTaskFormSelectors() {
+    function run() {
+        document.querySelectorAll('select[name="task_type"]').forEach(function (sel) {
+            var staffIdInput = sel.closest('form') && sel.closest('form').querySelector('input[name="staff_id"]');
+            var staffId = staffIdInput ? staffIdInput.value : '';
+            if (staffId) {
+                toggleWellSelect(sel, staffId);
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', run);
+    } else {
+        run();
+    }
+})();
 
 // Deep-link "Zleć naprawę u MNT" ze strony głównej (?repair_well=ID#tech-mnt):
 // przewija do Inżyniera Utrzymania Ruchu, otwiera formularz zlecenia,

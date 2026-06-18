@@ -101,7 +101,7 @@ $repairCost  = $pLevel > 0 ? 500_000 * $pLevel : 0;
         <?php if ($pIntegrity < 100): ?>
         <form method="post" class="proc-action-form"
               onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.proc_repair_confirm', ['cost' => number_format($repairCost, 0, '.', ' ')]), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.proc_repair_title'), ENT_QUOTES, 'UTF-8') ?>', confirmLabel: '<?= htmlspecialchars(t('technical.btn_confirm_generic'), ENT_QUOTES, 'UTF-8') ?>' })">
-            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf) ?>">
+            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="repair_procedure_integrity">
             <button type="submit" class="btn-proc-repair">
                  <?= t('technical.proc_repair_btn', ['cost' => number_format($repairCost, 0, '.', ' ')]) ?>
@@ -144,7 +144,7 @@ $repairCost  = $pLevel > 0 ? 500_000 * $pLevel : 0;
             </div>
             <form method="post" class="proc-action-form"
                   onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.proc_upgrade_confirm', ['level' => $nextLevel, 'cost' => number_format($upgradeCost, 0, '.', ' ')]), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.proc_upgrade_title'), ENT_QUOTES, 'UTF-8') ?>', confirmLabel: '<?= htmlspecialchars(t('technical.btn_confirm_generic'), ENT_QUOTES, 'UTF-8') ?>' })">
-                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf) ?>">
+                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="upgrade_procedures">
                 <button type="submit" class="btn-proc-upgrade">
                      <?= t('technical.proc_upgrade_btn', ['level' => $nextLevel, 'cost' => number_format($upgradeCost, 0, '.', ' ')]) ?>
@@ -188,9 +188,9 @@ $specLabelsSafety = [
 <?php if (!empty($wellsByStatus[$stCode])): ?>
 <div class="hse-panel <?= $stMeta['cls'] ?>">
     <div class="hse-panel-hdr">
-        <span class="hse-icon"><?= $stMeta['icon'] ?></span>
-        <span class="hse-title"><?= $stMeta['title'] ?></span>
-        <span class="hse-status-badge <?= $stMeta['badge_cls'] ?>"><?= $stMeta['badge'] ?></span>
+        <span class="hse-icon"><?= htmlspecialchars($stMeta['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="hse-title"><?= htmlspecialchars($stMeta['title'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="hse-status-badge <?= htmlspecialchars($stMeta['badge_cls'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($stMeta['badge'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
     </div>
     <div class="hse-warning-block">
         <ul class="hse-risk-list">
@@ -203,12 +203,12 @@ $specLabelsSafety = [
                 <span class="c-muted fs12">&middot; <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
                 <span class="<?= $condCls ?> fw7">&middot; <?= t('technical.condition_label') ?>: <?= $cond ?>%</span>
                 <?php if ($stCode === 'paused_staff' && !empty($w['paused_staff_reason'])): ?>
-                <br><span class="c-muted fs12"><?= t('technical.missing_label') ?>: <?= htmlspecialchars(implode(', ', array_map(fn($c) => $specLabelsSafety[trim($c)] ?? trim($c), explode(',', $w['paused_staff_reason'])))) ?></span>
+                <br><span class="c-muted fs12"><?= t('technical.missing_label') ?>: <?= implode(', ', array_map(fn($c) => htmlspecialchars($specLabelsSafety[trim($c)] ?? trim($c), ENT_QUOTES, 'UTF-8'), explode(',', $w['paused_staff_reason']))) ?></span>
                 <?php endif ?>
             </li>
         <?php endforeach ?>
         </ul>
-        <p class="hse-fix-hint"> <?= $actionHint[$stCode] ?? '' ?></p>
+        <p class="hse-fix-hint"> <?= htmlspecialchars($actionHint[$stCode] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
     </div>
 </div>
 <?php endif ?>
@@ -276,8 +276,8 @@ foreach ($activeDisasters as $d):
 ?>
 <div class="disaster-panel">
     <div class="disaster-panel-hdr">
-        <span class="disaster-icon"><?= $dInfo['icon'] ?></span>
-        <span class="disaster-title <?= $dInfo['cls'] ?>"><?= $dInfo['label'] ?></span>
+        <span class="disaster-icon"><?= htmlspecialchars($dInfo['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="disaster-title <?= htmlspecialchars($dInfo['cls'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($dInfo['label'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
         <span class="disaster-badge"><?= $d['status'] === 'being_repaired' ? t('technical.disaster_being_repaired') : t('technical.disaster_active') ?></span>
     </div>
     <p class="disaster-desc"><?= htmlspecialchars($d['description'] ?? '') ?></p>
@@ -296,7 +296,7 @@ foreach ($activeDisasters as $d):
         <?php endif ?>
         <div class="disaster-stat"><div class="disaster-stat-val"><?= date('d.m H:i', strtotime($d['occurred_at'])) ?></div><div class="disaster-stat-lbl"><?= t('technical.disaster_date') ?></div></div>
     </div>
-    <?php if ($hint): ?><div class="disaster-action-hint"> <?= $hint ?></div><?php endif ?>
+    <?php if ($hint): ?><div class="disaster-action-hint"> <?= htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') ?></div><?php endif ?>
     <?php if ($d['hse_active']): ?><div class="disaster-hse-note"> <?= t('technical.disaster_hse_note') ?></div><?php endif ?>
 </div>
 <?php endforeach ?>
@@ -327,9 +327,9 @@ foreach ($failures as $f):
     $ft = $fTypes[$f['failure_type']] ?? ['icon' => '?', 'label' => $f['failure_type'], 'cls' => ''];
 ?>
 <div class="disaster-history-row">
-    <span class="tech-icon-lg"><?= $ft['icon'] ?></span>
+    <span class="tech-icon-lg"><?= htmlspecialchars($ft['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
     <span>
-        <span class="<?= $ft['cls'] ?>"><?= $ft['label'] ?></span>
+        <span class="<?= htmlspecialchars($ft['cls'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($ft['label'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
         <?php if ($f['well_id'] > 0): ?>
             <small class="c-muted2">&middot; #<?= $f['well_id'] ?> <?= htmlspecialchars($f['location_name'] ?? '') ?></small>
         <?php endif ?>

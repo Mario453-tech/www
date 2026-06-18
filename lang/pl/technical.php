@@ -587,6 +587,8 @@ return [
     'technical.task_msg.cancel_queue_failed' => 'Wystąpił błąd podczas usuwania zadania z kolejki.',
 
     // --- Błędy akcji (fallback wyjątków) / Action error fallbacks (exceptions) ---
+    'technical.err_init_svc'           => 'Błąd inicjalizacji serwisu technicznego.',
+    'technical.err_init_well'          => 'Błąd inicjalizacji serwisu odwiertów.',
     'technical.err_assign_task'        => 'Wystąpił nieoczekiwany błąd podczas zlecania zadania. Spróbuj ponownie.',
     'technical.err_fire_engineer'      => 'Wystąpił nieoczekiwany błąd podczas zwalniania pracownika.',
     'technical.err_review'             => 'Wystąpił nieoczekiwany błąd podczas zapisywania oceny.',
@@ -645,5 +647,7 @@ return [
     'technical.recruitment_msg.unknown_spec'           => 'Nieznana specjalizacja.',
     'technical.recruitment_msg.missing_role'           => 'Brak roli technical w systemie.',
     'technical.recruitment_msg.requested'              => 'Zlecono poszukiwania: :spec. Dział Kadr dostarczy kandydatów za ~:mins min.',
+    'technical.recruitment_msg.invalid_type'           => 'Nieprawidłowy typ rekrutacji.',
+    'technical.recruitment_msg.unknown_region'         => 'Nieznany region rekrutacji.',
 
 ];

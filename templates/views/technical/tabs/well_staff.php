@@ -13,7 +13,7 @@
         $hasTe     = $ws['has_technician'];
         $warnClass = (!$hasOp || !$hasTe) ? 'ws-card--warn' : '';
     ?>
-    <div class="ws-card <?= $warnClass ?>" id="ws-card-<?= $wsId ?>">
+    <div class="ws-card <?= $warnClass ?>" id="ws-card-<?= (int)$wsId ?>">
         <div class="ws-card-header">
             <div class="ws-well-name"><?= htmlspecialchars($ws['well_name']) ?></div>
             <div class="ws-status-badge ws-status-<?= htmlspecialchars($ws['status']) ?>">
@@ -40,10 +40,10 @@
             </div>
             <?php if ($hasOp): ?>
             <div class="ws-assigned">
-                <span class="ws-person-name"><?= htmlspecialchars($ws['operator']['name']) ?></span>
-                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= $ws['operator']['skill'] ?>/10</span>
+                <span class="ws-person-name"><?= htmlspecialchars($ws['operator']['name'] ?? '') ?></span>
+                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= (int)($ws['operator']['skill'] ?? 0) ?>/10</span>
                 <button type="button" class="btn-ws-remove"
-                    onclick="wsUnassign(<?= $wsId ?>, 'operator', this)">&times;</button>
+                    onclick="wsUnassign(<?= (int)$wsId ?>, 'operator', this)">&times;</button>
             </div>
             <?php else: ?>
             <div class="ws-empty">
@@ -69,10 +69,10 @@
             </div>
             <?php if ($hasTe): ?>
             <div class="ws-assigned">
-                <span class="ws-person-name"><?= htmlspecialchars($ws['technician']['name']) ?></span>
-                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= $ws['technician']['skill'] ?>/10</span>
+                <span class="ws-person-name"><?= htmlspecialchars($ws['technician']['name'] ?? '') ?></span>
+                <span class="ws-skill-badge"><?= t('technical.skill_short') ?> <?= (int)($ws['technician']['skill'] ?? 0) ?>/10</span>
                 <button type="button" class="btn-ws-remove"
-                    onclick="wsUnassign(<?= $wsId ?>, 'technician', this)">&times;</button>
+                    onclick="wsUnassign(<?= (int)$wsId ?>, 'technician', this)">&times;</button>
             </div>
             <?php else: ?>
             <div class="ws-empty">

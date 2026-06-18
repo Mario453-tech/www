@@ -36,12 +36,12 @@
         </button>
     </div>
     <?php foreach ($notifications as $n): ?>
-    <div class="notif-row" id="notif-<?= $n['id'] ?>">
+    <div class="notif-row" id="notif-<?= (int)$n['id'] ?>">
         <div>
             <div class="notif-msg"><?= htmlspecialchars($n['message']) ?></div>
             <div class="notif-time"><?= date('d.m.Y H:i', strtotime($n['created_at'])) ?></div>
         </div>
-        <button class="notif-x" onclick="dismissNotif(<?= $n['id'] ?>)" title="<?= t('technical.notif_dismiss') ?>">&#10005;</button>
+        <button class="notif-x" onclick="dismissNotif(<?= (int)$n['id'] ?>)" title="<?= t('technical.notif_dismiss') ?>">&#10005;</button>
     </div>
     <?php endforeach ?>
     <?php if ($notifTotal > 10): ?>
@@ -81,6 +81,19 @@ foreach ($tabDefs as $id => [$label, $cnt]):
 </nav>
 
 <?php
+// Definicja statusow studni - wspolna dla wielu zakladek (wells, team itp.)
+// Status labels for wells - shared across multiple tabs (wells, team, etc.)
+$statusLabels = [
+    'active'         => ['lbl' => t('technical.ws_active'),         'cls' => 'b-active',  'icon' => t('technical.short_active')],
+    'paused_staff'   => ['lbl' => t('technical.ws_paused_staff'),   'cls' => 'b-staff',   'icon' => t('technical.short_stop')],
+    'paused_cash'    => ['lbl' => t('technical.ws_paused_cash'),    'cls' => 'b-broken',  'icon' => t('technical.short_cash')],
+    'paused_storage' => ['lbl' => t('technical.ws_paused_storage'), 'cls' => 'b-paused',  'icon' => t('technical.short_storage')],
+    'contaminated'   => ['lbl' => t('technical.ws_contaminated'),   'cls' => 'b-broken',  'icon' => t('technical.short_contamination')],
+    'blowout'        => ['lbl' => t('technical.ws_blowout'),        'cls' => 'b-broken',  'icon' => t('technical.short_blowout')],
+    'seized'         => ['lbl' => t('technical.ws_seized'),         'cls' => 'b-broken',  'icon' => t('technical.short_seized')],
+    'broken'         => ['lbl' => t('technical.ws_broken'),         'cls' => 'b-broken',  'icon' => t('technical.short_error')],
+    'servicing'      => ['lbl' => t('technical.ws_servicing'),      'cls' => 'b-paused',  'icon' => t('technical.short_repair')],
+];
 $_tabFile = __DIR__ . '/tabs/' . preg_replace('/[^a-z_]/', '', $activeTab) . '.php';
 if (file_exists($_tabFile)) include $_tabFile;
 ?>

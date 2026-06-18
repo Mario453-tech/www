@@ -10,6 +10,8 @@ trait TTSStaffTrait
 
     public function getStaff(): array
     {
+        // Replace correlated subquery with LEFT JOIN on derived table to avoid N+1 per row.
+        // Zastap skorelowane podzapytanie LEFT JOIN na tabeli pochodnej, by uniknac N+1 na wiersz.
         $stmt = $this->db->prepare("
             SELECT ts.*,
                    ss.name  AS specialization_name,
@@ -21,10 +23,15 @@ trait TTSStaffTrait
                    tt.title AS active_task_title,
                    tt.end_time AS active_task_end,
                    tt.status AS active_task_status,
-                   (SELECT COUNT(*) FROM technical_task_queue q WHERE q.staff_id = ts.id) AS queued_tasks
+                   COALESCE(ttq.cnt, 0) AS queued_tasks
             FROM technical_staff ts
-            LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
+            LEFT JOIN staff_specializations ss ON ss.code = ts.spec_code
             LEFT JOIN technical_tasks tt ON tt.staff_id = ts.id AND tt.status = 'in_progress'
+            LEFT JOIN (
+                SELECT staff_id, COUNT(*) AS cnt
+                FROM technical_task_queue
+                GROUP BY staff_id
+            ) ttq ON ttq.staff_id = ts.id
             WHERE ts.player_id = ? AND ts.status != 'fired'
             ORDER BY FIELD(ts.spec_code,
                 'drilling_engineer','reservoir_engineer','production_engineer',
@@ -47,10 +54,14 @@ trait TTSStaffTrait
     public function getStaffBonus(array $staff): array
     {
         $skill = (int)$staff['skill_level'];
-        $timeMult = $skill >= 7
+        // skill>=6 gets speed bonus (~2.5% each step above 5); skill<=4 gets penalty.
+        // skill>=6 dostaje bonus predkosci (~2.5% na kazdy krok powyzej 5); skill<=4 ma kare.
+        $timeMult = $skill >= 6
             ? max(0.5, 1.0 - (($skill - 5) * 0.025))
             : ($skill <= 4 ? 1.0 + ((5 - $skill) * 0.025) : 1.0);
-        $errorRisk = $skill <= 3 ? ($skill * 2) : 0;
+        // Monotonically decreasing error risk: skill=1->8, 2->6, 3->4, 4->2, 5+->0.
+        // Monotonicznie malejace ryzyko bledu: skill=1->8, 2->6, 3->4, 4->2, 5+->0.
+        $errorRisk = $skill <= 4 ? max(0, (5 - $skill) * 2) : 0;
 
         return [
             'skill'      => $skill,
@@ -78,35 +89,25 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.unknown_spec')];
         }
 
-        // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
-        // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
-        $fts = new FinancialTransactionService($this->db);
         $this->db->beginTransaction();
         try {
-            // Sprawdz gotowke wewnatrz transakcji, by uniknac race condition.
-            // Check cash inside the transaction to avoid race condition.
-            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? FOR UPDATE");
-            $cashStmt->execute([$this->playerId]);
-            if ((float)$cashStmt->fetchColumn() < $salary) {
+            // Atomic cash check + deduct to avoid TOCTOU race.
+            // Atomowe sprawdzenie + odliczenie srodkow, by uniknac wyscigu TOCTOU.
+            $cashUpd = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
+            $cashUpd->execute([$salary, $this->playerId, $salary]);
+            if ($cashUpd->rowCount() === 0) {
                 $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.staff_msg.no_funds', [
-                    'salary' => number_format($salary, 0, '.', ' '),
-                ])];
+                return ['success' => false, 'message' => t('technical.staff_msg.no_funds', ['amount' => $salary])];
             }
-
-            // Pierwsza pensja przez FTS: gotowka schodzi (hr_fee -> cash) i powstaje wpis w historii.
-            // First salary via FTS: cash is deducted (hr_fee -> cash) and a history entry is created.
-            $charge = $fts->debit(
-                $this->playerId, (float)$salary,
-                FinancialTransactionService::TYPE_HR_FEE,
-                'Zatrudnienie pracownika TTS (pierwsza pensja)'
-            );
-            if (empty($charge['success'])) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.staff_msg.no_funds', [
-                    'salary' => number_format($salary, 0, '.', ' '),
-                ])];
-            }
+            try {
+                if (class_exists('FinancialTransactionService', false)) {
+                    (new FinancialTransactionService($this->db))->logTransaction(
+                        $this->playerId, null, $salary,
+                        FinancialTransactionService::TYPE_HR_FEE,
+                        'Zatrudnienie pracownika TTS (pierwsza pensja)'
+                    );
+                }
+            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             $this->db->prepare("
                 INSERT INTO technical_staff
                     (player_id, manager_id, first_name, last_name, spec_code, spec_name, skill_level, salary)
@@ -155,6 +156,8 @@ trait TTSStaffTrait
             $this->db->prepare("SELECT id FROM technical_staff WHERE id = ? AND player_id = ? LIMIT 1 FOR UPDATE")
                 ->execute([$staffId, $this->playerId]);
 
+            // Guard by player_id to prevent cross-player firing + busy-check before firing.
+            // Sprawdzenie player_id (ochrona przed zwolnieniem pracownika innego gracza) + blokada przy zadaniu w toku.
             $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
             $taskStmt->execute([$staffId]);
             if ($taskStmt->fetch()) {

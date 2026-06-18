@@ -67,7 +67,9 @@ class PipelineSection
 
  // Inbound pipelines: keyed by well_id > 0, joined to wells and hub assignment.
             $inboundStmt = $this->db->prepare(
-                "SELECT wp.*
+                "SELECT wp.id, wp.well_id, wp.hub_id, wp.leg,
+                        wp.condition_pct, wp.transport_loss, wp.status,
+                        wp.opex_per_tick, wp.degradation_rate_per_hour, wp.incident_risk_mult
                    FROM well_pipelines wp
                    JOIN wells w ON w.id = wp.well_id
                    JOIN logistics_hub_assignments a ON a.well_id = wp.well_id AND a.status = 'active'
@@ -86,7 +88,9 @@ class PipelineSection
 
  // Outbound pipelines (ETAP 11): keyed by well_id=0, hub_id; joined to logistics_hubs.
             $outboundStmt = $this->db->prepare(
-                "SELECT wp.*
+                "SELECT wp.id, wp.well_id, wp.hub_id, wp.leg,
+                        wp.condition_pct, wp.transport_loss, wp.status,
+                        wp.opex_per_tick, wp.degradation_rate_per_hour, wp.incident_risk_mult
                    FROM well_pipelines wp
                    JOIN logistics_hubs h ON h.id = wp.hub_id
                   WHERE wp.player_id = ?

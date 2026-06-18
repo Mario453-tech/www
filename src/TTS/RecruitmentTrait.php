@@ -60,7 +60,8 @@ trait TTSRecruitmentTrait
               )
             ORDER BY c.expires_at ASC
         ");
-        $stmt->execute([$this->playerId, $this->playerId]);
+        // C2 fix: bind player_id twice (isolation filter + subquery) / Poprawka C2: player_id bindowany dwukrotnie (filtr izolacji + podzapytanie)
+        $stmt->execute([$this->playerId, $this->playerId, $this->playerId]);
         return $stmt->fetchAll();
     }
 
@@ -79,6 +80,7 @@ trait TTSRecruitmentTrait
             return ['success' => false, 'message' => t('technical.recruitment_msg.candidate_missing')];
         }
 
+        // H-6 fix: isolate candidate to this player (own, global, or via request) / Poprawka H-6: izolacja kandydata do gracza (wlasny, globalny lub przez request)
         $cStmt = $this->db->prepare("
             SELECT c.id
             FROM candidates c
@@ -99,16 +101,26 @@ trait TTSRecruitmentTrait
             return ['success' => false, 'message' => t('technical.recruitment_msg.candidate_missing')];
         }
 
-        $this->db->prepare("
-            INSERT INTO candidate_reviews
-                (candidate_id, reviewer_member_id, player_id, score, recommendation, comment)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                score          = VALUES(score),
-                recommendation = VALUES(recommendation),
-                comment        = VALUES(comment),
-                created_at     = CURRENT_TIMESTAMP
-        ")->execute([$candidateId, $reviewerMemberId, $this->playerId, $score, $recommendation, $comment]);
+        // H9 fix: wrap INSERT/UPDATE in try-catch, check execute() result
+        // Poprawka H9: INSERT/UPDATE w try-catch, sprawdzenie wyniku execute()
+        try {
+            $insStmt = $this->db->prepare("
+                INSERT INTO candidate_reviews
+                    (candidate_id, reviewer_member_id, player_id, score, recommendation, comment)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    score          = VALUES(score),
+                    recommendation = VALUES(recommendation),
+                    comment        = VALUES(comment),
+                    created_at     = CURRENT_TIMESTAMP
+            ");
+            $ok = $insStmt->execute([$candidateId, $reviewerMemberId, $this->playerId, $score, $recommendation, $comment]);
+            if (!$ok) {
+                return ['success' => false, 'message' => t('technical.task_msg.start_failed', ['error' => 'execute() returned false'])];
+            }
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => t('technical.task_msg.start_failed', ['error' => $e->getMessage()])];
+        }
 
         $recLabel = $recommendation === 'hire'
             ? t('technical.recruitment_msg.recommend_hire')
@@ -126,10 +138,26 @@ trait TTSRecruitmentTrait
  */
     public function completeRecruitment(int $requestId): void
     {
-        $this->db->prepare("
-            UPDATE recruitment_requests SET status = 'completed'
-            WHERE id = ? AND player_id = ?
-        ")->execute([$requestId, $this->playerId]);
+        // L-8 fix: wrap UPDATE in try/catch, check rowCount() / Poprawka L-8: UPDATE w try-catch, sprawdzenie rowCount()
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE recruitment_requests SET status = 'completed'
+                WHERE id = ? AND player_id = ?
+            ");
+            $stmt->execute([$requestId, $this->playerId]);
+            if ($stmt->rowCount() < 1) {
+                GameLog::error('completeRecruitment: no rows updated', [
+                    'requestId' => $requestId,
+                    'playerId'  => $this->playerId,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            GameLog::error('completeRecruitment: DB error', [
+                'requestId' => $requestId,
+                'playerId'  => $this->playerId,
+                'error'     => $e->getMessage(),
+            ]);
+        }
     }
 
     public function cancelRecruitment(int $requestId): array
@@ -284,38 +312,83 @@ trait TTSRecruitmentTrait
             return ['success' => false, 'message' => t('technical.recruitment_msg.unknown_spec')];
         }
 
-        $summary = $this->getRecruitmentCapacitySummary($specCode);
-        $remaining = (int)$summary['remaining_capacity'];
-        if ($remaining <= 0) {
-            return [
-                'success' => false,
-                'message' => t('technical.rec_limit_reached', [
-                    'spec'             => $spec['name'],
-                    'per_spec_used'    => $summary['per_spec_used'],
-                    'per_spec_limit'   => $summary['per_spec_limit'],
-                    'department_used'  => $summary['department_used'],
-                    'department_limit' => $summary['department_limit'],
-                ]),
-            ];
+        // M-7 fix: validate recruitmentType before capacity check / Poprawka M-7: walidacja recruitmentType przed sprawdzeniem pojemnosci
+        if (!in_array($recruitmentType, ['local', 'international'], true)) {
+            return ['success' => false, 'message' => t('technical.recruitment_msg.invalid_type')];
         }
 
-        $roleStmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = 'technical' LIMIT 1");
-        $roleStmt->execute();
-        $role = $roleStmt->fetch();
-        if (!$role) {
-            return ['success' => false, 'message' => t('technical.recruitment_msg.missing_role')];
+        // M-7 fix: validate regionCode against hr_regions / Poprawka M-7: walidacja regionCode na podstawie hr_regions
+        $rgnStmt = $this->db->prepare("SELECT code FROM hr_regions WHERE code = ? LIMIT 1");
+        $rgnStmt->execute([$regionCode]);
+        if (!$rgnStmt->fetch()) {
+            return ['success' => false, 'message' => t('technical.recruitment_msg.unknown_region')];
         }
 
-        $ranges = ['local' => [360, 720], 'international' => [1440, 2880]];
-        $range = $ranges[$recruitmentType] ?? $ranges['local'];
-        $duration = rand($range[0], $range[1]);
-        $readyAt = date('Y-m-d H:i:s', time() + $duration);
+        // C3 fix: wrap capacity check + INSERT in a transaction to prevent race conditions
+        // Poprawka C3: check pojemnosci + INSERT w transakcji, zapobiega race condition
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) {
+            $this->db->beginTransaction();
+        }
 
-        $this->db->prepare("
-            INSERT INTO recruitment_requests
-                (role_id, region_code, player_id, initiated_by, recruitment_type, spec_code, ready_at, status)
-            VALUES (?, ?, ?, 'technical', ?, ?, ?, 'pending')
-        ")->execute([$role['id'], $regionCode, $this->playerId, $recruitmentType, $specCode, $readyAt]);
+        try {
+            // Re-fetch capacity inside the transaction / Pobierz pojemnosc wewnatrz transakcji
+            $summary = $this->getRecruitmentCapacitySummary($specCode);
+            $remaining = (int)$summary['remaining_capacity'];
+            if ($remaining <= 0) {
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
+                return [
+                    'success' => false,
+                    'message' => t('technical.rec_limit_reached', [
+                        'spec'             => $spec['name'],
+                        'per_spec_used'    => $summary['per_spec_used'],
+                        'per_spec_limit'   => $summary['per_spec_limit'],
+                        'department_used'  => $summary['department_used'],
+                        'department_limit' => $summary['department_limit'],
+                    ]),
+                ];
+            }
+
+            $roleStmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = 'technical' LIMIT 1");
+            $roleStmt->execute();
+            $role = $roleStmt->fetch();
+            if (!$role) {
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'message' => t('technical.recruitment_msg.missing_role')];
+            }
+
+            $ranges = ['local' => [360, 720], 'international' => [1440, 2880]];
+            $range = $ranges[$recruitmentType] ?? $ranges['local'];
+            $duration = rand($range[0], $range[1]);
+            $readyAt = date('Y-m-d H:i:s', time() + $duration);
+
+            // L-8 fix: check execute() result on INSERT / Poprawka L-8: sprawdzenie wyniku execute() przy INSERT
+            $insStmt = $this->db->prepare("
+                INSERT INTO recruitment_requests
+                    (role_id, region_code, player_id, initiated_by, recruitment_type, spec_code, ready_at, status)
+                VALUES (?, ?, ?, 'technical', ?, ?, ?, 'pending')
+            ");
+            $insOk = $insStmt->execute([$role['id'], $regionCode, $this->playerId, $recruitmentType, $specCode, $readyAt]);
+            if (!$insOk) {
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'message' => t('technical.recruitment_msg.insert_failed')];
+            }
+
+            if ($ownTx) {
+                $this->db->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($ownTx && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
 
         $mins = ceil($duration / 60);
         return [
