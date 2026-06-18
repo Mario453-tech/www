@@ -49,14 +49,6 @@ class HeadhunterService
     public function startSearch(int $specializationId): array
     {
         try {
-            $activeStmt = $this->db->prepare(
-                "SELECT id FROM headhunter_searches WHERE player_id = ? AND status = 'searching' LIMIT 1"
-            );
-            $activeStmt->execute([$this->playerId]);
-            if ($activeStmt->fetch()) {
-                return ['success' => false, 'message' => t('hr_headhunter.err_search_active')];
-            }
-
             $specStmt = $this->db->prepare("SELECT * FROM hr_specializations WHERE id = ?");
             $specStmt->execute([$specializationId]);
             $spec = $specStmt->fetch();
@@ -77,6 +69,18 @@ class HeadhunterService
 
             $this->db->beginTransaction();
             try {
+                $playerLock = $this->db->prepare("SELECT id FROM players WHERE id = ? LIMIT 1 FOR UPDATE");
+                $playerLock->execute([$this->playerId]);
+
+                $activeStmt = $this->db->prepare(
+                    "SELECT id FROM headhunter_searches WHERE player_id = ? AND status = 'searching' LIMIT 1 FOR UPDATE"
+                );
+                $activeStmt->execute([$this->playerId]);
+                if ($activeStmt->fetch()) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('hr_headhunter.err_search_active')];
+                }
+
  // Oplata za wyszukiwanie przez centralne API finansowe (ruch + wpis bankowy; w transakcji).
  // Search fee via the central finance API (movement + bank entry; inside a transaction).
                 $feeRes = (new FinancialTransactionService($this->db))->debit(
@@ -149,12 +153,40 @@ class HeadhunterService
                        hsp.base_salary_min, hsp.base_salary_max
                 FROM headhunter_searches hs
                 JOIN hr_specializations hsp ON hs.specialization_id = hsp.id
-                WHERE hs.status = 'searching' AND hs.finished_at <= NOW()
+                WHERE hs.player_id = ?
+                  AND hs.status = 'searching'
+                  AND hs.finished_at <= NOW()
             ");
-            $stmt->execute();
+            $stmt->execute([$this->playerId]);
 
             foreach ($stmt->fetchAll() as $search) {
-                $this->generateCandidates($search);
+                $this->db->beginTransaction();
+                try {
+                    $claim = $this->db->prepare("
+                        UPDATE headhunter_searches
+                        SET status = 'failed'
+                        WHERE id = ?
+                          AND player_id = ?
+                          AND status = 'searching'
+                          AND finished_at <= NOW()
+                    ");
+                    $claim->execute([(int)$search['id'], $this->playerId]);
+                    if ($claim->rowCount() !== 1) {
+                        $this->db->rollBack();
+                        continue;
+                    }
+                    $this->generateCandidates($search);
+                    $this->db->commit();
+                } catch (Throwable $e) {
+                    if ($this->db->inTransaction()) {
+                        $this->db->rollBack();
+                    }
+                    GameLog::error('HeadhunterService', 'processReady search failed', [
+                        'player_id' => $this->playerId,
+                        'search_id' => $search['id'] ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         } catch (Throwable $e) {
             GameLog::error('HeadhunterService', 'processReady failed', [
@@ -234,6 +266,7 @@ class HeadhunterService
                 'search_id' => $search['id'] ?? null,
                 'player_id' => $search['player_id'] ?? null,
             ]);
+            throw $e;
         }
     }
 
@@ -272,8 +305,18 @@ class HeadhunterService
             if ($roll <= $prob + 20) {
                 $counterSalary = (int)round($offeredSalary * 1.15);
                 $counterBonus = (int)round($signingBonus * 1.25);
-                $this->db->prepare("UPDATE headhunter_candidates SET status = 'offered' WHERE id = ?")
-                         ->execute([$candidateId]);
+                $update = $this->db->prepare("
+                    UPDATE headhunter_candidates
+                    SET status = 'offered'
+                    WHERE id = ?
+                      AND player_id = ?
+                      AND status IN ('available', 'offered')
+                      AND expires_at > NOW()
+                ");
+                $update->execute([$candidateId, $this->playerId]);
+                if ($update->rowCount() !== 1) {
+                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+                }
 
                 return [
                     'success' => true,
@@ -288,8 +331,18 @@ class HeadhunterService
                 ];
             }
 
-            $this->db->prepare("UPDATE headhunter_candidates SET status = 'rejected' WHERE id = ?")
-                     ->execute([$candidateId]);
+            $update = $this->db->prepare("
+                UPDATE headhunter_candidates
+                SET status = 'rejected'
+                WHERE id = ?
+                  AND player_id = ?
+                  AND status IN ('available', 'offered')
+                  AND expires_at > NOW()
+            ");
+            $update->execute([$candidateId, $this->playerId]);
+            if ($update->rowCount() !== 1) {
+                return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+            }
             return [
                 'success' => true,
                 'decision' => 'reject',
@@ -379,6 +432,22 @@ class HeadhunterService
 
             $this->db->beginTransaction();
             try {
+                $candidateLock = $this->db->prepare("
+                    SELECT id
+                    FROM headhunter_candidates
+                    WHERE id = ?
+                      AND player_id = ?
+                      AND status IN ('available', 'offered')
+                      AND expires_at > NOW()
+                    LIMIT 1
+                    FOR UPDATE
+                ");
+                $candidateLock->execute([(int)$c['id'], $this->playerId]);
+                if (!$candidateLock->fetch()) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+                }
+
  // Premia za zatrudnienie przez centralne API finansowe (ruch + wpis bankowy; w transakcji).
  // Hire bonus via the central finance API (movement + bank entry; inside a transaction).
                 $bonusRes = (new FinancialTransactionService($this->db))->debit(
@@ -398,13 +467,13 @@ class HeadhunterService
 
                 $this->db->prepare("
                     INSERT INTO board_members
-                        (player_id, role_id, first_name, last_name, gender, birth_date,
+                        (player_id, member_type, role_id, first_name, last_name, gender, birth_date,
                          nationality, region_code, specialization_id, experience_years,
                          skill_organization, skill_negotiation, skill_analysis,
                          skill_stress, skill_ethics,
                          trait_loyalty, trait_corruption_risk, trait_ambition,
                          salary, hired_at, status)
-                    VALUES (?,?,?,?,'M',?,'INT','INT',?,?,?,?,?,?,?,?,3,5,?,NOW(),'active')
+                    VALUES (?,'staff',?,?,?, 'M',?,'INT','INT',?,?,?,?,?,?,?,?,3,5,?,NOW(),'active')
                 ")->execute([
                     $this->playerId,
                     $role['id'],
@@ -445,8 +514,18 @@ class HeadhunterService
                     VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR), ?, '1y', 'active')
                 ")->execute([$memberId, $salary]);
 
-                $this->db->prepare("UPDATE headhunter_candidates SET status = 'accepted' WHERE id = ?")
-                         ->execute([$c['id']]);
+                $acceptedUpdate = $this->db->prepare("
+                    UPDATE headhunter_candidates
+                    SET status = 'accepted'
+                    WHERE id = ?
+                      AND player_id = ?
+                      AND status IN ('available', 'offered')
+                ");
+                $acceptedUpdate->execute([$c['id'], $this->playerId]);
+                if ($acceptedUpdate->rowCount() !== 1) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+                }
 
                 $this->db->commit();
             } catch (Throwable $e) {

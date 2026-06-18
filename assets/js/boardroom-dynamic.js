@@ -1,8 +1,6 @@
 /**
- * boardroom-dynamic.js sloty sali zarzdu
- *
- * Kliknicie pustego slotu z HR zatrudnionym dialog wyboru regionu HRApi
- * Kliknicie pracownika HR mini-panel z linkiem do hr.php
+ * Boardroom seat interactions and recruitment dialogs.
+ * PL: Interakcje miejsc zarzadu i dialogi rekrutacji.
  */
 
 var _BRL = window.BR_LANG || {};
@@ -12,17 +10,35 @@ function brl(k, p) {
     return s;
 }
 
+function memberFullName(member) {
+    return `${member.first_name || ''} ${member.last_name || ''}`.trim();
+}
+
+function jsString(value) {
+    return JSON.stringify(String(value ?? ''));
+}
+
+function htmlJsString(value) {
+    return jsString(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 const CX = 50, CY = 58, RX = 30, RY = 16;
 
 const seatPositions = [
     { id:0, angle:360, scale:0.80, role_code:'director',  label:brl('seat_director') },
- // Prawa strona (od dyrektora idc zgodnie z ruchem wskazwek zegara)
+// Right side from the director, clockwise.
+// PL: Prawa strona od dyrektora, zgodnie z ruchem wskazowek zegara.
     { id:1, angle:30,  scale:0.82, role_code:'hr',        label:brl('seat_hr') },        // 1. prawy
     { id:2, angle:48,  scale:0.92, role_code:'technical', label:brl('seat_technical') }, // 2. prawy
     { id:3, angle:92,  scale:1.02, role_code:'finance',   label:brl('seat_finance') },   // 3. prawy
     { id:4, angle:140, scale:1.10, role_code:'legal',     label:brl('seat_legal') },     // 4. prawy
-    { id:5, angle:200, scale:1.15, role_code:'logistics', label:brl('seat_logistics') }, // d lewy
- // Lewa strona (puste miejsca)
+    { id:5, angle:200, scale:1.15, role_code:'logistics', label:brl('seat_logistics') }, // lower left
+// Left side empty seats.
+// PL: Lewa strona, puste miejsca.
     { id:6, angle:248, scale:1.10, role_code:null,        label:null },
     { id:7, angle:280, scale:1.02, role_code:null,        label:null },
     { id:8, angle:310, scale:0.92, role_code:null,        label:null },
@@ -40,7 +56,8 @@ function avatarSVG(color='white', size=28) {
     </svg>`;
 }
 
-// Ikona pustego miejsca (krzeso + znak +) dla niezajętych slotów wymaganych.
+// Empty required seat icon.
+// PL: Ikona pustego wymaganego miejsca.
 // Empty seat icon (chair outline + plus) for required-but-unfilled slots.
 function emptySeatSVG(color='white', size=28) {
     return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -233,7 +250,7 @@ function showHrPanel(member) {
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
             <button class="btn-recruitment btn-recruitment--danger"
-                    onclick="closeModal();fireEmployee(${member.id},'${member.first_name} ${member.last_name}')">
+                    onclick="closeModal();fireEmployee(${member.id},${htmlJsString(memberFullName(member))})">
                 ${brl('fire_btn')}
             </button>
         </div>
@@ -261,7 +278,7 @@ function showTechnicalPanel(member) {
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
             <button class="btn-recruitment btn-recruitment--danger"
-                    onclick="closeModal();fireEmployee(${member.id},'${member.first_name} ${member.last_name}')">
+                    onclick="closeModal();fireEmployee(${member.id},${htmlJsString(memberFullName(member))})">
                 ${brl('fire_btn')}
             </button>
         </div>
@@ -289,7 +306,7 @@ function showFinancePanel(member) {
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
             <button class="btn-recruitment btn-recruitment--danger"
-                    onclick="closeModal();fireEmployee(${member.id},'${member.first_name} ${member.last_name}')">
+                    onclick="closeModal();fireEmployee(${member.id},${htmlJsString(memberFullName(member))})">
                 ${brl('fire_btn')}
             </button>
         </div>
@@ -317,7 +334,7 @@ function showLogisticsPanel(member) {
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
             <button class="btn-recruitment btn-recruitment--danger"
-                    onclick="closeModal();fireEmployee(${member.id},'${member.first_name} ${member.last_name}')">
+                    onclick="closeModal();fireEmployee(${member.id},${htmlJsString(memberFullName(member))})">
                 ${brl('fire_btn')}
             </button>
         </div>
@@ -345,7 +362,7 @@ function showLegalPanel(member) {
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
             <button class="btn-recruitment btn-recruitment--danger"
-                    onclick="closeModal();fireEmployee(${member.id},'${member.first_name} ${member.last_name}')">
+                    onclick="closeModal();fireEmployee(${member.id},${htmlJsString(memberFullName(member))})">
                 ${brl('fire_btn')}
             </button>
         </div>
@@ -567,7 +584,7 @@ function showEmployeeModal(m, roleName) {
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
             <button class="btn-recruitment btn-recruitment--danger"
-                    onclick="closeModal();fireEmployee(${m.id},'${m.first_name} ${m.last_name}')">
+                    onclick="closeModal();fireEmployee(${m.id},${htmlJsString(memberFullName(m))})">
                 ${brl('fire_btn')}
             </button>
         </div>
@@ -718,4 +735,3 @@ setInterval(async () => {
 
 updateBackground();
 render();
-

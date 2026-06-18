@@ -69,7 +69,7 @@ trait HRDataTrait
             FROM board_members bm
             JOIN board_roles br ON bm.role_id = br.id
             LEFT JOIN hr_specializations hs ON bm.specialization_id = hs.id
-            LEFT JOIN employee_contracts ec ON ec.member_id = bm.id AND ec.status = 'active'
+            LEFT JOIN employee_contracts ec ON ec.member_id = bm.id AND ec.status = 'active' AND ec.contract_end >= CURDATE()
             WHERE bm.status = 'active'
               AND bm.player_id = ?
               AND bm.member_type = 'staff'
@@ -129,6 +129,7 @@ trait HRDataTrait
             JOIN board_members bm ON ec.member_id = bm.id
             JOIN board_roles br ON bm.role_id = br.id
             WHERE ec.status = 'active'
+              AND ec.contract_end >= CURDATE()
               AND bm.player_id = ?
               AND bm.member_type = 'staff'
             ORDER BY ec.contract_end ASC
@@ -283,7 +284,7 @@ trait HRDataTrait
                    hr.name  AS region_name,
                    TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE())  AS age,
                    TIMESTAMPDIFF(HOUR, NOW(), c.expires_at)      AS hours_remaining,
-                   cr.technical_score,
+                   cr.score AS technical_score,
                    cr.recommendation AS tech_recommendation,
                    cr.comment        AS tech_comment,
                    cr.created_at     AS review_date
@@ -316,6 +317,7 @@ trait HRDataTrait
             SELECT id, first_name, last_name
             FROM candidates
             WHERE id = ?
+              AND expires_at > NOW()
               AND (
                    player_id = ?
                    OR (player_id IS NULL AND request_id IN (
@@ -329,6 +331,7 @@ trait HRDataTrait
         $this->db->prepare("
             DELETE FROM candidates
             WHERE id = ?
+              AND expires_at > NOW()
               AND (
                    player_id = ?
                    OR (player_id IS NULL AND request_id IN (
@@ -346,6 +349,7 @@ trait HRDataTrait
             SELECT id, first_name, last_name, expires_at
             FROM candidates
             WHERE id = ?
+              AND expires_at > NOW()
               AND (
                    player_id = ?
                    OR (player_id IS NULL AND request_id IN (
@@ -357,17 +361,22 @@ trait HRDataTrait
         $c = $stmt->fetch();
         if (!$c) return ['success' => false, 'message' => t('hr.err_candidate_not_found')];
         $newExpiry = date('Y-m-d H:i:s', strtotime($c['expires_at']) + 48 * 3600);
-        $this->db->prepare("
+        $update = $this->db->prepare("
             UPDATE candidates
             SET expires_at = ?
             WHERE id = ?
+              AND expires_at > NOW()
               AND (
                    player_id = ?
                    OR (player_id IS NULL AND request_id IN (
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
               )
-        ")->execute([$newExpiry, $candidateId, $playerId, $playerId]);
+        ");
+        $update->execute([$newExpiry, $candidateId, $playerId, $playerId]);
+        if ($update->rowCount() !== 1) {
+            return ['success' => false, 'message' => t('hr.err_candidate_not_found')];
+        }
         return ['success' => true, 'message' => t('hr.msg_candidate_saved', ['name' => "{$c['first_name']} {$c['last_name']}", 'date' => date('d.m.Y H:i', strtotime($newExpiry))])];
     }
 
@@ -386,8 +395,10 @@ trait HRDataTrait
         $stmt->execute([$memberId, $playerId]);
         $contract = $stmt->fetch();
         if (!$contract) return ['success' => false, 'message' => t('hr.err_no_active_contract')];
-        $add    = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'][$contractType] ?? '+1 year';
-        $newEnd = date('Y-m-d', strtotime($contract['contract_end'] . ' ' . $add));
+        $contractType = in_array($contractType, ['6m', '1y', '2y'], true) ? $contractType : '1y';
+        $add    = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'][$contractType];
+        $baseDate = max(strtotime((string)$contract['contract_end']), strtotime(date('Y-m-d')));
+        $newEnd = date('Y-m-d', strtotime(date('Y-m-d', $baseDate) . ' ' . $add));
         $this->db->prepare("UPDATE employee_contracts SET contract_end = ?, contract_type = ? WHERE id = ?")
                  ->execute([$newEnd, $contractType, $contract['id']]);
         return ['success' => true, 'message' => t('hr.msg_contract_renewed', ['name' => "{$contract['first_name']} {$contract['last_name']}", 'date' => date('d.m.Y', strtotime($newEnd))])];

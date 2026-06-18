@@ -36,6 +36,7 @@ return [
     'admin.help.msg_saved' => 'Section saved.',
     'admin.help.no_sections' => 'No help section. Please add the first one above.',
     'admin.help.page_title' => 'Help - Admin Dashboard',
+    'admin.help.placeholder_title' => 'Section title',
     'admin.help.preview_title' => 'Overview Section',
     'admin.help.status_active' => 'Yes',
     'admin.help.status_inactive' => 'No',

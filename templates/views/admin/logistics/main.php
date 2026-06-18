@@ -95,7 +95,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
     </form>
 </div>
 
-<!--  Utwórz pojedynczy hub  -->
+<!--  Create a single hub  -->
 <details class="admin-details">
     <summary><?= t('admin.logistics.create_title') ?></summary>
     <form method="POST" class="admin-details-form">
@@ -181,7 +181,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
     <a href="/admin/logistics_hubs.php" class="btn btn-secondary btn-sm"><?= t('admin.logistics.filter_reset') ?></a>
 </form>
 
-<!--  Szczegóły huba (po kliknięciu)  -->
+<!--  Hub details (after click)  -->
 <?php if ($viewHub):
     $condPctView = (float)$viewHub['condition_pct'];
     $condClsView = $condPctView < 30 ? 'c-bad' : ($condPctView < 60 ? 'c-warn' : 'c-good');
@@ -199,7 +199,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
             <dt><?= t('admin.logistics.hub_condition') ?></dt>   <dd class="<?= $condClsView ?>"><?= number_format($condPctView, 1) ?>%</dd>
             <dt><?= t('admin.logistics.hub_initial_condition') ?></dt><dd><?= number_format((float)($viewHub['initial_condition_pct'] ?? $condPctView), 1) ?>%</dd>
             <dt><?= t('admin.logistics.hub_wear') ?></dt>        <dd><?= number_format((float)$viewHub['wear_level'], 4) ?></dd>
-            <dt><?= t('admin.logistics.hub_lease_fee') ?></dt>   <dd><?= number_format((float)($viewHub['lease_fee_per_tick'] ?? 0), 2, ',', ' ') ?> PLN</dd>
+            <dt><?= t('admin.logistics.hub_lease_fee') ?></dt>   <dd><?= number_format((float)($viewHub['lease_fee_per_tick'] ?? 0), 2, ',', ' ') ?> USD</dd>
             <dt><?= t('admin.logistics.hub_slots') ?></dt>       <dd><?= $viewHub['assigned_count'] ?>/<?= $viewHub['slot_limit'] ?></dd>
             <dt><?= t('admin.logistics.hub_mode') ?></dt>        <dd><?= $modeMap[$viewHub['work_mode']] ?? $viewHub['work_mode'] ?></dd>
             <dt><?= t('admin.logistics.hub_level') ?></dt>       <dd><?= $viewHub['level'] ?></dd>
@@ -264,7 +264,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
         </div>
 
         <div class="hub-param-card">
-            <div class="hub-param-label"><?= t('admin.logistics.hub_condition') ?> <small class="c-muted">(0–100%)</small></div>
+            <div class="hub-param-label"><?= t('admin.logistics.hub_condition') ?> <small class="c-muted">(0-100%)</small></div>
             <div class="hub-param-current <?= $condClsView ?>"><?= number_format($condPctView, 1) ?>%</div>
             <form method="POST" class="hub-param-form">
                 <input type="hidden" name="action"     value="set_condition">
@@ -358,7 +358,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
 </div>
 <?php endif ?>
 
-<!--  Lista hubów  -->
+<!-- Hub list -->
 <div class="hub-list-header">
     <h3><?= t('admin.logistics.list_title') ?> <small class="c-muted">(<?= $totalHubs ?>)</small></h3>
     <?php if ($totalPages > 1): ?>
@@ -474,7 +474,7 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
 
     <?php $prev = null; foreach ($visible as $p):
         if ($prev !== null && $p - $prev > 1): ?>
-        <span class="hub-pagination-dots">…</span>
+        <span class="hub-pagination-dots">...</span>
     <?php endif ?>
     <a href="<?= $pageUrl($p) ?>" class="btn btn-sm <?= $p === $page ? 'btn-primary' : 'btn-secondary' ?>"><?= $p ?></a>
     <?php $prev = $p; endforeach ?>
@@ -494,8 +494,8 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
         <div class="hub-admin-modal-icon">?</div>
         <div id="hub-admin-confirm-text" class="hub-admin-modal-text"></div>
         <div class="hub-admin-modal-btns">
-            <button class="btn btn-sm btn-primary"   id="hub-admin-confirm-ok">Potwierdź</button>
-            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('hub-admin-confirm-modal').style.display='none'">Anuluj</button>
+            <button class="btn btn-sm btn-primary"   id="hub-admin-confirm-ok"><?= t('admin.logistics.confirm_ok') ?></button>
+            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('hub-admin-confirm-modal').style.display='none'"><?= t('admin.logistics.confirm_cancel') ?></button>
         </div>
     </div>
 </div>
@@ -529,8 +529,8 @@ $cfgField = fn(string $g, string $k, string $l, string $u = '', string $s = '1',
 <div class="cfg-section">
 <h4>&#128736; <?= t('admin.logistics.cfg_hub_types_title') ?></h4>
 
-<!-- Seed domyslnych wartosci dla hub_type — wpelnia brakujace klucze. -->
-<!-- Seed default values for hub_type — fills in missing keys only. -->
+
+
 <form method="post" action="/admin/logistics_hubs.php#hub-config-section"
       data-confirm="<?= htmlspecialchars(tPlain('admin.logistics.cfg_seed_confirm'), ENT_QUOTES) ?>"
       data-confirm-title="<?= htmlspecialchars(tPlain('admin.logistics.cfg_seed_btn'), ENT_QUOTES) ?>"

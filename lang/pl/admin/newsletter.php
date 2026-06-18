@@ -50,4 +50,8 @@ return [
     'admin.newsletter.stats_unsubscribed' => 'Wypisanych: :n',
     'admin.newsletter.target_all' => 'Wszyscy subskrybenci (:n)',
     'admin.newsletter.target_single' => 'Wybrany gracz (po adresie e-mail)',
+    'admin.newsletter.status_failed' => 'BŁĄD',
+    'admin.newsletter.status_partial' => 'CZĘŚCIOWY',
+    'admin.newsletter.status_sent' => 'WYSŁANY',
+    'admin.newsletter.title_delete_log' => 'Usuń wpis',
 ];

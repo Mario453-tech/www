@@ -23,6 +23,7 @@ return [
     'admin.legal.group_drilling_permit' => 'Drilling permit application',
     'admin.legal.group_player_requirements' => 'Entry requirements',
     'admin.legal.group_hub_permit' => 'Logistics hub',
+    'admin.legal.btn_show_advanced' => 'Show advanced columns',
     'admin.legal.col_region' => 'Region',
     'admin.legal.col_risk' => 'Risk',
     'admin.legal.col_enabled' => 'Enabled',

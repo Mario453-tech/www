@@ -47,17 +47,17 @@
             <?php foreach ($candidates as $c): ?>
             <article class="list-row" role="row">
                 <span><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></span>
-                <span><?= htmlspecialchars($c['role_name'] ?? '—') ?></span>
+                <span><?= htmlspecialchars($c['role_name'] ?? '-') ?></span>
                 <span>
                     <?php if ($c['spec_name']): ?>
                     <span class="badge badge-<?= $c['rarity'] === 'rare' ? 'active' : ($c['rarity'] === 'uncommon' ? 'paused' : 'inactive') ?>">
                         <?= htmlspecialchars($c['spec_name']) ?>
                     </span>
                     <?php else: ?>
-                    <span class="muted">—</span>
+                    <span class="muted">Brak specjalizacji</span>
                     <?php endif ?>
                 </span>
-                <span><?= htmlspecialchars($c['region_name'] ?? $c['region_code'] ?? '—') ?></span>
+                <span><?= htmlspecialchars($c['region_name'] ?? $c['region_code'] ?? '-') ?></span>
                 <span><?= $c['player_email'] ? '<a href="/admin/player.php?id=' . (int)$c['player_id'] . '">' . htmlspecialchars($c['player_email']) . '</a>' : '<span class="muted">rynek</span>' ?></span>
                 <span>
                     <?php
@@ -101,21 +101,22 @@
                     <?php if ($h['player_email'] ?? null): ?>
                     <a href="/admin/player.php?id=<?= (int)($h['player_id'] ?? 0) ?>"><?= htmlspecialchars($h['player_email']) ?></a>
                     <?php else: ?>
-                    <span class="muted">—</span>
+                    <span class="muted">Brak adresu e-mail</span>
                     <?php endif ?>
                 </span>
                 <span><?= htmlspecialchars(($h['first_name'] ?? '') . ' ' . ($h['last_name'] ?? '')) ?></span>
-                <span><?= htmlspecialchars($h['role_name'] ?? '—') ?></span>
+                <span><?= htmlspecialchars($h['role_name'] ?? 'Brak roli') ?></span>
                 <span>
                     <span class="badge badge-<?= match($h['action'] ?? '') { 'hired' => 'active', 'fired' => 'bankrupt', 'resigned' => 'inactive', default => 'paused' } ?>">
-                        <?= htmlspecialchars($h['action'] ?? '—') ?>
+                        <?= htmlspecialchars($h['action'] ?? 'Nieznana akcja') ?>
                     </span>
                 </span>
-                <span class="muted font-xs"><?= htmlspecialchars($h['reason'] ?? '—') ?></span>
+                <span class="muted font-xs"><?= htmlspecialchars($h['reason'] ?? 'Brak powodu') ?></span>
             </article>
             <?php endforeach ?>
         </div>
 
+        <?php endif ?>
         <?php if ($histPages > 1): ?>
         <nav class="pagination" aria-label="<?= t('admin.hr.pagination_label') ?>">
             <?php if ($histPage > 1): ?>
@@ -126,7 +127,6 @@
             <a href="?tab=history&hpage=<?= $histPage + 1 ?>" class="btn btn-sm"><?= t('common.next') ?></a>
             <?php endif ?>
         </nav>
-        <?php endif ?>
         <?php endif ?>
     </section>
 
@@ -153,7 +153,7 @@
             <article class="list-row" role="row">
                 <span><a href="/admin/player.php?id=<?= (int)$s['player_id'] ?>"><?= htmlspecialchars($s['player_email']) ?></a></span>
                 <span><?= (int)$s['staff_count'] ?></span>
-                <span><?= $s['avg_skill'] ?? '—' ?></span>
+                <span><?= htmlspecialchars((string)($s['avg_skill'] ?? '-')) ?></span>
                 <span class="badge badge-active"><?= (int)$s['active_count'] ?></span>
                 <span class="badge badge-paused"><?= (int)$s['busy_count'] ?></span>
                 <span class="muted"><?= number_format((float)$s['salary_per_hour'], 2) ?> PLN/h</span>
@@ -204,7 +204,11 @@
         </form>
 
         <?php
-        $roleLabels = ['operator' => ' Operatorzy', 'technician' => ' Technicy', 'inne' => ' Pozostałe'];
+        $roleLabels = [
+            'operator' => t('admin.hr.role_operator'),
+            'technician' => t('admin.hr.role_technician'),
+            'inne' => t('admin.hr.role_other'),
+        ];
         $numFields = [
             'prod_bonus'                => t('admin.hr.field_prod_bonus'),
             'wear_reduction'            => t('admin.hr.field_wear_reduction'),
@@ -267,15 +271,19 @@
             <div class="add-spec-fields">
                 <div class="spec-field">
                     <label for="new_hr_code"><?= t('admin.hr.field_code') ?></label>
-                    <input type="text" id="new_hr_code" name="new_hr_code" placeholder="np. risk_manager" pattern="[a-z0-9_]+" class="input-sm" required>
+                    <input type="text" id="new_hr_code" name="new_hr_code" placeholder="<?= t('admin.hr.placeholder_hr_code') ?>" pattern="[a-z0-9_]+" class="input-sm" required>
                 </div>
                 <div class="spec-field">
                     <label for="new_hr_name"><?= t('admin.hr.field_name_pl') ?></label>
-                    <input type="text" id="new_hr_name" name="new_hr_name" placeholder="np. Menadżer Ryzyka" class="input-sm" required>
+                    <input type="text" id="new_hr_name" name="new_hr_name" placeholder="<?= t('admin.hr.placeholder_hr_name') ?>" class="input-sm" required>
                 </div>
                 <div class="spec-field">
                     <label for="new_hr_dept"><?= t('admin.hr.col_department') ?></label>
-                    <input type="text" id="new_hr_dept" name="new_hr_dept" placeholder="np. finance" class="input-sm">
+                    <select id="new_hr_dept" name="new_hr_dept" class="input-sm" required>
+                        <?php foreach (($validDepartments ?? ['hr','technical','finance','legal','logistics']) as $dept): ?>
+                        <option value="<?= htmlspecialchars($dept) ?>"><?= htmlspecialchars($dept) ?></option>
+                        <?php endforeach ?>
+                    </select>
                 </div>
                 <div class="spec-field">
                     <label for="new_hr_rarity"><?= t('admin.hr.col_rarity') ?></label>
@@ -283,7 +291,16 @@
                         <option value="common"><?= t('hr.rarity.common') ?></option>
                         <option value="uncommon"><?= t('hr.rarity.uncommon') ?></option>
                         <option value="rare"><?= t('hr.rarity.rare') ?></option>
+                        <option value="very_rare">very_rare</option>
                     </select>
+                </div>
+                <div class="spec-field">
+                    <label for="new_hr_salary_min">Min</label>
+                    <input type="number" id="new_hr_salary_min" name="new_hr_salary_min" value="8000" min="1" step="100" class="input-sm">
+                </div>
+                <div class="spec-field">
+                    <label for="new_hr_salary_max">Max</label>
+                    <input type="number" id="new_hr_salary_max" name="new_hr_salary_max" value="15000" min="1" step="100" class="input-sm">
                 </div>
                 <div class="spec-field spec-field--action">
                     <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.hr.btn_add_spec') ?></button>
@@ -296,6 +313,8 @@
                 <span><?= t('admin.hr.col_spec_name') ?></span>
                 <span><?= t('admin.hr.col_department') ?></span>
                 <span><?= t('admin.hr.col_rarity') ?></span>
+                <span>Salary</span>
+                <span></span>
                 <span></span>
             </div>
             <?php foreach ($hrSpecs as $deptKey => $deptSpecs): ?>
@@ -308,13 +327,23 @@
                         <input type="hidden" name="save_hr_spec"  value="1">
                         <input type="hidden" name="hr_spec_id"    value="<?= (int)$hs['id'] ?>">
                         <span><input type="text" name="hr_spec_name" value="<?= htmlspecialchars($hs['name']) ?>" class="input-sm input-inline"></span>
-                        <span><input type="text" name="hr_spec_dept" value="<?= htmlspecialchars($hs['department'] ?? '') ?>" class="input-sm input-inline"></span>
+                        <span>
+                            <select name="hr_spec_dept" class="input-sm input-inline">
+                                <?php foreach (($validDepartments ?? ['hr','technical','finance','legal','logistics']) as $dept): ?>
+                                <option value="<?= htmlspecialchars($dept) ?>" <?= ($hs['department'] ?? '') === $dept ? 'selected' : '' ?>><?= htmlspecialchars($dept) ?></option>
+                                <?php endforeach ?>
+                            </select>
+                        </span>
                         <span>
                             <select name="hr_spec_rarity" class="input-sm">
-                                <?php foreach (['common' => t('hr.rarity.common'), 'uncommon' => t('hr.rarity.uncommon'), 'rare' => t('hr.rarity.rare')] as $r => $rl): ?>
+                                <?php foreach (['common' => t('hr.rarity.common'), 'uncommon' => t('hr.rarity.uncommon'), 'rare' => t('hr.rarity.rare'), 'very_rare' => 'very_rare'] as $r => $rl): ?>
                                 <option value="<?= $r ?>" <?= ($hs['rarity'] ?? 'common') === $r ? 'selected' : '' ?>><?= $rl ?></option>
                                 <?php endforeach ?>
                             </select>
+                        </span>
+                        <span>
+                            <input type="number" name="hr_salary_min" value="<?= htmlspecialchars((string)($hs['base_salary_min'] ?? 0)) ?>" min="1" step="100" class="input-sm input-inline">
+                            <input type="number" name="hr_salary_max" value="<?= htmlspecialchars((string)($hs['base_salary_max'] ?? 0)) ?>" min="1" step="100" class="input-sm input-inline">
                         </span>
                         <span><button type="submit" class="btn btn-sm btn-primary"><?= t('common.save') ?></button></span>
                     </form>

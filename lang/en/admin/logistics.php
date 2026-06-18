@@ -78,6 +78,8 @@ return [
     'admin.logistics.cfg_wear_per_tick' => 'Wear / tick',
     'admin.logistics.cfg_work_modes_title' => 'Operating modes',
     'admin.logistics.confirm_pause' => 'Pause hub ":name"?',
+    'admin.logistics.confirm_cancel' => 'Cancel',
+    'admin.logistics.confirm_ok' => 'Confirm',
     'admin.logistics.confirm_repair' => 'Repair hub ":name"?',
     'admin.logistics.confirm_resume' => 'Resume hub ":name"?',
     'admin.logistics.create_acquisition_label' => 'Acquisition',

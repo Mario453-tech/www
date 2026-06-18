@@ -392,71 +392,69 @@ $ctxLabel = static function (string $ctx): string {
 </section>
 
 <?php elseif ($activeTab === 'help'): ?>
-<!-- == POMOC / HELP == -->
+<?php elseif ($activeTab === 'help'): ?>
 <section class="panel mb-8">
-    <p class="panel-title">Jak działa moduł ochrony — instrukcja dla administratora</p>
+    <p class="panel-title"><?= t('admin.protection.help_title') ?></p>
 
     <div class="protection-help-block">
-        <h3>1. Typy celów (target_type) i konteksty (context)</h3>
-        <p>Każda opcja ochrony dotyczy konkretnego <strong>typu zasobu</strong> w grze.
-           Razem z polem <em>kontekst</em> tworzą parę, którą system sprawdza przy wykupie i tick-u.</p>
+        <h3><?= t('admin.protection.help_targets_title') ?></h3>
+        <p><?= t('admin.protection.help_targets_intro') ?></p>
+        <?php
+        $helpModuleLabels = [
+            'transport' => t('admin.protection.help_module_transport'),
+            'hub'       => t('admin.protection.help_module_hub'),
+            'pipeline'  => t('admin.protection.help_module_pipeline'),
+        ]; ?>
         <div class="protection-admin-grid protection-admin-grid--help">
             <div class="protection-admin-row protection-admin-row--head">
-                <span>target_type</span><span>context</span><span>Znaczenie</span>
+                <span>target_type</span><span>context</span><span><?= t('admin.protection.help_meaning') ?></span>
             </div>
             <div class="protection-admin-row">
                 <span><code>road_transport</code></span>
                 <span><code>road_transport_guard</code></span>
-                <span>Transport drogowy — ochrona odwiertu (szybu), stosowana przy każdym przejechaniu trasy.</span>
+                <span><?= t('admin.protection.help_row_transport') ?></span>
             </div>
             <div class="protection-admin-row">
                 <span><code>hub</code></span>
                 <span><code>hub_guard</code></span>
-                <span>Hub logistyczny — ochrona własnego hubu, stosowana w trakcie tick-u zdarzeń hubowych.</span>
+                <span><?= t('admin.protection.help_row_hub') ?></span>
             </div>
             <div class="protection-admin-row">
                 <span><code>pipeline</code></span>
                 <span><code>pipeline_guard</code></span>
-                <span>Rurociąg — ochrona odcinka rurociągu, stosowana przy zdarzeniach awarii rurociągu w tick-u.</span>
+                <span><?= t('admin.protection.help_row_pipeline') ?></span>
             </div>
         </div>
-        <p class="panel-hint">Ważne: tylko właściciel hubu (nie najemca) może wykupić ochronę hubu — tick liczy ochronę zawsze pod ID właściciela.</p>
+        <p class="panel-hint"><?= t('admin.protection.help_targets_hint') ?></p>
     </div>
 
     <div class="protection-help-block">
-        <h3>2. Typy efektów (effect_type): <code>mult</code> vs <code>delta</code></h3>
+        <h3><?= t('admin.protection.help_effect_types_title') ?></h3>
         <div class="protection-admin-grid protection-admin-grid--help">
             <div class="protection-admin-row protection-admin-row--head">
-                <span>Typ</span><span>Wzór</span><span>Zakres</span><span>Przykład</span>
+                <span><?= t('admin.protection.help_type') ?></span><span><?= t('admin.protection.help_formula') ?></span><span><?= t('admin.protection.help_range') ?></span><span><?= t('admin.protection.help_example') ?></span>
             </div>
             <div class="protection-admin-row">
                 <span><code>mult</code></span>
-                <span>ryzyko_końcowe = bazowe &times; wartość</span>
-                <span>0,05 – 1,00</span>
-                <span>0,70 → ryzyko spada o 30%; 1,00 → brak efektu</span>
+                <span><?= t('admin.protection.help_mult_formula') ?></span>
+                <span><?= t('admin.protection.help_mult_range') ?></span>
+                <span><?= t('admin.protection.help_mult_example') ?></span>
             </div>
             <div class="protection-admin-row">
                 <span><code>delta</code></span>
-                <span>ryzyko_końcowe = bazowe + wartość</span>
-                <span>&minus;0,99 – +0,99</span>
-                <span>&minus;0,15 → ryzyko spada o 0,15 punktu bazowego</span>
+                <span><?= t('admin.protection.help_delta_formula') ?></span>
+                <span><?= t('admin.protection.help_delta_range') ?></span>
+                <span><?= t('admin.protection.help_delta_example') ?></span>
             </div>
         </div>
-        <p class="panel-hint">Wartości są obcinane (clamp) przy odczycie — przekroczenie zakresu nie spowoduje błędu, ale silnik użyje granicy zakresu.</p>
+        <p class="panel-hint"><?= t('admin.protection.help_effect_types_hint') ?></p>
     </div>
 
     <div class="protection-help-block">
-        <h3>3. Klucze efektów (effect_key) — pełna lista</h3>
-        <?php
-        // Etykiety modulow dla kolumny "Dotyczy" / Module labels for the "Applies to" column
-        $helpModuleLabels = [
-            'transport' => 'Transport drogowy',
-            'hub'       => 'Hub logistyczny',
-            'pipeline'  => 'Rurociąg',
-        ]; ?>
+        <h3><?= t('admin.protection.help_effect_keys_title') ?></h3>
         <div class="protection-admin-grid protection-admin-grid--help">
             <div class="protection-admin-row protection-admin-row--head">
-                <span>Klucz techniczny</span><span>Dotyczy</span><span>Opis (przyjazna nazwa)</span>
+                <span><?= t('admin.protection.help_technical_key') ?></span><span><?= t('admin.protection.help_applies_to') ?></span><span><?= t('admin.protection.help_friendly_name') ?></span>
             </div>
             <?php foreach ($knownEffectKeys as $effectKey): ?>
             <div class="protection-admin-row">
@@ -469,36 +467,34 @@ $ctxLabel = static function (string $ctx): string {
     </div>
 
     <div class="protection-help-block">
-        <h3>4. Tworzenie opcji ochrony — kroki</h3>
+        <h3><?= t('admin.protection.help_create_title') ?></h3>
         <ol>
-            <li>Przejdź do zakładki <strong>Opcje ochrony</strong> i wypełnij formularz na dole.</li>
-            <li><em>Kod techniczny</em> — unikalny identyfikator (małe litery, cyfry, _). Nie zmieniaj po wykupieniu przez gracza.</li>
-            <li><em>Nazwa dla gracza</em> — widoczna w interfejsie gry (zakładka Logistyka).</li>
-            <li><em>target_type / context</em> — wybierz parę z tabeli powyżej (punkt 1).</li>
-            <li><em>Czas działania</em> — w minutach gry; 60 = 1 godzina gry.</li>
-            <li><em>Koszt</em> — kwota stała w PLN, lub inna formuła. Płatność zawsze gotówką przez FTS.</li>
-            <li>Ustaw <em>Opcja włączona</em>, aby gracze widzieli opcję w interfejsie.</li>
-            <li>Zapisz, a następnie przejdź do zakładki <strong>Efekty</strong>, by dodać efekty do nowej opcji.</li>
+            <li><?= t('admin.protection.help_create_step_1') ?></li>
+            <li><?= t('admin.protection.help_create_step_2') ?></li>
+            <li><?= t('admin.protection.help_create_step_3') ?></li>
+            <li><?= t('admin.protection.help_create_step_4') ?></li>
+            <li><?= t('admin.protection.help_create_step_5') ?></li>
+            <li><?= t('admin.protection.help_create_step_6') ?></li>
+            <li><?= t('admin.protection.help_create_step_7') ?></li>
+            <li><?= t('admin.protection.help_create_step_8') ?></li>
         </ol>
     </div>
 
     <div class="protection-help-block">
-        <h3>5. Dodawanie efektów — zasady</h3>
+        <h3><?= t('admin.protection.help_rules_title') ?></h3>
         <ul>
-            <li>Jedna opcja może mieć wiele efektów (różne klucze = różne rodzaje ryzyka).</li>
-            <li>Każdy klucz może wystąpić tylko raz na opcję (upsert — nadpisuje starą wartość).</li>
-            <li>Dla <code>mult</code>: wpisz wartość dziesiętną (np. <code>0.70</code> = redukcja o 30%). Minimum to 0,05.</li>
-            <li>Dla <code>delta</code>: wpisz zmianę (np. <code>-0.10</code> = zmniejszenie ryzyka o 0,10 punktu bazowego).</li>
-            <li>Efekty z nieobsługiwanym kluczem są ignorowane przez silnik gry — upewnij się, że klucz pasuje do modułu obsługującego dany target_type.</li>
+            <li><?= t('admin.protection.help_rules_1') ?></li>
+            <li><?= t('admin.protection.help_rules_2') ?></li>
+            <li><?= t('admin.protection.help_rules_3') ?></li>
+            <li><?= t('admin.protection.help_rules_4') ?></li>
+            <li><?= t('admin.protection.help_rules_5') ?></li>
         </ul>
-        <p class="panel-hint">Wskazówka: Jeśli gracz wykupił ochronę, ale efekty nie działają — sprawdź, czy klucz efektu dokładnie pasuje do listy powyżej i czy target_type/context opcji zgadza się z tym, co tick sprawdza.</p>
+        <p class="panel-hint"><?= t('admin.protection.help_rules_hint') ?></p>
     </div>
 
     <div class="protection-help-block">
-        <h3>6. Anulowanie aktywnej ochrony</h3>
-        <p>Zakładka <strong>Aktywne ochrony</strong> pokazuje wszystkie wykupione ochrony (do 100 ostatnich).
-           Przycisk "Anuluj" ustawia status na <code>cancelled</code> — efekty natychmiast przestają działać.
-           Gracz <strong>nie</strong> dostaje zwrotu środków — operacja jest nieodwracalna.</p>
+        <h3><?= t('admin.protection.help_cancel_title') ?></h3>
+        <p><?= t('admin.protection.help_cancel_body') ?></p>
     </div>
 </section>
 <?php endif ?>

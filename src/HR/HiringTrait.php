@@ -24,8 +24,13 @@ trait HRHiringTrait
         ]);
 
         try {
-            $candidate = $this->getCandidateForHire($candidateId, $playerId);
+            $contractType = $this->normalizeContractType($contractType);
+
+            $this->db->beginTransaction();
+
+            $candidate = $this->getCandidateForHire($candidateId, $playerId, true);
             if (!$candidate) {
+                $this->db->rollBack();
                 return ['success' => false, 'message' => t('hr_hiring.err_candidate_unavailable')];
             }
 
@@ -54,14 +59,15 @@ trait HRHiringTrait
             ]);
 
             if ($isTechEngineer) {
-                return $this->hireTechEngineerToStaff($candidate, $playerId);
+                $this->db->rollBack();
+                return $this->hireTechEngineerToStaff((int)$candidate['id'], $playerId);
             }
 
-            if (!$isStaffCandidate && $this->isRoleOccupied((int)$candidate['role_id'], $playerId)) {
+            if ($this->isRoleOccupied((int)$candidate['role_id'], $playerId)) {
+                $this->db->rollBack();
                 return ['success' => false, 'message' => t('hr_hiring.err_role_already_filled')];
             }
 
-            $this->db->beginTransaction();
             $result = $this->hireCandidateDefaultPath($candidate, $playerId, $contractType);
             $this->finalizeCandidateHiring(
                 (int)$candidate['id'],
@@ -100,47 +106,62 @@ trait HRHiringTrait
  * @param array<string, mixed> $candidate
  * @return array<string, mixed>
  */
-    private function hireTechEngineerToStaff(array $candidate, int $playerId): array
+    private function hireTechEngineerToStaff(int $candidateId, int $playerId): array
     {
-        $mgrStmt = $this->db->prepare("
-            SELECT bm.id FROM board_members bm
-            JOIN board_roles br ON bm.role_id = br.id
-            WHERE br.code = 'technical' AND bm.status = 'active' AND bm.player_id = ? AND bm.member_type = 'director'
-            LIMIT 1
-        ");
-        $mgrStmt->execute([$playerId]);
-        $managerId = (int)($mgrStmt->fetchColumn() ?: 0);
-
-        $specStmt = $this->db->prepare("SELECT code, name FROM hr_specializations WHERE id = ? LIMIT 1");
-        $specStmt->execute([(int)$candidate['specialization_id']]);
-        $spec = $specStmt->fetch();
-
-        if (!$spec) {
-            return ['success' => false, 'message' => t('hr_hiring.err_unknown_specialization')];
-        }
-
-        $skillLevel = max(1, min(10, (int)round((
-            (int)$candidate['skill_analysis'] +
-            (int)$candidate['skill_organization'] +
-            (int)$candidate['skill_stress']
-        ) / 3)));
-
-        $salary = (int)$candidate['expected_salary'];
-        $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
-        $cashStmt->execute([$playerId]);
-        $cash = (float)$cashStmt->fetchColumn();
-        if ($cash < $salary) {
-            return [
-                'success' => false,
-                'message' => t('hr_hiring.err_insufficient_funds', [
-                    'required' => '$' . number_format($salary, 0, '.', ' '),
-                    'available' => '$' . number_format($cash, 0, '.', ' '),
-                ]),
-            ];
-        }
-
         $this->db->beginTransaction();
         try {
+            $candidate = $this->getCandidateForHire($candidateId, $playerId, true);
+            if (!$candidate) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('hr_hiring.err_candidate_unavailable')];
+            }
+
+            $mgrStmt = $this->db->prepare("
+                SELECT bm.id FROM board_members bm
+                JOIN board_roles br ON bm.role_id = br.id
+                WHERE br.code = 'technical'
+                  AND bm.status = 'active'
+                  AND bm.player_id = ?
+                  AND bm.member_type = 'director'
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $mgrStmt->execute([$playerId]);
+            $managerId = (int)($mgrStmt->fetchColumn() ?: 0);
+            if ($managerId <= 0 || (string)($candidate['role_code'] ?? '') !== 'technical' || empty($candidate['specialization_id'])) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('hr_hiring.err_role_already_filled')];
+            }
+
+            $specStmt = $this->db->prepare("SELECT code, name, department FROM hr_specializations WHERE id = ? LIMIT 1");
+            $specStmt->execute([(int)$candidate['specialization_id']]);
+            $spec = $specStmt->fetch();
+            if (!$spec || (string)($spec['department'] ?? '') !== 'technical') {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('hr_hiring.err_unknown_specialization')];
+            }
+
+            $skillLevel = max(1, min(10, (int)round((
+                (int)$candidate['skill_analysis'] +
+                (int)$candidate['skill_organization'] +
+                (int)$candidate['skill_stress']
+            ) / 3)));
+
+            $salary = (int)$candidate['expected_salary'];
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1 FOR UPDATE");
+            $cashStmt->execute([$playerId]);
+            $cash = (float)$cashStmt->fetchColumn();
+            if ($cash < $salary) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'message' => t('hr_hiring.err_insufficient_funds', [
+                        'required' => '$' . number_format($salary, 0, '.', ' '),
+                        'available' => '$' . number_format($cash, 0, '.', ' '),
+                    ]),
+                ];
+            }
+
  // Pierwsza pensja przez centralne API finansowe (ruch gotowki + wpis bankowy; w transakcji).
  // First salary via the central finance API (cash movement + bank entry; inside a transaction).
             $feeRes = (new FinancialTransactionService($this->db))->debit(
@@ -263,8 +284,9 @@ trait HRHiringTrait
  *
  * @return array<string, mixed>|null
  */
-    private function getCandidateForHire(int $candidateId, int $playerId): ?array
+    private function getCandidateForHire(int $candidateId, int $playerId, bool $forUpdate = false): ?array
     {
+        $lockSql = $forUpdate ? ' FOR UPDATE' : '';
         $stmt = $this->db->prepare("
             SELECT c.*, br.code AS role_code, br.name AS role_name
             FROM candidates c
@@ -277,7 +299,7 @@ trait HRHiringTrait
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
               )
-            LIMIT 1
+            LIMIT 1{$lockSql}
         ");
         $stmt->execute([$candidateId, $playerId, $playerId]);
         return $stmt->fetch() ?: null;
@@ -393,6 +415,7 @@ trait HRHiringTrait
  */
     private function createEmployeeContract(int $memberId, float $salary, string $contractType): void
     {
+        $contractType = $this->normalizeContractType($contractType);
         $durations   = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'];
         $duration    = $durations[$contractType] ?? '+1 year';
         $contractEnd = date('Y-m-d', strtotime($duration));
@@ -442,5 +465,10 @@ trait HRHiringTrait
               AND role_id = ?
               AND (player_id = ? OR player_id IS NULL)
         ")->execute([$candidateId, $roleId, $playerId]);
+    }
+
+    private function normalizeContractType(string $contractType): string
+    {
+        return in_array($contractType, ['6m', '1y', '2y'], true) ? $contractType : '1y';
     }
 }

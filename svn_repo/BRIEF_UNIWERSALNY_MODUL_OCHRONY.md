@@ -1,8 +1,47 @@
-# BRIEF DLA AI — Uniwersalny moduł ochrony z konfigurowalnymi opcjami i efektami
+# BRIEF — Uniwersalny moduł ochrony z konfigurowalnymi opcjami i efektami
+
+> Wersja zweryfikowana względem kodu (2026-06-11). Sekcja „0. Zmiany względem wersji
+> pierwotnej" wyjaśnia, co i dlaczego poprawiono po analizie istniejącego silnika
+> transportu drogowego (`RoadTransportService`), ticka i `FinancialTransactionService`.
+
+---
+
+## 0. Zmiany względem wersji pierwotnej — wynik weryfikacji z kodem
+
+1. **Ochrona kupowana per ODWIERT, nie per kurs.** Kursy drogowe (`well_road_trips`)
+   są tworzone **automatycznie przez tick** (model bufora: ropa zbiera się do
+   `min_load_bbl`, potem dispatch w `WellProductionHandler`). Gracz nie tworzy kursu
+   ręcznie, więc „wykup ochrony przy tworzeniu kursu" jest niewykonalny. Ochrona
+   jest wykupywana na odwiert (`target_type = road_transport`, `target_id = well_id`)
+   na czas `duration_minutes`, a kursy rozliczane w czasie jej trwania dostają efekty.
+2. **Matematyka efektów dopasowana do silnika incydentów.** `RoadTransportService`
+   ma JEDNĄ wspólną szansę incydentu na kurs i dopiero PO trafieniu losuje typ
+   z wag (`INCIDENT_WEIGHTS`: theft 3, raid 2, accident 4, sabotage 1, route_block 2).
+   Mnożnik per typ stosuje się więc na wagach (sekcja 8, `applyEffects`).
+3. **Klucze efektów dopasowane do typów z kodu**: `raid_risk_mult` zamiast
+   `attack_risk_mult` (w kodzie typ nazywa się `raid`). Typy `accident`
+   i `route_block` celowo NIE mają mnożników — zgodnie z zasadą „ochrona nie działa
+   na awarię/korki".
+4. **Płatność przez FTS.** Każdy ruch pieniędzy idzie przez
+   `FinancialTransactionService`. Nowy typ `TYPE_PROTECTION = 'protection'`
+   → `POOL_CASH` w `WalletConfig::TYPE_TO_POOL`. P1 = tylko gotówka; płatność
+   z konta bankowego (`bank`/`both`) to przyszłość — kolumna `cost_currency`
+   zostaje, ale na starcie honorujemy tylko `cash`.
+5. **Usunięto redundancję**: kolumny `requires_cash`/`requires_bank` skreślone —
+   duplikowały `cost_currency`. `min_legal_level` ZOSTAJE — poziom działu prawnego
+   istnieje w grze: `LegalService::getLegalLevelForPlayer()` zwraca 0–10
+   (ze skilli aktywnego dyrektora prawnego), używany już przy blokadzie
+   trudniejszych regionów (`required_legal_level`).
+6. **Doprecyzowano brakujące reguły**: stackowanie (max 1 aktywna ochrona na
+   `player + target_type + target_id + context`), wygasanie (leniwe, po `ends_at`),
+   moment naliczenia efektu (przy ROZLICZENIU kursu, nie przy wyjeździe).
+
+---
 
 ## Cel
 
-Stworzyć uniwersalny moduł ochrony, który pozwala łatwo dodawać nowe opcje ochrony i nowe efekty bez przepisywania logiki w kodzie.
+Stworzyć uniwersalny moduł ochrony, który pozwala łatwo dodawać nowe opcje ochrony
+i nowe efekty bez przepisywania logiki w kodzie.
 
 System ma działać dla różnych elementów gry:
 
@@ -14,7 +53,8 @@ System ma działać dla różnych elementów gry:
 - port,
 - terminal.
 
-Na start wdrażamy tylko transport drogowy, ale architektura ma być przygotowana pod kolejne moduły.
+Na start wdrażamy tylko transport drogowy, ale architektura ma być przygotowana
+pod kolejne moduły.
 
 ---
 
@@ -37,565 +77,381 @@ Admin ma móc dodać nową ochronę bez zmiany kodu, np.:
 
 ## 2. Struktura systemu
 
-System ma składać się z kilku części:
-
-- `ProtectionService` — główny silnik ochrony,
+- `ProtectionService` — główny silnik ochrony (`src/ProtectionService.php`
+  + ewentualnie `src/Protection/ProtectionConfig.php` na wzór `src/Bribery/`),
 - `protection_options` — definicje opcji ochrony,
 - `protection_effects` — efekty przypisane do opcji ochrony,
 - `active_protections` — aktywne ochrony wykupione przez graczy,
 - `protection_logs` — historia ochrony.
 
+Schemat tworzony idempotentnie w `ensureSchema()` (wzór: `BriberyConfig`),
+z pominięciem DDL w otwartej transakcji. Serwis tworzony **przed**
+`beginTransaction()` wołającego kodu.
+
 ---
 
 ## 3. ProtectionService
 
-Dodać serwis:
-
-```php
-src/ProtectionService.php
-```
-
-albo:
-
-```php
-src/Security/ProtectionService.php
-```
-
-Serwis ma odpowiadać za:
+Serwis odpowiada za:
 
 - pobranie dostępnych opcji ochrony,
 - wyliczenie kosztu,
-- aktywację ochrony,
+- aktywację ochrony (płatność przez FTS),
 - sprawdzenie aktywnej ochrony dla celu,
-- zastosowanie efektów ochrony,
-- zapis historii,
-- wysłanie powiadomień.
+- zastosowanie efektów ochrony na ryzykach,
+- zapis historii (`protection_logs`),
+- wysłanie powiadomień (`director_notifications`, w pełni guarded — wzór
+  `BriberyService::notifyCaught`).
 
-Żaden moduł gry nie powinien samodzielnie liczyć efektów ochrony poza `ProtectionService`.
+Żaden moduł gry nie liczy efektów ochrony samodzielnie — tylko `ProtectionService`.
+GameLog w `__construct`, każdej metodzie publicznej i każdym `catch` (zasada projektu).
 
 ---
 
 ## 4. Tabela protection_options
 
-Tabela przechowuje definicje opcji ochrony.
-
-Przykładowe pola:
-
 ```sql
-id
-code
-name
-description
-target_type
-context
-is_active
-cost_type
-cost_value
-cost_currency
-duration_minutes
-requires_cash
-requires_bank
-min_company_credibility
-min_legal_level
-sort_order
-created_at
-updated_at
+id                       INT AUTO_INCREMENT PRIMARY KEY
+code                     VARCHAR(64) NOT NULL UNIQUE      -- np. basic_escort, armed_convoy, drone_patrol
+name                     VARCHAR(128) NOT NULL            -- nazwa widoczna dla gracza
+description              VARCHAR(512) NOT NULL DEFAULT '' -- prosty opis dla gracza
+target_type              VARCHAR(32) NOT NULL             -- road_transport / well / hub / pipeline / warehouse / port / terminal
+context                  VARCHAR(64) NOT NULL             -- road_transport_guard / well_security / hub_security / ...
+is_active                TINYINT(1) NOT NULL DEFAULT 1
+cost_type                ENUM('fixed','percent_reference','per_hour','per_bbl') NOT NULL DEFAULT 'fixed'
+cost_value               DECIMAL(12,2) NOT NULL DEFAULT 0.00
+cost_currency            ENUM('cash','bank','both') NOT NULL DEFAULT 'cash'  -- P1: honorowane tylko 'cash'
+duration_minutes         INT UNSIGNED NOT NULL DEFAULT 60
+min_company_credibility  INT UNSIGNED NOT NULL DEFAULT 0  -- 0 = brak wymogu
+min_legal_level          INT UNSIGNED NOT NULL DEFAULT 0  -- 0 = brak wymogu; skala 0-10
+sort_order               INT NOT NULL DEFAULT 0
+created_at / updated_at  DATETIME
 ```
 
-### Znaczenie pól
+Znaczenie kosztów:
 
-`code` — techniczny kod opcji, np. `basic_escort`, `armed_convoy`, `drone_patrol`.
+- `fixed` — `cost_value` to kwota,
+- `percent_reference` — `cost_value`% z `referenceValue` przekazanego przez moduł
+  (np. wartość ładunku),
+- `per_hour` — `cost_value` × (`duration_minutes` / 60),
+- `per_bbl` — `cost_value` × `referenceValue` (moduł podaje wolumen w bbl).
 
-`name` — nazwa widoczna dla gracza.
-
-`description` — prosty opis dla gracza.
-
-`target_type` — typ celu, do którego można użyć ochrony.
-
-Przykłady:
-
-```text
-road_transport
-well
-hub
-pipeline
-warehouse
-port
-terminal
-```
-
-`context` — kontekst użycia ochrony.
-
-Przykłady:
-
-```text
-road_transport_guard
-well_security
-hub_security
-pipeline_patrol
-warehouse_security
-```
-
-`cost_type` — sposób liczenia kosztu.
-
-Przykłady:
-
-```text
-fixed
-percent_reference
-per_hour
-per_bbl
-```
-
-`cost_value` — wartość kosztu.
-
-`cost_currency` — źródło płatności.
-
-Przykłady:
-
-```text
-cash
-bank
-both
-```
-
-`duration_minutes` — jak długo działa ochrona.
-
-`requires_cash` — czy wymaga gotówki.
-
-`requires_bank` — czy może być opłacona z konta.
-
-`min_company_credibility` — minimalna wiarygodność firmy, jeśli ma być wymagana.
-
-`min_legal_level` — minimalny poziom działu prawnego lub zgody, jeśli będzie kiedyś potrzebny.
+`min_company_credibility` porównywane ze `CompanyCredibilityService::getScore()`.
+`min_legal_level` porównywane z `LegalService::getLegalLevelForPlayer()` (0–10,
+poziom z aktywnego dyrektora prawnego). Opcje z wymogiem wyższym niż poziom gracza
+są widoczne na liście jako zablokowane (z powodem), ale nie do wykupu.
 
 ---
 
 ## 5. Tabela protection_effects
 
-Efekty ochrony mają być osobno, żeby można było łatwo dodawać nowe efekty.
-
-Przykładowe pola:
-
 ```sql
-id
-protection_option_id
-effect_key
-effect_type
-effect_value
-created_at
-updated_at
+id                    INT AUTO_INCREMENT PRIMARY KEY
+protection_option_id  INT NOT NULL                 -- FK do protection_options
+effect_key            VARCHAR(64) NOT NULL
+effect_type           ENUM('mult','delta') NOT NULL DEFAULT 'mult'
+effect_value          DECIMAL(8,4) NOT NULL
+created_at / updated_at DATETIME
+UNIQUE KEY (protection_option_id, effect_key)
 ```
 
-### Przykładowe effect_key
+### Klucze efektów P1 (transport drogowy) — zgodne z typami incydentów w kodzie
 
 ```text
-theft_risk_mult
-attack_risk_mult
-sabotage_risk_mult
-loss_mult
-delay_risk_mult
-incident_risk_mult
-damage_mult
-detection_risk_mult
-black_market_score_delta
-company_credibility_delta
-equipment_theft_risk_mult
+theft_risk_mult       -- kradzież  (typ 'theft' w INCIDENT_WEIGHTS)
+raid_risk_mult        -- napad     (typ 'raid')
+sabotage_risk_mult    -- sabotaż   (typ 'sabotage')
 ```
 
-### Przykłady efektów
+Typy `accident` i `route_block` świadomie BEZ mnożników — ochrona nie działa na
+awarię pojazdu, pogodę, korki (sekcja 12).
 
-#### Eskorta podstawowa
+### Klucze zarezerwowane na przyszłość (NIE wdrażać teraz, sekcja 15)
 
 ```text
-theft_risk_mult = 0.80
-attack_risk_mult = 0.85
-sabotage_risk_mult = 1.00
+attack_risk_mult, loss_mult, delay_risk_mult, incident_risk_mult, damage_mult,
+detection_risk_mult, equipment_theft_risk_mult,
+black_market_score_delta, company_credibility_delta
 ```
 
-#### Konwój uzbrojony
+Nieznany `effect_key` jest ignorowany przez `applyEffects()` (silnik nie wybucha
+po dodaniu nowego klucza w adminie, zanim moduł go obsłuży).
 
-```text
-theft_risk_mult = 0.55
-attack_risk_mult = 0.60
-sabotage_risk_mult = 0.85
-```
+### Przykłady seedów P1
 
-#### Patrol dronami
-
-```text
-sabotage_risk_mult = 0.70
-detection_risk_mult = 0.80
-delay_risk_mult = 0.95
-```
-
-#### Ochrona odwiertu
-
-```text
-sabotage_risk_mult = 0.65
-attack_risk_mult = 0.75
-equipment_theft_risk_mult = 0.60
-```
+**Eskorta podstawowa** — `theft_risk_mult 0.80`, `raid_risk_mult 0.85`
+**Konwój uzbrojony** — `theft_risk_mult 0.55`, `raid_risk_mult 0.60`, `sabotage_risk_mult 0.85`
+**Patrol dronami** — `sabotage_risk_mult 0.70`, `theft_risk_mult 0.90`
 
 ---
 
 ## 6. Tabela active_protections
 
-Tabela zapisuje aktywne ochrony wykupione przez graczy.
-
-Przykładowe pola:
-
 ```sql
-id
-player_id
-protection_option_id
-target_type
-target_id
-context
-paid_from
-cost
-starts_at
-ends_at
-status
-meta_json
-created_at
-updated_at
+id                    INT AUTO_INCREMENT PRIMARY KEY
+player_id             INT NOT NULL
+protection_option_id  INT NOT NULL
+target_type           VARCHAR(32) NOT NULL
+target_id             INT NOT NULL                  -- P1: well_id (ochrona tras danego odwiertu)
+context               VARCHAR(64) NOT NULL
+paid_from             ENUM('cash','bank') NOT NULL DEFAULT 'cash'
+cost                  DECIMAL(12,2) NOT NULL
+starts_at             DATETIME NOT NULL
+ends_at               DATETIME NOT NULL
+status                ENUM('active','expired','cancelled','failed') NOT NULL DEFAULT 'active'
+meta_json             TEXT NULL
+created_at / updated_at DATETIME
+KEY (player_id, target_type, target_id, context, status)
 ```
 
-Statusy:
+### Reguły (doprecyzowane)
 
-```text
-active
-expired
-cancelled
-failed
-```
-
-`paid_from`:
-
-```text
-cash
-bank
-```
+- **Stackowanie:** maksymalnie JEDNA aktywna ochrona na
+  `player + target_type + target_id + context`. Próba wykupu drugiej, gdy aktywna
+  jeszcze trwa → błąd `already_active` z datą `ends_at`.
+- **Wygasanie leniwe:** brak osobnego crona. `getActiveEffects()` filtruje po
+  `status='active' AND ends_at > NOW()`; przy okazji odczytu (i w widoku admina)
+  rekordy z `ends_at <= NOW()` są przełączane na `expired` jednym UPDATE.
+- **Moment naliczenia:** efekty sprawdzane przy ROZLICZENIU kursu
+  (`processCompletedTrips`, gdy `eta_at <= NOW()`), nie przy wyjeździe. Prościej
+  (jeden punkt integracji) i korzystnie dla gracza — ochrona dokupiona w trakcie
+  kursu jeszcze go obejmie.
 
 ---
 
 ## 7. Tabela protection_logs
 
-Tabela zapisuje historię ochrony.
-
-Przykładowe pola:
-
 ```sql
-id
-player_id
-protection_option_id
-target_type
-target_id
-context
-event_key
-amount
-message
-meta_json
-created_at
+id                    INT AUTO_INCREMENT PRIMARY KEY
+player_id             INT NOT NULL
+protection_option_id  INT NOT NULL
+target_type           VARCHAR(32) NOT NULL
+target_id             INT NOT NULL
+context               VARCHAR(64) NOT NULL
+event_key             VARCHAR(64) NOT NULL
+amount                DECIMAL(12,2) NOT NULL DEFAULT 0.00
+message               VARCHAR(512) NOT NULL DEFAULT ''
+meta_json             TEXT NULL
+created_at            DATETIME
 ```
 
-Przykłady `event_key`:
+`event_key`: `protection_activated`, `protection_expired`,
+`protection_applied_to_incident`, `protection_failed`, `protection_cancelled`.
 
-```text
-protection_activated
-protection_expired
-protection_applied_to_incident
-protection_failed
-protection_cancelled
-```
+`protection_applied_to_incident` zapisywany, gdy kurs rozliczono pod aktywną
+ochroną i doszło (lub dzięki redukcji nie doszło) do incydentu chronionego typu —
+to daje adminowi odpowiedź „czy ochrona zadziałała".
 
 ---
 
 ## 8. Metody ProtectionService
 
-### getAvailableOptions
-
 ```php
 getAvailableOptions(int $playerId, string $targetType, string $context): array
 ```
-
-Zwraca listę ochron dostępnych dla gracza i danego celu.
-
-Sprawdza:
-
-- czy opcja jest aktywna,
-- czy pasuje do `target_type`,
-- czy pasuje do `context`,
-- czy gracz spełnia wymagania,
-- czy ma gotówkę lub środki na koncie,
-- czy nie przekracza limitów.
-
-### quote
+Zwraca opcje: `is_active = 1`, pasujący `target_type` + `context`, spełnione
+`min_company_credibility` i `min_legal_level`
+(`LegalService::getLegalLevelForPlayer()`). Każda opcja z wyliczonym kosztem
+(jeśli moduł poda `referenceValue`) i flagą `affordable` (stać gracza / nie stać).
 
 ```php
-quote(int $playerId, string $optionCode, float $referenceValue, string $targetType, int $targetId): array
+quote(int $playerId, string $optionCode, float $referenceValue): array
 ```
-
-Zwraca koszt i efekty do UI.
-
-### activate
+Koszt + lista efektów (do UI) + `affordable`, bez ruchu środków.
 
 ```php
-activate(
-    int $playerId,
-    string $optionCode,
-    string $targetType,
-    int $targetId,
-    float $referenceValue,
-    array $meta = []
-): array
+activate(int $playerId, string $optionCode, string $targetType, int $targetId,
+         float $referenceValue, array $meta = []): array
 ```
+1. waliduje opcję (aktywna, target/context, credibility, legal level, brak
+   aktywnej ochrony na tym celu),
+2. wylicza koszt wg `cost_type`,
+3. `beginTransaction` → `FinancialTransactionService::debit($playerId, $cost,
+   FinancialTransactionService::TYPE_PROTECTION, opis)` — przy `success=false`
+   rollback i `outcome='no_funds'`,
+4. INSERT `active_protections` (`starts_at = NOW()`,
+   `ends_at = NOW() + duration_minutes`),
+5. INSERT `protection_logs` (`protection_activated`),
+6. commit, powiadomienie dyrektora (guarded).
 
-Aktywuje ochronę.
-
-Robi:
-
-- sprawdza opcję,
-- wylicza koszt,
-- pobiera środki,
-- zapisuje `active_protections`,
-- zapisuje `protection_logs`,
-- wysyła powiadomienie.
-
-### getActiveEffects
+Zwraca `['success'=>bool, 'outcome'=>'success|no_funds|already_active|requirements_not_met|disabled|error', 'cost'=>float, 'ends_at'=>?, 'message'=>string]`.
 
 ```php
 getActiveEffects(int $playerId, string $targetType, int $targetId, string $context): array
 ```
-
-Zwraca aktywne efekty ochrony dla danego celu.
-
-### applyEffects
+Zwraca scaloną mapę `effect_key => effect_value` z aktywnej ochrony celu
+(pusta tablica = brak ochrony). Po drodze leniwe wygaszanie (sekcja 6).
 
 ```php
 applyEffects(array $baseRisks, array $effects): array
 ```
+Uniwersalne nałożenie: dla `effect_type='mult'` mnoży, dla `'delta'` dodaje;
+nieznane klucze ignoruje.
 
-Nakłada efekty ochrony na bazowe ryzyka.
+### Integracja z silnikiem jednej szansy + wag (transport drogowy)
+
+`RoadTransportService` losuje najpierw CZY incydent (wspólna szansa), potem JAKI
+(wagi). Mnożniki per typ nakładamy więc na wagi i korygujemy łączną szansę, żeby
+nie zmieniać prawdopodobieństw typów niechronionych:
+
+```text
+w'_i      = w_i × mult_i          (mult_i = 1.0 dla typów bez efektu)
+chance'   = chance × (Σ w'_i / Σ w_i)
+losowanie typu                  = z wag w'_i
+```
+
+Przykład: konwój uzbrojony (theft 0.55, raid 0.60, sabotage 0.85) przy wagach
+(3,2,4,1,2): Σw=12 → Σw'=1.65+1.2+4+0.85+2=9.7 → łączna szansa × 0.808,
+a `accident`/`route_block` zachowują dokładnie swoje bazowe prawdopodobieństwa.
+
+Punkt wpięcia: `RoadTransportService::applyTripIncidents()` dostaje (opcjonalny)
+parametr z mapą mnożników; `processCompletedTrips()` pobiera ją raz per odwiert
+z `ProtectionService::getActiveEffects()`.
 
 ---
 
 ## 9. Panel admina
 
-Dodać panel:
-
-**Admin → Ochrona**
+**Admin → Ochrona** (`admin/protection.php` + `templates/views/admin/protection/main.php`
++ `assets/js/admin_protection.js` + `lang/pl/admin/protection.php`).
 
 Zakładki:
 
 ### Opcje ochrony
-
-Admin może:
-
-- dodać nową opcję ochrony,
-- edytować nazwę,
-- edytować opis,
-- ustawić koszt,
-- ustawić czas działania,
-- ustawić typ celu,
-- ustawić kontekst,
-- włączyć lub wyłączyć opcję,
-- ustawić źródło płatności: gotówka, konto, oba.
+Dodawanie/edycja: code, nazwa, opis, target_type, context, koszt (typ + wartość),
+czas działania, źródło płatności, min. wiarygodność, włącz/wyłącz, kolejność.
 
 ### Efekty ochrony
-
-Admin może dodać efekty do opcji.
-
-Przykład:
-
-```text
-effect_key: theft_risk_mult
-effect_value: 0.55
-```
+Dodawanie/edycja/usuwanie par `effect_key` + `effect_value` per opcja.
+Select z listą znanych kluczy P1 + pole wolne (przyszłe klucze).
 
 ### Aktywne ochrony
-
-Admin widzi:
-
-- gracza,
-- typ ochrony,
-- cel,
-- czas startu,
-- czas końca,
-- status.
+Gracz, opcja, cel, start, koniec, status. Przycisk anulowania (status `cancelled`,
+bez zwrotu środków — albo ze zwrotem proporcjonalnym, do decyzji przy wdrożeniu).
 
 ### Historia ochrony
+`protection_logs`: kto, co, ile zapłacił, na co działało, czy zadziałała przy
+incydencie (`protection_applied_to_incident`).
 
-Admin widzi:
-
-- kto wykupił ochronę,
-- co wykupił,
-- ile zapłacił,
-- na co działało,
-- czy ochrona zadziałała przy incydencie.
+Zasady projektu: CSS Grid (zero tabel HTML), zero inline JS/style, modale tylko
+z `modal.js`, CSRF przez `CSRF::field()` / `CSRF::validateToken()`.
 
 ---
 
 ## 10. UI gracza
 
-Przy celu, który może mieć ochronę, pokazać przycisk:
+P1: panel logistyki / widok odwiertu z transportem drogowym (`ciezarowki`).
+Przy odwiercie przycisk **Dodaj ochronę** → modal **Wybierz ochronę** z listą opcji:
 
-**Dodaj ochronę**
-
-Po kliknięciu modal:
-
-**Wybierz ochronę**
-
-Lista opcji pokazuje:
-
-- nazwę,
-- opis,
-- koszt,
+- nazwa, opis,
+- koszt (z `quote()`),
 - czas działania,
 - źródło płatności,
-- prosty opis efektu.
+- prosty opis efektu (sekcja 11).
 
 Przykład:
 
-**Konwój uzbrojony**  
-Zmniejsza ryzyko kradzieży i napadu podczas kursu.  
-Koszt: 500 000 PLN gotówką  
-Czas działania: 1 kurs / 60 minut
+**Konwój uzbrojony**
+Zmniejsza ryzyko kradzieży i napadu podczas kursów.
+Koszt: 500 000 PLN gotówką
+Czas działania: 60 minut
 
-Przyciski:
+Przyciski: **Anuluj** / **Wykup ochronę**. Gdy ochrona aktywna — zamiast przycisku
+plakietka z nazwą ochrony i czasem do końca (`ends_at`).
 
-- **Anuluj**
-- **Wykup ochronę**
+Pliki: `assets/js/protection.js`, `assets/css/protection.css`, `lang/pl/protection.php`,
+endpoint POST (CSRF + RateLimiter) np. `public/protection.php` lub akcja w logistyce.
 
 ---
 
 ## 11. Prosty opis efektów dla gracza
 
-Nie pokazywać graczowi mnożników typu `0.55`.
-
-Pokazywać normalny tekst:
+Nie pokazywać mnożników typu `0.55`. Tekst generowany z progów:
 
 ```text
-Znacznie zmniejsza ryzyko kradzieży.
-Zmniejsza ryzyko napadu.
-Lekko zmniejsza ryzyko sabotażu.
-Nie chroni przed awarią pojazdu ani pogodą.
+mult <= 0.60  → „Znacznie zmniejsza ryzyko …"
+mult <= 0.85  → „Zmniejsza ryzyko …"
+mult <  1.00  → „Lekko zmniejsza ryzyko …"
 ```
+
+Plus stała linia: „Nie chroni przed awarią pojazdu, pogodą ani korkami."
 
 ---
 
 ## 12. Podpięcie P1 — transport drogowy
 
-Na start wdrożyć tylko transport drogowy.
+Ochrona wpływa na: **kradzież (theft), napad (raid), sabotaż (sabotage)**.
 
-Ochrona ma wpływać na:
+Nie wpływa na: awarię pojazdu (accident), blokady tras / korki (route_block),
+pogodę, zwykłe opóźnienie, błędy techniczne.
 
-- kradzież,
-- napad,
-- sabotaż.
+Cel ochrony: `target_type = road_transport`, `target_id = well_id`,
+`context = road_transport_guard`. Efekty stosowane przy rozliczaniu kursów
+danego odwiertu w `processCompletedTrips()` (sekcja 8).
 
-Nie wpływa na:
-
-- pogodę,
-- awarię pojazdu,
-- zwykłe opóźnienie,
-- korki,
-- błędy techniczne.
-
-Przy tworzeniu kursu drogowego system pobiera dostępne opcje ochrony dla:
-
-```text
-target_type = road_transport
-context = road_transport_guard
-```
-
-Po wykupieniu ochrony zapisuje ją na danym kursie albo na aktywnym celu transportowym.
+Płatność: `FinancialTransactionService::TYPE_PROTECTION = 'protection'`
+→ `POOL_CASH` (wpis w `WalletConfig::TYPE_TO_POOL`; zastępuje zarezerwowany
+komentarz `transport_guard` — jeden uniwersalny typ dla całego modułu).
 
 ---
 
 ## 13. Podpięcia późniejsze
 
 ### Ochrona odwiertu
-
-Może działać na:
-
-- sabotaż,
-- kradzież sprzętu,
-- atak na ekipę,
-- celowe uszkodzenie.
-
-Nie działa na:
-
-- naturalne zużycie,
-- degradację,
-- brak technika,
-- awarie technologiczne.
+Działa na: sabotaż, kradzież sprzętu, atak na ekipę, celowe uszkodzenie.
+Nie działa na: naturalne zużycie, degradację, brak technika, awarie technologiczne.
 
 ### Ochrona huba
-
-Może działać na:
-
-- kradzież z bufora,
-- sabotaż,
-- atak na infrastrukturę,
-- celowe zatrzymanie przepływu.
-
-Nie działa na:
-
-- przeciążenie,
-- degradację,
-- zły stan techniczny.
+Działa na: kradzież z bufora, sabotaż, atak na infrastrukturę, celowe zatrzymanie
+przepływu. Nie działa na: przeciążenie, degradację, zły stan techniczny.
+(Punkt wpięcia: `HubIncidentService`.)
 
 ### Ochrona rurociągu
-
-Może działać na:
-
-- sabotaż,
-- kradzież ropy,
-- celowe uszkodzenie.
-
-Nie działa na:
-
-- naturalne zużycie,
-- brak konserwacji,
-- awarie techniczne.
+Działa na: sabotaż, kradzież ropy, celowe uszkodzenie.
+Nie działa na: naturalne zużycie, brak konserwacji, awarie techniczne.
 
 ---
 
 ## 14. Balans
 
-Ochrona nie może być gwarancją bezpieczeństwa.
-
-Ma tylko zmniejszać ryzyko.
-
-Zasada:
+Ochrona nie może być gwarancją bezpieczeństwa — tylko zmniejsza ryzyko
+(mnożniki > 0, nigdy 0).
 
 - tania ochrona = mały efekt,
 - średnia ochrona = dobry kompromis,
-- droga ochrona = mocny efekt, ale opłacalna tylko przy dużych wartościach.
+- droga ochrona = mocny efekt, opłacalna tylko przy dużych wolumenach.
+
+Konwój uzbrojony nakłada się na ciężarówkę `armored` (`incident_risk_mult` 0.3
+z `TRUCK_DEFAULTS`) — to świadome: gracz płacący za oba ma kursy niemal bezpieczne,
+ale płaci podwójnie. Seedy cen ustawić tak, by ochrona była droższa niż oczekiwana
+strata przy małych wolumenach.
 
 ---
 
 ## 15. Czego nie wdrażać teraz
 
-Nie wdrażać od razu:
-
-- ochrony wszystkich aktywów,
-- ochrony portów,
-- ochrony terminali,
+- ochrony wszystkich aktywów (odwierty/huby/rurociągi/magazyny — tylko architektura),
+- ochrony portów i terminali,
 - prywatnej armii,
 - kontraktów ochroniarskich na wiele dni,
-- wpływu na czarny rynek,
-- wpływu na wiarygodność firmy,
-- śledztw po incydencie.
+- wpływu na czarny rynek (`black_market_score_delta`),
+- wpływu na wiarygodność firmy (`company_credibility_delta`),
+- płatności z konta bankowego (`cost_currency` = `bank`/`both`),
+- śledztw po incydencie,
+- zwrotu środków przy anulowaniu (chyba że decyzja przy wdrożeniu).
 
-Na start:
-
-**silnik + admin + transport drogowy.**
+Na start: **silnik + admin + transport drogowy.**
 
 ---
 
 ## 16. Najkrótsza wersja dla AI
 
-Stworzyć konfigurowalny moduł ochrony. Opcje ochrony i ich efekty mają być definiowane w bazie i panelu admina, a nie wpisane na sztywno w kod. `ProtectionService` ma pobierać dostępne opcje, wyliczać koszt, aktywować ochronę, zapisywać historię i zwracać efekty dla konkretnego celu. Na start podpiąć tylko transport drogowy. System ma być gotowy do późniejszego użycia przy odwiertach, hubach i rurociągach.
+Stworzyć konfigurowalny moduł ochrony. Opcje i efekty definiowane w bazie
+i panelu admina, nie w kodzie. `ProtectionService` pobiera dostępne opcje, wycenia
+(`quote`), aktywuje (płatność przez `FinancialTransactionService::TYPE_PROTECTION`,
+zapis `active_protections` + `protection_logs`, powiadomienie) i zwraca efekty dla
+celu (`getActiveEffects` → `applyEffects`). P1: ochrona kupowana per odwiert
+(`road_transport` / `road_transport_guard`), efekty `theft/raid/sabotage_risk_mult`
+nakładane na wagi incydentów w `RoadTransportService::applyTripIncidents()`
+z korektą łącznej szansy. Max 1 aktywna ochrona per cel+kontekst, wygasanie leniwe
+po `ends_at`. System gotowy pod odwierty, huby i rurociągi.

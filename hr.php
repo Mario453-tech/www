@@ -33,7 +33,7 @@ try {
 try {
     GameLog::step('hr.php', 'init', 1, 'HRService OK');
     GameLog::step('hr.php', 'init', 2, 'checkExpiringContracts');
-    $hr->checkExpiringContracts();
+    $hr->checkExpiringContracts($playerId);
     GameLog::step('hr.php', 'init', 3, 'headhunter processReady');
     $hh->processReady();
 } catch (Throwable $e) {

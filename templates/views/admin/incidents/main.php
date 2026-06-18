@@ -19,7 +19,7 @@ $pipeLevelMeta = [
 <?php if ($msg): ?><p role="status" class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
 <?php if ($err): ?><p role="alert"  class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
 
-<!--  ZAKADKI  -->
+<!-- Tabs -->
 <div class="admin-tabs admin-tabs--multirow" role="tablist">
     <button id="inc-btn-stats"  onclick="incShowTab('stats')"  class="admin-tab" role="tab"> <?= t('admin.incidents.tab_stats') ?></button>
     <button id="inc-btn-micro"  onclick="incShowTab('micro')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_micro') ?></button>
@@ -306,7 +306,7 @@ foreach ($PIPE_LEVELS as $lvl):
             <input type="hidden" name="action" value="save_pressure_cfg">
             <table class="admin-table" style="max-width:620px">
                 <thead>
-                    <tr><th><?= t('admin.incidents.field_min') ?> / parametr</th><th>Wartość</th><th><?= t('admin.incidents.cfg_default') ?></th></tr>
+                    <tr><th><?= t('admin.incidents.field_min') ?> / parametr</th><th><?= t('admin.incidents.col_value') ?></th><th><?= t('admin.incidents.cfg_default') ?></th></tr>
                 </thead>
                 <tbody>
                     <tr>
@@ -378,7 +378,7 @@ foreach ($PIPE_LEVELS as $lvl):
                 ?>
                 <tr>
                     <td><?= $t_val ?></td>
-                    <td>×<?= number_format($mult, 3) ?></td>
+                    <td>x<?= number_format($mult, 3) ?></td>
                     <td><span class="badge <?= $cls ?>"><?= htmlspecialchars($state) ?></span></td>
                 </tr>
                 <?php endforeach ?>
@@ -572,9 +572,9 @@ foreach ($PIPE_LEVELS as $lvl):
                         : ($inc['auto_repair'] ? t('admin.incidents.status_auto_short') : '<span class="text-red">' . t('admin.incidents.status_open_short') . '</span>') ?>
                 </span>
                 <?php else: ?>
-                <span class="muted">—</span>
-                <span class="muted">—</span>
-                <span class="muted">—</span>
+                <span class="muted">-</span>
+                <span class="muted">-</span>
+                <span class="muted">-</span>
                 <?php endif ?>
                 <span class="muted"><?= date('d.m H:i', strtotime($inc['created_at'])) ?></span>
                 <span>
@@ -865,8 +865,8 @@ foreach ($PIPE_LEVELS as $lvl):
                     <span class="trig-card-icon"><?= $icon ?></span>
                     <span class="trig-card-label"><?= $label ?></span>
                     <span class="trig-card-range">
-                        loss +<?= $pc['loss_add_min'] ?>–<?= $pc['loss_add_max'] ?>%,
-                        cond -<?= $pc['cond_drop_min'] ?>–<?= $pc['cond_drop_max'] ?> pkt
+                        loss +<?= $pc['loss_add_min'] ?>-<?= $pc['loss_add_max'] ?>%,
+                        cond -<?= $pc['cond_drop_min'] ?>-<?= $pc['cond_drop_max'] ?> pkt
                     </span>
                     <span class="trig-card-desc"><?= $desc ?></span>
                 </label>

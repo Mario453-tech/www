@@ -694,6 +694,30 @@ $decisionValLabel = static function(string $val): string {
     };
 };
 
+$decisionKeyLabel = static function(string $key): string {
+    return match($key) {
+        'technical_budget'  => t('admin.finance.policy_technical'),
+        'logistics_budget'  => t('admin.finance.policy_logistics'),
+        'hr_budget'         => t('admin.finance.policy_hr'),
+        'safety_budget'     => t('admin.finance.policy_safety'),
+        'reserve_policy'    => t('admin.finance.policy_reserve'),
+        'savings_plan_mode' => t('admin.finance.col_savings_mode'),
+        default             => htmlspecialchars($key),
+    };
+};
+
+$decisionValLabel = static function(string $val): string {
+    return match($val) {
+        'low'        => t('admin.finance.reserve_low_label'),
+        'standard'   => t('admin.finance.reserve_standard_label'),
+        'high'       => t('admin.finance.reserve_high_label'),
+        'off'        => t('admin.finance.savings_off_label'),
+        'moderate'   => t('admin.finance.savings_moderate_label'),
+        'aggressive' => t('admin.finance.savings_agg_label'),
+        default      => htmlspecialchars($val),
+    };
+};
+
 $decisionValClass = static function(string $key, string $val): string {
     if ($key === 'savings_plan_mode') {
         return match($val) {

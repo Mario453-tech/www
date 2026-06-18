@@ -10,7 +10,7 @@ trait TechnicalPageRecruitmentViewTrait
     {
         try {
             $hrUiSync = new HRService();
-            $processed = $hrUiSync->processReadyRecruitments();
+            $processed = $hrUiSync->processReadyRecruitments($this->playerId);
             if ($processed > 0) {
                 GameLog::info('technical.php', 'processReadyRecruitments on pageview', ['processed' => $processed]);
             }
@@ -45,7 +45,7 @@ trait TechnicalPageRecruitmentViewTrait
             }
         }
 
-        $wellCount = max(1, count($wells));
+        $wellCount = count($wells);
         $staffCountsBySpec = [];
         foreach ($staff as $staffMember) {
             $specCode = $staffMember['spec_code'] ?? '';
@@ -66,7 +66,7 @@ trait TechnicalPageRecruitmentViewTrait
         foreach (TechnicalTeamService::getSpecsCatalog() as $specCode => $spec) {
             $hiredCount = (int) ($staffCountsBySpec[$specCode] ?? 0);
             $ratio = $staffRatios[$specCode] ?? 1;
-            $neededCount = max(1, (int) ceil($wellCount * $ratio));
+            $neededCount = $wellCount > 0 ? max(1, (int) ceil($wellCount * $ratio)) : 0;
             $remainingSlots = $this->svc->getRecruitmentCapacityForSpec($specCode);
             $hiredLabel = $hiredCount === 1 ? t('technical.hired_single') : t('technical.hired_plural');
 
