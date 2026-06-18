@@ -47,23 +47,12 @@ class Player
     public function updateCash(float $amount, string $type = '', ?string $description = null): bool
     {
         try {
-            if ($amount < 0) {
-                // Atomowe odjecie — zapobiega zejsciu cash ponizej zera przy rownoczesnych requestach.
-                // Atomic deduct — prevents cash going below zero under concurrent requests.
-                $stmt = $this->db->prepare("
-                    UPDATE players
-                    SET cash = cash + :amount
-                    WHERE id = :id AND cash >= :needed
-                ");
-                $ok = $stmt->execute([':amount' => $amount, ':id' => $this->playerId, ':needed' => -$amount]);
-            } else {
-                $stmt = $this->db->prepare("
-                    UPDATE players
-                    SET cash = cash + :amount
-                    WHERE id = :id
-                ");
-                $ok = $stmt->execute([':amount' => $amount, ':id' => $this->playerId]);
-            }
+            $stmt = $this->db->prepare("
+                UPDATE players
+                SET cash = cash + :amount
+                WHERE id = :id
+            ");
+            $ok = $stmt->execute([':amount' => $amount, ':id' => $this->playerId]);
             if (class_exists('GameLog', false)) {
                 GameLog::dbResult('Player', 'updateCash', $stmt->rowCount(), $ok ? 'OK' : 'FAIL');
             }
