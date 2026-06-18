@@ -181,9 +181,10 @@ class HeadhunterService
                     if ($this->db->inTransaction()) {
                         $this->db->rollBack();
                     }
-                    GameLog::error('HeadhunterService', 'processReady search failed', $e, [
+                    GameLog::error('HeadhunterService', 'processReady search failed', [
                         'player_id' => $this->playerId,
                         'search_id' => $search['id'] ?? null,
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
@@ -197,58 +198,76 @@ class HeadhunterService
 
     private function generateCandidates(array $search): void
     {
-        $count = $this->rollCount();
-        $expiresAt = date('Y-m-d H:i:s', time() + 48 * 3600);
+        try {
+            $count = $this->rollCount();
+            $expiresAt = date('Y-m-d H:i:s', time() + 48 * 3600);
 
-        for ($i = 0; $i < $count; $i++) {
-            $skill = $this->rollSkill();
-            $loyalty = min(9, max(3, $skill - 1 + rand(-1, 2)));
-            $company = self::$companies[array_rand(self::$companies)];
-            $salary = (int)round(
-                rand((int)$search['base_salary_min'], (int)$search['base_salary_max'])
+            $this->db->beginTransaction();
+            try {
+                for ($i = 0; $i < $count; $i++) {
+                    $skill = $this->rollSkill();
+                    $loyalty = min(9, max(3, $skill - 1 + rand(-1, 2)));
+                    $company = self::$companies[array_rand(self::$companies)];
+                    $salary = (int)round(
+                        rand((int)$search['base_salary_min'], (int)$search['base_salary_max'])
  * (0.9 + $skill * 0.02)
-            );
+                    );
 
-            $bonusMin = match (true) {
-                $skill >= 9 => 800_000,
-                $skill >= 7 => 300_000,
-                default => 100_000,
-            };
+                    $bonusMin = match (true) {
+                        $skill >= 9 => 800_000,
+                        $skill >= 7 => 300_000,
+                        default => 100_000,
+                    };
 
-            $baseProb = max(20, 50 - ($loyalty * 3));
-            $firstName = $this->randomName('first_name');
-            $lastName = $this->randomName('last_name');
+                    $baseProb = max(20, 50 - ($loyalty * 3));
+                    $firstName = $this->randomName('first_name');
+                    $lastName = $this->randomName('last_name');
 
-            $this->db->prepare("
-                INSERT INTO headhunter_candidates
-                    (search_id, player_id, first_name, last_name, specialization_id,
-                     skill_level, current_company, salary_expectation,
-                     signing_bonus, join_probability, trait_loyalty, expires_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-            ")->execute([
-                $search['id'], $search['player_id'],
-                $firstName, $lastName, $search['specialization_id'],
-                $skill, $company, $salary, $bonusMin, $baseProb, $loyalty, $expiresAt,
+                    $this->db->prepare("
+                        INSERT INTO headhunter_candidates
+                            (search_id, player_id, first_name, last_name, specialization_id,
+                             skill_level, current_company, salary_expectation,
+                             signing_bonus, join_probability, trait_loyalty, expires_at)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                    ")->execute([
+                        $search['id'], $search['player_id'],
+                        $firstName, $lastName, $search['specialization_id'],
+                        $skill, $company, $salary, $bonusMin, $baseProb, $loyalty, $expiresAt,
+                    ]);
+                }
+
+                $this->db->prepare(
+                    "UPDATE headhunter_searches SET status = ?, result_count = ? WHERE id = ?"
+                )->execute([$count > 0 ? 'completed' : 'failed', $count, $search['id']]);
+
+                $msg = $count > 0
+                    ? t('hr_headhunter.notify_candidates_found', ['count' => $count, 'spec' => $search['spec_name']])
+                    : t('hr_headhunter.notify_candidates_missing', ['spec' => $search['spec_name']]);
+
+                $this->db->prepare(
+                    "INSERT INTO technical_notifications (player_id, well_id, type, message) VALUES (?,NULL,'headhunter',?)"
+                )->execute([$search['player_id'], $msg]);
+
+                $this->db->commit();
+            } catch (Throwable $e) {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                throw $e;
+            }
+
+            GameLog::info('HeadhunterService', 'Candidates generated', [
+                'search_id' => $search['id'],
+                'player_id' => $search['player_id'],
+                'count' => $count,
             ]);
+        } catch (Throwable $e) {
+            GameLog::error('HeadhunterService', 'generateCandidates failed', $e, [
+                'search_id' => $search['id'] ?? null,
+                'player_id' => $search['player_id'] ?? null,
+            ]);
+            throw $e;
         }
-
-        $this->db->prepare(
-            "UPDATE headhunter_searches SET status = ?, result_count = ? WHERE id = ?"
-        )->execute([$count > 0 ? 'completed' : 'failed', $count, $search['id']]);
-
-        $msg = $count > 0
-            ? t('hr_headhunter.notify_candidates_found', ['count' => $count, 'spec' => $search['spec_name']])
-            : t('hr_headhunter.notify_candidates_missing', ['spec' => $search['spec_name']]);
-
-        $this->db->prepare(
-            "INSERT INTO technical_notifications (player_id, well_id, type, message) VALUES (?,NULL,'headhunter',?)"
-        )->execute([$search['player_id'], $msg]);
-
-        GameLog::info('HeadhunterService', 'Candidates generated', [
-            'search_id' => $search['id'],
-            'player_id' => $search['player_id'],
-            'count' => $count,
-        ]);
     }
 
     public function makeOffer(int $candidateId, float $offeredSalary, float $signingBonus): array
