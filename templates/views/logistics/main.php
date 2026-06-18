@@ -1,3 +1,8 @@
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
+?>
 <div class="logistics-page">
     <section class="logistics-kpi-grid" aria-label="<?= htmlspecialchars(t('logistics.kpi_aria')) ?>">
         <div class="logistics-kpi">
@@ -10,13 +15,160 @@
         </div>
         <div class="logistics-kpi">
             <span class="logistics-kpi-label"><?= t('logistics.kpi_cost') ?></span>
-            <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> PLN/h</strong>
+            <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong>
         </div>
         <div class="logistics-kpi">
             <span class="logistics-kpi-label"><?= t('logistics.kpi_wells') ?></span>
             <strong><?= count($wells) ?></strong>
         </div>
     </section>
+
+    <!-- ── PRZEPŁYW ROPY ─────────────────────────────────────── -->
+    <section class="logistics-flow-section">
+        <div class="logistics-flow-header">
+            <h3><?= t('logistics.flow_title') ?></h3>
+            <span class="logistics-flow-sub"><?= t('logistics.flow_subtitle') ?></span>
+        </div>
+        <div class="logistics-flow-track">
+            <!-- Odwierty -->
+            <div class="logistics-flow-step">
+                <div class="logistics-flow-icon logistics-flow-icon--wells">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect x="18" y="4" width="4" height="28" rx="2" fill="currentColor" opacity=".9"/>
+                        <path d="M8 32 L20 4 L32 32" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                        <rect x="6" y="32" width="28" height="4" rx="2" fill="currentColor" opacity=".7"/>
+                        <circle cx="20" cy="34" r="2" fill="currentColor"/>
+                    </svg>
+                </div>
+                <div class="logistics-flow-label"><?= t('logistics.flow_step_wells') ?></div>
+                <div class="logistics-flow-value c-good"><?= count($wells) ?> <?= t('logistics.flow_active') ?></div>
+                <div class="logistics-flow-sub-val"><?= number_format($totalTransported + $totalLoss, 0, ',', ' ') ?> bbl/h</div>
+            </div>
+
+            <!-- Strzałka 1 -->
+            <div class="logistics-flow-arrow">
+                <svg viewBox="0 0 48 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M0 8 H38 M32 2 L44 8 L32 14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span><?= number_format($totalTransported + $totalLoss, 0, ',', ' ') ?> bbl/h</span>
+            </div>
+
+            <!-- Transport 1 (odwierty → huby) -->
+            <div class="logistics-flow-step">
+                <div class="logistics-flow-icon logistics-flow-icon--transport">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect x="2" y="18" width="28" height="12" rx="3" fill="currentColor" opacity=".85"/>
+                        <rect x="30" y="22" width="8" height="8" rx="2" fill="currentColor" opacity=".7"/>
+                        <circle cx="9" cy="32" r="4" fill="#1a1a2e" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="27" cy="32" r="4" fill="#1a1a2e" stroke="currentColor" stroke-width="2"/>
+                        <rect x="6" y="14" width="14" height="8" rx="2" fill="currentColor" opacity=".6"/>
+                    </svg>
+                </div>
+                <div class="logistics-flow-label"><?= t('logistics.flow_step_transport') ?></div>
+                <div class="logistics-flow-value <?= $totalLoss > 0 ? 'c-warn' : 'c-good' ?>"><?= $activeRoadTripsTotal ?> <?= t('logistics.flow_active') ?></div>
+                <?php if ($totalLoss > 0): ?>
+                <div class="logistics-flow-sub-val c-bad"><?= number_format($totalLoss, 1, ',', ' ') ?> bbl/h <?= t('logistics.flow_loss') ?></div>
+                <?php else: ?>
+                <div class="logistics-flow-sub-val c-good"><?= t('logistics.flow_no_loss') ?></div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Strzałka 2 -->
+            <div class="logistics-flow-arrow">
+                <svg viewBox="0 0 48 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M0 8 H38 M32 2 L44 8 L32 14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span><?= number_format($efficiency, 1, ',', ' ') ?>% <?= t('logistics.flow_efficiency') ?></span>
+            </div>
+
+            <!-- Huby -->
+            <div class="logistics-flow-step">
+                <div class="logistics-flow-icon logistics-flow-icon--hubs">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect x="4" y="16" width="32" height="18" rx="3" fill="currentColor" opacity=".8"/>
+                        <rect x="8" y="10" width="24" height="8" rx="2" fill="currentColor" opacity=".6"/>
+                        <rect x="14" y="5" width="12" height="7" rx="2" fill="currentColor" opacity=".5"/>
+                        <rect x="9" y="22" width="6" height="6" rx="1" fill="#1a1a2e" opacity=".7"/>
+                        <rect x="17" y="22" width="6" height="6" rx="1" fill="#1a1a2e" opacity=".7"/>
+                        <rect x="25" y="22" width="6" height="6" rx="1" fill="#1a1a2e" opacity=".7"/>
+                    </svg>
+                </div>
+                <div class="logistics-flow-label"><?= t('logistics.flow_step_hubs') ?></div>
+                <?php
+                $hubTotal = count($hubCards);
+                $hubActive = count(array_filter($hubCards, fn($h) => ($h['status'] ?? '') === 'active'));
+                ?>
+                <div class="logistics-flow-value <?= $hubActive > 0 ? 'c-good' : 'c-warn' ?>"><?= $hubActive ?>/<?= $hubTotal ?> <?= t('logistics.flow_in_use') ?></div>
+                <div class="logistics-flow-sub-val"><?= number_format($efficiency, 1, ',', ' ') ?>% <?= t('logistics.kpi_efficiency') ?></div>
+            </div>
+
+            <!-- Strzałka 3 -->
+            <div class="logistics-flow-arrow">
+                <svg viewBox="0 0 48 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M0 8 H38 M32 2 L44 8 L32 14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span><?= t('logistics.flow_step_transport') ?></span>
+            </div>
+
+            <!-- Transport 2 (huby → magazyn) -->
+            <div class="logistics-flow-step">
+                <div class="logistics-flow-icon logistics-flow-icon--transport2">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <circle cx="20" cy="20" r="14" stroke="currentColor" stroke-width="2.5" fill="none" opacity=".5"/>
+                        <path d="M8 20 Q14 10 20 20 Q26 30 32 20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                        <circle cx="20" cy="20" r="3" fill="currentColor"/>
+                        <path d="M20 6 L20 10 M20 30 L20 34 M6 20 L10 20 M30 20 L34 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".5"/>
+                    </svg>
+                </div>
+                <div class="logistics-flow-label"><?= t('logistics.flow_step_transport2') ?></div>
+                <div class="logistics-flow-value c-good"><?= (int)($pipelineSummary['total'] ?? 0) ?> <?= t('logistics.flow_pipelines') ?></div>
+                <?php if ((int)($pipelineSummary['critical'] ?? 0) > 0): ?>
+                <div class="logistics-flow-sub-val c-bad"><?= (int)$pipelineSummary['critical'] ?> <?= t('logistics.flow_critical') ?></div>
+                <?php else: ?>
+                <div class="logistics-flow-sub-val c-good"><?= t('logistics.flow_ok') ?></div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Strzałka 4 -->
+            <div class="logistics-flow-arrow">
+                <svg viewBox="0 0 48 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M0 8 H38 M32 2 L44 8 L32 14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span><?= number_format($totalTransported, 0, ',', ' ') ?> bbl/h</span>
+            </div>
+
+            <!-- Magazyn -->
+            <div class="logistics-flow-step logistics-flow-step--storage">
+                <div class="logistics-flow-icon logistics-flow-icon--storage">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <ellipse cx="20" cy="12" rx="14" ry="5" fill="currentColor" opacity=".7"/>
+                        <rect x="6" y="12" width="28" height="16" fill="currentColor" opacity=".6"/>
+                        <ellipse cx="20" cy="28" rx="14" ry="5" fill="currentColor" opacity=".85"/>
+                        <rect x="8" y="26" width="24" height="3" fill="currentColor" opacity=".3"/>
+                    </svg>
+                </div>
+                <div class="logistics-flow-label"><?= t('logistics.flow_step_storage') ?></div>
+                <?php
+                $storagePct = 0;
+                $storageBbl = 0;
+                try {
+                    $stgRow = $db->query("SELECT storage_bbl, storage_capacity FROM players WHERE id = " . (int)$playerId . " LIMIT 1")->fetch();
+                    if ($stgRow) {
+                        $storageBbl = (float)$stgRow['storage_bbl'];
+                        $cap = (float)$stgRow['storage_capacity'];
+                        $storagePct = $cap > 0 ? round($storageBbl / $cap * 100, 0) : 0;
+                    }
+                } catch (Throwable $e) {}
+                ?>
+                <div class="logistics-flow-value <?= $storagePct > 90 ? 'c-warn' : 'c-good' ?>"><?= number_format($storageBbl, 0, ',', ' ') ?> bbl</div>
+                <div class="logistics-flow-sub-val"><?= $storagePct ?>% <?= t('logistics.flow_capacity') ?></div>
+                <div class="logistics-flow-storage-bar" role="progressbar" aria-valuenow="<?= $storagePct ?>" aria-valuemin="0" aria-valuemax="100">
+                    <div class="logistics-flow-storage-fill <?= $storagePct > 90 ? 'logistics-flow-storage-fill--warn' : '' ?>" style="width:<?= $storagePct ?>%"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- ── / PRZEPŁYW ROPY ────────────────────────────────────── -->
 
     <?php
         $hasUnassignedWells = !empty($hubUnassigned);
@@ -70,7 +222,7 @@
             <button class="logistics-region-toggle" type="button" data-lhb-toggle>
                 <span class="logistics-region-caret"></span>
                 <span class="logistics-region-title-wrap">
-                    <span class="logistics-region-title"><?= htmlspecialchars($regionGroup['region_name'] ?? ('Region #' . (int)($regionGroup['region_id'] ?? $rgIdx))) ?></span>
+                    <span class="logistics-region-title"><?= htmlspecialchars($regionGroup['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . (int)($regionGroup['region_id'] ?? $rgIdx))) ?></span>
                     <span class="logistics-region-subtitle"><?= t('logistics.hub.region_summary', ['count' => $rHubCount]) ?></span>
                 </span>
                 <span class="logistics-region-badge<?= $rHasFree ? ' has-free' : '' ?>">
@@ -107,7 +259,7 @@
                     $dotTotal   = $slotLimit > 0 ? min(8, $slotLimit) : min(8, max(1, $slotsAvail));
                     $hRegionId  = (int)($regionGroup['region_id'] ?? 0);
                     $hZoneKey   = (string)($hub['zone_key'] ?? '');
-                    $hName      = (string)($hub['name'] ?? ('Hub #' . $hId));
+                    $hName      = (string)($hub['name'] ?? (($locale === 'en' ? 'Hub #' : 'Hub #') . $hId));
                     $statusKey  = 'logistics.hub.status_' . $hStatus;
                     $statusText = t($statusKey) !== $statusKey ? t($statusKey) : ucfirst($hStatus);
                     $acqLabelKey = 'logistics.hub.acquisition_' . $acqType;
@@ -168,24 +320,29 @@
                         <div class="logistics-hub-avail-stat">
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.col_fee') ?></span>
                             <span class="logistics-hub-avail-value">
-                                <?= $leaseFee > 0 ? number_format($leaseFee, 2, ',', ' ') . ' PLN' : '&mdash;' ?>
+                                <?= $leaseFee > 0 ? number_format($leaseFee, 2, ',', ' ') . ' ' . $currencyLabel : '&mdash;' ?>
                             </span>
                         </div>
                     </div>
 
                     <?php
                         $buyPrice    = (float)($hub['buy_price']    ?? 0);
+ // Floor: backup gdyby serwis nie naprawil ceny / Fallback floor if service did not fix price
+                        if ($buyPrice <= 0.0) {
+                            static $__tplBuyFloors = ['small' => 31000.0, 'medium' => 93000.0, 'large' => 248000.0];
+                            $buyPrice = $__tplBuyFloors[$hubType] ?? 31000.0;
+                        }
                         $rentDeposit = (float)($hub['rent_deposit'] ?? 0);
                     ?>
                     <div class="logistics-hub-avail-prices">
                         <div class="logistics-hub-avail-price">
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_buy_price') ?></span>
-                            <strong><?= number_format($buyPrice, 0, ',', ' ') ?> PLN</strong>
+                            <strong><?= number_format($buyPrice, 0, ',', ' ') ?> <?= $currencyLabel ?></strong>
                         </div>
-                        <?php if ($leaseFee > 0): ?>
+                        <?php if ($leaseFee > 0 && $acqType === 'rental'): ?>
                         <div class="logistics-hub-avail-price">
                             <span class="logistics-hub-avail-label"><?= t('logistics.hub.market_rent_deposit') ?></span>
-                            <strong><?= number_format($rentDeposit, 0, ',', ' ') ?> PLN</strong>
+                            <strong><?= number_format($rentDeposit, 0, ',', ' ') ?> <?= $currencyLabel ?></strong>
                         </div>
                         <?php endif ?>
                     </div>
@@ -200,7 +357,7 @@
                                 data-buy-price="<?= number_format($buyPrice, 2, '.', '') ?>">
                             <?= t('logistics.hub.market_btn_buy') ?>
                         </button>
-                        <?php if ($leaseFee > 0): ?>
+                        <?php if ($leaseFee > 0 && $acqType === 'rental'): ?>
                         <button class="logistics-hub-assign-btn logistics-hub-rent-btn" type="button"
                                 onclick="hubRent(<?= $hId ?>)"
                                 data-hub-name="<?= htmlspecialchars($hName, ENT_QUOTES) ?>"
@@ -279,7 +436,7 @@
             </div>
             <div class="logistics-insight-pill logistics-insight-pill--info">
                 <span><?= t('logistics.pipeline.pill_cost') ?></span>
-                <strong><?= number_format((float)($pipelineSummary['avg_cost'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                <strong><?= number_format((float)($pipelineSummary['avg_cost'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
             </div>
         </div>
 
@@ -346,7 +503,7 @@
                 <div class="logistics-pipeline-building-info">
                     <div class="logistics-pipeline-building-row">
                         <span><?= t('logistics.pipeline.building_label_cost') ?></span>
-                        <strong><?= number_format((float)($pipe['build_cost'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                        <strong><?= number_format((float)($pipe['build_cost'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
                     </div>
                     <div class="logistics-pipeline-building-row">
                         <span><?= t('logistics.pipeline.building_label_finish') ?></span>
@@ -423,7 +580,7 @@
                     </div>
                     <div>
                         <span><?= t('logistics.pipeline.label_cost') ?></span>
-                        <strong><?= number_format((float)($pipe['total_cost_est'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                        <strong><?= number_format((float)($pipe['total_cost_est'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
                     </div>
                     <div>
                         <span><?= t('logistics.pipeline.label_risk') ?></span>
@@ -551,7 +708,7 @@
             </div>
             <div class="logistics-insight-pill logistics-insight-pill--info">
                 <span><?= t('logistics.insight_pill_cost') ?></span>
-                <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> PLN/h</strong>
+                <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong>
             </div>
         </div>
 
@@ -593,7 +750,7 @@
                                 <strong>#<?= (int)$row['id'] ?></strong>
                                 <span><?= t('logistics.type_' . ($row['transport'] ?? 'nieustawiony')) ?></span>
                             </div>
-                            <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> PLN/h</strong>
+                            <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong>
                         </div>
                         <?php endforeach ?>
                     </div>
@@ -691,7 +848,7 @@
                 <div class="logistics-mix-stats">
                     <span><?= t('logistics.label_flow') ?> <strong><?= number_format((float)$row['transported'], 1, ',', ' ') ?> <?= t('common.bbl_h') ?></strong></span>
                     <span><?= t('logistics.label_loss') ?> <strong><?= number_format((float)$row['loss'], 1, ',', ' ') ?> <?= t('common.bbl_h') ?></strong></span>
-                    <span><?= t('logistics.label_cost') ?> <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> PLN/h</strong></span>
+                    <span><?= t('logistics.label_cost') ?> <strong><?= number_format((float)$row['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong></span>
                 </div>
             </article>
             <?php endforeach ?>
@@ -968,7 +1125,7 @@
                 <span><?= t('logistics.type_' . ($well['transport'] ?? 'nieustawiony')) ?></span>
                 <span><?= number_format((float)$well['capacity_pct'], 1, ',', ' ') ?>%</span>
                 <span class="<?= (float)$well['loss'] > 0 ? 'c-warn' : 'c-good' ?>"><?= number_format((float)$well['loss'], 1, ',', ' ') ?> <?= t('common.bbl_h') ?></span>
-                <span><?= number_format((float)$well['cost'], 2, ',', ' ') ?> PLN/h</span>
+                <span><?= number_format((float)$well['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</span>
             </div>
             <?php endforeach ?>
         </div>
@@ -1043,6 +1200,145 @@
         <?php endif ?>
     </section>
     <?php endif ?>
+
+    <!--  -->
+    <!-- SEKCJA: Ochrona (transport drogowy, huby, rurociagi)                -->
+    <!-- SECTION: Protection (road transport, hubs, pipelines)               -->
+    <!--  -->
+    <?php
+    /**
+     * Renderuje sekcje ochrony (tabela celow) + modal wyboru opcji dla danego typu celu.
+     * Renders a protection section (target table) + option picker modal for a target type.
+     */
+    $renderProtectionSection = static function (
+        string $targetKey,
+        array $targets,
+        array $options,
+        string $colTargetLabel
+    ): void {
+        if ($targets === []) {
+            return;
+        }
+        $headingId = 'logistics-protection-heading-' . $targetKey;
+        $modalId   = 'protection-modal-' . $targetKey;
+    ?>
+    <section class="logistics-panel" aria-labelledby="<?= $headingId ?>">
+        <div class="logistics-panel-head">
+            <h3 id="<?= $headingId ?>"><?= t('protection.section_title_' . $targetKey) ?></h3>
+            <span><?= t('protection.section_desc_' . $targetKey) ?></span>
+        </div>
+        <div class="logistics-table logistics-table--protection">
+            <div class="logistics-table-head">
+                <span><?= htmlspecialchars($colTargetLabel) ?></span>
+                <span><?= t('protection.col_protection') ?></span>
+                <span><?= t('protection.col_until') ?></span>
+                <span><?= t('protection.col_action') ?></span>
+            </div>
+            <?php foreach ($targets as $protTarget): ?>
+            <div class="logistics-table-row">
+                <span><?= htmlspecialchars((string)$protTarget['name']) ?></span>
+                <?php if ($protTarget['active'] !== null): ?>
+                <span class="c-good"><?= htmlspecialchars($protTarget['active']['name']) ?></span>
+                <span><?= htmlspecialchars(substr($protTarget['active']['ends_at'], 0, 16)) ?></span>
+                <span>
+                    <button type="button" class="btn btn-xs btn-secondary protection-add-btn"
+                            data-target="<?= htmlspecialchars($targetKey) ?>"
+                            data-target-id="<?= (int)$protTarget['id'] ?>"
+                            data-renew="1">
+                        <?= t('protection.btn_renew') ?>
+                    </button>
+                </span>
+                <?php else: ?>
+                <span class="c-muted2"><?= t('protection.status_none') ?></span>
+                <span></span>
+                <span>
+                    <button type="button" class="btn btn-xs btn-primary protection-add-btn"
+                            data-target="<?= htmlspecialchars($targetKey) ?>"
+                            data-target-id="<?= (int)$protTarget['id'] ?>">
+                        <?= t('protection.btn_add') ?>
+                    </button>
+                </span>
+                <?php endif ?>
+            </div>
+            <?php endforeach ?>
+        </div>
+    </section>
+
+    <div id="<?= $modalId ?>" class="logistics-modal-overlay protection-modal-overlay protection-modal" hidden>
+        <div class="logistics-modal-box">
+            <div class="logistics-modal-hdr">
+                <span><?= t('protection.modal_title') ?></span>
+                <button type="button" class="logistics-modal-close" data-protection-close></button>
+            </div>
+            <div class="protection-option-list">
+                <?php foreach ($options as $protOpt):
+                    $protDisabled = $protOpt['locked_reason'] !== null || !$protOpt['affordable'];
+                    $protBlockReason = '';
+                    if ($protOpt['locked_reason'] === 'credibility') {
+                        $protBlockReason = t('protection.locked_credibility', ['min' => (int)$protOpt['min_company_credibility']]);
+                    } elseif ($protOpt['locked_reason'] === 'legal_level') {
+                        $protBlockReason = t('protection.locked_legal', ['min' => (int)$protOpt['min_legal_level']]);
+                    } elseif (!$protOpt['affordable']) {
+                        $protBlockReason = t('protection.not_affordable');
+                    }
+                ?>
+                <article class="protection-option<?= $protDisabled ? ' protection-option--locked' : '' ?>">
+                    <div class="protection-option__head">
+                        <strong><?= htmlspecialchars((string)$protOpt['name']) ?></strong>
+                        <span><?= number_format((float)$protOpt['cost'], 0, ',', ' ') ?> <?= $currencyLabel ?></span>
+                    </div>
+                    <p class="protection-option__desc"><?= htmlspecialchars((string)$protOpt['description']) ?></p>
+                    <ul class="protection-option__effects">
+                        <?php foreach ($protOpt['effect_lines'] as $effectLine): ?>
+                        <li><?= htmlspecialchars($effectLine) ?></li>
+                        <?php endforeach ?>
+                    </ul>
+                    <div class="protection-option__meta">
+                        <span><?= t('protection.label_duration') ?> <?= t('protection.duration_minutes', ['min' => (int)$protOpt['duration_minutes']]) ?></span>
+                        <span><?= t('protection.label_payment') ?></span>
+                    </div>
+                    <?php if ($protDisabled): ?>
+                    <div class="protection-option__blocked"><?= $protBlockReason ?></div>
+                    <?php else: ?>
+                    <button type="button" class="btn btn-sm btn-primary protection-buy-btn"
+                            data-option-code="<?= htmlspecialchars((string)$protOpt['code']) ?>"
+                            data-option-name="<?= htmlspecialchars((string)$protOpt['name']) ?>"
+                            data-option-cost="<?= number_format((float)$protOpt['cost'], 0, ',', ' ') ?>">
+                        <?= t('protection.btn_buy') ?>
+                    </button>
+                    <?php endif ?>
+                </article>
+                <?php endforeach ?>
+            </div>
+            <div class="logistics-modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-protection-close>
+                    <?= t('protection.btn_cancel') ?>
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php
+    };
+
+    $renderProtectionSection(
+        'road',
+        is_array($roadProtectionWells ?? null) ? $roadProtectionWells : [],
+        is_array($roadProtectionOptions ?? null) ? $roadProtectionOptions : [],
+        t('protection.col_well')
+    );
+    $renderProtectionSection(
+        'hub',
+        is_array($hubProtectionTargets ?? null) ? $hubProtectionTargets : [],
+        is_array($hubProtectionOptions ?? null) ? $hubProtectionOptions : [],
+        t('protection.col_hub')
+    );
+    $renderProtectionSection(
+        'pipeline',
+        is_array($pipelineProtectionTargets ?? null) ? $pipelineProtectionTargets : [],
+        is_array($pipelineProtectionOptions ?? null) ? $pipelineProtectionOptions : [],
+        t('protection.col_pipeline')
+    );
+    ?>
 
     <!--  -->
     <!-- SEKCJA: Twoje przypisane huby                                      -->
@@ -1128,7 +1424,7 @@
                     <?php $acqKey = $hub['acquisition_type'] ?? 'new'; ?>
                     <span class="acq-badge acq-badge--<?= htmlspecialchars($acqKey) ?>"><?= t('logistics.hub.acquisition_' . $acqKey) ?></span>
                     <span class="sep">&middot;</span>
-                    <span><?= htmlspecialchars($hub['region_name'] ?? 'Region #' . $hub['region_id']) ?></span>
+                    <span><?= htmlspecialchars($hub['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . $hub['region_id'])) ?></span>
                     <?php if (($hub['zone_key'] ?? '') !== ''): ?>
                     <span class="sep">&middot;</span>
                     <span><?= htmlspecialchars($hub['zone_key']) ?></span>
@@ -1179,10 +1475,12 @@
                         <?php $acqStat = $hub['acquisition_type'] ?? 'new'; ?>
                         <strong><span class="acq-badge acq-badge--<?= htmlspecialchars($acqStat) ?>"><?= t('logistics.hub.acquisition_' . $acqStat) ?></span></strong>
                     </div>
+                    <?php if (($hub['acquisition_type'] ?? 'new') === 'rental'): ?>
                     <div class="logistics-hub-stat">
                         <span><?= t('logistics.hub.label_lease_fee') ?></span>
-                        <strong><?= number_format((float)($hub['lease_fee_per_tick'] ?? 0), 2, ',', ' ') ?> PLN</strong>
+                        <strong><?= number_format((float)($hub['lease_fee_per_tick'] ?? 0), 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
                     </div>
+                    <?php endif ?>
                 </div>
 
                 <div class="logistics-hub-actions">
@@ -1232,7 +1530,7 @@
             ?>
             <div class="logistics-table-row">
                 <span>#<?= (int)$uw['id'] ?> <?= htmlspecialchars($uw['name'] ?? $uw['location_name'] ?? '') ?></span>
-                <span><?= htmlspecialchars($uw['region_name'] ?? 'Region #' . $uw['region_id']) ?>
+                <span><?= htmlspecialchars($uw['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . $uw['region_id'])) ?>
                     <?= ($uw['zone_key'] ?? '') !== '' ? '/ ' . htmlspecialchars($uw['zone_key']) : '' ?>
                 </span>
                 <span><?= number_format((float)$uw['base_production_per_hour'], 1, ',', ' ') ?> bph</span>
@@ -1301,7 +1599,7 @@
                 <div class="logistics-hub-incident-title">
                     <strong><?= htmlspecialchars($hi['title'] ?? t('logistics.hub.incident.title.' . $typeKey)) ?></strong>
                     <span class="logistics-hub-incident-hub">
-                        &middot; <?= htmlspecialchars($hi['hub_name'] ?? 'Hub #' . $hi['hub_id']) ?>
+                        &middot; <?= htmlspecialchars($hi['hub_name'] ?? (($locale === 'en' ? 'Hub #' : 'Hub #') . $hi['hub_id'])) ?>
                     </span>
                 </div>
                 <div class="logistics-hub-incident-msg"><?= htmlspecialchars($hi['message']) ?></div>
@@ -1575,7 +1873,7 @@
                                onchange="hubBuyNewTypeChange(this)" <?= $i === 0 ? 'checked' : '' ?>>
                         <div class="logistics-mode-name"><?= t('logistics.hub.type_' . $opt['key']) ?></div>
                         <div class="logistics-mode-desc">
-                            <?= number_format($opt['build_cost'], 0, ',', ' ') ?> PLN
+                            <?= number_format($opt['build_cost'], 0, ',', ' ') ?> <?= $currencyLabel ?>
                             &middot; <?= (int)$opt['slot_limit'] ?> <?= t('logistics.hub.col_slots') ?>
                         </div>
                     </label>
@@ -1676,7 +1974,7 @@ window.HUB_LANG  = <?= json_encode([
     'ok_assign_with_lease'    => t('logistics.hub.ok_assign_with_lease'),
     'ok_assign_with_fee'      => t('logistics.hub.ok_assign_with_fee',   ['fee' => '{fee}']),
     'ok_transfer_with_lease'  => t('logistics.hub.ok_transfer_with_lease'),
- // Potwierdzenie kosztow przypisania / Assignment cost breakdown confirmation
+ // Assignment cost breakdown confirmation.
     'confirm_assign_costs'    => t('logistics.hub.confirm_assign_costs'),
     'confirm_access_fee'      => t('logistics.hub.confirm_access_fee'),
     'confirm_usage_fee'       => t('logistics.hub.confirm_usage_fee'),
@@ -1685,8 +1983,10 @@ window.HUB_LANG  = <?= json_encode([
     'confirm_question'        => t('logistics.hub.confirm_question'),
     'err_insufficient_funds'  => t('logistics.hub.err_insufficient_funds'),
  // Rynek hubow: kupno / wynajem / Hub market: buy / rent
-    'market_confirm_buy'      => t('logistics.hub.market_confirm_buy',  ['name' => '{name}', 'price' => '{price}']),
-    'market_confirm_rent'     => t('logistics.hub.market_confirm_rent', ['name' => '{name}', 'deposit' => '{deposit}', 'lease' => '{lease}']),
+    'market_confirm_buy'       => t('logistics.hub.market_confirm_buy',  ['name' => '{name}', 'price' => '{price}']),
+    'market_confirm_buy_title' => t('logistics.hub.market_confirm_buy_title'),
+    'market_confirm_rent'      => t('logistics.hub.market_confirm_rent', ['name' => '{name}', 'deposit' => '{deposit}', 'lease' => '{lease}']),
+    'market_confirm_rent_title'=> t('logistics.hub.market_confirm_rent_title'),
     'market_confirm_buy_new'  => t('logistics.hub.market_confirm_buy_new', ['name' => '{name}', 'price' => '{price}']),
     'market_ok_buy'           => t('logistics.hub.ok_buy_used'),
     'market_ok_rent'          => t('logistics.hub.ok_rent'),
@@ -1695,6 +1995,12 @@ window.HUB_LANG  = <?= json_encode([
     'err_hub_already_owned'   => t('logistics.hub.err_hub_already_owned'),
     'err_hub_already_rented'  => t('logistics.hub.err_hub_already_rented'),
     'err_hub_unavailable'     => t('logistics.hub.err_hub_unavailable'),
+ // Modal braku zezwolenia na prace lokalne / Local permit required modal strings
+    'permit_modal_title' => t('legal.hub.permit_modal_title'),
+    'permit_btn_cancel'  => t('legal.hub.permit_btn_cancel'),
+    'permit_btn_apply'   => t('legal.hub.permit_btn_apply'),
+    'permit_btn_legal'   => t('legal.hub.permit_btn_legal'),
+    'permit_url'         => '/legal.php',
  // Well status labels for hub wells modal / Tlumaczenia statusow odwiertow w modalu huba
     'ws_active'          => t('technical.ws_active'),
     'ws_paused_staff'    => t('technical.ws_paused_staff'),
@@ -1794,6 +2100,17 @@ window.LOGISTICS_LANG = <?= json_encode([
 </script>
 
 <script>
+window.PROTECTION_API  = '/public/protection.php';
+window.PROTECTION_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+window.PROTECTION_LANG = <?= json_encode([
+    'confirm_question'   => tPlain('protection.confirm_question'),
+    'confirm_renew'      => tPlain('protection.confirm_renew'),
+    'err'                => tPlain('protection.err_generic'),
+    'err_target_invalid' => tPlain('protection.err_target_invalid'),
+], JSON_UNESCAPED_UNICODE) ?>;
+</script>
+
+<script>
 /* Pipeline build countdown / Odliczanie budowy rurociagu */
 (function () {
     var countdowns = document.querySelectorAll('.pipeline-countdown[data-finish]');
@@ -1807,8 +2124,10 @@ window.LOGISTICS_LANG = <?= json_encode([
         return (h > 0 ? h + 'h ' : '') + m + 'min ' + s + 's';
     }
 
+    var pipelineReloadScheduled = false;
     countdowns.forEach(function (el) {
         var finish = new Date(el.dataset.finish.replace(' ', 'T')).getTime();
+        if (Math.floor((finish - Date.now()) / 1000) <= 0) { el.textContent = '-'; return; }
         function tick() {
             var rem = Math.floor((finish - Date.now()) / 1000);
             el.textContent = fmtSec(rem);
@@ -1816,7 +2135,12 @@ window.LOGISTICS_LANG = <?= json_encode([
                 setTimeout(tick, 1000);
             } else {
                 el.textContent = '-';
-                setTimeout(function () { window.location.reload(); }, 3000);
+                if (!pipelineReloadScheduled) {
+                    pipelineReloadScheduled = true;
+                    // Reload bez hasha — inaczej strona skacze do kotwicy paginacji (#...-road-trips-heading).
+                    // Reload without the hash — otherwise the page jumps to the pagination anchor.
+                    setTimeout(function () { window.location.replace(window.location.pathname + window.location.search); }, 3000);
+                }
             }
         }
         tick();
@@ -1829,6 +2153,7 @@ window.LOGISTICS_LANG = <?= json_encode([
 (function () {
     var els = document.querySelectorAll('.road-trip-countdown[data-seconds]');
     if (!els.length) return;
+    var reloadScheduled = false;
     function fmtSec(sec) {
         if (sec <= 0) return '0h 00m';
         var h = Math.floor(sec / 3600);
@@ -1837,16 +2162,22 @@ window.LOGISTICS_LANG = <?= json_encode([
     }
     els.forEach(function (el) {
         var rem = parseInt(el.dataset.seconds, 10) || 0;
+        if (rem <= 0) { el.textContent = '-'; return; }
         var start = Date.now();
         function tick() {
             var elapsed = Math.floor((Date.now() - start) / 1000);
             var cur = Math.max(0, rem - elapsed);
             el.textContent = fmtSec(cur);
             if (cur > 0) {
-                setTimeout(tick, 30000); // aktualizacja co 30s / update every 30s
+                setTimeout(tick, 30000);
             } else {
                 el.textContent = '-';
-                setTimeout(function () { window.location.reload(); }, 5000);
+                if (!reloadScheduled) {
+                    reloadScheduled = true;
+                    // Reload bez hasha — inaczej strona skacze do kotwicy paginacji (#...-road-trips-heading).
+                    // Reload without the hash — otherwise the page jumps to the pagination anchor.
+                    setTimeout(function () { window.location.replace(window.location.pathname + window.location.search); }, 5000);
+                }
             }
         }
         tick();
@@ -1916,6 +2247,8 @@ window.PIPELINE_LANG = <?= json_encode([
     'confirm_header'  => t('logistics.pipeline.confirm_header'),
     'confirm_btn'     => t('logistics.pipeline.confirm_btn'),
     'back_btn'        => t('logistics.pipeline.back_btn'),
+    'currency'        => $currencyLabel,
+    'locale'          => $currencyLocale,
 ], JSON_UNESCAPED_UNICODE) ?>;
 
 var _pipelineBuyWellId      = 0;
@@ -1969,7 +2302,7 @@ function renderPipelineBuyProfiles() {
               + '<input type="radio" name="pipeline-type" value="' + k + '"' + (k === _pipelineBuyType ? ' checked' : '') + '>'
               + '<div class="logistics-mode-name">' + p.label + '</div>'
               + '<div class="logistics-mode-desc">'
-              + PIPELINE_LANG.label_cost + ': <strong>' + p.build_cost.toLocaleString('pl-PL', {minimumFractionDigits:2}) + ' PLN</strong><br>'
+              + PIPELINE_LANG.label_cost + ': <strong>' + p.build_cost.toLocaleString(PIPELINE_LANG.locale || 'pl-PL', {minimumFractionDigits:2}) + ' ' + (PIPELINE_LANG.currency || 'PLN') + '</strong><br>'
               + PIPELINE_LANG.label_hours + ': <strong>' + p.build_hours + 'h</strong>'
               + '</div></label>';
     });
@@ -2006,7 +2339,7 @@ function confirmPipelinePurchase() {
           + ' <strong>' + p.label + '</strong></p>'
           + '<dl class="logistics-confirm-dl">'
           + '<dt>' + PIPELINE_LANG.label_cost  + '</dt>'
-          + '<dd><strong>' + p.build_cost.toLocaleString('pl-PL', {minimumFractionDigits:2}) + ' PLN</strong></dd>'
+          + '<dd><strong>' + p.build_cost.toLocaleString(PIPELINE_LANG.locale || 'pl-PL', {minimumFractionDigits:2}) + ' ' + (PIPELINE_LANG.currency || 'PLN') + '</strong></dd>'
           + '<dt>' + PIPELINE_LANG.label_hours + '</dt>'
           + '<dd><strong>' + p.build_hours + 'h</strong></dd>'
           + '</dl>'
@@ -2050,4 +2383,3 @@ function confirmPipelinePurchase() {
         });
 }
 </script>
-

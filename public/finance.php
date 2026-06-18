@@ -73,6 +73,7 @@ $policyRecommendation = $finSvc->getPolicyRecommendationOverview($settings, $liq
 $riskOverview = $finSvc->getRiskOverview($settings, $last, $summary24, $perWell, $liquidity);
 $alerts = array_merge($alerts, $finSvc->getStage3Alerts($settings, $liquidity, $summary24));
 $decisionHistory = $policySvc->getDecisionHistory($playerId, 20);
+$financeLocale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 
 $budgetLevelOptions = [
     'low' => t('finance.level_low'),
@@ -92,7 +93,9 @@ $savingsModeOptions = [
 
 function fmtPLN(float $value, bool $sign = false): string
 {
-    $formatted = number_format(abs($value), 0, ',', ' ') . ' PLN';
+    global $financeLocale;
+    $currency = $financeLocale === 'en' ? 'USD' : 'PLN';
+    $formatted = number_format(abs($value), 0, ',', ' ') . ' ' . $currency;
     if ($sign) {
         return ($value >= 0 ? '+' : '&minus;') . $formatted;
     }

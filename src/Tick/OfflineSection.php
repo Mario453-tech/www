@@ -45,8 +45,15 @@ class OfflineSection
         $this->isOffline = ($minutesSinceActive >= $offlineThresholdMin);
 
         $offlineHours = 0;
-        if ($this->isOffline && $offlineSince) {
-            $offlineHours = ($this->now->getTimestamp() - strtotime($offlineSince)) / 3600;
+        if ($this->isOffline) {
+            // Gdy offline_since jest NULL (np. zapis do DB sie nie powiodl), uzyj last_active_at,
+            // inaczej offlineHours zostaje 0 i ochrona 24h nigdy nie wygasa.
+            // When offline_since is NULL (e.g. the DB write failed), fall back to last_active_at,
+            // otherwise offlineHours stays 0 and the 24h protection never expires.
+            $offlineRef = $offlineSince ?: $lastActiveAt;
+            if ($offlineRef) {
+                $offlineHours = ($this->now->getTimestamp() - strtotime($offlineRef)) / 3600;
+            }
         }
 
         $this->offlineProtectionActive = $this->isOffline && ($offlineHours < $offlineMaxProtectionH);

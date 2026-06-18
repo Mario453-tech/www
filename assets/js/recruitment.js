@@ -14,6 +14,14 @@ function recl(k, p) {
     if (p) Object.keys(p).forEach(function(pk) { s = s.replace(':' + pk, p[pk]); });
     return s;
 }
+function esc(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 class RecruitmentSystem {
     constructor() {
@@ -266,22 +274,22 @@ class RecruitmentSystem {
         ) / 5;
         
         return `
-            <div class="candidate-card" data-candidate-id="${candidate.id}">
+            <div class="candidate-card" data-candidate-id="${esc(candidate.id)}">
                 <div class="candidate-header">
                     <div class="candidate-info">
-                        <div class="candidate-name">${candidate.first_name} ${candidate.last_name}</div>
+                        <div class="candidate-name">${esc(candidate.first_name)} ${esc(candidate.last_name)}</div>
                         <div class="candidate-meta">
                             <div class="candidate-meta-item">
                                 <span>&#127874;</span>
-                                <span>${recl('age', { n: candidate.age })}</span>
+                                <span>${recl('age', { n: parseInt(candidate.age) || 0 })}</span>
                             </div>
                             <div class="candidate-meta-item">
                                 <span>&#127757;</span>
-                                <span>${this.getNationalityName(candidate.nationality)}</span>
+                                <span>${esc(this.getNationalityName(candidate.nationality))}</span>
                             </div>
                             <div class="candidate-meta-item">
                                 <span>&#128188;</span>
-                                <span>${recl('exp_years', { n: candidate.experience_years })}</span>
+                                <span>${recl('exp_years', { n: parseInt(candidate.experience_years) || 0 })}</span>
                             </div>
                         </div>
                     </div>
@@ -398,7 +406,7 @@ class RecruitmentSystem {
             body: formData
         });
 
-        return await response.json();
+        return await response.json().catch(() => ({ success: false, error: 'Server error (' + response.status + ')' }));
     }
     
  /**

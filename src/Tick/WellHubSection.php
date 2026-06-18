@@ -24,6 +24,7 @@ class WellHubSection
     private array             $gBalanceMults;
     private float             $oilPrice;
     private OutboundLegService $outboundSvc;
+    private ?ProtectionService $protectionSvc;
 
  /**
  * @param array<string, float|string> $financeLogisticsMods
@@ -38,7 +39,8 @@ class WellHubSection
         array                 $financeLogisticsMods,
         array                 $gBalanceMults,
         float                 $oilPrice,
-        OutboundLegService    $outboundSvc
+        OutboundLegService    $outboundSvc,
+        ?ProtectionService    $protectionSvc = null
     ) {
         $this->ctx                  = $ctx;
         $this->now                  = $now;
@@ -49,6 +51,7 @@ class WellHubSection
         $this->gBalanceMults        = $gBalanceMults;
         $this->oilPrice             = $oilPrice;
         $this->outboundSvc          = $outboundSvc;
+        $this->protectionSvc        = $protectionSvc;
     }
 
  /**
@@ -61,6 +64,19 @@ class WellHubSection
     {
         if ($this->hubTickSvc === null || empty($this->ctx->hubCache)) {
             return;
+        }
+
+        if ($this->hubIncidentSvc !== null && $this->protectionSvc !== null) {
+            // Mapa hub_id => player_id wlasciciela (ochrona kupiona przez wlasciciela, nie dzierzawce).
+            // Map hub_id => owner player_id (protection is bought by owner, not tenant).
+            $hubIdToOwnerPlayerId = [];
+            foreach ($this->ctx->hubCache as $hId => $hubRow) {
+                $ownerId = (int)($hubRow['player_id'] ?? 0);
+                if ($ownerId > 0) {
+                    $hubIdToOwnerPlayerId[(int)$hId] = $ownerId;
+                }
+            }
+            $this->hubIncidentSvc->preloadProtections($hubIdToOwnerPlayerId, $this->protectionSvc);
         }
 
         foreach ($this->ctx->hubCache as $hubId => $hub) {
@@ -200,7 +216,7 @@ class WellHubSection
         }
         try {
             $incident = $this->hubIncidentSvc->processTick(
-                $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus
+                $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $this->protectionSvc
             );
             if ($incident !== null && $incident['extra_loss'] > 0.0) {
                 $incLoss = (float)$incident['extra_loss'] * (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);

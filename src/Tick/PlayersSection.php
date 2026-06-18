@@ -41,7 +41,9 @@ class PlayersSection
     {
         try {
             $players = $this->db->query("
-                SELECT id, last_tick_at, cash,
+                SELECT id,
+                       COALESCE(last_tick_at, '2000-01-01 00:00:00') AS last_tick_at,
+                       cash,
                        COALESCE(financial_state, 'normal') AS financial_state,
                        COALESCE(crisis_ticks, 0)           AS crisis_ticks,
                        COALESCE(last_crisis_tick_at, NULL) AS last_crisis_tick_at,
@@ -180,10 +182,17 @@ class PlayersSection
         $this->disastersTriggered += $wellLoop->disastersTriggered;
         $this->incidentsTriggered += $wellLoop->incidentsTriggered;
 
+ // Jedna instancja ochrony na gracza (wygasanie raz, wspolna dla rurociagow/hubow/drogi).
+ // One protection instance per player (expiry once, shared by pipelines/hubs/road).
+        $protectionSvc = class_exists('ProtectionService') ? new ProtectionService($db) : null;
+        $sabotageSvc   = class_exists('SabotageService') ? new SabotageService($db) : null;
+
  // 3. RUROCIAGI / Pipelines
         $pipelines = new PipelineSection($db, $now, $wellService);
-        $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc);
-        $playerCash               -= abs($pipelines->cashDelta);
+        $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc, $protectionSvc);
+ // Floor na 0 jak pozostale odliczenia gotowki (DB i tak ma GREATEST(0,...)).
+ // Floor at 0 like the other cash deductions (DB also applies GREATEST(0,...)).
+        $playerCash               = max(0.0, $playerCash - abs($pipelines->cashDelta));
         $this->disastersTriggered += $pipelines->disastersTriggered;
 
  // 3b. DOSTAWY MORSKIE aktualizacja statusow rejsow / Marine deliveries voyage status updates
@@ -215,8 +224,10 @@ class PlayersSection
         if (class_exists('WellRoadTripSection') && class_exists('RoadTransportService')) {
             try {
                 $roadSvc        = new RoadTransportService($db);
+ // Ochrona kursow (theft/raid/sabotage) - wspolna instancja gracza.
+ // Trip protection (theft/raid/sabotage) - shared per-player instance.
                 $roadTripSec    = new WellRoadTripSection($db, $now);
-                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc);
+                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc, $protectionSvc, $sabotageSvc);
                 if ($roadTripSec->deliveredBbl > 0.0) {
                     $wellLoop->finBbl       += $roadTripSec->deliveredBbl;
                     $wellLoop->deliveredBbl += $roadTripSec->deliveredBbl;
@@ -272,7 +283,7 @@ class PlayersSection
  // Hub finalization after synchronous production and physically arrived time-based deliveries.
         $wellLoop->currentStorage = $currentStorage;
         $wellLoop->playerCash     = $playerCash;
-        $wellLoop->finalizeHubTicks($playerId, $deltaHours, $hseBonus);
+        $wellLoop->finalizeHubTicks($playerId, $deltaHours, $hseBonus, $protectionSvc);
         $currentStorage = $wellLoop->currentStorage;
         $playerCash     = $wellLoop->playerCash;
 
@@ -280,8 +291,15 @@ class PlayersSection
         $finSvc = new FinanceService();
         $spill  = new SpillSection($db, $wellService);
         $currentStorage            = $spill->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $tsvc);
-        $playerCash               -= abs($spill->cashDelta);
+ // Floor na 0 jak pozostale odliczenia gotowki. / Floor at 0 like other cash deductions.
+        $playerCash               = max(0.0, $playerCash - abs($spill->cashDelta));
         $this->disastersTriggered += $spill->disastersTriggered;
+
+ // H4: Cap storage — uniemozliwia zapis wartosci powyzej max_capacity gdy spill sie nie wyzwolil.
+ // Bez tego currentStorage > storageCapacity moze trafic do bazy po intensywnym tiku.
+ // H4: Cap storage — prevents writing above max_capacity when spill was not triggered.
+ // Without this, currentStorage > storageCapacity can reach the DB after a heavy tick.
+        $currentStorage = min($currentStorage, $storageCapacity);
 
  // Zapis magazynu + atomowe potwierdzenie dostaw drogowych (M3).
  // Kursy oznaczone 'crediting' w tym tiku potwierdzamy jako 'delivered' w tej samej
@@ -353,13 +371,29 @@ class PlayersSection
         }
 
  // 5. STAN FINANSOWY + ZAPIS / Financial state + save
+ // Pelny koszt incydentow = incydenty odwiertow + katastrofy rurociagow + kary za wyciek.
+ // Bez tego eksplozja rurociagu nie wyzwalala kryzysu mimo wyzerowania gotowki.
+ // Full incident cost = well incidents + pipeline disasters + spill fines.
+ // Without this a pipeline explosion would not trigger crisis despite draining cash.
+        $totalIncidentCost = $wellLoop->finIncident
+            + abs($pipelines->cashDelta)
+            + abs($spill->cashDelta);
         $finState = new FinancialStateSection($db, $now);
         $finState->process(
             $playerId, $playerData, $playerCash,
             $wellLoop->finRevenue, $wellLoop->finOpex, $wellLoop->finSalary,
-            $wellLoop->finTransport, $wellLoop->finIncident, $wellLoop->finTax
+            $wellLoop->finTransport, $totalIncidentCost, $wellLoop->finTax
         );
         $finState->saveCashAndTick($playerId, $playerCash, $initialCash);
+
+ // 6. AUDIT BANKOWY zbiorcze koszty ticku do bank_transactions (brief: "podatki" itd.).
+ // Gotowka juz zeszla roznicowo w saveCashAndTick - tu tylko logTransaction (audit trail).
+ // 6. BANK AUDIT aggregated tick costs into bank_transactions (brief: "taxes" etc.).
+ // Cash already saved differentially in saveCashAndTick - logTransaction only (audit trail).
+        $this->logTickBankAudit(
+            $playerId, $wellLoop,
+            abs($pipelines->cashDelta), abs($spill->cashDelta)
+        );
 
  // Aktualizuj liczniki globalne / Update global counters
         $this->playersProcessed++;
@@ -368,6 +402,54 @@ class PlayersSection
         $this->totalRevenue += $wellLoop->finRevenue;
         $this->totalOpex    += ($wellLoop->finOpex + $wellLoop->finSalary + $wellLoop->finTransport);
 
+    }
+
+ /**
+ * Zapisuje zbiorcze koszty ticku do bank_transactions jako audit trail (bez ruszania salda;
+ * gotowka schodzi roznicowo w FinancialStateSection::saveCashAndTick). Wpis tylko gdy kwota > 0.
+ * OPEX pomniejszony o oplaty hubowe (WellHubSection dodaje je do OBU akumulatorow), zeby nie dublowac.
+ * Incydenty = incydenty odwiertow + katastrofy rurociagow + kary srodowiskowe (spill).
+ *
+ * Writes aggregated tick costs into bank_transactions as an audit trail (no balance change;
+ * cash is saved differentially in FinancialStateSection::saveCashAndTick). Entry only when > 0.
+ * OPEX is reduced by hub fees (WellHubSection adds them to BOTH accumulators) to avoid double-logging.
+ * Incidents = well incidents + pipeline disasters + environmental fines (spill).
+ */
+    private function logTickBankAudit(
+        int             $playerId,
+        WellLoopSection $wellLoop,
+        float           $pipelineDisasterCost,
+        float           $spillFineCost
+    ): void {
+        if (!class_exists('FinancialTransactionService')) {
+            return;
+        }
+
+        try {
+            $entries = [
+                [FinancialTransactionService::TYPE_TAX,            $wellLoop->finTax,                                              'bank.tx_tick_tax'],
+                [FinancialTransactionService::TYPE_TICK_OPEX,      max(0.0, $wellLoop->finOpex - $wellLoop->finHubUsageCost),      'bank.tx_tick_opex'],
+                [FinancialTransactionService::TYPE_HUB_USAGE,      $wellLoop->finHubUsageCost,                                     'bank.tx_tick_hub_usage'],
+                [FinancialTransactionService::TYPE_TICK_SALARY,    $wellLoop->finSalary,                                           'bank.tx_tick_salary'],
+                [FinancialTransactionService::TYPE_TICK_TRANSPORT, $wellLoop->finTransport,                                        'bank.tx_tick_transport'],
+                [FinancialTransactionService::TYPE_TICK_INCIDENT,  $wellLoop->finIncident + $pipelineDisasterCost + $spillFineCost, 'bank.tx_tick_incident'],
+            ];
+
+            $fts = null;
+            foreach ($entries as [$type, $amount, $descKey]) {
+                $amount = round((float)$amount, 2);
+                if ($amount < 0.01) {
+                    continue;
+                }
+                $fts ??= new FinancialTransactionService($this->db);
+                $fts->logTransaction(
+                    $playerId, null, $amount, $type,
+                    tPlain($descKey), 'tick', null
+                );
+            }
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'logTickBankAudit FAILED', $e, ['player_id' => $playerId]);
+        }
     }
 
  /**

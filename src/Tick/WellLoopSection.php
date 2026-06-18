@@ -271,7 +271,7 @@ class WellLoopSection
  *
  * @param array<string, mixed> $hseBonus
  */
-    public function finalizeHubTicks(int $playerId, float $deltaHours, array $hseBonus): void
+    public function finalizeHubTicks(int $playerId, float $deltaHours, array $hseBonus, ?ProtectionService $protectionSvc = null): void
     {
         $wellHub = new WellHubSection(
             $this,
@@ -282,7 +282,8 @@ class WellLoopSection
             $this->financeLogisticsMods,
             $this->gBalanceMults,
             $this->oilPrice,
-            new OutboundLegService($this->transportConfig)
+            new OutboundLegService($this->transportConfig),
+            $protectionSvc
         );
         $wellHub->finalize($playerId, $deltaHours, $hseBonus);
     }
@@ -449,7 +450,7 @@ class WellLoopSection
                 $salaryPerHour     = $totalSalaryMonth / 720.0;
                 $salaryCost        = round($salaryPerHour * $deltaHours, 2);
                 $this->finSalary  += $salaryCost;
-                $this->playerCash -= $salaryCost;
+                $this->playerCash  = max(0.0, $this->playerCash - $salaryCost);
                 GameLog::info('tick', 'salary_deducted', [
                     'player_id'       => $playerId,
                     'board_monthly'   => $boardSalaryMonth,

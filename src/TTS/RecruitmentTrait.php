@@ -52,10 +52,12 @@ trait TTSRecruitmentTrait
                                            AND cr.player_id = ?
             WHERE br.code = 'technical'
               AND c.expires_at > NOW()
-              AND (c.player_id = ? OR c.player_id IS NULL)
-              AND (c.request_id IS NULL OR c.request_id IN (
-                  SELECT id FROM recruitment_requests WHERE player_id = ?
-              ))
+              AND (
+                   c.player_id = ?
+                   OR (c.player_id IS NULL AND c.request_id IN (
+                       SELECT id FROM recruitment_requests WHERE player_id = ?
+                   ))
+              )
             ORDER BY c.expires_at ASC
         ");
         // C2 fix: bind player_id twice (isolation filter + subquery) / Poprawka C2: player_id bindowany dwukrotnie (filtr izolacji + podzapytanie)
@@ -74,17 +76,25 @@ trait TTSRecruitmentTrait
 
         $manager = $this->getManager();
         $reviewerMemberId = $manager ? (int)$manager['id'] : 0;
+        if ($reviewerMemberId <= 0) {
+            return ['success' => false, 'message' => t('technical.recruitment_msg.candidate_missing')];
+        }
 
         // H-6 fix: isolate candidate to this player (own, global, or via request) / Poprawka H-6: izolacja kandydata do gracza (wlasny, globalny lub przez request)
         $cStmt = $this->db->prepare("
-            SELECT c.id FROM candidates c
+            SELECT c.id
+            FROM candidates c
+            JOIN board_roles br ON br.id = c.role_id
             WHERE c.id = ?
+              AND br.code = 'technical'
               AND c.expires_at > NOW()
-              AND (c.player_id = ? OR c.player_id IS NULL
-                   OR EXISTS (
-                       SELECT 1 FROM recruitment_requests rr
-                       WHERE rr.id = c.request_id AND rr.player_id = ?
+              AND (
+                   c.player_id = ?
+                   OR (c.player_id IS NULL AND c.request_id IN (
+                       SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
+              )
+            LIMIT 1
         ");
         $cStmt->execute([$candidateId, $this->playerId, $this->playerId]);
         if (!$cStmt->fetch()) {
@@ -215,7 +225,7 @@ trait TTSRecruitmentTrait
               AND rr.initiated_by = 'technical'
               AND rr.spec_code = ?
               AND br.code = 'technical'
-              AND rr.status IN ('pending', 'processing')
+              AND rr.status IN ('pending', 'ready')
         ");
         $pendingStmt->execute([$this->playerId, $specCode]);
         $pending = (int)$pendingStmt->fetchColumn();
@@ -248,7 +258,7 @@ trait TTSRecruitmentTrait
             WHERE rr.player_id = ?
               AND rr.initiated_by = 'technical'
               AND br.code = 'technical'
-              AND rr.status IN ('pending', 'processing')
+              AND rr.status IN ('pending', 'ready')
         ");
         $pendingStmt->execute([$this->playerId]);
         $pending = (int)$pendingStmt->fetchColumn();

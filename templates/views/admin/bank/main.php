@@ -45,6 +45,7 @@ $typeLabels = [
 </div>
 <?php endif ?>
 
+
 <!-- Mobile: select dropdown zamiast sidebaru / Mobile: select dropdown instead of sidebar -->
 <div class="abp-mobile-picker">
     <label for="abp-player-select" class="abp-select-label">Wybierz gracza</label>

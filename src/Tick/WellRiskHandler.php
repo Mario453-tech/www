@@ -70,10 +70,13 @@ class WellRiskHandler
     ): bool {
         try {
             $hseForDisaster = $hseBonus;
+            // financeSafetyMods['disaster_mult'] aplikowany wylacznie w combinedMult (ponizej),
+            // nie tutaj - inaczej trafialby do prawdopodobienstwa katastrofy podwojnie (kwadratowo).
+            // financeSafetyMods['disaster_mult'] is applied only in combinedMult (below), not here,
+            // otherwise it would hit the disaster probability twice (squared).
             $hseForDisaster['catastrophe_mult'] =
                 ($hseBonus['catastrophe_mult'] ?? 1.0)
- * $mults['techSpecCatMult']
- * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0);
+ * $mults['techSpecCatMult'];
 
             $disaster = $this->ctx->wellService->processDisasterRoll(
                 $wellId, $deltaHours, $hseForDisaster,
@@ -83,6 +86,18 @@ class WellRiskHandler
 
             if (!empty($disaster['disaster'])) {
                 $this->ctx->loopCtx->disastersTriggered++;
+
+ // Tick jest jedynym platnikiem katastrof: triggerBlowout/triggerReservoirContamination
+ // nie ruszaja juz gotowki. Tu doliczamy koszt+kare raz do finIncident i playerCash,
+ // skad roznicowy zapis (saveCashAndTick) ksieguje je dokladnie raz.
+ // The tick is the single payer: trigger* no longer touch cash. We add cost+fine once
+ // to finIncident and playerCash so the differential save books it exactly once.
+                $disasterCost = round((float)($disaster['cost'] ?? 0) + (float)($disaster['env_fine'] ?? 0), 2);
+                if ($disasterCost > 0.0) {
+                    $this->ctx->loopCtx->finIncident += $disasterCost;
+                    $this->ctx->loopCtx->playerCash   = max(0.0, $this->ctx->loopCtx->playerCash - $disasterCost);
+                }
+
                 GameLog::error('tick', 'INDUSTRIAL DISASTER', null, [
                     'type'      => $disaster['disaster'],
                     'well_id'   => $wellId,
@@ -152,7 +167,7 @@ class WellRiskHandler
                 $this->ctx->loopCtx->incidentsTriggered++;
                 if ($inc['cost'] > 0) {
                     $this->ctx->loopCtx->finIncident += (float)$inc['cost'];
-                    $this->ctx->loopCtx->playerCash  -= (float)$inc['cost'];
+                    $this->ctx->loopCtx->playerCash   = max(0.0, $this->ctx->loopCtx->playerCash - (float)$inc['cost']);
                 }
                 if ($tsvc) {
                     $tsvc->notify('incident', $wellId, '⚠ ' . ($inc['message'] ?? t('tick.notify.incident_generic', ['id' => $wellId])));

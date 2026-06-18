@@ -63,7 +63,7 @@ class FinancialStateSection
             $newCrisisTicks      = $crisisTicks;
             $newLastCrisisTickAt = $playerData['last_crisis_tick_at'] ?? null;
             $lastCrisisHour      = $newLastCrisisTickAt
-                ? (int)floor((time() - strtotime($newLastCrisisTickAt)) / 3600)
+                ? (int)floor(($this->now->getTimestamp() - strtotime($newLastCrisisTickAt)) / 3600)
                 : 999;
             $canIncrementCrisis = ($lastCrisisHour >= 1);
 
@@ -71,7 +71,7 @@ class FinancialStateSection
                 $newFinancialState = 'crisis';
                 if ($canIncrementCrisis) {
                     $newCrisisTicks      = $crisisTicks + 1;
-                    $newLastCrisisTickAt = date('Y-m-d H:i:s');
+                    $newLastCrisisTickAt = $this->now->format('Y-m-d H:i:s');
                     GameLog::warn('tick', 'financial_crisis', [
                         'player_id'    => $playerId,
                         'cash'         => $playerCash,
@@ -88,6 +88,13 @@ class FinancialStateSection
             } elseif ($playerCash < $warningThreshold && $tickNetProfit < 0) {
                 $newFinancialState = 'warning';
                 $newCrisisTicks    = max(0, $crisisTicks - 1);
+ // M5: Wyzeruj last_crisis_tick_at gdy crisis_ticks wroci do 0 w stanie warning (tak jak w else).
+ // Bez tego gracz moze utknac z crisis_ticks=1 i niezerowym last_crisis_tick_at na granicy warning/normal,
+ // blokujac reinicjalizacje kryzysu przez 1 godzine (canIncrementCrisis throttle).
+ // M5: Clear last_crisis_tick_at when crisis_ticks reaches 0 in warning state (same as else branch).
+ // Without this a player can be stuck with crisis_ticks=1 and stale last_crisis_tick_at,
+ // blocking crisis re-entry for 1 hour (canIncrementCrisis throttle).
+                $newLastCrisisTickAt = ($newCrisisTicks === 0) ? null : $newLastCrisisTickAt;
             } else {
                 $newFinancialState   = 'normal';
                 $newCrisisTicks      = max(0, $crisisTicks - 1);

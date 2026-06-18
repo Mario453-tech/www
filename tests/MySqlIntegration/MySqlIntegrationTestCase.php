@@ -57,6 +57,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $this->deleteByIds('well_road_incident_logs', 'well_id', [$ids['wellId'], $ids['auxWellId']]);
         $this->deleteByIds('well_road_trips', 'well_id', [$ids['wellId'], $ids['auxWellId']]);
         $this->deleteByIds('well_road_configs', 'well_id', [$ids['wellId'], $ids['auxWellId']]);
+        $this->deleteByIds('well_pipelines', 'player_id', [$ids['playerId']]);
         $this->deleteByIds('well_pipelines', 'well_id', [$ids['wellId'], $ids['auxWellId']]);
         $this->deleteByIds('pipelines', 'player_id', [$ids['playerId']]);
         $this->deleteByIds('logistics_hubs', 'id', [$ids['hubId'], $ids['auxHubId']]);
@@ -272,7 +273,8 @@ abstract class MySqlIntegrationTestCase extends TestCase
             $stmt = $this->db->prepare("DELETE FROM `{$table}` WHERE `{$column}` IN ({$placeholders})");
             $stmt->execute($ids);
         } catch (PDOException $e) {
- // Tabela moe nie istnie jeszcze (nowe moduy) pomijamy cicho.
+ // Table may not exist yet (new modules), so skip it quietly.
+ // Tabela moze jeszcze nie istniec (nowe moduly), wiec pomijamy cicho.
             if (!str_contains($e->getMessage(), '1146') && !str_contains($e->getMessage(), '42S02')) {
                 throw $e;
             }

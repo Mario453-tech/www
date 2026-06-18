@@ -159,6 +159,7 @@ spl_autoload_register(function ($class) {
         __DIR__ . '/Tick/' . $class . '.php',
         __DIR__ . '/Well/' . $class . '.php',
         __DIR__ . '/Incident/' . $class . '.php',
+        __DIR__ . '/Sabotage/' . $class . '.php',
     ];
     foreach ($candidates as $file) {
         if (file_exists($file)) {
@@ -211,8 +212,10 @@ const ROUTES = [
     'register'        => '/register',
     'forgot-password' => '/forgot-password',
     'reset-password'  => '/reset-password',
+    'language'        => '/language',
     'market'          => '/market',
     'market-offers'   => '/market-offers',
+    'sabotage'        => '/sabotage',
     'sell'            => '/sell',
     'bank'            => '/bank',
     'map'             => '/map',
@@ -225,8 +228,9 @@ const ROUTES = [
     'boardroom'       => '/boardroom',
     'loans'           => '/loans',
     'dashboard'       => '/dashboard',
-    'help'            => '/help',
-    'legal'           => '/legal',
+    'help'             => '/help',
+    'legal'            => '/legal',
+    'wallet-transfer'  => '/wallet-transfer',
 ];
 
 /** @param array<string, mixed> $query */

@@ -134,6 +134,7 @@ trait WellActionsTrait
         // Compute new value locally — no extra SELECT after commit needed.
         $boostAfter  = max(0.0, round($boostBefore - 0.10, 10));
 
+        $fts3 = new FinancialTransactionService();
         $this->db->beginTransaction();
         try {
             // Sprawdzenie salda atomowo wewnatrz transakcji — return false gdy za malo.

@@ -317,13 +317,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     GameLog::step('admin/player', 'POST', 1, 'action=' . $action, ['pid' => $pid]);
 
- // Ustawienie gotwki (warto absolutna) — sanityzacja wejscia
-    // Set cash (absolute value) — input sanitization
-    // Przegladarki mobilne moga przeslac sformatowana liczbe "600 000" zamiast "600000";
-    // PHP (float)"600 000" = 600 — stripujemy spacje i zamieniamy przecinek dziesiętny na kropkę.
-    // Mobile browsers may send "600 000" instead of "600000";
-    // PHP (float)"600 000" = 600 — strip whitespace and convert Polish decimal comma to dot.
-    if ($action === 'set_cash') {
+    if ($action === 'delete_player') {
+        $confirmText = strtoupper(trim((string)($_POST['delete_confirm'] ?? '')));
+        if ($confirmText !== 'USUN') {
+            $error = t('admin.player.err_delete_confirm');
+        } else {
+            try {
+                $result = (new AdminPlayerDeletionService($db))->purgeMany([$pid]);
+                AdminLog::log(
+                    'player_purged',
+                    'Player purge completed from player detail. Deleted=' . $result['deleted'],
+                    null,
+                    'player',
+                    null
+                );
+                header('Location: /admin/players.php?purged=' . (int)$result['deleted']);
+                exit();
+            } catch (Throwable $e) {
+                GameLog::error('admin/player', 'delete_player FAILED', $e, ['pid' => $pid]);
+                $error = t('admin.player.err_delete_failed');
+            }
+        }
+    // Set cash (absolute value) - input sanitization.
+    // PL: Ustawienie gotowki (wartosc absolutna) - sanityzacja wejscia.
+    // Mobile browsers may send "600 000" instead of "600000".
+    // PL: Przegladarki mobilne moga wyslac "600 000" zamiast "600000".
+    // PHP (float)"600 000" = 600 - strip whitespace and convert Polish decimal comma to dot.
+    // PL: Usuwamy spacje i zamieniamy polski przecinek dziesietny na kropke.
+    } elseif ($action === 'set_cash') {
         $rawInput = preg_replace('/\s+/u', '', (string)($_POST['set_amount'] ?? '0'));
         if (strpos($rawInput, '.') === false && strpos($rawInput, ',') !== false) {
             $rawInput = str_replace(',', '.', $rawInput);

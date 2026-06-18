@@ -78,9 +78,14 @@ try {
     }
 
     $db = Database::getInstance()->getConnection();
+    $fts = new FinancialTransactionService();
     $db->beginTransaction();
 
-    $player->updateCash(-$upgradeCost, 'well_upgrade', 'Ulepszenie odwiertu');
+    $res = $fts->debit($playerId, $upgradeCost, FinancialTransactionService::TYPE_WELL_UPGRADE, 'Ulepszenie odwiertu');
+    if (!$res['success']) {
+        $db->rollBack();
+        jsonResponse(false, $res['error'] ?? t('common.app_error'));
+    }
     $ok = $well->upgrade($wellId);
 
     if (!$ok) {

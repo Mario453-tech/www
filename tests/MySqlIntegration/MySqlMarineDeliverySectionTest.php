@@ -187,8 +187,11 @@ final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
 
         $row = $this->fetchDelivery($delivId);
 
- // Pelna kolejka waiting_for_port z inkrementem delay_ticks
-        $this->assertSame('waiting_for_port', $row['status'], 'Pelna kolejka  waiting_for_port');
+ // Pelna kolejka -> 'delayed' z inkrementem delay_ticks (nie waiting_for_port,
+ // bo bez wpisu w port_queue dostawa utknelaby na zawsze).
+ // Queue full -> 'delayed' with delay_ticks increment (not waiting_for_port:
+ // without a port_queue row the delivery would be stuck forever).
+        $this->assertSame('delayed', $row['status'], 'Pelna kolejka -> delayed');
         $this->assertGreaterThanOrEqual(1, (int)$row['delay_ticks'], 'delay_ticks powinno sie zwiekszyc');
     }
 

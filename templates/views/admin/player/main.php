@@ -156,6 +156,28 @@ $activeTab    = $_GET['tab'] ?? 'info';
                 </button>
             </div>
         </form>
+
+        <div class="admin-danger-zone">
+            <p class="panel-title"><?= t('admin.player.delete_title') ?></p>
+            <p class="muted"><?= t('admin.player.delete_warning') ?></p>
+            <form method="post" class="admin-action-form">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="action" value="delete_player">
+                <label class="form-label"><?= t('admin.player.delete_confirm_label') ?></label>
+                <div class="form-row">
+                    <input type="text"
+                           name="delete_confirm"
+                           class="input-full form-group--flex"
+                           autocomplete="off"
+                           placeholder="<?= htmlspecialchars(t('admin.player.delete_confirm_placeholder')) ?>">
+                    <button type="submit"
+                            class="btn btn-danger btn-sm"
+                            onclick="confirmSubmit(this, '<?= t('admin.player.delete_modal_confirm') ?>', {type:'danger'}); return false;">
+                        <?= t('admin.player.delete_btn') ?>
+                    </button>
+                </div>
+            </form>
+        </div>
     </section>
 </div>
 <?php endif ?>

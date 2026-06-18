@@ -19,8 +19,8 @@ $pipeLevelMeta = [
 <?php if ($msg): ?><p role="status" class="alert alert-success"><?= htmlspecialchars($msg) ?></p><?php endif ?>
 <?php if ($err): ?><p role="alert"  class="alert alert-error"><?= htmlspecialchars($err) ?></p><?php endif ?>
 
-<!--  ZAKADKI  -->
-<div class="admin-tabs" role="tablist">
+<!-- Tabs -->
+<div class="admin-tabs admin-tabs--multirow" role="tablist">
     <button id="inc-btn-stats"  onclick="incShowTab('stats')"  class="admin-tab" role="tab"> <?= t('admin.incidents.tab_stats') ?></button>
     <button id="inc-btn-micro"  onclick="incShowTab('micro')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_micro') ?></button>
     <button id="inc-btn-minor"  onclick="incShowTab('minor')"  class="admin-tab" role="tab"><?= t('admin.incidents.tab_minor') ?></button>
@@ -306,7 +306,7 @@ foreach ($PIPE_LEVELS as $lvl):
             <input type="hidden" name="action" value="save_pressure_cfg">
             <table class="admin-table" style="max-width:620px">
                 <thead>
-                    <tr><th><?= t('admin.incidents.field_min') ?> / parametr</th><th>Wartość</th><th><?= t('admin.incidents.cfg_default') ?></th></tr>
+                    <tr><th><?= t('admin.incidents.field_min') ?> / parametr</th><th><?= t('admin.incidents.col_value') ?></th><th><?= t('admin.incidents.cfg_default') ?></th></tr>
                 </thead>
                 <tbody>
                     <tr>
@@ -337,7 +337,7 @@ foreach ($PIPE_LEVELS as $lvl):
             </table>
             <div class="form-actions" style="margin-top:1rem">
                 <button type="submit" class="btn btn-primary"><?= t('admin.incidents.btn_save_pressure') ?></button>
-                <button type="button" class="btn btn-secondary" onclick="if(confirm('<?= t('admin.incidents.confirm_reset_pressure') ?>')) document.getElementById('pressure-reset-form').submit()"><?= t('admin.incidents.btn_reset_pressure') ?></button>
+                <button type="button" class="btn btn-secondary" onclick="confirmAction('<?= t('admin.incidents.confirm_reset_pressure') ?>', function(){ document.getElementById('pressure-reset-form').submit(); })"><?= t('admin.incidents.btn_reset_pressure') ?></button>
             </div>
         </form>
         <form method="post" id="pressure-reset-form">
@@ -378,7 +378,7 @@ foreach ($PIPE_LEVELS as $lvl):
                 ?>
                 <tr>
                     <td><?= $t_val ?></td>
-                    <td>×<?= number_format($mult, 3) ?></td>
+                    <td>x<?= number_format($mult, 3) ?></td>
                     <td><span class="badge <?= $cls ?>"><?= htmlspecialchars($state) ?></span></td>
                 </tr>
                 <?php endforeach ?>
@@ -389,7 +389,7 @@ foreach ($PIPE_LEVELS as $lvl):
 
 <!--  TAB: HISTORIA INCYDENTOW  -->
 <div id="inc-tab-recent" class="admin-tab-content" role="tabpanel">
-    <section class="panel" aria-label="<?= t('admin.incidents.history_title') ?>">
+    <section id="inc-history-panel" class="panel" aria-label="<?= t('admin.incidents.history_title') ?>">
         <p class="panel-title"> <?= t('admin.incidents.history_title') ?>
             <span class="badge badge-inactive"><?= $hTotal ?></span>
         </p>
@@ -447,7 +447,7 @@ foreach ($PIPE_LEVELS as $lvl):
             <div class="inc-filter-field inc-filter-btns">
                 <label class="form-label">&nbsp;</label>
                 <button type="submit" class="btn btn-secondary"><?= t('admin.incidents.btn_filter') ?></button>
-                <a href="?hpage=1" class="btn btn-secondary"><?= t('admin.incidents.btn_clear') ?></a>
+                <a href="?hpage=1#inc-tab-recent" class="btn btn-secondary"><?= t('admin.incidents.btn_clear') ?></a>
             </div>
         </form>
 
@@ -522,10 +522,15 @@ foreach ($PIPE_LEVELS as $lvl):
             <?php foreach ($recentIncidents as $inc):
                 $isPipeline = ($inc['src'] === 'pipeline');
                 $isMarine   = ($inc['src'] === 'marine');
+                $rowTitle   = $inc['message'] ?? '';
 
                 if ($isMarine) {
                     $lvlCls  = in_array($inc['level'], ['piracy', 'catastrophe'], true) ? 'badge-error' : 'badge-warn';
                     $lvlText = t('admin.incidents.marine_type_' . ($inc['level'] ?? 'storm'));
+                    $rowTitle = tPlain('admin.incidents.marine_history_msg', [
+                        'type' => tPlain('admin.incidents.marine_type_' . ($inc['level'] ?? 'storm')),
+                        'bbl'  => number_format((float)($inc['vol_bbl'] ?? 0), 1, '.', ' '),
+                    ]);
                 } elseif ($isPipeline) {
  // Map pipeline level (micro/minor/medium) to pipeLevelMeta key
                     $pipeKey = 'pipe_' . ($inc['level'] ?? 'micro');
@@ -538,7 +543,7 @@ foreach ($PIPE_LEVELS as $lvl):
                     $lvlText = $lm[1];
                 }
             ?>
-            <article class="list-row" role="row" title="<?= htmlspecialchars($inc['message'] ?? '') ?>">
+            <article class="list-row" role="row" title="<?= htmlspecialchars($rowTitle) ?>">
                 <span class="muted"><?= (int)$inc['id'] ?></span>
                 <span>
                     <?php if ($isMarine): ?>
@@ -567,9 +572,9 @@ foreach ($PIPE_LEVELS as $lvl):
                         : ($inc['auto_repair'] ? t('admin.incidents.status_auto_short') : '<span class="text-red">' . t('admin.incidents.status_open_short') . '</span>') ?>
                 </span>
                 <?php else: ?>
-                <span class="muted">—</span>
-                <span class="muted">—</span>
-                <span class="muted">—</span>
+                <span class="muted">-</span>
+                <span class="muted">-</span>
+                <span class="muted">-</span>
                 <?php endif ?>
                 <span class="muted"><?= date('d.m H:i', strtotime($inc['created_at'])) ?></span>
                 <span>
@@ -590,27 +595,31 @@ foreach ($PIPE_LEVELS as $lvl):
 
         <!-- Paginacja -->
         <?php if ($hTotalPages > 1): ?>
-        <div class="pagination">
+        <div class="pagination inc-pagination">
             <?php
-            $baseUrl = '?hsource=' . urlencode($hSource)
-                     . '&hlevel=' . urlencode($hLevel)
-                     . '&hplayer=' . urlencode($hPlayer)
-                     . '&hstatus=' . urlencode($hStatus)
-                     . '&hdays='   . $hDays
-                     . '&hper='    . $hPerPage;
+            $historyQuery = [
+                'hsource' => $hSource,
+                'hlevel'  => $hLevel,
+                'hplayer' => $hPlayer,
+                'hstatus' => $hStatus,
+                'hdays'   => $hDays,
+                'hper'    => $hPerPage,
+            ];
+            $baseUrl = '?' . http_build_query($historyQuery, '', '&', PHP_QUERY_RFC3986);
+            $historyHash = '#inc-tab-recent';
             $start = max(1, $hPage - 3);
             $end   = min($hTotalPages, $hPage + 3);
             if ($hPage > 1): ?>
-            <a href="<?= $baseUrl ?>&hpage=1" class="page-btn"></a>
-            <a href="<?= $baseUrl ?>&hpage=<?= $hPage - 1 ?>" class="page-btn"></a>
+            <a href="<?= $baseUrl ?>&hpage=1<?= $historyHash ?>" class="page-btn" aria-label="1"></a>
+            <a href="<?= $baseUrl ?>&hpage=<?= $hPage - 1 ?><?= $historyHash ?>" class="page-btn" aria-label="<?= $hPage - 1 ?>"></a>
             <?php endif ?>
             <?php for ($p = $start; $p <= $end; $p++): ?>
-            <a href="<?= $baseUrl ?>&hpage=<?= $p ?>"
+            <a href="<?= $baseUrl ?>&hpage=<?= $p ?><?= $historyHash ?>"
                class="page-btn <?= $p === $hPage ? 'active' : '' ?>"><?= $p ?></a>
             <?php endfor ?>
             <?php if ($hPage < $hTotalPages): ?>
-            <a href="<?= $baseUrl ?>&hpage=<?= $hPage + 1 ?>" class="page-btn"></a>
-            <a href="<?= $baseUrl ?>&hpage=<?= $hTotalPages ?>" class="page-btn"></a>
+            <a href="<?= $baseUrl ?>&hpage=<?= $hPage + 1 ?><?= $historyHash ?>" class="page-btn" aria-label="<?= $hPage + 1 ?>"></a>
+            <a href="<?= $baseUrl ?>&hpage=<?= $hTotalPages ?><?= $historyHash ?>" class="page-btn" aria-label="<?= $hTotalPages ?>"></a>
             <?php endif ?>
             <span class="pagination-info">
                 <?= t('admin.incidents.pagination_info', ['page' => $hPage, 'total' => $hTotalPages, 'count' => $hTotal]) ?>
@@ -856,8 +865,8 @@ foreach ($PIPE_LEVELS as $lvl):
                     <span class="trig-card-icon"><?= $icon ?></span>
                     <span class="trig-card-label"><?= $label ?></span>
                     <span class="trig-card-range">
-                        loss +<?= $pc['loss_add_min'] ?>–<?= $pc['loss_add_max'] ?>%,
-                        cond -<?= $pc['cond_drop_min'] ?>–<?= $pc['cond_drop_max'] ?> pkt
+                        loss +<?= $pc['loss_add_min'] ?>-<?= $pc['loss_add_max'] ?>%,
+                        cond -<?= $pc['cond_drop_min'] ?>-<?= $pc['cond_drop_max'] ?> pkt
                     </span>
                     <span class="trig-card-desc"><?= $desc ?></span>
                 </label>

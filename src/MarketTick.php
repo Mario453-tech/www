@@ -146,10 +146,10 @@ class MarketTick
  // Fallback do not crash the tick, return the last saved price
             try {
                 $row = $this->db->query("SELECT current_price FROM market_state WHERE id = 1")->fetch();
-                return (int)($row['current_price'] ?? 0);
+                return (float)($row['current_price'] ?? 70.0);
             } catch (Throwable $e2) {
                 GameLog::error('MarketTick', 'fallback price read FAILED', $e2);
-                return 0;
+                return 70.0; // Bazowa cena gdy oba DB fetch'e zawiodly. / Baseline price when both DB fetches failed.
             }
         }
     }

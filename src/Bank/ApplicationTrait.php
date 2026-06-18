@@ -372,11 +372,15 @@ trait BankApplicationTrait
         $nInstallments = max(3, min(40, $nInstallments));
 
         try {
-            $this->db->beginTransaction();
+            // Zapewnij schemat historii bankowej przed transakcja / Ensure bank history schema before transaction.
+            if (class_exists('BankAccountService')) {
+                (new BankAccountService($this->db))->ensureSchema();
+            }
 
- // Ensure schema compatibility before loan creation.
- // Zapewnij zgodnosc schematu przed utworzeniem kredytu.
+ // Zapewnij zgodnosc schematu przed utworzeniem kredytu / Ensure schema compatibility before loan creation.
             $this->ensureLoanColumnsExist();
+
+            $this->db->beginTransaction();
 
             $stmt = $this->db->prepare("
                 SELECT a.* FROM loan_applications a
@@ -424,8 +428,18 @@ trait BankApplicationTrait
             ]);
             $loanId = (int)$this->db->lastInsertId();
 
-            $this->db->prepare("UPDATE players SET cash = cash + :amt WHERE id = :id")
-                ->execute([':amt' => $principal, ':id' => $playerId]);
+            $creditResult = (new FinancialTransactionService($this->db))->credit(
+                $playerId,
+                $principal,
+                FinancialTransactionService::TYPE_LOAN,
+                t('bank.tx_loan_disbursement', ['id' => $loanId]),
+                'loan',
+                $loanId
+            );
+            if (empty($creditResult['success'])) {
+                throw new RuntimeException(t('bank.err_financial_transaction'));
+            }
+
             $this->db->prepare("UPDATE loan_applications SET status = 'accepted' WHERE id = :id")
                 ->execute([':id' => $applicationId]);
             $this->db->commit();

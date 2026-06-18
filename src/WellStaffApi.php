@@ -147,6 +147,10 @@ try {
 
                         if (!($purchase['success'] ?? false)) {
                             $db->rollBack();
+ // error_code dla JS permit modal / error_code for JS permit modal
+                            if (($purchase['error'] ?? '') === 'no_hub_permit') {
+                                jsonOut(['success' => false, 'message' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit'], 400);
+                            }
                             $errMsg = match ($purchase['error'] ?? '') {
                                 'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
                                 'pipeline_already_exists' => t('pipeline.err_already_exists'),
@@ -236,10 +240,13 @@ try {
             $db->beginTransaction();
             try {
  // Find the hub for this well (ETAP 11: outbound setting is per hub).
+ // JOIN wells ensures only the owning player can change the outbound transport.
                 $hubStmt = $db->prepare(
-                    'SELECT a.hub_id FROM logistics_hub_assignments a WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
+                    'SELECT a.hub_id FROM logistics_hub_assignments a
+                     JOIN wells w ON w.id = a.well_id AND w.player_id = ?
+                     WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
                 );
-                $hubStmt->execute([$wellId]);
+                $hubStmt->execute([$playerId, $wellId]);
                 $hubRow = $hubStmt->fetch(PDO::FETCH_ASSOC);
                 if (!$hubRow) {
                     $db->rollBack();
@@ -259,6 +266,10 @@ try {
                         $purchase = $pipelineService->purchaseHubOutboundPipeline($playerId, $hubId, $requestedPipelineType);
                         if (!($purchase['success'] ?? false)) {
                             $db->rollBack();
+ // error_code dla JS permit modal / error_code for JS permit modal
+                            if (($purchase['error'] ?? '') === 'no_hub_permit') {
+                                jsonOut(['success' => false, 'message' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit'], 400);
+                            }
                             $errMsg = match ($purchase['error'] ?? '') {
                                 'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
                                 'pipeline_already_exists' => t('pipeline.err_already_exists'),

@@ -2,6 +2,29 @@
 (function () {
     var tabs = ['stats', 'micro', 'minor', 'medium', 'major', 'pipe_micro', 'pipe_minor', 'pipe_medium', 'marine', 'cooldown', 'recent', 'help', 'trigger'];
 
+    function tabFromUrl(urlString) {
+        var url;
+        try {
+            url = new URL(urlString || window.location.href, window.location.href);
+        } catch (e) {
+            return '';
+        }
+
+        var hash = (url.hash || '').replace(/^#/, '').replace(/^inc-tab-/, '');
+        if (tabs.indexOf(hash) >= 0) {
+            return hash;
+        }
+
+        var historyParams = ['hpage', 'hsource', 'hlevel', 'hplayer', 'hstatus', 'hdays', 'hper'];
+        for (var i = 0; i < historyParams.length; i++) {
+            if (url.searchParams.has(historyParams[i])) {
+                return 'recent';
+            }
+        }
+
+        return '';
+    }
+
     window.incShowTab = function (name) {
         tabs.forEach(function (id) {
             var el  = document.getElementById('inc-tab-' + id);
@@ -12,10 +35,17 @@
         try { sessionStorage.setItem('inc_tab', name); } catch (e) {}
     };
 
- // Restore last tab or default to stats
+    document.addEventListener('ajax-pagination:updated', function (event) {
+        var nextTab = tabFromUrl(event.detail && event.detail.ajaxUrl);
+        if (nextTab) {
+            incShowTab(nextTab);
+        }
+    });
+
+    var urlTab = tabFromUrl(window.location.href);
     var saved = '';
     try { saved = sessionStorage.getItem('inc_tab') || ''; } catch (e) {}
-    incShowTab(tabs.indexOf(saved) >= 0 ? saved : 'stats');
+    incShowTab(urlTab || (tabs.indexOf(saved) >= 0 ? saved : 'stats'));
 }());
 
 /* Selektory recznego wywolywania incydentow / Admin incident trigger selectors */

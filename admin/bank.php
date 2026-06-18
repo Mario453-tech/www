@@ -186,11 +186,11 @@ if ($selectedId > 0) {
 }
 
 $viewData = [
-    'players'        => $players,
-    'selectedId'     => $selectedId,
-    'selectedPlayer' => $selectedPlayer,
-    'selectedHistory'=> $selectedHistory,
-    'flash'          => $flash,
+    'players'         => $players,
+    'selectedId'      => $selectedId,
+    'selectedPlayer'  => $selectedPlayer,
+    'selectedHistory' => $selectedHistory,
+    'flash'           => $flash,
 ];
 
 $pageTitle = 'Bank — panel administratora';

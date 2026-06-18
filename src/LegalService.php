@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/CompanyCredibilityService.php';
+require_once __DIR__ . '/PlayerPaymentService.php';
 require_once __DIR__ . '/Legal/HubPermitTrait.php';
+require_once __DIR__ . '/Legal/BriberyTrait.php';
 
 /**
  * LegalService — Dział prawny P1+P2a: zezwolenia na wiercenie i huby per region.
@@ -24,6 +26,7 @@ require_once __DIR__ . '/Legal/HubPermitTrait.php';
 class LegalService
 {
     use LegalHubPermitTrait;
+    use LegalBriberyTrait;
 
     /** Poziomy ryzyka regionu widziane przez gracza jako prosty opis. */
     public const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
@@ -187,6 +190,26 @@ class LegalService
                     UNIQUE KEY uniq_player_region (player_id, region_id),
                     KEY idx_status_due (status, decision_due_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+
+            // Blokada ponownej lapowki po wpadce / Bribe re-attempt lock after being caught
+            Database::addColumnIfMissing(
+                'drilling_permit_applications',
+                'bribe_locked_until',
+                'DATETIME NULL DEFAULT NULL'
+            );
+
+            // Upgrade transitional -> granted: gracz sklada wniosek zachowujac dostep.
+            // Transitional-to-granted upgrade: player applies while keeping access.
+            Database::addColumnIfMissing(
+                'drilling_permit_applications',
+                'upgrade_pending',
+                'TINYINT(1) NOT NULL DEFAULT 0'
+            );
+            Database::addColumnIfMissing(
+                'drilling_permit_applications',
+                'upgrade_decision_due_at',
+                'DATETIME NULL DEFAULT NULL'
             );
 
             // P2a: kolumny i tabela zezwolen na huby / P2a: hub permit columns and table
@@ -443,10 +466,17 @@ class LegalService
         $existing = $this->getPermitStatus($playerId, $regionId)['application'];
         $existingStatus = $existing['status'] ?? 'none';
 
-        if (in_array($existingStatus, self::ACTIVE_STATUSES, true)) {
+        // Transitional zezwala na zlozenie wniosku o pelne zezwolenie; tylko 'granted' blokuje.
+        // Transitional allows re-application for a full permit; only 'granted' blocks.
+        if ($existingStatus === self::STATUS_GRANTED) {
             return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.err.already_active')];
         }
-        if (in_array($existingStatus, self::PENDING_STATUSES, true) || $existingStatus === self::STATUS_NO_DECISION) {
+        // Jesli upgrade jest juz w toku (upgrade_pending=1) — blokuj ponowne zlozenie.
+        // If an upgrade is already in progress (upgrade_pending=1) — block resubmission.
+        if ($existingStatus === self::STATUS_TRANSITIONAL && !empty($existing['upgrade_pending'])) {
+            return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
+        }
+        if (in_array($existingStatus, self::PENDING_STATUSES, true)) {
             return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
         }
         if ($existingStatus === self::STATUS_REFUSED && !empty($existing['refusal_cooldown_until'])) {
@@ -483,6 +513,8 @@ class LegalService
                 ];
             }
         }
+
+        $paymentService = new PlayerPaymentService($this->db);
 
         $this->db->beginTransaction();
         try {
@@ -538,34 +570,54 @@ class LegalService
                 ];
             }
 
-            // Pobranie oplaty.
-            // Deduct legal application fee.
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                ->execute([$applicationCost, $playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $playerId, null, $applicationCost,
-                        FinancialTransactionService::TYPE_LEGAL_FEE,
-                        'Oplata za wniosek o pozwolenie na wiercenie'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+            // Pobranie oplaty / Deduct legal application fee.
+            $payment = $paymentService->charge(
+                $playerId,
+                $applicationCost,
+                FinancialTransactionService::TYPE_LEGAL_FEE,
+                tPlain('bank.tx_legal_drilling_permit', ['id' => $regionId]),
+                'legal_region',
+                $regionId
+            );
+            if (!$payment['success']) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'code'    => 'insufficient_funds',
+                    'message' => tPlain('legal.err.insufficient_funds', [
+                        'cost' => number_format($applicationCost, 0, '.', ' '),
+                    ]),
+                    'cost'    => $applicationCost,
+                ];
+            }
 
             // Termin decyzji = teraz + bazowy czas rozpatrzenia.
             $dueStr = (clone $now)
                 ->modify('+' . (int)$config['base_review_minutes'] . ' minutes')
                 ->format('Y-m-d H:i:s');
 
-            // Jeden wiersz na parę (gracz, region) — wstaw lub zaktualizuj po odmowie.
+            // Jeden wiersz na pare (gracz, region) — wstaw lub zaktualizuj po odmowie.
+            // One row per (player, region) pair — insert or update after refusal.
             if ($existing) {
-                $this->db->prepare(
-                    "UPDATE drilling_permit_applications
-                        SET status = 'pending', cost = ?, submitted_at = ?, decision_due_at = ?,
-                            decided_at = NULL, refusal_cooldown_until = NULL, delay_count = 0,
-                            source = 'player', updated_at = ?
-                      WHERE player_id = ? AND region_id = ?"
-                )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
+                if ($existingStatus === self::STATUS_TRANSITIONAL) {
+                    // Gracz ma transitional — zachowaj status, oznacz upgrade w toku.
+                    // Player has transitional — keep status, mark upgrade as pending.
+                    $this->db->prepare(
+                        "UPDATE drilling_permit_applications
+                            SET cost = ?, submitted_at = ?, upgrade_pending = 1,
+                                upgrade_decision_due_at = ?, delay_count = 0,
+                                source = 'player', updated_at = ?
+                          WHERE player_id = ? AND region_id = ?"
+                    )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
+                } else {
+                    $this->db->prepare(
+                        "UPDATE drilling_permit_applications
+                            SET status = 'pending', cost = ?, submitted_at = ?, decision_due_at = ?,
+                                decided_at = NULL, refusal_cooldown_until = NULL, delay_count = 0,
+                                source = 'player', updated_at = ?
+                          WHERE player_id = ? AND region_id = ?"
+                    )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
+                }
             } else {
                 $this->db->prepare(
                     "INSERT INTO drilling_permit_applications

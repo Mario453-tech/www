@@ -74,6 +74,7 @@ return [
     'well.msg_risk_reduced' => 'Ryzyko awarii zmniejszone.',
     'well.msg_sold' => 'Odwiert sprzedany za :value PLN.',
     'well.sell_event_msg' => 'Sprzedano odwiert #:id za :amount PLN.',
+    'well.sell_error_generic' => 'Nie udało się zaksięgować sprzedaży odwiertu. Spróbuj ponownie.',
     'well.sell_admin_log' => 'Gracz sprzedał odwiert #:id za :amount PLN. profit_h=:profit',
     'well.err_sell_blocked_status' => 'Tego odwiertu nie można sprzedać (status: :status).',
     'well.err_sell_cooldown' => 'Odwiert można sprzedać dopiero po 2 godzinach od zakupu. Pozostało: :min min.',

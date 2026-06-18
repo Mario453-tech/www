@@ -31,8 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="alert alert-danger mb-md"><?= htmlspecialchars($error) ?></div>
     <?php endif ?>
 
-    <!--  ZAKŁADKI  -->
-    <div class="admin-tabs" role="tablist">
+    <!-- Tabs -->
+    <div class="admin-tabs admin-tabs--multirow" role="tablist">
         <button id="bm-btn-stats"   onclick="bmShowTab('stats')"   class="admin-tab" role="tab"><?= t('black_market.tab_stats') ?></button>
         <button id="bm-btn-players" onclick="bmShowTab('players')" class="admin-tab" role="tab"><?= t('black_market.tab_players') ?></button>
         <button id="bm-btn-tx"      onclick="bmShowTab('tx')"      class="admin-tab" role="tab"><?= t('black_market.tab_tx') ?><?php if ($filterPid): ?> <span class="badge badge-active">#<?= $filterPid ?></span><?php endif ?></button>
@@ -71,8 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
                     <input type="hidden" name="action" value="force_generate">
                     <button type="submit" class="btn btn-warning btn-sm"
-                            onclick="return confirm('Wymusić generowanie ofert teraz dla wszystkich aktywnych graczy?')">
-                         Wygeneruj oferty teraz
+                            onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('black_market.admin_force_generate_confirm')), ENT_QUOTES) ?>, {type:'warning'}); return false;">
+                         <?= t('black_market.admin_force_generate') ?>
                     </button>
                 </form>
             </div>
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="bm-list-row">
                     <span><?= $p['id'] ?></span>
                     <span><?= htmlspecialchars($p['username']) ?></span>
-                    <span><?= htmlspecialchars($p['company_name'] ?? '—') ?></span>
+                    <span><?= htmlspecialchars($p['company_name'] ?? '-') ?></span>
                     <span>
                         <form method="post" class="bm-score-form">
                             <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <p class="panel-title">
                  <?= t('black_market.admin_transactions') ?>
                 <?php if ($filterPid): ?>
-                <span class="bm-filter-note"> — Gracz #<?= $filterPid ?>
+                <span class="bm-filter-note">- Gracz #<?= $filterPid ?>
                     <a href="?" class="bm-filter-reset"><?= t('black_market.filter_all') ?></a>
                 </span>
                 <?php endif ?>
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <span class="<?= $tx['detected'] ? 'bm-status-detected' : 'bm-status-ok' ?>">
                         <?= $tx['detected'] ? t('black_market.status_detected') : t('black_market.status_ok') ?>
                     </span>
-                    <span class="<?= $tx['detected'] ? 'bm-penalty' : '' ?>"><?= $tx['detected'] ? number_format((float)$tx['penalty'], 0, ',', ' ') : '—' ?></span>
+                    <span class="<?= $tx['detected'] ? 'bm-penalty' : '' ?>"><?= $tx['detected'] ? number_format((float)$tx['penalty'], 0, ',', ' ') : '-' ?></span>
                     <span><?= round($tx['black_score_after'] - $tx['black_score_before'], 1) ?></span>
                     <span class="<?= $tx['credit_score_change'] < 0 ? 'bm-cell-credit--neg' : 'bm-cell-credit--neu' ?>"><?= $tx['credit_score_change'] ?></span>
                     <span class="bm-cell-date"><?= date('d.m.Y H:i', strtotime($tx['created_at'])) ?></span>
@@ -231,6 +231,28 @@ document.addEventListener('DOMContentLoaded', function() {
                             <input type="number" name="<?= $k ?>" value="<?= $cfgKeys[$k] ?>" step="0.01" min="0" class="bm-cfg-input">
                         </div>
                         <?php endforeach ?>
+                    </div>
+                </div>
+
+                <div class="bm-cfg-section">
+                    <p class="bm-cfg-section-title"><?= t('black_market.cfg_sec_sabotage') ?></p>
+                    <div class="bm-cfg-grid">
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_sabotage_threshold'] ?></label>
+                            <input type="number" name="bm_sabotage_threshold" value="<?= $cfgKeys['bm_sabotage_threshold'] ?>" step="1" min="0" max="100" class="bm-cfg-input">
+                        </div>
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_score_per_pln'] ?></label>
+                            <input type="number" name="bm_score_per_pln" value="<?= $cfgKeys['bm_score_per_pln'] ?>" step="0.0001" min="0" class="bm-cfg-input">
+                        </div>
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_decay_pct'] ?></label>
+                            <input type="number" name="bm_decay_pct" value="<?= $cfgKeys['bm_decay_pct'] ?>" step="0.1" min="0" max="100" class="bm-cfg-input">
+                        </div>
+                        <div class="bm-cfg-field">
+                            <label class="bm-cfg-label"><?= $cfgLabels['bm_decay_interval_hours'] ?></label>
+                            <input type="number" name="bm_decay_interval_hours" value="<?= $cfgKeys['bm_decay_interval_hours'] ?>" step="1" min="1" class="bm-cfg-input">
+                        </div>
                     </div>
                 </div>
 

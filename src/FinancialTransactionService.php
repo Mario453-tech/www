@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/BankAccountService.php';
+
 /**
  * FinancialTransactionService - centralne API ruchu srodkow (Etap 3).
  * FinancialTransactionService - central API for money movement (Stage 3).
@@ -31,8 +33,10 @@ declare(strict_types=1);
  *  - logTransaction(): public method for existing modules (stage 8),
  *    lets legacy callers append an entry without touching the balance.
  *
- * Saldo zrodlem prawdy: players.cash (DECIMAL(20,2)) - bez drugiej tabeli kont.
- * Source-of-truth balance: players.cash (DECIMAL(20,2)) - no second accounts table.
+ * Pule srodkow: players.cash (gotowka) i players.bank_balance (konto bankowe).
+ * Podzial i transfer miedzy pulami: WalletService + CashTransferService.
+ * Money pools: players.cash (cash) and players.bank_balance (bank account).
+ * Split and transfer between pools: WalletService + CashTransferService.
  */
 class FinancialTransactionService
 {
@@ -61,6 +65,30 @@ class FinancialTransactionService
     public const TYPE_GEOLOGICAL_FEE     = 'geological_fee';
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
     public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
+    public const TYPE_WELL_SALE          = 'well_sale';
+    public const TYPE_BLACK_MARKET_SALE  = 'black_market_sale';
+    public const TYPE_BANK_FEE           = 'bank_fee';
+    public const TYPE_LOGISTICS_FEE      = 'logistics_fee';
+    // Lapowka - wydatek wylacznie gotowkowy (modul lapowek / BriberyService).
+    // Bribe - cash-only expense (bribery module / BriberyService).
+    public const TYPE_BRIBE              = 'bribe';
+    // Ochrona aktywow - wydatek gotowkowy (modul ochrony / ProtectionService).
+    // Asset protection - cash expense (protection module / ProtectionService).
+    public const TYPE_PROTECTION         = 'protection';
+    // Sabotaz PvP - wydatek gotowkowy po stronie atakujacego.
+    // PvP sabotage - cash expense paid by the attacker.
+    public const TYPE_SABOTAGE           = 'sabotage';
+    // Transfer miedzy pulami portfela gracza (gotowka <-> konto).
+    // Transfer between player wallet pools (cash <-> bank account).
+    public const TYPE_POOL_TRANSFER      = 'pool_transfer';
+
+    // Zbiorcze koszty tickowe (audit trail; gotowka schodzi roznicowo w ticku).
+    // Aggregated tick costs (audit trail; cash is saved differentially by the tick).
+    public const TYPE_TICK_OPEX          = 'tick_opex';
+    public const TYPE_TICK_SALARY        = 'tick_salary';
+    public const TYPE_TICK_TRANSPORT     = 'tick_transport';
+    public const TYPE_TICK_INCIDENT      = 'tick_incident';
+    public const TYPE_HUB_USAGE          = 'hub_usage';
 
     /** Pelna lista dozwolonych typow / Full list of allowed types. */
     public const ALLOWED_TYPES = [
@@ -85,6 +113,34 @@ class FinancialTransactionService
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
         self::TYPE_STORAGE_UPGRADE,
+        self::TYPE_WELL_SALE,
+        self::TYPE_BLACK_MARKET_SALE,
+        self::TYPE_BANK_FEE,
+        self::TYPE_LOGISTICS_FEE,
+        self::TYPE_BRIBE,
+        self::TYPE_PROTECTION,
+        self::TYPE_SABOTAGE,
+        self::TYPE_POOL_TRANSFER,
+        self::TYPE_TICK_OPEX,
+        self::TYPE_TICK_SALARY,
+        self::TYPE_TICK_TRANSPORT,
+        self::TYPE_TICK_INCIDENT,
+        self::TYPE_HUB_USAGE,
+    ];
+
+    /**
+     * Typy generowane co tick - objete retencja (purgeTickAudit), zeby tabela
+     * nie rosla bez konca przy 288 tickach na dobe.
+     * Tick-generated types - covered by retention (purgeTickAudit) so the table
+     * does not grow unbounded at 288 ticks per day.
+     */
+    public const TICK_AUDIT_TYPES = [
+        self::TYPE_TICK_OPEX,
+        self::TYPE_TICK_SALARY,
+        self::TYPE_TICK_TRANSPORT,
+        self::TYPE_TICK_INCIDENT,
+        self::TYPE_HUB_USAGE,
+        self::TYPE_TAX,
     ];
 
     /**
@@ -94,12 +150,13 @@ class FinancialTransactionService
     public const MIN_AMOUNT = 0.01;
 
     private PDO $db;
+    /** @var array<int,bool> Cache schematu per polaczenie / Schema cache per connection. */
+    private static array $schemaReady = [];
 
     public function __construct(?PDO $db = null)
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
-        // Schemat (kolumna + tabela bank_transactions) zapewniamy przez BankAccountService.
-        // The schema (column + bank_transactions table) is ensured via BankAccountService.
+        $this->ensureTransactionSchema();
     }
 
     // ================================================================== Operacje
@@ -234,15 +291,134 @@ class FinancialTransactionService
         }
     }
 
+    /**
+     * Usuwa stare zbiorcze wpisy tickowe (retencja jak incident_retention_days).
+     * Wpisy nietickowe (przelewy, kredyty, zakupy) zostaja na zawsze.
+     * Zwraca liczbe usunietych wierszy.
+     *
+     * Deletes old aggregated tick entries (retention like incident_retention_days).
+     * Non-tick entries (transfers, loans, purchases) are kept forever.
+     * Returns the number of deleted rows.
+     */
+    public function purgeTickAudit(int $days = 30): int
+    {
+        $days = max(1, $days);
+        $placeholders = implode(',', array_fill(0, count(self::TICK_AUDIT_TYPES), '?'));
+
+        try {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        } catch (Throwable) {
+            $driver = 'mysql';
+        }
+
+        // SQLite (testy) nie zna INTERVAL - osobna skladnia daty.
+        // SQLite (tests) has no INTERVAL - separate date syntax.
+        $cutoffSql = ($driver === 'sqlite')
+            ? "datetime('now', ?)"
+            : "NOW() - INTERVAL ? DAY";
+        $cutoffParam = ($driver === 'sqlite') ? "-{$days} days" : $days;
+
+        try {
+            $stmt = $this->db->prepare(
+                "DELETE FROM bank_transactions
+                  WHERE transaction_type IN ({$placeholders})
+                    AND created_at < {$cutoffSql}"
+            );
+            $stmt->execute([...self::TICK_AUDIT_TYPES, $cutoffParam]);
+            $deleted = $stmt->rowCount();
+            if ($deleted > 0 && class_exists('GameLog', false)) {
+                GameLog::info('FinancialTransactionService', 'purgeTickAudit', [
+                    'deleted' => $deleted, 'days' => $days,
+                ]);
+            }
+            return $deleted;
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('FinancialTransactionService', 'purgeTickAudit FAILED', $e, ['days' => $days]);
+            }
+            return 0;
+        }
+    }
+
     // ================================================================== Core
     // ================================================================== Core
+
+    /**
+     * Zapewnia schemat historii finansowej bez ryzyka niejawnego commita MySQL.
+     * Ensures financial history schema without risking an implicit MySQL commit.
+     */
+    private function ensureTransactionSchema(): void
+    {
+        $connId = spl_object_id($this->db);
+        if (isset(self::$schemaReady[$connId])) {
+            return;
+        }
+
+        try {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        } catch (Throwable) {
+            $driver = 'mysql';
+        }
+
+        if ($driver === 'sqlite') {
+            $this->ensureSqliteTransactionSchema();
+            self::$schemaReady[$connId] = true;
+            return;
+        }
+
+        try {
+            if ($this->db->inTransaction()) {
+                return;
+            }
+        } catch (Throwable) {
+            // Kontynuuj poza transakcja / Continue outside an explicit transaction.
+        }
+
+        if (class_exists('BankAccountService')) {
+            new BankAccountService($this->db);
+        }
+        self::$schemaReady[$connId] = true;
+    }
+
+    /**
+     * Minimalny schemat SQLite dla testow integracyjnych.
+     * Minimal SQLite schema for integration tests.
+     */
+    private function ensureSqliteTransactionSchema(): void
+    {
+        $this->db->exec(
+            "CREATE TABLE IF NOT EXISTS bank_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_player_id INTEGER NULL,
+                to_player_id INTEGER NULL,
+                amount REAL NOT NULL,
+                transaction_type TEXT NOT NULL,
+                description TEXT NULL,
+                reference_type TEXT NULL,
+                reference_id INTEGER NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )"
+        );
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_from_created ON bank_transactions (from_player_id, created_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_to_created ON bank_transactions (to_player_id, created_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_type_created ON bank_transactions (transaction_type, created_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_bank_tx_ref ON bank_transactions (reference_type, reference_id)");
+    }
 
     /**
      * Wspolny rdzen credit/debit/transfer. NULL po stronie from/to oznacza
      * operacje systemowa (wplyw spoza gry / wyplyw na zewnatrz).
      *
+     * Faza 2: routing pul portfela przez WalletConfig::TYPE_TO_POOL.
+     * Typy spoza mapy domyslnie trafiaja na cash. Zmiana routingu =
+     * zmiana jednego wpisu w WalletConfig - zero zmian w serwisach.
+     *
      * Common core for credit/debit/transfer. NULL on the from/to side means
      * a system operation (inflow from outside / outflow outside).
+     *
+     * Phase 2: wallet pool routing via WalletConfig::TYPE_TO_POOL.
+     * Types not in the map default to cash. Changing routing =
+     * changing one entry in WalletConfig - zero changes in services.
      *
      * @return array{success:bool,transaction_id:?int,error:?string,amount:float}
      */
@@ -268,6 +444,13 @@ class FinancialTransactionService
             return $this->fail('no_endpoint', $amount);
         }
 
+        // 1b) Routing: wyznacz docelowa pule (kolumne) na podstawie typu transakcji.
+        //     Typy spoza mapy = cash (backwards compat).
+        // 1b) Routing: determine the target pool (column) from the transaction type.
+        //     Types not in the map = cash (backwards compat).
+        $pool = WalletConfig::TYPE_TO_POOL[$type] ?? WalletConfig::POOL_CASH;
+        $col  = ($pool === WalletConfig::POOL_BANK) ? 'bank_balance' : 'cash';
+
         // 2) Decyzja o transakcji: jezeli wywolujacy juz jest w transakcji,
         //    dolaczamy do niej i NIE robimy wlasnego BEGIN/COMMIT (nested guard).
         // 2) Transaction decision: if the caller is already in a transaction,
@@ -287,7 +470,7 @@ class FinancialTransactionService
             // 3) Debit (jezeli source jest graczem): zablokuj wiersz, sprawdz saldo, odejmij.
             // 3) Debit (if source is a player): lock row, check balance, subtract.
             if ($fromPlayerId !== null) {
-                $balance = $this->lockAndReadBalance($fromPlayerId);
+                $balance = $this->lockAndReadBalance($fromPlayerId, $col);
                 if ($balance === null) {
                     if ($ownTransaction) { $this->db->rollBack(); }
                     return $this->fail('sender_not_found', $amount);
@@ -297,12 +480,12 @@ class FinancialTransactionService
                     return $this->fail('insufficient_funds', $amount);
                 }
                 $this->db->prepare(
-                    "UPDATE players SET cash = cash - :a WHERE id = :id"
+                    "UPDATE players SET {$col} = {$col} - :a WHERE id = :id"
                 )->execute([':a' => $amount, ':id' => $fromPlayerId]);
             }
 
-            // 4) Credit (jezeli destination jest graczem): doloz srodki.
-            // 4) Credit (if destination is a player): add funds.
+            // 4) Credit (jezeli destination jest graczem): doloz srodki do wlasciwej puli.
+            // 4) Credit (if destination is a player): add funds to the correct pool.
             if ($toPlayerId !== null) {
                 // Sprawdz ze gracz istnieje (uniknij silent UPDATE 0 row).
                 // Verify recipient exists (avoid silent UPDATE 0 row).
@@ -311,7 +494,7 @@ class FinancialTransactionService
                     return $this->fail('recipient_not_found', $amount);
                 }
                 $this->db->prepare(
-                    "UPDATE players SET cash = cash + :a WHERE id = :id"
+                    "UPDATE players SET {$col} = {$col} + :a WHERE id = :id"
                 )->execute([':a' => $amount, ':id' => $toPlayerId]);
             }
 
@@ -368,12 +551,18 @@ class FinancialTransactionService
     /**
      * Czyta saldo z blokada wiersza (MySQL: FOR UPDATE; SQLite: zwykly SELECT,
      * bo SQLite serializuje zapisy na poziomie pliku).
+     * $col musi byc 'cash' lub 'bank_balance' (weryfikowane przez routing w moveFunds).
      *
      * Reads balance with row lock (MySQL: FOR UPDATE; SQLite: plain SELECT,
      * because SQLite serializes writes at the file level).
+     * $col must be 'cash' or 'bank_balance' (verified by routing in moveFunds).
      */
-    private function lockAndReadBalance(int $playerId): ?float
+    private function lockAndReadBalance(int $playerId, string $col = 'cash'): ?float
     {
+        // Biala lista kolumn - ochrona przed wstrzykiwaniem SQL.
+        // Column whitelist - guard against SQL injection.
+        $col = in_array($col, ['cash', 'bank_balance'], true) ? $col : 'cash';
+
         $driver = 'mysql';
         try {
             $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
@@ -382,7 +571,7 @@ class FinancialTransactionService
         }
         $forUpdate = ($driver === 'mysql') ? ' FOR UPDATE' : '';
 
-        $stmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?{$forUpdate}");
+        $stmt = $this->db->prepare("SELECT {$col} FROM players WHERE id = ?{$forUpdate}");
         $stmt->execute([$playerId]);
         $val = $stmt->fetchColumn();
         if ($val === false || $val === null) {

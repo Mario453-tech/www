@@ -126,7 +126,11 @@ class WellProductionHandler
                 $this->ctx->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = :id")->execute([':id' => $wellId]);
                 GameLog::info('tick', 'well paused_cash (no cash)', ['well_id' => $wellId, 'player_id' => $playerId, 'cash' => $this->ctx->loopCtx->playerCash, 'opex' => $opexTotal]);
             }
-            $this->ctx->loopCtx->playerCash = max(0.0, $this->ctx->loopCtx->playerCash - $opexTotal);
+            $charged = min($opexTotal, $this->ctx->loopCtx->playerCash);
+            if ($charged > 0.0) {
+                $this->ctx->loopCtx->finOpex += $charged;
+            }
+            $this->ctx->loopCtx->playerCash = 0.0;
             return false;
         }
         $this->ctx->loopCtx->finOpex    += $opexTotal;
@@ -198,6 +202,24 @@ class WellProductionHandler
             return;
         }
 
+ // BRAMKA TRANSPORTU: rurociag uszkodzony/wylaczony/w naprawie = zerowa przepustowosc
+ // (resolveTransportConfig ustawia transportCapPct=0 dla damaged/disabled/servicing).
+ // Bez tej bramki odwiert co tick wyczerpywalby rezerwuar i naliczalby finGross, tracac
+ // cala produkcje (transportCapPct=0 -> transportLimitedBbl=0 -> actual=0), bez przychodu
+ // i bez sygnalu. Wstrzymujemy produkcje do naprawy rurociagu (przepustowosc wraca > 0).
+ // TRANSPORT GATE: a damaged/disabled/servicing pipeline has zero throughput
+ // (resolveTransportConfig sets transportCapPct=0). Without this gate the well would drain
+ // its reservoir and book finGross every tick, losing all production
+ // (transportCapPct=0 -> transportLimitedBbl=0 -> actual=0) with zero revenue and no signal.
+ // Pause output until the pipeline is repaired (throughput returns > 0).
+        if ($transportType === 'rurociag' && $transportCapPct <= 0.0) {
+            GameLog::info('tick', 'pipeline well paused (no throughput - pipeline down)', [
+                'well_id'   => $wellId,
+                'player_id' => $playerId,
+            ]);
+            return;
+        }
+
         if ($this->ctx->oilPrice <= 0) {
  // M11: Cena ropy jest 0 lub ujemna — uzywam awaryjnej 70 USD/bbl.
  // M11: Oil price is 0 or negative — using emergency fallback 70 USD/bbl.
@@ -224,6 +246,13 @@ class WellProductionHandler
         $producedBbl = max(0.0, round($effectiveProd * $deltaHours, 4));
         $this->ctx->loopCtx->producedBbl += $producedBbl;
         $this->ctx->loopCtx->finGross    += round($producedBbl * $price, 2);
+
+        // Pomniejsz rezerwuar o wydobyte baryłki w tym tiku. / Deplete reservoir by barrels produced in this tick.
+        if ($producedBbl > 0) {
+            $this->ctx->db->prepare(
+                "UPDATE wells SET reservoir_remaining = GREATEST(0, reservoir_remaining - ?) WHERE id = ?"
+            )->execute([round($producedBbl, 4), $wellId]);
+        }
 
  // Transport capacity limit
         $transportLimitedBbl = min($producedBbl, $producedBbl * ($transportCapPct / 100.0));
@@ -307,6 +336,74 @@ class WellProductionHandler
             if ($isMysql) {
  // Model czasowy: kurs zapisywany w well_road_trips, ropa kreditowana po dostawie.
  // Time-based model: trip saved in well_road_trips, oil credited at delivery.
+ //
+ // Model akumulacji bufora (taki sam jak tankowiec): ropa gromadzi sie w buforze
+ // odwiertu az osiagnie prog min_load_bbl, wtedy ciezarowki wyruszaja z pelnym ladunkiem.
+ // Dzieki temu jeden kurs nie zabiera 20 bbl tylko czeka az uzbiera sie np. 250-300 bbl.
+ // min_load_bbl = 0 oznacza wysylke natychmiastowa (stary model, per tick).
+ // Buffer accumulation model (same as the tanker): oil builds up in the well buffer until
+ // it reaches min_load_bbl, then trucks depart with a full load. min_load_bbl = 0 = immediate.
+                $minLoadBbl = max(0.0, (float)($transportCfg['min_load_bbl'] ?? 0.0));
+
+                if ($minLoadBbl > 0.0) {
+ // Bufor: wartosc sprzed ticka (z SELECT w.* w PlayersSection) + produkcja tego ticka.
+ // Buffer: pre-tick value (from SELECT w.* in PlayersSection) + this tick's production.
+                    $bufferBbl = (float)($well['road_buffer_bbl'] ?? 0.0) + round($actual, 4);
+
+ // Zapisz nowy stan bufora / Persist updated buffer level
+                    $this->ctx->db->prepare(
+                        "UPDATE wells SET road_buffer_bbl = COALESCE(road_buffer_bbl, 0) + ? WHERE id = ?"
+                    )->execute([round($actual, 4), $wellId]);
+
+                    GameLog::info('tick', 'road_buffer_add', [
+                        'well_id'    => $wellId,
+                        'player_id'  => $playerId,
+                        'added_bbl'  => round($actual, 3),
+                        'buffer_bbl' => round($bufferBbl, 3),
+                        'threshold'  => $minLoadBbl,
+                    ]);
+
+                    if ($bufferBbl >= $minLoadBbl) {
+ // Bufor pelny: ciezarowki wyruszaja. dispatchTrips i reset bufora sa atomowe — jesli
+ // dispatchTrips rzuci wyjatkiem, bufor NIE jest zerowany i przy nastepnym ticku zostanie
+ // sczerpany ponownie. Buffer full: trucks depart; dispatch + reset are atomic.
+                        try {
+                            $dispatch = $this->ctx->roadTransportSvc->dispatchTrips(
+                                $playerId, $wellId, $bufferBbl, $roadCfg, $politicalRisk
+                            );
+                            $this->ctx->db->prepare(
+                                "UPDATE wells SET road_buffer_bbl = 0 WHERE id = ?"
+                            )->execute([$wellId]);
+
+                            if ($dispatch['cost'] > 0.0) {
+                                $this->ctx->loopCtx->finTransport += $dispatch['cost'];
+                                $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
+                            }
+                            $this->ctx->loopCtx->roadInTransitBbl += $bufferBbl;
+                            GameLog::info('tick', 'road_trips_dispatched', [
+                                'well_id'     => $wellId,     'player_id'   => $playerId,
+                                'trips_count' => $dispatch['trips_count'],
+                                'volume_bbl'  => round($bufferBbl, 2),
+                                'cost'        => $dispatch['cost'],
+                                'eta_at'      => $dispatch['eta_at'],
+                            ]);
+                        } catch (Throwable $e) {
+                            GameLog::error('tick', 'road_dispatch_failed — buffer retained for next tick', $e, [
+                                'well_id'    => $wellId,
+                                'player_id'  => $playerId,
+                                'buffer_bbl' => round($bufferBbl, 3),
+                            ]);
+ // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
+ // Buffer stays non-zero — dispatch will be retried next tick.
+                        }
+                    }
+ // Ropa w buforze lub w tranzycie, nie trafia teraz do magazynu.
+ // Oil in buffer or in transit, not added to storage now.
+                    return;
+                }
+
+ // min_load_bbl = 0: model natychmiastowy (stare zachowanie, per tick).
+ // min_load_bbl = 0: immediate model (legacy behaviour, per tick).
                 $dispatch = $this->ctx->roadTransportSvc->dispatchTrips(
                     $playerId, $wellId, $actual, $roadCfg, $politicalRisk
                 );
@@ -484,7 +581,7 @@ class WellProductionHandler
             $pipelineCost = round($pipelineTickCost + $pipelineFlowCost, 2);
             if ($pipelineCost > 0.0) {
                 $this->ctx->loopCtx->finTransport += $pipelineCost;
-                $this->ctx->loopCtx->playerCash   -= $pipelineCost;
+                $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $pipelineCost);
                 GameLog::info('tick', 'pipeline_transport_cost', [
                     'well_id' => $wellId,
                     'pipeline_id' => (int)($wellPipeline['id'] ?? 0),
@@ -499,7 +596,7 @@ class WellProductionHandler
         if ($transportOpexPct > 0) {
             $transportOpex = round($actual * $price * ($transportOpexPct / 100.0) * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $this->ctx->loopCtx->finTransport += $transportOpex;
-            $this->ctx->loopCtx->playerCash   -= $transportOpex;
+            $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $transportOpex);
             GameLog::info('tick', 'transport_opex', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'opex_pct' => $transportOpexPct, 'opex_pln' => $transportOpex]);
         }
 
@@ -508,7 +605,7 @@ class WellProductionHandler
         if ($costPerBbl > 0) {
             $transportFixedCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $this->ctx->loopCtx->finTransport += $transportFixedCost;
-            $this->ctx->loopCtx->playerCash   -= $transportFixedCost;
+            $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $transportFixedCost);
             GameLog::info('tick', 'transport_cost_per_bbl', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'cost_per_bbl' => $costPerBbl, 'total_pln' => $transportFixedCost]);
         }
 
@@ -521,7 +618,7 @@ class WellProductionHandler
                 $grossRevenue = $actual * $price;
                 $taxAmount    = round($grossRevenue * $taxRate * $this->ctx->gBalanceMults['tax'], 2);
                 if ($taxAmount > 0) {
-                    $this->ctx->loopCtx->playerCash -= $taxAmount;
+                    $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $taxAmount);
                     $this->ctx->loopCtx->finTax     += $taxAmount;
                     GameLog::info('tick', 'regional_tax', ['well_id' => $wellId, 'player_id' => $playerId, 'tax_rate_pct' => round($taxRate * 100, 2), 'event_tax' => round($regEventTaxExtra * 100, 2), 'gross_rev' => round($grossRevenue, 2), 'tax_amount' => $taxAmount]);
                 }

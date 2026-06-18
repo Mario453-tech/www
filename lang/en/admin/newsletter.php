@@ -1,0 +1,57 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Admin translations - newsletter.
+ * Admin translations - newsletter.
+ */
+
+return [
+    'admin.newsletter.btn_clear_log' => 'Clear history',
+    'admin.newsletter.btn_preview' => 'Preview',
+    'admin.newsletter.btn_send' => 'Send to :n players',
+    'admin.newsletter.btn_send_single' => 'Send to selected player',
+    'admin.newsletter.col_by' => 'Admin',
+    'admin.newsletter.col_date' => 'Date',
+    'admin.newsletter.col_sent_to' => 'Sent',
+    'admin.newsletter.col_status' => 'Status',
+    'admin.newsletter.col_subject' => 'Subject',
+    'admin.newsletter.confirm_clear_log' => 'Clear the entire sending history? This operation cannot be undone.',
+    'admin.newsletter.confirm_delete_log' => 'Delete this history entry?',
+    'admin.newsletter.confirm_send' => 'Send the newsletter to {n} players? This operation cannot be undone.',
+    'admin.newsletter.confirm_send_single' => 'Send the newsletter to: {email}?',
+    'admin.newsletter.desc' => 'Send an email message to all verified players.',
+    'admin.newsletter.email_footer' => 'Message sent by OilCorp.',
+    'admin.newsletter.err_body_empty' => 'Message content is required.',
+    'admin.newsletter.err_no_recipients' => 'No active players available for delivery.',
+    'admin.newsletter.err_single_email_invalid' => 'Enter a valid email address.',
+    'admin.newsletter.err_single_not_found' => 'No player found with this email address.',
+    'admin.newsletter.err_subject_empty' => 'Message subject is required.',
+    'admin.newsletter.heading' => 'Newsletter',
+    'admin.newsletter.history_empty' => 'No sending history.',
+    'admin.newsletter.history_heading' => 'Sending history',
+    'admin.newsletter.label_body' => 'Content (HTML)',
+    'admin.newsletter.label_recipients' => 'Recipients',
+    'admin.newsletter.label_subject' => 'Message subject',
+    'admin.newsletter.msg_log_cleared' => 'Sending history cleared.',
+    'admin.newsletter.msg_log_deleted' => 'Entry deleted.',
+    'admin.newsletter.msg_sent' => 'Newsletter sent. Delivered: :sent, failed: :failed.',
+    'admin.newsletter.msg_sent_single' => 'Newsletter sent to: :email.',
+    'admin.newsletter.page_title' => 'Newsletter - panel',
+    'admin.newsletter.placeholder_single_email' => 'player@email.com',
+    'admin.newsletter.placeholder_subject' => 'e.g. Update 1.5 - new features',
+    'admin.newsletter.preview_footer' => 'This is a preview - the message has not been sent yet.',
+    'admin.newsletter.preview_greeting' => 'Hello Player,',
+    'admin.newsletter.preview_heading' => 'Email preview',
+    'admin.newsletter.preview_note' => 'The preview may differ slightly from the final appearance in the recipient email client.',
+    'admin.newsletter.single_email_note' => 'The message will be sent to a single player regardless of newsletter subscription status.',
+    'admin.newsletter.stats_eligible' => 'Eligible recipients: :n',
+    'admin.newsletter.stats_total' => 'Total players: :n',
+    'admin.newsletter.stats_unsubscribed' => 'Unsubscribed: :n',
+    'admin.newsletter.target_all' => 'All subscribers (:n)',
+    'admin.newsletter.target_single' => 'Selected player (by email address)',
+    'admin.newsletter.status_failed' => 'FAILED',
+    'admin.newsletter.status_partial' => 'PARTIAL',
+    'admin.newsletter.status_sent' => 'SENT',
+    'admin.newsletter.title_delete_log' => 'Delete entry',
+];

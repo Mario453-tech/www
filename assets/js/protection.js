@@ -1,0 +1,111 @@
+/**
+ * protection.js - modal wykupu ochrony (transport drogowy, huby, rurociagi).
+ * protection.js - protection purchase modal (road transport, hubs, pipelines).
+ *
+ * Kazdy typ celu ma wlasny modal #protection-modal-<target> z lista opcji.
+ * Each target type has its own modal #protection-modal-<target> with the option list.
+ * Przyciski .protection-add-btn niosa data-target (road|hub|pipeline) i data-target-id.
+ * Buttons .protection-add-btn carry data-target (road|hub|pipeline) and data-target-id.
+ *
+ * Konfiguracja z PHP: window.PROTECTION_API, window.PROTECTION_CSRF, window.PROTECTION_LANG.
+ */
+(function () {
+    'use strict';
+
+    var LANG = window.PROTECTION_LANG || {};
+    var selected = { target: '', id: 0 };
+
+    function showError(message) {
+        if (typeof window.showGameToast === 'function') {
+            window.showGameToast(message, 'error');
+        } else if (typeof window.alertError === 'function') {
+            window.alertError(message);
+        }
+    }
+
+    function modalFor(target) {
+        return document.getElementById('protection-modal-' + target);
+    }
+
+    function closeAll() {
+        selected = { target: '', id: 0 };
+        ['road', 'hub', 'pipeline'].forEach(function (t) {
+            var m = modalFor(t);
+            if (m) m.hidden = true;
+        });
+    }
+
+    function openModal(target, targetId) {
+        var m = modalFor(target);
+        if (!m) return;
+        selected = { target: target, id: targetId };
+        m.hidden = false;
+    }
+
+    document.querySelectorAll('.protection-add-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openModal(btn.dataset.target || 'road', parseInt(btn.dataset.targetId, 10) || 0);
+        });
+    });
+
+    document.querySelectorAll('[data-protection-close]').forEach(function (btn) {
+        btn.addEventListener('click', closeAll);
+    });
+
+    document.querySelectorAll('.protection-modal').forEach(function (m) {
+        m.addEventListener('click', function (event) {
+            if (event.target === m) closeAll();
+        });
+    });
+
+    function buyProtection(optionCode) {
+        var body = new URLSearchParams();
+        body.set('csrf_token', window.PROTECTION_CSRF || '');
+        body.set('option_code', optionCode);
+        body.set('target', selected.target);
+        body.set('target_id', String(selected.id));
+
+        fetch(window.PROTECTION_API || '/protection.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString()
+        })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (typeof window.showGameToast === 'function') {
+                    window.showGameToast(data.message || (data.success ? 'OK' : LANG.err || 'Error'),
+                        data.success ? 'success' : 'error');
+                }
+                if (data.success) {
+                    closeAll();
+                    setTimeout(function () {
+                        window.location.replace(window.location.pathname + window.location.search);
+                    }, 1200);
+                }
+            })
+            .catch(function () {
+                if (typeof window.showGameToast === 'function') {
+                    window.showGameToast(LANG.err || 'Error', 'error');
+                }
+            });
+    }
+
+    document.querySelectorAll('.protection-buy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (!selected.id) {
+                showError(LANG.err_target_invalid || LANG.err || 'Invalid protection target.');
+                return;
+            }
+            var question = (LANG.confirm_question || ':name / :cost')
+                .replace(':name', btn.dataset.optionName || '')
+                .replace(':cost', btn.dataset.optionCost || '');
+            if (typeof window.confirmAction === 'function') {
+                window.confirmAction(question, function () {
+                    buyProtection(btn.dataset.optionCode || '');
+                });
+            } else {
+                buyProtection(btn.dataset.optionCode || '');
+            }
+        });
+    });
+})();

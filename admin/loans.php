@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/init.php';
+require_once __DIR__ . '/../src/WalletConfig.php';
 GameLog::info('admin/loans.php', 'entry');
 AdminAuth::requireLogin();
 
@@ -62,6 +63,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = t('admin.loans.msg_settings_saved');
     }
 
+    elseif ($action === 'update_transfer_limit') {
+        $rawPost = $_POST['wallet_transfer_max'] ?? '';
+        $newMax  = is_numeric($rawPost) ? (float)$rawPost : -1.0;
+        $minAllowed = WalletConfig::TRANSFER_MIN_AMOUNT;
+        if ($newMax < 0 || ($newMax > 0 && $newMax < $minAllowed)) {
+            $err = t('admin.loans.err_transfer_limit_invalid');
+        } else {
+            $db->prepare("
+                INSERT INTO well_config (`key`, value, label, category)
+                VALUES ('wallet_transfer_max', :v, :lbl, 'wallet')
+                ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)
+            ")->execute([':v' => $newMax, ':lbl' => tPlain('admin.loans.transfer_limit_label')]);
+            AdminLog::log('bank_transfer_limit_update', 'wallet_transfer_max => ' . $newMax);
+            $msg = $newMax == 0.0
+                ? t('admin.loans.msg_transfer_limit_removed')
+                : t('admin.loans.msg_transfer_limit_set', ['amount' => number_format($newMax, 0, ',', ' ')]);
+        }
+    }
+
     elseif (!$needsMigration && $tablesExist) {
         $appId  = (int)($_POST['app_id']  ?? 0);
         $procId = (int)($_POST['proc_id'] ?? 0);
@@ -78,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         expires_at=DATE_ADD(NOW(), INTERVAL 48 HOUR)
                     WHERE id=:id AND status IN ('pending','rejected')
                 ")->execute([':amt'=>$amount,':rate'=>$rate,':reason'=>$reason.' [ADMIN]',':id'=>$appId]);
-                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% ďż˝ {$reason}", null, 'system', $appId);
+                AdminLog::log('loan_admin_approve', "Override #{$appId}: {$amount}$ @ {$rate}% -- {$reason}", null, 'system', $appId);
                 $msg = t('admin.loans.msg_approved', ['id' => $appId]);
             } else { $err = t('admin.loans.err_amount_zero'); }
         }
@@ -281,6 +301,9 @@ $viewData = [
     'liveScores'            => $liveScores,
     'riskSectionDescriptions' => $riskSectionDescriptions,
 ];
+
+$currentTransferMax = WalletConfig::getTransferMax($db);
+$viewData['currentTransferMax'] = $currentTransferMax;
 
 $pageTitle = t('admin.loans.page_title');
 require_once __DIR__ . '/partials/header.php';

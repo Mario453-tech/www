@@ -175,7 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         default                         => $val,
                     };
                     $key = "pipeline_inc_cfg_{$lvl}_{$f}";
-                    $stmt->execute([$key, $val, "Pipeline incident {$lvl} — {$f}", 'pipeline_incident']);
+                    $label = tPlain('admin.incidents.cfg_pipe_db_label', ['level' => $lvl, 'field' => $f]);
+                    $stmt->execute([$key, $val, $label, 'pipeline_incident']);
                     $pipeConfig[$lvl][$f] = $val;
                     $changed[] = "{$key}={$val}";
                 }
@@ -247,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $days = max(1, min(3650, (int)($_POST['retention_days'] ?? 30)));
         try {
             $db->prepare("INSERT INTO well_config (`key`, `value`, label, category) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)")
-               ->execute([$retentionKey, $days, 'Auto-cleanup historii incydentw (dni)', 'incident']);
+               ->execute([$retentionKey, $days, tPlain('admin.incidents.cfg_retention_db_label'), 'incident']);
             $retentionDays = $days;
             AdminLog::log('incident_retention_save', "Incident retention set to {$days} days");
             $msg = t('admin.incidents.msg_retention_saved', ['days' => $days]);
@@ -261,9 +262,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pressureGrowth   = max(0.0, min(50.0,  (float)($_POST['pressure_growth_pct'] ?? $PRESSURE_DEFAULTS['incident_pressure_growth_pct'])));
             $pressureCap      = max(0.0, min(1000.0,(float)($_POST['pressure_cap_pct']    ?? $PRESSURE_DEFAULTS['incident_pressure_cap_pct'])));
             $stmt = $db->prepare("INSERT INTO well_config (`key`, `value`, label, category) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)");
-            $stmt->execute(['incident_immunity_ticks',      $immunityTicks,  'Immunitet po incydencie (cykle)', 'incident']);
-            $stmt->execute(['incident_pressure_growth_pct', $pressureGrowth, 'Wzrost szansy po immunitetcie (%/cykl)', 'incident']);
-            $stmt->execute(['incident_pressure_cap_pct',    $pressureCap,    'Max wzrost szansy przez presje (%)', 'incident']);
+            $stmt->execute(['incident_immunity_ticks',      $immunityTicks,  tPlain('admin.incidents.cfg_immunity_db_label'),        'incident']);
+            $stmt->execute(['incident_pressure_growth_pct', $pressureGrowth, tPlain('admin.incidents.cfg_pressure_growth_db_label'), 'incident']);
+            $stmt->execute(['incident_pressure_cap_pct',    $pressureCap,    tPlain('admin.incidents.cfg_pressure_cap_db_label'),    'incident']);
             $pressureCfg = [
                 'incident_immunity_ticks'      => $immunityTicks,
                 'incident_pressure_growth_pct' => $pressureGrowth,
@@ -310,7 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pStmt = $db->prepare("SELECT id, well_id, name, condition_pct, transport_loss, status FROM well_pipelines WHERE id = ? AND player_id = ? LIMIT 1");
                 $pStmt->execute([$tPipeId, $tPlayerId]);
                 $pipeline = $pStmt->fetch();
-                if (!$pipeline) throw new RuntimeException('Rurociag nie istnieje lub nie nalezy do gracza');
+                if (!$pipeline) throw new RuntimeException(tPlain('admin.incidents.err_pipe_missing'));
 
                 $pc = $pipeConfig[$tPipeLevel];
 
@@ -322,8 +323,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pipeName   = $pipeline['name'] ?? "#{$tPipeId}";
                 $levelShort = str_replace('pipe_', '', $tPipeLevel); // micro | minor | medium
-                $levelLabels = ['pipe_micro' => 'mikro', 'pipe_minor' => 'drobny', 'pipe_medium' => 'powazny'];
-                $message = "[GM] Recznie wywolany incydent rurociagu ({$levelLabels[$tPipeLevel]}) na \"{$pipeName}\". Skok strat: +{$lossAdd}%, spadek stanu: -{$condDrop}%.";
+                $levelLabels = [
+                    'pipe_micro'  => tPlain('admin.incidents.level_micro'),
+                    'pipe_minor'  => tPlain('admin.incidents.level_minor'),
+                    'pipe_medium' => tPlain('admin.incidents.level_medium'),
+                ];
+                $message = tPlain('admin.incidents.log_pipe_trigger', [
+                    'level'    => $levelLabels[$tPipeLevel],
+                    'pipeline' => $pipeName,
+                    'loss'     => $lossAdd,
+                    'drop'     => $condDrop,
+                ]);
 
  // Zastosuj efekty na rurociagu
                 $db->prepare("
@@ -498,7 +508,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $wRow = $db->prepare("SELECT id, location_name, technical_condition, risk_score, status FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
                 $wRow->execute([$tWellId, $tPlayerId]);
                 $well = $wRow->fetch();
-                if (!$well) throw new RuntimeException('Odwiert nie istnieje lub nie naley do gracza');
+                if (!$well) throw new RuntimeException(tPlain('admin.incidents.err_well_missing'));
 
                 $c = $config[$tLevel];
 
@@ -517,9 +527,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            : mt_rand((int)$c['cost_min'], (int)$c['cost_max']);
                 $riskAdd = (int)$c['risk_add'];
 
-                $levelLabels = ['micro'=>'mikro','minor'=>'drobny','medium'=>'powany','major'=>'krytyczny'];
+                $levelLabels = [
+                    'micro' => tPlain('admin.incidents.level_micro'),
+                    'minor' => tPlain('admin.incidents.level_minor'),
+                    'medium'=> tPlain('admin.incidents.level_medium'),
+                    'major' => tPlain('admin.incidents.level_major'),
+                ];
                 $wellName    = $well['location_name'] ?? "#{$tWellId}";
-                $message     = "[GM] Rcznie wywoany incydent poziomu {$levelLabels[$tLevel]} na odwiercie {$wellName}. Strata produkcji: {$drop}%.";
+                $message     = tPlain('admin.incidents.log_well_trigger', [
+                    'level' => $levelLabels[$tLevel],
+                    'well'  => $wellName,
+                    'drop'  => $drop,
+                ]);
 
                 $autoRepair = in_array($tLevel, ['micro','minor']) ? 1 : 0;
 
@@ -653,6 +672,7 @@ if ($includeWell) {
                wi.created_at,
                wi.message  $COL      AS message,
                wi.prod_drop,
+               NULL                  AS vol_bbl,
                wi.cost,
                wi.repaired_at,
                wi.auto_repair,
@@ -678,6 +698,7 @@ if ($includePipe) {
                wpe.created_at,
                wpe.message  $COL      AS message,
                NULL                   AS prod_drop,
+               NULL                   AS vol_bbl,
                NULL                   AS cost,
                NULL                   AS repaired_at,
                0                      AS auto_repair,
@@ -701,8 +722,9 @@ if ($includeMarine) {
                NULL                   AS pipeline_id,
                md.incident_type $COL  AS level,
                COALESCE(md.delivered_at, md.arrived_at, md.eta_at, md.created_at) AS created_at,
-               CONCAT('Dostawa morska ', md.status, ': ', md.incident_type, ' (', ROUND(md.volume_bbl, 1), ' bbl)') $COL AS message,
+               CAST(NULL AS CHAR) AS message,
                NULL                   AS prod_drop,
+               ROUND(md.volume_bbl, 1) AS vol_bbl,
                NULL                   AS cost,
                NULL                   AS repaired_at,
                0                      AS auto_repair,
@@ -725,7 +747,9 @@ if (empty($unionParts)) {
                NULL          AS pipeline_id,
                level $COL    AS level,   created_at,
                message $COL  AS message,
-               prod_drop, cost, repaired_at, auto_repair,
+               prod_drop,
+               NULL          AS vol_bbl,
+               cost, repaired_at, auto_repair,
                NULL          AS cause_type,
                NULL          AS player_name,
                NULL          AS well_name
@@ -744,7 +768,7 @@ try {
     $cntStmt->execute();
     $hTotal = (int)$cntStmt->fetchColumn();
 } catch (Throwable $e) {
-    $err = 'Blad pobierania historii: ' . $e->getMessage();
+    $err = tPlain('admin.incidents.err_history') . ': ' . $e->getMessage();
     if (class_exists('GameLog', false)) GameLog::error('admin/incidents', 'history_count FAILED', $e);
 }
 
@@ -767,7 +791,7 @@ try {
     $stmt->execute();
     $recentIncidents = $stmt->fetchAll();
 } catch (Throwable $e) {
-    $err = 'Blad pobierania historii: ' . $e->getMessage();
+    $err = tPlain('admin.incidents.err_history') . ': ' . $e->getMessage();
     if (class_exists('GameLog', false)) GameLog::error('admin/incidents', 'history_list FAILED', $e);
 }
 

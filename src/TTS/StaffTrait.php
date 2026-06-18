@@ -123,7 +123,7 @@ trait TTSStaffTrait
                 $salary,
             ]);
             $this->db->commit();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->db->rollBack();
             GameLog::error('TTS', 'hireEngineer FAILED', $e);
             return ['success' => false, 'message' => t('technical.staff_msg.hire_failed', [
@@ -147,15 +147,33 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.staff_missing')];
         }
 
-        $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
-        $taskStmt->execute([$staffId]);
-        if ($taskStmt->fetch()) {
-            return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];
-        }
+        // Transakcja chroni przed race condition: sprawdzenie zajecia i zwolnienie sa atomowe.
+        // Transaction prevents race condition: busy-check and firing are atomic.
+        $this->db->beginTransaction();
+        try {
+            // Blokuj rekord pracownika, by wykluczyc wspolbiezne operacje na tym samym staffId.
+            // Lock the staff row to exclude concurrent operations on the same staffId.
+            $this->db->prepare("SELECT id FROM technical_staff WHERE id = ? AND player_id = ? LIMIT 1 FOR UPDATE")
+                ->execute([$staffId, $this->playerId]);
 
-        // Guard by player_id to prevent cross-player firing.
-        // Sprawdzenie player_id, by uniemozliwic zwolnienie pracownika innego gracza.
-        $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
+            // Guard by player_id to prevent cross-player firing + busy-check before firing.
+            // Sprawdzenie player_id (ochrona przed zwolnieniem pracownika innego gracza) + blokada przy zadaniu w toku.
+            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
+            $taskStmt->execute([$staffId]);
+            if ($taskStmt->fetch()) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];
+            }
+
+            $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('TTS', 'fireEngineer FAILED', $e, ['staff_id' => $staffId]);
+            return ['success' => false, 'message' => t('technical.staff_msg.staff_missing')];
+        }
 
         return ['success' => true, 'message' => t('technical.staff_msg.fired', [
             'first' => $staff['first_name'],

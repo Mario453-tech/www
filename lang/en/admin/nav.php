@@ -1,0 +1,55 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Admin translations - nav.
+ * Admin translations - nav.
+ */
+
+return [
+    'admin.nav.admin_help' => 'Admin help',
+    'admin.nav.alerts' => 'Alerts',
+    'admin.nav.aria_label' => 'Administration menu',
+    'admin.nav.balance' => 'Game balance',
+    'admin.nav.brand' => 'ADMIN',
+    'admin.nav.change_password' => 'Change password',
+    'admin.nav.chat' => 'Chat',
+    'admin.nav.credibility' => 'Company credibility',
+    'admin.nav.finance' => 'Finance',
+    'admin.nav.financial_crisis' => 'Financial crisis',
+    'admin.nav.gm_tools' => 'GM Tools',
+    'admin.nav.help_editor' => 'Player guide',
+    'admin.nav.hr' => 'Human resources',
+    'admin.nav.incidents' => 'Incidents',
+    'admin.nav.legal' => 'Drilling permits',
+    'admin.nav.bribery' => 'Bribery',
+    'admin.nav.loans' => 'Bank / Loans',
+    'admin.nav.logistics_hubs' => 'Logistics hubs',
+    'admin.nav.logout' => 'Log out',
+    'admin.nav.logs' => 'Logs',
+    'admin.nav.main_site' => 'Main site',
+    'admin.nav.market' => 'Oil market',
+    'admin.nav.market_debug' => 'Market debug',
+    'admin.nav.mobile_close' => 'Close admin menu',
+    'admin.nav.mobile_open' => 'Open admin menu',
+    'admin.nav.news' => 'News',
+    'admin.nav.newsletter' => 'Newsletter',
+    'admin.nav.pipelines' => 'Pipelines',
+    'admin.nav.players' => 'Players',
+    'admin.nav.protection' => 'Protection',
+    'admin.nav.sabotage' => 'Sabotage',
+    'admin.nav.section_content' => 'Content',
+    'admin.nav.section_finance' => 'Finance',
+    'admin.nav.section_game' => 'Players and gameplay',
+    'admin.nav.section_legal' => 'Legal',
+    'admin.nav.section_market' => 'Market',
+    'admin.nav.section_tools' => 'Tools',
+    'admin.nav.section_transport' => 'Transport',
+    'admin.nav.template_editor' => 'Site template',
+    'admin.nav.tick_log' => 'Tick history',
+    'admin.nav.title_default' => 'Panel',
+    'admin.nav.title_prefix' => 'Admin',
+    'admin.nav.transport_config' => 'Transport and ports',
+    'admin.nav.transport_loss' => 'Loss monitoring',
+    'admin.nav.wells' => 'Wells',
+];

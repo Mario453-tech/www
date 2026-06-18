@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/init.php';
+AdminAuth::requireLogin();
+
 $defaultConfig = [
     'host' => 'localhost',
     'port' => '3306',
@@ -27,36 +30,40 @@ $result = null;
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $form['host'] = trim((string)($_POST['host'] ?? ''));
-    $form['port'] = trim((string)($_POST['port'] ?? '3306'));
-    $form['dbname'] = trim((string)($_POST['dbname'] ?? ''));
-    $form['user'] = trim((string)($_POST['user'] ?? ''));
-    $form['password'] = (string)($_POST['password'] ?? '');
-    $form['charset'] = trim((string)($_POST['charset'] ?? 'utf8mb4'));
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = t('common.csrf_error');
+    } else {
+        $form['host'] = trim((string)($_POST['host'] ?? ''));
+        $form['port'] = trim((string)($_POST['port'] ?? '3306'));
+        $form['dbname'] = trim((string)($_POST['dbname'] ?? ''));
+        $form['user'] = trim((string)($_POST['user'] ?? ''));
+        $form['password'] = (string)($_POST['password'] ?? '');
+        $form['charset'] = trim((string)($_POST['charset'] ?? 'utf8mb4'));
 
-    try {
-        $dsn = sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-            $form['host'],
-            $form['port'] !== '' ? $form['port'] : '3306',
-            $form['dbname'],
-            $form['charset'] !== '' ? $form['charset'] : 'utf8mb4'
-        );
+        try {
+            $dsn = sprintf(
+                'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+                $form['host'],
+                $form['port'] !== '' ? $form['port'] : '3306',
+                $form['dbname'],
+                $form['charset'] !== '' ? $form['charset'] : 'utf8mb4'
+            );
 
-        $pdo = new PDO($dsn, $form['user'], $form['password'], [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_TIMEOUT => 5,
-        ]);
+            $pdo = new PDO($dsn, $form['user'], $form['password'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_TIMEOUT => 5,
+            ]);
 
-        $result = [
-            'server_version' => (string)$pdo->getAttribute(PDO::ATTR_SERVER_VERSION),
-            'client_version' => (string)$pdo->getAttribute(PDO::ATTR_CLIENT_VERSION),
-            'connection_status' => (string)$pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS),
-            'database' => (string)$pdo->query('SELECT DATABASE()')->fetchColumn(),
-        ];
-    } catch (Throwable $e) {
-        $error = $e->getMessage();
+            $result = [
+                'server_version' => (string)$pdo->getAttribute(PDO::ATTR_SERVER_VERSION),
+                'client_version' => (string)$pdo->getAttribute(PDO::ATTR_CLIENT_VERSION),
+                'connection_status' => (string)$pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS),
+                'database' => (string)$pdo->query('SELECT DATABASE()')->fetchColumn(),
+            ];
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
     }
 }
 
@@ -189,6 +196,7 @@ function h(string $value): string
             <p class="note">Wpisz dane MySQL/MariaDB i kliknij sprawdzenie. Skrypt wykona test przez PDO i pokaze wynik polaczenia.</p>
 
             <form method="post">
+                <?= CSRF::field() ?>
                 <div class="grid">
                     <div class="field">
                         <label for="host">Host</label>

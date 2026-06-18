@@ -1,7 +1,7 @@
 <?php
+$barrelLabel = t('common.bbl');
 if (class_exists('GameLog', false)) {
-    GameLog::step('component/my_offers_table', 'render', 1,
-        'offers=' . count($myOffers ?? []));
+    GameLog::step('component/my_offers_table', 'render', 1, 'offers=' . count($myOffers ?? []));
     if (!isset($myOffers)) {
         GameLog::warn('component/my_offers_table', 'Brak zmiennej $myOffers');
     }
@@ -20,7 +20,7 @@ if (class_exists('GameLog', false)) {
         </div>
         <?php foreach ($myOffers as $offer): ?>
         <div class="my-offers-row">
-            <span> <?= number_format($offer['amount']) ?> baryłek</span>
+            <span> <?= number_format($offer['amount']) ?> <?= $barrelLabel ?></span>
             <span class="money"><?= number_format($offer['limit_price']) ?></span>
             <span>
                 <?php if ($offer['status'] === 'pending'): ?>

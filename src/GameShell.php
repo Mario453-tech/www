@@ -8,6 +8,16 @@ class GameShell
         $playerData = ['cash' => 0, 'status' => 'active', 'capacity' => 0, 'used' => 0, 'created_at' => null];
         $marketData = ['current_price' => 0];
 
+        // Zapewnij kolumny portfela PRZED Player::getData() (SELECT p.* musi widziec bank_balance).
+        // Ensure wallet columns BEFORE Player::getData() (SELECT p.* must see bank_balance).
+        try {
+            new WalletService();
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('GameShell', 'WalletService ensureSchema failed', $e);
+            }
+        }
+
         try {
             $player = new Player($playerId);
             $data = $player->getData();
@@ -32,29 +42,42 @@ class GameShell
             }
         }
 
-        $used = (float)($playerData['used'] ?? 0);
-        $capacity = (float)($playerData['capacity'] ?? 0);
-        $storagePct = $capacity > 0 ? round(($used / $capacity) * 100, 0) : 0;
+        $used        = (float)($playerData['used'] ?? 0);
+        $capacity    = (float)($playerData['capacity'] ?? 0);
+        $storagePct  = $capacity > 0 ? round(($used / $capacity) * 100, 0) : 0;
         $companyDays = self::companyAgeDays($playerData['created_at'] ?? null);
         $statusLabel = self::statusLabel((string)($playerData['status'] ?? 'active'));
+        $bankBalance = (float)($playerData['bank_balance'] ?? 0.0);
 
         return [
             [
-                'label' => t('index.cash'),
-                'value' => number_format((float)$playerData['cash'], 0, ',', ' '),
-                'sub' => '$ USD',
-                'class' => 'money',
-                'icon_html' => self::statusIconHtml('cash'),
-                'icon_color' => '#c8860a',
+                'label'           => t('index.cash'),
+                'value'           => number_format((float)$playerData['cash'], 2, ',', ' '),
+                'sub'             => 'PLN',
+                'class'           => 'money',
+                'icon_html'       => self::statusIconHtml('cash'),
+                'icon_color'      => '#c8860a',
+                'data_wallet_key' => 'cash',
+                'data_wallet_fmt' => 'dec',
             ],
             [
-                'label' => t('index.storage'),
-                'value' => number_format($used, 0, ',', ' ') . ' / ' . number_format($capacity, 0, ',', ' '),
-                'sub' => t('game_shell.storage_sub', ['pct' => $storagePct]),
-                'pct' => $storagePct,
-                'class' => 'storage',
-                'icon_html' => self::statusIconHtml('storage'),
-                'icon_color' => '#5b8dd9',
+                'label'           => t('index.bank_balance'),
+                'value'           => number_format($bankBalance, 2, ',', ' '),
+                'sub'             => 'PLN',
+                'class'           => 'money',
+                'icon_html'       => self::statusIconHtml('bank'),
+                'icon_color'      => '#5b8dd9',
+                'data_wallet_key' => 'bank',
+                'data_wallet_fmt' => 'dec',
+            ],
+            [
+                'label'      => t('index.storage'),
+                'value'      => number_format($used, 0, ',', ' ') . ' / ' . number_format($capacity, 0, ',', ' '),
+                'sub'        => t('game_shell.storage_sub', ['pct' => $storagePct]),
+                'pct'        => $storagePct,
+                'class'      => 'storage',
+                'icon_html'  => self::statusIconHtml('storage'),
+                'icon_color' => '#2a9d6e',
             ],
             [
                 'label' => t('index.oil_price'),
@@ -92,6 +115,24 @@ class GameShell
                 $rows = BoardAccess::filterNav($rows ?: [], $playerId);
             }
 
+            if (class_exists('BoardAccess', false) && BoardAccess::has($playerId, 'legal')) {
+                $hasSabotage = false;
+                foreach ($rows ?: [] as $row) {
+                    if ((string)($row['url_key'] ?? '') === 'sabotage') {
+                        $hasSabotage = true;
+                        break;
+                    }
+                }
+                if (!$hasSabotage) {
+                    $rows[] = [
+                        'label'     => tPlain('sabotage.action_label'),
+                        'url_key'   => 'sabotage',
+                        'lang_key'  => '',
+                        'css_class' => 'btn-secondary',
+                    ];
+                }
+            }
+
             $rows = array_values(array_filter($rows ?: [], static function (array $row): bool {
                 return (string)($row['url_key'] ?? '') !== 'upgrade-well';
             }));
@@ -115,6 +156,7 @@ class GameShell
                     'logistics' => self::actionIconHtml('logistics'),
                     'help' => self::actionIconHtml('help'),
                     'legal' => self::actionIconHtml('legal'),
+                    'sabotage' => self::actionIconHtml('sabotage'),
                 ];
 
                 $icon = $iconMap[$key] ?? '';
@@ -136,6 +178,8 @@ class GameShell
                         $icon = self::actionIconHtml('logistics');
                     } elseif (str_contains($labelLower, 'finans')) {
                         $icon = self::actionIconHtml('finance');
+                    } elseif (str_contains($labelLower, 'sabot')) {
+                        $icon = self::actionIconHtml('sabotage');
                     }
                 }
 

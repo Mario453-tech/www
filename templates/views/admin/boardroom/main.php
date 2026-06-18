@@ -19,6 +19,7 @@
     <?php foreach ($roles as $role): ?>
         <div class="br-role-card">
             <form method="post" enctype="multipart/form-data" class="br-role-form">
+                <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="update_role">
                 <input type="hidden" name="role_id" value="<?= $role['id'] ?>">
 
@@ -89,6 +90,7 @@
     <h2 class="br-section-title"><?= t('boardroom.admin_section_add_role') ?></h2>
 
     <form method="post">
+        <?= CSRF::field() ?>
         <input type="hidden" name="action" value="add_role">
 
         <div class="br-add-grid">

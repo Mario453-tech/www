@@ -76,6 +76,7 @@ class WellShop
                 return ['success' => false, 'message' => t('well_shop.err_max_wells')];
             }
 
+            $fts = new FinancialTransactionService();
             $this->db->beginTransaction();
             try {
                 if (!$player->updateCash(-(float)$well['base_cost'], \FinancialTransactionService::TYPE_WELL_PURCHASE, 'Zakup odwiertu')) {

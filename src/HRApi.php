@@ -83,6 +83,9 @@ try {
             $regionCode = Validator::sanitize($_POST['region_code'] ?? 'PL');
             $specCode = !empty($_POST['spec_code']) ? Validator::sanitize($_POST['spec_code']) : null;
             $initiator = $_POST['initiated_by'] ?? 'director';
+            if (!in_array($initiator, ['director', 'hr', 'technical'], true)) {
+                $initiator = 'director';
+            }
             $recruitmentType = in_array($_POST['recruitment_type'] ?? '', ['local', 'international'], true)
                 ? $_POST['recruitment_type']
                 : 'local';
@@ -100,7 +103,7 @@ try {
             if ($roleCode === '') {
                 throw new InvalidArgumentException(t('recruitment.err_role_not_found'));
             }
-            if ($initiator === 'hr') {
+            if ($initiator === 'hr' || $initiator === 'technical') {
                 respondJson(['success' => false, 'error' => t('hr.recruitment_moved_to_dashboard')], 403);
             }
             if ($initiator === 'director') {
@@ -185,7 +188,7 @@ try {
             if (!$memberId) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_member_id'));
             }
-            echo json_encode($hr->fireEmployee($memberId, $reason));
+            echo json_encode($hr->fireEmployee($memberId, $reason, $playerId));
             break;
 
         case 'fire_technical_staff':
@@ -198,6 +201,9 @@ try {
             break;
 
         case 'mark_events_read':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                respondJson(['success' => false, 'error' => 'Method Not Allowed'], 405);
+            }
             $hr->markEventsRead($playerId);
             echo json_encode(['success' => true]);
             break;

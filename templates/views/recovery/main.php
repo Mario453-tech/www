@@ -1,23 +1,27 @@
 <?php extract($viewData, EXTR_SKIP); ?>
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+?>
 
 <div class="fade-in">
 
-    <!-- Stan firmy -->
+    <!-- Company state -->
     <section class="card card-danger" aria-labelledby="recovery-heading">
         <h2 id="recovery-heading"> <?= t('recovery.heading') ?></h2>
         <p><?= t('recovery.intro') ?></p>
         <div class="detail-grid recovery-stats">
             <article>
                 <p class="dl"><?= t('recovery.cash') ?></p>
-                <p class="dv money"><?= number_format($cash, 0, ',', ' ') ?> PLN</p>
+                <p class="dv money"><?= number_format($cash, 0, ',', ' ') ?> <?= $currencyLabel ?></p>
             </article>
             <article>
                 <p class="dl"><?= t('recovery.debt_active') ?></p>
-                <p class="dv <?= $debtActive > 0 ? 'red' : 'green' ?>"><?= number_format($debtActive, 0, ',', ' ') ?> PLN</p>
+                <p class="dv <?= $debtActive > 0 ? 'red' : 'green' ?>"><?= number_format($debtActive, 0, ',', ' ') ?> <?= $currencyLabel ?></p>
             </article>
             <article>
                 <p class="dl"><?= t('recovery.debt_late') ?></p>
-                <p class="dv <?= $debtLate > 0 ? 'red' : 'muted' ?>"><?= number_format($debtLate, 0, ',', ' ') ?> PLN</p>
+                <p class="dv <?= $debtLate > 0 ? 'red' : 'muted' ?>"><?= number_format($debtLate, 0, ',', ' ') ?> <?= $currencyLabel ?></p>
             </article>
             <article>
                 <p class="dl"><?= t('recovery.status') ?></p>
@@ -42,7 +46,7 @@
         <div class="alert alert-success"> <?= htmlspecialchars($message) ?></div>
     <?php endif ?>
 
-    <!-- Zdarzenia kryzysowe -->
+    <!-- Crisis events -->
     <?php if (!empty($events)): ?>
     <section class="card" aria-labelledby="events-heading">
         <h2 id="events-heading"> <?= t('recovery.events_heading') ?></h2>
@@ -77,12 +81,12 @@
     </section>
     <?php endif ?>
 
-    <!-- Opcje ratunkowe -->
+    <!-- Recovery options -->
     <h2 class="recovery-options-heading"> <?= t('recovery.options_heading') ?></h2>
 
     <div class="recovery-options-grid">
 
-        <!-- 1. Sprzedaż aktywów -->
+        <!-- 1. Asset sale -->
         <section class="card" aria-labelledby="opt1">
             <h2 id="opt1">1) <?= t('recovery.opt1_title') ?></h2>
             <p class="muted"><?= t('recovery.opt1_desc') ?></p>
@@ -119,7 +123,7 @@
             </form>
         </section>
 
-        <!-- 2. Przejęcie przez bank -->
+        <!-- 2. Bank takeover -->
         <section class="card" aria-labelledby="opt2">
             <h2 id="opt2">2) <?= t('recovery.opt2_title') ?></h2>
             <p class="muted"><?= t('recovery.opt2_desc') ?></p>
@@ -133,7 +137,7 @@
             </form>
         </section>
 
-        <!-- 3. Pożyczka ratunkowa -->
+        <!-- 3. Emergency loan -->
         <section class="card" aria-labelledby="opt3">
             <h2 id="opt3">3) <?= t('recovery.opt3_title') ?></h2>
             <p class="muted"><?= t('recovery.opt3_desc') ?></p>
@@ -152,7 +156,7 @@
             </form>
         </section>
 
-        <!-- 4. Cięcia kosztów -->
+        <!-- 4. Cost cuts -->
         <section class="card" aria-labelledby="opt4">
             <h2 id="opt4">4) <?= t('recovery.opt4_title') ?></h2>
             <p class="muted"><?= t('recovery.opt4_desc') ?></p>
@@ -181,8 +185,8 @@
                 <p class="muted"><?= t('recovery.opt5_desc') ?></p>
                 <?php if ($investorDebt > 0): ?>
                 <div class="info-box recovery-info">
-                    <p><?= t('recovery.opt5_debt') ?>: <strong class="red"><?= number_format($investorDebt, 0, ',', ' ') ?> PLN</strong></p>
-                    <p class="recovery-info-row"><?= t('recovery.opt5_injection') ?>: <strong class="money">~<?= number_format($estInj, 0, ',', ' ') ?> PLN</strong></p>
+                    <p><?= t('recovery.opt5_debt') ?>: <strong class="red"><?= number_format($investorDebt, 0, ',', ' ') ?> <?= $currencyLabel ?></strong></p>
+                    <p class="recovery-info-row"><?= t('recovery.opt5_injection') ?>: <strong class="money">~<?= number_format($estInj, 0, ',', ' ') ?> <?= $currencyLabel ?></strong></p>
                     <p class="muted2 recovery-note"><?= t('recovery.opt5_injection_note') ?></p>
                 </div>
                 <?php endif ?>

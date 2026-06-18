@@ -6,6 +6,33 @@ Auth::requireLogin();
 $playerId = Auth::getUserId();
 $db       = Database::getInstance()->getConnection();
 
+// === Zezwolenie na prace lokalne: regiony ZABLOKOWANE dla gracza ===
+// Local works permit: regions where the per-region permit is required
+// (hub_permit_enabled=1) but NOT granted yet. Huby i rurociagi z tych regionow
+// They stay hidden on the logistics page until the permit is granted per region.
+$lockedRegionSet = [];
+try {
+    $enabledRegions = array_map('intval',
+        $db->query("SELECT region_id FROM legal_region_config WHERE hub_permit_enabled = 1")
+           ->fetchAll(PDO::FETCH_COLUMN));
+    if (!empty($enabledRegions)) {
+        $grStmt = $db->prepare(
+            "SELECT region_id FROM hub_permit_applications WHERE player_id = ? AND status = 'granted'"
+        );
+        $grStmt->execute([$playerId]);
+        $grantedRegions = array_map('intval', $grStmt->fetchAll(PDO::FETCH_COLUMN));
+        $lockedRegionSet = array_fill_keys(array_values(array_diff($enabledRegions, $grantedRegions)), true);
+    }
+} catch (Throwable $e) {
+    // Brak schematu P2a (tabela/kolumna) -> nic nie ukrywamy.
+    // Missing P2a schema (table/column) -> hide nothing (fail-open for visibility only).
+    $lockedRegionSet = [];
+}
+// Helper: czy region jest zablokowany dla prac lokalnych? / Is the region locked?
+$isLocalRegionLocked = static function ($regionId) use ($lockedRegionSet): bool {
+    return isset($lockedRegionSet[(int)$regionId]);
+};
+
 $srcDir = __DIR__ . '/../src';
 require_once $srcDir . '/LogisticsService.php';
 require_once $srcDir . '/HubService.php';
@@ -166,6 +193,15 @@ try {
     GameLog::error('logistics', 'Hub data load failed', $e, ['player' => $playerId]);
 }
 
+// Ukryj huby (kupione/wynajete) w regionach bez zezwolenia na prace lokalne.
+// Hide owned/rented hubs in regions without the local works permit (per region).
+if (!empty($lockedRegionSet)) {
+    $hubCards = array_values(array_filter(
+        $hubCards,
+        static fn(array $card): bool => !$isLocalRegionLocked($card['hub']['region_id'] ?? 0)
+    ));
+}
+
 try {
     $roadTransportSvc = new RoadTransportService($db);
     $activeRoadTripsAll = $roadTransportSvc->getActiveTripsForPlayer($playerId);
@@ -178,6 +214,118 @@ try {
     $activeRoadTrips = array_slice($activeRoadTripsAll, $activeRoadTripsOffset, $activeRoadTripsPerPage);
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Road transport data load failed', $e, ['player' => $playerId]);
+}
+
+// Ochrona kursow drogowych: odwierty ciezarowkowe + aktywne ochrony + opcje do modala.
+// Road trip protection: truck wells + active protections + options for the modal.
+// Ochrona (uniwersalna) - wspolny serwis + formatter opisow efektow dla drogi/hubow/rurociagow.
+// Protection (universal) - shared service + effect-line formatter for road/hub/pipeline UI.
+$roadProtectionWells = [];
+$roadProtectionOptions = [];
+$hubProtectionTargets = [];
+$hubProtectionOptions = [];
+$pipelineProtectionTargets = [];
+$pipelineProtectionOptions = [];
+$protSvc = null;
+
+$protEffectLines = static function (array $effects): array {
+    $lines = [];
+    foreach ($effects as $key => $eff) {
+        if (($eff['type'] ?? '') !== 'mult' || ($eff['value'] ?? 1.0) >= 1.0) {
+            continue;
+        }
+        $strength = $eff['value'] <= 0.60 ? 'strong' : ($eff['value'] <= 0.85 ? 'medium' : 'light');
+        $lines[] = tPlain('protection.effect.' . $strength, ['what' => tPlain('protection.risk.' . $key)]);
+    }
+    if ($lines !== []) {
+        $lines[] = tPlain('protection.effect.disclaimer');
+    }
+    return $lines;
+};
+
+try {
+    require_once $srcDir . '/ProtectionService.php';
+    $protSvc = new ProtectionService($db);
+
+    // -- Transport drogowy / Road transport --
+    $roadWellIds = [];
+    foreach ($wells as $wellRow) {
+        if (($wellRow['transport'] ?? '') === 'ciezarowki') {
+            $roadWellIds[] = (int)$wellRow['id'];
+        }
+    }
+    if ($roadWellIds !== []) {
+        foreach ($protSvc->getAvailableOptions($playerId, 'road_transport', 'road_transport_guard') as $opt) {
+            $opt['effect_lines'] = $protEffectLines($opt['effects']);
+            $roadProtectionOptions[] = $opt;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($roadWellIds), '?'));
+        $nameStmt = $db->prepare(
+            "SELECT id, COALESCE(NULLIF(name,''), location_name) AS well_name FROM wells WHERE id IN ({$placeholders})"
+        );
+        $nameStmt->execute($roadWellIds);
+        $wellNames = $nameStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $activeRoadProtections = $protSvc->getActiveProtections(
+            $playerId,
+            'road_transport',
+            $roadWellIds,
+            'road_transport_guard'
+        );
+
+        foreach ($roadWellIds as $roadWellId) {
+            $activeProt = $activeRoadProtections[$roadWellId] ?? null;
+            $roadProtectionWells[] = [
+                'id'     => $roadWellId,
+                'name'   => (string)($wellNames[$roadWellId] ?? ''),
+                'active' => $activeProt === null ? null : [
+                    'name'    => (string)$activeProt['option_name'],
+                    'ends_at' => (string)$activeProt['ends_at'],
+                ],
+            ];
+        }
+    }
+
+    // -- Huby logistyczne / Logistics hubs --
+    if ($hubCards !== []) {
+        foreach ($protSvc->getAvailableOptions($playerId, 'hub', 'hub_guard') as $opt) {
+            $opt['effect_lines'] = $protEffectLines($opt['effects']);
+            $hubProtectionOptions[] = $opt;
+        }
+        $hubIds = [];
+        foreach ($hubCards as $card) {
+            if (($card['ownership'] ?? '') !== 'owned') {
+                continue;
+            }
+            $hubId = (int)(($card['hub'] ?? [])['id'] ?? 0);
+            if ($hubId > 0) {
+                $hubIds[] = $hubId;
+            }
+        }
+        $activeHubProtections = $protSvc->getActiveProtections($playerId, 'hub', $hubIds, 'hub_guard');
+
+        foreach ($hubCards as $card) {
+            if (($card['ownership'] ?? '') !== 'owned') {
+                continue;
+            }
+            $hub = $card['hub'] ?? [];
+            $hubId = (int)($hub['id'] ?? 0);
+            if ($hubId <= 0) {
+                continue;
+            }
+            $activeProt = $activeHubProtections[$hubId] ?? null;
+            $hubProtectionTargets[] = [
+                'id'     => $hubId,
+                'name'   => (string)($hub['name'] ?? ('Hub #' . $hubId)),
+                'active' => $activeProt === null ? null : [
+                    'name'    => (string)$activeProt['option_name'],
+                    'ends_at' => (string)$activeProt['ends_at'],
+                ],
+            ];
+        }
+    }
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'Protection data load failed', $e, ['player' => $playerId]);
 }
 
 try {
@@ -205,6 +353,11 @@ try {
     $pipelineSummary['engineers'] = (int)($pipelineEngineerStmt->fetchColumn() ?? 0);
 
     foreach ($pipelineRows as $pipe) {
+ // Ukryj rurociagi w regionach bez zezwolenia na prace lokalne (per region).
+ // Hide pipelines in regions without the local works permit (per region).
+        if ($isLocalRegionLocked($pipe['region_id'] ?? 0)) {
+            continue;
+        }
         $status = (string)($pipe['status'] ?? 'active');
         $wellId = (int)($pipe['well_id'] ?? $pipe['source_well_id'] ?? 0);
         $wellSummary = $wellSummaryById[$wellId] ?? null;
@@ -302,12 +455,58 @@ try {
     GameLog::error('logistics', 'Pipeline data load failed', $e, ['player' => $playerId]);
 }
 
+// Ochrona rurociagow - po zaladowaniu listy rurociagow (target_id = well_pipelines.id).
+// Pipeline protection - after the pipeline list is loaded (target_id = well_pipelines.id).
+if ($protSvc !== null && $pipelines !== []) {
+    try {
+        foreach ($protSvc->getAvailableOptions($playerId, 'pipeline', 'pipeline_guard') as $opt) {
+            $opt['effect_lines'] = $protEffectLines($opt['effects']);
+            $pipelineProtectionOptions[] = $opt;
+        }
+        $pipelineIds = [];
+        foreach ($pipelines as $pipe) {
+            $pipeId = (int)($pipe['id'] ?? 0);
+            if ($pipeId > 0 && ($pipe['status'] ?? '') !== 'building') {
+                $pipelineIds[] = $pipeId;
+            }
+        }
+        $activePipelineProtections = $protSvc->getActiveProtections(
+            $playerId,
+            'pipeline',
+            $pipelineIds,
+            'pipeline_guard'
+        );
+
+
+        foreach ($pipelines as $pipe) {
+            $pipeId = (int)($pipe['id'] ?? 0);
+            if ($pipeId <= 0 || ($pipe['status'] ?? '') === 'building') {
+                continue;
+            }
+            $legLabel = ($pipe['leg'] ?? 'inbound') === 'outbound'
+                ? tPlain('protection.pipeline_leg_outbound')
+                : tPlain('protection.pipeline_leg_inbound');
+            $activeProt = $activePipelineProtections[$pipeId] ?? null;
+            $pipelineProtectionTargets[] = [
+                'id'     => $pipeId,
+                'name'   => tPlain('protection.pipeline_target_leg', ['id' => $pipeId, 'leg' => $legLabel]),
+                'active' => $activeProt === null ? null : [
+                    'name'    => (string)$activeProt['option_name'],
+                    'ends_at' => (string)$activeProt['ends_at'],
+                ],
+            ];
+        }
+    } catch (Throwable $e) {
+        GameLog::error('logistics', 'Pipeline protection load failed', $e, ['player' => $playerId]);
+    }
+}
+
 // Wells with active hub assignment but no pipeline yet (candidates for pipeline purchase)
 $wellsWithoutPipeline = [];
 try {
     $woPipelineStmt = $db->prepare("
         SELECT w.id, w.name AS well_name, w.status AS well_status,
-               w.location_name, w.transport_type,
+               w.location_name, w.transport_type, w.region_id,
                h.id AS hub_id, h.name AS hub_name
           FROM wells w
           JOIN logistics_hub_assignments a ON a.well_id = w.id AND a.status = 'active'
@@ -322,6 +521,16 @@ try {
     $wellsWithoutPipeline = $woPipelineStmt->fetchAll();
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Wells without pipeline query failed', $e, ['player' => $playerId]);
+}
+
+// Ukryj kandydatow do podlaczenia rurociagu w regionach bez zezwolenia na prace
+// lokalne — nie mozna podlaczyc rurociagu, dopoki nie ma zezwolenia (per region).
+// Hide pipeline-connect candidates in regions without the local works permit.
+if (!empty($lockedRegionSet)) {
+    $wellsWithoutPipeline = array_values(array_filter(
+        $wellsWithoutPipeline,
+        static fn(array $w): bool => !$isLocalRegionLocked($w['region_id'] ?? 0)
+    ));
 }
 
 $lossWells = array_values(array_filter(
@@ -490,6 +699,12 @@ $viewData = compact(
     'activeRoadTripsTotal',
     'activeRoadTripsPage',
     'activeRoadTripsTotalPages',
+    'roadProtectionWells',
+    'roadProtectionOptions',
+    'hubProtectionTargets',
+    'hubProtectionOptions',
+    'pipelineProtectionTargets',
+    'pipelineProtectionOptions',
     'marineDeliveries',
     'marineBuffers',
     'marineMinLoadBbl',
@@ -501,8 +716,8 @@ $viewData = array_merge($viewData, GameShell::data($playerId));
 $pageTitle      = t('logistics.page_title') . ' - OilCorp';
 $gameShellTitle = t('logistics.page_title');
 $gameShellView  = __DIR__ . '/../templates/views/logistics/main.php';
-$extraCss       = ['/assets/css/logistics.css'];
-$extraJs        = ['/assets/js/logistics_hubs.js'];
+$extraCss       = ['/assets/css/logistics.css', '/assets/css/protection.css'];
+$extraJs        = ['/assets/js/logistics_hubs.js', '/assets/js/protection.js'];
 
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);

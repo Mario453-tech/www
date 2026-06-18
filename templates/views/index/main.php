@@ -1,4 +1,17 @@
 <?php extract($viewData, EXTR_SKIP); ?>
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$alertPlural = count($alertWells ?? []) === 1
+    ? ($locale === 'en' ? 'well requires attention' : 'odwiert wymaga uwagi')
+    : ($locale === 'en' ? 'wells require attention' : 'odwierty wymagaja uwagi');
+$alertGoLabel = $locale === 'en' ? 'GO ->' : 'PRZEJDZ ->';
+$wellFallbackPrefix = $locale === 'en' ? 'Well #' : 'Odwiert #';
+$wellLevelLabel = $locale === 'en' ? 'Level' : 'Poziom';
+$wellProdUnit = $locale === 'en' ? 'barrels/h' : 'barylek/h';
+$tipTitle = t('index.tip_heading');
+$tipSellNowLabel = $locale === 'en' ? 'Sell now' : 'Sprzedaj teraz';
+$tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
+?>
 
 <div class="dashboard fade-in">
 
@@ -17,13 +30,13 @@
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </span>
         <div class="alert-strip__body">
-            <strong><?= count($alertWells) ?> <?= count($alertWells) === 1 ? 'odwiert wymaga' : (count($alertWells) < 5 ? 'odwierty wymagają' : 'odwiertów wymaga') ?> uwagi</strong>
+            <strong><?= count($alertWells) ?> <?= htmlspecialchars($alertPlural, ENT_QUOTES, 'UTF-8') ?></strong>
             <div class="alert-strip__chips">
                 <?php foreach ($alertWells as $__aw): ?>
                 <a class="alert-strip__chip <?= (float)($__aw['_cond'] ?? 100) < 30 ? 'alert-strip__chip--crit' : 'alert-strip__chip--warn' ?>"
                    href="#wg-card-<?= (int)$__aw['id'] ?>"
                    onclick="return wgFocusWell(<?= (int)$__aw['id'] ?>);">
-                    <?= htmlspecialchars($__aw['location_name'] ?? ('Odwiert #' . $__aw['id'])) ?>
+                    <?= htmlspecialchars($__aw['location_name'] ?? ($wellFallbackPrefix . $__aw['id'])) ?>
                      <?= round((float)($__aw['_cond'] ?? 0), 0) ?>%
                 </a>
                 <?php endforeach ?>
@@ -32,7 +45,7 @@
         <a class="alert-strip__cta"
            href="#wg-card-<?= (int)$__firstAlert['id'] ?>"
            onclick="return wgFocusWell(<?= (int)$__firstAlert['id'] ?>);">
-            PRZEJDŹ →
+            <?= htmlspecialchars($alertGoLabel, ENT_QUOTES, 'UTF-8') ?>
         </a>
     </div>
     <?php endif ?>
@@ -73,8 +86,8 @@
             <ul class="bailiff-wells-list">
                 <?php foreach ($seizedWells as $sw): ?>
                 <li>
-                    <strong><?= htmlspecialchars($sw['name'] ?? 'Odwiert #' . $sw['id']) ?></strong>
-                    (Poziom <?= (int)$sw['level'] ?>, <?= number_format((float)$sw['base_production_per_hour'], 2) ?> baryłek/h)
+                    <strong><?= htmlspecialchars($sw['name'] ?? ($wellFallbackPrefix . $sw['id'])) ?></strong>
+                    (<?= htmlspecialchars($wellLevelLabel, ENT_QUOTES, 'UTF-8') ?> <?= (int)$sw['level'] ?>, <?= number_format((float)$sw['base_production_per_hour'], 2) ?> <?= htmlspecialchars($wellProdUnit, ENT_QUOTES, 'UTF-8') ?>)
                 </li>
                 <?php endforeach ?>
             </ul>
@@ -129,13 +142,12 @@
     <aside class="tip-panel" aria-labelledby="tip-heading">
         <div class="tip-panel__icon"></div>
         <div class="tip-panel__body">
-            <div class="tip-panel__title" id="tip-heading">Okazja do sprzedaży</div>
+            <div class="tip-panel__title" id="tip-heading"><?= $tipTitle ?></div>
             <p class="tip-panel__text">
-                Masz <strong><?= number_format((float)$playerData['used'], 0, ',', ' ') ?> baryłek</strong> ropy w magazynie.
-                Przy obecnej cenie <strong><?= number_format((float)$marketData['current_price'], 0, ',', ' ') ?> $/bbl</strong>
-                możesz zarobić <strong class="tip-panel__value"><?= number_format((float)$playerData['used'] * (float)$marketData['current_price'], 0, ',', ' ') ?> gotówki</strong>.
+                <?= t('index.tip_body', ['used' => number_format((float)$playerData['used'], 0, ',', ' ')]) ?>
+                <?= t('index.tip_sell', ['value' => number_format((float)$playerData['used'] * (float)$marketData['current_price'], 0, ',', ' ') . ' ' . $tipCashWord]) ?>
             </p>
-            <a href="<?= url('market') ?>" class="btn btn-sm btn-secondary tip-panel__cta">Sprzedaj teraz</a>
+            <a href="<?= url('market') ?>" class="btn btn-sm btn-secondary tip-panel__cta"><?= htmlspecialchars($tipSellNowLabel, ENT_QUOTES, 'UTF-8') ?></a>
         </div>
     </aside>
     <?php endif ?>

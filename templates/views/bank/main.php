@@ -1,11 +1,16 @@
 <?php extract($viewData, EXTR_SKIP); ?>
 
 <?php
-// Etap 4: dane konta bankowego (numer, saldo, historia). Bezpieczne defaulty.
-// Stage 4: bank account data (number, balance, history). Safe defaults.
-$bankAccountNumber  = $accountNumber  ?? '';
-$bankAccountBalance = (float)($accountBalance ?? 0);
-$bankAccountHistory = $accountHistory ?? [];
+// Stage 4: bank account data (number, balance, history) with safe defaults.
+$bankAccountNumber    = $accountNumber  ?? '';
+$bankAccountBalance   = (float)($accountBalance ?? 0);  // bank_balance field
+$playerCashBalance    = (float)($cashBalance   ?? 0);   // cash field
+$bankAccountHistory   = $accountHistory ?? [];
+$bankHistoryTotal     = (int)($accountHistoryTotal ?? count($bankAccountHistory));
+$bankHistoryPage      = (int)($accountHistoryPage  ?? 1);
+$bankHistoryPerPage   = \BankDataLoader::HISTORY_PER_PAGE;
+$bankHistoryMaxPage   = max(1, (int)ceil($bankHistoryTotal / $bankHistoryPerPage));
+$bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 ?>
 
 <div class="fade-in">
@@ -14,7 +19,7 @@ $bankAccountHistory = $accountHistory ?? [];
         <p><?= t('bank.subtitle') ?></p>
     </section>
 
-    <!-- ETAP 4: KARTA KONTA BANKOWEGO / STAGE 4: BANK ACCOUNT CARD -->
+    <!-- Stage 4: bank account card -->
     <?php if (!$isBankrupt && $bankAccountNumber !== ''): ?>
     <section class="card bank-account-card" aria-labelledby="account-heading">
         <header class="bank-account-header">
@@ -44,7 +49,7 @@ $bankAccountHistory = $accountHistory ?? [];
             <div class="bank-account-tile bank-account-tile--balance">
                 <span class="bank-account-tile-label"><?= t('bank.account.label_balance') ?></span>
                 <span class="bank-account-tile-value money">
-                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> PLN
+                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> USD
                 </span>
             </div>
 
@@ -60,6 +65,103 @@ $bankAccountHistory = $accountHistory ?? [];
         </div>
     </section>
     <?php endif ?>
+
+    <!-- Wallet: cash and bank account -->
+    <?php if (!$isBankrupt): ?>
+    <section class="card wallet-section" aria-labelledby="wallet-heading" id="wallet-section">
+        <h2 id="wallet-heading"><?= t('wallet.section_title') ?></h2>
+        <p class="muted"><?= t('wallet.section_desc') ?></p>
+
+        <!-- Balance tiles -->
+        <div class="wallet-balances">
+            <div class="wallet-bal wallet-bal--cash">
+                <span class="wallet-bal-label"><?= t('wallet.label_cash') ?></span>
+                <span class="wallet-bal-value money"
+                      data-wallet-cash
+                      id="wallet-cash-display">
+                    <?= number_format($playerCashBalance, 2, ',', ' ') ?> USD
+                </span>
+            </div>
+            <div class="wallet-bal wallet-bal--bank">
+                <span class="wallet-bal-label"><?= t('wallet.label_bank') ?></span>
+                <span class="wallet-bal-value money"
+                      data-wallet-bank
+                      id="wallet-bank-display">
+                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> USD
+                </span>
+            </div>
+        </div>
+
+        <!-- Transfer forms -->
+        <div class="wallet-transfers">
+
+            <!-- Cash -> Bank -->
+            <div class="wallet-tf">
+                <div class="wallet-arrow wallet-arrow--to-bank" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" width="16" height="16"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <p class="wallet-tf-title"><?= t('wallet.btn_cash_to_bank') ?></p>
+                <p class="wallet-tf-direction muted"><?= t('wallet.dir_cash_to_bank') ?></p>
+                <form class="wallet-tf-form" id="wallet-form-cash-to-bank" data-action="cash_to_bank" novalidate>
+                    <div class="form-group">
+                        <label class="form-label" for="wallet-amount-ctb"><?= t('wallet.label_amount') ?></label>
+                        <input type="text"
+                               inputmode="numeric"
+                               pattern="[0-9 .,]*"
+                               id="wallet-amount-ctb"
+                               name="amount"
+                               class="input-full"
+                               autocomplete="off"
+                               placeholder="<?= htmlspecialchars(t('wallet.amount_placeholder'), ENT_QUOTES) ?>">
+                    </div>
+                    <p class="wallet-tf-fee-preview"></p>
+                    <button type="submit" class="btn btn-primary btn-sm btn-full">
+                        <?= t('wallet.btn_cash_to_bank') ?>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Bank -> Cash -->
+            <div class="wallet-tf">
+                <div class="wallet-arrow wallet-arrow--to-cash" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" width="16" height="16"><path d="M16 10H4M8 14l-4-4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <p class="wallet-tf-title"><?= t('wallet.btn_bank_to_cash') ?></p>
+                <p class="wallet-tf-direction muted"><?= t('wallet.dir_bank_to_cash') ?></p>
+                <form class="wallet-tf-form" id="wallet-form-bank-to-cash" data-action="bank_to_cash" novalidate>
+                    <div class="form-group">
+                        <label class="form-label" for="wallet-amount-btc"><?= t('wallet.label_amount') ?></label>
+                        <input type="text"
+                               inputmode="numeric"
+                               pattern="[0-9 .,]*"
+                               id="wallet-amount-btc"
+                               name="amount"
+                               class="input-full"
+                               autocomplete="off"
+                               placeholder="<?= htmlspecialchars(t('wallet.amount_placeholder'), ENT_QUOTES) ?>">
+                    </div>
+                    <p class="wallet-tf-fee-preview"></p>
+                    <button type="submit" class="btn btn-primary btn-sm btn-full">
+                        <?= t('wallet.btn_bank_to_cash') ?>
+                    </button>
+                </form>
+            </div>
+
+        </div><!-- /.wallet-transfers -->
+
+        <p class="muted" style="font-size:12px;margin-top:10px">
+            <?= t('wallet.fee_info', [
+                'fee_pct' => number_format(WalletConfig::TRANSFER_FEE_PCT * 100, 1, ',', ''),
+                'min'     => number_format(WalletConfig::TRANSFER_MIN_FEE, 0, ',', ' '),
+                'min_amt' => number_format(WalletConfig::TRANSFER_MIN_AMOUNT, 0, ',', ' '),
+                'max_amt' => $transferMax == 0.0
+                    ? t('wallet.transfer_max_unlimited')
+                    : number_format($transferMax, 0, ',', ' ') . ' PLN',
+            ]) ?>
+        </p>
+    </section>
+    <?php endif ?>
+    <!-- /Wallet -->
 
     <?php if (!$bankService): ?>
     <section class="card">
@@ -95,7 +197,7 @@ $bankAccountHistory = $accountHistory ?? [];
     <script>(function(){var m=<?= json_encode($success, JSON_UNESCAPED_UNICODE) ?>;function s(){if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){window.showGameToast(m,'success');}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
     <?php endif ?>
 
-    <!-- Wniosek kredytowy -->
+    <!-- Credit application -->
 
     <?php if ($bankService && $appSt === 'pending'): ?>
     <section class="card">
@@ -116,7 +218,7 @@ $bankAccountHistory = $accountHistory ?? [];
             <?php endif ?>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_amount') ?></span>
-                <strong class="money"><?= number_format((float)($offer['amount'] ?? 0)) ?> PLN</strong>
+                <strong class="money"><?= number_format((float)($offer['amount'] ?? 0)) ?> USD</strong>
             </div>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_rate') ?></span>
@@ -124,11 +226,11 @@ $bankAccountHistory = $accountHistory ?? [];
             </div>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_installment') ?></span>
-                <strong class="money"><?= number_format((float)($offer['installment_amount'] ?? 0)) ?> PLN</strong>
+                <strong class="money"><?= number_format((float)($offer['installment_amount'] ?? 0)) ?> USD</strong>
             </div>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_total_cost') ?></span>
-                <span class="money"><?= number_format((float)($offer['estimated_total_cost'] ?? 0)) ?> PLN</span>
+                <span class="money"><?= number_format((float)($offer['estimated_total_cost'] ?? 0)) ?> USD</span>
             </div>
             <div class="offer-item offer-item--warning">
                 <span class="offer-alert-icon"></span>
@@ -201,7 +303,7 @@ $bankAccountHistory = $accountHistory ?? [];
         <?php if ($creditLimit > 0): ?>
         <div class="info-box info-box-green">
             <strong><?= t('bank.apply_limit_label') ?></strong>
-            <span class="money"><?= number_format($creditLimit, 0, '.', ' ') ?> PLN</span>
+            <span class="money"><?= number_format($creditLimit, 0, '.', ' ') ?> USD</span>
             <small><?= t('bank.apply_limit_desc') ?></small>
         </div>
         <?php endif ?>
@@ -230,7 +332,7 @@ $bankAccountHistory = $accountHistory ?? [];
     </section>
     <?php endif ?>
 
-    <!-- Aktywne kredyty -->
+    <!-- Active loans -->
 
     <?php if (!empty($activeLoans)): ?>
     <section class="card" aria-labelledby="loans-heading">
@@ -260,11 +362,11 @@ $bankAccountHistory = $accountHistory ?? [];
                     <div class="loan-details">
                         <div class="loan-item">
                             <span><?= t('bank.loan_remaining') ?></span>
-                            <strong class="money"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> PLN</strong>
+                            <strong class="money"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> USD</strong>
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_principal') ?></span>
-                            <span class="money"><?= number_format((float)($loan['principal_amount'] ?? 0)) ?> PLN</span>
+                            <span class="money"><?= number_format((float)($loan['principal_amount'] ?? 0)) ?> USD</span>
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_rate') ?></span>
@@ -276,7 +378,7 @@ $bankAccountHistory = $accountHistory ?? [];
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_installment_amount') ?></span>
-                            <strong class="money"><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> PLN</strong>
+                            <strong class="money"><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> USD</strong>
                         </div>
                     </div>
 
@@ -334,7 +436,7 @@ $bankAccountHistory = $accountHistory ?? [];
                             <input type="radio" name="repay_mode" value="single" checked>
                             <span>
                                 <?= t('bank.repay_single') ?>
-                                <small><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> PLN</small>
+                                <small><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> USD</small>
                             </span>
                         </label>
                         <label class="repay-option" id="repay-multi-label-<?= $loanId ?>">
@@ -355,7 +457,7 @@ $bankAccountHistory = $accountHistory ?? [];
                                     </select>
                                 </small>
                                 <small id="repay-multi-amount-<?= $loanId ?>" class="repay-multi-amount">
-                                    = <?= number_format((float)($loan['installment_amount'] ?? 0) * 2) ?> PLN
+                                    = <?= number_format((float)($loan['installment_amount'] ?? 0) * 2) ?> USD
                                 </small>
                             </span>
                         </label>
@@ -363,7 +465,7 @@ $bankAccountHistory = $accountHistory ?? [];
                             <input type="radio" name="repay_mode" value="full">
                             <span>
                                 <?= t('bank.repay_full') ?>
-                                <small class="c-good"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> PLN</small>
+                                <small class="c-good"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> USD</small>
                             </span>
                         </label>
                     </div>
@@ -425,7 +527,7 @@ $bankAccountHistory = $accountHistory ?? [];
                         <?php endif ?>
                         <div class="neg-offer-item">
                             <span><?= t('bank.neg_fee') ?></span>
-                            <strong class="money"><?= number_format((float)($active['additional_fee'] ?? 0)) ?> PLN</strong>
+                            <strong class="money"><?= number_format((float)($active['additional_fee'] ?? 0)) ?> USD</strong>
                         </div>
                         <?php if (!empty($active['expires_at'])): ?>
                         <div class="neg-offer-item neg-expire">
@@ -496,7 +598,7 @@ $bankAccountHistory = $accountHistory ?? [];
                                                 <input type="radio" name="days" value="<?= $days ?>" <?= $days === 30 ? 'required' : '' ?>>
                                                 <span class="neg-option-label">
                                                     <?= $days ?> <?= t('common.days') ?>
-                                                    <small><?= htmlspecialchars($opt['apr']) ?> - prowizja: ~<?= number_format($opt['fee']) ?> PLN</small>
+                                                    <small><?= htmlspecialchars($opt['apr']) ?> - <?= $bankLocale === 'en' ? 'fee' : 'prowizja' ?>: ~<?= number_format($opt['fee']) ?> USD</small>
                                                 </span>
                                             </label>
                                             <?php endforeach ?>
@@ -524,12 +626,12 @@ $bankAccountHistory = $accountHistory ?? [];
                                     <div class="form-group">
                                         <label for="months_<?= $loanId ?>"><?= t('bank.neg_restructure_period') ?></label>
                                         <select name="months" id="months_<?= $loanId ?>">
-                                            <option value="1">1 miesiąc</option>
-                                            <option value="2">2 miesiące</option>
-                                            <option value="3">3 miesiące</option>
-                                            <option value="6" selected>6 miesięcy</option>
-                                            <option value="9">9 miesięcy</option>
-                                            <option value="12">12 miesięcy</option>
+                                            <option value="1"><?= $bankLocale === 'en' ? '1 month' : '1 miesiac' ?></option>
+                                            <option value="2"><?= $bankLocale === 'en' ? '2 months' : '2 miesiace' ?></option>
+                                            <option value="3"><?= $bankLocale === 'en' ? '3 months' : '3 miesiace' ?></option>
+                                            <option value="6" selected><?= $bankLocale === 'en' ? '6 months' : '6 miesiecy' ?></option>
+                                            <option value="9"><?= $bankLocale === 'en' ? '9 months' : '9 miesiecy' ?></option>
+                                            <option value="12"><?= $bankLocale === 'en' ? '12 months' : '12 miesiecy' ?></option>
                                         </select>
                                         <small class="neg-fee-note"><?= t('bank.neg_restructure_fee_note') ?></small>
                                     </div>
@@ -581,7 +683,7 @@ $bankAccountHistory = $accountHistory ?? [];
     </section>
     <?php endif ?>
 
-    <!-- ETAP 4: HISTORIA OPERACJI / STAGE 4: TRANSACTION HISTORY -->
+    <!-- Stage 4: transaction history -->
     <?php if (!$isBankrupt && $bankAccountNumber !== ''): ?>
     <section class="card bank-history-card" aria-labelledby="bank-history-heading">
         <header class="bank-history-header">
@@ -626,23 +728,36 @@ $bankAccountHistory = $accountHistory ?? [];
                     <?= htmlspecialchars((string)($hRow['counterparty_label'] ?? '')) ?>
                 </span>
                 <span class="bank-history-cell bank-history-cell--desc">
-                    <?= $hDesc !== '' ? htmlspecialchars($hDesc) : '<span class="muted">—</span>' ?>
+                    <?= $hDesc !== '' ? htmlspecialchars($hDesc) : '<span class="muted">&mdash;</span>' ?>
                 </span>
                 <span class="bank-history-cell bank-history-cell--amount">
                     <strong class="bank-history-amount <?= $hClass ?>">
-                        <?= $hSign ?><?= number_format($hAmount, 2, ',', ' ') ?> PLN
+                        <?= $hSign ?><?= number_format($hAmount, 2, ',', ' ') ?> USD
                     </strong>
                 </span>
             </div>
             <?php endforeach ?>
         </div>
+
+        <?php if ($bankHistoryMaxPage > 1): ?>
+        <nav class="bank-history-pagination" aria-label="<?= htmlspecialchars($bankLocale === 'en' ? 'History pages' : 'Strony historii', ENT_QUOTES) ?>">
+            <?php if ($bankHistoryPage > 1): ?>
+            <a class="bank-history-page-btn" href="?txpage=<?= $bankHistoryPage - 1 ?>#bank-history-heading"><?= $bankLocale === 'en' ? '&lt;&lt; Previous' : '&lt;&lt; Poprzednia' ?></a>
+            <?php endif ?>
+            <span class="bank-history-page-info"><?= $bankLocale === 'en' ? 'Page' : 'Strona' ?> <?= $bankHistoryPage ?> <?= $bankLocale === 'en' ? 'of' : 'z' ?> <?= $bankHistoryMaxPage ?></span>
+            <?php if ($bankHistoryPage < $bankHistoryMaxPage): ?>
+            <a class="bank-history-page-btn" href="?txpage=<?= $bankHistoryPage + 1 ?>#bank-history-heading"><?= $bankLocale === 'en' ? 'Next &gt;&gt;' : 'Nastepna &gt;&gt;' ?></a>
+            <?php endif ?>
+        </nav>
+        <?php endif ?>
+
         <?php endif ?>
     </section>
     <?php endif ?>
 
 </div>
 
-<!-- ETAP 4: MODAL PRZELEWU / STAGE 4: TRANSFER MODAL -->
+<!-- Stage 4: transfer modal -->
 <?php if (!$isBankrupt && $bankAccountNumber !== ''): ?>
 <div id="bank-transfer-modal" class="bank-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="bank-transfer-modal-title">
     <div class="bank-modal">
@@ -687,7 +802,7 @@ $bankAccountHistory = $accountHistory ?? [];
                        required>
                 <small class="muted">
                     <?= t('bank.account.label_balance') ?>:
-                    <strong class="money"><?= number_format($bankAccountBalance, 2, ',', ' ') ?> PLN</strong>
+                    <strong class="money"><?= number_format($bankAccountBalance, 2, ',', ' ') ?> USD</strong>
                 </small>
             </div>
 
@@ -729,8 +844,19 @@ $bankAccountHistory = $accountHistory ?? [];
 </div>
 
 <script>
+window.WALLET_API      = '<?= htmlspecialchars(url('wallet-transfer'), ENT_QUOTES) ?>';
+window.WALLET_CSRF     = '<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES) ?>';
+window.WALLET_FEE_PCT  = <?= json_encode(WalletConfig::TRANSFER_FEE_PCT) ?>;
+window.WALLET_FEE_MIN  = <?= json_encode(WalletConfig::TRANSFER_MIN_FEE) ?>;
+window.WALLET_LANG     = <?= json_encode([
+    'fee_preview'          => tPlain('wallet.fee_preview'),
+    'confirm_cash_to_bank' => t('wallet.confirm_cash_to_bank'),
+    'confirm_bank_to_cash' => t('wallet.confirm_bank_to_cash'),
+    'err_generic'          => t('wallet.err_generic'),
+    'err_network'          => t('wallet.err_network'),
+], JSON_UNESCAPED_UNICODE) ?>;
 window.BANK_LANG = <?= json_encode([
-    'pln'                  => t('bank_js.pln'),
+    'pln'                  => 'USD',
     'repay_modal_single'   => t('bank.repay_modal_desc_single'),
     'repay_modal_multiple' => t('bank.repay_modal_desc_multiple'),
     'repay_modal_full'     => t('bank.repay_modal_desc_full'),
@@ -741,7 +867,7 @@ window.BANK_LANG = <?= json_encode([
 </script>
 <script src="/assets/js/bank.js"></script>
 
-<!-- ETAP 4: skrypty banku - konto i przelew / STAGE 4: account & transfer scripts -->
+<!-- Stage 4: account and transfer scripts -->
 <script>
 (function () {
     'use strict';
@@ -763,7 +889,7 @@ window.BANK_LANG = <?= json_encode([
             };
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(num).then(done, function () {
-                    // fallback - select + execCommand
+                    // Fallback path using select + execCommand.
                     fallbackCopy(num); done();
                 });
             } else {
@@ -808,8 +934,8 @@ window.BANK_LANG = <?= json_encode([
     btnClose && btnClose.addEventListener('click', closeModal);
     btnCancel && btnCancel.addEventListener('click', closeModal);
     modal.addEventListener('click', function (e) {
-        // Klikniecie w overlay (poza .bank-modal) zamyka.
-        // Clicking the overlay (outside .bank-modal) closes it.
+        // Clicking the overlay outside .bank-modal closes it.
+
         if (e.target === modal) closeModal();
     });
     document.addEventListener('keydown', function (e) {
@@ -817,22 +943,21 @@ window.BANK_LANG = <?= json_encode([
     });
 
     // ----- Dynamic data-confirm message before submit -----
-    // Buduje czytelny komunikat: "Przelewasz X PLN na konto Y. Tytul: Z. Kontynuowac?"
-    // Builds a clear message: "Transferring X PLN to account Y. Title: Z. Continue?"
+    // Build a clear confirmation message for the transfer modal.
     form.addEventListener('submit', function (e) {
-        if (form.dataset.confirmBound === '1') return; // modal already accepted
-        // Sanityzacja kwoty - oblicz w JS dla wyswietlenia
+        var locale = <?= json_encode($bankLocale === 'en' ? 'en-US' : 'pl-PL') ?>;
+        if (form.dataset.confirmBound === '1') return; // Modal already accepted.
+        // Sanitize amount and calculate a readable preview in JS.
         var amountRaw = (document.getElementById('bank-tr-amount').value || '').replace(/\s+/g, '').replace(',', '.');
         var amount = parseFloat(amountRaw);
         var account = (document.getElementById('bank-tr-recipient').value || '').trim();
         var desc = (document.getElementById('bank-tr-description').value || '').trim();
-        var fmt = isFinite(amount) ? amount.toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0,00';
-        var msg = 'Przelewasz ' + fmt + ' PLN na konto ' + account + '.';
-        if (desc) { msg += '\nTytuł: ' + desc; }
-        msg += '\n\nKontynuować?';
+        var fmt = isFinite(amount) ? amount.toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : (locale === 'en-US' ? '0.00' : '0,00');
+        var msg = locale === 'en-US' ? ('Transferring ' + fmt + ' USD to account ' + account + '.') : ('Przelewasz ' + fmt + ' USD na konto ' + account + '.');
+        if (desc) { msg += locale === 'en-US' ? ('\nTitle: ' + desc) : ('\nTytul: ' + desc); }
+        msg += locale === 'en-US' ? '\n\nContinue?' : '\n\nKontynuowac?';
         form.setAttribute('data-confirm', msg);
-        // modal.js handler bedzie czytac data-confirm i pokaze potwierdzenie.
-        // The modal.js handler will read data-confirm and show the confirmation.
+        // modal.js reads data-confirm and shows the confirmation modal.
     });
 })();
 </script>

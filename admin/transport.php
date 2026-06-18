@@ -7,7 +7,8 @@ AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
 $msg = '';
-$err = '';
+$err = (string)($_SESSION['admin_flash_error'] ?? '');
+if ($err !== '') { unset($_SESSION['admin_flash_error']); }
 
 $defaults = TransportConfigService::getDefaults();
 $configTableExists = TransportConfigService::tableExists($db);
@@ -20,7 +21,11 @@ $typeNames = [
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+        // Token wygas lub sesja odswiezyla sie — wroc na strone z czytelnym komunikatem.
+        // Token expired or session regenerated — redirect back with a readable message.
+        $_SESSION['admin_flash_error'] = t('common.csrf_error');
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
     }
 
     $action = $_POST['action'] ?? '';
@@ -87,6 +92,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Throwable $e) {
                 $err = t('admin.transport.err_apply') . $e->getMessage();
             }
+        }
+    }
+
+    // Czyszczenie starych/utknietych kursow ciezarowek i buforow drogowych.
+    // Clear old/stuck road trips and road_buffer_bbl in truck wells.
+    if ($action === 'clear_road_trips') {
+        $scope = $_POST['clear_scope'] ?? 'stuck'; // 'stuck' lub 'all'
+        try {
+            $db->beginTransaction();
+            if ($scope === 'all') {
+                $deleted = $db->exec("DELETE FROM well_road_trips");
+                $db->exec("UPDATE wells SET road_buffer_bbl = 0 WHERE transport_type = 'ciezarowki'");
+            } else {
+                // Usun tylko dostarczone i utracone — w tranzycie zostaja.
+                // Delete only delivered and lost — in_transit trips remain.
+                $deleted = $db->exec(
+                    "DELETE FROM well_road_trips WHERE status NOT IN ('in_transit')"
+                );
+            }
+            $db->commit();
+            AdminLog::log('clear_road_trips', "scope={$scope} deleted={$deleted}");
+            $msg = "Wyczyszczono {$deleted} rekordów well_road_trips (tryb: {$scope}).";
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            $err = 'Blad czyszczenia road trips: ' . $e->getMessage();
+        }
+    }
+
+    // Czyszczenie starych/utknietych dostaw morskich i buforow tankowcow.
+    // Clear old/stuck marine deliveries and tanker marine_buffer_bbl in wells.
+    if ($action === 'clear_marine_deliveries') {
+        $scope = $_POST['clear_scope'] ?? 'stuck'; // 'stuck' lub 'all'
+        try {
+            $db->beginTransaction();
+            if ($scope === 'all') {
+                $deleted = $db->exec("DELETE FROM marine_deliveries");
+                $db->exec("UPDATE wells SET marine_buffer_bbl = 0 WHERE transport_type = 'tankowiec'");
+            } else {
+                // Usun tylko utkniente (nie w trakcie aktywnego transportu).
+                // Delete only stuck ones (not currently in active transport leg).
+                $deleted = $db->exec(
+                    "DELETE FROM marine_deliveries WHERE status NOT IN ('departing','in_transit','processing')"
+                );
+            }
+            $db->commit();
+            AdminLog::log('clear_marine_deliveries', "scope={$scope} deleted={$deleted}");
+            $msg = "Wyczyszczono {$deleted} rekordów marine_deliveries (tryb: {$scope}).";
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            $err = 'Blad czyszczenia: ' . $e->getMessage();
         }
     }
 }

@@ -309,7 +309,9 @@ class Auth
             }
 
             if (time() - ($_SESSION['last_active'] ?? 0) > self::SESSION_TTL) {
-                self::logout(false);
+ // Nie usuwaj tokenu "zapamietaj mnie" — timeout sesji to nie jest wylogowanie przez uzytkownika.
+ // Don't clear remember-me — session timeout is not a user-initiated logout.
+                self::logout(false, false);
                 return false;
             }
 
@@ -324,11 +326,14 @@ class Auth
  * Logs out the player and optionally redirects to login.
  * PL: Wylogowuje gracza i opcjonalnie przekierowuje na logowanie.
  */
-    public static function logout(bool $redirect = true): void
+    public static function logout(bool $redirect = true, bool $clearRt = true): void
     {
         try {
- // Usuń token "zapamiętaj mnie" / Remove remember-me token.
-            self::clearRememberMe();
+ // Usun token "zapamietaj mnie" tylko przy jawnym wylogowaniu, nie przy timeoucie sesji.
+ // Clear remember-me only on explicit logout, not on session timeout.
+            if ($clearRt) {
+                self::clearRememberMe();
+            }
             unset($_SESSION['logged_in'], $_SESSION['user_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['login_time'], $_SESSION['last_active']);
 
             if ($redirect) {

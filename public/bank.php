@@ -86,9 +86,7 @@ $negEventIcon    = 'negEventIcon';
 
 // == PRZEKAZ DO WIDOKU ==
 
-$db          = Database::getInstance()->getConnection();
-$transferMax = WalletConfig::getTransferMax($db);
-unset($db);
+$transferMax = WalletConfig::getTransferMax(Database::getInstance()->getConnection());
 $viewData = array_merge($data, compact(
     'bankService', 'bankNeg', 'isBankrupt',
     'error', 'success',

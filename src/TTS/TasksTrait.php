@@ -183,10 +183,35 @@ trait TTSTasksTrait
         $baseHours = rand($taskDef['hours_min'], $taskDef['hours_max']);
         $hours     = max(1, (int)round($baseHours * $mBonus['time_mult'] * $sBonus['time_mult']));
 
-        $baseCost = $taskDef['cost_min'] > 0 ? rand($taskDef['cost_min'], $taskDef['cost_max']) : 0;
-        $cost     = (int)round($baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult']);
+        // Klucz sesji blokujacy ponowne losowanie kosztu dla tej samej kombinacji zlecenia.
+        // Session key locking re-rolls of cost for the same task combination.
+        $quoteKey = 'tts_q_' . $staffId . '_' . $taskType . '_' . (int)$wellId . '_' . (int)$hubId . '_' . (int)$pipelineId;
 
         $moduleDef = $moduleType ? self::getModuleDefinition($moduleType) : null;
+
+        // install_module ma staly koszt z konfiguracji (brak losowania) — pomijamy blokade sesji.
+        // install_module has a fixed config cost (no roll) — skip session quote lock.
+        $usesSessionQuote = $taskDef['cost_min'] > 0 && !($taskType === 'install_module' && $moduleDef !== null);
+
+        if (
+            $usesSessionQuote
+            && isset($_SESSION[$quoteKey])
+            && is_array($_SESSION[$quoteKey])
+            && (int)($_SESSION[$quoteKey]['expires'] ?? 0) > time()
+            && isset($_SESSION[$quoteKey]['cost'])
+        ) {
+            // Uzyj kosztu z sesji (wczesniej wylosowanego) — blokuje re-roll exploit.
+            // Use session-stored cost (previously rolled) — prevents re-roll exploit.
+            $cost = (int)$_SESSION[$quoteKey]['cost'];
+        } else {
+            $baseCost = $taskDef['cost_min'] > 0 ? rand($taskDef['cost_min'], $taskDef['cost_max']) : 0;
+            $cost     = (int)round($baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult']);
+            if ($usesSessionQuote) {
+                // Zapisz wylosowany koszt w sesji na 5 minut / Store rolled cost in session for 5 minutes
+                $_SESSION[$quoteKey] = ['cost' => $cost, 'expires' => time() + 300];
+            }
+        }
+
         if ($taskType === 'install_module' && $moduleDef) {
             $cost = $moduleDef['cost'];
         }
@@ -210,6 +235,9 @@ trait TTSTasksTrait
         $startTime   = date('Y-m-d H:i:s');
         $endTime     = date('Y-m-d H:i:s', time() + $hours * 3600);
 
+        // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
+        // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
+        $fts = ($cost > 0) ? new FinancialTransactionService($this->db) : null;
         $this->db->beginTransaction();
         try {
             if ($cost > 0) {
@@ -275,6 +303,12 @@ trait TTSTasksTrait
             return ['success' => false, 'message' => t('technical.task_msg.start_failed', [
                 'error' => $e->getMessage(),
             ])];
+        }
+
+        // Usun wycene z sesji po udanym zleceniu — kolejne zlecenie dolosuje koszt od nowa.
+        // Remove session quote after successful assignment — next assignment re-rolls cost.
+        if ($usesSessionQuote) {
+            unset($_SESSION[$quoteKey]);
         }
 
         return [

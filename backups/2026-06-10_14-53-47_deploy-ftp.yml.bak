@@ -1,0 +1,255 @@
+name: Test & Deploy via FTP
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+# UWAGA: NIE wymuszamy Node.js 24 (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24).
+# Node 24 psuje wznawianie sesji TLS na kanale danych FTPS -> blad
+# "Client network socket disconnected ... (data socket)". Akcja FTP musi
+# dzialac na natywnym Node 20 (ostrzezenie o deprecacji jest nieszkodliwe).
+# NOTE: do NOT force Node 24 — it breaks FTPS data-channel TLS session reuse.
+
+jobs:
+
+  # -------------------------------------------------------------------
+  # Job 1: BRAMKA DEPLOYU — Unit (bez DB) + Integration (SQLite).
+  # Job 1: DEPLOY GATE — Unit (no DB) + Integration (SQLite).
+  # Te testy musza przejsc, zeby ruszyl deploy.
+  # These tests must pass for the deploy to run.
+  # -------------------------------------------------------------------
+  test:
+    name: Testy PHPUnit (bramka) / PHPUnit gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ustaw PHP / Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instalacja zaleznosci / Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Uruchom testy Unit + Integration / Run Unit + Integration
+        run: php vendor/bin/phpunit --no-coverage --testsuite Unit,Integration
+
+  # -------------------------------------------------------------------
+  # Job 2: testy MySQL — INFORMACYJNE, NIE blokuja deployu.
+  # Job 2: MySQL tests — INFORMATIONAL, do NOT block the deploy.
+  # continue-on-error: czerwony wynik nie wstrzymuje pipeline'u.
+  # -------------------------------------------------------------------
+  mysql-tests:
+    name: Testy MySQL (informacyjne) / MySQL tests (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root
+          MYSQL_DATABASE:      ci_test
+          MYSQL_USER:          ci_user
+          MYSQL_PASSWORD:      ci_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=ci_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ustaw PHP / Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instalacja zaleznosci / Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Zaladuj schemat CI / Load CI schema
+        run: |
+          mysql -h 127.0.0.1 -u ci_user -pci_pass ci_test < tests/ci-schema.sql
+
+      - name: Uruchom testy MySqlIntegration / Run MySqlIntegration
+        run: php vendor/bin/phpunit --no-coverage --testsuite MySqlIntegration
+        env:
+          DB_HOST:    127.0.0.1
+          DB_NAME:    ci_test
+          DB_USER:    ci_user
+          DB_PASS:    ci_pass
+          DB_CHARSET: utf8mb4
+
+  # -------------------------------------------------------------------
+  # Job 3: deploy FTP — odpala sie TYLKO gdy bramka (test) przeszla.
+  # Job 3: FTP deploy — runs ONLY when the gate (test) passed.
+  # NIE zalezy od mysql-tests, wiec testy MySQL nie blokuja wdrozenia.
+  # Does NOT depend on mysql-tests, so MySQL tests can't block deploy.
+  # -------------------------------------------------------------------
+  deploy:
+    name: Upload to FTP
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Pelna historia — potrzebna do policzenia roznicy plikow miedzy
+          # poprzednim a obecnym commitem (deploy tylko zmienionych plikow).
+          # Full history — needed to diff changed files between pushes.
+          fetch-depth: 0
+
+      - name: Write .env from secret
+        run: printf '%s' "$ENV_FILE" > .env
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+
+      # Instalacja lftp — uzywa OpenSSL i POPRAWNIE wznawia sesje TLS na kanale
+      # danych (jak WinSCP). basic-ftp w Node tego nie potrafi -> "data socket" TLS reset.
+      # Install lftp — uses OpenSSL and properly reuses the TLS session on the data
+      # channel (like WinSCP). Node's basic-ftp cannot -> "data socket" TLS reset.
+      - name: Zainstaluj lftp / Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      # Deploy przez lftp: implicit FTPS na porcie 990.
+      # WYSYLAMY TYLKO PLIKI ZMIENIONE w danym pushu (git diff BEFORE..AFTER),
+      # bo swiezy git clone resetuje czasy modyfikacji i mirror po czasie wyslalby
+      # wszystko. Fallback do pelnego mirrora gdy brak prawidlowego BEFORE_SHA
+      # (pierwszy deploy / force-push). BEZ --delete: nie ruszamy plikow serwera.
+      # Deploy via lftp (implicit FTPS 990): upload ONLY files changed in this push.
+      # Fresh git clone resets mtimes, so a time-based mirror would re-send everything.
+      # Falls back to a full mirror when BEFORE_SHA is missing. NO --delete.
+      - name: Deploy via lftp (implicit FTPS 990)
+        env:
+          FTP_HOST: hosting2629304.online.pro
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR:  ${{ secrets.FTP_REMOTE_DIR }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA:  ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+
+          EXCLUDES='-X .git/ -X .github/ -X .vscode/ -X .claude/ -X .phpunit_cache/ -X .idea/ -X tests/ -X vendor/ -X node_modules/ -X cache/ -X coverage/ -X build/ -X dist/ -X tmp/ -X temp/ -X backups/ -X logs/ -X svn_repo/ -X migrations/ -X backup/ -X sessions/ -X ".env.*" -X .gitignore -X CLAUDE.md -X composer.json -X composer.lock -X phpstan.neon -X phpstan_errors.txt -X phpunit.xml.dist -X deploy.ps1 -X "diag*.php" -X check_log_cfg.php -X diag.php -X reset_db.php -X "*.bak" -X "*_server.php" -X "*.log" -X winscp.log -X winscp_sync.txt -X "*.sql" -X "*.zip" -X "*.rar" -X database.php'
+
+          # Czy plik jest wykluczony z deployu (te same reguly co lista -X powyzej)?
+          is_excluded() {
+            case "$1" in
+              .git/*|.github/*|.vscode/*|.claude/*|.phpunit_cache/*|.idea/*|tests/*|vendor/*|node_modules/*|cache/*|coverage/*|build/*|dist/*|tmp/*|temp/*|backups/*|logs/*|svn_repo/*|migrations/*|backup/*|sessions/*) return 0 ;;
+              .env|.gitignore|CLAUDE.md|composer.json|composer.lock|phpstan.neon|phpstan_errors.txt|phpunit.xml.dist|deploy.ps1|check_log_cfg.php|diag.php|reset_db.php|winscp.log|winscp_sync.txt|database.php) return 0 ;;
+              .env.*|diag*.php|*.bak|*_server.php|*.log|*.sql|*.zip|*.rar|*/database.php) return 0 ;;
+            esac
+            return 1
+          }
+
+          MODE=partial
+          if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            echo "Brak prawidlowego BEFORE_SHA -> pelny mirror (fallback)."
+            MODE=full
+          fi
+
+          STAGE=/tmp/ftp_deploy
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+
+          if [ "$MODE" = "partial" ]; then
+            if ! git diff --name-only --diff-filter=ACMRT "$BEFORE_SHA" "$AFTER_SHA" > /tmp/changed.txt; then
+              echo "git diff nieudany -> pelny mirror (fallback)."
+              MODE=full
+            fi
+          fi
+
+          if [ "$MODE" = "partial" ]; then
+            COUNT=0
+            echo "Zmienione pliki ($BEFORE_SHA -> $AFTER_SHA):"
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              if is_excluded "$f"; then echo "  - pomijam (wykluczony): $f"; continue; fi
+              if [ ! -f "$f" ]; then echo "  - pomijam (brak/usuniety): $f"; continue; fi
+              mkdir -p "$STAGE/$(dirname "$f")"
+              cp -p "$f" "$STAGE/$f"
+              echo "  + $f"
+              COUNT=$((COUNT + 1))
+            done < /tmp/changed.txt
+
+            # .env zawsze odswiezany z sekretu (gitignored, wiec nie pojawi sie w diffie).
+            if [ -f .env ]; then cp -p .env "$STAGE/.env"; COUNT=$((COUNT + 1)); fi
+
+            # assets/version.txt — globalny timestamp deployu do cache-bustingu CSS/JS.
+            # assets/version.txt — global deploy timestamp for CSS/JS cache-busting.
+            # Dodawany przy kazdym deployu -> wszystkie ?v= URL assetow sie zmieniaja.
+            # Added on every deploy -> all ?v= asset URLs change, browsers fetch fresh files.
+            mkdir -p "$STAGE/assets"
+            echo "$(date +%s)" > "$STAGE/assets/version.txt"
+            echo "  + assets/version.txt (build: $(cat $STAGE/assets/version.txt))"
+            COUNT=$((COUNT + 1))
+
+            echo "Plikow do wgrania: $COUNT"
+            MIRROR_CMD="mirror --reverse --verbose --transfer-all --no-perms $STAGE/ \"$FTP_DIR\""
+          else
+            # Pelny mirror: rowniez dodaj version.txt z aktualnym timestampem.
+            # Full mirror: also add version.txt with current timestamp.
+            mkdir -p ./assets
+            echo "$(date +%s)" > ./assets/version.txt
+            echo "  + assets/version.txt (build: $(cat ./assets/version.txt)) [full mirror]"
+            MIRROR_CMD="mirror --reverse --verbose --transfer-all --no-perms $EXCLUDES ./ \"$FTP_DIR\""
+          fi
+
+          lftp <<LFTP
+          set ssl:verify-certificate no
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ftp:ssl-protect-list true
+          set ftp:passive-mode true
+          set net:max-retries 3
+          set net:timeout 30
+          set net:reconnect-interval-base 5
+          set mirror:parallel-transfer-count 1
+          open ftps://$FTP_HOST:990
+          user "$FTP_USER" "$FTP_PASS"
+          $MIRROR_CMD
+          bye
+          LFTP
+
+      # Odczekaj, az zapisy FTP sie ustabilizuja, zanim wyczyscimy OPcache.
+      # Wait for FTP writes to settle before clearing OPcache.
+      - name: Odczekaj po wgraniu / Settle delay
+        run: sleep 20
+
+      # Wyczysc OPcache na produkcji, by usunac ewentualne nieaktualne wpisy.
+      # Clear production OPcache to drop any stale cached files.
+      - name: Reset OPcache
+        run: |
+          curl -fsS --max-time 30 \
+            "${{ secrets.SITE_URL }}/public/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
+            && echo "" && echo "OPcache reset OK" \
+            || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"

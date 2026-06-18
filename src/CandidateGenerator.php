@@ -7,7 +7,8 @@ require_once __DIR__ . '/FinancePolicyService.php';
  * 1. Pobiera specjalizacje z hr_specializations (rarity, widelki placowe)
  * 2. Pobiera region z hr_regions (skill_modifier, salary_modifier)
  * 3. Generuje liczbe kandydatow wg rarity
- * 4. Dla kazdego: wiek → doswiadczenie → skills → traits → pensja → imie
+ * 4. For each candidate: age -> experience -> skills -> traits -> salary -> name.
+ * PL: Dla kazdego kandydata: wiek -> doswiadczenie -> umiejetnosci -> cechy -> pensja -> imie.
  */
 class CandidateGenerator
 {
@@ -26,12 +27,11 @@ class CandidateGenerator
  // skill 3-4: 40%, 5-6: 20%, 7: 12%, 8: 6%, 9: 1.8%, 10: 0.2%
  /** @var array<int, array<int, int>> */
     private static array $skillDistribution = [
-        [3, 4,  4],
+        [3, 4,  40],
         [5, 6,  20],
         [7, 7,  12],
         [8, 8,   6],
-        [9, 9,   2],   // ~1.8% zaokraglone
-        [10, 10, 0],   // obslugiwane osobno ponizej (0.2%)
+        [9, 9,   2],
     ];
 
  // Czas rekrutacji w sekundach
@@ -86,8 +86,10 @@ class CandidateGenerator
             ? $this->fetchSpecByCode($specCode)
             : $this->fetchSpecByRole($roleId);
 
-        if (!$region || !$spec) {
+        if (!$region) {
             $region = ['code'=>'PL','skill_modifier'=>1.0,'salary_modifier'=>1.0,'availability'=>60];
+        }
+        if (!$spec) {
             $spec   = ['id'=>null,'rarity'=>'common','base_salary_min'=>4000,'base_salary_max'=>8000,
                        'min_age'=>25,'max_age'=>55,'name'=>'Pracownik'];
         }
@@ -293,7 +295,8 @@ class CandidateGenerator
         if ($roll <= 2) {
             $base = 10;
         } else {
-            $roll100 = mt_rand(1, 100);
+            $totalWeight = array_sum(array_map(static fn(array $row): int => (int)$row[2], self::$skillDistribution));
+            $roll100 = mt_rand(1, max(1, $totalWeight));
             $cumulative = 0;
             $base = 5;
             foreach (self::$skillDistribution as [$min, $max, $weight]) {
@@ -436,7 +439,8 @@ class CandidateGenerator
  */
     private function fetchSpecByRole(int $roleId): ?array
     {
- // Mapuj role zarzadu → departament specjalizacji
+ // Map board roles to specialization departments.
+ // PL: Mapuj role zarzadu na departamenty specjalizacji.
         $deptMap = [1 => 'hr', 2 => 'technical', 3 => 'finance', 4 => 'legal', 5 => 'logistics'];
 
         $stmt = $this->db->prepare("SELECT code FROM board_roles WHERE id = ?");

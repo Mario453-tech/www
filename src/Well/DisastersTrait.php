@@ -45,8 +45,12 @@ trait WellDisastersTrait
                 ")->execute([$pipelineId, $playerId]);
             }
 
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                ->execute([$envFine + $repairCost, $playerId]);
+ // Gotowka NIE jest pobierana tutaj - tick jest jedynym platnikiem katastrof.
+ // PipelineSection odejmuje (cost+env_fine) przez cashDelta, a roznicowy zapis
+ // saveCashAndTick ksieguje to raz. Bezposredni UPDATE dawal podwojne pobranie.
+ // Cash is NOT charged here - the tick is the single payer for disasters.
+ // PipelineSection subtracts (cost+env_fine) via cashDelta and the differential
+ // saveCashAndTick books it once. A direct UPDATE caused a double charge.
 
             $this->insertFailureLog(
                 $playerId,
@@ -146,9 +150,8 @@ trait WellDisastersTrait
                 WHERE player_id = ?
             ")->execute([$oilLost, $playerId]);
 
- // Kara finansowa / Financial penalty
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                ->execute([$envFine, $playerId]);
+ // Kara finansowa pobierana raz przez tick (SpillSection cashDelta), nie tutaj.
+ // Financial penalty is charged once by the tick (SpillSection cashDelta), not here.
 
  // Wpis w failure_log / Insert into failure_log
             $this->insertFailureLog($playerId, null, 'surface_spill', 0, $envFine, $oilLost, 0, $desc, resolved: true);
@@ -243,12 +246,14 @@ trait WellDisastersTrait
             ]);
         }
     }
-
  /**
- * Katastrofa: Blowout — eksplozja odwiertu.
- * Disaster: Blowout — well explosion.
+ * Katastrofa: Blowout - eksplozja odwiertu.
+ * Disaster: Blowout - well explosion.
  * Odwiert przechodzi w status 'blowout', wymaga zadania blowout_control.
  * Well transitions to 'blowout' status, requires blowout_control task.
+ *
+ * @param array<string, mixed> $hseBonus
+ * @return array{disaster:string|null,cost?:int,env_fine?:int,desc?:string}
  */
     public function triggerBlowout(int $wellId, int $playerId, array $hseBonus = []): array
     {
@@ -274,8 +279,11 @@ trait WellDisastersTrait
             $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1, marine_buffer_bbl=0 WHERE id=? AND player_id=?")
                 ->execute([$wellId, $playerId]);
 
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id=?")
-                ->execute([$envFine + $repairCost, $playerId]);
+ // Gotowka pobierana raz przez tick (WellRiskHandler dodaje cost+env_fine do
+ // finIncident i playerCash), nie tutaj. Wczesniej brak odejmowania w ticku
+ // oznaczal pojedyncze pobranie - teraz ujednolicone z rurociagiem/spill.
+ // Cash is charged once by the tick (WellRiskHandler adds cost+env_fine to
+ // finIncident and playerCash), not here. Unified with pipeline/spill flow.
 
             $this->insertFailureLog($playerId, $wellId, 'blowout', $repairCost, $envFine, 0, 0, $desc);
 
@@ -322,12 +330,14 @@ trait WellDisastersTrait
             return ['disaster' => null];
         }
     }
-
  /**
  * Katastrofa: Skazenie rezerwuaru.
  * Disaster: Reservoir contamination.
  * Odwiert przechodzi w status 'contaminated', wymaga zadania reservoir_rehabilitation.
  * Well transitions to 'contaminated' status, requires reservoir_rehabilitation task.
+ *
+ * @param array<string, mixed> $hseBonus
+ * @return array{disaster:string|null,cost?:int,env_fine?:int,desc?:string}
  */
     public function triggerReservoirContamination(int $wellId, int $playerId, array $hseBonus = []): array
     {
@@ -353,8 +363,9 @@ trait WellDisastersTrait
             $this->db->prepare("UPDATE wells SET status='contaminated' WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage')")
                 ->execute([$wellId, $playerId]);
 
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id=?")
-                ->execute([$envFine + $repairCost, $playerId]);
+ // Gotowka pobierana raz przez tick (WellRiskHandler dodaje cost+env_fine do
+ // finIncident i playerCash), nie tutaj.
+ // Cash is charged once by the tick (WellRiskHandler adds cost+env_fine), not here.
 
             $this->insertFailureLog($playerId, $wellId, 'reservoir_contamination', $repairCost, $envFine, 0, 5, $desc);
 

@@ -8,6 +8,9 @@ class LoanRepository
     {
         try {
             $this->db = Database::getInstance()->getConnection();
+            if (class_exists('BankAccountService')) {
+                (new BankAccountService($this->db))->ensureSchema();
+            }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('LoanRepository', '__construct failed', $e);
@@ -17,8 +20,7 @@ class LoanRepository
     }
 
  /**
- * Processes due installments for all active loans.
- * Called by the TICK loop.
+ * Przetwarza raty wymagalne w ticku / Processes installments due in the tick loop.
  */
     public function processInstallments(): void
     {
@@ -156,6 +158,13 @@ class LoanRepository
             }
 
         } catch (Throwable $e) {
+            try {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+            } catch (Throwable) {
+                // Blad rollbacku nie zmienia obslugi bledu / Rollback failure is non-fatal here.
+            }
             if (class_exists('GameLog', false)) {
                 GameLog::error('LoanRepository', 'processInstallment failed', $e, [
                     'loan_id'   => $loan['id'] ?? null,

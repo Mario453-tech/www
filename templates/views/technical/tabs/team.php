@@ -3,6 +3,7 @@
 <?php else: ?>
 
 <?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
     $mgrInitials = strtoupper(substr($manager['first_name'] ?? '', 0, 1) . substr($manager['last_name'] ?? '', 0, 1));
     $mgrSkill    = (int)($mBonus['skill'] ?? 0);
 ?>
@@ -22,9 +23,9 @@
     </div>
     <?php if ($mgrSkill > 0): ?>
     <div class="mgr-perks">
-        <span class="mgr-perk mgr-perk--time"> -<?= $mgrSkill * 2.5 ?>% czasu</span>
-        <span class="mgr-perk mgr-perk--cost"> -<?= $mgrSkill * 1.5 ?>% kosztów</span>
-        <span class="mgr-perk mgr-perk--skill"> Org. <?= $mgrSkill ?>/10</span>
+        <span class="mgr-perk mgr-perk--time">-<?= $mgrSkill * 2.5 ?>% <?= $locale === 'en' ? 'time' : 'czasu' ?></span>
+        <span class="mgr-perk mgr-perk--cost">-<?= $mgrSkill * 1.5 ?>% <?= $locale === 'en' ? 'cost' : 'kosztow' ?></span>
+        <span class="mgr-perk mgr-perk--skill">Org. <?= $mgrSkill ?>/10</span>
         <div class="mgr-skill-track"><div class="mgr-skill-fill" style="width:<?= min(100,$mgrSkill*10) ?>%"></div></div>
     </div>
     <?php endif ?>
@@ -52,8 +53,8 @@
         $sec = $sectionMap[$s['spec_code']]['label'] ?? t('technical.section_other');
         $sections[$sec][] = $s;
     }
- // Kotwica #tech-mnt umieszczana na pierwszej karcie Inzyniera Utrzymania Ruchu
- // (deep-link "Zlec naprawe u MNT" ze strony glownej).
+    // Anchor #tech-mnt is placed on the first maintenance engineer card.
+    // Used by the deep-link from the main page repair shortcut.
     $__mntAnchorPlaced = false;
     foreach ($sections as $sectionLabel => $sectionStaff):
     ?>
@@ -185,7 +186,7 @@
                                     <option value=""><?= t('technical.no_pipeline_option') ?></option>
                                     <?php foreach (($pipelines ?? []) as $pp): ?>
                                     <?php $ppSt = $pp['status'] ?? 'active'; ?>
-                                    <option value="<?= (int)$pp['id'] ?>">#<?= (int)$pp['id'] ?> <?= htmlspecialchars((string)($pp['name'] ?? ('Rurociąg #' . (int)$pp['id']))) ?> — <?= htmlspecialchars((string)($pp['location_name'] ?? $pp['well_name'] ?? '')) ?> (<?= round((float)($pp['condition_pct'] ?? 0)) ?>%, <?= htmlspecialchars((string)$ppSt) ?>)</option>
+                                    <option value="<?= (int)$pp['id'] ?>">#<?= (int)$pp['id'] ?> <?= htmlspecialchars((string)($pp['name'] ?? (($locale === 'en' ? 'Pipeline #' : 'Rurociag #') . (int)$pp['id']))) ?> &mdash; <?= htmlspecialchars((string)($pp['location_name'] ?? $pp['well_name'] ?? '')) ?> (<?= round((float)($pp['condition_pct'] ?? 0)) ?>%, <?= htmlspecialchars((string)$ppSt) ?>)</option>
                                     <?php endforeach ?>
                                 </select>
                             </div>

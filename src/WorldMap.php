@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/PlayerPaymentService.php';
+
 /**
  * WorldMap - world map service.
  * Handles regions, locations and well purchases via the map.
@@ -241,6 +243,8 @@ class WorldMap
             $reservoir     = (int)round(300000 * $richness);
             $transportType = $loc['well_type'] === 'offshore' ? 'tankowiec' : 'nieustawiony';
             $transportProfile = TransportConfigService::getTypeConfig($this->db, $transportType);
+
+            $paymentService = new PlayerPaymentService($this->db);
 
             $this->db->beginTransaction();
             try {

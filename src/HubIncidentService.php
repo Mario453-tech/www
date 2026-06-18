@@ -28,8 +28,23 @@ class HubIncidentService
     use HubIncidentRiskTrait;
     use HubIncidentEffectsTrait;
 
+    /**
+     * Mapa kluczy efektow ochrony na typy incydentow huba.
+     * Map of protection effect keys to hub incident types.
+     */
+    private const PROTECTION_EFFECT_TO_TYPE = [
+        'transfer_failure_risk_mult'  => 'transfer_failure',
+        'equipment_damage_risk_mult'  => 'equipment_damage',
+        'local_leak_risk_mult'        => 'local_leak',
+        'loading_error_risk_mult'     => 'loading_error',
+        'storage_jam_risk_mult'       => 'storage_jam',
+        'critical_overload_risk_mult' => 'critical_overload',
+    ];
+
     private PDO $db;
     private HubService $hubSvc;
+    /** @var array<int, array<string, mixed>> */
+    private array $protectionCache = [];
 
     public function __construct(PDO $db, ?HubService $hubSvc = null)
     {
@@ -58,7 +73,8 @@ class HubIncidentService
         array $tickResult,
         float $deltaHours,
         int   $playerId,
-        array $hseBonus = []
+        array $hseBonus = [],
+        ?ProtectionService $protection = null
     ): ?array {
  // Huby active/overloaded/damaged/critical mog mie incydenty (disabled/building/paused nie)
  // Hubs active/overloaded/damaged/critical may have incidents (disabled/building/paused no)
@@ -74,6 +90,11 @@ class HubIncidentService
 
         $riskMult = $this->calcRiskMultiplier($hub, $tickResult, $hseBonus);
         $loadPct  = (float)($tickResult['load_pct'] ?? 0.0);
+        // Ochrona jest przypisana do wlasciciela huba, nie do gracza-dzierzawcy.
+        // Protection belongs to the hub owner, not to the tenant well-owner.
+        $hubOwnerPlayerId = (int)($hub['player_id'] ?? 0);
+        $protectionData = $this->protectionData($protection, $hubOwnerPlayerId, (int)$hub['id']);
+        $protMults = $protectionData['mults'];
 
         foreach (self::INCIDENTS as $type => $cfg) {
  // critical_overload tylko gdy faktycznie przeciony / only when actually overloaded
@@ -81,13 +102,75 @@ class HubIncidentService
                 continue;
             }
 
-            $chance = (self::BASE_CHANCE_PER_HOUR[$type] ?? 0.01) * $deltaHours * $riskMult;
+            $chance = (self::BASE_CHANCE_PER_HOUR[$type] ?? 0.01) * $deltaHours * $riskMult
+                * ($protMults[$type] ?? 1.0);
             if ((mt_rand(0, 999999) / 1_000_000.0) < $chance) {
-                return $this->generateIncident($type, $cfg, $hub, $inputBbl, $tickResult, $playerId);
+                $incident = $this->generateIncident($type, $cfg, $hub, $inputBbl, $tickResult, $playerId);
+                if ($protection !== null && isset($protMults[$type]) && $protectionData['option_id'] > 0) {
+                    $protection->logEvent(
+                        $hubOwnerPlayerId, $protectionData['option_id'], 'hub', (int)$hub['id'], 'hub_guard',
+                        'protection_applied_to_incident', (float)($incident['extra_loss'] ?? 0.0), $type
+                    );
+                }
+                return $incident;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Laduje aktywne ochrony hubow przed petla ticka.
+     * Preloads active hub protections before the tick loop.
+     * Klucz mapy: hub_id => owner_player_id (wlasciciel, nie dzierzawca).
+     * Map key: hub_id => owner_player_id (owner, not tenant).
+     *
+     * @param array<int, int> $hubIdToOwnerPlayerId
+     */
+    public function preloadProtections(array $hubIdToOwnerPlayerId, ?ProtectionService $protection): void
+    {
+        if ($protection === null || empty($hubIdToOwnerPlayerId)) {
+            $this->protectionCache = [];
+            return;
+        }
+        // Grupowanie hubow wg wlasciciela, batch per owner / Group hubs by owner, one batch per owner
+        $byOwner = [];
+        foreach ($hubIdToOwnerPlayerId as $hubId => $ownerId) {
+            $byOwner[$ownerId][] = (int)$hubId;
+        }
+        $cache = [];
+        foreach ($byOwner as $ownerId => $hubIds) {
+            foreach ($protection->getActiveProtections($ownerId, 'hub', $hubIds, 'hub_guard') as $hubId => $row) {
+                $cache[$hubId] = $row;
+            }
+        }
+        $this->protectionCache = $cache;
+    }
+
+    /**
+     * Buduje dane ochrony huba: mape mnoznikow i ID opcji do audytu.
+     * Builds hub protection data: multiplier map and option ID for audit.
+     *
+     * @return array{mults: array<string, float>, option_id: int}
+     */
+    private function protectionData(?ProtectionService $protection, int $hubOwnerPlayerId, int $hubId): array
+    {
+        if ($protection === null) {
+            return ['mults' => [], 'option_id' => 0];
+        }
+        $row = $this->protectionCache[$hubId]
+            ?? $protection->getActiveProtection($hubOwnerPlayerId, 'hub', $hubId, 'hub_guard');
+        if ($row === null) {
+            return ['mults' => [], 'option_id' => 0];
+        }
+        $effects = $row['effects'] ?? [];
+        $out = [];
+        foreach (self::PROTECTION_EFFECT_TO_TYPE as $key => $type) {
+            if (isset($effects[$key]) && $effects[$key]['type'] === 'mult') {
+                $out[$type] = (float)$effects[$key]['value'];
+            }
+        }
+        return ['mults' => $out, 'option_id' => (int)($row['protection_option_id'] ?? 0)];
     }
 
  // Data getters

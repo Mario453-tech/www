@@ -1,4 +1,8 @@
 <?php extract($viewData, EXTR_SKIP); ?>
+<?php
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+?>
 
 <div class="hr-tabs module-tabs">
     <button type="button" class="hr-tab module-tab active" onclick="switchTab('employees')"><?= t('hr.tab_employees') ?><span class="tab-badge module-tab-badge module-tab-badge--ok"><?= count($employees) ?></span></button>
@@ -29,10 +33,11 @@
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $warn = isset($emp['contract_days_left']) && $emp['contract_days_left'] <= 14 && $emp['contract_days_left'] >= 0;
             $age = !empty($emp['birth_date']) ? date_diff(date_create($emp['birth_date']), date_create('today'))->y : null;
-            $safeName = htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name'], ENT_QUOTES);
+            $safeName = json_encode($emp['first_name'] . ' ' . $emp['last_name'], JSON_HEX_APOS | JSON_HEX_QUOT);
             $empDomId = ($emp['source'] ?? 'board_member') . '-' . (int)$emp['id'];
+            $empDomJs = json_encode($empDomId, JSON_HEX_APOS | JSON_HEX_QUOT);
         ?>
-        <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails('<?= $empDomId ?>')">
+        <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails(<?= $empDomJs ?>)">
             <div class="emp-header">
                 <div class="emp-avatar"><?= ($emp['gender'] ?? 'M') === 'F' ? '&#128105;' : '&#128104;' ?></div>
                 <div class="emp-info">
@@ -45,7 +50,7 @@
                     </div>
                 </div>
                 <div class="emp-salary-block">
-                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> PLN</div>
+                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
                     <div class="emp-salary-label"><?= t('hr.salary_month') ?></div>
                     <?php if ($warn): ?><div class="emp-contract-warn">&#9888; <?= $emp['contract_days_left'] ?> <?= t('common.days') ?></div><?php endif ?>
                 </div>
@@ -85,12 +90,12 @@
                         <option value="6m"><?= t('hr.renew_6m') ?></option>
                         <option value="2y"><?= t('hr.renew_2y') ?></option>
                     </select>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_renew') ?></button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_renew') ?></button>
                     <?php endif ?>
                     <?php if (($emp['source'] ?? 'board_member') === 'technical_staff'): ?>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
                     <?php else: ?>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
                     <?php endif ?>
                 </div>
             </div>
@@ -117,7 +122,7 @@
             $avg = round(($candidate['skill_organization'] + $candidate['skill_negotiation'] + $candidate['skill_analysis'] + $candidate['skill_stress'] + $candidate['skill_ethics']) / 5, 1);
             $expLevel = $candidate['experience_years'] <= 5 ? 'Junior' : ($candidate['experience_years'] <= 12 ? 'Mid' : 'Senior');
             $hoursLeft = max(0, (int)$candidate['hours_remaining']);
-            $safeName = htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name'], ENT_QUOTES);
+            $safeName = json_encode($candidate['first_name'] . ' ' . $candidate['last_name'], JSON_HEX_APOS | JSON_HEX_QUOT);
             $isRecommended = ($candidate['tech_recommendation'] ?? '') === 'hire';
             $isRejected = ($candidate['tech_recommendation'] ?? '') === 'reject';
         ?>
@@ -135,7 +140,7 @@
                     </div>
                 </div>
                 <div class="cand-salary">
-                    <?= number_format((float)$candidate['expected_salary'], 0, ',', ' ') ?> PLN
+                    <?= number_format((float)$candidate['expected_salary'], 0, ',', ' ') ?> <?= $currencyLabel ?>
                     <div class="cand-salary-label"><?= t('hr.salary_per_month') ?></div>
                 </div>
             </div>
@@ -183,8 +188,8 @@
                         <option value="6m"><?= t('hr.contract_6m') ?></option>
                         <option value="2y"><?= t('hr.contract_2y') ?></option>
                     </select>
-                    <button type="button" class="btn-cv btn-cv-reject" onclick="rejectCandidate(<?= (int)$candidate['id'] ?>, '<?= $safeName ?>')"><?= t('hr.btn_reject') ?></button>
-                    <button type="button" class="btn-cv btn-cv-hire <?= $isRecommended ? 'btn-cv-hire-recommended' : '' ?>" onclick="hireCandidate(<?= (int)$candidate['id'] ?>, '<?= $safeName ?>')">
+                    <button type="button" class="btn-cv btn-cv-reject" onclick="rejectCandidate(<?= (int)$candidate['id'] ?>, <?= $safeName ?>)"><?= t('hr.btn_reject') ?></button>
+                    <button type="button" class="btn-cv btn-cv-hire <?= $isRecommended ? 'btn-cv-hire-recommended' : '' ?>" onclick="hireCandidate(<?= (int)$candidate['id'] ?>, <?= $safeName ?>)">
                         <?= $isRecommended ? t('hr.btn_hire_recommended') : t('hr.btn_hire') ?>
                     </button>
                 </div>
@@ -226,7 +231,7 @@
                     </div>
                 </div>
                 <div class="emp-salary-block">
-                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> PLN</div>
+                    <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
                     <div class="emp-salary-label"><?= t('hr.salary_month') ?></div>
                 </div>
             </div>
@@ -277,7 +282,7 @@
             <div><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></div>
             <div><?= htmlspecialchars($c['role_name']) ?></div>
             <div class="contract-dates"><?= date('d.m.Y', strtotime($c['contract_start'])) ?> - <?= date('d.m.Y', strtotime($c['contract_end'])) ?></div>
-            <div><?= number_format((float)$c['salary'], 0, ',', ' ') ?> PLN</div>
+            <div><?= number_format((float)$c['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
             <div>
                 <?php if ($isDead): ?><span class="badge-expired"><?= t('hr.badge_expired') ?></span>
                 <?php elseif ($isExp): ?><span class="badge-expiring">&#9888; <?= $c['days_left'] ?> <?= t('common.days') ?></span>
@@ -489,7 +494,7 @@
 <div id="hr-events-container"></div>
 
 <script>
-const CSRF_TOKEN = '<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>';
+const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
 const HR_API = '/src/HRApi.php';
 window.HR_LANG = <?= json_encode([
     'contract_1y' => t('hr_js.contract_1y'),

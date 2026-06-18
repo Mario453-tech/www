@@ -183,6 +183,13 @@ class BlackMarketService
             $scoreGainMax = $this->cfg('bm_score_gain_max', 8);
             $scoreGain = $scoreGainMin + (mt_rand() / mt_getrandmax()) * ($scoreGainMax - $scoreGainMin);
 
+            // Bonus punktow proporcjonalny do wartosci transakcji (konfigurowalny przez admina).
+            // Value-proportional score bonus configured by admin.
+            $scorePerPln = $this->cfg('bm_score_per_pln', 0.0);
+            if ($scorePerPln > 0.0) {
+                $scoreGain += $revenue * $scorePerPln;
+            }
+
             $newScore = min(100.0, $blackScore + $scoreGain);
             $penalty = 0.0;
             $creditChange = 0;
@@ -205,15 +212,14 @@ class BlackMarketService
 
                 $creditChange = -random_int(3, max(3, min(10, (int)ceil($newScore / 10))));
 
+ // Aktualizacja black_score + credit_score; gotowka idzie osobno przez FTS ponizej.
+ // Update black_score + credit_score; cash is moved separately via FTS below.
                 $this->db->prepare("
                     UPDATE players
-                    SET cash = cash + :revenue - :penalty,
-                        black_market_score = :bms,
+                    SET black_market_score = :bms,
                         credit_score = GREATEST(0, credit_score + :cs)
                     WHERE id = :pid
                 ")->execute([
-                    ':revenue' => $revenue,
-                    ':penalty' => $penalty,
                     ':bms' => round($newScore, 2),
                     ':cs' => $creditChange,
                     ':pid' => $playerId,
@@ -228,14 +234,34 @@ class BlackMarketService
             } else {
                 $this->db->prepare("
                     UPDATE players
-                    SET cash = cash + :revenue,
-                        black_market_score = :bms
+                    SET black_market_score = :bms
                     WHERE id = :pid
                 ")->execute([
-                    ':revenue' => $revenue,
                     ':bms' => round($newScore, 2),
                     ':pid' => $playerId,
                 ]);
+            }
+
+ // Ruch gotowki przez centralne API finansowe (jestesmy w transakcji FOR UPDATE - FTS do niej dolaczy).
+ // Najpierw przychod ze sprzedazy, potem ewentualna kara gdy wykryto - kara <= gotowka po sprzedazy.
+ // Cash movement via the central finance API (inside the FOR UPDATE transaction - FTS joins it).
+ // Revenue first, then the optional fine when detected - fine <= cash after sale.
+            $fts = new FinancialTransactionService($this->db);
+            if ($revenue >= FinancialTransactionService::MIN_AMOUNT) {
+                $fts->credit(
+                    $playerId, (float)$revenue,
+                    FinancialTransactionService::TYPE_BLACK_MARKET_SALE,
+                    tPlain('bank.tx_black_market_sale'),
+                    'black_market_offer', $offerId
+                );
+            }
+            if ($detected && $penalty >= FinancialTransactionService::MIN_AMOUNT) {
+                $fts->debit(
+                    $playerId, (float)$penalty,
+                    FinancialTransactionService::TYPE_BLACK_MARKET_SALE,
+                    tPlain('bank.tx_black_market_penalty'),
+                    'black_market_offer', $offerId
+                );
             }
 
             $this->db->prepare("
@@ -298,16 +324,42 @@ class BlackMarketService
  */
     public function decayScores(): void
     {
-        $decay = $this->cfg('bm_score_decay_per_tick', 0.5);
-        if ($decay <= 0) {
+        // Staly ubytek punktow co tick (legacy, domyslnie 0.5).
+        // Flat per-tick decay (legacy, default 0.5).
+        $flatDecay = $this->cfg('bm_score_decay_per_tick', 0.5);
+        if ($flatDecay > 0.0) {
+            $this->db->prepare("
+                UPDATE players
+                SET black_market_score = GREATEST(0, ROUND(black_market_score - :decay, 2))
+                WHERE black_market_score > 0
+            ")->execute([':decay' => $flatDecay]);
+        }
+
+        // Procentowy decay co konfigurowalny interwal godzinowy.
+        // Percentage-based decay on a configurable hourly interval.
+        $decayPct = $this->cfg('bm_decay_pct', 0.0);
+        $intervalHours = $this->cfg('bm_decay_interval_hours', 24.0);
+        if ($decayPct <= 0.0 || $intervalHours <= 0.0) {
+            return;
+        }
+
+        $lastAt = (int)$this->cfg('bm_decay_last_at', 0);
+        $now = time();
+        if ($now - $lastAt < (int)($intervalHours * 3600)) {
             return;
         }
 
         $this->db->prepare("
             UPDATE players
-            SET black_market_score = GREATEST(0, black_market_score - :decay)
+            SET black_market_score = GREATEST(0, ROUND(black_market_score * (1.0 - :pct / 100.0), 2))
             WHERE black_market_score > 0
-        ")->execute([':decay' => $decay]);
+        ")->execute([':pct' => $decayPct]);
+
+        $this->db->prepare("
+            INSERT INTO well_config (`key`, value, label, category)
+            VALUES ('bm_decay_last_at', :ts, 'Ostatni decay procentowy', 'black_market')
+            ON DUPLICATE KEY UPDATE value = :ts2
+        ")->execute([':ts' => $now, ':ts2' => $now]);
     }
 
  // Credit score recovery.

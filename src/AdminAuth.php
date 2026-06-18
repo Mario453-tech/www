@@ -76,14 +76,21 @@ class AdminAuth
             return false;
         }
 
-        $cols = "id, username, email, is_active";
+        $cols = "id, username, email, is_active, lock_until, failed_attempts";
         if (self::totpAvailable($db)) {
-            $cols .= ", totp_secret, totp_enabled";
+            $cols .= ", totp_enabled";
         }
         $stmt = $db->prepare("SELECT {$cols} FROM admins WHERE email = ? LIMIT 1");
         $stmt->execute([$player['email']]);
         $admin = $stmt->fetch();
         if (!$admin || !(int)$admin['is_active']) {
+            return false;
+        }
+
+ // SSO must also respect account lockout (lock_until).
+ // PL: SSO musi tez respektowac blokade konta (lock_until).
+        if (!empty($admin['lock_until']) && strtotime($admin['lock_until']) > time()) {
+            self::log('SSO_BLOCKED', "SSO rejected — account locked: '{$admin['username']}'");
             return false;
         }
 
@@ -98,6 +105,11 @@ class AdminAuth
  // PL: Zapisz pola sesji admina.
     private static function setSession(array $admin): void
     {
+        // Po session_destroy() sesja jest nieaktywna — wymagany ponowny session_start().
+        // After session_destroy() the session is inactive — need session_start() again.
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
         session_regenerate_id(true);
         $_SESSION['admin_logged_in'] = true;
         $_SESSION['admin_id'] = $admin['id'];
@@ -120,11 +132,12 @@ class AdminAuth
     {
         session_regenerate_id(true);
         unset($_SESSION['admin_logged_in'], $_SESSION['admin_id'], $_SESSION['admin_2fa_setup_secret']);
+ // Sekret TOTP NIE jest przechowywany w sesji — pobierany z DB przy weryfikacji.
+ // TOTP secret is NOT stored in session — fetched fresh from DB at verification time.
         $_SESSION['admin_pending'] = [
             'id'           => (int)$admin['id'],
             'username'     => $admin['username'],
             'email'        => $admin['email'] ?? '',
-            'totp_secret'  => $admin['totp_secret'] ?? null,
             'totp_enabled' => (int)($admin['totp_enabled'] ?? 0),
             'ts'           => time(),
         ];
@@ -179,12 +192,121 @@ class AdminAuth
         if (!self::totpAvailable($db)) {
             return false;
         }
-        $db->prepare("UPDATE admins SET totp_secret = ?, totp_enabled = 1 WHERE id = ?")
-            ->execute([$secret, $p['id']]);
-        $_SESSION['admin_pending']['totp_secret']  = $secret;
+        self::ensureTotpColumnSize($db);
+ // WHERE guard: nie nadpisuj sekretu gdy 2FA juz aktywne (ochrona przed re-enrollment).
+ // WHERE guard: do not overwrite an existing secret when 2FA is already active.
+        $stmt = $db->prepare("UPDATE admins SET totp_secret = ?, totp_enabled = 1 WHERE id = ? AND (totp_enabled IS NULL OR totp_enabled = 0)");
+        $stmt->execute([self::encryptTotpSecret($secret), $p['id']]);
+        if ($stmt->rowCount() === 0) {
+            self::log('2FA_ENROLL_SKIP', "2FA already active for '{$p['username']}' — enrollment skipped");
+            return false;
+        }
         $_SESSION['admin_pending']['totp_enabled'] = 1;
         self::log('2FA_ENROLLED', "2FA enabled for '{$p['username']}'");
         return true;
+    }
+
+ // Pobierz i odszyfruj sekret TOTP z bazy dla danego admina.
+ // Fetch and decrypt the TOTP secret from DB for the given admin.
+    public static function getAdminTotpSecret(int $adminId): ?string
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+            if (!self::totpAvailable($db)) {
+                return null;
+            }
+            self::ensureTotpColumnSize($db);
+            $stmt = $db->prepare("SELECT totp_secret FROM admins WHERE id = ? AND totp_enabled = 1 LIMIT 1");
+            $stmt->execute([$adminId]);
+            $row = $stmt->fetch();
+            if (!$row || empty($row['totp_secret'])) {
+                return null;
+            }
+            $decrypted = self::decryptTotpSecret((string)$row['totp_secret']);
+            if ($decrypted === null || $decrypted === '') {
+                GameLog::error('AdminAuth', 'getAdminTotpSecret: decryption returned empty/null', null, ['admin_id' => $adminId]);
+                return null;
+            }
+            return $decrypted;
+        } catch (Throwable $e) {
+            GameLog::error('AdminAuth', 'getAdminTotpSecret failed', $e, ['admin_id' => $adminId]);
+            return null;
+        }
+    }
+
+ // Szyfruj sekret TOTP przed zapisem do DB (AES-256-GCM, klucz z env TOTP_ENCRYPT_KEY).
+ // Encrypt the TOTP secret before storing in DB (AES-256-GCM, key from TOTP_ENCRYPT_KEY env).
+ // Bez klucza: zapis bez szyfrowania (wsteczna kompatybilnosc).
+ // Without key: store as plaintext (backward compat).
+    private static function encryptTotpSecret(string $secret): string
+    {
+        $key = (string)getenv('TOTP_ENCRYPT_KEY');
+        if (strlen($key) < 32) {
+            return $secret;
+        }
+        $rawKey = substr(hash('sha256', $key, true), 0, 32);
+        $iv  = random_bytes(12);
+        $tag = '';
+        $enc = openssl_encrypt($secret, 'aes-256-gcm', $rawKey, OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+        if ($enc === false) {
+            return $secret;
+        }
+        return 'enc:' . base64_encode($iv . $tag . $enc);
+    }
+
+ // Odszyfruj sekret z DB. Jesli nie zaszyfrowany (enc:...) — zwroc bez zmian.
+ // Decrypt secret from DB. If not encrypted (enc:...) — return as-is (plaintext legacy).
+ // Zwraca null gdy odszyfrowanie niemozliwe (brak klucza ENV lub uszkodzone dane).
+ // Returns null when decryption is impossible (missing ENV key or corrupted data).
+    private static function decryptTotpSecret(string $stored): ?string
+    {
+        if (!str_starts_with($stored, 'enc:')) {
+            return $stored;
+        }
+        $key = (string)getenv('TOTP_ENCRYPT_KEY');
+        if (strlen($key) < 32) {
+ // Sekret jest zaszyfrowany ale brak klucza ENV — admin zostanie zablokowany.
+ // Secret is encrypted but ENV key is missing — admin would be locked out.
+            GameLog::error('AdminAuth', 'TOTP_ENCRYPT_KEY missing or too short — cannot decrypt totp_secret', null, []);
+            return null;
+        }
+        $rawKey = substr(hash('sha256', $key, true), 0, 32);
+        $data   = base64_decode(substr($stored, 4), true);
+        if ($data === false || strlen($data) < 28) {
+            GameLog::error('AdminAuth', 'decryptTotpSecret: invalid base64 or too short', null, []);
+            return null;
+        }
+        $iv  = substr($data, 0, 12);
+        $tag = substr($data, 12, 16);
+        $enc = substr($data, 28);
+        $dec = openssl_decrypt($enc, 'aes-256-gcm', $rawKey, OPENSSL_RAW_DATA, $iv, $tag);
+        if ($dec === false) {
+            GameLog::error('AdminAuth', 'decryptTotpSecret: AES-GCM decryption failed (wrong key or tampered data)', null, []);
+            return null;
+        }
+        return $dec;
+    }
+
+ // Jednorazowa auto-migracja: rozszerz totp_secret do VARCHAR(255) jesli za mala.
+ // One-time auto-migration: widen totp_secret to VARCHAR(255) if currently too narrow.
+ // Zaszyfrowany sekret ma ~68+ znakow, VARCHAR(64) obcina dane.
+ // Encrypted secret is ~68+ chars; VARCHAR(64) would truncate data.
+    private static function ensureTotpColumnSize(PDO $db): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $col = $db->query("SHOW COLUMNS FROM admins WHERE Field = 'totp_secret'")->fetch();
+            if ($col && preg_match('/varchar\((\d+)\)/i', (string)$col['Type'], $m) && (int)$m[1] < 255) {
+                $db->exec("ALTER TABLE admins MODIFY COLUMN totp_secret VARCHAR(255) NULL DEFAULT NULL");
+                GameLog::info('AdminAuth', 'totp_secret column widened to VARCHAR(255)');
+            }
+        } catch (\Throwable $e) {
+            GameLog::error('AdminAuth', 'ensureTotpColumnSize failed', $e);
+        }
     }
 
  // Czy kolumny TOTP istnieja w tabeli admins (graceful degradation).
@@ -352,19 +474,56 @@ class AdminAuth
         if (strlen($newPass) < 8) {
             return ['success' => false, 'message' => t('admin_auth.err_password_short')];
         }
+        if (strlen($token) !== 64) {
+            return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
+        }
 
-        $data = self::verifyResetToken($token);
+        $db   = Database::getInstance()->getConnection();
+        $hash = hash('sha256', $token);
+
+ // Pobierz email PRZED oznaczeniem tokenu, zeby nie stracic danych przy ewentualnej
+ // delecji wiersza miedzy UPDATE a SELECT (mozliwe w teorii przy recznych operacjach DB).
+ // Fetch email BEFORE marking the token used, to avoid losing data if the row is
+ // deleted between UPDATE and SELECT (theoretically possible with manual DB operations).
+        $emailStmt = $db->prepare("SELECT email FROM admin_password_resets WHERE token_hash = ? AND expires_at > NOW() AND used = 0 LIMIT 1");
+        $emailStmt->execute([$hash]);
+        $data = $emailStmt->fetch();
         if (!$data) {
             return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
         }
 
-        $db = Database::getInstance()->getConnection();
-        $hash = password_hash($newPass, PASSWORD_BCRYPT, ['cost' => 12]);
-        $db->prepare("UPDATE admins SET password_hash = ? WHERE email = ?")->execute([$hash, $data['email']]);
-        $db->prepare("UPDATE admin_password_resets SET used = 1 WHERE token_hash = ?")->execute([hash('sha256', $token)]);
+ // Atomowe oznaczenie tokenu jako uzytego — zabezpiecza przed race condition double-use.
+ // Atomically mark the token as used — prevents race-condition double-use.
+        $markStmt = $db->prepare("UPDATE admin_password_resets SET used = 1 WHERE token_hash = ? AND used = 0");
+        $markStmt->execute([$hash]);
+        if ($markStmt->rowCount() === 0) {
+ // Inny watek/proces zdazyl uzyc tokenu w tym samym momencie.
+ // Another thread/process consumed the token at the same moment.
+            return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
+        }
+
+        $passHash = password_hash($newPass, PASSWORD_BCRYPT, ['cost' => 12]);
+        $db->prepare("UPDATE admins SET password_hash = ? WHERE email = ?")->execute([$passHash, $data['email']]);
 
         self::log('RESET_OK', "Password changed: {$data['email']}");
         return ['success' => true, 'message' => t('admin_auth.msg_password_changed')];
+    }
+
+ // Loguj nieudana probe TOTP do tabeli blokad IP (ta sama co przy haslach).
+ // Log a failed TOTP attempt to the IP-block table (same as password failures).
+ // Dzieki temu isIpBlocked() obejmuje tez brute-force TOTP, nawet przy re-logowaniu.
+ // This makes isIpBlocked() cover TOTP brute-force too, even across re-logins.
+    public static function logTotpFail(int $adminId): void
+    {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        try {
+            $db = Database::getInstance()->getConnection();
+            $db->prepare("INSERT INTO admin_login_attempts (ip_address, username) VALUES (?,?)")
+                ->execute([$ip, "2fa#$adminId"]);
+        } catch (Throwable $e) {
+            GameLog::error('AdminAuth', 'logTotpFail persistence failed', $e, ['admin_id' => $adminId, 'ip' => $ip]);
+        }
+        self::log('TOTP_FAIL', "Wrong TOTP code | admin_id=$adminId");
     }
 
  // Simple IP rate limiting.
@@ -378,10 +537,7 @@ class AdminAuth
             $stmt->execute([$ip]);
             return (int)$stmt->fetchColumn() >= 10;
         } catch (Throwable $e) {
-            GameLog::error('AdminAuth', 'isIpBlocked failed', [
-                'ip' => $ip,
-                'error' => $e->getMessage(),
-            ]);
+            GameLog::error('AdminAuth', 'isIpBlocked failed', $e, ['ip' => $ip]);
             return false;
         }
     }
@@ -396,11 +552,7 @@ class AdminAuth
             $db->prepare("INSERT INTO admin_login_attempts (ip_address, username) VALUES (?,?)")->execute([$ip, $login]);
             $db->query("DELETE FROM admin_login_attempts WHERE attempted_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)");
         } catch (Throwable $e) {
-            GameLog::error('AdminAuth', 'logFail persistence failed', [
-                'login' => $login,
-                'ip' => $ip,
-                'error' => $e->getMessage(),
-            ]);
+            GameLog::error('AdminAuth', 'logFail persistence failed', $e, ['login' => $login, 'ip' => $ip]);
         }
         self::log('LOGIN_FAIL', "$reason | login='$login'");
     }
@@ -426,12 +578,7 @@ class AdminAuth
             $db->prepare("INSERT INTO admin_login_attempts (ip_address, username) VALUES (?,?)")->execute([$ip, $login]);
             $db->query("DELETE FROM admin_login_attempts WHERE attempted_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)");
         } catch (Throwable $e) {
-            GameLog::error('AdminAuth', 'logFailAccount persistence failed', [
-                'admin_id' => $admin['id'] ?? null,
-                'login' => $login,
-                'ip' => $ip,
-                'error' => $e->getMessage(),
-            ]);
+            GameLog::error('AdminAuth', 'logFailAccount persistence failed', $e, ['admin_id' => $admin['id'] ?? null, 'login' => $login, 'ip' => $ip]);
         }
 
         self::log('LOGIN_FAIL', "Bad password | login='$login' | attempt={$newAttempts}");

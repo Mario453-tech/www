@@ -3,21 +3,21 @@
 declare(strict_types=1);
 
 /**
- * CompanyCredibilityService — Wiarygodnosc firmy: fundament systemu reputacji.
- * CompanyCredibilityService — Company credibility: foundation of the reputation system.
+ * CompanyCredibilityService - Wiarygodnosc firmy: fundament systemu reputacji.
+ * CompanyCredibilityService - Company credibility: foundation of the reputation system.
  *
  * Ogolny wskaznik reputacji firmy wobec swiata gry (skala 0-100, start 50).
  * General company-reputation indicator in the game world (0-100 scale, starts at 50).
  *
  * NIE zastepuje istniejacych wskaznikow (zasada nadrzedna briefu, sekcja 11):
  * Does NOT replace existing indicators (brief rule, section 11):
- *  - credit_score        — ocena kredytowa banku / bank credit rating
- *  - bank_trust_scores   — ukryte zaufanie banku / hidden bank trust
- *  - black_market_score  — slad po czarnym rynku / black market footprint
+ *  - credit_score        - ocena kredytowa banku / bank credit rating
+ *  - bank_trust_scores   - ukryte zaufanie banku / hidden bank trust
+ *  - black_market_score  - slad po czarnym rynku / black market footprint
  *
- * Zasada: zaden inny kod nie zmienia players.company_credibility bezposrednio —
+ * Zasada: zaden inny kod nie zmienia players.company_credibility bezposrednio -
  * wszystkie zmiany przechodza przez ten serwis (sekcja 4 briefu).
- * Rule: no other code mutates players.company_credibility directly — every change
+ * Rule: no other code mutates players.company_credibility directly - every change
  * goes through this service (brief section 4).
  */
 class CompanyCredibilityService
@@ -31,8 +31,8 @@ class CompanyCredibilityService
      * Mapa zdarzenie -> delta punktow (sekcja 6 briefu).
      * Event -> point-delta map (brief section 6).
      *
-     * admin_manual_adjustment ma delte dynamiczna — podawana wprost do changeScore().
-     * admin_manual_adjustment has a dynamic delta — passed directly to changeScore().
+     * admin_manual_adjustment ma delte dynamiczna - podawana wprost do changeScore().
+     * admin_manual_adjustment has a dynamic delta - passed directly to changeScore().
      */
     public const EVENT_DELTAS = [
         // Zdarzenia negatywne / Negative events (6.1)
@@ -81,9 +81,9 @@ class CompanyCredibilityService
     // ----------------------------------------------------------------- Schema
 
     /**
-     * Tworzy kolumne i tabele historii (idempotentnie). DDL MySQL — na SQLite
+     * Tworzy kolumne i tabele historii (idempotentnie). DDL MySQL - na SQLite
      * (testy) jest no-op, bo testy buduja wlasny schemat.
-     * Creates the column and history table (idempotent). MySQL DDL — no-op on
+     * Creates the column and history table (idempotent). MySQL DDL - no-op on
      * SQLite (tests build their own schema).
      */
     public function ensureSchema(): void
@@ -98,10 +98,10 @@ class CompanyCredibilityService
             return;
         }
 
-        // DDL (ALTER/CREATE) robi w MySQL niejawny commit — nie wolno go odpalac
+        // DDL (ALTER/CREATE) robi w MySQL niejawny commit - nie wolno go odpalac
         // wewnatrz transakcji (np. splata kredytu, czarny rynek). Odraczamy do
         // pierwszej konstrukcji poza transakcja (dashboard / panel admina).
-        // DDL (ALTER/CREATE) triggers an implicit commit in MySQL — never run it
+        // DDL (ALTER/CREATE) triggers an implicit commit in MySQL - never run it
         // inside a transaction (e.g. loan repayment, black market). Defer until the
         // first construction outside a transaction (dashboard / admin panel).
         try {
@@ -109,7 +109,7 @@ class CompanyCredibilityService
                 return;
             }
         } catch (Throwable) {
-            // Brak wsparcia inTransaction — kontynuuj / inTransaction unsupported — continue
+            // Brak wsparcia inTransaction - kontynuuj / inTransaction unsupported - continue
         }
 
         self::$schemaEnsured[$connId] = true;
@@ -122,7 +122,7 @@ class CompanyCredibilityService
                 'INT UNSIGNED NOT NULL DEFAULT ' . self::DEFAULT_SCORE
             );
 
-            // Historia zmian — obowiazkowa (sekcja 3) / Change history — mandatory
+            // Historia zmian - obowiazkowa (sekcja 3) / Change history - mandatory
             $this->db->exec(
                 "CREATE TABLE IF NOT EXISTS company_credibility_log (
                     id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -138,12 +138,8 @@ class CompanyCredibilityService
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
 
-            // Powiadomienia typu 'credibility' (sekcja 9): kolumna director_notifications.type
-            // to ENUM, ktory domyslnie NIE zawiera 'credibility'. Bez tego INSERT w notify()
-            // sie wywala (MySQL strict 1265) i powiadomienie ginie. Rozszerzamy ENUM idempotentnie.
-            // 'credibility' notifications (section 9): director_notifications.type is an ENUM that
-            // by default does NOT include 'credibility'. Without this the notify() INSERT fails
-            // (MySQL strict, 1265) and the notification is lost. Extend the ENUM idempotently.
+            // Powiadomienia typu 'credibility' (sekcja 9): utrzymujemy ENUM gotowy dla zgodnosci.
+            // 'credibility' notifications (section 9): keep the ENUM ready for compatibility.
             $this->ensureNotificationType();
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
@@ -161,8 +157,8 @@ class CompanyCredibilityService
     private function ensureNotificationType(): void
     {
         try {
-            // Tabela moze nie istniec w niektorych srodowiskach — wtedy nic nie robimy.
-            // The table may not exist in some environments — then do nothing.
+            // Tabela moze nie istniec w niektorych srodowiskach - wtedy nic nie robimy.
+            // The table may not exist in some environments - then do nothing.
             $stmt = $this->db->query(
                 "SELECT COLUMN_TYPE
                    FROM information_schema.COLUMNS
@@ -197,8 +193,8 @@ class CompanyCredibilityService
     // ------------------------------------------------------------- Odczyt / Read
 
     /**
-     * Zwraca aktualny wynik gracza (przyciety do 0-100). Brak gracza → wartosc startowa.
-     * Returns the player's current score (clamped 0-100). Missing player → default.
+     * Zwraca aktualny wynik gracza (przyciety do 0-100). Brak gracza -> wartosc startowa.
+     * Returns the player's current score (clamped 0-100). Missing player -> default.
      */
     public function getScore(int $playerId): int
     {
@@ -344,8 +340,8 @@ class CompanyCredibilityService
      * Stosuje zdarzenie ze stalej mapy delt (sekcja 6). Wygodne dla podpiec w grze.
      * Applies an event from the fixed delta map (brief section 6). Convenience for game hooks.
      *
-     * W pelni guarded — nigdy nie przerywa operacji nadrzednej (splata, komornik itd.).
-     * Fully guarded — never breaks the parent operation (repayment, bailiff, etc.).
+     * W pelni guarded - nigdy nie przerywa operacji nadrzednej (splata, komornik itd.).
+     * Fully guarded - never breaks the parent operation (repayment, bailiff, etc.).
      */
     public function applyEvent(int $playerId, string $eventKey, ?string $note = null): void
     {
@@ -356,9 +352,6 @@ class CompanyCredibilityService
             return;
         }
         $delta = self::EVENT_DELTAS[$eventKey];
-        if ($delta === 0) {
-            return;
-        }
         try {
             $this->changeScore($playerId, $delta, $eventKey, $note);
         } catch (Throwable $e) {
@@ -390,15 +383,15 @@ class CompanyCredibilityService
                 "UPDATE players SET company_credibility = ? WHERE id = ?"
             )->execute([$after, $playerId]);
 
-            // Log zawsze (sekcja 3) — nawet przy delcie efektywnej 0 (np. sufit/podloga),
+            // Log zawsze (sekcja 3) - nawet przy delcie efektywnej 0 (np. sufit/podloga),
             // zeby historia tlumaczyla dlaczego wynik sie nie zmienil.
-            // Always log (section 3) — even when effective delta is 0 (ceiling/floor),
+            // Always log (section 3) - even when effective delta is 0 (ceiling/floor),
             // so history explains why the score did not move.
             $this->logChange($playerId, $eventKey, $effectiveDelta, $before, $after, $note);
 
-            // Powiadomienia gracza sa wylaczone — wiarygodnosc to informacja wyacznie dla admina.
+            // Powiadomienia gracza sa wylaczone - wiarygodnosc to informacja wylacznie dla admina.
             // Historia pozostaje w company_credibility_log (widoczna w panelu admina).
-            // Player notifications are disabled — credibility is admin-only information.
+            // Player notifications are disabled - credibility is admin-only information.
             // History remains in company_credibility_log (visible in the admin panel).
 
             if (class_exists('GameLog', false)) {
@@ -422,8 +415,8 @@ class CompanyCredibilityService
     }
 
     /**
-     * Zapisuje wpis historii zmiany (sekcja 3). Guarded — log nigdy nie wywraca zmiany.
-     * Writes a change-history entry (section 3). Guarded — logging never breaks the change.
+     * Zapisuje wpis historii zmiany (sekcja 3). Guarded - log nigdy nie wywraca zmiany.
+     * Writes a change-history entry (section 3). Guarded - logging never breaks the change.
      */
     public function logChange(
         int     $playerId,
@@ -442,51 +435,6 @@ class CompanyCredibilityService
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('CompanyCredibilityService', 'logChange FAILED', $e, [
-                    'player_id' => $playerId, 'event_key' => $eventKey,
-                ]);
-            }
-        }
-    }
-
-    // ------------------------------------------------------ Powiadomienia / Notify
-
-    /**
-     * Wstawia powiadomienie dyrektora (typ 'credibility'). W pelni guarded — brak
-     * tabeli director_notifications nie przerywa zmiany wyniku (sekcja 9).
-     * Inserts a director notification (type 'credibility'). Fully guarded — a missing
-     * director_notifications table never breaks the score change (brief section 9).
-     */
-    private function notify(int $playerId, string $eventKey, int $delta, int $after): void
-    {
-        try {
-            $level   = $this->getLevel($after);
-            $dir     = $delta < 0 ? 'down' : 'up';
-            $params  = [
-                'score' => $after,
-                'level' => tPlain('credibility.level_' . $level),
-            ];
-
-            // Komunikat zalezny od zdarzenia; brak klucza → komunikat ogolny wg kierunku.
-            // Event-specific message; missing key → generic message by direction.
-            $msgKey  = 'credibility.notif.msg_' . $eventKey;
-            $message = tPlain($msgKey, $params);
-            if ($message === $msgKey) {
-                $message = tPlain('credibility.notif.msg_generic_' . $dir, $params);
-            }
-
-            $title    = tPlain('credibility.notif.title_' . $dir);
-            $priority = $delta <= -15 ? 'high' : 'low';
-            $expires  = (new DateTime())->modify('+72 hours')->format('Y-m-d H:i:s');
-
-            $this->db->prepare(
-                "INSERT INTO director_notifications
-                    (player_id, type, priority, title, message, icon,
-                     requires_action, action_url, action_label, expires_at)
-                 VALUES (?, 'credibility', ?, ?, ?, '', 0, NULL, NULL, ?)"
-            )->execute([$playerId, $priority, $title, $message, $expires]);
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('CompanyCredibilityService', 'notify FAILED', $e, [
                     'player_id' => $playerId, 'event_key' => $eventKey,
                 ]);
             }

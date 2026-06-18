@@ -62,13 +62,104 @@ trait HRRecruitmentTrait
         $duration = (int)max(60, round(rand($range[0], $range[1]) * $durationMult));
         $readyAt = date('Y-m-d H:i:s', time() + $duration);
 
-        $stmt = $this->db->prepare("
-            INSERT INTO recruitment_requests
-                (role_id, region_code, player_id, initiated_by, recruitment_type, spec_code, ready_at, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
-        ");
-        $stmt->execute([$roleId, $regionCode, $playerId, $initiatedBy, $recruitmentType, $specCode, $readyAt]);
-        $requestId = (int)$this->db->lastInsertId();
+        $this->db->beginTransaction();
+        try {
+            $lock = $this->db->prepare("SELECT id FROM players WHERE id = ? LIMIT 1 FOR UPDATE");
+            $lock->execute([$playerId]);
+
+            if ($initiatedBy === 'director') {
+                $limitStmt = $this->db->prepare("
+                    SELECT COUNT(*)
+                    FROM recruitment_requests
+                    WHERE player_id = ?
+                      AND initiated_by = 'director'
+                      AND COALESCE(spec_code, '') = ''
+                      AND status IN ('pending','ready')
+                ");
+                $limitStmt->execute([$playerId]);
+                if ((int)$limitStmt->fetchColumn() >= 2) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => tPlain('hr.err_max_recruitments')];
+                }
+
+                $dupStmt = $this->db->prepare("
+                    SELECT COUNT(*)
+                    FROM recruitment_requests
+                    WHERE player_id = ?
+                      AND role_id = ?
+                      AND initiated_by = 'director'
+                      AND COALESCE(spec_code, '') = ''
+                      AND status IN ('pending','ready')
+                ");
+                $dupStmt->execute([$playerId, $roleId]);
+            } elseif ($initiatedBy === 'technical') {
+                $techTotalStmt = $this->db->prepare("
+                    SELECT COUNT(*)
+                    FROM recruitment_requests rr
+                    JOIN board_roles br ON br.id = rr.role_id
+                    WHERE rr.player_id = ?
+                      AND rr.initiated_by = 'technical'
+                      AND br.code = 'technical'
+                      AND rr.status IN ('pending','ready')
+                ");
+                $techTotalStmt->execute([$playerId]);
+
+                $techSpecStmt = $this->db->prepare("
+                    SELECT COUNT(*)
+                    FROM recruitment_requests rr
+                    JOIN board_roles br ON br.id = rr.role_id
+                    WHERE rr.player_id = ?
+                      AND rr.initiated_by = 'technical'
+                      AND rr.spec_code = ?
+                      AND br.code = 'technical'
+                      AND rr.status IN ('pending','ready')
+                ");
+                $techSpecStmt->execute([$playerId, $specCode]);
+
+                if ((int)$techTotalStmt->fetchColumn() >= 6 || (int)$techSpecStmt->fetchColumn() >= 2) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => tPlain('hr.err_max_recruitments')];
+                }
+
+                $dupStmt = null;
+            } else {
+                $dupStmt = $this->db->prepare("
+                    SELECT COUNT(*)
+                    FROM recruitment_requests
+                    WHERE player_id = ?
+                      AND role_id = ?
+                      AND initiated_by = ?
+                      AND COALESCE(spec_code, '') = COALESCE(?, '')
+                      AND status IN ('pending','ready')
+                ");
+                $dupStmt->execute([$playerId, $roleId, $initiatedBy, $specCode]);
+            }
+
+            if ($dupStmt !== null && (int)$dupStmt->fetchColumn() > 0) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => tPlain('hr.err_role_already_recruiting')];
+            }
+
+            $stmt = $this->db->prepare("
+                INSERT INTO recruitment_requests
+                    (role_id, region_code, player_id, initiated_by, recruitment_type, spec_code, ready_at, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+            ");
+            $stmt->execute([$roleId, $regionCode, $playerId, $initiatedBy, $recruitmentType, $specCode, $readyAt]);
+            $requestId = (int)$this->db->lastInsertId();
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('HRService', 'startRecruitment insert FAILED', $e, [
+                'player_id' => $playerId,
+                'role_id' => $roleId,
+                'initiated_by' => $initiatedBy,
+                'spec_code' => $specCode,
+            ]);
+            return ['success' => false, 'message' => tPlain('common.db_error')];
+        }
 
         $typeLabel = tPlain($recruitmentType === 'international' ? 'recruitment.type_international' : 'recruitment.type_local');
         $mins = (int)ceil($duration / 60);
@@ -99,93 +190,126 @@ trait HRRecruitmentTrait
  * Call from cron or when loading board or HR views.
  * Wywolywac z crona lub przy zaladowaniu widokow zarzadu albo HR.
  */
-    public function processReadyRecruitments(): int
+    public function processReadyRecruitments(?int $playerId = null): int
     {
- // Najpierw oznacz rekordy jako processing, aby uniknac podwojnego przetwarzania
- // przez jednoczesne wejscie na strone i tick/crona.
- // First mark records as processing to avoid double-processing from simultaneous page load and tick/cron.
-        $this->db->exec("
-            UPDATE recruitment_requests
-            SET status = 'processing'
-            WHERE status = 'pending' AND ready_at <= NOW() AND region_code IS NOT NULL
-        ");
+        $playerFilter = $playerId !== null && $playerId > 0 ? " AND player_id = ?" : "";
+        $params = $playerFilter !== "" ? [$playerId] : [];
 
         $stmt = $this->db->prepare("
             SELECT * FROM recruitment_requests
-            WHERE status = 'processing'
+            WHERE status = 'pending'
+              AND ready_at <= NOW()
+              {$playerFilter}
+            ORDER BY ready_at ASC
         ");
-        $stmt->execute();
+        $stmt->execute($params);
         $ready = $stmt->fetchAll();
+        $processed = 0;
 
         foreach ($ready as $req) {
-            $bankruptPenalty = 1.0;
+            try {
+                $this->db->beginTransaction();
 
-            if (!empty($req['player_id'])) {
-                try {
-                    $bStmt = $this->db->prepare("
-                        SELECT COALESCE(recovery_mode, 0) AS recovery_mode, status
-                        FROM players WHERE id = ? LIMIT 1
-                    ");
-                    $bStmt->execute([$req['player_id']]);
-                    $bRow = $bStmt->fetch();
-                    if ($bRow && (
-                        (string)$bRow['status'] === 'bankrupt'
-                        || (int)$bRow['recovery_mode'] === 1
-                    )) {
-                        $bankruptPenalty = 0.7;
-                        GameLog::info('HRService', 'processReadyRecruitments - bankrupt penalty', [
-                            'player_id' => $req['player_id'],
-                            'request_id' => $req['id'],
-                            'penalty' => $bankruptPenalty,
-                        ]);
-                    }
-                } catch (Throwable $e) {
-                    GameLog::error('HRService', 'processReadyRecruitments bankruptcy check FAILED', $e, [
-                        'player_id' => $req['player_id'],
-                        'request_id' => $req['id'],
-                    ]);
+                $claim = $this->db->prepare("
+                    UPDATE recruitment_requests
+                    SET status = 'ready'
+                    WHERE id = ?
+                      AND status = 'pending'
+                      AND ready_at <= NOW()
+                      {$playerFilter}
+                ");
+                $claimParams = [(int)$req['id']];
+                if ($playerFilter !== "") {
+                    $claimParams[] = $playerId;
                 }
-            }
+                $claim->execute($claimParams);
+                if ($claim->rowCount() !== 1) {
+                    $this->db->rollBack();
+                    continue;
+                }
 
-            $generated = $this->generator->generateForRequest(
-                (int)$req['role_id'],
-                (int)$req['id'],
-                (string)($req['region_code'] ?? 'PL'),
-                $req['spec_code'] ?? null,
-                (string)($req['recruitment_type'] ?? 'local'),
-                $bankruptPenalty,
-                (string)($req['initiated_by'] ?? 'director')
-            );
-
-            $generatedCount = is_array($generated) ? count($generated) : 0;
-
-            if ($generatedCount > 0) {
-                $this->db->prepare("UPDATE recruitment_requests SET status = 'ready' WHERE id = ?")
-                    ->execute([(int)$req['id']]);
+                $bankruptPenalty = 1.0;
 
                 if (!empty($req['player_id'])) {
-                    $role = $this->getRoleName((int)$req['role_id']);
-                    $this->createEvent(
-                        (int)$req['player_id'],
-                        'new_candidates',
-                        tPlain('recruitment.event_new_candidates_title', ['role' => $role]),
-                        tPlain('recruitment.event_new_candidates_msg', ['role' => $role]),
-                        null
-                    );
+                    try {
+                        $bStmt = $this->db->prepare("
+                            SELECT COALESCE(recovery_mode, 0) AS recovery_mode, status
+                            FROM players WHERE id = ? LIMIT 1
+                        ");
+                        $bStmt->execute([$req['player_id']]);
+                        $bRow = $bStmt->fetch();
+                        if ($bRow && (
+                            (string)$bRow['status'] === 'bankrupt'
+                            || (int)$bRow['recovery_mode'] === 1
+                        )) {
+                            $bankruptPenalty = 0.7;
+                            GameLog::info('HRService', 'processReadyRecruitments - bankrupt penalty', [
+                                'player_id' => $req['player_id'],
+                                'request_id' => $req['id'],
+                                'penalty' => $bankruptPenalty,
+                            ]);
+                        }
+                    } catch (Throwable $e) {
+                        GameLog::error('HRService', 'processReadyRecruitments bankruptcy check FAILED', $e, [
+                            'player_id' => $req['player_id'],
+                            'request_id' => $req['id'],
+                        ]);
+                    }
                 }
-            } else {
-                $this->db->prepare("UPDATE recruitment_requests SET status = 'cancelled' WHERE id = ?")
-                    ->execute([(int)$req['id']]);
 
-                GameLog::info('HRService', 'processReadyRecruitments - no candidates, request closed', [
-                    'request_id' => (int)$req['id'],
-                    'role_id' => (int)$req['role_id'],
+                $generated = $this->generator->generateForRequest(
+                    (int)$req['role_id'],
+                    (int)$req['id'],
+                    (string)($req['region_code'] ?: 'PL'),
+                    $req['spec_code'] ?? null,
+                    (string)($req['recruitment_type'] ?? 'local'),
+                    $bankruptPenalty,
+                    (string)($req['initiated_by'] ?? 'director')
+                );
+
+                $generatedCount = is_array($generated) ? count($generated) : 0;
+
+                if ($generatedCount > 0) {
+                    if (!empty($req['player_id'])) {
+                        $role = $this->getRoleName((int)$req['role_id']);
+                        $this->createEvent(
+                            (int)$req['player_id'],
+                            'new_candidates',
+                            tPlain('recruitment.event_new_candidates_title', ['role' => $role]),
+                            tPlain('recruitment.event_new_candidates_msg', ['role' => $role]),
+                            null
+                        );
+                    }
+                } else {
+                    $cancelStmt = $this->db->prepare("UPDATE recruitment_requests SET status = 'cancelled' WHERE id = ? AND status = 'ready'");
+                    $cancelStmt->execute([(int)$req['id']]);
+                    if ($cancelStmt->rowCount() !== 1) {
+                        GameLog::warn('HRService', 'processReadyRecruitments - cancel rowCount mismatch', [
+                            'request_id' => (int)$req['id'],
+                        ]);
+                    }
+
+                    GameLog::info('HRService', 'processReadyRecruitments - no candidates, request closed', [
+                        'request_id' => (int)$req['id'],
+                        'role_id' => (int)$req['role_id'],
+                        'player_id' => (int)($req['player_id'] ?? 0),
+                        'initiated_by' => (string)($req['initiated_by'] ?? 'director'),
+                    ]);
+                }
+
+                $this->db->commit();
+                $processed++;
+            } catch (Throwable $e) {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                GameLog::error('HRService', 'processReadyRecruitments request FAILED', $e, [
+                    'request_id' => (int)($req['id'] ?? 0),
                     'player_id' => (int)($req['player_id'] ?? 0),
-                    'initiated_by' => (string)($req['initiated_by'] ?? 'director'),
                 ]);
             }
         }
 
-        return count($ready);
+        return $processed;
     }
 }

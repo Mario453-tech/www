@@ -74,6 +74,10 @@ class LegalSection
 
         // P2a: rozpatrzenie wnioskow o zezwolenia na huby / P2a: process hub permit applications
         $this->runHubPermits($nowStr);
+
+        // Upgrade transitional -> granted/refused: gracze z upgrade_pending=1.
+        // Transitional upgrade -> granted/refused: players with upgrade_pending=1.
+        $this->runTransitionalUpgrades($nowStr);
     }
 
     /**
@@ -193,8 +197,11 @@ class LegalSection
     private function applyHubNoDecision(
         int $appId, int $playerId, int $regionId, string $nowStr, string $riskLevel
     ): void {
+        // Brak decyzji = status terminalny; gracz sam sklada ponownie.
+        // No decision = terminal status; player resubmits manually.
         $this->db->prepare(
-            "UPDATE hub_permit_applications SET status='no_decision', decided_at=? WHERE id=?"
+            "UPDATE hub_permit_applications
+                SET status='no_decision', decided_at=? WHERE id=?"
         )->execute([$nowStr, $appId]);
         $this->hubDecided++;
         $this->notifyHub($playerId, $regionId, 'no_decision', $riskLevel, $nowStr, true);
@@ -206,13 +213,14 @@ class LegalSection
     ): void {
         $region = $this->regionName($regionId);
 
-        // Ikony i priorytety spojne z P1 (drilling) / Icons + priorities consistent with P1 (drilling)
+        // Ikony SVG (identyfikatory dla dirNotifIconSvg) i priorytety spojne z P1 (drilling).
+        // SVG icons (identifiers for dirNotifIconSvg) and priorities consistent with P1 (drilling).
         [$key, $icon, $priority] = match ($outcome) {
-            'granted'     => ['granted',     '✅', 'high'],
-            'refused'     => ['refused',     '❌', 'high'],
-            'delayed'     => ['delayed',     '⏳', 'medium'],
-            'no_decision' => ['no_decision', '⚠️', 'medium'],
-            default       => ['granted',     '✅', 'high'],
+            'granted'     => ['granted',     'check',   'high'],
+            'refused'     => ['refused',     'cross',   'high'],
+            'delayed'     => ['delayed',     'alert',   'medium'],
+            'no_decision' => ['no_decision', 'warning', 'medium'],
+            default       => ['granted',     'check',   'high'],
         };
 
         try {
@@ -242,6 +250,124 @@ class LegalSection
                 ]);
             }
         }
+    }
+
+    /**
+     * Przetwarza wnioski o upgrade transitional -> granted/refused.
+     * Processes transitional-to-granted upgrade applications.
+     */
+    private function runTransitionalUpgrades(string $nowStr): void
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT a.id, a.player_id, a.region_id, a.delay_count,
+                        c.no_decision_risk_pct, c.refusal_risk_pct,
+                        c.delay_risk_pct, c.delay_min_minutes, c.delay_max_minutes,
+                        c.refusal_cooldown_minutes, c.base_review_minutes,
+                        c.risk_level
+                   FROM drilling_permit_applications a
+                   JOIN legal_region_config c ON c.region_id = a.region_id
+                  WHERE a.status = 'transitional'
+                    AND a.upgrade_pending = 1
+                    AND a.upgrade_decision_due_at IS NOT NULL
+                    AND a.upgrade_decision_due_at <= ?
+                  ORDER BY a.upgrade_decision_due_at ASC"
+            );
+            $stmt->execute([$nowStr]);
+            $upgrades = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('LegalSection', 'runTransitionalUpgrades: fetch FAILED', $e);
+            }
+            return;
+        }
+
+        foreach ($upgrades as $app) {
+            try {
+                $this->processTransitionalUpgrade($app, $nowStr);
+            } catch (Throwable $e) {
+                if (class_exists('GameLog', false)) {
+                    GameLog::error('LegalSection', 'processTransitionalUpgrade FAILED', $e, [
+                        'application_id' => $app['id'] ?? null,
+                        'player_id'      => $app['player_id'] ?? null,
+                    ]);
+                }
+            }
+        }
+    }
+
+    /** @param array<string,mixed> $app */
+    private function processTransitionalUpgrade(array $app, string $nowStr): void
+    {
+        $appId      = (int)$app['id'];
+        $playerId   = (int)$app['player_id'];
+        $regionId   = (int)$app['region_id'];
+        $delayCount = (int)$app['delay_count'];
+
+        $noDecRisk   = (float)$app['no_decision_risk_pct'];
+        $refusRisk   = (float)$app['refusal_risk_pct'];
+        $delayRisk   = (float)$app['delay_risk_pct'];
+        $delayMin    = (int)$app['delay_min_minutes'];
+        $delayMax    = (int)$app['delay_max_minutes'];
+        $cooldownMin = (int)$app['refusal_cooldown_minutes'];
+        $riskLevel   = (string)$app['risk_level'];
+
+        $roll = mt_rand(1, 100);
+
+        if ($noDecRisk > 0.0 && $roll <= (int)round($noDecRisk)) {
+            // Brak decyzji — zostaje transitional, upgrade_pending=0, moze zlozyc ponownie.
+            // No decision — stays transitional, upgrade_pending=0, can reapply.
+            $this->db->prepare(
+                "UPDATE drilling_permit_applications
+                    SET upgrade_pending = 0, upgrade_decision_due_at = NULL,
+                        decided_at = ?, updated_at = ?
+                  WHERE id = ?"
+            )->execute([$nowStr, $nowStr, $appId]);
+            $this->decided++;
+            $this->notify($playerId, $regionId, 'no_decision', $riskLevel, $nowStr);
+            return;
+        }
+
+        $cumulative = (int)round($noDecRisk);
+        if ($refusRisk > 0.0 && $roll <= $cumulative + (int)round($refusRisk)) {
+            // Odmowa — status='refused', traci dostep transitional.
+            // Refusal — status='refused', loses transitional access.
+            $cooldownUntil = $this->addMinutes($nowStr, $cooldownMin);
+            $this->db->prepare(
+                "UPDATE drilling_permit_applications
+                    SET status = 'refused', upgrade_pending = 0, upgrade_decision_due_at = NULL,
+                        decided_at = ?, refusal_cooldown_until = ?, updated_at = ?
+                  WHERE id = ?"
+            )->execute([$nowStr, $cooldownUntil, $nowStr, $appId]);
+            $this->decided++;
+            $this->notify($playerId, $regionId, 'refused', $riskLevel, $nowStr);
+            return;
+        }
+
+        $cumulative += (int)round($refusRisk);
+        if ($delayRisk > 0.0 && $roll <= $cumulative + (int)round($delayRisk)) {
+            $addMinutes = $delayMin < $delayMax ? mt_rand($delayMin, $delayMax) : $delayMin;
+            $newDueAt   = $this->addMinutes($nowStr, $addMinutes);
+            $this->db->prepare(
+                "UPDATE drilling_permit_applications
+                    SET upgrade_decision_due_at = ?, delay_count = ?, updated_at = ?
+                  WHERE id = ?"
+            )->execute([$newDueAt, $delayCount + 1, $nowStr, $appId]);
+            $this->decided++;
+            $this->notify($playerId, $regionId, 'delayed', $riskLevel, $nowStr);
+            return;
+        }
+
+        // Sukces — upgrade do 'granted', gracz zachowuje i rozszerza dostep.
+        // Success — upgrade to 'granted', player retains and expands access.
+        $this->db->prepare(
+            "UPDATE drilling_permit_applications
+                SET status = 'granted', upgrade_pending = 0, upgrade_decision_due_at = NULL,
+                    decided_at = ?, updated_at = ?
+              WHERE id = ?"
+        )->execute([$nowStr, $nowStr, $appId]);
+        $this->decided++;
+        $this->notify($playerId, $regionId, 'granted', $riskLevel, $nowStr);
     }
 
     /** @param array<string,mixed> $app */
@@ -354,6 +480,8 @@ class LegalSection
         string $nowStr,
         string $riskLevel
     ): void {
+        // Brak decyzji = status terminalny; gracz sam sklada ponownie.
+        // No decision = terminal status; player resubmits manually.
         $this->db->prepare(
             "UPDATE drilling_permit_applications
                 SET status     = 'no_decision',
@@ -403,11 +531,11 @@ class LegalSection
         $region = $this->regionName($regionId);
 
         [$key, $icon, $priority] = match ($outcome) {
-            'granted'     => ['granted',     '', 'high'],
-            'refused'     => ['refused',     '', 'high'],
-            'delayed'     => ['delayed',     '', 'medium'],
-            'no_decision' => ['no_decision', '', 'medium'],
-            default       => ['default',     '', 'low'],
+            'granted'     => ['granted',     'check',   'high'],
+            'refused'     => ['refused',     'cross',   'high'],
+            'delayed'     => ['delayed',     'alert',   'medium'],
+            'no_decision' => ['no_decision', 'warning', 'medium'],
+            default       => ['default',     'scales',  'low'],
         };
 
         return [

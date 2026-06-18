@@ -1,4 +1,7 @@
 <?php
+
+require_once __DIR__ . '/PlayerPaymentService.php';
+
 /**
  * GeologicalLayerService - geological layer system.
  * PL: GeologicalLayerService - system warstw geologicznych.

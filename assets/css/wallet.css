@@ -1,0 +1,103 @@
+/* =============================================================
+   WALLET  style sekcji portfela (gotowka / konto bankowe)
+   Plik: assets/css/wallet.css
+   Ladowany przez: public/bank.php ($extraCss)
+   ============================================================= */
+
+/* Kafelki sald portfela */
+.wallet-balances {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.wallet-bal {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.wallet-bal--cash {
+    border-left: 4px solid var(--gold, #c8860a);
+}
+.wallet-bal--bank {
+    border-left: 4px solid var(--blue, #5b8dd9);
+}
+.wallet-bal-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+}
+.wallet-bal-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* Pasek transferu */
+.wallet-transfers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+.wallet-tf {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+}
+.wallet-tf-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 10px;
+}
+.wallet-tf-direction {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 0 0 8px;
+}
+.wallet-tf-form .form-group {
+    margin-bottom: 8px;
+}
+.wallet-tf-form .form-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    display: block;
+}
+.wallet-tf-fee-preview {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 4px 0 10px;
+    min-height: 1.4em;
+}
+.wallet-tf-fee-preview strong {
+    color: var(--text);
+}
+
+/* Strzalki kierunkowe */
+.wallet-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    margin-bottom: 6px;
+}
+.wallet-arrow--to-bank  { background: rgba(91,141,217,.15); color: var(--blue, #5b8dd9); }
+.wallet-arrow--to-cash  { background: rgba(200,134,10,.15); color: var(--gold, #c8860a); }
+
+/* Responsive */
+@media (max-width: 600px) {
+    .wallet-balances,
+    .wallet-transfers {
+        grid-template-columns: 1fr;
+    }
+}

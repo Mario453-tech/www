@@ -138,15 +138,6 @@ trait TTSProceduresTrait
                 return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
             }
             $this->db->commit();
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $this->playerId, null, $cost,
-                        FinancialTransactionService::TYPE_TTS_FEE,
-                        'Ulepszenie procedur bezpieczenstwa do poziomu ' . $nextLevel
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             GameLog::info('TTS', 'upgradeProcedures OK', [
                 'player_id' => $this->playerId,
@@ -248,15 +239,6 @@ trait TTSProceduresTrait
                 WHERE id = ?
             ")->execute([$newIntegrity, $this->playerId]);
             $this->db->commit();
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $this->playerId, null, $cost,
-                        FinancialTransactionService::TYPE_TTS_FEE,
-                        'Przeglad/naprawa integralnosci procedur bezpieczenstwa'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
 
             GameLog::info('TTS', 'repairProcedureIntegrity OK', [
                 'player_id' => $this->playerId,

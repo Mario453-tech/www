@@ -44,12 +44,21 @@ trait LegalHubPermitTrait
             return;
         }
         try {
-            // Nowe kolumny w legal_region_config / New columns in legal_region_config
-            $this->db->exec(
-                "ALTER TABLE legal_region_config
-                    ADD COLUMN IF NOT EXISTS hub_permit_enabled TINYINT(1) NOT NULL DEFAULT 0,
-                    ADD COLUMN IF NOT EXISTS hub_permit_cost DECIMAL(14,2) NOT NULL DEFAULT 500000.00,
-                    ADD COLUMN IF NOT EXISTS hub_review_minutes INT UNSIGNED NOT NULL DEFAULT 120"
+            // Bezpieczne dodanie kolumn zgodne z helperem projektu / Safe column bootstrap using project helper
+            Database::addColumnIfMissing(
+                'legal_region_config',
+                'hub_permit_enabled',
+                'TINYINT(1) NOT NULL DEFAULT 0'
+            );
+            Database::addColumnIfMissing(
+                'legal_region_config',
+                'hub_permit_cost',
+                'DECIMAL(14,2) NOT NULL DEFAULT 500000.00'
+            );
+            Database::addColumnIfMissing(
+                'legal_region_config',
+                'hub_review_minutes',
+                'INT UNSIGNED NOT NULL DEFAULT 120'
             );
 
             // Tabela wnioskow o zezwolenia na huby / Hub permit applications table
@@ -243,7 +252,7 @@ trait LegalHubPermitTrait
         if ($existingStatus === 'granted') {
             return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.hub.err.already_active')];
         }
-        if (in_array($existingStatus, ['pending', 'delayed', 'no_decision'], true)) {
+        if (in_array($existingStatus, ['pending', 'delayed'], true)) {
             return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.hub.err.in_progress')];
         }
         if ($existingStatus === 'refused' && !empty($existing['application']['refusal_cooldown_until'])) {
@@ -260,6 +269,8 @@ trait LegalHubPermitTrait
 
         $applicationCost = (float)$config['hub_permit_cost'];
         $reviewMinutes   = (int)$config['hub_review_minutes'];
+
+        $paymentService = new PlayerPaymentService($this->db);
 
         $this->db->beginTransaction();
         try {
@@ -284,9 +295,26 @@ trait LegalHubPermitTrait
                 ];
             }
 
-            // Pobierz oplata / Deduct fee
-            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")
-                ->execute([$applicationCost, $playerId]);
+            // Pobierz oplate / Deduct fee.
+            $payment = $paymentService->charge(
+                $playerId,
+                $applicationCost,
+                FinancialTransactionService::TYPE_LEGAL_FEE,
+                tPlain('bank.tx_legal_hub_permit', ['id' => $regionId]),
+                'legal_hub_region',
+                $regionId
+            );
+            if (!$payment['success']) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'code'    => 'insufficient_funds',
+                    'message' => tPlain('legal.hub.err.insufficient_funds', [
+                        'cost' => number_format($applicationCost, 0, '.', ' '),
+                    ]),
+                    'cost' => $applicationCost,
+                ];
+            }
 
             $dueStr = (clone $now)->modify("+{$reviewMinutes} minutes")->format('Y-m-d H:i:s');
 

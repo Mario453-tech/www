@@ -15,9 +15,14 @@
 /** @var int $legalLevel */
 /** @var int $credibilityScore */
 /** @var int $credibilityMin */
+/** @var bool $briberyEnabled */
+/** @var array<int,array<string,mixed>> $bribeQuotes */
+/** @var bool $sabotageModuleEnabled */
 /** @var string $error */
 /** @var string $success */
 extract($viewData, EXTR_SKIP);
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 ?>
 
 <div class="fade-in">
@@ -35,7 +40,7 @@ extract($viewData, EXTR_SKIP);
      data-success="<?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>"></div>
 <?php endif ?>
 
-<!-- Wiarygodnosc firmy / Company credibility card -->
+<!-- Company credibility card -->
 <?php require __DIR__ . '/../../components/company_credibility.php'; ?>
 
 <!-- Intro -->
@@ -43,7 +48,21 @@ extract($viewData, EXTR_SKIP);
     <p><?= t('legal.page_intro') ?></p>
 </section>
 
-<!-- Aktywne zezwolenia -->
+<section class="card">
+    <div class="legal-region-name">
+        <span class="legal-region-name__text"><?= t('sabotage.legal_card_title') ?></span>
+        <span class="legal-badge <?= $sabotageModuleEnabled ? 'legal-badge--granted' : 'legal-badge--pending' ?>">
+            <?= $sabotageModuleEnabled ? t('sabotage.legal_card_enabled') : t('sabotage.legal_card_disabled') ?>
+        </span>
+    </div>
+    <div class="legal-region-meta">
+        <span><?= t('sabotage.legal_card_text') ?></span>
+    </div>
+    <p class="legal-region-unlocks"><?= t('sabotage.legal_card_hint') ?></p>
+    <a href="<?= url('sabotage') ?>" class="btn btn-secondary"><?= t('sabotage.legal_card_button') ?></a>
+</section>
+
+<!-- Active permits -->
 <?php if (!empty($active)): ?>
 <section class="card">
     <h3><?= t('legal.section_active') ?></h3>
@@ -66,9 +85,46 @@ extract($viewData, EXTR_SKIP);
                 <?php endif ?>
             </div>
             <?php if ($permit['status'] === 'transitional'): ?>
-            <!-- Brief §12.2: opis zezwolenia przejściowego dla obecnych graczy. -->
+            <!-- Brief §12.2: opis zezwolenia przejsciowego dla obecnych graczy. -->
             <!-- Brief §12.2: transitional permit description for existing players. -->
             <p class="legal-region-note legal-region-note--transitional"><?= t('legal.transitional_note') ?></p>
+            <?php if (!empty($app['upgrade_pending'])): ?>
+            <!-- Upgrade w toku — pokazuj status i opcjonalny przycisk lapowki. -->
+            <!-- Upgrade in progress — show status and optional bribe button. -->
+            <div class="legal-region-meta legal-upgrade-pending">
+                <span class="legal-badge legal-badge--pending"><?= t('legal.status.pending') ?></span>
+                <span><?= t('legal.transitional_upgrade_pending') ?></span>
+                <?php if (!empty($app['upgrade_decision_due_at'])): ?>
+                <span><?= t('legal.transitional_upgrade_due') ?>: <?= htmlspecialchars(substr((string)$app['upgrade_decision_due_at'], 0, 16)) ?></span>
+                <?php endif ?>
+            </div>
+            <?php require __DIR__ . '/_bribe_button.php'; ?>
+            <?php else: ?>
+            <?php
+            $__trCost   = (float)$cfg['application_cost'];
+            $__trReview = (int)$cfg['base_review_minutes'];
+            $__trAfford = $cash >= $__trCost;
+            $__trName   = (string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id']);
+            ?>
+            <p class="legal-region-note"><?= t('legal.transitional_apply_warn') ?></p>
+            <?php if ($__trAfford): ?>
+            <form method="post" action="<?= url('legal') ?>" class="legal-submit-form"
+                  data-region-name="<?= htmlspecialchars($__trName) ?>"
+                  data-cost="<?= htmlspecialchars(number_format($__trCost, 0, ',', ' ')) ?>"
+                  data-review-time="<?= htmlspecialchars(LegalService::minutesToHuman($__trReview)) ?>">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="action"    value="submit_application">
+                <input type="hidden" name="region_id" value="<?= (int)$cfg['region_id'] ?>">
+                <button type="submit" class="btn btn-primary legal-submit-btn">
+                    <?= t('legal.btn_submit_transitional') ?>
+                </button>
+            </form>
+            <?php else: ?>
+            <div class="legal-insufficient">
+                <?= t('legal.err.insufficient_funds', ['cost' => number_format($__trCost, 0, ',', ' ')]) ?>
+            </div>
+            <?php endif ?>
+            <?php endif ?>
             <?php endif ?>
             <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
             <!-- Brief §15.1 / §8.1: simple description of what the permit unlocks. -->
@@ -110,13 +166,14 @@ extract($viewData, EXTR_SKIP);
                 <span class="legal-delay-count"><?= t('legal.delay_count', ['n' => (int)$app['delay_count']]) ?></span>
                 <?php endif ?>
             </div>
+            <?php require __DIR__ . '/_bribe_button.php'; ?>
         </div>
     <?php endforeach ?>
     </div>
 </section>
 <?php endif ?>
 
-<!-- Dostępne regiony -->
+<!-- Available regions -->
 <?php if (!empty($available)): ?>
 <section class="card">
     <h3><?= t('legal.section_available') ?></h3>
@@ -141,7 +198,7 @@ extract($viewData, EXTR_SKIP);
             </div>
             <div class="legal-region-meta">
                 <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
+                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> <?= $currencyLabel ?></span>
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
             <!-- Brief §15.1 / §8.1: prosty opis, co zezwolenie odblokowuje. -->
@@ -193,13 +250,14 @@ extract($viewData, EXTR_SKIP);
                     <?= t('legal.err.cooldown', ['time' => LegalService::minutesToHuman($remainMin)]) ?>
                 </span>
             </div>
+            <?php require __DIR__ . '/_bribe_button.php'; ?>
         </div>
     <?php endforeach ?>
     </div>
 </section>
 <?php endif ?>
 
-<!-- Region wysokiego ryzyka — brak wymaganego kapitału (brief §7.3 / §8.1) -->
+<!-- High-risk region without required capital (brief 7.3 / 8.1). -->
 <?php if (!empty($levelLocked)): ?>
 <section class="card">
     <h3><?= t('legal.section_level_locked') ?></h3>
@@ -275,10 +333,10 @@ extract($viewData, EXTR_SKIP);
                 <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
             </div>
             <p class="legal-region-note legal-region-note--locked"><?= t('legal.err.region_locked') ?></p>
-            <!-- Brief §8.1: konkretny wymagany kapitał (gracz widzi wartość). -->
+            <!-- Brief 8.1: explicit required capital shown to the player. -->
             <!-- Brief §8.1: concrete required capital (player sees the value). -->
             <div class="legal-region-meta">
-                <span><?= t('legal.required_capital_label') ?>: <strong><?= number_format($reqCap, 0, ',', ' ') ?> PLN</strong></span>
+                <span><?= t('legal.required_capital_label') ?>: <strong><?= number_format($reqCap, 0, ',', ' ') ?> <?= $currencyLabel ?></strong></span>
                 <span class="legal-capital-missing"><?= t('legal.capital_missing', ['amount' => number_format($missing, 0, ',', ' ')]) ?></span>
             </div>
         </div>
@@ -384,7 +442,7 @@ extract($viewData, EXTR_SKIP);
             </div>
             <div class="legal-region-meta">
                 <span><?= t('legal.risk_label') ?>: <span class="legal-risk-<?= htmlspecialchars($cfg['risk_level']) ?>"><?= t('legal.risk.' . $cfg['risk_level']) ?></span></span>
-                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> PLN</span>
+                <span><?= t('legal.cost_label') ?>: <?= number_format($cost, 0, ',', ' ') ?> <?= $currencyLabel ?></span>
                 <span><?= t('legal.review_time_label') ?>: <?= htmlspecialchars(LegalService::minutesToHuman($reviewMin)) ?></span>
             </div>
             <?php if ($canAfford): ?>
@@ -451,5 +509,10 @@ window.LEGAL_LANG = <?= json_encode([
     'label_cost'      => tPlain('legal.cost_label'),
     'label_time'      => tPlain('legal.review_time_label'),
     'modal_cost_note' => tPlain('legal.modal_cost_note'),
+    'bribe_title'     => tPlain('legal.bribe.modal_title'),
+    'bribe_confirm'   => tPlain('legal.bribe.modal_confirm'),
+    'bribe_cost'      => tPlain('legal.bribe.cost_label'),
+    'bribe_risk'      => tPlain('legal.bribe.risk_label'),
+    'bribe_warning'   => tPlain('legal.bribe.modal_warning'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>

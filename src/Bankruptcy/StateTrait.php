@@ -123,18 +123,28 @@ trait BankruptcyStateTrait
             $openCritical = $this->countOpenCriticalEvents();
 
             if ($cash >= 120000 && $lateDebt <= 0 && $activeWells >= 1 && $openCritical === 0) {
-                $this->db->prepare("
-                    UPDATE players
-                    SET status            = 'active',
-                        bankruptcy_at     = NULL,
-                        recovery_mode     = 0,
-                        bankruptcy_status = 'recovered',
-                        credit_score      = GREATEST(80, LEAST(150, credit_score + 30))
-                    WHERE id = ?
-                ")->execute([$this->playerId]);
+                $this->db->beginTransaction();
+                try {
+                    $this->db->prepare("
+                        UPDATE players
+                        SET status            = 'active',
+                            bankruptcy_at     = NULL,
+                            recovery_mode     = 0,
+                            bankruptcy_status = 'recovered',
+                            credit_score      = GREATEST(80, LEAST(150, credit_score + 30))
+                        WHERE id = ?
+                    ")->execute([$this->playerId]);
 
-                $this->db->prepare("DELETE FROM wells WHERE player_id=? AND status='seized'")->execute([$this->playerId]);
-                $this->db->prepare("UPDATE bailiff_proceedings SET status='completed' WHERE player_id=? AND status='active'")->execute([$this->playerId]);
+                    $this->db->prepare("DELETE FROM wells WHERE player_id=? AND status='seized'")->execute([$this->playerId]);
+                    $this->db->prepare("UPDATE bailiff_proceedings SET status='completed' WHERE player_id=? AND status='active'")->execute([$this->playerId]);
+                    $this->db->commit();
+                } catch (Throwable $txe) {
+                    if ($this->db->inTransaction()) {
+                        $this->db->rollBack();
+                    }
+                    GameLog::error('BankruptcyService', 'tryRecover TX FAILED', $txe, ['player_id' => $this->playerId]);
+                    return false;
+                }
 
                 $this->logEvent('recovered', t('bankruptcy.log_recovered'), ['cash' => $cash, 'active_wells' => $activeWells], 'high', 0, null);
                 $this->addNotification(t('bankruptcy.notif_recovered'));

@@ -36,6 +36,18 @@ if ($bankNegAvailable)    require_once __DIR__ . '/../src/BankNegotiationService
 if ($bankruptcyAvailable) require_once __DIR__ . '/../src/BankruptcyService.php';
 
 $db        = Database::getInstance()->getConnection();
+
+// Twarde limity, by zawieszony tick nie trzymal GET_LOCK w nieskonczonosc:
+// - cron CLI ma max_execution_time=0 (bez limitu) -> wymuszamy hard limit;
+// - lock_wait_timeout domyslnie ~1 rok, wiec ALTER czekajacy na metadata lock
+//   moze wisiec w nieskonczonosc -> skracamy do 60 s (tick wtedy padnie i zwolni locka).
+// Hard caps so a hung tick cannot hold GET_LOCK forever:
+// - CLI cron has max_execution_time=0 (unlimited) -> enforce a hard limit;
+// - lock_wait_timeout defaults to ~1 year, so an ALTER waiting on a metadata lock
+//   can hang forever -> shorten to 60 s (the tick then fails and releases the lock).
+@set_time_limit(290);
+try { $db->exec('SET SESSION lock_wait_timeout = 60'); } catch (Throwable $e) {}
+
 $now       = new DateTime();
 $startTime = microtime(true);
 $source    = (php_sapi_name() === 'cli') ? 'cron' : 'http';
@@ -49,12 +61,79 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
         if ($r !== false) $cronKey = (string)$r;
     } catch (Throwable $e) {}
 
-    $provided = $_GET['key'] ?? $_SERVER['HTTP_X_CRON_KEY'] ?? '';
-    if ($cronKey === '' || $provided !== $cronKey) {
+    $provided = (string)($_GET['key'] ?? $_SERVER['HTTP_X_CRON_KEY'] ?? '');
+ // hash_equals zamiast !== - stala czasowo, odporna na timing attack.
+ // hash_equals instead of !== - constant-time, resistant to timing attacks.
+    if ($cronKey === '' || !hash_equals($cronKey, $provided)) {
         http_response_code(403);
         exit('Forbidden');
     }
     $source = 'cron_http';
+}
+
+// Lock wykonania: zapobiega nakladaniu sie tickow gdy poprzedni trwa > interwal crona.
+// Bez tego drugi proces przetwarzalby tych samych graczy z tym samym deltaSeconds
+// (podwojona produkcja, koszty i incydenty).
+// Execution lock: prevents overlapping ticks when a previous run exceeds the cron interval.
+// Without it a second process would reprocess the same players with the same deltaSeconds
+// (doubled production, costs and incidents).
+//
+// Uzywamy MySQL GET_LOCK zamiast flock: dziala na shared hostingu (az.pl), gdzie
+// fopen(sys_get_temp_dir()) potrafi byc zablokowany przez open_basedir (flock padal
+// przy KAZDYM przebiegu i zatrzymal cron). GET_LOCK jest przypiety do polaczenia DB,
+// wiec gdy proces ticku padnie/zostanie zabity, blokada zwalnia sie automatycznie —
+// zaden zawieszony tick nie zablokuje gry na stale.
+// We use MySQL GET_LOCK instead of flock: it works on shared hosting (az.pl) where
+// fopen(sys_get_temp_dir()) can be blocked by open_basedir (flock failed on EVERY run
+// and stalled the cron). GET_LOCK is bound to the DB connection, so if the tick process
+// dies/is killed the lock auto-releases — no hung tick can block the game permanently.
+//
+// ADMIN_FORCE_TICK (admin/force_tick.php): reczne wymuszenie przez admina zawsze
+// przechodzi, nawet gdy cron akurat trzyma blokade.
+// ADMIN_FORCE_TICK (admin/force_tick.php): manual admin force always runs, even if the
+// cron currently holds the lock.
+if (!defined('ADMIN_FORCE_TICK')) {
+    try {
+        $gotLock = (int)$db->query("SELECT GET_LOCK('oilcorp_tick', 0)")->fetchColumn();
+        if ($gotLock !== 1) {
+            GameLog::warn('tick', 'tick juz trwa - pomijam ten przebieg / tick already running - skipping this run');
+            echo "Tick skipped: another run in progress\n";
+            exit(0);
+        }
+        register_shutdown_function(static function () use ($db) {
+            try {
+                $db->query("SELECT RELEASE_LOCK('oilcorp_tick')");
+            } catch (Throwable $e) {
+                // Polaczenie i tak zwolni lock przy zamknieciu / connection close frees it anyway
+            }
+        });
+    } catch (Throwable $e) {
+        // Brak wsparcia GET_LOCK nie moze zatrzymac gry — kontynuuj bez blokady.
+        // Missing GET_LOCK support must not stall the game — continue without the lock.
+        GameLog::error('tick', 'GET_LOCK FAILED - kontynuuje bez blokady / continuing without lock', $e);
+    }
+} else {
+ // H6: ADMIN_FORCE_TICK omija lock — ryzyko nakładania z kronem / bypasses lock — risk of cron overlap
+    GameLog::warn('tick', 'ADMIN_FORCE_TICK — pomijam GET_LOCK, mozliwe rownolegle uruchomienie z kronem / bypassing GET_LOCK, possible cron overlap');
+}
+
+// H1: Wykrycie niedokonczonegopierwszego ticka — crash detection via tick_in_progress flag.
+// Jesli poprzedni tick padl w polowie, flaga zostala jako 1 i ostrzegamy przy nastepnym uruchomieniu.
+// If the previous tick crashed mid-run, the flag stayed at 1 and we warn on the next run.
+$prevTickIncomplete = false;
+try {
+    $r = $db->query("SELECT `value` FROM well_config WHERE `key` = 'tick_in_progress' LIMIT 1")->fetchColumn();
+    $prevTickIncomplete = ($r !== false && (int)$r === 1);
+    $db->prepare(
+        "INSERT INTO well_config (`key`, `value`, `label`, `category`)
+         VALUES ('tick_in_progress', '1', 'Tick w toku — crash detection', 'system')
+         ON DUPLICATE KEY UPDATE `value` = '1'"
+    )->execute();
+} catch (Throwable $e) {
+    GameLog::error('tick', 'tick_in_progress flag write FAILED', $e);
+}
+if ($prevTickIncomplete) {
+    GameLog::warn('tick', 'POPRZEDNI TICK NIE ZAKONCZYL SIE — mozliwa niespojnosc danych / PREVIOUS TICK DID NOT FINISH — possible data inconsistency');
 }
 
 GameLog::info('tick', '== START ==', ['time' => $now->format('Y-m-d H:i:s'), 'source' => $source]);
@@ -67,6 +146,23 @@ $market->run();
 $activeTrend = $market->activeTrend;
 $isNewTrend  = $market->isNewTrend;
 $newPrice    = $market->newPrice;
+
+// H7: Guard przed zerowa cena ropy po awarii MarketSection.
+// oilPrice=0 sprawiloby ze caly przychod i straty gracza liczylyby sie jako 0 PLN.
+// Guard against zero oil price after MarketSection failure.
+// oilPrice=0 would make all player revenue and losses calculate as 0 PLN.
+if ($newPrice <= 0.0) {
+    GameLog::error('tick', 'CENA ROPY = 0 po MarketSection — uzyje poprzedniej ceny lub 70 / OIL PRICE = 0 after MarketSection — using previous price or 70', []);
+    try {
+        $prevPrice = $db->query(
+            "SELECT `value` FROM well_config WHERE `key` = 'last_tick_oil_price' LIMIT 1"
+        )->fetchColumn();
+        $newPrice = ($prevPrice !== false && (float)$prevPrice > 0) ? (float)$prevPrice : 70.0;
+    } catch (Throwable $e) {
+        $newPrice = 70.0;
+    }
+    GameLog::warn('tick', 'fallback cena ropy / fallback oil price', ['price' => $newPrice]);
+}
 
 // 2b. CZYSZCZENIE ZALEGAJACYCH DOSTAW MORSKICH (raz na tick, globalnie)
 // 2b. PURGE STALE MARINE DELIVERIES (once per tick, global)
@@ -198,7 +294,8 @@ GameLog::info('tick', '== END ==', [
     'disasters'=> $players->disastersTriggered,
 ]);
 
-// Zapis last_system_tick_at
+// Zapis last_system_tick_at + last_tick_oil_price + czyszczenie flagi tick_in_progress (H1)
+// Save last_system_tick_at + last_tick_oil_price + clear tick_in_progress flag (H1)
 try {
     $db->prepare("
         INSERT INTO well_config (`key`, `value`, `label`, `category`)
@@ -208,10 +305,28 @@ try {
 } catch (Throwable $e) {
     GameLog::error('tick', 'zapis last_system_tick_at FAILED', $e);
 }
+try {
+    $db->prepare(
+        "INSERT INTO well_config (`key`, `value`, `label`, `category`)
+         VALUES ('last_tick_oil_price', :p, 'Cena ropy z ostatniego ticka (fallback H7)', 'system')
+         ON DUPLICATE KEY UPDATE `value` = :p2"
+    )->execute([':p' => $newPrice, ':p2' => $newPrice]);
+} catch (Throwable $e) {}
+try {
+    $db->prepare("UPDATE well_config SET `value` = '0' WHERE `key` = 'tick_in_progress'")->execute();
+} catch (Throwable $e) {
+    GameLog::error('tick', 'tick_in_progress flag clear FAILED', $e);
+}
 
 // Zapis statystyk ticka
 try {
     $durationMs = (int)round((microtime(true) - $startTime) * 1000);
+
+ // Slow tick warning — tick trwajacy >60s sugeruje problem wydajnosci lub kolizje / >60s tick suggests performance issue or collision
+    if ($durationMs > 60_000) {
+        GameLog::warn('tick', 'WOLNY TICK / SLOW TICK', ['duration_ms' => $durationMs, 'threshold_ms' => 60_000]);
+    }
+
     (new TickStatsRepository())->save([
         'ran_at'                       => $now->format('Y-m-d H:i:s'),
         'source'                       => $source,
@@ -219,6 +334,11 @@ try {
         'oil_price'                    => $newPrice,
         'trend_name'                   => $activeTrend['trend_name'] ?? null,
         'trend_new'                    => $isNewTrend,
+ // M7: bank_interest i installments: BankSection nie liczy dokladnie tych wartosci,
+ // zapisujemy 0 zamiast NULL zeby zaznaczyc ze funkcje uruchomily sie poprawnie.
+ // M7: interest and installments not tracked per-tick in BankSection — record 0 (ran OK) not NULL.
+        'bank_interest_processed'      => 0,
+        'bank_installments_processed'  => 0,
         'bank_negotiations_resolved'   => $bank->negotiationsResolved,
         'bank_loan_decisions'          => $bank->loanDecisions,
         'hr_recruitments_processed'    => $bank->hrRecruitmentsProcessed,
@@ -273,6 +393,16 @@ try {
     $stmt->execute();
 } catch (Throwable $e) {
     GameLog::error('tick', 'notif_old_unread_cleanup FAILED', $e);
+}
+
+// Cleanup zbiorczych wpisow tickowych w historii bankowej (ta sama retencja co incydenty).
+// Przelewy, kredyty i zakupy zostaja na zawsze - usuwane sa tylko typy tickowe.
+// Aggregated tick entries cleanup in bank history (same retention as incidents).
+// Transfers, loans and purchases are kept forever - only tick types are purged.
+try {
+    (new FinancialTransactionService($db))->purgeTickAudit($incRetention);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'bank_tick_audit_cleanup FAILED', $e);
 }
 
 echo "Tick OK: " . $now->format('Y-m-d H:i:s') . " | Cena: {$newPrice}\${$trendInfo}"

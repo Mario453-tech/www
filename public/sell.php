@@ -19,6 +19,7 @@ $db      = Database::getInstance()->getConnection();
 $player  = new Player(Auth::getUserId());
 $storage = new Storage(Auth::getUserId());
 $market  = new Market();
+$fts     = new FinancialTransactionService();
 
 $currentPrice = $market->getCurrentPrice();
 
@@ -28,7 +29,10 @@ $db->beginTransaction();
 try {
     $earnings = $storage->sellAll($currentPrice);
     if ($earnings > 0) {
-        $player->updateCash($earnings, 'market_sale', 'Sprzedaz ropy ze skladowiska');
+        $res = $fts->credit(Auth::getUserId(), $earnings, FinancialTransactionService::TYPE_MARKET_SALE, 'Sprzedaz ropy ze skladowiska');
+        if (!$res['success']) {
+            throw new RuntimeException($res['error'] ?? tPlain('common.app_error'));
+        }
     }
     $db->commit();
 } catch (Throwable $e) {

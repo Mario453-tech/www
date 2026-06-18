@@ -10,12 +10,17 @@ class BankDataLoader
     private ?BankService $bankService;
     private ?BankNegotiationService $bankNeg;
     private mixed $db = null;
+    private int $txPage;
 
-    public function __construct(int $playerId, ?BankService $bankService, ?BankNegotiationService $bankNeg)
+    // Liczba wierszy historii na strone / Rows per page in transaction history.
+    public const HISTORY_PER_PAGE = 25;
+
+    public function __construct(int $playerId, ?BankService $bankService, ?BankNegotiationService $bankNeg, int $txPage = 1)
     {
         $this->playerId = $playerId;
         $this->bankService = $bankService;
         $this->bankNeg = $bankNeg;
+        $this->txPage = max(1, $txPage);
 
         try {
             $this->db = Database::getInstance()->getConnection();
@@ -72,21 +77,24 @@ class BankDataLoader
             'isCrisis' => $isCrisis,
             'creditLimit' => $creditLimit,
             'hasEverHadLoan' => $hasEverHadLoan,
-            'accountNumber'    => $accountData['number'],
-            'accountBalance'   => $accountData['balance'],
-            'accountHistory'   => $accountData['history'],
+            'accountNumber'       => $accountData['number'],
+            'accountBalance'      => $accountData['balance'],       // bank_balance (saldo konta)
+            'cashBalance'         => $accountData['cashBalance'],   // cash (gotowka)
+            'accountHistory'      => $accountData['history'],
+            'accountHistoryTotal' => $accountData['historyTotal'],
+            'accountHistoryPage'  => $accountData['historyPage'],
         ];
     }
 
  /**
- * Etap 4: laduje numer rachunku, saldo i historie ostatnich operacji.
- * Stage 4: loads account number, balance and recent transaction history.
+ * Etap 4: laduje numer rachunku, saldo i historie operacji ze stronicowaniem.
+ * Stage 4: loads account number, balance and paginated transaction history.
  *
- * @return array{number:string,balance:float,history:array<int,array<string,mixed>>}
+ * @return array{number:string,balance:float,cashBalance:float,history:array<int,array<string,mixed>>,historyTotal:int,historyPage:int}
  */
     private function loadAccountData(): array
     {
-        $result = ['number' => '', 'balance' => 0.0, 'history' => []];
+        $result = ['number' => '', 'balance' => 0.0, 'cashBalance' => 0.0, 'history' => [], 'historyTotal' => 0, 'historyPage' => 1];
 
         if (!$this->db) {
             return $result;
@@ -101,12 +109,30 @@ class BankDataLoader
                 $result['number'] = (string)($num ?? '');
             }
 
-            $stmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
-            $stmt->execute([$this->playerId]);
-            $result['balance'] = (float)$stmt->fetchColumn();
+            // Uzyj WalletService dla obu pul: bank_balance = "saldo konta", cash = "gotowka".
+            // Use WalletService for both pools: bank_balance = "account balance", cash = "cash".
+            $walletSvc             = new WalletService($this->db);
+            $pools                 = $walletSvc->getBalances($this->playerId);
+            $result['balance']     = (float)($pools[WalletConfig::POOL_BANK] ?? 0.0);
+            $result['cashBalance'] = (float)($pools[WalletConfig::POOL_CASH] ?? 0.0);
 
-            // Historia: ostatnie 25 operacji gracza (jako nadawca lub odbiorca).
-            // History: last 25 player operations (as sender or recipient).
+            // Laczna liczba rekordow dla stronicowania / Total row count for pagination.
+            $cStmt = $this->db->prepare(
+                "SELECT COUNT(*) FROM bank_transactions
+                  WHERE from_player_id = :pid OR to_player_id = :pid"
+            );
+            $cStmt->execute([':pid' => $this->playerId]);
+            $total = (int)$cStmt->fetchColumn();
+            $result['historyTotal'] = $total;
+
+            // Oblicz aktualna strone i offset / Calculate current page and offset.
+            $perPage = self::HISTORY_PER_PAGE;
+            $maxPage = max(1, (int)ceil($total / $perPage));
+            $page    = min($this->txPage, $maxPage);
+            $result['historyPage'] = $page;
+            $offset  = ($page - 1) * $perPage;
+
+            // Historia z offsetem / History with offset.
             $hStmt = $this->db->prepare(
                 "SELECT bt.*,
                         pf.bank_account_number AS from_account,
@@ -118,9 +144,12 @@ class BankDataLoader
                    LEFT JOIN players pt ON pt.id = bt.to_player_id
                   WHERE bt.from_player_id = :pid OR bt.to_player_id = :pid
                   ORDER BY bt.id DESC
-                  LIMIT 25"
+                  LIMIT :lim OFFSET :off"
             );
-            $hStmt->execute([':pid' => $this->playerId]);
+            $hStmt->bindValue(':pid', $this->playerId, \PDO::PARAM_INT);
+            $hStmt->bindValue(':lim', $perPage, \PDO::PARAM_INT);
+            $hStmt->bindValue(':off', $offset, \PDO::PARAM_INT);
+            $hStmt->execute();
             $rows = $hStmt->fetchAll();
 
             foreach ($rows as &$row) {
@@ -495,7 +524,7 @@ class BankDataLoader
  * Loads credit limit and related blocking reasons.
  * Laduje limit kredytowy i powiazane powody blokady.
  */
-    private function loadCreditLimit(bool $canApply, array &$blockReasons): array
+    private function loadCreditLimit(bool &$canApply, array &$blockReasons): array
     {
         $creditLimit = 0;
         $playerData = null;

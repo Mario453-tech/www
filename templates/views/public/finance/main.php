@@ -1,5 +1,6 @@
 <?php
 extract($viewData ?? [], EXTR_SKIP);
+$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 
 $net      = (float)($last['net_profit'] ?? 0);
 $netH     = $net * 12;
@@ -841,10 +842,17 @@ $policyRecoHighlights = (array)($policyRecommendation['highlights'] ?? []);
             $newValue = (string)($decision['new_value'] ?? '');
             $decisionTs = strtotime((string)($decision['created_at'] ?? ''));
             $diffSecs   = $decisionTs > 0 ? max(0, $nowTs - $decisionTs) : 0;
-            if ($diffSecs < 60)       { $relTime = 'przed chwilą'; }
-            elseif ($diffSecs < 3600) { $relTime = 'przed ' . floor($diffSecs / 60) . ' min'; }
-            elseif ($diffSecs < 86400){ $relTime = 'przed ' . floor($diffSecs / 3600) . ' h'; }
-            else                      { $relTime = 'przed ' . floor($diffSecs / 86400) . ' d'; }
+            if ($locale === 'en') {
+                if ($diffSecs < 60)       { $relTime = 'just now'; }
+                elseif ($diffSecs < 3600) { $relTime = floor($diffSecs / 60) . ' min ago'; }
+                elseif ($diffSecs < 86400){ $relTime = floor($diffSecs / 3600) . ' h ago'; }
+                else                      { $relTime = floor($diffSecs / 86400) . ' d ago'; }
+            } else {
+                if ($diffSecs < 60)       { $relTime = 'przed chwila'; }
+                elseif ($diffSecs < 3600) { $relTime = 'przed ' . floor($diffSecs / 60) . ' min'; }
+                elseif ($diffSecs < 86400){ $relTime = 'przed ' . floor($diffSecs / 3600) . ' h'; }
+                else                      { $relTime = 'przed ' . floor($diffSecs / 86400) . ' d'; }
+            }
             $decisionIcon = $decisionIcons[$key] ?? '&#128203;';
         ?>
         <div class="fin-history-row">

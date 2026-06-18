@@ -52,7 +52,7 @@ class WellStaffService
 
  // Spec code check
         $allowedSpecs = $role === 'operator'
-            ? ['drilling_engineer']
+            ? ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer']
             : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer'];
 
         if (!in_array($staff['spec_code'], $allowedSpecs)) {
@@ -89,6 +89,39 @@ class WellStaffService
 
         $this->db->beginTransaction();
         try {
+            $lockStaff = $this->db->prepare("
+                SELECT id
+                FROM technical_staff
+                WHERE id = ? AND player_id = ?
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $lockStaff->execute([$staffId, $this->playerId]);
+
+            $activeAssignment = $this->db->prepare("
+                SELECT w.location_name, wsa.role
+                FROM well_staff_assignments wsa
+                JOIN wells w ON w.id = wsa.well_id
+                WHERE wsa.staff_id = ?
+                  AND wsa.player_id = ?
+                  AND wsa.unassigned_at IS NULL
+                  AND NOT (wsa.well_id = ? AND wsa.role = ?)
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $activeAssignment->execute([$staffId, $this->playerId, $wellId, $role]);
+            $lockedAssignment = $activeAssignment->fetch();
+            if ($lockedAssignment) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'message' => t('well_staff.svc.err_already_assigned', [
+                        'role' => $lockedAssignment['role'],
+                        'well' => $lockedAssignment['location_name'],
+                    ]),
+                ];
+            }
+
  // Unassign the current occupant of this role
             $this->unassignRole($wellId, $role);
 
@@ -194,8 +227,8 @@ class WellStaffService
         } elseif (!$hasTechnician) {
             $newStatus = 'no_technician';
         } else {
- // Both assigned activate if status was no_operator/no_technician
-            $newStatus = in_array($currentStatus, ['no_operator', 'no_technician'])
+ // Both assigned activate if status was blocked by missing staff.
+            $newStatus = in_array($currentStatus, ['no_operator', 'no_technician', 'paused_staff'])
                 ? 'active'
                 : $currentStatus;
         }
@@ -267,7 +300,7 @@ class WellStaffService
     public function getAvailableStaff(string $role): array
     {
         $allowedSpecs = $role === 'operator'
-            ? ['drilling_engineer']
+            ? ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer']
             : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer'];
 
         $placeholders = implode(',', array_fill(0, count($allowedSpecs), '?'));

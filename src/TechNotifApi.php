@@ -18,6 +18,13 @@ $action = $_POST['action'] ?? '';
 $db = Database::getInstance()->getConnection();
 
 try {
+    $token = $_POST['_token'] ?? ($_POST['csrf_token'] ?? '');
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !CSRF::validateToken($token)) {
+        http_response_code(419);
+        echo json_encode(['success' => false, 'error' => t('common.csrf_error')]);
+        exit;
+    }
+
     if ($action === 'mark_read') {
         $id = (int)($_POST['notif_id'] ?? 0);
         if ($id > 0) {

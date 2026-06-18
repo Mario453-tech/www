@@ -102,9 +102,14 @@
         </div>
         <?php
         $statusMap = [
-            'sent'    => '<span class="badge badge-green">WYSŁANY</span>',
-            'failed'  => '<span class="badge badge-red">BŁĄD</span>',
-            'partial' => '<span class="badge badge-yellow">CZĘŚCIOWY</span>',
+            'sent'    => '<span class="badge badge-green">' . htmlspecialchars(t('admin.newsletter.status_sent')) . '</span>',
+            'failed'  => '<span class="badge badge-red">' . htmlspecialchars(t('admin.newsletter.status_failed')) . '</span>',
+            'partial' => '<span class="badge badge-yellow">' . htmlspecialchars(t('admin.newsletter.status_partial')) . '</span>',
+        ];
+        $statusMap = [
+            'sent'    => '<span class="badge badge-green">' . htmlspecialchars(t('admin.newsletter.status_sent')) . '</span>',
+            'failed'  => '<span class="badge badge-red">' . htmlspecialchars(t('admin.newsletter.status_failed')) . '</span>',
+            'partial' => '<span class="badge badge-yellow">' . htmlspecialchars(t('admin.newsletter.status_partial')) . '</span>',
         ];
         foreach ($history as $h):
         ?>
@@ -116,7 +121,7 @@
             <span>
                 <?= $statusMap[$h['status']] ?? htmlspecialchars($h['status']) ?>
                 <?php if ($h['notes']): ?>
-                <small class="muted"> — <?= htmlspecialchars($h['notes']) ?></small>
+                <small class="muted"> - <?= htmlspecialchars($h['notes']) ?></small>
                 <?php endif ?>
             </span>
             <span>
@@ -124,7 +129,7 @@
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action"  value="delete_log">
                     <input type="hidden" name="log_id"  value="<?= (int)$h['id'] ?>">
-                    <button type="submit" class="btn btn-xs btn-danger" title="Usuń wpis"
+                    <button type="submit" class="btn btn-xs btn-danger" title="<?= htmlspecialchars(t('admin.newsletter.title_delete_log')) ?>"
                             onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('admin.newsletter.confirm_delete_log')), ENT_QUOTES) ?>, {type:'danger'}); return false;"></button>
                 </form>
             </span>

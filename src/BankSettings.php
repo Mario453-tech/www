@@ -25,7 +25,6 @@ class BankSettings
     {
         try {
             if (self::$cache === null) {
-                self::$cache = [];
                 $rows = Database::getInstance()->getConnection()
                     ->query("SELECT setting_key, value FROM bank_settings")
                     ->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -34,10 +33,7 @@ class BankSettings
 
             return isset(self::$cache[$key]) ? (float)self::$cache[$key] : $default;
         } catch (Throwable $e) {
-            GameLog::error('BankSettings', 'Failed to load setting', [
-                'key' => $key,
-                'error' => $e->getMessage(),
-            ]);
+            GameLog::error('BankSettings', 'Failed to load setting', $e, ['key' => $key]);
             return $default;
         }
     }
@@ -56,11 +52,17 @@ class BankSettings
     public function set(string $key, float $value, string $adminUser = 'admin'): bool
     {
         try {
-            $this->db->prepare("
+            $stmt = $this->db->prepare("
                 UPDATE bank_settings
                 SET value = :val, updated_by = :by, updated_at = NOW()
                 WHERE setting_key = :key
-            ")->execute([':val' => $value, ':by' => $adminUser, ':key' => $key]);
+            ");
+            $stmt->execute([':val' => $value, ':by' => $adminUser, ':key' => $key]);
+
+            if ($stmt->rowCount() === 0) {
+                GameLog::error('BankSettings', 'Setting key not found', null, ['key' => $key, 'value' => $value]);
+                return false;
+            }
 
             self::$cache = null;
             GameLog::info('BankSettings', 'Setting updated', [
@@ -70,11 +72,7 @@ class BankSettings
             ]);
             return true;
         } catch (Throwable $e) {
-            GameLog::error('BankSettings', 'Failed to update setting', [
-                'key' => $key,
-                'value' => $value,
-                'error' => $e->getMessage(),
-            ]);
+            GameLog::error('BankSettings', 'Failed to update setting', $e, ['key' => $key, 'value' => $value]);
             return false;
         }
     }

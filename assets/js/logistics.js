@@ -299,6 +299,93 @@ function startCooldownTimer(btn, secs) {
     tick();
 }
 
+// Sekcja ochrony: otwieranie modalu, zakup / Protection section: modal open, purchase.
+// Target i renew sa zapisywane na elemencie modalu (nie w module-level vars), by unikac
+// nadpisania stanu gdy kilka modali jest otwartych jednoczesnie.
+// Target and renew are stored on the modal element (not in module-level vars) to avoid
+// state overwrite when multiple modals are open simultaneously.
+(function () {
+    function protLang(k, name, cost) {
+        var _l = window.PROTECTION_LANG || {};
+        var s = _l[k] || k;
+        if (name) s = s.replace(':name', name);
+        if (cost) s = s.replace(':cost', cost);
+        return s;
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.protection-add-btn');
+        if (!btn) return;
+        var targetKey = btn.dataset.target   || '';
+        var modal = document.getElementById('protection-modal-' + targetKey);
+        if (!modal) return;
+        // Zapisz kontekst na modalu, nie w zmiennych globalnych modulu.
+        // Store context on the modal, not in module-level variables.
+        modal.dataset.activeTargetId = btn.dataset.targetId || '0';
+        modal.dataset.activeIsRenew  = btn.dataset.renew === '1' ? '1' : '0';
+        modal.removeAttribute('hidden');
+    });
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-protection-close]') ||
+            e.target.classList.contains('protection-modal-overlay')) {
+            document.querySelectorAll('.protection-modal-overlay').forEach(function (m) {
+                m.setAttribute('hidden', '');
+            });
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.protection-buy-btn');
+        if (!btn) return;
+        // Odczytaj kontekst z zawierajacego modalu — nie z module-level vars.
+        // Read context from the containing modal — not from module-level vars.
+        var modal = btn.closest('.protection-modal');
+        if (!modal) return;
+        var targetType = modal.id.replace('protection-modal-', '');
+        var targetId   = parseInt(modal.dataset.activeTargetId, 10) || 0;
+        var isRenew    = modal.dataset.activeIsRenew === '1';
+        if (targetId <= 0) return;
+
+        var optCode = btn.dataset.optionCode || '';
+        var optName = btn.dataset.optionName || '';
+        var optCost = btn.dataset.optionCost || '';
+        var confirmKey = isRenew ? 'confirm_renew' : 'confirm_question';
+        var msg = protLang(confirmKey, optName, optCost);
+
+        confirmAction(msg, function () {
+            btn.disabled = true;
+            var fd = new FormData();
+            fd.append('csrf_token', window.PROTECTION_CSRF || '');
+            fd.append('option_code', optCode);
+            fd.append('target',      targetType);
+            fd.append('target_id',   targetId);
+            if (isRenew) fd.append('renew', '1');
+
+            fetch(window.PROTECTION_API, { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        document.querySelectorAll('.protection-modal-overlay').forEach(function (m) {
+                            m.setAttribute('hidden', '');
+                        });
+                        showGameToast(data.message || protLang('err'), 'success');
+                        setTimeout(function () {
+                            window.location.replace(window.location.pathname + window.location.search);
+                        }, 1500);
+                    } else {
+                        btn.disabled = false;
+                        alertError(data.message || protLang('err'));
+                    }
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    alertError(protLang('err'));
+                });
+        });
+    });
+}());
+
 // Odnowienie licznikow po paginacji AJAX / Refresh counters after AJAX pagination.
 (function () {
     function initRoadTripCountdowns(root) {

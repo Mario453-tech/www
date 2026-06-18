@@ -705,15 +705,24 @@ Frontend (`world_map.js`) używa funkcji:
 | `high` | 500 000 | 90 min | 5 000 000 |
 | `critical` | 1 000 000 | 120 min | 25 000 000 |
 
-### Tick (etapy P2+) / Tick processing (P2+)
+### Tick (rozpatrywanie wniosków) / Tick processing — WDROŻONE
 
-Przetwarzanie wniosków przez tick **nie jest zaimplementowane w P1**.
-Wniosek składa gracz — decyzja jest nadawana manualnie przez admina lub zaplanowana na P2.
+`src/Tick/LegalSection.php` rozpatruje zalegające wnioski raz na tick:
+- Pobiera wnioski `pending`/`delayed` z minionym `decision_due_at`.
+- Losuje wynik wg konfiguracji regionu (priorytet: `no_decision` > `refused` > `delayed` > `granted`).
+- `delayed` przesuwa termin (+`delay_min..max` min) i zwiększa `delay_count`; `refused` ustawia `refusal_cooldown_until`.
+- Wysyła powiadomienie dyrektora (§13) z ikoną SVG (`check`/`cross`/`alert`/`warning`).
+- Analogicznie rozpatruje wnioski o huby (`hub_permit_applications`) w `runHubPermits()`.
+Sekcja jest podpięta w `cron/tick.php` (po `CredibilitySection`).
+
+### Blokada zakupu / Purchase gate — WDROŻONE
+
+`WorldMap::buyWellAtLocation()` woła `regionPurchaseBlock()` przed utworzeniem odwiertu.
+Brak aktywnego zezwolenia (`granted`/`transitional`, sprawdzane przez `LegalService::hasActivePermit()`)
+zwraca błąd `no_permit` i blokuje zakup. Bramka jest fail-closed (błąd = blokada).
 
 ### Co NIE jest w P1 / Not in P1
 
-- Automatyczne przetwarzanie wniosków przez tick (P2)
-- Blokada zakupu odwiertu bez zezwolenia w `WorldMap` (backend — widok mapy ma badge'e)
 - Wielokrotne wnioski (gracz może mieć jeden wniosek per region na raz)
 - Historyczne logi odmów
 
@@ -754,6 +763,152 @@ Testy używają SQLite in-memory przez `SqliteIntegrationTestCase` w `tests/Inte
 | transitional | Zezwolenie przejściowe — aktywne, nadane przez migrację P1 |
 | capitalLocked | Kubełek regionów zablokowanych przez wymóg kapitałowy (§7.3) |
 | ACTIVE_STATUSES | granted + transitional — odblokowują zakup odwiertów |
+| BriberyService | Uniwersalny silnik łapówek — cena/ryzyko z wiarygodności firmy |
+| BriberyConfig | Konfiguracja łapówek (tabela `bribery_config`), edytowalna w `admin/bribery.php` |
+| ProtectionService | Uniwersalny silnik ochrony — opcje/efekty w bazie, edytowalne w `admin/protection.php` |
+| ProtectionSchema | Schemat + seed modułu ochrony (4 tabele `protection_*` / `active_protections`) |
+
+---
+
+## 26. Moduł łapówek (BriberyService) — uniwersalna wtyczka
+
+<!-- Bribery module — universal plug-in -->
+
+### Co to jest / What it is
+
+`BriberyService` to **jedno gniazdko** dla całej gry. Łapówka pozwala graczowi
+zapłacić gotówką, żeby załatwić coś po cichu — z ryzykiem wpadki i kosztem dla
+**wiarygodności firmy** (`CompanyCredibilityService`). Silnik zna tylko trzy rzeczy:
+liczy cenę i ryzyko z reputacji, pobiera gotówkę i losuje wynik, księguje skutki
+reputacyjne + wysyła powiadomienie. **Nie wie**, czym jest pozwolenie/transport —
+to sprawa modułu.
+
+### Pliki modułu / Module files
+
+| Plik | Rola |
+|------|------|
+| `src/BriberyService.php` | Silnik: `quote()` (wycena), `attempt()` (próba łapówki) |
+| `src/Bribery/BriberyConfig.php` | Konfiguracja (tabela `bribery_config`) + sanityzacja |
+| `admin/bribery.php` + `templates/views/admin/bribery/main.php` | Panel edycji parametrów |
+| `lang/pl/bribery.php` | Uniwersalne komunikaty (wspólne) |
+| `lang/pl/admin/bribery.php` | Teksty panelu admina |
+| `src/Legal/BriberyTrait.php` | **Przykładowa** wtyczka (dział prawny) |
+
+- Typ transakcji: `FinancialTransactionService::TYPE_BRIBE` (`bribe`) → `POOL_CASH`
+  (`WalletConfig`) — łapówka jest zawsze gotówkowa.
+- Zdarzenia reputacji: `bribe_paid` (sukces, lekka kara) i `bribe_caught`
+  (wpadka, mocna kara) — zapisywane w `company_credibility_log` przez `changeScore()`.
+
+### Jak podpiąć łapówkę do dowolnego modułu — 3 kroki / 3 steps
+
+**Krok 1 — wymyśl nazwę kontekstu** (do logów i historii), np. `transport_inspection`.
+
+**Krok 2 — wywołaj silnik** z kosztem odniesienia i domknięciem „co przy sukcesie":
+
+```php
+$bribery = new BriberyService($this->db);
+$res = $bribery->attempt(
+    $playerId,
+    'transport_inspection',        // klucz kontekstu / context key
+    $referenceCost,                // np. koszt kontroli — silnik dolicza % bazowy i mnoznik reputacji
+    function () use ($db, $id) {    // SUKCES: odblokuj swoja rzecz (w transakcji silnika)
+        $db->prepare("UPDATE ... SET status='cleared' WHERE id=?")->execute([$id]);
+    },
+    [
+        'on_caught' => function () use ($db, $id) { /* opcjonalnie: dodatkowa kara */ },
+        'meta' => [
+            'label'        => $name,           // nazwa do historii/powiadomienia
+            'notif_type'   => 'legal',         // typ z ENUM director_notifications.type
+            'action_url'   => 'transport.php', // dokad prowadzi alert (opcjonalnie)
+            'action_label' => 'Transport',
+        ],
+    ]
+);
+// $res['outcome']: 'success' | 'caught' | 'no_funds' | 'disabled' | 'error'
+```
+
+**Krok 3 — UI**: dodaj przycisk POST (jak `legal-bribe-form` w
+`templates/views/legal/_bribe_button.php`) i — jeśli chcesz pokazać koszt/ryzyko —
+zawołaj `$bribery->quote($playerId, $referenceCost)` (zwraca `cost`, `catch_pct`).
+
+**To wszystko.** Cena, losowanie, pobranie gotówki, kary reputacji, powiadomienie
+o wpadce i transakcja siedzą w silniku — zero kopiowania, zero dotykania
+`BriberyService`. Parametry (szanse, mnożniki, kary) zmienia admin w
+`admin/bribery.php` i działają wszędzie naraz.
+
+### Zasady / Rules
+
+- Silnik buduje `BriberyConfig` i `CompanyCredibilityService` w konstruktorze
+  (poza transakcją) — twórz `BriberyService` **przed** `beginTransaction()` własnego kodu.
+- Domknięcia `onSuccess` / `on_caught` są wykonywane **wewnątrz** transakcji silnika —
+  rób w nich tylko DML (UPDATE/INSERT), bez DDL i bez własnego `commit`.
+- Każdy nowy kontekst dorzuca swoje teksty `bribery.tx_label` działa generycznie
+  (nazwa z `meta.label`); komunikaty per-moduł trzymaj w `lang/pl/[modul].php`.
+
+---
+
+## 27. Moduł ochrony (ProtectionService) — uniwersalna wtyczka
+
+<!-- Protection module — universal plug-in -->
+
+### Co to jest / What it is
+
+`ProtectionService` to konfigurowalny silnik ochrony aktywów. Opcje ochrony
+(nazwa, koszt, czas, wymagania) i ich efekty (`effect_key` + mnożnik/delta) są
+**w bazie, edytowalne z `admin/protection.php`** — admin dodaje nową ochronę bez
+zmiany kodu. Gracz wykupuje ochronę na cel na czas `duration_minutes`; moduł gry
+pyta o aktywne efekty dla celu i nakłada je na swoje ryzyka. Pełny brief:
+`BRIEF_UNIWERSALNY_MODUL_OCHRONY.md`.
+
+### Pliki modułu / Module files
+
+| Plik | Rola |
+|------|------|
+| `src/ProtectionService.php` | Silnik: `getAvailableOptions`, `quote`, `activate`, `getActiveEffects`, `applyEffects`, `cancel`, `logEvent` |
+| `src/Protection/ProtectionSchema.php` | 4 tabele + idempotentny seed opcji P1 |
+| `admin/protection.php` + widok | Panel: opcje / efekty / aktywne / historia |
+| `public/protection.php` | Endpoint AJAX aktywacji (gracz) |
+| `assets/js/protection.js` + `assets/css/protection.css` | Modal wyboru w logistyce |
+| `lang/pl/protection.php`, `lang/pl/admin/protection.php` | Tłumaczenia |
+
+- Typ transakcji: `FinancialTransactionService::TYPE_PROTECTION` (`protection`)
+  → `POOL_CASH` — P1 tylko gotówka.
+- Podpięte cele (`target_type` / `target_id` / `context`):
+  - **transport drogowy**: `road_transport` / `well_id` / `road_transport_guard` —
+    mnożniki `theft/raid/sabotage_risk_mult` w `RoadTransportService::applyTripIncidents()`.
+  - **huby**: `hub` / `logistics_hubs.id` / `hub_guard` — mnożniki per typ incydentu
+    (`equipment_damage/local_leak/critical_overload/...risk_mult`) w `HubIncidentService::processTick()`.
+  - **rurociągi**: `pipeline` / `well_pipelines.id` (per odcinek) / `pipeline_guard` —
+    jeden mnożnik `pipeline_incident_risk_mult` w `PipelineSection::rollPipelineIncident()`.
+- Jedna instancja `ProtectionService` na gracza w ticku (`PlayersSection`), współdzielona
+  przez rurociągi/huby/drogę — wygasanie raz na gracza.
+
+### Jak podpiąć ochronę do nowego modułu / How to plug in
+
+1. Zdefiniuj w adminie opcję z nowym `target_type` + `context` i efektami.
+2. Przy rozliczaniu ryzyka pobierz efekty i nałóż je:
+   ```php
+   $prot = new ProtectionService($db); // przed beginTransaction (robi DDL-check)
+   $effects = $prot->getActiveEffects($playerId, 'hub', $hubId, 'hub_guard');
+   $risks = $prot->applyEffects($baseRisks, $effects); // mult mnozy, delta dodaje
+   ```
+3. W UI celu dodaj przycisk POST do `public/protection.php` (lub własny endpoint)
+   wołający `activate($playerId, $code, $targetType, $targetId, $referenceValue)`.
+
+### Zasady / Rules
+
+- Mnożniki przy odczycie są przycinane do **[0.05, 1.0]** — ochrona nigdy nie
+  zeruje ryzyka; nieznane `effect_key` są ignorowane (dodanie klucza w adminie
+  przed obsługą w kodzie nic nie psuje).
+- Max **1 aktywna ochrona** per `gracz+target_type+target_id+context`;
+  wygasanie leniwe po `ends_at` (bez crona), raz na instancję serwisu.
+- W silniku jednej szansy + wag (transport drogowy) mnożniki nakładaj na wagi
+  z korektą łącznej szansy `sum(w')/sum(w)` — typy niechronione muszą zachować
+  bazowe prawdopodobieństwa (wzór w §8 briefu).
+- Moduł NIE liczy efektów sam — zawsze przez `getActiveEffects`/`applyEffects`.
+- Incydent rozliczony pod aktywną ochroną loguj przez
+  `logEvent(..., 'protection_applied_to_incident', ...)` — to odpowiedź dla
+  admina „czy ochrona zadziałała".
 
 ---
 

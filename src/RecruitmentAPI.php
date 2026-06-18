@@ -29,8 +29,12 @@ class RecruitmentAPI {
  * @param int $waitMinutes Wait time in minutes (default 60)
  * @return array Operation status
  */
-    public function startRecruitment($roleId, $waitMinutes = 60) {
+    public function startRecruitment($roleId, $waitMinutes = 60, int $playerId = 0) {
         try {
+            if ($playerId <= 0) {
+                $playerId = (int)($_SESSION['user_id'] ?? 0);
+            }
+
  // Check that the role exists and is active
             $stmt = $this->db->prepare("
                 SELECT * FROM board_roles 
@@ -43,12 +47,12 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_role_not_found')];
             }
             
- // Check that no active recruitment process exists for this role
+ // Check that no active recruitment process exists for this player's role
             $stmt = $this->db->prepare("
                 SELECT * FROM recruitment_requests 
-                WHERE role_id = ? AND status IN ('pending', 'ready')
+                WHERE role_id = ? AND player_id = ? AND status IN ('pending', 'ready')
             ");
-            $stmt->execute([$roleId]);
+            $stmt->execute([$roleId, $playerId]);
             $existing = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($existing) {
@@ -58,9 +62,9 @@ class RecruitmentAPI {
  // Check that the position is not already filled
             $stmt = $this->db->prepare("
                 SELECT * FROM board_members 
-                WHERE role_id = ? AND status = 'active'
+                WHERE role_id = ? AND player_id = ? AND status = 'active' AND member_type = 'director'
             ");
-            $stmt->execute([$roleId]);
+            $stmt->execute([$roleId, $playerId]);
             $member = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($member) {
@@ -71,10 +75,10 @@ class RecruitmentAPI {
             $readyAt = date('Y-m-d H:i:s', strtotime('+' . $waitMinutes . ' minutes'));
             
             $stmt = $this->db->prepare("
-                INSERT INTO recruitment_requests (role_id, ready_at, status)
-                VALUES (?, ?, 'pending')
+                INSERT INTO recruitment_requests (role_id, region_code, player_id, initiated_by, recruitment_type, ready_at, status)
+                VALUES (?, 'PL', ?, 'director', 'local', ?, 'pending')
             ");
-            $stmt->execute([$roleId, $readyAt]);
+            $stmt->execute([$roleId, $playerId, $readyAt]);
             $requestId = $this->db->lastInsertId();
             
             return [
@@ -85,45 +89,50 @@ class RecruitmentAPI {
                 'wait_minutes' => $waitMinutes
             ];
             
-        } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+        } catch (Throwable $e) {
+            GameLog::error('RecruitmentAPI', 'startRecruitment failed', $e, ['role_id' => $roleId]);
+            return ['success' => false, 'error' => t('recruitment.err_internal')];
         }
     }
-    
+
  /**
  * Checks recruitment status and generates candidates if the wait has elapsed.
  *
  * @param int $requestId Recruitment request ID
  * @return array Recruitment status
  */
-    public function checkRecruitmentStatus($requestId) {
+    public function checkRecruitmentStatus($requestId, int $playerId = 0) {
         try {
+            if ($playerId <= 0) {
+                $playerId = (int)($_SESSION['user_id'] ?? 0);
+            }
+
             $stmt = $this->db->prepare("
                 SELECT r.*, br.name as role_name, br.code as role_code
                 FROM recruitment_requests r
                 JOIN board_roles br ON r.role_id = br.id
-                WHERE r.id = ?
+                WHERE r.id = ? AND r.player_id = ?
             ");
-            $stmt->execute([$requestId]);
+            $stmt->execute([$requestId, $playerId]);
             $request = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$request) {
                 return ['success' => false, 'error' => t('recruitment.err_request_not_found')];
             }
             
- // If status is 'pending' and wait has elapsed - generate candidates
+ // Atomically claim the pending request to avoid double-processing under concurrent calls.
+ // Atomowo przejm rekord, by uniknac podwojnego przetwarzania przy rownoczesnych zapytaniach.
             if ($request['status'] === 'pending' && strtotime($request['ready_at']) <= time()) {
-                $this->generator->generateCandidates($request['role_id']);
-                
- // Update status to 'ready'
+                $this->hrService->processReadyRecruitments($playerId);
+
                 $stmt = $this->db->prepare("
-                    UPDATE recruitment_requests 
-                    SET status = 'ready' 
-                    WHERE id = ?
+                    SELECT r.*, br.name as role_name, br.code as role_code
+                    FROM recruitment_requests r
+                    JOIN board_roles br ON r.role_id = br.id
+                    WHERE r.id = ? AND r.player_id = ?
                 ");
-                $stmt->execute([$requestId]);
-                
-                $request['status'] = 'ready';
+                $stmt->execute([$requestId, $playerId]);
+                $request = $stmt->fetch(PDO::FETCH_ASSOC) ?: $request;
             }
             
             return [
@@ -133,21 +142,26 @@ class RecruitmentAPI {
                 'time_remaining' => max(0, strtotime($request['ready_at']) - time())
             ];
             
-        } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+        } catch (Throwable $e) {
+            GameLog::error('RecruitmentAPI', 'checkRecruitmentStatus failed', $e, ['request_id' => $requestId]);
+            return ['success' => false, 'error' => t('recruitment.err_internal')];
         }
     }
-    
+
  /**
  * Returns the list of candidates for a given role.
  *
  * @param int $roleId Role ID
  * @return array Candidate list
  */
-    public function getCandidates($roleId) {
+    public function getCandidates($roleId, int $playerId = 0) {
         try {
+            if ($playerId <= 0) {
+                $playerId = (int)($_SESSION['user_id'] ?? 0);
+            }
+
  // Remove expired candidates first
-            $this->generator->cleanupExpiredCandidates();
+            $this->generator->cleanupExpired();
             
             $stmt = $this->db->prepare("
                 SELECT c.*, 
@@ -155,9 +169,15 @@ class RecruitmentAPI {
                        TIMESTAMPDIFF(HOUR, NOW(), c.expires_at) as hours_remaining
                 FROM candidates c
                 WHERE c.role_id = ? AND c.expires_at > NOW()
+                  AND (
+                       c.player_id = ?
+                       OR (c.player_id IS NULL AND c.request_id IN (
+                           SELECT id FROM recruitment_requests WHERE player_id = ?
+                       ))
+                  )
                 ORDER BY c.created_at DESC
             ");
-            $stmt->execute([$roleId]);
+            $stmt->execute([$roleId, $playerId, $playerId]);
             $candidates = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             return [
@@ -166,11 +186,12 @@ class RecruitmentAPI {
                 'count' => count($candidates)
             ];
             
-        } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+        } catch (Throwable $e) {
+            GameLog::error('RecruitmentAPI', 'getCandidates failed', $e, ['role_id' => $roleId]);
+            return ['success' => false, 'error' => t('recruitment.err_internal')];
         }
     }
-    
+
  /**
  * Hires the selected candidate.
  *
@@ -216,48 +237,26 @@ class RecruitmentAPI {
  * @param string|null $reason Reason for dismissal (null = default lang string)
  * @return array Operation status
  */
-    public function fireEmployee($memberId, $reason = null) {
+    public function fireEmployee($memberId, $reason = null, int $playerId = 0) {
         $reason = $reason ?? t('recruitment.default_fire_reason');
         try {
-            $this->db->beginTransaction();
-            
- // Check that the employee exists
-            $stmt = $this->db->prepare("
-                SELECT * FROM board_members WHERE id = ? AND status = 'active'
-            ");
-            $stmt->execute([$memberId]);
-            $member = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$member) {
-                $this->db->rollBack();
-                return ['success' => false, 'error' => t('recruitment.err_employee_not_found')];
+            if ($playerId <= 0) {
+                $playerId = (int)($_SESSION['user_id'] ?? 0);
             }
+
+            $result = $this->hrService->fireEmployee((int)$memberId, (string)$reason, $playerId);
+            $success = (bool)($result['success'] ?? false);
+            if ($success) {
+                return ['success' => true, 'message' => $result['message'] ?? t('recruitment.msg_fired')];
+            }
+            return ['success' => false, 'error' => $result['message'] ?? t('recruitment.err_employee_not_found')];
             
- // Update employee status
-            $stmt = $this->db->prepare("
-                UPDATE board_members 
-                SET status = 'fired', fired_at = NOW() 
-                WHERE id = ?
-            ");
-            $stmt->execute([$memberId]);
-            
- // Add history record
-            $stmt = $this->db->prepare("
-                INSERT INTO employment_history (member_id, action, reason)
-                VALUES (?, 'fired', ?)
-            ");
-            $stmt->execute([$memberId, $reason]);
-            
-            $this->db->commit();
-            
-            return [
-                'success' => true,
-                'message' => t('recruitment.msg_fired'),
-            ];
-            
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            return ['success' => false, 'error' => $e->getMessage()];
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('RecruitmentAPI', 'fireEmployee failed', $e, ['member_id' => $memberId]);
+            return ['success' => false, 'error' => t('recruitment.err_internal')];
         }
     }
 
@@ -266,15 +265,20 @@ class RecruitmentAPI {
  *
  * @return array Board member list
  */
-    public function getBoardMembers() {
+    public function getBoardMembers(int $playerId = 0) {
         try {
+            if ($playerId <= 0) {
+                $playerId = (int)($_SESSION['user_id'] ?? 0);
+            }
+
             $stmt = $this->db->prepare("
                 SELECT m.*, r.name as role_name, r.code as role_code
                 FROM board_members m
                 JOIN board_roles r ON m.role_id = r.id
-                WHERE m.status = 'active'
+                WHERE m.player_id = ?
+                  AND m.status = 'active'
             ");
-            $stmt->execute();
+            $stmt->execute([$playerId]);
             $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             return [
@@ -283,8 +287,9 @@ class RecruitmentAPI {
                 'count' => count($members),
             ];
             
-        } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+        } catch (Throwable $e) {
+            GameLog::error('RecruitmentAPI', 'getBoardMembers failed', $e);
+            return ['success' => false, 'error' => t('recruitment.err_internal')];
         }
     }
 }
@@ -332,20 +337,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'start_recruitment':
                 $roleId = (int)($_POST['role_id'] ?? 0);
                 if ($roleId <= 0) { throw new InvalidArgumentException(t('recruitment.err_missing_role_id')); }
-                $waitMinutes = (int)($_POST['wait_minutes'] ?? 60);
-                $response = $api->startRecruitment($roleId, $waitMinutes);
+                $waitMinutes = max(1, (int)($_POST['wait_minutes'] ?? 60));
+                $response = $api->startRecruitment($roleId, $waitMinutes, $playerId);
                 break;
 
             case 'check_status':
                 $requestId = (int)($_POST['request_id'] ?? 0);
                 if ($requestId <= 0) { throw new InvalidArgumentException(t('recruitment.err_missing_request_id')); }
-                $response = $api->checkRecruitmentStatus($requestId);
+                $response = $api->checkRecruitmentStatus($requestId, $playerId);
                 break;
 
             case 'get_candidates':
                 $roleId = (int)($_POST['role_id'] ?? 0);
                 if ($roleId <= 0) { throw new InvalidArgumentException(t('recruitment.err_missing_role_id')); }
-                $response = $api->getCandidates($roleId);
+                $response = $api->getCandidates($roleId, $playerId);
                 break;
 
             case 'hire_candidate':
@@ -359,11 +364,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $memberId = (int)($_POST['member_id'] ?? 0);
                 if ($memberId <= 0) { throw new InvalidArgumentException(t('recruitment.err_missing_member_id')); }
                 $reason = $_POST['reason'] ?? null;
-                $response = $api->fireEmployee($memberId, $reason);
+                $response = $api->fireEmployee($memberId, $reason, $playerId);
                 break;
 
             case 'get_board_members':
-                $response = $api->getBoardMembers();
+                $response = $api->getBoardMembers($playerId);
                 break;
 
             default:

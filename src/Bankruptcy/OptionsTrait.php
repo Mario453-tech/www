@@ -76,16 +76,19 @@ trait BankruptcyOptionsTrait
         $this->db->beginTransaction();
         try {
             $this->db->prepare("UPDATE wells SET status='seized', marine_buffer_bbl=0 WHERE id=? AND player_id=?")->execute([$wellId, $this->playerId]);
-            $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id=?")->execute([$payout, $this->playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        null, $this->playerId, (float)$payout,
-                        FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
-                        'Sprzedaz odwiertu #' . $wellId . ' w ramach restrukturyzacji'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+ // Wyplata przez centralne API finansowe (ruch gotowki + wpis bankowy; w transakcji).
+ // Payout via the central finance API (cash movement + bank entry; inside a transaction).
+            $payoutRes = (new FinancialTransactionService($this->db))->credit(
+                $this->playerId, (float)$payout,
+                FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
+                tPlain('bank.tx_bankruptcy_sell_well', ['id' => $wellId]),
+                'well', $wellId
+            );
+            if (empty($payoutRes['success'])) {
+                $this->db->rollBack();
+                GameLog::error('BankruptcyService', 'applySellWellAsset: credit FAILED', null, ['player_id' => $this->playerId, 'well_id' => $wellId]);
+                return ['success' => false, 'message' => t('bankruptcy.err_well_seized')];
+            }
             $this->logEvent('sell_asset', t('bankruptcy.log_sell_well', ['id' => $wellId, 'payout' => number_format($payout)]), ['asset_type' => 'well', 'well_id' => $wellId, 'payout' => $payout], 'high', 0, null);
             $this->addNotification(t('bankruptcy.notif_sell_well', ['payout' => number_format($payout)]));
             $this->db->commit();
@@ -136,16 +139,19 @@ trait BankruptcyOptionsTrait
         $this->db->beginTransaction();
         try {
             $this->db->prepare("UPDATE storage SET capacity=?, used=? WHERE player_id=?")->execute([$newCapacity, $newUsed, $this->playerId]);
-            $this->db->prepare("UPDATE players SET cash = cash + ? WHERE id=?")->execute([$payout, $this->playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        null, $this->playerId, (float)$payout,
-                        FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
-                        'Sprzedaz magazynu w ramach restrukturyzacji'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+ // Wyplata przez centralne API finansowe (ruch gotowki + wpis bankowy; w transakcji).
+ // Payout via the central finance API (cash movement + bank entry; inside a transaction).
+            $payoutRes = (new FinancialTransactionService($this->db))->credit(
+                $this->playerId, (float)$payout,
+                FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
+                tPlain('bank.tx_bankruptcy_sell_storage'),
+                'storage', $this->playerId
+            );
+            if (empty($payoutRes['success'])) {
+                $this->db->rollBack();
+                GameLog::error('BankruptcyService', 'applySellStorageAsset: credit FAILED', null, ['player_id' => $this->playerId]);
+                return ['success' => false, 'message' => t('bankruptcy.err_no_storage')];
+            }
             $this->logEvent('sell_asset_storage', t('bankruptcy.log_sell_storage'), ['asset_type' => 'storage', 'capacity_sold' => $sellCap, 'payout' => $payout], 'medium', 0, null);
             $this->addNotification(t('bankruptcy.notif_sell_storage', ['payout' => number_format($payout)]));
             GameLog::info('BankruptcyService', 'applySellStorageAsset OK', ['player_id' => $this->playerId, 'capacity_sold' => $sellCap, 'payout' => $payout]);
@@ -222,22 +228,26 @@ trait BankruptcyOptionsTrait
         $rate = $this->randBetween(15, 25);
         $installment = (float)round(($amount * (1 + ($rate / 100) * 0.6)) / 16, 2);
 
+ // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
+ // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
+        $fts = new FinancialTransactionService($this->db);
         $this->db->beginTransaction();
         try {
             $this->db->prepare("INSERT INTO loans (player_id, application_id, principal_amount, remaining_amount, interest_rate, installment_amount, installment_frequency, next_installment_at, status, created_at) VALUES (?, NULL, ?, ?, ?, ?, 12, DATE_ADD(NOW(), INTERVAL 12 HOUR), 'active', NOW())")
                 ->execute([$this->playerId, $amount, $amount, $rate, $installment]);
             $loanId = (int)$this->db->lastInsertId();
-            $this->db->prepare("UPDATE players SET cash = cash + ?, credit_score = GREATEST(0, credit_score - 50), recovery_mode=1, bankruptcy_status='restructuring' WHERE id=?")
-                ->execute([$amount, $this->playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        null, $this->playerId, (float)$amount,
-                        FinancialTransactionService::TYPE_LOAN,
-                        'Wyplata kredytu ratunkowego (restrukturyzacja)'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+            $creditRes = $fts->credit(
+                $this->playerId, (float)$amount,
+                FinancialTransactionService::TYPE_LOAN,
+                'Wyplata kredytu ratunkowego (restrukturyzacja)'
+            );
+            if (empty($creditRes['success'])) {
+                $this->db->rollBack();
+                GameLog::error('BankruptcyService', 'applyEmergencyLoan: credit FAILED', null, ['player_id' => $this->playerId]);
+                return ['success' => false, 'message' => t('common.app_error')];
+            }
+            $this->db->prepare("UPDATE players SET credit_score = GREATEST(0, credit_score - 50), recovery_mode=1, bankruptcy_status='restructuring' WHERE id=?")
+                ->execute([$this->playerId]);
             $this->logEvent('emergency_loan', t('bankruptcy.log_emergency_loan'), ['loan_id' => $loanId, 'amount' => $amount, 'interest_rate' => $rate], 'high', 0, null);
             $this->addNotification(t('bankruptcy.notif_emergency_loan', ['amount' => number_format($amount), 'rate' => $rate]));
             $this->db->commit();
@@ -255,6 +265,9 @@ trait BankruptcyOptionsTrait
  // PL: Galaz ciec kosztow.
     private function applyCostCuts(): array
     {
+ // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
+ // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
+        $fts = new FinancialTransactionService($this->db);
         $this->db->beginTransaction();
         try {
             $wStmt = $this->db->prepare("UPDATE wells SET status='paused_cash' WHERE player_id=? AND status='active'");
@@ -275,16 +288,17 @@ trait BankruptcyOptionsTrait
 
             $relief = min(200000, 40000 + ($paused * 12000) + ($firedTech * 8000) + ($suspendedBoard * 15000));
 
-            $this->db->prepare("UPDATE players SET cash=cash+?, credit_score=GREATEST(0,credit_score-1), recovery_mode=1, bankruptcy_status='restructuring' WHERE id=?")->execute([$relief, $this->playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        null, $this->playerId, (float)$relief,
-                        FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
-                        'Ulga gotowkowa - ciecie kosztow (restrukturyzacja)'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+            $creditRes = $fts->credit(
+                $this->playerId, (float)$relief,
+                FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
+                'Ulga gotowkowa - ciecie kosztow (restrukturyzacja)'
+            );
+            if (empty($creditRes['success'])) {
+                $this->db->rollBack();
+                GameLog::error('BankruptcyService', 'applyCostCuts: credit FAILED', null, ['player_id' => $this->playerId]);
+                return ['success' => false, 'message' => t('common.app_error')];
+            }
+            $this->db->prepare("UPDATE players SET credit_score=GREATEST(0,credit_score-1), recovery_mode=1, bankruptcy_status='restructuring' WHERE id=?")->execute([$this->playerId]);
 
             $this->logEvent('cost_cuts', t('bankruptcy.log_cost_cuts'), [
                 'paused_wells' => $paused,
@@ -340,6 +354,9 @@ trait BankruptcyOptionsTrait
         $directDebtRepay = (int)round($cashInjection * 0.6);
         $cashToPlayer = max((int)round($debtActive * 0.05), $totalCash - $directDebtRepay);
 
+ // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
+ // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
+        $fts = new FinancialTransactionService($this->db);
         $this->db->beginTransaction();
         try {
             if ($directDebtRepay > 0) {
@@ -358,16 +375,17 @@ trait BankruptcyOptionsTrait
                 }
             }
 
-            $this->db->prepare("UPDATE players SET cash=cash+?, credit_score=GREATEST(0,credit_score-4), recovery_mode=1, bankruptcy_status='restructuring' WHERE id=?")->execute([$cashToPlayer, $this->playerId]);
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        null, $this->playerId, (float)$cashToPlayer,
-                        FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
-                        'Inwestor ratunkowy - zastrzyk gotowki (restrukturyzacja)'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+            $creditRes = $fts->credit(
+                $this->playerId, (float)$cashToPlayer,
+                FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
+                'Inwestor ratunkowy - zastrzyk gotowki (restrukturyzacja)'
+            );
+            if (empty($creditRes['success'])) {
+                $this->db->rollBack();
+                GameLog::error('BankruptcyService', 'applyRescueInvestor: credit FAILED', null, ['player_id' => $this->playerId]);
+                return ['success' => false, 'message' => t('common.app_error')];
+            }
+            $this->db->prepare("UPDATE players SET credit_score=GREATEST(0,credit_score-4), recovery_mode=1, bankruptcy_status='restructuring' WHERE id=?")->execute([$this->playerId]);
 
             $this->logEvent('rescue_investor', t('bankruptcy.log_rescue_investor'), [
                 'cash_injection' => $totalCash,

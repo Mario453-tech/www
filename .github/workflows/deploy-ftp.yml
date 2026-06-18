@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:  # reczne uruchomienie = pelny upload wszystkich plikow
+                      # manual trigger = full upload of all files
 
 # UWAGA: NIE wymuszamy Node.js 24 (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24).
 # Node 24 psuje wznawianie sesji TLS na kanale danych FTPS -> blad

@@ -31,7 +31,8 @@ if (time() - $lastRun < 5) {
 $_SESSION['force_tick_last'] = time();
 
 try {
-    define('FORCE_TICK_INTERNAL', true);
+    define('FORCE_TICK_INTERNAL', true); // pomija guard HTTP w cron/tick.php
+    define('ADMIN_FORCE_TICK', true);    // reczne wymuszenie omija blokade GET_LOCK
     ob_start();
     require __DIR__ . '/../cron/tick.php';
     $tickOutput = ob_get_clean();
@@ -41,7 +42,7 @@ try {
     if (preg_match('/Gracze:\s*(\d+)/', $tickOutput, $m)) $processed = (int)$m[1];
     if (preg_match('/Cena:\s*([\d.]+)/', $tickOutput, $m)) $newPrice  = $m[1];
 
-    AdminLog::log('force_global_tick', "Force tick OK ďż˝ processed {$processed} players, price: {$newPrice}", null, 'system');
+    AdminLog::log('force_global_tick', "Force tick OK - processed {$processed} players, price: {$newPrice}", null, 'system');
     $msg = t('admin.force_tick.msg_ok', ['processed' => $processed, 'price' => $newPrice]);
     $_SESSION['force_tick_msg']   = $msg;
     $_SESSION['force_tick_error'] = false;

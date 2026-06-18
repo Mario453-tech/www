@@ -21,12 +21,12 @@ if (!$pending) {
     exit();
 }
 
-$enabled = !empty($pending['totp_enabled']) && !empty($pending['totp_secret']);
+$enabled = !empty($pending['totp_enabled']);
 $mode    = $enabled ? 'verify' : 'setup';
 $error   = '';
+$locale  = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 
-// Zaufane urządzenie — pomiń formularz 2FA jeśli token jest ważny.
-// Trusted device — skip 2FA form if a valid token cookie exists.
+// Trusted device - skip the 2FA form if a valid token cookie exists.
 if ($mode === 'verify' && AdminAuth::checkTrustedDevice($pending['id'])) {
     AdminAuth::completeLogin();
     $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
@@ -47,38 +47,70 @@ if ($mode === 'setup') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $error = tPlain('common.csrf_error');
-    } elseif (class_exists('RateLimiter') && !RateLimiter::check('admin_2fa')) {
+    } elseif (AdminAuth::isIpBlocked()) {
+ // Blokada IP obejmuje rowniez nieudane proby TOTP dzieki logTotpFail().
+ // IP block also covers failed TOTP attempts via logTotpFail().
         $error = tPlain('admin.2fa.err_rate_limit');
     } else {
-        $code = preg_replace('/\D/', '', (string)($_POST['code'] ?? ''));
+ // Licznik sesyjny poza admin_pending — nie resetuje sie przy ponownym logowaniu haslem.
+ // Session fail counter outside admin_pending — not reset by a password re-login.
+        $totp2faFails = (int)($_SESSION['admin_2fa_fails'][$pending['id']] ?? 0);
+        if ($totp2faFails >= 5) {
+            AdminAuth::clearPending();
+            AdminAuth::log('2FA_LOCKED', "Too many TOTP attempts — pending cleared for admin_id={$pending['id']}");
+            header('Location: /admin/login.php?2fa_locked=1');
+            exit();
+        }
 
-        if ($mode === 'verify') {
-            if (Totp::verify($pending['totp_secret'], $code)) {
- // Ustaw ciasteczko zaufanego urządzenia jeśli zaznaczono checkbox.
- // Set trusted-device cookie if the checkbox was checked.
-                if (!empty($_POST['remember_device'])) {
-                    AdminAuth::setTrustedDevice($pending['id']);
-                }
-                AdminAuth::completeLogin();
-                $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
-                unset($_SESSION['admin_redirect']);
-                header('Location: ' . $dest);
-                exit();
-            }
-            $error = tPlain('admin.2fa.err_invalid_code');
+ // Dodatkowa warstwa: RateLimiter jezeli dostepny.
+ // Extra layer: RateLimiter if available.
+        if (class_exists('RateLimiter') && !RateLimiter::check('admin_2fa')) {
+            $error = tPlain('admin.2fa.err_rate_limit');
         } else {
-            if (Totp::verify($setupSecret, $code)) {
-                if (AdminAuth::enableTotpForPending($setupSecret)) {
-                    unset($_SESSION['admin_2fa_setup_secret']);
+            $code = preg_replace('/\D/', '', (string)($_POST['code'] ?? ''));
+
+            if ($mode === 'verify') {
+ // Pobierz sekret z DB (nie z sesji) przy kazdej weryfikacji.
+ // Fetch secret from DB (not from session) on every verification attempt.
+                $totpSecret     = AdminAuth::getAdminTotpSecret($pending['id']);
+                $matchedCounter = $totpSecret !== null ? Totp::verifyWithCounter($totpSecret, $code) : false;
+
+ // Replay attack: odrzuc ponowne uzycie tego samego kodu w tym samym oknie.
+ // Replay protection: reject reuse of the same code within the same time window.
+                $lastCounter = $_SESSION['admin_pending']['last_totp_counter'] ?? PHP_INT_MIN;
+                if ($matchedCounter !== false && $matchedCounter > $lastCounter) {
+                    $_SESSION['admin_pending']['last_totp_counter'] = $matchedCounter;
+                    if (!empty($_POST['remember_device'])) {
+                        AdminAuth::setTrustedDevice($pending['id']);
+                    }
                     AdminAuth::completeLogin();
                     $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
                     unset($_SESSION['admin_redirect']);
                     header('Location: ' . $dest);
                     exit();
                 }
-                $error = tPlain('admin.2fa.err_setup_save');
+ // Bledny kod: inkrementuj oba liczniki (sesja + DB/IP).
+ // Wrong code: increment both counters (session + DB/IP).
+                $_SESSION['admin_2fa_fails'][$pending['id']] = $totp2faFails + 1;
+                AdminAuth::logTotpFail($pending['id']);
+                $error = tPlain('admin.2fa.err_invalid_code');
             } else {
-                $error = tPlain('admin.2fa.err_setup_code');
+                if (Totp::verify($setupSecret, $code)) {
+                    if (AdminAuth::enableTotpForPending($setupSecret)) {
+                        unset($_SESSION['admin_2fa_setup_secret']);
+                        AdminAuth::completeLogin();
+                        $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
+                        unset($_SESSION['admin_redirect']);
+                        header('Location: ' . $dest);
+                        exit();
+                    }
+                    $error = tPlain('admin.2fa.err_setup_save');
+                } else {
+ // Bledny kod setupu: inkrementuj oba liczniki / Wrong setup code: increment both.
+                    $_SESSION['admin_2fa_fails'][$pending['id']] = $totp2faFails + 1;
+                    AdminAuth::logTotpFail($pending['id']);
+                    $error = tPlain('admin.2fa.err_setup_code');
+                }
             }
         }
     }
@@ -86,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $csrf    = CSRF::generateToken();
 $issuer  = 'OilEmpire';
-$account = $pending['email'] ?: $pending['username'];
+$account = $pending['email'] ?: $pending['username'] ?: 'admin';
 $otpauth = $secretFmt = '';
 if ($mode === 'setup') {
     $otpauth   = Totp::provisioningUri($setupSecret, $account, $issuer);
@@ -94,7 +126,7 @@ if ($mode === 'setup') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="<?= htmlspecialchars($locale, ENT_QUOTES, 'UTF-8') ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -143,7 +175,7 @@ if ($mode === 'setup') {
             <?php if ($mode === 'verify'): ?>
             <label class="auth-remember-label">
                 <input type="checkbox" name="remember_device" value="1">
-                Pamiętaj to urządzenie przez 30 dni
+                <?= t('admin.2fa.remember_device_label') ?>
             </label>
             <?php endif ?>
             <button type="submit" class="auth-btn">
@@ -166,7 +198,7 @@ if ($mode === 'setup') {
     if (!headers_sent()) {
         http_response_code(500);
     }
-    echo function_exists('t') ? t('common.app_error') : 'Błąd aplikacji';
+    echo function_exists('t') ? t('common.app_error') : 'Blad aplikacji';
 } finally {
     if (class_exists('GameLog', false)) {
         GameLog::pageEnd('admin/2fa.php', $_codexGuardStart);
