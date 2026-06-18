@@ -55,7 +55,10 @@ class Player
                     SET cash = cash + :amount
                     WHERE id = :id AND cash >= :needed
                 ");
-                $ok = $stmt->execute([':amount' => $amount, ':id' => $this->playerId, ':needed' => -$amount]);
+                $stmt->execute([':amount' => $amount, ':id' => $this->playerId, ':needed' => -$amount]);
+                // rowCount=0 oznacza brak wystarczajacych srodkow — execute() samo w sobie zwraca true nawet wtedy.
+                // rowCount=0 means insufficient funds — execute() returns true even then, so we check rowCount.
+                $ok = $stmt->rowCount() > 0;
             } else {
                 $stmt = $this->db->prepare("
                     UPDATE players
