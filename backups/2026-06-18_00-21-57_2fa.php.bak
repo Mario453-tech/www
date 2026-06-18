@@ -47,17 +47,15 @@ if ($mode === 'setup') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $error = tPlain('common.csrf_error');
-    } elseif (AdminAuth::isIpBlocked()) {
- // Blokada IP obejmuje rowniez nieudane proby TOTP dzieki logTotpFail().
- // IP block also covers failed TOTP attempts via logTotpFail().
-        $error = tPlain('admin.2fa.err_rate_limit');
     } else {
- // Licznik sesyjny poza admin_pending — nie resetuje sie przy ponownym logowaniu haslem.
- // Session fail counter outside admin_pending — not reset by a password re-login.
-        $totp2faFails = (int)($_SESSION['admin_2fa_fails'][$pending['id']] ?? 0);
+ // Sesyjny licznik blednych prob — dziala niezaleznie od klasy RateLimiter.
+ // Session-based fail counter — works independently of the RateLimiter class.
+ // Atakujacy musi ponownie podac haslo po przekroczeniu limitu.
+ // Attacker must re-enter the password after exceeding the limit.
+        $totp2faFails = (int)($_SESSION['admin_pending']['totp_fails'] ?? 0);
         if ($totp2faFails >= 5) {
             AdminAuth::clearPending();
-            AdminAuth::log('2FA_LOCKED', "Too many TOTP attempts — pending cleared for admin_id={$pending['id']}");
+            AdminAuth::log('2FA_LOCKED', "Too many TOTP attempts — pending session cleared for admin_id={$pending['id']}");
             header('Location: /admin/login.php?2fa_locked=1');
             exit();
         }
@@ -89,10 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header('Location: ' . $dest);
                     exit();
                 }
- // Bledny kod: inkrementuj oba liczniki (sesja + DB/IP).
- // Wrong code: increment both counters (session + DB/IP).
-                $_SESSION['admin_2fa_fails'][$pending['id']] = $totp2faFails + 1;
-                AdminAuth::logTotpFail($pending['id']);
+ // Bledny kod: inkrementuj licznik sesyjny / Wrong code: increment session counter.
+                $_SESSION['admin_pending']['totp_fails'] = $totp2faFails + 1;
                 $error = tPlain('admin.2fa.err_invalid_code');
             } else {
                 if (Totp::verify($setupSecret, $code)) {
@@ -106,9 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $error = tPlain('admin.2fa.err_setup_save');
                 } else {
- // Bledny kod setupu: inkrementuj oba liczniki / Wrong setup code: increment both.
-                    $_SESSION['admin_2fa_fails'][$pending['id']] = $totp2faFails + 1;
-                    AdminAuth::logTotpFail($pending['id']);
+ // Bledny kod setupu: inkrementuj licznik / Wrong setup code: increment counter.
+                    $_SESSION['admin_pending']['totp_fails'] = $totp2faFails + 1;
                     $error = tPlain('admin.2fa.err_setup_code');
                 }
             }

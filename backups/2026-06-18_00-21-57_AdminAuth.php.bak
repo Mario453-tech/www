@@ -192,7 +192,6 @@ class AdminAuth
         if (!self::totpAvailable($db)) {
             return false;
         }
-        self::ensureTotpColumnSize($db);
  // WHERE guard: nie nadpisuj sekretu gdy 2FA juz aktywne (ochrona przed re-enrollment).
  // WHERE guard: do not overwrite an existing secret when 2FA is already active.
         $stmt = $db->prepare("UPDATE admins SET totp_secret = ?, totp_enabled = 1 WHERE id = ? AND (totp_enabled IS NULL OR totp_enabled = 0)");
@@ -215,19 +214,13 @@ class AdminAuth
             if (!self::totpAvailable($db)) {
                 return null;
             }
-            self::ensureTotpColumnSize($db);
             $stmt = $db->prepare("SELECT totp_secret FROM admins WHERE id = ? AND totp_enabled = 1 LIMIT 1");
             $stmt->execute([$adminId]);
             $row = $stmt->fetch();
             if (!$row || empty($row['totp_secret'])) {
                 return null;
             }
-            $decrypted = self::decryptTotpSecret((string)$row['totp_secret']);
-            if ($decrypted === null || $decrypted === '') {
-                GameLog::error('AdminAuth', 'getAdminTotpSecret: decryption returned empty/null', null, ['admin_id' => $adminId]);
-                return null;
-            }
-            return $decrypted;
+            return self::decryptTotpSecret((string)$row['totp_secret']);
         } catch (Throwable $e) {
             GameLog::error('AdminAuth', 'getAdminTotpSecret failed', $e, ['admin_id' => $adminId]);
             return null;
@@ -255,58 +248,26 @@ class AdminAuth
     }
 
  // Odszyfruj sekret z DB. Jesli nie zaszyfrowany (enc:...) — zwroc bez zmian.
- // Decrypt secret from DB. If not encrypted (enc:...) — return as-is (plaintext legacy).
- // Zwraca null gdy odszyfrowanie niemozliwe (brak klucza ENV lub uszkodzone dane).
- // Returns null when decryption is impossible (missing ENV key or corrupted data).
-    private static function decryptTotpSecret(string $stored): ?string
+ // Decrypt secret from DB. If not encrypted (enc:...) — return as-is.
+    private static function decryptTotpSecret(string $stored): string
     {
         if (!str_starts_with($stored, 'enc:')) {
             return $stored;
         }
         $key = (string)getenv('TOTP_ENCRYPT_KEY');
         if (strlen($key) < 32) {
- // Sekret jest zaszyfrowany ale brak klucza ENV — admin zostanie zablokowany.
- // Secret is encrypted but ENV key is missing — admin would be locked out.
-            GameLog::error('AdminAuth', 'TOTP_ENCRYPT_KEY missing or too short — cannot decrypt totp_secret', null, []);
-            return null;
+            return '';
         }
         $rawKey = substr(hash('sha256', $key, true), 0, 32);
         $data   = base64_decode(substr($stored, 4), true);
         if ($data === false || strlen($data) < 28) {
-            GameLog::error('AdminAuth', 'decryptTotpSecret: invalid base64 or too short', null, []);
-            return null;
+            return '';
         }
         $iv  = substr($data, 0, 12);
         $tag = substr($data, 12, 16);
         $enc = substr($data, 28);
         $dec = openssl_decrypt($enc, 'aes-256-gcm', $rawKey, OPENSSL_RAW_DATA, $iv, $tag);
-        if ($dec === false) {
-            GameLog::error('AdminAuth', 'decryptTotpSecret: AES-GCM decryption failed (wrong key or tampered data)', null, []);
-            return null;
-        }
-        return $dec;
-    }
-
- // Jednorazowa auto-migracja: rozszerz totp_secret do VARCHAR(255) jesli za mala.
- // One-time auto-migration: widen totp_secret to VARCHAR(255) if currently too narrow.
- // Zaszyfrowany sekret ma ~68+ znakow, VARCHAR(64) obcina dane.
- // Encrypted secret is ~68+ chars; VARCHAR(64) would truncate data.
-    private static function ensureTotpColumnSize(PDO $db): void
-    {
-        static $done = false;
-        if ($done) {
-            return;
-        }
-        $done = true;
-        try {
-            $col = $db->query("SHOW COLUMNS FROM admins WHERE Field = 'totp_secret'")->fetch();
-            if ($col && preg_match('/varchar\((\d+)\)/i', (string)$col['Type'], $m) && (int)$m[1] < 255) {
-                $db->exec("ALTER TABLE admins MODIFY COLUMN totp_secret VARCHAR(255) NULL DEFAULT NULL");
-                GameLog::info('AdminAuth', 'totp_secret column widened to VARCHAR(255)');
-            }
-        } catch (\Throwable $e) {
-            GameLog::error('AdminAuth', 'ensureTotpColumnSize failed', $e);
-        }
+        return $dec === false ? '' : $dec;
     }
 
  // Czy kolumny TOTP istnieja w tabeli admins (graceful degradation).
@@ -481,24 +442,19 @@ class AdminAuth
         $db   = Database::getInstance()->getConnection();
         $hash = hash('sha256', $token);
 
- // Pobierz email PRZED oznaczeniem tokenu, zeby nie stracic danych przy ewentualnej
- // delecji wiersza miedzy UPDATE a SELECT (mozliwe w teorii przy recznych operacjach DB).
- // Fetch email BEFORE marking the token used, to avoid losing data if the row is
- // deleted between UPDATE and SELECT (theoretically possible with manual DB operations).
-        $emailStmt = $db->prepare("SELECT email FROM admin_password_resets WHERE token_hash = ? AND expires_at > NOW() AND used = 0 LIMIT 1");
-        $emailStmt->execute([$hash]);
-        $data = $emailStmt->fetch();
-        if (!$data) {
+ // Atomowe oznaczenie tokenu jako uzytego — zabezpiecza przed race condition.
+ // Atomically mark the token as used — prevents the race-condition double-use window.
+        $markStmt = $db->prepare("UPDATE admin_password_resets SET used = 1 WHERE token_hash = ? AND expires_at > NOW() AND used = 0");
+        $markStmt->execute([$hash]);
+        if ($markStmt->rowCount() === 0) {
+ // Token juz uzyty, wygasly lub nieistnieje / Token already used, expired, or not found.
             return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
         }
 
- // Atomowe oznaczenie tokenu jako uzytego — zabezpiecza przed race condition double-use.
- // Atomically mark the token as used — prevents race-condition double-use.
-        $markStmt = $db->prepare("UPDATE admin_password_resets SET used = 1 WHERE token_hash = ? AND used = 0");
-        $markStmt->execute([$hash]);
-        if ($markStmt->rowCount() === 0) {
- // Inny watek/proces zdazyl uzyc tokenu w tym samym momencie.
- // Another thread/process consumed the token at the same moment.
+        $emailStmt = $db->prepare("SELECT email FROM admin_password_resets WHERE token_hash = ? LIMIT 1");
+        $emailStmt->execute([$hash]);
+        $data = $emailStmt->fetch();
+        if (!$data) {
             return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
         }
 
@@ -507,23 +463,6 @@ class AdminAuth
 
         self::log('RESET_OK', "Password changed: {$data['email']}");
         return ['success' => true, 'message' => t('admin_auth.msg_password_changed')];
-    }
-
- // Loguj nieudana probe TOTP do tabeli blokad IP (ta sama co przy haslach).
- // Log a failed TOTP attempt to the IP-block table (same as password failures).
- // Dzieki temu isIpBlocked() obejmuje tez brute-force TOTP, nawet przy re-logowaniu.
- // This makes isIpBlocked() cover TOTP brute-force too, even across re-logins.
-    public static function logTotpFail(int $adminId): void
-    {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-        try {
-            $db = Database::getInstance()->getConnection();
-            $db->prepare("INSERT INTO admin_login_attempts (ip_address, username) VALUES (?,?)")
-                ->execute([$ip, "2fa#$adminId"]);
-        } catch (Throwable $e) {
-            GameLog::error('AdminAuth', 'logTotpFail persistence failed', $e, ['admin_id' => $adminId, 'ip' => $ip]);
-        }
-        self::log('TOTP_FAIL', "Wrong TOTP code | admin_id=$adminId");
     }
 
  // Simple IP rate limiting.
