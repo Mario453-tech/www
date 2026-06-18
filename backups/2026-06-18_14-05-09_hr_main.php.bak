@@ -494,7 +494,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 <div id="hr-events-container"></div>
 
 <script>
-const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
+const CSRF_TOKEN = '<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>';
 const HR_API = '/src/HRApi.php';
 window.HR_LANG = <?= json_encode([
     'contract_1y' => t('hr_js.contract_1y'),

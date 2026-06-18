@@ -281,13 +281,8 @@ trait HRRecruitmentTrait
                         );
                     }
                 } else {
-                    $cancelStmt = $this->db->prepare("UPDATE recruitment_requests SET status = 'cancelled' WHERE id = ? AND status = 'ready'");
-                    $cancelStmt->execute([(int)$req['id']]);
-                    if ($cancelStmt->rowCount() !== 1) {
-                        GameLog::warn('HRService', 'processReadyRecruitments - cancel rowCount mismatch', [
-                            'request_id' => (int)$req['id'],
-                        ]);
-                    }
+                    $this->db->prepare("UPDATE recruitment_requests SET status = 'cancelled' WHERE id = ?")
+                        ->execute([(int)$req['id']]);
 
                     GameLog::info('HRService', 'processReadyRecruitments - no candidates, request closed', [
                         'request_id' => (int)$req['id'],

@@ -252,7 +252,7 @@
                     <input type="hidden" name="delete_spec" value="1">
                     <input type="hidden" name="code" value="<?= htmlspecialchars($spec['code']) ?>">
                     <button type="button" class="btn btn-sm btn-danger"
-                        onclick="confirmAction(<?= json_encode(t('admin.hr.confirm_delete_spec') . ' (' . $spec['code'] . ')?') ?>,function(){document.getElementById('del-spec-<?= htmlspecialchars($spec['code']) ?>').submit();},{type:'danger',confirmLabel:<?= json_encode(t('common.delete')) ?>})">
+                        onclick="confirmAction('<?= t('admin.hr.confirm_delete_spec') ?> (<?= htmlspecialchars($spec['code']) ?>)?',function(){document.getElementById('del-spec-<?= htmlspecialchars($spec['code']) ?>').submit();},{type:'danger',confirmLabel:'<?= t('common.delete') ?>'})">
                         <?= t('common.delete') ?>
                     </button>
                 </form>
@@ -354,7 +354,7 @@
                     </form>
                     <span>
                         <button type="button" class="btn btn-sm btn-danger"
-                            onclick="confirmAction(<?= json_encode(t('admin.hr.confirm_delete_spec')) ?>,function(){document.getElementById('del-hs-<?= (int)$hs['id'] ?>').submit();},{type:'danger',confirmLabel:<?= json_encode(t('common.delete')) ?>})">
+                            onclick="confirmAction('<?= t('admin.hr.confirm_delete_spec') ?>',function(){document.getElementById('del-hs-<?= (int)$hs['id'] ?>').submit();},{type:'danger',confirmLabel:'<?= t('common.delete') ?>'})">
                             <?= t('common.delete') ?>
                         </button>
                     </span>

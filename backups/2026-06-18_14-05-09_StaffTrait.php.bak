@@ -146,26 +146,13 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.staff_missing')];
         }
 
-        // Transakcja chroni przed race condition: sprawdzenie zajecia i zwolnienie sa atomowe.
-        // Transaction prevents race condition: busy-check and firing are atomic.
-        $this->db->beginTransaction();
-        try {
-            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1 FOR UPDATE");
-            $taskStmt->execute([$staffId]);
-            if ($taskStmt->fetch()) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];
-            }
-
-            $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
-            $this->db->commit();
-        } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            GameLog::error('TTS', 'fireEngineer FAILED', $e, ['staff_id' => $staffId]);
-            return ['success' => false, 'message' => t('technical.staff_msg.staff_missing')];
+        $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
+        $taskStmt->execute([$staffId]);
+        if ($taskStmt->fetch()) {
+            return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];
         }
+
+        $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
 
         return ['success' => true, 'message' => t('technical.staff_msg.fired', [
             'first' => $staff['first_name'],

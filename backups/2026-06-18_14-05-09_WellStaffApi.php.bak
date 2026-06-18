@@ -240,13 +240,10 @@ try {
             $db->beginTransaction();
             try {
  // Find the hub for this well (ETAP 11: outbound setting is per hub).
- // JOIN wells ensures only the owning player can change the outbound transport.
                 $hubStmt = $db->prepare(
-                    'SELECT a.hub_id FROM logistics_hub_assignments a
-                     JOIN wells w ON w.id = a.well_id AND w.player_id = ?
-                     WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
+                    'SELECT a.hub_id FROM logistics_hub_assignments a WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
                 );
-                $hubStmt->execute([$playerId, $wellId]);
+                $hubStmt->execute([$wellId]);
                 $hubRow = $hubStmt->fetch(PDO::FETCH_ASSOC);
                 if (!$hubRow) {
                     $db->rollBack();
