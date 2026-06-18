@@ -48,25 +48,28 @@ class LoanRepository
     private function processInstallment(array $loan): void
     {
         try {
-            // Sprawdz istnienie gracza — brak gracza to nie to samo co brak srodkow.
-            // Check player existence — missing player is not the same as insufficient funds.
-            $playerStmt = $this->db->prepare("SELECT id FROM players WHERE id = :id");
+ // Fetch current player cash
+            $playerStmt = $this->db->prepare("SELECT cash FROM players WHERE id = :id");
             $playerStmt->execute([':id' => $loan['player_id']]);
-            if (!$playerStmt->fetch()) {
+            $player = $playerStmt->fetch();
+
+            if (!$player) {
                 return;
             }
 
-            // Atomowe odjecie gotowki przez updateCash — eliminuje TOCTOU i zapisuje audit trail (Rule 2/10).
-            // Atomic cash deduction via updateCash — eliminates TOCTOU and records audit trail (Rule 2/10).
-            $playerObj = new Player((int)$loan['player_id']);
-            $paid = $playerObj->updateCash(
-                -(float)$loan['installment_amount'],
-                \FinancialTransactionService::TYPE_LOAN_PAYMENT,
-                'Splata raty kredytu #' . $loan['id']
-            );
-
-            if ($paid) {
+            if ($player['cash'] >= $loan['installment_amount']) {
  // INSTALLMENT PAID
+
+ // Deduct cash
+                $updateCash = $this->db->prepare("
+                    UPDATE players
+                    SET cash = cash - :amount
+                    WHERE id = :id
+                ");
+                $updateCash->execute([
+                    ':amount' => $loan['installment_amount'],
+                    ':id' => $loan['player_id']
+                ]);
 
  // Reduce remaining balance
                 $newRemaining = max(0, $loan['remaining_amount'] - $loan['installment_amount']);

@@ -244,9 +244,9 @@ class WorldMap
 
             $this->db->beginTransaction();
             try {
-                if (!$player->updateCash(-$totalCost, \FinancialTransactionService::TYPE_MAP_PURCHASE, 'Zakup lokalizacji na mapie')) {
+                if (!$player->updateCash(-$totalCost, 'map_purchase', 'Zakup lokalizacji na mapie')) {
                     $this->db->rollBack();
-                    return ['success' => false, 'message' => t('world_map.err_insufficient_funds', ['cost' => number_format($totalCost, 0, '.', ' ')])];
+                    return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => number_format($totalCost, 0, '.', ' ')])];
                 }
 
  // Check if a well was previously sold at this location

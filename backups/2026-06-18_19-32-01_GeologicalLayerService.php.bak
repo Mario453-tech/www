@@ -269,15 +269,12 @@ class GeologicalLayerService
                 ? date('Y-m-d H:i:s', time() + $hours * 3600)
                 : null;
 
-            // Wzorzec $ownTx — metoda moze byc wywolana samodzielnie lub wewnatrz transakcji wywolujacego (Rule 3/5).
-            // $ownTx pattern — method may be called standalone or inside a caller's transaction (Rule 3/5).
-            $ownTx = !$this->db->inTransaction();
-            if ($ownTx) $this->db->beginTransaction();
+            $this->db->beginTransaction();
             try {
                 if ($cost > 0) {
                     $player = new Player($playerId);
-                    if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_GEOLOGICAL_FEE, 'Oplata za zmiane warstwy geologicznej')) {
-                        if ($ownTx) $this->db->rollBack();
+                    if (!$player->updateCash(-$cost, 'geological_fee', 'Oplata za zmiane warstwy geologicznej')) {
+                        $this->db->rollBack();
                         return [
                             'success' => false,
                             'message' => t('geology.err_no_funds', ['cost' => number_format($cost, 0, '.', ' ')]),
@@ -297,9 +294,9 @@ class GeologicalLayerService
                     WHERE id = ?
                 ")->execute([$targetLayerId, $switchUntil, $hours, $wellId]);
 
-                if ($ownTx) $this->db->commit();
+                $this->db->commit();
             } catch (\Throwable $e) {
-                if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
+                $this->db->rollBack();
                 throw $e;
             }
 

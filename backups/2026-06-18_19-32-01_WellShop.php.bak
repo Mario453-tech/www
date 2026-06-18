@@ -78,7 +78,7 @@ class WellShop
 
             $this->db->beginTransaction();
             try {
-                if (!$player->updateCash(-(float)$well['base_cost'], \FinancialTransactionService::TYPE_WELL_PURCHASE, 'Zakup odwiertu')) {
+                if (!$player->updateCash(-(float)$well['base_cost'], 'well_purchase', 'Zakup odwiertu')) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well_shop.err_no_funds')];
                 }
