@@ -265,40 +265,32 @@ class GeologicalLayerService
             $cost = (int)$targetLayer['switch_cost'];
             $hours = (int)$targetLayer['switch_hours'];
 
+            if ($cost > 0) {
+                $player = new Player($playerId);
+                if (!$player->canAfford($cost)) {
+                    return [
+                        'success' => false,
+                        'message' => t('geology.err_no_funds', ['cost' => number_format($cost, 0, '.', ' ')]),
+                    ];
+                }
+                $player->updateCash(-$cost, 'geological_fee', 'Oplata za zmiane warstwy geologicznej');
+            }
+
             $switchUntil = $hours > 0
                 ? date('Y-m-d H:i:s', time() + $hours * 3600)
                 : null;
 
-            $this->db->beginTransaction();
-            try {
-                if ($cost > 0) {
-                    $player = new Player($playerId);
-                    if (!$player->updateCash(-$cost, 'geological_fee', 'Oplata za zmiane warstwy geologicznej')) {
-                        $this->db->rollBack();
-                        return [
-                            'success' => false,
-                            'message' => t('geology.err_no_funds', ['cost' => number_format($cost, 0, '.', ' ')]),
-                        ];
-                    }
-                }
-
-                $this->db->prepare("
-                    UPDATE wells
-                    SET active_layer_id      = ?,
-                        layer_reservoir_used = 0,
-                        layer_switch_until   = ?,
-                        status               = CASE
-                            WHEN ? > 0 AND status NOT IN ('seized','blowout') THEN 'paused_cash'
-                            ELSE status
-                        END
-                    WHERE id = ?
-                ")->execute([$targetLayerId, $switchUntil, $hours, $wellId]);
-
-                $this->db->commit();
-            } catch (\Throwable $e) {
-                $this->db->rollBack();
-                throw $e;
-            }
+            $this->db->prepare("
+                UPDATE wells
+                SET active_layer_id      = ?,
+                    layer_reservoir_used = 0,
+                    layer_switch_until   = ?,
+                    status               = CASE
+                        WHEN ? > 0 AND status NOT IN ('seized','blowout') THEN 'paused_cash'
+                        ELSE status
+                    END
+                WHERE id = ?
+            ")->execute([$targetLayerId, $switchUntil, $hours, $wellId]);
 
             GameLog::info('GeologicalLayerService', 'layer_switched', [
                 'well_id'      => $wellId,

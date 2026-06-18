@@ -32,11 +32,11 @@ trait WellActionsTrait
             // Transaction wraps cash deduct and well UPDATE — all-or-nothing.
             $this->db->beginTransaction();
             try {
-                if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_UPGRADE, 'Zmiana tieru wyposazenia odwiertu')) {
+                if (!$player->updateCash(-$cost, 'well_upgrade', 'Zmiana tieru wyposazenia odwiertu')) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
                 }
-                $stmtUpd = $this->db->prepare("
+                $this->db->prepare("
                     UPDATE wells
                     SET equipment_tier = ?,
                         equipment_upgrade_level = 0,
@@ -44,14 +44,7 @@ trait WellActionsTrait
                         equipment_swap_until = ?,
                         equipment_swap_prev_status = ?
                     WHERE id = ? AND player_id = ?
-                ");
-                $stmtUpd->execute([$tier, $swapUntil, $prevStatus, $wellId, $playerId]);
-                // Sprawdz czy wiersz zostal zaktualizowany — brak wierszy = odwiert zniknal po getWell().
-                // Check if any row was updated — 0 rows means the well disappeared after getWell().
-                if ($stmtUpd->rowCount() === 0) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('well.err_not_found')];
-                }
+                ")->execute([$tier, $swapUntil, $prevStatus, $wellId, $playerId]);
                 $this->logEvent($wellId, $playerId, 'upgrade', $cost,
                     "Equipment tier changed: {$currentTier}  {$tier} (swap until {$swapUntil})");
                 $this->db->commit();
@@ -84,18 +77,12 @@ trait WellActionsTrait
             // Transaction wraps cash deduct and well UPDATE — all-or-nothing.
             $this->db->beginTransaction();
             try {
-                if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_UPGRADE, 'Ulepszenie poziomu wyposazenia odwiertu')) {
+                if (!$player->updateCash(-$cost, 'well_upgrade', 'Ulepszenie poziomu wyposazenia odwiertu')) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
                 }
-                $stmtUpd = $this->db->prepare("UPDATE wells SET equipment_upgrade_level = ? WHERE id = ? AND player_id = ?");
-                $stmtUpd->execute([$nextLevel, $wellId, $playerId]);
-                // Sprawdz czy wiersz zostal zaktualizowany — brak wierszy = odwiert zniknal po getWell().
-                // Check if any row was updated — 0 rows means the well disappeared after getWell().
-                if ($stmtUpd->rowCount() === 0) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('well.err_not_found')];
-                }
+                $this->db->prepare("UPDATE wells SET equipment_upgrade_level = ? WHERE id = ? AND player_id = ?")
+                         ->execute([$nextLevel, $wellId, $playerId]);
                 $this->logEvent($wellId, $playerId, 'upgrade', $cost,
                     "Equipment upgrade: lvl {$currentLevel}  {$nextLevel} ({$currentTier})");
                 $this->db->commit();
@@ -138,18 +125,12 @@ trait WellActionsTrait
         try {
             // Sprawdzenie salda atomowo wewnatrz transakcji — return false gdy za malo.
             // Atomic balance check inside transaction — returns false when insufficient.
-            if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_MAINTENANCE, 'Konserwacja odwiertu')) {
+            if (!$player->updateCash(-$cost, 'well_maintenance', 'Konserwacja odwiertu')) {
                 $this->db->rollBack();
                 return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
             }
-            $stmtUpd = $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ? AND player_id = ?");
-            $stmtUpd->execute([$condAfter, $wellId, $playerId]);
-            // Sprawdz czy wiersz zostal zaktualizowany — brak wierszy = odwiert zniknal po getWell().
-            // Check if any row was updated — 0 rows means the well disappeared after getWell().
-            if ($stmtUpd->rowCount() === 0) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('well.err_not_found')];
-            }
+            $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ? AND player_id = ?")
+                     ->execute([$condAfter, $wellId, $playerId]);
 
             // Konserwacja redukuje spirale katastrof o 1 stack (-0.10) / Maintenance reduces the disaster spiral by 1 stack (-0.10)
             $this->db->prepare("

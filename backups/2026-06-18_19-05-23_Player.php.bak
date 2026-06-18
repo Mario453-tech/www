@@ -46,10 +46,6 @@ class Player
     // $type - optional transaction type for the audit trail (stage 8).
     public function updateCash(float $amount, string $type = '', ?string $description = null): bool
     {
-        // Wzorzec $ownTx — metoda moze byc wywolana samodzielnie lub wewnatrz transakcji wywolujacego.
-        // $ownTx pattern — method may be called standalone or inside a caller's transaction (Rule 5).
-        $ownTx = !$this->db->inTransaction();
-        if ($ownTx) $this->db->beginTransaction();
         try {
             if ($amount < 0) {
                 // Atomowe odjecie — zapobiega zejsciu cash ponizej zera przy rownoczesnych requestach.
@@ -69,18 +65,13 @@ class Player
                     SET cash = cash + :amount
                     WHERE id = :id
                 ");
-                // Bugfix: execute() zwraca true nawet gdy gracz nie istnieje (rowCount=0).
-                // Bugfix: execute() returns true even when player not found (rowCount=0); check rowCount instead.
-                $stmt->execute([':amount' => $amount, ':id' => $this->playerId]);
-                $ok = $stmt->rowCount() > 0;
+                $ok = $stmt->execute([':amount' => $amount, ':id' => $this->playerId]);
             }
             if (class_exists('GameLog', false)) {
                 GameLog::dbResult('Player', 'updateCash', $stmt->rowCount(), $ok ? 'OK' : 'FAIL');
             }
             // Audit trail - loguj transakcje jesli podano typ (etap 8).
             // Audit trail - log transaction when type is provided (stage 8).
-            // Operacja poboczna — blad nie powoduje rollback (zasada 6 / Rule 6: side ops in try/catch).
-            // Side operation — failure must not trigger rollback (Rule 6).
             if ($ok && $type !== '' && class_exists('FinancialTransactionService', false)) {
                 try {
                     $abs = abs($amount);
@@ -93,10 +84,8 @@ class Player
                     }
                 }
             }
-            if ($ownTx) $this->db->commit();
             return $ok;
         } catch (Throwable $e) {
-            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             if (class_exists('GameLog', false)) {
                 GameLog::error('Player', 'updateCash failed', $e, [
                     'player_id' => $this->playerId,

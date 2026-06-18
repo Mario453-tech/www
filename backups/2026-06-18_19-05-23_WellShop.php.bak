@@ -78,10 +78,7 @@ class WellShop
 
             $this->db->beginTransaction();
             try {
-                if (!$player->updateCash(-(float)$well['base_cost'], 'well_purchase', 'Zakup odwiertu')) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('well_shop.err_no_funds')];
-                }
+                $player->updateCash(-(float)$well['base_cost'], 'well_purchase', 'Zakup odwiertu');
                 $transportProfile = TransportConfigService::getTypeConfig($this->db, 'nieustawiony');
 
                 $insertWell = $this->db->prepare("
