@@ -23,6 +23,11 @@ class MarineDeliverySection
     public int   $delayedDeliveries = 0;
     public int   $queuedDeliveries  = 0;
 
+ // M1: Keszuj porty per region_id — unika powielonych SELECT za kazdy rejs w tikuej.
+ // M1: Cache ports per region_id — avoids repeated SELECT per delivery in one tick.
+ /** @var array<int, int|null> region_id => port_id or null */
+    private array $portCache = [];
+
     private PDO      $db;
     private DateTime $now;
 
@@ -293,6 +298,14 @@ class MarineDeliverySection
  */
     private function findPort(int $regionId): ?int
     {
+ // M1: Zwroc z keszu jesli region juz sprawdzony w tym tiku.
+ // M1: Return from cache if this region was already looked up this tick.
+        if (array_key_exists($regionId, $this->portCache)) {
+            return $this->portCache[$regionId];
+        }
+
+        $portId = null;
+
         if ($regionId > 0) {
             $stmt = $this->db->prepare(
                 "SELECT id FROM ports
@@ -303,7 +316,11 @@ class MarineDeliverySection
             );
             $stmt->execute([$regionId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row) return (int)$row['id'];
+            if ($row) {
+                $portId = (int)$row['id'];
+                $this->portCache[$regionId] = $portId;
+                return $portId;
+            }
         }
 
  // Fallback: dowolny aktywny port / Fallback: any active port
@@ -311,7 +328,9 @@ class MarineDeliverySection
             "SELECT id FROM ports WHERE status = 'active' ORDER BY RAND() LIMIT 1"
         )->fetch(PDO::FETCH_ASSOC);
 
-        return $row ? (int)$row['id'] : null;
+        $portId = $row ? (int)$row['id'] : null;
+        $this->portCache[$regionId] = $portId;
+        return $portId;
     }
 
  /**
@@ -325,17 +344,19 @@ class MarineDeliverySection
         int    $playerId,
         string $nowStr
     ): void {
- // Sprawdz pojemnosc kolejki / Check queue capacity
-        $limitStmt = $this->db->prepare("SELECT queue_limit FROM ports WHERE id = ?");
-        $limitStmt->execute([$portId]);
-        $portRow    = $limitStmt->fetch(PDO::FETCH_ASSOC);
-        $queueLimit = $portRow ? (int)$portRow['queue_limit'] : 20;
-
-        $sizeStmt = $this->db->prepare(
-            "SELECT COUNT(*) FROM port_queue WHERE port_id = ? AND status IN ('waiting','processing')"
+ // M1: Polacz dwa oddzielne SELECTy (queue_limit + queue count) w jedno zapytanie.
+ // M1: Merge two separate SELECTs (queue_limit + queue count) into a single query.
+        $capStmt = $this->db->prepare(
+            "SELECT p.queue_limit,
+                    (SELECT COUNT(*) FROM port_queue pq
+                      WHERE pq.port_id = p.id
+                        AND pq.status IN ('waiting','processing')) AS queue_size
+               FROM ports p WHERE p.id = ?"
         );
-        $sizeStmt->execute([$portId]);
-        $queueSize = (int)$sizeStmt->fetchColumn();
+        $capStmt->execute([$portId]);
+        $capRow     = $capStmt->fetch(PDO::FETCH_ASSOC);
+        $queueLimit = $capRow ? (int)$capRow['queue_limit'] : 20;
+        $queueSize  = $capRow ? (int)$capRow['queue_size']  : 0;
 
         if ($queueSize >= $queueLimit) {
  // Kolejka pelna opoznienie o 1 godzine. Status 'delayed' (nie 'waiting_for_port'),

@@ -57,10 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'assign_task':
                 try {
                     $r = $svc->assignTask(
-                        (int)($_POST['staff_id']  ?? 0),
-                        $_POST['task_type']      ?? '',
-                        ($_POST['well_id'] ?? '') !== '' ? (int)$_POST['well_id'] : null,
-                        ($_POST['module_type'] ?? '') !== '' ? $_POST['module_type'] : null
+                        (int)($_POST['staff_id']    ?? 0),
+                        $_POST['task_type']         ?? '',
+                        ($_POST['well_id']      ?? '') !== '' ? (int)$_POST['well_id']      : null,
+                        ($_POST['module_type']  ?? '') !== '' ? $_POST['module_type']        : null,
+                        ($_POST['hub_id']       ?? '') !== '' ? (int)$_POST['hub_id']        : null,
+                        ($_POST['pipeline_id']  ?? '') !== '' ? (int)$_POST['pipeline_id']   : null
                     );
                     $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
                     GameLog::info('technical.php', 'assign_task result', $r);
@@ -228,7 +230,10 @@ catch (Throwable $e) { GameLog::error('technical.php', 'getUnreadNotifications F
 try { $incidents = $incidentSvc ? $incidentSvc->getPlayerIncidents($playerId, 50) : []; GameLog::dbResult('technical.php', 'getPlayerIncidents', count($incidents)); }
 catch (Throwable $e) { GameLog::error('technical.php', 'getPlayerIncidents FAIL', $e); $incidents = []; }
 
-$activeTab = $_GET['tab'] ?? 'team';
+// Walidacja activeTab — whitelist, zabezpieczenie przed XSS / whitelist validation, prevents XSS
+$__allowedTabs = ['team','well_staff','candidates','tasks','wells','prod','infra','safety','incidents','report'];
+$activeTab = in_array($_GET['tab'] ?? '', $__allowedTabs, true) ? $_GET['tab'] : 'team';
+unset($__allowedTabs);
 GameLog::info('technical.php', "Active tab: {$activeTab}");
 
 try { $candidates = $svc->getTechnicalCandidates(); GameLog::dbResult('technical.php', 'getTechnicalCandidates', count($candidates)); }
@@ -281,35 +286,46 @@ try {
     $procStatus = ['level' => 0, 'integrity' => 100.0, 'last_decay_at' => null];
 }
 
-// Pipelines 
+// Pipelines — laduj z well_pipelines (tu sa ID uzywane przez technical_tasks)
+// Load from well_pipelines (IDs referenced by technical_tasks, not old pipelines table)
+// Inicjalizacja $db przed blokiem try — zabezpieczenie przed uzyciem niezainicjowanej zmiennej
+// Initialize $db before try block — guard against use of uninitialized variable if try throws
+$db = null;
 try {
     $db = Database::getInstance()->getConnection();
 
     GameLog::tablesCheck($db, 'technical.php', [
-        'pipelines', 'technical_staff', 'technical_tasks',
+        'well_pipelines', 'technical_staff', 'technical_tasks',
         'technical_notifications', 'candidate_reviews', 'failure_log'
     ]);
 
-    $pipeStmt = $db->prepare("SELECT * FROM pipelines WHERE player_id = ? ORDER BY id");
+    $pipeStmt = $db->prepare("
+        SELECT wp.id, wp.name, wp.status, wp.condition_pct, wp.transport_loss,
+               wp.real_capacity_bph, wp.nominal_capacity_bph, wp.pipeline_type,
+               wp.opex_per_tick, wp.opex_per_bbl, wp.build_cost,
+               w.location_name AS well_name
+          FROM well_pipelines wp
+          LEFT JOIN wells w ON w.id = wp.well_id
+         WHERE wp.player_id = ?
+         ORDER BY wp.id
+    ");
     $pipeStmt->execute([$playerId]);
     $pipelines = $pipeStmt->fetchAll();
-    GameLog::dbResult('technical.php', 'pipelines', count($pipelines));
-
-    if (empty($pipelines)) {
-        GameLog::info('technical.php', 'No pipelines - creating default');
-        $db->prepare("INSERT INTO pipelines (player_id, name) VALUES (?, 'Rurociąg główny')")->execute([$playerId]);
-        $pipeStmt->execute([$playerId]);
-        $pipelines = $pipeStmt->fetchAll();
-    }
+    GameLog::dbResult('technical.php', 'well_pipelines', count($pipelines));
 } catch (Throwable $e) {
-    GameLog::error('technical.php', 'pipelines load/create FAIL', $e);
+    GameLog::error('technical.php', 'well_pipelines load FAIL', $e);
     $pipelines = [];
 }
 
-// Warunki upgrade procedur BHP 
+// Warunki upgrade procedur BHP
 $auditDone   = false;
 $hasHseStaff = ['officer' => false, 'engineer' => false];
 try {
+    // Fallback: jesli polaczenie nie zostalo utworzone w bloku pipeline, pobierz nowe
+    // Fallback: if connection was not created in pipeline block, obtain a new one
+    if ($db === null) {
+        $db = Database::getInstance()->getConnection();
+    }
     $auditCheckStmt = $db->prepare("
         SELECT id FROM technical_tasks
         WHERE player_id = ? AND task_type = 'safety_audit' AND status = 'completed'
@@ -336,9 +352,14 @@ try {
 
 $canUpgradeProcedures = $auditDone && $hasHseStaff['officer'] && $hasHseStaff['engineer'];
 
-// Aktywne katastrofy 
+// Aktywne katastrofy
 $activeDisasters = [];
 try {
+    // Fallback: jesli $db null (blok pipeline rzucil wyjatek), pobierz polaczenie
+    // Fallback: if $db is null (pipeline block threw), obtain connection
+    if ($db === null) {
+        $db = Database::getInstance()->getConnection();
+    }
     $dsStmt = $db->prepare("
         SELECT d.*, w.location_name AS well_name
         FROM industrial_disasters d
@@ -352,9 +373,14 @@ try {
     GameLog::error('technical.php', 'activeDisasters query FAILED', $e);
 }
 
-// Historia awarii 
+// Historia awarii
 $failures = [];
 try {
+    // Fallback: jesli $db null (poprzednie bloki rzucily wyjatek), pobierz polaczenie
+    // Fallback: if $db is null (previous blocks threw), obtain connection
+    if ($db === null) {
+        $db = Database::getInstance()->getConnection();
+    }
     $failStmt = $db->prepare("
         SELECT fl.*, w.location_name
         FROM failure_log fl

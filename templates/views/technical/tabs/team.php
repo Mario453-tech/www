@@ -9,14 +9,14 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 ?>
 <div class="g-card mgr-card-wrap">
     <div class="mgr-card">
-        <div class="mgr-avatar"><?= $mgrInitials ?: t('technical.manager_badge') ?></div>
+        <div class="mgr-avatar"><?= htmlspecialchars($mgrInitials, ENT_QUOTES, 'UTF-8') ?: t('technical.manager_badge') ?></div>
         <div class="mgr-info">
             <div class="mgr-superlabel"><?= t('technical.manager_card_title') ?></div>
             <div class="mgr-name"><?= htmlspecialchars($manager['first_name'].' '.$manager['last_name']) ?></div>
             <div class="mgr-role"><?= t('technical.manager_role') ?></div>
             <div class="mgr-stats">
                 <div class="mgr-stat"> <?= t('technical.mgr_tenure') ?>: <span><?= (int)($manager['days_employed'] ?? 0) ?> <?= t('common.days') ?></span></div>
-                <div class="mgr-stat"> <?= t('technical.mgr_exp') ?>: <span><?= $manager['experience_years'] ?> <?= t('hr.years_age') ?></span></div>
+                <div class="mgr-stat"> <?= t('technical.mgr_exp') ?>: <span><?= (int)$manager['experience_years'] ?> <?= t('hr.years_age') ?></span></div>
                 <div class="mgr-stat"> <?= t('technical.mgr_salary') ?>: <span class="c-gold"><?= number_format($manager['salary'], 0, '.', ' ') ?> <?= t('common.currency') ?>/<?= t('hr.month_short') ?></span></div>
             </div>
         </div>
@@ -86,7 +86,7 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
     <div class="staff-card <?= $isBusy ? 'busy' : '' ?>" data-spec="<?= htmlspecialchars($s['spec_code'], ENT_QUOTES) ?>"<?= $__placeAnchor ? ' id="tech-mnt"' : '' ?>>
         <div class="staff-hdr">
             <div>
-                <span class="staff-spec-icon"><?= $specDef['icon'] ?></span>
+                <span class="staff-spec-icon"><?= htmlspecialchars($specDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="staff-name"><?= htmlspecialchars($s['first_name'].' '.$s['last_name']) ?></span>
                 <div class="staff-spec">
                     <?= htmlspecialchars($specDef['name']) ?>
@@ -104,16 +104,16 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
         <div class="skill-bar-row">
             <div class="skill-bar-label">
                 <span><?= t('technical.skill_label') ?></span>
-                <span class="c-gold fw7"><?= $s['skill_level'] ?>/10</span>
+                <span class="c-gold fw7"><?= (int)$s['skill_level'] ?>/10</span>
             </div>
             <div class="skill-bar"><div class="skill-fill" style="--bar-w:<?= $skillFill ?>%"></div></div>
         </div>
 
         <div class="staff-meta">
-            <span><?= $s['experience_years'] ?> <?= t('technical.exp_years') ?></span>
+            <span><?= (int)$s['experience_years'] ?> <?= t('technical.exp_years') ?></span>
             <span class="c-gold"><?= number_format($s['salary'], 0, '.', ' ') ?> <?= t('common.currency') ?>/<?= t('hr.month_short') ?></span>
             <?php if ($s['queued_tasks'] > 0): ?>
-            <span class="c-warn"><?= $s['queued_tasks'] ?> <?= t('technical.in_queue') ?></span>
+            <span class="c-warn"><?= (int)$s['queued_tasks'] ?> <?= t('technical.in_queue') ?></span>
             <?php endif ?>
         </div>
 
@@ -135,13 +135,13 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                 <summary class="task-assign-toggle"><?= t('technical.assign_task_toggle') ?></summary>
                 <div class="task-form">
                     <form method="post" onsubmit="return techTaskConfirm(this)">
-                        <input type="hidden" name="_token" value="<?= $csrf ?>">
+                        <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="assign_task">
-                        <input type="hidden" name="staff_id" value="<?= $s['id'] ?>">
+                        <input type="hidden" name="staff_id" value="<?= (int)$s['id'] ?>">
                         <div class="task-form-grid">
                             <div class="form-group form-group--flush">
                                 <label class="form-label"><?= t('technical.task_type_label') ?></label>
-                                <select name="task_type" class="form-input" onchange="toggleWellSelect(this, '<?= $s['id'] ?>')">
+                                <select name="task_type" class="form-input" onchange="toggleWellSelect(this, '<?= (int)$s['id'] ?>')">
                                     <?php foreach (TechnicalTeamService::getTasksCatalog() as $code => $td):
                                         if (!in_array($s['spec_code'], $td['assignable'])) continue;
                                         $costMin = $td['cost_min'] ?? 0;
@@ -154,22 +154,22 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                             data-needs-module="<?= $code === 'install_module' ? '1' : '0' ?>"
                                             data-cost-min="<?= $costMin ?>"
                                             data-cost-max="<?= $costMax ?>">
-                                        <?= $td['icon'] ?> <?= $td['label'] ?> - <?= $td['effect'] ?>
+                                        <?= htmlspecialchars($td['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($td['label'] ?? '', ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($td['effect'] ?? '', ENT_QUOTES, 'UTF-8') ?>
                                     </option>
                                     <?php endforeach ?>
                                 </select>
                             </div>
-                            <div class="form-group form-group--flush" id="well-sel-<?= $s['id'] ?>">
+                            <div class="form-group form-group--flush" id="well-sel-<?= (int)$s['id'] ?>">
                                 <label class="form-label"><?= t('technical.well_label') ?></label>
                                 <select name="well_id" class="form-input">
                                     <option value=""><?= t('technical.no_well_option') ?></option>
                                     <?php foreach ($wells as $w): ?>
                                     <?php $wSt = $w['status'] ?? 'active'; ?>
-                                    <option value="<?= $w['id'] ?>">#<?= $w['id'] ?> <?= htmlspecialchars($w['location_name'] ?? t('technical.well_default_name')) ?> - <?= $statusLabels[$wSt]['icon'] ?? '' ?> <?= $statusLabels[$wSt]['lbl'] ?? $wSt ?></option>
+                                    <option value="<?= (int)$w['id'] ?>">#<?= (int)$w['id'] ?> <?= htmlspecialchars($w['location_name'] ?? t('technical.well_default_name'), ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($statusLabels[$wSt]['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($statusLabels[$wSt]['lbl'] ?? $wSt, ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach ?>
                                 </select>
                             </div>
-                            <div class="form-group form-group--flush form-group--hidden" id="hub-sel-<?= $s['id'] ?>" style="display:none">
+                            <div class="form-group form-group--flush form-group--hidden" id="hub-sel-<?= (int)$s['id'] ?>" style="display:none">
                                 <label class="form-label"><?= t('technical.hub_label') ?></label>
                                 <select name="hub_id" class="form-input">
                                     <option value=""><?= t('technical.no_hub_option') ?></option>
@@ -180,7 +180,7 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                     <?php endforeach ?>
                                 </select>
                             </div>
-                            <div class="form-group form-group--flush form-group--hidden" id="pipe-sel-<?= $s['id'] ?>" style="display:none">
+                            <div class="form-group form-group--flush form-group--hidden" id="pipe-sel-<?= (int)$s['id'] ?>" style="display:none">
                                 <label class="form-label"><?= t('technical.pipeline_label') ?></label>
                                 <select name="pipeline_id" class="form-input">
                                     <option value=""><?= t('technical.no_pipeline_option') ?></option>
@@ -190,11 +190,11 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                     <?php endforeach ?>
                                 </select>
                             </div>
-                            <div class="form-group form-group--flush form-group--hidden" id="mod-sel-<?= $s['id'] ?>">
+                            <div class="form-group form-group--flush form-group--hidden" id="mod-sel-<?= (int)$s['id'] ?>">
                                 <label class="form-label"><?= t('technical.module_label') ?></label>
                                 <select name="module_type" class="form-input">
                                     <?php foreach (TechnicalTeamService::getModulesCatalog() as $mCode => $mDef): ?>
-                                    <option value="<?= $mCode ?>"><?= $mDef['label'] ?> - <?= $mDef['effect'] ?></option>
+                                    <option value="<?= $mCode ?>"><?= htmlspecialchars($mDef['label'] ?? '', ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($mDef['effect'] ?? '', ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach ?>
                                 </select>
                             </div>
@@ -207,10 +207,10 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
         <?php endif ?>
 
         <?php if (!$isBusy): ?>
-        <form method="post" class="fire-form" onsubmit="return confirmSubmit(this, '<?= t('technical.confirm_fire', ['name' => $safeName]) ?>')">
-            <input type="hidden" name="_token" value="<?= $csrf ?>">
+        <form method="post" class="fire-form" onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_fire', ['name' => $safeName]), ENT_QUOTES, 'UTF-8') ?>')">
+            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="fire_engineer">
-            <input type="hidden" name="staff_id" value="<?= $s['id'] ?>">
+            <input type="hidden" name="staff_id" value="<?= (int)$s['id'] ?>">
             <button type="submit" class="btn btn-danger btn-sm"><?= t('technical.btn_fire') ?></button>
         </form>
         <?php endif ?>

@@ -220,6 +220,11 @@ class WellProductionHandler
             return;
         }
 
+        if ($this->ctx->oilPrice <= 0) {
+ // M11: Cena ropy jest 0 lub ujemna — uzywam awaryjnej 70 USD/bbl.
+ // M11: Oil price is 0 or negative — using emergency fallback 70 USD/bbl.
+            GameLog::warn('tick', 'oil_price_fallback_used', ['well_id' => $wellId, 'ctx_price' => $this->ctx->oilPrice]);
+        }
         $price = $this->ctx->oilPrice > 0 ? $this->ctx->oilPrice : 70.0;
 
         $effectiveProd  = $this->ctx->wellService->getEffectiveProduction($well) * $this->ctx->gBalanceMults['production'];
@@ -654,7 +659,7 @@ class WellProductionHandler
                 default      => (mt_rand(0,1) ? 'leak' : 'pressure_drop'),
             };
             $eventImpact   = [];
-            $oilPriceLocal = $this->ctx->oilPrice > 0 ? $this->ctx->oilPrice : 70.0;
+            $oilPriceLocal = $this->ctx->oilPrice > 0 ? $this->ctx->oilPrice : 70.0; // M11: fallback logged at production entry
 
             switch ($eventType) {
                 case 'theft':

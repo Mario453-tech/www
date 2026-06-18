@@ -10,7 +10,7 @@
     $overdue = time() > $endTs;
 ?>
 <div class="task-item in_progress <?= $overdue ? 'task-overdue' : '' ?>">
-    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-icon"><?= htmlspecialchars($taskDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
     <div class="task-info">
         <div class="task-title"><?= htmlspecialchars($t['title']) ?></div>
         <div class="task-meta">
@@ -37,10 +37,10 @@
             <div class="task-date"><?= t('technical.task_end') ?>: <?= date('d.m H:i', $endTs) ?></div>
         </div>
         <?php if (!$overdue): ?>
-        <form method="post" class="cancel-form" onsubmit="return confirmSubmit(this, '<?= t('technical.confirm_cancel_task') ?>')">
-            <input type="hidden" name="_token" value="<?= $csrf ?>">
+        <form method="post" class="cancel-form" onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_task'), ENT_QUOTES, 'UTF-8') ?>')">
+            <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="cancel_task">
-            <input type="hidden" name="task_id" value="<?= $t['id'] ?>">
+            <input type="hidden" name="task_id" value="<?= (int)$t['id'] ?>">
             <button type="submit" class="btn-cancel-task" title="<?= t('technical.cancel_task_title') ?>">&times; <?= t('technical.btn_cancel') ?></button>
         </form>
         <?php else: ?>
@@ -73,7 +73,7 @@
             <small class="queue-spec"><?= htmlspecialchars($q['spec_name']) ?></small>
         </span>
         <span class="queue-task">
-            <?= $qTaskDef['icon'] ?> <?= htmlspecialchars($qTaskDef['label'] ?? $q['task_type']) ?>
+            <?= htmlspecialchars($qTaskDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($qTaskDef['label'] ?? $q['task_type']) ?>
         </span>
         <span class="queue-well c-muted">
             <?= ($q['well_name'] || $q['hub_name']) ? htmlspecialchars($q['well_name'] ?: $q['hub_name']) : '&mdash;' ?>
@@ -82,10 +82,10 @@
             <?= date('d.m H:i', strtotime($q['queued_at'])) ?>
         </span>
         <span class="queue-actions">
-            <form method="post" onsubmit="return confirmSubmit(this, '<?= t('technical.confirm_cancel_queue') ?>')">
-                <input type="hidden" name="_token" value="<?= $csrf ?>">
+            <form method="post" onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_queue'), ENT_QUOTES, 'UTF-8') ?>')">
+                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="cancel_queue_item">
-                <input type="hidden" name="queue_id" value="<?= $q['id'] ?>">
+                <input type="hidden" name="queue_id" value="<?= (int)$q['id'] ?>">
                 <button type="submit" class="btn-cancel-queue" title="<?= t('technical.remove_from_queue') ?>">&times;</button>
             </form>
         </span>
@@ -106,7 +106,7 @@ if (!empty($otherTasks)):
     $timeLbl = $t['status'] === 'completed' ? t('technical.task_completed') : t('technical.task_failed');
 ?>
 <div class="task-item <?= $cls ?>">
-    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-icon"><?= htmlspecialchars($taskDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
     <div class="task-info">
         <div class="task-title"><?= htmlspecialchars($t['title']) ?></div>
         <div class="task-meta">
@@ -129,7 +129,7 @@ if (!empty($otherTasks)):
     $taskDef = TechnicalTeamService::getTaskDefinition($t['task_type']) ?? ['icon' => '?', 'label' => $t['task_type']];
 ?>
 <div class="task-item cancelled">
-    <div class="task-icon"><?= $taskDef['icon'] ?></div>
+    <div class="task-icon"><?= htmlspecialchars($taskDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
     <div class="task-info">
         <div class="task-title c-muted"><?= htmlspecialchars($t['title']) ?></div>
         <div class="task-meta"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></div>
