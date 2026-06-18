@@ -157,7 +157,6 @@ function techTaskConfirm(form) {
     if (!sel) return true;
 
     const opt      = sel.options[sel.selectedIndex];
-    if (!opt) return true; // no option selected — allow default form behavior / brak opcji — pozwol na domyslne zachowanie formularza
     const costMin  = parseInt(opt.dataset.costMin || '0', 10);
     const costMax  = parseInt(opt.dataset.costMax || '0', 10);
     const label    = opt.textContent.trim();

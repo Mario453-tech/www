@@ -39,11 +39,7 @@ trait TechnicalPageViewDataTrait
         $incidentData = $this->loadIncidentData();
         $hubIncidentData = $this->loadHubIncidentData();
 
-        // Walidacja aktywnej zakladki przez whitelist — zapobiega wstrzkynieniu wartosci z GET
-        // Validate active tab against whitelist — prevents injection of arbitrary GET values
-        static $__allowedTabs = ['team','well_staff','candidates','tasks','wells','prod','infra','safety','incidents','report'];
-        $activeTab = in_array($_GET['tab'] ?? '', $__allowedTabs, true) ? ($_GET['tab'] ?? 'team') : 'team';
-        unset($__allowedTabs);
+        $activeTab = $_GET['tab'] ?? 'team';
         GameLog::info('technical.php', "Active tab: {$activeTab}");
 
         $candidates = $this->safeLoad(fn() => $this->svc->getTechnicalCandidates(), 'getTechnicalCandidates', [], fn($value) => count($value), true);

@@ -36,12 +36,12 @@
         </button>
     </div>
     <?php foreach ($notifications as $n): ?>
-    <div class="notif-row" id="notif-<?= (int)$n['id'] ?>">
+    <div class="notif-row" id="notif-<?= $n['id'] ?>">
         <div>
             <div class="notif-msg"><?= htmlspecialchars($n['message']) ?></div>
             <div class="notif-time"><?= date('d.m.Y H:i', strtotime($n['created_at'])) ?></div>
         </div>
-        <button class="notif-x" onclick="dismissNotif(<?= (int)$n['id'] ?>)" title="<?= t('technical.notif_dismiss') ?>">&#10005;</button>
+        <button class="notif-x" onclick="dismissNotif(<?= $n['id'] ?>)" title="<?= t('technical.notif_dismiss') ?>">&#10005;</button>
     </div>
     <?php endforeach ?>
     <?php if ($notifTotal > 10): ?>

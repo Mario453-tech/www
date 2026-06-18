@@ -25,7 +25,7 @@ trait TTSStaffTrait
                    tt.status AS active_task_status,
                    COALESCE(ttq.cnt, 0) AS queued_tasks
             FROM technical_staff ts
-            LEFT JOIN staff_specializations ss ON ss.code = ts.spec_code
+            LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
             LEFT JOIN technical_tasks tt ON tt.staff_id = ts.id AND tt.status = 'in_progress'
             LEFT JOIN (
                 SELECT staff_id, COUNT(*) AS cnt
@@ -54,14 +54,10 @@ trait TTSStaffTrait
     public function getStaffBonus(array $staff): array
     {
         $skill = (int)$staff['skill_level'];
-        // skill>=6 gets speed bonus (~2.5% each step above 5); skill<=4 gets penalty.
-        // skill>=6 dostaje bonus predkosci (~2.5% na kazdy krok powyzej 5); skill<=4 ma kare.
-        $timeMult = $skill >= 6
+        $timeMult = $skill >= 7
             ? max(0.5, 1.0 - (($skill - 5) * 0.025))
             : ($skill <= 4 ? 1.0 + ((5 - $skill) * 0.025) : 1.0);
-        // Monotonically decreasing error risk: skill=1->8, 2->6, 3->4, 4->2, 5+->0.
-        // Monotonicznie malejace ryzyko bledu: skill=1->8, 2->6, 3->4, 4->2, 5+->0.
-        $errorRisk = $skill <= 4 ? max(0, (5 - $skill) * 2) : 0;
+        $errorRisk = $skill <= 3 ? ($skill * 2) : 0;
 
         return [
             'skill'      => $skill,
@@ -89,16 +85,17 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.unknown_spec')];
         }
 
+        $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
+        $cashStmt->execute([$this->playerId]);
+        if ($cashStmt->fetchColumn() < $salary) {
+            return ['success' => false, 'message' => t('technical.staff_msg.no_funds', [
+                'salary' => number_format($salary, 0, '.', ' '),
+            ])];
+        }
+
         $this->db->beginTransaction();
         try {
-            // Atomic cash check + deduct to avoid TOCTOU race.
-            // Atomowe sprawdzenie + odliczenie srodkow, by uniknac wyscigu TOCTOU.
-            $cashUpd = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
-            $cashUpd->execute([$salary, $this->playerId, $salary]);
-            if ($cashUpd->rowCount() === 0) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.staff_msg.no_funds', ['amount' => $salary])];
-            }
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$salary, $this->playerId]);
             try {
                 if (class_exists('FinancialTransactionService', false)) {
                     (new FinancialTransactionService($this->db))->logTransaction(
@@ -153,9 +150,7 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];
         }
 
-        // Guard by player_id to prevent cross-player firing.
-        // Sprawdzenie player_id, by uniemozliwic zwolnienie pracownika innego gracza.
-        $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
+        $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ?")->execute([$staffId]);
 
         return ['success' => true, 'message' => t('technical.staff_msg.fired', [
             'first' => $staff['first_name'],

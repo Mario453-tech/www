@@ -105,16 +105,12 @@ trait TTSProceduresTrait
                 ];
             }
 
-            $this->db->beginTransaction();
-
- // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
- // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
-            $cashStmt = $this->db->prepare(
-                "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
-            );
-            $cashStmt->execute([$cost, $this->playerId, $cost]);
-            if ($cashStmt->rowCount() === 0) {
-                $this->db->rollBack();
+ // Check available cash.
+ // Sprawdz dostepna gotowke.
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
+            $cashStmt->execute([$this->playerId]);
+            $cash = (float) $cashStmt->fetchColumn();
+            if ($cash < $cost) {
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.no_funds_upgrade', [
@@ -123,20 +119,16 @@ trait TTSProceduresTrait
                     ]),
                 ];
             }
- // Atomic level increment: update only if level < 5 (guards against concurrent upgrades).
- // Atomowe zwiekszenie poziomu: aktualizuj tylko jesli poziom < 5 (ochrona przed rownoleglymi ulepszeniami).
-            $levelStmt = $this->db->prepare("
+
+            $this->db->beginTransaction();
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
+            $this->db->prepare("
                 UPDATE players
-                SET safety_procedures_level = safety_procedures_level + 1,
+                SET safety_procedures_level = ?,
                     procedure_integrity = 100.0,
                     procedures_last_decay_at = NOW()
-                WHERE id = ? AND safety_procedures_level < 5
-            ");
-            $levelStmt->execute([$this->playerId]);
-            if ($levelStmt->rowCount() === 0) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
-            }
+                WHERE id = ?
+            ")->execute([$nextLevel, $this->playerId]);
             $this->db->commit();
             try {
                 if (class_exists('FinancialTransactionService', false)) {
@@ -222,18 +214,9 @@ trait TTSProceduresTrait
             }
 
             $cost = 500_000 * $proc['level'];
-            $newIntegrity = min(100.0, $proc['integrity'] + 30.0);
-
-            $this->db->beginTransaction();
-
- // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
- // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
-            $cashStmt = $this->db->prepare(
-                "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
-            );
-            $cashStmt->execute([$cost, $this->playerId, $cost]);
-            if ($cashStmt->rowCount() === 0) {
-                $this->db->rollBack();
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
+            $cashStmt->execute([$this->playerId]);
+            if ((float) $cashStmt->fetchColumn() < $cost) {
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.review_no_funds', [
@@ -241,6 +224,11 @@ trait TTSProceduresTrait
                     ]),
                 ];
             }
+
+            $newIntegrity = min(100.0, $proc['integrity'] + 30.0);
+
+            $this->db->beginTransaction();
+            $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
             $this->db->prepare("
                 UPDATE players
                 SET procedure_integrity = ?,

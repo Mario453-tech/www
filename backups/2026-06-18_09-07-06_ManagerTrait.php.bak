@@ -275,11 +275,9 @@ trait TTSManagerTrait
                     'engineer_need' => $engNeed,
                 ]);
             } elseif (!$hasBothHSE) {
-                // Brak oficera -> brakuje OFICERA; brak inzyniera -> brakuje INZYNIERA
-                // Missing officer -> report missing OFFICER; missing engineer -> report missing ENGINEER
                 $missing = !$hasOfficer
-                    ? t('technical.hse_label.missing_officer', ['count' => $offNeed])
-                    : t('technical.hse_label.missing_engineer', ['count' => $engNeed]);
+                    ? t('technical.hse_label.missing_engineer', ['count' => $engNeed])
+                    : t('technical.hse_label.missing_officer', ['count' => $offNeed]);
 
                 $base['label'] = t('technical.hse_label.incomplete', [
                     'missing' => $missing,

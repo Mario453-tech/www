@@ -125,10 +125,8 @@ trait TTSTasksTrait
             }
         }
 
-        // Sprawdz zajetos pracownika tylko w ramach tego gracza — blokada miedzy graczami niedopuszczalna.
-        // Check worker busy state only within this player — cross-player blocking is not allowed.
-        $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status = 'in_progress' LIMIT 1");
-        $busyStmt->execute([$staffId, $this->playerId]);
+        $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
+        $busyStmt->execute([$staffId]);
         if ($busyStmt->fetch()) {
  // Atomowa kontrola duplikatu + wstawienie do kolejki — chroni przed race condition.
  // Atomic duplicate check + queue INSERT — guards against race condition between check and insert.
@@ -191,6 +189,16 @@ trait TTSTasksTrait
             $cost = $moduleDef['cost'];
         }
 
+        if ($cost > 0) {
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
+            $cashStmt->execute([$this->playerId]);
+            if ($cashStmt->fetchColumn() < $cost) {
+                return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
+                    'cost' => number_format($cost, 0, '.', ' '),
+                ])];
+            }
+        }
+
         $wellName = '';
         if ($wellId) {
             $wStmt = $this->db->prepare("SELECT location_name FROM wells WHERE id = ?");
@@ -213,18 +221,7 @@ trait TTSTasksTrait
         $this->db->beginTransaction();
         try {
             if ($cost > 0) {
-                // Atomowe odliczenie gotowki — UPDATE powiedzie sie tylko gdy saldo wystarczajace.
-                // Atomic cash deduction — UPDATE succeeds only when balance is sufficient.
-                // Warunek AND cash >= ? zapobiega zejsciu salda ponizej zera (race-condition-safe).
-                // Condition AND cash >= ? prevents balance going negative (race-condition-safe).
-                $deductStmt = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
-                $deductStmt->execute([$cost, $this->playerId, $cost]);
-                if ($deductStmt->rowCount() === 0) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
-                        'cost' => number_format($cost, 0, '.', ' '),
-                    ])];
-                }
+                $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ?")->execute([$cost, $this->playerId]);
                 try {
                     if (class_exists('FinancialTransactionService', false)) {
                         (new FinancialTransactionService($this->db))->logTransaction(
@@ -300,11 +297,8 @@ trait TTSTasksTrait
             JOIN technical_staff ts ON tt.staff_id = ts.id
             WHERE tt.status = 'in_progress'
               AND tt.end_time <= NOW()
-              AND tt.player_id = ?
         ");
-        // Filtruj tylko zadania tego gracza — zapobiega przetwarzaniu cudzych zadan.
-        // Filter to this player's tasks only — prevents processing other players' tasks.
-        $stmt->execute([$this->playerId]);
+        $stmt->execute();
         foreach ($stmt->fetchAll() as $task) {
             $this->completeTask($task);
         }
@@ -404,16 +398,14 @@ trait TTSTasksTrait
                 case 'hub_maintenance':
                     if ($hubId) {
                         $gain = min(22, 12 + max(0, $skill - 4) * 2);
-                        // Dodaj player_id do WHERE — zapobiega modyfikacji hubu innego gracza.
-                        // Add player_id to WHERE — prevents modifying another player's hub.
                         $this->db->prepare("
                             UPDATE logistics_hubs
                             SET condition_pct = LEAST(100, condition_pct + ?),
                                 repair_cost_estimate = GREATEST(0, repair_cost_estimate - ?),
                                 last_maintenance_at = NOW(),
                                 updated_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$gain, $gain * 25000, $hubId, $pId]);
+                            WHERE id = ?
+                        ")->execute([$gain, $gain * 25000, $hubId]);
                         $result = ['condition_gain' => $gain];
                         $msg = t('technical.task_msg.hub_maintenance_done', [
                             'hub_id' => $hubId,
@@ -425,8 +417,6 @@ trait TTSTasksTrait
                 case 'hub_repair':
                     if ($hubId) {
                         $condition = min(100, 60 + $skill * 4);
-                        // Dodaj player_id do WHERE — zapobiega napraw hubu innego gracza.
-                        // Add player_id to WHERE — prevents repairing another player's hub.
                         $this->db->prepare("
                             UPDATE logistics_hubs
                             SET condition_pct = ?,
@@ -434,8 +424,8 @@ trait TTSTasksTrait
                                 repair_cost_estimate = 0.00,
                                 last_maintenance_at = NOW(),
                                 updated_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$condition, $hubId, $pId]);
+                            WHERE id = ?
+                        ")->execute([$condition, $hubId]);
                         $result = ['condition' => $condition, 'status' => 'active'];
                         $msg = t('technical.task_msg.hub_repair_done', ['hub_id' => $hubId]);
                     }
@@ -767,32 +757,22 @@ trait TTSTasksTrait
                 }
             }
 
-            // Pobierz nastepne zadanie z kolejki i usun je WEWNATRZ transakcji.
-            // Fetch next queued task and DELETE it INSIDE the transaction.
-            // startTask() otwiera wlasna transakcje — wywolujemy je dopiero PO commit().
-            // startTask() opens its own transaction — call it only AFTER commit().
-            $nextStmt = $this->db->prepare("
+            $next = $this->db->prepare("
                 SELECT * FROM technical_task_queue WHERE staff_id = ?
                 ORDER BY priority DESC, queued_at ASC LIMIT 1
             ");
-            $nextStmt->execute([$task['staff_id']]);
-            $nextTask = $nextStmt->fetch();
+            $next->execute([$task['staff_id']]);
+            $nextTask = $next->fetch();
             if ($nextTask) {
                 $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$nextTask['id']]);
-            }
-
-            $this->db->commit();
-            GameLog::info('TTS', 'cancelTask OK', ['task_id' => $taskId, 'player_id' => $this->playerId]);
-
-            // startTask() wywolujemy po commit() — PDO/MySQL nie obsluguje zagniezdzonnych transakcji.
-            // startTask() is called after commit() — PDO/MySQL does not support nested transactions.
-            if ($nextTask) {
                 $staffRow = $this->getStaffMember((int)$task['staff_id']);
                 if ($staffRow) {
                     $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null, $nextTask['pipeline_id'] ?? null);
                 }
             }
 
+            $this->db->commit();
+            GameLog::info('TTS', 'cancelTask OK', ['task_id' => $taskId, 'player_id' => $this->playerId]);
             return ['success' => true, 'message' => t('technical.task_msg.task_cancelled')];
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();

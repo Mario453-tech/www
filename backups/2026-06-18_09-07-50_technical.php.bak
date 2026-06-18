@@ -647,7 +647,5 @@ return [
     'technical.recruitment_msg.unknown_spec'           => 'Nieznana specjalizacja.',
     'technical.recruitment_msg.missing_role'           => 'Brak roli technical w systemie.',
     'technical.recruitment_msg.requested'              => 'Zlecono poszukiwania: :spec. Dział Kadr dostarczy kandydatów za ~:mins min.',
-    'technical.recruitment_msg.invalid_type'           => 'Nieprawidłowy typ rekrutacji.',
-    'technical.recruitment_msg.unknown_region'         => 'Nieznany region rekrutacji.',
 
 ];
