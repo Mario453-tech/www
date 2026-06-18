@@ -2080,7 +2080,7 @@ select {
 .hr-stats-grid .list-row      { grid-template-columns: 1fr 80px 80px 70px 70px 120px; }
 
 .hr-hrspecs-grid .list-header,
-.hr-hrspecs-grid .list-row    { grid-template-columns: 180px 90px 110px 60px 50px; gap: 6px; }
+.hr-hrspecs-grid .list-row    { grid-template-columns: 180px 100px 110px minmax(150px, 1fr) 60px 70px; gap: 6px; }
 
 .hr-hrspecs-grid .list-row    { padding: 2px 8px; min-height: 0; gap: 6px; }
 .hr-hrspecs-grid .inline-form { display: contents; }
@@ -3045,8 +3045,8 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 }
 
 /* ============================================================
-   GM Wells panel — player filter, list, edit form
-   Panel odwiertow GM — filtr gracza, lista, formularz edycji
+   GM Wells panel - player filter, list, edit form
+   Panel odwiertow GM - filtr gracza, lista, formularz edycji
    ============================================================ */
 
 .aw-player-filter {
@@ -3404,7 +3404,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
-/* Nagłówek grup — kolorowe sekcje */
+/* Naglowek grup - kolorowe sekcje */
 .legal-config-table thead tr:first-child th {
     background: rgba(255, 152, 0, .1);
     color: #ff9800;
@@ -3417,7 +3417,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     text-align: center;
 }
 
-/* Nagłówek kolumn */
+/* Naglowek kolumn */
 .legal-config-table thead tr:nth-child(2) th {
     font-size: 9px;
     font-weight: 700;
@@ -3429,7 +3429,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     padding: 5px 7px;
 }
 
-/* Region — nazwa kolumny */
+/* Region - nazwa kolumny */
 .legal-config-table__region {
     min-width: 110px;
     max-width: 140px;
@@ -3439,7 +3439,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     word-break: break-word;
 }
 
-/* Wiersze — lepszy kontrast */
+/* Wiersze - lepszy kontrast */
 .legal-config-table tbody tr td {
     background: #1a1a1a;
 }
@@ -3690,16 +3690,16 @@ body.cred-modal-open { overflow: hidden; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ADMIN LEGAL — MOBILE RESPONSYWNOŚĆ
+   ADMIN LEGAL - MOBILE RESPONSYWNOSC
    ═══════════════════════════════════════════════════════════════ */
 
-/* Wrapper tabeli — scroll poziomy z lepszym UX */
+/* Wrapper tabeli - scroll poziomy z lepszym UX */
 .legal-config-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     border: 1px solid rgba(255,152,0,.15);
     border-radius: 8px;
-    /* Gradient podpowiadający scroll */
+    /* Gradient podpowiadajacy scroll */
     background:
         linear-gradient(to right, #1a1a1a 30%, rgba(26,26,26,0)) left,
         linear-gradient(to left, #1a1a1a 30%, rgba(26,26,26,0)) right;
@@ -3718,7 +3718,7 @@ body.cred-modal-open { overflow: hidden; }
     border-radius: 3px;
 }
 
-/* Seed + Migracja — kompaktowe na mobile */
+/* Seed + Migracja - kompaktowe na mobile */
 @media (max-width: 980px) {
     .admin-wrap { padding: 12px 14px; }
     .admin-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -3728,7 +3728,7 @@ body.cred-modal-open { overflow: hidden; }
     /* Seed i Migracja obok siebie */
     .admin-legal-seed-form { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
 
-    /* Guide — 1 kolumna */
+    /* Guide - 1 kolumna */
     .legal-admin-guide { grid-template-columns: 1fr; }
 
     /* Tabela z mini-scrollbarem */
@@ -3737,7 +3737,7 @@ body.cred-modal-open { overflow: hidden; }
     .legal-config-table input[type="number"] { width: 60px !important; font-size: 11px; padding: 2px 4px; }
     .legal-config-table select { font-size: 11px; padding: 2px 4px; }
 
-    /* Panel seed / migracja — kompaktowy */
+    /* Panel seed / migracja - kompaktowy */
     .panel h2 { font-size: 12px; }
     .panel p  { font-size: 12px; }
 }
@@ -3745,17 +3745,17 @@ body.cred-modal-open { overflow: hidden; }
 @media (max-width: 640px) {
     .admin-wrap { padding: 10px 10px; }
 
-    /* Tabela — jeszcze mniejsza */
+    /* Tabela - jeszcze mniejsza */
     .legal-config-table { min-width: 800px; }
     .legal-config-table th, .legal-config-table td { padding: 4px 6px; font-size: 10px; }
     .legal-config-table input[type="number"] { width: 50px !important; font-size: 10px; }
     .legal-config-table input[type="checkbox"] { width: 13px; height: 13px; }
 
-    /* Nagłówki grup — mniejsze */
+    /* Naglowki grup - mniejsze */
     .legal-config-table thead tr:first-child th { font-size: 9px; padding: 5px 6px; letter-spacing: .05em; }
     .legal-config-table thead tr:nth-child(2) th { font-size: 9px; padding: 4px 6px; }
 
-    /* Pierwsza kolumna (region) — węższa */
+    /* Pierwsza kolumna (region) - wezsza */
     .legal-config-table__region { min-width: 100px; font-size: 10px; }
 
     /* Przyciski seed/migracja */
@@ -3767,7 +3767,7 @@ body.cred-modal-open { overflow: hidden; }
     .legal-admin-guide p { font-size: 11px; }
     .legal-admin-guide strong { font-size: 9px; }
 
-    /* Wnioski graczy / na huby — tabele */
+    /* Wnioski graczy / na huby - tabele */
     .admin-tabs { gap: 0; }
     .admin-tab { padding: 7px 10px; font-size: 11px; }
 }
@@ -3779,12 +3779,12 @@ body.cred-modal-open { overflow: hidden; }
     .legal-config-table input[type="number"] { width: 44px !important; font-size: 9px; padding: 1px 3px; }
     .legal-config-table__region { min-width: 80px; }
 
-    /* Ukryj kolumny mniej ważne na bardzo małym ekranie */
+    /* Ukryj kolumny mniej wazne na bardzo malym ekranie */
     .legal-config-table .col-hide-xs { display: none; }
 }
 
 
-/* Kompaktowy Zapisz w tabeli regionów */
+/* Kompaktowy Zapisz w tabeli regionow */
 .legal-config-table .btn-sm,
 .legal-config-table .btn-primary.btn-sm {
     padding: 4px 10px !important;
@@ -3793,12 +3793,12 @@ body.cred-modal-open { overflow: hidden; }
     white-space: nowrap;
 }
 
-/* admin-wrap bez overflow-x żeby tabela mogła się skalować */
+/* admin-wrap bez overflow-x zeby tabela mogla sie skalowac */
 .admin-wrap {
     overflow-x: visible;
 }
 
-/* table-scroll-wrap — scroll dopiero gdy naprawdę nie ma miejsca */
+/* table-scroll-wrap - scroll dopiero gdy naprawde nie ma miejsca */
 .table-scroll-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -3806,9 +3806,9 @@ body.cred-modal-open { overflow: hidden; }
 .table-scroll-wrap::-webkit-scrollbar { height: 4px; }
 .table-scroll-wrap::-webkit-scrollbar-thumb { background: rgba(255,152,0,.35); border-radius: 2px; }
 
-/* ─── LEGAL CONFIG TABLE — kolumny zaawansowane ukryte domyślnie ─── */
-/* Domyślnie widoczne: Region, Ryzyko, Włączony, Koszt, Czas, Zapisz */
-/* Kolumny zaawansowane ukryte — toggle przyciskiem */
+/* --- LEGAL CONFIG TABLE - kolumny zaawansowane ukryte domyslnie --- */
+/* Domyslnie widoczne: Region, Ryzyko, Wlaczony, Koszt, Czas, Zapisz */
+/* Kolumny zaawansowane ukryte - toggle przyciskiem */
 .legal-config-table .col-advanced {
     display: none;
 }
@@ -3839,10 +3839,10 @@ body.cred-modal-open { overflow: hidden; }
 
 
 /* ═══════════════════════════════════════════════════════════════
-   GM TOOLS — Sekcja usuwania kont graczy
+   GM TOOLS - Sekcja usuwania kont graczy
    ═══════════════════════════════════════════════════════════════ */
 
-/* Panel danger — lewa czerwona kreska */
+/* Panel danger - lewa czerwona kreska */
 .panel-danger,
 .gm-delete-panel {
     border-left: 3px solid var(--red, #e05555) !important;
@@ -3857,7 +3857,7 @@ body.cred-modal-open { overflow: hidden; }
     text-transform: uppercase !important;
 }
 
-/* Opis ostrzeżenia */
+/* Opis ostrzezenia */
 .gm-delete-desc,
 .panel-danger .muted {
     font-size: 12px !important;
@@ -3868,7 +3868,7 @@ body.cred-modal-open { overflow: hidden; }
     font-weight: 400 !important;
 }
 
-/* Lista graczy — siatka kart */
+/* Lista graczy - siatka kart */
 .gm-players-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -3933,7 +3933,7 @@ body.cred-modal-open { overflow: hidden; }
     min-width: 0;
 }
 
-/* Zaznacz wszystkich — row */
+/* Zaznacz wszystkich - row */
 .gm-select-all-row {
     display: flex;
     align-items: center;
@@ -3966,7 +3966,7 @@ body.cred-modal-open { overflow: hidden; }
     color: var(--red, #e05555);
 }
 
-/* Przycisk usuń */
+/* Przycisk usun */
 .gm-delete-btn,
 .panel-danger .btn-danger {
     background: rgba(224,85,85,.1) !important;
@@ -3986,7 +3986,7 @@ body.cred-modal-open { overflow: hidden; }
     border-color: rgba(224,85,85,.6) !important;
 }
 
-/* Fallback dla surowej listy label+checkbox (jeśli HTML niezmodyfikowany) */
+/* Fallback dla surowej listy label+checkbox (jesli HTML niezmodyfikowany) */
 .panel-danger label,
 .gm-delete-panel label {
     display: inline-flex;
@@ -4015,7 +4015,7 @@ body.cred-modal-open { overflow: hidden; }
     color: #fff !important;
 }
 
-/* Ukryj surowy tekst bez struktury (jeśli checkboxy są inline) */
+/* Ukryj surowy tekst bez struktury (jesli checkboxy sa inline) */
 .panel-danger .text-inline-checkboxes {
     display: flex;
     flex-wrap: wrap;
@@ -4038,10 +4038,10 @@ body.cred-modal-open { overflow: hidden; }
 
 
 /* ═══════════════════════════════════════════════════════════════
-   ADMIN MOBILE — poprawki dla wszystkich paneli
+   ADMIN MOBILE - poprawki dla wszystkich paneli
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Balance — slidery ────────────────────────────────────────── */
+/* -- Balance - slidery ------------------------------------------ */
 .config-rows { gap: 6px !important; }
 .badge-warning {
     display: inline-flex;
@@ -4061,11 +4061,11 @@ body.cred-modal-open { overflow: hidden; }
 .mult-buff { color: #e05555 !important; font-weight: 700; }
 .mult-normal { color: rgba(255,255,255,.6) !important; }
 
-/* ── Incydenty — toolbar z 11 zakładkami → 2 wiersze / scroll ── */
+/* -- Incydenty - toolbar z 11 zakladkami -> 2 wiersze / scroll -- */
 .admin-tabs-wrap {
     position: relative;
 }
-/* Grupowanie zakładek w 2 wiersze gdy > 8 */
+/* Grupowanie zakladek w 2 wiersze gdy > 8 */
 .admin-tabs--multirow {
     flex-wrap: wrap !important;
     gap: 4px 3px !important;
@@ -4089,7 +4089,7 @@ body.cred-modal-open { overflow: hidden; }
     color: #ff9800 !important;
 }
 
-/* ── HR history — lista zatrudnień ───────────────────────────── */
+/* -- HR history - lista zatrudnien ----------------------------- */
 .hr-history-grid {
     font-size: 12px;
 }
@@ -4099,7 +4099,7 @@ body.cred-modal-open { overflow: hidden; }
     color: rgba(255,255,255,.3);
 }
 
-/* ── Black market — tabela transakcji ────────────────────────── */
+/* -- Black market - tabela transakcji -------------------------- */
 .bm-tx-table-wrap,
 .data-list--bm {
     overflow-x: auto;
@@ -4108,7 +4108,7 @@ body.cred-modal-open { overflow: hidden; }
 .bm-tx-table-wrap::-webkit-scrollbar { height: 3px; }
 .bm-tx-table-wrap::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
 
-/* BM players table — kompaktowa */
+/* BM players table - kompaktowa */
 .bm-players-table .list-header,
 .bm-players-table .list-row {
     font-size: 11px !important;
@@ -4121,10 +4121,10 @@ body.cred-modal-open { overflow: hidden; }
     text-overflow: ellipsis;
 }
 
-/* ── MOBILE ≤768px ───────────────────────────────────────────── */
+/* -- MOBILE ≤768px --------------------------------------------- */
 @media (max-width: 768px) {
 
-    /* Balance slidery — pionowo */
+    /* Balance slidery - pionowo */
     .config-row {
         grid-template-columns: 1fr !important;
         gap: 8px !important;
@@ -4136,7 +4136,7 @@ body.cred-modal-open { overflow: hidden; }
     .config-range { width: 100% !important; max-width: 220px; }
     .config-input-sm { width: 64px !important; }
 
-    /* HR history — ukryj mniej ważne kolumny */
+    /* HR history - ukryj mniej wazne kolumny */
     .hr-history-grid .list-header,
     .hr-history-grid .list-row {
         grid-template-columns: 90px 1fr 80px !important;
@@ -4150,13 +4150,13 @@ body.cred-modal-open { overflow: hidden; }
         display: none !important;
     }
 
-    /* BM players — ukryj credit score col na mobilnym */
+    /* BM players - ukryj credit score col na mobilnym */
     .bm-players-table .list-header,
     .bm-players-table .list-row {
         grid-template-columns: 1fr auto auto !important;
     }
 
-    /* Incydenty toolbar — 2 wiersze */
+    /* Incydenty toolbar - 2 wiersze */
     .admin-tabs:not(.admin-tabs--single) {
         flex-wrap: wrap !important;
         gap: 3px !important;
@@ -4179,13 +4179,13 @@ body.cred-modal-open { overflow: hidden; }
     .config-range { max-width: 160px; }
     .config-input-sm { width: 56px !important; }
 
-    /* HR history — tylko data + badge */
+    /* HR history - tylko data + badge */
     .hr-history-grid .list-header,
     .hr-history-grid .list-row {
         grid-template-columns: 80px 1fr 70px !important;
     }
 
-    /* BM — pełny scroll */
+    /* BM - pelny scroll */
     .bm-players-table .list-header,
     .bm-players-table .list-row {
         min-width: 360px;
@@ -4198,10 +4198,10 @@ body.cred-modal-open { overflow: hidden; }
 
 
 /* ═══════════════════════════════════════════════════════════════
-   TRANSPORT / PIPELINES / MARINE — poprawki mobilne
+   TRANSPORT / PIPELINES / MARINE - poprawki mobilne
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Wrapper scroll dla szerokich tabel ─────────────────────── */
+/* -- Wrapper scroll dla szerokich tabel ----------------------- */
 .player-loss-grid,
 .well-loss-grid,
 .pipelines-grid,
@@ -4219,7 +4219,7 @@ body.cred-modal-open { overflow: hidden; }
     background: rgba(255,152,0,.3); border-radius: 2px;
 }
 
-/* Minimalna szerokość żeby kolumny nie zgniotły się za bardzo */
+/* Minimalna szerokosc zeby kolumny nie zgniotly sie za bardzo */
 .player-loss-grid .list-header,
 .player-loss-grid .list-row { min-width: 520px; }
 
@@ -4229,7 +4229,7 @@ body.cred-modal-open { overflow: hidden; }
 .pipelines-grid .list-header,
 .pipelines-grid .list-row   { min-width: 640px; }
 
-/* ── Tabela portów morskich — responsywna ────────────────────── */
+/* -- Tabela portow morskich - responsywna ---------------------- */
 .admin-table {
     width: 100%;
     overflow-x: auto;
@@ -4260,7 +4260,7 @@ body.cred-modal-open { overflow: hidden; }
     margin-bottom: 10px;
 }
 
-/* Tabela portów */
+/* Tabela portow */
 .admin-table table,
 table.admin-table {
     width: 100%;
@@ -4290,7 +4290,7 @@ table.admin-table tr:hover td {
     background: rgba(255,152,0,.04);
 }
 
-/* ── Pipeline type cards — responsywne ──────────────────────── */
+/* -- Pipeline type cards - responsywne ------------------------ */
 .pipeline-types-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -4312,7 +4312,7 @@ table.admin-table tr:hover td {
     border-bottom: 1px solid rgba(255,152,0,.15);
 }
 
-/* ── Marine ports — czyszczenie sekcji ──────────────────────── */
+/* -- Marine ports - czyszczenie sekcji ------------------------ */
 .marine-cleanup-wrap { margin-top: 16px; }
 .marine-cleanup-wrap .panel-title {
     font-size: 11px !important;
@@ -4323,10 +4323,10 @@ table.admin-table tr:hover td {
     margin-bottom: 8px !important;
 }
 
-/* ── MOBILE ≤768px ───────────────────────────────────────────── */
+/* -- MOBILE ≤768px --------------------------------------------- */
 @media (max-width: 768px) {
 
-    /* Transport loss — ukryj transport-mix na małym */
+    /* Transport loss - ukryj transport-mix na malym */
     .player-loss-grid .list-header span:nth-child(6),
     .player-loss-grid .list-row span:nth-child(6) {
         display: none;
@@ -4337,7 +4337,7 @@ table.admin-table tr:hover td {
         min-width: 380px;
     }
 
-    /* Pipelines — ukryj ostatnią kolumnę (events) */
+    /* Pipelines - ukryj ostatnia kolumne (events) */
     .pipelines-grid .list-header span:last-child,
     .pipelines-grid .list-row   span:last-child {
         display: none;
@@ -4348,7 +4348,7 @@ table.admin-table tr:hover td {
         min-width: 460px;
     }
 
-    /* Well loss — ukryj Wear */
+    /* Well loss - ukryj Wear */
     .well-loss-grid .list-header span:nth-child(7),
     .well-loss-grid .list-row   span:nth-child(7) {
         display: none;
@@ -4359,7 +4359,7 @@ table.admin-table tr:hover td {
         min-width: 460px;
     }
 
-    /* Marine port table — scroll */
+    /* Marine port table - scroll */
     .admin-card { overflow-x: auto; padding: 12px 12px; }
     .pipeline-types-grid { grid-template-columns: 1fr; }
 }
@@ -4368,7 +4368,7 @@ table.admin-table tr:hover td {
     .admin-card { padding: 10px; }
     .admin-card h2 { font-size: 12px !important; }
 
-    /* Marine port — ukryj Typ i Koszt */
+    /* Marine port - ukryj Typ i Koszt */
     table.admin-table td:nth-child(4),
     table.admin-table th:nth-child(4),
     table.admin-table td:nth-child(7),
@@ -4377,11 +4377,11 @@ table.admin-table tr:hover td {
 
 
 /* ═══════════════════════════════════════════════════════════════
-   ADMIN REDESIGN — rynek, huby, ochrona, sabotaże
+   ADMIN REDESIGN - rynek, huby, ochrona, sabotaze
    Paleta: --orange #ff9800, bg #1a1a1a, border rgba(255,152,0,.18)
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Globalne ulepszenia kart i paneli ──────────────────────── */
+/* -- Globalne ulepszenia kart i paneli ------------------------ */
 .card {
     background: linear-gradient(145deg, #1e1e1e, #181818) !important;
     border: 1px solid rgba(255,152,0,.18) !important;
@@ -4435,7 +4435,7 @@ table.admin-table tr:hover td {
     font-family: inherit !important;
 }
 
-/* ── RYNEK GLOBALNY — market/main.php ─────────────────────────*/
+/* -- RYNEK GLOBALNY - market/main.php -------------------------*/
 .market-form-panel {
     background: #1a1a1a;
     border: 1px solid rgba(255,255,255,.07);
@@ -4446,8 +4446,8 @@ table.admin-table tr:hover td {
 .market-form-panel .panel-title { color: #e05555 !important; }
 .market-form-panel--warn .panel-title { color: #e05555 !important; }
 
-/* ── HUBY LOGISTYCZNE — logistics/main.php ────────────────────*/
-/* verify-cards — gradient tło */
+/* -- HUBY LOGISTYCZNE - logistics/main.php --------------------*/
+/* verify-cards - gradient tlo */
 .verify-grid {
     display: grid !important;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
@@ -4550,7 +4550,7 @@ table.admin-table tr:hover td {
     border-radius: 12px !important;
 }
 
-/* ── OCHRONA — protection/main.php ────────────────────────────*/
+/* -- OCHRONA - protection/main.php ----------------------------*/
 .protection-admin-grid {
     width: 100%;
     overflow-x: auto;
@@ -4591,13 +4591,13 @@ table.admin-table tr:hover td {
     font-family: inherit;
 }
 
-/* ── SABOTAŻE — sabotage/main.php ─────────────────────────────*/
+/* -- SABOTAZE - sabotage/main.php -----------------------------*/
 /* Reuse protection-admin-grid + dodatkowe */
 .protection-admin-grid--sabotage .protection-admin-row {
     grid-template-columns: 180px 1fr 140px 80px 90px 80px auto;
 }
 
-/* Toggle switch moduł aktywny */
+/* Toggle switch modul aktywny */
 .module-toggle-wrap {
     display: flex;
     align-items: center;
@@ -4610,24 +4610,24 @@ table.admin-table tr:hover td {
     color: rgba(255,255,255,.8);
 }
 
-/* ── MOBILE ≤768px ───────────────────────────────────────────── */
+/* -- MOBILE ≤768px --------------------------------------------- */
 @media (max-width: 768px) {
-    /* Rynek — karty 2x2 */
+    /* Rynek - karty 2x2 */
     .cards { flex-direction: column; gap: 6px !important; }
     .cards .card { min-width: 0 !important; }
     .card .value { font-size: 16px !important; }
 
-    /* Verify cards — 2 kolumny */
+    /* Verify cards - 2 kolumny */
     .verify-grid { grid-template-columns: 1fr 1fr !important; }
 
-    /* Hub admin grid — 1 kolumna */
+    /* Hub admin grid - 1 kolumna */
     .hub-admin-grid { grid-template-columns: 1fr !important; }
 
-    /* Hub detail — pełna szerokość */
+    /* Hub detail - pelna szerokosc */
     .hub-detail-box { padding: 14px !important; }
     .hub-detail-params { grid-template-columns: 1fr 1fr !important; }
 
-    /* Protection/Sabotage rows — scroll */
+    /* Protection/Sabotage rows - scroll */
     .protection-admin-row {
         grid-template-columns: 120px 1fr 80px auto !important;
         font-size: 11px;
@@ -4652,4 +4652,3 @@ table.admin-table tr:hover td {
     .protection-admin-row span:nth-child(4),
     .protection-admin-row span:nth-child(5) { display: none; }
 }
-

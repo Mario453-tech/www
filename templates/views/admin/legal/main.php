@@ -14,23 +14,23 @@
         <div class="card"><p class="label"><?= t('admin.legal.stat_granted') ?></p><p class="value green"><?= (int)$stats['granted'] ?></p></div>
         <div class="card"><p class="label"><?= t('admin.legal.stat_refused') ?></p><p class="value red"><?= (int)$stats['refused'] ?></p></div>
         <div class="card"><p class="label"><?= t('admin.legal.stat_regions') ?></p><p class="value"><?= count($regions) ?></p></div>
-        <!-- P2a hub stats / Statystyki hubów P2a -->
+        <!-- P2a hub stats / P2a hub statistics -->
         <div class="card"><p class="label"><?= t('admin.legal.hub.stat_total') ?></p><p class="value"><?= (int)$hubStats['total'] ?></p></div>
         <div class="card"><p class="label"><?= t('admin.legal.hub.stat_granted') ?></p><p class="value green"><?= (int)$hubStats['granted'] ?></p></div>
     </div>
 </section>
 
-<!-- Zakładki -->
+<!-- Tabs -->
 <nav class="admin-tabs">
     <a href="?tab=regions"          class="admin-tab <?= $tab === 'regions'          ? 'active' : '' ?>"><?= t('admin.legal.tab_regions') ?></a>
     <a href="?tab=applications"     class="admin-tab <?= $tab === 'applications'     ? 'active' : '' ?>"><?= t('admin.legal.tab_applications') ?></a>
     <a href="?tab=hub_applications" class="admin-tab <?= $tab === 'hub_applications' ? 'active' : '' ?>"><?= t('admin.legal.hub.tab_applications') ?></a>
 </nav>
 
-<!-- ===== TAB: KONFIGURACJA REGIONÓW ===== -->
+<!-- Region configuration tab -->
 <?php if ($tab === 'regions'): ?>
 
-<!-- Seed konfiguracji regionów -->
+<!-- Region configuration seed -->
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.legal.seed_title') ?></p>
     <p class="panel-hint"><?= t('admin.legal.seed_hint') ?></p>
@@ -46,7 +46,7 @@
     </form>
 </section>
 
-<!-- Migracja przejściowa -->
+<!-- Transitional migration section -->
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.legal.migration_title') ?></p>
     <p class="panel-hint"><?= t('admin.legal.migration_hint') ?></p>
@@ -99,7 +99,7 @@
     </div>
 
     <button class="legal-table-toggle" onclick="this.closest('.panel').querySelector('.table-scroll-wrap').classList.toggle('legal-table-expanded');this.closest('.panel').classList.toggle('legal-table-expanded')">
-        Pokaż zaawansowane kolumny
+        <?= t('admin.legal.btn_show_advanced') ?>
     </button>
     <div class="table-scroll-wrap">
     <table class="data-table legal-config-table">
@@ -222,13 +222,13 @@
                 <br><small><?= t('admin.legal.delay_count_label', ['n' => (int)$app['delay_count']]) ?></small>
                 <?php endif ?>
             </td>
-            <td><small><?= htmlspecialchars(substr((string)($app['submitted_at'] ?? '—'), 0, 16)) ?></small></td>
-            <td><small><?= htmlspecialchars(substr((string)($app['decision_due_at'] ?? '—'), 0, 16)) ?></small></td>
-            <td><small><?= htmlspecialchars(substr((string)($app['decided_at'] ?? '—'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['submitted_at'] ?? '-'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['decision_due_at'] ?? '-'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['decided_at'] ?? '-'), 0, 16)) ?></small></td>
             <td>
                 <?php
-                // Brief §16.3: nazwa gracza i regionu do treści modalu potwierdzenia.
-                // Brief §16.3: player and region names for the confirmation modal body.
+                // Brief 16.3: player and region names for the confirmation modal body.
+                // Used in the confirmation dialog shown before manual legal actions.
                 $confPlayer = (string)($app['company_name'] ?? $app['username'] ?? ('#' . $app['player_id']));
                 $confRegion = (string)($app['region_name'] ?? ('#' . $app['region_id']));
                 ?>
@@ -316,9 +316,9 @@
                 <br><small><?= t('admin.legal.delay_count_label', ['n' => (int)$app['delay_count']]) ?></small>
                 <?php endif ?>
             </td>
-            <td><small><?= htmlspecialchars(substr((string)($app['submitted_at'] ?? '—'), 0, 16)) ?></small></td>
-            <td><small><?= htmlspecialchars(substr((string)($app['decision_due_at'] ?? '—'), 0, 16)) ?></small></td>
-            <td><small><?= htmlspecialchars(substr((string)($app['decided_at'] ?? '—'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['submitted_at'] ?? '-'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['decision_due_at'] ?? '-'), 0, 16)) ?></small></td>
+            <td><small><?= htmlspecialchars(substr((string)($app['decided_at'] ?? '-'), 0, 16)) ?></small></td>
             <td>
                 <div class="legal-admin-actions">
                 <?php foreach ([

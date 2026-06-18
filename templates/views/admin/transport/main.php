@@ -198,30 +198,30 @@
 </script>
 
 <!--  -->
-<!-- PORTY MORSKIE (Etap 5) — seed i podgląd                               -->
+<!-- MARINE PORTS (Stage 5) - seed and overview -->
 <!--  -->
 <section class="admin-card">
-    <h2>⚓ Porty morskie (Etap 5)</h2>
-    <p class="help-text">Porty systemowe obsługują dostawy tankowców. Każdy region z odwiertem morskim musi mieć co najmniej 1 aktywny port — bez portu odwiert morski wstrzymuje produkcję.</p>
+    <h2><?= t('admin.transport.ports_title') ?></h2>
+    <p class="help-text"><?= t('admin.transport.ports_intro') ?></p>
 
     <form method="post" style="margin-bottom:16px">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="seed_ports">
         <button type="submit" class="btn btn-primary btn-sm"
-                onclick="return confirm('Seed portów: tworzy 1 port na region (pomija istniejące). Kontynuować?')">
-            Zasiej domyślne porty (1 na region)
+                onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('admin.transport.ports_seed_confirm')), ENT_QUOTES) ?>, {type:'warning'}); return false;">
+            <?= t('admin.transport.ports_seed_button') ?>
         </button>
-        <span class="help-text">Bezpieczne — nie nadpisze istniejących portów.</span>
+        <span class="help-text"><?= t('admin.transport.ports_seed_safe') ?></span>
     </form>
 
     <?php if (empty($portsData)): ?>
-        <div class="alert alert-info">Brak portów w bazie. Uruchom seed lub wykonaj migrację <code>migrations/etap5_marine_ports.sql</code>.</div>
+        <div class="alert alert-info"><?= t('admin.transport.ports_empty') ?></div>
     <?php else: ?>
     <div class="table-scroll-wrap"><table class="admin-table">
         <thead>
             <tr>
-                <th>ID</th><th>Nazwa</th><th>Region</th><th>Typ</th>
-                <th>Status</th><th>Kolejka</th><th>Koszt/bbl</th>
+                <th><?= t('admin.transport.port_col_id') ?></th><th><?= t('admin.transport.port_col_name') ?></th><th><?= t('admin.transport.port_col_region') ?></th><th><?= t('admin.transport.port_col_type') ?></th>
+                <th><?= t('admin.transport.port_col_status') ?></th><th><?= t('admin.transport.port_col_queue') ?></th><th><?= t('admin.transport.port_col_cost_per_bbl') ?></th>
             </tr>
         </thead>
         <tbody>
@@ -240,13 +240,13 @@
             <tr>
                 <td><?= (int)$port['id'] ?></td>
                 <td><?= htmlspecialchars($port['name']) ?></td>
-                <td><?= htmlspecialchars($port['region_name'] ?? 'Region #' . $port['region_id']) ?></td>
+                <td><?= htmlspecialchars($port['region_name'] ?? str_replace(':id', (string)$port['region_id'], t('admin.transport.port_fallback_region'))) ?></td>
                 <td><?= htmlspecialchars($port['port_type']) ?></td>
                 <td><span class="badge <?= $statusClass ?>"><?= htmlspecialchars($port['status']) ?></span></td>
                 <td class="<?= $queueClass ?>">
                     <?= $queueWaiting ?>/<?= (int)($port['queue_limit'] ?? 20) ?>
                 </td>
-                <td><?= number_format((float)($port['handling_cost_per_bbl'] ?? 0), 2, ',', '.') ?> PLN</td>
+                <td><?= number_format((float)($port['handling_cost_per_bbl'] ?? 0), 2, ',', '.') ?> <?= t('admin.transport.currency_usd') ?></td>
             </tr>
         <?php endforeach ?>
         </tbody>
@@ -254,11 +254,8 @@
     </div><?php endif ?>
     <hr class="admin-hr">
 
-    <p class="panel-title">Czyszczenie kolejki dostaw morskich</p>
-    <p class="help-text" style="margin-bottom:12px">
-        <strong>Utknięte</strong> — usuwa dostawy ze statusem <code>waiting_for_port</code>, <code>delayed</code>, <code>lost</code>, <code>delivered</code> (zostawia aktywne: departing/in_transit/processing).<br>
-        <strong>Wszystkie</strong> — czyści całą tabelę <code>marine_deliveries</code> i zeruje bufor <code>marine_buffer_bbl</code> we wszystkich odwiertach tankowcowych.
-    </p>
+    <p class="panel-title"><?= t('admin.transport.marine_cleanup_title') ?></p>
+    <p class="help-text" style="margin-bottom:12px"><?= t('admin.transport.marine_cleanup_intro') ?></p>
 
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <form method="post">
@@ -266,8 +263,8 @@
             <input type="hidden" name="action" value="clear_marine_deliveries">
             <input type="hidden" name="clear_scope" value="stuck">
             <button type="submit" class="btn btn-warning btn-sm"
-                    onclick="confirmSubmit(this, 'Usunąć utknięte dostawy morskie (waiting_for_port, delayed, lost, delivered)? Aktywne (in_transit) zostaną.', {type:\'warning\'}); return false;">
-                Wyczyść utknięte
+                    onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('admin.transport.confirm_clear_marine_stuck')), ENT_QUOTES) ?>, {type:'warning'}); return false;">
+                <?= t('admin.transport.btn_clear_stuck') ?>
             </button>
         </form>
         <form method="post">
@@ -275,25 +272,22 @@
             <input type="hidden" name="action" value="clear_marine_deliveries">
             <input type="hidden" name="clear_scope" value="all">
             <button type="submit" class="btn btn-danger btn-sm"
-                    onclick="confirmSubmit(this, 'UWAGA: Usunąć WSZYSTKIE rekordy marine_deliveries i wyzerować marine_buffer_bbl? Tego nie można cofnąć.', {type:\'danger\'}); return false;">
-                Wyczyść wszystkie
+                    onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('admin.transport.confirm_clear_marine_all')), ENT_QUOTES) ?>, {type:'danger'}); return false;">
+                <?= t('admin.transport.btn_clear_all') ?>
             </button>
         </form>
     </div>
 </section>
 
 <!--  -->
-<!-- KURSY CIEZAROWEK — czyszczenie well_road_trips                         -->
+<!-- KURSY CIEZAROWEK - czyszczenie well_road_trips                         -->
 <!--  -->
 <section class="admin-card">
-    <h2>Kursy ciężarówek</h2>
-    <p class="help-text">Aktywne kursy ciężarówek (<code>well_road_trips</code>). Czyść tylko gdy masz utknięte lub nieaktualne rekordy — kursy <code>in_transit</code> są aktywne i zostaną pominięte w trybie "utknięte".</p>
+    <h2><?= t('admin.transport.road_trips_title') ?></h2>
+    <p class="help-text"><?= t('admin.transport.road_trips_intro') ?></p>
 
-    <p class="panel-title">Czyszczenie kursów ciężarówek</p>
-    <p class="help-text" style="margin-bottom:12px">
-        <strong>Utknięte</strong> — usuwa kursy ze statusem <code>delivered</code> i <code>lost</code> (zostawia aktywne: in_transit).<br>
-        <strong>Wszystkie</strong> — czyści całą tabelę <code>well_road_trips</code> i zeruje bufor <code>road_buffer_bbl</code> we wszystkich odwiertach ciężarówkowych.
-    </p>
+    <p class="panel-title"><?= t('admin.transport.road_cleanup_title') ?></p>
+    <p class="help-text" style="margin-bottom:12px"><?= t('admin.transport.road_cleanup_intro') ?></p>
 
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <form method="post">
@@ -301,8 +295,8 @@
             <input type="hidden" name="action" value="clear_road_trips">
             <input type="hidden" name="clear_scope" value="stuck">
             <button type="submit" class="btn btn-warning btn-sm"
-                    onclick="confirmSubmit(this, 'Usunąć zakończone kursy ciężarówek (delivered, lost)? Aktywne (in_transit) zostaną.', {type:\'warning\'}); return false;">
-                Wyczyść utknięte
+                    onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('admin.transport.confirm_clear_road_stuck')), ENT_QUOTES) ?>, {type:'warning'}); return false;">
+                <?= t('admin.transport.btn_clear_stuck') ?>
             </button>
         </form>
         <form method="post">
@@ -310,8 +304,8 @@
             <input type="hidden" name="action" value="clear_road_trips">
             <input type="hidden" name="clear_scope" value="all">
             <button type="submit" class="btn btn-danger btn-sm"
-                    onclick="confirmSubmit(this, 'UWAGA: Usunąć WSZYSTKIE kursy ciężarówek i wyzerować road_buffer_bbl? Tego nie można cofnąć.', {type:\'danger\'}); return false;">
-                Wyczyść wszystkie
+                    onclick="confirmSubmit(this, <?= htmlspecialchars(json_encode(t('admin.transport.confirm_clear_road_all')), ENT_QUOTES) ?>, {type:'danger'}); return false;">
+                <?= t('admin.transport.btn_clear_all') ?>
             </button>
         </form>
     </div>

@@ -220,7 +220,7 @@ async function startHeadhunter() {
         return;
     }
 
-    const button = document.querySelector('#tab-headhunter .btn-hr-primary');
+    const button = document.querySelector('#tab-headhunter .btn-hr-primary, #tab-headhunter .btn-primary');
     const originalText = button?.textContent || '';
     if (button) {
         button.disabled = true;

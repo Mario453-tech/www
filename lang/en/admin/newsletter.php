@@ -50,4 +50,8 @@ return [
     'admin.newsletter.stats_unsubscribed' => 'Unsubscribed: :n',
     'admin.newsletter.target_all' => 'All subscribers (:n)',
     'admin.newsletter.target_single' => 'Selected player (by email address)',
+    'admin.newsletter.status_failed' => 'FAILED',
+    'admin.newsletter.status_partial' => 'PARTIAL',
+    'admin.newsletter.status_sent' => 'SENT',
+    'admin.newsletter.title_delete_log' => 'Delete entry',
 ];
