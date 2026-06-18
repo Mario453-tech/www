@@ -191,9 +191,9 @@
                 <div class="spec-field">
                     <label for="new_spec_rarity"><?= t('admin.hr.col_rarity') ?></label>
                     <select id="new_spec_rarity" name="new_spec_rarity" class="input-sm">
-                        <option value="common"><?= t('hr.rarity.common') ?></option>
-                        <option value="uncommon"><?= t('hr.rarity.uncommon') ?></option>
-                        <option value="rare"><?= t('hr.rarity.rare') ?></option>
+                        <?php foreach (($validRarities ?? ['common','uncommon','rare','very_rare']) as $r): ?>
+                        <option value="<?= htmlspecialchars($r) ?>"><?= htmlspecialchars($r) ?></option>
+                        <?php endforeach ?>
                     </select>
                 </div>
                 <div class="spec-field spec-field--action">

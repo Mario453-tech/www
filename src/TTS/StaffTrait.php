@@ -150,7 +150,12 @@ trait TTSStaffTrait
         // Transaction prevents race condition: busy-check and firing are atomic.
         $this->db->beginTransaction();
         try {
-            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1 FOR UPDATE");
+            // Blokuj rekord pracownika, by wykluczyc wspolbiezne operacje na tym samym staffId.
+            // Lock the staff row to exclude concurrent operations on the same staffId.
+            $this->db->prepare("SELECT id FROM technical_staff WHERE id = ? AND player_id = ? LIMIT 1 FOR UPDATE")
+                ->execute([$staffId, $this->playerId]);
+
+            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
             $taskStmt->execute([$staffId]);
             if ($taskStmt->fetch()) {
                 $this->db->rollBack();
