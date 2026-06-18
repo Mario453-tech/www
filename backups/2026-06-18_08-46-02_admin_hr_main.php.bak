@@ -24,7 +24,7 @@
     <section class="hr-section">
         <div class="section-toolbar">
             <h2><?= t('admin.hr.section_candidates') ?> <span class="badge badge-inactive"><?= count($candidates) ?></span></h2>
-            <form method="post" onsubmit="return confirmSubmit(this,'<?= htmlspecialchars(tPlain('admin.hr.confirm_cleanup'), ENT_QUOTES) ?>')">
+            <form method="post" onsubmit="return confirm('<?= t('admin.hr.confirm_cleanup') ?>')">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
                 <input type="hidden" name="cleanup_candidates" value="1">
                 <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.hr.btn_cleanup_candidates') ?></button>

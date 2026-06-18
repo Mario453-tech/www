@@ -78,22 +78,19 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.unknown_spec')];
         }
 
+        $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
+        $cashStmt->execute([$this->playerId]);
+        if ($cashStmt->fetchColumn() < $salary) {
+            return ['success' => false, 'message' => t('technical.staff_msg.no_funds', [
+                'salary' => number_format($salary, 0, '.', ' '),
+            ])];
+        }
+
         // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
         // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
         $fts = new FinancialTransactionService($this->db);
         $this->db->beginTransaction();
         try {
-            // Sprawdz gotowke wewnatrz transakcji, by uniknac race condition.
-            // Check cash inside the transaction to avoid race condition.
-            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? FOR UPDATE");
-            $cashStmt->execute([$this->playerId]);
-            if ((float)$cashStmt->fetchColumn() < $salary) {
-                $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.staff_msg.no_funds', [
-                    'salary' => number_format($salary, 0, '.', ' '),
-                ])];
-            }
-
             // Pierwsza pensja przez FTS: gotowka schodzi (hr_fee -> cash) i powstaje wpis w historii.
             // First salary via FTS: cash is deducted (hr_fee -> cash) and a history entry is created.
             $charge = $fts->debit(
@@ -122,7 +119,7 @@ trait TTSStaffTrait
                 $salary,
             ]);
             $this->db->commit();
-        } catch (Throwable $e) {
+        } catch (Exception $e) {
             $this->db->rollBack();
             GameLog::error('TTS', 'hireEngineer FAILED', $e);
             return ['success' => false, 'message' => t('technical.staff_msg.hire_failed', [
@@ -152,7 +149,7 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];
         }
 
-        $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
+        $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ?")->execute([$staffId]);
 
         return ['success' => true, 'message' => t('technical.staff_msg.fired', [
             'first' => $staff['first_name'],

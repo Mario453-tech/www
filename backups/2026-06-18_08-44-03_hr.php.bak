@@ -89,7 +89,7 @@ try {
 
 try {
     GameLog::step('hr.php', 'data', 6, 'getHistory');
-    $history = $hr->getHistory($playerId, 100);
+    $history = $hr->getHistory(100);
     GameLog::dbResult('hr.php', 'getHistory', count($history));
 } catch (Throwable $e) {
     GameLog::error('hr.php', 'getHistory failed', $e);

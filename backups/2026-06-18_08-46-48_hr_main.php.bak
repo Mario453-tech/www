@@ -33,7 +33,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $warn = isset($emp['contract_days_left']) && $emp['contract_days_left'] <= 14 && $emp['contract_days_left'] >= 0;
             $age = !empty($emp['birth_date']) ? date_diff(date_create($emp['birth_date']), date_create('today'))->y : null;
-            $safeNameJs = htmlspecialchars(json_encode($emp['first_name'] . ' ' . $emp['last_name']), ENT_QUOTES);
+            $safeName = htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name'], ENT_QUOTES);
             $empDomId = ($emp['source'] ?? 'board_member') . '-' . (int)$emp['id'];
         ?>
         <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails('<?= $empDomId ?>')">
@@ -89,12 +89,12 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                         <option value="6m"><?= t('hr.renew_6m') ?></option>
                         <option value="2y"><?= t('hr.renew_2y') ?></option>
                     </select>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,<?= $safeNameJs ?>)"><?= t('hr.btn_renew') ?></button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_renew') ?></button>
                     <?php endif ?>
                     <?php if (($emp['source'] ?? 'board_member') === 'technical_staff'): ?>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,<?= $safeNameJs ?>)"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_fire') ?></button>
                     <?php else: ?>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,<?= $safeNameJs ?>)"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,'<?= $safeName ?>')"><?= t('hr.btn_fire') ?></button>
                     <?php endif ?>
                 </div>
             </div>

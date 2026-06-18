@@ -85,12 +85,11 @@ class RecruitmentAPI {
                 'wait_minutes' => $waitMinutes
             ];
             
-        } catch (Throwable $e) {
-            GameLog::error('RecruitmentAPI', 'startRecruitment failed', $e, ['role_id' => $roleId]);
-            return ['success' => false, 'error' => t('recruitment.err_internal')];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
-
+    
  /**
  * Checks recruitment status and generates candidates if the wait has elapsed.
  *
@@ -112,20 +111,18 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_request_not_found')];
             }
             
- // Atomically claim the pending request to avoid double-processing under concurrent calls.
- // Atomowo przejm rekord, by uniknac podwojnego przetwarzania przy rownoczesnych zapytaniach.
+ // If status is 'pending' and wait has elapsed - generate candidates
             if ($request['status'] === 'pending' && strtotime($request['ready_at']) <= time()) {
-                $claimStmt = $this->db->prepare("
-                    UPDATE recruitment_requests
-                    SET status = 'processing'
-                    WHERE id = ? AND status = 'pending'
+                $this->generator->generateCandidates($request['role_id']);
+                
+ // Update status to 'ready'
+                $stmt = $this->db->prepare("
+                    UPDATE recruitment_requests 
+                    SET status = 'ready' 
+                    WHERE id = ?
                 ");
-                $claimStmt->execute([$requestId]);
-                if ($claimStmt->rowCount() > 0) {
-                    $this->generator->generateCandidates($request['role_id']);
-                    $this->db->prepare("UPDATE recruitment_requests SET status = 'ready' WHERE id = ?")
-                             ->execute([$requestId]);
-                }
+                $stmt->execute([$requestId]);
+                
                 $request['status'] = 'ready';
             }
             
@@ -136,12 +133,11 @@ class RecruitmentAPI {
                 'time_remaining' => max(0, strtotime($request['ready_at']) - time())
             ];
             
-        } catch (Throwable $e) {
-            GameLog::error('RecruitmentAPI', 'checkRecruitmentStatus failed', $e, ['request_id' => $requestId]);
-            return ['success' => false, 'error' => t('recruitment.err_internal')];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
-
+    
  /**
  * Returns the list of candidates for a given role.
  *
@@ -170,12 +166,11 @@ class RecruitmentAPI {
                 'count' => count($candidates)
             ];
             
-        } catch (Throwable $e) {
-            GameLog::error('RecruitmentAPI', 'getCandidates failed', $e, ['role_id' => $roleId]);
-            return ['success' => false, 'error' => t('recruitment.err_internal')];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
-
+    
  /**
  * Hires the selected candidate.
  *
@@ -260,12 +255,9 @@ class RecruitmentAPI {
                 'message' => t('recruitment.msg_fired'),
             ];
             
-        } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            GameLog::error('RecruitmentAPI', 'fireEmployee failed', $e, ['member_id' => $memberId]);
-            return ['success' => false, 'error' => t('recruitment.err_internal')];
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
@@ -291,9 +283,8 @@ class RecruitmentAPI {
                 'count' => count($members),
             ];
             
-        } catch (Throwable $e) {
-            GameLog::error('RecruitmentAPI', 'getBoardMembers failed', $e);
-            return ['success' => false, 'error' => t('recruitment.err_internal')];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 }
@@ -341,7 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'start_recruitment':
                 $roleId = (int)($_POST['role_id'] ?? 0);
                 if ($roleId <= 0) { throw new InvalidArgumentException(t('recruitment.err_missing_role_id')); }
-                $waitMinutes = max(1, (int)($_POST['wait_minutes'] ?? 60));
+                $waitMinutes = (int)($_POST['wait_minutes'] ?? 60);
                 $response = $api->startRecruitment($roleId, $waitMinutes);
                 break;
 
