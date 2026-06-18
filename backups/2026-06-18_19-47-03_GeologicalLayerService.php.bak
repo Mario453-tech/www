@@ -269,22 +269,13 @@ class GeologicalLayerService
                 ? date('Y-m-d H:i:s', time() + $hours * 3600)
                 : null;
 
-            // Sprawdz bankructwo przed transakcja — updateCash nie sprawdza isBankrupt (Rule 10).
-            // Check bankruptcy before transaction — updateCash does not check isBankrupt (Rule 10).
-            $player = null;
-            if ($cost > 0) {
-                $player = new Player($playerId);
-                if ($player->isBankrupt()) {
-                    return ['success' => false, 'message' => $player->getBankruptcyBlockMessage()];
-                }
-            }
-
             // Wzorzec $ownTx — metoda moze byc wywolana samodzielnie lub wewnatrz transakcji wywolujacego (Rule 3/5).
             // $ownTx pattern — method may be called standalone or inside a caller's transaction (Rule 3/5).
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) $this->db->beginTransaction();
             try {
-                if ($cost > 0 && $player !== null) {
+                if ($cost > 0) {
+                    $player = new Player($playerId);
                     if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_GEOLOGICAL_FEE, 'Oplata za zmiane warstwy geologicznej')) {
                         if ($ownTx) $this->db->rollBack();
                         return [
@@ -294,8 +285,6 @@ class GeologicalLayerService
                     }
                 }
 
-                // Filtruj po player_id — blokuje race condition przejecia odwiertu miedzy SELECT a UPDATE (Rule 1).
-                // Filter by player_id — blocks well-seizure race between SELECT and UPDATE (Rule 1).
                 $this->db->prepare("
                     UPDATE wells
                     SET active_layer_id      = ?,
@@ -305,8 +294,8 @@ class GeologicalLayerService
                             WHEN ? > 0 AND status NOT IN ('seized','blowout') THEN 'paused_cash'
                             ELSE status
                         END
-                    WHERE id = ? AND player_id = ?
-                ")->execute([$targetLayerId, $switchUntil, $hours, $wellId, $playerId]);
+                    WHERE id = ?
+                ")->execute([$targetLayerId, $switchUntil, $hours, $wellId]);
 
                 if ($ownTx) $this->db->commit();
             } catch (\Throwable $e) {
