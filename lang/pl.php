@@ -25,6 +25,7 @@ declare(strict_types=1);
 //   lang/pl/market.php
 //   lang/pl/notifications.php
 //   lang/pl/profile.php
+//   lang/pl/recovery.php
 //   lang/pl/technical.php
 // =============================================================================
 
@@ -50,6 +51,7 @@ $lang += require __DIR__ . '/pl/nav.php';
 $lang += require __DIR__ . '/pl/notifications.php';
 $lang += require __DIR__ . '/pl/profile.php';
 $lang += require __DIR__ . '/pl/protection.php';
+$lang += require __DIR__ . '/pl/recovery.php';
 $lang += require __DIR__ . '/pl/sabotage.php';
 $lang += require __DIR__ . '/pl/technical.php';
 

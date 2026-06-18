@@ -20,7 +20,7 @@ try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-                $error = t('common.error_csrf');
+                $error = t('common.csrf_error');
             } else {
                 $action  = (string)($_POST['action'] ?? '');
                 $payload = [
@@ -29,13 +29,13 @@ try {
                 ];
                 $result  = $service->applyOption($action, $payload);
                 if (!empty($result['success'])) {
-                    $message = (string)($result['message'] ?? t('common.success'));
+                    $message = (string)($result['message'] ?? t('recovery.success_default'));
                 } else {
-                    $error = (string)($result['message'] ?? t('common.error_generic'));
+                    $error = (string)($result['message'] ?? t('common.app_error'));
                 }
             }
         } catch (Throwable $e) {
-            $error = t('common.error_generic');
+            $error = t('common.app_error');
             GameLog::error('public/recovery.php', 'POST handling failed', $e, ['player_id' => $playerId]);
         }
         $state = $service->getState();
@@ -75,7 +75,7 @@ try {
         GameLog::error('public/recovery.php', 'Unhandled exception', $e);
     }
     if (!headers_sent()) http_response_code(500);
-    echo t('common.error_generic');
+    echo t('common.app_error');
 } finally {
     if (class_exists('GameLog', false)) {
         GameLog::pageEnd('public/recovery.php', $_codexGuardStart);
