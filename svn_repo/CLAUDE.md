@@ -131,8 +131,8 @@ obowiązuje poniższy standard. Always check this on every file change/creation.
 
 1. **UTF-8 bez BOM** — zawsze. Nigdy nie zapisuj znacznika BOM (`EF BB BF`) na
    początku pliku. / Always UTF-8, never write a BOM.
-2. **Bez krzaków (mojibake)** — żadnych uszkodzonych znaków: znak `�` (U+FFFD)
-   ani podmienionych polskich liter (np. `Zarz�du`, `pracownik�w`, `Dzia prawny`
+2. **Bez krzaków (mojibake)** — żadnych uszkodzonych znaków: znak zastępczy
+   `U+FFFD` ani podmienionych polskich liter (np. `Zarz[?]du`, `pracownik[?]w`, `Dzia prawny`
    zamiast `Dział prawny`). Jeśli natrafisz na krzaki w pliku, który ruszasz —
    napraw je na poprawne UTF-8. / No mojibake; fix any you touch.
 3. **Komentarze dwujęzyczne, BEZ polskich znaków diakrytycznych** — komentarze
