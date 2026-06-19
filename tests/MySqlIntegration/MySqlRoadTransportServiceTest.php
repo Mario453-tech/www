@@ -332,8 +332,8 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, delivered_bbl, truck_type, trips_count, trip_hours,
-                 cost, incident_risk_mult, political_risk_level, status, eta_at)
-             VALUES (?, ?, 50.0, 40.0, 'standard', 2, 2, 1000.00, 0.0, 1, 'crediting', NOW() - INTERVAL 1 MINUTE)"
+                 cost, incident_risk_mult, political_risk_level, status, departure_at, eta_at)
+             VALUES (?, ?, 50.0, 40.0, 'standard', 2, 2, 1000.00, 0.0, 1, 'crediting', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 1 MINUTE)"
         )->execute([$playerId, $ids['wellId']]);
 
         $result = $svc->processCompletedTrips($playerId, []);

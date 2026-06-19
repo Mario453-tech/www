@@ -220,7 +220,23 @@ class WellPipelineService
              FROM DUAL
              WHERE NOT EXISTS (
                  SELECT 1 FROM well_pipelines WHERE well_id = ? AND player_id = ?
-             )"
+             )
+             ON DUPLICATE KEY UPDATE
+                 player_id = VALUES(player_id),
+                 name = VALUES(name),
+                 pipeline_type = VALUES(pipeline_type),
+                 status = VALUES(status),
+                 condition_pct = VALUES(condition_pct),
+                 transport_loss = VALUES(transport_loss),
+                 nominal_capacity_bph = VALUES(nominal_capacity_bph),
+                 real_capacity_bph = VALUES(real_capacity_bph),
+                 degradation_rate_per_hour = VALUES(degradation_rate_per_hour),
+                 incident_risk_mult = VALUES(incident_risk_mult),
+                 opex_per_tick = VALUES(opex_per_tick),
+                 opex_per_bbl = VALUES(opex_per_bbl),
+                 build_cost = VALUES(build_cost),
+                 last_inspected_at = VALUES(last_inspected_at),
+                 updated_at = NOW()"
         );
 
         $stmt->execute([

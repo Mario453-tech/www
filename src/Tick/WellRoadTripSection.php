@@ -55,6 +55,7 @@ class WellRoadTripSection
         }
 
         try {
+            $batchStart = (new DateTime())->format('Y-m-d H:i:s');
             $result    = $roadTransportSvc->processCompletedTrips($playerId, $hseBonus, $protectionSvc, $sabotageSvc);
             $delivered = (float)$result['delivered_bbl'];
             $lost      = (float)$result['lost_bbl'];
@@ -91,10 +92,10 @@ class WellRoadTripSection
                         $actual = $credited;
                         if ($actual < $delivered) {
                             $updateDelivered = $this->db->prepare(
-                                "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting'"
+                                "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting' AND updated_at >= ?"
                             );
                             $scaleFactor = $delivered > 0.0 ? ($actual / $delivered) : 0.0;
-                            $updateDelivered->execute([round($scaleFactor, 8), $playerId]);
+                            $updateDelivered->execute([round($scaleFactor, 8), $playerId, $batchStart]);
                         }
                     } catch (Throwable $e) {
                         GameLog::error('tick', 'road_trip_overflow_delivered_update FAILED', $e, ['player_id' => $playerId]);

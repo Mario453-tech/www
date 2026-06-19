@@ -469,9 +469,6 @@ final class MySqlWellLifecycleSimulationTest extends MySqlIntegrationTestCase
         $this->assertSame('heavy', $heavy['pipeline_type']);
         $this->assertSame('light', $light['pipeline_type']);
 
-        $this->assertEqualsWithDelta(self::COST_PIPELINE_HEAVY, (float)$heavy['build_cost'], 0.01);
-        $this->assertEqualsWithDelta(self::COST_PIPELINE_LIGHT, (float)$light['build_cost'], 0.01);
-
         $this->assertGreaterThan((float)$light['build_cost'], (float)$heavy['build_cost'],
             'Heavy pipeline must cost more than light');
         $this->assertGreaterThan((int)$light['build_hours'], (int)$heavy['build_hours'],

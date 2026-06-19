@@ -431,21 +431,17 @@ trait WellDisastersTrait
  */
     private function applyDisasterRiskBoost(int $wellId): void
     {
-        try {
  // Atomowa aktualizacja — brak race condition przy rownolegych tickach.
  // Atomic UPDATE — no race condition with concurrent ticks.
-            $this->db->prepare("
-                UPDATE wells
-                SET post_disaster_risk_boost = LEAST(0.45, COALESCE(post_disaster_risk_boost, 0) + 0.15),
-                    post_disaster_expires_at  = DATE_ADD(NOW(), INTERVAL 48 HOUR)
-                WHERE id = ?
-            ")->execute([$wellId]);
-            GameLog::info('WellService', 'post_disaster_boost', [
-                'well_id' => $wellId, 'boost_added' => 0.15,
-            ]);
-        } catch (Throwable $e) {
-            GameLog::warn('WellService', 'post_disaster_boost FAILED', ['well_id' => $wellId]);
-        }
+        $this->db->prepare("
+            UPDATE wells
+            SET post_disaster_risk_boost = LEAST(0.45, COALESCE(post_disaster_risk_boost, 0) + 0.15),
+                post_disaster_expires_at  = DATE_ADD(NOW(), INTERVAL 48 HOUR)
+            WHERE id = ?
+        ")->execute([$wellId]);
+        GameLog::info('WellService', 'post_disaster_boost', [
+            'well_id' => $wellId, 'boost_added' => 0.15,
+        ]);
     }
 
  /**

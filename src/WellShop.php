@@ -154,7 +154,7 @@ class WellShop
     public function getPlayerWellCount(int $playerId): int
     {
         try {
-            $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM wells WHERE player_id = :player_id");
+            $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM wells WHERE player_id = :player_id AND status != 'sold'");
             $stmt->execute([':player_id' => $playerId]);
             return (int)($stmt->fetch()['count'] ?? 0);
         } catch (Throwable $e) {

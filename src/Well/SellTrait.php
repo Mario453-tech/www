@@ -146,7 +146,7 @@ trait WellSellTrait
 
  // 0. SELECT FOR UPDATE — blokada wiersza, zapobiega podwójnej sprzedaży przy równoległych żądaniach.
  //    SELECT FOR UPDATE — row lock, prevents double-sell under concurrent requests.
-            $lockStmt = $this->db->prepare("SELECT id FROM wells WHERE id = ? AND player_id = ? AND status = 'active' FOR UPDATE LIMIT 1");
+            $lockStmt = $this->db->prepare("SELECT id FROM wells WHERE id = ? AND player_id = ? AND status NOT IN ('seized', 'blowout', 'sold') FOR UPDATE LIMIT 1");
             $lockStmt->execute([$wellId, $this->playerId]);
             if (!$lockStmt->fetch()) {
                 $this->db->rollBack();

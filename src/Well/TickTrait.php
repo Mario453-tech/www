@@ -151,7 +151,7 @@ trait WellTickTrait
  // Blowout is catastrophic and nearly destroys the well; requires manual repair.
  // Blowout jest katastrofalny i niemal niszczy odwiert; wymaga recznej naprawy.
                 $condAfter = 1;
-                $this->db->prepare("UPDATE wells SET status = 'blowout', technical_condition = 1 WHERE id = ?")->execute([$wellId]);
+                $this->db->prepare("UPDATE wells SET status = 'blowout', technical_condition = 1 WHERE id = ? AND player_id = ?")->execute([$wellId, (int)$well['player_id']]);
                 $this->logEvent(
                     $wellId,
                     $well['player_id'],

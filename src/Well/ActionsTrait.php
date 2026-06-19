@@ -99,7 +99,7 @@ trait WellActionsTrait
 
                 // Swiezy poziom z zablokowanego wiersza — nie z getWell() sprzed transakcji.
                 // Fresh level from the locked row — not from getWell() called before the transaction.
-                $currentLevel = (int)$freshWell['equipment_upgrade_level'];
+                $currentLevel = max(0, (int)$freshWell['equipment_upgrade_level']);
                 if ($currentLevel >= 3) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_max_upgrade')];
