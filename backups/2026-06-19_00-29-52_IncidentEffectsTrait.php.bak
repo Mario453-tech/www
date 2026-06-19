@@ -122,9 +122,15 @@ trait HubIncidentEffectsTrait
 
     private function notifyPlayer(int $playerId, string $severity, string $message): void
     {
+        $icon = match($severity) {
+            'critical' => '',
+            'high'     => '',
+            'medium'   => '',
+            default    => '',
+        };
         $this->db->prepare(
             "INSERT INTO technical_notifications (player_id, well_id, type, message)
              VALUES (?, NULL, 'hub_incident', ?)"
-        )->execute([$playerId, "[Hub] {$message}"]);
+        )->execute([$playerId, "{$icon} [Hub] {$message}"]);
     }
 }
