@@ -277,9 +277,10 @@ class OffshoreTransportService
             }
 
             $incidents[] = [
-                'type'          => $type,
-                'shipment_idx'  => $i,
-                'lost_bbl'      => $loss,
+                'type'               => $type,
+                'shipment_idx'       => $i,
+                'lost_bbl'           => $loss,
+                'shipment_volume_bbl' => $volPerShipment,
             ];
         }
 
@@ -346,11 +347,11 @@ class OffshoreTransportService
                 if (!isset($byType[$t])) {
                     $byType[$t] = ['shipments_lost' => 0, 'vol_lost_bbl' => 0.0];
                 }
- // Liczymy rejs jako stracony gdy strata >= 99% pojemnoci / count voyage as lost when loss >= 99% capacity
-                if ($inc['lost_bbl'] >= ($inc['lost_bbl'] + 0.001)) {
- // partial count volume only
+ // BUG3 FIX: liczymy rejs jako calkowicie stracony gdy utrata >= 99% ladunku
+ // count voyage as fully lost when loss >= 99% of shipment volume
+                if ($inc['lost_bbl'] >= $inc['shipment_volume_bbl'] - 0.001) {
+                    $byType[$t]['shipments_lost']++;
                 }
-                $byType[$t]['shipments_lost']++;
                 $byType[$t]['vol_lost_bbl'] += $inc['lost_bbl'];
             }
 

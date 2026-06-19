@@ -144,9 +144,24 @@ trait WellSellTrait
 
             $this->db->beginTransaction();
 
+ // 0. SELECT FOR UPDATE — blokada wiersza, zapobiega podwójnej sprzedaży przy równoległych żądaniach.
+ //    SELECT FOR UPDATE — row lock, prevents double-sell under concurrent requests.
+            $lockStmt = $this->db->prepare("SELECT id FROM wells WHERE id = ? AND player_id = ? AND status = 'active' FOR UPDATE LIMIT 1");
+            $lockStmt->execute([$wellId, $this->playerId]);
+            if (!$lockStmt->fetch()) {
+                $this->db->rollBack();
+                return ['success' => false, 'error' => 'well_not_available'];
+            }
+
  // 1. Status sold
-            $this->db->prepare("UPDATE wells SET status='sold', sold_at=NOW(), operator_id=NULL, technician_id=NULL, marine_buffer_bbl=0 WHERE id=? AND player_id=?")
-                     ->execute([$wellId, $playerId]);
+            $updateStmt = $this->db->prepare("UPDATE wells SET status='sold', sold_at=NOW(), operator_id=NULL, technician_id=NULL, marine_buffer_bbl=0 WHERE id=? AND player_id=? AND status='active'");
+            $updateStmt->execute([$wellId, $playerId]);
+
+ // Sprawdź czy UPDATE faktycznie zmodyfikował wiersz / Ensure UPDATE actually modified a row
+            if ($updateStmt->rowCount() === 0) {
+                $this->db->rollBack();
+                return ['success' => false, 'error' => 'well_not_available'];
+            }
 
  // Odpisz przypisanych pracownikw bez tego pozostaj "zajci" i nie mona ich przypisa do nowego odwiertu
  // Unassign assigned workers otherwise they remain "busy" and cannot be assigned to a new well

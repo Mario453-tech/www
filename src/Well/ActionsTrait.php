@@ -73,25 +73,57 @@ trait WellActionsTrait
             ];
 
         } elseif ($action === 'upgrade_level') {
-            if ($currentLevel >= 3) return ['success' => false, 'message' => t('well.err_max_upgrade')];
-
-            $upgradeCosts = [1 => 1_000_000, 2 => 2_500_000, 3 => 5_000_000];
-            $nextLevel    = $currentLevel + 1;
-            $cost         = $upgradeCosts[$nextLevel];
-            $player       = new Player($playerId);
+            $player = new Player($playerId);
 
             // Transakcja obejmuje odjecie cash i UPDATE wells — atomowo lub wcale.
             // Transaction wraps cash deduct and well UPDATE — all-or-nothing.
             $this->db->beginTransaction();
             try {
+                // SELECT z blokada wierszowa — zapobiega race condition przy rownolegych zadaniach.
+                // Row-level lock prevents race condition under concurrent requests.
+                $lockStmt = $this->db->prepare("SELECT id, equipment_upgrade_level, status FROM wells WHERE id = ? AND player_id = ? FOR UPDATE LIMIT 1");
+                $lockStmt->execute([$wellId, $playerId]);
+                $freshWell = $lockStmt->fetch();
+                if (!$freshWell) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('well.err_not_found')];
+                }
+
+                // Odwiert w jednym ze stanow blokujacych upgrade nie moze byc ulepszany.
+                // Well in a blocking status cannot be upgraded.
+                $blockedStatuses = ['equipment_swap', 'seized', 'sold', 'blowout'];
+                if (in_array($freshWell['status'], $blockedStatuses, true)) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('well.err_invalid_status')];
+                }
+
+                // Swiezy poziom z zablokowanego wiersza — nie z getWell() sprzed transakcji.
+                // Fresh level from the locked row — not from getWell() called before the transaction.
+                $currentLevel = (int)$freshWell['equipment_upgrade_level'];
+                if ($currentLevel >= 3) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('well.err_max_upgrade')];
+                }
+
+                $upgradeCosts = [1 => 1_000_000, 2 => 2_500_000, 3 => 5_000_000];
+                $nextLevel    = $currentLevel + 1;
+                $cost         = $upgradeCosts[$nextLevel];
+
                 if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_UPGRADE, 'Ulepszenie poziomu wyposazenia odwiertu')) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
                 }
-                $stmtUpd = $this->db->prepare("UPDATE wells SET equipment_upgrade_level = ? WHERE id = ? AND player_id = ?");
-                $stmtUpd->execute([$nextLevel, $wellId, $playerId]);
-                // Sprawdz czy wiersz zostal zaktualizowany — brak wierszy = odwiert zniknal po getWell().
-                // Check if any row was updated — 0 rows means the well disappeared after getWell().
+
+                // Atomowy INCREMENT z dodatkowym warunkiem na aktualny poziom — gwarancja idempotentnosci.
+                // Atomic INCREMENT with current-level guard — guarantees idempotency.
+                $stmtUpd = $this->db->prepare("
+                    UPDATE wells
+                    SET equipment_upgrade_level = equipment_upgrade_level + 1
+                    WHERE id = ? AND player_id = ? AND equipment_upgrade_level = ?
+                ");
+                $stmtUpd->execute([$wellId, $playerId, $currentLevel]);
+                // Sprawdz czy wiersz zostal zaktualizowany — 0 wierszy = race condition lub odwiert zniknal.
+                // Check if any row was updated — 0 rows means race condition or well disappeared.
                 if ($stmtUpd->rowCount() === 0) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_not_found')];
@@ -120,23 +152,36 @@ trait WellActionsTrait
  */
     public function performMaintenance(int $wellId, int $playerId): array
     {
-        $well = $this->getWell($wellId, $playerId);
-        if (!$well) return ['success' => false, 'message' => t('well.err_not_found')];
-
-        $cost = $this->getMaintenanceCost($well);
-        if ($cost <= 0) return ['success' => false, 'message' => t('well.err_maintenance_not_needed')];
-
-        $player      = new Player($playerId);
-        $condBefore  = (int)$well['technical_condition'];
-        $condAfter   = min(100, $condBefore + 30);
-        $boostBefore = (float)($well['post_disaster_risk_boost'] ?? 0.0);
-        // Obliczamy wartosc po odjecie stacka — bez dodatkowego SELECT po commit.
-        // Compute new value locally — no extra SELECT after commit needed.
-        $boostAfter  = max(0.0, round($boostBefore - 0.10, 10));
+        $player = new Player($playerId);
 
         $fts3 = new FinancialTransactionService();
         $this->db->beginTransaction();
         try {
+            // SELECT z blokada wierszowa — zapobiega race condition przy rownolegych zadaniach.
+            // Row-level lock prevents race condition under concurrent requests.
+            $lockStmt = $this->db->prepare("SELECT * FROM wells WHERE id = ? AND player_id = ? FOR UPDATE LIMIT 1");
+            $lockStmt->execute([$wellId, $playerId]);
+            $freshWell = $lockStmt->fetch();
+            if (!$freshWell) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('well.err_not_found')];
+            }
+
+            // Koszt liczony ze swiezych danych z zablokowanego wiersza — nie sprzed transakcji.
+            // Cost computed from locked row — not from data fetched before the transaction.
+            $cost = $this->getMaintenanceCost($freshWell);
+            if ($cost <= 0) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('well.err_maintenance_not_needed')];
+            }
+
+            $condBefore  = (int)$freshWell['technical_condition'];
+            $condAfter   = min(100, $condBefore + 30);
+            $boostBefore = (float)($freshWell['post_disaster_risk_boost'] ?? 0.0);
+            // Obliczamy wartosc po odjecie stacka — bez dodatkowego SELECT po commit.
+            // Compute new value locally — no extra SELECT after commit needed.
+            $boostAfter  = max(0.0, round($boostBefore - 0.10, 10));
+
             // Sprawdzenie salda atomowo wewnatrz transakcji — return false gdy za malo.
             // Atomic balance check inside transaction — returns false when insufficient.
             if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_MAINTENANCE, 'Konserwacja odwiertu')) {

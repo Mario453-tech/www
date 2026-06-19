@@ -394,10 +394,16 @@ class MarineDeliverySection
                     SET status = 'waiting_for_port', port_id = ?, arrived_at = ?
                   WHERE id = ?"
             )->execute([$portId, $nowStr, $deliveryId]);
+            // BUG4 FIX: ON DUPLICATE KEY UPDATE must not reset status back to 'waiting'
+            // if the port_queue entry is already 'done' (delivery fully processed).
+            // Using IF() guards against reactivating a completed delivery.
             $this->db->prepare(
                 "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
                  VALUES (?, ?, ?, ?, ?, 'waiting')
-                 ON DUPLICATE KEY UPDATE status = 'waiting', queued_at = VALUES(queued_at)"
+                 ON DUPLICATE KEY UPDATE
+                     status     = IF(status = 'done', 'done', 'waiting'),
+                     volume_bbl = IF(status = 'done', volume_bbl, VALUES(volume_bbl)),
+                     queued_at  = IF(status = 'done', queued_at,  VALUES(queued_at))"
             )->execute([$portId, $deliveryId, $playerId, round($volumeBbl, 4), $nowStr]);
             $this->db->commit();
         } catch (Throwable $e) {

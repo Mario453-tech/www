@@ -42,7 +42,10 @@ trait HubIncidentEffectsTrait
         ]);
 
         if ($condDmg > 0) {
-            $this->applyConditionDamage($hubId, $condDmg, $playerId);
+ // Uzyj player_id wlasciciela hubu, nie dzierzawcy — izolacja gracza przy UPDATE logistics_hubs.
+ // Use hub owner's player_id, not the tenant's — correct player isolation on UPDATE logistics_hubs.
+            $hubOwnerId = (int)($hub['player_id'] ?? $playerId);
+            $this->applyConditionDamage($hubId, $condDmg, $hubOwnerId);
         }
 
         // Operacje poboczne — blad nie moze przerywac glownego przepływu (Rule 6).

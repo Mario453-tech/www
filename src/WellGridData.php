@@ -99,9 +99,10 @@ class WellGridData
                            FROM logistics_hub_assignments a
                            JOIN logistics_hubs h ON h.id = a.hub_id
                           WHERE a.status = 'active'
+                            AND a.player_id = ?
                             AND a.well_id IN ({$placeholders})"
                     );
-                    $stmt->execute($wellIds);
+                    $stmt->execute(array_merge([$playerId], $wellIds));
                     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                         $hubAssignmentByWell[(int)($row['well_id'] ?? 0)] = $row;
                     }

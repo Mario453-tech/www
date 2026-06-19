@@ -42,6 +42,8 @@ class PipelineSection
         ?object $tsvc,
         ?ProtectionService $protection = null
     ): void {
+        if ($deltaHours <= 0.0) return;
+        $deltaHours = min($deltaHours, 4.0);
         $this->pipelineProtectionCache = [];
         try {
  // Complete pipeline builds that have finished / Finalizuj rurociagi ktore skonczyly budowe
@@ -80,6 +82,7 @@ class PipelineSection
                     AND a.hub_id = wp.hub_id
                     AND h.status NOT IN ('disabled', 'building')
                     AND w.transport_type = 'rurociag'
+                    AND w.status NOT IN ('seized', 'sold', 'disabled')
                     AND wp.status IN ('active', 'degraded', 'critical', 'leak')
                   ORDER BY wp.condition_pct ASC"
             );
