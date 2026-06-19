@@ -116,11 +116,14 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                     </select>
                 </div>
                 <?php endif ?>
-                <?php $opt1Enabled = empty($options['sell_asset']['enabled']); ?>
-                <button type="button" class="btn <?= $opt1Enabled ? 'btn-secondary' : 'btn-warning' ?> btn-full"
-                    <?= $opt1Enabled ? 'disabled' : 'onclick="confirmAction(' . json_encode(t('recovery.confirm_sell_asset')) . ',function(){document.getElementById(\'form-sell-asset\').submit();},{confirmLabel:' . json_encode(t('recovery.opt1_btn')) . '})"' ?>>
+                <?php if (empty($options['sell_asset']['enabled'])): ?>
+                <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt1_btn') ?></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-warning btn-full"
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_sell_asset")) ?>,function(){document.getElementById("form-sell-asset").submit();},{confirmLabel:<?= json_encode(t("recovery.opt1_btn")) ?>})'>
                     <?= t('recovery.opt1_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 
@@ -131,11 +134,14 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <form method="post" id="form-bank-takeover" class="recovery-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="bank_takeover">
-                <?php $opt2Enabled = empty($options['bank_takeover']['enabled']); ?>
-                <button type="button" class="btn <?= $opt2Enabled ? 'btn-secondary' : 'btn-danger' ?> btn-full"
-                    <?= $opt2Enabled ? 'disabled' : 'onclick="confirmAction(' . json_encode(t('recovery.confirm_bank_takeover')) . ',function(){document.getElementById(\'form-bank-takeover\').submit();},{type:\'danger\',confirmLabel:' . json_encode(t('recovery.opt2_btn')) . '})"' ?>>
+                <?php if (empty($options['bank_takeover']['enabled'])): ?>
+                <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt2_btn') ?></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-danger btn-full"
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_bank_takeover")) ?>,function(){document.getElementById("form-bank-takeover").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt2_btn")) ?>})'>
                     <?= t('recovery.opt2_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 
@@ -165,11 +171,14 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <form method="post" id="form-cost-cuts" class="recovery-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="cost_cuts">
-                <?php $opt4Enabled = empty($options['cost_cuts']['enabled']); ?>
-                <button type="button" class="btn <?= $opt4Enabled ? 'btn-secondary' : 'btn-warning' ?> btn-full"
-                    <?= $opt4Enabled ? 'disabled' : 'onclick="confirmAction(' . json_encode(t('recovery.confirm_cost_cuts')) . ',function(){document.getElementById(\'form-cost-cuts\').submit();},{confirmLabel:' . json_encode(t('recovery.opt4_btn')) . '})"' ?>>
+                <?php if (empty($options['cost_cuts']['enabled'])): ?>
+                <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt4_btn') ?></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-warning btn-full"
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_cost_cuts")) ?>,function(){document.getElementById("form-cost-cuts").submit();},{confirmLabel:<?= json_encode(t("recovery.opt4_btn")) ?>})'>
                     <?= t('recovery.opt4_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 
@@ -196,11 +205,14 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 <form method="post" id="form-rescue-investor" class="recovery-form">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action" value="rescue_investor">
-                    <?php $opt5Enabled = empty($options['rescue_investor']['enabled']); ?>
-                    <button type="button" class="btn <?= $opt5Enabled ? 'btn-secondary' : 'btn-success' ?> btn-full"
-                        <?= $opt5Enabled ? 'disabled' : 'onclick="confirmAction(' . json_encode(t('recovery.confirm_rescue_investor')) . ',function(){document.getElementById(\'form-rescue-investor\').submit();},{type:\'danger\',confirmLabel:' . json_encode(t('recovery.opt5_btn')) . '})"' ?>>
+                    <?php if (empty($options['rescue_investor']['enabled'])): ?>
+                    <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt5_btn') ?></button>
+                    <?php else: ?>
+                    <button type="button" class="btn btn-success btn-full"
+                        onclick='confirmAction(<?= json_encode(t("recovery.confirm_rescue_investor")) ?>,function(){document.getElementById("form-rescue-investor").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt5_btn")) ?>})'>
                         <?= t('recovery.opt5_btn') ?>
                     </button>
+                    <?php endif ?>
                 </form>
             <?php endif ?>
         </section>
@@ -215,11 +227,14 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <form method="post" id="form-new-start" class="recovery-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="new_start">
-                <?php $opt6Enabled = empty($options['new_start']['enabled']); ?>
+                <?php if (empty($options['new_start']['enabled'])): ?>
+                <button type="button" class="btn btn-danger btn-full" disabled><?= t('recovery.opt6_btn') ?></button>
+                <?php else: ?>
                 <button type="button" class="btn btn-danger btn-full"
-                    <?= $opt6Enabled ? 'disabled' : 'onclick="confirmAction(' . json_encode(t('recovery.confirm_new_start')) . ',function(){document.getElementById(\'form-new-start\').submit();},{type:\'danger\',confirmLabel:' . json_encode(t('recovery.opt6_btn')) . '})"' ?>>
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_new_start")) ?>,function(){document.getElementById("form-new-start").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt6_btn")) ?>})'>
                     <?= t('recovery.opt6_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 
