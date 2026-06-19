@@ -50,6 +50,8 @@ $lang += require __DIR__ . '/pl/nav.php';
 $lang += require __DIR__ . '/pl/notifications.php';
 $lang += require __DIR__ . '/pl/profile.php';
 $lang += require __DIR__ . '/pl/protection.php';
+$lang += require __DIR__ . '/pl/recovery.php';
+$lang += require __DIR__ . '/pl/bankruptcy.php';
 $lang += require __DIR__ . '/pl/sabotage.php';
 $lang += require __DIR__ . '/pl/technical.php';
 
