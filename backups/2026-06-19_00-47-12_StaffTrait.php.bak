@@ -158,10 +158,8 @@ trait TTSStaffTrait
 
             // Guard by player_id to prevent cross-player firing + busy-check before firing.
             // Sprawdzenie player_id (ochrona przed zwolnieniem pracownika innego gracza) + blokada przy zadaniu w toku.
-            // Filtruj po player_id — zapobiega blokowaniu przez zadanie innego gracza (Rule 1).
-            // Filter by player_id — prevents blocking by another player's task (Rule 1).
-            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status = 'in_progress' LIMIT 1");
-            $taskStmt->execute([$staffId, $this->playerId]);
+            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
+            $taskStmt->execute([$staffId]);
             if ($taskStmt->fetch()) {
                 $this->db->rollBack();
                 return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];

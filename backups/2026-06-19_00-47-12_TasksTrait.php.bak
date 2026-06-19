@@ -218,19 +218,15 @@ trait TTSTasksTrait
 
         $wellName = '';
         if ($wellId) {
-            // Filtruj po player_id — zapobiega wyciekiem nazwy odwiertu innego gracza (Rule 1).
-            // Filter by player_id — prevents leaking another player's well name (Rule 1).
-            $wStmt = $this->db->prepare("SELECT location_name FROM wells WHERE id = ? AND player_id = ?");
-            $wStmt->execute([$wellId, $this->playerId]);
+            $wStmt = $this->db->prepare("SELECT location_name FROM wells WHERE id = ?");
+            $wStmt->execute([$wellId]);
             $w = $wStmt->fetch();
             $wellName = $w ? ' - ' . $w['location_name'] : ' - odwiert #' . $wellId;
         }
         $hubName = '';
         if ($hubId) {
-            // Filtruj po player_id — zapobiega wyciekiem nazwy huba innego gracza (Rule 1).
-            // Filter by player_id — prevents leaking another player's hub name (Rule 1).
-            $hStmt = $this->db->prepare("SELECT name FROM logistics_hubs WHERE id = ? AND player_id = ? LIMIT 1");
-            $hStmt->execute([$hubId, $this->playerId]);
+            $hStmt = $this->db->prepare("SELECT name FROM logistics_hubs WHERE id = ? LIMIT 1");
+            $hStmt->execute([$hubId]);
             $h = $hStmt->fetch();
             $hubName = $h ? ' - ' . $h['name'] : ' - hub #' . $hubId;
         }
@@ -488,10 +484,8 @@ trait TTSTasksTrait
                             ")->execute([$wellId, $pId]);
                             $result = ['pressure_boost' => 0.05];
                         }
-                        // Filtruj po player_id — zapobiega wyciekom danych o zlozu innego gracza (Rule 1).
-                        // Filter by player_id — prevents leaking another player's reservoir data (Rule 1).
-                        $wStmt = $this->db->prepare("SELECT reservoir_remaining, reservoir_max, pressure FROM wells WHERE id = ? AND player_id = ?");
-                        $wStmt->execute([$wellId, $pId]);
+                        $wStmt = $this->db->prepare("SELECT reservoir_remaining, reservoir_max, pressure FROM wells WHERE id = ?");
+                        $wStmt->execute([$wellId]);
                         $w      = $wStmt->fetch();
                         $resPct = $w ? round(($w['reservoir_remaining'] / max(1, $w['reservoir_max'])) * 100, 1) : 0;
                         $msg = t('technical.task_msg.reservoir_analysis_done', [
@@ -527,14 +521,12 @@ trait TTSTasksTrait
                         if (!$checkStmt->fetch()) {
                             $this->db->prepare("INSERT INTO well_upgrades (well_id, upgrade_type, cost_paid) VALUES (?,?,?)")
                                      ->execute([$wellId, $mod, $task['cost']]);
-                            // Filtruj po player_id — izolacja gracza przy UPDATE wells (Rule 1).
-                            // Filter by player_id — player isolation on UPDATE wells (Rule 1).
                             if ($mod === 'pump_electric') {
-                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.20 WHERE id = ? AND player_id = ?")->execute([$wellId, $pId]);
+                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.20 WHERE id = ?")->execute([$wellId]);
                             } elseif ($mod === 'water_injection') {
-                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.10 WHERE id = ? AND player_id = ?")->execute([$wellId, $pId]);
+                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.10 WHERE id = ?")->execute([$wellId]);
                             } elseif ($mod === 'pressure_booster') {
-                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.15, pressure = LEAST(1.5, pressure + 0.1) WHERE id = ? AND player_id = ?")->execute([$wellId, $pId]);
+                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.15, pressure = LEAST(1.5, pressure + 0.1) WHERE id = ?")->execute([$wellId]);
                             }
                             $result = ['module' => $mod];
                         }
@@ -763,10 +755,7 @@ trait TTSTasksTrait
                 return ['success' => false, 'message' => t('technical.task_msg.active_task_not_found')];
             }
 
-            // $ownTx — zabezpieczenie przed zagniezdzona transakcja (Rule 5).
-            // $ownTx — guard against nested transaction (Rule 5).
-            $ownTx = !$this->db->inTransaction();
-            if ($ownTx) $this->db->beginTransaction();
+            $this->db->beginTransaction();
             $this->db->prepare("
                 UPDATE technical_tasks SET status = 'cancelled', end_time = NOW()
                 WHERE id = ? AND player_id = ?
@@ -826,7 +815,7 @@ trait TTSTasksTrait
                 $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$nextTask['id']]);
             }
 
-            if ($ownTx) $this->db->commit();
+            $this->db->commit();
             GameLog::info('TTS', 'cancelTask OK', ['task_id' => $taskId, 'player_id' => $this->playerId]);
 
             // startTask() wywolujemy po commit() — PDO/MySQL nie obsluguje zagniezdzonnych transakcji.

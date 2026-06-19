@@ -139,19 +139,6 @@ trait TTSProceduresTrait
             }
             $this->db->commit();
 
-            // Log finansowy poza transakcja — blad logu nie moze cofnac juz zatwierdzonej platnosci (Rule 6).
-            // Financial log outside transaction — log failure must not roll back an already-committed payment (Rule 6).
-            try {
-                (new \FinancialTransactionService($this->db))->logTransaction(
-                    $this->playerId,
-                    \FinancialTransactionService::TYPE_TTS_FEE,
-                    -$cost,
-                    "HSE procedure upgrade to level {$nextLevel}"
-                );
-            } catch (\Throwable $logErr) {
-                GameLog::error('TTS', 'upgradeProcedures logTransaction FAILED', $logErr, ['player_id' => $this->playerId]);
-            }
-
             GameLog::info('TTS', 'upgradeProcedures OK', [
                 'player_id' => $this->playerId,
                 'level_from' => $currentLevel,
@@ -252,19 +239,6 @@ trait TTSProceduresTrait
                 WHERE id = ?
             ")->execute([$newIntegrity, $this->playerId]);
             $this->db->commit();
-
-            // Log finansowy poza transakcja — blad logu nie moze cofnac juz zatwierdzonej platnosci (Rule 6).
-            // Financial log outside transaction — log failure must not roll back an already-committed payment (Rule 6).
-            try {
-                (new \FinancialTransactionService($this->db))->logTransaction(
-                    $this->playerId,
-                    \FinancialTransactionService::TYPE_TTS_FEE,
-                    -$cost,
-                    "HSE procedure integrity review (level {$proc['level']})"
-                );
-            } catch (\Throwable $logErr) {
-                GameLog::error('TTS', 'repairProcedureIntegrity logTransaction FAILED', $logErr, ['player_id' => $this->playerId]);
-            }
 
             GameLog::info('TTS', 'repairProcedureIntegrity OK', [
                 'player_id' => $this->playerId,
