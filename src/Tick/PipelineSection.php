@@ -43,7 +43,7 @@ class PipelineSection
         ?ProtectionService $protection = null
     ): void {
         if ($deltaHours <= 0.0) return;
-        $deltaHours = min($deltaHours, 4.0);
+        $deltaHours = min($deltaHours, 48.0);
         $this->pipelineProtectionCache = [];
         try {
  // Complete pipeline builds that have finished / Finalizuj rurociagi ktore skonczyly budowe
