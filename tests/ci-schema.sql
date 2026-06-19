@@ -207,6 +207,28 @@ CREATE TABLE `bankruptcy_events` (
 -- --------------------------------------------------------
 
 --
+-- Struktura tabeli dla tabeli `bank_transactions`
+--
+
+CREATE TABLE `bank_transactions` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `from_player_id` int UNSIGNED NULL DEFAULT NULL,
+  `to_player_id` int UNSIGNED NULL DEFAULT NULL,
+  `amount` decimal(20,2) NOT NULL,
+  `transaction_type` varchar(32) NOT NULL,
+  `description` varchar(255) NULL DEFAULT NULL,
+  `reference_type` varchar(32) NULL DEFAULT NULL,
+  `reference_id` bigint UNSIGNED NULL DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_from_created` (`from_player_id`, `created_at`),
+  KEY `idx_to_created` (`to_player_id`, `created_at`),
+  KEY `idx_type_created` (`transaction_type`, `created_at`),
+  KEY `idx_ref` (`reference_type`, `reference_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Struktura tabeli dla tabeli `bank_negotiations`
 --
 
@@ -1012,7 +1034,7 @@ CREATE TABLE `industrial_disasters` (
   `well_id` int DEFAULT NULL,
   `pipeline_id` int DEFAULT NULL,
   `disaster_type` enum('blowout','pipeline_explosion','reservoir_contamination','surface_spill') COLLATE utf8mb4_general_ci NOT NULL,
-  `severity` enum('major','catastrophic') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'major',
+  `severity` enum('major','catastrophic','critical') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'major',
   `repair_cost` decimal(14,2) NOT NULL DEFAULT '0.00',
   `env_fine` decimal(14,2) NOT NULL DEFAULT '0.00',
   `reservoir_lost` decimal(14,2) NOT NULL DEFAULT '0.00' COMMENT 'bbl złoża bezpowrotnie utracone',
@@ -1651,7 +1673,10 @@ CREATE TABLE `players` (
   `email_verified_at` datetime DEFAULT NULL,
   `newsletter_subscribed` tinyint(1) NOT NULL DEFAULT '1',
   `newsletter_token` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `bailiff_count` int DEFAULT '0' COMMENT 'Liczba postępowań komorniczych (historia)'
+  `bailiff_count` int DEFAULT '0' COMMENT 'Liczba postępowań komorniczych (historia)',
+  `company_credibility` decimal(5,2) NOT NULL DEFAULT '50.00' COMMENT 'Wiarygodność firmy 0-100',
+  `bank_account_number` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `bank_balance` decimal(20,2) NOT NULL DEFAULT '0.00' COMMENT 'Saldo konta bankowego'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -2128,7 +2153,9 @@ CREATE TABLE `wells` (
   `hub_outbound_transport_type` enum('nieustawiony','rurociag','ciezarowki','tankowiec') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'nieustawiony' COMMENT 'Typ transportu z hubu do magazynu (odcinek 2)',
   `transport_capacity_pct` decimal(5,2) NOT NULL DEFAULT '120.00' COMMENT 'Przepustowość transportu jako % produkcji (120=rurociąg, 70=ciężarówki, 110=tankowiec)',
   `transport_opex_pct` decimal(5,2) NOT NULL DEFAULT '7.50' COMMENT 'Dodatkowy OPEX transportu jako % wartości ropy (%)',
-  `sold_at` datetime DEFAULT NULL
+  `sold_at` datetime DEFAULT NULL,
+  `marine_buffer_bbl` decimal(12,4) NOT NULL DEFAULT '0.0000' COMMENT 'Bufor tankowca (bbl)',
+  `road_buffer_bbl` decimal(12,4) NOT NULL DEFAULT '0.0000' COMMENT 'Bufor ciężarówek (bbl)'
 ) ;
 
 --
@@ -2435,7 +2462,8 @@ CREATE TABLE `well_road_trips` (
   `cost` decimal(10,2) NOT NULL DEFAULT '0.00',
   `incident_risk_mult` decimal(6,3) NOT NULL DEFAULT '1.000',
   `political_risk_level` tinyint UNSIGNED NOT NULL DEFAULT '1',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Road transport trips: well -> hub (time-based)';
 
 --

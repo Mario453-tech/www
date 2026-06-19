@@ -277,7 +277,7 @@ trait WellDisastersTrait
         try {
  // Odwiert przechodzi w tryb blowout tylko gdy jest w aktywnym/wstrzymanym/uszkodzonym statusie.
  // Well enters blowout mode only when in active/paused/damaged status.
-            $stmt = $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1, marine_buffer_bbl=0 WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage','paused_staff','damaged')");
+            $stmt = $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1, marine_buffer_bbl=0 WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage','paused_staff')");
             $stmt->execute([$wellId, $playerId]);
             if ($stmt->rowCount() === 0) {
  // Odwiert jest w nieodpowiednim statusie (np. equipment_swap, servicing, contaminated) - blowout nie wystapil.

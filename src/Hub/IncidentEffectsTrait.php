@@ -128,7 +128,7 @@ trait HubIncidentEffectsTrait
     {
         $this->db->prepare(
             "INSERT INTO technical_notifications (player_id, well_id, type, message)
-             VALUES (?, NULL, 'hub_incident', ?)"
+             VALUES (?, NULL, 'failure', ?)"
         )->execute([$playerId, "[Hub] {$message}"]);
     }
 }

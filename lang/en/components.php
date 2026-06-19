@@ -79,6 +79,7 @@ return [
     'well.err_sell_cooldown' => 'A well can only be sold 2 hours after purchase. Remaining: :min min.',
     'well.err_sell_unprofitable' => 'The well is unprofitable (profit <= 0) - sale unavailable.',
     'well.err_sell_has_hub_or_staff' => 'Before selling, detach workers from the well in the technical section and detach the well from the hub.',
+    'well.err_not_available' => 'Well unavailable - it must be in active status to be sold.',
     'well_grid.hint_open' => 'details',
     'well_grid.hint_close' => 'collapse',
     'well_grid.storage_modal_title' => 'Storage expansion',

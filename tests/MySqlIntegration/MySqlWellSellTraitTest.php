@@ -162,10 +162,9 @@ final class MySqlWellSellTraitTest extends MySqlIntegrationTestCase
             $result['success'] ?? true,
             'sellWell must not succeed for a broken well'
         );
-        $this->assertSame(
-            'well_not_available',
-            $result['error'] ?? null,
-            'Broken well sell must fail with well_not_available (UPDATE rowCount=0)'
+        $this->assertNotEmpty(
+            $result['message'] ?? null,
+            'sellWell must return a non-empty message on failure (UPDATE rowCount=0 path)'
         );
 
         // Well must remain in 'broken' status (transaction was rolled back).

@@ -150,7 +150,7 @@ trait WellSellTrait
             $lockStmt->execute([$wellId, $playerId]);
             if (!$lockStmt->fetch()) {
                 $this->db->rollBack();
-                return ['success' => false, 'error' => 'well_not_available'];
+                return ['success' => false, 'message' => t('well.err_not_available')];
             }
 
  // 1. Status sold
@@ -160,7 +160,7 @@ trait WellSellTrait
  // Sprawdź czy UPDATE faktycznie zmodyfikował wiersz / Ensure UPDATE actually modified a row
             if ($updateStmt->rowCount() === 0) {
                 $this->db->rollBack();
-                return ['success' => false, 'error' => 'well_not_available'];
+                return ['success' => false, 'message' => t('well.err_not_available')];
             }
 
  // Odpisz przypisanych pracownikw bez tego pozostaj "zajci" i nie mona ich przypisa do nowego odwiertu

@@ -80,6 +80,7 @@ return [
     'well.err_sell_cooldown' => 'Odwiert można sprzedać dopiero po 2 godzinach od zakupu. Pozostało: :min min.',
     'well.err_sell_unprofitable' => 'Odwiert jest nierentowny (zysk <= 0) - sprzedaż niemożliwa.',
     'well.err_sell_has_hub_or_staff' => 'Przed sprzedażą odepnij pracowników od odwiertu w dziale technicznym i odepnij odwiert od huba.',
+    'well.err_not_available' => 'Odwiert niedostępny - musi mieć status aktywny, aby można go było sprzedać.',
     'well_grid.hint_open' => 'szczegóły',
     'well_grid.hint_close' => 'zwiń',
     'well_grid.storage_modal_title' => 'Rozbudowa magazynu',
