@@ -91,7 +91,7 @@ class AdminAuth
 
  // SSO must also respect account lockout (lock_until).
  // PL: SSO musi tez respektowac blokade konta (lock_until).
-        if (!empty($admin['lock_until']) && (int)strtotime($admin['lock_until']) > time()) {
+        if (!empty($admin['lock_until']) && strtotime($admin['lock_until']) > time()) {
             self::log('SSO_BLOCKED', "SSO rejected — account locked: '{$admin['username']}'");
             return false;
         }

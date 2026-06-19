@@ -267,7 +267,7 @@ trait TTSTasksTrait
                     }
                 } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             }
-            $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
+            $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ?")->execute([$staffId]);
             $this->db->prepare("
                 INSERT INTO technical_tasks
                     (player_id, staff_id, task_type, well_id, hub_id, pipeline_id, title, module_type,
@@ -678,8 +678,8 @@ trait TTSTasksTrait
         if ($ownTxComplete) $this->db->beginTransaction();
         try {
             $this->db->prepare("
-                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ? AND player_id = ?
-            ")->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId, $pId]);
+                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ?
+            ")->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId]);
 
             $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ? AND player_id = ?")->execute([$staffId, $pId]);
 
@@ -700,7 +700,7 @@ trait TTSTasksTrait
             $qStmt->execute([$staffId]);
             $next = $qStmt->fetch();
             if ($next) {
-                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?")->execute([$next['id'], $pId]);
+                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$next['id']]);
             }
 
             if ($ownTxComplete) $this->db->commit();
@@ -840,7 +840,7 @@ trait TTSTasksTrait
 
             return ['success' => true, 'message' => t('technical.task_msg.task_cancelled')];
         } catch (Throwable $e) {
-            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
+            if ($this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('TTS', 'cancelTask FAILED', $e, ['task_id' => $taskId]);
             return ['success' => false, 'message' => t('technical.task_msg.cancel_task_failed')];
         }

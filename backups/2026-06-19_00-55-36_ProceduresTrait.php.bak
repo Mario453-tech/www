@@ -46,7 +46,6 @@ trait TTSProceduresTrait
     {
         GameLog::step('TTS', 'upgradeProcedures', 1, "player={$this->playerId}");
 
-        $ownTx = false;
         try {
             $proc = $this->getProcedureStatus();
             $currentLevel = $proc['level'];
@@ -106,8 +105,7 @@ trait TTSProceduresTrait
                 ];
             }
 
-            $ownTx = !$this->db->inTransaction();
-            if ($ownTx) $this->db->beginTransaction();
+            $this->db->beginTransaction();
 
  // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
  // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
@@ -116,7 +114,7 @@ trait TTSProceduresTrait
             );
             $cashStmt->execute([$cost, $this->playerId, $cost]);
             if ($cashStmt->rowCount() === 0) {
-                if ($ownTx) $this->db->rollBack();
+                $this->db->rollBack();
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.no_funds_upgrade', [
@@ -136,19 +134,18 @@ trait TTSProceduresTrait
             ");
             $levelStmt->execute([$this->playerId]);
             if ($levelStmt->rowCount() === 0) {
-                if ($ownTx) $this->db->rollBack();
+                $this->db->rollBack();
                 return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
             }
-            if ($ownTx) $this->db->commit();
+            $this->db->commit();
 
             // Log finansowy poza transakcja — blad logu nie moze cofnac juz zatwierdzonej platnosci (Rule 6).
             // Financial log outside transaction — log failure must not roll back an already-committed payment (Rule 6).
             try {
                 (new \FinancialTransactionService($this->db))->logTransaction(
                     $this->playerId,
-                    null,
-                    $cost,
                     \FinancialTransactionService::TYPE_TTS_FEE,
+                    -$cost,
                     "HSE procedure upgrade to level {$nextLevel}"
                 );
             } catch (\Throwable $logErr) {
@@ -171,7 +168,7 @@ trait TTSProceduresTrait
                 'level' => $nextLevel,
             ];
         } catch (Throwable $e) {
-            if ($ownTx && $this->db->inTransaction()) {
+            if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             GameLog::error('TTS', 'upgradeProcedures FAILED', $e, ['player_id' => $this->playerId]);
@@ -189,7 +186,6 @@ trait TTSProceduresTrait
     {
         GameLog::step('TTS', 'repairProcedureIntegrity', 1, "player={$this->playerId}");
 
-        $ownTx = false;
         try {
             $proc = $this->getProcedureStatus();
             if ($proc['level'] === 0) {
@@ -232,8 +228,7 @@ trait TTSProceduresTrait
             $cost = 500_000 * $proc['level'];
             $newIntegrity = min(100.0, $proc['integrity'] + 30.0);
 
-            $ownTx = !$this->db->inTransaction();
-            if ($ownTx) $this->db->beginTransaction();
+            $this->db->beginTransaction();
 
  // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
  // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
@@ -242,7 +237,7 @@ trait TTSProceduresTrait
             );
             $cashStmt->execute([$cost, $this->playerId, $cost]);
             if ($cashStmt->rowCount() === 0) {
-                if ($ownTx) $this->db->rollBack();
+                $this->db->rollBack();
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.review_no_funds', [
@@ -256,16 +251,15 @@ trait TTSProceduresTrait
                     procedures_last_decay_at = NOW()
                 WHERE id = ?
             ")->execute([$newIntegrity, $this->playerId]);
-            if ($ownTx) $this->db->commit();
+            $this->db->commit();
 
             // Log finansowy poza transakcja — blad logu nie moze cofnac juz zatwierdzonej platnosci (Rule 6).
             // Financial log outside transaction — log failure must not roll back an already-committed payment (Rule 6).
             try {
                 (new \FinancialTransactionService($this->db))->logTransaction(
                     $this->playerId,
-                    null,
-                    $cost,
                     \FinancialTransactionService::TYPE_TTS_FEE,
+                    -$cost,
                     "HSE procedure integrity review (level {$proc['level']})"
                 );
             } catch (\Throwable $logErr) {
@@ -289,7 +283,7 @@ trait TTSProceduresTrait
                 'integrity' => $newIntegrity,
             ];
         } catch (Throwable $e) {
-            if ($ownTx && $this->db->inTransaction()) {
+            if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             GameLog::error('TTS', 'repairProcedureIntegrity FAILED', $e, ['player_id' => $this->playerId]);
