@@ -19,7 +19,7 @@ declare(strict_types=1);
 class WalletService
 {
     private PDO $db;
-    private static bool $schemaReady = false;
+    private static array $schemaReady = [];
 
     public function __construct(?PDO $db = null)
     {
@@ -185,7 +185,8 @@ class WalletService
      */
     private function ensureSchema(): void
     {
-        if (self::$schemaReady) {
+        $connId = spl_object_id($this->db);
+        if (self::$schemaReady[$connId] ?? false) {
             return;
         }
 
@@ -197,7 +198,7 @@ class WalletService
 
         if ($driver === 'sqlite') {
             $this->ensureSchemaSqlite();
-            self::$schemaReady = true;
+            self::$schemaReady[$connId] = true;
             return;
         }
 
@@ -233,7 +234,7 @@ class WalletService
 
             // Ustaw flage dopiero po sukcesie addColumnIfMissing (nie przed).
             // Set flag only after addColumnIfMissing succeeded (not before).
-            self::$schemaReady = true;
+            self::$schemaReady[$connId] = true;
         } catch (Throwable $e) {
             GameLog::error('WalletService', 'ensureSchema column add FAILED', $e);
             // Nie ustawiaj schemaReady - nastepne zadanie ponowi probe.

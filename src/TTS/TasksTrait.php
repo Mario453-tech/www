@@ -105,7 +105,11 @@ trait TTSTasksTrait
                     'message' => t('technical.task_msg.well_paused_staff', ['missing' => $missing]),
                 ];
             }
-            if (in_array($wellRow['status'], ['seized', 'blowout'])) {
+            $isEmergency = $taskDef['emergency'] ?? false;
+            if (!$isEmergency && in_array($wellRow['status'], ['seized', 'blowout'])) {
+                return ['success' => false, 'message' => t('technical.task_msg.well_unavailable', ['status' => $wellRow['status']])];
+            }
+            if (in_array($wellRow['status'], ['sold', 'layer_switch', 'equipment_swap'])) {
                 return ['success' => false, 'message' => t('technical.task_msg.well_unavailable', ['status' => $wellRow['status']])];
             }
         }
@@ -501,7 +505,10 @@ trait TTSTasksTrait
                         $boost = 5 + ($skill >= 7 ? min(10, $skill - 5) * 2 : 0);
                         $this->db->prepare("
                             UPDATE wells
-                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100),
+                            SET base_production_per_hour = CASE
+                                    WHEN production_boost_pct < 50 THEN base_production_per_hour * (1 + ? / 100)
+                                    ELSE base_production_per_hour
+                                END,
                                 production_boost_pct = LEAST(50, production_boost_pct + ?)
                             WHERE id = ? AND player_id = ?
                         ")->execute([$boost, $boost, $wellId, $pId]);
@@ -548,6 +555,7 @@ trait TTSTasksTrait
                             SET transport_loss = GREATEST(0.5, transport_loss - 0.3),
                                 condition_pct  = LEAST(100, condition_pct + 10),
                                 status         = CASE
+                                    WHEN status IN ('damaged', 'disabled') THEN status
                                     WHEN LEAST(100, condition_pct + 10) < 40 THEN 'critical'
                                     WHEN LEAST(100, condition_pct + 10) < 70 THEN 'degraded'
                                     ELSE 'active'
@@ -625,8 +633,8 @@ trait TTSTasksTrait
                         ")->execute([$skill, $pipeId, $pId]);
                         $this->db->prepare("
                             UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
-                            WHERE player_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
-                        ")->execute([$pId]);
+                            WHERE player_id = ? AND pipeline_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
+                        ")->execute([$pId, $pipeId]);
                     }
                     $result = ['pipeline_repaired' => true];
                     $msg = t('technical.task_msg.pipeline_repair_done');

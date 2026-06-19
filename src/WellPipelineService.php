@@ -747,11 +747,17 @@ class WellPipelineService
         $ids          = array_map('intval', array_column($completed, 'id'));
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-        $this->db->prepare(
+        $updateStmt = $this->db->prepare(
             "UPDATE well_pipelines
                 SET status = 'active', condition_pct = 100.0
               WHERE id IN ({$placeholders}) AND status = 'building'"
-        )->execute($ids);
+        );
+        $updateStmt->execute($ids);
+        $actuallyCompleted = $updateStmt->rowCount();
+
+        if ($actuallyCompleted === 0) {
+            return [];
+        }
 
         foreach ($completed as $pipe) {
             $this->recordEvent(
@@ -1180,7 +1186,7 @@ class WellPipelineService
         $row['_has_hub_binding'] = $hasHubBinding;
         $row['_matches_active_hub'] = $matchesActiveHub;
         $row['_binding_mismatch'] = !$isOutbound && $hubId > 0 && $assignedHubId > 0 && $hubId !== $assignedHubId;
-        $row['_is_operational'] = $hasHubBinding && (string)($row['status'] ?? 'active') !== 'building';
+        $row['_is_operational'] = $hasHubBinding && !in_array((string)($row['status'] ?? 'active'), ['building', 'suspended'], true);
         return $row;
     }
 

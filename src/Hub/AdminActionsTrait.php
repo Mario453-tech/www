@@ -120,7 +120,7 @@ trait HubAdminActionsTrait
                     SET condition_pct        = 100.00,
                         wear_level           = 0.0000,
                         efficiency_pct       = 100.00,
-                        status               = IF(status = 'damaged', 'active', status),
+                        status               = IF(status IN ('damaged','critical'), 'active', status),
                         repair_cost_estimate = 0.00,
                         last_maintenance_at  = NOW(),
                         updated_at           = NOW()
