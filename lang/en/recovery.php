@@ -63,6 +63,25 @@ return [
     'recovery.back_btn' => 'Back to game',
     'recovery.success_default' => 'Operation completed successfully.',
 
+    // Event type labels
+    'recovery.etype_sell_asset'         => 'Asset sale',
+    'recovery.etype_sell_asset_storage' => 'Storage sale',
+    'recovery.etype_bank_takeover'      => 'Bank takeover',
+    'recovery.etype_emergency_loan'     => 'Emergency loan',
+    'recovery.etype_cost_cuts'          => 'Cost cuts',
+    'recovery.etype_rescue_investor'    => 'Rescue investor',
+    'recovery.etype_new_start'          => 'New start',
+    'recovery.etype_debt_deadline_24h'  => 'Debt repayment deadline',
+    'recovery.etype_competitor_buyout'  => 'Competitor buyout',
+    'recovery.etype_investor_offer_40'  => 'Investor offer (40%)',
+
+    // Action confirmations
+    'recovery.confirm_sell_asset'      => 'Are you sure you want to sell this asset?',
+    'recovery.confirm_bank_takeover'   => 'Are you sure you want to transfer the asset to the bank? This cannot be undone.',
+    'recovery.confirm_cost_cuts'       => 'Are you sure you want to apply cost cuts? This will pause wells and dismiss staff.',
+    'recovery.confirm_rescue_investor' => 'The investor will take a stake in the company. This cannot be undone.',
+    'recovery.confirm_new_start'       => 'WARNING: New start permanently deletes all company assets. This cannot be undone.',
+
     'bankruptcy.err_not_bankrupt' => 'The company is not in bankruptcy mode.',
     'bankruptcy.err_unknown_option' => 'Unknown recovery option.',
     'bankruptcy.err_select_well' => 'Choose a well to sell.',

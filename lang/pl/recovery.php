@@ -71,6 +71,25 @@ return [
 
     'recovery.back_btn' => 'Wróć do gry',
 
+    // Etykiety typow zdarzen / Event type labels
+    'recovery.etype_sell_asset'         => 'Sprzedaż aktywów',
+    'recovery.etype_sell_asset_storage' => 'Sprzedaż magazynu',
+    'recovery.etype_bank_takeover'      => 'Przejęcie przez bank',
+    'recovery.etype_emergency_loan'     => 'Pożyczka awaryjna',
+    'recovery.etype_cost_cuts'          => 'Cięcia kosztów',
+    'recovery.etype_rescue_investor'    => 'Inwestor ratunkowy',
+    'recovery.etype_new_start'          => 'Nowy start',
+    'recovery.etype_debt_deadline_24h'  => 'Termin spłaty długu',
+    'recovery.etype_competitor_buyout'  => 'Przejęcie przez konkurencję',
+    'recovery.etype_investor_offer_40'  => 'Oferta inwestora (40%)',
+
+    // Potwierdzenia akcji / Action confirmations
+    'recovery.confirm_sell_asset'      => 'Czy na pewno chcesz sprzedać ten zasób?',
+    'recovery.confirm_bank_takeover'   => 'Czy na pewno chcesz przekazać zasób bankowi? Operacja jest nieodwracalna.',
+    'recovery.confirm_cost_cuts'       => 'Czy na pewno chcesz wprowadzić cięcia kosztów? Wstrzyma to odwierty i zwolni pracowników.',
+    'recovery.confirm_rescue_investor' => 'Inwestor przejmie udział w firmie. Operacja jest nieodwracalna.',
+    'recovery.confirm_new_start'       => 'UWAGA: Nowy start trwale usuwa wszystkie aktywa firmy. Tej operacji nie można cofnąć.',
+
     // --- BankruptcyService: bledy walidacji / validation errors ---
     'bankruptcy.err_not_bankrupt'          => 'Firma nie jest w trybie bankructwa.',
     'bankruptcy.err_unknown_option'        => 'Nieznana opcja naprawcza.',
