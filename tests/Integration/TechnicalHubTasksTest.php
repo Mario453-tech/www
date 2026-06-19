@@ -29,7 +29,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
     public function testAssignTaskRejectsHubNotUsedByPlayer(): void
     {
         $this->seedPlayerAndStaff();
-        $this->db->exec("INSERT INTO logistics_hubs (id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES (99, 'Hub Obcy', 70, 100000, 'active', datetime('now'))");
+        $this->db->exec("INSERT INTO logistics_hubs (id, player_id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES (99, 2, 'Hub Obcy', 70, 100000, 'active', datetime('now'))");
         $service = $this->makeService();
 
         $result = $service->assignTask(1, 'hub_maintenance', null, null, 99);
@@ -57,7 +57,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
     public function testCompleteTaskHubMaintenanceImprovesConditionAndMaintenanceTimestamp(): void
     {
         $this->seedPlayerAndStaff(7);
-        $this->db->exec("INSERT INTO logistics_hubs (id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES (10, 'Hub A', 40, 500000, 'active', datetime('now'))");
+        $this->db->exec("INSERT INTO logistics_hubs (id, player_id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES (10, 1, 'Hub A', 40, 500000, 'active', datetime('now'))");
         $service = $this->makeService();
 
         $task = [
@@ -90,7 +90,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
     public function testCompleteTaskHubRepairRestoresOperationalState(): void
     {
         $this->seedPlayerAndStaff(8);
-        $this->db->exec("INSERT INTO logistics_hubs (id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES (11, 'Hub B', 15, 750000, 'damaged', datetime('now'))");
+        $this->db->exec("INSERT INTO logistics_hubs (id, player_id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES (11, 1, 'Hub B', 15, 750000, 'damaged', datetime('now'))");
         $service = $this->makeService();
 
         $task = [
@@ -125,7 +125,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->db->exec('CREATE TABLE technical_task_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, module_type TEXT NULL, priority INTEGER DEFAULT 0, queued_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE technical_notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, well_id INTEGER NULL, type TEXT, message TEXT, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE wells (id INTEGER PRIMARY KEY, player_id INTEGER, status TEXT)');
-        $this->db->exec('CREATE TABLE logistics_hubs (id INTEGER PRIMARY KEY, name TEXT, condition_pct REAL, repair_cost_estimate REAL, status TEXT, last_maintenance_at TEXT NULL, updated_at TEXT NULL)');
+        $this->db->exec('CREATE TABLE logistics_hubs (id INTEGER PRIMARY KEY, player_id INTEGER, name TEXT, condition_pct REAL, repair_cost_estimate REAL, status TEXT, last_maintenance_at TEXT NULL, updated_at TEXT NULL)');
         $this->db->exec('CREATE TABLE logistics_hub_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, hub_id INTEGER, well_id INTEGER, status TEXT)');
         $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT)');
         $this->db->exec('CREATE TABLE board_members (id INTEGER PRIMARY KEY, role_id INTEGER, status TEXT, specialization_id INTEGER NULL, skill_organization INTEGER DEFAULT 5)');
@@ -144,7 +144,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
 
     private function seedUsedHub(int $hubId): void
     {
-        $this->db->exec("INSERT INTO logistics_hubs (id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES ({$hubId}, 'Hub Używany', 55, 250000, 'active', datetime('now'))");
+        $this->db->exec("INSERT INTO logistics_hubs (id, player_id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES ({$hubId}, 1, 'Hub Używany', 55, 250000, 'active', datetime('now'))");
         $this->db->exec("INSERT INTO wells (id, player_id, status) VALUES (201, 1, 'active')");
         $this->db->exec("INSERT INTO logistics_hub_assignments (hub_id, well_id, status) VALUES ({$hubId}, 201, 'active')");
     }

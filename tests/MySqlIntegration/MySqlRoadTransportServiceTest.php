@@ -292,11 +292,71 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertEqualsWithDelta(50.0, $result['delivered_bbl'], 0.001);
         $this->assertEqualsWithDelta(0.0, $result['lost_bbl'], 0.001);
 
-        $stmt = $this->db->prepare('SELECT status, delivered_bbl FROM well_road_trips WHERE player_id = ?');
+ // M3 faza 1: po processCompletedTrips kurs jest 'crediting' (policzony, niepotwierdzony).
+ // M3 phase 1: after processCompletedTrips the trip is 'crediting' (computed, unconfirmed).
+        $stmt = $this->db->prepare('SELECT status, delivered_bbl, arrived_at FROM well_road_trips WHERE player_id = ?');
+        $stmt->execute([$playerId]);
+        $row = $stmt->fetch();
+        $this->assertSame('crediting', $row['status']);
+        $this->assertSame('50.0000', $row['delivered_bbl']);
+        $this->assertNull($row['arrived_at'], 'arrived_at ustawiane dopiero przy potwierdzeniu');
+
+ // M3 faza 2: potwierdzenie (w produkcji w tej samej transakcji co zapis magazynu).
+ // M3 phase 2: confirmation (in production within the same transaction as the storage write).
+        $confirmed = $svc->confirmCreditedTrips($playerId);
+        $this->assertSame(1, $confirmed);
+
         $stmt->execute([$playerId]);
         $row = $stmt->fetch();
         $this->assertSame('delivered', $row['status']);
         $this->assertSame('50.0000', $row['delivered_bbl']);
+        $this->assertNotNull($row['arrived_at'], 'arrived_at ustawione po potwierdzeniu');
+    }
+
+ /**
+ * M3 recovery: kurs 'crediting' pozostawiony przez crash poprzedniego ticka musi zostac
+ * ponownie skredytowany (bez ponownego losowania incydentow), a nastepnie potwierdzony.
+ * M3 recovery: a 'crediting' trip left by a crashed previous tick must be re-credited
+ * (without re-rolling incidents) and then confirmed.
+ */
+    public function testProcessCompletedTripsRecoversOrphanedCreditingTrip(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 100.0, 50.0);
+
+        $svc = new RoadTransportService($this->db);
+
+ // Symuluje crash: kurs zostal w 'crediting' z policzonym delivered_bbl, niepotwierdzony.
+ // Simulates a crash: trip stuck in 'crediting' with a computed delivered_bbl, unconfirmed.
+        $this->db->prepare(
+            "INSERT INTO well_road_trips
+                (player_id, well_id, volume_bbl, delivered_bbl, truck_type, trips_count, trip_hours,
+                 cost, incident_risk_mult, political_risk_level, status, eta_at)
+             VALUES (?, ?, 50.0, 40.0, 'standard', 2, 2, 1000.00, 0.0, 1, 'crediting', NOW() - INTERVAL 1 MINUTE)"
+        )->execute([$playerId, $ids['wellId']]);
+
+        $result = $svc->processCompletedTrips($playerId, []);
+
+ // Odzyskany kurs liczy sie jako ukonczony i kredytuje zapisane 40 bbl, bez nowych strat.
+ // The recovered trip counts as completed and credits the stored 40 bbl, with no new loss.
+        $this->assertSame(1, $result['completed_count']);
+        $this->assertEqualsWithDelta(40.0, $result['delivered_bbl'], 0.001);
+        $this->assertEqualsWithDelta(0.0, $result['lost_bbl'], 0.001);
+        $this->assertArrayHasKey($ids['wellId'], $result['delivered_by_well']);
+        $this->assertEqualsWithDelta(40.0, $result['delivered_by_well'][$ids['wellId']], 0.001);
+
+ // Nadal 'crediting' do czasu potwierdzenia (delivered_bbl niezmienione).
+ // Still 'crediting' until confirmation (delivered_bbl unchanged).
+        $stmt = $this->db->prepare('SELECT status, delivered_bbl FROM well_road_trips WHERE player_id = ?');
+        $stmt->execute([$playerId]);
+        $row = $stmt->fetch();
+        $this->assertSame('crediting', $row['status']);
+        $this->assertSame('40.0000', $row['delivered_bbl']);
+
+        $this->assertSame(1, $svc->confirmCreditedTrips($playerId));
+        $stmt->execute([$playerId]);
+        $this->assertSame('delivered', $stmt->fetch()['status']);
     }
 
     public function testProcessCompletedTripsIgnoresFutureEta(): void

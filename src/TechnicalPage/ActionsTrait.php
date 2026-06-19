@@ -181,7 +181,7 @@ trait TechnicalPageActionsTrait
                     'count'     => $successfulCount,
                     'requested' => $requestedCount,
                     'spec'      => $specName,
-                ]), 'success'];
+                ]), 'warn'];
             }
 
             if ($allOk) {
@@ -266,14 +266,16 @@ trait TechnicalPageActionsTrait
 
     private function handleDismissNotification(): void
     {
+        $success = true;
         try {
             $this->svc->markRead((int)($_POST['notif_id'] ?? 0));
             GameLog::info('technical.php', 'dismiss_notification OK', ['notif_id' => $_POST['notif_id'] ?? 0]);
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'dismiss_notification EXCEPTION', $e);
+            $success = false;
         }
 
         header('Content-Type: application/json');
-        echo json_encode(['success' => true]);
+        echo json_encode(['success' => $success]);
     }
 }

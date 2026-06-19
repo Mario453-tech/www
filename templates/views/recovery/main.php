@@ -63,15 +63,15 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <p><strong><?= htmlspecialchars((string)($ev['message'] ?? '')) ?></strong></p>
             <p class="muted2 recovery-event-meta">
                 <?= t('recovery.event_type') ?>: <code><?= htmlspecialchars((string)($ev['event_type'] ?? '')) ?></code>
-                &nbsp;·&nbsp; <?= htmlspecialchars((string)($ev['created_at'] ?? '—')) ?>
+                &nbsp;&middot;&nbsp; <?= htmlspecialchars((string)($ev['created_at'] ?? '-')) ?>
                 <?php if (!empty($ev['due_at'])): ?>
-                    &nbsp;·&nbsp; <?= t('recovery.event_deadline') ?>:
+                    &nbsp;&middot;&nbsp; <?= t('recovery.event_deadline') ?>:
                     <span class="<?= strtotime($ev['due_at']) < time() && $isOpen ? 'red' : '' ?>">
                         <?= htmlspecialchars(date('d.m.Y H:i', strtotime($ev['due_at']))) ?>
                         <?= strtotime($ev['due_at']) < time() && $isOpen ? ' ' : '' ?>
                     </span>
                 <?php endif ?>
-                &nbsp;·&nbsp; <span class="<?= $isOpen ? 'red' : 'green' ?>"><?= $isOpen ? t('recovery.event_open') : t('recovery.event_closed') ?></span>
+                &nbsp;&middot;&nbsp; <span class="<?= $isOpen ? 'red' : 'green' ?>"><?= $isOpen ? t('recovery.event_open') : t('recovery.event_closed') ?></span>
             </p>
             <?php if (!$isOpen && !empty($ev['resolution_note'])): ?>
                 <p class="muted recovery-event-note"><?= t('recovery.event_resolution') ?>: <?= htmlspecialchars((string)$ev['resolution_note']) ?></p>
@@ -111,7 +111,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                     <select id="well_id" name="well_id" class="recovery-select">
                         <option value="0"><?= t('recovery.opt1_well_default') ?></option>
                         <?php foreach (($options['sell_asset']['sellable_wells'] ?? []) as $w): ?>
-                            <option value="<?= (int)$w['id'] ?>">#<?= (int)$w['id'] ?> | poziom <?= (int)$w['level'] ?> | <?= number_format((float)$w['base_production_per_hour'], 0, ',', ' ') ?> bbl/h</option>
+                            <option value="<?= (int)$w['id'] ?>">#<?= (int)$w['id'] ?> | <?= t('recovery.opt1_well_level') ?> <?= (int)$w['level'] ?> | <?= number_format((float)$w['base_production_per_hour'], 0, ',', ' ') ?> bbl/h</option>
                         <?php endforeach ?>
                     </select>
                 </div>
@@ -142,7 +142,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <h2 id="opt3">3) <?= t('recovery.opt3_title') ?></h2>
             <p class="muted"><?= t('recovery.opt3_desc') ?></p>
             <?php if (!empty($options['emergency_loan']['enabled'])): ?>
-                <div class="info-box recovery-info"><?= t('recovery.opt3_available') ?>: <?= htmlspecialchars($options['emergency_loan']['apr_range'] ?? '15–25%') ?></div>
+                <div class="info-box recovery-info"><?= t('recovery.opt3_available') ?>: <?= htmlspecialchars($options['emergency_loan']['apr_range'] ?? '15-25%') ?></div>
             <?php else: ?>
                 <div class="info-box recovery-info"><?= t('recovery.opt3_unavailable') ?></div>
             <?php endif ?>

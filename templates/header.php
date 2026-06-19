@@ -101,17 +101,54 @@ try {
         <header class="header header--redesign">
 
             <?php
- // User data / Dane uzytkownika 
+ // User data / Dane uzytkownika
             $__topbarName   = '';
             $__topbarAvatar = null;
+            $__statusLabel  = 'Aktywna';
+            $__statusMod    = 'active';
             if (!empty($_SESSION['user_id'])) {
                 try {
-                    $__db    = Database::getInstance()->getConnection();
-                    $__uRow  = $__db->prepare("SELECT username, company_name, avatar_path FROM players WHERE id=? LIMIT 1");
+                    $__db  = Database::getInstance()->getConnection();
+                    $__uRow = $__db->prepare("
+                        SELECT p.username, p.company_name, p.avatar_path, p.status,
+                               (SELECT COUNT(*) FROM wells w
+                                 WHERE w.player_id = p.id
+                                   AND w.status = 'active') AS active_wells_count,
+                               (SELECT COUNT(*) FROM wells w
+                                 WHERE w.player_id = p.id
+                                   AND w.status NOT IN ('sold','seized')) AS total_wells_count
+                          FROM players p WHERE p.id = ? LIMIT 1
+                    ");
                     $__uRow->execute([$_SESSION['user_id']]);
                     $__uData = $__uRow->fetch();
                     $__topbarName   = $__uData['company_name'] ?: $__uData['username'] ?: ('Gracz #' . $_SESSION['user_id']);
                     $__topbarAvatar = $__uData['avatar_path'] ?? null;
+
+                    // Compute display status — Polish labels, wells-idle detection
+                    // Wyznacz status wyswietlany: polskie etykiety, detekcja przestoju odwiertow
+                    $__ps = (string)($__uData['status'] ?? 'active');
+                    $__aw = (int)($__uData['active_wells_count'] ?? 0);
+                    $__tw = (int)($__uData['total_wells_count'] ?? 0);
+
+                    if ($__ps === 'bankrupt') {
+                        $__statusLabel = 'Bankrut';
+                        $__statusMod   = 'bankrupt';
+                    } elseif ($__ps === 'under_bailiff') {
+                        $__statusLabel = 'Pod komornikiem';
+                        $__statusMod   = 'bailiff';
+                    } elseif ($__ps === 'financial_risk') {
+                        $__statusLabel = 'Ryzyko finansowe';
+                        $__statusMod   = 'risk';
+                    } elseif ($__tw > 0 && $__aw === 0) {
+                        // All wells exist but none active — company is idle
+                        // Wszystkie odwierty istnieja, ale zadne nie dziala — przestoj
+                        $__statusLabel = 'Przestoj';
+                        $__statusMod   = 'idle';
+                    } else {
+                        $__statusLabel = 'Aktywna';
+                        $__statusMod   = 'active';
+                    }
+                    unset($__ps, $__aw, $__tw);
                 } catch (Throwable $e) {
                     $__topbarName = 'Gracz #' . $_SESSION['user_id'];
                 }
@@ -177,7 +214,7 @@ try {
                     <span class="topbar-avatar-initials"><?= strtoupper(substr($__topbarName, 0, 1)) ?></span>
                     <?php endif ?>
                     <span class="hdr-company-name"><?= htmlspecialchars($__topbarName) ?></span>
-                    <span class="hdr-company-status"><?= t('header.company_active') ?></span>
+                    <span class="hdr-company-status hdr-company-status--<?= $__statusMod ?>"><?= htmlspecialchars($__statusLabel) ?></span>
                 </a>
 
                 <?php

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * RepairDataTrait naprawa incydentw, zapis, efekty i gettery danych.
+ * RepairDataTrait naprawa incydentow, zapis, efekty i gettery danych.
  * Repair & data trait incident repair, persistence, effects and data getters.
  */
 trait IncidentRepairDataTrait
@@ -9,15 +9,24 @@ trait IncidentRepairDataTrait
  // NAPRAWA / Repair
 
  /**
- * Rczna naprawa incydentu medium/major przez gracza.
+ * Reczna naprawa incydentu medium/major przez gracza.
  * Manual repair of a medium/major incident by the player.
- * Przywraca status odwiertu na 'active' jeli by 'broken' z powodu tego incydentu.
+ * Przywraca status odwiertu na 'active' jesli byl 'broken' z powodu tego incydentu.
  * Restores well status to 'active' if it was 'broken' due to this incident.
  */
  /** @return array<string, mixed> */
     public function repairIncident(int $incidentId, int $playerId): array
     {
         try {
+            // Sprawdz bankructwo — gracz bankrutujacy nie moze przywracac produkcji.
+            // Check bankruptcy — bankrupt player must not restore production.
+            if (class_exists('Player', false)) {
+                $playerObj = new Player($playerId);
+                if ($playerObj->isBankrupt()) {
+                    return ['success' => false, 'message' => $playerObj->getBankruptcyBlockMessage()];
+                }
+            }
+
             $stmt = $this->db->prepare("
                 SELECT * FROM well_incidents
                 WHERE id = ? AND player_id = ?
@@ -36,35 +45,45 @@ trait IncidentRepairDataTrait
                 return ['success' => false, 'message' => t('incident.err_already_repaired')];
             }
 
-            $this->db->prepare("
-                UPDATE well_incidents
-                SET repaired_at = NOW(), repaired_by = ?
-                WHERE id = ?
-            ")->execute([$playerId, $incidentId]);
-
- // Przywr odwiert jeli by broken / Restore well if it was broken
-            if ($inc['level'] === 'major') {
+            // Transakcja — trzy UPDATE-y musza byc atomowe; crash miedzy nimi moglby zostawic
+            // incydent oznaczony jako naprawiony, ale odwiert nadal broken (soft-lock) (Rule 5).
+            // Transaction — three UPDATEs must be atomic; a crash between them could leave the
+            // incident marked repaired but the well still broken (soft-lock) (Rule 5).
+            // $ownTx — zabezpieczenie przed zagniezdzona transakcja (Rule 5).
+            // $ownTx — guard against nested transaction (Rule 5).
+            $ownTx = !$this->db->inTransaction();
+            if ($ownTx) $this->db->beginTransaction();
+            try {
+                // Oznacz incydent jako naprawiony; filtruj po player_id (Rule 1).
+                // Mark incident as repaired; filter by player_id (Rule 1).
                 $this->db->prepare("
-                    UPDATE wells SET status = 'active'
-                    WHERE id = ? AND player_id = ? AND status = 'broken'
-                ")->execute([$inc['well_id'], $playerId]);
-            }
+                    UPDATE well_incidents
+                    SET repaired_at = NOW(), repaired_by = ?
+                    WHERE id = ? AND player_id = ?
+                ")->execute([$playerId, $incidentId, $playerId]);
 
- // Spirala Katastrof: naprawa redukuje post_incident_risk_boost / Incident spiral: repair reduces post_incident_risk_boost
- // medium -> -50% boost, major -> reset do 0 / medium -> -50% boost, major -> reset to 0
-            if (in_array($inc['level'], ['medium', 'major'])) {
+                // Przywr odwiert i resetuj spirale zaleznie od poziomu / Restore well and reset spiral by level
                 if ($inc['level'] === 'major') {
+                    $this->db->prepare("
+                        UPDATE wells SET status = 'active'
+                        WHERE id = ? AND player_id = ? AND status = 'broken'
+                    ")->execute([$inc['well_id'], $playerId]);
                     $this->db->prepare("
                         UPDATE wells SET post_incident_risk_boost = 0
                         WHERE id = ? AND player_id = ?
                     ")->execute([$inc['well_id'], $playerId]);
-                } else {
+                } elseif ($inc['level'] === 'medium') {
                     $this->db->prepare("
                         UPDATE wells
                         SET post_incident_risk_boost = GREATEST(0, post_incident_risk_boost * 0.5)
                         WHERE id = ? AND player_id = ?
                     ")->execute([$inc['well_id'], $playerId]);
                 }
+
+                if ($ownTx) $this->db->commit();
+            } catch (\Throwable $e) {
+                if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
+                throw $e;
             }
 
             GameLog::info('IncidentService', 'repairIncident_OK', [
@@ -85,20 +104,30 @@ trait IncidentRepairDataTrait
  // GETTERY / Getters
 
  /**
- * Zwraca ostatnie incydenty dla odwiertu (do wywietlenia w UI).
+ * Zwraca ostatnie incydenty dla odwiertu (do wyswietlenia w UI).
  * Returns recent incidents for a well (for display in the UI).
+ * $playerId — gdy podany, filtruje po wlascicielu (zapobiega wycieku danych miedzy graczami).
+ * $playerId — when provided, filters by owner (prevents cross-player data leak).
  */
-    public function getRecentIncidents(int $wellId, int $limit = 10): array
+    public function getRecentIncidents(int $wellId, int $limit = 10, ?int $playerId = null): array
     {
         try {
-            $stmt = $this->db->prepare("
-                SELECT * FROM well_incidents
-                WHERE well_id = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-            ");
-            $stmt->bindValue(1, $wellId, \PDO::PARAM_INT);
-            $stmt->bindValue(2, $limit,  \PDO::PARAM_INT);
+            // Filtruj po player_id gdy dostepny — zapobiega wycieku incydentow innych graczy (Rule 1).
+            // Filter by player_id when available — prevents leaking other players' incidents (Rule 1).
+            $sql = "SELECT * FROM well_incidents WHERE well_id = ?";
+            if ($playerId !== null) {
+                $sql .= " AND player_id = ?";
+            }
+            $sql .= " ORDER BY created_at DESC LIMIT ?";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(1, $wellId,   \PDO::PARAM_INT);
+            if ($playerId !== null) {
+                $stmt->bindValue(2, $playerId, \PDO::PARAM_INT);
+                $stmt->bindValue(3, $limit,    \PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue(2, $limit, \PDO::PARAM_INT);
+            }
             $stmt->execute();
             return $stmt->fetchAll();
         } catch (\Throwable $e) {
@@ -108,7 +137,7 @@ trait IncidentRepairDataTrait
     }
 
  /**
- * Zwraca ostatnie incydenty dla wszystkich odwiertw gracza.
+ * Zwraca ostatnie incydenty dla wszystkich odwiertow gracza.
  * Returns recent incidents across all player wells.
  */
     public function countPlayerIncidents(int $playerId): int
@@ -182,75 +211,101 @@ trait IncidentRepairDataTrait
     private function applyEffects(array $incident, int $wellId, int $playerId): void
     {
         try {
- // Degradacja stanu technicznego / Technical condition degradation
-            if ($incident['deg_damage'] > 0) {
-                $this->db->prepare("
-                    UPDATE wells
-                    SET technical_condition = GREATEST(0, technical_condition - ?)
-                    WHERE id = ?
-                ")->execute([$incident['deg_damage'], $wellId]);
-                GameLog::info('IncidentService', 'applyEffects_deg', [
-                    'well_id'    => $wellId,
-                    'deg_damage' => $incident['deg_damage'],
-                ]);
+            // Pobierz stan przed modyfikacja — INSERT-SELECT czytajacy po UPDATE daje zla wartosc
+            // gdy GREATEST(0,...) obetnie wynik do 0 (np. cond=3, dmg=10 -> 0+10=10 zamiast 3).
+            // Capture condition before mutation — INSERT-SELECT reading after UPDATE gives wrong value
+            // when GREATEST(0,...) clamps to 0 (e.g. cond=3, dmg=10 -> 0+10=10 instead of 3).
+            $condBefore = null;
+            if ($incident['cost'] > 0) {
+                $s = $this->db->prepare("SELECT technical_condition FROM wells WHERE id = ? AND player_id = ?");
+                $s->execute([$wellId, $playerId]);
+                $condBefore = (float)($s->fetchColumn() ?? 0.0);
             }
 
- // Dodaj risk_score / Add risk_score
-            if ($incident['risk_add'] > 0) {
-                $this->db->prepare("
-                    UPDATE wells
-                    SET risk_score = LEAST(100, risk_score + ?)
-                    WHERE id = ?
-                ")->execute([$incident['risk_add'], $wellId]);
-                GameLog::info('IncidentService', 'applyEffects_risk', [
-                    'well_id'  => $wellId,
-                    'risk_add' => $incident['risk_add'],
-                ]);
-            }
+            // Trzy zapisy musza byc atomowe (Rule 5) — czesciowy stan przy awarii DB zostawia odwiert niespojny.
+            // Three writes must be atomic (Rule 5) — partial state on DB failure leaves well inconsistent.
+            $ownTx = !$this->db->inTransaction();
+            if ($ownTx) $this->db->beginTransaction();
+            try {
+ // Degradacja stanu technicznego; filtruj po player_id (Rule 1).
+ // Technical condition degradation; filter by player_id (Rule 1).
+                if ($incident['deg_damage'] > 0) {
+                    $this->db->prepare("
+                        UPDATE wells
+                        SET technical_condition = GREATEST(0, technical_condition - ?)
+                        WHERE id = ? AND player_id = ?
+                    ")->execute([$incident['deg_damage'], $wellId, $playerId]);
+                    GameLog::info('IncidentService', 'applyEffects_deg', [
+                        'well_id'    => $wellId,
+                        'deg_damage' => $incident['deg_damage'],
+                    ]);
+                }
+
+ // Dodaj risk_score; filtruj po player_id (Rule 1). / Add risk_score; filter by player_id (Rule 1).
+                if ($incident['risk_add'] > 0) {
+                    $this->db->prepare("
+                        UPDATE wells
+                        SET risk_score = LEAST(100, risk_score + ?)
+                        WHERE id = ? AND player_id = ?
+                    ")->execute([$incident['risk_add'], $wellId, $playerId]);
+                    GameLog::info('IncidentService', 'applyEffects_risk', [
+                        'well_id'  => $wellId,
+                        'risk_add' => $incident['risk_add'],
+                    ]);
+                }
 
  // Koszt finansowy dla gracza (medium/major) / Financial cost for the player (medium/major)
- // UWAGA: odjcie z cash nastpuje w tick.php przez $playerCash -= $inc['cost']
+ // UWAGA: odjecie z cash nastepuje w tick.php przez $playerCash -= $inc['cost']
  // NOTE: cash deduction happens in tick.php via $playerCash -= $inc['cost']
  // Tu tylko logujemy zdarzenie w well_events
  // Here we only log the event in well_events
-            if ($incident['cost'] > 0) {
-                $this->db->prepare("
-                    INSERT INTO well_events
-                        (well_id, player_id, event_type, cost, description,
-                         technical_condition_before, technical_condition_after)
-                    SELECT ?, ?, 'incident_{$incident['level']}', ?, ?,
-                           technical_condition + ?,
-                           technical_condition
-                    FROM wells WHERE id = ?
-                ")->execute([
-                    $wellId, $playerId,
-                    $incident['cost'],
-                    $incident['message'],
-                    $incident['deg_damage'],
-                    $wellId,
-                ]);
-                GameLog::info('IncidentService', 'applyEffects_well_event', [
-                    'well_id'   => $wellId,
-                    'player_id' => $playerId,
-                    'level'     => $incident['level'],
-                    'cost'      => $incident['cost'],
-                ]);
-            }
+                if ($incident['cost'] > 0) {
+                    // Uzyj parametryzowanego event_type zamiast interpolacji (Rule 7).
+                    // Use parameterized event_type instead of interpolation (Rule 7).
+                    $eventType = 'incident_' . $incident['level'];
+                    $condAfter = max(0.0, $condBefore - (float)$incident['deg_damage']);
+                    $this->db->prepare("
+                        INSERT INTO well_events
+                            (well_id, player_id, event_type, cost, description,
+                             technical_condition_before, technical_condition_after)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ")->execute([
+                        $wellId, $playerId,
+                        $eventType,
+                        $incident['cost'],
+                        $incident['message'],
+                        $condBefore,
+                        $condAfter,
+                    ]);
+                    GameLog::info('IncidentService', 'applyEffects_well_event', [
+                        'well_id'   => $wellId,
+                        'player_id' => $playerId,
+                        'level'     => $incident['level'],
+                        'cost'      => $incident['cost'],
+                    ]);
+                }
 
- // major bez auto_repair -> pauzuj odwiert / major without auto_repair -> pause the well
-            if ($incident['level'] === 'major' && !$incident['auto_repair']) {
-                $this->db->prepare("
-                    UPDATE wells SET status = 'broken' WHERE id = ? AND status = 'active'
-                ")->execute([$wellId]);
-                GameLog::warn('IncidentService', 'applyEffects_well_broken', ['well_id' => $wellId]);
-            }
+ // major bez auto_repair -> pauzuj odwiert; filtruj po player_id (Rule 1).
+ // major without auto_repair -> pause the well; filter by player_id (Rule 1).
+                if ($incident['level'] === 'major' && !$incident['auto_repair']) {
+                    $this->db->prepare("
+                        UPDATE wells SET status = 'broken'
+                        WHERE id = ? AND player_id = ? AND status = 'active'
+                    ")->execute([$wellId, $playerId]);
+                    GameLog::warn('IncidentService', 'applyEffects_well_broken', ['well_id' => $wellId]);
+                }
 
+                if ($ownTx) $this->db->commit();
+            } catch (\Throwable $e) {
+                if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
+                throw $e;
+            }
         } catch (\Throwable $e) {
             GameLog::error('IncidentService', 'applyEffects FAILED', $e, ['well_id' => $wellId]);
         }
     }
 
- // HELPER 
+ // HELPER
 
     private function weightedRand(array $weights): string
     {

@@ -11,6 +11,8 @@ trait TTSManagerTrait
 
     public function getManager(): ?array
     {
+        // Filter by player_id to avoid fetching another player's manager globally.
+        // Filtruj po player_id, zeby nie pobrac kierownika innego gracza globalnie.
         $stmt = $this->db->prepare("
             SELECT bm.*, br.code as role_code,
                    hs.name as spec_name, hs.code as spec_code,
@@ -19,9 +21,10 @@ trait TTSManagerTrait
             JOIN board_roles br ON bm.role_id = br.id
             LEFT JOIN hr_specializations hs ON bm.specialization_id = hs.id
             WHERE br.code = 'technical' AND bm.status = 'active'
+              AND bm.player_id = ?
             LIMIT 1
         ");
-        $stmt->execute();
+        $stmt->execute([$this->playerId]);
         return $stmt->fetch() ?: null;
     }
 
@@ -127,7 +130,7 @@ trait TTSManagerTrait
                 WHERE ts.player_id = ?
                   AND ts.spec_code IN ('safety_officer','safety_engineer')
                   AND ts.status IN ('active','busy')
-                  AND (ts.fired_at IS NULL OR ts.fired_at > NOW())
+                  AND ts.fired_at IS NULL
             ");
             $stmt->execute([$this->playerId]);
             $hseStaff = $stmt->fetchAll();
@@ -272,9 +275,11 @@ trait TTSManagerTrait
                     'engineer_need' => $engNeed,
                 ]);
             } elseif (!$hasBothHSE) {
+                // Brak oficera -> brakuje OFICERA; brak inzyniera -> brakuje INZYNIERA
+                // Missing officer -> report missing OFFICER; missing engineer -> report missing ENGINEER
                 $missing = !$hasOfficer
-                    ? t('technical.hse_label.missing_engineer', ['count' => $engNeed])
-                    : t('technical.hse_label.missing_officer', ['count' => $offNeed]);
+                    ? t('technical.hse_label.missing_officer', ['count' => $offNeed])
+                    : t('technical.hse_label.missing_engineer', ['count' => $engNeed]);
 
                 $base['label'] = t('technical.hse_label.incomplete', [
                     'missing' => $missing,

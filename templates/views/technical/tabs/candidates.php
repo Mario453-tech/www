@@ -22,10 +22,16 @@
                 <input type="hidden" name="_token" value="<?= $csrf ?>">
                 <input type="hidden" name="action" value="cancel_recruitment">
                 <input type="hidden" name="request_id" value="<?= (int)$pendingRecruitment['id'] ?>">
+                <?php
+                // Buduj bodyHtml jako PHP string i koduj przez json_encode, zeby uniknac &quot; w atrybucie onclick
+                // Build bodyHtml as a PHP string and encode via json_encode to avoid &quot; inside onclick attribute
+                $__bodyHtml = '<p>' . t('technical.confirm_cancel_recruitment') . '</p>'
+                    . '<p style="margin-top:8px;opacity:.8;font-size:.92rem;">' . t('technical.cancel_recruitment_hint') . '</p>';
+                ?>
                 <button
                     type="button"
                     class="btn btn-secondary btn-sm rec-cancel-btn"
-                    onclick="confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.cancel_recruitment_title'), ENT_QUOTES, 'UTF-8') ?>', type: 'danger', confirmLabel: '<?= htmlspecialchars(t('technical.btn_cancel_recruitment_confirm'), ENT_QUOTES, 'UTF-8') ?>', bodyHtml: '<p><?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?></p><p style=&quot;margin-top:8px;opacity:.8;font-size:.92rem;&quot;><?= htmlspecialchars(t('technical.cancel_recruitment_hint'), ENT_QUOTES, 'UTF-8') ?></p>' }); return false;"
+                    onclick="confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.cancel_recruitment_title'), ENT_QUOTES, 'UTF-8') ?>', type: 'danger', confirmLabel: '<?= htmlspecialchars(t('technical.btn_cancel_recruitment_confirm'), ENT_QUOTES, 'UTF-8') ?>', bodyHtml: <?= json_encode($__bodyHtml, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?> }); return false;"
                 ><?= t('technical.btn_cancel_recruitment') ?></button>
             </form>
         </div>
@@ -40,8 +46,8 @@
     <div class="specs-need-grid">
     <?php foreach ($specRecruitmentCards as $card): ?>
     <div class="spec-need-card <?= $card['card_class'] ?>">
-        <div class="spec-need-icon"><?= $card['icon'] ?></div>
-        <div class="spec-need-name"><?= $card['name'] ?></div>
+        <div class="spec-need-icon"><?= htmlspecialchars($card['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="spec-need-name"><?= htmlspecialchars($card['name'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
         <div class="spec-need-count">
             <span class="<?= $card['count_class'] ?>"><?= $card['count_text'] ?></span>
         </div>

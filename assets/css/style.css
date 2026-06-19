@@ -1083,9 +1083,13 @@ select option { background: var(--bg3); color: var(--text); }
 }
 .hdr-company-status {
     font-size: 10px;
-    color: var(--green);
     white-space: nowrap;
 }
+.hdr-company-status--active   { color: var(--green); }
+.hdr-company-status--idle     { color: var(--orange); }
+.hdr-company-status--risk     { color: var(--orange); }
+.hdr-company-status--bailiff  { color: #e07830; }
+.hdr-company-status--bankrupt { color: var(--red); }
 
 /* Header language switcher / Przelacznik jezyka w naglowku */
 .hdr-language {

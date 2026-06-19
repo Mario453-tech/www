@@ -218,6 +218,9 @@ class PlayersSection
         $outboundSvc = new OutboundLegService(TransportConfigService::load($db));
 
  // 3c. KURSY DROGOWE ukonczone dostawy ciezarowkami (P1.2) / Road trips completed truck deliveries (P1.2)
+ // M3: $roadSvc widoczny przy zapisie magazynu, by atomowo potwierdzic dostawy.
+ // M3: $roadSvc visible at storage save so road deliveries can be confirmed atomically.
+        $roadSvc = null;
         if (class_exists('WellRoadTripSection') && class_exists('RoadTransportService')) {
             try {
                 $roadSvc        = new RoadTransportService($db);
@@ -296,9 +299,41 @@ class PlayersSection
  // Bez tego currentStorage > storageCapacity moze trafic do bazy po intensywnym tiku.
  // H4: Cap storage — prevents writing above max_capacity when spill was not triggered.
  // Without this, currentStorage > storageCapacity can reach the DB after a heavy tick.
-        $safeStorage = min($currentStorage, $storageCapacity);
-        $db->prepare("UPDATE storage SET used = :used, updated_at = NOW() WHERE player_id = :pid")
-           ->execute([':used' => $safeStorage, ':pid' => $playerId]);
+        $currentStorage = min($currentStorage, $storageCapacity);
+
+ // Zapis magazynu + atomowe potwierdzenie dostaw drogowych (M3).
+ // Kursy oznaczone 'crediting' w tym tiku potwierdzamy jako 'delivered' w tej samej
+ // transakcji co zapis magazynu — kredyt do magazynu i potwierdzenie dostawy commituja
+ // sie razem. Crash przed commitem zostawia kurs 'crediting', a nastepny tick go
+ // ponownie kredytuje (recovery w processCompletedTrips). Potwierdzenie tylko dla MySQL
+ // (well_road_trips istnieje wylacznie w MySQL). Jesli juz jestesmy w transakcji
+ // (np. harness testowy), nie otwieramy wlasnej — operacje i tak commituja sie razem.
+ // Storage save + atomic road-trip delivery confirmation (M3). Trips marked 'crediting'
+ // this tick are confirmed 'delivered' in the same transaction as the storage write, so
+ // both commit together. A crash before commit leaves the trip 'crediting' and the next
+ // tick re-credits it (recovery in processCompletedTrips). Confirmation is MySQL-only
+ // (well_road_trips exists only in MySQL). If already in a transaction (e.g. test
+ // harness) we do not open our own — the statements still commit together.
+        $isMysql = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+        $ownTx   = !$db->inTransaction();
+        try {
+            if ($ownTx) {
+                $db->beginTransaction();
+            }
+            $db->prepare("UPDATE storage SET used = :used, updated_at = NOW() WHERE player_id = :pid")
+               ->execute([':used' => $currentStorage, ':pid' => $playerId]);
+            if ($roadSvc !== null && $isMysql) {
+                $roadSvc->confirmCreditedTrips($playerId);
+            }
+            if ($ownTx) {
+                $db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownTx && $db->inTransaction()) {
+                try { $db->rollBack(); } catch (Throwable $re) {}
+            }
+            GameLog::error('tick', 'storage save + road confirm FAILED', $e, ['player_id' => $playerId]);
+        }
 
  // Zapis finansowy / Financial save
         try {

@@ -186,7 +186,7 @@ $specLabels = [
                 'tankowiec' => t('technical.transport_tankowiec'),
             ];
             ?>
-            <div class="well-detail-stat"><div class="well-detail-lbl"><?= t('technical.stat_transport') ?></div><div class="well-detail-val"><?= $tIcons[$tType] ?? '?' ?> <?= $tLabels[$tType] ?? $tType ?> <span class="c-muted">(<?= $tCap ?>%)</span></div></div>
+            <div class="well-detail-stat"><div class="well-detail-lbl"><?= t('technical.stat_transport') ?></div><div class="well-detail-val"><?= htmlspecialchars($tIcons[$tType] ?? '?', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($tLabels[$tType] ?? $tType, ENT_QUOTES, 'UTF-8') ?> <span class="c-muted">(<?= (float)$tCap ?>%)</span></div></div>
             <div class="well-detail-stat"><div class="well-detail-lbl"><?= t('technical.stat_failure_risk') ?></div><div class="well-detail-val <?= $riskCls ?>"><?= number_format($riskScore, 1) ?> / 100</div></div>
             <div class="well-detail-stat"><div class="well-detail-lbl"><?= t('technical.stat_risk_level') ?></div><div class="well-detail-val <?= ($w['risk_level'] ?? 10) > 15 ? 'c-bad' : 'c-good' ?>"><?= $w['risk_level'] ?? 10 ?></div></div>
             <div class="well-detail-stat">
@@ -225,7 +225,7 @@ $specLabels = [
                 $tM = floor(($tLeft % 3600) / 60);
             ?>
             <div class="well-task-row">
-                <span class="well-task-icon"><?= TechnicalTeamService::getTaskDefinition($t['task_type'])['icon'] ?? t('technical.short_task') ?></span>
+                <span class="well-task-icon"><?= htmlspecialchars((TechnicalTeamService::getTaskDefinition($t['task_type']) ?? [])['icon'] ?? t('technical.short_task'), ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="well-task-name"><?= htmlspecialchars($t['title']) ?></span>
                 <span class="well-task-who c-muted"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></span>
                 <span class="well-task-time c-warn">

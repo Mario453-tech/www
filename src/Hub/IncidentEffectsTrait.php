@@ -42,18 +42,28 @@ trait HubIncidentEffectsTrait
         ]);
 
         if ($condDmg > 0) {
-            $this->applyConditionDamage($hubId, $condDmg);
+            $this->applyConditionDamage($hubId, $condDmg, $playerId);
         }
 
-        $this->saveEvent($hubId, $playerId, $type, $cfg['severity'], $message, [
-            'condition_dmg'  => $condDmg,
-            'extra_loss_bbl' => $extraLoss,
-            'extra_loss_pct' => $extraLossPct,
-            'hub_load_pct'   => $tickResult['load_pct'] ?? 0,
-            'hub_condition'  => $hub['condition_pct'] ?? 100,
-        ]);
+        // Operacje poboczne — blad nie moze przerywac glownego przepływu (Rule 6).
+        // Side operations — failure must not interrupt the main flow (Rule 6).
+        try {
+            $this->saveEvent($hubId, $playerId, $type, $cfg['severity'], $message, [
+                'condition_dmg'  => $condDmg,
+                'extra_loss_bbl' => $extraLoss,
+                'extra_loss_pct' => $extraLossPct,
+                'hub_load_pct'   => $tickResult['load_pct'] ?? 0,
+                'hub_condition'  => $hub['condition_pct'] ?? 100,
+            ]);
+        } catch (\Throwable $e) {
+            GameLog::error('HubIncidentService', 'saveEvent FAILED', $e, ['hub_id' => $hubId]);
+        }
 
-        $this->notifyPlayer($playerId, (string)$cfg['severity'], $message);
+        try {
+            $this->notifyPlayer($playerId, (string)$cfg['severity'], $message);
+        } catch (\Throwable $e) {
+            GameLog::error('HubIncidentService', 'notifyPlayer FAILED', $e, ['player_id' => $playerId]);
+        }
 
         GameLog::info('tick', 'hub_incident', [
             'type'      => $type,
@@ -74,14 +84,16 @@ trait HubIncidentEffectsTrait
         ];
     }
 
-    private function applyConditionDamage(int $hubId, int $dmg): void
+    // Filtruj po player_id — izolacja gracza przy UPDATE logistics_hubs (Rule 1).
+    // Filter by player_id — player isolation on UPDATE logistics_hubs (Rule 1).
+    private function applyConditionDamage(int $hubId, int $dmg, int $playerId): void
     {
         $this->db->prepare(
             "UPDATE logistics_hubs
                 SET condition_pct = GREATEST(0.00, condition_pct - ?),
                     updated_at    = NOW()
-              WHERE id = ?"
-        )->execute([(float)$dmg, $hubId]);
+              WHERE id = ? AND player_id = ?"
+        )->execute([(float)$dmg, $hubId, $playerId]);
     }
 
  /** @param array<string, mixed> $meta */
@@ -110,15 +122,9 @@ trait HubIncidentEffectsTrait
 
     private function notifyPlayer(int $playerId, string $severity, string $message): void
     {
-        $icon = match($severity) {
-            'critical' => '',
-            'high'     => '',
-            'medium'   => '',
-            default    => '',
-        };
         $this->db->prepare(
             "INSERT INTO technical_notifications (player_id, well_id, type, message)
              VALUES (?, NULL, 'hub_incident', ?)"
-        )->execute([$playerId, "{$icon} [Hub] {$message}"]);
+        )->execute([$playerId, "[Hub] {$message}"]);
     }
 }
