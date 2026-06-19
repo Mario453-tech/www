@@ -106,28 +106,20 @@ trait IncidentRepairDataTrait
  /**
  * Zwraca ostatnie incydenty dla odwiertu (do wyswietlenia w UI).
  * Returns recent incidents for a well (for display in the UI).
- * $playerId — gdy podany, filtruje po wlascicielu (zapobiega wycieku danych miedzy graczami).
- * $playerId — when provided, filters by owner (prevents cross-player data leak).
+ * $playerId — wymagany, filtruje po wlascicielu (zapobiega wyciekom danych miedzy graczami).
+ * $playerId — required, filters by owner (prevents cross-player data leak, Rule 1).
  */
-    public function getRecentIncidents(int $wellId, int $limit = 10, ?int $playerId = null): array
+    public function getRecentIncidents(int $wellId, int $limit = 10, int $playerId = 0): array
     {
         try {
-            // Filtruj po player_id gdy dostepny — zapobiega wycieku incydentow innych graczy (Rule 1).
-            // Filter by player_id when available — prevents leaking other players' incidents (Rule 1).
-            $sql = "SELECT * FROM well_incidents WHERE well_id = ?";
-            if ($playerId !== null) {
-                $sql .= " AND player_id = ?";
-            }
-            $sql .= " ORDER BY created_at DESC LIMIT ?";
-
-            $stmt = $this->db->prepare($sql);
+            // Zawsze filtruj po player_id — zapobiega wycieku incydentow innych graczy (Rule 1).
+            // Always filter by player_id — prevents leaking other players' incidents (Rule 1).
+            $stmt = $this->db->prepare(
+                "SELECT * FROM well_incidents WHERE well_id = ? AND player_id = ? ORDER BY created_at DESC LIMIT ?"
+            );
             $stmt->bindValue(1, $wellId,   \PDO::PARAM_INT);
-            if ($playerId !== null) {
-                $stmt->bindValue(2, $playerId, \PDO::PARAM_INT);
-                $stmt->bindValue(3, $limit,    \PDO::PARAM_INT);
-            } else {
-                $stmt->bindValue(2, $limit, \PDO::PARAM_INT);
-            }
+            $stmt->bindValue(2, $playerId, \PDO::PARAM_INT);
+            $stmt->bindValue(3, $limit,    \PDO::PARAM_INT);
             $stmt->execute();
             return $stmt->fetchAll();
         } catch (\Throwable $e) {

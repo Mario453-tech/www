@@ -89,14 +89,17 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.unknown_spec')];
         }
 
-        $this->db->beginTransaction();
+        // Wzorzec $ownTx — metoda moze byc wywolana samodzielnie lub wewnatrz transakcji wywolujacego (Rule 5).
+        // $ownTx pattern — method may be called standalone or inside a caller's transaction (Rule 5).
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
         try {
             // Atomic cash check + deduct to avoid TOCTOU race.
             // Atomowe sprawdzenie + odliczenie srodkow, by uniknac wyscigu TOCTOU.
             $cashUpd = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
             $cashUpd->execute([$salary, $this->playerId, $salary]);
             if ($cashUpd->rowCount() === 0) {
-                $this->db->rollBack();
+                if ($ownTx) $this->db->rollBack();
                 return ['success' => false, 'message' => t('technical.staff_msg.no_funds', ['amount' => $salary])];
             }
             try {
@@ -122,9 +125,9 @@ trait TTSStaffTrait
                 max(1, min(10, $skillLevel)),
                 $salary,
             ]);
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
         } catch (Throwable $e) {
-            $this->db->rollBack();
+            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('TTS', 'hireEngineer FAILED', $e);
             return ['success' => false, 'message' => t('technical.staff_msg.hire_failed', [
                 'error' => $e->getMessage(),

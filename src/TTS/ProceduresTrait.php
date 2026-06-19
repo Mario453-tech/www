@@ -109,13 +109,20 @@ trait TTSProceduresTrait
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) $this->db->beginTransaction();
 
- // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
- // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
-            $cashStmt = $this->db->prepare(
-                "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
-            );
-            $cashStmt->execute([$cost, $this->playerId, $cost]);
-            if ($cashStmt->rowCount() === 0) {
+ // Jedna atomowa operacja: odliczenie gotowki + zwiekszenie poziomu razem eliminuje wyścig TOCTOU.
+ // Single atomic UPDATE: cash deduction + level increment together eliminates TOCTOU race (Rule 2).
+ // Warunek AND safety_procedures_level = ? zapobiega podwojnemu ulepszeniu przy rownoczesnych requestach.
+ // Condition AND safety_procedures_level = ? prevents double upgrade under concurrent requests.
+            $upgradeStmt = $this->db->prepare("
+                UPDATE players
+                SET cash = cash - ?,
+                    safety_procedures_level = safety_procedures_level + 1,
+                    procedure_integrity = 100.0,
+                    procedures_last_decay_at = NOW()
+                WHERE id = ? AND cash >= ? AND safety_procedures_level = ?
+            ");
+            $upgradeStmt->execute([$cost, $this->playerId, $cost, $currentLevel]);
+            if ($upgradeStmt->rowCount() === 0) {
                 if ($ownTx) $this->db->rollBack();
                 return [
                     'success' => false,
@@ -124,20 +131,6 @@ trait TTSProceduresTrait
                         'cost' => number_format($cost, 0, '.', ' '),
                     ]),
                 ];
-            }
- // Atomic level increment: update only if level < 5 (guards against concurrent upgrades).
- // Atomowe zwiekszenie poziomu: aktualizuj tylko jesli poziom < 5 (ochrona przed rownoleglymi ulepszeniami).
-            $levelStmt = $this->db->prepare("
-                UPDATE players
-                SET safety_procedures_level = safety_procedures_level + 1,
-                    procedure_integrity = 100.0,
-                    procedures_last_decay_at = NOW()
-                WHERE id = ? AND safety_procedures_level < 5
-            ");
-            $levelStmt->execute([$this->playerId]);
-            if ($levelStmt->rowCount() === 0) {
-                if ($ownTx) $this->db->rollBack();
-                return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
             }
             if ($ownTx) $this->db->commit();
 
@@ -235,13 +228,12 @@ trait TTSProceduresTrait
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) $this->db->beginTransaction();
 
- // Atomic cash deduction: deduct only if balance is sufficient (eliminates SELECT+UPDATE race condition).
- // Atomowe pobranie gotowki: odejmij tylko jesli saldo jest wystarczajace (eliminuje race condition SELECT+UPDATE).
-            $cashStmt = $this->db->prepare(
-                "UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?"
-            );
-            $cashStmt->execute([$cost, $this->playerId, $cost]);
-            if ($cashStmt->rowCount() === 0) {
+ // Gotowka przez Player::updateCash() — atomowe odliczenie + audit trail (Rule 10).
+ // Cash via Player::updateCash() — atomic deduction + audit trail (Rule 10).
+ // Player() uzywa tego samego PDO (singleton), wiec dziala wewnatrz naszej transakcji gdy ownTx=false.
+ // Player() uses same PDO (singleton), so works inside our transaction when ownTx=false.
+            $player = new \Player($this->playerId);
+            if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_TTS_FEE, "HSE procedure integrity review (level {$proc['level']})")) {
                 if ($ownTx) $this->db->rollBack();
                 return [
                     'success' => false,
@@ -257,20 +249,6 @@ trait TTSProceduresTrait
                 WHERE id = ?
             ")->execute([$newIntegrity, $this->playerId]);
             if ($ownTx) $this->db->commit();
-
-            // Log finansowy poza transakcja — blad logu nie moze cofnac juz zatwierdzonej platnosci (Rule 6).
-            // Financial log outside transaction — log failure must not roll back an already-committed payment (Rule 6).
-            try {
-                (new \FinancialTransactionService($this->db))->logTransaction(
-                    $this->playerId,
-                    null,
-                    $cost,
-                    \FinancialTransactionService::TYPE_TTS_FEE,
-                    "HSE procedure integrity review (level {$proc['level']})"
-                );
-            } catch (\Throwable $logErr) {
-                GameLog::error('TTS', 'repairProcedureIntegrity logTransaction FAILED', $logErr, ['player_id' => $this->playerId]);
-            }
 
             GameLog::info('TTS', 'repairProcedureIntegrity OK', [
                 'player_id' => $this->playerId,

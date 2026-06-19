@@ -140,7 +140,6 @@ trait WellActionsTrait
         // Compute new value locally — no extra SELECT after commit needed.
         $boostAfter  = max(0.0, round($boostBefore - 0.10, 10));
 
-        $fts3 = new FinancialTransactionService();
         // $ownTx — zabezpieczenie przed zagniezdzona transakcja (Rule 5).
         // $ownTx — guard against nested transaction (Rule 5).
         $ownTx = !$this->db->inTransaction();
