@@ -109,7 +109,7 @@ trait TTSTasksTrait
             if (!$isEmergency && in_array($wellRow['status'], ['seized', 'blowout'])) {
                 return ['success' => false, 'message' => t('technical.task_msg.well_unavailable', ['status' => $wellRow['status']])];
             }
-            if (in_array($wellRow['status'], ['sold', 'layer_switch', 'equipment_swap'])) {
+            if (in_array($wellRow['status'], ['sold', 'layer_switch', 'equipment_swap', 'seized'])) {
                 return ['success' => false, 'message' => t('technical.task_msg.well_unavailable', ['status' => $wellRow['status']])];
             }
         }
@@ -241,7 +241,8 @@ trait TTSTasksTrait
 
         // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
         // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
-        $fts = ($cost > 0) ? new FinancialTransactionService($this->db) : null;
+        // Constructing FTS before the transaction warms the schema; the instance itself is not used here.
+        if ($cost > 0) { new FinancialTransactionService($this->db); }
         $this->db->beginTransaction();
         try {
             if ($cost > 0) {
@@ -301,7 +302,7 @@ trait TTSTasksTrait
             }
 
             $this->db->commit();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->db->rollBack();
             GameLog::error('TTS', 'startTask FAILED', $e);
             return ['success' => false, 'message' => t('technical.task_msg.start_failed', [
@@ -362,6 +363,29 @@ trait TTSTasksTrait
         $pId     = (int)$task['player_id'];
         $skill   = (int)($task['skill_level'] ?? 5);
         $result  = [];
+        $msg     = '';
+        $next    = null;
+
+ // Pojedyncza transakcja obejmuje unfreeze + efekty + zmiane statusu + kolejke.
+ // Zapobiega podwojnemu wykonaniu: UPDATE WHERE status='in_progress' dostaje 0 wierszy
+ // gdy inny tick juz zatwierdzil zmiane statusu — wtedy cofamy cala transakcje.
+ // Single transaction covering unfreeze + effects + status change + queue.
+ // Prevents double-execution: the status UPDATE matches 0 rows when another tick already
+ // committed; we then roll back the entire transaction.
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
+        try {
+ // Wstepne sprawdzenie — szybki powrot bez efektow ubocznych gdy zadanie juz nie 'in_progress'.
+ // Pre-check — quick return without side effects when the task is no longer 'in_progress'.
+            $claimStmt = $this->db->prepare(
+                "SELECT id FROM technical_tasks WHERE id = ? AND status = 'in_progress' LIMIT 1"
+            );
+            $claimStmt->execute([$taskId]);
+            if (!$claimStmt->fetch()) {
+ // Already completed by another concurrent tick — skip silently.
+                if ($ownTx) $this->db->rollBack();
+                return;
+            }
 
  // Odmroz odwiert po serwisie (przywroc status sprzed "W naprawie"), o ile nie trwa
  // jeszcze inne zadanie serwisowe na tym odwiercie. Robione PRZED efektami zadania,
@@ -369,317 +393,321 @@ trait TTSTasksTrait
  // Un-freeze the well after service (restore pre-"servicing" status) unless another
  // service task is still running on it. Done BEFORE task effects so logic like
  // well_repair (broken -> active) sees the real status.
-        if ($wellId && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
-            $otherStmt = $this->db->prepare("
-                SELECT COUNT(*) FROM technical_tasks
-                WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
-                  AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
-            ");
-            $otherStmt->execute([$wellId, $pId, $taskId]);
-            if ((int)$otherStmt->fetchColumn() === 0) {
-                $this->db->prepare("
-                    UPDATE wells
-                    SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
-                    WHERE id = ? AND player_id = ? AND status = 'servicing'
-                ")->execute([$wellId, $pId]);
+            if ($wellId && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
+                $otherStmt = $this->db->prepare("
+                    SELECT COUNT(*) FROM technical_tasks
+                    WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
+                      AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
+                ");
+                $otherStmt->execute([$wellId, $pId, $taskId]);
+                if ((int)$otherStmt->fetchColumn() === 0) {
+                    $this->db->prepare("
+                        UPDATE wells
+                        SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
+                        WHERE id = ? AND player_id = ? AND status = 'servicing'
+                    ")->execute([$wellId, $pId]);
+                }
             }
-        }
 
  // Odmroz rurociag po serwisie (analogicznie do odwiertu).
  // Un-freeze the pipeline after service (analogous to the well).
-        if ($pipeId && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
-            $otherStmt = $this->db->prepare("
-                SELECT COUNT(*) FROM technical_tasks
-                WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
-                  AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
-            ");
-            $otherStmt->execute([$pipeId, $pId, $taskId]);
-            if ((int)$otherStmt->fetchColumn() === 0) {
-                $this->db->prepare("
-                    UPDATE well_pipelines
-                    SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
-                    WHERE id = ? AND player_id = ? AND status = 'servicing'
-                ")->execute([$pipeId, $pId]);
+            if ($pipeId && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
+                $otherStmt = $this->db->prepare("
+                    SELECT COUNT(*) FROM technical_tasks
+                    WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
+                      AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
+                ");
+                $otherStmt->execute([$pipeId, $pId, $taskId]);
+                if ((int)$otherStmt->fetchColumn() === 0) {
+                    $this->db->prepare("
+                        UPDATE well_pipelines
+                        SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
+                        WHERE id = ? AND player_id = ? AND status = 'servicing'
+                    ")->execute([$pipeId, $pId]);
+                }
             }
-        }
 
  // Szansa
-        $failed = ($skill <= 3) && (mt_rand(1, 100) <= (4 - $skill) * 8);
+            $failed = ($skill <= 3) && (mt_rand(1, 100) <= (4 - $skill) * 8);
 
-        if (!$failed) {
-            switch ($task['task_type']) {
+            if (!$failed) {
+                switch ($task['task_type']) {
 
-                case 'well_maintenance':
-                    if ($wellId) {
-                        $gain = 20 + ($skill >= 7 ? 10 : 0);
-                        $this->db->prepare("
-                            UPDATE wells
-                            SET technical_condition = LEAST(100, technical_condition + ?)
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$gain, $wellId, $pId]);
-                        $result = ['condition_gain' => $gain];
-                        $msg = t('technical.task_msg.well_maintenance_done', [
-                            'well_id' => $wellId,
-                            'title' => $task['title'],
-                            'gain' => $gain,
-                        ]);
-                    }
-                    break;
-
-                case 'well_repair':
-                    if ($wellId) {
-                        $this->db->prepare("
-                            UPDATE wells
-                            SET technical_condition = 100,
-                                status = CASE WHEN status IN ('broken','paused_cash') THEN 'active' ELSE status END
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$wellId, $pId]);
-                        $result = ['condition' => 100, 'status' => 'active'];
-                        $msg = t('technical.task_msg.well_repair_done', ['well_id' => $wellId]);
-                    }
-                    break;
-
-                case 'hub_maintenance':
-                    if ($hubId) {
-                        $gain = min(22, 12 + max(0, $skill - 4) * 2);
-                        // Dodaj player_id do WHERE — zapobiega modyfikacji hubu innego gracza.
-                        // Add player_id to WHERE — prevents modifying another player's hub.
-                        $this->db->prepare("
-                            UPDATE logistics_hubs
-                            SET condition_pct = LEAST(100, condition_pct + ?),
-                                repair_cost_estimate = GREATEST(0, repair_cost_estimate - ?),
-                                last_maintenance_at = NOW(),
-                                updated_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$gain, $gain * 25000, $hubId, $pId]);
-                        $result = ['condition_gain' => $gain];
-                        $msg = t('technical.task_msg.hub_maintenance_done', [
-                            'hub_id' => $hubId,
-                            'gain' => $gain,
-                        ]);
-                    }
-                    break;
-
-                case 'hub_repair':
-                    if ($hubId) {
-                        $condition = min(100, 60 + $skill * 4);
-                        // Dodaj player_id do WHERE — zapobiega napraw hubu innego gracza.
-                        // Add player_id to WHERE — prevents repairing another player's hub.
-                        $this->db->prepare("
-                            UPDATE logistics_hubs
-                            SET condition_pct = ?,
-                                status = CASE WHEN status IN ('damaged','disabled','paused') THEN 'active' ELSE status END,
-                                repair_cost_estimate = 0.00,
-                                last_maintenance_at = NOW(),
-                                updated_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$condition, $hubId, $pId]);
-                        $result = ['condition' => $condition, 'status' => 'active'];
-                        $msg = t('technical.task_msg.hub_repair_done', ['hub_id' => $hubId]);
-                    }
-                    break;
-
-                case 'reservoir_analysis':
-                    if ($wellId) {
-                        if ($skill >= 7) {
+                    case 'well_maintenance':
+                        if ($wellId) {
+                            $gain = 20 + ($skill >= 7 ? 10 : 0);
                             $this->db->prepare("
-                                UPDATE wells SET pressure = LEAST(1.50, pressure + 0.05)
+                                UPDATE wells
+                                SET technical_condition = LEAST(100, technical_condition + ?)
+                                WHERE id = ? AND player_id = ?
+                            ")->execute([$gain, $wellId, $pId]);
+                            $result = ['condition_gain' => $gain];
+                            $msg = t('technical.task_msg.well_maintenance_done', [
+                                'well_id' => $wellId,
+                                'title' => $task['title'],
+                                'gain' => $gain,
+                            ]);
+                        }
+                        break;
+
+                    case 'well_repair':
+                        if ($wellId) {
+                            $this->db->prepare("
+                                UPDATE wells
+                                SET technical_condition = 100,
+                                    status = CASE WHEN status IN ('broken','paused_cash') THEN 'active' ELSE status END
                                 WHERE id = ? AND player_id = ?
                             ")->execute([$wellId, $pId]);
-                            $result = ['pressure_boost' => 0.05];
+                            $result = ['condition' => 100, 'status' => 'active'];
+                            $msg = t('technical.task_msg.well_repair_done', ['well_id' => $wellId]);
                         }
-                        $wStmt = $this->db->prepare("SELECT reservoir_remaining, reservoir_max, pressure FROM wells WHERE id = ?");
-                        $wStmt->execute([$wellId]);
-                        $w      = $wStmt->fetch();
-                        $resPct = $w ? round(($w['reservoir_remaining'] / max(1, $w['reservoir_max'])) * 100, 1) : 0;
-                        $msg = t('technical.task_msg.reservoir_analysis_done', [
-                            'well_id' => $wellId,
-                            'reservoir_pct' => $resPct,
-                            'pressure' => round(($w['pressure'] ?? 1.0), 3),
-                        ]);
-                    }
-                    break;
+                        break;
 
-                case 'production_optimization':
-                    if ($wellId) {
-                        $boost = 5 + ($skill >= 7 ? min(10, $skill - 5) * 2 : 0);
-                        $this->db->prepare("
-                            UPDATE wells
-                            SET base_production_per_hour = CASE
-                                    WHEN production_boost_pct < 50 THEN base_production_per_hour * (1 + ? / 100)
-                                    ELSE base_production_per_hour
-                                END,
-                                production_boost_pct = LEAST(50, production_boost_pct + ?)
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$boost, $boost, $wellId, $pId]);
-                        $result = ['production_boost_pct' => $boost];
-                        $msg = t('technical.task_msg.production_optimization_done', [
-                            'well_id' => $wellId,
-                            'boost' => $boost,
-                        ]);
-                    }
-                    break;
-
-                case 'install_module':
-                    if ($wellId && $task['module_type']) {
-                        $mod       = $task['module_type'];
-                        $checkStmt = $this->db->prepare("SELECT id FROM well_upgrades WHERE well_id = ? AND upgrade_type = ?");
-                        $checkStmt->execute([$wellId, $mod]);
-                        if (!$checkStmt->fetch()) {
-                            $this->db->prepare("INSERT INTO well_upgrades (well_id, upgrade_type, cost_paid) VALUES (?,?,?)")
-                                     ->execute([$wellId, $mod, $task['cost']]);
-                            if ($mod === 'pump_electric') {
-                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.20 WHERE id = ?")->execute([$wellId]);
-                            } elseif ($mod === 'water_injection') {
-                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.10 WHERE id = ?")->execute([$wellId]);
-                            } elseif ($mod === 'pressure_booster') {
-                                $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.15, pressure = LEAST(1.5, pressure + 0.1) WHERE id = ?")->execute([$wellId]);
-                            }
-                            $result = ['module' => $mod];
-                        }
-                        $modDef    = self::getModuleDefinition($mod) ?? [];
-                        $modLabel  = $modDef['label']  ?? $mod;
-                        $modEffect = $modDef['effect'] ?? '';
-                        $msg = t('technical.task_msg.install_module_done', [
-                            'module' => $modLabel,
-                            'well_id' => $wellId,
-                            'effect' => $modEffect,
-                        ]);
-                    }
-                    break;
-                case 'pipeline_maintenance':
-                case 'pipeline_inspection':
-                    if ($pipeId) {
-                        $this->db->prepare("
-                            UPDATE well_pipelines
-                            SET transport_loss = GREATEST(0.5, transport_loss - 0.3),
-                                condition_pct  = LEAST(100, condition_pct + 10),
-                                status         = CASE
-                                    WHEN status IN ('damaged', 'disabled') THEN status
-                                    WHEN LEAST(100, condition_pct + 10) < 40 THEN 'critical'
-                                    WHEN LEAST(100, condition_pct + 10) < 70 THEN 'degraded'
-                                    ELSE 'active'
-                                END,
-                                last_inspected_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$pipeId, $pId]);
-                    }
-                    $result = ['transport_loss_reduced' => 0.3];
-                    $msg = t('technical.task_msg.pipeline_maintenance_done');
-                    break;
-
-                case 'safety_audit':
-                    $reduction = $skill >= 7 ? 3 : 2;
-                    $this->db->prepare("
-                        UPDATE wells SET risk_level = GREATEST(1, risk_level - ?)
-                        WHERE player_id = ? AND status = 'active'
-                    ")->execute([$reduction, $pId]);
-
-                    $integrityBoost = 0;
-                    if ($skill >= 6) {
-                        $intStmt = $this->db->prepare("SELECT safety_procedures_level, procedure_integrity FROM players WHERE id = ?");
-                        $intStmt->execute([$pId]);
-                        $intRow = $intStmt->fetch();
-                        if ($intRow && (int)(float)$intRow['safety_procedures_level'] > 0) {
-                            $integrityBoost = $skill >= 8 ? 20 : 15;
-                            $newInt = min(100.0, (float)$intRow['procedure_integrity'] + $integrityBoost);
+                    case 'hub_maintenance':
+                        if ($hubId) {
+                            $gain = min(22, 12 + max(0, $skill - 4) * 2);
+ // Dodaj player_id do WHERE — zapobiega modyfikacji hubu innego gracza.
+ // Add player_id to WHERE — prevents modifying another player's hub.
                             $this->db->prepare("
-                                UPDATE players SET procedure_integrity = ?, procedures_last_decay_at = NOW()
-                                WHERE id = ?
-                            ")->execute([$newInt, $pId]);
+                                UPDATE logistics_hubs
+                                SET condition_pct = LEAST(100, condition_pct + ?),
+                                    repair_cost_estimate = GREATEST(0, repair_cost_estimate - ?),
+                                    last_maintenance_at = NOW(),
+                                    updated_at = NOW()
+                                WHERE id = ? AND player_id = ?
+                            ")->execute([$gain, $gain * 25000, $hubId, $pId]);
+                            $result = ['condition_gain' => $gain];
+                            $msg = t('technical.task_msg.hub_maintenance_done', [
+                                'hub_id' => $hubId,
+                                'gain' => $gain,
+                            ]);
                         }
-                    }
+                        break;
 
-                    $msg = t('technical.task_msg.safety_audit_done', [
-                        'reduction' => $reduction,
-                    ]);
-                    if ($integrityBoost > 0) {
-                        $msg .= t('technical.task_msg.safety_audit_integrity', [
-                            'integrity' => $integrityBoost,
+                    case 'hub_repair':
+                        if ($hubId) {
+                            $condition = min(100, 60 + $skill * 4);
+ // Dodaj player_id do WHERE — zapobiega napraw hubu innego gracza.
+ // Add player_id to WHERE — prevents repairing another player's hub.
+                            $this->db->prepare("
+                                UPDATE logistics_hubs
+                                SET condition_pct = ?,
+                                    status = CASE WHEN status IN ('damaged','disabled','paused') THEN 'active' ELSE status END,
+                                    repair_cost_estimate = 0.00,
+                                    last_maintenance_at = NOW(),
+                                    updated_at = NOW()
+                                WHERE id = ? AND player_id = ?
+                            ")->execute([$condition, $hubId, $pId]);
+                            $result = ['condition' => $condition, 'status' => 'active'];
+                            $msg = t('technical.task_msg.hub_repair_done', ['hub_id' => $hubId]);
+                        }
+                        break;
+
+                    case 'reservoir_analysis':
+                        if ($wellId) {
+                            if ($skill >= 7) {
+                                $this->db->prepare("
+                                    UPDATE wells SET pressure = LEAST(1.50, pressure + 0.05)
+                                    WHERE id = ? AND player_id = ?
+                                ")->execute([$wellId, $pId]);
+                                $result = ['pressure_boost' => 0.05];
+                            }
+                            $wStmt = $this->db->prepare("SELECT reservoir_remaining, reservoir_max, pressure FROM wells WHERE id = ?");
+                            $wStmt->execute([$wellId]);
+                            $w      = $wStmt->fetch() ?: [];
+                            $resPct = $w ? round(($w['reservoir_remaining'] / max(1, $w['reservoir_max'])) * 100, 1) : 0;
+                            $msg = t('technical.task_msg.reservoir_analysis_done', [
+                                'well_id' => $wellId,
+                                'reservoir_pct' => $resPct,
+                                'pressure' => round((float)($w['pressure'] ?? 1.0), 3),
+                            ]);
+                        }
+                        break;
+
+                    case 'production_optimization':
+                        if ($wellId) {
+                            $boost = 5 + ($skill >= 7 ? min(10, $skill - 5) * 2 : 0);
+                            $this->db->prepare("
+                                UPDATE wells
+                                SET base_production_per_hour = CASE
+                                        WHEN production_boost_pct < 50 THEN base_production_per_hour * (1 + ? / 100)
+                                        ELSE base_production_per_hour
+                                    END,
+                                    production_boost_pct = LEAST(50, production_boost_pct + ?)
+                                WHERE id = ? AND player_id = ?
+                            ")->execute([$boost, $boost, $wellId, $pId]);
+                            $result = ['production_boost_pct' => $boost];
+                            $msg = t('technical.task_msg.production_optimization_done', [
+                                'well_id' => $wellId,
+                                'boost' => $boost,
+                            ]);
+                        }
+                        break;
+
+                    case 'install_module':
+                        if ($wellId && $task['module_type']) {
+                            $mod       = $task['module_type'];
+                            $checkStmt = $this->db->prepare("SELECT id FROM well_upgrades WHERE well_id = ? AND upgrade_type = ?");
+                            $checkStmt->execute([$wellId, $mod]);
+                            if (!$checkStmt->fetch()) {
+                                $this->db->prepare("INSERT INTO well_upgrades (well_id, upgrade_type, cost_paid) VALUES (?,?,?)")
+                                         ->execute([$wellId, $mod, $task['cost']]);
+                                if ($mod === 'pump_electric') {
+                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.20 WHERE id = ?")->execute([$wellId]);
+                                } elseif ($mod === 'water_injection') {
+                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.10 WHERE id = ?")->execute([$wellId]);
+                                } elseif ($mod === 'pressure_booster') {
+                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.15, pressure = LEAST(1.5, pressure + 0.1) WHERE id = ?")->execute([$wellId]);
+                                }
+                                $result = ['module' => $mod];
+                            }
+                            $modDef    = self::getModuleDefinition($mod) ?? [];
+                            $modLabel  = $modDef['label']  ?? $mod;
+                            $modEffect = $modDef['effect'] ?? '';
+                            $msg = t('technical.task_msg.install_module_done', [
+                                'module' => $modLabel,
+                                'well_id' => $wellId,
+                                'effect' => $modEffect,
+                            ]);
+                        }
+                        break;
+
+                    case 'pipeline_maintenance':
+                    case 'pipeline_inspection':
+                        if ($pipeId) {
+                            $this->db->prepare("
+                                UPDATE well_pipelines
+                                SET transport_loss = GREATEST(0.5, transport_loss - 0.3),
+                                    condition_pct  = LEAST(100, condition_pct + 10),
+                                    status         = CASE
+                                        WHEN status IN ('damaged', 'disabled', 'servicing') THEN status
+                                        WHEN LEAST(100, condition_pct + 10) < 40 THEN 'critical'
+                                        WHEN LEAST(100, condition_pct + 10) < 70 THEN 'degraded'
+                                        ELSE 'active'
+                                    END,
+                                    last_inspected_at = NOW()
+                                WHERE id = ? AND player_id = ?
+                            ")->execute([$pipeId, $pId]);
+                        }
+                        $result = ['transport_loss_reduced' => 0.3];
+                        $msg = t('technical.task_msg.pipeline_maintenance_done');
+                        break;
+
+                    case 'safety_audit':
+                        $reduction = $skill >= 7 ? 3 : 2;
+                        $this->db->prepare("
+                            UPDATE wells SET risk_level = GREATEST(1, risk_level - ?)
+                            WHERE player_id = ? AND status = 'active'
+                        ")->execute([$reduction, $pId]);
+
+                        $integrityBoost = 0;
+                        if ($skill >= 6) {
+                            $intStmt = $this->db->prepare("SELECT safety_procedures_level, procedure_integrity FROM players WHERE id = ?");
+                            $intStmt->execute([$pId]);
+                            $intRow = $intStmt->fetch();
+                            if ($intRow && (int)(float)$intRow['safety_procedures_level'] > 0) {
+                                $integrityBoost = $skill >= 8 ? 20 : 15;
+                                $newInt = min(100.0, (float)$intRow['procedure_integrity'] + $integrityBoost);
+                                $this->db->prepare("
+                                    UPDATE players SET procedure_integrity = ?, procedures_last_decay_at = NOW()
+                                    WHERE id = ?
+                                ")->execute([$newInt, $pId]);
+                            }
+                        }
+
+                        $msg = t('technical.task_msg.safety_audit_done', [
+                            'reduction' => $reduction,
                         ]);
-                    }
-                    break;
+                        if ($integrityBoost > 0) {
+                            $msg .= t('technical.task_msg.safety_audit_integrity', [
+                                'integrity' => $integrityBoost,
+                            ]);
+                        }
+                        break;
 
-                case 'blowout_control':
-                    if ($wellId) {
-                        $this->db->prepare("
-                            UPDATE wells
-                            SET status = 'active', technical_condition = GREATEST(20, 35 + ? * 3)
-                            WHERE id = ? AND player_id = ? AND status = 'blowout'
-                        ")->execute([$skill, $wellId, $pId]);
-                        $this->db->prepare("
-                            UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
-                            WHERE player_id = ? AND well_id = ? AND disaster_type = 'blowout' AND status != 'resolved'
-                        ")->execute([$pId, $wellId]);
-                        $this->db->prepare("
-                            UPDATE failure_log SET resolved = 1, resolved_at = NOW()
-                            WHERE player_id = ? AND well_id = ? AND failure_type = 'blowout' AND resolved = 0
-                        ")->execute([$pId, $wellId]);
-                        $msg = t('technical.task_msg.blowout_control_done', ['well_id' => $wellId]);
-                    }
-                    break;
+                    case 'blowout_control':
+                        if ($wellId) {
+                            $this->db->prepare("
+                                UPDATE wells
+                                SET status = 'active', technical_condition = GREATEST(20, 35 + ? * 3)
+                                WHERE id = ? AND player_id = ? AND status = 'blowout'
+                            ")->execute([$skill, $wellId, $pId]);
+                            $this->db->prepare("
+                                UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                                WHERE player_id = ? AND well_id = ? AND disaster_type = 'blowout' AND status != 'resolved'
+                            ")->execute([$pId, $wellId]);
+                            $this->db->prepare("
+                                UPDATE failure_log SET resolved = 1, resolved_at = NOW()
+                                WHERE player_id = ? AND well_id = ? AND failure_type = 'blowout' AND resolved = 0
+                            ")->execute([$pId, $wellId]);
+                            $msg = t('technical.task_msg.blowout_control_done', ['well_id' => $wellId]);
+                        }
+                        break;
 
-                case 'pipeline_repair':
-                    if ($pipeId) {
-                        $this->db->prepare("
-                            UPDATE well_pipelines
-                            SET status = 'active',
-                                condition_pct = LEAST(100, 40 + ? * 5),
-                                transport_loss = GREATEST(0.5, transport_loss - 0.5),
-                                damaged_at = NULL,
-                                leak_started_at = NULL,
-                                last_inspected_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$skill, $pipeId, $pId]);
-                        $this->db->prepare("
-                            UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
-                            WHERE player_id = ? AND pipeline_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
-                        ")->execute([$pId, $pipeId]);
-                    }
-                    $result = ['pipeline_repaired' => true];
-                    $msg = t('technical.task_msg.pipeline_repair_done');
-                    break;
+                    case 'pipeline_repair':
+                        if ($pipeId) {
+                            $this->db->prepare("
+                                UPDATE well_pipelines
+                                SET status = 'active',
+                                    condition_pct = LEAST(100, 40 + ? * 5),
+                                    transport_loss = GREATEST(0.5, transport_loss - 0.5),
+                                    damaged_at = NULL,
+                                    leak_started_at = NULL,
+                                    last_inspected_at = NOW()
+                                WHERE id = ? AND player_id = ?
+                            ")->execute([$skill, $pipeId, $pId]);
+                            $this->db->prepare("
+                                UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                                WHERE player_id = ? AND pipeline_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
+                            ")->execute([$pId, $pipeId]);
+                        }
+                        $result = ['pipeline_repaired' => true];
+                        $msg = t('technical.task_msg.pipeline_repair_done');
+                        break;
 
-                case 'reservoir_rehabilitation':
-                    if ($wellId) {
-                        $boostPct = 10 + ($skill >= 7 ? 5 : 0);
-                        $this->db->prepare("
-                            UPDATE wells
-                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100),
-                                status = CASE WHEN status = 'contaminated' THEN 'active' ELSE status END
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$boostPct, $wellId, $pId]);
-                        $this->db->prepare("
-                            UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
-                            WHERE player_id = ? AND well_id = ? AND disaster_type = 'reservoir_contamination' AND status != 'resolved'
-                        ")->execute([$pId, $wellId]);
-                        $this->db->prepare("
-                            UPDATE failure_log SET resolved = 1, resolved_at = NOW()
-                            WHERE player_id = ? AND well_id = ? AND failure_type = 'reservoir_contamination' AND resolved = 0
-                        ")->execute([$pId, $wellId]);
-                        $result = ['production_restored_pct' => $boostPct];
-                        $msg = t('technical.task_msg.reservoir_rehabilitation_done', [
-                            'well_id' => $wellId,
-                            'boost' => $boostPct,
-                        ]);
-                    }
-                    break;
+                    case 'reservoir_rehabilitation':
+                        if ($wellId) {
+                            $boostPct = 10 + ($skill >= 7 ? 5 : 0);
+                            $this->db->prepare("
+                                UPDATE wells
+                                SET base_production_per_hour = base_production_per_hour * (1 + ? / 100),
+                                    status = CASE WHEN status = 'contaminated' THEN 'active' ELSE status END
+                                WHERE id = ? AND player_id = ?
+                                  AND status NOT IN ('seized', 'sold', 'blowout')
+                            ")->execute([$boostPct, $wellId, $pId]);
+                            $this->db->prepare("
+                                UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                                WHERE player_id = ? AND well_id = ? AND disaster_type = 'reservoir_contamination' AND status != 'resolved'
+                            ")->execute([$pId, $wellId]);
+                            $this->db->prepare("
+                                UPDATE failure_log SET resolved = 1, resolved_at = NOW()
+                                WHERE player_id = ? AND well_id = ? AND failure_type = 'reservoir_contamination' AND resolved = 0
+                            ")->execute([$pId, $wellId]);
+                            $result = ['production_restored_pct' => $boostPct];
+                            $msg = t('technical.task_msg.reservoir_rehabilitation_done', [
+                                'well_id' => $wellId,
+                                'boost' => $boostPct,
+                            ]);
+                        }
+                        break;
 
-                default:
-                    $msg = t('technical.task_msg.task_done_generic', ['title' => $task['title']]);
+                    default:
+                        $msg = t('technical.task_msg.task_done_generic', ['title' => $task['title']]);
+                }
+            } else {
+                $msg = t('technical.task_msg.task_failed_generic', ['title' => $task['title']]);
             }
-        } else {
-            $msg = t('technical.task_msg.task_failed_generic', ['title' => $task['title']]);
-        }
 
- // Atomowe zakonczenie zadania: status, pracownik, powiadomienie, nastepne w kolejce.
- // Atomic task completion: status, staff, notification, and next queued task start.
-        $ownTxComplete = !$this->db->inTransaction();
-        if ($ownTxComplete) $this->db->beginTransaction();
-        try {
-            $this->db->prepare("
-                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ?
-            ")->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId]);
+            $statusStmt = $this->db->prepare("
+                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1
+                WHERE id = ? AND status = 'in_progress'
+            ");
+            $statusStmt->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId]);
+            if ($statusStmt->rowCount() === 0) {
+ // Another concurrent tick already completed this task — roll back all effects.
+                if ($ownTx) $this->db->rollBack();
+                return;
+            }
 
             $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ? AND player_id = ?")->execute([$staffId, $pId]);
 
@@ -690,32 +718,38 @@ trait TTSTasksTrait
                 ")->execute([$pId, $wellId, 'task', $msg]);
             }
 
- // Start the next queued task for this worker.
  // Uruchom nastepne zadanie z kolejki dla tego pracownika.
- // startTask() manages its own transaction internally — no double-wrap needed.
+ // Start the next queued task for this worker.
             $qStmt = $this->db->prepare("
                 SELECT * FROM technical_task_queue
-                WHERE staff_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
+                WHERE staff_id = ? AND player_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
             ");
-            $qStmt->execute([$staffId]);
+            $qStmt->execute([$staffId, $pId]);
             $next = $qStmt->fetch();
             if ($next) {
                 $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$next['id']]);
             }
 
-            if ($ownTxComplete) $this->db->commit();
+            if ($ownTx) $this->db->commit();
+        } catch (Throwable $e) {
+            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
+            GameLog::error('TTS', 'completeTask FAILED', $e, ['task_id' => $taskId]);
+            return;
+        }
 
- // startTask() opens its own transaction; call it only after outer commit is done.
  // startTask() otwiera wlasna transakcje; wywolujemy go dopiero po zatwierdzeniu zewnetrznej.
-            if ($next) {
-                $staffRow = $this->getStaffMember($staffId);
-                if ($staffRow) {
-                    $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
+ // startTask() opens its own transaction — call only after outer commit is done.
+        if ($next) {
+            $staffRow = $this->getStaffMember($staffId);
+            if ($staffRow) {
+                $startResult = $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
+                if (!($startResult['success'] ?? false)) {
+                    GameLog::error('TTS', 'completeTask: next queued startTask FAILED — queue entry permanently lost', null, [
+                        'queue_id' => $next['id'], 'task_type' => $next['task_type'],
+                        'staff_id' => $staffId, 'reason' => $startResult['message'] ?? 'unknown',
+                    ]);
                 }
             }
-        } catch (Throwable $e) {
-            if ($ownTxComplete && $this->db->inTransaction()) $this->db->rollBack();
-            GameLog::error('TTS', 'completeTask FAILED', $e, ['task_id' => $taskId]);
         }
     }
 
@@ -814,10 +848,10 @@ trait TTSTasksTrait
             // startTask() otwiera wlasna transakcje — wywolujemy je dopiero PO commit().
             // startTask() opens its own transaction — call it only AFTER commit().
             $nextStmt = $this->db->prepare("
-                SELECT * FROM technical_task_queue WHERE staff_id = ?
+                SELECT * FROM technical_task_queue WHERE staff_id = ? AND player_id = ?
                 ORDER BY priority DESC, queued_at ASC LIMIT 1
             ");
-            $nextStmt->execute([$task['staff_id']]);
+            $nextStmt->execute([$task['staff_id'], $this->playerId]);
             $nextTask = $nextStmt->fetch();
             if ($nextTask) {
                 $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$nextTask['id']]);
@@ -831,7 +865,13 @@ trait TTSTasksTrait
             if ($nextTask) {
                 $staffRow = $this->getStaffMember((int)$task['staff_id']);
                 if ($staffRow) {
-                    $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null, $nextTask['pipeline_id'] ?? null);
+                    $startResult = $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null, $nextTask['pipeline_id'] ?? null);
+                    if (!($startResult['success'] ?? false)) {
+                        GameLog::error('TTS', 'cancelTask: next queued startTask FAILED — queue entry permanently lost', null, [
+                            'queue_id' => $nextTask['id'], 'task_type' => $nextTask['task_type'],
+                            'staff_id' => $task['staff_id'], 'reason' => $startResult['message'] ?? 'unknown',
+                        ]);
+                    }
                 }
             }
 
