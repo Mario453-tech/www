@@ -123,7 +123,7 @@ class WellProductionHandler
 
         if ($this->ctx->loopCtx->playerCash < $opexTotal) {
             if (in_array($well['status'], ['active','contaminated','no_technician','paused_storage','paused_cash'])) {
-                $this->ctx->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = :id")->execute([':id' => $wellId]);
+                $this->ctx->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
                 GameLog::info('tick', 'well paused_cash (no cash)', ['well_id' => $wellId, 'player_id' => $playerId, 'cash' => $this->ctx->loopCtx->playerCash, 'opex' => $opexTotal]);
             }
             $charged = min($opexTotal, $this->ctx->loopCtx->playerCash);
@@ -139,7 +139,7 @@ class WellProductionHandler
         if ($well['status'] === 'paused_storage') {
             $freeSpace = $storageCapacity - $this->ctx->loopCtx->currentStorage;
             if ($freeSpace > 0) {
-                $this->ctx->db->prepare("UPDATE wells SET status = 'active' WHERE id = :id")->execute([':id' => $wellId]);
+                $this->ctx->db->prepare("UPDATE wells SET status = 'active' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
                 $well['status'] = 'active';
                 GameLog::info('tick', 'well resumed (storage has space)', ['well_id' => $wellId, 'free_space' => round($freeSpace, 1)]);
             } else {
@@ -148,7 +148,7 @@ class WellProductionHandler
         }
 
         if ($well['status'] === 'paused_cash') {
-            $this->ctx->db->prepare("UPDATE wells SET status = 'active' WHERE id = :id")->execute([':id' => $wellId]);
+            $this->ctx->db->prepare("UPDATE wells SET status = 'active' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
             $well['status'] = 'active';
             GameLog::info('tick', 'well resumed (cash available)', ['well_id' => $wellId, 'player_id' => $playerId]);
         }
@@ -250,8 +250,8 @@ class WellProductionHandler
         // Pomniejsz rezerwuar o wydobyte baryłki w tym tiku. / Deplete reservoir by barrels produced in this tick.
         if ($producedBbl > 0) {
             $this->ctx->db->prepare(
-                "UPDATE wells SET reservoir_remaining = GREATEST(0, reservoir_remaining - ?) WHERE id = ?"
-            )->execute([round($producedBbl, 4), $wellId]);
+                "UPDATE wells SET reservoir_remaining = GREATEST(0, reservoir_remaining - ?) WHERE id = ? AND player_id = ?"
+            )->execute([round($producedBbl, 4), $wellId, $playerId]);
         }
 
  // Transport capacity limit
@@ -270,7 +270,7 @@ class WellProductionHandler
                 $this->ctx->loopCtx->storageBlockedBbl += $transportLimitedBbl;
                 $this->ctx->loopCtx->recordPreStorageLoss($transportLimitedBbl, $price);
             }
-            $this->ctx->db->prepare("UPDATE wells SET status = 'paused_storage' WHERE id = :id")->execute([':id' => $wellId]);
+            $this->ctx->db->prepare("UPDATE wells SET status = 'paused_storage' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
             GameLog::info('tick', 'well paused_storage (storage full)', ['well_id' => $wellId, 'player_id' => $playerId]);
             return;
         }
@@ -321,7 +321,7 @@ class WellProductionHandler
 
         if ($actual <= 0) return;
 
-        $this->ctx->db->prepare("UPDATE wells SET status = 'active', last_production_at = NOW() WHERE id = :id")->execute([':id' => $wellId]);
+        $this->ctx->db->prepare("UPDATE wells SET status = 'active', last_production_at = NOW() WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
 
  // Zdarzenia transportowe - przed dodaniem do magazynu i liczeniem finansow.
  // Transport events - before adding to storage and calculating financials.
@@ -352,8 +352,8 @@ class WellProductionHandler
 
  // Zapisz nowy stan bufora / Persist updated buffer level
                     $this->ctx->db->prepare(
-                        "UPDATE wells SET road_buffer_bbl = COALESCE(road_buffer_bbl, 0) + ? WHERE id = ?"
-                    )->execute([round($actual, 4), $wellId]);
+                        "UPDATE wells SET road_buffer_bbl = COALESCE(road_buffer_bbl, 0) + ? WHERE id = ? AND player_id = ?"
+                    )->execute([round($actual, 4), $wellId, $playerId]);
 
                     GameLog::info('tick', 'road_buffer_add', [
                         'well_id'    => $wellId,
@@ -364,19 +364,25 @@ class WellProductionHandler
                     ]);
 
                     if ($bufferBbl >= $minLoadBbl) {
- // Bufor pelny: ciezarowki wyruszaja. dispatchTrips i reset bufora sa atomowe — jesli
- // dispatchTrips rzuci wyjatkiem, bufor NIE jest zerowany i przy nastepnym ticku zostanie
- // sczerpany ponownie. Buffer full: trucks depart; dispatch + reset are atomic.
+ // Bufor pelny: dispatch + reset bufora opakowane w transakcje (Fix: nie-atomowe bylo bugiem).
+ // Buffer full: dispatch + buffer reset wrapped in a transaction (Fix: non-atomic was a bug).
+ // Jezeli INSERT kursow powiedzie sie ale UPDATE bufora rzuci, transakcja jest cofana — brak duplikatow.
+ // If trip INSERT succeeds but buffer reset throws, the transaction rolls back — no duplicates.
+                        $ownTxRoad = !$this->ctx->db->inTransaction();
+                        if ($ownTxRoad) $this->ctx->db->beginTransaction();
                         try {
                             $dispatch = $this->ctx->roadTransportSvc->dispatchTrips(
                                 $playerId, $wellId, $bufferBbl, $roadCfg, $politicalRisk
                             );
                             $this->ctx->db->prepare(
-                                "UPDATE wells SET road_buffer_bbl = 0 WHERE id = ?"
-                            )->execute([$wellId]);
+                                "UPDATE wells SET road_buffer_bbl = 0 WHERE id = ? AND player_id = ?"
+                            )->execute([$wellId, $playerId]);
+
+                            if ($ownTxRoad) $this->ctx->db->commit();
 
                             if ($dispatch['cost'] > 0.0) {
-                                $this->ctx->loopCtx->finTransport += $dispatch['cost'];
+                                $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
+                                $this->ctx->loopCtx->finTransport += $charged;
                                 $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                             }
                             $this->ctx->loopCtx->roadInTransitBbl += $bufferBbl;
@@ -388,6 +394,7 @@ class WellProductionHandler
                                 'eta_at'      => $dispatch['eta_at'],
                             ]);
                         } catch (Throwable $e) {
+                            if ($ownTxRoad && $this->ctx->db->inTransaction()) $this->ctx->db->rollBack();
                             GameLog::error('tick', 'road_dispatch_failed — buffer retained for next tick', $e, [
                                 'well_id'    => $wellId,
                                 'player_id'  => $playerId,
@@ -408,7 +415,8 @@ class WellProductionHandler
                     $playerId, $wellId, $actual, $roadCfg, $politicalRisk
                 );
                 if ($dispatch['cost'] > 0.0) {
-                    $this->ctx->loopCtx->finTransport += $dispatch['cost'];
+                    $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
+                    $this->ctx->loopCtx->finTransport += $charged;
                     $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                 }
                 $this->ctx->loopCtx->roadInTransitBbl += $actual;
@@ -462,8 +470,8 @@ class WellProductionHandler
 
  // Zapisz nowy stan bufora / Persist updated buffer level
                 $this->ctx->db->prepare(
-                    "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ?"
-                )->execute([round($actual, 4), $wellId]);
+                    "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ? AND player_id = ?"
+                )->execute([round($actual, 4), $wellId, $playerId]);
 
                 GameLog::info('tick', 'marine_buffer_add', [
                     'well_id'    => $wellId,
@@ -474,27 +482,33 @@ class WellProductionHandler
                 ]);
 
                 if ($bufferBbl >= $minLoadBbl) {
- // Bufor pelny: tankowiec wyrusza. createDelivery i reset bufora sa atomowe — jesli createDelivery
- // rzuci wyjatkiem, bufor NIE jest zerowany i przy nastepnym ticku zostanie sczerpany ponownie.
- // Buffer full: tanker departs. createDelivery and buffer reset are atomic — if createDelivery
- // throws, the buffer is NOT zeroed and will be dispatched again on the next tick.
+ // Bufor pelny: createDelivery + reset bufora opakowane w transakcje (Fix: nie-atomowe bylo bugiem).
+ // Buffer full: createDelivery + buffer reset wrapped in transaction (Fix: non-atomic was a bug).
+ // Jezeli INSERT dostawy powiedzie sie ale UPDATE bufora rzuci, transakcja jest cofana — brak duplikatow.
+ // If delivery INSERT succeeds but buffer reset throws, transaction rolls back — no duplicate delivery.
+                    $ownTxMar = !$this->ctx->db->inTransaction();
+                    if ($ownTxMar) $this->ctx->db->beginTransaction();
                     try {
                         $this->ctx->marineDeliverySvc->createDelivery(
                             $playerId, $wellId, $bufferBbl, $deltaHours, $well, $hseBonus
                         );
                         $this->ctx->db->prepare(
-                            "UPDATE wells SET marine_buffer_bbl = 0 WHERE id = ?"
-                        )->execute([$wellId]);
+                            "UPDATE wells SET marine_buffer_bbl = 0 WHERE id = ? AND player_id = ?"
+                        )->execute([$wellId, $playerId]);
+
+                        if ($ownTxMar) $this->ctx->db->commit();
 
  // Nalicz koszt rejsu od pelnego ladunku / Charge voyage cost for the full load
                         $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
                         if ($costPerBbl > 0.0) {
                             $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
  * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-                            $this->ctx->loopCtx->finTransport += $voyageCost;
+                            $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
+                            $this->ctx->loopCtx->finTransport += $charged;
                             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                         }
                     } catch (Throwable $e) {
+                        if ($ownTxMar && $this->ctx->db->inTransaction()) $this->ctx->db->rollBack();
                         GameLog::error('tick', 'marine_dispatch_failed — buffer retained for next tick', $e, [
                             'well_id'    => $wellId,
                             'player_id'  => $playerId,
@@ -521,7 +535,8 @@ class WellProductionHandler
                 $this->ctx->loopCtx->recordPreStorageLoss($offshoreLostBbl, $price);
             }
             if ($offshoreCost > 0.0) {
-                $this->ctx->loopCtx->finOpex   += $offshoreCost;
+                $charged = min($offshoreCost, $this->ctx->loopCtx->playerCash);
+                $this->ctx->loopCtx->finOpex   += $charged;
                 $this->ctx->loopCtx->playerCash = max(0.0, $this->ctx->loopCtx->playerCash - $offshoreCost);
             }
             if (!empty($offshoreResult['incidents'])) {
@@ -580,7 +595,8 @@ class WellProductionHandler
             );
             $pipelineCost = round($pipelineTickCost + $pipelineFlowCost, 2);
             if ($pipelineCost > 0.0) {
-                $this->ctx->loopCtx->finTransport += $pipelineCost;
+                $charged = min($pipelineCost, $this->ctx->loopCtx->playerCash);
+                $this->ctx->loopCtx->finTransport += $charged;
                 $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $pipelineCost);
                 GameLog::info('tick', 'pipeline_transport_cost', [
                     'well_id' => $wellId,
@@ -595,7 +611,8 @@ class WellProductionHandler
  // Transport OPEX (procentowy od przychodu) / Transport OPEX (percentage of revenue)
         if ($transportOpexPct > 0) {
             $transportOpex = round($actual * $price * ($transportOpexPct / 100.0) * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-            $this->ctx->loopCtx->finTransport += $transportOpex;
+            $charged = min($transportOpex, $this->ctx->loopCtx->playerCash);
+            $this->ctx->loopCtx->finTransport += $charged;
             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $transportOpex);
             GameLog::info('tick', 'transport_opex', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'opex_pct' => $transportOpexPct, 'opex_pln' => $transportOpex]);
         }
@@ -604,22 +621,23 @@ class WellProductionHandler
         $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
         if ($costPerBbl > 0) {
             $transportFixedCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-            $this->ctx->loopCtx->finTransport += $transportFixedCost;
+            $charged = min($transportFixedCost, $this->ctx->loopCtx->playerCash);
+            $this->ctx->loopCtx->finTransport += $charged;
             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $transportFixedCost);
             GameLog::info('tick', 'transport_cost_per_bbl', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'cost_per_bbl' => $costPerBbl, 'total_pln' => $transportFixedCost]);
         }
 
  // Podatek regionalny / Regional tax
-        $taxRate = (float)($well['regional_tax_rate'] ?? 0.0);
-        if ($taxRate <= 0 && !empty($well['region_tax_rate'])) $taxRate = (float)$well['region_tax_rate'];
+        $taxRate = (float)($well['region_tax_rate'] ?? 0.0);
         $taxRate += $regEventTaxExtra;
         if ($taxRate > 0) {
             try {
                 $grossRevenue = $actual * $price;
                 $taxAmount    = round($grossRevenue * $taxRate * $this->ctx->gBalanceMults['tax'], 2);
                 if ($taxAmount > 0) {
+                    $charged = min($taxAmount, $this->ctx->loopCtx->playerCash);
                     $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $taxAmount);
-                    $this->ctx->loopCtx->finTax     += $taxAmount;
+                    $this->ctx->loopCtx->finTax     += $charged;
                     GameLog::info('tick', 'regional_tax', ['well_id' => $wellId, 'player_id' => $playerId, 'tax_rate_pct' => round($taxRate * 100, 2), 'event_tax' => round($regEventTaxExtra * 100, 2), 'gross_rev' => round($grossRevenue, 2), 'tax_amount' => $taxAmount]);
                 }
             } catch (Throwable $e) { GameLog::error('tick', 'regional_tax FAILED', $e, ['well_id' => $wellId]); }
@@ -672,7 +690,7 @@ class WellProductionHandler
                 case 'accident':
                     $eventImpact = ['type' => 'accident', 'lost_bbl' => round($actual, 2)];
                     $actual      = 0;
-                    $this->ctx->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = ? AND status = 'active'")->execute([$wellId]);
+                    $this->ctx->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = ? AND player_id = ? AND status = 'active'")->execute([$wellId, $playerId]);
                     $tsvc?->notify('incident', $wellId, t('tick.notify.transport_accident', ['id' => $wellId]));
                     break;
                 case 'storm':
@@ -686,7 +704,6 @@ class WellProductionHandler
                     $leakLoss                      = round($this->ctx->loopCtx->currentStorage * $leakPct, 2);
                     $storageLossBbl                = $leakLoss;
                     $this->ctx->loopCtx->currentStorage = max(0, $this->ctx->loopCtx->currentStorage - $leakLoss);
-                    $this->ctx->db->prepare("UPDATE storage SET used = GREATEST(0, used - ?) WHERE player_id = ?")->execute([$leakLoss, $playerId]);
                     $eventImpact = ['type' => 'leak', 'lost_bbl' => $leakLoss, 'pct' => round($leakPct * 100)];
                     $tsvc?->notify('incident', $wellId, t('tick.notify.transport_leak', ['id' => $wellId, 'bbl' => $leakLoss, 'pct' => $eventImpact['pct']]));
                     break;
