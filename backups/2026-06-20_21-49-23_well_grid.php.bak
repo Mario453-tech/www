@@ -238,7 +238,7 @@ foreach ($groups as $regionName => $group):
                     <div class="wg-meta-cell">
                         <div class="wg-meta-label"><?= t('wg.loc_tax') ?></div>
                         <div class="wg-meta-value cv-bad">
-                            <?= round((float)($w['region_tax_rate'] ?? 0) * 100, 1) ?>%
+                            <?= round((float)($w['region_tax_rate'] ?? $w['regional_tax_rate'] ?? 0) * 100, 1) ?>%
                             <span class="wg-meta-unit"><?= t('wg.per_hour_short') ?></span>
                         </div>
                     </div>

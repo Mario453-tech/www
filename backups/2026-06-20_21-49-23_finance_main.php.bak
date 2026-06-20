@@ -350,7 +350,7 @@ $policyRecoSecondary = (array)($policyRecommendation['secondary_action'] ?? []);
             $rev2       = $deliv2 * $oilPrice;
             $opex2      = (float)$w2['upkeep_cost_per_hour'] * (float)($w2['_regionOpexMult'] ?? 1.0);
             $tr2        = $rev2 * ((float)$w2['transport_opex_pct'] / 100) + $deliv2 * (float)($w2['_costPerBbl'] ?? 0);
-            $tax2       = $rev2 * (float)($w2['region_tax_rate'] ?? 0.0);
+            $tax2       = $rev2 * (float)$w2['regional_tax_rate'];
             $n2         = $rev2 - $opex2 - $tr2 - $tax2;
             if (abs($n2) > $maxAbsNetPerH) { $maxAbsNetPerH = abs($n2); }
         }
@@ -364,7 +364,7 @@ $policyRecoSecondary = (array)($policyRecommendation['secondary_action'] ?? []);
             $trPct      = (float)$well['transport_opex_pct'];
             $costPerBbl = (float)($well['_costPerBbl'] ?? 0.0);
             $trCostH    = $netRevH * ($trPct / 100) + $deliveredH * $costPerBbl;
-            $taxRate    = (float)($well['region_tax_rate'] ?? 0.0);
+            $taxRate    = (float)$well['regional_tax_rate'];
             $taxH       = $netRevH * $taxRate;
             $netPerH    = $netRevH - $opexH - $trCostH - $taxH;
             $isActive   = in_array($well['status'], ['active', 'no_technician', 'contaminated'], true);
