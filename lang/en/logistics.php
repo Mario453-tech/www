@@ -521,4 +521,22 @@ return [
     'logistics.road_trips.truck_standard' => 'Standard',
     'logistics.road_trips.truck_heavy' => 'Heavy',
     'logistics.road_trips.truck_armored' => 'Armored',
+
+    // Oil flow visualisation (flow section on the logistics overview)
+    'logistics.flow_title'          => 'Oil Flow',
+    'logistics.flow_subtitle'       => 'Visualisation of oil flow through the logistics system',
+    'logistics.flow_step_wells'     => 'Wells',
+    'logistics.flow_step_transport' => 'Transport',
+    'logistics.flow_step_hubs'      => 'Hubs',
+    'logistics.flow_step_transport2'=> 'Pipelines',
+    'logistics.flow_step_storage'   => 'Storage',
+    'logistics.flow_active'         => 'active',
+    'logistics.flow_in_use'         => 'in use',
+    'logistics.flow_pipelines'      => 'pipelines',
+    'logistics.flow_no_loss'        => 'No losses',
+    'logistics.flow_loss'           => 'loss',
+    'logistics.flow_ok'             => 'No failures',
+    'logistics.flow_critical'       => 'critical',
+    'logistics.flow_efficiency'     => 'Transport efficiency',
+    'logistics.flow_capacity'       => 'capacity',
 ];
