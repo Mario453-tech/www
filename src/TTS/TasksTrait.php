@@ -362,6 +362,39 @@ trait TTSTasksTrait
         $pId     = (int)$task['player_id'];
         $skill   = (int)($task['skill_level'] ?? 5);
         $result  = [];
+        $msg     = '';
+
+ // Wynik (sukces/porazka) losujemy ZANIM zajmiemy zadanie, by zajac je od razu statusem koncowym.
+ // Roll the success/failure outcome BEFORE claiming, so the claim sets the final status directly.
+        $failed = ($skill <= 3) && (mt_rand(1, 100) <= (4 - $skill) * 8);
+
+ // Atomowe zajecie zadania PRZED jakimkolwiek efektem: in_progress -> status koncowy.
+ // Atomic claim BEFORE any effect: flip in_progress -> final status.
+ // Dwa rownolegle processTick (widok strony + tick w tle) moga wybrac to samo zadanie;
+ // tylko jeden wygra ten UPDATE (rowCount=1), reszta dostaje rowCount=0 i konczy bez efektow,
+ // wiec efekty (wzrost produkcji, kondycja) nigdy nie naliczaja sie dwa razy.
+ // Two concurrent processTick runs (page view + background tick) may pick the same task;
+ // only one wins this UPDATE (rowCount=1), the rest get rowCount=0 and bail before any effect,
+ // so gameplay effects (production boost, condition gain) are never applied twice.
+        try {
+            $claimStmt = $this->db->prepare("
+                UPDATE technical_tasks SET status = ?, notified = 1
+                WHERE id = ? AND player_id = ? AND status = 'in_progress'
+            ");
+            $claimStmt->execute([$failed ? 'failed' : 'completed', $taskId, $pId]);
+            if ($claimStmt->rowCount() === 0) {
+ // Inny rownolegly tick juz zajal i przetwarza to zadanie - nie rob nic.
+ // Another concurrent tick already claimed and is processing this task - do nothing.
+                return;
+            }
+        } catch (Throwable $e) {
+            GameLog::error('TTS', 'completeTask claim FAILED', $e, ['task_id' => $taskId]);
+            return;
+        }
+
+ // Od tego miejsca jestesmy wylacznym wlascicielem zadania; efekty stosujemy bezpiecznie raz.
+ // From here we are the sole owner of the task; effects are applied exactly once.
+        try {
 
  // Odmroz odwiert po serwisie (przywroc status sprzed "W naprawie"), o ile nie trwa
  // jeszcze inne zadanie serwisowe na tym odwiercie. Robione PRZED efektami zadania,
@@ -402,9 +435,6 @@ trait TTSTasksTrait
                 ")->execute([$pipeId, $pId]);
             }
         }
-
- // Szansa
-        $failed = ($skill <= 3) && (mt_rand(1, 100) <= (4 - $skill) * 8);
 
         if (!$failed) {
             switch ($task['task_type']) {
@@ -676,19 +706,12 @@ trait TTSTasksTrait
             $msg = t('technical.task_msg.task_failed_generic', ['title' => $task['title']]);
         }
 
- // Atomowe zakonczenie zadania: status, pracownik, powiadomienie, nastepne w kolejce.
- // Atomic task completion: status, staff, notification, and next queued task start.
-        $ownTxComplete = !$this->db->inTransaction();
-        if ($ownTxComplete) $this->db->beginTransaction();
-        try {
-            $statusStmt = $this->db->prepare("
-                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ? AND player_id = ? AND status = 'in_progress'
-            ");
-            $statusStmt->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId, $pId]);
-            if ($statusStmt->rowCount() === 0) {
-                if ($ownTxComplete && $this->db->inTransaction()) $this->db->rollBack();
-                return;
-            }
+ // Finalizacja: zapis wyniku, odblokowanie pracownika, powiadomienie, nastepne z kolejki.
+ // Status zostal juz ustawiony atomowym claimem na poczatku, wiec nie powtarzamy go tutaj.
+ // Finalization: persist result, free the worker, notify, promote next queue item.
+ // The status was already set by the atomic claim at the top, so we do not repeat it here.
+            $this->db->prepare("UPDATE technical_tasks SET result_data = ? WHERE id = ? AND player_id = ?")
+                ->execute([json_encode($result), $taskId, $pId]);
 
             $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ? AND player_id = ?")->execute([$staffId, $pId]);
 
@@ -709,22 +732,25 @@ trait TTSTasksTrait
             $qStmt->execute([$staffId, $pId]);
             $next = $qStmt->fetch();
             if ($next) {
-                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?")->execute([$next['id'], $pId]);
-            }
-
-            if ($ownTxComplete) $this->db->commit();
-
- // startTask() opens its own transaction; call it only after outer commit is done.
- // startTask() otwiera wlasna transakcje; wywolujemy go dopiero po zatwierdzeniu zewnetrznej.
-            if ($next) {
                 $staffRow = $this->getStaffMember($staffId);
                 if ($staffRow) {
-                    $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
+                    $startRes = $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
+ // Usun z kolejki dopiero po udanym starcie - inaczej zadanie przepada (brak gotowki, studnia niedostepna).
+ // Remove from the queue only after a successful start - otherwise the item is lost (no cash, well unavailable).
+                    if (!empty($startRes['success'])) {
+                        $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?")->execute([$next['id'], $pId]);
+                    }
                 }
             }
         } catch (Throwable $e) {
-            if ($ownTxComplete && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('TTS', 'completeTask FAILED', $e, ['task_id' => $taskId]);
+ // Zadanie zostalo juz zajete (status koncowy) - nie zostawiaj pracownika w stanie 'busy'.
+ // The task is already claimed (final status) - do not leave the worker stuck as 'busy'.
+            try {
+                $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ? AND player_id = ?")->execute([$staffId, $pId]);
+            } catch (Throwable $e2) {
+ // best-effort
+            }
         }
     }
 
