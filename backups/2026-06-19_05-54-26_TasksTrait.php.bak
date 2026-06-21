@@ -258,8 +258,8 @@ trait TTSTasksTrait
                     ])];
                 }
                 try {
-                    if ($fts !== null) {
-                        $fts->logTransaction(
+                    if (class_exists('FinancialTransactionService', false)) {
+                        (new FinancialTransactionService($this->db))->logTransaction(
                             $this->playerId, null, $cost,
                             FinancialTransactionService::TYPE_TTS_FEE,
                             'Koszt zadania technicznego: ' . ($taskType ?? 'task')
@@ -817,13 +817,13 @@ trait TTSTasksTrait
             // startTask() otwiera wlasna transakcje — wywolujemy je dopiero PO commit().
             // startTask() opens its own transaction — call it only AFTER commit().
             $nextStmt = $this->db->prepare("
-                SELECT * FROM technical_task_queue WHERE staff_id = ? AND player_id = ?
+                SELECT * FROM technical_task_queue WHERE staff_id = ?
                 ORDER BY priority DESC, queued_at ASC LIMIT 1
             ");
-            $nextStmt->execute([$task['staff_id'], $this->playerId]);
+            $nextStmt->execute([$task['staff_id']]);
             $nextTask = $nextStmt->fetch();
             if ($nextTask) {
-                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?")->execute([$nextTask['id'], $this->playerId]);
+                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ?")->execute([$nextTask['id']]);
             }
 
             if ($ownTx) $this->db->commit();

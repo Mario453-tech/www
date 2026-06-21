@@ -157,8 +157,8 @@ class MarineDeliverySection
  // transition to in_transit and stop; the incident roll happens on later ticks.
         if ($status === 'departing') {
             $this->db->prepare(
-                "UPDATE marine_deliveries SET status = 'in_transit' WHERE id = ? AND player_id = ?"
-            )->execute([$id, (int)$delivery['player_id']]);
+                "UPDATE marine_deliveries SET status = 'in_transit' WHERE id = ?"
+            )->execute([$id]);
             return;
         }
 
@@ -191,8 +191,8 @@ class MarineDeliverySection
                     SET status = 'delayed',
                         delay_ticks = delay_ticks + 1,
                         eta_at = DATE_ADD(eta_at, INTERVAL 1 HOUR)
-                  WHERE id = ? AND player_id = ?"
-            )->execute([$id, (int)$delivery['player_id']]);
+                  WHERE id = ?"
+            )->execute([$id]);
             $this->delayedDeliveries++;
             GameLog::info('tick', 'marine_delivery_delayed_no_port', [
                 'delivery_id' => $id, 'player_id' => $delivery['player_id'], 'region_id' => $regionId,
@@ -380,8 +380,8 @@ class MarineDeliverySection
                         arrived_at = ?,
                         delay_ticks = delay_ticks + 1,
                         eta_at = DATE_ADD(eta_at, INTERVAL 1 HOUR)
-                  WHERE id = ? AND player_id = ?"
-            )->execute([$portId, $nowStr, $deliveryId, $playerId]);
+                  WHERE id = ?"
+            )->execute([$portId, $nowStr, $deliveryId]);
             $this->delayedDeliveries++;
             GameLog::info('tick', 'marine_delivery_port_queue_full', [
                 'delivery_id' => $deliveryId, 'port_id' => $portId, 'queue_size' => $queueSize,
@@ -400,15 +400,12 @@ class MarineDeliverySection
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'waiting_for_port', port_id = ?, arrived_at = ?
-                  WHERE id = ? AND player_id = ?"
-            )->execute([$portId, $nowStr, $deliveryId, $playerId]);
+                  WHERE id = ?"
+            )->execute([$portId, $nowStr, $deliveryId]);
             $this->db->prepare(
                 "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
                  VALUES (?, ?, ?, ?, ?, 'waiting')
-                 ON DUPLICATE KEY UPDATE
-                     status     = IF(status = 'done', 'done', 'waiting'),
-                     volume_bbl = IF(status = 'done', volume_bbl, VALUES(volume_bbl)),
-                     queued_at  = IF(status = 'done', queued_at,  VALUES(queued_at))"
+                 ON DUPLICATE KEY UPDATE status = 'waiting', queued_at = VALUES(queued_at)"
             )->execute([$portId, $deliveryId, $playerId, round($volumeBbl, 4), $nowStr]);
             $this->db->commit();
         } catch (Throwable $e) {

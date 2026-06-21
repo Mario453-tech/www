@@ -746,20 +746,6 @@ class RoadTransportService
             if ((int)$stmt->fetchColumn() > 0) {
                 return;
             }
-            // Whitelist kolumn i definicji DDL — zapobiega interpolacji niezaufanych wartosci (Rule 7).
-            // DDL column and definition whitelist — prevents interpolation of untrusted values (Rule 7).
-            $allowedColumns = ['delivered_bbl', 'trips_count', 'trip_hours', 'incident_risk_mult', 'political_risk_level'];
-            $allowedDefinitions = [
-                'DECIMAL(12,4) NOT NULL DEFAULT 0.0000 AFTER volume_bbl',
-                'SMALLINT UNSIGNED NOT NULL DEFAULT 1 AFTER truck_type',
-                'TINYINT UNSIGNED NOT NULL DEFAULT 2 AFTER trips_count',
-                'DECIMAL(6,3) NOT NULL DEFAULT 1.000 AFTER cost',
-                'TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER incident_risk_mult',
-            ];
-            if (!in_array($column, $allowedColumns, true) || !in_array($definition, $allowedDefinitions, true)) {
-                GameLog::error('RoadTransportService', 'ensureRoadTripColumn BLOCKED — unknown column/definition', null, ['column' => $column]);
-                return;
-            }
             $this->db->exec("ALTER TABLE well_road_trips ADD COLUMN {$column} {$definition}");
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
