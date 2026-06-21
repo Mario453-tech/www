@@ -61,9 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $configs = $legal->getAllRegionConfigs();
 
-// Player cash must be known before classification (capital lock, brief 7.3).
-// Player cash must be fetched before classification (capital lock §7.3).
-$cash = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
+// Player balances: cash (gotowka) and bank_balance (konto bankowe).
+// Permit fees are paid from bank_balance; capital-lock uses total (cash+bank).
+$balanceStmt = $db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1");
+$balanceStmt->execute([$playerId]);
+$balanceRow  = $balanceStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$cash        = (float)($balanceRow['cash'] ?? 0.0);
+$bankBalance = (float)($balanceRow['bank_balance'] ?? 0.0);
 
 // Collect statuses for all regions and classify them.
 $permitsByRegion = [];
@@ -139,7 +143,7 @@ foreach ($configs as $cfg) {
                 'permit' => $permit,
                 'required_company_credibility' => $credibilityMin,
             ];
-        } elseif ($reqCapital > 0.0 && $cash < $reqCapital) {
+        } elseif ($reqCapital > 0.0 && ($cash + $bankBalance) < $reqCapital) {
             $capitalLocked[] = ['config' => $cfg, 'permit' => $permit, 'required_capital' => $reqCapital];
         } else {
             $available[] = ['config' => $cfg, 'permit' => $permit];
@@ -241,7 +245,7 @@ try {
 $viewData = compact(
     'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'credibilityLocked', 'levelLocked',
     'hubActive', 'hubInProgress', 'hubAvailable', 'hubLocked', 'hasHubSection',
-    'cash', 'legalLevel', 'error', 'success',
+    'cash', 'bankBalance', 'legalLevel', 'error', 'success',
     'credibilityScore', 'credibilityLevel', 'credibilityMin',
     'briberyEnabled', 'bribeQuotes', 'sabotageModuleEnabled'
 );

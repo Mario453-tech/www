@@ -35,8 +35,10 @@ class AdminAuth
 
  // Check account lock status.
  // PL: Sprawdz blokade konta.
-        if ($admin['lock_until'] && strtotime($admin['lock_until']) > time()) {
-            $minutesLeft = (int)ceil((strtotime($admin['lock_until']) - time()) / 60);
+        // Rzutowanie na int chroni przed strtotime() zwracajacym false dla nieprawidlowej daty.
+        // Cast to int protects against strtotime() returning false for a malformed date.
+        if ($admin['lock_until'] && (int)strtotime($admin['lock_until']) > time()) {
+            $minutesLeft = (int)ceil(((int)strtotime($admin['lock_until']) - time()) / 60);
             self::log('ACCOUNT_LOCKED', "Login attempt on locked account '$login' - {$minutesLeft} min left");
             return false;
         }
@@ -89,7 +91,7 @@ class AdminAuth
 
  // SSO must also respect account lockout (lock_until).
  // PL: SSO musi tez respektowac blokade konta (lock_until).
-        if (!empty($admin['lock_until']) && strtotime($admin['lock_until']) > time()) {
+        if (!empty($admin['lock_until']) && (int)strtotime($admin['lock_until']) > time()) {
             self::log('SSO_BLOCKED', "SSO rejected — account locked: '{$admin['username']}'");
             return false;
         }
@@ -492,18 +494,28 @@ class AdminAuth
             return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
         }
 
+ // Transakcja: oznaczenie tokenu + zmiana hasla musza byc atomowe — crash miedzy nimi zostawiłby admina bez hasla.
+ // Transaction: token mark + password update must be atomic — crash between them would lock the admin out.
+        $db->beginTransaction();
+        try {
  // Atomowe oznaczenie tokenu jako uzytego — zabezpiecza przed race condition double-use.
  // Atomically mark the token as used — prevents race-condition double-use.
-        $markStmt = $db->prepare("UPDATE admin_password_resets SET used = 1 WHERE token_hash = ? AND used = 0");
-        $markStmt->execute([$hash]);
-        if ($markStmt->rowCount() === 0) {
+            $markStmt = $db->prepare("UPDATE admin_password_resets SET used = 1 WHERE token_hash = ? AND used = 0");
+            $markStmt->execute([$hash]);
+            if ($markStmt->rowCount() === 0) {
  // Inny watek/proces zdazyl uzyc tokenu w tym samym momencie.
  // Another thread/process consumed the token at the same moment.
+                $db->rollBack();
+                return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
+            }
+            $passHash = password_hash($newPass, PASSWORD_BCRYPT, ['cost' => 12]);
+            $db->prepare("UPDATE admins SET password_hash = ? WHERE email = ?")->execute([$passHash, $data['email']]);
+            $db->commit();
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            GameLog::error('AdminAuth', 'resetPassword transaction FAILED', $e, ['email' => $data['email'] ?? '']);
             return ['success' => false, 'message' => t('admin_auth.err_token_invalid')];
         }
-
-        $passHash = password_hash($newPass, PASSWORD_BCRYPT, ['cost' => 12]);
-        $db->prepare("UPDATE admins SET password_hash = ? WHERE email = ?")->execute([$passHash, $data['email']]);
 
         self::log('RESET_OK', "Password changed: {$data['email']}");
         return ['success' => true, 'message' => t('admin_auth.msg_password_changed')];

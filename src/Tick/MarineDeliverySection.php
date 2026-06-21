@@ -157,8 +157,8 @@ class MarineDeliverySection
  // transition to in_transit and stop; the incident roll happens on later ticks.
         if ($status === 'departing') {
             $this->db->prepare(
-                "UPDATE marine_deliveries SET status = 'in_transit' WHERE id = ?"
-            )->execute([$id]);
+                "UPDATE marine_deliveries SET status = 'in_transit' WHERE id = ? AND player_id = ?"
+            )->execute([$id, (int)$delivery['player_id']]);
             return;
         }
 
@@ -191,8 +191,8 @@ class MarineDeliverySection
                     SET status = 'delayed',
                         delay_ticks = delay_ticks + 1,
                         eta_at = DATE_ADD(eta_at, INTERVAL 1 HOUR)
-                  WHERE id = ?"
-            )->execute([$id]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$id, (int)$delivery['player_id']]);
             $this->delayedDeliveries++;
             GameLog::info('tick', 'marine_delivery_delayed_no_port', [
                 'delivery_id' => $id, 'player_id' => $delivery['player_id'], 'region_id' => $regionId,
@@ -215,11 +215,13 @@ class MarineDeliverySection
  // Piraci caly ladunek utracony / Pirates entire cargo lost
             try {
                 $this->db->beginTransaction();
+                // Filtruj po player_id — izolacja gracza przy UPDATE marine_deliveries (Rule 1).
+                // Filter by player_id — player isolation on UPDATE marine_deliveries (Rule 1).
                 $this->db->prepare(
                     "UPDATE marine_deliveries
                         SET status = 'lost', incident_type = 'piracy', delivered_at = NOW()
-                      WHERE id = ?"
-                )->execute([$deliveryId]);
+                      WHERE id = ? AND player_id = ?"
+                )->execute([$deliveryId, $playerId]);
  // H3: Usun z port_queue na wypadek sieroty (dostawa trafila do kolejki przed utrata)
  // H3: Remove from port_queue in case of orphan (delivery was queued before being lost)
                 $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ?")->execute([$deliveryId]);
@@ -241,11 +243,13 @@ class MarineDeliverySection
  // Katastrofa caly ladunek utracony / Catastrophe entire cargo lost
             try {
                 $this->db->beginTransaction();
+                // Filtruj po player_id — izolacja gracza przy UPDATE marine_deliveries (Rule 1).
+                // Filter by player_id — player isolation on UPDATE marine_deliveries (Rule 1).
                 $this->db->prepare(
                     "UPDATE marine_deliveries
                         SET status = 'lost', incident_type = 'catastrophe', delivered_at = NOW()
-                      WHERE id = ?"
-                )->execute([$deliveryId]);
+                      WHERE id = ? AND player_id = ?"
+                )->execute([$deliveryId, $playerId]);
  // H3: Usun z port_queue na wypadek sieroty / H3: Remove from port_queue in case of orphan
                 $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ?")->execute([$deliveryId]);
                 $this->db->commit();
@@ -264,13 +268,15 @@ class MarineDeliverySection
 
         } elseif ($roll <= 40) {
  // Sztorm opoznienie o 2 godziny / Storm 2 hour delay
+            // Filtruj po player_id — izolacja gracza przy UPDATE marine_deliveries (Rule 1).
+            // Filter by player_id — player isolation on UPDATE marine_deliveries (Rule 1).
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'delayed', incident_type = 'storm',
                         delay_ticks = delay_ticks + 1,
                         eta_at = DATE_ADD(eta_at, INTERVAL 2 HOUR)
-                  WHERE id = ?"
-            )->execute([$deliveryId]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$deliveryId, $playerId]);
             $this->delayedDeliveries++;
             GameLog::info('tick', 'marine_delivery_delayed_storm', [
                 'delivery_id' => $deliveryId, 'player_id' => $playerId,
@@ -278,13 +284,15 @@ class MarineDeliverySection
 
         } else {
  // Awaria silnika opoznienie o 1 godzine / Engine breakdown 1 hour delay
+            // Filtruj po player_id — izolacja gracza przy UPDATE marine_deliveries (Rule 1).
+            // Filter by player_id — player isolation on UPDATE marine_deliveries (Rule 1).
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'delayed', incident_type = 'breakdown',
                         delay_ticks = delay_ticks + 1,
                         eta_at = DATE_ADD(eta_at, INTERVAL 1 HOUR)
-                  WHERE id = ?"
-            )->execute([$deliveryId]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$deliveryId, $playerId]);
             $this->delayedDeliveries++;
             GameLog::info('tick', 'marine_delivery_delayed_breakdown', [
                 'delivery_id' => $deliveryId, 'player_id' => $playerId,
@@ -372,8 +380,8 @@ class MarineDeliverySection
                         arrived_at = ?,
                         delay_ticks = delay_ticks + 1,
                         eta_at = DATE_ADD(eta_at, INTERVAL 1 HOUR)
-                  WHERE id = ?"
-            )->execute([$portId, $nowStr, $deliveryId]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$portId, $nowStr, $deliveryId, $playerId]);
             $this->delayedDeliveries++;
             GameLog::info('tick', 'marine_delivery_port_queue_full', [
                 'delivery_id' => $deliveryId, 'port_id' => $portId, 'queue_size' => $queueSize,
@@ -392,11 +400,8 @@ class MarineDeliverySection
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'waiting_for_port', port_id = ?, arrived_at = ?
-                  WHERE id = ?"
-            )->execute([$portId, $nowStr, $deliveryId]);
-            // BUG4 FIX: ON DUPLICATE KEY UPDATE must not reset status back to 'waiting'
-            // if the port_queue entry is already 'done' (delivery fully processed).
-            // Using IF() guards against reactivating a completed delivery.
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$portId, $nowStr, $deliveryId, $playerId]);
             $this->db->prepare(
                 "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
                  VALUES (?, ?, ?, ?, ?, 'waiting')

@@ -137,7 +137,7 @@ final class LegalNotificationsTest extends SqliteIntegrationTestCase
 
     private function createSchema(): void
     {
-        $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL DEFAULT 0)');
+        $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL DEFAULT 0, bank_balance REAL DEFAULT 0)');
         $this->db->exec(
             'CREATE TABLE wells (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

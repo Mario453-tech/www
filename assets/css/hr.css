@@ -871,9 +871,36 @@ body.hr-body {
 .tech-rev-score { font-weight: 700; color: var(--gold); margin-left: auto; }
 .tech-rev-comment { font-size: 11px; color: rgba(255,255,255,.4); font-style: italic; width: 100%; }
 
+/* CV action buttons base / Przyciski akcji CV */
+.btn-cv {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+  white-space: nowrap;
+}
+.btn-cv:hover { opacity: .85; }
+.btn-cv-reject {
+  background: rgba(224,85,85,0.15);
+  border-color: rgba(224,85,85,0.35);
+  color: #e05555;
+}
+.btn-cv-hire {
+  background: rgba(91,156,246,0.15);
+  border-color: rgba(91,156,246,0.35);
+  color: #5b9cf6;
+}
+
 /* CV hire recommended */
 .btn-cv-hire-recommended {
   background: var(--green) !important;
+  border-color: rgba(78,201,122,0.5) !important;
+  color: #fff !important;
   box-shadow: 0 0 12px rgba(78,201,122,0.3);
 }
 

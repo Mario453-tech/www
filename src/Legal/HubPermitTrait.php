@@ -270,20 +270,24 @@ trait LegalHubPermitTrait
         $applicationCost = (float)$config['hub_permit_cost'];
         $reviewMinutes   = (int)$config['hub_review_minutes'];
 
-        $paymentService = new PlayerPaymentService($this->db);
+        $fts = new FinancialTransactionService($this->db);
 
         $this->db->beginTransaction();
         try {
-            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
+            // Oplata pobierana lacznie z cash+bank_balance (bank najpierw, reszta z cash).
+            // Fee deducted from combined cash+bank_balance (bank first, remainder from cash).
+            $cashStmt = $this->db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1");
             $cashStmt->execute([$playerId]);
             $cashRow = $cashStmt->fetch();
             if (!$cashRow) {
                 $this->db->rollBack();
                 return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.hub.err.unknown_player')];
             }
-            $cash = (float)$cashRow['cash'];
+            $cash        = (float)($cashRow['cash'] ?? 0.0);
+            $bankBalance = (float)($cashRow['bank_balance'] ?? 0.0);
 
-            if ($cash < $applicationCost) {
+            // Sprawdz laczne srodki gracza (cash + bank) / Check combined funds (cash + bank).
+            if (($cash + $bankBalance) < $applicationCost) {
                 $this->db->rollBack();
                 return [
                     'success' => false,
@@ -295,8 +299,8 @@ trait LegalHubPermitTrait
                 ];
             }
 
-            // Pobierz oplate / Deduct fee.
-            $payment = $paymentService->charge(
+            // Pobierz oplate z bank+cash lacznie / Deduct fee from combined bank+cash.
+            $payment = $fts->debitCombined(
                 $playerId,
                 $applicationCost,
                 FinancialTransactionService::TYPE_LEGAL_FEE,

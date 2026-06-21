@@ -514,11 +514,13 @@ class LegalService
             }
         }
 
-        $paymentService = new PlayerPaymentService($this->db);
+        $fts = new FinancialTransactionService($this->db);
 
         $this->db->beginTransaction();
         try {
-            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
+            // Oplata pobierana lacznie z cash+bank_balance (bank najpierw, reszta z cash).
+            // Fee deducted from combined cash+bank_balance (bank first, remainder from cash).
+            $cashStmt = $this->db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1");
             $cashStmt->execute([$playerId]);
             $cashRow = $cashStmt->fetch();
             if (!$cashRow) {
@@ -526,6 +528,7 @@ class LegalService
                 return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.err.unknown_player')];
             }
             $cash = (float)$cashRow['cash'];
+            $bankBalance = (float)($cashRow['bank_balance'] ?? 0.0);
 
             // Wymagany poziom dzialu prawnego dla trudniejszych regionow.
             // Required legal department level for more demanding regions.
@@ -547,7 +550,9 @@ class LegalService
             }
 
             // Region wysokiego ryzyka: firma nie spełnia wymogu kapitałowego.
-            if ($requiredCapital > 0 && $cash < $requiredCapital) {
+            // Capital requirement checked against total funds (cash + bank).
+            $totalFunds = $cash + $bankBalance;
+            if ($requiredCapital > 0 && $totalFunds < $requiredCapital) {
                 $this->db->rollBack();
                 return [
                     'success'          => false,
@@ -557,8 +562,8 @@ class LegalService
                 ];
             }
 
-            // Środki na opłatę za wniosek.
-            if ($cash < $applicationCost) {
+            // Sprawdz laczne srodki gracza (cash + bank) / Check combined funds (cash + bank).
+            if (($cash + $bankBalance) < $applicationCost) {
                 $this->db->rollBack();
                 return [
                     'success' => false,
@@ -570,8 +575,8 @@ class LegalService
                 ];
             }
 
-            // Pobranie oplaty / Deduct legal application fee.
-            $payment = $paymentService->charge(
+            // Pobranie oplaty z bank+cash lacznie / Deduct fee from combined bank+cash.
+            $payment = $fts->debitCombined(
                 $playerId,
                 $applicationCost,
                 FinancialTransactionService::TYPE_LEGAL_FEE,

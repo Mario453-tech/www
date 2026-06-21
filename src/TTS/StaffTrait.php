@@ -89,14 +89,17 @@ trait TTSStaffTrait
             return ['success' => false, 'message' => t('technical.staff_msg.unknown_spec')];
         }
 
-        $this->db->beginTransaction();
+        // Wzorzec $ownTx — metoda moze byc wywolana samodzielnie lub wewnatrz transakcji wywolujacego (Rule 5).
+        // $ownTx pattern — method may be called standalone or inside a caller's transaction (Rule 5).
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
         try {
             // Atomic cash check + deduct to avoid TOCTOU race.
             // Atomowe sprawdzenie + odliczenie srodkow, by uniknac wyscigu TOCTOU.
             $cashUpd = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
             $cashUpd->execute([$salary, $this->playerId, $salary]);
             if ($cashUpd->rowCount() === 0) {
-                $this->db->rollBack();
+                if ($ownTx) $this->db->rollBack();
                 return ['success' => false, 'message' => t('technical.staff_msg.no_funds', ['amount' => $salary])];
             }
             try {
@@ -122,9 +125,9 @@ trait TTSStaffTrait
                 max(1, min(10, $skillLevel)),
                 $salary,
             ]);
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
         } catch (Throwable $e) {
-            $this->db->rollBack();
+            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('TTS', 'hireEngineer FAILED', $e);
             return ['success' => false, 'message' => t('technical.staff_msg.hire_failed', [
                 'error' => $e->getMessage(),
@@ -158,8 +161,10 @@ trait TTSStaffTrait
 
             // Guard by player_id to prevent cross-player firing + busy-check before firing.
             // Sprawdzenie player_id (ochrona przed zwolnieniem pracownika innego gracza) + blokada przy zadaniu w toku.
-            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND status = 'in_progress' LIMIT 1");
-            $taskStmt->execute([$staffId]);
+            // Filtruj po player_id — zapobiega blokowaniu przez zadanie innego gracza (Rule 1).
+            // Filter by player_id — prevents blocking by another player's task (Rule 1).
+            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status = 'in_progress' LIMIT 1");
+            $taskStmt->execute([$staffId, $this->playerId]);
             if ($taskStmt->fetch()) {
                 $this->db->rollBack();
                 return ['success' => false, 'message' => t('technical.staff_msg.staff_busy')];

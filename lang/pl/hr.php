@@ -88,6 +88,7 @@ return [
     'hr.directors_boardroom_hint' => 'Zmiany zarządu wykonasz w Sali Zarządu',
     'hr.skills_avg' => 'śr. %s/10',
     'hr.years_exp' => 'lat doświadczenia',
+    'hr.years_exp_short' => 'lat dośw.',
     'hr.years_age' => 'lat',
     'hr.month_short' => 'mies.',
     'hr.salary_month' => '/ miesiąc',

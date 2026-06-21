@@ -30,10 +30,13 @@ trait WellActionsTrait
 
             // Transakcja obejmuje odjecie cash i UPDATE wells — atomowo lub wcale.
             // Transaction wraps cash deduct and well UPDATE — all-or-nothing.
-            $this->db->beginTransaction();
+            // $ownTx — zabezpieczenie przed zagniezdzona transakcja (Rule 5).
+            // $ownTx — guard against nested transaction (Rule 5).
+            $ownTx = !$this->db->inTransaction();
+            if ($ownTx) $this->db->beginTransaction();
             try {
                 if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_UPGRADE, 'Zmiana tieru wyposazenia odwiertu')) {
-                    $this->db->rollBack();
+                    if ($ownTx) $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
                 }
                 $stmtUpd = $this->db->prepare("
@@ -49,14 +52,14 @@ trait WellActionsTrait
                 // Sprawdz czy wiersz zostal zaktualizowany — brak wierszy = odwiert zniknal po getWell().
                 // Check if any row was updated — 0 rows means the well disappeared after getWell().
                 if ($stmtUpd->rowCount() === 0) {
-                    $this->db->rollBack();
+                    if ($ownTx) $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_not_found')];
                 }
                 $this->logEvent($wellId, $playerId, 'upgrade', $cost,
                     "Equipment tier changed: {$currentTier}  {$tier} (swap until {$swapUntil})");
-                $this->db->commit();
+                if ($ownTx) $this->db->commit();
             } catch (\Throwable $e) {
-                $this->db->rollBack();
+                if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
                 GameLog::error('WellService', 'upgradeEquipment set_tier FAILED', $e);
                 return ['success' => false, 'message' => t('well.err_generic')];
             }
@@ -77,7 +80,10 @@ trait WellActionsTrait
 
             // Transakcja obejmuje odjecie cash i UPDATE wells — atomowo lub wcale.
             // Transaction wraps cash deduct and well UPDATE — all-or-nothing.
-            $this->db->beginTransaction();
+            // $ownTx — zabezpieczenie przed zagniezdzona transakcja (Rule 5).
+            // $ownTx — guard against nested transaction (Rule 5).
+            $ownTx = !$this->db->inTransaction();
+            if ($ownTx) $this->db->beginTransaction();
             try {
                 // SELECT z blokada wierszowa — zapobiega race condition przy rownolegych zadaniach.
                 // Row-level lock prevents race condition under concurrent requests.
@@ -110,7 +116,7 @@ trait WellActionsTrait
                 $cost         = $upgradeCosts[$nextLevel];
 
                 if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_UPGRADE, 'Ulepszenie poziomu wyposazenia odwiertu')) {
-                    $this->db->rollBack();
+                    if ($ownTx) $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
                 }
 
@@ -125,14 +131,14 @@ trait WellActionsTrait
                 // Sprawdz czy wiersz zostal zaktualizowany — 0 wierszy = race condition lub odwiert zniknal.
                 // Check if any row was updated — 0 rows means race condition or well disappeared.
                 if ($stmtUpd->rowCount() === 0) {
-                    $this->db->rollBack();
+                    if ($ownTx) $this->db->rollBack();
                     return ['success' => false, 'message' => t('well.err_not_found')];
                 }
                 $this->logEvent($wellId, $playerId, 'upgrade', $cost,
                     "Equipment upgrade: lvl {$currentLevel}  {$nextLevel} ({$currentTier})");
-                $this->db->commit();
+                if ($ownTx) $this->db->commit();
             } catch (\Throwable $e) {
-                $this->db->rollBack();
+                if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
                 GameLog::error('WellService', 'upgradeEquipment upgrade_level FAILED', $e);
                 return ['success' => false, 'message' => t('well.err_generic')];
             }
@@ -154,8 +160,10 @@ trait WellActionsTrait
     {
         $player = new Player($playerId);
 
-        $fts3 = new FinancialTransactionService();
-        $this->db->beginTransaction();
+        // $ownTx — zabezpieczenie przed zagniezdzona transakcja (Rule 5).
+        // $ownTx — guard against nested transaction (Rule 5).
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
         try {
             // SELECT z blokada wierszowa — zapobiega race condition przy rownolegych zadaniach.
             // Row-level lock prevents race condition under concurrent requests.
@@ -185,7 +193,7 @@ trait WellActionsTrait
             // Sprawdzenie salda atomowo wewnatrz transakcji — return false gdy za malo.
             // Atomic balance check inside transaction — returns false when insufficient.
             if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_WELL_MAINTENANCE, 'Konserwacja odwiertu')) {
-                $this->db->rollBack();
+                if ($ownTx) $this->db->rollBack();
                 return ['success' => false, 'message' => t('well.err_insufficient_funds', ['cost' => $this->fmt($cost)])];
             }
             $stmtUpd = $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ? AND player_id = ?");
@@ -193,7 +201,7 @@ trait WellActionsTrait
             // Sprawdz czy wiersz zostal zaktualizowany — brak wierszy = odwiert zniknal po getWell().
             // Check if any row was updated — 0 rows means the well disappeared after getWell().
             if ($stmtUpd->rowCount() === 0) {
-                $this->db->rollBack();
+                if ($ownTx) $this->db->rollBack();
                 return ['success' => false, 'message' => t('well.err_not_found')];
             }
 
@@ -206,9 +214,9 @@ trait WellActionsTrait
 
             $this->logEvent($wellId, $playerId, 'maintenance', $cost,
                 "Maintenance - condition: {$condBefore}%  {$condAfter}%", $condBefore, $condAfter);
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
         } catch (\Throwable $e) {
-            $this->db->rollBack();
+            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('WellService', 'performMaintenance FAILED', $e);
             return ['success' => false, 'message' => t('well.err_generic')];
         }

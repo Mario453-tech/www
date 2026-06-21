@@ -33,6 +33,10 @@ trait TTSRecruitmentTrait
 
     public function getTechnicalCandidates(): array
     {
+        // Only technical-department staff candidates (not directors from other departments).
+        // Tylko kandydaci na pracownikow technicznych (nie dyrektorzy innych dzialow).
+        // LEFT JOIN na specjalizacje — obejmuje tez kandydatow z NULL spec (awaryjna geneza).
+        // LEFT JOIN on specializations — also covers NULL-spec candidates (fallback generation).
         $stmt = $this->db->prepare("
             SELECT c.*,
                    hs.name  AS spec_name,
@@ -45,22 +49,26 @@ trait TTSRecruitmentTrait
                    cr.recommendation   AS review_recommendation,
                    cr.comment          AS review_comment
             FROM candidates c
-            JOIN board_roles br             ON c.role_id = br.id
-            LEFT JOIN hr_specializations hs ON c.specialization_id = hs.id
-            LEFT JOIN hr_regions hr         ON c.region_code = hr.code
-            LEFT JOIN candidate_reviews cr  ON cr.candidate_id = c.id
-                                           AND cr.player_id = ?
-            WHERE br.code = 'technical'
-              AND c.expires_at > NOW()
+            LEFT JOIN hr_specializations hs  ON c.specialization_id = hs.id
+            LEFT JOIN hr_regions hr          ON c.region_code = hr.code
+            LEFT JOIN candidate_reviews cr   ON cr.candidate_id = c.id
+                                            AND cr.player_id = ?
+            LEFT JOIN recruitment_requests rr ON rr.id = c.request_id
+            WHERE c.expires_at > NOW()
+              AND (hs.department = 'technical' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
               )
+              AND (
+                   rr.id IS NULL
+                   OR rr.initiated_by <> 'director'
+                   OR COALESCE(rr.spec_code, '') <> ''
+              )
             ORDER BY c.expires_at ASC
         ");
-        // C2 fix: bind player_id twice (isolation filter + subquery) / Poprawka C2: player_id bindowany dwukrotnie (filtr izolacji + podzapytanie)
         $stmt->execute([$this->playerId, $this->playerId, $this->playerId]);
         return $stmt->fetchAll();
     }
@@ -80,19 +88,25 @@ trait TTSRecruitmentTrait
             return ['success' => false, 'message' => t('technical.recruitment_msg.candidate_missing')];
         }
 
-        // H-6 fix: isolate candidate to this player (own, global, or via request) / Poprawka H-6: izolacja kandydata do gracza (wlasny, globalny lub przez request)
+        // H-6 fix: isolate candidate to this player — only technical-dept staff / Poprawka H-6: izolacja do gracza — tylko pracownicy dzialu technicznego
         $cStmt = $this->db->prepare("
             SELECT c.id
             FROM candidates c
-            JOIN board_roles br ON br.id = c.role_id
+            LEFT JOIN hr_specializations hs ON c.specialization_id = hs.id
+            LEFT JOIN recruitment_requests rr ON rr.id = c.request_id
             WHERE c.id = ?
-              AND br.code = 'technical'
               AND c.expires_at > NOW()
+              AND (hs.department = 'technical' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
+              )
+              AND (
+                   rr.id IS NULL
+                   OR rr.initiated_by <> 'director'
+                   OR COALESCE(rr.spec_code, '') <> ''
               )
             LIMIT 1
         ");

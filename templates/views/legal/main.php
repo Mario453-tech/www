@@ -103,7 +103,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <?php
             $__trCost   = (float)$cfg['application_cost'];
             $__trReview = (int)$cfg['base_review_minutes'];
-            $__trAfford = $cash >= $__trCost;
+            $__trAfford = ($bankBalance ?? 0.0) >= $__trCost;
             $__trName   = (string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id']);
             ?>
             <p class="legal-region-note"><?= t('legal.transitional_apply_warn') ?></p>
@@ -184,7 +184,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $permit = $entry['permit'];
         $cost   = (float)$cfg['application_cost'];
         $reviewMin = (int)$cfg['base_review_minutes'];
-        $canAfford = $cash >= $cost;
+        $canAfford = ($bankBalance ?? 0.0) >= $cost;
         $wasRefused = ($permit['status'] === 'refused');
         ?>
         <div class="legal-region-card legal-region-card--available">
@@ -322,7 +322,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <?php
         $cfg     = $entry['config'];
         $reqCap  = (float)$entry['required_capital'];
-        $missing = max(0.0, $reqCap - $cash);
+        $missing = max(0.0, $reqCap - ($cash + ($bankBalance ?? 0.0)));
         ?>
         <div class="legal-region-card legal-region-card--capital-locked">
             <div class="legal-region-name">
@@ -428,7 +428,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $permit    = $entry['permit'];
         $cost      = (float)$cfg['hub_permit_cost'];
         $reviewMin = (int)$cfg['hub_review_minutes'];
-        $canAfford = $cash >= $cost;
+        $canAfford = ($bankBalance ?? 0.0) >= $cost;
         $wasRefused = ($permit['status'] === 'refused');
         ?>
         <div class="legal-region-card legal-region-card--available">

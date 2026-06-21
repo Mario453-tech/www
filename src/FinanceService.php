@@ -246,7 +246,7 @@ class FinanceService
                     w.transport_capacity_pct,
                     w.technical_condition,
                     w.wear_level,
-                    w.regional_tax_rate,
+                    w.regional_tax_rate AS region_tax_rate,
                     COALESCE(w.region_opex_mult, 1.0) AS region_opex_mult,
                     w.well_type,
                     w.location_name,
@@ -746,7 +746,7 @@ class FinanceService
             $grossH  = $prod * $price;
             $opexH   = (float)($well['upkeep_cost_per_hour'] ?? 0.0);
             $trPct   = (float)($well['transport_opex_pct'] ?? 0.0);
-            $taxRate = (float)($well['regional_tax_rate'] ?? 0.0);
+            $taxRate = (float)($well['region_tax_rate'] ?? 0.0);
             $netH    = $grossH - $opexH - ($grossH * ($trPct / 100.0)) - ($grossH * $taxRate);
             if ($netH < 0) {
                 $negativeWells++;

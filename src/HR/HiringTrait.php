@@ -37,14 +37,18 @@ trait HRHiringTrait
  // Split flow: technical engineer versus department director.
  // PL: Rozdzielenie sciezek: inzynier techniczny versus dyrektor dzialu.
             $isTechEngineer = false;
-            if (($candidate['role_code'] ?? '') === 'technical' && !empty($candidate['specialization_id'])) {
+            if (!empty($candidate['specialization_id'])) {
                 $spStmt = $this->db->prepare("SELECT department FROM hr_specializations WHERE id = ? LIMIT 1");
                 $spStmt->execute([(int)$candidate['specialization_id']]);
                 $spDept = $spStmt->fetchColumn();
 
                 if ($spDept === 'technical') {
-                    $mgrExists = $this->isRoleOccupied((int)$candidate['role_id'], $playerId);
-                    if ($mgrExists) {
+                    // Look up the technical role ID explicitly — candidate role_id may differ.
+                    // Pobierz ID roli technicznej explicite — role_id kandydata moze byc inne.
+                    $techRoleStmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = 'technical' LIMIT 1");
+                    $techRoleStmt->execute();
+                    $techRoleId = (int)($techRoleStmt->fetchColumn() ?: 0);
+                    if ($techRoleId > 0 && $this->isRoleOccupied($techRoleId, $playerId)) {
                         $isTechEngineer = true;
                     }
                 }
@@ -128,7 +132,7 @@ trait HRHiringTrait
             ");
             $mgrStmt->execute([$playerId]);
             $managerId = (int)($mgrStmt->fetchColumn() ?: 0);
-            if ($managerId <= 0 || (string)($candidate['role_code'] ?? '') !== 'technical' || empty($candidate['specialization_id'])) {
+            if ($managerId <= 0 || empty($candidate['specialization_id'])) {
                 $this->db->rollBack();
                 return ['success' => false, 'message' => t('hr_hiring.err_role_already_filled')];
             }
