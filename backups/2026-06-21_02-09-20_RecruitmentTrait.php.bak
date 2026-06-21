@@ -45,26 +45,22 @@ trait TTSRecruitmentTrait
                    cr.recommendation   AS review_recommendation,
                    cr.comment          AS review_comment
             FROM candidates c
-            LEFT JOIN board_roles br             ON c.role_id = br.id
-            LEFT JOIN hr_specializations hs      ON c.specialization_id = hs.id
-            LEFT JOIN hr_regions hr              ON c.region_code = hr.code
-            LEFT JOIN candidate_reviews cr       ON cr.candidate_id = c.id
-                                                AND cr.player_id = ?
-            LEFT JOIN recruitment_requests rr    ON rr.id = c.request_id
-            WHERE c.expires_at > NOW()
+            JOIN board_roles br             ON c.role_id = br.id
+            LEFT JOIN hr_specializations hs ON c.specialization_id = hs.id
+            LEFT JOIN hr_regions hr         ON c.region_code = hr.code
+            LEFT JOIN candidate_reviews cr  ON cr.candidate_id = c.id
+                                           AND cr.player_id = ?
+            WHERE br.code = 'technical'
+              AND c.expires_at > NOW()
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
               )
-              AND (
-                   rr.id IS NULL
-                   OR rr.initiated_by <> 'director'
-                   OR COALESCE(rr.spec_code, '') <> ''
-              )
             ORDER BY c.expires_at ASC
         ");
+        // C2 fix: bind player_id twice (isolation filter + subquery) / Poprawka C2: player_id bindowany dwukrotnie (filtr izolacji + podzapytanie)
         $stmt->execute([$this->playerId, $this->playerId, $this->playerId]);
         return $stmt->fetchAll();
     }
@@ -85,23 +81,18 @@ trait TTSRecruitmentTrait
         }
 
         // H-6 fix: isolate candidate to this player (own, global, or via request) / Poprawka H-6: izolacja kandydata do gracza (wlasny, globalny lub przez request)
-        // No br.code filter - technical dept reviews all staff candidates (non-director) / Brak filtra br.code - dzial tech ocenia wszystkich pracownikow (nie dyrektorow)
         $cStmt = $this->db->prepare("
             SELECT c.id
             FROM candidates c
-            LEFT JOIN recruitment_requests rr ON rr.id = c.request_id
+            JOIN board_roles br ON br.id = c.role_id
             WHERE c.id = ?
+              AND br.code = 'technical'
               AND c.expires_at > NOW()
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
-              )
-              AND (
-                   rr.id IS NULL
-                   OR rr.initiated_by <> 'director'
-                   OR COALESCE(rr.spec_code, '') <> ''
               )
             LIMIT 1
         ");
