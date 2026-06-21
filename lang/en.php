@@ -33,5 +33,6 @@ $lang = array_replace($lang, require __DIR__ . '/en/protection.php');
 $lang = array_replace($lang, require __DIR__ . '/en/recovery.php');
 $lang = array_replace($lang, require __DIR__ . '/en/sabotage.php');
 $lang = array_replace($lang, require __DIR__ . '/en/technical.php');
+$lang = array_replace($lang, require __DIR__ . '/en/privacy.php');
 
 return $lang;

@@ -35,7 +35,14 @@
                 <?php endforeach ?>
             </nav>
             <?php endif ?>
-            <p><?= str_replace('{year}', date('Y'), $__footerText) ?></p>
+            <p><?= htmlspecialchars(str_replace('{year}', date('Y'), $__footerText)) ?></p>
+            <p>
+                <a href="/cookies-policy.php" class="privacy-footer-link"><?= t('privacy.page.cookies_title') !== 'privacy.page.cookies_title' ? 'Polityka cookies' : 'Polityka cookies' ?></a>
+                &nbsp;·&nbsp;
+                <a href="/privacy-policy.php" class="privacy-footer-link">Polityka prywatności</a>
+                &nbsp;·&nbsp;
+                <a href="#" class="privacy-footer-link" data-privacy-settings><?= t('privacy.banner.settings_link') ?></a>
+            </p>
         </footer>
     </div>
 

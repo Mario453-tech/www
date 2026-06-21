@@ -63,6 +63,9 @@ $navSections = [
         'help_editor.php'     => ['', t('admin.nav.help_editor')],
         'template_editor.php' => ['', t('admin.nav.template_editor')],
     ],
+    t('privacy.admin.nav_label') => [
+        'privacy.php' => ['', t('privacy.admin.nav_label')],
+    ],
 ];
 ?>
 
