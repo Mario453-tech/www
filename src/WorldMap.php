@@ -380,10 +380,11 @@ class WorldMap
                 'company_credibility' => null,
             ];
             try {
-                $legal      = new LegalService($this->db);
-                $cashStmt   = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
-                $cashStmt->execute([$playerId]);
-                $playerCash = (float)($cashStmt->fetchColumn() ?? 0);
+                $legal    = new LegalService($this->db);
+                $fundsStmt = $this->db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1");
+                $fundsStmt->execute([$playerId]);
+                $fundsRow   = $fundsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                $playerCash = (float)($fundsRow['cash'] ?? 0) + (float)($fundsRow['bank_balance'] ?? 0);
                 $regionIds  = array_column($regions, 'id');
                 $permitData = $legal->getMapPermitData($playerId, $regionIds, $playerCash);
             } catch (Throwable $e) {

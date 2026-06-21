@@ -322,7 +322,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <?php
         $cfg     = $entry['config'];
         $reqCap  = (float)$entry['required_capital'];
-        $missing = max(0.0, $reqCap - $cash);
+        $missing = max(0.0, $reqCap - ($cash + ($bankBalance ?? 0.0)));
         ?>
         <div class="legal-region-card legal-region-card--capital-locked">
             <div class="legal-region-name">

@@ -344,7 +344,8 @@ final class LegalPermitSimulationTest extends SqliteIntegrationTestCase
         $this->db->exec(
             "CREATE TABLE players (
                 id INTEGER PRIMARY KEY,
-                cash REAL NOT NULL DEFAULT 0
+                cash REAL NOT NULL DEFAULT 0,
+                bank_balance REAL NOT NULL DEFAULT 0
             )"
         );
         $this->db->exec(

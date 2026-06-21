@@ -588,6 +588,131 @@ class FinancialTransactionService
     }
 
     /**
+     * Pobiera srodki z obu pul (bank_balance najpierw, reszta z cash) atomowo.
+     * Deducts from both pools atomically (bank_balance first, then cash for remainder).
+     *
+     * Uzyc gdy oplata musi byc pokryta lacznym saldem gracza (bank + gotowka).
+     * Use when a fee must be covered by the player's combined balance (bank + cash).
+     *
+     * @return array{success:bool,transaction_id:?int,error:?string,amount:float}
+     */
+    public function debitCombined(
+        int $playerId,
+        float $amount,
+        string $type,
+        ?string $description = null,
+        ?string $referenceType = null,
+        ?int $referenceId = null
+    ): array {
+        $amount = round($amount, 2);
+        if ($amount < self::MIN_AMOUNT) {
+            return $this->fail('invalid_amount', $amount);
+        }
+        if (!in_array($type, self::ALLOWED_TYPES, true)) {
+            return $this->fail('invalid_type', $amount);
+        }
+
+        $ownTransaction = false;
+        try {
+            $ownTransaction = !$this->db->inTransaction();
+        } catch (Throwable) {
+            $ownTransaction = true;
+        }
+
+        try {
+            if ($ownTransaction) {
+                $this->db->beginTransaction();
+            }
+
+            $driver = 'mysql';
+            try {
+                $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            } catch (Throwable) {}
+            $forUpdate = ($driver === 'mysql') ? ' FOR UPDATE' : '';
+
+            // Odczyt obu pul z blokada wiersza / Read both pools with row lock.
+            $stmt = $this->db->prepare(
+                "SELECT cash, bank_balance FROM players WHERE id = ?{$forUpdate}"
+            );
+            $stmt->execute([$playerId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row === false || $row === null) {
+                if ($ownTransaction) { $this->db->rollBack(); }
+                return $this->fail('sender_not_found', $amount);
+            }
+
+            $bankBalance = (float)$row['bank_balance'];
+            $cash        = (float)$row['cash'];
+
+            if ($bankBalance + $cash + 1e-9 < $amount) {
+                if ($ownTransaction) { $this->db->rollBack(); }
+                return $this->fail('insufficient_funds', $amount);
+            }
+
+            // Odejmij od bank_balance najpierw, reszte z cash / Bank first, remainder from cash.
+            $fromBank = round(min($bankBalance, $amount), 2);
+            $fromCash = round($amount - $fromBank, 2);
+
+            if ($fromBank > 0.0) {
+                $this->db->prepare(
+                    "UPDATE players SET bank_balance = bank_balance - :a WHERE id = :id"
+                )->execute([':a' => $fromBank, ':id' => $playerId]);
+            }
+            if ($fromCash > 0.0) {
+                $this->db->prepare(
+                    "UPDATE players SET cash = cash - :a WHERE id = :id"
+                )->execute([':a' => $fromCash, ':id' => $playerId]);
+            }
+
+            // Log transakcji / Log transaction.
+            $logStmt = $this->db->prepare(
+                "INSERT INTO bank_transactions
+                    (from_player_id, to_player_id, amount, transaction_type, description, reference_type, reference_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)"
+            );
+            $logStmt->execute([
+                $playerId, null, $amount, $type, $description, $referenceType, $referenceId,
+            ]);
+            $transactionId = (int)$this->db->lastInsertId();
+
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+
+            if (class_exists('GameLog', false)) {
+                GameLog::info('FinancialTransactionService', 'debitCombined OK', [
+                    'tx_id'     => $transactionId,
+                    'player'    => $playerId,
+                    'amount'    => $amount,
+                    'from_bank' => $fromBank,
+                    'from_cash' => $fromCash,
+                    'type'      => $type,
+                ]);
+            }
+
+            return [
+                'success'        => true,
+                'transaction_id' => $transactionId,
+                'error'          => null,
+                'amount'         => $amount,
+            ];
+        } catch (Throwable $e) {
+            try {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+            } catch (Throwable) {}
+            if (class_exists('GameLog', false)) {
+                GameLog::error('FinancialTransactionService', 'debitCombined FAILED', $e, [
+                    'player' => $playerId, 'amount' => $amount, 'type' => $type,
+                ]);
+            }
+            return $this->fail('db_error', $amount);
+        }
+    }
+
+    /**
      * @return array{success:bool,transaction_id:?int,error:?string,amount:float}
      */
     private function fail(string $errorKey, float $amount): array

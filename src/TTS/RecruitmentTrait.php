@@ -60,7 +60,11 @@ trait TTSRecruitmentTrait
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
               )
-              AND (rr.id IS NULL OR rr.initiated_by <> 'director')
+              AND (
+                   rr.id IS NULL
+                   OR rr.initiated_by <> 'director'
+                   OR COALESCE(rr.spec_code, '') <> ''
+              )
             ORDER BY c.expires_at ASC
         ");
         $stmt->execute([$this->playerId, $this->playerId, $this->playerId]);
@@ -97,7 +101,11 @@ trait TTSRecruitmentTrait
                        SELECT id FROM recruitment_requests WHERE player_id = ?
                    ))
               )
-              AND (rr.id IS NULL OR rr.initiated_by <> 'director')
+              AND (
+                   rr.id IS NULL
+                   OR rr.initiated_by <> 'director'
+                   OR COALESCE(rr.spec_code, '') <> ''
+              )
             LIMIT 1
         ");
         $cStmt->execute([$candidateId, $this->playerId, $this->playerId]);
