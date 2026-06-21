@@ -200,13 +200,18 @@ class WellStaffService
  /**
  * Refreshes well status based on currently assigned staff.
  * Called after every assignment change.
+ *
+ * Uses a conditional UPDATE (instead of SELECT+UPDATE) to prevent a race
+ * condition where a concurrent tick could set a critical status (seized,
+ * blowout, broken, sold, contaminated) between our SELECT and our UPDATE.
+ * The WHERE clause ensures we never overwrite those tick-set statuses.
  */
     public function refreshWellStatus(int $wellId): void
     {
         $well = $this->db->prepare("
-            SELECT status, operator_id, technician_id FROM wells WHERE id = ? LIMIT 1
+            SELECT status, operator_id, technician_id FROM wells WHERE id = ? AND player_id = ? LIMIT 1
         ");
-        $well->execute([$wellId]);
+        $well->execute([$wellId, $this->playerId]);
         $w = $well->fetch();
         if (!$w) return;
 
@@ -234,11 +239,18 @@ class WellStaffService
         }
 
         if ($newStatus !== $currentStatus) {
-            $this->db->prepare("UPDATE wells SET status = ? WHERE id = ?")
-                     ->execute([$newStatus, $wellId]);
-            GameLog::info('WellStaffService', 'refreshWellStatus', [
-                'well_id' => $wellId, 'old' => $currentStatus, 'new' => $newStatus,
-            ]);
+ // Conditional UPDATE: never overwrite critical statuses set by a concurrent tick.
+            $stmt = $this->db->prepare("
+                UPDATE wells SET status = ?
+                WHERE id = ? AND player_id = ?
+                  AND status NOT IN ('seized', 'blowout', 'broken', 'sold', 'contaminated')
+            ");
+            $stmt->execute([$newStatus, $wellId, $this->playerId]);
+            if ($stmt->rowCount() > 0) {
+                GameLog::info('WellStaffService', 'refreshWellStatus', [
+                    'well_id' => $wellId, 'old' => $currentStatus, 'new' => $newStatus,
+                ]);
+            }
         }
     }
 

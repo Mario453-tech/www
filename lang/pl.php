@@ -25,7 +25,7 @@ declare(strict_types=1);
 //   lang/pl/market.php
 //   lang/pl/notifications.php
 //   lang/pl/profile.php
-//   lang/pl/recovery.php
+//   lang/pl/recovery.php    ← recovery + bankruptcy keys
 //   lang/pl/technical.php
 // =============================================================================
 

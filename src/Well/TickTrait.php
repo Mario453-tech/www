@@ -26,7 +26,7 @@ trait WellTickTrait
             return [];
         }
 
-        $upgrades = $this->getInstalledUpgrades($wellId);
+        $upgrades = $this->getInstalledUpgrades($wellId, (int)($well['player_id'] ?? 0));
 
  // Base degradation is 0.1% per hour; monitoring and HSE can reduce it.
  // Bazowa degradacja to 0.1% na godzine; monitoring i BHP moga ja zmniejszyc.
@@ -83,9 +83,10 @@ trait WellTickTrait
         $condBefore = (int) $well['technical_condition'];
         $condAfter = max(0, $condBefore - ($degradeRate * $deltaHours));
 
- // Condition at 0% forces the well into broken state.
- // Stan 0% wymusza przejscie odwiertu w broken.
-        if ($condAfter <= 0 && $well['status'] === 'active') {
+ // Condition at 0% forces the well into broken state for all operational statuses.
+ // Stan 0% wymusza przejscie odwiertu w broken dla wszystkich statusow operacyjnych.
+        $operationalStatuses = ['active', 'paused_staff', 'paused_cash', 'paused_storage'];
+        if ($condAfter <= 0 && in_array($well['status'], $operationalStatuses, true)) {
             $this->db->prepare("UPDATE wells SET status = 'broken', technical_condition = 0 WHERE id = ?")
                 ->execute([$wellId]);
             $this->logEvent(
@@ -147,10 +148,10 @@ trait WellTickTrait
             $blowoutChance *= ($hseBonus['catastrophe_mult'] ?? 1.0);
 
             if (mt_rand(1, 1000000) <= (int) ($blowoutChance * 1000000)) {
- // Blowout is catastrophic and nearly destroys the well.
- // Blowout jest katastrofalny i niemal niszczy odwiert.
+ // Blowout is catastrophic and nearly destroys the well; requires manual repair.
+ // Blowout jest katastrofalny i niemal niszczy odwiert; wymaga recznej naprawy.
                 $condAfter = 1;
-                $this->db->prepare("UPDATE wells SET status = 'paused_cash', technical_condition = 1 WHERE id = ?")->execute([$wellId]);
+                $this->db->prepare("UPDATE wells SET status = 'blowout', technical_condition = 1 WHERE id = ?")->execute([$wellId]);
                 $this->logEvent(
                     $wellId,
                     $well['player_id'],

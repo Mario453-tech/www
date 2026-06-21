@@ -83,14 +83,75 @@ class Well
                 return false;
             }
 
-            $stmt = $this->db->prepare("
-                UPDATE wells
-                SET level = level + 1,
-                    base_production_per_hour = base_production_per_hour + 20,
-                    upkeep_cost_per_hour = upkeep_cost_per_hour + 5
-                WHERE id = :id AND player_id = :player_id
-            ");
-            return $stmt->execute([':id' => $wellId, ':player_id' => $this->playerId]);
+            $this->db->beginTransaction();
+            try {
+                // Fetch well with row-level lock; exclude sold/seized wells from upgrade.
+                $lockStmt = $this->db->prepare("
+                    SELECT level FROM wells
+                    WHERE id = :id AND player_id = :player_id
+                      AND status NOT IN ('sold', 'seized')
+                    FOR UPDATE
+                ");
+                $lockStmt->execute([':id' => $wellId, ':player_id' => $this->playerId]);
+                $row = $lockStmt->fetch();
+
+                if (!$row) {
+                    $this->db->rollBack();
+                    if (class_exists('GameLog', false)) {
+                        GameLog::warn('Well', 'upgrade: well not found or ineligible', [
+                            'player_id' => $this->playerId,
+                            'well_id' => $wellId,
+                        ]);
+                    }
+                    return false;
+                }
+
+                if ((int)$row['level'] >= 10) {
+                    $this->db->rollBack();
+                    if (class_exists('GameLog', false)) {
+                        GameLog::warn('Well', 'upgrade: already at max level', [
+                            'player_id' => $this->playerId,
+                            'well_id' => $wellId,
+                            'level' => (int)$row['level'],
+                        ]);
+                    }
+                    return false;
+                }
+
+                $upgradeCost = $this->getUpgradeCost($wellId);
+                if ($upgradeCost === false || !$player->canAfford((float)$upgradeCost)) {
+                    $this->db->rollBack();
+                    return false;
+                }
+
+                if (!$player->updateCash(-(float)$upgradeCost, 'well_upgrade', 'Ulepszenie odwiertu')) {
+                    $this->db->rollBack();
+                    return false;
+                }
+
+                $stmt = $this->db->prepare("
+                    UPDATE wells
+                    SET level = level + 1,
+                        base_production_per_hour = base_production_per_hour + 20,
+                        upkeep_cost_per_hour = upkeep_cost_per_hour + 5
+                    WHERE id = :id AND player_id = :player_id
+                      AND status NOT IN ('sold', 'seized')
+                ");
+                $result = $stmt->execute([':id' => $wellId, ':player_id' => $this->playerId]);
+
+                if (!$result || $stmt->rowCount() === 0) {
+                    $this->db->rollBack();
+                    return false;
+                }
+
+                $this->db->commit();
+                return true;
+            } catch (Throwable $e) {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                throw $e;
+            }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('Well', 'upgrade failed', $e, [

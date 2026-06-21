@@ -38,7 +38,6 @@ $csrfField = '<input type="hidden" name="csrf_token" value="' . htmlspecialchars
                     name="title"
                     class="news-textarea news-title-textarea"
                     rows="4"
-                    required
                     placeholder="<?= t('admin.news.placeholder_title') ?>"
                 ><?= htmlspecialchars($editNews['title_html'] ?? $editNews['title'] ?? '') ?></textarea>
                 </div>

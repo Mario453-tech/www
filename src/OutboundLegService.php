@@ -74,6 +74,14 @@ class OutboundLegService
  */
     private function computePipeline(array $pipe, float $bbl, float $oilPrice, array $mults): array
     {
+        // Enforce pipeline throughput capacity (BUG 3: cap bbl to real_capacity_bph).
+        // OutboundLegService does not receive deltaHours, so capacity is treated as
+        // a per-call limit (one tick = one shipment). Callers pass the tick's bbl.
+        $maxBbl = (float)($pipe['real_capacity_bph'] ?? PHP_FLOAT_MAX);
+        if ($maxBbl > 0 && $bbl > $maxBbl) {
+            $bbl = $maxBbl; // ograniczenie przepustowości / enforce throughput capacity
+        }
+
         $lossPct = (float)($pipe['transport_loss'] ?? 0.0);
         $lossBbl = 0.0;
         if ($lossPct > 0.0) {

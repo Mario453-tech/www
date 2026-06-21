@@ -85,6 +85,20 @@ class WellRoadTripSection
                         'storage_capacity' => round($storageCapacity, 2),
                         'storage_before' => round($currentStorage - $credited, 2),
                     ]);
+                    // Zapisz faktycznie dostarczoną ilość żeby recovery nie re-kredytowało pełnej wartości.
+                    // Persist the actually credited amount so crash recovery does not re-credit the full value.
+                    try {
+                        $actual = $credited;
+                        if ($actual < $delivered) {
+                            $updateDelivered = $this->db->prepare(
+                                "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting'"
+                            );
+                            $scaleFactor = $delivered > 0.0 ? ($actual / $delivered) : 0.0;
+                            $updateDelivered->execute([round($scaleFactor, 8), $playerId]);
+                        }
+                    } catch (Throwable $e) {
+                        GameLog::error('tick', 'road_trip_overflow_delivered_update FAILED', $e, ['player_id' => $playerId]);
+                    }
                 }
                 $this->deliveredBbl += $credited;
             }

@@ -116,11 +116,18 @@ class HubEconomyService
  * Checks if a hub is economically viable (earns more than OPEX from throughput).
  * Returns a ratio: >1.0 = profitable, <1.0 = losing money on logistics.
  *
+ * Units: opex_per_tick is calibrated as cost-per-hour (1 tick = 1 h by convention,
+ * confirmed by getBuildSummary: opex_per_day = opex_per_tick * 24).
+ * processed_volume_bbl in recentStats is bbl per tick of length $deltaHours.
+ * When $deltaHours != 1, we normalise avgProcessed to bbl/h so both sides
+ * of the ratio share the same time unit (per hour).
+ *
  * @param array<string, mixed> $hub
  * @param list<array<string, mixed>> $recentStats last N tick stats rows
  * @param float $oilPricePln current oil price in PLN/bbl
+ * @param float $deltaHours tick duration in hours (default 1.0 for standard ticks)
  */
-    public function getViabilityRatio(array $hub, array $recentStats, float $oilPricePln): float
+    public function getViabilityRatio(array $hub, array $recentStats, float $oilPricePln, float $deltaHours = 1.0): float
     {
         if (empty($recentStats)) {
             return 0.0;
@@ -132,12 +139,16 @@ class HubEconomyService
         }
         $avgProcessed /= count($recentStats);
 
-        $opex = $this->getOpex($hub);
+ // Normalize to bbl/h so units match opex_per_tick (which equals opex per hour).
+        $deltaHours   = max(0.001, $deltaHours);
+        $avgProcessedPerHour = $avgProcessed / $deltaHours;
+
+        $opex = $this->getOpex($hub); // cost per hour (= per standard 1-h tick)
         if ($opex <= 0.0) {
             return 99.0;
         }
 
-        $revenue = $avgProcessed * $oilPricePln;
+        $revenue = $avgProcessedPerHour * $oilPricePln;
         return round($revenue / $opex, 3);
     }
 

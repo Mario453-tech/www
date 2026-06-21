@@ -70,6 +70,15 @@ class PortSection
             $stmt->execute([$playerId]);
             $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            // BUG1 FIX: track bbl processed this tick and enforce throughput_per_tick limit.
+            // All entries in $entries share the same port (joined via port_id), so we read
+            // throughput_per_tick from the first row; the SELECT already limits to one port
+            // per player via ORDER BY queued_at.
+            $processedThisTick = 0.0;
+            $throughputLimit   = isset($entries[0])
+                ? (float)($entries[0]['throughput_per_tick'] ?? PHP_FLOAT_MAX)
+                : PHP_FLOAT_MAX;
+
             foreach ($entries as $entry) {
                 $freeSpace = $storageCapacity - $currentStorage;
                 if ($freeSpace <= 0.0) {
@@ -77,9 +86,15 @@ class PortSection
  // Storage full leave in queue for next tick
                     break;
                 }
+                // BUG1 FIX: stop processing when port throughput for this tick is exhausted
+                if ($processedThisTick >= $throughputLimit) {
+                    break;
+                }
+                $storageBefore  = $currentStorage;
                 $currentStorage = $this->processEntry(
-                    $entry, $playerId, $currentStorage, $freeSpace
+                    $entry, $playerId, $currentStorage, $freeSpace, $throughputLimit, $processedThisTick
                 );
+                $processedThisTick += max(0.0, $currentStorage - $storageBefore);
             }
 
  // Odswiez statusy portow / Refresh port statuses
@@ -103,7 +118,9 @@ class PortSection
         array $entry,
         int   $playerId,
         float $currentStorage,
-        float $freeSpace
+        float $freeSpace,
+        float $throughputLimit   = PHP_FLOAT_MAX,
+        float $processedThisTick = 0.0
     ): float {
         $entryId      = (int)$entry['id'];
         $deliveryId   = (int)$entry['delivery_id'];
@@ -113,7 +130,9 @@ class PortSection
         $nowStr       = $this->now->format('Y-m-d H:i:s');
 
  // Kredytuj tyle ile miesci sie w magazynie / Credit only what fits in storage
-        $actual       = min($volumeBbl, $freeSpace);
+ // BUG1 FIX: also cap by remaining throughput available this tick
+        $remainingThroughput = max(0.0, $throughputLimit - $processedThisTick);
+        $actual       = min($volumeBbl, $freeSpace, $remainingThroughput);
         $handlingCost = round($actual * $costPerBbl, 2);
         $remainder    = round($volumeBbl - $actual, 4);
 
@@ -127,6 +146,14 @@ class PortSection
             $this->db->prepare(
                 "UPDATE port_queue SET volume_bbl = ? WHERE id = ?"
             )->execute([$remainder, $entryId]);
+ // BUG2 FIX: update marine_deliveries status so partial deliveries are not permanently stuck
+ // in 'waiting_for_port'. Use 'waiting_for_port' to keep the delivery associated with the
+ // port queue entry that still has volume remaining.
+            $this->db->prepare(
+                "UPDATE marine_deliveries
+                    SET status = 'waiting_for_port', handling_cost = COALESCE(handling_cost, 0) + ?
+                  WHERE id = ? AND status NOT IN ('delivered','lost')"
+            )->execute([$handlingCost, $deliveryId]);
             GameLog::info('tick', 'port_delivery_partial', [
                 'delivery_id' => $deliveryId,
                 'player_id'   => $playerId,
