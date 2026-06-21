@@ -99,7 +99,7 @@ class WellGridData
                            FROM logistics_hub_assignments a
                            JOIN logistics_hubs h ON h.id = a.hub_id
                           WHERE a.status = 'active'
-                            AND a.player_id = ?
+                            AND h.player_id = ?
                             AND a.well_id IN ({$placeholders})"
                     );
                     $stmt->execute(array_merge([$playerId], $wellIds));
