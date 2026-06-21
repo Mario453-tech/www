@@ -518,9 +518,7 @@ class LegalService
 
         $this->db->beginTransaction();
         try {
-            // Permit fees are paid from bank_balance (bank transfer to authority).
-            // Oplaty za zezwolenia sa pobierane z bank_balance (przelew bankowy do urzedu).
-            $cashStmt = $this->db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1");
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
             $cashStmt->execute([$playerId]);
             $cashRow = $cashStmt->fetch();
             if (!$cashRow) {
@@ -528,7 +526,6 @@ class LegalService
                 return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.err.unknown_player')];
             }
             $cash = (float)$cashRow['cash'];
-            $bankBalance = (float)($cashRow['bank_balance'] ?? 0.0);
 
             // Wymagany poziom dzialu prawnego dla trudniejszych regionow.
             // Required legal department level for more demanding regions.
@@ -550,9 +547,7 @@ class LegalService
             }
 
             // Region wysokiego ryzyka: firma nie spełnia wymogu kapitałowego.
-            // Capital requirement checked against total funds (cash + bank).
-            $totalFunds = $cash + $bankBalance;
-            if ($requiredCapital > 0 && $totalFunds < $requiredCapital) {
+            if ($requiredCapital > 0 && $cash < $requiredCapital) {
                 $this->db->rollBack();
                 return [
                     'success'          => false,
@@ -562,9 +557,8 @@ class LegalService
                 ];
             }
 
-            // Srodki na oplate za wniosek — sprawdz bank_balance (legal_fee -> POOL_BANK).
-            // Funds for application fee — check bank_balance (legal_fee -> POOL_BANK).
-            if ($bankBalance < $applicationCost) {
+            // Środki na opłatę za wniosek.
+            if ($cash < $applicationCost) {
                 $this->db->rollBack();
                 return [
                     'success' => false,

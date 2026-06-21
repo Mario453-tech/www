@@ -88,6 +88,7 @@ class WalletConfig
         'tax'                 => self::POOL_CASH,
         'hr_fee'              => self::POOL_CASH,
         'tts_fee'             => self::POOL_CASH,
+        'legal_fee'           => self::POOL_CASH,
         'well_purchase'       => self::POOL_CASH,
         'well_upgrade'        => self::POOL_CASH,
         'well_maintenance'    => self::POOL_CASH,
@@ -102,9 +103,6 @@ class WalletConfig
         'geological_fee'      => self::POOL_CASH,
         'map_purchase'        => self::POOL_CASH,
         'logistics_fee'       => self::POOL_CASH,
-        // Oplaty urzedowe (zezwolenia) -> konto bankowe (przelew na rzecz urzedu).
-        // Government permit fees -> bank account (bank transfer to the authority).
-        'legal_fee'           => self::POOL_BANK,
         // Gotowka-only (zastosowania fazy 3)
         // Cash-only (phase 3 use cases)
         'black_market_sale'   => self::POOL_CASH,

@@ -274,18 +274,16 @@ trait LegalHubPermitTrait
 
         $this->db->beginTransaction();
         try {
-            // Permit fees are paid from bank_balance (bank transfer to authority).
-            // Oplaty za zezwolenia pobierane z bank_balance (przelew bankowy do urzedu).
-            $cashStmt = $this->db->prepare("SELECT bank_balance FROM players WHERE id = ? LIMIT 1");
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
             $cashStmt->execute([$playerId]);
             $cashRow = $cashStmt->fetch();
             if (!$cashRow) {
                 $this->db->rollBack();
                 return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.hub.err.unknown_player')];
             }
-            $bankBalance = (float)($cashRow['bank_balance'] ?? 0.0);
+            $cash = (float)$cashRow['cash'];
 
-            if ($bankBalance < $applicationCost) {
+            if ($cash < $applicationCost) {
                 $this->db->rollBack();
                 return [
                     'success' => false,
