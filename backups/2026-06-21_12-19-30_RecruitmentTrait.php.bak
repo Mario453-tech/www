@@ -35,8 +35,6 @@ trait TTSRecruitmentTrait
     {
         // Only technical-department staff candidates (not directors from other departments).
         // Tylko kandydaci na pracownikow technicznych (nie dyrektorzy innych dzialow).
-        // LEFT JOIN na specjalizacje — obejmuje tez kandydatow z NULL spec (awaryjna geneza).
-        // LEFT JOIN on specializations — also covers NULL-spec candidates (fallback generation).
         $stmt = $this->db->prepare("
             SELECT c.*,
                    hs.name  AS spec_name,
@@ -49,13 +47,13 @@ trait TTSRecruitmentTrait
                    cr.recommendation   AS review_recommendation,
                    cr.comment          AS review_comment
             FROM candidates c
-            LEFT JOIN hr_specializations hs  ON c.specialization_id = hs.id
+            JOIN hr_specializations hs       ON c.specialization_id = hs.id
+                                            AND hs.department = 'technical'
             LEFT JOIN hr_regions hr          ON c.region_code = hr.code
             LEFT JOIN candidate_reviews cr   ON cr.candidate_id = c.id
                                             AND cr.player_id = ?
             LEFT JOIN recruitment_requests rr ON rr.id = c.request_id
             WHERE c.expires_at > NOW()
-              AND (hs.department = 'technical' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (
@@ -92,11 +90,11 @@ trait TTSRecruitmentTrait
         $cStmt = $this->db->prepare("
             SELECT c.id
             FROM candidates c
-            LEFT JOIN hr_specializations hs ON c.specialization_id = hs.id
+            JOIN hr_specializations hs ON c.specialization_id = hs.id
+                                      AND hs.department = 'technical'
             LEFT JOIN recruitment_requests rr ON rr.id = c.request_id
             WHERE c.id = ?
               AND c.expires_at > NOW()
-              AND (hs.department = 'technical' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (
