@@ -141,7 +141,7 @@ class Player
             if (class_exists('GameLog', false)) {
                 GameLog::error('Player', 'isBankrupt failed', $e, ['player_id' => $this->playerId]);
             }
-            return false;
+            return true;
         }
     }
 

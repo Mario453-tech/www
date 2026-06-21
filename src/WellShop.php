@@ -81,9 +81,10 @@ class WellShop
             try {
                 // Re-check the limit inside the transaction with a row-level lock to prevent
                 // race conditions where two concurrent requests both see COUNT < 5.
-                $countStmt = $this->db->prepare("SELECT COUNT(*) FROM wells WHERE player_id = ? AND status != 'sold' FOR UPDATE");
+                // Note: COUNT(*) ... FOR UPDATE is invalid in MySQL; use SELECT id FOR UPDATE instead.
+                $countStmt = $this->db->prepare("SELECT id FROM wells WHERE player_id = ? AND status != 'sold' FOR UPDATE");
                 $countStmt->execute([$playerId]);
-                $currentCount = (int)$countStmt->fetchColumn();
+                $currentCount = count($countStmt->fetchAll());
                 if ($currentCount >= 5) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well_shop.err_max_wells')];
@@ -154,7 +155,7 @@ class WellShop
     public function getPlayerWellCount(int $playerId): int
     {
         try {
-            $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM wells WHERE player_id = :player_id");
+            $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM wells WHERE player_id = :player_id AND status != 'sold'");
             $stmt->execute([':player_id' => $playerId]);
             return (int)($stmt->fetch()['count'] ?? 0);
         } catch (Throwable $e) {

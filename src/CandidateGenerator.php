@@ -177,7 +177,7 @@ class CandidateGenerator
         if ($count === 0 && $initiatedBy === 'technical') {
             $this->db->prepare("
                 INSERT INTO technical_notifications (player_id, well_id, type, message)
-                SELECT rr.player_id, NULL, 'hr_recruitment',
+                SELECT rr.player_id, NULL, 'task',
                        CONCAT(?, ' (', ?, '). ', ?)
                 FROM recruitment_requests rr
                 WHERE rr.id = ?

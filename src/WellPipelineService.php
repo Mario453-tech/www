@@ -220,7 +220,23 @@ class WellPipelineService
              FROM DUAL
              WHERE NOT EXISTS (
                  SELECT 1 FROM well_pipelines WHERE well_id = ? AND player_id = ?
-             )"
+             )
+             ON DUPLICATE KEY UPDATE
+                 player_id = VALUES(player_id),
+                 name = VALUES(name),
+                 pipeline_type = VALUES(pipeline_type),
+                 status = VALUES(status),
+                 condition_pct = VALUES(condition_pct),
+                 transport_loss = VALUES(transport_loss),
+                 nominal_capacity_bph = VALUES(nominal_capacity_bph),
+                 real_capacity_bph = VALUES(real_capacity_bph),
+                 degradation_rate_per_hour = VALUES(degradation_rate_per_hour),
+                 incident_risk_mult = VALUES(incident_risk_mult),
+                 opex_per_tick = VALUES(opex_per_tick),
+                 opex_per_bbl = VALUES(opex_per_bbl),
+                 build_cost = VALUES(build_cost),
+                 last_inspected_at = VALUES(last_inspected_at),
+                 updated_at = NOW()"
         );
 
         $stmt->execute([
@@ -731,11 +747,17 @@ class WellPipelineService
         $ids          = array_map('intval', array_column($completed, 'id'));
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-        $this->db->prepare(
+        $updateStmt = $this->db->prepare(
             "UPDATE well_pipelines
                 SET status = 'active', condition_pct = 100.0
               WHERE id IN ({$placeholders}) AND status = 'building'"
-        )->execute($ids);
+        );
+        $updateStmt->execute($ids);
+        $actuallyCompleted = $updateStmt->rowCount();
+
+        if ($actuallyCompleted === 0) {
+            return [];
+        }
 
         foreach ($completed as $pipe) {
             $this->recordEvent(
@@ -1164,7 +1186,7 @@ class WellPipelineService
         $row['_has_hub_binding'] = $hasHubBinding;
         $row['_matches_active_hub'] = $matchesActiveHub;
         $row['_binding_mismatch'] = !$isOutbound && $hubId > 0 && $assignedHubId > 0 && $hubId !== $assignedHubId;
-        $row['_is_operational'] = $hasHubBinding && (string)($row['status'] ?? 'active') !== 'building';
+        $row['_is_operational'] = $hasHubBinding && !in_array((string)($row['status'] ?? 'active'), ['building', 'suspended'], true);
         return $row;
     }
 

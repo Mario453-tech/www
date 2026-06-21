@@ -238,7 +238,7 @@ class HeadhunterService
             : t('hr_headhunter.notify_candidates_missing', ['spec' => $search['spec_name']]);
 
         $this->db->prepare(
-            "INSERT INTO technical_notifications (player_id, well_id, type, message) VALUES (?,NULL,'headhunter',?)"
+            "INSERT INTO technical_notifications (player_id, well_id, type, message) VALUES (?,NULL,'task',?)"
         )->execute([$search['player_id'], $msg]);
 
         GameLog::info('HeadhunterService', 'Candidates generated', [

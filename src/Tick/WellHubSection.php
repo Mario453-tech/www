@@ -282,7 +282,7 @@ class WellHubSection
             if ($usageFee > 0.0) {
                 $this->ctx->finOpex         += $usageFee;
                 $this->ctx->finHubUsageCost += $usageFee;
-                $this->ctx->playerCash      -= $usageFee;
+                $this->ctx->playerCash       = max(0.0, $this->ctx->playerCash - $usageFee);
                 GameLog::info('tick', 'hub_owner_opex', [
                     'hub_id'    => $hubId,
                     'player_id' => $playerId,
@@ -299,7 +299,7 @@ class WellHubSection
         if ($leaseFee > 0.0) {
             $this->ctx->finOpex         += $leaseFee;
             $this->ctx->finHubUsageCost += $leaseFee;
-            $this->ctx->playerCash      -= $leaseFee;
+            $this->ctx->playerCash       = max(0.0, $this->ctx->playerCash - $leaseFee);
             GameLog::info('tick', 'hub_tenant_lease', [
                 'hub_id'    => $hubId,
                 'player_id' => $playerId,

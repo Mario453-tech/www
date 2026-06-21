@@ -602,11 +602,15 @@ trait TTSTasksTrait
 
                 case 'blowout_control':
                     if ($wellId) {
-                        $this->db->prepare("
+                        $blowStmt = $this->db->prepare("
                             UPDATE wells
                             SET status = 'active', technical_condition = GREATEST(20, 35 + ? * 3)
                             WHERE id = ? AND player_id = ? AND status = 'blowout'
-                        ")->execute([$skill, $wellId, $pId]);
+                        ");
+                        $blowStmt->execute([$skill, $wellId, $pId]);
+                        if ($blowStmt->rowCount() === 0) {
+                            GameLog::error('TTS', 'blowout_control: well not in blowout status — no-op', null, ['well_id' => $wellId, 'player_id' => $pId]);
+                        }
                         $this->db->prepare("
                             UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
                             WHERE player_id = ? AND well_id = ? AND disaster_type = 'blowout' AND status != 'resolved'
@@ -677,9 +681,14 @@ trait TTSTasksTrait
         $ownTxComplete = !$this->db->inTransaction();
         if ($ownTxComplete) $this->db->beginTransaction();
         try {
-            $this->db->prepare("
-                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ? AND player_id = ?
-            ")->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId, $pId]);
+            $statusStmt = $this->db->prepare("
+                UPDATE technical_tasks SET status = ?, result_data = ?, notified = 1 WHERE id = ? AND player_id = ? AND status = 'in_progress'
+            ");
+            $statusStmt->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId, $pId]);
+            if ($statusStmt->rowCount() === 0) {
+                if ($ownTxComplete && $this->db->inTransaction()) $this->db->rollBack();
+                return;
+            }
 
             $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ? AND player_id = ?")->execute([$staffId, $pId]);
 
@@ -695,9 +704,9 @@ trait TTSTasksTrait
  // startTask() manages its own transaction internally — no double-wrap needed.
             $qStmt = $this->db->prepare("
                 SELECT * FROM technical_task_queue
-                WHERE staff_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
+                WHERE staff_id = ? AND player_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
             ");
-            $qStmt->execute([$staffId]);
+            $qStmt->execute([$staffId, $pId]);
             $next = $qStmt->fetch();
             if ($next) {
                 $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?")->execute([$next['id'], $pId]);
@@ -767,10 +776,15 @@ trait TTSTasksTrait
             // $ownTx — guard against nested transaction (Rule 5).
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) $this->db->beginTransaction();
-            $this->db->prepare("
+            $cancelStmt = $this->db->prepare("
                 UPDATE technical_tasks SET status = 'cancelled', end_time = NOW()
-                WHERE id = ? AND player_id = ?
-            ")->execute([$taskId, $this->playerId]);
+                WHERE id = ? AND player_id = ? AND status = 'in_progress'
+            ");
+            $cancelStmt->execute([$taskId, $this->playerId]);
+            if ($cancelStmt->rowCount() === 0) {
+                if ($ownTx) $this->db->rollBack();
+                return ['success' => false, 'message' => t('technical.task_msg.active_task_not_found')];
+            }
             $this->db->prepare("
                 UPDATE technical_staff SET status = 'active'
                 WHERE id = ? AND player_id = ?

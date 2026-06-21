@@ -118,8 +118,8 @@ class Well
                     return false;
                 }
 
-                $upgradeCost = $this->getUpgradeCost($wellId);
-                if ($upgradeCost === false || !$player->canAfford((float)$upgradeCost)) {
+                $upgradeCost = (int)$row['level'] * 10000;
+                if (!$player->canAfford((float)$upgradeCost)) {
                     $this->db->rollBack();
                     return false;
                 }

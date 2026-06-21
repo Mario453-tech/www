@@ -11,7 +11,8 @@ trait WellTickTrait
     public function processDegradation(int $wellId, float $deltaHours, array $hseBonus = [], float $techMult = 1.0): array
     {
         $stmt = $this->db->prepare("
-            SELECT w.*, wr.political_risk AS region_political_risk
+            SELECT w.*, wr.political_risk AS region_political_risk,
+                   wr.stability_bonus AS region_stability_bonus
             FROM wells w
             LEFT JOIN world_regions wr ON wr.id = w.region_id
             WHERE w.id = ?
@@ -148,10 +149,15 @@ trait WellTickTrait
             $blowoutChance *= ($hseBonus['catastrophe_mult'] ?? 1.0);
 
             if (mt_rand(1, 1000000) <= (int) ($blowoutChance * 1000000)) {
- // Blowout is catastrophic and nearly destroys the well; requires manual repair.
- // Blowout jest katastrofalny i niemal niszczy odwiert; wymaga recznej naprawy.
+ // Blowout is catastrophic; delegate to triggerBlowout() so disaster records,
+ // financial penalties and director notifications are all created atomically.
                 $condAfter = 1;
-                $this->db->prepare("UPDATE wells SET status = 'blowout', technical_condition = 1 WHERE id = ?")->execute([$wellId]);
+                $blowoutPlayerId = (int)($well['player_id'] ?? 0);
+                if ($blowoutPlayerId > 0) {
+                    $this->triggerBlowout($wellId, $blowoutPlayerId, $hseBonus);
+                } else {
+                    $this->db->prepare("UPDATE wells SET status = 'blowout', technical_condition = 1 WHERE id = ?")->execute([$wellId]);
+                }
                 $this->logEvent(
                     $wellId,
                     $well['player_id'],

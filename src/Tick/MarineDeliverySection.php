@@ -166,7 +166,7 @@ class MarineDeliverySection
  // Random event only for actively sailing voyages (in_transit), not delayed ones.
  // Delayed deliveries already suffered an incident; re-rolling each tick is a bug.
         if ($status === 'in_transit') {
-            $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['catastrophe_mult'] ?? 1.0);
+            $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['failure_reduction'] ?? 1.0);
             if (mt_rand(1, 100000) <= (int)($incidentChance * 100000)) {
                 $this->applyIncident($id, $volumeBbl, $delivery['player_id']);
                 return;

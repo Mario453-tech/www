@@ -143,17 +143,29 @@ class PortSection
  // Storage could not fit the whole delivery: credit what fits and keep the remainder queued
  // ('waiting') for the next tick - consistent with the loop break on full storage, instead
  // of silently dropping the overflow.
-            $this->db->prepare(
-                "UPDATE port_queue SET volume_bbl = ? WHERE id = ?"
-            )->execute([$remainder, $entryId]);
+            try {
+                $this->db->beginTransaction();
+                $this->db->prepare(
+                    "UPDATE port_queue SET volume_bbl = ? WHERE id = ?"
+                )->execute([$remainder, $entryId]);
  // BUG2 FIX: update marine_deliveries status so partial deliveries are not permanently stuck
  // in 'waiting_for_port'. Use 'waiting_for_port' to keep the delivery associated with the
  // port queue entry that still has volume remaining.
-            $this->db->prepare(
-                "UPDATE marine_deliveries
-                    SET status = 'waiting_for_port', handling_cost = COALESCE(handling_cost, 0) + ?
-                  WHERE id = ? AND status NOT IN ('delivered','lost')"
-            )->execute([$handlingCost, $deliveryId]);
+                $this->db->prepare(
+                    "UPDATE marine_deliveries
+                        SET status = 'waiting_for_port', handling_cost = COALESCE(handling_cost, 0) + ?
+                      WHERE id = ? AND status NOT IN ('delivered','lost')"
+                )->execute([$handlingCost, $deliveryId]);
+                $this->db->commit();
+            } catch (Throwable $e) {
+                if ($this->db->inTransaction()) {
+                    try { $this->db->rollBack(); } catch (Throwable $re) {}
+                }
+                GameLog::error('tick', 'port_delivery_partial FAILED — rolled back', $e, [
+                    'entry_id' => $entryId, 'delivery_id' => $deliveryId,
+                ]);
+                return $currentStorage;
+            }
             GameLog::info('tick', 'port_delivery_partial', [
                 'delivery_id' => $deliveryId,
                 'player_id'   => $playerId,

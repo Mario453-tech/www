@@ -42,10 +42,11 @@ trait HubIncidentEffectsTrait
         ]);
 
         if ($condDmg > 0) {
- // Uzyj player_id wlasciciela hubu, nie dzierzawcy — izolacja gracza przy UPDATE logistics_hubs.
- // Use hub owner's player_id, not the tenant's — correct player isolation on UPDATE logistics_hubs.
-            $hubOwnerId = (int)($hub['player_id'] ?? $playerId);
-            $this->applyConditionDamage($hubId, $condDmg, $hubOwnerId);
+            if (!isset($hub['player_id']) || $hub['player_id'] === null) {
+                GameLog::warn('HubIncidentService', 'missing hub player_id — skipping condition damage', ['hub_id' => $hubId]);
+            } else {
+                $this->applyConditionDamage($hubId, $condDmg, (int)$hub['player_id']);
+            }
         }
 
         // Operacje poboczne — blad nie moze przerywac glownego przepływu (Rule 6).
@@ -127,7 +128,7 @@ trait HubIncidentEffectsTrait
     {
         $this->db->prepare(
             "INSERT INTO technical_notifications (player_id, well_id, type, message)
-             VALUES (?, NULL, 'hub_incident', ?)"
+             VALUES (?, NULL, 'failure', ?)"
         )->execute([$playerId, "[Hub] {$message}"]);
     }
 }

@@ -277,7 +277,7 @@ trait WellDisastersTrait
         try {
  // Odwiert przechodzi w tryb blowout tylko gdy jest w aktywnym/wstrzymanym/uszkodzonym statusie.
  // Well enters blowout mode only when in active/paused/damaged status.
-            $stmt = $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1, marine_buffer_bbl=0 WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage','paused_staff','damaged')");
+            $stmt = $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1, marine_buffer_bbl=0 WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage','paused_staff')");
             $stmt->execute([$wellId, $playerId]);
             if ($stmt->rowCount() === 0) {
  // Odwiert jest w nieodpowiednim statusie (np. equipment_swap, servicing, contaminated) - blowout nie wystapil.
@@ -431,21 +431,17 @@ trait WellDisastersTrait
  */
     private function applyDisasterRiskBoost(int $wellId): void
     {
-        try {
  // Atomowa aktualizacja — brak race condition przy rownolegych tickach.
  // Atomic UPDATE — no race condition with concurrent ticks.
-            $this->db->prepare("
-                UPDATE wells
-                SET post_disaster_risk_boost = LEAST(0.45, COALESCE(post_disaster_risk_boost, 0) + 0.15),
-                    post_disaster_expires_at  = DATE_ADD(NOW(), INTERVAL 48 HOUR)
-                WHERE id = ?
-            ")->execute([$wellId]);
-            GameLog::info('WellService', 'post_disaster_boost', [
-                'well_id' => $wellId, 'boost_added' => 0.15,
-            ]);
-        } catch (Throwable $e) {
-            GameLog::warn('WellService', 'post_disaster_boost FAILED', ['well_id' => $wellId]);
-        }
+        $this->db->prepare("
+            UPDATE wells
+            SET post_disaster_risk_boost = LEAST(0.45, COALESCE(post_disaster_risk_boost, 0) + 0.15),
+                post_disaster_expires_at  = DATE_ADD(NOW(), INTERVAL 48 HOUR)
+            WHERE id = ?
+        ")->execute([$wellId]);
+        GameLog::info('WellService', 'post_disaster_boost', [
+            'well_id' => $wellId, 'boost_added' => 0.15,
+        ]);
     }
 
  /**
