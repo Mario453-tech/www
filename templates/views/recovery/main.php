@@ -62,16 +62,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="card <?= $cls ?> recovery-event">
             <p><strong><?= htmlspecialchars((string)($ev['message'] ?? '')) ?></strong></p>
             <p class="muted2 recovery-event-meta">
-                <?= t('recovery.event_type') ?>: <code><?= htmlspecialchars((string)($ev['event_type'] ?? '')) ?></code>
-                &nbsp;·&nbsp; <?= htmlspecialchars((string)($ev['created_at'] ?? '—')) ?>
+                <?= t('recovery.event_type') ?>: <?= t('recovery.etype_' . ($ev['event_type'] ?? '')) ?>
+                &nbsp;&middot;&nbsp; <?= htmlspecialchars((string)($ev['created_at'] ?? '-')) ?>
                 <?php if (!empty($ev['due_at'])): ?>
-                    &nbsp;·&nbsp; <?= t('recovery.event_deadline') ?>:
+                    &nbsp;&middot;&nbsp; <?= t('recovery.event_deadline') ?>:
                     <span class="<?= strtotime($ev['due_at']) < time() && $isOpen ? 'red' : '' ?>">
                         <?= htmlspecialchars(date('d.m.Y H:i', strtotime($ev['due_at']))) ?>
                         <?= strtotime($ev['due_at']) < time() && $isOpen ? ' ' : '' ?>
                     </span>
                 <?php endif ?>
-                &nbsp;·&nbsp; <span class="<?= $isOpen ? 'red' : 'green' ?>"><?= $isOpen ? t('recovery.event_open') : t('recovery.event_closed') ?></span>
+                &nbsp;&middot;&nbsp; <span class="<?= $isOpen ? 'red' : 'green' ?>"><?= $isOpen ? t('recovery.event_open') : t('recovery.event_closed') ?></span>
             </p>
             <?php if (!$isOpen && !empty($ev['resolution_note'])): ?>
                 <p class="muted recovery-event-note"><?= t('recovery.event_resolution') ?>: <?= htmlspecialchars((string)$ev['resolution_note']) ?></p>
@@ -90,7 +90,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <section class="card" aria-labelledby="opt1">
             <h2 id="opt1">1) <?= t('recovery.opt1_title') ?></h2>
             <p class="muted"><?= t('recovery.opt1_desc') ?></p>
-            <form method="post" class="recovery-form">
+            <form method="post" id="form-sell-asset" class="recovery-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="sell_asset">
                 <div class="recovery-field">
@@ -111,15 +111,19 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                     <select id="well_id" name="well_id" class="recovery-select">
                         <option value="0"><?= t('recovery.opt1_well_default') ?></option>
                         <?php foreach (($options['sell_asset']['sellable_wells'] ?? []) as $w): ?>
-                            <option value="<?= (int)$w['id'] ?>">#<?= (int)$w['id'] ?> | poziom <?= (int)$w['level'] ?> | <?= number_format((float)$w['base_production_per_hour'], 0, ',', ' ') ?> bbl/h</option>
+                            <option value="<?= (int)$w['id'] ?>">#<?= (int)$w['id'] ?> | <?= t('recovery.opt1_well_level') ?> <?= (int)$w['level'] ?> | <?= number_format((float)$w['base_production_per_hour'], 0, ',', ' ') ?> bbl/h</option>
                         <?php endforeach ?>
                     </select>
                 </div>
                 <?php endif ?>
-                <button type="submit" class="btn <?= empty($options['sell_asset']['enabled']) ? 'btn-secondary' : 'btn-warning' ?> btn-full"
-                    <?= empty($options['sell_asset']['enabled']) ? 'disabled' : '' ?>>
+                <?php if (empty($options['sell_asset']['enabled'])): ?>
+                <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt1_btn') ?></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-warning btn-full"
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_sell_asset")) ?>,function(){document.getElementById("form-sell-asset").submit();},{confirmLabel:<?= json_encode(t("recovery.opt1_btn")) ?>})'>
                     <?= t('recovery.opt1_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 
@@ -127,13 +131,17 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <section class="card" aria-labelledby="opt2">
             <h2 id="opt2">2) <?= t('recovery.opt2_title') ?></h2>
             <p class="muted"><?= t('recovery.opt2_desc') ?></p>
-            <form method="post" class="recovery-form">
+            <form method="post" id="form-bank-takeover" class="recovery-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="bank_takeover">
-                <button type="submit" class="btn <?= empty($options['bank_takeover']['enabled']) ? 'btn-secondary' : 'btn-danger' ?> btn-full"
-                    <?= empty($options['bank_takeover']['enabled']) ? 'disabled' : '' ?>>
+                <?php if (empty($options['bank_takeover']['enabled'])): ?>
+                <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt2_btn') ?></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-danger btn-full"
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_bank_takeover")) ?>,function(){document.getElementById("form-bank-takeover").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt2_btn")) ?>})'>
                     <?= t('recovery.opt2_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 
@@ -142,7 +150,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <h2 id="opt3">3) <?= t('recovery.opt3_title') ?></h2>
             <p class="muted"><?= t('recovery.opt3_desc') ?></p>
             <?php if (!empty($options['emergency_loan']['enabled'])): ?>
-                <div class="info-box recovery-info"><?= t('recovery.opt3_available') ?>: <?= htmlspecialchars($options['emergency_loan']['apr_range'] ?? '15–25%') ?></div>
+                <div class="info-box recovery-info"><?= t('recovery.opt3_available') ?>: <?= htmlspecialchars($options['emergency_loan']['apr_range'] ?? '15-25%') ?></div>
             <?php else: ?>
                 <div class="info-box recovery-info"><?= t('recovery.opt3_unavailable') ?></div>
             <?php endif ?>
@@ -160,13 +168,17 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <section class="card" aria-labelledby="opt4">
             <h2 id="opt4">4) <?= t('recovery.opt4_title') ?></h2>
             <p class="muted"><?= t('recovery.opt4_desc') ?></p>
-            <form method="post" class="recovery-form">
+            <form method="post" id="form-cost-cuts" class="recovery-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="cost_cuts">
-                <button type="submit" class="btn <?= empty($options['cost_cuts']['enabled']) ? 'btn-secondary' : 'btn-warning' ?> btn-full"
-                    <?= empty($options['cost_cuts']['enabled']) ? 'disabled' : '' ?>>
+                <?php if (empty($options['cost_cuts']['enabled'])): ?>
+                <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt4_btn') ?></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-warning btn-full"
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_cost_cuts")) ?>,function(){document.getElementById("form-cost-cuts").submit();},{confirmLabel:<?= json_encode(t("recovery.opt4_btn")) ?>})'>
                     <?= t('recovery.opt4_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 
@@ -190,13 +202,17 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                     <p class="muted2 recovery-note"><?= t('recovery.opt5_injection_note') ?></p>
                 </div>
                 <?php endif ?>
-                <form method="post" class="recovery-form">
+                <form method="post" id="form-rescue-investor" class="recovery-form">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action" value="rescue_investor">
-                    <button type="submit" class="btn <?= empty($options['rescue_investor']['enabled']) ? 'btn-secondary' : 'btn-success' ?> btn-full"
-                        <?= empty($options['rescue_investor']['enabled']) ? 'disabled' : '' ?>>
+                    <?php if (empty($options['rescue_investor']['enabled'])): ?>
+                    <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt5_btn') ?></button>
+                    <?php else: ?>
+                    <button type="button" class="btn btn-success btn-full"
+                        onclick='confirmAction(<?= json_encode(t("recovery.confirm_rescue_investor")) ?>,function(){document.getElementById("form-rescue-investor").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt5_btn")) ?>})'>
                         <?= t('recovery.opt5_btn') ?>
                     </button>
+                    <?php endif ?>
                 </form>
             <?php endif ?>
         </section>
@@ -208,13 +224,17 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <div class="info-box recovery-info">
                 <p class="red"> <?= t('recovery.opt6_warning') ?></p>
             </div>
-            <form method="post" class="recovery-form">
+            <form method="post" id="form-new-start" class="recovery-form">
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="new_start">
-                <button class="btn btn-danger btn-full" type="submit"
-                    <?= empty($options['new_start']['enabled']) ? 'disabled' : '' ?>>
+                <?php if (empty($options['new_start']['enabled'])): ?>
+                <button type="button" class="btn btn-danger btn-full" disabled><?= t('recovery.opt6_btn') ?></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-danger btn-full"
+                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_new_start")) ?>,function(){document.getElementById("form-new-start").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt6_btn")) ?>})'>
                     <?= t('recovery.opt6_btn') ?>
                 </button>
+                <?php endif ?>
             </form>
         </section>
 

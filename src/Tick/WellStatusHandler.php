@@ -280,7 +280,7 @@ class WellStatusHandler
                 $chk = $this->ctx->staffCache[$staffId];
             } else {
  // Fallback - staff nie byl w cache (nowo zatrudniony w tym ticku?) / Fallback - not in cache (hired this tick?)
-                $chkStmt = $this->ctx->db->prepare("SELECT status FROM technical_staff WHERE id = ? LIMIT 1");
+                $chkStmt = $this->ctx->db->prepare("SELECT ts.id, ts.status, ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? LIMIT 1");
                 $chkStmt->execute([$staffId]);
                 $chk = $chkStmt->fetch();
                 if ($chk) $this->ctx->staffCache[$staffId] = $chk;

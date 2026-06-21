@@ -219,7 +219,7 @@ class WellPipelineService
              SELECT ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW()
              FROM DUAL
              WHERE NOT EXISTS (
-                 SELECT 1 FROM well_pipelines WHERE well_id = ?
+                 SELECT 1 FROM well_pipelines WHERE well_id = ? AND player_id = ?
              )"
         );
 
@@ -239,6 +239,7 @@ class WellPipelineService
             $profile['opex_per_bbl'],
             $profile['build_cost'],
             $wellId,
+            $playerId,
         ]);
 
         return $this->getByPlayerAndWellIds($playerId, [$wellId])[$wellId] ?? [];
@@ -516,9 +517,6 @@ class WellPipelineService
         try {
             $keys = array_map(fn($f) => "pipeline_inc_cfg_{$level}_{$f}", $fields);
             $in = implode(',', array_fill(0, count($keys), '?'));
-            $rows = $this->db->prepare("SELECT `key`,`value` FROM well_config WHERE `key` IN ($in)")
-                ->execute($keys) ? [] : [];
- // Re-fetch properly
             $stmt = $this->db->prepare("SELECT `key`,`value` FROM well_config WHERE `key` IN ($in)");
             $stmt->execute($keys);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -574,11 +572,11 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_required'];
         }
 
- // Reject if a pipeline already exists for this leg (one per well per leg).
+ // Reject if a pipeline already exists for this leg (one per well per leg, per player).
         $existingStmt = $this->db->prepare(
-            "SELECT id, status FROM well_pipelines WHERE well_id = ? AND leg = ?"
+            "SELECT id, status FROM well_pipelines WHERE well_id = ? AND leg = ? AND player_id = ?"
         );
-        $existingStmt->execute([$wellId, $leg]);
+        $existingStmt->execute([$wellId, $leg, $playerId]);
         $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
         if ($existing) {
             return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];

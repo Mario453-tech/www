@@ -68,9 +68,9 @@ class WellShop
                 return ['success' => false, 'message' => t('well_shop.err_no_funds')];
             }
 
-            $wellCount = $this->db->prepare("SELECT COUNT(*) as count FROM wells WHERE player_id = :player_id");
+            $wellCount = $this->db->prepare("SELECT COUNT(*) FROM wells WHERE player_id = :player_id AND status != 'sold'");
             $wellCount->execute([':player_id' => $playerId]);
-            $count = (int)($wellCount->fetch()['count'] ?? 0);
+            $count = (int)$wellCount->fetchColumn();
 
             if ($count >= 5) {
                 return ['success' => false, 'message' => t('well_shop.err_max_wells')];
@@ -79,6 +79,16 @@ class WellShop
             $fts = new FinancialTransactionService();
             $this->db->beginTransaction();
             try {
+                // Re-check the limit inside the transaction with a row-level lock to prevent
+                // race conditions where two concurrent requests both see COUNT < 5.
+                $countStmt = $this->db->prepare("SELECT COUNT(*) FROM wells WHERE player_id = ? AND status != 'sold' FOR UPDATE");
+                $countStmt->execute([$playerId]);
+                $currentCount = (int)$countStmt->fetchColumn();
+                if ($currentCount >= 5) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('well_shop.err_max_wells')];
+                }
+
                 if (!$player->updateCash(-(float)$well['base_cost'], \FinancialTransactionService::TYPE_WELL_PURCHASE, 'Zakup odwiertu')) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('well_shop.err_no_funds')];

@@ -38,8 +38,12 @@ class WellRiskHandler
  * (float)($this->ctx->financeTechnicalMods['degradation_mult'] ?? 1.0));
         } catch (Throwable $e) { GameLog::error('tick', 'processDegradation FAILED', $e, ['well_id' => $wellId]); }
 
-        try { $ws->updateRiskScore($wellId, $deltaHours, $hseBonus); }
-        catch (Throwable $e) { GameLog::error('tick', 'updateRiskScore FAILED', $e, ['well_id' => $wellId]); }
+        // Skip risk score update for wells that are already in a terminal/inactive state.
+        // Pomijamy aktualizacje risk score dla odwiertow w stanie terminalnym/nieaktywnym.
+        if (!in_array($well['status'], ['blowout', 'broken', 'seized', 'sold'], true)) {
+            try { $ws->updateRiskScore($wellId, $deltaHours, $hseBonus); }
+            catch (Throwable $e) { GameLog::error('tick', 'updateRiskScore FAILED', $e, ['well_id' => $wellId]); }
+        }
 
         if (in_array($well['status'], ['active','contaminated','no_technician','paused_storage','paused_cash'])) {
             try { $ws->processWear($wellId, $deltaHours, (float)$well['base_production_per_hour'],

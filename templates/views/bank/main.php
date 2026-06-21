@@ -11,6 +11,7 @@ $bankHistoryPage      = (int)($accountHistoryPage  ?? 1);
 $bankHistoryPerPage   = \BankDataLoader::HISTORY_PER_PAGE;
 $bankHistoryMaxPage   = max(1, (int)ceil($bankHistoryTotal / $bankHistoryPerPage));
 $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+$currencyLabel        = $bankLocale === 'en' ? 'USD' : 'PLN';
 ?>
 
 <div class="fade-in">
@@ -49,7 +50,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
             <div class="bank-account-tile bank-account-tile--balance">
                 <span class="bank-account-tile-label"><?= t('bank.account.label_balance') ?></span>
                 <span class="bank-account-tile-value money">
-                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> USD
+                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> <?= $currencyLabel ?>
                 </span>
             </div>
 
@@ -79,7 +80,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                 <span class="wallet-bal-value money"
                       data-wallet-cash
                       id="wallet-cash-display">
-                    <?= number_format($playerCashBalance, 2, ',', ' ') ?> USD
+                    <?= number_format($playerCashBalance, 2, ',', ' ') ?> <?= $currencyLabel ?>
                 </span>
             </div>
             <div class="wallet-bal wallet-bal--bank">
@@ -87,7 +88,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                 <span class="wallet-bal-value money"
                       data-wallet-bank
                       id="wallet-bank-display">
-                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> USD
+                    <?= number_format($bankAccountBalance, 2, ',', ' ') ?> <?= $currencyLabel ?>
                 </span>
             </div>
         </div>
@@ -156,7 +157,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                 'min_amt' => number_format(WalletConfig::TRANSFER_MIN_AMOUNT, 0, ',', ' '),
                 'max_amt' => $transferMax == 0.0
                     ? t('wallet.transfer_max_unlimited')
-                    : number_format($transferMax, 0, ',', ' ') . ' PLN',
+                    : number_format($transferMax, 0, ',', ' ') . ' ' . $currencyLabel,
             ]) ?>
         </p>
     </section>
@@ -218,7 +219,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
             <?php endif ?>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_amount') ?></span>
-                <strong class="money"><?= number_format((float)($offer['amount'] ?? 0)) ?> USD</strong>
+                <strong class="money"><?= number_format((float)($offer['amount'] ?? 0)) ?> <?= $currencyLabel ?></strong>
             </div>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_rate') ?></span>
@@ -226,11 +227,11 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
             </div>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_installment') ?></span>
-                <strong class="money"><?= number_format((float)($offer['installment_amount'] ?? 0)) ?> USD</strong>
+                <strong class="money"><?= number_format((float)($offer['installment_amount'] ?? 0)) ?> <?= $currencyLabel ?></strong>
             </div>
             <div class="offer-item">
                 <span class="offer-label"><?= t('bank.offer_total_cost') ?></span>
-                <span class="money"><?= number_format((float)($offer['estimated_total_cost'] ?? 0)) ?> USD</span>
+                <span class="money"><?= number_format((float)($offer['estimated_total_cost'] ?? 0)) ?> <?= $currencyLabel ?></span>
             </div>
             <div class="offer-item offer-item--warning">
                 <span class="offer-alert-icon"></span>
@@ -303,7 +304,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
         <?php if ($creditLimit > 0): ?>
         <div class="info-box info-box-green">
             <strong><?= t('bank.apply_limit_label') ?></strong>
-            <span class="money"><?= number_format($creditLimit, 0, '.', ' ') ?> USD</span>
+            <span class="money"><?= number_format($creditLimit, 0, '.', ' ') ?> <?= $currencyLabel ?></span>
             <small><?= t('bank.apply_limit_desc') ?></small>
         </div>
         <?php endif ?>
@@ -362,11 +363,11 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                     <div class="loan-details">
                         <div class="loan-item">
                             <span><?= t('bank.loan_remaining') ?></span>
-                            <strong class="money"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> USD</strong>
+                            <strong class="money"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> <?= $currencyLabel ?></strong>
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_principal') ?></span>
-                            <span class="money"><?= number_format((float)($loan['principal_amount'] ?? 0)) ?> USD</span>
+                            <span class="money"><?= number_format((float)($loan['principal_amount'] ?? 0)) ?> <?= $currencyLabel ?></span>
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_rate') ?></span>
@@ -378,7 +379,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                         </div>
                         <div class="loan-item">
                             <span><?= t('bank.loan_installment_amount') ?></span>
-                            <strong class="money"><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> USD</strong>
+                            <strong class="money"><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> <?= $currencyLabel ?></strong>
                         </div>
                     </div>
 
@@ -436,7 +437,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                             <input type="radio" name="repay_mode" value="single" checked>
                             <span>
                                 <?= t('bank.repay_single') ?>
-                                <small><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> USD</small>
+                                <small><?= number_format((float)($loan['installment_amount'] ?? 0)) ?> <?= $currencyLabel ?></small>
                             </span>
                         </label>
                         <label class="repay-option" id="repay-multi-label-<?= $loanId ?>">
@@ -457,7 +458,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                     </select>
                                 </small>
                                 <small id="repay-multi-amount-<?= $loanId ?>" class="repay-multi-amount">
-                                    = <?= number_format((float)($loan['installment_amount'] ?? 0) * 2) ?> USD
+                                    = <?= number_format((float)($loan['installment_amount'] ?? 0) * 2) ?> <?= $currencyLabel ?>
                                 </small>
                             </span>
                         </label>
@@ -465,7 +466,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                             <input type="radio" name="repay_mode" value="full">
                             <span>
                                 <?= t('bank.repay_full') ?>
-                                <small class="c-good"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> USD</small>
+                                <small class="c-good"><?= number_format((float)($loan['remaining_amount'] ?? 0)) ?> <?= $currencyLabel ?></small>
                             </span>
                         </label>
                     </div>
@@ -527,7 +528,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                         <?php endif ?>
                         <div class="neg-offer-item">
                             <span><?= t('bank.neg_fee') ?></span>
-                            <strong class="money"><?= number_format((float)($active['additional_fee'] ?? 0)) ?> USD</strong>
+                            <strong class="money"><?= number_format((float)($active['additional_fee'] ?? 0)) ?> <?= $currencyLabel ?></strong>
                         </div>
                         <?php if (!empty($active['expires_at'])): ?>
                         <div class="neg-offer-item neg-expire">
@@ -598,7 +599,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                                 <input type="radio" name="days" value="<?= $days ?>" <?= $days === 30 ? 'required' : '' ?>>
                                                 <span class="neg-option-label">
                                                     <?= $days ?> <?= t('common.days') ?>
-                                                    <small><?= htmlspecialchars($opt['apr']) ?> - <?= $bankLocale === 'en' ? 'fee' : 'prowizja' ?>: ~<?= number_format($opt['fee']) ?> USD</small>
+                                                    <small><?= htmlspecialchars($opt['apr']) ?> - <?= $bankLocale === 'en' ? 'fee' : 'prowizja' ?>: ~<?= number_format($opt['fee']) ?> <?= $currencyLabel ?></small>
                                                 </span>
                                             </label>
                                             <?php endforeach ?>
@@ -732,7 +733,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                 </span>
                 <span class="bank-history-cell bank-history-cell--amount">
                     <strong class="bank-history-amount <?= $hClass ?>">
-                        <?= $hSign ?><?= number_format($hAmount, 2, ',', ' ') ?> USD
+                        <?= $hSign ?><?= number_format($hAmount, 2, ',', ' ') ?> <?= $currencyLabel ?>
                     </strong>
                 </span>
             </div>
@@ -802,7 +803,7 @@ $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                        required>
                 <small class="muted">
                     <?= t('bank.account.label_balance') ?>:
-                    <strong class="money"><?= number_format($bankAccountBalance, 2, ',', ' ') ?> USD</strong>
+                    <strong class="money"><?= number_format($bankAccountBalance, 2, ',', ' ') ?> <?= $currencyLabel ?></strong>
                 </small>
             </div>
 
@@ -856,7 +857,7 @@ window.WALLET_LANG     = <?= json_encode([
     'err_network'          => t('wallet.err_network'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 window.BANK_LANG = <?= json_encode([
-    'pln'                  => 'USD',
+    'pln'                  => $currencyLabel,
     'repay_modal_single'   => t('bank.repay_modal_desc_single'),
     'repay_modal_multiple' => t('bank.repay_modal_desc_multiple'),
     'repay_modal_full'     => t('bank.repay_modal_desc_full'),
@@ -953,7 +954,7 @@ window.BANK_LANG = <?= json_encode([
         var account = (document.getElementById('bank-tr-recipient').value || '').trim();
         var desc = (document.getElementById('bank-tr-description').value || '').trim();
         var fmt = isFinite(amount) ? amount.toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : (locale === 'en-US' ? '0.00' : '0,00');
-        var msg = locale === 'en-US' ? ('Transferring ' + fmt + ' USD to account ' + account + '.') : ('Przelewasz ' + fmt + ' USD na konto ' + account + '.');
+        var msg = locale === 'en-US' ? ('Transferring ' + fmt + ' <?= $currencyLabel ?> to account ' + account + '.') : ('Przelewasz ' + fmt + ' <?= $currencyLabel ?> na konto ' + account + '.');
         if (desc) { msg += locale === 'en-US' ? ('\nTitle: ' + desc) : ('\nTytul: ' + desc); }
         msg += locale === 'en-US' ? '\n\nContinue?' : '\n\nKontynuowac?';
         form.setAttribute('data-confirm', msg);

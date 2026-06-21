@@ -20,6 +20,16 @@ class TickStatsRepository
  /** @param array<string, mixed> $stats */
     public function save(array $stats): void
     {
+        $ranAt = $stats['ran_at'] ?? date('Y-m-d H:i:s');
+
+        // Guard against duplicate rows from double-cron / retry runs.
+        // getSummary24h() uses SUM(), so duplicates would inflate production figures.
+        $checkStmt = $this->db->prepare("SELECT id FROM tick_stats WHERE ran_at = ? LIMIT 1");
+        $checkStmt->execute([$ranAt]);
+        if ($checkStmt->fetchColumn()) {
+            return; // tick stats already saved for this timestamp
+        }
+
         $this->db->prepare("
             INSERT INTO tick_stats (
                 ran_at, source, duration_ms,
@@ -43,7 +53,7 @@ class TickStatsRepository
                 :disasters_triggered, :incidents_triggered
             )
         ")->execute([
-            ':ran_at'                      => $stats['ran_at']                      ?? date('Y-m-d H:i:s'),
+            ':ran_at'                      => $ranAt,
             ':source'                      => $stats['source']                      ?? 'cron',
             ':duration_ms'                 => $stats['duration_ms']                 ?? null,
             ':oil_price'                   => $stats['oil_price']                   ?? null,

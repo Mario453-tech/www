@@ -65,7 +65,7 @@ class HubTickService
  */
     public function processTick(array $hub, float $inputBbl, float $deltaHours, array $hseBonus = []): array
     {
-        if (in_array($hub['status'], ['disabled', 'building', 'paused'], true)) {
+        if (in_array($hub['status'], ['disabled', 'building', 'paused', 'maintenance'], true)) {
             return $this->buildEmptyResult($hub, $inputBbl, $deltaHours);
         }
 
@@ -149,13 +149,21 @@ class HubTickService
         } elseif ($condPct <= self::COND_DAMAGED) {
             $wear *= 1.4;
         }
+ // Cap: zapobiega podwjnemu kumulowaniu mnożnika overload + krytyczna kondycja
+ // Cap: prevents double-stacking overload + critical condition multipliers beyond 8x base
+        $wear = min($wear, $baseWear * 8.0);
         $wear = round($wear, 4);
 
  // Bezporednie straty z kondycji zy stan = nieszczelnoci, spadki cinienia
  // Direct condition losses poor state = leaks, pressure drops
  // Niezalene od przepustowoci; dotycz wolumenu faktycznie przetworzonego
  // Independent of throughput; apply to the actually processed volume
-        $condLostBbl = $this->calcConditionLoss($condPct, $processed, $overloaded);
+ // Straty kondycji liczone tylko od nowej ropy (nie z bufora), bo ropa z bufora
+ // juz przeszla przez hub w poprzednim ticku i straty byy juz wtedy naliczone.
+ // Condition loss applied only to new input (not buffer drain) — buffer oil
+ // already absorbed condition losses when it was originally processed.
+        $newInputForLoss = $processed - $fromBuffer;
+        $condLostBbl     = $this->calcConditionLoss($condPct, $newInputForLoss, $overloaded);
 
  // Straty z kondycji odejmowane od przetworzonego wolumenu / condition losses deducted from processed volume
         $processed   = max(0.0, $processed - $condLostBbl);

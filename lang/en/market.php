@@ -167,6 +167,8 @@ return [
     'black_market.admin_total_penalty' => 'Total penalties',
     'black_market.admin_total_detected' => 'Total detections',
     'black_market.admin_unique_players' => 'Unique players',
+    'black_market.admin_force_generate' => 'Generate offers now',
+    'black_market.admin_force_generate_confirm' => 'Generate offers now for all active players?',
     'black_market.cfg_offer_interval' => 'Offer interval (ticks)',
     'black_market.cfg_score_decay' => 'Score decay/tick',
     'black_market.cfg_min_bbl' => 'Min bbl in offer',

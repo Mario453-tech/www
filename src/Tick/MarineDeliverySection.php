@@ -405,7 +405,10 @@ class MarineDeliverySection
             $this->db->prepare(
                 "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
                  VALUES (?, ?, ?, ?, ?, 'waiting')
-                 ON DUPLICATE KEY UPDATE status = 'waiting', queued_at = VALUES(queued_at)"
+                 ON DUPLICATE KEY UPDATE
+                     status     = IF(status = 'done', 'done', 'waiting'),
+                     volume_bbl = IF(status = 'done', volume_bbl, VALUES(volume_bbl)),
+                     queued_at  = IF(status = 'done', queued_at,  VALUES(queued_at))"
             )->execute([$portId, $deliveryId, $playerId, round($volumeBbl, 4), $nowStr]);
             $this->db->commit();
         } catch (Throwable $e) {

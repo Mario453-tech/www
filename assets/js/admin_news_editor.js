@@ -79,7 +79,25 @@
         });
     }
 
-    form.addEventListener('submit', function () {
+    form.addEventListener('submit', function (e) {
         tinymce.triggerSave();
+
+        var titleInst   = tinymce.get('admin-news-title');
+        var contentInst = tinymce.get('admin-news-content');
+        var titleText   = titleInst
+            ? titleInst.getContent({ format: 'text' }).trim()
+            : (titleField ? titleField.value.trim() : '');
+        var contentText = contentInst
+            ? contentInst.getContent({ format: 'text' }).trim()
+            : (contentField ? contentField.value.trim() : '');
+
+        if (!titleText || !contentText) {
+            e.preventDefault();
+            if (typeof window.alertError === 'function') {
+                window.alertError(titleText ? 'Treść nie może być pusta.' : 'Tytuł nie może być pusty.');
+            } else {
+                alert(titleText ? 'Treść nie może być pusta.' : 'Tytuł nie może być pusty.');
+            }
+        }
     });
 })();

@@ -220,6 +220,10 @@ class WellProductionHandler
             return;
         }
 
+        if ($transportType === 'ciezarowki' && $transportCapPct <= 0.0) {
+            return; // brak konfiguracji transportu
+        }
+
         if ($this->ctx->oilPrice <= 0) {
  // M11: Cena ropy jest 0 lub ujemna — uzywam awaryjnej 70 USD/bbl.
  // M11: Oil price is 0 or negative — using emergency fallback 70 USD/bbl.

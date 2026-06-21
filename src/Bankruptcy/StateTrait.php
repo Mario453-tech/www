@@ -119,10 +119,9 @@ trait BankruptcyStateTrait
 
             $cash = (float)($state['player']['cash'] ?? 0);
             $lateDebt = (float)($state['loans']['debt_late'] ?? 0);
-            $activeWells = (int)($state['wells']['wells_active'] ?? 0);
-            $openCritical = $this->countOpenCriticalEvents();
+            $nonSeizedWells = (int)($state['wells']['wells_non_seized'] ?? 0);
 
-            if ($cash >= 120000 && $lateDebt <= 0 && $activeWells >= 1 && $openCritical === 0) {
+            if ($cash >= 120000 && $lateDebt <= 0 && $nonSeizedWells >= 1) {
                 $this->db->beginTransaction();
                 try {
                     $this->db->prepare("
@@ -135,8 +134,11 @@ trait BankruptcyStateTrait
                         WHERE id = ?
                     ")->execute([$this->playerId]);
 
+                    $this->db->prepare("UPDATE wells SET status='active' WHERE player_id=? AND status='paused_cash'")->execute([$this->playerId]);
                     $this->db->prepare("DELETE FROM wells WHERE player_id=? AND status='seized'")->execute([$this->playerId]);
                     $this->db->prepare("UPDATE bailiff_proceedings SET status='completed' WHERE player_id=? AND status='active'")->execute([$this->playerId]);
+                    $this->db->prepare("UPDATE bankruptcy_events SET resolved_at=NOW(), resolution_note=? WHERE player_id=? AND is_critical=1 AND resolved_at IS NULL")
+                        ->execute([t('bankruptcy.log_recovered'), $this->playerId]);
                     $this->db->commit();
                 } catch (Throwable $txe) {
                     if ($this->db->inTransaction()) {
@@ -146,7 +148,7 @@ trait BankruptcyStateTrait
                     return false;
                 }
 
-                $this->logEvent('recovered', t('bankruptcy.log_recovered'), ['cash' => $cash, 'active_wells' => $activeWells], 'high', 0, null);
+                $this->logEvent('recovered', t('bankruptcy.log_recovered'), ['cash' => $cash, 'non_seized_wells' => $nonSeizedWells], 'high', 0, null);
                 $this->addNotification(t('bankruptcy.notif_recovered'));
                 return true;
             }

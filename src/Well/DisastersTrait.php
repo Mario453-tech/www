@@ -275,9 +275,17 @@ trait WellDisastersTrait
 
         $this->db->beginTransaction();
         try {
- // Odwiert przechodzi w tryb blowout (wstrzymana produkcja). / Well enters blowout mode (production halted).
-            $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1, marine_buffer_bbl=0 WHERE id=? AND player_id=?")
-                ->execute([$wellId, $playerId]);
+ // Odwiert przechodzi w tryb blowout tylko gdy jest w aktywnym/wstrzymanym/uszkodzonym statusie.
+ // Well enters blowout mode only when in active/paused/damaged status.
+            $stmt = $this->db->prepare("UPDATE wells SET status='blowout', technical_condition=1, marine_buffer_bbl=0 WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage','paused_staff','damaged')");
+            $stmt->execute([$wellId, $playerId]);
+            if ($stmt->rowCount() === 0) {
+ // Odwiert jest w nieodpowiednim statusie (np. equipment_swap, servicing, contaminated) - blowout nie wystapil.
+ // Well is in an incompatible status (e.g. equipment_swap, servicing, contaminated) — blowout did not occur.
+                $this->db->rollBack();
+                GameLog::info('WellService', 'blowout skipped - incompatible status', ['well_id' => $wellId]);
+                return ['disaster' => null];
+            }
 
  // Gotowka pobierana raz przez tick (WellRiskHandler dodaje cost+env_fine do
  // finIncident i playerCash), nie tutaj. Wczesniej brak odejmowania w ticku
@@ -303,9 +311,10 @@ trait WellDisastersTrait
                 $desc, 'active',
             ]);
 
+            $this->applyDisasterRiskBoost($wellId);
+
             $this->db->commit();
 
-            $this->applyDisasterRiskBoost($wellId);
             $this->notifyDirectorDisaster($playerId, 'blowout', $hseActive, [
                 'well' => $wellId, 'fine' => number_format($envFine),
             ]);
@@ -385,9 +394,10 @@ trait WellDisastersTrait
                 $desc, 'active',
             ]);
 
+            $this->applyDisasterRiskBoost($wellId);
+
             $this->db->commit();
 
-            $this->applyDisasterRiskBoost($wellId);
             $this->notifyDirectorDisaster($playerId, 'reservoir_contamination', $hseActive, [
                 'well' => $wellId, 'fine' => number_format($envFine),
             ], 'technical.php?tab=safety');
@@ -422,18 +432,16 @@ trait WellDisastersTrait
     private function applyDisasterRiskBoost(int $wellId): void
     {
         try {
-            $stmt = $this->db->prepare("SELECT post_disaster_risk_boost FROM wells WHERE id = ?");
-            $stmt->execute([$wellId]);
-            $curBoost = (float)($stmt->fetchColumn() ?? 0.0);
-            $newBoost = min(0.45, $curBoost + 0.15);
+ // Atomowa aktualizacja — brak race condition przy rownolegych tickach.
+ // Atomic UPDATE — no race condition with concurrent ticks.
             $this->db->prepare("
                 UPDATE wells
-                SET post_disaster_risk_boost = ?,
+                SET post_disaster_risk_boost = LEAST(0.45, COALESCE(post_disaster_risk_boost, 0) + 0.15),
                     post_disaster_expires_at  = DATE_ADD(NOW(), INTERVAL 48 HOUR)
                 WHERE id = ?
-            ")->execute([$newBoost, $wellId]);
+            ")->execute([$wellId]);
             GameLog::info('WellService', 'post_disaster_boost', [
-                'well_id' => $wellId, 'prev' => $curBoost, 'new' => $newBoost,
+                'well_id' => $wellId, 'boost_added' => 0.15,
             ]);
         } catch (Throwable $e) {
             GameLog::warn('WellService', 'post_disaster_boost FAILED', ['well_id' => $wellId]);

@@ -92,26 +92,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $msgType !== 'error' && isset($_POS
 
  // Upgrade management: hidden sentinel ensures empty checkbox set = remove all
         if (isset($_POST['gm_upgrades_submitted'])) {
-            $allowedUpgrades   = ['pump_electric', 'monitoring', 'water_injection'];
-            $submittedUpgrades = array_values(array_filter(
-                (array)($_POST['gm_upgrades'] ?? []),
-                static fn($u) => in_array($u, $allowedUpgrades, true)
-            ));
+            // Guard against orphaned well_upgrades rows for a non-existent well.
+            $existsStmt = $db->prepare("SELECT id FROM wells WHERE id = ? LIMIT 1");
+            $existsStmt->execute([$editId]);
+            if (!$existsStmt->fetchColumn()) {
+                $msg     = "Odwiert #$editId nie istnieje — zarządzanie ulepszeniami pominięte.";
+                $msgType = 'error';
+            } else {
+                $allowedUpgrades   = ['pump_electric', 'monitoring', 'water_injection'];
+                $submittedUpgrades = array_values(array_filter(
+                    (array)($_POST['gm_upgrades'] ?? []),
+                    static fn($u) => in_array($u, $allowedUpgrades, true)
+                ));
 
-            $stmt = $db->prepare("SELECT upgrade_type FROM well_upgrades WHERE well_id = ?");
-            $stmt->execute([$editId]);
-            $currentUpgrades = array_column($stmt->fetchAll(), 'upgrade_type');
+                $stmt = $db->prepare("SELECT upgrade_type FROM well_upgrades WHERE well_id = ?");
+                $stmt->execute([$editId]);
+                $currentUpgrades = array_column($stmt->fetchAll(), 'upgrade_type');
 
-            foreach ($submittedUpgrades as $u) {
-                if (!in_array($u, $currentUpgrades, true)) {
-                    $db->prepare("INSERT INTO well_upgrades (well_id, upgrade_type, cost_paid) VALUES (?, ?, 0.00)")
-                       ->execute([$editId, $u]);
+                foreach ($submittedUpgrades as $u) {
+                    if (!in_array($u, $currentUpgrades, true)) {
+                        $db->prepare("INSERT INTO well_upgrades (well_id, upgrade_type, cost_paid) VALUES (?, ?, 0.00)")
+                           ->execute([$editId, $u]);
+                    }
                 }
-            }
-            foreach ($currentUpgrades as $u) {
-                if (!in_array($u, $submittedUpgrades, true)) {
-                    $db->prepare("DELETE FROM well_upgrades WHERE well_id = ? AND upgrade_type = ?")
-                       ->execute([$editId, $u]);
+                foreach ($currentUpgrades as $u) {
+                    if (!in_array($u, $submittedUpgrades, true)) {
+                        $db->prepare("DELETE FROM well_upgrades WHERE well_id = ? AND upgrade_type = ?")
+                           ->execute([$editId, $u]);
+                    }
                 }
             }
         }

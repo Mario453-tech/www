@@ -104,6 +104,7 @@ class HubIncidentService
 
             $chance = (self::BASE_CHANCE_PER_HOUR[$type] ?? 0.01) * $deltaHours * $riskMult
                 * ($protMults[$type] ?? 1.0);
+            $chance = min(1.0, max(0.0, $chance));
             if ((mt_rand(0, 999999) / 1_000_000.0) < $chance) {
                 $incident = $this->generateIncident($type, $cfg, $hub, $inputBbl, $tickResult, $playerId);
                 if ($protection !== null && isset($protMults[$type]) && $protectionData['option_id'] > 0) {

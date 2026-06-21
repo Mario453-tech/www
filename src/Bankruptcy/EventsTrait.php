@@ -83,6 +83,14 @@ trait BankruptcyEventsTrait
                 return;
             }
 
+            $state = $this->loadState();
+            $cash = (float)($state['player']['cash'] ?? 0);
+            $lateDebt = (float)($state['loans']['debt_late'] ?? 0);
+            $nonSeizedWells = (int)($state['wells']['wells_non_seized'] ?? 0);
+            if ($cash >= 120000 && $lateDebt <= 0 && $nonSeizedWells >= 1) {
+                return;
+            }
+
             $lastStmt = $this->db->prepare("SELECT created_at FROM bankruptcy_events WHERE player_id=? AND is_critical=1 ORDER BY id DESC LIMIT 1");
             $lastStmt->execute([$this->playerId]);
             $lastCreated = $lastStmt->fetchColumn();

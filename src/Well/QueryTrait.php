@@ -47,35 +47,46 @@ trait WellQueryTrait
     }
 
  /** @return list<array<string, mixed>> */
-    public function getWellEvents(int $wellId, int $limit = 20): array
+    public function getWellEvents(int $wellId, int $playerId, int $limit = 20): array
     {
         try {
             $stmt = $this->db->prepare("
                 SELECT * FROM well_events
                 WHERE well_id = ?
+                  AND well_id IN (SELECT id FROM wells WHERE player_id = ?)
                 ORDER BY created_at DESC
                 LIMIT ?
             ");
-            $stmt->execute([$wellId, $limit]);
+            $stmt->execute([$wellId, $playerId, $limit]);
             return $stmt->fetchAll();
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
-                GameLog::error('WellService', 'getWellEvents FAILED', $e, ['well_id' => $wellId]);
+                GameLog::error('WellService', 'getWellEvents FAILED', $e, ['well_id' => $wellId, 'player_id' => $playerId]);
             }
             return [];
         }
     }
 
  /** @return list<string> */
-    private function getInstalledUpgrades(int $wellId): array
+    private function getInstalledUpgrades(int $wellId, int $playerId = 0): array
     {
         try {
-            $stmt = $this->db->prepare("SELECT upgrade_type FROM well_upgrades WHERE well_id = ?");
-            $stmt->execute([$wellId]);
+            if ($playerId > 0) {
+                $stmt = $this->db->prepare("
+                    SELECT wu.upgrade_type
+                    FROM well_upgrades wu
+                    JOIN wells w ON w.id = wu.well_id AND w.player_id = ?
+                    WHERE wu.well_id = ?
+                ");
+                $stmt->execute([$playerId, $wellId]);
+            } else {
+                $stmt = $this->db->prepare("SELECT upgrade_type FROM well_upgrades WHERE well_id = ?");
+                $stmt->execute([$wellId]);
+            }
             return array_column($stmt->fetchAll(), 'upgrade_type');
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
-                GameLog::error('WellService', 'getInstalledUpgrades FAILED', $e, ['well_id' => $wellId]);
+                GameLog::error('WellService', 'getInstalledUpgrades FAILED', $e, ['well_id' => $wellId, 'player_id' => $playerId]);
             }
             return [];
         }
