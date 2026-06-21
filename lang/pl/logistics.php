@@ -544,4 +544,21 @@ return [
     'logistics_hub.ok_upgrade'                => 'Hub rozbudowany do poziomu :level.',
     'logistics_hub.upgrade_confirm'           => 'Rozbudować hub za :cost PLN?',
 
+    // Wizualizacja przepływu ropy (sekcja flow na głównej logistyki)
+    'logistics.flow_title'          => 'Przepływ ropy',
+    'logistics.flow_subtitle'       => 'Wizualizacja przepływu przez system logistyczny',
+    'logistics.flow_step_wells'     => 'Odwierty',
+    'logistics.flow_step_transport' => 'Transport',
+    'logistics.flow_step_hubs'      => 'Huby',
+    'logistics.flow_step_transport2'=> 'Rurociągi',
+    'logistics.flow_step_storage'   => 'Magazyn',
+    'logistics.flow_active'         => 'aktywnych',
+    'logistics.flow_in_use'         => 'w użyciu',
+    'logistics.flow_pipelines'      => 'rurociągów',
+    'logistics.flow_no_loss'        => 'Brak strat',
+    'logistics.flow_loss'           => 'straty',
+    'logistics.flow_ok'             => 'Bez awarii',
+    'logistics.flow_critical'       => 'krytycznych',
+    'logistics.flow_efficiency'     => 'Efektywność transportu',
+    'logistics.flow_capacity'       => 'pojemności',
 ];

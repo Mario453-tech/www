@@ -59,4 +59,5 @@ return [
     'bailiff.bankruptcy_notification' => '[BANKRUCTWO] Firma utraciła płynność. Wejdź do restrukturyzacji i wybierz plan ratunkowy.',
     'bailiff.bankruptcy_event' => 'Panie Dyrektorze, firma utraciła płynność finansową. W ciągu 24h podejmij decyzje ratunkowe.',
 
+    'common.all' => 'Wszystkie',
 ];

@@ -59,4 +59,5 @@ return [
     'bailiff.bankruptcy_notification' => '[BANKRUPTCY] The company has lost liquidity. Open restructuring and choose a recovery plan.',
     'bailiff.bankruptcy_event' => 'Director, the company has lost financial liquidity. Make recovery decisions within 24 hours.',
 
+    'common.all' => 'All',
 ];
