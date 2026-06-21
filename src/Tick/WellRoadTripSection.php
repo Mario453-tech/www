@@ -55,7 +55,14 @@ class WellRoadTripSection
         }
 
         try {
-            $batchStart = (new DateTime())->format('Y-m-d H:i:s');
+            // Snapshot IDs already in 'crediting' before this batch so the overflow
+            // scale-down UPDATE cannot touch them (orphaned rows from a previous tick).
+            $orphanStmt = $this->db->prepare(
+                "SELECT id FROM well_road_trips WHERE player_id = ? AND status = 'crediting'"
+            );
+            $orphanStmt->execute([$playerId]);
+            $orphanIds = $orphanStmt->fetchAll(PDO::FETCH_COLUMN);
+
             $result    = $roadTransportSvc->processCompletedTrips($playerId, $hseBonus, $protectionSvc, $sabotageSvc);
             $delivered = (float)$result['delivered_bbl'];
             $lost      = (float)$result['lost_bbl'];
@@ -86,16 +93,23 @@ class WellRoadTripSection
                         'storage_capacity' => round($storageCapacity, 2),
                         'storage_before' => round($currentStorage - $credited, 2),
                     ]);
-                    // Zapisz faktycznie dostarczoną ilość żeby recovery nie re-kredytowało pełnej wartości.
                     // Persist the actually credited amount so crash recovery does not re-credit the full value.
                     try {
                         $actual = $credited;
                         if ($actual < $delivered) {
-                            $updateDelivered = $this->db->prepare(
-                                "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting' AND updated_at >= ?"
-                            );
                             $scaleFactor = $delivered > 0.0 ? ($actual / $delivered) : 0.0;
-                            $updateDelivered->execute([round($scaleFactor, 8), $playerId, $batchStart]);
+                            if ($orphanIds) {
+                                $ph = implode(',', array_fill(0, count($orphanIds), '?'));
+                                $updateDelivered = $this->db->prepare(
+                                    "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting' AND id NOT IN ($ph)"
+                                );
+                                $updateDelivered->execute([round($scaleFactor, 8), $playerId, ...$orphanIds]);
+                            } else {
+                                $updateDelivered = $this->db->prepare(
+                                    "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting'"
+                                );
+                                $updateDelivered->execute([round($scaleFactor, 8), $playerId]);
+                            }
                         }
                     } catch (Throwable $e) {
                         GameLog::error('tick', 'road_trip_overflow_delivered_update FAILED', $e, ['player_id' => $playerId]);
