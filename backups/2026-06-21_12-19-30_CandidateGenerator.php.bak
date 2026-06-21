@@ -89,11 +89,6 @@ class CandidateGenerator
         if (!$region) {
             $region = ['code'=>'PL','skill_modifier'=>1.0,'salary_modifier'=>1.0,'availability'=>60];
         }
-        // Jesli specCode podany ale nie znaleziony — uzyj dowolnej spec z odpowiedniego dzialu.
-        // If specCode given but not found — fall back to any spec from the matching department.
-        if (!$spec && $specCode) {
-            $spec = $this->fetchSpecByRole($roleId);
-        }
         if (!$spec) {
             $spec   = ['id'=>null,'rarity'=>'common','base_salary_min'=>4000,'base_salary_max'=>8000,
                        'min_age'=>25,'max_age'=>55,'name'=>'Pracownik'];

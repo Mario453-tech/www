@@ -651,9 +651,7 @@ class FinancialTransactionService
             }
 
             // Odejmij od bank_balance najpierw, reszte z cash / Bank first, remainder from cash.
-            // floor() zamiast round() — zapobiega przekroczeniu rzeczywistego salda po zaokragleniu.
-            // floor() instead of round() — prevents fromBank exceeding actual balance after rounding.
-            $fromBank = floor(min($bankBalance, $amount) * 100.0) / 100.0;
+            $fromBank = round(min($bankBalance, $amount), 2);
             $fromCash = round($amount - $fromBank, 2);
 
             if ($fromBank > 0.0) {
