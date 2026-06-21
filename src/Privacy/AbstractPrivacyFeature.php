@@ -20,9 +20,11 @@ abstract class AbstractPrivacyFeature implements PrivacyFeatureInterface
             );
             $stmt->execute([$this->getKey()]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $row ? (bool)$row['is_enabled'] : false;
+            // Jeśli wiersz istnieje — słuchamy bazy; jeśli nie ma wiersza ani tabeli — włączone domyślnie
+            return $row ? (bool)$row['is_enabled'] : true;
         } catch (Throwable) {
-            return false;
+            // Tabela nie istnieje (migracja nie uruchomiona) — pokazuj wszystkie podmoduły
+            return true;
         }
     }
 
