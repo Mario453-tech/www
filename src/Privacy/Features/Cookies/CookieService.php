@@ -1,6 +1,6 @@
 <?php
 /**
- * Logika biznesowa zarządzania definicjami cookies.
+ * Logika biznesowa zarzadzania definicjami cookies.
  */
 class CookieService
 {

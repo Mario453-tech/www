@@ -41,11 +41,17 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
     <?php else:
     $sectionMap = [
         'well_operator'        => ['label' => t('technical.section_operators'),    'icon' => 'OP'],
+        'roughneck'            => ['label' => t('technical.section_operators'),    'icon' => 'OP'],
+        'field_supervisor'     => ['label' => t('technical.section_engineers'),    'icon' => 'INZ'],
         'production_engineer'  => ['label' => t('technical.section_engineers'),    'icon' => 'INZ'],
         'drilling_engineer'    => ['label' => t('technical.section_engineers'),    'icon' => 'INZ'],
+        'petroleum_engineer'   => ['label' => t('technical.section_engineers'),    'icon' => 'INZ'],
+        'reservoir_engineer'   => ['label' => t('technical.section_engineers'),    'icon' => 'INZ'],
+        'geologist'            => ['label' => t('technical.section_engineers'),    'icon' => 'INZ'],
         'well_technician'      => ['label' => t('technical.section_technicians'),  'icon' => 'TECH'],
         'maintenance_engineer' => ['label' => t('technical.section_technicians'),  'icon' => 'TECH'],
         'safety_officer'       => ['label' => t('technical.section_safety'),       'icon' => 'BHP'],
+        'safety_engineer'      => ['label' => t('technical.section_safety'),       'icon' => 'BHP'],
         'pipeline_engineer'    => ['label' => t('technical.section_pipeline'),     'icon' => 'RUR'],
     ];
     $sections = [];

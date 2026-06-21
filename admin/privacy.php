@@ -1,12 +1,12 @@
 <?php
 /**
- * admin/privacy.php — panel zarządzania modułem prywatności i cookies.
+ * admin/privacy.php - panel zarzadzania modulem prywatnosci i cookies.
  */
 
 require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
 
-// Ładowanie klas modułu prywatności
+// Ladowanie klas modulu prywatnosci
 require_once __DIR__ . '/../src/Privacy/PrivacyFeatureInterface.php';
 require_once __DIR__ . '/../src/Privacy/AbstractPrivacyFeature.php';
 require_once __DIR__ . '/../src/Privacy/PrivacySettingsService.php';
@@ -24,9 +24,13 @@ $ip       = $_SERVER['REMOTE_ADDR'] ?? '';
 $ua       = $_SERVER['HTTP_USER_AGENT'] ?? '';
 
 $registry = PrivacyFeatureRegistry::build($db);
-$features = $registry->getEnabled();
+// Admin panel shows ALL registered features regardless of is_enabled in DB.
+// is_enabled is intended for player-facing opt-outs, not for hiding from admin.
+// Using all() prevents the panel from becoming inaccessible when the migration
+// has not yet been run (privacy_features table empty or missing).
+$features = $registry->all();
 
-// Aktywna zakładka
+// Aktywna zakladka
 $validTabs = array_keys($features);
 $tab       = (string)($_GET['tab'] ?? ($validTabs[0] ?? 'cookies'));
 if (!in_array($tab, $validTabs, true)) {
@@ -36,7 +40,7 @@ if (!in_array($tab, $validTabs, true)) {
 $msg = '';
 $err = '';
 
-// Obsługa POST
+// Obsluga POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');

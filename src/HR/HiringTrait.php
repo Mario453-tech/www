@@ -246,8 +246,8 @@ trait HRHiringTrait
  */
     private function rollStaffSpecialization(string $specCode, int $skillLevel): ?string
     {
-        $operatorSpecs   = ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer'];
-        $technicianSpecs = ['maintenance_engineer', 'safety_engineer', 'pipeline_engineer', 'safety_officer'];
+        $operatorSpecs   = ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer', 'well_operator'];
+        $technicianSpecs = ['maintenance_engineer', 'safety_engineer', 'pipeline_engineer', 'safety_officer', 'well_technician'];
 
         if (in_array($specCode, $operatorSpecs, true)) {
             $role = 'operator';

@@ -52,8 +52,8 @@ class WellStaffService
 
  // Spec code check
         $allowedSpecs = $role === 'operator'
-            ? ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer']
-            : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer'];
+            ? ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer', 'well_operator']
+            : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer', 'well_technician'];
 
         if (!in_array($staff['spec_code'], $allowedSpecs)) {
             return [
@@ -312,8 +312,8 @@ class WellStaffService
     public function getAvailableStaff(string $role): array
     {
         $allowedSpecs = $role === 'operator'
-            ? ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer']
-            : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer'];
+            ? ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer', 'well_operator']
+            : ['maintenance_engineer', 'pipeline_engineer', 'safety_engineer', 'safety_officer', 'well_technician'];
 
         $placeholders = implode(',', array_fill(0, count($allowedSpecs), '?'));
 

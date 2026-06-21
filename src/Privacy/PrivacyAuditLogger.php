@@ -1,6 +1,6 @@
 <?php
 /**
- * Zapisuje działania admina w module prywatności do tabeli privacy_audit_logs.
+ * Zapisuje dzialania admina w module prywatnosci do tabeli privacy_audit_logs.
  */
 class PrivacyAuditLogger
 {

@@ -54,6 +54,8 @@ $lang += require __DIR__ . '/pl/protection.php';
 $lang += require __DIR__ . '/pl/recovery.php';
 $lang += require __DIR__ . '/pl/sabotage.php';
 $lang += require __DIR__ . '/pl/technical.php';
-$lang += require __DIR__ . '/pl/privacy.php';
+if (file_exists(__DIR__ . '/pl/privacy.php')) {
+    $lang += require __DIR__ . '/pl/privacy.php';
+}
 
 return $lang;

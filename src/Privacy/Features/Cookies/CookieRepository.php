@@ -1,6 +1,6 @@
 <?php
 /**
- * Dostęp do bazy danych dla definicji cookies.
+ * Dostep do bazy danych dla definicji cookies.
  */
 class CookieRepository
 {
