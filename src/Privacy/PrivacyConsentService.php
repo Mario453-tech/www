@@ -1,8 +1,8 @@
 <?php
 /**
- * Rdzeń zarządzania zgodami.
- * Decyduje czy pokazać baner, odczytuje ostatnią zgodę gracza/gościa,
- * zapisuje nową zgodę.
+ * Rdzen zarzadzania zgodami.
+ * Decyduje czy pokazac baner, odczytuje ostatnia zgode gracza/goscia,
+ * zapisuje nowa zgode.
  */
 class PrivacyConsentService
 {
@@ -12,8 +12,8 @@ class PrivacyConsentService
     ) {}
 
     /**
-     * Czy baner powinien się teraz pokazać?
-     * Sprawdza: czy moduł jest włączony, czy zgoda istnieje, czy wersje się zgadzają.
+     * Czy baner powinien sie teraz pokazac?
+     * Sprawdza: czy modul jest wlaczony, czy zgoda istnieje, czy wersje sie zgadzaja.
      */
     public function shouldShowBanner(?int $playerId, string $anonymousToken): bool
     {
@@ -42,7 +42,7 @@ class PrivacyConsentService
     }
 
     /**
-     * Ostatnia aktywna (nie wycofana) zgoda gracza lub gościa.
+     * Ostatnia aktywna (nie wycofana) zgoda gracza lub goscia.
      */
     public function getActiveConsent(?int $playerId, string $anonymousToken): ?array
     {
@@ -71,7 +71,7 @@ class PrivacyConsentService
     }
 
     /**
-     * Zapisuje zgodę użytkownika.
+     * Zapisuje zgode uzytkownika.
      * Zwraca id nowo zapisanej zgody.
      */
     public function saveConsent(
@@ -113,7 +113,7 @@ class PrivacyConsentService
     }
 
     /**
-     * Wycofuje aktywną zgodę (np. gdy gracz kliknie "cofnij zgodę").
+     * Wycofuje aktywna zgode (np. gdy gracz kliknie "cofnij zgode").
      */
     public function withdrawConsent(?int $playerId, string $anonymousToken): void
     {
@@ -135,7 +135,7 @@ class PrivacyConsentService
     }
 
     /**
-     * Sprawdza czy dana kategoria cookies jest zaakceptowana przez użytkownika.
+     * Sprawdza czy dana kategoria cookies jest zaakceptowana przez uzytkownika.
      */
     public function isCategoryAccepted(?int $playerId, string $anonymousToken, string $category): bool
     {
@@ -151,7 +151,7 @@ class PrivacyConsentService
     }
 
     /**
-     * Generuje token dla anonimowego gościa i zapisuje w sesji.
+     * Generuje token dla anonimowego goscia i zapisuje w sesji.
      */
     public static function getOrCreateAnonymousToken(): string
     {

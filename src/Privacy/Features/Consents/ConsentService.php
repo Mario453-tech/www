@@ -1,6 +1,6 @@
 <?php
 /**
- * Logika biznesowa podglądu i eksportu zgód.
+ * Logika biznesowa podgladu i eksportu zgod.
  */
 class ConsentService
 {

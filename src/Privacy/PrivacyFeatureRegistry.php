@@ -10,13 +10,13 @@ require_once __DIR__ . '/Features/Policy/PolicyFeature.php';
 require_once __DIR__ . '/Features/Banner/BannerSettingsFeature.php';
 
 /**
- * Rejestr podmodułów prywatności.
+ * Rejestr podmodulow prywatnosci.
  *
- * Żeby dodać nowy podmoduł w przyszłości:
- * 1. Stwórz nowy folder src/Privacy/Features/NazwaModulu/
- * 2. Stwórz klasę NazwaModuluFeature implementującą PrivacyFeatureInterface
- * 3. Dodaj jedną linię w metodzie build() poniżej
- * — i to wszystko. Zakładka w panelu admina pojawi się automatycznie.
+ * Zeby dodac nowy podmodul w przyszlosci:
+ * 1. Stworz nowy folder src/Privacy/Features/NazwaModulu/
+ * 2. Stworz klase NazwaModuluFeature implementujaca PrivacyFeatureInterface
+ * 3. Dodaj jedna linie w metodzie build() ponizej
+ * - i to wszystko. Zakladka w panelu admina pojawi sie automatycznie.
  */
 class PrivacyFeatureRegistry
 {
@@ -33,21 +33,21 @@ class PrivacyFeatureRegistry
         return $this->features[$key] ?? null;
     }
 
-    /** Zwraca wszystkie zarejestrowane podmoduły (włączone i wyłączone). */
+    /** Zwraca wszystkie zarejestrowane podmoduly (wlaczone i wylaczone). */
     public function all(): array
     {
         return $this->features;
     }
 
-    /** Zwraca tylko aktywne podmoduły — te które pokazujemy w panelu. */
+    /** Zwraca tylko aktywne podmoduly - te ktore pokazujemy w panelu. */
     public function getEnabled(): array
     {
         return array_filter($this->features, fn($f) => $f->isEnabled());
     }
 
     /**
-     * Fabryka — buduje rejestr ze wszystkimi podmodułami.
-     * To jedyne miejsce gdzie są wymienione wszystkie podmoduły.
+     * Fabryka - buduje rejestr ze wszystkimi podmodulami.
+     * To jedyne miejsce gdzie sa wymienione wszystkie podmoduly.
      */
     public static function build(PDO $db): self
     {
@@ -60,7 +60,7 @@ class PrivacyFeatureRegistry
         $registry->register(new PolicyFeature($db, $settings, $audit));
         $registry->register(new BannerSettingsFeature($db, $settings, $audit));
 
-        // Tutaj dodaj kolejne podmoduły w przyszłości, np.:
+        // Tutaj dodaj kolejne podmoduly w przyszlosci, np.:
         // $registry->register(new PrivacyRequestsFeature($db, $settings, $audit));
         // $registry->register(new RetentionFeature($db, $settings, $audit));
 

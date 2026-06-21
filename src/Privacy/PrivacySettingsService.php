@@ -1,6 +1,6 @@
 <?php
 /**
- * Odczyt i zapis ustawień modułu prywatności z tabeli privacy_settings.
+ * Odczyt i zapis ustawien modulu prywatnosci z tabeli privacy_settings.
  */
 class PrivacySettingsService
 {
@@ -58,7 +58,7 @@ class PrivacySettingsService
         return $result;
     }
 
-    /** Zwraca wszystkie ustawienia jako tablicę klucz => wartość. */
+    /** Zwraca wszystkie ustawienia jako tablice klucz => wartosc. */
     public function all(): array
     {
         try {

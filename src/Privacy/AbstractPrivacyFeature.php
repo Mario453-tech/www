@@ -1,8 +1,8 @@
 <?php
 /**
- * Klasa bazowa dla podmodułów prywatności.
- * Dostarcza wspólne zależności (PDO, Settings, AuditLogger) i domyślną implementację isEnabled().
- * Nie jest obowiązkowa — feature może implementować interfejs bezpośrednio.
+ * Klasa bazowa dla podmodulow prywatnosci.
+ * Dostarcza wspolne zaleznosci (PDO, Settings, AuditLogger) i domyslna implementacje isEnabled().
+ * Nie jest obowiazkowa - feature moze implementowac interfejs bezposrednio.
  */
 abstract class AbstractPrivacyFeature implements PrivacyFeatureInterface
 {
@@ -20,10 +20,10 @@ abstract class AbstractPrivacyFeature implements PrivacyFeatureInterface
             );
             $stmt->execute([$this->getKey()]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            // Jeśli wiersz istnieje — słuchamy bazy; jeśli nie ma wiersza ani tabeli — włączone domyślnie
+            // Jesli wiersz istnieje - sluchamy bazy; jesli brak wiersza lub tabeli - wlaczone domyslnie
             return $row ? (bool)$row['is_enabled'] : true;
         } catch (Throwable) {
-            // Tabela nie istnieje (migracja nie uruchomiona) — pokazuj wszystkie podmoduły
+            // Tabela nie istnieje (migracja nie uruchomiona) - pokazuj wszystkie podmoduly
             return true;
         }
     }

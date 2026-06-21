@@ -1,6 +1,6 @@
 <?php
 /**
- * Zarządzanie wersjami polityk prywatności i cookies.
+ * Zarzadzanie wersjami polityk prywatnosci i cookies.
  */
 class PrivacyPolicyService
 {
@@ -43,7 +43,7 @@ class PrivacyPolicyService
     }
 
     /**
-     * Aktywuje wybraną wersję (dezaktywuje pozostałe tego samego typu).
+     * Aktywuje wybrana wersje (dezaktywuje pozostale tego samego typu).
      */
     public function activate(int $id): bool
     {
@@ -70,7 +70,7 @@ class PrivacyPolicyService
     }
 
     /**
-     * Tworzy nową wersję polityki (nieaktywną).
+     * Tworzy nowa wersje polityki (nieaktywna).
      */
     public function create(string $policyType, string $version, string $title, string $content): int
     {
@@ -87,7 +87,7 @@ class PrivacyPolicyService
     }
 
     /**
-     * Aktualizuje treść istniejącej wersji (tylko gdy nieaktywna).
+     * Aktualizuje tresc istniejacei wersji (tylko gdy nieaktywna).
      */
     public function update(int $id, string $title, string $content): bool
     {

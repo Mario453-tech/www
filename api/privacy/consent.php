@@ -27,7 +27,7 @@ if (!CSRF::validateToken((string)($body['csrf_token'] ?? ''))) {
     exit;
 }
 
-// Załaduj serwisy prywatności
+// Zaladuj serwisy prywatnosci
 require_once __DIR__ . '/../../src/Privacy/PrivacyFeatureRegistry.php';
 
 $db             = Database::getInstance()->getConnection();

@@ -1,6 +1,6 @@
 <?php
 /**
- * Dostęp do bazy danych dla zgód użytkowników.
+ * Dostep do bazy danych dla zgod uzytkownikow.
  */
 class ConsentRepository
 {
