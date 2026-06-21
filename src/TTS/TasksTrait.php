@@ -394,13 +394,7 @@ trait TTSTasksTrait
  // service task is still running on it. Done BEFORE task effects so logic like
  // well_repair (broken -> active) sees the real status.
             if ($wellId && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
-                $otherStmt = $this->db->prepare("
-                    SELECT COUNT(*) FROM technical_tasks
-                    WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
-                      AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
-                ");
-                $otherStmt->execute([$wellId, $pId, $taskId]);
-                if ((int)$otherStmt->fetchColumn() === 0) {
+                if (!$this->hasOtherWellServiceTasks($wellId, $pId, $taskId)) {
                     $this->db->prepare("
                         UPDATE wells
                         SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
@@ -412,13 +406,7 @@ trait TTSTasksTrait
  // Odmroz rurociag po serwisie (analogicznie do odwiertu).
  // Un-freeze the pipeline after service (analogous to the well).
             if ($pipeId && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
-                $otherStmt = $this->db->prepare("
-                    SELECT COUNT(*) FROM technical_tasks
-                    WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
-                      AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
-                ");
-                $otherStmt->execute([$pipeId, $pId, $taskId]);
-                if ((int)$otherStmt->fetchColumn() === 0) {
+                if (!$this->hasOtherPipelineServiceTasks($pipeId, $pId, $taskId)) {
                     $this->db->prepare("
                         UPDATE well_pipelines
                         SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
@@ -553,11 +541,11 @@ trait TTSTasksTrait
                                 $this->db->prepare("INSERT INTO well_upgrades (well_id, upgrade_type, cost_paid) VALUES (?,?,?)")
                                          ->execute([$wellId, $mod, $task['cost']]);
                                 if ($mod === 'pump_electric') {
-                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.20 WHERE id = ?")->execute([$wellId]);
+                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.20 WHERE id = ? AND player_id = ?")->execute([$wellId, $pId]);
                                 } elseif ($mod === 'water_injection') {
-                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.10 WHERE id = ?")->execute([$wellId]);
+                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.10 WHERE id = ? AND player_id = ?")->execute([$wellId, $pId]);
                                 } elseif ($mod === 'pressure_booster') {
-                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.15, pressure = LEAST(1.5, pressure + 0.1) WHERE id = ?")->execute([$wellId]);
+                                    $this->db->prepare("UPDATE wells SET base_production_per_hour = base_production_per_hour * 1.15, pressure = LEAST(1.5, pressure + 0.1) WHERE id = ? AND player_id = ?")->execute([$wellId, $pId]);
                                 }
                                 $result = ['module' => $mod];
                             }
@@ -627,11 +615,23 @@ trait TTSTasksTrait
 
                     case 'blowout_control':
                         if ($wellId) {
-                            $this->db->prepare("
+                            $blowoutStmt = $this->db->prepare("
                                 UPDATE wells
                                 SET status = 'active', technical_condition = GREATEST(20, 35 + ? * 3)
                                 WHERE id = ? AND player_id = ? AND status = 'blowout'
-                            ")->execute([$skill, $wellId, $pId]);
+                            ");
+                            $blowoutStmt->execute([$skill, $wellId, $pId]);
+                            if ($blowoutStmt->rowCount() === 0) {
+ // Odwiert nie jest juz w statusie 'blowout' — rownolegly task juz rozwiazal awarie.
+ // Logujemy i przerywamy efekty, ale oznaczamy task jako 'completed'.
+ // Well is no longer in 'blowout' — a concurrent task already resolved it.
+ // Log and skip well effects but still mark task as 'completed'.
+                                GameLog::error('TTS', 'blowout_control: well not in blowout state at completion — silent no-op (concurrent resolution)', null, [
+                                    'task_id' => $taskId, 'well_id' => $wellId, 'player_id' => $pId,
+                                ]);
+                                $msg = t('technical.task_msg.blowout_control_done', ['well_id' => $wellId]);
+                                break;
+                            }
                             $this->db->prepare("
                                 UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
                                 WHERE player_id = ? AND well_id = ? AND disaster_type = 'blowout' AND status != 'resolved'
@@ -705,7 +705,15 @@ trait TTSTasksTrait
             $statusStmt->execute([$failed ? 'failed' : 'completed', json_encode($result), $taskId]);
             if ($statusStmt->rowCount() === 0) {
  // Another concurrent tick already completed this task — roll back all effects.
-                if ($ownTx) $this->db->rollBack();
+                if ($ownTx) {
+                    $this->db->rollBack();
+                } else {
+ // Wywolanie zagniezdzone (zewnetrzna transakcja): nie mozemy cofnac outer tx bezposrednio.
+ // Rzucamy wyjatek — outer catch powinien zrobic rollback i nie zatwierdzac czesciowych efektow.
+ // Nested call (outer transaction active): cannot rollback outer tx directly.
+ // Throw so outer catch can rollback and not commit partial effects.
+                    throw new \RuntimeException('completeTask: concurrent tick already completed task_id=' . $taskId . ' — aborting nested call');
+                }
                 return;
             }
 
@@ -740,14 +748,24 @@ trait TTSTasksTrait
  // startTask() otwiera wlasna transakcje; wywolujemy go dopiero po zatwierdzeniu zewnetrznej.
  // startTask() opens its own transaction — call only after outer commit is done.
         if ($next) {
-            $staffRow = $this->getStaffMember($staffId);
-            if ($staffRow) {
-                $startResult = $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
-                if (!($startResult['success'] ?? false)) {
-                    GameLog::error('TTS', 'completeTask: next queued startTask FAILED — queue entry permanently lost', null, [
-                        'queue_id' => $next['id'], 'task_type' => $next['task_type'],
-                        'staff_id' => $staffId, 'reason' => $startResult['message'] ?? 'unknown',
-                    ]);
+            if (!$ownTx) {
+ // startTask() wywoluje beginTransaction() co powoduje implicit COMMIT zewnetrznej transakcji w MySQL.
+ // Gdy jestesmy w outer tx, pomijamy startTask() — kolejne zadanie jest utracone, ale outer tx jest bezpieczna.
+ // startTask() calls beginTransaction() which triggers an implicit COMMIT of an outer transaction in MySQL.
+ // When nested in outer tx, skip startTask() — queued entry is lost but outer tx integrity is preserved.
+                GameLog::error('TTS', 'completeTask: skipping queued startTask — nested in outer transaction, queue entry lost', null, [
+                    'queue_id' => $next['id'], 'task_type' => $next['task_type'], 'staff_id' => $staffId,
+                ]);
+            } else {
+                $staffRow = $this->getStaffMember($staffId);
+                if ($staffRow) {
+                    $startResult = $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
+                    if (!($startResult['success'] ?? false)) {
+                        GameLog::error('TTS', 'completeTask: next queued startTask FAILED — queue entry permanently lost', null, [
+                            'queue_id' => $next['id'], 'task_type' => $next['task_type'],
+                            'staff_id' => $staffId, 'reason' => $startResult['message'] ?? 'unknown',
+                        ]);
+                    }
                 }
             }
         }
@@ -798,10 +816,19 @@ trait TTSTasksTrait
             }
 
             $this->db->beginTransaction();
-            $this->db->prepare("
+ // Warunek AND status='in_progress' zapobiega nadpisaniu statusu 'completed' na 'cancelled'
+ // gdy tick zakonczyl zadanie miedzy SELECT (linia powyzej) a BEGIN TRANSACTION.
+ // AND status='in_progress' guard prevents overwriting 'completed' → 'cancelled' when the
+ // tick completed the task between the SELECT above and this BEGIN TRANSACTION.
+            $cancelStmt = $this->db->prepare("
                 UPDATE technical_tasks SET status = 'cancelled', end_time = NOW()
-                WHERE id = ? AND player_id = ?
-            ")->execute([$taskId, $this->playerId]);
+                WHERE id = ? AND player_id = ? AND status = 'in_progress'
+            ");
+            $cancelStmt->execute([$taskId, $this->playerId]);
+            if ($cancelStmt->rowCount() === 0) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('technical.task_msg.active_task_not_found')];
+            }
             $this->db->prepare("
                 UPDATE technical_staff SET status = 'active'
                 WHERE id = ? AND player_id = ?
@@ -810,13 +837,7 @@ trait TTSTasksTrait
  // Odmroz odwiert jezeli anulowane zadanie go serwisowalo (i brak innych serwisow).
  // Un-freeze the well if the cancelled task was servicing it (and no other service runs).
             if (!empty($task['well_id']) && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
-                $otherStmt = $this->db->prepare("
-                    SELECT COUNT(*) FROM technical_tasks
-                    WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
-                      AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
-                ");
-                $otherStmt->execute([(int)$task['well_id'], $this->playerId, $taskId]);
-                if ((int)$otherStmt->fetchColumn() === 0) {
+                if (!$this->hasOtherWellServiceTasks((int)$task['well_id'], $this->playerId, $taskId)) {
                     $this->db->prepare("
                         UPDATE wells
                         SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
@@ -828,13 +849,7 @@ trait TTSTasksTrait
  // Odmroz rurociag jezeli anulowane zadanie go serwisowalo (i brak innych serwisow).
  // Un-freeze the pipeline if the cancelled task was servicing it (and no other service runs).
             if (!empty($task['pipeline_id']) && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
-                $otherStmt = $this->db->prepare("
-                    SELECT COUNT(*) FROM technical_tasks
-                    WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
-                      AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
-                ");
-                $otherStmt->execute([(int)$task['pipeline_id'], $this->playerId, $taskId]);
-                if ((int)$otherStmt->fetchColumn() === 0) {
+                if (!$this->hasOtherPipelineServiceTasks((int)$task['pipeline_id'], $this->playerId, $taskId)) {
                     $this->db->prepare("
                         UPDATE well_pipelines
                         SET status = COALESCE(service_prev_status, status), service_prev_status = NULL
@@ -881,6 +896,45 @@ trait TTSTasksTrait
             GameLog::error('TTS', 'cancelTask FAILED', $e, ['task_id' => $taskId]);
             return ['success' => false, 'message' => t('technical.task_msg.cancel_task_failed')];
         }
+    }
+
+ // -----------------------------------------------------------------------
+ // Pomocnicze metody prywatne / Private helper methods
+ // -----------------------------------------------------------------------
+
+ /**
+ * Sprawdza czy dla danego odwiertu istnieja inne (nie ta sama) zadania serwisowe w toku.
+ * Lista taskow pochodzi ze stalej WELL_SERVICE_TASKS — zmiana stalej automatycznie aktualizuje zapytanie.
+ * Checks whether other (not this) in-progress well-service tasks exist for the given well.
+ * Task list comes from WELL_SERVICE_TASKS constant — changing it automatically updates the query.
+ */
+    private function hasOtherWellServiceTasks(int $wellId, int $playerId, int $excludeId): bool
+    {
+        $placeholders = implode(',', array_fill(0, count(self::WELL_SERVICE_TASKS), '?'));
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*) FROM technical_tasks
+            WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
+              AND id <> ? AND task_type IN ({$placeholders})
+        ");
+        $stmt->execute(array_merge([$wellId, $playerId, $excludeId], self::WELL_SERVICE_TASKS));
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+ /**
+ * Sprawdza czy dla danego rurociagu istnieja inne (nie ta sama) zadania serwisowe w toku.
+ * Lista pochodzi ze stalej PIPELINE_SERVICE_TASKS.
+ * Checks whether other in-progress pipeline-service tasks exist for the given pipeline.
+ */
+    private function hasOtherPipelineServiceTasks(int $pipeId, int $playerId, int $excludeId): bool
+    {
+        $placeholders = implode(',', array_fill(0, count(self::PIPELINE_SERVICE_TASKS), '?'));
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*) FROM technical_tasks
+            WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
+              AND id <> ? AND task_type IN ({$placeholders})
+        ");
+        $stmt->execute(array_merge([$pipeId, $playerId, $excludeId], self::PIPELINE_SERVICE_TASKS));
+        return (int)$stmt->fetchColumn() > 0;
     }
 
     public function cancelQueueItem(int $queueId): array
