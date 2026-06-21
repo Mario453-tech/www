@@ -99,9 +99,12 @@ require_once __DIR__ . '/../templates/header.php';
 </main>
 
 <?php
-// Modal musi być dostępny nawet gdy baner nie jest pokazywany
+// Modal i skrypty — dołączane tylko gdy baner nie wstrzyknął ich wcześniej przez header.php
 echo '<link rel="stylesheet" href="' . asset('/assets/css/privacy.css') . '">';
-require __DIR__ . '/../templates/views/privacy/settings_modal.php';
+if (!defined('PRIVACY_MODAL_INCLUDED')) {
+    define('PRIVACY_MODAL_INCLUDED', true);
+    require __DIR__ . '/../templates/views/privacy/settings_modal.php';
+}
 echo '<script>window.PRIVACY_CONFIG = ' . json_encode($__privacyConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) . ';</script>';
 echo '<script src="' . asset('/assets/js/privacy_banner.js') . '" defer></script>';
 ?>

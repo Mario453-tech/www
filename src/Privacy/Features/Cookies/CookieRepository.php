@@ -43,23 +43,28 @@ class CookieRepository
 
     public function create(array $data): int
     {
-        $this->db->prepare("
-            INSERT INTO cookie_definitions
-                (name, category, provider, purpose, duration, type, is_required, is_active, cookie_key, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ")->execute([
-            $data['name'],
-            $data['category'],
-            $data['provider']    ?? '',
-            $data['purpose']     ?? '',
-            $data['duration']    ?? '',
-            $data['type']        ?? 'cookie',
-            (int)($data['is_required'] ?? 0),
-            (int)($data['is_active']   ?? 1),
-            $data['cookie_key']  ?? '',
-            $data['notes']       ?? null,
-        ]);
-        return (int)$this->db->lastInsertId();
+        try {
+            $this->db->prepare("
+                INSERT INTO cookie_definitions
+                    (name, category, provider, purpose, duration, type, is_required, is_active, cookie_key, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ")->execute([
+                $data['name'],
+                $data['category'],
+                $data['provider']    ?? '',
+                $data['purpose']     ?? '',
+                $data['duration']    ?? '',
+                $data['type']        ?? 'cookie',
+                (int)($data['is_required'] ?? 0),
+                (int)($data['is_active']   ?? 1),
+                $data['cookie_key']  ?? '',
+                $data['notes']       ?? null,
+            ]);
+            return (int)$this->db->lastInsertId();
+        } catch (Throwable $e) {
+            GameLog::error('Privacy', 'CookieRepository::create FAILED', $e);
+            return 0;
+        }
     }
 
     public function update(int $id, array $data): bool

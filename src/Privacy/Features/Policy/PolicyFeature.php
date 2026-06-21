@@ -35,6 +35,9 @@ class PolicyFeature extends AbstractPrivacyFeature
                 return ['success' => false, 'message' => t('privacy.policy.err_required_fields')];
             }
             $id = $this->policyService->create($policyType, $version, $title, $content);
+            if ($id === 0) {
+                return ['success' => false, 'message' => t('privacy.policy.err_create_failed')];
+            }
             $this->audit->log($adminId, 'policy_create', 'privacy_policy_versions', $id,
                               null, compact('policyType','version','title'), $ip, $ua);
             return ['success' => true, 'message' => t('privacy.policy.msg_created')];

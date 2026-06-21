@@ -40,7 +40,12 @@
     </div>
 </div>
 
-<?php require __DIR__ . '/settings_modal.php'; ?>
+<?php
+if (!defined('PRIVACY_MODAL_INCLUDED')) {
+    define('PRIVACY_MODAL_INCLUDED', true);
+    require __DIR__ . '/settings_modal.php';
+}
+?>
 
 <script>
 window.PRIVACY_CONFIG = <?= json_encode($__privacyConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;

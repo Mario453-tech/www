@@ -17,8 +17,8 @@
             <dd><?= htmlspecialchars($consent_detail['consent_version']) ?> / baner: <?= htmlspecialchars($consent_detail['banner_version']) ?></dd>
             <dt><?= t('privacy.consents.col_accepted') ?></dt>
             <dd><?= htmlspecialchars($consent_detail['accepted_categories_json']) ?></dd>
-            <dt><?= t('privacy.consents.col_withdrawn') ?></dt>
-            <dd><?= $consent_detail['rejected_categories_json'] ?></dd>
+            <dt><?= t('privacy.consents.col_rejected') ?></dt>
+            <dd><?= htmlspecialchars($consent_detail['rejected_categories_json']) ?></dd>
             <dt><?= t('privacy.consents.col_source') ?></dt>
             <dd><?= htmlspecialchars($consent_detail['source']) ?></dd>
             <dt>IP</dt>
@@ -129,9 +129,18 @@
     </div>
 
     <?php if ($pages > 1): ?>
+    <?php
+    $__filterParams = [];
+    foreach ($filters as $__k => $__v) {
+        if ($__v !== '' && $__v != 0) {
+            $__filterParams['filter_' . $__k] = $__v;
+        }
+    }
+    $__filterQs = $__filterParams ? '&' . http_build_query($__filterParams) : '';
+    ?>
     <div class="pagination">
         <?php for ($p = 1; $p <= $pages; $p++): ?>
-            <a href="?tab=consents&page=<?= $p ?><?= http_build_query(array_filter($filters)) ? '&' . http_build_query(array_filter($filters)) : '' ?>"
+            <a href="?tab=consents&page=<?= $p ?><?= $__filterQs ?>"
                class="btn btn-sm <?= $page === $p ? 'btn-primary' : 'btn-secondary' ?>">
                 <?= $p ?>
             </a>

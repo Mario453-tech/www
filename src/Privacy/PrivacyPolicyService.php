@@ -74,11 +74,16 @@ class PrivacyPolicyService
      */
     public function create(string $policyType, string $version, string $title, string $content): int
     {
-        $this->db->prepare("
-            INSERT INTO privacy_policy_versions (policy_type, version, title, content, is_active)
-            VALUES (?, ?, ?, ?, 0)
-        ")->execute([$policyType, $version, $title, $content]);
-        return (int)$this->db->lastInsertId();
+        try {
+            $this->db->prepare("
+                INSERT INTO privacy_policy_versions (policy_type, version, title, content, is_active)
+                VALUES (?, ?, ?, ?, 0)
+            ")->execute([$policyType, $version, $title, $content]);
+            return (int)$this->db->lastInsertId();
+        } catch (Throwable $e) {
+            GameLog::error('Privacy', 'PolicyService::create FAILED', $e);
+            return 0;
+        }
     }
 
     /**
