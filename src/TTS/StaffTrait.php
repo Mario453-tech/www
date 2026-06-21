@@ -25,7 +25,7 @@ trait TTSStaffTrait
                    tt.status AS active_task_status,
                    COALESCE(ttq.cnt, 0) AS queued_tasks
             FROM technical_staff ts
-            LEFT JOIN staff_specializations ss ON ss.code = ts.spec_code
+            LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
             LEFT JOIN technical_tasks tt ON tt.staff_id = ts.id AND tt.status = 'in_progress'
             LEFT JOIN (
                 SELECT staff_id, COUNT(*) AS cnt
@@ -34,8 +34,11 @@ trait TTSStaffTrait
             ) ttq ON ttq.staff_id = ts.id
             WHERE ts.player_id = ? AND ts.status != 'fired'
             ORDER BY FIELD(ts.spec_code,
-                'drilling_engineer','reservoir_engineer','production_engineer',
-                'maintenance_engineer','pipeline_engineer','safety_engineer')
+                'well_operator','roughneck','field_supervisor',
+                'drilling_engineer','petroleum_engineer','reservoir_engineer','production_engineer','geologist',
+                'well_technician','maintenance_engineer',
+                'pipeline_engineer',
+                'safety_officer','safety_engineer')
         ");
         $stmt->execute([$this->playerId]);
         return $stmt->fetchAll();
