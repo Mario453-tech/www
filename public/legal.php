@@ -202,8 +202,8 @@ $briberyEnabled = $bribery->config()->isEnabled();
 $bribeQuotes    = []; // [region_id => ['cost'=>int,'catch_pct'=>int,'level'=>string]]
 if ($briberyEnabled) {
     foreach ($inProgress as $entry) {
-        if (!in_array($entry['permit']['status'], ['pending', 'delayed'], true)) {
-            continue; // no_decision nie kwalifikuje sie / no_decision is not eligible
+        if (!in_array($entry['permit']['status'], ['pending', 'delayed', 'no_decision'], true)) {
+            continue;
         }
         $rid = (int)$entry['config']['region_id'];
         $bribeQuotes[$rid] = $bribery->quote($playerId, (float)$entry['config']['application_cost']);

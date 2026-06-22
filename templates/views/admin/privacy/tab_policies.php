@@ -89,7 +89,7 @@
                             <button type="submit" class="btn btn-sm btn-primary"><?= t('privacy.policy.btn_activate') ?></button>
                         </form>
                         <?php else: ?>
-                            <span class="muted small">Aktywna — utwórz nową wersję aby edytować</span>
+                            <span class="muted small"><?= t('privacy.policy.active_cannot_edit_hint') ?></span>
                         <?php endif ?>
                     </td>
                 </tr>

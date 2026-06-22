@@ -113,7 +113,10 @@ return [
     'privacy.consents.empty'          => 'Brak zapisanych zgód.',
     'privacy.consents.detail_heading' => 'Szczegóły zgody',
     'privacy.consents.anonymous'      => 'Gość (niezalogowany)',
-    'privacy.consents.page_of'        => 'Strona :page z :total',
+    'privacy.consents.page_of'             => 'Strona :page z :total',
+    'privacy.consents.back_to_list'        => 'Wróć do listy',
+    'privacy.consents.total_count'         => 'Łącznie zgód: :n',
+    'privacy.consents.detail_banner_ver'   => 'wersja banera:',
 
     // Panel admina — zakładka Polityki
     'privacy.policy.tab_heading'      => 'Wersje polityk',
@@ -143,7 +146,8 @@ return [
     'privacy.policy.err_create_failed'    => 'Nie udało się zapisać polityki. Sprawdź czy ta wersja już istnieje.',
     'privacy.policy.err_invalid_type'     => 'Nieprawidłowy typ polityki.',
     'privacy.policy.err_required_fields'  => 'Wersja i tytuł są wymagane.',
-    'privacy.policy.err_cannot_edit_active'=> 'Nie można edytować aktywnej wersji polityki. Utwórz nową wersję.',
+    'privacy.policy.err_cannot_edit_active'     => 'Nie można edytować aktywnej wersji polityki. Utwórz nową wersję.',
+    'privacy.policy.active_cannot_edit_hint'    => 'Aktywna — utwórz nową wersję aby edytować',
 
     // Panel admina — zakładka Ustawienia banera
     'privacy.banner_settings.tab_heading'       => 'Ustawienia banera',

@@ -104,7 +104,10 @@ return [
     'privacy.consents.empty'          => 'No consents recorded.',
     'privacy.consents.detail_heading' => 'Consent Details',
     'privacy.consents.anonymous'      => 'Guest (not logged in)',
-    'privacy.consents.page_of'        => 'Page :page of :total',
+    'privacy.consents.page_of'             => 'Page :page of :total',
+    'privacy.consents.back_to_list'        => 'Back to list',
+    'privacy.consents.total_count'         => 'Total consents: :n',
+    'privacy.consents.detail_banner_ver'   => 'banner version:',
 
     'privacy.policy.tab_heading'      => 'Policy Versions',
     'privacy.policy.col_type'         => 'Type',
@@ -133,7 +136,8 @@ return [
     'privacy.policy.err_create_failed'    => 'Failed to save policy. Check if this version already exists.',
     'privacy.policy.err_invalid_type'     => 'Invalid policy type.',
     'privacy.policy.err_required_fields'  => 'Version and title are required.',
-    'privacy.policy.err_cannot_edit_active'=> 'Cannot edit an active policy version. Create a new version instead.',
+    'privacy.policy.err_cannot_edit_active'     => 'Cannot edit an active policy version. Create a new version instead.',
+    'privacy.policy.active_cannot_edit_hint'    => 'Active — create a new version to edit',
 
     'privacy.banner_settings.tab_heading'       => 'Banner Settings',
     'privacy.banner_settings.section_general'   => 'General',

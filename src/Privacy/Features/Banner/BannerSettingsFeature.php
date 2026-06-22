@@ -13,7 +13,7 @@ class BannerSettingsFeature extends AbstractPrivacyFeature
 
     public function getKey(): string   { return 'banner_settings'; }
     public function getLabel(): string { return t('privacy.feature.banner_label'); }
-    public function getIcon(): string  { return '⚙️'; }
+    public function getIcon(): string  { return ''; }
 
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {
