@@ -167,6 +167,9 @@
     margin-bottom: .95rem;
 }
 @media (max-width: 900px) {
+    .logistics-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .logistics-insight-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -2395,7 +2398,7 @@
 
 /* ── Mobile ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    .logistics-flow-section { padding: 14px 12px; }
+    .logistics-flow-section { padding: 14px 12px; position: relative; }
     .logistics-flow-track   { gap: 0; }
     .logistics-flow-step    { min-width: 80px; }
     .logistics-flow-icon    { width: 46px; height: 46px; border-radius: 10px; }
@@ -2404,15 +2407,29 @@
     .logistics-flow-arrow   { min-width: 36px; }
     .logistics-flow-storage-bar { width: 60px; }
     .logistics-flow-label   { font-size: 8px; }
+
+    /* Gradient na prawej krawedzi wskazuje ze mozna przesunac w prawo */
+    .logistics-flow-section::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 48px;
+        bottom: 0;
+        width: 36px;
+        pointer-events: none;
+        background: linear-gradient(to right, transparent, #0f0f18);
+        border-radius: 0 12px 12px 0;
+    }
 }
 
 @media (max-width: 480px) {
-    .logistics-flow-step    { min-width: 68px; }
-    .logistics-flow-icon    { width: 38px; height: 38px; border-radius: 8px; }
-    .logistics-flow-icon svg { width: 22px; height: 22px; }
+    .logistics-flow-step    { min-width: 60px; }
+    .logistics-flow-icon    { width: 36px; height: 36px; border-radius: 8px; }
+    .logistics-flow-icon svg { width: 20px; height: 20px; }
     .logistics-flow-value   { font-size: 11px; }
-    .logistics-flow-arrow   { min-width: 24px; }
+    .logistics-flow-arrow   { min-width: 14px; flex: 0 0 14px; }
     .logistics-flow-arrow span { display: none; }
+    .logistics-flow-arrow svg  { display: none; }
     .logistics-flow-sub-val { font-size: 9px; }
 }
 

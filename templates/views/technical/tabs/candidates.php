@@ -196,24 +196,6 @@
             </div>
         </form>
     </details>
-    <?php
-    $hireBtnLabel = ($reviewed && $recommendedHire)
-        ? t('hr.btn_hire_recommended')
-        : t('hr.btn_hire');
-    $hireBtnClass = ($reviewed && $recommendedHire) ? 'btn-success' : 'btn-secondary';
-    // tPlain (raw) + jednokrotny htmlspecialchars(ENT_QUOTES) — bezpieczne w '...' wewnatrz onclick="...".
-    $hireConfirmMsg = htmlspecialchars(tPlain('technical.confirm_hire', ['name' => $candidate['first_name'] . ' ' . $candidate['last_name']]), ENT_QUOTES, 'UTF-8');
-    ?>
-    <form method="post" class="cand-hire-form" style="margin-top:10px">
-        <input type="hidden" name="_token" value="<?= $csrf ?>">
-        <input type="hidden" name="action" value="hire_candidate">
-        <input type="hidden" name="candidate_id" value="<?= (int)$candidate['id'] ?>">
-        <button
-            type="button"
-            class="btn <?= $hireBtnClass ?> btn-sm"
-            onclick="return confirmSubmit(this, '<?= $hireConfirmMsg ?>', { title: '<?= htmlspecialchars(t('technical.confirm_hire_title'), ENT_QUOTES, 'UTF-8') ?>', confirmLabel: '<?= htmlspecialchars(t('hr.btn_hire'), ENT_QUOTES, 'UTF-8') ?>' })"
-        ><?= $hireBtnLabel ?></button>
-    </form>
     <?php endif ?>
 </div>
 <?php endforeach ?>
