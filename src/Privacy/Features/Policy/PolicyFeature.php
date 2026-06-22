@@ -16,7 +16,7 @@ class PolicyFeature extends AbstractPrivacyFeature
 
     public function getKey(): string   { return 'policy'; }
     public function getLabel(): string { return t('privacy.feature.policy_label'); }
-    public function getIcon(): string  { return '📄'; }
+    public function getIcon(): string  { return ''; }
 
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {

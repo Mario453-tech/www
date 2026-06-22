@@ -60,4 +60,6 @@ return [
     'bailiff.bankruptcy_event' => 'Director, the company has lost financial liquidity. Make recovery decisions within 24 hours.',
 
     'common.all' => 'All',
+    'common.yes' => 'Yes',
+    'common.no'  => 'No',
 ];

@@ -14,7 +14,7 @@
                 ? htmlspecialchars($consent_detail['username'] ?? 'ID: ' . $consent_detail['player_id'])
                 : t('privacy.consents.anonymous') ?></dd>
             <dt><?= t('privacy.consents.col_version') ?></dt>
-            <dd><?= htmlspecialchars($consent_detail['consent_version']) ?> / baner: <?= htmlspecialchars($consent_detail['banner_version']) ?></dd>
+            <dd><?= htmlspecialchars($consent_detail['consent_version']) ?> / <?= t('privacy.consents.detail_banner_ver') ?> <?= htmlspecialchars($consent_detail['banner_version']) ?></dd>
             <dt><?= t('privacy.consents.col_accepted') ?></dt>
             <dd><?= htmlspecialchars($consent_detail['accepted_categories_json']) ?></dd>
             <dt><?= t('privacy.consents.col_rejected') ?></dt>
@@ -30,7 +30,7 @@
             <dd><?= htmlspecialchars($consent_detail['withdrawn_at']) ?></dd>
             <?php endif ?>
         </dl>
-        <a href="?tab=consents" class="btn btn-secondary btn-sm">← Wróć do listy</a>
+        <a href="?tab=consents" class="btn btn-secondary btn-sm">← <?= t('privacy.consents.back_to_list') ?></a>
     </div>
     <?php endif ?>
 
@@ -42,7 +42,7 @@
             <input type="date" name="filter_date_to" value="<?= htmlspecialchars($filters['date_to'] ?? '') ?>"
                    placeholder="<?= t('privacy.consents.filter_to') ?>">
             <select name="filter_consent_version">
-                <option value=""><?= t('privacy.consents.filter_version') ?>: wszystkie</option>
+                <option value=""><?= t('privacy.consents.filter_version') ?>: <?= t('common.all') ?></option>
                 <?php foreach ($versions as $v): ?>
                     <option value="<?= htmlspecialchars($v) ?>"
                         <?= ($filters['consent_version'] ?? '') === $v ? 'selected' : '' ?>>
@@ -51,7 +51,7 @@
                 <?php endforeach ?>
             </select>
             <select name="filter_source">
-                <option value=""><?= t('privacy.consents.filter_source') ?>: wszystkie</option>
+                <option value=""><?= t('privacy.consents.filter_source') ?>: <?= t('common.all') ?></option>
                 <option value="banner"   <?= ($filters['source'] ?? '') === 'banner'   ? 'selected' : '' ?>>banner</option>
                 <option value="settings" <?= ($filters['source'] ?? '') === 'settings' ? 'selected' : '' ?>>settings</option>
                 <option value="api"      <?= ($filters['source'] ?? '') === 'api'      ? 'selected' : '' ?>>api</option>
@@ -148,6 +148,6 @@
     </div>
     <?php endif ?>
 
-    <p class="muted small">Łącznie zgód: <?= $total ?></p>
+    <p class="muted small"><?= t('privacy.consents.total_count', ['n' => $total]) ?></p>
     <?php endif ?>
 </div>

@@ -113,8 +113,8 @@
             </select>
             <select name="filter_active" onchange="this.form.submit()">
                 <option value=""><?= t('privacy.cookies.col_active') ?>: <?= t('common.all') ?></option>
-                <option value="1" <?= ($filters['is_active'] ?? '') === '1' ? 'selected' : '' ?>>Tak</option>
-                <option value="0" <?= ($filters['is_active'] ?? '') === '0' ? 'selected' : '' ?>>Nie</option>
+                <option value="1" <?= ($filters['is_active'] ?? '') === '1' ? 'selected' : '' ?>><?= t('common.yes') ?></option>
+                <option value="0" <?= ($filters['is_active'] ?? '') === '0' ? 'selected' : '' ?>><?= t('common.no') ?></option>
             </select>
         </form>
     </div>

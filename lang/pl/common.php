@@ -60,4 +60,6 @@ return [
     'bailiff.bankruptcy_event' => 'Panie Dyrektorze, firma utraciła płynność finansową. W ciągu 24h podejmij decyzje ratunkowe.',
 
     'common.all' => 'Wszystkie',
+    'common.yes' => 'Tak',
+    'common.no'  => 'Nie',
 ];

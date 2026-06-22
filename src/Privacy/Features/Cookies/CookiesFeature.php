@@ -16,7 +16,7 @@ class CookiesFeature extends AbstractPrivacyFeature
 
     public function getKey(): string   { return 'cookies'; }
     public function getLabel(): string { return t('privacy.feature.cookies_label'); }
-    public function getIcon(): string  { return '🍪'; }
+    public function getIcon(): string  { return ''; }
 
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {

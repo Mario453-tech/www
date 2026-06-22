@@ -16,7 +16,7 @@ class ConsentsFeature extends AbstractPrivacyFeature
 
     public function getKey(): string   { return 'consents'; }
     public function getLabel(): string { return t('privacy.feature.consents_label'); }
-    public function getIcon(): string  { return '📋'; }
+    public function getIcon(): string  { return ''; }
 
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {
