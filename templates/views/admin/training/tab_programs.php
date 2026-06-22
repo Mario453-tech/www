@@ -1,0 +1,163 @@
+<?php
+/** Zakładka: programy szkoleniowe — zmienne z $viewData (extract w main.php) */
+?>
+
+<div class="section-header">
+    <h2><?= t('admin.training.programs.heading') ?></h2>
+    <a href="?tab=programs&add=1" class="btn btn-primary btn-sm">
+        <?= t('admin.training.programs.btn_add') ?>
+    </a>
+</div>
+
+<?php if (isset($_GET['add']) || $editRow): ?>
+<?php $isNew = !$editRow; ?>
+<div class="card form-card">
+    <h3><?= $isNew ? t('admin.training.programs.btn_add') : t('admin.training.programs.btn_edit') ?></h3>
+    <form method="post" action="?tab=programs<?= $editRow ? '&edit=' . (int)$editRow['id'] : '' ?>">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="tab"    value="programs">
+        <input type="hidden" name="action" value="<?= $isNew ? 'program_create' : 'program_update' ?>">
+        <?php if ($editRow): ?>
+            <input type="hidden" name="id" value="<?= (int)$editRow['id'] ?>">
+        <?php endif ?>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_code') ?> *</label>
+                <input type="text" name="code" required maxlength="60"
+                       pattern="[a-z0-9_]+"
+                       title="Tylko małe litery, cyfry i podkreślenia"
+                       value="<?= htmlspecialchars($editRow['code'] ?? '') ?>"
+                       <?= !$isNew ? 'readonly' : '' ?>>
+            </div>
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_dept') ?> *</label>
+                <select name="department" required id="train-dept-select">
+                    <?php foreach ($deptOptions as $d): ?>
+                        <option value="<?= $d ?>"
+                            <?= ($editRow['department'] ?? '') === $d ? 'selected' : '' ?>>
+                            <?= t('admin.training.dept.' . $d) ?>
+                        </option>
+                    <?php endforeach ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_skill') ?> *</label>
+                <select name="target_skill" required id="train-skill-select">
+                    <?php
+                    $allSkills = array_unique(array_merge(...array_values($skillOptions)));
+                    foreach ($allSkills as $sk):
+                    ?>
+                        <option value="<?= $sk ?>"
+                            <?= ($editRow['target_skill'] ?? '') === $sk ? 'selected' : '' ?>>
+                            <?= t('admin.training.skill.' . $sk) ?>
+                        </option>
+                    <?php endforeach ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_name_pl') ?> *</label>
+                <input type="text" name="name_pl" required maxlength="120"
+                       value="<?= htmlspecialchars($editRow['name_pl'] ?? '') ?>">
+            </div>
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_name_en') ?> *</label>
+                <input type="text" name="name_en" required maxlength="120"
+                       value="<?= htmlspecialchars($editRow['name_en'] ?? '') ?>">
+            </div>
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_duration') ?> *</label>
+                <input type="number" name="duration_hours" required min="1" max="720"
+                       value="<?= (int)($editRow['duration_hours'] ?? 24) ?>">
+            </div>
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_cost') ?> *</label>
+                <input type="number" name="cost" required min="0"
+                       value="<?= (int)($editRow['cost'] ?? 0) ?>">
+            </div>
+            <div class="form-group">
+                <label><?= t('admin.training.programs.label_pass_rate') ?> *</label>
+                <input type="number" name="base_pass_rate" required min="1" max="100"
+                       value="<?= (int)($editRow['base_pass_rate'] ?? 70) ?>">
+                <small class="form-hint"><?= t('admin.training.programs.hint_pass_rate') ?></small>
+            </div>
+        </div>
+
+        <div class="form-checkboxes">
+            <label class="checkbox-label">
+                <input type="checkbox" name="enabled" value="1"
+                    <?= ($editRow['enabled'] ?? 1) ? 'checked' : '' ?>>
+                <?= t('admin.training.programs.label_enabled') ?>
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <?= t('admin.training.programs.btn_save') ?>
+            </button>
+            <a href="?tab=programs" class="btn btn-secondary">
+                <?= t('admin.training.programs.btn_cancel') ?>
+            </a>
+        </div>
+    </form>
+</div>
+<?php endif ?>
+
+<?php if (empty($programs)): ?>
+    <p class="muted">Brak programów szkoleniowych.</p>
+<?php else: ?>
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th><?= t('admin.training.programs.col_code') ?></th>
+                <th><?= t('admin.training.programs.col_name') ?></th>
+                <th><?= t('admin.training.programs.col_dept') ?></th>
+                <th><?= t('admin.training.programs.col_skill') ?></th>
+                <th class="text-right"><?= t('admin.training.programs.col_duration') ?></th>
+                <th class="text-right"><?= t('admin.training.programs.col_cost') ?></th>
+                <th class="text-right"><?= t('admin.training.programs.col_pass_rate') ?></th>
+                <th><?= t('admin.training.programs.col_enabled') ?></th>
+                <th><?= t('admin.training.programs.col_actions') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($programs as $p): ?>
+            <tr class="<?= $p['enabled'] ? '' : 'row-muted' ?>">
+                <td><code><?= htmlspecialchars($p['code']) ?></code></td>
+                <td>
+                    <strong><?= htmlspecialchars($p['name_pl']) ?></strong>
+                    <br><small class="muted"><?= htmlspecialchars($p['name_en']) ?></small>
+                </td>
+                <td><?= t('admin.training.dept.' . $p['department']) ?></td>
+                <td>
+                    <span class="badge badge-skill-<?= htmlspecialchars($p['target_skill']) ?>">
+                        <?= t('admin.training.skill.' . $p['target_skill']) ?>
+                    </span>
+                </td>
+                <td class="text-right"><?= (int)$p['duration_hours'] ?> h</td>
+                <td class="text-right"><?= number_format((int)$p['cost'], 0, ',', ' ') ?></td>
+                <td class="text-right"><?= (int)$p['base_pass_rate'] ?>%</td>
+                <td><?= $p['enabled'] ? '✅' : '❌' ?></td>
+                <td class="actions">
+                    <a href="?tab=programs&edit=<?= (int)$p['id'] ?>"
+                       class="btn btn-sm btn-secondary">
+                        <?= t('admin.training.programs.btn_edit') ?>
+                    </a>
+                    <form method="post" style="display:inline"
+                          <?= !$p['enabled'] ? '' : 'onsubmit="return confirm(\'' . t('admin.training.programs.confirm_disable') . '\')"' ?>>
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="tab"    value="programs">
+                        <input type="hidden" name="id"     value="<?= (int)$p['id'] ?>">
+                        <input type="hidden" name="action" value="<?= $p['enabled'] ? 'program_disable' : 'program_enable' ?>">
+                        <button type="submit" class="btn btn-sm <?= $p['enabled'] ? 'btn-warning' : 'btn-success' ?>">
+                            <?= $p['enabled'] ? t('admin.training.programs.btn_disable') : t('admin.training.programs.btn_enable') ?>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach ?>
+        </tbody>
+    </table>
+</div>
+<?php endif ?>
