@@ -120,7 +120,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt1_btn') ?></button>
                 <?php else: ?>
                 <button type="button" class="btn btn-warning btn-full"
-                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_sell_asset")) ?>,function(){document.getElementById("form-sell-asset").submit();},{confirmLabel:<?= json_encode(t("recovery.opt1_btn")) ?>})'>
+                    onclick='confirmAction(<?= htmlspecialchars(json_encode(t("recovery.confirm_sell_asset")), ENT_QUOTES, 'UTF-8') ?>,function(){document.getElementById("form-sell-asset").submit();},{confirmLabel:<?= htmlspecialchars(json_encode(t("recovery.opt1_btn")), ENT_QUOTES, 'UTF-8') ?>})'>
                     <?= t('recovery.opt1_btn') ?>
                 </button>
                 <?php endif ?>
@@ -138,7 +138,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt2_btn') ?></button>
                 <?php else: ?>
                 <button type="button" class="btn btn-danger btn-full"
-                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_bank_takeover")) ?>,function(){document.getElementById("form-bank-takeover").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt2_btn")) ?>})'>
+                    onclick='confirmAction(<?= htmlspecialchars(json_encode(t("recovery.confirm_bank_takeover")), ENT_QUOTES, 'UTF-8') ?>,function(){document.getElementById("form-bank-takeover").submit();},{type:"danger",confirmLabel:<?= htmlspecialchars(json_encode(t("recovery.opt2_btn")), ENT_QUOTES, 'UTF-8') ?>})'>
                     <?= t('recovery.opt2_btn') ?>
                 </button>
                 <?php endif ?>
@@ -175,7 +175,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt4_btn') ?></button>
                 <?php else: ?>
                 <button type="button" class="btn btn-warning btn-full"
-                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_cost_cuts")) ?>,function(){document.getElementById("form-cost-cuts").submit();},{confirmLabel:<?= json_encode(t("recovery.opt4_btn")) ?>})'>
+                    onclick='confirmAction(<?= htmlspecialchars(json_encode(t("recovery.confirm_cost_cuts")), ENT_QUOTES, 'UTF-8') ?>,function(){document.getElementById("form-cost-cuts").submit();},{confirmLabel:<?= htmlspecialchars(json_encode(t("recovery.opt4_btn")), ENT_QUOTES, 'UTF-8') ?>})'>
                     <?= t('recovery.opt4_btn') ?>
                 </button>
                 <?php endif ?>
@@ -209,7 +209,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                     <button type="button" class="btn btn-secondary btn-full" disabled><?= t('recovery.opt5_btn') ?></button>
                     <?php else: ?>
                     <button type="button" class="btn btn-success btn-full"
-                        onclick='confirmAction(<?= json_encode(t("recovery.confirm_rescue_investor")) ?>,function(){document.getElementById("form-rescue-investor").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt5_btn")) ?>})'>
+                        onclick='confirmAction(<?= htmlspecialchars(json_encode(t("recovery.confirm_rescue_investor")), ENT_QUOTES, 'UTF-8') ?>,function(){document.getElementById("form-rescue-investor").submit();},{type:"danger",confirmLabel:<?= htmlspecialchars(json_encode(t("recovery.opt5_btn")), ENT_QUOTES, 'UTF-8') ?>})'>
                         <?= t('recovery.opt5_btn') ?>
                     </button>
                     <?php endif ?>
@@ -231,7 +231,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 <button type="button" class="btn btn-danger btn-full" disabled><?= t('recovery.opt6_btn') ?></button>
                 <?php else: ?>
                 <button type="button" class="btn btn-danger btn-full"
-                    onclick='confirmAction(<?= json_encode(t("recovery.confirm_new_start")) ?>,function(){document.getElementById("form-new-start").submit();},{type:"danger",confirmLabel:<?= json_encode(t("recovery.opt6_btn")) ?>})'>
+                    onclick='confirmAction(<?= htmlspecialchars(json_encode(t("recovery.confirm_new_start")), ENT_QUOTES, 'UTF-8') ?>,function(){document.getElementById("form-new-start").submit();},{type:"danger",confirmLabel:<?= htmlspecialchars(json_encode(t("recovery.opt6_btn")), ENT_QUOTES, 'UTF-8') ?>})'>
                     <?= t('recovery.opt6_btn') ?>
                 </button>
                 <?php endif ?>
