@@ -105,7 +105,11 @@ trait TTSTasksTrait
                     'message' => t('technical.task_msg.well_paused_staff', ['missing' => $missing]),
                 ];
             }
-            if (in_array($wellRow['status'], ['seized', 'blowout'])) {
+            // seized is always blocked; blowout is blocked EXCEPT for blowout_control
+            // (the task exists specifically to fix a well in blowout state).
+            $blocked = $wellRow['status'] === 'seized'
+                || ($wellRow['status'] === 'blowout' && $taskType !== 'blowout_control');
+            if ($blocked) {
                 return ['success' => false, 'message' => t('technical.task_msg.well_unavailable', ['status' => $wellRow['status']])];
             }
         }
