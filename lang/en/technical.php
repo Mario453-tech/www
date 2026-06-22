@@ -624,4 +624,11 @@ return [
     'technical.recruitment_msg.unknown_spec' => 'Unknown specialization.',
     'technical.recruitment_msg.missing_role' => 'Missing technical role in the system.',
     'technical.recruitment_msg.requested' => 'Search ordered for: :spec. HR will deliver candidates in about :mins min.',
+    'technical.recruitment_msg.invalid_type'   => 'Invalid recruitment type.',
+    'technical.recruitment_msg.unknown_region' => 'Unknown recruitment region.',
+    'technical.recruitment_msg.insert_failed'  => 'Failed to save the recruitment request.',
+
+    'technical.confirm_hire'       => 'Hire :name? Cost: first salary will be deducted.',
+    'technical.confirm_hire_title' => 'Confirm hire',
+    'technical.err_hire'           => 'Error while hiring the candidate.',
 ];

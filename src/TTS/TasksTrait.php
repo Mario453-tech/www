@@ -556,6 +556,17 @@ trait TTSTasksTrait
                 case 'install_module':
                     if ($wellId && $task['module_type']) {
                         $mod       = $task['module_type'];
+                        // Guard: skip INSERT if well was sold/deleted while task was in progress (FK constraint).
+                        $wellExistsStmt = $this->db->prepare("SELECT id FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
+                        $wellExistsStmt->execute([$wellId, $pId]);
+                        if (!$wellExistsStmt->fetch()) {
+                            GameLog::warn('TTS', 'install_module skipped — well no longer exists', [
+                                'well_id'   => $wellId,
+                                'task_id'   => $taskId,
+                                'module'    => $mod,
+                            ]);
+                            break;
+                        }
                         $checkStmt = $this->db->prepare("SELECT id FROM well_upgrades WHERE well_id = ? AND upgrade_type = ?");
                         $checkStmt->execute([$wellId, $mod]);
                         if (!$checkStmt->fetch()) {

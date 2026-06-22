@@ -649,5 +649,10 @@ return [
     'technical.recruitment_msg.requested'              => 'Zlecono poszukiwania: :spec. Dział Kadr dostarczy kandydatów za ~:mins min.',
     'technical.recruitment_msg.invalid_type'           => 'Nieprawidłowy typ rekrutacji.',
     'technical.recruitment_msg.unknown_region'         => 'Nieznany region rekrutacji.',
+    'technical.recruitment_msg.insert_failed'          => 'Nie udało się zapisać zlecenia rekrutacji.',
+
+    'technical.confirm_hire'       => 'Zatrudnić :name? Koszt: pierwsza pensja zostanie potrącona.',
+    'technical.confirm_hire_title' => 'Potwierdź zatrudnienie',
+    'technical.err_hire'           => 'Błąd podczas zatrudniania kandydata.',
 
 ];

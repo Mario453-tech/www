@@ -37,6 +37,9 @@ trait TechnicalPageActionsTrait
             case 'request_recruitment':
                 [$msg, $msgType] = $this->handleRequestRecruitment();
                 break;
+            case 'hire_candidate':
+                [$msg, $msgType] = $this->handleHireCandidate();
+                break;
             case 'cancel_recruitment':
                 [$msg, $msgType] = $this->handleCancelRecruitment();
                 break;
@@ -195,6 +198,26 @@ trait TechnicalPageActionsTrait
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'request_recruitment EXCEPTION', $e);
             return [t('technical.err_recruitment'), 'error'];
+        }
+    }
+
+    private function handleHireCandidate(): array
+    {
+        try {
+            $candidateId = (int)($_POST['candidate_id'] ?? 0);
+            if ($candidateId <= 0) {
+                return [t('common.invalid_data'), 'error'];
+            }
+            $hrSvc = new HRService();
+            $result = $hrSvc->hireCandidate($candidateId, $this->playerId);
+            GameLog::info('technical.php', 'hire_candidate result', [
+                'candidate_id' => $candidateId,
+                'ok' => $result['success'],
+            ]);
+            return [$result['message'], $result['success'] ? 'success' : 'error'];
+        } catch (Throwable $e) {
+            GameLog::error('technical.php', 'hire_candidate EXCEPTION', $e);
+            return [t('technical.err_hire'), 'error'];
         }
     }
 
