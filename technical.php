@@ -24,6 +24,7 @@ $pageTitle = t('technical.page_title');
 $extraCss = [
     'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap',
     '/assets/css/technical.css',
+    '/assets/css/training.css',
 ];
 $extraHead = '<meta name="csrf-token" content="' . htmlspecialchars(CSRF::generateToken(), ENT_QUOTES) . '">';
 $gameShellTitle = t('technical.page_title');
