@@ -23,15 +23,16 @@
                 <input type="hidden" name="action" value="cancel_recruitment">
                 <input type="hidden" name="request_id" value="<?= (int)$pendingRecruitment['id'] ?>">
                 <?php
-                // Buduj bodyHtml jako PHP string i koduj przez json_encode, zeby uniknac &quot; w atrybucie onclick
-                // Build bodyHtml as a PHP string and encode via json_encode to avoid &quot; inside onclick attribute
+                // bodyHtml: json_encode daje literalny JS-string; htmlspecialchars(ENT_QUOTES) escapuje
+                // cudzyslowy-ograniczniki, inaczej pierwszy " zamknalby atrybut onclick="..." i zepsul przycisk.
                 $__bodyHtml = '<p>' . t('technical.confirm_cancel_recruitment') . '</p>'
                     . '<p style="margin-top:8px;opacity:.8;font-size:.92rem;">' . t('technical.cancel_recruitment_hint') . '</p>';
+                $__bodyHtmlAttr = htmlspecialchars(json_encode($__bodyHtml), ENT_QUOTES, 'UTF-8');
                 ?>
                 <button
                     type="button"
                     class="btn btn-secondary btn-sm rec-cancel-btn"
-                    onclick="confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.cancel_recruitment_title'), ENT_QUOTES, 'UTF-8') ?>', type: 'danger', confirmLabel: '<?= htmlspecialchars(t('technical.btn_cancel_recruitment_confirm'), ENT_QUOTES, 'UTF-8') ?>', bodyHtml: <?= json_encode($__bodyHtml, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?> }); return false;"
+                    onclick="confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_recruitment'), ENT_QUOTES, 'UTF-8') ?>', { title: '<?= htmlspecialchars(t('technical.cancel_recruitment_title'), ENT_QUOTES, 'UTF-8') ?>', type: 'danger', confirmLabel: '<?= htmlspecialchars(t('technical.btn_cancel_recruitment_confirm'), ENT_QUOTES, 'UTF-8') ?>', bodyHtml: <?= $__bodyHtmlAttr ?> }); return false;"
                 ><?= t('technical.btn_cancel_recruitment') ?></button>
             </form>
         </div>
@@ -200,8 +201,8 @@
         ? t('hr.btn_hire_recommended')
         : t('hr.btn_hire');
     $hireBtnClass = ($reviewed && $recommendedHire) ? 'btn-success' : 'btn-secondary';
-    $hireCandName = htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name'], ENT_QUOTES, 'UTF-8');
-    $hireConfirmMsg = htmlspecialchars(t('technical.confirm_hire', ['name' => $candidate['first_name'] . ' ' . $candidate['last_name']]), ENT_QUOTES, 'UTF-8');
+    // tPlain (raw) + jednokrotny htmlspecialchars(ENT_QUOTES) — bezpieczne w '...' wewnatrz onclick="...".
+    $hireConfirmMsg = htmlspecialchars(tPlain('technical.confirm_hire', ['name' => $candidate['first_name'] . ' ' . $candidate['last_name']]), ENT_QUOTES, 'UTF-8');
     ?>
     <form method="post" class="cand-hire-form" style="margin-top:10px">
         <input type="hidden" name="_token" value="<?= $csrf ?>">

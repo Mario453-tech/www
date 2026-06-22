@@ -33,9 +33,11 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $warn = isset($emp['contract_days_left']) && $emp['contract_days_left'] <= 14 && $emp['contract_days_left'] >= 0;
             $age = !empty($emp['birth_date']) ? date_diff(date_create($emp['birth_date']), date_create('today'))->y : null;
-            $safeName = json_encode($emp['first_name'] . ' ' . $emp['last_name'], JSON_HEX_APOS | JSON_HEX_QUOT);
+            // json_encode daje literalny JS-string, htmlspecialchars escapuje cudzyslowy-ograniczniki,
+            // dzieki czemu wartosc bezpiecznie wchodzi w atrybut onclick="..." (inaczej cudzyslow zamyka atrybut).
+            $safeName = htmlspecialchars(json_encode($emp['first_name'] . ' ' . $emp['last_name']), ENT_QUOTES, 'UTF-8');
             $empDomId = ($emp['source'] ?? 'board_member') . '-' . (int)$emp['id'];
-            $empDomJs = json_encode($empDomId, JSON_HEX_APOS | JSON_HEX_QUOT);
+            $empDomJs = htmlspecialchars(json_encode($empDomId), ENT_QUOTES, 'UTF-8');
         ?>
         <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails(<?= $empDomJs ?>)">
             <div class="emp-header">
@@ -122,7 +124,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             $avg = round(($candidate['skill_organization'] + $candidate['skill_negotiation'] + $candidate['skill_analysis'] + $candidate['skill_stress'] + $candidate['skill_ethics']) / 5, 1);
             $expLevel = $candidate['experience_years'] <= 5 ? 'Junior' : ($candidate['experience_years'] <= 12 ? 'Mid' : 'Senior');
             $hoursLeft = max(0, (int)$candidate['hours_remaining']);
-            $safeName = json_encode($candidate['first_name'] . ' ' . $candidate['last_name'], JSON_HEX_APOS | JSON_HEX_QUOT);
+            $safeName = htmlspecialchars(json_encode($candidate['first_name'] . ' ' . $candidate['last_name']), ENT_QUOTES, 'UTF-8');
             $isRecommended = ($candidate['tech_recommendation'] ?? '') === 'hire';
             $isRejected = ($candidate['tech_recommendation'] ?? '') === 'reject';
         ?>
