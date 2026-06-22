@@ -28,7 +28,6 @@ require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
 require_once __DIR__ . '/../src/LegalService.php';
 require_once __DIR__ . '/../src/Tick/CredibilitySection.php';
 require_once __DIR__ . '/../src/Tick/LegalSection.php';
-require_once __DIR__ . '/../src/Tick/TrainingSection.php';
 
 // Opcjonalne serwisy
 $bankNegAvailable       = file_exists(__DIR__ . '/../src/BankNegotiationService.php');
@@ -278,20 +277,6 @@ try {
     }
 } catch (Throwable $e) {
     GameLog::error('tick', 'Legal section FAILED', $e);
-}
-
-// 9. SZKOLENIA — egzaminy zakonczonych szkolen pracownikow
-
-$trainingExamined = 0;
-try {
-    $training = new TrainingSection($db);
-    $training->run();
-    $trainingExamined = $training->examined;
-    if ($trainingExamined > 0) {
-        GameLog::info('tick', "Szkolenia: przeprowadzono {$trainingExamined} egzaminow");
-    }
-} catch (Throwable $e) {
-    GameLog::error('tick', 'Training section FAILED', $e);
 }
 
 // PODSUMOWANIE + ZAPIS STATYSTYK

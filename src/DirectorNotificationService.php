@@ -79,6 +79,22 @@ class DirectorNotificationService
             'action_url' => 'hr.php',
             'action_label_key' => 'director.hr_contract_expiring.action'
         ],
+        'training_passed' => [
+            'type' => 'technical',
+            'priority' => 'low',
+            'icon' => 'check',
+            'title_key' => 'director.training_passed.title',
+            'message_key' => 'director.training_passed.message',
+            'requires_action' => false
+        ],
+        'training_failed' => [
+            'type' => 'technical',
+            'priority' => 'medium',
+            'icon' => 'cross',
+            'title_key' => 'director.training_failed.title',
+            'message_key' => 'director.training_failed.message',
+            'requires_action' => false
+        ],
         'technical_well_failure' => [
             'type' => 'technical',
             'priority' => 'critical',
