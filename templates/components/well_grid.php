@@ -202,8 +202,13 @@ foreach ($groups as $regionName => $group):
                 <?php elseif (in_array($status, ['blowout','contaminated','broken'])): ?>
                 <div class="wg-diag wg-diag--disaster">
                     <div class="wg-diag-title"><?= $st[2] ?> <?= $st[0] ?></div>
+                    <?php if ($status === 'blowout'): ?>
+                    <p class="wg-diag-note"><?= t('wg.diag_blowout_note') ?></p>
+                    <a href="<?= url('technical', ['tab' => 'team', 'repair_well' => (int)$w['id']]) ?>#tech-drl" class="btn btn-primary btn-sm"><?= t('wg.btn_blowout') ?></a>
+                    <?php else: ?>
                     <p class="wg-diag-note"><?= t('wg.diag_repair_note') ?></p>
                     <a href="<?= url('technical', ['tab' => 'team', 'repair_well' => (int)$w['id']]) ?>#tech-mnt" class="btn btn-primary btn-sm"><?= t('wg.btn_repair') ?></a>
+                    <?php endif ?>
                 </div>
 
                 <?php elseif ($status === 'seized'): ?>
