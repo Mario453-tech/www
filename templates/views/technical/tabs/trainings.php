@@ -89,6 +89,30 @@ $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fir
 </div>
 
 <div class="g-card">
+    <div class="g-card-title"><?= t('training.heading_certificates') ?></div>
+
+    <?php if (empty($trainingCertificates)): ?>
+        <div class="empty-state"><?= t('training.empty_certificates') ?></div>
+    <?php else: ?>
+        <div class="trn-cert-grid">
+        <?php foreach ($trainingCertificates as $cert): ?>
+            <div class="trn-cert">
+                <div class="trn-cert-seal"><?= (int)$cert['level_after'] ?></div>
+                <div class="trn-cert-body">
+                    <div class="trn-prog-name"><?= htmlspecialchars((string)$cert['program_name']) ?></div>
+                    <div class="trn-cert-meta">
+                        <span class="trn-skill-tag"><?= t('training.skill.' . $cert['skill_code']) ?></span>
+                        <span><?= t('training.label_score') ?>: <?= (int)$cert['score'] ?>/100</span>
+                    </div>
+                    <div class="trn-cert-date"><?= htmlspecialchars(substr((string)$cert['issued_at'], 0, 10)) ?></div>
+                </div>
+            </div>
+        <?php endforeach ?>
+        </div>
+    <?php endif ?>
+</div>
+
+<div class="g-card">
     <div class="g-card-title"><?= t('training.heading_history') ?></div>
 
     <?php if (empty($trainingHistory)): ?>

@@ -199,7 +199,7 @@ class TrainingService
                       WHERE id=? AND player_id=?"
                 )->execute([$score, $passMin, $levelBefore, $levelAfter, $row['id'], $playerId]);
 
-                $this->issueCertificate($staffType, $staffId, (int)$row['id'], $row, $score);
+                $this->issueCertificate($playerId, $staffType, $staffId, (int)$row['id'], $row, $score, $levelAfter);
             } else {
                 $cooldown = (new DateTime())
                     ->modify('+' . self::COOLDOWN_HOURS . ' hours')
@@ -225,16 +225,23 @@ class TrainingService
         return true;
     }
 
-    /** Wpis certyfikatu po zdanym egzaminie. */
-    private function issueCertificate(string $staffType, int $staffId, int $trainingId, array $row, int $score): void
-    {
+    /**
+     * Wystawia certyfikat po zdanym egzaminie (technik lub czlonek zarzadu).
+     * Issues a certificate after a passed exam (technical staff or board member).
+     */
+    private function issueCertificate(
+        int $playerId, string $staffType, int $staffId, int $trainingId,
+        array $row, int $score, int $levelAfter
+    ): void {
         $this->db->prepare(
-            "INSERT INTO employee_certificates
-                (member_id, staff_type, training_id, code, name, score, skill_bonus, issued_at)
-             VALUES (?, ?, ?, ?, ?, ?, '1', CURDATE())"
+            "INSERT INTO training_certificates
+                (player_id, staff_type, staff_id, training_id, program_code,
+                 program_name, skill_code, score, level_after, issued_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
         )->execute([
-            $staffId, $staffType, $trainingId,
-            (string)$row['code'], (string)$row['name_pl'], $score,
+            $playerId, $staffType, $staffId, $trainingId,
+            (string)$row['code'], (string)$row['name_pl'], (string)$row['target_skill'],
+            $score, $levelAfter,
         ]);
     }
 
@@ -290,6 +297,20 @@ class TrainingService
                JOIN training_programs tp ON tp.id = st.program_id
               WHERE st.player_id = ? AND st.staff_type = ? AND st.status = 'in_progress'
               ORDER BY st.finishes_at ASC"
+        );
+        $stmt->execute([$playerId, $department]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Zdobyte certyfikaty gracza dla danego dzialu (najnowsze pierwsze). */
+    public function getCertificates(int $playerId, string $department, int $limit = 50): array
+    {
+        $limit = max(1, min(200, $limit));
+        $stmt = $this->db->prepare(
+            "SELECT * FROM training_certificates
+              WHERE player_id = ? AND staff_type = ?
+              ORDER BY issued_at DESC
+              LIMIT {$limit}"
         );
         $stmt->execute([$playerId, $department]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

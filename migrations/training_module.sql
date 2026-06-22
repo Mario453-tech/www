@@ -72,18 +72,27 @@ CREATE TABLE IF NOT EXISTS `staff_trainings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
--- 4. Rozszerzenie employee_certificates o kolumny dla szkolen
+-- 4. Certyfikaty szkoleniowe (technicy + zarzad)
+--    Wlasna tabela zamiast employee_certificates, ktora ma klucz obcy
+--    tylko do board_members. Tutaj member jest polimorficzny (staff_type).
 -- ------------------------------------------------------------
-ALTER TABLE `employee_certificates`
-    ADD COLUMN IF NOT EXISTS `staff_type`  ENUM('technical','board') NULL
-        COMMENT 'Typ pracownika (technical_staff lub board_members)'
-        AFTER `member_id`,
-    ADD COLUMN IF NOT EXISTS `training_id` INT UNSIGNED NULL
-        COMMENT 'Referencja do staff_trainings'
-        AFTER `staff_type`,
-    ADD COLUMN IF NOT EXISTS `score`       TINYINT UNSIGNED NULL
-        COMMENT 'Wynik egzaminu ktory przyznał certyfikat'
-        AFTER `training_id`;
+CREATE TABLE IF NOT EXISTS `training_certificates` (
+    `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `player_id`    INT UNSIGNED                NOT NULL,
+    `staff_type`   ENUM('technical','board')   NOT NULL,
+    `staff_id`     INT UNSIGNED                NOT NULL,
+    `training_id`  INT UNSIGNED                NOT NULL,
+    `program_code` VARCHAR(60)                 NOT NULL,
+    `program_name` VARCHAR(120)                NOT NULL,
+    `skill_code`   VARCHAR(40)                 NOT NULL,
+    `score`        TINYINT UNSIGNED            NOT NULL,
+    `level_after`  TINYINT UNSIGNED            NOT NULL,
+    `issued_at`    DATETIME                    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_tc_staff`  (`staff_type`, `staff_id`),
+    INDEX `idx_tc_player` (`player_id`),
+    CONSTRAINT `fk_tc_training`
+        FOREIGN KEY (`training_id`) REFERENCES `staff_trainings`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
 -- 5. Dane seed — programy szkoleniowe

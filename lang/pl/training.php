@@ -13,6 +13,7 @@ return [
     'training.heading_available' => 'Dostępne kursy',
     'training.heading_active'    => 'W trakcie',
     'training.heading_history'   => 'Historia egzaminów',
+    'training.heading_certificates' => 'Zdobyte certyfikaty',
 
     // Przyciski
     'training.btn_enroll'        => 'Zapisz na kurs',
@@ -49,6 +50,7 @@ return [
     'training.empty_active' => 'Żaden pracownik nie jest obecnie szkolony.',
     'training.empty_history'=> 'Brak historii szkoleń.',
     'training.empty_programs'=> 'Brak dostępnych kursów dla tego działu.',
+    'training.empty_certificates'=> 'Brak zdobytych certyfikatów. Ukończ szkolenie z wynikiem pozytywnym, aby zdobyć certyfikat.',
 
     // Transakcja
     'training.tx_fee' => 'Opłata za szkolenie: :program',
