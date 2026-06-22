@@ -20,6 +20,7 @@ return [
     'admin.nav.gm_tools' => 'GM Tools',
     'admin.nav.help_editor' => 'Player guide',
     'admin.nav.hr' => 'Human resources',
+    'admin.nav.tasks' => 'Task configuration',
     'admin.nav.incidents' => 'Incidents',
     'admin.nav.legal' => 'Drilling permits',
     'admin.nav.bribery' => 'Bribery',

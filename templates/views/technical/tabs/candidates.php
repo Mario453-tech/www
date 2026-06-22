@@ -123,7 +123,7 @@
             <?php else: ?>
             <span class="badge b-paused"><?= t('technical.awaiting_review') ?></span>
             <?php endif ?>
-            <div class="<?= $expiryClass ?> fs12"><?= t('technical.expires_in', ['h' => $hoursLeft]) ?></div>
+            <div class="<?= $expiryClass ?> fs12"><?= t('technical.expires_in', ['hh' => $hoursLeft]) ?></div>
         </div>
     </div>
 

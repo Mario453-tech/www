@@ -99,6 +99,7 @@ require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Well.php';
 require_once __DIR__ . '/WellShop.php';
 require_once __DIR__ . '/TechnicalTeamService.php';
+require_once __DIR__ . '/TaskConfigService.php';
 require_once __DIR__ . '/CandidateGenerator.php';
 require_once __DIR__ . '/HRService.php';
 require_once __DIR__ . '/WellStaffService.php';

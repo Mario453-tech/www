@@ -226,8 +226,8 @@ class TechnicalTeamService
             'assignable'  => ['drilling_engineer'],
             'hours_min'   => 72,
             'hours_max'   => 120,
-            'cost_min'    => 0,
-            'cost_max'    => 0,
+            'cost_min'    => 5_000_000,
+            'cost_max'    => 20_000_000,
             'needs_well'  => true,
             'effect_key'  => 'technical.task_effect.blowout_control',
             'emergency'   => true,
@@ -284,12 +284,37 @@ class TechnicalTeamService
 
     public static function getTasksCatalog(): array
     {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $tasks = self::TASKS;
         foreach ($tasks as $code => $task) {
             $tasks[$code]['label'] = t($task['label_key']);
             $tasks[$code]['effect'] = t($task['effect_key']);
         }
-        return $tasks;
+
+        // Merge DB overrides for cost_min/cost_max/hours_min/hours_max
+        try {
+            $db = Database::getInstance()->getConnection();
+            $overrides = TaskConfigService::loadAll($db);
+            foreach ($overrides as $taskType => $keys) {
+                if (!isset($tasks[$taskType])) {
+                    continue;
+                }
+                foreach ($keys as $key => $value) {
+                    if (array_key_exists($key, $tasks[$taskType])) {
+                        $tasks[$taskType][$key] = $value;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            GameLog::warn('TechnicalTeamService', 'getTasksCatalog DB overrides failed — using defaults', ['error' => $e->getMessage()]);
+        }
+
+        $cached = $tasks;
+        return $cached;
     }
 
     public static function getTaskDefinition(string $code): ?array
