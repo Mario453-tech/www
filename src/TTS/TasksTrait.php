@@ -565,6 +565,7 @@ trait TTSTasksTrait
                                 'task_id'   => $taskId,
                                 'module'    => $mod,
                             ]);
+                            $msg = t('technical.task_result.install_module_well_gone');
                             break;
                         }
                         $checkStmt = $this->db->prepare("SELECT id FROM well_upgrades WHERE well_id = ? AND upgrade_type = ?");

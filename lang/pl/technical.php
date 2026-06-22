@@ -576,6 +576,7 @@ return [
     'technical.task_msg.reservoir_analysis_done' => 'Panie Dyrektorze, analiza złoża odwiertu #:well_id zakończona. Złoże: :reservoir_pct% · ciśnienie: :pressure.',
     'technical.task_msg.production_optimization_done' => 'Panie Dyrektorze, optymalizacja produkcji odwiertu #:well_id zakończona. Produkcja wzrosła o :boost%.',
     'technical.task_msg.install_module_done' => 'Panie Dyrektorze, instalacja modułu ":module" w odwiercie #:well_id zakończona. :effect.',
+    'technical.task_result.install_module_well_gone' => 'Panie Dyrektorze, odwiert zostal sprzedany przed zakonczeniem instalacji modulu. Modul nie zostal zainstalowany.',
     'technical.task_msg.reservoir_rehabilitation_done' => 'Panie Dyrektorze, rehabilitacja złoża odwiertu #:well_id zakończona. Produkcja wzrosła o :boost%. Odwiert znów działa.',
     'technical.task_msg.task_done_generic' => 'Panie Dyrektorze, zadanie ":title" zostało zakończone.',
     'technical.task_msg.task_failed_generic' => 'Panie Dyrektorze, zadanie ":title" nie powiodło się. Kompetencje pracownika były zbyt niskie. Koszt przepadł.',

@@ -284,6 +284,11 @@ class TechnicalTeamService
 
     public static function getTasksCatalog(): array
     {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $tasks = self::TASKS;
         foreach ($tasks as $code => $task) {
             $tasks[$code]['label'] = t($task['label_key']);
@@ -305,10 +310,11 @@ class TechnicalTeamService
                 }
             }
         } catch (Throwable $e) {
-            GameLog::warn('TechnicalTeamService', 'getTasksCatalog DB overrides failed — using defaults', []);
+            GameLog::warn('TechnicalTeamService', 'getTasksCatalog DB overrides failed — using defaults', ['error' => $e->getMessage()]);
         }
 
-        return $tasks;
+        $cached = $tasks;
+        return $cached;
     }
 
     public static function getTaskDefinition(string $code): ?array

@@ -4,7 +4,8 @@ AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
 $who = AdminAuth::getAdminUsername();
-$msg = '';
+$msg = (string)($_SESSION['admin_flash_msg'] ?? '');
+if ($msg !== '') { unset($_SESSION['admin_flash_msg']); }
 $err = (string)($_SESSION['admin_flash_error'] ?? '');
 if ($err !== '') { unset($_SESSION['admin_flash_error']); }
 
@@ -40,19 +41,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             TaskConfigService::save($db, $taskType, $values, $who);
             AdminLog::log('task_config_save', "Saved task config: {$taskType}");
-            $msg = t('admin.tasks.msg_saved');
-            $dbOverrides = TaskConfigService::loadAll($db);
+            $_SESSION['admin_flash_msg'] = tPlain('admin.tasks.msg_saved');
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit;
         } catch (Throwable $e) {
-            $err = t('admin.tasks.err_save') . $e->getMessage();
+            $_SESSION['admin_flash_error'] = tPlain('admin.tasks.err_save') . $e->getMessage();
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit;
         }
     } elseif ($action === 'reset_task' && isset($taskCatalog[$taskType])) {
         try {
             TaskConfigService::resetToDefault($db, $taskType);
             AdminLog::log('task_config_reset', "Reset task config: {$taskType}");
-            $msg = t('admin.tasks.msg_reset');
-            $dbOverrides = TaskConfigService::loadAll($db);
+            $_SESSION['admin_flash_msg'] = tPlain('admin.tasks.msg_reset');
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit;
         } catch (Throwable $e) {
-            $err = t('admin.tasks.err_reset') . $e->getMessage();
+            $_SESSION['admin_flash_error'] = tPlain('admin.tasks.err_reset') . $e->getMessage();
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit;
         }
     }
 }
@@ -77,11 +84,9 @@ require_once __DIR__ . '/partials/header.php';
     <?php
     $groups = [
         t('admin.tasks.group_maintenance') => ['well_maintenance','well_repair','hub_maintenance','hub_repair'],
-        t('admin.tasks.group_technical')   => ['reservoir_analysis','production_optimization','install_module','safety_audit'],
+        t('admin.tasks.group_technical')   => ['reservoir_analysis','production_optimization','install_module','safety_audit','reservoir_rehabilitation'],
         t('admin.tasks.group_pipeline')    => ['pipeline_maintenance','pipeline_inspection','pipeline_repair'],
         t('admin.tasks.group_emergency')   => ['blowout_control'],
-        t('admin.tasks.group_drilling')    => ['geological_survey','well_drilling','directional_drilling'],
-        t('admin.tasks.group_hr')          => ['recruitment'],
     ];
     $csrfToken = CSRF::generateToken();
     ?>

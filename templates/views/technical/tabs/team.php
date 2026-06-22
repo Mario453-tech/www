@@ -59,9 +59,12 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
         $sec = $sectionMap[$s['spec_code']]['label'] ?? t('technical.section_other');
         $sections[$sec][] = $s;
     }
-    // Anchor #tech-mnt is placed on the first maintenance engineer card.
-    // Used by the deep-link from the main page repair shortcut.
+    // Anchors: #tech-mnt on the first maintenance_engineer card,
+    // #tech-drl on the first drilling_engineer card.
+    // Used by deep-links from the well grid repair/blowout shortcuts.
     $__mntAnchorPlaced = false;
+    $__drlAnchorPlaced = false;
+    $__taskCatalog = TechnicalTeamService::getTasksCatalog();
     foreach ($sections as $sectionLabel => $sectionStaff):
     ?>
     <div class="staff-section-title"><?= htmlspecialchars($sectionLabel) ?> <span class="muted">(<?= count($sectionStaff) ?>)</span></div>
@@ -84,12 +87,15 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                 $progress = $total > 0 ? min(100, round($elapsed / $total * 100)) : 100;
             }
         }
-        $safeName = htmlspecialchars($s['first_name'].' '.$s['last_name'], ENT_QUOTES);
-        $__isMnt        = ($s['spec_code'] === 'maintenance_engineer');
-        $__placeAnchor  = ($__isMnt && !$__mntAnchorPlaced);
-        if ($__placeAnchor) { $__mntAnchorPlaced = true; }
+        $safeName    = htmlspecialchars($s['first_name'].' '.$s['last_name'], ENT_QUOTES);
+        $__anchorId  = null;
+        if ($s['spec_code'] === 'maintenance_engineer' && !$__mntAnchorPlaced) {
+            $__anchorId = 'tech-mnt'; $__mntAnchorPlaced = true;
+        } elseif ($s['spec_code'] === 'drilling_engineer' && !$__drlAnchorPlaced) {
+            $__anchorId = 'tech-drl'; $__drlAnchorPlaced = true;
+        }
     ?>
-    <div class="staff-card <?= $isBusy ? 'busy' : '' ?>" data-spec="<?= htmlspecialchars($s['spec_code'], ENT_QUOTES) ?>"<?= $__placeAnchor ? ' id="tech-mnt"' : '' ?>>
+    <div class="staff-card <?= $isBusy ? 'busy' : '' ?>" data-spec="<?= htmlspecialchars($s['spec_code'], ENT_QUOTES) ?>"<?= $__anchorId ? ' id="' . $__anchorId . '"' : '' ?>>
         <div class="staff-hdr">
             <div>
                 <span class="staff-spec-icon"><?= htmlspecialchars($specDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
@@ -148,7 +154,7 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                             <div class="form-group form-group--flush">
                                 <label class="form-label"><?= t('technical.task_type_label') ?></label>
                                 <select name="task_type" class="form-input" onchange="toggleWellSelect(this, '<?= (int)$s['id'] ?>')">
-                                    <?php foreach (TechnicalTeamService::getTasksCatalog() as $code => $td):
+                                    <?php foreach ($__taskCatalog as $code => $td):
                                         if (!in_array($s['spec_code'], $td['assignable'])) continue;
                                         $costMin = $td['cost_min'] ?? 0;
                                         $costMax = $td['cost_max'] ?? 0;

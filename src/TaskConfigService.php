@@ -16,6 +16,10 @@ class TaskConfigService
 
     public static function createTableIfNeeded(PDO $db): void
     {
+        static $done = false;
+        if ($done) return;
+        $done = true;
+
         $db->exec("
             CREATE TABLE IF NOT EXISTS `task_config` (
               `task_type`   VARCHAR(64) NOT NULL,

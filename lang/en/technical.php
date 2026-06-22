@@ -571,6 +571,7 @@ return [
     'technical.task_msg.reservoir_analysis_done' => 'Director, reservoir analysis for well #:well_id has been completed. Reservoir: :reservoir_pct% - pressure: :pressure.',
     'technical.task_msg.production_optimization_done' => 'Director, production optimization for well #:well_id has been completed. Production increased by :boost%.',
     'technical.task_msg.install_module_done' => 'Director, installation of the ":module" module in well #:well_id has been completed. :effect.',
+    'technical.task_result.install_module_well_gone' => 'Director, the well was sold before the module installation completed. The module was not installed.',
     'technical.task_msg.reservoir_rehabilitation_done' => 'Director, reservoir rehabilitation for well #:well_id has been completed. Production increased by :boost%. The well is operational again.',
     'technical.task_msg.task_done_generic' => 'Director, the ":title" task has been completed.',
     'technical.task_msg.task_failed_generic' => 'Director, the ":title" task failed. The employee competence was too low. The cost has been lost.',
