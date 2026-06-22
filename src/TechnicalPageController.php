@@ -4,6 +4,7 @@ require_once __DIR__ . '/TechnicalPage/ActionsTrait.php';
 require_once __DIR__ . '/TechnicalPage/DataTrait.php';
 require_once __DIR__ . '/TechnicalPage/RecruitmentViewTrait.php';
 require_once __DIR__ . '/TechnicalPage/ViewDataTrait.php';
+require_once __DIR__ . '/Training/TrainingService.php';
 
 class TechnicalPageController
 {

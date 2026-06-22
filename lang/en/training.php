@@ -37,6 +37,7 @@ return [
     'training.status.failed'      => 'Failed',
     'training.status.cancelled'   => 'Cancelled',
 
+    'training.exam_queued'  => 'Exam queued',
     'training.exam_result'  => 'Score: :score/100 (required: :min)',
     'training.empty_active' => 'No employee is currently in training.',
     'training.empty_history'=> 'No training history.',

@@ -1,0 +1,126 @@
+/* Modul szkolen - widok gracza (dzial techniczny). */
+/* Training module - player view (technical department). */
+
+.trn-active-list,
+.trn-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.trn-active-item,
+.trn-history-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.trn-active-head,
+.trn-h-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.trn-prog-name { font-weight: 700; }
+
+.trn-skill-tag,
+.trn-prog-skill {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(200, 168, 75, 0.15);
+    color: var(--gold2, #e8cc7a);
+    white-space: nowrap;
+}
+
+.trn-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    margin: 6px 0;
+}
+
+.trn-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a7dc0, #6aa0e0);
+    border-radius: 999px;
+}
+
+.trn-active-meta,
+.trn-h-meta {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted2, #9aa0aa);
+}
+
+.trn-pending-exam { color: var(--gold2, #e8cc7a); }
+
+/* Karty programow / Program cards */
+.trn-program-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.trn-program-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.trn-prog-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+    color: var(--muted2, #9aa0aa);
+    margin-top: 2px;
+}
+
+.trn-enroll-form {
+    display: flex;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 6px;
+}
+
+.trn-staff-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: #1a1a22;
+    color: #e6e6ea;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.trn-enroll-btn { white-space: nowrap; }
+
+/* Historia / History */
+.trn-history-item.trn-h-pass    { border-left: 3px solid #4caf72; }
+.trn-history-item.trn-h-fail    { border-left: 3px solid #d05a5a; }
+.trn-history-item.trn-h-neutral { border-left: 3px solid rgba(255, 255, 255, 0.18); }
+
+.trn-h-status { font-weight: 600; }
+.trn-h-pass    .trn-h-status { color: #6fcf97; }
+.trn-h-fail    .trn-h-status { color: #eb8a8a; }
+.trn-h-levelup { color: var(--gold2, #e8cc7a); font-weight: 700; }
+
+@media (max-width: 560px) {
+    .trn-program-grid { grid-template-columns: 1fr; }
+    .trn-enroll-form  { flex-direction: column; }
+    .trn-enroll-btn   { width: 100%; }
+}

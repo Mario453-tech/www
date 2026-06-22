@@ -41,7 +41,7 @@ trait TechnicalPageViewDataTrait
 
         // Walidacja aktywnej zakladki przez whitelist — zapobiega wstrzkynieniu wartosci z GET
         // Validate active tab against whitelist — prevents injection of arbitrary GET values
-        static $__allowedTabs = ['team','well_staff','candidates','tasks','wells','prod','infra','safety','incidents','report'];
+        static $__allowedTabs = ['team','well_staff','candidates','tasks','wells','prod','infra','safety','incidents','report','trainings'];
         $activeTab = in_array($_GET['tab'] ?? '', $__allowedTabs, true) ? ($_GET['tab'] ?? 'team') : 'team';
         unset($__allowedTabs);
         GameLog::info('technical.php', "Active tab: {$activeTab}");
@@ -108,6 +108,19 @@ trait TechnicalPageViewDataTrait
         $activeDisasters = $this->loadActiveDisasters($db);
         $failures = $this->loadFailures($db);
 
+        // Szkolenia: kursy, aktywne szkolenia i historia dla dzialu technicznego.
+        // Trainings: courses, active trainings and history for the technical department.
+        $trainingService = new TrainingService($db);
+        $trainingPrograms = $this->safeLoad(
+            fn() => $trainingService->getAvailablePrograms('technical'), 'trainingPrograms', []
+        );
+        $trainingActive = $this->safeLoad(
+            fn() => $trainingService->getActiveTrainings($this->playerId, 'technical'), 'trainingActive', []
+        );
+        $trainingHistory = $this->safeLoad(
+            fn() => $trainingService->getHistory($this->playerId, 'technical'), 'trainingHistory', []
+        );
+
         GameLog::perf('technical.php', 'All data loaded', $_dataStart);
         GameLog::info('technical.php', 'Rendering HTML', [
             'manager' => $manager ? 'yes' : 'no',
@@ -166,6 +179,9 @@ trait TechnicalPageViewDataTrait
             'playerHubs' => $playerHubs,
             'activeDisasters' => $activeDisasters,
             'failures' => $failures,
+            'trainingPrograms' => $trainingPrograms,
+            'trainingActive' => $trainingActive,
+            'trainingHistory' => $trainingHistory,
             'db' => $db,
             'playerId' => $this->playerId,
             'svc' => $this->svc,

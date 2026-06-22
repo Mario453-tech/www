@@ -66,6 +66,7 @@ $tabDefs = [
     'infra'      => [t('technical.tab_infra'),       null],
     'safety'     => [t('technical.tab_safety'),      count($brokenWells)],
     'incidents'  => [t('technical.tab_incidents'),   count($incidents)],
+    'trainings'  => [t('training.tab_label'),        count($trainingActive)],
     'report'     => [t('technical.tab_report'),      null],
 ];
 foreach ($tabDefs as $id => [$label, $cnt]):

@@ -44,6 +44,7 @@ return [
     'training.status.cancelled'   => 'Anulowany',
 
     // Wynik egzaminu
+    'training.exam_queued'  => 'Egzamin w kolejce',
     'training.exam_result'  => 'Wynik: :score/100 (wymagane: :min)',
     'training.empty_active' => 'Żaden pracownik nie jest obecnie szkolony.',
     'training.empty_history'=> 'Brak historii szkoleń.',

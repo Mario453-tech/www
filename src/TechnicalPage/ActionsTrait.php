@@ -49,6 +49,9 @@ trait TechnicalPageActionsTrait
             case 'cancel_queue_item':
                 [$msg, $msgType] = $this->handleCancelQueueItem();
                 break;
+            case 'start_training':
+                [$msg, $msgType] = $this->handleStartTraining();
+                break;
             case 'upgrade_procedures':
                 [$msg, $msgType] = $this->handleUpgradeProcedures();
                 break;
@@ -78,6 +81,25 @@ trait TechnicalPageActionsTrait
         }
 
         return [$msg, $msgType];
+    }
+
+    private function handleStartTraining(): array
+    {
+        try {
+            $db      = Database::getInstance()->getConnection();
+            $service = new TrainingService($db);
+            $result  = $service->enroll(
+                $this->playerId,
+                'technical',
+                (int)($_POST['staff_id'] ?? 0),
+                (int)($_POST['program_id'] ?? 0)
+            );
+            GameLog::info('technical.php', 'start_training result', $result);
+            return [$result['message'], !empty($result['success']) ? 'success' : 'error'];
+        } catch (Throwable $e) {
+            GameLog::error('technical.php', 'start_training EXCEPTION', $e);
+            return [t('training.err.generic'), 'error'];
+        }
     }
 
     private function handleAssignTask(): array
