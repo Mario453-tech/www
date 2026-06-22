@@ -20,6 +20,7 @@ return [
     'admin.nav.gm_tools' => 'GM Tools',
     'admin.nav.help_editor' => 'Instrukcja gracza',
     'admin.nav.hr' => 'Dział kadr',
+    'admin.nav.tasks' => 'Konfiguracja zadań',
     'admin.nav.incidents' => 'Incydenty',
     'admin.nav.legal' => 'Zezwolenia na wiercenie',
     'admin.nav.bribery' => 'Łapówki',

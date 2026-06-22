@@ -289,6 +289,25 @@ class TechnicalTeamService
             $tasks[$code]['label'] = t($task['label_key']);
             $tasks[$code]['effect'] = t($task['effect_key']);
         }
+
+        // Merge DB overrides for cost_min/cost_max/hours_min/hours_max
+        try {
+            $db = Database::getInstance()->getConnection();
+            $overrides = TaskConfigService::loadAll($db);
+            foreach ($overrides as $taskType => $keys) {
+                if (!isset($tasks[$taskType])) {
+                    continue;
+                }
+                foreach ($keys as $key => $value) {
+                    if (array_key_exists($key, $tasks[$taskType])) {
+                        $tasks[$taskType][$key] = $value;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            GameLog::warn('TechnicalTeamService', 'getTasksCatalog DB overrides failed — using defaults', []);
+        }
+
         return $tasks;
     }
 

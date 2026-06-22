@@ -24,6 +24,7 @@ $navSections = [
         'loans.php'       => ['', t('admin.nav.loans')],
         'gm_tools.php'    => ['', t('admin.nav.gm_tools')],
         'hr.php'          => ['', t('admin.nav.hr')],
+        'tasks.php'       => ['', t('admin.nav.tasks')],
         'boardroom.php'   => ['', t('boardroom.admin_nav')],
     ],
     t('admin.nav.section_market') => [

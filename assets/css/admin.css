@@ -4652,3 +4652,20 @@ table.admin-table tr:hover td {
     .protection-admin-row span:nth-child(4),
     .protection-admin-row span:nth-child(5) { display: none; }
 }
+
+/* ── Task config admin (admin/tasks.php) ─────────────────────────────── */
+.task-config-grid { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.task-config-header,
+.task-config-row   { display: grid; grid-template-columns: 2fr 1fr 1fr 100px 100px auto; gap: 8px; align-items: center; padding: 8px 10px; }
+.task-config-header { font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; }
+.task-config-row { background: var(--card-bg); border-radius: 6px; }
+.task-config-row--modified { border-left: 3px solid var(--accent); }
+.task-config-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.task-config-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.input-inline { width: 90px; }
+@media (max-width: 900px) {
+    .task-config-header { display: none; }
+    .task-config-row    { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .task-config-name   { grid-column: 1 / -1; }
+    .task-config-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
