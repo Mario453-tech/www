@@ -136,19 +136,35 @@ CREATE TABLE staff_trainings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-### 3.3 Rozszerzenie `employee_certificates`
+### 3.3 Tabela `training_certificates` (certyfikaty)
 
-Tabela istnieje ale jest pusta. Wykorzystamy ją do przechowywania certyfikatów po zdanych egzaminach.
+> **Decyzja wdrożeniowa:** Pierwotnie planowano rozszerzyć istniejącą tabelę
+> `employee_certificates`. Okazało się jednak, że ma ona klucz obcy
+> `fk_cert_member` wskazujący **wyłącznie** na `board_members(id)`, przez co
+> certyfikat dla technika łamałby ograniczenie FK. Dlatego certyfikaty trzymamy
+> w **dedykowanej tabeli** `training_certificates` z polimorficznym
+> odniesieniem do pracownika (`staff_type` + `staff_id`) i kluczem obcym do
+> `staff_trainings`. Składnia w 100% zgodna z MySQL 8.
 
 ```sql
--- Dodatkowe kolumny (ALTER TABLE)
-ALTER TABLE employee_certificates
-    ADD COLUMN staff_type  ENUM('technical','board') NULL AFTER member_id,
-    ADD COLUMN training_id INT UNSIGNED NULL AFTER staff_type,
-    ADD COLUMN score       TINYINT NULL AFTER training_id;
+CREATE TABLE IF NOT EXISTS training_certificates (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    player_id    INT UNSIGNED              NOT NULL,
+    staff_type   ENUM('technical','board') NOT NULL,
+    staff_id     INT UNSIGNED              NOT NULL,
+    training_id  INT UNSIGNED              NOT NULL,
+    program_code VARCHAR(60)               NOT NULL,
+    program_name VARCHAR(120)              NOT NULL,
+    skill_code   VARCHAR(40)               NOT NULL,
+    score        TINYINT UNSIGNED          NOT NULL,
+    level_after  TINYINT UNSIGNED          NOT NULL,
+    issued_at    DATETIME                  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tc_staff  (staff_type, staff_id),
+    INDEX idx_tc_player (player_id),
+    CONSTRAINT fk_tc_training
+        FOREIGN KEY (training_id) REFERENCES staff_trainings(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 ```
-
-> **Uwaga:** Kolumna `member_id` będzie używana dla obu typów pracowników (technical_staff i board_members). `staff_type` rozróżnia.
 
 ---
 

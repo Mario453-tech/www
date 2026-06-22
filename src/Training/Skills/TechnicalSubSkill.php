@@ -36,12 +36,16 @@ class TechnicalSubSkill extends AbstractTrainingSkill
     {
         // INSERT...SELECT z filtrem player_id - tworzy wiersz tylko dla wlasnego pracownika.
         // Pierwsze szkolenie: poziom 1 -> 2. Kolejne: +1 z limitem 10.
+        // Kolumna skill_level kwalifikowana nazwa tabeli docelowej - zrodlo SELECT
+        // (technical_staff) tez ma kolumne skill_level, wiec bez tego jest dwuznaczna.
         $stmt = $db->prepare(
             "INSERT INTO technical_staff_skills (staff_id, skill_code, skill_level, updated_at)
                   SELECT ts.id, ?, 2, NOW()
                     FROM technical_staff ts
                    WHERE ts.id = ? AND ts.player_id = ?
-             ON DUPLICATE KEY UPDATE skill_level = LEAST(skill_level + 1, 10), updated_at = NOW()"
+             ON DUPLICATE KEY UPDATE
+                  skill_level = LEAST(technical_staff_skills.skill_level + 1, 10),
+                  updated_at = NOW()"
         );
         $stmt->execute([$this->code, $staffId, $playerId]);
 

@@ -120,6 +120,9 @@ trait TechnicalPageViewDataTrait
         $trainingHistory = $this->safeLoad(
             fn() => $trainingService->getHistory($this->playerId, 'technical'), 'trainingHistory', []
         );
+        $trainingCertificates = $this->safeLoad(
+            fn() => $trainingService->getCertificates($this->playerId, 'technical'), 'trainingCertificates', []
+        );
 
         GameLog::perf('technical.php', 'All data loaded', $_dataStart);
         GameLog::info('technical.php', 'Rendering HTML', [
@@ -182,6 +185,7 @@ trait TechnicalPageViewDataTrait
             'trainingPrograms' => $trainingPrograms,
             'trainingActive' => $trainingActive,
             'trainingHistory' => $trainingHistory,
+            'trainingCertificates' => $trainingCertificates,
             'db' => $db,
             'playerId' => $this->playerId,
             'svc' => $this->svc,

@@ -11,6 +11,7 @@ return [
     'training.heading_available' => 'Available courses',
     'training.heading_active'    => 'In progress',
     'training.heading_history'   => 'Exam history',
+    'training.heading_certificates' => 'Earned certificates',
 
     'training.btn_enroll'        => 'Enroll',
     'training.btn_pick_staff'    => 'Pick employee',
@@ -42,6 +43,7 @@ return [
     'training.empty_active' => 'No employee is currently in training.',
     'training.empty_history'=> 'No training history.',
     'training.empty_programs'=> 'No courses available for this department.',
+    'training.empty_certificates'=> 'No certificates earned yet. Complete a course with a passing score to earn one.',
 
     'training.tx_fee' => 'Training fee: :program',
 

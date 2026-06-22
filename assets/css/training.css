@@ -109,6 +109,50 @@
 
 .trn-enroll-btn { white-space: nowrap; }
 
+/* Certyfikaty / Certificates */
+.trn-cert-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.trn-cert {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: rgba(200, 168, 75, 0.06);
+    border: 1px solid rgba(200, 168, 75, 0.25);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.trn-cert-seal {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 18px;
+    color: #1a1a22;
+    background: radial-gradient(circle at 35% 30%, #f0d98a, #c8a84b);
+    box-shadow: 0 0 0 3px rgba(200, 168, 75, 0.18);
+}
+
+.trn-cert-body { min-width: 0; }
+.trn-cert-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted2, #9aa0aa);
+    margin: 3px 0;
+}
+.trn-cert-date { font-size: 11px; color: var(--muted, #777); }
+
 /* Historia / History */
 .trn-history-item.trn-h-pass    { border-left: 3px solid #4caf72; }
 .trn-history-item.trn-h-fail    { border-left: 3px solid #d05a5a; }
@@ -120,7 +164,8 @@
 .trn-h-levelup { color: var(--gold2, #e8cc7a); font-weight: 700; }
 
 @media (max-width: 560px) {
-    .trn-program-grid { grid-template-columns: 1fr; }
+    .trn-program-grid,
+    .trn-cert-grid { grid-template-columns: 1fr; }
     .trn-enroll-form  { flex-direction: column; }
     .trn-enroll-btn   { width: 100%; }
 }
