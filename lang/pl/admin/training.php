@@ -70,6 +70,7 @@ return [
     'admin.training.err.invalid_rate'     => 'Bazowa szansa zdania musi być liczbą 1–100.',
     'admin.training.err.invalid_cost'     => 'Koszt musi być liczbą >= 0.',
     'admin.training.err.invalid_hours'    => 'Czas trwania musi być liczbą >= 1.',
+    'admin.training.err.invalid_skill'    => 'Wybrana umiejętność nie pasuje do działu.',
 
     // Monitor
     'admin.training.monitor.heading'       => 'Aktywne i ostatnie szkolenia',

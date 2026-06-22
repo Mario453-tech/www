@@ -62,6 +62,7 @@ return [
     'admin.training.err.invalid_rate'     => 'Base pass rate must be a number between 1 and 100.',
     'admin.training.err.invalid_cost'     => 'Cost must be a number >= 0.',
     'admin.training.err.invalid_hours'    => 'Duration must be a number >= 1.',
+    'admin.training.err.invalid_skill'    => 'The selected skill does not match the department.',
 
     'admin.training.monitor.heading'       => 'Active and Recent Trainings',
     'admin.training.monitor.col_player'    => 'Player',

@@ -210,6 +210,16 @@ function _training_save_program(PDO $db, ?int $id, array $post): array
         return ['success' => false, 'error' => tPlain('admin.training.err.not_found')];
     }
 
+    // Walidacja docelowego skilla wzgledem dzialu - chroni integralnosc danych
+    // przy bezposrednim POST z pominieciem listy <select>.
+    $allowedSkills = [
+        'technical' => ['skill_drilling', 'skill_maintenance', 'skill_safety', 'skill_analysis'],
+        'board'     => ['skill_organization', 'skill_negotiation', 'skill_analysis', 'skill_stress', 'skill_ethics'],
+    ];
+    if (!in_array($skill, $allowedSkills[$dept], true)) {
+        return ['success' => false, 'error' => tPlain('admin.training.err.invalid_skill')];
+    }
+
     if ($id === null) {
         // Sprawdz unikalnosc kodu
         $check = $db->prepare("SELECT id FROM training_programs WHERE code = ? LIMIT 1");

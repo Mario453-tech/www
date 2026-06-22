@@ -183,33 +183,48 @@ class TrainingService
             + min($retryCount * 10, 30);
         $passChance = max(self::MIN_PASS_CHANCE, min(self::MAX_PASS_CHANCE, $passChance));
 
-        $passMin = 100 - $passChance;
+        // Prog zaliczenia: score >= passMin zdaje. passMin = 101 - passChance
+        // daje DOKLADNIE passChance% zdawalnosci (score 1-100).
+        // Pass threshold: score >= passMin passes. passMin = 101 - passChance
+        // yields EXACTLY passChance% pass rate (score 1-100).
+        $passMin = 101 - $passChance;
         $score   = random_int(1, 100);
         $passed  = $score >= $passMin;
+
+        $levelAfter = $levelBefore;
 
         try {
             $this->db->beginTransaction();
 
+            // Atomowe przejecie egzaminu: tylko jeden przebieg moze zmienic status
+            // z in_progress. Chroni przed podwojnym rozpatrzeniem gdy tick leci bez
+            // GET_LOCK (np. hosting bez wsparcia blokady).
+            // Atomic exam claim: only one run can flip status from in_progress.
+            $newStatus = $passed ? 'passed' : 'failed';
+            $cooldown  = $passed ? null : (new DateTime())
+                ->modify('+' . self::COOLDOWN_HOURS . ' hours')
+                ->format('Y-m-d H:i:s');
+
+            $claim = $this->db->prepare(
+                "UPDATE staff_trainings
+                    SET status=?, exam_score=?, exam_pass_min=?, skill_before=?, cooldown_until=?
+                  WHERE id=? AND player_id=? AND status='in_progress'"
+            );
+            $claim->execute([$newStatus, $score, $passMin, $levelBefore, $cooldown, $row['id'], $playerId]);
+
+            if ($claim->rowCount() === 0) {
+                // Inny przebieg juz rozpatrzyl ten egzamin.
+                $this->db->rollBack();
+                return false;
+            }
+
             if ($passed) {
                 $levelAfter = $skill->applyIncrement($this->db, $playerId, $staffId);
                 $this->db->prepare(
-                    "UPDATE staff_trainings
-                        SET status='passed', exam_score=?, exam_pass_min=?,
-                            skill_before=?, skill_after=?
-                      WHERE id=? AND player_id=?"
-                )->execute([$score, $passMin, $levelBefore, $levelAfter, $row['id'], $playerId]);
+                    "UPDATE staff_trainings SET skill_after=? WHERE id=? AND player_id=?"
+                )->execute([$levelAfter, $row['id'], $playerId]);
 
                 $this->issueCertificate($playerId, $staffType, $staffId, (int)$row['id'], $row, $score, $levelAfter);
-            } else {
-                $cooldown = (new DateTime())
-                    ->modify('+' . self::COOLDOWN_HOURS . ' hours')
-                    ->format('Y-m-d H:i:s');
-                $this->db->prepare(
-                    "UPDATE staff_trainings
-                        SET status='failed', exam_score=?, exam_pass_min=?,
-                            skill_before=?, cooldown_until=?
-                      WHERE id=? AND player_id=?"
-                )->execute([$score, $passMin, $levelBefore, $cooldown, $row['id'], $playerId]);
             }
 
             $this->db->commit();
@@ -221,7 +236,7 @@ class TrainingService
             return false;
         }
 
-        $this->notifyExamResult($playerId, $staffData, $row, $passed, $score, $passMin);
+        $this->notifyExamResult($playerId, $staffData, $row, $passed, $score, $passMin, $levelAfter);
         return true;
     }
 
@@ -246,7 +261,7 @@ class TrainingService
     }
 
     /** Powiadomienie o wyniku egzaminu - nigdy nie przerywa glownego przeplywu. */
-    private function notifyExamResult(int $playerId, array $staffData, array $row, bool $passed, int $score, int $passMin): void
+    private function notifyExamResult(int $playerId, array $staffData, array $row, bool $passed, int $score, int $passMin, int $levelAfter): void
     {
         try {
             $name = trim(($staffData['first_name'] ?? '') . ' ' . ($staffData['last_name'] ?? ''));
@@ -256,7 +271,7 @@ class TrainingService
                     'name'    => $name,
                     'program' => (string)$row['name_pl'],
                     'score'   => $score,
-                    'level'   => (int)($row['skill_before'] ?? 0) + 1,
+                    'level'   => $levelAfter,
                 ]);
             } else {
                 $notif->create($playerId, 'training_failed', [
