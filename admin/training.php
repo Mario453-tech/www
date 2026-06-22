@@ -135,7 +135,11 @@ if ($tab === 'monitor') {
             p.username       AS player_name,
             st.staff_type,
             st.staff_id,
-            COALESCE(ts.name, bm.name, CONCAT('#', st.staff_id)) AS staff_name,
+            COALESCE(
+                CONCAT(ts.first_name, ' ', ts.last_name),
+                CONCAT(bm.first_name, ' ', bm.last_name),
+                CONCAT('#', st.staff_id)
+            ) AS staff_name,
             tp.name_pl       AS program_name,
             tp.target_skill,
             st.status,

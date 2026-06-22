@@ -75,6 +75,7 @@ return [
     'admin.training.monitor.filter_status' => 'Status',
     'admin.training.monitor.filter_dept'   => 'Department',
     'admin.training.monitor.empty'         => 'No trainings to display.',
+    'admin.training.programs.empty'        => 'No training programs defined.',
 
     'admin.training.status.in_progress' => 'In progress',
     'admin.training.status.passed'      => 'Passed',

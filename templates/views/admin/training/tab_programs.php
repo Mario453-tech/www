@@ -104,7 +104,7 @@
 <?php endif ?>
 
 <?php if (empty($programs)): ?>
-    <p class="muted">Brak programów szkoleniowych.</p>
+    <p class="muted"><?= t('admin.training.programs.empty') ?></p>
 <?php else: ?>
 <div class="table-responsive">
     <table class="admin-table">
@@ -138,14 +138,14 @@
                 <td class="text-right"><?= (int)$p['duration_hours'] ?> h</td>
                 <td class="text-right"><?= number_format((int)$p['cost'], 0, ',', ' ') ?></td>
                 <td class="text-right"><?= (int)$p['base_pass_rate'] ?>%</td>
-                <td><?= $p['enabled'] ? '✅' : '❌' ?></td>
+                <td><?= $p['enabled'] ? t('common.yes') : t('common.no') ?></td>
                 <td class="actions">
                     <a href="?tab=programs&edit=<?= (int)$p['id'] ?>"
                        class="btn btn-sm btn-secondary">
                         <?= t('admin.training.programs.btn_edit') ?>
                     </a>
                     <form method="post" style="display:inline"
-                          <?= !$p['enabled'] ? '' : 'onsubmit="return confirm(\'' . t('admin.training.programs.confirm_disable') . '\')"' ?>>
+                          <?= $p['enabled'] ? 'data-confirm="' . htmlspecialchars(t('admin.training.programs.confirm_disable'), ENT_QUOTES, 'UTF-8') . '" data-confirm-type="warning"' : '' ?>>
                         <?= CSRF::field() ?>
                         <input type="hidden" name="tab"    value="programs">
                         <input type="hidden" name="id"     value="<?= (int)$p['id'] ?>">

@@ -72,7 +72,7 @@
                 <td>
                     <span class="badge <?= $statusClass ?>">
                         <?= t('admin.training.status.' . $tr['status']) ?>
-                        <?php if ($isLate): ?> ⏰<?php endif ?>
+                        <?php if ($isLate): ?> (!)<?php endif ?>
                     </span>
                 </td>
                 <td><small><?= htmlspecialchars($tr['started_at']) ?></small></td>
