@@ -61,6 +61,7 @@ class FinancialTransactionService
     public const TYPE_BAILIFF_SEIZURE    = 'bailiff_seizure';
     public const TYPE_HR_FEE             = 'hr_fee';
     public const TYPE_TTS_FEE            = 'tts_fee';
+    public const TYPE_TRAINING_FEE       = 'training_fee';
     public const TYPE_BANKRUPTCY_EVENT   = 'bankruptcy_event';
     public const TYPE_GEOLOGICAL_FEE     = 'geological_fee';
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
@@ -109,6 +110,7 @@ class FinancialTransactionService
         self::TYPE_BAILIFF_SEIZURE,
         self::TYPE_HR_FEE,
         self::TYPE_TTS_FEE,
+        self::TYPE_TRAINING_FEE,
         self::TYPE_BANKRUPTCY_EVENT,
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
