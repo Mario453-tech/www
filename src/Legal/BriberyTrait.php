@@ -17,8 +17,8 @@ require_once __DIR__ . '/../BriberyService.php';
  */
 trait LegalBriberyTrait
 {
-    /** Statusy wniosku, w ktorych lapowka jest dostepna (w trakcie lub po odmowie). */
-    private const BRIBE_ELIGIBLE_STATUSES = ['pending', 'delayed', 'refused'];
+    /** Statusy wniosku, w ktorych lapowka jest dostepna (w trakcie, brak decyzji lub po odmowie). */
+    private const BRIBE_ELIGIBLE_STATUSES = ['pending', 'delayed', 'no_decision', 'refused'];
 
     /**
      * Wycena lapowki dla regionu (dla UI: koszt + ryzyko). Bez ruchu srodkow.
