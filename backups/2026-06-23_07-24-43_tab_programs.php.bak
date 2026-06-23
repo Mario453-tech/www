@@ -1,5 +1,5 @@
 <?php
-/** Zakladka: programy szkoleniowe — zmienne z $viewData (extract w main.php) */
+/** Zakładka: programy szkoleniowe — zmienne z $viewData (extract w main.php) */
 ?>
 
 <div class="section-header">
@@ -26,7 +26,7 @@
                 <label><?= t('admin.training.programs.label_code') ?> *</label>
                 <input type="text" name="code" required maxlength="60"
                        pattern="[a-z0-9_]+"
-                       title="<?= tPlain('admin.training.programs.hint_code_format') ?>"
+                       title="Tylko małe litery, cyfry i podkreślenia"
                        value="<?= htmlspecialchars($editRow['code'] ?? '') ?>"
                        <?= !$isNew ? 'readonly' : '' ?>>
             </div>

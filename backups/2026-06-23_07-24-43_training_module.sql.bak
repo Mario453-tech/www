@@ -63,13 +63,10 @@ CREATE TABLE IF NOT EXISTS `staff_trainings` (
     `skill_before`   TINYINT UNSIGNED NULL,
     `skill_after`    TINYINT UNSIGNED NULL,
     `cost_paid`      INT UNSIGNED NOT NULL DEFAULT 0,
-    `active_guard`   TINYINT NULL DEFAULT NULL
-                     COMMENT 'Enrollment guard: 1 when in_progress, NULL when finished. UNIQUE enforces one active training per staff+type.',
     INDEX `idx_st_player`   (`player_id`),
     INDEX `idx_st_staff`    (`staff_type`, `staff_id`),
     INDEX `idx_st_status`   (`status`),
     INDEX `idx_st_finishes` (`finishes_at`),
-    UNIQUE KEY `uq_active_staff` (`staff_type`, `staff_id`, `active_guard`),
     CONSTRAINT `fk_st_program`
         FOREIGN KEY (`program_id`) REFERENCES `training_programs`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -95,22 +95,6 @@ class DirectorNotificationService
             'message_key' => 'director.training_failed.message',
             'requires_action' => false
         ],
-        'board_training_passed' => [
-            'type' => 'board',
-            'priority' => 'low',
-            'icon' => 'check',
-            'title_key' => 'director.training_passed.title',
-            'message_key' => 'director.training_passed.message',
-            'requires_action' => false
-        ],
-        'board_training_failed' => [
-            'type' => 'board',
-            'priority' => 'medium',
-            'icon' => 'cross',
-            'title_key' => 'director.training_failed.title',
-            'message_key' => 'director.training_failed.message',
-            'requires_action' => false
-        ],
         'technical_well_failure' => [
             'type' => 'technical',
             'priority' => 'critical',

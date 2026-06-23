@@ -50,12 +50,11 @@ class TrainingService
                 return ['success' => false, 'message' => tPlain('training.err.program_unavailable')];
             }
 
-            // Weryfikacja wlasnosci jako dedykowany SELECT — niezalezna od logiki skill levelu.
-            // Ownership verified by dedicated SELECT — independent of skill-level logic.
-            if (!$this->staffBelongsToPlayer($playerId, $staffType, $staffId)) {
+            // Poziom umiejetnosci 0 = pracownik nie nalezy do gracza (izolacja).
+            $level = $skill->getCurrentLevel($this->db, $playerId, $staffId);
+            if ($level === 0) {
                 return ['success' => false, 'message' => tPlain('training.err.not_owner')];
             }
-            $level = $skill->getCurrentLevel($this->db, $playerId, $staffId);
             if ($level >= $skill->getMaxLevel()) {
                 return ['success' => false, 'message' => tPlain('training.err.skill_maxed')];
             }
@@ -64,7 +63,7 @@ class TrainingService
                 return ['success' => false, 'message' => tPlain('training.err.already_training')];
             }
 
-            $cooldownUntil = $this->cooldownUntil($playerId, $staffType, $staffId, (string)$program['target_skill']);
+            $cooldownUntil = $this->cooldownUntil($playerId, $staffType, $staffId, $programId);
             if ($cooldownUntil !== null) {
                 return ['success' => false, 'message' => tPlain('training.err.on_cooldown')];
             }
@@ -75,31 +74,29 @@ class TrainingService
                 ->modify('+' . (int)$program['duration_hours'] . ' hours')
                 ->format('Y-m-d H:i:s');
 
-            // Atomowo: oplata (jesli > 0) + wpis. debitCombined dolacza do tej transakcji (nie domyka jej).
-            // Atomic: fee (if > 0) + record. debitCombined joins this tx (does not commit it).
+            // Atomowo: oplata + wpis. debitCombined dolacza do tej transakcji (nie domyka jej).
+            // Atomic: fee + record. debitCombined joins this tx (does not commit it).
             $this->db->beginTransaction();
             try {
-                if ($cost > 0) {
-                    $fts = new FinancialTransactionService($this->db);
-                    $payment = $fts->debitCombined(
-                        $playerId,
-                        $cost,
-                        FinancialTransactionService::TYPE_TRAINING_FEE,
-                        tPlain('training.tx_fee', ['program' => (string)$program['name_pl']]),
-                        'training_program',
-                        $programId
-                    );
-                    if (empty($payment['success'])) {
-                        $this->db->rollBack();
-                        return ['success' => false, 'message' => tPlain('training.err.insufficient_funds')];
-                    }
+                $fts = new FinancialTransactionService($this->db);
+                $payment = $fts->debitCombined(
+                    $playerId,
+                    $cost,
+                    FinancialTransactionService::TYPE_TRAINING_FEE,
+                    tPlain('training.tx_fee', ['program' => (string)$program['name_pl']]),
+                    'training_program',
+                    $programId
+                );
+                if (empty($payment['success'])) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => tPlain('training.err.insufficient_funds')];
                 }
 
                 $stmt = $this->db->prepare(
                     "INSERT INTO staff_trainings
                         (player_id, staff_type, staff_id, program_id, status,
-                         started_at, finishes_at, retry_count, skill_before, cost_paid, active_guard)
-                     VALUES (?, ?, ?, ?, 'in_progress', NOW(), ?, ?, ?, ?, 1)"
+                         started_at, finishes_at, retry_count, skill_before, cost_paid)
+                     VALUES (?, ?, ?, ?, 'in_progress', NOW(), ?, ?, ?, ?)"
                 );
                 $stmt->execute([
                     $playerId, $staffType, $staffId, $programId,
@@ -210,7 +207,7 @@ class TrainingService
 
             $claim = $this->db->prepare(
                 "UPDATE staff_trainings
-                    SET status=?, exam_score=?, exam_pass_min=?, skill_before=?, cooldown_until=?, active_guard=NULL
+                    SET status=?, exam_score=?, exam_pass_min=?, skill_before=?, cooldown_until=?
                   WHERE id=? AND player_id=? AND status='in_progress'"
             );
             $claim->execute([$newStatus, $score, $passMin, $levelBefore, $cooldown, $row['id'], $playerId]);
@@ -226,6 +223,8 @@ class TrainingService
                 $this->db->prepare(
                     "UPDATE staff_trainings SET skill_after=? WHERE id=? AND player_id=?"
                 )->execute([$levelAfter, $row['id'], $playerId]);
+
+                $this->issueCertificate($playerId, $staffType, $staffId, (int)$row['id'], $row, $score, $levelAfter);
             }
 
             $this->db->commit();
@@ -235,16 +234,6 @@ class TrainingService
             }
             GameLog::error('TrainingService', 'runExam failed', $e, ['training_id' => $row['id']]);
             return false;
-        }
-
-        // Certyfikat i powiadomienie poza transakcja — blad nie cofa zatwierdzonego wyniku egzaminu.
-        // Certificate and notification outside transaction — failure cannot roll back the committed exam.
-        if ($passed) {
-            try {
-                $this->issueCertificate($playerId, $staffType, $staffId, (int)$row['id'], $row, $score, $levelAfter);
-            } catch (Throwable $e) {
-                GameLog::error('TrainingService', 'issueCertificate failed (exam already committed)', $e, ['training_id' => $row['id']]);
-            }
         }
 
         $this->notifyExamResult($playerId, $staffData, $row, $passed, $score, $passMin, $levelAfter);
@@ -275,18 +264,17 @@ class TrainingService
     private function notifyExamResult(int $playerId, array $staffData, array $row, bool $passed, int $score, int $passMin, int $levelAfter): void
     {
         try {
-            $name    = trim(($staffData['first_name'] ?? '') . ' ' . ($staffData['last_name'] ?? ''));
-            $isBoard = ((string)$row['staff_type']) === 'board';
-            $notif   = new DirectorNotificationService();
+            $name = trim(($staffData['first_name'] ?? '') . ' ' . ($staffData['last_name'] ?? ''));
+            $notif = new DirectorNotificationService($this->db);
             if ($passed) {
-                $notif->create($playerId, $isBoard ? 'board_training_passed' : 'training_passed', [
+                $notif->create($playerId, 'training_passed', [
                     'name'    => $name,
                     'program' => (string)$row['name_pl'],
                     'score'   => $score,
                     'level'   => $levelAfter,
                 ]);
             } else {
-                $notif->create($playerId, $isBoard ? 'board_training_failed' : 'training_failed', [
+                $notif->create($playerId, 'training_failed', [
                     'name'    => $name,
                     'program' => (string)$row['name_pl'],
                     'score'   => $score,
@@ -381,21 +369,15 @@ class TrainingService
         return (bool)$stmt->fetchColumn();
     }
 
-    private function cooldownUntil(int $playerId, string $staffType, int $staffId, string $targetSkill): ?string
+    private function cooldownUntil(int $playerId, string $staffType, int $staffId, int $programId): ?string
     {
-        // Cooldown per target_skill, not per program_id — prevents bypass by switching
-        // to a different program that trains the same skill after a failure.
         $stmt = $this->db->prepare(
-            "SELECT st.cooldown_until
-               FROM staff_trainings st
-               JOIN training_programs tp ON tp.id = st.program_id
-              WHERE st.player_id = ? AND st.staff_type = ? AND st.staff_id = ?
-                    AND tp.target_skill = ?
-                    AND st.status = 'failed'
-                    AND st.cooldown_until IS NOT NULL AND st.cooldown_until > NOW()
-              ORDER BY st.cooldown_until DESC LIMIT 1"
+            "SELECT cooldown_until FROM staff_trainings
+              WHERE player_id = ? AND staff_type = ? AND staff_id = ? AND program_id = ?
+                    AND status = 'failed' AND cooldown_until IS NOT NULL AND cooldown_until > NOW()
+              ORDER BY cooldown_until DESC LIMIT 1"
         );
-        $stmt->execute([$playerId, $staffType, $staffId, $targetSkill]);
+        $stmt->execute([$playerId, $staffType, $staffId, $programId]);
         $val = $stmt->fetchColumn();
         return $val === false ? null : (string)$val;
     }
@@ -426,15 +408,6 @@ class TrainingService
         }
         $stmt->execute([$staffId, $playerId]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    /** Dedicated ownership check, independent of skill-level logic. */
-    private function staffBelongsToPlayer(int $playerId, string $staffType, int $staffId): bool
-    {
-        $table = $staffType === 'board' ? 'board_members' : 'technical_staff';
-        $stmt  = $this->db->prepare("SELECT 1 FROM `{$table}` WHERE id = ? AND player_id = ? LIMIT 1");
-        $stmt->execute([$staffId, $playerId]);
-        return (bool)$stmt->fetchColumn();
     }
 
     /** Modyfikator ambicji (tylko zarzad ma trait_ambition). */
