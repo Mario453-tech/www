@@ -385,8 +385,7 @@ class WellProductionHandler
                             if ($ownTxRoad) $this->ctx->db->commit();
 
                             if ($dispatch['cost'] > 0.0) {
-                                $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
-                                $this->ctx->loopCtx->finTransport += $charged;
+                                $this->ctx->loopCtx->finTransport += $dispatch['cost'];
                                 $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                             }
                             $this->ctx->loopCtx->roadInTransitBbl += $bufferBbl;
@@ -419,8 +418,7 @@ class WellProductionHandler
                     $playerId, $wellId, $actual, $roadCfg, $politicalRisk
                 );
                 if ($dispatch['cost'] > 0.0) {
-                    $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
-                    $this->ctx->loopCtx->finTransport += $charged;
+                    $this->ctx->loopCtx->finTransport += $dispatch['cost'];
                     $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                 }
                 $this->ctx->loopCtx->roadInTransitBbl += $actual;
@@ -507,8 +505,7 @@ class WellProductionHandler
                         if ($costPerBbl > 0.0) {
                             $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
  * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-                            $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
-                            $this->ctx->loopCtx->finTransport += $charged;
+                            $this->ctx->loopCtx->finTransport += $voyageCost;
                             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                         }
                     } catch (Throwable $e) {

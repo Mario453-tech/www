@@ -358,7 +358,7 @@ class WellHubSection
         $cost = (float)$res['cost'];
         if ($cost > 0.0) {
             $this->ctx->finTransport += $cost;
-            $this->ctx->playerCash   -= $cost;
+            $this->ctx->playerCash    = max(0.0, $this->ctx->playerCash - $cost);
         }
 
         GameLog::info('tick', 'outbound_leg_hub', [

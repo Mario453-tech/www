@@ -70,31 +70,33 @@ class PortSection
             $stmt->execute([$playerId]);
             $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // BUG1 FIX: track bbl processed this tick and enforce throughput_per_tick limit.
-            // All entries in $entries share the same port (joined via port_id), so we read
-            // throughput_per_tick from the first row; the SELECT already limits to one port
-            // per player via ORDER BY queued_at.
-            $processedThisTick = 0.0;
-            $throughputLimit   = isset($entries[0])
-                ? (float)($entries[0]['throughput_per_tick'] ?? PHP_FLOAT_MAX)
-                : PHP_FLOAT_MAX;
-
+            // Grupuj wpisy po porcie; throughput_per_tick obowiazuje osobno per port.
+            // Group entries by port; throughput_per_tick limit applies independently per port.
+            $byPort = [];
             foreach ($entries as $entry) {
-                $freeSpace = $storageCapacity - $currentStorage;
-                if ($freeSpace <= 0.0) {
+                $byPort[(int)$entry['port_id']][] = $entry;
+            }
+
+            foreach ($byPort as $portEntries) {
+                $processedThisTick = 0.0;
+                $throughputLimit   = (float)($portEntries[0]['throughput_per_tick'] ?? PHP_FLOAT_MAX);
+
+                foreach ($portEntries as $entry) {
+                    $freeSpace = $storageCapacity - $currentStorage;
+                    if ($freeSpace <= 0.0) {
  // Magazyn pelny zostawiamy w kolejce na nastepny tick
  // Storage full leave in queue for next tick
-                    break;
+                        break 2;
+                    }
+                    if ($processedThisTick >= $throughputLimit) {
+                        break;
+                    }
+                    $storageBefore  = $currentStorage;
+                    $currentStorage = $this->processEntry(
+                        $entry, $playerId, $currentStorage, $freeSpace, $throughputLimit, $processedThisTick
+                    );
+                    $processedThisTick += max(0.0, $currentStorage - $storageBefore);
                 }
-                // BUG1 FIX: stop processing when port throughput for this tick is exhausted
-                if ($processedThisTick >= $throughputLimit) {
-                    break;
-                }
-                $storageBefore  = $currentStorage;
-                $currentStorage = $this->processEntry(
-                    $entry, $playerId, $currentStorage, $freeSpace, $throughputLimit, $processedThisTick
-                );
-                $processedThisTick += max(0.0, $currentStorage - $storageBefore);
             }
 
  // Odswiez statusy portow / Refresh port statuses
@@ -154,8 +156,8 @@ class PortSection
                 $this->db->prepare(
                     "UPDATE marine_deliveries
                         SET status = 'waiting_for_port', handling_cost = COALESCE(handling_cost, 0) + ?
-                      WHERE id = ? AND status NOT IN ('delivered','lost')"
-                )->execute([$handlingCost, $deliveryId]);
+                      WHERE id = ? AND player_id = ? AND status NOT IN ('delivered','lost')"
+                )->execute([$handlingCost, $deliveryId, $playerId]);
                 $this->db->commit();
             } catch (Throwable $e) {
                 if ($this->db->inTransaction()) {
@@ -187,8 +189,8 @@ class PortSection
                 $this->db->prepare(
                     "UPDATE marine_deliveries
                         SET status = 'delivered', delivered_at = ?, handling_cost = ?
-                      WHERE id = ?"
-                )->execute([$nowStr, $handlingCost, $deliveryId]);
+                      WHERE id = ? AND player_id = ?"
+                )->execute([$nowStr, $handlingCost, $deliveryId, $playerId]);
                 $this->db->commit();
             } catch (Throwable $e) {
                 if ($this->db->inTransaction()) {

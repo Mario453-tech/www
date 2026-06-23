@@ -70,9 +70,13 @@ class MarineDeliverySection
             $terminal = $stmt->rowCount();
 
  // 2) Utkniete rejsy morskie starsze niz 2 dni / Stuck sea voyages older than 2 days
+ // 'delayed' z port_id (port zapelnionyretry) jest wylaczone — to legalny rejs czekajacy na
+ // miejsce w kolejce; step 3 juz obsluguje 'delayed' bez port_id (port_id IS NULL).
+ // 'delayed' with port_id (port-full retry) is excluded — it is a legitimate voyage waiting
+ // for queue space; step 3 already handles 'delayed' with no port assigned (port_id IS NULL).
             $stmt = $db->prepare(
                 "DELETE FROM marine_deliveries
-                  WHERE status IN ('departing','in_transit','delayed')
+                  WHERE status IN ('departing','in_transit')
                     AND departure_at < NOW() - INTERVAL 2 DAY"
             );
             $stmt->execute();
@@ -224,7 +228,7 @@ class MarineDeliverySection
                 )->execute([$deliveryId, $playerId]);
  // H3: Usun z port_queue na wypadek sieroty (dostawa trafila do kolejki przed utrata)
  // H3: Remove from port_queue in case of orphan (delivery was queued before being lost)
-                $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ?")->execute([$deliveryId]);
+                $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ? AND player_id = ?")->execute([$deliveryId, (int)$playerId]);
                 $this->db->commit();
             } catch (Throwable $e) {
                 if ($this->db->inTransaction()) {
@@ -251,7 +255,7 @@ class MarineDeliverySection
                       WHERE id = ? AND player_id = ?"
                 )->execute([$deliveryId, $playerId]);
  // H3: Usun z port_queue na wypadek sieroty / H3: Remove from port_queue in case of orphan
-                $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ?")->execute([$deliveryId]);
+                $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ? AND player_id = ?")->execute([$deliveryId, (int)$playerId]);
                 $this->db->commit();
             } catch (Throwable $e) {
                 if ($this->db->inTransaction()) {

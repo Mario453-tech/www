@@ -73,6 +73,41 @@ class WellRoadTripSection
                 $freeSpace = max(0.0, $storageCapacity - $currentStorage);
                 $credited  = min($delivered, $freeSpace);
                 $overflow  = max(0.0, $delivered - $credited);
+                // Overflow handling BEFORE memory credit — crash-safe ordering:
+                // DB is scaled first; if PHP dies before currentStorage update,
+                // recovery sees already-scaled delivered_bbl and credits correctly.
+                if ($overflow > 0.0) {
+                    $lost += $overflow;
+                    GameLog::warn('tick', 'road_trip_storage_overflow', [
+                        'player_id'        => $playerId,
+                        'overflow_bbl'     => round($overflow, 2),
+                        'storage_capacity' => round($storageCapacity, 2),
+                        'storage_before'   => round($currentStorage, 2),
+                    ]);
+                    if ($credited < $delivered) {
+                        $scaleFactor = $delivered > 0.0 ? ($credited / $delivered) : 0.0;
+                        try {
+                            $ownTx = !$this->db->inTransaction();
+                            if ($ownTx) $this->db->beginTransaction();
+                            if ($orphanIds) {
+                                $ph = implode(',', array_fill(0, count($orphanIds), '?'));
+                                $this->db->prepare(
+                                    "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting' AND id NOT IN ($ph)"
+                                )->execute([round($scaleFactor, 8), $playerId, ...$orphanIds]);
+                            } else {
+                                $this->db->prepare(
+                                    "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting'"
+                                )->execute([round($scaleFactor, 8), $playerId]);
+                            }
+                            if ($ownTx) $this->db->commit();
+                        } catch (Throwable $e) {
+                            if (isset($ownTx) && $ownTx && $this->db->inTransaction()) {
+                                try { $this->db->rollBack(); } catch (Throwable $re) {}
+                            }
+                            GameLog::error('tick', 'road_trip_overflow_delivered_update FAILED', $e, ['player_id' => $playerId]);
+                        }
+                    }
+                }
                 if ($credited > 0.0) {
                     $currentStorage += $credited;
  // Scale the per-well breakdown by the credited fraction (storage overflow aware),
@@ -83,36 +118,6 @@ class WellRoadTripSection
                         if ($scaled > 0.0) {
                             $this->deliveredByWell[(int)$wid] = ($this->deliveredByWell[(int)$wid] ?? 0.0) + $scaled;
                         }
-                    }
-                }
-                if ($overflow > 0.0) {
-                    $lost += $overflow;
-                    GameLog::warn('tick', 'road_trip_storage_overflow', [
-                        'player_id' => $playerId,
-                        'overflow_bbl' => round($overflow, 2),
-                        'storage_capacity' => round($storageCapacity, 2),
-                        'storage_before' => round($currentStorage - $credited, 2),
-                    ]);
-                    // Persist the actually credited amount so crash recovery does not re-credit the full value.
-                    try {
-                        $actual = $credited;
-                        if ($actual < $delivered) {
-                            $scaleFactor = $delivered > 0.0 ? ($actual / $delivered) : 0.0;
-                            if ($orphanIds) {
-                                $ph = implode(',', array_fill(0, count($orphanIds), '?'));
-                                $updateDelivered = $this->db->prepare(
-                                    "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting' AND id NOT IN ($ph)"
-                                );
-                                $updateDelivered->execute([round($scaleFactor, 8), $playerId, ...$orphanIds]);
-                            } else {
-                                $updateDelivered = $this->db->prepare(
-                                    "UPDATE well_road_trips SET delivered_bbl = delivered_bbl * ? WHERE player_id = ? AND status = 'crediting'"
-                                );
-                                $updateDelivered->execute([round($scaleFactor, 8), $playerId]);
-                            }
-                        }
-                    } catch (Throwable $e) {
-                        GameLog::error('tick', 'road_trip_overflow_delivered_update FAILED', $e, ['player_id' => $playerId]);
                     }
                 }
                 $this->deliveredBbl += $credited;
