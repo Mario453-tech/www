@@ -26,7 +26,7 @@
                 <label><?= t('admin.training.programs.label_code') ?> *</label>
                 <input type="text" name="code" required maxlength="60"
                        pattern="[a-z0-9_]+"
-                       title="<?= tPlain('admin.training.programs.hint_code_format') ?>"
+                       title="<?= t('admin.training.programs.hint_code_format') ?>"
                        value="<?= htmlspecialchars($editRow['code'] ?? '') ?>"
                        <?= !$isNew ? 'readonly' : '' ?>>
             </div>

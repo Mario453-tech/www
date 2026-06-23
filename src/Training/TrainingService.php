@@ -70,7 +70,7 @@ class TrainingService
             }
 
             $cost        = (float)$program['cost'];
-            $retryCount  = $this->countPreviousFails($playerId, $staffType, $staffId, $programId);
+            $retryCount  = $this->countPreviousFails($playerId, $staffType, $staffId, (string)$program['target_skill']);
             $finishesAt  = (new DateTime())
                 ->modify('+' . (int)$program['duration_hours'] . ' hours')
                 ->format('Y-m-d H:i:s');
@@ -400,14 +400,21 @@ class TrainingService
         return $val === false ? null : (string)$val;
     }
 
-    private function countPreviousFails(int $playerId, string $staffType, int $staffId, int $programId): int
+    private function countPreviousFails(int $playerId, string $staffType, int $staffId, string $targetSkill): int
     {
+        // Liczy oblane proby per target_skill (nie per program_id), zeby bonus retry
+        // dzialarl rowniez gdy gracz zmieni program trenujacy ta sama umiejetnosc.
+        // Counts failures per target_skill (not per program_id) so the retry bonus
+        // applies even when the player switches to a different program for the same skill.
         $stmt = $this->db->prepare(
-            "SELECT COUNT(*) FROM staff_trainings
-              WHERE player_id = ? AND staff_type = ? AND staff_id = ? AND program_id = ?
-                    AND status = 'failed'"
+            "SELECT COUNT(*)
+               FROM staff_trainings st
+               JOIN training_programs tp ON tp.id = st.program_id
+              WHERE st.player_id = ? AND st.staff_type = ? AND st.staff_id = ?
+                    AND tp.target_skill = ?
+                    AND st.status = 'failed'"
         );
-        $stmt->execute([$playerId, $staffType, $staffId, $programId]);
+        $stmt->execute([$playerId, $staffType, $staffId, $targetSkill]);
         return (int)$stmt->fetchColumn();
     }
 

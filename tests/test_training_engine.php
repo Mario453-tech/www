@@ -130,7 +130,7 @@ if ($row2['status'] === 'failed') {
 
 echo "\n== 6. Skill maxed: ustawiamy sub-skill=10, zapis odrzucony ==\n";
 $db->exec("UPDATE training_programs SET base_pass_rate=85 WHERE id=$drillBasic");
-$db->exec("UPDATE staff_trainings SET status='cancelled', cooldown_until=NULL WHERE staff_id=$TS AND status='in_progress'");
+$db->exec("UPDATE staff_trainings SET status='cancelled', cooldown_until=NULL, active_guard=NULL WHERE staff_id=$TS AND status='in_progress'");
 $db->exec("UPDATE staff_trainings SET cooldown_until=NULL WHERE staff_id=$TS");
 $db->prepare("INSERT INTO technical_staff_skills (staff_id, skill_code, skill_level, updated_at)
     VALUES (?, 'skill_drilling', 10, NOW())
@@ -155,7 +155,7 @@ echo "\n== 8. Niewystarczajace srodki (atomowosc: brak wpisu) ==\n";
 $db->exec("UPDATE training_programs SET base_pass_rate=85 WHERE id=$drillBasic");
 $db->exec("UPDATE technical_staff_skills SET skill_level=1 WHERE staff_id=$TS AND skill_code='skill_drilling'");
 // wyczysc caly stan szkolen tego pracownika dla izolacji asercji
-$db->exec("UPDATE staff_trainings SET status='cancelled', cooldown_until=NULL WHERE staff_id=$TS AND status='in_progress'");
+$db->exec("UPDATE staff_trainings SET status='cancelled', cooldown_until=NULL, active_guard=NULL WHERE staff_id=$TS AND status='in_progress'");
 $inProgBefore = (int)$db->query("SELECT COUNT(*) FROM staff_trainings WHERE staff_id=$TS AND status='in_progress'")->fetchColumn();
 $db->exec("UPDATE players SET cash=0, bank_balance=0 WHERE id=$P");
 $r = $svc->enroll($P, 'technical', $TS, $drillBasic);
@@ -165,7 +165,7 @@ check('brak nowego wpisu przy nieudanej oplacie', $inProgAfter === $inProgBefore
 
 echo "\n== 9. Idempotencja egzaminu (race): drugie przetworzenie nie podwaja ==\n";
 $db->exec("UPDATE training_programs SET base_pass_rate=100 WHERE id=$drillBasic");
-$db->exec("UPDATE staff_trainings SET status='cancelled' WHERE staff_id=$TS AND status='in_progress'");
+$db->exec("UPDATE staff_trainings SET status='cancelled', active_guard=NULL WHERE staff_id=$TS AND status='in_progress'");
 $db->prepare("INSERT INTO technical_staff_skills (staff_id, skill_code, skill_level, updated_at)
     VALUES (?, 'skill_drilling', 3, NOW()) ON DUPLICATE KEY UPDATE skill_level=3")->execute([$TS]);
 $db->exec("UPDATE players SET bank_balance=100000 WHERE id=$P");
