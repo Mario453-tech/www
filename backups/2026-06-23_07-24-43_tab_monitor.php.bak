@@ -1,5 +1,5 @@
 <?php
-/** Zakladka: monitoring szkolen — zmienne z $viewData (extract w main.php) */
+/** Zakładka: monitoring szkoleń — zmienne z $viewData (extract w main.php) */
 ?>
 
 <div class="section-header">
@@ -91,7 +91,7 @@
                         <span class="muted">—</span>
                     <?php endif ?>
                     <?php if ((int)$tr['retry_count'] > 0): ?>
-                        <br><small class="muted"><?= t('admin.training.monitor.attempt') ?><?= (int)$tr['retry_count'] + 1 ?></small>
+                        <br><small class="muted">Próba #<?= (int)$tr['retry_count'] + 1 ?></small>
                     <?php endif ?>
                 </td>
             </tr>

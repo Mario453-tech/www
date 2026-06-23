@@ -85,9 +85,7 @@ return [
     'admin.training.monitor.filter_status' => 'Status',
     'admin.training.monitor.filter_dept'   => 'Dział',
     'admin.training.monitor.empty'         => 'Brak szkoleń do wyświetlenia.',
-    'admin.training.monitor.attempt'       => 'Próba #',
     'admin.training.programs.empty'        => 'Brak programów szkoleniowych.',
-    'admin.training.programs.hint_code_format' => 'Tylko małe litery, cyfry i podkreślenia',
 
     // Statusy szkolen
     'admin.training.status.in_progress' => 'W trakcie',
