@@ -47,6 +47,7 @@ class WellLoopSection
     public float $currentStorage           = 0.0;
     public float $storageCapacity          = 0.0;
     public float $playerCash               = 0.0;
+    public float $totalCosts               = 0.0; // C3: suma wszystkich zamierzonych odliczen (nieprzycieta do 0), do atomowego zapisu gotowki w DB
  // Stage 5: oil dispatched by sea and not yet delivered
  // Etap 5: ropa wyslana morzem i jeszcze niedostarczona
     public float $marineInTransitBbl       = 0.0;
@@ -446,6 +447,7 @@ class WellLoopSection
                 $salaryPerHour     = $totalSalaryMonth / 720.0;
                 $salaryCost        = round($salaryPerHour * $deltaHours, 2);
                 $this->finSalary  += $salaryCost;
+                $this->totalCosts += $salaryCost;
                 $this->playerCash  = max(0.0, $this->playerCash - $salaryCost);
                 GameLog::info('tick', 'salary_deducted', [
                     'player_id'       => $playerId,

@@ -130,10 +130,12 @@ class WellProductionHandler
             if ($charged > 0.0) {
                 $this->ctx->loopCtx->finOpex += $charged;
             }
+            $this->ctx->loopCtx->totalCosts += $opexTotal;
             $this->ctx->loopCtx->playerCash = 0.0;
             return false;
         }
         $this->ctx->loopCtx->finOpex    += $opexTotal;
+        $this->ctx->loopCtx->totalCosts += $opexTotal;
         $this->ctx->loopCtx->playerCash -= $opexTotal;
 
         if ($well['status'] === 'paused_storage') {
@@ -393,6 +395,7 @@ class WellProductionHandler
                             if ($dispatch['cost'] > 0.0) {
                                 $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
                                 $this->ctx->loopCtx->finTransport += $charged;
+                                $this->ctx->loopCtx->totalCosts   += $dispatch['cost'];
                                 $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                             }
                             $this->ctx->loopCtx->roadInTransitBbl += $bufferBbl;
@@ -427,6 +430,7 @@ class WellProductionHandler
                 if ($dispatch['cost'] > 0.0) {
                     $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
                     $this->ctx->loopCtx->finTransport += $charged;
+                    $this->ctx->loopCtx->totalCosts   += $dispatch['cost'];
                     $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                 }
                 $this->ctx->loopCtx->roadInTransitBbl += $actual;
@@ -451,8 +455,9 @@ class WellProductionHandler
                 $this->ctx->loopCtx->recordPreStorageLoss($roadLostBbl, $price);
             }
             if ($roadCost > 0.0) {
-                $this->ctx->loopCtx->finOpex   += $roadCost;
-                $this->ctx->loopCtx->playerCash = max(0.0, $this->ctx->loopCtx->playerCash - $roadCost);
+                $this->ctx->loopCtx->finOpex    += $roadCost;
+                $this->ctx->loopCtx->totalCosts += $roadCost;
+                $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $roadCost);
             }
             if (!empty($roadResult['incidents'])) {
                 GameLog::info('tick', 'road_transport_incidents', [
@@ -515,6 +520,7 @@ class WellProductionHandler
  * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
                             $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
                             $this->ctx->loopCtx->finTransport += $charged;
+                            $this->ctx->loopCtx->totalCosts   += $voyageCost;
                             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                         }
                     } catch (Throwable $e) {
@@ -546,8 +552,9 @@ class WellProductionHandler
             }
             if ($offshoreCost > 0.0) {
                 $charged = min($offshoreCost, $this->ctx->loopCtx->playerCash);
-                $this->ctx->loopCtx->finOpex   += $charged;
-                $this->ctx->loopCtx->playerCash = max(0.0, $this->ctx->loopCtx->playerCash - $offshoreCost);
+                $this->ctx->loopCtx->finOpex    += $charged;
+                $this->ctx->loopCtx->totalCosts += $offshoreCost;
+                $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $offshoreCost);
             }
             if (!empty($offshoreResult['incidents'])) {
                 GameLog::info('tick', 'offshore_transport_incidents', [
@@ -607,6 +614,7 @@ class WellProductionHandler
             if ($pipelineCost > 0.0) {
                 $charged = min($pipelineCost, $this->ctx->loopCtx->playerCash);
                 $this->ctx->loopCtx->finTransport += $charged;
+                $this->ctx->loopCtx->totalCosts   += $pipelineCost;
                 $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $pipelineCost);
                 GameLog::info('tick', 'pipeline_transport_cost', [
                     'well_id' => $wellId,
@@ -623,6 +631,7 @@ class WellProductionHandler
             $transportOpex = round($actual * $price * ($transportOpexPct / 100.0) * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $charged = min($transportOpex, $this->ctx->loopCtx->playerCash);
             $this->ctx->loopCtx->finTransport += $charged;
+            $this->ctx->loopCtx->totalCosts   += $transportOpex;
             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $transportOpex);
             GameLog::info('tick', 'transport_opex', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'opex_pct' => $transportOpexPct, 'opex_pln' => $transportOpex]);
         }
@@ -633,6 +642,7 @@ class WellProductionHandler
             $transportFixedCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $charged = min($transportFixedCost, $this->ctx->loopCtx->playerCash);
             $this->ctx->loopCtx->finTransport += $charged;
+            $this->ctx->loopCtx->totalCosts   += $transportFixedCost;
             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $transportFixedCost);
             GameLog::info('tick', 'transport_cost_per_bbl', ['well_id' => $wellId, 'transport' => $transportType, 'bbl' => round($actual, 2), 'cost_per_bbl' => $costPerBbl, 'total_pln' => $transportFixedCost]);
         }
@@ -646,6 +656,7 @@ class WellProductionHandler
                 $taxAmount    = round($grossRevenue * $taxRate * $this->ctx->gBalanceMults['tax'], 2);
                 if ($taxAmount > 0) {
                     $charged = min($taxAmount, $this->ctx->loopCtx->playerCash);
+                    $this->ctx->loopCtx->totalCosts += $taxAmount;
                     $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $taxAmount);
                     $this->ctx->loopCtx->finTax     += $charged;
                     GameLog::info('tick', 'regional_tax', ['well_id' => $wellId, 'player_id' => $playerId, 'tax_rate_pct' => round($taxRate * 100, 2), 'event_tax' => round($regEventTaxExtra * 100, 2), 'gross_rev' => round($grossRevenue, 2), 'tax_amount' => $taxAmount]);

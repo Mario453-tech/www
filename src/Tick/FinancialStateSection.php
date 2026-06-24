@@ -114,28 +114,32 @@ class FinancialStateSection
  * Zapisuje gotowke i last_tick_at gracza.
  * Saves player cash and last_tick_at timestamp.
  *
- * WAZNE: zapis ROZNICOWY (cash = cash + delta), nie absolutny. Tick odczytuje gotowke
- * na poczatku, a moze ona ulec zmianie w trakcie obliczen (kredyt, sprzedaz ropy, oferty
- * rynkowe wykonane przez gracza rownolegle). Absolutny zapis nadpisywalby te zmiany i gubil
- * przyrost gotowki. Roznicowy update dodaje tylko delte ticka do aktualnej wartosci w bazie.
+ * C3: Zapis przez totalCosts (suma ALL zamierzonych odliczen, bez przycianania do 0).
+ * SQL: cash = GREATEST(0, cash - totalCosts) zamiast cash + delta.
+ * Roznicowy delta (finalCash - initialCash) byl przycianany gdy koszty > initialCash,
+ * co pozwalalo graczowi uniknac pelnej oplaty przy rownoczesnym przyroscie gotowki
+ * (kredyt, sprzedaz) w oknie ticka: GREATEST(0, concurrent + delta) = concurrent (gratis).
+ * Nowe podejscie: DB zawsze odlicza pelna kwote kosztow od aktualnego salda.
+ * Gotowka przyjeta przez graczy rownolegla jest prawidlowo chroniona przez GREATEST(0,...).
  *
- * IMPORTANT: DIFFERENTIAL write (cash = cash + delta), not absolute. The tick reads cash at the
- * start, but it may change mid-calculation (a loan, an oil sale, market offers the player runs in
- * parallel). An absolute write would overwrite those changes and lose the cash gain. The
- * differential update only adds the tick's delta to the current DB value.
+ * C3: Write via totalCosts (sum of ALL intended deductions, without in-memory 0-floor).
+ * SQL: cash = GREATEST(0, cash - totalCosts) instead of cash + delta.
+ * The differential delta (finalCash - initialCash) was clipped when costs > initialCash,
+ * letting the player escape full liability on a concurrent cash increase (loan, oil sale)
+ * during the tick window: GREATEST(0, concurrent + delta) = concurrent (free money).
+ * New approach: DB always deducts the full cost sum from the current balance.
+ * Concurrent cash received by the player is correctly protected by GREATEST(0,...).
  *
- * @param float $initialCash gotowka odczytana na poczatku ticka / cash read at tick start
- * @param float $finalCash    gotowka po obliczeniach ticka / cash after tick calculations
+ * @param float $totalCosts suma ALL odliczen ticka (nieprzycieta) / sum of ALL tick deductions (unclipped)
  */
-    public function saveCashAndTick(int $playerId, float $finalCash, float $initialCash): void
+    public function saveCashAndTick(int $playerId, float $totalCosts): void
     {
-        $delta = round($finalCash - $initialCash, 4);
         $this->db->prepare(
-            "UPDATE players SET cash = GREATEST(0, cash + :delta), last_tick_at = :now WHERE id = :pid"
+            "UPDATE players SET cash = GREATEST(0, cash - :totalCosts), last_tick_at = :now WHERE id = :pid"
         )->execute([
-            ':delta' => $delta,
-            ':now'   => $this->now->format('Y-m-d H:i:s'),
-            ':pid'   => $playerId,
+            ':totalCosts' => round($totalCosts, 4),
+            ':now'        => $this->now->format('Y-m-d H:i:s'),
+            ':pid'        => $playerId,
         ]);
     }
 
