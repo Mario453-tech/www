@@ -205,6 +205,18 @@ try {
  // Non-fatal - game runs without this migration
 }
 
+// ── SCHEMA BOOTSTRAP — nowe moduly / new modules ──
+// Kazdy nowy modul z tabelami DB ma tutaj swoj require + wywolanie ensureXxxSchema().
+// Each new module with DB tables has its require + ensureXxxSchema() call here.
+// Wzorzec: src/XxxBootstrap.php, funkcja ensureXxxSchema(), flaga static $done.
+// Pattern: src/XxxBootstrap.php, function ensureXxxSchema(), static $done flag.
+require_once __DIR__ . '/TrainingBootstrap.php';
+try {
+    ensureTrainingSchema();
+} catch (Throwable $__trainEx) {
+ // Non-fatal - game runs without this migration
+}
+
 // ROUTING 
 const ROUTES = [
     'home'            => '/',

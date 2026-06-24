@@ -103,6 +103,47 @@ class ApiAuth
     }
 
     /**
+     * Tworzy tabele api_tokens jesli nie istnieje (raz na proces).
+     * Creates the api_tokens table if it does not exist (once per process).
+     */
+    public static function ensureSchema(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+
+        try {
+            $db = Database::getInstance()->getConnection();
+
+            if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+                return;
+            }
+
+            $db->exec("CREATE TABLE IF NOT EXISTS `api_tokens` (
+                `id`           INT          NOT NULL AUTO_INCREMENT,
+                `player_id`    INT          NOT NULL,
+                `token`        VARCHAR(64)  NOT NULL,
+                `device`       VARCHAR(200) NULL COMMENT 'opcjonalny opis urzadzenia / optional device description',
+                `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `last_used_at` DATETIME     NULL,
+                `expires_at`   DATETIME     NULL COMMENT 'NULL = nigdy nie wygasa / NULL = never expires',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uq_token`   (`token`),
+                KEY        `idx_player` (`player_id`),
+                CONSTRAINT `fk_api_tokens_player`
+                    FOREIGN KEY (`player_id`) REFERENCES `players` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::warn('ApiAuth', 'ensureSchema skipped', ['error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    /**
      * Wyciaga surowy token z naglowka Authorization (bez walidacji DB).
      * Extracts raw token from Authorization header (no DB validation).
      */
