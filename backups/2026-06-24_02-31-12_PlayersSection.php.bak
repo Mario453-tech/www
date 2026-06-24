@@ -193,7 +193,6 @@ class PlayersSection
         $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc, $protectionSvc);
  // Floor na 0 jak pozostale odliczenia gotowki (DB i tak ma GREATEST(0,...)).
  // Floor at 0 like the other cash deductions (DB also applies GREATEST(0,...)).
-        $wellLoop->totalCosts     += abs($pipelines->cashDelta);
         $playerCash               = max(0.0, $playerCash - abs($pipelines->cashDelta));
         $this->disastersTriggered += $pipelines->disastersTriggered;
 
@@ -266,7 +265,6 @@ class PlayersSection
                 }
                 if ($portSec->handlingCost > 0.0) {
                     $wellLoop->finTransport += $portSec->handlingCost;
-                    $wellLoop->totalCosts   += $portSec->handlingCost;
                     $playerCash              = max(0.0, $playerCash - $portSec->handlingCost);
                 }
  // Dostawy do hubow przechodza przez finalizacje huba; bez huba zostaja przy starym drugim odcinku.
@@ -295,7 +293,6 @@ class PlayersSection
         $spill  = new SpillSection($db, $wellService);
         $currentStorage            = $spill->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $tsvc);
  // Floor na 0 jak pozostale odliczenia gotowki. / Floor at 0 like other cash deductions.
-        $wellLoop->totalCosts     += abs($spill->cashDelta);
         $playerCash               = max(0.0, $playerCash - abs($spill->cashDelta));
         $this->disastersTriggered += $spill->disastersTriggered;
 
@@ -401,7 +398,7 @@ class PlayersSection
             $wellLoop->finRevenue, $wellLoop->finOpex, $wellLoop->finSalary,
             $wellLoop->finTransport, $totalIncidentCost, $wellLoop->finTax
         );
-        $finState->saveCashAndTick($playerId, $wellLoop->totalCosts);
+        $finState->saveCashAndTick($playerId, $playerCash, $initialCash);
 
  // 6. AUDIT BANKOWY zbiorcze koszty ticku do bank_transactions (brief: "podatki" itd.).
  // Gotowka juz zeszla roznicowo w saveCashAndTick - tu tylko logTransaction (audit trail).
@@ -529,7 +526,6 @@ class PlayersSection
             $cost = (float)$res['cost'];
             if ($cost > 0.0) {
                 $wellLoop->finTransport += $cost;
-                $wellLoop->totalCosts   += $cost;
                 $playerCash              = max(0.0, $playerCash - $cost);
             }
 

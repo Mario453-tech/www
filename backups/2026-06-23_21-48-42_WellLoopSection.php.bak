@@ -47,7 +47,6 @@ class WellLoopSection
     public float $currentStorage           = 0.0;
     public float $storageCapacity          = 0.0;
     public float $playerCash               = 0.0;
-    public float $totalCosts               = 0.0; // C3: suma wszystkich zamierzonych odliczen (nieprzycieta do 0), do atomowego zapisu gotowki w DB
  // Stage 5: oil dispatched by sea and not yet delivered
  // Etap 5: ropa wyslana morzem i jeszcze niedostarczona
     public float $marineInTransitBbl       = 0.0;
@@ -313,9 +312,13 @@ class WellLoopSection
         } else {
  // Brak huba - natychmiastowy fallback cap (jak odwiert bez infrastruktury).
  // No hub - immediate fallback cap (well without infrastructure).
-            $fallback = $this->hubTickSvc->applyFallback($actual, $deltaHours);
-            // loss_mult dotyczy strat losowych (wycieki, incydenty), nie fizycznego limitu przepustowosci.
-            // loss_mult applies to random losses (leaks, incidents), NOT the hard physical throughput cap.
+            $fallback          = $this->hubTickSvc->applyFallback($actual, $deltaHours);
+            $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
+            if ($logisticsLossMult !== 1.0 && $fallback['lost_bbl'] > 0.0) {
+                $scaledLost              = min($actual, round($fallback['lost_bbl'] * $logisticsLossMult, 4));
+                $fallback['lost_bbl']    = $scaledLost;
+                $fallback['effective_bbl'] = max(0.0, $actual - $scaledLost);
+            }
             if ($fallback['lost_bbl'] > 0.001) {
                 $this->finLossBbl           += $fallback['lost_bbl'];
                 $this->finLossValue         += round($fallback['lost_bbl'] * $this->oilPrice, 2);
@@ -447,7 +450,6 @@ class WellLoopSection
                 $salaryPerHour     = $totalSalaryMonth / 720.0;
                 $salaryCost        = round($salaryPerHour * $deltaHours, 2);
                 $this->finSalary  += $salaryCost;
-                $this->totalCosts += $salaryCost;
                 $this->playerCash  = max(0.0, $this->playerCash - $salaryCost);
                 GameLog::info('tick', 'salary_deducted', [
                     'player_id'       => $playerId,

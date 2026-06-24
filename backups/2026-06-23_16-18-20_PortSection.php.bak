@@ -70,36 +70,31 @@ class PortSection
             $stmt->execute([$playerId]);
             $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Grupuj wpisy po porcie; throughput_per_tick obowiazuje osobno per port.
-            // Group entries by port; throughput_per_tick limit applies independently per port.
-            $byPort = [];
+            // BUG1 FIX: track bbl processed this tick and enforce throughput_per_tick limit.
+            // All entries in $entries share the same port (joined via port_id), so we read
+            // throughput_per_tick from the first row; the SELECT already limits to one port
+            // per player via ORDER BY queued_at.
+            $processedThisTick = 0.0;
+            $throughputLimit   = isset($entries[0])
+                ? (float)($entries[0]['throughput_per_tick'] ?? PHP_FLOAT_MAX)
+                : PHP_FLOAT_MAX;
+
             foreach ($entries as $entry) {
-                $byPort[(int)$entry['port_id']][] = $entry;
-            }
-
-            foreach ($byPort as $portEntries) {
-                $processedThisTick = 0.0;
-                $throughputLimit   = (float)($portEntries[0]['throughput_per_tick'] ?? PHP_FLOAT_MAX);
-                if ($throughputLimit <= 0.0) {
-                    $throughputLimit = PHP_FLOAT_MAX; // guard: port z throughput=0 nie moze blokowac / guard: port with throughput=0 must not stall deliveries
-                }
-
-                foreach ($portEntries as $entry) {
-                    $freeSpace = $storageCapacity - $currentStorage;
-                    if ($freeSpace <= 0.0) {
+                $freeSpace = $storageCapacity - $currentStorage;
+                if ($freeSpace <= 0.0) {
  // Magazyn pelny zostawiamy w kolejce na nastepny tick
  // Storage full leave in queue for next tick
-                        break 2;
-                    }
-                    if ($processedThisTick >= $throughputLimit) {
-                        break;
-                    }
-                    $storageBefore  = $currentStorage;
-                    $currentStorage = $this->processEntry(
-                        $entry, $playerId, $currentStorage, $freeSpace, $throughputLimit, $processedThisTick
-                    );
-                    $processedThisTick += max(0.0, $currentStorage - $storageBefore);
+                    break;
                 }
+                // BUG1 FIX: stop processing when port throughput for this tick is exhausted
+                if ($processedThisTick >= $throughputLimit) {
+                    break;
+                }
+                $storageBefore  = $currentStorage;
+                $currentStorage = $this->processEntry(
+                    $entry, $playerId, $currentStorage, $freeSpace, $throughputLimit, $processedThisTick
+                );
+                $processedThisTick += max(0.0, $currentStorage - $storageBefore);
             }
 
  // Odswiez statusy portow / Refresh port statuses
@@ -159,8 +154,8 @@ class PortSection
                 $this->db->prepare(
                     "UPDATE marine_deliveries
                         SET status = 'waiting_for_port', handling_cost = COALESCE(handling_cost, 0) + ?
-                      WHERE id = ? AND player_id = ? AND status NOT IN ('delivered','lost')"
-                )->execute([$handlingCost, $deliveryId, $playerId]);
+                      WHERE id = ? AND status NOT IN ('delivered','lost')"
+                )->execute([$handlingCost, $deliveryId]);
                 $this->db->commit();
             } catch (Throwable $e) {
                 if ($this->db->inTransaction()) {
@@ -191,10 +186,9 @@ class PortSection
                 )->execute([$nowStr, $entryId]);
                 $this->db->prepare(
                     "UPDATE marine_deliveries
-                        SET status = 'delivered', delivered_at = ?,
-                            handling_cost = COALESCE(handling_cost, 0) + ?
-                      WHERE id = ? AND player_id = ?"
-                )->execute([$nowStr, $handlingCost, $deliveryId, $playerId]);
+                        SET status = 'delivered', delivered_at = ?, handling_cost = ?
+                      WHERE id = ?"
+                )->execute([$nowStr, $handlingCost, $deliveryId]);
                 $this->db->commit();
             } catch (Throwable $e) {
                 if ($this->db->inTransaction()) {

@@ -37,6 +37,11 @@ abstract class MySqlIntegrationTestCase extends TestCase
     protected function tearDown(): void
     {
         $this->cleanupTrackedIds();
+        // Zamknij polaczenie PDO miedzy testami — bez tego PHP nie zwalnia go
+        // przed GC i przy duzej liczbie testow MySQL przekracza max_connections.
+        // Close PDO connection between tests — without this PHP does not release
+        // it before GC and with many tests MySQL exceeds max_connections.
+        unset($this->db);
 
         parent::tearDown();
     }

@@ -130,7 +130,6 @@ class PlayersSection
         $initialCash     = $playerCash; // gotowka na poczatku ticka (do roznicowego zapisu) / cash at tick start (for differential save)
         $storageCapacity = (float)$storage['capacity'];
         $currentStorage  = (float)$storage['used'];
-        $initialStorage  = $currentStorage; // magazyn na poczatku ticka — delta do roznicowego zapisu / storage at tick start — delta for differential save
 
  // 1. OFFLINE 
         $offline = new OfflineSection($db, $now);
@@ -193,7 +192,6 @@ class PlayersSection
         $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc, $protectionSvc);
  // Floor na 0 jak pozostale odliczenia gotowki (DB i tak ma GREATEST(0,...)).
  // Floor at 0 like the other cash deductions (DB also applies GREATEST(0,...)).
-        $wellLoop->totalCosts     += abs($pipelines->cashDelta);
         $playerCash               = max(0.0, $playerCash - abs($pipelines->cashDelta));
         $this->disastersTriggered += $pipelines->disastersTriggered;
 
@@ -266,7 +264,6 @@ class PlayersSection
                 }
                 if ($portSec->handlingCost > 0.0) {
                     $wellLoop->finTransport += $portSec->handlingCost;
-                    $wellLoop->totalCosts   += $portSec->handlingCost;
                     $playerCash              = max(0.0, $playerCash - $portSec->handlingCost);
                 }
  // Dostawy do hubow przechodza przez finalizacje huba; bez huba zostaja przy starym drugim odcinku.
@@ -295,7 +292,6 @@ class PlayersSection
         $spill  = new SpillSection($db, $wellService);
         $currentStorage            = $spill->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $tsvc);
  // Floor na 0 jak pozostale odliczenia gotowki. / Floor at 0 like other cash deductions.
-        $wellLoop->totalCosts     += abs($spill->cashDelta);
         $playerCash               = max(0.0, $playerCash - abs($spill->cashDelta));
         $this->disastersTriggered += $spill->disastersTriggered;
 
@@ -303,15 +299,7 @@ class PlayersSection
  // Bez tego currentStorage > storageCapacity moze trafic do bazy po intensywnym tiku.
  // H4: Cap storage — prevents writing above max_capacity when spill was not triggered.
  // Without this, currentStorage > storageCapacity can reach the DB after a heavy tick.
-        $storageOverflow = max(0.0, $currentStorage - $storageCapacity);
-        $currentStorage  = min($currentStorage, $storageCapacity);
-        if ($storageOverflow > 0.001) {
-            GameLog::warn('tick', 'storage_overflow_capped', [
-                'player_id'    => $playerId,
-                'overflow_bbl' => round($storageOverflow, 2),
-                'capacity'     => round($storageCapacity, 2),
-            ]);
-        }
+        $currentStorage = min($currentStorage, $storageCapacity);
 
  // Zapis magazynu + atomowe potwierdzenie dostaw drogowych (M3).
  // Kursy oznaczone 'crediting' w tym tiku potwierdzamy jako 'delivered' w tej samej
@@ -332,13 +320,8 @@ class PlayersSection
             if ($ownTx) {
                 $db->beginTransaction();
             }
-            // Roznicowy zapis magazynu: used = used + delta zamiast absolutnego nadpisania.
-            // Chroni rownoczesnych pisaczy (BlackMarket, Komornik, MarketOffer) przed utrata zmian.
-            // Differential storage write: used = used + delta instead of absolute overwrite.
-            // Protects concurrent writers (BlackMarket, Bailiff, MarketOffer) from losing their changes.
-            $storageDelta = round($currentStorage - $initialStorage, 4);
-            $db->prepare("UPDATE storage SET used = LEAST(capacity, GREATEST(0, used + :delta)), updated_at = NOW() WHERE player_id = :pid")
-               ->execute([':delta' => $storageDelta, ':pid' => $playerId]);
+            $db->prepare("UPDATE storage SET used = :used, updated_at = NOW() WHERE player_id = :pid")
+               ->execute([':used' => $currentStorage, ':pid' => $playerId]);
             if ($roadSvc !== null && $isMysql) {
                 $roadSvc->confirmCreditedTrips($playerId);
             }
@@ -401,7 +384,7 @@ class PlayersSection
             $wellLoop->finRevenue, $wellLoop->finOpex, $wellLoop->finSalary,
             $wellLoop->finTransport, $totalIncidentCost, $wellLoop->finTax
         );
-        $finState->saveCashAndTick($playerId, $wellLoop->totalCosts);
+        $finState->saveCashAndTick($playerId, $playerCash, $initialCash);
 
  // 6. AUDIT BANKOWY zbiorcze koszty ticku do bank_transactions (brief: "podatki" itd.).
  // Gotowka juz zeszla roznicowo w saveCashAndTick - tu tylko logTransaction (audit trail).
@@ -529,7 +512,6 @@ class PlayersSection
             $cost = (float)$res['cost'];
             if ($cost > 0.0) {
                 $wellLoop->finTransport += $cost;
-                $wellLoop->totalCosts   += $cost;
                 $playerCash              = max(0.0, $playerCash - $cost);
             }
 

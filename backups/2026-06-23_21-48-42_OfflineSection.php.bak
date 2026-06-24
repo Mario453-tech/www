@@ -15,39 +15,10 @@ class OfflineSection
     private PDO      $db;
     private DateTime $now;
 
-    /** @var array<int,bool> guard: raz per polaczenie / once per connection */
-    private static array $schemaEnsured = [];
-
     public function __construct(PDO $db, DateTime $now)
     {
         $this->db  = $db;
         $this->now = $now;
-        $this->ensureSchema();
-    }
-
- /**
- * Zapewnia istnienie kolumny offline_frozen w players (idempotentne, raz per polaczenie).
- * Ensures offline_frozen column exists on players (idempotent, once per connection).
- */
-    private function ensureSchema(): void
-    {
-        $connId = spl_object_id($this->db);
-        if (isset(self::$schemaEnsured[$connId])) {
-            return;
-        }
-        self::$schemaEnsured[$connId] = true;
-
-        try {
-            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-            if ($driver !== 'mysql' || $this->db->inTransaction()) {
-                return;
-            }
-            Database::addColumnIfMissing('players', 'offline_frozen', 'TINYINT(1) NOT NULL DEFAULT 0');
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('OfflineSection', 'ensureSchema FAILED', $e);
-            }
-        }
     }
 
  /**
@@ -105,12 +76,6 @@ class OfflineSection
             $offlineFromTs      = $offlineSince ? strtotime($offlineSince) : ($this->now->getTimestamp() - 1800);
             $offlineReportHours = round(($this->now->getTimestamp() - $offlineFromTs) / 3600, 2);
             try {
-                // Odczytaj flage zamrozenia z wiersza gracza (ustawiana per-tick przez UPDATE ponizej).
-                // Read the freeze flag from the player row (set per-tick by the UPDATE below).
-                $frozenRow = $this->db->prepare("SELECT COALESCE(offline_frozen, 0) FROM players WHERE id = ? LIMIT 1");
-                $frozenRow->execute([$playerId]);
-                $wasFrozen = (int)($frozenRow->fetchColumn() ?: 0);
-
                 $this->db->prepare("
                     INSERT INTO offline_reports
                         (player_id, offline_from, offline_to, offline_hours, was_frozen, summary_json)
@@ -120,10 +85,10 @@ class OfflineSection
                     date('Y-m-d H:i:s', $offlineFromTs),
                     $this->now->format('Y-m-d H:i:s'),
                     $offlineReportHours,
-                    $wasFrozen,
+                    0,
                     json_encode(['offline_hours' => $offlineReportHours]),
                 ]);
-                $this->db->prepare("UPDATE players SET offline_mode=0, offline_since=NULL, offline_frozen=0 WHERE id=?")
+                $this->db->prepare("UPDATE players SET offline_mode=0, offline_since=NULL WHERE id=?")
                          ->execute([$playerId]);
             } catch (Throwable $e) {
                 GameLog::error('tick', 'offline_report INSERT FAILED', $e, ['player_id' => $playerId]);
@@ -145,12 +110,8 @@ class OfflineSection
                 'cash'      => $playerCash,
             ]);
             try {
-                // Ustaw offline_frozen=1 w wierszu gracza (raport offline_reports jeszcze nie istnieje;
-                // zostanie odczytany i zresetowany gdy gracz wroci online).
-                // Set offline_frozen=1 on the player row (offline_reports row doesn't exist yet;
-                // it is read and reset when the player comes back online).
                 $this->db->prepare(
-                    "UPDATE players SET offline_frozen=1 WHERE id=?"
+                    "UPDATE offline_reports SET was_frozen=1 WHERE player_id=? ORDER BY id DESC LIMIT 1"
                 )->execute([$playerId]);
             } catch (Throwable $e) {}
 

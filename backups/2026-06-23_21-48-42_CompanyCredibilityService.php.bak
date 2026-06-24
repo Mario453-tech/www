@@ -373,35 +373,15 @@ class CompanyCredibilityService
      */
     public function changeScore(int $playerId, int $delta, string $eventKey, ?string $note = null): int
     {
-        $ownTx = false; // inicjalizacja przed try — catch moze sprawdzac $ownTx / initialised before try — catch may inspect $ownTx
         try {
-            // Atomowa zmiana: na MySQL SELECT FOR UPDATE blokuje wiersz (eliminuje race condition).
-            // Na SQLite (testy) brak wsparcia FOR UPDATE — dziala bez blokady.
-            // Atomic change: on MySQL SELECT FOR UPDATE locks the row (eliminates race condition).
-            // On SQLite (tests) FOR UPDATE is not supported — runs without locking.
-            $isMysql = $this->driver() === 'mysql';
-            $ownTx   = $isMysql && !$this->db->inTransaction();
-            if ($ownTx) {
-                $this->db->beginTransaction();
-            }
-            $selectSql = $isMysql
-                ? "SELECT company_credibility FROM players WHERE id = ? LIMIT 1 FOR UPDATE"
-                : "SELECT company_credibility FROM players WHERE id = ? LIMIT 1";
-            $stmt = $this->db->prepare($selectSql);
-            $stmt->execute([$playerId]);
-            $rawScore = $stmt->fetchColumn();
-            $before   = $rawScore !== false ? $this->clamp((int)$rawScore) : self::DEFAULT_SCORE;
-            $after    = $this->clamp($before + $delta);
+            $before         = $this->getScore($playerId);
+            $after          = $this->clamp($before + $delta);
             $effectiveDelta = $after - $before;
 
             // Aktualizacja pola gracza / Update the player field
             $this->db->prepare(
                 "UPDATE players SET company_credibility = ? WHERE id = ?"
             )->execute([$after, $playerId]);
-
-            if ($ownTx) {
-                $this->db->commit();
-            }
 
             // Log zawsze (sekcja 3) - nawet przy delcie efektywnej 0 (np. sufit/podloga),
             // zeby historia tlumaczyla dlaczego wynik sie nie zmienil.
@@ -425,9 +405,6 @@ class CompanyCredibilityService
             }
             return $after;
         } catch (Throwable $e) {
-            if (!empty($ownTx) && $this->db->inTransaction()) {
-                try { $this->db->rollBack(); } catch (Throwable $re) {}
-            }
             if (class_exists('GameLog', false)) {
                 GameLog::error('CompanyCredibilityService', 'changeScore FAILED', $e, [
                     'player_id' => $playerId, 'event_key' => $eventKey, 'delta' => $delta,
