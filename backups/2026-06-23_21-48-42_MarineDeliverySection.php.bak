@@ -82,19 +82,6 @@ class MarineDeliverySection
             $stmt->execute();
             $stuck = $stmt->rowCount();
 
- // 2b) Dostawa 'delayed' z portem (port pelny, retry) utknela na zawsze:
- //     port zamkniety, kolejka nigdy nie drenuje. Bezpieczne usunac po 7 dniach.
- //     Delayed delivery with an assigned port (port-full retry) stuck permanently:
- //     port went closed, the queue never drains. Safe to purge after 7 days.
-            $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
-                  WHERE status = 'delayed'
-                    AND port_id IS NOT NULL
-                    AND departure_at < NOW() - INTERVAL 7 DAY"
-            );
-            $stmt->execute();
-            $stuck += $stmt->rowCount();
-
  // 3) Dostawy 'delayed' bez przypisanego portu (port_id IS NULL) starsze niz 2 godziny.
  //    Sa definitywnie nieodwracalne: przy tworzeniu nie bylo portu, przy przybyciu
  //    tez nie bylo (findPort zwrocil null) — nigdy nie dotrza do magazynu.

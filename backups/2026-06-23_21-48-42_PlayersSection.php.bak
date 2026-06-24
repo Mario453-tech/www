@@ -130,7 +130,6 @@ class PlayersSection
         $initialCash     = $playerCash; // gotowka na poczatku ticka (do roznicowego zapisu) / cash at tick start (for differential save)
         $storageCapacity = (float)$storage['capacity'];
         $currentStorage  = (float)$storage['used'];
-        $initialStorage  = $currentStorage; // magazyn na poczatku ticka — delta do roznicowego zapisu / storage at tick start — delta for differential save
 
  // 1. OFFLINE 
         $offline = new OfflineSection($db, $now);
@@ -300,15 +299,7 @@ class PlayersSection
  // Bez tego currentStorage > storageCapacity moze trafic do bazy po intensywnym tiku.
  // H4: Cap storage — prevents writing above max_capacity when spill was not triggered.
  // Without this, currentStorage > storageCapacity can reach the DB after a heavy tick.
-        $storageOverflow = max(0.0, $currentStorage - $storageCapacity);
-        $currentStorage  = min($currentStorage, $storageCapacity);
-        if ($storageOverflow > 0.001) {
-            GameLog::warn('tick', 'storage_overflow_capped', [
-                'player_id'    => $playerId,
-                'overflow_bbl' => round($storageOverflow, 2),
-                'capacity'     => round($storageCapacity, 2),
-            ]);
-        }
+        $currentStorage = min($currentStorage, $storageCapacity);
 
  // Zapis magazynu + atomowe potwierdzenie dostaw drogowych (M3).
  // Kursy oznaczone 'crediting' w tym tiku potwierdzamy jako 'delivered' w tej samej
@@ -329,13 +320,8 @@ class PlayersSection
             if ($ownTx) {
                 $db->beginTransaction();
             }
-            // Roznicowy zapis magazynu: used = used + delta zamiast absolutnego nadpisania.
-            // Chroni rownoczesnych pisaczy (BlackMarket, Komornik, MarketOffer) przed utrata zmian.
-            // Differential storage write: used = used + delta instead of absolute overwrite.
-            // Protects concurrent writers (BlackMarket, Bailiff, MarketOffer) from losing their changes.
-            $storageDelta = round($currentStorage - $initialStorage, 4);
-            $db->prepare("UPDATE storage SET used = LEAST(capacity, GREATEST(0, used + :delta)), updated_at = NOW() WHERE player_id = :pid")
-               ->execute([':delta' => $storageDelta, ':pid' => $playerId]);
+            $db->prepare("UPDATE storage SET used = :used, updated_at = NOW() WHERE player_id = :pid")
+               ->execute([':used' => $currentStorage, ':pid' => $playerId]);
             if ($roadSvc !== null && $isMysql) {
                 $roadSvc->confirmCreditedTrips($playerId);
             }

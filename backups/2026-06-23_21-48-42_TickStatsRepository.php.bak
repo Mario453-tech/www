@@ -22,12 +22,16 @@ class TickStatsRepository
     {
         $ranAt = $stats['ran_at'] ?? date('Y-m-d H:i:s');
 
-        // INSERT IGNORE odporna na rownoczesne uruchomienia (admin force-tick + cron).
-        // Wymaga UNIQUE KEY na ran_at — patrz migracja tick_stats_unique_ran_at.
-        // INSERT IGNORE is race-safe for concurrent runs (admin force-tick + cron).
-        // Requires UNIQUE KEY on ran_at — see migration tick_stats_unique_ran_at.
+        // Guard against duplicate rows from double-cron / retry runs.
+        // getSummary24h() uses SUM(), so duplicates would inflate production figures.
+        $checkStmt = $this->db->prepare("SELECT id FROM tick_stats WHERE ran_at = ? LIMIT 1");
+        $checkStmt->execute([$ranAt]);
+        if ($checkStmt->fetchColumn()) {
+            return; // tick stats already saved for this timestamp
+        }
+
         $this->db->prepare("
-            INSERT IGNORE INTO tick_stats (
+            INSERT INTO tick_stats (
                 ran_at, source, duration_ms,
                 oil_price, trend_name, trend_new,
                 bank_interest_processed, bank_installments_processed,
@@ -70,6 +74,23 @@ class TickStatsRepository
             ':disasters_triggered'         => $stats['disasters_triggered']         ?? null,
             ':incidents_triggered'         => $stats['incidents_triggered']         ?? null,
         ]);
+    }
+
+ /**
+ * Zwraca ostatnie N tickow posortowane malejaco.
+ * Returns last N ticks sorted descending.
+ */
+ /** @return list<array<string, mixed>> */
+    public function getRecent(int $limit = 50): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT * FROM tick_stats
+            ORDER BY ran_at DESC
+            LIMIT :lim
+        ");
+        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
     }
 
  /**

@@ -312,9 +312,13 @@ class WellLoopSection
         } else {
  // Brak huba - natychmiastowy fallback cap (jak odwiert bez infrastruktury).
  // No hub - immediate fallback cap (well without infrastructure).
-            $fallback = $this->hubTickSvc->applyFallback($actual, $deltaHours);
-            // loss_mult dotyczy strat losowych (wycieki, incydenty), nie fizycznego limitu przepustowosci.
-            // loss_mult applies to random losses (leaks, incidents), NOT the hard physical throughput cap.
+            $fallback          = $this->hubTickSvc->applyFallback($actual, $deltaHours);
+            $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
+            if ($logisticsLossMult !== 1.0 && $fallback['lost_bbl'] > 0.0) {
+                $scaledLost              = min($actual, round($fallback['lost_bbl'] * $logisticsLossMult, 4));
+                $fallback['lost_bbl']    = $scaledLost;
+                $fallback['effective_bbl'] = max(0.0, $actual - $scaledLost);
+            }
             if ($fallback['lost_bbl'] > 0.001) {
                 $this->finLossBbl           += $fallback['lost_bbl'];
                 $this->finLossValue         += round($fallback['lost_bbl'] * $this->oilPrice, 2);

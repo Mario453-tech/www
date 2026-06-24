@@ -268,12 +268,27 @@ class WellProductionHandler
             $this->ctx->loopCtx->recordPreStorageLoss($transportCapacityLoss, $price);
         }
 
- // Odroczone typy transportu (bufor drogowymorski) nie uzywaja lokalnego magazynu —
- // ropa jedzie do bufora i kreditowana jest dopiero po dostawie. Dlatego limit wolnego
- // miejsca i pauza paused_storage nie dotycza ich: pelny magazyn nie blokuje wysylki.
- // Deferred transport types (road/marine buffer) do not use local storage —
- // oil goes to a staging buffer and is credited only after delivery. Therefore the
- // free-space cap and paused_storage pause do NOT apply to them.
+ // Pelny magazyn / Full storage
+        if ($freeSpace <= 0) {
+            if ($transportLimitedBbl > 0.0) {
+                $this->ctx->loopCtx->storageBlockedBbl += $transportLimitedBbl;
+                $this->ctx->loopCtx->recordPreStorageLoss($transportLimitedBbl, $price);
+            }
+            $this->ctx->db->prepare("UPDATE wells SET status = 'paused_storage' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
+            GameLog::info('tick', 'well paused_storage (storage full)', ['well_id' => $wellId, 'player_id' => $playerId]);
+            return;
+        }
+
+        $actual = min($transportLimitedBbl, $freeSpace);
+        $storageBlocked = max(0.0, round($transportLimitedBbl - $actual, 4));
+        if ($storageBlocked > 0.0) {
+            $this->ctx->loopCtx->storageBlockedBbl += $storageBlocked;
+            $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
+        }
+
+ // Hub logistics / Fallback cap.
+ // Transport czasowy zasila hub dopiero po fizycznej dostawie, nie przy produkcji.
+ // Time-based transport feeds the hub after physical delivery, not at production time.
         $isMysqlDriver = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
         $deferredHubInput = (
             $transportType === 'ciezarowki'
@@ -283,29 +298,8 @@ class WellProductionHandler
             $transportType === 'tankowiec'
             && $this->ctx->marineDeliverySvc !== null
         );
-
         if (!$deferredHubInput) {
- // Pelny magazyn — wstrzymaj odwiert (tylko transport bezposredni) / Full storage — pause well (direct transport only)
-            if ($freeSpace <= 0) {
-                if ($transportLimitedBbl > 0.0) {
-                    $this->ctx->loopCtx->storageBlockedBbl += $transportLimitedBbl;
-                    $this->ctx->loopCtx->recordPreStorageLoss($transportLimitedBbl, $price);
-                }
-                $this->ctx->db->prepare("UPDATE wells SET status = 'paused_storage' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
-                GameLog::info('tick', 'well paused_storage (storage full)', ['well_id' => $wellId, 'player_id' => $playerId]);
-                return;
-            }
-            $actual = min($transportLimitedBbl, $freeSpace);
-            $storageBlocked = max(0.0, round($transportLimitedBbl - $actual, 4));
-            if ($storageBlocked > 0.0) {
-                $this->ctx->loopCtx->storageBlockedBbl += $storageBlocked;
-                $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
-            }
             $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
-        } else {
- // Odroczone: pojemnosc lokalna nieistotna — cala przetransportowana porcja idzie do bufora.
- // Deferred: local capacity irrelevant — the full transported volume goes to the staging buffer.
-            $actual = $transportLimitedBbl;
         }
 
  // Straty transportowe (rurociag) / Pipeline transport losses
@@ -391,8 +385,7 @@ class WellProductionHandler
                             if ($ownTxRoad) $this->ctx->db->commit();
 
                             if ($dispatch['cost'] > 0.0) {
-                                $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
-                                $this->ctx->loopCtx->finTransport += $charged;
+                                $this->ctx->loopCtx->finTransport += $dispatch['cost'];
                                 $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                             }
                             $this->ctx->loopCtx->roadInTransitBbl += $bufferBbl;
@@ -425,8 +418,7 @@ class WellProductionHandler
                     $playerId, $wellId, $actual, $roadCfg, $politicalRisk
                 );
                 if ($dispatch['cost'] > 0.0) {
-                    $charged = min($dispatch['cost'], $this->ctx->loopCtx->playerCash);
-                    $this->ctx->loopCtx->finTransport += $charged;
+                    $this->ctx->loopCtx->finTransport += $dispatch['cost'];
                     $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $dispatch['cost']);
                 }
                 $this->ctx->loopCtx->roadInTransitBbl += $actual;
@@ -513,8 +505,7 @@ class WellProductionHandler
                         if ($costPerBbl > 0.0) {
                             $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
  * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-                            $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
-                            $this->ctx->loopCtx->finTransport += $charged;
+                            $this->ctx->loopCtx->finTransport += $voyageCost;
                             $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                         }
                     } catch (Throwable $e) {

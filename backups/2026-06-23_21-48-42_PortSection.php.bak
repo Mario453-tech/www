@@ -80,9 +80,6 @@ class PortSection
             foreach ($byPort as $portEntries) {
                 $processedThisTick = 0.0;
                 $throughputLimit   = (float)($portEntries[0]['throughput_per_tick'] ?? PHP_FLOAT_MAX);
-                if ($throughputLimit <= 0.0) {
-                    $throughputLimit = PHP_FLOAT_MAX; // guard: port z throughput=0 nie moze blokowac / guard: port with throughput=0 must not stall deliveries
-                }
 
                 foreach ($portEntries as $entry) {
                     $freeSpace = $storageCapacity - $currentStorage;
@@ -191,8 +188,7 @@ class PortSection
                 )->execute([$nowStr, $entryId]);
                 $this->db->prepare(
                     "UPDATE marine_deliveries
-                        SET status = 'delivered', delivered_at = ?,
-                            handling_cost = COALESCE(handling_cost, 0) + ?
+                        SET status = 'delivered', delivered_at = ?, handling_cost = ?
                       WHERE id = ? AND player_id = ?"
                 )->execute([$nowStr, $handlingCost, $deliveryId, $playerId]);
                 $this->db->commit();

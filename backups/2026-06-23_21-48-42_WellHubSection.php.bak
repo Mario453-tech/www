@@ -109,7 +109,6 @@ class WellHubSection
                     $hubLostBbl = min($inputBbl + $hubDrainedBbl, round($hubLostBbl * $logisticsLossMult, 4));
                 }
 
-                $blockedBbl = 0.0; // inicjalizacja przed blokiem drenu — uzywana w processOutboundLeg / initialized before drain block — used in processOutboundLeg
                 if ($hubDrainedBbl > 0.001) {
                     $freeSpace  = max(0.0, $this->ctx->storageCapacity - $this->ctx->currentStorage);
                     $credited   = min($hubDrainedBbl, $freeSpace);
@@ -181,11 +180,7 @@ class WellHubSection
 
                 $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
                 $this->processHubUsageFee($hubId, $hub, $playerId, $playerWellCount);
-                // Odejmij bbl zablokowane przez pelny magazyn (juz zaksiegowane jako hub-loss),
-                // aby drugi odcinek transportu nie naliczal kosztow za ropy ktora nie dotarla.
-                // Subtract storage-blocked bbl (already booked as hub-loss) so the outbound
-                // leg does not charge transport fees on oil that never reached storage.
-                $processedBbl = max(0.0, (float)($result['processed_bbl'] ?? ($inputBbl - max(0.0, $hubLostBbl))) - $blockedBbl);
+                $processedBbl = max(0.0, (float)($result['processed_bbl'] ?? ($inputBbl - max(0.0, $hubLostBbl))));
                 $this->processOutboundLeg($hubId, $playerId, $processedBbl, $deltaHours, $hseBonus);
 
             } catch (Throwable $e) {
