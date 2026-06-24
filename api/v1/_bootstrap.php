@@ -21,6 +21,10 @@ require_once $_API_ROOT . '/src/GameLog.php';
 require_once $_API_ROOT . '/src/Database.php';
 require_once $_API_ROOT . '/src/ApiAuth.php';
 
+// Auto-tworzy tabele api_tokens jesli nie istnieje (raz na proces, bezpieczne no-op).
+// Auto-creates api_tokens table if missing (once per process, safe no-op).
+ApiAuth::ensureSchema();
+
 GameLog::setEnabled(false);
 
 /**

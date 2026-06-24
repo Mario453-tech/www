@@ -249,11 +249,50 @@ showGameToast('Treść', 'success' | 'error' | 'warning' | 'info');
 - **PDO** z `ATTR_EMULATE_PREPARES = false`, `ATTR_STRINGIFY_FETCHES = false`
 - Zawsze prepared statements — zero interpolacji zmiennych w SQL
 - `Database::addColumnIfMissing()` zamiast `ALTER TABLE ... IF NOT EXISTS`
-- Migracje jednorazowe → przez phpMyAdmin, nie przez kod
 - Transakcje przy operacjach multi-step: `beginTransaction()` / `commit()` / `rollBack()`
 - Nie wykonuj `DROP`/`TRUNCATE` bez wyraźnej zgody użytkownika
 - Przy zmianach struktury → bezpieczne `ALTER TABLE`
 - Pilnuj typów danych przy operacjach finansowych (DECIMAL, nie FLOAT)
+
+### ZASADA: Kazdy nowy modul z tabelami DB = Bootstrap PHP (zero phpMyAdmin)
+
+**Nie tworzysz recznych migracji SQL do phpMyAdmin. Tabele tworza sie automatycznie.**
+
+Gdy tworzysz nowy modul z nowymi tabelami:
+
+1. **Stworz `src/NazwaBootstrap.php`** z funkcja `ensureNazwaSchema()`:
+   ```php
+   if (!function_exists('ensureNazwaSchema')) {
+       function ensureNazwaSchema(): void
+       {
+           static $done = false;
+           if ($done) return;
+           $done = true;
+           try {
+               $db = Database::getInstance()->getConnection();
+               if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') return;
+               $db->exec("CREATE TABLE IF NOT EXISTS `nazwa_tabeli` (...)  ENGINE=InnoDB ...");
+               $db->exec("INSERT IGNORE INTO `nazwa_tabeli` (...) VALUES (...)"); // seed jesli potrzebny
+           } catch (Throwable $e) {
+               GameLog::warn('init', 'NazwaSchema bootstrap skipped', ['error' => $e->getMessage()]);
+           }
+       }
+   }
+   ```
+
+2. **Wepnij w `src/init.php`** w sekcji `// ── SCHEMA BOOTSTRAP ──`:
+   ```php
+   require_once __DIR__ . '/NazwaBootstrap.php';
+   try { ensureNazwaSchema(); } catch (Throwable) {}
+   ```
+
+3. **Dla tabel uzywanych tylko przez API mobilne** (nie przez init.php):
+   dodaj statyczna metode `ensureSchema()` do klasy i wywolaj ja w `api/v1/_bootstrap.php`.
+
+4. **Wzorce do skopiowania:**
+   - `src/BankruptcyBootstrap.php` — funkcja globalna, flaga `static $done`, try/catch
+   - `src/TrainingBootstrap.php` — wiele tabel + seed INSERT IGNORE
+   - `src/ApiAuth.php::ensureSchema()` — metoda statyczna dla tabel API
 
 ### Indeksy — wymagane na nowych tabelach
 
