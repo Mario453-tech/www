@@ -46,6 +46,12 @@ if (!function_exists('ensureTrainingSchema')) {
                 KEY        `idx_enabled` (`enabled`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+            // Kolumna active_guard — atomowa blokada podwojnego rozpatrzenia egzaminu.
+            // active_guard column — atomic lock preventing double exam processing.
+            Database::addColumnIfMissing('staff_trainings', 'active_guard',
+                "TINYINT(1) NULL DEFAULT NULL COMMENT 'NULL = zamkniety, 1 = w toku / NULL = closed, 1 = in progress'"
+            );
+
             // Historia i aktywne szkolenia graczy.
             // Player training history and active trainings.
             $db->exec("CREATE TABLE IF NOT EXISTS `staff_trainings` (
