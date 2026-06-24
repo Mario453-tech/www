@@ -8,68 +8,9 @@ class TickStatsRepository
 {
     private PDO $db;
 
-    /** @var array<int,bool> guard: raz per polaczenie / once per connection */
-    private static array $schemaEnsured = [];
-
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
-        $this->ensureSchema();
-    }
-
- /**
- * Zapewnia UNIQUE KEY na ran_at (idempotentne, raz per polaczenie).
- * Bez UNIQUE KEY INSERT IGNORE nie deduplicuje duplikatow z rownoczesnych tickow.
- * Ensures UNIQUE KEY on ran_at (idempotent, once per connection).
- * Without UNIQUE KEY, INSERT IGNORE does not deduplicate concurrent-tick duplicates.
- */
-    private function ensureSchema(): void
-    {
-        $connId = spl_object_id($this->db);
-        if (isset(self::$schemaEnsured[$connId])) {
-            return;
-        }
-        self::$schemaEnsured[$connId] = true;
-
-        try {
-            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-            if ($driver !== 'mysql') {
-                return; // testy uzywaja SQLite / tests use SQLite
-            }
-            if ($this->db->inTransaction()) {
-                return; // DDL nie moze biec w transakcji / DDL cannot run inside a transaction
-            }
-
-            // Sprawdz czy idx_ran_at jest juz UNIQUE / Check if idx_ran_at is already UNIQUE
-            $stmt = $this->db->query(
-                "SELECT Non_unique FROM information_schema.STATISTICS
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME   = 'tick_stats'
-                    AND INDEX_NAME   = 'idx_ran_at'
-                  LIMIT 1"
-            );
-            $nonUnique = $stmt ? $stmt->fetchColumn() : null;
-
-            if ($nonUnique === false || $nonUnique === null) {
-                // Brak indeksu w ogole — dodaj UNIQUE od razu / No index at all — add UNIQUE directly
-                $this->db->exec("ALTER TABLE tick_stats ADD UNIQUE KEY idx_ran_at (ran_at)");
-                return;
-            }
-            if ((int)$nonUnique === 0) {
-                return; // Juz UNIQUE / Already UNIQUE
-            }
-            // Jest non-unique — usun duplikaty, zmien na UNIQUE / Non-unique exists — purge dupes, make UNIQUE
-            $this->db->exec(
-                "DELETE t1 FROM tick_stats t1
-                   JOIN tick_stats t2 ON t1.ran_at = t2.ran_at AND t1.id < t2.id"
-            );
-            $this->db->exec("ALTER TABLE tick_stats DROP INDEX idx_ran_at");
-            $this->db->exec("ALTER TABLE tick_stats ADD UNIQUE KEY idx_ran_at (ran_at)");
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('TickStatsRepository', 'ensureSchema FAILED', $e);
-            }
-        }
     }
 
  /**

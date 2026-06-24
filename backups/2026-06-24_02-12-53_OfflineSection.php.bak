@@ -15,39 +15,10 @@ class OfflineSection
     private PDO      $db;
     private DateTime $now;
 
-    /** @var array<int,bool> guard: raz per polaczenie / once per connection */
-    private static array $schemaEnsured = [];
-
     public function __construct(PDO $db, DateTime $now)
     {
         $this->db  = $db;
         $this->now = $now;
-        $this->ensureSchema();
-    }
-
- /**
- * Zapewnia istnienie kolumny offline_frozen w players (idempotentne, raz per polaczenie).
- * Ensures offline_frozen column exists on players (idempotent, once per connection).
- */
-    private function ensureSchema(): void
-    {
-        $connId = spl_object_id($this->db);
-        if (isset(self::$schemaEnsured[$connId])) {
-            return;
-        }
-        self::$schemaEnsured[$connId] = true;
-
-        try {
-            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-            if ($driver !== 'mysql' || $this->db->inTransaction()) {
-                return;
-            }
-            Database::addColumnIfMissing('players', 'offline_frozen', 'TINYINT(1) NOT NULL DEFAULT 0');
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('OfflineSection', 'ensureSchema FAILED', $e);
-            }
-        }
     }
 
  /**

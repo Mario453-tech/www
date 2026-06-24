@@ -373,7 +373,6 @@ class CompanyCredibilityService
      */
     public function changeScore(int $playerId, int $delta, string $eventKey, ?string $note = null): int
     {
-        $ownTx = false; // inicjalizacja przed try — catch moze sprawdzac $ownTx / initialised before try — catch may inspect $ownTx
         try {
             // Atomowa zmiana: na MySQL SELECT FOR UPDATE blokuje wiersz (eliminuje race condition).
             // Na SQLite (testy) brak wsparcia FOR UPDATE — dziala bez blokady.
