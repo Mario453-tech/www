@@ -13,11 +13,11 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
     );
 
     public static $prefixLengthsPsr4 = array (
-        'P' => 
+        'P' =>
         array (
             'PhpParser\\' => 10,
         ),
-        'D' => 
+        'D' =>
         array (
             'Doctrine\\Instantiator\\' => 22,
             'DeepCopy\\' => 9,
@@ -25,27 +25,31 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
     );
 
     public static $prefixDirsPsr4 = array (
-        'PhpParser\\' => 
+        'PhpParser\\' =>
         array (
             0 => __DIR__ . '/..' . '/nikic/php-parser/lib/PhpParser',
         ),
-        'Doctrine\\Instantiator\\' => 
+        'Doctrine\\Instantiator\\' =>
         array (
             0 => __DIR__ . '/..' . '/doctrine/instantiator/src/Doctrine/Instantiator',
         ),
-        'DeepCopy\\' => 
+        'DeepCopy\\' =>
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
         ),
     );
 
     public static $classMap = array (
+        'AbstractPrivacyFeature' => __DIR__ . '/../..' . '/src/Privacy/AbstractPrivacyFeature.php',
+        'AbstractTrainingSkill' => __DIR__ . '/../..' . '/src/Training/AbstractTrainingSkill.php',
         'AdminAuth' => __DIR__ . '/../..' . '/src/AdminAuth.php',
         'AdminHubConfigFieldTrait' => __DIR__ . '/../..' . '/src/AdminHub/ConfigFieldTrait.php',
         'AdminHubDataFetchTrait' => __DIR__ . '/../..' . '/src/AdminHub/DataFetchTrait.php',
         'AdminHubPostActionsTrait' => __DIR__ . '/../..' . '/src/AdminHub/PostActionsTrait.php',
         'AdminLog' => __DIR__ . '/../..' . '/src/AdminLog.php',
         'AdminNewsHtml' => __DIR__ . '/../..' . '/src/AdminNewsHtml.php',
+        'AdminPlayerDeletionService' => __DIR__ . '/../..' . '/src/AdminPlayerDeletionService.php',
+        'ApiAuth' => __DIR__ . '/../..' . '/src/ApiAuth.php',
         'Auth' => __DIR__ . '/../..' . '/src/Auth.php',
         'BailiffService' => __DIR__ . '/../..' . '/src/BailiffService.php',
         'BankAccountService' => __DIR__ . '/../..' . '/src/BankAccountService.php',
@@ -67,8 +71,13 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'BankruptcyOptionsTrait' => __DIR__ . '/../..' . '/src/Bankruptcy/OptionsTrait.php',
         'BankruptcyService' => __DIR__ . '/../..' . '/src/BankruptcyService.php',
         'BankruptcyStateTrait' => __DIR__ . '/../..' . '/src/Bankruptcy/StateTrait.php',
+        'BannerSettingsFeature' => __DIR__ . '/../..' . '/src/Privacy/Features/Banner/BannerSettingsFeature.php',
+        'BannerSettingsService' => __DIR__ . '/../..' . '/src/Privacy/Features/Banner/BannerSettingsService.php',
         'BlackMarketService' => __DIR__ . '/../..' . '/src/BlackMarketService.php',
         'BoardAccess' => __DIR__ . '/../..' . '/src/BoardAccess.php',
+        'BoardColumnSkill' => __DIR__ . '/../..' . '/src/Training/Skills/BoardColumnSkill.php',
+        'BriberyConfig' => __DIR__ . '/../..' . '/src/Bribery/BriberyConfig.php',
+        'BriberyService' => __DIR__ . '/../..' . '/src/BriberyService.php',
         'CSRF' => __DIR__ . '/../..' . '/src/CSRF.php',
         'Cache' => __DIR__ . '/../..' . '/src/Cache.php',
         'CandidateGenerator' => __DIR__ . '/../..' . '/src/CandidateGenerator.php',
@@ -76,6 +85,12 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'ChatFilter' => __DIR__ . '/../..' . '/src/ChatFilter.php',
         'CompanyCredibilityService' => __DIR__ . '/../..' . '/src/CompanyCredibilityService.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+        'ConsentRepository' => __DIR__ . '/../..' . '/src/Privacy/Features/Consents/ConsentRepository.php',
+        'ConsentService' => __DIR__ . '/../..' . '/src/Privacy/Features/Consents/ConsentService.php',
+        'ConsentsFeature' => __DIR__ . '/../..' . '/src/Privacy/Features/Consents/ConsentsFeature.php',
+        'CookieRepository' => __DIR__ . '/../..' . '/src/Privacy/Features/Cookies/CookieRepository.php',
+        'CookieService' => __DIR__ . '/../..' . '/src/Privacy/Features/Cookies/CookieService.php',
+        'CookiesFeature' => __DIR__ . '/../..' . '/src/Privacy/Features/Cookies/CookiesFeature.php',
         'CredibilitySection' => __DIR__ . '/../..' . '/src/Tick/CredibilitySection.php',
         'Database' => __DIR__ . '/../..' . '/src/Database.php',
         'DirectorNotificationService' => __DIR__ . '/../..' . '/src/DirectorNotificationService.php',
@@ -120,6 +135,7 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'IncidentService' => __DIR__ . '/../..' . '/src/IncidentService.php',
         'IncidentTickTrait' => __DIR__ . '/../..' . '/src/Incident/TickTrait.php',
         'InterestEngine' => __DIR__ . '/../..' . '/src/InterestEngine.php',
+        'LegalBriberyTrait' => __DIR__ . '/../..' . '/src/Legal/BriberyTrait.php',
         'LegalHubPermitTrait' => __DIR__ . '/../..' . '/src/Legal/HubPermitTrait.php',
         'LegalSection' => __DIR__ . '/../..' . '/src/Tick/LegalSection.php',
         'LegalService' => __DIR__ . '/../..' . '/src/LegalService.php',
@@ -565,8 +581,19 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'Player' => __DIR__ . '/../..' . '/src/Player.php',
         'PlayerPaymentService' => __DIR__ . '/../..' . '/src/PlayerPaymentService.php',
         'PlayersSection' => __DIR__ . '/../..' . '/src/Tick/PlayersSection.php',
+        'PolicyFeature' => __DIR__ . '/../..' . '/src/Privacy/Features/Policy/PolicyFeature.php',
+        'PolicyRepository' => __DIR__ . '/../..' . '/src/Privacy/Features/Policy/PolicyRepository.php',
         'PortSection' => __DIR__ . '/../..' . '/src/Tick/PortSection.php',
         'PortService' => __DIR__ . '/../..' . '/src/PortService.php',
+        'PrivacyAuditLogger' => __DIR__ . '/../..' . '/src/Privacy/PrivacyAuditLogger.php',
+        'PrivacyBannerService' => __DIR__ . '/../..' . '/src/Privacy/PrivacyBannerService.php',
+        'PrivacyConsentService' => __DIR__ . '/../..' . '/src/Privacy/PrivacyConsentService.php',
+        'PrivacyFeatureInterface' => __DIR__ . '/../..' . '/src/Privacy/PrivacyFeatureInterface.php',
+        'PrivacyFeatureRegistry' => __DIR__ . '/../..' . '/src/Privacy/PrivacyFeatureRegistry.php',
+        'PrivacyPolicyService' => __DIR__ . '/../..' . '/src/Privacy/PrivacyPolicyService.php',
+        'PrivacySettingsService' => __DIR__ . '/../..' . '/src/Privacy/PrivacySettingsService.php',
+        'ProtectionSchema' => __DIR__ . '/../..' . '/src/Protection/ProtectionSchema.php',
+        'ProtectionService' => __DIR__ . '/../..' . '/src/ProtectionService.php',
         'RateLimiter' => __DIR__ . '/../..' . '/src/RateLimiter.php',
         'RecruitmentAPI' => __DIR__ . '/../..' . '/src/RecruitmentAPI.php',
         'RegionalEventService' => __DIR__ . '/../..' . '/src/RegionalEventService.php',
@@ -574,6 +601,8 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'RegionalModifiersTrait' => __DIR__ . '/../..' . '/src/RegionalEvent/ModifiersTrait.php',
         'RiskScoreEngine' => __DIR__ . '/../..' . '/src/RiskScoreEngine.php',
         'RoadTransportService' => __DIR__ . '/../..' . '/src/RoadTransportService.php',
+        'SabotageSchema' => __DIR__ . '/../..' . '/src/Sabotage/SabotageSchema.php',
+        'SabotageService' => __DIR__ . '/../..' . '/src/SabotageService.php',
         'SebastianBergmann\\CliParser\\AmbiguousOptionException' => __DIR__ . '/..' . '/sebastian/cli-parser/src/exceptions/AmbiguousOptionException.php',
         'SebastianBergmann\\CliParser\\Exception' => __DIR__ . '/..' . '/sebastian/cli-parser/src/exceptions/Exception.php',
         'SebastianBergmann\\CliParser\\OptionDoesNotAllowArgumentException' => __DIR__ . '/..' . '/sebastian/cli-parser/src/exceptions/OptionDoesNotAllowArgumentException.php',
@@ -783,11 +812,13 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'TTSRecruitmentTrait' => __DIR__ . '/../..' . '/src/TTS/RecruitmentTrait.php',
         'TTSStaffTrait' => __DIR__ . '/../..' . '/src/TTS/StaffTrait.php',
         'TTSTasksTrait' => __DIR__ . '/../..' . '/src/TTS/TasksTrait.php',
+        'TaskConfigService' => __DIR__ . '/../..' . '/src/TaskConfigService.php',
         'TechnicalPageActionsTrait' => __DIR__ . '/../..' . '/src/TechnicalPage/ActionsTrait.php',
         'TechnicalPageController' => __DIR__ . '/../..' . '/src/TechnicalPageController.php',
         'TechnicalPageDataTrait' => __DIR__ . '/../..' . '/src/TechnicalPage/DataTrait.php',
         'TechnicalPageRecruitmentViewTrait' => __DIR__ . '/../..' . '/src/TechnicalPage/RecruitmentViewTrait.php',
         'TechnicalPageViewDataTrait' => __DIR__ . '/../..' . '/src/TechnicalPage/ViewDataTrait.php',
+        'TechnicalSubSkill' => __DIR__ . '/../..' . '/src/Training/Skills/TechnicalSubSkill.php',
         'TechnicalTeamService' => __DIR__ . '/../..' . '/src/TechnicalTeamService.php',
         'TheSeer\\Tokenizer\\Exception' => __DIR__ . '/..' . '/theseer/tokenizer/src/Exception.php',
         'TheSeer\\Tokenizer\\NamespaceUri' => __DIR__ . '/..' . '/theseer/tokenizer/src/NamespaceUri.php',
@@ -799,6 +830,10 @@ class ComposerStaticInit4f46b68a6904459289cfb817ed85d30c
         'TheSeer\\Tokenizer\\XMLSerializer' => __DIR__ . '/..' . '/theseer/tokenizer/src/XMLSerializer.php',
         'TickStatsRepository' => __DIR__ . '/../..' . '/src/Tick/TickStatsRepository.php',
         'Totp' => __DIR__ . '/../..' . '/src/Totp.php',
+        'TrainingSection' => __DIR__ . '/../..' . '/src/Tick/TrainingSection.php',
+        'TrainingService' => __DIR__ . '/../..' . '/src/Training/TrainingService.php',
+        'TrainingSkillInterface' => __DIR__ . '/../..' . '/src/Training/TrainingSkillInterface.php',
+        'TrainingSkillRegistry' => __DIR__ . '/../..' . '/src/Training/TrainingSkillRegistry.php',
         'TransportConfigService' => __DIR__ . '/../..' . '/src/TransportConfigService.php',
         'Validator' => __DIR__ . '/../..' . '/src/Validator.php',
         'WalletConfig' => __DIR__ . '/../..' . '/src/WalletConfig.php',

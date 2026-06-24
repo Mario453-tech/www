@@ -18,11 +18,6 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/v2/
     RewriteRule ^ - [L]
 
-    # ── API mobilne — bezposredni dostep do plikow PHP, bez przekierowania ──
-    # Mobile API — direct access to PHP files, no redirect
-    RewriteCond %{REQUEST_URI} ^/api/v1/
-    RewriteRule ^ - [L]
-
     RewriteCond %{REQUEST_URI} ^/assets/ [OR]
     RewriteCond %{REQUEST_URI} ^/admin/ [OR]
     RewriteCond %{REQUEST_URI} ^/public/ [OR]
