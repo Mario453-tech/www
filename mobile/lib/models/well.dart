@@ -47,8 +47,8 @@ class Well {
   bool get isDamaged => status == 'damaged' || status == 'blowout';
 
   factory Well.fromJson(Map<String, dynamic> j) => Well(
-        id: (j['id'] as num).toInt(),
-        name: j['name'] as String? ?? 'Well #${j['id']}',
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        name: j['name'] as String? ?? 'Well #${(j['id'] as num?)?.toInt() ?? '?'}',
         location: j['location'] as String? ?? '',
         status: j['status'] as String? ?? 'active',
         wellType: j['well_type'] as String? ?? 'onshore',

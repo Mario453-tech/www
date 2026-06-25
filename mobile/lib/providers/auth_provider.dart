@@ -21,14 +21,17 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString(_keyToken);
-    _username = prefs.getString(_keyUsername);
-    if (_token != null) {
-      await _refreshPlayer();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _token = prefs.getString(_keyToken);
+      _username = prefs.getString(_keyUsername);
+      if (_token != null) {
+        await _refreshPlayer();
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<bool> login(String login, String password) async {
@@ -46,6 +49,12 @@ class AuthProvider extends ChangeNotifier {
       await prefs.setString(_keyUsername, result.username);
 
       await _refreshPlayer();
+      if (_token == null) {
+        _error = 'Błąd weryfikacji sesji.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
       _isLoading = false;
       notifyListeners();
       return true;
@@ -82,6 +91,9 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     } on ApiException catch (e) {
       if (e.statusCode == 401) await logout();
-    } catch (_) {}
+    } catch (e) {
+      _error = 'Błąd połączenia z serwerem.';
+      notifyListeners();
+    }
   }
 }
