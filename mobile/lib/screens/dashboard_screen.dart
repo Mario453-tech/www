@@ -63,10 +63,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         index: _tabIndex,
         children: [
           _OverviewTab(player: auth.player),
-          GameWebView(
-            url: AppConfig.gameUrl,
-            token: auth.token,
-          ),
+          if (auth.token != null)
+            GameWebView(
+              key: ValueKey(auth.token),
+              url: AppConfig.gameUrl,
+              token: auth.token,
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

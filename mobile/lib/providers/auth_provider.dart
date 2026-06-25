@@ -86,6 +86,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> _refreshPlayer() async {
     if (_token == null) return;
+    _error = null;
     try {
       _player = await ApiService.getPlayer(_token!);
       notifyListeners();

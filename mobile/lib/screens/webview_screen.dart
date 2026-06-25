@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -26,8 +27,9 @@ class _GameWebViewState extends State<GameWebView> {
         },
         onPageFinished: (_) {
           if (widget.token != null) {
+            final safeToken = jsonEncode(widget.token);
             _controller.runJavaScript(
-              "localStorage.setItem('api_token', '${widget.token}');",
+              "localStorage.setItem('api_token', $safeToken);",
             );
           }
           if (mounted) setState(() => _loading = false);
