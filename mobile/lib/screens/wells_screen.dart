@@ -17,6 +17,7 @@ class _WellsScreenState extends State<WellsScreen> {
   bool _loading = true;
   String? _error;
   String _filter = 'all';
+  int _loadGeneration = 0;
 
   static const _filters = [
     ('all', 'Wszystkie'),
@@ -33,6 +34,7 @@ class _WellsScreenState extends State<WellsScreen> {
 
   Future<void> _load() async {
     if (!mounted) return;
+    final gen = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -44,13 +46,13 @@ class _WellsScreenState extends State<WellsScreen> {
         token,
         status: _filter == 'all' ? null : _filter,
       );
-      if (mounted) setState(() => _wells = wells);
+      if (mounted && gen == _loadGeneration) setState(() => _wells = wells);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && gen == _loadGeneration) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Błąd połączenia.');
+      if (mounted && gen == _loadGeneration) setState(() => _error = 'Błąd połączenia.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && gen == _loadGeneration) setState(() => _loading = false);
     }
   }
 
