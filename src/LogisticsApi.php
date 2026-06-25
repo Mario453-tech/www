@@ -48,6 +48,9 @@ try {
     switch ($action) {
 
         case 'optimize':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                logisticsJsonOut(['success' => false, 'error' => 'method_not_allowed'], 405);
+            }
             $mode   = $_POST['mode'] ?? 'balans';
             $result = $svc->optimize($mode);
             logisticsJsonOut($result);

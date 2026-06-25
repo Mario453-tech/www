@@ -167,14 +167,20 @@ class HubAcquisitionService
         }
 
         try {
-            $now = date('Y-m-d H:i:s');
-            $this->db->prepare(
+            $now  = date('Y-m-d H:i:s');
+            $stmt = $this->db->prepare(
                 "UPDATE logistics_hubs
                     SET player_id = ?, tenant_player_id = 0,
                         acquisition_price = ?, acquired_at = ?,
                         updated_at = ?
                   WHERE id = ? AND player_id = 0"
-            )->execute([$playerId, $cost, $now, $now, $hubId]);
+            );
+            $stmt->execute([$playerId, $cost, $now, $now, $hubId]);
+
+            if ($stmt->rowCount() === 0) {
+                $this->refundCash($playerId, $cost, tPlain('bank.tx_hub_refund', ['id' => $hubId]), 'hub', $hubId);
+                return ['success' => false, 'error' => 'hub_already_owned'];
+            }
 
             GameLog::info('HubAcquisitionService', 'Player bought used/market hub', [
                 'player_id' => $playerId,
@@ -243,12 +249,20 @@ class HubAcquisitionService
         }
 
         try {
-            $now = date('Y-m-d H:i:s');
-            $this->db->prepare(
+            $now  = date('Y-m-d H:i:s');
+            $stmt = $this->db->prepare(
                 "UPDATE logistics_hubs
                     SET tenant_player_id = ?, acquired_at = ?, updated_at = ?
                   WHERE id = ? AND player_id = 0 AND tenant_player_id = 0"
-            )->execute([$playerId, $now, $now, $hubId]);
+            );
+            $stmt->execute([$playerId, $now, $now, $hubId]);
+
+            if ($stmt->rowCount() === 0) {
+                if ($deposit > 0.0) {
+                    $this->refundCash($playerId, $deposit, tPlain('bank.tx_hub_refund', ['id' => $hubId]), 'hub', $hubId);
+                }
+                return ['success' => false, 'error' => 'hub_already_rented'];
+            }
 
             GameLog::info('HubAcquisitionService', 'Player rented hub', [
                 'player_id' => $playerId,
