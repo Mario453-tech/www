@@ -261,7 +261,9 @@ class HubAcquisitionService
                 if ($deposit > 0.0) {
                     $this->refundCash($playerId, $deposit, tPlain('bank.tx_hub_refund', ['id' => $hubId]), 'hub', $hubId);
                 }
-                return ['success' => false, 'error' => 'hub_already_rented'];
+                // rowCount=0 moze znaczyc: hub kupiony (player_id != 0) lub juz wynajety — zwracamy ogolny blad.
+                // rowCount=0 can mean hub was purchased (player_id != 0) or rented — return generic unavailable.
+                return ['success' => false, 'error' => 'hub_unavailable'];
             }
 
             GameLog::info('HubAcquisitionService', 'Player rented hub', [

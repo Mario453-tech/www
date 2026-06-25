@@ -588,7 +588,12 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_required'];
         }
 
-        $this->db->beginTransaction();
+        // Dolacz do otwartej transakcji wywolujacej (np. WellStaffApi) lub zaloz wlasna.
+        // Join the caller's open transaction (e.g. WellStaffApi) or start our own.
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
         try {
  // Reject if a pipeline already exists for this leg (one per well per leg, per player).
  // SELECT FOR UPDATE prevents a concurrent request from passing this check simultaneously.
@@ -650,9 +655,15 @@ class WellPipelineService
 
             $pipelineId    = (int)$this->db->lastInsertId();
             $buildFinishAt = (new DateTime())->modify("+{$buildHours} hours")->format('Y-m-d H:i:s');
-            $this->db->commit();
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
         } catch (Throwable $e) {
-            $this->db->rollBack();
+            // Rollback tylko jesli transakcja jest nasza; jesli zewnetrzna — niech wywolujacy ją wycofa.
+            // Only rollback if we opened the transaction; if outer — let the caller roll back.
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             GameLog::error('WellPipelineService', 'purchasePipeline transaction failed', $e, [
                 'player_id' => $playerId, 'well_id' => $wellId,
             ]);
