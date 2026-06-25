@@ -58,10 +58,9 @@ class ApiService {
 
   static Future<void> logout(String token) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/auth/logout.php');
-    await http
-        .post(uri, headers: _headers(token))
-        .timeout(_timeout)
-        .catchError((_) {});
+    try {
+      await http.post(uri, headers: _headers(token)).timeout(_timeout);
+    } catch (_) {}
   }
 
   static Future<Player> getPlayer(String token) async {
