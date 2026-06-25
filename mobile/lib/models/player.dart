@@ -7,8 +7,8 @@ class Storage {
   double get fillPercent => capacity > 0 ? (used / capacity * 100) : 0;
 
   factory Storage.fromJson(Map<String, dynamic> j) => Storage(
-        capacity: (j['capacity'] as num).toInt(),
-        used: (j['used'] as num).toInt(),
+        capacity: (j['capacity'] as num?)?.toInt() ?? 0,
+        used: (j['used'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -36,13 +36,14 @@ class Player {
   });
 
   factory Player.fromJson(Map<String, dynamic> j) => Player(
-        id: (j['id'] as num).toInt(),
-        username: j['username'] as String,
-        cash: (j['cash'] as num).toDouble(),
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        username: j['username'] as String? ?? '',
+        cash: (j['cash'] as num?)?.toDouble() ?? 0.0,
         financialState: j['financial_state'] as String? ?? 'stable',
         creditScore: (j['credit_score'] as num?)?.toInt() ?? 0,
         offlineMode: j['offline_mode'] == true || j['offline_mode'] == 1,
-        storage: Storage.fromJson(j['storage'] as Map<String, dynamic>? ?? {'capacity': 0, 'used': 0}),
+        storage: Storage.fromJson(
+            j['storage'] as Map<String, dynamic>? ?? {}),
         activeWells: (j['active_wells'] as num?)?.toInt() ?? 0,
         activeLoans: (j['active_loans'] as num?)?.toInt() ?? 0,
       );

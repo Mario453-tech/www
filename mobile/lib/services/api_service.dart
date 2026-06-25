@@ -49,10 +49,16 @@ class ApiService {
         .timeout(_timeout);
 
     final body = _decode(response);
+    final token = body['token'] as String?;
+    final playerId = body['player_id'] as num?;
+    final username = body['username'] as String?;
+    if (token == null || playerId == null || username == null) {
+      throw const ApiException(200, 'Invalid login response from server');
+    }
     return LoginResult(
-      token: body['token'] as String,
-      playerId: (body['player_id'] as num).toInt(),
-      username: body['username'] as String,
+      token: token,
+      playerId: playerId.toInt(),
+      username: username,
     );
   }
 
@@ -80,7 +86,7 @@ class ApiService {
         .get(uri, headers: _headers(token))
         .timeout(_timeout);
     final body = _decode(response);
-    final list = body['wells'] as List<dynamic>;
+    final list = body['wells'] as List<dynamic>? ?? [];
     return list.map((e) => Well.fromJson(e as Map<String, dynamic>)).toList();
   }
 

@@ -188,8 +188,8 @@ class _FinancialStateBadge extends StatelessWidget {
     return Chip(
       avatar: Icon(Icons.circle, size: 10, color: color),
       label: Text(label, style: TextStyle(color: color)),
-      side: BorderSide(color: color.withOpacity(0.4)),
-      backgroundColor: color.withOpacity(0.1),
+      side: BorderSide(color: color.withValues(alpha: 0.4)),
+      backgroundColor: color.withValues(alpha: 0.1),
       padding: EdgeInsets.zero,
     );
   }
@@ -218,7 +218,7 @@ class _BigCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 28),

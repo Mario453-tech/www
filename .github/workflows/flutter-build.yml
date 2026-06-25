@@ -39,7 +39,7 @@ jobs:
 
       - name: Build APK (release)
         working-directory: mobile
-        run: flutter build apk --release --no-shrink
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

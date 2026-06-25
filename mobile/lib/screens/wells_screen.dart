@@ -28,15 +28,17 @@ class _WellsScreenState extends State<WellsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
     });
-    final token = context.read<AuthProvider>().token!;
+    final token = context.read<AuthProvider>().token;
+    if (token == null) return;
     try {
       final wells = await ApiService.getWells(
         token,
