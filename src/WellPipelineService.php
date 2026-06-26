@@ -603,7 +603,9 @@ class WellPipelineService
             $existingStmt->execute([$wellId, $leg, $playerId]);
             $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
             if ($existing) {
-                $this->db->rollBack();
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
                 return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
             }
 
@@ -617,7 +619,9 @@ class WellPipelineService
                 $wellId
             );
             if (!$payment['success']) {
-                $this->db->rollBack();
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
                 return ['success' => false, 'error' => 'insufficient_funds'];
             }
 
