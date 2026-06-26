@@ -26,9 +26,18 @@ android {
         versionName "1.0.0"
     }
 
+    signingConfigs {
+        release {
+            storeFile file("oilempire-release.jks")
+            storePassword "oilempire2026"
+            keyAlias "oilempire"
+            keyPassword "oilempire2026"
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
         }
