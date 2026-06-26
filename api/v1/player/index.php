@@ -7,7 +7,7 @@ declare(strict_types=1);
  * Zwraca dane gracza: gotowka, stan finansowy, magazyn, statystyki.
  * Returns player data: cash, financial state, storage, statistics.
  */
-require_once dirname(__DIR__, 2) . '/_bootstrap.php';
+require_once dirname(__DIR__) . '/_bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     apiError(405, 'Method Not Allowed — use GET');
