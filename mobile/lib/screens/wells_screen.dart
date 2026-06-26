@@ -40,7 +40,10 @@ class _WellsScreenState extends State<WellsScreen> {
       _error = null;
     });
     final token = context.read<AuthProvider>().token;
-    if (token == null) return;
+    if (token == null) {
+      if (mounted && gen == _loadGeneration) setState(() => _loading = false);
+      return;
+    }
     try {
       final wells = await ApiService.getWells(
         token,
