@@ -62,7 +62,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: IndexedStack(
         index: _tabIndex,
         children: [
-          _OverviewTab(player: auth.player),
+          _OverviewTab(
+            player: auth.player,
+            isLoading: auth.isLoading,
+            error: auth.error,
+            onRetry: auth.refreshPlayer,
+          ),
           if (auth.token != null)
             GameWebView(
               key: ValueKey(auth.token),
@@ -95,12 +100,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _OverviewTab extends StatelessWidget {
   final Player? player;
-  const _OverviewTab({this.player});
+  final bool isLoading;
+  final String? error;
+  final VoidCallback? onRetry;
+  const _OverviewTab({this.player, this.isLoading = false, this.error, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     if (player == null) {
-      return const Center(child: CircularProgressIndicator());
+      if (isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      final msg = error ?? 'Brak danych gracza.';
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 48, color: Colors.red),
+              const SizedBox(height: 12),
+              Text(
+                'Błąd połączenia z serwerem',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(
+                  'URL: ${AppConfig.baseUrl}\n\nBłąd: $msg',
+                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Spróbuj ponownie'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     final p = player!;
     final cs = Theme.of(context).colorScheme;
