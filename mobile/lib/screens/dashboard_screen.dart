@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/player.dart';
+import '../config/app_config.dart';
 import '../providers/auth_provider.dart';
-import 'wells_screen.dart';
+import 'webview_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -62,7 +63,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         index: _tabIndex,
         children: [
           _OverviewTab(player: auth.player),
-          const WellsScreen(),
+          GameWebView(
+            url: AppConfig.gameUrl,
+            token: auth.token,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -75,9 +79,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.oil_barrel_outlined),
-            selectedIcon: Icon(Icons.oil_barrel),
-            label: 'Studnie',
+            icon: Icon(Icons.public_outlined),
+            selectedIcon: Icon(Icons.public),
+            label: 'Gra',
           ),
         ],
       ),
