@@ -26,13 +26,14 @@ class _GameWebViewState extends State<GameWebView> {
           if (mounted) setState(() { _loading = true; _hasError = false; });
         },
         onPageFinished: (_) {
+          if (!mounted) return;
           if (widget.token != null) {
             final safeToken = jsonEncode(widget.token);
             _controller.runJavaScript(
               "localStorage.setItem('api_token', $safeToken);",
             );
           }
-          if (mounted) setState(() => _loading = false);
+          setState(() => _loading = false);
         },
         onWebResourceError: (_) {
           if (mounted) setState(() { _loading = false; _hasError = true; });

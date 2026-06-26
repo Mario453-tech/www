@@ -27,6 +27,9 @@ $stmt = $db->prepare("
 ");
 $stmt->execute([$playerId]);
 $row = $stmt->fetch();
+if (!$row) {
+    apiError(404, 'Player not found');
+}
 
 // Magazyn / Storage
 $storageStmt = $db->prepare(

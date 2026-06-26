@@ -72,7 +72,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    if (_token != null) await ApiService.logout(_token!);
+    final tokenToRevoke = _token;
     _token = null;
     _username = null;
     _player = null;
@@ -80,6 +80,9 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove(_keyToken);
     await prefs.remove(_keyUsername);
     notifyListeners();
+    if (tokenToRevoke != null) {
+      try { await ApiService.logout(tokenToRevoke); } catch (_) {}
+    }
   }
 
   Future<void> refreshPlayer() => _refreshPlayer();

@@ -17,6 +17,8 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['POST', 'DELETE'], true)) {
 apiRequireAuth(); // weryfikuje token / verifies token
 
 $token = ApiAuth::getRawToken();
-ApiAuth::revokeToken($token);
+if ($token !== null) {
+    ApiAuth::revokeToken($token);
+}
 
 apiJson(['success' => true, 'message' => 'Wylogowano pomyslnie']);
