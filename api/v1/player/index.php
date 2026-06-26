@@ -47,7 +47,7 @@ $activeWells = (int)($wellsStmt->fetchColumn() ?: 0);
 
 // Aktywne pozyczki / Active loans
 $loansStmt = $db->prepare(
-    "SELECT COUNT(*) AS cnt FROM bank_loans WHERE player_id = ? AND status = 'active'"
+    "SELECT COUNT(*) AS cnt FROM loans WHERE player_id = ? AND status = 'active'"
 );
 $loansStmt->execute([$playerId]);
 $activeLoans = (int)($loansStmt->fetchColumn() ?: 0);
