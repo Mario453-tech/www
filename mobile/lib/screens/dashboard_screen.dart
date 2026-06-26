@@ -186,7 +186,7 @@ class _FinancialStateBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (state) {
-      'stable' => ('Stabilny', Colors.green),
+      'normal' || 'stable' => ('Stabilny', Colors.green),
       'warning' => ('Uwaga', Colors.orange),
       'crisis' => ('KRYZYS', Colors.red),
       'bankrupt' => ('BANKRUTUJE', Colors.red),
