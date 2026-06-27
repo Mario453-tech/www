@@ -23,6 +23,7 @@ void main() {
       name: 'Zagrożenie militarne',
       category: 'military',
       pricePct: 70,
+      durationHours: 2,
       message: 'Zagrożenie militarne zwiększa zapotrzebowanie, ceny ropy +70%!',
       remainingSeconds: 3600,
       fetchedAt: DateTime.now(),
@@ -34,9 +35,9 @@ void main() {
       find.text('Zagrożenie militarne zwiększa zapotrzebowanie, ceny ropy +70%!'),
       findsOneWidget,
     );
-    // Badge "+70% CENY ROPY" (wielkimi literami)
+    // Price impact badge.
     expect(find.textContaining('CENY ROPY'), findsOneWidget);
-    // Etykieta aktywnego zdarzenia
+    // Active event label.
     expect(find.textContaining('ZDARZENIE'), findsOneWidget);
   });
 }

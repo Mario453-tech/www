@@ -63,6 +63,7 @@ final class MySqlPipelineHseIntegrationTest extends MySqlIntegrationTestCase
                 SET condition_pct = 70.50,
                     transport_loss = 2.00,
                     degradation_rate_per_hour = 0.0500,
+                    incident_risk_mult = 0.0000,
                     status = 'active'
               WHERE player_id = ? AND well_id = ?"
         )->execute([$playerId, $ids['wellId']]);
@@ -92,6 +93,7 @@ final class MySqlPipelineHseIntegrationTest extends MySqlIntegrationTestCase
                 SET condition_pct = 70.50,
                     transport_loss = 2.00,
                     degradation_rate_per_hour = 0.0500,
+                    incident_risk_mult = 0.0000,
                     status = 'active'
               WHERE player_id = ? AND well_id = ?"
         )->execute([$playerId, $ids['wellId']]);
