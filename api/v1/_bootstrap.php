@@ -47,7 +47,14 @@ register_shutdown_function(function (): void {
 });
 
 $_API_ROOT = dirname(__DIR__, 2);
-require_once $_API_ROOT . '/vendor/autoload.php';
+// vendor/ NIE jest wgrywany na produkcje (deploy FTP wyklucza vendor/) i nie jest
+// potrzebny: composer.json nie ma zaleznosci runtime (tylko php), a klasy aplikacji
+// ladujemy recznie ponizej. Autoload wczytujemy tylko jesli faktycznie istnieje.
+// vendor/ is NOT deployed to production (FTP deploy excludes it) and is not needed:
+// no runtime composer deps; app classes are required manually below.
+if (is_file($_API_ROOT . '/vendor/autoload.php')) {
+    require_once $_API_ROOT . '/vendor/autoload.php';
+}
 require_once $_API_ROOT . '/src/GameLog.php';
 require_once $_API_ROOT . '/src/Database.php';
 require_once $_API_ROOT . '/src/ApiAuth.php';
