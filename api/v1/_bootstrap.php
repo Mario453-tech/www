@@ -26,7 +26,7 @@ set_exception_handler(function (\Throwable $e): void {
         header('Content-Type: application/json; charset=utf-8');
     }
     echo json_encode([
-        'error'  => 'PHP exception',
+        'error'  => 'PHP exception: ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine(),
         'detail' => $e->getMessage(),
         'where'  => basename($e->getFile()) . ':' . $e->getLine(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -39,7 +39,7 @@ register_shutdown_function(function (): void {
             header('Content-Type: application/json; charset=utf-8');
         }
         echo json_encode([
-            'error'  => 'PHP fatal',
+            'error'  => 'PHP fatal: ' . $e['message'] . ' @ ' . basename($e['file']) . ':' . $e['line'],
             'detail' => $e['message'],
             'where'  => basename($e['file']) . ':' . $e['line'],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
