@@ -73,7 +73,7 @@ class ApiAuth
         Database::getInstance()->getConnection()
             ->prepare("
                 INSERT INTO api_tokens (player_id, token, device, created_at, expires_at)
-                VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL :days DAY))
+                VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY))
             ")
             ->execute([$playerId, $token, $device, self::EXPIRES_DAYS]);
 

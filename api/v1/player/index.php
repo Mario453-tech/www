@@ -4,10 +4,10 @@ declare(strict_types=1);
 /**
  * GET /api/v1/player
  *
- * Zwraca dane gracza: gotowka, stan finansowy, magazyn, statystyki.
- * Returns player data: cash, financial state, storage, statistics.
+ * Zwraca dane gracza: gotowka, saldo konta, cena ropy, magazyn, statystyki.
+ * Returns player data: cash, bank balance, oil price, storage, statistics.
  */
-require_once dirname(__DIR__, 2) . '/_bootstrap.php';
+require_once dirname(__DIR__) . '/_bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     apiError(405, 'Method Not Allowed — use GET');
@@ -19,14 +19,19 @@ $db       = Database::getInstance()->getConnection();
 
 // Dane gracza / Player data
 $stmt = $db->prepare("
-    SELECT id, username, cash, financial_state, crisis_ticks, credit_score,
-           offline_mode, offline_since, last_tick_at, last_active_at,
+    SELECT id, username, company_name, cash, bank_balance, financial_state,
+           crisis_ticks, credit_score, offline_mode, offline_since,
+           last_tick_at, last_active_at, created_at,
+           DATEDIFF(NOW(), created_at) AS company_age_days,
            safety_procedures_level, procedure_integrity,
            bankruptcy_status
       FROM players WHERE id = ? LIMIT 1
 ");
 $stmt->execute([$playerId]);
 $row = $stmt->fetch();
+if (!$row) {
+    apiError(404, 'Player not found');
+}
 
 // Magazyn / Storage
 $storageStmt = $db->prepare(
@@ -34,6 +39,12 @@ $storageStmt = $db->prepare(
 );
 $storageStmt->execute([$playerId]);
 $storage = $storageStmt->fetch() ?: ['max_bbl' => 0, 'current_bbl' => 0];
+
+// Aktualna cena ropy / Current oil price
+$priceStmt = $db->query(
+    "SELECT current_price FROM market_state ORDER BY id DESC LIMIT 1"
+);
+$oilPrice = (float)($priceStmt->fetchColumn() ?: 0);
 
 // Liczba aktywnych studni / Active well count
 $wellsStmt = $db->prepare(
@@ -44,7 +55,7 @@ $activeWells = (int)($wellsStmt->fetchColumn() ?: 0);
 
 // Aktywne pozyczki / Active loans
 $loansStmt = $db->prepare(
-    "SELECT COUNT(*) AS cnt FROM bank_loans WHERE player_id = ? AND status = 'active'"
+    "SELECT COUNT(*) AS cnt FROM loans WHERE player_id = ? AND status = 'active'"
 );
 $loansStmt->execute([$playerId]);
 $activeLoans = (int)($loansStmt->fetchColumn() ?: 0);
@@ -52,7 +63,11 @@ $activeLoans = (int)($loansStmt->fetchColumn() ?: 0);
 apiJson([
     'id'               => (int)$row['id'],
     'username'         => $row['username'],
+    'company_name'     => $row['company_name'] ?? $row['username'],
     'cash'             => round((float)$row['cash'], 2),
+    'bank_balance'     => round((float)($row['bank_balance'] ?? 0), 2),
+    'oil_price'        => round($oilPrice, 2),
+    'company_age_days' => (int)($row['company_age_days'] ?? 0),
     'financial_state'  => $row['financial_state'] ?? 'normal',
     'crisis_ticks'     => (int)($row['crisis_ticks'] ?? 0),
     'credit_score'     => (int)($row['credit_score'] ?? 50),

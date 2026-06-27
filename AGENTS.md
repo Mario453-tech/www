@@ -951,4 +951,45 @@ pyta o aktywne efekty dla celu i nakłada je na swoje ryzyka. Pełny brief:
 
 ---
 
+---
+
+## TODO: Aplikacja mobilna Flutter
+
+### Podpisanie APK prawdziwym kluczem (przed publikacją Google Play)
+
+Aktualnie `mobile/android/app/build.gradle` używa `signingConfigs.debug` dla
+release build — działa do testów (side-loading APK), ale **Google Play odrzuci**
+taki APK.
+
+Gdy będziemy gotowi do publikacji:
+1. Wygenerować keystore: `keytool -genkey -v -keystore oilempire.jks -alias oilempire -keyalg RSA -keysize 2048 -validity 10000`
+2. Dodać `android/key.properties` (poza repo — w `.gitignore`):
+   ```
+   storePassword=<haslo>
+   keyPassword=<haslo>
+   keyAlias=oilempire
+   storeFile=../oilempire.jks
+   ```
+3. Zaktualizować `mobile/android/app/build.gradle`:
+   ```groovy
+   def keystoreProperties = new Properties()
+   keystoreProperties.load(new FileInputStream(rootProject.file('key.properties')))
+
+   signingConfigs {
+       release {
+           keyAlias keystoreProperties['keyAlias']
+           keyPassword keystoreProperties['keyPassword']
+           storeFile file(keystoreProperties['storeFile'])
+           storePassword keystoreProperties['storePassword']
+       }
+   }
+   buildTypes {
+       release { signingConfig signingConfigs.release }
+   }
+   ```
+4. Dodać keystore i hasła jako GitHub Actions secrets (`KEYSTORE_BASE64`, `KEY_PROPERTIES`)
+   i wczytywać je w `.github/workflows/flutter-build.yml` przed buildem.
+
+---
+
 *OilEmpire.pl — AGENT_GUIDELINES v2.1 | Główny Koder*

@@ -26,7 +26,7 @@ extract($viewData, EXTR_SKIP);
         </a>
     </nav>
 
-    <div class="admin-tab-content">
+    <div class="admin-tab-content active">
         <?php if ($tab === 'programs'): ?>
             <?php require __DIR__ . '/tab_programs.php' ?>
         <?php elseif ($tab === 'monitor'): ?>

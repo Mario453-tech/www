@@ -588,63 +588,91 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_required'];
         }
 
+        // Dolacz do otwartej transakcji wywolujacej (np. WellStaffApi) lub zaloz wlasna.
+        // Join the caller's open transaction (e.g. WellStaffApi) or start our own.
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
  // Reject if a pipeline already exists for this leg (one per well per leg, per player).
-        $existingStmt = $this->db->prepare(
-            "SELECT id, status FROM well_pipelines WHERE well_id = ? AND leg = ? AND player_id = ?"
-        );
-        $existingStmt->execute([$wellId, $leg, $playerId]);
-        $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
-        if ($existing) {
-            return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
-        }
+ // SELECT FOR UPDATE prevents a concurrent request from passing this check simultaneously.
+            $existingStmt = $this->db->prepare(
+                "SELECT id, status FROM well_pipelines WHERE well_id = ? AND leg = ? AND player_id = ? FOR UPDATE"
+            );
+            $existingStmt->execute([$wellId, $leg, $playerId]);
+            $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existing) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
+            }
 
-        // Pobranie kosztu budowy / Deduct construction cost.
-        $payment = (new PlayerPaymentService($this->db))->charge(
-            $playerId,
-            $buildCost,
-            FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
-            tPlain('bank.tx_pipeline_well_build', ['id' => $wellId]),
-            'well',
-            $wellId
-        );
-        if (!$payment['success']) {
-            return ['success' => false, 'error' => 'insufficient_funds'];
-        }
+            // Pobranie kosztu budowy / Deduct construction cost.
+            $payment = (new PlayerPaymentService($this->db))->charge(
+                $playerId,
+                $buildCost,
+                FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+                tPlain('bank.tx_pipeline_well_build', ['id' => $wellId]),
+                'well',
+                $wellId
+            );
+            if (!$payment['success']) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'insufficient_funds'];
+            }
 
-        $baseProd = (float)($well['base_production_per_hour'] ?? 100.0);
-        $capPct   = (float)($profile['capacity_pct'] ?? 100.0);
-        $capacity = max(1.0, round($baseProd * ($capPct / 100.0), 2));
-        $name     = tPlain('pipeline.default_name', ['id' => $wellId]);
+            $baseProd = (float)($well['base_production_per_hour'] ?? 100.0);
+            $capPct   = (float)($profile['capacity_pct'] ?? 100.0);
+            $capacity = max(1.0, round($baseProd * ($capPct / 100.0), 2));
+            $name     = tPlain('pipeline.default_name', ['id' => $wellId]);
 
  // Insert pipeline with building status and timer
-        $insertStmt = $this->db->prepare(
-            "INSERT INTO well_pipelines
-                (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
-                 nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
-                 opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
-                 last_inspected_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
-                     NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
-        );
-        $insertStmt->execute([
-            $playerId,
-            $wellId,
-            (int)$hubAssignment['hub_id'],
-            $leg,
-            $name,
-            $type,
-            $capacity,
-            $capacity,
-            $profile['degradation_rate_per_hour'],
-            $profile['incident_risk_mult'],
-            $profile['opex_per_tick'],
-            $profile['opex_per_bbl'],
-            $buildCost,
-            $buildHours,
-        ]);
+            $insertStmt = $this->db->prepare(
+                "INSERT INTO well_pipelines
+                    (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
+                     nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
+                     opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
+                     last_inspected_at, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
+                         NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
+            );
+            $insertStmt->execute([
+                $playerId,
+                $wellId,
+                (int)$hubAssignment['hub_id'],
+                $leg,
+                $name,
+                $type,
+                $capacity,
+                $capacity,
+                $profile['degradation_rate_per_hour'],
+                $profile['incident_risk_mult'],
+                $profile['opex_per_tick'],
+                $profile['opex_per_bbl'],
+                $buildCost,
+                $buildHours,
+            ]);
 
-        $pipelineId   = (int)$this->db->lastInsertId();
-        $buildFinishAt = (new DateTime())->modify("+{$buildHours} hours")->format('Y-m-d H:i:s');
+            $pipelineId    = (int)$this->db->lastInsertId();
+            $buildFinishAt = (new DateTime())->modify("+{$buildHours} hours")->format('Y-m-d H:i:s');
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $e) {
+            // Rollback tylko jesli transakcja jest nasza; jesli zewnetrzna — niech wywolujacy ją wycofa.
+            // Only rollback if we opened the transaction; if outer — let the caller roll back.
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('WellPipelineService', 'purchasePipeline transaction failed', $e, [
+                'player_id' => $playerId, 'well_id' => $wellId,
+            ]);
+            return ['success' => false, 'error' => 'db_error'];
+        }
 
         $this->recordEvent(
             $playerId,

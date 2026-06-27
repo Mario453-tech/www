@@ -4,6 +4,8 @@ require_once __DIR__ . '/AbstractPrivacyFeature.php';
 require_once __DIR__ . '/PrivacySettingsService.php';
 require_once __DIR__ . '/PrivacyAuditLogger.php';
 require_once __DIR__ . '/PrivacyPolicyService.php';
+require_once __DIR__ . '/PrivacyConsentService.php';
+require_once __DIR__ . '/PrivacyBannerService.php';
 require_once __DIR__ . '/Features/Cookies/CookiesFeature.php';
 require_once __DIR__ . '/Features/Consents/ConsentsFeature.php';
 require_once __DIR__ . '/Features/Policy/PolicyFeature.php';
