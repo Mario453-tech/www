@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/flutter-build.yml'
       - 'mobile/**'
   workflow_dispatch:
 
