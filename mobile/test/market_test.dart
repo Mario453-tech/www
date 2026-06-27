@@ -8,6 +8,7 @@ void main() {
       name: 'Wojna',
       category: 'military',
       pricePct: 70,
+      durationHours: 8,
       message: 'Zagrożenie militarne +70%',
       remainingSeconds: 100,
       fetchedAt: fetchedAt,
@@ -26,6 +27,7 @@ void main() {
     test('isActive jest false po wygasnieciu', () {
       final now = fetchedAt.add(const Duration(seconds: 200));
       expect(trend.remainingSeconds(now), 0);
+      expect(trend.isActiveAt(now), isFalse);
     });
   });
 
@@ -37,6 +39,7 @@ void main() {
           'name': 'Boom',
           'category': 'economic',
           'price_pct': 50,
+          'duration_hours': 4,
           'message': 'Boom +50%',
           'remaining_seconds': 3600,
         },
@@ -45,6 +48,8 @@ void main() {
       expect(m.trend, isNotNull);
       expect(m.trend!.name, 'Boom');
       expect(m.trend!.pricePct, 50);
+      expect(m.trend!.durationHours, 4);
+      expect(m.trend!.remainingSeconds(), greaterThan(0));
     });
 
     test('brak trendu -> trend == null', () {

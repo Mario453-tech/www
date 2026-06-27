@@ -6,6 +6,7 @@ class MarketTrend {
   final String name;
   final String category;
   final int pricePct;
+  final int durationHours;
   final String message;
   final int _remainingAtFetch;
   final DateTime _fetchedAt;
@@ -14,6 +15,7 @@ class MarketTrend {
     required this.name,
     required this.category,
     required this.pricePct,
+    required this.durationHours,
     required this.message,
     required int remainingSeconds,
     required DateTime fetchedAt,
@@ -27,13 +29,16 @@ class MarketTrend {
     return left < 0 ? 0 : left;
   }
 
-  bool get isActive => remainingSeconds() > 0;
+  bool isActiveAt([DateTime? now]) => remainingSeconds(now) > 0;
+
+  bool get isActive => isActiveAt();
 
   factory MarketTrend.fromJson(Map<String, dynamic> j, DateTime fetchedAt) =>
       MarketTrend(
         name: j['name'] as String? ?? '',
         category: j['category'] as String? ?? '',
         pricePct: (j['price_pct'] as num?)?.toInt() ?? 0,
+        durationHours: (j['duration_hours'] as num?)?.toInt() ?? 0,
         message: j['message'] as String? ?? (j['name'] as String? ?? ''),
         remainingSeconds: (j['remaining_seconds'] as num?)?.toInt() ?? 0,
         fetchedAt: fetchedAt,
