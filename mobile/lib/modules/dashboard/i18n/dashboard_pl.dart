@@ -15,6 +15,11 @@ const Map<String, String> dashboardPl = {
   'dashboard.oil_unit': '\$/bbl',
   'dashboard.greeting': 'Witaj, {name}',
 
+  // Zdarzenie rynkowe
+  'dashboard.event.active': 'Aktywne zdarzenie rynkowe',
+  'dashboard.event.remaining': 'Pozostało',
+  'dashboard.event.price_word': 'ceny ropy',
+
   // Stany finansowe firmy
   'dashboard.state.normal': 'Aktywna',
   'dashboard.state.warning': 'Uwaga',

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import '../models/market.dart';
 import '../models/player.dart';
 import '../models/well.dart';
 
@@ -75,6 +76,14 @@ class ApiService {
         .get(uri, headers: _headers(token))
         .timeout(_timeout);
     return Player.fromJson(_decode(response));
+  }
+
+  static Future<MarketState> getMarket(String token) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/market/');
+    final response = await http
+        .get(uri, headers: _headers(token))
+        .timeout(_timeout);
+    return MarketState.fromJson(_decode(response));
   }
 
   static Future<List<Well>> getWells(String token, {String? status}) async {
