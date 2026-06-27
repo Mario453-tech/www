@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../i18n/locale_provider.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -58,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Icon(Icons.oil_barrel, size: 72, color: cs.primary),
                     const SizedBox(height: 12),
                     Text(
-                      'OilEmpire',
+                      context.t('auth.login_title'),
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                             color: cs.primary,
                             fontWeight: FontWeight.bold,
@@ -67,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Panel gracza',
+                      context.t('auth.login_subtitle'),
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
@@ -76,22 +77,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 40),
                     TextFormField(
                       controller: _loginCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Login lub e-mail',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: context.t('auth.login_field'),
+                        prefixIcon: const Icon(Icons.person_outline),
+                        border: const OutlineInputBorder(),
                       ),
                       textInputAction: TextInputAction.next,
                       autocorrect: false,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Podaj login' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? context.t('auth.validation_login')
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _passCtrl,
                       obscureText: _obscurePass,
                       decoration: InputDecoration(
-                        labelText: 'Hasło',
+                        labelText: context.t('auth.password_field'),
                         prefixIcon: const Icon(Icons.lock_outline),
                         border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
@@ -104,8 +106,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
-                      validator: (v) =>
-                          (v == null || v.isEmpty) ? 'Podaj hasło' : null,
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? context.t('auth.validation_password')
+                          : null,
                     ),
                     if (auth.error != null) ...[
                       const SizedBox(height: 12),
@@ -145,9 +148,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text(
-                                'Zaloguj się',
-                                style: TextStyle(fontSize: 16),
+                            : Text(
+                                context.t('auth.login_button'),
+                                style: const TextStyle(fontSize: 16),
                               ),
                       ),
                     ),
