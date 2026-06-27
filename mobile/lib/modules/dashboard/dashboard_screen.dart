@@ -1,17 +1,83 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
 import '../../i18n/locale_provider.dart';
+import '../../models/market.dart';
 import '../../models/player.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import '../../theme/app_colors.dart';
 import 'widgets/kpi_card.dart';
+import 'widgets/market_event_card.dart';
 
-/// Ekran przegladu (Dashboard) — natywne odwzorowanie webowego pulpitu gry:
-/// kafelki KPI (gotowka, saldo konta, magazyn, cena ropy, status firmy).
-class DashboardScreen extends StatelessWidget {
+/// Ekran przegladu (Dashboard) — natywne odwzorowanie webowego pulpitu gry.
+///
+/// Wszystkie dane (kafelki KPI, event rynkowy z odliczaniem) sa WYNIKIEM ticka
+/// liczonego na serwerze (cron co ~5 min). Telefon tylko czyta i odswieza:
+/// - co 60 s oraz przy powrocie do aplikacji (pokazuje aktualny stan po ticku),
+/// - co 1 s odswieza wylacznie licznik aktywnego eventu (czysty zegar, bez logiki gry).
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
+  MarketState? _market;
+  Timer? _refreshTimer;
+  Timer? _tickTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMarket());
+    _refreshTimer =
+        Timer.periodic(const Duration(seconds: 60), (_) => _refreshAll());
+    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      // Odswiezaj UI tylko gdy trwa event z odliczaniem.
+      if (mounted && (_market?.trend?.isActive ?? false)) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    _tickTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshAll();
+  }
+
+  Future<void> _refreshAll() async {
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+    await auth.refreshPlayer();
+    await _loadMarketWith(auth.token);
+  }
+
+  Future<void> _loadMarket() async {
+    if (!mounted) return;
+    await _loadMarketWith(context.read<AuthProvider>().token);
+  }
+
+  Future<void> _loadMarketWith(String? token) async {
+    if (token == null) return;
+    try {
+      final m = await ApiService.getMarket(token);
+      if (mounted) setState(() => _market = m);
+    } catch (_) {
+      // Event/rynek sa opcjonalne dla dashboardu — cicho ignorujemy.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,9 +94,12 @@ class DashboardScreen extends StatelessWidget {
       );
     }
 
+    final trend = _market?.trend;
+    final showEvent = trend != null && trend.isActive;
+
     return RefreshIndicator(
       color: AppColors.gold,
-      onRefresh: () => context.read<AuthProvider>().refreshPlayer(),
+      onRefresh: _refreshAll,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -45,6 +114,10 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _KpiGrid(player: player),
+          if (showEvent) ...[
+            const SizedBox(height: 12),
+            MarketEventCard(trend: trend),
+          ],
           if (player.activeLoans > 0) ...[
             const SizedBox(height: 12),
             _LoansBanner(count: player.activeLoans),
