@@ -91,18 +91,34 @@ class ApiService {
   }
 
   static Map<String, dynamic> _decode(http.Response response) {
-    late Map<String, dynamic> body;
+    final raw = response.body;
+    dynamic parsed;
     try {
-      body = jsonDecode(response.body) as Map<String, dynamic>;
+      parsed = jsonDecode(raw);
     } catch (_) {
-      throw ApiException(response.statusCode, 'Invalid JSON response');
+      // Serwer zwrocil cos co nie jest JSON-em (np. strona bledu HTML / fatal 500).
+      // Pokazujemy kod HTTP i wycinek tresci, zeby mozna bylo zdiagnozowac przyczyne.
+      final trimmed = raw.trim();
+      final snippet = trimmed.isEmpty
+          ? '(pusta odpowiedz)'
+          : trimmed.substring(0, trimmed.length > 400 ? 400 : trimmed.length);
+      throw ApiException(
+        response.statusCode,
+        'Serwer zwrocil nie-JSON (HTTP ${response.statusCode}):\n$snippet',
+      );
+    }
+    if (parsed is! Map<String, dynamic>) {
+      throw ApiException(
+        response.statusCode,
+        'Nieoczekiwany format odpowiedzi (HTTP ${response.statusCode})',
+      );
     }
     if (response.statusCode >= 400) {
       throw ApiException(
         response.statusCode,
-        body['error'] as String? ?? 'Unknown error',
+        parsed['error'] as String? ?? 'Blad serwera (HTTP ${response.statusCode})',
       );
     }
-    return body;
+    return parsed;
   }
 }
