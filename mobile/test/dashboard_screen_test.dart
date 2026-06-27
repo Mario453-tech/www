@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:oil_empire/i18n/locale_provider.dart';
 import 'package:oil_empire/i18n/strings/core_strings.dart';
 import 'package:oil_empire/models/player.dart';
@@ -53,6 +54,11 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
+  // Mock SharedPreferences, aby LocaleProvider.setLocale() (zapis wyboru jezyka)
+  // konczyl sie natychmiast zamiast wisiec na kanale platformy w tescie.
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('Dashboard pokazuje powitanie z nazwa firmy', (tester) async {
     await tester.pumpWidget(_wrap(const DashboardScreen()));
     expect(find.text('Witaj, Test Co'), findsOneWidget);
