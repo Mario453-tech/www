@@ -41,7 +41,7 @@ class Player {
       id: (j['id'] as num?)?.toInt() ?? 0,
       username: j['username'] as String? ?? '',
       cash: (j['cash'] as num?)?.toDouble() ?? 0.0,
-      financialState: j['financial_state'] as String? ?? 'stable',
+      financialState: j['financial_state'] as String? ?? 'normal',
       creditScore: (j['credit_score'] as num?)?.toInt() ?? 0,
       offlineMode: j['offline_mode'] == true || j['offline_mode'] == 1,
       storage: Storage.fromJson(j['storage'] as Map<String, dynamic>? ?? {}),
