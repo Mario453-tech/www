@@ -122,9 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: cs.onErrorContainer, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
+                              child: SelectableText(
                                 auth.error!,
-                                style: TextStyle(color: cs.onErrorContainer),
+                                style: TextStyle(
+                                    color: cs.onErrorContainer, fontSize: 13),
                               ),
                             ),
                           ],
