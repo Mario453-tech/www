@@ -35,11 +35,16 @@ foreach (['/vendor/autoload.php', '/src/Database.php', '/src/ApiAuth.php', '/con
     file_exists($root . $rel) ? ok("istnieje $rel") : fail("BRAK $rel");
 }
 try {
-    require_once $root . '/vendor/autoload.php';
+    if (is_file($root . '/vendor/autoload.php')) {
+        require_once $root . '/vendor/autoload.php';
+        ok('vendor/autoload.php wczytany');
+    } else {
+        info('vendor/autoload.php nieobecny — pomijam (nie jest wymagany na produkcji)');
+    }
     require_once $root . '/src/GameLog.php';
     require_once $root . '/src/Database.php';
     require_once $root . '/src/ApiAuth.php';
-    ok('require_once wszystkich plikow przeszedl');
+    ok('require_once klas aplikacji przeszedl (GameLog, Database, ApiAuth)');
 } catch (\Throwable $e) {
     fail('require_once: ' . $e->getMessage());
     line('');
