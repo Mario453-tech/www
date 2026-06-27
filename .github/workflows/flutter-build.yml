@@ -39,6 +39,10 @@ jobs:
         working-directory: mobile
         run: flutter analyze --no-fatal-infos
 
+      - name: Run tests
+        working-directory: mobile
+        run: flutter test
+
       - name: Build APK (release)
         working-directory: mobile
         run: flutter build apk --release
