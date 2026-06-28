@@ -21,68 +21,60 @@ class MarketEventCard extends StatelessWidget {
         '${up ? '+' : ''}$pct% ${context.t('dashboard.event.price_word')}';
     final activatedLabel = _formatDate(trend.activatedAt);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.bg3, AppColors.bg2],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.goldBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _EventIcon(category: trend.category, positive: up),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 430;
+        final content = _EventContent(
+          trend: trend,
+          badgeText: badgeText,
+          badgeColor: badgeColor,
+          activatedLabel: activatedLabel,
+        );
+        final icon = _EventIcon(category: trend.category, positive: up);
+        final timer = _Countdown(seconds: trend.remainingSeconds());
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.bg3, AppColors.bg2],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.goldBorder),
+          ),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Pill(
-                      text: context.t('dashboard.event.active').toUpperCase(),
-                      bg: const Color(0x1AFFFFFF),
-                      fg: AppColors.text2,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        icon,
+                        const SizedBox(width: 12),
+                        Expanded(child: content),
+                      ],
                     ),
-                    _Pill(
-                      text: badgeText.toUpperCase(),
-                      bg: badgeColor.withValues(alpha: 0.12),
-                      fg: badgeColor,
-                      border: badgeColor.withValues(alpha: 0.4),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: timer,
                     ),
-                    if (activatedLabel != null)
-                      _Pill(
-                        text: activatedLabel,
-                        bg: Colors.transparent,
-                        fg: AppColors.text3,
-                        border: AppColors.borderSubtle,
-                      ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    icon,
+                    const SizedBox(width: 12),
+                    Expanded(child: content),
+                    const SizedBox(width: 12),
+                    timer,
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  trend.message,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.35,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.text,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          _Countdown(seconds: trend.remainingSeconds()),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -90,6 +82,64 @@ class MarketEventCard extends StatelessWidget {
     if (date == null) return null;
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(date.day)}.${two(date.month)}.${date.year}';
+  }
+}
+
+class _EventContent extends StatelessWidget {
+  final MarketTrend trend;
+  final String badgeText;
+  final Color badgeColor;
+  final String? activatedLabel;
+
+  const _EventContent({
+    required this.trend,
+    required this.badgeText,
+    required this.badgeColor,
+    required this.activatedLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _Pill(
+              text: context.t('dashboard.event.active').toUpperCase(),
+              bg: const Color(0x1AFFFFFF),
+              fg: AppColors.text2,
+            ),
+            _Pill(
+              text: badgeText.toUpperCase(),
+              bg: badgeColor.withValues(alpha: 0.12),
+              fg: badgeColor,
+              border: badgeColor.withValues(alpha: 0.4),
+            ),
+            if (activatedLabel != null)
+              _Pill(
+                text: activatedLabel!,
+                bg: Colors.transparent,
+                fg: AppColors.text3,
+                border: AppColors.borderSubtle,
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          trend.message,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.35,
+            fontWeight: FontWeight.w700,
+            color: AppColors.text,
+          ),
+        ),
+      ],
+    );
   }
 }
 

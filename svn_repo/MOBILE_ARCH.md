@@ -219,6 +219,37 @@ Gdy brak aktywnego eventu: `"trend": null`.
 
 ## 5. Moduł system Flutter
 
+### Zasada podziału plików Dart
+
+W mobile stosujemy tę samą zasadę porządkową co w webie: jeżeli plik Dart
+zbliża się do 500 linii albo przekracza 500 linii, przed dalszą rozbudową
+trzeba go podzielić.
+
+Podział robimy według odpowiedzialności:
+
+- `*_screen.dart` — stan ekranu, pobieranie danych i główny układ
+- `widgets/` — mniejsze komponenty UI danego modułu
+- `models/` — modele odpowiedzi API
+- `services/` — komunikacja z API
+- `providers/` — stan aplikacji / stan modułu
+- `i18n/` — teksty UI dla danego modułu
+- `*_styles.dart` albo `styles/` — stałe wyglądu modułu: paddingi, promienie, breakpointy, rozmiary ikon, dekoracje
+- `utils/` — formatowanie dat, liczb, statusów i małe helpery bez stanu
+
+Kolejność rozbijania dużego pliku:
+
+1. Wydziel prywatne widgety do osobnych plików w `widgets/`.
+2. Wydziel style i breakpointy do `*_styles.dart`.
+3. Wydziel formatowanie do `utils/`.
+4. Jeżeli ekran dalej robi za dużo, przenieś logikę stanu do `provider` albo kontrolera modułu.
+
+Flutter nie używa CSS do ekranów aplikacji. Odpowiednikiem webowego
+`dashboard.css` jest modułowy plik Dart ze stylami, np.
+`mobile/lib/modules/dashboard/dashboard_styles.dart`.
+
+Komentarze w plikach Dart piszemy po angielsku. Teksty widoczne w UI muszą być
+w `i18n`, nie zaszyte w widgetach.
+
 ### Dodanie nowego modułu (np. Rynek, HR, Logistyka)
 
 **Krok 1:** Stwórz plik `mobile/lib/modules/rynek/rynek_module.dart`:

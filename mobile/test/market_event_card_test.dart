@@ -18,19 +18,20 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
-  testWidgets('Baner eventu pokazuje komunikat, badge i etykiete', (tester) async {
-    final trend = MarketTrend(
-      name: 'Zagrożenie militarne',
-      category: 'military',
-      pricePct: 70,
-      durationHours: 2,
-      message: 'Zagrożenie militarne zwiększa zapotrzebowanie, ceny ropy +70%!',
-      activatedAt: DateTime(2026, 6, 27, 12, 30),
-      remainingSeconds: 3600,
-      fetchedAt: DateTime.now(),
-    );
+  MarketTrend sampleTrend() => MarketTrend(
+        name: 'Zagrożenie militarne',
+        category: 'military',
+        pricePct: 70,
+        durationHours: 2,
+        message:
+            'Zagrożenie militarne zwiększa zapotrzebowanie, ceny ropy +70%!',
+        activatedAt: DateTime(2026, 6, 27, 12, 30),
+        remainingSeconds: 3600,
+        fetchedAt: DateTime.now(),
+      );
 
-    await tester.pumpWidget(_wrap(MarketEventCard(trend: trend)));
+  testWidgets('Baner eventu pokazuje komunikat, badge i etykiete', (tester) async {
+    await tester.pumpWidget(_wrap(MarketEventCard(trend: sampleTrend())));
 
     expect(
       find.text('Zagrożenie militarne zwiększa zapotrzebowanie, ceny ropy +70%!'),
@@ -41,5 +42,15 @@ void main() {
     // Active event label.
     expect(find.textContaining('ZDARZENIE'), findsOneWidget);
     expect(find.text('27.06.2026'), findsOneWidget);
+  });
+
+  testWidgets('Baner eventu nie robi overflow na waskim ekranie', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(_wrap(MarketEventCard(trend: sampleTrend())));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('01:00'), findsOneWidget);
   });
 }
