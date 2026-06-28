@@ -10,6 +10,7 @@ void main() {
       pricePct: 70,
       durationHours: 8,
       message: 'Zagrożenie militarne +70%',
+      activatedAt: DateTime(2026, 1, 1, 10, 0, 0),
       remainingSeconds: 100,
       fetchedAt: fetchedAt,
     );
@@ -41,6 +42,7 @@ void main() {
           'price_pct': 50,
           'duration_hours': 4,
           'message': 'Boom +50%',
+          'activated_at': '2026-06-27 12:30:00',
           'remaining_seconds': 3600,
         },
       });
@@ -49,6 +51,7 @@ void main() {
       expect(m.trend!.name, 'Boom');
       expect(m.trend!.pricePct, 50);
       expect(m.trend!.durationHours, 4);
+      expect(m.trend!.activatedAt, DateTime(2026, 6, 27, 12, 30));
       expect(m.trend!.remainingSeconds(), greaterThan(0));
     });
 

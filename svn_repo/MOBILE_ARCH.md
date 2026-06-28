@@ -187,6 +187,7 @@ Token przechowywany w SharedPreferences (`auth_token`). `AuthProvider` zarządza
     "name": "Zagrożenie militarne",
     "category": "military",
     "price_pct": 70,
+    "duration_hours": 8,
     "message": "Zagrożenie militarne zwiększa zapotrzebowanie, ceny ropy +70%!",
     "remaining_seconds": 3540,
     "activated_at": "2026-01-01 11:00:00"
@@ -369,8 +370,9 @@ void didChangeAppLifecycleState(AppLifecycleState state) {
 `mobile/lib/modules/dashboard/widgets/market_event_card.dart`
 
 Komponent `MarketEventCard(trend: trend)`:
-- Baner z gradientem + złota ramka (jak web)
-- Dwa pilulki: "AKTYWNE ZDARZENIE RYNKOWE" + "+70% CENY ROPY"
+- Baner z gradientem + złota ramka (jak webowy `templates/components/trend_alert.php`)
+- Uklad webowego alertu: ikona/kategoria po lewej, tresc eventu w srodku, osobny panel licznika po prawej
+- Pilulki: "AKTYWNE ZDARZENIE RYNKOWE" + "+70% CENY ROPY" + data `activated_at`
 - Licznik: `_Countdown(seconds: trend.remainingSeconds())`
 - Format: `>= 1h → HH:MM`, `< 1h → MM:SS`
 

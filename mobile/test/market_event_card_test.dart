@@ -25,6 +25,7 @@ void main() {
       pricePct: 70,
       durationHours: 2,
       message: 'Zagrożenie militarne zwiększa zapotrzebowanie, ceny ropy +70%!',
+      activatedAt: DateTime(2026, 6, 27, 12, 30),
       remainingSeconds: 3600,
       fetchedAt: DateTime.now(),
     );
@@ -39,5 +40,6 @@ void main() {
     expect(find.textContaining('CENY ROPY'), findsOneWidget);
     // Active event label.
     expect(find.textContaining('ZDARZENIE'), findsOneWidget);
+    expect(find.text('27.06.2026'), findsOneWidget);
   });
 }

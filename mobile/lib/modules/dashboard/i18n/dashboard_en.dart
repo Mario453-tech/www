@@ -19,6 +19,9 @@ const Map<String, String> dashboardEn = {
   'dashboard.event.active': 'Active market event',
   'dashboard.event.remaining': 'Remaining',
   'dashboard.event.price_word': 'oil price',
+  'dashboard.event.timer_sub': 'for next {time}',
+  'dashboard.event.time_hm': '{h}h {m}m',
+  'dashboard.event.time_m': '{m}m',
 
   // Financial states
   'dashboard.state.normal': 'Active',

@@ -1,13 +1,15 @@
-/// Aktywny trend/event rynkowy (np. "Zagrożenie militarne +70%").
-/// Odliczanie bazuje na `remainingSeconds` policzonym przez SERWER w chwili
-/// pobrania; telefon jedynie odejmuje czas, ktory uplynal od pobrania
-/// (nie polega na zegarze urzadzenia jako zrodle prawdy).
+/// Active market trend/event, for example "Military threat +70%".
+///
+/// Countdown is based on server-calculated `remainingSeconds` from fetch time.
+/// The device only subtracts local elapsed time, so it does not use its own
+/// clock as the source of truth.
 class MarketTrend {
   final String name;
   final String category;
   final int pricePct;
   final int durationHours;
   final String message;
+  final DateTime? activatedAt;
   final int _remainingAtFetch;
   final DateTime _fetchedAt;
 
@@ -17,12 +19,13 @@ class MarketTrend {
     required this.pricePct,
     required this.durationHours,
     required this.message,
+    this.activatedAt,
     required int remainingSeconds,
     required DateTime fetchedAt,
   })  : _remainingAtFetch = remainingSeconds,
         _fetchedAt = fetchedAt;
 
-  /// Sekundy do konca eventu, skorygowane o czas od pobrania.
+  /// Seconds left, adjusted by elapsed time since fetch.
   int remainingSeconds([DateTime? now]) {
     final elapsed = (now ?? DateTime.now()).difference(_fetchedAt).inSeconds;
     final left = _remainingAtFetch - elapsed;
@@ -40,9 +43,16 @@ class MarketTrend {
         pricePct: (j['price_pct'] as num?)?.toInt() ?? 0,
         durationHours: (j['duration_hours'] as num?)?.toInt() ?? 0,
         message: j['message'] as String? ?? (j['name'] as String? ?? ''),
+        activatedAt: _parseDate(j['activated_at'] as String?),
         remainingSeconds: (j['remaining_seconds'] as num?)?.toInt() ?? 0,
         fetchedAt: fetchedAt,
       );
+
+  static DateTime? _parseDate(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return DateTime.tryParse(value) ??
+        DateTime.tryParse(value.replaceFirst(' ', 'T'));
+  }
 }
 
 class MarketState {

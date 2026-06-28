@@ -19,6 +19,9 @@ const Map<String, String> dashboardPl = {
   'dashboard.event.active': 'Aktywne zdarzenie rynkowe',
   'dashboard.event.remaining': 'Pozostało',
   'dashboard.event.price_word': 'ceny ropy',
+  'dashboard.event.timer_sub': 'przez najbliższe {time}',
+  'dashboard.event.time_hm': '{h} godz. {m} min',
+  'dashboard.event.time_m': '{m} min',
 
   // Stany finansowe firmy
   'dashboard.state.normal': 'Aktywna',
