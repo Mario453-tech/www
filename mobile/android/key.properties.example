@@ -1,0 +1,4 @@
+storeFile=C:\\path\\to\\oilempire-release.jks
+storePassword=change_me
+keyAlias=oilempire
+keyPassword=change_me

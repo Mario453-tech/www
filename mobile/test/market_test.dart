@@ -5,27 +5,27 @@ void main() {
   group('MarketTrend.remainingSeconds', () {
     final fetchedAt = DateTime(2026, 1, 1, 12, 0, 0);
     final trend = MarketTrend(
-      name: 'Wojna',
+      name: 'War',
       category: 'military',
       pricePct: 70,
       durationHours: 8,
-      message: 'Zagrożenie militarne +70%',
+      message: 'Military threat +70%',
       activatedAt: DateTime(2026, 1, 1, 10, 0, 0),
       remainingSeconds: 100,
       fetchedAt: fetchedAt,
     );
 
-    test('odejmuje czas, ktory uplynal od pobrania', () {
+    test('subtracts elapsed time since fetch', () {
       final now = fetchedAt.add(const Duration(seconds: 30));
       expect(trend.remainingSeconds(now), 70);
     });
 
-    test('nie schodzi ponizej zera', () {
+    test('does not go below zero', () {
       final now = fetchedAt.add(const Duration(seconds: 250));
       expect(trend.remainingSeconds(now), 0);
     });
 
-    test('isActive jest false po wygasnieciu', () {
+    test('isActive is false after expiry', () {
       final now = fetchedAt.add(const Duration(seconds: 200));
       expect(trend.remainingSeconds(now), 0);
       expect(trend.isActiveAt(now), isFalse);
@@ -33,7 +33,7 @@ void main() {
   });
 
   group('MarketState.fromJson', () {
-    test('parsuje cene i aktywny trend', () {
+    test('parses price and active trend', () {
       final m = MarketState.fromJson({
         'price': {'current': 150.0},
         'trend': {
@@ -55,7 +55,7 @@ void main() {
       expect(m.trend!.remainingSeconds(), greaterThan(0));
     });
 
-    test('brak trendu -> trend == null', () {
+    test('missing trend becomes null', () {
       final m = MarketState.fromJson({
         'price': {'current': 100.0},
         'trend': null,

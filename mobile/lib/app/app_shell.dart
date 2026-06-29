@@ -3,10 +3,10 @@ import 'package:provider/provider.dart';
 import '../i18n/locale_provider.dart';
 import '../modules/module_registry.dart';
 import '../providers/auth_provider.dart';
+import '../services/screen_security_service.dart';
 import '../theme/app_colors.dart';
 
-/// Glowna powloka po zalogowaniu: gorny pasek (znak OilEmpire, pigulka jezyka,
-/// menu) + tresc aktywnego modulu + dolny pasek nawigacji budowany z modulow.
+/// Main authenticated shell with app bar, module content, and bottom navigation.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -18,13 +18,26 @@ class _AppShellState extends State<AppShell> {
   int _index = 0;
 
   @override
+  void initState() {
+    super.initState();
+    ScreenSecurityService.setProtected(true);
+  }
+
+  @override
+  void dispose() {
+    ScreenSecurityService.setProtected(false);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final registry = context.read<ModuleRegistry>();
     final modules = registry.navModules;
     final auth = context.watch<AuthProvider>();
     final locale = context.watch<LocaleProvider>();
 
-    final safeIndex = _index.clamp(0, modules.length - 1);
+    final safeIndex =
+        modules.isEmpty ? 0 : _index.clamp(0, modules.length - 1).toInt();
 
     return Scaffold(
       appBar: AppBar(
@@ -55,8 +68,10 @@ class _AppShellState extends State<AppShell> {
               onPressed: auth.refreshPlayer,
             ),
           PopupMenuButton<String>(
-            onSelected: (v) {
-              if (v == 'logout') context.read<AuthProvider>().logout();
+            onSelected: (value) {
+              if (value == 'logout') {
+                context.read<AuthProvider>().logout();
+              }
             },
             itemBuilder: (_) => [
               PopupMenuItem(
@@ -76,18 +91,18 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: safeIndex,
         children: [
-          for (final m in modules) m.buildScreen(context),
+          for (final module in modules) module.buildScreen(context),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: safeIndex,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (index) => setState(() => _index = index),
         destinations: [
-          for (final m in modules)
+          for (final module in modules)
             NavigationDestination(
-              icon: Icon(m.navIcon),
-              selectedIcon: Icon(m.navIconSelected),
-              label: context.t(m.titleKey),
+              icon: Icon(module.navIcon),
+              selectedIcon: Icon(module.navIconSelected),
+              label: context.t(module.titleKey),
             ),
         ],
       ),
@@ -95,10 +110,11 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-/// Pigulka jezyka (PL/EN) — odwzorowanie `.hdr-language-select` z weba.
+/// Language pill matching the web header control.
 class _LanguagePill extends StatelessWidget {
   final String locale;
   final VoidCallback onTap;
+
   const _LanguagePill({required this.locale, required this.onTap});
 
   @override

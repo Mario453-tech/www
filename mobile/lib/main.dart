@@ -14,7 +14,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pl_PL', null);
 
-  // Rejestr modulow + scalone tlumaczenia (baza wspolna + per modul).
+  // Build module registry and merged translations.
   final registry = ModuleRegistry(buildAppModules());
   final translations = registry.buildTranslations(
     LocaleProvider.supported,

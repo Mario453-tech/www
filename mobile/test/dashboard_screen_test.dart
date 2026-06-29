@@ -10,17 +10,20 @@ import 'package:oil_empire/modules/dashboard/dashboard_screen.dart';
 import 'package:oil_empire/modules/module_registry.dart';
 import 'package:oil_empire/providers/auth_provider.dart';
 
-/// Atrapa AuthProvider — wstrzykuje gotowego gracza bez sieci.
 class _FakeAuth extends AuthProvider {
   final Player _player;
+
   _FakeAuth(this._player);
 
   @override
   Player? get player => _player;
+
   @override
   bool get isLoading => false;
+
   @override
   String? get error => null;
+
   @override
   Future<void> refreshPlayer() async {}
 }
@@ -46,7 +49,9 @@ Widget _wrap(Widget child) {
       .buildTranslations(LocaleProvider.supported, base: coreStrings);
   return MultiProvider(
     providers: [
-      ChangeNotifierProvider<AuthProvider>(create: (_) => _FakeAuth(_samplePlayer())),
+      ChangeNotifierProvider<AuthProvider>(
+        create: (_) => _FakeAuth(_samplePlayer()),
+      ),
       ChangeNotifierProvider(create: (_) => LocaleProvider(translations)),
     ],
     child: MaterialApp(home: Scaffold(body: child)),
@@ -54,17 +59,15 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
-  // Mock SharedPreferences, aby LocaleProvider.setLocale() (zapis wyboru jezyka)
-  // konczyl sie natychmiast zamiast wisiec na kanale platformy w tescie.
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('Dashboard pokazuje powitanie z nazwa firmy', (tester) async {
+  testWidgets('Dashboard shows greeting with company name', (tester) async {
     await tester.pumpWidget(_wrap(const DashboardScreen()));
     expect(find.text('Witaj, Test Co'), findsOneWidget);
   });
 
-  testWidgets('Dashboard renderuje etykiety KPI (PL)', (tester) async {
+  testWidgets('Dashboard renders KPI labels in PL', (tester) async {
     await tester.pumpWidget(_wrap(const DashboardScreen()));
     expect(find.text('GOTÓWKA'), findsOneWidget);
     expect(find.text('SALDO KONTA'), findsOneWidget);
@@ -72,12 +75,12 @@ void main() {
     expect(find.text('AKTYWNE STUDNIE'), findsOneWidget);
   });
 
-  testWidgets('Dashboard pokazuje liczbe aktywnych studni', (tester) async {
+  testWidgets('Dashboard shows active wells count', (tester) async {
     await tester.pumpWidget(_wrap(const DashboardScreen()));
     expect(find.text('3'), findsWidgets);
   });
 
-  testWidgets('Przelaczenie jezyka zmienia etykiety na EN', (tester) async {
+  testWidgets('Switching language changes labels to EN', (tester) async {
     await tester.pumpWidget(_wrap(const DashboardScreen()));
     final ctx = tester.element(find.byType(DashboardScreen));
     await Provider.of<LocaleProvider>(ctx, listen: false).setLocale('en');

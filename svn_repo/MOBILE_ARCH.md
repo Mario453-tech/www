@@ -142,7 +142,8 @@ Header: Authorization: Bearer <token>
 → { "success": true }
 ```
 
-Token przechowywany w SharedPreferences (`auth_token`). `AuthProvider` zarządza stanem logowania.
+Token mobilny jest przechowywany w `flutter_secure_storage` przez `SessionStorage`.
+`SharedPreferences` zostaje tylko dla niewrażliwych ustawień, np. języka. Wejście do webowej gry w WebView odbywa się przez jednorazowy bridge URL, bez zapisywania Bearer tokena w JavaScript/localStorage.
 
 ### GET /api/v1/player
 
@@ -507,7 +508,8 @@ Wzorce do kopiowania: `src/BankruptcyBootstrap.php`, `src/ChatBootstrap.php`.
 ```yaml
 dependencies:
   http: ^1.2.0            # HTTP client do API
-  shared_preferences: ^2.3.0  # token, locale
+  flutter_secure_storage: ^9.2.4 # secure storage dla tokenu mobilnego
+  shared_preferences: ^2.3.0  # locale i ustawienia niewrażliwe
   provider: ^6.1.0        # state management (AuthProvider, LocaleProvider)
   intl: ^0.19.0           # NumberFormat (formatowanie kwot)
   webview_flutter: ^4.7.0 # WebView dla modułu "Gra"
@@ -542,3 +544,100 @@ W testach widgetów: zainicjuj Provider i LocaleProvider przez helper `_wrap(wid
 - `main` — produkcja (PHP + Android APK release)
 - `push-to-main` — branch roboczy dla zmian Flutter/PHP, PR → main
 - Każdy push do `main` triggeruje oba workflow (deploy-ftp + flutter-build)
+
+---
+
+## 17. Hardening mobile P1 - Android teraz, iOS później
+
+### Zakres wdrożenia
+
+Wdrożenie P1 zabezpiecza obecną aplikację Flutter/Android i usuwa przekazywanie mobilnego Bearer tokena do WebView. iOS nie jest wdrażany w tym etapie: nie dodano katalogu `ios/`, nie ma builda IPA i nie ma konfiguracji Apple signing. Kod Dart został jednak rozdzielony tak, aby później iOS mógł użyć tego samego interfejsu sesji.
+
+### Obecny flow sesji
+
+1. Użytkownik loguje się w aplikacji przez `/api/v1/auth/login.php`.
+2. Mobilny Bearer token i nazwa użytkownika są zapisywane w `flutter_secure_storage`.
+3. `SharedPreferences` zostaje tylko dla niewrażliwych ustawień, np. języka.
+4. Przy starcie aplikacji `SessionStorage` wykonuje migrację: stary `auth_token` i `auth_username` z `SharedPreferences` są przepisywane do secure storage i usuwane z prefs.
+5. Moduł `Gra` nie przekazuje tokena do JavaScript. Zamiast tego wywołuje `POST /api/v1/auth/webview-bridge.php`.
+6. Backend generuje jednorazowy bridge token z TTL 60 sekund, zapisuje w DB tylko hash i zwraca `bridge_url`.
+7. WebView otwiera `/mobile-bridge-login?token=...`.
+8. Backend zużywa token dokładnie raz, tworzy zwykłą sesję webową przez `Auth::loginByPlayerId()` i przekierowuje do gry.
+9. Logout czyści secure storage oraz cookies WebView.
+
+### Podział kodu Flutter
+
+- `mobile/lib/services/session_storage.dart` - wspólna warstwa sesji, neutralna platformowo; Android korzysta z `flutter_secure_storage`, a przyszły iOS będzie mógł użyć Keychain przez ten sam interfejs.
+- `mobile/lib/services/web_session_cleaner.dart` - czyszczenie cookies, cache i local storage WebView.
+- `mobile/lib/services/webview_navigation_policy.dart` - allowlista WebView: tylko `https://oilempire.pl` i subdomeny.
+- `mobile/lib/services/screen_security_service.dart` - Android-only platform channel dla `FLAG_SECURE`, uruchamiany tylko w release buildzie.
+- `mobile/lib/modules/game/game_module.dart` - pobiera `bridge_url`, obsługuje retry i dopiero potem tworzy `GameWebView`.
+- `mobile/lib/screens/webview_screen.dart` - WebView bez Bearer tokena, bez `localStorage.setItem('api_token')`, z blokadą obcych hostów i `http://`.
+
+### Backend bridge
+
+- `api/v1/auth/webview-bridge.php` - endpoint `POST`, wymaga `Authorization: Bearer <mobile_token>`, zwraca `bridge_url` i `expires_in_seconds`.
+- `public/mobile_bridge_login.php` - webowy endpoint zużywający bridge token i tworzący sesję webową gracza.
+- `src/MobileWebBridge.php` - generowanie, hashowanie, TTL, jednorazowe zużycie i czyszczenie wygasłych tokenów.
+- `src/Auth.php` - publiczne `Auth::loginByPlayerId(int $playerId): bool`, bez kopiowania prywatnej logiki sesji.
+- Tabela: `mobile_web_bridge_tokens`.
+
+### Android hardening
+
+- `AndroidManifest.xml` ma `allowBackup=false`, `fullBackupContent=false`, `usesCleartextTraffic=false` oraz `networkSecurityConfig`.
+- `network_security_config.xml` blokuje cleartext i zostawia przygotowanie pod certificate pinning w P2.
+- Release signing został przeniesiony do `android/key.properties` lub sekretów CI (`ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`).
+- Sekrety podpisu nie są już wpisane w `android/app/build.gradle`.
+- Release build ma `minifyEnabled true` i `shrinkResources true`.
+- `FLAG_SECURE` obejmuje `LoginScreen`, `AppShell` i WebView przez wspólny shell, ale tylko w release.
+
+### Zależności Flutter
+
+Dodano:
+
+```yaml
+flutter_secure_storage: ^9.2.4
+```
+
+`shared_preferences` pozostaje dla języka i innych ustawień niewrażliwych.
+
+### Toolchain Android
+
+Podczas weryfikacji Flutter wymagał nowszego toolchaina niż poprzedni projekt:
+
+- Gradle wrapper: `8.7`
+- Android Gradle Plugin: `8.6.0`
+
+Flutter pokazuje ostrzeżenia, że w przyszłości trzeba będzie podnieść Gradle do `8.14+`, AGP do `8.11.1+` i Kotlin do `2.2.20+`. To jest TODO toolchainowe, nie blokuje obecnego builda.
+
+### Testowanie lokalne
+
+Wykonane dla P1:
+
+```bash
+cd mobile
+flutter pub get
+flutter test
+flutter build apk --debug
+flutter build apk --release   # wymaga android/key.properties albo sekretów ANDROID_KEYSTORE_*
+```
+
+Jeżeli release signing nie jest skonfigurowany, `flutter build apk --release` ma przerwać proces komunikatem `Release signing is required`. To jest oczekiwane zabezpieczenie przed przypadkowym wypuszczeniem unsigned release artifact.
+
+Backend:
+
+```bash
+php -l src/MobileWebBridge.php
+php -l api/v1/auth/webview-bridge.php
+php -l public/mobile_bridge_login.php
+php -l tests/Integration/MobileWebBridgeTest.php
+php vendor/bin/phpunit tests/Integration/MobileWebBridgeTest.php
+```
+
+### Odłożone na etap 2
+
+- iOS scaffold `ios/`.
+- Keychain/Info.plist i iOS screen privacy.
+- macOS runner/signing dla IPA.
+- Certificate pinning w Android/iOS.
+- Migracja Android toolchain do wersji zalecanych przez przyszłe Flutter SDK: Gradle `8.14+`, AGP `8.11.1+`, Kotlin `2.2.20+`.

@@ -87,6 +87,7 @@ Options -Indexes
     RewriteRule ^reset-password$  /public/reset_password.php [L,PT]
     RewriteRule ^language$        /public/language.php [L,PT]
     RewriteRule ^logout$          /public/logout.php [L,PT]
+    RewriteRule ^mobile-bridge-login$ /public/mobile_bridge_login.php [L,PT]
     RewriteRule ^map$             /public/map.php [L,PT]
     RewriteRule ^market$          /public/market.php [L,PT]
     RewriteRule ^market-offers$   /public/market_offers.php [L,PT]

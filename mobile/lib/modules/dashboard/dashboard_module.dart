@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../app_module.dart';
 import 'dashboard_screen.dart';
-import 'i18n/dashboard_pl.dart';
 import 'i18n/dashboard_en.dart';
+import 'i18n/dashboard_pl.dart';
 
-/// Modul Dashboard — pulpit z kafelkami KPI gracza.
+/// Dashboard module with the player's KPI overview.
 class DashboardModule extends AppModule {
   @override
   String get id => 'dashboard';

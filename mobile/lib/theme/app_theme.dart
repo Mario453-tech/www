@@ -46,7 +46,6 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.bg,
       canvasColor: AppColors.bg,
       dividerColor: AppColors.borderSubtle,
-
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.topbar,
         foregroundColor: AppColors.text,
@@ -54,7 +53,6 @@ class AppTheme {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
-
       cardTheme: CardThemeData(
         color: AppColors.bg3,
         elevation: 0,
@@ -64,7 +62,6 @@ class AppTheme {
           side: const BorderSide(color: AppColors.border, width: 1),
         ),
       ),
-
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.topbar,
         indicatorColor: AppColors.goldSurface,
@@ -84,7 +81,6 @@ class AppTheme {
           );
         }),
       ),
-
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0x09FFFFFF),
@@ -102,7 +98,6 @@ class AppTheme {
         ),
         labelStyle: const TextStyle(color: AppColors.text2),
       ),
-
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.gold,
@@ -117,7 +112,6 @@ class AppTheme {
           ),
         ),
       ),
-
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.gold,
         linearTrackColor: Color(0x12FFFFFF),

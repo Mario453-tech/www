@@ -19,7 +19,12 @@ const Map<String, String> coreEn = {
   'common.error_connection': 'Server connection error.',
   'common.error_generic': 'An error occurred.',
   'common.currency': 'PLN',
+  'common.separator_dot': '·',
   'common.language': 'Language',
+  'common.debug_url_label': 'URL',
+  'common.unit.bbl': 'bbl',
+  'common.unit.bbl_per_hour': 'bbl/h',
+  'common.unit.pln_per_hour': 'PLN/h',
 
   // Auth
   'auth.login_title': 'OilEmpire',
@@ -32,4 +37,50 @@ const Map<String, String> coreEn = {
   'auth.validation_password': 'Enter your password',
   'auth.error_credentials': 'Invalid login or password.',
   'auth.error_session': 'Session verification error.',
+
+  // Wells
+  'wells.filters.all': 'All',
+  'wells.filters.active': 'Active',
+  'wells.filters.paused': 'Paused',
+  'wells.filters.damaged': 'Damaged',
+  'wells.empty': 'No wells found',
+  'wells.card.production': 'Production',
+  'wells.card.costs': 'Costs',
+  'wells.card.technical_condition': 'Tech state',
+  'wells.card.risk': 'Risk',
+  'wells.card.reservoir': 'Reservoir: {remaining} / {max} {unit}',
+  'wells.risk.low': 'LOW',
+  'wells.risk.medium': 'MEDIUM',
+  'wells.risk.high': 'HIGH',
+  'wells.status.active': 'Active',
+  'wells.status.paused': 'Paused',
+  'wells.status.paused_cash': 'Paused: cash',
+  'wells.status.paused_staff': 'Paused: staff',
+  'wells.status.paused_storage': 'Paused: storage',
+  'wells.status.damaged': 'Damaged',
+  'wells.status.blowout': 'BLOWOUT',
+  'wells.status.offline': 'Offline',
+  'wells.status.contaminated': 'Contaminated',
+  'wells.status.no_operator': 'No operator',
+  'wells.status.no_technician': 'No technician',
+  'wells.status.seized': 'Seized',
+  'wells.status.layer_switch': 'Layer switch',
+  'wells.status.sold': 'Sold',
+  'wells.status.unknown': 'Unknown',
+  'wells.risk.unknown': 'UNKNOWN',
+
+  // WebView
+  'webview.error_connection': 'No connection to the server',
+
+  // API
+  'api.error.invalid_login_response': 'Invalid login response from server.',
+  'api.error.empty_response': '(empty response)',
+  'api.error.non_json_response':
+      'Server returned non-JSON (HTTP {code}):\n{snippet}',
+  'api.error.unexpected_format': 'Unexpected response format (HTTP {code})',
+  'api.error.server_http': 'Server error (HTTP {code})',
+  'webview.error_blocked_navigation': 'Unsafe redirect was blocked.',
+  'game.bridge.loading': 'Connecting to the game...',
+  'game.bridge.error': 'Could not open the game.',
+  'api.error.invalid_bridge_response': 'Invalid game bridge response.',
 };

@@ -1,4 +1,4 @@
-/// Tlumaczenia modulu Dashboard (PL). Wlasny plik podstrony — wzorzec jak w grze.
+/// Dashboard module translations (PL).
 const Map<String, String> dashboardPl = {
   'dashboard.cash': 'Gotówka',
   'dashboard.bank_balance': 'Saldo konta',
@@ -14,16 +14,12 @@ const Map<String, String> dashboardPl = {
   'dashboard.bbl_unit': 'bbl',
   'dashboard.oil_unit': '\$/bbl',
   'dashboard.greeting': 'Witaj, {name}',
-
-  // Zdarzenie rynkowe
   'dashboard.event.active': 'Aktywne zdarzenie rynkowe',
   'dashboard.event.remaining': 'Pozostało',
   'dashboard.event.price_word': 'ceny ropy',
   'dashboard.event.timer_sub': 'przez najbliższe {time}',
   'dashboard.event.time_hm': '{h} godz. {m} min',
   'dashboard.event.time_m': '{m} min',
-
-  // Stany finansowe firmy
   'dashboard.state.normal': 'Aktywna',
   'dashboard.state.warning': 'Uwaga',
   'dashboard.state.crisis': 'KRYZYS',

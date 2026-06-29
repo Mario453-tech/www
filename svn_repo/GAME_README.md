@@ -332,3 +332,15 @@ Wdrożono fundament modułu sabotaży zgodny z briefem `BRIEF DLA AI — Uniwers
 - `well_config.sabotage_module_enabled` — globalny przełącznik modułu. Gdy jest wyłączony, ryzyko `sabotage` nie jest losowane dla transportu drogowego.
 
 Zakres P1: tylko sabotaż systemowy transportu drogowego. Sabotaż gracz kontra gracz, sądy, odwety, porty/terminale i pełna wojna korporacyjna zostają jako TODO.
+
+## 2026-06-29 - Mobile hardening P1
+
+Wdrożono pierwszy etap hardeningu aplikacji Flutter/Android. Mobilny token sesji został przeniesiony ze `SharedPreferences` do `flutter_secure_storage`, a WebView nie dostaje już Bearer tokena przez JavaScript ani `localStorage`.
+
+- `mobile/lib/services/session_storage.dart` - wspólna warstwa sesji z migracją starych danych z `SharedPreferences`.
+- `api/v1/auth/webview-bridge.php`, `public/mobile_bridge_login.php`, `src/MobileWebBridge.php`, `src/Auth.php` - jednorazowy backend bridge mobile -> web session z TTL 60 sekund i hashowaniem tokena w DB.
+- `mobile/lib/modules/game/game_module.dart`, `mobile/lib/screens/webview_screen.dart` - WebView otwiera tylko `bridge_url`, blokuje `http://` i obce hosty.
+- Android: wyłączone backupy, blokada cleartext, `network_security_config.xml`, release signing przeniesiony do `key.properties`/CI secrets, `minifyEnabled` i `shrinkResources` w release, `FLAG_SECURE` w release.
+- Dodano testy: `mobile/test/session_storage_test.dart`, `mobile/test/webview_navigation_policy_test.dart`, `tests/Integration/MobileWebBridgeTest.php`.
+
+iOS zostaje etapem 2: bez katalogu `ios/` w tym wdrożeniu. Szczegóły architektury i TODO są w `svn_repo/MOBILE_ARCH.md`, sekcja 17.

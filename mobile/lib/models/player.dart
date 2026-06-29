@@ -7,8 +7,12 @@ class Storage {
   double get fillPercent => capacity > 0 ? (used / capacity * 100) : 0;
 
   factory Storage.fromJson(Map<String, dynamic> j) => Storage(
-        capacity: (j['max_bbl'] as num?)?.toInt() ?? (j['capacity'] as num?)?.toInt() ?? 0,
-        used: (j['current_bbl'] as num?)?.toInt() ?? (j['used'] as num?)?.toInt() ?? 0,
+        capacity: (j['max_bbl'] as num?)?.toInt() ??
+            (j['capacity'] as num?)?.toInt() ??
+            0,
+        used: (j['current_bbl'] as num?)?.toInt() ??
+            (j['used'] as num?)?.toInt() ??
+            0,
       );
 }
 
@@ -59,8 +63,12 @@ class Player {
       creditScore: (j['credit_score'] as num?)?.toInt() ?? 0,
       offlineMode: j['offline_mode'] == true || j['offline_mode'] == 1,
       storage: Storage.fromJson(j['storage'] as Map<String, dynamic>? ?? {}),
-      activeWells: (stats['active_wells'] as num?)?.toInt() ?? (j['active_wells'] as num?)?.toInt() ?? 0,
-      activeLoans: (stats['active_loans'] as num?)?.toInt() ?? (j['active_loans'] as num?)?.toInt() ?? 0,
+      activeWells: (stats['active_wells'] as num?)?.toInt() ??
+          (j['active_wells'] as num?)?.toInt() ??
+          0,
+      activeLoans: (stats['active_loans'] as num?)?.toInt() ??
+          (j['active_loans'] as num?)?.toInt() ??
+          0,
     );
   }
 }

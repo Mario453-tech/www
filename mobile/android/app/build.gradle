@@ -4,6 +4,24 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def releaseStoreFile = keystoreProperties["storeFile"] ?: System.getenv("ANDROID_KEYSTORE_PATH")
+def releaseStorePassword = keystoreProperties["storePassword"] ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = keystoreProperties["keyAlias"] ?: System.getenv("ANDROID_KEY_ALIAS")
+def releaseKeyPassword = keystoreProperties["keyPassword"] ?: System.getenv("ANDROID_KEY_PASSWORD")
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+gradle.taskGraph.whenReady { taskGraph ->
+    if (taskGraph.hasTask(":app:assembleRelease") && !hasReleaseSigning) {
+        throw new GradleException("Release signing is required. Configure android/key.properties or ANDROID_KEYSTORE_* secrets.")
+    }
+}
+
 android {
     namespace "pl.oilempire.app"
     compileSdk flutter.compileSdkVersion
@@ -28,18 +46,18 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("oilempire-release.jks")
-            storePassword "oilempire2026"
-            keyAlias "oilempire"
-            keyPassword "oilempire2026"
+            storeFile hasReleaseSigning ? file(releaseStoreFile) : null
+            storePassword hasReleaseSigning ? releaseStorePassword : null
+            keyAlias hasReleaseSigning ? releaseKeyAlias : null
+            keyPassword hasReleaseSigning ? releaseKeyPassword : null
         }
     }
 
     buildTypes {
         release {
             signingConfig signingConfigs.release
-            minifyEnabled false
-            shrinkResources false
+            minifyEnabled true
+            shrinkResources true
         }
     }
 }

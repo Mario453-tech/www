@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../i18n/locale_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/screen_security_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,7 +18,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePass = true;
 
   @override
+  void initState() {
+    super.initState();
+    ScreenSecurityService.setProtected(true);
+  }
+
+  @override
   void dispose() {
+    ScreenSecurityService.setProtected(false);
     _loginCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
@@ -60,11 +68,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 12),
                     Text(
                       context.t('auth.login_title'),
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: cs.primary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                color: cs.primary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -126,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: SelectableText(
-                                auth.error!,
+                                context.resolveText(auth.error!),
                                 style: TextStyle(
                                     color: cs.onErrorContainer, fontSize: 13),
                               ),

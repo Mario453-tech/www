@@ -222,6 +222,7 @@ const ROUTES = [
     'home'            => '/',
     'login'           => '/login',
     'logout'          => '/logout',
+    'mobile-bridge-login' => '/mobile-bridge-login',
     'register'        => '/register',
     'forgot-password' => '/forgot-password',
     'reset-password'  => '/reset-password',

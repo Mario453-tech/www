@@ -253,14 +253,18 @@ class Auth
         }
     }
 
- /**
- * Stores authenticated player session data.
- * PL: Zapisuje dane sesji zalogowanego gracza.
- */
+    /**
+     * Stores authenticated player session data.
+     */
     private static function setSession(array $player): void
     {
         try {
-            session_regenerate_id(true);
+            try {
+                session_regenerate_id(true);
+            } catch (Throwable $e) {
+                GameLog::warn('Auth', 'Session ID regeneration failed', ['error' => $e->getMessage()]);
+            }
+
             $_SESSION['logged_in'] = true;
             $_SESSION['user_id'] = (int)$player['id'];
             $_SESSION['username'] = $player['username'];
@@ -269,6 +273,42 @@ class Auth
             $_SESSION['last_active'] = time();
         } catch (Throwable $e) {
             GameLog::error('Auth', 'setSession failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Creates a regular web session for a player already verified by a trusted flow.
+     */
+    public static function loginByPlayerId(int $playerId): bool
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("
+                SELECT id, username, email
+                  FROM players
+                 WHERE id = ?
+                   AND status = 'active'
+                   AND COALESCE(email_verified, 1) = 1
+                 LIMIT 1
+            ");
+            $stmt->execute([$playerId]);
+            $player = $stmt->fetch();
+            if (!$player) {
+                return false;
+            }
+
+            $db->prepare("UPDATE players SET last_login_at = NOW() WHERE id = ?")
+                ->execute([$playerId]);
+            self::setSession($player);
+
+            GameLog::info('Auth', 'Web session created from mobile bridge', ['player_id' => $playerId]);
+            return true;
+        } catch (Throwable $e) {
+            GameLog::error('Auth', 'loginByPlayerId failed', [
+                'player_id' => $playerId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
         }
     }
 

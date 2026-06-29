@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/api_service.dart';
 import '../models/player.dart';
+import '../services/api_service.dart';
+import '../services/session_storage.dart';
+import '../services/web_session_cleaner.dart';
 
 class AuthProvider extends ChangeNotifier {
-  static const _keyToken = 'auth_token';
-  static const _keyUsername = 'auth_username';
+  final SessionStorage _storage;
 
   String? _token;
   String? _username;
@@ -20,11 +20,14 @@ class AuthProvider extends ChangeNotifier {
   Player? get player => _player;
   String? get error => _error;
 
+  AuthProvider({SessionStorage? storage})
+      : _storage = storage ?? SessionStorage();
+
   Future<void> init() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _token = prefs.getString(_keyToken);
-      _username = prefs.getString(_keyUsername);
+      await _storage.migrateLegacyPrefs();
+      _token = await _storage.readToken();
+      _username = await _storage.readUsername();
       if (_token != null) {
         await _refreshPlayer();
       }
@@ -44,27 +47,29 @@ class AuthProvider extends ChangeNotifier {
       _token = result.token;
       _username = result.username;
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyToken, result.token);
-      await prefs.setString(_keyUsername, result.username);
+      await _storage.saveSession(
+        token: result.token,
+        username: result.username,
+      );
 
       await _refreshPlayer();
       if (_token == null) {
-        _error = 'Błąd weryfikacji sesji.';
+        _error = 'auth.error_session';
         _isLoading = false;
         notifyListeners();
         return false;
       }
+
       _isLoading = false;
       notifyListeners();
       return true;
     } on ApiException catch (e) {
-      _error = e.statusCode == 401 ? 'Nieprawidłowy login lub hasło.' : e.message;
+      _error = e.statusCode == 401 ? 'auth.error_credentials' : e.message;
       _isLoading = false;
       notifyListeners();
       return false;
     } catch (_) {
-      _error = 'Błąd połączenia z serwerem.';
+      _error = 'common.error_connection';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -76,12 +81,26 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     _username = null;
     _player = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyToken);
-    await prefs.remove(_keyUsername);
+    _error = null;
+
+    try {
+      await _storage.clearSession();
+    } catch (_) {
+      // Local state is already cleared; remote token revocation still continues.
+    }
+    try {
+      await WebSessionCleaner.clearCookies();
+    } catch (_) {
+      // Cookie cleanup is best effort; it must not block logout.
+    }
     notifyListeners();
+
     if (tokenToRevoke != null) {
-      try { await ApiService.logout(tokenToRevoke); } catch (_) {}
+      try {
+        await ApiService.logout(tokenToRevoke);
+      } catch (_) {
+        // Best effort logout.
+      }
     }
   }
 
@@ -94,9 +113,11 @@ class AuthProvider extends ChangeNotifier {
       _player = await ApiService.getPlayer(_token!);
       notifyListeners();
     } on ApiException catch (e) {
-      if (e.statusCode == 401) await logout();
-    } catch (e) {
-      _error = 'Błąd połączenia z serwerem.';
+      if (e.statusCode == 401) {
+        await logout();
+      }
+    } catch (_) {
+      _error = 'common.error_connection';
       notifyListeners();
     }
   }

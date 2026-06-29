@@ -39,8 +39,9 @@ class Well {
     this.lastProductionAt,
   });
 
-  double get reservoirPercent =>
-      reservoirMax > 0 ? (reservoirRemaining / reservoirMax * 100).clamp(0, 100) : 0;
+  double get reservoirPercent => reservoirMax > 0
+      ? (reservoirRemaining / reservoirMax * 100).clamp(0, 100)
+      : 0;
 
   bool get isActive => status == 'active';
   bool get isPaused => status == 'paused';
@@ -48,7 +49,8 @@ class Well {
 
   factory Well.fromJson(Map<String, dynamic> j) => Well(
         id: (j['id'] as num?)?.toInt() ?? 0,
-        name: j['name'] as String? ?? 'Well #${(j['id'] as num?)?.toInt() ?? '?'}',
+        name: j['name'] as String? ??
+            'Well #${(j['id'] as num?)?.toInt() ?? '?'}',
         location: j['location'] as String? ?? '',
         status: j['status'] as String? ?? 'active',
         wellType: j['well_type'] as String? ?? 'onshore',
@@ -58,7 +60,8 @@ class Well {
         technicalCondition: (j['technical_condition'] as num?)?.toInt() ?? 100,
         wearLevel: (j['wear_level'] as num?)?.toInt() ?? 0,
         equipmentTier: j['equipment_tier'] as String? ?? 'standard',
-        equipmentUpgradeLevel: (j['equipment_upgrade_level'] as num?)?.toInt() ?? 0,
+        equipmentUpgradeLevel:
+            (j['equipment_upgrade_level'] as num?)?.toInt() ?? 0,
         productionMode: j['production_mode'] as String? ?? 'normal',
         reservoirRemaining: (j['reservoir_remaining'] as num?)?.toDouble() ?? 0,
         reservoirMax: (j['reservoir_max'] as num?)?.toDouble() ?? 0,
