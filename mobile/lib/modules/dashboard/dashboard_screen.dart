@@ -11,6 +11,48 @@ import 'widgets/dashboard_kpi_grid.dart';
 import 'widgets/loans_banner.dart';
 import 'widgets/market_event_card.dart';
 
+class _MarketErrorBanner extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _MarketErrorBanner({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off, size: 16, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.t('dashboard.market_unavailable'),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              context.t('common.retry'),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Native dashboard screen mirroring the web game summary.
 ///
 /// All values come from the server tick. The app only reads API data, refreshes
@@ -25,6 +67,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen>
     with WidgetsBindingObserver {
   MarketState? _market;
+  bool _marketError = false;
   Timer? _refreshTimer;
   Timer? _tickTimer;
 
@@ -78,10 +121,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       final market = await ApiService.getMarket(token, locale: locale);
       if (mounted) {
-        setState(() => _market = market);
+        setState(() {
+          _market = market;
+          _marketError = false;
+        });
       }
     } catch (_) {
-      // Market data is optional for the dashboard, so keep the screen usable.
+      if (mounted) setState(() => _marketError = true);
     }
   }
 
@@ -119,6 +165,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           if (showEvent) ...[
             const SizedBox(height: DashboardStyles.gapMd),
             MarketEventCard(trend: trend),
+          ] else if (_marketError) ...[
+            const SizedBox(height: DashboardStyles.gapMd),
+            _MarketErrorBanner(onRetry: _loadMarket),
           ],
           if (player.activeLoans > 0) ...[
             const SizedBox(height: DashboardStyles.gapMd),

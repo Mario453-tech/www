@@ -24,4 +24,5 @@ const Map<String, String> dashboardPl = {
   'dashboard.state.warning': 'Uwaga',
   'dashboard.state.crisis': 'KRYZYS',
   'dashboard.state.bankrupt': 'BANKRUTUJE',
+  'dashboard.market_unavailable': 'Dane rynku niedostępne — pociągnij, aby odświeżyć',
 };
