@@ -46,22 +46,11 @@ if (!function_exists('ensureTrainingSchema')) {
                 KEY        `idx_enabled` (`enabled`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-            // Sub-skille technikow. UNIQUE (staff_id, skill_code) jest wymagany przez
-            // TechnicalSubSkill::applyIncrement() (INSERT ... ON DUPLICATE KEY UPDATE).
-            // Technical staff sub-skills. The UNIQUE key is required by applyIncrement's upsert.
-            $db->exec("CREATE TABLE IF NOT EXISTS `technical_staff_skills` (
-                `id`          INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-                `staff_id`    INT(10) UNSIGNED NOT NULL,
-                `skill_code`  VARCHAR(40)      NOT NULL,
-                `skill_level` TINYINT(3) UNSIGNED NOT NULL DEFAULT 1,
-                `updated_at`  DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP
-                              ON UPDATE CURRENT_TIMESTAMP,
-                PRIMARY KEY (`id`),
-                UNIQUE KEY `uq_staff_skill` (`staff_id`, `skill_code`),
-                KEY `idx_staff` (`staff_id`),
-                CONSTRAINT `fk_tss_staff`
-                    FOREIGN KEY (`staff_id`) REFERENCES `technical_staff` (`id`) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            // Kolumna active_guard — atomowa blokada podwojnego rozpatrzenia egzaminu.
+            // active_guard column — atomic lock preventing double exam processing.
+            Database::addColumnIfMissing('staff_trainings', 'active_guard',
+                "TINYINT(1) NULL DEFAULT NULL COMMENT 'NULL = zamkniety, 1 = w toku / NULL = closed, 1 = in progress'"
+            );
 
             // Historia i aktywne szkolenia graczy.
             // Player training history and active trainings.
@@ -85,80 +74,15 @@ if (!function_exists('ensureTrainingSchema')) {
                 `skill_before`   TINYINT(3) UNSIGNED  DEFAULT NULL,
                 `skill_after`    TINYINT(3) UNSIGNED  DEFAULT NULL,
                 `cost_paid`      INT(10) UNSIGNED     NOT NULL DEFAULT 0,
-                `active_guard`   TINYINT(1)           NULL DEFAULT NULL
-                                     COMMENT 'Enrollment guard: 1 = in_progress, NULL = finished',
                 PRIMARY KEY (`id`),
                 KEY `idx_st_player`   (`player_id`),
                 KEY `idx_st_staff`    (`staff_type`, `staff_id`),
                 KEY `idx_st_status`   (`status`),
                 KEY `idx_st_finishes` (`finishes_at`),
                 KEY `fk_st_program`   (`program_id`),
-                UNIQUE KEY `uq_active_staff` (`staff_type`, `staff_id`, `active_guard`),
                 CONSTRAINT `fk_st_program`
                     FOREIGN KEY (`program_id`) REFERENCES `training_programs` (`id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-            // Certyfikaty szkoleniowe (technicy + zarzad). Member polimorficzny (staff_type),
-            // dlatego wlasna tabela, a nie employee_certificates. FK do staff_trainings.
-            // Training certificates (polymorphic staff_type), FK to staff_trainings.
-            $db->exec("CREATE TABLE IF NOT EXISTS `training_certificates` (
-                `id`           INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-                `player_id`    INT(10) UNSIGNED NOT NULL,
-                `staff_type`   ENUM('technical','board') NOT NULL,
-                `staff_id`     INT(10) UNSIGNED NOT NULL,
-                `training_id`  INT(10) UNSIGNED NOT NULL,
-                `program_code` VARCHAR(60)      NOT NULL,
-                `program_name` VARCHAR(120)     NOT NULL,
-                `skill_code`   VARCHAR(40)      NOT NULL,
-                `score`        TINYINT(3) UNSIGNED NOT NULL,
-                `level_after`  TINYINT(3) UNSIGNED NOT NULL,
-                `issued_at`    DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (`id`),
-                KEY `idx_tc_staff`  (`staff_type`, `staff_id`),
-                KEY `idx_tc_player` (`player_id`),
-                KEY `fk_tc_training` (`training_id`),
-                CONSTRAINT `fk_tc_training`
-                    FOREIGN KEY (`training_id`) REFERENCES `staff_trainings` (`id`) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-            // Istniejace instalacje (sprzed active_guard): dodaj kolumne jesli jej brak.
-            // Existing installs predating active_guard: add the column if missing.
-            Database::addColumnIfMissing('staff_trainings', 'active_guard',
-                "TINYINT(1) NULL DEFAULT NULL COMMENT 'NULL = zamkniety, 1 = w toku / NULL = closed, 1 = in progress'"
-            );
-
-            // Istniejace instalacje: dodaj UNIQUE KEY uq_active_staff jesli go brak.
-            // CREATE TABLE wyzej zalatwia swieze instalacje; tu domykamy stare bazy.
-            // Najpierw dedup aktywnych duplikatow, inaczej ADD UNIQUE KEY by sie wywalil.
-            // Existing installs: add uq_active_staff if missing (dedup first so ADD KEY succeeds).
-            $hasIdx = (int)$db->query(
-                "SELECT COUNT(*) FROM information_schema.statistics
-                  WHERE table_schema = DATABASE()
-                    AND table_name = 'staff_trainings'
-                    AND index_name = 'uq_active_staff'"
-            )->fetchColumn();
-            if ($hasIdx === 0) {
-                $db->exec(
-                    "UPDATE `staff_trainings` st
-                     INNER JOIN (
-                         SELECT MIN(id) AS cancel_id
-                           FROM `staff_trainings`
-                          WHERE `status` = 'in_progress'
-                          GROUP BY `staff_type`, `staff_id`
-                         HAVING COUNT(*) > 1
-                     ) dups ON st.id = dups.cancel_id
-                     SET st.`status` = 'cancelled', st.`active_guard` = NULL
-                     WHERE st.`status` = 'in_progress'"
-                );
-                $db->exec(
-                    "UPDATE `staff_trainings` SET `active_guard` = 1
-                      WHERE `status` = 'in_progress' AND `active_guard` IS NULL"
-                );
-                $db->exec(
-                    "ALTER TABLE `staff_trainings`
-                       ADD UNIQUE KEY `uq_active_staff` (`staff_type`, `staff_id`, `active_guard`)"
-                );
-            }
 
             // Seed: 14 domyslnych programow szkolen (INSERT IGNORE — bezpieczne przy powtorium).
             // Seed: 14 default training programs (INSERT IGNORE — safe on re-run).

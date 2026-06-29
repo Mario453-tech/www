@@ -93,7 +93,11 @@
 
         if (!titleText || !contentText) {
             e.preventDefault();
-            window.alertError(titleText ? 'Treść nie może być pusta.' : 'Tytuł nie może być pusty.');
+            if (typeof window.alertError === 'function') {
+                window.alertError(titleText ? 'Treść nie może być pusta.' : 'Tytuł nie może być pusty.');
+            } else {
+                alert(titleText ? 'Treść nie może być pusta.' : 'Tytuł nie może być pusty.');
+            }
         }
     });
 })();

@@ -214,11 +214,18 @@ function techTaskConfirm(form) {
               .replace(':cost', costRange)
         : ('Przypisać zadanie?\n' + label + '\nSzacowany koszt: ' + costRange);
 
-    window.confirmAction(confirmMsg, doSubmit, {
-        title: (window.TECH_LANG && window.TECH_LANG.confirm_assign_title) || 'Potwierdź zadanie',
-        type: 'confirm',
-        confirmLabel: (window.TECH_LANG && window.TECH_LANG.confirm_assign_ok) || 'Przypisz',
-    });
+    if (typeof window.confirmAction === 'function') {
+        window.confirmAction(confirmMsg, doSubmit, {
+            title: (window.TECH_LANG && window.TECH_LANG.confirm_assign_title) || 'Potwierdź zadanie',
+            type: 'confirm',
+            confirmLabel: (window.TECH_LANG && window.TECH_LANG.confirm_assign_ok) || 'Przypisz',
+        });
+        return false;
+    }
+
+    if (window.confirm(confirmMsg)) {
+        doSubmit();
+    }
     return false;
 }
 
@@ -229,11 +236,19 @@ function candReviewConfirm(form) {
     var recEl   = form.querySelector('input[name="recommendation"]:checked');
 
     if (!scoreEl) {
-        window.alertWarning(techl('review_val_no_score'));
+        if (typeof window.alertWarning === 'function') {
+            window.alertWarning(techl('review_val_no_score'));
+        } else {
+            alert(techl('review_val_no_score'));
+        }
         return false;
     }
     if (!recEl) {
-        window.alertWarning(techl('review_val_no_rec'));
+        if (typeof window.alertWarning === 'function') {
+            window.alertWarning(techl('review_val_no_rec'));
+        } else {
+            alert(techl('review_val_no_rec'));
+        }
         return false;
     }
 
@@ -244,12 +259,16 @@ function candReviewConfirm(form) {
         .replace(':score', score)
         .replace(':rec', recLabel);
 
-    window.confirmAction(msg, function () { form.submit(); }, {
-        title: techl('review_confirm_title'),
-        type: 'confirm',
-        confirmLabel: techl('review_confirm_ok'),
-    });
-    return false;
+    if (typeof window.confirmAction === 'function') {
+        window.confirmAction(msg, function () { form.submit(); }, {
+            title: techl('review_confirm_title'),
+            type: 'confirm',
+            confirmLabel: techl('review_confirm_ok'),
+        });
+        return false;
+    }
+
+    return window.confirm(msg);
 }
 
 // Auto-odswiezanie — pomijane gdy karta nieaktywna lub trwa zadanie sieciowe.

@@ -17,15 +17,27 @@
     }
 
     function infoAlert(msg) {
-        window.alertInfo(msg, lang().title_info || 'Informacja');
+        if (typeof window.alertInfo === 'function') {
+            window.alertInfo(msg, lang().title_info || 'Informacja');
+            return;
+        }
+        window.alert(msg);
     }
 
     function errorAlert(msg) {
-        window.alertError(msg, lang().title_error || 'Bd');
+        if (typeof window.alertError === 'function') {
+            window.alertError(msg, lang().title_error || 'Bd');
+            return;
+        }
+        window.alert(msg);
     }
 
     function warningAlert(msg) {
-        window.alertWarning(msg, lang().title_warning || 'Uwaga');
+        if (typeof window.alertWarning === 'function') {
+            window.alertWarning(msg, lang().title_warning || 'Uwaga');
+            return;
+        }
+        window.alert(msg);
     }
 
  // Modal braku zezwolenia na prace lokalne (3 przyciski) / Local permit required modal (3 buttons)
@@ -84,9 +96,7 @@
     function hubConfirm(msg, options = {}) {
         return new Promise((resolve) => {
             if (typeof window.confirmAction !== 'function') {
-                // Modal.js niedostepny — traktuj jako anulowanie (zadna akcja destrukcyjna).
-                // modal.js unavailable — treat as cancel (no destructive action proceeds).
-                resolve(false);
+                resolve(window.confirm(msg));
                 return;
             }
 
