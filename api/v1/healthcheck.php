@@ -98,6 +98,28 @@ foreach ($needed as $t) {
 }
 line('');
 
+// 3b. Cena ropy w market_state — dokladna wartosc serwowana przez API.
+// Mobile/web czytaja wiersz id=1; tu pokazujemy id, current_price i czas ticku,
+// zeby jednoznacznie potwierdzic czy API zwraca realna cene czy 0.
+// Oil price in market_state — the exact value the API serves (row id=1).
+line('-- 3b. Cena ropy / Oil price (market_state) --');
+try {
+    $row = $db->query(
+        "SELECT id, current_price, base_price, last_market_tick_at
+           FROM market_state WHERE id = 1 LIMIT 1"
+    )->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        fail('BRAK wiersza market_state id=1 — API zwroci cene 0 (uruchom Market::ensureState lub cron tick)');
+    } else {
+        $price = (float)$row['current_price'];
+        $msg = "market_state id={$row['id']} current_price={$price} base_price={$row['base_price']} last_tick={$row['last_market_tick_at']}";
+        $price > 0 ? ok($msg) : fail($msg . ' — CENA = 0, sprawdz cron tick');
+    }
+} catch (\Throwable $e) {
+    fail('odczyt market_state: ' . $e->getMessage());
+}
+line('');
+
 // 4. Kolumny players wymagane przez login / players columns used by login
 line('-- 4. Kolumny `players` uzywane przez login --');
 try {
