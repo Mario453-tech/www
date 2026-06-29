@@ -255,3 +255,38 @@ jobs:
             "${{ secrets.SITE_URL }}/public/opcache-reset.php?token=${{ secrets.OPCACHE_RESET_TOKEN }}" \
             && echo "" && echo "OPcache reset OK" \
             || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"
+
+      # Smoke-test produkcji: sprawdza czy PHP dziala, baza dostepna i tabele istnieja.
+      # Nieblokujacy — czerwony wynik nie cofa deployu, ale jest widoczny w CI.
+      # Production smoke-test: checks PHP works, DB reachable, and required tables exist.
+      # Non-blocking — a red result does not revert the deploy, but is visible in CI.
+      - name: Smoke-test produkcji / Production smoke-test
+        run: |
+          SITE="${{ secrets.SITE_URL }}"
+          echo "=== Healthcheck: $SITE/api/v1/healthcheck.php ==="
+          HC=$(curl -fsS --max-time 30 "$SITE/api/v1/healthcheck.php" 2>&1) || {
+            echo "FAIL: healthcheck nieosiagalny (HTTP error lub timeout)"
+            exit 0
+          }
+          echo "$HC"
+          if echo "$HC" | grep -q '\[ FAIL \]'; then
+            echo ""
+            echo "UWAGA: healthcheck zglosil bledy powyzej (deploy kontynuowany)"
+          else
+            echo ""
+            echo "Healthcheck OK — brak bledow"
+          fi
+          echo ""
+          echo "=== API dostepnosc: POST $SITE/api/v1/auth/login ==="
+          HTTP_CODE=$(curl -o /dev/null -sS --max-time 15 -w "%{http_code}" \
+            -X POST -H "Content-Type: application/json" \
+            -d '{"username":"__smoke__","password":"__smoke__"}' \
+            "$SITE/api/v1/auth/login" 2>&1) || true
+          echo "HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "422" ] || [ "$HTTP_CODE" = "200" ]; then
+            echo "API OK — endpoint odpowiada (blad logowania to oczekiwane zachowanie)"
+          elif [ "$HTTP_CODE" = "000" ]; then
+            echo "UWAGA: brak polaczenia z $SITE (DNS/network)"
+          else
+            echo "UWAGA: nieoczekiwany HTTP $HTTP_CODE z /api/v1/auth/login"
+          fi
