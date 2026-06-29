@@ -5,10 +5,6 @@ require_once __DIR__ . '/../src/init.php';
 require_once __DIR__ . '/../src/MobileWebBridge.php';
 
 $token = trim((string)($_GET['token'] ?? ''));
-if (strlen($token) > 128) {
-    header('Location: ' . url('login') . '?mobile_bridge=invalid');
-    exit;
-}
 $player = MobileWebBridge::consume($token);
 if (!$player) {
     header('Location: ' . url('login') . '?mobile_bridge=invalid');

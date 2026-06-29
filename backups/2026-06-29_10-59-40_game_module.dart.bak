@@ -61,7 +61,6 @@ class _GameBridgeViewState extends State<_GameBridgeView> {
   }
 
   Future<void> _loadBridge() async {
-    if (!mounted) return;
     final requestId = ++_requestId;
     setState(() {
       _loading = true;

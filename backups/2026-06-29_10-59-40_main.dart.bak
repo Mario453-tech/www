@@ -22,8 +22,7 @@ void main() async {
     base: coreStrings,
   );
 
-  final localeProvider = LocaleProvider(translations);
-  await localeProvider.load();
+  final localeProvider = LocaleProvider(translations)..load();
 
   runApp(
     MultiProvider(
