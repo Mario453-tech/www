@@ -72,11 +72,6 @@ class _GameWebViewState extends State<GameWebView> {
     unawaited(_loadBridgeUrl());
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   Future<void> _loadBridgeUrl() async {
     try {
