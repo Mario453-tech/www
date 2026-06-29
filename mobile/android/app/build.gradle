@@ -5,20 +5,34 @@ plugins {
 }
 
 def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+def keystorePropertiesFile = [
+    rootProject.file("key.properties"),
+    rootProject.file("android/key.properties"),
+    project.file("../key.properties")
+].find { it.exists() }
+if (keystorePropertiesFile != null) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-def releaseStoreFile = keystoreProperties["storeFile"] ?: System.getenv("ANDROID_KEYSTORE_PATH")
-def releaseStorePassword = keystoreProperties["storePassword"] ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
-def releaseKeyAlias = keystoreProperties["keyAlias"] ?: System.getenv("ANDROID_KEY_ALIAS")
-def releaseKeyPassword = keystoreProperties["keyPassword"] ?: System.getenv("ANDROID_KEY_PASSWORD")
+def propertyValue = { key ->
+    keystoreProperties[key] ?: keystoreProperties["\uFEFF${key}"] ?: keystoreProperties["\u00EF\u00BB\u00BF${key}"]
+}
+
+def releaseStoreFile = propertyValue("storeFile") ?: System.getenv("ANDROID_KEYSTORE_PATH")
+def releaseStorePassword = propertyValue("storePassword") ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = propertyValue("keyAlias") ?: System.getenv("ANDROID_KEY_ALIAS")
+def releaseKeyPassword = propertyValue("keyPassword") ?: System.getenv("ANDROID_KEY_PASSWORD")
 def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+def releaseStoreBaseDir = keystorePropertiesFile != null ? keystorePropertiesFile.parentFile : rootProject.projectDir
+def releaseStorePath = releaseStoreFile
+    ? (new File(releaseStoreFile.toString()).isAbsolute()
+        ? file(releaseStoreFile)
+        : new File(releaseStoreBaseDir, releaseStoreFile.toString()))
+    : null
 
 gradle.taskGraph.whenReady { taskGraph ->
     if (taskGraph.hasTask(":app:assembleRelease") && !hasReleaseSigning) {
-        throw new GradleException("Release signing is required. Configure android/key.properties or ANDROID_KEYSTORE_* secrets.")
+        throw new GradleException("Release signing is required. Configure android/key.properties or GitHub Actions signing secrets.")
     }
 }
 
@@ -46,7 +60,7 @@ android {
 
     signingConfigs {
         release {
-            storeFile hasReleaseSigning ? file(releaseStoreFile) : null
+            storeFile hasReleaseSigning ? releaseStorePath : null
             storePassword hasReleaseSigning ? releaseStorePassword : null
             keyAlias hasReleaseSigning ? releaseKeyAlias : null
             keyPassword hasReleaseSigning ? releaseKeyPassword : null

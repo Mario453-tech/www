@@ -44,6 +44,35 @@ jobs:
         working-directory: mobile
         run: flutter test
 
+      - name: Configure Android release signing
+        working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name secret is required for release APK signing"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/oilempire-release.jks
+          {
+            printf 'storeFile=app/oilempire-release.jks\n'
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+          } > key.properties
+
       - name: Build APK (release)
         working-directory: mobile
         run: flutter build apk --release
