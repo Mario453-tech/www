@@ -31,9 +31,16 @@ line('');
 // 1. Autoload + klasy / Autoload + classes
 $root = dirname(__DIR__, 2);
 line('-- 1. Pliki / Files --');
-foreach (['/vendor/autoload.php', '/src/Database.php', '/src/ApiAuth.php', '/config/database.php'] as $rel) {
+// vendor/autoload.php jest OPCJONALNY na produkcji (FTP deploy wyklucza vendor/),
+// wiec jego brak to info, nie [FAIL]. Pozostale pliki sa wymagane.
+// vendor/autoload.php is OPTIONAL in production (FTP deploy excludes vendor/), so a
+// missing one is info, not [FAIL]. The remaining files are required.
+foreach (['/src/Database.php', '/src/ApiAuth.php', '/config/database.php'] as $rel) {
     file_exists($root . $rel) ? ok("istnieje $rel") : fail("BRAK $rel");
 }
+file_exists($root . '/vendor/autoload.php')
+    ? ok('istnieje /vendor/autoload.php')
+    : info('/vendor/autoload.php nieobecny — pomijam (nie jest wymagany na produkcji)');
 try {
     if (is_file($root . '/vendor/autoload.php')) {
         require_once $root . '/vendor/autoload.php';
@@ -88,6 +95,28 @@ foreach ($needed as $t) {
         fail("tabela `$t`: " . $e->getMessage());
         $missing[] = $t;
     }
+}
+line('');
+
+// 3b. Cena ropy w market_state — dokladna wartosc serwowana przez API.
+// Mobile/web czytaja wiersz id=1; tu pokazujemy id, current_price i czas ticku,
+// zeby jednoznacznie potwierdzic czy API zwraca realna cene czy 0.
+// Oil price in market_state — the exact value the API serves (row id=1).
+line('-- 3b. Cena ropy / Oil price (market_state) --');
+try {
+    $row = $db->query(
+        "SELECT id, current_price, base_price, last_market_tick_at
+           FROM market_state WHERE id = 1 LIMIT 1"
+    )->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        fail('BRAK wiersza market_state id=1 — API zwroci cene 0 (uruchom Market::ensureState lub cron tick)');
+    } else {
+        $price = (float)$row['current_price'];
+        $msg = "market_state id={$row['id']} current_price={$price} base_price={$row['base_price']} last_tick={$row['last_market_tick_at']}";
+        $price > 0 ? ok($msg) : fail($msg . ' — CENA = 0, sprawdz cron tick');
+    }
+} catch (\Throwable $e) {
+    fail('odczyt market_state: ' . $e->getMessage());
 }
 line('');
 

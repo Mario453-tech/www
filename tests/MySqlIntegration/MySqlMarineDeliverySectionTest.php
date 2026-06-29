@@ -90,7 +90,12 @@ final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
 
         $section = new MarineDeliverySection($this->db, new \DateTime());
  // incidentChance 0 (hseBonus catastrophe_mult = 0) brak losowych strat
-        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+        // failure_reduction=0.0 zeruje incidentChance (0.04*deltaHours*failure_reduction)
+        // => losowy incydent storm/breakdown nie odpala sie => test deterministyczny.
+        // Bez tego ~8% przebiegow konczylo sie 'delayed' zamiast oczekiwanego stanu (flaky).
+        // failure_reduction=0.0 zeroes incidentChance so the random storm/breakdown never
+        // fires — makes the state-machine assertions deterministic (was ~8% flaky).
+        $section->process($playerId, ['catastrophe_mult' => 0.0, 'failure_reduction' => 0.0], 1.0);
 
         $row = $this->fetchDelivery($delivId);
         $this->assertSame('in_transit', $row['status'], 'departing powinno przejsc w in_transit');
@@ -112,7 +117,12 @@ final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
         $delivId = $this->insertDelivery($playerId, $ids['wellId'], 50.0, 'in_transit', $etaPast, $this->portId);
 
         $section = new MarineDeliverySection($this->db, new \DateTime());
-        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+        // failure_reduction=0.0 zeruje incidentChance (0.04*deltaHours*failure_reduction)
+        // => losowy incydent storm/breakdown nie odpala sie => test deterministyczny.
+        // Bez tego ~8% przebiegow konczylo sie 'delayed' zamiast oczekiwanego stanu (flaky).
+        // failure_reduction=0.0 zeroes incidentChance so the random storm/breakdown never
+        // fires — makes the state-machine assertions deterministic (was ~8% flaky).
+        $section->process($playerId, ['catastrophe_mult' => 0.0, 'failure_reduction' => 0.0], 1.0);
 
         $row = $this->fetchDelivery($delivId);
         $this->assertSame('waiting_for_port', $row['status'], 'Po ETA dostawa powinna czekac na port');
@@ -146,7 +156,12 @@ final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
 
         $section = new MarineDeliverySection($this->db, new \DateTime());
  // Blokujemy incydenty (catastrophe_mult = 0) ale brak portu delayed
-        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+        // failure_reduction=0.0 zeruje incidentChance (0.04*deltaHours*failure_reduction)
+        // => losowy incydent storm/breakdown nie odpala sie => test deterministyczny.
+        // Bez tego ~8% przebiegow konczylo sie 'delayed' zamiast oczekiwanego stanu (flaky).
+        // failure_reduction=0.0 zeroes incidentChance so the random storm/breakdown never
+        // fires — makes the state-machine assertions deterministic (was ~8% flaky).
+        $section->process($playerId, ['catastrophe_mult' => 0.0, 'failure_reduction' => 0.0], 1.0);
 
         $row = $this->fetchDelivery($delivId);
 
@@ -183,7 +198,12 @@ final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
         $delivId = $this->insertDelivery($playerId, $ids['wellId'], 30.0, 'in_transit', $etaPast, $this->portId);
 
         $section = new MarineDeliverySection($this->db, new \DateTime());
-        $section->process($playerId, ['catastrophe_mult' => 0.0], 1.0);
+        // failure_reduction=0.0 zeruje incidentChance (0.04*deltaHours*failure_reduction)
+        // => losowy incydent storm/breakdown nie odpala sie => test deterministyczny.
+        // Bez tego ~8% przebiegow konczylo sie 'delayed' zamiast oczekiwanego stanu (flaky).
+        // failure_reduction=0.0 zeroes incidentChance so the random storm/breakdown never
+        // fires — makes the state-machine assertions deterministic (was ~8% flaky).
+        $section->process($playerId, ['catastrophe_mult' => 0.0, 'failure_reduction' => 0.0], 1.0);
 
         $row = $this->fetchDelivery($delivId);
 

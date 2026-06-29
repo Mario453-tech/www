@@ -277,16 +277,19 @@ jobs:
             echo "Healthcheck OK — brak bledow"
           fi
           echo ""
-          echo "=== API dostepnosc: POST $SITE/api/v1/auth/login ==="
+          # Endpoint logowania uzywany przez aplikacje mobilna ma rozszerzenie .php
+          # (mobile/lib/services/api_service.dart: '/auth/login.php'). Bez .php = 404.
+          # The mobile login endpoint has a .php extension; without it the path 404s.
+          echo "=== API dostepnosc: POST $SITE/api/v1/auth/login.php ==="
           HTTP_CODE=$(curl -o /dev/null -sS --max-time 15 -w "%{http_code}" \
             -X POST -H "Content-Type: application/json" \
-            -d '{"username":"__smoke__","password":"__smoke__"}' \
-            "$SITE/api/v1/auth/login" 2>&1) || true
+            -d '{"login":"__smoke__","password":"__smoke__","device":"ci-smoke"}' \
+            "$SITE/api/v1/auth/login.php" 2>&1) || true
           echo "HTTP status: $HTTP_CODE"
-          if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "422" ] || [ "$HTTP_CODE" = "200" ]; then
+          if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "422" ] || [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "200" ]; then
             echo "API OK — endpoint odpowiada (blad logowania to oczekiwane zachowanie)"
           elif [ "$HTTP_CODE" = "000" ]; then
             echo "UWAGA: brak polaczenia z $SITE (DNS/network)"
           else
-            echo "UWAGA: nieoczekiwany HTTP $HTTP_CODE z /api/v1/auth/login"
+            echo "UWAGA: nieoczekiwany HTTP $HTTP_CODE z /api/v1/auth/login.php"
           fi
