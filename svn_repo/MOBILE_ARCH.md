@@ -586,9 +586,10 @@ Wdrożenie P1 zabezpiecza obecną aplikację Flutter/Android i usuwa przekazywan
 
 - `AndroidManifest.xml` ma `allowBackup=false`, `fullBackupContent=false`, `usesCleartextTraffic=false` oraz `networkSecurityConfig`.
 - `network_security_config.xml` blokuje cleartext i zostawia przygotowanie pod certificate pinning w P2.
-- Release signing został przeniesiony do `android/key.properties` lokalnie albo GitHub Secrets w CI: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
-- Sekrety podpisu nie są już wpisane w `android/app/build.gradle`.
+- Release signing konfigurowany przez `android/key.properties` lokalnie albo GitHub Secrets w CI: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+- Sekrety podpisu nie są wpisane w `android/app/build.gradle`.
 - Release build ma `minifyEnabled true` i `shrinkResources true`.
+- **CI fallback**: gdy sekrety nie są skonfigurowane w GitHub, workflow buduje APK debug (nadaje się do side-loadingu, nie do Google Play). Ustawia to output `steps.signing.outputs.mode=debug|release`.
 - `FLAG_SECURE` obejmuje `LoginScreen`, `AppShell` i WebView przez wspólny shell, ale tylko w release.
 
 ### Zależności Flutter
@@ -622,7 +623,7 @@ flutter build apk --debug
 flutter build apk --release   # wymaga android/key.properties albo GitHub Secrets dla podpisu release
 ```
 
-Jeżeli release signing nie jest skonfigurowany, `flutter build apk --release` ma przerwać proces komunikatem `Release signing is required`. To jest oczekiwane zabezpieczenie przed przypadkowym wypuszczeniem unsigned release artifact.
+Jeżeli release signing nie jest skonfigurowany w GitHub Secrets, CI buduje `flutter build apk --debug` (APK debug do testowania przez side-loading). Lokalnie `flutter build apk --release` bez `android/key.properties` nadal przerywa z komunikatem `Release signing is required` (zabezpieczenie przed przypadkowym unsigned release artifact).
 
 Backend:
 
