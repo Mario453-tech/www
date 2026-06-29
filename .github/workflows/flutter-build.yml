@@ -45,6 +45,7 @@ jobs:
         run: flutter test
 
       - name: Configure Android release signing
+        id: signing
         working-directory: mobile/android
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -53,39 +54,41 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-
-          missing=0
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error::$name secret is required for release APK signing"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            exit 1
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ] && \
+             [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ] && \
+             [ -n "${ANDROID_KEY_ALIAS:-}" ] && \
+             [ -n "${ANDROID_KEY_PASSWORD:-}" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/oilempire-release.jks
+            {
+              printf 'storeFile=app/oilempire-release.jks\n'
+              printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+              printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+              printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+            } > key.properties
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Signing secrets missing — building debug APK (suitable for side-loading, not Google Play)"
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
           fi
 
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/oilempire-release.jks
-          {
-            printf 'storeFile=app/oilempire-release.jks\n'
-            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
-            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
-            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
-          } > key.properties
-
-      - name: Build APK (release)
+      - name: Build APK
         working-directory: mobile
-        run: flutter build apk --release
+        run: |
+          if [ "${{ steps.signing.outputs.mode }}" = "release" ]; then
+            flutter build apk --release
+          else
+            flutter build apk --debug
+          fi
 
       - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: OilEmpire-${{ github.run_number }}
-          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: mobile/build/app/outputs/flutter-apk/app-${{ steps.signing.outputs.mode }}.apk
           retention-days: 30
 
       - name: Rename APK
-        run: cp mobile/build/app/outputs/flutter-apk/app-release.apk OilEmpire.apk
+        run: cp mobile/build/app/outputs/flutter-apk/app-${{ steps.signing.outputs.mode }}.apk OilEmpire.apk
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
