@@ -58,10 +58,15 @@ if (is_file($_API_ROOT . '/vendor/autoload.php')) {
 require_once $_API_ROOT . '/src/GameLog.php';
 require_once $_API_ROOT . '/src/Database.php';
 require_once $_API_ROOT . '/src/ApiAuth.php';
+require_once $_API_ROOT . '/src/Market.php';
 
 // Auto-tworzy tabele api_tokens jesli nie istnieje (raz na proces, bezpieczne no-op).
 // Auto-creates api_tokens table if missing (once per process, safe no-op).
 ApiAuth::ensureSchema();
+
+// Gwarantuje wiersz market_state id=1 (inaczej cena ropy = 0 na swiezej/przywroconej bazie).
+// Ensures the market_state singleton row exists (else oil price = 0 on a fresh/restored DB).
+Market::ensureState();
 
 GameLog::setEnabled(false);
 

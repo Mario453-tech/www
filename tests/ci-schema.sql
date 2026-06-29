@@ -1438,6 +1438,14 @@ CREATE TABLE `market_state` (
 --
 -- Dumping data for table `market_state`
 --
+-- Wiersz singleton id=1 wymagany przez cron (MarketTick), web (Market::getState)
+-- oraz API mobilne. Bez niego cena ropy = 0. Runtime Market::ensureState() tez
+-- go wstawia (INSERT IGNORE), ale seed tutaj trzyma baze CI spojna z produkcja.
+-- Singleton row id=1 required by cron, web and the mobile API; without it oil price = 0.
+INSERT INTO `market_state`
+  (`id`, `base_price`, `current_price`, `volatility`, `last_market_tick_at`, `supply_index`, `demand_index`, `world_production`, `demand_base`, `season_factor`)
+VALUES
+  (1, 100, 70, 1, NOW(), 1000.00, 1000.00, 800.00, 1000.00, 1.000);
 
 
 -- --------------------------------------------------------
