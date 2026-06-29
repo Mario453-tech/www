@@ -31,9 +31,16 @@ line('');
 // 1. Autoload + klasy / Autoload + classes
 $root = dirname(__DIR__, 2);
 line('-- 1. Pliki / Files --');
-foreach (['/vendor/autoload.php', '/src/Database.php', '/src/ApiAuth.php', '/config/database.php'] as $rel) {
+// vendor/autoload.php jest OPCJONALNY na produkcji (FTP deploy wyklucza vendor/),
+// wiec jego brak to info, nie [FAIL]. Pozostale pliki sa wymagane.
+// vendor/autoload.php is OPTIONAL in production (FTP deploy excludes vendor/), so a
+// missing one is info, not [FAIL]. The remaining files are required.
+foreach (['/src/Database.php', '/src/ApiAuth.php', '/config/database.php'] as $rel) {
     file_exists($root . $rel) ? ok("istnieje $rel") : fail("BRAK $rel");
 }
+file_exists($root . '/vendor/autoload.php')
+    ? ok('istnieje /vendor/autoload.php')
+    : info('/vendor/autoload.php nieobecny — pomijam (nie jest wymagany na produkcji)');
 try {
     if (is_file($root . '/vendor/autoload.php')) {
         require_once $root . '/vendor/autoload.php';
