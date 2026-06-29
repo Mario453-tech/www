@@ -28,4 +28,5 @@ const Map<String, String> dashboardEn = {
   'dashboard.state.warning': 'Warning',
   'dashboard.state.crisis': 'CRISIS',
   'dashboard.state.bankrupt': 'BANKRUPT',
+  'dashboard.market_unavailable': 'Market data unavailable — pull to refresh',
 };
