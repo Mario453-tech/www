@@ -1,0 +1,85 @@
+name: PHP Tests (MySQL)
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - '.github/workflows/php-tests.yml'
+      - 'src/**'
+      - 'api/**'
+      - 'public/**'
+      - 'tests/**'
+      - 'migrations/**'
+      - 'config/**'
+      - 'composer.json'
+      - 'phpunit.xml.dist'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'tests/**'
+      - 'migrations/**'
+      - 'config/**'
+  workflow_dispatch:
+
+jobs:
+  php-tests:
+    name: PHPUnit + training migration on MySQL 8
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: oil_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_NAME: oil_test
+      DB_USER: root
+      DB_PASS: root
+      DB_CHARSET: utf8mb4
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, mbstring, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
+              echo "MySQL is up"; break
+            fi
+            echo "Waiting for MySQL... ($i)"; sleep 2
+          done
+
+      - name: Load base schema (no training tables — those are bootstrapped at runtime)
+        run: mysql -h 127.0.0.1 -uroot -proot oil_test < tests/ci-schema.sql
+
+      - name: Training auto-migration on MySQL (ensureTrainingSchema creates 4 tables)
+        run: php tests/test_training_engine.php
+
+      - name: PHPUnit — Unit + Integration (SQLite)
+        run: vendor/bin/phpunit --testsuite Unit,Integration
+
+      - name: PHPUnit — MySqlIntegration (live MySQL)
+        run: vendor/bin/phpunit --testsuite MySqlIntegration
