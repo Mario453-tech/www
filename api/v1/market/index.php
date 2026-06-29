@@ -23,11 +23,13 @@ $playerId = (int)$player['id'];
 $db       = Database::getInstance()->getConnection();
 
 // Aktualna cena + czas ostatniego ticka rynku / Current price + last market tick
+// Wiersz singleton id=1 — spojny z cron (MarketTick) i web (Market::getState).
+// The id=1 singleton — consistent with the cron and the web reader.
 $priceStmt = $db->query(
     "SELECT current_price, base_price, volatility, supply_index, demand_index,
             last_market_tick_at,
             DATE_ADD(last_market_tick_at, INTERVAL 5 MINUTE) AS next_tick_estimated
-       FROM market_state ORDER BY id DESC LIMIT 1"
+       FROM market_state WHERE id = 1 LIMIT 1"
 );
 $market = $priceStmt->fetch() ?: [];
 

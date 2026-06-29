@@ -41,8 +41,11 @@ $storageStmt->execute([$playerId]);
 $storage = $storageStmt->fetch() ?: ['max_bbl' => 0, 'current_bbl' => 0];
 
 // Aktualna cena ropy / Current oil price
+// Czytamy wiersz singleton id=1 — ten sam, ktory aktualizuje cron i czyta web
+// (src/Market.php, src/MarketTick.php). ORDER BY id DESC moglby trafic w inny wiersz.
+// Read the id=1 singleton — same row the cron writes and the web reads.
 $priceStmt = $db->query(
-    "SELECT current_price FROM market_state ORDER BY id DESC LIMIT 1"
+    "SELECT current_price FROM market_state WHERE id = 1 LIMIT 1"
 );
 $oilPrice = (float)($priceStmt->fetchColumn() ?: 0);
 
