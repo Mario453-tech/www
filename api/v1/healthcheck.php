@@ -120,6 +120,39 @@ try {
 }
 line('');
 
+// 3c. Zapytania endpointu /api/v1/market — wykrywaja rozjazd kolumn API vs schema.
+// Endpoint market czyta market_trends (trend) i market_offers (oferty gracza). Jesli
+// API odwoluje sie do nieistniejacej kolumny, caly endpoint zwraca 500, a aplikacja
+// pokazuje "Dane rynku niedostepne". Tu uruchamiamy te same zapytania, by to wychwycic.
+// /api/v1/market queries — catch API-vs-schema column drift (else the endpoint 500s and
+// the app shows "market data unavailable").
+line('-- 3c. Zapytania endpointu /api/v1/market --');
+try {
+    $db->query(
+        "SELECT trend_name, category, price_modifier, duration_hours, message_template,
+                activated_at,
+                GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(),
+                    DATE_ADD(activated_at, INTERVAL duration_hours HOUR))) AS remaining_seconds
+           FROM market_trends WHERE active = 1 ORDER BY activated_at DESC LIMIT 1"
+    )->fetch();
+    ok('zapytanie market_trends (trend) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie market_trends: ' . $e->getMessage());
+}
+try {
+    $s = $db->prepare(
+        "SELECT id, amount, limit_price, status, created_at, completed_at
+           FROM market_offers WHERE player_id = ? AND status = 'pending'
+          ORDER BY created_at DESC LIMIT 20"
+    );
+    $s->execute([0]);
+    $s->fetchAll();
+    ok('zapytanie market_offers (oferty) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie market_offers: ' . $e->getMessage());
+}
+line('');
+
 // 4. Kolumny players wymagane przez login / players columns used by login
 line('-- 4. Kolumny `players` uzywane przez login --');
 try {

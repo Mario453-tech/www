@@ -70,10 +70,17 @@ if ($trend) {
 }
 
 // Oferty gracza / Player's market offers
+// Schemat market_offers: kolumny to `amount` (wolumen bbl) i `limit_price`
+// (cena za bbl); aktywne oferty maja status 'pending' (jak w MarketOffer::getPlayerOffers
+// i public/market_offers.php). NIE ma kolumn volume_bbl/price_per_bbl/expires_at ani
+// statusu 'active' — wczesniejsze zapytanie rzucalo "Unknown column" -> 500 -> apka
+// pokazywala "Dane rynku niedostepne". Klucze JSON zostaja te same dla zgodnosci.
+// market_offers schema: `amount` (bbl volume) and `limit_price` (price per bbl); active
+// offers use status 'pending'. There are no volume_bbl/price_per_bbl/expires_at columns.
 $offersStmt = $db->prepare("
-    SELECT id, volume_bbl, price_per_bbl, status, created_at, expires_at
+    SELECT id, amount, limit_price, status, created_at, completed_at
       FROM market_offers
-     WHERE player_id = ? AND status = 'active'
+     WHERE player_id = ? AND status = 'pending'
      ORDER BY created_at DESC
      LIMIT 20
 ");
@@ -82,11 +89,11 @@ $offers = [];
 foreach ($offersStmt->fetchAll() as $o) {
     $offers[] = [
         'id'            => (int)$o['id'],
-        'volume_bbl'    => round((float)$o['volume_bbl'], 2),
-        'price_per_bbl' => round((float)$o['price_per_bbl'], 2),
+        'volume_bbl'    => round((float)$o['amount'], 2),
+        'price_per_bbl' => round((float)$o['limit_price'], 2),
         'status'        => $o['status'],
         'created_at'    => $o['created_at'],
-        'expires_at'    => $o['expires_at'],
+        'expires_at'    => $o['completed_at'],
     ];
 }
 
