@@ -161,18 +161,8 @@ class BailiffService
                 } catch (Throwable $le) { /* obsluga ponizej / handled below */ }
             }
             if (!$charged) {
-                $fallback = $this->db->prepare("UPDATE players SET cash = cash - :amt WHERE id = :id");
-                $fallback->execute([':amt' => $seized, ':id' => $proc['player_id']]);
-                // Guard: brak wiersza = gracz usuniety miedzy odczytem a zajeciem. Nie udawaj sukcesu.
-                // Guard: 0 rows = player removed between read and seizure. Do not fake success.
-                if ($fallback->rowCount() === 0) {
-                    GameLog::error('bailiff', 'Fallback seizure affected 0 rows (player missing?)', null, [
-                        'player_id' => (int)$proc['player_id'],
-                        'proc_id'   => (int)$proc['id'],
-                        'amount'    => $seized,
-                    ]);
-                    return;
-                }
+                $this->db->prepare("UPDATE players SET cash = cash - :amt WHERE id = :id")
+                    ->execute([':amt' => $seized, ':id' => $proc['player_id']]);
             }
 
             $this->db->prepare("UPDATE loans SET remaining_amount = remaining_amount - :amt WHERE id = :id")

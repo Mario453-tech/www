@@ -79,17 +79,8 @@ class _GameWebViewState extends State<GameWebView> {
   }
 
   Future<void> _loadBridgeUrl() async {
-    try {
-      await WebSessionCleaner.clearControllerStorage(_controller);
-      await _controller.loadRequest(Uri.parse(widget.url));
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _hasError = true;
-        _errorKey = 'webview.error_connection';
-      });
-    }
+    await WebSessionCleaner.clearControllerStorage(_controller);
+    await _controller.loadRequest(Uri.parse(widget.url));
   }
 
   Future<void> _retry() async {

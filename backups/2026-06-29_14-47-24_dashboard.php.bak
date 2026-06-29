@@ -175,8 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($ck2->fetch()) {
                     $db->beginTransaction();
                     try {
-                        $db->prepare("UPDATE board_members SET status='fired', fired_at=NOW() WHERE id=? AND player_id=?")
-                           ->execute([$memberId, $playerId]);
+                        $db->prepare("UPDATE board_members SET status='fired', fired_at=NOW() WHERE id=?")
+                           ->execute([$memberId]);
                         $db->prepare("UPDATE employee_contracts SET status='terminated' WHERE member_id=? AND status='active'")
                            ->execute([$memberId]);
                         $db->prepare("INSERT INTO employment_history (member_id, action, reason, created_at) VALUES (?,?,?,NOW())")
