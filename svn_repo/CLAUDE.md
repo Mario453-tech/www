@@ -364,3 +364,32 @@ try {
 }
 $totalDelivered += $delivered;
 ```
+
+## Flutter (mobile/) — ZASADA OBOWIĄZKOWA
+
+### Zawsze buduj aplikację po zmianach
+
+Po każdej zmianie kodu Flutter (pliki w `mobile/lib/`) OBOWIĄZKOWO:
+
+1. `flutter analyze --no-pub` — zero błędów przed commitem
+2. Zbuduj APK:
+   ```bash
+   cd /home/user/www/mobile
+   /opt/flutter-sdk/bin/flutter build apk --release --no-pub
+   ```
+   Plik wynikowy: `mobile/build/app/outputs/flutter-apk/app-release.apk`
+3. Poinformuj uzytkownika o sciezce do APK do instalacji na telefonie.
+
+**UWAGA srodowisko zdalne:** W srodowisku claude.ai/code (remote cloud) nie ma
+Android SDK — `flutter build apk` nie zadzala (brak ANDROID_HOME). W takim
+przypadku poinformuj uzytkownika, ze APK musi byc zbudowany lokalnie lub przez CI/CD
+z danego brancha. Zawsze wykonaj przynajmniej `flutter analyze --no-pub`.
+
+### Flutter SDK
+
+Zainstalowany w `/opt/flutter-sdk`. Uzywaj pelnej sciezki:
+- `analyze`: `/opt/flutter-sdk/bin/flutter analyze --no-pub`
+- `build apk`: `/opt/flutter-sdk/bin/flutter build apk --release --no-pub`
+- `pub get`: `/opt/flutter-sdk/bin/flutter pub get`
+
+Jesli flutter nie dzala: `git config --global --add safe.directory /opt/flutter-sdk`
