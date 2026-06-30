@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/map_data.dart';
 import '../models/market.dart';
+import '../models/technical_data.dart';
 import '../models/player.dart';
 import '../models/well.dart';
 
@@ -147,6 +148,50 @@ class ApiService {
           body: jsonEncode({'region_id': regionId}),
         )
         .timeout(_timeout);
+    return _decode(response);
+  }
+
+  static Future<TechnicalData> getTechnicalData(String token) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/technical/data.php');
+    final response =
+        await http.get(uri, headers: _headers(token)).timeout(_timeout);
+    return TechnicalData.fromJson(_decode(response));
+  }
+
+  static Future<Map<String, dynamic>> fireTechnicalStaff(
+      String token, int staffId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/technical/fire.php');
+    final response = await http
+        .post(
+          uri,
+          headers: _headers(token),
+          body: jsonEncode({'staff_id': staffId}),
+        )
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
+  static Future<Map<String, dynamic>> assignTechnicalTask(
+      String token, int staffId, String taskType, {int? wellId}) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/technical/assign_task.php');
+    final body = <String, dynamic>{'staff_id': staffId, 'task_type': taskType};
+    if (wellId != null) body['well_id'] = wellId;
+    final response = await http
+        .post(
+          uri,
+          headers: _headers(token),
+          body: jsonEncode(body),
+        )
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
+  static Future<Map<String, dynamic>> getTechnicalAvailableTasks(
+      String token, int staffId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/technical/available_tasks.php?staff_id=$staffId');
+    final response =
+        await http.get(uri, headers: _headers(token)).timeout(_timeout);
     return _decode(response);
   }
 

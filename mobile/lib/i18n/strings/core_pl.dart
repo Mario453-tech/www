@@ -11,6 +11,7 @@ const Map<String, String> corePl = {
   'nav.wells': 'Studnie',
   'nav.market': 'Rynek',
   'nav.maps': 'Mapa',
+  'nav.technical': 'Techniczny',
 
   // Common
   'common.retry': 'Spróbuj ponownie',

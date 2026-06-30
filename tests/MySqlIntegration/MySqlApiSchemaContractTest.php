@@ -75,6 +75,17 @@ final class MySqlApiSchemaContractTest extends TestCase
             'submitted_at', 'decision_due_at', 'decided_at',
             'refusal_cooldown_until', 'delay_count',
         ],
+
+        // /api/v1/technical/data.php
+        'technical_staff' => [
+            'id', 'player_id', 'manager_id', 'first_name', 'last_name',
+            'spec_code', 'spec_name', 'skill_level', 'salary', 'status',
+            'experience_years', 'hired_at',
+        ],
+        'technical_tasks' => [
+            'id', 'player_id', 'staff_id', 'task_type', 'well_id',
+            'start_time', 'end_time', 'cost', 'status', 'created_at',
+        ],
     ];
 
     private PDO $db;
@@ -98,9 +109,14 @@ final class MySqlApiSchemaContractTest extends TestCase
         require_once dirname(__DIR__, 2) . '/src/ApiAuth.php';
         require_once dirname(__DIR__, 2) . '/src/i18n.php';
         require_once dirname(__DIR__, 2) . '/src/LegalService.php';
+        require_once dirname(__DIR__, 2) . '/src/TaskConfigService.php';
+        require_once dirname(__DIR__, 2) . '/src/TechnicalTeamService.php';
         GameLog::setEnabled(false);
         ApiAuth::ensureSchema();
         new LegalService(); // ensureSchema() + autoSeedIfEmpty() w konstruktorze
+        // Ensures technical_tasks hub_id/pipeline_id columns and enum values exist.
+        // Gwarantuje kolumny hub_id/pipeline_id w technical_tasks i wartosci enuma.
+        new TechnicalTeamService(0);
     }
 
     protected function tearDown(): void

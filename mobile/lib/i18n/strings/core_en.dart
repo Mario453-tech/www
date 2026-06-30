@@ -10,6 +10,7 @@ const Map<String, String> coreEn = {
   'nav.wells': 'Wells',
   'nav.market': 'Market',
   'nav.maps': 'Map',
+  'nav.technical': 'Technical',
 
   // Common
   'common.retry': 'Try again',
