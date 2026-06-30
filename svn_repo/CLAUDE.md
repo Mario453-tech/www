@@ -385,6 +385,14 @@ Android SDK — `flutter build apk` nie zadzala (brak ANDROID_HOME). W takim
 przypadku poinformuj uzytkownika, ze APK musi byc zbudowany lokalnie lub przez CI/CD
 z danego brancha. Zawsze wykonaj przynajmniej `flutter analyze --no-pub`.
 
+### Zawsze podawaj pelny link do aplikacji / brancha
+
+Po kazdym pushu podaj uzytkownikowi pelny link do brancha na GitHub:
+`https://github.com/mario453-tech/www/tree/<nazwa-brancha>`
+
+Przyklad dla brancha roboczego:
+`https://github.com/mario453-tech/www/tree/claude/restart-basch-process-omr7r7`
+
 ### Flutter SDK
 
 Zainstalowany w `/opt/flutter-sdk`. Uzywaj pelnej sciezki:
