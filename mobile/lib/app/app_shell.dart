@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../i18n/locale_provider.dart';
+import '../modules/app_module.dart';
 import '../modules/module_registry.dart';
 import '../providers/auth_provider.dart';
 import '../services/screen_security_service.dart';
@@ -108,7 +109,7 @@ class _AppShellState extends State<AppShell> {
 
 class _AppDrawer extends StatelessWidget {
   final int currentIndex;
-  final List<dynamic> modules;
+  final List<AppModule> modules;
   final ValueChanged<int> onSelectModule;
 
   const _AppDrawer({
