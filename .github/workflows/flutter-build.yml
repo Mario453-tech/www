@@ -1,19 +1,8 @@
-name: Build Flutter APK / Shorebird OTA
+name: Build Flutter APK
 
-# HOW IT WORKS:
-#  push to main        → shorebird patch  (OTA update, no reinstall needed)
-#  workflow_dispatch   → shorebird release (new base APK, install once on phone)
-#
-# FIRST-TIME SETUP (do once on your machine):
-#  1. npm i -g @shorebird/cli  OR  brew install shorebirdtech/tap/shorebird
-#  2. shorebird login
-#  3. cd mobile && shorebird init        ← creates shorebird.yaml with app_id
-#  4. shorebird release android          ← builds first APK, install it on phone
-#  5. In GitHub repo Settings → Secrets add:
-#       SHOREBIRD_TOKEN  (from: shorebird login --print-token)
-#     Also keep signing secrets if you use them:
-#       ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
-#       ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+# Builds APK on every push to main.
+# If SHOREBIRD_TOKEN secret is set → uses Shorebird OTA patch.
+# Otherwise → standard flutter build apk + GitHub Release.
 
 on:
   push:
@@ -24,15 +13,15 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'release = new base APK | patch = OTA update'
+        description: 'build = standard APK | shorebird-release = new Shorebird base APK'
         required: true
-        default: 'patch'
+        default: 'build'
         type: choice
-        options: [patch, release]
+        options: [build, shorebird-release]
 
 jobs:
-  shorebird:
-    name: Shorebird ${{ github.event.inputs.mode || 'patch' }}
+  build-apk:
+    name: Build Android APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -54,11 +43,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install Shorebird
-        uses: shorebirdtech/setup-shorebird@v1
-        with:
-          cache: true
-
       - name: Get dependencies
         working-directory: mobile
         run: flutter pub get
@@ -66,6 +50,10 @@ jobs:
       - name: Analyze
         working-directory: mobile
         run: flutter analyze --no-fatal-infos
+
+      - name: Run tests
+        working-directory: mobile
+        run: flutter test
 
       - name: Configure Android signing
         id: signing
@@ -88,44 +76,67 @@ jobs:
               printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
               printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
             } > key.properties
-            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "mode=release" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Signing secrets missing — unsigned build"
-            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Signing secrets missing — building debug APK"
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
           fi
 
-      # ── OTA patch (default on every push to main) ──────────────────────────
-      - name: Shorebird patch (OTA)
-        if: ${{ github.event.inputs.mode != 'release' }}
+      # -- Standard build (default) -------------------------------------------
+      - name: Build APK
+        if: ${{ github.event.inputs.mode != 'shorebird-release' }}
         working-directory: mobile
-        env:
-          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
-        run: shorebird patch android --flutter-version=3.27.4
+        run: |
+          if [ "${{ steps.signing.outputs.mode }}" = "release" ]; then
+            flutter build apk --release
+          else
+            flutter build apk --debug
+          fi
 
-      # ── Full release (first time or when native code changes) ──────────────
+      - name: Upload APK artifact
+        if: ${{ github.event.inputs.mode != 'shorebird-release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: OilEmpire-${{ github.run_number }}
+          path: mobile/build/app/outputs/flutter-apk/app-${{ steps.signing.outputs.mode }}.apk
+          retention-days: 30
+
+      - name: Rename APK
+        if: ${{ github.event.inputs.mode != 'shorebird-release' }}
+        run: cp mobile/build/app/outputs/flutter-apk/app-${{ steps.signing.outputs.mode }}.apk OilEmpire.apk
+
+      - name: Publish GitHub Release
+        if: ${{ github.event.inputs.mode != 'shorebird-release' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "OilEmpire build #${{ github.run_number }}"
+          body: "Automatyczny build z CI. Pobierz i zainstaluj plik OilEmpire.apk na telefonie."
+          files: OilEmpire.apk
+          make_latest: true
+
+      # -- Shorebird release (manual trigger after account setup) -------------
+      - name: Install Shorebird
+        if: ${{ github.event.inputs.mode == 'shorebird-release' }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
       - name: Shorebird release (new base APK)
-        if: ${{ github.event.inputs.mode == 'release' }}
+        if: ${{ github.event.inputs.mode == 'shorebird-release' }}
         working-directory: mobile
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
         run: shorebird release android --flutter-version=3.27.4
 
-      - name: Upload release APK (artifact)
-        if: ${{ github.event.inputs.mode == 'release' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: OilEmpire-release-${{ github.run_number }}
-          path: mobile/build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 90
-
-      - name: Publish GitHub Release (for first installs)
-        if: ${{ github.event.inputs.mode == 'release' }}
+      - name: Publish Shorebird GitHub Release
+        if: ${{ github.event.inputs.mode == 'shorebird-release' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-${{ github.run_number }}
-          name: "OilEmpire release #${{ github.run_number }}"
+          name: "OilEmpire release #${{ github.run_number }} (Shorebird)"
           body: |
             Zainstaluj ten APK raz na telefonie.
-            Kolejne aktualizacje będą automatyczne (Shorebird OTA).
+            Kolejne aktualizacje beda automatyczne (Shorebird OTA).
           files: mobile/build/app/outputs/flutter-apk/app-release.apk
           make_latest: true
