@@ -83,3 +83,27 @@ jobs:
 
       - name: PHPUnit — MySqlIntegration (live MySQL)
         run: vendor/bin/phpunit --testsuite MySqlIntegration
+
+      # E2E smoke endpointow api/v1/*: realnie odpala je na bazie ci-schema (= produkcja)
+      # i sprawdza 200, nie 500. Lapie rozjazd kolumn kod<->schema, ktorego PHPUnit nie
+      # widzi (testy nie uderzaly w api/v1/*). To by zlapalo bug "Dane rynku niedostepne".
+      # E2E smoke for api/v1/*: really calls them against ci-schema and asserts 200, not 500.
+      - name: API endpoint smoke (php -S + api/v1/*)
+        run: |
+          php -S 127.0.0.1:8099 -t . >/tmp/php-server.log 2>&1 &
+          SERVER_PID=$!
+          # Poczekaj az serwer wstanie / wait for the built-in server
+          for i in $(seq 1 20); do
+            if curl -fsS -o /dev/null "http://127.0.0.1:8099/api/v1/healthcheck.php"; then
+              echo "php -S gotowy"; break
+            fi
+            sleep 0.5
+          done
+          set +e
+          php tests/api_smoke.php http://127.0.0.1:8099
+          RC=$?
+          kill "$SERVER_PID" 2>/dev/null
+          if [ "$RC" -ne 0 ]; then
+            echo "=== php -S log ==="; cat /tmp/php-server.log
+          fi
+          exit "$RC"

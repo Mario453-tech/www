@@ -42,11 +42,20 @@ if (is_readable($envFile)) {
 
 $provided = (string)($_GET['token'] ?? $_SERVER['HTTP_X_RESET_TOKEN'] ?? '');
 
- // Reject when no token is configured or it does not match.
- // PL: Odrzuc, gdy token nie jest skonfigurowany lub sie nie zgadza.
-if ($token === null || $token === '' || !hash_equals($token, $provided)) {
+ // Reject when no token is configured or it does not match — but DISTINGUISH the two,
+ // so the deploy smoke-test/log shows WHICH is wrong (bez wycieku samego tokenu).
+ // PL: Odrzuc gdy token niewlasciwy, ale ROZROZNIJ przyczyne (bez ujawniania tokenu):
+ //   token_not_configured = brak OPCACHE_RESET_TOKEN w produkcyjnym .env (z sekretu ENV_FILE)
+ //   token_mismatch       = token jest, ale != sekret OPCACHE_RESET_TOKEN uzyty w curl
+ // Naprawa: wyrownaj OPCACHE_RESET_TOKEN w sekrecie ENV_FILE z sekretem OPCACHE_RESET_TOKEN.
+if ($token === null || $token === '') {
     http_response_code(403);
-    echo json_encode(['ok' => false, 'error' => 'forbidden']);
+    echo json_encode(['ok' => false, 'error' => 'token_not_configured']);
+    exit;
+}
+if (!hash_equals($token, $provided)) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'token_mismatch']);
     exit;
 }
 
