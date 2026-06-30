@@ -13,6 +13,7 @@ const Map<String, String> coreEn = {
   'nav.technical': 'Technical',
 
   // Common
+  'common.menu': 'Menu',
   'common.retry': 'Try again',
   'common.refresh': 'Refresh',
   'common.loading': 'Loading',

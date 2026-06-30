@@ -14,6 +14,7 @@ const Map<String, String> corePl = {
   'nav.technical': 'Techniczny',
 
   // Common
+  'common.menu': 'Menu',
   'common.retry': 'Spróbuj ponownie',
   'common.refresh': 'Odśwież',
   'common.loading': 'Ładowanie',

@@ -41,7 +41,14 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 16,
+        titleSpacing: 0,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu, color: AppColors.text),
+            tooltip: context.t('common.menu'),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
         title: Row(
           children: [
             const Icon(Icons.oil_barrel, color: AppColors.gold, size: 22),
@@ -67,26 +74,15 @@ class _AppShellState extends State<AppShell> {
               tooltip: context.t('common.refresh'),
               onPressed: auth.refreshPlayer,
             ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'logout') {
-                context.read<AuthProvider>().logout();
-              }
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    const Icon(Icons.logout, size: 18),
-                    const SizedBox(width: 8),
-                    Text(context.t('auth.logout')),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ],
+      ),
+      drawer: _AppDrawer(
+        currentIndex: safeIndex,
+        modules: modules,
+        onSelectModule: (i) {
+          setState(() => _index = i);
+          Navigator.pop(context);
+        },
       ),
       body: IndexedStack(
         index: safeIndex,
@@ -107,6 +103,154 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
     );
+  }
+}
+
+class _AppDrawer extends StatelessWidget {
+  final int currentIndex;
+  final List<dynamic> modules;
+  final ValueChanged<int> onSelectModule;
+
+  const _AppDrawer({
+    required this.currentIndex,
+    required this.modules,
+    required this.onSelectModule,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final locale = context.watch<LocaleProvider>();
+    final username = auth.username ?? '';
+    final companyName = auth.player?.companyName ?? '';
+    final initials = _initials(username);
+
+    return Drawer(
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: AppColors.gold,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: Color(0xFF1A1A2E),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  username,
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (companyName.isNotEmpty && companyName != username)
+                  Text(
+                    companyName,
+                    style: const TextStyle(
+                      color: AppColors.text2,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                for (var i = 0; i < modules.length; i++)
+                  ListTile(
+                    leading: Icon(
+                      i == currentIndex
+                          ? modules[i].navIconSelected
+                          : modules[i].navIcon,
+                      color: i == currentIndex
+                          ? AppColors.gold
+                          : AppColors.text2,
+                    ),
+                    title: Text(
+                      context.t(modules[i].titleKey),
+                      style: TextStyle(
+                        color: i == currentIndex
+                            ? AppColors.gold
+                            : AppColors.text,
+                        fontWeight: i == currentIndex
+                            ? FontWeight.w700
+                            : FontWeight.normal,
+                      ),
+                    ),
+                    selected: i == currentIndex,
+                    onTap: () => onSelectModule(i),
+                  ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(
+                    Icons.language,
+                    color: AppColors.text2,
+                  ),
+                  title: Text(
+                    context.t('common.language'),
+                    style: const TextStyle(color: AppColors.text),
+                  ),
+                  trailing: _LanguagePill(
+                    locale: locale.locale,
+                    onTap: () => context.read<LocaleProvider>().toggle(),
+                  ),
+                  onTap: () => context.read<LocaleProvider>().toggle(),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.logout,
+                    color: AppColors.text2,
+                  ),
+                  title: Text(
+                    context.t('auth.logout'),
+                    style: const TextStyle(color: AppColors.text),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.read<AuthProvider>().logout();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _initials(String username) {
+    final parts = username.trim().split(RegExp(r'[\s._\-]+'));
+    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    if (username.isEmpty) return '?';
+    final len = username.length >= 2 ? 2 : 1;
+    return username.substring(0, len).toUpperCase();
   }
 }
 
