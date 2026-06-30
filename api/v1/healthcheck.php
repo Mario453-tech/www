@@ -153,6 +153,46 @@ try {
 }
 line('');
 
+// 3d. Zapytania endpointu /api/v1/maps — wykrywaja rozjazd kolumn API vs schema.
+// Maps czyta world_regions, world_locations, legal_region_config, drilling_permit_applications.
+// /api/v1/maps queries — catch column drift between API code and DB schema.
+line('-- 3d. Zapytania endpointu /api/v1/maps --');
+foreach (['world_regions', 'world_locations', 'legal_region_config', 'drilling_permit_applications'] as $t) {
+    try {
+        $exists = $db->query("SHOW TABLES LIKE " . $db->quote($t))->fetchColumn();
+        $exists ? ok("tabela `$t` istnieje") : fail("tabela `$t` NIE ISTNIEJE");
+    } catch (\Throwable $e) {
+        fail("tabela `$t`: " . $e->getMessage());
+    }
+}
+try {
+    $db->query("SELECT id, code, name, political_risk, entry_cost, tax_rate, opex_mult, color_hex FROM world_regions LIMIT 1")->fetch();
+    ok('zapytanie world_regions (kolumny mapy) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie world_regions: ' . $e->getMessage());
+}
+try {
+    $db->query("SELECT id, region_id, name, latitude, longitude, oil_richness, well_type, tier, available FROM world_locations LIMIT 1")->fetch();
+    ok('zapytanie world_locations (kolumny mapy) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie world_locations: ' . $e->getMessage());
+}
+try {
+    $db->query("SELECT region_id, application_cost, required_capital, required_legal_level FROM legal_region_config LIMIT 1")->fetch();
+    ok('zapytanie legal_region_config (konfiguracja zezwolen) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie legal_region_config: ' . $e->getMessage());
+}
+try {
+    $s = $db->prepare("SELECT id, player_id, region_id, status, decision_due_at FROM drilling_permit_applications WHERE player_id = ? LIMIT 1");
+    $s->execute([0]);
+    $s->fetchAll();
+    ok('zapytanie drilling_permit_applications (zezwolenia) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie drilling_permit_applications: ' . $e->getMessage());
+}
+line('');
+
 // 4. Kolumny players wymagane przez login / players columns used by login
 line('-- 4. Kolumny `players` uzywane przez login --');
 try {

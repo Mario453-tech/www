@@ -93,6 +93,7 @@ $endpoints = [
     '/api/v1/player/',
     '/api/v1/market/',
     '/api/v1/wells/',
+    '/api/v1/maps/',
 ];
 
 $failures = 0;
