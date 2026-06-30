@@ -94,6 +94,7 @@ $endpoints = [
     '/api/v1/market/',
     '/api/v1/wells/',
     '/api/v1/maps/',
+    '/api/v1/technical/data.php',
 ];
 
 $failures = 0;

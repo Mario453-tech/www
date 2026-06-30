@@ -193,6 +193,34 @@ try {
 }
 line('');
 
+// 3e. Zapytania endpointu /api/v1/technical — wykrywaja rozjazd kolumn API vs schema.
+// Technical czyta technical_staff, technical_tasks, board_members.
+// /api/v1/technical queries — catch column drift between API code and DB schema.
+line('-- 3e. Zapytania endpointu /api/v1/technical --');
+foreach (['technical_staff', 'technical_tasks'] as $t) {
+    try {
+        $exists = $db->query("SHOW TABLES LIKE " . $db->quote($t))->fetchColumn();
+        $exists ? ok("tabela `$t` istnieje") : fail("tabela `$t` NIE ISTNIEJE");
+    } catch (\Throwable $e) {
+        fail("tabela `$t`: " . $e->getMessage());
+    }
+}
+try {
+    $db->query("SELECT id, spec_code, spec_name, skill_level, status FROM technical_staff LIMIT 1")->fetch();
+    ok('zapytanie technical_staff (kolumny dzialu technicznego) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie technical_staff: ' . $e->getMessage());
+}
+try {
+    $s = $db->prepare("SELECT id, staff_id, task_type, well_id, status FROM technical_tasks WHERE player_id = ? LIMIT 1");
+    $s->execute([0]);
+    $s->fetchAll();
+    ok('zapytanie technical_tasks (zadania techniczne) OK');
+} catch (\Throwable $e) {
+    fail('zapytanie technical_tasks: ' . $e->getMessage());
+}
+line('');
+
 // 4. Kolumny players wymagane przez login / players columns used by login
 line('-- 4. Kolumny `players` uzywane przez login --');
 try {
