@@ -187,7 +187,7 @@ class ApiService {
   }
 
   static String _serverErrorMessage(Map<String, dynamic> body, int statusCode) {
-    final raw = body['error'] as String?;
+    final raw = (body['error'] ?? body['message']) as String?;
     if (raw != null && _looksLikeTranslationKey(raw)) {
       return raw;
     }

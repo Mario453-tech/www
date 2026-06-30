@@ -74,7 +74,7 @@ class _MapsScreenState extends State<MapsScreen> {
     try {
       final result = await ApiService.applyPermit(token, region.id);
       if (!mounted) return;
-      final minutes = result['review_minutes'] as int? ?? 0;
+      final minutes = (result['review_minutes'] as num?)?.toInt() ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(context.t('maps.apply_success', {'minutes': '$minutes'})),
         backgroundColor: AppColors.green,
