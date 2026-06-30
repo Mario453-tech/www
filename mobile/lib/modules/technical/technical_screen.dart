@@ -167,6 +167,8 @@ class _TechnicalScreenState extends State<TechnicalScreen>
               const SizedBox(height: 8),
               TabBar(
                 controller: _tabs,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 labelColor: AppColors.gold,
                 unselectedLabelColor: AppColors.text2,
                 indicatorColor: AppColors.gold,
@@ -219,7 +221,7 @@ class _TechnicalScreenState extends State<TechnicalScreen>
               RefreshIndicator(
                 onRefresh: _load,
                 color: AppColors.gold,
-                child: _WellStaffTab(data: data),
+                child: _WellStaffTab(data: data, onReload: _load),
               ),
 
               // Tab 2 — KANDYDACI
@@ -670,7 +672,8 @@ class _EngineerCard extends StatelessWidget {
 
 class _WellStaffTab extends StatelessWidget {
   final TechnicalData? data;
-  const _WellStaffTab({required this.data});
+  final Future<void> Function() onReload;
+  const _WellStaffTab({required this.data, required this.onReload});
 
   @override
   Widget build(BuildContext context) {
@@ -689,17 +692,60 @@ class _WellStaffTab extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: wells.length,
-      itemBuilder: (_, i) => _WellPersonnelRow(entry: wells[i]),
+      itemBuilder: (_, i) =>
+          _WellPersonnelRow(entry: wells[i], onReload: onReload),
     );
   }
 }
 
 class _WellPersonnelRow extends StatelessWidget {
   final WellPersonnelEntry entry;
-  const _WellPersonnelRow({required this.entry});
+  final Future<void> Function() onReload;
+  const _WellPersonnelRow({required this.entry, required this.onReload});
+
+  Future<void> _showAssignSheet(
+      BuildContext context, String role, String roleLabel) async {
+    final token = context.read<AuthProvider>().token;
+    if (token == null) return;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.bg3,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _AssignStaffSheet(
+        token: token,
+        wellId: entry.wellId,
+        wellName: entry.wellName,
+        role: role,
+        roleLabel: roleLabel,
+        onAssigned: onReload,
+      ),
+    );
+  }
+
+  Future<void> _unassign(BuildContext context, String role) async {
+    final token = context.read<AuthProvider>().token;
+    if (token == null) return;
+    try {
+      await ApiService.unassignWellStaff(token, entry.wellId, role);
+      await onReload();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.red,
+        ));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final operatorLabel = context.t('technical.well_staff.operator');
+    final technicianLabel = context.t('technical.well_staff.technician');
     return Card(
       color: AppColors.bg3,
       margin: const EdgeInsets.symmetric(vertical: 5),
@@ -719,17 +765,25 @@ class _WellPersonnelRow extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _SlotRow(
-              label: context.t('technical.well_staff.operator'),
+              label: operatorLabel,
               slot: entry.operator,
               missing: !entry.hasOperator,
-              missingLabel: context.t('technical.well_staff.missing'),
+              onAssign: () =>
+                  _showAssignSheet(context, 'operator', operatorLabel),
+              onUnassign: entry.hasOperator
+                  ? () => _unassign(context, 'operator')
+                  : null,
             ),
             const SizedBox(height: 4),
             _SlotRow(
-              label: context.t('technical.well_staff.technician'),
+              label: technicianLabel,
               slot: entry.technician,
               missing: !entry.hasTechnician,
-              missingLabel: context.t('technical.well_staff.missing'),
+              onAssign: () =>
+                  _showAssignSheet(context, 'technician', technicianLabel),
+              onUnassign: entry.hasTechnician
+                  ? () => _unassign(context, 'technician')
+                  : null,
             ),
           ],
         ),
@@ -742,40 +796,219 @@ class _SlotRow extends StatelessWidget {
   final String label;
   final WellPersonnelSlot? slot;
   final bool missing;
-  final String missingLabel;
+  final VoidCallback onAssign;
+  final VoidCallback? onUnassign;
 
   const _SlotRow({
     required this.label,
     required this.slot,
     required this.missing,
-    required this.missingLabel,
+    required this.onAssign,
+    this.onUnassign,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = missing ? AppColors.orange : AppColors.text2;
     return Row(
       children: [
         SizedBox(
-          width: 70,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: AppColors.text3),
-          ),
+          width: 72,
+          child: Text(label,
+              style: const TextStyle(fontSize: 11, color: AppColors.text3)),
+        ),
+        Expanded(
+          child: missing
+              ? Text(context.t('technical.well_staff.missing'),
+                  style: const TextStyle(fontSize: 12, color: AppColors.orange))
+              : Text(
+                  '${slot?.name ?? ''}'
+                  '${slot != null && slot!.specCode.isNotEmpty ? "  ${slot!.specCode.toUpperCase()}" : ""}',
+                  style: const TextStyle(fontSize: 12, color: AppColors.text2),
+                ),
         ),
         if (missing)
-          Text(missingLabel, style: TextStyle(fontSize: 12, color: color))
-        else ...[
-          Text(slot?.name ?? '', style: TextStyle(fontSize: 12, color: color)),
-          if (slot != null && slot!.specCode.isNotEmpty) ...[
-            const SizedBox(width: 6),
-            Text(
-              slot!.specCode.toUpperCase(),
-              style: const TextStyle(fontSize: 10, color: AppColors.text3),
+          TextButton(
+            onPressed: onAssign,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.gold,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-          ],
-        ],
+            child: Text(context.t('technical.well_staff.assign'),
+                style: const TextStyle(fontSize: 11)),
+          )
+        else
+          TextButton(
+            onPressed: onUnassign,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.red,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(context.t('technical.well_staff.unassign'),
+                style: const TextStyle(fontSize: 11)),
+          ),
       ],
+    );
+  }
+}
+
+class _AssignStaffSheet extends StatefulWidget {
+  final String token;
+  final int wellId;
+  final String wellName;
+  final String role;
+  final String roleLabel;
+  final Future<void> Function() onAssigned;
+
+  const _AssignStaffSheet({
+    required this.token,
+    required this.wellId,
+    required this.wellName,
+    required this.role,
+    required this.roleLabel,
+    required this.onAssigned,
+  });
+
+  @override
+  State<_AssignStaffSheet> createState() => _AssignStaffSheetState();
+}
+
+class _AssignStaffSheetState extends State<_AssignStaffSheet> {
+  List<Map<String, dynamic>> _staff = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStaff();
+  }
+
+  Future<void> _loadStaff() async {
+    try {
+      final res =
+          await ApiService.getWellStaffAvailable(widget.token, widget.role);
+      final list = (res['staff'] as List<dynamic>? ?? [])
+          .cast<Map<String, dynamic>>();
+      if (mounted) setState(() { _staff = list; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _assign(Map<String, dynamic> s) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final name = '${s['first_name']} ${s['last_name']}';
+    try {
+      await ApiService.assignWellStaff(
+          widget.token, widget.wellId, s['id'] as int, widget.role);
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text('$name → ${widget.wellName}'),
+        backgroundColor: AppColors.green,
+      ));
+      await widget.onAssigned();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.red,
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      maxChildSize: 0.9,
+      builder: (_, ctrl) => Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.text3,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '${widget.roleLabel} — ${widget.wellName}',
+              style: const TextStyle(
+                  color: AppColors.text,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15),
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.border),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.gold))
+                : _staff.isEmpty
+                    ? Center(
+                        child: Text(
+                          context.t('technical.well_staff.no_available'),
+                          style: const TextStyle(color: AppColors.text2),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: ctrl,
+                        itemCount: _staff.length,
+                        itemBuilder: (_, i) {
+                          final s = _staff[i];
+                          final assigned =
+                              s['assigned_well_name'] as String?;
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.goldDim,
+                              child: Text(
+                                '${s['skill_level']}',
+                                style: const TextStyle(
+                                    color: AppColors.gold,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13),
+                              ),
+                            ),
+                            title: Text(
+                              '${s['first_name']} ${s['last_name']}',
+                              style: const TextStyle(
+                                  color: AppColors.text, fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              assigned != null
+                                  ? '${s['spec_name']}  ·  $assigned'
+                                  : (s['spec_name'] as String? ?? ''),
+                              style: const TextStyle(
+                                  color: AppColors.text2, fontSize: 11),
+                            ),
+                            trailing: assigned != null
+                                ? Text(
+                                    context
+                                        .t('technical.well_staff.reassign'),
+                                    style: const TextStyle(
+                                        color: AppColors.orange,
+                                        fontSize: 11),
+                                  )
+                                : const Icon(Icons.add_circle_outline,
+                                    color: AppColors.gold, size: 20),
+                            onTap: () => _assign(s),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

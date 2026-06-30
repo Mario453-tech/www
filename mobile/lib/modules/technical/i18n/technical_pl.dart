@@ -64,6 +64,10 @@ const Map<String, String> technicalPl = {
   'technical.well_staff.operator': 'Operator',
   'technical.well_staff.technician': 'Technik',
   'technical.well_staff.missing': 'Brak',
+  'technical.well_staff.assign': 'Przypisz',
+  'technical.well_staff.unassign': 'Odpisz',
+  'technical.well_staff.no_available': 'Brak dostępnych pracowników.',
+  'technical.well_staff.reassign': 'Przepisz',
 
   // Candidates tab
   'technical.candidates.header': 'Kandydaci ({count})',

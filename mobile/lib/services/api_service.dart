@@ -195,6 +195,39 @@ class ApiService {
     return _decode(response);
   }
 
+  static Future<Map<String, dynamic>> getWellStaffAvailable(
+      String token, String role) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/technical/well_staff_available.php?role=$role');
+    final response =
+        await http.get(uri, headers: _headers(token)).timeout(_timeout);
+    return _decode(response);
+  }
+
+  static Future<Map<String, dynamic>> assignWellStaff(
+      String token, int wellId, int staffId, String role) async {
+    final uri =
+        Uri.parse('${AppConfig.baseUrl}/technical/well_staff_assign.php');
+    final response = await http
+        .post(uri,
+            headers: _headers(token),
+            body: jsonEncode({'well_id': wellId, 'staff_id': staffId, 'role': role}))
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
+  static Future<Map<String, dynamic>> unassignWellStaff(
+      String token, int wellId, String role) async {
+    final uri =
+        Uri.parse('${AppConfig.baseUrl}/technical/well_staff_unassign.php');
+    final response = await http
+        .post(uri,
+            headers: _headers(token),
+            body: jsonEncode({'well_id': wellId, 'role': role}))
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
   static Map<String, dynamic> _decode(http.Response response) {
     final raw = response.body;
     dynamic parsed;
