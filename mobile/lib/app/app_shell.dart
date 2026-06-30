@@ -5,6 +5,7 @@ import '../modules/app_module.dart';
 import '../modules/module_registry.dart';
 import '../providers/auth_provider.dart';
 import '../services/screen_security_service.dart';
+import '../services/update_service.dart';
 import '../theme/app_colors.dart';
 
 /// Main authenticated shell with app bar, module content, and bottom navigation.
@@ -22,6 +23,9 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     ScreenSecurityService.setProtected(true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.check(context);
+    });
   }
 
   @override
