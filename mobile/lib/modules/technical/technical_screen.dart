@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../i18n/locale_provider.dart';
-import '../../models/technical_data.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_colors.dart';
+import '../../config/app_config.dart';
 
 class TechnicalScreen extends StatefulWidget {
   const TechnicalScreen({super.key});
@@ -13,1459 +13,196 @@ class TechnicalScreen extends StatefulWidget {
   State<TechnicalScreen> createState() => _TechnicalScreenState();
 }
 
-class _TechnicalScreenState extends State<TechnicalScreen>
-    with SingleTickerProviderStateMixin {
-  TechnicalData? _data;
-  bool _loading = true;
-  bool _hasError = false;
-  late final TabController _tabs;
+class _TechnicalScreenState extends State<TechnicalScreen> {
+  WebViewController? _controller;
+  bool _bridgeLoading = true;
+  String? _error;
+  bool _webviewReady = false;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initWebView());
   }
 
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    final token = context.read<AuthProvider>().token;
-    if (token == null) return;
-    if (!mounted) return;
+  Future<void> _initWebView() async {
     setState(() {
-      _loading = true;
-      _hasError = false;
+      _bridgeLoading = true;
+      _error = null;
+      _webviewReady = false;
     });
-    try {
-      final data = await ApiService.getTechnicalData(token);
-      if (mounted) setState(() { _data = data; _loading = false; });
-    } catch (_) {
-      if (mounted) setState(() { _loading = false; _hasError = true; });
+
+    final token = context.read<AuthProvider>().token;
+    if (token == null) {
+      setState(() {
+        _bridgeLoading = false;
+        _error = 'Brak tokenu autoryzacji';
+      });
+      return;
     }
-  }
-
-  Future<void> _showFireDialog(TechnicalEngineer eng) async {
-    final name = '${eng.firstName} ${eng.lastName}';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.bg3,
-        title: Text(context.t('technical.fire.confirm_title'),
-            style: const TextStyle(color: AppColors.text)),
-        content: Text(
-          context.t('technical.fire.confirm_body', {'name': name}),
-          style: const TextStyle(color: AppColors.text2),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.t('common.cancel'),
-                style: const TextStyle(color: AppColors.text2)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.red,
-              foregroundColor: AppColors.text,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(context.t('technical.fire.ok')),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
 
     try {
-      final token = context.read<AuthProvider>().token;
-      if (token == null) return;
-      await ApiService.fireTechnicalStaff(token, eng.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.t('technical.fire.success', {'name': name})),
-        backgroundColor: AppColors.green,
-      ));
-      _load();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.t('technical.fire.error')),
-        backgroundColor: AppColors.red,
-      ));
-    }
-  }
+      final bridge = await ApiService.createWebBridge(token);
+      final technicalUrl = '${AppConfig.gameUrl}/technical';
 
-  Future<void> _showAssignTaskSheet(TechnicalEngineer eng) async {
-    final name = '${eng.firstName} ${eng.lastName}';
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.bg3,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => _AssignTaskSheet(
-        engineer: eng,
-        title: context.t('technical.assign.title', {'name': name}),
-        onAssigned: () {
-          _load();
-        },
-      ),
-    );
+      late WebViewController ctrl;
+      ctrl = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(const Color(0xFF0d0e14))
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageFinished: (url) {
+            if (!_webviewReady && mounted) {
+              if (!url.contains('/technical')) {
+                ctrl.loadRequest(Uri.parse(technicalUrl));
+              } else {
+                setState(() => _webviewReady = true);
+              }
+            }
+          },
+          onWebResourceError: (error) {
+            if (mounted) {
+              setState(() {
+                _bridgeLoading = false;
+                _error = 'Błąd ładowania: ${error.description}';
+              });
+            }
+          },
+        ))
+        ..loadRequest(Uri.parse(bridge.bridgeUrl));
+
+      if (mounted) {
+        setState(() {
+          _controller = ctrl;
+          _bridgeLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _bridgeLoading = false;
+          _error = e.toString();
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _data == null) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.gold));
-    }
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final ctrl = _controller;
+        if (ctrl != null && await ctrl.canGoBack()) {
+          await ctrl.goBack();
+        } else {
+          if (context.mounted) Navigator.of(context).maybePop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0d0e14),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0d0e14),
+          elevation: 0,
+          title: const Text(
+            'Dział Techniczny',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.gold),
+            onPressed: () async {
+              final ctrl = _controller;
+              if (ctrl != null && await ctrl.canGoBack()) {
+                await ctrl.goBack();
+              } else {
+                if (context.mounted) Navigator.of(context).maybePop();
+              }
+            },
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: AppColors.text2),
+              onPressed: _initWebView,
+              tooltip: 'Odśwież',
+            ),
+          ],
+        ),
+        body: _buildBody(),
+      ),
+    );
+  }
 
-    if (_hasError && _data == null) {
-      return Center(
+  Widget _buildBody() {
+    if (_bridgeLoading) {
+      return const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(context.t('technical.error'),
-                style: const TextStyle(color: AppColors.text2)),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _load,
-              child: Text(context.t('common.retry')),
+            CircularProgressIndicator(color: AppColors.gold),
+            SizedBox(height: 16),
+            Text(
+              'Łączenie z systemem...',
+              style: TextStyle(color: AppColors.text2),
             ),
           ],
         ),
       );
     }
 
-    final data = _data;
-    final companyName = data?.companyName ?? '';
-
-    return Column(
-      children: [
-        // Header with company name
-        Container(
-          width: double.infinity,
-          color: AppColors.bg2,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              const Icon(Icons.error_outline, color: AppColors.red, size: 48),
+              const SizedBox(height: 16),
               Text(
-                '${context.t('technical.title')} — $companyName',
+                'Błąd połączenia',
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.gold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TabBar(
-                controller: _tabs,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelColor: AppColors.gold,
-                unselectedLabelColor: AppColors.text2,
-                indicatorColor: AppColors.gold,
-                labelStyle: const TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6),
-                tabs: [
-                  Tab(
-                    child: _TabLabel(
-                      context.t('technical.tab.team'),
-                      badge: data?.staffCount,
-                    ),
-                  ),
-                  Tab(
-                    child: _TabLabel(
-                      context.t('technical.tab.well_staff'),
-                      badge: data?.wellPersonnelCount,
-                    ),
-                  ),
-                  Tab(
-                    child: _TabLabel(
-                      context.t('technical.tab.candidates'),
-                      badge: data?.unreviewedCandidates,
-                      badgeColor: (data?.unreviewedCandidates ?? 0) > 0
-                          ? AppColors.orange
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        Expanded(
-          child: TabBarView(
-            controller: _tabs,
-            children: [
-              // Tab 0 — ZESPÓŁ
-              RefreshIndicator(
-                onRefresh: _load,
-                color: AppColors.gold,
-                child: _TeamTab(
-                  data: data,
-                  onAssign: _showAssignTaskSheet,
-                  onFire: _showFireDialog,
-                ),
-              ),
-
-              // Tab 1 — PERSONEL ODWIERTÓW
-              RefreshIndicator(
-                onRefresh: _load,
-                color: AppColors.gold,
-                child: _WellStaffTab(data: data, onReload: _load),
-              ),
-
-              // Tab 2 — KANDYDACI
-              RefreshIndicator(
-                onRefresh: _load,
-                color: AppColors.gold,
-                child: _CandidatesTab(data: data, onReload: _load),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Tab label with optional badge ────────────────────────────────────────────
-
-class _TabLabel extends StatelessWidget {
-  final String text;
-  final int? badge;
-  final Color? badgeColor;
-
-  const _TabLabel(this.text, {this.badge, this.badgeColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(text),
-        if (badge != null && badge! > 0) ...[
-          const SizedBox(width: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(
-              color: badgeColor ?? AppColors.goldDim,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '$badge',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: badgeColor != null ? AppColors.text : AppColors.gold,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-// ─── Tab 0: ZESPÓŁ ────────────────────────────────────────────────────────────
-
-class _TeamTab extends StatelessWidget {
-  final TechnicalData? data;
-  final void Function(TechnicalEngineer) onAssign;
-  final void Function(TechnicalEngineer) onFire;
-
-  const _TeamTab({required this.data, required this.onAssign, required this.onFire});
-
-  @override
-  Widget build(BuildContext context) {
-    final engineers = data?.engineers ?? [];
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        if (data?.director != null) ...[
-          _DirectorCard(
-            director: data!.director!,
-            bonus: data!.managerBonus,
-          ),
-          const SizedBox(height: 12),
-        ],
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Text(
-            context.t('technical.engineers.header', {'count': '${engineers.length}'}),
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.text3,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
-        ),
-        if (engineers.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Center(
-              child: Text(
-                context.t('technical.engineers.empty'),
-                style: const TextStyle(color: AppColors.text2),
-              ),
-            ),
-          )
-        else
-          ...engineers.map(
-            (e) => _EngineerCard(
-              engineer: e,
-              onAssign: () => onAssign(e),
-              onFire: () => onFire(e),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ─── Director card ─────────────────────────────────────────────────────────────
-
-class _DirectorCard extends StatelessWidget {
-  final TechnicalDirector director;
-  final ManagerBonus bonus;
-
-  const _DirectorCard({required this.director, required this.bonus});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: AppColors.bg3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: AppColors.goldBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Gold avatar with initials
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: const BoxDecoration(
-                    color: AppColors.goldDark,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    director.initials,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.text,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${director.firstName} ${director.lastName}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: AppColors.text,
-                        ),
-                      ),
-                      Text(
-                        context.t('technical.director.label'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Info row: tenure · exp · salary
-            Text(
-              '${context.t('technical.director.tenure', {'days': '${director.daysEmployed}'})} · '
-              '${context.t('technical.director.experience', {'years': '${director.experienceYears}'})} · '
-              '${context.t('technical.director.salary', {'salary': _fmt(director.salary)})}',
-              style: const TextStyle(fontSize: 12, color: AppColors.text2),
-            ),
-            const SizedBox(height: 10),
-            // Bonus chips
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                if (bonus.timePct > 0)
-                  _BonusChip(
-                    context.t('technical.bonus.time', {'pct': '${bonus.timePct.toStringAsFixed(1)}'}),
-                    AppColors.green,
-                  ),
-                if (bonus.costPct > 0)
-                  _BonusChip(
-                    context.t('technical.bonus.cost', {'pct': '${bonus.costPct.toStringAsFixed(1)}'}),
-                    AppColors.green,
-                  ),
-                _BonusChip(
-                  context.t('technical.bonus.org', {'skill': '${bonus.skill}'}),
-                  AppColors.gold,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Progress bar — always 100% for the manager (represents full authority)
-            LinearProgressIndicator(
-              value: 1.0,
-              backgroundColor: AppColors.goldDim,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
-              minHeight: 3,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _fmt(double v) => v
-      .toStringAsFixed(0)
-      .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
-}
-
-class _BonusChip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _BonusChip(this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-// ─── Engineer card ─────────────────────────────────────────────────────────────
-
-class _EngineerCard extends StatelessWidget {
-  final TechnicalEngineer engineer;
-  final VoidCallback onAssign;
-  final VoidCallback onFire;
-
-  const _EngineerCard({
-    required this.engineer,
-    required this.onAssign,
-    required this.onFire,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final eng = engineer;
-    final (statusLabel, statusColor) = switch (eng.status) {
-      'busy'     => (context.t('technical.engineer.busy'),     AppColors.orange),
-      'on_leave' => (context.t('technical.engineer.on_leave'), AppColors.text3),
-      _          => (context.t('technical.engineer.available'), AppColors.green),
-    };
-
-    return Card(
-      color: AppColors.bg3,
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header row: spec icon + name + status chip
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.bg4,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.goldBorder),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    eng.specIcon,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.gold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${eng.firstName} ${eng.lastName}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.text,
-                        ),
-                      ),
-                      Text(
-                        eng.specName.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: AppColors.text3,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor.withOpacity(0.4)),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: statusColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            // Skill bar
-            Row(
-              children: [
-                Text(
-                  context.t('technical.engineer.skill'),
-                  style: const TextStyle(fontSize: 11, color: AppColors.text3),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: eng.skillLevel / 10.0,
-                    backgroundColor: AppColors.bg4,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
-                    minHeight: 4,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${eng.skillLevel}/10',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.gold,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // Exp and salary
-            Text(
-              '${context.t('technical.engineer.experience', {'years': '${eng.experienceYears}'})}'
-              '  ·  '
-              '${context.t('technical.engineer.salary', {'salary': _fmt(eng.salary)})}',
-              style: const TextStyle(fontSize: 12, color: AppColors.text2),
-            ),
-
-            if (eng.isAvailable) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  // Assign task link
-                  GestureDetector(
-                    onTap: onAssign,
-                    child: Text(
-                      context.t('technical.engineer.assign_task'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Fire button
-                  SizedBox(
-                    height: 28,
-                    child: ElevatedButton(
-                      onPressed: onFire,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.red.withOpacity(0.15),
-                        foregroundColor: AppColors.red,
-                        side: BorderSide(color: AppColors.red.withOpacity(0.4)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textStyle: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        elevation: 0,
-                      ),
-                      child: Text(context.t('technical.engineer.fire')),
-                    ),
-                  ),
-                ],
-              ),
-            ] else if (eng.isBusy && eng.activeTaskType != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                eng.activeTaskLabel ?? eng.activeTaskType!,
-                style: const TextStyle(fontSize: 11, color: AppColors.orange),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _fmt(double v) => v
-      .toStringAsFixed(0)
-      .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
-}
-
-// ─── Tab 1: PERSONEL ODWIERTÓW ─────────────────────────────────────────────────
-
-class _WellStaffTab extends StatelessWidget {
-  final TechnicalData? data;
-  final Future<void> Function() onReload;
-  const _WellStaffTab({required this.data, required this.onReload});
-
-  @override
-  Widget build(BuildContext context) {
-    final wells = data?.wellPersonnel ?? [];
-    if (wells.isEmpty) {
-      return ListView(
-        children: [
-          const SizedBox(height: 80),
-          Center(
-            child: Text(context.t('technical.well_staff.empty'),
-                style: const TextStyle(color: AppColors.text2)),
-          ),
-        ],
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: wells.length,
-      itemBuilder: (_, i) =>
-          _WellPersonnelRow(entry: wells[i], onReload: onReload),
-    );
-  }
-}
-
-class _WellPersonnelRow extends StatelessWidget {
-  final WellPersonnelEntry entry;
-  final Future<void> Function() onReload;
-  const _WellPersonnelRow({required this.entry, required this.onReload});
-
-  Future<void> _showAssignSheet(
-      BuildContext context, String role, String roleLabel) async {
-    final token = context.read<AuthProvider>().token;
-    if (token == null) return;
-
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.bg3,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => _AssignStaffSheet(
-        token: token,
-        wellId: entry.wellId,
-        wellName: entry.wellName,
-        role: role,
-        roleLabel: roleLabel,
-        onAssigned: onReload,
-      ),
-    );
-  }
-
-  Future<void> _unassign(BuildContext context, String role) async {
-    final token = context.read<AuthProvider>().token;
-    if (token == null) return;
-    try {
-      await ApiService.unassignWellStaff(token, entry.wellId, role);
-      await onReload();
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: AppColors.red,
-        ));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final operatorLabel = context.t('technical.well_staff.operator');
-    final technicianLabel = context.t('technical.well_staff.technician');
-    return Card(
-      color: AppColors.bg3,
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              entry.wellName,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, color: AppColors.text),
-            ),
-            const SizedBox(height: 8),
-            _SlotRow(
-              label: operatorLabel,
-              slot: entry.operator,
-              missing: !entry.hasOperator,
-              onAssign: () =>
-                  _showAssignSheet(context, 'operator', operatorLabel),
-              onUnassign: entry.hasOperator
-                  ? () => _unassign(context, 'operator')
-                  : null,
-            ),
-            const SizedBox(height: 4),
-            _SlotRow(
-              label: technicianLabel,
-              slot: entry.technician,
-              missing: !entry.hasTechnician,
-              onAssign: () =>
-                  _showAssignSheet(context, 'technician', technicianLabel),
-              onUnassign: entry.hasTechnician
-                  ? () => _unassign(context, 'technician')
-                  : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SlotRow extends StatelessWidget {
-  final String label;
-  final WellPersonnelSlot? slot;
-  final bool missing;
-  final VoidCallback onAssign;
-  final VoidCallback? onUnassign;
-
-  const _SlotRow({
-    required this.label,
-    required this.slot,
-    required this.missing,
-    required this.onAssign,
-    this.onUnassign,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 72,
-          child: Text(label,
-              style: const TextStyle(fontSize: 11, color: AppColors.text3)),
-        ),
-        Expanded(
-          child: missing
-              ? Text(context.t('technical.well_staff.missing'),
-                  style: const TextStyle(fontSize: 12, color: AppColors.orange))
-              : Text(
-                  '${slot?.name ?? ''}'
-                  '${slot != null && slot!.specCode.isNotEmpty ? "  ${slot!.specCode.toUpperCase()}" : ""}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.text2),
-                ),
-        ),
-        if (missing)
-          TextButton(
-            onPressed: onAssign,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.gold,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(context.t('technical.well_staff.assign'),
-                style: const TextStyle(fontSize: 11)),
-          )
-        else
-          TextButton(
-            onPressed: onUnassign,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.red,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(context.t('technical.well_staff.unassign'),
-                style: const TextStyle(fontSize: 11)),
-          ),
-      ],
-    );
-  }
-}
-
-class _AssignStaffSheet extends StatefulWidget {
-  final String token;
-  final int wellId;
-  final String wellName;
-  final String role;
-  final String roleLabel;
-  final Future<void> Function() onAssigned;
-
-  const _AssignStaffSheet({
-    required this.token,
-    required this.wellId,
-    required this.wellName,
-    required this.role,
-    required this.roleLabel,
-    required this.onAssigned,
-  });
-
-  @override
-  State<_AssignStaffSheet> createState() => _AssignStaffSheetState();
-}
-
-class _AssignStaffSheetState extends State<_AssignStaffSheet> {
-  List<Map<String, dynamic>> _staff = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadStaff();
-  }
-
-  Future<void> _loadStaff() async {
-    try {
-      final res =
-          await ApiService.getWellStaffAvailable(widget.token, widget.role);
-      final list = (res['staff'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
-      if (mounted) setState(() { _staff = list; _loading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _assign(Map<String, dynamic> s) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final name = '${s['first_name']} ${s['last_name']}';
-    try {
-      await ApiService.assignWellStaff(
-          widget.token, widget.wellId, s['id'] as int, widget.role);
-      if (!mounted) return;
-      Navigator.pop(context);
-      messenger.showSnackBar(SnackBar(
-        content: Text('$name → ${widget.wellName}'),
-        backgroundColor: AppColors.green,
-      ));
-      await widget.onAssigned();
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context);
-      messenger.showSnackBar(SnackBar(
-        content: Text(e.toString()),
-        backgroundColor: AppColors.red,
-      ));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.6,
-      maxChildSize: 0.9,
-      builder: (_, ctrl) => Column(
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.text3,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              '${widget.roleLabel} — ${widget.wellName}',
-              style: const TextStyle(
                   color: AppColors.text,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15),
-            ),
-          ),
-          const Divider(height: 1, color: AppColors.border),
-          Expanded(
-            child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(color: AppColors.gold))
-                : _staff.isEmpty
-                    ? Center(
-                        child: Text(
-                          context.t('technical.well_staff.no_available'),
-                          style: const TextStyle(color: AppColors.text2),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: ctrl,
-                        itemCount: _staff.length,
-                        itemBuilder: (_, i) {
-                          final s = _staff[i];
-                          final assigned =
-                              s['assigned_well_name'] as String?;
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.goldDim,
-                              child: Text(
-                                '${s['skill_level']}',
-                                style: const TextStyle(
-                                    color: AppColors.gold,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13),
-                              ),
-                            ),
-                            title: Text(
-                              '${s['first_name']} ${s['last_name']}',
-                              style: const TextStyle(
-                                  color: AppColors.text, fontSize: 13),
-                            ),
-                            subtitle: Text(
-                              assigned != null
-                                  ? '${s['spec_name']}  ·  $assigned'
-                                  : (s['spec_name'] as String? ?? ''),
-                              style: const TextStyle(
-                                  color: AppColors.text2, fontSize: 11),
-                            ),
-                            trailing: assigned != null
-                                ? Text(
-                                    context
-                                        .t('technical.well_staff.reassign'),
-                                    style: const TextStyle(
-                                        color: AppColors.orange,
-                                        fontSize: 11),
-                                  )
-                                : const Icon(Icons.add_circle_outline,
-                                    color: AppColors.gold, size: 20),
-                            onTap: () => _assign(s),
-                          );
-                        },
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Tab 2: KANDYDACI ──────────────────────────────────────────────────────────
-
-class _CandidatesTab extends StatelessWidget {
-  final TechnicalData? data;
-  final Future<void> Function() onReload;
-  const _CandidatesTab({required this.data, required this.onReload});
-
-  @override
-  Widget build(BuildContext context) {
-    final cands = data?.candidates ?? [];
-    if (cands.isEmpty) {
-      return ListView(
-        children: [
-          const SizedBox(height: 80),
-          Center(
-            child: Text(context.t('technical.candidates.empty'),
-                style: const TextStyle(color: AppColors.text2)),
-          ),
-        ],
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: cands.length,
-      itemBuilder: (_, i) => _CandidateCard(
-        candidate: cands[i],
-        onReload: onReload,
-      ),
-    );
-  }
-}
-
-class _CandidateCard extends StatelessWidget {
-  final TechnicalCandidate candidate;
-  final Future<void> Function() onReload;
-  const _CandidateCard({required this.candidate, required this.onReload});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = candidate;
-    final reviewLabel = c.hasReview
-        ? context.t('technical.candidate.reviewed')
-        : context.t('technical.candidate.not_reviewed');
-    final reviewColor = c.hasReview ? AppColors.green : AppColors.orange;
-
-    return Card(
-      color: AppColors.bg3,
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: AppColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${c.firstName} ${c.lastName}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, color: AppColors.text),
-                      ),
-                      Text(
-                        c.specName.toUpperCase(),
-                        style: const TextStyle(
-                            fontSize: 10, color: AppColors.text3, letterSpacing: 0.5),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: reviewColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: reviewColor.withOpacity(0.4)),
-                  ),
-                  child: Text(
-                    reviewLabel,
-                    style: TextStyle(
-                        fontSize: 10, color: reviewColor, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Skill bar
-            Row(
-              children: [
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: c.skillLevel / 10.0,
-                    backgroundColor: AppColors.bg4,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
-                    minHeight: 4,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${c.skillLevel}/10',
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.gold, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text(
-                  context.t('technical.candidate.experience', {'years': '${c.experienceYears}'}),
-                  style: const TextStyle(fontSize: 12, color: AppColors.text2),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  context.t('technical.candidate.salary', {
-                    'salary': c.salary
-                        .toStringAsFixed(0)
-                        .replaceAllMapped(
-                          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                          (m) => '${m[1]} ',
-                        ),
-                  }),
-                  style: const TextStyle(fontSize: 12, color: AppColors.text2),
-                ),
-                const Spacer(),
-                Text(
-                  context.t('technical.candidate.expires', {'hours': '${c.hoursRemaining}'}),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: c.hoursRemaining < 24 ? AppColors.red : AppColors.text3,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 32,
-              child: ElevatedButton(
-                onPressed: () => _hire(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.goldDark,
-                  foregroundColor: AppColors.text,
-                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  padding: EdgeInsets.zero,
-                  elevation: 0,
-                ),
-                child: Text(context.t('technical.candidate.hire')),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _hire(BuildContext context) async {
-    final c = candidate;
-    final name = '${c.firstName} ${c.lastName}';
-    final salaryFmt = c.salary
-        .toStringAsFixed(0)
-        .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.bg3,
-        title: Text(context.t('technical.candidate.hire_confirm_title'),
-            style: const TextStyle(color: AppColors.text)),
-        content: Text(
-          context.t('technical.candidate.hire_confirm_body',
-              {'name': name, 'salary': salaryFmt}),
-          style: const TextStyle(color: AppColors.text2),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.t('common.cancel'),
-                style: const TextStyle(color: AppColors.text2)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.goldDark,
-              foregroundColor: AppColors.text,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(context.t('technical.candidate.hire_ok')),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) return;
-
-    final token = context.read<AuthProvider>().token;
-    if (token == null) return;
-
-    try {
-      await ApiService.hireTechnicalCandidate(token, c.id);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.t('technical.candidate.hire_success', {'name': name})),
-        backgroundColor: AppColors.green,
-      ));
-      await onReload();
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.t('technical.candidate.hire_error')),
-        backgroundColor: AppColors.red,
-      ));
-    }
-  }
-}
-
-// ─── Assign Task bottom sheet ──────────────────────────────────────────────────
-
-class _AssignTaskSheet extends StatefulWidget {
-  final TechnicalEngineer engineer;
-  final String title;
-  final VoidCallback onAssigned;
-
-  const _AssignTaskSheet({
-    required this.engineer,
-    required this.title,
-    required this.onAssigned,
-  });
-
-  @override
-  State<_AssignTaskSheet> createState() => _AssignTaskSheetState();
-}
-
-class _AssignTaskSheetState extends State<_AssignTaskSheet> {
-  List<AvailableTask>? _tasks;
-  List<WellOption>? _wells;
-  bool _loadingTasks = true;
-  AvailableTask? _selectedTask;
-  WellOption? _selectedWell;
-  bool _assigning = false;
-  String? _errorMsg;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTasks();
-  }
-
-  Future<void> _loadTasks() async {
-    final token = context.read<AuthProvider>().token;
-    if (token == null) return;
-    try {
-      final result =
-          await ApiService.getTechnicalAvailableTasks(token, widget.engineer.id);
-      final taskList = (result['tasks'] as List<dynamic>? ?? [])
-          .map((e) => AvailableTask.fromJson(e as Map<String, dynamic>))
-          .toList();
-      final wellList = (result['wells'] as List<dynamic>? ?? [])
-          .map((e) => WellOption.fromJson(e as Map<String, dynamic>))
-          .toList();
-      if (mounted) {
-        setState(() {
-          _tasks = taskList;
-          _wells = wellList;
-          _loadingTasks = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingTasks = false);
-    }
-  }
-
-  Future<void> _assign() async {
-    if (_selectedTask == null) return;
-    if (_selectedTask!.needsWell && _selectedWell == null) return;
-
-    final token = context.read<AuthProvider>().token;
-    if (token == null) return;
-
-    setState(() { _assigning = true; _errorMsg = null; });
-
-    try {
-      await ApiService.assignTechnicalTask(
-        token,
-        widget.engineer.id,
-        _selectedTask!.type,
-        wellId: _selectedTask!.needsWell ? _selectedWell?.id : null,
-      );
-      if (!mounted) return;
-      // Capture before pop — context becomes deactivated after Navigator.pop().
-      final messenger = ScaffoldMessenger.of(context);
-      final successMsg = context.t('technical.assign.success', {
-        'hours_min': '${_selectedTask!.hoursMin}',
-        'hours_max': '${_selectedTask!.hoursMax}',
-      });
-      Navigator.pop(context);
-      messenger.showSnackBar(SnackBar(
-        content: Text(successMsg),
-        backgroundColor: AppColors.green,
-      ));
-      widget.onAssigned();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _assigning = false;
-        _errorMsg = context.t('technical.assign.error');
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).viewInsets.bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Title
-          Text(
-            widget.title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          if (_loadingTasks)
-            Center(
-              child: Column(
-                children: [
-                  const CircularProgressIndicator(color: AppColors.gold),
-                  const SizedBox(height: 8),
-                  Text(context.t('technical.assign.loading'),
-                      style: const TextStyle(color: AppColors.text2)),
-                ],
-              ),
-            )
-          else if (_tasks == null || _tasks!.isEmpty)
-            Text(context.t('technical.assign.no_tasks'),
-                style: const TextStyle(color: AppColors.text2))
-          else ...[
-            // Task picker
-            Text(context.t('technical.assign.select_task'),
-                style: const TextStyle(fontSize: 11, color: AppColors.text3)),
-            const SizedBox(height: 6),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.bg4,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<AvailableTask>(
-                  value: _selectedTask,
-                  dropdownColor: AppColors.bg4,
-                  hint: Text(context.t('technical.assign.select_task'),
-                      style: const TextStyle(color: AppColors.text3, fontSize: 13)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  items: _tasks!.map((t) {
-                    final hours = '${t.hoursMin}–${t.hoursMax} h';
-                    return DropdownMenuItem(
-                      value: t,
-                      child: Text(
-                        '${t.label}  ($hours)',
-                        style: const TextStyle(color: AppColors.text, fontSize: 13),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (t) => setState(() {
-                    _selectedTask = t;
-                    _selectedWell = null;
-                    _errorMsg = null;
-                  }),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-
-            // Well picker (shown only when task needs_well)
-            if (_selectedTask != null && _selectedTask!.needsWell) ...[
-              const SizedBox(height: 12),
-              Text(context.t('technical.assign.select_well'),
-                  style: const TextStyle(fontSize: 11, color: AppColors.text3)),
-              const SizedBox(height: 6),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.bg4,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<WellOption>(
-                    value: _selectedWell,
-                    dropdownColor: AppColors.bg4,
-                    hint: Text(context.t('technical.assign.select_well'),
-                        style: const TextStyle(color: AppColors.text3, fontSize: 13)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    items: (_wells ?? []).map((w) {
-                      return DropdownMenuItem(
-                        value: w,
-                        child: Text(w.name,
-                            style: const TextStyle(color: AppColors.text, fontSize: 13)),
-                      );
-                    }).toList(),
-                    onChanged: (w) => setState(() {
-                      _selectedWell = w;
-                      _errorMsg = null;
-                    }),
-                  ),
-                ),
-              ),
-            ],
-
-            if (_errorMsg != null) ...[
               const SizedBox(height: 8),
-              Text(_errorMsg!, style: const TextStyle(color: AppColors.red, fontSize: 12)),
-            ],
-
-            const SizedBox(height: 16),
-
-            ElevatedButton(
-              onPressed: (_assigning ||
-                      _selectedTask == null ||
-                      (_selectedTask!.needsWell && _selectedWell == null))
-                  ? null
-                  : _assign,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.goldDark,
-                foregroundColor: AppColors.text,
-                disabledBackgroundColor: AppColors.bg4,
-                disabledForegroundColor: AppColors.text3,
+              Text(
+                _error!,
+                style: const TextStyle(color: AppColors.text2),
+                textAlign: TextAlign.center,
               ),
-              child: _assigning
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppColors.text))
-                  : Text(context.t('technical.assign.confirm')),
-            ),
-          ],
-        ],
-      ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.gold,
+                  foregroundColor: AppColors.bg3,
+                ),
+                onPressed: _initWebView,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Spróbuj ponownie'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final ctrl = _controller;
+    if (ctrl == null) return const SizedBox.shrink();
+
+    return Stack(
+      children: [
+        WebViewWidget(controller: ctrl),
+        if (!_webviewReady)
+          const Center(
+            child: CircularProgressIndicator(color: AppColors.gold),
+          ),
+      ],
     );
   }
 }
