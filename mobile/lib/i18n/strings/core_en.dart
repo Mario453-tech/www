@@ -9,6 +9,7 @@ const Map<String, String> coreEn = {
   'nav.game': 'Game',
   'nav.wells': 'Wells',
   'nav.market': 'Market',
+  'nav.maps': 'Map',
 
   // Common
   'common.retry': 'Try again',

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import '../models/map_data.dart';
 import '../models/market.dart';
 import '../models/player.dart';
 import '../models/well.dart';
@@ -127,6 +128,26 @@ class ApiService {
     final body = _decode(response);
     final list = body['wells'] as List<dynamic>? ?? [];
     return list.map((e) => Well.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<MapData> getMapData(String token) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/maps/');
+    final response =
+        await http.get(uri, headers: _headers(token)).timeout(_timeout);
+    return MapData.fromJson(_decode(response));
+  }
+
+  static Future<Map<String, dynamic>> applyPermit(
+      String token, int regionId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/permits/apply.php');
+    final response = await http
+        .post(
+          uri,
+          headers: _headers(token),
+          body: jsonEncode({'region_id': regionId}),
+        )
+        .timeout(_timeout);
+    return _decode(response);
   }
 
   static Map<String, dynamic> _decode(http.Response response) {
