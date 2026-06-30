@@ -84,16 +84,13 @@ class _TechnicalScreenState extends State<TechnicalScreen>
     try {
       final token = context.read<AuthProvider>().token;
       if (token == null) return;
-      final result = await ApiService.fireTechnicalStaff(token, eng.id);
+      await ApiService.fireTechnicalStaff(token, eng.id);
       if (!mounted) return;
-      final success = result['success'] as bool? ?? false;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(success
-            ? context.t('technical.fire.success', {'name': name})
-            : context.t('technical.fire.error')),
-        backgroundColor: success ? AppColors.green : AppColors.red,
+        content: Text(context.t('technical.fire.success', {'name': name})),
+        backgroundColor: AppColors.green,
       ));
-      if (success) _load();
+      _load();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -654,7 +651,7 @@ class _EngineerCard extends StatelessWidget {
             ] else if (eng.isBusy && eng.activeTaskType != null) ...[
               const SizedBox(height: 6),
               Text(
-                eng.activeTaskType!,
+                eng.activeTaskLabel ?? eng.activeTaskType!,
                 style: const TextStyle(fontSize: 11, color: AppColors.orange),
               ),
             ],
@@ -992,30 +989,25 @@ class _AssignTaskSheetState extends State<_AssignTaskSheet> {
     setState(() { _assigning = true; _errorMsg = null; });
 
     try {
-      final result = await ApiService.assignTechnicalTask(
+      await ApiService.assignTechnicalTask(
         token,
         widget.engineer.id,
         _selectedTask!.type,
         wellId: _selectedTask!.needsWell ? _selectedWell?.id : null,
       );
       if (!mounted) return;
-      final success = result['success'] as bool? ?? false;
-      if (success) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.t('technical.assign.success', {
-            'hours_min': '${_selectedTask!.hoursMin}',
-            'hours_max': '${_selectedTask!.hoursMax}',
-          })),
-          backgroundColor: AppColors.green,
-        ));
-        widget.onAssigned();
-      } else {
-        setState(() {
-          _assigning = false;
-          _errorMsg = result['message'] as String? ?? context.t('technical.assign.error');
-        });
-      }
+      // Capture before pop — context becomes deactivated after Navigator.pop().
+      final messenger = ScaffoldMessenger.of(context);
+      final successMsg = context.t('technical.assign.success', {
+        'hours_min': '${_selectedTask!.hoursMin}',
+        'hours_max': '${_selectedTask!.hoursMax}',
+      });
+      Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text(successMsg),
+        backgroundColor: AppColors.green,
+      ));
+      widget.onAssigned();
     } catch (_) {
       if (!mounted) return;
       setState(() {

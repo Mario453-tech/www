@@ -45,16 +45,18 @@ foreach ($allTasks as $type => $def) {
     if (!in_array($specCode, (array)($def['assignable'] ?? []), true)) {
         continue;
     }
+    // Skip tasks requiring hub/pipeline — mobile UI has no picker for them yet.
+    if (!empty($def['needs_hub']) || !empty($def['needs_pipeline'])) {
+        continue;
+    }
     $tasks[] = [
-        'type'           => $type,
-        'label'          => (string)($def['label'] ?? $type),
-        'needs_well'     => (bool)($def['needs_well']     ?? false),
-        'needs_hub'      => (bool)($def['needs_hub']      ?? false),
-        'needs_pipeline' => (bool)($def['needs_pipeline'] ?? false),
-        'hours_min'      => (int)($def['hours_min'] ?? 0),
-        'hours_max'      => (int)($def['hours_max'] ?? 0),
-        'cost_min'       => (int)($def['cost_min']  ?? 0),
-        'cost_max'       => (int)($def['cost_max']  ?? 0),
+        'type'       => $type,
+        'label'      => (string)($def['label'] ?? $type),
+        'needs_well' => (bool)($def['needs_well'] ?? false),
+        'hours_min'  => (int)($def['hours_min'] ?? 0),
+        'hours_max'  => (int)($def['hours_max'] ?? 0),
+        'cost_min'   => (int)($def['cost_min']  ?? 0),
+        'cost_max'   => (int)($def['cost_max']  ?? 0),
     ];
 }
 

@@ -39,7 +39,7 @@ $svc    = new TechnicalTeamService($playerId);
 $result = $svc->assignTask($staffId, $taskType, ($wellId !== null && $wellId > 0) ? $wellId : null);
 
 if ($result['success']) {
-    $taskDef = TechnicalTeamService::getTaskDefinition($taskType);
+    $taskDef = TechnicalTeamService::getTaskDefinition($taskType) ?? [];
     apiJson([
         'success'   => true,
         'message'   => (string)($result['message'] ?? ''),

@@ -77,9 +77,11 @@ foreach ($staff as $e) {
         'experience_years' => (int)($e['experience_years'] ?? 0),
         'salary'           => round((float)($e['salary'] ?? 0), 2),
         'status'           => (string)($e['status'] ?? 'active'),
-        'active_task_type' => isset($e['active_task_type']) && $e['active_task_type'] !== null
+        'active_task_type'  => isset($e['active_task_type']) && $e['active_task_type'] !== null
             ? (string)$e['active_task_type'] : null,
-        'active_task_end'  => isset($e['active_task_end']) && $e['active_task_end'] !== null
+        'active_task_label' => isset($e['active_task_type']) && $e['active_task_type'] !== null
+            ? (string)((TechnicalTeamService::getTaskDefinition((string)$e['active_task_type']) ?? [])['label'] ?? $e['active_task_type']) : null,
+        'active_task_end'   => isset($e['active_task_end']) && $e['active_task_end'] !== null
             ? (string)$e['active_task_end'] : null,
     ];
 }

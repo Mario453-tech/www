@@ -61,6 +61,7 @@ class TechnicalEngineer {
   final double salary;
   final String status;
   final String? activeTaskType;
+  final String? activeTaskLabel;
   final String? activeTaskEnd;
 
   const TechnicalEngineer({
@@ -75,6 +76,7 @@ class TechnicalEngineer {
     required this.salary,
     required this.status,
     this.activeTaskType,
+    this.activeTaskLabel,
     this.activeTaskEnd,
   });
 
@@ -93,6 +95,7 @@ class TechnicalEngineer {
         salary: (j['salary'] as num?)?.toDouble() ?? 0,
         status: j['status'] as String? ?? 'active',
         activeTaskType: j['active_task_type'] as String?,
+        activeTaskLabel: j['active_task_label'] as String?,
         activeTaskEnd: j['active_task_end'] as String?,
       );
 }
@@ -247,8 +250,6 @@ class AvailableTask {
   final String type;
   final String label;
   final bool needsWell;
-  final bool needsHub;
-  final bool needsPipeline;
   final int hoursMin;
   final int hoursMax;
   final int costMin;
@@ -258,8 +259,6 @@ class AvailableTask {
     required this.type,
     required this.label,
     required this.needsWell,
-    required this.needsHub,
-    required this.needsPipeline,
     required this.hoursMin,
     required this.hoursMax,
     required this.costMin,
@@ -270,8 +269,6 @@ class AvailableTask {
         type: j['type'] as String? ?? '',
         label: j['label'] as String? ?? '',
         needsWell: j['needs_well'] as bool? ?? false,
-        needsHub: j['needs_hub'] as bool? ?? false,
-        needsPipeline: j['needs_pipeline'] as bool? ?? false,
         hoursMin: (j['hours_min'] as num?)?.toInt() ?? 0,
         hoursMax: (j['hours_max'] as num?)?.toInt() ?? 0,
         costMin: (j['cost_min'] as num?)?.toInt() ?? 0,
