@@ -127,7 +127,8 @@ class _AppDrawer extends StatelessWidget {
     final initials = _initials(username);
 
     return Drawer(
-      child: Column(
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
             decoration: const BoxDecoration(
@@ -139,6 +140,7 @@ class _AppDrawer extends StatelessWidget {
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 CircleAvatar(
                   radius: 28,
@@ -153,13 +155,13 @@ class _AppDrawer extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   username,
                   style: const TextStyle(
                     color: AppColors.text,
                     fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                    fontSize: 15,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -178,66 +180,50 @@ class _AppDrawer extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                for (var i = 0; i < modules.length; i++)
-                  ListTile(
-                    leading: Icon(
-                      i == currentIndex
-                          ? modules[i].navIconSelected
-                          : modules[i].navIcon,
-                      color: i == currentIndex
-                          ? AppColors.gold
-                          : AppColors.text2,
-                    ),
-                    title: Text(
-                      context.t(modules[i].titleKey),
-                      style: TextStyle(
-                        color: i == currentIndex
-                            ? AppColors.gold
-                            : AppColors.text,
-                        fontWeight: i == currentIndex
-                            ? FontWeight.w700
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    selected: i == currentIndex,
-                    onTap: () => onSelectModule(i),
-                  ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(
-                    Icons.language,
-                    color: AppColors.text2,
-                  ),
-                  title: Text(
-                    context.t('common.language'),
-                    style: const TextStyle(color: AppColors.text),
-                  ),
-                  trailing: _LanguagePill(
-                    locale: locale.locale,
-                    onTap: () => context.read<LocaleProvider>().toggle(),
-                  ),
-                  onTap: () => context.read<LocaleProvider>().toggle(),
+          for (var i = 0; i < modules.length; i++)
+            ListTile(
+              leading: Icon(
+                i == currentIndex
+                    ? modules[i].navIconSelected
+                    : modules[i].navIcon,
+                color: i == currentIndex ? AppColors.gold : AppColors.text2,
+              ),
+              title: Text(
+                context.t(modules[i].titleKey),
+                style: TextStyle(
+                  color: i == currentIndex ? AppColors.gold : AppColors.text,
+                  fontWeight: i == currentIndex
+                      ? FontWeight.w700
+                      : FontWeight.normal,
                 ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.logout,
-                    color: AppColors.text2,
-                  ),
-                  title: Text(
-                    context.t('auth.logout'),
-                    style: const TextStyle(color: AppColors.text),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.read<AuthProvider>().logout();
-                  },
-                ),
-              ],
+              ),
+              selected: i == currentIndex,
+              selectedTileColor: AppColors.gold.withOpacity(0.08),
+              onTap: () => onSelectModule(i),
             ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.language, color: AppColors.text2),
+            title: Text(
+              context.t('common.language'),
+              style: const TextStyle(color: AppColors.text),
+            ),
+            trailing: _LanguagePill(
+              locale: locale.locale,
+              onTap: () => context.read<LocaleProvider>().toggle(),
+            ),
+            onTap: () => context.read<LocaleProvider>().toggle(),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.text2),
+            title: Text(
+              context.t('auth.logout'),
+              style: const TextStyle(color: AppColors.text),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              context.read<AuthProvider>().logout();
+            },
           ),
         ],
       ),

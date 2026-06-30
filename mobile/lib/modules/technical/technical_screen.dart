@@ -228,7 +228,7 @@ class _TechnicalScreenState extends State<TechnicalScreen>
               RefreshIndicator(
                 onRefresh: _load,
                 color: AppColors.gold,
-                child: _CandidatesTab(data: data),
+                child: _CandidatesTab(data: data, onReload: _load),
               ),
             ],
           ),
@@ -1017,7 +1017,8 @@ class _AssignStaffSheetState extends State<_AssignStaffSheet> {
 
 class _CandidatesTab extends StatelessWidget {
   final TechnicalData? data;
-  const _CandidatesTab({required this.data});
+  final Future<void> Function() onReload;
+  const _CandidatesTab({required this.data, required this.onReload});
 
   @override
   Widget build(BuildContext context) {
@@ -1036,14 +1037,18 @@ class _CandidatesTab extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: cands.length,
-      itemBuilder: (_, i) => _CandidateCard(candidate: cands[i]),
+      itemBuilder: (_, i) => _CandidateCard(
+        candidate: cands[i],
+        onReload: onReload,
+      ),
     );
   }
 }
 
 class _CandidateCard extends StatelessWidget {
   final TechnicalCandidate candidate;
-  const _CandidateCard({required this.candidate});
+  final Future<void> Function() onReload;
+  const _CandidateCard({required this.candidate, required this.onReload});
 
   @override
   Widget build(BuildContext context) {
@@ -1149,10 +1154,84 @@ class _CandidateCard extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 32,
+              child: ElevatedButton(
+                onPressed: () => _hire(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.goldDark,
+                  foregroundColor: AppColors.text,
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  padding: EdgeInsets.zero,
+                  elevation: 0,
+                ),
+                child: Text(context.t('technical.candidate.hire')),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _hire(BuildContext context) async {
+    final c = candidate;
+    final name = '${c.firstName} ${c.lastName}';
+    final salaryFmt = c.salary
+        .toStringAsFixed(0)
+        .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.bg3,
+        title: Text(context.t('technical.candidate.hire_confirm_title'),
+            style: const TextStyle(color: AppColors.text)),
+        content: Text(
+          context.t('technical.candidate.hire_confirm_body',
+              {'name': name, 'salary': salaryFmt}),
+          style: const TextStyle(color: AppColors.text2),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.t('common.cancel'),
+                style: const TextStyle(color: AppColors.text2)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.goldDark,
+              foregroundColor: AppColors.text,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.t('technical.candidate.hire_ok')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final token = context.read<AuthProvider>().token;
+    if (token == null) return;
+
+    try {
+      await ApiService.hireTechnicalCandidate(token, c.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.t('technical.candidate.hire_success', {'name': name})),
+        backgroundColor: AppColors.green,
+      ));
+      await onReload();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.t('technical.candidate.hire_error')),
+        backgroundColor: AppColors.red,
+      ));
+    }
   }
 }
 

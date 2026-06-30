@@ -77,4 +77,13 @@ const Map<String, String> technicalEn = {
   'technical.candidate.not_reviewed': 'Not reviewed',
   'technical.candidate.experience': '{years} yrs exp.',
   'technical.candidate.salary': '{salary} PLN/mo',
+
+  // Candidate actions
+  'technical.candidate.hire': 'HIRE',
+  'technical.candidate.hire_confirm_title': 'Hire candidate?',
+  'technical.candidate.hire_confirm_body':
+      'Hire {name} for {salary} PLN/mo? The first month\'s salary will be deducted immediately.',
+  'technical.candidate.hire_success': '{name} has been hired.',
+  'technical.candidate.hire_error': 'Failed to hire candidate.',
+  'technical.candidate.hire_ok': 'Hire',
 };
