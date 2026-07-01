@@ -10,7 +10,13 @@ const Map<String, String> coreEn = {
   'nav.wells': 'Wells',
   'nav.market': 'Market',
   'nav.maps': 'Map',
-  'nav.technical': 'Technical',
+  'nav.technical': 'Technical Dept.',
+  'nav.bank': 'Bank',
+  'nav.hr': 'Management / HR',
+  'nav.legal': 'Legal Dept.',
+  'nav.logistics': 'Logistics',
+  'nav.boardroom': 'Boardroom',
+  'nav.sabotage': 'Sabotage',
 
   // Common
   'common.menu': 'Menu',

@@ -83,10 +83,18 @@ class _AppShellState extends State<AppShell> {
       ),
       drawer: _AppDrawer(
         currentIndex: safeIndex,
-        modules: modules,
-        onSelectModule: (i) {
+        navModules: modules,
+        allModules: registry.all,
+        onSelectNavModule: (i) {
           setState(() => _index = i);
           Navigator.pop(context);
+        },
+        onPushModule: (mod) {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => mod.buildScreen(context)),
+          );
         },
       ),
       body: IndexedStack(
@@ -113,13 +121,17 @@ class _AppShellState extends State<AppShell> {
 
 class _AppDrawer extends StatelessWidget {
   final int currentIndex;
-  final List<AppModule> modules;
-  final ValueChanged<int> onSelectModule;
+  final List<AppModule> navModules;
+  final List<AppModule> allModules;
+  final ValueChanged<int> onSelectNavModule;
+  final ValueChanged<AppModule> onPushModule;
 
   const _AppDrawer({
     required this.currentIndex,
-    required this.modules,
-    required this.onSelectModule,
+    required this.navModules,
+    required this.allModules,
+    required this.onSelectNavModule,
+    required this.onPushModule,
   });
 
   @override
@@ -184,16 +196,16 @@ class _AppDrawer extends StatelessWidget {
               ],
             ),
           ),
-          for (var i = 0; i < modules.length; i++)
+          for (var i = 0; i < navModules.length; i++)
             ListTile(
               leading: Icon(
                 i == currentIndex
-                    ? modules[i].navIconSelected
-                    : modules[i].navIcon,
+                    ? navModules[i].navIconSelected
+                    : navModules[i].navIcon,
                 color: i == currentIndex ? AppColors.gold : AppColors.text2,
               ),
               title: Text(
-                context.t(modules[i].titleKey),
+                context.t(navModules[i].titleKey),
                 style: TextStyle(
                   color: i == currentIndex ? AppColors.gold : AppColors.text,
                   fontWeight: i == currentIndex
@@ -203,9 +215,32 @@ class _AppDrawer extends StatelessWidget {
               ),
               selected: i == currentIndex,
               selectedTileColor: AppColors.gold.withOpacity(0.08),
-              onTap: () => onSelectModule(i),
+              onTap: () => onSelectNavModule(i),
             ),
-          const Divider(),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              'DZIAŁY',
+              style: TextStyle(
+                color: AppColors.text3,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          for (final mod in allModules.where((m) => !m.showInNav))
+            ListTile(
+              leading: Icon(mod.navIcon, color: AppColors.text2, size: 20),
+              title: Text(
+                context.t(mod.titleKey),
+                style: const TextStyle(color: AppColors.text),
+              ),
+              dense: true,
+              onTap: () => onPushModule(mod),
+            ),
+          const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.language, color: AppColors.text2),
             title: Text(
