@@ -228,6 +228,18 @@ class ApiService {
     return _decode(response);
   }
 
+  static Future<Map<String, dynamic>> hireTechnicalCandidate(
+      String token, int candidateId) async {
+    final uri =
+        Uri.parse('${AppConfig.baseUrl}/technical/hire_candidate.php');
+    final response = await http
+        .post(uri,
+            headers: _headers(token),
+            body: jsonEncode({'candidate_id': candidateId}))
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
   static Map<String, dynamic> _decode(http.Response response) {
     final raw = response.body;
     dynamic parsed;

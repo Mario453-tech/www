@@ -77,4 +77,13 @@ const Map<String, String> technicalPl = {
   'technical.candidate.not_reviewed': 'Nieoceniony',
   'technical.candidate.experience': '{years} lat doświad.',
   'technical.candidate.salary': '{salary} PLN/mies.',
+
+  // Candidate actions
+  'technical.candidate.hire': 'ZATRUDNIJ',
+  'technical.candidate.hire_confirm_title': 'Zatrudnić kandydata?',
+  'technical.candidate.hire_confirm_body':
+      'Zatrudnić {name} za {salary} PLN/mies.? Pierwsza pensja zostanie pobrana natychmiast.',
+  'technical.candidate.hire_success': '{name} został zatrudniony.',
+  'technical.candidate.hire_error': 'Nie udało się zatrudnić kandydata.',
+  'technical.candidate.hire_ok': 'Zatrudnij',
 };
