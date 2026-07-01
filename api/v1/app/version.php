@@ -15,10 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // ── Bump these two values after each CI release ──────────────────────────────
-const BUILD   = 1;
-const VERSION = '1.0.0';
-const CHANGELOG_PL = 'Nowa wersja dostępna.';
-const CHANGELOG_EN = 'New version available.';
+const BUILD   = 2;
+const VERSION = '1.1.0';
+const CHANGELOG_PL = 'Wszystkie działy gry w menu bocznym (Rynek, Bank, HR, Dział Prawny, Logistyka, Sala Zarządu, Sabotaż). Dział Techniczny z pełnymi zakładkami.';
+const CHANGELOG_EN = 'All game departments in side menu (Market, Bank, HR, Legal, Logistics, Boardroom, Sabotage). Full Technical Department.';
 // ─────────────────────────────────────────────────────────────────────────────
 
 apiJson([
