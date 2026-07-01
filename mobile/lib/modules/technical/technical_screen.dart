@@ -50,6 +50,16 @@ class _TechnicalScreenState extends State<TechnicalScreen> {
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(const Color(0xFF0d0e14))
         ..setNavigationDelegate(NavigationDelegate(
+          onNavigationRequest: (req) {
+            final url = req.url;
+            // Allow: bridge login + anything under /technical
+            if (url.contains('mobile-bridge-login') ||
+                Uri.tryParse(url)?.path.startsWith('/technical') == true) {
+              return NavigationDecision.navigate;
+            }
+            // Block navigation to any other game section
+            return NavigationDecision.prevent;
+          },
           onPageFinished: (url) {
             if (!_webviewReady && mounted) {
               if (!url.contains('/technical')) {
