@@ -48,7 +48,7 @@ class OutboundLegService
         array  $hseBonus = [],
         int    $politicalRisk = 1
     ): array {
-        $none = ['loss_bbl' => 0.0, 'loss_value' => 0.0, 'cost' => 0.0, 'kind' => 'direct'];
+        $none = ['loss_bbl' => 0.0, 'loss_value' => 0.0, 'cost' => 0.0, 'kind' => 'direct', 'capped_bbl' => $bbl, 'excess_bbl' => 0.0];
         if ($bbl <= 0.001) {
             return $none;
         }
@@ -57,7 +57,7 @@ class OutboundLegService
             if ($outboundPipeline === null || empty($outboundPipeline['_is_operational'])) {
                 return $none; // configured but no operational pipeline yet -> direct
             }
-            return $this->computePipeline($outboundPipeline, $bbl, $oilPrice, $mults);
+            return $this->computePipeline($outboundPipeline, $bbl, $oilPrice, $mults, $deltaHours);
         }
 
         if ($outboundType === 'ciezarowki') {
@@ -72,14 +72,20 @@ class OutboundLegService
  * @param array<string, float> $mults
  * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
  */
-    private function computePipeline(array $pipe, float $bbl, float $oilPrice, array $mults): array
+    private function computePipeline(array $pipe, float $bbl, float $oilPrice, array $mults, float $deltaHours): array
     {
-        // Enforce pipeline throughput capacity (BUG 3: cap bbl to real_capacity_bph).
-        // OutboundLegService does not receive deltaHours, so capacity is treated as
-        // a per-call limit (one tick = one shipment). Callers pass the tick's bbl.
-        $maxBbl = (float)($pipe['real_capacity_bph'] ?? PHP_FLOAT_MAX);
-        if ($maxBbl > 0 && $bbl > $maxBbl) {
-            $bbl = $maxBbl; // ograniczenie przepustowości / enforce throughput capacity
+        // Przepustowosc jest w bbl/h, a $bbl to wolumen z calego ticka — limit skalujemy przez
+        // deltaHours. Nadmiar ponad limit NIE jest dostarczany za darmo: caller cofa go do bufora
+        // hubu, wiec strata % i OPEX/bbl licza sie tylko od realnie przetransportowanej ilosci.
+        // Capacity is bbl/h and $bbl is the whole tick's volume — scale the cap by deltaHours.
+        // Over-capacity excess is NOT delivered free: the caller returns it to the hub buffer, so
+        // transport_loss % and per-bbl OPEX apply only to the volume actually transported.
+        $requested = $bbl;
+        $maxBbl    = (float)($pipe['real_capacity_bph'] ?? PHP_FLOAT_MAX) * max(0.0, $deltaHours);
+        $excess    = 0.0;
+        if ($maxBbl > 0 && $requested > $maxBbl) {
+            $excess = round($requested - $maxBbl, 4);
+            $bbl    = $maxBbl;
         }
 
         $lossPct = (float)($pipe['transport_loss'] ?? 0.0);
@@ -105,6 +111,8 @@ class OutboundLegService
             'loss_value' => round($lossBbl * $oilPrice, 2),
             'cost'       => $cost,
             'kind'       => 'pipeline',
+            'capped_bbl' => $bbl,
+            'excess_bbl' => $excess,
         ];
     }
 
@@ -155,6 +163,8 @@ class OutboundLegService
             'loss_value' => round($lossBbl * $oilPrice, 2),
             'cost'       => $cost,
             'kind'       => 'road',
+            'capped_bbl' => $bbl,
+            'excess_bbl' => 0.0,
         ];
     }
 }

@@ -365,56 +365,84 @@ class WellPipelineService
             return ['success' => false, 'error' => 'no_hub_permit'];
         }
 
- // Reject if outbound pipeline already exists for this hub
-        $existingStmt = $this->db->prepare(
-            "SELECT id, status FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound'"
-        );
-        $existingStmt->execute([$hubId]);
-        $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
-        if ($existing) {
-            return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
-        }
-
-        // Pobranie kosztu budowy / Deduct construction cost.
-        $payment = (new PlayerPaymentService($this->db))->charge(
-            $playerId,
-            $buildCost,
-            FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
-            tPlain('bank.tx_pipeline_hub_build', ['id' => $hubId]),
-            'hub',
-            $hubId
-        );
-        if (!$payment['success']) {
-            return ['success' => false, 'error' => 'insufficient_funds'];
-        }
-
         $capacity = max(1.0, round((float)($hub['nominal_capacity_bph'] ?? 100.0) * ((float)($profile['capacity_pct'] ?? 100.0) / 100.0), 2));
         $name = tPlain('pipeline.default_name_hub', ['id' => $hubId]);
 
-        $insertStmt = $this->db->prepare(
-            "INSERT INTO well_pipelines
-                (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
-                 nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
-                 opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
-                 last_inspected_at, created_at, updated_at)
-             VALUES (?, 0, ?, 'outbound', ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
-                     NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
-        );
-        $insertStmt->execute([
-            $playerId, $hubId, $name, $type,
-            $capacity, $capacity,
-            $profile['degradation_rate_per_hour'],
-            $profile['incident_risk_mult'],
-            $profile['opex_per_tick'],
-            $profile['opex_per_bbl'],
-            $buildCost,
-            $buildHours,
-        ]);
-        $pipelineId = (int)$this->db->lastInsertId();
-        $buildFinishAt = (new DateTime())->modify("+{$buildHours} hours")->format('Y-m-d H:i:s');
+        // Transakcja atomowa: check istnienia (FOR UPDATE) + oplata + INSERT razem, aby rownolegly
+        // lub nieudany zakup nie zostawil obciazenia bez rurociagu (jak w purchasePipeline).
+        // Atomic transaction: existence check (FOR UPDATE) + charge + INSERT together, so a concurrent
+        // or failed purchase never leaves a charge without a pipeline (mirrors purchasePipeline).
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            // Reject if outbound pipeline already exists for this hub.
+            $existingStmt = $this->db->prepare(
+                "SELECT id, status FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound' FOR UPDATE"
+            );
+            $existingStmt->execute([$hubId]);
+            $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existing) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'pipeline_already_exists', 'status' => (string)$existing['status']];
+            }
 
-        $this->recordEvent($playerId, 0, $pipelineId, 'pipeline_build_started', 'info',
-            tPlain('pipeline.event_build_started', ['id' => $pipelineId, 'hours' => $buildHours, 'cost' => number_format($buildCost, 2, '.', '')]));
+            // Pobranie kosztu budowy / Deduct construction cost.
+            $payment = (new PlayerPaymentService($this->db))->charge(
+                $playerId,
+                $buildCost,
+                FinancialTransactionService::TYPE_PIPELINE_PURCHASE,
+                tPlain('bank.tx_pipeline_hub_build', ['id' => $hubId]),
+                'hub',
+                $hubId
+            );
+            if (!$payment['success']) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'insufficient_funds'];
+            }
+
+            $insertStmt = $this->db->prepare(
+                "INSERT INTO well_pipelines
+                    (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
+                     nominal_capacity_bph, real_capacity_bph, degradation_rate_per_hour, incident_risk_mult,
+                     opex_per_tick, opex_per_bbl, build_cost, build_started_at, build_finish_at,
+                     last_inspected_at, created_at, updated_at)
+                 VALUES (?, 0, ?, 'outbound', ?, ?, 'building', 100.0, 0.0, ?, ?, ?, ?, ?, ?, ?,
+                         NOW(), NOW() + INTERVAL ? HOUR, NOW(), NOW(), NOW())"
+            );
+            $insertStmt->execute([
+                $playerId, $hubId, $name, $type,
+                $capacity, $capacity,
+                $profile['degradation_rate_per_hour'],
+                $profile['incident_risk_mult'],
+                $profile['opex_per_tick'],
+                $profile['opex_per_bbl'],
+                $buildCost,
+                $buildHours,
+            ]);
+            $pipelineId = (int)$this->db->lastInsertId();
+            $buildFinishAt = (new DateTime())->modify("+{$buildHours} hours")->format('Y-m-d H:i:s');
+
+            $this->recordEvent($playerId, 0, $pipelineId, 'pipeline_build_started', 'info',
+                tPlain('pipeline.event_build_started', ['id' => $pipelineId, 'hours' => $buildHours, 'cost' => number_format($buildCost, 2, '.', '')]));
+
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('WellPipelineService', 'Hub outbound pipeline purchase failed', $e, [
+                'player_id' => $playerId, 'hub_id' => $hubId,
+            ]);
+            return ['success' => false, 'error' => 'purchase_failed'];
+        }
 
         GameLog::info('WellPipelineService', 'Hub outbound pipeline purchased', [
             'player_id' => $playerId, 'hub_id' => $hubId, 'pipeline_id' => $pipelineId, 'type' => $type,
@@ -564,7 +592,7 @@ class WellPipelineService
         $wellStmt = $this->db->prepare(
             "SELECT id, base_production_per_hour, transport_capacity_pct, well_type
                FROM wells
-              WHERE id = ? AND player_id = ? AND status NOT IN ('sold','disabled')"
+              WHERE id = ? AND player_id = ? AND status NOT IN ('sold','seized','broken','blowout','contaminated')"
         );
         $wellStmt->execute([$wellId, $playerId]);
         $well = $wellStmt->fetch(PDO::FETCH_ASSOC);
@@ -1214,7 +1242,7 @@ class WellPipelineService
         $row['_has_hub_binding'] = $hasHubBinding;
         $row['_matches_active_hub'] = $matchesActiveHub;
         $row['_binding_mismatch'] = !$isOutbound && $hubId > 0 && $assignedHubId > 0 && $hubId !== $assignedHubId;
-        $row['_is_operational'] = $hasHubBinding && !in_array((string)($row['status'] ?? 'active'), ['building', 'suspended'], true);
+        $row['_is_operational'] = $hasHubBinding && !in_array((string)($row['status'] ?? 'active'), ['building', 'suspended', 'damaged', 'disabled'], true);
         return $row;
     }
 

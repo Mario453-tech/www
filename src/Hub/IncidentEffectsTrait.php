@@ -29,7 +29,14 @@ trait HubIncidentEffectsTrait
 
         $condDmg      = $dmgMax > $dmgMin ? mt_rand($dmgMin, $dmgMax) : $dmgMin;
         $extraLossPct = $losMax > $losMin ? mt_rand($losMin, $losMax) : $losMin;
-        $extraLoss    = round($inputBbl * $extraLossPct / 100.0, 2);
+ // Strate liczymy od barylek, ktore faktycznie dotarly (processed_bbl), a nie od pelnego
+ // inputBbl — bufor i straty huba sa juz odjete od magazynu przez callera, wiec liczenie od
+ // inputBbl podwajaloby straty i moglo zbic magazyn/finBbl ponizej zera.
+ // Loss is based on barrels that actually reached storage (processed_bbl), not the full
+ // inputBbl — hub buffer and losses are already deducted by the caller, so basing it on
+ // inputBbl would double-count losses and could push storage/finBbl below zero.
+        $lossBase     = (float)($tickResult['processed_bbl'] ?? $inputBbl);
+        $extraLoss    = round($lossBase * $extraLossPct / 100.0, 2);
 
         $msgCount = self::MSG_COUNT[$type] ?? 1;
         $message  = tPlain("logistics.hub.incident.{$type}." . mt_rand(0, $msgCount - 1), [

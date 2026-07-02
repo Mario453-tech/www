@@ -303,11 +303,16 @@ class WellProductionHandler
                 $this->ctx->loopCtx->storageBlockedBbl += $storageBlocked;
                 $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
             }
-            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
+ // Akumulacje wejscia hubu przenosimy PONIZEJ odjecia straty rurociagu leg-1, aby hub
+ // dostawal wolumen netto — inaczej hub przerabia (i leg-2 nalicza) barylki utracone w leg-1.
+ // Hub input accumulation is deferred to AFTER the leg-1 pipeline loss deduction so the hub
+ // receives net volume — otherwise it processes (and leg-2 charges) barrels lost in leg-1.
+            $applyHubSync = true;
         } else {
  // Odroczone: pojemnosc lokalna nieistotna — cala przetransportowana porcja idzie do bufora.
  // Deferred: local capacity irrelevant — the full transported volume goes to the staging buffer.
             $actual = $transportLimitedBbl;
+            $applyHubSync = false;
         }
 
  // Straty transportowe (rurociag) / Pipeline transport losses
@@ -329,6 +334,12 @@ class WellProductionHandler
                     ]);
                 }
             }
+        }
+
+ // Akumulacja wejscia hubu po stratach leg-1 (tylko transport synchroniczny).
+ // Hub input accumulation after leg-1 losses (synchronous transport only).
+        if ($applyHubSync) {
+            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
         }
 
         if ($actual <= 0) return;
