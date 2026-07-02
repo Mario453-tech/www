@@ -78,11 +78,15 @@ class WellGridData
         $hubAssignmentByWell = [];
         if (!empty($showWells)) {
             $wellIds = array_values(array_filter(array_map(static fn($w): int => (int)($w['id'] ?? 0), $showWells)));
+ // Wyliczamy $playerId raz przed blokami try — inaczej gdy pierwszy try rzuci przed
+ // przypisaniem, kolejne bloki bindowalyby NULL (brak przypisan hubow w siatce).
+ // Compute $playerId once before the try blocks — otherwise if the first try throws before
+ // assignment, later blocks would bind NULL (no hub assignments in the grid).
+            $playerId = (int)($playerData['id'] ?? 0);
             if ($wellIds !== []) {
                 try {
                     $db = Database::getInstance()->getConnection();
                     $pipelineSvc = new WellPipelineService($db);
-                    $playerId = (int)($playerData['id'] ?? 0);
                     if ($playerId > 0) {
                         $pipelineByWell = $pipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
                     }
@@ -94,15 +98,19 @@ class WellGridData
                     $db = Database::getInstance()->getConnection();
                     $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
  // ETAP 11: also fetch outbound_transport_type from logistics_hubs for second leg display.
+ // Uwzgledniamy huby wlasne (player_id) ORAZ wynajete (tenant_player_id) — inaczej odwierty
+ // przypisane do wynajetego huba pokazywalyby sie jako nieprzypisane.
+ // Include owned (player_id) AND rented (tenant_player_id) hubs — otherwise wells assigned to
+ // a rented hub would render as unassigned.
                     $stmt = $db->prepare(
                         "SELECT a.well_id, a.hub_id, h.name AS hub_name, h.outbound_transport_type
                            FROM logistics_hub_assignments a
                            JOIN logistics_hubs h ON h.id = a.hub_id
                           WHERE a.status = 'active'
-                            AND h.player_id = ?
+                            AND (h.player_id = ? OR h.tenant_player_id = ?)
                             AND a.well_id IN ({$placeholders})"
                     );
-                    $stmt->execute(array_merge([$playerId], $wellIds));
+                    $stmt->execute(array_merge([$playerId, $playerId], $wellIds));
                     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                         $hubAssignmentByWell[(int)($row['well_id'] ?? 0)] = $row;
                     }
@@ -114,7 +122,6 @@ class WellGridData
                 try {
                     $db = Database::getInstance()->getConnection();
                     $pipelineSvc = new WellPipelineService($db);
-                    $playerId = (int)($playerData['id'] ?? 0);
                     if ($playerId > 0) {
                         $hubIds = array_values(array_unique(array_map(
                             static fn($a): int => (int)($a['hub_id'] ?? 0),

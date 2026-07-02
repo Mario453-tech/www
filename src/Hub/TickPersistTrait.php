@@ -12,12 +12,20 @@ trait HubTickPersistTrait
  * @param array<string, mixed> $hub
  * @param array<string, mixed> $result from processTick()
  */
-    public function persistTickResult(array $hub, array $result, DateTime $now): void
+    public function persistTickResult(array $hub, array $result, DateTime $now): bool
     {
         $hubId      = (int)$hub['id'];
         $tickTime   = $now->format('Y-m-d H:i:s');
         $condBefore = (float)$hub['condition_pct'];
 
+ // Bufor i staty musza sie zapisac atomowo — inaczej caller moze skredytowac zdrenowana
+ // rope, a bufor pozostanie niezmniejszony (duplikacja barylek w kolejnym ticku).
+ // Buffer and stats must persist atomically — otherwise the caller may credit drained oil
+ // while the buffer stays undecremented (barrel duplication on the next tick).
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
         try {
             $this->db->prepare(
                 "UPDATE logistics_hubs
@@ -67,14 +75,52 @@ trait HubTickPersistTrait
                 $tickTime,
             ]);
 
- // Keep 7 days of stats (720 ticks at 1/h)
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return true;
+        } catch (Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('HubTickService', 'persistTickResult failed', $e, ['hub_id' => $hubId]);
+            return false;
+        }
+    }
+
+ /**
+ * Dodaje barylki z powrotem do bufora hubu (np. nadmiar ponad przepustowosc rurociagu
+ * wylotowego, ktory nie zmiescil sie w tym ticku i przechodzi na kolejny).
+ * Adds barrels back to the hub buffer (e.g. outbound-pipeline over-capacity excess that
+ * did not fit this tick and carries over to the next).
+ */
+    public function addBufferBbl(int $hubId, float $bbl): void
+    {
+        if ($bbl <= 0.001) {
+            return;
+        }
+        try {
+            $this->db->prepare(
+                "UPDATE logistics_hubs SET buffer_current_bbl = buffer_current_bbl + ?, updated_at = NOW() WHERE id = ?"
+            )->execute([round($bbl, 4), $hubId]);
+        } catch (Throwable $e) {
+            GameLog::error('HubTickService', 'addBufferBbl failed', $e, ['hub_id' => $hubId]);
+        }
+    }
+
+ /**
+ * Prunes hub tick stats older than 7 days. Wywolywac rzadko (raz na tick globalnie,
+ * nie per hub) — poza hot-path per-hub. Call rarely (once per global tick, not per hub).
+ */
+    public function pruneHubTickStats(DateTime $now): void
+    {
+        try {
             $this->db->prepare(
                 "DELETE FROM logistics_hub_tick_stats
-                  WHERE hub_id = ? AND tick_time < DATE_SUB(?, INTERVAL 7 DAY)"
-            )->execute([$hubId, $tickTime]);
-
+                  WHERE tick_time < DATE_SUB(?, INTERVAL 7 DAY)"
+            )->execute([$now->format('Y-m-d H:i:s')]);
         } catch (Throwable $e) {
-            GameLog::error('HubTickService', 'persistTickResult failed', $e, ['hub_id' => $hubId]);
+            GameLog::error('HubTickService', 'pruneHubTickStats failed', $e, []);
         }
     }
 }

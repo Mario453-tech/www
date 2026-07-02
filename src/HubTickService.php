@@ -149,9 +149,13 @@ class HubTickService
         } elseif ($condPct <= self::COND_DAMAGED) {
             $wear *= 1.4;
         }
- // Cap: zapobiega podwjnemu kumulowaniu mnożnika overload + krytyczna kondycja
- // Cap: prevents double-stacking overload + critical condition multipliers beyond 8x base
-        $wear = min($wear, $baseWear * 8.0);
+ // Cap: zapobiega podwjnemu kumulowaniu mnożnika overload + krytyczna kondycja.
+ // Skalowany przez deltaHours (baseWear jest per godzine), aby tick nadrabiajacy nie zanizal
+ // zuzycia — inaczej 24h nadrobienia dawaloby max 8x base zamiast ~24x.
+ // Cap: prevents double-stacking overload + critical condition multipliers beyond 8x base.
+ // Scaled by deltaHours (baseWear is per hour) so a catch-up tick doesn't under-apply wear —
+ // otherwise a 24h catch-up would cap at 8x base instead of ~24x.
+        $wear = min($wear, $baseWear * 8.0 * max(1.0, $deltaHours));
         $wear = round($wear, 4);
 
  // Bezporednie straty z kondycji zy stan = nieszczelnoci, spadki cinienia

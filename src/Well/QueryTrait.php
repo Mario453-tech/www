@@ -50,14 +50,21 @@ trait WellQueryTrait
     public function getWellEvents(int $wellId, int $playerId, int $limit = 20): array
     {
         try {
+            // LIMIT nie moze byc bindowany parametrem przy PDO::ATTR_EMULATE_PREPARES=true
+            // (emulator cytuje go jako string -> blad skladni MySQL polykany przez catch, metoda
+            // zawsze zwracala []). Wstawiamy bezpieczna liczbe calkowita po clampie.
+            // LIMIT cannot be a bound param under PDO::ATTR_EMULATE_PREPARES=true (the emulator quotes
+            // it as a string -> MySQL syntax error swallowed by catch, method always returned []).
+            // Inline a safe clamped integer instead.
+            $safeLimit = max(1, min(200, $limit));
             $stmt = $this->db->prepare("
                 SELECT * FROM well_events
                 WHERE well_id = ?
                   AND well_id IN (SELECT id FROM wells WHERE player_id = ?)
                 ORDER BY created_at DESC
-                LIMIT ?
+                LIMIT " . $safeLimit . "
             ");
-            $stmt->execute([$wellId, $playerId, $limit]);
+            $stmt->execute([$wellId, $playerId]);
             return $stmt->fetchAll();
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {

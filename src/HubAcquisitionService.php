@@ -250,12 +250,16 @@ class HubAcquisitionService
 
         try {
             $now  = date('Y-m-d H:i:s');
+            // Zapisz pod logowana stawke czynszu do wiersza huba, inaczej hub z zerowym
+            // lease_fee_per_tick bylby wynajmowany wiecznie za darmo (depozyt raz, potem 0/tick).
+            // Persist the floored lease fee to the hub row; otherwise a hub with zero
+            // lease_fee_per_tick would be rented free forever (deposit once, then 0/tick).
             $stmt = $this->db->prepare(
                 "UPDATE logistics_hubs
-                    SET tenant_player_id = ?, acquired_at = ?, updated_at = ?
+                    SET tenant_player_id = ?, lease_fee_per_tick = ?, acquired_at = ?, updated_at = ?
                   WHERE id = ? AND player_id = 0 AND tenant_player_id = 0"
             );
-            $stmt->execute([$playerId, $now, $now, $hubId]);
+            $stmt->execute([$playerId, $leaseFee, $now, $now, $hubId]);
 
             if ($stmt->rowCount() === 0) {
                 if ($deposit > 0.0) {

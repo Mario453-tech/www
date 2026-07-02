@@ -12,7 +12,8 @@ trait WellTickTrait
     {
         $stmt = $this->db->prepare("
             SELECT w.*, wr.political_risk AS region_political_risk,
-                   wr.stability_bonus AS region_stability_bonus
+                   wr.stability_bonus AS region_stability_bonus,
+                   (w.post_disaster_expires_at IS NOT NULL AND w.post_disaster_expires_at > NOW()) AS post_disaster_active
             FROM wells w
             LEFT JOIN world_regions wr ON wr.id = w.region_id
             WHERE w.id = ?
@@ -65,23 +66,28 @@ trait WellTickTrait
  // Spirala po katastrofie zwieksza przyszla degradacje.
         $postDisasterBoost = (float) ($well['post_disaster_risk_boost'] ?? 0.0);
         if ($postDisasterBoost > 0) {
- // Check whether the temporary boost has expired.
- // Sprawdz, czy czasowy boost juz wygasl.
-            $expiresAt = $well['post_disaster_expires_at'] ?? null;
-            if ($expiresAt && strtotime($expiresAt) > time()) {
+ // Wygasniecie liczymy po stronie SQL (post_disaster_active z NOW()), aby uniknac skew
+ // stref czasowych miedzy MySQL (zapis DATE_ADD(NOW())) a PHP (strtotime/time()).
+ // Expiry is evaluated in SQL (post_disaster_active via NOW()) to avoid timezone skew between
+ // MySQL (written with DATE_ADD(NOW())) and PHP (strtotime/time()).
+            if (!empty($well['post_disaster_active'])) {
                 $degradeRate *= (1.0 + $postDisasterBoost);
             } else {
- // Expired - clear stored values.
- // Wygasl - wyczysc zapisane wartosci.
+ // Expired - clear stored values (z player_id dla izolacji gracza, Rule 1).
+ // Expired - clear stored values (with player_id for player isolation, Rule 1).
                 $this->db->prepare("
                     UPDATE wells
                     SET post_disaster_risk_boost = 0, post_disaster_expires_at = NULL
-                    WHERE id = ?
-                ")->execute([$wellId]);
+                    WHERE id = ? AND player_id = ?
+                ")->execute([$wellId, (int)($well['player_id'] ?? 0)]);
             }
         }
 
-        $condBefore = (int) $well['technical_condition'];
+        // technical_condition jest teraz DECIMAL(5,1) — czytamy jako float, aby ulamkowa
+        // degradacja (<0.5/tick) nie byla gubiona przez rzutowanie na int.
+        // technical_condition is now DECIMAL(5,1) — read as float so sub-0.5/tick degradation
+        // is not lost to an int cast.
+        $condBefore = (float) $well['technical_condition'];
         $condAfter = max(0, $condBefore - ($degradeRate * $deltaHours));
 
  // Condition at 0% forces the well into broken state for all operational statuses.
@@ -106,7 +112,11 @@ trait WellTickTrait
         if ($condAfter < 70) {
  // Base failure chance grows for each percent below 70 condition.
  // Bazowa szansa awarii rosnie za kazdy procent ponizej 70 stanu.
-            $failureChance = (70 - $condAfter) * 0.005;
+ // Skalowana przez deltaHours (jak degradacja i processDisasterRoll), aby czestosc awarii
+ // zalezala od czasu gry, a nie od kadencji crona; clamp do 0.95.
+ // Scaled by deltaHours (like degradation and processDisasterRoll) so failure frequency
+ // depends on game time, not cron cadence; clamped to 0.95.
+            $failureChance = (70 - $condAfter) * 0.005 * $deltaHours;
             if (in_array('monitoring', $upgrades, true)) {
                 $failureChance *= 0.70;
             }
@@ -114,13 +124,18 @@ trait WellTickTrait
  // HSE lowers the failure chance.
  // BHP zmniejsza szanse awarii.
             $failureChance *= ($hseBonus['failure_reduction'] ?? 1.0);
+            $failureChance = min(0.95, $failureChance);
 
             if (mt_rand(1, 10000) <= (int) ($failureChance * 10000)) {
                 $failureOccurred = true;
 
  // HSE can reduce repair cost.
  // BHP moze obnizyc koszt naprawy.
-                $repairCostBase = (int) ($condBefore * 5000);
+ // Koszt naprawy rosnie z uszkodzeniem (100 - stan), a nie ze stanem pozostalym — inaczej
+ // prawie zdrowe odwierty mialyby najwyzsze rachunki. To pole jest tylko logowane/wyswietlane.
+ // Repair cost scales with damage (100 - condition), not remaining condition — otherwise nearly
+ // healthy wells would get the biggest bills. This value is only logged/displayed.
+                $repairCostBase = (int) (max(0.0, 100 - $condBefore) * 5000);
                 $repairCost = (int) round($repairCostBase * ($hseBonus['repair_cost_mult'] ?? 1.0));
 
  // Failure removes condition and pauses the well.
@@ -145,8 +160,9 @@ trait WellTickTrait
  // Blowout chance appears only at very poor condition.
  // Szansa blowout pojawia sie tylko przy bardzo slabym stanie.
         if ($condAfter < 30 && !$failureOccurred) {
-            $blowoutChance = (30 - $condAfter) * 0.0002; // 0.02% za kazdy % ponizej 30
+            $blowoutChance = (30 - $condAfter) * 0.0002 * $deltaHours; // 0.02% za kazdy % ponizej 30, skalowane deltaHours
             $blowoutChance *= ($hseBonus['catastrophe_mult'] ?? 1.0);
+            $blowoutChance = min(0.95, $blowoutChance);
 
             if (mt_rand(1, 1000000) <= (int) ($blowoutChance * 1000000)) {
  // Blowout is catastrophic; delegate to triggerBlowout() so disaster records,

@@ -84,7 +84,15 @@ class WellHubSection
                 $inputBbl = $this->ctx->hubInputAccum[$hubId] ?? 0.0;
 
                 $result = $this->hubTickSvc->processTick($hub, $inputBbl, $deltaHours, $hseBonus);
-                $this->hubTickSvc->persistTickResult($hub, $result, $this->now);
+
+ // Kredytujemy zdrenowana rope tylko gdy zapis bufora sie powiodl — inaczej bufor
+ // zostaje w DB niezmniejszony i te same barylki zostana skredytowane ponownie.
+ // Credit drained oil only if the buffer persisted — otherwise the buffer stays
+ // undecremented in DB and the same barrels would be credited again next tick.
+                if (!$this->hubTickSvc->persistTickResult($hub, $result, $this->now)) {
+                    GameLog::error('tick', 'hub_persist_failed_skip_credit', ['hub_id' => $hubId]);
+                    continue;
+                }
 
  // M10: Zsynchronizuj condition_pct z wynikiem processTick() zanim trafi do
  // processHubIncident() i processHubUsageFee(). Bez tego obie metody uzywaja
@@ -195,6 +203,10 @@ class WellHubSection
                 ]);
             }
         }
+
+ // Retencja statow hubow poza hot-path per-hub — jeden DELETE na przebieg sekcji.
+ // Hub stats retention out of the per-hub hot path — one DELETE per section run.
+        $this->hubTickSvc->pruneHubTickStats($this->now);
     }
 
  /**
@@ -268,6 +280,12 @@ class WellHubSection
             return;
         }
 
+ // Hub, ktory nic nie przerabia (pauza/serwis/wylaczony/w budowie), nie nalicza oplaty.
+ // A hub that processes nothing (paused/maintenance/disabled/building) charges no fee.
+        if (in_array((string)($hub['status'] ?? 'active'), ['paused', 'maintenance', 'disabled', 'building'], true)) {
+            return;
+        }
+
         $costMult = (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0)
  * (float)($this->gBalanceMults['opex'] ?? 1.0);
 
@@ -283,7 +301,11 @@ class WellHubSection
                 $condPct <  70.0 => 1.10,
                 default          => 1.00,
             };
-            $usageFee = round((float)$hub['opex_per_tick'] * $opexMult * $condMult * $costMult, 2);
+ // Mnoznik typu nabycia huba (jak w HubEconomyService::getOpex) — spójne z UI/rentownoscia.
+ // Acquisition-type multiplier (as in HubEconomyService::getOpex) — matches UI/viability report.
+            $acqDefaults = $this->hubSvc->getAcquisitionDefaults((string)($hub['acquisition_type'] ?? 'new'));
+            $acqOpexMult = (float)($acqDefaults['opex_mult'] ?? 1.0);
+            $usageFee = round((float)$hub['opex_per_tick'] * $opexMult * $condMult * $acqOpexMult * $costMult, 2);
             if ($usageFee > 0.0) {
                 $this->ctx->finOpex         += $usageFee;
                 $this->ctx->finHubUsageCost += $usageFee;
@@ -347,6 +369,20 @@ class WellHubSection
         );
         if ($res['kind'] === 'direct') {
             return;
+        }
+
+        // Nadmiar ponad przepustowosc rurociagu wylotowego nie moze byc dostarczony za darmo:
+        // cofnij go z magazynu do bufora hubu, by przeszedl na kolejny tick (throttling).
+        // Over-capacity excess must not be delivered free: pull it back from storage into the hub
+        // buffer so it carries over to the next tick (throttling).
+        $excessBbl = (float)($res['excess_bbl'] ?? 0.0);
+        if ($excessBbl > 0.001 && $this->hubTickSvc !== null) {
+            $excessVal = round($excessBbl * $this->oilPrice, 2);
+            $this->ctx->currentStorage = max(0.0, $this->ctx->currentStorage - $excessBbl);
+            $this->ctx->finBbl        -= $excessBbl;
+            $this->ctx->deliveredBbl  -= $excessBbl;
+            $this->ctx->finRevenue    -= $excessVal;
+            $this->hubTickSvc->addBufferBbl($hubId, $excessBbl);
         }
 
         $lostBbl = (float)$res['loss_bbl'];
