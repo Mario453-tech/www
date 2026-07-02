@@ -397,6 +397,17 @@ class WellLoopSection
  /**
  * Returns the well's chosen second-leg transport type (hub -> storage).
  * ETAP 11: looks up the well's hub and returns hub-level outbound_transport_type.
+ *
+ * Odwiert BEZ przypisanego huba nie ma odcinka hub->magazyn: dostarcza rope bezposrednio
+ * (jeden odcinek), wiec zwracamy 'nieustawiony' (leg-2 = direct, bez kosztu). Legacy kolumna
+ * wells.hub_outbound_transport_type jest reliktem sprzed ETAP 11 (gdy outbound byl per-odwiert)
+ * i celowo NIE jest tu uzywana — naliczanie drugiego odcinka drogowego dla odwiertu bez huba
+ * podwajaloby koszt/ryzyko juz naliczonego odcinka pierwszego (dostawa czasowa droga/port).
+ * A well WITHOUT a hub has no hub->storage leg: it delivers oil directly (single leg), so we
+ * return 'nieustawiony' (leg-2 = direct, no cost). The legacy wells.hub_outbound_transport_type
+ * column predates ETAP 11 (when outbound was per-well) and is intentionally NOT used here —
+ * charging a second road leg for a hubless well would double-count the already-charged first leg
+ * (the timed road/port delivery).
  */
     public function outboundTypeFor(int $wellId): string
     {
