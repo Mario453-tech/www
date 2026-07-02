@@ -134,6 +134,14 @@ trait HubViewHubsTrait
             return null;
         }
 
+        // Prywatna wlasnosc: szczegoly huba widzi tylko wlasciciel lub najemca (izolacja gracza, Rule 1).
+        // Private ownership: hub detail is visible only to the owner or tenant (player isolation, Rule 1).
+        $hubOwner  = (int)($hub['player_id']        ?? 0);
+        $hubTenant = (int)($hub['tenant_player_id'] ?? 0);
+        if ($hubOwner !== $playerId && $hubTenant !== $playerId) {
+            return null;
+        }
+
         return [
             'hub'             => $hub,
             'wells'           => $this->hubSvc->getHubWellsForPlayer($hubId, $playerId),
