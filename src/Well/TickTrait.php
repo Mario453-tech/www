@@ -12,7 +12,8 @@ trait WellTickTrait
     {
         $stmt = $this->db->prepare("
             SELECT w.*, wr.political_risk AS region_political_risk,
-                   wr.stability_bonus AS region_stability_bonus
+                   wr.stability_bonus AS region_stability_bonus,
+                   (w.post_disaster_expires_at IS NOT NULL AND w.post_disaster_expires_at > NOW()) AS post_disaster_active
             FROM wells w
             LEFT JOIN world_regions wr ON wr.id = w.region_id
             WHERE w.id = ?
@@ -65,19 +66,20 @@ trait WellTickTrait
  // Spirala po katastrofie zwieksza przyszla degradacje.
         $postDisasterBoost = (float) ($well['post_disaster_risk_boost'] ?? 0.0);
         if ($postDisasterBoost > 0) {
- // Check whether the temporary boost has expired.
- // Sprawdz, czy czasowy boost juz wygasl.
-            $expiresAt = $well['post_disaster_expires_at'] ?? null;
-            if ($expiresAt && strtotime($expiresAt) > time()) {
+ // Wygasniecie liczymy po stronie SQL (post_disaster_active z NOW()), aby uniknac skew
+ // stref czasowych miedzy MySQL (zapis DATE_ADD(NOW())) a PHP (strtotime/time()).
+ // Expiry is evaluated in SQL (post_disaster_active via NOW()) to avoid timezone skew between
+ // MySQL (written with DATE_ADD(NOW())) and PHP (strtotime/time()).
+            if (!empty($well['post_disaster_active'])) {
                 $degradeRate *= (1.0 + $postDisasterBoost);
             } else {
- // Expired - clear stored values.
- // Wygasl - wyczysc zapisane wartosci.
+ // Expired - clear stored values (z player_id dla izolacji gracza, Rule 1).
+ // Expired - clear stored values (with player_id for player isolation, Rule 1).
                 $this->db->prepare("
                     UPDATE wells
                     SET post_disaster_risk_boost = 0, post_disaster_expires_at = NULL
-                    WHERE id = ?
-                ")->execute([$wellId]);
+                    WHERE id = ? AND player_id = ?
+                ")->execute([$wellId, (int)($well['player_id'] ?? 0)]);
             }
         }
 
@@ -129,7 +131,11 @@ trait WellTickTrait
 
  // HSE can reduce repair cost.
  // BHP moze obnizyc koszt naprawy.
-                $repairCostBase = (int) ($condBefore * 5000);
+ // Koszt naprawy rosnie z uszkodzeniem (100 - stan), a nie ze stanem pozostalym — inaczej
+ // prawie zdrowe odwierty mialyby najwyzsze rachunki. To pole jest tylko logowane/wyswietlane.
+ // Repair cost scales with damage (100 - condition), not remaining condition — otherwise nearly
+ // healthy wells would get the biggest bills. This value is only logged/displayed.
+                $repairCostBase = (int) (max(0.0, 100 - $condBefore) * 5000);
                 $repairCost = (int) round($repairCostBase * ($hseBonus['repair_cost_mult'] ?? 1.0));
 
  // Failure removes condition and pauses the well.

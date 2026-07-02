@@ -376,12 +376,22 @@ class PipelineSection
                 ? $cfg['cond_drop_min']
                 : $cfg['cond_drop_min'] + mt_rand(0, 1000) / 1000.0 * ($cfg['cond_drop_max'] - $cfg['cond_drop_min']);
 
+ // Gdy incydent zbija kondycje do 0, ustawiamy status 'damaged' i damaged_at w tym samym
+ // UPDATE — inaczej rurociag transportowalby przy 0% jeszcze caly tick (status liczony byl
+ // z kondycji sprzed incydentu). Inne przejscia statusu (degraded/critical/leak) zostawiamy
+ // degradacji nastepnego ticka, by nie cofnac np. statusu 'leak'.
+ // When the incident drops condition to 0, set status 'damaged' + damaged_at in the same UPDATE —
+ // otherwise the pipeline would transport at 0% for a full tick (status was computed from the
+ // pre-incident condition). Other transitions (degraded/critical/leak) are left to next tick's
+ // degradation so we don't regress e.g. a 'leak' status.
             $this->db->prepare(
                 "UPDATE well_pipelines
                     SET transport_loss = LEAST(10.0, transport_loss + ?),
-                        condition_pct  = GREATEST(0.0, condition_pct - ?)
+                        condition_pct  = GREATEST(0.0, condition_pct - ?),
+                        status     = CASE WHEN GREATEST(0.0, condition_pct - ?) <= 0.0 THEN 'damaged' ELSE status END,
+                        damaged_at = CASE WHEN GREATEST(0.0, condition_pct - ?) <= 0.0 THEN COALESCE(damaged_at, NOW()) ELSE damaged_at END
                   WHERE id = ?"
-            )->execute([round($lossAdd, 2), round($condDrop, 1), $pipelineId]);
+            )->execute([round($lossAdd, 2), round($condDrop, 1), round($condDrop, 1), round($condDrop, 1), $pipelineId]);
 
             $this->wellPipelineService->recordEvent(
                 $playerId,

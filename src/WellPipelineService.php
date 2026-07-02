@@ -222,7 +222,10 @@ class WellPipelineService
                  SELECT 1 FROM well_pipelines WHERE well_id = ? AND player_id = ?
              )
              ON DUPLICATE KEY UPDATE
-                 player_id = VALUES(player_id),
+                 -- NIE reassignujemy player_id: klucz unikalny to (well_id, hub_id, leg), wiec
+                 -- kolizja moglaby przejac wiersz innego gracza. Ownership zostaje bez zmian.
+                 -- Do NOT reassign player_id: the unique key is (well_id, hub_id, leg), so a
+                 -- collision could hijack another player's row. Ownership stays unchanged.
                  name = VALUES(name),
                  pipeline_type = VALUES(pipeline_type),
                  status = VALUES(status),
