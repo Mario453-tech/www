@@ -55,8 +55,14 @@ trait IncidentTickTrait
             try {
                 // Filtruj po player_id — unika uzywania historii poprzedniego wlasciciela odwiertu (Rule 1).
                 // Filter by player_id — avoids using previous owner's incident history (Rule 1).
+                // Pomijamy micro — tylko incydenty powazniejsze niz micro resetuja licznik odpornosci,
+                // wiec fallback musi liczyc od ostatniego incydentu != micro (inaczej czeste micro
+                // trzymalyby dojrzale odwierty w wiecznej odpornosci na minor/medium/major).
+                // Exclude micro — only non-micro incidents reset the immunity counter, so the fallback
+                // must measure from the last non-micro incident (else frequent micro would keep mature
+                // wells permanently immune to minor/medium/major).
                 $stmt = $this->db->prepare(
-                    "SELECT TIMESTAMPDIFF(SECOND, MAX(created_at), NOW()) AS secs FROM well_incidents WHERE well_id = ? AND player_id = ?"
+                    "SELECT TIMESTAMPDIFF(SECOND, MAX(created_at), NOW()) AS secs FROM well_incidents WHERE well_id = ? AND player_id = ? AND level <> 'micro'"
                 );
                 $stmt->execute([$wellId, $playerId]);
                 $row = $stmt->fetch(\PDO::FETCH_ASSOC);
@@ -145,7 +151,13 @@ trait IncidentTickTrait
             'pressure_mult' => round($pressureMult, 3),
         ]);
 
-        foreach ($this->levelCfg as $level => $cfg) {
+ // Iterujemy od najciezszego do najlzejszego (major->medium->minor->micro), aby przy
+ // nasyceniu szansy (dlugie deltaHours po przerwie crona) pierwszy trafiony byl najpowazniejszy,
+ // a nie micro — inaczej micro (pierwszy w konfiguracji) zaslanialby powazne poziomy przez return.
+ // Iterate most-severe first (major->medium->minor->micro) so when chance saturates (long
+ // deltaHours after cron downtime) the first hit is the most serious, not micro — otherwise micro
+ // (first in config) would shadow serious levels via the early return.
+        foreach (array_reverse($this->levelCfg, true) as $level => $cfg) {
  // Micro omija immunitet — to szum (auto-naprawa, koszt $0), nie resetuje licznika.
  // Micro bypasses immunity — it is noise (auto-repair, $0 cost) and does not reset the counter.
             if ($level !== 'micro' && $ticksSince <= $this->immunityTicks) {
@@ -188,6 +200,9 @@ trait IncidentTickTrait
  // HSE reduces chance; the floor applies only to micro incidents.
  // BHP redukuje szanse; floor obowiazuje tylko dla micro.
             $chance *= $hseMult;
+ // Clamp do 1.0 — przy dlugich deltaHours szansa moglaby przekroczyc 1 i zawsze trafiac.
+ // Clamp to 1.0 — with long deltaHours the chance could exceed 1 and always fire.
+            $chance = min(1.0, $chance);
             GameLog::step('IncidentService', 'processTick', 2, "chance_{$level}", [
                 'well_id' => $wellId,
                 'chance' => round($chance * 100, 4) . '%',

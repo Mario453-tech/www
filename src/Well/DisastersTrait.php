@@ -29,21 +29,21 @@ trait WellDisastersTrait
 
         $this->db->beginTransaction();
         try {
- // Uszkodz rurociag - najpierw nowy model per odwiert, potem fallback do starej tabeli.
- // Damage the pipeline - try new per-well model first, then fallback to legacy table.
-            $stmt = $this->db->prepare("
+ // Uszkodz rurociag w modelu per-odwiert (well_pipelines). $pipelineId zawsze pochodzi
+ // z well_pipelines (PipelineSection). NIE robimy fallbacku na legacy tabele `pipelines`:
+ // rowCount()==0 zwykle znaczy "wiersz juz ustawiony na damaged w tym ticku" (emulowane
+ // prepared statements zwracaja zmienione wiersze), a AUTO_INCREMENT legacy tabeli jest
+ // niezalezny — slepy UPDATE po tym samym id niszczyl niepowiazany rurociag.
+ // Damage the pipeline in the per-well model (well_pipelines). $pipelineId always comes from
+ // well_pipelines (PipelineSection). We do NOT fall back to the legacy `pipelines` table:
+ // rowCount()==0 usually means "row already set to damaged this tick" (emulated prepares
+ // report changed rows), and the legacy table's AUTO_INCREMENT is independent — a blind UPDATE
+ // by the same id destroyed an unrelated pipeline.
+            $this->db->prepare("
                 UPDATE well_pipelines
                    SET status='damaged', condition_pct=0, damaged_at=NOW()
                  WHERE id = ? AND player_id = ?
-            ");
-            $stmt->execute([$pipelineId, $playerId]);
-            if ($stmt->rowCount() === 0) {
-                $this->db->prepare("
-                    UPDATE pipelines
-                       SET status='damaged', condition_pct=0, damaged_at=NOW()
-                     WHERE id = ? AND player_id = ?
-                ")->execute([$pipelineId, $playerId]);
-            }
+            ")->execute([$pipelineId, $playerId]);
 
  // Gotowka NIE jest pobierana tutaj - tick jest jedynym platnikiem katastrof.
  // PipelineSection odejmuje (cost+env_fine) przez cashDelta, a roznicowy zapis

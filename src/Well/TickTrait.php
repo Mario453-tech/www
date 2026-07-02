@@ -81,7 +81,11 @@ trait WellTickTrait
             }
         }
 
-        $condBefore = (int) $well['technical_condition'];
+        // technical_condition jest teraz DECIMAL(5,1) — czytamy jako float, aby ulamkowa
+        // degradacja (<0.5/tick) nie byla gubiona przez rzutowanie na int.
+        // technical_condition is now DECIMAL(5,1) — read as float so sub-0.5/tick degradation
+        // is not lost to an int cast.
+        $condBefore = (float) $well['technical_condition'];
         $condAfter = max(0, $condBefore - ($degradeRate * $deltaHours));
 
  // Condition at 0% forces the well into broken state for all operational statuses.
@@ -106,7 +110,11 @@ trait WellTickTrait
         if ($condAfter < 70) {
  // Base failure chance grows for each percent below 70 condition.
  // Bazowa szansa awarii rosnie za kazdy procent ponizej 70 stanu.
-            $failureChance = (70 - $condAfter) * 0.005;
+ // Skalowana przez deltaHours (jak degradacja i processDisasterRoll), aby czestosc awarii
+ // zalezala od czasu gry, a nie od kadencji crona; clamp do 0.95.
+ // Scaled by deltaHours (like degradation and processDisasterRoll) so failure frequency
+ // depends on game time, not cron cadence; clamped to 0.95.
+            $failureChance = (70 - $condAfter) * 0.005 * $deltaHours;
             if (in_array('monitoring', $upgrades, true)) {
                 $failureChance *= 0.70;
             }
@@ -114,6 +122,7 @@ trait WellTickTrait
  // HSE lowers the failure chance.
  // BHP zmniejsza szanse awarii.
             $failureChance *= ($hseBonus['failure_reduction'] ?? 1.0);
+            $failureChance = min(0.95, $failureChance);
 
             if (mt_rand(1, 10000) <= (int) ($failureChance * 10000)) {
                 $failureOccurred = true;
@@ -145,8 +154,9 @@ trait WellTickTrait
  // Blowout chance appears only at very poor condition.
  // Szansa blowout pojawia sie tylko przy bardzo slabym stanie.
         if ($condAfter < 30 && !$failureOccurred) {
-            $blowoutChance = (30 - $condAfter) * 0.0002; // 0.02% za kazdy % ponizej 30
+            $blowoutChance = (30 - $condAfter) * 0.0002 * $deltaHours; // 0.02% za kazdy % ponizej 30, skalowane deltaHours
             $blowoutChance *= ($hseBonus['catastrophe_mult'] ?? 1.0);
+            $blowoutChance = min(0.95, $blowoutChance);
 
             if (mt_rand(1, 1000000) <= (int) ($blowoutChance * 1000000)) {
  // Blowout is catastrophic; delegate to triggerBlowout() so disaster records,

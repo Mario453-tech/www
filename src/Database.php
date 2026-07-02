@@ -39,13 +39,16 @@ class Database
             $this->pdo = new PDO($dsn, $config['user'], $config['password'], [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                // MUSI zostac true. Liczne zapytania binduja LIMIT/OFFSET przez execute([...])
-                // jako string (np. Well/QueryTrait, HeadhunterService, ConsentRepository) — przy
-                // false MySQL natywny rzuca blad skladni na LIMIT '20'. Charset utf8mb4 w DSN
+                // Emulacja jest wlaczona z powodow zgodnosci hostingu; charset utf8mb4 w DSN
                 // eliminuje klasyczny wektor SQLi emulacji, wiec true jest tu bezpieczne.
-                // MUST stay true: many queries bind LIMIT/OFFSET as strings via execute([...]);
-                // native prepares would reject LIMIT '20'. utf8mb4 charset removes the emulation
-                // SQLi vector, so true is safe here.
+                // UWAGA: przy emulacji LIMIT/OFFSET NIE wolno bindowac przez execute([...]) —
+                // emulator cytuje wartosc jako string ('20'), co daje blad skladni MySQL. LIMIT
+                // wstawiaj jako zwalidowana liczba calkowita (patrz Well/QueryTrait::getWellEvents).
+                // Emulation is on for hosting compatibility; the utf8mb4 charset in the DSN removes
+                // the classic emulation SQLi vector, so true is safe here.
+                // NOTE: under emulation, LIMIT/OFFSET must NOT be bound via execute([...]) — the
+                // emulator quotes the value as a string ('20'), causing a MySQL syntax error. Inline
+                // LIMIT as a validated integer instead (see Well/QueryTrait::getWellEvents).
                 PDO::ATTR_EMULATE_PREPARES   => true
             ]);
             
