@@ -121,6 +121,26 @@ class WellProductionHandler
  */
     public function processOpex(array &$well, int $wellId, int $playerId, float $deltaHours, float $storageCapacity, ?object $tsvc): bool
     {
+ // BRAMKA PORTU przed OPEX: odwiert tankowcowy w regionie bez aktywnego portu nie moze
+ // produkowac (bramka portu w processProduction), wiec naliczanie pelnego OPEX co tick
+ // tylko wykrwawialoby gracza w nieskonczonosc. Zero produkcji = zero OPEX.
+ // PORT GATE before OPEX: a tanker well in a region with no active port cannot produce
+ // (port gate in processProduction), so charging full OPEX every tick would just bleed
+ // the player forever. No production = no OPEX.
+        $wellTypeForPort  = (string)($well['well_type'] ?? 'onshore');
+        $transportForPort = (string)($well['transport_type'] ?? ($wellTypeForPort === 'offshore' ? 'tankowiec' : 'nieustawiony'));
+        if ($transportForPort === 'tankowiec'
+            && $this->ctx->marineDeliverySvc !== null
+            && !$this->ctx->marineDeliverySvc->regionHasPort((int)($well['region_id'] ?? 0))
+        ) {
+            GameLog::info('tick', 'marine well no-port: OPEX and production skipped', [
+                'well_id'   => $wellId,
+                'player_id' => $playerId,
+                'region_id' => (int)($well['region_id'] ?? 0),
+            ]);
+            return false;
+        }
+
         $opexPerHour = $this->ctx->wellService->getOpexPerHour($well);
         if ($well['status'] === 'paused_storage') $opexPerHour *= 0.30;
         $opexTotal = $opexPerHour * $deltaHours
@@ -378,6 +398,13 @@ class WellProductionHandler
  // Transport events - before adding to storage and calculating financials.
         $actualBeforeEvent = $actual;
         $storageLossBbl    = 0.0;
+ // Sciezki fallbackowe (SQLite road processTick, offshore processTick) naliczaja SWOJ pelny
+ // koszt transportu; flaga wylacza pozniejsze wspolne bloki % opex i cost_per_bbl, aby te
+ // same barylki nie placily kilku nakladajacych sie oplat.
+ // Fallback paths (SQLite road processTick, offshore processTick) charge their OWN full
+ // transport cost; the flag disables the later shared % opex and cost_per_bbl blocks so the
+ // same barrels do not pay several overlapping fees.
+        $fallbackFullyCharged = false;
 
         if ($transportType === 'ciezarowki' && $this->ctx->roadTransportSvc !== null) {
             $roadCfg       = $this->ctx->roadConfigCache[$wellId] ?? null;
@@ -498,6 +525,13 @@ class WellProductionHandler
                 $this->ctx->loopCtx->totalCosts += $roadCost;
                 $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $roadCost);
             }
+ // Parytet z MySQL: sciezka dispatchowa placi tylko koszt per-trip, wiec fallback
+ // rowniez pomija dalsze % opex i cost_per_bbl — inaczej te same barylki bylyby
+ // obciazane potrojnie zaleznie od srodowiska.
+ // Parity with MySQL: the dispatch path charges per-trip cost only, so the fallback
+ // also skips the later % opex and cost_per_bbl — otherwise the same barrels would
+ // be charged triple depending on the environment.
+            $fallbackFullyCharged = true;
             if (!empty($roadResult['incidents'])) {
                 GameLog::info('tick', 'road_transport_incidents', [
                     'well_id'        => $wellId, 'player_id'   => $playerId,
@@ -618,6 +652,11 @@ class WellProductionHandler
                 $this->ctx->loopCtx->totalCosts += $offshoreCost;
                 $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $offshoreCost);
             }
+ // cost_per_shipment pokrywa caly transport tej porcji: pomin dalsze % opex
+ // i cost_per_bbl (wczesniej te same barylki placily trzy nakladajace sie oplaty).
+ // cost_per_shipment covers this batch's entire transport: skip the later % opex
+ // and cost_per_bbl (previously the same barrels paid three overlapping fees).
+            $fallbackFullyCharged = true;
             if (!empty($offshoreResult['incidents'])) {
                 GameLog::info('tick', 'offshore_transport_incidents', [
                     'well_id' => $wellId, 'player_id' => $playerId,
@@ -689,7 +728,7 @@ class WellProductionHandler
         }
 
  // Transport OPEX (procentowy od przychodu) / Transport OPEX (percentage of revenue)
-        if ($transportOpexPct > 0) {
+        if ($transportOpexPct > 0 && !$fallbackFullyCharged) {
             $transportOpex = round($actual * $price * ($transportOpexPct / 100.0) * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $charged = min($transportOpex, $this->ctx->loopCtx->playerCash);
             $this->ctx->loopCtx->finTransport += $charged;
@@ -700,7 +739,7 @@ class WellProductionHandler
 
  // Koszt staly transportu: PLN za kazda przetransportowana barylke. / Fixed transport cost: PLN per transported barrel.
         $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
-        if ($costPerBbl > 0) {
+        if ($costPerBbl > 0 && !$fallbackFullyCharged) {
             $transportFixedCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $charged = min($transportFixedCost, $this->ctx->loopCtx->playerCash);
             $this->ctx->loopCtx->finTransport += $charged;

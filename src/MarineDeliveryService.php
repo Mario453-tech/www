@@ -179,8 +179,16 @@ class MarineDeliveryService
      * Usuwa osierocone aktywne dostawy gracza pozostale po starej logice mikro-kursow.
      * Removes orphan active player deliveries left over from the legacy micro-shipment logic.
      *
-     * Czyści tylko rekordy bez wpisu w kolejce portowej, z ETA starszym niz 12 godzin.
-     * Cleans only rows with no port queue entry and ETA older than 12 hours.
+     * Czyści WYLACZNIE rekordy definitywnie niedostarczalne: 'delayed' bez przypisanego
+     * portu (findPort nie znalazl portu — nigdy nie dotra do magazynu). Rejsy
+     * departing/in_transit/delayed-z-portem z przeterminowanym ETA sa DOSTARCZALNE —
+     * najblizszy tick je dowiezie (ETA minelo tylko dlatego, ze cron stal); kasowanie ich
+     * przy wejsciu na strone logistyki niszczylo ladunek, ktory gracz juz oplacil.
+     * Cleans ONLY definitively undeliverable rows: 'delayed' with no assigned port
+     * (findPort found none — they will never reach storage). Voyages in
+     * departing/in_transit/delayed-with-port whose ETA merely lapsed are DELIVERABLE —
+     * the next tick completes them (the ETA only lapsed because cron was down); deleting
+     * them on a logistics page view destroyed cargo the player had already paid for.
      */
     public static function purgeOrphanActiveForPlayer(PDO $db, int $playerId): int
     {
@@ -191,7 +199,8 @@ class MarineDeliveryService
               LEFT JOIN port_queue pq
                      ON pq.delivery_id = md.id
                   WHERE md.player_id = ?
-                    AND md.status IN ('departing','in_transit','delayed','waiting_for_port','processing')
+                    AND md.status = 'delayed'
+                    AND md.port_id IS NULL
                     AND md.eta_at < NOW() - INTERVAL 12 HOUR
                     AND pq.delivery_id IS NULL"
             );

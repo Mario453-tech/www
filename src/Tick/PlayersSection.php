@@ -257,7 +257,7 @@ class PlayersSection
         if (class_exists('PortSection')) {
             try {
                 $portSec        = new PortSection($db, $now);
-                $currentStorage = $portSec->process($playerId, $currentStorage, $storageCapacity, $this->oilPrice);
+                $currentStorage = $portSec->process($playerId, $currentStorage, $storageCapacity, $this->oilPrice, $deltaHours);
  // Dolacz wyniki portowe do sum finansowych / Add port results to financial sums
                 if ($portSec->deliveredBbl > 0.0) {
                     $wellLoop->finBbl       += $portSec->deliveredBbl;

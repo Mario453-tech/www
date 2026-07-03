@@ -145,10 +145,17 @@ class PortService
                    SET p.status = CASE
                         WHEN COALESCE(q.cnt, 0) >= p.queue_limit * 0.8 AND p.status = 'active'    THEN 'overloaded'
                         WHEN COALESCE(q.cnt, 0) <  p.queue_limit * 0.8 AND p.status = 'overloaded' THEN 'active'
+                        -- 'closed' otwiera sie ponownie ponizej polowy limitu kolejki (spojnie
+                        -- z PortSection::refreshPortStatuses) — port zamkniety na zawsze wiezil
+                        -- dostawy 'waiting_for_port' i sloty kolejki.
+                        -- 'closed' reopens below half the queue limit (consistent with
+                        -- PortSection::refreshPortStatuses) — a forever-closed port trapped
+                        -- 'waiting_for_port' deliveries and queue slots.
+                        WHEN COALESCE(q.cnt, 0) <  p.queue_limit * 0.5 AND p.status = 'closed'     THEN 'active'
                         ELSE p.status
                    END,
                    p.updated_at = NOW()
-                 WHERE p.status IN ('active','overloaded')"
+                 WHERE p.status IN ('active','overloaded','closed')"
             );
         } catch (Throwable $e) {
             GameLog::error('tick', 'PortService::refreshStatuses FAILED', $e);
