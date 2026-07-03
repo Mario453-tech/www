@@ -119,8 +119,17 @@ trait HubTickPersistTrait
             if ($added <= 0.001) {
                 return 0.0;
             }
+ // LEAST(...) w samym UPDATE jest atomowym strażnikiem pojemności: nawet jeśli równoległy
+ // przebieg (ADMIN_FORCE_TICK omija GET_LOCK) zmieni buffer_current_bbl między SELECT a UPDATE,
+ // bufor nigdy nie przekroczy buffer_capacity_bbl. $added (z SELECT) to best-effort do księgowania strat.
+ // LEAST(...) inside the UPDATE is an atomic capacity guard: even if a concurrent run
+ // (ADMIN_FORCE_TICK bypasses GET_LOCK) changes buffer_current_bbl between SELECT and UPDATE,
+ // the buffer never exceeds buffer_capacity_bbl. $added (from the SELECT) is best-effort for loss accounting.
             $this->db->prepare(
-                "UPDATE logistics_hubs SET buffer_current_bbl = buffer_current_bbl + ?, updated_at = NOW() WHERE id = ?"
+                "UPDATE logistics_hubs
+                    SET buffer_current_bbl = LEAST(buffer_capacity_bbl, buffer_current_bbl + ?),
+                        updated_at = NOW()
+                  WHERE id = ?"
             )->execute([$added, $hubId]);
             return $added;
         } catch (Throwable $e) {
