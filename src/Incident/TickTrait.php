@@ -61,14 +61,28 @@ trait IncidentTickTrait
                 // Exclude micro — only non-micro incidents reset the immunity counter, so the fallback
                 // must measure from the last non-micro incident (else frequent micro would keep mature
                 // wells permanently immune to minor/medium/major).
+                // Jedno zapytanie zamiast dwoch: COALESCE bierze czas ostatniego incydentu != micro,
+                // a przy jego braku — moment zalozenia odwiertu (presja liczy sie od zalozenia, NIE od
+                // sentinela 999; nowy odwiert startowal z maksymalna presja = podwojona szansa incydentu).
+                // Porownanie po stronie SQL (NOW()) unika skew stref czasowych PHP/MySQL (jak w rundzie 3).
+                // One query instead of two: COALESCE takes the last non-micro incident time, or the well's
+                // creation when none exists (pressure builds from creation, NOT from the 999 sentinel; a
+                // fresh well used to start at the pressure cap = doubled incident chance). SQL-side NOW()
+                // comparison avoids PHP/MySQL timezone skew (as in round 3).
                 $stmt = $this->db->prepare(
-                    "SELECT TIMESTAMPDIFF(SECOND, MAX(created_at), NOW()) AS secs FROM well_incidents WHERE well_id = ? AND player_id = ? AND level <> 'micro'"
+                    "SELECT TIMESTAMPDIFF(SECOND, COALESCE(
+                                (SELECT MAX(wi.created_at) FROM well_incidents wi
+                                  WHERE wi.well_id = w.id AND wi.player_id = w.player_id AND wi.level <> 'micro'),
+                                w.created_at
+                            ), NOW()) AS secs
+                       FROM wells w
+                      WHERE w.id = ? AND w.player_id = ?"
                 );
                 $stmt->execute([$wellId, $playerId]);
                 $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-                if ($row && $row['secs'] !== null) {
-                    $ticksSince = max(0, (int)((int)$row['secs'] / 300));
-                }
+                $ticksSince = ($row && $row['secs'] !== null)
+                    ? max(0, (int)((int)$row['secs'] / 300))
+                    : 0;
             } catch (\Throwable $e) {
                 GameLog::error('IncidentService', 'immunity_fallback FAILED', $e, ['well_id' => $wellId]);
             }

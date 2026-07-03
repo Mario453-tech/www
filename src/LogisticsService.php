@@ -284,7 +284,7 @@ class LogisticsService
     {
         $cfg         = $this->transportConfig[$type] ?? TransportConfigService::getDefaults()['nieustawiony'];
         $transported = min($prod, $prod * ((float)$cfg['capacity'] / 100.0));
-        $cost        = $transported * (float)$cfg['cost_per_bbl'];
+        $cost        = $this->projectCost($type, $transported, $cfg);
 
         return match($mode) {
             'balans'   => $transported - $cost * 0.001,
@@ -294,13 +294,33 @@ class LogisticsService
         };
     }
 
+ /**
+ * Projekcja kosztu spojna z faktycznym billingiem ticku: ciezarowki placa per-kurs
+ * (RoadTransportService::dispatchTrips, standard: 500 PLN / 25 bbl), NIE cost_per_bbl
+ * z transport_config — optymalizator liczacy po cost_per_bbl rekomendowal typy wg
+ * stawki, ktorej produkcja nigdy nie pobiera.
+ * Cost projection consistent with actual tick billing: trucks pay per-trip
+ * (RoadTransportService::dispatchTrips, standard: 500 PLN / 25 bbl), NOT the
+ * transport_config cost_per_bbl — an optimizer using cost_per_bbl recommended types
+ * by a fee the production tick never charges.
+ */
+    private function projectCost(string $type, float $transported, array $cfg): float
+    {
+        if ($type === 'ciezarowki') {
+            $tripCapacity = 25.0;   // RoadTransportService TRUCK_DEFAULTS 'standard'
+            $costPerTrip  = 500.0;
+            return ($transported / $tripCapacity) * $costPerTrip;
+        }
+        return $transported * (float)($cfg['cost_per_bbl'] ?? 0.0);
+    }
+
  // -- Stats for a single well ---
     private function calcStats(float $prod, string $type): array
     {
         $cfg         = $this->transportConfig[$type] ?? TransportConfigService::getDefaults()['nieustawiony'];
         $transported = min($prod, $prod * ((float)$cfg['capacity'] / 100.0));
         $loss        = max(0.0, $prod - $transported);
-        $cost        = $transported * (float)$cfg['cost_per_bbl'];
+        $cost        = $this->projectCost($type, $transported, $cfg);
 
         return [
             'transported' => $transported,

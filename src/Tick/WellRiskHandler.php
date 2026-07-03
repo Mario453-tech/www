@@ -32,10 +32,24 @@ class WellRiskHandler
         ?int $technicianId
     ): void {
         $ws = $this->ctx->wellService;
-        try { $ws->processDegradation($wellId, $deltaHours, $hseBonus,
-            $mults['techDegradefMult'] * $mults['wearDegMult'] * $mults['spiralMultEffective']
+        try {
+            $degradation = $ws->processDegradation($wellId, $deltaHours, $hseBonus,
+                $mults['techDegradefMult'] * $mults['wearDegMult'] * $mults['spiralMultEffective']
  * $mults['eqMults']['wear'] * $this->ctx->gBalanceMults['degradation'] * $offlineRiskMult
  * (float)($this->ctx->financeTechnicalMods['degradation_mult'] ?? 1.0));
+
+            // Awaria mechaniczna: koszt naprawy pobierany realnie z gotowki ticku (jak inne koszty).
+            // Wczesniej byl tylko logowany, a paused_cash auto-wznawialo odwiert w nastepnym ticku,
+            // wiec awarie byly de facto darmowe.
+            // Mechanical failure: repair cost actually charged from the tick's cash (like other costs).
+            // Previously it was only logged and paused_cash auto-resumed next tick — failures were free.
+            $repairCost = (float)($degradation['repair_cost'] ?? 0);
+            if ($repairCost > 0) {
+                $loopCtx = $this->ctx->loopCtx;
+                $loopCtx->finIncident += $repairCost;
+                $loopCtx->totalCosts  += $repairCost;
+                $loopCtx->playerCash   = max(0.0, $loopCtx->playerCash - $repairCost);
+            }
         } catch (Throwable $e) { GameLog::error('tick', 'processDegradation FAILED', $e, ['well_id' => $wellId]); }
 
         // Skip risk score update for wells that are already in a terminal/inactive state.
@@ -46,9 +60,15 @@ class WellRiskHandler
         }
 
         if (in_array($well['status'], ['active','contaminated','no_technician','paused_storage','paused_cash'])) {
+            // BEZ eqMults['wear'] w iloczynie: processWear mnozy go juz wewnetrznie
+            // (Well/TickTrait), wiec podanie go tutaj podnosilo zuzycie do KWADRATU
+            // (tier 1.5 dawal 2.25x zamiast 1.5x, a premia <1 niezamierzony podwojny rabat).
+            // NO eqMults['wear'] in the product: processWear already multiplies it internally
+            // (Well/TickTrait), so passing it here SQUARED the wear multiplier
+            // (a 1.5 tier gave 2.25x instead of 1.5x; premium <1 got an unintended double discount).
             try { $ws->processWear($wellId, $deltaHours, (float)$well['base_production_per_hour'],
                 (float)($well['oil_richness'] ?? 1.0), false,
-                $mults['spiralWearMult'] * $mults['perkWearMult'] * $mults['eqMults']['wear']
+                $mults['spiralWearMult'] * $mults['perkWearMult']
  * $transportWearMult * $this->ctx->gBalanceMults['wear'] * $mults['layerWearMult']
  * (float)($this->ctx->financeTechnicalMods['wear_mult'] ?? 1.0));
             } catch (Throwable $e) { GameLog::error('tick', 'well wear FAILED', $e, ['well_id' => $wellId]); }
@@ -165,9 +185,10 @@ class WellRiskHandler
                 ? $this->ctx->incidentSvc->processTick($wellId, $playerId, $deltaHours, $well, $incidentStaffData, $hseBonus)
                 : ['incident' => null];
 
+            $freshDrop = 0.0;
             if (!empty($incidentResult['incident'])) {
-                $inc  = $incidentResult['incident'];
-                $drop = (float)($inc['prod_drop'] ?? 0) / 100.0;
+                $inc       = $incidentResult['incident'];
+                $freshDrop = (float)($inc['prod_drop'] ?? 0) / 100.0;
                 $this->ctx->loopCtx->incidentsTriggered++;
                 if ($inc['cost'] > 0) {
                     $this->ctx->loopCtx->finIncident += (float)$inc['cost'];
@@ -177,8 +198,22 @@ class WellRiskHandler
                     $tsvc->notify('incident', $wellId, '⚠ ' . ($inc['message'] ?? t('tick.notify.incident_generic', ['id' => $wellId])));
                 }
                 GameLog::info('tick', 'incident_processed', ['well_id' => $wellId, 'level' => $inc['level'], 'drop_pct' => $inc['prod_drop'], 'cost' => $inc['cost']]);
-                return $drop;
             }
+
+            // Trwajacy spadek produkcji: incydent obowiazuje przez `hours` od created_at (albo do
+            // repaired_at), nie tylko w ticku wystapienia — wczesniej "24-72h przestoju" majora
+            // konczylo sie po jednym 5-minutowym ticku.
+            // Ongoing production drop: an incident applies for `hours` from created_at (or until
+            // repaired_at), not only in its firing tick — previously a major's "24-72h outage"
+            // ended after a single 5-minute tick.
+            // Odczyt z mapy preloadowanej raz na gracza (WellLoopSection::preloadPlayerData) zamiast
+            // zapytania per odwiert. Swiezy incydent z tego ticku nie jest w mapie, ale pokrywa go
+            // $freshDrop; mapa to trwajace incydenty z wczesniejszych tikow.
+            // Read from the map preloaded once per player (WellLoopSection::preloadPlayerData) instead
+            // of a per-well query. A fresh incident from this tick is not in the map but is covered by
+            // $freshDrop; the map holds ongoing incidents from earlier ticks.
+            $ongoingDrop = (float)($this->ctx->loopCtx->ongoingDropCache[$wellId] ?? 0.0) / 100.0;
+            return max($freshDrop, $ongoingDrop);
         } catch (Throwable $e) {
             GameLog::error('tick', 'IncidentService::processTick FAILED', $e, ['well_id' => $wellId]);
         }

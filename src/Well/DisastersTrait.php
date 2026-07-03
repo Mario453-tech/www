@@ -144,11 +144,12 @@ trait WellDisastersTrait
 
         $this->db->beginTransaction();
         try {
- // Usun rope ze storage / Remove oil from storage
-            $this->db->prepare("
-                UPDATE storage SET used = GREATEST(0, used - ?)
-                WHERE player_id = ?
-            ")->execute([$oilLost, $playerId]);
+ // Utrata ropy NIE jest odejmowana tutaj: SpillSection obniza $currentStorage w pamieci,
+ // a PlayersSection zapisuje roznicowo (used = used + delta). Bezposredni UPDATE tutaj
+ // podwajalby strate (raz w DB, drugi raz przez delte).
+ // Oil loss is NOT deducted here: SpillSection lowers in-memory $currentStorage and
+ // PlayersSection persists differentially (used = used + delta). A direct UPDATE here
+ // would double the loss (once in DB, again via the delta).
 
  // Kara finansowa pobierana raz przez tick (SpillSection cashDelta), nie tutaj.
  // Financial penalty is charged once by the tick (SpillSection cashDelta), not here.

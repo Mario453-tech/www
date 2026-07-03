@@ -48,7 +48,8 @@ class PortSection
         int   $playerId,
         float $currentStorage,
         float $storageCapacity,
-        float $oilPrice
+        float $oilPrice,
+        float $deltaHours = 1.0
     ): float {
         try {
  // Pobierz do 10 oczekujacych dostaw per tick / Fetch up to 10 waiting deliveries per tick
@@ -82,6 +83,14 @@ class PortSection
                 $throughputLimit   = (float)($portEntries[0]['throughput_per_tick'] ?? PHP_FLOAT_MAX);
                 if ($throughputLimit <= 0.0) {
                     $throughputLimit = PHP_FLOAT_MAX; // guard: port z throughput=0 nie moze blokowac / guard: port with throughput=0 must not stall deliveries
+                } else {
+ // Skalowanie deltaHours (semantyka: throughput_per_tick = bbl na GODZINE, z podloga
+ // jednego ticka): bez tego tick nadrabiajacy 24h przepuszczal tyle samo co tick 5-min,
+ // wiec efektywna przepustowosc portu zalezala od kadencji crona, nie od czasu gry.
+ // deltaHours scaling (semantics: throughput_per_tick = bbl per HOUR, floored at one
+ // tick's worth): without it a 24h catch-up tick moved as much as a 5-min tick, so
+ // effective port capacity depended on cron cadence, not game time.
+                    $throughputLimit *= max(1.0, $deltaHours);
                 }
 
                 foreach ($portEntries as $entry) {
@@ -249,10 +258,18 @@ class PortSection
                              AND p.status = 'active'     THEN 'overloaded'
                         WHEN COALESCE(q.cnt, 0) < p.queue_limit * 0.8
                              AND p.status = 'overloaded' THEN 'active'
+                        -- 'closed' otwiera sie ponownie gdy kolejka spadnie ponizej polowy limitu:
+                        -- nic w kodzie nie zamyka portow celowo, a port zamkniety na zawsze
+                        -- wiezil dostawy 'waiting_for_port' i sloty kolejki.
+                        -- 'closed' reopens once the queue drops below half the limit: no code
+                        -- closes ports deliberately, and a forever-closed port trapped
+                        -- 'waiting_for_port' deliveries and queue slots.
+                        WHEN COALESCE(q.cnt, 0) < p.queue_limit * 0.5
+                             AND p.status = 'closed'     THEN 'active'
                         ELSE p.status
                    END,
                    p.updated_at = NOW()
-                 WHERE p.status IN ('active','overloaded')"
+                 WHERE p.status IN ('active','overloaded','closed')"
             );
         } catch (Throwable $e) {
             GameLog::error('tick', 'PortSection::refreshPortStatuses FAILED', $e);

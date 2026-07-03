@@ -96,7 +96,15 @@ class HubIncidentService
         $protectionData = $this->protectionData($protection, $hubOwnerPlayerId, (int)$hub['id']);
         $protMults = $protectionData['mults'];
 
-        foreach (self::INCIDENTS as $type => $cfg) {
+ // Iterujemy od najciezszego do najlzejszego (critical->high->medium->low), aby przy
+ // nasyceniu szans (dlugie deltaHours po przerwie crona) pierwszy trafiony byl najpowazniejszy —
+ // inaczej transfer_failure (pierwszy w konfiguracji) zaslanialby critical_overload przez return.
+ // Ten sam bug byl juz naprawiony dla incydentow odwiertow (Incident/TickTrait).
+ // Iterate most-severe first (critical->high->medium->low) so when chances saturate (long
+ // deltaHours after cron downtime) the first hit is the most serious — otherwise
+ // transfer_failure (first in config) would shadow critical_overload via the early return.
+ // The same bug was already fixed for well incidents (Incident/TickTrait).
+        foreach (self::orderedIncidentsBySeverity() as $type => $cfg) {
  // critical_overload tylko gdy faktycznie przeciony / only when actually overloaded
             if ($type === 'critical_overload' && $loadPct <= 100.0) {
                 continue;
@@ -118,6 +126,29 @@ class HubIncidentService
         }
 
         return null;
+    }
+
+    /** @var array<string, array<string, mixed>>|null Memo: INCIDENTS posortowane wg severity (stale w czasie procesu). */
+    private static ?array $orderedIncidents = null;
+
+    /**
+     * Zwraca self::INCIDENTS posortowane od najciezszego do najlzejszego, memoizowane raz na proces.
+     * Kolejnosc zalezy tylko od stalej konfiguracji, wiec sortowanie per hub per tick bylo czystym marnotrawstwem.
+     * Returns self::INCIDENTS sorted most-severe first, memoized once per process.
+     * The order depends only on the constant config, so sorting per hub per tick was pure waste.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function orderedIncidentsBySeverity(): array
+    {
+        if (self::$orderedIncidents === null) {
+            $severityRank = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+            $ordered = self::INCIDENTS;
+            uasort($ordered, static fn(array $a, array $b): int =>
+                ($severityRank[$a['severity']] ?? 9) <=> ($severityRank[$b['severity']] ?? 9));
+            self::$orderedIncidents = $ordered;
+        }
+        return self::$orderedIncidents;
     }
 
     /**

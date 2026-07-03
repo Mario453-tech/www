@@ -195,7 +195,7 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('pipeline_already_exists', $r2['error']);
     }
 
-    public function testPurchasePipelineSupportsBothLegsPerWell(): void
+    public function testPurchasePipelineRejectsOutboundLegForWell(): void
     {
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
@@ -205,24 +205,28 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
 
         $service = new WellPipelineService($this->db);
 
- // Inbound (default) and outbound can coexist for the same well.
+ // Odcinek wylotowy kupuje sie per-hub (purchaseHubOutboundPipeline, well_id=0);
+ // wiersz (well_id>0, leg='outbound') nie jest czytany przez zaden kod ticku, wiec
+ // taki zakup pobieral pelna cene za rurociag-widmo. Teraz jest odrzucany.
+ // The outbound leg is bought per-hub (purchaseHubOutboundPipeline, well_id=0);
+ // a (well_id>0, leg='outbound') row is read by no tick code, so such a purchase
+ // charged full price for a ghost pipeline. It is now rejected.
         $inbound  = $service->purchasePipeline($playerId, $ids['wellId'], 'standard', 'inbound');
-        $outbound = $service->purchasePipeline($playerId, $ids['wellId'], 'standard', 'outbound');
         $this->assertTrue($inbound['success'], 'Inbound purchase should succeed');
-        $this->assertTrue($outbound['success'], 'Outbound purchase should succeed');
-        $this->assertSame('inbound', $inbound['leg']);
-        $this->assertSame('outbound', $outbound['leg']);
 
- // Two distinct rows, one per leg.
+        $cashBefore = (float)$this->db->query("SELECT cash FROM players WHERE id = {$playerId}")->fetchColumn();
+        $outbound   = $service->purchasePipeline($playerId, $ids['wellId'], 'standard', 'outbound');
+        $cashAfter  = (float)$this->db->query("SELECT cash FROM players WHERE id = {$playerId}")->fetchColumn();
+
+        $this->assertFalse($outbound['success'], 'Outbound purchase for a well must be rejected');
+        $this->assertSame('invalid_leg', $outbound['error']);
+        $this->assertSame($cashBefore, $cashAfter, 'Rejected purchase must not charge the player');
+
+ // Only the inbound row exists.
         $legStmt = $this->db->prepare('SELECT leg FROM well_pipelines WHERE well_id = ? ORDER BY leg');
         $legStmt->execute([$ids['wellId']]);
         $legs = $legStmt->fetchAll(PDO::FETCH_COLUMN);
-        $this->assertSame(['inbound', 'outbound'], $legs);
-
- // A second outbound purchase is rejected (one pipeline per leg).
-        $dup = $service->purchasePipeline($playerId, $ids['wellId'], 'light', 'outbound');
-        $this->assertFalse($dup['success']);
-        $this->assertSame('pipeline_already_exists', $dup['error']);
+        $this->assertSame(['inbound'], $legs);
     }
 
  // --- completeBuildingPipelines ---

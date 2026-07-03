@@ -41,14 +41,15 @@ class MarineDeliverySection
  * Globalne czyszczenie zalegajacych dostaw morskich (raz na tick, nie per gracz).
  * Global cleanup of stale marine deliveries (once per tick, not per player).
  *
- * Usuwa dwie kategorie smieci / Removes two categories of junk:
- *  1. dostawy zakonczone (delivered/lost) starsze niz 7 dni — balast historii,
- *     finished deliveries (delivered/lost) older than 7 days — history bloat;
- *  2. utkniete rejsy (departing/in_transit/delayed) ktore wyruszyly ponad 2 dni
- *     temu i nigdy sie nie rozwiazaly (brak portu w regionie) — te stany nie maja
- *     wpisu w port_queue, wiec usuniecie jest bezpieczne (brak osieroconych rekordow).
- *     stuck voyages that departed over 2 days ago and never resolved (no port for
- *     the region); these states have no port_queue row, so deletion is safe.
+ * Dwie kategorie / Two categories:
+ *  1. dostawy zakonczone (delivered/lost) starsze niz 7 dni — DELETE (balast historii),
+ *     finished deliveries (delivered/lost) older than 7 days — DELETE (history bloat);
+ *  2. utkniete rejsy (departing/in_transit/delayed/waiting_for_port) — oznaczane
+ *     status='lost' (widoczna strata w historii gracza, sprzatana krokiem 1 po 7 dniach),
+ *     NIE kasowane bez sladu; wpisy port_queue sa zwalniane.
+ *     stuck voyages (departing/in_transit/delayed/waiting_for_port) — marked
+ *     status='lost' (visible loss in player history, pruned by step 1 after 7 days),
+ *     NOT deleted without a trace; port_queue rows are released.
  *
  * Prog 2 dni jest spojny z filtrem dropdownu w admin/incidents.php (departure_at).
  * The 2-day window matches the admin/incidents.php dropdown filter (departure_at).
@@ -74,8 +75,15 @@ class MarineDeliverySection
  // miejsce w kolejce; step 3 juz obsluguje 'delayed' bez port_id (port_id IS NULL).
  // 'delayed' with port_id (port-full retry) is excluded — it is a legitimate voyage waiting
  // for queue space; step 3 already handles 'delayed' with no port assigned (port_id IS NULL).
+ // Oznaczamy jako 'lost' zamiast DELETE: gracz widzi strate w historii (zaden zapis nie znika
+ // bez sladu — wczesniej ladunek offline'owego gracza po prostu wyparowywal); wiersz 'lost'
+ // sprzata krok 1 po 7 dniach.
+ // Marked 'lost' instead of DELETE: the player sees the loss in history (nothing vanishes
+ // without a trace — previously an offline player's cargo simply evaporated); step 1 prunes
+ // the 'lost' row after 7 days.
             $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
+                "UPDATE marine_deliveries
+                    SET status = 'lost', incident_type = 'stale_purge', delivered_at = NOW()
                   WHERE status IN ('departing','in_transit')
                     AND departure_at < NOW() - INTERVAL 2 DAY"
             );
@@ -87,9 +95,34 @@ class MarineDeliverySection
  //     Delayed delivery with an assigned port (port-full retry) stuck permanently:
  //     port went closed, the queue never drains. Safe to purge after 7 days.
             $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
+                "UPDATE marine_deliveries
+                    SET status = 'lost', incident_type = 'stale_purge', delivered_at = NOW()
                   WHERE status = 'delayed'
                     AND port_id IS NOT NULL
+                    AND departure_at < NOW() - INTERVAL 7 DAY"
+            );
+            $stmt->execute();
+            $stuck += $stmt->rowCount();
+
+ // 2c) Dostawy 'waiting_for_port' starsze niz 7 dni (np. port przeszedl w 'closed' —
+ //     kolejka nigdy nie drenuje): oznacz 'lost' i zwolnij sloty port_queue, inaczej
+ //     martwe wpisy wiecznie zajmuja queue_limit i blokuja nowe dostawy do portu.
+ // 2c) 'waiting_for_port' deliveries older than 7 days (e.g. the port went 'closed' —
+ //     the queue never drains): mark 'lost' and free the port_queue slots, otherwise
+ //     dead entries consume queue_limit forever and block new deliveries to the port.
+            $stmt = $db->prepare(
+                "DELETE FROM port_queue
+                  WHERE delivery_id IN (
+                        SELECT id FROM marine_deliveries
+                         WHERE status = 'waiting_for_port'
+                           AND departure_at < NOW() - INTERVAL 7 DAY
+                  )"
+            );
+            $stmt->execute();
+            $stmt = $db->prepare(
+                "UPDATE marine_deliveries
+                    SET status = 'lost', incident_type = 'stale_purge', delivered_at = NOW()
+                  WHERE status = 'waiting_for_port'
                     AND departure_at < NOW() - INTERVAL 7 DAY"
             );
             $stmt->execute();
@@ -102,7 +135,8 @@ class MarineDeliverySection
  //    These are definitively undeliverable: no port at creation, no port at arrival
  //    (findPort returned null) — they will never reach storage.
             $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
+                "UPDATE marine_deliveries
+                    SET status = 'lost', incident_type = 'no_port', delivered_at = NOW()
                   WHERE status = 'delayed'
                     AND port_id IS NULL
                     AND departure_at < NOW() - INTERVAL 2 HOUR"
@@ -183,7 +217,11 @@ class MarineDeliverySection
  // Random event only for actively sailing voyages (in_transit), not delayed ones.
  // Delayed deliveries already suffered an incident; re-rolling each tick is a bug.
         if ($status === 'in_transit') {
-            $incidentChance = 0.04 * $deltaHours * (float)($hseBonus['failure_reduction'] ?? 1.0);
+ // Clamp jak w OffshoreTransportService: bez niego deltaHours~24 (nadrabianie po przerwie
+ // crona) dawalo ~96% szansy incydentu na rejs w jednym ticku (15% z nich = totalna strata).
+ // Clamp as in OffshoreTransportService: without it deltaHours~24 (catch-up after a cron
+ // outage) meant ~96% incident chance per voyage in one tick (15% of those = total loss).
+            $incidentChance = min(0.95, 0.04 * $deltaHours * (float)($hseBonus['failure_reduction'] ?? 1.0));
             if (mt_rand(1, 100000) <= (int)($incidentChance * 100000)) {
                 $this->applyIncident($id, $volumeBbl, $delivery['player_id']);
                 return;

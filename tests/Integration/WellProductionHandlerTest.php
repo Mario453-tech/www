@@ -455,6 +455,7 @@ final class WellProductionHandlerTest extends SqliteIntegrationTestCase
         // wellPipeline z opex_per_tick=1000 > playerCash=500 / with opex_per_tick=1000 > playerCash=500
         $pipeline = [
             'id'             => 1,
+            'real_capacity_bph' => 100000.0, // wysoki cap: te testy mierza koszty, nie przepustowosc / high cap: these tests measure costs, not throughput
             'opex_per_tick'  => 1000.0,
             'opex_per_bbl'   => 0.0,
             'transport_loss' => 0.0,
@@ -490,6 +491,7 @@ final class WellProductionHandlerTest extends SqliteIntegrationTestCase
         $well = $this->defaultWellRow(100, 1);
         $pipeline = [
             'id'             => 1,
+            'real_capacity_bph' => 100000.0, // wysoki cap: te testy mierza koszty, nie przepustowosc / high cap: these tests measure costs, not throughput
             'opex_per_tick'  => 1000.0,
             'opex_per_bbl'   => 0.0,
             'transport_loss' => 0.0,

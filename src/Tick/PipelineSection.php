@@ -194,7 +194,13 @@ class PipelineSection
                                               END
                       WHERE id = ?"
                 )->execute([
-                    round($newCondition, 1),
+                    // round(,4) + kolumna DECIMAL(8,4): degradacja przy tickach 5-min
+                    // (0.0017-0.0042/tick) nie moze zaokraglac sie z powrotem do zera —
+                    // przy round(,1)/DECIMAL(5,2) rurociagi nigdy sie nie zuzywaly.
+                    // round(,4) + DECIMAL(8,4) column: 5-min tick degradation
+                    // (0.0017-0.0042/tick) must not round back to zero — with
+                    // round(,1)/DECIMAL(5,2) pipelines never wore out.
+                    round($newCondition, 4),
                     round($newTransportLoss, 2),
                     $newStatus,
                     $newStatus,   // for damaged_at CASE

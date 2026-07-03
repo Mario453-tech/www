@@ -91,20 +91,50 @@ trait HubTickPersistTrait
  /**
  * Dodaje barylki z powrotem do bufora hubu (np. nadmiar ponad przepustowosc rurociagu
  * wylotowego, ktory nie zmiescil sie w tym ticku i przechodzi na kolejny).
+ * Bufor jest capowany do buffer_capacity_bbl — jak przy normalnym wejsciu huba
+ * (HubTickService liczy bufferSpace); zwraca faktycznie dodana ilosc, nadmiar
+ * to strata po stronie callera.
  * Adds barrels back to the hub buffer (e.g. outbound-pipeline over-capacity excess that
  * did not fit this tick and carries over to the next).
+ * The buffer is capped at buffer_capacity_bbl — same as regular hub intake
+ * (HubTickService computes bufferSpace); returns the amount actually added, the
+ * overflow is the caller's loss.
  */
-    public function addBufferBbl(int $hubId, float $bbl): void
+    public function addBufferBbl(int $hubId, float $bbl): float
     {
         if ($bbl <= 0.001) {
-            return;
+            return 0.0;
         }
         try {
+            $stmt = $this->db->prepare(
+                "SELECT buffer_current_bbl, buffer_capacity_bbl FROM logistics_hubs WHERE id = ?"
+            );
+            $stmt->execute([$hubId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return 0.0;
+            }
+            $space = max(0.0, (float)$row['buffer_capacity_bbl'] - (float)$row['buffer_current_bbl']);
+            $added = round(min($bbl, $space), 4);
+            if ($added <= 0.001) {
+                return 0.0;
+            }
+ // LEAST(...) w samym UPDATE jest atomowym strażnikiem pojemności: nawet jeśli równoległy
+ // przebieg (ADMIN_FORCE_TICK omija GET_LOCK) zmieni buffer_current_bbl między SELECT a UPDATE,
+ // bufor nigdy nie przekroczy buffer_capacity_bbl. $added (z SELECT) to best-effort do księgowania strat.
+ // LEAST(...) inside the UPDATE is an atomic capacity guard: even if a concurrent run
+ // (ADMIN_FORCE_TICK bypasses GET_LOCK) changes buffer_current_bbl between SELECT and UPDATE,
+ // the buffer never exceeds buffer_capacity_bbl. $added (from the SELECT) is best-effort for loss accounting.
             $this->db->prepare(
-                "UPDATE logistics_hubs SET buffer_current_bbl = buffer_current_bbl + ?, updated_at = NOW() WHERE id = ?"
-            )->execute([round($bbl, 4), $hubId]);
+                "UPDATE logistics_hubs
+                    SET buffer_current_bbl = LEAST(buffer_capacity_bbl, buffer_current_bbl + ?),
+                        updated_at = NOW()
+                  WHERE id = ?"
+            )->execute([$added, $hubId]);
+            return $added;
         } catch (Throwable $e) {
             GameLog::error('HubTickService', 'addBufferBbl failed', $e, ['hub_id' => $hubId]);
+            return 0.0;
         }
     }
 

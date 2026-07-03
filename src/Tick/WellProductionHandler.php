@@ -39,7 +39,6 @@ class WellProductionHandler
         $transportWearMult     = (float)($transportCfg['wear']     ?? 1.0);
         $wellPipeline          = $this->ctx->wellPipelineCache[$wellId] ?? null;
         $pipelineStatus        = $wellPipeline !== null ? (string)($wellPipeline['status'] ?? 'active') : '';
-        $hasOperationalPipeline = (bool)($wellPipeline['_is_operational'] ?? ($wellPipeline !== null && $pipelineStatus !== 'building'));
 
         if ($wellType !== 'offshore' && $transportType === 'nieustawiony') {
             return [
@@ -69,9 +68,16 @@ class WellProductionHandler
             ];
         }
 
- // Land wells with an existing but not-yet-operational pipeline fall back to road transport.
- // Odwierty ladowe z istniejacym, ale nieaktywnym rurociagiem przechodza tymczasowo na fallback drogowy.
-        if ($transportType === 'rurociag' && !$hasOperationalPipeline && $wellType !== 'offshore') {
+ // Land wells with a pipeline in build or deliberately suspended fall back to road transport
+ // (suspend promises "well switches to road transport"). 'damaged'/'disabled' do NOT fall back:
+ // a destroyed pipeline stops the flow (capPct=0 below) instead of silently hauling by road
+ // at full truck capacity with no repair incentive.
+ // Odwierty ladowe z rurociagiem w budowie lub celowo wstrzymanym przechodza na fallback
+ // drogowy (suspend obiecuje przejscie na transport drogowy). 'damaged'/'disabled' NIE
+ // przechodza: zniszczony rurociag zatrzymuje przesyl (capPct=0 nizej), zamiast po cichu
+ // jezdzic ciezarowkami bez motywacji do naprawy.
+        if ($transportType === 'rurociag' && $wellType !== 'offshore'
+            && in_array($pipelineStatus, ['building', 'suspended'], true)) {
             $transportType = 'ciezarowki';
             $transportCfg = $this->ctx->transportConfig[$transportType] ?? TransportConfigService::getDefaults()['ciezarowki'];
             $transportCapPct = (float)($transportCfg['capacity'] ?? 100.0);
@@ -81,7 +87,7 @@ class WellProductionHandler
             $transportWearMult = (float)($transportCfg['wear'] ?? 1.0);
         }
 
-        if ($transportType === 'rurociag' && $hasOperationalPipeline) {
+        if ($transportType === 'rurociag' && $wellPipeline !== null) {
  // 'servicing' = rurociag w naprawie: brak przesylu (jak przy damaged/disabled).
  // 'servicing' = pipeline under repair: no throughput (like damaged/disabled).
             if (in_array($pipelineStatus, ['damaged','disabled','servicing'], true)) {
@@ -115,6 +121,26 @@ class WellProductionHandler
  */
     public function processOpex(array &$well, int $wellId, int $playerId, float $deltaHours, float $storageCapacity, ?object $tsvc): bool
     {
+ // BRAMKA PORTU przed OPEX: odwiert tankowcowy w regionie bez aktywnego portu nie moze
+ // produkowac (bramka portu w processProduction), wiec naliczanie pelnego OPEX co tick
+ // tylko wykrwawialoby gracza w nieskonczonosc. Zero produkcji = zero OPEX.
+ // PORT GATE before OPEX: a tanker well in a region with no active port cannot produce
+ // (port gate in processProduction), so charging full OPEX every tick would just bleed
+ // the player forever. No production = no OPEX.
+        $wellTypeForPort  = (string)($well['well_type'] ?? 'onshore');
+        $transportForPort = (string)($well['transport_type'] ?? ($wellTypeForPort === 'offshore' ? 'tankowiec' : 'nieustawiony'));
+        if ($transportForPort === 'tankowiec'
+            && $this->ctx->marineDeliverySvc !== null
+            && !$this->ctx->marineDeliverySvc->regionHasPort((int)($well['region_id'] ?? 0))
+        ) {
+            GameLog::info('tick', 'marine well no-port: OPEX and production skipped', [
+                'well_id'   => $wellId,
+                'player_id' => $playerId,
+                'region_id' => (int)($well['region_id'] ?? 0),
+            ]);
+            return false;
+        }
+
         $opexPerHour = $this->ctx->wellService->getOpexPerHour($well);
         if ($well['status'] === 'paused_storage') $opexPerHour *= 0.30;
         $opexTotal = $opexPerHour * $deltaHours
@@ -140,10 +166,24 @@ class WellProductionHandler
 
         if ($well['status'] === 'paused_storage') {
             $freeSpace = $storageCapacity - $this->ctx->loopCtx->currentStorage;
-            if ($freeSpace > 0) {
+            // Transport odroczony (bufor drogowy MySQL / bufor morski) nie uzywa lokalnego
+            // magazynu — pelny magazyn nie moze wiecznie wstrzymywac odwiertu, ktory po zmianie
+            // typu transportu wysyla rope do wlasnego bufora (wczesniej: wieczna pauza + 30% OPEX).
+            // Deferred transport (MySQL road buffer / marine buffer) does not use local storage —
+            // a full tank must not keep pausing a well that, after a transport switch, ships oil
+            // to its own staging buffer (previously: permanent pause + 30% OPEX).
+            $isDeferredTransport = (
+                $transportForPort === 'ciezarowki'
+                && $this->ctx->roadTransportSvc !== null
+                && $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite'
+            ) || (
+                $transportForPort === 'tankowiec'
+                && $this->ctx->marineDeliverySvc !== null
+            );
+            if ($freeSpace > 0 || $isDeferredTransport) {
                 $this->ctx->db->prepare("UPDATE wells SET status = 'active' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
                 $well['status'] = 'active';
-                GameLog::info('tick', 'well resumed (storage has space)', ['well_id' => $wellId, 'free_space' => round($freeSpace, 1)]);
+                GameLog::info('tick', 'well resumed (storage has space or deferred transport)', ['well_id' => $wellId, 'free_space' => round($freeSpace, 1), 'deferred' => $isDeferredTransport]);
             } else {
                 return false;
             }
@@ -262,6 +302,28 @@ class WellProductionHandler
 
  // Transport capacity limit
         $transportLimitedBbl = min($producedBbl, $producedBbl * ($transportCapPct / 100.0));
+
+ // Absolutny cap przepustowosci rurociagu leg-1 (real_capacity_bph * deltaHours):
+ // procentowy limit skaluje sie z produkcja, wiec mnozniki (operator, sprzet, warstwa)
+ // przepychaly przez rure wielokrotnosc jej nominalnej przepustowosci.
+ // Absolute leg-1 pipeline throughput cap (real_capacity_bph * deltaHours): the
+ // percentage limit scales with production, so multipliers (operator, equipment, layer)
+ // pushed a multiple of the pipe's rated capacity through it.
+        if ($transportType === 'rurociag' && $wellPipeline !== null) {
+            $pipeCapBph = (float)($wellPipeline['real_capacity_bph'] ?? 0.0);
+            $pipeCapBbl = max(0.0, $pipeCapBph * $deltaHours);
+            if ($transportLimitedBbl > $pipeCapBbl) {
+                GameLog::info('tick', 'pipeline_leg1_capacity_cap', [
+                    'well_id'      => $wellId,
+                    'player_id'    => $playerId,
+                    'requested'    => round($transportLimitedBbl, 2),
+                    'cap_bbl'      => round($pipeCapBbl, 2),
+                    'capacity_bph' => $pipeCapBph,
+                ]);
+                $transportLimitedBbl = $pipeCapBbl;
+            }
+        }
+
         $freeSpace           = $storageCapacity - $this->ctx->loopCtx->currentStorage;
 
         $transportCapacityLoss = max(0.0, round($producedBbl - $transportLimitedBbl, 4));
@@ -336,11 +398,14 @@ class WellProductionHandler
             }
         }
 
- // Akumulacja wejscia hubu po stratach leg-1 (tylko transport synchroniczny).
- // Hub input accumulation after leg-1 losses (synchronous transport only).
-        if ($applyHubSync) {
-            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
-        }
+ // Akumulacja wejscia hubu przeniesiona NIZEJ — za zdarzenia transportowe (leak/pressure_drop
+ // w handleTransportEvent i straty fallbackow), obok recordHubWellDelivered. Hub musi dostac
+ // dokladnie to, co dotarlo do magazynu — wczesniej dostawal brutto sprzed zdarzen, wiec
+ // przerabial (i leg-2 naliczal koszty od) barylki utracone w drodze, a straty liczyly sie 2x.
+ // Hub input accumulation moved BELOW — past the transport events (leak/pressure_drop in
+ // handleTransportEvent and fallback losses), next to recordHubWellDelivered. The hub must
+ // receive exactly what reached storage — previously it got the pre-event gross volume, so it
+ // processed (and leg-2 charged for) barrels lost in transit, double-counting the loss.
 
         if ($actual <= 0) return;
 
@@ -350,6 +415,13 @@ class WellProductionHandler
  // Transport events - before adding to storage and calculating financials.
         $actualBeforeEvent = $actual;
         $storageLossBbl    = 0.0;
+ // Sciezki fallbackowe (SQLite road processTick, offshore processTick) naliczaja SWOJ pelny
+ // koszt transportu; flaga wylacza pozniejsze wspolne bloki % opex i cost_per_bbl, aby te
+ // same barylki nie placily kilku nakladajacych sie oplat.
+ // Fallback paths (SQLite road processTick, offshore processTick) charge their OWN full
+ // transport cost; the flag disables the later shared % opex and cost_per_bbl blocks so the
+ // same barrels do not pay several overlapping fees.
+        $fallbackFullyCharged = false;
 
         if ($transportType === 'ciezarowki' && $this->ctx->roadTransportSvc !== null) {
             $roadCfg       = $this->ctx->roadConfigCache[$wellId] ?? null;
@@ -470,6 +542,13 @@ class WellProductionHandler
                 $this->ctx->loopCtx->totalCosts += $roadCost;
                 $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $roadCost);
             }
+ // Parytet z MySQL: sciezka dispatchowa placi tylko koszt per-trip, wiec fallback
+ // rowniez pomija dalsze % opex i cost_per_bbl — inaczej te same barylki bylyby
+ // obciazane potrojnie zaleznie od srodowiska.
+ // Parity with MySQL: the dispatch path charges per-trip cost only, so the fallback
+ // also skips the later % opex and cost_per_bbl — otherwise the same barrels would
+ // be charged triple depending on the environment.
+            $fallbackFullyCharged = true;
             if (!empty($roadResult['incidents'])) {
                 GameLog::info('tick', 'road_transport_incidents', [
                     'well_id'        => $wellId, 'player_id'   => $playerId,
@@ -490,59 +569,104 @@ class WellProductionHandler
  // min_load_bbl = 0 means immediate dispatch (per tick); larger values = buffer accumulation.
                 $minLoadBbl = max(0.0, (float)($transportCfg['min_load_bbl'] ?? 5000.0));
 
- // Bufor: wartosc sprzed ticka (z SELECT w.* w PlayersSection) + produkcja tego ticka.
- // Buffer: pre-tick value (from SELECT w.* in PlayersSection) + this tick's production.
-                $bufferBbl = (float)($well['marine_buffer_bbl'] ?? 0.0) + round($actual, 4);
+ // Increment bufora, swiezy odczyt (FOR UPDATE) i dispatch w JEDNEJ transakcji.
+ // Wczesniej: increment poza transakcja + dispatch ze snapshotu sprzed ticka + 'SET marine_buffer_bbl = 0'
+ // — rownolegle przebiegi (ADMIN_FORCE_TICK omija GET_LOCK) duplikowaly ladunek albo zerowaly
+ // rope dodana przez drugi przebieg. Teraz: blokada wiersza, dispatch swiezej wartosci
+ // i DEKREMENTACJA o wyslana ilosc zamiast zerowania.
+ // Buffer increment, fresh read (FOR UPDATE) and dispatch in ONE transaction.
+ // Previously: increment outside the tx + dispatch from a pre-tick snapshot + 'SET marine_buffer_bbl = 0'
+ // — overlapping runs (ADMIN_FORCE_TICK bypasses GET_LOCK) duplicated cargo or wiped oil added
+ // by the other run. Now: row lock, dispatch the fresh value, DECREMENT by dispatched instead of reset.
+                $addedBbl      = round($actual, 4);
+                $dispatchedBbl = 0.0;
+                $isMysqlMar    = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
 
- // Zapisz nowy stan bufora / Persist updated buffer level
+ // Increment POZA transakcja dispatchu: atomowy '+=' jest bezpieczny, a rollback
+ // nieudanego dispatchu nie moze cofnac zapisu wyprodukowanej ropy do bufora.
+ // Increment OUTSIDE the dispatch tx: atomic '+=' is safe, and a failed-dispatch
+ // rollback must not revert this tick's produced oil from the buffer.
                 $this->ctx->db->prepare(
                     "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ? AND player_id = ?"
-                )->execute([round($actual, 4), $wellId, $playerId]);
+                )->execute([$addedBbl, $wellId, $playerId]);
 
-                GameLog::info('tick', 'marine_buffer_add', [
-                    'well_id'    => $wellId,
-                    'player_id'  => $playerId,
-                    'added_bbl'  => round($actual, 3),
-                    'buffer_bbl' => round($bufferBbl, 3),
-                    'threshold'  => $minLoadBbl,
-                ]);
+ // Optymistyczna bramka: przy min_load_bbl=5000 i ~10 bbl/tick odwiert spedzalby ~499 z 500
+ // tikow otwierajac transakcje + SELECT FOR UPDATE (blokada wiersza wells) tylko po to, by
+ // stwierdzic, ze bufor nie jest pelny. Szacujemy z wartosci sprzed ticka (dokladnej w typowym
+ // przebiegu bez rownoleglosci) i otwieramy transakcje tylko gdy prog jest prawdopodobnie
+ // przekroczony. Niedoszacowanie przy rownoleglym przebiegu = dispatch w kolejnym ticku (bufor
+ // zostaje), bez utraty ropy ani bledu pieniedzy.
+ // Optimistic gate: with min_load_bbl=5000 and ~10 bbl/tick a well would spend ~499 of every 500
+ // ticks opening a transaction + SELECT FOR UPDATE (a wells row lock) just to learn the buffer is
+ // not full. We estimate from the pre-tick value (exact in the common non-concurrent run) and open
+ // the transaction only when the threshold is plausibly crossed. An underestimate under a
+ // concurrent run just defers dispatch one tick (buffer persists), with no oil loss or money error.
+                $optimisticBuffer = (float)($well['marine_buffer_bbl'] ?? 0.0) + $addedBbl;
+                if ($optimisticBuffer < $minLoadBbl) {
+                    GameLog::info('tick', 'marine_buffer_add', [
+                        'well_id'    => $wellId,
+                        'player_id'  => $playerId,
+                        'added_bbl'  => round($actual, 3),
+                        'buffer_bbl' => round($optimisticBuffer, 3),
+                        'threshold'  => $minLoadBbl,
+                    ]);
+                } else {
+                $ownTxMar = !$this->ctx->db->inTransaction();
+                if ($ownTxMar) $this->ctx->db->beginTransaction();
+                try {
+ // Swiezy stan bufora pod blokada wiersza (SQLite w testach nie zna FOR UPDATE).
+ // Fresh buffer level under row lock (SQLite in tests has no FOR UPDATE).
+                    $selStmt = $this->ctx->db->prepare(
+                        "SELECT COALESCE(marine_buffer_bbl, 0) FROM wells WHERE id = ? AND player_id = ?"
+                        . ($isMysqlMar ? ' FOR UPDATE' : '')
+                    );
+                    $selStmt->execute([$wellId, $playerId]);
+                    $bufferBbl = (float)$selStmt->fetchColumn();
 
-                if ($bufferBbl >= $minLoadBbl) {
- // Bufor pelny: createDelivery + reset bufora opakowane w transakcje (Fix: nie-atomowe bylo bugiem).
- // Buffer full: createDelivery + buffer reset wrapped in transaction (Fix: non-atomic was a bug).
- // Jezeli INSERT dostawy powiedzie sie ale UPDATE bufora rzuci, transakcja jest cofana — brak duplikatow.
- // If delivery INSERT succeeds but buffer reset throws, transaction rolls back — no duplicate delivery.
-                    $ownTxMar = !$this->ctx->db->inTransaction();
-                    if ($ownTxMar) $this->ctx->db->beginTransaction();
-                    try {
+                    GameLog::info('tick', 'marine_buffer_add', [
+                        'well_id'    => $wellId,
+                        'player_id'  => $playerId,
+                        'added_bbl'  => round($actual, 3),
+                        'buffer_bbl' => round($bufferBbl, 3),
+                        'threshold'  => $minLoadBbl,
+                    ]);
+
+                    if ($bufferBbl >= $minLoadBbl) {
                         $this->ctx->marineDeliverySvc->createDelivery(
                             $playerId, $wellId, $bufferBbl, $deltaHours, $well, $hseBonus
                         );
+ // Dekrementacja (nie zerowanie): ropa dodana rownolegle po naszym SELECT nie ginie.
+ // Decrement (not reset): oil added concurrently after our SELECT is not wiped.
                         $this->ctx->db->prepare(
-                            "UPDATE wells SET marine_buffer_bbl = 0 WHERE id = ? AND player_id = ?"
-                        )->execute([$wellId, $playerId]);
+                            "UPDATE wells SET marine_buffer_bbl = marine_buffer_bbl - ? WHERE id = ? AND player_id = ?"
+                        )->execute([$bufferBbl, $wellId, $playerId]);
+                        $dispatchedBbl = $bufferBbl;
+                    }
 
-                        if ($ownTxMar) $this->ctx->db->commit();
-
- // Nalicz koszt rejsu od pelnego ladunku / Charge voyage cost for the full load
-                        $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
-                        if ($costPerBbl > 0.0) {
-                            $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
- * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-                            $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
-                            $this->ctx->loopCtx->finTransport += $charged;
-                            $this->ctx->loopCtx->totalCosts   += $voyageCost;
-                            $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
-                        }
-                    } catch (Throwable $e) {
-                        if ($ownTxMar && $this->ctx->db->inTransaction()) $this->ctx->db->rollBack();
-                        GameLog::error('tick', 'marine_dispatch_failed — buffer retained for next tick', $e, [
-                            'well_id'    => $wellId,
-                            'player_id'  => $playerId,
-                            'buffer_bbl' => round($bufferBbl, 3),
-                        ]);
+                    if ($ownTxMar) $this->ctx->db->commit();
+                } catch (Throwable $e) {
+                    if ($ownTxMar && $this->ctx->db->inTransaction()) $this->ctx->db->rollBack();
+                    GameLog::error('tick', 'marine_dispatch_failed — buffer retained for next tick', $e, [
+                        'well_id'   => $wellId,
+                        'player_id' => $playerId,
+                        'added_bbl' => round($actual, 3),
+                    ]);
  // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
  // Buffer stays non-zero — dispatch will be retried next tick.
+                    $dispatchedBbl = 0.0;
+                }
+                }
+
+                if ($dispatchedBbl > 0.0) {
+ // Nalicz koszt rejsu od pelnego ladunku / Charge voyage cost for the full load
+                    $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
+                    if ($costPerBbl > 0.0) {
+                        $voyageCost = round($dispatchedBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
+ * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
+                        $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
+                        $this->ctx->loopCtx->finTransport += $charged;
+                        $this->ctx->loopCtx->totalCosts   += $voyageCost;
+                        $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                     }
                 }
  // Ropa nie trafia do storage (w buforze lub w tranzycie) / Oil not added to storage now (in buffer or in transit)
@@ -567,6 +691,11 @@ class WellProductionHandler
                 $this->ctx->loopCtx->totalCosts += $offshoreCost;
                 $this->ctx->loopCtx->playerCash  = max(0.0, $this->ctx->loopCtx->playerCash - $offshoreCost);
             }
+ // cost_per_shipment pokrywa caly transport tej porcji: pomin dalsze % opex
+ // i cost_per_bbl (wczesniej te same barylki placily trzy nakladajace sie oplaty).
+ // cost_per_shipment covers this batch's entire transport: skip the later % opex
+ // and cost_per_bbl (previously the same barrels paid three overlapping fees).
+            $fallbackFullyCharged = true;
             if (!empty($offshoreResult['incidents'])) {
                 GameLog::info('tick', 'offshore_transport_incidents', [
                     'well_id' => $wellId, 'player_id' => $playerId,
@@ -596,6 +725,16 @@ class WellProductionHandler
             $this->ctx->loopCtx->finLossValue          += round($storageLossBbl * $price, 2);
         }
 
+ // Akumulacja wejscia hubu z wolumenu NETTO (po stratach leg-1 i zdarzeniach transportowych)
+ // — hub przerabia dokladnie to, co faktycznie do niego dotarlo. Wariant bez huba dodatkowo
+ // CAPUJE $actual limitem fallbacku, dlatego wywolanie musi byc PRZED kredytem magazynu.
+ // Hub input accumulation from the NET volume (after leg-1 losses and transport events)
+ // — the hub processes exactly what actually arrived. The no-hub variant additionally CAPS
+ // $actual with the fallback limit, so this call must run BEFORE the storage credit.
+        if ($applyHubSync) {
+            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
+        }
+
         if ($actual <= 0) return;
 
         $this->ctx->loopCtx->finBbl         += $actual;
@@ -608,10 +747,15 @@ class WellProductionHandler
         $this->ctx->loopCtx->recordHubWellDelivered($wellId, $actual);
 
         if ($transportType === 'rurociag' && $wellPipeline !== null) {
+            // Skalowanie deltaHours (opex_per_tick = PLN na GODZINE, podloga 1 ticka) — bez tego
+            // koszt godzinowy rurociagu zalezal od kadencji crona, nie od czasu gry.
+            // deltaHours scaling (opex_per_tick = PLN per HOUR, floored at one tick) — without it
+            // the pipeline's hourly cost depended on cron cadence, not game time.
             $pipelineTickCost = round(
                 (float)($wellPipeline['opex_per_tick'] ?? 0.0)
  * $this->ctx->gBalanceMults['opex']
- * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
+ * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0)
+ * max(1.0, $deltaHours),
                 2
             );
             $pipelineFlowCost = round(
@@ -638,7 +782,7 @@ class WellProductionHandler
         }
 
  // Transport OPEX (procentowy od przychodu) / Transport OPEX (percentage of revenue)
-        if ($transportOpexPct > 0) {
+        if ($transportOpexPct > 0 && !$fallbackFullyCharged) {
             $transportOpex = round($actual * $price * ($transportOpexPct / 100.0) * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $charged = min($transportOpex, $this->ctx->loopCtx->playerCash);
             $this->ctx->loopCtx->finTransport += $charged;
@@ -649,7 +793,7 @@ class WellProductionHandler
 
  // Koszt staly transportu: PLN za kazda przetransportowana barylke. / Fixed transport cost: PLN per transported barrel.
         $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
-        if ($costPerBbl > 0) {
+        if ($costPerBbl > 0 && !$fallbackFullyCharged) {
             $transportFixedCost = round($actual * $costPerBbl * $this->ctx->gBalanceMults['opex'] * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
             $charged = min($transportFixedCost, $this->ctx->loopCtx->playerCash);
             $this->ctx->loopCtx->finTransport += $charged;

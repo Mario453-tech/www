@@ -585,7 +585,16 @@ class WellPipelineService
     public function purchasePipeline(int $playerId, int $wellId, string $type = 'standard', string $leg = 'inbound'): array
     {
         $type    = $this->normalizePipelineType($type);
-        $leg     = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
+ // Odcinek wylotowy (hub->magazyn) kupuje sie per-hub przez purchaseHubOutboundPipeline
+ // (well_id=0). Wiersz (well_id>0, leg='outbound') nie jest czytany przez zaden kod ticku
+ // — taki zakup pobieral pelny build_cost za rurociag, ktory nigdy nie transportowal.
+ // The outbound leg (hub->storage) is bought per-hub via purchaseHubOutboundPipeline
+ // (well_id=0). A (well_id>0, leg='outbound') row is read by no tick code — such a
+ // purchase charged full build_cost for a pipeline that never transported anything.
+        if ($leg !== 'inbound') {
+            return ['success' => false, 'error' => 'invalid_leg'];
+        }
+        $leg = 'inbound';
         $profile = $this->getProfile($type);
         $buildCost  = $profile['build_cost'];
         $buildHours = $profile['build_hours'];
@@ -960,58 +969,83 @@ class WellPipelineService
  */
     public function repairPipeline(int $playerId, int $pipelineId): array
     {
-        $stmt = $this->db->prepare(
-            "SELECT id, well_id, build_cost, condition_pct, transport_loss, status
-               FROM well_pipelines
-              WHERE id = ? AND player_id = ?
-              LIMIT 1"
-        );
-        $stmt->execute([$pipelineId, $playerId]);
-        $pipe = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$pipe) {
-            return ['success' => false, 'error' => 'pipeline_not_found'];
+        // Transakcja: SELECT (FOR UPDATE) + oplata + UPDATE razem — rownolegle zadania nie moga
+        // podwojnie pobrac oplaty za jedna naprawe, a blad UPDATE cofa obciazenie (jak purchasePipeline).
+        // Transaction: SELECT (FOR UPDATE) + charge + UPDATE together — concurrent requests cannot
+        // double-charge a single repair, and a failed UPDATE rolls back the charge (mirrors purchasePipeline).
+        $forUpdate = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite' ? ' FOR UPDATE' : '';
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
         }
-        if (in_array((string)$pipe['status'], ['building', 'disabled'], true)) {
-            return ['success' => false, 'error' => 'pipeline_not_repairable'];
-        }
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT id, well_id, build_cost, condition_pct, transport_loss, status
+                   FROM well_pipelines
+                  WHERE id = ? AND player_id = ?
+                  LIMIT 1" . $forUpdate
+            );
+            $stmt->execute([$pipelineId, $playerId]);
+            $pipe = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$pipe) {
+                if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'error' => 'pipeline_not_found'];
+            }
+            if (in_array((string)$pipe['status'], ['building', 'disabled'], true)) {
+                if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'error' => 'pipeline_not_repairable'];
+            }
 
-        $damage     = max(0.0, 100.0 - (float)$pipe['condition_pct']);
-        $buildCost  = (float)$pipe['build_cost'];
-        $repairCost = max(2000.0, round($buildCost * ($damage / 100.0) * 0.30, 2));
+            $damage     = max(0.0, 100.0 - (float)$pipe['condition_pct']);
+            $buildCost  = (float)$pipe['build_cost'];
+            $repairCost = max(2000.0, round($buildCost * ($damage / 100.0) * 0.30, 2));
 
-        if ($damage < 0.01) {
-            return ['success' => false, 'error' => 'pipeline_already_full'];
-        }
+            if ($damage < 0.01) {
+                if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'error' => 'pipeline_already_full'];
+            }
 
-        // Pobranie kosztu naprawy / Deduct repair cost.
-        $payment = (new PlayerPaymentService($this->db))->charge(
-            $playerId,
-            $repairCost,
-            FinancialTransactionService::TYPE_PIPELINE_REPAIR,
-            tPlain('bank.tx_pipeline_repair', ['id' => $pipelineId]),
-            'pipeline',
-            $pipelineId
-        );
-        if (!$payment['success']) {
-            return ['success' => false, 'error' => 'insufficient_funds'];
-        }
+            // Pobranie kosztu naprawy / Deduct repair cost.
+            $payment = (new PlayerPaymentService($this->db))->charge(
+                $playerId,
+                $repairCost,
+                FinancialTransactionService::TYPE_PIPELINE_REPAIR,
+                tPlain('bank.tx_pipeline_repair', ['id' => $pipelineId]),
+                'pipeline',
+                $pipelineId
+            );
+            if (!$payment['success']) {
+                if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'error' => 'insufficient_funds'];
+            }
 
  // Restore condition, reduce transport_loss by 60%, update status
-        $newStatus = match(true) {
-            in_array((string)$pipe['status'], ['suspended'], true) => $pipe['status'],
-            default => 'active',
-        };
-        $newLoss = round(max(0.0, (float)$pipe['transport_loss'] * 0.4), 2);
+            $newStatus = match(true) {
+                in_array((string)$pipe['status'], ['suspended'], true) => $pipe['status'],
+                default => 'active',
+            };
+            $newLoss = round(max(0.0, (float)$pipe['transport_loss'] * 0.4), 2);
 
-        $this->db->prepare(
-            "UPDATE well_pipelines
-                SET condition_pct  = 100.0,
-                    transport_loss = ?,
-                    status         = ?,
-                    last_maintenance_at = NOW(),
-                    updated_at     = NOW()
-              WHERE id = ?"
-        )->execute([$newLoss, $newStatus, $pipelineId]);
+            $this->db->prepare(
+                "UPDATE well_pipelines
+                    SET condition_pct  = 100.0,
+                        transport_loss = ?,
+                        status         = ?,
+                        last_maintenance_at = NOW(),
+                        updated_at     = NOW()
+                  WHERE id = ?"
+            )->execute([$newLoss, $newStatus, $pipelineId]);
+
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+            GameLog::error('WellPipelineService', 'Pipeline repair failed', $e, [
+                'player_id' => $playerId, 'pipeline_id' => $pipelineId,
+            ]);
+            return ['success' => false, 'error' => 'repair_failed'];
+        }
 
         $this->recordEvent($playerId, (int)$pipe['well_id'], $pipelineId,
             'pipeline_repaired', 'info',
@@ -1043,46 +1077,68 @@ class WellPipelineService
  */
     public function maintenancePipeline(int $playerId, int $pipelineId): array
     {
-        $stmt = $this->db->prepare(
-            "SELECT id, well_id, build_cost, condition_pct, opex_per_tick, status
-               FROM well_pipelines
-              WHERE id = ? AND player_id = ?
-              LIMIT 1"
-        );
-        $stmt->execute([$pipelineId, $playerId]);
-        $pipe = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$pipe) {
-            return ['success' => false, 'error' => 'pipeline_not_found'];
+        // Transakcja jak w repairPipeline: SELECT (FOR UPDATE) + oplata + UPDATE atomowo.
+        // Transaction as in repairPipeline: SELECT (FOR UPDATE) + charge + UPDATE atomically.
+        $forUpdate = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite' ? ' FOR UPDATE' : '';
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
         }
-        if (in_array((string)$pipe['status'], ['building', 'disabled'], true)) {
-            return ['success' => false, 'error' => 'pipeline_not_maintainable'];
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT id, well_id, build_cost, condition_pct, opex_per_tick, status
+                   FROM well_pipelines
+                  WHERE id = ? AND player_id = ?
+                  LIMIT 1" . $forUpdate
+            );
+            $stmt->execute([$pipelineId, $playerId]);
+            $pipe = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$pipe) {
+                if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'error' => 'pipeline_not_found'];
+            }
+            if (in_array((string)$pipe['status'], ['building', 'disabled'], true)) {
+                if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'error' => 'pipeline_not_maintainable'];
+            }
+
+            $opex      = (float)($pipe['opex_per_tick'] ?? 0.0);
+            $maintCost = max(500.0, round($opex * 24.0 * 0.4, 2));
+
+            // Pobranie kosztu konserwacji / Deduct maintenance cost.
+            $payment = (new PlayerPaymentService($this->db))->charge(
+                $playerId,
+                $maintCost,
+                FinancialTransactionService::TYPE_PIPELINE_MAINTENANCE,
+                tPlain('bank.tx_pipeline_maintenance', ['id' => $pipelineId]),
+                'pipeline',
+                $pipelineId
+            );
+            if (!$payment['success']) {
+                if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'error' => 'insufficient_funds'];
+            }
+
+            $newCond = min(100.0, (float)$pipe['condition_pct'] + 2.0);
+
+            $this->db->prepare(
+                "UPDATE well_pipelines
+                    SET last_maintenance_at = NOW(),
+                        condition_pct       = ?,
+                        updated_at          = NOW()
+                  WHERE id = ?"
+            )->execute([$newCond, $pipelineId]);
+
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) $this->db->rollBack();
+            GameLog::error('WellPipelineService', 'Pipeline maintenance failed', $e, [
+                'player_id' => $playerId, 'pipeline_id' => $pipelineId,
+            ]);
+            return ['success' => false, 'error' => 'maintenance_failed'];
         }
-
-        $opex      = (float)($pipe['opex_per_tick'] ?? 0.0);
-        $maintCost = max(500.0, round($opex * 24.0 * 0.4, 2));
-
-        // Pobranie kosztu konserwacji / Deduct maintenance cost.
-        $payment = (new PlayerPaymentService($this->db))->charge(
-            $playerId,
-            $maintCost,
-            FinancialTransactionService::TYPE_PIPELINE_MAINTENANCE,
-            tPlain('bank.tx_pipeline_maintenance', ['id' => $pipelineId]),
-            'pipeline',
-            $pipelineId
-        );
-        if (!$payment['success']) {
-            return ['success' => false, 'error' => 'insufficient_funds'];
-        }
-
-        $newCond = min(100.0, (float)$pipe['condition_pct'] + 2.0);
-
-        $this->db->prepare(
-            "UPDATE well_pipelines
-                SET last_maintenance_at = NOW(),
-                    condition_pct       = ?,
-                    updated_at          = NOW()
-              WHERE id = ?"
-        )->execute([$newCond, $pipelineId]);
 
         $this->recordEvent($playerId, (int)$pipe['well_id'], $pipelineId,
             'pipeline_maintenance', 'info',
@@ -1113,7 +1169,7 @@ class WellPipelineService
     public function togglePipeline(int $playerId, int $pipelineId): array
     {
         $stmt = $this->db->prepare(
-            "SELECT id, well_id, condition_pct, status
+            "SELECT id, well_id, condition_pct, status, leak_started_at
                FROM well_pipelines
               WHERE id = ? AND player_id = ?
               LIMIT 1"
@@ -1125,22 +1181,30 @@ class WellPipelineService
         }
 
         $current = (string)$pipe['status'];
-        if (in_array($current, ['building', 'disabled', 'planned'], true)) {
+ // 'damaged' wymaga naprawy — suspend+resume odtwarzaloby status z samej kondycji
+ // i wskrzeszalo zniszczony rurociag za darmo (z pominieciem oplaty repairPipeline).
+ // 'damaged' requires repair — suspend+resume would rebuild status from condition
+ // alone and resurrect a destroyed pipeline for free (bypassing the repairPipeline fee).
+        if (in_array($current, ['building', 'disabled', 'planned', 'damaged'], true)) {
             return ['success' => false, 'error' => 'pipeline_not_toggleable'];
         }
 
         if ($current === 'suspended') {
- // Resume: restore status based on condition_pct
+ // Resume: restore status based on condition_pct.
+ // Aktywny wyciek (leak_started_at) i kondycja 0 nie moga zniknac przez resume.
+ // An active leak (leak_started_at) and zero condition cannot vanish via resume.
             $cond      = (float)$pipe['condition_pct'];
             $newStatus = match(true) {
-                $cond < 30.0 => 'critical',
-                $cond < 60.0 => 'degraded',
-                default      => 'active',
+                $cond <= 0.0                        => 'damaged',
+                !empty($pipe['leak_started_at'])    => 'leak',
+                $cond < 30.0                        => 'critical',
+                $cond < 60.0                        => 'degraded',
+                default                             => 'active',
             };
             $eventType = 'pipeline_resumed';
             $eventMsg  = "[Player] Pipeline resumed. Status restored to {$newStatus}.";
         } else {
- // Suspend: active/degraded/critical/damaged/leak -> suspended
+ // Suspend: active/degraded/critical/leak -> suspended
             $newStatus = 'suspended';
             $eventType = 'pipeline_suspended';
             $eventMsg  = "[Player] Pipeline suspended. Well switches to road transport.";

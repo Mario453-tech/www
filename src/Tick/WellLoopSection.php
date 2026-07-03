@@ -73,6 +73,8 @@ class WellLoopSection
  // Second-leg transport losses (already folded into finLossBbl/finLossValue; kept for reporting).
     public float $finOutboundLossBbl   = 0.0;
     public float $finOutboundLossValue = 0.0;
+ /** @var array<int, float> well_id -> trwajacy spadek produkcji (%) z aktywnych incydentow; preload raz/gracz */
+    public array $ongoingDropCache = [];
 
     private PDO         $db;
     private DateTime    $now;
@@ -417,6 +419,17 @@ class WellLoopSection
     }
 
  /**
+ * Ryzyko polityczne regionu huba odwiertu (dla incydentow drogowych leg-2).
+ * Political risk of the well's hub region (for leg-2 road incidents).
+ */
+    public function outboundPoliticalRiskFor(int $wellId): int
+    {
+        $hubId = $this->wellHubMap[$wellId] ?? null;
+        if ($hubId === null) return 1;
+        return (int)($this->hubCache[$hubId]['region_political_risk'] ?? 1);
+    }
+
+ /**
  * Returns the well's operational outbound pipeline row (leg='outbound'), or null.
  * ETAP 11: looks up the well's hub and returns the hub-level outbound pipeline.
  * @return array<string, mixed>|null
@@ -519,6 +532,14 @@ class WellLoopSection
             GameLog::error('tick', 'preloadPlayerData staff FAILED', $e, ['player_id' => $playerId]);
         }
 
+ // 1a. Preload trwajacych spadkow produkcji (incydenty w oknie `hours`) — jedno zapytanie na
+ //     gracza zamiast jednego na odwiert na tick (getOngoingProdDrop w petli bylby N+1).
+ // 1a. Preload ongoing production drops (incidents inside their `hours` window) — one query per
+ //     player instead of one per well per tick (a per-well getOngoingProdDrop would be N+1).
+        $this->ongoingDropCache = ($this->incidentSvc !== null && method_exists($this->incidentSvc, 'getOngoingProdDropForPlayer'))
+            ? $this->incidentSvc->getOngoingProdDropForPlayer($playerId)
+            : [];
+
  // 2. Preload owned pipelines per well for all player wells.
  // 2. Preload zakupionych rurociagow per odwiert dla odwiertow gracza.
         $this->wellPipelineCache = [];
@@ -605,10 +626,15 @@ class WellLoopSection
             try {
                 $wellIds      = array_map('intval', array_column($wells, 'id'));
                 $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
+                // region_political_risk huba: uzywane przez leg-2 drogowy (ryzyko incydentu
+                // skaluje sie z ryzykiem politycznym regionu HUBA, jak leg-1 z regionem odwiertu).
+                // Hub's region_political_risk: used by the road leg-2 (incident risk scales with
+                // the HUB region's political risk, as leg-1 does with the well's region).
                 $stmt = $this->db->prepare(
-                    "SELECT a.well_id, h.*
+                    "SELECT a.well_id, h.*, COALESCE(wr.political_risk, 1) AS region_political_risk
                        FROM logistics_hub_assignments a
                        JOIN logistics_hubs h ON h.id = a.hub_id
+                       LEFT JOIN world_regions wr ON wr.id = h.region_id
                       WHERE a.well_id IN ({$placeholders})
                         AND a.status   = 'active'
                         AND h.status  NOT IN ('disabled','building')"

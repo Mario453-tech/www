@@ -257,7 +257,7 @@ class PlayersSection
         if (class_exists('PortSection')) {
             try {
                 $portSec        = new PortSection($db, $now);
-                $currentStorage = $portSec->process($playerId, $currentStorage, $storageCapacity, $this->oilPrice);
+                $currentStorage = $portSec->process($playerId, $currentStorage, $storageCapacity, $this->oilPrice, $deltaHours);
  // Dolacz wyniki portowe do sum finansowych / Add port results to financial sums
                 if ($portSec->deliveredBbl > 0.0) {
                     $wellLoop->finBbl       += $portSec->deliveredBbl;
@@ -500,6 +500,8 @@ class PlayersSection
                 continue;
             }
 
+            // Ryzyko polityczne regionu huba skaluje incydenty drogowe leg-2 (jak w WellHubSection).
+            // The hub region's political risk scales leg-2 road incidents (as in WellHubSection).
             $res = $svc->compute(
                 $wellLoop->outboundTypeFor($wellId),
                 $wellLoop->outboundPipelineFor($wellId),
@@ -507,7 +509,8 @@ class PlayersSection
                 $this->oilPrice,
                 $mults,
                 $deltaHours,
-                $hseBonus
+                $hseBonus,
+                $wellLoop->outboundPoliticalRiskFor($wellId)
             );
             if ($res['kind'] === 'direct') {
                 continue;

@@ -132,9 +132,14 @@ trait WellTickTrait
  // HSE can reduce repair cost.
  // BHP moze obnizyc koszt naprawy.
  // Koszt naprawy rosnie z uszkodzeniem (100 - stan), a nie ze stanem pozostalym — inaczej
- // prawie zdrowe odwierty mialyby najwyzsze rachunki. To pole jest tylko logowane/wyswietlane.
+ // prawie zdrowe odwierty mialyby najwyzsze rachunki. Kwota jest zwracana w wyniku
+ // ('repair_cost') i pobierana przez WellRiskHandler z gotowki ticku — wczesniej byla
+ // tylko logowana, a status paused_cash auto-wznawial sie w nastepnym ticku, wiec awarie
+ // byly de facto darmowe.
  // Repair cost scales with damage (100 - condition), not remaining condition — otherwise nearly
- // healthy wells would get the biggest bills. This value is only logged/displayed.
+ // healthy wells would get the biggest bills. The amount is returned in the result
+ // ('repair_cost') and charged by WellRiskHandler from the tick's cash — previously it was
+ // only logged while paused_cash auto-resumed next tick, making failures effectively free.
                 $repairCostBase = (int) (max(0.0, 100 - $condBefore) * 5000);
                 $repairCost = (int) round($repairCostBase * ($hseBonus['repair_cost_mult'] ?? 1.0));
 
@@ -190,7 +195,13 @@ trait WellTickTrait
 
         $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ?")->execute([round($condAfter, 1), $wellId]);
 
-        return ['failure' => $failureOccurred, 'condition' => round($condAfter, 1)];
+        return [
+            'failure'     => $failureOccurred,
+            'condition'   => round($condAfter, 1),
+            // Koszt naprawy do pobrania przez caller (0 gdy brak awarii mechanicznej).
+            // Repair cost for the caller to charge (0 when no mechanical failure occurred).
+            'repair_cost' => $failureOccurred ? ($repairCost ?? 0) : 0,
+        ];
     }
 
  /**
