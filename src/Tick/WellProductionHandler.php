@@ -166,10 +166,24 @@ class WellProductionHandler
 
         if ($well['status'] === 'paused_storage') {
             $freeSpace = $storageCapacity - $this->ctx->loopCtx->currentStorage;
-            if ($freeSpace > 0) {
+            // Transport odroczony (bufor drogowy MySQL / bufor morski) nie uzywa lokalnego
+            // magazynu — pelny magazyn nie moze wiecznie wstrzymywac odwiertu, ktory po zmianie
+            // typu transportu wysyla rope do wlasnego bufora (wczesniej: wieczna pauza + 30% OPEX).
+            // Deferred transport (MySQL road buffer / marine buffer) does not use local storage —
+            // a full tank must not keep pausing a well that, after a transport switch, ships oil
+            // to its own staging buffer (previously: permanent pause + 30% OPEX).
+            $isDeferredTransport = (
+                $transportForPort === 'ciezarowki'
+                && $this->ctx->roadTransportSvc !== null
+                && $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite'
+            ) || (
+                $transportForPort === 'tankowiec'
+                && $this->ctx->marineDeliverySvc !== null
+            );
+            if ($freeSpace > 0 || $isDeferredTransport) {
                 $this->ctx->db->prepare("UPDATE wells SET status = 'active' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
                 $well['status'] = 'active';
-                GameLog::info('tick', 'well resumed (storage has space)', ['well_id' => $wellId, 'free_space' => round($freeSpace, 1)]);
+                GameLog::info('tick', 'well resumed (storage has space or deferred transport)', ['well_id' => $wellId, 'free_space' => round($freeSpace, 1), 'deferred' => $isDeferredTransport]);
             } else {
                 return false;
             }
@@ -384,11 +398,14 @@ class WellProductionHandler
             }
         }
 
- // Akumulacja wejscia hubu po stratach leg-1 (tylko transport synchroniczny).
- // Hub input accumulation after leg-1 losses (synchronous transport only).
-        if ($applyHubSync) {
-            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
-        }
+ // Akumulacja wejscia hubu przeniesiona NIZEJ — za zdarzenia transportowe (leak/pressure_drop
+ // w handleTransportEvent i straty fallbackow), obok recordHubWellDelivered. Hub musi dostac
+ // dokladnie to, co dotarlo do magazynu — wczesniej dostawal brutto sprzed zdarzen, wiec
+ // przerabial (i leg-2 naliczal koszty od) barylki utracone w drodze, a straty liczyly sie 2x.
+ // Hub input accumulation moved BELOW — past the transport events (leak/pressure_drop in
+ // handleTransportEvent and fallback losses), next to recordHubWellDelivered. The hub must
+ // receive exactly what reached storage — previously it got the pre-event gross volume, so it
+ // processed (and leg-2 charged for) barrels lost in transit, double-counting the loss.
 
         if ($actual <= 0) return;
 
@@ -686,6 +703,16 @@ class WellProductionHandler
             $this->ctx->loopCtx->finLossValue          += round($storageLossBbl * $price, 2);
         }
 
+ // Akumulacja wejscia hubu z wolumenu NETTO (po stratach leg-1 i zdarzeniach transportowych)
+ // — hub przerabia dokladnie to, co faktycznie do niego dotarlo. Wariant bez huba dodatkowo
+ // CAPUJE $actual limitem fallbacku, dlatego wywolanie musi byc PRZED kredytem magazynu.
+ // Hub input accumulation from the NET volume (after leg-1 losses and transport events)
+ // — the hub processes exactly what actually arrived. The no-hub variant additionally CAPS
+ // $actual with the fallback limit, so this call must run BEFORE the storage credit.
+        if ($applyHubSync) {
+            $this->ctx->loopCtx->applyHubOrFallback($wellId, $actual, $deltaHours);
+        }
+
         if ($actual <= 0) return;
 
         $this->ctx->loopCtx->finBbl         += $actual;
@@ -698,10 +725,15 @@ class WellProductionHandler
         $this->ctx->loopCtx->recordHubWellDelivered($wellId, $actual);
 
         if ($transportType === 'rurociag' && $wellPipeline !== null) {
+            // Skalowanie deltaHours (opex_per_tick = PLN na GODZINE, podloga 1 ticka) — bez tego
+            // koszt godzinowy rurociagu zalezal od kadencji crona, nie od czasu gry.
+            // deltaHours scaling (opex_per_tick = PLN per HOUR, floored at one tick) — without it
+            // the pipeline's hourly cost depended on cron cadence, not game time.
             $pipelineTickCost = round(
                 (float)($wellPipeline['opex_per_tick'] ?? 0.0)
  * $this->ctx->gBalanceMults['opex']
- * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
+ * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0)
+ * max(1.0, $deltaHours),
                 2
             );
             $pipelineFlowCost = round(

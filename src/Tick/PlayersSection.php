@@ -500,6 +500,8 @@ class PlayersSection
                 continue;
             }
 
+            // Ryzyko polityczne regionu huba skaluje incydenty drogowe leg-2 (jak w WellHubSection).
+            // The hub region's political risk scales leg-2 road incidents (as in WellHubSection).
             $res = $svc->compute(
                 $wellLoop->outboundTypeFor($wellId),
                 $wellLoop->outboundPipelineFor($wellId),
@@ -507,7 +509,8 @@ class PlayersSection
                 $this->oilPrice,
                 $mults,
                 $deltaHours,
-                $hseBonus
+                $hseBonus,
+                $wellLoop->outboundPoliticalRiskFor($wellId)
             );
             if ($res['kind'] === 'direct') {
                 continue;

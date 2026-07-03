@@ -188,7 +188,7 @@ class WellHubSection
                 ));
 
                 $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
-                $this->processHubUsageFee($hubId, $hub, $playerId, $playerWellCount);
+                $this->processHubUsageFee($hubId, $hub, $playerId, $playerWellCount, $deltaHours);
                 // Odejmij bbl zablokowane przez pelny magazyn (juz zaksiegowane jako hub-loss),
                 // aby drugi odcinek transportu nie naliczal kosztow za ropy ktora nie dotarla.
                 // Subtract storage-blocked bbl (already booked as hub-loss) so the outbound
@@ -265,7 +265,7 @@ class WellHubSection
  *
  * @param array<string, mixed> $hub
  */
-    private function processHubUsageFee(int $hubId, array $hub, int $playerId, int $playerWellCount): void
+    private function processHubUsageFee(int $hubId, array $hub, int $playerId, int $playerWellCount, float $deltaHours = 1.0): void
     {
         if ($playerWellCount <= 0 || $this->hubSvc === null) {
             return;
@@ -305,7 +305,13 @@ class WellHubSection
  // Acquisition-type multiplier (as in HubEconomyService::getOpex) — matches UI/viability report.
             $acqDefaults = $this->hubSvc->getAcquisitionDefaults((string)($hub['acquisition_type'] ?? 'new'));
             $acqOpexMult = (float)($acqDefaults['opex_mult'] ?? 1.0);
-            $usageFee = round((float)$hub['opex_per_tick'] * $opexMult * $condMult * $acqOpexMult * $costMult, 2);
+            // Skalowanie deltaHours (semantyka: opex_per_tick = PLN na GODZINE, podloga 1 ticka):
+            // bez tego koszt godzinowy zalezal od kadencji crona (12x wiecej przy tickach 5-min
+            // niz przy nadrabianiu 1h), jak w naprawionym OPEX odwiertow.
+            // deltaHours scaling (semantics: opex_per_tick = PLN per HOUR, floored at one tick):
+            // without it the hourly cost depended on cron cadence (12x more at 5-min ticks than
+            // a 1h catch-up), unlike the already-fixed well OPEX.
+            $usageFee = round((float)$hub['opex_per_tick'] * $opexMult * $condMult * $acqOpexMult * $costMult * max(1.0, $deltaHours), 2);
             if ($usageFee > 0.0) {
                 $this->ctx->finOpex         += $usageFee;
                 $this->ctx->finHubUsageCost += $usageFee;
@@ -323,7 +329,8 @@ class WellHubSection
         }
 
  // Tenant pays full lease_fee_per_tick (flat rate, no condition modifier)
-        $leaseFee = round((float)($hub['lease_fee_per_tick'] ?? 0.0) * $costMult, 2);
+ // Skalowane deltaHours jak OPEX wlasciciela / Scaled by deltaHours like the owner OPEX
+        $leaseFee = round((float)($hub['lease_fee_per_tick'] ?? 0.0) * $costMult * max(1.0, $deltaHours), 2);
         if ($leaseFee > 0.0) {
             $this->ctx->finOpex         += $leaseFee;
             $this->ctx->finHubUsageCost += $leaseFee;
@@ -364,8 +371,14 @@ class WellHubSection
         $outboundType = (string)($this->ctx->hubOutboundType[$hubId] ?? 'nieustawiony');
         $pipe         = $this->ctx->hubOutboundPipelineCache[$hubId] ?? null;
 
+ // Ryzyko polityczne regionu HUBA skaluje szanse incydentu drogowego leg-2 (jak leg-1
+ // z regionem odwiertu); bez tego compute() uzywalo domyslnego poziomu 1.
+ // The HUB region's political risk scales the leg-2 road incident chance (as leg-1 does
+ // with the well's region); without it compute() used the default level 1.
+        $hubPoliticalRisk = (int)($this->ctx->hubCache[$hubId]['region_political_risk'] ?? 1);
         $res = $this->outboundSvc->compute(
-            $outboundType, $pipe, $processedBbl, $this->oilPrice, $mults, $deltaHours, $hseBonus
+            $outboundType, $pipe, $processedBbl, $this->oilPrice, $mults, $deltaHours, $hseBonus,
+            $hubPoliticalRisk
         );
         if ($res['kind'] === 'direct') {
             return;

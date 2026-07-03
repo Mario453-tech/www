@@ -104,8 +104,12 @@ class OutboundLegService
         }
 
         $costMult = (float)($mults['opex'] ?? 1.0) * (float)($mults['transport_cost_mult'] ?? 1.0);
+        // opex_per_tick skalowany deltaHours (PLN na godzine, podloga 1 ticka) — spojnie
+        // z oplatami hubu i rurociagu leg-1; czesc per-bbl zalezy od wolumenu, nie czasu.
+        // opex_per_tick scaled by deltaHours (PLN per hour, floored at one tick) — consistent
+        // with hub and leg-1 pipeline fees; the per-bbl part depends on volume, not time.
         $cost     = round(
-            (float)($pipe['opex_per_tick'] ?? 0.0) * $costMult
+            (float)($pipe['opex_per_tick'] ?? 0.0) * $costMult * max(1.0, $deltaHours)
             + $bbl * (float)($pipe['opex_per_bbl'] ?? 0.0) * $costMult,
             2
         );
@@ -140,7 +144,11 @@ class OutboundLegService
         $costPerBbl   = (float)($cfg['cost_per_bbl'] ?? 2.5);
         $incidentMult = (float)($cfg['incident'] ?? 1.3);
 
-        $cost = round($bbl * $costPerBbl * (float)($mults['transport_cost_mult'] ?? 1.0), 2);
+ // Globalny mnoznik balansu opex jak w computePipeline i wszystkich kosztach leg-1 —
+ // leg-2 drogowy byl jedynym kosztem transportu pomijajacym go.
+ // Global opex balance multiplier as in computePipeline and every leg-1 cost —
+ // road leg-2 was the only transport cost skipping it.
+        $cost = round($bbl * $costPerBbl * (float)($mults['opex'] ?? 1.0) * (float)($mults['transport_cost_mult'] ?? 1.0), 2);
 
         $politicalScale = match (true) {
             $politicalRisk >= 4 => 2.0,
