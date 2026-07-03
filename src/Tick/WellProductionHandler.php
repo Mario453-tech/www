@@ -490,59 +490,82 @@ class WellProductionHandler
  // min_load_bbl = 0 means immediate dispatch (per tick); larger values = buffer accumulation.
                 $minLoadBbl = max(0.0, (float)($transportCfg['min_load_bbl'] ?? 5000.0));
 
- // Bufor: wartosc sprzed ticka (z SELECT w.* w PlayersSection) + produkcja tego ticka.
- // Buffer: pre-tick value (from SELECT w.* in PlayersSection) + this tick's production.
-                $bufferBbl = (float)($well['marine_buffer_bbl'] ?? 0.0) + round($actual, 4);
+ // Increment bufora, swiezy odczyt (FOR UPDATE) i dispatch w JEDNEJ transakcji.
+ // Wczesniej: increment poza transakcja + dispatch ze snapshotu sprzed ticka + 'SET marine_buffer_bbl = 0'
+ // — rownolegle przebiegi (ADMIN_FORCE_TICK omija GET_LOCK) duplikowaly ladunek albo zerowaly
+ // rope dodana przez drugi przebieg. Teraz: blokada wiersza, dispatch swiezej wartosci
+ // i DEKREMENTACJA o wyslana ilosc zamiast zerowania.
+ // Buffer increment, fresh read (FOR UPDATE) and dispatch in ONE transaction.
+ // Previously: increment outside the tx + dispatch from a pre-tick snapshot + 'SET marine_buffer_bbl = 0'
+ // — overlapping runs (ADMIN_FORCE_TICK bypasses GET_LOCK) duplicated cargo or wiped oil added
+ // by the other run. Now: row lock, dispatch the fresh value, DECREMENT by dispatched instead of reset.
+                $addedBbl      = round($actual, 4);
+                $dispatchedBbl = 0.0;
+                $isMysqlMar    = $this->ctx->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite';
 
- // Zapisz nowy stan bufora / Persist updated buffer level
+ // Increment POZA transakcja dispatchu: atomowy '+=' jest bezpieczny, a rollback
+ // nieudanego dispatchu nie moze cofnac zapisu wyprodukowanej ropy do bufora.
+ // Increment OUTSIDE the dispatch tx: atomic '+=' is safe, and a failed-dispatch
+ // rollback must not revert this tick's produced oil from the buffer.
                 $this->ctx->db->prepare(
                     "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ? AND player_id = ?"
-                )->execute([round($actual, 4), $wellId, $playerId]);
+                )->execute([$addedBbl, $wellId, $playerId]);
 
-                GameLog::info('tick', 'marine_buffer_add', [
-                    'well_id'    => $wellId,
-                    'player_id'  => $playerId,
-                    'added_bbl'  => round($actual, 3),
-                    'buffer_bbl' => round($bufferBbl, 3),
-                    'threshold'  => $minLoadBbl,
-                ]);
+                $ownTxMar = !$this->ctx->db->inTransaction();
+                if ($ownTxMar) $this->ctx->db->beginTransaction();
+                try {
+ // Swiezy stan bufora pod blokada wiersza (SQLite w testach nie zna FOR UPDATE).
+ // Fresh buffer level under row lock (SQLite in tests has no FOR UPDATE).
+                    $selStmt = $this->ctx->db->prepare(
+                        "SELECT COALESCE(marine_buffer_bbl, 0) FROM wells WHERE id = ? AND player_id = ?"
+                        . ($isMysqlMar ? ' FOR UPDATE' : '')
+                    );
+                    $selStmt->execute([$wellId, $playerId]);
+                    $bufferBbl = (float)$selStmt->fetchColumn();
 
-                if ($bufferBbl >= $minLoadBbl) {
- // Bufor pelny: createDelivery + reset bufora opakowane w transakcje (Fix: nie-atomowe bylo bugiem).
- // Buffer full: createDelivery + buffer reset wrapped in transaction (Fix: non-atomic was a bug).
- // Jezeli INSERT dostawy powiedzie sie ale UPDATE bufora rzuci, transakcja jest cofana — brak duplikatow.
- // If delivery INSERT succeeds but buffer reset throws, transaction rolls back — no duplicate delivery.
-                    $ownTxMar = !$this->ctx->db->inTransaction();
-                    if ($ownTxMar) $this->ctx->db->beginTransaction();
-                    try {
+                    GameLog::info('tick', 'marine_buffer_add', [
+                        'well_id'    => $wellId,
+                        'player_id'  => $playerId,
+                        'added_bbl'  => round($actual, 3),
+                        'buffer_bbl' => round($bufferBbl, 3),
+                        'threshold'  => $minLoadBbl,
+                    ]);
+
+                    if ($bufferBbl >= $minLoadBbl) {
                         $this->ctx->marineDeliverySvc->createDelivery(
                             $playerId, $wellId, $bufferBbl, $deltaHours, $well, $hseBonus
                         );
+ // Dekrementacja (nie zerowanie): ropa dodana rownolegle po naszym SELECT nie ginie.
+ // Decrement (not reset): oil added concurrently after our SELECT is not wiped.
                         $this->ctx->db->prepare(
-                            "UPDATE wells SET marine_buffer_bbl = 0 WHERE id = ? AND player_id = ?"
-                        )->execute([$wellId, $playerId]);
+                            "UPDATE wells SET marine_buffer_bbl = marine_buffer_bbl - ? WHERE id = ? AND player_id = ?"
+                        )->execute([$bufferBbl, $wellId, $playerId]);
+                        $dispatchedBbl = $bufferBbl;
+                    }
 
-                        if ($ownTxMar) $this->ctx->db->commit();
-
- // Nalicz koszt rejsu od pelnego ladunku / Charge voyage cost for the full load
-                        $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
-                        if ($costPerBbl > 0.0) {
-                            $voyageCost = round($bufferBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
- * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
-                            $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
-                            $this->ctx->loopCtx->finTransport += $charged;
-                            $this->ctx->loopCtx->totalCosts   += $voyageCost;
-                            $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
-                        }
-                    } catch (Throwable $e) {
-                        if ($ownTxMar && $this->ctx->db->inTransaction()) $this->ctx->db->rollBack();
-                        GameLog::error('tick', 'marine_dispatch_failed — buffer retained for next tick', $e, [
-                            'well_id'    => $wellId,
-                            'player_id'  => $playerId,
-                            'buffer_bbl' => round($bufferBbl, 3),
-                        ]);
+                    if ($ownTxMar) $this->ctx->db->commit();
+                } catch (Throwable $e) {
+                    if ($ownTxMar && $this->ctx->db->inTransaction()) $this->ctx->db->rollBack();
+                    GameLog::error('tick', 'marine_dispatch_failed — buffer retained for next tick', $e, [
+                        'well_id'   => $wellId,
+                        'player_id' => $playerId,
+                        'added_bbl' => round($actual, 3),
+                    ]);
  // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
  // Buffer stays non-zero — dispatch will be retried next tick.
+                    $dispatchedBbl = 0.0;
+                }
+
+                if ($dispatchedBbl > 0.0) {
+ // Nalicz koszt rejsu od pelnego ladunku / Charge voyage cost for the full load
+                    $costPerBbl = (float)($transportCfg['cost_per_bbl'] ?? 0.0);
+                    if ($costPerBbl > 0.0) {
+                        $voyageCost = round($dispatchedBbl * $costPerBbl * $this->ctx->gBalanceMults['opex']
+ * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0), 2);
+                        $charged = min($voyageCost, $this->ctx->loopCtx->playerCash);
+                        $this->ctx->loopCtx->finTransport += $charged;
+                        $this->ctx->loopCtx->totalCosts   += $voyageCost;
+                        $this->ctx->loopCtx->playerCash    = max(0.0, $this->ctx->loopCtx->playerCash - $voyageCost);
                     }
                 }
  // Ropa nie trafia do storage (w buforze lub w tranzycie) / Oil not added to storage now (in buffer or in transit)

@@ -32,10 +32,24 @@ class WellRiskHandler
         ?int $technicianId
     ): void {
         $ws = $this->ctx->wellService;
-        try { $ws->processDegradation($wellId, $deltaHours, $hseBonus,
-            $mults['techDegradefMult'] * $mults['wearDegMult'] * $mults['spiralMultEffective']
+        try {
+            $degradation = $ws->processDegradation($wellId, $deltaHours, $hseBonus,
+                $mults['techDegradefMult'] * $mults['wearDegMult'] * $mults['spiralMultEffective']
  * $mults['eqMults']['wear'] * $this->ctx->gBalanceMults['degradation'] * $offlineRiskMult
  * (float)($this->ctx->financeTechnicalMods['degradation_mult'] ?? 1.0));
+
+            // Awaria mechaniczna: koszt naprawy pobierany realnie z gotowki ticku (jak inne koszty).
+            // Wczesniej byl tylko logowany, a paused_cash auto-wznawialo odwiert w nastepnym ticku,
+            // wiec awarie byly de facto darmowe.
+            // Mechanical failure: repair cost actually charged from the tick's cash (like other costs).
+            // Previously it was only logged and paused_cash auto-resumed next tick — failures were free.
+            $repairCost = (float)($degradation['repair_cost'] ?? 0);
+            if ($repairCost > 0) {
+                $loopCtx = $this->ctx->loopCtx;
+                $loopCtx->finIncident += $repairCost;
+                $loopCtx->totalCosts  += $repairCost;
+                $loopCtx->playerCash   = max(0.0, $loopCtx->playerCash - $repairCost);
+            }
         } catch (Throwable $e) { GameLog::error('tick', 'processDegradation FAILED', $e, ['well_id' => $wellId]); }
 
         // Skip risk score update for wells that are already in a terminal/inactive state.
