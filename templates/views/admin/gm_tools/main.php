@@ -212,4 +212,26 @@
     </form>
 </section>
 
+<!--  PELNY RESET GRY  -->
+<section class="panel panel-danger gm-wipe" aria-label="<?= t('admin.gm.wipe_title') ?>" style="grid-column:1/-1;border:2px solid var(--danger,#c0392b)">
+    <p class="panel-title panel-title-danger">☢️ <?= t('admin.gm.wipe_title') ?></p>
+    <p class="muted text-sm"><?= t('admin.gm.wipe_desc') ?></p>
+    <p class="text-sm" style="margin:0.5rem 0"><strong><?= t('admin.gm.wipe_keeps') ?></strong></p>
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="full_wipe">
+        <div class="gm-form-stack">
+            <div>
+                <label class="gm-label"><?= t('admin.gm.wipe_phrase_label', ['phrase' => 'KASUJ WSZYSTKO']) ?></label>
+                <input type="text" name="wipe_confirm" autocomplete="off"
+                       placeholder="KASUJ WSZYSTKO" class="gm-input" required>
+            </div>
+            <button type="submit" class="btn btn-danger"
+                    onclick="if((this.form.wipe_confirm.value||'').trim() !== 'KASUJ WSZYSTKO'){ alert('<?= t('admin.gm.wipe_bad_phrase', ['phrase' => 'KASUJ WSZYSTKO']) ?>'); return false; } confirmAction('<?= t('admin.gm.wipe_confirm') ?>', () => this.form.submit(), {type:'danger', title:'<?= t('admin.gm.wipe_confirm_title') ?>', confirmLabel:'<?= t('admin.gm.wipe_confirm_btn') ?>'}); return false;">
+                ☢️ <?= t('admin.gm.wipe_submit') ?>
+            </button>
+        </div>
+    </form>
+</section>
+
 </div><!-- .gm-grid -->
