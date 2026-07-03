@@ -14,6 +14,9 @@ class PortService
 {
     private PDO $db;
 
+    /** @var array<int, bool> Memo per instancje: region_id => czy ma aktywny port. */
+    private array $regionHasPortMemo = [];
+
     public function __construct(PDO $db)
     {
         $this->db = $db;
@@ -63,6 +66,17 @@ class PortService
     public function hasActivePortForRegion(int $regionId): bool
     {
         if ($regionId <= 0) return false;
+        // Memo per instancje: w ticku PortService powstaje swiezo per gracz, a statusy portow
+        // zmienia dopiero PortSection PO petli odwiertow — wiec bramka portu (processOpex +
+        // processProduction) czytala 2x na odwiert (i N razy na region) te sama wartosc. Cache
+        // usuwa te powtorki bez ryzyka stale w obrebie przetwarzania gracza.
+        // Per-instance memo: in the tick PortService is created fresh per player, and PortSection
+        // only changes port statuses AFTER the well loop — so the port gate (processOpex +
+        // processProduction) read the same value twice per well (and N times per region). This cache
+        // removes those repeats with no staleness risk within a player's processing.
+        if (array_key_exists($regionId, $this->regionHasPortMemo)) {
+            return $this->regionHasPortMemo[$regionId];
+        }
         $stmt = $this->db->prepare(
             "SELECT 1 FROM ports
               WHERE region_id = ?
@@ -70,7 +84,7 @@ class PortService
               LIMIT 1"
         );
         $stmt->execute([$regionId]);
-        return (bool)$stmt->fetchColumn();
+        return $this->regionHasPortMemo[$regionId] = (bool)$stmt->fetchColumn();
     }
 
  /**

@@ -109,6 +109,43 @@ trait IncidentRepairDataTrait
     }
 
  /**
+ * Wersja zbiorcza getOngoingProdDrop: jedno zapytanie na gracza zamiast jednego na odwiert na
+ * tick. Zwraca mape well_id => prod_drop (%) tylko dla odwiertow z trwajacym incydentem; brak
+ * klucza = brak trwajacego spadku (0). Preloadowane raz w petli odwiertow (jak hubCache).
+ * Batched getOngoingProdDrop: one query per player instead of one per well per tick. Returns a map
+ * well_id => prod_drop (%) only for wells with an ongoing incident; a missing key means no ongoing
+ * drop (0). Preloaded once in the well loop (like hubCache).
+ *
+ * @return array<int, float>
+ */
+    public function getOngoingProdDropForPlayer(int $playerId): array
+    {
+        try {
+            $isSqlite = $this->db->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlite';
+            $stillActive = $isSqlite
+                ? "datetime(created_at, '+' || hours || ' hours') > datetime('now')"
+                : "DATE_ADD(created_at, INTERVAL hours HOUR) > NOW()";
+            $stmt = $this->db->prepare("
+                SELECT well_id, MAX(prod_drop) AS drop_pct
+                FROM well_incidents
+                WHERE player_id = ?
+                  AND repaired_at IS NULL
+                  AND {$stillActive}
+                GROUP BY well_id
+            ");
+            $stmt->execute([$playerId]);
+            $map = [];
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+                $map[(int)$row['well_id']] = max(0.0, min(100.0, (float)$row['drop_pct']));
+            }
+            return $map;
+        } catch (\Throwable $e) {
+            GameLog::error('IncidentService', 'getOngoingProdDropForPlayer FAILED', $e, ['player_id' => $playerId]);
+            return [];
+        }
+    }
+
+ /**
  * Najwiekszy trwajacy spadek produkcji (%) z nienaprawionych incydentow w oknie `hours`.
  * Incydent trwa `hours` godzin od created_at albo do repaired_at — wczesniej prod_drop
  * dzialal tylko w ticku wystapienia, wiec "72h przestoju" konczylo sie po jednym ticku.

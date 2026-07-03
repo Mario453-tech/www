@@ -206,10 +206,13 @@ class WellRiskHandler
             // Ongoing production drop: an incident applies for `hours` from created_at (or until
             // repaired_at), not only in its firing tick — previously a major's "24-72h outage"
             // ended after a single 5-minute tick.
-            $ongoingDrop = 0.0;
-            if ($this->ctx->incidentSvc !== null) {
-                $ongoingDrop = $this->ctx->incidentSvc->getOngoingProdDrop($wellId, $playerId) / 100.0;
-            }
+            // Odczyt z mapy preloadowanej raz na gracza (WellLoopSection::preloadPlayerData) zamiast
+            // zapytania per odwiert. Swiezy incydent z tego ticku nie jest w mapie, ale pokrywa go
+            // $freshDrop; mapa to trwajace incydenty z wczesniejszych tikow.
+            // Read from the map preloaded once per player (WellLoopSection::preloadPlayerData) instead
+            // of a per-well query. A fresh incident from this tick is not in the map but is covered by
+            // $freshDrop; the map holds ongoing incidents from earlier ticks.
+            $ongoingDrop = (float)($this->ctx->loopCtx->ongoingDropCache[$wellId] ?? 0.0) / 100.0;
             return max($freshDrop, $ongoingDrop);
         } catch (Throwable $e) {
             GameLog::error('tick', 'IncidentService::processTick FAILED', $e, ['well_id' => $wellId]);

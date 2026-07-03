@@ -590,6 +590,27 @@ class WellProductionHandler
                     "UPDATE wells SET marine_buffer_bbl = COALESCE(marine_buffer_bbl, 0) + ? WHERE id = ? AND player_id = ?"
                 )->execute([$addedBbl, $wellId, $playerId]);
 
+ // Optymistyczna bramka: przy min_load_bbl=5000 i ~10 bbl/tick odwiert spedzalby ~499 z 500
+ // tikow otwierajac transakcje + SELECT FOR UPDATE (blokada wiersza wells) tylko po to, by
+ // stwierdzic, ze bufor nie jest pelny. Szacujemy z wartosci sprzed ticka (dokladnej w typowym
+ // przebiegu bez rownoleglosci) i otwieramy transakcje tylko gdy prog jest prawdopodobnie
+ // przekroczony. Niedoszacowanie przy rownoleglym przebiegu = dispatch w kolejnym ticku (bufor
+ // zostaje), bez utraty ropy ani bledu pieniedzy.
+ // Optimistic gate: with min_load_bbl=5000 and ~10 bbl/tick a well would spend ~499 of every 500
+ // ticks opening a transaction + SELECT FOR UPDATE (a wells row lock) just to learn the buffer is
+ // not full. We estimate from the pre-tick value (exact in the common non-concurrent run) and open
+ // the transaction only when the threshold is plausibly crossed. An underestimate under a
+ // concurrent run just defers dispatch one tick (buffer persists), with no oil loss or money error.
+                $optimisticBuffer = (float)($well['marine_buffer_bbl'] ?? 0.0) + $addedBbl;
+                if ($optimisticBuffer < $minLoadBbl) {
+                    GameLog::info('tick', 'marine_buffer_add', [
+                        'well_id'    => $wellId,
+                        'player_id'  => $playerId,
+                        'added_bbl'  => round($actual, 3),
+                        'buffer_bbl' => round($optimisticBuffer, 3),
+                        'threshold'  => $minLoadBbl,
+                    ]);
+                } else {
                 $ownTxMar = !$this->ctx->db->inTransaction();
                 if ($ownTxMar) $this->ctx->db->beginTransaction();
                 try {
@@ -633,6 +654,7 @@ class WellProductionHandler
  // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
  // Buffer stays non-zero — dispatch will be retried next tick.
                     $dispatchedBbl = 0.0;
+                }
                 }
 
                 if ($dispatchedBbl > 0.0) {

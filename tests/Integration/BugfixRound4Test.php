@@ -204,6 +204,37 @@ final class BugfixRound4Test extends SqliteIntegrationTestCase
             'Expired and repaired incidents must not throttle production');
     }
 
+    // Perf: wersja zbiorcza (jedno zapytanie na gracza) uzywana teraz w ticku musi zwracac
+    // te sama semantyke co per-odwiert getOngoingProdDrop — aktywne w mapie, wygasle/naprawione poza.
+    // Perf: the batched version (one query per player) now used in the tick must return the same
+    // semantics as per-well getOngoingProdDrop — active in the map, expired/repaired excluded.
+    public function testOngoingProdDropForPlayerBatchesActiveOnly(): void
+    {
+        $db = $this->createSqlitePdo();
+        $this->createIncidentTable($db);
+        // Odwiert 100: aktywny major (80%, 24h, sprzed godziny) / well 100: active major
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
+                   VALUES (100, 1, 'major', 80, 24, datetime('now', '-1 hour'))");
+        // Odwiert 101: wygasly — poza mapa / well 101: expired — excluded
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
+                   VALUES (101, 1, 'minor', 30, 1, datetime('now', '-3 hours'))");
+        // Odwiert 102: naprawiony — poza mapa / well 102: repaired — excluded
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at, repaired_at)
+                   VALUES (102, 1, 'major', 90, 48, datetime('now', '-1 hour'), datetime('now'))");
+        // Inny gracz — nie moze przeciekac do mapy gracza 1 / another player — must not leak into player 1's map
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
+                   VALUES (103, 2, 'major', 70, 24, datetime('now', '-1 hour'))");
+
+        $svc = $this->makeIncidentService($db);
+        $map = $svc->getOngoingProdDropForPlayer(1);
+
+        $this->assertSame([100], array_keys($map), 'Only the active incident well is in the map');
+        $this->assertEqualsWithDelta(80.0, $map[100], 0.001, 'Active drop value preserved');
+        $this->assertArrayNotHasKey(101, $map, 'Expired incident excluded');
+        $this->assertArrayNotHasKey(102, $map, 'Repaired incident excluded');
+        $this->assertArrayNotHasKey(103, $map, 'Other player\'s incident excluded');
+    }
+
     // ------------------------------------------------------------------
     // L5/B4: leg-2 rurociag z real_capacity_bph=0 = zerowa przepustowosc
     // (bylo: brak capa = nieskonczona).

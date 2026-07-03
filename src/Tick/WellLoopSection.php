@@ -73,6 +73,8 @@ class WellLoopSection
  // Second-leg transport losses (already folded into finLossBbl/finLossValue; kept for reporting).
     public float $finOutboundLossBbl   = 0.0;
     public float $finOutboundLossValue = 0.0;
+ /** @var array<int, float> well_id -> trwajacy spadek produkcji (%) z aktywnych incydentow; preload raz/gracz */
+    public array $ongoingDropCache = [];
 
     private PDO         $db;
     private DateTime    $now;
@@ -529,6 +531,14 @@ class WellLoopSection
         } catch (Throwable $e) {
             GameLog::error('tick', 'preloadPlayerData staff FAILED', $e, ['player_id' => $playerId]);
         }
+
+ // 1a. Preload trwajacych spadkow produkcji (incydenty w oknie `hours`) — jedno zapytanie na
+ //     gracza zamiast jednego na odwiert na tick (getOngoingProdDrop w petli bylby N+1).
+ // 1a. Preload ongoing production drops (incidents inside their `hours` window) — one query per
+ //     player instead of one per well per tick (a per-well getOngoingProdDrop would be N+1).
+        $this->ongoingDropCache = ($this->incidentSvc !== null && method_exists($this->incidentSvc, 'getOngoingProdDropForPlayer'))
+            ? $this->incidentSvc->getOngoingProdDropForPlayer($playerId)
+            : [];
 
  // 2. Preload owned pipelines per well for all player wells.
  // 2. Preload zakupionych rurociagow per odwiert dla odwiertow gracza.
