@@ -585,7 +585,16 @@ class WellPipelineService
     public function purchasePipeline(int $playerId, int $wellId, string $type = 'standard', string $leg = 'inbound'): array
     {
         $type    = $this->normalizePipelineType($type);
-        $leg     = in_array($leg, ['inbound', 'outbound'], true) ? $leg : 'inbound';
+ // Odcinek wylotowy (hub->magazyn) kupuje sie per-hub przez purchaseHubOutboundPipeline
+ // (well_id=0). Wiersz (well_id>0, leg='outbound') nie jest czytany przez zaden kod ticku
+ // — taki zakup pobieral pelny build_cost za rurociag, ktory nigdy nie transportowal.
+ // The outbound leg (hub->storage) is bought per-hub via purchaseHubOutboundPipeline
+ // (well_id=0). A (well_id>0, leg='outbound') row is read by no tick code — such a
+ // purchase charged full build_cost for a pipeline that never transported anything.
+        if ($leg !== 'inbound') {
+            return ['success' => false, 'error' => 'invalid_leg'];
+        }
+        $leg = 'inbound';
         $profile = $this->getProfile($type);
         $buildCost  = $profile['build_cost'];
         $buildHours = $profile['build_hours'];
@@ -1160,7 +1169,7 @@ class WellPipelineService
     public function togglePipeline(int $playerId, int $pipelineId): array
     {
         $stmt = $this->db->prepare(
-            "SELECT id, well_id, condition_pct, status
+            "SELECT id, well_id, condition_pct, status, leak_started_at
                FROM well_pipelines
               WHERE id = ? AND player_id = ?
               LIMIT 1"
@@ -1172,22 +1181,30 @@ class WellPipelineService
         }
 
         $current = (string)$pipe['status'];
-        if (in_array($current, ['building', 'disabled', 'planned'], true)) {
+ // 'damaged' wymaga naprawy — suspend+resume odtwarzaloby status z samej kondycji
+ // i wskrzeszalo zniszczony rurociag za darmo (z pominieciem oplaty repairPipeline).
+ // 'damaged' requires repair — suspend+resume would rebuild status from condition
+ // alone and resurrect a destroyed pipeline for free (bypassing the repairPipeline fee).
+        if (in_array($current, ['building', 'disabled', 'planned', 'damaged'], true)) {
             return ['success' => false, 'error' => 'pipeline_not_toggleable'];
         }
 
         if ($current === 'suspended') {
- // Resume: restore status based on condition_pct
+ // Resume: restore status based on condition_pct.
+ // Aktywny wyciek (leak_started_at) i kondycja 0 nie moga zniknac przez resume.
+ // An active leak (leak_started_at) and zero condition cannot vanish via resume.
             $cond      = (float)$pipe['condition_pct'];
             $newStatus = match(true) {
-                $cond < 30.0 => 'critical',
-                $cond < 60.0 => 'degraded',
-                default      => 'active',
+                $cond <= 0.0                        => 'damaged',
+                !empty($pipe['leak_started_at'])    => 'leak',
+                $cond < 30.0                        => 'critical',
+                $cond < 60.0                        => 'degraded',
+                default                             => 'active',
             };
             $eventType = 'pipeline_resumed';
             $eventMsg  = "[Player] Pipeline resumed. Status restored to {$newStatus}.";
         } else {
- // Suspend: active/degraded/critical/damaged/leak -> suspended
+ // Suspend: active/degraded/critical/leak -> suspended
             $newStatus = 'suspended';
             $eventType = 'pipeline_suspended';
             $eventMsg  = "[Player] Pipeline suspended. Well switches to road transport.";

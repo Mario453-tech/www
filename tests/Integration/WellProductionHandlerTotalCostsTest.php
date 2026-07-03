@@ -245,6 +245,7 @@ final class WellProductionHandlerTotalCostsTest extends SqliteIntegrationTestCas
         // Step 2: processProduction with pipeline opex_per_tick=800 > remaining cash (498.9)
         $pipeline = [
             'id'              => 1,
+            'real_capacity_bph' => 100000.0, // wysoki cap: te testy mierza koszty, nie przepustowosc / high cap: these tests measure costs, not throughput
             'opex_per_tick'   => 800.0,
             'opex_per_bbl'    => 0.0,
             'transport_loss'  => 0.0,

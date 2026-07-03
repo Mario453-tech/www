@@ -382,7 +382,24 @@ class WellHubSection
             $this->ctx->finBbl        -= $excessBbl;
             $this->ctx->deliveredBbl  -= $excessBbl;
             $this->ctx->finRevenue    -= $excessVal;
-            $this->hubTickSvc->addBufferBbl($hubId, $excessBbl);
+            $returnedBbl = $this->hubTickSvc->addBufferBbl($hubId, $excessBbl);
+
+            // Bufor jest capowany do pojemnosci: co sie nie zmiescilo, jest strata
+            // (jak overflow przy normalnym wejsciu huba), nie nieskonczonym buforem.
+            // The buffer is capacity-capped: what does not fit is a loss (same as
+            // overflow on regular hub intake), not an unbounded buffer.
+            $overflowBbl = max(0.0, round($excessBbl - $returnedBbl, 4));
+            if ($overflowBbl > 0.001) {
+                $overflowVal = round($overflowBbl * $this->oilPrice, 2);
+                $this->ctx->finLossBbl           += $overflowBbl;
+                $this->ctx->finLossValue         += $overflowVal;
+                $this->ctx->finOutboundLossBbl   += $overflowBbl;
+                $this->ctx->finOutboundLossValue += $overflowVal;
+                GameLog::info('tick', 'hub_buffer_overflow_lost', [
+                    'hub_id'   => $hubId,
+                    'lost_bbl' => $overflowBbl,
+                ]);
+            }
         }
 
         $lostBbl = (float)$res['loss_bbl'];

@@ -83,7 +83,11 @@ class OutboundLegService
         $requested = $bbl;
         $maxBbl    = (float)($pipe['real_capacity_bph'] ?? PHP_FLOAT_MAX) * max(0.0, $deltaHours);
         $excess    = 0.0;
-        if ($maxBbl > 0 && $requested > $maxBbl) {
+ // Cap bez warunku maxBbl > 0: real_capacity_bph = 0 (default schematu dla legacy
+ // wierszy) znaczy zero przepustowosci, nie nieskonczona.
+ // Cap without the maxBbl > 0 guard: real_capacity_bph = 0 (schema default on legacy
+ // rows) means zero throughput, not unlimited.
+        if ($requested > $maxBbl) {
             $excess = round($requested - $maxBbl, 4);
             $bbl    = $maxBbl;
         }

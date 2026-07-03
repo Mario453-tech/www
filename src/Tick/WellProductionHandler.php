@@ -39,7 +39,6 @@ class WellProductionHandler
         $transportWearMult     = (float)($transportCfg['wear']     ?? 1.0);
         $wellPipeline          = $this->ctx->wellPipelineCache[$wellId] ?? null;
         $pipelineStatus        = $wellPipeline !== null ? (string)($wellPipeline['status'] ?? 'active') : '';
-        $hasOperationalPipeline = (bool)($wellPipeline['_is_operational'] ?? ($wellPipeline !== null && $pipelineStatus !== 'building'));
 
         if ($wellType !== 'offshore' && $transportType === 'nieustawiony') {
             return [
@@ -69,9 +68,16 @@ class WellProductionHandler
             ];
         }
 
- // Land wells with an existing but not-yet-operational pipeline fall back to road transport.
- // Odwierty ladowe z istniejacym, ale nieaktywnym rurociagiem przechodza tymczasowo na fallback drogowy.
-        if ($transportType === 'rurociag' && !$hasOperationalPipeline && $wellType !== 'offshore') {
+ // Land wells with a pipeline in build or deliberately suspended fall back to road transport
+ // (suspend promises "well switches to road transport"). 'damaged'/'disabled' do NOT fall back:
+ // a destroyed pipeline stops the flow (capPct=0 below) instead of silently hauling by road
+ // at full truck capacity with no repair incentive.
+ // Odwierty ladowe z rurociagiem w budowie lub celowo wstrzymanym przechodza na fallback
+ // drogowy (suspend obiecuje przejscie na transport drogowy). 'damaged'/'disabled' NIE
+ // przechodza: zniszczony rurociag zatrzymuje przesyl (capPct=0 nizej), zamiast po cichu
+ // jezdzic ciezarowkami bez motywacji do naprawy.
+        if ($transportType === 'rurociag' && $wellType !== 'offshore'
+            && in_array($pipelineStatus, ['building', 'suspended'], true)) {
             $transportType = 'ciezarowki';
             $transportCfg = $this->ctx->transportConfig[$transportType] ?? TransportConfigService::getDefaults()['ciezarowki'];
             $transportCapPct = (float)($transportCfg['capacity'] ?? 100.0);
@@ -81,7 +87,7 @@ class WellProductionHandler
             $transportWearMult = (float)($transportCfg['wear'] ?? 1.0);
         }
 
-        if ($transportType === 'rurociag' && $hasOperationalPipeline) {
+        if ($transportType === 'rurociag' && $wellPipeline !== null) {
  // 'servicing' = rurociag w naprawie: brak przesylu (jak przy damaged/disabled).
  // 'servicing' = pipeline under repair: no throughput (like damaged/disabled).
             if (in_array($pipelineStatus, ['damaged','disabled','servicing'], true)) {
@@ -262,6 +268,28 @@ class WellProductionHandler
 
  // Transport capacity limit
         $transportLimitedBbl = min($producedBbl, $producedBbl * ($transportCapPct / 100.0));
+
+ // Absolutny cap przepustowosci rurociagu leg-1 (real_capacity_bph * deltaHours):
+ // procentowy limit skaluje sie z produkcja, wiec mnozniki (operator, sprzet, warstwa)
+ // przepychaly przez rure wielokrotnosc jej nominalnej przepustowosci.
+ // Absolute leg-1 pipeline throughput cap (real_capacity_bph * deltaHours): the
+ // percentage limit scales with production, so multipliers (operator, equipment, layer)
+ // pushed a multiple of the pipe's rated capacity through it.
+        if ($transportType === 'rurociag' && $wellPipeline !== null) {
+            $pipeCapBph = (float)($wellPipeline['real_capacity_bph'] ?? 0.0);
+            $pipeCapBbl = max(0.0, $pipeCapBph * $deltaHours);
+            if ($transportLimitedBbl > $pipeCapBbl) {
+                GameLog::info('tick', 'pipeline_leg1_capacity_cap', [
+                    'well_id'      => $wellId,
+                    'player_id'    => $playerId,
+                    'requested'    => round($transportLimitedBbl, 2),
+                    'cap_bbl'      => round($pipeCapBbl, 2),
+                    'capacity_bph' => $pipeCapBph,
+                ]);
+                $transportLimitedBbl = $pipeCapBbl;
+            }
+        }
+
         $freeSpace           = $storageCapacity - $this->ctx->loopCtx->currentStorage;
 
         $transportCapacityLoss = max(0.0, round($producedBbl - $transportLimitedBbl, 4));
