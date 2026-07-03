@@ -42,6 +42,20 @@
                 <span class="sep">·</span>
                 <span class="c-muted2"><?= date('d.m H:i', strtotime($inc['created_at'])) ?></span>
             </div>
+            <?php if (!$inc['auto_repair'] && empty($inc['repaired_at'])): ?>
+            <?php /* Reczna naprawa medium/major: domyka oplacony incydent (koszt pobrany przy
+                     wystapieniu) i przywraca odwiert 'broken' do 'active'.
+                     Manual medium/major repair: closes the already-paid incident (cost charged
+                     when it fired) and restores a 'broken' well to 'active'. */ ?>
+            <form method="post" class="inc-repair-form" style="margin-top:6px">
+                <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="repair_incident">
+                <input type="hidden" name="incident_id" value="<?= (int)$inc['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    🔧 <?= t('incident.btn_repair') ?>
+                </button>
+            </form>
+            <?php endif ?>
         </div>
         <div class="inc-badge"><?= t('technical.inc_level_' . $lvl, [], strtoupper($lvl)) ?></div>
     </div>

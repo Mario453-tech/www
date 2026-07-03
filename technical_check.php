@@ -173,6 +173,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
 
+            // Reczna naprawa incydentu medium/major (IncidentService::repairIncident pobiera
+            // oplate = cost incydentu i ustawia repaired_at; wczesniej metoda nie miala
+            // zadnego wywolania — incydenty non-auto_repair byly nienaprawialne).
+            // Manual repair of a medium/major incident (IncidentService::repairIncident charges
+            // the incident's cost and sets repaired_at; previously the method had no caller —
+            // non-auto_repair incidents were unrepairable).
+            case 'repair_incident':
+                try {
+                    if (!$incidentSvc) {
+                        $msg = t('incident.err_internal'); $msgType = 'error';
+                        break;
+                    }
+                    $r = $incidentSvc->repairIncident((int)($_POST['incident_id'] ?? 0), $playerId);
+                    $msg = $r['message']; $msgType = $r['success'] ? 'success' : 'error';
+                    GameLog::info('technical.php', 'repair_incident result', $r + ['incident_id' => $_POST['incident_id'] ?? 0]);
+                } catch (Throwable $e) {
+                    $msg = t('incident.err_internal'); $msgType = 'error';
+                    GameLog::error('technical.php', 'repair_incident EXCEPTION', $e);
+                }
+                break;
+
             case 'dismiss_notification':
                 try {
                     $svc->markRead((int)($_POST['notif_id'] ?? 0));

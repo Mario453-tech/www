@@ -45,9 +45,16 @@ trait IncidentRepairDataTrait
                 return ['success' => false, 'message' => t('incident.err_already_repaired')];
             }
 
-            // Transakcja — trzy UPDATE-y musza byc atomowe; crash miedzy nimi moglby zostawic
+            // BEZ oplaty: koszt incydentu (`cost`) jest pobierany z gotowki gracza juz w momencie
+            // wystapienia (WellRiskHandler::processIncidents — finIncident/playerCash). Naprawa to
+            // domkniecie oplaconego incydentu; druga oplata tutaj liczylaby koszt podwojnie.
+            // NO charge: the incident's `cost` is deducted from the player's cash when the incident
+            // fires (WellRiskHandler::processIncidents — finIncident/playerCash). The repair closes
+            // an already-paid incident; charging here again would double-bill the cost.
+
+            // Transakcja — UPDATE-y musza byc atomowe; crash miedzy nimi moglby zostawic
             // incydent oznaczony jako naprawiony, ale odwiert nadal broken (soft-lock) (Rule 5).
-            // Transaction — three UPDATEs must be atomic; a crash between them could leave the
+            // Transaction — the UPDATEs must be atomic; a crash between them could leave the
             // incident marked repaired but the well still broken (soft-lock) (Rule 5).
             // $ownTx — zabezpieczenie przed zagniezdzona transakcja (Rule 5).
             // $ownTx — guard against nested transaction (Rule 5).
@@ -98,6 +105,36 @@ trait IncidentRepairDataTrait
         } catch (\Throwable $e) {
             GameLog::error('IncidentService', 'repairIncident FAILED', $e, ['incident_id' => $incidentId]);
             return ['success' => false, 'message' => t('incident.err_internal')];
+        }
+    }
+
+ /**
+ * Najwiekszy trwajacy spadek produkcji (%) z nienaprawionych incydentow w oknie `hours`.
+ * Incydent trwa `hours` godzin od created_at albo do repaired_at — wczesniej prod_drop
+ * dzialal tylko w ticku wystapienia, wiec "72h przestoju" konczylo sie po jednym ticku.
+ * Largest ongoing production drop (%) from unrepaired incidents inside their `hours`
+ * window. An incident lasts `hours` from created_at or until repaired_at — previously
+ * prod_drop applied only in the firing tick, so a "72h outage" ended after one tick.
+ */
+    public function getOngoingProdDrop(int $wellId, int $playerId): float
+    {
+        try {
+            $isSqlite = $this->db->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlite';
+            $stillActive = $isSqlite
+                ? "datetime(created_at, '+' || hours || ' hours') > datetime('now')"
+                : "DATE_ADD(created_at, INTERVAL hours HOUR) > NOW()";
+            $stmt = $this->db->prepare("
+                SELECT COALESCE(MAX(prod_drop), 0)
+                FROM well_incidents
+                WHERE well_id = ? AND player_id = ?
+                  AND repaired_at IS NULL
+                  AND {$stillActive}
+            ");
+            $stmt->execute([$wellId, $playerId]);
+            return max(0.0, min(100.0, (float)$stmt->fetchColumn()));
+        } catch (\Throwable $e) {
+            GameLog::error('IncidentService', 'getOngoingProdDrop FAILED', $e, ['well_id' => $wellId]);
+            return 0.0;
         }
     }
 
@@ -280,9 +317,17 @@ trait IncidentRepairDataTrait
  // major bez auto_repair -> pauzuj odwiert; filtruj po player_id (Rule 1).
  // major without auto_repair -> pause the well; filter by player_id (Rule 1).
                 if ($incident['level'] === 'major' && !$incident['auto_repair']) {
+                    // Statusy z bramki incydentow (WellProductionSection): odwierty contaminated/
+                    // no_technician/no_operator tez losuja incydenty — major musi je lamac tak samo,
+                    // inaczej UPDATE trafia 0 wierszy i odwiert produkuje dalej z aktywnym majorem.
+                    // Statuses from the incident gate (WellProductionSection): contaminated/
+                    // no_technician/no_operator wells also roll incidents — a major must break them
+                    // too, otherwise the UPDATE matches 0 rows and the well keeps producing with an
+                    // active major incident.
                     $this->db->prepare("
                         UPDATE wells SET status = 'broken'
-                        WHERE id = ? AND player_id = ? AND status = 'active'
+                        WHERE id = ? AND player_id = ?
+                          AND status IN ('active','contaminated','no_technician','no_operator')
                     ")->execute([$wellId, $playerId]);
                     GameLog::warn('IncidentService', 'applyEffects_well_broken', ['well_id' => $wellId]);
                 }

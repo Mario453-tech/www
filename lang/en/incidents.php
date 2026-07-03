@@ -11,6 +11,7 @@ return [
     'incident.err_already_repaired' => 'This incident has already been repaired.',
     'incident.err_internal' => 'Internal repair error.',
     'incident.msg_repaired' => 'Repair completed. Well resumed.',
+    'incident.btn_repair' => 'Repair incident',
     'incident.unknown_worker' => 'unknown',
     'incident.fallback_message' => 'Industrial incident at well #:well. Level: :level. Production reduced by :drop%.',
     'regional_event.notify_prefix' => ' [:region] ',

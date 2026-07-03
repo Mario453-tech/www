@@ -68,6 +68,21 @@ trait IncidentTickTrait
                 $row = $stmt->fetch(\PDO::FETCH_ASSOC);
                 if ($row && $row['secs'] !== null) {
                     $ticksSince = max(0, (int)((int)$row['secs'] / 300));
+                } else {
+                    // Brak historii non-micro: presja liczy sie od zalozenia odwiertu, NIE od
+                    // sentinela 999 — nowy odwiert startowal z maksymalna presja (pressureMult 2.0,
+                    // podwojona szansa incydentu od pierwszego ticku).
+                    // No non-micro history: pressure builds from the well's creation, NOT from the
+                    // 999 sentinel — a fresh well used to start at the pressure cap (pressureMult
+                    // 2.0, doubled incident chance from its very first tick).
+                    $ageStmt = $this->db->prepare(
+                        "SELECT TIMESTAMPDIFF(SECOND, created_at, NOW()) AS secs FROM wells WHERE id = ? AND player_id = ?"
+                    );
+                    $ageStmt->execute([$wellId, $playerId]);
+                    $ageRow = $ageStmt->fetch(\PDO::FETCH_ASSOC);
+                    $ticksSince = ($ageRow && $ageRow['secs'] !== null)
+                        ? max(0, (int)((int)$ageRow['secs'] / 300))
+                        : 0;
                 }
             } catch (\Throwable $e) {
                 GameLog::error('IncidentService', 'immunity_fallback FAILED', $e, ['well_id' => $wellId]);

@@ -468,6 +468,23 @@ trait TTSTasksTrait
                                 status = CASE WHEN status IN ('broken','paused_cash') THEN 'active' ELSE status END
                             WHERE id = ? AND player_id = ?
                         ")->execute([$wellId, $pId]);
+                        // Pelny serwis odwiertu domyka tez jego aktywne incydenty (repaired_at) —
+                        // inaczej wiersz incydentu zostawal 'aktywny' na zawsze, a trwajacy
+                        // prod_drop dalej dusil produkcje mimo naprawy.
+                        // A full well service also closes its active incidents (repaired_at) —
+                        // otherwise the incident row stayed 'active' forever and the ongoing
+                        // prod_drop kept throttling production despite the repair.
+                        $this->db->prepare("
+                            UPDATE well_incidents
+                            SET repaired_at = NOW(), repaired_by = ?
+                            WHERE well_id = ? AND player_id = ? AND repaired_at IS NULL
+                        ")->execute([$pId, $wellId, $pId]);
+                        // Reset spirali ryzyka po pelnym serwisie (jak repairIncident dla 'major').
+                        // Reset the risk spiral after a full service (as repairIncident does for 'major').
+                        $this->db->prepare("
+                            UPDATE wells SET post_incident_risk_boost = 0
+                            WHERE id = ? AND player_id = ?
+                        ")->execute([$wellId, $pId]);
                         $result = ['condition' => 100, 'status' => 'active'];
                         $msg = t('technical.task_msg.well_repair_done', ['well_id' => $wellId]);
                     }

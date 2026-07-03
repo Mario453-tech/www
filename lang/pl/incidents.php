@@ -14,6 +14,7 @@ return [
     'incident.err_already_repaired' => 'Ten incydent został już naprawiony.',
     'incident.err_internal' => 'Błąd wewnętrzny naprawy.',
     'incident.msg_repaired' => 'Naprawa zakończona. Odwiert wznowiony.',
+    'incident.btn_repair' => 'Napraw incydent',
     'incident.unknown_worker' => 'nieznany',
     'incident.fallback_message' => 'Incydent przemysłowy na odwiercie #:well. Poziom: :level. Produkcja ograniczona o :drop%.',
     'incident.micro.operator.0' => 'Operator odwiertu #:well źle skalibrował zawór ciśnieniowy - chwilowy spadek przepływu o :drop%. Parametry przywrócone automatycznie.',
