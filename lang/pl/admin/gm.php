@@ -67,4 +67,18 @@ return [
     'admin.gm.delete_players_none'        => 'Nie zaznaczono żadnego konta.',
     'admin.gm.delete_players_ok'          => 'Usunięto :count kont(o/a).',
     'admin.gm.delete_players_err'         => 'Błąd usuwania: :msg',
+
+    // Pełny reset gry / Full game wipe
+    'admin.gm.wipe_title'         => 'PEŁNY RESET GRY',
+    'admin.gm.wipe_desc'          => 'Kasuje CAŁKOWICIE wszystkie konta graczy oraz wszystkie powiązane dane: odwierty, rurociągi, huby, finanse, pożyczki, pracowników, rynek, transport morski oraz WSZYSTKIE logi i zdarzenia. Operacja jest NIEODWRACALNA — wykonaj kopię bazy przed użyciem.',
+    'admin.gm.wipe_keeps'         => 'Zachowane zostają: konta administratorów, konfiguracja gry, regiony/lokacje, warstwy geologiczne, słowniki HR, porty, katalog sprzedaży odwiertów i strony pomocy. Reszta zostaje wyzerowana (ID startują od 1).',
+    'admin.gm.wipe_phrase_label'  => 'Aby potwierdzić, wpisz dokładnie: :phrase',
+    'admin.gm.wipe_submit'        => 'Skasuj całą grę',
+    'admin.gm.wipe_confirm_title' => 'Pełny reset gry',
+    'admin.gm.wipe_confirm'       => 'OSTATNIE OSTRZEŻENIE. Wszystkie konta graczy i wszystkie dane gry zostaną trwale usunięte. Tej operacji NIE DA SIĘ cofnąć. Kontynuować?',
+    'admin.gm.wipe_confirm_btn'   => 'Tak, skasuj wszystko',
+    'admin.gm.wipe_bad_phrase'    => 'Nieprawidłowa fraza potwierdzająca. Wpisz dokładnie: :phrase',
+    'admin.gm.wipe_ok'            => 'Gra została zresetowana. Wyczyszczono :wiped tabel. Możesz startować od nowa.',
+    'admin.gm.wipe_partial'       => 'Reset częściowy: wyczyszczono :wiped tabel, ale NIE udało się wyczyścić: :failed',
+    'admin.gm.wipe_err'           => 'Błąd pełnego resetu: :msg',
 ];

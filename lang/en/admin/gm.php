@@ -67,4 +67,18 @@ return [
     'admin.gm.delete_players_none' => 'No accounts selected.',
     'admin.gm.delete_players_ok' => 'Deleted accounts: :count.',
     'admin.gm.delete_players_err' => 'Deletion error: :msg',
+
+    // Full game wipe
+    'admin.gm.wipe_title'         => 'FULL GAME RESET',
+    'admin.gm.wipe_desc'          => 'Completely deletes every player account and all related data: wells, pipelines, hubs, finances, loans, staff, market, marine transport and ALL logs and events. This operation is IRREVERSIBLE — back up the database before using it.',
+    'admin.gm.wipe_keeps'         => 'Kept: admin accounts, game configuration, regions/locations, geological layers, HR dictionaries, ports, the well sales catalog and help pages. Everything else is truncated (IDs restart at 1).',
+    'admin.gm.wipe_phrase_label'  => 'To confirm, type exactly: :phrase',
+    'admin.gm.wipe_submit'        => 'Wipe the entire game',
+    'admin.gm.wipe_confirm_title' => 'Full game reset',
+    'admin.gm.wipe_confirm'       => 'FINAL WARNING. All player accounts and all game data will be permanently deleted. This CANNOT be undone. Continue?',
+    'admin.gm.wipe_confirm_btn'   => 'Yes, wipe everything',
+    'admin.gm.wipe_bad_phrase'    => 'Invalid confirmation phrase. Type exactly: :phrase',
+    'admin.gm.wipe_ok'            => 'The game has been reset. :wiped tables cleared. You can start fresh.',
+    'admin.gm.wipe_partial'       => 'Partial reset: :wiped tables cleared, but these could NOT be cleared: :failed',
+    'admin.gm.wipe_err'           => 'Full reset error: :msg',
 ];

@@ -11,7 +11,13 @@ const Map<String, String> corePl = {
   'nav.wells': 'Studnie',
   'nav.market': 'Rynek',
   'nav.maps': 'Mapa',
-  'nav.technical': 'Techniczny',
+  'nav.technical': 'Dział Techniczny',
+  'nav.bank': 'Bank',
+  'nav.hr': 'Zarząd / HR',
+  'nav.legal': 'Dział Prawny',
+  'nav.logistics': 'Logistyka',
+  'nav.boardroom': 'Sala Zarządu',
+  'nav.sabotage': 'Sabotaż',
 
   // Common
   'common.menu': 'Menu',

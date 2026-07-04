@@ -327,7 +327,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = "Wyczyszczono {$cleaned} starych rekordw."; $msgType = 'success';
     }
 
- // DODAJ GOTWK WSZYSTKIM 
+ // PELNY RESET GRY — kasuje WSZYSTKIE dane graczy, logi i runtime,
+ // zostawia tylko konta adminow i tabele konfiguracyjne/referencyjne.
+ // FULL GAME RESET — wipes ALL player data, logs and runtime, keeps only
+ // admin accounts and config/reference tables, so the game can start fresh.
+    elseif ($action === 'full_wipe') {
+        $phrase   = trim($_POST['wipe_confirm'] ?? '');
+        $expected = 'KASUJ WSZYSTKO';
+
+        if ($phrase !== $expected) {
+            $msg = t('admin.gm.wipe_bad_phrase', ['phrase' => $expected]); $msgType = 'error';
+        } else {
+ // Allowlista tabel do ZACHOWANIA — konfiguracja, tresc, konta adminow.
+ // Wszystko inne (dane graczy, logi, runtime) zostanie wyczyszczone.
+ // Allowlist of tables to KEEP — config, content, admin accounts.
+ // Everything else (player data, logs, runtime) gets wiped.
+            $keep = [
+ // Konta i uwierzytelnianie adminow / Admin accounts and auth
+                'admins', 'admin_trusted_devices', 'admin_password_resets', 'admin_login_attempts',
+ // Tresc i pomoc / Content and help
+                'admin_help_pages', 'admin_news', 'game_help_pages', 'static_pages',
+ // Konfiguracja globalna / Global config
+                'site_config', 'nav_items', 'bank_settings', 'board_roles', 'boardroom_config',
+                'bribery_config', 'chat_blocked_words', 'disaster_message_templates',
+                'legal_region_config', 'logistics_hub_config', 'logistics_region_zones',
+                'protection_options', 'sabotage_options', 'transport_config', 'well_config',
+ // Dane referencyjne / Reference data
+                'geological_layers', 'hr_regions', 'hr_specializations', 'staff_specializations',
+                'name_pool', 'world_locations', 'world_regions', 'ports',
+ // Katalog / rynek — tresc zarzadzana przez GM / GM-managed content
+                'wells_for_sale', 'market_trends', 'market_state',
+            ];
+
+            try {
+ // Enumeruj realne tabele w bazie (obsluguje tez tabele nieobecne w dumpie).
+ // Enumerate actual tables in the DB (also covers tables not present in the dump).
+                $allTables = $db->query(
+                    "SELECT TABLE_NAME FROM information_schema.TABLES
+                      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'"
+                )->fetchAll(PDO::FETCH_COLUMN);
+
+                $keepSet   = array_flip($keep);
+                $wipeList  = array_values(array_filter($allTables, fn($t) => !isset($keepSet[$t])));
+                sort($wipeList);
+
+                $wiped = 0; $failed = [];
+                $db->exec('SET FOREIGN_KEY_CHECKS = 0');
+                foreach ($wipeList as $table) {
+                    try {
+                        $db->exec("TRUNCATE TABLE `{$table}`");
+                        $wiped++;
+                    } catch (Throwable $e) {
+ // Fallback dla tabel, ktorych nie da sie TRUNCATE (np. widok/FK) — DELETE.
+ // Fallback for tables that cannot be TRUNCATEd — plain DELETE.
+                        try { $db->exec("DELETE FROM `{$table}`"); $wiped++; }
+                        catch (Throwable $e2) { $failed[] = $table; }
+                    }
+                }
+                $db->exec('SET FOREIGN_KEY_CHECKS = 1');
+
+ // admin_logs zostalo wyczyszczone — ten wpis rozpoczyna swiezy slad audytu.
+ // admin_logs was wiped — this entry starts a fresh audit trail.
+                AdminLog::log('full_wipe',
+                    "PELNY RESET GRY: wyczyszczono {$wiped} tabel, zachowano " . count($keep)
+                    . ' konfiguracyjnych/kont adminow'
+                    . ($failed ? '. BLAD tabel: ' . implode(', ', $failed) : ''));
+                GameLog::error('admin', 'FULL GAME WIPE executed', null,
+                    ['wiped' => $wiped, 'failed' => $failed, 'admin' => $_SESSION['admin_user'] ?? '?']);
+
+                if ($failed) {
+                    $msg = t('admin.gm.wipe_partial', ['wiped' => $wiped, 'failed' => implode(', ', $failed)]);
+                    $msgType = 'error';
+                } else {
+                    $msg = t('admin.gm.wipe_ok', ['wiped' => $wiped]); $msgType = 'success';
+                }
+ // Odswiez liste graczy (teraz pusta) na potrzeby renderu.
+ // Refresh player list (now empty) for the render below.
+                $players = [];
+            } catch (Throwable $e) {
+                try { $db->exec('SET FOREIGN_KEY_CHECKS = 1'); } catch (Throwable $e2) {}
+                $msg = t('admin.gm.wipe_err', ['msg' => $e->getMessage()]); $msgType = 'error';
+                GameLog::error('admin', 'FULL GAME WIPE failed', $e);
+            }
+        }
+    }
+
+ // DODAJ GOTWK WSZYSTKIM
     elseif ($action === 'bulk_cash') {
         $amount = (int)($_POST['bulk_amount'] ?? 0);
         if ($amount === 0) {
