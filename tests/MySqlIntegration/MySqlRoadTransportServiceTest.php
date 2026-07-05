@@ -462,4 +462,53 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $stmt->execute();
         $this->assertSame(1, (int)$stmt->fetchColumn(), 'Tabela well_road_trips musi istniec');
     }
+
+ /**
+ * M6 (runda 5): kurs opozniony sabotazem (status 'delayed') musi byc finalizowany przez
+ * stan przejsciowy 'crediting' (potwierdzany atomowo z zapisem magazynu), a NIE ustawiany
+ * bezposrednio na 'delivered' we wlasnym auto-commicie — inaczej crash przed zapisem
+ * magazynu gubil dostarczona (i oplacona) rope, bo recovery obsluguje tylko 'crediting'.
+ * M6 (round 5): a sabotage-delayed trip ('delayed') must be finalized through the transitional
+ * 'crediting' state (confirmed atomically with the storage write), NOT set straight to
+ * 'delivered' in its own auto-commit — otherwise a crash before the storage write lost the
+ * delivered (already paid-for) oil, since recovery only handles 'crediting'.
+ */
+    public function testDelayedTripFinalizesThroughCreditingNotDirectDelivered(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 100.0, 50.0);
+
+ // Kurs opozniony: delivered_bbl juz policzony (45 z 50 — 5 stracone przy sabotazu), eta w przeszlosci.
+ // Delayed trip: delivered_bbl already computed (45 of 50 — 5 lost to sabotage), eta in the past.
+        $this->db->prepare(
+            "INSERT INTO well_road_trips
+                (player_id, well_id, volume_bbl, delivered_bbl, truck_type, trips_count, trip_hours,
+                 cost, incident_risk_mult, political_risk_level, status, departure_at, eta_at)
+             VALUES (?, ?, 50.0, 45.0, 'standard', 2, 2, 1000.00, 0.0, 1, 'delayed', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 1 SECOND)"
+        )->execute([$playerId, $ids['wellId']]);
+
+        $svc    = new RoadTransportService($this->db);
+        $result = $svc->processCompletedTrips($playerId, []);
+
+        $this->assertSame(1, $result['completed_count']);
+        $this->assertEqualsWithDelta(45.0, $result['delivered_bbl'], 0.001, 'kredytuje policzone 45 bbl');
+
+ // Kluczowe M6: po finalizacji kurs jest 'crediting' (niepotwierdzony), NIE 'delivered'.
+ // Key M6: after finalization the trip is 'crediting' (unconfirmed), NOT 'delivered'.
+        $stmt = $this->db->prepare('SELECT status, delivered_bbl, arrived_at FROM well_road_trips WHERE player_id = ?');
+        $stmt->execute([$playerId]);
+        $row = $stmt->fetch();
+        $this->assertSame('crediting', $row['status'], 'M6: delayed finalizowany do crediting, nie delivered');
+        $this->assertSame('45.0000', $row['delivered_bbl']);
+        $this->assertNull($row['arrived_at'], 'arrived_at dopiero po potwierdzeniu');
+
+ // Potwierdzenie (w produkcji w tej samej transakcji co zapis magazynu) flipuje na 'delivered'.
+ // Confirmation (in production within the storage-write transaction) flips to 'delivered'.
+        $this->assertSame(1, $svc->confirmCreditedTrips($playerId));
+        $stmt->execute([$playerId]);
+        $row = $stmt->fetch();
+        $this->assertSame('delivered', $row['status']);
+        $this->assertNotNull($row['arrived_at']);
+    }
 }

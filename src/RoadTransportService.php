@@ -439,11 +439,21 @@ class RoadTransportService
             if ((string)$trip['status'] === 'delayed') {
                 $delivered = (float)$trip['delivered_bbl'];
                 try {
+                    // 'crediting' (NIE 'delivered'): potwierdzenie na 'delivered' nastapi w
+                    // confirmCreditedTrips() w tej samej transakcji co zapis magazynu (jak sciezka
+                    // normalna). Wczesniej delayed ustawial 'delivered' we wlasnym auto-commicie i
+                    // dodawal do magazynu w pamieci — crash przed commitem zapisu magazynu gubil
+                    // rope (recovery obsluguje tylko 'crediting').
+                    // 'crediting' (NOT 'delivered'): confirmation to 'delivered' happens in
+                    // confirmCreditedTrips() within the same transaction as the storage write (like
+                    // the normal path). Previously delayed set 'delivered' in its own auto-commit and
+                    // credited in-memory storage — a crash before the storage-write commit lost the
+                    // oil (recovery only handles 'crediting').
                     $this->db->prepare(
                         "UPDATE well_road_trips
-                            SET status = 'delivered', arrived_at = NOW()
+                            SET status = 'crediting', delivered_bbl = ?
                           WHERE id = ?"
-                    )->execute([(int)$trip['id']]);
+                    )->execute([round($delivered, 4), (int)$trip['id']]);
                     // Akumulacja tylko po udanym UPDATE — blad zostawia kurs delayed i
                     // zostanie ponownie przetworzony w nastepnym ticku bez duplikatu.
                     // Accumulate only after a successful UPDATE — on failure the trip stays

@@ -175,7 +175,11 @@ class BailiffService
                 }
             }
 
-            $this->db->prepare("UPDATE loans SET remaining_amount = remaining_amount - :amt WHERE id = :id")
+            // GREATEST(0, ...) jak w etapie 3 — bez floora zajecie > salda dawalo ujemny
+            // remaining_amount, psujac agregaty dlugu (Bankruptcy/StateTrait).
+            // GREATEST(0, ...) as in stage 3 — without the floor a seizure exceeding the
+            // balance produced a negative remaining_amount, corrupting debt aggregates.
+            $this->db->prepare("UPDATE loans SET remaining_amount = GREATEST(0, remaining_amount - :amt) WHERE id = :id")
                 ->execute([':amt' => $seized, ':id' => $proc['loan_id']]);
 
             $this->db->prepare("UPDATE bailiff_proceedings SET cash_seized = cash_seized + :amt WHERE id = :id")
@@ -183,6 +187,14 @@ class BailiffService
 
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $seized, 'bailiff_seizure');
         }
+
+        // Zajecie moglo pokryc caly dlug — oznacz pozyczke jako splacona, inaczej zostaje
+        // 'late' na zawsze (processInstallments obsluguje tylko 'active') i komornik eskaluje
+        // do zajecia odwiertow/bankructwa mimo zerowego salda.
+        // The seizure may have cleared the whole debt — mark the loan paid, otherwise it stays
+        // 'late' forever (processInstallments only handles 'active') and the bailiff escalates
+        // to well seizure / bankruptcy despite a zero balance.
+        $this->markLoanPaidIfCleared((int)$proc['loan_id'], (int)$proc['player_id']);
 
         if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
             $this->completeProceeding((int)$proc['id']);
@@ -223,6 +235,10 @@ class BailiffService
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $cashValue, 'bailiff_seizure');
         }
 
+        // Jak w etapie 2: zajecie ropy moglo splacic dlug — oznacz pozyczke splacona.
+        // As in stage 2: the oil seizure may have cleared the debt — mark the loan paid.
+        $this->markLoanPaidIfCleared((int)$proc['loan_id'], (int)$proc['player_id']);
+
         if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
             $this->completeProceeding((int)$proc['id']);
             return;
@@ -233,6 +249,19 @@ class BailiffService
             SET stage = 4, next_action_at = DATE_ADD(NOW(), INTERVAL 72 HOUR)
             WHERE id = :id
         ")->execute([':id' => $proc['id']]);
+    }
+
+ // Oznacza pozyczke jako splacona gdy zajecia komornika sprowadzily saldo do zera.
+ // Idempotentne: dziala tylko na wierszu 'late' z remaining_amount <= 0.
+ // Marks a loan paid_off once bailiff seizures bring the balance to zero.
+ // Idempotent: only affects a 'late' row with remaining_amount <= 0.
+    private function markLoanPaidIfCleared(int $loanId, int $playerId): void
+    {
+        $this->db->prepare("
+            UPDATE loans
+            SET status = 'paid_off', paid_off_at = IFNULL(paid_off_at, NOW())
+            WHERE id = :id AND player_id = :pid AND status = 'late' AND remaining_amount <= 0
+        ")->execute([':id' => $loanId, ':pid' => $playerId]);
     }
 
  // Stage 4: seize wells one by one until no assets remain, then declare bankruptcy.

@@ -88,15 +88,24 @@ trait IncidentTickTrait
             }
         }
 
- // Licznik rosnie zawsze — niezaleznie od tego, co wyzwoli tick (takze micro).
- // Counter always grows — regardless of what fires this tick (including micro).
+ // Licznik rosnie proporcjonalnie do realnego czasu, nie o stale +1 na uruchomienie crona.
+ // 1 "tick" = 5 min = deltaHours/12 (spojnie z fallbackiem secs/300 powyzej). Na normalnym
+ // ticku (deltaHours~0.083) daje +1; na catch-up ticku (po przerwie crona) skaluje sie, wiec
+ // odpornosc i presja odzwierciedlaja czas, a nie liczbe przebiegow — wczesniej pojedynczy
+ // catch-up tick dawal odwiertowi "darmowa" odpornosc na najwyzej-deltaHours ticku.
+ // Counter grows proportionally to real time, not a flat +1 per cron run. 1 "tick" = 5 min =
+ // deltaHours/12 (consistent with the secs/300 fallback above). On a normal tick (deltaHours~0.083)
+ // it is +1; on a catch-up tick it scales, so immunity and pressure reflect elapsed time rather
+ // than the number of runs — previously one catch-up tick granted "free" immunity on the
+ // highest-deltaHours tick.
+        $ticksElapsed = max(1, (int) round($deltaHours * 12.0));
         try {
             // Filtruj po player_id — izolacja gracza przy UPDATE wells (Rule 1).
             // Filter by player_id — player isolation on UPDATE wells (Rule 1).
-            $this->db->prepare("UPDATE wells SET ticks_since_incident = LEAST(9999, ticks_since_incident + 1) WHERE id = ? AND player_id = ?")
-                ->execute([$wellId, $playerId]);
+            $this->db->prepare("UPDATE wells SET ticks_since_incident = LEAST(9999, ticks_since_incident + ?) WHERE id = ? AND player_id = ?")
+                ->execute([$ticksElapsed, $wellId, $playerId]);
         } catch (\Throwable $e) {}
-        $ticksSince++;
+        $ticksSince += $ticksElapsed;
 
         $pressureTicks = max(0, $ticksSince - $this->immunityTicks);
         $pressureMult  = 1.0 + min($this->pressureCapPct, $pressureTicks * $this->pressureGrowthPct) / 100.0;

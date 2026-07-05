@@ -876,10 +876,17 @@ class WellProductionHandler
                     $tsvc?->notify('incident', $wellId, t('tick.notify.transport_storm', ['id' => $wellId, 'bbl' => $stormLoss]));
                     break;
                 case 'leak':
-                    $leakPct                       = mt_rand(10, 20) / 100.0;
-                    $leakLoss                      = round($this->ctx->loopCtx->currentStorage * $leakPct, 2);
-                    $storageLossBbl                = $leakLoss;
-                    $this->ctx->loopCtx->currentStorage = max(0, $this->ctx->loopCtx->currentStorage - $leakLoss);
+                    // Wyciek dotyczy ropy w transporcie (biezaca wysylka $actual), nie calego
+                    // magazynu gracza. Wczesniej liczony od currentStorage — pojedynczy wyciek
+                    // niszczyl 10-20% CALEGO zbiornika. Teraz jak theft/storm: redukcja $actual
+                    // (przez referencje) trafia do strat przez $lostBbl = actualBeforeEvent - actual.
+                    // A leak affects oil in transport (this shipment $actual), not the whole player
+                    // tank. It was computed from currentStorage — a single leak destroyed 10-20% of
+                    // the ENTIRE tank. Now, like theft/storm: the $actual reduction (by reference) is
+                    // booked as loss via $lostBbl = actualBeforeEvent - actual.
+                    $leakPct     = mt_rand(10, 20) / 100.0;
+                    $leakLoss    = round($actual * $leakPct, 2);
+                    $actual      = max(0, $actual - $leakLoss);
                     $eventImpact = ['type' => 'leak', 'lost_bbl' => $leakLoss, 'pct' => round($leakPct * 100)];
                     $tsvc?->notify('incident', $wellId, t('tick.notify.transport_leak', ['id' => $wellId, 'bbl' => $leakLoss, 'pct' => $eventImpact['pct']]));
                     break;

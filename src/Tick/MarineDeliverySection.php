@@ -213,10 +213,21 @@ class MarineDeliverySection
             return;
         }
 
- // Zdarzenie losowe tylko dla rejsow aktywnie plynacych (in_transit), nie opoznionych.
- // Random event only for actively sailing voyages (in_transit), not delayed ones.
- // Delayed deliveries already suffered an incident; re-rolling each tick is a bug.
-        if ($status === 'in_transit') {
+ // ETA liczone PRZED rzutem incydentu: rejs, ktory wg planu juz dobil do portu, nie moze
+ // dostac incydentu na catch-up ticku (deltaHours obejmowal godziny PO planowym przybyciu).
+ // Wczesniej rzut szedl pierwszy, wiec 3h rejs po 12h przerwie crona mial ~48% szansy straty
+ // ladunku, ktory fizycznie powinien juz byc w porcie.
+ // ETA computed BEFORE the incident roll: a voyage that per schedule already reached port must
+ // not take an incident on a catch-up tick (deltaHours covered hours AFTER planned arrival).
+ // Previously the roll ran first, so a 3h voyage after a 12h cron outage had ~48% chance to lose
+ // cargo that physically should already be in port.
+        $eta     = new DateTime($delivery['eta_at']);
+        $arrived = $this->now >= $eta;
+
+ // Zdarzenie losowe tylko dla rejsow ktore NADAL plyna (in_transit i przed ETA).
+ // Random event only for voyages STILL sailing (in_transit and before ETA).
+ // Delayed/arrived deliveries do not re-roll — re-rolling each tick is a bug.
+        if ($status === 'in_transit' && !$arrived) {
  // Clamp jak w OffshoreTransportService: bez niego deltaHours~24 (nadrabianie po przerwie
  // crona) dawalo ~96% szansy incydentu na rejs w jednym ticku (15% z nich = totalna strata).
  // Clamp as in OffshoreTransportService: without it deltaHours~24 (catch-up after a cron
@@ -228,10 +239,9 @@ class MarineDeliverySection
             }
         }
 
- // Sprawdz czy ETA minela / Check if ETA has passed
-        $eta = new DateTime($delivery['eta_at']);
-        if ($this->now < $eta) {
-            return; // Jeszcze w drodze / Still in transit
+ // Rejs jeszcze w drodze / Voyage still in transit
+        if (!$arrived) {
+            return;
         }
 
  // Szukaj portu jesli nie przypisany / Find port if not assigned
