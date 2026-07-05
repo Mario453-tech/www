@@ -69,9 +69,15 @@ class BlackMarketService
         $count = random_int(1, 3);
         $generated = 0;
 
+        // expires_at liczone po stronie DB (DATE_ADD(NOW(), ...)), spojnie z odczytem/wygasaniem
+        // ktore uzywaja NOW() (linie ~107/123/144). Wczesniej zapis szedl z PHP time(), wiec przy
+        // roznicy stref czasowych PHP vs sesja MySQL oferty wygasaly za wczesnie albo za pozno.
+        // expires_at computed DB-side (DATE_ADD(NOW(), ...)), consistent with the reads/expiry that
+        // use NOW(). Previously it was written from PHP time(), so a PHP-vs-MySQL timezone offset
+        // shifted every offer's lifetime (expiring too early or lingering too long).
         $stmt = $this->db->prepare("
             INSERT INTO black_market_offers (player_id, bbl, price_per_bbl, base_risk_pct, expires_at)
-            VALUES (:pid, :bbl, :price, :risk, :expires)
+            VALUES (:pid, :bbl, :price, :risk, DATE_ADD(NOW(), INTERVAL :ttl_min MINUTE))
         ");
 
         for ($i = 0; $i < $count; $i++) {
@@ -79,15 +85,14 @@ class BlackMarketService
             $mult = $pMultMin + (mt_rand() / mt_getrandmax()) * ($pMultMax - $pMultMin);
             $price = round($oilPrice * $mult, 2);
             $risk = round($riskMin + (mt_rand() / mt_getrandmax()) * ($riskMax - $riskMin), 2);
-            $ttl = random_int($ttlMin, $ttlMax);
-            $expiresAt = date('Y-m-d H:i:s', time() + $ttl * 5 * 60);
+            $ttl = random_int($ttlMin, $ttlMax); // TTL w "tickach" 5-minutowych / TTL in 5-minute "ticks"
 
             $stmt->execute([
                 ':pid' => $playerId,
                 ':bbl' => $bbl,
                 ':price' => $price,
                 ':risk' => $risk,
-                ':expires' => $expiresAt,
+                ':ttl_min' => $ttl * 5,
             ]);
             $generated++;
         }

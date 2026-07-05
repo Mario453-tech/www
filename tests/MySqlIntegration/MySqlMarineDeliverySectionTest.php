@@ -137,6 +137,42 @@ final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
         $this->assertEqualsWithDelta(50.0, (float)$queueRow['volume_bbl'], 0.001);
     }
 
+ /**
+ * M5 (runda 5): rejs, ktorego ETA juz minela, NIE moze dostac losowego incydentu na
+ * catch-up ticku. Nawet przy failure_reduction=1.0 i deltaHours=24 (stara logika: szansa
+ * incydentu min(0.95, 0.04*24)=0.95) rejs po ETA za kazdym razem dociera do kolejki portu,
+ * bo rzut incydentu jest teraz pomijany dla rejsow ktore wg planu juz przybyly.
+ * M5 (round 5): a voyage whose ETA has passed must NOT take a random incident on a catch-up
+ * tick. Even with failure_reduction=1.0 and deltaHours=24 (old logic: incident chance
+ * min(0.95, 0.04*24)=0.95) an arrived voyage reaches the port queue every time, because the
+ * incident roll is now skipped for voyages that per schedule already arrived.
+ */
+    public function testArrivedVoyageSkipsIncidentRollOnCatchupTick(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+        $this->insertPort(77, 'active', 200); // duzy limit — brak przeciazenia w petli
+
+        // 25 przebiegow z maksymalna szansa incydentu (stara logika padlaby ~95%/przebieg).
+        // 25 runs at max incident chance (old logic would fail ~95% per run).
+        for ($i = 0; $i < 25; $i++) {
+            $etaPast = (new \DateTime('-5 hours'))->format('Y-m-d H:i:s');
+            $delivId = $this->insertDelivery($playerId, $ids['wellId'], 50.0, 'in_transit', $etaPast, $this->portId);
+
+            $section = new MarineDeliverySection($this->db, new \DateTime());
+            $section->process($playerId, ['catastrophe_mult' => 1.0, 'failure_reduction' => 1.0], 24.0);
+
+            $row = $this->fetchDelivery($delivId);
+            $this->assertSame('waiting_for_port', $row['status'],
+                "M5: rejs po ETA musi dotrzec do portu bez incydentu (przebieg {$i})");
+
+            // Sprzataj po iteracji, by kolejka portu zostala pusta.
+            $this->db->prepare('DELETE FROM port_queue WHERE delivery_id = ?')->execute([$delivId]);
+            $this->db->prepare('DELETE FROM marine_deliveries WHERE id = ?')->execute([$delivId]);
+        }
+    }
+
  // 
  // Brak portu delayed
  // 
