@@ -27,15 +27,22 @@ class Storage
             $stmt->execute([':player_id' => $this->playerId]);
             $row = $stmt->fetch();
             if (!$row) {
-                // No storage record found — auto-create it
+                $defaultCapacity = WalletConfig::NEW_PLAYER_STORAGE_CAPACITY;
+
+                // No storage record found — auto-create it.
                 try {
-                    $this->db->prepare("INSERT IGNORE INTO storage (player_id, capacity, used, updated_at) VALUES (?, 1200, 0, NOW())")
-                        ->execute([$this->playerId]);
-                    GameLog::info('Storage', 'Auto-created storage record', ['player_id' => $this->playerId]);
+                    $insert = $this->db->prepare(
+                        'INSERT IGNORE INTO storage (player_id, capacity, used, updated_at) VALUES (?, ?, 0, NOW())'
+                    );
+                    $insert->execute([$this->playerId, $defaultCapacity]);
+                    GameLog::info('Storage', 'Auto-created storage record', [
+                        'player_id' => $this->playerId,
+                        'capacity' => $defaultCapacity,
+                    ]);
                 } catch (Throwable $insertE) {
                     GameLog::error('Storage', 'Auto-create storage FAILED', $insertE, ['player_id' => $this->playerId]);
                 }
-                return array_merge($default, ['capacity' => 1200]);
+                return array_merge($default, ['capacity' => $defaultCapacity]);
             }
             return $row;
         } catch (Throwable $e) {
