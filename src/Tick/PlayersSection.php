@@ -512,7 +512,15 @@ class PlayersSection
                 $hseBonus,
                 $wellLoop->outboundPoliticalRiskFor($wellId)
             );
-            if ($res['kind'] === 'direct') {
+            // 'blocked' (uszkodzony rurociag leg-2) traktujemy jak 'direct': ta sciezka dotyczy
+            // ropy juz FIZYCZNIE dostarczonej ciezarowkami/tankowcem (brak bufora hubu, w ktorym
+            // moglaby czekac) — throttling do bufora robi tylko synchroniczny WellHubSection.
+            // W praktyce nieosiagalne: odwierty bez huba nie maja rurociagu wylotowego (H7).
+            // 'blocked' (damaged leg-2 pipeline) is treated like 'direct' here: this path handles
+            // oil already PHYSICALLY delivered by truck/tanker (no hub buffer to wait in) — buffer
+            // throttling is done only by the synchronous WellHubSection. Effectively unreachable:
+            // hubless wells have no outbound pipeline (H7).
+            if ($res['kind'] === 'direct' || $res['kind'] === 'blocked') {
                 continue;
             }
 

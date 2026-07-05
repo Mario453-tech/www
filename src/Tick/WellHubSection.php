@@ -130,12 +130,28 @@ class WellHubSection
                         $this->ctx->finRevenue     += $creditVal;
                     }
                     if ($blockedBbl > 0.001) {
-                        $blockedVal = round($blockedBbl * $this->oilPrice, 2);
-                        $this->ctx->storageBlockedBbl += $blockedBbl;
-                        $this->ctx->finLossBbl        += $blockedBbl;
-                        $this->ctx->finLossValue      += $blockedVal;
-                        $this->ctx->finHubLossBbl     += $blockedBbl;
-                        $this->ctx->finHubLossValue   += $blockedVal;
+                        // M3: bbl wydrenowane z bufora, ktore nie mieszcza sie w pelnym magazynie,
+                        // WRACAJA do bufora hubu (czekaja na kolejny tick), zamiast byc niszczone.
+                        // Tylko nadmiar ponad pojemnosc bufora = strata — dokladnie jak w sciezce
+                        // outbound (processOutboundLeg: excess -> addBufferBbl). Wczesniej cala
+                        // zablokowana ropa byla kasowana przy chwilowo pelnym magazynie.
+                        // M3: barrels drained from the buffer that don't fit the full storage RETURN
+                        // to the hub buffer (wait for the next tick) instead of being destroyed. Only
+                        // the excess over buffer capacity is a loss — exactly like the outbound path
+                        // (processOutboundLeg: excess -> addBufferBbl). Previously all blocked oil was
+                        // destroyed on transiently-full storage.
+                        $returnedBbl = $this->hubTickSvc !== null
+                            ? $this->hubTickSvc->addBufferBbl($hubId, $blockedBbl)
+                            : 0.0;
+                        $overflowBbl = max(0.0, round($blockedBbl - $returnedBbl, 4));
+                        if ($overflowBbl > 0.001) {
+                            $overflowVal = round($overflowBbl * $this->oilPrice, 2);
+                            $this->ctx->storageBlockedBbl += $overflowBbl;
+                            $this->ctx->finLossBbl        += $overflowBbl;
+                            $this->ctx->finLossValue      += $overflowVal;
+                            $this->ctx->finHubLossBbl     += $overflowBbl;
+                            $this->ctx->finHubLossValue   += $overflowVal;
+                        }
                     }
                 }
 

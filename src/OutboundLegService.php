@@ -54,8 +54,25 @@ class OutboundLegService
         }
 
         if ($outboundType === 'rurociag') {
-            if ($outboundPipeline === null || empty($outboundPipeline['_is_operational'])) {
-                return $none; // configured but no operational pipeline yet -> direct
+            if ($outboundPipeline === null) {
+                return $none; // brak rurociagu leg-2 -> direct (uczciwy default) / no leg-2 pipeline -> direct
+            }
+            // H3: USZKODZONY/WYLACZONY rurociag wylotowy ZATRZYMUJE przeplyw — cala ropa wraca
+            // do bufora hubu (throttling przez excess_bbl) i czeka na naprawe, zamiast plynac
+            // do magazynu za darmo, bezstratnie i bez limitu. Wczesniej damaged/disabled dawaly
+            // 'direct' = uszkodzenie bylo KORZYSTNE (darmowa dostawa) i sprzeczne z leg-1, gdzie
+            // uszkodzony rurociag zatrzymuje produkcje (round 4 H2).
+            // H3: a DAMAGED/DISABLED outbound pipeline STOPS the flow — all oil returns to the hub
+            // buffer (throttled via excess_bbl) and waits for repair, instead of flowing to storage
+            // free, lossless and uncapped. Previously damaged/disabled returned 'direct' = damage was
+            // BENEFICIAL (free delivery) and inconsistent with leg-1, where a damaged pipeline stops
+            // production (round 4 H2).
+            $status = (string)($outboundPipeline['status'] ?? 'active');
+            if (in_array($status, ['damaged', 'disabled'], true)) {
+                return ['loss_bbl' => 0.0, 'loss_value' => 0.0, 'cost' => 0.0, 'kind' => 'blocked', 'capped_bbl' => 0.0, 'excess_bbl' => $bbl];
+            }
+            if (empty($outboundPipeline['_is_operational'])) {
+                return $none; // building/suspended (albo brak hub binding) -> direct jak dotad / building/suspended -> direct as before
             }
             return $this->computePipeline($outboundPipeline, $bbl, $oilPrice, $mults, $deltaHours);
         }
