@@ -378,6 +378,26 @@ class SabotageService
             $lockStmt = $this->db->prepare("SELECT GET_LOCK(?, 5)");
             $lockStmt->execute([$lockName]);
             $gotLock = ((int)$lockStmt->fetchColumn() === 1);
+            if (!$gotLock) {
+                if (class_exists('GameLog', false)) {
+                    GameLog::warn('SabotageService', 'executePlayerSabotage lock busy', [
+                        'player_id' => $playerId,
+                        'target_player_id' => $targetPlayerId,
+                        'option_id' => $optionId,
+                    ]);
+                }
+                return [
+                    'success' => false,
+                    'status' => 'cancelled',
+                    'message' => tPlain('sabotage.err_busy'),
+                    'option' => null,
+                    'target' => null,
+                    'cost' => 0.0,
+                    'cash_loss' => 0.0,
+                    'credibility_delta' => 0,
+                    'cooldown_until' => null,
+                ];
+            }
             return $this->runPlayerSabotage($playerId, $targetPlayerId, $optionId);
         } finally {
             if ($gotLock) {
