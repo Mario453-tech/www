@@ -112,13 +112,17 @@ class WellRiskHandler
                 $this->ctx->loopCtx->disastersTriggered++;
 
  // Tick jest jedynym platnikiem katastrof: triggerBlowout/triggerReservoirContamination
- // nie ruszaja juz gotowki. Tu doliczamy koszt+kare raz do finIncident i playerCash,
- // skad roznicowy zapis (saveCashAndTick) ksieguje je dokladnie raz.
- // The tick is the single payer: trigger* no longer touch cash. We add cost+fine once
- // to finIncident and playerCash so the differential save books it exactly once.
+ // nie ruszaja juz gotowki. Koszt+kare doliczamy do totalCosts (realny zapis DB w
+ // saveCashAndTick: cash = GREATEST(0, cash - totalCosts)) oraz do finIncident (raport)
+ // i playerCash (wyplacalnosc/kryzys w tym ticku). Bez totalCosts katastrofy byly darmowe.
+ // The tick is the single payer: trigger* no longer touch cash. We add cost+fine to
+ // totalCosts (the real DB write in saveCashAndTick: cash = GREATEST(0, cash - totalCosts))
+ // plus finIncident (report) and playerCash (in-tick solvency/crisis). Without totalCosts
+ // disasters were financially free.
                 $disasterCost = round((float)($disaster['cost'] ?? 0) + (float)($disaster['env_fine'] ?? 0), 2);
                 if ($disasterCost > 0.0) {
                     $this->ctx->loopCtx->finIncident += $disasterCost;
+                    $this->ctx->loopCtx->totalCosts  += $disasterCost;
                     $this->ctx->loopCtx->playerCash   = max(0.0, $this->ctx->loopCtx->playerCash - $disasterCost);
                 }
 
@@ -191,7 +195,14 @@ class WellRiskHandler
                 $freshDrop = (float)($inc['prod_drop'] ?? 0) / 100.0;
                 $this->ctx->loopCtx->incidentsTriggered++;
                 if ($inc['cost'] > 0) {
+                    // totalCosts = realny zapis DB (saveCashAndTick); finIncident = raport;
+                    // playerCash = wyplacalnosc/kryzys w tym ticku. Bez totalCosts koszt
+                    // incydentu nie schodzil z salda gracza.
+                    // totalCosts = the real DB write (saveCashAndTick); finIncident = report;
+                    // playerCash = in-tick solvency/crisis. Without totalCosts the incident
+                    // cost never left the player's balance.
                     $this->ctx->loopCtx->finIncident += (float)$inc['cost'];
+                    $this->ctx->loopCtx->totalCosts  += (float)$inc['cost'];
                     $this->ctx->loopCtx->playerCash   = max(0.0, $this->ctx->loopCtx->playerCash - (float)$inc['cost']);
                 }
                 if ($tsvc) {
