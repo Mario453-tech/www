@@ -183,6 +183,81 @@ class Auth
         }
     }
 
+    /**
+     * Registers a new player pending email verification.
+     * PL: Rejestruje nowego gracza oczekujacego na weryfikacje email.
+     *
+     * @return array{success:bool,message:string,player_id?:int,username?:string,email?:string}
+     */
+    public static function registerPendingVerification(string $email, string $password, bool $newsletterOptin = false): array
+    {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => t('register.err_invalid_email')];
+        }
+
+        if (strlen($password) < 6) {
+            return ['success' => false, 'message' => t('register.err_password_short')];
+        }
+
+        try {
+            $db = Database::getInstance()->getConnection();
+            $walletSvc = self::prepareWalletService($db);
+            if ($walletSvc === null) {
+                return ['success' => false, 'message' => t('common.app_error')];
+            }
+
+            $stmt = $db->prepare("SELECT COUNT(*) FROM players WHERE email = ?");
+            $stmt->execute([$email]);
+            if ((int)$stmt->fetchColumn() > 0) {
+                return ['success' => false, 'message' => t('register.err_email_taken')];
+            }
+
+            $username = self::buildUniqueUsernameFromEmail($db, $email);
+            $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+            $newsletterToken = bin2hex(random_bytes(16));
+
+            $db->beginTransaction();
+            try {
+                $playerId = self::insertPlayerRow(
+                    $db,
+                    $username,
+                    $email,
+                    $passwordHash,
+                    false,
+                    $newsletterOptin,
+                    $newsletterToken
+                );
+                self::bootstrapNewPlayerEconomy($db, $walletSvc, $playerId);
+                $db->commit();
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $e;
+            }
+
+            GameLog::info('Auth', 'Pending-verification register successful', [
+                'player_id' => $playerId,
+                'username' => $username,
+                'email' => $email,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => t('register.msg_verify_sent'),
+                'player_id' => $playerId,
+                'username' => $username,
+                'email' => $email,
+            ];
+        } catch (Throwable $e) {
+            GameLog::error('Auth', 'registerPendingVerification failed', [
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => t('common.app_error')];
+        }
+    }
+
  /**
  * Registers a new player.
  * PL: Rejestruje nowego gracza.
@@ -207,6 +282,10 @@ class Auth
 
         try {
             $db = Database::getInstance()->getConnection();
+            $walletSvc = self::prepareWalletService($db);
+            if ($walletSvc === null) {
+                return ['success' => false, 'message' => t('common.app_error')];
+            }
 
             $stmt = $db->prepare("SELECT COUNT(*) FROM players WHERE username = ?");
             $stmt->execute([$username]);
@@ -222,13 +301,28 @@ class Auth
 
             $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
-            $stmt = $db->prepare("
-                INSERT INTO players (username, email, password_hash, cash, created_at, last_login_at, last_tick_at)
-                VALUES (?, ?, ?, 50000.00, NOW(), NOW(), NOW())
-            ");
-            $stmt->execute([$username, $email, $passwordHash]);
+            $db->beginTransaction();
+            try {
+                $playerId = self::insertPlayerRow(
+                    $db,
+                    $username,
+                    $email,
+                    $passwordHash,
+                    true,
+                    false,
+                    null
+                );
+                self::bootstrapNewPlayerEconomy($db, $walletSvc, $playerId);
+                $db->commit();
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $e;
+            }
 
-            $playerId = (int)$db->lastInsertId();
+            $db->prepare("UPDATE players SET last_login_at = NOW() WHERE id = ?")
+                ->execute([$playerId]);
 
             self::setSession([
                 'id' => $playerId,
@@ -250,6 +344,95 @@ class Auth
                 'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => t('common.app_error')];
+        }
+    }
+
+    /**
+     * Creates a player row with shared bootstrap defaults.
+     * PL: Tworzy rekord gracza ze wspolnymi domyslnymi ustawieniami startowymi.
+     */
+    private static function insertPlayerRow(
+        PDO $db,
+        string $username,
+        string $email,
+        string $passwordHash,
+        bool $emailVerified,
+        bool $newsletterSubscribed,
+        ?string $newsletterToken
+    ): int {
+        $stmt = $db->prepare("
+            INSERT INTO players
+                (email, password_hash, username, cash, status, email_verified,
+                 newsletter_subscribed, newsletter_token, created_at, last_tick_at)
+            VALUES
+                (:email, :password_hash, :username, :cash, 'active', :email_verified,
+                 :newsletter_subscribed, :newsletter_token, NOW(), NOW())
+        ");
+        $stmt->execute([
+            ':email' => $email,
+            ':password_hash' => $passwordHash,
+            ':username' => $username,
+            ':cash' => WalletConfig::NEW_PLAYER_STARTING_CASH,
+            ':email_verified' => $emailVerified ? 1 : 0,
+            ':newsletter_subscribed' => $newsletterSubscribed ? 1 : 0,
+            ':newsletter_token' => $newsletterToken,
+        ]);
+
+        return (int)$db->lastInsertId();
+    }
+
+    /**
+     * Applies the shared storage and wallet bootstrap for a fresh player.
+     * PL: Naklada wspolny bootstrap magazynu i portfela dla nowego gracza.
+     */
+    private static function bootstrapNewPlayerEconomy(PDO $db, WalletService $walletSvc, int $playerId): void
+    {
+        $stmt = $db->prepare("
+            INSERT INTO storage (player_id, capacity, used, updated_at)
+            VALUES (:player_id, :capacity, 0, NOW())
+        ");
+        $stmt->execute([
+            ':player_id' => $playerId,
+            ':capacity' => WalletConfig::NEW_PLAYER_STORAGE_CAPACITY,
+        ]);
+
+        if (!$walletSvc->initNewPlayer($playerId, WalletConfig::NEW_PLAYER_STARTING_CASH)) {
+            throw new RuntimeException('wallet_init_failed');
+        }
+    }
+
+    /**
+     * Builds a unique username from email local-part.
+     * PL: Buduje unikalna nazwe uzytkownika z lokalnej czesci emaila.
+     */
+    private static function buildUniqueUsernameFromEmail(PDO $db, string $email): string
+    {
+        $baseUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $email)[0]));
+        $baseUsername = substr($baseUsername ?: 'player', 0, 28);
+        $username = $baseUsername;
+        $suffix = 2;
+
+        while (true) {
+            $stmt = $db->prepare("SELECT id FROM players WHERE username = ? LIMIT 1");
+            $stmt->execute([$username]);
+            if (!$stmt->fetch()) {
+                return $username;
+            }
+            $username = $baseUsername . $suffix++;
+        }
+    }
+
+    /**
+     * Prepares WalletService outside the registration transaction.
+     * PL: Przygotowuje WalletService poza transakcja rejestracji.
+     */
+    private static function prepareWalletService(PDO $db): ?WalletService
+    {
+        try {
+            return new WalletService($db);
+        } catch (Throwable $e) {
+            GameLog::error('Auth', 'WalletService pre-init failed', ['error' => $e->getMessage()]);
+            return null;
         }
     }
 
