@@ -16,6 +16,7 @@ AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
 $msg = $msgType = '';
+$walletSvc = new WalletService($db);
 
 // AKCJE POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -53,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'reset_player') {
         $resetId    = (int)($_POST['reset_player_id'] ?? 0);
         $keepLogin  = isset($_POST['keep_login']);
-        $startCash  = (float)($_POST['start_cash'] ?? 5000000);
+        $startCash  = (float)($_POST['start_cash'] ?? WalletConfig::NEW_PLAYER_STARTING_CASH);
 
         if (!$resetId) {
             $msg = 'Nie wybrano gracza.'; $msgType = 'error';
@@ -141,19 +142,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  // Reset gracza
                     $db->prepare("
                         UPDATE players SET
-                            cash                = ?,
+                            cash                = 0,
+                            bank_balance        = 0,
+                            wallet_initialized  = 0,
                             status              = 'active',
                             credit_score        = 200,
                             black_market_score  = 0,
                             last_tick_at        = NOW()
                         WHERE id = ?
-                    ")->execute([$startCash, $resetId]);
+                    ")->execute([$resetId]);
+
+                    if (!$walletSvc->initNewPlayer($resetId, $startCash)) {
+                        throw new RuntimeException('wallet_reset_failed');
+                    }
 
  // Utwrz domylny magazyn
                     try {
-                        $db->prepare("INSERT INTO storage (player_id, capacity, used) VALUES (?, 10000, 0)
-                                      ON DUPLICATE KEY UPDATE capacity = 10000, used = 0")
-                           ->execute([$resetId]);
+                        $db->prepare('INSERT INTO storage (player_id, capacity, used) VALUES (?, ?, 0)
+                                      ON DUPLICATE KEY UPDATE capacity = VALUES(capacity), used = 0')
+                           ->execute([$resetId, WalletConfig::NEW_PLAYER_STORAGE_CAPACITY]);
                     } catch (Throwable $e) {}
 
                     $db->commit();
