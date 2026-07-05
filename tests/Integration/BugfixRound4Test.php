@@ -171,6 +171,7 @@ final class BugfixRound4Test extends SqliteIntegrationTestCase
         $db->exec('CREATE TABLE well_incidents (
             id INTEGER PRIMARY KEY AUTOINCREMENT, well_id INTEGER, player_id INTEGER,
             level TEXT, prod_drop INTEGER NOT NULL DEFAULT 0, hours INTEGER NOT NULL DEFAULT 1,
+            auto_repair INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL, repaired_at TEXT NULL
         )');
     }
@@ -179,9 +180,9 @@ final class BugfixRound4Test extends SqliteIntegrationTestCase
     {
         $db = $this->createSqlitePdo();
         $this->createIncidentTable($db);
-        // Major sprzed godziny, trwa 24h / A major from an hour ago lasting 24h
-        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
-                   VALUES (100, 1, 'major', 80, 24, datetime('now', '-1 hour'))");
+        // Major sprzed godziny, trwa 24h (auto_repair=0 → trwajacy spadek) / active major, non-auto-repair
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at)
+                   VALUES (100, 1, 'major', 80, 24, 0, datetime('now', '-1 hour'))");
 
         $svc = $this->makeIncidentService($db);
         $this->assertEqualsWithDelta(80.0, $svc->getOngoingProdDrop(100, 1), 0.001,
@@ -193,11 +194,11 @@ final class BugfixRound4Test extends SqliteIntegrationTestCase
         $db = $this->createSqlitePdo();
         $this->createIncidentTable($db);
         // Wygasly (3h temu, trwal 1h) / expired (3h ago, lasted 1h)
-        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
-                   VALUES (100, 1, 'minor', 30, 1, datetime('now', '-3 hours'))");
-        // Naprawiony / repaired
-        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at, repaired_at)
-                   VALUES (100, 1, 'major', 90, 48, datetime('now', '-1 hour'), datetime('now'))");
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at)
+                   VALUES (100, 1, 'minor', 30, 1, 1, datetime('now', '-3 hours'))");
+        // Naprawiony major (auto_repair=0) / repaired major
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at, repaired_at)
+                   VALUES (100, 1, 'major', 90, 48, 0, datetime('now', '-1 hour'), datetime('now'))");
 
         $svc = $this->makeIncidentService($db);
         $this->assertEqualsWithDelta(0.0, $svc->getOngoingProdDrop(100, 1), 0.001,
@@ -212,23 +213,28 @@ final class BugfixRound4Test extends SqliteIntegrationTestCase
     {
         $db = $this->createSqlitePdo();
         $this->createIncidentTable($db);
-        // Odwiert 100: aktywny major (80%, 24h, sprzed godziny) / well 100: active major
-        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
-                   VALUES (100, 1, 'major', 80, 24, datetime('now', '-1 hour'))");
+        // Odwiert 100: aktywny major (80%, 24h, sprzed godziny, auto_repair=0) / well 100: active major
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at)
+                   VALUES (100, 1, 'major', 80, 24, 0, datetime('now', '-1 hour'))");
         // Odwiert 101: wygasly — poza mapa / well 101: expired — excluded
-        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
-                   VALUES (101, 1, 'minor', 30, 1, datetime('now', '-3 hours'))");
-        // Odwiert 102: naprawiony — poza mapa / well 102: repaired — excluded
-        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at, repaired_at)
-                   VALUES (102, 1, 'major', 90, 48, datetime('now', '-1 hour'), datetime('now'))");
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at)
+                   VALUES (101, 1, 'minor', 30, 1, 1, datetime('now', '-3 hours'))");
+        // Odwiert 102: naprawiony major — poza mapa / well 102: repaired — excluded
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at, repaired_at)
+                   VALUES (102, 1, 'major', 90, 48, 0, datetime('now', '-1 hour'), datetime('now'))");
         // Inny gracz — nie moze przeciekac do mapy gracza 1 / another player — must not leak into player 1's map
-        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, created_at)
-                   VALUES (103, 2, 'major', 70, 24, datetime('now', '-1 hour'))");
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at)
+                   VALUES (103, 2, 'major', 70, 24, 0, datetime('now', '-1 hour'))");
+        // M7: Odwiert 104: aktywne minor (auto_repair=1) — NIE trzyma spadku, poza mapa.
+        // M7: well 104: active minor (auto_repair=1) — does NOT sustain the drop, excluded.
+        $db->exec("INSERT INTO well_incidents (well_id, player_id, level, prod_drop, hours, auto_repair, created_at)
+                   VALUES (104, 1, 'minor', 30, 6, 1, datetime('now', '-1 hour'))");
 
         $svc = $this->makeIncidentService($db);
         $map = $svc->getOngoingProdDropForPlayer(1);
 
-        $this->assertSame([100], array_keys($map), 'Only the active incident well is in the map');
+        $this->assertSame([100], array_keys($map), 'Only the active non-auto-repair incident well is in the map');
+        $this->assertArrayNotHasKey(104, $map, 'M7: active auto_repair (minor) incident excluded from ongoing drop');
         $this->assertEqualsWithDelta(80.0, $map[100], 0.001, 'Active drop value preserved');
         $this->assertArrayNotHasKey(101, $map, 'Expired incident excluded');
         $this->assertArrayNotHasKey(102, $map, 'Repaired incident excluded');

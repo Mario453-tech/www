@@ -125,11 +125,20 @@ trait IncidentRepairDataTrait
             $stillActive = $isSqlite
                 ? "datetime(created_at, '+' || hours || ' hours') > datetime('now')"
                 : "DATE_ADD(created_at, INTERVAL hours HOUR) > NOW()";
+            // Tylko incydenty NIE-auto-repair (medium/major) trzymaja spadek przez okno `hours`.
+            // Micro/minor (auto_repair=1, "$0 szum") dzialaja wylacznie w ticku wystapienia
+            // (freshDrop w WellRiskHandler) — inaczej wielogodzinne micro/minor dawaly niemal
+            // ciagly minus produkcji, ktorego gracz nie mogl usunac.
+            // Only NON-auto-repair incidents (medium/major) sustain the drop across the `hours`
+            // window. Micro/minor (auto_repair=1, "$0 noise") apply only in their firing tick
+            // (freshDrop in WellRiskHandler) — otherwise lingering micro/minor produced a near-
+            // permanent production penalty the player could not clear.
             $stmt = $this->db->prepare("
                 SELECT well_id, MAX(prod_drop) AS drop_pct
                 FROM well_incidents
                 WHERE player_id = ?
                   AND repaired_at IS NULL
+                  AND auto_repair = 0
                   AND {$stillActive}
                 GROUP BY well_id
             ");
@@ -160,11 +169,14 @@ trait IncidentRepairDataTrait
             $stillActive = $isSqlite
                 ? "datetime(created_at, '+' || hours || ' hours') > datetime('now')"
                 : "DATE_ADD(created_at, INTERVAL hours HOUR) > NOW()";
+            // Zob. getOngoingProdDropForPlayer: tylko medium/major (auto_repair=0) trzymaja spadek.
+            // See getOngoingProdDropForPlayer: only medium/major (auto_repair=0) sustain the drop.
             $stmt = $this->db->prepare("
                 SELECT COALESCE(MAX(prod_drop), 0)
                 FROM well_incidents
                 WHERE well_id = ? AND player_id = ?
                   AND repaired_at IS NULL
+                  AND auto_repair = 0
                   AND {$stillActive}
             ");
             $stmt->execute([$wellId, $playerId]);
