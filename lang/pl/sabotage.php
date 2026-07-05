@@ -49,6 +49,7 @@ return [
     'sabotage.err_option_unavailable' => 'Wybrany typ sabotażu nie jest dostepny.',
     'sabotage.err_black_market_required' => 'Ta akcja wymaga aktywnego sladu czarnego rynku.',
     'sabotage.err_cooldown' => 'Ta akcja jest jescze niedostepna. Mozna uzyc od: :time.',
+    'sabotage.err_busy' => 'Inna akcja sabotażu tej firmy jest juz przetwarzana. Sprobuj ponownie za chwile.',
     'sabotage.err_insufficient_funds' => 'Nie masz wystarczajacej gotowki na te akcje.',
     'sabotage.err_payment_failed' => 'Nie udalo sie pobrac kosztu akcji.',
     'sabotage.err_execute_failed' => 'Nie udalo sie wykonac akcji sabotażu.',
