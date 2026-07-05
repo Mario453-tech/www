@@ -414,16 +414,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
  // DODAJ GOTWK WSZYSTKIM
     elseif ($action === 'bulk_cash') {
-        $amount = (int)($_POST['bulk_amount'] ?? 0);
-        if ($amount === 0) {
-            $msg = 'Kwota nie moe by 0.'; $msgType = 'error';
+        $rawAmount = trim((string)($_POST['bulk_amount'] ?? ''));
+        if ($rawAmount === '' || !is_numeric($rawAmount)) {
+            $msg = 'Podaj prawidlowa kwote.'; $msgType = 'error';
         } else {
-            $db->prepare("UPDATE players SET cash = cash + ? WHERE status != 'bankrupt'")->execute([$amount]);
-            $count = $db->query("SELECT COUNT(*) FROM players WHERE status != 'bankrupt'")->fetchColumn();
-            $sign = $amount > 0 ? '+' : '';
-            AdminLog::log('bulk_cash', "Globalna zmiana gotwki {$sign}\${$amount} dla {$count} graczy");
-            $msg = "Zmieniono gotwk {$sign}\$" . number_format($amount, 0, '.', ' ') . " dla {$count} graczy.";
-            $msgType = 'success';
+            $amount = round((float)$rawAmount, 2);
+            if (!is_finite($amount) || abs($amount) > 1_000_000_000.0) {
+                $msg = 'Kwota jest poza dozwolonym zakresem.'; $msgType = 'error';
+            } elseif (abs($amount) < 0.01) {
+                $msg = 'Kwota nie moe by 0.'; $msgType = 'error';
+            } else {
+                $targetIds = array_map(
+                    'intval',
+                    $db->query("SELECT id FROM players WHERE status != 'bankrupt'")->fetchAll(PDO::FETCH_COLUMN)
+                );
+
+                if ($targetIds === []) {
+                    $msg = 'Brak aktywnych graczy do aktualizacji.'; $msgType = 'error';
+                } else {
+                    $adminUser = AdminAuth::getAdminUsername();
+                    $sign = $amount > 0 ? '+' : '';
+                    $auditAmount = abs($amount);
+                    $auditText = 'Admin bulk cash adjustment by ' . $adminUser . ' (' . $sign . number_format($amount, 2, '.', '') . ')';
+
+                    $db->beginTransaction();
+                    try {
+                        $db->prepare("UPDATE players SET cash = cash + ? WHERE status != 'bankrupt'")->execute([$amount]);
+
+                        $fts = new FinancialTransactionService($db);
+                        foreach ($targetIds as $playerId) {
+                            $txId = $amount > 0
+                                ? $fts->logTransaction(null, $playerId, $auditAmount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $auditText, 'admin_bulk_cash', null)
+                                : $fts->logTransaction($playerId, null, $auditAmount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $auditText, 'admin_bulk_cash', null);
+                            if ($txId === null) {
+                                throw new RuntimeException('bulk_cash_audit_failed');
+                            }
+                        }
+
+                        $db->commit();
+                        $count = count($targetIds);
+                        AdminLog::log('bulk_cash', "Globalna zmiana gotwki {$sign}\${$amount} dla {$count} graczy", null, $adminUser);
+                        $msg = "Zmieniono gotwk {$sign}\$" . number_format($amount, 2, '.', ' ') . " dla {$count} graczy.";
+                        $msgType = 'success';
+                    } catch (Throwable $e) {
+                        $db->rollBack();
+                        $msg = 'Bd zmiany gotwki: ' . $e->getMessage();
+                        $msgType = 'error';
+                    }
+                }
+            }
         }
     }
 }
