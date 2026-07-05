@@ -229,7 +229,11 @@ class PlayersSection
  // Ochrona kursow (theft/raid/sabotage) - wspolna instancja gracza.
  // Trip protection (theft/raid/sabotage) - shared per-player instance.
                 $roadTripSec    = new WellRoadTripSection($db, $now);
-                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc, $protectionSvc, $sabotageSvc);
+                // M4: wellHubMap pozwala sekcji drogowej nie capowac magazynem ropy odwiertow
+                // przypisanych do huba — trafia pelna do bufora huba, nie ginie przy pelnym magazynie.
+                // M4: wellHubMap lets the road section skip the storage cap for hub-assigned wells —
+                // their oil goes fully to the hub buffer instead of being lost on full storage.
+                $currentStorage = $roadTripSec->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $roadSvc, $protectionSvc, $sabotageSvc, $wellLoop->wellHubMap);
                 if ($roadTripSec->deliveredBbl > 0.0) {
                     $wellLoop->finBbl       += $roadTripSec->deliveredBbl;
                     $wellLoop->deliveredBbl += $roadTripSec->deliveredBbl;
