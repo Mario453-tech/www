@@ -2,6 +2,11 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/MySqlIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/HubService.php';
+require_once dirname(__DIR__, 2) . '/src/HubTickService.php';
+require_once dirname(__DIR__, 2) . '/src/OutboundLegService.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/WellHubSection.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/WellLoopSection.php';
 
 final class MySqlHubOutboundPipelineBalanceTest extends MySqlIntegrationTestCase
 {
