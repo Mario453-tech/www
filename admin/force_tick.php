@@ -32,13 +32,16 @@ $_SESSION['force_tick_last'] = time();
 
 try {
     define('FORCE_TICK_INTERNAL', true); // pomija guard HTTP w cron/tick.php
-    unset($GLOBALS['OILCORP_TICK_BUSY']);
+    unset($GLOBALS['OILCORP_TICK_BUSY'], $GLOBALS['OILCORP_TICK_LOCK_ERROR']);
 
     ob_start();
     require __DIR__ . '/../cron/tick.php';
     $tickOutput = ob_get_clean();
 
-    if (!empty($GLOBALS['OILCORP_TICK_BUSY'])) {
+    if (!empty($GLOBALS['OILCORP_TICK_LOCK_ERROR'])) {
+        $_SESSION['force_tick_msg']   = t('admin.force_tick.lock_failed');
+        $_SESSION['force_tick_error'] = true;
+    } elseif (!empty($GLOBALS['OILCORP_TICK_BUSY'])) {
         $_SESSION['force_tick_msg']   = t('admin.force_tick.busy');
         $_SESSION['force_tick_error'] = true;
     } else {
