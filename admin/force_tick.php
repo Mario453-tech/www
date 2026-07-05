@@ -32,20 +32,26 @@ $_SESSION['force_tick_last'] = time();
 
 try {
     define('FORCE_TICK_INTERNAL', true); // pomija guard HTTP w cron/tick.php
-    define('ADMIN_FORCE_TICK', true);    // reczne wymuszenie omija blokade GET_LOCK
+    unset($GLOBALS['OILCORP_TICK_BUSY']);
+
     ob_start();
     require __DIR__ . '/../cron/tick.php';
     $tickOutput = ob_get_clean();
 
-    $processed = 0;
-    $newPrice   = '?';
-    if (preg_match('/Gracze:\s*(\d+)/', $tickOutput, $m)) $processed = (int)$m[1];
-    if (preg_match('/Cena:\s*([\d.]+)/', $tickOutput, $m)) $newPrice  = $m[1];
+    if (!empty($GLOBALS['OILCORP_TICK_BUSY'])) {
+        $_SESSION['force_tick_msg']   = t('admin.force_tick.busy');
+        $_SESSION['force_tick_error'] = true;
+    } else {
+        $processed = 0;
+        $newPrice   = '?';
+        if (preg_match('/Gracze:\s*(\d+)/', $tickOutput, $m)) $processed = (int)$m[1];
+        if (preg_match('/Cena:\s*([\d.]+)/', $tickOutput, $m)) $newPrice  = $m[1];
 
-    AdminLog::log('force_global_tick', "Force tick OK - processed {$processed} players, price: {$newPrice}", null, 'system');
-    $msg = t('admin.force_tick.msg_ok', ['processed' => $processed, 'price' => $newPrice]);
-    $_SESSION['force_tick_msg']   = $msg;
-    $_SESSION['force_tick_error'] = false;
+        AdminLog::log('force_global_tick', "Force tick OK - processed {$processed} players, price: {$newPrice}", null, 'system');
+        $msg = t('admin.force_tick.msg_ok', ['processed' => $processed, 'price' => $newPrice]);
+        $_SESSION['force_tick_msg']   = $msg;
+        $_SESSION['force_tick_error'] = false;
+    }
 
 } catch (Throwable $e) {
     if (ob_get_level()) ob_end_clean();
