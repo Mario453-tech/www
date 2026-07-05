@@ -9,7 +9,7 @@ declare(strict_types=1);
  * Metody publiczne / Public methods:
  *  - getBalances(playerId)                                 -> array{cash,bank_balance}|null
  *  - transferBetweenPools(id, fromPool, toPool, amount)    -> bool
- *  - initNewPlayer(id, startingCash)                       -> void
+ *  - initNewPlayer(id, startingCash)                       -> bool
  *
  * Uwaga: ta klasa NIE loguje transakcji do bank_transactions.
  *        Logowanie jest zadaniem CashTransferService lub FTS.
@@ -149,7 +149,7 @@ class WalletService
      * Inicjalizuje portfel nowego gracza - podział 50/50 zgodnie z WalletConfig.
      * Initialises a new player's wallet - 50/50 split per WalletConfig.
      */
-    public function initNewPlayer(int $playerId, float $startingCash): void
+    public function initNewPlayer(int $playerId, float $startingCash): bool
     {
         $bankShare = round($startingCash * (1.0 - WalletConfig::NEW_PLAYER_CASH_RATIO), 2);
         $cashShare = round($startingCash - $bankShare, 2);
@@ -166,8 +166,10 @@ class WalletService
                 'cash'      => $cashShare,
                 'bank'      => $bankShare,
             ]);
+            return true;
         } catch (Throwable $e) {
             GameLog::error('WalletService', 'initNewPlayer FAILED', $e, ['player' => $playerId]);
+            return false;
         }
     }
 
