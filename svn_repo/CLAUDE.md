@@ -365,6 +365,66 @@ try {
 $totalDelivered += $delivered;
 ```
 
+### 12. Tick/gotówka — każde odjęcie z playerCash MUSI trafić do totalCosts
+
+Realny zapis salda gracza w ticku to `FinancialStateSection::saveCashAndTick`:
+`cash = GREATEST(0, cash - totalCosts)`. Zmienna `playerCash`/`loopCtx->playerCash`
+w pamięci służy tylko do sprawdzania wypłacalności i detekcji kryzysu — **nigdy nie
+jest zapisywana do bazy**. Jeśli koszt odejmiesz od `playerCash`, ale zapomnisz dodać go
+do `totalCosts`, koszt nie schodzi z realnego salda — gracz dostaje go za darmo.
+Ten błąd zdarzył się dla kosztów incydentów i katastrof (runda 5 C1).
+
+```php
+// ZLE — koszt katastrofy nie schodzi z DB (brak w totalCosts)
+$loopCtx->finIncident += $cost;
+$loopCtx->playerCash   = max(0.0, $loopCtx->playerCash - $cost);
+
+// DOBRZE — totalCosts = realny zapis DB; finIncident = raport; playerCash = wyplacalnosc
+$loopCtx->finIncident += $cost;
+$loopCtx->totalCosts  += $cost;   // ← bez tego katastrofa/incydent jest darmowy
+$loopCtx->playerCash   = max(0.0, $loopCtx->playerCash - $cost);
+```
+
+### 13. Tick/deltaHours — mechaniki per-tick skaluj czasem, nie stałym +1
+
+Tick może obejmować różny czas (`deltaHours`): normalny co 5 min, ale po przerwie crona
+jeden „catch-up" tick nadrabia wiele godzin. Każda mechanika liczona per-tick (koszty,
+pensje, odsetki, prawdopodobieństwa incydentów, liczniki odporności/presji, decay) MUSI
+skalować się przez `deltaHours`, a nie zakładać stałego kroku. Inaczej catch-up tick
+under/over-nalicza albo daje „darmowe" okno. Prawdopodobieństwa dodatkowo clampuj do
+`min(1.0, ...)`. Błędy tej klasy: licznik odporności +1/uruchomienie (runda 5 M8),
+incydent morski liczony po ETA (M5), clamp zdarzeń regionalnych, decay czarnego rynku.
+
+```php
+// ZLE — stałe +1 niezależnie od czasu; catch-up tick daje darmową odporność
+$db->prepare("UPDATE wells SET ticks_since_incident = ticks_since_incident + 1 WHERE ...");
+
+// DOBRZE — skala czasem (1 tick = 5 min = deltaHours/12)
+$ticksElapsed = max(1, (int) round($deltaHours * 12.0));
+$db->prepare("UPDATE wells SET ticks_since_incident = ticks_since_incident + ? WHERE ...")
+   ->execute([$ticksElapsed, ...]);
+```
+
+### 14. Znaczniki czasu w DB — jeden zegar dla zapisu i odczytu (MySQL NOW())
+
+Jeśli kolumnę czasu zapisujesz z PHP (`date()`/`time()`), a porównujesz z `NOW()`
+(zegar sesji MySQL), różnica stref czasowych PHP vs MySQL przesuwa całe okno (rekord
+wygasa za wcześnie albo wisi za długo). Zapis i odczyt MUSZĄ używać tego samego zegara —
+domyślnie MySQL `NOW()` / `DATE_ADD(NOW(), INTERVAL ...)` po obu stronach. Błędy tej
+klasy: wygasanie ofert czarnego rynku (runda 5 M2), purge dostaw morskich, fallback
+odporności incydentów.
+
+```php
+// ZLE — zapis z PHP time(), odczyt z MySQL NOW() => skew stref
+$expires = date('Y-m-d H:i:s', time() + $ttlMin * 60);
+$db->prepare("INSERT INTO offers (..., expires_at) VALUES (..., ?)")->execute([$expires]);
+// ... gdzie indziej: WHERE expires_at <= NOW()
+
+// DOBRZE — obie strony na zegarze MySQL
+$db->prepare("INSERT INTO offers (..., expires_at) VALUES (..., DATE_ADD(NOW(), INTERVAL ? MINUTE))")
+   ->execute([$ttlMin]);
+```
+
 ## Flutter (mobile/) — ZASADA OBOWIĄZKOWA
 
 ### Zawsze buduj aplikację po zmianach

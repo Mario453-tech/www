@@ -1,5 +1,47 @@
 ## Changelog
 
+### 2026-07-05 - Tick runda 5: analiza i naprawa bugów silnika ticku (12 bugów, każdy z testem)
+
+**Głęboka analiza całego systemu ticku (6 równoległych finderów + weryfikacja każdego znaleziska w kodzie) i naprawa potwierdzonych bugów w 4 etapach. Każdy fix z testem regresyjnym; bez zmian schematu produkcyjnego DB. Testy: 490 zielonych.**
+
+Etap 1 — krytyczne pieniądze/ropa:
+- **C1 (krytyczny)** — `src/Tick/WellRiskHandler.php`: koszt incydentu produkcyjnego (linia ~199) i katastrofy przemysłowej (~122) trafia teraz do `loopCtx->totalCosts`, a nie tylko do `finIncident`/`playerCash`. Realny zapis salda to `saveCashAndTick`: `cash = GREATEST(0, cash - totalCosts)` — bez tego katastrofy (blowout, pożar, kary środowiskowe) i awarie były **finansowo darmowe** (regresja po fixie C3 z rundy 4).
+- **H1 (wysoki)** — `src/BailiffService.php`: komornik oznacza pożyczkę `paid_off` gdy zajęcie gotówki/ropy pokryje dług (`markLoanPaidIfCleared`). Wcześniej status zostawał `late` na zawsze (`processInstallments` obsługuje tylko `active`) → eskalacja do zajęcia odwiertów i bankructwa mimo zerowego salda.
+- **M1 (średni)** — `src/BailiffService.php`: etap 2 zajęcia z `GREATEST(0, remaining_amount - ?)` (jak etap 3) — brak ujemnego salda.
+- **H2 (wysoki)** — `src/Tick/WellProductionHandler.php`: zdarzenie transportowe `leak` skaluje się do bieżącej wysyłki (`$actual`), nie do całego magazynu — wcześniej pojedynczy wyciek niszczył 10-20% CAŁEGO zbiornika.
+
+Etap 2 — M-bugi:
+- **M2** — `src/BlackMarketService.php`: wygasanie ofert liczone po stronie MySQL (`DATE_ADD(NOW(), INTERVAL ...)`) zamiast z PHP `time()` — koniec rozjazdu stref czasowych.
+- **M5** — `src/Tick/MarineDeliverySection.php`: ETA sprawdzane PRZED rzutem incydentu; rejs po ETA nie traci ładunku na catch-up ticku po przerwie crona.
+- **M6** — `src/RoadTransportService.php`: kurs `delayed` finalizowany przez atomowy stan `crediting` (potwierdzany z zapisem magazynu), nie bezpośrednio `delivered` — crash nie gubi opłaconej ropy.
+- **M8** — `src/Incident/TickTrait.php`: licznik `ticks_since_incident` (odporność + presja) skaluje się deltaHours (1 tick = 5 min), nie stałe +1/uruchomienie crona — koniec „darmowej" odporności po awarii crona.
+
+Decyzje GM (balans):
+- **M7** — `src/Incident/RepairDataTrait.php`: incydenty auto_repair (micro/minor) działają tylko w ticku wystąpienia — `getOngoingProdDrop`/`getOngoingProdDropForPlayer` filtrują `AND auto_repair = 0`. Trwający spadek zostaje dla medium/major.
+- **H3** — `src/OutboundLegService.php`: uszkodzony/wyłączony rurociąg leg-2 (hub→magazyn) zatrzymuje przepływ — ropa czeka w buforze huba (kind `blocked`, `excess_bbl`=całość), zamiast lecieć za darmo/bezstratnie/bez limitu. Spójnie z leg-1.
+- **M3** — `src/Tick/WellHubSection.php`: ropa wydrenowana z bufora huba, która nie mieści się w pełnym magazynie, wraca do bufora zamiast być niszczona jako strata (jak ścieżka outbound). Tylko nadmiar ponad pojemność bufora = strata.
+- **M4 część A** — `src/Tick/WellRoadTripSection.php` + `src/Tick/PlayersSection.php`: ropa dostarczana ciężarówkami dla odwiertu przypisanego do huba nie jest capowana magazynem — idzie pełna do bufora huba (jak produkcja rurociągowa). Wcześniej przy pełnym magazynie ginęła jako „overflow" zanim dotarła do huba. Odwierty bez huba nadal capowane.
+
+Testy (nowe pliki): `tests/Integration/TickBugfixRound5Test.php` (C1, H2), `tests/MySqlIntegration/MySqlBailiffSeizureClearsLoanTest.php` (H1, M1), `MySqlIncidentImmunityDeltaHoursTest.php` (M8), `MySqlIncidentOngoingDropAutoRepairTest.php` (M7), `MySqlHubStorageBlockedRebufferTest.php` (M3, bilans baryłek), `MySqlRoadHubDeliveryTest.php` (M4-A, bilans baryłek) + rozszerzenia `MySqlRoadTransportServiceTest`, `MySqlMarineDeliverySectionTest`, `OutboundLegServiceTest`, `BugfixRound4Test`.
+
+### 2026-07-03 - GM: pełny reset gry (czystka wszystkich kont, danych i logów)
+
+**Nowa funkcja „PEŁNY RESET GRY" w panelu Game Mastera — kasuje całkowicie wszystkie konta graczy i wszystkie powiązane dane (łącznie ze wszystkimi logami), żeby uruchomić grę od zera.**
+
+- `admin/gm_tools.php` — akcja `full_wipe`: enumeruje realne tabele przez `information_schema.TABLES`, odejmuje allowlistę 34 tabel konfiguracyjnych / kont adminów, resztę czyści przez `TRUNCATE` (ID startują od 1) z fallbackiem na `DELETE` dla tabel z FK; `FOREIGN_KEY_CHECKS` wyłączane na czas operacji.
+- Wyczyszczone: `players` + wszystkie dane per-gracz (odwierty, rurociągi, huby, finanse, pożyczki, staff, rynek, transport) oraz wszystkie logi/zdarzenia (`admin_logs`, `finance_logs`, `failure_log`, `well_events`, `*_incident_logs`, `tick_stats`, itd.).
+- Zachowane: konta i uwierzytelnianie adminów, konfiguracja gry, regiony/lokacje, warstwy geologiczne, słowniki HR, porty, katalog `wells_for_sale`, `market_state`/`market_trends`, strony pomocy.
+- Zabezpieczenia: wymagana ręcznie wpisana fraza `KASUJ WSZYSTKO` (walidacja serwer + klient), podwójny confirm (`confirmAction`), CSRF, wpis audytu przez `AdminLog::log` po czyszczeniu.
+- `templates/views/admin/gm_tools/main.php` — panel danger; `lang/pl/admin/gm.php`, `lang/en/admin/gm.php` — klucze i18n `admin.gm.wipe_*`.
+
+### 2026-07-03 - Tick rundy 3-4: code-review i naprawa bugów odwiertów/rurociągów/hubów/transportu
+
+**Dwie rundy code-review (findery × weryfikatory) newralgicznych ścieżek: produkcja odwiertów, rurociągi, huby, transport morski/drogowy, incydenty. Łącznie 48 potwierdzonych bugów naprawionych + 6 optymalizacji wydajności. Migracje `migrations/tick_bugfix_round3.sql` i `tick_bugfix_round4.sql` (idempotentne).**
+
+- Runda 3 (19 bugów): m.in. IDOR w `getHubDetail`, bugi duplikacji/utraty gotówki i ropy, mechaniki rdzenia, martwy kod UI.
+- Runda 4 (29 bugów + perf): podwójna utrata ropy przy spillu, darmowe awarie mechaniczne, wskrzeszanie rurociągów przez suspend/resume, precyzja `condition_pct` (DECIMAL 8,4), uszkodzony rurociąg leg-1 zatrzymuje produkcję zamiast cicho jeździć ciężarówkami, `purchasePipeline` odrzuca `leg=outbound`, ciche kasowanie rejsów morskich → status `lost`, atomowy dispatch morski, potrójna opłata offshore, port `closed` wznawia się automatycznie, ręczna naprawa incydentów, egzekwowanie czasu trwania incydentu, zużycie sprzętu do kwadratu, ryzyko polityczne leg-2. Perf: eliminacja N+1 (ongoingDropCache, memoizacja portów/incydentów hubów).
+- Migracja `tick_bugfix_round4.sql`: `well_pipelines.condition_pct` → DECIMAL(8,4); `wells.ticks_since_incident` DEFAULT 999 → 0 + data-fix; refund + usunięcie martwych wierszy `leg='outbound'`; przeliczenie placeholderów `real_capacity_bph`.
+
 ### 2026-06-14 - Lang: ekstrakcja hardkodowanych tekstów (incydenty, bank, finanse)
 
 **Wszystkie hardkodowane polskie ciągi w panelu admina przeszły przez system lang** — nowe powiadomienie = jeden nowy klucz w `lang/pl/admin/*.php`, zero zmiany w logice.
