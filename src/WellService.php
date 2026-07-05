@@ -78,6 +78,36 @@ class WellService
         self::$schemaEnsured[$connId] = true;
 
         try {
+            $stmt = $this->db->query("SHOW COLUMNS FROM `industrial_disasters` LIKE 'severity'");
+            $col  = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+            $type = strtolower((string)($col['Type'] ?? ''));
+
+            if ($col && (
+                !str_contains($type, "'major'")
+                || !str_contains($type, "'catastrophic'")
+                || !str_contains($type, "'critical'")
+            )) {
+                $this->db->exec("ALTER TABLE `industrial_disasters` MODIFY COLUMN `severity` VARCHAR(16) NOT NULL DEFAULT 'major'");
+                $this->db->exec("
+                    UPDATE `industrial_disasters`
+                       SET `severity` = CASE
+                           WHEN `severity` = 'critical' THEN 'critical'
+                           WHEN `severity` = 'catastrophic' THEN 'catastrophic'
+                           ELSE 'major'
+                       END
+                ");
+                $this->db->exec(
+                    "ALTER TABLE `industrial_disasters`
+                     MODIFY COLUMN `severity` ENUM('major','catastrophic','critical') NOT NULL DEFAULT 'major'"
+                );
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('WellService', 'ensureSchema industrial_disasters severity failed', $e);
+            }
+        }
+
+        try {
             $stmt = $this->db->query("SHOW COLUMNS FROM `wells` LIKE 'status'");
             $col  = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
             if (!$col || !isset($col['Type']) || !preg_match('/^enum\((.*)\)$/i', (string)$col['Type'], $m)) {

@@ -233,6 +233,8 @@ final class MobileWebBridgeTest extends SqliteIntegrationTestCase
 <?php
 declare(strict_types=1);
 
+error_reporting(E_ALL & ~E_DEPRECATED);
+
 $payload = unserialize(base64_decode('__PAYLOAD__'), ['allowed_classes' => false]);
 $root = $payload['root'];
 $mode = $payload['mode'];

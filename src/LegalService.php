@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/CompanyCredibilityService.php';
 require_once __DIR__ . '/PlayerPaymentService.php';
+require_once __DIR__ . '/WalletService.php';
 require_once __DIR__ . '/Legal/HubPermitTrait.php';
 require_once __DIR__ . '/Legal/BriberyTrait.php';
 
@@ -89,6 +90,7 @@ class LegalService
     public function __construct(?PDO $db = null)
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
+        new WalletService($this->db);
         $this->ensureSchema();
         $this->autoSeedIfEmpty();
     }

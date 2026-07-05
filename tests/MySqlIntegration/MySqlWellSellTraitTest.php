@@ -57,16 +57,17 @@ final class MySqlWellSellTraitTest extends MySqlIntegrationTestCase
 
     private function seedOldWell(int $playerId, int $wellId, string $status = 'active'): void
     {
-        // base_production_per_hour = 200: ensures profitH > 0 at any realistic
-        // oil price (floor ~10 PLN/bbl). With 200 bbl/h × 30 PLN – 1458 opex ≈ 4542 > 0.
+        // base_production_per_hour = 200 keeps the sale profitable at realistic prices.
+        // created_at comes from PHP to avoid DB/PHP timezone drift.
+        $createdAt = date('Y-m-d H:i:s', time() - 3 * 3600);
         $this->db->prepare(
             "INSERT INTO wells
                 (id, player_id, status, created_at, region_id, zone_key,
                  location_name, name, transport_type, transport_capacity_pct,
                  base_production_per_hour)
-             VALUES (?, ?, ?, NOW() - INTERVAL 3 HOUR, 77, 'A1',
+             VALUES (?, ?, ?, ?, 77, 'A1',
                      'PHPUnit Field', 'PHPUnit Well', 'rurociag', 120.0, 200.0)"
-        )->execute([$wellId, $playerId, $status]);
+        )->execute([$wellId, $playerId, $status, $createdAt]);
     }
 
     // =========================================================================
