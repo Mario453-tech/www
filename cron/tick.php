@@ -182,4 +182,238 @@ try {
         $shortKey = $balanceKeys[$bRow['key']] ?? null;
         if ($shortKey !== null) $gBalanceMults[$shortKey] = max(0.1, min(10.0, (float)$bRow['value']));
     }
+    $hasNonDefault = array_filter($gBalanceMults, fn($v) => abs($v - 1.0) > 0.001);
+    if (!empty($hasNonDefault)) GameLog::info('tick', 'globalne mnozniki balansu aktywne', $gBalanceMults);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'odczyt mnoznikow balansu FAILED - uzywam 1.0', $e);
+}
+
+$players = new PlayersSection($db, $now, $newPrice, $gBalanceMults);
+$players->run();
+
+// 6. CZARNY RYNEK 
+
+$bmOffersGenerated = 0;
+try {
+    $bm = new BlackMarketService($db);
+
+ // Expiracja przeterminowanych ofert
+    $bm->expireOffers();
+
+ // Decay black_market_score wszystkich graczy
+    $bm->decayScores();
+
+ // Generowanie ofert co N tickow
+    $bmInterval = 3;
+    try {
+        $intStmt = $db->prepare("SELECT `value` FROM well_config WHERE `key` = 'bm_offer_interval_ticks' LIMIT 1");
+        $intStmt->execute();
+        $intVal = $intStmt->fetchColumn();
+        if ($intVal !== false) $bmInterval = max(1, (int)$intVal);
+    } catch (Throwable $e) {}
+
+ // Pobierz licznik tickow (inkrementuj)
+    $bmTickCount = 0;
+    try {
+        $db->prepare("
+            INSERT INTO well_config (`key`, `value`, `label`, `category`)
+            VALUES ('bm_tick_counter', '1', 'Czarny rynek - licznik tickow', 'black_market')
+            ON DUPLICATE KEY UPDATE `value` = `value` + 1
+        ")->execute();
+        $cStmt = $db->prepare("SELECT `value` FROM well_config WHERE `key` = 'bm_tick_counter' LIMIT 1");
+        $cStmt->execute();
+        $bmTickCount = (int)$cStmt->fetchColumn();
+    } catch (Throwable $e) {}
+
+    if ($bmTickCount > 0 && $bmTickCount % $bmInterval === 0) {
+ // Generuj oferty dla kazdego aktywnego gracza 
+        $activePlayers = $db->query("
+            SELECT id FROM players
+            WHERE financial_state != 'crisis'
+            AND id IN (SELECT DISTINCT player_id FROM wells WHERE status NOT IN ('seized','blowout','sold'))
+        ")->fetchAll(PDO::FETCH_COLUMN);
+
+        foreach ($activePlayers as $pid) {
+            $bmOffersGenerated += $bm->generateOffers((int)$pid, $newPrice);
+        }
+
+        if ($bmOffersGenerated > 0) {
+            GameLog::info('tick', "Czarny rynek: wygenerowano $bmOffersGenerated ofert dla " . count($activePlayers) . " graczy");
+        }
+    }
+} catch (Throwable $e) {
+    GameLog::error('tick', 'Black market section FAILED', $e);
+}
+
+// 7. WIARYGODNOSC FIRMY
+
+$credibilityCleanBonuses = 0;
+try {
+    $credibility = new CredibilitySection($db, $now);
+    $credibility->run();
+    $credibilityCleanBonuses = $credibility->cleanBonuses;
+    if ($credibilityCleanBonuses > 0) {
+        GameLog::info('tick', "Wiarygodnosc firmy: przyznano {$credibilityCleanBonuses} bonusow za czysty okres");
+    }
+} catch (Throwable $e) {
+    GameLog::error('tick', 'Credibility section FAILED', $e);
+}
+
+// 8. DZIAŁ PRAWNY — rozpatrywanie wniosków o zezwolenia
+
+$legalDecided  = 0;
+$legalNotified = 0;
+try {
+    $legal = new LegalSection($db, $now);
+    $legal->run();
+    $legalDecided  = $legal->decided;
+    $legalNotified = $legal->notified;
+    if ($legalDecided > 0) {
+        GameLog::info('tick', "Dział prawny: rozpatrzono {$legalDecided} wniosków, powiadomień: {$legalNotified}");
+    }
+} catch (Throwable $e) {
+    GameLog::error('tick', 'Legal section FAILED', $e);
+}
+
+// 9. SZKOLENIA — egzaminy zakonczonych szkolen pracownikow
+
+$trainingExamined = 0;
+try {
+    $training = new TrainingSection($db);
+    $training->run();
+    $trainingExamined = $training->examined;
+    if ($trainingExamined > 0) {
+        GameLog::info('tick', "Szkolenia: przeprowadzono {$trainingExamined} egzaminow");
+    }
+} catch (Throwable $e) {
+    GameLog::error('tick', 'Training section FAILED', $e);
+}
+
+// PODSUMOWANIE + ZAPIS STATYSTYK
+
+$trendInfo = $activeTrend
+    ? " | Trend: {$activeTrend['trend_name']}" . ($isNewTrend ? ' [NOWY]' : '')
+    : '';
+
+GameLog::info('tick', '== END ==', [
+    'price'    => $newPrice,
+    'trend'    => $activeTrend['trend_name'] ?? 'brak',
+    'players'  => $players->playersProcessed,
+    'bbl'      => round($players->totalBbl, 2),
+    'revenue'  => round($players->totalRevenue, 2),
+    'disasters'=> $players->disastersTriggered,
+]);
+
+// Zapis last_system_tick_at + last_tick_oil_price + czyszczenie flagi tick_in_progress (H1)
+// Save last_system_tick_at + last_tick_oil_price + clear tick_in_progress flag (H1)
+try {
+    $db->prepare("
+        INSERT INTO well_config (`key`, `value`, `label`, `category`)
+        VALUES ('last_system_tick_at', :ts, 'Ostatni tick systemu (timestamp)', 'system')
+        ON DUPLICATE KEY UPDATE `value` = :ts2
+    ")->execute([':ts' => $now->getTimestamp(), ':ts2' => $now->getTimestamp()]);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'zapis last_system_tick_at FAILED', $e);
+}
+try {
+    $db->prepare(
+        "INSERT INTO well_config (`key`, `value`, `label`, `category`)
+         VALUES ('last_tick_oil_price', :p, 'Cena ropy z ostatniego ticka (fallback H7)', 'system')
+         ON DUPLICATE KEY UPDATE `value` = :p2"
+    )->execute([':p' => $newPrice, ':p2' => $newPrice]);
 } catch (Throwable $e) {}
+try {
+    $db->prepare("UPDATE well_config SET `value` = '0' WHERE `key` = 'tick_in_progress'")->execute();
+} catch (Throwable $e) {
+    GameLog::error('tick', 'tick_in_progress flag clear FAILED', $e);
+}
+
+// Zapis statystyk ticka
+try {
+    $durationMs = (int)round((microtime(true) - $startTime) * 1000);
+
+ // Slow tick warning — tick trwajacy >60s sugeruje problem wydajnosci lub kolizje / >60s tick suggests performance issue or collision
+    if ($durationMs > 60_000) {
+        GameLog::warn('tick', 'WOLNY TICK / SLOW TICK', ['duration_ms' => $durationMs, 'threshold_ms' => 60_000]);
+    }
+
+    (new TickStatsRepository())->save([
+        'ran_at'                       => $now->format('Y-m-d H:i:s'),
+        'source'                       => $source,
+        'duration_ms'                  => $durationMs,
+        'oil_price'                    => $newPrice,
+        'trend_name'                   => $activeTrend['trend_name'] ?? null,
+        'trend_new'                    => $isNewTrend,
+ // M7: bank_interest i installments: BankSection nie liczy dokladnie tych wartosci,
+ // zapisujemy 0 zamiast NULL zeby zaznaczyc ze funkcje uruchomily sie poprawnie.
+ // M7: interest and installments not tracked per-tick in BankSection — record 0 (ran OK) not NULL.
+        'bank_interest_processed'      => 0,
+        'bank_installments_processed'  => 0,
+        'bank_negotiations_resolved'   => $bank->negotiationsResolved,
+        'bank_loan_decisions'          => $bank->loanDecisions,
+        'hr_recruitments_processed'    => $bank->hrRecruitmentsProcessed,
+        'bankruptcy_processed'         => $bank->bankruptcyProcessed,
+        'bankruptcy_recovered'         => $bank->bankruptcyRecovered,
+        'players_processed'            => $players->playersProcessed,
+        'wells_active'                 => $players->wellsActive,
+        'total_production_bbl'         => round($players->totalBbl, 4),
+        'total_revenue_pln'            => round($players->totalRevenue, 2),
+        'total_opex_pln'               => round($players->totalOpex, 2),
+        'disasters_triggered'          => $players->disastersTriggered,
+        'incidents_triggered'          => $players->incidentsTriggered,
+    ]);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'zapis tick_stats FAILED', $e);
+}
+
+// Cleanup starych statystyk (zachowaj 7 dni)
+// Old tick stats cleanup (keep 7 days)
+try {
+    (new TickStatsRepository())->cleanup(7);
+} catch (Throwable $e) {}
+
+// Cleanup historii incydentow wg konfigurowalnej retencji.
+// Incident history cleanup based on configurable retention setting.
+$incRetention = 30;
+try {
+    $r = $db->query("SELECT `value` FROM well_config WHERE `key` = 'incident_retention_days' LIMIT 1")->fetchColumn();
+    if ($r !== false) $incRetention = max(1, (int)$r);
+    $stmt = $db->prepare("DELETE FROM well_incidents WHERE created_at < NOW() - INTERVAL ? DAY");
+    $stmt->bindValue(1, $incRetention, PDO::PARAM_INT);
+    $stmt->execute();
+} catch (Throwable $e) {
+    GameLog::error('tick', 'incident_retention_cleanup FAILED', $e);
+}
+
+// Cleanup przeczytanych powiadomien technicznych wg tej samej retencji.
+// Technical notifications cleanup (read ones) using the same retention setting.
+try {
+    $stmt = $db->prepare("DELETE FROM technical_notifications WHERE is_read = 1 AND created_at < NOW() - INTERVAL ? DAY");
+    $stmt->bindValue(1, $incRetention, PDO::PARAM_INT);
+    $stmt->execute();
+} catch (Throwable $e) {
+    GameLog::error('tick', 'notif_retention_cleanup FAILED', $e);
+}
+
+// Nieprzeczytane notyfikacje starsze niz 2x retencja - tez usun (ochrona przed zaleglosciami) | Unread notifications older than 2x retention - also purge (prevents accumulation)
+try {
+    $oldUnread = $incRetention * 2;
+    $stmt = $db->prepare("DELETE FROM technical_notifications WHERE is_read = 0 AND created_at < NOW() - INTERVAL ? DAY");
+    $stmt->bindValue(1, $oldUnread, PDO::PARAM_INT);
+    $stmt->execute();
+} catch (Throwable $e) {
+    GameLog::error('tick', 'notif_old_unread_cleanup FAILED', $e);
+}
+
+// Cleanup zbiorczych wpisow tickowych w historii bankowej (ta sama retencja co incydenty).
+// Przelewy, kredyty i zakupy zostaja na zawsze - usuwane sa tylko typy tickowe.
+// Aggregated tick entries cleanup in bank history (same retention as incidents).
+// Transfers, loans and purchases are kept forever - only tick types are purged.
+try {
+    (new FinancialTransactionService($db))->purgeTickAudit($incRetention);
+} catch (Throwable $e) {
+    GameLog::error('tick', 'bank_tick_audit_cleanup FAILED', $e);
+}
+
+echo "Tick OK: " . $now->format('Y-m-d H:i:s') . " | Cena: {$newPrice}\${$trendInfo}"
+    . " | Gracze: {$players->playersProcessed} | Bbl: " . round($players->totalBbl, 1) . "\n";
