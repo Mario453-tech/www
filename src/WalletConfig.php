@@ -32,6 +32,11 @@ class WalletConfig
     public const TRANSFER_FEE_PCT    = 0.005;       // 0.5% prowizji
     public const TRANSFER_MIN_FEE    = 10.00;       // minimalna prowizja 10 PLN
 
+    // Bootstrap nowego gracza - jeden wspolny config dla public/register.php i Auth::register().
+    // New-player bootstrap - one shared config for public/register.php and Auth::register().
+    public const NEW_PLAYER_STARTING_CASH = 10_000_000.00;
+    public const NEW_PLAYER_STORAGE_CAPACITY = 200.0;
+
     // Odczytuje konfigurowalny limit transferu z well_config (klucz wallet_transfer_max).
     // 0.0 = brak limitu kwotowego (unlimited). Jesli klucz nie istnieje — fallback na stala.
     // Reads configurable transfer limit from well_config (key wallet_transfer_max).
