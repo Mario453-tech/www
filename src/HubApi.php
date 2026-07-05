@@ -29,6 +29,36 @@ function hubApiOut(array $data, int $code = 200): never
     exit;
 }
 
+function hubPermitContext(PDO $db, int $regionId): array
+{
+    $context = [
+        'permit_type'   => 'local',
+        'permit_action' => 'submit_hub_application',
+        'region_id'     => $regionId,
+        'region_name'   => '',
+    ];
+
+    if ($regionId <= 0) {
+        return $context;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT COALESCE(l.region_name, wr.name, CONCAT('Region #', l.region_id)) AS region_name
+              FROM legal_region_config l
+              LEFT JOIN world_regions wr ON wr.id = l.region_id
+             WHERE l.region_id = ?
+             LIMIT 1
+        ");
+        $stmt->execute([$regionId]);
+        $context['region_name'] = (string)($stmt->fetchColumn() ?: '');
+    } catch (Throwable) {
+        $context['region_name'] = '';
+    }
+
+    return $context;
+}
+
 if (!Auth::isLoggedIn()) {
     hubApiOut(['success' => false, 'error' => t('common.not_logged_in')], 401);
 }
@@ -187,13 +217,13 @@ try {
                     ]);
                 }
  // Permit gate: include error_code so JS can show the 3-button permit modal.
- // Bramka zezwolenia: error_code umozliwia wyswietlenie 3-przyciskowego modalu w JS.
+                // The error code lets the UI show the local-permit action modal.
                 if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut([
+                    hubApiOut(array_merge([
                         'success'    => false,
                         'error'      => t('legal.hub.err_no_hub_permit'),
                         'error_code' => 'no_hub_permit',
-                    ]);
+                    ], hubPermitContext($db, (int)($result['region_id'] ?? 0))));
                 }
                 $err = match($result['error'] ?? '') {
                     'slots_full'         => t('logistics.hub.err_slots_full'),
@@ -262,7 +292,11 @@ try {
             ]);
             if (!$result['success']) {
                 if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut(['success' => false, 'error' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit']);
+                    hubApiOut(array_merge([
+                        'success'    => false,
+                        'error'      => t('legal.hub.err_no_hub_permit'),
+                        'error_code' => 'no_hub_permit',
+                    ], hubPermitContext($db, (int)($result['region_id'] ?? $regionId))));
                 }
                 $err = match($result['error'] ?? '') {
                     'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
@@ -286,7 +320,11 @@ try {
             $result = $acqSvc->buyUsed($playerId, $hubId);
             if (!$result['success']) {
                 if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut(['success' => false, 'error' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit']);
+                    hubApiOut(array_merge([
+                        'success'    => false,
+                        'error'      => t('legal.hub.err_no_hub_permit'),
+                        'error_code' => 'no_hub_permit',
+                    ], hubPermitContext($db, (int)($result['region_id'] ?? 0))));
                 }
                 $err = match($result['error'] ?? '') {
                     'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),
@@ -310,7 +348,11 @@ try {
             $result = $acqSvc->rent($playerId, $hubId);
             if (!$result['success']) {
                 if (($result['error'] ?? '') === 'no_hub_permit') {
-                    hubApiOut(['success' => false, 'error' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit']);
+                    hubApiOut(array_merge([
+                        'success'    => false,
+                        'error'      => t('legal.hub.err_no_hub_permit'),
+                        'error_code' => 'no_hub_permit',
+                    ], hubPermitContext($db, (int)($result['region_id'] ?? 0))));
                 }
                 $err = match($result['error'] ?? '') {
                     'insufficient_funds' => t('logistics.hub.err_insufficient_funds'),

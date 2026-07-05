@@ -20,6 +20,36 @@ function jsonOut(array $data, int $code = 200): void
     exit;
 }
 
+function wellStaffPermitContext(PDO $db, int $regionId): array
+{
+    $context = [
+        'permit_type'   => 'local',
+        'permit_action' => 'submit_hub_application',
+        'region_id'     => $regionId,
+        'region_name'   => '',
+    ];
+
+    if ($regionId <= 0) {
+        return $context;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT COALESCE(l.region_name, wr.name, CONCAT('Region #', l.region_id)) AS region_name
+              FROM legal_region_config l
+              LEFT JOIN world_regions wr ON wr.id = l.region_id
+             WHERE l.region_id = ?
+             LIMIT 1
+        ");
+        $stmt->execute([$regionId]);
+        $context['region_name'] = (string)($stmt->fetchColumn() ?: '');
+    } catch (Throwable) {
+        $context['region_name'] = '';
+    }
+
+    return $context;
+}
+
 if (!Auth::isLoggedIn()) {
     jsonOut(['success' => false, 'error' => t('common.not_logged_in')], 401);
 }
@@ -147,9 +177,13 @@ try {
 
                         if (!($purchase['success'] ?? false)) {
                             $db->rollBack();
- // error_code dla JS permit modal / error_code for JS permit modal
+                            // The error code lets the UI show the local-permit action modal.
                             if (($purchase['error'] ?? '') === 'no_hub_permit') {
-                                jsonOut(['success' => false, 'message' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit'], 400);
+                                jsonOut(array_merge([
+                                    'success'    => false,
+                                    'message'    => t('legal.hub.err_no_hub_permit'),
+                                    'error_code' => 'no_hub_permit',
+                                ], wellStaffPermitContext($db, (int)($purchase['region_id'] ?? 0))), 400);
                             }
                             $errMsg = match ($purchase['error'] ?? '') {
                                 'insufficient_funds'      => t('pipeline.err_insufficient_funds'),
@@ -266,9 +300,13 @@ try {
                         $purchase = $pipelineService->purchaseHubOutboundPipeline($playerId, $hubId, $requestedPipelineType);
                         if (!($purchase['success'] ?? false)) {
                             $db->rollBack();
- // error_code dla JS permit modal / error_code for JS permit modal
+                            // The error code lets the UI show the local-permit action modal.
                             if (($purchase['error'] ?? '') === 'no_hub_permit') {
-                                jsonOut(['success' => false, 'message' => t('legal.hub.err_no_hub_permit'), 'error_code' => 'no_hub_permit'], 400);
+                                jsonOut(array_merge([
+                                    'success'    => false,
+                                    'message'    => t('legal.hub.err_no_hub_permit'),
+                                    'error_code' => 'no_hub_permit',
+                                ], wellStaffPermitContext($db, (int)($purchase['region_id'] ?? 0))), 400);
                             }
                             $errMsg = match ($purchase['error'] ?? '') {
                                 'insufficient_funds'      => t('pipeline.err_insufficient_funds'),

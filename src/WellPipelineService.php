@@ -360,12 +360,10 @@ class WellPipelineService
             return ['success' => false, 'error' => 'hub_not_found'];
         }
 
- // Bramka zezwolenia na prace lokalne: rurociag wylotowy hubu to praca lokalna
- // i wymaga aktywnego zezwolenia lokalnego w regionie hubu. Fail-closed.
- // Local works permit gate: hub outbound pipeline is a local work and requires
- // an active local permit in the hub's region. Fail-closed.
-        if (!$this->hasLocalPermitOrNotRequired($playerId, $this->getHubRegionId($hubId))) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
+        // Hub outbound pipeline construction is local infrastructure work and requires a local permit.
+        $regionId = $this->getHubRegionId($hubId);
+        if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
+            return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
         }
 
         $capacity = max(1.0, round((float)($hub['nominal_capacity_bph'] ?? 100.0) * ((float)($profile['capacity_pct'] ?? 100.0) / 100.0), 2));
@@ -615,12 +613,10 @@ class WellPipelineService
             return ['success' => false, 'error' => 'offshore_no_pipeline'];
         }
 
- // Bramka zezwolenia na prace lokalne: budowa rurociagu to praca lokalna i
- // wymaga aktywnego zezwolenia lokalnego w regionie odwiertu. Fail-closed.
- // Local works permit gate: building a pipeline is a local work and requires
- // an active local permit in the well's region. Fail-closed.
-        if (!$this->hasLocalPermitOrNotRequired($playerId, $this->getWellRegionId($wellId))) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
+        // Well pipeline construction is local infrastructure work and requires a local permit.
+        $regionId = $this->getWellRegionId($wellId);
+        if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
+            return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
         }
 
         $hubAssignment = $this->getActiveHubAssignmentForWell($wellId);
@@ -843,7 +839,7 @@ class WellPipelineService
 
  /**
  * Returns pipelines currently under construction for a player.
- * Zwraca rurociagi bedace aktualnie w budowie dla gracza.
+ * Returns pipelines currently under construction for the player.
  *
  * @return list<array<string, mixed>>
  */
@@ -1162,7 +1158,6 @@ class WellPipelineService
  /**
  * Toggle pipeline between active and suspended.
  * When suspended: well uses road transport (at road transport costs).
- * Wstrzymanie/wznowienie rurociagu - brak kosztow, ale droga jest drozszym zamiennikiem.
  *
  * @return array{success:bool,error?:string,new_status?:string}
  */
@@ -1181,18 +1176,13 @@ class WellPipelineService
         }
 
         $current = (string)$pipe['status'];
- // 'damaged' wymaga naprawy — suspend+resume odtwarzaloby status z samej kondycji
- // i wskrzeszalo zniszczony rurociag za darmo (z pominieciem oplaty repairPipeline).
- // 'damaged' requires repair — suspend+resume would rebuild status from condition
- // alone and resurrect a destroyed pipeline for free (bypassing the repairPipeline fee).
+        // Damaged pipelines require repair; suspend+resume must not resurrect them for free.
         if (in_array($current, ['building', 'disabled', 'planned', 'damaged'], true)) {
             return ['success' => false, 'error' => 'pipeline_not_toggleable'];
         }
 
         if ($current === 'suspended') {
- // Resume: restore status based on condition_pct.
- // Aktywny wyciek (leak_started_at) i kondycja 0 nie moga zniknac przez resume.
- // An active leak (leak_started_at) and zero condition cannot vanish via resume.
+            // Resume based on condition; active leaks and zero condition must remain visible.
             $cond      = (float)$pipe['condition_pct'];
             $newStatus = match(true) {
                 $cond <= 0.0                        => 'damaged',
@@ -1204,7 +1194,7 @@ class WellPipelineService
             $eventType = 'pipeline_resumed';
             $eventMsg  = "[Player] Pipeline resumed. Status restored to {$newStatus}.";
         } else {
- // Suspend: active/degraded/critical/leak -> suspended
+            // Suspend active/degraded/critical/leak pipelines.
             $newStatus = 'suspended';
             $eventType = 'pipeline_suspended';
             $eventMsg  = "[Player] Pipeline suspended. Well switches to road transport.";
@@ -1377,7 +1367,7 @@ class WellPipelineService
     }
 
  /**
- * Zwraca region_id odwiertu (0 gdy brak). / Returns the well's region_id (0 if none).
+ * Returns the well region id, or 0 when it cannot be resolved.
  */
     private function getWellRegionId(int $wellId): int
     {
@@ -1392,7 +1382,7 @@ class WellPipelineService
     }
 
  /**
- * Zwraca region_id hubu (0 gdy brak). / Returns the hub's region_id (0 if none).
+ * Returns the hub region id, or 0 when it cannot be resolved.
  */
     private function getHubRegionId(int $hubId): int
     {
@@ -1407,10 +1397,9 @@ class WellPipelineService
     }
 
  /**
- * Bramka zezwolenia na prace lokalne (per region).
- * Local works permit gate (per region).
- * TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub brak rekordu)
- * LUB gracz ma status 'granted'. Fail-closed: kazdy blad bazy zwraca FALSE.
+ * Local works permit gate per region.
+ * Returns true when permit enforcement is off or the player has a granted permit.
+ * Database errors are fail-closed.
  */
     private function hasLocalPermitOrNotRequired(int $playerId, int $regionId): bool
     {
@@ -1443,7 +1432,7 @@ class WellPipelineService
                 || stripos($msg, '42S22') !== false) {
                 return true;
             }
-            GameLog::warn('WellPipelineService', 'Local permit gate failed — blocking (fail-closed)', [
+            GameLog::warn('WellPipelineService', 'Local permit gate failed - blocking (fail-closed)', [
                 'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
             ]);
             return false;

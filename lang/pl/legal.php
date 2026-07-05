@@ -191,6 +191,6 @@ return [
     'legal.hub.permit_modal_title' => 'Brak zezwolenia na prace lokalne',
     'legal.hub.permit_btn_cancel'  => 'Anuluj',
     'legal.hub.permit_btn_apply'   => 'Złóż wniosek',
-    'legal.hub.permit_btn_legal'   => 'Przejdź do działu prawnego',
+    'legal.hub.permit_btn_legal'   => 'Dział prawny',
 
 ];

@@ -4,14 +4,13 @@ require_once __DIR__ . '/PlayerPaymentService.php';
 
 /**
  * HubAcquisitionService - player hub ownership actions.
- * Kupno, wynajem i migracja hubw logistycznych.
  * Buy, rent, and tenant-migration for logistics hubs.
  *
  * Model:
- * player_id > 0 : hub jest wasnoci tego gracza (kupno nowego/uywanego)
- * player_id = 0 : hub jest na rynku (systemowy)
- * tenant_player_id > 0 : hub jest wynajmowany przez tego gracza
- * tenant_player_id = 0 : hub dostpny do kupna/wynajmu
+ * player_id > 0 : hub is owned by this player.
+ * player_id = 0 : hub is listed on the system market.
+ * tenant_player_id > 0 : hub is rented by this player.
+ * tenant_player_id = 0 : hub is available for sale or rent.
  */
 class HubAcquisitionService
 {
@@ -56,10 +55,9 @@ class HubAcquisitionService
         $regionMult = max(0.1, (float)$this->hubSvc->cfg('region', $regionId . '.build_cost_mult', '1.0'));
         $cost       = round((float)$defaults['build_cost'] * $regionMult * (float)$acqDefault['build_cost_mult'], 2);
 
-        // Bramka P2a: zezwolenie na hub wymagane jesli hub_permit_enabled=1 w regionie.
-        // P2a gate: hub permit required if hub_permit_enabled=1 in the region (fail-closed).
+        // P2a gate: hub permit required if hub_permit_enabled=1 in the region.
         if (!$this->hasHubPermitOrNotRequired($playerId, $regionId)) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
+            return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
         }
 
         $cashCheck = $this->checkAndDeductCash($playerId, $cost, tPlain('bank.tx_hub_build_new'));
@@ -142,9 +140,9 @@ class HubAcquisitionService
             return ['success' => false, 'error' => 'hub_unavailable'];
         }
 
-        // Bramka P2a: zezwolenie na hub wymagane / P2a permit gate (fail-closed).
+        // P2a gate: hub permit required if hub_permit_enabled=1 in the region.
         if (!$this->hasHubPermitOrNotRequired($playerId, (int)$hub['region_id'])) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
+            return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => (int)$hub['region_id']];
         }
 
         $cost = (float)($hub['acquisition_price'] > 0 ? $hub['acquisition_price'] : $hub['build_cost']);
@@ -220,9 +218,9 @@ class HubAcquisitionService
             return ['success' => false, 'error' => 'hub_unavailable'];
         }
 
-        // Bramka P2a: zezwolenie na hub wymagane / P2a permit gate (fail-closed).
+        // P2a gate: hub permit required if hub_permit_enabled=1 in the region.
         if (!$this->hasHubPermitOrNotRequired($playerId, (int)$hub['region_id'])) {
-            return ['success' => false, 'error' => 'no_hub_permit'];
+            return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => (int)$hub['region_id']];
         }
 
  // Deposit = 3 ticks of full lease fee (non-refundable)
@@ -469,11 +467,9 @@ class HubAcquisitionService
     }
 
     /**
-     * Bramka P2a: czy gracz moze nabyc hub w tym regionie?
-     * P2a gate: can the player acquire a hub in this region?
-     * Zwraca TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub
-     * brak rekordu w legal_region_config) LUB gracz ma status 'granted'.
-     * Fail-closed: kazdy blad bazy zwraca FALSE.
+     * P2a gate: checks whether the player can acquire a hub in this region.
+     * Returns true when permit enforcement is off or the player has a granted permit.
+     * Database errors are fail-closed.
      */
     private function hasHubPermitOrNotRequired(int $playerId, int $regionId): bool
     {
@@ -484,8 +480,7 @@ class HubAcquisitionService
             $cfgStmt->execute([$regionId]);
             $cfg = $cfgStmt->fetch();
 
-            // Brak rekordu lub flaga off — nie wymagamy zezwolenia.
-            // No record or flag off — permit not required.
+            // No record or flag off - permit not required.
             if (!$cfg || (int)$cfg['hub_permit_enabled'] !== 1) {
                 return true;
             }
@@ -497,7 +492,7 @@ class HubAcquisitionService
             $permStmt->execute([$playerId, $regionId]);
             return (bool)$permStmt->fetchColumn();
         } catch (Throwable $e) {
-            GameLog::warn('HubAcquisitionService', 'Hub permit gate failed — blocking (fail-closed)', [
+            GameLog::warn('HubAcquisitionService', 'Hub permit gate failed - blocking (fail-closed)', [
                 'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
             ]);
             return false;

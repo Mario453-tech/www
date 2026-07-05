@@ -1,6 +1,6 @@
 /**
- * logistics_hubs.js obsuga moduu hubw logistycznych.
- * Zaley od: HUB_API, HUB_CSRF, HUB_LANG (zdefiniowane w templates/views/logistics/main.php)
+ * Logistics hubs UI actions.
+ * Depends on HUB_API, HUB_CSRF and HUB_LANG from templates/views/logistics/main.php.
  */
 (function () {
     'use strict';
@@ -28,10 +28,49 @@
         window.alertWarning(msg, lang().title_warning || 'Uwaga');
     }
 
- // Modal braku zezwolenia na prace lokalne (3 przyciski) / Local permit required modal (3 buttons)
-    function hubPermitModal(msg) {
+    function legalPermitUrl(ctx) {
         const l = lang();
-        const url = l.permit_url || '/legal.php';
+        const url = new URL(l.permit_url || '/legal.php', window.location.origin);
+        if (ctx && ctx.permit_type) {
+            url.searchParams.set('permit_type', ctx.permit_type);
+        }
+        if (ctx && Number(ctx.region_id) > 0) {
+            url.searchParams.set('region_id', String(Number(ctx.region_id)));
+        }
+        return url.pathname + url.search + url.hash;
+    }
+
+    function submitLegalPermit(ctx) {
+        if (!ctx || !ctx.permit_action || Number(ctx.region_id) <= 0) {
+            window.location.href = legalPermitUrl(ctx || {});
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = legalPermitUrl(ctx);
+        form.style.display = 'none';
+
+        [
+            ['csrf_token', csrf()],
+            ['action', ctx.permit_action],
+            ['region_id', String(Number(ctx.region_id))]
+        ].forEach(([name, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // Local permit required modal with direct application support.
+    function hubPermitModal(msg, context = {}) {
+        const l = lang();
+        const url = legalPermitUrl(context);
         if (typeof window.alertWithActions === 'function') {
             window.alertWithActions(
                 msg,
@@ -45,7 +84,7 @@
                     {
                         label:   l.permit_btn_apply || 'Zloz wniosek',
                         cls:     'modal-btn--confirm',
-                        onClick: function () { window.location.href = url; },
+                        onClick: function () { submitLegalPermit(context); },
                     },
                     {
                         label:   l.permit_btn_legal || 'Dzial prawny',
@@ -562,7 +601,7 @@
         const accessFee    = btn ? parseFloat(btn.dataset.acqAccessFee || 0) : 0;
         const fmt          = (v) => v.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
- // 1. Ostrzezenie kondycji (stan krytyczny / zly) / Condition warning
+        // Condition warning.
         if (condWarnType) {
             const warnMsg = condWarnType === 'critical'
                 ? (lang().warn_condition_critical || 'Hub w stanie krytycznym! Wysokie koszty i ryzyko strat.')
@@ -570,14 +609,14 @@
             if (!await hubConfirm(warnMsg)) return;
         }
 
- // 2. Ujednolicone potwierdzenie kosztow dla wszystkich typow / Unified cost confirmation
+        // Unified cost confirmation for all acquisition types.
         const hasAnyCost = accessFee > 0 || leaseFee > 0 || fee > 0;
         if (hasAnyCost) {
             const acqLabel  = lang()['acq_' + acqType] || acqType;
             const perTick   = lang().confirm_per_tick || 'PLN/tick';
             let lines = [];
             lines.push(lang().confirm_assign_costs || 'Podsumowanie kosztow przypisania:');
-            lines.push('▪ ' + acqLabel.toUpperCase());
+            lines.push('- ' + acqLabel.toUpperCase());
             if (accessFee > 0) {
                 lines.push((lang().confirm_access_fee || 'Oplata przylaczeniowa (jednorazowo') + ': ' + fmt(accessFee) + ' PLN');
             }
@@ -609,7 +648,7 @@
                 await hubDialog(successMsg, 'success');
                 reloadAfterAction();
             } else if (res.error_code === 'no_hub_permit') {
-                hubPermitModal(res.error || lang().err_generic);
+                hubPermitModal(res.error || lang().err_generic, res);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }
@@ -618,7 +657,7 @@
         }
     };
 
- // Transfer odwiertu midzy hubami (modal) 
+    // Well transfer modal between hubs.
 
     window.hubTransferModal = async function (wellId, currentHubId) {
         const body = document.getElementById('hub-transfer-modal-body');
@@ -662,7 +701,7 @@
                         ? `<span class="c-warn">  ${lang().cond_low_short || 'Zy stan'}</span>`
                         : '';
 
- // Acquisition type badge + breakdown (jak w hubAssignModal)
+                // Acquisition type badge and cost breakdown.
                 const tAcqType  = entry.acq_type || h.acquisition_type || 'new';
                 const tAcqLabel = lang()['acq_' + tAcqType] || tAcqType;
                 const tWear     = parseFloat(entry.acq_wear_mult || 1);
@@ -711,15 +750,15 @@
         const accessFee = btn ? parseFloat(btn.dataset.acqAccessFee || 0) : 0;
         const fmt       = (v) => v.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
- // Ujednolicone potwierdzenie kosztow przy transferze / Unified cost confirmation on transfer
- // accessFee shown for info only - transfer does not charge a new connection fee
+        // Unified cost confirmation on transfer.
+        // accessFee shown for info only - transfer does not charge a new connection fee
         const hasAnyCost = leaseFee > 0 || accessFee > 0;
         if (hasAnyCost) {
             const acqLabel = lang()['acq_' + acqType] || acqType;
             const perTick  = lang().confirm_per_tick || 'PLN/tick';
             let lines = [];
             lines.push(lang().confirm_assign_costs || 'Podsumowanie kosztow przypisania:');
-            lines.push('▪ ' + acqLabel.toUpperCase() + ' (TRANSFER)');
+            lines.push('- ' + acqLabel.toUpperCase() + ' (TRANSFER)');
             if (accessFee > 0) {
                 lines.push((lang().confirm_access_fee || 'Oplata przylaczeniowa') + ': ' + fmt(accessFee) + ' PLN');
             }
@@ -752,11 +791,11 @@
         }
     };
 
- // Rynek hubow: kupno / wynajem / Hub market: buy / rent
+    // Hub market: buy and rent actions.
 
     const fmtPln = (v) => Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
- // Kup uzywany hub z rynku / Buy a used market hub
+    // Buy a used market hub.
     window.hubBuyUsed = async function (hubId) {
         const btn   = document.querySelector(`article[data-hub-id="${hubId}"] .logistics-hub-buy-btn`);
         const name  = btn ? (btn.dataset.hubName  || '') : '';
@@ -772,7 +811,7 @@
                 await hubDialog(res.message || lang().market_ok_buy, 'success');
                 reloadAfterAction();
             } else if (res.error_code === 'no_hub_permit') {
-                hubPermitModal(res.error || lang().err_generic);
+                hubPermitModal(res.error || lang().err_generic, res);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }
@@ -781,7 +820,7 @@
         }
     };
 
- // Wynajmij hub z rynku / Rent a market hub
+    // Rent a market hub.
     window.hubRent = async function (hubId) {
         const btn      = document.querySelector(`article[data-hub-id="${hubId}"] .logistics-hub-rent-btn`);
         const name     = btn ? (btn.dataset.hubName    || '') : '';
@@ -799,7 +838,7 @@
                 await hubDialog(res.message || lang().market_ok_rent, 'success');
                 reloadAfterAction();
             } else if (res.error_code === 'no_hub_permit') {
-                hubPermitModal(res.error || lang().err_generic);
+                hubPermitModal(res.error || lang().err_generic, res);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }
@@ -808,7 +847,7 @@
         }
     };
 
- // Modal: kup nowy hub / Buy new hub modal
+    // Open the new hub purchase modal.
     window.hubBuyNewModal = function () {
         openHubModal('hub-buy-new-modal');
     };
@@ -847,7 +886,7 @@
                 await hubDialog(res.message || lang().market_ok_buy_new, 'success');
                 reloadAfterAction();
             } else if (res.error_code === 'no_hub_permit') {
-                hubPermitModal(res.error || lang().err_generic);
+                hubPermitModal(res.error || lang().err_generic, res);
             } else {
                 hubDialog(res.error || lang().err_generic, 'error');
             }
@@ -858,7 +897,7 @@
         }
     };
 
- // Browser dostepnych hubow
+    // Available hubs browser.
 
     (function initAvailableHubsBrowser() {
         const browser = document.getElementById('lhb-browser');

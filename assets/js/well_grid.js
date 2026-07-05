@@ -689,7 +689,7 @@ async function wgSetTransportRequest(wellId, transportType, csrf, pipelineType) 
                 location.reload();
             }
         } else if (data.error_code === 'no_hub_permit' && typeof window.hubPermitModal === 'function') {
-            window.hubPermitModal(data.message || data.error || wgt('err_unknown'));
+            window.hubPermitModal(data.message || data.error || wgt('err_unknown'), data);
         } else {
             alertError(data.message || data.error || wgt('err_unknown'));
         }
@@ -757,7 +757,7 @@ async function wgSetOutboundTransportRequest(wellId, transportType, csrf) {
                 location.reload();
             }
         } else if (data.error_code === 'no_hub_permit' && typeof window.hubPermitModal === 'function') {
-            window.hubPermitModal(data.message || data.error || wgt('err_unknown'));
+            window.hubPermitModal(data.message || data.error || wgt('err_unknown'), data);
         } else {
             alertError(data.message || data.error || wgt('err_unknown'));
         }
