@@ -48,14 +48,41 @@ final class OutboundLegServiceTest extends BaseTestCase
         $this->assertEqualsWithDelta(150.0, $res['cost'], 0.01);
     }
 
-    public function testPipelineNonOperationalIsDirect(): void
+    public function testPipelineBuildingIsDirect(): void
     {
+        // building/suspended (nie-uszkodzenie) -> direct jak dotad / building/suspended -> direct as before
         $svc  = new OutboundLegService($this->config());
-        $pipe = ['_is_operational' => false, 'transport_loss' => 5.0, 'opex_per_tick' => 100.0];
+        $pipe = ['_is_operational' => false, 'status' => 'building', 'transport_loss' => 5.0, 'opex_per_tick' => 100.0];
         $res  = $svc->compute('rurociag', $pipe, 200.0, 70.0, $this->mults());
 
         $this->assertSame('direct', $res['kind']);
         $this->assertSame(0.0, $res['cost']);
+    }
+
+    // H3: uszkodzony/wylaczony rurociag wylotowy ZATRZYMUJE przeplyw (cala ropa wraca do
+    // bufora hubu jako excess_bbl), nie dostarcza za darmo. / H3: a damaged/disabled outbound
+    // pipeline STOPS the flow (all oil returns to the hub buffer as excess_bbl), not free delivery.
+    public function testDamagedPipelineBlocksFlow(): void
+    {
+        $svc  = new OutboundLegService($this->config());
+        $pipe = ['_is_operational' => false, 'status' => 'damaged', 'transport_loss' => 5.0, 'opex_per_tick' => 100.0];
+        $res  = $svc->compute('rurociag', $pipe, 200.0, 70.0, $this->mults());
+
+        $this->assertSame('blocked', $res['kind'], 'H3: uszkodzony rurociag nie moze dostarczac');
+        $this->assertEqualsWithDelta(200.0, $res['excess_bbl'], 0.001, 'cala ropa cofnieta do bufora');
+        $this->assertSame(0.0, $res['loss_bbl'], 'brak straty — ropa nie ginie, czeka w buforze');
+        $this->assertSame(0.0, $res['cost'], 'brak darmowej/platnej dostawy');
+        $this->assertSame(0.0, $res['capped_bbl'], 'nic nie dostarczone tym tickiem');
+    }
+
+    public function testDisabledPipelineBlocksFlow(): void
+    {
+        $svc  = new OutboundLegService($this->config());
+        $pipe = ['_is_operational' => false, 'status' => 'disabled', 'transport_loss' => 5.0, 'opex_per_tick' => 100.0];
+        $res  = $svc->compute('rurociag', $pipe, 150.0, 70.0, $this->mults());
+
+        $this->assertSame('blocked', $res['kind']);
+        $this->assertEqualsWithDelta(150.0, $res['excess_bbl'], 0.001);
     }
 
     public function testRoadChargesCostAndBoundedLoss(): void
