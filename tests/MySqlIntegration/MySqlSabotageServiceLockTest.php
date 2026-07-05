@@ -81,7 +81,6 @@ final class MySqlSabotageServiceLockTest extends MySqlIntegrationTestCase
         $lockStmt->execute(['sabotage_exec_' . $attackerId]);
         $this->assertSame(1, (int)$lockStmt->fetchColumn(), 'The helper connection should acquire the attacker lock.');
 
-        $cashBefore = (float)$this->db->prepare('SELECT cash FROM players WHERE id = ?')->execute([$attackerId]);
         $cashBeforeStmt = $this->db->prepare('SELECT cash FROM players WHERE id = ?');
         $cashBeforeStmt->execute([$attackerId]);
         $cashBefore = (float)$cashBeforeStmt->fetchColumn();
