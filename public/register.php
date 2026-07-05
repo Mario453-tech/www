@@ -32,104 +32,23 @@ if ($_POST) {
         } elseif ($password !== $passwordConfirm) {
             $error = t('register.err_password_mismatch');
         } else {
-            $db = Database::getInstance()->getConnection();
-
-            // Uruchom migracje schematu portfela PRZED beginTransaction i PRZED insertem nowego gracza.
-            // addColumnIfMissing moze robic implicit commit wiec musi byc poza transakcja.
-            // Run wallet schema migration BEFORE beginTransaction and BEFORE new player insert.
-            // addColumnIfMissing may do implicit commit so it must be outside any transaction.
-            $walletSvc = null;
-            try {
-                $walletSvc = new WalletService($db);
-            } catch (Throwable $wInitEx) {
-                GameLog::error('register', 'WalletService pre-init FAILED', $wInitEx);
-            }
-
-            $checkEmail = $db->prepare("SELECT id FROM players WHERE email = :email");
-            $checkEmail->execute([':email' => $email]);
-
-            if ($checkEmail->fetch()) {
-                $error = t('register.err_email_taken');
+            $result = Auth::registerPendingVerification($email, $password, $newsletterOptin);
+            if (!$result['success']) {
+                $error = (string)($result['message'] ?? t('register.err_generic'));
             } else {
-                $db->beginTransaction();
-                
-                try {
-                    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+                $playerId = (int)($result['player_id'] ?? 0);
+                $username = (string)($result['username'] ?? '');
 
- // Generuj unikalny username z emaila (czesc przed @)
-                    $baseUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $email)[0]));
-                    $baseUsername = substr($baseUsername ?: 'player', 0, 28);
-                    $username = $baseUsername;
-                    $suffix = 2;
-                    while (true) {
-                        $uCheck = $db->prepare("SELECT id FROM players WHERE username = ? LIMIT 1");
-                        $uCheck->execute([$username]);
-                        if (!$uCheck->fetch()) break;
-                        $username = $baseUsername . $suffix++;
-                    }
-                    
-                    $nlSubscribed   = $newsletterOptin ? 1 : 0;
-                    $nlToken        = bin2hex(random_bytes(16)); // 32-char hex, permanent unsubscribe token
-
-                    $insertPlayer = $db->prepare("
-                        INSERT INTO players
-                            (email, password_hash, username, cash, status, email_verified,
-                             newsletter_subscribed, newsletter_token, created_at, last_tick_at)
-                        VALUES
-                            (:email, :password_hash, :username, 50000, 'active', 0,
-                             :nl_sub, :nl_tok, NOW(), NOW())
-                    ");
-
-                    $insertPlayer->execute([
-                        ':email'         => $email,
-                        ':password_hash' => $passwordHash,
-                        ':username'      => $username,
-                        ':nl_sub'        => $nlSubscribed,
-                        ':nl_tok'        => $nlToken,
-                    ]);
-
-                    $playerId = (int)$db->lastInsertId();
-
- // Magazyn startowy
-                    $insertStorage = $db->prepare("
-                        INSERT INTO storage (player_id, capacity, used, updated_at)
-                        VALUES (:player_id, 200, 0, NOW())
-                    ");
-                    $insertStorage->execute([':player_id' => $playerId]);
-
-                    // Starting wallet: 10,000,000 split 50/50 between cash and bank account.
-                    $db->prepare("
-                        UPDATE players SET cash = 10000000 WHERE id = ?
-                    ")->execute([$playerId]);
-                    $db->commit();
-
-                    // Podziel startowe srodki 50/50 gotowka / konto.
-                    // $walletSvc zostal juz zainicjowany przed transakcja (migracja nie dotknela nowego gracza).
-                    // Split starting funds 50/50 cash / bank.
-                    // $walletSvc was already initialised before the transaction (migration didn't touch new player).
-                    try {
-                        ($walletSvc ?? new WalletService($db))->initNewPlayer($playerId, 10000000.00);
-                    } catch (Throwable $wEx) {
-                        GameLog::error('register', 'WalletService initNewPlayer FAILED', $wEx, [
-                            'player' => $playerId,
-                        ]);
-                    }
-
- // Wyslij e-mail weryfikacyjny (poza transakcja)
+                if ($playerId > 0 && $username !== '') {
                     Auth::sendVerificationEmail($playerId, $email, $username);
-
                     GameLog::info('public/register.php', 'Player registered, verification email sent', [
                         'player_id' => $playerId,
                         'username'  => $username,
                         'email'     => $email,
                     ]);
-
-                    $success = t('register.msg_verify_sent');
-                    
-                } catch (Exception $e) {
-                    $db->rollBack();
-                    $error = t('register.err_generic') . $e->getMessage();
                 }
+
+                $success = t('register.msg_verify_sent');
             }
         }
     }
