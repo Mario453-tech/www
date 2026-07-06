@@ -32,7 +32,7 @@ final class MySqlAuthRegistrationFlowTest extends MySqlIntegrationTestCase
 
     public function testLegacyRegisterUsesSharedWalletAndStorageBootstrap(): void
     {
-        $username = 'phpunit_auth_' . $this->seed;
+        $username = 'pa' . $this->seed;
         $email = $username . '@example.test';
         $this->emailsToCleanup[] = $email;
 
