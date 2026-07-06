@@ -16,9 +16,6 @@ final class ContractTickTest extends SqliteIntegrationTestCase
     private PDO $db;
     private ContractService $service;
 
-    /** Fixed "now" used in all tests — past enough to be deterministic. */
-    private \DateTime $now;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -26,7 +23,6 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->createSchema();
         $this->service = new ContractService($this->db);
         $this->service->setModuleEnabled(true);
-        $this->now = new \DateTime('2025-06-01 12:00:00');
     }
 
     // ================================================================== disabled / no-op
@@ -35,7 +31,7 @@ final class ContractTickTest extends SqliteIntegrationTestCase
     {
         $this->service->setModuleEnabled(false);
 
-        $result = $this->service->processDueContracts($this->now, 100.0);
+        $result = $this->service->processDueContracts(100.0);
 
         $this->assertSame(0, $result['processed']);
         $this->assertSame(0.0, $result['revenue']);
@@ -45,15 +41,15 @@ final class ContractTickTest extends SqliteIntegrationTestCase
     public function testNoDueContractsReturnsZeroStats(): void
     {
         $this->seedPlayer(1, 0.0, 0.0);
-        // Contract is not yet due.
+        // Contract is not yet due — use far-future date so nowString() never triggers it.
         $this->insertContract(1, [
-            'next_delivery_at' => '2025-06-01 18:00:00',
-            'ends_at'          => '2025-06-30 00:00:00',
+            'next_delivery_at' => '2099-12-31 23:59:59',
+            'ends_at'          => '2099-12-31 23:59:59',
             'total_bbl'        => 500.0,
             'delivered_bbl'    => 0.0,
         ]);
 
-        $result = $this->service->processDueContracts($this->now, 100.0);
+        $result = $this->service->processDueContracts(100.0);
 
         $this->assertSame(0, $result['processed']);
     }
@@ -66,14 +62,14 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->seedStorage(1, 100.0);
         $this->insertContract(1, [
             'next_delivery_at' => '2025-06-01 11:00:00',
-            'ends_at'          => '2025-06-30 00:00:00',
+            'ends_at'          => '2099-12-31 00:00:00',
             'total_bbl'        => 500.0,
             'delivered_bbl'    => 0.0,
             'terms_delivery_bbl' => 50.0,
             'terms_penalty_pct'  => 10.0,
         ]);
 
-        $result = $this->service->processDueContracts($this->now, 100.0);
+        $result = $this->service->processDueContracts(100.0);
 
         $this->assertSame(1, $result['processed']);
         // 50 bbl * 100 price = 5000 revenue
@@ -93,14 +89,14 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->seedStorage(1, 20.0); // Only 20 bbl, need 50
         $this->insertContract(1, [
             'next_delivery_at'  => '2025-06-01 11:00:00',
-            'ends_at'           => '2025-06-30 00:00:00',
+            'ends_at'           => '2099-12-31 00:00:00',
             'total_bbl'         => 500.0,
             'delivered_bbl'     => 0.0,
             'terms_delivery_bbl' => 50.0,
             'terms_penalty_pct'  => 10.0,
         ]);
 
-        $result = $this->service->processDueContracts($this->now, 100.0);
+        $result = $this->service->processDueContracts(100.0);
 
         $this->assertSame(1, $result['processed']);
         // 20 delivered * 100 = 2000, 30 missed * 100 * 10% = 300
@@ -120,14 +116,14 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->seedStorage(1, 0.0);
         $this->insertContract(1, [
             'next_delivery_at'  => '2025-06-01 11:00:00',
-            'ends_at'           => '2025-06-30 00:00:00',
+            'ends_at'           => '2099-12-31 00:00:00',
             'total_bbl'         => 500.0,
             'delivered_bbl'     => 0.0,
             'terms_delivery_bbl' => 50.0,
             'terms_penalty_pct'  => 10.0,
         ]);
 
-        $result = $this->service->processDueContracts($this->now, 100.0);
+        $result = $this->service->processDueContracts(100.0);
 
         $this->assertSame(0.0, $result['revenue']);
         // 50 missed * 100 * 10% = 500
@@ -145,14 +141,14 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->seedStorage(1, 50.0);
         $contractId = $this->insertContract(1, [
             'next_delivery_at'  => '2025-06-01 11:00:00',
-            'ends_at'           => '2025-06-30 00:00:00',
+            'ends_at'           => '2099-12-31 00:00:00',
             'total_bbl'         => 500.0,
             'delivered_bbl'     => 0.0,
             'terms_delivery_bbl' => 50.0,
             'terms_penalty_pct'  => 0.0,
         ]);
 
-        $this->service->processDueContracts($this->now, 100.0);
+        $this->service->processDueContracts(100.0);
 
         $delivery = $this->db->query(
             "SELECT * FROM contract_deliveries WHERE player_contract_id = {$contractId}"
@@ -175,14 +171,14 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->seedStorage(1, 200.0); // plenty of oil
         $contractId = $this->insertContract(1, [
             'next_delivery_at'  => '2025-06-01 11:00:00',
-            'ends_at'           => '2025-06-30 00:00:00',
+            'ends_at'           => '2099-12-31 00:00:00',
             'total_bbl'         => 100.0,
             'delivered_bbl'     => 60.0, // 40 remaining
             'terms_delivery_bbl' => 50.0, // but only 40 needed → deliver 40
             'terms_penalty_pct'  => 0.0,
         ]);
 
-        $result = $this->service->processDueContracts($this->now, 100.0);
+        $result = $this->service->processDueContracts(100.0);
 
         $this->assertSame(1, $result['completed']);
         $this->assertSame(0, $result['failed']);
@@ -208,7 +204,7 @@ final class ContractTickTest extends SqliteIntegrationTestCase
             'terms_penalty_pct'  => 0.0,
         ]);
 
-        $result = $this->service->processDueContracts($this->now, 100.0);
+        $result = $this->service->processDueContracts(100.0);
 
         $this->assertSame(1, $result['failed']);
         $this->assertSame(0, $result['completed']);
@@ -227,14 +223,14 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->seedStorage(1, 50.0);
         $contractId = $this->insertContract(1, [
             'next_delivery_at'  => '2025-06-01 11:00:00',
-            'ends_at'           => '2025-06-30 00:00:00',
+            'ends_at'           => '2099-12-31 00:00:00',
             'total_bbl'         => 500.0,
             'delivered_bbl'     => 0.0,
             'terms_delivery_bbl' => 50.0,
             'terms_penalty_pct'  => 0.0,
         ]);
 
-        $this->service->processDueContracts($this->now, 100.0);
+        $this->service->processDueContracts(100.0);
 
         $events = $this->db->query(
             "SELECT event_key FROM contract_logs WHERE player_contract_id = {$contractId}"
@@ -258,13 +254,16 @@ final class ContractTickTest extends SqliteIntegrationTestCase
             'terms_delivery_interval_minutes' => 120,
         ]);
 
-        $this->service->processDueContracts($this->now, 100.0);
+        $before = time();
+        $this->service->processDueContracts(100.0);
 
         $nextDelivery = $this->db->query(
             "SELECT next_delivery_at FROM player_contracts WHERE id = {$contractId}"
         )->fetchColumn();
-        // now + 120 minutes = 2025-06-01 14:00:00
-        $this->assertSame('2025-06-01 14:00:00', (string)$nextDelivery);
+        // next_delivery_at must be approximately $before + 120 minutes (± 5 s tolerance).
+        $diff = strtotime((string)$nextDelivery) - $before;
+        $this->assertGreaterThanOrEqual(120 * 60, $diff,     'next_delivery_at must advance by at least 120 min');
+        $this->assertLessThanOrEqual(120 * 60 + 5, $diff,   'next_delivery_at must not advance by more than 120 min + 5 s');
     }
 
     // ================================================================== helpers

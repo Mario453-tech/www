@@ -280,13 +280,15 @@ class ContractService
      *
      * @return array{processed:int,completed:int,failed:int,revenue:float,penalties:float}
      */
-    public function processDueContracts(\DateTime $now, float $marketPrice): array
+    public function processDueContracts(float $marketPrice): array
     {
         if (!$this->isModuleEnabled()) {
             return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0];
         }
 
-        $nowStr = $now->format('Y-m-d H:i:s');
+        // Uzyj zegara MySQL, tak jak nowString() — porownujemy z next_delivery_at zapisanym przez MySQL NOW().
+        // Use MySQL clock, same as nowString() — comparing against next_delivery_at written by MySQL NOW().
+        $nowStr = $this->nowString();
         try {
             $stmt = $this->db->prepare(
                 "SELECT * FROM player_contracts
@@ -312,8 +314,10 @@ class ContractService
 
         foreach ($contracts as $contract) {
             try {
-                $r = $this->processOneDueContract($contract, $now, $marketPrice);
-                $processed++;
+                $r = $this->processOneDueContract($contract, $nowStr, $marketPrice);
+                if ($r['new_status'] !== 'skipped') {
+                    $processed++;
+                }
                 $revenue   += $r['revenue'];
                 $penalties += $r['penalty'];
                 if ($r['new_status'] === 'completed') {
@@ -341,11 +345,10 @@ class ContractService
      * @param array<string,mixed> $contract
      * @return array{revenue:float,penalty:float,new_status:string}
      */
-    private function processOneDueContract(array $contract, \DateTime $now, float $marketPrice): array
+    private function processOneDueContract(array $contract, string $nowStr, float $marketPrice): array
     {
         $contractId = (int)$contract['id'];
         $playerId   = (int)$contract['player_id'];
-        $nowStr     = $now->format('Y-m-d H:i:s');
         $forUpdate  = $this->driver() === 'sqlite' ? '' : ' FOR UPDATE';
 
         $this->db->beginTransaction();
@@ -409,8 +412,10 @@ class ContractService
 
             $this->fts ??= new FinancialTransactionService($this->db);
 
+            // Rzuc wyjatek przy bledzie FTS — storage juz odjete, wiec blad musi cofnac cala transakcje.
+            // Throw on FTS failure — storage already deducted, so any error must roll back the whole TX.
             if ($revenue > 0.0) {
-                $this->fts->credit(
+                $cr = $this->fts->credit(
                     $playerId,
                     $revenue,
                     FinancialTransactionService::TYPE_CONTRACT_SALE,
@@ -418,9 +423,12 @@ class ContractService
                     'contract',
                     $contractId
                 );
+                if (!$cr['success']) {
+                    throw new \RuntimeException('FTS credit failed: ' . ($cr['error'] ?? 'unknown'));
+                }
             }
             if ($penalty > 0.0) {
-                $this->fts->debitCombined(
+                $dr = $this->fts->debitCombined(
                     $playerId,
                     $penalty,
                     FinancialTransactionService::TYPE_CONTRACT_PENALTY,
@@ -428,6 +436,9 @@ class ContractService
                     'contract',
                     $contractId
                 );
+                if (!$dr['success']) {
+                    throw new \RuntimeException('FTS debitCombined failed: ' . ($dr['error'] ?? 'unknown'));
+                }
             }
 
             // Wpis historii dostawy / Delivery record.
