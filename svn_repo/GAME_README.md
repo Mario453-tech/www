@@ -8,6 +8,25 @@
 - **LOW** — `src/ContractService.php`: `max_active_per_player = 0` traktowane jako „bez limitu" (`$maxActive > 0 && count >= $maxActive`) zamiast efektywnego minimum 1 przez `max(1, ...)`. Admin może teraz wyłączyć limit przez ustawienie 0.
 - **LOW** — `src/Contracts/ContractSchema.php`: `ensure()` wywołany wewnątrz otwartej transakcji zamiast rzucać `RuntimeException` cicho wraca (`return`) — DDL i tak nie może działać w transakcji MySQL, a `ContractService::__construct` jest bezpieczniej wywoływać z dowolnego miejsca.
 
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 3 — rozliczanie dostaw (processDueContracts)
+
+**Silnik tikowy kontraktów: pobieranie ropy z magazynu, finansowe rozliczenie, historia dostaw.**
+
+- `src/ContractService.php` — `processDueContracts(\DateTime $now, float $marketPrice)`: iteruje po aktywnych kontraktach z `next_delivery_at <= now`, przetwarza każdy w `processOneDueContract` i zwraca zagregowane statystyki (`processed/completed/failed/revenue/penalties`).
+- `processOneDueContract`: pojedyncza transakcja z blokadą `FOR UPDATE` na graczu i magazynie; dedukcja ropy (`GREATEST(0, used - bbl)`); FTS `credit(contract_sale)` i `debitCombined(contract_penalty)` gdy niezerowe; INSERT do `contract_deliveries` (due_at = stary termin, status: `delivered/partial/missed`); UPDATE `player_contracts`: `delivered_bbl`, `missed_bbl`, `next_delivery_at` + `datePlusMinutes(now, interval)`, status (`active`→`completed`/`failed`).
+- `src/Contracts/ContractQueryTrait.php` — dodano `calculatePrice(terms, marketPrice)`: obsługuje tryby `fixed`, `market_multiplier` i `market_plus_bonus` na podstawie snapshottu `terms_json`.
+- `tests/Integration/ContractTickTest.php` — 10 testów integracyjnych: pelna/czesciowa/pominięta dostawa, zakończenie i niepowodzenie kontraktu, wpis `contract_deliveries`, log zdarzenia, przesunięcie `next_delivery_at`.
+- Blokady `FOR UPDATE` pominięte dla SQLite (driver guard); SQLite otrzymuje `GREATEST`/`NOW()` przez custom functions.
+
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 2 — finanse kontraktów (FTS + WalletConfig + lang)
+
+**Trzy nowe typy FTS, routing do puli bankowej i klucze językowe niezbędne do rozliczania dostaw.**
+
+- `src/FinancialTransactionService.php` — dodano stałe `TYPE_CONTRACT_SALE`, `TYPE_CONTRACT_PENALTY`, `TYPE_CONTRACT_BONUS`; wpisane do `ALLOWED_TYPES`.
+- `src/WalletConfig.php` — wszystkie trzy typy kontraktowe zmapowane na `POOL_BANK`; przychód i kara trafiają na `bank_balance`, nie na gotówkę.
+- `lang/pl/bank.php` + `lang/en/bank.php` — klucze `bank.account.type.contract_*` (etykiety historii) i `bank.tx_contract_*` (opisy transakcji z placeholderem `#:id`).
+- `tests/Integration/ContractFinancesTest.php` — 11 testów: stałe FTS, routing pul, `credit` → `bank_balance`, `debitCombined` bank-first, polskie klucze lang.
+
 ### 2026-07-06 - Tick runda 5: etap L (L1-L8) — drobne bugi brzegowe silnika ticku
 
 **Ostatni, odłożony etap analizy rundy 5: 8 drobnych bugów (niski priorytet — nieoptymalne albo błędne w rzadkich/brzegowych sytuacjach, głównie po przerwie crona). Klasy L3/L4/L7 to dokładnie reguły #13 (deltaHours) i #14 (timezone) skodyfikowane w CLAUDE.md.**
