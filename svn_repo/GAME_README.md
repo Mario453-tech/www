@@ -1,5 +1,23 @@
 ## Changelog
 
+### 2026-07-06 - Tick engine: podpięcie CredibilityModule przez registry
+
+**Pierwszy realny krok migracji ticka na moduły: tylko sekcja wiarygodności firmy działa teraz przez `TickRegistry`, bez zmiany kolejności pozostałych sekcji.**
+
+- `cron/tick.php` - sekcja `WIARYGODNOSC FIRMY` pobiera `CredibilityModule` przez `TickRegistry::find('credibility')`.
+- `CredibilityModule` nadal używa istniejącego `CredibilitySection`, więc logika biznesowa wiarygodności nie została przepisana.
+- Przed zmianą wykonano backup: `backups/2026-07-06_02-12-45_tick.php.bak`.
+
+### 2026-07-06 - Tick engine: fundament modularizacji bez zmiany działania
+
+**Dodano warstwę przygotowującą tick do przyszłych modułów, bez podpinania jej do `cron/tick.php`. Obecna kolejność ticka i zachowanie gry pozostają bez zmian.**
+
+- `src/Tick/TickModule.php` - wspólny kontrakt modułu ticka (`key`, `order`, `run`, `stats`).
+- `src/Tick/TickContext.php` - wspólny kontekst ticka: połączenie DB, czas, źródło, cena ropy, trend, mnożniki i statystyki modułów.
+- `src/Tick/TickRegistry.php` - loader modułów z `src/Tick/Modules/`, z deterministycznym sortowaniem po `order()` i `key()`.
+- `src/Tick/Modules/CredibilityModule.php` - cienki adapter na istniejący `CredibilitySection`; logika biznesowa nie została przeniesiona ani skopiowana.
+- `tests/Unit/TickRegistryTest.php` - testy odkrywania modułów, sortowania i filtrowania po kluczach.
+
 ### 2026-07-05 - Tick runda 5: analiza i naprawa bugów silnika ticku (12 bugów, każdy z testem)
 
 **Głęboka analiza całego systemu ticku (6 równoległych finderów + weryfikacja każdego znaleziska w kodzie) i naprawa potwierdzonych bugów w 4 etapach. Każdy fix z testem regresyjnym; bez zmian schematu produkcyjnego DB. Testy: 490 zielonych.**

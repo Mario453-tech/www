@@ -29,6 +29,7 @@ require_once __DIR__ . '/../src/LegalService.php';
 require_once __DIR__ . '/../src/Tick/CredibilitySection.php';
 require_once __DIR__ . '/../src/Tick/LegalSection.php';
 require_once __DIR__ . '/../src/Tick/TrainingSection.php';
+require_once __DIR__ . '/../src/Tick/TickRegistry.php';
 
 // Opcjonalne serwisy
 $bankNegAvailable       = file_exists(__DIR__ . '/../src/BankNegotiationService.php');
@@ -249,12 +250,22 @@ try {
 
 $credibilityCleanBonuses = 0;
 try {
-    $credibility = new CredibilitySection($db, $now);
-    $credibility->run();
-    $credibilityCleanBonuses = $credibility->cleanBonuses;
-    if ($credibilityCleanBonuses > 0) {
-        GameLog::info('tick', "Wiarygodnosc firmy: przyznano {$credibilityCleanBonuses} bonusow za czysty okres");
+    $tickCtx = new TickContext($db, $now, $source, $startTime);
+    $tickCtx->setMarketState($newPrice, $activeTrend, $isNewTrend);
+    $tickCtx->balanceMults = $gBalanceMults;
+    $tickCtx->bankNegAvailable = $bankNegAvailable;
+    $tickCtx->bankruptcyAvailable = $bankruptcyAvailable;
+
+    $credibilityModule = TickRegistry::find('credibility');
+    if ($credibilityModule === null) {
+        throw new RuntimeException('CredibilityModule not found');
     }
+
+    $credibilityModule->run($tickCtx);
+    $tickCtx->mergeStats($credibilityModule->key(), $credibilityModule->stats());
+
+    $credibilityStats = $credibilityModule->stats();
+    $credibilityCleanBonuses = (int)($credibilityStats['clean_bonuses'] ?? 0);
 } catch (Throwable $e) {
     GameLog::error('tick', 'Credibility section FAILED', $e);
 }
