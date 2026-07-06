@@ -25,6 +25,7 @@ return [
     'admin.nav.incidents' => 'Incidents',
     'admin.nav.legal' => 'Drilling permits',
     'admin.nav.bribery' => 'Bribery',
+    'admin.nav.contracts' => 'Long-term contracts',
     'admin.nav.loans' => 'Bank / Loans',
     'admin.nav.logistics_hubs' => 'Logistics hubs',
     'admin.nav.logout' => 'Log out',
