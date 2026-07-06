@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-06 - Kontrakty długoterminowe P1: poprawki po code review (MEDIUM + 2×LOW)
+
+**Naprawiono trzy bugi znalezione przez code review fundament P1 kontraktów.**
+
+- **MEDIUM** — `src/Contracts/ContractQueryTrait.php`: `nowString()` teraz pobiera `NOW()` z MySQL zamiast PHP `date()` — eliminuje skew stref PHP vs MySQL przy zapisach `starts_at`/`next_delivery_at`/`ends_at`/`created_at` (reguła #14). SQLite (testy) bez zmian — zegar PHP jest tam spójny.
+- **LOW** — `src/ContractService.php`: `max_active_per_player = 0` traktowane jako „bez limitu" (`$maxActive > 0 && count >= $maxActive`) zamiast efektywnego minimum 1 przez `max(1, ...)`. Admin może teraz wyłączyć limit przez ustawienie 0.
+- **LOW** — `src/Contracts/ContractSchema.php`: `ensure()` wywołany wewnątrz otwartej transakcji zamiast rzucać `RuntimeException` cicho wraca (`return`) — DDL i tak nie może działać w transakcji MySQL, a `ContractService::__construct` jest bezpieczniej wywoływać z dowolnego miejsca.
+
 ### 2026-07-06 - Tick runda 5: etap L (L1-L8) — drobne bugi brzegowe silnika ticku
 
 **Ostatni, odłożony etap analizy rundy 5: 8 drobnych bugów (niski priorytet — nieoptymalne albo błędne w rzadkich/brzegowych sytuacjach, głównie po przerwie crona). Klasy L3/L4/L7 to dokładnie reguły #13 (deltaHours) i #14 (timezone) skodyfikowane w CLAUDE.md.**
@@ -14,6 +22,23 @@
 - **L8** — `src/Tick/WellHubSection.php`: incydent huba liczy `extra_loss` od faktycznie dostarczonej ropy — leg wylotowy uruchamiany PRZED incydentem, a baza straty pomniejszona o nadmiar wracający do bufora (throttling przepustowości). Wcześniej lekko przeszacowywał stratę, gdy incydent i throttling wypadły w tym samym ticku.
 
 Testy: pełny zestaw Unit+Integration (SQLite) zielony; ścieżki MySQL (L2/L3/L5) weryfikowane przez CI `php-tests.yml` na żywej bazie MySQL 8 przy pushu.
+
+### 2026-07-06 - Kontrakty długoterminowe P1: fundament danych i serwisu
+
+**Dodano bezpieczny fundament kontraktów długoterminowych bez podpinania do ticka, UI, finansów ani logistyki. Ten etap przygotowuje moduł pod późniejsze rozliczanie dostaw ropy z magazynu.**
+
+- `src/Contracts/ContractSchema.php` - idempotentny schemat 5 tabel: `contract_options`, `contract_terms`, `player_contracts`, `contract_deliveries`, `contract_logs`.
+- `src/ContractService.php` - serwis P1 do włączania modułu, pobierania ofert, podpisywania i anulowania kontraktów; bez efektów finansowych i bez zmian w produkcji.
+- `src/Contracts/ContractQueryTrait.php` - listy kontraktów/dostaw/logów oraz prywatne helpery serwisu; główny plik `ContractService.php` zostaje krótki i mieści się w standardzie podziału plików.
+- Seed P1 dodaje 3 domyślne kontrakty magazynowe: lokalna rafineria, sieć paliwowa i koncern przemysłowy.
+- Moduł jest domyślnie wyłączony przez `well_config.contracts_module_enabled`; można go włączyć bez zmiany kodu.
+- Walidacja P1 obejmuje: aktywność oferty, kontekst `storage_oil_delivery`, minimalną wiarygodność firmy, poziom działu prawnego, wymagane parametry kontraktu i limit aktywnych kontraktów gracza.
+- Po code review dodano ochronę przed równoległym podpisaniem kontraktów: serwis blokuje wiersz gracza i sprawdza limit aktywnych kontraktów w tej samej transakcji.
+- `acceptContract()` i `cancelContract()` respektują zewnętrzne transakcje - nie commitują ani nie rollbackują transakcji otwartej przez caller.
+- Walidacja odrzuca nieistniejącego gracza, nie zwraca cache'owanych ofert i używa spójnego czasu PHP do sprawdzania `expires_at`.
+- Seed dużego kontraktu poprawiono tak, żeby harmonogram dostaw domykał pełny wolumen bez resztówki.
+- `lang/pl/contracts.php`, `lang/en/contracts.php`, `lang/pl.php`, `lang/en.php` - dodano tłumaczenia `contracts.*`, żeby przyszłe UI/API nie pokazywało surowych kluczy.
+- `tests/Integration/ContractServiceTest.php` - testy schematu, seeda, flagi modułu, listy ofert, podpisania, brakującego gracza, blokad wiarygodności/prawnego, limitu, transakcji zewnętrznych i anulowania.
 
 ### 2026-07-06 - Tick engine: podpięcie CredibilityModule przez registry
 

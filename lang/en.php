@@ -18,6 +18,7 @@ $lang = array_replace($lang, require __DIR__ . '/en/bribery.php');
 $lang = array_replace($lang, require __DIR__ . '/en/board.php');
 $lang = array_replace($lang, require __DIR__ . '/en/bank.php');
 $lang = array_replace($lang, require __DIR__ . '/en/components.php');
+$lang = array_replace($lang, require __DIR__ . '/en/contracts.php');
 $lang = array_replace($lang, require __DIR__ . '/en/credibility.php');
 $lang = array_replace($lang, require __DIR__ . '/en/director.php');
 $lang = array_replace($lang, require __DIR__ . '/en/finance.php');
