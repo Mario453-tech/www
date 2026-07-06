@@ -278,4 +278,52 @@ final class MySqlMarineDeliverySectionTest extends MySqlIntegrationTestCase
         $this->assertSame(0,   $section->delayedDeliveries);
         $this->assertSame(0,   $section->queuedDeliveries);
     }
+
+ //
+ // L2: limit kolejki portu jest per-gracz — pelna kolejka jednego gracza nie glodzi innych
+ // L2: port queue limit is per-player — one player's full queue must not starve others
+ //
+
+    public function testPortQueueLimitIsPerPlayer(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'tankowiec');
+
+        // Port z queue_limit = 1.
+        $this->insertPort(77, 'active', 1);
+
+        // Kolejka portu wypelniona przez INNEGO gracza (1/1). Przy liczeniu wspolnym (bug L2)
+        // zablokowaloby to naszego gracza; przy liczeniu per-gracz nasz licznik = 0.
+        // Port queue filled by a DIFFERENT player (1/1). With shared counting (the L2 bug) this
+        // would block our player; with per-player counting our own count is 0.
+        $otherPlayerId = $playerId + 4242424;
+        $this->db->prepare(
+            "INSERT INTO port_queue (port_id, delivery_id, player_id, volume_bbl, queued_at, status)
+             VALUES (?, ?, ?, 10.0000, NOW(), 'waiting')"
+        )->execute([$this->portId, $this->seed + 98, $otherPlayerId]);
+
+        $etaPast = (new \DateTime('-1 hour'))->format('Y-m-d H:i:s');
+        $delivId = $this->insertDelivery($playerId, $ids['wellId'], 30.0, 'in_transit', $etaPast, $this->portId);
+
+        $section = new MarineDeliverySection($this->db, new \DateTime());
+        // failure_reduction=0.0 zeruje losowe incydenty => test deterministyczny (jak w testach obok).
+        // failure_reduction=0.0 zeroes random incidents => deterministic (as in neighbouring tests).
+        $section->process($playerId, ['catastrophe_mult' => 0.0, 'failure_reduction' => 0.0], 1.0);
+
+        $row = $this->fetchDelivery($delivId);
+
+        // Nasz gracz NIE jest opozniony przez kolejke innego gracza — dostawa trafia do kolejki.
+        // Our player is NOT delayed by another player's queue — the delivery is queued.
+        $this->assertSame('waiting_for_port', $row['status'], 'Per-gracz: dostawa nie jest delayed przez kolejke innego gracza');
+
+        $queued = $this->db->prepare('SELECT COUNT(*) FROM port_queue WHERE delivery_id = ? AND player_id = ?');
+        $queued->execute([$delivId, $playerId]);
+        $this->assertSame(1, (int)$queued->fetchColumn(), 'Wpis w port_queue naszego gracza powinien powstac');
+
+        // Sprzatanie wpisu obcego gracza (tearDown czysci tylko po naszym player_id).
+        // Clean up the other player's entry (tearDown only cleans by our player_id).
+        $this->db->prepare('DELETE FROM port_queue WHERE port_id = ? AND player_id = ?')
+            ->execute([$this->portId, $otherPlayerId]);
+    }
 }
