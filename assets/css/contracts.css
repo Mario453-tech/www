@@ -43,11 +43,10 @@
     box-shadow: var(--shadow);
     position: relative;
     overflow: hidden;
-    min-width: 0; /* pozwala kartom się skurczyć w gridzie */
+    min-width: 0;
     transition: border-color .2s, box-shadow .2s;
 }
 
-/* złota linia na górze */
 .contracts-card::before {
     content: '';
     position: absolute;
@@ -81,7 +80,7 @@
     opacity: 1;
 }
 
-/* ── NAGŁÓWEK KARTY ───────────────────────────────────────────────────────── */
+/* ── NAGŁÓWEK KARTY ─────────────────────────────────────────────────────── */
 .contracts-card__head {
     display: flex;
     align-items: flex-start;
@@ -105,7 +104,7 @@
     line-height: 1.5;
 }
 
-/* ── BADGE ────────────────────────────────────────────────────────────────── */
+/* ── BADGE ──────────────────────────────────────────────────────────────── */
 .contracts-badge {
     display: inline-flex;
     align-items: center;
@@ -128,37 +127,38 @@
 .contracts-badge--partial { background: rgba(240, 160, 80, .12);  color: var(--orange); border: 1px solid rgba(240, 160, 80, .35); }
 .contracts-badge--missed  { background: var(--red-dim);          color: var(--red);    border: 1px solid rgba(224, 85, 85, .35); }
 
-/* ── TERMINY ─────────────────────────────────────────────────────────────── */
+/* ── TERMINY (siatka parametrów) ────────────────────────────────────────── */
 .contracts-terms {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0;
-    background: rgba(0, 0, 0, .2);
+    background: rgba(0, 0, 0, .22);
     border-radius: var(--radius);
     border: 1px solid var(--border2);
     overflow: hidden;
 }
 
+/* Każdy term: label nad wartością (flex column) */
 .contracts-term {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 7px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, .04);
+    gap: 3px;
+    padding: 8px 10px;
     min-width: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, .04);
 }
 
 .contracts-term:nth-last-child(-n+2) {
     border-bottom: none;
 }
 
-/* prawa kolumna — subtelna lewa krawędź */
+/* prawa kolumna — subtelna separator */
 .contracts-term:nth-child(even) {
     border-left: 1px solid rgba(255, 255, 255, .04);
 }
 
-/* LABEL (np. "Wolumen łączny") */
-.contracts-term > span:first-child {
+/* LABEL — mały, uppercase, szary */
+.ct-label {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .07em;
@@ -167,24 +167,25 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: block;
 }
 
-/* WARTOŚĆ (liczba / tekst) */
-.contracts-term > strong {
+/* WARTOŚĆ — duża, biała */
+.ct-val {
     font-size: 13px;
     font-weight: 700;
-    color: var(--text);  /* białe, nie szare */
+    color: var(--text);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: block;
 }
 
-/* kolory semantyczne */
-.contracts-term > strong[data-bonus]   { color: var(--green); }
-.contracts-term > strong[data-penalty] { color: var(--red); }
+.ct-val--bonus   { color: var(--green); }
+.ct-val--penalty { color: var(--red); }
 
-/* ── PASEK POSTĘPU ─────────────────────────────────────────────────────── */
+/* ── PASEK POSTĘPU ──────────────────────────────────────────────────────── */
 .contracts-progress {
     height: 6px;
     border-radius: 3px;
@@ -201,7 +202,7 @@
     box-shadow: 0 0 8px var(--gold-glow);
 }
 
-/* ── AKCJE ─────────────────────────────────────────────────────────────── */
+/* ── AKCJE ──────────────────────────────────────────────────────────────── */
 .contracts-action-form {
     margin: 0;
 }
@@ -210,31 +211,20 @@
 .contracts-lock {
     font-size: 12px;
     font-weight: 600;
-    color: var(--warn);  /* żółty */
+    color: var(--warn);
     padding: 8px 10px;
     background: rgba(230, 180, 60, .07);
     border-radius: var(--radius);
     border: 1px dashed rgba(230, 180, 60, .3);
 }
 
-/* ── LISTA DOSTAW + LOGÓW ─────────────────────────────────────────────── */
+/* ── LISTA DOSTAW + LOGÓW ───────────────────────────────────────────────── */
 .contracts-list {
     display: flex;
     flex-direction: column;
     gap: 2px;
     margin-top: 14px;
     overflow-x: auto;
-}
-
-.contracts-list__head.contracts-row {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    color: var(--text3);
-    background: transparent;
-    border-bottom: 1px solid var(--border2);
-    padding-bottom: 6px;
-    margin-bottom: 4px;
 }
 
 .contracts-row {
@@ -250,30 +240,36 @@
 }
 
 .contracts-row span {
-    color: var(--text); /* białe, nie szare */
+    color: var(--text);
+}
+
+.contracts-list__head.contracts-row {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    border-bottom: 1px solid var(--border2);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    background: transparent !important;
+}
+
+.contracts-list__head.contracts-row span {
+    color: var(--text3);
+}
+
+.contracts-row:not(.contracts-list__head):nth-child(even) {
+    background: rgba(255, 255, 255, .02);
 }
 
 .contracts-row:not(.contracts-list__head):hover {
     background: var(--gold-dim);
 }
 
-.contracts-row:nth-child(even):not(.contracts-list__head) {
-    background: rgba(255, 255, 255, .02);
-}
-
-.contracts-row:nth-child(even):not(.contracts-list__head):hover {
-    background: var(--gold-dim);
-}
-
-.contracts-list__head.contracts-row span {
-    color: var(--text3); /* nagłówek kolumny — szary */
-}
-
 .contracts-row--log {
     grid-template-columns: 180px 1fr;
 }
 
-/* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
+/* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
     .contracts-grid {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

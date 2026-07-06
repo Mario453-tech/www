@@ -17,7 +17,6 @@ extract($viewData, EXTR_SKIP);
 $fmtBbl = static fn(float $v): string => number_format($v, 0, ',', "\xc2\xa0");
 $fmtPln = static fn(float $v): string => number_format($v, 2, ',', "\xc2\xa0");
 
-// Minuty -> czytelny czas (godziny lub dni). / Minutes -> human time (hours or days).
 $fmtMinutes = static function (float $minutes): string {
     $minutes = max(0.0, $minutes);
     if ($minutes >= 1440.0) {
@@ -26,19 +25,13 @@ $fmtMinutes = static function (float $minutes): string {
     return number_format($minutes / 60.0, ($minutes / 60.0 == floor($minutes / 60.0)) ? 0 : 1, ',', "\xc2\xa0") . "\xc2\xa0" . tPlain('contracts.unit_hours');
 };
 
-// Wartosc terminu z tablicy terms (getAvailableOptions) lub z terms_json (aktywne kontrakty).
-// Term value from the terms array (getAvailableOptions) or from terms_json (active contracts).
 $termVal = static function (array $terms, string $key): float {
-    if (!isset($terms[$key])) {
-        return 0.0;
-    }
+    if (!isset($terms[$key])) { return 0.0; }
     $entry = $terms[$key];
     return is_array($entry) ? (float)($entry['value'] ?? 0.0) : (float)$entry;
 };
 $termText = static function (array $terms, string $key): string {
-    if (!isset($terms[$key]) || !is_array($terms[$key])) {
-        return '';
-    }
+    if (!isset($terms[$key]) || !is_array($terms[$key])) { return ''; }
     return (string)($terms[$key]['text'] ?? '');
 };
 
@@ -47,19 +40,16 @@ $priceModeLabel = static function (string $mode): string {
     $label = tPlain($langKey);
     return $label !== $langKey ? $label : $mode;
 };
-
 $eventLabel = static function (string $eventKey): string {
     $langKey = 'contracts.event.' . $eventKey;
     $label = tPlain($langKey);
     return $label !== $langKey ? $label : $eventKey;
 };
-
 $statusLabel = static function (string $status): string {
     $langKey = 'contracts.status.' . $status;
     $label = tPlain($langKey);
     return $label !== $langKey ? $label : $status;
 };
-
 $deliveryStatusLabel = static function (string $status): string {
     $langKey = 'contracts.delivery_status.' . $status;
     $label = tPlain($langKey);
@@ -76,8 +66,7 @@ $deliveryStatusLabel = static function (string $status): string {
 <noscript><div class="msg-bar msg-success"><?= htmlspecialchars($success) ?></div></noscript>
 <?php endif ?>
 <?php if ($error || $success): ?>
-<div id="contracts-flash"
-     hidden
+<div id="contracts-flash" hidden
      data-error="<?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>"
      data-success="<?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>"></div>
 <?php endif ?>
@@ -89,10 +78,9 @@ $deliveryStatusLabel = static function (string $status): string {
     <?php endif ?>
 </section>
 
-<!-- == DOSTEPNE KONTRAKTY / AVAILABLE CONTRACTS == -->
+<!-- == DOSTEPNE KONTRAKTY == -->
 <section class="card">
     <h3><?= t('contracts.section_available') ?></h3>
-
     <?php if (empty($available)): ?>
     <p class="contracts-empty"><?= t('contracts.none_available') ?></p>
     <?php else: ?>
@@ -121,16 +109,39 @@ $deliveryStatusLabel = static function (string $status): string {
             <p class="contracts-card__desc"><?= htmlspecialchars((string)$option['description']) ?></p>
             <?php endif ?>
             <div class="contracts-terms">
-                <div class="contracts-term"><span><?= t('contracts.total_volume') ?></span><strong><?= $fmtBbl($totalBbl) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.delivery_volume') ?></span><strong><?= $fmtBbl($deliveryBbl) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.interval') ?></span><strong><?= htmlspecialchars($fmtMinutes($intervalMin)) ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.duration') ?></span><strong><?= htmlspecialchars($fmtMinutes($durationMin)) ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.bonus') ?></span><strong>+<?= $fmtBbl($bonusPct) ?>%</strong></div>
-                <div class="contracts-term"><span><?= t('contracts.penalty') ?></span><strong><?= $fmtBbl($penaltyPct) ?>%</strong></div>
-                <div class="contracts-term"><span><?= t('contracts.price_mode') ?></span><strong><?= htmlspecialchars($priceModeLabel($priceMode)) ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.est_revenue') ?></span><strong><?= $fmtPln($estRevenue) ?></strong></div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.total_volume') ?></span>
+                    <strong class="ct-val"><?= $fmtBbl($totalBbl) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.delivery_volume') ?></span>
+                    <strong class="ct-val"><?= $fmtBbl($deliveryBbl) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.interval') ?></span>
+                    <strong class="ct-val"><?= htmlspecialchars($fmtMinutes($intervalMin)) ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.duration') ?></span>
+                    <strong class="ct-val"><?= htmlspecialchars($fmtMinutes($durationMin)) ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.bonus') ?></span>
+                    <strong class="ct-val ct-val--bonus">+<?= $fmtBbl($bonusPct) ?>%</strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.penalty') ?></span>
+                    <strong class="ct-val ct-val--penalty"><?= $fmtBbl($penaltyPct) ?>%</strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.price_mode') ?></span>
+                    <strong class="ct-val"><?= htmlspecialchars($priceModeLabel($priceMode)) ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.est_revenue') ?></span>
+                    <strong class="ct-val"><?= $fmtPln($estRevenue) ?></strong>
+                </div>
             </div>
-
             <?php if ($met): ?>
             <form method="post" class="contracts-action-form"
                   data-confirm="<?= htmlspecialchars(tPlain('contracts.confirm_sign', ['name' => (string)($option['name'] ?? '')]), ENT_QUOTES, 'UTF-8') ?>"
@@ -138,7 +149,7 @@ $deliveryStatusLabel = static function (string $status): string {
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="accept_contract">
                 <input type="hidden" name="option_id" value="<?= (int)$option['id'] ?>">
-                <button type="submit" class="btn btn-success"><?= t('contracts.btn_sign') ?></button>
+                <button type="submit" class="btn btn-success btn-full"><?= t('contracts.btn_sign') ?></button>
             </form>
             <?php else: ?>
             <div class="contracts-lock">
@@ -159,21 +170,20 @@ $deliveryStatusLabel = static function (string $status): string {
     <?php endif ?>
 </section>
 
-<!-- == AKTYWNE KONTRAKTY / ACTIVE CONTRACTS == -->
+<!-- == AKTYWNE KONTRAKTY == -->
 <section class="card">
     <h3><?= t('contracts.section_active') ?></h3>
-
     <?php if (empty($active)): ?>
     <p class="contracts-empty"><?= t('contracts.none_active') ?></p>
     <?php else: ?>
     <div class="contracts-grid">
         <?php foreach ($active as $contract): ?>
         <?php
-            $total      = (float)($contract['total_bbl'] ?? 0.0);
-            $delivered  = (float)($contract['delivered_bbl'] ?? 0.0);
-            $missed     = (float)($contract['missed_bbl'] ?? 0.0);
+            $total       = (float)($contract['total_bbl'] ?? 0.0);
+            $delivered   = (float)($contract['delivered_bbl'] ?? 0.0);
+            $missed      = (float)($contract['missed_bbl'] ?? 0.0);
             $progressPct = $total > 0.0 ? max(0, min(100, (int)round($delivered / $total * 100))) : 0;
-            $status     = (string)($contract['status'] ?? 'active');
+            $status      = (string)($contract['status'] ?? 'active');
         ?>
         <div class="contracts-card contracts-card--active">
             <div class="contracts-card__head">
@@ -181,18 +191,28 @@ $deliveryStatusLabel = static function (string $status): string {
                 <span class="contracts-badge contracts-badge--status"><?= htmlspecialchars($statusLabel($status)) ?></span>
             </div>
             <div class="contracts-card__desc"><?= t('contracts.buyer') ?>: <?= htmlspecialchars((string)($contract['buyer_name'] ?? '')) ?></div>
-
             <div class="contracts-progress" role="img"
                  aria-label="<?= htmlspecialchars(tPlain('contracts.progress', ['done' => $fmtBbl($delivered), 'total' => $fmtBbl($total)]), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="contracts-progress__bar" style="--bar-w: <?= $progressPct ?>%"></div>
             </div>
             <div class="contracts-terms">
-                <div class="contracts-term"><span><?= t('contracts.delivered') ?></span><strong><?= $fmtBbl($delivered) ?>&nbsp;/&nbsp;<?= $fmtBbl($total) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.missed') ?></span><strong><?= $fmtBbl($missed) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.next_delivery') ?></span><strong><?= htmlspecialchars(substr((string)($contract['next_delivery_at'] ?? ''), 0, 16)) ?></strong></div>
-                <div class="contracts-term"><span><?= t('contracts.ends_at') ?></span><strong><?= htmlspecialchars(substr((string)($contract['ends_at'] ?? ''), 0, 16)) ?></strong></div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.delivered') ?></span>
+                    <strong class="ct-val"><?= $fmtBbl($delivered) ?>&nbsp;/&nbsp;<?= $fmtBbl($total) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.missed') ?></span>
+                    <strong class="ct-val ct-val--penalty"><?= $fmtBbl($missed) ?>&nbsp;<?= t('contracts.unit_bbl') ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.next_delivery') ?></span>
+                    <strong class="ct-val"><?= htmlspecialchars(substr((string)($contract['next_delivery_at'] ?? ''), 0, 16)) ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.ends_at') ?></span>
+                    <strong class="ct-val"><?= htmlspecialchars(substr((string)($contract['ends_at'] ?? ''), 0, 16)) ?></strong>
+                </div>
             </div>
-
             <form method="post" class="contracts-action-form"
                   data-confirm="<?= htmlspecialchars(tPlain('contracts.confirm_cancel', ['name' => (string)($contract['contract_name'] ?? '')]), ENT_QUOTES, 'UTF-8') ?>"
                   data-confirm-type="warning"
@@ -200,7 +220,7 @@ $deliveryStatusLabel = static function (string $status): string {
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="cancel_contract">
                 <input type="hidden" name="contract_id" value="<?= (int)$contract['id'] ?>">
-                <button type="submit" class="btn btn-danger"><?= t('contracts.btn_cancel') ?></button>
+                <button type="submit" class="btn btn-danger btn-full"><?= t('contracts.btn_cancel') ?></button>
             </form>
         </div>
         <?php endforeach ?>
@@ -208,10 +228,9 @@ $deliveryStatusLabel = static function (string $status): string {
     <?php endif ?>
 </section>
 
-<!-- == HISTORIA DOSTAW / DELIVERY HISTORY == -->
+<!-- == HISTORIA DOSTAW == -->
 <section class="card">
     <h3><?= t('contracts.section_deliveries') ?></h3>
-
     <?php if (empty($deliveries)): ?>
     <p class="contracts-empty"><?= t('contracts.none_deliveries') ?></p>
     <?php else: ?>
@@ -242,10 +261,9 @@ $deliveryStatusLabel = static function (string $status): string {
     <?php endif ?>
 </section>
 
-<!-- == LOGI KONTRAKTOW / CONTRACT LOGS == -->
+<!-- == LOGI KONTRAKTOW == -->
 <section class="card">
     <h3><?= t('contracts.section_logs') ?></h3>
-
     <?php if (empty($logs)): ?>
     <p class="contracts-empty"><?= t('contracts.none_logs') ?></p>
     <?php else: ?>
