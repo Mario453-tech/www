@@ -4638,7 +4638,7 @@ table.admin-table tr:hover td {
 .contracts-admin-row--logs      { grid-template-columns: 120px 1fr 160px 2fr; }
 .contracts-admin-actions {
     display: flex;
-    gap: 5px;
+    gap: 6px;
     align-items: center;
     justify-content: flex-end;
     flex-wrap: nowrap;
@@ -4651,7 +4651,7 @@ table.admin-table tr:hover td {
 }
 .contracts-inline-form { margin: 0; display: inline; }
 .contracts-terms-block {
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     background: linear-gradient(145deg, #161622, #0f0f18);
     border: 1px solid rgba(255,255,255,.07);
     border-radius: 10px;

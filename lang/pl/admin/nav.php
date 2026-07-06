@@ -25,6 +25,7 @@ return [
     'admin.nav.incidents' => 'Incydenty',
     'admin.nav.legal' => 'Zezwolenia na wiercenie',
     'admin.nav.bribery' => 'Łapówki',
+    'admin.nav.contracts' => 'Kontrakty długoterminowe',
     'admin.nav.loans' => 'Bank / Kredyty',
     'admin.nav.logistics_hubs' => 'Huby logistyczne',
     'admin.nav.logout' => 'Wyloguj',

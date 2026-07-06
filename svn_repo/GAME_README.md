@@ -1,5 +1,87 @@
 ## Changelog
 
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 5 (UI gracza) + Etap 6 (panel admina)
+
+**Kontrakty dostały pełny interfejs gracza i panel administracyjny — moduł jest teraz obsługiwalny end-to-end.**
+
+Etap 5 — UI gracza:
+- `public/contracts.php` — endpoint strony: `Auth::requireLogin`, `RateLimiter::check('action')`, `CSRF::validateToken`; akcje `accept_contract` i `cancel_contract` (przez `ContractService::acceptContract`/`cancelContract`), komunikaty z `message_key` przez `tPlain`.
+- `templates/views/contracts/main.php` — cztery sekcje: dostępne kontrakty (z warunkami, szac. przychodem i blokadami wiarygodność/dział prawny), aktywne kontrakty (pasek postępu `--bar-w`, anulowanie), historia dostaw, logi. Bez tabel HTML, bez inline style (poza dynamicznym `--bar-w`), potwierdzenia przez `data-confirm` z `modal.js`.
+- `assets/css/contracts.css` — style widoku (grid kart, listy, pasek postępu), zmienne motywu z fallbackami, responsywność ≤640px.
+- `assets/js/contracts.js` — tylko toast po akcji (flash); potwierdzenia podpisania/anulowania obsługuje globalny handler `data-confirm` z `modal.js`.
+- `lang/pl/contracts.php` + `lang/en/contracts.php` — komplet kluczy UI gracza (sekcje, pola warunków, statusy, tryby ceny, zdarzenia logów, jednostki).
+
+Etap 6 — panel admina:
+- `admin/contracts.php` — panel z zakładkami `options / terms / active / deliveries / logs / help`; `AdminAuth::requireLogin`, `CSRF` na każdej akcji, `AdminLog::log` na każdej mutacji. Akcje: przełącz moduł, dodaj/edytuj opcję, włącz/wyłącz opcję (**is_active = 0, bez fizycznego DELETE**), dodaj/edytuj/usuń warunek (upsert po `contract_option_id, term_key`).
+- `templates/views/admin/contracts/main.php` — listy i formularze opcji/warunków, podgląd aktywnych kontraktów, dostaw i logów, zakładka pomocy. Operacje destrukcyjne (wyłączenie modułu/opcji, usunięcie warunku) przez `data-confirm`.
+- `assets/css/admin.css` — dodano blok `.contracts-admin-grid`/`.contracts-admin-row--{options,terms,active,deliveries,logs}` (wzorzec jak `protection-admin-*`).
+- `lang/pl/admin/contracts.php` + `lang/en/admin/contracts.php` — komplet kluczy panelu (auto-ładowane przez `lang/pl/admin.php` glob).
+- `tests/Integration/ContractsModuleTest.php` bez zmian; szablony zweryfikowane render-testem (wszystkie zakładki + tryb edycji, zero warningów PHP).
+
+Routing: strona gracza dostępna pod czystym adresem `/contracts` (`RewriteRule ^contracts$ /public/contracts.php` w `.htaccess` + wpis `contracts => /contracts` w `ROUTES` w `src/init.php`); `url('contracts')` zwraca `/contracts`. Backup przed edycją: `backups/2026-07-06_15-45-52_htaccess.bak` i `..._init.php.bak`.
+
+Zasady spełnione: pieniądze wyłącznie przez `FinancialTransactionService`, MVP tylko `storage` + `storage_oil_delivery`, ropa pobierana dopiero przy dostawie, komentarze dwujęzyczne bez polskich znaków. UWAGA: kafelek nawigacyjny w pulpicie gracza (GameShell action grid) celowo poza zakresem tych etapów — do dodania osobno; strona jest już osiągalna pod `/contracts`.
+
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 4 — ContractsModule (TickModule + wiring)
+
+**Kontrakty wpięte w cykl tikowy gry: automatyczne rozliczanie dostaw co ~5 minut.**
+
+- `src/Tick/Modules/ContractsModule.php` — nowy TickModule (key=`contracts`, order=45); wywołuje `ContractService::processDueContracts($ctx->newPrice)` i loguje wynik przez `GameLog::info`.
+- `cron/tick.php` — sekcja 10 (po szkoleniach): `ContractsModule` pobierany przez `TickRegistry::find('contracts')`; `$tickCtx` przeniesiony przed try-blok sekcji 7, żeby oba moduły (Credibility, Contracts) dzieliły ten sam kontekst.
+- Moduł jest domyślnie wyciszony gdy `contracts_module_enabled = 0` (`ContractService::processDueContracts` wraca od razu z pustymi statystykami).
+- Statystyki modułu (`processed/completed/failed/revenue/penalties`) mergowane do `$tickCtx` i dostępne przez `TickContext::collectStats()`.
+
+### 2026-07-06 - Kontrakty długoterminowe P1: poprawki po code review Etapu 3 (HIGH + MEDIUM + LOW)
+
+**Naprawiono trzy bugi znalezione przez code review implementacji processDueContracts.**
+
+- **HIGH** — `src/ContractService.php`: `FTS::credit()` i `FTS::debitCombined()` zwracają `['success'=>bool]`, a nie rzucają wyjątkiem — teraz sprawdzamy wynik i rzucamy `RuntimeException` przy niepowodzeniu, żeby zewnętrzna transakcja wycofała się. Bez tej poprawki magazyn traciłby ropę i `delivered_bbl` rosło bez zaksięgowania wpłaty.
+- **MEDIUM** — `src/ContractService.php`: `processDueContracts` przyjmował `\DateTime $now` (PHP-clock) zamiast używać MySQL-clock (`nowString()`). Usunięto parametr `$now`; `processOneDueContract` przyjmuje teraz `string $nowStr`. Eliminuje skew między PHP a MySQL przy porównaniu z `next_delivery_at` zapisanym przez `NOW()` (reguła #14).
+- **LOW** — `src/ContractService.php`: `$processed++` było inkrementowane dla kontraktów ze statusem `skipped` (concurrent-lock guard) — wynik `processDueContracts` raportował nieprawdziwe liczby przy nakładających się tickach. Dodano guard `if ($r['new_status'] !== 'skipped')`.
+- `tests/Integration/ContractTickTest.php` — sygnatura `processDueContracts(100.0)` (bez `$now`); `ends_at` testów niebędących testem niepowodzenia ustawione na `2099-12-31`; `next_delivery_at` testu braku due ustawione na `2099-12-31` (was: `2025-06-01 18:00:00` — byłby due z zegarem real-time); `testNextDeliveryAtAdvancesAfterTick` przepisany na `time()`-relative check (±5 s tolerance).
+
+### 2026-07-06 - Kontrakty długoterminowe P1: poprawki po code review (MEDIUM + 2×LOW)
+
+**Naprawiono trzy bugi znalezione przez code review fundament P1 kontraktów.**
+
+- **MEDIUM** — `src/Contracts/ContractQueryTrait.php`: `nowString()` teraz pobiera `NOW()` z MySQL zamiast PHP `date()` — eliminuje skew stref PHP vs MySQL przy zapisach `starts_at`/`next_delivery_at`/`ends_at`/`created_at` (reguła #14). SQLite (testy) bez zmian — zegar PHP jest tam spójny.
+- **LOW** — `src/ContractService.php`: `max_active_per_player = 0` traktowane jako „bez limitu" (`$maxActive > 0 && count >= $maxActive`) zamiast efektywnego minimum 1 przez `max(1, ...)`. Admin może teraz wyłączyć limit przez ustawienie 0.
+- **LOW** — `src/Contracts/ContractSchema.php`: `ensure()` wywołany wewnątrz otwartej transakcji zamiast rzucać `RuntimeException` cicho wraca (`return`) — DDL i tak nie może działać w transakcji MySQL, a `ContractService::__construct` jest bezpieczniej wywoływać z dowolnego miejsca.
+
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 3 — rozliczanie dostaw (processDueContracts)
+
+**Silnik tikowy kontraktów: pobieranie ropy z magazynu, finansowe rozliczenie, historia dostaw.**
+
+- `src/ContractService.php` — `processDueContracts(\DateTime $now, float $marketPrice)`: iteruje po aktywnych kontraktach z `next_delivery_at <= now`, przetwarza każdy w `processOneDueContract` i zwraca zagregowane statystyki (`processed/completed/failed/revenue/penalties`).
+- `processOneDueContract`: pojedyncza transakcja z blokadą `FOR UPDATE` na graczu i magazynie; dedukcja ropy (`GREATEST(0, used - bbl)`); FTS `credit(contract_sale)` i `debitCombined(contract_penalty)` gdy niezerowe; INSERT do `contract_deliveries` (due_at = stary termin, status: `delivered/partial/missed`); UPDATE `player_contracts`: `delivered_bbl`, `missed_bbl`, `next_delivery_at` + `datePlusMinutes(now, interval)`, status (`active`→`completed`/`failed`).
+- `src/Contracts/ContractQueryTrait.php` — dodano `calculatePrice(terms, marketPrice)`: obsługuje tryby `fixed`, `market_multiplier` i `market_plus_bonus` na podstawie snapshottu `terms_json`.
+- `tests/Integration/ContractTickTest.php` — 10 testów integracyjnych: pelna/czesciowa/pominięta dostawa, zakończenie i niepowodzenie kontraktu, wpis `contract_deliveries`, log zdarzenia, przesunięcie `next_delivery_at`.
+- Blokady `FOR UPDATE` pominięte dla SQLite (driver guard); SQLite otrzymuje `GREATEST`/`NOW()` przez custom functions.
+
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 2 — finanse kontraktów (FTS + WalletConfig + lang)
+
+**Trzy nowe typy FTS, routing do puli bankowej i klucze językowe niezbędne do rozliczania dostaw.**
+
+- `src/FinancialTransactionService.php` — dodano stałe `TYPE_CONTRACT_SALE`, `TYPE_CONTRACT_PENALTY`, `TYPE_CONTRACT_BONUS`; wpisane do `ALLOWED_TYPES`.
+- `src/WalletConfig.php` — wszystkie trzy typy kontraktowe zmapowane na `POOL_BANK`; przychód i kara trafiają na `bank_balance`, nie na gotówkę.
+- `lang/pl/bank.php` + `lang/en/bank.php` — klucze `bank.account.type.contract_*` (etykiety historii) i `bank.tx_contract_*` (opisy transakcji z placeholderem `#:id`).
+- `tests/Integration/ContractFinancesTest.php` — 11 testów: stałe FTS, routing pul, `credit` → `bank_balance`, `debitCombined` bank-first, polskie klucze lang.
+
+### 2026-07-06 - Tick runda 5: etap L (L1-L8) — drobne bugi brzegowe silnika ticku
+
+**Ostatni, odłożony etap analizy rundy 5: 8 drobnych bugów (niski priorytet — nieoptymalne albo błędne w rzadkich/brzegowych sytuacjach, głównie po przerwie crona). Klasy L3/L4/L7 to dokładnie reguły #13 (deltaHours) i #14 (timezone) skodyfikowane w CLAUDE.md.**
+
+- **L1** — `src/Tick/WellProductionHandler.php`: reset bufora drogowego po wysyłce ciężarówek zmieniony z `SET road_buffer_bbl = 0` na atomowy `GREATEST(0, road_buffer_bbl - :wyslane)` — nakładający się tick (ADMIN_FORCE_TICK) nie kasuje ropy dodanej w międzyczasie (wzorzec jak dla bufora morskiego).
+- **L2** — `src/Tick/MarineDeliverySection.php`: licznik kolejki portu przy przyjmowaniu dostawy liczony **per-gracz** (`pq.player_id = ?`), nie wspólnie dla całego portu. Gracz z pełnym magazynem trzymał wpisy `waiting`, które zajmowały wspólny `queue_limit` i wpychały dostawy innych graczy w `delayed` — jeden gracz głodził port całemu regionowi. (Drenowanie bez zmian: `refreshPortStatuses` nigdy nie ustawia `closed`, a `overloaded` nie blokuje.)
+- **L3** — `src/MarineDeliveryService.php`: `departure_at`/`eta_at`/`created_at` zapisywane na zegarze MySQL (`NOW()`/`DATE_ADD`), nie z PHP `time()` — `purgeStale` i filtry porównują z `NOW()`, więc zapis z PHP przesuwał okna czyszczenia przy różnicy stref (reguła #14).
+- **L4** — `src/BlackMarketService.php` + `cron/tick.php`: płaski decay `black_market_score` skalowany systemowym `deltaHours` (1 tick = 5 min); po przerwie crona catch-up tick odejmuje równowartość wielu godzin, nie jeden krok (reguła #13). Normalny tick 5-min bez zmiany zachowania.
+- **L5** — `src/LoanDecisionService.php`: `processApplication` atomowo „zaklepuje" wniosek (warunkowy `UPDATE ... decision_at = +1h WHERE status='pending' AND decision_at <= NOW()` + `rowCount`) — tick (`BankSection`) i osobny cron (`cron/process_loan_decisions.php`) nie przetwarzają już tego samego wniosku podwójnie. Bez zmiany schematu (enum statusu nie ma stanu `processing`).
+- **L6** — `src/TTS/TasksTrait.php`: `pipeline_maintenance`/`pipeline_inspection`/`pipeline_repair` ustawiają sukces i komunikat „strata zmniejszona" tylko po `rowCount > 0`. Gdy rurociąg zniknął (sprzedany) zadanie kończy się komunikatem `pipeline_gone` (nowe klucze i18n PL+EN) zamiast fałszywego sukcesu.
+- **L7** — `src/RegionalEvent/EventsTrait.php`: `tickChance` clampowany do `min(1.0, ...)` — długi catch-up tick (`deltaHours > 24`) nie gwarantuje już zdarzenia w każdym regionie (reguła #13).
+- **L8** — `src/Tick/WellHubSection.php`: incydent huba liczy `extra_loss` od faktycznie dostarczonej ropy — leg wylotowy uruchamiany PRZED incydentem, a baza straty pomniejszona o nadmiar wracający do bufora (throttling przepustowości). Wcześniej lekko przeszacowywał stratę, gdy incydent i throttling wypadły w tym samym ticku.
+
+Testy: pełny zestaw Unit+Integration (SQLite) zielony; ścieżki MySQL (L2/L3/L5) weryfikowane przez CI `php-tests.yml` na żywej bazie MySQL 8 przy pushu.
+
 ### 2026-07-06 - Kontrakty długoterminowe P1: fundament danych i serwisu
 
 **Dodano bezpieczny fundament kontraktów długoterminowych bez podpinania do ticka, UI, finansów ani logistyki. Ten etap przygotowuje moduł pod późniejsze rozliczanie dostaw ropy z magazynu.**

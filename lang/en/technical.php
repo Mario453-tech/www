@@ -558,6 +558,7 @@ return [
     'technical.task_msg.assigned' => 'Assigned: :title. Time: :hours h. Cost: $:cost',
     'technical.task_msg.pipeline_maintenance_done' => 'Director, pipeline maintenance has been completed. Transport losses were reduced and infrastructure condition improved.',
     'technical.task_msg.pipeline_repair_done' => 'Director, pipeline repair has been completed. Transport infrastructure has been restored to operation.',
+    'technical.task_msg.pipeline_gone' => 'Director, the pipeline no longer existed when the task finished (it may have been sold) — no changes were made.',
     'technical.task_msg.blowout_control_done' => 'Director, emergency response at well #:well_id is complete. The blowout has been brought under control. The well has resumed operation.',
     'technical.task_msg.safety_audit_done' => 'Director, safety audit completed. Failure risk on all wells has been reduced by :reduction pts.',
     'technical.task_msg.safety_audit_integrity' => ' HSE procedure integrity +:integrity%.',

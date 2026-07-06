@@ -90,6 +90,9 @@ class FinancialTransactionService
     public const TYPE_TICK_TRANSPORT     = 'tick_transport';
     public const TYPE_TICK_INCIDENT      = 'tick_incident';
     public const TYPE_HUB_USAGE          = 'hub_usage';
+    public const TYPE_CONTRACT_SALE      = 'contract_sale';
+    public const TYPE_CONTRACT_PENALTY   = 'contract_penalty';
+    public const TYPE_CONTRACT_BONUS     = 'contract_bonus';
 
     /** Pelna lista dozwolonych typow / Full list of allowed types. */
     public const ALLOWED_TYPES = [
@@ -128,6 +131,9 @@ class FinancialTransactionService
         self::TYPE_TICK_TRANSPORT,
         self::TYPE_TICK_INCIDENT,
         self::TYPE_HUB_USAGE,
+        self::TYPE_CONTRACT_SALE,
+        self::TYPE_CONTRACT_PENALTY,
+        self::TYPE_CONTRACT_BONUS,
     ];
 
     /**

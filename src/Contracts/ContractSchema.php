@@ -23,7 +23,9 @@ class ContractSchema
         } catch (Throwable) {
         }
         if ($inTransaction) {
-            throw new RuntimeException('Contract schema cannot be ensured inside an active transaction.');
+            // DDL cannot run inside an open transaction (MySQL auto-commits it, breaking callers).
+            // DDL nie moze byc wywolany wewnatrz otwartej transakcji — cicho ignoruj, schemat zostanie zapewniony przy nastepnym wywolaniu.
+            return;
         }
 
         try {

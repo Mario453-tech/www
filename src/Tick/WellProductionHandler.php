@@ -469,9 +469,13 @@ class WellProductionHandler
                             $dispatch = $this->ctx->roadTransportSvc->dispatchTrips(
                                 $playerId, $wellId, $bufferBbl, $roadCfg, $politicalRisk
                             );
+ // Atomowy dekrement o realnie wyslany wolumen (nie SET=0) — jesli nakladajacy sie
+ // tick (ADMIN_FORCE_TICK) dodal ropy do bufora, nie kasujemy jej. Wzorzec jak dla morza.
+ // Atomic decrement by the dispatched volume (not SET=0) — if an overlapping tick
+ // (ADMIN_FORCE_TICK) added oil to the buffer, we don't wipe it. Same pattern as marine.
                             $this->ctx->db->prepare(
-                                "UPDATE wells SET road_buffer_bbl = 0 WHERE id = ? AND player_id = ?"
-                            )->execute([$wellId, $playerId]);
+                                "UPDATE wells SET road_buffer_bbl = GREATEST(0, COALESCE(road_buffer_bbl, 0) - ?) WHERE id = ? AND player_id = ?"
+                            )->execute([round($bufferBbl, 4), $wellId, $playerId]);
 
                             if ($ownTxRoad) $this->ctx->db->commit();
 

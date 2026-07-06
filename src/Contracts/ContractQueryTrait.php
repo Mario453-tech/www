@@ -230,7 +230,17 @@ trait ContractQueryTrait
 
     private function nowString(): string
     {
-        return date('Y-m-d H:i:s');
+        // SQLite: PHP clock is fine (same process, no timezone gap).
+        // MySQL: fetch NOW() from the server so writes and WHERE NOW() comparisons share the same clock (rule #14).
+        if ($this->driver() === 'sqlite') {
+            return date('Y-m-d H:i:s');
+        }
+        try {
+            $row = $this->db->query("SELECT NOW() AS n")->fetch(PDO::FETCH_ASSOC);
+            return is_array($row) ? (string)$row['n'] : date('Y-m-d H:i:s');
+        } catch (Throwable) {
+            return date('Y-m-d H:i:s');
+        }
     }
 
     private function datePlusMinutes(string $date, int $minutes): string
@@ -241,5 +251,25 @@ trait ContractQueryTrait
     private function limit(int $limit): int
     {
         return max(1, min(200, $limit));
+    }
+
+    /**
+     * Oblicza cene za bbl na podstawie trybu cenowego kontraktu.
+     * Calculates price per bbl based on contract price mode.
+     *
+     * @param array<string,array{type:string,value:float,text:?string}> $terms
+     */
+    private function calculatePrice(array $terms, float $marketPrice): float
+    {
+        $mode       = (string)($terms['price_mode']['text'] ?? 'market_plus_bonus');
+        $multiplier = (float)($terms['price_multiplier']['value'] ?? 1.0);
+        $bonusPct   = (float)($terms['bonus_pct']['value'] ?? 0.0);
+        $fixedPrice = (float)($terms['fixed_price']['value'] ?? 0.0);
+
+        return match($mode) {
+            'fixed'              => max(0.0, $fixedPrice),
+            'market_multiplier'  => round($marketPrice * max(0.0, $multiplier), 2),
+            default              => round($marketPrice * (1.0 + $bonusPct / 100.0), 2),
+        };
     }
 }

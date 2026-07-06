@@ -419,14 +419,24 @@ class MarineDeliverySection
     ): void {
  // M1: Polacz dwa oddzielne SELECTy (queue_limit + queue count) w jedno zapytanie.
  // M1: Merge two separate SELECTs (queue_limit + queue count) into a single query.
+ // L2: Licznik kolejki jest PER-GRACZ (pq.player_id = ?), nie wspolny dla calego portu.
+ // Wczesniej gracz z pelnym magazynem trzymal swoje wpisy 'waiting' (PortSection zostawia
+ // je gdy magazyn pelny), ktore zajmowaly wspolny queue_limit i wpychaly dostawy INNYCH
+ // graczy w 'delayed' — jeden gracz zaglodzil port calemu regionowi. Limit liczony po
+ // wlasnych wpisach gracza izoluje graczy od siebie.
+ // L2: The queue counter is PER-PLAYER (pq.player_id = ?), not shared across the whole port.
+ // Previously a player with full storage kept their 'waiting' entries (PortSection leaves
+ // them when storage is full), which consumed the shared queue_limit and pushed OTHER
+ // players' deliveries into 'delayed' — one player could starve the port for a whole region.
         $capStmt = $this->db->prepare(
             "SELECT p.queue_limit,
                     (SELECT COUNT(*) FROM port_queue pq
                       WHERE pq.port_id = p.id
+                        AND pq.player_id = ?
                         AND pq.status IN ('waiting','processing')) AS queue_size
                FROM ports p WHERE p.id = ?"
         );
-        $capStmt->execute([$portId]);
+        $capStmt->execute([$playerId, $portId]);
         $capRow     = $capStmt->fetch(PDO::FETCH_ASSOC);
         $queueLimit = $capRow ? (int)$capRow['queue_limit'] : 20;
         $queueSize  = $capRow ? (int)$capRow['queue_size']  : 0;

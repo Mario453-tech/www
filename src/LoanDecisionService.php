@@ -35,6 +35,32 @@ class LoanDecisionService
     public function processApplication(int $applicationId): array|false
     {
         try {
+            // L5: Atomowe "zaklepanie" wniosku. Tick (BankSection) i osobny cron
+            // (cron/process_loan_decisions.php) przetwarzaja ten sam zestaw
+            // (status='pending' AND decision_at <= NOW()) bez blokady wiersza — przy
+            // nalozeniu oba czytaly ten sam wiersz i drugi zapis nadpisywal pierwszy
+            // (re-losowanie decyzji, reset expires_at). Warunkowo przesuwamy decision_at
+            // w przyszlosc: blokada wiersza serializuje UPDATE-y, wiec tylko jeden proces
+            // dostanie rowCount=1, drugi 0 i pomija. Bez zmiany schematu (enum statusu nie
+            // ma stanu posredniego 'processing').
+            // L5: Atomic claim. The tick and the standalone cron process the same set
+            // (status='pending' AND decision_at <= NOW()) without row locking — on overlap
+            // both read the same row and the second write clobbered the first. We bump
+            // decision_at into the future conditionally: row locking serializes the UPDATEs,
+            // so only one process gets rowCount=1, the other gets 0 and skips. No schema
+            // change (the status enum has no intermediate 'processing' state).
+            $claim = $this->db->prepare("
+                UPDATE loan_applications
+                SET decision_at = DATE_ADD(NOW(), INTERVAL 1 HOUR)
+                WHERE id = :id AND status = 'pending' AND decision_at <= NOW()
+            ");
+            $claim->execute([':id' => $applicationId]);
+            if ($claim->rowCount() === 0) {
+                // Inny proces juz zaklepal ten wniosek (albo nie jest jeszcze wymagalny).
+                // Another process already claimed it (or it is not due yet).
+                return false;
+            }
+
             $stmt = $this->db->prepare("
                 SELECT * FROM loan_applications
                 WHERE id = :id AND status = 'pending'

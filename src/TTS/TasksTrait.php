@@ -613,8 +613,13 @@ trait TTSTasksTrait
                     break;
                 case 'pipeline_maintenance':
                 case 'pipeline_inspection':
+ // Sukces/komunikat ustawiamy TYLKO gdy UPDATE faktycznie cos zmienil. Jesli rurociag
+ // zniknal (sprzedany) lub WHERE ... player_id trafil 0 wierszy, zadanie nie moze
+ // raportowac "straty zmniejszone" (L6).
+ // Set success/message ONLY when the UPDATE actually changed a row. If the pipeline is
+ // gone (sold) or WHERE ... player_id matched 0 rows, the task must not report success.
                     if ($pipeId) {
-                        $this->db->prepare("
+                        $pipeStmt = $this->db->prepare("
                             UPDATE well_pipelines
                             SET transport_loss = GREATEST(0.5, transport_loss - 0.3),
                                 condition_pct  = LEAST(100, condition_pct + 10),
@@ -625,10 +630,18 @@ trait TTSTasksTrait
                                 END,
                                 last_inspected_at = NOW()
                             WHERE id = ? AND player_id = ?
-                        ")->execute([$pipeId, $pId]);
+                        ");
+                        $pipeStmt->execute([$pipeId, $pId]);
+                        if ($pipeStmt->rowCount() > 0) {
+                            $result = ['transport_loss_reduced' => 0.3];
+                            $msg = t('technical.task_msg.pipeline_maintenance_done');
+                        } else {
+                            GameLog::warn('TTS', 'pipeline_maintenance: pipeline missing — no-op', ['pipeline_id' => $pipeId, 'player_id' => $pId]);
+                            $msg = t('technical.task_msg.pipeline_gone');
+                        }
+                    } else {
+                        $msg = t('technical.task_msg.pipeline_gone');
                     }
-                    $result = ['transport_loss_reduced' => 0.3];
-                    $msg = t('technical.task_msg.pipeline_maintenance_done');
                     break;
 
                 case 'safety_audit':
@@ -687,8 +700,10 @@ trait TTSTasksTrait
                     break;
 
                 case 'pipeline_repair':
+ // Jak wyzej (L6): sukces/komunikat tylko przy realnej zmianie wiersza.
+ // As above (L6): success/message only when a row was actually changed.
                     if ($pipeId) {
-                        $this->db->prepare("
+                        $repairStmt = $this->db->prepare("
                             UPDATE well_pipelines
                             SET status = 'active',
                                 condition_pct = LEAST(100, 40 + ? * 5),
@@ -697,14 +712,22 @@ trait TTSTasksTrait
                                 leak_started_at = NULL,
                                 last_inspected_at = NOW()
                             WHERE id = ? AND player_id = ?
-                        ")->execute([$skill, $pipeId, $pId]);
-                        $this->db->prepare("
-                            UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
-                            WHERE player_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
-                        ")->execute([$pId]);
+                        ");
+                        $repairStmt->execute([$skill, $pipeId, $pId]);
+                        if ($repairStmt->rowCount() > 0) {
+                            $this->db->prepare("
+                                UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
+                                WHERE player_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
+                            ")->execute([$pId]);
+                            $result = ['pipeline_repaired' => true];
+                            $msg = t('technical.task_msg.pipeline_repair_done');
+                        } else {
+                            GameLog::warn('TTS', 'pipeline_repair: pipeline missing — no-op', ['pipeline_id' => $pipeId, 'player_id' => $pId]);
+                            $msg = t('technical.task_msg.pipeline_gone');
+                        }
+                    } else {
+                        $msg = t('technical.task_msg.pipeline_gone');
                     }
-                    $result = ['pipeline_repaired' => true];
-                    $msg = t('technical.task_msg.pipeline_repair_done');
                     break;
 
                 case 'reservoir_rehabilitation':

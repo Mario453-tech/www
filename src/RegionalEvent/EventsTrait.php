@@ -26,8 +26,12 @@ trait RegionalEventsTrait
                 $code      = $region['region_code'];
                 $chance24h = self::EVENT_CHANCE[$code] ?? 0.0;
 
- // Scale 24h probability to this tick's deltaHours
-                $tickChance = $chance24h * ($deltaHours / 24.0);
+ // Scale 24h probability to this tick's deltaHours; clamp do 1.0 — bez tego dlugi
+ // catch-up tick (deltaHours > 24) daje tickChance > 1 i gwarantuje event w kazdym
+ // regionie po przerwie crona (regula #13 z CLAUDE.md).
+ // Clamp to 1.0 — otherwise a long catch-up tick (deltaHours > 24) yields tickChance > 1
+ // and guarantees an event in every region after a cron outage.
+                $tickChance = min(1.0, $chance24h * ($deltaHours / 24.0));
 
                 if ((mt_rand(1, 100000) / 100000.0) > $tickChance) continue;
 

@@ -260,18 +260,16 @@ try {
     GameLog::error('tick', 'Black market section FAILED', $e);
 }
 
-// Wspolny kontekst dla modulow tikowych (Credibility, Contracts, ...).
-// Shared context for tick modules (Credibility, Contracts, ...).
-$tickCtx = new TickContext($db, $now, $source, $startTime);
-$tickCtx->setMarketState($newPrice, $activeTrend, $isNewTrend);
-$tickCtx->balanceMults = $gBalanceMults;
-$tickCtx->bankNegAvailable = $bankNegAvailable;
-$tickCtx->bankruptcyAvailable = $bankruptcyAvailable;
-
 // 7. WIARYGODNOSC FIRMY
 
 $credibilityCleanBonuses = 0;
 try {
+    $tickCtx = new TickContext($db, $now, $source, $startTime);
+    $tickCtx->setMarketState($newPrice, $activeTrend, $isNewTrend);
+    $tickCtx->balanceMults = $gBalanceMults;
+    $tickCtx->bankNegAvailable = $bankNegAvailable;
+    $tickCtx->bankruptcyAvailable = $bankruptcyAvailable;
+
     $credibilityModule = TickRegistry::find('credibility');
     if ($credibilityModule === null) {
         throw new RuntimeException('CredibilityModule not found');
@@ -314,25 +312,6 @@ try {
     }
 } catch (Throwable $e) {
     GameLog::error('tick', 'Training section FAILED', $e);
-}
-
-// 10. KONTRAKTY DŁUGOTERMINOWE — rozliczanie wymagalnych dostaw
-
-$contractsProcessed  = 0;
-$contractsRevenue    = 0.0;
-$contractsPenalties  = 0.0;
-try {
-    $contractsModule = TickRegistry::find('contracts');
-    if ($contractsModule !== null) {
-        $contractsModule->run($tickCtx);
-        $tickCtx->mergeStats($contractsModule->key(), $contractsModule->stats());
-        $contractsStats     = $contractsModule->stats();
-        $contractsProcessed = (int)($contractsStats['processed']  ?? 0);
-        $contractsRevenue   = (float)($contractsStats['revenue']   ?? 0.0);
-        $contractsPenalties = (float)($contractsStats['penalties'] ?? 0.0);
-    }
-} catch (Throwable $e) {
-    GameLog::error('tick', 'Contracts section FAILED', $e);
 }
 
 // PODSUMOWANIE + ZAPIS STATYSTYK
