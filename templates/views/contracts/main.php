@@ -258,7 +258,7 @@ $deliveryStatusLabel = static function (string $status): string {
 </section>
 
 <nav class="page-nav" aria-label="<?= htmlspecialchars(strip_tags(t('contracts.page_title'))) ?>">
-    <a href="<?= url('index') ?>" class="btn btn-secondary"><?= t('contracts.btn_back') ?></a>
+    <a href="<?= url('dashboard') ?>" class="btn btn-secondary"><?= t('contracts.btn_back') ?></a>
 </nav>
 
 </div>

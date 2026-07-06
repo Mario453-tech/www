@@ -18,7 +18,9 @@ Etap 6 — panel admina:
 - `lang/pl/admin/contracts.php` + `lang/en/admin/contracts.php` — komplet kluczy panelu (auto-ładowane przez `lang/pl/admin.php` glob).
 - `tests/Integration/ContractsModuleTest.php` bez zmian; szablony zweryfikowane render-testem (wszystkie zakładki + tryb edycji, zero warningów PHP).
 
-Zasady spełnione: pieniądze wyłącznie przez `FinancialTransactionService`, MVP tylko `storage` + `storage_oil_delivery`, ropa pobierana dopiero przy dostawie, komentarze dwujęzyczne bez polskich znaków. UWAGA: link nawigacyjny do `/contracts.php` w pulpicie gracza (GameShell action grid) celowo poza zakresem tych etapów — do dodania osobno.
+Routing: strona gracza dostępna pod czystym adresem `/contracts` (`RewriteRule ^contracts$ /public/contracts.php` w `.htaccess` + wpis `contracts => /contracts` w `ROUTES` w `src/init.php`); `url('contracts')` zwraca `/contracts`. Backup przed edycją: `backups/2026-07-06_15-45-52_htaccess.bak` i `..._init.php.bak`.
+
+Zasady spełnione: pieniądze wyłącznie przez `FinancialTransactionService`, MVP tylko `storage` + `storage_oil_delivery`, ropa pobierana dopiero przy dostawie, komentarze dwujęzyczne bez polskich znaków. UWAGA: kafelek nawigacyjny w pulpicie gracza (GameShell action grid) celowo poza zakresem tych etapów — do dodania osobno; strona jest już osiągalna pod `/contracts`.
 
 ### 2026-07-06 - Kontrakty długoterminowe P1: Etap 4 — ContractsModule (TickModule + wiring)
 

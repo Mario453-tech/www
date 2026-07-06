@@ -104,7 +104,6 @@ Options -Indexes
     RewriteRule ^sabotage$       /public/sabotage.php [L,PT]
     RewriteRule ^finance$        /public/finance.php [L,PT]
     RewriteRule ^legal$          /public/legal.php [L,PT]
-    RewriteRule ^contracts$      /public/contracts.php [L,PT]
     RewriteRule ^diag-upload$    /diag_upload.php [L,PT]
 
 # ── BEGIN static_pages ──
