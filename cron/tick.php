@@ -201,8 +201,22 @@ try {
  // Expiracja przeterminowanych ofert
     $bm->expireOffers();
 
- // Decay black_market_score wszystkich graczy
-    $bm->decayScores();
+ // Systemowy deltaHours z ostatniego ticka (last_system_tick_at jest nadpisywany dopiero
+ // na koncu tego przebiegu, wiec tu wciaz trzyma znacznik poprzedniego ticka). Sluzy do
+ // skalowania plaskiego decay po przerwie crona (L4 / regula #13).
+ // System-level deltaHours since the last tick (last_system_tick_at is overwritten only at
+ // the end of this run, so it still holds the previous tick's timestamp here).
+    $bmDeltaHours = 1.0 / 12.0; // domyslnie 5 min / default 5 min
+    try {
+        $lastSysTs = $db->query("SELECT `value` FROM well_config WHERE `key` = 'last_system_tick_at' LIMIT 1")->fetchColumn();
+        if ($lastSysTs !== false && (int)$lastSysTs > 0) {
+            $elapsed = $now->getTimestamp() - (int)$lastSysTs;
+            if ($elapsed > 0) $bmDeltaHours = $elapsed / 3600.0;
+        }
+    } catch (Throwable $e) {}
+
+ // Decay black_market_score wszystkich graczy (skalowany czasem ticka)
+    $bm->decayScores($bmDeltaHours);
 
  // Generowanie ofert co N tickow
     $bmInterval = 3;

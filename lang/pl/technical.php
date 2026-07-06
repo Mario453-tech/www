@@ -563,6 +563,7 @@ return [
     'technical.task_msg.assigned' => 'Zlecono: :title. Czas: :hours h. Koszt: $:cost',
     'technical.task_msg.pipeline_maintenance_done' => 'Panie Dyrektorze, konserwacja rurociągu zakończona. Straty transportowe zmniejszone, a kondycja infrastruktury wzrosła.',
     'technical.task_msg.pipeline_repair_done' => 'Panie Dyrektorze, naprawa rurociągu zakończona. Infrastruktura transportowa została przywrócona do działania.',
+    'technical.task_msg.pipeline_gone' => 'Panie Dyrektorze, rurociąg nie istnieje już w chwili zakończenia zadania (mógł zostać sprzedany) — nie wprowadzono zmian.',
     'technical.task_msg.blowout_control_done' => 'Panie Dyrektorze, akcja ratunkowa na odwiercie #:well_id zakończona. Niekontrolowany wypływ został opanowany. Odwiert wznowiono.',
     'technical.task_msg.safety_audit_done' => 'Panie Dyrektorze, audyt bezpieczeństwa zakończony. Ryzyko awarii na wszystkich odwiertach zmniejszono o :reduction pkt.',
     'technical.task_msg.safety_audit_integrity' => ' Integralność procedur BHP +:integrity%.',

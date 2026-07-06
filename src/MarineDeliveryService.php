@@ -136,8 +136,6 @@ class MarineDeliveryService
         array $well,
         array $hseBonus
     ): int {
-        $now      = new DateTime();
-        $nowStr   = $now->format('Y-m-d H:i:s');
         $regionId = (int)($well['region_id'] ?? 0);
 
  // Czas tranzytu: baza +/- wariancja / Transit time: base +/- variance
@@ -145,21 +143,25 @@ class MarineDeliveryService
             + (mt_rand(-100, 100) / 100.0) * self::TRANSIT_VARIANCE_HOURS;
         $transitHours = max(1.0, $transitHours);
 
-        $eta = clone $now;
-        $eta->modify('+' . (int)round($transitHours * 3600) . ' seconds');
-        $etaStr = $eta->format('Y-m-d H:i:s');
+        $transitSeconds = (int)round($transitHours * 3600);
 
  // Znajdz port docelowy dla regionu / Find destination port for region
         $port   = $this->portService->findForRegion($regionId);
         $portId = $port ? (int)$port['id'] : null;
 
+ // Znaczniki czasu na zegarze MySQL (NOW()/DATE_ADD), nie z PHP — purgeStale i filtry
+ // porownuja departure_at/eta_at z NOW(), wiec zapis z PHP time() przesuwalby okna
+ // czyszczenia przy roznicy stref PHP vs MySQL (L3 / regula #14 z CLAUDE.md).
+ // Timestamps on the MySQL clock (NOW()/DATE_ADD), not PHP — purgeStale and filters
+ // compare departure_at/eta_at against NOW(), so a PHP-time() write would shift the
+ // cleanup windows on any PHP-vs-MySQL timezone skew.
         $stmt = $this->db->prepare(
             "INSERT INTO marine_deliveries
                 (player_id, well_id, port_id, volume_bbl, status,
                  departure_at, eta_at, created_at)
-             VALUES (?, ?, ?, ?, 'departing', ?, ?, ?)"
+             VALUES (?, ?, ?, ?, 'departing', NOW(), DATE_ADD(NOW(), INTERVAL ? SECOND), NOW())"
         );
-        $stmt->execute([$playerId, $wellId, $portId, round($volumeBbl, 4), $nowStr, $etaStr, $nowStr]);
+        $stmt->execute([$playerId, $wellId, $portId, round($volumeBbl, 4), $transitSeconds]);
 
         $deliveryId = (int)$this->db->lastInsertId();
 

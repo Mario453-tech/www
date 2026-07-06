@@ -1,5 +1,20 @@
 ## Changelog
 
+### 2026-07-06 - Tick runda 5: etap L (L1-L8) — drobne bugi brzegowe silnika ticku
+
+**Ostatni, odłożony etap analizy rundy 5: 8 drobnych bugów (niski priorytet — nieoptymalne albo błędne w rzadkich/brzegowych sytuacjach, głównie po przerwie crona). Klasy L3/L4/L7 to dokładnie reguły #13 (deltaHours) i #14 (timezone) skodyfikowane w CLAUDE.md.**
+
+- **L1** — `src/Tick/WellProductionHandler.php`: reset bufora drogowego po wysyłce ciężarówek zmieniony z `SET road_buffer_bbl = 0` na atomowy `GREATEST(0, road_buffer_bbl - :wyslane)` — nakładający się tick (ADMIN_FORCE_TICK) nie kasuje ropy dodanej w międzyczasie (wzorzec jak dla bufora morskiego).
+- **L2** — `src/Tick/MarineDeliverySection.php`: licznik kolejki portu przy przyjmowaniu dostawy liczony **per-gracz** (`pq.player_id = ?`), nie wspólnie dla całego portu. Gracz z pełnym magazynem trzymał wpisy `waiting`, które zajmowały wspólny `queue_limit` i wpychały dostawy innych graczy w `delayed` — jeden gracz głodził port całemu regionowi. (Drenowanie bez zmian: `refreshPortStatuses` nigdy nie ustawia `closed`, a `overloaded` nie blokuje.)
+- **L3** — `src/MarineDeliveryService.php`: `departure_at`/`eta_at`/`created_at` zapisywane na zegarze MySQL (`NOW()`/`DATE_ADD`), nie z PHP `time()` — `purgeStale` i filtry porównują z `NOW()`, więc zapis z PHP przesuwał okna czyszczenia przy różnicy stref (reguła #14).
+- **L4** — `src/BlackMarketService.php` + `cron/tick.php`: płaski decay `black_market_score` skalowany systemowym `deltaHours` (1 tick = 5 min); po przerwie crona catch-up tick odejmuje równowartość wielu godzin, nie jeden krok (reguła #13). Normalny tick 5-min bez zmiany zachowania.
+- **L5** — `src/LoanDecisionService.php`: `processApplication` atomowo „zaklepuje" wniosek (warunkowy `UPDATE ... decision_at = +1h WHERE status='pending' AND decision_at <= NOW()` + `rowCount`) — tick (`BankSection`) i osobny cron (`cron/process_loan_decisions.php`) nie przetwarzają już tego samego wniosku podwójnie. Bez zmiany schematu (enum statusu nie ma stanu `processing`).
+- **L6** — `src/TTS/TasksTrait.php`: `pipeline_maintenance`/`pipeline_inspection`/`pipeline_repair` ustawiają sukces i komunikat „strata zmniejszona" tylko po `rowCount > 0`. Gdy rurociąg zniknął (sprzedany) zadanie kończy się komunikatem `pipeline_gone` (nowe klucze i18n PL+EN) zamiast fałszywego sukcesu.
+- **L7** — `src/RegionalEvent/EventsTrait.php`: `tickChance` clampowany do `min(1.0, ...)` — długi catch-up tick (`deltaHours > 24`) nie gwarantuje już zdarzenia w każdym regionie (reguła #13).
+- **L8** — `src/Tick/WellHubSection.php`: incydent huba liczy `extra_loss` od faktycznie dostarczonej ropy — leg wylotowy uruchamiany PRZED incydentem, a baza straty pomniejszona o nadmiar wracający do bufora (throttling przepustowości). Wcześniej lekko przeszacowywał stratę, gdy incydent i throttling wypadły w tym samym ticku.
+
+Testy: pełny zestaw Unit+Integration (SQLite) zielony; ścieżki MySQL (L2/L3/L5) weryfikowane przez CI `php-tests.yml` na żywej bazie MySQL 8 przy pushu.
+
 ### 2026-07-06 - Tick engine: podpięcie CredibilityModule przez registry
 
 **Pierwszy realny krok migracji ticka na moduły: tylko sekcja wiarygodności firmy działa teraz przez `TickRegistry`, bez zmiany kolejności pozostałych sekcji.**

@@ -327,17 +327,24 @@ class BlackMarketService
  * Reduces black_market_score for all players.
  * PL: Redukuje black_market_score wszystkim graczom.
  */
-    public function decayScores(): void
+    public function decayScores(float $deltaHours = 1.0): void
     {
-        // Staly ubytek punktow co tick (legacy, domyslnie 0.5).
-        // Flat per-tick decay (legacy, default 0.5).
+        // Staly ubytek punktow, skalowany czasem ticka (1 tick = 5 min = deltaHours/12).
+        // Bez skali catch-up tick po przerwie crona odejmowalby tylko jeden krok zamiast
+        // rownowartosci wielu godzin (regula #13 z CLAUDE.md). Sciezka procentowa nizej
+        // liczy sie po zegarze i tego nie wymaga.
+        // Flat decay, scaled by tick duration (1 tick = 5 min = deltaHours/12). Without
+        // scaling a catch-up tick after a cron outage would subtract only one step instead
+        // of the equivalent of many hours (rule #13 in CLAUDE.md).
         $flatDecay = $this->cfg('bm_score_decay_per_tick', 0.5);
         if ($flatDecay > 0.0) {
+            $ticksElapsed = max(1.0, $deltaHours * 12.0);
+            $scaledDecay = $flatDecay * $ticksElapsed;
             $this->db->prepare("
                 UPDATE players
                 SET black_market_score = GREATEST(0, ROUND(black_market_score - :decay, 2))
                 WHERE black_market_score > 0
-            ")->execute([':decay' => $flatDecay]);
+            ")->execute([':decay' => $scaledDecay]);
         }
 
         // Procentowy decay co konfigurowalny interwal godzinowy.

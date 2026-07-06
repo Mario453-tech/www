@@ -203,14 +203,28 @@ class WellHubSection
                     fn($hId) => $hId === $hubId
                 ));
 
-                $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
                 $this->processHubUsageFee($hubId, $hub, $playerId, $playerWellCount, $deltaHours);
                 // Odejmij bbl zablokowane przez pelny magazyn (juz zaksiegowane jako hub-loss),
                 // aby drugi odcinek transportu nie naliczal kosztow za ropy ktora nie dotarla.
                 // Subtract storage-blocked bbl (already booked as hub-loss) so the outbound
                 // leg does not charge transport fees on oil that never reached storage.
                 $processedBbl = max(0.0, (float)($result['processed_bbl'] ?? ($inputBbl - max(0.0, $hubLostBbl))) - $blockedBbl);
-                $this->processOutboundLeg($hubId, $playerId, $processedBbl, $deltaHours, $hseBonus);
+
+                // L8: leg wylotowy NAJPIERW — czesc "processed" ropy wraca do bufora (throttling
+                // przepustowosci), wiec nie zostala dostarczona. Incydent huba liczy strate od
+                // faktycznie dostarczonej ilosci (processed - nadmiar do bufora), nie od pelnego
+                // processed_bbl — inaczej przeszacowuje strate o rope, ktora czeka w buforze.
+                // L8: outbound leg FIRST — part of the "processed" oil returns to the buffer
+                // (capacity throttling), so it was not delivered. The hub incident bases its loss
+                // on the actually-delivered amount (processed minus buffer excess), not the full
+                // processed_bbl — otherwise it over-counts loss on oil still waiting in the buffer.
+                $excessReturnedBbl = $this->processOutboundLeg($hubId, $playerId, $processedBbl, $deltaHours, $hseBonus);
+
+                if ($excessReturnedBbl > 0.001) {
+                    $lossBase = (float)($result['processed_bbl'] ?? $inputBbl);
+                    $result['processed_bbl'] = max(0.0, $lossBase - $excessReturnedBbl);
+                }
+                $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
 
             } catch (Throwable $e) {
                 GameLog::error('tick', 'finalizeHubTicks FAILED', $e, [
@@ -371,10 +385,16 @@ class WellHubSection
  *
  * @param array<string, mixed> $hseBonus
  */
-    private function processOutboundLeg(int $hubId, int $playerId, float $processedBbl, float $deltaHours, array $hseBonus): void
+ /**
+  * @return float Nadmiar (bbl) cofniety z magazynu do bufora huba (throttling przepustowosci
+  *              rurociagu wylotowego). Ta ropa NIE zostala dostarczona w tym ticku — sluzy do
+  *              skorygowania bazy straty incydentu huba (L8). 0.0 gdy brak throttlingu.
+  *              Excess (bbl) pulled back from storage into the hub buffer; not delivered this tick.
+  */
+    private function processOutboundLeg(int $hubId, int $playerId, float $processedBbl, float $deltaHours, array $hseBonus): float
     {
         if ($processedBbl <= 0.001) {
-            return;
+            return 0.0;
         }
 
         $mults = [
@@ -397,8 +417,9 @@ class WellHubSection
             $hubPoliticalRisk
         );
         if ($res['kind'] === 'direct') {
-            return;
+            return 0.0;
         }
+        $excessReturnedBbl = 0.0;
 
         // Nadmiar ponad przepustowosc rurociagu wylotowego nie moze byc dostarczony za darmo:
         // cofnij go z magazynu do bufora hubu, by przeszedl na kolejny tick (throttling).
@@ -406,6 +427,7 @@ class WellHubSection
         // buffer so it carries over to the next tick (throttling).
         $excessBbl = (float)($res['excess_bbl'] ?? 0.0);
         if ($excessBbl > 0.001 && $this->hubTickSvc !== null) {
+            $excessReturnedBbl = $excessBbl;
             $excessVal = round($excessBbl * $this->oilPrice, 2);
             $this->ctx->currentStorage = max(0.0, $this->ctx->currentStorage - $excessBbl);
             $this->ctx->finBbl        -= $excessBbl;
@@ -459,5 +481,7 @@ class WellHubSection
             'lost_bbl'  => round($lostBbl, 2),
             'cost'      => $cost,
         ]);
+
+        return $excessReturnedBbl;
     }
 }
