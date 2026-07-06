@@ -252,4 +252,24 @@ trait ContractQueryTrait
     {
         return max(1, min(200, $limit));
     }
+
+    /**
+     * Oblicza cene za bbl na podstawie trybu cenowego kontraktu.
+     * Calculates price per bbl based on contract price mode.
+     *
+     * @param array<string,array{type:string,value:float,text:?string}> $terms
+     */
+    private function calculatePrice(array $terms, float $marketPrice): float
+    {
+        $mode       = (string)($terms['price_mode']['text'] ?? 'market_plus_bonus');
+        $multiplier = (float)($terms['price_multiplier']['value'] ?? 1.0);
+        $bonusPct   = (float)($terms['bonus_pct']['value'] ?? 0.0);
+        $fixedPrice = (float)($terms['fixed_price']['value'] ?? 0.0);
+
+        return match($mode) {
+            'fixed'              => max(0.0, $fixedPrice),
+            'market_multiplier'  => round($marketPrice * max(0.0, $multiplier), 2),
+            default              => round($marketPrice * (1.0 + $bonusPct / 100.0), 2),
+        };
+    }
 }

@@ -32,6 +32,7 @@ class ContractService
     private PDO $db;
     private CompanyCredibilityService $credibility;
     private ?LegalService $legal = null;
+    private ?FinancialTransactionService $fts = null;
     private ?bool $moduleEnabledCache = null;
 
     public function __construct(?PDO $db = null)
@@ -270,6 +271,239 @@ class ContractService
                 GameLog::error('ContractService', 'cancelContract FAILED', $e, ['player_id' => $playerId, 'contract_id' => $contractId]);
             }
             return $this->result(false, 'db_error');
+        }
+    }
+
+    /**
+     * Przetwarza wszystkie wymagalne dostawy kontraktowe.
+     * Processes all due contract deliveries.
+     *
+     * @return array{processed:int,completed:int,failed:int,revenue:float,penalties:float}
+     */
+    public function processDueContracts(\DateTime $now, float $marketPrice): array
+    {
+        if (!$this->isModuleEnabled()) {
+            return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0];
+        }
+
+        $nowStr = $now->format('Y-m-d H:i:s');
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT * FROM player_contracts
+                  WHERE status = 'active'
+                    AND next_delivery_at <= ?
+                  ORDER BY next_delivery_at ASC
+                  LIMIT 200"
+            );
+            $stmt->execute([$nowStr]);
+            $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('ContractService', 'processDueContracts SELECT FAILED', $e);
+            }
+            return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0];
+        }
+
+        $processed = 0;
+        $completed  = 0;
+        $failed     = 0;
+        $revenue    = 0.0;
+        $penalties  = 0.0;
+
+        foreach ($contracts as $contract) {
+            try {
+                $r = $this->processOneDueContract($contract, $now, $marketPrice);
+                $processed++;
+                $revenue   += $r['revenue'];
+                $penalties += $r['penalty'];
+                if ($r['new_status'] === 'completed') {
+                    $completed++;
+                } elseif ($r['new_status'] === 'failed') {
+                    $failed++;
+                }
+            } catch (Throwable $e) {
+                if (class_exists('GameLog', false)) {
+                    GameLog::error('ContractService', 'processOneDueContract FAILED', $e, [
+                        'contract_id' => $contract['id'] ?? null,
+                        'player_id'   => $contract['player_id'] ?? null,
+                    ]);
+                }
+            }
+        }
+
+        return compact('processed', 'completed', 'failed', 'revenue', 'penalties');
+    }
+
+    /**
+     * Rozlicza jedna rate dostawy kontraktowej w transakcji.
+     * Settles one due contract delivery in a single transaction.
+     *
+     * @param array<string,mixed> $contract
+     * @return array{revenue:float,penalty:float,new_status:string}
+     */
+    private function processOneDueContract(array $contract, \DateTime $now, float $marketPrice): array
+    {
+        $contractId = (int)$contract['id'];
+        $playerId   = (int)$contract['player_id'];
+        $nowStr     = $now->format('Y-m-d H:i:s');
+        $forUpdate  = $this->driver() === 'sqlite' ? '' : ' FOR UPDATE';
+
+        $this->db->beginTransaction();
+        try {
+            // Ponowna blokada i sprawdzenie statusu po blokadzie.
+            // Re-lock and re-check status after acquiring lock.
+            $cStmt = $this->db->prepare(
+                "SELECT * FROM player_contracts WHERE id = ? AND player_id = ? AND status = 'active' LIMIT 1{$forUpdate}"
+            );
+            $cStmt->execute([$contractId, $playerId]);
+            $contract = $cStmt->fetch(PDO::FETCH_ASSOC);
+            if ($contract === false) {
+                $this->db->rollBack();
+                return ['revenue' => 0.0, 'penalty' => 0.0, 'new_status' => 'skipped'];
+            }
+
+            // Sprawdz czy dostawa jest nadal wymagalna po blokadzie.
+            // Check if delivery is still due after acquiring lock.
+            if ((string)$contract['next_delivery_at'] > $nowStr) {
+                $this->db->rollBack();
+                return ['revenue' => 0.0, 'penalty' => 0.0, 'new_status' => 'skipped'];
+            }
+
+            // Magazyn gracza FOR UPDATE.
+            // Player storage FOR UPDATE.
+            $sStmt = $this->db->prepare(
+                "SELECT used, capacity FROM storage WHERE player_id = ? LIMIT 1{$forUpdate}"
+            );
+            $sStmt->execute([$playerId]);
+            $storage = $sStmt->fetch(PDO::FETCH_ASSOC);
+            $storageUsed = $storage !== false ? max(0.0, (float)$storage['used']) : 0.0;
+
+            // Warunki kontraktu z terms_json (snapshot przy podpisaniu).
+            // Contract terms from terms_json snapshot (captured at signing).
+            /** @var array<string,array{type:string,value:float,text:?string}> $terms */
+            $terms = json_decode((string)$contract['terms_json'], true) ?? [];
+
+            $totalBbl        = (float)$contract['total_bbl'];
+            $deliveredSoFar  = (float)$contract['delivered_bbl'];
+            $deliveryBbl     = (float)($terms['delivery_bbl']['value'] ?? 0.0);
+            $intervalMinutes = (int)($terms['delivery_interval_minutes']['value'] ?? 60);
+            $penaltyPct      = (float)($terms['penalty_pct']['value'] ?? 0.0);
+
+            $remainingBbl  = max(0.0, $totalBbl - $deliveredSoFar);
+            $requiredBbl   = min($deliveryBbl, $remainingBbl);
+            $deliveredBbl  = min($requiredBbl, $storageUsed);
+            $missedBbl     = round(max(0.0, $requiredBbl - $deliveredBbl), 4);
+            $deliveredBbl  = round($deliveredBbl, 4);
+
+            // Pobierz rope z magazynu / Draw oil from storage.
+            if ($deliveredBbl > 0.0) {
+                $this->db->prepare(
+                    "UPDATE storage SET used = GREATEST(0, used - ?), updated_at = NOW() WHERE player_id = ?"
+                )->execute([$deliveredBbl, $playerId]);
+            }
+
+            // Cena i rozliczenie finansowe / Price and financial settlement.
+            $pricePerBbl = $this->calculatePrice($terms, $marketPrice);
+            $revenue     = round($deliveredBbl * $pricePerBbl, 2);
+            $penalty     = round($missedBbl * $pricePerBbl * $penaltyPct / 100.0, 2);
+
+            $this->fts ??= new FinancialTransactionService($this->db);
+
+            if ($revenue > 0.0) {
+                $this->fts->credit(
+                    $playerId,
+                    $revenue,
+                    FinancialTransactionService::TYPE_CONTRACT_SALE,
+                    tPlain('bank.tx_contract_sale', ['id' => $contractId]),
+                    'contract',
+                    $contractId
+                );
+            }
+            if ($penalty > 0.0) {
+                $this->fts->debitCombined(
+                    $playerId,
+                    $penalty,
+                    FinancialTransactionService::TYPE_CONTRACT_PENALTY,
+                    tPlain('bank.tx_contract_penalty', ['id' => $contractId]),
+                    'contract',
+                    $contractId
+                );
+            }
+
+            // Wpis historii dostawy / Delivery record.
+            $deliveryStatus = match(true) {
+                $missedBbl <= 0.0     => 'delivered',
+                $deliveredBbl > 0.0   => 'partial',
+                default               => 'missed',
+            };
+            $this->db->prepare(
+                "INSERT INTO contract_deliveries
+                    (player_contract_id, player_id, due_at, required_bbl, delivered_bbl,
+                     missed_bbl, price_per_bbl, revenue, penalty, status, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            )->execute([
+                $contractId, $playerId,
+                (string)$contract['next_delivery_at'],
+                $requiredBbl, $deliveredBbl, $missedBbl,
+                $pricePerBbl, $revenue, $penalty,
+                $deliveryStatus,
+                $nowStr,
+            ]);
+
+            // Nowy termin dostawy i sumy / Next delivery date and running totals.
+            $nextDelivery    = $this->datePlusMinutes($nowStr, $intervalMinutes);
+            $newDeliveredBbl = round($deliveredSoFar + $deliveredBbl, 4);
+
+            $newStatus = 'active';
+            $completedAt = null;
+            if ($newDeliveredBbl >= $totalBbl - 0.001) {
+                $newStatus   = 'completed';
+                $completedAt = $nowStr;
+            } elseif ($nowStr >= (string)$contract['ends_at']) {
+                $newStatus = 'failed';
+            }
+
+            $updateSql = "UPDATE player_contracts
+                SET delivered_bbl = ?,
+                    missed_bbl    = GREATEST(0, missed_bbl + ?),
+                    next_delivery_at = ?,
+                    status        = ?,
+                    completed_at  = ?,
+                    updated_at    = ?
+              WHERE id = ? AND player_id = ?";
+            $this->db->prepare($updateSql)->execute([
+                $newDeliveredBbl,
+                $missedBbl,
+                $nextDelivery,
+                $newStatus,
+                $completedAt,
+                $nowStr,
+                $contractId,
+                $playerId,
+            ]);
+
+            // Log zdarzenia / Event log.
+            $eventKey = match($newStatus) {
+                'completed' => 'contract_completed',
+                'failed'    => 'contract_failed',
+                default     => 'contract_delivery',
+            };
+            $this->logEvent($playerId, $contractId, (string)$contract['target_type'], null, (string)$contract['context'], $eventKey, $eventKey, [
+                'delivered_bbl' => $deliveredBbl,
+                'missed_bbl'    => $missedBbl,
+                'revenue'       => $revenue,
+                'penalty'       => $penalty,
+                'new_status'    => $newStatus,
+            ]);
+
+            $this->db->commit();
+            return ['revenue' => $revenue, 'penalty' => $penalty, 'new_status' => $newStatus];
+
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
         }
     }
 
