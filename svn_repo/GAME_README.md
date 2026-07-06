@@ -1,5 +1,22 @@
 ## Changelog
 
+### 2026-07-06 - Kontrakty długoterminowe P1: fundament danych i serwisu
+
+**Dodano bezpieczny fundament kontraktów długoterminowych bez podpinania do ticka, UI, finansów ani logistyki. Ten etap przygotowuje moduł pod późniejsze rozliczanie dostaw ropy z magazynu.**
+
+- `src/Contracts/ContractSchema.php` - idempotentny schemat 5 tabel: `contract_options`, `contract_terms`, `player_contracts`, `contract_deliveries`, `contract_logs`.
+- `src/ContractService.php` - serwis P1 do włączania modułu, pobierania ofert, podpisywania i anulowania kontraktów; bez efektów finansowych i bez zmian w produkcji.
+- `src/Contracts/ContractQueryTrait.php` - listy kontraktów/dostaw/logów oraz prywatne helpery serwisu; główny plik `ContractService.php` zostaje krótki i mieści się w standardzie podziału plików.
+- Seed P1 dodaje 3 domyślne kontrakty magazynowe: lokalna rafineria, sieć paliwowa i koncern przemysłowy.
+- Moduł jest domyślnie wyłączony przez `well_config.contracts_module_enabled`; można go włączyć bez zmiany kodu.
+- Walidacja P1 obejmuje: aktywność oferty, kontekst `storage_oil_delivery`, minimalną wiarygodność firmy, poziom działu prawnego, wymagane parametry kontraktu i limit aktywnych kontraktów gracza.
+- Po code review dodano ochronę przed równoległym podpisaniem kontraktów: serwis blokuje wiersz gracza i sprawdza limit aktywnych kontraktów w tej samej transakcji.
+- `acceptContract()` i `cancelContract()` respektują zewnętrzne transakcje - nie commitują ani nie rollbackują transakcji otwartej przez caller.
+- Walidacja odrzuca nieistniejącego gracza, nie zwraca cache'owanych ofert i używa spójnego czasu PHP do sprawdzania `expires_at`.
+- Seed dużego kontraktu poprawiono tak, żeby harmonogram dostaw domykał pełny wolumen bez resztówki.
+- `lang/pl/contracts.php`, `lang/en/contracts.php`, `lang/pl.php`, `lang/en.php` - dodano tłumaczenia `contracts.*`, żeby przyszłe UI/API nie pokazywało surowych kluczy.
+- `tests/Integration/ContractServiceTest.php` - testy schematu, seeda, flagi modułu, listy ofert, podpisania, brakującego gracza, blokad wiarygodności/prawnego, limitu, transakcji zewnętrznych i anulowania.
+
 ### 2026-07-06 - Tick engine: podpięcie CredibilityModule przez registry
 
 **Pierwszy realny krok migracji ticka na moduły: tylko sekcja wiarygodności firmy działa teraz przez `TickRegistry`, bez zmiany kolejności pozostałych sekcji.**

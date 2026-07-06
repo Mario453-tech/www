@@ -38,6 +38,7 @@ $lang += require __DIR__ . '/pl/board.php';
 $lang += require __DIR__ . '/pl/bribery.php';
 $lang += require __DIR__ . '/pl/common.php';
 $lang += require __DIR__ . '/pl/components.php';
+$lang += require __DIR__ . '/pl/contracts.php';
 $lang += require __DIR__ . '/pl/credibility.php';
 $lang += require __DIR__ . '/pl/director.php';
 $lang += require __DIR__ . '/pl/finance.php';
