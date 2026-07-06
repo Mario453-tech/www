@@ -4597,6 +4597,72 @@ table.admin-table tr:hover td {
     grid-template-columns: 180px 1fr 140px 80px 90px 80px auto;
 }
 
+/* -- KONTRAKTY - admin/contracts.php -------------------------- */
+.contracts-admin-grid {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+}
+.contracts-admin-row {
+    display: grid;
+    gap: 0 8px;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    font-size: 12px;
+    transition: background .13s;
+}
+.contracts-admin-row:hover { background: rgba(255,152,0,.04); }
+.contracts-admin-row--head {
+    background: #1a1a1a;
+    border-bottom: 1px solid rgba(255,152,0,.15) !important;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: rgba(255,152,0,.55);
+    padding: 7px 12px;
+}
+.contracts-admin-row--options   { grid-template-columns: 150px 1fr 150px 130px 90px 70px auto; }
+.contracts-admin-row--terms     { grid-template-columns: 200px 110px 120px 1fr auto; }
+.contracts-admin-row--active    { grid-template-columns: 1fr 1fr 140px 130px 130px; }
+.contracts-admin-row--deliveries{ grid-template-columns: 120px 1fr 90px 90px 100px 110px 110px 90px; }
+.contracts-admin-row--logs      { grid-template-columns: 120px 1fr 160px 2fr; }
+.contracts-admin-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+}
+.contracts-inline-form { margin: 0; display: inline; }
+.contracts-terms-block { margin-bottom: 16px; }
+.contracts-terms-block__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,.8);
+    margin: 8px 0 4px;
+}
+.contracts-help__list {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    line-height: 1.7;
+    font-size: 13px;
+    color: rgba(255,255,255,.75);
+}
+
+@media (max-width: 768px) {
+    .contracts-admin-row--options,
+    .contracts-admin-row--terms,
+    .contracts-admin-row--active,
+    .contracts-admin-row--deliveries,
+    .contracts-admin-row--logs {
+        grid-template-columns: 1fr 1fr !important;
+        font-size: 11px;
+    }
+}
+
 /* Toggle switch modul aktywny */
 .module-toggle-wrap {
     display: flex;

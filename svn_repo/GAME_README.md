@@ -1,5 +1,25 @@
 ## Changelog
 
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 5 (UI gracza) + Etap 6 (panel admina)
+
+**Kontrakty dostały pełny interfejs gracza i panel administracyjny — moduł jest teraz obsługiwalny end-to-end.**
+
+Etap 5 — UI gracza:
+- `public/contracts.php` — endpoint strony: `Auth::requireLogin`, `RateLimiter::check('action')`, `CSRF::validateToken`; akcje `accept_contract` i `cancel_contract` (przez `ContractService::acceptContract`/`cancelContract`), komunikaty z `message_key` przez `tPlain`.
+- `templates/views/contracts/main.php` — cztery sekcje: dostępne kontrakty (z warunkami, szac. przychodem i blokadami wiarygodność/dział prawny), aktywne kontrakty (pasek postępu `--bar-w`, anulowanie), historia dostaw, logi. Bez tabel HTML, bez inline style (poza dynamicznym `--bar-w`), potwierdzenia przez `data-confirm` z `modal.js`.
+- `assets/css/contracts.css` — style widoku (grid kart, listy, pasek postępu), zmienne motywu z fallbackami, responsywność ≤640px.
+- `assets/js/contracts.js` — tylko toast po akcji (flash); potwierdzenia podpisania/anulowania obsługuje globalny handler `data-confirm` z `modal.js`.
+- `lang/pl/contracts.php` + `lang/en/contracts.php` — komplet kluczy UI gracza (sekcje, pola warunków, statusy, tryby ceny, zdarzenia logów, jednostki).
+
+Etap 6 — panel admina:
+- `admin/contracts.php` — panel z zakładkami `options / terms / active / deliveries / logs / help`; `AdminAuth::requireLogin`, `CSRF` na każdej akcji, `AdminLog::log` na każdej mutacji. Akcje: przełącz moduł, dodaj/edytuj opcję, włącz/wyłącz opcję (**is_active = 0, bez fizycznego DELETE**), dodaj/edytuj/usuń warunek (upsert po `contract_option_id, term_key`).
+- `templates/views/admin/contracts/main.php` — listy i formularze opcji/warunków, podgląd aktywnych kontraktów, dostaw i logów, zakładka pomocy. Operacje destrukcyjne (wyłączenie modułu/opcji, usunięcie warunku) przez `data-confirm`.
+- `assets/css/admin.css` — dodano blok `.contracts-admin-grid`/`.contracts-admin-row--{options,terms,active,deliveries,logs}` (wzorzec jak `protection-admin-*`).
+- `lang/pl/admin/contracts.php` + `lang/en/admin/contracts.php` — komplet kluczy panelu (auto-ładowane przez `lang/pl/admin.php` glob).
+- `tests/Integration/ContractsModuleTest.php` bez zmian; szablony zweryfikowane render-testem (wszystkie zakładki + tryb edycji, zero warningów PHP).
+
+Zasady spełnione: pieniądze wyłącznie przez `FinancialTransactionService`, MVP tylko `storage` + `storage_oil_delivery`, ropa pobierana dopiero przy dostawie, komentarze dwujęzyczne bez polskich znaków. UWAGA: link nawigacyjny do `/contracts.php` w pulpicie gracza (GameShell action grid) celowo poza zakresem tych etapów — do dodania osobno.
+
 ### 2026-07-06 - Kontrakty długoterminowe P1: Etap 4 — ContractsModule (TickModule + wiring)
 
 **Kontrakty wpięte w cykl tikowy gry: automatyczne rozliczanie dostaw co ~5 minut.**
