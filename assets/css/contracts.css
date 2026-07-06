@@ -164,9 +164,7 @@
     letter-spacing: .07em;
     text-transform: uppercase;
     color: var(--text3);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
     display: block;
 }
 
@@ -176,9 +174,8 @@
     font-weight: 700;
     color: var(--text);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
     display: block;
 }
 
