@@ -1,5 +1,23 @@
 ## Changelog
 
+### 2026-07-06 - Kontrakty długoterminowe P1: Etap 4 — ContractsModule (TickModule + wiring)
+
+**Kontrakty wpięte w cykl tikowy gry: automatyczne rozliczanie dostaw co ~5 minut.**
+
+- `src/Tick/Modules/ContractsModule.php` — nowy TickModule (key=`contracts`, order=45); wywołuje `ContractService::processDueContracts($ctx->newPrice)` i loguje wynik przez `GameLog::info`.
+- `cron/tick.php` — sekcja 10 (po szkoleniach): `ContractsModule` pobierany przez `TickRegistry::find('contracts')`; `$tickCtx` przeniesiony przed try-blok sekcji 7, żeby oba moduły (Credibility, Contracts) dzieliły ten sam kontekst.
+- Moduł jest domyślnie wyciszony gdy `contracts_module_enabled = 0` (`ContractService::processDueContracts` wraca od razu z pustymi statystykami).
+- Statystyki modułu (`processed/completed/failed/revenue/penalties`) mergowane do `$tickCtx` i dostępne przez `TickContext::collectStats()`.
+
+### 2026-07-06 - Kontrakty długoterminowe P1: poprawki po code review Etapu 3 (HIGH + MEDIUM + LOW)
+
+**Naprawiono trzy bugi znalezione przez code review implementacji processDueContracts.**
+
+- **HIGH** — `src/ContractService.php`: `FTS::credit()` i `FTS::debitCombined()` zwracają `['success'=>bool]`, a nie rzucają wyjątkiem — teraz sprawdzamy wynik i rzucamy `RuntimeException` przy niepowodzeniu, żeby zewnętrzna transakcja wycofała się. Bez tej poprawki magazyn traciłby ropę i `delivered_bbl` rosło bez zaksięgowania wpłaty.
+- **MEDIUM** — `src/ContractService.php`: `processDueContracts` przyjmował `\DateTime $now` (PHP-clock) zamiast używać MySQL-clock (`nowString()`). Usunięto parametr `$now`; `processOneDueContract` przyjmuje teraz `string $nowStr`. Eliminuje skew między PHP a MySQL przy porównaniu z `next_delivery_at` zapisanym przez `NOW()` (reguła #14).
+- **LOW** — `src/ContractService.php`: `$processed++` było inkrementowane dla kontraktów ze statusem `skipped` (concurrent-lock guard) — wynik `processDueContracts` raportował nieprawdziwe liczby przy nakładających się tickach. Dodano guard `if ($r['new_status'] !== 'skipped')`.
+- `tests/Integration/ContractTickTest.php` — sygnatura `processDueContracts(100.0)` (bez `$now`); `ends_at` testów niebędących testem niepowodzenia ustawione na `2099-12-31`; `next_delivery_at` testu braku due ustawione na `2099-12-31` (was: `2025-06-01 18:00:00` — byłby due z zegarem real-time); `testNextDeliveryAtAdvancesAfterTick` przepisany na `time()`-relative check (±5 s tolerance).
+
 ### 2026-07-06 - Kontrakty długoterminowe P1: poprawki po code review (MEDIUM + 2×LOW)
 
 **Naprawiono trzy bugi znalezione przez code review fundament P1 kontraktów.**
