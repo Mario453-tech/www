@@ -106,6 +106,7 @@ $deliveryStatusLabel = static function (string $status): string {
             $durationMin = $termVal($terms, 'duration_minutes');
             $bonusPct    = $termVal($terms, 'bonus_pct');
             $penaltyPct  = $termVal($terms, 'penalty_pct');
+            $minContractRep = $termVal($terms, 'min_contract_reputation');
             $priceMode   = $termText($terms, 'price_mode') ?: (string)($option['price_mode'] ?? 'market_plus_bonus');
             $estRevenue  = $deliveryBbl * $marketPrice * (1.0 + $bonusPct / 100.0);
             $met         = !empty($option['requirements_met']);
@@ -145,6 +146,8 @@ $deliveryStatusLabel = static function (string $status): string {
                     <?= t('contracts.locked_credibility', ['min' => (int)($option['min_credibility'] ?? 0)]) ?>
                 <?php elseif ($lockReason === 'legal_level'): ?>
                     <?= t('contracts.locked_legal_level', ['level' => (int)($option['requires_legal_level'] ?? 0)]) ?>
+                <?php elseif ($lockReason === 'contract_reputation'): ?>
+                    <?= t('contracts.locked_contract_reputation', ['min' => (int)$minContractRep]) ?>
                 <?php else: ?>
                     <?= t('contracts.locked_generic') ?>
                 <?php endif ?>

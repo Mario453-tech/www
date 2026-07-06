@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Contracts/ContractSchema.php';
 require_once __DIR__ . '/Contracts/ContractQueryTrait.php';
 require_once __DIR__ . '/CompanyCredibilityService.php';
+require_once __DIR__ . '/ContractReputationService.php';
 require_once __DIR__ . '/LegalService.php';
 
 /**
@@ -31,6 +32,7 @@ class ContractService
 
     private PDO $db;
     private CompanyCredibilityService $credibility;
+    private ContractReputationService $contractReputation;
     private ?LegalService $legal = null;
     private ?FinancialTransactionService $fts = null;
     private ?bool $moduleEnabledCache = null;
@@ -41,6 +43,7 @@ class ContractService
         ContractSchema::ensure($this->db);
         $this->ensureConfig();
         $this->credibility = new CompanyCredibilityService($this->db);
+        $this->contractReputation = new ContractReputationService($this->db);
     }
 
     public function isModuleEnabled(): bool
@@ -111,11 +114,12 @@ class ContractService
         $score = $this->credibility->getScore($playerId);
         $legalNeeded = array_filter($options, static fn(array $o): bool => (int)$o['requires_legal_level'] > 0) !== [];
         $legalLevel = $legalNeeded ? $this->legalLevel($playerId) : 0;
+        $contractReputation = $this->contractReputation->getScore($playerId);
 
         foreach ($options as &$option) {
             $terms = $termsMap[(int)$option['id']] ?? [];
             $option['terms'] = $terms;
-            $option['locked_reason'] = $this->lockedReason($option, $score, $legalLevel);
+            $option['locked_reason'] = $this->lockedReason($option, $score, $legalLevel, $terms, $contractReputation);
             $option['requirements_met'] = $option['locked_reason'] === null;
             $option['reference_value'] = $referenceValue;
         }
@@ -159,7 +163,13 @@ class ContractService
             return $this->result(false, $validation);
         }
         $legalLevel = (int)$option['requires_legal_level'] > 0 ? $this->legalLevel($playerId) : 0;
-        $locked = $this->lockedReason($option, $this->credibility->getScore($playerId), $legalLevel);
+        $locked = $this->lockedReason(
+            $option,
+            $this->credibility->getScore($playerId),
+            $legalLevel,
+            $terms,
+            $this->contractReputation->getScore($playerId)
+        );
         if ($locked !== null) {
             return $this->result(false, 'requirements_' . $locked);
         }
@@ -258,6 +268,7 @@ class ContractService
             $this->db->prepare(
                 "UPDATE player_contracts SET status = 'cancelled', cancelled_at = ?, updated_at = ? WHERE id = ? AND player_id = ?"
             )->execute([$now, $now, $contractId, $playerId]);
+            $this->contractReputation->onContractCancelled($playerId, $contractId);
             $this->logEvent($playerId, $contractId, (string)$row['target_type'], $row['target_id'] === null ? null : (int)$row['target_id'], (string)$row['context'], 'contract_cancelled', 'contract.log.cancelled');
             if ($ownTx) {
                 $this->db->commit();
@@ -350,8 +361,14 @@ class ContractService
         $contractId = (int)$contract['id'];
         $playerId   = (int)$contract['player_id'];
         $forUpdate  = $this->driver() === 'sqlite' ? '' : ' FOR UPDATE';
+        $ownTx = !$this->db->inTransaction();
+        $savepoint = $ownTx ? null : 'contract_due_' . $contractId;
 
-        $this->db->beginTransaction();
+        if ($ownTx) {
+            $this->db->beginTransaction();
+        } else {
+            $this->db->exec('SAVEPOINT ' . $savepoint);
+        }
         try {
             // Ponowna blokada i sprawdzenie statusu po blokadzie.
             // Re-lock and re-check status after acquiring lock.
@@ -361,14 +378,14 @@ class ContractService
             $cStmt->execute([$contractId, $playerId]);
             $contract = $cStmt->fetch(PDO::FETCH_ASSOC);
             if ($contract === false) {
-                $this->db->rollBack();
+                $this->finishDeliveryTransaction($ownTx, $savepoint);
                 return ['revenue' => 0.0, 'penalty' => 0.0, 'new_status' => 'skipped'];
             }
 
             // Sprawdz czy dostawa jest nadal wymagalna po blokadzie.
             // Check if delivery is still due after acquiring lock.
             if ((string)$contract['next_delivery_at'] > $nowStr) {
-                $this->db->rollBack();
+                $this->finishDeliveryTransaction($ownTx, $savepoint);
                 return ['revenue' => 0.0, 'penalty' => 0.0, 'new_status' => 'skipped'];
             }
 
@@ -427,18 +444,30 @@ class ContractService
                     throw new \RuntimeException('FTS credit failed: ' . ($cr['error'] ?? 'unknown'));
                 }
             }
+            $penaltyCollected = 0.0;
+            $penaltyPaymentError = null;
             if ($penalty > 0.0) {
+                $penaltyCollected = min($penalty, $this->combinedBalanceForUpdate($playerId));
+            }
+            if ($penaltyCollected >= FinancialTransactionService::MIN_AMOUNT) {
                 $dr = $this->fts->debitCombined(
                     $playerId,
-                    $penalty,
+                    $penaltyCollected,
                     FinancialTransactionService::TYPE_CONTRACT_PENALTY,
                     tPlain('bank.tx_contract_penalty', ['id' => $contractId]),
                     'contract',
                     $contractId
                 );
                 if (!$dr['success']) {
-                    throw new \RuntimeException('FTS debitCombined failed: ' . ($dr['error'] ?? 'unknown'));
+                    if (($dr['error'] ?? '') === 'insufficient_funds') {
+                        $penaltyPaymentError = 'insufficient_funds';
+                        $penaltyCollected = 0.0;
+                    } else {
+                        throw new \RuntimeException('FTS debitCombined failed: ' . ($dr['error'] ?? 'unknown'));
+                    }
                 }
+            } elseif ($penalty > 0.0) {
+                $penaltyPaymentError = 'insufficient_funds';
             }
 
             // Wpis historii dostawy / Delivery record.
@@ -460,10 +489,23 @@ class ContractService
                 $deliveryStatus,
                 $nowStr,
             ]);
+            $deliveryMeta = [
+                'status' => $deliveryStatus,
+                'required_bbl' => $requiredBbl,
+                'delivered_bbl' => $deliveredBbl,
+                'missed_bbl' => $missedBbl,
+                'revenue' => $revenue,
+                'penalty' => $penalty,
+                'penalty_collected' => $penaltyCollected,
+            ];
+            if ($penaltyPaymentError !== null) {
+                $deliveryMeta['penalty_payment_error'] = $penaltyPaymentError;
+            }
 
             // Nowy termin dostawy i sumy / Next delivery date and running totals.
             $nextDelivery    = $this->datePlusMinutes($nowStr, $intervalMinutes);
             $newDeliveredBbl = round($deliveredSoFar + $deliveredBbl, 4);
+            $newMissedBbl = round((float)$contract['missed_bbl'] + $missedBbl, 4);
 
             $newStatus = 'active';
             $completedAt = null;
@@ -493,6 +535,17 @@ class ContractService
                 $playerId,
             ]);
 
+            if ($deliveryStatus === 'delivered') {
+                $this->contractReputation->onDeliverySuccess($playerId, $contractId, $deliveryMeta);
+            } else {
+                $this->contractReputation->onDeliveryMiss($playerId, $contractId, $deliveryMeta);
+            }
+            if ($newStatus === 'completed') {
+                $this->contractReputation->onContractCompleted($playerId, $contractId, $newMissedBbl <= 0.001);
+            } elseif ($newStatus === 'failed') {
+                $this->contractReputation->onContractFailed($playerId, $contractId);
+            }
+
             // Log zdarzenia / Event log.
             $eventKey = match($newStatus) {
                 'completed' => 'contract_completed',
@@ -504,18 +557,56 @@ class ContractService
                 'missed_bbl'    => $missedBbl,
                 'revenue'       => $revenue,
                 'penalty'       => $penalty,
+                'penalty_collected' => $penaltyCollected,
                 'new_status'    => $newStatus,
+                'penalty_payment_error' => $penaltyPaymentError,
             ]);
 
-            $this->db->commit();
+            $this->finishDeliveryTransaction($ownTx, $savepoint);
             return ['revenue' => $revenue, 'penalty' => $penalty, 'new_status' => $newStatus];
 
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
+            $this->rollbackDeliveryTransaction($ownTx, $savepoint);
             throw $e;
         }
+    }
+
+    private function finishDeliveryTransaction(bool $ownTx, ?string $savepoint): void
+    {
+        if ($ownTx) {
+            $this->db->commit();
+            return;
+        }
+        if ($savepoint !== null) {
+            $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
+        }
+    }
+
+    private function rollbackDeliveryTransaction(bool $ownTx, ?string $savepoint): void
+    {
+        if (!$this->db->inTransaction()) {
+            return;
+        }
+        if ($ownTx) {
+            $this->db->rollBack();
+            return;
+        }
+        if ($savepoint !== null) {
+            $this->db->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+            $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
+        }
+    }
+
+    private function combinedBalanceForUpdate(int $playerId): float
+    {
+        $forUpdate = $this->driver() === 'sqlite' ? '' : ' FOR UPDATE';
+        $stmt = $this->db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1{$forUpdate}");
+        $stmt->execute([$playerId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row)) {
+            return 0.0;
+        }
+        return max(0.0, round((float)$row['cash'] + (float)$row['bank_balance'], 2));
     }
 
 }

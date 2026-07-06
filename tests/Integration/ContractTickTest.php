@@ -215,6 +215,55 @@ final class ContractTickTest extends SqliteIntegrationTestCase
         $this->assertSame('failed', $status);
     }
 
+    public function testFailedContractWithUnpayablePenaltyStillProgresses(): void
+    {
+        $this->seedPlayer(1, 0.0, 0.0);
+        $this->seedStorage(1, 0.0);
+        $contractId = $this->insertContract(1, [
+            'next_delivery_at'  => '2025-06-01 11:00:00',
+            'ends_at'           => '2025-06-01 10:00:00',
+            'total_bbl'         => 500.0,
+            'delivered_bbl'     => 0.0,
+            'terms_delivery_bbl' => 50.0,
+            'terms_penalty_pct'  => 10.0,
+        ]);
+
+        $result = $this->service->processDueContracts(100.0);
+
+        $this->assertSame(1, $result['processed']);
+        $this->assertSame(1, $result['failed']);
+        $this->assertSame(500.0, $result['penalties']);
+        $status = $this->db->query("SELECT status FROM player_contracts WHERE id = {$contractId}")->fetchColumn();
+        $this->assertSame('failed', $status);
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM contract_deliveries WHERE player_contract_id = {$contractId}")->fetchColumn());
+        $this->assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM bank_transactions WHERE reference_type = 'contract' AND reference_id = {$contractId}")->fetchColumn());
+    }
+
+    public function testProcessDueContractsKeepsOuterTransactionOpen(): void
+    {
+        $this->seedPlayer(1, 0.0, 0.0);
+        $this->seedStorage(1, 100.0);
+        $contractId = $this->insertContract(1, [
+            'next_delivery_at'  => '2025-06-01 11:00:00',
+            'ends_at'           => '2099-12-31 00:00:00',
+            'total_bbl'         => 500.0,
+            'delivered_bbl'     => 0.0,
+            'terms_delivery_bbl' => 50.0,
+            'terms_penalty_pct'  => 0.0,
+        ]);
+
+        $this->db->beginTransaction();
+        $result = $this->service->processDueContracts(100.0);
+
+        $this->assertSame(1, $result['processed']);
+        $this->assertTrue($this->db->inTransaction());
+        $this->db->rollBack();
+
+        $status = $this->db->query("SELECT status FROM player_contracts WHERE id = {$contractId}")->fetchColumn();
+        $this->assertSame('active', $status);
+        $this->assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM contract_deliveries WHERE player_contract_id = {$contractId}")->fetchColumn());
+    }
+
     // ================================================================== log event
 
     public function testLogEventIsWrittenAfterDelivery(): void

@@ -157,6 +157,36 @@ class ContractSchema
                 KEY idx_contract_logs_event (event_key, created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS contract_reputation (
+                player_id INT NOT NULL PRIMARY KEY,
+                score INT NOT NULL DEFAULT 50,
+                total_contracts INT NOT NULL DEFAULT 0,
+                completed_contracts INT NOT NULL DEFAULT 0,
+                failed_contracts INT NOT NULL DEFAULT 0,
+                cancelled_contracts INT NOT NULL DEFAULT 0,
+                missed_deliveries INT NOT NULL DEFAULT 0,
+                perfect_contracts INT NOT NULL DEFAULT 0,
+                updated_at DATETIME NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS contract_reputation_log (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                player_id INT NOT NULL,
+                contract_id INT NULL,
+                delta INT NOT NULL,
+                score_after INT NOT NULL,
+                reason VARCHAR(80) NOT NULL,
+                message VARCHAR(512) NOT NULL DEFAULT '',
+                meta_json TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_contract_rep_player (player_id, created_at),
+                KEY idx_contract_rep_contract (contract_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
     }
 
     private static function migrateMysql(PDO $db): void
@@ -273,6 +303,34 @@ class ContractSchema
                 created_at TEXT
             )"
         );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS contract_reputation (
+                player_id INTEGER NOT NULL PRIMARY KEY,
+                score INTEGER NOT NULL DEFAULT 50,
+                total_contracts INTEGER NOT NULL DEFAULT 0,
+                completed_contracts INTEGER NOT NULL DEFAULT 0,
+                failed_contracts INTEGER NOT NULL DEFAULT 0,
+                cancelled_contracts INTEGER NOT NULL DEFAULT 0,
+                missed_deliveries INTEGER NOT NULL DEFAULT 0,
+                perfect_contracts INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NULL
+            )"
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS contract_reputation_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id INTEGER NOT NULL,
+                contract_id INTEGER NULL,
+                delta INTEGER NOT NULL,
+                score_after INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                message TEXT NOT NULL DEFAULT '',
+                meta_json TEXT NULL,
+                created_at TEXT
+            )"
+        );
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_contract_rep_player ON contract_reputation_log (player_id, created_at)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_contract_rep_contract ON contract_reputation_log (contract_id)");
     }
 
     private static function seedDefaults(PDO $db, string $driver): void
@@ -281,15 +339,27 @@ class ContractSchema
         $options = [
             [
                 'small_local_refinery', 'Lokalna rafineria', 'BalticFuel Local', 'low', 0, 0, 10,
-                ['total_bbl' => 5000, 'delivery_bbl' => 1250, 'delivery_interval_minutes' => 360, 'duration_minutes' => 1440, 'bonus_pct' => 5, 'penalty_pct' => 5],
+                [
+                    'total_bbl' => 5000, 'delivery_bbl' => 1250, 'delivery_interval_minutes' => 360, 'duration_minutes' => 1440, 'bonus_pct' => 5, 'penalty_pct' => 5,
+                    'min_contract_reputation' => 0, 'reputation_gain_on_delivery' => 1, 'reputation_gain_on_full_completion' => 1, 'reputation_gain_on_perfect_contract' => 1,
+                    'reputation_loss_on_partial_delivery' => -1, 'reputation_loss_on_missed_delivery' => -1, 'reputation_loss_on_contract_failed' => -3, 'reputation_loss_on_cancel' => -1,
+                ],
             ],
             [
                 'medium_fuel_network', 'Siec paliwowa', 'NorthPetrol Network', 'medium', 35, 0, 20,
-                ['total_bbl' => 30000, 'delivery_bbl' => 5000, 'delivery_interval_minutes' => 720, 'duration_minutes' => 4320, 'bonus_pct' => 10, 'penalty_pct' => 8],
+                [
+                    'total_bbl' => 30000, 'delivery_bbl' => 5000, 'delivery_interval_minutes' => 720, 'duration_minutes' => 4320, 'bonus_pct' => 10, 'penalty_pct' => 8,
+                    'min_contract_reputation' => 35, 'reputation_gain_on_delivery' => 1, 'reputation_gain_on_full_completion' => 2, 'reputation_gain_on_perfect_contract' => 3,
+                    'reputation_loss_on_partial_delivery' => -2, 'reputation_loss_on_missed_delivery' => -2, 'reputation_loss_on_contract_failed' => -6, 'reputation_loss_on_cancel' => -2,
+                ],
             ],
             [
                 'large_industrial_buyer', 'Koncern przemyslowy', 'Baltic Heavy Industry', 'high', 60, 3, 30,
-                ['total_bbl' => 100000, 'delivery_bbl' => 10000, 'delivery_interval_minutes' => 1440, 'duration_minutes' => 14400, 'bonus_pct' => 18, 'penalty_pct' => 12],
+                [
+                    'total_bbl' => 100000, 'delivery_bbl' => 10000, 'delivery_interval_minutes' => 1440, 'duration_minutes' => 14400, 'bonus_pct' => 18, 'penalty_pct' => 12,
+                    'min_contract_reputation' => 60, 'reputation_gain_on_delivery' => 2, 'reputation_gain_on_full_completion' => 3, 'reputation_gain_on_perfect_contract' => 6,
+                    'reputation_loss_on_partial_delivery' => -4, 'reputation_loss_on_missed_delivery' => -4, 'reputation_loss_on_contract_failed' => -12, 'reputation_loss_on_cancel' => -4,
+                ],
             ],
         ];
 

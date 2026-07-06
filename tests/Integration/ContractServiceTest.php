@@ -24,7 +24,15 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
 
     public function testSchemaCreatesTablesAndSeedsDefaultOptions(): void
     {
-        $tables = ['contract_options', 'contract_terms', 'player_contracts', 'contract_deliveries', 'contract_logs'];
+        $tables = [
+            'contract_options',
+            'contract_terms',
+            'player_contracts',
+            'contract_deliveries',
+            'contract_logs',
+            'contract_reputation',
+            'contract_reputation_log',
+        ];
         foreach ($tables as $table) {
             $stmt = $this->db->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?");
             $stmt->execute([$table]);
@@ -32,7 +40,7 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
         }
 
         $this->assertSame(3, (int)$this->db->query('SELECT COUNT(*) FROM contract_options')->fetchColumn());
-        $this->assertGreaterThanOrEqual(18, (int)$this->db->query('SELECT COUNT(*) FROM contract_terms')->fetchColumn());
+        $this->assertGreaterThanOrEqual(42, (int)$this->db->query('SELECT COUNT(*) FROM contract_terms')->fetchColumn());
     }
 
     public function testModuleIsDisabledByDefaultAndCanBeToggled(): void
@@ -194,6 +202,7 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
                 (player_id, role_id, status, skill_organization, skill_analysis, skill_ethics)
              VALUES (2, 1, 'active', 8, 8, 8)"
         );
+        (new ContractReputationService($this->db))->changeScore(2, 10, 'test_boost');
 
         $accepted = $this->service->acceptContract(
             2,

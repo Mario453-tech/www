@@ -1,5 +1,27 @@
 ## Changelog
 
+### 2026-07-07 - Kontrakty długoterminowe: poprawki po code review reputacji
+
+**Naprawiono błędy znalezione po wdrożeniu reputacji kontraktowej.**
+
+- `src/ContractService.php` — kara kontraktowa nie blokuje już przejścia kontraktu w `missed/failed`, gdy gracz nie ma środków. System zapisuje dostawę, status i reputację, a w logu/metadanych zapisuje pełną karę oraz realnie pobraną kwotę.
+- `src/ContractService.php` — `processOneDueContract()` obsługuje teraz zewnętrzną transakcję przez savepoint; nie robi już bezwarunkowego `beginTransaction()` i nie zamyka transakcji wywołującego.
+- `src/ContractReputationService.php` — reputacja korzysta z podpisanego snapshotu `player_contracts.terms_json`, a nie z aktualnie edytowanych `contract_terms`; fallback do bieżących warunków został tylko dla starych kontraktów bez snapshotu.
+- `tests/Integration/ContractReputationServiceTest.php` — dodano regresję dla `partial` oraz snapshotu po zmianie warunku przez admina.
+- `tests/Integration/ContractTickTest.php` — dodano regresję dla nieściągalnej kary i wywołania ticka wewnątrz zewnętrznej transakcji.
+
+### 2026-07-06 - Kontrakty długoterminowe: Etap 1 rozszerzenia — reputacja kontraktowa
+
+**Dodano osobny wskaźnik reputacji kontraktowej 0-100, niezależny od `company_credibility`.**
+
+- `src/Contracts/ContractSchema.php` — dodano tabele `contract_reputation` i `contract_reputation_log` dla MySQL oraz SQLite; seed domyślnych kontraktów dostał warunki reputacyjne (`min_contract_reputation`, zyski za dostawy i ukończenie, straty za braki/anulowanie/niepowodzenie).
+- `src/ContractReputationService.php` — nowy serwis reputacji: `getScore`, `ensureRow`, `changeScore`, zdarzenia dostawy, ukończenia, porażki i anulowania. Wynik jest przycinany do zakresu 0-100, a każda zmiana trafia do logu.
+- `src/ContractService.php` — podpisanie kontraktu sprawdza teraz `min_contract_reputation`; tick kontraktów aktualizuje reputację przy dostawie, częściowej/pominiętej dostawie, ukończeniu i porażce; anulowanie kontraktu obniża reputację w tej samej transakcji.
+- `templates/views/contracts/main.php` + `lang/pl/contracts.php` + `lang/en/contracts.php` — dodano komunikat blokady dla zbyt niskiej reputacji kontraktowej.
+- `tests/Integration/ContractReputationServiceTest.php` — 6 testów regresyjnych: domyślny wynik, clamp i logi, wymaganie reputacji przy podpisaniu, sukces/perfect, miss/failure i anulowanie.
+
+Walidacja: lint PHP dla nowych/zmienionych plików, `ContractReputationServiceTest`, `ContractServiceTest`, `ContractTickTest`, encoding check dla 8 plików zmiany. Znany szum lokalny: PHP 8.5 pokazuje deprecation `PDO::sqliteCreateFunction()` w `tests/Integration/SqliteIntegrationTestCase.php`; nie jest związane z tym etapem.
+
 ### 2026-07-06 - Kontrakty długoterminowe P1: Etap 5 (UI gracza) + Etap 6 (panel admina)
 
 **Kontrakty dostały pełny interfejs gracza i panel administracyjny — moduł jest teraz obsługiwalny end-to-end.**

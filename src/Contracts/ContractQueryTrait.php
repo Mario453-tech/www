@@ -97,14 +97,21 @@ trait ContractQueryTrait
         return $out;
     }
 
-    /** @param array<string,mixed> $option */
-    private function lockedReason(array $option, int $score, int $legalLevel): ?string
+    /**
+     * @param array<string,mixed> $option
+     * @param array<string,array{type:string,value:float,text:?string}> $terms
+     */
+    private function lockedReason(array $option, int $score, int $legalLevel, array $terms = [], ?int $contractReputation = null): ?string
     {
         if ($score < (int)$option['min_credibility']) {
             return 'credibility';
         }
         if ($legalLevel < (int)$option['requires_legal_level']) {
             return 'legal_level';
+        }
+        $minContractReputation = (int)round((float)($terms['min_contract_reputation']['value'] ?? 0.0));
+        if ($minContractReputation > 0 && ($contractReputation ?? 50) < $minContractReputation) {
+            return 'contract_reputation';
         }
         return null;
     }
