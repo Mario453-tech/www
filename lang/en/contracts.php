@@ -26,6 +26,7 @@ return [
     'contracts.delivery_gt_total' => 'Single delivery volume cannot exceed the contract volume.',
 
     // UI gracza / Player UI
+    'contracts.action_label' => 'Contracts',
     'contracts.page_title' => 'Long-term contracts',
     'contracts.page_intro' => 'Sign contracts for regular oil deliveries from your storage. Oil is drawn only at delivery time, and revenue and penalties are settled automatically every game cycle.',
     'contracts.module_disabled_notice' => 'Long-term contracts are currently disabled. Check back later.',

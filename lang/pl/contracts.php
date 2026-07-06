@@ -26,6 +26,7 @@ return [
     'contracts.delivery_gt_total' => 'Wolumen pojedynczej dostawy nie może być większy niż wolumen kontraktu.',
 
     // UI gracza / Player UI
+    'contracts.action_label' => 'Kontrakty',
     'contracts.page_title' => 'Kontrakty długoterminowe',
     'contracts.page_intro' => 'Podpisuj kontrakty na regularne dostawy ropy z magazynu. Ropa jest pobierana dopiero w momencie dostawy, a przychód i kary rozliczane są automatycznie w każdym cyklu gry.',
     'contracts.module_disabled_notice' => 'Kontrakty długoterminowe są teraz wyłączone. Wróć później.',

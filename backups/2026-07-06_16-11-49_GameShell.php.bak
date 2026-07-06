@@ -156,7 +156,6 @@ class GameShell
                     'logistics' => self::actionIconHtml('logistics'),
                     'help' => self::actionIconHtml('help'),
                     'legal' => self::actionIconHtml('legal'),
-                    'contracts' => self::actionIconHtml('finance'),
                     'sabotage' => self::actionIconHtml('sabotage'),
                 ];
 
