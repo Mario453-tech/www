@@ -305,6 +305,9 @@ return [
     'bank.account.type.logistics_fee'       => 'Optymalizacja transportu',
     'bank.account.type.bribe'               => 'Łapówka',
     'bank.account.type.sabotage'            => 'Sabotaż',
+    'bank.account.type.contract_sale'       => 'Przychód z kontraktu',
+    'bank.account.type.contract_penalty'    => 'Kara kontraktowa',
+    'bank.account.type.contract_bonus'      => 'Bonus kontraktowy',
 
     'bank.account.msg_transfer_ok' => 'Przelew :amount PLN na rachunek :account zaksięgowany.',
     'bank.account.err_account_empty' => 'Podaj numer rachunku odbiorcy.',
@@ -353,6 +356,9 @@ return [
     'bank.tx_hr_hire' => 'Zatrudnienie pracownika technicznego (pierwsza pensja)',
     'bank.tx_hr_headhunter_search' => 'Opłata za wyszukiwanie pracownika (headhunter)',
     'bank.tx_hr_headhunter_bonus' => 'Premia za zatrudnienie pracownika przez headhuntera',
+    'bank.tx_contract_sale'      => 'Dostawa ropy w ramach kontraktu #:id',
+    'bank.tx_contract_penalty'   => 'Kara za niedostarczenie ropy w kontrakcie #:id',
+    'bank.tx_contract_bonus'     => 'Bonus za terminową realizację kontraktu #:id',
 
     // Portfel - modul transferu miedzy pulami (gotowka <-> konto bankowe)
     // Wallet - pool transfer module (cash <-> bank account)
