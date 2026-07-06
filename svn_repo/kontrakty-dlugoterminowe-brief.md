@@ -1582,3 +1582,372 @@ Ropę pobieraj z magazynu w transakcji z FOR UPDATE.
 
 Dodaj testy integracyjne oraz test MySQL na race condition.
 ```
+
+---
+
+# Plan wdrażania P1 po fundamencie TickModule
+
+## Decyzja aktualna
+
+Fundament modularizacji tick engine został rozpoczęty. Istnieje już warstwa:
+
+```text
+TickModule
+TickContext
+TickRegistry
+CredibilityModule
+```
+
+Dlatego kontrakty projektujemy od razu pod moduł ticka, ale wdrażamy etapami. Nie zaczynamy od UI ani od pełnego podpięcia do ticka. Najpierw powstaje stabilny fundament danych i serwis.
+
+Docelowe miejsce kontraktów w ticku:
+
+```text
+players -> contracts -> black_market
+```
+
+Docelowy moduł:
+
+```text
+src/Tick/Modules/ContractsModule.php
+key() = contracts
+order() = 45
+```
+
+`order() = 45` wynika z realnej kolejności aktualnego ticka:
+
+```text
+market -> marine_purge -> bank -> players -> black_market -> credibility -> legal -> training
+```
+
+Kontrakty muszą działać po `players`, bo najpierw produkcja i logistyka muszą dopisać ropę do magazynu. Kontrakty muszą działać przed `black_market`, żeby czarny rynek widział już stan po rozliczeniu zobowiązań.
+
+---
+
+## Etap 1 — fundament danych i serwis
+
+Dodać:
+
+```text
+src/Contracts/ContractSchema.php
+src/ContractService.php
+tests/Integration/ContractServiceTest.php
+```
+
+Zakres:
+
+```text
+contract_options
+contract_terms
+player_contracts
+contract_deliveries
+contract_logs
+seedDefaults
+isModuleEnabled
+setModuleEnabled
+getAvailableOptions
+acceptContract
+cancelContract
+listActiveContracts
+listDeliveries
+listLogs
+```
+
+Na tym etapie:
+
+```text
+nie pobierać ropy
+nie księgować pieniędzy
+nie podpinać ticka
+nie robić UI gracza
+nie robić panelu admina
+```
+
+Testy:
+
+```text
+schema tworzy tabele
+schema działa idempotentnie
+seed tworzy 3 kontrakty MVP
+moduł można włączyć i wyłączyć
+getAvailableOptions filtruje target/context
+acceptContract tworzy player_contracts
+acceptContract zapisuje snapshot terms_json
+cancelContract anuluje tylko aktywny kontrakt gracza
+limit aktywnych kontraktów działa
+```
+
+---
+
+## Etap 2 — finanse kontraktów
+
+Dodać typy w `FinancialTransactionService`:
+
+```php
+TYPE_CONTRACT_SALE = 'contract_sale'
+TYPE_CONTRACT_PENALTY = 'contract_penalty'
+TYPE_CONTRACT_BONUS = 'contract_bonus'
+```
+
+Dodać routing w `WalletConfig`:
+
+```php
+'contract_sale' => self::POOL_BANK
+'contract_bonus' => self::POOL_BANK
+'contract_penalty' => self::POOL_BANK
+```
+
+Dodać klucze bankowe:
+
+```text
+bank.account.type.contract_sale
+bank.account.type.contract_penalty
+bank.account.type.contract_bonus
+bank.tx_contract_sale
+bank.tx_contract_penalty
+bank.tx_contract_bonus
+```
+
+Zasady:
+
+```text
+przychód z kontraktu trafia na konto bankowe
+bonus trafia na konto bankowe
+kara idzie przez debitCombined
+brak bezpośrednich UPDATE players.cash / players.bank_balance poza FTS
+```
+
+Testy:
+
+```text
+contract_sale trafia do bank_balance
+contract_bonus trafia do bank_balance
+contract_penalty schodzi przez debitCombined
+typy contract_* są akceptowane przez ALLOWED_TYPES
+```
+
+---
+
+## Etap 3 — rozliczanie dostaw
+
+Dodać w `ContractService`:
+
+```text
+processDueContracts(DateTime $now, float $marketPrice)
+processOneDueContract(array $contract, DateTime $now, float $marketPrice)
+```
+
+Jedna dostawa musi działać w jednej transakcji:
+
+```text
+SELECT player_contracts FOR UPDATE
+ponowny check status='active' i next_delivery_at <= now
+SELECT storage FOR UPDATE
+odczyt terms_json
+wyliczenie required/delivered/missed
+UPDATE storage
+FTS credit contract_sale
+FTS debitCombined contract_penalty
+INSERT contract_deliveries
+UPDATE player_contracts
+INSERT contract_logs
+commit
+```
+
+Ochrona przed podwójnym rozliczeniem:
+
+```text
+blokada player_contracts FOR UPDATE
+blokada storage FOR UPDATE
+unikalność player_contract_id + due_at albo delivery_no
+ponowny check terminu po blokadzie
+```
+
+Testy:
+
+```text
+pełna dostawa
+częściowa dostawa
+brak ropy
+completed
+failed po ends_at
+błąd jednego kontraktu nie zatrzymuje kolejnych
+MySQL race condition: ta sama dostawa nie może pobrać ropy dwa razy
+```
+
+---
+
+## Etap 4 — moduł ticka
+
+Dodać:
+
+```text
+src/Tick/Modules/ContractsModule.php
+tests/Integration/ContractsModuleTest.php
+```
+
+Kontrakt modułu:
+
+```php
+key() = 'contracts'
+order() = 45
+run(TickContext $ctx)
+stats()
+```
+
+`run()` woła:
+
+```php
+ContractService::processDueContracts($ctx->now, $ctx->newPrice)
+```
+
+Jeśli pełna pętla `TickRegistry::discover()` nie jest jeszcze wdrożona w ticku, użyć tymczasowego mostka po `PlayersSection`, przed `BlackMarketService`, ale tylko z backupem `cron/tick.php`.
+
+Backup przed edycją ticka:
+
+```text
+backups/YYYY-MM-DD_HH-MM-SS_tick.php.bak
+```
+
+Testy:
+
+```text
+ContractsModule ma key contracts
+ContractsModule ma order 45
+ContractsModule przekazuje statystyki do TickContext
+cron/tick.php lint
+TickRegistryTest
+```
+
+---
+
+## Etap 5 — UI gracza
+
+Dodać:
+
+```text
+public/contracts.php
+templates/views/contracts/main.php
+assets/css/contracts.css
+assets/js/contracts.js
+lang/pl/contracts.php
+lang/en/contracts.php
+```
+
+Widok gracza:
+
+```text
+dostępne kontrakty
+aktywne kontrakty
+historia dostaw
+logi kontraktów
+```
+
+Akcje:
+
+```text
+podpisz kontrakt
+anuluj kontrakt
+```
+
+Zasady:
+
+```text
+Auth::requireLogin
+CSRF
+RateLimiter
+confirmAction z modal.js
+bez natywnego confirm/alert/prompt
+bez table w layoutcie
+bez inline style
+teksty przez lang
+```
+
+---
+
+## Etap 6 — panel admina
+
+Dodać:
+
+```text
+admin/contracts.php
+templates/views/admin/contracts/main.php
+lang/pl/admin/contracts.php
+lang/en/admin/contracts.php
+```
+
+Zakładki:
+
+```text
+options
+terms
+active
+deliveries
+logs
+help
+```
+
+Admin może:
+
+```text
+włączyć / wyłączyć moduł
+dodać / edytować opcję kontraktu
+włączyć / wyłączyć opcję
+dodać / edytować / usunąć warunek
+podejrzeć aktywne kontrakty
+podejrzeć dostawy
+podejrzeć logi
+```
+
+Zasady:
+
+```text
+opcji kontraktu nie usuwać fizycznie
+is_active = 0 zamiast DELETE
+każda akcja przez CSRF
+każda akcja admina przez AdminLog
+destructive action przez modal.js
+bez table w layoutcie
+bez inline style
+```
+
+---
+
+## Etap 7 — stabilizacja i dokumentacja
+
+Po każdym większym etapie:
+
+```text
+php -l zmienionych plików
+tools/check_encoding.php
+targeted PHPUnit
+aktualizacja GAME_README.md
+commit etapowy
+```
+
+Finalny zestaw testów dla P1:
+
+```text
+ContractServiceTest
+ContractsModuleTest
+FinancialTransactionServiceTest
+TickRegistryTest
+MySqlContractServiceTest
+MySqlContractConcurrencyTest
+```
+
+---
+
+## Zasady stałe
+
+```text
+MVP tylko TARGET_STORAGE + CONTEXT_STORAGE_DELIVERY
+nie mieszać z market_offers
+nie rezerwować ropy przy podpisaniu
+ropa pobierana dopiero przy dostawie
+pieniądze tylko przez FinancialTransactionService
+storage i player_contracts blokować FOR UPDATE
+jeden błąd kontraktu nie zatrzymuje innych
+UI po polsku przez lang
+komentarze: polski bez polskich znaków + angielski
+```
