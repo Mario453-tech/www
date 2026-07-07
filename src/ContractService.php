@@ -31,6 +31,21 @@ class ContractService
     private const CFG_LABEL_MODULE_ENABLED = 'Contracts module enabled';
     private const CFG_CATEGORY = 'contracts';
 
+    /**
+     * Klucze terminow, ktore wolno zmienic przez renegocjacje. Pozostale (zwlaszcza flagi
+     * bezpieczenstwa: allow_cancel, cancel_forfeit_deposit, security_deposit_fixed,
+     * allow_renegotiation, insurance_available) sa chronione przed nadpisaniem przez gracza.
+     * Term keys a player may change via renegotiation. Everything else — especially the
+     * security flags — is protected from being overwritten through renegotiation.
+     */
+    private const RENEGOTIABLE_TERMS = [
+        'penalty_pct',
+        'bonus_pct',
+        'bonus_on_full_completion_pct',
+        'delivery_bbl',
+        'delivery_interval_minutes',
+    ];
+
     private PDO $db;
     private CompanyCredibilityService $credibility;
     private ?LegalService $legal = null;
@@ -236,6 +251,12 @@ class ContractService
                 if (!$dr['success']) {
                     if ($ownTx) {
                         $this->db->rollBack();
+                    } else {
+                        // Nie mozemy cofnac transakcji wolajacego — usun tylko nasz swiezo wstawiony wiersz,
+                        // aby nie zostal kontrakt bez pobranej kaucji.
+                        // We cannot roll back the caller's transaction — delete only our just-inserted row
+                        // so no contract survives without its deposit being charged.
+                        $this->db->prepare("DELETE FROM player_contracts WHERE id = ?")->execute([$contractId]);
                     }
                     return $this->result(false, 'insufficient_funds_deposit');
                 }
@@ -305,12 +326,12 @@ class ContractService
             $forfeitDeposit = (int)($cancelTerms['cancel_forfeit_deposit']['value'] ?? 0) === 1;
             $depositHeld = round((float)($row['security_deposit'] ?? 0.0), 2);
 
-            $this->db->prepare(
-                "UPDATE player_contracts SET status = 'cancelled', cancel_penalty = ?, cancelled_at = ?, updated_at = ? WHERE id = ? AND player_id = ?"
-            )->execute([$cancelPenalty, $now, $now, $contractId, $playerId]);
-
             $this->fts ??= new FinancialTransactionService($this->db);
 
+            // Najpierw rozliczenia finansowe — status kontraktu zmieniamy dopiero po ich powodzeniu,
+            // aby nieudany debit nie zostawil kontraktu oznaczonego jako anulowany bez pobranej kary.
+            // Financial settlement first — the status flip happens only after it succeeds, so a failed
+            // debit can never leave a contract marked cancelled without the penalty actually charged.
             if ($cancelPenalty > 0.0) {
                 $dr = $this->fts->debitCombined(
                     $playerId,
@@ -321,7 +342,10 @@ class ContractService
                     $contractId
                 );
                 if (!$dr['success']) {
-                    throw new \RuntimeException('FTS cancel penalty debit failed: ' . ($dr['error'] ?? 'unknown'));
+                    if ($ownTx) {
+                        $this->db->rollBack();
+                    }
+                    return $this->result(false, 'insufficient_funds_penalty');
                 }
             }
 
@@ -338,6 +362,10 @@ class ContractService
                     throw new \RuntimeException('FTS deposit refund failed: ' . ($cr['error'] ?? 'unknown'));
                 }
             }
+
+            $this->db->prepare(
+                "UPDATE player_contracts SET status = 'cancelled', cancel_penalty = ?, cancelled_at = ?, updated_at = ? WHERE id = ? AND player_id = ?"
+            )->execute([$cancelPenalty, $now, $now, $contractId, $playerId]);
 
             $this->reputation()->onContractCancelled($playerId, $contractId, $cancelTerms);
             $this->logEvent($playerId, $contractId, (string)$row['target_type'], $row['target_id'] === null ? null : (int)$row['target_id'], (string)$row['context'], 'contract_cancelled', 'contract.log.cancelled');
@@ -448,7 +476,7 @@ class ContractService
                 if ($ownTx) {
                     $this->db->rollBack();
                 }
-                return $this->result(false, 'cancel_status');
+                return $this->result(false, 'not_active');
             }
             if ((int)($row['insurance_enabled'] ?? 0) === 1) {
                 if ($ownTx) {
@@ -469,23 +497,29 @@ class ContractService
             $costPct     = (float)($terms['insurance_cost_pct']['value'] ?? 0.0);
             $coveragePct = (float)($terms['insurance_penalty_coverage_pct']['value'] ?? 0.0);
             $cost        = round($depositHeld * $costPct / 100.0, 2);
-            $now         = $this->nowString();
-            if ($cost > 0.0) {
-                $this->fts ??= new FinancialTransactionService($this->db);
-                $dr = $this->fts->debitCombined(
-                    $playerId,
-                    $cost,
-                    FinancialTransactionService::TYPE_CONTRACT_INSURANCE,
-                    tPlain('bank.tx_contract_insurance', ['id' => $contractId]),
-                    'contract',
-                    $contractId
-                );
-                if (!$dr['success']) {
-                    if ($ownTx) {
-                        $this->db->rollBack();
-                    }
-                    return $this->result(false, 'insufficient_funds_insurance');
+            // Skladka wyliczana jest z kaucji — bez dodatniego kosztu nie przyznajemy darmowego ubezpieczenia.
+            // The premium is derived from the deposit — without a positive cost we do not grant free insurance.
+            if ($cost <= 0.0) {
+                if ($ownTx) {
+                    $this->db->rollBack();
                 }
+                return $this->result(false, 'insurance_no_cost_basis');
+            }
+            $now = $this->nowString();
+            $this->fts ??= new FinancialTransactionService($this->db);
+            $dr = $this->fts->debitCombined(
+                $playerId,
+                $cost,
+                FinancialTransactionService::TYPE_CONTRACT_INSURANCE,
+                tPlain('bank.tx_contract_insurance', ['id' => $contractId]),
+                'contract',
+                $contractId
+            );
+            if (!$dr['success']) {
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
+                return $this->result(false, 'insufficient_funds_insurance');
             }
             $this->db->prepare(
                 "UPDATE player_contracts SET insurance_enabled = 1, insurance_cost = ?, insurance_coverage_pct = ?, updated_at = ? WHERE id = ?"
@@ -535,7 +569,7 @@ class ContractService
                 if ($ownTx) {
                     $this->db->rollBack();
                 }
-                return $this->result(false, 'cancel_status');
+                return $this->result(false, 'not_active');
             }
             /** @var array<string,array{type:string,value:float,text:?string}> $terms */
             $terms = json_decode((string)($row['terms_json'] ?? '[]'), true) ?? [];
@@ -564,12 +598,25 @@ class ContractService
                 }
             }
             $oldTerms = $terms;
+            $applied  = 0;
             foreach ($termOverrides as $key => $value) {
+                // Tylko dozwolone klucze — chroni flagi bezpieczenstwa przed nadpisaniem.
+                // Allowlist only — protects security flags from being overwritten.
+                if (!in_array($key, self::RENEGOTIABLE_TERMS, true)) {
+                    continue;
+                }
                 if (isset($terms[$key])) {
                     $terms[$key]['value'] = (float)$value;
                 } else {
                     $terms[$key] = ['type' => 'number', 'value' => (float)$value, 'text' => null];
                 }
+                $applied++;
+            }
+            if ($applied === 0) {
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
+                return $this->result(false, 'renegotiation_no_valid_terms');
             }
             $now          = $this->nowString();
             $newTermsJson = json_encode($terms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

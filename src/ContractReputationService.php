@@ -258,6 +258,7 @@ class ContractReputationService
      */
     public function onContractCancelled(int $playerId, int $contractId, array $terms): void
     {
+        $this->ensureRow($playerId);
         $delta = (int)($terms['reputation_loss_on_cancel']['value'] ?? 0);
         if ($delta !== 0) {
             $this->changeScore($playerId, $delta, 'contract_cancelled', $contractId);

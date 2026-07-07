@@ -27,6 +27,22 @@ return [
     'contracts.missing_term_duration_minutes' => 'The contract offer does not define duration.',
     'contracts.delivery_gt_total' => 'Single delivery volume cannot exceed the contract volume.',
 
+    // Faza 1: kaucja, kara, ubezpieczenie, renegocjacja / Phase 1: deposit, penalty, insurance, renegotiation
+    'contracts.insufficient_funds_deposit' => 'Not enough funds to pay the security deposit.',
+    'contracts.insufficient_funds_penalty' => 'Not enough funds to pay the cancellation penalty.',
+    'contracts.insufficient_funds_insurance' => 'Not enough funds to pay the insurance premium.',
+    'contracts.cancel_not_allowed' => 'This contract cannot be cancelled.',
+    'contracts.not_active' => 'This contract is no longer active.',
+    'contracts.insurance_enabled' => 'Insurance has been activated for this contract.',
+    'contracts.insurance_not_available' => 'Insurance is not available for this contract.',
+    'contracts.insurance_no_cost_basis' => 'Insurance cannot be priced for this contract.',
+    'contracts.already_insured' => 'This contract is already insured.',
+    'contracts.renegotiated' => 'The contract terms have been renegotiated.',
+    'contracts.renegotiation_not_allowed' => 'This contract does not allow renegotiation.',
+    'contracts.renegotiation_limit_reached' => 'You have reached the renegotiation limit for this contract.',
+    'contracts.renegotiation_too_soon' => 'It is too soon to renegotiate this contract again.',
+    'contracts.renegotiation_no_valid_terms' => 'None of the provided terms can be renegotiated.',
+
     // UI gracza / Player UI
     'contracts.action_label' => 'Contracts',
     'contracts.page_title' => 'Long-term contracts',

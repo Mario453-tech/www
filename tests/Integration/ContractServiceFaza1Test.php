@@ -365,6 +365,174 @@ final class ContractServiceFaza1Test extends SqliteIntegrationTestCase
         $this->assertSame('renegotiation_too_soon', $r2['status']);
     }
 
+    // ================================================================== bug-fix regressions
+
+    /**
+     * Renegocjacja NIE moze nadpisac flag bezpieczenstwa (allow_cancel / cancel_forfeit_deposit),
+     * co wczesniej pozwalalo wyjsc z niezrywalnego kontraktu i odzyskac kaucje.
+     * Renegotiation must NOT overwrite security flags — previously this let a player escape a
+     * non-cancellable contract and recover the deposit.
+     */
+    public function testRenegotiationCannotOverrideSecurityFlags(): void
+    {
+        $this->seedPlayer(1, 0.0, 200000.0);
+        $contractId = $this->insertContract(1, [
+            'security_deposit' => 50000.0,
+            'extra_terms'      => [
+                'allow_cancel'           => ['type' => 'number', 'value' => 0.0, 'text' => null],
+                'cancel_forfeit_deposit' => ['type' => 'number', 'value' => 1.0, 'text' => null],
+                'allow_renegotiation'    => ['type' => 'number', 'value' => 1.0, 'text' => null],
+                'max_renegotiations'     => ['type' => 'number', 'value' => 2.0, 'text' => null],
+            ],
+        ]);
+
+        // Attempt to unlock cancellation and disable forfeit via renegotiation.
+        $reneg = $this->service->renegotiateContract(1, $contractId, [
+            'allow_cancel'           => 1.0,
+            'cancel_forfeit_deposit' => 0.0,
+        ]);
+        // No renegotiable key was supplied → rejected, terms untouched.
+        $this->assertFalse($reneg['success']);
+        $this->assertSame('renegotiation_no_valid_terms', $reneg['status']);
+
+        $terms = json_decode((string)$this->db->query("SELECT terms_json FROM player_contracts WHERE id = {$contractId}")->fetchColumn(), true);
+        $this->assertSame(0.0, (float)$terms['allow_cancel']['value'], 'allow_cancel must stay protected');
+        $this->assertSame(1.0, (float)$terms['cancel_forfeit_deposit']['value'], 'forfeit flag must stay protected');
+
+        // Cancellation is still blocked.
+        $cancel = $this->service->cancelContract(1, $contractId);
+        $this->assertFalse($cancel['success']);
+        $this->assertSame('cancel_not_allowed', $cancel['status']);
+    }
+
+    /**
+     * Renegocjacja dozwolonego terminu obok chronionego: stosuje tylko dozwolony, ignoruje chroniony.
+     * Renegotiating an allowed term alongside a protected one applies only the allowed change.
+     */
+    public function testRenegotiationAppliesAllowedTermAndIgnoresProtectedOne(): void
+    {
+        $this->seedPlayer(1, 0.0, 100000.0);
+        $contractId = $this->insertContract(1, [
+            'extra_terms' => [
+                'allow_renegotiation' => ['type' => 'number',  'value' => 1.0,  'text' => null],
+                'max_renegotiations'  => ['type' => 'number',  'value' => 2.0,  'text' => null],
+                'penalty_pct'         => ['type' => 'percent', 'value' => 10.0, 'text' => null],
+                'allow_cancel'        => ['type' => 'number',  'value' => 0.0,  'text' => null],
+            ],
+        ]);
+
+        $reneg = $this->service->renegotiateContract(1, $contractId, [
+            'penalty_pct'  => 4.0,
+            'allow_cancel' => 1.0, // protected — must be ignored
+        ]);
+        $this->assertTrue($reneg['success'], $reneg['status']);
+
+        $terms = json_decode((string)$this->db->query("SELECT terms_json FROM player_contracts WHERE id = {$contractId}")->fetchColumn(), true);
+        $this->assertSame(4.0, (float)$terms['penalty_pct']['value']);
+        $this->assertSame(0.0, (float)$terms['allow_cancel']['value'], 'allow_cancel must remain protected');
+    }
+
+    /**
+     * Ubezpieczenie nie jest przyznawane za darmo, gdy kaucja = 0 (skladka = 0).
+     * Insurance is not granted for free when the deposit is 0 (premium = 0).
+     */
+    public function testInsuranceNotGrantedWhenCostWouldBeZero(): void
+    {
+        $this->seedPlayer(1, 0.0, 100000.0);
+        // insurance_available=1 but no deposit → cost basis is 0.
+        $contractId = $this->insertContract(1, [
+            'security_deposit' => 0.0,
+            'extra_terms'      => [
+                'insurance_available'            => ['type' => 'number',  'value' => 1.0,  'text' => null],
+                'insurance_cost_pct'             => ['type' => 'percent', 'value' => 20.0, 'text' => null],
+                'insurance_penalty_coverage_pct' => ['type' => 'percent', 'value' => 50.0, 'text' => null],
+            ],
+        ]);
+
+        $result = $this->service->enableInsurance(1, $contractId);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('insurance_no_cost_basis', $result['status']);
+        $enabled = (int)$this->db->query("SELECT insurance_enabled FROM player_contracts WHERE id = {$contractId}")->fetchColumn();
+        $this->assertSame(0, $enabled, 'insurance must NOT be enabled for free');
+        $this->assertSame(100000.0, $this->bankOf(1));
+    }
+
+    /**
+     * Zerwanie kontraktu bez srodkow na kare zwraca czytelny status, a kontrakt zostaje aktywny.
+     * Cancelling without funds for the penalty returns a clear status and leaves the contract active.
+     */
+    public function testCancelWithInsufficientFundsForPenaltyIsRejectedCleanly(): void
+    {
+        $this->seedPlayer(1, 0.0, 0.0); // no money
+        $contractId = $this->insertContract(1, [
+            'security_deposit' => 50000.0,
+            'extra_terms'      => [
+                'allow_cancel'           => ['type' => 'number', 'value' => 1.0,     'text' => null],
+                'cancel_penalty_fixed'   => ['type' => 'number', 'value' => 25000.0, 'text' => null],
+                'cancel_forfeit_deposit' => ['type' => 'number', 'value' => 0.0,     'text' => null],
+            ],
+        ]);
+
+        $result = $this->service->cancelContract(1, $contractId);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('insufficient_funds_penalty', $result['status']);
+        // Contract stays active — no partial cancellation, no deposit refund.
+        $status = $this->db->query("SELECT status FROM player_contracts WHERE id = {$contractId}")->fetchColumn();
+        $this->assertSame('active', $status);
+        $this->assertSame(0.0, $this->bankOf(1));
+    }
+
+    /**
+     * enableInsurance / renegotiateContract zwracaja 'not_active' (a nie 'cancel_status')
+     * dla kontraktu, ktory nie jest aktywny.
+     * enableInsurance / renegotiateContract return 'not_active' for a non-active contract.
+     */
+    public function testInsuranceAndRenegotiationReturnNotActiveForCancelledContract(): void
+    {
+        $this->seedPlayer(1, 0.0, 100000.0);
+        $contractId = $this->insertContract(1, [
+            'extra_terms' => [
+                'insurance_available' => ['type' => 'number', 'value' => 1.0, 'text' => null],
+                'allow_renegotiation' => ['type' => 'number', 'value' => 1.0, 'text' => null],
+                'allow_cancel'        => ['type' => 'number', 'value' => 1.0, 'text' => null],
+            ],
+        ]);
+        $this->service->cancelContract(1, $contractId);
+
+        $ins = $this->service->enableInsurance(1, $contractId);
+        $this->assertFalse($ins['success']);
+        $this->assertSame('not_active', $ins['status']);
+
+        $reneg = $this->service->renegotiateContract(1, $contractId, ['penalty_pct' => 3.0]);
+        $this->assertFalse($reneg['success']);
+        $this->assertSame('not_active', $reneg['status']);
+    }
+
+    /**
+     * onContractCancelled inkrementuje licznik cancelled_contracts nawet gdy strata reputacji = 0
+     * i gracz nie ma jeszcze wiersza reputacji.
+     * onContractCancelled increments the cancelled_contracts counter even when the reputation loss
+     * is 0 and the player has no reputation row yet.
+     */
+    public function testCancelCounterIncrementsWhenReputationLossIsZero(): void
+    {
+        $this->seedPlayer(1, 0.0, 0.0);
+        $contractId = $this->insertContract(1, [
+            'extra_terms' => [
+                'allow_cancel'            => ['type' => 'number', 'value' => 1.0, 'text' => null],
+                'reputation_loss_on_cancel' => ['type' => 'number', 'value' => 0.0, 'text' => null],
+            ],
+        ]);
+
+        $result = $this->service->cancelContract(1, $contractId);
+        $this->assertTrue($result['success'], $result['status']);
+
+        $stats = $this->service->reputation()->getStats(1);
+        $this->assertSame(1, $stats['cancelled_contracts'], 'cancelled counter must not be lost');
+    }
+
     // ================================================================== helpers
 
     private function seedPlayer(int $id, float $cash, float $bank): void

@@ -27,6 +27,22 @@ return [
     'contracts.missing_term_duration_minutes' => 'Oferta kontraktu nie ma ustawionego czasu trwania.',
     'contracts.delivery_gt_total' => 'Wolumen pojedynczej dostawy nie może być większy niż wolumen kontraktu.',
 
+    // Faza 1: kaucja, kara, ubezpieczenie, renegocjacja / Phase 1: deposit, penalty, insurance, renegotiation
+    'contracts.insufficient_funds_deposit' => 'Za mało środków na opłacenie kaucji zabezpieczającej.',
+    'contracts.insufficient_funds_penalty' => 'Za mało środków na opłacenie kary za zerwanie kontraktu.',
+    'contracts.insufficient_funds_insurance' => 'Za mało środków na opłacenie składki ubezpieczeniowej.',
+    'contracts.cancel_not_allowed' => 'Tego kontraktu nie można zerwać.',
+    'contracts.not_active' => 'Ten kontrakt nie jest już aktywny.',
+    'contracts.insurance_enabled' => 'Ubezpieczenie zostało aktywowane dla tego kontraktu.',
+    'contracts.insurance_not_available' => 'Ubezpieczenie nie jest dostępne dla tego kontraktu.',
+    'contracts.insurance_no_cost_basis' => 'Nie można wyliczyć składki ubezpieczenia dla tego kontraktu.',
+    'contracts.already_insured' => 'Ten kontrakt jest już ubezpieczony.',
+    'contracts.renegotiated' => 'Warunki kontraktu zostały renegocjowane.',
+    'contracts.renegotiation_not_allowed' => 'Ten kontrakt nie pozwala na renegocjację.',
+    'contracts.renegotiation_limit_reached' => 'Osiągnięto limit renegocjacji dla tego kontraktu.',
+    'contracts.renegotiation_too_soon' => 'Za wcześnie, aby ponownie renegocjować ten kontrakt.',
+    'contracts.renegotiation_no_valid_terms' => 'Żaden z podanych warunków nie podlega renegocjacji.',
+
     // UI gracza / Player UI
     'contracts.action_label' => 'Kontrakty',
     'contracts.page_title' => 'Kontrakty długoterminowe',
