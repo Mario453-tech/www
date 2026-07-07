@@ -116,9 +116,12 @@ class WalletConfig
         'bribe'               => self::POOL_CASH,  // lapowki - modul BriberyService
         'protection'          => self::POOL_CASH,  // ochrona aktywow - modul ProtectionService
         'sabotage'            => self::POOL_CASH,  // sabotaz PvP - modul SabotageService
-        'contract_sale'       => self::POOL_BANK,  // przychod z kontraktu - modul ContractService
-        'contract_bonus'      => self::POOL_BANK,  // bonus za pelne wykonanie kontraktu - modul ContractService
-        'contract_penalty'    => self::POOL_BANK,  // kara kontraktowa - modul ContractService / debitCombined
+        'contract_sale'           => self::POOL_BANK,
+        'contract_bonus'          => self::POOL_BANK,
+        'contract_penalty'        => self::POOL_BANK,
+        'contract_deposit'        => self::POOL_BANK,
+        'contract_deposit_refund' => self::POOL_BANK,
+        'contract_insurance'      => self::POOL_BANK,
         // 'emergency_repair'  => self::POOL_CASH,  // awaryjne naprawy - faza 3
         // 'bailiff_reserve'   => self::POOL_CASH,  // rezerwa komornik - faza 3
     ];

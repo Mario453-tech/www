@@ -24,7 +24,7 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
 
     public function testSchemaCreatesTablesAndSeedsDefaultOptions(): void
     {
-        $tables = ['contract_options', 'contract_terms', 'player_contracts', 'contract_deliveries', 'contract_logs'];
+        $tables = ['contract_options', 'contract_terms', 'player_contracts', 'contract_deliveries', 'contract_logs', 'contract_reputation', 'contract_reputation_log', 'contract_renegotiations'];
         foreach ($tables as $table) {
             $stmt = $this->db->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?");
             $stmt->execute([$table]);
@@ -32,7 +32,7 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
         }
 
         $this->assertSame(3, (int)$this->db->query('SELECT COUNT(*) FROM contract_options')->fetchColumn());
-        $this->assertGreaterThanOrEqual(18, (int)$this->db->query('SELECT COUNT(*) FROM contract_terms')->fetchColumn());
+        $this->assertGreaterThanOrEqual(66, (int)$this->db->query('SELECT COUNT(*) FROM contract_terms')->fetchColumn());
     }
 
     public function testModuleIsDisabledByDefaultAndCanBeToggled(): void
@@ -141,6 +141,8 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
     public function testRequirementsAndActiveLimitAreEnforced(): void
     {
         $this->service->setModuleEnabled(true);
+        // medium_fuel_network requires security_deposit_fixed=50000; fund player 1.
+        $this->db->exec("UPDATE players SET bank_balance = 100000 WHERE id = 1");
 
         $medium = $this->service->acceptContract(
             1,
@@ -194,6 +196,10 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
                 (player_id, role_id, status, skill_organization, skill_analysis, skill_ethics)
              VALUES (2, 1, 'active', 8, 8, 8)"
         );
+        // large_industrial_buyer requires min_contract_reputation=60; boost player 2 above threshold.
+        $this->service->reputation()->changeScore(2, +15, 'test_setup');
+        // large_industrial_buyer requires security_deposit_fixed=200000; fund player 2.
+        $this->db->exec("UPDATE players SET bank_balance = 300000 WHERE id = 2");
 
         $accepted = $this->service->acceptContract(
             2,

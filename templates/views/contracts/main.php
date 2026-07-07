@@ -9,6 +9,7 @@
  * @var array<int,array<string,mixed>> $deliveries
  * @var array<int,array<string,mixed>> $logs
  * @var float $marketPrice
+ * @var array{score:int,total_contracts:int,completed_contracts:int,failed_contracts:int,cancelled_contracts:int,missed_deliveries:int,perfect_contracts:int} $reputation
  * @var string $error
  * @var string $success
  */
@@ -89,6 +90,46 @@ $deliveryStatusLabel = static function (string $status): string {
     <?php endif ?>
 </section>
 
+<?php
+// Etykieta slowna reputacji / Reputation label.
+$repScore = (int)($reputation['score'] ?? 50);
+$repLabel = match(true) {
+    $repScore >= 81 => tPlain('contracts.reputation_label.excellent'),
+    $repScore >= 61 => tPlain('contracts.reputation_label.good'),
+    $repScore >= 41 => tPlain('contracts.reputation_label.average'),
+    $repScore >= 21 => tPlain('contracts.reputation_label.bad'),
+    default         => tPlain('contracts.reputation_label.very_bad'),
+};
+$repBarClass = match(true) {
+    $repScore >= 81 => 'contracts-rep__bar--excellent',
+    $repScore >= 61 => 'contracts-rep__bar--good',
+    $repScore >= 41 => 'contracts-rep__bar--average',
+    $repScore >= 21 => 'contracts-rep__bar--bad',
+    default         => 'contracts-rep__bar--very-bad',
+};
+?>
+<!-- == REPUTACJA KONTRAKTOWA / CONTRACT REPUTATION == -->
+<section class="card">
+    <h3><?= t('contracts.section_reputation') ?></h3>
+    <div class="contracts-rep">
+        <div class="contracts-rep__score-row">
+            <span class="contracts-rep__score"><?= $repScore ?><span class="contracts-rep__max">/100</span></span>
+            <span class="contracts-rep__label"><?= htmlspecialchars($repLabel) ?></span>
+        </div>
+        <div class="contracts-rep__bar-wrap">
+            <div class="contracts-rep__bar <?= $repBarClass ?>" style="width:<?= $repScore ?>%"></div>
+        </div>
+        <div class="contracts-rep__stats">
+            <div class="contracts-rep__stat"><span><?= t('contracts.reputation_total') ?></span><strong><?= (int)($reputation['total_contracts'] ?? 0) ?></strong></div>
+            <div class="contracts-rep__stat"><span><?= t('contracts.reputation_completed') ?></span><strong><?= (int)($reputation['completed_contracts'] ?? 0) ?></strong></div>
+            <div class="contracts-rep__stat"><span><?= t('contracts.reputation_perfect') ?></span><strong><?= (int)($reputation['perfect_contracts'] ?? 0) ?></strong></div>
+            <div class="contracts-rep__stat"><span><?= t('contracts.reputation_failed') ?></span><strong><?= (int)($reputation['failed_contracts'] ?? 0) ?></strong></div>
+            <div class="contracts-rep__stat"><span><?= t('contracts.reputation_cancelled') ?></span><strong><?= (int)($reputation['cancelled_contracts'] ?? 0) ?></strong></div>
+            <div class="contracts-rep__stat"><span><?= t('contracts.reputation_missed') ?></span><strong><?= (int)($reputation['missed_deliveries'] ?? 0) ?></strong></div>
+        </div>
+    </div>
+</section>
+
 <!-- == DOSTEPNE KONTRAKTY / AVAILABLE CONTRACTS == -->
 <section class="card">
     <h3><?= t('contracts.section_available') ?></h3>
@@ -145,6 +186,8 @@ $deliveryStatusLabel = static function (string $status): string {
                     <?= t('contracts.locked_credibility', ['min' => (int)($option['min_credibility'] ?? 0)]) ?>
                 <?php elseif ($lockReason === 'legal_level'): ?>
                     <?= t('contracts.locked_legal_level', ['level' => (int)($option['requires_legal_level'] ?? 0)]) ?>
+                <?php elseif ($lockReason === 'reputation'): ?>
+                    <?= t('contracts.locked_reputation', ['min' => (int)($terms['min_contract_reputation']['value'] ?? 0)]) ?>
                 <?php else: ?>
                     <?= t('contracts.locked_generic') ?>
                 <?php endif ?>

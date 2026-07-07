@@ -173,6 +173,79 @@
     content: none;
 }
 
+/* == REPUTACJA KONTRAKTOWA / CONTRACT REPUTATION == */
+.contracts-rep {
+    margin-top: 8px;
+}
+
+.contracts-rep__score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.contracts-rep__score {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--gold, #c8a84b);
+    line-height: 1;
+}
+
+.contracts-rep__max {
+    font-size: 16px;
+    color: var(--text2, rgba(232, 232, 240, .6));
+    font-weight: 400;
+}
+
+.contracts-rep__label {
+    font-size: 14px;
+    color: var(--text2, rgba(232, 232, 240, .6));
+}
+
+.contracts-rep__bar-wrap {
+    height: 6px;
+    background: var(--bg5, #252535);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.contracts-rep__bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .4s ease;
+}
+
+.contracts-rep__bar--excellent { background: var(--green, #4ec97a); }
+.contracts-rep__bar--good      { background: #6abf4a; }
+.contracts-rep__bar--average   { background: var(--gold, #c8a84b); }
+.contracts-rep__bar--bad       { background: var(--orange, #f0a050); }
+.contracts-rep__bar--very-bad  { background: var(--red, #e05555); }
+
+.contracts-rep__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px 12px;
+}
+
+.contracts-rep__stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border2, rgba(255, 255, 255, .06));
+}
+
+.contracts-rep__stat span {
+    color: var(--text2, rgba(232, 232, 240, .6));
+}
+
+.contracts-rep__stat strong {
+    color: var(--text, #e8e8f0);
+}
+
 @media (max-width: 640px) {
     .contracts-terms {
         grid-template-columns: 1fr;
