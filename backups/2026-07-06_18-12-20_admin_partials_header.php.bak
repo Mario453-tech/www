@@ -44,9 +44,8 @@ $navSections = [
         'sabotage.php'        => ['', t('admin.nav.sabotage')],
     ],
     t('admin.nav.section_legal') => [
-        'legal.php'     => ['', t('admin.nav.legal')],
-        'bribery.php'   => ['', t('admin.nav.bribery')],
-        'contracts.php' => ['', t('admin.nav.contracts')],
+        'legal.php'   => ['', t('admin.nav.legal')],
+        'bribery.php' => ['', t('admin.nav.bribery')],
     ],
     t('admin.nav.section_finance') => [
         'finance.php'          => ['', t('admin.nav.finance')],

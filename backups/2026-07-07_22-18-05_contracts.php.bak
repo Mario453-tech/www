@@ -75,9 +75,8 @@ $available  = $moduleEnabled
 $active     = $service->listActiveContracts($playerId);
 $deliveries = $service->listDeliveries($playerId, 50);
 $logs       = $service->listLogs($playerId, 50);
-$reputation = $service->reputation()->getStats($playerId);
 
-$viewData = compact('moduleEnabled', 'available', 'active', 'deliveries', 'logs', 'marketPrice', 'reputation', 'error', 'success');
+$viewData = compact('moduleEnabled', 'available', 'active', 'deliveries', 'logs', 'marketPrice', 'error', 'success');
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
 $extraCss = ['/assets/css/contracts.css'];

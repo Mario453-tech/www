@@ -16,13 +16,15 @@ require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
 
 require_once __DIR__ . '/../src/ContractService.php';
+require_once __DIR__ . '/../src/ContractReputationService.php';
 
-$db      = Database::getInstance()->getConnection();
-$service = new ContractService($db); // ensure() tworzy schemat i seed / ensure() creates schema and seed
-$msg     = '';
-$err     = '';
+$db                = Database::getInstance()->getConnection();
+$service           = new ContractService($db); // ensure() creates schema and seed.
+$reputationService = new ContractReputationService($db);
+$msg               = '';
+$err               = '';
 
-$tabs = ['options', 'terms', 'active', 'deliveries', 'logs', 'help'];
+$tabs = ['options', 'terms', 'active', 'deliveries', 'logs', 'reputation', 'help'];
 $activeTab = (string)($_GET['tab'] ?? 'options');
 if (!in_array($activeTab, $tabs, true)) {
     $activeTab = 'options';
@@ -170,6 +172,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $activeTab = 'terms';
+    } elseif ($action === 'adjust_reputation') {
+        $playerId = (int)($_POST['player_id'] ?? 0);
+        $delta = (int)($_POST['delta'] ?? 0);
+        $note = trim((string)($_POST['note'] ?? ''));
+
+        if ($playerId <= 0 || $delta === 0 || $delta < -100 || $delta > 100) {
+            $err = t('admin.contracts.err_reputation_adjust');
+        } else {
+            try {
+                $result = $reputationService->adminAdjustScore($playerId, $delta, $note);
+                AdminLog::log(
+                    'contracts_reputation_adjust',
+                    "Contract reputation adjustment for player #{$playerId}: {$delta}, score {$result['score']}",
+                    $playerId,
+                    'player',
+                    $playerId
+                );
+                $msg = t('admin.contracts.msg_reputation_adjusted', [
+                    'score' => (string)$result['score'],
+                ]);
+            } catch (Throwable $e) {
+                GameLog::error('admin/contracts.php', 'adjust_reputation FAILED', $e, [
+                    'player_id' => $playerId,
+                    'delta' => $delta,
+                ]);
+                $err = t('admin.contracts.err_reputation_adjust');
+            }
+        }
+        $activeTab = 'reputation';
     }
 }
 
@@ -181,6 +212,10 @@ $termsByOption   = [];
 $activeContracts = [];
 $deliveries      = [];
 $logs            = [];
+$reputationRows  = [];
+$reputationLogs  = [];
+$reputationSearch = trim((string)($_GET['q'] ?? ''));
+$reputationPlayerId = max(0, (int)($_GET['player_id'] ?? 0));
 
 try {
     $options = $db->query("SELECT * FROM contract_options ORDER BY sort_order, id")->fetchAll(PDO::FETCH_ASSOC);
@@ -214,6 +249,9 @@ try {
               ORDER BY cl.id DESC
               LIMIT 100"
         )->fetchAll(PDO::FETCH_ASSOC);
+    } elseif ($activeTab === 'reputation') {
+        $reputationRows = $reputationService->listScores($reputationSearch, 100);
+        $reputationLogs = $reputationService->recentLogs($reputationPlayerId > 0 ? $reputationPlayerId : null, 100);
     }
 } catch (Throwable $e) {
     GameLog::error('admin/contracts.php', 'view data load FAILED', $e);
@@ -243,6 +281,7 @@ if ($editTermId > 0) {
 
 $viewData = compact(
     'moduleEnabled', 'options', 'termsByOption', 'activeContracts', 'deliveries', 'logs',
+    'reputationRows', 'reputationLogs', 'reputationSearch', 'reputationPlayerId',
     'activeTab', 'tabs', 'editOption', 'editTerm', 'priceModes', 'severities', 'termTypes', 'msg', 'err'
 );
 

@@ -1,49 +1,5 @@
 ## Changelog
 
-### 2026-07-07 - Dział techniczny: opłata przez FTS + pełna atomowość zlecenia
-
-**Utwardzenie `startTask`: opłata za zadanie idzie przez FTS, a nieudane utworzenie zadania zwraca pieniądze.**
-
-- `src/TTS/TasksTrait.php` — `startTask` pobiera koszt zadania przez `FinancialTransactionService::debit(TYPE_TTS_FEE)` zamiast surowego `UPDATE players SET cash` + `logTransaction` (reguła #10: każda mutacja gotówki przez FTS, z pełnym wpisem audytu w `bank_transactions`). Brak środków → `insufficient_funds` → komunikat „brak gotówki"; inny błąd FTS → wyjątek → rollback. Wywołanie zagnieżdżone w transakcji `startTask` jest bezpieczne dzięki izolacji SAVEPOINT w FTS.
-- `src/TTS/TasksTrait.php` — blok `try` w `startTask` łapie teraz `Throwable` (było `Exception`), więc `Error`/`TypeError` w środku transakcji też wyzwala rollback; dodany strażnik `inTransaction()` przed `rollBack()`.
-- `tests/Integration/TechnicalHubTasksTest.php` — test atomowości: gdy INSERT zadania zawiedzie, opłata wraca (gotówka bez zmian, brak osieroconego wpisu audytu, brak zadania).
-
-### 2026-07-07 - Dział techniczny: zlecone zadanie kończyło się natychmiast (reguła #14)
-
-**Naprawiono bug: zlecenie zadania technicznego pobierało pieniądze, ale zadanie nie pojawiało się jako „w toku" — kończyło się natychmiast.**
-
-- Objaw: gracz zlecał zadanie działowi technicznemu, gotówka schodziła, ale zadanie nigdy nie było widoczne jako wykonywane. `TechnicalTeamService::startTask` zapisywał `start_time`/`end_time` zegarem PHP (`date()`), podczas gdy `processTick` domyka zadania porównując `end_time <= NOW()` zegarem MySQL (`getTasks` liczy `seconds_remaining` przez `TIMESTAMPDIFF(NOW(), end_time)`). Przy różnicy stref PHP vs MySQL `end_time` bywał już `<= NOW()` w chwili utworzenia, więc najbliższy tick — uruchamiany także przy odsłonie strony technicznej — natychmiast zamykał świeże zadanie. Naruszenie reguły #14.
-- `src/TTS/TasksTrait.php` — `start_time`/`end_time` zapisywane teraz zegarem BAZY: `NOW()` oraz `DATE_ADD(NOW(), INTERVAL ? HOUR)` (MySQL) / `datetime(NOW(), ?)` (SQLite). Spójne z porównaniami `end_time <= NOW()`.
-- `tests/Integration/TechnicalHubTasksTest.php` — test regresji: symuluje MySQL wyprzedzający PHP o 10 h i sprawdza, że zlecone zadanie zostaje `in_progress` po ticku.
-
-### 2026-07-07 - FTS: izolacja SAVEPOINT dla wywołań zagnieżdżonych (atomowość ruchu środków)
-
-**Naprawiono ograniczenie wzorca `$ownTx`: zagnieżdżone wywołanie FTS, które zawiodło w połowie zapisu, nie potrafiło wycofać częściowego ruchu środków.**
-
-- Problem: PDO/MySQL nie ma prawdziwych transakcji zagnieżdżonych. Gdy `credit`/`debit`/`debitCombined` były wołane wewnątrz transakcji innego serwisu i zapis padał po zmianie salda a przed logiem (`INSERT bank_transactions`), wzorzec `$ownTx` nie robił `rollBack()` (bo cofnąłby całą transakcję wołającego) — częściowa mutacja salda mogła zostać zatwierdzona bez wpisu audytu. Dotyczyło wszystkich ścieżek FTS.
-- `src/FinancialTransactionService.php` — nowe helpery `beginUnit()`/`commitUnit()`/`rollbackUnit()`. Wywołanie top-level nadal otwiera własną transakcję; wywołanie zagnieżdżone zakłada `SAVEPOINT` i przy błędzie robi `ROLLBACK TO SAVEPOINT` — cofa tylko własne zmiany, transakcja wołającego żyje dalej. `moveFunds()` (credit/debit/transfer) i `debitCombined()` przepisane na te helpery; logika biznesowa bez zmian. Działa w MySQL i SQLite.
-- `tests/Integration/FinancialTransactionSavepointTest.php` (NOWY) — 4 testy izolacji SAVEPOINT.
-
-### 2026-07-07 - Kontrakty długoterminowe: zerwanie kontraktu
-
-**Rozbudowano anulowanie kontraktu do pełnego zerwania z konsekwencjami.**
-
-- `src/Contracts/ContractSchema.php` — dodano pola `cancel_penalty`, `cancelled_reason` w `player_contracts` oraz `contract_blocked_until` w `contract_reputation`; seed kontraktów dostał termy `allow_cancel`, `cancel_penalty_pct`, `cancel_penalty_fixed`, `cancel_reputation_loss`, `cancel_forfeit_deposit`, `cancel_blocks_new_contracts_minutes`.
-- `src/ContractService.php` — zerwanie kontraktu sprawdza `allow_cancel`, nalicza karę od niewykonanego wolumenu, pobiera środki przez `FinancialTransactionService::debitCombined(TYPE_CONTRACT_PENALTY)`, rozlicza przepadek/zwrot kaucji i zapisuje powód oraz karę w snapshotcie kontraktu.
-- `src/ContractReputationService.php` — zerwanie korzysta z `cancel_reputation_loss` i może blokować podpisywanie nowych kontraktów do `contract_blocked_until`.
-- `templates/views/contracts/main.php` + `lang/pl/contracts.php` + `lang/en/contracts.php` — UI gracza mówi teraz o zerwaniu kontraktu, a nie zwykłym anulowaniu; dodano komunikaty blokady, braku środków i braku prawa do zerwania.
-- `tests/Integration/ContractServiceTest.php` — dodano regresje dla kary zerwania, przepadku kaucji, blokady nowych kontraktów i `allow_cancel = 0`.
-
-### 2026-07-07 - Kontrakty długoterminowe: Etap 3 — kaucja kontraktowa
-
-**Dodano zabezpieczenie finansowe przy podpisywaniu większych kontraktów.**
-
-- `src/Contracts/ContractSchema.php` — dodano kolumny `security_deposit`, `security_deposit_status`, `security_deposit_refunded` w `player_contracts` oraz domyślne termy kaucji (`security_deposit_pct`, `security_deposit_fixed`, reguły zwrotu/przepadku i rabatu reputacyjnego).
-- `src/ContractService.php` — podpisanie kontraktu liczy kaucję po aktualnej cenie ropy po stronie serwera, stosuje modyfikator reputacji kontraktowej, pobiera środki przez `FinancialTransactionService::debitCombined()` i zapisuje snapshot w kontrakcie. Ukończenie/anulowanie/porażka rozliczają zwrot, częściowy zwrot albo przepadek kaucji w tej samej transakcji.
-- `src/FinancialTransactionService.php` + `src/WalletConfig.php` + `lang/*/bank.php` — dodano typy `contract_deposit` i `contract_deposit_refund`, księgowane w puli bankowej.
-- `templates/views/contracts/main.php` + `templates/views/admin/contracts/main.php` — gracz i admin widzą kwotę oraz status kaucji.
-- `tests/Integration/ContractServiceTest.php` — dodano regresje dla pobrania kaucji, blokady przy braku środków, savepointu przy zewnętrznej transakcji, pełnego zwrotu i częściowego zwrotu.
-
 ### 2026-07-07 - Kontrakty długoterminowe: Etap 2 reputacji w panelu admina
 
 **Domknięto adminowy podgląd i korektę reputacji kontraktowej.**

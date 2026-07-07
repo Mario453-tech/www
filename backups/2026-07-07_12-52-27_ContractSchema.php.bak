@@ -24,7 +24,7 @@ class ContractSchema
         }
         if ($inTransaction) {
             // DDL cannot run inside an open transaction (MySQL auto-commits it, breaking callers).
-            // DDL nie moze byc wywolany wewnatrz otwartej transakcji - schemat zostanie zapewniony przy nastepnym wywolaniu.
+            // DDL nie moze byc wywolany wewnatrz otwartej transakcji — cicho ignoruj, schemat zostanie zapewniony przy nastepnym wywolaniu.
             return;
         }
 
@@ -103,24 +103,12 @@ class ContractSchema
                 total_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
                 delivered_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
                 missed_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                security_deposit DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                security_deposit_status ENUM('none','paid','refunded','partial_refund','forfeited') NOT NULL DEFAULT 'none',
-                security_deposit_refunded DECIMAL(14,2) NOT NULL DEFAULT 0.00,
                 next_delivery_at DATETIME NOT NULL,
                 starts_at DATETIME NOT NULL,
                 ends_at DATETIME NOT NULL,
                 completed_at DATETIME NULL,
                 cancelled_at DATETIME NULL,
-                cancel_penalty DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                cancelled_reason VARCHAR(255) NULL,
                 terms_json TEXT NULL,
-                security_deposit DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                cancel_penalty DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                renegotiations_used INT NOT NULL DEFAULT 0,
-                last_renegotiated_at DATETIME NULL,
-                insurance_enabled TINYINT(1) NOT NULL DEFAULT 0,
-                insurance_cost DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                insurance_coverage_pct DECIMAL(8,4) NOT NULL DEFAULT 0.0000,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 KEY idx_player_contracts_player (player_id, status),
@@ -180,7 +168,6 @@ class ContractSchema
                 cancelled_contracts INT NOT NULL DEFAULT 0,
                 missed_deliveries INT NOT NULL DEFAULT 0,
                 perfect_contracts INT NOT NULL DEFAULT 0,
-                contract_blocked_until DATETIME NULL,
                 updated_at DATETIME NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
@@ -200,20 +187,6 @@ class ContractSchema
                 KEY idx_contract_rep_contract (contract_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
-
-        $db->exec(
-            "CREATE TABLE IF NOT EXISTS contract_renegotiations (
-                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                player_contract_id INT NOT NULL,
-                player_id INT NOT NULL,
-                old_terms_json TEXT NULL,
-                new_terms_json TEXT NULL,
-                message VARCHAR(512) NOT NULL DEFAULT '',
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                KEY idx_contract_reneg_contract (player_contract_id),
-                KEY idx_contract_reneg_player (player_id, created_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-        );
     }
 
     private static function migrateMysql(PDO $db): void
@@ -229,47 +202,9 @@ class ContractSchema
             if ((int)$stmt->fetchColumn() === 0) {
                 $db->exec("ALTER TABLE contract_deliveries ADD UNIQUE KEY uq_contract_delivery_due (player_contract_id, due_at)");
             }
-            Database::addColumnIfMissing('player_contracts', 'security_deposit', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER missed_bbl");
-            Database::addColumnIfMissing('player_contracts', 'security_deposit_status', "ENUM('none','paid','refunded','partial_refund','forfeited') NOT NULL DEFAULT 'none' AFTER security_deposit");
-            Database::addColumnIfMissing('player_contracts', 'security_deposit_refunded', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER security_deposit_status");
-            Database::addColumnIfMissing('player_contracts', 'cancel_penalty', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER cancelled_at");
-            Database::addColumnIfMissing('player_contracts', 'cancelled_reason', "VARCHAR(255) NULL AFTER cancel_penalty");
-            Database::addColumnIfMissing('player_contracts', 'renegotiations_used', "INT NOT NULL DEFAULT 0");
-            Database::addColumnIfMissing('player_contracts', 'last_renegotiated_at', "DATETIME NULL");
-            Database::addColumnIfMissing('contract_reputation', 'contract_blocked_until', "DATETIME NULL AFTER perfect_contracts");
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
-                GameLog::error('ContractSchema', 'migrateMysql FAILED (index)', $e);
-            }
-        }
-
-        // Nowe kolumny player_contracts (Faza 1 rozszerzenia kontraktow).
-        // New player_contracts columns (Phase 1 contract extensions).
-        $newCols = [
-            'security_deposit'      => "DECIMAL(14,2) NOT NULL DEFAULT 0.00",
-            'cancel_penalty'        => "DECIMAL(14,2) NOT NULL DEFAULT 0.00",
-            'renegotiations_used'   => "INT NOT NULL DEFAULT 0",
-            'last_renegotiated_at'  => "DATETIME NULL",
-            'insurance_enabled'     => "TINYINT(1) NOT NULL DEFAULT 0",
-            'insurance_cost'        => "DECIMAL(14,2) NOT NULL DEFAULT 0.00",
-            'insurance_coverage_pct'=> "DECIMAL(8,4) NOT NULL DEFAULT 0.0000",
-        ];
-        foreach ($newCols as $col => $def) {
-            try {
-                $exists = $db->prepare(
-                    "SELECT COUNT(*) FROM information_schema.COLUMNS
-                      WHERE TABLE_SCHEMA = DATABASE()
-                        AND TABLE_NAME = 'player_contracts'
-                        AND COLUMN_NAME = ?"
-                );
-                $exists->execute([$col]);
-                if ((int)$exists->fetchColumn() === 0) {
-                    $db->exec("ALTER TABLE player_contracts ADD COLUMN {$col} {$def}");
-                }
-            } catch (Throwable $e) {
-                if (class_exists('GameLog', false)) {
-                    GameLog::error('ContractSchema', "migrateMysql ADD COLUMN {$col} FAILED", $e);
-                }
+                GameLog::error('ContractSchema', 'migrateMysql FAILED', $e);
             }
         }
     }
@@ -326,35 +261,16 @@ class ContractSchema
                 total_bbl REAL NOT NULL DEFAULT 0.0,
                 delivered_bbl REAL NOT NULL DEFAULT 0.0,
                 missed_bbl REAL NOT NULL DEFAULT 0.0,
-                security_deposit REAL NOT NULL DEFAULT 0.0,
-                security_deposit_status TEXT NOT NULL DEFAULT 'none',
-                security_deposit_refunded REAL NOT NULL DEFAULT 0.0,
                 next_delivery_at TEXT NOT NULL,
                 starts_at TEXT NOT NULL,
                 ends_at TEXT NOT NULL,
                 completed_at TEXT NULL,
                 cancelled_at TEXT NULL,
-                cancel_penalty REAL NOT NULL DEFAULT 0.0,
-                cancelled_reason TEXT NULL,
                 terms_json TEXT NULL,
-                security_deposit REAL NOT NULL DEFAULT 0.0,
-                cancel_penalty REAL NOT NULL DEFAULT 0.0,
-                renegotiations_used INTEGER NOT NULL DEFAULT 0,
-                last_renegotiated_at TEXT NULL,
-                insurance_enabled INTEGER NOT NULL DEFAULT 0,
-                insurance_cost REAL NOT NULL DEFAULT 0.0,
-                insurance_coverage_pct REAL NOT NULL DEFAULT 0.0,
                 created_at TEXT,
                 updated_at TEXT
             )"
         );
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'security_deposit', "REAL NOT NULL DEFAULT 0.0");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'security_deposit_status', "TEXT NOT NULL DEFAULT 'none'");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'security_deposit_refunded', "REAL NOT NULL DEFAULT 0.0");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'cancel_penalty', "REAL NOT NULL DEFAULT 0.0");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'cancelled_reason', "TEXT NULL");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'renegotiations_used', "INTEGER NOT NULL DEFAULT 0");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'last_renegotiated_at', "TEXT NULL");
         $db->exec(
             "CREATE TABLE IF NOT EXISTS contract_deliveries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -397,11 +313,9 @@ class ContractSchema
                 cancelled_contracts INTEGER NOT NULL DEFAULT 0,
                 missed_deliveries INTEGER NOT NULL DEFAULT 0,
                 perfect_contracts INTEGER NOT NULL DEFAULT 0,
-                contract_blocked_until TEXT NULL,
                 updated_at TEXT NULL
             )"
         );
-        self::sqliteAddColumnIfMissing($db, 'contract_reputation', 'contract_blocked_until', "TEXT NULL");
         $db->exec(
             "CREATE TABLE IF NOT EXISTS contract_reputation_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -417,29 +331,6 @@ class ContractSchema
         );
         $db->exec("CREATE INDEX IF NOT EXISTS idx_contract_rep_player ON contract_reputation_log (player_id, created_at)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_contract_rep_contract ON contract_reputation_log (contract_id)");
-        $db->exec(
-            "CREATE TABLE IF NOT EXISTS contract_renegotiations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_contract_id INTEGER NOT NULL,
-                player_id INTEGER NOT NULL,
-                old_terms_json TEXT NULL,
-                new_terms_json TEXT NULL,
-                message TEXT NOT NULL DEFAULT '',
-                created_at TEXT
-            )"
-        );
-    }
-
-    private static function sqliteAddColumnIfMissing(PDO $db, string $table, string $column, string $definition): void
-    {
-        $stmt = $db->query("PRAGMA table_info({$table})");
-        $columns = $stmt === false ? [] : $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($columns as $row) {
-            if ((string)($row['name'] ?? '') === $column) {
-                return;
-            }
-        }
-        $db->exec("ALTER TABLE {$table} ADD COLUMN {$column} {$definition}");
     }
 
     private static function seedDefaults(PDO $db, string $driver): void
@@ -452,10 +343,6 @@ class ContractSchema
                     'total_bbl' => 5000, 'delivery_bbl' => 1250, 'delivery_interval_minutes' => 360, 'duration_minutes' => 1440, 'bonus_pct' => 5, 'penalty_pct' => 5,
                     'min_contract_reputation' => 0, 'reputation_gain_on_delivery' => 1, 'reputation_gain_on_full_completion' => 1, 'reputation_gain_on_perfect_contract' => 1,
                     'reputation_loss_on_partial_delivery' => -1, 'reputation_loss_on_missed_delivery' => -1, 'reputation_loss_on_contract_failed' => -3, 'reputation_loss_on_cancel' => -1,
-                    'security_deposit_pct' => 0, 'security_deposit_fixed' => 0, 'deposit_refund_on_complete' => 1, 'deposit_partial_refund_enabled' => 1,
-                    'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
-                    'allow_cancel' => 1, 'cancel_penalty_pct' => 0, 'cancel_penalty_fixed' => 0, 'cancel_reputation_loss' => -1,
-                    'cancel_forfeit_deposit' => 1, 'cancel_blocks_new_contracts_minutes' => 0,
                 ],
             ],
             [
@@ -464,10 +351,6 @@ class ContractSchema
                     'total_bbl' => 30000, 'delivery_bbl' => 5000, 'delivery_interval_minutes' => 720, 'duration_minutes' => 4320, 'bonus_pct' => 10, 'penalty_pct' => 8,
                     'min_contract_reputation' => 35, 'reputation_gain_on_delivery' => 1, 'reputation_gain_on_full_completion' => 2, 'reputation_gain_on_perfect_contract' => 3,
                     'reputation_loss_on_partial_delivery' => -2, 'reputation_loss_on_missed_delivery' => -2, 'reputation_loss_on_contract_failed' => -6, 'reputation_loss_on_cancel' => -2,
-                    'security_deposit_pct' => 5, 'security_deposit_fixed' => 0, 'deposit_refund_on_complete' => 1, 'deposit_partial_refund_enabled' => 1,
-                    'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
-                    'allow_cancel' => 1, 'cancel_penalty_pct' => 3, 'cancel_penalty_fixed' => 0, 'cancel_reputation_loss' => -5,
-                    'cancel_forfeit_deposit' => 1, 'cancel_blocks_new_contracts_minutes' => 720,
                 ],
             ],
             [
@@ -476,10 +359,6 @@ class ContractSchema
                     'total_bbl' => 100000, 'delivery_bbl' => 10000, 'delivery_interval_minutes' => 1440, 'duration_minutes' => 14400, 'bonus_pct' => 18, 'penalty_pct' => 12,
                     'min_contract_reputation' => 60, 'reputation_gain_on_delivery' => 2, 'reputation_gain_on_full_completion' => 3, 'reputation_gain_on_perfect_contract' => 6,
                     'reputation_loss_on_partial_delivery' => -4, 'reputation_loss_on_missed_delivery' => -4, 'reputation_loss_on_contract_failed' => -12, 'reputation_loss_on_cancel' => -4,
-                    'security_deposit_pct' => 8, 'security_deposit_fixed' => 0, 'deposit_refund_on_complete' => 1, 'deposit_partial_refund_enabled' => 1,
-                    'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
-                    'allow_cancel' => 1, 'cancel_penalty_pct' => 5, 'cancel_penalty_fixed' => 0, 'cancel_reputation_loss' => -12,
-                    'cancel_forfeit_deposit' => 1, 'cancel_blocks_new_contracts_minutes' => 1440,
                 ],
             ],
         ];

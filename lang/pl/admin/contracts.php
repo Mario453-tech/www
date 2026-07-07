@@ -13,6 +13,7 @@ return [
     'admin.contracts.tab_active' => 'Aktywne',
     'admin.contracts.tab_deliveries' => 'Dostawy',
     'admin.contracts.tab_logs' => 'Logi',
+    'admin.contracts.tab_reputation' => 'Reputacja',
     'admin.contracts.tab_help' => 'Pomoc',
 
     // Modul / Module
@@ -73,7 +74,7 @@ return [
     // Warunki / Terms
     'admin.contracts.terms_title' => 'Warunki kontraktów',
     'admin.contracts.terms_empty' => 'Brak warunków dla tej opcji.',
-    'admin.contracts.terms_hint' => 'Wymagane warunki: total_bbl, delivery_bbl, delivery_interval_minutes, duration_minutes. Opcjonalne: bonus_pct, penalty_pct, price_mode.',
+    'admin.contracts.terms_hint' => 'Wymagane warunki: total_bbl, delivery_bbl, delivery_interval_minutes, duration_minutes. Opcjonalne: bonus_pct, penalty_pct, price_mode, security_deposit_pct, security_deposit_fixed oraz reguły zwrotu kaucji.',
     'admin.contracts.col_term_key' => 'Klucz',
     'admin.contracts.col_term_type' => 'Typ',
     'admin.contracts.col_term_value' => 'Wartość',
@@ -105,8 +106,14 @@ return [
     'admin.contracts.col_player' => 'Gracz',
     'admin.contracts.col_contract' => 'Kontrakt',
     'admin.contracts.col_progress' => 'Postęp',
+    'admin.contracts.col_deposit' => 'Kaucja',
     'admin.contracts.col_next_delivery' => 'Następna dostawa',
     'admin.contracts.col_ends' => 'Koniec',
+    'admin.contracts.deposit_status_none' => 'Brak',
+    'admin.contracts.deposit_status_paid' => 'Wpłacona',
+    'admin.contracts.deposit_status_refunded' => 'Zwrócona',
+    'admin.contracts.deposit_status_partial_refund' => 'Częściowy zwrot',
+    'admin.contracts.deposit_status_forfeited' => 'Przepadła',
 
     // Dostawy / Deliveries
     'admin.contracts.deliveries_title' => 'Historia dostaw',
@@ -124,6 +131,34 @@ return [
     'admin.contracts.logs_empty' => 'Brak logów.',
     'admin.contracts.col_event' => 'Zdarzenie',
     'admin.contracts.col_message' => 'Wiadomość',
+
+    // Reputacja / Reputation
+    'admin.contracts.reputation_title' => 'Reputacja kontraktowa graczy',
+    'admin.contracts.reputation_hint' => 'Podgląd wyniku reputacji, statystyk realizacji oraz ręczna korekta przez dziennik reputacji.',
+    'admin.contracts.reputation_empty' => 'Brak graczy pasujących do filtra.',
+    'admin.contracts.field_reputation_search' => 'Szukaj gracza lub firmy',
+    'admin.contracts.field_reputation_delta' => 'Zmiana reputacji',
+    'admin.contracts.field_reputation_note' => 'Notatka admina',
+    'admin.contracts.btn_filter' => 'Filtruj',
+    'admin.contracts.btn_history' => 'Historia',
+    'admin.contracts.btn_adjust' => 'Koryguj',
+    'admin.contracts.btn_clear_filter' => 'Wyczyść filtr',
+    'admin.contracts.col_reputation_score' => 'Wynik',
+    'admin.contracts.col_completed' => 'Ukończone',
+    'admin.contracts.col_failed' => 'Nieudane',
+    'admin.contracts.col_cancelled' => 'Anulowane',
+    'admin.contracts.col_missed' => 'Braki',
+    'admin.contracts.col_perfect' => 'Perfekcyjne',
+    'admin.contracts.col_actions' => 'Akcje',
+    'admin.contracts.col_delta' => 'Zmiana',
+    'admin.contracts.col_score_after' => 'Po zmianie',
+    'admin.contracts.col_reason' => 'Powód',
+    'admin.contracts.reputation_log_title' => 'Historia reputacji kontraktowej',
+    'admin.contracts.reputation_log_filtered' => 'Historia filtrowana dla gracza #:player.',
+    'admin.contracts.reputation_log_empty' => 'Brak wpisów historii reputacji.',
+    'admin.contracts.confirm_reputation_adjust' => 'Skorygować reputację kontraktową gracza „:player"?',
+    'admin.contracts.msg_reputation_adjusted' => 'Reputacja kontraktowa została skorygowana. Aktualny wynik: :score/100.',
+    'admin.contracts.err_reputation_adjust' => 'Nie udało się skorygować reputacji kontraktowej.',
 
     // Pomoc / Help
     'admin.contracts.help_title' => 'Jak działa moduł kontraktów',

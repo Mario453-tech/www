@@ -9,7 +9,6 @@
  * @var array<int,array<string,mixed>> $deliveries
  * @var array<int,array<string,mixed>> $logs
  * @var float $marketPrice
- * @var array{score:int,total_contracts:int,completed_contracts:int,failed_contracts:int,cancelled_contracts:int,missed_deliveries:int,perfect_contracts:int} $reputation
  * @var string $error
  * @var string $success
  */

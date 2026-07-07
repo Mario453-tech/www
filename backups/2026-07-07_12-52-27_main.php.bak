@@ -51,11 +51,6 @@ $termTypeLabel = static function (string $type): string {
     $l = tPlain($k);
     return $l !== $k ? $l : $type;
 };
-$depositStatusLabel = static function (string $status): string {
-    $k = 'admin.contracts.deposit_status_' . $status;
-    $l = tPlain($k);
-    return $l !== $k ? $l : $status;
-};
 $reputationPlayerLabel = static function (array $row): string {
     $company = trim((string)($row['company_name'] ?? ''));
     $username = trim((string)($row['username'] ?? ''));
@@ -376,7 +371,6 @@ $reputationPlayerLabel = static function (array $row): string {
             <span><?= t('admin.contracts.col_player') ?></span>
             <span><?= t('admin.contracts.col_contract') ?></span>
             <span><?= t('admin.contracts.col_progress') ?></span>
-            <span><?= t('admin.contracts.col_deposit') ?></span>
             <span><?= t('admin.contracts.col_next_delivery') ?></span>
             <span><?= t('admin.contracts.col_ends') ?></span>
         </div>
@@ -385,7 +379,6 @@ $reputationPlayerLabel = static function (array $row): string {
             <span><?= htmlspecialchars((string)($c['company_name'] ?? $c['username'] ?? ('#' . $c['player_id']))) ?></span>
             <span><?= htmlspecialchars((string)$c['contract_name']) ?></span>
             <span><?= $fmtBbl((float)$c['delivered_bbl']) ?>&nbsp;/&nbsp;<?= $fmtBbl((float)$c['total_bbl']) ?> bbl</span>
-            <span><?= $fmtPln((float)($c['security_deposit'] ?? 0.0)) ?> <small><?= htmlspecialchars($depositStatusLabel((string)($c['security_deposit_status'] ?? 'none'))) ?></small></span>
             <span><small><?= htmlspecialchars(substr((string)$c['next_delivery_at'], 0, 16)) ?></small></span>
             <span><small><?= htmlspecialchars(substr((string)$c['ends_at'], 0, 16)) ?></small></span>
         </div>

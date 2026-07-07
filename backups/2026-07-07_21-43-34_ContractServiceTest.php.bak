@@ -421,67 +421,6 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(['contract_signed', 'contract_cancelled'], $logs);
     }
 
-    public function testCancelContractChargesPenaltyForfeitsDepositAndBlocksNewContracts(): void
-    {
-        $this->service->setModuleEnabled(true);
-        $this->db->exec('UPDATE players SET bank_balance = 300000 WHERE id = 1');
-        $accepted = $this->service->acceptContract(
-            1,
-            $this->optionId('medium_fuel_network'),
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-        $this->assertTrue($accepted['success'], $accepted['status']);
-        $contractId = (int)$accepted['contract_id'];
-
-        $result = $this->service->cancelContract(1, $contractId);
-
-        $this->assertTrue($result['success'], $result['status']);
-        $contract = $this->row('SELECT status, cancel_penalty, cancelled_reason, security_deposit_status FROM player_contracts WHERE id = ?', [$contractId]);
-        $this->assertSame('cancelled', $contract['status']);
-        $this->assertSame(69300.0, (float)$contract['cancel_penalty']);
-        $this->assertSame('player_cancelled', $contract['cancelled_reason']);
-        $this->assertSame('forfeited', $contract['security_deposit_status']);
-        $this->assertSame(115200.0, (float)$this->db->query('SELECT bank_balance FROM players WHERE id = 1')->fetchColumn());
-
-        $types = $this->db->query('SELECT transaction_type FROM bank_transactions ORDER BY id ASC')->fetchAll(PDO::FETCH_COLUMN);
-        $this->assertSame(['contract_deposit', 'contract_penalty'], $types);
-        $this->assertSame(45, (int)$this->db->query('SELECT score FROM contract_reputation WHERE player_id = 1')->fetchColumn());
-        $this->assertNotEmpty((string)$this->db->query('SELECT contract_blocked_until FROM contract_reputation WHERE player_id = 1')->fetchColumn());
-
-        $blocked = $this->service->acceptContract(
-            1,
-            $this->optionId('small_local_refinery'),
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-        $this->assertFalse($blocked['success']);
-        $this->assertSame('contracts_blocked', $blocked['status']);
-    }
-
-    public function testCancelContractCanBeDisabledByTerms(): void
-    {
-        $this->service->setModuleEnabled(true);
-        $optionId = $this->optionId('small_local_refinery');
-        $this->upsertTerm($optionId, 'allow_cancel', 0);
-        $accepted = $this->service->acceptContract(
-            1,
-            $optionId,
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-        $this->assertTrue($accepted['success'], $accepted['status']);
-
-        $result = $this->service->cancelContract(1, (int)$accepted['contract_id']);
-
-        $this->assertFalse($result['success']);
-        $this->assertSame('cancel_not_allowed', $result['status']);
-        $this->assertSame('active', $this->db->query('SELECT status FROM player_contracts WHERE id = ' . (int)$accepted['contract_id'])->fetchColumn());
-    }
-
     /**
      * @param list<array<string,mixed>> $options
      * @return array<string,array<string,mixed>>
@@ -524,15 +463,6 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
             "INSERT INTO storage (player_id, used, capacity, updated_at) VALUES (?, ?, ?, '2025-01-01 00:00:00')
              ON CONFLICT(player_id) DO UPDATE SET used = excluded.used, capacity = excluded.capacity"
         )->execute([$playerId, $used, $capacity]);
-    }
-
-    private function upsertTerm(int $optionId, string $key, float $value): void
-    {
-        $this->db->prepare(
-            "INSERT INTO contract_terms (contract_option_id, term_key, term_type, term_value, term_text, created_at, updated_at)
-             VALUES (?, ?, 'number', ?, NULL, '2025-01-01 00:00:00', '2025-01-01 00:00:00')
-             ON CONFLICT(contract_option_id, term_key) DO UPDATE SET term_value = excluded.term_value"
-        )->execute([$optionId, $key, $value]);
     }
 
     private function createSchema(): void
