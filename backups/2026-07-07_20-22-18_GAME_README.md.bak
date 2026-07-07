@@ -1,13 +1,5 @@
 ## Changelog
 
-### 2026-07-07 - Dział techniczny: zlecone zadanie kończyło się natychmiast (reguła #14)
-
-**Naprawiono bug: zlecenie zadania technicznego pobierało pieniądze, ale zadanie nie pojawiało się jako „w toku" — kończyło się natychmiast.**
-
-- Objaw: gracz zlecał zadanie działowi technicznemu, gotówka schodziła, ale zadanie nigdy nie było widoczne jako wykonywane. `TechnicalTeamService::startTask` zapisywał `start_time`/`end_time` zegarem PHP (`date()`), podczas gdy `processTick` domyka zadania porównując `end_time <= NOW()` zegarem MySQL (podobnie `getTasks` liczy `seconds_remaining` przez `TIMESTAMPDIFF(NOW(), end_time)`). Przy różnicy stref PHP vs MySQL (brak jawnej konfiguracji `time_zone` po obu stronach) `end_time` bywał już `<= NOW()` w chwili utworzenia, więc najbliższy tick — uruchamiany także przy odsłonie strony technicznej — natychmiast zamykał świeże zadanie. Klasyczne naruszenie reguły #14 (jeden zegar dla zapisu i odczytu).
-- `src/TTS/TasksTrait.php` — `start_time`/`end_time` zapisywane teraz zegarem BAZY: `NOW()` oraz `DATE_ADD(NOW(), INTERVAL ? HOUR)` (MySQL) / `datetime(NOW(), ?)` (SQLite, zgodnie z zarejestrowaną funkcją `NOW()` w testach). Spójne z porównaniami `end_time <= NOW()`. Logika kosztu/czasu bez zmian.
-- `tests/Integration/TechnicalHubTasksTest.php` — nowy test regresji: symuluje MySQL wyprzedzający PHP o 10 h (nadpisanie `NOW()`) i sprawdza, że zlecone zadanie zostaje `in_progress` po ticku (a nie znika). Zweryfikowano, że test wykrywa błąd (stary zapis zegarem PHP → czerwony). Suite: 364 testy Integration zielone.
-
 ### 2026-07-07 - FTS: izolacja SAVEPOINT dla wywołań zagnieżdżonych (atomowość ruchu środków)
 
 **Naprawiono preegzystujące ograniczenie architektoniczne wzorca `$ownTx`: zagnieżdżone wywołanie FTS, które zawiodło w połowie zapisu, nie potrafiło wycofać częściowego ruchu środków.**

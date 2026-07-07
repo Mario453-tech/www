@@ -240,8 +240,24 @@ trait TTSTasksTrait
         }
         $moduleLabel = $moduleType ? (' (' . (($moduleDef['label'] ?? $moduleType)) . ')') : '';
         $title       = $taskDef['label'] . $moduleLabel . ($hubId ? $hubName : $wellName);
-        $startTime   = date('Y-m-d H:i:s');
-        $endTime     = date('Y-m-d H:i:s', time() + $hours * 3600);
+
+        // start_time / end_time zapisujemy zegarem BAZY (NOW()) — spojnie z porownaniem
+        // end_time <= NOW() w processTick. Zapis zegarem PHP przy odczycie NOW() z MySQL
+        // powodowal, ze przy roznicy stref PHP vs MySQL zadanie konczylo sie natychmiast
+        // (pieniadze pobrane, zadanie nigdy nie widoczne jako "w toku") — regula #14.
+        // Write start_time / end_time on the DB clock (NOW()) — consistent with the
+        // end_time <= NOW() check in processTick. Writing them on the PHP clock while comparing
+        // against MySQL NOW() made the task finish instantly under a PHP/MySQL timezone skew
+        // (money charged, task never shown as in-progress) — rule #14.
+        $isSqlite  = false;
+        try {
+            $isSqlite = ((string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite');
+        } catch (Throwable) {
+        }
+        $endSql   = $isSqlite ? "datetime(NOW(), ?)" : "DATE_ADD(NOW(), INTERVAL ? HOUR)";
+        $endParam = $isSqlite ? ('+' . $hours . ' hours') : $hours;
+        // Tylko do komunikatu zwrotnego / for the return message only.
+        $endTime  = date('Y-m-d H:i:s', time() + $hours * 3600);
 
         // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
         // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
@@ -276,10 +292,10 @@ trait TTSTasksTrait
                 INSERT INTO technical_tasks
                     (player_id, staff_id, task_type, well_id, hub_id, pipeline_id, title, module_type,
                      start_time, end_time, duration_hours, cost, status)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'in_progress')
+                VALUES (?,?,?,?,?,?,?,?, NOW(), {$endSql}, ?,?, 'in_progress')
             ")->execute([
                 $this->playerId, $staffId, $taskType, $wellId, $hubId, $pipelineId, $title, $moduleType,
-                $startTime, $endTime, $hours, $cost,
+                $endParam, $hours, $cost,
             ]);
 
  // Zamroz odwiert na czas fizycznego serwisu (status "W naprawie").
