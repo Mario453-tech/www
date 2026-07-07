@@ -30,21 +30,6 @@ class ContractService
     private const CFG_LABEL_MODULE_ENABLED = 'Contracts module enabled';
     private const CFG_CATEGORY = 'contracts';
 
-    /**
-     * Klucze terminow, ktore wolno zmienic przez renegocjacje. Pozostale (zwlaszcza flagi
-     * bezpieczenstwa: allow_cancel, cancel_forfeit_deposit, allow_renegotiation itd.) sa
-     * chronione przed nadpisaniem przez gracza.
-     * Term keys a player may change via renegotiation. Security flags are protected from
-     * being overwritten through renegotiation.
-     */
-    private const RENEGOTIABLE_TERMS = [
-        'penalty_pct',
-        'bonus_pct',
-        'bonus_on_full_completion_pct',
-        'delivery_bbl',
-        'delivery_interval_minutes',
-    ];
-
     private PDO $db;
     private CompanyCredibilityService $credibility;
     private ContractReputationService $contractReputation;
@@ -645,101 +630,6 @@ class ContractService
         } catch (Throwable $e) {
             $this->rollbackContractTransaction($ownTx, $savepoint);
             throw $e;
-        }
-    }
-
-    /**
-     * Renegocjuje warunki aktywnego kontraktu (tylko klucze z allowlisty RENEGOTIABLE_TERMS).
-     * Renegotiates terms of an active contract (allowlisted keys only).
-     *
-     * @param array<string,float> $termOverrides  Mapa klucz => nowa wartosc liczbowa.
-     * @return array<string,mixed>
-     */
-    public function renegotiateContract(int $playerId, int $contractId, array $termOverrides): array
-    {
-        if ($playerId <= 0 || $contractId <= 0 || $termOverrides === []) {
-            return $this->result(false, 'invalid_input');
-        }
-        $ownTx = false;
-        $savepoint = null;
-        try {
-            $ownTx = !$this->db->inTransaction();
-            if ($ownTx) {
-                $this->db->beginTransaction();
-            } else {
-                $savepoint = 'contract_reneg_' . $contractId;
-                $this->db->exec('SAVEPOINT ' . $savepoint);
-            }
-            $row = $this->contractForUpdate($playerId, $contractId);
-            if ($row === null) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
-                return $this->result(false, 'not_found');
-            }
-            if ((string)$row['status'] !== 'active') {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
-                return $this->result(false, 'not_active');
-            }
-            /** @var array<string,array{type:string,value:float,text:?string}> $terms */
-            $terms = json_decode((string)($row['terms_json'] ?? '[]'), true) ?? [];
-            if ((int)($terms['allow_renegotiation']['value'] ?? 0) === 0) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
-                return $this->result(false, 'renegotiation_not_allowed');
-            }
-            $maxReneg  = (int)($terms['max_renegotiations']['value'] ?? 0);
-            $usedReneg = (int)($row['renegotiations_used'] ?? 0);
-            if ($maxReneg > 0 && $usedReneg >= $maxReneg) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
-                return $this->result(false, 'renegotiation_limit_reached');
-            }
-            $intervalMinutes = (int)($terms['renegotiation_interval_minutes']['value'] ?? 0);
-            $lastAt = (string)($row['last_renegotiated_at'] ?? '');
-            if ($intervalMinutes > 0 && $lastAt !== '') {
-                if (time() < strtotime($lastAt) + $intervalMinutes * 60) {
-                    $this->rollbackContractTransaction($ownTx, $savepoint);
-                    return $this->result(false, 'renegotiation_too_soon');
-                }
-            }
-            $oldTerms = $terms;
-            $applied  = 0;
-            foreach ($termOverrides as $key => $value) {
-                // Tylko dozwolone klucze / Allowlist only - protects security flags.
-                if (!in_array($key, self::RENEGOTIABLE_TERMS, true)) {
-                    continue;
-                }
-                if (isset($terms[$key])) {
-                    $terms[$key]['value'] = (float)$value;
-                } else {
-                    $terms[$key] = ['type' => 'number', 'value' => (float)$value, 'text' => null];
-                }
-                $applied++;
-            }
-            if ($applied === 0) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
-                return $this->result(false, 'renegotiation_no_valid_terms');
-            }
-            $now          = $this->nowString();
-            $newTermsJson = json_encode($terms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $this->db->prepare(
-                "UPDATE player_contracts SET terms_json = ?, renegotiations_used = renegotiations_used + 1, last_renegotiated_at = ?, updated_at = ? WHERE id = ? AND player_id = ?"
-            )->execute([$newTermsJson, $now, $now, $contractId, $playerId]);
-            $this->db->prepare(
-                "INSERT INTO contract_renegotiations (player_contract_id, player_id, old_terms_json, new_terms_json, message, created_at) VALUES (?, ?, ?, ?, '', ?)"
-            )->execute([
-                $contractId,
-                $playerId,
-                json_encode($oldTerms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                $newTermsJson,
-                $now,
-            ]);
-            $this->logEvent($playerId, $contractId, (string)$row['target_type'], null, (string)$row['context'], 'contract_renegotiated', 'contract.log.renegotiated');
-            $this->finishContractTransaction($ownTx, $savepoint);
-            return ['success' => true, 'status' => 'renegotiated', 'renegotiations_used' => $usedReneg + 1, 'message_key' => 'contracts.renegotiated'];
-        } catch (Throwable $e) {
-            $this->rollbackContractTransaction($ownTx, $savepoint);
-            if (class_exists('GameLog', false)) {
-                GameLog::error('ContractService', 'renegotiateContract FAILED', $e, ['player_id' => $playerId, 'contract_id' => $contractId]);
-            }
-            return $this->result(false, 'db_error');
         }
     }
 

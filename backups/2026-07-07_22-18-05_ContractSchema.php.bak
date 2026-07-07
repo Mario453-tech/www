@@ -193,20 +193,6 @@ class ContractSchema
                 KEY idx_contract_rep_contract (contract_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
-
-        $db->exec(
-            "CREATE TABLE IF NOT EXISTS contract_renegotiations (
-                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                player_contract_id INT NOT NULL,
-                player_id INT NOT NULL,
-                old_terms_json TEXT NULL,
-                new_terms_json TEXT NULL,
-                message VARCHAR(512) NOT NULL DEFAULT '',
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                KEY idx_contract_reneg_contract (player_contract_id),
-                KEY idx_contract_reneg_player (player_id, created_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-        );
     }
 
     private static function migrateMysql(PDO $db): void
@@ -227,8 +213,6 @@ class ContractSchema
             Database::addColumnIfMissing('player_contracts', 'security_deposit_refunded', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER security_deposit_status");
             Database::addColumnIfMissing('player_contracts', 'cancel_penalty', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER cancelled_at");
             Database::addColumnIfMissing('player_contracts', 'cancelled_reason', "VARCHAR(255) NULL AFTER cancel_penalty");
-            Database::addColumnIfMissing('player_contracts', 'renegotiations_used', "INT NOT NULL DEFAULT 0");
-            Database::addColumnIfMissing('player_contracts', 'last_renegotiated_at', "DATETIME NULL");
             Database::addColumnIfMissing('contract_reputation', 'contract_blocked_until', "DATETIME NULL AFTER perfect_contracts");
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
@@ -309,8 +293,6 @@ class ContractSchema
         self::sqliteAddColumnIfMissing($db, 'player_contracts', 'security_deposit_refunded', "REAL NOT NULL DEFAULT 0.0");
         self::sqliteAddColumnIfMissing($db, 'player_contracts', 'cancel_penalty', "REAL NOT NULL DEFAULT 0.0");
         self::sqliteAddColumnIfMissing($db, 'player_contracts', 'cancelled_reason', "TEXT NULL");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'renegotiations_used', "INTEGER NOT NULL DEFAULT 0");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'last_renegotiated_at', "TEXT NULL");
         $db->exec(
             "CREATE TABLE IF NOT EXISTS contract_deliveries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -373,17 +355,6 @@ class ContractSchema
         );
         $db->exec("CREATE INDEX IF NOT EXISTS idx_contract_rep_player ON contract_reputation_log (player_id, created_at)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_contract_rep_contract ON contract_reputation_log (contract_id)");
-        $db->exec(
-            "CREATE TABLE IF NOT EXISTS contract_renegotiations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_contract_id INTEGER NOT NULL,
-                player_id INTEGER NOT NULL,
-                old_terms_json TEXT NULL,
-                new_terms_json TEXT NULL,
-                message TEXT NOT NULL DEFAULT '',
-                created_at TEXT
-            )"
-        );
     }
 
     private static function sqliteAddColumnIfMissing(PDO $db, string $table, string $column, string $definition): void
