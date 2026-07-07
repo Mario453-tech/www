@@ -1,15 +1,5 @@
 ## Changelog
 
-### 2026-07-07 - Kontrakty długoterminowe: zerwanie kontraktu
-
-**Rozbudowano anulowanie kontraktu do pełnego zerwania z konsekwencjami.**
-
-- `src/Contracts/ContractSchema.php` — dodano pola `cancel_penalty`, `cancelled_reason` w `player_contracts` oraz `contract_blocked_until` w `contract_reputation`; seed kontraktów dostał termy `allow_cancel`, `cancel_penalty_pct`, `cancel_penalty_fixed`, `cancel_reputation_loss`, `cancel_forfeit_deposit`, `cancel_blocks_new_contracts_minutes`.
-- `src/ContractService.php` — zerwanie kontraktu sprawdza `allow_cancel`, nalicza karę od niewykonanego wolumenu, pobiera środki przez `FinancialTransactionService::debitCombined(TYPE_CONTRACT_PENALTY)`, rozlicza przepadek/zwrot kaucji i zapisuje powód oraz karę w snapshotcie kontraktu.
-- `src/ContractReputationService.php` — zerwanie korzysta z `cancel_reputation_loss` i może blokować podpisywanie nowych kontraktów do `contract_blocked_until`.
-- `templates/views/contracts/main.php` + `lang/pl/contracts.php` + `lang/en/contracts.php` — UI gracza mówi teraz o zerwaniu kontraktu, a nie zwykłym anulowaniu; dodano komunikaty blokady, braku środków i braku prawa do zerwania.
-- `tests/Integration/ContractServiceTest.php` — dodano regresje dla kary zerwania, przepadku kaucji, blokady nowych kontraktów i `allow_cancel = 0`.
-
 ### 2026-07-07 - Kontrakty długoterminowe: Etap 3 — kaucja kontraktowa
 
 **Dodano zabezpieczenie finansowe przy podpisywaniu większych kontraktów.**

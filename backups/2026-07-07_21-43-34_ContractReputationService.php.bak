@@ -59,7 +59,6 @@ class ContractReputationService
                     COALESCE(cr.cancelled_contracts, 0) AS cancelled_contracts,
                     COALESCE(cr.missed_deliveries, 0) AS missed_deliveries,
                     COALESCE(cr.perfect_contracts, 0) AS perfect_contracts,
-                    cr.contract_blocked_until,
                     cr.updated_at
                FROM players p
                LEFT JOIN contract_reputation cr ON cr.player_id = p.id
@@ -142,34 +141,6 @@ class ContractReputationService
         $this->db->prepare(
             "INSERT IGNORE INTO contract_reputation (player_id, score, updated_at) VALUES (?, ?, ?)"
         )->execute([$playerId, self::DEFAULT_SCORE, $this->nowString()]);
-    }
-
-    public function getBlockedUntil(int $playerId): ?string
-    {
-        if ($playerId <= 0) {
-            return null;
-        }
-        $this->ensureRow($playerId);
-        $stmt = $this->db->prepare('SELECT contract_blocked_until FROM contract_reputation WHERE player_id = ? LIMIT 1');
-        $stmt->execute([$playerId]);
-        $value = $stmt->fetchColumn();
-        return $value === false || $value === null || $value === '' ? null : (string)$value;
-    }
-
-    public function blockNewContracts(int $playerId, int $minutes): void
-    {
-        if ($playerId <= 0 || $minutes <= 0) {
-            return;
-        }
-        $this->ensureRow($playerId);
-        $blockedUntil = $this->datePlusMinutes($this->nowString(), $minutes);
-        $current = $this->getBlockedUntil($playerId);
-        if ($current !== null && $current > $blockedUntil) {
-            return;
-        }
-        $this->db->prepare(
-            'UPDATE contract_reputation SET contract_blocked_until = ?, updated_at = ? WHERE player_id = ?'
-        )->execute([$blockedUntil, $this->nowString(), $playerId]);
     }
 
     /** @param array<string,mixed> $meta */
@@ -284,7 +255,7 @@ class ContractReputationService
 
     public function onContractCancelled(int $playerId, int $contractId): void
     {
-        $delta = $this->termInt($contractId, 'cancel_reputation_loss', $this->termInt($contractId, 'reputation_loss_on_cancel', -1));
+        $delta = $this->termInt($contractId, 'reputation_loss_on_cancel', -1);
         $this->withTransaction(function () use ($playerId, $contractId, $delta): void {
             $this->incrementCounters($playerId, [
                 'total_contracts' => 1,
@@ -292,15 +263,6 @@ class ContractReputationService
             ]);
             $this->changeScore($playerId, $delta, 'contract_cancelled', $contractId);
         });
-    }
-
-    private function datePlusMinutes(string $base, int $minutes): string
-    {
-        if ($this->driver() === 'sqlite') {
-            return date('Y-m-d H:i:s', strtotime($base . ' +' . $minutes . ' minutes'));
-        }
-        $dt = new DateTimeImmutable($base);
-        return $dt->modify('+' . $minutes . ' minutes')->format('Y-m-d H:i:s');
     }
 
     /** @param array<string,int> $counters */

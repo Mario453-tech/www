@@ -158,10 +158,6 @@ class ContractService
         if ($this->isExpired($option)) {
             return $this->result(false, 'option_expired');
         }
-        $blockedUntil = $this->contractReputation->getBlockedUntil($playerId);
-        if ($blockedUntil !== null && $blockedUntil > $this->nowString()) {
-            return $this->result(false, 'contracts_blocked');
-        }
 
         $terms = $this->termsForOption($optionId);
         $validation = $this->validateRequiredTerms($terms);
@@ -274,71 +270,40 @@ class ContractService
         if ($playerId <= 0 || $contractId <= 0) {
             return $this->result(false, 'invalid_input');
         }
-        $this->fts ??= new FinancialTransactionService($this->db);
         $now = $this->nowString();
         $ownTx = false;
-        $savepoint = null;
         try {
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) {
                 $this->db->beginTransaction();
-            } else {
-                $savepoint = 'contract_cancel_' . $contractId;
-                $this->db->exec('SAVEPOINT ' . $savepoint);
             }
             $row = $this->contractForUpdate($playerId, $contractId);
             if ($row === null) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
                 return $this->result(false, 'not_found');
             }
             if ((string)$row['status'] !== 'active') {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
                 return $this->result(false, 'cancel_status');
             }
-            /** @var array<string,array{type:string,value:float,text:?string}> $terms */
-            $terms = json_decode((string)($row['terms_json'] ?? ''), true) ?? [];
-            if ((float)($terms['allow_cancel']['value'] ?? 1.0) <= 0.0) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
-                return $this->result(false, 'cancel_not_allowed');
-            }
-            $cancelPenalty = $this->calculateCancelPenalty($terms, $row, $this->currentMarketPrice());
-            if ($cancelPenalty >= FinancialTransactionService::MIN_AMOUNT) {
-                $penaltyDebit = $this->fts->debitCombined(
-                    $playerId,
-                    $cancelPenalty,
-                    FinancialTransactionService::TYPE_CONTRACT_PENALTY,
-                    tPlain('bank.tx_contract_penalty', ['id' => $contractId]),
-                    'contract',
-                    $contractId
-                );
-                if (!$penaltyDebit['success']) {
-                    $this->rollbackContractTransaction($ownTx, $savepoint);
-                    return $this->result(false, 'cancel_insufficient_funds');
-                }
-            }
             $this->db->prepare(
-                "UPDATE player_contracts
-                    SET status = 'cancelled',
-                        cancelled_at = ?,
-                        cancel_penalty = ?,
-                        cancelled_reason = ?,
-                        updated_at = ?
-                  WHERE id = ? AND player_id = ?"
-            )->execute([$now, $cancelPenalty, 'player_cancelled', $now, $contractId, $playerId]);
+                "UPDATE player_contracts SET status = 'cancelled', cancelled_at = ?, updated_at = ? WHERE id = ? AND player_id = ?"
+            )->execute([$now, $now, $contractId, $playerId]);
             $this->settleSecurityDeposit($row, 'cancelled', (float)$row['delivered_bbl'], $now);
-            $blockMinutes = max(0, (int)round((float)($terms['cancel_blocks_new_contracts_minutes']['value'] ?? 0.0)));
-            if ($blockMinutes > 0) {
-                $this->contractReputation->blockNewContracts($playerId, $blockMinutes);
-            }
             $this->contractReputation->onContractCancelled($playerId, $contractId);
-            $this->logEvent($playerId, $contractId, (string)$row['target_type'], $row['target_id'] === null ? null : (int)$row['target_id'], (string)$row['context'], 'contract_cancelled', 'Contract cancelled by player', [
-                'cancel_penalty' => $cancelPenalty,
-                'blocked_minutes' => $blockMinutes,
-            ]);
-            $this->finishContractTransaction($ownTx, $savepoint);
+            $this->logEvent($playerId, $contractId, (string)$row['target_type'], $row['target_id'] === null ? null : (int)$row['target_id'], (string)$row['context'], 'contract_cancelled', 'contract.log.cancelled');
+            if ($ownTx) {
+                $this->db->commit();
+            }
             return ['success' => true, 'status' => 'cancelled', 'contract_id' => $contractId, 'message_key' => 'contracts.msg_cancelled'];
         } catch (Throwable $e) {
-            $this->rollbackContractTransaction($ownTx, $savepoint);
+            if ($ownTx && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             if (class_exists('GameLog', false)) {
                 GameLog::error('ContractService', 'cancelContract FAILED', $e, ['player_id' => $playerId, 'contract_id' => $contractId]);
             }
@@ -696,22 +661,6 @@ class ContractService
         return round($deposit * $modifier, 2);
     }
 
-    /**
-     * @param array<string,array{type:string,value:float,text:?string}> $terms
-     * @param array<string,mixed> $contract
-     */
-    private function calculateCancelPenalty(array $terms, array $contract, float $marketPrice): float
-    {
-        $totalBbl = (float)($contract['total_bbl'] ?? 0.0);
-        $deliveredBbl = (float)($contract['delivered_bbl'] ?? 0.0);
-        $remainingBbl = max(0.0, $totalBbl - $deliveredBbl);
-        $pricePerBbl = $this->calculatePrice($terms, max(0.0, $marketPrice));
-        $pct = max(0.0, (float)($terms['cancel_penalty_pct']['value'] ?? 0.0));
-        $fixed = max(0.0, (float)($terms['cancel_penalty_fixed']['value'] ?? 0.0));
-        $penalty = max(round($remainingBbl * $pricePerBbl * $pct / 100.0, 2), round($fixed, 2));
-        return $penalty < FinancialTransactionService::MIN_AMOUNT ? 0.0 : $penalty;
-    }
-
     /** @param array<string,mixed> $contract */
     private function settleSecurityDeposit(array $contract, string $newStatus, float $newDeliveredBbl, string $now): void
     {
@@ -770,8 +719,7 @@ class ContractService
             return (float)($terms['deposit_refund_on_complete']['value'] ?? 1.0) > 0.0 ? $deposit : 0.0;
         }
         if ($newStatus === 'cancelled') {
-            $forfeit = (float)($terms['cancel_forfeit_deposit']['value'] ?? ($terms['deposit_forfeit_on_cancel']['value'] ?? 1.0));
-            return $forfeit > 0.0 ? 0.0 : $deposit;
+            return (float)($terms['deposit_forfeit_on_cancel']['value'] ?? 1.0) > 0.0 ? 0.0 : $deposit;
         }
         if ($newStatus === 'failed') {
             if ((float)($terms['deposit_partial_refund_enabled']['value'] ?? 0.0) > 0.0 && $totalBbl > 0.0 && $newDeliveredBbl > 0.0) {

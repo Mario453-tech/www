@@ -231,7 +231,7 @@ $depositStatusLabel = static function (string $status): string {
                 </div>
                 <div class="contracts-term">
                     <span class="ct-label"><?= t('contracts.security_deposit_status') ?></span>
-                    <strong class="ct-val"><?= htmlspecialchars($depositStatusLabel($depositStatus)) ?><?= $depositRefunded > 0.0 ? ' · ' . $fmtPln($depositRefunded) : '' ?></strong>
+                    <strong class="ct-val"><?= htmlspecialchars($depositStatusLabel($depositStatus)) ?><?= $depositRefunded > 0.0 ? ' - ' . $fmtPln($depositRefunded) : '' ?></strong>
                 </div>
             </div>
             <form method="post" class="contracts-action-form"
