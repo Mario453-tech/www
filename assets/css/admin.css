@@ -4633,7 +4633,7 @@ table.admin-table tr:hover td {
 }
 .contracts-admin-row--options   { grid-template-columns: 150px 1fr 150px 130px 90px 70px auto; }
 .contracts-admin-row--terms     { grid-template-columns: 200px 110px 120px 1fr auto; }
-.contracts-admin-row--active    { grid-template-columns: 1fr 1fr 140px 130px 130px; }
+.contracts-admin-row--active    { grid-template-columns: 1fr 1fr 140px 140px 130px 130px; }
 .contracts-admin-row--deliveries{ grid-template-columns: 120px 1fr 90px 90px 100px 110px 110px 90px; }
 .contracts-admin-row--logs      { grid-template-columns: 120px 1fr 160px 2fr; }
 .contracts-admin-row--reputation{ grid-template-columns: 1fr 100px 100px 80px 90px 90px 80px minmax(320px, auto); }

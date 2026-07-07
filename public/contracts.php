@@ -70,7 +70,7 @@ try {
 }
 
 $available  = $moduleEnabled
-    ? $service->getAvailableOptions($playerId, ContractService::TARGET_STORAGE, ContractService::CONTEXT_STORAGE_DELIVERY, 0.0)
+    ? $service->getAvailableOptions($playerId, ContractService::TARGET_STORAGE, ContractService::CONTEXT_STORAGE_DELIVERY, $marketPrice)
     : [];
 $active     = $service->listActiveContracts($playerId);
 $deliveries = $service->listDeliveries($playerId, 50);

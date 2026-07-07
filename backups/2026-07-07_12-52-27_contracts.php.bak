@@ -74,7 +74,7 @@ return [
     // Warunki / Terms
     'admin.contracts.terms_title' => 'Contract terms',
     'admin.contracts.terms_empty' => 'No terms for this option.',
-    'admin.contracts.terms_hint' => 'Required terms: total_bbl, delivery_bbl, delivery_interval_minutes, duration_minutes. Optional: bonus_pct, penalty_pct, price_mode, security_deposit_pct, security_deposit_fixed and deposit refund rules.',
+    'admin.contracts.terms_hint' => 'Required terms: total_bbl, delivery_bbl, delivery_interval_minutes, duration_minutes. Optional: bonus_pct, penalty_pct, price_mode.',
     'admin.contracts.col_term_key' => 'Key',
     'admin.contracts.col_term_type' => 'Type',
     'admin.contracts.col_term_value' => 'Value',
@@ -106,14 +106,8 @@ return [
     'admin.contracts.col_player' => 'Player',
     'admin.contracts.col_contract' => 'Contract',
     'admin.contracts.col_progress' => 'Progress',
-    'admin.contracts.col_deposit' => 'Deposit',
     'admin.contracts.col_next_delivery' => 'Next delivery',
     'admin.contracts.col_ends' => 'Ends',
-    'admin.contracts.deposit_status_none' => 'None',
-    'admin.contracts.deposit_status_paid' => 'Paid',
-    'admin.contracts.deposit_status_refunded' => 'Refunded',
-    'admin.contracts.deposit_status_partial_refund' => 'Partial refund',
-    'admin.contracts.deposit_status_forfeited' => 'Forfeited',
 
     // Dostawy / Deliveries
     'admin.contracts.deliveries_title' => 'Delivery history',

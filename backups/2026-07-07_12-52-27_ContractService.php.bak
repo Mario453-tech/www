@@ -115,7 +115,6 @@ class ContractService
         $legalNeeded = array_filter($options, static fn(array $o): bool => (int)$o['requires_legal_level'] > 0) !== [];
         $legalLevel = $legalNeeded ? $this->legalLevel($playerId) : 0;
         $contractReputation = $this->contractReputation->getScore($playerId);
-        $marketPrice = $referenceValue > 0.0 ? $referenceValue : $this->currentMarketPrice();
 
         foreach ($options as &$option) {
             $terms = $termsMap[(int)$option['id']] ?? [];
@@ -123,7 +122,6 @@ class ContractService
             $option['locked_reason'] = $this->lockedReason($option, $score, $legalLevel, $terms, $contractReputation);
             $option['requirements_met'] = $option['locked_reason'] === null;
             $option['reference_value'] = $referenceValue;
-            $option['estimated_security_deposit'] = $this->calculateSecurityDeposit($terms, $marketPrice, $contractReputation);
         }
         unset($option);
 
@@ -165,56 +163,46 @@ class ContractService
             return $this->result(false, $validation);
         }
         $legalLevel = (int)$option['requires_legal_level'] > 0 ? $this->legalLevel($playerId) : 0;
-        $contractReputationScore = $this->contractReputation->getScore($playerId);
         $locked = $this->lockedReason(
             $option,
             $this->credibility->getScore($playerId),
             $legalLevel,
             $terms,
-            $contractReputationScore
+            $this->contractReputation->getScore($playerId)
         );
         if ($locked !== null) {
             return $this->result(false, 'requirements_' . $locked);
         }
-        $securityDeposit = $this->calculateSecurityDeposit($terms, $this->currentMarketPrice(), $contractReputationScore);
         $now = $this->nowString();
         $next = $this->datePlusMinutes($now, (int)$terms['delivery_interval_minutes']['value']);
         $ends = $this->datePlusMinutes($now, (int)$terms['duration_minutes']['value']);
         $termsJson = json_encode($terms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($securityDeposit >= FinancialTransactionService::MIN_AMOUNT) {
-            $this->fts ??= new FinancialTransactionService($this->db);
-        }
 
         $ownTx = false;
-        $savepoint = null;
         try {
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) {
                 $this->db->beginTransaction();
-            } else {
-                $savepoint = 'contract_accept_' . $playerId . '_' . $optionId;
-                $this->db->exec('SAVEPOINT ' . $savepoint);
             }
             if (!$this->lockPlayerRow($playerId)) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
                 return $this->result(false, 'player_not_found');
             }
             $maxActive = (int)$option['max_active_per_player'];
             if ($maxActive > 0 && $this->activeContractCount($playerId) >= $maxActive) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
+                if ($ownTx) {
+                    $this->db->rollBack();
+                }
                 return $this->result(false, 'limit_reached');
-            }
-            if ($securityDeposit >= FinancialTransactionService::MIN_AMOUNT && $this->combinedBalanceForUpdate($playerId) + 1e-9 < $securityDeposit) {
-                $this->rollbackContractTransaction($ownTx, $savepoint);
-                return $this->result(false, 'insufficient_deposit_funds');
             }
             $stmt = $this->db->prepare(
                 "INSERT INTO player_contracts
                     (player_id, contract_option_id, target_type, target_id, context, buyer_name, contract_name,
-                     status, total_bbl, delivered_bbl, missed_bbl, security_deposit, security_deposit_status,
-                     next_delivery_at, starts_at, ends_at,
+                     status, total_bbl, delivered_bbl, missed_bbl, next_delivery_at, starts_at, ends_at,
                      terms_json, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, 0, 0, ?, ?, ?, ?, ?, ?)"
             );
             $stmt->execute([
                 $playerId,
@@ -225,8 +213,6 @@ class ContractService
                 (string)$option['buyer_name'],
                 (string)$option['name'],
                 (float)$terms['total_bbl']['value'],
-                $securityDeposit,
-                $securityDeposit >= FinancialTransactionService::MIN_AMOUNT ? 'paid' : 'none',
                 $next,
                 $now,
                 $ends,
@@ -235,28 +221,17 @@ class ContractService
                 $now,
             ]);
             $contractId = (int)$this->db->lastInsertId();
-            if ($securityDeposit >= FinancialTransactionService::MIN_AMOUNT) {
-                $depositDebit = $this->fts->debitCombined(
-                    $playerId,
-                    $securityDeposit,
-                    FinancialTransactionService::TYPE_CONTRACT_DEPOSIT,
-                    tPlain('bank.tx_contract_deposit', ['id' => $contractId]),
-                    'contract',
-                    $contractId
-                );
-                if (!$depositDebit['success']) {
-                    $this->rollbackContractTransaction($ownTx, $savepoint);
-                    return $this->result(false, 'insufficient_deposit_funds');
-                }
-            }
             $this->logEvent($playerId, $contractId, $targetType, $targetId, $context, 'contract_signed', 'contract.log.signed', [
                 'option_code' => (string)$option['code'],
-                'security_deposit' => $securityDeposit,
             ]);
-            $this->finishContractTransaction($ownTx, $savepoint);
+            if ($ownTx) {
+                $this->db->commit();
+            }
             return ['success' => true, 'status' => 'signed', 'contract_id' => $contractId, 'message_key' => 'contracts.msg_signed'];
         } catch (Throwable $e) {
-            $this->rollbackContractTransaction($ownTx, $savepoint);
+            if ($ownTx && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             if (class_exists('GameLog', false)) {
                 GameLog::error('ContractService', 'acceptContract FAILED', $e, ['player_id' => $playerId, 'option_id' => $optionId]);
             }
@@ -293,7 +268,6 @@ class ContractService
             $this->db->prepare(
                 "UPDATE player_contracts SET status = 'cancelled', cancelled_at = ?, updated_at = ? WHERE id = ? AND player_id = ?"
             )->execute([$now, $now, $contractId, $playerId]);
-            $this->settleSecurityDeposit($row, 'cancelled', (float)$row['delivered_bbl'], $now);
             $this->contractReputation->onContractCancelled($playerId, $contractId);
             $this->logEvent($playerId, $contractId, (string)$row['target_type'], $row['target_id'] === null ? null : (int)$row['target_id'], (string)$row['context'], 'contract_cancelled', 'contract.log.cancelled');
             if ($ownTx) {
@@ -323,8 +297,8 @@ class ContractService
             return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0];
         }
 
-        // Uzyj zegara MySQL, tak jak nowString() - porownujemy z next_delivery_at zapisanym przez MySQL NOW().
-        // Use MySQL clock, same as nowString() - comparing against next_delivery_at written by MySQL NOW().
+        // Uzyj zegara MySQL, tak jak nowString() — porownujemy z next_delivery_at zapisanym przez MySQL NOW().
+        // Use MySQL clock, same as nowString() — comparing against next_delivery_at written by MySQL NOW().
         $nowStr = $this->nowString();
         try {
             $stmt = $this->db->prepare(
@@ -387,7 +361,6 @@ class ContractService
         $contractId = (int)$contract['id'];
         $playerId   = (int)$contract['player_id'];
         $forUpdate  = $this->driver() === 'sqlite' ? '' : ' FOR UPDATE';
-        $this->fts ??= new FinancialTransactionService($this->db);
         $ownTx = !$this->db->inTransaction();
         $savepoint = $ownTx ? null : 'contract_due_' . $contractId;
 
@@ -405,14 +378,14 @@ class ContractService
             $cStmt->execute([$contractId, $playerId]);
             $contract = $cStmt->fetch(PDO::FETCH_ASSOC);
             if ($contract === false) {
-                $this->finishContractTransaction($ownTx, $savepoint);
+                $this->finishDeliveryTransaction($ownTx, $savepoint);
                 return ['revenue' => 0.0, 'penalty' => 0.0, 'new_status' => 'skipped'];
             }
 
             // Sprawdz czy dostawa jest nadal wymagalna po blokadzie.
             // Check if delivery is still due after acquiring lock.
             if ((string)$contract['next_delivery_at'] > $nowStr) {
-                $this->finishContractTransaction($ownTx, $savepoint);
+                $this->finishDeliveryTransaction($ownTx, $savepoint);
                 return ['revenue' => 0.0, 'penalty' => 0.0, 'new_status' => 'skipped'];
             }
 
@@ -454,8 +427,10 @@ class ContractService
             $revenue     = round($deliveredBbl * $pricePerBbl, 2);
             $penalty     = round($missedBbl * $pricePerBbl * $penaltyPct / 100.0, 2);
 
-            // Rzuc wyjatek przy bledzie FTS - storage juz odjete, wiec blad musi cofnac cala transakcje.
-            // Throw on FTS failure - storage already deducted, so any error must roll back the whole TX.
+            $this->fts ??= new FinancialTransactionService($this->db);
+
+            // Rzuc wyjatek przy bledzie FTS — storage juz odjete, wiec blad musi cofnac cala transakcje.
+            // Throw on FTS failure — storage already deducted, so any error must roll back the whole TX.
             if ($revenue > 0.0) {
                 $cr = $this->fts->credit(
                     $playerId,
@@ -566,10 +541,8 @@ class ContractService
                 $this->contractReputation->onDeliveryMiss($playerId, $contractId, $deliveryMeta);
             }
             if ($newStatus === 'completed') {
-                $this->settleSecurityDeposit($contract, $newStatus, $newDeliveredBbl, $nowStr);
                 $this->contractReputation->onContractCompleted($playerId, $contractId, $newMissedBbl <= 0.001);
             } elseif ($newStatus === 'failed') {
-                $this->settleSecurityDeposit($contract, $newStatus, $newDeliveredBbl, $nowStr);
                 $this->contractReputation->onContractFailed($playerId, $contractId);
             }
 
@@ -589,16 +562,16 @@ class ContractService
                 'penalty_payment_error' => $penaltyPaymentError,
             ]);
 
-            $this->finishContractTransaction($ownTx, $savepoint);
+            $this->finishDeliveryTransaction($ownTx, $savepoint);
             return ['revenue' => $revenue, 'penalty' => $penalty, 'new_status' => $newStatus];
 
         } catch (Throwable $e) {
-            $this->rollbackContractTransaction($ownTx, $savepoint);
+            $this->rollbackDeliveryTransaction($ownTx, $savepoint);
             throw $e;
         }
     }
 
-    private function finishContractTransaction(bool $ownTx, ?string $savepoint): void
+    private function finishDeliveryTransaction(bool $ownTx, ?string $savepoint): void
     {
         if ($ownTx) {
             $this->db->commit();
@@ -609,7 +582,7 @@ class ContractService
         }
     }
 
-    private function rollbackContractTransaction(bool $ownTx, ?string $savepoint): void
+    private function rollbackDeliveryTransaction(bool $ownTx, ?string $savepoint): void
     {
         if (!$this->db->inTransaction()) {
             return;
@@ -634,113 +607,6 @@ class ContractService
             return 0.0;
         }
         return max(0.0, round((float)$row['cash'] + (float)$row['bank_balance'], 2));
-    }
-
-    /** @param array<string,array{type:string,value:float,text:?string}> $terms */
-    private function calculateSecurityDeposit(array $terms, float $marketPrice, int $contractReputation): float
-    {
-        $totalBbl = (float)($terms['total_bbl']['value'] ?? 0.0);
-        $pricePerBbl = $this->calculatePrice($terms, max(0.0, $marketPrice));
-        $pct = max(0.0, (float)($terms['security_deposit_pct']['value'] ?? 0.0));
-        $fixed = max(0.0, (float)($terms['security_deposit_fixed']['value'] ?? 0.0));
-        $deposit = max(round($totalBbl * $pricePerBbl * $pct / 100.0, 2), round($fixed, 2));
-        if ($deposit < FinancialTransactionService::MIN_AMOUNT) {
-            return 0.0;
-        }
-        if ((float)($terms['deposit_reputation_discount_enabled']['value'] ?? 0.0) <= 0.0) {
-            return $deposit;
-        }
-        $modifier = 1.0;
-        if ($contractReputation >= 80) {
-            $modifier = 0.70;
-        } elseif ($contractReputation >= 60) {
-            $modifier = 0.85;
-        } elseif ($contractReputation < 30) {
-            $modifier = 1.25;
-        }
-        return round($deposit * $modifier, 2);
-    }
-
-    /** @param array<string,mixed> $contract */
-    private function settleSecurityDeposit(array $contract, string $newStatus, float $newDeliveredBbl, string $now): void
-    {
-        $contractId = (int)$contract['id'];
-        $playerId = (int)$contract['player_id'];
-        $deposit = round((float)($contract['security_deposit'] ?? 0.0), 2);
-        $depositStatus = (string)($contract['security_deposit_status'] ?? 'none');
-        if ($deposit < FinancialTransactionService::MIN_AMOUNT || $depositStatus !== 'paid') {
-            return;
-        }
-
-        /** @var array<string,array{type:string,value:float,text:?string}> $terms */
-        $terms = json_decode((string)($contract['terms_json'] ?? ''), true) ?? [];
-        $refund = $this->securityDepositRefundAmount($terms, $newStatus, $deposit, (float)$contract['total_bbl'], $newDeliveredBbl);
-        $status = $refund >= $deposit - 0.001 ? 'refunded' : ($refund >= FinancialTransactionService::MIN_AMOUNT ? 'partial_refund' : 'forfeited');
-
-        if ($refund >= FinancialTransactionService::MIN_AMOUNT) {
-            $this->fts ??= new FinancialTransactionService($this->db);
-            $credit = $this->fts->credit(
-                $playerId,
-                $refund,
-                FinancialTransactionService::TYPE_CONTRACT_DEPOSIT_REFUND,
-                tPlain('bank.tx_contract_deposit_refund', ['id' => $contractId]),
-                'contract',
-                $contractId
-            );
-            if (!$credit['success']) {
-                throw new RuntimeException('FTS deposit refund failed: ' . ($credit['error'] ?? 'unknown'));
-            }
-        }
-
-        $this->db->prepare(
-            "UPDATE player_contracts
-                SET security_deposit_status = ?,
-                    security_deposit_refunded = ?,
-                    updated_at = ?
-              WHERE id = ? AND player_id = ?"
-        )->execute([$status, $refund, $now, $contractId, $playerId]);
-
-        $this->logEvent(
-            $playerId,
-            $contractId,
-            (string)$contract['target_type'],
-            $contract['target_id'] === null ? null : (int)$contract['target_id'],
-            (string)$contract['context'],
-            $refund >= FinancialTransactionService::MIN_AMOUNT ? 'contract_deposit_refunded' : 'contract_deposit_forfeited',
-            $refund >= FinancialTransactionService::MIN_AMOUNT ? 'Contract deposit refunded' : 'Contract deposit forfeited',
-            ['deposit' => $deposit, 'refund' => $refund, 'deposit_status' => $status]
-        );
-    }
-
-    /** @param array<string,array{type:string,value:float,text:?string}> $terms */
-    private function securityDepositRefundAmount(array $terms, string $newStatus, float $deposit, float $totalBbl, float $newDeliveredBbl): float
-    {
-        if ($newStatus === 'completed') {
-            return (float)($terms['deposit_refund_on_complete']['value'] ?? 1.0) > 0.0 ? $deposit : 0.0;
-        }
-        if ($newStatus === 'cancelled') {
-            return (float)($terms['deposit_forfeit_on_cancel']['value'] ?? 1.0) > 0.0 ? 0.0 : $deposit;
-        }
-        if ($newStatus === 'failed') {
-            if ((float)($terms['deposit_partial_refund_enabled']['value'] ?? 0.0) > 0.0 && $totalBbl > 0.0 && $newDeliveredBbl > 0.0) {
-                return round($deposit * max(0.0, min(1.0, $newDeliveredBbl / $totalBbl)), 2);
-            }
-            return (float)($terms['deposit_forfeit_on_fail']['value'] ?? 1.0) > 0.0 ? 0.0 : $deposit;
-        }
-        return 0.0;
-    }
-
-    private function currentMarketPrice(): float
-    {
-        try {
-            $row = $this->db->query("SELECT current_price FROM market_state WHERE id = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-            return is_array($row) ? max(0.0, (float)$row['current_price']) : 70.0;
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('ContractService', 'currentMarketPrice FAILED', $e);
-            }
-            return 70.0;
-        }
     }
 
 }

@@ -308,6 +308,8 @@ return [
     'bank.account.type.contract_sale'       => 'Przychód z kontraktu',
     'bank.account.type.contract_penalty'    => 'Kara kontraktowa',
     'bank.account.type.contract_bonus'      => 'Bonus kontraktowy',
+    'bank.account.type.contract_deposit'    => 'Kaucja kontraktowa',
+    'bank.account.type.contract_deposit_refund' => 'Zwrot kaucji kontraktowej',
 
     'bank.account.msg_transfer_ok' => 'Przelew :amount PLN na rachunek :account zaksięgowany.',
     'bank.account.err_account_empty' => 'Podaj numer rachunku odbiorcy.',
@@ -359,6 +361,8 @@ return [
     'bank.tx_contract_sale'      => 'Dostawa ropy w ramach kontraktu #:id',
     'bank.tx_contract_penalty'   => 'Kara za niedostarczenie ropy w kontrakcie #:id',
     'bank.tx_contract_bonus'     => 'Bonus za terminową realizację kontraktu #:id',
+    'bank.tx_contract_deposit'   => 'Kaucja za podpisanie kontraktu #:id',
+    'bank.tx_contract_deposit_refund' => 'Zwrot kaucji za kontrakt #:id',
 
     // Portfel - modul transferu miedzy pulami (gotowka <-> konto bankowe)
     // Wallet - pool transfer module (cash <-> bank account)

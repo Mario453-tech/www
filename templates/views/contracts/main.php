@@ -55,6 +55,11 @@ $deliveryStatusLabel = static function (string $status): string {
     $label = tPlain($langKey);
     return $label !== $langKey ? $label : $status;
 };
+$depositStatusLabel = static function (string $status): string {
+    $langKey = 'contracts.deposit_status.' . $status;
+    $label = tPlain($langKey);
+    return $label !== $langKey ? $label : $status;
+};
 ?>
 
 <div class="fade-in contracts-page">
@@ -97,6 +102,7 @@ $deliveryStatusLabel = static function (string $status): string {
             $minContractRep = $termVal($terms, 'min_contract_reputation');
             $priceMode   = $termText($terms, 'price_mode') ?: (string)($option['price_mode'] ?? 'market_plus_bonus');
             $estRevenue  = $deliveryBbl * $marketPrice * (1.0 + $bonusPct / 100.0);
+            $deposit     = (float)($option['estimated_security_deposit'] ?? 0.0);
             $met         = !empty($option['requirements_met']);
             $lockReason  = (string)($option['locked_reason'] ?? '');
         ?>
@@ -141,6 +147,10 @@ $deliveryStatusLabel = static function (string $status): string {
                     <span class="ct-label"><?= t('contracts.est_revenue') ?></span>
                     <strong class="ct-val"><?= $fmtPln($estRevenue) ?></strong>
                 </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.security_deposit') ?></span>
+                    <strong class="ct-val"><?= $fmtPln($deposit) ?></strong>
+                </div>
             </div>
             <?php if ($met): ?>
             <form method="post" class="contracts-action-form"
@@ -182,6 +192,9 @@ $deliveryStatusLabel = static function (string $status): string {
             $total       = (float)($contract['total_bbl'] ?? 0.0);
             $delivered   = (float)($contract['delivered_bbl'] ?? 0.0);
             $missed      = (float)($contract['missed_bbl'] ?? 0.0);
+            $deposit     = (float)($contract['security_deposit'] ?? 0.0);
+            $depositRefunded = (float)($contract['security_deposit_refunded'] ?? 0.0);
+            $depositStatus = (string)($contract['security_deposit_status'] ?? 'none');
             $progressPct = $total > 0.0 ? max(0, min(100, (int)round($delivered / $total * 100))) : 0;
             $status      = (string)($contract['status'] ?? 'active');
         ?>
@@ -211,6 +224,14 @@ $deliveryStatusLabel = static function (string $status): string {
                 <div class="contracts-term">
                     <span class="ct-label"><?= t('contracts.ends_at') ?></span>
                     <strong class="ct-val"><?= htmlspecialchars(substr((string)($contract['ends_at'] ?? ''), 0, 16)) ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.security_deposit') ?></span>
+                    <strong class="ct-val"><?= $fmtPln($deposit) ?></strong>
+                </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.security_deposit_status') ?></span>
+                    <strong class="ct-val"><?= htmlspecialchars($depositStatusLabel($depositStatus)) ?><?= $depositRefunded > 0.0 ? ' · ' . $fmtPln($depositRefunded) : '' ?></strong>
                 </div>
             </div>
             <form method="post" class="contracts-action-form"

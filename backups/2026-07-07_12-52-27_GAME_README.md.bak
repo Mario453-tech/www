@@ -1,15 +1,5 @@
 ## Changelog
 
-### 2026-07-07 - Kontrakty długoterminowe: Etap 3 — kaucja kontraktowa
-
-**Dodano zabezpieczenie finansowe przy podpisywaniu większych kontraktów.**
-
-- `src/Contracts/ContractSchema.php` — dodano kolumny `security_deposit`, `security_deposit_status`, `security_deposit_refunded` w `player_contracts` oraz domyślne termy kaucji (`security_deposit_pct`, `security_deposit_fixed`, reguły zwrotu/przepadku i rabatu reputacyjnego).
-- `src/ContractService.php` — podpisanie kontraktu liczy kaucję po aktualnej cenie ropy po stronie serwera, stosuje modyfikator reputacji kontraktowej, pobiera środki przez `FinancialTransactionService::debitCombined()` i zapisuje snapshot w kontrakcie. Ukończenie/anulowanie/porażka rozliczają zwrot, częściowy zwrot albo przepadek kaucji w tej samej transakcji.
-- `src/FinancialTransactionService.php` + `src/WalletConfig.php` + `lang/*/bank.php` — dodano typy `contract_deposit` i `contract_deposit_refund`, księgowane w puli bankowej.
-- `templates/views/contracts/main.php` + `templates/views/admin/contracts/main.php` — gracz i admin widzą kwotę oraz status kaucji.
-- `tests/Integration/ContractServiceTest.php` — dodano regresje dla pobrania kaucji, blokady przy braku środków, savepointu przy zewnętrznej transakcji, pełnego zwrotu i częściowego zwrotu.
-
 ### 2026-07-07 - Kontrakty długoterminowe: Etap 2 reputacji w panelu admina
 
 **Domknięto adminowy podgląd i korektę reputacji kontraktowej.**

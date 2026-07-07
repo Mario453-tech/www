@@ -43,45 +43,6 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
         $this->assertGreaterThanOrEqual(42, (int)$this->db->query('SELECT COUNT(*) FROM contract_terms')->fetchColumn());
     }
 
-    public function testSchemaMigratesLegacySqlitePlayerContractsDepositColumns(): void
-    {
-        $this->db->exec('DROP TABLE player_contracts');
-        $this->db->exec(
-            "CREATE TABLE player_contracts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_id INTEGER NOT NULL,
-                contract_option_id INTEGER NOT NULL,
-                target_type TEXT NOT NULL,
-                target_id INTEGER NULL,
-                context TEXT NOT NULL,
-                buyer_name TEXT NOT NULL,
-                contract_name TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'active',
-                total_bbl REAL NOT NULL DEFAULT 0.0,
-                delivered_bbl REAL NOT NULL DEFAULT 0.0,
-                missed_bbl REAL NOT NULL DEFAULT 0.0,
-                next_delivery_at TEXT NOT NULL,
-                starts_at TEXT NOT NULL,
-                ends_at TEXT NOT NULL,
-                completed_at TEXT NULL,
-                cancelled_at TEXT NULL,
-                terms_json TEXT NULL,
-                created_at TEXT,
-                updated_at TEXT
-            )"
-        );
-
-        $cache = new ReflectionProperty(ContractSchema::class, 'ensured');
-        $cache->setValue(null, null);
-
-        ContractSchema::ensure($this->db);
-        $columns = array_column($this->db->query('PRAGMA table_info(player_contracts)')->fetchAll(PDO::FETCH_ASSOC), 'name');
-
-        $this->assertContains('security_deposit', $columns);
-        $this->assertContains('security_deposit_status', $columns);
-        $this->assertContains('security_deposit_refunded', $columns);
-    }
-
     public function testModuleIsDisabledByDefaultAndCanBeToggled(): void
     {
         $this->assertFalse($this->service->isModuleEnabled());
@@ -188,7 +149,6 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
     public function testRequirementsAndActiveLimitAreEnforced(): void
     {
         $this->service->setModuleEnabled(true);
-        $this->db->exec('UPDATE players SET bank_balance = 1000000 WHERE id = 1');
 
         $medium = $this->service->acceptContract(
             1,
@@ -223,7 +183,7 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
 
     public function testLegalRequirementIsEnforcedAndPassesWithLegalDirector(): void
     {
-        $this->seedPlayer(2, 80, 0.0, 1000000.0);
+        $this->seedPlayer(2, 80);
         $this->service->setModuleEnabled(true);
 
         $blocked = $this->service->acceptContract(
@@ -252,118 +212,6 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
             ContractService::CONTEXT_STORAGE_DELIVERY
         );
         $this->assertTrue($accepted['success'], $accepted['status']);
-    }
-
-    public function testDepositIsDebitedWhenContractIsAccepted(): void
-    {
-        $this->service->setModuleEnabled(true);
-        $this->db->exec('UPDATE players SET bank_balance = 200000 WHERE id = 1');
-
-        $accepted = $this->service->acceptContract(
-            1,
-            $this->optionId('medium_fuel_network'),
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-
-        $this->assertTrue($accepted['success'], $accepted['status']);
-        $contract = $this->row('SELECT security_deposit, security_deposit_status FROM player_contracts WHERE id = ?', [(int)$accepted['contract_id']]);
-        $this->assertSame(115500.0, (float)$contract['security_deposit']);
-        $this->assertSame('paid', $contract['security_deposit_status']);
-        $this->assertSame(84500.0, (float)$this->db->query('SELECT bank_balance FROM players WHERE id = 1')->fetchColumn());
-        $this->assertSame('contract_deposit', (string)$this->db->query('SELECT transaction_type FROM bank_transactions WHERE reference_id = ' . (int)$accepted['contract_id'])->fetchColumn());
-    }
-
-    public function testDepositBlocksContractWhenFundsAreMissing(): void
-    {
-        $this->service->setModuleEnabled(true);
-
-        $blocked = $this->service->acceptContract(
-            1,
-            $this->optionId('medium_fuel_network'),
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-
-        $this->assertFalse($blocked['success']);
-        $this->assertSame('insufficient_deposit_funds', $blocked['status']);
-        $this->assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM player_contracts')->fetchColumn());
-    }
-
-    public function testDepositFailureDoesNotLeakInsertInsideOuterTransaction(): void
-    {
-        $this->service->setModuleEnabled(true);
-        $this->db->beginTransaction();
-
-        $blocked = $this->service->acceptContract(
-            1,
-            $this->optionId('medium_fuel_network'),
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-
-        $this->assertFalse($blocked['success']);
-        $this->assertSame('insufficient_deposit_funds', $blocked['status']);
-        $this->assertTrue($this->db->inTransaction());
-        $this->assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM player_contracts')->fetchColumn());
-        $this->db->rollBack();
-    }
-
-    public function testDepositIsRefundedOnCompletedContract(): void
-    {
-        $this->service->setModuleEnabled(true);
-        $this->db->exec('UPDATE players SET bank_balance = 200000 WHERE id = 1');
-        $accepted = $this->service->acceptContract(
-            1,
-            $this->optionId('medium_fuel_network'),
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-        $this->assertTrue($accepted['success'], $accepted['status']);
-        $contractId = (int)$accepted['contract_id'];
-        $this->seedStorage(1, 5000.0);
-        $this->db->prepare("UPDATE player_contracts SET total_bbl = 5000, next_delivery_at = '2025-06-01 11:00:00' WHERE id = ?")
-            ->execute([$contractId]);
-
-        $this->service->processDueContracts(100.0);
-
-        $contract = $this->row('SELECT security_deposit_status, security_deposit_refunded FROM player_contracts WHERE id = ?', [$contractId]);
-        $this->assertSame('refunded', $contract['security_deposit_status']);
-        $this->assertSame(115500.0, (float)$contract['security_deposit_refunded']);
-    }
-
-    public function testDepositPartialRefundOnFailedContract(): void
-    {
-        $this->service->setModuleEnabled(true);
-        $this->db->exec('UPDATE players SET bank_balance = 200000 WHERE id = 1');
-        $accepted = $this->service->acceptContract(
-            1,
-            $this->optionId('medium_fuel_network'),
-            ContractService::TARGET_STORAGE,
-            null,
-            ContractService::CONTEXT_STORAGE_DELIVERY
-        );
-        $this->assertTrue($accepted['success'], $accepted['status']);
-        $contractId = (int)$accepted['contract_id'];
-        $this->seedStorage(1, 15000.0);
-        $this->db->prepare(
-            "UPDATE player_contracts
-                SET total_bbl = 30000,
-                    delivered_bbl = 10000,
-                    next_delivery_at = '2025-06-01 11:00:00',
-                    ends_at = '2025-06-01 10:00:00'
-              WHERE id = ?"
-        )->execute([$contractId]);
-
-        $this->service->processDueContracts(100.0);
-
-        $contract = $this->row('SELECT security_deposit_status, security_deposit_refunded FROM player_contracts WHERE id = ?', [$contractId]);
-        $this->assertSame('partial_refund', $contract['security_deposit_status']);
-        $this->assertSame(57750.0, (float)$contract['security_deposit_refunded']);
     }
 
     public function testAcceptContractDoesNotCommitOuterTransaction(): void
@@ -451,18 +299,10 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
         return $row;
     }
 
-    private function seedPlayer(int $id, int $credibility, float $cash = 0.0, float $bank = 0.0): void
+    private function seedPlayer(int $id, int $credibility): void
     {
-        $this->db->prepare('INSERT INTO players (id, cash, bank_balance, company_credibility) VALUES (?, ?, ?, ?)')
-            ->execute([$id, $cash, $bank, $credibility]);
-    }
-
-    private function seedStorage(int $playerId, float $used, float $capacity = 1000.0): void
-    {
-        $this->db->prepare(
-            "INSERT INTO storage (player_id, used, capacity, updated_at) VALUES (?, ?, ?, '2025-01-01 00:00:00')
-             ON CONFLICT(player_id) DO UPDATE SET used = excluded.used, capacity = excluded.capacity"
-        )->execute([$playerId, $used, $capacity]);
+        $this->db->prepare('INSERT INTO players (id, cash, bank_balance, company_credibility) VALUES (?, 0, 0, ?)')
+            ->execute([$id, $credibility]);
     }
 
     private function createSchema(): void
@@ -498,14 +338,6 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
                 skill_organization INTEGER NOT NULL DEFAULT 0,
                 skill_analysis INTEGER NOT NULL DEFAULT 0,
                 skill_ethics INTEGER NOT NULL DEFAULT 0
-            )'
-        );
-        $this->db->exec(
-            'CREATE TABLE storage (
-                player_id INTEGER PRIMARY KEY,
-                used REAL NOT NULL DEFAULT 0,
-                capacity REAL NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL
             )'
         );
     }

@@ -24,7 +24,7 @@ class ContractSchema
         }
         if ($inTransaction) {
             // DDL cannot run inside an open transaction (MySQL auto-commits it, breaking callers).
-            // DDL nie moze byc wywolany wewnatrz otwartej transakcji - schemat zostanie zapewniony przy nastepnym wywolaniu.
+            // DDL nie moze byc wywolany wewnatrz otwartej transakcji — cicho ignoruj, schemat zostanie zapewniony przy nastepnym wywolaniu.
             return;
         }
 
@@ -103,9 +103,6 @@ class ContractSchema
                 total_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
                 delivered_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
                 missed_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                security_deposit DECIMAL(14,2) NOT NULL DEFAULT 0.00,
-                security_deposit_status ENUM('none','paid','refunded','partial_refund','forfeited') NOT NULL DEFAULT 'none',
-                security_deposit_refunded DECIMAL(14,2) NOT NULL DEFAULT 0.00,
                 next_delivery_at DATETIME NOT NULL,
                 starts_at DATETIME NOT NULL,
                 ends_at DATETIME NOT NULL,
@@ -205,9 +202,6 @@ class ContractSchema
             if ((int)$stmt->fetchColumn() === 0) {
                 $db->exec("ALTER TABLE contract_deliveries ADD UNIQUE KEY uq_contract_delivery_due (player_contract_id, due_at)");
             }
-            Database::addColumnIfMissing('player_contracts', 'security_deposit', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER missed_bbl");
-            Database::addColumnIfMissing('player_contracts', 'security_deposit_status', "ENUM('none','paid','refunded','partial_refund','forfeited') NOT NULL DEFAULT 'none' AFTER security_deposit");
-            Database::addColumnIfMissing('player_contracts', 'security_deposit_refunded', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER security_deposit_status");
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('ContractSchema', 'migrateMysql FAILED', $e);
@@ -267,9 +261,6 @@ class ContractSchema
                 total_bbl REAL NOT NULL DEFAULT 0.0,
                 delivered_bbl REAL NOT NULL DEFAULT 0.0,
                 missed_bbl REAL NOT NULL DEFAULT 0.0,
-                security_deposit REAL NOT NULL DEFAULT 0.0,
-                security_deposit_status TEXT NOT NULL DEFAULT 'none',
-                security_deposit_refunded REAL NOT NULL DEFAULT 0.0,
                 next_delivery_at TEXT NOT NULL,
                 starts_at TEXT NOT NULL,
                 ends_at TEXT NOT NULL,
@@ -280,9 +271,6 @@ class ContractSchema
                 updated_at TEXT
             )"
         );
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'security_deposit', "REAL NOT NULL DEFAULT 0.0");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'security_deposit_status', "TEXT NOT NULL DEFAULT 'none'");
-        self::sqliteAddColumnIfMissing($db, 'player_contracts', 'security_deposit_refunded', "REAL NOT NULL DEFAULT 0.0");
         $db->exec(
             "CREATE TABLE IF NOT EXISTS contract_deliveries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -345,18 +333,6 @@ class ContractSchema
         $db->exec("CREATE INDEX IF NOT EXISTS idx_contract_rep_contract ON contract_reputation_log (contract_id)");
     }
 
-    private static function sqliteAddColumnIfMissing(PDO $db, string $table, string $column, string $definition): void
-    {
-        $stmt = $db->query("PRAGMA table_info({$table})");
-        $columns = $stmt === false ? [] : $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($columns as $row) {
-            if ((string)($row['name'] ?? '') === $column) {
-                return;
-            }
-        }
-        $db->exec("ALTER TABLE {$table} ADD COLUMN {$column} {$definition}");
-    }
-
     private static function seedDefaults(PDO $db, string $driver): void
     {
         $now = $driver === 'sqlite' ? "datetime('now')" : 'NOW()';
@@ -367,8 +343,6 @@ class ContractSchema
                     'total_bbl' => 5000, 'delivery_bbl' => 1250, 'delivery_interval_minutes' => 360, 'duration_minutes' => 1440, 'bonus_pct' => 5, 'penalty_pct' => 5,
                     'min_contract_reputation' => 0, 'reputation_gain_on_delivery' => 1, 'reputation_gain_on_full_completion' => 1, 'reputation_gain_on_perfect_contract' => 1,
                     'reputation_loss_on_partial_delivery' => -1, 'reputation_loss_on_missed_delivery' => -1, 'reputation_loss_on_contract_failed' => -3, 'reputation_loss_on_cancel' => -1,
-                    'security_deposit_pct' => 0, 'security_deposit_fixed' => 0, 'deposit_refund_on_complete' => 1, 'deposit_partial_refund_enabled' => 1,
-                    'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
                 ],
             ],
             [
@@ -377,8 +351,6 @@ class ContractSchema
                     'total_bbl' => 30000, 'delivery_bbl' => 5000, 'delivery_interval_minutes' => 720, 'duration_minutes' => 4320, 'bonus_pct' => 10, 'penalty_pct' => 8,
                     'min_contract_reputation' => 35, 'reputation_gain_on_delivery' => 1, 'reputation_gain_on_full_completion' => 2, 'reputation_gain_on_perfect_contract' => 3,
                     'reputation_loss_on_partial_delivery' => -2, 'reputation_loss_on_missed_delivery' => -2, 'reputation_loss_on_contract_failed' => -6, 'reputation_loss_on_cancel' => -2,
-                    'security_deposit_pct' => 5, 'security_deposit_fixed' => 0, 'deposit_refund_on_complete' => 1, 'deposit_partial_refund_enabled' => 1,
-                    'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
                 ],
             ],
             [
@@ -387,8 +359,6 @@ class ContractSchema
                     'total_bbl' => 100000, 'delivery_bbl' => 10000, 'delivery_interval_minutes' => 1440, 'duration_minutes' => 14400, 'bonus_pct' => 18, 'penalty_pct' => 12,
                     'min_contract_reputation' => 60, 'reputation_gain_on_delivery' => 2, 'reputation_gain_on_full_completion' => 3, 'reputation_gain_on_perfect_contract' => 6,
                     'reputation_loss_on_partial_delivery' => -4, 'reputation_loss_on_missed_delivery' => -4, 'reputation_loss_on_contract_failed' => -12, 'reputation_loss_on_cancel' => -4,
-                    'security_deposit_pct' => 8, 'security_deposit_fixed' => 0, 'deposit_refund_on_complete' => 1, 'deposit_partial_refund_enabled' => 1,
-                    'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
                 ],
             ],
         ];

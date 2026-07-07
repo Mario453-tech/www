@@ -74,7 +74,7 @@ return [
     // Warunki / Terms
     'admin.contracts.terms_title' => 'Warunki kontraktów',
     'admin.contracts.terms_empty' => 'Brak warunków dla tej opcji.',
-    'admin.contracts.terms_hint' => 'Wymagane warunki: total_bbl, delivery_bbl, delivery_interval_minutes, duration_minutes. Opcjonalne: bonus_pct, penalty_pct, price_mode.',
+    'admin.contracts.terms_hint' => 'Wymagane warunki: total_bbl, delivery_bbl, delivery_interval_minutes, duration_minutes. Opcjonalne: bonus_pct, penalty_pct, price_mode, security_deposit_pct, security_deposit_fixed oraz reguły zwrotu kaucji.',
     'admin.contracts.col_term_key' => 'Klucz',
     'admin.contracts.col_term_type' => 'Typ',
     'admin.contracts.col_term_value' => 'Wartość',
@@ -106,8 +106,14 @@ return [
     'admin.contracts.col_player' => 'Gracz',
     'admin.contracts.col_contract' => 'Kontrakt',
     'admin.contracts.col_progress' => 'Postęp',
+    'admin.contracts.col_deposit' => 'Kaucja',
     'admin.contracts.col_next_delivery' => 'Następna dostawa',
     'admin.contracts.col_ends' => 'Koniec',
+    'admin.contracts.deposit_status_none' => 'Brak',
+    'admin.contracts.deposit_status_paid' => 'Wpłacona',
+    'admin.contracts.deposit_status_refunded' => 'Zwrócona',
+    'admin.contracts.deposit_status_partial_refund' => 'Częściowy zwrot',
+    'admin.contracts.deposit_status_forfeited' => 'Przepadła',
 
     // Dostawy / Deliveries
     'admin.contracts.deliveries_title' => 'Historia dostaw',
