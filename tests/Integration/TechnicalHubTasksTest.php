@@ -149,6 +149,77 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->db->exec("INSERT INTO logistics_hub_assignments (hub_id, well_id, status) VALUES ({$hubId}, 201, 'active')");
     }
 
+    /**
+     * Regresja regula #14: gdy zegar bazy (NOW()) wyprzedza zegar PHP, zlecone zadanie
+     * NIE moze konczyc sie natychmiast. start_time/end_time zapisywane sa zegarem bazy,
+     * wiec end_time zawsze > NOW() o czas trwania — zadanie zostaje "w toku".
+     * Rule #14 regression: when the DB clock (NOW()) runs ahead of the PHP clock, a newly
+     * assigned task must NOT complete instantly. start_time/end_time are written on the DB
+     * clock, so end_time is always > NOW() by the duration — the task stays in-progress.
+     */
+    public function testAssignedTaskSurvivesTickWhenDbClockIsAheadOfPhp(): void
+    {
+        // Symuluj MySQL wyprzedzajacy PHP o 10 h — odwzorowuje roznice stref PHP vs MySQL w produkcji.
+        // Simulate MySQL running 10 h ahead of PHP — mirrors a PHP/MySQL timezone skew in production.
+        $this->db->sqliteCreateFunction('NOW', static fn(): string => date('Y-m-d H:i:s', time() + 36000), 0);
+
+        $this->seedPlayerAndStaff();
+        $this->seedUsedHub(10);
+        $service = $this->makeService();
+
+        $cashBefore = (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn();
+
+        $result = $service->assignTask(1, 'hub_maintenance', null, null, 10);
+        $this->assertTrue($result['success'], $result['message']);
+
+        // Zadanie istnieje i jest "w toku", end_time > NOW() (zegar bazy).
+        $task = $this->db->query("SELECT status, end_time FROM technical_tasks WHERE player_id = 1 ORDER BY id DESC LIMIT 1")->fetch();
+        $this->assertSame('in_progress', $task['status']);
+        $nowDb = $this->db->query("SELECT NOW()")->fetchColumn();
+        $this->assertGreaterThan($nowDb, $task['end_time'], 'end_time must be in the future on the DB clock');
+
+        // Tick uruchamiany przy odsloneiu strony NIE moze zamknac swiezego zadania.
+        // The tick that runs on page load must NOT close the fresh task.
+        $service->processTick();
+
+        $stillActive = (int)$this->db->query(
+            "SELECT COUNT(*) FROM technical_tasks WHERE player_id = 1 AND status = 'in_progress'"
+        )->fetchColumn();
+        $this->assertSame(1, $stillActive, 'task must remain in-progress after the page-load tick');
+
+        // Pieniadze pobrane (zadanie realne), ale nie znika — dokladnie odwrotnie niz w zgloszonym bugu.
+        // Money was charged (real task) yet it does not vanish — the opposite of the reported bug.
+        $cashAfter = (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn();
+        $this->assertLessThan($cashBefore, $cashAfter, 'task cost should have been charged');
+    }
+
+    /**
+     * Atomowosc pieniadze<->zadanie: gdy INSERT zadania zawiedzie, oplata musi wrocic.
+     * To dokladnie odwrotnosc pierwotnego bugu ("pobiera pieniadze, nie tworzy zadania").
+     * Money<->task atomicity: if the task INSERT fails, the fee must be refunded.
+     * This is the exact inverse of the original bug ("takes money, no task created").
+     */
+    public function testTaskFeeIsRefundedWhenTaskInsertFails(): void
+    {
+        $this->seedPlayerAndStaff();
+        $this->seedUsedHub(10);
+        // Wymus blad INSERT-a zadania PO pobraniu oplaty przez FTS.
+        // Force the task INSERT to fail AFTER the FTS fee debit.
+        $this->db->exec("CREATE TRIGGER fail_task_insert BEFORE INSERT ON technical_tasks BEGIN SELECT RAISE(ABORT, 'forced'); END");
+        $service = $this->makeService();
+
+        $cashBefore = (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn();
+
+        $result = $service->assignTask(1, 'hub_maintenance', null, null, 10);
+
+        $this->assertFalse($result['success']);
+        $cashAfter = (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn();
+        $this->assertSame($cashBefore, $cashAfter, 'fee must be refunded when the task cannot be created');
+        $this->assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM technical_tasks")->fetchColumn());
+        // Zaden osierocony wpis audytu / no orphaned audit row.
+        $this->assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM bank_transactions")->fetchColumn());
+    }
+
     private function makeService(): TechnicalTeamService
     {
         $service = new class extends TechnicalTeamService {

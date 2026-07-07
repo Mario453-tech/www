@@ -240,46 +240,62 @@ trait TTSTasksTrait
         }
         $moduleLabel = $moduleType ? (' (' . (($moduleDef['label'] ?? $moduleType)) . ')') : '';
         $title       = $taskDef['label'] . $moduleLabel . ($hubId ? $hubName : $wellName);
-        $startTime   = date('Y-m-d H:i:s');
-        $endTime     = date('Y-m-d H:i:s', time() + $hours * 3600);
+
+        // start_time / end_time zapisujemy zegarem BAZY (NOW()) — spojnie z porownaniem
+        // end_time <= NOW() w processTick. Zapis zegarem PHP przy odczycie NOW() z MySQL
+        // powodowal, ze przy roznicy stref PHP vs MySQL zadanie konczylo sie natychmiast
+        // (pieniadze pobrane, zadanie nigdy nie widoczne jako "w toku") — regula #14.
+        // Write start_time / end_time on the DB clock (NOW()) — consistent with the
+        // end_time <= NOW() check in processTick. Writing them on the PHP clock while comparing
+        // against MySQL NOW() made the task finish instantly under a PHP/MySQL timezone skew
+        // (money charged, task never shown as in-progress) — rule #14.
+        $isSqlite  = false;
+        try {
+            $isSqlite = ((string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite');
+        } catch (Throwable) {
+        }
+        $endSql   = $isSqlite ? "datetime(NOW(), ?)" : "DATE_ADD(NOW(), INTERVAL ? HOUR)";
+        $endParam = $isSqlite ? ('+' . $hours . ' hours') : $hours;
+        // Tylko do komunikatu zwrotnego / for the return message only.
+        $endTime  = date('Y-m-d H:i:s', time() + $hours * 3600);
 
         // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
         // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
         $fts = ($cost > 0) ? new FinancialTransactionService($this->db) : null;
         $this->db->beginTransaction();
         try {
-            if ($cost > 0) {
-                // Atomowe odliczenie gotowki — UPDATE powiedzie sie tylko gdy saldo wystarczajace.
-                // Atomic cash deduction — UPDATE succeeds only when balance is sufficient.
-                // Warunek AND cash >= ? zapobiega zejsciu salda ponizej zera (race-condition-safe).
-                // Condition AND cash >= ? prevents balance going negative (race-condition-safe).
-                $deductStmt = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
-                $deductStmt->execute([$cost, $this->playerId, $cost]);
-                if ($deductStmt->rowCount() === 0) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
-                        'cost' => number_format($cost, 0, '.', ' '),
-                    ])];
-                }
-                try {
-                    if ($fts !== null) {
-                        $fts->logTransaction(
-                            $this->playerId, null, $cost,
-                            FinancialTransactionService::TYPE_TTS_FEE,
-                            'Koszt zadania technicznego: ' . ($taskType ?? 'task')
-                        );
+            if ($cost > 0 && $fts !== null) {
+                // Pobranie gotowki przez FTS — atomowo (blokada + walidacja salda) i z pelnym
+                // audytem w bank_transactions (regula #10). Wywolanie zagniezdzone w tej
+                // transakcji jest bezpieczne (FTS uzywa SAVEPOINT).
+                // Cash debit via FTS — atomic (row lock + balance check) with a full audit row
+                // in bank_transactions (rule #10). Nested inside this transaction it is safe
+                // (FTS uses a SAVEPOINT).
+                $dr = $fts->debit(
+                    $this->playerId,
+                    $cost,
+                    FinancialTransactionService::TYPE_TTS_FEE,
+                    'Koszt zadania technicznego: ' . ($taskType ?? 'task')
+                );
+                if (empty($dr['success'])) {
+                    if (($dr['error'] ?? '') === 'insufficient_funds') {
+                        $this->db->rollBack();
+                        return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
+                            'cost' => number_format($cost, 0, '.', ' '),
+                        ])];
                     }
-                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+                    throw new \RuntimeException('TTS fee debit failed: ' . ($dr['error'] ?? 'unknown'));
+                }
             }
             $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
             $this->db->prepare("
                 INSERT INTO technical_tasks
                     (player_id, staff_id, task_type, well_id, hub_id, pipeline_id, title, module_type,
                      start_time, end_time, duration_hours, cost, status)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'in_progress')
+                VALUES (?,?,?,?,?,?,?,?, NOW(), {$endSql}, ?,?, 'in_progress')
             ")->execute([
                 $this->playerId, $staffId, $taskType, $wellId, $hubId, $pipelineId, $title, $moduleType,
-                $startTime, $endTime, $hours, $cost,
+                $endParam, $hours, $cost,
             ]);
 
  // Zamroz odwiert na czas fizycznego serwisu (status "W naprawie").
@@ -305,8 +321,10 @@ trait TTSTasksTrait
             }
 
             $this->db->commit();
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             GameLog::error('TTS', 'startTask FAILED', $e);
             return ['success' => false, 'message' => t('technical.task_msg.start_failed', [
                 'error' => $e->getMessage(),

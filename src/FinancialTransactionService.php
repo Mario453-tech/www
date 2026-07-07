@@ -90,11 +90,11 @@ class FinancialTransactionService
     public const TYPE_TICK_TRANSPORT     = 'tick_transport';
     public const TYPE_TICK_INCIDENT      = 'tick_incident';
     public const TYPE_HUB_USAGE          = 'hub_usage';
-    public const TYPE_CONTRACT_SALE      = 'contract_sale';
-    public const TYPE_CONTRACT_PENALTY   = 'contract_penalty';
-    public const TYPE_CONTRACT_BONUS     = 'contract_bonus';
-    public const TYPE_CONTRACT_DEPOSIT   = 'contract_deposit';
-    public const TYPE_CONTRACT_DEPOSIT_REFUND = 'contract_deposit_refund';
+    public const TYPE_CONTRACT_SALE            = 'contract_sale';
+    public const TYPE_CONTRACT_PENALTY         = 'contract_penalty';
+    public const TYPE_CONTRACT_BONUS           = 'contract_bonus';
+    public const TYPE_CONTRACT_DEPOSIT         = 'contract_deposit';
+    public const TYPE_CONTRACT_DEPOSIT_REFUND  = 'contract_deposit_refund';
 
     /** Pelna lista dozwolonych typow / Full list of allowed types. */
     public const ALLOWED_TYPES = [
@@ -164,11 +164,82 @@ class FinancialTransactionService
     private PDO $db;
     /** @var array<int,bool> Cache schematu per polaczenie / Schema cache per connection. */
     private static array $schemaReady = [];
+    /** Licznik nazw SAVEPOINT-ow — unikalny na kazde wywolanie zagniezdzone. */
+    private int $savepointSeq = 0;
 
     public function __construct(?PDO $db = null)
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
         $this->ensureTransactionSchema();
+    }
+
+    /**
+     * Rozpoczyna jednostke pracy. Gdy wolajacy nie ma otwartej transakcji — otwiera wlasna.
+     * Gdy JEST juz w transakcji (wywolanie zagniezdzone) — zaklada SAVEPOINT, aby ewentualny
+     * blad mozna bylo wycofac bez ruszania transakcji wolajacego. Zwraca deskryptor do
+     * commitUnit()/rollbackUnit().
+     *
+     * Begins a unit of work. If the caller has no open transaction we open our own; if the
+     * caller is already in one (nested call) we set a SAVEPOINT so a failure can be undone
+     * without touching the caller's transaction. PDO/MySQL has no true nested transactions,
+     * but SAVEPOINT (MySQL + SQLite) gives per-unit rollback.
+     *
+     * @return array{own:bool,savepoint:?string}
+     */
+    private function beginUnit(): array
+    {
+        $own = false;
+        try {
+            $own = !$this->db->inTransaction();
+        } catch (Throwable) {
+            $own = true;
+        }
+        if ($own) {
+            $this->db->beginTransaction();
+            return ['own' => true, 'savepoint' => null];
+        }
+        $sp = 'fts_sp_' . (++$this->savepointSeq);
+        $this->db->exec('SAVEPOINT ' . $sp);
+        return ['own' => false, 'savepoint' => $sp];
+    }
+
+    /**
+     * Zatwierdza jednostke pracy: commit (wlasna transakcja) lub RELEASE SAVEPOINT (zagniezdzona).
+     * Commits a unit of work: commit (own transaction) or RELEASE SAVEPOINT (nested).
+     *
+     * @param array{own:bool,savepoint:?string} $unit
+     */
+    private function commitUnit(array $unit): void
+    {
+        if ($unit['own']) {
+            $this->db->commit();
+        } elseif ($unit['savepoint'] !== null) {
+            $this->db->exec('RELEASE SAVEPOINT ' . $unit['savepoint']);
+        }
+    }
+
+    /**
+     * Wycofuje jednostke pracy: rollBack (wlasna transakcja) lub ROLLBACK TO SAVEPOINT
+     * (zagniezdzona — cofa tylko zmiany tej jednostki, transakcja wolajacego zyje dalej).
+     * Rolls back a unit of work: rollBack (own) or ROLLBACK TO SAVEPOINT (nested — undoes
+     * only this unit's writes, the caller's transaction stays alive). Blad samego wycofania
+     * jest ignorowany — przy deadlocku/utracie polaczenia cala transakcja i tak jest juz martwa.
+     *
+     * @param array{own:bool,savepoint:?string} $unit
+     */
+    private function rollbackUnit(array $unit): void
+    {
+        try {
+            if ($unit['own']) {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+            } elseif ($unit['savepoint'] !== null) {
+                $this->db->exec('ROLLBACK TO SAVEPOINT ' . $unit['savepoint']);
+            }
+        } catch (Throwable) {
+            // ignore — patrz docblock / see docblock
+        }
     }
 
     // ================================================================== Operacje
@@ -463,32 +534,23 @@ class FinancialTransactionService
         $pool = WalletConfig::TYPE_TO_POOL[$type] ?? WalletConfig::POOL_CASH;
         $col  = ($pool === WalletConfig::POOL_BANK) ? 'bank_balance' : 'cash';
 
-        // 2) Decyzja o transakcji: jezeli wywolujacy juz jest w transakcji,
-        //    dolaczamy do niej i NIE robimy wlasnego BEGIN/COMMIT (nested guard).
-        // 2) Transaction decision: if the caller is already in a transaction,
-        //    join it and do NOT issue our own BEGIN/COMMIT (nested guard).
-        $ownTransaction = false;
-        try {
-            $ownTransaction = !$this->db->inTransaction();
-        } catch (Throwable) {
-            $ownTransaction = true;
-        }
+        // 2) Decyzja o transakcji: wlasna transakcja (top-level) albo SAVEPOINT (zagniezdzone),
+        //    dzieki czemu blad w polowie zapisu wycofuje sie czysto bez ruszania transakcji wolajacego.
+        // 2) Transaction decision: own transaction (top-level) or SAVEPOINT (nested), so a mid-write
+        //    failure rolls back cleanly without disturbing the caller's transaction.
+        $unit = $this->beginUnit();
 
         try {
-            if ($ownTransaction) {
-                $this->db->beginTransaction();
-            }
-
             // 3) Debit (jezeli source jest graczem): zablokuj wiersz, sprawdz saldo, odejmij.
             // 3) Debit (if source is a player): lock row, check balance, subtract.
             if ($fromPlayerId !== null) {
                 $balance = $this->lockAndReadBalance($fromPlayerId, $col);
                 if ($balance === null) {
-                    if ($ownTransaction) { $this->db->rollBack(); }
+                    $this->rollbackUnit($unit);
                     return $this->fail('sender_not_found', $amount);
                 }
                 if ($balance + 1e-9 < $amount) {
-                    if ($ownTransaction) { $this->db->rollBack(); }
+                    $this->rollbackUnit($unit);
                     return $this->fail('insufficient_funds', $amount);
                 }
                 $this->db->prepare(
@@ -502,7 +564,7 @@ class FinancialTransactionService
                 // Sprawdz ze gracz istnieje (uniknij silent UPDATE 0 row).
                 // Verify recipient exists (avoid silent UPDATE 0 row).
                 if (!$this->playerExists($toPlayerId)) {
-                    if ($ownTransaction) { $this->db->rollBack(); }
+                    $this->rollbackUnit($unit);
                     return $this->fail('recipient_not_found', $amount);
                 }
                 $this->db->prepare(
@@ -522,9 +584,7 @@ class FinancialTransactionService
             ]);
             $transactionId = (int)$this->db->lastInsertId();
 
-            if ($ownTransaction) {
-                $this->db->commit();
-            }
+            $this->commitUnit($unit);
 
             if (class_exists('GameLog', false)) {
                 GameLog::info('FinancialTransactionService', 'moveFunds OK', [
@@ -543,13 +603,7 @@ class FinancialTransactionService
                 'amount'         => $amount,
             ];
         } catch (Throwable $e) {
-            try {
-                if ($ownTransaction && $this->db->inTransaction()) {
-                    $this->db->rollBack();
-                }
-            } catch (Throwable) {
-                // ignore rollback failure
-            }
+            $this->rollbackUnit($unit);
             if (class_exists('GameLog', false)) {
                 GameLog::error('FinancialTransactionService', 'moveFunds FAILED', $e, [
                     'from' => $fromPlayerId, 'to' => $toPlayerId,
@@ -624,18 +678,9 @@ class FinancialTransactionService
             return $this->fail('invalid_type', $amount);
         }
 
-        $ownTransaction = false;
-        try {
-            $ownTransaction = !$this->db->inTransaction();
-        } catch (Throwable) {
-            $ownTransaction = true;
-        }
+        $unit = $this->beginUnit();
 
         try {
-            if ($ownTransaction) {
-                $this->db->beginTransaction();
-            }
-
             $driver = 'mysql';
             try {
                 $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
@@ -650,7 +695,7 @@ class FinancialTransactionService
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($row === false || $row === null) {
-                if ($ownTransaction) { $this->db->rollBack(); }
+                $this->rollbackUnit($unit);
                 return $this->fail('sender_not_found', $amount);
             }
 
@@ -658,7 +703,7 @@ class FinancialTransactionService
             $cash        = (float)$row['cash'];
 
             if ($bankBalance + $cash + 1e-9 < $amount) {
-                if ($ownTransaction) { $this->db->rollBack(); }
+                $this->rollbackUnit($unit);
                 return $this->fail('insufficient_funds', $amount);
             }
 
@@ -690,9 +735,7 @@ class FinancialTransactionService
             ]);
             $transactionId = (int)$this->db->lastInsertId();
 
-            if ($ownTransaction) {
-                $this->db->commit();
-            }
+            $this->commitUnit($unit);
 
             if (class_exists('GameLog', false)) {
                 GameLog::info('FinancialTransactionService', 'debitCombined OK', [
@@ -712,11 +755,7 @@ class FinancialTransactionService
                 'amount'         => $amount,
             ];
         } catch (Throwable $e) {
-            try {
-                if ($ownTransaction && $this->db->inTransaction()) {
-                    $this->db->rollBack();
-                }
-            } catch (Throwable) {}
+            $this->rollbackUnit($unit);
             if (class_exists('GameLog', false)) {
                 GameLog::error('FinancialTransactionService', 'debitCombined FAILED', $e, [
                     'player' => $playerId, 'amount' => $amount, 'type' => $type,
