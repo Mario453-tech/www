@@ -135,7 +135,6 @@ class ContractService
 
         $termsMap = $this->termsForMany(array_map(static fn(array $o): int => (int)$o['id'], $options));
         $credScore = $this->credibility->getScore($playerId);
-        $repScore  = $this->reputation()->getScore($playerId);
         $legalNeeded = array_filter($options, static fn(array $o): bool => (int)$o['requires_legal_level'] > 0) !== [];
         $legalLevel = $legalNeeded ? $this->legalLevel($playerId) : 0;
         $contractReputation = $this->contractReputation->getScore($playerId);
@@ -144,7 +143,7 @@ class ContractService
         foreach ($options as &$option) {
             $terms = $termsMap[(int)$option['id']] ?? [];
             $option['terms'] = $terms;
-            $option['locked_reason'] = $this->lockedReason($option, $score, $legalLevel, $terms, $contractReputation);
+            $option['locked_reason'] = $this->lockedReason($option, $credScore, $legalLevel, $terms, $contractReputation);
             $option['requirements_met'] = $option['locked_reason'] === null;
             $option['reference_value'] = $referenceValue;
             $option['estimated_security_deposit'] = $this->calculateSecurityDeposit($terms, $marketPrice, $contractReputation);
@@ -527,114 +526,6 @@ class ContractService
     }
 
     /**
-     * Renegocjuje warunki aktywnego kontraktu.
-     * Renegotiates terms of an active contract.
-     *
-     * @param array<string,float> $termOverrides  Mapa klucz => nowa wartosc liczbowa.
-     * @return array<string,mixed>
-     */
-    public function renegotiateContract(int $playerId, int $contractId, array $termOverrides): array
-    {
-        if ($playerId <= 0 || $contractId <= 0 || $termOverrides === []) {
-            return $this->result(false, 'invalid_input');
-        }
-        $ownTx = false;
-        try {
-            $ownTx = !$this->db->inTransaction();
-            if ($ownTx) {
-                $this->db->beginTransaction();
-            }
-            $row = $this->contractForUpdate($playerId, $contractId);
-            if ($row === null) {
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return $this->result(false, 'not_found');
-            }
-            if ((string)$row['status'] !== 'active') {
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return $this->result(false, 'not_active');
-            }
-            /** @var array<string,array{type:string,value:float,text:?string}> $terms */
-            $terms = json_decode((string)($row['terms_json'] ?? '[]'), true) ?? [];
-            if ((int)($terms['allow_renegotiation']['value'] ?? 0) === 0) {
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return $this->result(false, 'renegotiation_not_allowed');
-            }
-            $maxReneg  = (int)($terms['max_renegotiations']['value'] ?? 0);
-            $usedReneg = (int)($row['renegotiations_used'] ?? 0);
-            if ($maxReneg > 0 && $usedReneg >= $maxReneg) {
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return $this->result(false, 'renegotiation_limit_reached');
-            }
-            $intervalMinutes = (int)($terms['renegotiation_interval_minutes']['value'] ?? 0);
-            $lastAt = $row['last_renegotiated_at'] ?? null;
-            if ($intervalMinutes > 0 && $lastAt !== null && $lastAt !== '') {
-                if (time() < strtotime((string)$lastAt) + $intervalMinutes * 60) {
-                    if ($ownTx) {
-                        $this->db->rollBack();
-                    }
-                    return $this->result(false, 'renegotiation_too_soon');
-                }
-            }
-            $oldTerms = $terms;
-            $applied  = 0;
-            foreach ($termOverrides as $key => $value) {
-                // Tylko dozwolone klucze — chroni flagi bezpieczenstwa przed nadpisaniem.
-                // Allowlist only — protects security flags from being overwritten.
-                if (!in_array($key, self::RENEGOTIABLE_TERMS, true)) {
-                    continue;
-                }
-                if (isset($terms[$key])) {
-                    $terms[$key]['value'] = (float)$value;
-                } else {
-                    $terms[$key] = ['type' => 'number', 'value' => (float)$value, 'text' => null];
-                }
-                $applied++;
-            }
-            if ($applied === 0) {
-                if ($ownTx) {
-                    $this->db->rollBack();
-                }
-                return $this->result(false, 'renegotiation_no_valid_terms');
-            }
-            $now          = $this->nowString();
-            $newTermsJson = json_encode($terms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $this->db->prepare(
-                "UPDATE player_contracts SET terms_json = ?, renegotiations_used = renegotiations_used + 1, last_renegotiated_at = ?, updated_at = ? WHERE id = ?"
-            )->execute([$newTermsJson, $now, $now, $contractId]);
-            $this->db->prepare(
-                "INSERT INTO contract_renegotiations (player_contract_id, player_id, old_terms_json, new_terms_json, message, created_at) VALUES (?, ?, ?, ?, '', ?)"
-            )->execute([
-                $contractId,
-                $playerId,
-                json_encode($oldTerms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                $newTermsJson,
-                $now,
-            ]);
-            $this->logEvent($playerId, $contractId, (string)$row['target_type'], null, (string)$row['context'], 'contract_renegotiated', 'contract.log.renegotiated');
-            if ($ownTx) {
-                $this->db->commit();
-            }
-            return ['success' => true, 'status' => 'renegotiated', 'renegotiations_used' => $usedReneg + 1, 'message_key' => 'contracts.renegotiated'];
-        } catch (Throwable $e) {
-            if ($ownTx && $this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            if (class_exists('GameLog', false)) {
-                GameLog::error('ContractService', 'renegotiateContract FAILED', $e, ['player_id' => $playerId, 'contract_id' => $contractId]);
-            }
-            return $this->result(false, 'db_error');
-        }
-    }
-
-    /**
      * Rozlicza jedna rate dostawy kontraktowej w transakcji.
      * Settles one due contract delivery in a single transaction.
      *
@@ -712,6 +603,14 @@ class ContractService
             $pricePerBbl = $this->calculatePrice($terms, $marketPrice);
             $revenue     = round($deliveredBbl * $pricePerBbl, 2);
             $penalty     = round($missedBbl * $pricePerBbl * $penaltyPct / 100.0, 2);
+
+            // Ubezpieczenie zmniejsza kare / Insurance reduces the penalty.
+            $insuranceEnabled  = (int)($contract['insurance_enabled'] ?? 0) === 1;
+            $insuranceCoverage = (float)($contract['insurance_coverage_pct'] ?? 0.0);
+            if ($insuranceEnabled && $insuranceCoverage > 0.0 && $penalty > 0.0) {
+                $covered = round($penalty * $insuranceCoverage / 100.0, 2);
+                $penalty = max(0.0, round($penalty - $covered, 2));
+            }
 
             // Rzuc wyjatek przy bledzie FTS - storage juz odjete, wiec blad musi cofnac cala transakcje.
             // Throw on FTS failure - storage already deducted, so any error must roll back the whole TX.
@@ -903,7 +802,8 @@ class ContractService
             $intervalMinutes = (int)($terms['renegotiation_interval_minutes']['value'] ?? 0);
             $lastAt = (string)($row['last_renegotiated_at'] ?? '');
             if ($intervalMinutes > 0 && $lastAt !== '') {
-                if (time() < strtotime($lastAt) + $intervalMinutes * 60) {
+                $availableFrom = $this->datePlusMinutes($lastAt, $intervalMinutes);
+                if ($this->nowString() < $availableFrom) {
                     $this->rollbackContractTransaction($ownTx, $savepoint);
                     return $this->result(false, 'renegotiation_too_soon');
                 }
@@ -1106,7 +1006,7 @@ class ContractService
             return (float)($terms['deposit_refund_on_complete']['value'] ?? 1.0) > 0.0 ? $deposit : 0.0;
         }
         if ($newStatus === 'cancelled') {
-            $forfeit = (float)($terms['cancel_forfeit_deposit']['value'] ?? ($terms['deposit_forfeit_on_cancel']['value'] ?? 1.0));
+            $forfeit = (float)($terms['cancel_forfeit_deposit']['value'] ?? ($terms['deposit_forfeit_on_cancel']['value'] ?? 0.0));
             return $forfeit > 0.0 ? 0.0 : $deposit;
         }
         if ($newStatus === 'failed') {
