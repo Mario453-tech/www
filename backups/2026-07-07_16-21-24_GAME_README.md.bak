@@ -1,34 +1,5 @@
 ## Changelog
 
-### 2026-07-07 - Kontrakty długoterminowe: Faza 1 — poprawki po code review (8 bugów)
-
-**Code review rozszerzeń Fazy 1 znalazło 8 bugów (2 krytyczne exploity ekonomiczne) — wszystkie naprawione.**
-
-- **KRYTYCZNY** — `src/ContractService.php` `renegotiateContract`: brak listy dozwolonych kluczy pozwalał graczowi nadpisać dowolny termin w `terms_json`, m.in. flagi bezpieczeństwa. Exploit: kontrakt `large_industrial_buyer` (`allow_cancel=0`, kaucja 200 000) → renegocjacja `allow_cancel=1` + `cancel_forfeit_deposit=0`, potem anulowanie = wyjście z niezrywalnego kontraktu z pełnym zwrotem kaucji. Naprawa: stała `RENEGOTIABLE_TERMS` (tylko `penalty_pct`, `bonus_pct`, `bonus_on_full_completion_pct`, `delivery_bbl`, `delivery_interval_minutes`); pozostałe klucze ignorowane; brak dozwolonych → status `renegotiation_no_valid_terms`.
-- **KRYTYCZNY** — `src/ContractService.php` `enableInsurance`: składka liczona jako `kaucja * insurance_cost_pct / 100`; przy kaucji = 0 koszt = 0, `if ($cost > 0.0)` pomijało debit i ubezpieczenie aktywowało się za darmo. Naprawa: odrzucenie gdy koszt ≤ 0 (status `insurance_no_cost_basis`).
-- **WYSOKI** — `acceptContract`: gdy debit kaucji nie powiódł się wewnątrz cudzej transakcji (`!$ownTx`), świeżo wstawiony wiersz kontraktu zostawał (ghost contract bez pobranej kaucji). Naprawa: `DELETE` własnego wiersza gdy nie jesteśmy właścicielem transakcji.
-- **WYSOKI** — `cancelContract`: `UPDATE status='cancelled'` wykonywany przed rozliczeniem FTS — nieudany debit w cudzej transakcji zostawiał kontrakt anulowany bez pobranej kary. Naprawa: rozliczenia FTS przeniesione przed zmianę statusu.
-- **ŚREDNI** — `ContractReputationService::onContractCancelled`: brak `ensureRow()` (jedyna metoda zdarzeń bez niego) — przy `reputation_loss_on_cancel=0` i braku wiersza reputacji licznik `cancelled_contracts` przepadał (UPDATE 0 wierszy). Naprawa: dodane `ensureRow()`.
-- **ŚREDNI** — `cancelContract`: brak środków na karę zwracał ogólny `db_error` zamiast czytelnego statusu. Naprawa: `insufficient_funds_penalty`, kontrakt pozostaje aktywny.
-- **NISKI** — `enableInsurance`/`renegotiateContract` zwracały `cancel_status` (klucz `cancelContract`) dla nieaktywnego kontraktu — nie dało się rozróżnić trybów błędu. Naprawa: dedykowany status `not_active`.
-- **NISKI** — brakujące klucze językowe (raw string dla gracza). Naprawa: dodano 14 kluczy `pl`/`en` (`insufficient_funds_*`, `cancel_not_allowed`, `not_active`, `insurance_*`, `renegotiation_*`).
-- `tests/Integration/ContractServiceFaza1Test.php` — 6 nowych regresji (ochrona flag przy renegocjacji, brak darmowego ubezpieczenia, czysty odrzut anulowania bez środków, `not_active`, licznik anulowań przy zerowej stracie reputacji). Suite: 359 testów Integration zielone.
-
-### 2026-07-07 - Kontrakty długoterminowe: Faza 1 — reputacja, kaucja, bonus, zerwanie, ubezpieczenie, renegocjacja
-
-**Rozszerzenie kontraktów P1 o mechaniki Fazy 1 (pozycje 1, 2, 3, 8, 9, 15 listy funkcji). Wszystkie warunki czytane ze snapshottu `terms_json` podpisanego kontraktu, nie z żywej tabeli `contract_terms`.**
-
-- **Reputacja kontraktowa (poz. 1)** — `src/ContractReputationService.php` (NOWY): wskaźnik 0-100 (domyślnie 50), tabele `contract_reputation` (liczniki: total/completed/failed/cancelled/missed/perfect) + `contract_reputation_log` (audyt zmian). Zdarzenia z `terms_json`: `reputation_gain_on_delivery`, `reputation_gain_on_perfect_contract`, `reputation_loss_on_partial_delivery`/`_missed_delivery`/`_contract_failed`/`_cancel`. Bramka podpisania `min_contract_reputation` (status `requirements_reputation`). Wpięte w `processOneDueContract` (dostawy) i `cancelContract`.
-- **Bonus za pełną realizację (poz. 2)** — `bonus_on_full_completion_pct` + `bonus_requires_no_miss`; przy zakończeniu kontraktu (`completed`) księgowany bonus `totalBbl * cena * pct/100` przez FTS (`TYPE_CONTRACT_BONUS`), pomijany gdy wymagany brak braków a wystąpiły.
-- **Kaucja / zabezpieczenie (poz. 3)** — `security_deposit_fixed` (stała kwota PLN); debit przy podpisaniu (`TYPE_CONTRACT_DEPOSIT`), zwrot przy realizacji (`TYPE_CONTRACT_DEPOSIT_REFUND`), przepadek przy niepowodzeniu. Brak środków blokuje podpisanie (`insufficient_funds_deposit`).
-- **Zerwanie kontraktu (poz. 9)** — `allow_cancel` (0 = niezrywalny, status `cancel_not_allowed`), `cancel_penalty_fixed` (kara przez FTS), `cancel_forfeit_deposit` (przepadek kaucji przy anulowaniu vs zwrot).
-- **Ubezpieczenie kontraktu (poz. 15)** — `enableInsurance()`: `insurance_available`, składka `kaucja * insurance_cost_pct/100` (`TYPE_CONTRACT_INSURANCE`), `insurance_penalty_coverage_pct` redukuje kary za braki w `processOneDueContract`.
-- **Renegocjacja (poz. 8)** — `renegotiateContract()`: `allow_renegotiation`, `max_renegotiations`, `renegotiation_interval_minutes` (cooldown); scala nadpisania terminów w `terms_json`, historia w tabeli `contract_renegotiations`.
-- `src/Contracts/ContractSchema.php` — 7 nowych kolumn `player_contracts` (`security_deposit`, `cancel_penalty`, `renegotiations_used`, `last_renegotiated_at`, `insurance_enabled`, `insurance_cost`, `insurance_coverage_pct`), nowa tabela `contract_renegotiations`, migracja MySQL dla istniejących instalacji; seed rozszerzony do 66 warunków (3 opcje: 18 + 25 + 23).
-- `src/FinancialTransactionService.php` + `src/WalletConfig.php` — nowe typy `TYPE_CONTRACT_DEPOSIT`, `TYPE_CONTRACT_DEPOSIT_REFUND`, `TYPE_CONTRACT_INSURANCE` (routing → `POOL_BANK`).
-- `lang/pl/bank.php` + `lang/en/bank.php` + `lang/pl/contracts.php` + `lang/en/contracts.php` — klucze etykiet i opisów transakcji nowych typów.
-- Testy: `tests/Integration/ContractReputationServiceTest.php` (14) + `tests/Integration/ContractServiceFaza1Test.php` (17) + aktualizacja `ContractServiceTest` (seed 66 warunków, dofinansowanie graczy pod kaucje).
-
 ### 2026-07-06 - Kontrakty długoterminowe P1: Etap 5 (UI gracza) + Etap 6 (panel admina)
 
 **Kontrakty dostały pełny interfejs gracza i panel administracyjny — moduł jest teraz obsługiwalny end-to-end.**
