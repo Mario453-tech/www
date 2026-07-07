@@ -193,6 +193,33 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->assertLessThan($cashBefore, $cashAfter, 'task cost should have been charged');
     }
 
+    /**
+     * Atomowosc pieniadze<->zadanie: gdy INSERT zadania zawiedzie, oplata musi wrocic.
+     * To dokladnie odwrotnosc pierwotnego bugu ("pobiera pieniadze, nie tworzy zadania").
+     * Money<->task atomicity: if the task INSERT fails, the fee must be refunded.
+     * This is the exact inverse of the original bug ("takes money, no task created").
+     */
+    public function testTaskFeeIsRefundedWhenTaskInsertFails(): void
+    {
+        $this->seedPlayerAndStaff();
+        $this->seedUsedHub(10);
+        // Wymus blad INSERT-a zadania PO pobraniu oplaty przez FTS.
+        // Force the task INSERT to fail AFTER the FTS fee debit.
+        $this->db->exec("CREATE TRIGGER fail_task_insert BEFORE INSERT ON technical_tasks BEGIN SELECT RAISE(ABORT, 'forced'); END");
+        $service = $this->makeService();
+
+        $cashBefore = (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn();
+
+        $result = $service->assignTask(1, 'hub_maintenance', null, null, 10);
+
+        $this->assertFalse($result['success']);
+        $cashAfter = (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn();
+        $this->assertSame($cashBefore, $cashAfter, 'fee must be refunded when the task cannot be created');
+        $this->assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM technical_tasks")->fetchColumn());
+        // Zaden osierocony wpis audytu / no orphaned audit row.
+        $this->assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM bank_transactions")->fetchColumn());
+    }
+
     private function makeService(): TechnicalTeamService
     {
         $service = new class extends TechnicalTeamService {

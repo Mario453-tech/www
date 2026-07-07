@@ -1,13 +1,5 @@
 ## Changelog
 
-### 2026-07-07 - Dział techniczny: opłata przez FTS + pełna atomowość zlecenia
-
-**Utwardzenie `startTask` po naprawie reguły #14: opłata za zadanie idzie przez FTS, a nieudane utworzenie zadania zwraca pieniądze.**
-
-- `src/TTS/TasksTrait.php` — `startTask` pobiera koszt zadania przez `FinancialTransactionService::debit(TYPE_TTS_FEE)` zamiast surowego `UPDATE players SET cash` + `logTransaction` (reguła #10: każda mutacja gotówki przez FTS, z pełnym wpisem audytu w `bank_transactions`). Brak środków → `insufficient_funds` → komunikat „brak gotówki"; inny błąd FTS → wyjątek → rollback. Wywołanie zagnieżdżone w transakcji `startTask` jest bezpieczne dzięki izolacji SAVEPOINT w FTS.
-- `src/TTS/TasksTrait.php` — blok `try` w `startTask` łapie teraz `Throwable` (było `Exception`), więc `Error`/`TypeError` w środku transakcji też wyzwala rollback zamiast zostawiać otwartą transakcję; dodany strażnik `inTransaction()` przed `rollBack()`.
-- `tests/Integration/TechnicalHubTasksTest.php` — nowy test atomowości: gdy INSERT zadania zawiedzie (trigger), opłata wraca (gotówka bez zmian, brak osieroconego wpisu w `bank_transactions`, brak zadania) — dokładna odwrotność pierwotnego bugu. Suite: 365 testów Integration zielone.
-
 ### 2026-07-07 - Dział techniczny: zlecone zadanie kończyło się natychmiast (reguła #14)
 
 **Naprawiono bug: zlecenie zadania technicznego pobierało pieniądze, ale zadanie nie pojawiało się jako „w toku" — kończyło się natychmiast.**

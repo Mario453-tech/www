@@ -264,28 +264,28 @@ trait TTSTasksTrait
         $fts = ($cost > 0) ? new FinancialTransactionService($this->db) : null;
         $this->db->beginTransaction();
         try {
-            if ($cost > 0) {
-                // Atomowe odliczenie gotowki — UPDATE powiedzie sie tylko gdy saldo wystarczajace.
-                // Atomic cash deduction — UPDATE succeeds only when balance is sufficient.
-                // Warunek AND cash >= ? zapobiega zejsciu salda ponizej zera (race-condition-safe).
-                // Condition AND cash >= ? prevents balance going negative (race-condition-safe).
-                $deductStmt = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
-                $deductStmt->execute([$cost, $this->playerId, $cost]);
-                if ($deductStmt->rowCount() === 0) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
-                        'cost' => number_format($cost, 0, '.', ' '),
-                    ])];
-                }
-                try {
-                    if ($fts !== null) {
-                        $fts->logTransaction(
-                            $this->playerId, null, $cost,
-                            FinancialTransactionService::TYPE_TTS_FEE,
-                            'Koszt zadania technicznego: ' . ($taskType ?? 'task')
-                        );
+            if ($cost > 0 && $fts !== null) {
+                // Pobranie gotowki przez FTS — atomowo (blokada + walidacja salda) i z pelnym
+                // audytem w bank_transactions (regula #10). Wywolanie zagniezdzone w tej
+                // transakcji jest bezpieczne (FTS uzywa SAVEPOINT).
+                // Cash debit via FTS — atomic (row lock + balance check) with a full audit row
+                // in bank_transactions (rule #10). Nested inside this transaction it is safe
+                // (FTS uses a SAVEPOINT).
+                $dr = $fts->debit(
+                    $this->playerId,
+                    $cost,
+                    FinancialTransactionService::TYPE_TTS_FEE,
+                    'Koszt zadania technicznego: ' . ($taskType ?? 'task')
+                );
+                if (empty($dr['success'])) {
+                    if (($dr['error'] ?? '') === 'insufficient_funds') {
+                        $this->db->rollBack();
+                        return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
+                            'cost' => number_format($cost, 0, '.', ' '),
+                        ])];
                     }
-                } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
+                    throw new \RuntimeException('TTS fee debit failed: ' . ($dr['error'] ?? 'unknown'));
+                }
             }
             $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
             $this->db->prepare("
@@ -321,8 +321,10 @@ trait TTSTasksTrait
             }
 
             $this->db->commit();
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             GameLog::error('TTS', 'startTask FAILED', $e);
             return ['success' => false, 'message' => t('technical.task_msg.start_failed', [
                 'error' => $e->getMessage(),
