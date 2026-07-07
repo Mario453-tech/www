@@ -32,6 +32,101 @@ class ContractReputationService
         return $this->clampScore((int)$stmt->fetchColumn());
     }
 
+    /**
+     * Return player reputation rows for admin review.
+     * Zwraca reputacje graczy do podgladu admina.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function listScores(string $search = '', int $limit = 100): array
+    {
+        $limit = max(1, min(250, $limit));
+        $params = [];
+        $where = '';
+        $search = trim($search);
+        if ($search !== '') {
+            $where = ' WHERE p.username LIKE ? OR p.company_name LIKE ?';
+            $needle = '%' . $search . '%';
+            $params = [$needle, $needle];
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT p.id AS player_id, p.username, p.company_name,
+                    COALESCE(cr.score, " . self::DEFAULT_SCORE . ") AS score,
+                    COALESCE(cr.total_contracts, 0) AS total_contracts,
+                    COALESCE(cr.completed_contracts, 0) AS completed_contracts,
+                    COALESCE(cr.failed_contracts, 0) AS failed_contracts,
+                    COALESCE(cr.cancelled_contracts, 0) AS cancelled_contracts,
+                    COALESCE(cr.missed_deliveries, 0) AS missed_deliveries,
+                    COALESCE(cr.perfect_contracts, 0) AS perfect_contracts,
+                    cr.updated_at
+               FROM players p
+               LEFT JOIN contract_reputation cr ON cr.player_id = p.id
+               {$where}
+              ORDER BY score ASC, p.id ASC
+              LIMIT {$limit}"
+        );
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * Return reputation change log for admin audit.
+     * Zwraca historie zmian reputacji do audytu admina.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function recentLogs(?int $playerId = null, int $limit = 100): array
+    {
+        $limit = max(1, min(250, $limit));
+        $where = '';
+        $params = [];
+        if ($playerId !== null && $playerId > 0) {
+            $where = ' WHERE crl.player_id = ?';
+            $params[] = $playerId;
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT crl.*, p.username, p.company_name, pc.contract_name
+               FROM contract_reputation_log crl
+               LEFT JOIN players p ON p.id = crl.player_id
+               LEFT JOIN player_contracts pc ON pc.id = crl.contract_id
+               {$where}
+              ORDER BY crl.id DESC
+              LIMIT {$limit}"
+        );
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * Apply manual admin adjustment through the same reputation ledger.
+     * Wykonuje reczna korekte admina przez ten sam dziennik reputacji.
+     *
+     * @return array{score:int}
+     */
+    public function adminAdjustScore(int $playerId, int $delta, string $note): array
+    {
+        if ($playerId <= 0) {
+            throw new InvalidArgumentException('Invalid player id.');
+        }
+        if (!$this->playerExists($playerId)) {
+            throw new InvalidArgumentException('Player does not exist.');
+        }
+        if ($delta < -100 || $delta > 100 || $delta === 0) {
+            throw new InvalidArgumentException('Invalid reputation delta.');
+        }
+
+        $note = trim($note);
+        $safeNote = function_exists('mb_substr') ? mb_substr($note, 0, 255) : substr($note, 0, 255);
+
+        $this->changeScore($playerId, $delta, 'admin_adjustment', null, [
+            'note' => $safeNote,
+        ]);
+
+        return ['score' => $this->getScore($playerId)];
+    }
+
     public function ensureRow(int $playerId): void
     {
         if ($playerId <= 0) {
@@ -250,6 +345,13 @@ class ContractReputationService
         $stmt->execute([$optionId, $termKey]);
         $value = $stmt->fetchColumn();
         return $value === false ? $default : (int)round((float)$value);
+    }
+
+    private function playerExists(int $playerId): bool
+    {
+        $stmt = $this->db->prepare('SELECT 1 FROM players WHERE id = ? LIMIT 1');
+        $stmt->execute([$playerId]);
+        return (bool)$stmt->fetchColumn();
     }
 
     private function withTransaction(callable $callback): void

@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-07-07 - Kontrakty długoterminowe: Etap 2 reputacji w panelu admina
+
+**Domknięto adminowy podgląd i korektę reputacji kontraktowej.**
+
+- `admin/contracts.php` — dodano zakładkę `reputation`, ładowanie listy reputacji graczy, historii `contract_reputation_log` oraz akcję ręcznej korekty przez `ContractReputationService::adminAdjustScore()`. Każda korekta jest zapisywana w `AdminLog`.
+- `src/ContractReputationService.php` — dodano metody adminowe `listScores()`, `recentLogs()` i `adminAdjustScore()`, bez obchodzenia istniejącego dziennika reputacji.
+- `templates/views/admin/contracts/main.php` + `assets/css/admin.css` — dodano widok bez tabel HTML: lista graczy, statystyki wykonania, filtr, historia zmian i formularz korekty z modalnym potwierdzeniem.
+- `lang/pl/admin/contracts.php` + `lang/en/admin/contracts.php` — dodano komplet kluczy dla zakładki reputacji.
+- `tests/Integration/ContractReputationServiceTest.php` — dodano regresję dla listy admina, wyszukiwania, ręcznej korekty i filtrowania historii.
+
 ### 2026-07-07 - Kontrakty długoterminowe: poprawki po code review reputacji
 
 **Naprawiono błędy znalezione po wdrożeniu reputacji kontraktowej.**

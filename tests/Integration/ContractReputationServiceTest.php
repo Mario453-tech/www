@@ -188,10 +188,50 @@ final class ContractReputationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('contract_cancelled', $log['reason']);
     }
 
-    private function seedPlayer(int $id, int $credibility): void
+    public function testAdminListScoresIncludesDefaultRowsAndSearch(): void
     {
-        $this->db->prepare('INSERT INTO players (id, cash, bank_balance, company_credibility) VALUES (?, 0, 0, ?)')
-            ->execute([$id, $credibility]);
+        $this->seedPlayer(1, 50, 'alpha', 'Alpha Oil');
+        $this->seedPlayer(2, 50, 'beta', 'Beta Gas');
+        $this->reputation->changeScore(2, -20, 'manual_drop');
+
+        $rows = $this->reputation->listScores('', 10);
+
+        $this->assertSame(2, count($rows));
+        $this->assertSame(2, (int)$rows[0]['player_id']);
+        $this->assertSame(30, (int)$rows[0]['score']);
+        $this->assertSame(1, (int)$rows[1]['player_id']);
+        $this->assertSame(50, (int)$rows[1]['score']);
+
+        $filtered = $this->reputation->listScores('Alpha', 10);
+        $this->assertSame(1, count($filtered));
+        $this->assertSame(1, (int)$filtered[0]['player_id']);
+    }
+
+    public function testAdminAdjustmentUsesLedgerAndRecentLogsCanFilterPlayer(): void
+    {
+        $this->seedPlayer(1, 50, 'alpha', 'Alpha Oil');
+        $this->seedPlayer(2, 50, 'beta', 'Beta Gas');
+
+        $result = $this->reputation->adminAdjustScore(1, 12, 'Manual admin correction');
+        $this->reputation->changeScore(2, -5, 'manual_drop');
+
+        $this->assertSame(62, $result['score']);
+        $this->assertSame(62, $this->reputation->getScore(1));
+
+        $logs = $this->reputation->recentLogs(1, 10);
+        $this->assertSame(1, count($logs));
+        $this->assertSame(1, (int)$logs[0]['player_id']);
+        $this->assertSame('admin_adjustment', $logs[0]['reason']);
+        $this->assertSame(12, (int)$logs[0]['delta']);
+        $this->assertStringContainsString('Manual admin correction', (string)$logs[0]['meta_json']);
+    }
+
+    private function seedPlayer(int $id, int $credibility, string $username = '', string $companyName = ''): void
+    {
+        $username = $username !== '' ? $username : 'player' . $id;
+        $companyName = $companyName !== '' ? $companyName : 'Company ' . $id;
+        $this->db->prepare('INSERT INTO players (id, username, company_name, cash, bank_balance, company_credibility) VALUES (?, ?, ?, 0, 0, ?)')
+            ->execute([$id, $username, $companyName, $credibility]);
     }
 
     private function seedStorage(int $playerId, float $used, float $capacity = 1000.0): void
@@ -279,6 +319,8 @@ final class ContractReputationServiceTest extends SqliteIntegrationTestCase
         $this->db->exec(
             'CREATE TABLE players (
                 id INTEGER PRIMARY KEY,
+                username TEXT NULL,
+                company_name TEXT NULL,
                 cash REAL NOT NULL DEFAULT 0,
                 bank_balance REAL NOT NULL DEFAULT 0,
                 company_credibility INTEGER NOT NULL DEFAULT 50

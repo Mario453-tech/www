@@ -9,6 +9,10 @@
  * @var array<int,array<string,mixed>> $activeContracts
  * @var array<int,array<string,mixed>> $deliveries
  * @var array<int,array<string,mixed>> $logs
+ * @var array<int,array<string,mixed>> $reputationRows
+ * @var array<int,array<string,mixed>> $reputationLogs
+ * @var string $reputationSearch
+ * @var int $reputationPlayerId
  * @var string $activeTab
  * @var array<int,string> $tabs
  * @var array<string,mixed>|null $editOption
@@ -46,6 +50,17 @@ $termTypeLabel = static function (string $type): string {
     $k = 'admin.contracts.term_type_' . $type;
     $l = tPlain($k);
     return $l !== $k ? $l : $type;
+};
+$reputationPlayerLabel = static function (array $row): string {
+    $company = trim((string)($row['company_name'] ?? ''));
+    $username = trim((string)($row['username'] ?? ''));
+    if ($company !== '') {
+        return $company;
+    }
+    if ($username !== '') {
+        return $username;
+    }
+    return '#' . (int)($row['player_id'] ?? 0);
 };
 ?>
 
@@ -426,6 +441,111 @@ $termTypeLabel = static function (string $type): string {
             <span><?= htmlspecialchars((string)($log['company_name'] ?? $log['username'] ?? ('#' . $log['player_id']))) ?></span>
             <span><code><?= htmlspecialchars((string)$log['event_key']) ?></code></span>
             <span><?= htmlspecialchars((string)($log['message'] ?? '')) ?></span>
+        </div>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<?php elseif ($activeTab === 'reputation'): ?>
+<!-- == CONTRACT REPUTATION / REPUTACJA KONTRAKTOWA == -->
+<section class="panel mb-8">
+    <p class="panel-title"><?= t('admin.contracts.reputation_title') ?></p>
+    <p class="panel-hint"><?= t('admin.contracts.reputation_hint') ?></p>
+
+    <form method="get" action="/admin/contracts.php" class="contracts-filter-form">
+        <input type="hidden" name="tab" value="reputation">
+        <div class="form-row form-row--gap">
+            <div class="form-field form-field--wide">
+                <label><?= t('admin.contracts.field_reputation_search') ?></label>
+                <input type="text" name="q" maxlength="80" class="input-sm"
+                       value="<?= htmlspecialchars($reputationSearch, ENT_QUOTES, 'UTF-8') ?>">
+            </div>
+            <div class="form-field">
+                <button type="submit" class="btn btn-secondary"><?= t('admin.contracts.btn_filter') ?></button>
+            </div>
+        </div>
+    </form>
+
+    <?php if (empty($reputationRows)): ?>
+    <p class="panel-hint"><?= t('admin.contracts.reputation_empty') ?></p>
+    <?php else: ?>
+    <div class="contracts-admin-grid">
+        <div class="contracts-admin-row contracts-admin-row--reputation contracts-admin-row--head">
+            <span><?= t('admin.contracts.col_player') ?></span>
+            <span><?= t('admin.contracts.col_reputation_score') ?></span>
+            <span><?= t('admin.contracts.col_completed') ?></span>
+            <span><?= t('admin.contracts.col_failed') ?></span>
+            <span><?= t('admin.contracts.col_cancelled') ?></span>
+            <span><?= t('admin.contracts.col_missed') ?></span>
+            <span><?= t('admin.contracts.col_perfect') ?></span>
+            <span><?= t('admin.contracts.col_actions') ?></span>
+        </div>
+        <?php foreach ($reputationRows as $row): ?>
+        <?php $playerLabel = $reputationPlayerLabel($row); ?>
+        <div class="contracts-admin-row contracts-admin-row--reputation">
+            <span>
+                <strong><?= htmlspecialchars($playerLabel, ENT_QUOTES, 'UTF-8') ?></strong>
+                <small>#<?= (int)$row['player_id'] ?></small>
+            </span>
+            <span><strong><?= (int)$row['score'] ?>/100</strong></span>
+            <span><?= (int)$row['completed_contracts'] ?> / <?= (int)$row['total_contracts'] ?></span>
+            <span><?= (int)$row['failed_contracts'] ?></span>
+            <span><?= (int)$row['cancelled_contracts'] ?></span>
+            <span><?= (int)$row['missed_deliveries'] ?></span>
+            <span><?= (int)$row['perfect_contracts'] ?></span>
+            <span class="contracts-admin-actions contracts-admin-actions--stack">
+                <a href="/admin/contracts.php?tab=reputation&player_id=<?= (int)$row['player_id'] ?><?= $reputationSearch !== '' ? '&q=' . urlencode($reputationSearch) : '' ?>"
+                   class="btn btn-xs btn-secondary"><?= t('admin.contracts.btn_history') ?></a>
+                <form method="post" action="/admin/contracts.php?tab=reputation" class="contracts-reputation-adjust"
+                      data-confirm="<?= htmlspecialchars(tPlain('admin.contracts.confirm_reputation_adjust', ['player' => $playerLabel]), ENT_QUOTES, 'UTF-8') ?>"
+                      data-confirm-type="warning">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="adjust_reputation">
+                    <input type="hidden" name="player_id" value="<?= (int)$row['player_id'] ?>">
+                    <input type="number" name="delta" min="-100" max="100" step="1" required class="input-sm input-num-70"
+                           aria-label="<?= htmlspecialchars(tPlain('admin.contracts.field_reputation_delta'), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="text" name="note" maxlength="255" class="input-sm contracts-reputation-note"
+                           placeholder="<?= htmlspecialchars(tPlain('admin.contracts.field_reputation_note'), ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="submit" class="btn btn-xs btn-primary"><?= t('admin.contracts.btn_adjust') ?></button>
+                </form>
+            </span>
+        </div>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</section>
+
+<section class="panel mb-8">
+    <p class="panel-title"><?= t('admin.contracts.reputation_log_title') ?></p>
+    <?php if ($reputationPlayerId > 0): ?>
+    <p class="panel-hint">
+        <?= t('admin.contracts.reputation_log_filtered', ['player' => (string)$reputationPlayerId]) ?>
+        <a href="/admin/contracts.php?tab=reputation<?= $reputationSearch !== '' ? '&q=' . urlencode($reputationSearch) : '' ?>">
+            <?= t('admin.contracts.btn_clear_filter') ?>
+        </a>
+    </p>
+    <?php endif ?>
+    <?php if (empty($reputationLogs)): ?>
+    <p class="panel-hint"><?= t('admin.contracts.reputation_log_empty') ?></p>
+    <?php else: ?>
+    <div class="contracts-admin-grid">
+        <div class="contracts-admin-row contracts-admin-row--reputation-log contracts-admin-row--head">
+            <span><?= t('admin.contracts.col_date') ?></span>
+            <span><?= t('admin.contracts.col_player') ?></span>
+            <span><?= t('admin.contracts.col_delta') ?></span>
+            <span><?= t('admin.contracts.col_score_after') ?></span>
+            <span><?= t('admin.contracts.col_reason') ?></span>
+            <span><?= t('admin.contracts.col_contract') ?></span>
+        </div>
+        <?php foreach ($reputationLogs as $log): ?>
+        <div class="contracts-admin-row contracts-admin-row--reputation-log">
+            <span><small><?= htmlspecialchars(substr((string)$log['created_at'], 0, 16), ENT_QUOTES, 'UTF-8') ?></small></span>
+            <span><?= htmlspecialchars((string)($log['company_name'] ?? $log['username'] ?? ('#' . $log['player_id'])), ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="<?= (int)$log['delta'] >= 0 ? 'c-good' : 'c-bad' ?>"><?= (int)$log['delta'] ?></span>
+            <span><?= (int)$log['score_after'] ?>/100</span>
+            <span><code><?= htmlspecialchars((string)$log['reason'], ENT_QUOTES, 'UTF-8') ?></code></span>
+            <span><?= htmlspecialchars((string)($log['contract_name'] ?? ('#' . ($log['contract_id'] ?? '-'))), ENT_QUOTES, 'UTF-8') ?></span>
         </div>
         <?php endforeach ?>
     </div>

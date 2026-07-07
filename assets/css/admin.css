@@ -4636,6 +4636,8 @@ table.admin-table tr:hover td {
 .contracts-admin-row--active    { grid-template-columns: 1fr 1fr 140px 130px 130px; }
 .contracts-admin-row--deliveries{ grid-template-columns: 120px 1fr 90px 90px 100px 110px 110px 90px; }
 .contracts-admin-row--logs      { grid-template-columns: 120px 1fr 160px 2fr; }
+.contracts-admin-row--reputation{ grid-template-columns: 1fr 100px 100px 80px 90px 90px 80px minmax(320px, auto); }
+.contracts-admin-row--reputation-log { grid-template-columns: 120px 1fr 80px 100px 170px 1fr; }
 .contracts-admin-actions {
     display: flex;
     gap: 6px;
@@ -4650,6 +4652,23 @@ table.admin-table tr:hover td {
     letter-spacing: .04em !important;
 }
 .contracts-inline-form { margin: 0; display: inline; }
+.contracts-filter-form {
+    margin: 0 0 14px;
+}
+.contracts-admin-actions--stack {
+    align-items: stretch;
+    flex-direction: column;
+}
+.contracts-reputation-adjust {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    margin: 0;
+}
+.contracts-reputation-note {
+    min-width: 150px;
+}
 .contracts-terms-block {
     margin-bottom: 16px;
     background: linear-gradient(145deg, #161622, #0f0f18);
@@ -4689,9 +4708,19 @@ table.admin-table tr:hover td {
     .contracts-admin-row--terms,
     .contracts-admin-row--active,
     .contracts-admin-row--deliveries,
-    .contracts-admin-row--logs {
+    .contracts-admin-row--logs,
+    .contracts-admin-row--reputation,
+    .contracts-admin-row--reputation-log {
         grid-template-columns: 1fr 1fr !important;
         font-size: 11px;
+    }
+    .contracts-reputation-adjust {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .contracts-reputation-note {
+        min-width: 0;
+        width: 100%;
     }
 }
 
@@ -4807,14 +4836,14 @@ table.admin-table tr:hover td {
     margin-bottom: 12px;
 }
 
-/* Panel nagłówek — contracts panel */
+/* Sticky panel header / Przyklejony naglowek panelu */
 .contracts-admin-grid .contracts-admin-row--head {
     position: sticky;
     top: 0;
     z-index: 1;
 }
 
-/* Ranga badge — spójna z resztą systemu */
+/* Rank badge consistent with system / Badge rangi spojny z systemem */
 .rank-badge,
 .contracts-rank-badge {
     display: inline-flex;
@@ -4832,11 +4861,12 @@ table.admin-table tr:hover td {
 .rank-badge--high,
 .contracts-rank-badge--high   { background: rgba(240,160,80,.1); color: #f0a050; border: 1px solid rgba(240,160,80,.2); }
 
-/* Status — włączony/wyłączony */
+/* Status colors / Kolory statusow */
 .c-good  { color: #4ec97a; }
+.c-bad   { color: #e05555; }
 .c-muted2 { color: rgba(232,232,240,.35); }
 
-/* Form-row — lepszy układ */
+/* Better form row layout / Lepszy uklad wiersza formularza */
 .form-row {
     display: flex;
     gap: 12px;
@@ -4859,7 +4889,7 @@ table.admin-table tr:hover td {
 }
 .form-field--wide { flex: 1; }
 
-/* Input-sm — spójny styl */
+/* Small input consistent style / Spojny styl malego inputa */
 .input-sm {
     background: rgba(255,255,255,.04) !important;
     border: 1px solid rgba(255,152,0,.2) !important;
@@ -4879,7 +4909,7 @@ table.admin-table tr:hover td {
 }
 .input-sm[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
-/* Checkbox moduł */
+/* Module checkbox / Checkbox modulu */
 input[type="checkbox"].module-checkbox {
     width: 16px;
     height: 16px;
@@ -4899,4 +4929,3 @@ input[type="checkbox"].module-checkbox {
     .contracts-admin-actions { gap: 4px; }
     .contracts-admin-actions .btn { padding: 4px 8px !important; font-size: 9px !important; }
 }
-

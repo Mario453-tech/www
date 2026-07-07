@@ -13,6 +13,7 @@ return [
     'admin.contracts.tab_active' => 'Active',
     'admin.contracts.tab_deliveries' => 'Deliveries',
     'admin.contracts.tab_logs' => 'Logs',
+    'admin.contracts.tab_reputation' => 'Reputation',
     'admin.contracts.tab_help' => 'Help',
 
     // Modul / Module
@@ -124,6 +125,34 @@ return [
     'admin.contracts.logs_empty' => 'No logs.',
     'admin.contracts.col_event' => 'Event',
     'admin.contracts.col_message' => 'Message',
+
+    // Reputacja / Reputation
+    'admin.contracts.reputation_title' => 'Player contract reputation',
+    'admin.contracts.reputation_hint' => 'Review reputation score, settlement statistics and manual adjustments through the reputation ledger.',
+    'admin.contracts.reputation_empty' => 'No players match the filter.',
+    'admin.contracts.field_reputation_search' => 'Search player or company',
+    'admin.contracts.field_reputation_delta' => 'Reputation change',
+    'admin.contracts.field_reputation_note' => 'Admin note',
+    'admin.contracts.btn_filter' => 'Filter',
+    'admin.contracts.btn_history' => 'History',
+    'admin.contracts.btn_adjust' => 'Adjust',
+    'admin.contracts.btn_clear_filter' => 'Clear filter',
+    'admin.contracts.col_reputation_score' => 'Score',
+    'admin.contracts.col_completed' => 'Completed',
+    'admin.contracts.col_failed' => 'Failed',
+    'admin.contracts.col_cancelled' => 'Cancelled',
+    'admin.contracts.col_missed' => 'Missed',
+    'admin.contracts.col_perfect' => 'Perfect',
+    'admin.contracts.col_actions' => 'Actions',
+    'admin.contracts.col_delta' => 'Delta',
+    'admin.contracts.col_score_after' => 'Score after',
+    'admin.contracts.col_reason' => 'Reason',
+    'admin.contracts.reputation_log_title' => 'Contract reputation history',
+    'admin.contracts.reputation_log_filtered' => 'History filtered for player #:player.',
+    'admin.contracts.reputation_log_empty' => 'No reputation history entries.',
+    'admin.contracts.confirm_reputation_adjust' => 'Adjust contract reputation for ":player"?',
+    'admin.contracts.msg_reputation_adjusted' => 'Contract reputation has been adjusted. Current score: :score/100.',
+    'admin.contracts.err_reputation_adjust' => 'Failed to adjust contract reputation.',
 
     // Pomoc / Help
     'admin.contracts.help_title' => 'How the contracts module works',
