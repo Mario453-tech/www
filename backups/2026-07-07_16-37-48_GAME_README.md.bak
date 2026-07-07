@@ -1,13 +1,5 @@
 ## Changelog
 
-### 2026-07-07 - FTS: izolacja SAVEPOINT dla wywołań zagnieżdżonych (atomowość ruchu środków)
-
-**Naprawiono preegzystujące ograniczenie architektoniczne wzorca `$ownTx`: zagnieżdżone wywołanie FTS, które zawiodło w połowie zapisu, nie potrafiło wycofać częściowego ruchu środków.**
-
-- Problem: PDO/MySQL nie ma prawdziwych transakcji zagnieżdżonych. Gdy `credit`/`debit`/`debitCombined` były wołane wewnątrz transakcji innego serwisu (np. `ContractService`) i zapis padał po zmianie salda a przed logiem (`INSERT bank_transactions`), wzorzec `$ownTx` celowo nie robił `rollBack()` (bo cofnąłby całą transakcję wołającego) — częściowa mutacja salda mogła zostać zatwierdzona przez wołającego bez wpisu audytu. Dotyczyło wszystkich ścieżek FTS, nie tylko kontraktów.
-- `src/FinancialTransactionService.php` — nowe prywatne helpery `beginUnit()`/`commitUnit()`/`rollbackUnit()`. Wywołanie top-level nadal otwiera własną transakcję (`beginTransaction`/`commit`/`rollBack`); wywołanie zagnieżdżone zakłada `SAVEPOINT` (unikalna nazwa `fts_sp_N`) i przy błędzie robi `ROLLBACK TO SAVEPOINT` — cofa **tylko** własne zmiany, transakcja wołającego żyje dalej i pozostaje zatwierdzalna. `moveFunds()` (credit/debit/transfer) i `debitCombined()` przepisane na te helpery; logika biznesowa (blokady, walidacja salda, routing pul) bez zmian. Działa w MySQL i SQLite.
-- `tests/Integration/FinancialTransactionSavepointTest.php` (NOWY) — 4 testy: zagnieżdżony błąd cofa się do savepointu i nie zabija transakcji wołającego; kolejne udane wywołanie po nieudanym (osobne savepointy) utrwala się; samodzielne wywołanie wycofuje własną transakcję; `debitCombined` cofa oba UPDATE-y (bank+cash). Zweryfikowano, że testy wykrywają błąd (neutralizacja savepointu → 3 czerwone). Suite: 363 testy Integration zielone.
-
 ### 2026-07-07 - Kontrakty długoterminowe: Faza 1 — poprawki po code review (8 bugów)
 
 **Code review rozszerzeń Fazy 1 znalazło 8 bugów (2 krytyczne exploity ekonomiczne) — wszystkie naprawione.**
