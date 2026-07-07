@@ -10,30 +10,11 @@ return [
     // Zakladki / Tabs
     'admin.contracts.tab_options' => 'Options',
     'admin.contracts.tab_terms' => 'Terms',
-    'admin.contracts.tab_renegotiation' => 'Renegotiation',
     'admin.contracts.tab_active' => 'Active',
     'admin.contracts.tab_deliveries' => 'Deliveries',
     'admin.contracts.tab_logs' => 'Logs',
     'admin.contracts.tab_reputation' => 'Reputation',
     'admin.contracts.tab_help' => 'Help',
-
-    // Renegotiation
-    'admin.contracts.renegotiation_title' => 'Renegotiation settings',
-    'admin.contracts.renegotiation_hint' => 'For each contract you can independently enable renegotiation, set a limit, cooldown and fee. Changes apply to new contracts — active contracts were signed with a snapshot of the terms.',
-    'admin.contracts.renegotiation_on' => 'Enabled',
-    'admin.contracts.renegotiation_off' => 'Disabled',
-    'admin.contracts.renegotiation_allow_label' => 'Allow renegotiation of this contract',
-    'admin.contracts.renegotiation_allow_hint' => 'Players can change selected terms of an active contract.',
-    'admin.contracts.renegotiation_max_label' => 'Max renegotiations',
-    'admin.contracts.renegotiation_max_hint' => '0 = unlimited.',
-    'admin.contracts.renegotiation_interval_label' => 'Cooldown between renegotiations',
-    'admin.contracts.renegotiation_interval_hint' => '0 = no cooldown.',
-    'admin.contracts.renegotiation_fee_label' => 'Renegotiation fee',
-    'admin.contracts.renegotiation_fee_hint' => '0 = free. Charged via FTS on each renegotiation.',
-    'admin.contracts.btn_save_renegotiation' => 'Save settings',
-    'admin.contracts.msg_renegotiation_saved' => 'Renegotiation settings have been saved.',
-    'admin.contracts.err_renegotiation_save' => 'Failed to save renegotiation settings.',
-    'admin.contracts.unit_min' => 'min',
 
     // Modul / Module
     'admin.contracts.module_title' => 'Contracts module',

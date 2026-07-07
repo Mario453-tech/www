@@ -456,6 +456,7 @@ class ContractSchema
                     'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
                     'allow_cancel' => 1, 'cancel_penalty_pct' => 0, 'cancel_penalty_fixed' => 0, 'cancel_reputation_loss' => -1,
                     'cancel_forfeit_deposit' => 1, 'cancel_blocks_new_contracts_minutes' => 0,
+                    'allow_renegotiation' => 1, 'max_renegotiations' => 3, 'renegotiation_interval_minutes' => 0, 'renegotiation_fee' => 0,
                 ],
             ],
             [
@@ -468,6 +469,7 @@ class ContractSchema
                     'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
                     'allow_cancel' => 1, 'cancel_penalty_pct' => 3, 'cancel_penalty_fixed' => 0, 'cancel_reputation_loss' => -5,
                     'cancel_forfeit_deposit' => 1, 'cancel_blocks_new_contracts_minutes' => 720,
+                    'allow_renegotiation' => 1, 'max_renegotiations' => 3, 'renegotiation_interval_minutes' => 720, 'renegotiation_fee' => 0,
                 ],
             ],
             [
@@ -480,6 +482,7 @@ class ContractSchema
                     'deposit_forfeit_on_fail' => 1, 'deposit_forfeit_on_cancel' => 1, 'deposit_reputation_discount_enabled' => 1,
                     'allow_cancel' => 1, 'cancel_penalty_pct' => 5, 'cancel_penalty_fixed' => 0, 'cancel_reputation_loss' => -12,
                     'cancel_forfeit_deposit' => 1, 'cancel_blocks_new_contracts_minutes' => 1440,
+                    'allow_renegotiation' => 1, 'max_renegotiations' => 3, 'renegotiation_interval_minutes' => 1440, 'renegotiation_fee' => 0,
                 ],
             ],
         ];

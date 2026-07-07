@@ -363,6 +363,8 @@ return [
     'bank.tx_contract_bonus'     => 'Bonus za terminową realizację kontraktu #:id',
     'bank.tx_contract_deposit'   => 'Kaucja za podpisanie kontraktu #:id',
     'bank.tx_contract_deposit_refund' => 'Zwrot kaucji za kontrakt #:id',
+    'bank.tx_contract_renegotiation' => 'Opłata za renegocjację kontraktu #:id',
+    'bank.account.type.contract_renegotiation' => 'Renegocjacja kontraktu',
 
     // Portfel - modul transferu miedzy pulami (gotowka <-> konto bankowe)
     // Wallet - pool transfer module (cash <-> bank account)

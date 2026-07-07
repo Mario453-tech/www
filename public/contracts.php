@@ -51,6 +51,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = tPlain((string)($res['message_key'] ?? 'contracts.db_error'));
             }
+        } elseif ($action === 'renegotiate_contract') {
+            $contractId = (int)($_POST['contract_id'] ?? 0);
+            $overrides  = [];
+            foreach (['penalty_pct', 'bonus_pct', 'bonus_on_full_completion_pct', 'delivery_bbl', 'delivery_interval_minutes'] as $termKey) {
+                if (isset($_POST[$termKey]) && $_POST[$termKey] !== '') {
+                    $overrides[$termKey] = (float)$_POST[$termKey];
+                }
+            }
+            $res = $service->renegotiateContract($playerId, $contractId, $overrides);
+            if (!empty($res['success'])) {
+                $success = tPlain((string)($res['message_key'] ?? 'contracts.renegotiated'));
+            } else {
+                $error = tPlain((string)($res['message_key'] ?? 'contracts.db_error'));
+            }
         }
     }
 }

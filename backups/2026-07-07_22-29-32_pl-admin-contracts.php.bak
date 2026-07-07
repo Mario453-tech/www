@@ -10,30 +10,11 @@ return [
     // Zakladki / Tabs
     'admin.contracts.tab_options' => 'Opcje',
     'admin.contracts.tab_terms' => 'Warunki',
-    'admin.contracts.tab_renegotiation' => 'Renegocjacja',
     'admin.contracts.tab_active' => 'Aktywne',
     'admin.contracts.tab_deliveries' => 'Dostawy',
     'admin.contracts.tab_logs' => 'Logi',
     'admin.contracts.tab_reputation' => 'Reputacja',
     'admin.contracts.tab_help' => 'Pomoc',
-
-    // Renegocjacja / Renegotiation
-    'admin.contracts.renegotiation_title' => 'Ustawienia renegocjacji',
-    'admin.contracts.renegotiation_hint' => 'Dla każdego kontraktu możesz niezależnie włączyć renegocjację, ustawić limit, cooldown i opłatę. Zmiany dotyczą nowych kontraktów — aktywne kontrakty zostały podpisane ze snapshot warunków.',
-    'admin.contracts.renegotiation_on' => 'Włączona',
-    'admin.contracts.renegotiation_off' => 'Wyłączona',
-    'admin.contracts.renegotiation_allow_label' => 'Zezwól na renegocjację tego kontraktu',
-    'admin.contracts.renegotiation_allow_hint' => 'Gracze mogą zmieniać wybrane warunki aktywnego kontraktu.',
-    'admin.contracts.renegotiation_max_label' => 'Maks. liczba renegocjacji',
-    'admin.contracts.renegotiation_max_hint' => '0 = bez limitu.',
-    'admin.contracts.renegotiation_interval_label' => 'Cooldown między renegocjacjami',
-    'admin.contracts.renegotiation_interval_hint' => '0 = bez cooldownu.',
-    'admin.contracts.renegotiation_fee_label' => 'Opłata za renegocjację',
-    'admin.contracts.renegotiation_fee_hint' => '0 = bezpłatna. Pobierana przez FTS przy każdej renegocjacji.',
-    'admin.contracts.btn_save_renegotiation' => 'Zapisz ustawienia',
-    'admin.contracts.msg_renegotiation_saved' => 'Ustawienia renegocjacji zostały zapisane.',
-    'admin.contracts.err_renegotiation_save' => 'Nie udało się zapisać ustawień renegocjacji.',
-    'admin.contracts.unit_min' => 'min',
 
     // Modul / Module
     'admin.contracts.module_title' => 'Moduł kontraktów',

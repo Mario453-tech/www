@@ -926,6 +926,23 @@ class ContractService
                 $this->rollbackContractTransaction($ownTx, $savepoint);
                 return $this->result(false, 'renegotiation_no_valid_terms');
             }
+            // Oplata za renegocjacje (z terms_json snapshot) / Renegotiation fee from terms snapshot.
+            $fee = max(0.0, (float)($oldTerms['renegotiation_fee']['value'] ?? 0.0));
+            if ($fee >= FinancialTransactionService::MIN_AMOUNT) {
+                $this->fts ??= new FinancialTransactionService($this->db);
+                $feeResult = $this->fts->debitCombined(
+                    $playerId,
+                    $fee,
+                    FinancialTransactionService::TYPE_CONTRACT_RENEGOTIATION,
+                    tPlain('bank.tx_contract_renegotiation', ['id' => $contractId]),
+                    'contract',
+                    $contractId
+                );
+                if (!$feeResult['success']) {
+                    $this->rollbackContractTransaction($ownTx, $savepoint);
+                    return $this->result(false, 'insufficient_funds_renegotiation');
+                }
+            }
             $now          = $this->nowString();
             $newTermsJson = json_encode($terms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $this->db->prepare(

@@ -24,7 +24,7 @@ $reputationService = new ContractReputationService($db);
 $msg               = '';
 $err               = '';
 
-$tabs = ['options', 'terms', 'renegotiation', 'active', 'deliveries', 'logs', 'reputation', 'help'];
+$tabs = ['options', 'terms', 'active', 'deliveries', 'logs', 'reputation', 'help'];
 $activeTab = (string)($_GET['tab'] ?? 'options');
 if (!in_array($activeTab, $tabs, true)) {
     $activeTab = 'options';
@@ -172,46 +172,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $activeTab = 'terms';
-    } elseif ($action === 'save_renegotiation') {
-        $optionId = (int)($_POST['option_id'] ?? 0);
-        if ($optionId <= 0) {
-            $err = t('admin.contracts.err_option_required');
-        } else {
-            try {
-                $isSqlite = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
-                $upsert = $isSqlite
-                    ? "INSERT INTO contract_terms (contract_option_id, term_key, term_type, term_value, term_text)
-                         VALUES (?, ?, ?, ?, NULL)
-                         ON CONFLICT(contract_option_id, term_key)
-                         DO UPDATE SET term_type = excluded.term_type, term_value = excluded.term_value"
-                    : "INSERT INTO contract_terms (contract_option_id, term_key, term_type, term_value, term_text)
-                         VALUES (?, ?, ?, ?, NULL)
-                         ON DUPLICATE KEY UPDATE term_type = VALUES(term_type), term_value = VALUES(term_value)";
-
-                // allow_renegotiation (bool)
-                $allowVal = !empty($_POST['allow_renegotiation']) ? 1 : 0;
-                $db->prepare($upsert)->execute([$optionId, 'allow_renegotiation', 'bool', $allowVal]);
-
-                // max_renegotiations (number, 0 = brak limitu)
-                $maxVal = max(0, (int)($_POST['max_renegotiations'] ?? 0));
-                $db->prepare($upsert)->execute([$optionId, 'max_renegotiations', 'number', $maxVal]);
-
-                // renegotiation_interval_minutes (minutes)
-                $intervalVal = max(0, (int)($_POST['renegotiation_interval_minutes'] ?? 0));
-                $db->prepare($upsert)->execute([$optionId, 'renegotiation_interval_minutes', 'minutes', $intervalVal]);
-
-                // renegotiation_fee (number PLN)
-                $feeVal = max(0.0, round((float)($_POST['renegotiation_fee'] ?? 0), 2));
-                $db->prepare($upsert)->execute([$optionId, 'renegotiation_fee', 'number', $feeVal]);
-
-                AdminLog::log('contracts_renegotiation_save', "Ustawienia renegocjacji opcji #{$optionId}: allow={$allowVal}, max={$maxVal}, interval={$intervalVal}, fee={$feeVal}");
-                $msg = t('admin.contracts.msg_renegotiation_saved');
-            } catch (Throwable $e) {
-                GameLog::error('admin/contracts.php', 'save_renegotiation FAILED', $e);
-                $err = t('admin.contracts.err_renegotiation_save');
-            }
-        }
-        $activeTab = 'renegotiation';
     } elseif ($action === 'adjust_reputation') {
         $playerId = (int)($_POST['player_id'] ?? 0);
         $delta = (int)($_POST['delta'] ?? 0);
@@ -262,22 +222,6 @@ try {
 
     foreach ($db->query("SELECT * FROM contract_terms ORDER BY contract_option_id, term_key")->fetchAll(PDO::FETCH_ASSOC) as $termRow) {
         $termsByOption[(int)$termRow['contract_option_id']][] = $termRow;
-    }
-
-    // Dla zakladki renegotiation: mapa kluczy renegocjacji per option_id.
-    // For renegotiation tab: map of renegotiation term values per option_id.
-    $renegTermKeys = ['allow_renegotiation', 'max_renegotiations', 'renegotiation_interval_minutes', 'renegotiation_fee'];
-    $renegByOption = [];
-    foreach ($options as $opt) {
-        $oid = (int)$opt['id'];
-        $renegByOption[$oid] = ['allow_renegotiation' => 0, 'max_renegotiations' => 0, 'renegotiation_interval_minutes' => 0, 'renegotiation_fee' => 0.0];
-    }
-    foreach ($termsByOption as $oid => $terms) {
-        foreach ($terms as $term) {
-            if (in_array((string)$term['term_key'], $renegTermKeys, true)) {
-                $renegByOption[$oid][(string)$term['term_key']] = (float)($term['term_value'] ?? 0);
-            }
-        }
     }
 
     if ($activeTab === 'active') {
@@ -338,8 +282,7 @@ if ($editTermId > 0) {
 $viewData = compact(
     'moduleEnabled', 'options', 'termsByOption', 'activeContracts', 'deliveries', 'logs',
     'reputationRows', 'reputationLogs', 'reputationSearch', 'reputationPlayerId',
-    'activeTab', 'tabs', 'editOption', 'editTerm', 'priceModes', 'severities', 'termTypes',
-    'renegByOption', 'msg', 'err'
+    'activeTab', 'tabs', 'editOption', 'editTerm', 'priceModes', 'severities', 'termTypes', 'msg', 'err'
 );
 
 $pageTitle = t('admin.contracts.title');

@@ -244,6 +244,92 @@ $depositStatusLabel = static function (string $status): string {
                 <input type="hidden" name="contract_id" value="<?= (int)$contract['id'] ?>">
                 <button type="submit" class="btn btn-danger btn-full"><?= t('contracts.btn_cancel') ?></button>
             </form>
+            <?php
+            $ctrTerms  = json_decode((string)($contract['terms_json'] ?? '[]'), true) ?? [];
+            $allowReneg = (int)($ctrTerms['allow_renegotiation']['value'] ?? 0) === 1;
+            ?>
+            <?php if ($allowReneg): ?>
+            <?php
+            $maxReneg      = (int)($ctrTerms['max_renegotiations']['value'] ?? 0);
+            $usedReneg     = (int)($contract['renegotiations_used'] ?? 0);
+            $renegFee      = (float)($ctrTerms['renegotiation_fee']['value'] ?? 0.0);
+            $renegInterval = (int)($ctrTerms['renegotiation_interval_minutes']['value'] ?? 0);
+            $lastRenegAt   = (string)($contract['last_renegotiated_at'] ?? '');
+            $availFrom     = '';
+            if ($renegInterval > 0 && $lastRenegAt !== '') {
+                $availTs = strtotime($lastRenegAt) + $renegInterval * 60;
+                if ($availTs > time()) {
+                    $availFrom = date('Y-m-d H:i', $availTs);
+                }
+            }
+            $limitReached = $maxReneg > 0 && $usedReneg >= $maxReneg;
+            $tooSoon      = $availFrom !== '';
+            $maxLabel     = $maxReneg > 0 ? (string)$maxReneg : tPlain('contracts.reneg_unlimited');
+            $confirmText  = $renegFee >= 0.01
+                ? tPlain('contracts.reneg_confirm',      ['name' => (string)($contract['contract_name'] ?? ''), 'fee' => $fmtPln($renegFee)])
+                : tPlain('contracts.reneg_confirm_free', ['name' => (string)($contract['contract_name'] ?? '')]);
+            $cPenalty  = (float)($ctrTerms['penalty_pct']['value'] ?? 0.0);
+            $cBonus    = (float)($ctrTerms['bonus_pct']['value'] ?? 0.0);
+            $cBonusFull = (float)($ctrTerms['bonus_on_full_completion_pct']['value'] ?? 0.0);
+            $hasBonusFull = isset($ctrTerms['bonus_on_full_completion_pct']);
+            $cDelBbl   = (float)($ctrTerms['delivery_bbl']['value'] ?? 0.0);
+            $cDelMin   = (float)($ctrTerms['delivery_interval_minutes']['value'] ?? 0.0);
+            ?>
+            <details class="contracts-reneg">
+                <summary class="contracts-reneg__summary"><?= t('contracts.reneg_title') ?></summary>
+                <div class="contracts-reneg__body">
+                    <div class="contracts-reneg__meta">
+                        <span><?= t('contracts.reneg_count', ['used' => $usedReneg, 'max' => $maxLabel]) ?></span>
+                        <span><?= t('contracts.reneg_fee_label') ?>
+                            <?php if ($renegFee >= 0.01): ?>
+                                <strong><?= $fmtPln($renegFee) ?> PLN</strong>
+                            <?php else: ?>
+                                <em><?= t('contracts.reneg_fee_free') ?></em>
+                            <?php endif ?>
+                        </span>
+                    </div>
+                    <?php if ($tooSoon): ?>
+                    <p class="contracts-reneg__cooldown"><?= t('contracts.reneg_available_from', ['at' => htmlspecialchars($availFrom)]) ?></p>
+                    <?php endif ?>
+                    <?php if ($limitReached): ?>
+                    <p class="contracts-reneg__limit"><?= t('contracts.renegotiation_limit_reached') ?></p>
+                    <?php else: ?>
+                    <form method="post" class="contracts-action-form contracts-reneg__form"
+                          data-confirm="<?= htmlspecialchars($confirmText, ENT_QUOTES, 'UTF-8') ?>"
+                          data-confirm-label="<?= htmlspecialchars(tPlain('contracts.reneg_btn'), ENT_QUOTES, 'UTF-8') ?>">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action" value="renegotiate_contract">
+                        <input type="hidden" name="contract_id" value="<?= (int)$contract['id'] ?>">
+                        <div class="contracts-reneg__fields">
+                            <div class="contracts-reneg__field">
+                                <label class="contracts-reneg__label"><?= t('contracts.penalty') ?> (%)</label>
+                                <input type="number" name="penalty_pct" value="<?= $cPenalty ?>" min="0" max="100" step="0.1" class="contracts-reneg__input">
+                            </div>
+                            <div class="contracts-reneg__field">
+                                <label class="contracts-reneg__label"><?= t('contracts.bonus') ?> (%)</label>
+                                <input type="number" name="bonus_pct" value="<?= $cBonus ?>" min="0" max="200" step="0.1" class="contracts-reneg__input">
+                            </div>
+                            <?php if ($hasBonusFull): ?>
+                            <div class="contracts-reneg__field">
+                                <label class="contracts-reneg__label"><?= t('contracts.bonus_full_completion') ?> (%)</label>
+                                <input type="number" name="bonus_on_full_completion_pct" value="<?= $cBonusFull ?>" min="0" max="200" step="0.1" class="contracts-reneg__input">
+                            </div>
+                            <?php endif ?>
+                            <div class="contracts-reneg__field">
+                                <label class="contracts-reneg__label"><?= t('contracts.delivery_volume') ?> (bbl)</label>
+                                <input type="number" name="delivery_bbl" value="<?= $cDelBbl ?>" min="1" step="1" class="contracts-reneg__input">
+                            </div>
+                            <div class="contracts-reneg__field">
+                                <label class="contracts-reneg__label"><?= t('contracts.interval') ?> (min)</label>
+                                <input type="number" name="delivery_interval_minutes" value="<?= $cDelMin ?>" min="1" step="1" class="contracts-reneg__input">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-secondary btn-full"<?= $tooSoon ? ' disabled' : '' ?>><?= t('contracts.reneg_btn') ?></button>
+                    </form>
+                    <?php endif ?>
+                </div>
+            </details>
+            <?php endif ?>
         </div>
         <?php endforeach ?>
     </div>

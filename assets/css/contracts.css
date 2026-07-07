@@ -391,3 +391,104 @@
         margin-right: 4px;
     }
 }
+
+/* ── PANEL RENEGOCJACJI ─────────────────────────────────────────────────── */
+.contracts-reneg {
+    margin-top: 10px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.contracts-reneg__summary {
+    cursor: pointer;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text2);
+    background: rgba(255, 255, 255, .03);
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contracts-reneg__summary::after {
+    content: '▸';
+    margin-left: auto;
+    font-size: 10px;
+    opacity: .5;
+    transition: transform .2s;
+}
+
+details[open] .contracts-reneg__summary::after {
+    transform: rotate(90deg);
+}
+
+.contracts-reneg__body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.contracts-reneg__meta {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--text2);
+    flex-wrap: wrap;
+}
+
+.contracts-reneg__cooldown,
+.contracts-reneg__limit {
+    font-size: 12px;
+    color: var(--warn);
+    margin: 0;
+}
+
+.contracts-reneg__fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.contracts-reneg__field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.contracts-reneg__label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text3);
+}
+
+.contracts-reneg__input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.contracts-reneg__input:focus {
+    outline: none;
+    border-color: var(--gold3);
+}
+
+@media (max-width: 640px) {
+    .contracts-reneg__fields {
+        grid-template-columns: 1fr;
+    }
+}

@@ -20,7 +20,6 @@
  * @var array<int,string> $priceModes
  * @var array<int,string> $severities
  * @var array<int,string> $termTypes
- * @var array<int,array<string,mixed>> $renegByOption
  * @var string $msg
  * @var string $err
  */
@@ -363,76 +362,6 @@ $reputationPlayerLabel = static function (array $row): string {
         <?php endif ?>
     </form>
     <p class="panel-hint"><?= t('admin.contracts.terms_hint') ?></p>
-</section>
-
-<?php elseif ($activeTab === 'renegotiation'): ?>
-<!-- == USTAWIENIA RENEGOCJACJI / RENEGOTIATION SETTINGS == -->
-<section class="panel mb-8">
-    <p class="panel-title"><?= t('admin.contracts.renegotiation_title') ?></p>
-    <p class="panel-hint"><?= t('admin.contracts.renegotiation_hint') ?></p>
-    <?php if (empty($options)): ?>
-    <p class="panel-hint"><?= t('admin.contracts.options_empty') ?></p>
-    <?php else: ?>
-    <?php foreach ($options as $opt):
-        $oid  = (int)$opt['id'];
-        $r    = $renegByOption[$oid] ?? ['allow_renegotiation' => 0, 'max_renegotiations' => 0, 'renegotiation_interval_minutes' => 0, 'renegotiation_fee' => 0.0];
-        $isOn = (int)($r['allow_renegotiation'] ?? 0) === 1;
-    ?>
-    <div class="contracts-admin-reneg-card">
-        <div class="contracts-admin-reneg-card__head">
-            <span class="contracts-admin-reneg-card__name"><?= htmlspecialchars((string)$opt['name']) ?></span>
-            <code class="contracts-admin-reneg-card__code"><?= htmlspecialchars((string)$opt['code']) ?></code>
-            <span class="contracts-badge contracts-badge--<?= $isOn ? 'delivered' : 'missed' ?>">
-                <?= $isOn ? t('admin.contracts.renegotiation_on') : t('admin.contracts.renegotiation_off') ?>
-            </span>
-        </div>
-        <form method="post" action="/admin/contracts.php?tab=renegotiation" class="contracts-admin-reneg-form">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="save_renegotiation">
-            <input type="hidden" name="option_id" value="<?= $oid ?>">
-
-            <div class="contracts-admin-reneg-fields">
-                <div class="contracts-admin-reneg-field contracts-admin-reneg-field--toggle">
-                    <label class="admin-checkbox-label">
-                        <input type="checkbox" name="allow_renegotiation" value="1"<?= $isOn ? ' checked' : '' ?>>
-                        <?= t('admin.contracts.renegotiation_allow_label') ?>
-                    </label>
-                    <p class="panel-hint"><?= t('admin.contracts.renegotiation_allow_hint') ?></p>
-                </div>
-
-                <div class="contracts-admin-reneg-field">
-                    <label for="max_reneg_<?= $oid ?>"><?= t('admin.contracts.renegotiation_max_label') ?></label>
-                    <input type="number" id="max_reneg_<?= $oid ?>" name="max_renegotiations"
-                           value="<?= (int)($r['max_renegotiations'] ?? 0) ?>" min="0" step="1" class="admin-input-sm">
-                    <p class="panel-hint"><?= t('admin.contracts.renegotiation_max_hint') ?></p>
-                </div>
-
-                <div class="contracts-admin-reneg-field">
-                    <label for="interval_reneg_<?= $oid ?>"><?= t('admin.contracts.renegotiation_interval_label') ?></label>
-                    <div class="contracts-admin-reneg-input-row">
-                        <input type="number" id="interval_reneg_<?= $oid ?>" name="renegotiation_interval_minutes"
-                               value="<?= (int)($r['renegotiation_interval_minutes'] ?? 0) ?>" min="0" step="1" class="admin-input-sm">
-                        <span class="panel-hint"><?= t('admin.contracts.unit_min') ?></span>
-                    </div>
-                    <p class="panel-hint"><?= t('admin.contracts.renegotiation_interval_hint') ?></p>
-                </div>
-
-                <div class="contracts-admin-reneg-field">
-                    <label for="fee_reneg_<?= $oid ?>"><?= t('admin.contracts.renegotiation_fee_label') ?></label>
-                    <div class="contracts-admin-reneg-input-row">
-                        <input type="number" id="fee_reneg_<?= $oid ?>" name="renegotiation_fee"
-                               value="<?= number_format((float)($r['renegotiation_fee'] ?? 0), 2, '.', '') ?>" min="0" step="0.01" class="admin-input-sm">
-                        <span class="panel-hint">PLN</span>
-                    </div>
-                    <p class="panel-hint"><?= t('admin.contracts.renegotiation_fee_hint') ?></p>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary"><?= t('admin.contracts.btn_save_renegotiation') ?></button>
-        </form>
-    </div>
-    <?php endforeach ?>
-    <?php endif ?>
 </section>
 
 <?php elseif ($activeTab === 'active'): ?>

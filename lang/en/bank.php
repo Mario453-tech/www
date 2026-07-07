@@ -354,6 +354,8 @@ return [
     'bank.tx_contract_bonus'     => 'Bonus for completing contract #:id on time',
     'bank.tx_contract_deposit'   => 'Security deposit for contract #:id',
     'bank.tx_contract_deposit_refund' => 'Security deposit refund for contract #:id',
+    'bank.tx_contract_renegotiation' => 'Renegotiation fee for contract #:id',
+    'bank.account.type.contract_renegotiation' => 'Contract renegotiation',
     'wallet.section_title' => 'Wallet - Cash and Account',
     'wallet.section_desc' => 'Manage the split of funds between cash and the bank account.',
     'wallet.label_cash' => 'Cash',

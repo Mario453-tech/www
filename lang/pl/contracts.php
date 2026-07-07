@@ -34,7 +34,6 @@ return [
     'contracts.insufficient_funds_deposit' => 'Za mało środków na opłacenie kaucji zabezpieczającej.',
     'contracts.insufficient_funds_penalty' => 'Za mało środków na opłacenie kary za zerwanie kontraktu.',
     'contracts.insufficient_funds_insurance' => 'Za mało środków na opłacenie składki ubezpieczeniowej.',
-    'contracts.cancel_not_allowed' => 'Tego kontraktu nie można zerwać.',
     'contracts.not_active' => 'Ten kontrakt nie jest już aktywny.',
     'contracts.insurance_enabled' => 'Ubezpieczenie zostało aktywowane dla tego kontraktu.',
     'contracts.insurance_not_available' => 'Ubezpieczenie nie jest dostępne dla tego kontraktu.',
@@ -45,6 +44,19 @@ return [
     'contracts.renegotiation_limit_reached' => 'Osiągnięto limit renegocjacji dla tego kontraktu.',
     'contracts.renegotiation_too_soon' => 'Za wcześnie, aby ponownie renegocjować ten kontrakt.',
     'contracts.renegotiation_no_valid_terms' => 'Żaden z podanych warunków nie podlega renegocjacji.',
+    'contracts.insufficient_funds_renegotiation' => 'Brak środków na opłacenie renegocjacji kontraktu.',
+
+    // Panel UI renegocjacji / Renegotiation UI panel
+    'contracts.reneg_title' => 'Renegocjacja warunków',
+    'contracts.reneg_count' => 'Użyte: :used / :max',
+    'contracts.reneg_unlimited' => 'bez limitu',
+    'contracts.reneg_fee_label' => 'Opłata:',
+    'contracts.reneg_fee_free' => 'bezpłatna',
+    'contracts.reneg_available_from' => 'Ponowna renegocjacja możliwa od: :at',
+    'contracts.reneg_btn' => 'Renegocjuj',
+    'contracts.reneg_confirm' => 'Renegocjować warunki kontraktu „:name"? Opłata :fee PLN zostanie pobrana automatycznie.',
+    'contracts.reneg_confirm_free' => 'Renegocjować warunki kontraktu „:name"?',
+    'contracts.bonus_full_completion' => 'Bonus za pełną realizację',
 
     // UI gracza / Player UI
     'contracts.action_label' => 'Kontrakty',
