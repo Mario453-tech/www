@@ -87,7 +87,7 @@ trait WellActionsTrait
             try {
                 // SELECT z blokada wierszowa — zapobiega race condition przy rownolegych zadaniach.
                 // Row-level lock prevents race condition under concurrent requests.
-                $lockStmt = $this->db->prepare("SELECT id, equipment_upgrade_level, status FROM wells WHERE id = ? AND player_id = ? FOR UPDATE LIMIT 1");
+                $lockStmt = $this->db->prepare("SELECT id, equipment_upgrade_level, status FROM wells WHERE id = ? AND player_id = ? LIMIT 1 FOR UPDATE");
                 $lockStmt->execute([$wellId, $playerId]);
                 $freshWell = $lockStmt->fetch();
                 if (!$freshWell) {
@@ -167,7 +167,7 @@ trait WellActionsTrait
         try {
             // SELECT z blokada wierszowa — zapobiega race condition przy rownolegych zadaniach.
             // Row-level lock prevents race condition under concurrent requests.
-            $lockStmt = $this->db->prepare("SELECT * FROM wells WHERE id = ? AND player_id = ? FOR UPDATE LIMIT 1");
+            $lockStmt = $this->db->prepare("SELECT * FROM wells WHERE id = ? AND player_id = ? LIMIT 1 FOR UPDATE");
             $lockStmt->execute([$wellId, $playerId]);
             $freshWell = $lockStmt->fetch();
             if (!$freshWell) {
