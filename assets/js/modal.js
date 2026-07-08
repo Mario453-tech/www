@@ -178,9 +178,14 @@
     }
 
     window.showGameToast = function (arg1, arg2, arg3) {
-        buildToastStack();
-
         var cfg = normalizeToastArgs(arg1, arg2, arg3);
+
+        if (cfg.type === 'error') {
+            alertError(cfg.message || cfg.title, cfg.message ? cfg.title : undefined);
+            return;
+        }
+
+        buildToastStack();
         var toast = document.createElement('div');
         toast.className = 'app-toast app-toast--' + cfg.type;
 
