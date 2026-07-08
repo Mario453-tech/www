@@ -103,7 +103,7 @@ trait ContractQueryTrait
      */
     private function lockedReason(array $option, int $score, int $legalLevel, array $terms = [], ?int $contractReputation = null): ?string
     {
-        if ($credibilityScore < (int)$option['min_credibility']) {
+        if ($score < (int)$option['min_credibility']) {
             return 'credibility';
         }
         if ($legalLevel < (int)$option['requires_legal_level']) {
