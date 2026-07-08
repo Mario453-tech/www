@@ -1939,7 +1939,7 @@ CREATE TABLE `storage` (
   `player_id` int NOT NULL,
   `capacity` decimal(20,2) NOT NULL DEFAULT '1000.00',
   `used` decimal(20,2) NOT NULL DEFAULT '0.00',
-  `updated_at` datetime NOT NULL
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
