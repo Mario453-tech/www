@@ -228,7 +228,9 @@ function switchMarketTab(ev, tab) {
                             </div>
                         </div>
                         <form method="post" class="contracts-action-form"
-                              onsubmit="return confirm(<?= htmlspecialchars(json_encode(tPlain('contracts.b2b.confirm_accept'), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>);">
+                              data-confirm="<?= htmlspecialchars(tPlain('contracts.b2b.confirm_accept'), ENT_QUOTES, 'UTF-8') ?>"
+                              data-confirm-title="<?= htmlspecialchars(tPlain('market.b2b_heading'), ENT_QUOTES, 'UTF-8') ?>"
+                              data-confirm-label="<?= htmlspecialchars(tPlain('contracts.b2b.btn_deliver'), ENT_QUOTES, 'UTF-8') ?>">
                             <?= CSRF::field() ?>
                             <input type="hidden" name="action" value="accept_b2b_offer">
                             <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
