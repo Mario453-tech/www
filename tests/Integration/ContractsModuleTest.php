@@ -74,6 +74,7 @@ final class ContractsModuleTest extends SqliteIntegrationTestCase
         // 50 bbl * 100 price = 5000 revenue
         $this->assertSame(5000.0, $stats['revenue']);
         $this->assertSame(0.0, $stats['penalties']);
+        $this->assertSame([1], $stats['players']);
     }
 
     // ================================================================== statystyki trafiaja do TickContext
@@ -101,6 +102,7 @@ final class ContractsModuleTest extends SqliteIntegrationTestCase
         $this->assertArrayHasKey('contracts', $collected);
         $this->assertSame(1, $collected['contracts']['processed']);
         $this->assertSame(5000.0, $collected['contracts']['revenue']);
+        $this->assertSame([1], $collected['contracts']['players']);
     }
 
     // ================================================================== modul wylaczony

@@ -156,36 +156,20 @@ class ContractReputationService
         return $value === false || $value === null || $value === '' ? null : (string)$value;
     }
 
-    public function getBlockedUntilForUpdate(int $playerId): ?string
-    {
-        if ($playerId <= 0) {
-            return null;
-        }
-        $this->ensureRow($playerId);
-        $forUpdate = $this->driver() === 'sqlite' ? '' : ' FOR UPDATE';
-        $stmt = $this->db->prepare("SELECT contract_blocked_until FROM contract_reputation WHERE player_id = ? LIMIT 1{$forUpdate}");
-        $stmt->execute([$playerId]);
-        $value = $stmt->fetchColumn();
-        return $value === false || $value === null || $value === '' ? null : (string)$value;
-    }
-
     public function blockNewContracts(int $playerId, int $minutes): void
     {
         if ($playerId <= 0 || $minutes <= 0) {
             return;
         }
         $this->ensureRow($playerId);
-        $now = $this->nowString();
-        $blockedUntil = $this->datePlusMinutes($now, $minutes);
+        $blockedUntil = $this->datePlusMinutes($this->nowString(), $minutes);
+        $current = $this->getBlockedUntil($playerId);
+        if ($current !== null && $current > $blockedUntil) {
+            return;
+        }
         $this->db->prepare(
-            'UPDATE contract_reputation
-                SET contract_blocked_until = CASE
-                        WHEN contract_blocked_until IS NULL OR contract_blocked_until < ? THEN ?
-                        ELSE contract_blocked_until
-                    END,
-                    updated_at = ?
-              WHERE player_id = ?'
-        )->execute([$blockedUntil, $blockedUntil, $now, $playerId]);
+            'UPDATE contract_reputation SET contract_blocked_until = ?, updated_at = ? WHERE player_id = ?'
+        )->execute([$blockedUntil, $this->nowString(), $playerId]);
     }
 
     /** @param array<string,mixed> $meta */

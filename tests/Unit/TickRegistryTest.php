@@ -19,7 +19,9 @@ final class TickRegistryTest extends BaseTestCase
         $keys = array_map(static fn(TickModule $module): string => $module->key(), $modules);
 
         $this->assertContains('credibility', $keys);
+        $this->assertContains('b2b_contracts', $keys);
         $this->assertInstanceOf(CredibilityModule::class, TickRegistry::find('credibility'));
+        $this->assertInstanceOf(B2BContractsModule::class, TickRegistry::find('b2b_contracts'));
     }
 
     public function testDiscoverSortsModulesDeterministically(): void
@@ -38,9 +40,9 @@ final class TickRegistryTest extends BaseTestCase
 
     public function testDiscoverKeysReturnsRequestedModulesOnly(): void
     {
-        $modules = TickRegistry::discoverKeys(['credibility', 'missing']);
+        $modules = TickRegistry::discoverKeys(['credibility', 'b2b_contracts', 'missing']);
 
-        $this->assertCount(1, $modules);
-        $this->assertSame('credibility', $modules[0]->key());
+        $this->assertCount(2, $modules);
+        $this->assertSame(['b2b_contracts', 'credibility'], array_map(static fn(TickModule $module): string => $module->key(), $modules));
     }
 }

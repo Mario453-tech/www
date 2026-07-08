@@ -16,6 +16,8 @@ final class ContractsModule implements TickModule
     private int $failed      = 0;
     private float $revenue   = 0.0;
     private float $penalties = 0.0;
+    /** @var list<int> */
+    private array $players   = [];
 
     public function key(): string
     {
@@ -37,6 +39,7 @@ final class ContractsModule implements TickModule
         $this->failed     = (int)($result['failed']     ?? 0);
         $this->revenue    = (float)($result['revenue']   ?? 0.0);
         $this->penalties  = (float)($result['penalties'] ?? 0.0);
+        $this->players    = array_values(array_map('intval', (array)($result['players'] ?? [])));
 
         if ($this->processed > 0 && class_exists('GameLog', false)) {
             GameLog::info('tick', "Kontrakty: {$this->processed} dostaw, "
@@ -55,6 +58,7 @@ final class ContractsModule implements TickModule
             'failed'     => $this->failed,
             'revenue'    => $this->revenue,
             'penalties'  => $this->penalties,
+            'players'    => $this->players,
         ];
     }
 }

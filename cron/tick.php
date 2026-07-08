@@ -302,7 +302,7 @@ try {
     GameLog::error('tick', 'Legal section FAILED', $e);
 }
 
-// 9. SZKOLENIA — egzaminy zakonczonych szkolen pracownikow
+// 9. SZKOLENIA - egzaminy zakonczonych szkolen pracownikow
 
 $trainingExamined = 0;
 try {
@@ -316,7 +316,7 @@ try {
     GameLog::error('tick', 'Training section FAILED', $e);
 }
 
-// 10. KONTRAKTY DŁUGOTERMINOWE — rozliczanie wymagalnych dostaw
+// 10. KONTRAKTY DLUGOTERMINOWE - rozliczanie wymagalnych dostaw
 
 $contractsProcessed  = 0;
 $contractsRevenue    = 0.0;
@@ -333,6 +333,24 @@ try {
     }
 } catch (Throwable $e) {
     GameLog::error('tick', 'Contracts section FAILED', $e);
+}
+
+// 10b. KONTRAKTY B2B - wygaszanie ofert i zwrot depozytow
+// 10b. B2B CONTRACTS - offer expiry and escrow refunds
+
+$b2bContractsExpired = 0;
+$b2bContractsRefunded = 0.0;
+try {
+    $b2bContractsModule = TickRegistry::find('b2b_contracts');
+    if ($b2bContractsModule !== null) {
+        $b2bContractsModule->run($tickCtx);
+        $tickCtx->mergeStats($b2bContractsModule->key(), $b2bContractsModule->stats());
+        $b2bContractsStats = $b2bContractsModule->stats();
+        $b2bContractsExpired = (int)($b2bContractsStats['expired'] ?? 0);
+        $b2bContractsRefunded = (float)($b2bContractsStats['refunded'] ?? 0.0);
+    }
+} catch (Throwable $e) {
+    GameLog::error('tick', 'B2B contracts section FAILED', $e);
 }
 
 // PODSUMOWANIE + ZAPIS STATYSTYK
@@ -378,7 +396,8 @@ try {
 try {
     $durationMs = (int)round((microtime(true) - $startTime) * 1000);
 
- // Slow tick warning — tick trwajacy >60s sugeruje problem wydajnosci lub kolizje / >60s tick suggests performance issue or collision
+    // Slow tick warning - tick trwajacy >60s sugeruje problem wydajnosci lub kolizje.
+    // Slow tick warning - >60s tick suggests performance issue or collision.
     if ($durationMs > 60_000) {
         GameLog::warn('tick', 'WOLNY TICK / SLOW TICK', ['duration_ms' => $durationMs, 'threshold_ms' => 60_000]);
     }
@@ -390,9 +409,8 @@ try {
         'oil_price'                    => $newPrice,
         'trend_name'                   => $activeTrend['trend_name'] ?? null,
         'trend_new'                    => $isNewTrend,
- // M7: bank_interest i installments: BankSection nie liczy dokladnie tych wartosci,
- // zapisujemy 0 zamiast NULL zeby zaznaczyc ze funkcje uruchomily sie poprawnie.
- // M7: interest and installments not tracked per-tick in BankSection — record 0 (ran OK) not NULL.
+        // M7: bank_interest i installments nie sa liczone dokladnie w BankSection.
+        // M7: interest and installments are not tracked exactly in BankSection.
         'bank_interest_processed'      => 0,
         'bank_installments_processed'  => 0,
         'bank_negotiations_resolved'   => $bank->negotiationsResolved,
@@ -407,6 +425,9 @@ try {
         'total_opex_pln'               => round($players->totalOpex, 2),
         'disasters_triggered'          => $players->disastersTriggered,
         'incidents_triggered'          => $players->incidentsTriggered,
+        'contracts_processed'          => $contractsProcessed,
+        'contracts_revenue_pln'        => round($contractsRevenue, 2),
+        'contracts_penalties_pln'      => round($contractsPenalties, 2),
     ]);
 } catch (Throwable $e) {
     GameLog::error('tick', 'zapis tick_stats FAILED', $e);

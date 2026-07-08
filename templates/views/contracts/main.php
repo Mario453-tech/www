@@ -4,6 +4,8 @@
  * Player view for the long-term contracts module.
  *
  * @var bool $moduleEnabled
+ * @var bool $b2bModuleEnabled
+ * @var string $contractsTab
  * @var array<int,array<string,mixed>> $available
  * @var array<int,array<string,mixed>> $active
  * @var array<int,array<string,mixed>> $deliveries
@@ -82,6 +84,26 @@ $depositStatusLabel = static function (string $status): string {
     <div class="contracts-notice contracts-notice--off"><?= t('contracts.module_disabled_notice') ?></div>
     <?php endif ?>
 </section>
+
+<nav class="contracts-tabs" aria-label="<?= htmlspecialchars(strip_tags(t('contracts.tabs_label'))) ?>">
+    <?php
+        $tabs = [
+            'system' => 'contracts.tab_system',
+            'b2b_market' => 'contracts.tab_b2b_market',
+            'b2b_my' => 'contracts.tab_b2b_my',
+            'b2b_history' => 'contracts.tab_b2b_history',
+            'b2b_logs' => 'contracts.tab_b2b_logs',
+        ];
+    ?>
+    <?php foreach ($tabs as $tabKey => $labelKey): ?>
+    <a class="contracts-tab<?= $contractsTab === $tabKey ? ' contracts-tab--active' : '' ?>"
+       href="<?= htmlspecialchars((function_exists('url') ? url('contracts') : '/contracts') . '?tab=' . rawurlencode($tabKey), ENT_QUOTES, 'UTF-8') ?>">
+        <?= t($labelKey) ?>
+    </a>
+    <?php endforeach ?>
+</nav>
+
+<?php if ($contractsTab === 'system'): ?>
 
 <!-- == DOSTEPNE KONTRAKTY == -->
 <section class="card">
@@ -298,6 +320,10 @@ $depositStatusLabel = static function (string $status): string {
     </div>
     <?php endif ?>
 </section>
+
+<?php else: ?>
+<?php require __DIR__ . '/b2b.php'; ?>
+<?php endif ?>
 
 <nav class="page-nav" aria-label="<?= htmlspecialchars(strip_tags(t('contracts.page_title'))) ?>">
     <a href="<?= url('dashboard') ?>" class="btn btn-secondary"><?= t('contracts.btn_back') ?></a>

@@ -7,12 +7,20 @@ abstract class SqliteIntegrationTestCase extends BaseTestCase
 {
     protected function createSqlitePdo(): PDO
     {
-        $db = new PDO('sqlite::memory:');
+        $db = class_exists('Pdo\\Sqlite')
+            ? new Pdo\Sqlite('sqlite::memory:')
+            : new PDO('sqlite::memory:');
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        $db->sqliteCreateFunction('NOW', static fn(): string => date('Y-m-d H:i:s'), 0);
-        $db->sqliteCreateFunction('LEAST', static fn($a, $b) => min((float)$a, (float)$b), 2);
-        $db->sqliteCreateFunction('GREATEST', static fn($a, $b) => max((float)$a, (float)$b), 2);
+        if ($db instanceof Pdo\Sqlite) {
+            $db->createFunction('NOW', static fn(): string => date('Y-m-d H:i:s'), 0);
+            $db->createFunction('LEAST', static fn($a, $b) => min((float)$a, (float)$b), 2);
+            $db->createFunction('GREATEST', static fn($a, $b) => max((float)$a, (float)$b), 2);
+        } else {
+            $db->sqliteCreateFunction('NOW', static fn(): string => date('Y-m-d H:i:s'), 0);
+            $db->sqliteCreateFunction('LEAST', static fn($a, $b) => min((float)$a, (float)$b), 2);
+            $db->sqliteCreateFunction('GREATEST', static fn($a, $b) => max((float)$a, (float)$b), 2);
+        }
 
         return $db;
     }

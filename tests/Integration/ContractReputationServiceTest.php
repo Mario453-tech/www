@@ -226,6 +226,20 @@ final class ContractReputationServiceTest extends SqliteIntegrationTestCase
         $this->assertStringContainsString('Manual admin correction', (string)$logs[0]['meta_json']);
     }
 
+    public function testBlockNewContractsNeverShortensExistingBlock(): void
+    {
+        $this->seedPlayer(1, 50);
+
+        $this->reputation->blockNewContracts(1, 120);
+        $first = $this->reputation->getBlockedUntil(1);
+        $this->assertNotNull($first);
+
+        $this->reputation->blockNewContracts(1, 10);
+        $second = $this->reputation->getBlockedUntil(1);
+
+        $this->assertSame($first, $second);
+    }
+
     private function seedPlayer(int $id, int $credibility, string $username = '', string $companyName = ''): void
     {
         $username = $username !== '' ? $username : 'player' . $id;

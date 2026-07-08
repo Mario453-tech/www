@@ -17,14 +17,18 @@ AdminAuth::requireLogin();
 
 require_once __DIR__ . '/../src/ContractService.php';
 require_once __DIR__ . '/../src/ContractReputationService.php';
+require_once __DIR__ . '/../src/B2BContractService.php';
 
 $db                = Database::getInstance()->getConnection();
 $service           = new ContractService($db); // ensure() creates schema and seed.
 $reputationService = new ContractReputationService($db);
-$msg               = '';
-$err               = '';
+$b2bService        = new B2BContractService($db);
+$flash             = $_SESSION['admin_contracts_flash'] ?? [];
+unset($_SESSION['admin_contracts_flash']);
+$msg               = (string)($flash['msg'] ?? '');
+$err               = (string)($flash['err'] ?? '');
 
-$tabs = ['options', 'terms', 'active', 'deliveries', 'logs', 'reputation', 'help'];
+$tabs = ['options', 'terms', 'active', 'deliveries', 'logs', 'reputation', 'b2b', 'help'];
 $activeTab = (string)($_GET['tab'] ?? 'options');
 if (!in_array($activeTab, $tabs, true)) {
     $activeTab = 'options';
@@ -201,7 +205,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $activeTab = 'reputation';
+    } elseif ($action === 'b2b_save_config') {
+        $b2bService->saveConfig([
+            'module_enabled' => !empty($_POST['module_enabled']) ? 1 : 0,
+            'min_price_market_pct' => max(1, (float)($_POST['min_price_market_pct'] ?? 70)),
+            'max_price_market_pct' => max(1, (float)($_POST['max_price_market_pct'] ?? 130)),
+            'min_bbl_per_offer' => max(1, (float)($_POST['min_bbl_per_offer'] ?? 100)),
+            'max_bbl_per_offer' => max(1, (float)($_POST['max_bbl_per_offer'] ?? 50000)),
+            'max_open_offers_per_player' => max(1, (int)($_POST['max_open_offers_per_player'] ?? 5)),
+            'buyer_cancel_penalty_pct' => max(0, min(100, (float)($_POST['buyer_cancel_penalty_pct'] ?? 10))),
+            'admin_review_threshold_value' => max(0, (float)($_POST['admin_review_threshold_value'] ?? 5000000)),
+        ]);
+        AdminLog::log('contracts_b2b_config_save', 'B2B contracts config saved');
+        $msg = t('admin.contracts.b2b_msg_config_saved');
+        $activeTab = 'b2b';
+    } elseif ($action === 'b2b_flag_offer') {
+        $offerId = (int)($_POST['offer_id'] ?? 0);
+        $reason = trim((string)($_POST['reason'] ?? 'admin_review'));
+        $res = $b2bService->adminFlagOffer((int)(AdminAuth::getAdminId() ?? 0), $offerId, $reason);
+        $msg = !empty($res['success']) ? t('admin.contracts.b2b_msg_flagged') : '';
+        $err = empty($res['success']) ? t('admin.contracts.b2b_err_action') : '';
+        AdminLog::log('contracts_b2b_flag_offer', "B2B offer #{$offerId} flagged");
+        $activeTab = 'b2b';
+    } elseif ($action === 'b2b_unflag_offer') {
+        $offerId = (int)($_POST['offer_id'] ?? 0);
+        $res = $b2bService->adminUnflagOffer((int)(AdminAuth::getAdminId() ?? 0), $offerId);
+        $msg = !empty($res['success']) ? t('admin.contracts.b2b_msg_unflagged') : '';
+        $err = empty($res['success']) ? t('admin.contracts.b2b_err_action') : '';
+        AdminLog::log('contracts_b2b_unflag_offer', "B2B offer #{$offerId} unflagged");
+        $activeTab = 'b2b';
+    } elseif ($action === 'b2b_cancel_offer') {
+        $offerId = (int)($_POST['offer_id'] ?? 0);
+        $reason = trim((string)($_POST['reason'] ?? 'admin_cancelled'));
+        $res = $b2bService->adminCancelOffer((int)(AdminAuth::getAdminId() ?? 0), $offerId, $reason);
+        $msg = !empty($res['success']) ? t('admin.contracts.b2b_msg_cancelled') : '';
+        $err = empty($res['success']) ? t('admin.contracts.b2b_err_action') : '';
+        AdminLog::log('contracts_b2b_cancel_offer', "B2B offer #{$offerId} cancelled");
+        $activeTab = 'b2b';
     }
+
+    $_SESSION['admin_contracts_flash'] = ['msg' => $msg, 'err' => $err];
+    header('Location: /admin/contracts.php?tab=' . urlencode($activeTab));
+    exit;
 }
 
 // == DANE DLA WIDOKU / VIEW DATA ==
@@ -214,6 +259,24 @@ $deliveries      = [];
 $logs            = [];
 $reputationRows  = [];
 $reputationLogs  = [];
+$b2bConfig        = [];
+$b2bOffers        = [];
+$b2bLogs          = [];
+$b2bStats         = [];
+$b2bReputationRows = [];
+$b2bOfferFilters = [
+    'status' => (string)($_GET['b2b_status'] ?? ''),
+    'query' => trim((string)($_GET['b2b_q'] ?? '')),
+    'flagged' => (string)($_GET['b2b_flagged'] ?? ''),
+];
+$b2bRepQuery = trim((string)($_GET['b2b_rep_q'] ?? ''));
+$b2bOfferPage = max(1, (int)($_GET['b2b_page'] ?? 1));
+$b2bLogsPage = max(1, (int)($_GET['b2b_logs_page'] ?? 1));
+$b2bRepPage = max(1, (int)($_GET['b2b_rep_page'] ?? 1));
+$b2bPageLimit = 25;
+$b2bOffersCount = 0;
+$b2bLogsCount = 0;
+$b2bReputationCount = 0;
 $reputationSearch = trim((string)($_GET['q'] ?? ''));
 $reputationPlayerId = max(0, (int)($_GET['player_id'] ?? 0));
 
@@ -252,6 +315,20 @@ try {
     } elseif ($activeTab === 'reputation') {
         $reputationRows = $reputationService->listScores($reputationSearch, 100);
         $reputationLogs = $reputationService->recentLogs($reputationPlayerId > 0 ? $reputationPlayerId : null, 100);
+    } elseif ($activeTab === 'b2b') {
+        $b2bConfig = $b2bService->getConfig();
+        $b2bOffers = $b2bService->listAdminOffers($b2bOfferFilters, $b2bPageLimit, ($b2bOfferPage - 1) * $b2bPageLimit);
+        $b2bOffersCount = $b2bService->countAdminOffers($b2bOfferFilters);
+        $b2bLogs = $b2bService->listAdminLogs($b2bPageLimit, ($b2bLogsPage - 1) * $b2bPageLimit);
+        $b2bLogsCount = $b2bService->countAdminLogs();
+        $b2bReputationRows = $b2bService->listReputationScores($b2bRepQuery, $b2bPageLimit, ($b2bRepPage - 1) * $b2bPageLimit);
+        $b2bReputationCount = $b2bService->countReputationScores($b2bRepQuery);
+        $b2bStats = [
+            'open' => (int)$db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'open'")->fetchColumn(),
+            'flagged' => (int)$db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE is_flagged = 1")->fetchColumn(),
+            'completed' => (int)$db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'completed'")->fetchColumn(),
+            'reputation' => (int)$db->query("SELECT COUNT(*) FROM b2b_reputation_scores")->fetchColumn(),
+        ];
     }
 } catch (Throwable $e) {
     GameLog::error('admin/contracts.php', 'view data load FAILED', $e);
@@ -282,6 +359,9 @@ if ($editTermId > 0) {
 $viewData = compact(
     'moduleEnabled', 'options', 'termsByOption', 'activeContracts', 'deliveries', 'logs',
     'reputationRows', 'reputationLogs', 'reputationSearch', 'reputationPlayerId',
+    'b2bConfig', 'b2bOffers', 'b2bLogs', 'b2bStats', 'b2bReputationRows',
+    'b2bOfferFilters', 'b2bRepQuery', 'b2bOfferPage', 'b2bLogsPage', 'b2bRepPage',
+    'b2bPageLimit', 'b2bOffersCount', 'b2bLogsCount', 'b2bReputationCount',
     'activeTab', 'tabs', 'editOption', 'editTerm', 'priceModes', 'severities', 'termTypes', 'msg', 'err'
 );
 
