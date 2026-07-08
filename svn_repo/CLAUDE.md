@@ -65,32 +65,28 @@ Nigdy nie nadpisuj pliku bez wcześniejszego zrobienia takiej kopii.
 
 ## Git — ZASADA OBOWIĄZKOWA
 
-### Git-first: pliki zawsze najpierw w gicie
+### Git-first: zawsze na main
 
-**Każdy plik MUSI być w gicie, zanim trafi na serwer przez FTP.**
-Git jest źródłem prawdy — FTP to tylko transport. GitHub Actions deployuje
-automatycznie z `main` przez FTP. Nigdy nie wysyłaj pliku FTP z pominięciem gita.
-
-Po każdej zmianie pliku ZAWSZE rób commit i push bezpośrednio do `main`.
-Nie używaj feature branchy — każda zmiana musi od razu trafić na `main`,
-żeby GitHub Actions wydeployował ją na serwer.
+**JEDYNA gałąź to `main`.** Nigdy nie używaj feature branchy ani innych gałęzi —
+każda zmiana musi natychmiast trafić na `main`, żeby GitHub Actions wydeployował ją
+na serwer przez FTP. Git jest źródłem prawdy; FTP to tylko transport.
 
 Kolejność zawsze:
 1. Zrób backup (patrz niżej)
 2. Wprowadź zmiany
 3. Zweryfikuj kodowanie
 4. `git add` zmienionych plików + backupów
-5. `git commit -m "..."` — opis **szczegółowy**: co konkretnie dodano lub jaki problem rozwiązano.
-   - Pierwsza linia: krótkie podsumowanie (max ~72 znaki), np. `Wallet: naprawiono duplikat PLN PLN w dialogu potwierdzenia`
-   - Kolejne linie (po pustej): szczegółowy opis — co było źródłem problemu, co zmieniono i dlaczego.
-   - Przykład dobrego opisu:
+5. `git commit` — opis **po polsku**, **szczegółowy**, z **datą wdrożenia**:
+   - Pierwsza linia: `YYYY-MM-DD — Moduł: krótkie podsumowanie (max ~72 znaki)`
+   - Kolejne linie (po pustej): co było źródłem problemu, co zmieniono i dlaczego.
+   - Przykład:
      ```
-     Admin transport: czyszczenie well_road_trips + modalne potwierdzenia
+     2026-07-08 — Dział techniczny: opłata zadania przez bank+gotówka
 
-     - Dodano handler clear_road_trips (stuck/all) analogiczny do clear_marine_deliveries.
-     - Zamieniono natywne confirm() na confirmSubmit() z modal.js — wymóg CLAUDE.md.
-     - Każdy przycisk ma własny formularz z ukrytym clear_scope, bo form.submit() nie
-       przenosi wartości name/value z przycisku po potwierdzeniu w modalu.
+     Błąd: debit() sprawdzał tylko players.cash; gracz z środkami na koncie
+     bankowym dostawał błąd insufficient_funds mimo wystarczającego salda.
+     Zmiana: debit() -> debitCombined(), które pobiera najpierw z banku,
+     potem z gotówki — spójnie z kwotą pokazywaną w UI.
      ```
    - Nigdy nie pisz tylko `fix`, `update`, `changes` bez kontekstu.
 6. `git push -u origin main`
