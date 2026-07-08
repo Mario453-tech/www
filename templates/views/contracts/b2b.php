@@ -1,4 +1,5 @@
 <?php
+// Redeploy 2026-07-08: wymuszenie wgrania (sekcja reputacji B2B z commita d34b425).
 /**
  * B2B contracts partial.
  * Widok czesciowy kontraktow B2B.

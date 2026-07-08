@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+// Redeploy 2026-07-08: wymuszenie wgrania pliku na serwer. Deploy commita d34b425
+// (metoda getPlayerReputationScore) zostal pominiety przez czerwona bramke testow,
+// przez co wersja na produkcji byla nieaktualna (Call to undefined method).
 require_once __DIR__ . '/FinancialTransactionService.php';
 require_once __DIR__ . '/B2BContracts/B2BContractSchema.php';
 

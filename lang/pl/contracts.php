@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+// Redeploy 2026-07-08: wymuszenie wgrania (klucze reputacji B2B z commita d34b425).
 // Contract module translations.
 // Tlumaczenia modulu kontraktow.
 return [

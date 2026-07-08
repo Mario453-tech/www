@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+// Redeploy 2026-07-08: wymuszenie wgrania (integracja reputacji B2B z commita d34b425).
 /**
  * contracts.php - strona gracza: kontrakty dlugoterminowe (podpisz / anuluj).
  * contracts.php - player page: long-term contracts (sign / cancel).
