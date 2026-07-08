@@ -271,7 +271,7 @@ trait TTSTasksTrait
                 // Cash debit via FTS — atomic (row lock + balance check) with a full audit row
                 // in bank_transactions (rule #10). Nested inside this transaction it is safe
                 // (FTS uses a SAVEPOINT).
-                $dr = $fts->debit(
+                $dr = $fts->debitCombined(
                     $this->playerId,
                     $cost,
                     FinancialTransactionService::TYPE_TTS_FEE,
