@@ -11,16 +11,19 @@
  * @var array<int,array<string,mixed>> $b2bMyBuyOffers
  * @var array<int,array<string,mixed>> $b2bMySales
  * @var array<int,array<string,mixed>> $b2bHistory
+ * @var array<int,array<string,mixed>> $b2bDeliveries
  * @var array<int,array<string,mixed>> $b2bLogs
  * @var int $b2bReputationScore
  * @var int $b2bMarketCount
  * @var int $b2bMyBuyCount
  * @var int $b2bMySalesCount
  * @var int $b2bHistoryCount
+ * @var int $b2bDeliveriesCount
  * @var int $b2bLogsCount
  * @var int $b2bMarketPage
  * @var int $b2bMyPage
  * @var int $b2bHistoryPage
+ * @var int $b2bDeliveryPage
  * @var int $b2bLogsPage
  */
 
@@ -95,6 +98,11 @@ $b2bPager = static function (string $tab, string $param, int $page, int $count, 
                 <span class="contracts-card__name"><?= htmlspecialchars((string)($offer['buyer_name'] ?? '')) ?></span>
                 <span class="contracts-badge contracts-badge--status"><?= htmlspecialchars($b2bStatusLabel((string)($offer['status'] ?? 'open'))) ?></span>
             </div>
+            <?php
+                $offerPartial = !empty($offer['partial_delivery_enabled']);
+                $offerMinPct = (float)($offer['min_first_delivery_pct'] ?? (float)($b2bConfig['min_first_delivery_pct'] ?? 25));
+                $offerMinBbl = round((float)$offer['total_bbl'] * $offerMinPct / 100, 2);
+            ?>
             <div class="contracts-terms">
                 <div class="contracts-term">
                     <span class="ct-label"><?= t('contracts.b2b.volume') ?></span>
@@ -112,7 +120,39 @@ $b2bPager = static function (string $tab, string $param, int $page, int $count, 
                     <span class="ct-label"><?= t('contracts.b2b.expires_at') ?></span>
                     <strong class="ct-val"><?= htmlspecialchars(substr((string)$offer['expires_at'], 0, 16)) ?></strong>
                 </div>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.b2b.partial_delivery') ?></span>
+                    <strong class="ct-val"><?= $offerPartial ? t('contracts.b2b.yes') : t('contracts.b2b.no') ?></strong>
+                </div>
+                <?php if ($offerPartial): ?>
+                <div class="contracts-term">
+                    <span class="ct-label"><?= t('contracts.b2b.min_first_delivery') ?></span>
+                    <strong class="ct-val"><?= $b2bFmtBbl($offerMinBbl) ?> <?= t('contracts.unit_bbl') ?></strong>
+                </div>
+                <?php endif ?>
             </div>
+            <?php if ($offerPartial): ?>
+            <details class="contracts-accept-details">
+                <summary class="btn btn-success btn-full"><?= t('contracts.b2b.btn_accept_partial') ?></summary>
+                <form method="post" class="contracts-action-form contracts-accept-form">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="accept_b2b_offer">
+                    <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
+                    <label>
+                        <span><?= t('contracts.b2b.first_delivery_bbl') ?></span>
+                        <input type="number" name="first_delivery_bbl"
+                               min="<?= $offerMinBbl ?>"
+                               max="<?= (float)$offer['total_bbl'] ?>"
+                               step="1" required
+                               value="<?= $offerMinBbl ?>">
+                    </label>
+                    <p class="contracts-accept-hint">
+                        <?= t('contracts.b2b.accept_hint', ['min' => $b2bFmtBbl($offerMinBbl), 'total' => $b2bFmtBbl((float)$offer['total_bbl'])]) ?>
+                    </p>
+                    <button type="submit" class="btn btn-success btn-full"><?= t('contracts.b2b.btn_deliver_first') ?></button>
+                </form>
+            </details>
+            <?php else: ?>
             <form method="post" class="contracts-action-form"
                   data-confirm="<?= htmlspecialchars(tPlain('contracts.b2b.confirm_accept'), ENT_QUOTES, 'UTF-8') ?>"
                   data-confirm-label="<?= htmlspecialchars(tPlain('contracts.b2b.btn_deliver'), ENT_QUOTES, 'UTF-8') ?>">
@@ -121,6 +161,7 @@ $b2bPager = static function (string $tab, string $param, int $page, int $count, 
                 <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
                 <button type="submit" class="btn btn-success btn-full"><?= t('contracts.b2b.btn_deliver') ?></button>
             </form>
+            <?php endif ?>
         </article>
         <?php endforeach ?>
     </div>
@@ -198,11 +239,46 @@ $b2bPager = static function (string $tab, string $param, int $page, int $count, 
     <?php else: ?>
     <div class="contracts-list">
         <?php foreach ($b2bMySales as $offer): ?>
+        <?php
+            $saleRemaining = round((float)$offer['total_bbl'] - (float)$offer['delivered_bbl'], 2);
+            $saleIsActive = (string)$offer['status'] === 'accepted';
+        ?>
         <div class="contracts-row contracts-row--b2b">
             <span data-label="<?= t('contracts.b2b.buyer') ?>"><?= htmlspecialchars((string)($offer['buyer_name'] ?? '')) ?></span>
-            <span data-label="<?= t('contracts.b2b.volume') ?>"><?= $b2bFmtBbl((float)$offer['total_bbl']) ?> <?= t('contracts.unit_bbl') ?></span>
+            <span data-label="<?= t('contracts.b2b.volume') ?>">
+                <?= $b2bFmtBbl((float)$offer['delivered_bbl']) ?> / <?= $b2bFmtBbl((float)$offer['total_bbl']) ?> <?= t('contracts.unit_bbl') ?>
+            </span>
             <span data-label="<?= t('contracts.b2b.total_value') ?>"><?= $b2bFmtMoney((float)$offer['total_value']) ?></span>
+            <span data-label="<?= t('contracts.b2b.released_amount') ?>"><?= $b2bFmtMoney((float)$offer['released_amount']) ?></span>
             <span data-label="<?= t('contracts.status_label') ?>"><?= htmlspecialchars($b2bStatusLabel((string)$offer['status'])) ?></span>
+            <?php if ($saleIsActive && !empty($offer['delivery_deadline_at'])): ?>
+            <span data-label="<?= t('contracts.b2b.deadline') ?>"><?= htmlspecialchars(substr((string)$offer['delivery_deadline_at'], 0, 16)) ?></span>
+            <?php endif ?>
+            <span data-label="<?= t('contracts.b2b.action') ?>">
+                <?php if ($saleIsActive && $saleRemaining > 0): ?>
+                <details class="contracts-accept-details">
+                    <summary class="btn btn-success"><?= t('contracts.b2b.btn_deliver_next') ?></summary>
+                    <form method="post" class="contracts-action-form contracts-accept-form">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action" value="deliver_b2b_partial">
+                        <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
+                        <label>
+                            <span><?= t('contracts.b2b.deliver_bbl') ?></span>
+                            <input type="number" name="deliver_bbl" min="1" max="<?= $saleRemaining ?>" step="1" required value="<?= $saleRemaining ?>">
+                        </label>
+                        <button type="submit" class="btn btn-success"><?= t('contracts.b2b.btn_deliver_confirm') ?></button>
+                    </form>
+                </details>
+                <form method="post" class="contracts-inline-form"
+                      data-confirm="<?= htmlspecialchars(tPlain('contracts.b2b.confirm_abandon'), ENT_QUOTES, 'UTF-8') ?>"
+                      data-confirm-type="warning">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="seller_abandon_b2b">
+                    <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
+                    <button type="submit" class="btn btn-danger btn-xs"><?= t('contracts.b2b.btn_abandon') ?></button>
+                </form>
+                <?php endif ?>
+            </span>
         </div>
         <?php endforeach ?>
     </div>
@@ -230,6 +306,28 @@ $b2bPager = static function (string $tab, string $param, int $page, int $count, 
         <?php endforeach ?>
     </div>
     <?php $b2bPager('b2b_history', 'b2b_history_page', $b2bHistoryPage, $b2bHistoryCount, 12); ?>
+    <?php endif ?>
+</section>
+
+<section class="card">
+    <h3><?= t('contracts.b2b.deliveries_heading') ?></h3>
+    <?php if (empty($b2bDeliveries)): ?>
+    <p class="contracts-empty"><?= t('contracts.b2b.deliveries_empty') ?></p>
+    <?php else: ?>
+    <div class="contracts-list">
+        <?php foreach ($b2bDeliveries as $del): ?>
+        <div class="contracts-row contracts-row--b2b">
+            <span data-label="<?= t('contracts.b2b.created_at') ?>"><?= htmlspecialchars(substr((string)$del['created_at'], 0, 16)) ?></span>
+            <span data-label="<?= t('contracts.b2b.offer_id') ?>">#<?= (int)$del['offer_id'] ?></span>
+            <span data-label="<?= t('contracts.b2b.buyer') ?>"><?= htmlspecialchars((string)($del['buyer_name'] ?? '')) ?></span>
+            <span data-label="<?= t('contracts.b2b.volume') ?>"><?= $b2bFmtBbl((float)$del['delivered_bbl']) ?> <?= t('contracts.unit_bbl') ?></span>
+            <span data-label="<?= t('contracts.b2b.price_per_bbl') ?>"><?= $b2bFmtMoney((float)$del['price_per_bbl']) ?></span>
+            <span data-label="<?= t('contracts.b2b.revenue') ?>"><?= $b2bFmtMoney((float)$del['revenue']) ?></span>
+            <span data-label="<?= t('contracts.b2b.remaining_after') ?>"><?= $b2bFmtBbl((float)$del['remaining_bbl_after']) ?> <?= t('contracts.unit_bbl') ?></span>
+        </div>
+        <?php endforeach ?>
+    </div>
+    <?php $b2bPager('b2b_history', 'historia_b2b_strona', $b2bDeliveryPage, $b2bDeliveriesCount, 12); ?>
     <?php endif ?>
 </section>
 <?php endif ?>

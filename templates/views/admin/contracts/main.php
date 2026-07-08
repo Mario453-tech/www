@@ -598,9 +598,31 @@ $reputationPlayerLabel = static function (array $row): string {
 </section>
 
 <?php elseif ($activeTab === 'b2b'): ?>
+<?php
+$b2bSubTabs = ['pulpit', 'oferty', 'dostawy', 'gracze', 'ustawienia', 'logi'];
+$b2bSubTab = $b2bSubTab ?? 'pulpit';
+?>
+<nav class="contracts-admin-subtabs mb-4">
+    <?php foreach ($b2bSubTabs as $st): ?>
+    <a class="btn btn-xs <?= $b2bSubTab === $st ? 'btn-primary' : 'btn-secondary' ?>"
+       href="/admin/contracts.php?tab=b2b&b2b_subtab=<?= rawurlencode($st) ?>">
+        <?= htmlspecialchars(t('admin.contracts.b2b_subtab_' . $st), ENT_QUOTES, 'UTF-8') ?>
+    </a>
+    <?php endforeach ?>
+</nav>
+
+<?php if ($b2bSubTab === 'pulpit'): ?>
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.contracts.b2b_dashboard_title') ?></p>
     <div class="contracts-admin-stats">
+        <div><span><?= t('admin.contracts.b2b_stat_in_progress') ?></span><strong><?= (int)($b2bDashboard['in_progress'] ?? 0) ?></strong></div>
+        <div><span><?= t('admin.contracts.b2b_stat_deliveries_today') ?></span><strong><?= (int)($b2bDashboard['deliveries_today'] ?? 0) ?></strong></div>
+        <div><span><?= t('admin.contracts.b2b_stat_missing_bbl') ?></span><strong><?= $fmtBbl((float)($b2bDashboard['missing_bbl'] ?? 0)) ?> bbl</strong></div>
+        <div><span><?= t('admin.contracts.b2b_stat_locked_funds') ?></span><strong><?= $fmtPln((float)($b2bDashboard['locked_funds'] ?? 0)) ?></strong></div>
+        <div><span><?= t('admin.contracts.b2b_stat_penalties') ?></span><strong><?= $fmtPln((float)($b2bDashboard['penalties'] ?? 0)) ?></strong></div>
+        <div><span><?= t('admin.contracts.b2b_stat_overdue') ?></span><strong><?= (int)($b2bDashboard['overdue'] ?? 0) ?></strong></div>
+    </div>
+    <div class="contracts-admin-stats mt-4">
         <div><span><?= t('admin.contracts.b2b_stat_open') ?></span><strong><?= (int)($b2bStats['open'] ?? 0) ?></strong></div>
         <div><span><?= t('admin.contracts.b2b_stat_flagged') ?></span><strong><?= (int)($b2bStats['flagged'] ?? 0) ?></strong></div>
         <div><span><?= t('admin.contracts.b2b_stat_completed') ?></span><strong><?= (int)($b2bStats['completed'] ?? 0) ?></strong></div>
@@ -608,63 +630,18 @@ $reputationPlayerLabel = static function (array $row): string {
     </div>
 </section>
 
-<section class="panel mb-8">
-    <p class="panel-title"><?= t('admin.contracts.b2b_settings_title') ?></p>
-    <form method="post" action="/admin/contracts.php?tab=b2b">
-        <?= CSRF::field() ?>
-        <input type="hidden" name="action" value="b2b_save_config">
-        <div class="form-row form-row--gap">
-            <div class="form-field">
-                <label class="module-toggle-label">
-                    <input type="checkbox" name="module_enabled" value="1" <?= ((float)($b2bConfig['module_enabled'] ?? 0) > 0) ? 'checked' : '' ?>>
-                    <?= t('admin.contracts.b2b_module_enabled') ?>
-                </label>
-            </div>
-            <div class="form-field">
-                <label><?= t('admin.contracts.b2b_min_price_pct') ?></label>
-                <input type="number" name="min_price_market_pct" min="1" step="1" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['min_price_market_pct'] ?? 70)) ?>">
-            </div>
-            <div class="form-field">
-                <label><?= t('admin.contracts.b2b_max_price_pct') ?></label>
-                <input type="number" name="max_price_market_pct" min="1" step="1" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['max_price_market_pct'] ?? 130)) ?>">
-            </div>
-            <div class="form-field">
-                <label><?= t('admin.contracts.b2b_cancel_penalty_pct') ?></label>
-                <input type="number" name="buyer_cancel_penalty_pct" min="0" max="100" step="0.01" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['buyer_cancel_penalty_pct'] ?? 10)) ?>">
-            </div>
-        </div>
-        <div class="form-row form-row--gap">
-            <div class="form-field">
-                <label><?= t('admin.contracts.b2b_min_bbl') ?></label>
-                <input type="number" name="min_bbl_per_offer" min="1" step="1" class="input-sm input-num-90" value="<?= htmlspecialchars((string)($b2bConfig['min_bbl_per_offer'] ?? 100)) ?>">
-            </div>
-            <div class="form-field">
-                <label><?= t('admin.contracts.b2b_max_bbl') ?></label>
-                <input type="number" name="max_bbl_per_offer" min="1" step="1" class="input-sm input-num-90" value="<?= htmlspecialchars((string)($b2bConfig['max_bbl_per_offer'] ?? 50000)) ?>">
-            </div>
-            <div class="form-field">
-                <label><?= t('admin.contracts.b2b_max_open') ?></label>
-                <input type="number" name="max_open_offers_per_player" min="1" step="1" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['max_open_offers_per_player'] ?? 5)) ?>">
-            </div>
-            <div class="form-field">
-                <label><?= t('admin.contracts.b2b_review_threshold') ?></label>
-                <input type="number" name="admin_review_threshold_value" min="0" step="1000" class="input-sm input-num-120" value="<?= htmlspecialchars((string)($b2bConfig['admin_review_threshold_value'] ?? 5000000)) ?>">
-            </div>
-        </div>
-        <button type="submit" class="btn btn-success"><?= t('admin.contracts.btn_save_module') ?></button>
-    </form>
-</section>
-
+<?php elseif ($b2bSubTab === 'oferty'): ?>
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.contracts.b2b_offers_title') ?></p>
     <form method="get" action="/admin/contracts.php" class="contracts-filter-form">
         <input type="hidden" name="tab" value="b2b">
+        <input type="hidden" name="b2b_subtab" value="oferty">
         <div class="form-row form-row--gap">
             <div class="form-field">
                 <label><?= t('admin.contracts.b2b_filter_status') ?></label>
                 <select name="b2b_status" class="input-sm">
                     <option value=""><?= t('admin.contracts.b2b_filter_all') ?></option>
-                    <?php foreach (['open', 'completed', 'cancelled', 'expired', 'failed', 'flagged'] as $statusOpt): ?>
+                    <?php foreach (['open', 'accepted', 'completed', 'cancelled', 'expired', 'failed', 'partial_done', 'flagged'] as $statusOpt): ?>
                     <option value="<?= $statusOpt ?>" <?= (string)($b2bOfferFilters['status'] ?? '') === $statusOpt ? 'selected' : '' ?>>
                         <?= htmlspecialchars($b2bStatusLabel($statusOpt), ENT_QUOTES, 'UTF-8') ?>
                     </option>
@@ -693,28 +670,34 @@ $reputationPlayerLabel = static function (array $row): string {
     <p class="panel-hint"><?= t('admin.contracts.b2b_offers_empty') ?></p>
     <?php else: ?>
     <div class="contracts-admin-grid">
-        <div class="contracts-admin-row contracts-admin-row--b2b contracts-admin-row--head">
+        <div class="contracts-admin-row contracts-admin-row--b2b-ext contracts-admin-row--head">
             <span><?= t('admin.contracts.col_date') ?></span>
             <span><?= t('admin.contracts.b2b_col_buyer') ?></span>
             <span><?= t('admin.contracts.b2b_col_seller') ?></span>
             <span><?= t('admin.contracts.b2b_col_volume') ?></span>
-            <span><?= t('admin.contracts.b2b_col_value') ?></span>
-            <span><?= t('admin.contracts.b2b_col_reputation') ?></span>
+            <span><?= t('admin.contracts.b2b_col_delivered') ?></span>
+            <span><?= t('admin.contracts.b2b_col_remaining') ?></span>
+            <span><?= t('admin.contracts.b2b_col_paid') ?></span>
+            <span><?= t('admin.contracts.b2b_col_escrow_left') ?></span>
+            <span><?= t('admin.contracts.b2b_col_penalty') ?></span>
             <span><?= t('admin.contracts.col_status') ?></span>
             <span><?= t('admin.contracts.col_actions') ?></span>
         </div>
         <?php foreach ($b2bOffers as $offer): ?>
-        <div class="contracts-admin-row contracts-admin-row--b2b">
+        <div class="contracts-admin-row contracts-admin-row--b2b-ext">
             <span><small><?= htmlspecialchars(substr((string)$offer['created_at'], 0, 16)) ?></small></span>
             <span><?= htmlspecialchars((string)($offer['buyer_name'] ?? '')) ?></span>
             <span><?= htmlspecialchars((string)($offer['seller_name'] ?? '')) ?></span>
             <span><?= $fmtBbl((float)$offer['total_bbl']) ?> bbl</span>
-            <span><?= $fmtPln((float)$offer['total_value']) ?></span>
-            <span><?= (int)($offer['buyer_b2b_score'] ?? 50) ?>/100</span>
+            <span><?= $fmtBbl((float)($offer['delivered_bbl'] ?? 0)) ?> bbl</span>
+            <span><?= $fmtBbl(max(0.0, (float)$offer['total_bbl'] - (float)($offer['delivered_bbl'] ?? 0))) ?> bbl</span>
+            <span><?= $fmtPln((float)($offer['released_amount'] ?? 0)) ?></span>
+            <span><?= $fmtPln((float)($offer['remaining_escrow_amount'] ?? 0)) ?></span>
+            <span><?= $offer['seller_penalty_amount'] > 0 ? $fmtPln((float)$offer['seller_penalty_amount']) : '—' ?></span>
             <span><?= htmlspecialchars($b2bStatusLabel((string)$offer['status'])) ?><?= !empty($offer['is_flagged']) ? ' / ' . t('admin.contracts.b2b_flagged') : '' ?></span>
             <span class="contracts-admin-actions contracts-admin-actions--stack">
                 <?php if (empty($offer['is_flagged'])): ?>
-                <form method="post" action="/admin/contracts.php?tab=b2b" class="contracts-inline-form">
+                <form method="post" action="/admin/contracts.php?tab=b2b&b2b_subtab=oferty" class="contracts-inline-form">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action" value="b2b_flag_offer">
                     <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
@@ -722,7 +705,7 @@ $reputationPlayerLabel = static function (array $row): string {
                     <button type="submit" class="btn btn-xs btn-secondary"><?= t('admin.contracts.b2b_btn_flag') ?></button>
                 </form>
                 <?php else: ?>
-                <form method="post" action="/admin/contracts.php?tab=b2b" class="contracts-inline-form">
+                <form method="post" action="/admin/contracts.php?tab=b2b&b2b_subtab=oferty" class="contracts-inline-form">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action" value="b2b_unflag_offer">
                     <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
@@ -730,7 +713,7 @@ $reputationPlayerLabel = static function (array $row): string {
                 </form>
                 <?php endif ?>
                 <?php if ((string)$offer['status'] === 'open'): ?>
-                <form method="post" action="/admin/contracts.php?tab=b2b" class="contracts-inline-form"
+                <form method="post" action="/admin/contracts.php?tab=b2b&b2b_subtab=oferty" class="contracts-inline-form"
                       data-confirm="<?= htmlspecialchars(tPlain('admin.contracts.b2b_confirm_cancel'), ENT_QUOTES, 'UTF-8') ?>" data-confirm-type="warning">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action" value="b2b_cancel_offer">
@@ -748,15 +731,52 @@ $reputationPlayerLabel = static function (array $row): string {
             'b2b_status' => (string)($b2bOfferFilters['status'] ?? ''),
             'b2b_flagged' => (string)($b2bOfferFilters['flagged'] ?? ''),
             'b2b_q' => (string)($b2bOfferFilters['query'] ?? ''),
+            'b2b_subtab' => 'oferty',
         ]);
     ?>
     <?php endif ?>
 </section>
 
+<?php elseif ($b2bSubTab === 'dostawy'): ?>
+<section class="panel mb-8">
+    <p class="panel-title"><?= t('admin.contracts.b2b_deliveries_title') ?></p>
+    <?php if (empty($b2bDeliveries)): ?>
+    <p class="panel-hint"><?= t('admin.contracts.b2b_deliveries_empty') ?></p>
+    <?php else: ?>
+    <div class="contracts-admin-grid">
+        <div class="contracts-admin-row contracts-admin-row--b2b-del contracts-admin-row--head">
+            <span><?= t('admin.contracts.col_date') ?></span>
+            <span><?= t('admin.contracts.b2b_col_offer') ?></span>
+            <span><?= t('admin.contracts.b2b_col_buyer') ?></span>
+            <span><?= t('admin.contracts.b2b_col_seller') ?></span>
+            <span><?= t('admin.contracts.b2b_col_delivered') ?></span>
+            <span><?= t('admin.contracts.b2b_col_price') ?></span>
+            <span><?= t('admin.contracts.b2b_col_revenue') ?></span>
+            <span><?= t('admin.contracts.b2b_col_remaining_after') ?></span>
+        </div>
+        <?php foreach ($b2bDeliveries as $del): ?>
+        <div class="contracts-admin-row contracts-admin-row--b2b-del">
+            <span><small><?= htmlspecialchars(substr((string)$del['created_at'], 0, 16)) ?></small></span>
+            <span>#<?= (int)$del['offer_id'] ?></span>
+            <span><?= htmlspecialchars((string)($del['buyer_name'] ?? '')) ?></span>
+            <span><?= htmlspecialchars((string)($del['seller_name'] ?? '')) ?></span>
+            <span><?= $fmtBbl((float)$del['delivered_bbl']) ?> bbl</span>
+            <span><?= $fmtPln((float)$del['price_per_bbl']) ?></span>
+            <span><?= $fmtPln((float)$del['revenue']) ?></span>
+            <span><?= $fmtBbl((float)$del['remaining_bbl_after']) ?> bbl</span>
+        </div>
+        <?php endforeach ?>
+    </div>
+    <?php $b2bPager('b2b_dostawy_strona', $b2bDeliveriesPage, $b2bDeliveriesCount, $b2bPageLimit, ['b2b_subtab' => 'dostawy']); ?>
+    <?php endif ?>
+</section>
+
+<?php elseif ($b2bSubTab === 'gracze'): ?>
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.contracts.b2b_reputation_title') ?></p>
     <form method="get" action="/admin/contracts.php" class="contracts-filter-form">
         <input type="hidden" name="tab" value="b2b">
+        <input type="hidden" name="b2b_subtab" value="gracze">
         <div class="form-row form-row--gap">
             <div class="form-field form-field--wide">
                 <label><?= t('admin.contracts.b2b_filter_query') ?></label>
@@ -793,10 +813,93 @@ $reputationPlayerLabel = static function (array $row): string {
         </div>
         <?php endforeach ?>
     </div>
-    <?php $b2bPager('b2b_rep_page', $b2bRepPage, $b2bReputationCount, $b2bPageLimit, ['b2b_rep_q' => $b2bRepQuery]); ?>
+    <?php $b2bPager('b2b_rep_page', $b2bRepPage, $b2bReputationCount, $b2bPageLimit, ['b2b_rep_q' => $b2bRepQuery, 'b2b_subtab' => 'gracze']); ?>
     <?php endif ?>
 </section>
 
+<?php elseif ($b2bSubTab === 'ustawienia'): ?>
+<section class="panel mb-8">
+    <p class="panel-title"><?= t('admin.contracts.b2b_settings_title') ?></p>
+    <form method="post" action="/admin/contracts.php?tab=b2b&b2b_subtab=ustawienia">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="b2b_save_config">
+        <div class="form-row form-row--gap">
+            <div class="form-field">
+                <label class="module-toggle-label">
+                    <input type="checkbox" name="module_enabled" value="1" <?= ((float)($b2bConfig['module_enabled'] ?? 0) > 0) ? 'checked' : '' ?>>
+                    <?= t('admin.contracts.b2b_module_enabled') ?>
+                </label>
+            </div>
+            <div class="form-field">
+                <label class="module-toggle-label">
+                    <input type="checkbox" name="partial_delivery_enabled" value="1" <?= ((float)($b2bConfig['partial_delivery_enabled'] ?? 1) > 0) ? 'checked' : '' ?>>
+                    <?= t('admin.contracts.b2b_partial_delivery_enabled') ?>
+                </label>
+            </div>
+            <div class="form-field">
+                <label class="module-toggle-label">
+                    <input type="checkbox" name="allow_multiple_deliveries" value="1" <?= ((float)($b2bConfig['allow_multiple_deliveries'] ?? 1) > 0) ? 'checked' : '' ?>>
+                    <?= t('admin.contracts.b2b_allow_multiple_deliveries') ?>
+                </label>
+            </div>
+            <div class="form-field">
+                <label class="module-toggle-label">
+                    <input type="checkbox" name="auto_finalize_after_deadline" value="1" <?= ((float)($b2bConfig['auto_finalize_after_deadline'] ?? 1) > 0) ? 'checked' : '' ?>>
+                    <?= t('admin.contracts.b2b_auto_finalize') ?>
+                </label>
+            </div>
+        </div>
+        <div class="form-row form-row--gap">
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_min_first_delivery_pct') ?></label>
+                <input type="number" name="min_first_delivery_pct" min="0" max="100" step="1" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['min_first_delivery_pct'] ?? 25)) ?>">
+            </div>
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_seller_penalty_pct') ?></label>
+                <input type="number" name="seller_penalty_pct" min="0" max="100" step="0.01" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['seller_penalty_pct'] ?? 10)) ?>">
+            </div>
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_delivery_deadline_minutes') ?></label>
+                <input type="number" name="delivery_deadline_minutes" min="1" step="1" class="input-sm input-num-90" value="<?= htmlspecialchars((string)($b2bConfig['delivery_deadline_minutes'] ?? 1440)) ?>">
+            </div>
+        </div>
+        <div class="form-row form-row--gap">
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_min_price_pct') ?></label>
+                <input type="number" name="min_price_market_pct" min="1" step="1" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['min_price_market_pct'] ?? 70)) ?>">
+            </div>
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_max_price_pct') ?></label>
+                <input type="number" name="max_price_market_pct" min="1" step="1" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['max_price_market_pct'] ?? 130)) ?>">
+            </div>
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_cancel_penalty_pct') ?></label>
+                <input type="number" name="buyer_cancel_penalty_pct" min="0" max="100" step="0.01" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['buyer_cancel_penalty_pct'] ?? 10)) ?>">
+            </div>
+        </div>
+        <div class="form-row form-row--gap">
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_min_bbl') ?></label>
+                <input type="number" name="min_bbl_per_offer" min="1" step="1" class="input-sm input-num-90" value="<?= htmlspecialchars((string)($b2bConfig['min_bbl_per_offer'] ?? 100)) ?>">
+            </div>
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_max_bbl') ?></label>
+                <input type="number" name="max_bbl_per_offer" min="1" step="1" class="input-sm input-num-90" value="<?= htmlspecialchars((string)($b2bConfig['max_bbl_per_offer'] ?? 50000)) ?>">
+            </div>
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_max_open') ?></label>
+                <input type="number" name="max_open_offers_per_player" min="1" step="1" class="input-sm input-num-70" value="<?= htmlspecialchars((string)($b2bConfig['max_open_offers_per_player'] ?? 5)) ?>">
+            </div>
+            <div class="form-field">
+                <label><?= t('admin.contracts.b2b_review_threshold') ?></label>
+                <input type="number" name="admin_review_threshold_value" min="0" step="1000" class="input-sm input-num-120" value="<?= htmlspecialchars((string)($b2bConfig['admin_review_threshold_value'] ?? 5000000)) ?>">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success"><?= t('admin.contracts.btn_save_module') ?></button>
+    </form>
+</section>
+
+<?php elseif ($b2bSubTab === 'logi'): ?>
 <section class="panel mb-8">
     <p class="panel-title"><?= t('admin.contracts.b2b_logs_title') ?></p>
     <?php if (empty($b2bLogs)): ?>
@@ -818,9 +921,11 @@ $reputationPlayerLabel = static function (array $row): string {
         </div>
         <?php endforeach ?>
     </div>
-    <?php $b2bPager('b2b_logs_page', $b2bLogsPage, $b2bLogsCount, $b2bPageLimit); ?>
+    <?php $b2bPager('b2b_logs_page', $b2bLogsPage, $b2bLogsCount, $b2bPageLimit, ['b2b_subtab' => 'logi']); ?>
     <?php endif ?>
 </section>
+<?php endif ?>
+
 
 <?php elseif ($activeTab === 'help'): ?>
 <!-- == POMOC / HELP == -->

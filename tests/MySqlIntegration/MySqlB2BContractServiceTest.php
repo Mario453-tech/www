@@ -18,6 +18,9 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
             $this->db->prepare('DELETE FROM b2b_contract_logs WHERE player_id IN (?, ?)')->execute([$ids['buyer'], $ids['seller']]);
             $this->db->prepare('DELETE FROM b2b_reputation_logs WHERE player_id IN (?, ?)')->execute([$ids['buyer'], $ids['seller']]);
             $this->db->prepare('DELETE FROM b2b_reputation_scores WHERE player_id IN (?, ?)')->execute([$ids['buyer'], $ids['seller']]);
+            $this->db->prepare('DELETE FROM b2b_contract_deliveries WHERE buyer_player_id IN (?, ?) OR seller_player_id IN (?, ?)')->execute([
+                $ids['buyer'], $ids['seller'], $ids['buyer'], $ids['seller'],
+            ]);
             $this->db->prepare('DELETE FROM b2b_contract_offers WHERE buyer_player_id IN (?, ?) OR seller_player_id IN (?, ?)')->execute([
                 $ids['buyer'], $ids['seller'], $ids['buyer'], $ids['seller'],
             ]);
@@ -30,6 +33,53 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
         }
 
         parent::tearDown();
+    }
+
+    /**
+     * Weryfikuje ze FOR UPDATE blokuje double-delivery.
+     * Test symuluje rase condition przez dwa sequentiale wywolania
+     * na tle stanu ktory powinien pozwolic tylko jednej dostawie przejsc.
+     * W produkcji SELECT FOR UPDATE zapewnia atomowosc — tutaj testujemy
+     * poprawnosc state machine (drugi deliverPartial widzi completed).
+     */
+    public function testConcurrentDeliverPartialOnlyOneSucceedsMysql(): void
+    {
+        $ids = $this->getB2BIds();
+        $this->seedB2BPlayer($ids['buyer'], 0.0, 50000.0);
+        $this->seedB2BPlayer($ids['seller'], 0.0, 0.0);
+        $this->db->prepare('INSERT INTO storage (player_id, capacity, used) VALUES (?, ?, ?)')
+            ->execute([$ids['seller'], 2000.0, 500.0]);
+
+        $service = new B2BContractService($this->db);
+        $created = $service->createBuyOffer($ids['buyer'], 100.0, 100.0, 120);
+        $this->assertTrue($created['success'], (string)($created['status'] ?? 'create_failed'));
+        $offerId = (int)$created['offer_id'];
+
+        // Seller accepts with 30 bbl first delivery
+        $accepted = $service->acceptOffer($ids['seller'], $offerId, 30.0);
+        $this->assertTrue($accepted['success'], json_encode($accepted) ?: 'accept_failed');
+
+        // Simulated race: two deliveries for remaining 70 bbl
+        // First call delivers exactly remaining 70 and completes the offer
+        $first = $service->deliverPartial($ids['seller'], $offerId, 70.0);
+        // Second call arrives after — should fail because offer is now 'completed'
+        $second = $service->deliverPartial($ids['seller'], $offerId, 70.0);
+
+        $this->assertTrue($first['success'], json_encode($first) ?: 'first_delivery_failed');
+        $this->assertSame('completed', $first['status']);
+        $this->assertFalse($second['success'], 'Second deliverPartial must fail after completion');
+        $this->assertSame('not_accepted', $second['status']);
+
+        // Total delivered must equal total_bbl (100), never more
+        $stmt = $this->db->prepare('SELECT delivered_bbl, total_bbl FROM b2b_contract_offers WHERE id = ?');
+        $stmt->execute([$offerId]);
+        $data = $stmt->fetch();
+        $this->assertSame(100.0, round((float)$data['delivered_bbl'], 2));
+
+        // Exactly 2 delivery records: initial acceptOffer + one deliverPartial
+        $stmt2 = $this->db->prepare('SELECT COUNT(*) FROM b2b_contract_deliveries WHERE offer_id = ?');
+        $stmt2->execute([$offerId]);
+        $this->assertSame(2, (int)$stmt2->fetchColumn());
     }
 
     public function testSameOfferCanBeAcceptedOnlyOnce(): void

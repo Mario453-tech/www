@@ -215,6 +215,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'max_open_offers_per_player' => max(1, (int)($_POST['max_open_offers_per_player'] ?? 5)),
             'buyer_cancel_penalty_pct' => max(0, min(100, (float)($_POST['buyer_cancel_penalty_pct'] ?? 10))),
             'admin_review_threshold_value' => max(0, (float)($_POST['admin_review_threshold_value'] ?? 5000000)),
+            'partial_delivery_enabled' => !empty($_POST['partial_delivery_enabled']) ? 1 : 0,
+            'min_first_delivery_pct' => max(0, min(100, (float)($_POST['min_first_delivery_pct'] ?? 25))),
+            'seller_penalty_pct' => max(0, min(100, (float)($_POST['seller_penalty_pct'] ?? 10))),
+            'delivery_deadline_minutes' => max(1, (int)($_POST['delivery_deadline_minutes'] ?? 1440)),
+            'allow_multiple_deliveries' => !empty($_POST['allow_multiple_deliveries']) ? 1 : 0,
+            'auto_finalize_after_deadline' => !empty($_POST['auto_finalize_after_deadline']) ? 1 : 0,
         ]);
         AdminLog::log('contracts_b2b_config_save', 'B2B contracts config saved');
         $msg = t('admin.contracts.b2b_msg_config_saved');
@@ -263,6 +269,8 @@ $b2bConfig        = [];
 $b2bOffers        = [];
 $b2bLogs          = [];
 $b2bStats         = [];
+$b2bDashboard     = [];
+$b2bDeliveries    = [];
 $b2bReputationRows = [];
 $b2bOfferFilters = [
     'status' => (string)($_GET['b2b_status'] ?? ''),
@@ -273,10 +281,13 @@ $b2bRepQuery = trim((string)($_GET['b2b_rep_q'] ?? ''));
 $b2bOfferPage = max(1, (int)($_GET['b2b_page'] ?? 1));
 $b2bLogsPage = max(1, (int)($_GET['b2b_logs_page'] ?? 1));
 $b2bRepPage = max(1, (int)($_GET['b2b_rep_page'] ?? 1));
+$b2bDeliveriesPage = max(1, (int)($_GET['b2b_dostawy_strona'] ?? 1));
+$b2bSubTab = (string)($_GET['b2b_subtab'] ?? 'pulpit');
 $b2bPageLimit = 25;
 $b2bOffersCount = 0;
 $b2bLogsCount = 0;
 $b2bReputationCount = 0;
+$b2bDeliveriesCount = 0;
 $reputationSearch = trim((string)($_GET['q'] ?? ''));
 $reputationPlayerId = max(0, (int)($_GET['player_id'] ?? 0));
 
@@ -317,8 +328,11 @@ try {
         $reputationLogs = $reputationService->recentLogs($reputationPlayerId > 0 ? $reputationPlayerId : null, 100);
     } elseif ($activeTab === 'b2b') {
         $b2bConfig = $b2bService->getConfig();
+        $b2bDashboard = $b2bService->getDashboardStats();
         $b2bOffers = $b2bService->listAdminOffers($b2bOfferFilters, $b2bPageLimit, ($b2bOfferPage - 1) * $b2bPageLimit);
         $b2bOffersCount = $b2bService->countAdminOffers($b2bOfferFilters);
+        $b2bDeliveries = $b2bService->listAdminDeliveries([], $b2bPageLimit, ($b2bDeliveriesPage - 1) * $b2bPageLimit);
+        $b2bDeliveriesCount = $b2bService->countAdminDeliveries();
         $b2bLogs = $b2bService->listAdminLogs($b2bPageLimit, ($b2bLogsPage - 1) * $b2bPageLimit);
         $b2bLogsCount = $b2bService->countAdminLogs();
         $b2bReputationRows = $b2bService->listReputationScores($b2bRepQuery, $b2bPageLimit, ($b2bRepPage - 1) * $b2bPageLimit);
@@ -359,9 +373,10 @@ if ($editTermId > 0) {
 $viewData = compact(
     'moduleEnabled', 'options', 'termsByOption', 'activeContracts', 'deliveries', 'logs',
     'reputationRows', 'reputationLogs', 'reputationSearch', 'reputationPlayerId',
-    'b2bConfig', 'b2bOffers', 'b2bLogs', 'b2bStats', 'b2bReputationRows',
+    'b2bConfig', 'b2bOffers', 'b2bLogs', 'b2bStats', 'b2bDashboard', 'b2bDeliveries', 'b2bReputationRows',
     'b2bOfferFilters', 'b2bRepQuery', 'b2bOfferPage', 'b2bLogsPage', 'b2bRepPage',
-    'b2bPageLimit', 'b2bOffersCount', 'b2bLogsCount', 'b2bReputationCount',
+    'b2bDeliveriesPage', 'b2bSubTab', 'b2bPageLimit', 'b2bOffersCount', 'b2bLogsCount',
+    'b2bReputationCount', 'b2bDeliveriesCount',
     'activeTab', 'tabs', 'editOption', 'editTerm', 'priceModes', 'severities', 'termTypes', 'msg', 'err'
 );
 

@@ -44,6 +44,12 @@ final class B2BContractService
             'buyer_cancel_penalty_pct' => 10,
             'admin_review_threshold_value' => 5000000,
             'flag_price_near_limit' => 1,
+            'partial_delivery_enabled' => 1,
+            'min_first_delivery_pct' => 25,
+            'seller_penalty_pct' => 10,
+            'delivery_deadline_minutes' => 1440,
+            'allow_multiple_deliveries' => 1,
+            'auto_finalize_after_deadline' => 1,
         ];
 
         try {
@@ -299,9 +305,22 @@ final class B2BContractService
     }
 
     /**
+     * Backward-compatible wrapper — delivers the full amount at once.
      * @return array{success:bool,status:string,message_key:string,total_value?:float}
      */
     public function acceptAndDeliver(int $sellerPlayerId, int $offerId): array
+    {
+        $offer = $this->offerById($offerId);
+        if ($offer === null) {
+            return $this->result(false, 'not_found', 'contracts.b2b.not_found');
+        }
+        return $this->acceptOffer($sellerPlayerId, $offerId, (float)$offer['total_bbl']);
+    }
+
+    /**
+     * @return array{success:bool,status:string,message_key:string,first_delivery_bbl?:float,remaining_bbl?:float,revenue?:float,min_first_bbl?:float}
+     */
+    public function acceptOffer(int $sellerPlayerId, int $offerId, float $firstDeliveryBbl): array
     {
         if (!$this->isModuleEnabled()) {
             return $this->result(false, 'disabled', 'contracts.b2b.disabled');
@@ -309,6 +328,9 @@ final class B2BContractService
         if (!$this->playerExists($sellerPlayerId)) {
             return $this->result(false, 'seller_not_found', 'contracts.b2b.seller_not_found');
         }
+
+        $cfg = $this->getConfig();
+        $firstDeliveryBbl = round(max(0.0, $firstDeliveryBbl), 2);
 
         $this->db->beginTransaction();
         try {
@@ -330,67 +352,424 @@ final class B2BContractService
                 return $this->result(false, 'expired', 'contracts.b2b.expired');
             }
 
-            $bbl = (float)$offer['total_bbl'];
-            if ($this->availableOil($sellerPlayerId) + 1e-9 < $bbl) {
+            $totalBbl = (float)$offer['total_bbl'];
+            $minFirstBbl = round($totalBbl * ((float)$cfg['min_first_delivery_pct'] / 100), 2);
+
+            if ($firstDeliveryBbl < $minFirstBbl - 1e-9) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'status' => 'below_min_first_delivery',
+                    'message_key' => 'contracts.b2b.below_min_first_delivery',
+                    'min_first_bbl' => $minFirstBbl,
+                ];
+            }
+
+            // Cap to total_bbl
+            $firstDeliveryBbl = min($firstDeliveryBbl, $totalBbl);
+
+            if ($this->availableOil($sellerPlayerId) + 1e-9 < $firstDeliveryBbl) {
                 $this->db->rollBack();
                 return $this->result(false, 'insufficient_oil', 'contracts.b2b.insufficient_oil');
             }
 
-            if (!$this->deductOil($sellerPlayerId, $bbl)) {
+            $deadlineMinutes = max(1, (int)$cfg['delivery_deadline_minutes']);
+            $deadlineAt = date('Y-m-d H:i:s', time() + ($deadlineMinutes * 60));
+
+            $deliveryResult = $this->executeDelivery($offerId, $offer, $sellerPlayerId, $firstDeliveryBbl);
+            if (!$deliveryResult['success']) {
                 $this->db->rollBack();
-                return $this->result(false, 'insufficient_oil', 'contracts.b2b.insufficient_oil');
+                return $this->result(false, $deliveryResult['status'], 'contracts.b2b.' . $deliveryResult['status']);
             }
-            $totalValue = (float)$offer['total_value'];
-            $credit = $this->fts->credit(
-                $sellerPlayerId,
-                $totalValue,
-                FinancialTransactionService::TYPE_B2B_TRADE_REVENUE,
-                'B2B oil delivery revenue',
-                'b2b_contract_offer',
-                $offerId
-            );
-            if (empty($credit['success'])) {
-                $this->db->rollBack();
-                return $this->result(false, 'payment_failed', 'contracts.b2b.payment_failed');
-            }
+
+            $remainingBbl = $deliveryResult['remaining_bbl'];
+            $newStatus = $remainingBbl <= 1e-9 ? 'completed' : 'accepted';
 
             $stmt = $this->db->prepare(
                 "UPDATE b2b_contract_offers
-                 SET seller_player_id = ?, status = 'completed', delivered_bbl = total_bbl,
-                     escrow_status = 'released', completed_at = ?, updated_at = ?
+                 SET seller_player_id = ?,
+                     status = ?,
+                     accepted_at = ?,
+                     delivery_deadline_at = ?,
+                     partial_delivery_enabled = ?,
+                     min_first_delivery_pct = ?,
+                     seller_penalty_pct = ?,
+                     updated_at = ?
                  WHERE id = ? AND status = 'open'"
             );
-            $stmt->execute([$sellerPlayerId, $this->now(), $this->now(), $offerId]);
+            $stmt->execute([
+                $sellerPlayerId,
+                $newStatus,
+                $this->now(),
+                $deadlineAt,
+                (int)$cfg['partial_delivery_enabled'],
+                (float)$cfg['min_first_delivery_pct'],
+                (float)$cfg['seller_penalty_pct'],
+                $this->now(),
+                $offerId,
+            ]);
             if ($stmt->rowCount() !== 1) {
                 $this->db->rollBack();
                 return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
             }
 
-            $this->logEvent($offerId, $sellerPlayerId, 'completed', 'B2B offer accepted and delivered', [
+            if ($newStatus === 'completed') {
+                $this->db->prepare(
+                    "UPDATE b2b_contract_offers SET completed_at = ?, escrow_status = 'released' WHERE id = ?"
+                )->execute([$this->now(), $offerId]);
+                $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
+                    'buy_completed' => 1, 'total_bought_bbl' => $totalBbl,
+                ]);
+                $this->recordReputation($sellerPlayerId, $offerId, 'seller_completed', 3, [
+                    'sell_completed' => 1, 'total_sold_bbl' => $totalBbl,
+                ]);
+                $this->logEvent($offerId, $sellerPlayerId, 'offer_completed', 'B2B offer fully delivered on acceptance', [
+                    'total_bbl' => $totalBbl,
+                    'total_value' => $deliveryResult['revenue'],
+                ]);
+            }
+
+            $this->logEvent($offerId, $sellerPlayerId, 'offer_accepted', 'B2B offer accepted', [
                 'seller_player_id' => $sellerPlayerId,
-                'total_value' => $totalValue,
-            ]);
-            $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
-                'buy_completed' => 1,
-                'total_bought_bbl' => $bbl,
-            ]);
-            $this->recordReputation($sellerPlayerId, $offerId, 'seller_completed', 3, [
-                'sell_completed' => 1,
-                'total_sold_bbl' => $bbl,
+                'first_delivery_bbl' => $firstDeliveryBbl,
+                'remaining_bbl' => $remainingBbl,
+                'deadline_at' => $deadlineAt,
+                'status' => $newStatus,
             ]);
             $this->db->commit();
 
             return [
                 'success' => true,
-                'status' => 'completed',
-                'message_key' => 'contracts.b2b.completed',
-                'total_value' => $totalValue,
+                'status' => $newStatus,
+                'message_key' => $newStatus === 'completed' ? 'contracts.b2b.completed' : 'contracts.b2b.accepted',
+                'first_delivery_bbl' => $firstDeliveryBbl,
+                'remaining_bbl' => $remainingBbl,
+                'revenue' => $deliveryResult['revenue'],
             ];
         } catch (Throwable $e) {
             $this->safeRollback();
-            $this->logFailure('acceptAndDeliver', $e);
+            $this->logFailure('acceptOffer', $e);
             return $this->result(false, 'db_error', 'contracts.b2b.db_error');
         }
+    }
+
+    /**
+     * @return array{success:bool,status:string,message_key:string,delivered_bbl?:float,revenue?:float,remaining_bbl?:float}
+     */
+    public function deliverPartial(int $sellerPlayerId, int $offerId, float $bbl): array
+    {
+        if (!$this->isModuleEnabled()) {
+            return $this->result(false, 'disabled', 'contracts.b2b.disabled');
+        }
+        if (!$this->playerExists($sellerPlayerId)) {
+            return $this->result(false, 'seller_not_found', 'contracts.b2b.seller_not_found');
+        }
+
+        $bbl = round(max(0.0, $bbl), 2);
+        if ($bbl <= 1e-9) {
+            return $this->result(false, 'invalid_amount', 'contracts.b2b.invalid_amount');
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $offer = $this->lockOffer($offerId);
+            if ($offer === null) {
+                $this->db->rollBack();
+                return $this->result(false, 'not_found', 'contracts.b2b.not_found');
+            }
+            if ((string)$offer['status'] !== 'accepted') {
+                $this->db->rollBack();
+                return $this->result(false, 'not_accepted', 'contracts.b2b.not_accepted');
+            }
+            if ((int)$offer['seller_player_id'] !== $sellerPlayerId) {
+                $this->db->rollBack();
+                return $this->result(false, 'forbidden', 'contracts.b2b.forbidden');
+            }
+
+            $deadline = (string)($offer['delivery_deadline_at'] ?? '');
+            if ($deadline !== '' && strtotime($deadline) <= time()) {
+                $this->db->rollBack();
+                return $this->result(false, 'deadline_passed', 'contracts.b2b.deadline_passed');
+            }
+
+            $totalBbl = (float)$offer['total_bbl'];
+            $deliveredSoFar = (float)$offer['delivered_bbl'];
+            $remainingBbl = round($totalBbl - $deliveredSoFar, 2);
+
+            if ($remainingBbl <= 1e-9) {
+                $this->db->rollBack();
+                return $this->result(false, 'already_completed', 'contracts.b2b.already_completed');
+            }
+
+            // Cap to what's still owed
+            $bbl = min($bbl, $remainingBbl);
+
+            if ($this->availableOil($sellerPlayerId) + 1e-9 < $bbl) {
+                $this->db->rollBack();
+                return $this->result(false, 'insufficient_oil', 'contracts.b2b.insufficient_oil');
+            }
+
+            $deliveryResult = $this->executeDelivery($offerId, $offer, $sellerPlayerId, $bbl);
+            if (!$deliveryResult['success']) {
+                $this->db->rollBack();
+                return $this->result(false, $deliveryResult['status'], 'contracts.b2b.' . $deliveryResult['status']);
+            }
+
+            $newRemaining = $deliveryResult['remaining_bbl'];
+            $newStatus = $newRemaining <= 1e-9 ? 'completed' : 'accepted';
+
+            $stmt = $this->db->prepare(
+                "UPDATE b2b_contract_offers SET status = ?, updated_at = ? WHERE id = ? AND status = 'accepted'"
+            );
+            $stmt->execute([$newStatus, $this->now(), $offerId]);
+
+            if ($newStatus === 'completed') {
+                $this->db->prepare(
+                    "UPDATE b2b_contract_offers SET completed_at = ?, escrow_status = 'released' WHERE id = ?"
+                )->execute([$this->now(), $offerId]);
+                $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
+                    'buy_completed' => 1, 'total_bought_bbl' => $totalBbl,
+                ]);
+                $this->recordReputation($sellerPlayerId, $offerId, 'seller_completed', 3, [
+                    'sell_completed' => 1, 'total_sold_bbl' => $totalBbl,
+                ]);
+                $this->logEvent($offerId, $sellerPlayerId, 'offer_completed', 'B2B offer fully delivered', [
+                    'total_bbl' => $totalBbl,
+                ]);
+            }
+
+            $this->logEvent($offerId, $sellerPlayerId, 'partial_delivery_made', 'B2B partial delivery', [
+                'bbl' => $bbl,
+                'revenue' => $deliveryResult['revenue'],
+                'remaining_bbl' => $newRemaining,
+                'status' => $newStatus,
+            ]);
+            $this->logEvent($offerId, $sellerPlayerId, 'partial_payment_released', 'B2B partial payment released', [
+                'amount' => $deliveryResult['revenue'],
+            ]);
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'status' => $newStatus,
+                'message_key' => $newStatus === 'completed' ? 'contracts.b2b.completed' : 'contracts.b2b.partial_delivered',
+                'delivered_bbl' => $bbl,
+                'revenue' => $deliveryResult['revenue'],
+                'remaining_bbl' => $newRemaining,
+            ];
+        } catch (Throwable $e) {
+            $this->safeRollback();
+            $this->logFailure('deliverPartial', $e);
+            return $this->result(false, 'db_error', 'contracts.b2b.db_error');
+        }
+    }
+
+    /**
+     * @return array{success:bool,status:string,message_key:string,delivered_bbl?:float,missing_bbl?:float,refund_amount?:float,penalty_amount?:float}
+     */
+    public function finalizeAcceptedOffer(int $offerId, ?DateTimeInterface $now = null): array
+    {
+        $nowSql = $now ? $now->format('Y-m-d H:i:s') : $this->now();
+
+        $this->db->beginTransaction();
+        try {
+            $offer = $this->lockOffer($offerId);
+            if ($offer === null) {
+                $this->db->rollBack();
+                return $this->result(false, 'not_found', 'contracts.b2b.not_found');
+            }
+            if ((string)$offer['status'] !== 'accepted') {
+                $this->db->rollBack();
+                return $this->result(false, 'not_accepted', 'contracts.b2b.not_accepted');
+            }
+
+            $deadline = (string)($offer['delivery_deadline_at'] ?? '');
+            if ($deadline !== '' && strtotime($deadline) > strtotime($nowSql)) {
+                $this->db->rollBack();
+                return $this->result(false, 'deadline_not_passed', 'contracts.b2b.deadline_not_passed');
+            }
+
+            $totalBbl = (float)$offer['total_bbl'];
+            $deliveredBbl = (float)$offer['delivered_bbl'];
+            $missingBbl = round($totalBbl - $deliveredBbl, 2);
+
+            $totalEscrow = (float)$offer['escrow_amount'];
+            $releasedSoFar = (float)$offer['released_amount'];
+            $remainingEscrow = max(0.0, round($totalEscrow - $releasedSoFar, 2));
+
+            $penaltyPct = max(0.0, (float)$offer['seller_penalty_pct']);
+            $missingValue = round($missingBbl * (float)$offer['price_per_bbl'], 2);
+            $penaltyAmount = round($missingValue * ($penaltyPct / 100), 2);
+
+            $buyerPlayerId = (int)$offer['buyer_player_id'];
+            $sellerPlayerId = (int)$offer['seller_player_id'];
+
+            if ($remainingEscrow > 0) {
+                $credit = $this->fts->credit(
+                    $buyerPlayerId,
+                    $remainingEscrow,
+                    FinancialTransactionService::TYPE_B2B_ESCROW_REFUND,
+                    'B2B remaining escrow refund after deadline',
+                    'b2b_contract_offer',
+                    $offerId
+                );
+                if (empty($credit['success'])) {
+                    $this->db->rollBack();
+                    return $this->result(false, 'refund_failed', 'contracts.b2b.refund_failed');
+                }
+            }
+
+            if ($penaltyAmount > 0 && $sellerPlayerId > 0) {
+                $debit = $this->fts->debitCombined(
+                    $sellerPlayerId,
+                    $penaltyAmount,
+                    FinancialTransactionService::TYPE_B2B_CANCEL_PENALTY,
+                    'B2B seller penalty for undelivered oil',
+                    'b2b_contract_offer',
+                    $offerId
+                );
+                if (empty($debit['success'])) {
+                    // Log but do not block finalization
+                    $penaltyAmount = 0.0;
+                    $this->logEvent($offerId, $sellerPlayerId, 'seller_penalty_skipped',
+                        'Seller penalty skipped: insufficient funds', [
+                        'attempted' => round($missingValue * ($penaltyPct / 100), 2),
+                    ]);
+                }
+            }
+
+            $newStatus = $deliveredBbl <= 1e-9 ? 'failed' : 'partial_done';
+
+            $this->db->prepare(
+                "UPDATE b2b_contract_offers
+                 SET status = ?,
+                     remaining_bbl = 0,
+                     remaining_escrow_amount = 0,
+                     seller_penalty_amount = ?,
+                     escrow_status = 'refunded',
+                     updated_at = ?
+                 WHERE id = ?"
+            )->execute([$newStatus, $penaltyAmount, $nowSql, $offerId]);
+
+            if ($sellerPlayerId > 0) {
+                $this->recordReputation($sellerPlayerId, $offerId, 'seller_penalty', -3, []);
+            }
+
+            if ($remainingEscrow > 0) {
+                $this->logEvent($offerId, $buyerPlayerId, 'remaining_escrow_refunded',
+                    'Remaining escrow refunded to buyer', ['amount' => $remainingEscrow]);
+            }
+            if ($penaltyAmount > 0) {
+                $this->logEvent($offerId, $sellerPlayerId, 'seller_penalty_charged',
+                    'Seller penalty charged', [
+                    'missing_bbl' => $missingBbl,
+                    'penalty_amount' => $penaltyAmount,
+                    'penalty_pct' => $penaltyPct,
+                ]);
+            }
+            $eventKey = $newStatus === 'failed' ? 'offer_failed' : 'offer_partially_completed';
+            $this->logEvent($offerId, null, $eventKey, "B2B offer finalized: {$newStatus}", [
+                'delivered_bbl' => $deliveredBbl,
+                'missing_bbl' => $missingBbl,
+                'refunded' => $remainingEscrow,
+            ]);
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'status' => $newStatus,
+                'message_key' => 'contracts.b2b.' . $newStatus,
+                'delivered_bbl' => $deliveredBbl,
+                'missing_bbl' => $missingBbl,
+                'refund_amount' => $remainingEscrow,
+                'penalty_amount' => $penaltyAmount,
+            ];
+        } catch (Throwable $e) {
+            $this->safeRollback();
+            $this->logFailure('finalizeAcceptedOffer', $e);
+            return $this->result(false, 'db_error', 'contracts.b2b.db_error');
+        }
+    }
+
+    /**
+     * @return array{finalized:int,partial_done:int,failed:int,penalties:float}
+     */
+    public function finalizeExpiredAcceptedOffers(?DateTimeInterface $now = null): array
+    {
+        $nowSql = $now ? $now->format('Y-m-d H:i:s') : $this->now();
+        $stmt = $this->db->prepare(
+            "SELECT id FROM b2b_contract_offers
+             WHERE status = 'accepted' AND delivery_deadline_at IS NOT NULL AND delivery_deadline_at <= ?
+             ORDER BY id ASC"
+        );
+        $stmt->execute([$nowSql]);
+        $ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0) ?: [];
+
+        $finalized = 0;
+        $partialDone = 0;
+        $failed = 0;
+        $penalties = 0.0;
+        foreach ($ids as $offerId) {
+            $result = $this->finalizeAcceptedOffer((int)$offerId, $now);
+            if (!empty($result['success'])) {
+                $finalized++;
+                $status = (string)($result['status'] ?? '');
+                if ($status === 'partial_done') {
+                    $partialDone++;
+                } elseif ($status === 'failed') {
+                    $failed++;
+                }
+                $penalties += (float)($result['penalty_amount'] ?? 0.0);
+            }
+        }
+
+        return [
+            'finalized' => $finalized,
+            'partial_done' => $partialDone,
+            'failed' => $failed,
+            'penalties' => round($penalties, 2),
+        ];
+    }
+
+    /**
+     * @return array{success:bool,status:string,message_key:string}
+     */
+    public function sellerAbandonOffer(int $sellerPlayerId, int $offerId, string $reason = ''): array
+    {
+        $offer = $this->offerById($offerId);
+        if ($offer === null) {
+            return $this->result(false, 'not_found', 'contracts.b2b.not_found');
+        }
+        if ((string)$offer['status'] !== 'accepted') {
+            return $this->result(false, 'not_accepted', 'contracts.b2b.not_accepted');
+        }
+        if ((int)$offer['seller_player_id'] !== $sellerPlayerId) {
+            return $this->result(false, 'forbidden', 'contracts.b2b.forbidden');
+        }
+
+        // Set deadline to past so finalizeAcceptedOffer() proceeds immediately
+        try {
+            $this->db->prepare(
+                "UPDATE b2b_contract_offers SET delivery_deadline_at = '2000-01-01 00:00:00' WHERE id = ? AND status = 'accepted'"
+            )->execute([$offerId]);
+        } catch (Throwable $e) {
+            $this->logFailure('sellerAbandonOffer:deadline', $e);
+            return $this->result(false, 'db_error', 'contracts.b2b.db_error');
+        }
+
+        $result = $this->finalizeAcceptedOffer($offerId);
+
+        if (!empty($result['success'])) {
+            try {
+                $this->logEvent($offerId, $sellerPlayerId, 'seller_abandoned_offer', 'Seller abandoned the offer', [
+                    'reason' => $reason,
+                ]);
+            } catch (Throwable) {}
+        }
+
+        return $result;
     }
 
     /**
@@ -780,6 +1159,187 @@ final class B2BContractService
         return max(0, min(100, $score === false ? 50 : (int)$score));
     }
 
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function listAdminDeliveries(array $filters = [], int $limit = 50, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT d.*,
+                    COALESCE(pb.company_name, pb.username, '') AS buyer_name,
+                    COALESCE(ps.company_name, ps.username, '') AS seller_name
+             FROM b2b_contract_deliveries d
+             LEFT JOIN players pb ON pb.id = d.buyer_player_id
+             LEFT JOIN players ps ON ps.id = d.seller_player_id
+             ORDER BY d.id DESC
+             LIMIT ? OFFSET ?"
+        );
+        $stmt->bindValue(1, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $stmt->bindValue(2, max(0, $offset), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function countAdminDeliveries(array $filters = []): int
+    {
+        return (int)$this->db->query('SELECT COUNT(*) FROM b2b_contract_deliveries')->fetchColumn();
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function listMyDeliveries(int $playerId, int $limit = 50, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT d.*,
+                    COALESCE(pb.company_name, pb.username, '') AS buyer_name,
+                    COALESCE(ps.company_name, ps.username, '') AS seller_name
+             FROM b2b_contract_deliveries d
+             LEFT JOIN players pb ON pb.id = d.buyer_player_id
+             LEFT JOIN players ps ON ps.id = d.seller_player_id
+             WHERE d.seller_player_id = ? OR d.buyer_player_id = ?
+             ORDER BY d.id DESC
+             LIMIT ? OFFSET ?"
+        );
+        $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(3, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $stmt->bindValue(4, max(0, $offset), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function countMyDeliveries(int $playerId): int
+    {
+        $stmt = $this->db->prepare(
+            'SELECT COUNT(*) FROM b2b_contract_deliveries WHERE seller_player_id = ? OR buyer_player_id = ?'
+        );
+        $stmt->execute([$playerId, $playerId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
+     * @return array<string,int|float>
+     */
+    public function getDashboardStats(): array
+    {
+        $stats = [
+            'in_progress' => 0,
+            'deliveries_today' => 0,
+            'missing_bbl' => 0.0,
+            'locked_funds' => 0.0,
+            'penalties' => 0.0,
+            'overdue' => 0,
+        ];
+        try {
+            $today = date('Y-m-d');
+            $stats['in_progress'] = (int)$this->db->query(
+                "SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'accepted'"
+            )->fetchColumn();
+            $stats['deliveries_today'] = (int)$this->db->query(
+                "SELECT COUNT(*) FROM b2b_contract_deliveries WHERE DATE(created_at) = '{$today}'"
+            )->fetchColumn();
+            $stats['missing_bbl'] = (float)$this->db->query(
+                "SELECT COALESCE(SUM(total_bbl - delivered_bbl), 0) FROM b2b_contract_offers WHERE status = 'accepted'"
+            )->fetchColumn();
+            $stats['locked_funds'] = (float)$this->db->query(
+                "SELECT COALESCE(SUM(remaining_escrow_amount), 0) FROM b2b_contract_offers WHERE status = 'accepted'"
+            )->fetchColumn();
+            $stats['penalties'] = (float)$this->db->query(
+                "SELECT COALESCE(SUM(seller_penalty_amount), 0) FROM b2b_contract_offers WHERE status IN ('partial_done','failed')"
+            )->fetchColumn();
+            $stats['overdue'] = (int)$this->db->query(
+                "SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'accepted' AND delivery_deadline_at < NOW()"
+            )->fetchColumn();
+        } catch (Throwable) {}
+        return $stats;
+    }
+
+    /**
+     * Shared delivery logic used by acceptOffer() and deliverPartial().
+     * Assumes the calling method holds a transaction and has already locked the offer.
+     *
+     * @param array<string,mixed> $offer
+     * @return array{success:bool,status:string,revenue?:float,remaining_bbl?:float,remaining_escrow?:float}
+     */
+    private function executeDelivery(int $offerId, array $offer, int $sellerPlayerId, float $bbl): array
+    {
+        $bbl = round($bbl, 2);
+        $pricePerBbl = (float)$offer['price_per_bbl'];
+        $totalBbl = (float)$offer['total_bbl'];
+        $deliveredSoFar = (float)$offer['delivered_bbl'];
+        $currentRemaining = round($totalBbl - $deliveredSoFar, 2);
+
+        $totalEscrow = (float)$offer['escrow_amount'];
+        $releasedSoFar = (float)$offer['released_amount'];
+        $currentEscrow = max(0.0, round($totalEscrow - $releasedSoFar, 2));
+
+        $revenue = round($bbl * $pricePerBbl, 2);
+        $revenue = min($revenue, $currentEscrow);
+        $newEscrow = round($currentEscrow - $revenue, 2);
+        $newDelivered = round($deliveredSoFar + $bbl, 2);
+        $newRemaining = max(0.0, round($currentRemaining - $bbl, 2));
+
+        if (!$this->deductOil($sellerPlayerId, $bbl)) {
+            return ['success' => false, 'status' => 'insufficient_oil'];
+        }
+
+        $credit = $this->fts->credit(
+            $sellerPlayerId,
+            $revenue,
+            FinancialTransactionService::TYPE_B2B_TRADE_REVENUE,
+            'B2B delivery revenue',
+            'b2b_contract_offer',
+            $offerId
+        );
+        if (empty($credit['success'])) {
+            return ['success' => false, 'status' => 'payment_failed'];
+        }
+
+        $this->db->prepare(
+            "INSERT INTO b2b_contract_deliveries
+                 (offer_id, buyer_player_id, seller_player_id, delivered_bbl, price_per_bbl, revenue,
+                  escrow_before, escrow_after, remaining_bbl_after, status, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'delivered', ?)"
+        )->execute([
+            $offerId,
+            (int)$offer['buyer_player_id'],
+            $sellerPlayerId,
+            $bbl,
+            $pricePerBbl,
+            $revenue,
+            $currentEscrow,
+            $newEscrow,
+            $newRemaining,
+            $this->now(),
+        ]);
+
+        $this->db->prepare(
+            "UPDATE b2b_contract_offers
+             SET delivered_bbl = ?,
+                 remaining_bbl = ?,
+                 released_amount = ?,
+                 remaining_escrow_amount = ?,
+                 updated_at = ?
+             WHERE id = ?"
+        )->execute([
+            $newDelivered,
+            $newRemaining,
+            round($releasedSoFar + $revenue, 2),
+            $newEscrow,
+            $this->now(),
+            $offerId,
+        ]);
+
+        return [
+            'success' => true,
+            'status' => 'ok',
+            'revenue' => $revenue,
+            'remaining_bbl' => $newRemaining,
+            'remaining_escrow' => $newEscrow,
+        ];
+    }
+
     private function expireSingleOffer(int $offerId): array
     {
         $this->db->beginTransaction();
@@ -1028,7 +1588,7 @@ final class B2BContractService
         $where = [];
         $params = [];
         $status = (string)($filters['status'] ?? '');
-        if (in_array($status, ['open', 'completed', 'cancelled', 'expired', 'failed', 'flagged'], true)) {
+        if (in_array($status, ['open', 'accepted', 'completed', 'cancelled', 'expired', 'failed', 'partial_done', 'flagged'], true)) {
             $where[] = 'o.status = ?';
             $params[] = $status;
         }

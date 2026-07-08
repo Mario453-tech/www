@@ -187,9 +187,366 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $ctx = new TickContext($this->db, new DateTimeImmutable('2000-01-02 00:00:00'), 'test');
         $module->run($ctx);
 
-        $this->assertSame(['expired' => 1, 'refunded' => 10000.0], $module->stats());
+        $stats = $module->stats();
+        $this->assertSame(1, $stats['b2b_contracts_expired']);
+        $this->assertSame(10000.0, $stats['b2b_contracts_refunded']);
+        $this->assertSame(0, $stats['b2b_contracts_finalized']);
         $this->assertSame(50000.0, $this->bankOf(1));
         $this->assertSame('expired', $this->offerStatus($offerId));
+    }
+
+    // =========================================================
+    // Testy dostaw czesciowych / Partial delivery tests
+    // =========================================================
+
+    public function testAcceptOfferWithPartialDeliverySetsStatusAccepted(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        // minFirstBbl = 100 * 25% = 25; deliver 30 > 25
+        $result = $this->service->acceptOffer(2, $offerId, 30.0);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('accepted', $result['status']);
+        $this->assertSame('accepted', $this->offerStatus($offerId));
+        $this->assertSame(70.0, $result['remaining_bbl']);
+    }
+
+    public function testAcceptOfferRejectsBelowMinFirstDelivery(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        // minFirstBbl = 25; deliver 10 < 25 -> error
+        $result = $this->service->acceptOffer(2, $offerId, 10.0);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('below_min_first_delivery', $result['status']);
+        $this->assertGreaterThan(10.0, (float)$result['min_first_bbl']);
+        $this->assertSame('open', $this->offerStatus($offerId));
+    }
+
+    public function testAcceptOfferRejectsWhenInsufficientOilForFirstDelivery(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 5.0); // 5 bbl < min 25 bbl
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+
+        $result = $this->service->acceptOffer(2, $offerId, 30.0);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('insufficient_oil', $result['status']);
+        $this->assertSame('open', $this->offerStatus($offerId));
+        $this->assertSame(5.0, $this->storageOf(2));
+    }
+
+    public function testAcceptOfferWithFullDeliveryCompletesOffer(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+
+        $result = $this->service->acceptOffer(2, $offerId, 100.0); // full delivery
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame('completed', $this->offerStatus($offerId));
+        $this->assertSame(0.0, $result['remaining_bbl']);
+    }
+
+    public function testAcceptOfferPaymentsProportionalToDelivered(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        // deliver 40 bbl @ 100/bbl = 4000 pln revenue
+        $result = $this->service->acceptOffer(2, $offerId, 40.0);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(4000.0, $result['revenue']);
+        $this->assertSame(4000.0, $this->bankOf(2));
+    }
+
+    public function testAcceptOfferDecreasesReleasedAmountAndRemainingBbl(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        // escrow = 10000; deliver 40 bbl -> released 4000, remaining 60 bbl
+        $this->service->acceptOffer(2, $offerId, 40.0);
+
+        $row = $this->db->query(
+            "SELECT released_amount, remaining_bbl, remaining_escrow_amount
+             FROM b2b_contract_offers WHERE id = {$offerId}"
+        )->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame(4000.0, round((float)$row['released_amount'], 2));
+        $this->assertSame(60.0, round((float)$row['remaining_bbl'], 2));
+        $this->assertSame(6000.0, round((float)$row['remaining_escrow_amount'], 2));
+    }
+
+    public function testAcceptOfferSetsDeadlineOnOffer(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+
+        $this->service->acceptOffer(2, $offerId, 30.0);
+
+        $deadline = (string)$this->db->query(
+            "SELECT delivery_deadline_at FROM b2b_contract_offers WHERE id = {$offerId}"
+        )->fetchColumn();
+        $this->assertNotEmpty($deadline);
+        $this->assertNotSame('0000-00-00 00:00:00', $deadline);
+        $this->assertGreaterThan(time(), strtotime($deadline));
+    }
+
+    public function testDeliverPartialAddsDeliveryRecordAndPays(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0); // first delivery: 3000 pln
+        // Second delivery
+        $result = $this->service->deliverPartial(2, $offerId, 20.0);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(20.0, $result['delivered_bbl']);
+        $this->assertSame(2000.0, $result['revenue']);
+        $this->assertSame(5000.0, $this->bankOf(2)); // 3000 + 2000
+        $this->assertSame(2, $this->deliveryCount($offerId));
+    }
+
+    public function testDeliverPartialCapsExceedingBblToRemaining(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0); // remaining = 70
+
+        // request 200 bbl but only 70 remain; capped to 70
+        $result = $this->service->deliverPartial(2, $offerId, 200.0);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(70.0, $result['delivered_bbl']);
+        $this->assertSame('completed', $this->offerStatus($offerId));
+    }
+
+    public function testDeliverPartialAfterDeadlineReturnsError(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0);
+        $this->db->prepare("UPDATE b2b_contract_offers SET delivery_deadline_at = ? WHERE id = ?")
+            ->execute(['2000-01-01 00:00:00', $offerId]);
+
+        $result = $this->service->deliverPartial(2, $offerId, 20.0);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('deadline_passed', $result['status']);
+        $this->assertSame('accepted', $this->offerStatus($offerId)); // unchanged
+    }
+
+    public function testDeliverPartialCompletesOfferWhenAllDelivered(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0); // remaining 70
+
+        $result = $this->service->deliverPartial(2, $offerId, 70.0);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame('completed', $this->offerStatus($offerId));
+        $this->assertSame(0.0, $result['remaining_bbl']);
+    }
+
+    public function testFinalizeAfterPartialDeliverySetsPartialDoneStatus(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0); // 30 delivered, 70 left
+        $this->db->prepare("UPDATE b2b_contract_offers SET delivery_deadline_at = ? WHERE id = ?")
+            ->execute(['2000-01-01 00:00:00', $offerId]);
+
+        $result = $this->service->finalizeAcceptedOffer($offerId, new DateTimeImmutable('2001-01-01'));
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('partial_done', $result['status']);
+        $this->assertSame('partial_done', $this->offerStatus($offerId));
+        $this->assertSame(30.0, $result['delivered_bbl']);
+        $this->assertSame(70.0, $result['missing_bbl']);
+    }
+
+    public function testFinalizeWithZeroDeliverySetsFailed(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        // Simulate: offer accepted but 0 delivered (manual state injection)
+        $this->db->prepare(
+            "UPDATE b2b_contract_offers
+             SET status = 'accepted', seller_player_id = ?, delivered_bbl = 0,
+                 remaining_bbl = total_bbl, delivery_deadline_at = ?, seller_penalty_pct = 10.0
+             WHERE id = ?"
+        )->execute([2, '2000-01-01 00:00:00', $offerId]);
+
+        $result = $this->service->finalizeAcceptedOffer($offerId, new DateTimeImmutable('2001-01-01'));
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('failed', $result['status']);
+        $this->assertSame('failed', $this->offerStatus($offerId));
+        $this->assertSame(0.0, $result['delivered_bbl']);
+    }
+
+    public function testFinalizeRefundsRemainingEscrowToBuyer(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0); // buyer bank 50000
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        // After create: buyer bank = 40000 (10000 escrow locked)
+        $this->assertSame(40000.0, $this->bankOf(1));
+
+        $this->service->acceptOffer(2, $offerId, 30.0); // seller gets 3000, escrow 7000 remaining
+        $this->assertSame(40000.0, $this->bankOf(1)); // buyer bank unchanged during delivery
+
+        $this->db->prepare("UPDATE b2b_contract_offers SET delivery_deadline_at = ? WHERE id = ?")
+            ->execute(['2000-01-01 00:00:00', $offerId]);
+        $this->service->finalizeAcceptedOffer($offerId, new DateTimeImmutable('2001-01-01'));
+
+        // buyer gets back remaining 7000 escrow
+        $this->assertSame(47000.0, $this->bankOf(1));
+        $this->assertSame(1, $this->txCount(FinancialTransactionService::TYPE_B2B_ESCROW_REFUND));
+    }
+
+    public function testFinalizeChargesSellerPenaltyForMissingBbl(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 500.0); // seller has 500 in bank
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0); // seller.bank = 3000 after payment
+
+        $this->db->prepare("UPDATE b2b_contract_offers SET delivery_deadline_at = ? WHERE id = ?")
+            ->execute(['2000-01-01 00:00:00', $offerId]);
+        $sellerBankBefore = $this->bankOf(2); // 500 + 3000 = 3500
+        $result = $this->service->finalizeAcceptedOffer($offerId, new DateTimeImmutable('2001-01-01'));
+
+        // missing = 70 bbl * 100 = 7000 value, penalty = 700 (10%)
+        $this->assertSame(700.0, $result['penalty_amount']);
+        $sellerDelta = round($this->bankOf(2) - $sellerBankBefore, 2);
+        $this->assertSame(-700.0, $sellerDelta);
+    }
+
+    public function testListMyDeliveriesReturnsRecordsFromDeliveriesTable(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0);   // delivery 1
+        $this->service->deliverPartial(2, $offerId, 20.0); // delivery 2
+
+        $deliveries = $this->service->listMyDeliveries(2, 10, 0);
+        $count = $this->service->countMyDeliveries(2);
+
+        $this->assertCount(2, $deliveries);
+        $this->assertSame(2, $count);
+        $deliveredBbls = array_map(static fn($d) => round((float)$d['delivered_bbl'], 2), $deliveries);
+        $this->assertContains(30.0, $deliveredBbls);
+        $this->assertContains(20.0, $deliveredBbls);
+    }
+
+    public function testListAdminDeliveriesReturnsAllDeliveries(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0);
+
+        $deliveries = $this->service->listAdminDeliveries([], 10, 0);
+        $count = $this->service->countAdminDeliveries([]);
+
+        $this->assertCount(1, $deliveries);
+        $this->assertSame(1, $count);
+        $this->assertSame((int)$offerId, (int)$deliveries[0]['offer_id']);
+        $this->assertSame(30.0, round((float)$deliveries[0]['delivered_bbl'], 2));
+    }
+
+    public function testKeyEventsAreLoggedToContractLogsTable(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0);
+        $this->service->deliverPartial(2, $offerId, 20.0);
+
+        $eventKeys = $this->db->query(
+            "SELECT event_key FROM b2b_contract_logs ORDER BY id"
+        )->fetchAll(PDO::FETCH_COLUMN);
+
+        $this->assertContains('offer_accepted', $eventKeys);
+        $this->assertContains('partial_delivery_made', $eventKeys);
+        $this->assertContains('partial_payment_released', $eventKeys);
+    }
+
+    public function testListMyDeliveriesPaginationReturnsCorrectOffset(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 1000.0);
+        // Offer for 200 bbl so we can do 3 deliveries
+        $offerId = (int)$this->service->createBuyOffer(1, 200.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 50.0);    // delivery 1
+        $this->service->deliverPartial(2, $offerId, 80.0); // delivery 2
+        $this->service->deliverPartial(2, $offerId, 70.0); // delivery 3
+
+        $page1 = $this->service->listMyDeliveries(2, 2, 0); // first 2
+        $page2 = $this->service->listMyDeliveries(2, 2, 2); // third one
+
+        $this->assertCount(2, $page1);
+        $this->assertCount(1, $page2);
+        $this->assertSame(3, $this->service->countMyDeliveries(2));
+    }
+
+    public function testTickModuleFinalizesSetsCorrectStatsKeys(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0);
+        $this->db->prepare("UPDATE b2b_contract_offers SET delivery_deadline_at = ? WHERE id = ?")
+            ->execute(['2000-01-01 00:00:00', $offerId]);
+
+        $module = new B2BContractsModule();
+        $ctx = new TickContext($this->db, new DateTimeImmutable('2001-01-01 00:00:00'), 'test');
+        $module->run($ctx);
+
+        $stats = $module->stats();
+        $this->assertSame(0, $stats['b2b_contracts_expired']);
+        $this->assertSame(1, $stats['b2b_contracts_finalized']);
+        $this->assertSame(1, $stats['b2b_contracts_partial_done']);
+        $this->assertSame(0, $stats['b2b_contracts_failed']);
+        $this->assertSame('partial_done', $this->offerStatus($offerId));
     }
 
     public function testAdminFlagUnflagAndCancel(): void
@@ -306,6 +663,13 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
     {
         $stmt = $this->db->prepare('SELECT score FROM b2b_reputation_scores WHERE player_id = ?');
         $stmt->execute([$playerId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    private function deliveryCount(int $offerId): int
+    {
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM b2b_contract_deliveries WHERE offer_id = ?');
+        $stmt->execute([$offerId]);
         return (int)$stmt->fetchColumn();
     }
 }

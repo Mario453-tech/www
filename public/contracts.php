@@ -81,9 +81,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'accept_b2b_offer') {
             $redirectTab = 'b2b_market';
             $offerId = (int)($_POST['offer_id'] ?? 0);
-            $res = $b2bService->acceptAndDeliver($playerId, $offerId);
+            $firstBbl = (float)str_replace(',', '.', (string)($_POST['first_delivery_bbl'] ?? '0'));
+            if ($firstBbl <= 0) {
+                // No first_delivery_bbl supplied — fall back to full delivery (old flow)
+                $res = $b2bService->acceptAndDeliver($playerId, $offerId);
+            } else {
+                $res = $b2bService->acceptOffer($playerId, $offerId, $firstBbl);
+            }
             if (!empty($res['success'])) {
                 $_SESSION['contracts_flash'] = ['success' => tPlain((string)($res['message_key'] ?? 'contracts.b2b.completed'))];
+                $redirectTab = 'b2b_my';
+            } else {
+                $_SESSION['contracts_flash'] = ['error' => tPlain((string)($res['message_key'] ?? 'contracts.b2b.db_error'))];
+            }
+        } elseif ($action === 'deliver_b2b_partial') {
+            $redirectTab = 'b2b_my';
+            $offerId = (int)($_POST['offer_id'] ?? 0);
+            $bbl = (float)str_replace(',', '.', (string)($_POST['deliver_bbl'] ?? '0'));
+            $res = $b2bService->deliverPartial($playerId, $offerId, $bbl);
+            if (!empty($res['success'])) {
+                $_SESSION['contracts_flash'] = ['success' => tPlain((string)($res['message_key'] ?? 'contracts.b2b.partial_delivered'))];
+            } else {
+                $_SESSION['contracts_flash'] = ['error' => tPlain((string)($res['message_key'] ?? 'contracts.b2b.db_error'))];
+            }
+        } elseif ($action === 'seller_abandon_b2b') {
+            $redirectTab = 'b2b_my';
+            $offerId = (int)($_POST['offer_id'] ?? 0);
+            $reason = trim((string)($_POST['reason'] ?? 'seller_abandoned'));
+            $res = $b2bService->sellerAbandonOffer($playerId, $offerId, $reason);
+            if (!empty($res['success'])) {
+                $_SESSION['contracts_flash'] = ['success' => tPlain('contracts.b2b.seller_abandoned')];
             } else {
                 $_SESSION['contracts_flash'] = ['error' => tPlain((string)($res['message_key'] ?? 'contracts.b2b.db_error'))];
             }
@@ -139,6 +166,9 @@ $b2bMySales = $b2bService->listMySales($playerId, $limit, ($b2bMyPage - 1) * $li
 $b2bMySalesCount = $b2bService->countMySales($playerId);
 $b2bHistory = $b2bService->listPlayerHistory($playerId, $limit, ($b2bHistoryPage - 1) * $limit);
 $b2bHistoryCount = $b2bService->countPlayerHistory($playerId);
+$b2bDeliveryPage = $pageNum('historia_b2b_strona');
+$b2bDeliveries = $b2bService->listMyDeliveries($playerId, $limit, ($b2bDeliveryPage - 1) * $limit);
+$b2bDeliveriesCount = $b2bService->countMyDeliveries($playerId);
 $b2bLogs = $b2bService->listPlayerLogs($playerId, $logsLimit, ($b2bLogsPage - 1) * $logsLimit);
 $b2bLogsCount = $b2bService->countPlayerLogs($playerId);
 
@@ -166,6 +196,9 @@ $viewData = compact(
     'b2bHistory',
     'b2bHistoryCount',
     'b2bHistoryPage',
+    'b2bDeliveries',
+    'b2bDeliveriesCount',
+    'b2bDeliveryPage',
     'b2bLogs',
     'b2bLogsCount',
     'b2bLogsPage'
