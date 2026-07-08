@@ -712,7 +712,14 @@ class FinancialTransactionService
 
             if ($bankBalance + $cash + 1e-9 < $amount) {
                 $this->rollbackUnit($unit);
-                return $this->fail('insufficient_funds', $amount);
+                return [
+                    'success'        => false,
+                    'transaction_id' => null,
+                    'error'          => 'insufficient_funds',
+                    'amount'         => round($amount, 2),
+                    'cash'           => $cash,
+                    'bank_balance'   => $bankBalance,
+                ];
             }
 
             // Odejmij od bank_balance najpierw, reszte z cash / Bank first, remainder from cash.

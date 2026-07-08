@@ -280,8 +280,13 @@ trait TTSTasksTrait
                 if (empty($dr['success'])) {
                     if (($dr['error'] ?? '') === 'insufficient_funds') {
                         $this->db->rollBack();
+                        $bank  = $dr['bank_balance'] ?? 0.0;
+                        $cash2 = $dr['cash'] ?? 0.0;
                         return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
-                            'cost' => number_format($cost, 0, '.', ' '),
+                            'cost'  => number_format($cost, 0, ',', ' '),
+                            'bank'  => number_format((float)$bank, 2, ',', ' '),
+                            'cash'  => number_format((float)$cash2, 2, ',', ' '),
+                            'total' => number_format((float)$bank + (float)$cash2, 2, ',', ' '),
                         ])];
                     }
                     throw new \RuntimeException('TTS fee debit failed: ' . ($dr['error'] ?? 'unknown'));

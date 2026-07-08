@@ -558,7 +558,7 @@ return [
     'technical.task_msg.well_not_owned' => 'Odwiert nie istnieje lub nie należy do Ciebie.',
     'technical.task_msg.well_paused_staff' => 'Odwiert jest wstrzymany z powodu braku personelu (:missing). Zatrudnij wymaganych specjalistów, aby móc zlecać zadania.',
     'technical.task_msg.well_unavailable' => 'Odwiert jest niedostępny (status: :status).',
-    'technical.task_msg.no_funds' => 'Brak środków. Koszt zadania: $:cost',
+    'technical.task_msg.no_funds' => 'Brak środków. Koszt zadania: :cost PLN. Opłata pobierana jest najpierw z konta bankowego (:bank PLN), następnie z gotówki (:cash PLN). Łącznie dostępne: :total PLN.',
     'technical.task_msg.start_failed' => 'Błąd: :error',
     'technical.task_msg.assigned' => 'Zlecono: :title. Czas: :hours h. Koszt: $:cost',
     'technical.task_msg.pipeline_maintenance_done' => 'Panie Dyrektorze, konserwacja rurociągu zakończona. Straty transportowe zmniejszone, a kondycja infrastruktury wzrosła.',

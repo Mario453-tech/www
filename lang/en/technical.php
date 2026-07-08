@@ -553,7 +553,7 @@ return [
     'technical.task_msg.well_not_owned' => 'The well does not exist or does not belong to you.',
     'technical.task_msg.well_paused_staff' => 'The well is paused due to missing staff (:missing). Hire the required specialists before assigning tasks.',
     'technical.task_msg.well_unavailable' => 'The well is unavailable (status: :status).',
-    'technical.task_msg.no_funds' => 'Insufficient funds. Task cost: $:cost',
+    'technical.task_msg.no_funds' => 'Insufficient funds. Task cost: :cost PLN. Payment is deducted from bank balance first (:bank PLN), then from cash (:cash PLN). Total available: :total PLN.',
     'technical.task_msg.start_failed' => 'Error: :error',
     'technical.task_msg.assigned' => 'Assigned: :title. Time: :hours h. Cost: $:cost',
     'technical.task_msg.pipeline_maintenance_done' => 'Director, pipeline maintenance has been completed. Transport losses were reduced and infrastructure condition improved.',
