@@ -593,3 +593,10 @@ Wdrozono fundament kontraktow B2B w istniejacym module `/contracts`, bez osobnej
 - Testy: `tests/Integration/B2BContractServiceTest.php`, `tests/MySqlIntegration/MySqlB2BContractServiceTest.php`, aktualizacja `tests/Unit/TickRegistryTest.php` i `tests/Integration/ContractFinancesTest.php`.
 
 Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozone: dostawy czesciowe, aukcje, podkontrakty, reputacja B2B i rozbudowane klauzule.
+
+### 2026-07-08 - Kontrakty B2B: admin filtry i reputacja
+
+- `src/B2BContracts/B2BContractSchema.php` - dodano fundament reputacji B2B: `b2b_reputation_scores` i `b2b_reputation_logs`.
+- `src/B2BContractService.php` - reputacja B2B aktualizuje sie przy realizacji, anulowaniu kupujacego, wygasnieciu, flagowaniu i anulowaniu admina.
+- `admin/contracts.php`, `templates/views/admin/contracts/main.php` - zakladka B2B ma filtry ofert po statusie, fladze i graczu/firmie/ID, paginacje ofert i logow oraz sekcje reputacji B2B z paginacja.
+- Testy rozszerzono o reputacje, filtry admina i MySQL cleanup nowych tabel.

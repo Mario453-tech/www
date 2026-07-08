@@ -16,6 +16,8 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
         $ids = $this->getB2BIds();
         try {
             $this->db->prepare('DELETE FROM b2b_contract_logs WHERE player_id IN (?, ?)')->execute([$ids['buyer'], $ids['seller']]);
+            $this->db->prepare('DELETE FROM b2b_reputation_logs WHERE player_id IN (?, ?)')->execute([$ids['buyer'], $ids['seller']]);
+            $this->db->prepare('DELETE FROM b2b_reputation_scores WHERE player_id IN (?, ?)')->execute([$ids['buyer'], $ids['seller']]);
             $this->db->prepare('DELETE FROM b2b_contract_offers WHERE buyer_player_id IN (?, ?) OR seller_player_id IN (?, ?)')->execute([
                 $ids['buyer'], $ids['seller'], $ids['buyer'], $ids['seller'],
             ]);
@@ -51,6 +53,7 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('not_open', $second['status']);
         $this->assertSame(10100.0, $this->bankOf($ids['seller']));
         $this->assertSame(1, $this->countTx(FinancialTransactionService::TYPE_B2B_TRADE_REVENUE, $ids['seller']));
+        $this->assertSame(53, $this->b2bScore($ids['seller']));
     }
 
     /** @return array{buyer:int,seller:int} */
@@ -80,6 +83,13 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
     {
         $stmt = $this->db->prepare('SELECT COUNT(*) FROM bank_transactions WHERE transaction_type = ? AND to_player_id = ?');
         $stmt->execute([$type, $toPlayerId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    private function b2bScore(int $playerId): int
+    {
+        $stmt = $this->db->prepare('SELECT score FROM b2b_reputation_scores WHERE player_id = ?');
+        $stmt->execute([$playerId]);
         return (int)$stmt->fetchColumn();
     }
 }

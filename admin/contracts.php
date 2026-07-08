@@ -263,6 +263,20 @@ $b2bConfig        = [];
 $b2bOffers        = [];
 $b2bLogs          = [];
 $b2bStats         = [];
+$b2bReputationRows = [];
+$b2bOfferFilters = [
+    'status' => (string)($_GET['b2b_status'] ?? ''),
+    'query' => trim((string)($_GET['b2b_q'] ?? '')),
+    'flagged' => (string)($_GET['b2b_flagged'] ?? ''),
+];
+$b2bRepQuery = trim((string)($_GET['b2b_rep_q'] ?? ''));
+$b2bOfferPage = max(1, (int)($_GET['b2b_page'] ?? 1));
+$b2bLogsPage = max(1, (int)($_GET['b2b_logs_page'] ?? 1));
+$b2bRepPage = max(1, (int)($_GET['b2b_rep_page'] ?? 1));
+$b2bPageLimit = 25;
+$b2bOffersCount = 0;
+$b2bLogsCount = 0;
+$b2bReputationCount = 0;
 $reputationSearch = trim((string)($_GET['q'] ?? ''));
 $reputationPlayerId = max(0, (int)($_GET['player_id'] ?? 0));
 
@@ -303,27 +317,17 @@ try {
         $reputationLogs = $reputationService->recentLogs($reputationPlayerId > 0 ? $reputationPlayerId : null, 100);
     } elseif ($activeTab === 'b2b') {
         $b2bConfig = $b2bService->getConfig();
-        $b2bOffers = $db->query(
-            "SELECT o.*,
-                    COALESCE(pb.company_name, pb.username, CONCAT('#', o.buyer_player_id)) AS buyer_name,
-                    COALESCE(ps.company_name, ps.username, '') AS seller_name
-             FROM b2b_contract_offers o
-             LEFT JOIN players pb ON pb.id = o.buyer_player_id
-             LEFT JOIN players ps ON ps.id = o.seller_player_id
-             ORDER BY o.id DESC
-             LIMIT 100"
-        )->fetchAll(PDO::FETCH_ASSOC);
-        $b2bLogs = $db->query(
-            "SELECT l.*, COALESCE(p.company_name, p.username, '') AS player_name
-             FROM b2b_contract_logs l
-             LEFT JOIN players p ON p.id = l.player_id
-             ORDER BY l.id DESC
-             LIMIT 100"
-        )->fetchAll(PDO::FETCH_ASSOC);
+        $b2bOffers = $b2bService->listAdminOffers($b2bOfferFilters, $b2bPageLimit, ($b2bOfferPage - 1) * $b2bPageLimit);
+        $b2bOffersCount = $b2bService->countAdminOffers($b2bOfferFilters);
+        $b2bLogs = $b2bService->listAdminLogs($b2bPageLimit, ($b2bLogsPage - 1) * $b2bPageLimit);
+        $b2bLogsCount = $b2bService->countAdminLogs();
+        $b2bReputationRows = $b2bService->listReputationScores($b2bRepQuery, $b2bPageLimit, ($b2bRepPage - 1) * $b2bPageLimit);
+        $b2bReputationCount = $b2bService->countReputationScores($b2bRepQuery);
         $b2bStats = [
             'open' => (int)$db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'open'")->fetchColumn(),
             'flagged' => (int)$db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE is_flagged = 1")->fetchColumn(),
             'completed' => (int)$db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'completed'")->fetchColumn(),
+            'reputation' => (int)$db->query("SELECT COUNT(*) FROM b2b_reputation_scores")->fetchColumn(),
         ];
     }
 } catch (Throwable $e) {
@@ -355,7 +359,9 @@ if ($editTermId > 0) {
 $viewData = compact(
     'moduleEnabled', 'options', 'termsByOption', 'activeContracts', 'deliveries', 'logs',
     'reputationRows', 'reputationLogs', 'reputationSearch', 'reputationPlayerId',
-    'b2bConfig', 'b2bOffers', 'b2bLogs', 'b2bStats',
+    'b2bConfig', 'b2bOffers', 'b2bLogs', 'b2bStats', 'b2bReputationRows',
+    'b2bOfferFilters', 'b2bRepQuery', 'b2bOfferPage', 'b2bLogsPage', 'b2bRepPage',
+    'b2bPageLimit', 'b2bOffersCount', 'b2bLogsCount', 'b2bReputationCount',
     'activeTab', 'tabs', 'editOption', 'editTerm', 'priceModes', 'severities', 'termTypes', 'msg', 'err'
 );
 

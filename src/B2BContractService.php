@@ -276,6 +276,9 @@ final class B2BContractService
                 'refund_amount' => $refund,
                 'penalty_amount' => $penalty,
             ]);
+            $this->recordReputation($buyerPlayerId, $offerId, 'buyer_cancelled', -3, [
+                'buy_cancelled' => 1,
+            ]);
             $this->db->commit();
 
             return [
@@ -364,6 +367,14 @@ final class B2BContractService
                 'seller_player_id' => $sellerPlayerId,
                 'total_value' => $totalValue,
             ]);
+            $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
+                'buy_completed' => 1,
+                'total_bought_bbl' => $bbl,
+            ]);
+            $this->recordReputation($sellerPlayerId, $offerId, 'seller_completed', 3, [
+                'sell_completed' => 1,
+                'total_sold_bbl' => $bbl,
+            ]);
             $this->db->commit();
 
             return [
@@ -444,6 +455,9 @@ final class B2BContractService
                 'admin_id' => $adminId,
                 'reason' => $reason,
             ]);
+            $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'admin_cancelled', -2, [
+                'admin_cancellations' => 1,
+            ]);
             $this->db->commit();
 
             return [
@@ -461,6 +475,7 @@ final class B2BContractService
 
     public function adminFlagOffer(int $adminId, int $offerId, string $reason): array
     {
+        $offer = $this->offerById($offerId);
         $stmt = $this->db->prepare('UPDATE b2b_contract_offers SET is_flagged = 1, flag_reason = ?, updated_at = ? WHERE id = ?');
         $stmt->execute([$reason, $this->now(), $offerId]);
         if ($stmt->rowCount() < 1) {
@@ -470,6 +485,11 @@ final class B2BContractService
             'admin_id' => $adminId,
             'reason' => $reason,
         ]);
+        if ($offer !== null) {
+            $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'admin_flagged', -1, [
+                'admin_flags' => 1,
+            ]);
+        }
         return $this->result(true, 'flagged', 'contracts.b2b.flagged');
     }
 
@@ -627,6 +647,124 @@ final class B2BContractService
         return (int)$stmt->fetchColumn();
     }
 
+    /**
+     * @param array{status?:string,query?:string,flagged?:string} $filters
+     * @return list<array<string,mixed>>
+     */
+    public function listAdminOffers(array $filters = [], int $limit = 50, int $offset = 0): array
+    {
+        [$where, $params] = $this->adminOfferWhere($filters);
+        $stmt = $this->db->prepare(
+            "SELECT o.*,
+                    COALESCE(pb.company_name, pb.username, '') AS buyer_name,
+                    COALESCE(ps.company_name, ps.username, '') AS seller_name,
+                    COALESCE(rb.score, 50) AS buyer_b2b_score,
+                    COALESCE(rs.score, 50) AS seller_b2b_score
+             FROM b2b_contract_offers o
+             LEFT JOIN players pb ON pb.id = o.buyer_player_id
+             LEFT JOIN players ps ON ps.id = o.seller_player_id
+             LEFT JOIN b2b_reputation_scores rb ON rb.player_id = o.buyer_player_id
+             LEFT JOIN b2b_reputation_scores rs ON rs.player_id = o.seller_player_id
+             {$where}
+             ORDER BY o.id DESC
+             LIMIT ? OFFSET ?"
+        );
+        $idx = 1;
+        foreach ($params as $param) {
+            $stmt->bindValue($idx++, $param);
+        }
+        $stmt->bindValue($idx++, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $stmt->bindValue($idx, max(0, $offset), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /** @param array{status?:string,query?:string,flagged?:string} $filters */
+    public function countAdminOffers(array $filters = []): int
+    {
+        [$where, $params] = $this->adminOfferWhere($filters);
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*)
+             FROM b2b_contract_offers o
+             LEFT JOIN players pb ON pb.id = o.buyer_player_id
+             LEFT JOIN players ps ON ps.id = o.seller_player_id
+             {$where}"
+        );
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function listAdminLogs(int $limit = 50, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT l.*, COALESCE(p.company_name, p.username, '') AS player_name
+             FROM b2b_contract_logs l
+             LEFT JOIN players p ON p.id = l.player_id
+             ORDER BY l.id DESC
+             LIMIT ? OFFSET ?"
+        );
+        $stmt->bindValue(1, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $stmt->bindValue(2, max(0, $offset), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function countAdminLogs(): int
+    {
+        return (int)$this->db->query('SELECT COUNT(*) FROM b2b_contract_logs')->fetchColumn();
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function listReputationScores(string $query = '', int $limit = 50, int $offset = 0): array
+    {
+        $where = '';
+        $params = [];
+        $query = trim($query);
+        if ($query !== '') {
+            $where = 'WHERE p.username LIKE ? OR p.company_name LIKE ?';
+            $like = '%' . $query . '%';
+            $params = [$like, $like];
+        }
+        $stmt = $this->db->prepare(
+            "SELECT r.*, p.username, p.company_name
+             FROM b2b_reputation_scores r
+             LEFT JOIN players p ON p.id = r.player_id
+             {$where}
+             ORDER BY r.score ASC, r.updated_at DESC, r.player_id ASC
+             LIMIT ? OFFSET ?"
+        );
+        $idx = 1;
+        foreach ($params as $param) {
+            $stmt->bindValue($idx++, $param);
+        }
+        $stmt->bindValue($idx++, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $stmt->bindValue($idx, max(0, $offset), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function countReputationScores(string $query = ''): int
+    {
+        $query = trim($query);
+        if ($query === '') {
+            return (int)$this->db->query('SELECT COUNT(*) FROM b2b_reputation_scores')->fetchColumn();
+        }
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*)
+             FROM b2b_reputation_scores r
+             LEFT JOIN players p ON p.id = r.player_id
+             WHERE p.username LIKE ? OR p.company_name LIKE ?"
+        );
+        $like = '%' . $query . '%';
+        $stmt->execute([$like, $like]);
+        return (int)$stmt->fetchColumn();
+    }
+
     private function expireSingleOffer(int $offerId): array
     {
         $this->db->beginTransaction();
@@ -658,6 +796,9 @@ final class B2BContractService
             );
             $stmt->execute([$refund, $this->now(), $offerId]);
             $this->logEvent($offerId, (int)$offer['buyer_player_id'], 'expired', 'B2B offer expired', ['refund_amount' => $refund]);
+            $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_expired', -1, [
+                'buy_expired' => 1,
+            ]);
             $this->db->commit();
 
             return [
@@ -683,6 +824,17 @@ final class B2BContractService
             $sql .= ' FOR UPDATE';
         }
         $stmt = $this->db->prepare($sql);
+        $stmt->execute([$offerId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function offerById(int $offerId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM b2b_contract_offers WHERE id = ?');
         $stmt->execute([$offerId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? $row : null;
@@ -850,6 +1002,114 @@ final class B2BContractService
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM b2b_contract_offers WHERE {$column} = ?");
         $stmt->execute([$playerId]);
         return (int)$stmt->fetchColumn();
+    }
+
+    /**
+     * @param array{status?:string,query?:string,flagged?:string} $filters
+     * @return array{0:string,1:list<mixed>}
+     */
+    private function adminOfferWhere(array $filters): array
+    {
+        $where = [];
+        $params = [];
+        $status = (string)($filters['status'] ?? '');
+        if (in_array($status, ['open', 'completed', 'cancelled', 'expired', 'failed', 'flagged'], true)) {
+            $where[] = 'o.status = ?';
+            $params[] = $status;
+        }
+        $flagged = (string)($filters['flagged'] ?? '');
+        if ($flagged === '1' || $flagged === '0') {
+            $where[] = 'o.is_flagged = ?';
+            $params[] = (int)$flagged;
+        }
+        $query = trim((string)($filters['query'] ?? ''));
+        if ($query !== '') {
+            $where[] = '(pb.username LIKE ? OR pb.company_name LIKE ? OR ps.username LIKE ? OR ps.company_name LIKE ? OR CAST(o.id AS CHAR) = ?)';
+            $like = '%' . $query . '%';
+            array_push($params, $like, $like, $like, $like, $query);
+        }
+
+        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+    }
+
+    /**
+     * @param array<string,int|float|string> $counters
+     */
+    private function recordReputation(int $playerId, int $offerId, string $eventKey, int $delta, array $counters = []): void
+    {
+        if ($playerId <= 0) {
+            return;
+        }
+        $allowedCounters = [
+            'buy_completed',
+            'sell_completed',
+            'buy_cancelled',
+            'buy_expired',
+            'admin_flags',
+            'admin_cancellations',
+            'total_bought_bbl',
+            'total_sold_bbl',
+        ];
+        $this->ensureReputationRow($playerId);
+
+        $current = $this->lockReputationScore($playerId);
+        $scoreAfter = max(0, min(100, $current + $delta));
+        $sets = ['score = ?', 'updated_at = ?'];
+        $params = [$scoreAfter, $this->now()];
+        foreach ($counters as $column => $value) {
+            if (!in_array((string)$column, $allowedCounters, true)) {
+                continue;
+            }
+            $sets[] = "{$column} = {$column} + ?";
+            $params[] = $value;
+        }
+        $params[] = $playerId;
+        $stmt = $this->db->prepare('UPDATE b2b_reputation_scores SET ' . implode(', ', $sets) . ' WHERE player_id = ?');
+        $stmt->execute($params);
+
+        $stmt = $this->db->prepare(
+            'INSERT INTO b2b_reputation_logs (player_id, offer_id, event_key, delta, score_after, meta_json, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $playerId,
+            $offerId,
+            $eventKey,
+            $delta,
+            $scoreAfter,
+            json_encode($counters, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            $this->now(),
+        ]);
+    }
+
+    private function ensureReputationRow(int $playerId): void
+    {
+        if ($this->driver === 'sqlite') {
+            $stmt = $this->db->prepare(
+                'INSERT OR IGNORE INTO b2b_reputation_scores (player_id, score, created_at, updated_at)
+                 VALUES (?, 50, ?, ?)'
+            );
+            $stmt->execute([$playerId, $this->now(), $this->now()]);
+            return;
+        }
+        $stmt = $this->db->prepare(
+            'INSERT INTO b2b_reputation_scores (player_id, score, created_at, updated_at)
+             VALUES (?, 50, NOW(), NOW())
+             ON DUPLICATE KEY UPDATE player_id = player_id'
+        );
+        $stmt->execute([$playerId]);
+    }
+
+    private function lockReputationScore(int $playerId): int
+    {
+        $sql = 'SELECT score FROM b2b_reputation_scores WHERE player_id = ?';
+        if ($this->driver !== 'sqlite') {
+            $sql .= ' FOR UPDATE';
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$playerId]);
+        $score = $stmt->fetchColumn();
+        return $score === false ? 50 : (int)$score;
     }
 
     /**

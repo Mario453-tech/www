@@ -139,6 +139,8 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(150.0, $this->storageOf(2));
         $this->assertSame(10100.0, $this->bankOf(2));
         $this->assertSame(1, $this->txCount(FinancialTransactionService::TYPE_B2B_TRADE_REVENUE));
+        $this->assertSame(51, $this->b2bScore(1));
+        $this->assertSame(53, $this->b2bScore(2));
     }
 
     public function testCancelBuyOfferRefundsNinetyPercentAndLogsPenalty(): void
@@ -155,6 +157,7 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(1000.0, $result['penalty_amount']);
         $this->assertSame(1, $this->txCount(FinancialTransactionService::TYPE_B2B_ESCROW_REFUND));
         $this->assertSame(1, $this->txCount(FinancialTransactionService::TYPE_B2B_CANCEL_PENALTY));
+        $this->assertSame(47, $this->b2bScore(1));
     }
 
     public function testExpireOpenOffersRefundsFullEscrow(): void
@@ -170,6 +173,7 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(10000.0, $result['refunded']);
         $this->assertSame(50000.0, $this->bankOf(1));
         $this->assertSame('expired', $this->offerStatus($offerId));
+        $this->assertSame(49, $this->b2bScore(1));
     }
 
     public function testTickModuleExpiresOffersAndRefundsEscrow(): void
@@ -203,6 +207,30 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertTrue($result['success']);
         $this->assertSame(50000.0, $this->bankOf(1));
         $this->assertSame('cancelled', $this->offerStatus($offerId));
+    }
+
+    public function testAdminOfferFiltersAndReputationListUsePagination(): void
+    {
+        $this->seedPlayer(1, 0.0, 100000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 1000.0);
+        $openId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $doneId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->assertTrue($this->service->acceptAndDeliver(2, $doneId)['success']);
+        $this->assertTrue($this->service->adminFlagOffer(99, $openId, 'review')['success']);
+
+        $flagged = $this->service->listAdminOffers(['flagged' => '1'], 10, 0);
+        $completed = $this->service->listAdminOffers(['status' => 'completed'], 10, 0);
+        $paged = $this->service->listAdminOffers([], 1, 1);
+        $rep = $this->service->listReputationScores('', 10, 0);
+
+        $this->assertCount(1, $flagged);
+        $this->assertSame($openId, (int)$flagged[0]['id']);
+        $this->assertCount(1, $completed);
+        $this->assertSame($doneId, (int)$completed[0]['id']);
+        $this->assertCount(1, $paged);
+        $this->assertGreaterThanOrEqual(2, $this->service->countAdminOffers([]));
+        $this->assertNotEmpty($rep);
     }
 
     private function createBaseSchema(): void
@@ -271,6 +299,13 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
     {
         $stmt = $this->db->prepare('SELECT COUNT(*) FROM bank_transactions WHERE transaction_type = ?');
         $stmt->execute([$type]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    private function b2bScore(int $playerId): int
+    {
+        $stmt = $this->db->prepare('SELECT score FROM b2b_reputation_scores WHERE player_id = ?');
+        $stmt->execute([$playerId]);
         return (int)$stmt->fetchColumn();
     }
 }

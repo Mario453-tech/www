@@ -112,6 +112,40 @@ final class B2BContractSchema
                 updated_at DATETIME NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS b2b_reputation_scores (
+                player_id INT NOT NULL PRIMARY KEY,
+                score INT NOT NULL DEFAULT 50,
+                buy_completed INT NOT NULL DEFAULT 0,
+                sell_completed INT NOT NULL DEFAULT 0,
+                buy_cancelled INT NOT NULL DEFAULT 0,
+                buy_expired INT NOT NULL DEFAULT 0,
+                admin_flags INT NOT NULL DEFAULT 0,
+                admin_cancellations INT NOT NULL DEFAULT 0,
+                total_bought_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+                total_sold_bbl DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NULL,
+                KEY idx_b2b_rep_score (score)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS b2b_reputation_logs (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                player_id INT NOT NULL,
+                offer_id INT NULL,
+                event_key VARCHAR(64) NOT NULL,
+                delta INT NOT NULL DEFAULT 0,
+                score_after INT NOT NULL DEFAULT 50,
+                meta_json TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_b2b_rep_logs_player (player_id, created_at),
+                KEY idx_b2b_rep_logs_offer (offer_id),
+                KEY idx_b2b_rep_logs_event (event_key, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
     }
 
     private static function migrateMysql(): void
@@ -184,6 +218,36 @@ final class B2BContractSchema
                 config_value TEXT NOT NULL,
                 label TEXT NOT NULL DEFAULT '',
                 updated_at TEXT NULL
+            )"
+        );
+
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS b2b_reputation_scores (
+                player_id INTEGER PRIMARY KEY,
+                score INTEGER NOT NULL DEFAULT 50,
+                buy_completed INTEGER NOT NULL DEFAULT 0,
+                sell_completed INTEGER NOT NULL DEFAULT 0,
+                buy_cancelled INTEGER NOT NULL DEFAULT 0,
+                buy_expired INTEGER NOT NULL DEFAULT 0,
+                admin_flags INTEGER NOT NULL DEFAULT 0,
+                admin_cancellations INTEGER NOT NULL DEFAULT 0,
+                total_bought_bbl REAL NOT NULL DEFAULT 0.0,
+                total_sold_bbl REAL NOT NULL DEFAULT 0.0,
+                created_at TEXT,
+                updated_at TEXT
+            )"
+        );
+
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS b2b_reputation_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id INTEGER NOT NULL,
+                offer_id INTEGER NULL,
+                event_key TEXT NOT NULL,
+                delta INTEGER NOT NULL DEFAULT 0,
+                score_after INTEGER NOT NULL DEFAULT 50,
+                meta_json TEXT NULL,
+                created_at TEXT
             )"
         );
     }
