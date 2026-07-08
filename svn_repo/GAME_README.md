@@ -1,5 +1,20 @@
 ## Changelog
 
+### 2026-07-08 - Najnowsze zmiany: kontrakty B2B
+
+Ta sekcja zbiera ostatnie zmiany B2B w jednym miejscu, żeby były widoczne od razu na początku pliku.
+
+1. Dodano fundament kontraktów B2B w istniejącym module `/contracts`, bez osobnej pozycji menu gracza.
+2. Dodano schemat tabel B2B: `b2b_contract_offers`, `b2b_contract_terms`, `b2b_contract_logs`, `b2b_contract_config`.
+3. Dodano `B2BContractService` do tworzenia, anulowania, realizacji, wygaszania, flagowania i anulowania ofert przez admina.
+4. Podpięto finanse B2B przez `FinancialTransactionService`: escrow, zwroty, kary anulowania i przychód ze sprzedaży.
+5. Dodano UI gracza w `/contracts`: `Systemowe`, `Rynek B2B`, `Moje B2B`, `Historia`, `Logi`.
+6. Dodano zakładkę B2B w panelu admina: pulpit, ustawienia, oferty, flagowanie/anulowanie i logi.
+7. Dodano filtry admina, paginację ofert/logów oraz wyszukiwanie po statusie, fladze i graczu/firmie/ID.
+8. Dodano reputację B2B: tabele `b2b_reputation_scores`, `b2b_reputation_logs` oraz automatyczne zmiany reputacji po akcjach ofert.
+
+Walidacja po wdrożeniu: `Unit + Integration`, `MySqlIntegration` oraz `tools/check_encoding.php`.
+
 ### 2026-07-07 - Dział techniczny: opłata przez FTS + pełna atomowość zlecenia
 
 **Utwardzenie `startTask`: opłata za zadanie idzie przez FTS, a nieudane utworzenie zadania zwraca pieniądze.**
