@@ -7,6 +7,15 @@ on:
       - master
   workflow_dispatch:  # reczne uruchomienie = pelny upload wszystkich plikow
                       # manual trigger = full upload of all files
+    inputs:
+      full_deploy:
+        description: >-
+          Pelny mirror (wgraj WSZYSTKIE pliki, nie tylko zmienione).
+          Uzyj, gdy deploy commita zostal pominiety przez czerwona bramke
+          i pliki utknely na starej wersji na serwerze.
+          Full mirror (upload ALL files, not just changed ones).
+        type: boolean
+        default: true
 
 # UWAGA: NIE wymuszamy Node.js 24 (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24).
 # Node 24 psuje wznawianie sesji TLS na kanale danych FTPS -> blad
@@ -158,6 +167,9 @@ jobs:
           FTP_DIR:  ${{ secrets.FTP_REMOTE_DIR }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA:  ${{ github.event.after }}
+          # Reczny pelny mirror: input z workflow_dispatch (domyslnie true przy
+          # recznym uruchomieniu; pusty dla pushy). Manual full mirror flag.
+          FULL_DEPLOY: ${{ github.event.inputs.full_deploy }}
         run: |
           set -euo pipefail
 
@@ -174,7 +186,15 @@ jobs:
           }
 
           MODE=partial
-          if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+          # 1) Jawny wybor uzytkownika: reczne uruchomienie z full_deploy=true -> pelny mirror.
+          #    Explicit user choice: manual run with full_deploy=true -> full mirror.
+          if [ "${FULL_DEPLOY:-}" = "true" ]; then
+            echo "Reczny pelny mirror (full_deploy=true) -> wgrywam WSZYSTKIE pliki."
+            MODE=full
+          fi
+          # 2) Fallback: brak prawidlowego BEFORE_SHA (pierwszy deploy / force-push / dispatch).
+          #    Fallback: missing/invalid BEFORE_SHA (first deploy / force-push / dispatch).
+          if [ "$MODE" = "partial" ] && { [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; }; then
             echo "Brak prawidlowego BEFORE_SHA -> pelny mirror (fallback)."
             MODE=full
           fi
