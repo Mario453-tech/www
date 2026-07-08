@@ -716,6 +716,7 @@ CREATE TABLE `email_verifications` (
 CREATE TABLE `employee_certificates` (
   `id` int NOT NULL,
   `member_id` int NOT NULL,
+  `staff_type` enum('technical','board') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'technical',
   `code` varchar(60) COLLATE utf8mb4_general_ci NOT NULL,
   `name` varchar(120) COLLATE utf8mb4_general_ci NOT NULL,
   `skill_bonus` varchar(30) COLLATE utf8mb4_general_ci DEFAULT NULL,
@@ -1445,7 +1446,7 @@ CREATE TABLE `market_state` (
 INSERT INTO `market_state`
   (`id`, `base_price`, `current_price`, `volatility`, `last_market_tick_at`, `supply_index`, `demand_index`, `world_production`, `demand_base`, `season_factor`)
 VALUES
-  (1, 100, 70, 1, NOW(), 1000.00, 1000.00, 800.00, 1000.00, 1.000);
+  (1, 100, 100, 1, NOW(), 1000.00, 1000.00, 800.00, 1000.00, 1.000);
 
 
 -- --------------------------------------------------------
