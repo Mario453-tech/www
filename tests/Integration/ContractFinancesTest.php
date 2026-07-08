@@ -29,6 +29,10 @@ final class ContractFinancesTest extends SqliteIntegrationTestCase
         $this->assertSame('contract_sale',    FinancialTransactionService::TYPE_CONTRACT_SALE);
         $this->assertSame('contract_penalty', FinancialTransactionService::TYPE_CONTRACT_PENALTY);
         $this->assertSame('contract_bonus',   FinancialTransactionService::TYPE_CONTRACT_BONUS);
+        $this->assertSame('b2b_escrow_lock', FinancialTransactionService::TYPE_B2B_ESCROW_LOCK);
+        $this->assertSame('b2b_escrow_refund', FinancialTransactionService::TYPE_B2B_ESCROW_REFUND);
+        $this->assertSame('b2b_cancel_penalty', FinancialTransactionService::TYPE_B2B_CANCEL_PENALTY);
+        $this->assertSame('b2b_trade_revenue', FinancialTransactionService::TYPE_B2B_TRADE_REVENUE);
     }
 
     public function testContractTypesAreInAllowedTypes(): void
@@ -48,6 +52,10 @@ final class ContractFinancesTest extends SqliteIntegrationTestCase
             FinancialTransactionService::ALLOWED_TYPES,
             'contract_bonus nie ma w ALLOWED_TYPES'
         );
+        $this->assertContains(FinancialTransactionService::TYPE_B2B_ESCROW_LOCK, FinancialTransactionService::ALLOWED_TYPES);
+        $this->assertContains(FinancialTransactionService::TYPE_B2B_ESCROW_REFUND, FinancialTransactionService::ALLOWED_TYPES);
+        $this->assertContains(FinancialTransactionService::TYPE_B2B_CANCEL_PENALTY, FinancialTransactionService::ALLOWED_TYPES);
+        $this->assertContains(FinancialTransactionService::TYPE_B2B_TRADE_REVENUE, FinancialTransactionService::ALLOWED_TYPES);
     }
 
     // ================================================================== routing pul / pool routing
@@ -77,6 +85,20 @@ final class ContractFinancesTest extends SqliteIntegrationTestCase
             WalletConfig::TYPE_TO_POOL[FinancialTransactionService::TYPE_CONTRACT_PENALTY] ?? null,
             'contract_penalty powinien byc zmapowany na POOL_BANK'
         );
+    }
+
+    public function testB2BTypesRouteToBank(): void
+    {
+        $types = [
+            FinancialTransactionService::TYPE_B2B_ESCROW_LOCK,
+            FinancialTransactionService::TYPE_B2B_ESCROW_REFUND,
+            FinancialTransactionService::TYPE_B2B_CANCEL_PENALTY,
+            FinancialTransactionService::TYPE_B2B_TRADE_REVENUE,
+        ];
+
+        foreach ($types as $type) {
+            $this->assertSame(WalletConfig::POOL_BANK, WalletConfig::TYPE_TO_POOL[$type] ?? null, $type);
+        }
     }
 
     // ================================================================== credit contract_sale -> bank_balance

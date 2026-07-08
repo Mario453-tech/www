@@ -95,6 +95,10 @@ class FinancialTransactionService
     public const TYPE_CONTRACT_BONUS           = 'contract_bonus';
     public const TYPE_CONTRACT_DEPOSIT         = 'contract_deposit';
     public const TYPE_CONTRACT_DEPOSIT_REFUND  = 'contract_deposit_refund';
+    public const TYPE_B2B_ESCROW_LOCK          = 'b2b_escrow_lock';
+    public const TYPE_B2B_ESCROW_REFUND        = 'b2b_escrow_refund';
+    public const TYPE_B2B_CANCEL_PENALTY       = 'b2b_cancel_penalty';
+    public const TYPE_B2B_TRADE_REVENUE        = 'b2b_trade_revenue';
 
     /** Pelna lista dozwolonych typow / Full list of allowed types. */
     public const ALLOWED_TYPES = [
@@ -138,6 +142,10 @@ class FinancialTransactionService
         self::TYPE_CONTRACT_BONUS,
         self::TYPE_CONTRACT_DEPOSIT,
         self::TYPE_CONTRACT_DEPOSIT_REFUND,
+        self::TYPE_B2B_ESCROW_LOCK,
+        self::TYPE_B2B_ESCROW_REFUND,
+        self::TYPE_B2B_CANCEL_PENALTY,
+        self::TYPE_B2B_TRADE_REVENUE,
     ];
 
     /**

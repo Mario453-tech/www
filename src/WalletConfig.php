@@ -121,6 +121,10 @@ class WalletConfig
         'contract_penalty'    => self::POOL_BANK,  // kara kontraktowa - modul ContractService / debitCombined
         'contract_deposit'    => self::POOL_BANK,  // kaucja kontraktowa / contract deposit
         'contract_deposit_refund' => self::POOL_BANK,  // zwrot kaucji kontraktowej / contract deposit refund
+        'b2b_escrow_lock'     => self::POOL_BANK,  // blokada srodkow B2B / B2B escrow lock
+        'b2b_escrow_refund'   => self::POOL_BANK,  // zwrot srodkow B2B / B2B escrow refund
+        'b2b_cancel_penalty'  => self::POOL_BANK,  // kara anulowania B2B / B2B cancellation penalty
+        'b2b_trade_revenue'   => self::POOL_BANK,  // przychod sprzedawcy B2B / B2B seller revenue
         // 'emergency_repair'  => self::POOL_CASH,  // awaryjne naprawy - faza 3
         // 'bailiff_reserve'   => self::POOL_CASH,  // rezerwa komornik - faza 3
     ];

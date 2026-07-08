@@ -579,3 +579,17 @@ Wdrożono pierwszy etap hardeningu aplikacji Flutter/Android. Mobilny token sesj
 - Dodano testy: `mobile/test/session_storage_test.dart`, `mobile/test/webview_navigation_policy_test.dart`, `tests/Integration/MobileWebBridgeTest.php`.
 
 iOS zostaje etapem 2: bez katalogu `ios/` w tym wdrożeniu. Szczegóły architektury i TODO są w `svn_repo/MOBILE_ARCH.md`, sekcja 17.
+
+## 2026-07-08 - Kontrakty B2B P1
+
+Wdrozono fundament kontraktow B2B w istniejacym module `/contracts`, bez osobnej pozycji menu gracza.
+
+- `src/B2BContracts/B2BContractSchema.php` - idempotentny schemat tabel: `b2b_contract_offers`, `b2b_contract_terms`, `b2b_contract_logs`, `b2b_contract_config`.
+- `src/B2BContractService.php` - serwis ofert kupna B2B: tworzenie, anulowanie, realizacja pelnej natychmiastowej dostawy, wygaszanie, flagowanie i anulowanie admina.
+- `src/FinancialTransactionService.php`, `src/WalletConfig.php` - dodano typy FTS: `b2b_escrow_lock`, `b2b_escrow_refund`, `b2b_cancel_penalty`, `b2b_trade_revenue`; routing idzie na konto bankowe.
+- `public/contracts.php`, `templates/views/contracts/main.php`, `templates/views/contracts/b2b.php` - gracz ma zakladki: Systemowe, Rynek B2B, Moje B2B, Historia, Logi. Akcje ida przez POST + CSRF + PRG.
+- `admin/contracts.php`, `templates/views/admin/contracts/main.php` - panel admina ma zakladke B2B: pulpit, ustawienia, oferty, flagowanie/anulowanie, logi.
+- `src/Tick/Modules/B2BContractsModule.php`, `cron/tick.php` - tick wygasza oferty B2B i zwraca 100% escrow przy wygasnieciu.
+- Testy: `tests/Integration/B2BContractServiceTest.php`, `tests/MySqlIntegration/MySqlB2BContractServiceTest.php`, aktualizacja `tests/Unit/TickRegistryTest.php` i `tests/Integration/ContractFinancesTest.php`.
+
+Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozone: dostawy czesciowe, aukcje, podkontrakty, reputacja B2B i rozbudowane klauzule.

@@ -335,6 +335,24 @@ try {
     GameLog::error('tick', 'Contracts section FAILED', $e);
 }
 
+// 10b. KONTRAKTY B2B - wygaszanie ofert i zwrot depozytow
+// 10b. B2B CONTRACTS - offer expiry and escrow refunds
+
+$b2bContractsExpired = 0;
+$b2bContractsRefunded = 0.0;
+try {
+    $b2bContractsModule = TickRegistry::find('b2b_contracts');
+    if ($b2bContractsModule !== null) {
+        $b2bContractsModule->run($tickCtx);
+        $tickCtx->mergeStats($b2bContractsModule->key(), $b2bContractsModule->stats());
+        $b2bContractsStats = $b2bContractsModule->stats();
+        $b2bContractsExpired = (int)($b2bContractsStats['expired'] ?? 0);
+        $b2bContractsRefunded = (float)($b2bContractsStats['refunded'] ?? 0.0);
+    }
+} catch (Throwable $e) {
+    GameLog::error('tick', 'B2B contracts section FAILED', $e);
+}
+
 // PODSUMOWANIE + ZAPIS STATYSTYK
 
 $trendInfo = $activeTrend

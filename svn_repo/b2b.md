@@ -1654,3 +1654,24 @@ logów.
 
 Kara za anulowanie aktywnego zlecenia B2B ma wynosić domyślnie 10% wartości zamówienia.
 ```
+# Status wdrozenia 2026-07-08
+
+Etap P1 zostal wdrozony w istniejacym module `/contracts`.
+
+Wdrozone:
+
+- osobny schemat i konfiguracja B2B: `b2b_contract_offers`, `b2b_contract_terms`, `b2b_contract_logs`, `b2b_contract_config`,
+- `B2BContractService`: create, cancel, accept/deliver, expire, admin flag/unflag/cancel, listy i logi,
+- escrow przez `FinancialTransactionService`: blokada 100%, zwrot 90% przy anulowaniu kupujacego, zwrot 100% przy wygasnieciu/admin cancel, wyplata sprzedawcy,
+- zakladki gracza w `/contracts`: Systemowe, Rynek B2B, Moje B2B, Historia, Logi,
+- zakladka admina w `admin/contracts.php`: pulpit, ustawienia, oferty, akcje admina, logi,
+- tick module `B2BContractsModule` z `key=b2b_contracts`, `order=36`,
+- testy integracyjne, MySQL i rejestru ticka.
+
+Zakres swiadomie odlozony:
+
+- czesciowe dostawy,
+- aukcje,
+- podkontrakty,
+- osobna reputacja B2B,
+- rozbudowane klauzule i negocjacje.
