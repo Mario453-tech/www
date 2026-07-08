@@ -98,6 +98,11 @@ return [
     'market.sale_history_prev' => '<- Previous',
     'market.sale_history_next' => 'Next ->',
     'market.sale_history_info' => 'History is stored for 7 days.',
+
+    'market.b2b_tab_title' => 'Player orders',
+    'market.b2b_heading'   => 'Player buy-offers',
+    'market.b2b_subtitle'  => 'Other players post buy-offers for oil. Fulfil an offer by delivering oil from your storage — the money lands in your account immediately.',
+
     'black_market.tab_title' => 'Black Market',
     'black_market.heading' => 'Black Oil Market',
     'black_market.subtitle' => 'Illegal oil sales at inflated prices. High profit, but with detection risk and penalties.',

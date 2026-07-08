@@ -5,11 +5,14 @@ require_once __DIR__ . '/../src/init.php';
 GameLog::info('public/market.php', 'entry');
 Auth::requireLogin();
 
+require_once __DIR__ . '/../src/B2BContractService.php';
+
 $player      = new Player(Auth::getUserId());
 $storage     = new Storage(Auth::getUserId());
 $market      = new Market();
 $marketTick  = new MarketTick();
 $marketOffer = new MarketOffer();
+$b2bService  = new B2BContractService();
 
 $playerData = $player->getData();
 $storageData = $storage->getData();
@@ -103,6 +106,18 @@ if ($_POST && isset($_POST['action'])) {
             } else {
                 $error = $result['message'];
             }
+
+        } elseif ($action === 'accept_b2b_offer') {
+ // Realizacja zlecenia skupu wystawionego przez innego gracza — dostawa ropy z magazynu za gotowke.
+ // Fulfill a buy-offer posted by another player — deliver oil from storage for cash.
+            $offerId = (int)($_POST['offer_id'] ?? 0);
+            $result = $b2bService->acceptAndDeliver(Auth::getUserId(), $offerId);
+            if (!empty($result['success'])) {
+                $success = tPlain((string)($result['message_key'] ?? 'contracts.b2b.completed'));
+                $storageData = $storage->getData();
+            } else {
+                $error = tPlain((string)($result['message_key'] ?? 'contracts.b2b.db_error'));
+            }
         }
     }
 }
@@ -123,8 +138,28 @@ $historyPages   = (int)ceil($historyTotal / $historyPerPage);
 $marketTitlePlain = html_entity_decode(strip_tags(tPlain('market.page_title')), ENT_QUOTES, 'UTF-8');
 $pageTitle = $marketTitlePlain;
 
+// == ZLECENIA GRACZY (B2B) — otwarte oferty skupu / Player buy-offers (B2B) ==
+$b2bModuleEnabled = $b2bService->isModuleEnabled();
+$b2bPerPage       = 12;
+$b2bPage          = max(1, (int)($_GET['b2bpage'] ?? 1));
+$b2bOffers        = [];
+$b2bOffersCount   = 0;
+$b2bReputation    = 50;
+if ($b2bModuleEnabled) {
+    $b2bOffers      = $b2bService->listOpenOffers(Auth::getUserId(), $b2bPerPage, ($b2bPage - 1) * $b2bPerPage);
+    $b2bOffersCount = $b2bService->countOpenOffers(Auth::getUserId());
+    $b2bReputation  = $b2bService->getPlayerReputationScore(Auth::getUserId());
+}
+$b2bPages = max(1, (int)ceil($b2bOffersCount / $b2bPerPage));
+
+$allowedTabs = $b2bModuleEnabled ? ['market', 'black_market', 'b2b'] : ['market', 'black_market'];
 $activeTab = $_GET['tab'] ?? 'market';
-if (!in_array($activeTab, ['market', 'black_market'])) {
+// Po realizacji zlecenia B2B (POST na te sama strone) pozostan na zakladce graczy.
+// After fulfilling a B2B offer (self POST) stay on the player-offers tab.
+if (($_POST['action'] ?? '') === 'accept_b2b_offer' && $b2bModuleEnabled) {
+    $activeTab = 'b2b';
+}
+if (!in_array($activeTab, $allowedTabs, true)) {
     $activeTab = 'market';
 }
 
@@ -132,12 +167,14 @@ $viewData = compact(
     'error', 'success', 'activeTab',
     'marketData', 'storageData', 'playerData',
     'offers', 'myOffers', 'priceHistory',
-    'historyRows', 'historyTotal', 'historyPage', 'historyPages', 'historyPerPage'
+    'historyRows', 'historyTotal', 'historyPage', 'historyPages', 'historyPerPage',
+    'b2bModuleEnabled', 'b2bOffers', 'b2bOffersCount', 'b2bPage', 'b2bPages', 'b2bReputation'
 );
 $viewData = array_merge(GameShell::data(Auth::getUserId()), $viewData);
 $extraCss = [
     '/assets/css/market.css',
     '/assets/css/black_market.css',
+    '/assets/css/contracts.css', // karty zlecen B2B / B2B offer cards
 ];
 $gameShellTitle = $marketTitlePlain;
 $gameShellView = __DIR__ . '/../templates/views/market/main.php';

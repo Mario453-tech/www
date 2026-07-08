@@ -33,6 +33,10 @@ function switchMarketTab(ev, tab) {
                 onclick="switchMarketTab(event,'market')"> <?= t('market.heading') ?></button>
         <button class="market-tab <?= $activeTab === 'black_market' ? 'active' : '' ?>"
                 onclick="switchMarketTab(event,'black_market')"><?= t('black_market.tab_title') ?></button>
+        <?php if (!empty($b2bModuleEnabled)): ?>
+        <button class="market-tab <?= $activeTab === 'b2b' ? 'active' : '' ?>"
+                onclick="switchMarketTab(event,'b2b')"><?= t('market.b2b_tab_title') ?></button>
+        <?php endif ?>
     </div>
 
     <div id="tab-market" class="market-tab-content <?= $activeTab === 'market' ? 'active' : '' ?>">
@@ -180,6 +184,79 @@ function switchMarketTab(ev, tab) {
             </div>
         </section>
     </div>
+
+    <?php if (!empty($b2bModuleEnabled)): ?>
+    <?php
+    $b2bFmtBbl   = static fn(float $v): string => number_format($v, 0, ',', "\xc2\xa0");
+    $b2bFmtMoney = static fn(float $v): string => number_format($v, 2, ',', "\xc2\xa0");
+    $b2bBase     = function_exists('url') ? url('market') : '/market';
+    ?>
+    <div id="tab-b2b" class="market-tab-content <?= $activeTab === 'b2b' ? 'active' : '' ?>">
+        <section class="card" aria-labelledby="b2b-heading">
+            <h2 id="b2b-heading"><?= t('market.b2b_heading') ?></h2>
+            <p class="market-b2b-subtitle"><?= t('market.b2b_subtitle') ?></p>
+            <p class="market-b2b-reputation">
+                <?= t('contracts.b2b.reputation_label') ?>:
+                <strong><?= (int)$b2bReputation ?>/100</strong>
+            </p>
+
+            <?php if (empty($b2bOffers)): ?>
+                <p class="no-data-msg"><?= t('contracts.b2b.market_empty') ?></p>
+            <?php else: ?>
+                <div class="contracts-grid">
+                    <?php foreach ($b2bOffers as $offer): ?>
+                    <article class="contracts-card">
+                        <div class="contracts-card__head">
+                            <span class="contracts-card__name"><?= htmlspecialchars((string)($offer['buyer_name'] ?? '')) ?></span>
+                        </div>
+                        <div class="contracts-terms">
+                            <div class="contracts-term">
+                                <span class="ct-label"><?= t('contracts.b2b.volume') ?></span>
+                                <strong class="ct-val"><?= $b2bFmtBbl((float)$offer['total_bbl']) ?> <?= t('contracts.unit_bbl') ?></strong>
+                            </div>
+                            <div class="contracts-term">
+                                <span class="ct-label"><?= t('contracts.b2b.price_per_bbl') ?></span>
+                                <strong class="ct-val"><?= $b2bFmtMoney((float)$offer['price_per_bbl']) ?></strong>
+                            </div>
+                            <div class="contracts-term">
+                                <span class="ct-label"><?= t('contracts.b2b.total_value') ?></span>
+                                <strong class="ct-val ct-val--bonus"><?= $b2bFmtMoney((float)$offer['total_value']) ?></strong>
+                            </div>
+                            <div class="contracts-term">
+                                <span class="ct-label"><?= t('contracts.b2b.expires_at') ?></span>
+                                <strong class="ct-val"><?= htmlspecialchars(substr((string)$offer['expires_at'], 0, 16)) ?></strong>
+                            </div>
+                        </div>
+                        <form method="post" class="contracts-action-form"
+                              onsubmit="return confirm(<?= htmlspecialchars(json_encode(tPlain('contracts.b2b.confirm_accept'), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>);">
+                            <?= CSRF::field() ?>
+                            <input type="hidden" name="action" value="accept_b2b_offer">
+                            <input type="hidden" name="offer_id" value="<?= (int)$offer['id'] ?>">
+                            <button type="submit" class="btn btn-success btn-full"><?= t('contracts.b2b.btn_deliver') ?></button>
+                        </form>
+                    </article>
+                    <?php endforeach ?>
+                </div>
+
+                <?php if ($b2bPages > 1): ?>
+                <nav class="market-b2b-pagination" aria-label="<?= t('market.b2b_heading') ?>">
+                    <?php if ($b2bPage > 1): ?>
+                        <a class="btn btn-sm btn-secondary" href="<?= htmlspecialchars($b2bBase . '?tab=b2b&b2bpage=' . ($b2bPage - 1)) ?>"><?= t('market.sale_history_prev') ?></a>
+                    <?php else: ?>
+                        <span class="btn btn-sm btn-secondary disabled"><?= t('market.sale_history_prev') ?></span>
+                    <?php endif ?>
+                    <span class="sale-history-page-info"><?= tPlain('market.sale_history_page', ['cur' => $b2bPage, 'total' => $b2bPages]) ?></span>
+                    <?php if ($b2bPage < $b2bPages): ?>
+                        <a class="btn btn-sm btn-secondary" href="<?= htmlspecialchars($b2bBase . '?tab=b2b&b2bpage=' . ($b2bPage + 1)) ?>"><?= t('market.sale_history_next') ?></a>
+                    <?php else: ?>
+                        <span class="btn btn-sm btn-secondary disabled"><?= t('market.sale_history_next') ?></span>
+                    <?php endif ?>
+                </nav>
+                <?php endif ?>
+            <?php endif ?>
+        </section>
+    </div>
+    <?php endif ?>
 </div>
 
 <script>

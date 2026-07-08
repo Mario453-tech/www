@@ -102,6 +102,10 @@ return [
     'market.sale_history_next'      => 'Następna →',
     'market.sale_history_info'      => 'Historia jest przechowywana przez 7 dni.',
 
+    'market.b2b_tab_title' => 'Zlecenia graczy',
+    'market.b2b_heading'   => 'Zlecenia skupu od graczy',
+    'market.b2b_subtitle'  => 'Inni gracze wystawiają zlecenia skupu ropy. Zrealizuj wybrane zlecenie, dostarczając ropę z magazynu — pieniądze trafią od razu na Twoje konto.',
+
     'black_market.tab_title' => 'Czarny Rynek',
     'black_market.heading' => 'Czarny Rynek Ropy',
     'black_market.subtitle' => 'Nielegalna sprzedaż ropy po zawyżonych cenach. Wysoki zysk, ale z ryzykiem wykrycia i kary.',
