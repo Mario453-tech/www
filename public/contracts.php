@@ -129,6 +129,7 @@ $b2bMyPage = $pageNum('b2b_my_page');
 $b2bHistoryPage = $pageNum('b2b_history_page');
 $b2bLogsPage = $pageNum('b2b_logs_page');
 $b2bConfig = $b2bService->getConfig();
+$b2bReputationScore = $b2bService->getPlayerReputationScore($playerId);
 $b2bMarketOffers = $b2bService->listOpenOffers($playerId, $limit, ($b2bMarketPage - 1) * $limit);
 $b2bMarketCount = $b2bService->countOpenOffers($playerId);
 $b2bMyBuyOffers = $b2bService->listMyBuyOffers($playerId, $limit, ($b2bMyPage - 1) * $limit);
@@ -152,6 +153,7 @@ $viewData = compact(
     'error',
     'success',
     'b2bConfig',
+    'b2bReputationScore',
     'b2bMarketOffers',
     'b2bMarketCount',
     'b2bMarketPage',

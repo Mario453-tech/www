@@ -11,6 +11,7 @@
  * @var array<int,array<string,mixed>> $b2bMySales
  * @var array<int,array<string,mixed>> $b2bHistory
  * @var array<int,array<string,mixed>> $b2bLogs
+ * @var int $b2bReputationScore
  * @var int $b2bMarketCount
  * @var int $b2bMyBuyCount
  * @var int $b2bMySalesCount
@@ -38,6 +39,7 @@ $b2bEventLabel = static function (string $event): string {
 $b2bPageLink = static function (string $tab, string $param, int $page) use ($b2bBaseUrl): string {
     return $b2bBaseUrl . '?tab=' . rawurlencode($tab) . '&' . rawurlencode($param) . '=' . max(1, $page);
 };
+$b2bReputationPct = max(0, min(100, (int)($b2bReputationScore ?? 50)));
 $b2bPager = static function (string $tab, string $param, int $page, int $count, int $limit) use ($b2bPageLink): void {
     if ($count <= $limit) {
         return;
@@ -60,6 +62,22 @@ $b2bPager = static function (string $tab, string $param, int $page, int $count, 
 <?php if (!$b2bModuleEnabled): ?>
 <section class="card">
     <div class="contracts-notice contracts-notice--off"><?= t('contracts.b2b.module_disabled_notice') ?></div>
+</section>
+<?php endif ?>
+
+<?php if (in_array($contractsTab, ['b2b_market', 'b2b_my', 'b2b_history', 'b2b_logs'], true)): ?>
+<section class="card contracts-b2b-reputation">
+    <div class="contracts-b2b-reputation__head">
+        <div>
+            <span class="ct-label"><?= t('contracts.b2b.reputation_label') ?></span>
+            <strong class="contracts-b2b-reputation__score"><?= $b2bReputationPct ?>%</strong>
+        </div>
+        <span class="contracts-badge contracts-badge--status"><?= t('contracts.b2b.reputation_badge') ?></span>
+    </div>
+    <div class="contracts-progress contracts-b2b-reputation__bar" aria-label="<?= htmlspecialchars(strip_tags(t('contracts.b2b.reputation_label')), ENT_QUOTES, 'UTF-8') ?>">
+        <div class="contracts-progress__bar" style="--bar-w: <?= $b2bReputationPct ?>%"></div>
+    </div>
+    <p class="contracts-b2b-reputation__note"><?= t('contracts.b2b.reputation_note') ?></p>
 </section>
 <?php endif ?>
 

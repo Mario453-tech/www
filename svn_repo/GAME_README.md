@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-07-08 - Kontrakty B2B: reputacja w UI gracza
+
+- `/contracts` pokazuje teraz reputację B2B gracza jako procent oraz pasek postępu nad zakładkami B2B.
+- `B2BContractService::getPlayerReputationScore()` udostępnia bezpieczny odczyt wyniku pojedynczego gracza i tworzy domyślny wpis reputacji, jeśli gracz jeszcze go nie miał.
+- Widok korzysta z istniejącej tabeli `b2b_reputation_scores`; wynik jest przycinany do zakresu 0-100%.
+- Dodano tłumaczenia PL/EN dla etykiety, odznaki i opisu reputacji B2B.
+
 ### 2026-07-08 - Najnowsze zmiany: kontrakty B2B
 
 Ta sekcja zbiera ostatnie zmiany B2B w jednym miejscu, żeby były widoczne od razu na początku pliku.

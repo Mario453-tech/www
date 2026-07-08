@@ -100,5 +100,8 @@ return [
     'contracts.event.contract_deposit_forfeited' => 'Deposit forfeited',
     'contracts.log_time' => 'Time',
     'contracts.log_event' => 'Event',
+    'contracts.b2b.reputation_label' => 'B2B reputation',
+    'contracts.b2b.reputation_badge' => 'Trade score',
+    'contracts.b2b.reputation_note' => 'Reputation increases after successful trades and drops after cancellations, expirations, and admin interventions.',
     'contracts.btn_back' => 'Back to dashboard',
 ];
