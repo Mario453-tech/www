@@ -765,6 +765,18 @@ final class B2BContractService
         return (int)$stmt->fetchColumn();
     }
 
+    public function getPlayerReputationScore(int $playerId): int
+    {
+        if ($playerId <= 0) {
+            return 50;
+        }
+        $this->ensureReputationRow($playerId);
+        $stmt = $this->db->prepare('SELECT score FROM b2b_reputation_scores WHERE player_id = ?');
+        $stmt->execute([$playerId]);
+        $score = $stmt->fetchColumn();
+        return max(0, min(100, $score === false ? 50 : (int)$score));
+    }
+
     private function expireSingleOffer(int $offerId): array
     {
         $this->db->beginTransaction();
