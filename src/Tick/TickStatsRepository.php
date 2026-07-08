@@ -2,13 +2,13 @@
 
 /**
  * TickStatsRepository zapis i odczyt statystyk tickow gry.
- * Tick stats repository save and read game tick statistics.
+ * TickStatsRepository saves and reads game tick statistics.
  */
 class TickStatsRepository
 {
     private PDO $db;
 
-    /** @var array<int,bool> guard: raz per polaczenie / once per connection */
+    /** @var array<int,bool> */
     private static array $schemaEnsured = [];
 
     public function __construct()
@@ -17,12 +17,10 @@ class TickStatsRepository
         $this->ensureSchema();
     }
 
- /**
- * Zapewnia UNIQUE KEY na ran_at (idempotentne, raz per polaczenie).
- * Bez UNIQUE KEY INSERT IGNORE nie deduplicuje duplikatow z rownoczesnych tickow.
- * Ensures UNIQUE KEY on ran_at (idempotent, once per connection).
- * Without UNIQUE KEY, INSERT IGNORE does not deduplicate concurrent-tick duplicates.
- */
+    /**
+     * Zapewnia indeks UNIQUE i kolumny metryk kontraktow.
+     * Ensures UNIQUE index and contract metric columns.
+     */
     private function ensureSchema(): void
     {
         $connId = spl_object_id($this->db);
@@ -34,13 +32,12 @@ class TickStatsRepository
         try {
             $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
             if ($driver !== 'mysql') {
-                return; // testy uzywaja SQLite / tests use SQLite
+                return;
             }
             if ($this->db->inTransaction()) {
-                return; // DDL nie moze biec w transakcji / DDL cannot run inside a transaction
+                return;
             }
 
-            // Sprawdz czy idx_ran_at jest juz UNIQUE / Check if idx_ran_at is already UNIQUE
             $stmt = $this->db->query(
                 "SELECT Non_unique FROM information_schema.STATISTICS
                   WHERE TABLE_SCHEMA = DATABASE()
@@ -50,15 +47,18 @@ class TickStatsRepository
             );
             $nonUnique = $stmt ? $stmt->fetchColumn() : null;
 
+            Database::addColumnIfMissing('tick_stats', 'contracts_processed', 'INT NULL DEFAULT NULL AFTER incidents_triggered');
+            Database::addColumnIfMissing('tick_stats', 'contracts_revenue_pln', 'DECIMAL(16,2) NULL DEFAULT NULL AFTER contracts_processed');
+            Database::addColumnIfMissing('tick_stats', 'contracts_penalties_pln', 'DECIMAL(16,2) NULL DEFAULT NULL AFTER contracts_revenue_pln');
+
             if ($nonUnique === false || $nonUnique === null) {
-                // Brak indeksu w ogole — dodaj UNIQUE od razu / No index at all — add UNIQUE directly
                 $this->db->exec("ALTER TABLE tick_stats ADD UNIQUE KEY idx_ran_at (ran_at)");
                 return;
             }
             if ((int)$nonUnique === 0) {
-                return; // Juz UNIQUE / Already UNIQUE
+                return;
             }
-            // Jest non-unique — usun duplikaty, zmien na UNIQUE / Non-unique exists — purge dupes, make UNIQUE
+
             $this->db->exec(
                 "DELETE t1 FROM tick_stats t1
                    JOIN tick_stats t2 ON t1.ran_at = t2.ran_at AND t1.id < t2.id"
@@ -72,19 +72,16 @@ class TickStatsRepository
         }
     }
 
- /**
- * Zapisuje wiersz statystyk po zakonczeniu ticka.
- * Saves a stats row after tick completion.
- */
- /** @param array<string, mixed> $stats */
+    /**
+     * Zapisuje wiersz statystyk po zakonczeniu ticka.
+     * Saves a stats row after tick completion.
+     *
+     * @param array<string, mixed> $stats
+     */
     public function save(array $stats): void
     {
         $ranAt = $stats['ran_at'] ?? date('Y-m-d H:i:s');
 
-        // INSERT IGNORE odporna na rownoczesne uruchomienia (admin force-tick + cron).
-        // Wymaga UNIQUE KEY na ran_at — patrz migracja tick_stats_unique_ran_at.
-        // INSERT IGNORE is race-safe for concurrent runs (admin force-tick + cron).
-        // Requires UNIQUE KEY on ran_at — see migration tick_stats_unique_ran_at.
         $this->db->prepare("
             INSERT IGNORE INTO tick_stats (
                 ran_at, source, duration_ms,
@@ -95,7 +92,8 @@ class TickStatsRepository
                 bankruptcy_processed, bankruptcy_recovered,
                 players_processed, wells_active,
                 total_production_bbl, total_revenue_pln, total_opex_pln,
-                disasters_triggered, incidents_triggered
+                disasters_triggered, incidents_triggered,
+                contracts_processed, contracts_revenue_pln, contracts_penalties_pln
             ) VALUES (
                 :ran_at, :source, :duration_ms,
                 :oil_price, :trend_name, :trend_new,
@@ -105,7 +103,8 @@ class TickStatsRepository
                 :bankruptcy_processed, :bankruptcy_recovered,
                 :players_processed, :wells_active,
                 :total_production_bbl, :total_revenue_pln, :total_opex_pln,
-                :disasters_triggered, :incidents_triggered
+                :disasters_triggered, :incidents_triggered,
+                :contracts_processed, :contracts_revenue_pln, :contracts_penalties_pln
             )
         ")->execute([
             ':ran_at'                      => $ranAt,
@@ -113,7 +112,7 @@ class TickStatsRepository
             ':duration_ms'                 => $stats['duration_ms']                 ?? null,
             ':oil_price'                   => $stats['oil_price']                   ?? null,
             ':trend_name'                  => $stats['trend_name']                  ?? null,
-            ':trend_new'                   => $stats['trend_new']                   ? 1 : 0,
+            ':trend_new'                   => !empty($stats['trend_new']) ? 1 : 0,
             ':bank_interest_processed'     => $stats['bank_interest_processed']     ?? null,
             ':bank_installments_processed' => $stats['bank_installments_processed'] ?? null,
             ':bank_negotiations_resolved'  => $stats['bank_negotiations_resolved']  ?? null,
@@ -128,14 +127,18 @@ class TickStatsRepository
             ':total_opex_pln'              => $stats['total_opex_pln']              ?? null,
             ':disasters_triggered'         => $stats['disasters_triggered']         ?? null,
             ':incidents_triggered'         => $stats['incidents_triggered']         ?? null,
+            ':contracts_processed'         => $stats['contracts_processed']         ?? null,
+            ':contracts_revenue_pln'       => $stats['contracts_revenue_pln']       ?? null,
+            ':contracts_penalties_pln'     => $stats['contracts_penalties_pln']     ?? null,
         ]);
     }
 
- /**
- * Zwraca zagregowane statystyki z ostatnich 24h.
- * Returns aggregated stats from last 24h.
- */
- /** @return array<string, mixed>|false */
+    /**
+     * Zwraca zagregowane statystyki z ostatnich 24h.
+     * Returns aggregated stats from last 24h.
+     *
+     * @return array<string, mixed>|false
+     */
     public function getSummary24h(): array|false
     {
         return $this->db->query("
@@ -147,6 +150,9 @@ class TickStatsRepository
                 SUM(wells_active)               AS total_wells,
                 SUM(total_production_bbl)       AS total_bbl,
                 SUM(total_revenue_pln)          AS total_revenue,
+                SUM(contracts_processed)        AS total_contracts_processed,
+                SUM(contracts_revenue_pln)      AS total_contracts_revenue,
+                SUM(contracts_penalties_pln)    AS total_contracts_penalties,
                 SUM(disasters_triggered)        AS total_disasters,
                 SUM(incidents_triggered)        AS total_incidents,
                 MAX(oil_price)                  AS price_max,
@@ -157,10 +163,10 @@ class TickStatsRepository
         ")->fetch();
     }
 
- /**
- * Usuwa wpisy starsze niz N dni (cleanup).
- * Deletes entries older than N days (cleanup).
- */
+    /**
+     * Usuwa wpisy starsze niz N dni.
+     * Deletes entries older than N days.
+     */
     public function cleanup(int $keepDays = 7): int
     {
         $stmt = $this->db->prepare("

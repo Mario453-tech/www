@@ -155,7 +155,7 @@ $reputationPlayerLabel = static function (array $row): string {
 <section class="panel mb-8">
     <p class="panel-title">
         <?= $editOption !== null
-            ? t('admin.contracts.option_form_edit', ['name' => htmlspecialchars((string)$editOption['name'])])
+            ? t('admin.contracts.option_form_edit', ['name' => (string)$editOption['name']])
             : t('admin.contracts.option_form_add') ?>
     </p>
     <form method="post" action="/admin/contracts.php?tab=options">
@@ -310,7 +310,7 @@ $reputationPlayerLabel = static function (array $row): string {
 <section class="panel mb-8">
     <p class="panel-title">
         <?= $editTerm !== null
-            ? t('admin.contracts.term_form_edit', ['key' => htmlspecialchars((string)$editTerm['term_key'])])
+            ? t('admin.contracts.term_form_edit', ['key' => (string)$editTerm['term_key']])
             : t('admin.contracts.term_form_add') ?>
     </p>
     <form method="post" action="/admin/contracts.php?tab=terms">

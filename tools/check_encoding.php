@@ -29,6 +29,7 @@ $allowedExtensions = [
 $ignoredDirs = [
     '.git' => true,
     'backup' => true,
+    'backups' => true,
     'cache' => true,
     'node_modules' => true,
     'vendor' => true,
@@ -37,8 +38,8 @@ $ignoredDirs = [
 // Konkretne pliki wykluczone z kontroli kodowania (dane, nie kod zrodlowy).
 // Specific files excluded from encoding checks (data files, not source code).
 // Dumpy baz danych moga zawierac dane wpisane przez uzytkownikow z roznym
-// kodowaniem — nie mamy nad tym kontroli.
-// Database dumps may contain user-entered data with arbitrary encoding —
+// kodowaniem - nie mamy nad tym kontroli.
+// Database dumps may contain user-entered data with arbitrary encoding -
 // we have no control over it.
 $ignoredFiles = [
     '01240275_oil.sql' => true,

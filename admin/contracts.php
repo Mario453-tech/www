@@ -21,8 +21,10 @@ require_once __DIR__ . '/../src/ContractReputationService.php';
 $db                = Database::getInstance()->getConnection();
 $service           = new ContractService($db); // ensure() creates schema and seed.
 $reputationService = new ContractReputationService($db);
-$msg               = '';
-$err               = '';
+$flash             = $_SESSION['admin_contracts_flash'] ?? [];
+unset($_SESSION['admin_contracts_flash']);
+$msg               = (string)($flash['msg'] ?? '');
+$err               = (string)($flash['err'] ?? '');
 
 $tabs = ['options', 'terms', 'active', 'deliveries', 'logs', 'reputation', 'help'];
 $activeTab = (string)($_GET['tab'] ?? 'options');
@@ -202,6 +204,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $activeTab = 'reputation';
     }
+
+    $_SESSION['admin_contracts_flash'] = ['msg' => $msg, 'err' => $err];
+    header('Location: /admin/contracts.php?tab=' . urlencode($activeTab));
+    exit;
 }
 
 // == DANE DLA WIDOKU / VIEW DATA ==

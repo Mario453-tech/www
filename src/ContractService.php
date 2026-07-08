@@ -158,11 +158,6 @@ class ContractService
         if ($this->isExpired($option)) {
             return $this->result(false, 'option_expired');
         }
-        $blockedUntil = $this->contractReputation->getBlockedUntil($playerId);
-        if ($blockedUntil !== null && $blockedUntil > $this->nowString()) {
-            return $this->result(false, 'contracts_blocked');
-        }
-
         $terms = $this->termsForOption($optionId);
         $validation = $this->validateRequiredTerms($terms);
         if ($validation !== null) {
@@ -202,6 +197,11 @@ class ContractService
             if (!$this->lockPlayerRow($playerId)) {
                 $this->rollbackContractTransaction($ownTx, $savepoint);
                 return $this->result(false, 'player_not_found');
+            }
+            $blockedUntil = $this->contractReputation->getBlockedUntilForUpdate($playerId);
+            if ($blockedUntil !== null && $blockedUntil > $now) {
+                $this->rollbackContractTransaction($ownTx, $savepoint);
+                return $this->result(false, 'contracts_blocked');
             }
             $maxActive = (int)$option['max_active_per_player'];
             if ($maxActive > 0 && $this->activeContractCount($playerId) >= $maxActive) {
@@ -350,12 +350,12 @@ class ContractService
      * Przetwarza wszystkie wymagalne dostawy kontraktowe.
      * Processes all due contract deliveries.
      *
-     * @return array{processed:int,completed:int,failed:int,revenue:float,penalties:float}
+     * @return array{processed:int,completed:int,failed:int,revenue:float,penalties:float,players:list<int>}
      */
     public function processDueContracts(float $marketPrice): array
     {
         if (!$this->isModuleEnabled()) {
-            return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0];
+            return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0, 'players' => []];
         }
 
         // Uzyj zegara MySQL, tak jak nowString() - porownujemy z next_delivery_at zapisanym przez MySQL NOW().
@@ -375,7 +375,7 @@ class ContractService
             if (class_exists('GameLog', false)) {
                 GameLog::error('ContractService', 'processDueContracts SELECT FAILED', $e);
             }
-            return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0];
+            return ['processed' => 0, 'completed' => 0, 'failed' => 0, 'revenue' => 0.0, 'penalties' => 0.0, 'players' => []];
         }
 
         $processed = 0;
@@ -383,12 +383,14 @@ class ContractService
         $failed     = 0;
         $revenue    = 0.0;
         $penalties  = 0.0;
+        $players    = [];
 
         foreach ($contracts as $contract) {
             try {
                 $r = $this->processOneDueContract($contract, $nowStr, $marketPrice);
                 if ($r['new_status'] !== 'skipped') {
                     $processed++;
+                    $players[(int)$contract['player_id']] = true;
                 }
                 $revenue   += $r['revenue'];
                 $penalties += $r['penalty'];
@@ -407,7 +409,14 @@ class ContractService
             }
         }
 
-        return compact('processed', 'completed', 'failed', 'revenue', 'penalties');
+        return [
+            'processed' => $processed,
+            'completed' => $completed,
+            'failed' => $failed,
+            'revenue' => $revenue,
+            'penalties' => $penalties,
+            'players' => array_keys($players),
+        ];
     }
 
     /**
@@ -479,9 +488,15 @@ class ContractService
 
             // Pobierz rope z magazynu / Draw oil from storage.
             if ($deliveredBbl > 0.0) {
-                $this->db->prepare(
-                    "UPDATE storage SET used = GREATEST(0, used - ?), updated_at = NOW() WHERE player_id = ?"
-                )->execute([$deliveredBbl, $playerId]);
+                if ($this->driver() === 'sqlite') {
+                    $this->db->prepare(
+                        "UPDATE storage SET used = MAX(0, used - ?), updated_at = ? WHERE player_id = ?"
+                    )->execute([$deliveredBbl, $nowStr, $playerId]);
+                } else {
+                    $this->db->prepare(
+                        "UPDATE storage SET used = GREATEST(0, used - ?), updated_at = ? WHERE player_id = ?"
+                    )->execute([$deliveredBbl, $nowStr, $playerId]);
+                }
             }
 
             // Cena i rozliczenie finansowe / Price and financial settlement.
@@ -576,9 +591,12 @@ class ContractService
                 $newStatus = 'failed';
             }
 
+            $missedExpr = $this->driver() === 'sqlite'
+                ? 'MAX(0, missed_bbl + ?)'
+                : 'GREATEST(0, missed_bbl + ?)';
             $updateSql = "UPDATE player_contracts
                 SET delivered_bbl = ?,
-                    missed_bbl    = GREATEST(0, missed_bbl + ?),
+                    missed_bbl    = {$missedExpr},
                     next_delivery_at = ?,
                     status        = ?,
                     completed_at  = ?,

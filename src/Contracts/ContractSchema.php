@@ -208,6 +208,22 @@ class ContractSchema
             if ((int)$stmt->fetchColumn() === 0) {
                 $db->exec("ALTER TABLE contract_deliveries ADD UNIQUE KEY uq_contract_delivery_due (player_contract_id, due_at)");
             }
+            Database::addColumnIfMissing('contract_options', 'description', "VARCHAR(512) NOT NULL DEFAULT '' AFTER name");
+            Database::addColumnIfMissing('contract_options', 'buyer_name', "VARCHAR(128) NOT NULL DEFAULT 'Odbiorca kontraktowy' AFTER description");
+            Database::addColumnIfMissing('contract_options', 'target_type', "VARCHAR(32) NOT NULL DEFAULT 'storage' AFTER buyer_name");
+            Database::addColumnIfMissing('contract_options', 'context', "VARCHAR(64) NOT NULL DEFAULT 'storage_oil_delivery' AFTER target_type");
+            Database::addColumnIfMissing('contract_options', 'is_active', "TINYINT(1) NOT NULL DEFAULT 1 AFTER context");
+            Database::addColumnIfMissing('contract_options', 'price_mode', "ENUM('fixed','market_multiplier','market_plus_bonus') NOT NULL DEFAULT 'market_plus_bonus' AFTER is_active");
+            Database::addColumnIfMissing('contract_options', 'fixed_price', "DECIMAL(12,2) NULL AFTER price_mode");
+            Database::addColumnIfMissing('contract_options', 'price_multiplier', "DECIMAL(8,4) NOT NULL DEFAULT 1.0000 AFTER fixed_price");
+            Database::addColumnIfMissing('contract_options', 'severity', "ENUM('low','medium','high','critical') NOT NULL DEFAULT 'low' AFTER price_multiplier");
+            Database::addColumnIfMissing('contract_options', 'min_credibility', "INT NOT NULL DEFAULT 0 AFTER severity");
+            Database::addColumnIfMissing('contract_options', 'requires_legal_level', "INT NOT NULL DEFAULT 0 AFTER min_credibility");
+            Database::addColumnIfMissing('contract_options', 'max_active_per_player', "INT NOT NULL DEFAULT 3 AFTER requires_legal_level");
+            Database::addColumnIfMissing('contract_options', 'expires_at', "DATETIME NULL AFTER max_active_per_player");
+            Database::addColumnIfMissing('contract_options', 'sort_order', "INT NOT NULL DEFAULT 0 AFTER expires_at");
+            Database::addColumnIfMissing('contract_options', 'created_at', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER sort_order");
+            Database::addColumnIfMissing('contract_options', 'updated_at', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at");
             Database::addColumnIfMissing('player_contracts', 'security_deposit', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER missed_bbl");
             Database::addColumnIfMissing('player_contracts', 'security_deposit_status', "ENUM('none','paid','refunded','partial_refund','forfeited') NOT NULL DEFAULT 'none' AFTER security_deposit");
             Database::addColumnIfMissing('player_contracts', 'security_deposit_refunded', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER security_deposit_status");

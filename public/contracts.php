@@ -18,14 +18,17 @@ $playerId = Auth::getUserId();
 $db       = Database::getInstance()->getConnection();
 $service  = new ContractService($db);
 
-$error   = '';
-$success = '';
+$flash = $_SESSION['contracts_flash'] ?? [];
+unset($_SESSION['contracts_flash']);
+
+$error   = (string)($flash['error'] ?? '');
+$success = (string)($flash['success'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!RateLimiter::check('action')) {
-        $error = tPlain('common.rate_limit');
+        $_SESSION['contracts_flash'] = ['error' => tPlain('common.rate_limit')];
     } elseif (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-        $error = tPlain('common.csrf_error');
+        $_SESSION['contracts_flash'] = ['error' => tPlain('common.csrf_error')];
     } else {
         $action = (string)($_POST['action'] ?? '');
 
@@ -39,20 +42,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ContractService::CONTEXT_STORAGE_DELIVERY
             );
             if (!empty($res['success'])) {
-                $success = tPlain((string)($res['message_key'] ?? 'contracts.msg_signed'));
+                $_SESSION['contracts_flash'] = ['success' => tPlain((string)($res['message_key'] ?? 'contracts.msg_signed'))];
             } else {
-                $error = tPlain((string)($res['message_key'] ?? 'contracts.db_error'));
+                $_SESSION['contracts_flash'] = ['error' => tPlain((string)($res['message_key'] ?? 'contracts.db_error'))];
             }
         } elseif ($action === 'cancel_contract') {
             $contractId = (int)($_POST['contract_id'] ?? 0);
             $res = $service->cancelContract($playerId, $contractId);
             if (!empty($res['success'])) {
-                $success = tPlain((string)($res['message_key'] ?? 'contracts.msg_cancelled'));
+                $_SESSION['contracts_flash'] = ['success' => tPlain((string)($res['message_key'] ?? 'contracts.msg_cancelled'))];
             } else {
-                $error = tPlain((string)($res['message_key'] ?? 'contracts.db_error'));
+                $_SESSION['contracts_flash'] = ['error' => tPlain((string)($res['message_key'] ?? 'contracts.db_error'))];
             }
+        } else {
+            $_SESSION['contracts_flash'] = ['error' => tPlain('contracts.invalid_input')];
         }
     }
+    header('Location: ' . (function_exists('url') ? url('contracts') : '/contracts'));
+    exit;
 }
 
 // == DANE DLA WIDOKU / VIEW DATA ==
