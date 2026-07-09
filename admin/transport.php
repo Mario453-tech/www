@@ -95,50 +95,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Czyszczenie starych/utknietych kursow ciezarowek i buforow drogowych.
-    // Clear old/stuck road trips and road_buffer_bbl in truck wells.
+    // Zamykanie starych/utknietych kursow ciezarowek bez kasowania historii.
+    // Close old/stuck road trips without deleting history.
     if ($action === 'clear_road_trips') {
         $scope = $_POST['clear_scope'] ?? 'stuck'; // 'stuck' lub 'all'
         try {
             $db->beginTransaction();
             if ($scope === 'all') {
-                $deleted = $db->exec("DELETE FROM well_road_trips");
-                $db->exec("UPDATE wells SET road_buffer_bbl = 0 WHERE transport_type = 'ciezarowki'");
-            } else {
-                // Usun tylko dostarczone i utracone — w tranzycie zostaja.
-                // Delete only delivered and lost — in_transit trips remain.
                 $deleted = $db->exec(
-                    "DELETE FROM well_road_trips WHERE status NOT IN ('in_transit')"
+                    "UPDATE well_road_trips
+                        SET status = 'lost'
+                      WHERE status IN ('in_transit','crediting','delayed')"
+                );
+            } else {
+                // Zamknij tylko utkniete kursy przejsciowe, aktywne kursy zostaja.
+                // Close only stuck transitional trips, active trips remain.
+                $deleted = $db->exec(
+                    "UPDATE well_road_trips
+                        SET status = 'lost'
+                      WHERE status IN ('crediting','delayed')"
                 );
             }
             $db->commit();
-            AdminLog::log('clear_road_trips', "scope={$scope} deleted={$deleted}");
-            $msg = "Wyczyszczono {$deleted} rekordów well_road_trips (tryb: {$scope}).";
+            AdminLog::log('clear_road_trips', "scope={$scope} closed={$deleted}");
+            $msg = "Zamknieto {$deleted} rekordow well_road_trips jako lost (tryb: {$scope}).";
         } catch (Throwable $e) {
             if ($db->inTransaction()) { $db->rollBack(); }
             $err = 'Blad czyszczenia road trips: ' . $e->getMessage();
         }
     }
 
-    // Czyszczenie starych/utknietych dostaw morskich i buforow tankowcow.
-    // Clear old/stuck marine deliveries and tanker marine_buffer_bbl in wells.
+    // Zamykanie starych/utknietych dostaw morskich bez kasowania historii.
+    // Close old/stuck marine deliveries without deleting history.
     if ($action === 'clear_marine_deliveries') {
         $scope = $_POST['clear_scope'] ?? 'stuck'; // 'stuck' lub 'all'
         try {
             $db->beginTransaction();
             if ($scope === 'all') {
-                $deleted = $db->exec("DELETE FROM marine_deliveries");
-                $db->exec("UPDATE wells SET marine_buffer_bbl = 0 WHERE transport_type = 'tankowiec'");
-            } else {
-                // Usun tylko utkniente (nie w trakcie aktywnego transportu).
-                // Delete only stuck ones (not currently in active transport leg).
                 $deleted = $db->exec(
-                    "DELETE FROM marine_deliveries WHERE status NOT IN ('departing','in_transit','processing')"
+                    "UPDATE marine_deliveries
+                        SET status = 'lost',
+                            incident_type = COALESCE(incident_type, 'admin_transport_close'),
+                            delivered_at = COALESCE(delivered_at, NOW())
+                      WHERE status NOT IN ('delivered','lost')"
+                );
+            } else {
+                // Zamknij tylko utkniete dostawy, aktywny transport zostaje.
+                // Close only stuck deliveries, active transport remains.
+                $deleted = $db->exec(
+                    "UPDATE marine_deliveries
+                        SET status = 'lost',
+                            incident_type = COALESCE(incident_type, 'admin_transport_close'),
+                            delivered_at = COALESCE(delivered_at, NOW())
+                      WHERE status IN ('waiting_for_port','delayed')"
                 );
             }
             $db->commit();
-            AdminLog::log('clear_marine_deliveries', "scope={$scope} deleted={$deleted}");
-            $msg = "Wyczyszczono {$deleted} rekordów marine_deliveries (tryb: {$scope}).";
+            AdminLog::log('clear_marine_deliveries', "scope={$scope} closed={$deleted}");
+            $msg = "Zamknieto {$deleted} rekordow marine_deliveries jako lost (tryb: {$scope}).";
         } catch (Throwable $e) {
             if ($db->inTransaction()) { $db->rollBack(); }
             $err = 'Blad czyszczenia: ' . $e->getMessage();

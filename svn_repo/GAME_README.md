@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-09 - Logistyka: zamykanie transportu bez kasowania historii
+
+- `MarineDeliveryService::purgeOrphanActiveForPlayer()` nie usuwa już osieroconych dostaw morskich przez `DELETE`; oznacza je jako `lost` z `incident_type = orphan_purge`.
+- Panel admina transportu nie kasuje już aktywnych `well_road_trips` i `marine_deliveries` w trybie awaryjnym; zamyka je jako `lost`, zachowując historię.
+- Czyszczenie transportu nie zeruje już buforów `road_buffer_bbl` i `marine_buffer_bbl`, żeby nie usuwać ropy bez rozliczenia.
+- Zaktualizowano teksty PL/EN panelu admina, aby mówiły o zamykaniu rekordów, a nie o usuwaniu tabel.
+- Dodano regresję MySQL potwierdzającą, że osierocona dostawa morska pozostaje w historii jako `lost`.
+
 ### 2026-07-08 - Kontrakty B2B: reputacja w UI gracza
 
 - `/contracts` pokazuje teraz reputację B2B gracza jako procent oraz pasek postępu nad zakładkami B2B.

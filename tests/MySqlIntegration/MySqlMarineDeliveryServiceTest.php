@@ -242,6 +242,32 @@ final class MySqlMarineDeliveryServiceTest extends MySqlIntegrationTestCase
         $this->assertCount(3, $history, 'Limit = 3, powinny byc 3 wpisy w historii');
     }
 
+    public function testPurgeOrphanActiveForPlayerMarksLostInsteadOfDeleting(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 998, 'A1', 'tankowiec', 100.0, 50.0);
+
+        $id = $this->svc->createDelivery($playerId, $ids['wellId'], 25.0, 1.0, ['region_id' => 998], []);
+        $this->db->prepare(
+            "UPDATE marine_deliveries
+                SET status = 'delayed', port_id = NULL, eta_at = NOW() - INTERVAL 13 HOUR
+              WHERE id = ?"
+        )->execute([$id]);
+
+        $closed = MarineDeliveryService::purgeOrphanActiveForPlayer($this->db, $playerId);
+
+        $stmt = $this->db->prepare('SELECT status, incident_type, delivered_at FROM marine_deliveries WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        $this->assertSame(1, $closed);
+        $this->assertNotFalse($row, 'Orphan delivery should remain as history');
+        $this->assertSame('lost', $row['status']);
+        $this->assertSame('orphan_purge', $row['incident_type']);
+        $this->assertNotEmpty($row['delivered_at']);
+    }
+
  // 
  // getInTransitBbl
  // 

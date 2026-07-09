@@ -178,8 +178,8 @@ class MarineDeliveryService
     }
 
     /**
-     * Usuwa osierocone aktywne dostawy gracza pozostale po starej logice mikro-kursow.
-     * Removes orphan active player deliveries left over from the legacy micro-shipment logic.
+     * Zamyka osierocone aktywne dostawy gracza pozostale po starej logice mikro-kursow.
+     * Closes orphan active player deliveries left over from the legacy micro-shipment logic.
      *
      * Czyści WYLACZNIE rekordy definitywnie niedostarczalne: 'delayed' bez przypisanego
      * portu (findPort nie znalazl portu — nigdy nie dotra do magazynu). Rejsy
@@ -196,10 +196,12 @@ class MarineDeliveryService
     {
         try {
             $stmt = $db->prepare(
-                "DELETE md
-                   FROM marine_deliveries md
+                "UPDATE marine_deliveries md
               LEFT JOIN port_queue pq
                      ON pq.delivery_id = md.id
+                    SET md.status = 'lost',
+                        md.incident_type = 'orphan_purge',
+                        md.delivered_at = NOW()
                   WHERE md.player_id = ?
                     AND md.status = 'delayed'
                     AND md.port_id IS NULL
@@ -208,15 +210,15 @@ class MarineDeliveryService
             );
             $stmt->execute([$playerId]);
 
-            $deleted = $stmt->rowCount();
-            if ($deleted > 0) {
-                GameLog::info('marine', 'purgeOrphanActiveForPlayer removed legacy rows', [
+            $closed = $stmt->rowCount();
+            if ($closed > 0) {
+                GameLog::info('marine', 'purgeOrphanActiveForPlayer closed legacy rows', [
                     'player_id' => $playerId,
-                    'deleted'   => $deleted,
+                    'closed'    => $closed,
                 ]);
             }
 
-            return $deleted;
+            return $closed;
         } catch (Throwable $e) {
             GameLog::error('marine', 'purgeOrphanActiveForPlayer FAILED', $e, ['player_id' => $playerId]);
             return 0;
