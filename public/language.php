@@ -16,7 +16,7 @@ if (in_array($locale, $allowedLocales, true)) {
     setcookie('locale', $locale, [
         'expires' => time() + 31536000,
         'path' => '/',
-        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+        'secure' => Security::isHttpsRequest(),
         'httponly' => false,
         'samesite' => 'Lax',
     ]);

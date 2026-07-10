@@ -634,7 +634,7 @@ class AdminAuth
             return;
         }
 
-        $secure = !empty($_SERVER['HTTPS']);
+        $secure = Security::isHttpsRequest();
         setcookie(self::TRUSTED_DEVICE_COOKIE, $token, [
             'expires'  => time() + self::TRUSTED_DEVICE_DAYS * 86400,
             'path'     => '/admin',

@@ -195,9 +195,7 @@ if (session_status() === PHP_SESSION_NONE) {
  // $_SERVER['HTTPS'] bywa puste mimo polaczenia szyfrowanego.
  // Detect HTTPS robustly, including behind a reverse proxy (X-Forwarded-Proto) — on shared
  // hosting $_SERVER['HTTPS'] is often empty despite an encrypted connection.
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
-        || (($_SERVER['SERVER_PORT'] ?? '') === '443');
+    $isHttps = Security::isHttpsRequest();
 
  // Trwale cookie sesji (lifetime = TTL) zamiast cookie "na czas przegladarki" (lifetime = 0),
  // ktore Brave i przegladarki mobilne usuwaja przy zamknieciu/uspieniu karty. Dzieki temu sesja

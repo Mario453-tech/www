@@ -747,7 +747,7 @@ class Auth
             $db->prepare("INSERT INTO player_remember_tokens (player_id, token_hash, expires_at, created_ip) VALUES (?,?,?,?)")
                 ->execute([$playerId, $tokenHash, $expiresAt, $ip]);
 
-            $secure = !empty($_SERVER['HTTPS']);
+            $secure = Security::isHttpsRequest();
             setcookie(self::REMEMBER_COOKIE, $token, [
                 'expires'  => time() + self::REMEMBER_DAYS * 86400,
                 'path'     => '/',
@@ -824,7 +824,7 @@ class Auth
             GameLog::error('Auth', 'clearRememberMe failed', ['error' => $e->getMessage()]);
         }
  // Usuń cookie niezależnie od błędu DB / Delete cookie regardless of DB errors.
-        $secure = !empty($_SERVER['HTTPS']);
+        $secure = Security::isHttpsRequest();
         setcookie(self::REMEMBER_COOKIE, '', [
             'expires'  => time() - 3600,
             'path'     => '/',

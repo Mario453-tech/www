@@ -11,6 +11,15 @@ Options -Indexes
     RewriteEngine On
     RewriteBase /
 
+    # Keep authentication cookies on one HTTPS origin.
+    RewriteCond %{HTTP_HOST} ^(?:www\.)?oilempire\.pl$ [NC]
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !^https$ [NC]
+    RewriteRule ^ https://oilempire.pl%{REQUEST_URI} [R=301,L,NE]
+
+    RewriteCond %{HTTP_HOST} ^www\.oilempire\.pl$ [NC]
+    RewriteRule ^ https://oilempire.pl%{REQUEST_URI} [R=301,L,NE]
+
     RewriteCond %{THE_REQUEST} \s/public/login\.php[\s?]
     RewriteRule ^public/login\.php$ /login [R=301,L]
 

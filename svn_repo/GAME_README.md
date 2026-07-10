@@ -660,3 +660,10 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - `src/B2BContractService.php` - reputacja B2B aktualizuje sie przy realizacji, anulowaniu kupujacego, wygasnieciu, flagowaniu i anulowaniu admina.
 - `admin/contracts.php`, `templates/views/admin/contracts/main.php` - zakladka B2B ma filtry ofert po statusie, fladze i graczu/firmie/ID, paginacje ofert i logow oraz sekcje reputacji B2B z paginacja.
 - Testy rozszerzono o reputacje, filtry admina i MySQL cleanup nowych tabel.
+
+### 2026-07-10 - Sesje: trwałe logowanie w Brave i lokalnym HTTP
+
+- `src/Security.php` - dodano wspólną metodę `Security::isHttpsRequest()`, która poprawnie rozpoznaje natywne HTTPS, HTTPS za proxy oraz wartość `HTTPS=off` na lokalnym HTTP.
+- `src/init.php`, `src/Auth.php`, `src/AdminAuth.php`, `public/language.php` - wszystkie cookie zależne od protokołu korzystają z jednej reguły: sesja, zapamiętane logowanie gracza, zaufane urządzenie admina i wybór języka.
+- `.htaccess` - produkcja wymusza jeden adres `https://oilempire.pl`; wariant `www` oraz HTTP przekierowują przed ustawieniem sesji, więc cookie zapamiętanego logowania nie rozdzielają się między hostami.
+- `tests/Unit/SecurityHttpsRequestTest.php` - testy regresji dla lokalnego HTTP, natywnego HTTPS i nagłówka `X-Forwarded-Proto`.
