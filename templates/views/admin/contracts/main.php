@@ -75,6 +75,83 @@ $b2bStatusLabel = static function (string $status): string {
     $l = tPlain($k);
     return $l !== $k ? $l : $status;
 };
+$b2bEventLabel = static function (string $event): string {
+    $adminKey = 'admin.contracts.b2b_event_' . $event;
+    $adminLabel = tPlain($adminKey);
+    if ($adminLabel !== $adminKey) {
+        return $adminLabel;
+    }
+    $key = 'contracts.b2b.event.' . $event;
+    $label = tPlain($key);
+    return $label !== $key ? $label : $event;
+};
+$b2bDecodeMeta = static function (array $row): array {
+    $raw = $row['meta_json'] ?? null;
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
+    }
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+};
+$b2bShortDate = static function (?string $value): string {
+    $value = trim((string)$value);
+    return $value !== '' ? substr($value, 0, 16) : '-';
+};
+$b2bLogDetail = static function (array $log) use ($b2bDecodeMeta, $fmtBbl, $fmtPln, $b2bShortDate): string {
+    $meta = $b2bDecodeMeta($log);
+    $event = (string)($log['event_key'] ?? '');
+    return match ($event) {
+        'created' => t('contracts.b2b.log_detail.created', [
+            'bbl' => $fmtBbl((float)($meta['bbl'] ?? 0)),
+            'price' => $fmtPln((float)($meta['price_per_bbl'] ?? 0)),
+            'value' => $fmtPln((float)($meta['total_value'] ?? 0)),
+        ]),
+        'cancelled' => t('contracts.b2b.log_detail.cancelled', [
+            'refund' => $fmtPln((float)($meta['refund_amount'] ?? 0)),
+            'penalty' => $fmtPln((float)($meta['penalty_amount'] ?? 0)),
+        ]),
+        'offer_accepted' => t('contracts.b2b.log_detail.offer_accepted', [
+            'bbl' => $fmtBbl((float)($meta['first_delivery_bbl'] ?? 0)),
+            'remaining' => $fmtBbl((float)($meta['remaining_bbl'] ?? 0)) . ' bbl',
+            'deadline' => $b2bShortDate((string)($meta['deadline_at'] ?? '')),
+        ]),
+        'offer_completed' => t('contracts.b2b.log_detail.offer_completed'),
+        'partial_delivery_made' => t('contracts.b2b.log_detail.partial_delivery_made', [
+            'bbl' => $fmtBbl((float)($meta['bbl'] ?? 0)),
+            'revenue' => $fmtPln((float)($meta['revenue'] ?? 0)),
+            'remaining' => $fmtBbl((float)($meta['remaining_bbl'] ?? 0)) . ' bbl',
+        ]),
+        'partial_payment_released' => t('contracts.b2b.log_detail.partial_payment_released', [
+            'amount' => $fmtPln((float)($meta['amount'] ?? 0)),
+        ]),
+        'remaining_escrow_refunded' => t('contracts.b2b.log_detail.remaining_escrow_refunded', [
+            'amount' => $fmtPln((float)($meta['amount'] ?? 0)),
+        ]),
+        'seller_penalty_charged' => t('contracts.b2b.log_detail.seller_penalty_charged', [
+            'bbl' => $fmtBbl((float)($meta['missing_bbl'] ?? 0)),
+            'amount' => $fmtPln((float)($meta['penalty_amount'] ?? 0)),
+        ]),
+        'seller_penalty_skipped' => t('contracts.b2b.log_detail.seller_penalty_skipped'),
+        'offer_failed' => t('contracts.b2b.log_detail.offer_failed', [
+            'refund' => $fmtPln((float)($meta['refunded'] ?? 0)),
+        ]),
+        'offer_partially_completed' => t('contracts.b2b.log_detail.offer_partially_completed', [
+            'delivered' => $fmtBbl((float)($meta['delivered_bbl'] ?? 0)) . ' bbl',
+            'missing' => $fmtBbl((float)($meta['missing_bbl'] ?? 0)) . ' bbl',
+            'refund' => $fmtPln((float)($meta['refunded'] ?? 0)),
+        ]),
+        'seller_abandoned_offer' => t('contracts.b2b.log_detail.seller_abandoned_offer'),
+        'admin_cancelled' => t('contracts.b2b.log_detail.admin_cancelled', [
+            'refund' => $fmtPln((float)($meta['refund_amount'] ?? 0)),
+        ]),
+        'admin_flagged' => t('contracts.b2b.log_detail.admin_flagged'),
+        'admin_unflagged' => t('contracts.b2b.log_detail.admin_unflagged'),
+        'expired' => t('contracts.b2b.log_detail.expired', [
+            'refund' => $fmtPln((float)($meta['refund_amount'] ?? 0)),
+        ]),
+        default => t('contracts.b2b.log_detail.default', ['offer' => (string)((int)($log['offer_id'] ?? 0))]),
+    };
+};
 $b2bPager = static function (string $pageParam, int $page, int $count, int $limit, array $params = []): void {
     if ($count <= $limit) {
         return;
@@ -678,7 +755,7 @@ $b2bSubTab = $b2bSubTab ?? 'pulpit';
             <span><?= t('admin.contracts.b2b_col_delivered') ?></span>
             <span><?= t('admin.contracts.b2b_col_remaining') ?></span>
             <span><?= t('admin.contracts.b2b_col_paid') ?></span>
-            <span><?= t('admin.contracts.b2b_col_escrow_left') ?></span>
+            <span><?= t('admin.contracts.b2b_col_secured_left') ?></span>
             <span><?= t('admin.contracts.b2b_col_penalty') ?></span>
             <span><?= t('admin.contracts.col_status') ?></span>
             <span><?= t('admin.contracts.col_actions') ?></span>
@@ -753,10 +830,11 @@ $b2bSubTab = $b2bSubTab ?? 'pulpit';
             <span><?= t('admin.contracts.b2b_col_price') ?></span>
             <span><?= t('admin.contracts.b2b_col_revenue') ?></span>
             <span><?= t('admin.contracts.b2b_col_remaining_after') ?></span>
+            <span><?= t('admin.contracts.b2b_col_secured_left') ?></span>
         </div>
         <?php foreach ($b2bDeliveries as $del): ?>
         <div class="contracts-admin-row contracts-admin-row--b2b-del">
-            <span><small><?= htmlspecialchars(substr((string)$del['created_at'], 0, 16)) ?></small></span>
+            <span><small><?= htmlspecialchars($b2bShortDate((string)$del['created_at'])) ?></small></span>
             <span>#<?= (int)$del['offer_id'] ?></span>
             <span><?= htmlspecialchars((string)($del['buyer_name'] ?? '')) ?></span>
             <span><?= htmlspecialchars((string)($del['seller_name'] ?? '')) ?></span>
@@ -764,6 +842,7 @@ $b2bSubTab = $b2bSubTab ?? 'pulpit';
             <span><?= $fmtPln((float)$del['price_per_bbl']) ?></span>
             <span><?= $fmtPln((float)$del['revenue']) ?></span>
             <span><?= $fmtBbl((float)$del['remaining_bbl_after']) ?> bbl</span>
+            <span><?= $fmtPln((float)$del['escrow_after']) ?></span>
         </div>
         <?php endforeach ?>
     </div>
@@ -914,10 +993,10 @@ $b2bSubTab = $b2bSubTab ?? 'pulpit';
         </div>
         <?php foreach ($b2bLogs as $log): ?>
         <div class="contracts-admin-row contracts-admin-row--logs">
-            <span><small><?= htmlspecialchars(substr((string)$log['created_at'], 0, 16)) ?></small></span>
+            <span><small><?= htmlspecialchars($b2bShortDate((string)$log['created_at'])) ?></small></span>
             <span><?= htmlspecialchars((string)($log['player_name'] ?? '')) ?></span>
-            <span><code><?= htmlspecialchars((string)$log['event_key']) ?></code></span>
-            <span><?= htmlspecialchars((string)($log['message'] ?? '')) ?></span>
+            <span><?= htmlspecialchars($b2bEventLabel((string)$log['event_key'])) ?></span>
+            <span><?= htmlspecialchars($b2bLogDetail($log)) ?></span>
         </div>
         <?php endforeach ?>
     </div>

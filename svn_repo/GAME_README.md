@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-10 - Kontrakty B2B: czytelniejsza historia i logi
+
+- `templates/views/contracts/b2b.php` - historia B2B pokazuje teraz postęp dostawy, wypłaty dla sprzedającego, zwrócone środki, kary i datę rozliczenia, a logi gracza mają numer oferty oraz opis zdarzenia z kwotami i wolumenem.
+- `templates/views/admin/contracts/main.php` - admin w logach B2B widzi opisowe nazwy zdarzeń zamiast surowych `event_key`, a sekcja dostaw pokazuje także pozostałe środki zabezpieczone po każdej dostawie.
+- `lang/pl/contracts.php`, `lang/en/contracts.php`, `lang/pl/admin/contracts.php`, `lang/en/admin/contracts.php` - `escrow` zostało zastąpione przyjaznymi nazwami typu `zabezpieczenie transakcji` i `środki zabezpieczone`, a tłumaczenia B2B dostały komplet etykiet dla nowych opisów.
+
+Walidacja: `php -l` dla widoków i langów, `B2BContractServiceTest` 39/39, `tools/check_encoding.php`.
+
 ### 2026-07-10 - Kontrakty B2B: poprawki stabilności dostaw częściowych
 
 - `src/B2BContractService.php` - finalna dostawa częściowa wypłaca teraz cały pozostały depozyt sprzedającemu i zeruje `remaining_escrow_amount`, dzięki czemu nie zostają groszowe resztki escrow po zaokrągleniach.
