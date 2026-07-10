@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/SqliteIntegrationTestCase.php';
 require_once dirname(__DIR__, 2) . '/src/LegalService.php';
 require_once dirname(__DIR__, 2) . '/src/Tick/LegalSection.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/TickEngine.php';
 
 /**
  * Etap 4 działu prawnego: tick decyzji.
@@ -183,6 +184,19 @@ final class LegalSectionTest extends SqliteIntegrationTestCase
         $this->assertIsArray($row);
         $this->assertSame('high', $row['priority']);
         $this->assertStringContainsString('odrzucony', strtolower($row['title']));
+    }
+
+    public function testLegalModulePreservesSectionResultAndStats(): void
+    {
+        $this->insertApplication(303, 1, 'pending', '-10 minutes');
+        $ctx = new TickContext($this->db, new DateTimeImmutable(), 'test');
+
+        $result = (new TickEngine())->runOne('legal', $ctx);
+
+        $this->assertSame(TickRunResult::STATUS_SUCCESS, $result->status);
+        $this->assertSame('granted', $this->fetchByPlayer(303)['status']);
+        $this->assertSame(1, $ctx->collectStats()['legal']['decided']);
+        $this->assertSame(1, $ctx->collectStats()['legal']['notified']);
     }
 
     // ---------------------------------------------------------- helpers

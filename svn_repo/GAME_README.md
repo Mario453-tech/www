@@ -682,3 +682,11 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - `TickContext` przechowuje teraz także techniczne wyniki wykonania modułów; usunięto z niego puste metody cleanupu i formatowania odpowiedzi.
 - Silnik wycofuje pozostawioną transakcję po błędzie modułu i zatrzymuje się przy błędzie krytycznym.
 - Testy obejmują kolejność, scalanie statystyk, oba tryby błędów, brak modułów i rollback transakcji.
+
+### 2026-07-10 - Tick Engine: adaptery marine, legal i training
+
+- Dodano cienkie adaptery `MarinePurgeModule`, `LegalModule` i `TrainingModule`, bez kopiowania logiki biznesowej sekcji.
+- `cron/tick.php` uruchamia te trzy sekcje przez `TickEngine::runOne()` w dotychczasowych miejscach i kolejności.
+- Kontekst ticka powstaje po ustaleniu źródła `cron`, `http` lub `cron_http`, a krytyczny błąd rejestru zatrzymuje również hybrydowy przebieg.
+- Dodano test metadanych adapterów oraz integracyjny test realnej decyzji prawnej przez silnik modułowy.
+- Backup przed zmianą crona: `backups/cron/2026-07-10_22-00-01_tick.php.bak`.

@@ -73,6 +73,18 @@ final class TickRunResult
         return $this->status === self::STATUS_FAILED;
     }
 
+    public function assertCanContinue(): void
+    {
+        if (!$this->hasCriticalFailure()) {
+            return;
+        }
+
+        $lastError = $this->errors !== [] ? $this->errors[array_key_last($this->errors)] : null;
+        $module = (string)($lastError['module'] ?? 'unknown');
+        $message = (string)($lastError['message'] ?? 'unknown critical tick failure');
+        throw new RuntimeException("Tick stopped by {$module}: {$message}");
+    }
+
     public function finish(TickContext $ctx): self
     {
         $this->refresh($ctx);

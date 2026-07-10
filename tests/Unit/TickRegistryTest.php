@@ -28,7 +28,14 @@ final class TickRegistryTest extends BaseTestCase
     {
         $modules = TickRegistry::discover();
         $this->assertSame(
-            [[60, 'credibility'], [90, 'contracts'], [100, 'b2b_contracts']],
+            [
+                [20, 'marine_purge'],
+                [60, 'credibility'],
+                [70, 'legal'],
+                [80, 'training'],
+                [90, 'contracts'],
+                [100, 'b2b_contracts'],
+            ],
             array_map(static fn(TickModule $module): array => [$module->order(), $module->key()], $modules)
         );
     }

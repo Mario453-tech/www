@@ -63,6 +63,11 @@ class TickContext
         $this->newPrice = max(0.0, $price);
     }
 
+    public function mutableNow(): DateTime
+    {
+        return DateTime::createFromInterface($this->now);
+    }
+
     /**
      * Ustaw stan rynku / Set market state.
      *

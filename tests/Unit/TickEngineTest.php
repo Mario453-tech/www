@@ -65,6 +65,17 @@ final class TickEngineTest extends BaseTestCase
         $this->assertArrayNotHasKey('after_stop', $result->moduleRuns);
     }
 
+    public function testCriticalResultCanStopHybridCaller(): void
+    {
+        $dir = $this->temporaryModuleDir();
+        $this->writeModule($dir, 'EngineHybridStop', 'hybrid_stop', 10, TickFailurePolicy::STOP, true, 0);
+        $result = (new TickEngine($dir))->runAll($this->context());
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Tick stopped by hybrid_stop');
+        $result->assertCanContinue();
+    }
+
     public function testRunOneMissingModuleFailsClosed(): void
     {
         $result = (new TickEngine($this->temporaryModuleDir()))->runOne('missing', $this->context());

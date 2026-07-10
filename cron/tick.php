@@ -30,6 +30,7 @@ require_once __DIR__ . '/../src/Tick/CredibilitySection.php';
 require_once __DIR__ . '/../src/Tick/LegalSection.php';
 require_once __DIR__ . '/../src/Tick/TrainingSection.php';
 require_once __DIR__ . '/../src/Tick/TickRegistry.php';
+require_once __DIR__ . '/../src/Tick/TickEngine.php';
 
 // Opcjonalne serwisy
 $bankNegAvailable       = file_exists(__DIR__ . '/../src/BankNegotiationService.php');
@@ -74,6 +75,10 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
     }
     $source = 'cron_http';
 }
+
+$tickCtx = new TickContext($db, $now, $source, $startTime);
+$tickEngine = new TickEngine();
+$tickResult = new TickRunResult($tickCtx);
 
 // Lock wykonania: zapobiega nakladaniu sie tickow gdy poprzedni trwa > interwal crona.
 // Bez tego drugi proces przetwarzalby tych samych graczy z tym samym deltaSeconds
@@ -160,11 +165,12 @@ if ($newPrice <= 0.0) {
     }
     GameLog::warn('tick', 'fallback cena ropy / fallback oil price', ['price' => $newPrice]);
 }
+$tickCtx->setMarketState($newPrice, $activeTrend, $isNewTrend);
 
 // 2b. CZYSZCZENIE ZALEGAJACYCH DOSTAW MORSKICH (raz na tick, globalnie)
 // 2b. PURGE STALE MARINE DELIVERIES (once per tick, global)
-require_once __DIR__ . '/../src/Tick/MarineDeliverySection.php';
-MarineDeliverySection::purgeStale($db);
+$tickEngine->runOne('marine_purge', $tickCtx, $tickResult);
+$tickResult->assertCanContinue();
 
 // 3-4k. SYSTEM BANKOWY / HR / BANKRUCI
 
@@ -260,10 +266,6 @@ try {
     GameLog::error('tick', 'Black market section FAILED', $e);
 }
 
-// Wspolny kontekst dla modulow tikowych (Credibility, Contracts, ...).
-// Shared context for tick modules (Credibility, Contracts, ...).
-$tickCtx = new TickContext($db, $now, $source, $startTime);
-$tickCtx->setMarketState($newPrice, $activeTrend, $isNewTrend);
 $tickCtx->balanceMults = $gBalanceMults;
 $tickCtx->bankNegAvailable = $bankNegAvailable;
 $tickCtx->bankruptcyAvailable = $bankruptcyAvailable;
@@ -291,30 +293,32 @@ try {
 $legalDecided  = 0;
 $legalNotified = 0;
 try {
-    $legal = new LegalSection($db, $now);
-    $legal->run();
-    $legalDecided  = $legal->decided;
-    $legalNotified = $legal->notified;
+    $tickEngine->runOne('legal', $tickCtx, $tickResult);
+    $legalStats = $tickCtx->collectStats()['legal'] ?? [];
+    $legalDecided  = (int)($legalStats['decided'] ?? 0);
+    $legalNotified = (int)($legalStats['notified'] ?? 0);
     if ($legalDecided > 0) {
         GameLog::info('tick', "Dział prawny: rozpatrzono {$legalDecided} wniosków, powiadomień: {$legalNotified}");
     }
 } catch (Throwable $e) {
     GameLog::error('tick', 'Legal section FAILED', $e);
 }
+$tickResult->assertCanContinue();
 
 // 9. SZKOLENIA - egzaminy zakonczonych szkolen pracownikow
 
 $trainingExamined = 0;
 try {
-    $training = new TrainingSection($db);
-    $training->run();
-    $trainingExamined = $training->examined;
+    $tickEngine->runOne('training', $tickCtx, $tickResult);
+    $trainingStats = $tickCtx->collectStats()['training'] ?? [];
+    $trainingExamined = (int)($trainingStats['examined'] ?? 0);
     if ($trainingExamined > 0) {
         GameLog::info('tick', "Szkolenia: przeprowadzono {$trainingExamined} egzaminow");
     }
 } catch (Throwable $e) {
     GameLog::error('tick', 'Training section FAILED', $e);
 }
+$tickResult->assertCanContinue();
 
 // 10. KONTRAKTY DLUGOTERMINOWE - rozliczanie wymagalnych dostaw
 
