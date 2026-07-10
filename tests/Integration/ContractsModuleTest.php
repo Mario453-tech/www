@@ -35,9 +35,9 @@ final class ContractsModuleTest extends SqliteIntegrationTestCase
         $this->assertSame('contracts', $this->module->key());
     }
 
-    public function testOrderIs45(): void
+    public function testOrderIs90(): void
     {
-        $this->assertSame(45, $this->module->order());
+        $this->assertSame(90, $this->module->order());
     }
 
     public function testStatsAreZeroBeforeRun(): void

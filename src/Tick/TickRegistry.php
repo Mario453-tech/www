@@ -10,11 +10,7 @@ require_once __DIR__ . '/TickContext.php';
  */
 final class TickRegistry
 {
-    /**
-     * Cache modulow po katalogu / Module cache by directory.
-     *
-     * @var array<string, list<TickModule>>
-     */
+    /** @var array<string, list<class-string<TickModule>>> */
     private static array $cache = [];
 
     /**
@@ -25,41 +21,12 @@ final class TickRegistry
     public static function discover(?string $modulesDir = null): array
     {
         $modulesDir = self::normalizeDir($modulesDir ?? (__DIR__ . '/Modules'));
-        if (isset(self::$cache[$modulesDir])) {
-            return self::$cache[$modulesDir];
-        }
+        $classes = self::$cache[$modulesDir] ??= self::discoverClasses($modulesDir);
 
-        if (!is_dir($modulesDir)) {
-            self::$cache[$modulesDir] = [];
-            return [];
-        }
-
-        $files = glob($modulesDir . DIRECTORY_SEPARATOR . '*.php') ?: [];
-        sort($files, SORT_STRING);
-
-        foreach ($files as $file) {
-            require_once $file;
-        }
-
-        $modules = [];
-        foreach (get_declared_classes() as $className) {
-            $module = self::instantiateModuleFromDir($className, $modulesDir);
-            if ($module !== null) {
-                $modules[] = $module;
-            }
-        }
-
-        usort(
-            $modules,
-            static function (TickModule $a, TickModule $b): int {
-                return [$a->order(), $a->key()] <=> [$b->order(), $b->key()];
-            }
+        return array_map(
+            static fn(string $className): TickModule => new $className(),
+            $classes
         );
-
-        self::assertUniqueKeys($modules);
-
-        self::$cache[$modulesDir] = $modules;
-        return $modules;
     }
 
     public static function find(string $key, ?string $modulesDir = null): ?TickModule
@@ -90,24 +57,70 @@ final class TickRegistry
         return $result;
     }
 
-    /**
-     * Sprawdz klucze modulow / Validate module keys.
-     *
-     * @param list<TickModule> $modules
-     */
-    private static function assertUniqueKeys(array $modules): void
+    /** @return list<class-string<TickModule>> */
+    private static function discoverClasses(string $modulesDir): array
     {
-        $seen = [];
-        foreach ($modules as $module) {
-            $key = $module->key();
-            if ($key === '') {
-                throw new RuntimeException('Tick module key cannot be empty.');
-            }
-            if (isset($seen[$key])) {
-                throw new RuntimeException("Duplicate tick module key: {$key}");
-            }
-            $seen[$key] = true;
+        if (!is_dir($modulesDir)) {
+            return [];
         }
+
+        $files = glob($modulesDir . DIRECTORY_SEPARATOR . '*.php') ?: [];
+        sort($files, SORT_STRING);
+
+        $metadata = [];
+        foreach ($files as $file) {
+            $className = pathinfo($file, PATHINFO_FILENAME);
+            require_once $file;
+
+            if (!class_exists($className, false)) {
+                throw new RuntimeException("Tick module file must define class {$className}: {$file}");
+            }
+
+            $classesInFile = array_values(array_filter(
+                get_declared_classes(),
+                static function (string $declaredClass) use ($file): bool {
+                    $classFile = (new ReflectionClass($declaredClass))->getFileName();
+                    return $classFile !== false && realpath($classFile) === realpath($file);
+                }
+            ));
+            if ($classesInFile !== [$className]) {
+                throw new RuntimeException("Tick module file must define exactly one matching class: {$file}");
+            }
+
+            $reflection = new ReflectionClass($className);
+            if (!$reflection->isInstantiable() || !$reflection->implementsInterface(TickModule::class)) {
+                throw new RuntimeException("Tick module class must implement TickModule: {$className}");
+            }
+            if (!self::isPathInsideDir((string)$reflection->getFileName(), $modulesDir)) {
+                throw new RuntimeException("Tick module class is declared outside its module directory: {$className}");
+            }
+
+            $constructor = $reflection->getConstructor();
+            if ($constructor !== null && $constructor->getNumberOfRequiredParameters() > 0) {
+                throw new RuntimeException("Tick module constructor cannot require arguments: {$className}");
+            }
+
+            /** @var TickModule $module */
+            $module = $reflection->newInstance();
+            $key = trim($module->key());
+            if (!preg_match('/^[a-z][a-z0-9_]*$/', $key)) {
+                throw new RuntimeException("Invalid tick module key: {$key}");
+            }
+            if ($module->order() < 1) {
+                throw new RuntimeException("Tick module order must be positive: {$className}");
+            }
+
+            $metadata[] = [
+                'class' => $className,
+                'key' => $key,
+                'order' => $module->order(),
+            ];
+        }
+
+        usort($metadata, static fn(array $a, array $b): int => [$a['order'], $a['key']] <=> [$b['order'], $b['key']]);
+        self::assertUniqueMetadata($metadata);
+
+        return array_values(array_map(static fn(array $row): string => $row['class'], $metadata));
     }
 
     public static function clearCache(): void
@@ -115,28 +128,20 @@ final class TickRegistry
         self::$cache = [];
     }
 
-    private static function instantiateModuleFromDir(string $className, string $modulesDir): ?TickModule
+    /** @param list<array{class:string,key:string,order:int}> $metadata */
+    private static function assertUniqueMetadata(array $metadata): void
     {
-        try {
-            $ref = new ReflectionClass($className);
-            $fileName = $ref->getFileName();
-            if ($fileName === false || !self::isPathInsideDir($fileName, $modulesDir)) {
-                return null;
+        $keys = [];
+        $orders = [];
+        foreach ($metadata as $row) {
+            if (isset($keys[$row['key']])) {
+                throw new RuntimeException("Duplicate tick module key: {$row['key']}");
             }
-            if (!$ref->isInstantiable() || !$ref->implementsInterface(TickModule::class)) {
-                return null;
+            if (isset($orders[$row['order']])) {
+                throw new RuntimeException("Duplicate tick module order: {$row['order']}");
             }
-            $ctor = $ref->getConstructor();
-            if ($ctor !== null && $ctor->getNumberOfRequiredParameters() > 0) {
-                return null;
-            }
-            $instance = $ref->newInstance();
-            return $instance instanceof TickModule ? $instance : null;
-        } catch (Throwable $e) {
-            if (class_exists('GameLog', false)) {
-                GameLog::error('TickRegistry', 'module discovery FAILED', $e, ['class' => $className]);
-            }
-            return null;
+            $keys[$row['key']] = true;
+            $orders[$row['order']] = true;
         }
     }
 

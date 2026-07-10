@@ -667,3 +667,10 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - `src/init.php`, `src/Auth.php`, `src/AdminAuth.php`, `public/language.php` - wszystkie cookie zależne od protokołu korzystają z jednej reguły: sesja, zapamiętane logowanie gracza, zaufane urządzenie admina i wybór języka.
 - `.htaccess` - produkcja wymusza jeden adres `https://oilempire.pl`; wariant `www` oraz HTTP przekierowują przed ustawieniem sesji, więc cookie zapamiętanego logowania nie rozdzielają się między hostami.
 - `tests/Unit/SecurityHttpsRequestTest.php` - testy regresji dla lokalnego HTTP, natywnego HTTPS i nagłówka `X-Forwarded-Proto`.
+
+### 2026-07-10 - Tick Engine: utwardzenie fundamentu modułów
+
+- `TickModule` otrzymał jawną politykę błędu `STOP` lub `CONTINUE`.
+- `TickRegistry` cache'uje klasy zamiast instancji, zwraca świeże moduły i przerywa odkrywanie przy wadliwym pliku, kluczu, konstruktorze albo zdublowanej kolejności.
+- Kolejność istniejących modułów została dopasowana do realnego crona: wiarygodność `60`, kontrakty systemowe `90`, B2B `100`.
+- Testy rejestru sprawdzają dokładną kolejność, świeże instancje i zachowanie fail-closed.

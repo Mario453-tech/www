@@ -25,7 +25,12 @@ final class B2BContractsModule implements TickModule
 
     public function order(): int
     {
-        return 36;
+        return 100;
+    }
+
+    public function failurePolicy(): TickFailurePolicy
+    {
+        return TickFailurePolicy::CONTINUE;
     }
 
     public function run(TickContext $ctx): void

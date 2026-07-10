@@ -26,7 +26,12 @@ final class ContractsModule implements TickModule
 
     public function order(): int
     {
-        return 45;
+        return 90;
+    }
+
+    public function failurePolicy(): TickFailurePolicy
+    {
+        return TickFailurePolicy::CONTINUE;
     }
 
     public function run(TickContext $ctx): void

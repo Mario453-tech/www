@@ -1611,10 +1611,10 @@ Docelowy moduł:
 ```text
 src/Tick/Modules/ContractsModule.php
 key() = contracts
-order() = 45
+order() = 90
 ```
 
-`order() = 45` wynika z realnej kolejności aktualnego ticka:
+`order() = 90` odzwierciedla realną kolejność aktualnego ticka: kontrakty systemowe działają po szkoleniach i przed B2B.
 
 ```text
 market -> marine_purge -> bank -> players -> black_market -> credibility -> legal -> training
@@ -1790,7 +1790,7 @@ Kontrakt modułu:
 
 ```php
 key() = 'contracts'
-order() = 45
+order() = 90
 run(TickContext $ctx)
 stats()
 ```

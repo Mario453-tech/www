@@ -25,6 +25,11 @@ final class CredibilityModule implements TickModule
         return 60;
     }
 
+    public function failurePolicy(): TickFailurePolicy
+    {
+        return TickFailurePolicy::CONTINUE;
+    }
+
     public function run(TickContext $ctx): void
     {
         $section = new CredibilitySection($ctx->db, $ctx->now);

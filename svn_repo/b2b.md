@@ -123,7 +123,7 @@ Parametry:
 
 ```php
 key() = b2b_contracts
-order() = 36
+order() = 100
 ```
 
 Kolejność:
@@ -1665,7 +1665,7 @@ Wdrozone:
 - escrow przez `FinancialTransactionService`: blokada 100%, zwrot 90% przy anulowaniu kupujacego, zwrot 100% przy wygasnieciu/admin cancel, wyplata sprzedawcy,
 - zakladki gracza w `/contracts`: Systemowe, Rynek B2B, Moje B2B, Historia, Logi,
 - zakladka admina w `admin/contracts.php`: pulpit, ustawienia, oferty, akcje admina, logi,
-- tick module `B2BContractsModule` z `key=b2b_contracts`, `order=36`,
+- tick module `B2BContractsModule` z `key=b2b_contracts`, `order=100`,
 - testy integracyjne, MySQL i rejestru ticka.
 
 Zakres swiadomie odlozony:
