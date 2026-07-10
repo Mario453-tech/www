@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-07-10 - Kontrakty B2B: testy prawdziwej równoległości MySQL
+
+- `tests/MySqlIntegration/MySqlB2BContractServiceTest.php` - dodano testy dwóch realnych procesów PHP uderzających równolegle w tę samą ofertę B2B dla `acceptOffer()` i `deliverPartial()`.
+- `tests/fixtures/b2b_concurrent_worker.php` - dodano worker testowy z osobnym połączeniem PDO, dzięki czemu test weryfikuje faktyczny `SELECT ... FOR UPDATE` na MySQL, a nie tylko sekwencyjną symulację.
+- Walidacja potwierdza, że przy równoległym przyjęciu albo dostawie wygrywa tylko jeden proces, wolumen ropy nie jest podwajany, a transakcja finansowa B2B zapisuje się tylko raz dla danego zwycięskiego przebiegu.
+
 ### 2026-07-10 - Kontrakty B2B: bardziej biznesowe opisy logów
 
 - `lang/pl/contracts.php`, `lang/en/contracts.php` - opisy zdarzeń B2B zostały uproszczone i ujednolicone pod język gracza: `Rozpoczęto realizację`, `Rozliczono dostawę`, `Zwrócono niewykorzystane zabezpieczenie`, `Zlecenie rozliczone częściowo`.
