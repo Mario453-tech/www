@@ -160,10 +160,11 @@ final class B2BContractService
             $stmt = $this->db->prepare(
                 "INSERT INTO b2b_contract_offers
                     (buyer_player_id, status, total_bbl, price_per_bbl, total_value, escrow_amount,
-                     escrow_status, cancel_penalty_pct, min_seller_reputation, expires_at,
+                     escrow_status, cancel_penalty_pct, min_seller_reputation, partial_delivery_enabled,
+                     min_first_delivery_pct, allow_multiple_deliveries, seller_penalty_pct, expires_at,
                      is_flagged, flag_reason, created_at, updated_at)
                  VALUES
-                    (?, 'open', ?, ?, ?, ?, 'locked', ?, ?, ?, ?, ?, ?, ?)"
+                    (?, 'open', ?, ?, ?, ?, 'locked', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             $stmt->execute([
                 $buyerPlayerId,
@@ -173,6 +174,10 @@ final class B2BContractService
                 $totalValue,
                 $penaltyPct,
                 max(0, $minSellerReputation),
+                (int)$cfg['partial_delivery_enabled'],
+                (float)$cfg['min_first_delivery_pct'],
+                (int)$cfg['allow_multiple_deliveries'],
+                (float)$cfg['seller_penalty_pct'],
                 $expiresAt,
                 $isFlagged ? 1 : 0,
                 $isFlagged ? 'auto_review' : null,
@@ -353,7 +358,19 @@ final class B2BContractService
             }
 
             $totalBbl = (float)$offer['total_bbl'];
-            $minFirstBbl = round($totalBbl * ((float)$cfg['min_first_delivery_pct'] / 100), 2);
+            $partialEnabled = (int)($offer['partial_delivery_enabled'] ?? $cfg['partial_delivery_enabled']) > 0;
+            $minFirstPct = (float)($offer['min_first_delivery_pct'] ?? $cfg['min_first_delivery_pct']);
+            $minFirstBbl = $partialEnabled ? round($totalBbl * ($minFirstPct / 100), 2) : $totalBbl;
+
+            if (!$partialEnabled && $firstDeliveryBbl < $totalBbl - 1e-9) {
+                $this->db->rollBack();
+                return [
+                    'success' => false,
+                    'status' => 'full_delivery_required',
+                    'message_key' => 'contracts.b2b.full_delivery_required',
+                    'min_first_bbl' => $totalBbl,
+                ];
+            }
 
             if ($firstDeliveryBbl < $minFirstBbl - 1e-9) {
                 $this->db->rollBack();
@@ -393,6 +410,7 @@ final class B2BContractService
                      delivery_deadline_at = ?,
                      partial_delivery_enabled = ?,
                      min_first_delivery_pct = ?,
+                     allow_multiple_deliveries = ?,
                      seller_penalty_pct = ?,
                      updated_at = ?
                  WHERE id = ? AND status = 'open'"
@@ -402,9 +420,10 @@ final class B2BContractService
                 $newStatus,
                 $this->now(),
                 $deadlineAt,
-                (int)$cfg['partial_delivery_enabled'],
-                (float)$cfg['min_first_delivery_pct'],
-                (float)$cfg['seller_penalty_pct'],
+                $partialEnabled ? 1 : 0,
+                $minFirstPct,
+                (int)($offer['allow_multiple_deliveries'] ?? $cfg['allow_multiple_deliveries']),
+                (float)($offer['seller_penalty_pct'] ?? $cfg['seller_penalty_pct']),
                 $this->now(),
                 $offerId,
             ]);
@@ -415,7 +434,12 @@ final class B2BContractService
 
             if ($newStatus === 'completed') {
                 $this->db->prepare(
-                    "UPDATE b2b_contract_offers SET completed_at = ?, escrow_status = 'released' WHERE id = ?"
+                    "UPDATE b2b_contract_offers
+                     SET completed_at = ?,
+                         escrow_status = 'released',
+                         released_amount = escrow_amount,
+                         remaining_escrow_amount = 0
+                     WHERE id = ?"
                 )->execute([$this->now(), $offerId]);
                 $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
                     'buy_completed' => 1, 'total_bought_bbl' => $totalBbl,
@@ -485,6 +509,10 @@ final class B2BContractService
                 $this->db->rollBack();
                 return $this->result(false, 'forbidden', 'contracts.b2b.forbidden');
             }
+            if ((int)($offer['partial_delivery_enabled'] ?? 1) <= 0) {
+                $this->db->rollBack();
+                return $this->result(false, 'full_delivery_required', 'contracts.b2b.full_delivery_required');
+            }
 
             $deadline = (string)($offer['delivery_deadline_at'] ?? '');
             if ($deadline !== '' && strtotime($deadline) <= time()) {
@@ -503,6 +531,11 @@ final class B2BContractService
 
             // Cap to what's still owed
             $bbl = min($bbl, $remainingBbl);
+
+            if ((int)($offer['allow_multiple_deliveries'] ?? 1) <= 0 && $bbl < $remainingBbl - 1e-9) {
+                $this->db->rollBack();
+                return $this->result(false, 'final_delivery_required', 'contracts.b2b.final_delivery_required');
+            }
 
             if ($this->availableOil($sellerPlayerId) + 1e-9 < $bbl) {
                 $this->db->rollBack();
@@ -525,7 +558,12 @@ final class B2BContractService
 
             if ($newStatus === 'completed') {
                 $this->db->prepare(
-                    "UPDATE b2b_contract_offers SET completed_at = ?, escrow_status = 'released' WHERE id = ?"
+                    "UPDATE b2b_contract_offers
+                     SET completed_at = ?,
+                         escrow_status = 'released',
+                         released_amount = escrow_amount,
+                         remaining_escrow_amount = 0
+                     WHERE id = ?"
                 )->execute([$this->now(), $offerId]);
                 $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
                     'buy_completed' => 1, 'total_bought_bbl' => $totalBbl,
@@ -568,7 +606,7 @@ final class B2BContractService
     /**
      * @return array{success:bool,status:string,message_key:string,delivered_bbl?:float,missing_bbl?:float,refund_amount?:float,penalty_amount?:float}
      */
-    public function finalizeAcceptedOffer(int $offerId, ?DateTimeInterface $now = null): array
+    public function finalizeAcceptedOffer(int $offerId, ?DateTimeInterface $now = null, bool $force = false): array
     {
         $nowSql = $now ? $now->format('Y-m-d H:i:s') : $this->now();
 
@@ -585,7 +623,7 @@ final class B2BContractService
             }
 
             $deadline = (string)($offer['delivery_deadline_at'] ?? '');
-            if ($deadline !== '' && strtotime($deadline) > strtotime($nowSql)) {
+            if (!$force && $deadline !== '' && strtotime($deadline) > strtotime($nowSql)) {
                 $this->db->rollBack();
                 return $this->result(false, 'deadline_not_passed', 'contracts.b2b.deadline_not_passed');
             }
@@ -698,6 +736,15 @@ final class B2BContractService
      */
     public function finalizeExpiredAcceptedOffers(?DateTimeInterface $now = null): array
     {
+        if ((float)($this->getConfig()['auto_finalize_after_deadline'] ?? 1) <= 0) {
+            return [
+                'finalized' => 0,
+                'partial_done' => 0,
+                'failed' => 0,
+                'penalties' => 0.0,
+            ];
+        }
+
         $nowSql = $now ? $now->format('Y-m-d H:i:s') : $this->now();
         $stmt = $this->db->prepare(
             "SELECT id FROM b2b_contract_offers
@@ -749,17 +796,7 @@ final class B2BContractService
             return $this->result(false, 'forbidden', 'contracts.b2b.forbidden');
         }
 
-        // Set deadline to past so finalizeAcceptedOffer() proceeds immediately
-        try {
-            $this->db->prepare(
-                "UPDATE b2b_contract_offers SET delivery_deadline_at = '2000-01-01 00:00:00' WHERE id = ? AND status = 'accepted'"
-            )->execute([$offerId]);
-        } catch (Throwable $e) {
-            $this->logFailure('sellerAbandonOffer:deadline', $e);
-            return $this->result(false, 'db_error', 'contracts.b2b.db_error');
-        }
-
-        $result = $this->finalizeAcceptedOffer($offerId);
+        $result = $this->finalizeAcceptedOffer($offerId, null, true);
 
         if (!empty($result['success'])) {
             try {
@@ -1232,25 +1269,29 @@ final class B2BContractService
             'overdue' => 0,
         ];
         try {
-            $today = date('Y-m-d');
-            $stats['in_progress'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'accepted'"
-            )->fetchColumn();
-            $stats['deliveries_today'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM b2b_contract_deliveries WHERE DATE(created_at) = '{$today}'"
-            )->fetchColumn();
-            $stats['missing_bbl'] = (float)$this->db->query(
-                "SELECT COALESCE(SUM(total_bbl - delivered_bbl), 0) FROM b2b_contract_offers WHERE status = 'accepted'"
-            )->fetchColumn();
-            $stats['locked_funds'] = (float)$this->db->query(
-                "SELECT COALESCE(SUM(remaining_escrow_amount), 0) FROM b2b_contract_offers WHERE status = 'accepted'"
-            )->fetchColumn();
-            $stats['penalties'] = (float)$this->db->query(
-                "SELECT COALESCE(SUM(seller_penalty_amount), 0) FROM b2b_contract_offers WHERE status IN ('partial_done','failed')"
-            )->fetchColumn();
-            $stats['overdue'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'accepted' AND delivery_deadline_at < NOW()"
-            )->fetchColumn();
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = ?");
+            $stmt->execute(['accepted']);
+            $stats['in_progress'] = (int)$stmt->fetchColumn();
+
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM b2b_contract_deliveries WHERE DATE(created_at) = ?");
+            $stmt->execute([date('Y-m-d')]);
+            $stats['deliveries_today'] = (int)$stmt->fetchColumn();
+
+            $stmt = $this->db->prepare("SELECT COALESCE(SUM(total_bbl - delivered_bbl), 0) FROM b2b_contract_offers WHERE status = ?");
+            $stmt->execute(['accepted']);
+            $stats['missing_bbl'] = (float)$stmt->fetchColumn();
+
+            $stmt = $this->db->prepare("SELECT COALESCE(SUM(remaining_escrow_amount), 0) FROM b2b_contract_offers WHERE status = ?");
+            $stmt->execute(['accepted']);
+            $stats['locked_funds'] = (float)$stmt->fetchColumn();
+
+            $stmt = $this->db->prepare("SELECT COALESCE(SUM(seller_penalty_amount), 0) FROM b2b_contract_offers WHERE status IN (?, ?)");
+            $stmt->execute(['partial_done', 'failed']);
+            $stats['penalties'] = (float)$stmt->fetchColumn();
+
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = ? AND delivery_deadline_at < ?");
+            $stmt->execute(['accepted', $this->now()]);
+            $stats['overdue'] = (int)$stmt->fetchColumn();
         } catch (Throwable) {}
         return $stats;
     }
@@ -1274,11 +1315,14 @@ final class B2BContractService
         $releasedSoFar = (float)$offer['released_amount'];
         $currentEscrow = max(0.0, round($totalEscrow - $releasedSoFar, 2));
 
-        $revenue = round($bbl * $pricePerBbl, 2);
-        $revenue = min($revenue, $currentEscrow);
-        $newEscrow = round($currentEscrow - $revenue, 2);
         $newDelivered = round($deliveredSoFar + $bbl, 2);
         $newRemaining = max(0.0, round($currentRemaining - $bbl, 2));
+        $isFinalDelivery = $newRemaining <= 1e-9;
+
+        $revenue = $isFinalDelivery ? $currentEscrow : round($bbl * $pricePerBbl, 2);
+        $revenue = min($revenue, $currentEscrow);
+        $newEscrow = $isFinalDelivery ? 0.0 : round($currentEscrow - $revenue, 2);
+        $newReleased = $isFinalDelivery ? $totalEscrow : round($releasedSoFar + $revenue, 2);
 
         if (!$this->deductOil($sellerPlayerId, $bbl)) {
             return ['success' => false, 'status' => 'insufficient_oil'];
@@ -1325,7 +1369,7 @@ final class B2BContractService
         )->execute([
             $newDelivered,
             $newRemaining,
-            round($releasedSoFar + $revenue, 2),
+            $newReleased,
             $newEscrow,
             $this->now(),
             $offerId,

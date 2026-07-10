@@ -64,6 +64,7 @@ final class B2BContractSchema
                 min_seller_reputation INT NOT NULL DEFAULT 0,
                 partial_delivery_enabled TINYINT(1) NOT NULL DEFAULT 1,
                 min_first_delivery_pct DECIMAL(8,4) NOT NULL DEFAULT 25.0000,
+                allow_multiple_deliveries TINYINT(1) NOT NULL DEFAULT 1,
                 seller_penalty_pct DECIMAL(8,4) NOT NULL DEFAULT 10.0000,
                 seller_penalty_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00,
                 expires_at DATETIME NOT NULL,
@@ -202,7 +203,8 @@ final class B2BContractSchema
         Database::addColumnIfMissing('b2b_contract_offers', 'remaining_escrow_amount', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER released_amount");
         Database::addColumnIfMissing('b2b_contract_offers', 'partial_delivery_enabled', "TINYINT(1) NOT NULL DEFAULT 1 AFTER min_seller_reputation");
         Database::addColumnIfMissing('b2b_contract_offers', 'min_first_delivery_pct', "DECIMAL(8,4) NOT NULL DEFAULT 25.0000 AFTER partial_delivery_enabled");
-        Database::addColumnIfMissing('b2b_contract_offers', 'seller_penalty_pct', "DECIMAL(8,4) NOT NULL DEFAULT 10.0000 AFTER min_first_delivery_pct");
+        Database::addColumnIfMissing('b2b_contract_offers', 'allow_multiple_deliveries', "TINYINT(1) NOT NULL DEFAULT 1 AFTER min_first_delivery_pct");
+        Database::addColumnIfMissing('b2b_contract_offers', 'seller_penalty_pct', "DECIMAL(8,4) NOT NULL DEFAULT 10.0000 AFTER allow_multiple_deliveries");
         Database::addColumnIfMissing('b2b_contract_offers', 'seller_penalty_amount', "DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER seller_penalty_pct");
         Database::addColumnIfMissing('b2b_contract_offers', 'accepted_at', "DATETIME NULL AFTER expires_at");
         Database::addColumnIfMissing('b2b_contract_offers', 'delivery_deadline_at', "DATETIME NULL AFTER accepted_at");
@@ -251,6 +253,7 @@ final class B2BContractSchema
                 min_seller_reputation INTEGER NOT NULL DEFAULT 0,
                 partial_delivery_enabled INTEGER NOT NULL DEFAULT 1,
                 min_first_delivery_pct REAL NOT NULL DEFAULT 25.0,
+                allow_multiple_deliveries INTEGER NOT NULL DEFAULT 1,
                 seller_penalty_pct REAL NOT NULL DEFAULT 10.0,
                 seller_penalty_amount REAL NOT NULL DEFAULT 0.0,
                 expires_at TEXT NOT NULL,

@@ -134,6 +134,8 @@ return [
     'contracts.b2b.seller_not_found' => 'Nie znaleziono sprzedającego.',
     'contracts.b2b.buyer_not_found' => 'Nie znaleziono kupującego.',
     'contracts.b2b.insufficient_oil' => 'Nie masz wystarczającej ilości ropy w magazynie.',
+    'contracts.b2b.full_delivery_required' => 'To zlecenie wymaga dostarczenia całej ilości ropy od razu.',
+    'contracts.b2b.final_delivery_required' => 'To zlecenie nie pozwala na kolejne częściowe dostawy. Dostarcz całą pozostałą ilość.',
     'contracts.b2b.race_lost' => 'Ktoś inny zrealizował to zlecenie przed Tobą.',
 
     'contracts.b2b.market_heading' => 'Rynek B2B',

@@ -1,5 +1,16 @@
 ## Changelog
 
+### 2026-07-10 - Kontrakty B2B: poprawki stabilności dostaw częściowych
+
+- `src/B2BContractService.php` - finalna dostawa częściowa wypłaca teraz cały pozostały depozyt sprzedającemu i zeruje `remaining_escrow_amount`, dzięki czemu nie zostają groszowe resztki escrow po zaokrągleniach.
+- `src/B2BContractService.php` - konfiguracje `partial_delivery_enabled`, `allow_multiple_deliveries` i `auto_finalize_after_deadline` mają teraz efekt runtime: blokują niepełną pierwszą dostawę, wymuszają finalną kolejną dostawę albo wyłączają automatyczne rozliczenie po terminie.
+- `src/B2BContractService.php` - `sellerAbandonOffer()` nie cofa już `delivery_deadline_at` poza transakcją; wymuszone rozliczenie idzie przez `finalizeAcceptedOffer(..., force=true)`.
+- `src/B2BContracts/B2BContractSchema.php` - dodano snapshot `allow_multiple_deliveries` na ofercie B2B, żeby zaakceptowany kontrakt zachowywał reguły z chwili wystawienia.
+- `src/B2BContractService.php` - statystyki pulpitu B2B używają prepared statements zamiast interpolowania daty.
+- `tests/Integration/B2BContractServiceTest.php` - dodano regresje dla wyłączonych dostaw częściowych, trybu jednej kolejnej dostawy, resztek escrow, wyłączonego auto-finalize i porzucenia oferty bez backdate deadline.
+
+Walidacja: `B2BContractServiceTest` 39/39, `MySqlB2BContractServiceTest` 2/2, `tools/check_encoding.php`.
+
 ### 2026-07-09 - Logistyka: zamykanie transportu bez kasowania historii
 
 - `MarineDeliveryService::purgeOrphanActiveForPlayer()` nie usuwa już osieroconych dostaw morskich przez `DELETE`; oznacza je jako `lost` z `incident_type = orphan_purge`.

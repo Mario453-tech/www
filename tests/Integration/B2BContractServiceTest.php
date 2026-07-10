@@ -229,6 +229,23 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('open', $this->offerStatus($offerId));
     }
 
+    public function testPartialDeliveryDisabledRequiresFullFirstDelivery(): void
+    {
+        $this->service->saveConfig(['partial_delivery_enabled' => 0]);
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+
+        $partial = $this->service->acceptOffer(2, $offerId, 30.0);
+        $full = $this->service->acceptOffer(2, $offerId, 100.0);
+
+        $this->assertFalse($partial['success']);
+        $this->assertSame('full_delivery_required', $partial['status']);
+        $this->assertTrue($full['success']);
+        $this->assertSame('completed', $full['status']);
+    }
+
     public function testAcceptOfferRejectsWhenInsufficientOilForFirstDelivery(): void
     {
         $this->seedPlayer(1, 0.0, 50000.0);
@@ -341,6 +358,24 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('completed', $this->offerStatus($offerId));
     }
 
+    public function testSingleFollowUpDeliveryModeRequiresFinalDelivery(): void
+    {
+        $this->service->saveConfig(['allow_multiple_deliveries' => 0]);
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->assertTrue($this->service->acceptOffer(2, $offerId, 30.0)['success']);
+
+        $tooSmall = $this->service->deliverPartial(2, $offerId, 20.0);
+        $final = $this->service->deliverPartial(2, $offerId, 70.0);
+
+        $this->assertFalse($tooSmall['success']);
+        $this->assertSame('final_delivery_required', $tooSmall['status']);
+        $this->assertTrue($final['success']);
+        $this->assertSame('completed', $final['status']);
+    }
+
     public function testDeliverPartialAfterDeadlineReturnsError(): void
     {
         $this->seedPlayer(1, 0.0, 50000.0);
@@ -372,6 +407,24 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('completed', $result['status']);
         $this->assertSame('completed', $this->offerStatus($offerId));
         $this->assertSame(0.0, $result['remaining_bbl']);
+    }
+
+    public function testFinalPartialDeliveryReleasesResidualEscrow(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.01, 120)['offer_id'];
+
+        $this->assertTrue($this->service->acceptOffer(2, $offerId, 25.34)['success']);
+        $this->assertTrue($this->service->deliverPartial(2, $offerId, 0.33)['success']);
+        $final = $this->service->deliverPartial(2, $offerId, 74.33);
+
+        $this->assertTrue($final['success']);
+        $this->assertSame('completed', $final['status']);
+        $this->assertSame(10001.0, $this->bankOf(2));
+        $this->assertSame(0.0, $this->offerFloat($offerId, 'remaining_escrow_amount'));
+        $this->assertSame(10001.0, $this->offerFloat($offerId, 'released_amount'));
     }
 
     public function testFinalizeAfterPartialDeliverySetsPartialDoneStatus(): void
@@ -549,6 +602,43 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('partial_done', $this->offerStatus($offerId));
     }
 
+    public function testTickModuleDoesNotFinalizeAcceptedOffersWhenAutoFinalizeDisabled(): void
+    {
+        $this->service->saveConfig(['auto_finalize_after_deadline' => 0]);
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0);
+        $this->db->prepare("UPDATE b2b_contract_offers SET delivery_deadline_at = ? WHERE id = ?")
+            ->execute(['2000-01-01 00:00:00', $offerId]);
+
+        $module = new B2BContractsModule();
+        $ctx = new TickContext($this->db, new DateTimeImmutable('2001-01-01 00:00:00'), 'test');
+        $module->run($ctx);
+
+        $this->assertSame(0, $module->stats()['b2b_contracts_finalized']);
+        $this->assertSame('accepted', $this->offerStatus($offerId));
+    }
+
+    public function testSellerAbandonFinalizesWithoutBackdatingDeadline(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 1000.0);
+        $this->seedStorage(2, 500.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+        $this->service->acceptOffer(2, $offerId, 30.0);
+        $deadlineBefore = (string)$this->db->query("SELECT delivery_deadline_at FROM b2b_contract_offers WHERE id = {$offerId}")->fetchColumn();
+
+        $result = $this->service->sellerAbandonOffer(2, $offerId, 'test');
+        $deadlineAfter = (string)$this->db->query("SELECT delivery_deadline_at FROM b2b_contract_offers WHERE id = {$offerId}")->fetchColumn();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('partial_done', $result['status']);
+        $this->assertSame($deadlineBefore, $deadlineAfter);
+        $this->assertSame('partial_done', $this->offerStatus($offerId));
+    }
+
     public function testAdminFlagUnflagAndCancel(): void
     {
         $this->seedPlayer(1, 0.0, 50000.0);
@@ -671,5 +761,12 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $stmt = $this->db->prepare('SELECT COUNT(*) FROM b2b_contract_deliveries WHERE offer_id = ?');
         $stmt->execute([$offerId]);
         return (int)$stmt->fetchColumn();
+    }
+
+    private function offerFloat(int $offerId, string $column): float
+    {
+        $allowed = ['released_amount', 'remaining_escrow_amount'];
+        $this->assertContains($column, $allowed);
+        return round((float)$this->db->query("SELECT {$column} FROM b2b_contract_offers WHERE id = {$offerId}")->fetchColumn(), 2);
     }
 }

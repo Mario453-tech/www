@@ -112,5 +112,7 @@ return [
     'contracts.b2b.confirm_accept' => 'Fulfil this B2B offer using oil from your storage?',
     'contracts.b2b.completed' => 'Offer fulfilled — oil delivered and payment received.',
     'contracts.b2b.db_error' => 'Could not process the B2B offer. Please try again.',
+    'contracts.b2b.full_delivery_required' => 'This offer requires the full oil volume to be delivered at once.',
+    'contracts.b2b.final_delivery_required' => 'This offer does not allow another partial delivery. Deliver the full remaining volume.',
     'contracts.btn_back' => 'Back to dashboard',
 ];
