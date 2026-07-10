@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-07-10 - Kontrakty B2B: bardziej biznesowe opisy logów
+
+- `lang/pl/contracts.php`, `lang/en/contracts.php` - opisy zdarzeń B2B zostały uproszczone i ujednolicone pod język gracza: `Rozpoczęto realizację`, `Rozliczono dostawę`, `Zwrócono niewykorzystane zabezpieczenie`, `Zlecenie rozliczone częściowo`.
+- Widoki gracza i admina korzystają z tych samych opisowych etykiet, więc logi B2B są spójne w `/contracts` i `admin/contracts.php`.
+
 ### 2026-07-10 - Kontrakty B2B: czytelniejsza historia i logi
 
 - `templates/views/contracts/b2b.php` - historia B2B pokazuje teraz postęp dostawy, wypłaty dla sprzedającego, zwrócone środki, kary i datę rozliczenia, a logi gracza mają numer oferty oraz opis zdarzenia z kwotami i wolumenem.
