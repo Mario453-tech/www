@@ -30,6 +30,7 @@ final class TickRegistryTest extends BaseTestCase
         $this->assertSame(
             [
                 [20, 'marine_purge'],
+                [50, 'black_market'],
                 [60, 'credibility'],
                 [70, 'legal'],
                 [80, 'training'],

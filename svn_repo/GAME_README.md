@@ -690,3 +690,11 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Kontekst ticka powstaje po ustaleniu źródła `cron`, `http` lub `cron_http`, a krytyczny błąd rejestru zatrzymuje również hybrydowy przebieg.
 - Dodano test metadanych adapterów oraz integracyjny test realnej decyzji prawnej przez silnik modułowy.
 - Backup przed zmianą crona: `backups/cron/2026-07-10_22-00-01_tick.php.bak`.
+
+### 2026-07-10 - Tick Engine: moduł czarnego rynku
+
+- Kod czarnego rynku został przeniesiony z `cron/tick.php` do `BlackMarketModule` bez zmiany kolejności operacji.
+- Moduł zachowuje wygaszanie ofert, skalowany czasem spadek wyniku, licznik ticków, interwał generowania i dotychczasowy filtr aktywnych graczy.
+- Cron uruchamia czarny rynek przez `TickEngine::runOne()` i pobiera liczbę wygenerowanych ofert ze statystyk kontekstu.
+- Dodano test MySQL potwierdzający dwugodzinne skalowanie decay oraz statystyki modułu.
+- Backup przed zmianą crona: `backups/cron/2026-07-10_22-03-50_tick.php.bak`.

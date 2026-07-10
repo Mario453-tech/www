@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/MySqlIntegrationTestCase.php';
 require_once dirname(__DIR__, 2) . '/src/BlackMarketService.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/Modules/BlackMarketModule.php';
 
 /**
  * L4: plaski decay black_market_score musi skalowac sie czasem ticka (deltaHours),
@@ -62,5 +63,35 @@ final class MySqlBlackMarketDecayScalingTest extends MySqlIntegrationTestCase
         $this->setScore($playerId, 5.0);
         $svc->decayScores(24.0);
         $this->assertEqualsWithDelta(0.0, $this->getScore($playerId), 0.001, 'Decay przycięty do 0');
+    }
+
+    public function testModulePreservesDeltaScalingAndReportsStats(): void
+    {
+        $this->db->beginTransaction();
+        try {
+            $playerId = $this->seedPlayer();
+            $this->setDecayConfig(0.5);
+            $this->setScore($playerId, 100.0);
+            $now = time();
+            $upsert = $this->db->prepare(
+                "INSERT INTO well_config (`key`, `value`, `label`, `category`) VALUES (?, ?, 'phpunit', 'black_market')
+                 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)"
+            );
+            $upsert->execute(['last_system_tick_at', (string)($now - 7200)]);
+            $upsert->execute(['bm_offer_interval_ticks', '999999']);
+
+            $ctx = new TickContext($this->db, (new DateTimeImmutable())->setTimestamp($now), 'test');
+            $module = new BlackMarketModule();
+            $module->run($ctx);
+            $stats = $module->stats();
+
+            $this->assertEqualsWithDelta(88.0, $this->getScore($playerId), 0.001);
+            $this->assertEqualsWithDelta(2.0, (float)$stats['delta_hours'], 0.01);
+            $this->assertSame(0, $stats['offers_generated']);
+        } finally {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+        }
     }
 }

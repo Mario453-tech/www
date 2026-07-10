@@ -198,73 +198,12 @@ try {
 $players = new PlayersSection($db, $now, $newPrice, $gBalanceMults);
 $players->run();
 
-// 6. CZARNY RYNEK 
+// 6. CZARNY RYNEK
 
-$bmOffersGenerated = 0;
-try {
-    $bm = new BlackMarketService($db);
-
- // Expiracja przeterminowanych ofert
-    $bm->expireOffers();
-
- // Systemowy deltaHours z ostatniego ticka (last_system_tick_at jest nadpisywany dopiero
- // na koncu tego przebiegu, wiec tu wciaz trzyma znacznik poprzedniego ticka). Sluzy do
- // skalowania plaskiego decay po przerwie crona (L4 / regula #13).
- // System-level deltaHours since the last tick (last_system_tick_at is overwritten only at
- // the end of this run, so it still holds the previous tick's timestamp here).
-    $bmDeltaHours = 1.0 / 12.0; // domyslnie 5 min / default 5 min
-    try {
-        $lastSysTs = $db->query("SELECT `value` FROM well_config WHERE `key` = 'last_system_tick_at' LIMIT 1")->fetchColumn();
-        if ($lastSysTs !== false && (int)$lastSysTs > 0) {
-            $elapsed = $now->getTimestamp() - (int)$lastSysTs;
-            if ($elapsed > 0) $bmDeltaHours = $elapsed / 3600.0;
-        }
-    } catch (Throwable $e) {}
-
- // Decay black_market_score wszystkich graczy (skalowany czasem ticka)
-    $bm->decayScores($bmDeltaHours);
-
- // Generowanie ofert co N tickow
-    $bmInterval = 3;
-    try {
-        $intStmt = $db->prepare("SELECT `value` FROM well_config WHERE `key` = 'bm_offer_interval_ticks' LIMIT 1");
-        $intStmt->execute();
-        $intVal = $intStmt->fetchColumn();
-        if ($intVal !== false) $bmInterval = max(1, (int)$intVal);
-    } catch (Throwable $e) {}
-
- // Pobierz licznik tickow (inkrementuj)
-    $bmTickCount = 0;
-    try {
-        $db->prepare("
-            INSERT INTO well_config (`key`, `value`, `label`, `category`)
-            VALUES ('bm_tick_counter', '1', 'Czarny rynek - licznik tickow', 'black_market')
-            ON DUPLICATE KEY UPDATE `value` = `value` + 1
-        ")->execute();
-        $cStmt = $db->prepare("SELECT `value` FROM well_config WHERE `key` = 'bm_tick_counter' LIMIT 1");
-        $cStmt->execute();
-        $bmTickCount = (int)$cStmt->fetchColumn();
-    } catch (Throwable $e) {}
-
-    if ($bmTickCount > 0 && $bmTickCount % $bmInterval === 0) {
- // Generuj oferty dla kazdego aktywnego gracza 
-        $activePlayers = $db->query("
-            SELECT id FROM players
-            WHERE financial_state != 'crisis'
-            AND id IN (SELECT DISTINCT player_id FROM wells WHERE status NOT IN ('seized','blowout','sold'))
-        ")->fetchAll(PDO::FETCH_COLUMN);
-
-        foreach ($activePlayers as $pid) {
-            $bmOffersGenerated += $bm->generateOffers((int)$pid, $newPrice);
-        }
-
-        if ($bmOffersGenerated > 0) {
-            GameLog::info('tick', "Czarny rynek: wygenerowano $bmOffersGenerated ofert dla " . count($activePlayers) . " graczy");
-        }
-    }
-} catch (Throwable $e) {
-    GameLog::error('tick', 'Black market section FAILED', $e);
-}
+$tickEngine->runOne('black_market', $tickCtx, $tickResult);
+$tickResult->assertCanContinue();
+$blackMarketStats = $tickCtx->collectStats()['black_market'] ?? [];
+$bmOffersGenerated = (int)($blackMarketStats['offers_generated'] ?? 0);
 
 $tickCtx->balanceMults = $gBalanceMults;
 $tickCtx->bankNegAvailable = $bankNegAvailable;
