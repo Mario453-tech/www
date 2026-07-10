@@ -674,3 +674,11 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - `TickRegistry` cache'uje klasy zamiast instancji, zwraca świeże moduły i przerywa odkrywanie przy wadliwym pliku, kluczu, konstruktorze albo zdublowanej kolejności.
 - Kolejność istniejących modułów została dopasowana do realnego crona: wiarygodność `60`, kontrakty systemowe `90`, B2B `100`.
 - Testy rejestru sprawdzają dokładną kolejność, świeże instancje i zachowanie fail-closed.
+
+### 2026-07-10 - Tick Engine: wspólny silnik wykonawczy
+
+- Dodano `TickEngine`, który uruchamia moduły według rejestru, automatycznie scala statystyki, mierzy czas i respektuje polityki `STOP` oraz `CONTINUE`.
+- Dodano `TickRunResult` ze statusem całego przebiegu, wynikami modułów, błędami, ceną ropy, liczbą graczy i produkcją.
+- `TickContext` przechowuje teraz także techniczne wyniki wykonania modułów; usunięto z niego puste metody cleanupu i formatowania odpowiedzi.
+- Silnik wycofuje pozostawioną transakcję po błędzie modułu i zatrzymuje się przy błędzie krytycznym.
+- Testy obejmują kolejność, scalanie statystyk, oba tryby błędów, brak modułów i rollback transakcji.

@@ -47,6 +47,9 @@ class TickContext
      */
     private array $moduleStats = [];
 
+    /** @var array<string,array{order:int,status:string,duration_ms:int,stats:array<string,mixed>,error:?string}> */
+    private array $moduleRuns = [];
+
     public function __construct(PDO $db, DateTimeInterface $now, string $source = 'cron', ?float $startTime = null)
     {
         $this->db = $db;
@@ -126,20 +129,28 @@ class TickContext
         return $this->moduleStats;
     }
 
-    public function runCleanup(): void
+    /** @param array<string,mixed> $stats */
+    public function recordModuleRun(
+        string $moduleKey,
+        int $order,
+        string $status,
+        int $durationMs,
+        array $stats,
+        ?string $error = null
+    ): void
     {
-        // Zarezerwowane dla pozniejszego etapu migracji / Reserved for a later migration step.
+        $this->moduleRuns[$moduleKey] = [
+            'order' => $order,
+            'status' => $status,
+            'duration_ms' => max(0, $durationMs),
+            'stats' => $stats,
+            'error' => $error,
+        ];
     }
 
-    public function summary(): string
+    /** @return array<string,array{order:int,status:string,duration_ms:int,stats:array<string,mixed>,error:?string}> */
+    public function collectModuleRuns(): array
     {
-        $durationMs = (int)round((microtime(true) - $this->startTime) * 1000);
-        return sprintf(
-            'tick source=%s price=%.2f modules=%d duration_ms=%d',
-            $this->source,
-            $this->newPrice,
-            count($this->moduleStats),
-            $durationMs
-        );
+        return $this->moduleRuns;
     }
 }
