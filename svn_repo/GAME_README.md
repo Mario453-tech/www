@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-07-11 - Tick Engine: konfiguracja częstotliwości modułów
+
+- Dodano warstwę konfiguracji modułów ticka: `TickModuleCatalog`, `TickModuleConfigRepository` i `TickModuleScheduler`.
+- Nowe tabele techniczne `tick_module_config` i `tick_module_run_logs` przechowują włączenie modułu, interwał w tickach, limit elementów, ostatni status, błąd i historię uruchomień; dodano także migrację `sql/tick_module_config.sql`.
+- Domyślny seed zachowuje stare działanie gry (`interval_ticks = 1`), a wartości rekomendowane są dostępne osobno, żeby nie zmienić balansu bez decyzji admina.
+- `TickEngine` potrafi już uruchamiać moduły przez scheduler, oznaczać `skipped` i `disabled`, przekazywać limit do `TickContext` oraz logować wynik modułu po wykonaniu.
+- Krytyczne moduły z polityką `STOP` nie mogą być wyłączone ani pominięte przez scheduler; brak dodatniego numeru przebiegu ticka kończy scheduler błędem konfiguracji.
+- Dodano testy jednostkowe schedulera: interwały po numerze ticka, blokada modułu, wymuszone uruchomienie, przywrócenie rekomendowanych ustawień, krytyczne pominięcia i ponowienie po błędzie.
+- Ten etap nie przepina jeszcze crona na pełne `runAll()` i nie dodaje panelu admina; to zostaje na kolejny etap z koordynatorem ticka.
+
 ### 2026-07-10 - Kontrakty B2B: testy prawdziwej równoległości MySQL
 
 - `tests/MySqlIntegration/MySqlB2BContractServiceTest.php` - dodano testy dwóch realnych procesów PHP uderzających równolegle w tę samą ofertę B2B dla `acceptOffer()` i `deliverPartial()`.

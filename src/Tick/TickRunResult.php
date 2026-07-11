@@ -6,6 +6,8 @@ final class TickRunResult
     public const STATUS_SUCCESS = 'success';
     public const STATUS_PARTIAL = 'partial';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_SKIPPED = 'skipped';
+    public const STATUS_DISABLED = 'disabled';
 
     public string $status = self::STATUS_SUCCESS;
     public string $source;
@@ -60,6 +62,20 @@ final class TickRunResult
         $this->status = $module->failurePolicy() === TickFailurePolicy::STOP
             ? self::STATUS_FAILED
             : self::STATUS_PARTIAL;
+    }
+
+    public function addSkipped(TickModule $module, string $status): void
+    {
+        if (!in_array($status, [self::STATUS_SKIPPED, self::STATUS_DISABLED], true)) {
+            throw new InvalidArgumentException("Invalid skipped module status: {$status}");
+        }
+        $this->moduleRuns[$module->key()] = [
+            'order' => $module->order(),
+            'status' => $status,
+            'duration_ms' => 0,
+            'stats' => [],
+            'error' => null,
+        ];
     }
 
     public function addConfigurationFailure(string $message): void

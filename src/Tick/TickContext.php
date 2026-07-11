@@ -11,6 +11,7 @@ class TickContext
     public DateTimeInterface $now;
     public string $source;
     public float $startTime;
+    public int $runSequence = 0;
     public float $newPrice = 0.0;
 
     /**
@@ -49,6 +50,8 @@ class TickContext
 
     /** @var array<string,array{order:int,status:string,duration_ms:int,stats:array<string,mixed>,error:?string}> */
     private array $moduleRuns = [];
+    /** @var array<string,int> */
+    private array $moduleLimits = [];
     private bool $balanceMultsLoaded = false;
 
     public function __construct(PDO $db, DateTimeInterface $now, string $source = 'cron', ?float $startTime = null)
@@ -67,6 +70,16 @@ class TickContext
     public function mutableNow(): DateTime
     {
         return DateTime::createFromInterface($this->now);
+    }
+
+    public function setModuleLimit(string $moduleKey, int $limit): void
+    {
+        $this->moduleLimits[$moduleKey] = max(1, $limit);
+    }
+
+    public function moduleLimit(string $moduleKey, int $fallback = 200): int
+    {
+        return $this->moduleLimits[$moduleKey] ?? max(1, $fallback);
     }
 
     /**
