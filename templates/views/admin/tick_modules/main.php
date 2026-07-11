@@ -21,6 +21,14 @@ $statusClass = static function (string $status): string {
         default => 'tick-status--neutral',
     };
 };
+$moduleTypeLabel = static function (bool $critical): string {
+    return $critical ? t('admin.tick_modules.type_required') : t('admin.tick_modules.type_scheduled');
+};
+$failureLabel = static function (string $policy): string {
+    return $policy === 'stop'
+        ? t('admin.tick_modules.failure_stop_simple')
+        : t('admin.tick_modules.failure_continue_simple');
+};
 $formatJson = static function (array $data): string {
     if ($data === []) {
         return t('admin.tick_modules.stats_no_data');
@@ -71,8 +79,8 @@ $formatJson = static function (array $data): string {
                 <span class="muted"><?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="tick-module-meta">
                     #<?= (int)$module['order'] ?>
-                    · <?= $critical ? t('admin.tick_modules.critical') : t('admin.tick_modules.optional') ?>
-                    · <?= htmlspecialchars((string)$module['policy'], ENT_QUOTES, 'UTF-8') ?>
+                    &middot; <?= htmlspecialchars($moduleTypeLabel($critical), ENT_QUOTES, 'UTF-8') ?>
+                    &middot; <?= htmlspecialchars($failureLabel((string)$module['policy']), ENT_QUOTES, 'UTF-8') ?>
                 </span>
             </div>
 
@@ -84,26 +92,29 @@ $formatJson = static function (array $data): string {
             </div>
 
             <div class="tick-module-last">
-                <span><?= $module['last_run_at'] ? htmlspecialchars((string)$module['last_run_at'], ENT_QUOTES, 'UTF-8') : '—' ?></span>
+                <span><?= $module['last_run_at'] ? htmlspecialchars((string)$module['last_run_at'], ENT_QUOTES, 'UTF-8') : '&mdash;' ?></span>
                 <span class="muted">
-                    <?= $module['last_duration_ms'] !== null ? (int)$module['last_duration_ms'] . ' ms' : '—' ?>
-                    · #<?= (int)$module['last_run_tick'] ?>
+                    <?= $module['last_duration_ms'] !== null ? (int)$module['last_duration_ms'] . ' ms' : '&mdash;' ?>
+                    &middot; #<?= (int)$module['last_run_tick'] ?>
                 </span>
             </div>
 
-            <form method="post" action="/admin/tick_modules.php?module=<?= rawurlencode($key) ?>" class="tick-module-form">
+            <form method="post" action="/admin/tick_modules.php?module=<?= rawurlencode($key) ?>" class="tick-module-form <?= $critical ? 'tick-module-form--critical' : '' ?>">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="save_settings">
                 <input type="hidden" name="module_key" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
                 <?php if ($critical): ?>
                 <input type="hidden" name="enabled" value="1">
-                <?php endif ?>
+                <input type="hidden" name="interval_ticks" value="<?= (int)$module['interval_ticks'] ?>">
+                <span class="tick-module-fixed"><?= t('admin.tick_modules.always_active') ?></span>
+                <?php else: ?>
                 <label class="tick-module-switch">
-                    <input type="checkbox" name="enabled" value="1" <?= !empty($module['enabled']) ? 'checked' : '' ?> <?= $critical ? 'disabled' : '' ?>>
+                    <input type="checkbox" name="enabled" value="1" <?= !empty($module['enabled']) ? 'checked' : '' ?>>
                     <span><?= !empty($module['enabled']) ? t('admin.tick_modules.enabled') : t('admin.tick_modules.disabled') ?></span>
                 </label>
-                <input type="number" name="interval_ticks" min="1" max="100000" value="<?= (int)$module['interval_ticks'] ?>" class="form-input form-input--sm">
-                <input type="number" name="max_items_per_run" min="1" max="1000000" value="<?= (int)$module['max_items_per_run'] ?>" class="form-input form-input--sm">
+                <input type="number" name="interval_ticks" min="1" max="100000" value="<?= (int)$module['interval_ticks'] ?>" class="form-input form-input--sm" aria-label="<?= htmlspecialchars(t('admin.tick_modules.col_interval'), ENT_QUOTES, 'UTF-8') ?>">
+                <?php endif ?>
+                <input type="number" name="max_items_per_run" min="1" max="1000000" value="<?= (int)$module['max_items_per_run'] ?>" class="form-input form-input--sm" aria-label="<?= htmlspecialchars(t('admin.tick_modules.col_limit'), ENT_QUOTES, 'UTF-8') ?>">
                 <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.tick_modules.btn_save') ?></button>
             </form>
 
@@ -155,7 +166,7 @@ $formatJson = static function (array $data): string {
             </div>
             <div>
                 <span class="tick-status <?= $statusClass($logStatus) ?>"><?= $statusLabel($logStatus) ?></span>
-                <span class="muted"><?= (int)$log['duration_ms'] ?> ms · #<?= (int)$log['tick_sequence'] ?></span>
+                <span class="muted"><?= (int)$log['duration_ms'] ?> ms &middot; #<?= (int)$log['tick_sequence'] ?></span>
             </div>
             <div>
                 <span class="badge badge--<?= !empty($log['forced']) ? 'orange' : 'blue' ?>">
@@ -188,7 +199,7 @@ $formatJson = static function (array $data): string {
             <div class="tick-stats-summary">
                 <strong>#<?= (int)$tick['tick_sequence'] ?></strong>
                 <span><?= htmlspecialchars((string)$tick['ran_at'], ENT_QUOTES, 'UTF-8') ?></span>
-                <span class="muted"><?= htmlspecialchars((string)$tick['source'], ENT_QUOTES, 'UTF-8') ?> · <?= (int)$tick['duration_ms'] ?> ms</span>
+                <span class="muted"><?= htmlspecialchars((string)$tick['source'], ENT_QUOTES, 'UTF-8') ?> &middot; <?= (int)$tick['duration_ms'] ?> ms</span>
             </div>
             <details>
                 <summary><?= t('admin.tick_modules.stats_modules') ?></summary>

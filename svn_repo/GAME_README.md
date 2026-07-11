@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-07-12 - Tick Engine: czytelniejszy panel modułów
+
+- Panel `admin/tick_modules.php` nie pokazuje już adminowi technicznych etykiet `critical`, `optional`, `stop` i `continue`.
+- Moduły wymagane (`market`, `bank`, `players`) są opisane jako `Wymagany` i pokazują `Zawsze aktywny` zamiast mylącego checkboxa włączania.
+- Moduły planowane pokazują prosty opis zachowania błędu: `błąd zatrzymuje tick` albo `błąd tylko w logach`.
+- Usunięto krzaki z widoku panelu modułów ticka i poprawiono polskie tłumaczenia tego panelu.
+
 ### 2026-07-11 - Tick Engine: panel modułów, logi i metryki
 
 - Dodano panel `admin/tick_modules.php`, który pokazuje wszystkie moduły ticka z rejestru, ich kolejność, politykę błędu, status, ostatni przebieg, czas wykonania i ostatni błąd.

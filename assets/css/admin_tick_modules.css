@@ -55,12 +55,25 @@
     align-items: center;
 }
 
+.tick-module-form--critical {
+    grid-template-columns: minmax(120px, 1fr) 110px auto;
+}
+
 .tick-module-switch {
     display: flex;
     gap: 8px;
     align-items: center;
     color: var(--text);
     font-size: 13px;
+}
+
+.tick-module-fixed {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    color: #5df0a0;
+    font-size: 13px;
+    font-weight: 800;
 }
 
 .tick-module-actions {
