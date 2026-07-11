@@ -50,6 +50,7 @@ return [
     'admin.nav.section_transport' => 'Transport',
     'admin.nav.template_editor' => 'Szablon strony',
     'admin.nav.tick_log' => 'Historia ticków',
+    'admin.nav.tick_modules' => 'Moduły ticka',
     'admin.nav.title_default' => 'Panel',
     'admin.nav.title_prefix' => 'Admin',
     'admin.nav.transport_config' => 'Transport i porty',

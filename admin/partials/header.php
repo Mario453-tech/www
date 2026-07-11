@@ -12,6 +12,9 @@ try {
     <title><?= t('admin.nav.title_prefix') ?> — <?= htmlspecialchars($pageTitle ?? t('admin.nav.title_default')) ?></title>
     <link rel="stylesheet" href="<?= asset('/assets/css/admin.css') ?>">
     <link rel="stylesheet" href="<?= asset('/assets/css/modal.css') ?>">
+    <?php foreach (($adminExtraCss ?? []) as $href): ?>
+    <link rel="stylesheet" href="<?= asset((string)$href) ?>">
+    <?php endforeach ?>
 </head>
 <body>
 
@@ -57,6 +60,7 @@ $navSections = [
     t('admin.nav.section_tools') => [
         'alerts.php'      => ['', t('admin.nav.alerts')],
         'logs.php'        => ['', t('admin.nav.logs')],
+        'tick_modules.php'=> ['', t('admin.nav.tick_modules')],
         'chat.php'        => ['', t('admin.nav.chat')],
         'news.php'        => ['', t('admin.nav.news')],
         'newsletter.php'  => ['', t('admin.nav.newsletter')],

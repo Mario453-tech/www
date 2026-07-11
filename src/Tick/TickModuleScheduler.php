@@ -24,6 +24,12 @@ final class TickModuleScheduler
         }
 
         $limit = max(1, (int)($config['max_items_per_run'] ?? 200));
+        $critical = TickModuleCatalog::isCritical($module->key())
+            || $module->failurePolicy() === TickFailurePolicy::STOP;
+        if ($critical) {
+            return ['run' => true, 'status' => TickModuleConfigRepository::STATUS_RUNNING, 'limit' => $limit];
+        }
+
         if ((int)($config['enabled'] ?? 0) !== 1) {
             return ['run' => false, 'status' => TickModuleConfigRepository::STATUS_DISABLED, 'limit' => $limit];
         }

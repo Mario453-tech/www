@@ -148,7 +148,7 @@ final class TickModuleSchedulerTest extends BaseTestCase
         $this->assertSame(0, $GLOBALS['scheduled_module_runs']);
     }
 
-    public function testCriticalModuleCannotBeDisabledOrSkipped(): void
+    public function testCriticalModuleIsForcedEvenWhenDisabledOrNotDue(): void
     {
         $dir = $this->moduleDir('ScheduledCriticalModule', 'scheduled_critical', 'STOP');
         $module = TickRegistry::find('scheduled_critical', $dir);
@@ -157,9 +157,10 @@ final class TickModuleSchedulerTest extends BaseTestCase
         $this->repository->update('scheduled_critical', false, 1, 50);
 
         $disabled = (new TickEngine($dir, $this->scheduler))->runAll($this->context(1));
-        $this->assertSame(TickRunResult::STATUS_FAILED, $disabled->status);
-        $this->assertSame('scheduled_critical', $disabled->errors[0]['module']);
-        $this->assertSame('error', $this->repository->find('scheduled_critical')['last_status']);
+        $this->assertSame(TickRunResult::STATUS_SUCCESS, $disabled->status);
+        $this->assertSame(TickRunResult::STATUS_SUCCESS, $disabled->moduleRuns['scheduled_critical']['status']);
+        $this->assertSame('success', $this->repository->find('scheduled_critical')['last_status']);
+        $this->assertSame(1, $GLOBALS['scheduled_module_runs']);
 
         $this->repository->update('scheduled_critical', true, 10, 50);
         $this->repository->markFinished(
@@ -174,9 +175,9 @@ final class TickModuleSchedulerTest extends BaseTestCase
         );
 
         $skipped = (new TickEngine($dir, $this->scheduler))->runAll($this->context(11));
-        $this->assertSame(TickRunResult::STATUS_FAILED, $skipped->status);
-        $this->assertSame('scheduled_critical', $skipped->errors[0]['module']);
-        $this->assertSame(0, $GLOBALS['scheduled_module_runs']);
+        $this->assertSame(TickRunResult::STATUS_SUCCESS, $skipped->status);
+        $this->assertSame(TickRunResult::STATUS_SUCCESS, $skipped->moduleRuns['scheduled_critical']['status']);
+        $this->assertSame(2, $GLOBALS['scheduled_module_runs']);
     }
 
     public function testFailedRunDoesNotAdvanceInterval(): void

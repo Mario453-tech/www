@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-07-11 - Tick Engine: panel modułów, logi i metryki
+
+- Dodano panel `admin/tick_modules.php`, który pokazuje wszystkie moduły ticka z rejestru, ich kolejność, politykę błędu, status, ostatni przebieg, czas wykonania i ostatni błąd.
+- Panel pozwala edytować `enabled`, `interval_ticks` i `max_items_per_run` w `tick_module_config`; moduły krytyczne (`market`, `bank`, `players`) są wymuszane jako włączone.
+- Dodano ręczne uruchomienie pojedynczego modułu przez `TickCoordinator::runModule()`, z tym samym MySQL lockiem `oilcorp_tick`, CSRF i walidacją `module_key` przed wejściem do coordinatora.
+- Dodano widok ostatnich wpisów `tick_module_run_logs`, z filtrowaniem po module, statusem, źródłem, flagą ręcznego uruchomienia i dekodowanymi statystykami JSON.
+- Dodano widok ostatnich metryk zapisanych w `tick_stats.module_stats_data` i `tick_stats.module_runs_data`, żeby nowe moduły były obserwowalne bez zmian schematu.
+- Dodano `TickModuleAdminService`, osobny CSS `assets/css/admin_tick_modules.css`, tłumaczenia PL/EN oraz link `Moduły ticka` w menu admina.
+- Dodano testy `TickModuleAdminServiceTest`: blokada wyłączenia modułów krytycznych, zapis/przywracanie ustawień opcjonalnych modułów, dekodowanie logów i odrzucenie nieznanego modułu przed ręcznym runem.
+
 ### 2026-07-11 - Admin logi: wyróżnienie wpisów ticka
 
 - W zakładce Game log wpisy `GameLog` z modułu `[tick]` są teraz wyróżnione żółtym tłem i żółtym paskiem z lewej strony, żeby łatwo było zobaczyć aktywność crona oraz ręcznego ticka w panelu.

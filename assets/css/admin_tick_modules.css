@@ -1,0 +1,159 @@
+.tick-modules-help {
+    display: grid;
+    gap: 6px;
+}
+
+.tick-module-list,
+.tick-run-list,
+.tick-stats-list {
+    display: grid;
+    gap: 10px;
+}
+
+.tick-module-head,
+.tick-module-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.4fr) minmax(140px, .8fr) minmax(170px, .9fr) minmax(340px, 1.5fr) minmax(220px, 1fr);
+    gap: 12px;
+    align-items: center;
+}
+
+.tick-module-head {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 0 12px;
+}
+
+.tick-module-row,
+.tick-run-row,
+.tick-stats-row {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255,255,255,.025);
+    padding: 12px;
+}
+
+.tick-module-name,
+.tick-module-last,
+.tick-stats-summary {
+    display: grid;
+    gap: 4px;
+}
+
+.tick-module-meta {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.tick-module-form {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) 90px 110px auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.tick-module-switch {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    color: var(--text);
+    font-size: 13px;
+}
+
+.tick-module-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.tick-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.tick-status--success {
+    color: #5df0a0;
+    background: rgba(93,240,160,.12);
+}
+
+.tick-status--error {
+    color: #ff6b6b;
+    background: rgba(255,107,107,.12);
+}
+
+.tick-status--running {
+    color: #ffd766;
+    background: rgba(255,215,102,.12);
+}
+
+.tick-status--skipped,
+.tick-status--disabled,
+.tick-status--neutral {
+    color: var(--muted);
+    background: rgba(255,255,255,.06);
+}
+
+.tick-module-error {
+    display: block;
+    color: #ff8f8f;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.tick-run-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.3fr) minmax(180px, 1fr) minmax(160px, .8fr) minmax(240px, 1.2fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.tick-stats-row {
+    display: grid;
+    grid-template-columns: minmax(220px, .8fr) minmax(320px, 1.6fr);
+    gap: 12px;
+}
+
+.tick-json {
+    max-height: 260px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 8px 0 0;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    background: rgba(0,0,0,.25);
+    font-size: 12px;
+}
+
+@media (max-width: 1180px) {
+    .tick-module-head {
+        display: none;
+    }
+
+    .tick-module-row,
+    .tick-run-row,
+    .tick-stats-row {
+        grid-template-columns: 1fr;
+    }
+
+    .tick-module-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 620px) {
+    .tick-module-form {
+        grid-template-columns: 1fr;
+    }
+}

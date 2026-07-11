@@ -40,8 +40,7 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
         $ids = $this->getB2BIds();
         $this->seedB2BPlayer($ids['buyer'], 0.0, 50000.0);
         $this->seedB2BPlayer($ids['seller'], 0.0, 0.0);
-        $this->db->prepare('INSERT INTO storage (player_id, capacity, used) VALUES (?, ?, ?)')
-            ->execute([$ids['seller'], 2000.0, 500.0]);
+        $this->seedB2BStorage($ids['seller'], 2000.0, 500.0);
 
         $service = new B2BContractService($this->db);
         $created = $service->createBuyOffer($ids['buyer'], 100.0, 100.0, 120);
@@ -82,8 +81,7 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
         $ids = $this->getB2BIds();
         $this->seedB2BPlayer($ids['buyer'], 0.0, 50000.0);
         $this->seedB2BPlayer($ids['seller'], 0.0, 0.0);
-        $this->db->prepare('INSERT INTO storage (player_id, capacity, used) VALUES (?, ?, ?)')
-            ->execute([$ids['seller'], 2000.0, 500.0]);
+        $this->seedB2BStorage($ids['seller'], 2000.0, 500.0);
 
         $service = new B2BContractService($this->db);
         $created = $service->createBuyOffer($ids['buyer'], 100.0, 100.0, 120);
@@ -123,19 +121,15 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
     }
 
     /**
+     * Verifies that FOR UPDATE blocks double-delivery.
      * Weryfikuje ze FOR UPDATE blokuje double-delivery.
-     * Test symuluje rase condition przez dwa sequentiale wywolania
-     * na tle stanu ktory powinien pozwolic tylko jednej dostawie przejsc.
-     * W produkcji SELECT FOR UPDATE zapewnia atomowosc — tutaj testujemy
-     * poprawnosc state machine (drugi deliverPartial widzi completed).
      */
     public function testConcurrentDeliverPartialOnlyOneSucceedsMysql(): void
     {
         $ids = $this->getB2BIds();
         $this->seedB2BPlayer($ids['buyer'], 0.0, 50000.0);
         $this->seedB2BPlayer($ids['seller'], 0.0, 0.0);
-        $this->db->prepare('INSERT INTO storage (player_id, capacity, used) VALUES (?, ?, ?)')
-            ->execute([$ids['seller'], 2000.0, 500.0]);
+        $this->seedB2BStorage($ids['seller'], 2000.0, 500.0);
 
         $service = new B2BContractService($this->db);
         $created = $service->createBuyOffer($ids['buyer'], 100.0, 100.0, 120);
@@ -174,8 +168,7 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
         $ids = $this->getB2BIds();
         $this->seedB2BPlayer($ids['buyer'], 0.0, 50000.0);
         $this->seedB2BPlayer($ids['seller'], 0.0, 100.0);
-        $this->db->prepare('INSERT INTO storage (player_id, capacity, used) VALUES (?, ?, ?)')
-            ->execute([$ids['seller'], 1000.0, 250.0]);
+        $this->seedB2BStorage($ids['seller'], 1000.0, 250.0);
 
         $service = new B2BContractService($this->db);
         $created = $service->createBuyOffer($ids['buyer'], 100.0, 100.0, 120);
@@ -203,10 +196,45 @@ final class MySqlB2BContractServiceTest extends MySqlIntegrationTestCase
     private function seedB2BPlayer(int $id, float $cash, float $bank): void
     {
         $username = 'phpunit_b2b_' . $id;
+        $columns = ['id', 'username', 'email', 'password_hash', 'cash', 'bank_balance', 'status', 'created_at', 'last_tick_at'];
+        $values = ['?', '?', '?', '?', '?', '?', "'active'", 'NOW()', 'NOW()'];
+        $params = [$id, $username, $username . '@example.test', password_hash('secret', PASSWORD_BCRYPT), $cash, $bank];
+
+        if ($this->columnExists('players', 'updated_at')) {
+            $columns[] = 'updated_at';
+            $values[] = 'NOW()';
+        }
+
         $this->db->prepare(
-            'INSERT INTO players (id, username, email, password_hash, cash, bank_balance, status, created_at, last_tick_at)
-             VALUES (?, ?, ?, ?, ?, ?, \'active\', NOW(), NOW())'
-        )->execute([$id, $username, $username . '@example.test', password_hash('secret', PASSWORD_BCRYPT), $cash, $bank]);
+            'INSERT INTO players (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $values) . ')'
+        )->execute($params);
+    }
+
+    private function seedB2BStorage(int $playerId, float $capacity, float $used): void
+    {
+        $columns = ['player_id', 'capacity', 'used'];
+        $values = ['?', '?', '?'];
+        $params = [$playerId, $capacity, $used];
+
+        if ($this->columnExists('storage', 'updated_at')) {
+            $columns[] = 'updated_at';
+            $values[] = 'NOW()';
+        }
+
+        $this->db->prepare(
+            'INSERT INTO storage (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $values) . ')'
+        )->execute($params);
+    }
+
+    private function columnExists(string $table, string $column): bool
+    {
+        $stmt = $this->db->prepare(
+            'SELECT COUNT(*)
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+        );
+        $stmt->execute([$table, $column]);
+        return (int)$stmt->fetchColumn() > 0;
     }
 
     private function bankOf(int $playerId): float

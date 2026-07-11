@@ -144,6 +144,20 @@ final class TickModuleConfigRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /** @return list<array<string,mixed>> */
+    public function recentLogs(?string $moduleKey = null, int $limit = 50): array
+    {
+        $limit = max(1, min(200, $limit));
+        if ($moduleKey !== null && $moduleKey !== '') {
+            return $this->logs($moduleKey, $limit);
+        }
+
+        $stmt = $this->db->prepare('SELECT * FROM tick_module_run_logs ORDER BY id DESC LIMIT ?');
+        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     /** @param array<string,mixed> $stats */
     private function insertLog(
         string $moduleKey,

@@ -43,11 +43,30 @@ final class TickCoordinator
 
     public function run(string $source, ?DateTimeInterface $now = null, bool $forceModules = false): TickRunResult
     {
+        return $this->runInternal($source, $now, $forceModules, null);
+    }
+
+    public function runModule(string $moduleKey, string $source = 'admin_module', ?DateTimeInterface $now = null): TickRunResult
+    {
+        return $this->runInternal($source, $now, true, $moduleKey);
+    }
+
+    private function runInternal(
+        string $source,
+        ?DateTimeInterface $now,
+        bool $forceModules,
+        ?string $moduleKey
+    ): TickRunResult
+    {
         $now ??= new DateTimeImmutable();
         $startTime = microtime(true);
+        $singleModuleRun = $moduleKey !== null;
         $ctx = new TickContext($this->db, $now, $source, $startTime);
         $ctx->bankNegAvailable = class_exists('BankNegotiationService');
         $ctx->bankruptcyAvailable = class_exists('BankruptcyService');
+        if ($singleModuleRun) {
+            $ctx->setNewPrice($this->fallbackOilPrice());
+        }
 
         $result = new TickRunResult($ctx);
 
@@ -61,28 +80,37 @@ final class TickCoordinator
         }
 
         try {
-            $this->previousIncomplete = $this->markInProgress();
-            if ($this->previousIncomplete && class_exists('GameLog', false)) {
+            $this->previousIncomplete = $singleModuleRun ? false : $this->markInProgress();
+            if (!$singleModuleRun && $this->previousIncomplete && class_exists('GameLog', false)) {
                 GameLog::warn('tick', 'previous tick did not finish - possible data inconsistency');
             }
 
-            $ctx->runSequence = $this->nextRunSequence();
+            $ctx->runSequence = $singleModuleRun ? $this->currentRunSequence() : $this->nextRunSequence();
             if (class_exists('GameLog', false)) {
                 GameLog::info('tick', '== START ==', [
                     'time' => $now->format('Y-m-d H:i:s'),
                     'source' => $source,
                     'sequence' => $ctx->runSequence,
+                    'module' => $moduleKey,
                 ]);
             }
 
             $scheduler = new TickModuleScheduler(new TickModuleConfigRepository($this->db));
-            $result = (new TickEngine(null, $scheduler))->runAll($ctx, $forceModules);
+            $engine = new TickEngine(null, $scheduler);
+            $result = $moduleKey === null
+                ? $engine->runAll($ctx, $forceModules)
+                : $engine->runOne($moduleKey, $ctx, null, true);
 
             if ($result->status === TickRunResult::STATUS_FAILED) {
-                if (class_exists('GameLog', false)) {
+                if (!$singleModuleRun && class_exists('GameLog', false)) {
                     GameLog::warn('tick', 'critical tick failure left tick_in_progress enabled for crash detection');
                 }
                 $this->summary = $this->buildFailureSummary($result);
+                return $result->finish($ctx);
+            }
+
+            if ($singleModuleRun) {
+                $this->summary = $this->buildModuleSummary($moduleKey, $result);
                 return $result->finish($ctx);
             }
 
@@ -155,6 +183,53 @@ final class TickCoordinator
         $stmt->execute(['tick_run_sequence']);
         $sequence = (int)$this->db->query('SELECT LAST_INSERT_ID()')->fetchColumn();
         return max(1, $sequence);
+    }
+
+    private function currentRunSequence(): int
+    {
+        try {
+            $stmt = $this->db->prepare("SELECT `value` FROM well_config WHERE `key` = ? LIMIT 1");
+            $stmt->execute(['tick_run_sequence']);
+            $value = $stmt->fetchColumn();
+            return max(1, (int)($value !== false ? $value : 1));
+        } catch (Throwable) {
+            return 1;
+        }
+    }
+
+    private function fallbackOilPrice(): float
+    {
+        try {
+            $stmt = $this->db->prepare("SELECT `value` FROM well_config WHERE `key` = ? LIMIT 1");
+            $stmt->execute(['last_tick_oil_price']);
+            $value = $stmt->fetchColumn();
+            if ($value !== false && (float)$value > 0.0) {
+                return (float)$value;
+            }
+        } catch (Throwable) {
+        }
+
+        try {
+            $stmt = $this->db->prepare('SELECT current_price FROM market_state WHERE id = ? LIMIT 1');
+            $stmt->execute([1]);
+            $value = $stmt->fetchColumn();
+            if ($value !== false && (float)$value > 0.0) {
+                return (float)$value;
+            }
+        } catch (Throwable) {
+        }
+
+        try {
+            $stmt = $this->db->prepare('SELECT oil_price FROM market_state WHERE id = ? LIMIT 1');
+            $stmt->execute([1]);
+            $value = $stmt->fetchColumn();
+            if ($value !== false && (float)$value > 0.0) {
+                return (float)$value;
+            }
+        } catch (Throwable) {
+        }
+
+        return 70.0;
     }
 
     private function finishSuccessfulRun(TickContext $ctx, TickRunResult $result): void
@@ -393,5 +468,14 @@ final class TickCoordinator
         $module = (string)($lastError['module'] ?? 'unknown');
         $message = (string)($lastError['message'] ?? 'unknown error');
         return "Tick failed: {$module}: {$message}\n";
+    }
+
+    private function buildModuleSummary(?string $moduleKey, TickRunResult $result): string
+    {
+        $key = $moduleKey ?? 'unknown';
+        $run = $result->moduleRuns[$key] ?? null;
+        $status = (string)($run['status'] ?? $result->status);
+        $durationMs = (int)($run['duration_ms'] ?? $result->durationMs);
+        return "Tick module {$key}: {$status} | {$durationMs} ms\n";
     }
 }
