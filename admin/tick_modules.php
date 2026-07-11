@@ -9,15 +9,23 @@ try {
 
     $db = Database::getInstance()->getConnection();
     $service = new TickModuleAdminService($db);
+    $perPage = 10;
 
-    $redirect = static function (?string $moduleKey = null): void {
+    $redirect = static function (?string $moduleKey = null, int $logsPage = 1, int $statsPage = 1): void {
         $url = '/admin/tick_modules.php';
+        $params = [];
         if ($moduleKey !== null && $moduleKey !== '') {
-            $url .= '?module=' . rawurlencode($moduleKey);
+            $params['module'] = $moduleKey;
         }
+        $params['logs_page'] = max(1, $logsPage);
+        $params['stats_page'] = max(1, $statsPage);
+        $url .= '?' . http_build_query($params);
         header('Location: ' . $url);
         exit();
     };
+
+    $requestLogsPage = max(1, (int)($_REQUEST['logs_page'] ?? 1));
+    $requestStatsPage = max(1, (int)($_REQUEST['stats_page'] ?? 1));
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = (string)($_POST['action'] ?? '');
@@ -25,7 +33,7 @@ try {
 
         if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['tick_modules_msg'] = ['type' => 'danger', 'text' => tPlain('common.csrf_error')];
-            $redirect($moduleKey);
+            $redirect($moduleKey, $requestLogsPage, $requestStatsPage);
         }
 
         try {
@@ -73,6 +81,21 @@ try {
                     null,
                     AdminAuth::getAdminUsername()
                 );
+            } elseif ($action === 'cleanup_history') {
+                $deleted = $service->cleanupHistory(2);
+                AdminLog::log(
+                    'tick_module_cleanup',
+                    'Manual tick history cleanup: stats=' . $deleted['stats_deleted'] . ', logs=' . $deleted['logs_deleted'],
+                    null,
+                    AdminAuth::getAdminUsername()
+                );
+                $_SESSION['tick_modules_msg'] = [
+                    'type' => 'success',
+                    'text' => tPlain('admin.tick_modules.msg_cleanup_done', [
+                        'stats' => (string)$deleted['stats_deleted'],
+                        'logs' => (string)$deleted['logs_deleted'],
+                    ]),
+                ];
             } else {
                 $_SESSION['tick_modules_msg'] = ['type' => 'danger', 'text' => tPlain('admin.tick_modules.msg_unknown_action')];
             }
@@ -87,7 +110,7 @@ try {
             ];
         }
 
-        $redirect($moduleKey);
+        $redirect($moduleKey, $requestLogsPage, $requestStatsPage);
     }
 
     $modules = $service->modules();
@@ -96,6 +119,14 @@ try {
     if ($selectedModule !== '' && !in_array($selectedModule, $moduleKeys, true)) {
         $selectedModule = '';
     }
+    $logsPage = max(1, (int)($_GET['logs_page'] ?? 1));
+    $statsPage = max(1, (int)($_GET['stats_page'] ?? 1));
+    $logsTotal = $service->countRecentLogs($selectedModule !== '' ? $selectedModule : null);
+    $statsTotal = $service->countRecentTickStats();
+    $logsPages = max(1, (int)ceil($logsTotal / $perPage));
+    $statsPages = max(1, (int)ceil($statsTotal / $perPage));
+    $logsPage = min($logsPage, $logsPages);
+    $statsPage = min($statsPage, $statsPages);
 
     $msg = $_SESSION['tick_modules_msg'] ?? null;
     unset($_SESSION['tick_modules_msg']);
@@ -107,8 +138,15 @@ try {
         'modules' => $modules,
         'moduleKeys' => $moduleKeys,
         'selectedModule' => $selectedModule,
-        'recentLogs' => $service->recentLogs($selectedModule !== '' ? $selectedModule : null, 80),
-        'recentTickStats' => $service->recentTickStats(12),
+        'recentLogs' => $service->recentLogs($selectedModule !== '' ? $selectedModule : null, $perPage, ($logsPage - 1) * $perPage),
+        'recentTickStats' => $service->recentTickStats($perPage, ($statsPage - 1) * $perPage),
+        'logsPage' => $logsPage,
+        'statsPage' => $statsPage,
+        'logsPages' => $logsPages,
+        'statsPages' => $statsPages,
+        'logsTotal' => $logsTotal,
+        'statsTotal' => $statsTotal,
+        'perPage' => $perPage,
         'msg' => $msg,
         'csrfToken' => $csrfToken,
     ];

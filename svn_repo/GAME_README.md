@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-12 - Tick Engine: profiling players, paginacja i retencja historii
+
+- Moduł `players` zapisuje teraz szczegółowy profil czasu do `module_stats_data`: pobranie graczy, pobranie stanu gracza, `WellLoopSection`, rurociągi, transport drogowy, port, finalizacja hubów, spill, zapis magazynu, finanse, stan finansowy i audit bankowy.
+- Statystyki ticka w panelu `admin/tick_modules.php` mają paginację po 10 wpisów osobno dla logów modułów i osobno dla `tick_stats`.
+- Panel pokazuje skrócony profil czasu modułu `players`, w tym najwolniejszego gracza z danego ticka.
+- Dodano ręczne czyszczenie historii ticka starszej niż 2 dni z panelu modułów.
+- Automatyczny cleanup historii ticka uruchamia się podczas ticka najwyżej raz na 2 dni i usuwa wpisy starsze niż 2 dni z `tick_stats` oraz `tick_module_run_logs`.
+
 ### 2026-07-12 - Tick Engine: czytelniejszy panel modułów
 
 - Panel `admin/tick_modules.php` nie pokazuje już adminowi technicznych etykiet `critical`, `optional`, `stop` i `continue`.

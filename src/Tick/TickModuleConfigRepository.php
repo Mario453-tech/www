@@ -135,27 +135,63 @@ final class TickModuleConfigRepository
     /** @return list<array<string,mixed>> */
     public function logs(string $moduleKey, int $limit = 50): array
     {
+        $limit = max(1, min(200, $limit));
         $stmt = $this->db->prepare(
-            'SELECT * FROM tick_module_run_logs WHERE module_key = ? ORDER BY id DESC LIMIT ?'
+            "SELECT * FROM tick_module_run_logs WHERE module_key = ? ORDER BY id DESC LIMIT {$limit}"
         );
-        $stmt->bindValue(1, $moduleKey);
-        $stmt->bindValue(2, max(1, min(200, $limit)), PDO::PARAM_INT);
-        $stmt->execute();
+        $stmt->execute([$moduleKey]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /** @return list<array<string,mixed>> */
-    public function recentLogs(?string $moduleKey = null, int $limit = 50): array
+    public function recentLogs(?string $moduleKey = null, int $limit = 50, int $offset = 0): array
     {
         $limit = max(1, min(200, $limit));
+        $offset = max(0, $offset);
         if ($moduleKey !== null && $moduleKey !== '') {
-            return $this->logs($moduleKey, $limit);
+            $stmt = $this->db->prepare(
+                "SELECT * FROM tick_module_run_logs
+                  WHERE module_key = ?
+                  ORDER BY id DESC
+                  LIMIT {$limit} OFFSET {$offset}"
+            );
+            $stmt->execute([$moduleKey]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
-        $stmt = $this->db->prepare('SELECT * FROM tick_module_run_logs ORDER BY id DESC LIMIT ?');
-        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $stmt = $this->db->prepare("SELECT * FROM tick_module_run_logs ORDER BY id DESC LIMIT {$limit} OFFSET {$offset}");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function countRecentLogs(?string $moduleKey = null): int
+    {
+        if ($moduleKey !== null && $moduleKey !== '') {
+            $stmt = $this->db->prepare('SELECT COUNT(*) FROM tick_module_run_logs WHERE module_key = ?');
+            $stmt->execute([$moduleKey]);
+            return (int)$stmt->fetchColumn();
+        }
+
+        return (int)$this->db->query('SELECT COUNT(*) FROM tick_module_run_logs')->fetchColumn();
+    }
+
+    public function cleanupLogs(int $keepDays = 2): int
+    {
+        $keepDays = max(1, $keepDays);
+        $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'mysql') {
+            $stmt = $this->db->prepare(
+                'DELETE FROM tick_module_run_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)'
+            );
+            $stmt->bindValue(1, $keepDays, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->rowCount();
+        }
+
+        $cutoff = (new DateTimeImmutable("-{$keepDays} days"))->format('Y-m-d H:i:s');
+        $stmt = $this->db->prepare('DELETE FROM tick_module_run_logs WHERE created_at < ?');
+        $stmt->execute([$cutoff]);
+        return $stmt->rowCount();
     }
 
     /** @param array<string,mixed> $stats */

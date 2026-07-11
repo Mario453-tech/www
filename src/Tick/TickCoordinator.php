@@ -269,7 +269,7 @@ final class TickCoordinator
         }
 
         try {
-            (new TickStatsRepository())->save([
+            (new TickStatsRepository($this->db))->save([
                 'ran_at' => $ctx->now->format('Y-m-d H:i:s'),
                 'tick_sequence' => $ctx->runSequence,
                 'source' => $ctx->source,
@@ -310,10 +310,7 @@ final class TickCoordinator
 
     private function cleanup(): void
     {
-        try {
-            (new TickStatsRepository())->cleanup(7);
-        } catch (Throwable) {
-        }
+        $this->cleanupTickHistoryIfDue();
 
         $retentionDays = $this->configInt('incident_retention_days', 30, 1);
         try {
@@ -372,6 +369,44 @@ final class TickCoordinator
         }
     }
 
+    private function cleanupTickHistoryIfDue(): void
+    {
+        $keepDays = 2;
+        $lastCleanupAt = $this->configString('tick_history_cleanup_at', '');
+        if ($lastCleanupAt !== '') {
+            try {
+                $lastCleanup = new DateTimeImmutable($lastCleanupAt);
+                if ($lastCleanup > new DateTimeImmutable("-{$keepDays} days")) {
+                    return;
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        try {
+            $statsDeleted = (new TickStatsRepository($this->db))->cleanup($keepDays);
+            $logsDeleted = (new TickModuleConfigRepository($this->db))->cleanupLogs($keepDays);
+            $this->safeUpsertConfig(
+                'tick_history_cleanup_at',
+                (new DateTimeImmutable())->format('Y-m-d H:i:s'),
+                'Last tick history cleanup timestamp',
+                'system',
+                'tick_history_cleanup_at save FAILED'
+            );
+            if (class_exists('GameLog', false)) {
+                GameLog::info('tick', 'tick history cleanup OK', [
+                    'keep_days' => $keepDays,
+                    'tick_stats_deleted' => $statsDeleted,
+                    'module_logs_deleted' => $logsDeleted,
+                ]);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('tick', 'tick history cleanup FAILED', $e);
+            }
+        }
+    }
+
     private function configInt(string $key, int $default, int $min): int
     {
         try {
@@ -379,6 +414,18 @@ final class TickCoordinator
             $stmt->execute([$key]);
             $value = $stmt->fetchColumn();
             return $value !== false ? max($min, (int)$value) : $default;
+        } catch (Throwable) {
+            return $default;
+        }
+    }
+
+    private function configString(string $key, string $default): string
+    {
+        try {
+            $stmt = $this->db->prepare('SELECT `value` FROM well_config WHERE `key` = ? LIMIT 1');
+            $stmt->execute([$key]);
+            $value = $stmt->fetchColumn();
+            return $value !== false ? (string)$value : $default;
         } catch (Throwable) {
             return $default;
         }

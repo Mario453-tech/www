@@ -21,6 +21,11 @@ class PlayersSection
     public float $totalOpex          = 0.0;
     public int   $disastersTriggered = 0;
     public int   $incidentsTriggered = 0;
+    /** @var array<string,int> */
+    public array $sectionTimingsMs = [];
+    public int $slowestPlayerMs = 0;
+    public int $slowestPlayerId = 0;
+    private int $playersFetchMs = 0;
 
     private PDO      $db;
     private DateTime $now;
@@ -39,6 +44,7 @@ class PlayersSection
 
     public function run(): void
     {
+        $playersFetchStarted = microtime(true);
         try {
             $players = $this->db->query("
                 SELECT id,
@@ -60,8 +66,11 @@ class PlayersSection
             GameLog::error('tick', 'player fetch FAILED', $e);
             $players = [];
         }
+        $this->playersFetchMs = (int)round((microtime(true) - $playersFetchStarted) * 1000);
+        $this->addSectionTiming('players_fetch', $this->playersFetchMs);
 
         foreach ($players as $playerData) {
+            $playerStarted = microtime(true);
             try {
                 $this->processPlayer($playerData);
             } catch (Throwable $e) {
@@ -70,6 +79,13 @@ class PlayersSection
  // Roll back any dangling transaction so the next player can begin one.
                 if ($this->db->inTransaction()) {
                     try { $this->db->rollBack(); } catch (Throwable $re) {}
+                }
+            } finally {
+                $playerDurationMs = (int)round((microtime(true) - $playerStarted) * 1000);
+                $this->addSectionTiming('player_total', $playerDurationMs);
+                if ($playerDurationMs > $this->slowestPlayerMs) {
+                    $this->slowestPlayerMs = $playerDurationMs;
+                    $this->slowestPlayerId = (int)($playerData['id'] ?? 0);
                 }
             }
         }
@@ -98,6 +114,7 @@ class PlayersSection
         $deltaHours = $deltaSeconds / 3600;
 
  // Odwierty i magazyn / Wells and storage
+        $fetchPlayerStateStarted = microtime(true);
         $wellsStmt = $db->prepare("
             SELECT w.*,
                    GROUP_CONCAT(wu.upgrade_type) AS installed_upgrades,
@@ -125,6 +142,7 @@ class PlayersSection
             GameLog::warn('tick', 'no storage for player', ['player_id' => $playerId]);
             return;
         }
+        $this->addSectionTiming('player_state_fetch', (int)round((microtime(true) - $fetchPlayerStateStarted) * 1000));
 
         $playerCash      = (float)$playerData['cash'];
         $initialCash     = $playerCash; // gotowka na poczatku ticka (do roznicowego zapisu) / cash at tick start (for differential save)
@@ -133,15 +151,19 @@ class PlayersSection
         $initialStorage  = $currentStorage; // magazyn na poczatku ticka — delta do roznicowego zapisu / storage at tick start — delta for differential save
 
  // 1. OFFLINE 
+        $offlineStarted = microtime(true);
         $offline = new OfflineSection($db, $now);
         if (!$offline->process($playerId, $playerData, $playerCash)) {
+            $this->addSectionTiming('offline', (int)round((microtime(true) - $offlineStarted) * 1000));
             return; // freeze mode - skip tick
         }
+        $this->addSectionTiming('offline', (int)round((microtime(true) - $offlineStarted) * 1000));
 
  // BHP + zdarzenia regionalne / HSE + regional events
         $hseBonus   = [];
         $staffCheck = ['meets_minimum' => true, 'missing' => [], 'missing_labels' => []];
         $tsvc       = null;
+        $technicalStarted = microtime(true);
         try {
             $tsvc       = new TechnicalTeamService($playerId);
             $hseBonus   = $tsvc->getHSEBonus();
@@ -155,9 +177,11 @@ class PlayersSection
         } catch (Throwable $e) {
             GameLog::error('tick', 'TechnicalTeamService FAILED', $e, ['player_id' => $playerId]);
         }
+        $this->addSectionTiming('technical_team', (int)round((microtime(true) - $technicalStarted) * 1000));
 
         $regionalSvc     = null;
         $activeRegEvents = [];
+        $regionalStarted = microtime(true);
         try {
             $regionalSvc = new RegionalEventService();
             $regionalSvc->resolveExpired();
@@ -166,16 +190,19 @@ class PlayersSection
         } catch (Throwable $e) {
             GameLog::error('tick', 'RegionalEventService FAILED', $e, ['player_id' => $playerId]);
         }
+        $this->addSectionTiming('regional_events', (int)round((microtime(true) - $regionalStarted) * 1000));
 
  // 2. PETLA ODWIERTOW / Well loop
         $wellService = new WellService();
         $wellLoop    = new WellLoopSection($db, $now, $this->oilPrice, $this->gBalanceMults, $wellService);
+        $wellLoopStarted = microtime(true);
         $wellLoop->run(
             $playerId, $wells, $playerCash, $currentStorage, $storageCapacity,
             $deltaHours, $hseBonus, $staffCheck,
             $offline->offlineProdMult, $offline->offlineRiskMult,
             $tsvc, $regionalSvc, $activeRegEvents
         );
+        $this->addSectionTiming('well_loop', (int)round((microtime(true) - $wellLoopStarted) * 1000));
 
  // Synchronizuj stan po pEtli odwiertow / Sync state after the well loop
         $playerCash     = $wellLoop->playerCash;
@@ -190,7 +217,9 @@ class PlayersSection
 
  // 3. RUROCIAGI / Pipelines
         $pipelines = new PipelineSection($db, $now, $wellService);
+        $pipelinesStarted = microtime(true);
         $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc, $protectionSvc);
+        $this->addSectionTiming('pipelines', (int)round((microtime(true) - $pipelinesStarted) * 1000));
  // Floor na 0 jak pozostale odliczenia gotowki (DB i tak ma GREATEST(0,...)).
  // Floor at 0 like the other cash deductions (DB also applies GREATEST(0,...)).
         $wellLoop->totalCosts     += abs($pipelines->cashDelta);
@@ -199,6 +228,7 @@ class PlayersSection
 
  // 3b. DOSTAWY MORSKIE aktualizacja statusow rejsow / Marine deliveries voyage status updates
         if (class_exists('MarineDeliverySection')) {
+            $marineStarted = microtime(true);
             try {
                 $marineSec = new MarineDeliverySection($db, $now);
                 $marineSec->process($playerId, $hseBonus, $deltaHours);
@@ -214,6 +244,7 @@ class PlayersSection
             } catch (Throwable $e) {
                 GameLog::error('tick', 'MarineDeliverySection FAILED', $e, ['player_id' => $playerId]);
             }
+            $this->addSectionTiming('marine_delivery', (int)round((microtime(true) - $marineStarted) * 1000));
         }
 
  // Second-leg service (hub -> storage), shared by the time-based delivery sections.
@@ -224,6 +255,7 @@ class PlayersSection
  // M3: $roadSvc visible at storage save so road deliveries can be confirmed atomically.
         $roadSvc = null;
         if (class_exists('WellRoadTripSection') && class_exists('RoadTransportService')) {
+            $roadStarted = microtime(true);
             try {
                 $roadSvc        = new RoadTransportService($db);
  // Ochrona kursow (theft/raid/sabotage) - wspolna instancja gracza.
@@ -255,10 +287,12 @@ class PlayersSection
             } catch (Throwable $e) {
                 GameLog::error('tick', 'WellRoadTripSection FAILED', $e, ['player_id' => $playerId]);
             }
+            $this->addSectionTiming('road_trips', (int)round((microtime(true) - $roadStarted) * 1000));
         }
 
  // 3d. PORT przetwarzanie kolejki, kredytowanie magazynu / Port queue processing, storage credit
         if (class_exists('PortSection')) {
+            $portStarted = microtime(true);
             try {
                 $portSec        = new PortSection($db, $now);
                 $currentStorage = $portSec->process($playerId, $currentStorage, $storageCapacity, $this->oilPrice, $deltaHours);
@@ -284,20 +318,25 @@ class PlayersSection
             } catch (Throwable $e) {
                 GameLog::error('tick', 'PortSection FAILED', $e, ['player_id' => $playerId]);
             }
+            $this->addSectionTiming('port_queue', (int)round((microtime(true) - $portStarted) * 1000));
         }
 
  // Finalizacja hubow po produkcji synchronicznej oraz realnie dotartych dostawach czasowych.
  // Hub finalization after synchronous production and physically arrived time-based deliveries.
         $wellLoop->currentStorage = $currentStorage;
         $wellLoop->playerCash     = $playerCash;
+        $hubFinalizeStarted = microtime(true);
         $wellLoop->finalizeHubTicks($playerId, $deltaHours, $hseBonus, $protectionSvc);
+        $this->addSectionTiming('hub_finalize', (int)round((microtime(true) - $hubFinalizeStarted) * 1000));
         $currentStorage = $wellLoop->currentStorage;
         $playerCash     = $wellLoop->playerCash;
 
  // 4. SKAZENIE POWIERZCHNIOWE / Surface spill
         $finSvc = new FinanceService();
         $spill  = new SpillSection($db, $wellService);
+        $spillStarted = microtime(true);
         $currentStorage            = $spill->process($playerId, $currentStorage, $storageCapacity, $hseBonus, $tsvc);
+        $this->addSectionTiming('spill', (int)round((microtime(true) - $spillStarted) * 1000));
  // Floor na 0 jak pozostale odliczenia gotowki. / Floor at 0 like other cash deductions.
         $wellLoop->totalCosts     += abs($spill->cashDelta);
         $playerCash               = max(0.0, $playerCash - abs($spill->cashDelta));
@@ -332,6 +371,7 @@ class PlayersSection
  // harness) we do not open our own — the statements still commit together.
         $isMysql = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
         $ownTx   = !$db->inTransaction();
+        $storageSaveStarted = microtime(true);
         try {
             if ($ownTx) {
                 $db->beginTransaction();
@@ -355,8 +395,10 @@ class PlayersSection
             }
             GameLog::error('tick', 'storage save + road confirm FAILED', $e, ['player_id' => $playerId]);
         }
+        $this->addSectionTiming('storage_save', (int)round((microtime(true) - $storageSaveStarted) * 1000));
 
  // Zapis finansowy / Financial save
+        $financeSaveStarted = microtime(true);
         try {
             $finSvc->saveTick(
                 $playerId,
@@ -390,6 +432,7 @@ class PlayersSection
         } catch (Throwable $e) {
             GameLog::error('tick', 'FinanceService::saveTick FAILED', $e, ['player_id' => $playerId]);
         }
+        $this->addSectionTiming('finance_save', (int)round((microtime(true) - $financeSaveStarted) * 1000));
 
  // 5. STAN FINANSOWY + ZAPIS / Financial state + save
  // Pelny koszt incydentow = incydenty odwiertow + katastrofy rurociagow + kary za wyciek.
@@ -399,6 +442,7 @@ class PlayersSection
         $totalIncidentCost = $wellLoop->finIncident
             + abs($pipelines->cashDelta)
             + abs($spill->cashDelta);
+        $financialStateStarted = microtime(true);
         $finState = new FinancialStateSection($db, $now);
         $finState->process(
             $playerId, $playerData, $playerCash,
@@ -406,15 +450,18 @@ class PlayersSection
             $wellLoop->finTransport, $totalIncidentCost, $wellLoop->finTax
         );
         $finState->saveCashAndTick($playerId, $wellLoop->totalCosts);
+        $this->addSectionTiming('financial_state', (int)round((microtime(true) - $financialStateStarted) * 1000));
 
  // 6. AUDIT BANKOWY zbiorcze koszty ticku do bank_transactions (brief: "podatki" itd.).
  // Gotowka juz zeszla roznicowo w saveCashAndTick - tu tylko logTransaction (audit trail).
  // 6. BANK AUDIT aggregated tick costs into bank_transactions (brief: "taxes" etc.).
  // Cash already saved differentially in saveCashAndTick - logTransaction only (audit trail).
+        $bankAuditStarted = microtime(true);
         $this->logTickBankAudit(
             $playerId, $wellLoop,
             abs($pipelines->cashDelta), abs($spill->cashDelta)
         );
+        $this->addSectionTiming('bank_audit', (int)round((microtime(true) - $bankAuditStarted) * 1000));
 
  // Aktualizuj liczniki globalne / Update global counters
         $this->playersProcessed++;
@@ -423,6 +470,11 @@ class PlayersSection
         $this->totalRevenue += $wellLoop->finRevenue;
         $this->totalOpex    += ($wellLoop->finOpex + $wellLoop->finSalary + $wellLoop->finTransport);
 
+    }
+
+    private function addSectionTiming(string $key, int $durationMs): void
+    {
+        $this->sectionTimingsMs[$key] = ($this->sectionTimingsMs[$key] ?? 0) + max(0, $durationMs);
     }
 
  /**

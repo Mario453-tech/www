@@ -14,6 +14,10 @@ final class PlayersModule implements TickModule
     private float $totalOpex = 0.0;
     private int $disastersTriggered = 0;
     private int $incidentsTriggered = 0;
+    /** @var array<string,int> */
+    private array $sectionTimingsMs = [];
+    private int $slowestPlayerMs = 0;
+    private int $slowestPlayerId = 0;
 
     public function key(): string { return 'players'; }
     public function order(): int { return 40; }
@@ -31,6 +35,9 @@ final class PlayersModule implements TickModule
         $this->totalOpex = $section->totalOpex;
         $this->disastersTriggered = $section->disastersTriggered;
         $this->incidentsTriggered = $section->incidentsTriggered;
+        $this->sectionTimingsMs = $section->sectionTimingsMs;
+        $this->slowestPlayerMs = $section->slowestPlayerMs;
+        $this->slowestPlayerId = $section->slowestPlayerId;
     }
 
     /** @return array<string,int|float> */
@@ -44,6 +51,18 @@ final class PlayersModule implements TickModule
             'total_opex_pln' => $this->totalOpex,
             'disasters_triggered' => $this->disastersTriggered,
             'incidents_triggered' => $this->incidentsTriggered,
-        ];
+            'slowest_player_ms' => $this->slowestPlayerMs,
+            'slowest_player_id' => $this->slowestPlayerId,
+        ] + $this->sectionTimings();
+    }
+
+    /** @return array<string,int> */
+    private function sectionTimings(): array
+    {
+        $timings = [];
+        foreach ($this->sectionTimingsMs as $key => $durationMs) {
+            $timings['section_ms_' . $key] = max(0, (int)$durationMs);
+        }
+        return $timings;
     }
 }

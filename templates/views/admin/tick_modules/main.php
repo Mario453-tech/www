@@ -36,6 +36,29 @@ $formatJson = static function (array $data): string {
     $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     return htmlspecialchars($json === false ? '{}' : $json, ENT_QUOTES, 'UTF-8');
 };
+$pageUrl = static function (int $newLogsPage, int $newStatsPage, string $module): string {
+    $params = [
+        'logs_page' => max(1, $newLogsPage),
+        'stats_page' => max(1, $newStatsPage),
+    ];
+    if ($module !== '') {
+        $params['module'] = $module;
+    }
+    return '/admin/tick_modules.php?' . http_build_query($params);
+};
+$profileSummary = static function (array $profile): string {
+    if (($profile['sections'] ?? []) === []) {
+        return t('admin.tick_modules.profile_none');
+    }
+    $parts = [];
+    foreach (array_slice($profile['sections'], 0, 4, true) as $key => $value) {
+        $parts[] = str_replace('_', ' ', $key) . ': ' . (int)$value . ' ms';
+    }
+    if (($profile['slowest_player_ms'] ?? 0) > 0) {
+        $parts[] = t('admin.tick_modules.profile_slowest') . ': #' . (int)($profile['slowest_player_id'] ?? 0) . ' (' . (int)$profile['slowest_player_ms'] . ' ms)';
+    }
+    return htmlspecialchars(implode(' | ', $parts), ENT_QUOTES, 'UTF-8');
+};
 ?>
 
 <div class="admin-page-header">
@@ -52,6 +75,7 @@ $formatJson = static function (array $data): string {
 <section class="section-card tick-modules-help">
     <p><?= t('admin.tick_modules.help_critical') ?></p>
     <p><?= t('admin.tick_modules.help_interval') ?></p>
+    <p><?= t('admin.tick_modules.help_cleanup') ?></p>
 </section>
 
 <section class="section-card">
@@ -103,6 +127,8 @@ $formatJson = static function (array $data): string {
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="save_settings">
                 <input type="hidden" name="module_key" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="logs_page" value="<?= (int)$logsPage ?>">
+                <input type="hidden" name="stats_page" value="<?= (int)$statsPage ?>">
                 <?php if ($critical): ?>
                 <input type="hidden" name="enabled" value="1">
                 <input type="hidden" name="interval_ticks" value="<?= (int)$module['interval_ticks'] ?>">
@@ -123,12 +149,16 @@ $formatJson = static function (array $data): string {
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="run_module">
                     <input type="hidden" name="module_key" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="logs_page" value="<?= (int)$logsPage ?>">
+                    <input type="hidden" name="stats_page" value="<?= (int)$statsPage ?>">
                     <button type="submit" class="btn btn-sm btn-warning"><?= t('admin.tick_modules.btn_run') ?></button>
                 </form>
                 <form method="post" action="/admin/tick_modules.php?module=<?= rawurlencode($key) ?>" data-confirm="<?= htmlspecialchars(t('admin.tick_modules.confirm_restore'), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="restore_recommended">
                     <input type="hidden" name="module_key" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="logs_page" value="<?= (int)$logsPage ?>">
+                    <input type="hidden" name="stats_page" value="<?= (int)$statsPage ?>">
                     <button type="submit" class="btn btn-sm btn-secondary"><?= t('admin.tick_modules.btn_restore') ?></button>
                 </form>
             </div>
@@ -140,17 +170,28 @@ $formatJson = static function (array $data): string {
 <section class="section-card">
     <div class="section-toolbar">
         <h2 class="section-title"><?= t('admin.tick_modules.section_logs') ?></h2>
-        <form method="get" action="/admin/tick_modules.php" class="inline-form">
-            <select name="module" class="form-select form-select--sm">
-                <option value=""><?= t('admin.tick_modules.filter_all') ?></option>
-                <?php foreach ($modules as $module): ?>
-                <option value="<?= htmlspecialchars((string)$module['key'], ENT_QUOTES, 'UTF-8') ?>" <?= $selectedModule === (string)$module['key'] ? 'selected' : '' ?>>
-                    <?= $moduleLabel($module) ?>
-                </option>
-                <?php endforeach ?>
-            </select>
-            <button type="submit" class="btn btn-sm btn-secondary"><?= t('admin.tick_modules.filter_btn') ?></button>
-        </form>
+        <div class="tick-toolbar-actions">
+            <form method="get" action="/admin/tick_modules.php" class="inline-form">
+                <input type="hidden" name="stats_page" value="<?= (int)$statsPage ?>">
+                <select name="module" class="form-select form-select--sm">
+                    <option value=""><?= t('admin.tick_modules.filter_all') ?></option>
+                    <?php foreach ($modules as $module): ?>
+                    <option value="<?= htmlspecialchars((string)$module['key'], ENT_QUOTES, 'UTF-8') ?>" <?= $selectedModule === (string)$module['key'] ? 'selected' : '' ?>>
+                        <?= $moduleLabel($module) ?>
+                    </option>
+                    <?php endforeach ?>
+                </select>
+                <button type="submit" class="btn btn-sm btn-secondary"><?= t('admin.tick_modules.filter_btn') ?></button>
+            </form>
+            <form method="post" action="/admin/tick_modules.php" data-confirm="<?= htmlspecialchars(t('admin.tick_modules.confirm_cleanup'), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="cleanup_history">
+                <input type="hidden" name="module_key" value="<?= htmlspecialchars($selectedModule, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="logs_page" value="<?= (int)$logsPage ?>">
+                <input type="hidden" name="stats_page" value="<?= (int)$statsPage ?>">
+                <button type="submit" class="btn btn-sm btn-secondary"><?= t('admin.tick_modules.btn_cleanup') ?></button>
+            </form>
+        </div>
     </div>
 
     <?php if (empty($recentLogs)): ?>
@@ -184,11 +225,23 @@ $formatJson = static function (array $data): string {
         </article>
         <?php endforeach ?>
     </div>
+    <nav class="tick-pagination" aria-label="module log pagination">
+        <?php if ($logsPage > 1): ?>
+        <a class="btn btn-sm btn-secondary" href="<?= htmlspecialchars($pageUrl($logsPage - 1, $statsPage, $selectedModule), ENT_QUOTES, 'UTF-8') ?>"><?= t('admin.tick_modules.btn_prev') ?></a>
+        <?php endif ?>
+        <span class="muted"><?= t('admin.tick_modules.page_indicator', ['page' => (string)$logsPage, 'pages' => (string)$logsPages]) ?></span>
+        <?php if ($logsPage < $logsPages): ?>
+        <a class="btn btn-sm btn-secondary" href="<?= htmlspecialchars($pageUrl($logsPage + 1, $statsPage, $selectedModule), ENT_QUOTES, 'UTF-8') ?>"><?= t('admin.tick_modules.btn_next') ?></a>
+        <?php endif ?>
+    </nav>
     <?php endif ?>
 </section>
 
 <section class="section-card">
-    <h2 class="section-title"><?= t('admin.tick_modules.section_stats') ?></h2>
+    <div class="section-toolbar">
+        <h2 class="section-title"><?= t('admin.tick_modules.section_stats') ?></h2>
+        <span class="muted"><?= t('admin.tick_modules.page_indicator', ['page' => (string)$statsPage, 'pages' => (string)$statsPages]) ?></span>
+    </div>
 
     <?php if (empty($recentTickStats)): ?>
     <p class="empty-state"><?= t('admin.tick_modules.empty_stats') ?></p>
@@ -200,6 +253,9 @@ $formatJson = static function (array $data): string {
                 <strong>#<?= (int)$tick['tick_sequence'] ?></strong>
                 <span><?= htmlspecialchars((string)$tick['ran_at'], ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="muted"><?= htmlspecialchars((string)$tick['source'], ENT_QUOTES, 'UTF-8') ?> &middot; <?= (int)$tick['duration_ms'] ?> ms</span>
+                <?php if (($tick['players_profile']['sections'] ?? []) !== []): ?>
+                <span class="tick-profile-summary"><?= $profileSummary($tick['players_profile']) ?></span>
+                <?php endif ?>
             </div>
             <details>
                 <summary><?= t('admin.tick_modules.stats_modules') ?></summary>
@@ -209,5 +265,14 @@ $formatJson = static function (array $data): string {
         </article>
         <?php endforeach ?>
     </div>
+    <nav class="tick-pagination" aria-label="tick stats pagination">
+        <?php if ($statsPage > 1): ?>
+        <a class="btn btn-sm btn-secondary" href="<?= htmlspecialchars($pageUrl($logsPage, $statsPage - 1, $selectedModule), ENT_QUOTES, 'UTF-8') ?>"><?= t('admin.tick_modules.btn_prev') ?></a>
+        <?php endif ?>
+        <span class="muted"><?= t('admin.tick_modules.page_indicator', ['page' => (string)$statsPage, 'pages' => (string)$statsPages]) ?></span>
+        <?php if ($statsPage < $statsPages): ?>
+        <a class="btn btn-sm btn-secondary" href="<?= htmlspecialchars($pageUrl($logsPage, $statsPage + 1, $selectedModule), ENT_QUOTES, 'UTF-8') ?>"><?= t('admin.tick_modules.btn_next') ?></a>
+        <?php endif ?>
+    </nav>
     <?php endif ?>
 </section>

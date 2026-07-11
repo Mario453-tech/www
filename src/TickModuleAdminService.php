@@ -79,9 +79,9 @@ final class TickModuleAdminService
     }
 
     /** @return list<array<string,mixed>> */
-    public function recentLogs(?string $moduleKey = null, int $limit = 80): array
+    public function recentLogs(?string $moduleKey = null, int $limit = 10, int $offset = 0): array
     {
-        $rows = $this->configRepository->recentLogs($moduleKey, $limit);
+        $rows = $this->configRepository->recentLogs($moduleKey, $limit, $offset);
         foreach ($rows as &$row) {
             $row['label_key'] = $this->labelKey((string)$row['module_key']);
             $row['stats'] = $this->decodeJson($row['stats_json'] ?? null);
@@ -90,29 +90,38 @@ final class TickModuleAdminService
         return $rows;
     }
 
-    /** @return list<array<string,mixed>> */
-    public function recentTickStats(int $limit = 12): array
+    public function countRecentLogs(?string $moduleKey = null): int
     {
-        new TickStatsRepository();
+        return $this->configRepository->countRecentLogs($moduleKey);
+    }
 
-        $stmt = $this->db->prepare(
-            'SELECT id, ran_at, tick_sequence, source, duration_ms, module_stats_data, module_runs_data
-               FROM tick_stats
-              WHERE module_stats_data IS NOT NULL OR module_runs_data IS NOT NULL
-              ORDER BY id DESC
-              LIMIT ?'
-        );
-        $stmt->bindValue(1, max(1, min(50, $limit)), PDO::PARAM_INT);
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    /** @return list<array<string,mixed>> */
+    public function recentTickStats(int $limit = 10, int $offset = 0): array
+    {
+        $repo = new TickStatsRepository($this->db);
+        $rows = $repo->recentModuleStatsRows($limit, $offset);
 
         foreach ($rows as &$row) {
             $row['module_stats'] = $this->decodeJson($row['module_stats_data'] ?? null);
             $row['module_runs'] = $this->decodeJson($row['module_runs_data'] ?? null);
+            $row['players_profile'] = $this->playersProfile($row['module_stats']['players'] ?? []);
         }
         unset($row);
 
         return $rows;
+    }
+
+    public function countRecentTickStats(): int
+    {
+        return (new TickStatsRepository($this->db))->countModuleStatsRows();
+    }
+
+    /** @return array{stats_deleted:int,logs_deleted:int} */
+    public function cleanupHistory(int $keepDays = 2): array
+    {
+        $statsDeleted = (new TickStatsRepository($this->db))->cleanup($keepDays);
+        $logsDeleted = $this->configRepository->cleanupLogs($keepDays);
+        return ['stats_deleted' => $statsDeleted, 'logs_deleted' => $logsDeleted];
     }
 
     public function labelKey(string $moduleKey): string
@@ -138,5 +147,31 @@ final class TickModuleAdminService
 
         $decoded = json_decode($json, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param array<string,mixed> $stats
+     * @return array{sections?:array<string,int>,slowest_player_ms?:int,slowest_player_id?:int}
+     */
+    private function playersProfile(array $stats): array
+    {
+        $profile = [];
+        foreach ($stats as $key => $value) {
+            if (!is_string($key) || !str_starts_with($key, 'section_ms_')) {
+                continue;
+            }
+            $profile[substr($key, 11)] = (int)$value;
+        }
+
+        arsort($profile);
+        if ($profile === []) {
+            return [];
+        }
+
+        return [
+            'sections' => $profile,
+            'slowest_player_ms' => (int)($stats['slowest_player_ms'] ?? 0),
+            'slowest_player_id' => (int)($stats['slowest_player_id'] ?? 0),
+        ];
     }
 }

@@ -11,9 +11,9 @@ class TickStatsRepository
     /** @var array<int,bool> */
     private static array $schemaEnsured = [];
 
-    public function __construct()
+    public function __construct(?PDO $db = null)
     {
-        $this->db = Database::getInstance()->getConnection();
+        $this->db = $db ?? Database::getInstance()->getConnection();
         $this->ensureSchema();
     }
 
@@ -31,6 +31,39 @@ class TickStatsRepository
 
         try {
             $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            if ($driver === 'sqlite') {
+                $this->db->exec("CREATE TABLE IF NOT EXISTS tick_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ran_at TEXT NOT NULL,
+                    tick_sequence INTEGER NOT NULL DEFAULT 0,
+                    source TEXT NULL,
+                    duration_ms INTEGER NULL,
+                    oil_price REAL NULL,
+                    trend_name TEXT NULL,
+                    trend_new INTEGER NULL,
+                    bank_interest_processed INTEGER NULL,
+                    bank_installments_processed INTEGER NULL,
+                    bank_negotiations_resolved INTEGER NULL,
+                    bank_loan_decisions INTEGER NULL,
+                    hr_recruitments_processed INTEGER NULL,
+                    bankruptcy_processed INTEGER NULL,
+                    bankruptcy_recovered INTEGER NULL,
+                    players_processed INTEGER NULL,
+                    wells_active INTEGER NULL,
+                    total_production_bbl REAL NULL,
+                    total_revenue_pln REAL NULL,
+                    total_opex_pln REAL NULL,
+                    disasters_triggered INTEGER NULL,
+                    incidents_triggered INTEGER NULL,
+                    contracts_processed INTEGER NULL,
+                    contracts_revenue_pln REAL NULL,
+                    contracts_penalties_pln REAL NULL,
+                    module_stats_data TEXT NULL,
+                    module_runs_data TEXT NULL
+                )");
+                $this->db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_ran_at ON tick_stats (ran_at, tick_sequence)');
+                return;
+            }
             if ($driver !== 'mysql') {
                 return;
             }
@@ -78,9 +111,11 @@ class TickStatsRepository
     {
         $ranAt = $stats['ran_at'] ?? date('Y-m-d H:i:s');
         $tickSequence = max(0, (int)($stats['tick_sequence'] ?? 0));
+        $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $insert = $driver === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
 
         $this->db->prepare("
-            INSERT IGNORE INTO tick_stats (
+            {$insert} INTO tick_stats (
                 ran_at, tick_sequence, source, duration_ms,
                 oil_price, trend_name, trend_new,
                 bank_interest_processed, bank_installments_processed,
@@ -171,13 +206,51 @@ class TickStatsRepository
      */
     public function cleanup(int $keepDays = 7): int
     {
+        $keepDays = max(1, $keepDays);
+        $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'mysql') {
+            $stmt = $this->db->prepare("
+                DELETE FROM tick_stats
+                WHERE ran_at < DATE_SUB(NOW(), INTERVAL :days DAY)
+            ");
+            $stmt->bindValue(':days', $keepDays, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->rowCount();
+        }
+
+        $cutoff = (new DateTimeImmutable("-{$keepDays} days"))->format('Y-m-d H:i:s');
         $stmt = $this->db->prepare("
             DELETE FROM tick_stats
-            WHERE ran_at < DATE_SUB(NOW(), INTERVAL :days DAY)
+            WHERE ran_at < :cutoff
         ");
-        $stmt->bindValue(':days', $keepDays, PDO::PARAM_INT);
+        $stmt->bindValue(':cutoff', $cutoff);
         $stmt->execute();
         return $stmt->rowCount();
+    }
+
+    public function countModuleStatsRows(): int
+    {
+        return (int)$this->db->query(
+            'SELECT COUNT(*)
+               FROM tick_stats
+              WHERE module_stats_data IS NOT NULL OR module_runs_data IS NOT NULL'
+        )->fetchColumn();
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function recentModuleStatsRows(int $limit = 10, int $offset = 0): array
+    {
+        $limit = max(1, min(100, $limit));
+        $offset = max(0, $offset);
+        $stmt = $this->db->prepare(
+            "SELECT id, ran_at, tick_sequence, source, duration_ms, module_stats_data, module_runs_data
+               FROM tick_stats
+              WHERE module_stats_data IS NOT NULL OR module_runs_data IS NOT NULL
+              ORDER BY id DESC
+              LIMIT {$limit} OFFSET {$offset}"
+        );
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     private function encodeJson(mixed $value): ?string
