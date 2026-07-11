@@ -12,7 +12,7 @@ final class TickEngine
     ) {
     }
 
-    public function runAll(TickContext $ctx): TickRunResult
+    public function runAll(TickContext $ctx, bool $force = false): TickRunResult
     {
         $result = new TickRunResult($ctx);
 
@@ -45,7 +45,7 @@ final class TickEngine
         }
 
         foreach ($modules as $module) {
-            $ran = $this->runScheduled($module, $ctx, $result, false);
+            $ran = $this->runScheduled($module, $ctx, $result, $force);
             if ($result->hasCriticalFailure()) {
                 break;
             }

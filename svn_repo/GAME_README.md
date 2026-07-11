@@ -1,5 +1,19 @@
 ## Changelog
 
+### 2026-07-11 - Admin logi: wyróżnienie wpisów ticka
+
+- W zakładce Game log wpisy `GameLog` z modułu `[tick]` są teraz wyróżnione żółtym tłem i żółtym paskiem z lewej strony, żeby łatwo było zobaczyć aktywność crona oraz ręcznego ticka w panelu.
+
+### 2026-07-11 - Tick Engine: coordinator i pełne przełączenie crona
+
+- Dodano `TickCoordinator`, który obsługuje wspólny przebieg ticka dla crona i ręcznego uruchomienia z admina: MySQL `GET_LOCK('oilcorp_tick')`, flagę `tick_in_progress`, numer przebiegu `tick_run_sequence`, scheduler modułów, zapis statystyk i cleanup.
+- `cron/tick.php` jest teraz cienkim wejściem: bootstrap, kontrola klucza HTTP, uruchomienie coordinatora i wypisanie podsumowania.
+- `admin/force_tick.php` nie includuje już crona i nie parsuje tekstu regexem; korzysta z tego samego coordinatora i z danych `TickRunResult`.
+- Wszystkie moduły ticka są uruchamiane jedną pętlą `TickEngine::runAll()` według kolejności rejestru: market, marine purge, bank, players, black market, credibility, legal, training, contracts, B2B.
+- `tick_stats` zapisuje teraz także `tick_sequence`, `module_stats_data` i `module_runs_data`, więc nowe moduły mogą raportować metryki bez dokładania kolumn przy każdej zmianie, a dwa ticki z tej samej sekundy nie nadpisują się logicznie.
+- Dodano test MySQL blokady coordinatora oraz test zapisu JSON modułów w `tick_stats`.
+- Backup przed zmianą crona i ręcznego ticka: `backups/cron/2026-07-11_03-06-31_tick.php.bak` oraz `backups/cron/2026-07-11_03-06-31_force_tick.php.bak`.
+
 ### 2026-07-11 - Tick Engine: konfiguracja częstotliwości modułów
 
 - Dodano warstwę konfiguracji modułów ticka: `TickModuleCatalog`, `TickModuleConfigRepository` i `TickModuleScheduler`.

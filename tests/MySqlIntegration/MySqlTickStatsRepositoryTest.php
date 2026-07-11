@@ -135,6 +135,27 @@ final class MySqlTickStatsRepositoryTest extends MySqlIntegrationTestCase
         $this->assertEqualsWithDelta(99.5, (float)$row['total_production_bbl'], 0.001);
     }
 
+    public function testSavePersistsModuleJsonFields(): void
+    {
+        $repo = $this->makeRepo();
+        $ranAt = $this->ranAt('00:12');
+        $repo->save(array_merge($this->minimalStats($ranAt), [
+            'tick_sequence' => 123,
+            'module_stats_data' => ['market' => ['oil_price' => 123.45]],
+            'module_runs_data' => ['market' => ['status' => 'success']],
+        ]));
+
+        $stmt = $this->db->prepare(
+            'SELECT tick_sequence, module_stats_data, module_runs_data FROM tick_stats WHERE ran_at = ?'
+        );
+        $stmt->execute([$ranAt]);
+        $row = $stmt->fetch();
+
+        $this->assertSame('123', (string)$row['tick_sequence']);
+        $this->assertStringContainsString('"market"', (string)$row['module_stats_data']);
+        $this->assertStringContainsString('"success"', (string)$row['module_runs_data']);
+    }
+
     // =========================================================================
     // C12 fix: INSERT IGNORE deduplikacja rownoczesnych tikow / concurrent tick dedup
     // =========================================================================
@@ -146,18 +167,54 @@ final class MySqlTickStatsRepositoryTest extends MySqlIntegrationTestCase
      * C12 fix: second save() with the same ran_at is ignored (INSERT IGNORE).
      * Without UNIQUE KEY on ran_at the second call would overwrite or throw.
      */
-    public function testInsertIgnoreDeduplicatesOnSameRanAt(): void
+    public function testInsertIgnoreDeduplicatesOnSameRanAtAndSequence(): void
     {
         $repo  = $this->makeRepo();
         $ranAt = $this->ranAt('00:20');
 
-        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'cron']));
-        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'admin'])); // ignorowany
+        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'cron', 'tick_sequence' => 1]));
+        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'admin', 'tick_sequence' => 1]));
+
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM tick_stats WHERE ran_at = ? AND tick_sequence = ?");
+        $stmt->execute([$ranAt, 1]);
+        $this->assertSame(1, (int)$stmt->fetchColumn(),
+            'C12: INSERT IGNORE musi zachowac dokladnie 1 wiersz dla tego samego ran_at i sequence');
+    }
+
+    public function testSameRanAtWithDifferentSequenceBothPersisted(): void
+    {
+        $repo  = $this->makeRepo();
+        $ranAt = $this->ranAt('00:22');
+
+        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'cron', 'tick_sequence' => 11]));
+        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'admin', 'tick_sequence' => 12]));
 
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM tick_stats WHERE ran_at = ?");
         $stmt->execute([$ranAt]);
-        $this->assertSame(1, (int)$stmt->fetchColumn(),
-            'C12: INSERT IGNORE musi zachowac dokladnie 1 wiersz dla tego samego ran_at');
+        $this->assertSame(2, (int)$stmt->fetchColumn());
+    }
+
+    public function testMissingSequenceFallsBackToZeroAndDeduplicates(): void
+    {
+        $repo  = $this->makeRepo();
+        $ranAt = $this->ranAt('00:23');
+
+        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'cron']));
+        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'admin']));
+
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) AS rows_count,
+                    MIN(tick_sequence) AS min_sequence,
+                    MAX(tick_sequence) AS max_sequence
+               FROM tick_stats
+              WHERE ran_at = ?"
+        );
+        $stmt->execute([$ranAt]);
+        $row = $stmt->fetch();
+
+        $this->assertSame(1, (int)$row['rows_count']);
+        $this->assertSame(0, (int)$row['min_sequence']);
+        $this->assertSame(0, (int)$row['max_sequence']);
     }
 
     /**
@@ -169,11 +226,19 @@ final class MySqlTickStatsRepositoryTest extends MySqlIntegrationTestCase
         $repo  = $this->makeRepo();
         $ranAt = $this->ranAt('00:21');
 
-        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'cron',  'duration_ms' => 100]));
-        $repo->save(array_merge($this->minimalStats($ranAt), ['source' => 'admin', 'duration_ms' => 999]));
+        $repo->save(array_merge($this->minimalStats($ranAt), [
+            'source' => 'cron',
+            'duration_ms' => 100,
+            'tick_sequence' => 33,
+        ]));
+        $repo->save(array_merge($this->minimalStats($ranAt), [
+            'source' => 'admin',
+            'duration_ms' => 999,
+            'tick_sequence' => 33,
+        ]));
 
-        $stmt = $this->db->prepare("SELECT source, duration_ms FROM tick_stats WHERE ran_at = ?");
-        $stmt->execute([$ranAt]);
+        $stmt = $this->db->prepare("SELECT source, duration_ms FROM tick_stats WHERE ran_at = ? AND tick_sequence = ?");
+        $stmt->execute([$ranAt, 33]);
         $row = $stmt->fetch();
 
         $this->assertSame('cron', $row['source'],

@@ -98,6 +98,30 @@ final class TickModuleSchedulerTest extends BaseTestCase
         $this->assertSame(1, $GLOBALS['scheduled_module_runs']);
     }
 
+    public function testForcedRunAllBypassesInterval(): void
+    {
+        $dir = $this->moduleDir('ScheduledForcedAllModule', 'scheduled_forced_all');
+        $module = TickRegistry::find('scheduled_forced_all', $dir);
+        $this->assertInstanceOf(TickModule::class, $module);
+        $this->scheduler->sync([$module]);
+        $this->repository->update('scheduled_forced_all', true, 24, 33);
+        $this->repository->markFinished(
+            'scheduled_forced_all',
+            100,
+            'test',
+            TickModuleConfigRepository::STATUS_SUCCESS,
+            1,
+            [],
+            null,
+            false
+        );
+
+        $result = (new TickEngine($dir, $this->scheduler))->runAll($this->context(101), true);
+
+        $this->assertSame(TickRunResult::STATUS_SUCCESS, $result->moduleRuns['scheduled_forced_all']['status']);
+        $this->assertSame(1, $GLOBALS['scheduled_module_runs']);
+    }
+
     public function testRecommendedSettingsAreRestored(): void
     {
         $dir = $this->moduleDir('ScheduledRecommendedB2BModule', 'b2b_contracts');

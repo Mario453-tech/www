@@ -38,33 +38,29 @@ class TickStatsRepository
                 return;
             }
 
-            $stmt = $this->db->query(
-                "SELECT Non_unique FROM information_schema.STATISTICS
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME   = 'tick_stats'
-                    AND INDEX_NAME   = 'idx_ran_at'
-                  LIMIT 1"
-            );
-            $nonUnique = $stmt ? $stmt->fetchColumn() : null;
-
             Database::addColumnIfMissing('tick_stats', 'contracts_processed', 'INT NULL DEFAULT NULL AFTER incidents_triggered');
             Database::addColumnIfMissing('tick_stats', 'contracts_revenue_pln', 'DECIMAL(16,2) NULL DEFAULT NULL AFTER contracts_processed');
             Database::addColumnIfMissing('tick_stats', 'contracts_penalties_pln', 'DECIMAL(16,2) NULL DEFAULT NULL AFTER contracts_revenue_pln');
+            Database::addColumnIfMissing('tick_stats', 'tick_sequence', 'BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER ran_at');
+            Database::addColumnIfMissing('tick_stats', 'module_stats_data', 'LONGTEXT NULL AFTER contracts_penalties_pln');
+            Database::addColumnIfMissing('tick_stats', 'module_runs_data', 'LONGTEXT NULL AFTER module_stats_data');
+            $this->normalizeTickSequenceColumn();
 
-            if ($nonUnique === false || $nonUnique === null) {
-                $this->db->exec("ALTER TABLE tick_stats ADD UNIQUE KEY idx_ran_at (ran_at)");
-                return;
-            }
-            if ((int)$nonUnique === 0) {
+            if ($this->hasExpectedUniqueIndex()) {
                 return;
             }
 
             $this->db->exec(
                 "DELETE t1 FROM tick_stats t1
-                   JOIN tick_stats t2 ON t1.ran_at = t2.ran_at AND t1.id < t2.id"
+                   JOIN tick_stats t2
+                     ON t1.ran_at = t2.ran_at
+                    AND COALESCE(t1.tick_sequence, 0) = COALESCE(t2.tick_sequence, 0)
+                    AND t1.id < t2.id"
             );
-            $this->db->exec("ALTER TABLE tick_stats DROP INDEX idx_ran_at");
-            $this->db->exec("ALTER TABLE tick_stats ADD UNIQUE KEY idx_ran_at (ran_at)");
+            if ($this->indexExists('idx_ran_at')) {
+                $this->db->exec("ALTER TABLE tick_stats DROP INDEX idx_ran_at");
+            }
+            $this->db->exec("ALTER TABLE tick_stats ADD UNIQUE KEY idx_ran_at (ran_at, tick_sequence)");
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('TickStatsRepository', 'ensureSchema FAILED', $e);
@@ -81,10 +77,11 @@ class TickStatsRepository
     public function save(array $stats): void
     {
         $ranAt = $stats['ran_at'] ?? date('Y-m-d H:i:s');
+        $tickSequence = max(0, (int)($stats['tick_sequence'] ?? 0));
 
         $this->db->prepare("
             INSERT IGNORE INTO tick_stats (
-                ran_at, source, duration_ms,
+                ran_at, tick_sequence, source, duration_ms,
                 oil_price, trend_name, trend_new,
                 bank_interest_processed, bank_installments_processed,
                 bank_negotiations_resolved, bank_loan_decisions,
@@ -93,9 +90,10 @@ class TickStatsRepository
                 players_processed, wells_active,
                 total_production_bbl, total_revenue_pln, total_opex_pln,
                 disasters_triggered, incidents_triggered,
-                contracts_processed, contracts_revenue_pln, contracts_penalties_pln
+                contracts_processed, contracts_revenue_pln, contracts_penalties_pln,
+                module_stats_data, module_runs_data
             ) VALUES (
-                :ran_at, :source, :duration_ms,
+                :ran_at, :tick_sequence, :source, :duration_ms,
                 :oil_price, :trend_name, :trend_new,
                 :bank_interest_processed, :bank_installments_processed,
                 :bank_negotiations_resolved, :bank_loan_decisions,
@@ -104,10 +102,12 @@ class TickStatsRepository
                 :players_processed, :wells_active,
                 :total_production_bbl, :total_revenue_pln, :total_opex_pln,
                 :disasters_triggered, :incidents_triggered,
-                :contracts_processed, :contracts_revenue_pln, :contracts_penalties_pln
+                :contracts_processed, :contracts_revenue_pln, :contracts_penalties_pln,
+                :module_stats_data, :module_runs_data
             )
         ")->execute([
             ':ran_at'                      => $ranAt,
+            ':tick_sequence'               => $tickSequence,
             ':source'                      => $stats['source']                      ?? 'cron',
             ':duration_ms'                 => $stats['duration_ms']                 ?? null,
             ':oil_price'                   => $stats['oil_price']                   ?? null,
@@ -130,6 +130,8 @@ class TickStatsRepository
             ':contracts_processed'         => $stats['contracts_processed']         ?? null,
             ':contracts_revenue_pln'       => $stats['contracts_revenue_pln']       ?? null,
             ':contracts_penalties_pln'     => $stats['contracts_penalties_pln']     ?? null,
+            ':module_stats_data'           => $this->encodeJson($stats['module_stats_data'] ?? null),
+            ':module_runs_data'            => $this->encodeJson($stats['module_runs_data'] ?? null),
         ]);
     }
 
@@ -176,5 +178,63 @@ class TickStatsRepository
         $stmt->bindValue(':days', $keepDays, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->rowCount();
+    }
+
+    private function encodeJson(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_string($value)) {
+            return $value;
+        }
+        $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return $json === false ? null : $json;
+    }
+
+    private function hasExpectedUniqueIndex(): bool
+    {
+        $stmt = $this->db->prepare(
+            "SELECT COLUMN_NAME, Non_unique, SEQ_IN_INDEX
+               FROM information_schema.STATISTICS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'tick_stats'
+                AND INDEX_NAME = 'idx_ran_at'
+              ORDER BY SEQ_IN_INDEX"
+        );
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($rows) !== 2) {
+            return false;
+        }
+        return (int)$rows[0]['Non_unique'] === 0
+            && (int)$rows[1]['Non_unique'] === 0
+            && (string)$rows[0]['COLUMN_NAME'] === 'ran_at'
+            && (string)$rows[1]['COLUMN_NAME'] === 'tick_sequence';
+    }
+
+    private function indexExists(string $indexName): bool
+    {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*)
+               FROM information_schema.STATISTICS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'tick_stats'
+                AND INDEX_NAME = ?"
+        );
+        $stmt->execute([$indexName]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    private function normalizeTickSequenceColumn(): void
+    {
+        try {
+            $this->db->exec('UPDATE tick_stats SET tick_sequence = 0 WHERE tick_sequence IS NULL');
+            $this->db->exec('ALTER TABLE tick_stats MODIFY COLUMN tick_sequence BIGINT UNSIGNED NOT NULL DEFAULT 0');
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('TickStatsRepository', 'tick_sequence normalization FAILED', $e);
+            }
+        }
     }
 }

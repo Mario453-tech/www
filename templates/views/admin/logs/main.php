@@ -186,9 +186,10 @@ $buildUrl = fn(array $extra) => '/admin/logs.php?' . http_build_query(array_merg
         <?php foreach ($gameLogLines as $line):
             $cls = str_contains($line, '[ERROR]') ? 'log-line--error'
                  : (str_contains($line, '[WARN]')  ? 'log-line--warn'
+                 : (str_contains($line, '[tick]')  ? 'log-line--tick'
                  : (str_contains($line, '[DB')      ? 'log-line--db'
                  : (str_contains($line, '[PERF]')   ? 'log-line--perf'
-                 : '')));
+                  : ''))));
         ?>
         <div class="log-line <?= $cls ?>"><?= htmlspecialchars($line) ?></div>
         <?php endforeach ?>

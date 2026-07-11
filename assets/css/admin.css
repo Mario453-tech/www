@@ -711,6 +711,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 .log-line--warn  { color: var(--yellow); background: rgba(200,170,80,.06);  border-color: rgba(200,170,80,.18); }
 .log-line--db    { color: var(--blue);   background: rgba(126,184,247,.05); border-color: rgba(126,184,247,.12); }
 .log-line--perf  { color: var(--green);  background: rgba(93,217,153,.05);  border-color: rgba(93,217,153,.12); }
+.log-line--tick  { color: #ffd766; background: rgba(255, 193, 7, .12); border-color: rgba(255, 193, 7, .34); box-shadow: inset 3px 0 0 rgba(255, 193, 7, .85); }
 
 /* Section card (used in tick log) */
 .section-card {
@@ -2003,6 +2004,7 @@ select {
 .log-line--warn  { color: #ffb74d; background: #231e10; }
 .log-line--db    { color: #64b5f6; background: #0d1a26; }
 .log-line--perf  { color: #81c784; background: #0d1a10; }
+.log-line--tick  { color: #ffd766; background: #2b220d; box-shadow: inset 3px 0 0 #ffc107; }
 
 /* Section card (generic admin section wrapper) */
 .admin-page-header   { margin-bottom: 20px; }
