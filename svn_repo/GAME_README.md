@@ -698,3 +698,13 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Cron uruchamia czarny rynek przez `TickEngine::runOne()` i pobiera liczbę wygenerowanych ofert ze statystyk kontekstu.
 - Dodano test MySQL potwierdzający dwugodzinne skalowanie decay oraz statystyki modułu.
 - Backup przed zmianą crona: `backups/cron/2026-07-10_22-03-50_tick.php.bak`.
+
+### 2026-07-11 - Tick Engine: krytyczne moduły rynku, banku i graczy
+
+- Dodano cienkie adaptery `MarketModule`, `BankModule` i `PlayersModule` z polityką błędu `STOP` oraz kolejnością `10`, `30` i `40`.
+- Rynek zachowuje awaryjną cenę z `last_tick_oil_price` albo `70`, ale odpowiedzialność za fallback znajduje się już wyłącznie w module rynku.
+- Globalne mnożniki balansu są ładowane do `TickContext` tylko raz na przebieg i przekazywane do istniejącego `PlayersSection` bez zmiany obliczeń produkcji.
+- `cron/tick.php` uruchamia trzy krytyczne sekcje przez `TickEngine::runOne()` i pobiera statystyki banku oraz graczy z kontekstu modułów.
+- Dodano test regresyjny ograniczania mnożników balansu do zakresu `0.1-10.0` oraz jednokrotnego ładowania konfiguracji.
+- Weryfikacja etapu: `57/57` testów Unit, `391/391` testów Integration, komplet testów MySQLIntegration, PHPStan bez błędów, poprawne kodowanie UTF-8 bez BOM.
+- Backup przed zmianą crona: `backups/cron/2026-07-10_22-09-43_tick.php.bak`.

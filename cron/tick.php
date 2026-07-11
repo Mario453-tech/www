@@ -77,6 +77,8 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
 }
 
 $tickCtx = new TickContext($db, $now, $source, $startTime);
+$tickCtx->bankNegAvailable = $bankNegAvailable;
+$tickCtx->bankruptcyAvailable = $bankruptcyAvailable;
 $tickEngine = new TickEngine();
 $tickResult = new TickRunResult($tickCtx);
 
@@ -142,30 +144,11 @@ GameLog::info('tick', '== START ==', ['time' => $now->format('Y-m-d H:i:s'), 'so
 
 // 1-2. RYNEK 
 
-$market = new MarketSection();
-$market->run();
-
-$activeTrend = $market->activeTrend;
-$isNewTrend  = $market->isNewTrend;
-$newPrice    = $market->newPrice;
-
-// H7: Guard przed zerowa cena ropy po awarii MarketSection.
-// oilPrice=0 sprawiloby ze caly przychod i straty gracza liczylyby sie jako 0 PLN.
-// Guard against zero oil price after MarketSection failure.
-// oilPrice=0 would make all player revenue and losses calculate as 0 PLN.
-if ($newPrice <= 0.0) {
-    GameLog::error('tick', 'CENA ROPY = 0 po MarketSection — uzyje poprzedniej ceny lub 70 / OIL PRICE = 0 after MarketSection — using previous price or 70', []);
-    try {
-        $prevPrice = $db->query(
-            "SELECT `value` FROM well_config WHERE `key` = 'last_tick_oil_price' LIMIT 1"
-        )->fetchColumn();
-        $newPrice = ($prevPrice !== false && (float)$prevPrice > 0) ? (float)$prevPrice : 70.0;
-    } catch (Throwable $e) {
-        $newPrice = 70.0;
-    }
-    GameLog::warn('tick', 'fallback cena ropy / fallback oil price', ['price' => $newPrice]);
-}
-$tickCtx->setMarketState($newPrice, $activeTrend, $isNewTrend);
+$tickEngine->runOne('market', $tickCtx, $tickResult);
+$tickResult->assertCanContinue();
+$activeTrend = $tickCtx->activeTrend;
+$isNewTrend  = $tickCtx->isNewTrend;
+$newPrice    = $tickCtx->newPrice;
 
 // 2b. CZYSZCZENIE ZALEGAJACYCH DOSTAW MORSKICH (raz na tick, globalnie)
 // 2b. PURGE STALE MARINE DELIVERIES (once per tick, global)
@@ -174,29 +157,15 @@ $tickResult->assertCanContinue();
 
 // 3-4k. SYSTEM BANKOWY / HR / BANKRUCI
 
-$bank = new BankSection($db, $bankNegAvailable, $bankruptcyAvailable);
-$bank->run();
+$tickEngine->runOne('bank', $tickCtx, $tickResult);
+$tickResult->assertCanContinue();
+$bankStats = $tickCtx->collectStats()['bank'] ?? [];
 
 // 5. GRACZE ODWIERTY I PRODUKCJA 
 
-// Globalne mnoznik balansu z well_config (admin/balance.php)
-$gBalanceMults = ['incident' => 1.0, 'disaster' => 1.0, 'wear' => 1.0, 'degradation' => 1.0, 'loss' => 1.0, 'opex' => 1.0, 'production' => 1.0, 'tax' => 1.0];
-try {
-    $balanceKeys = ['global_incident_multiplier' => 'incident', 'global_disaster_multiplier' => 'disaster', 'global_wear_multiplier' => 'wear', 'global_degradation_mult' => 'degradation', 'global_loss_multiplier' => 'loss', 'global_opex_multiplier' => 'opex', 'global_production_mult' => 'production', 'global_tax_multiplier' => 'tax'];
-    $balanceStmt = $db->prepare("SELECT `key`, `value` FROM well_config WHERE `key` IN ('global_incident_multiplier','global_disaster_multiplier','global_wear_multiplier','global_degradation_mult','global_loss_multiplier','global_opex_multiplier','global_production_mult','global_tax_multiplier')");
-    $balanceStmt->execute();
-    foreach ($balanceStmt->fetchAll() as $bRow) {
-        $shortKey = $balanceKeys[$bRow['key']] ?? null;
-        if ($shortKey !== null) $gBalanceMults[$shortKey] = max(0.1, min(10.0, (float)$bRow['value']));
-    }
-    $hasNonDefault = array_filter($gBalanceMults, fn($v) => abs($v - 1.0) > 0.001);
-    if (!empty($hasNonDefault)) GameLog::info('tick', 'globalne mnozniki balansu aktywne', $gBalanceMults);
-} catch (Throwable $e) {
-    GameLog::error('tick', 'odczyt mnoznikow balansu FAILED - uzywam 1.0', $e);
-}
-
-$players = new PlayersSection($db, $now, $newPrice, $gBalanceMults);
-$players->run();
+$tickEngine->runOne('players', $tickCtx, $tickResult);
+$tickResult->assertCanContinue();
+$playerStats = $tickCtx->collectStats()['players'] ?? [];
 
 // 6. CZARNY RYNEK
 
@@ -204,10 +173,6 @@ $tickEngine->runOne('black_market', $tickCtx, $tickResult);
 $tickResult->assertCanContinue();
 $blackMarketStats = $tickCtx->collectStats()['black_market'] ?? [];
 $bmOffersGenerated = (int)($blackMarketStats['offers_generated'] ?? 0);
-
-$tickCtx->balanceMults = $gBalanceMults;
-$tickCtx->bankNegAvailable = $bankNegAvailable;
-$tickCtx->bankruptcyAvailable = $bankruptcyAvailable;
 
 // 7. WIARYGODNOSC FIRMY
 
@@ -305,10 +270,10 @@ $trendInfo = $activeTrend
 GameLog::info('tick', '== END ==', [
     'price'    => $newPrice,
     'trend'    => $activeTrend['trend_name'] ?? 'brak',
-    'players'  => $players->playersProcessed,
-    'bbl'      => round($players->totalBbl, 2),
-    'revenue'  => round($players->totalRevenue, 2),
-    'disasters'=> $players->disastersTriggered,
+    'players'  => (int)($playerStats['players_processed'] ?? 0),
+    'bbl'      => round((float)($playerStats['total_production_bbl'] ?? 0.0), 2),
+    'revenue'  => round((float)($playerStats['total_revenue_pln'] ?? 0.0), 2),
+    'disasters'=> (int)($playerStats['disasters_triggered'] ?? 0),
 ]);
 
 // Zapis last_system_tick_at + last_tick_oil_price + czyszczenie flagi tick_in_progress (H1)
@@ -356,18 +321,18 @@ try {
         // M7: interest and installments are not tracked exactly in BankSection.
         'bank_interest_processed'      => 0,
         'bank_installments_processed'  => 0,
-        'bank_negotiations_resolved'   => $bank->negotiationsResolved,
-        'bank_loan_decisions'          => $bank->loanDecisions,
-        'hr_recruitments_processed'    => $bank->hrRecruitmentsProcessed,
-        'bankruptcy_processed'         => $bank->bankruptcyProcessed,
-        'bankruptcy_recovered'         => $bank->bankruptcyRecovered,
-        'players_processed'            => $players->playersProcessed,
-        'wells_active'                 => $players->wellsActive,
-        'total_production_bbl'         => round($players->totalBbl, 4),
-        'total_revenue_pln'            => round($players->totalRevenue, 2),
-        'total_opex_pln'               => round($players->totalOpex, 2),
-        'disasters_triggered'          => $players->disastersTriggered,
-        'incidents_triggered'          => $players->incidentsTriggered,
+        'bank_negotiations_resolved'   => (int)($bankStats['negotiations_resolved'] ?? 0),
+        'bank_loan_decisions'          => (int)($bankStats['loan_decisions'] ?? 0),
+        'hr_recruitments_processed'    => (int)($bankStats['hr_recruitments_processed'] ?? 0),
+        'bankruptcy_processed'         => (int)($bankStats['bankruptcy_processed'] ?? 0),
+        'bankruptcy_recovered'         => (int)($bankStats['bankruptcy_recovered'] ?? 0),
+        'players_processed'            => (int)($playerStats['players_processed'] ?? 0),
+        'wells_active'                 => (int)($playerStats['wells_active'] ?? 0),
+        'total_production_bbl'         => round((float)($playerStats['total_production_bbl'] ?? 0.0), 4),
+        'total_revenue_pln'            => round((float)($playerStats['total_revenue_pln'] ?? 0.0), 2),
+        'total_opex_pln'               => round((float)($playerStats['total_opex_pln'] ?? 0.0), 2),
+        'disasters_triggered'          => (int)($playerStats['disasters_triggered'] ?? 0),
+        'incidents_triggered'          => (int)($playerStats['incidents_triggered'] ?? 0),
         'contracts_processed'          => $contractsProcessed,
         'contracts_revenue_pln'        => round($contractsRevenue, 2),
         'contracts_penalties_pln'      => round($contractsPenalties, 2),
@@ -426,4 +391,5 @@ try {
 }
 
 echo "Tick OK: " . $now->format('Y-m-d H:i:s') . " | Cena: {$newPrice}\${$trendInfo}"
-    . " | Gracze: {$players->playersProcessed} | Bbl: " . round($players->totalBbl, 1) . "\n";
+    . " | Gracze: " . (int)($playerStats['players_processed'] ?? 0)
+    . " | Bbl: " . round((float)($playerStats['total_production_bbl'] ?? 0.0), 1) . "\n";

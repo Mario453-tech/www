@@ -49,6 +49,7 @@ class TickContext
 
     /** @var array<string,array{order:int,status:string,duration_ms:int,stats:array<string,mixed>,error:?string}> */
     private array $moduleRuns = [];
+    private bool $balanceMultsLoaded = false;
 
     public function __construct(PDO $db, DateTimeInterface $now, string $source = 'cron', ?float $startTime = null)
     {
@@ -82,6 +83,11 @@ class TickContext
 
     public function loadBalanceMults(): void
     {
+        if ($this->balanceMultsLoaded) {
+            return;
+        }
+        $this->balanceMultsLoaded = true;
+
         $keys = [
             'global_incident_multiplier' => 'incident',
             'global_disaster_multiplier' => 'disaster',
@@ -102,6 +108,10 @@ class TickContext
                 if ($shortKey !== null) {
                     $this->balanceMults[$shortKey] = max(0.1, min(10.0, (float)($row['value'] ?? 1.0)));
                 }
+            }
+            $nonDefault = array_filter($this->balanceMults, static fn(float $value): bool => abs($value - 1.0) > 0.001);
+            if ($nonDefault !== [] && class_exists('GameLog', false)) {
+                GameLog::info('tick', 'global balance multipliers active', $this->balanceMults);
             }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {

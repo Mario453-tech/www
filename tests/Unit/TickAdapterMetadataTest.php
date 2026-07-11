@@ -19,7 +19,10 @@ final class TickAdapterMetadataTest extends BaseTestCase
     /** @return iterable<string,array{string,int,TickFailurePolicy}> */
     public function adapterProvider(): iterable
     {
+        yield 'market' => ['market', 10, TickFailurePolicy::STOP];
         yield 'marine purge' => ['marine_purge', 20, TickFailurePolicy::CONTINUE];
+        yield 'bank' => ['bank', 30, TickFailurePolicy::STOP];
+        yield 'players' => ['players', 40, TickFailurePolicy::STOP];
         yield 'black market' => ['black_market', 50, TickFailurePolicy::CONTINUE];
         yield 'legal' => ['legal', 70, TickFailurePolicy::CONTINUE];
         yield 'training' => ['training', 80, TickFailurePolicy::CONTINUE];
