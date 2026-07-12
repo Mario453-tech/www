@@ -455,7 +455,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
                 <?php if (!empty($pipelineHse['label'])): ?>
                 <small><?= htmlspecialchars($pipelineHse['label']) ?></small>
                 <?php endif ?>
-                <a class="btn btn-sm btn-secondary logistics-reco-btn" href="/technical.php?tab=safety"><?= t('logistics.pipeline.cta_hse') ?></a>
+                <a class="btn btn-sm btn-secondary logistics-reco-btn" href="/technical?tab=safety"><?= t('logistics.pipeline.cta_hse') ?></a>
             </article>
 
             <article class="logistics-pipeline-state logistics-pipeline-state--<?= $pipelineTechTone ?>">
@@ -469,7 +469,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
                     'critical' => (int)($pipelineSummary['critical'] ?? 0),
                 ]) ?></p>
                 <small><?= t('logistics.pipeline.tech_note') ?></small>
-                <a class="btn btn-sm btn-secondary logistics-reco-btn" href="/technical.php?tab=infra"><?= t('logistics.pipeline.cta_technical') ?></a>
+                <a class="btn btn-sm btn-secondary logistics-reco-btn" href="/technical?tab=infra"><?= t('logistics.pipeline.cta_technical') ?></a>
             </article>
         </div>
 

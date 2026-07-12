@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2026-07-12 - Porządkowanie rootowych wejść gracza
+
+- Strony gracza zostały przeniesione z głównego katalogu do `public/`: `dashboard.php`, `dm.php`, `hr.php`, `technical.php`, `boardroom.php`, `boardroom_status.php` i `profile.php`.
+- W głównym katalogu projektu nie ma już plików `*.php`; aktywne wejścia aplikacji są obsługiwane przez `public/` i czyste adresy w `.htaccess`.
+- `.htaccess` kieruje teraz `/dashboard`, `/dm`, `/hr`, `/technical`, `/boardroom`, `/boardroom-status`, `/profile` i `/logistics` do odpowiednich plików w `public/`.
+- Stare adresy rootowe typu `/dashboard.php`, `/technical.php`, `/boardroom_status.php` są przekierowywane na czyste trasy albo blokowane, żeby stare pliki pozostawione na FTP nie uruchamiały dawnego kodu.
+- Usunięto stare kopie techniczne `IncidentService_server.php`, `WellStaffApi_server.php` i `src_init_server.php`; właściwe pliki pozostają w `src/`.
+- Linki w boardroomie i logistyce nie prowadzą już do rootowych adresów `.php`, tylko do czystych tras `/hr`, `/technical` i `/boardroom-status`.
+
 ### 2026-07-12 - Tick Engine: profiling players, paginacja i retencja historii
 
 - Moduł `players` zapisuje teraz szczegółowy profil czasu do `module_stats_data`: pobranie graczy, pobranie stanu gracza, `WellLoopSection`, rurociągi, transport drogowy, port, finalizacja hubów, spill, zapis magazynu, finanse, stan finansowy i audit bankowy.

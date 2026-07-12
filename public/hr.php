@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/src/init.php';
+require_once __DIR__ . '/../src/init.php';
 Auth::requireLogin();
 BoardAccess::require(Auth::getUserId(), 'hr');
 
@@ -170,10 +170,10 @@ $extraCss = [
     '/assets/css/hr.css',
 ];
 $gameShellTitle = t('hr.page_title');
-$gameShellView = __DIR__ . '/templates/views/hr/main.php';
+$gameShellView = __DIR__ . '/../templates/views/hr/main.php';
 
-require_once __DIR__ . '/templates/header.php';
+require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
-require __DIR__ . '/templates/components/game_shell.php';
-require_once __DIR__ . '/templates/footer.php';
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';
 GameLog::pageEnd('hr.php', $_pageStart);

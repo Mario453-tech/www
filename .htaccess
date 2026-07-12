@@ -1,8 +1,6 @@
-# ═══════════════════════════════════════════════════════════════
-# GŁÓWNY PLIK .HTACCESS
-# ═══════════════════════════════════════════════════════════════
+# Main .htaccess file.
 
-# Wymusza konkretny plik startowy - zapobiega listingowi
+# Force a concrete start file and prevent directory listing.
 DirectoryIndex index.php index.html
 
 Options -Indexes
@@ -23,12 +21,26 @@ Options -Indexes
     RewriteCond %{THE_REQUEST} \s/public/login\.php[\s?]
     RewriteRule ^public/login\.php$ /login [R=301,L]
 
-    # ── Pliki statyczne - bez przekierowania ──
+    # Legacy root PHP entrypoints. They may still exist on FTP because deploy does not delete files.
+    RewriteRule ^dashboard\.php$ /dashboard [R=301,L]
+    RewriteRule ^hr\.php$ /hr [R=301,L]
+    RewriteRule ^technical\.php$ /technical [R=301,L]
+    RewriteRule ^boardroom\.php$ /boardroom [R=301,L]
+    RewriteRule ^boardroom_status\.php$ /boardroom-status [R=301,L]
+    RewriteRule ^profile\.php$ /profile [R=301,L]
+    RewriteRule ^dm\.php$ /dm [R=301,L]
+    RewriteRule ^login\.php$ /login [R=301,L]
+    RewriteRule ^reset_password\.php$ /reset-password [R=301,L]
+    RewriteRule ^logistics\.php$ /logistics [R=301,L]
+    RewriteRule ^loans\.php$ /bank [R=301,L]
+    RewriteRule ^change_password\.php$ /profile [R=301,L]
+    RewriteRule ^(index|technical_check|diag|reset_db|tick|cron-5min|diag_upload|mail_test|db_connection_check)\.php$ - [F,L]
+
+    # Static files without redirect.
     RewriteCond %{REQUEST_URI} ^/v2/
     RewriteRule ^ - [L]
 
-    # ── API mobilne — bezposredni dostep do plikow PHP, bez przekierowania ──
-    # Mobile API — direct access to PHP files, no redirect
+    # Mobile API direct access to PHP files, no redirect.
     RewriteCond %{REQUEST_URI} ^/api/v1/
     RewriteRule ^ - [L]
 
@@ -38,17 +50,7 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/cron/
     RewriteRule ^ - [L]
 
-    # ── Pliki w rocie z wyjątkami ──
-    RewriteCond %{REQUEST_URI} ^/boardroom\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/boardroom_status\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/dashboard\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/db_connection_check\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/diag\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/diag_upload\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/mail_test\.php$
-    RewriteRule ^ - [L]
-
-    # ── Wyjątki dla endpointów AJAX w /src/ ──
+    # AJAX endpoint allowlist in /src/.
     RewriteCond %{REQUEST_URI} ^/src/RecruitmentAPI\.php$ [OR]
     RewriteCond %{REQUEST_URI} ^/src/HRApi\.php$ [OR]
     RewriteCond %{REQUEST_URI} ^/src/WellStaffApi\.php$ [OR]
@@ -63,7 +65,7 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/src/PipelineApi\.php$
     RewriteRule ^ - [L]
 
-    # ── Blokada dostępu do wrażliwych katalogów ──
+    # Block access to sensitive directories.
     RewriteCond %{REQUEST_URI} ^/src/
     RewriteCond %{REQUEST_URI} !^/src/(RecruitmentAPI\.php|HRApi\.php|WellStaffApi\.php|ChatApi\.php|TechNotifApi\.php|WellSellApi\.php|DmApi\.php|BlackMarketApi\.php|LogisticsApi\.php|AdminNewsApi\.php|HubApi\.php|PipelineApi\.php)$
     RewriteRule ^ - [F,L]
@@ -75,18 +77,18 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/sessions/
     RewriteRule ^ - [F,L]
 
-    # ── Clean URLs — MUSZĄ BYĆ PRZED OGÓLNĄ REGUŁĄ ──
-    # Pliki w ROOT
-    RewriteRule ^change-password$ /change_password.php [L,PT]
-    RewriteRule ^boardroom$       /boardroom.php [L,PT]
-    RewriteRule ^hr$              /hr.php [L,PT]
-    RewriteRule ^technical$       /technical.php [L,PT]
-    RewriteRule ^logistics$       /logistics.php [L,PT]
-    RewriteRule ^dashboard$       /dashboard.php [L,PT]
-    RewriteRule ^loans$           /loans.php [L,PT]
-    RewriteRule ^profile$         /profile.php [L,PT]
+    # Clean URLs must stay before the generic root rule.
+    # Files in /public/.
+    RewriteRule ^change-password$ /profile [R=301,L]
+    RewriteRule ^boardroom$       /public/boardroom.php [L,PT]
+    RewriteRule ^boardroom-status$ /public/boardroom_status.php [L,PT]
+    RewriteRule ^hr$              /public/hr.php [L,PT]
+    RewriteRule ^technical$       /public/technical.php [L,PT]
+    RewriteRule ^logistics$       /public/logistics.php [L,PT]
+    RewriteRule ^dashboard$       /public/dashboard.php [L,PT]
+    RewriteRule ^loans$           /bank [R=301,L]
+    RewriteRule ^profile$         /public/profile.php [L,PT]
     RewriteRule ^db-check$        /db_connection_check.php [L,PT]
-    # Pliki w /public/
     RewriteRule ^login$           /public/login.php [L,PT]
     RewriteRule ^register$        /public/register.php [L,PT]
     RewriteRule ^bank$            /public/bank.php [L,PT]
@@ -107,27 +109,24 @@ Options -Indexes
     RewriteRule ^verify-email$              /public/verify_email.php [L,PT]
     RewriteRule ^newsletter-unsubscribe$    /public/newsletter_unsubscribe.php [L,PT]
 
-
-
-    RewriteRule ^dm$             /dm.php [L,PT]
+    RewriteRule ^dm$             /public/dm.php [L,PT]
     RewriteRule ^sabotage$       /public/sabotage.php [L,PT]
     RewriteRule ^finance$        /public/finance.php [L,PT]
     RewriteRule ^legal$          /public/legal.php [L,PT]
     RewriteRule ^contracts$      /public/contracts.php [L,PT]
     RewriteRule ^diag-upload$    /diag_upload.php [L,PT]
 
-# ── BEGIN static_pages ──
+# BEGIN static_pages
     RewriteRule ^regulamin$ /public/page.php?slug=regulamin [L,QSA]
-# ── END static_pages ──
+# END static_pages
 
-    # ── Wszystko inne → public/ ──
+    # Root request goes to public index.
     RewriteRule ^$ /public/index.php [L]
 
-    # Brak fallbacku - nieznane URL dają 404 domyślnie
+    # No fallback: unknown URLs return the default 404.
 </IfModule>
 
-
-# ── Blokada plików wrażliwych ──
+# Block sensitive files.
 <FilesMatch "\.(sql|log|md|env|git|sh|bak)$">
     Require all denied
 </FilesMatch>
@@ -136,7 +135,7 @@ Options -Indexes
     Require all denied
 </FilesMatch>
 
-# ── Nagłówki bezpieczeństwa ──
+# Security headers.
 <IfModule mod_headers.c>
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-Content-Type-Options "nosniff"
@@ -144,27 +143,25 @@ Options -Indexes
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
-# ── Kompresja ──
+# Compression.
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json
 </IfModule>
 
-# ── Cache ──
+# Cache.
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType image/jpeg        "access plus 1 month"
     ExpiresByType image/png         "access plus 1 month"
     ExpiresByType image/gif         "access plus 1 month"
     ExpiresByType image/webp        "access plus 1 month"
-    # CSS/JS mają ?v=filemtime w URL — przeglądarka pobiera nową wersję gdy URL się zmieni.
-    # CSS/JS have ?v=filemtime in URL — browser fetches new version when URL changes.
+    # CSS/JS have ?v=filemtime in URL, so browsers fetch new versions when URLs change.
     ExpiresByType text/css          "access plus 1 year"
     ExpiresByType application/javascript "access plus 1 year"
     ExpiresByType text/html         "access plus 0 seconds"
 </IfModule>
 
-# Strony PHP (HTML) — zawsze waliduj z serwerem, nie serwuj z cache.
-# PHP pages (HTML) — always revalidate, never serve from cache.
+# PHP pages (HTML) always revalidate and are never served from cache.
 <IfModule mod_headers.c>
     <FilesMatch "\.php$">
         Header always set Cache-Control "no-cache, must-revalidate"

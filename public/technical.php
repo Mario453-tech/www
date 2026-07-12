@@ -1,7 +1,7 @@
 <?php
 
-require_once __DIR__ . '/src/init.php';
-require_once __DIR__ . '/src/TechnicalPageController.php';
+require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/TechnicalPageController.php';
 
 Auth::requireLogin();
 $playerId = Auth::getUserId();
@@ -28,10 +28,10 @@ $extraCss = [
 ];
 $extraHead = '<meta name="csrf-token" content="' . htmlspecialchars(CSRF::generateToken(), ENT_QUOTES) . '">';
 $gameShellTitle = t('technical.page_title');
-$gameShellView = __DIR__ . '/templates/views/technical/main.php';
+$gameShellView = __DIR__ . '/../templates/views/technical/main.php';
 
-require_once __DIR__ . '/templates/header.php';
+require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
-require __DIR__ . '/templates/components/game_shell.php';
-require_once __DIR__ . '/templates/footer.php';
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';
 GameLog::pageEnd('technical.php', $_pageStart);

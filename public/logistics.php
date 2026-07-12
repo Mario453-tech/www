@@ -4,11 +4,12 @@ require_once __DIR__ . '/../src/init.php';
 Auth::requireLogin();
 
 $playerId = Auth::getUserId();
+BoardAccess::require($playerId, 'logistics');
 $db       = Database::getInstance()->getConnection();
+$_pageStart = GameLog::pageStart('public/logistics.php');
 
-// === Zezwolenie na prace lokalne: regiony ZABLOKOWANE dla gracza ===
 // Local works permit: regions where the per-region permit is required
-// (hub_permit_enabled=1) but NOT granted yet. Huby i rurociagi z tych regionow
+// (hub_permit_enabled=1) but NOT granted yet.
 // They stay hidden on the logistics page until the permit is granted per region.
 $lockedRegionSet = [];
 try {
@@ -24,11 +25,10 @@ try {
         $lockedRegionSet = array_fill_keys(array_values(array_diff($enabledRegions, $grantedRegions)), true);
     }
 } catch (Throwable $e) {
-    // Brak schematu P2a (tabela/kolumna) -> nic nie ukrywamy.
     // Missing P2a schema (table/column) -> hide nothing (fail-open for visibility only).
     $lockedRegionSet = [];
 }
-// Helper: czy region jest zablokowany dla prac lokalnych? / Is the region locked?
+// Checks whether the region is locked for local works.
 $isLocalRegionLocked = static function ($regionId) use ($lockedRegionSet): bool {
     return isset($lockedRegionSet[(int)$regionId]);
 };
@@ -723,3 +723,4 @@ require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
 require __DIR__ . '/../templates/components/game_shell.php';
 require_once __DIR__ . '/../templates/footer.php';
+GameLog::pageEnd('public/logistics.php', $_pageStart);

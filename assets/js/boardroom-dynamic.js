@@ -245,7 +245,7 @@ function showHrPanel(member) {
                 ${infoBlock(brl('experience'), member.experience_years + brl('years_unit'))}
                 ${infoBlock(brl('salary'), formatMoney(member.salary), true)}
             </div>
-            <a href="/hr.php" class="panel-link">${brl('hr_open_btn')}</a>
+            <a href="/hr" class="panel-link">${brl('hr_open_btn')}</a>
         </div>
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
@@ -273,7 +273,7 @@ function showTechnicalPanel(member) {
                 ${infoBlock(brl('experience'), member.experience_years + brl('years_unit'))}
                 ${infoBlock(brl('salary'), formatMoney(member.salary), true)}
             </div>
-            <a href="/technical.php" class="panel-link">${brl('tech_open_btn')}</a>
+            <a href="/technical" class="panel-link">${brl('tech_open_btn')}</a>
         </div>
         <div class="recruitment-actions">
             <button class="btn-recruitment" onclick="closeModal()">${brl('close_btn')}</button>
@@ -725,7 +725,7 @@ function updateBackground() {
 
 setInterval(async () => {
     try {
-        const r = await fetch('/boardroom_status.php');
+        const r = await fetch('/boardroom-status');
         const d = await r.json();
         if (d.reload) location.reload();
     } catch(e) {}

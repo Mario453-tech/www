@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/src/init.php';
+require_once __DIR__ . '/../src/init.php';
 Auth::requireLogin();
 
 $db       = Database::getInstance()->getConnection();
@@ -29,9 +29,9 @@ $extraJs  = ['/assets/js/emoji.js', '/assets/js/dm.js'];
 $viewData = compact('otherPlayers', 'withId', 'withName', 'myId');
 $viewData = array_merge($viewData, GameShell::data($playerId));
 $gameShellTitle = t('dm.page_title');
-$gameShellView = __DIR__ . '/templates/views/dm/main.php';
+$gameShellView = __DIR__ . '/../templates/views/dm/main.php';
 
-require_once __DIR__ . '/templates/header.php';
+require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
-require __DIR__ . '/templates/components/game_shell.php';
-require_once __DIR__ . '/templates/footer.php';
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';

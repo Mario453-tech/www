@@ -1,6 +1,6 @@
 <?php
 $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('profile.php') : microtime(true);
-require_once __DIR__ . '/src/init.php';
+require_once __DIR__ . '/../src/init.php';
 
 Auth::requireLogin();
 $playerId = Auth::getUserId();
@@ -11,7 +11,7 @@ $errors = [];
 $success = [];
 $csrfToken = CSRF::generateToken();
 
-$avatarDir = __DIR__ . '/assets/img/avatars/';
+$avatarDir = __DIR__ . '/../assets/img/avatars/';
 if (!is_dir($avatarDir)) {
     mkdir($avatarDir, 0755, true);
 }
@@ -356,6 +356,6 @@ $viewData = compact(
 
 $pageTitle = t('profile.page_title');
 $extraCss = ['/assets/css/profile.css', '/assets/css/credibility.css'];
-require_once __DIR__ . '/templates/header.php';
-require __DIR__ . '/templates/views/profile/main.php';
-require_once __DIR__ . '/templates/footer.php';
+require_once __DIR__ . '/../templates/header.php';
+require __DIR__ . '/../templates/views/profile/main.php';
+require_once __DIR__ . '/../templates/footer.php';

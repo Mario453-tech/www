@@ -4,7 +4,7 @@
  * Lekki endpoint JSON - zwraca czy boardroom wymaga przeladowania
  * (nowe CV gotowe, zmiana skladu zarzadu).
  */
-require_once __DIR__ . '/src/init.php';
+require_once __DIR__ . '/../src/init.php';
 GameLog::info('boardroom_status.php', 'entry');
 Auth::requireLogin();
 

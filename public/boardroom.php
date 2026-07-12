@@ -2,9 +2,9 @@
 $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('boardroom.php') : microtime(true);
 try {
 
-require_once __DIR__ . '/src/init.php';
+require_once __DIR__ . '/../src/init.php';
 Auth::requireLogin();
-require_once __DIR__ . '/src/HRService.php';
+require_once __DIR__ . '/../src/HRService.php';
 
 $playerId = (int)($_SESSION['user_id'] ?? 0);
 $db = Database::getInstance()->getConnection();
@@ -17,7 +17,7 @@ try {
 }
 
 
-// Pobierz aktywnych pracowników TEGO GRACZA
+// Load active board members for the current player.
 $stmt = $db->prepare("
     SELECT bm.*, br.code as role_code, br.name as role_name,
            TIMESTAMPDIFF(YEAR, bm.birth_date, CURDATE()) as age,
@@ -75,7 +75,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $candidateCounts[$row['role_id']] = $row['count'];
 }
 
-// Mapowanie pracowników według roli
+// Map board members by role.
 $membersByRole = [];
 foreach ($boardMembers as $member) {
     $membersByRole[$member['role_code']] = $member;
@@ -180,12 +180,12 @@ $extraCss = [
     '/assets/css/recruitment.css',
 ];
 $gameShellTitle = t('boardroom.page_title');
-$gameShellView = __DIR__ . '/templates/views/boardroom/main.php';
+$gameShellView = __DIR__ . '/../templates/views/boardroom/main.php';
 
-require_once __DIR__ . '/templates/header.php';
+require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
-require __DIR__ . '/templates/components/game_shell.php';
-require_once __DIR__ . '/templates/footer.php';
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';
 
 } catch (Throwable $e) {
     if (class_exists('GameLog', false)) {

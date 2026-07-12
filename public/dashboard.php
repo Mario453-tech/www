@@ -2,7 +2,7 @@
 $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('dashboard.php') : microtime(true);
 try {
 
-require_once __DIR__ . '/src/init.php';
+require_once __DIR__ . '/../src/init.php';
 Auth::requireLogin();
 
 $playerId  = (int)($_SESSION['user_id'] ?? 0);
@@ -425,12 +425,12 @@ $viewData = array_merge($viewData, GameShell::data($playerId));
 $pageTitle = t('dashboard.page_title');
 $extraCss = ['/assets/css/dashboard.css'];
 $gameShellTitle = t('dashboard.page_title');
-$gameShellView = __DIR__ . '/templates/views/dashboard/main.php';
+$gameShellView = __DIR__ . '/../templates/views/dashboard/main.php';
 
-require_once __DIR__ . '/templates/header.php';
+require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
-require __DIR__ . '/templates/components/game_shell.php';
-require_once __DIR__ . '/templates/footer.php';
+require __DIR__ . '/../templates/components/game_shell.php';
+require_once __DIR__ . '/../templates/footer.php';
 } catch (Throwable $e) {
     if (class_exists('GameLog', false)) GameLog::error('dashboard.php', t('common.unhandled_exception'), $e);
     echo t('common.app_error');
