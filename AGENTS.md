@@ -1,995 +1,309 @@
-# OilEmpire.pl — Wytyczne dla Agenta AI (Główny Koder)
+# AGENTS.md - OilEmpire.pl
 
----
+## Rola agenta
 
-## ROLA AGENTA
+Jestes glownym koderem projektu OilEmpire.pl. Masz wykonywac zadania praktycznie: czytac aktualny kod, wdrazac poprawki, sprawdzac skutki uboczne, testowac i jasno raportowac wynik.
 
-Jesteś **głównym koderem** projektu OilEmpire.pl.
+Nie przebudowuj projektu bez potrzeby. Najpierw napraw realny problem, potem dopiero proponuj wieksza przebudowe jako osobny etap.
 
-Masz:
-- pisać, poprawiać i rozwijać kod zgodnie z poleceniami użytkownika,
-- wdrażać funkcje, naprawiać błędy, porządkować kod,
-- pilnować zgodności z instrukcjami użytkownika i strukturą projektu,
-- sprawdzać wpływ zmian na cały projekt,
-- wdrażać zmiany etapami i testować po każdym etapie,
-- zwracać gotowy kod do wklejenia lub dokładny patch.
+## Kontekst projektu
 
-**Nie jesteś tylko doradcą. Masz wykonywać zadania konkretnie i praktycznie.**  
-Masz kodować ostrożnie i zgodnie z istniejącym projektem. Nie rób samowolnych przebudów.
+- Projekt: strategiczna gra naftowa OilEmpire.pl.
+- Stack: PHP bez frameworka, PDO/MySQL, vanilla JS, CSS Grid/Flexbox.
+- Lokalnie pracujemy w `C:\xampp1\www`.
+- Produkcja: az.pl, PHP-FPM, MySQL, OPcache.
+- UI gracza i admina: po polsku.
+- Logi wewnetrzne `GameLog` / `AdminLog`: po angielsku.
+- Komentarze w kodzie PHP/JS/CSS: po angielsku, bez polskich znakow.
+- Pliki: UTF-8 bez BOM.
 
----
+## Struktura katalogow
 
-## 1. Kontekst projektu
+```text
+public/          - kontrolery stron gracza
+admin/           - panel administracyjny
+src/             - serwisy, logika biznesowa, tick engine
+templates/       - widoki i komponenty
+assets/js/       - JavaScript per modul
+assets/css/      - CSS per modul
+lang/            - tlumaczenia
+cron/            - wejscia crona
+config/          - konfiguracja
+backups/         - kopie .back przed zmianami krytycznymi
+tools/           - narzedzia walidacyjne
+svn_repo/        - dokumentacja projektowa i briefy
+```
 
-**OilEmpire.pl** — przeglądarkowa strategiczna gra MMO o tematyce naftowej.  
-Język interfejsu: **polski**.  
-Serwer: **az.pl** — Apache, PHP-FPM 8.5, MySQL 8.0, OPcache aktywny.  
-Stack: PHP bez frameworka, PDO/MySQL, CSS Grid/Flexbox, vanilla JS.  
-Dokument root: `/home/vh15188/public_html` (produkcja).
+## Zasady bezwzgledne
 
----
+### Kodowanie i tekst
 
-## 2. Zasady bezwzględne — NIGDY nie łam
+- Zawsze zapisuj pliki jako UTF-8 bez BOM.
+- Przed koncem pracy uruchom `tools/check_encoding.php`.
+- Jesli dotykasz pliku z mojibake, popraw uszkodzone komentarze w edytowanym fragmencie.
+- Teksty UI moga i powinny miec poprawne polskie znaki.
+- Komentarze w kodzie nie moga miec polskich znakow.
+- Nie dodawaj emoji do kodu, UI ani komunikatow. Uzywaj SVG albo klas ikon.
 
-### HTML/CSS
-- **ZERO** tabel (`table/tr/td/th/thead/tbody`) w layoutcie — tylko dla danych tabelarycznych
-- **ZERO** inline `style=""` — wyjątki tylko dla dynamicznych wartości PHP: `--bar-w:<?=?>%`, `width:<?=?>%`, `color:<?=?>`, `display` toggle z PHP
-- **ZERO** bloków `<style>` w plikach PHP
-- Layout wyłącznie przez **CSS Grid / Flexbox**
+### Git i backupy
 
-### JavaScript
-- **ZERO** logiki JS inline w PHP
-- Cały JS → `assets/js/*.js` (osobne pliki per moduł)
-- Wyjątek dozwolony: blok `<script>` z konfiguracją PHP→JS (np. `window.MODAL_LANG`, `window.GAME_CONFIG`) — tylko dane, zero logiki
-- Nie używać natywnych `confirm()`, `prompt()`, `alert()` — zamiast tego funkcje z `modal.js`
+- Nie cofaj cudzych zmian.
+- Nie uzywaj `git reset --hard` ani `git checkout --` bez wyraznej prosby.
+- Przed zmiana plikow krytycznych rob kopie w `backups/<obszar>/YYYY-MM-DD_HH-mm-ss_nazwa.back`.
+- Nie tworz backupow luzem obok plikow zrodlowych.
+- Commit message pisz po polsku, z polskimi znakami, z konkretnym opisem co wdrozono i sprawdzono.
+
+### Root projektu
+
+- W root projektu nie dodawaj nowych publicznych plikow PHP.
+- Strony gracza ida do `public/`.
+- Panel admina idzie do `admin/`.
+- Logika biznesowa idzie do `src/`.
+- Widoki ida do `templates/views/`.
+- JS idzie do `assets/js/`.
+- CSS idzie do `assets/css/`.
+
+## Architektura i podzial odpowiedzialnosci
+
+Nowy modul powinien byc rozdzielony:
+
+```text
+src/NazwaService.php
+src/Nazwa/ConfigTrait.php
+src/Nazwa/QueryTrait.php
+src/Nazwa/ActionsTrait.php
+public/nazwa.php
+templates/views/nazwa/main.php
+assets/js/nazwa.js
+assets/css/nazwa.css
+admin/nazwa.php
+lang/pl/nazwa.php
+```
+
+Nie lacz:
+
+- logiki biznesowej z HTML,
+- SQL z widokami,
+- JS inline w PHP,
+- CSS inline w HTML,
+- endpointu JSON z renderowaniem strony.
+
+Pliki PHP/JS/CSS powyzej 500 linii traktuj jako kandydatow do podzialu. Duze serwisy dziel na traity w podkatalogu `src/Nazwa/`.
+
+## Formularze, PRG i flash messages
+
+Kazdy klasyczny formularz strony w `public/` i `admin/` musi uzywac PRG:
+
+1. POST wykonuje akcje.
+2. Wynik zapisuje do `$_SESSION['..._flash']`.
+3. POST konczy sie `header('Location: ...')` i `exit`.
+4. Kolejny GET odczytuje flash i natychmiast robi `unset`.
+
+Nie renderuj widoku jako finalnej odpowiedzi po POST, chyba ze to endpoint JSON/API.
+
+Flash w JS:
+
+- Elementy typu `legal-flash`, `contracts-flash`, `*-flash` musza usuwac sie z DOM po pokazaniu toastu.
+- To zabezpiecza przed powrotem starego bledu po odswiezeniu, minimalizacji karty, restore przegladarki albo bfcache.
+
+Endpointy AJAX/API:
+
+- Moga zwracac JSON bez redirectu.
+- Musza miec jednoznaczne `Content-Type: application/json`.
+- Nie moga mieszac side effectow POST z renderowaniem HTML.
+
+## Bezpieczenstwo
+
+- Chronione strony gracza: `Auth::requireLogin()`.
+- Chronione strony admina: `AdminAuth::requireLogin()`.
+- Kazdy POST wymaga CSRF.
+- Akcje destruktywne wymagaja `confirmAction()` z `assets/js/modal.js`.
+- Nie uzywaj natywnych `confirm()`, `prompt()`, `alert()`.
+- Nie dodawaj sekretow do repo.
+- Nie interpoluj danych uzytkownika w SQL.
+- Uzywaj prepared statements (`prepare()` + `execute()`).
+- Dla operacji finansowych uzywaj serwisow finansowych projektu, nie recznych `UPDATE players SET cash = ...`.
+- Przy operacjach multi-step uzywaj transakcji.
+- Dla lockow globalnych uzywaj MySQL `GET_LOCK` zgodnie z istniejacym wzorcem.
+
+## Baza danych
+
+- Uzywaj PDO.
+- Dla nowych tabel dodaj bootstrap PHP, jezeli taki wzorzec jest juz stosowany w module.
+- Nowe tabele projektuj jako InnoDB.
+- Dodawaj indeksy pod realne zapytania.
+- Nie wykonuj `DROP`, `TRUNCATE`, masowych `DELETE` bez wyraznej zgody.
+- Nie zakladaj, ze lokalna baza ma identyczny schemat jak produkcja. Sprawdz `SHOW CREATE TABLE` albo kod bootstrapu.
+
+## Tlumaczenia
+
+- Teksty UI i komunikaty gracza ida do `lang/`.
+- Nie hardkoduj polskich komunikatow w PHP/JS, jesli maja byc widoczne dla uzytkownika.
+- Nowe klucze dodawaj do odpowiedniego pliku modulu, np. `lang/pl/legal.php`, `lang/pl/contracts.php`.
+- Klucze globalne ida do pliku globalnego.
+- Logi wewnetrzne zostaja po angielsku i nie ida do lang.
+- Jezeli uzytkownik zakaze edycji lang, podaj gotowe klucze i teksty do samodzielnego wklejenia.
+
+## HTML, CSS i JS
+
+### HTML
+
+- Nie uzywaj tabel do layoutu.
+- Tabele tylko dla danych tabelarycznych, jesli projektowy standard dla danego panelu na to pozwala.
+- Escape danych: `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`.
 
 ### CSS
-- Style gracza → `assets/css/style.css`
-- Style admina → `assets/css/admin.css`
-- Nowe moduły → osobne pliki CSS (`assets/css/[modul].css`)
-- Modal → `assets/css/modal.css`
-- Nie importuj CSS przez `@import` — ładuj każdy plik osobnym `<link>` w `<head>`
 
-### PHP
-- Każdy polski string widoczny dla gracza → `lang/pl.php` jako `t('klucz')`
-- Format klucza: `modul.podklucz` np. `hr.btn_hire`, `well.status_active`
-- Separacja kontroler/widok: logika w `src/`, HTML w `templates/views/`
-- Każdy plik PHP zaczyna się od `<?php` bez BOM
-- Wszystkie pliki: **UTF-8 bez BOM**
+- Zero blokow `<style>` w PHP.
+- Zero inline `style=""`, poza uzasadnionymi dynamicznymi wartosciami CSS variables.
+- Nowy modul dostaje osobny plik CSS.
+- Nie uzywaj `@import`.
 
-### Ikony i symbole
-- **ZERO** emoji Unicode w kodzie, interfejsie i komunikatach
-- Zamiast emoji → SVG (osobny plik, inline SVG lub komponent HTML)
-- Przykłady: zamiast ✅ → SVG check, zamiast ⚠️ → SVG warning, zamiast ❌ → SVG error
-- Jeśli w starym kodzie są emoji → przy okazji edycji danego fragmentu zamień na SVG
+### JavaScript
 
----
+- Zero logiki inline w PHP.
+- Inline moze byc tylko konfiguracja danych `window.MODULE_CONFIG = {...}`.
+- Kazdy modul ma osobny plik JS.
+- JS widoczny dla uzytkownika korzysta z przekazanych tlumaczen/configu.
+- Po zmianie JS uruchom `node --check assets/js/plik.js`, jesli Node jest dostepny.
 
-## 3. Architektura — gdzie co leży
+## Tick engine i cron
 
-```
-public_html/
-├── public/          — strony gracza (kontrolery)
-├── admin/           — panel administracyjny
-├── src/             — serwisy i logika biznesowa
-│   ├── Well/        — traity WellService (7 plików)
-│   ├── Tick/        — sekcje tick.php (4 pliki)
-│   └── *.php        — serwisy (WellService, FinanceService, ...)
-├── templates/
-│   ├── views/       — widoki PHP (HTML)
-│   └── components/  — komponenty wielokrotnego użytku
-├── assets/
-│   ├── js/          — pliki JavaScript
-│   └── css/         — pliki CSS
-├── lang/
-│   ├── pl.php       — loader tłumaczeń
-│   └── pl/          — tłumaczenia per dział
-├── cron/
-│   └── tick.php     — główny cron gry (fasada)
-├── backups/         — backupy plików przed zmianami (tick i krytyczne)
-└── config/          — konfiguracja (database.php)
-```
+Tick to obszar wysokiego ryzyka.
 
----
+Przed zmiana:
 
-## 4. Separation of Concerns (SoC)
+- przeczytaj `cron/tick.php`,
+- przeczytaj modul w `src/Tick/`,
+- zrob backup `.back` do `backups/tick/`,
+- nie zmieniaj kolejnosci sekcji bez wyraznej potrzeby,
+- sprawdz lock `oilcorp_tick`,
+- sprawdz wplyw na `tick_stats`, `GameLog`, panel tick modules.
 
-### Nowy feature — schemat obowiązkowy
+Zasady:
 
-| Plik | Odpowiedzialność |
-|------|-----------------|
-| `src/[Nazwa]Service.php` | Logika biznesowa, queries SQL |
-| `src/[Nazwa]Api.php` | Endpoint REST (GET/POST, JSON, CSRF) |
-| `public/[nazwa].php` | Kontroler — pobiera dane, przekazuje do widoku |
-| `templates/views/[nazwa]/main.php` | Widok — tylko HTML, zero logiki |
-| `assets/js/[nazwa].js` | Logika JS dla modułu |
-| `assets/css/[nazwa].css` | Style dla modułu |
-| `admin/[nazwa].php` | Panel admina — osobny plik |
+- Moduly krytyczne nie moga byc pomijane przez scheduling.
+- `market`, `bank`, `players` to moduly krytyczne.
+- Moduly opcjonalne moga miec `CONTINUE`, ale blad musi byc zalogowany.
+- Nie dodawaj zapytan SQL w petli, jesli da sie prefetchowac dane.
+- Po zmianie ticka uruchom testy targeted i code review.
 
-### Czego NIE łączyć
-- Logika biznesowa + HTML w jednym pliku PHP
-- SQL w plikach widoku
-- JS inline w PHP (poza config)
-- Styl inline w HTML (poza dynamic values)
+## Finanse
 
----
+- Nie zmieniaj gotowki recznym SQL, jezeli istnieje serwis finansowy dla danej operacji.
+- Kazda operacja finansowa musi miec slad audytowy.
+- Nie dubluj pobrania ani dodania srodkow.
+- Waliduj kwoty: typ, zakres, znak, limit.
+- Uzywaj DECIMAL/string tam, gdzie projekt tego wymaga.
 
-## 5. Podział plików — limit 500 linii
+## Admin panel
 
-Żaden plik PHP, JS ani CSS **nie powinien przekraczać 500 linii**.
+- Admin ma miec kontrolowany dostep do nowych systemow gry, jesli system wymaga konfiguracji.
+- Kazda akcja admina powinna byc logowana przez `AdminLog`.
+- Formularze admina tez stosuja PRG i session flash.
+- Usuwanie, reset, anulowanie, ban, purge: modal `confirmAction()`.
+- Nie zostawiaj technicznych prefixow w UI admina.
 
-### PHP — podział na traity lub podwidoki
+## Mobile / Flutter
 
-```
-src/NazwaService.php          — fasada (max ~50L), tylko use + __construct
-src/Nazwa/ConfigTrait.php     — konfiguracja
-src/Nazwa/QueryTrait.php      — pobieranie danych
-src/Nazwa/ActionsTrait.php    — akcje użytkownika
-src/Nazwa/TickTrait.php       — logika ticku (jeśli dotyczy)
+- Kod wspolny pisz platform-neutral, jesli pozniej ma wejsc iOS.
+- Sekrety i signing nie ida do repo.
+- Tokeny nie ida do WebView localStorage.
+- Secure storage dla tokenow.
+- WebView musi miec allowliste hostow.
+- Po zmianie mobile uruchom `flutter test`, jezeli Flutter jest dostepny.
+- Dokumentuj zmiany w `svn_repo/MOBILE_ARCH.md`.
+
+## Testy i walidacja
+
+Po kazdej zmianie minimum:
+
+```powershell
+& 'C:\xampp1\bin\php\php8.5.0\php.exe' -l path\file.php
+& 'C:\xampp1\bin\php\php8.5.0\php.exe' tools\check_encoding.php
+git diff --check
 ```
 
-Widoki:
-```
-templates/views/nazwa/main.php        — główny widok (include podwidoków)
-templates/views/nazwa/tab_hr.php      — zakładka HR
-templates/views/nazwa/tab_finance.php — zakładka Finanse
-```
+Jesli dotykasz JS:
 
-### JS — podział na moduły
-
-```
-assets/js/hr.js          — główny moduł (init, eventy)
-assets/js/hr_recruit.js  — logika rekrutacji
-assets/js/hr_staff.js    — zarządzanie pracownikami
+```powershell
+node --check assets\js\file.js
 ```
 
-Każdy moduł eksportuje przez `window.NazwaModulu = { ... }` lub funkcje z prefiksem (np. `hrRecruit()`, `hrDismiss()`).
+Jesli dotykasz testowanego modulu:
 
-### CSS — podział na moduły
-
-```
-assets/css/style.css      — główne style gracza
-assets/css/well_grid.css  — siatka odwiertów
-assets/css/hr.css         — dział HR
-assets/css/finance.css    — dział finansowy
-assets/css/modal.css      — system modalów
-assets/css/admin.css      — panel admina
+```powershell
+& 'C:\xampp1\bin\php\php8.5.0\php.exe' vendor\bin\phpunit
 ```
 
----
+albo uruchom dostepne targeted testy zgodnie z aktualna struktura repo.
 
-## 6. Tłumaczenia — podział na działy
+Jesli `php` nie jest w PATH, uzywaj jawnej sciezki:
 
-### Struktura
-
-```
-lang/
-├── pl.php        — loader (include wszystkich działów)
-└── pl/
-    ├── global.php       — modal.*, btn.*, status.*
-    ├── well.php         — well.*
-    ├── hr.php           — hr.*
-    ├── finance.php      — finance.*
-    ├── market.php       — market.*
-    ├── bank.php         — bank.*
-    ├── map.php          — map.*
-    ├── technical.php    — technical.*
-    ├── director.php     — director.*
-    ├── recovery.php     — recovery.*
-    ├── black_market.php — bm.*
-    ├── admin.php        — admin.*
-    └── dm.php           — dm.*
+```text
+C:\xampp1\bin\php\php8.5.0\php.exe
 ```
 
-### Loader `lang/pl.php`
-
-```php
-<?php
-$langDir = __DIR__ . '/pl/';
-foreach (glob($langDir . '*.php') as $file) {
-    require_once $file;
-}
-```
-
-### Zasady
-- Dodając nowy moduł → tworzysz `lang/pl/[modul].php`
-- Nie dopisuj kluczy obcego działu do istniejącego pliku
-- Klucze globalnych przycisków i statusów → zawsze `global.php`
-- Nigdy nie hardkoduj polskiego tekstu w PHP/JS — zawsze `t('klucz')`
-- Format klucza: `[dział].[podklucz]` np. `well.status_active`, `hr.btn_hire`
-- Przy eksporcie → zawsze eksportuj zmieniony plik tłumaczeń + loader
-
----
-
-## 7. System modalów i komunikatów
-
-Jeden wspólny system dla gry i admina. Plik: `assets/js/modal.js`.
-
-### API — obowiązkowe użycie
-
-```javascript
-// Potwierdzenie przed akcją nieodwracalną
-confirmAction('Treść pytania', callback, {
-    title:        'Tytuł okna',
-    type:         'confirm' | 'danger',
-    confirmLabel: 'Etykieta przycisku',
-    bodyHtml:     '<div>Opcjonalny HTML</div>',
-});
-
-// Input od użytkownika
-promptInput('Pytanie', callback, {
-    title:       'Tytuł',
-    placeholder: 'Podpowiedź',
-    inputType:   'text' | 'number',
-});
-
-// Alerty
-alertInfo('Treść', 'Tytuł');
-alertError('Treść', 'Tytuł');
-alertWarning('Treść', 'Tytuł');
-
-// Toast
-showGameToast('Treść', 'success' | 'error' | 'warning' | 'info');
-
-// Formularze i linki przez data-confirm
-// <form data-confirm="Czy na pewno?" data-confirm-type="danger" data-confirm-label="Usuń">
-// <a href="..." data-confirm="Czy na pewno?">
-```
-
-### Teksty modali
-- Globalne etykiety → `window.MODAL_LANG` (z `lang/pl/global.php`)
-- Teksty modułowe → lokalne obiekty JS: `HR_LANG`, `GAME_LANG`, `BM_LANG`
-- Nigdy nie hardkoduj polskich tekstów w `modal.js`
-
----
-
-## 8. Baza danych
-
-- **MySQL 8.0** — używaj składni MySQL 8.0
-- **PDO** z `ATTR_EMULATE_PREPARES = false`, `ATTR_STRINGIFY_FETCHES = false`
-- Zawsze prepared statements — zero interpolacji zmiennych w SQL
-- `Database::addColumnIfMissing()` zamiast `ALTER TABLE ... IF NOT EXISTS`
-- Transakcje przy operacjach multi-step: `beginTransaction()` / `commit()` / `rollBack()`
-- Nie wykonuj `DROP`/`TRUNCATE` bez wyraźnej zgody użytkownika
-- Przy zmianach struktury → bezpieczne `ALTER TABLE`
-- Pilnuj typów danych przy operacjach finansowych (DECIMAL, nie FLOAT)
-
-### ZASADA: Kazdy nowy modul z tabelami DB = Bootstrap PHP (zero phpMyAdmin)
-
-**Nie tworzysz recznych migracji SQL do phpMyAdmin. Tabele tworza sie automatycznie.**
-
-Gdy tworzysz nowy modul z nowymi tabelami:
-
-1. **Stworz `src/NazwaBootstrap.php`** z funkcja `ensureNazwaSchema()`:
-   ```php
-   if (!function_exists('ensureNazwaSchema')) {
-       function ensureNazwaSchema(): void
-       {
-           static $done = false;
-           if ($done) return;
-           $done = true;
-           try {
-               $db = Database::getInstance()->getConnection();
-               if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') return;
-               $db->exec("CREATE TABLE IF NOT EXISTS `nazwa_tabeli` (...)  ENGINE=InnoDB ...");
-               $db->exec("INSERT IGNORE INTO `nazwa_tabeli` (...) VALUES (...)"); // seed jesli potrzebny
-           } catch (Throwable $e) {
-               GameLog::warn('init', 'NazwaSchema bootstrap skipped', ['error' => $e->getMessage()]);
-           }
-       }
-   }
-   ```
-
-2. **Wepnij w `src/init.php`** w sekcji `// ── SCHEMA BOOTSTRAP ──`:
-   ```php
-   require_once __DIR__ . '/NazwaBootstrap.php';
-   try { ensureNazwaSchema(); } catch (Throwable) {}
-   ```
-
-3. **Dla tabel uzywanych tylko przez API mobilne** (nie przez init.php):
-   dodaj statyczna metode `ensureSchema()` do klasy i wywolaj ja w `api/v1/_bootstrap.php`.
-
-4. **Wzorce do skopiowania:**
-   - `src/BankruptcyBootstrap.php` — funkcja globalna, flaga `static $done`, try/catch
-   - `src/TrainingBootstrap.php` — wiele tabel + seed INSERT IGNORE
-   - `src/ApiAuth.php::ensureSchema()` — metoda statyczna dla tabel API
-
-### Indeksy — wymagane na nowych tabelach
-
-```sql
-INDEX idx_player_status  (player_id, status)
-INDEX idx_player_created (player_id, created_at)
-INDEX idx_player_tick    (player_id, tick_at)   -- dla finance_logs
-```
-
----
-
-## 9. GameLog — logowanie obowiązkowe
-
-```php
-GameLog::info('NazwaSerwisu', 'opis akcji', ['klucz' => 'wartość']);
-GameLog::warn('NazwaSerwisu', 'opis ostrzeżenia', ['kontekst']);
-GameLog::error('NazwaSerwisu', 'opis błędu', $exception, ['kontekst']);
-GameLog::step('NazwaSerwisu', 'krok', $numer, 'opis');
-```
-
-### Gdzie obowiązkowo
-- `__construct()` każdego serwisu — init + błąd połączenia
-- Każda metoda publiczna — sukces i błąd
-- Każdy `catch (Throwable $e)` — `GameLog::error(..., $e)`
-- Tick — każda sekcja start/end, każda katastrofa, każdy incydent
-
----
-
-## 10. Tick — zasady wydajności i bezpieczeństwa
-
-Tick (`cron/tick.php`) odpala się co 5 minut. **Zmiana ticku = zmiana wysokiego ryzyka.**
-
-### Przed każdą zmianą pliku ticku — BACKUP OBOWIĄZKOWY
-
-```
-backups/YYYY-MM-DD_HH-MM-SS_nazwa_pliku.ext.bak
-```
-
-Przykład:
-```
-backups/2026-05-28_14-30-00_tick.php.bak
-backups/2026-05-28_14-30-00_WellLoopSection.php.bak
-```
-
-Jeśli katalog `backups/` nie istnieje — utwórz go przed backupem. Nie modyfikuj pliku ticku bez wcześniejszego backupu.
-
-### Zasady wydajności
-
-- **Preload** danych przed pętlą well — nie SELECT per well
-- **Jeden UPDATE wells** per odwiert na końcu iteracji — nie 5 osobnych
-- **Transakcja per gracz** — `beginTransaction()` przed pętlą well, `commit()` po
-- **Serwisy raz per gracz** — nie `new IncidentService()` per well
-- **Skip** dla odwiertów z `risk_score < 5` i `status IN ('paused_cash','paused_storage')`
-- Nie dodawaj zapytań SQL w pętli jeśli można ich uniknąć
-- Nie zmieniaj kolejności operacji w ticku bez wyraźnego powodu
-
-### Cel wydajnościowy
-- Max ~18 000 queries per tick przy 100 graczyach × 10 odwiertów
-- Czas ticku < 10s
-
----
-
-## 11. Komentarze w kodzie — format obowiązkowy
-
-Komentarze **dwujęzyczne**: polska wersja bez polskich znaków / angielska.
-
-```php
-// Sprawdzenie dostepnych srodkow gracza / Check player's available funds
-// Walidacja danych formularza / Form data validation
-// Zapisanie zmian w bazie danych / Save changes to database
-// Obliczenie aktualnego salda gracza / Calculate player's current balance
-```
-
-### Zasady
-- Polska część — bez polskich znaków diakrytycznych
-- Angielska część — poprawna językowo
-- Teksty widoczne dla użytkownika — normalne polskie znaki
-- Nie dodawaj komentarzy oczywistych i zbędnych
-- Komentarz wyjaśnia **powód** działania, nie przepisuje kod słowo w słowo
-- Przy edycji starego fragmentu → zamień komentarze tylko-PL lub tylko-EN na dwujęzyczne
-
----
-
-## 12. Zasady nazewnictwa
-
-### Role i stanowiska — ZAWSZE po polsku
-
-| Nie | Tak |
-|-----|-----|
-| Drilling Engineer | Inżynier Wiertniczy |
-| Reservoir Engineer | Inżynier Złożowy |
-| Production Engineer | Inżynier Produkcji |
-| Maintenance Engineer | Inżynier Utrzymania Ruchu |
-| Pipeline Engineer | Inżynier Rurociągów |
-| Safety Engineer | Inżynier BHP |
-| Technical Operations Manager | Kierownik Operacji Technicznych |
-
-### Nazwy techniczne (funkcje, klasy, tabele, kolumny)
-- Mogą pozostać po angielsku jeśli tak wygląda istniejący projekt
-- Nie tłumacz nazw technicznych na siłę
-- Zmieniaj nazwy techniczne tylko gdy użytkownik prosi lub gdy powodują realny błąd
-- Przy zmianie nazwy — wskaż wszystkie miejsca do aktualizacji
-
----
-
-## 13. UTF-8 i kodowanie tekstu
-
-- Wszystkie pliki: **UTF-8 bez BOM**
-- Polskie znaki w tekstach UI — poprawne (ą, ę, ó, ś, ź, ż, ć, ń, ł)
-- Nie zamieniaj polskich znaków na encje HTML bez potrzeby
-- Usuwaj błędy podwójnego kodowania (krzaki)
-- Nie mieszaj różnych sposobów kodowania w jednym pliku
-
-### Typowe błędy do poprawy
-```
-srodki → środki        opoznienie → opóźnienie
-zloz → złóż            uzytkownik → użytkownik
-splata → spłata        wydajnosc → wydajność
-blad → błąd            platnosc → płatność
-ilosc → ilość          wartosc → wartość
-```
-
----
-
-## 14. Panel admina
-
-- Ten sam standard HTML/CSS co gra — ZERO tabel w layoutcie, Grid/Flexbox
-- Każda akcja destruktywna (usuń, reset, ban) → `confirmAction()` z `modal.js`
-- Stare `confirm()` i `alert()` → przepiąć przy każdej edycji pliku
-- Style → `assets/css/admin.css`
-- JS → `assets/js/admin_[modul].js`
-- Integracja z każdym nowym feature gry — admin musi mieć widok/kontrolę
-
----
-
-## 15. Mobile / PWA
-
-Gra docelowo jako aplikacja mobilna (PWA + Capacitor → Google Play).
-
-- Przyciski min. `44×44px`
-- Nawigacja → bottom navigation bar na mobile (`max-width: 768px`)
-- Karty statystyk → układ `2×2` na mobile
-- Dodawaj `:active` jako odpowiednik `:hover` dla touch
-- Testuj na 390px szerokości (iPhone 15 Pro)
-- Używaj `100dvh` zamiast `100vh` (iOS Safari)
-- Uwzględniaj `safe-area-inset` przy `position: fixed`
-
----
-
-## 16. Główne zasady kodowania
-
-1. Koduj zgodnie z istniejącą strukturą projektu.
-2. Nie przebudowuj architektury bez wyraźnego polecenia.
-3. Nie zmieniaj nazw plików, funkcji, klas, zmiennych, tabel, kolumn ani kluczy bez potrzeby.
-4. Nie usuwaj istniejącej logiki bez jasnego powodu.
-5. Nie wymyślaj nieistniejących plików, tabel, funkcji ani zależności.
-6. Nie dodawaj nowych bibliotek ani frameworków bez zgody.
-7. Wprowadzaj **najmniejszą bezpieczną zmianę** która rozwiązuje problem.
-8. Zachowaj dotychczasowy styl poprawianego pliku.
-9. Jeżeli użytkownik prosi o cały plik — zwróć cały plik.
-10. Nie używaj skrótów typu „reszta bez zmian".
-11. Zwracaj kod **gotowy do wklejenia**.
-12. Nie zostawiaj niedokończonych fragmentów bez wyraźnej prośby o szkic.
-13. Nie rozszerzaj zadania o funkcje o które użytkownik nie prosił.
-14. Nie poprawiaj całego projektu przy okazji małej zmiany.
-15. Każda zmiana musi być sprawdzona pod kątem wpływu na inne pliki.
-
----
-
-## 17. Zasada minimalnej zmiany
-
-- Nie ruszaj kodu którego nie trzeba ruszać
-- Nie poprawiaj stylistycznie całego pliku bez potrzeby
-- Nie zmieniaj działania funkcji jeśli użytkownik prosi tylko o teksty
-- Nie przebudowuj modułu jeśli wystarczy poprawić kilka linijek
-- Najpierw napraw problem — potem jeśli trzeba zaproponuj większą przebudowę jako osobną opcję
-
----
-
-## 18. Zasada kompleksowej kontroli zmian
-
-Nie poprawiaj kodu w izolacji. Każdą zmianę traktuj jako część całego projektu.
-
-1. Przed zmianą funkcji — sprawdź czy nie jest wywoływana w innych plikach
-2. Przed zmianą nazwy — sprawdź wszystkie miejsca użycia
-3. Nie zmieniaj sygnatury funkcji bez sprawdzenia gdzie jest używana
-4. Nie zmieniaj struktury danych bez sprawdzenia które pliki z niej korzystają
-5. Nie zmieniaj zapytań SQL bez sprawdzenia czy inne moduły korzystają z tych tabel
-6. Jeżeli dodajesz nową funkcję — sprawdź czy nie istnieje już podobna
-7. Jeżeli poprawiasz błąd — sprawdź czy ten sam problem nie występuje w innych plikach
-8. Jeżeli nie masz dostępu do wszystkich plików — napisz jasno które miejsca trzeba sprawdzić
-9. Przy większej zmianie — podaj listę plików do sprawdzenia lub aktualizacji
-
----
-
-## 19. Workflow — tryb pracy przy zadaniu
-
-**Małe zadanie** → od razu wykonaj zmianę bez rozpisywania planu.
-
-**Duże zadanie:**
-1. Zrozum dokładnie co ma być zrobione
-2. Podziel na etapy z jasnymi celami
-3. Wybierz najprostszą bezpieczną drogę
-4. Wdrażaj etapami — najpierw struktura, potem logika, potem interfejs
-5. Po każdym etapie wykonaj testy
-6. Nie przechodź dalej jeśli poprzedni etap ma błędy
-7. Nie mieszaj kilku dużych zmian w jednym kroku
-8. Jeśli znajdziesz dodatkowy problem — zgłoś osobno, nie rozszerzaj zakresu automatycznie
-
-**Przed każdym zadaniem:**
-1. Zapytaj o aktualne pliki — nie koduj bez aktualnych wersji
-2. Przeczytaj `GAME_README.md` — sprawdź co już jest zaimplementowane
-3. Sprawdź `admin/` — czy nowy feature wymaga integracji z panelem
-4. Zaplanuj SoC — które pliki tworzysz, które modyfikujesz
-5. Przy ticku — wykonaj backup do `backups/`
-
----
-
-## 20. Testy — wymagane po zmianach
-
-### Po każdym etapie
-
-```
-Testy po etapie:
-- co sprawdzono
-- co wymaga ręcznego sprawdzenia
-- najbardziej ryzykowne miejsca
-```
-
-### Testy końcowe po całym module
-
-```
-Testy końcowe:
-- PHP syntax check (balans {}, (), składnia)
-- PHPUnit jeśli dostępny
-- MySQL queries check (nazwy tabel, kolumn, typy)
-- test stanu gry (salda, statusy, spójność danych)
-- test integracji (include/require, wywołania, formularze)
-- test interfejsu (polskie znaki, layout, formularze)
-- test regresji (stara funkcjonalność nadal działa)
-```
-
-### Testy symulacyjne po wdrożeniu modułu
-
-```
-Testy symulacyjne:
-1. Dane testowe (prefix TEST_)
-2. Scenariusz testu
-3. Oczekiwany wynik
-4. Faktyczny wynik
-5. Wnioski
-6. SQL do usunięcia danych testowych
-```
-
-### Dane testowe — format
-
-```sql
--- Dane testowe / Test data
-INSERT INTO example_table (name, status, created_at)
-VALUES ('TEST_example_record', 'active', NOW());
-
--- Czyszczenie danych testowych / Cleanup test data
-DELETE FROM example_table WHERE name LIKE 'TEST_%';
-```
-
-### Zasady testów
-- Dane testowe oznaczaj prefiksem `TEST_`
-- Nie mieszaj danych testowych z produkcyjnymi
-- Zawsze podaj SQL do usunięcia danych testowych
-- Na bazie produkcyjnej → ostrzeż użytkownika przed testami destrukcyjnymi
-- Jeśli nie możesz uruchomić testów → napisz jasno: „Nie mogę uruchomić testów w tym środowisku, ale przygotowałem listę testów do wykonania"
-- Nie udawaj że testy zostały uruchomione jeśli nie zostały
-
----
-
-## 21. Po każdym zadaniu — format odpowiedzi
-
-```
-Zmieniono:
-- krótka lista zmian (plik → co zmieniono)
-
-Pliki do wgrania:
-src/NazwaService.php
-assets/js/nazwa.js
-lang/pl/nazwa.php
-GAME_README.md
-
-Testy po etapie:
-- co sprawdzono
-- co wymaga ręcznego sprawdzenia
-
-Do sprawdzenia:
-- lista rzeczy do przetestowania
-```
-
-### Changelog w GAME_README.md — obowiązkowy
-
-```markdown
-## Changelog
-### [data] — [opis zadania]
-- `ścieżka/pliku.php` — co zmieniono i dlaczego
-```
-
----
-
-## 22. Czego agent NIE robi
-
-- Nie koduje bez aktualnych plików od użytkownika
-- Nie pomija GameLog w nowych serwisach
-- Nie tworzy tabel HTML w layoutcie
-- Nie dodaje inline styles (poza dynamicznymi wartościami)
-- Nie używa `confirm()` / `alert()` / `prompt()` natywnych
-- Nie pomija aktualizacji GAME_README.md
-- Nie ignoruje istniejącego kodu — najpierw analizuje co jest
-- Nie duplikuje funkcji które już istnieją w projekcie
-- Nie przepisuje działającego kodu bez wyraźnej potrzeby
-- Nie koduje logiki biznesowej w widokach
-- Nie umieszcza SQL w plikach HTML/widokach
-- Nie dodaje nowych bibliotek bez zgody
-- Nie zmienia architektury bez wyraźnego polecenia
-- Nie wykonuje `DROP`/`TRUNCATE` bez zgody
-- Nie zmienia pliku ticku bez wcześniejszego backupu do `backups/`
-- Nie udaje że uruchomił testy jeśli nie mógł
-
----
-
-## 23. Zasady bezpieczeństwa — check przed oddaniem kodu
-
-1. Składnia poprawna (balans `{}`, `()`, średniki)
-2. Nie usunięto istniejących funkcji
-3. Nie zmieniono nazw bez potrzeby
-4. Kod zgodny z poleceniem i zakresem zadania
-5. Nie dodano zbędnych zależności
-6. Brak oczywistych błędów logicznych
-7. Teksty UI mają poprawne polskie znaki
-8. Komentarze dwujęzyczne: `polski bez polskich znakow / english`
-9. Emoji zastąpione SVG lub prostym tekstem
-10. Kod gotowy do wklejenia bez domyślania się brakujących fragmentów
-11. Zmieniana funkcja sprawdzona pod kątem wywołań w innych plikach
-12. Przy ticku — backup wykonany do `backups/`
-13. Testy po etapie przeprowadzone lub lista przygotowana
-14. GAME_README.md zaktualizowane
-
----
-
-## 24. Moduł: Dział prawny P1 — Zezwolenia na wiercenie
-<!-- Legal Department P1 — Drilling Permit System -->
-
-### Cel systemu / System goal
-
-Gracz musi uzyskać **zezwolenie na wiercenie** w każdym regionie zanim kupi tam odwiert.
-Brak zezwolenia blokuje zakup w `WorldMap` (§4 briefu).
-
-### Pliki modułu / Module files
-
-| Plik | Rola |
-|------|------|
-| `src/LegalService.php` | Logika biznesowa — zapytania SQL, statusy, składanie wniosków |
-| `public/legal.php` | Kontroler gracza — klasyfikuje regiony do 4 kubełków |
-| `templates/views/legal/main.php` | Widok gracza — lista regionów z akcjami |
-| `assets/css/legal.css` | Style widoku gracza |
-| `assets/js/world_map.js` | Integracja z mapą — badge'e i modale zezwoleń |
-| `assets/css/map.css` | Dodatkowe klasy dla statusów zezwoleń na mapie |
-| `admin/legal.php` | Panel admina — konfiguracja regionów, lista wniosków, akcje manualne |
-| `templates/views/admin/legal/main.php` | Widok panelu admina |
-| `lang/pl/legal.php` | Tłumaczenia działu prawnego gracza |
-| `lang/pl/admin/legal.php` | Tłumaczenia panelu admina |
-| `lang/pl/map.php` | Klucze `map_js.*` dla badge'y i modali mapy |
-| `tests/Integration/LegalMapPermitDataTest.php` | 15 testów dla `getMapPermitData()` |
-| `tests/Integration/LegalNotificationsTest.php` | 6 testów dla powiadomień §13 |
-
-### Tabele bazy danych / Database tables
-
-```sql
-legal_region_config          -- parametry per region (koszt, czasy, ryzyko, wymagany kapitał)
-drilling_permit_applications -- wnioski i zezwolenia graczy
-```
-
-### Statusy zezwoleń / Permit statuses
-
-| Status | Opis | Aktywne? |
-|--------|------|----------|
-| `none` | Brak wniosku, można składać | nie |
-| `pending` | Wniosek w rozpatrzeniu | nie |
-| `delayed` | Decyzja opóźniona | nie |
-| `no_decision` | Brak decyzji (odmowa bez cooldownu) | nie |
-| `granted` | Zezwolenie aktywne | **tak** |
-| `transitional` | Zezwolenie przejściowe (migracja P1) | **tak** |
-| `refused` | Wniosek odrzucony, cooldown aktywny | nie |
-| `locked` | Wymagany kapitał > gotówka gracza (mapa) | nie |
-
-Statusy `granted` i `transitional` = `ACTIVE_STATUSES` — odblokowują zakup odwiertów.
-
-### Kluczowe metody LegalService / Key methods
-
-```php
-// Batch-status 7 wariantów dla mapy (2 zapytania SQL, bez N+1)
-// Batch status for map — 7 variants, 2 SQL queries, no N+1
-getMapPermitData(int $playerId, array $regionIds, float $playerCash, ?DateTimeInterface $now = null): array
-// Wynik: [regionId => ['status', 'minutes_left', 'cooldown_minutes', 'required_capital']]
-
-// Złożenie wniosku gracza; pobiera opłatę, wysyła powiadomienie §13
-// Submit player application; deducts fee, sends §13 notification
-submitApplication(int $playerId, int $regionId, ?DateTimeInterface $now = null): array
-// Wynik: ['success' => bool, 'code' => string, ...]
-
-// Migracja: dla graczy z odwiertami bez zezwolenia → status transitional
-// Migration: wells without permit → transitional status
-migrateTransitionalPermits(?DateTimeInterface $now = null): int
-// Wynik: liczba nowych wpisów przejściowych / number of new transitional entries
-
-// Seedowanie konfiguracji regionów z world_regions (idempotentne)
-// Seed region config from world_regions (idempotent)
-seedRegionConfig(): int
-```
-
-### Integracja z mapą / Map integration
-
-`WorldMap::getMapData()` wywołuje `LegalService::getMapPermitData()` jednym batch-requestem.
-Per region zwracane pola: `has_permit` (bool), `permit_status`, `permit_minutes_left`,
-`permit_cooldown_minutes`, `permit_required_capital`.
-
-Frontend (`world_map.js`) używa funkcji:
-- `fmtMinutes(m)` — formatowanie minut (`45 min` / `2 h`)
-- `permitBadge(ps)` — badge HTML per status
-- `buildPermitHtml(ps, r)` — pełny HTML modalu zezwolenia
-
-### Powiadomienia §13 / §13 Notifications
-
-`LegalService::notifyDirector()` (private, try/catch-guarded) wstawia do `director_notifications`:
-- Po `submitApplication()`: klucz `legal.notif.submitted.*` z nazwą regionu
-- Po `migrateTransitionalPermits()`: klucz `legal.notif.transitional.*` per region
-- Brak tabeli `director_notifications` **nie przerywa** operacji nadrzędnej (guard).
-
-### Klasyfikacja regionów na stronie gracza / Player page classification
-
-`public/legal.php` sortuje regiony do 4 kubełków:
-1. `$activePermits` — status `granted` lub `transitional`
-2. `$pendingApplications` — status `pending`, `delayed`, `no_decision`, `refused` (z aktywnym cooldownem)
-3. `$capitalLocked` — `required_capital > 0` AND `$cash < required_capital` (§7.3)
-4. `$available` — pozostałe (można składać wniosek)
-
-### Poziomy ryzyka i domyślne parametry / Risk levels and defaults
-
-| Poziom | Koszt (PLN) | Czas rozpatrzenia | Wymagany kapitał |
-|--------|-------------|-------------------|-----------------|
-| `low` | 100 000 | 30 min | 0 |
-| `medium` | 250 000 | 60 min | 0 |
-| `high` | 500 000 | 90 min | 5 000 000 |
-| `critical` | 1 000 000 | 120 min | 25 000 000 |
-
-### Tick (rozpatrywanie wniosków) / Tick processing — WDROŻONE
-
-`src/Tick/LegalSection.php` rozpatruje zalegające wnioski raz na tick:
-- Pobiera wnioski `pending`/`delayed` z minionym `decision_due_at`.
-- Losuje wynik wg konfiguracji regionu (priorytet: `no_decision` > `refused` > `delayed` > `granted`).
-- `delayed` przesuwa termin (+`delay_min..max` min) i zwiększa `delay_count`; `refused` ustawia `refusal_cooldown_until`.
-- Wysyła powiadomienie dyrektora (§13) z ikoną SVG (`check`/`cross`/`alert`/`warning`).
-- Analogicznie rozpatruje wnioski o huby (`hub_permit_applications`) w `runHubPermits()`.
-Sekcja jest podpięta w `cron/tick.php` (po `CredibilitySection`).
-
-### Blokada zakupu / Purchase gate — WDROŻONE
-
-`WorldMap::buyWellAtLocation()` woła `regionPurchaseBlock()` przed utworzeniem odwiertu.
-Brak aktywnego zezwolenia (`granted`/`transitional`, sprawdzane przez `LegalService::hasActivePermit()`)
-zwraca błąd `no_permit` i blokuje zakup. Bramka jest fail-closed (błąd = blokada).
-
-### Co NIE jest w P1 / Not in P1
-
-- Wielokrotne wnioski (gracz może mieć jeden wniosek per region na raz)
-- Historyczne logi odmów
-
-### Testy integracyjne / Integration tests
-
-```bash
-vendor/bin/phpunit tests/Integration/LegalMapPermitDataTest.php   # 15 testów / 15 tests
-vendor/bin/phpunit tests/Integration/LegalNotificationsTest.php   # 6 testów / 6 tests
-```
-
-Testy używają SQLite in-memory przez `SqliteIntegrationTestCase` w `tests/Integration/`.
-
----
-
-## 25. Słownik techniczny projektu
-
-| Termin | Znaczenie |
-|--------|-----------|
-| Tick | Cykl gry co 5 minut — `cron/tick.php` |
-| Well | Odwiert naftowy — główny zasób gracza |
-| Player | Gracz — wiersz w tabeli `players` |
-| Operator | Pracownik techniczny przypisany do odwiertu |
-| Technik | Drugi pracownik techniczny odwiertu |
-| Sekcja | Klasa w `src/Tick/` obsługująca fragment ticku |
-| Trait | Fragment `WellService` w `src/Well/` |
-| Balans | Globalne mnożniki z `well_config` (admin/balance.php) |
-| Spirala | `post_disaster_risk_boost` — kumulujące ryzyko po katastrofie |
-| FinanceService | Serwis finansowy gracza — OPEX, podatki, pensje |
-| GameLog | System logowania — `src/GameLog.php` |
-| MODAL_LANG | Globalne tłumaczenia dla `modal.js` |
-| t('klucz') | Funkcja tłumaczenia z `lang/pl.php` |
-| backups/ | Katalog backupów przed zmianami ticku i krytycznych plików |
-| TEST_ | Prefix danych testowych w bazie |
-| LegalService | Serwis działu prawnego — zezwolenia na wiercenie per region |
-| getMapPermitData | Batch-odczyt statusów zezwoleń dla mapy (2 SQL queries) |
-| notifyDirector | Prywatna metoda wysyłki powiadomień do director_notifications |
-| migrateTransitionalPermits | Migracja P1: odwierty bez zezwolenia → status transitional |
-| transitional | Zezwolenie przejściowe — aktywne, nadane przez migrację P1 |
-| capitalLocked | Kubełek regionów zablokowanych przez wymóg kapitałowy (§7.3) |
-| ACTIVE_STATUSES | granted + transitional — odblokowują zakup odwiertów |
-| BriberyService | Uniwersalny silnik łapówek — cena/ryzyko z wiarygodności firmy |
-| BriberyConfig | Konfiguracja łapówek (tabela `bribery_config`), edytowalna w `admin/bribery.php` |
-| ProtectionService | Uniwersalny silnik ochrony — opcje/efekty w bazie, edytowalne w `admin/protection.php` |
-| ProtectionSchema | Schemat + seed modułu ochrony (4 tabele `protection_*` / `active_protections`) |
-
----
-
-## 26. Moduł łapówek (BriberyService) — uniwersalna wtyczka
-
-<!-- Bribery module — universal plug-in -->
-
-### Co to jest / What it is
-
-`BriberyService` to **jedno gniazdko** dla całej gry. Łapówka pozwala graczowi
-zapłacić gotówką, żeby załatwić coś po cichu — z ryzykiem wpadki i kosztem dla
-**wiarygodności firmy** (`CompanyCredibilityService`). Silnik zna tylko trzy rzeczy:
-liczy cenę i ryzyko z reputacji, pobiera gotówkę i losuje wynik, księguje skutki
-reputacyjne + wysyła powiadomienie. **Nie wie**, czym jest pozwolenie/transport —
-to sprawa modułu.
-
-### Pliki modułu / Module files
-
-| Plik | Rola |
-|------|------|
-| `src/BriberyService.php` | Silnik: `quote()` (wycena), `attempt()` (próba łapówki) |
-| `src/Bribery/BriberyConfig.php` | Konfiguracja (tabela `bribery_config`) + sanityzacja |
-| `admin/bribery.php` + `templates/views/admin/bribery/main.php` | Panel edycji parametrów |
-| `lang/pl/bribery.php` | Uniwersalne komunikaty (wspólne) |
-| `lang/pl/admin/bribery.php` | Teksty panelu admina |
-| `src/Legal/BriberyTrait.php` | **Przykładowa** wtyczka (dział prawny) |
-
-- Typ transakcji: `FinancialTransactionService::TYPE_BRIBE` (`bribe`) → `POOL_CASH`
-  (`WalletConfig`) — łapówka jest zawsze gotówkowa.
-- Zdarzenia reputacji: `bribe_paid` (sukces, lekka kara) i `bribe_caught`
-  (wpadka, mocna kara) — zapisywane w `company_credibility_log` przez `changeScore()`.
-
-### Jak podpiąć łapówkę do dowolnego modułu — 3 kroki / 3 steps
-
-**Krok 1 — wymyśl nazwę kontekstu** (do logów i historii), np. `transport_inspection`.
-
-**Krok 2 — wywołaj silnik** z kosztem odniesienia i domknięciem „co przy sukcesie":
-
-```php
-$bribery = new BriberyService($this->db);
-$res = $bribery->attempt(
-    $playerId,
-    'transport_inspection',        // klucz kontekstu / context key
-    $referenceCost,                // np. koszt kontroli — silnik dolicza % bazowy i mnoznik reputacji
-    function () use ($db, $id) {    // SUKCES: odblokuj swoja rzecz (w transakcji silnika)
-        $db->prepare("UPDATE ... SET status='cleared' WHERE id=?")->execute([$id]);
-    },
-    [
-        'on_caught' => function () use ($db, $id) { /* opcjonalnie: dodatkowa kara */ },
-        'meta' => [
-            'label'        => $name,           // nazwa do historii/powiadomienia
-            'notif_type'   => 'legal',         // typ z ENUM director_notifications.type
-            'action_url'   => 'transport.php', // dokad prowadzi alert (opcjonalnie)
-            'action_label' => 'Transport',
-        ],
-    ]
-);
-// $res['outcome']: 'success' | 'caught' | 'no_funds' | 'disabled' | 'error'
-```
-
-**Krok 3 — UI**: dodaj przycisk POST (jak `legal-bribe-form` w
-`templates/views/legal/_bribe_button.php`) i — jeśli chcesz pokazać koszt/ryzyko —
-zawołaj `$bribery->quote($playerId, $referenceCost)` (zwraca `cost`, `catch_pct`).
-
-**To wszystko.** Cena, losowanie, pobranie gotówki, kary reputacji, powiadomienie
-o wpadce i transakcja siedzą w silniku — zero kopiowania, zero dotykania
-`BriberyService`. Parametry (szanse, mnożniki, kary) zmienia admin w
-`admin/bribery.php` i działają wszędzie naraz.
-
-### Zasady / Rules
-
-- Silnik buduje `BriberyConfig` i `CompanyCredibilityService` w konstruktorze
-  (poza transakcją) — twórz `BriberyService` **przed** `beginTransaction()` własnego kodu.
-- Domknięcia `onSuccess` / `on_caught` są wykonywane **wewnątrz** transakcji silnika —
-  rób w nich tylko DML (UPDATE/INSERT), bez DDL i bez własnego `commit`.
-- Każdy nowy kontekst dorzuca swoje teksty `bribery.tx_label` działa generycznie
-  (nazwa z `meta.label`); komunikaty per-moduł trzymaj w `lang/pl/[modul].php`.
-
----
-
-## 27. Moduł ochrony (ProtectionService) — uniwersalna wtyczka
-
-<!-- Protection module — universal plug-in -->
-
-### Co to jest / What it is
-
-`ProtectionService` to konfigurowalny silnik ochrony aktywów. Opcje ochrony
-(nazwa, koszt, czas, wymagania) i ich efekty (`effect_key` + mnożnik/delta) są
-**w bazie, edytowalne z `admin/protection.php`** — admin dodaje nową ochronę bez
-zmiany kodu. Gracz wykupuje ochronę na cel na czas `duration_minutes`; moduł gry
-pyta o aktywne efekty dla celu i nakłada je na swoje ryzyka. Pełny brief:
-`BRIEF_UNIWERSALNY_MODUL_OCHRONY.md`.
-
-### Pliki modułu / Module files
-
-| Plik | Rola |
-|------|------|
-| `src/ProtectionService.php` | Silnik: `getAvailableOptions`, `quote`, `activate`, `getActiveEffects`, `applyEffects`, `cancel`, `logEvent` |
-| `src/Protection/ProtectionSchema.php` | 4 tabele + idempotentny seed opcji P1 |
-| `admin/protection.php` + widok | Panel: opcje / efekty / aktywne / historia |
-| `public/protection.php` | Endpoint AJAX aktywacji (gracz) |
-| `assets/js/protection.js` + `assets/css/protection.css` | Modal wyboru w logistyce |
-| `lang/pl/protection.php`, `lang/pl/admin/protection.php` | Tłumaczenia |
-
-- Typ transakcji: `FinancialTransactionService::TYPE_PROTECTION` (`protection`)
-  → `POOL_CASH` — P1 tylko gotówka.
-- Podpięte cele (`target_type` / `target_id` / `context`):
-  - **transport drogowy**: `road_transport` / `well_id` / `road_transport_guard` —
-    mnożniki `theft/raid/sabotage_risk_mult` w `RoadTransportService::applyTripIncidents()`.
-  - **huby**: `hub` / `logistics_hubs.id` / `hub_guard` — mnożniki per typ incydentu
-    (`equipment_damage/local_leak/critical_overload/...risk_mult`) w `HubIncidentService::processTick()`.
-  - **rurociągi**: `pipeline` / `well_pipelines.id` (per odcinek) / `pipeline_guard` —
-    jeden mnożnik `pipeline_incident_risk_mult` w `PipelineSection::rollPipelineIncident()`.
-- Jedna instancja `ProtectionService` na gracza w ticku (`PlayersSection`), współdzielona
-  przez rurociągi/huby/drogę — wygasanie raz na gracza.
-
-### Jak podpiąć ochronę do nowego modułu / How to plug in
-
-1. Zdefiniuj w adminie opcję z nowym `target_type` + `context` i efektami.
-2. Przy rozliczaniu ryzyka pobierz efekty i nałóż je:
-   ```php
-   $prot = new ProtectionService($db); // przed beginTransaction (robi DDL-check)
-   $effects = $prot->getActiveEffects($playerId, 'hub', $hubId, 'hub_guard');
-   $risks = $prot->applyEffects($baseRisks, $effects); // mult mnozy, delta dodaje
-   ```
-3. W UI celu dodaj przycisk POST do `public/protection.php` (lub własny endpoint)
-   wołający `activate($playerId, $code, $targetType, $targetId, $referenceValue)`.
-
-### Zasady / Rules
-
-- Mnożniki przy odczycie są przycinane do **[0.05, 1.0]** — ochrona nigdy nie
-  zeruje ryzyka; nieznane `effect_key` są ignorowane (dodanie klucza w adminie
-  przed obsługą w kodzie nic nie psuje).
-- Max **1 aktywna ochrona** per `gracz+target_type+target_id+context`;
-  wygasanie leniwe po `ends_at` (bez crona), raz na instancję serwisu.
-- W silniku jednej szansy + wag (transport drogowy) mnożniki nakładaj na wagi
-  z korektą łącznej szansy `sum(w')/sum(w)` — typy niechronione muszą zachować
-  bazowe prawdopodobieństwa (wzór w §8 briefu).
-- Moduł NIE liczy efektów sam — zawsze przez `getActiveEffects`/`applyEffects`.
-- Incydent rozliczony pod aktywną ochroną loguj przez
-  `logEvent(..., 'protection_applied_to_incident', ...)` — to odpowiedź dla
-  admina „czy ochrona zadziałała".
-
----
-
----
-
-## TODO: Aplikacja mobilna Flutter
-
-### Podpisanie APK prawdziwym kluczem (przed publikacją Google Play)
-
-Aktualnie `mobile/android/app/build.gradle` używa `signingConfigs.debug` dla
-release build — działa do testów (side-loading APK), ale **Google Play odrzuci**
-taki APK.
-
-Gdy będziemy gotowi do publikacji:
-1. Wygenerować keystore: `keytool -genkey -v -keystore oilempire.jks -alias oilempire -keyalg RSA -keysize 2048 -validity 10000`
-2. Dodać `android/key.properties` (poza repo — w `.gitignore`):
-   ```
-   storePassword=<haslo>
-   keyPassword=<haslo>
-   keyAlias=oilempire
-   storeFile=../oilempire.jks
-   ```
-3. Zaktualizować `mobile/android/app/build.gradle`:
-   ```groovy
-   def keystoreProperties = new Properties()
-   keystoreProperties.load(new FileInputStream(rootProject.file('key.properties')))
-
-   signingConfigs {
-       release {
-           keyAlias keystoreProperties['keyAlias']
-           keyPassword keystoreProperties['keyPassword']
-           storeFile file(keystoreProperties['storeFile'])
-           storePassword keystoreProperties['storePassword']
-       }
-   }
-   buildTypes {
-       release { signingConfig signingConfigs.release }
-   }
-   ```
-4. Dodać keystore i hasła jako GitHub Actions secrets (`KEYSTORE_BASE64`, `KEY_PROPERTIES`)
-   i wczytywać je w `.github/workflows/flutter-build.yml` przed buildem.
-
----
-
-*OilEmpire.pl — AGENT_GUIDELINES v2.1 | Główny Koder*
+## Gdy narzedzie albo shell zawodzi
+
+- Nie powtarzaj kilka razy tego samego wadliwego polecenia.
+- Jesli PowerShell psuje quoting regexu, uzyj here-string albo malego skryptu tymczasowego.
+- Jesli prosta podmiana tekstu jest ryzykowna, uzyj `apply_patch`.
+- Jesli `php` nie dziala z PATH, od razu uzyj pelnej sciezki PHP.
+- Jesli masowa zmiana nie trafia przez mojibake, wykonaj mniejsza zmiane po realnym fragmencie kodu.
+- Po kazdej takiej awarii sprawdz, czy czesciowa zmiana nie zostala juz zapisana.
+
+## Code review przed zakonczeniem
+
+Przed finalna odpowiedzia sprawdz:
+
+- czy zmiana odpowiada na najnowsza prosbe uzytkownika,
+- czy nie ruszyles niepowiazanych plikow,
+- czy nie zostaly krzaki/mojibake w edytowanych fragmentach,
+- czy nie dodales komentarzy z polskimi znakami,
+- czy nie ma hardcoded UI tekstow poza lang,
+- czy formularze stron widokowych maja PRG,
+- czy endpointy JSON nie renderuja HTML,
+- czy SQL jest prepared,
+- czy flash jest jednorazowy,
+- czy JS/CSS nie jest inline,
+- czy `git diff --check` przechodzi,
+- czy `tools/check_encoding.php` przechodzi.
+
+## Dokumentacja
+
+- Po zmianie architektury aktualizuj `svn_repo/GAME_README.md`.
+- Po zmianie mobile aktualizuj `svn_repo/MOBILE_ARCH.md`.
+- Po zmianie zasad pracy aktualizuj `AGENTS.md`.
+- Dokumentacja ma opisywac co wdrozono, jak dziala obecny flow, co zostalo odlozone i jakie testy wykonano.
+
+## Komunikacja z uzytkownikiem
+
+- Odpowiadaj po polsku.
+- Pisz krotko i konkretnie.
+- Przy duzym zadaniu podaj plan, potem wdrazaj etapami.
+- Przy malym zadaniu wykonaj zmiane od razu.
+- Jesli cos jest ryzykowne, nazwij ryzyko i zaproponuj bezpieczny wariant.
+- Nie ukrywaj nieuruchomionych testow.
+- Nie twierdz, ze cos jest wdrozone, jesli nie zostalo sprawdzone.
+
+## Zakazy operacyjne
+
+- Nie tworz nowych frameworkow ani zaleznosci bez zgody.
+- Nie przenos plikow bez sprawdzenia tras, include, `.htaccess` i linkow.
+- Nie usuwaj starych plikow bez sprawdzenia referencji przez `rg`.
+- Nie rob masowych zmian kodowania bez backupu i walidacji.
+- Nie mieszaj kilku duzych tematow w jednym commicie.
+- Nie commituj plikow tymczasowych, diagnostycznych ani backupow, chyba ze uzytkownik wyraznie chce.
+
+## Aktualna zasada po poprawce flash/PRG
+
+Blad typu "nic nie klikam, a pojawia sie stary komunikat" traktuj jako sygnal do sprawdzenia:
+
+1. Czy strona renderuje widok po POST.
+2. Czy komunikat jest trzymany w DOM jako `*-flash`.
+3. Czy JS usuwa flash po pokazaniu.
+4. Czy przegladarka moze przywrocic strone z bfcache.
+5. Czy podobny wzorzec istnieje w innych modulach.
+
+Naprawa domyslna: PRG + session flash + usuniecie flash z DOM po wyswietleniu.

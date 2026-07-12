@@ -11,8 +11,11 @@ BoardAccess::require($playerId, 'legal');
 $db = Database::getInstance()->getConnection();
 $sabotage = new SabotageService($db);
 
-$error = '';
-$success = '';
+$flash = $_SESSION['sabotage_flash'] ?? [];
+unset($_SESSION['sabotage_flash']);
+
+$error = (string)($flash['error'] ?? '');
+$success = (string)($flash['success'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!RateLimiter::check('action')) {
@@ -25,10 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $targetPlayerId = (int)($_POST['target_player_id'] ?? 0);
             $optionId = (int)($_POST['option_id'] ?? 0);
             $result = $sabotage->executePlayerSabotage($playerId, $targetPlayerId, $optionId);
-            // Zielony box tylko gdy sabotaz faktycznie zadzialal; nieudany rzut ('failed')
-            // pokazujemy jako blad, mimo ze operacja zostala przetworzona poprawnie.
-            // Green box only when the sabotage actually worked; a missed roll ('failed') is
-            // shown as an error even though the operation itself was processed correctly.
+            // Show success only when sabotage actually worked; a missed roll is shown as an error.
             if ($result['success'] && $result['status'] !== 'failed') {
                 $success = $result['message'];
             } else {
@@ -36,6 +36,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    if ($error !== '') {
+        $_SESSION['sabotage_flash'] = ['error' => $error];
+    } elseif ($success !== '') {
+        $_SESSION['sabotage_flash'] = ['success' => $success];
+    }
+
+    header('Location: ' . (function_exists('url') ? url('sabotage') : '/sabotage'));
+    exit;
 }
 
 $playerStmt = $db->prepare(

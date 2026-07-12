@@ -10,8 +10,11 @@ AdminAuth::requireLogin();
 require_once __DIR__ . '/../src/LegalService.php';
 
 $db  = Database::getInstance()->getConnection();
-$msg = '';
-$err = '';
+$flash = $_SESSION['admin_legal_flash'] ?? [];
+unset($_SESSION['admin_legal_flash']);
+
+$msg = (string)($flash['msg'] ?? '');
+$err = (string)($flash['err'] ?? '');
 
 $tab = (string)($_GET['tab'] ?? 'regions');
 if (!in_array($tab, ['regions', 'applications', 'hub_applications'], true)) {
@@ -20,22 +23,21 @@ if (!in_array($tab, ['regions', 'applications', 'hub_applications'], true)) {
 
 $legal = new LegalService($db);
 
-// == OBSŁUGA FORMULARZY ==
+// Form handling.
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!CSRF::validateToken($_POST['csrf_token'] ?? ''))
-        die('<p class="alert alert-error">' . t('common.csrf_error') . '</p>');
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $err = t('common.csrf_error');
+    } else {
+        $action   = (string)($_POST['action'] ?? '');
+        $regionId = (int)($_POST['region_id'] ?? 0);
+        $appId    = (int)($_POST['app_id'] ?? 0);
 
-    $action   = (string)($_POST['action'] ?? '');
-    $regionId = (int)($_POST['region_id'] ?? 0);
-    $appId    = (int)($_POST['app_id'] ?? 0);
-
-    // Seed konfiguracji regionów z mapy (world_regions -> legal_region_config)
+    // Seed region configuration from map data.
     if ($action === 'seed_regions') {
         try {
             $seeded = $legal->seedRegionConfig();
-            // P2a: ustaw domyslne koszty/czasy zezwolen na huby per poziom ryzyka.
-            // P2a: set default hub permit costs/times per risk level (only on column defaults).
+            // Set default hub permit costs and review times per risk level.
             $hubTuned = $legal->seedHubPermitDefaults();
             AdminLog::log('legal_seed_regions', "Seed regionów: {$seeded} nowych wpisów, hub defaults: {$hubTuned}");
             $msg = t('admin.legal.msg_seed_done', ['n' => $seeded]);
@@ -45,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tab = 'regions';
     }
 
-    // Migracja przejściowa
+    // Run transitional permit migration.
     elseif ($action === 'run_migration') {
         try {
             $migrated = $legal->migrateTransitionalPermits();
@@ -57,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tab = 'regions';
     }
 
-    // Zapis konfiguracji regionu (drilling + hub)
+    // Save drilling and hub permit configuration.
     elseif ($action === 'save_region_config' && $regionId > 0) {
         $fields = [
             'enabled'                  => max(0, min(1, (int)($_POST['enabled'] ?? 1))),
@@ -74,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'refusal_cooldown_minutes' => max(0, (int)($_POST['refusal_cooldown_minutes'] ?? 120)),
             'required_capital'         => max(0.0, (float)($_POST['required_capital'] ?? 0)),
             'required_legal_level'     => max(0, min(10, (int)($_POST['required_legal_level'] ?? 0))),
-            // P2a: hub permit config / Konfiguracja zezwolen na huby
+            // Hub permit configuration.
             'hub_permit_enabled'       => isset($_POST['hub_permit_enabled']) ? 1 : 0,
             'hub_permit_cost'          => max(0.0, (float)($_POST['hub_permit_cost'] ?? 500000)),
             'hub_review_minutes'       => max(1, (int)($_POST['hub_review_minutes'] ?? 120)),
@@ -108,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tab = 'regions';
     }
 
-    // Akcje manualne dla wnioskow o hub / Manual actions for hub permit applications
+    // Manual actions for hub permit applications.
     elseif (str_starts_with($action, 'hub_manual_') && $appId > 0) {
         $nowStr = date('Y-m-d H:i:s');
         try {
@@ -176,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tab = 'hub_applications';
     }
 
-    // Ręczna decyzja nad wnioskiem
+    // Manual decision for drilling permit applications.
     elseif (str_starts_with($action, 'manual_') && $appId > 0) {
         $nowStr = date('Y-m-d H:i:s');
         try {
@@ -249,9 +251,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $tab = 'applications';
     }
+    }
+
+    $_SESSION['admin_legal_flash'] = ['msg' => $msg, 'err' => $err];
+    header('Location: /admin/legal.php?tab=' . rawurlencode($tab));
+    exit;
 }
 
-// == DANE DLA WIDOKU ==
+// View data.
 
 $regions = $legal->getAllRegionConfigs();
 
@@ -270,7 +277,7 @@ try {
     $err = t('admin.legal.err_load_apps') . ': ' . $e->getMessage();
 }
 
-// Statystyki
+// Statistics.
 $stats = ['total' => 0, 'pending' => 0, 'granted' => 0, 'refused' => 0, 'delayed' => 0, 'other' => 0];
 foreach ($applications as $a) {
     $stats['total']++;
@@ -279,7 +286,7 @@ foreach ($applications as $a) {
     elseif (!in_array($s, ['total'], true)) $stats['other']++;
 }
 
-// P2a: wnioski na huby / P2a: hub permit applications
+// Hub permit applications.
 $hubApplications = [];
 $hubStats = ['total' => 0, 'pending' => 0, 'granted' => 0, 'refused' => 0, 'delayed' => 0];
 try {

@@ -18,6 +18,7 @@
 
         var error = flash.dataset.error || '';
         var success = flash.dataset.success || '';
+        flash.remove();
 
         if (error) {
             if (typeof window.alertError === 'function') {

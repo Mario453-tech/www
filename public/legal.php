@@ -12,8 +12,11 @@ BoardAccess::require($playerId, 'legal');
 $db       = Database::getInstance()->getConnection();
 $legal    = new LegalService($db);
 
-$error   = '';
-$success = '';
+$flash = $_SESSION['legal_flash'] ?? [];
+unset($_SESSION['legal_flash']);
+
+$error   = (string)($flash['error'] ?? '');
+$success = (string)($flash['success'] ?? '');
 
 // Form handling.
 
@@ -55,9 +58,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    if ($error !== '') {
+        $_SESSION['legal_flash'] = ['error' => $error];
+    } elseif ($success !== '') {
+        $_SESSION['legal_flash'] = ['success' => $success];
+    }
+
+    header('Location: ' . (function_exists('url') ? url('legal') : '/legal'));
+    exit;
 }
 
-// == DANE DLA WIDOKU ==
+// View data.
 
 $configs = $legal->getAllRegionConfigs();
 
@@ -78,7 +90,7 @@ foreach ($configs as $cfg) {
 
 $legalLevel = $legal->getLegalLevelForPlayer($playerId);
 
-// Wiarygodnosc firmy / Company credibility (card and legal locks)
+// Company credibility for card and legal locks.
 $credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
 $credibilityLevel = 'shaky';
 try {
@@ -90,15 +102,15 @@ try {
 }
 $credibilityMin = LegalService::HIGH_RISK_CREDIBILITY_MIN;
 
-// Pogrupowane regiony
+// Group regions by permit state.
 $active        = []; // granted / transitional
 $inProgress    = []; // pending / delayed / no_decision
 $available     = []; // none or refused after cooldown, company meets capital requirement
-$locked        = []; // refused (w cooldown)
+$locked        = []; // refused with active cooldown
 $capitalLocked = []; // brief 7.3: high-risk region without required capital
 
-$credibilityLocked = []; // Wiarygodnosc firmy za niska dla regionow high/critical
-$levelLocked = []; // P2: wymagany wyzszy poziom dzialu prawnego / Required higher legal department level
+$credibilityLocked = []; // company credibility too low for high/critical regions
+$levelLocked = []; // higher legal department level required
 
 $now = new DateTime();
 foreach ($configs as $cfg) {
@@ -124,8 +136,8 @@ foreach ($configs as $cfg) {
     } else {
         // No active permit and no cooldown: region is available or capital-locked.
         // Brief 7.3: do not allow application submission when capital is insufficient.
-        // No active permit nor cooldown — region available OR capital-locked
-        // (brief §7.3: applying is blocked until the company meets the capital).
+        // No active permit nor cooldown: region available OR capital-locked.
+        // Brief 7.3: applying is blocked until the company meets the capital.
         $reqLevel = (int)($cfg['required_legal_level'] ?? 0);
         $reqCapital = (float)$cfg['required_capital'];
         if ($reqLevel > 0 && $legalLevel < $reqLevel) {
@@ -151,10 +163,8 @@ foreach ($configs as $cfg) {
     }
 }
 
-// P2a: zezwolenia na huby — tylko regiony aktywne (enabled=1) z hub_permit_enabled=1.
-// P2a: hub permits — only active regions (enabled=1) with hub_permit_enabled=1.
-// Spojnie z bramka submitHubApplication, ktora odrzuca region_disabled.
-// Consistent with submitHubApplication gate which rejects region_disabled.
+// P2a hub permits: only active regions with hub_permit_enabled.
+// This matches submitHubApplication, which rejects disabled regions.
 $hubEnabledConfigs = array_values(array_filter(
     $configs,
     static fn($c) => (int)($c['enabled'] ?? 0) === 1 && (int)($c['hub_permit_enabled'] ?? 0) === 1
@@ -164,7 +174,7 @@ $hubRegionIds = array_column($hubEnabledConfigs, 'region_id');
 $hubActive     = []; // granted
 $hubInProgress = []; // pending / delayed / no_decision
 $hubAvailable  = []; // none or refused after cooldown
-$hubLocked     = []; // refused (w cooldown)
+$hubLocked     = []; // refused with active cooldown
 
 if (!empty($hubRegionIds)) {
     $hubPermitsByRegion = $legal->getHubPermitBatch($playerId, $hubRegionIds);
@@ -193,10 +203,8 @@ if (!empty($hubRegionIds)) {
 
 $hasHubSection = !empty($hubEnabledConfigs);
 
-// Lapowki: wycena (koszt + ryzyko) dla regionow, w ktorych mozna przekupic.
-// Bribery: quote (cost + risk) for regions eligible for a bribe.
-// Eligible = pending/delayed (przyspieszenie) i refused w cooldown (ominiecie).
-// Eligible = pending/delayed (speed-up) and refused-in-cooldown (skip).
+// Bribery quote for regions eligible for a bribe.
+// Eligible statuses: pending/delayed/no_decision and refused-in-cooldown.
 $bribery        = new BriberyService($db);
 $briberyEnabled = $bribery->config()->isEnabled();
 $bribeQuotes    = []; // [region_id => ['cost'=>int,'catch_pct'=>int,'level'=>string]]
@@ -209,8 +217,7 @@ if ($briberyEnabled) {
         $bribeQuotes[$rid] = $bribery->quote($playerId, (float)$entry['config']['application_cost']);
     }
     foreach ($locked as $entry) {
-        // Nie pokazuj przycisku lapowki gdy gracz jest w blokadzie po wpadce.
-        // Do not show bribe button when the player is in the post-catch lock period.
+        // Do not show the bribe button during the post-catch lock period.
         $lockUntil = $entry['permit']['application']['bribe_locked_until'] ?? null;
         if ($lockUntil !== null && new DateTime((string)$lockUntil) > $now) {
             continue;
@@ -218,7 +225,6 @@ if ($briberyEnabled) {
         $rid = (int)$entry['config']['region_id'];
         $bribeQuotes[$rid] = $bribery->quote($playerId, (float)$entry['config']['application_cost']);
     }
-    // Aktywne zezwolenia z upgrade_pending=1: lapowka przyspiesza upgrade do pelnego.
     // Active permits with upgrade_pending=1: bribe accelerates the upgrade to full.
     foreach ($active as $entry) {
         if (empty($entry['permit']['application']['upgrade_pending'])) {

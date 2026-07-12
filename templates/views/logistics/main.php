@@ -1644,26 +1644,26 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
 </div>
 
 <script>
-/* Pipeline player actions: repair / maintenance / toggle */
-/* Akcje gracza na rurociagach - modal potwierdzenia zamiast confirm() */
+/* Pipeline player actions: repair, maintenance and toggle. */
 (function() {
     var PIPELINE_API  = '/src/PipelineApi.php';
-    var PIPELINE_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    function getPipelineCsrf() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || window.PIPELINE_CSRF || '';
+    }
 
- /* State for pending action / Stan oczekujacej akcji */
+ /* Pending action state. */
     var _pendingId     = 0;
     var _pendingAction = '';
     var _pendingBtn    = null;
 
- /* Action title map / Mapa tytulow dla akcji */
+ /* Action title map. */
     var ACTION_TITLES = {
         repair_pipeline:      '<?= t('logistics.pipeline.btn_repair') ?>',
         maintenance_pipeline: '<?= t('logistics.pipeline.btn_maintenance') ?>',
         toggle_pipeline:      '<?= t('logistics.pipeline.btn_suspend') ?> / <?= t('logistics.pipeline.btn_resume') ?>',
     };
 
- /* Toggle confirm: reads state from data-* attrs, no page reload on success */
- /* Potwierdzenie toggle: odczytuje stan z data-*, po sukcesie aktualizuje przycisk */
+ /* Toggle confirmation reads state from data attributes and updates the button on success. */
     window.pipelineToggleConfirm = function(btn) {
         var pipelineId  = parseInt(btn.dataset.pipelineToggle, 10);
         var isSuspended = btn.dataset.suspended === '1';
@@ -1686,7 +1686,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
         confirmBtn.focus();
     };
 
- /* Open confirm modal / Otworz modal potwierdzenia */
+ /* Open confirmation modal. */
     window.pipelineActionConfirm = function(pipelineId, action, confirmMsg) {
         _pendingId     = pipelineId;
         _pendingAction = action;
@@ -1697,7 +1697,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
             ACTION_TITLES[action] || '<?= t('modal.confirm') ?>';
         modal.querySelector('.pipeline-action-modal-msg').textContent = confirmMsg;
 
- /* Reset confirm btn state / Resetuj stan przycisku */
+ /* Reset confirmation button state. */
         var confirmBtn = modal.querySelector('.pipeline-action-modal-confirm');
         confirmBtn.disabled    = false;
         confirmBtn.style.opacity = '';
@@ -1706,7 +1706,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
         confirmBtn.focus();
     };
 
- /* Close confirm modal / Zamknij modal */
+ /* Close confirmation modal. */
     window.closePipelineActionModal = function() {
         document.getElementById('pipeline-action-modal').style.display = 'none';
         _pendingId     = 0;
@@ -1714,7 +1714,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
         _pendingBtn    = null;
     };
 
- /* Execute action after confirmation / Wykonaj akcje po potwierdzeniu */
+ /* Execute action after confirmation. */
     window.executePipelineAction = function() {
         if (!_pendingId || !_pendingAction) return;
 
@@ -1724,7 +1724,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
         var body = new URLSearchParams({
             action:      _pendingAction,
             pipeline_id: _pendingId,
-            _token:      PIPELINE_CSRF,
+            _token:      getPipelineCsrf(),
         });
 
         var pendingAction = _pendingAction;
@@ -1736,7 +1736,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
             .then(function(data) {
                 closePipelineActionModal();
                 if (!data.success) {
- // Use global modal instead of native alert / Modal zamiast natywnego alert
+ // Use global modal instead of native alert.
                     window.alertError('<?= t('logistics.pipeline.action_error') ?>: ' + (data.error || '?'));
                     return;
                 }
@@ -1754,7 +1754,7 @@ $currencyLocale = $locale === 'en' ? 'en-US' : 'pl-PL';
             })
             .catch(function() {
                 closePipelineActionModal();
- // Use global modal instead of native alert / Modal zamiast natywnego alert
+ // Use global modal instead of native alert.
                 window.alertError('<?= t('logistics.pipeline.action_error') ?>');
             });
     };
@@ -1942,20 +1942,20 @@ window.HUB_LANG  = <?= json_encode([
     'avail_slots'    => t('logistics.hub.avail_slots',    ['free' => '{free}', 'total' => '{total}']),
     'avail_zone_pen' => t('logistics.hub.avail_zone_penalty', ['pct' => '{pct}']),
     'avail_fee'      => t('logistics.hub.avail_fee',      ['fee' => '{fee}']),
- // Kondycja / Condition
+ // Condition labels.
     'cond_critical_short'     => t('logistics.hub.cond_critical_short'),
     'cond_low_short'          => t('logistics.hub.cond_low_short'),
     'warn_condition_critical' => t('logistics.hub.warn_condition_critical'),
     'warn_condition_low'      => t('logistics.hub.warn_condition_low'),
- // Typy hubow / Hub types
+ // Hub type labels.
     'type_small'     => t('logistics.hub.type_small'),
     'type_medium'    => t('logistics.hub.type_medium'),
     'type_large'     => t('logistics.hub.type_large'),
- // Tryby pracy / Operation modes
+ // Operation mode labels.
     'mode_eco'       => t('logistics.hub.mode_eco'),
     'mode_standard'  => t('logistics.hub.mode_standard'),
     'mode_max'       => t('logistics.hub.mode_max'),
- // Paginacja / Pagination
+ // Pagination labels.
     'pagination_prev'=> t('logistics.hub.pagination_prev'),
     'pagination_next'=> t('logistics.hub.pagination_next'),
  // Model pozyskania / Acquisition type labels
@@ -1968,7 +1968,7 @@ window.HUB_LANG  = <?= json_encode([
     'acq_opex'       => t('logistics.hub.acq_opex'),
     'acq_start_cond' => t('logistics.hub.acq_start_cond'),
     'acq_lease'      => t('logistics.hub.acq_lease'),
- // Wynajem potwierdzenia i komunikaty / Rental confirmations and messages
+ // Rental confirmations and messages.
     'confirm_rental'          => t('logistics.hub.confirm_rental'),
     'confirm_rental_transfer' => t('logistics.hub.confirm_rental_transfer'),
     'ok_assign_with_lease'    => t('logistics.hub.ok_assign_with_lease'),
@@ -1982,7 +1982,7 @@ window.HUB_LANG  = <?= json_encode([
     'confirm_per_tick'        => t('logistics.hub.confirm_per_tick'),
     'confirm_question'        => t('logistics.hub.confirm_question'),
     'err_insufficient_funds'  => t('logistics.hub.err_insufficient_funds'),
- // Rynek hubow: kupno / wynajem / Hub market: buy / rent
+ // Hub market labels.
     'market_confirm_buy'       => t('logistics.hub.market_confirm_buy',  ['name' => '{name}', 'price' => '{price}']),
     'market_confirm_buy_title' => t('logistics.hub.market_confirm_buy_title'),
     'market_confirm_rent'      => t('logistics.hub.market_confirm_rent', ['name' => '{name}', 'deposit' => '{deposit}', 'lease' => '{lease}']),
@@ -1995,13 +1995,13 @@ window.HUB_LANG  = <?= json_encode([
     'err_hub_already_owned'   => t('logistics.hub.err_hub_already_owned'),
     'err_hub_already_rented'  => t('logistics.hub.err_hub_already_rented'),
     'err_hub_unavailable'     => t('logistics.hub.err_hub_unavailable'),
- // Modal braku zezwolenia na prace lokalne / Local permit required modal strings
+ // Local permit modal labels.
     'permit_modal_title' => t('legal.hub.permit_modal_title'),
     'permit_btn_cancel'  => t('legal.hub.permit_btn_cancel'),
     'permit_btn_apply'   => t('legal.hub.permit_btn_apply'),
     'permit_btn_legal'   => t('legal.hub.permit_btn_legal'),
-    'permit_url'         => '/legal.php',
- // Well status labels for hub wells modal / Tlumaczenia statusow odwiertow w modalu huba
+    'permit_url'         => '/legal',
+ // Well status labels for hub wells modal.
     'ws_active'          => t('technical.ws_active'),
     'ws_paused_staff'    => t('technical.ws_paused_staff'),
     'ws_paused_cash'     => t('technical.ws_paused_cash'),
@@ -2256,6 +2256,10 @@ var _pipelineBuyType        = 'standard';
 var _pipelineBuyProfiles    = null;
 var _pipelineBuyConfirming  = false;
 
+function getPipelineCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || window.PIPELINE_CSRF || '';
+}
+
 function openPipelineBuyModal(wellId) {
     _pipelineBuyWellId     = wellId;
     _pipelineBuyType       = 'standard';
@@ -2354,7 +2358,7 @@ function confirmPipelinePurchase() {
     btn.disabled = true;
 
     var fd = new FormData();
-    fd.append('_token',        PIPELINE_CSRF);
+    fd.append('_token',        getPipelineCsrfToken());
     fd.append('action',        'buy_pipeline');
     fd.append('well_id',       _pipelineBuyWellId);
     fd.append('pipeline_type', _pipelineBuyType);

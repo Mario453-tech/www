@@ -1,8 +1,6 @@
 /*
- * Dział prawny — obsługa formularza składania wniosku.
- * Legal department — application form handler.
- * Przechwytuje submit i pokazuje modal potwierdzenia z podsumowaniem.
- * Intercepts submit and shows a confirmation modal with a breakdown.
+ * Legal department application form handler.
+ * Shows confirmation modals and one-time flash messages.
  */
 (function () {
     'use strict';
@@ -15,6 +13,8 @@
 
         var error = flash.dataset.error || '';
         var success = flash.dataset.success || '';
+        flash.remove();
+
         if (error) {
             if (typeof window.alertError === 'function') {
                 window.alertError(error);
@@ -48,8 +48,7 @@
         var form = e.target.closest('form.legal-submit-form');
         if (!form) return;
 
-        // Drugie przejście (po kliknięciu "Złóż" w modalu) — przepuść.
-        // Second pass (after modal confirm) — let through.
+        // Second pass after modal confirmation.
         if (form.dataset.confirmed === '1') {
             form.dataset.confirmed = '';
             return;
@@ -64,18 +63,18 @@
         }
 
         var regionName = form.dataset.regionName || '';
-        var cost       = form.dataset.cost       || '';
-        var reviewTime = form.dataset.reviewTime  || '';
+        var cost = form.dataset.cost || '';
+        var reviewTime = form.dataset.reviewTime || '';
 
         var bodyHtml =
             '<div class="legal-confirm-rows">' +
                 '<div class="legal-confirm-row">' +
                     '<span class="legal-confirm-label">' + (L.label_region || 'Region') + '</span>' +
-                    '<span class="legal-confirm-val">'   + escHtml(regionName) + '</span>' +
+                    '<span class="legal-confirm-val">' + escHtml(regionName) + '</span>' +
                 '</div>' +
                 '<div class="legal-confirm-row">' +
                     '<span class="legal-confirm-label">' + (L.label_time || 'Czas rozpatrzenia') + '</span>' +
-                    '<span class="legal-confirm-val">'   + escHtml(reviewTime) + '</span>' +
+                    '<span class="legal-confirm-val">' + escHtml(reviewTime) + '</span>' +
                 '</div>' +
             '</div>' +
             '<div class="legal-confirm-total">' +
@@ -93,15 +92,14 @@
             }
             setTimeout(function () { form.dataset.confirmed = ''; }, 0);
         }, {
-            title:        L.modal_title    || 'Złóż wniosek',
-            type:         'confirm',
-            confirmLabel: L.modal_confirm  || 'Złóż wniosek',
-            bodyHtml:     bodyHtml,
+            title: L.modal_title || 'Złóż wniosek',
+            type: 'confirm',
+            confirmLabel: L.modal_confirm || 'Złóż wniosek',
+            bodyHtml: bodyHtml,
         });
     }, true);
 
-    // Lapowka — osobny modal z ostrzezeniem o ryzyku i utracie reputacji.
-    // Bribe — separate modal warning about risk and reputation loss.
+    // Bribe confirmation with a reputation-loss warning.
     document.addEventListener('submit', function (e) {
         var form = e.target.closest('form.legal-bribe-form');
         if (!form) return;
@@ -120,15 +118,14 @@
         }
 
         var regionName = form.dataset.regionName || '';
-        var cost       = form.dataset.cost       || '';
+        var cost = form.dataset.cost || '';
 
-        // Ryzyko wpadki celowo NIE jest pokazywane graczowi (informacja tylko dla admina).
-        // Catch risk is deliberately NOT shown to the player (admin-only info).
+        // Catch risk is deliberately not shown to the player.
         var bodyHtml =
             '<div class="legal-confirm-rows">' +
                 '<div class="legal-confirm-row">' +
                     '<span class="legal-confirm-label">' + (L.label_region || 'Region') + '</span>' +
-                    '<span class="legal-confirm-val">'   + escHtml(regionName) + '</span>' +
+                    '<span class="legal-confirm-val">' + escHtml(regionName) + '</span>' +
                 '</div>' +
             '</div>' +
             '<div class="legal-confirm-total">' +
@@ -148,10 +145,10 @@
             }
             setTimeout(function () { form.dataset.confirmed = ''; }, 0);
         }, {
-            title:        L.bribe_title   || 'Załatw po cichu',
-            type:         'danger',
+            title: L.bribe_title || 'Załatw po cichu',
+            type: 'danger',
             confirmLabel: L.bribe_confirm || 'Daję łapówkę',
-            bodyHtml:     bodyHtml,
+            bodyHtml: bodyHtml,
         });
     }, true);
 })();

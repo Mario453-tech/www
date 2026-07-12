@@ -30,7 +30,7 @@
 
     function legalPermitUrl(ctx) {
         const l = lang();
-        const url = new URL(l.permit_url || '/legal.php', window.location.origin);
+        const url = new URL(l.permit_url || '/legal', window.location.origin);
         if (ctx && ctx.permit_type) {
             url.searchParams.set('permit_type', ctx.permit_type);
         }
@@ -123,8 +123,7 @@
     function hubConfirm(msg, options = {}) {
         return new Promise((resolve) => {
             if (typeof window.confirmAction !== 'function') {
-                // Modal.js niedostepny — traktuj jako anulowanie (zadna akcja destrukcyjna).
-                // modal.js unavailable — treat as cancel (no destructive action proceeds).
+                // modal.js unavailable; treat as cancel so no destructive action proceeds.
                 resolve(false);
                 return;
             }
@@ -274,13 +273,12 @@
             hubDialog(lang().err_generic, 'error');
         }
     };
-
- // Rozbudowa huba / Hub upgrade
+    // Hub upgrade.
 
     window.hubUpgrade = async function (hubId) {
         const card = getOwnedHubCard(hubId);
         const cost = card ? Number(card.dataset.upgradeCost || 0) : 0;
-        const msg  = (lang().upgrade_confirm || 'Rozbudować hub za {cost} PLN?').replace('{cost}', Number(cost).toLocaleString('pl'));
+        const msg  = (lang().upgrade_confirm || 'Rozbudowac hub za {cost} PLN?').replace('{cost}', Number(cost).toLocaleString('pl'));
         if (!await hubConfirm(msg)) return;
 
         try {
@@ -571,7 +569,7 @@
             }
             html += '</div>';
 
- // Paginacja
+ // Pagination.
             if (totalPages > 1) {
                 html += `<div class="logistics-pagination logistics-pagination--modal">`;
                 html += `<div class="logistics-pagination-info">${currentPage} / ${totalPages} (${total})</div>`;
@@ -1001,8 +999,8 @@
 
             const expanded = group.classList.toggle('is-expanded');
             expandBtn.textContent = expanded
-                ? (expandBtn.dataset.expandedLabel || 'Pokaż mniej')
-                : (expandBtn.dataset.collapsedLabel || 'Pokaż więcej');
+                ? (expandBtn.dataset.expandedLabel || 'Pokaz mniej')
+                : (expandBtn.dataset.collapsedLabel || 'Pokaz wiecej');
         });
 
         applyFilter();
@@ -1027,14 +1025,14 @@
                 const label = formatRemaining(until);
                 if (!label) {
  // Cooldown expired - prompt reload
-                    el.textContent = '⏳ 0min';
+                    el.textContent = '0min';
                     el.style.opacity = '0.5';
                     if (!el.dataset.expiredHandled) {
                         el.dataset.expiredHandled = '1';
                         setTimeout(() => window.location.reload(), 1500);
                     }
                 } else {
-                    el.textContent = '⏳ ' + label;
+                    el.textContent = label;
                 }
             });
         }

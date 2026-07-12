@@ -8,9 +8,7 @@ BoardAccess::require($playerId, 'logistics');
 $db       = Database::getInstance()->getConnection();
 $_pageStart = GameLog::pageStart('public/logistics.php');
 
-// Local works permit: regions where the per-region permit is required
-// (hub_permit_enabled=1) but NOT granted yet.
-// They stay hidden on the logistics page until the permit is granted per region.
+// Regions where local works are blocked until the player gets a permit.
 $lockedRegionSet = [];
 try {
     $enabledRegions = array_map('intval',
@@ -25,7 +23,7 @@ try {
         $lockedRegionSet = array_fill_keys(array_values(array_diff($enabledRegions, $grantedRegions)), true);
     }
 } catch (Throwable $e) {
-    // Missing P2a schema (table/column) -> hide nothing (fail-open for visibility only).
+    // Missing permit schema means visibility stays open.
     $lockedRegionSet = [];
 }
 // Checks whether the region is locked for local works.
@@ -193,15 +191,6 @@ try {
     GameLog::error('logistics', 'Hub data load failed', $e, ['player' => $playerId]);
 }
 
-// Ukryj huby (kupione/wynajete) w regionach bez zezwolenia na prace lokalne.
-// Hide owned/rented hubs in regions without the local works permit (per region).
-if (!empty($lockedRegionSet)) {
-    $hubCards = array_values(array_filter(
-        $hubCards,
-        static fn(array $card): bool => !$isLocalRegionLocked($card['hub']['region_id'] ?? 0)
-    ));
-}
-
 try {
     $roadTransportSvc = new RoadTransportService($db);
     $activeRoadTripsAll = $roadTransportSvc->getActiveTripsForPlayer($playerId);
@@ -353,8 +342,7 @@ try {
     $pipelineSummary['engineers'] = (int)($pipelineEngineerStmt->fetchColumn() ?? 0);
 
     foreach ($pipelineRows as $pipe) {
- // Ukryj rurociagi w regionach bez zezwolenia na prace lokalne (per region).
- // Hide pipelines in regions without the local works permit (per region).
+ // Hide pipelines in regions blocked by local works permits.
         if ($isLocalRegionLocked($pipe['region_id'] ?? 0)) {
             continue;
         }
@@ -523,9 +511,8 @@ try {
     GameLog::error('logistics', 'Wells without pipeline query failed', $e, ['player' => $playerId]);
 }
 
-// Ukryj kandydatow do podlaczenia rurociagu w regionach bez zezwolenia na prace
-// lokalne — nie mozna podlaczyc rurociagu, dopoki nie ma zezwolenia (per region).
-// Hide pipeline-connect candidates in regions without the local works permit.
+// Hide pipeline-connect candidates in regions blocked by local works permits.
+// A pipeline cannot be connected until the permit is granted.
 if (!empty($lockedRegionSet)) {
     $wellsWithoutPipeline = array_values(array_filter(
         $wellsWithoutPipeline,
@@ -718,6 +705,7 @@ $gameShellTitle = t('logistics.page_title');
 $gameShellView  = __DIR__ . '/../templates/views/logistics/main.php';
 $extraCss       = ['/assets/css/logistics.css', '/assets/css/protection.css'];
 $extraJs        = ['/assets/js/logistics_hubs.js', '/assets/js/protection.js'];
+$extraHead      = '<meta name="csrf-token" content="' . htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8') . '">';
 
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);

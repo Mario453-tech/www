@@ -281,14 +281,6 @@ trait HubViewHubsTrait
         $result = [];
 
         foreach ($this->hubSvc->getPlayerRegionIds($playerId) as $regionId) {
- // Ukryj rynek hubow w regionach bez zezwolenia na prace lokalne — huby
- // pojawiaja sie dopiero po uzyskaniu zezwolenia lokalnego (per region).
- // Hide the hub market in regions without a local works permit — hubs only
- // appear once the local permit (per region) is granted.
-            if (!$this->hasLocalPermitOrNotRequired($playerId, (int)$regionId)) {
-                continue;
-            }
-
             $hubs = $this->hubSvc->getMarketHubs($regionId);
             if (empty($hubs)) {
                 continue;
@@ -303,14 +295,12 @@ trait HubViewHubsTrait
                 $buyPrice    = (float)(($hub['acquisition_price'] ?? 0) > 0
                                 ? $hub['acquisition_price']
                                 : $hub['build_cost']);
- // Floor: zapobiegamy cenie 0 zl gdy kolumna w DB jest zerowa (np. blad seedowania).
- // Floor: prevents 0-PLN display when DB values were seeded from a zeroed config.
+ // Prevent a zero-price display when DB values were seeded from a zeroed config.
                 static $buyFloors = ['small' => 31000.0, 'medium' => 93000.0, 'large' => 248000.0];
                 if ($buyPrice <= 0.0) {
                     $buyPrice = $buyFloors[$hub['hub_type'] ?? 'small'] ?? 31000.0;
                 }
- // Depozyt/kaucja tylko dla wynajmu — dla innych typow zerujemy.
- // Deposit only for rental acquisition type — zero out for new/used.
+ // Deposit applies only to rental acquisition type.
                 $acqTypeHub = (string)($hub['acquisition_type'] ?? 'new');
                 if ($acqTypeHub === 'rental' && $leaseFee <= 0.0) {
                     static $leaseFloors = ['small' => 200.0, 'medium' => 600.0, 'large' => 1600.0];
@@ -340,11 +330,7 @@ trait HubViewHubsTrait
     }
 
  /**
- * Bramka zezwolenia na prace lokalne (per region) — widok rynku hubow.
- * Local works permit gate (per region) — hub market view.
- * TRUE gdy zezwolenie nie jest wymagane (hub_permit_enabled=0 lub brak rekordu)
- * LUB gracz ma status 'granted'. Fail-closed: kazdy blad bazy zwraca FALSE,
- * czyli ukrywa huby (spojnie z bramkami zakupu/przypisania/rurociagu).
+ * Returns whether local works are allowed in a region.
  */
     private function hasLocalPermitOrNotRequired(int $playerId, int $regionId): bool
     {
@@ -366,8 +352,7 @@ trait HubViewHubsTrait
             $permStmt->execute([$playerId, $regionId]);
             return (bool)$permStmt->fetchColumn();
         } catch (Throwable $e) {
- // Brak tabeli/kolumny modulu prawnego = system zezwolen niezainstalowany -> nie wymagamy.
- // Missing legal-module table/column = permit system not installed -> not required.
+ // Missing legal-module table/column means the permit system is not installed.
             $msg = $e->getMessage();
             if (stripos($msg, 'no such table') !== false
                 || stripos($msg, 'no such column') !== false
@@ -377,7 +362,7 @@ trait HubViewHubsTrait
                 || stripos($msg, '42S22') !== false) {
                 return true;
             }
-            GameLog::warn('HubViewService', 'Local permit gate failed — hiding market (fail-closed)', [
+            GameLog::warn('HubViewService', 'Local permit gate failed', [
                 'player_id' => $playerId, 'region_id' => $regionId, 'error' => $e->getMessage(),
             ]);
             return false;

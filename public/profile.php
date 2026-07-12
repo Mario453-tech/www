@@ -7,8 +7,11 @@ $playerId = Auth::getUserId();
 $db = Database::getInstance()->getConnection();
 GameLog::info('profile.php', 'Zaladowano profil', ['player_id' => $playerId]);
 
-$errors = [];
-$success = [];
+$flash = $_SESSION['profile_flash'] ?? [];
+unset($_SESSION['profile_flash']);
+
+$errors = array_values(array_filter((array)($flash['errors'] ?? []), 'is_string'));
+$success = array_values(array_filter((array)($flash['success'] ?? []), 'is_string'));
 $csrfToken = CSRF::generateToken();
 
 $avatarDir = __DIR__ . '/../assets/img/avatars/';
@@ -283,6 +286,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
         }
     }
+
+    if (!$isAjaxAvatarUpload) {
+        $_SESSION['profile_flash'] = ['errors' => $errors, 'success' => $success];
+        header('Location: ' . (function_exists('url') ? url('profile') : '/profile'));
+        exit;
+    }
 }
 
 $stmt = $db->prepare("
@@ -316,7 +325,7 @@ try {
 } catch (Throwable $e) {
 }
 
-// Wiarygodnosc firmy / Company credibility
+// Company credibility.
 $credibilityScore = CompanyCredibilityService::DEFAULT_SCORE;
 $credibilityLevel = 'shaky';
 try {

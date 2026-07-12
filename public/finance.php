@@ -24,37 +24,44 @@ if (!in_array($tab, ['overview', 'budgets', 'liquidity', 'risk', 'policy', 'hist
     $tab = 'overview';
 }
 
-$msg = '';
-$err = '';
+$flash = $_SESSION['finance_flash'] ?? [];
+unset($_SESSION['finance_flash']);
+
+$msg = (string)($flash['msg'] ?? '');
+$err = (string)($flash['err'] ?? '');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-        die(t('common.csrf_error'));
+        $err = t('common.csrf_error');
+    } else {
+        $action = (string)($_POST['action'] ?? '');
+        if ($action === 'save_finance_settings') {
+            $policySvc->saveSettings($playerId, [
+                'technical_budget' => (string)($_POST['technical_budget'] ?? 'standard'),
+                'logistics_budget' => (string)($_POST['logistics_budget'] ?? 'standard'),
+                'hr_budget' => (string)($_POST['hr_budget'] ?? 'standard'),
+                'safety_budget' => (string)($_POST['safety_budget'] ?? 'standard'),
+            ]);
+            $msg = t('finance.msg_settings_saved');
+            $tab = 'budgets';
+        } elseif ($action === 'save_finance_policy') {
+            $result = $policySvc->savePolicySettings($playerId, [
+                'savings_plan_mode' => (string)($_POST['savings_plan_mode'] ?? 'off'),
+                'reserve_policy' => (string)($_POST['reserve_policy'] ?? 'standard'),
+            ]);
+            if (!empty($result['ok'])) {
+                $msg = t('finance.msg_policy_saved');
+            } elseif (($result['error'] ?? '') === 'cooldown') {
+                $err = t('finance.err_savings_cooldown');
+            } else {
+                $err = t('finance.err_policy_save');
+            }
+            $tab = 'policy';
+        }
     }
 
-    $action = (string)($_POST['action'] ?? '');
-    if ($action === 'save_finance_settings') {
-        $policySvc->saveSettings($playerId, [
-            'technical_budget' => (string)($_POST['technical_budget'] ?? 'standard'),
-            'logistics_budget' => (string)($_POST['logistics_budget'] ?? 'standard'),
-            'hr_budget' => (string)($_POST['hr_budget'] ?? 'standard'),
-            'safety_budget' => (string)($_POST['safety_budget'] ?? 'standard'),
-        ]);
-        $msg = t('finance.msg_settings_saved');
-        $tab = 'budgets';
-    } elseif ($action === 'save_finance_policy') {
-        $result = $policySvc->savePolicySettings($playerId, [
-            'savings_plan_mode' => (string)($_POST['savings_plan_mode'] ?? 'off'),
-            'reserve_policy' => (string)($_POST['reserve_policy'] ?? 'standard'),
-        ]);
-        if (!empty($result['ok'])) {
-            $msg = t('finance.msg_policy_saved');
-        } elseif (($result['error'] ?? '') === 'cooldown') {
-            $err = t('finance.err_savings_cooldown');
-        } else {
-            $err = t('finance.err_policy_save');
-        }
-        $tab = 'policy';
-    }
+    $_SESSION['finance_flash'] = ['msg' => $msg, 'err' => $err];
+    header('Location: ' . (function_exists('url') ? url('finance') : '/finance') . '?tab=' . rawurlencode($tab) . '&hours=' . (int)$hours);
+    exit;
 }
 
 $last      = $finSvc->getLastTick($playerId);
