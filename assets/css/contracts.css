@@ -1,7 +1,5 @@
-/*
- * contracts.css – Kontrakty dlugoterminowe · OilCorp Design System
- * Ostatnia aktualizacja: 2026-07-08
- * Redeploy 2026-07-08: wymuszenie wgrania (style kart B2B z commita d34b425).
+/* Contracts page.
+ * OilCorp design system.
  */
 
 .contracts-page .contracts-empty {
@@ -58,7 +56,7 @@
     line-height: 1.45;
 }
 
-/* ── SIATKA KART ─────────────────────────────────────────────────────────── */
+/* Card grid */
 .contracts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -66,7 +64,7 @@
     margin-top: 16px;
 }
 
-/* ── KARTA ───────────────────────────────────────────────────────────────── */
+/* Card */
 .contracts-card {
     display: flex;
     flex-direction: column;
@@ -115,7 +113,7 @@
     opacity: 1;
 }
 
-/* ── NAGŁÓWEK KARTY ─────────────────────────────────────────────────────── */
+/* Card header */
 .contracts-card__head {
     display: flex;
     align-items: flex-start;
@@ -139,7 +137,7 @@
     line-height: 1.5;
 }
 
-/* ── BADGE ──────────────────────────────────────────────────────────────── */
+/* Badge */
 .contracts-badge {
     display: inline-flex;
     align-items: center;
@@ -162,7 +160,7 @@
 .contracts-badge--partial { background: rgba(240, 160, 80, .12);  color: var(--orange); border: 1px solid rgba(240, 160, 80, .35); }
 .contracts-badge--missed  { background: var(--red-dim);          color: var(--red);    border: 1px solid rgba(224, 85, 85, .35); }
 
-/* ── TERMINY (siatka parametrów) ────────────────────────────────────────── */
+/* Terms grid */
 .contracts-terms {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -173,7 +171,7 @@
     overflow: hidden;
 }
 
-/* Każdy term: label nad wartością (flex column) */
+/* Term layout */
 .contracts-term {
     display: flex;
     flex-direction: column;
@@ -187,12 +185,12 @@
     border-bottom: none;
 }
 
-/* prawa kolumna — subtelna separator */
+/* Right column separator */
 .contracts-term:nth-child(even) {
     border-left: 1px solid rgba(255, 255, 255, .04);
 }
 
-/* LABEL — mały, uppercase, szary */
+/* Label */
 .ct-label {
     font-size: 10px;
     font-weight: 700;
@@ -203,7 +201,7 @@
     display: block;
 }
 
-/* WARTOŚĆ — duża, biała */
+/* Value */
 .ct-val {
     font-size: 13px;
     font-weight: 700;
@@ -217,7 +215,7 @@
 .ct-val--bonus   { color: var(--green); }
 .ct-val--penalty { color: var(--red); }
 
-/* ── PASEK POSTĘPU ──────────────────────────────────────────────────────── */
+/* Progress bar */
 .contracts-progress {
     height: 6px;
     border-radius: 3px;
@@ -234,12 +232,12 @@
     box-shadow: 0 0 8px var(--gold-glow);
 }
 
-/* ── AKCJE ──────────────────────────────────────────────────────────────── */
+/* Actions */
 .contracts-action-form {
     margin: 0;
 }
 
-/* ── BLOKADA ────────────────────────────────────────────────────────────── */
+/* Lock state */
 .contracts-lock {
     font-size: 12px;
     font-weight: 600;
@@ -250,7 +248,30 @@
     border: 1px dashed rgba(230, 180, 60, .3);
 }
 
-/* ── LISTA DOSTAW + LOGÓW ───────────────────────────────────────────────── */
+/* Deliveries and logs */
+.contracts-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.contracts-section-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--gold);
+    background: rgba(200, 168, 75, .08);
+    font-size: 12px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
 .contracts-list {
     display: flex;
     flex-direction: column;
@@ -378,7 +399,30 @@
     grid-template-columns: 180px 1fr;
 }
 
-/* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
+.contracts-details {
+    margin: 0;
+}
+
+.contracts-details__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.contracts-details__summary::marker {
+    color: var(--gold);
+}
+
+.contracts-details .contracts-list {
+    margin-top: 16px;
+}
+
+/* Responsive */
 @media (max-width: 900px) {
     .contracts-grid {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

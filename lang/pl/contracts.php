@@ -112,6 +112,9 @@ return [
     'contracts.prev_page' => 'Poprzednia',
     'contracts.next_page' => 'Następna',
     'contracts.page_x_of_y' => 'Strona :page z :pages',
+    'contracts.show_all' => 'Pokaż wszystkie',
+    'contracts.show_less' => 'Pokaż mniej',
+    'contracts.showing_all' => 'Pokazano wszystkie: :count',
 
     'contracts.b2b.disabled' => 'Rynek B2B jest teraz wyłączony.',
     'contracts.b2b.module_disabled_notice' => 'Rynek B2B jest teraz wyłączony przez administrację.',

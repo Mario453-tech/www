@@ -1,6 +1,5 @@
 <?php
 /**
- * Widok gracza modulu kontraktow dlugoterminowych.
  * Player view for the long-term contracts module.
  *
  * @var bool $moduleEnabled
@@ -9,7 +8,13 @@
  * @var array<int,array<string,mixed>> $available
  * @var array<int,array<string,mixed>> $active
  * @var array<int,array<string,mixed>> $deliveries
+ * @var int $deliveriesCount
+ * @var int $deliveryHistoryPage
+ * @var bool $deliveryHistoryAll
  * @var array<int,array<string,mixed>> $logs
+ * @var int $logsCount
+ * @var int $contractLogsPage
+ * @var bool $contractLogsAll
  * @var float $marketPrice
  * @var string $error
  * @var string $success
@@ -62,6 +67,40 @@ $depositStatusLabel = static function (string $status): string {
     $label = tPlain($langKey);
     return $label !== $langKey ? $label : $status;
 };
+$contractsBaseUrl = function_exists('url') ? url('contracts') : '/contracts';
+$systemPageLink = static function (array $params) use ($contractsBaseUrl): string {
+    return $contractsBaseUrl . '?' . http_build_query(array_merge(['tab' => 'system'], $params));
+};
+$systemPager = static function (
+    string $pageParam,
+    string $allParam,
+    int $page,
+    int $count,
+    bool $showAll
+) use ($systemPageLink): void {
+    $limit = 5;
+    if ($count <= $limit && !$showAll) {
+        return;
+    }
+    $maxPage = max(1, (int)ceil($count / $limit));
+    ?>
+    <nav class="contracts-pager contracts-pager--system" aria-label="<?= htmlspecialchars(strip_tags(t('contracts.pagination'))) ?>">
+        <?php if (!$showAll): ?>
+            <?php if ($page > 1): ?>
+            <a class="btn btn-secondary" href="<?= htmlspecialchars($systemPageLink([$pageParam => $page - 1]), ENT_QUOTES, 'UTF-8') ?>"><?= t('contracts.prev_page') ?></a>
+            <?php endif ?>
+            <span><?= t('contracts.page_x_of_y', ['page' => min($page, $maxPage), 'pages' => $maxPage]) ?></span>
+            <?php if ($page < $maxPage): ?>
+            <a class="btn btn-secondary" href="<?= htmlspecialchars($systemPageLink([$pageParam => $page + 1]), ENT_QUOTES, 'UTF-8') ?>"><?= t('contracts.next_page') ?></a>
+            <?php endif ?>
+            <a class="btn btn-secondary" href="<?= htmlspecialchars($systemPageLink([$allParam => 1]), ENT_QUOTES, 'UTF-8') ?>"><?= t('contracts.show_all') ?></a>
+        <?php else: ?>
+            <span><?= t('contracts.showing_all', ['count' => min($count, 1000)]) ?></span>
+            <a class="btn btn-secondary" href="<?= htmlspecialchars($systemPageLink([$pageParam => 1]), ENT_QUOTES, 'UTF-8') ?>"><?= t('contracts.show_less') ?></a>
+        <?php endif ?>
+    </nav>
+    <?php
+};
 ?>
 
 <div class="fade-in contracts-page">
@@ -105,7 +144,7 @@ $depositStatusLabel = static function (string $status): string {
 
 <?php if ($contractsTab === 'system'): ?>
 
-<!-- == DOSTEPNE KONTRAKTY == -->
+<!-- Available contracts. -->
 <section class="card">
     <h3><?= t('contracts.section_available') ?></h3>
     <?php if (empty($available)): ?>
@@ -202,7 +241,7 @@ $depositStatusLabel = static function (string $status): string {
     <?php endif ?>
 </section>
 
-<!-- == AKTYWNE KONTRAKTY == -->
+<!-- Active contracts. -->
 <section class="card">
     <h3><?= t('contracts.section_active') ?></h3>
     <?php if (empty($active)): ?>
@@ -271,9 +310,12 @@ $depositStatusLabel = static function (string $status): string {
     <?php endif ?>
 </section>
 
-<!-- == HISTORIA DOSTAW == -->
+<!-- Delivery history. -->
 <section class="card">
-    <h3><?= t('contracts.section_deliveries') ?></h3>
+    <div class="contracts-section-head">
+        <h3><?= t('contracts.section_deliveries') ?></h3>
+        <span class="contracts-section-count"><?= (int)$deliveriesCount ?></span>
+    </div>
     <?php if (empty($deliveries)): ?>
     <p class="contracts-empty"><?= t('contracts.none_deliveries') ?></p>
     <?php else: ?>
@@ -301,12 +343,17 @@ $depositStatusLabel = static function (string $status): string {
         </div>
         <?php endforeach ?>
     </div>
+    <?php $systemPager('delivery_history_page', 'delivery_history_all', (int)$deliveryHistoryPage, (int)$deliveriesCount, (bool)$deliveryHistoryAll); ?>
     <?php endif ?>
 </section>
 
-<!-- == LOGI KONTRAKTOW == -->
-<section class="card">
-    <h3><?= t('contracts.section_logs') ?></h3>
+<!-- Contract logs. -->
+<section class="card contracts-collapsible-card">
+    <details class="contracts-details">
+        <summary class="contracts-details__summary">
+            <span><?= t('contracts.section_logs') ?></span>
+            <span class="contracts-section-count"><?= (int)$logsCount ?></span>
+        </summary>
     <?php if (empty($logs)): ?>
     <p class="contracts-empty"><?= t('contracts.none_logs') ?></p>
     <?php else: ?>
@@ -318,7 +365,9 @@ $depositStatusLabel = static function (string $status): string {
         </div>
         <?php endforeach ?>
     </div>
+    <?php $systemPager('contract_logs_page', 'contract_logs_all', (int)$contractLogsPage, (int)$logsCount, (bool)$contractLogsAll); ?>
     <?php endif ?>
+    </details>
 </section>
 
 <?php else: ?>

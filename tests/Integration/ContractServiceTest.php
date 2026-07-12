@@ -96,6 +96,60 @@ final class ContractServiceTest extends SqliteIntegrationTestCase
         $this->assertFalse($this->service->isModuleEnabled());
     }
 
+    public function testDeliveryAndLogListsSupportPagination(): void
+    {
+        for ($i = 1; $i <= 7; $i++) {
+            $createdAt = sprintf('2026-07-12 10:%02d:00', $i);
+            $this->db->prepare(
+                "INSERT INTO contract_deliveries
+                    (player_contract_id, player_id, due_at, required_bbl, delivered_bbl, missed_bbl, price_per_bbl, revenue, penalty, status, created_at)
+                 VALUES (1, 1, ?, 10, ?, 0, 100, 1000, 0, 'delivered', ?)"
+            )->execute([$createdAt, $i, $createdAt]);
+            $this->db->prepare(
+                "INSERT INTO contract_logs
+                    (player_contract_id, player_id, target_type, target_id, context, event_key, message, created_at)
+                 VALUES (1, 1, 'storage', NULL, 'storage_delivery', ?, 'test', ?)"
+            )->execute(['event_' . $i, $createdAt]);
+        }
+
+        $this->assertSame(7, $this->service->countDeliveries(1));
+        $this->assertSame(7, $this->service->countLogs(1));
+
+        $firstDeliveryPage = $this->service->listDeliveries(1, 5, 0);
+        $secondDeliveryPage = $this->service->listDeliveries(1, 5, 5);
+        $firstLogPage = $this->service->listLogs(1, 5, 0);
+        $secondLogPage = $this->service->listLogs(1, 5, 5);
+
+        $this->assertCount(5, $firstDeliveryPage);
+        $this->assertCount(2, $secondDeliveryPage);
+        $this->assertSame(7.0, (float)$firstDeliveryPage[0]['delivered_bbl']);
+        $this->assertSame(2.0, (float)$secondDeliveryPage[0]['delivered_bbl']);
+        $this->assertCount(5, $firstLogPage);
+        $this->assertCount(2, $secondLogPage);
+        $this->assertSame('event_7', $firstLogPage[0]['event_key']);
+        $this->assertSame('event_2', $secondLogPage[0]['event_key']);
+    }
+
+    public function testCleanupRemovesContractHistoryOlderThanTwoDays(): void
+    {
+        foreach (['2020-01-01 00:00:00', date('Y-m-d H:i:s')] as $idx => $createdAt) {
+            $this->db->prepare(
+                "INSERT INTO contract_deliveries
+                    (player_contract_id, player_id, due_at, required_bbl, delivered_bbl, missed_bbl, price_per_bbl, revenue, penalty, status, created_at)
+                 VALUES (1, 1, ?, 10, 10, 0, 100, 1000, 0, 'delivered', ?)"
+            )->execute([$createdAt, $createdAt]);
+            $this->db->prepare(
+                "INSERT INTO contract_logs
+                    (player_contract_id, player_id, target_type, target_id, context, event_key, message, created_at)
+                 VALUES (1, 1, 'storage', NULL, 'storage_delivery', ?, 'test', ?)"
+            )->execute(['cleanup_' . $idx, $createdAt]);
+        }
+
+        $this->assertSame(2, $this->service->cleanupHistoryOlderThanDays(2));
+        $this->assertSame(1, $this->service->countDeliveries(1));
+        $this->assertSame(1, $this->service->countLogs(1));
+    }
+
     public function testAvailableOptionsContainTermsAndRequirementFlags(): void
     {
         $this->service->setModuleEnabled(true);

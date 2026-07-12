@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 /**
  * Query and helper methods for ContractService.
- * Metody zapytan i helpery dla ContractService.
  */
 trait ContractQueryTrait
 {
@@ -17,21 +16,54 @@ trait ContractQueryTrait
     }
 
     /** @return list<array<string,mixed>> */
-    public function listDeliveries(int $playerId, int $limit = 50): array
+    public function listDeliveries(int $playerId, int $limit = 50, int $offset = 0): array
     {
         return $this->fetchList(
-            "SELECT * FROM contract_deliveries WHERE player_id = ? ORDER BY created_at DESC, id DESC LIMIT " . $this->limit($limit),
+            "SELECT * FROM contract_deliveries WHERE player_id = ? ORDER BY created_at DESC, id DESC LIMIT "
+                . $this->limit($limit) . " OFFSET " . $this->offset($offset),
             [$playerId]
         );
     }
 
+    public function countDeliveries(int $playerId): int
+    {
+        return $this->fetchCount("SELECT COUNT(*) FROM contract_deliveries WHERE player_id = ?", [$playerId]);
+    }
+
     /** @return list<array<string,mixed>> */
-    public function listLogs(int $playerId, int $limit = 50): array
+    public function listLogs(int $playerId, int $limit = 50, int $offset = 0): array
     {
         return $this->fetchList(
-            "SELECT * FROM contract_logs WHERE player_id = ? ORDER BY created_at DESC, id DESC LIMIT " . $this->limit($limit),
+            "SELECT * FROM contract_logs WHERE player_id = ? ORDER BY created_at DESC, id DESC LIMIT "
+                . $this->limit($limit) . " OFFSET " . $this->offset($offset),
             [$playerId]
         );
+    }
+
+    public function countLogs(int $playerId): int
+    {
+        return $this->fetchCount("SELECT COUNT(*) FROM contract_logs WHERE player_id = ?", [$playerId]);
+    }
+
+    public function cleanupHistoryOlderThanDays(int $days = 2): int
+    {
+        $days = max(1, min(30, $days));
+        $cutoff = date('Y-m-d H:i:s', time() - ($days * 86400));
+        $deleted = 0;
+
+        foreach (['contract_deliveries', 'contract_logs'] as $table) {
+            try {
+                $stmt = $this->db->prepare("DELETE FROM {$table} WHERE created_at < ?");
+                $stmt->execute([$cutoff]);
+                $deleted += $stmt->rowCount();
+            } catch (Throwable $e) {
+                if (class_exists('GameLog', false)) {
+                    GameLog::error('ContractService', 'cleanupHistoryOlderThanDays FAILED', $e, ['table' => $table]);
+                }
+            }
+        }
+
+        return $deleted;
     }
 
     private function ensureConfig(): void
@@ -224,6 +256,21 @@ trait ContractQueryTrait
         }
     }
 
+    /** @param list<mixed> $params */
+    private function fetchCount(string $sql, array $params): int
+    {
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            return (int)$stmt->fetchColumn();
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('ContractService', 'fetchCount FAILED', $e);
+            }
+            return 0;
+        }
+    }
+
     /** @return array{success:bool,status:string,message_key:string} */
     private function result(bool $success, string $status): array
     {
@@ -257,7 +304,12 @@ trait ContractQueryTrait
 
     private function limit(int $limit): int
     {
-        return max(1, min(200, $limit));
+        return max(1, min(1000, $limit));
+    }
+
+    private function offset(int $offset): int
+    {
+        return max(0, $offset);
     }
 
     /**

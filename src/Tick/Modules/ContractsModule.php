@@ -6,7 +6,6 @@ require_once dirname(__DIR__) . '/TickContext.php';
 require_once dirname(__DIR__, 2) . '/ContractService.php';
 
 /**
- * ContractsModule - rozliczanie dostaw kontraktow dlugoterminowych w ramach ticka.
  * ContractsModule - settles long-term contract deliveries as part of the tick cycle.
  */
 final class ContractsModule implements TickModule
@@ -14,6 +13,7 @@ final class ContractsModule implements TickModule
     private int $processed   = 0;
     private int $completed   = 0;
     private int $failed      = 0;
+    private int $cleanupDeleted = 0;
     private float $revenue   = 0.0;
     private float $penalties = 0.0;
     /** @var list<int> */
@@ -38,6 +38,7 @@ final class ContractsModule implements TickModule
     {
         $service = new ContractService($ctx->db);
         $result  = $service->processDueContracts($ctx->newPrice);
+        $this->cleanupDeleted = $service->cleanupHistoryOlderThanDays(2);
 
         $this->processed  = (int)($result['processed']  ?? 0);
         $this->completed  = (int)($result['completed']  ?? 0);
@@ -61,6 +62,7 @@ final class ContractsModule implements TickModule
             'processed'  => $this->processed,
             'completed'  => $this->completed,
             'failed'     => $this->failed,
+            'cleanup_deleted' => $this->cleanupDeleted,
             'revenue'    => $this->revenue,
             'penalties'  => $this->penalties,
             'players'    => $this->players,

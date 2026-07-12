@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-07-12 - Kontrakty: historia dostaw i zwijane logi
+
+- Historia dostaw kontraktów systemowych pokazuje domyślnie 5 najnowszych dostaw, ma paginację oraz przełącznik `Pokaż wszystkie` / `Pokaż mniej`.
+- Logi kontraktów systemowych są teraz w zwijanym panelu, również z limitem 5 wpisów, paginacją i opcją pokazania wszystkich.
+- Tick kontraktów czyści automatycznie `contract_deliveries` i `contract_logs` starsze niż 2 dni, żeby historia nie rosła bez końca.
+- Dodano testy paginacji historii/logów oraz test retencji danych kontraktowych.
+
 ### 2026-07-12 - Porządkowanie rootowych wejść gracza
 
 - Strony gracza zostały przeniesione z głównego katalogu do `public/`: `dashboard.php`, `dm.php`, `hr.php`, `technical.php`, `boardroom.php`, `boardroom_status.php` i `profile.php`.

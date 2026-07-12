@@ -203,5 +203,12 @@ return [
     'contracts.b2b.log_detail.admin_unflagged' => 'Manual review was completed and the flag was removed.',
     'contracts.b2b.log_detail.expired' => 'The order expired without fulfilment. Buyer recovered :refund.',
     'contracts.b2b.log_detail.default' => 'A change was recorded for offer #:offer.',
+    'contracts.pagination' => 'Pagination',
+    'contracts.prev_page' => 'Previous',
+    'contracts.next_page' => 'Next',
+    'contracts.page_x_of_y' => 'Page :page of :pages',
+    'contracts.show_all' => 'Show all',
+    'contracts.show_less' => 'Show less',
+    'contracts.showing_all' => 'Showing all: :count',
     'contracts.btn_back' => 'Back to dashboard',
 ];

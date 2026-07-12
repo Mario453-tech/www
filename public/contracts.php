@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// Redeploy 2026-07-08: wymuszenie wgrania (integracja reputacji B2B z commita d34b425).
 /**
  * contracts.php - strona gracza: kontrakty dlugoterminowe (podpisz / anuluj).
  * contracts.php - player page: long-term contracts (sign / cancel).
@@ -122,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// == DANE DLA WIDOKU / VIEW DATA ==
+// View data.
 
 $moduleEnabled = $service->isModuleEnabled();
 $b2bModuleEnabled = $b2bService->isModuleEnabled();
@@ -132,7 +131,6 @@ if (!in_array($contractsTab, $allowedTabs, true)) {
     $contractsTab = 'system';
 }
 
-// Aktualna cena ropy do szacowania przychodu z dostawy.
 // Current oil price for estimating delivery revenue.
 $marketPrice = 0.0;
 try {
@@ -145,11 +143,30 @@ try {
 $available  = $moduleEnabled
     ? $service->getAvailableOptions($playerId, ContractService::TARGET_STORAGE, ContractService::CONTEXT_STORAGE_DELIVERY, $marketPrice)
     : [];
-$active     = $service->listActiveContracts($playerId);
-$deliveries = $service->listDeliveries($playerId, 50);
-$logs       = $service->listLogs($playerId, 50);
-
 $pageNum = static fn(string $key): int => max(1, (int)($_GET[$key] ?? 1));
+$systemLimit = 5;
+$systemShowAllLimit = 1000;
+$deliveryHistoryPage = $pageNum('delivery_history_page');
+$deliveryHistoryAll = (string)($_GET['delivery_history_all'] ?? '') === '1';
+$contractLogsPage = $pageNum('contract_logs_page');
+$contractLogsAll = (string)($_GET['contract_logs_all'] ?? '') === '1';
+
+$active = $service->listActiveContracts($playerId);
+$deliveriesCount = $service->countDeliveries($playerId);
+$logsCount = $service->countLogs($playerId);
+$deliveryHistoryPage = min($deliveryHistoryPage, max(1, (int)ceil($deliveriesCount / $systemLimit)));
+$contractLogsPage = min($contractLogsPage, max(1, (int)ceil($logsCount / $systemLimit)));
+$deliveries = $service->listDeliveries(
+    $playerId,
+    $deliveryHistoryAll ? max($systemLimit, min($deliveriesCount, $systemShowAllLimit)) : $systemLimit,
+    $deliveryHistoryAll ? 0 : (($deliveryHistoryPage - 1) * $systemLimit)
+);
+$logs = $service->listLogs(
+    $playerId,
+    $contractLogsAll ? max($systemLimit, min($logsCount, $systemShowAllLimit)) : $systemLimit,
+    $contractLogsAll ? 0 : (($contractLogsPage - 1) * $systemLimit)
+);
+
 $limit = 12;
 $logsLimit = 30;
 $b2bMarketPage = $pageNum('b2b_market_page');
@@ -179,7 +196,13 @@ $viewData = compact(
     'available',
     'active',
     'deliveries',
+    'deliveriesCount',
+    'deliveryHistoryPage',
+    'deliveryHistoryAll',
     'logs',
+    'logsCount',
+    'contractLogsPage',
+    'contractLogsAll',
     'marketPrice',
     'error',
     'success',
