@@ -194,13 +194,20 @@ class PlayersSection
 
  // 2. PETLA ODWIERTOW / Well loop
         $wellService = new WellService();
+        $pipelines = new PipelineSection($db, $now, $wellService);
+        try {
+            $pipelines->completeBuilds($playerId, $tsvc);
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'pipeline build completion FAILED', $e, ['player_id' => $playerId]);
+        }
         $wellLoop    = new WellLoopSection($db, $now, $this->oilPrice, $this->gBalanceMults, $wellService);
         $wellLoopStarted = microtime(true);
         $wellLoop->run(
             $playerId, $wells, $playerCash, $currentStorage, $storageCapacity,
             $deltaHours, $hseBonus, $staffCheck,
             $offline->offlineProdMult, $offline->offlineRiskMult,
-            $tsvc, $regionalSvc, $activeRegEvents
+            $tsvc, $regionalSvc, $activeRegEvents,
+            $pipelines->completedActiveHours()
         );
         $this->addSectionTiming('well_loop', (int)round((microtime(true) - $wellLoopStarted) * 1000));
 
@@ -216,15 +223,34 @@ class PlayersSection
         $sabotageSvc   = class_exists('SabotageService') ? new SabotageService($db) : null;
 
  // 3. RUROCIAGI / Pipelines
-        $pipelines = new PipelineSection($db, $now, $wellService);
         $pipelinesStarted = microtime(true);
         $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc, $protectionSvc);
         $this->addSectionTiming('pipelines', (int)round((microtime(true) - $pipelinesStarted) * 1000));
+        $wellLoop->markPipelinesUnavailable($pipelines->unavailablePipelineIds);
  // Floor na 0 jak pozostale odliczenia gotowki (DB i tak ma GREATEST(0,...)).
  // Floor at 0 like the other cash deductions (DB also applies GREATEST(0,...)).
         $wellLoop->totalCosts     += abs($pipelines->cashDelta);
         $playerCash               = max(0.0, $playerCash - abs($pipelines->cashDelta));
         $this->disastersTriggered += $pipelines->disastersTriggered;
+        $pipelineOilLost = min($currentStorage, max(0.0, $pipelines->oilLostBbl));
+        if ($pipelineOilLost > 0.001) {
+            $remainingAttributedLoss = $pipelineOilLost;
+            foreach ($pipelines->oilLostByHubBbl as $hubId => $hubLossBbl) {
+                if ($remainingAttributedLoss <= 0.001) {
+                    break;
+                }
+                $appliedToHub = min($remainingAttributedLoss, max(0.0, (float)$hubLossBbl));
+                $wellLoop->consumeHubInputForLoss((int)$hubId, $appliedToHub, $this->oilPrice);
+                $remainingAttributedLoss -= $appliedToHub;
+            }
+            $currentStorage = max(0.0, $currentStorage - $pipelineOilLost);
+            $wellLoop->finLossBbl += $pipelineOilLost;
+            $wellLoop->finLossValue += round($pipelineOilLost * $this->oilPrice, 2);
+            GameLog::info('tick', 'pipeline_explosion_storage_loss_applied', [
+                'player_id' => $playerId,
+                'lost_bbl' => round($pipelineOilLost, 4),
+            ]);
+        }
 
  // 3b. DOSTAWY MORSKIE aktualizacja statusow rejsow / Marine deliveries voyage status updates
         if (class_exists('MarineDeliverySection')) {

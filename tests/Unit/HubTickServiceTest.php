@@ -101,4 +101,162 @@ final class HubTickServiceTest extends BaseTestCase
         $this->assertSame('disabled', $result['new_status']);
         $this->assertSame(0.0, $result['wear_added']);
     }
+
+    public function testPlannedHubUsesFallbackFlow(): void
+    {
+        $hubSvc = $this->getMockBuilder(HubService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getFallbackConfig'])
+            ->getMock();
+        $hubSvc->method('getFallbackConfig')->willReturn([
+            'throughput_bph' => 10.0,
+            'opex_mult' => 2.0,
+        ]);
+
+        $service = new HubTickService($this->db, $hubSvc);
+        $result = $service->processTick([
+            'status' => 'planned',
+            'buffer_current_bbl' => 0.0,
+            'condition_pct' => 100.0,
+            'efficiency_pct' => 100.0,
+        ], 25.0, 1.0);
+
+        $this->assertSame(10.0, $result['processed_bbl']);
+        $this->assertSame(15.0, $result['lost_bbl']);
+        $this->assertSame('planned', $result['new_status']);
+        $this->assertSame(0.0, $result['wear_added']);
+    }
+
+    public function testProcessTickAppliesEmployeeHubThroughputBonus(): void
+    {
+        $hubSvc = $this->getMockBuilder(HubService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getWorkModeMultipliers', 'getAcquisitionDefaults', 'getHubTypeDefaults'])
+            ->getMock();
+
+        $hubSvc->method('getWorkModeMultipliers')
+            ->willReturn([
+                'throughput_mult' => 0.8,
+                'wear_mult' => 1.0,
+                'efficiency_mod' => 0.0,
+                'risk_mult' => 1.0,
+            ]);
+        $hubSvc->method('getAcquisitionDefaults')
+            ->willReturn([
+                'wear_mult' => 1.0,
+                'risk_mult' => 1.0,
+            ]);
+        $hubSvc->method('getHubTypeDefaults')
+            ->willReturn([
+                'wear_per_tick' => 0.04,
+                'overload_wear_mult' => 2.8,
+                'overload_risk_mult' => 2.2,
+            ]);
+
+        $service = new HubTickService($this->db, $hubSvc);
+        $hub = [
+            'status' => 'active',
+            'work_mode' => 'standard',
+            'acquisition_type' => 'new',
+            'condition_pct' => 100.0,
+            'efficiency_pct' => 100.0,
+            'nominal_capacity_bph' => 100.0,
+            'buffer_capacity_bbl' => 100.0,
+            'buffer_current_bbl' => 0.0,
+            'hub_type' => 'medium',
+            'level' => 1,
+            'last_maintenance_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $withoutBonus = $service->processTick($hub, 110.0, 1.0);
+        $withBonus = $service->processTick($hub, 110.0, 1.0, [], ['hub_throughput_pct' => 20.0]);
+
+        $this->assertSame(80.0, $withoutBonus['processed_bbl']);
+        $this->assertSame(30.0, $withoutBonus['buffered_bbl']);
+        $this->assertSame(96.0, $withBonus['processed_bbl']);
+        $this->assertSame(14.0, $withBonus['buffered_bbl']);
+        $this->assertSame(0.96, $withBonus['throughput_multiplier']);
+    }
+
+    public function testNegativeWorkModeMultiplierCannotCreateNegativeCapacity(): void
+    {
+        $hubSvc = $this->getMockBuilder(HubService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getWorkModeMultipliers', 'getAcquisitionDefaults', 'getHubTypeDefaults'])
+            ->getMock();
+        $hubSvc->method('getWorkModeMultipliers')->willReturn([
+            'throughput_mult' => -2.0,
+            'wear_mult' => 1.0,
+            'efficiency_mod' => 0.0,
+            'risk_mult' => 1.0,
+        ]);
+        $hubSvc->method('getAcquisitionDefaults')->willReturn(['wear_mult' => 1.0, 'risk_mult' => 1.0]);
+        $hubSvc->method('getHubTypeDefaults')->willReturn([
+            'wear_per_tick' => 0.04,
+            'overload_wear_mult' => 2.8,
+            'overload_risk_mult' => 2.2,
+        ]);
+
+        $service = new HubTickService($this->db, $hubSvc);
+        $result = $service->processTick([
+            'status' => 'active',
+            'work_mode' => 'standard',
+            'acquisition_type' => 'new',
+            'condition_pct' => 100.0,
+            'efficiency_pct' => 100.0,
+            'nominal_capacity_bph' => 100.0,
+            'buffer_capacity_bbl' => 100.0,
+            'buffer_current_bbl' => 0.0,
+            'hub_type' => 'medium',
+            'level' => 1,
+            'last_maintenance_at' => date('Y-m-d H:i:s'),
+        ], 25.0, 1.0);
+
+        $this->assertSame(0.05, $result['throughput_multiplier']);
+        $this->assertSame(5.0, $result['processed_bbl']);
+        $this->assertGreaterThanOrEqual(0.0, $result['processed_bbl']);
+    }
+
+    public function testOilDrainedFromBufferStillReceivesConditionLoss(): void
+    {
+        $hubSvc = $this->getMockBuilder(HubService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getWorkModeMultipliers', 'getAcquisitionDefaults', 'getHubTypeDefaults'])
+            ->getMock();
+        $hubSvc->method('getWorkModeMultipliers')->willReturn([
+            'throughput_mult' => 1.0,
+            'wear_mult' => 1.0,
+            'efficiency_mod' => 0.0,
+            'risk_mult' => 1.0,
+        ]);
+        $hubSvc->method('getAcquisitionDefaults')->willReturn(['wear_mult' => 1.0, 'risk_mult' => 1.0]);
+        $hubSvc->method('getHubTypeDefaults')->willReturn([
+            'wear_per_tick' => 0.04,
+            'overload_wear_mult' => 2.8,
+            'overload_risk_mult' => 2.2,
+        ]);
+
+        $service = new HubTickService($this->db, $hubSvc);
+        $result = $service->processTick([
+            'status' => 'active',
+            'work_mode' => 'standard',
+            'acquisition_type' => 'new',
+            'condition_pct' => 50.0,
+            'efficiency_pct' => 50.0,
+            'nominal_capacity_bph' => 100.0,
+            'buffer_capacity_bbl' => 100.0,
+            'buffer_current_bbl' => 50.0,
+            'hub_type' => 'medium',
+            'level' => 1,
+            'last_maintenance_at' => date('Y-m-d H:i:s'),
+        ], 0.0, 1.0);
+
+        $this->assertSame(50.0, $result['drained_buffer_bbl']);
+        $this->assertGreaterThan(0.0, $result['condition_lost_bbl']);
+        $this->assertEqualsWithDelta(
+            50.0,
+            $result['processed_bbl'] + $result['condition_lost_bbl'],
+            0.001
+        );
+    }
 }

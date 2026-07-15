@@ -46,11 +46,14 @@ class HubTickService
  * @param array<string, mixed> $hub Full hub row from logistics_hubs
  * @param float $inputBbl Total oil volume arriving at hub this tick
  * @param float $deltaHours Tick duration in hours
+ * @param array<string, mixed> $hseBonus
+ * @param array<string, float> $runtimeEffects
  * @return array{
  * processed_bbl: float,
  * buffered_bbl: float,
  * drained_buffer_bbl: float,
  * lost_bbl: float,
+ * overflow_lost_bbl: float,
  * condition_lost_bbl: float,
  * input_bbl: float,
  * load_pct: float,
@@ -60,24 +63,34 @@ class HubTickService
  * new_condition: float,
  * new_efficiency: float,
  * new_status: string,
- * incident_flag: bool
+ * incident_flag: bool,
+ * throughput_multiplier?: float
  * }
  */
-    public function processTick(array $hub, float $inputBbl, float $deltaHours, array $hseBonus = []): array
+    public function processTick(array $hub, float $inputBbl, float $deltaHours, array $hseBonus = [], array $runtimeEffects = []): array
     {
-        if (in_array($hub['status'], ['disabled', 'building', 'paused', 'maintenance'], true)) {
+        if (in_array($hub['status'], ['planned', 'disabled', 'building', 'paused', 'maintenance'], true)) {
             return $this->buildEmptyResult($hub, $inputBbl, $deltaHours);
         }
 
- // Apply work mode multipliers
+ // Apply work mode and runtime throughput multipliers.
+ // Stosuje mnozniki trybu pracy i chwilowej przepustowosci.
         $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
-        $throughputMult  = $modeMultipliers['throughput_mult'] ?? 1.0;
+        $throughputMult = min(10.0, max(0.05, (float)($modeMultipliers['throughput_mult'] ?? 1.0)));
         $wearMult        = $modeMultipliers['wear_mult']       ?? 1.0;
         $efficiencyMod   = $modeMultipliers['efficiency_mod']  ?? 0.0;
+        $hubThroughputPct = (float)($runtimeEffects['hub_throughput_pct'] ?? 0.0);
+        if ($hubThroughputPct !== 0.0) {
+            $throughputMult = min(10.0, max(
+                0.05,
+                $throughputMult * max(0.05, 1.0 + ($hubThroughputPct / 100.0))
+            ));
+        }
         $acqDefaults     = $this->hubSvc->getAcquisitionDefaults((string)($hub['acquisition_type'] ?? 'new'));
         $lastMaintenanceAt = $hub['last_maintenance_at'] ?? null;
 
- // Effective capacity this tick progowe ograniczenia przepustowoci / threshold throughput limits
+ // Calculate effective capacity for this tick with condition thresholds.
+ // Oblicza efektywna przepustowosc ticka z progami stanu technicznego.
         $condPct         = (float)$hub['condition_pct'];
         $conditionFactor = $this->calcConditionFactor($condPct);
         $realCapBph      = (float)$hub['nominal_capacity_bph'] * $conditionFactor * $throughputMult;
@@ -95,6 +108,7 @@ class HubTickService
         $bufferSpace      = $bufferCap - $bufferCurrent;
         $buffered         = min($leftover, max(0.0, $bufferSpace));
         $lost             = $leftover - $buffered;
+        $overflowLostBbl  = $lost;
         $newBuffer        = $bufferCurrent + $buffered;
 
  // Also drain buffer if capacity is available
@@ -160,14 +174,9 @@ class HubTickService
 
  // Bezporednie straty z kondycji zy stan = nieszczelnoci, spadki cinienia
  // Direct condition losses poor state = leaks, pressure drops
- // Niezalene od przepustowoci; dotycz wolumenu faktycznie przetworzonego
- // Independent of throughput; apply to the actually processed volume
- // Straty kondycji liczone tylko od nowej ropy (nie z bufora), bo ropa z bufora
- // juz przeszla przez hub w poprzednim ticku i straty byy juz wtedy naliczone.
- // Condition loss applied only to new input (not buffer drain) — buffer oil
- // already absorbed condition losses when it was originally processed.
-        $newInputForLoss = $processed - $fromBuffer;
-        $condLostBbl     = $this->calcConditionLoss($condPct, $newInputForLoss, $overloaded);
+ // Condition loss applies to every barrel processed now, including oil drained
+ // from the buffer. Buffered oil was waiting and has not crossed the hub before.
+        $condLostBbl = $this->calcConditionLoss($condPct, $processed, $overloaded);
 
  // Straty z kondycji odejmowane od przetworzonego wolumenu / condition losses deducted from processed volume
         $processed   = max(0.0, $processed - $condLostBbl);
@@ -184,21 +193,15 @@ class HubTickService
  // Status logic
         $newStatus = $this->deriveStatus($hub['status'], $newCondition, $overloaded);
 
- // Incident risk (rough heuristic)
+ // Incident flag is written by HubIncidentService after a real incident is generated.
         $incidentFlag = false;
-        if ($overloaded || $newCondition < 40.0) {
-            $riskMult    = $modeMultipliers['risk_mult'] ?? 1.0;
-            $overRiskMul = $typeConfig['overload_risk_mult'] ?? 2.2;
-            $incidentBase = 0.01 * $riskMult * ($overloaded ? $overRiskMul : 1.0)
- * (100.0 - $newCondition) / 100.0;
-            $incidentFlag = (mt_rand(0, 9999) / 10000.0) < $incidentBase;
-        }
 
         return [
             'processed_bbl'      => round($processed, 2),
             'buffered_bbl'       => round($buffered, 2),
             'drained_buffer_bbl' => round($fromBuffer, 2),
             'lost_bbl'           => round($lost, 2),
+            'overflow_lost_bbl'  => round($overflowLostBbl, 2),
             'condition_lost_bbl' => round($condLostBbl, 2),
             'input_bbl'          => round($inputBbl, 2),
             'load_pct'           => $loadPct,
@@ -209,6 +212,7 @@ class HubTickService
             'new_efficiency'     => $newEfficiency,
             'new_status'         => $newStatus,
             'incident_flag'      => $incidentFlag,
+            'throughput_multiplier' => round((float)$throughputMult, 6),
         ];
     }
 

@@ -43,17 +43,19 @@ trait BankruptcyEventsTrait
                         $cStmt->execute([$this->playerId]);
                         $cash = (float)$cStmt->fetchColumn();
                         $penalty = (int)max(20000, min(90000, round($cash * 0.2)));
-                        $this->db->prepare("UPDATE players SET cash = GREATEST(0, cash - ?) WHERE id=?")->execute([$penalty, $this->playerId]);
-                        try {
-                            if (class_exists('FinancialTransactionService', false)) {
-                                (new FinancialTransactionService($this->db))->logTransaction(
-                                    $this->playerId, null, (float)$penalty,
-                                    FinancialTransactionService::TYPE_BANKRUPTCY_EVENT,
-                                    'Kara za przejecie przez konkurenta (bankructwo)'
-                                );
+                        $charged = min($cash, (float)$penalty);
+                        if ($charged >= FinancialTransactionService::MIN_AMOUNT) {
+                            $charge = (new FinancialTransactionService($this->db))->debit(
+                                $this->playerId,
+                                $charged,
+                                FinancialTransactionService::TYPE_BANKRUPTCY_PENALTY,
+                                'Kara za przejecie przez konkurenta (bankructwo)'
+                            );
+                            if (empty($charge['success'])) {
+                                throw new RuntimeException('competitor_buyout debit failed: ' . (string)($charge['error'] ?? 'unknown'));
                             }
-                        } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
-                        $note = t('bankruptcy.evt_competitor_buyout', ['amount' => number_format($penalty)]);
+                        }
+                        $note = t('bankruptcy.evt_competitor_buyout', ['amount' => number_format($charged)]);
                     } elseif ($type === 'investor_offer_40') {
                         $this->db->prepare("UPDATE players SET credit_score = GREATEST(0, credit_score - 20) WHERE id=?")->execute([$this->playerId]);
                         $note = t('bankruptcy.evt_investor_expired');

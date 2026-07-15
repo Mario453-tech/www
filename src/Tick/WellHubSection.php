@@ -83,14 +83,43 @@ class WellHubSection
             try {
                 $inputBbl = $this->ctx->hubInputAccum[$hubId] ?? 0.0;
 
-                $result = $this->hubTickSvc->processTick($hub, $inputBbl, $deltaHours, $hseBonus);
+                $result = $this->hubTickSvc->processTick(
+                    $hub,
+                    $inputBbl,
+                    $deltaHours,
+                    $hseBonus,
+                    $this->ctx->employeeLogisticsEffects
+                );
+
+                $baseConditionLoss = max(0.0, (float)($result['condition_lost_bbl'] ?? 0.0));
+                $hardOverflowLoss = max(
+                    0.0,
+                    (float)($result['overflow_lost_bbl'] ?? ((float)$result['lost_bbl'] - $baseConditionLoss))
+                );
+                $preConditionProcessed = max(0.0, (float)$result['processed_bbl'] + $baseConditionLoss);
+                $lossMultiplier = max(0.0, (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0))
+                    * max(0.0, (float)($this->gBalanceMults['loss'] ?? 1.0));
+                $adjustedConditionLoss = min(
+                    $preConditionProcessed,
+                    round($baseConditionLoss * $lossMultiplier, 4)
+                );
+                $result['condition_lost_bbl'] = $adjustedConditionLoss;
+                $result['lost_bbl'] = round($hardOverflowLoss + $adjustedConditionLoss, 4);
+                $result['processed_bbl'] = round($preConditionProcessed - $adjustedConditionLoss, 4);
+                $result['incident_flag'] = false;
 
  // Kredytujemy zdrenowana rope tylko gdy zapis bufora sie powiodl — inaczej bufor
  // zostaje w DB niezmniejszony i te same barylki zostana skredytowane ponownie.
  // Credit drained oil only if the buffer persisted — otherwise the buffer stays
  // undecremented in DB and the same barrels would be credited again next tick.
                 if (!$this->hubTickSvc->persistTickResult($hub, $result, $this->now)) {
+                    $rolledBackBbl = $this->ctx->rollbackHubInputCredit($hubId, $inputBbl, $this->oilPrice);
                     GameLog::error('tick', 'hub_persist_failed_skip_credit', ['hub_id' => $hubId]);
+                    GameLog::info('tick', 'hub_persist_failed_input_rolled_back', [
+                        'hub_id' => $hubId,
+                        'player_id' => $playerId,
+                        'rolled_back_bbl' => round($rolledBackBbl, 4),
+                    ]);
                     continue;
                 }
 
@@ -109,19 +138,26 @@ class WellHubSection
  // The well loop optimistically credits synchronous hub input.
  // Barylki zostajace w buforze nie sa jeszcze dostarczone do magazynu.
  // Barrels kept in the hub buffer are not delivered to storage yet.
-                $hubLostBbl        = (float)$result['lost_bbl'];
-                $hubBufferedBbl    = (float)($result['buffered_bbl'] ?? 0.0);
-                $hubDrainedBbl     = (float)($result['drained_buffer_bbl'] ?? 0.0);
-                $logisticsLossMult = (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
-                if ($hubLostBbl > 0.0 && $logisticsLossMult !== 1.0) {
-                    $hubLostBbl = min($inputBbl + $hubDrainedBbl, round($hubLostBbl * $logisticsLossMult, 4));
+                $hubLostBbl     = (float)$result['lost_bbl'];
+                $hubBufferedBbl = (float)($result['buffered_bbl'] ?? 0.0);
+                $hubDrainedBbl  = (float)($result['drained_buffer_bbl'] ?? 0.0);
+                $conditionLostBbl = (float)($result['condition_lost_bbl'] ?? 0.0);
+                $grossProcessedBbl = (float)($result['processed_bbl'] ?? 0.0) + $conditionLostBbl;
+                $drainedConditionLossBbl = 0.0;
+                if ($hubDrainedBbl > 0.001 && $grossProcessedBbl > 0.001 && $conditionLostBbl > 0.001) {
+                    $drainedConditionLossBbl = min(
+                        $conditionLostBbl,
+                        round($conditionLostBbl * ($hubDrainedBbl / $grossProcessedBbl), 4)
+                    );
                 }
+                $netDrainedBbl = max(0.0, round($hubDrainedBbl - $drainedConditionLossBbl, 4));
+                $hubStorageLossBbl = max(0.0, round($hubLostBbl - $drainedConditionLossBbl, 4));
 
                 $blockedBbl = 0.0; // inicjalizacja przed blokiem drenu — uzywana w processOutboundLeg / initialized before drain block — used in processOutboundLeg
-                if ($hubDrainedBbl > 0.001) {
+                if ($netDrainedBbl > 0.001) {
                     $freeSpace  = max(0.0, $this->ctx->storageCapacity - $this->ctx->currentStorage);
-                    $credited   = min($hubDrainedBbl, $freeSpace);
-                    $blockedBbl = max(0.0, $hubDrainedBbl - $credited);
+                    $credited   = min($netDrainedBbl, $freeSpace);
+                    $blockedBbl = max(0.0, $netDrainedBbl - $credited);
                     if ($credited > 0.001) {
                         $creditVal = round($credited * $this->oilPrice, 2);
                         $this->ctx->currentStorage += $credited;
@@ -175,10 +211,11 @@ class WellHubSection
 
                 if ($hubLostBbl > 0.001) {
                     $lostVal = round($hubLostBbl * $this->oilPrice, 2);
-                    $this->ctx->currentStorage   = max(0.0, $this->ctx->currentStorage - $hubLostBbl);
-                    $this->ctx->finBbl          -= $hubLostBbl;
-                    $this->ctx->deliveredBbl    -= $hubLostBbl;
-                    $this->ctx->finRevenue      -= $lostVal;
+                    $storageLostVal = round($hubStorageLossBbl * $this->oilPrice, 2);
+                    $this->ctx->currentStorage   = max(0.0, $this->ctx->currentStorage - $hubStorageLossBbl);
+                    $this->ctx->finBbl           = max(0.0, $this->ctx->finBbl - $hubStorageLossBbl);
+                    $this->ctx->deliveredBbl     = max(0.0, $this->ctx->deliveredBbl - $hubStorageLossBbl);
+                    $this->ctx->finRevenue       = max(0.0, $this->ctx->finRevenue - $storageLostVal);
                     $this->ctx->finLossBbl      += $hubLostBbl;
                     $this->ctx->finLossValue    += $lostVal;
                     $this->ctx->finHubLossBbl   += $hubLostBbl;
@@ -209,6 +246,8 @@ class WellHubSection
                 // Subtract storage-blocked bbl (already booked as hub-loss) so the outbound
                 // leg does not charge transport fees on oil that never reached storage.
                 $processedBbl = max(0.0, (float)($result['processed_bbl'] ?? ($inputBbl - max(0.0, $hubLostBbl))) - $blockedBbl);
+                $storageDeferredBbl = $this->rebufferStorageOverflow($hubId, $playerId, $processedBbl);
+                $processedBbl = max(0.0, $processedBbl - $storageDeferredBbl);
 
                 // L8: leg wylotowy NAJPIERW — czesc "processed" ropy wraca do bufora (throttling
                 // przepustowosci), wiec nie zostala dostarczona. Incydent huba liczy strate od
@@ -218,13 +257,15 @@ class WellHubSection
                 // (capacity throttling), so it was not delivered. The hub incident bases its loss
                 // on the actually-delivered amount (processed minus buffer excess), not the full
                 // processed_bbl — otherwise it over-counts loss on oil still waiting in the buffer.
-                $excessReturnedBbl = $this->processOutboundLeg($hubId, $playerId, $processedBbl, $deltaHours, $hseBonus);
-
-                if ($excessReturnedBbl > 0.001) {
-                    $lossBase = (float)($result['processed_bbl'] ?? $inputBbl);
-                    $result['processed_bbl'] = max(0.0, $lossBase - $excessReturnedBbl);
+                $outboundResult = $this->processOutboundLeg($hubId, $playerId, $processedBbl, $deltaHours, $hseBonus);
+                $result['processed_bbl'] = max(
+                    0.0,
+                    $processedBbl - (float)$outboundResult['not_delivered_bbl']
+                );
+                $incidentTriggered = $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
+                if ($incidentTriggered) {
+                    $this->hubTickSvc->markLatestTickIncident($hubId, $this->now);
                 }
-                $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
 
             } catch (Throwable $e) {
                 GameLog::error('tick', 'finalizeHubTicks FAILED', $e, [
@@ -237,6 +278,50 @@ class WellHubSection
  // Retencja statow hubow poza hot-path per-hub — jeden DELETE na przebieg sekcji.
  // Hub stats retention out of the per-hub hot path — one DELETE per section run.
         $this->hubTickSvc->pruneHubTickStats($this->now);
+    }
+
+    /**
+     * Moves newly processed oil that does not fit in storage back to the hub buffer.
+     * Przenosi nowa przetworzona rope, ktora nie miesci sie w magazynie, do bufora huba.
+     */
+    private function rebufferStorageOverflow(int $hubId, int $playerId, float $processedBbl): float
+    {
+        if ($this->hubTickSvc === null || $processedBbl <= 0.001) {
+            return 0.0;
+        }
+
+        $storageOverflow = max(0.0, $this->ctx->currentStorage - $this->ctx->storageCapacity);
+        $deferredBbl = min($processedBbl, $storageOverflow);
+        if ($deferredBbl <= 0.001) {
+            return 0.0;
+        }
+
+        $deferredValue = round($deferredBbl * $this->oilPrice, 2);
+        $this->ctx->currentStorage = max(0.0, $this->ctx->currentStorage - $deferredBbl);
+        $this->ctx->finBbl = max(0.0, $this->ctx->finBbl - $deferredBbl);
+        $this->ctx->deliveredBbl = max(0.0, $this->ctx->deliveredBbl - $deferredBbl);
+        $this->ctx->finRevenue = max(0.0, $this->ctx->finRevenue - $deferredValue);
+
+        $returnedBbl = $this->hubTickSvc->addBufferBbl($hubId, $deferredBbl);
+        $lostBbl = max(0.0, round($deferredBbl - $returnedBbl, 4));
+        if ($lostBbl > 0.001) {
+            $lostValue = round($lostBbl * $this->oilPrice, 2);
+            $this->ctx->storageBlockedBbl += $lostBbl;
+            $this->ctx->finLossBbl += $lostBbl;
+            $this->ctx->finLossValue += $lostValue;
+            $this->ctx->finHubLossBbl += $lostBbl;
+            $this->ctx->finHubLossValue += $lostValue;
+        }
+
+        GameLog::info('tick', 'hub_storage_overflow_rebuffered', [
+            'hub_id' => $hubId,
+            'player_id' => $playerId,
+            'deferred_bbl' => round($deferredBbl, 4),
+            'returned_bbl' => round($returnedBbl, 4),
+            'lost_bbl' => round($lostBbl, 4),
+        ]);
+
+        return $deferredBbl;
     }
 
  /**
@@ -257,32 +342,46 @@ class WellHubSection
         int   $playerId,
         array $hseBonus,
         int   $playerWellCount
-    ): void {
+    ): bool {
         if ($this->hubIncidentSvc === null || $playerWellCount <= 0) {
-            return;
+            return false;
         }
         try {
+            $incidentMods = [
+                'incident_mult' => max(0.0, (float)($this->financeLogisticsMods['incident_mult'] ?? 1.0)),
+            ];
             $incident = $this->hubIncidentSvc->processTick(
-                $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $this->protectionSvc
+                $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $this->protectionSvc, $incidentMods
             );
             if ($incident !== null && $incident['extra_loss'] > 0.0) {
-                $incLoss = (float)$incident['extra_loss'] * (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0);
+                $availableBbl = min(
+                    max(0.0, (float)($result['processed_bbl'] ?? 0.0)),
+                    max(0.0, $this->ctx->currentStorage)
+                );
+                $incLoss = min(
+                    $availableBbl,
+                    (float)$incident['extra_loss']
+                        * max(0.0, (float)($this->financeLogisticsMods['loss_mult'] ?? 1.0))
+                        * max(0.0, (float)($this->gBalanceMults['loss'] ?? 1.0))
+                );
                 $incVal  = round($incLoss * $this->oilPrice, 2);
                 $this->ctx->currentStorage          = max(0.0, $this->ctx->currentStorage - $incLoss);
-                $this->ctx->finBbl                 -= $incLoss;
-                $this->ctx->deliveredBbl           -= $incLoss;
-                $this->ctx->finRevenue             -= $incVal;
+                $this->ctx->finBbl                  = max(0.0, $this->ctx->finBbl - $incLoss);
+                $this->ctx->deliveredBbl            = max(0.0, $this->ctx->deliveredBbl - $incLoss);
+                $this->ctx->finRevenue              = max(0.0, $this->ctx->finRevenue - $incVal);
                 $this->ctx->finLossBbl             += $incLoss;
                 $this->ctx->finLossValue           += $incVal;
                 $this->ctx->finHubIncidentLossBbl  += $incLoss;
                 $this->ctx->finHubIncidentLossValue += $incVal;
                 $this->ctx->incidentsTriggered++;
             }
+            return $incident !== null;
         } catch (Throwable $e) {
             GameLog::error('tick', 'hub incident check FAILED', $e, [
                 'hub_id'    => $hubId,
                 'player_id' => $playerId,
             ]);
+            return false;
         }
     }
 
@@ -386,15 +485,13 @@ class WellHubSection
  * @param array<string, mixed> $hseBonus
  */
  /**
-  * @return float Nadmiar (bbl) cofniety z magazynu do bufora huba (throttling przepustowosci
-  *              rurociagu wylotowego). Ta ropa NIE zostala dostarczona w tym ticku — sluzy do
-  *              skorygowania bazy straty incydentu huba (L8). 0.0 gdy brak throttlingu.
-  *              Excess (bbl) pulled back from storage into the hub buffer; not delivered this tick.
+  * @param array<string, mixed> $hseBonus
+  * @return array{not_delivered_bbl: float, returned_bbl: float, loss_bbl: float}
   */
-    private function processOutboundLeg(int $hubId, int $playerId, float $processedBbl, float $deltaHours, array $hseBonus): float
+    private function processOutboundLeg(int $hubId, int $playerId, float $processedBbl, float $deltaHours, array $hseBonus): array
     {
         if ($processedBbl <= 0.001) {
-            return 0.0;
+            return ['not_delivered_bbl' => 0.0, 'returned_bbl' => 0.0, 'loss_bbl' => 0.0];
         }
 
         $mults = [
@@ -406,18 +503,33 @@ class WellHubSection
 
         $outboundType = (string)($this->ctx->hubOutboundType[$hubId] ?? 'nieustawiony');
         $pipe         = $this->ctx->hubOutboundPipelineCache[$hubId] ?? null;
+        $pipelineLossPct = (float)($this->ctx->employeeLogisticsEffects['pipeline_loss_pct'] ?? 0.0);
+        if ($outboundType === 'rurociag' && is_array($pipe) && $pipelineLossPct !== 0.0) {
+            $pipe['transport_loss'] = max(
+                0.0,
+                round((float)($pipe['transport_loss'] ?? 0.0) * (1.0 + ($pipelineLossPct / 100.0)), 4)
+            );
+        }
 
  // Ryzyko polityczne regionu HUBA skaluje szanse incydentu drogowego leg-2 (jak leg-1
  // z regionem odwiertu); bez tego compute() uzywalo domyslnego poziomu 1.
  // The HUB region's political risk scales the leg-2 road incident chance (as leg-1 does
  // with the well's region); without it compute() used the default level 1.
         $hubPoliticalRisk = (int)($this->ctx->hubCache[$hubId]['region_political_risk'] ?? 1);
+        $outboundDeltaHours = $deltaHours;
+        if ($outboundType === 'rurociag' && is_array($pipe)
+            && array_key_exists('_active_hours_this_tick', $pipe)) {
+            $outboundDeltaHours = min(
+                $deltaHours,
+                max(0.0, (float)$pipe['_active_hours_this_tick'])
+            );
+        }
         $res = $this->outboundSvc->compute(
-            $outboundType, $pipe, $processedBbl, $this->oilPrice, $mults, $deltaHours, $hseBonus,
+            $outboundType, $pipe, $processedBbl, $this->oilPrice, $mults, $outboundDeltaHours, $hseBonus,
             $hubPoliticalRisk
         );
         if ($res['kind'] === 'direct') {
-            return 0.0;
+            return ['not_delivered_bbl' => 0.0, 'returned_bbl' => 0.0, 'loss_bbl' => 0.0];
         }
         $excessReturnedBbl = 0.0;
 
@@ -430,9 +542,9 @@ class WellHubSection
             $excessReturnedBbl = $excessBbl;
             $excessVal = round($excessBbl * $this->oilPrice, 2);
             $this->ctx->currentStorage = max(0.0, $this->ctx->currentStorage - $excessBbl);
-            $this->ctx->finBbl        -= $excessBbl;
-            $this->ctx->deliveredBbl  -= $excessBbl;
-            $this->ctx->finRevenue    -= $excessVal;
+            $this->ctx->finBbl         = max(0.0, $this->ctx->finBbl - $excessBbl);
+            $this->ctx->deliveredBbl   = max(0.0, $this->ctx->deliveredBbl - $excessBbl);
+            $this->ctx->finRevenue     = max(0.0, $this->ctx->finRevenue - $excessVal);
             $returnedBbl = $this->hubTickSvc->addBufferBbl($hubId, $excessBbl);
 
             // Bufor jest capowany do pojemnosci: co sie nie zmiescilo, jest strata
@@ -457,9 +569,9 @@ class WellHubSection
         if ($lostBbl > 0.001) {
             $lostVal = (float)$res['loss_value'];
             $this->ctx->currentStorage        = max(0.0, $this->ctx->currentStorage - $lostBbl);
-            $this->ctx->finBbl               -= $lostBbl;
-            $this->ctx->deliveredBbl         -= $lostBbl;
-            $this->ctx->finRevenue           -= $lostVal;
+            $this->ctx->finBbl                = max(0.0, $this->ctx->finBbl - $lostBbl);
+            $this->ctx->deliveredBbl          = max(0.0, $this->ctx->deliveredBbl - $lostBbl);
+            $this->ctx->finRevenue            = max(0.0, $this->ctx->finRevenue - $lostVal);
             $this->ctx->finLossBbl           += $lostBbl;
             $this->ctx->finLossValue         += $lostVal;
             $this->ctx->finOutboundLossBbl   += $lostBbl;
@@ -482,6 +594,10 @@ class WellHubSection
             'cost'      => $cost,
         ]);
 
-        return $excessReturnedBbl;
+        return [
+            'not_delivered_bbl' => min($processedBbl, $excessBbl + $lostBbl),
+            'returned_bbl' => $excessReturnedBbl,
+            'loss_bbl' => $lostBbl,
+        ];
     }
 }

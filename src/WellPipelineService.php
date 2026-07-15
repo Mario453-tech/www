@@ -104,7 +104,7 @@ class WellPipelineService
  // Transport leg column - ETAP 3 (second transport leg: hub -> storage).
  // Kolumna odcinka transportu: 'inbound' (odwiert->hub), 'outbound' (hub->magazyn).
         $this->ensureColumn('well_pipelines', 'leg', "ENUM('inbound','outbound') NOT NULL DEFAULT 'inbound' AFTER hub_id");
- // Migrate the per-well unique key to per-(well, leg) so a well can have both legs.
+ // Migrate legacy keys so outbound rows are unique per hub.
         $this->ensurePipelineLegUniqueKey();
  // ETAP 5: pipeline degradation (PipelineSection) reads wells.hub_outbound_transport_type
  // to pick the outbound leg. Ensure the column exists here too (idempotent, defensive),
@@ -352,7 +352,8 @@ class WellPipelineService
  // Validate hub belongs to player (owner or tenant)
         $hubStmt = $this->db->prepare(
             "SELECT id, nominal_capacity_bph FROM logistics_hubs
-              WHERE id = ? AND (player_id = ? OR tenant_player_id = ?) AND status NOT IN ('disabled','building')"
+              WHERE id = ? AND (player_id = ? OR tenant_player_id = ?)
+                AND status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')"
         );
         $hubStmt->execute([$hubId, $playerId, $playerId]);
         $hub = $hubStmt->fetch(PDO::FETCH_ASSOC);
@@ -378,6 +379,22 @@ class WellPipelineService
             $this->db->beginTransaction();
         }
         try {
+            $lockedHubStmt = $this->db->prepare(
+                "SELECT id, nominal_capacity_bph FROM logistics_hubs
+                  WHERE id = ? AND (player_id = ? OR tenant_player_id = ?)
+                    AND status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')
+                  FOR UPDATE"
+            );
+            $lockedHubStmt->execute([$hubId, $playerId, $playerId]);
+            $lockedHub = $lockedHubStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$lockedHub) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'hub_not_found'];
+            }
+            $hub = $lockedHub;
+
             // Reject if outbound pipeline already exists for this hub.
             $existingStmt = $this->db->prepare(
                 "SELECT id, status FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound' FOR UPDATE"
@@ -631,6 +648,14 @@ class WellPipelineService
             $this->db->beginTransaction();
         }
         try {
+            $hubAssignment = $this->getActiveHubAssignmentForWell($wellId, true);
+            if ($hubAssignment === null) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'hub_required'];
+            }
+
  // Reject if a pipeline already exists for this leg (one per well per leg, per player).
  // SELECT FOR UPDATE prevents a concurrent request from passing this check simultaneously.
             $existingStmt = $this->db->prepare(
@@ -794,7 +819,8 @@ class WellPipelineService
     {
  // Find finished builds
         $findStmt = $this->db->prepare(
-            "SELECT id, well_id, pipeline_type
+            "SELECT id, well_id, pipeline_type, build_finish_at,
+                    GREATEST(0, TIMESTAMPDIFF(SECOND, build_finish_at, NOW())) AS active_seconds
                FROM well_pipelines
               WHERE player_id = ?
                 AND status = 'building'
@@ -1295,11 +1321,14 @@ class WellPipelineService
         $matchesActiveHub = $isOutbound
             ? $hubId > 0
             : $hubId > 0 && $assignedHubId > 0 && $hubId === $assignedHubId;
-        $hasHubBinding = $matchesActiveHub && !in_array($hubStatus, ['disabled', 'building'], true);
+        $inactiveHubStatuses = ['planned', 'disabled', 'building', 'paused', 'maintenance'];
+        $hasHubBinding = $matchesActiveHub && !in_array($hubStatus, $inactiveHubStatuses, true);
         $row['_has_hub_binding'] = $hasHubBinding;
         $row['_matches_active_hub'] = $matchesActiveHub;
         $row['_binding_mismatch'] = !$isOutbound && $hubId > 0 && $assignedHubId > 0 && $hubId !== $assignedHubId;
-        $row['_is_operational'] = $hasHubBinding && !in_array((string)($row['status'] ?? 'active'), ['building', 'suspended', 'damaged', 'disabled'], true);
+        $inactivePipelineStatuses = ['building', 'suspended', 'servicing', 'damaged', 'disabled'];
+        $row['_is_operational'] = $hasHubBinding
+            && !in_array((string)($row['status'] ?? 'active'), $inactivePipelineStatuses, true);
         return $row;
     }
 
@@ -1329,17 +1358,20 @@ class WellPipelineService
  /**
  * @return array<string, mixed>|null
  */
-    private function getActiveHubAssignmentForWell(int $wellId): ?array
+    private function getActiveHubAssignmentForWell(int $wellId, bool $forUpdate = false): ?array
     {
         try {
+            $lock = $forUpdate && $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite'
+                ? ' FOR UPDATE'
+                : '';
             $stmt = $this->db->prepare(
                 "SELECT a.hub_id, h.name AS hub_name
                    FROM logistics_hub_assignments a
                    JOIN logistics_hubs h ON h.id = a.hub_id
                   WHERE a.well_id = ?
                     AND a.status = 'active'
-                    AND h.status NOT IN ('disabled', 'building')
-                  LIMIT 1"
+                    AND h.status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')
+                  LIMIT 1{$lock}"
             );
             $stmt->execute([$wellId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1465,19 +1497,17 @@ class WellPipelineService
             return;
         }
         try {
- // Drop the old per-(well, leg) key if present.
-            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well_leg')) {
-                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well_leg");
-            }
- // Drop the even older single-column key if still present.
-            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well')) {
-                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well");
-            }
- // Add the new composite key if not present.
+ // Add the replacement first so a failed migration never leaves the table unprotected.
             if (!$this->indexExists('well_pipelines', 'uq_wp_well_hub_leg')) {
                 $this->db->exec(
                     "ALTER TABLE well_pipelines ADD UNIQUE KEY uq_wp_well_hub_leg (well_id, hub_id, leg)"
                 );
+            }
+            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well_leg')) {
+                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well_leg");
+            }
+            if ($this->indexExists('well_pipelines', 'uq_well_pipeline_well')) {
+                $this->db->exec("ALTER TABLE well_pipelines DROP INDEX uq_well_pipeline_well");
             }
         } catch (Throwable $e) {
             GameLog::error('WellPipelineService', 'ensurePipelineLegUniqueKey FAILED', $e);

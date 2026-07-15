@@ -28,7 +28,6 @@ final class HubIncidentServiceTest extends BaseTestCase
         $service = new HubIncidentService($this->db, $hubSvc);
 
         $method = new ReflectionMethod(HubIncidentService::class, 'calcRiskMultiplier');
-        $method->setAccessible(true);
 
         $hub = [
             'condition_pct' => 20.0,
@@ -69,6 +68,54 @@ final class HubIncidentServiceTest extends BaseTestCase
             1.0,
             1,
             []
+        );
+
+        $this->assertNull($result);
+    }
+
+    public function testDrainedBufferActivityCanGenerateIncidentWithoutNewInput(): void
+    {
+        $hubSvc = $this->getMockBuilder(HubService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getAcquisitionDefaults'])
+            ->getMock();
+        $hubSvc->method('getAcquisitionDefaults')->willReturn(['risk_mult' => 1.0]);
+
+        mt_srand(1234);
+        $service = new HubIncidentService($this->db, $hubSvc);
+
+        $result = $service->processTick(
+            ['id' => 10, 'status' => 'active', 'condition_pct' => 10.0, 'work_mode' => 'max', 'acquisition_type' => 'new'],
+            0.0,
+            ['processed_bbl' => 200.0, 'lost_bbl' => 0.0, 'load_pct' => 150.0],
+            100.0,
+            1,
+            []
+        );
+
+        $this->assertIsArray($result);
+    }
+
+    public function testIncidentMultiplierCanDisableHubIncidentRisk(): void
+    {
+        $hubSvc = $this->getMockBuilder(HubService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getAcquisitionDefaults'])
+            ->getMock();
+        $hubSvc->method('getAcquisitionDefaults')->willReturn(['risk_mult' => 1.0]);
+
+        mt_srand(1234);
+        $service = new HubIncidentService($this->db, $hubSvc);
+
+        $result = $service->processTick(
+            ['id' => 10, 'status' => 'active', 'condition_pct' => 10.0, 'work_mode' => 'max', 'acquisition_type' => 'new'],
+            200.0,
+            ['processed_bbl' => 200.0, 'lost_bbl' => 0.0, 'load_pct' => 150.0],
+            100.0,
+            1,
+            [],
+            null,
+            ['incident_mult' => 0.0]
         );
 
         $this->assertNull($result);

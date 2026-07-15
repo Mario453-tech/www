@@ -563,8 +563,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                        ->execute([$riskAdd, $tWellId]);
                 }
                 if ($cost > 0) {
-                    $db->prepare("UPDATE players SET cash = GREATEST(0, cash - ?) WHERE id = ?")
-                       ->execute([$cost, $tPlayerId]);
+                    $cashStmt = $db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1");
+                    $cashStmt->execute([$tPlayerId]);
+                    $chargeAmount = min((float)$cost, max(0.0, (float)$cashStmt->fetchColumn()));
+                    if ($chargeAmount >= FinancialTransactionService::MIN_AMOUNT) {
+                        $charge = (new FinancialTransactionService($db))->debit(
+                            $tPlayerId,
+                            $chargeAmount,
+                            FinancialTransactionService::TYPE_TICK_INCIDENT,
+                            $message,
+                            'well_incident',
+                            $tWellId
+                        );
+                        if (empty($charge['success'])) {
+                            throw new RuntimeException('incident_charge_failed: ' . (string)($charge['error'] ?? 'unknown'));
+                        }
+                    }
                     $db->prepare("
                         INSERT INTO well_events (well_id, player_id, event_type, cost, description,
                             technical_condition_before, technical_condition_after)

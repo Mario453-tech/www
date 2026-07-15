@@ -9,6 +9,11 @@ class PipelineSection
 {
     public int $disastersTriggered = 0;
     public float $cashDelta = 0.0; // Negative disaster cost sum / Ujemna suma kosztow katastrof.
+    public float $oilLostBbl = 0.0;
+    /** @var array<int, float> */
+    public array $oilLostByHubBbl = [];
+    /** @var list<int> */
+    public array $unavailablePipelineIds = [];
 
     private PDO $db;
     private DateTime $now;
@@ -16,6 +21,8 @@ class PipelineSection
     private WellPipelineService $wellPipelineService;
     /** @var array<int, array<string, mixed>> */
     private array $pipelineProtectionCache = [];
+    /** @var array<int, float> */
+    private array $completedActiveHours = [];
 
     public function __construct(PDO $db, DateTime $now, WellService $wellService)
     {
@@ -23,6 +30,39 @@ class PipelineSection
         $this->now = $now;
         $this->wellService = $wellService;
         $this->wellPipelineService = new WellPipelineService($db);
+    }
+
+    /**
+     * Activates finished builds before production reads pipeline state.
+     * Aktywuje zakonczone budowy przed odczytem stanu rurociagu przez produkcje.
+     */
+    public function completeBuilds(int $playerId, ?object $tsvc): void
+    {
+        $completed = $this->wellPipelineService->completeBuildingPipelines($playerId);
+        foreach ($completed as $done) {
+            $pipelineId = (int)$done['id'];
+            $this->completedActiveHours[$pipelineId] = max(
+                0.0,
+                (float)($done['active_seconds'] ?? 0.0) / 3600.0
+            );
+
+            GameLog::info('tick', 'Pipeline build complete', [
+                'pipeline_id' => $pipelineId,
+                'player_id' => $playerId,
+                'type' => $done['pipeline_type'] ?? 'unknown',
+            ]);
+            $tsvc?->notify(
+                'pipeline_build_complete',
+                null,
+                t('tick.notify.pipeline_build_complete', ['id' => $pipelineId])
+            );
+        }
+    }
+
+    /** @return array<int, float> */
+    public function completedActiveHours(): array
+    {
+        return $this->completedActiveHours;
     }
 
  /**
@@ -45,21 +85,9 @@ class PipelineSection
         if ($deltaHours <= 0.0) return;
         $deltaHours = min($deltaHours, 48.0);
         $this->pipelineProtectionCache = [];
+        $remainingStorageForDisasters = max(0.0, $currentStorage);
         try {
- // Complete pipeline builds that have finished / Finalizuj rurociagi ktore skonczyly budowe
-            $completed = $this->wellPipelineService->completeBuildingPipelines($playerId);
-            foreach ($completed as $done) {
-                GameLog::info('tick', 'Pipeline build complete', [
-                    'pipeline_id' => (int)$done['id'],
-                    'player_id'   => $playerId,
-                    'type'        => $done['pipeline_type'] ?? 'unknown',
-                ]);
-                $tsvc?->notify(
-                    'pipeline_build_complete',
-                    null,
-                    t('tick.notify.pipeline_build_complete', ['id' => (int)$done['id']])
-                );
-            }
+            $this->completeBuilds($playerId, $tsvc);
 
  // ETAP 11: degrade and roll incidents for BOTH transport legs independently.
  // Each leg is its own well_pipelines row, so inbound and outbound roll separately.
@@ -80,7 +108,7 @@ class PipelineSection
                     AND wp.leg = 'inbound'
                     AND wp.well_id > 0
                     AND a.hub_id = wp.hub_id
-                    AND h.status NOT IN ('disabled', 'building')
+                    AND h.status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')
                     AND w.transport_type = 'rurociag'
                     AND w.status NOT IN ('seized', 'sold', 'disabled')
                     AND wp.status IN ('active', 'degraded', 'critical', 'leak')
@@ -99,7 +127,7 @@ class PipelineSection
                   WHERE wp.player_id = ?
                     AND wp.leg = 'outbound'
                     AND wp.well_id = 0
-                    AND h.status NOT IN ('disabled', 'building')
+                    AND h.status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')
                     AND h.outbound_transport_type = 'rurociag'
                     AND wp.status IN ('active', 'degraded', 'critical', 'leak')
                   ORDER BY wp.condition_pct ASC"
@@ -126,11 +154,15 @@ class PipelineSection
             foreach ($pipelines as $pipeline) {
                 $pipelineId          = (int) $pipeline['id'];
                 $wellId              = (int)($pipeline['well_id'] ?? 0);
+                $hubId               = (int)($pipeline['hub_id'] ?? 0);
                 $leg                 = (string)($pipeline['leg'] ?? 'inbound');
                 $conditionBefore     = (float) $pipeline['condition_pct'];
                 $transportLossBefore = (float) ($pipeline['transport_loss'] ?? 0.0);
                 $currentStatus       = (string)($pipeline['status'] ?? 'active');
                 $opexTickCost        = round((float)($pipeline['opex_per_tick'] ?? 0.0), 2);
+                $pipelineDeltaHours  = isset($this->completedActiveHours[$pipelineId])
+                    ? min($deltaHours, $this->completedActiveHours[$pipelineId])
+                    : $deltaHours;
 
                 $degradeRate = (float) ($pipeline['degradation_rate_per_hour'] ?? 0.05)
  * (float) ($hseBonus['degrade_mult'] ?? 1.0);
@@ -144,16 +176,16 @@ class PipelineSection
                     $degradeRate *= 1.20;
                 }
 
-                $newCondition     = max(0.0, $conditionBefore - ($degradeRate * $deltaHours));
+                $newCondition     = max(0.0, $conditionBefore - ($degradeRate * $pipelineDeltaHours));
                 $newTransportLoss = $transportLossBefore;
 
                 if (!$hasPipelineEngineer && $newCondition < 80.0) {
-                    $newTransportLoss = min(10.0, $transportLossBefore + (0.1 * $deltaHours));
+                    $newTransportLoss = min(10.0, $transportLossBefore + (0.1 * $pipelineDeltaHours));
                 }
 
  // Leaking pipeline loses additional oil through the crack each tick
                 if ($currentStatus === 'leak') {
-                    $newTransportLoss = min(10.0, $newTransportLoss + (0.4 * $deltaHours));
+                    $newTransportLoss = min(10.0, $newTransportLoss + (0.4 * $pipelineDeltaHours));
                 }
 
  // Determine new status
@@ -171,7 +203,7 @@ class PipelineSection
  // Spontaneous leak trigger when condition drops below 60%
                     if ($newStatus !== 'damaged' && $newCondition < 60.0) {
                         $leakChance = 0.0008
- * $deltaHours
+                         * $pipelineDeltaHours
  * (float)($pipeline['incident_risk_mult'] ?? 1.0)
  * ((60.0 - $newCondition) / 60.0)
  * ($hasPipelineEngineer ? 1.0 : 2.0);
@@ -208,11 +240,15 @@ class PipelineSection
                     $pipelineId,
                 ]);
 
+                if ($newStatus === 'damaged' && !in_array($pipelineId, $this->unavailablePipelineIds, true)) {
+                    $this->unavailablePipelineIds[] = $pipelineId;
+                }
+
                 $this->wellPipelineService->recordTickStat(
                     $playerId,
                     $wellId,
                     $pipelineId,
-                    $deltaHours,
+                    $pipelineDeltaHours,
                     $conditionBefore,
                     $newCondition,
                     $transportLossBefore,
@@ -258,11 +294,14 @@ class PipelineSection
 
                 if ($newCondition < 40.0) {
                     $explosionChance = 0.0006
- * $deltaHours
+                         * $pipelineDeltaHours
  * (float) ($hseBonus['catastrophe_mult'] ?? 1.0)
  * (float)($pipeline['incident_risk_mult'] ?? 1.0);
                     if (mt_rand(1, 1_000_000) <= (int) round($explosionChance * 1_000_000)) {
-                        $oilInTransit = $currentStorage * 0.05;
+                        $oilInTransit = min(
+                            $remainingStorageForDisasters,
+                            $remainingStorageForDisasters * 0.05
+                        );
                         $disaster = $this->wellService->triggerPipelineExplosion(
                             $pipelineId,
                             $playerId,
@@ -272,6 +311,17 @@ class PipelineSection
 
                         if (!empty($disaster['disaster'])) {
                             $this->disastersTriggered++;
+                            $this->oilLostBbl += $oilInTransit;
+                            if ($hubId > 0) {
+                                $this->oilLostByHubBbl[$hubId] = ($this->oilLostByHubBbl[$hubId] ?? 0.0) + $oilInTransit;
+                            }
+                            if (!in_array($pipelineId, $this->unavailablePipelineIds, true)) {
+                                $this->unavailablePipelineIds[] = $pipelineId;
+                            }
+                            $remainingStorageForDisasters = max(
+                                0.0,
+                                $remainingStorageForDisasters - $oilInTransit
+                            );
                             $cost = (float) (($disaster['cost'] ?? 0) + ($disaster['env_fine'] ?? 0));
                             $this->cashDelta -= $cost;
 
@@ -314,18 +364,21 @@ class PipelineSection
 
  // Pipeline incident roll (micro / minor / medium) - only when not already damaged
                 if (!in_array($newStatus, ['damaged', 'disabled'], true)) {
-                    $this->rollPipelineIncident(
+                    $incidentDamagedPipeline = $this->rollPipelineIncident(
                         $playerId,
                         $wellId,
                         $pipelineId,
                         $newCondition,
                         (float)($pipeline['incident_risk_mult'] ?? 1.0),
                         $hasPipelineEngineer,
-                        $deltaHours,
+                        $pipelineDeltaHours,
                         $hseBonus,
                         $leg,
                         $protection
                     );
+                    if ($incidentDamagedPipeline && !in_array($pipelineId, $this->unavailablePipelineIds, true)) {
+                        $this->unavailablePipelineIds[] = $pipelineId;
+                    }
                 }
             }
         } catch (Throwable $e) {
@@ -349,7 +402,7 @@ class PipelineSection
         array $hseBonus,
         string $leg = 'inbound',
         ?ProtectionService $protection = null
-    ): void {
+    ): bool {
  // Chance multiplier: higher risk when condition is lower; engineer halves the chance
         $condFactor = max(0.2, (100.0 - $conditionPct) / 100.0);
         $engMult    = $hasPipelineEngineer ? 0.5 : 1.0;
@@ -430,8 +483,10 @@ class PipelineSection
                 );
             }
 
-            break; // Only one incident level per tick per pipeline (per leg)
+            return max(0.0, $conditionPct - $condDrop) <= 0.0;
         }
+
+        return false;
     }
 
     /**

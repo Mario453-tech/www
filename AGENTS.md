@@ -14,7 +14,7 @@ Nie przebudowuj projektu bez potrzeby. Najpierw napraw realny problem, potem dop
 - Produkcja: az.pl, PHP-FPM, MySQL, OPcache.
 - UI gracza i admina: po polsku.
 - Logi wewnetrzne `GameLog` / `AdminLog`: po angielsku.
-- Komentarze w kodzie PHP/JS/CSS: po angielsku, bez polskich znakow.
+- Komentarze w kodzie PHP/JS/CSS: dwujezyczne - najpierw angielski, potem polski bez polskich znakow.
 - Pliki: UTF-8 bez BOM.
 
 ## Struktura katalogow
@@ -42,7 +42,7 @@ svn_repo/        - dokumentacja projektowa i briefy
 - Przed koncem pracy uruchom `tools/check_encoding.php`.
 - Jesli dotykasz pliku z mojibake, popraw uszkodzone komentarze w edytowanym fragmencie.
 - Teksty UI moga i powinny miec poprawne polskie znaki.
-- Komentarze w kodzie nie moga miec polskich znakow.
+- Komentarze w kodzie maja byc dwujezyczne: angielski + polski bez polskich znakow.
 - Nie dodawaj emoji do kodu, UI ani komunikatow. Uzywaj SVG albo klas ikon.
 
 ### Git i backupy
@@ -142,6 +142,7 @@ Endpointy AJAX/API:
 - Nowe klucze dodawaj do odpowiedniego pliku modulu, np. `lang/pl/legal.php`, `lang/pl/contracts.php`.
 - Klucze globalne ida do pliku globalnego.
 - Logi wewnetrzne zostaja po angielsku i nie ida do lang.
+- Komentarze techniczne nie ida do lang, ale musza pozostac dwujezyczne.
 - Jezeli uzytkownik zakaze edycji lang, podaj gotowe klucze i teksty do samodzielnego wklejenia.
 
 ## HTML, CSS i JS

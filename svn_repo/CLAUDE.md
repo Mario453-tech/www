@@ -33,7 +33,7 @@ Nie dodawaj nowych publicznych plikow PHP w root projektu.
 
 - Wszystkie pliki zapisuj jako UTF-8 bez BOM.
 - Teksty UI moga miec poprawne polskie znaki.
-- Komentarze w kodzie PHP/JS/CSS pisz po angielsku i bez polskich znakow.
+- Komentarze w kodzie PHP/JS/CSS pisz dwujezycznie: najpierw po angielsku, potem po polsku bez polskich znakow.
 - Nie dodawaj emoji. Zamiast emoji uzywaj SVG albo klas ikon.
 - Jezeli edytujesz fragment z mojibake, popraw go w tym fragmencie.
 
@@ -126,7 +126,7 @@ Sprawdz:
 
 - czy zmiana odpowiada na najnowsza prosbe,
 - czy nie ma mojibake w edytowanych fragmentach,
-- czy komentarze kodu sa po angielsku i bez polskich znakow,
+- czy komentarze kodu sa dwujezyczne: angielski + polski bez polskich znakow,
 - czy teksty UI sa w lang,
 - czy formularze stron maja PRG,
 - czy endpointy JSON nie renderuja HTML,

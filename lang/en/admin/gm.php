@@ -67,6 +67,13 @@ return [
     'admin.gm.delete_players_none' => 'No accounts selected.',
     'admin.gm.delete_players_ok' => 'Deleted accounts: :count.',
     'admin.gm.delete_players_err' => 'Deletion error: :msg',
+    'admin.gm.bulk_err_amount_required' => 'Enter a valid amount.',
+    'admin.gm.bulk_err_amount_range' => 'The amount is outside the allowed range.',
+    'admin.gm.bulk_err_amount_zero' => 'The amount cannot be 0.',
+    'admin.gm.bulk_err_no_players' => 'No active players to update.',
+    'admin.gm.bulk_err_apply' => 'Cash adjustment error: :msg',
+    'admin.gm.bulk_log' => 'Global cash adjustment :sign:amount for :count players',
+    'admin.gm.bulk_ok' => 'Cash changed by :sign:amount for :count players.',
 
     // Full game wipe
     'admin.gm.wipe_title'         => 'FULL GAME RESET',

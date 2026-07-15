@@ -22,7 +22,7 @@ trait HubAssignmentValidationTrait
             return ['ok' => false, 'error' => 'hub_not_found'];
         }
 
-        if (in_array($hub['status'], ['disabled', 'building', 'paused'], true)) {
+        if (in_array($hub['status'], ['planned', 'disabled', 'building', 'paused', 'maintenance'], true)) {
             return ['ok' => false, 'error' => 'hub_unavailable'];
         }
 

@@ -266,4 +266,73 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('detached', $old);
         $this->assertSame(['hub_id' => 21, 'well_id' => 108, 'status' => 'active'], $new);
     }
+
+    public function testTransferRequiresPermitInTargetRegion(): void
+    {
+        $this->db->exec('CREATE TABLE legal_region_config (region_id INTEGER PRIMARY KEY, hub_permit_enabled INTEGER NOT NULL)');
+        $this->db->exec('CREATE TABLE hub_permit_applications (player_id INTEGER, region_id INTEGER, status TEXT)');
+        $this->db->exec('INSERT INTO legal_region_config (region_id, hub_permit_enabled) VALUES (8, 1)');
+        $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (109, 1, 8, 'A1', 'active')");
+        $this->db->exec("INSERT INTO logistics_hub_assignments (id, hub_id, well_id, status) VALUES (2, 30, 109, 'active')");
+
+        $hubSvc = $this->createMock(HubService::class);
+        $hubSvc->method('getWellAssignment')->willReturn([
+            'id' => 2, 'hub_id' => 30, 'status' => 'active',
+        ]);
+        $hubSvc->method('getHub')->willReturnCallback(function (int $id): array {
+            return $this->makeHubStub([
+                'id' => $id,
+                'name' => $id === 30 ? 'Old Permit Hub' : 'New Permit Hub',
+                'region_id' => 8,
+                'assigned_count' => $id === 30 ? 1 : 0,
+            ]);
+        });
+
+        $service = new HubAssignmentService($this->db, $hubSvc);
+        $result = $service->transferWell(1, 109, 31);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('no_hub_permit', $result['error']);
+        $this->assertSame('active', $this->db->query(
+            'SELECT status FROM logistics_hub_assignments WHERE id = 2'
+        )->fetchColumn());
+    }
+
+    public function testFailedTransferRollsBackToSavepointInsideCallerTransaction(): void
+    {
+        $this->db->exec("INSERT INTO wells (id, player_id, region_id, zone_key, status) VALUES (110, 1, 7, 'A1', 'active')");
+        $this->db->exec("INSERT INTO logistics_hub_assignments (id, hub_id, well_id, status) VALUES (3, 40, 110, 'active')");
+        $this->db->exec(
+            "CREATE TRIGGER fail_hub_transfer_insert
+             BEFORE INSERT ON logistics_hub_assignments
+             WHEN NEW.hub_id = 41
+             BEGIN
+                 SELECT RAISE(ABORT, 'forced transfer insert failure');
+             END"
+        );
+
+        $hubSvc = $this->createMock(HubService::class);
+        $hubSvc->method('getWellAssignment')->willReturn([
+            'id' => 3, 'hub_id' => 40, 'status' => 'active',
+        ]);
+        $hubSvc->method('getHub')->willReturnCallback(function (int $id): array {
+            return $this->makeHubStub([
+                'id' => $id,
+                'name' => $id === 40 ? 'Old Atomic Hub' : 'New Atomic Hub',
+                'assigned_count' => $id === 40 ? 1 : 0,
+            ]);
+        });
+
+        $this->db->beginTransaction();
+        $service = new HubAssignmentService($this->db, $hubSvc);
+        $result = $service->transferWell(1, 110, 41);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('db_error', $result['error']);
+        $this->assertTrue($this->db->inTransaction());
+        $this->assertSame('active', $this->db->query(
+            'SELECT status FROM logistics_hub_assignments WHERE id = 3'
+        )->fetchColumn());
+        $this->db->commit();
+    }
 }

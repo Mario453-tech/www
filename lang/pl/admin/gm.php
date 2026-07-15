@@ -67,6 +67,13 @@ return [
     'admin.gm.delete_players_none'        => 'Nie zaznaczono żadnego konta.',
     'admin.gm.delete_players_ok'          => 'Usunięto :count kont(o/a).',
     'admin.gm.delete_players_err'         => 'Błąd usuwania: :msg',
+    'admin.gm.bulk_err_amount_required'   => 'Podaj prawidłową kwotę.',
+    'admin.gm.bulk_err_amount_range'      => 'Kwota jest poza dozwolonym zakresem.',
+    'admin.gm.bulk_err_amount_zero'       => 'Kwota nie może być 0.',
+    'admin.gm.bulk_err_no_players'        => 'Brak aktywnych graczy do aktualizacji.',
+    'admin.gm.bulk_err_apply'             => 'Błąd zmiany gotówki: :msg',
+    'admin.gm.bulk_log'                   => 'Globalna zmiana gotówki :sign:amount dla :count graczy',
+    'admin.gm.bulk_ok'                    => 'Zmieniono gotówkę :sign:amount dla :count graczy.',
 
     // Pełny reset gry / Full game wipe
     'admin.gm.wipe_title'         => 'PEŁNY RESET GRY',

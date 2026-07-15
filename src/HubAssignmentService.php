@@ -42,39 +42,50 @@ class HubAssignmentService
  */
     public function assignWell(int $playerId, int $hubId, int $wellId): array
     {
-        $validation = $this->validateAssignment($playerId, $hubId, $wellId);
-        if (!$validation['ok']) {
-            $ret = ['success' => false, 'error' => $validation['error']];
- // Forward cooldown_remaining_s so callers (HubApi) can show exact wait time
-            if (isset($validation['cooldown_remaining_s'])) {
-                $ret['cooldown_remaining_s'] = $validation['cooldown_remaining_s'];
-            }
-            return $ret;
-        }
-
-        $zone = $this->getWellZoneKey($wellId);
-        $hub  = $validation['hub'];
-
-        // Assigning a well to a hub is local infrastructure work and requires a local permit.
-        $regionId = (int)($hub['region_id'] ?? 0);
-        if ($regionId <= 0) {
-            $regionId = $this->getHubRegionId($hubId);
-        }
-        if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
-            return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
-        }
-
- // No access fee: player paid for hub ownership/tenancy at acquisition time.
- // Hub must already be owned (player_id = playerId) or rented (tenant_player_id = playerId).
-        $accessFee = 0.0;
-
+        $ownTransaction = !$this->db->inTransaction();
         try {
+            if ($ownTransaction) {
+                $this->db->beginTransaction();
+            }
+
+            // Lock the well and hub before repeating capacity and uniqueness checks.
+            // Zablokuj odwiert i hub przed ponowna kontrola slotow i unikalnosci.
+            $this->lockAssignmentScope($playerId, $wellId, [$hubId]);
+            $validation = $this->validateAssignment($playerId, $hubId, $wellId);
+            if (!$validation['ok']) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                $ret = ['success' => false, 'error' => $validation['error']];
+                if (isset($validation['cooldown_remaining_s'])) {
+                    $ret['cooldown_remaining_s'] = $validation['cooldown_remaining_s'];
+                }
+                return $ret;
+            }
+
+            $hub = $validation['hub'];
+            $regionId = (int)($hub['region_id'] ?? 0);
+            if ($regionId <= 0) {
+                $regionId = $this->getHubRegionId($hubId);
+            }
+            if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
+            }
+
+            $zone = $this->getWellZoneKey($wellId);
             $now = date('Y-m-d H:i:s');
             $this->db->prepare(
                 "INSERT INTO logistics_hub_assignments
                     (hub_id, well_id, status, access_fee_paid, assigned_at, created_at, updated_at)
                  VALUES (?, ?, 'active', 0.00, ?, ?, ?)"
             )->execute([$hubId, $wellId, $now, $now, $now]);
+
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
 
             GameLog::info('HubAssignmentService', 'Well assigned to hub', [
                 'hub_id'    => $hubId,
@@ -84,13 +95,23 @@ class HubAssignmentService
                 'hub_zone'  => $hub['zone_key'],
             ]);
 
-            $this->hubSvc->createEvent($playerId, $hubId, $wellId, 'well_assigned', 'info',
-                'Well assigned',
-                "Well #{$wellId} assigned to hub {$hub['name']}."
-            );
+            try {
+                $this->hubSvc->createEvent($playerId, $hubId, $wellId, 'well_assigned', 'info',
+                    'Well assigned',
+                    "Well #{$wellId} assigned to hub {$hub['name']}."
+                );
+            } catch (Throwable $eventError) {
+                GameLog::error('HubAssignmentService', 'assignWell event failed', $eventError, [
+                    'hub_id' => $hubId,
+                    'well_id' => $wellId,
+                ]);
+            }
 
-            return ['success' => true, 'warning' => $validation['warning'] ?? null, 'access_fee' => $accessFee];
+            return ['success' => true, 'warning' => $validation['warning'] ?? null, 'access_fee' => 0.0];
         } catch (Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             GameLog::error('HubAssignmentService', 'assignWell failed', $e, [
                 'hub_id'  => $hubId,
                 'well_id' => $wellId,
@@ -107,7 +128,6 @@ class HubAssignmentService
  */
     public function detachWell(int $playerId, int $wellId): array
     {
- // Verify the well belongs to this player
         $well = $this->getWell($wellId, $playerId);
         if (!$well) {
             return ['success' => false, 'error' => 'well_not_found'];
@@ -118,23 +138,43 @@ class HubAssignmentService
             return ['success' => false, 'error' => 'not_assigned'];
         }
 
- // Hub is system-owned existence check only, no ownership filter
         $hub = $this->hubSvc->getHub((int)$assignment['hub_id']);
         if (!$hub) {
             return ['success' => false, 'error' => 'hub_not_found'];
         }
 
         $cooldownUntil = date('Y-m-d H:i:s', strtotime('+' . self::COOLDOWN_HOURS . ' hours'));
-
+        $ownTransaction = !$this->db->inTransaction();
         try {
-            $this->db->prepare(
+            if ($ownTransaction) {
+                $this->db->beginTransaction();
+            }
+            $this->lockAssignmentScope($playerId, $wellId, [(int)$assignment['hub_id']]);
+
+            $assignment = $this->hubSvc->getWellAssignment($wellId);
+            if (!$assignment) {
+                if ($ownTransaction && $this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'not_assigned'];
+            }
+
+            $update = $this->db->prepare(
                 "UPDATE logistics_hub_assignments
                     SET status        = 'detached',
                         detached_at   = NOW(),
                         cooldown_until = ?,
                         updated_at    = NOW()
-                  WHERE id = ?"
-            )->execute([$cooldownUntil, (int)$assignment['id']]);
+                  WHERE id = ? AND status = 'active'"
+            );
+            $update->execute([$cooldownUntil, (int)$assignment['id']]);
+            if ($update->rowCount() !== 1) {
+                throw new RuntimeException('Active hub assignment changed during detach.');
+            }
+
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
 
             GameLog::info('HubAssignmentService', 'Well detached from hub', [
                 'hub_id'    => $assignment['hub_id'],
@@ -142,14 +182,23 @@ class HubAssignmentService
                 'player_id' => $playerId,
             ]);
 
-            $this->hubSvc->createEvent($playerId, (int)$assignment['hub_id'], $wellId,
-                'well_detached', 'warning',
-                'Well detached',
-                "Well #{$wellId} detached from hub {$hub['name']}. Fallback logistics active."
-            );
+            try {
+                $this->hubSvc->createEvent($playerId, (int)$assignment['hub_id'], $wellId,
+                    'well_detached', 'warning',
+                    'Well detached',
+                    "Well #{$wellId} detached from hub {$hub['name']}. Fallback logistics active."
+                );
+            } catch (Throwable $eventError) {
+                GameLog::error('HubAssignmentService', 'detachWell event failed', $eventError, [
+                    'well_id' => $wellId,
+                ]);
+            }
 
             return ['success' => true];
         } catch (Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             GameLog::error('HubAssignmentService', 'detachWell failed', $e, ['well_id' => $wellId]);
             return ['success' => false, 'error' => 'db_error'];
         }
@@ -190,18 +239,59 @@ class HubAssignmentService
         }
 
         $newHub        = $validation['hub'];
+        $newRegionId   = (int)($newHub['region_id'] ?? $this->getHubRegionId($newHubId));
+        if (!$this->hasLocalPermitOrNotRequired($playerId, $newRegionId)) {
+            return ['success' => false, 'error' => 'no_hub_permit'];
+        }
         $cooldownUntil = date('Y-m-d H:i:s', strtotime('+' . self::COOLDOWN_HOURS . ' hours'));
         $now           = date('Y-m-d H:i:s');
-
+        $ownTransaction = !$this->db->inTransaction();
+        $savepoint = null;
         try {
-            $this->db->beginTransaction();
+            if ($ownTransaction) {
+                $this->db->beginTransaction();
+            } else {
+                $savepoint = 'hub_assignment_transfer';
+                $this->db->exec("SAVEPOINT {$savepoint}");
+            }
+            $this->lockAssignmentScope(
+                $playerId,
+                $wellId,
+                [(int)$assignment['hub_id'], $newHubId]
+            );
 
- // Close old assignment
-            $this->db->prepare(
+            $assignment = $this->hubSvc->getWellAssignment($wellId);
+            if (!$assignment) {
+                $this->rollbackMutationScope($ownTransaction, $savepoint);
+                return ['success' => false, 'error' => 'not_assigned'];
+            }
+            if ((int)$assignment['hub_id'] === $newHubId) {
+                $this->rollbackMutationScope($ownTransaction, $savepoint);
+                return ['success' => false, 'error' => 'same_hub'];
+            }
+
+            $oldHub = $this->hubSvc->getHub((int)$assignment['hub_id']);
+            $validation = $this->validateAssignment($playerId, $newHubId, $wellId, skipCurrentCheck: true);
+            if (!$oldHub || !$validation['ok']) {
+                $this->rollbackMutationScope($ownTransaction, $savepoint);
+                return ['success' => false, 'error' => !$oldHub ? 'hub_not_found' : $validation['error']];
+            }
+            $newHub = $validation['hub'];
+            $newRegionId = (int)($newHub['region_id'] ?? $this->getHubRegionId($newHubId));
+            if (!$this->hasLocalPermitOrNotRequired($playerId, $newRegionId)) {
+                $this->rollbackMutationScope($ownTransaction, $savepoint);
+                return ['success' => false, 'error' => 'no_hub_permit'];
+            }
+
+            $close = $this->db->prepare(
                 "UPDATE logistics_hub_assignments
                     SET status = 'detached', detached_at = NOW(), cooldown_until = ?, updated_at = NOW()
-                  WHERE id = ?"
-            )->execute([$cooldownUntil, (int)$assignment['id']]);
+                  WHERE id = ? AND status = 'active'"
+            );
+            $close->execute([$cooldownUntil, (int)$assignment['id']]);
+            if ($close->rowCount() !== 1) {
+                throw new RuntimeException('Active hub assignment changed during transfer.');
+            }
 
  // Create new assignment
             $this->db->prepare(
@@ -210,7 +300,11 @@ class HubAssignmentService
                  VALUES (?, ?, 'active', ?, ?, ?)"
             )->execute([$newHubId, $wellId, $now, $now, $now]);
 
-            $this->db->commit();
+            if ($ownTransaction) {
+                $this->db->commit();
+            } elseif ($savepoint !== null) {
+                $this->db->exec("RELEASE SAVEPOINT {$savepoint}");
+            }
 
             GameLog::info('HubAssignmentService', 'Well transferred between hubs', [
                 'old_hub_id' => $assignment['hub_id'],
@@ -219,21 +313,48 @@ class HubAssignmentService
                 'player_id'  => $playerId,
             ]);
 
-            $this->hubSvc->createEvent($playerId, $newHubId, $wellId, 'well_transferred', 'info',
-                'Well transferred',
-                "Well #{$wellId} moved from {$oldHub['name']} to {$newHub['name']}."
-            );
+            try {
+                $this->hubSvc->createEvent($playerId, $newHubId, $wellId, 'well_transferred', 'info',
+                    'Well transferred',
+                    "Well #{$wellId} moved from {$oldHub['name']} to {$newHub['name']}."
+                );
+            } catch (Throwable $eventError) {
+                GameLog::error('HubAssignmentService', 'transferWell event failed', $eventError, [
+                    'well_id' => $wellId,
+                    'new_hub_id' => $newHubId,
+                ]);
+            }
 
             return ['success' => true];
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
+            $this->rollbackMutationScope($ownTransaction, $savepoint);
             GameLog::error('HubAssignmentService', 'transferWell failed', $e, [
                 'well_id'    => $wellId,
                 'new_hub_id' => $newHubId,
             ]);
             return ['success' => false, 'error' => 'db_error'];
+        }
+    }
+
+    /**
+     * Rolls back only this service operation when it runs inside a caller transaction.
+     */
+    private function rollbackMutationScope(bool $ownTransaction, ?string $savepoint): void
+    {
+        try {
+            if (!$this->db->inTransaction()) {
+                return;
+            }
+            if ($ownTransaction) {
+                $this->db->rollBack();
+                return;
+            }
+            if ($savepoint !== null) {
+                $this->db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+                $this->db->exec("RELEASE SAVEPOINT {$savepoint}");
+            }
+        } catch (Throwable $rollbackError) {
+            GameLog::error('HubAssignmentService', 'rollbackMutationScope failed', $rollbackError);
         }
     }
 
@@ -272,6 +393,43 @@ class HubAssignmentService
             GameLog::error('HubAssignmentService', 'getHubRegionId failed', $e, ['hub_id' => $hubId]);
             return 0;
         }
+    }
+
+    /**
+     * Locks rows that define assignment uniqueness and hub capacity on MySQL.
+     * Blokuje wiersze wyznaczajace unikalnosc przypisania i pojemnosc huba w MySQL.
+     *
+     * @param list<int> $hubIds
+     */
+    private function lockAssignmentScope(int $playerId, int $wellId, array $hubIds): void
+    {
+        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
+            return;
+        }
+
+        $wellStmt = $this->db->prepare(
+            'SELECT id FROM wells WHERE id = ? AND player_id = ? FOR UPDATE'
+        );
+        $wellStmt->execute([$wellId, $playerId]);
+
+        $hubIds = array_values(array_unique(array_filter(array_map('intval', $hubIds), static fn(int $id): bool => $id > 0)));
+        sort($hubIds, SORT_NUMERIC);
+        if ($hubIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($hubIds), '?'));
+            $hubStmt = $this->db->prepare(
+                "SELECT id FROM logistics_hubs WHERE id IN ({$placeholders}) ORDER BY id FOR UPDATE"
+            );
+            $hubStmt->execute($hubIds);
+            $hubStmt->fetchAll(PDO::FETCH_COLUMN);
+        }
+
+        $assignmentStmt = $this->db->prepare(
+            "SELECT id FROM logistics_hub_assignments
+              WHERE well_id = ? AND status = 'active'
+              ORDER BY id FOR UPDATE"
+        );
+        $assignmentStmt->execute([$wellId]);
+        $assignmentStmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
     /**

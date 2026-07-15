@@ -144,41 +144,35 @@ class BailiffService
         if ($player && (float)$player['cash'] > 0) {
             $seized = (int)round((float)$player['cash'] * 0.30);
 
- // Pobranie srodkow przez centralne API finansowe (ruch gotowki + wpis w historii bankowej).
- // Fallback do bezposredniego UPDATE gdy FTS niedostepny lub zwroci blad (komornik musi zajac).
- // Withdraw via central finance API (cash movement + bank history entry).
- // Fallback to a direct UPDATE if FTS is unavailable or fails (the bailiff must seize).
-            $charged = false;
-            if (class_exists('FinancialTransactionService', false)) {
-                try {
-                    $res = (new FinancialTransactionService($this->db))->debit(
-                        (int)$proc['player_id'], (float)$seized,
-                        FinancialTransactionService::TYPE_BAILIFF_SEIZURE,
-                        tPlain('bank.tx_bailiff_seizure', ['id' => (int)$proc['id']]),
-                        'bailiff_proceeding', (int)$proc['id']
-                    );
-                    $charged = !empty($res['success']);
-                } catch (Throwable $le) { /* obsluga ponizej / handled below */ }
+            // The seizure must go through FTS so cash movement and audit trail stay atomic.
+            // Zajecie musi przejsc przez FTS, aby ruch gotowki i audyt byly atomowe.
+            try {
+                $res = (new FinancialTransactionService($this->db))->debit(
+                    (int)$proc['player_id'], (float)$seized,
+                    FinancialTransactionService::TYPE_BAILIFF_SEIZURE,
+                    tPlain('bank.tx_bailiff_seizure', ['id' => (int)$proc['id']]),
+                    'bailiff_proceeding', (int)$proc['id']
+                );
+            } catch (Throwable $le) {
+                GameLog::error('bailiff', 'FTS seizure failed', $le, [
+                    'player_id' => (int)$proc['player_id'],
+                    'proc_id'   => (int)$proc['id'],
+                    'amount'    => $seized,
+                ]);
+                return;
             }
-            if (!$charged) {
-                $fallback = $this->db->prepare("UPDATE players SET cash = cash - :amt WHERE id = :id");
-                $fallback->execute([':amt' => $seized, ':id' => $proc['player_id']]);
-                // Guard: brak wiersza = gracz usuniety miedzy odczytem a zajeciem. Nie udawaj sukcesu.
-                // Guard: 0 rows = player removed between read and seizure. Do not fake success.
-                if ($fallback->rowCount() === 0) {
-                    GameLog::error('bailiff', 'Fallback seizure affected 0 rows (player missing?)', null, [
-                        'player_id' => (int)$proc['player_id'],
-                        'proc_id'   => (int)$proc['id'],
-                        'amount'    => $seized,
-                    ]);
-                    return;
-                }
+            if (empty($res['success'])) {
+                GameLog::error('bailiff', 'FTS seizure rejected', null, [
+                    'player_id' => (int)$proc['player_id'],
+                    'proc_id'   => (int)$proc['id'],
+                    'amount'    => $seized,
+                    'error'     => (string)($res['error'] ?? 'unknown'),
+                ]);
+                return;
             }
 
-            // GREATEST(0, ...) jak w etapie 3 — bez floora zajecie > salda dawalo ujemny
-            // remaining_amount, psujac agregaty dlugu (Bankruptcy/StateTrait).
-            // GREATEST(0, ...) as in stage 3 — without the floor a seizure exceeding the
-            // balance produced a negative remaining_amount, corrupting debt aggregates.
+            // Utrzymaj dlug nieujemny po zajeciu, inaczej agregaty dlugu sie psuja.
+            // Keep debt non-negative after seizure, otherwise debt aggregates break.
             $this->db->prepare("UPDATE loans SET remaining_amount = GREATEST(0, remaining_amount - :amt) WHERE id = :id")
                 ->execute([':amt' => $seized, ':id' => $proc['loan_id']]);
 

@@ -24,15 +24,16 @@ final class TickModuleConfigRepository
         $sql = $driver === 'mysql'
             ? 'INSERT IGNORE INTO tick_module_config
                 (module_key, enabled, interval_ticks, max_items_per_run, last_status)
-               VALUES (?, 1, 1, ?, ?)'
+               VALUES (?, 1, ?, ?, ?)'
             : 'INSERT OR IGNORE INTO tick_module_config
                 (module_key, enabled, interval_ticks, max_items_per_run, last_status)
-               VALUES (?, 1, 1, ?, ?)';
+               VALUES (?, 1, ?, ?, ?)';
         $stmt = $this->db->prepare($sql);
 
         foreach ($modules as $module) {
             $stmt->execute([
                 $module->key(),
+                TickModuleCatalog::recommendedInterval($module->key()),
                 TickModuleCatalog::recommendedLimit($module->key()),
                 self::STATUS_NEVER,
             ]);

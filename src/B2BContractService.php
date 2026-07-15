@@ -732,12 +732,13 @@ final class B2BContractService
     }
 
     /**
-     * @return array{finalized:int,partial_done:int,failed:int,penalties:float}
+     * @return array{processed:int,finalized:int,partial_done:int,failed:int,penalties:float}
      */
-    public function finalizeExpiredAcceptedOffers(?DateTimeInterface $now = null): array
+    public function finalizeExpiredAcceptedOffers(?DateTimeInterface $now = null, int $limit = 0): array
     {
         if ((float)($this->getConfig()['auto_finalize_after_deadline'] ?? 1) <= 0) {
             return [
+                'processed' => 0,
                 'finalized' => 0,
                 'partial_done' => 0,
                 'failed' => 0,
@@ -746,10 +747,11 @@ final class B2BContractService
         }
 
         $nowSql = $now ? $now->format('Y-m-d H:i:s') : $this->now();
+        $limitSql = $this->batchLimitSql($limit);
         $stmt = $this->db->prepare(
             "SELECT id FROM b2b_contract_offers
              WHERE status = 'accepted' AND delivery_deadline_at IS NOT NULL AND delivery_deadline_at <= ?
-             ORDER BY id ASC"
+             ORDER BY id ASC{$limitSql}"
         );
         $stmt->execute([$nowSql]);
         $ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0) ?: [];
@@ -773,6 +775,7 @@ final class B2BContractService
         }
 
         return [
+            'processed' => count($ids),
             'finalized' => $finalized,
             'partial_done' => $partialDone,
             'failed' => $failed,
@@ -810,12 +813,13 @@ final class B2BContractService
     }
 
     /**
-     * @return array{expired:int,refunded:float}
+     * @return array{processed:int,expired:int,refunded:float}
      */
-    public function expireOpenOffers(?DateTimeInterface $now = null): array
+    public function expireOpenOffers(?DateTimeInterface $now = null, int $limit = 0): array
     {
         $nowSql = $now ? $now->format('Y-m-d H:i:s') : $this->now();
-        $stmt = $this->db->prepare("SELECT * FROM b2b_contract_offers WHERE status = 'open' AND expires_at <= ? ORDER BY id ASC");
+        $limitSql = $this->batchLimitSql($limit);
+        $stmt = $this->db->prepare("SELECT * FROM b2b_contract_offers WHERE status = 'open' AND expires_at <= ? ORDER BY id ASC{$limitSql}");
         $stmt->execute([$nowSql]);
         $offers = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
@@ -829,7 +833,7 @@ final class B2BContractService
             }
         }
 
-        return ['expired' => $expired, 'refunded' => round($refunded, 2)];
+        return ['processed' => count($offers), 'expired' => $expired, 'refunded' => round($refunded, 2)];
     }
 
     /**
@@ -1464,6 +1468,14 @@ final class B2BContractService
         $stmt = $this->db->prepare('SELECT 1 FROM players WHERE id = ? LIMIT 1');
         $stmt->execute([$playerId]);
         return (bool)$stmt->fetchColumn();
+    }
+
+    private function batchLimitSql(int $limit): string
+    {
+        if ($limit <= 0) {
+            return '';
+        }
+        return ' LIMIT ' . max(1, min(1000000, $limit));
     }
 
     private function countOpenBuyerOffers(int $playerId): int

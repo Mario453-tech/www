@@ -291,6 +291,7 @@ return [
     'bank.account.type.hr_fee'              => 'Koszty HR',
     'bank.account.type.tts_fee'             => 'Koszty techniczne',
     'bank.account.type.bankruptcy_event'    => 'Operacja restrukturyzacyjna',
+    'bank.account.type.bankruptcy_penalty'  => 'Kara bankructwa',
     'bank.account.type.geological_fee'      => 'Opłata geologiczna',
     'bank.account.type.map_purchase'        => 'Zakup lokalizacji',
     'bank.account.type.storage_upgrade'     => 'Rozbudowa magazynu',
@@ -363,6 +364,11 @@ return [
     'bank.tx_contract_bonus'     => 'Bonus za terminową realizację kontraktu #:id',
     'bank.tx_contract_deposit'   => 'Kaucja za podpisanie kontraktu #:id',
     'bank.tx_contract_deposit_refund' => 'Zwrot kaucji za kontrakt #:id',
+    'bank.tx_admin_bulk_cash' => 'Zbiorcza korekta gotówki przez admina :admin (:amount)',
+    'bank.tx_admin_cash_set' => 'Ustawienie gotówki przez admina do :amount',
+    'bank.tx_admin_cash_delta' => 'Korekta gotówki przez admina: :amount',
+    'bank.tx_admin_cash_delta_reason' => 'Korekta gotówki przez admina: :amount, powód: :reason',
+    'bank.tx_admin_manual_tick_costs' => 'Koszty ręcznego ticka gracza uruchomionego przez admina',
 
     // Portfel - modul transferu miedzy pulami (gotowka <-> konto bankowe)
     // Wallet - pool transfer module (cash <-> bank account)

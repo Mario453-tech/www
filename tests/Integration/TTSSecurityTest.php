@@ -364,6 +364,7 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         $row = $this->db->query("SELECT cash, safety_procedures_level FROM players WHERE id = 1")->fetch();
         $this->assertEqualsWithDelta(0.0, (float)$row['cash'], 0.01, 'Cash musi byc 0 po ulepszeniu / must be 0 after upgrade');
         $this->assertSame(1, (int)$row['safety_procedures_level'], 'Poziom musi wzrosnac do 1 / level must rise to 1');
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM bank_transactions WHERE transaction_type = 'tts_fee'")->fetchColumn());
     }
 
     /**
@@ -467,6 +468,19 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         $this->assertFalse($result['success']);
         $cashAfter = (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn();
         $this->assertEqualsWithDelta(100.0, $cashAfter, 0.001, 'Saldo niezmienione po odmowie / Balance unchanged after refusal');
+    }
+
+    public function testHireEngineerRecordsFinancialTransaction(): void
+    {
+        $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 100000)");
+        $this->db->exec("INSERT INTO staff_specializations (code, name) VALUES ('maintenance_engineer', 'Inzynier')");
+
+        $svc = $this->makeService(1);
+        $result = $svc->hireEngineer('maintenance_engineer', 'Jan', 'Kowalski', 5, 5000, 0);
+
+        $this->assertTrue($result['success'], 'hireEngineer musi sie udac / must succeed: ' . ($result['message'] ?? ''));
+        $this->assertSame(95000.0, (float)$this->db->query("SELECT cash FROM players WHERE id = 1")->fetchColumn());
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM bank_transactions WHERE transaction_type = 'hr_fee'")->fetchColumn());
     }
 
     // =========================================================================

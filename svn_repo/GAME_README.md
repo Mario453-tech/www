@@ -1,5 +1,25 @@
 ## Changelog
 
+### 2026-07-13 - Finanse: admin i komornik bez bezposredniego cash UPDATE
+
+- `admin/gm_tools.php` przy zbiorczej korekcie gotowki zmienia saldo przez `FinancialTransactionService`, a nie przez surowe `UPDATE players.cash`.
+- `admin/player_clean.php` przy ustawianiu gotowki, korekcie delta i recznym ticku gracza zapisuje ruch gotowki przez FTS.
+- `BailiffService` nie ma juz awaryjnego bezposredniego odjecia gotowki; jezeli FTS odrzuci zajecie, operacja jest logowana i ponawiana pozniej.
+
+### 2026-07-13 - Finanse: domkniecie audit trail dla TTS i kar
+
+- Zatrudnienie pracownika technicznego TTS pobiera pierwsza pensje przez `FinancialTransactionService::debit()` zamiast bezposredniego `UPDATE players.cash`.
+- Ulepszanie procedur BHP pobiera koszt przez FTS i dopiero potem aktualizuje poziom procedur w tej samej transakcji.
+- Kara bankructwa za przejecie przez konkurenta ma osobny typ `bankruptcy_penalty` routowany do gotowki.
+- Reczne wywolanie incydentu z kosztem w panelu admina pobiera gotowke przez FTS i zapisuje wpis w historii bankowej.
+
+### 2026-07-13 - Tick Engine: rekomendowane interwaly i realny limit B2B
+
+- `TickModuleConfigRepository::syncModules()` seeduje nowe moduly wartosciami z `TickModuleCatalog`, w tym `interval_ticks`; B2B startuje teraz z rekomendowanym interwalem 2.
+- `B2BContractsModule` czyta `max_items_per_run` z `TickContext` i przekazuje limit do wygaszania ofert oraz finalizacji zaleglych ofert zaakceptowanych.
+- `B2BContractService::expireOpenOffers()` i `finalizeExpiredAcceptedOffers()` przyjmuja limit batcha, wiec panel tick modules nie pokazuje juz pozornego limitu dla B2B.
+- Dodano regresje dla seedowania rekomendacji i limitowania B2B.
+
 ### 2026-07-12 - Kontrakty: historia dostaw i zwijane logi
 
 - Historia dostaw kontraktów systemowych pokazuje domyślnie 5 najnowszych dostaw, ma paginację oraz przełącznik `Pokaż wszystkie` / `Pokaż mniej`.
@@ -773,3 +793,71 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Dodano test regresyjny ograniczania mnożników balansu do zakresu `0.1-10.0` oraz jednokrotnego ładowania konfiguracji.
 - Weryfikacja etapu: `57/57` testów Unit, `391/391` testów Integration, komplet testów MySQLIntegration, PHPStan bez błędów, poprawne kodowanie UTF-8 bez BOM.
 - Backup przed zmianą crona: `backups/cron/2026-07-10_22-09-43_tick.php.bak`.
+
+### 2026-07-15 - Pracownicy: fundament wspólnego modelu
+
+- Dodano `EmployeeRef` i `EmployeeRepository`, które ujednolicają odczyt `board_members` oraz `technical_staff`, zachowując źródłowe identyfikatory i izolację graczy.
+- Dodano `employee_state` oraz `EmployeeStateService`: początkowe morale, oczekiwana pensja, zadowolenie płacowe, ryzyko odejścia, poparcie strajku i obciążenie są przechowywane poza starymi tabelami pracowników.
+- Dodano `employee_source_links`. Stare podwójne rekordy techników utworzone przez wcześniejsze flow HR i headhuntera dostają trwałe powiązanie ID, a `technical_staff` jest ich źródłem kanonicznym. Rekordy źródłowe nie są automatycznie usuwane ani scalane.
+- Backfill jest domyślnie dry-run. Tryb `apply` tworzy brakujące powiązania i stany idempotentnie, raportuje podejrzane duplikaty oraz nie nalicza podwójnie rekordów przy konflikcie zapisu.
+- Dodano `tools/backfill_employee_state.php`: bez flag wykonuje raport, `--apply` zapisuje zmiany, a `--player=ID` ogranicza zakres migracji.
+- Technicy pobierają widełki płacowe przez `technical_staff.spec_code -> hr_specializations.code`; wspólny model udostępnia też jednolite metody działu, pensji, umiejętności, cech i aktywności.
+- `EmployeeSystemBootstrap` jest podpięty do `src/init.php`, a autoload obsługuje katalog `src/Employee/`. Przed zmianą utworzono kopię `backups/employee-system/2026-07-15_01-19-05_init.php.back`.
+- `EmployeesModule` nie został dodany jako pusty adapter. Zostanie podpięty do modularnego ticka razem z realną mechaniką morale (`key=employees`, `order=35`, interwał 2, limit 200).
+- Weryfikacja: `Unit 77/77`, `Integration 406/406`, `MySqlIntegration 196/196`, nowe testy pracowników `14/14`, PHPStan level 6 dla nowego kodu oraz encoding UTF-8 bez BOM.
+
+### 2026-07-15 - Pracownicy: Etap 2, naprawa rekrutacji i headhuntera
+
+- `HRHiringTrait` rozróżnia teraz trzy cele zatrudnienia: kandydat bez specjalizacji trafia do `board_members` jako `director`, kandydat ze specjalizacją nietechniczną trafia do `board_members` jako `staff`, a kandydat techniczny trafia wyłącznie do `technical_staff`.
+- Zajęty fotel dyrektora blokuje już tylko rekrutację dyrektora. Pracownicy działowi nie są blokowani aktywnym dyrektorem tego samego działu.
+- `HeadhunterService` nie tworzy już lustrzanego duetu `board_members` + `technical_staff` dla techników. Techniczny headhunter zapisuje tylko `technical_staff`, a specjalizacje logistyczne / finansowe / prawne / HR zapisuje jako `board_members.member_type = 'staff'`.
+- Headhunter nie hardkoduje już roli `technical` dla każdej specjalizacji. Rola pracownika działowego jest mapowana z `hr_specializations.department -> board_roles.code`.
+- Dodano testy MySQL dla pięciu realnych scenariuszy: pracownik działowy przy zajętym dyrektorze, blokada duplikatu dyrektora, technik z HR, technik z headhuntera oraz pracownik działowy z headhuntera.
+- Weryfikacja po finalnym kodzie: `Unit 77/77`, `Integration 406/406`, `MySqlIntegration 201/201`, targeted `MySqlRecruitmentFlowTest 5/5`, encoding UTF-8 bez BOM.
+
+### 2026-07-15 - Pracownicy: Etap 3, role i efekty logistyczne
+
+- `EmployeeSystemBootstrap` tworzy teraz `employee_role_effects` idempotentnie dla MySQL i SQLite.
+- Bootstrap seeduje brakujące specjalizacje logistyczne: `hub_operator`, `transport_dispatcher`, `warehouse_coordinator`, `pipeline_logistics_specialist`, `b2b_delivery_coordinator`, `terminal_operator`, `oil_flow_analyst`.
+- Bootstrap seeduje bazowe efekty dla scope: `hub`, `road_transport`, `warehouse`, `pipeline`, `b2b`, `port`, `department`.
+- Teksty seedów widoczne dla gracza nie są hardkodowane w PHP. Nazwy i opisy są pobierane z `lang/pl/hr.php`, a bootstrap trzyma tylko kody i klucze tłumaczeń.
+- Dodano `EmployeeRoleEffectService` z metodami `getEffectsForSpecialization()`, `calculateEffects()`, `calculatePlayerEffects()`, `saveEffect()`, `deleteEffect()` oraz `getLogisticsManagerBonus()`.
+- `calculateEffects()` wykorzystuje wspólne `EmployeeRepository` i `EmployeeStateService`, liczy wpływ `skill_weights_json` oraz stosuje mnożnik morale zgodny z briefem.
+- `calculateEffects()` przekazuje opis efektu w aktywnym języku przez `description_key`; tłumaczenia są pobierane z `lang/pl/hr.php` albo `lang/en/hr.php`.
+- Pracownik techniczny bez osobnej specjalizacji perkowej używa fallbacku `role_code`, więc efekty mogą działać już na `technical_staff.spec_code`.
+- Tick logistyki konsumuje już pierwsze efekty runtime bez nowego UI przypisań: `hub_throughput_pct` zwiększa przepustowość huba, `pipeline_loss_pct` obniża straty rurociągu na obu odcinkach, a `department_transport_cost_pct` obniża mnożnik kosztów transportu i OPEX hubów przez dział logistyki.
+- Dodano regresje SQLite i MySQL dla seedów, liczenia morale/skilli, fallbacku `role_code`, CRUD efektu i bonusu kierownika logistyki.
+- Domknięto migracje schematu `employee_role_effects` dla baz zastanych: bootstrap dopisuje brakujące kolumny `description_key` i `description_pl` zarówno w MySQL, jak i SQLite.
+- Naprawiono kanonizację `board_member -> technical_staff`: stary lub błędny link w `employee_source_links` jest ignorowany, a prawidłowy link konsoliduje stan do jednego rekordu `employee_state`.
+- Bootstrap nie nadpisuje już istniejących rekordów `hr_specializations` ani `employee_role_effects`, więc zmiany z panelu admina nie cofają się przy następnym requestcie.
+- Dla zastanych rekordów `employee_role_effects` bootstrap uzupełnia tylko brakujące `description_key` i `description_pl`, bez ruszania wartości efektu, aktywności ani wag skilli.
+- Dyrektor logistyki bez przypisanej specjalizacji dostaje runtime fallback do efektu `oil_flow_analyst`, więc `department_transport_cost_pct` działa także w realnym flow rekrutacji dyrektora.
+- Efekty runtime nie naliczają się już pracownikom technicznym na `on_leave` ani rekordom z `employee_state.relation_status` ustawionym na `on_strike`, `leaving` lub `inactive`.
+- Tick logistyki izoluje teraz błąd pojedynczego pracownika i błąd bonusu kierownika, więc jeden uszkodzony rekord nie ucina naliczania reszty efektów gracza.
+- `saveEffect()` waliduje już kolizję unikalnego klucza `(specialization_code, effect_key, target_scope)` i zwraca kontrolowany błąd domenowy zamiast surowego `PDOException`.
+- Tick pobiera efekty operatorów hubów i specjalistów rurociągów zbiorczo dla gracza, bez osobnych zapytań odczytu dla każdego pracownika.
+- Bonus operatora huba trafia także do zapisywanej `real_capacity_bph`, dlatego tick i podsumowanie logistyki pokazują tę samą przepustowość.
+- Efektywna strata rurociągu jest ograniczona do 100% transportowanego wolumenu także przy skrajnych mnożnikach administracyjnych i finansowych.
+- Stary rekord zarządu nie nalicza efektu po wyłączeniu powiązanego pracownika technicznego, a kanonizacja zachowuje starszy stan morale, strajku lub odejścia zgodnie z regułami `EmployeeStateService`.
+- Zakres `global` nie dziedziczy efektów przeznaczonych wyłącznie dla działu, a brakujące stany pracowników są tworzone trwale w porcjach po maksymalnie 100 rekordów, bez zapytań per pracownik.
+- Hub w statusie `planned` korzysta z logistyki zastępczej, a mnożniki przepustowości są ograniczone do bezpiecznego zakresu `0.05-10.0`.
+- Log strat rurociągu rozróżnia stratę skonfigurowaną, wartość po efekcie pracownika oraz końcowy procent po mnożnikach.
+- Dodano testy SQLite i MySQL dla zbiorczego pobierania efektów, trwałej przepustowości huba oraz bilansu strat rurociągu.
+- Weryfikacja końcowa: `Unit 80/80`, `Integration 431/431`, `MySqlIntegration 206/206`, PHPStan bez błędów dla serwisów pracowników i zmienionych sekcji ticka oraz poprawne UTF-8 bez BOM.
+
+### 2026-07-15 - Logistyka: testy symulacyjne hubów i rurociągów
+
+- Przeprowadzono ponowny code review z agentami dla hubów, rurociągów, przypisań hubowych, buforów i bilansu baryłek.
+- Naprawiono rozliczanie ropy drenowanej ze starego bufora huba: straty kondycji są odejmowane przed sprawdzeniem miejsca w magazynie, więc do bufora wraca tylko wolumen netto, a istniejący magazyn nie jest obciążany stratą tej ropy.
+- `persistTickResult()` zapisuje stan huba i statystyki atomowo także wtedy, gdy działa wewnątrz cudzej transakcji. W takim przypadku używa savepointu i cofa częściowy update huba przy błędzie zapisu statystyk.
+- `addBufferBbl()` zwraca ilość zaokrągloną tak samo jak zapis w MySQL `DECIMAL(12,2)`, co zamyka mikro-różnice bilansu przy bardzo małych wolumenach.
+- Zakup inbound/outbound rurociągu blokuje huby `planned`, `paused`, `maintenance`, `disabled` i `building`, czyli te same stany, które tick traktuje jako nieoperacyjne.
+- Zakup inbound rurociągu ponownie blokuje aktywne przypisanie huba w transakcji, dzięki czemu równoległy transfer odwiertu nie tworzy rurociągu przypiętego do starego huba.
+- Adminowy grant rurociągu blokuje przypisanie huba i istniejący odcinek `FOR UPDATE`, żeby uniknąć tego samego wyścigu w panelu admina.
+- Nowo ukończony outbound rurociąg nalicza OPEX według realnego aktywnego czasu od zakończenia budowy, bez sztucznej pełnej godziny.
+- Incydenty huba mogą wystąpić także wtedy, gdy hub przetwarza ropę drenowaną z bufora bez nowego wejścia z odwiertu.
+- Globalny mnożnik strat oraz finansowy `incident_mult` wpływają już na straty i ryzyko incydentów huba. Fizyczny overflow nadal nie jest skalowany mnożnikami strat.
+- `incident_flag` w `logistics_hub_tick_stats` jest ustawiany tylko po realnym incydencie z `HubIncidentService`, a nie po osobnym losowaniu w `HubTickService`.
+- Schemat testowy MySQL dostał brakujące pola i tabelę hub permit, żeby testy wykrywały regresje zezwoleń hubowych.
+- Dodano regresje dla pełnego magazynu, częściowo pełnego magazynu, błędu persystencji, savepointu, statusów huba przy zakupie rurociągu, aktywnego czasu outbound OPEX, incydentów z bufora i mnożników strat.
+- Weryfikacja po poprawkach: `Unit 88/88`, `Integration 440/440`, `MySqlIntegration 217/217`, targeted PHPStan dla hubów/rurociągów bez błędów, `tools/check_encoding.php` 1904 pliki, `git diff --check` bez błędów.

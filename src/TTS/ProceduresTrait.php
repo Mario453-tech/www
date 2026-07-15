@@ -47,6 +47,7 @@ trait TTSProceduresTrait
         GameLog::step('TTS', 'upgradeProcedures', 1, "player={$this->playerId}");
 
         $ownTx = false;
+        $savepoint = null;
         try {
             $proc = $this->getProcedureStatus();
             $currentLevel = $proc['level'];
@@ -109,31 +110,18 @@ trait TTSProceduresTrait
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) $this->db->beginTransaction();
 
- // Jedna atomowa operacja: odliczenie gotowki + zwiekszenie poziomu razem eliminuje wyścig TOCTOU.
- // Single atomic UPDATE: cash deduction + level increment together eliminates TOCTOU race (Rule 2).
- // Warunek AND safety_procedures_level = ? zapobiega podwojnemu ulepszeniu przy rownoczesnych requestach.
- // Condition AND safety_procedures_level = ? prevents double upgrade under concurrent requests.
-            $upgradeStmt = $this->db->prepare("
-                UPDATE players
-                SET cash = cash - ?,
-                    safety_procedures_level = safety_procedures_level + 1,
-                    procedure_integrity = 100.0,
-                    procedures_last_decay_at = NOW()
-                WHERE id = ? AND cash >= ? AND safety_procedures_level = ?
-            ");
-            $upgradeStmt->execute([$cost, $this->playerId, $cost, $currentLevel]);
-            if ($upgradeStmt->rowCount() === 0) {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $forUpdate = $driver === 'mysql' ? ' FOR UPDATE' : '';
+            $lockStmt = $this->db->prepare("SELECT cash, safety_procedures_level FROM players WHERE id = ? LIMIT 1{$forUpdate}");
+            $lockStmt->execute([$this->playerId]);
+            $lockedPlayer = $lockStmt->fetch(PDO::FETCH_ASSOC);
+            $liveLevel = $lockedPlayer ? (int)$lockedPlayer['safety_procedures_level'] : -1;
+            if ($liveLevel !== $currentLevel) {
                 if ($ownTx) $this->db->rollBack();
- // rowCount=0 ma dwie przyczyny: brak gotowki albo rownolegly request zmienil poziom.
- // rowCount=0 has two causes: insufficient cash, or a concurrent request changed the level.
- // Rozrozniamy je krotkim SELECT, by zwrocic poprawny komunikat (Rule 7: prepare()).
- // We disambiguate with a short SELECT to return the correct message (Rule 7: prepare()).
-                $levelStmt = $this->db->prepare("SELECT safety_procedures_level FROM players WHERE id = ?");
-                $levelStmt->execute([$this->playerId]);
-                $liveLevel = (int)$levelStmt->fetchColumn();
-                if ($liveLevel !== $currentLevel) {
-                    return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
-                }
+                return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
+            }
+            if (!$lockedPlayer || (float)$lockedPlayer['cash'] + 1e-9 < $cost) {
+                if ($ownTx) $this->db->rollBack();
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.no_funds_upgrade', [
@@ -142,21 +130,46 @@ trait TTSProceduresTrait
                     ]),
                 ];
             }
-            if ($ownTx) $this->db->commit();
-
-            // Log finansowy poza transakcja — blad logu nie moze cofnac juz zatwierdzonej platnosci (Rule 6).
-            // Financial log outside transaction — log failure must not roll back an already-committed payment (Rule 6).
-            try {
-                (new \FinancialTransactionService($this->db))->logTransaction(
-                    $this->playerId,
-                    null,
-                    $cost,
-                    \FinancialTransactionService::TYPE_TTS_FEE,
-                    "HSE procedure upgrade to level {$nextLevel}"
-                );
-            } catch (\Throwable $logErr) {
-                GameLog::error('TTS', 'upgradeProcedures logTransaction FAILED', $logErr, ['player_id' => $this->playerId]);
+            if (!$ownTx) {
+                $savepoint = 'tts_proc_' . str_replace('.', '', uniqid('', true));
+                $this->db->exec('SAVEPOINT ' . $savepoint);
             }
+            $charge = (new \FinancialTransactionService($this->db))->debit(
+                $this->playerId,
+                (float)$cost,
+                \FinancialTransactionService::TYPE_TTS_FEE,
+                "HSE procedure upgrade to level {$nextLevel}"
+            );
+            if (empty($charge['success'])) {
+                if ($ownTx) $this->db->rollBack();
+                elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
+                return [
+                    'success' => false,
+                    'message' => t('technical.proc_msg.no_funds_upgrade', [
+                        'level' => $nextLevel,
+                        'cost' => number_format($cost, 0, '.', ' '),
+                    ]),
+                ];
+            }
+
+            $upgradeStmt = $this->db->prepare("
+                UPDATE players
+                SET safety_procedures_level = safety_procedures_level + 1,
+                    procedure_integrity = 100.0,
+                    procedures_last_decay_at = NOW()
+                WHERE id = ? AND safety_procedures_level = ?
+            ");
+            $upgradeStmt->execute([$this->playerId, $currentLevel]);
+            if ($upgradeStmt->rowCount() === 0) {
+                if ($ownTx) $this->db->rollBack();
+                elseif ($savepoint !== null) {
+                    $this->db->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                    $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
+                }
+                return ['success' => false, 'message' => t('technical.proc_msg.max_level')];
+            }
+            if ($ownTx) $this->db->commit();
+            elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
 
             GameLog::info('TTS', 'upgradeProcedures OK', [
                 'player_id' => $this->playerId,
@@ -176,6 +189,11 @@ trait TTSProceduresTrait
         } catch (Throwable $e) {
             if ($ownTx && $this->db->inTransaction()) {
                 $this->db->rollBack();
+            } elseif ($savepoint !== null) {
+                try {
+                    $this->db->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                    $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
+                } catch (Throwable) {}
             }
             GameLog::error('TTS', 'upgradeProcedures FAILED', $e, ['player_id' => $this->playerId]);
             return ['success' => false, 'message' => t('technical.proc_msg.upgrade_failed', [
@@ -193,6 +211,7 @@ trait TTSProceduresTrait
         GameLog::step('TTS', 'repairProcedureIntegrity', 1, "player={$this->playerId}");
 
         $ownTx = false;
+        $savepoint = null;
         try {
             $proc = $this->getProcedureStatus();
             if ($proc['level'] === 0) {
@@ -238,13 +257,20 @@ trait TTSProceduresTrait
             $ownTx = !$this->db->inTransaction();
             if ($ownTx) $this->db->beginTransaction();
 
- // Gotowka przez Player::updateCash() — atomowe odliczenie + audit trail (Rule 10).
- // Cash via Player::updateCash() — atomic deduction + audit trail (Rule 10).
- // Player() uzywa tego samego PDO (singleton), wiec dziala wewnatrz naszej transakcji gdy ownTx=false.
- // Player() uses same PDO (singleton), so works inside our transaction when ownTx=false.
-            $player = new \Player($this->playerId);
-            if (!$player->updateCash(-$cost, \FinancialTransactionService::TYPE_TTS_FEE, "HSE procedure integrity review (level {$proc['level']})")) {
+            if (!$ownTx) {
+                $savepoint = 'tts_proc_review_' . str_replace('.', '', uniqid('', true));
+                $this->db->exec('SAVEPOINT ' . $savepoint);
+            }
+
+            $charge = (new \FinancialTransactionService($this->db))->debit(
+                $this->playerId,
+                (float)$cost,
+                \FinancialTransactionService::TYPE_TTS_FEE,
+                "HSE procedure integrity review (level {$proc['level']})"
+            );
+            if (empty($charge['success'])) {
                 if ($ownTx) $this->db->rollBack();
+                elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
                 return [
                     'success' => false,
                     'message' => t('technical.proc_msg.review_no_funds', [
@@ -259,6 +285,7 @@ trait TTSProceduresTrait
                 WHERE id = ?
             ")->execute([$newIntegrity, $this->playerId]);
             if ($ownTx) $this->db->commit();
+            elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
 
             GameLog::info('TTS', 'repairProcedureIntegrity OK', [
                 'player_id' => $this->playerId,
@@ -279,6 +306,11 @@ trait TTSProceduresTrait
         } catch (Throwable $e) {
             if ($ownTx && $this->db->inTransaction()) {
                 $this->db->rollBack();
+            } elseif ($savepoint !== null) {
+                try {
+                    $this->db->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                    $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
+                } catch (Throwable) {}
             }
             GameLog::error('TTS', 'repairProcedureIntegrity FAILED', $e, ['player_id' => $this->playerId]);
             return ['success' => false, 'message' => t('technical.proc_msg.review_failed', [
@@ -391,8 +423,8 @@ trait TTSProceduresTrait
             );
         } catch (Throwable $e) {
             GameLog::error('TTS', 'getStaffRequirementCheck FAILED', $e, ['player_id' => $this->playerId]);
- // Fail-closed: deny access on read error — safer than granting it.
- // Fail-closed: odmow dostepu przy bledzie odczytu — bezpieczniejsze niz zezwolenie.
+ // Fail closed on read errors because granting access would be unsafe.
+ // Odmow dostepu przy bledzie odczytu, bo zezwolenie byloby niebezpieczne.
             $result['meets_minimum'] = false;
         }
 

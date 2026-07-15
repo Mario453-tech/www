@@ -1,14 +1,23 @@
 <?php
 /**
- * admin/gm_tools.php Narzdzia Game Mastera
+ * admin/gm_tools.php Game Master tools.
+ * admin/gm_tools.php Narzedzia Game Mastera.
+ *
+ * Features:
+ * - Broadcast messages to all players.
+ * - Reset a player account.
+ * - Clone a test account.
+ * - Show economy totals.
+ * - Clean expired data.
+ * - Change game speed.
  *
  * Funkcje:
- * - Broadcast wiadomoci do wszystkich graczy
- * - Reset gracza (wyzerowanie konta)
- * - Klonowanie konta testowego
- * - Podgld ekonomii (sumy globalne)
- * - Czyszczenie wygasych danych
- * - Zmiana prdkoci gry (tick multiplier)
+ * - Broadcast do wszystkich graczy.
+ * - Reset konta gracza.
+ * - Klonowanie konta testowego.
+ * - Podglad ekonomii.
+ * - Czyszczenie wygaslych danych.
+ * - Zmiana predkosci gry.
  */
 require_once __DIR__ . '/init.php';
 GameLog::info('admin/gm_tools.php', 'entry');
@@ -419,17 +428,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
- // DODAJ GOTWK WSZYSTKIM
+    // Bulk cash adjustment for active players.
+    // Zbiorcza korekta gotowki aktywnych graczy.
     elseif ($action === 'bulk_cash') {
         $rawAmount = trim((string)($_POST['bulk_amount'] ?? ''));
         if ($rawAmount === '' || !is_numeric($rawAmount)) {
-            $msg = 'Podaj prawidlowa kwote.'; $msgType = 'error';
+            $msg = t('admin.gm.bulk_err_amount_required'); $msgType = 'error';
         } else {
             $amount = round((float)$rawAmount, 2);
             if (!is_finite($amount) || abs($amount) > 1_000_000_000.0) {
-                $msg = 'Kwota jest poza dozwolonym zakresem.'; $msgType = 'error';
+                $msg = t('admin.gm.bulk_err_amount_range'); $msgType = 'error';
             } elseif (abs($amount) < 0.01) {
-                $msg = 'Kwota nie moe by 0.'; $msgType = 'error';
+                $msg = t('admin.gm.bulk_err_amount_zero'); $msgType = 'error';
             } else {
                 $targetIds = array_map(
                     'intval',
@@ -437,35 +447,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
 
                 if ($targetIds === []) {
-                    $msg = 'Brak aktywnych graczy do aktualizacji.'; $msgType = 'error';
+                    $msg = t('admin.gm.bulk_err_no_players'); $msgType = 'error';
                 } else {
                     $adminUser = AdminAuth::getAdminUsername();
                     $sign = $amount > 0 ? '+' : '';
                     $auditAmount = abs($amount);
-                    $auditText = 'Admin bulk cash adjustment by ' . $adminUser . ' (' . $sign . number_format($amount, 2, '.', '') . ')';
+                    $formattedAmount = number_format($amount, 2, '.', '');
+                    $auditText = tPlain('bank.tx_admin_bulk_cash', [
+                        'admin' => $adminUser,
+                        'amount' => $sign . $formattedAmount,
+                    ]);
 
+                    $fts = new FinancialTransactionService($db);
                     $db->beginTransaction();
                     try {
-                        $db->prepare("UPDATE players SET cash = cash + ? WHERE status != 'bankrupt'")->execute([$amount]);
-
-                        $fts = new FinancialTransactionService($db);
                         foreach ($targetIds as $playerId) {
-                            $txId = $amount > 0
-                                ? $fts->logTransaction(null, $playerId, $auditAmount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $auditText, 'admin_bulk_cash', null)
-                                : $fts->logTransaction($playerId, null, $auditAmount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $auditText, 'admin_bulk_cash', null);
-                            if ($txId === null) {
-                                throw new RuntimeException('bulk_cash_audit_failed');
+                            $result = $amount > 0
+                                ? $fts->credit($playerId, $auditAmount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $auditText, 'admin_bulk_cash', null)
+                                : $fts->debit($playerId, $auditAmount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $auditText, 'admin_bulk_cash', null);
+                            if (empty($result['success'])) {
+                                throw new RuntimeException('bulk_cash_adjustment_failed:' . (string)($result['error'] ?? 'unknown'));
                             }
                         }
 
                         $db->commit();
                         $count = count($targetIds);
-                        AdminLog::log('bulk_cash', "Globalna zmiana gotwki {$sign}\${$amount} dla {$count} graczy", null, $adminUser);
-                        $msg = "Zmieniono gotwk {$sign}\$" . number_format($amount, 2, '.', ' ') . " dla {$count} graczy.";
+                        AdminLog::log('bulk_cash', tPlain('admin.gm.bulk_log', [
+                            'sign' => $sign,
+                            'amount' => $formattedAmount,
+                            'count' => $count,
+                        ]), null, $adminUser);
+                        $msg = t('admin.gm.bulk_ok', [
+                            'sign' => $sign,
+                            'amount' => number_format($amount, 2, '.', ' '),
+                            'count' => $count,
+                        ]);
                         $msgType = 'success';
                     } catch (Throwable $e) {
                         $db->rollBack();
-                        $msg = 'Bd zmiany gotwki: ' . $e->getMessage();
+                        $msg = t('admin.gm.bulk_err_apply', ['msg' => $e->getMessage()]);
                         $msgType = 'error';
                     }
                 }
@@ -537,4 +557,3 @@ $extraJs   = ['/assets/js/admin_gm.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/gm_tools/main.php';
 require_once __DIR__ . '/partials/footer.php';
-

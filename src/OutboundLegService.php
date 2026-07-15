@@ -9,7 +9,7 @@
  * every inbound path (synchronous pipeline, road trips, marine deliveries) run
  * the same leg-2 logic consistently.
  *
- * Per-well choice lives in wells.hub_outbound_transport_type:
+ * The hub-level choice lives in logistics_hubs.outbound_transport_type:
  * 'nieustawiony' -> direct delivery (no extra loss/cost)
  * 'rurociag' -> outbound pipeline (transport_loss % + OPEX)
  * 'ciezarowki' -> road haul (per-tick cost + independent incident loss)
@@ -36,7 +36,7 @@ class OutboundLegService
  * @param array<string, mixed>|null $outboundPipeline operational outbound pipeline row, or null
  * @param array<string, float> $mults ['loss_mult','global_loss','opex','transport_cost_mult']
  * @param array<string, mixed> $hseBonus
- * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
+ * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string, capped_bbl: float, excess_bbl: float}
  */
     public function compute(
         string $outboundType,
@@ -49,30 +49,24 @@ class OutboundLegService
         int    $politicalRisk = 1
     ): array {
         $none = ['loss_bbl' => 0.0, 'loss_value' => 0.0, 'cost' => 0.0, 'kind' => 'direct', 'capped_bbl' => $bbl, 'excess_bbl' => 0.0];
+        $blocked = ['loss_bbl' => 0.0, 'loss_value' => 0.0, 'cost' => 0.0, 'kind' => 'blocked', 'capped_bbl' => 0.0, 'excess_bbl' => $bbl];
         if ($bbl <= 0.001) {
             return $none;
         }
 
         if ($outboundType === 'rurociag') {
             if ($outboundPipeline === null) {
-                return $none; // brak rurociagu leg-2 -> direct (uczciwy default) / no leg-2 pipeline -> direct
+                // A selected pipeline without infrastructure must retain oil in the hub buffer.
+                // Wybrany rurociag bez infrastruktury musi zatrzymac rope w buforze huba.
+                return $blocked;
             }
-            // H3: USZKODZONY/WYLACZONY rurociag wylotowy ZATRZYMUJE przeplyw — cala ropa wraca
-            // do bufora hubu (throttling przez excess_bbl) i czeka na naprawe, zamiast plynac
-            // do magazynu za darmo, bezstratnie i bez limitu. Wczesniej damaged/disabled dawaly
-            // 'direct' = uszkodzenie bylo KORZYSTNE (darmowa dostawa) i sprzeczne z leg-1, gdzie
-            // uszkodzony rurociag zatrzymuje produkcje (round 4 H2).
-            // H3: a DAMAGED/DISABLED outbound pipeline STOPS the flow — all oil returns to the hub
-            // buffer (throttled via excess_bbl) and waits for repair, instead of flowing to storage
-            // free, lossless and uncapped. Previously damaged/disabled returned 'direct' = damage was
-            // BENEFICIAL (free delivery) and inconsistent with leg-1, where a damaged pipeline stops
-            // production (round 4 H2).
+
+            // Every non-operational selected pipeline blocks the second leg consistently.
+            // Kazdy nieoperacyjny wybrany rurociag jednolicie blokuje drugi odcinek.
             $status = (string)($outboundPipeline['status'] ?? 'active');
-            if (in_array($status, ['damaged', 'disabled'], true)) {
-                return ['loss_bbl' => 0.0, 'loss_value' => 0.0, 'cost' => 0.0, 'kind' => 'blocked', 'capped_bbl' => 0.0, 'excess_bbl' => $bbl];
-            }
-            if (empty($outboundPipeline['_is_operational'])) {
-                return $none; // building/suspended (albo brak hub binding) -> direct jak dotad / building/suspended -> direct as before
+            if (in_array($status, ['building', 'suspended', 'servicing', 'damaged', 'disabled'], true)
+                || empty($outboundPipeline['_is_operational'])) {
+                return $blocked;
             }
             return $this->computePipeline($outboundPipeline, $bbl, $oilPrice, $mults, $deltaHours);
         }
@@ -87,7 +81,7 @@ class OutboundLegService
  /**
  * @param array<string, mixed> $pipe
  * @param array<string, float> $mults
- * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
+ * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string, capped_bbl: float, excess_bbl: float}
  */
     private function computePipeline(array $pipe, float $bbl, float $oilPrice, array $mults, float $deltaHours): array
     {
@@ -126,7 +120,7 @@ class OutboundLegService
         // opex_per_tick scaled by deltaHours (PLN per hour, floored at one tick) — consistent
         // with hub and leg-1 pipeline fees; the per-bbl part depends on volume, not time.
         $cost     = round(
-            (float)($pipe['opex_per_tick'] ?? 0.0) * $costMult * max(1.0, $deltaHours)
+            (float)($pipe['opex_per_tick'] ?? 0.0) * $costMult * max(0.0, $deltaHours)
             + $bbl * (float)($pipe['opex_per_bbl'] ?? 0.0) * $costMult,
             2
         );
@@ -147,7 +141,7 @@ class OutboundLegService
  *
  * @param array<string, float> $mults
  * @param array<string, mixed> $hseBonus
- * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string}
+ * @return array{loss_bbl: float, loss_value: float, cost: float, kind: string, capped_bbl: float, excess_bbl: float}
  */
     private function computeRoad(
         float $bbl,

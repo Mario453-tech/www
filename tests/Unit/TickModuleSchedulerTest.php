@@ -138,6 +138,20 @@ final class TickModuleSchedulerTest extends BaseTestCase
         $this->assertSame(200, (int)$config['max_items_per_run']);
     }
 
+    public function testSyncUsesRecommendedSettingsForNewModules(): void
+    {
+        $dir = $this->moduleDir('ScheduledB2BDefaultsModule', 'b2b_contracts');
+        $module = TickRegistry::find('b2b_contracts', $dir);
+        $this->assertInstanceOf(TickModule::class, $module);
+
+        $this->scheduler->sync([$module]);
+        $config = $this->repository->find('b2b_contracts');
+
+        $this->assertSame(1, (int)$config['enabled']);
+        $this->assertSame(TickModuleCatalog::recommendedInterval('b2b_contracts'), (int)$config['interval_ticks']);
+        $this->assertSame(TickModuleCatalog::recommendedLimit('b2b_contracts'), (int)$config['max_items_per_run']);
+    }
+
     public function testRunAllWithSchedulerRequiresPositiveSequence(): void
     {
         $dir = $this->moduleDir('ScheduledSequenceModule', 'scheduled_sequence');

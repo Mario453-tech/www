@@ -68,16 +68,20 @@ class WellProductionHandler
             ];
         }
 
- // Land wells with a pipeline in build or deliberately suspended fall back to road transport
- // (suspend promises "well switches to road transport"). 'damaged'/'disabled' do NOT fall back:
+ // Land wells with a pipeline in build, deliberately suspended or bound to another hub fall back
+ // to road transport. 'damaged'/'disabled' do NOT fall back:
  // a destroyed pipeline stops the flow (capPct=0 below) instead of silently hauling by road
  // at full truck capacity with no repair incentive.
- // Odwierty ladowe z rurociagiem w budowie lub celowo wstrzymanym przechodza na fallback
- // drogowy (suspend obiecuje przejscie na transport drogowy). 'damaged'/'disabled' NIE
+ // Odwierty ladowe z rurociagiem w budowie, wstrzymanym lub przypisanym do innego huba
+ // przechodza na fallback drogowy. 'damaged'/'disabled' NIE
  // przechodza: zniszczony rurociag zatrzymuje przesyl (capPct=0 nizej), zamiast po cichu
  // jezdzic ciezarowkami bez motywacji do naprawy.
+        $invalidHubBinding = $wellPipeline !== null && (
+            !empty($wellPipeline['_binding_mismatch'])
+            || (array_key_exists('_has_hub_binding', $wellPipeline) && empty($wellPipeline['_has_hub_binding']))
+        );
         if ($transportType === 'rurociag' && $wellType !== 'offshore'
-            && in_array($pipelineStatus, ['building', 'suspended'], true)) {
+            && (in_array($pipelineStatus, ['building', 'suspended'], true) || $invalidHubBinding)) {
             $transportType = 'ciezarowki';
             $transportCfg = $this->ctx->transportConfig[$transportType] ?? TransportConfigService::getDefaults()['ciezarowki'];
             $transportCapPct = (float)($transportCfg['capacity'] ?? 100.0);
@@ -302,6 +306,11 @@ class WellProductionHandler
 
  // Transport capacity limit
         $transportLimitedBbl = min($producedBbl, $producedBbl * ($transportCapPct / 100.0));
+        $pipelineCompletedThisTick = $wellPipeline !== null
+            && array_key_exists('_active_hours_this_tick', $wellPipeline);
+        $pipelineActiveHours = $pipelineCompletedThisTick
+            ? min($deltaHours, max(0.0, (float)$wellPipeline['_active_hours_this_tick']))
+            : $deltaHours;
 
  // Absolutny cap przepustowosci rurociagu leg-1 (real_capacity_bph * deltaHours):
  // procentowy limit skaluje sie z produkcja, wiec mnozniki (operator, sprzet, warstwa)
@@ -311,7 +320,7 @@ class WellProductionHandler
  // pushed a multiple of the pipe's rated capacity through it.
         if ($transportType === 'rurociag' && $wellPipeline !== null) {
             $pipeCapBph = (float)($wellPipeline['real_capacity_bph'] ?? 0.0);
-            $pipeCapBbl = max(0.0, $pipeCapBph * $deltaHours);
+            $pipeCapBbl = max(0.0, $pipeCapBph * $pipelineActiveHours);
             if ($transportLimitedBbl > $pipeCapBbl) {
                 GameLog::info('tick', 'pipeline_leg1_capacity_cap', [
                     'well_id'      => $wellId,
@@ -347,10 +356,15 @@ class WellProductionHandler
             $transportType === 'tankowiec'
             && $this->ctx->marineDeliverySvc !== null
         );
+        $synchronousHubInput = !$deferredHubInput
+            && isset($this->ctx->loopCtx->wellHubMap[$wellId]);
 
         if (!$deferredHubInput) {
- // Pelny magazyn — wstrzymaj odwiert (tylko transport bezposredni) / Full storage — pause well (direct transport only)
-            if ($freeSpace <= 0) {
+            // Hub input is reconciled against storage and the hub buffer during finalization.
+            // Wejscie huba jest rozliczane z magazynem i buforem podczas finalizacji.
+            if ($synchronousHubInput) {
+                $actual = $transportLimitedBbl;
+            } elseif ($freeSpace <= 0) {
                 if ($transportLimitedBbl > 0.0) {
                     $this->ctx->loopCtx->storageBlockedBbl += $transportLimitedBbl;
                     $this->ctx->loopCtx->recordPreStorageLoss($transportLimitedBbl, $price);
@@ -358,12 +372,13 @@ class WellProductionHandler
                 $this->ctx->db->prepare("UPDATE wells SET status = 'paused_storage' WHERE id = :id AND player_id = :pid")->execute([':id' => $wellId, ':pid' => $playerId]);
                 GameLog::info('tick', 'well paused_storage (storage full)', ['well_id' => $wellId, 'player_id' => $playerId]);
                 return;
-            }
-            $actual = min($transportLimitedBbl, $freeSpace);
-            $storageBlocked = max(0.0, round($transportLimitedBbl - $actual, 4));
-            if ($storageBlocked > 0.0) {
-                $this->ctx->loopCtx->storageBlockedBbl += $storageBlocked;
-                $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
+            } else {
+                $actual = min($transportLimitedBbl, $freeSpace);
+                $storageBlocked = max(0.0, round($transportLimitedBbl - $actual, 4));
+                if ($storageBlocked > 0.0) {
+                    $this->ctx->loopCtx->storageBlockedBbl += $storageBlocked;
+                    $this->ctx->loopCtx->recordPreStorageLoss($storageBlocked, $price);
+                }
             }
  // Akumulacje wejscia hubu przenosimy PONIZEJ odjecia straty rurociagu leg-1, aby hub
  // dostawal wolumen netto — inaczej hub przerabia (i leg-2 nalicza) barylki utracone w leg-1.
@@ -377,12 +392,23 @@ class WellProductionHandler
             $applyHubSync = false;
         }
 
- // Straty transportowe (rurociag) / Pipeline transport losses
+ // Apply pipeline losses without allowing the loss to exceed transported oil.
+ // Stosuje straty rurociagu bez przekroczenia transportowanej ropy.
         if ($actual > 0 && $transportType === 'rurociag' && $wellPipeline !== null) {
-            $transportLossPct = (float)($wellPipeline['transport_loss'] ?? 0.0);
+            $configuredLossPct = max(0.0, (float)($wellPipeline['transport_loss'] ?? 0.0));
+            $transportLossPct = $configuredLossPct;
+            $pipelineLossPct = (float)($this->ctx->loopCtx->employeeLogisticsEffects['pipeline_loss_pct'] ?? 0.0);
+            if ($pipelineLossPct !== 0.0) {
+                $transportLossPct = max(0.0, $transportLossPct * (1.0 + ($pipelineLossPct / 100.0)));
+            }
             if ($transportLossPct > 0) {
-                $lostOil = round($actual * ($transportLossPct / 100) * $this->ctx->gBalanceMults['loss'] * (float)($this->ctx->financeLogisticsMods['loss_mult'] ?? 1.0), 4);
-                $actual  = max(0, $actual - $lostOil);
+                $effectiveLossPct = min(100.0, max(0.0,
+                    $transportLossPct
+                    * max(0.0, (float)($this->ctx->gBalanceMults['loss'] ?? 1.0))
+                    * max(0.0, (float)($this->ctx->financeLogisticsMods['loss_mult'] ?? 1.0))
+                ));
+                $lostOil = min($actual, round($actual * ($effectiveLossPct / 100.0), 4));
+                $actual = max(0.0, $actual - $lostOil);
                 if ($lostOil > 0.0) {
                     $this->ctx->loopCtx->transportLossBbl += $lostOil;
                     $this->ctx->loopCtx->recordPreStorageLoss($lostOil, $price);
@@ -390,7 +416,9 @@ class WellProductionHandler
                 if ($lostOil > 0.01) {
                     GameLog::info('tick', 'transport_loss', [
                         'well_id'      => $wellId, 'player_id' => $playerId,
-                        'loss_pct'     => $transportLossPct,
+                        'loss_pct'     => round($effectiveLossPct, 4),
+                        'base_loss_pct' => round($configuredLossPct, 4),
+                        'adjusted_loss_pct' => round($transportLossPct, 4),
                         'lost_bbl'     => round($lostOil, 3),
                         'actual_after' => round($actual, 3),
                     ]);
@@ -755,11 +783,14 @@ class WellProductionHandler
             // koszt godzinowy rurociagu zalezal od kadencji crona, nie od czasu gry.
             // deltaHours scaling (opex_per_tick = PLN per HOUR, floored at one tick) — without it
             // the pipeline's hourly cost depended on cron cadence, not game time.
+            $pipelineCostHours = $pipelineCompletedThisTick
+                ? $pipelineActiveHours
+                : max(1.0, $deltaHours);
             $pipelineTickCost = round(
                 (float)($wellPipeline['opex_per_tick'] ?? 0.0)
  * $this->ctx->gBalanceMults['opex']
  * (float)($this->ctx->financeLogisticsMods['transport_cost_mult'] ?? 1.0)
- * max(1.0, $deltaHours),
+ * $pipelineCostHours,
                 2
             );
             $pipelineFlowCost = round(

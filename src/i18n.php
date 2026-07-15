@@ -9,15 +9,16 @@ declare(strict_types=1);
  */
 function _langLoad(): array
 {
-    static $lang = null;
-    if ($lang === null) {
-        $locale  = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-        $allowed = ['pl', 'en'];
-        if (!in_array($locale, $allowed, true)) $locale = 'pl';
+    static $langByLocale = [];
+    $locale  = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+    $allowed = ['pl', 'en'];
+    if (!in_array($locale, $allowed, true)) $locale = 'pl';
+    if (!isset($langByLocale[$locale])) {
         $file = __DIR__ . '/../lang/' . $locale . '.php';
-        $lang = file_exists($file) ? (include $file) : [];
+        $langByLocale[$locale] = file_exists($file) ? (include $file) : [];
     }
-    return $lang;
+
+    return $langByLocale[$locale];
 }
 
 /**

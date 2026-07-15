@@ -82,4 +82,99 @@ final class MySqlHubTickServiceTest extends MySqlIntegrationTestCase
         $this->assertGreaterThan($newResult['wear_added'], $usedResult['wear_added']);
         $this->assertLessThan($newResult['new_condition'], $usedResult['new_condition']);
     }
+
+    public function testPersistedRealCapacityIncludesEmployeeThroughputBonusOnRealMySql(): void
+    {
+        $ids = $this->getTrackedIds();
+        $this->seedPlayer();
+        $this->seedHub($ids['hubId'], 'PHPUnit Bonus Hub', 77, 'A1', 100.0);
+
+        $hubService = new HubService($this->db);
+        $tickService = new HubTickService($this->db, $hubService);
+        $hub = $hubService->getHub($ids['hubId']);
+        $this->assertIsArray($hub);
+
+        $result = $tickService->processTick(
+            $hub,
+            250.0,
+            1.0,
+            [],
+            ['hub_throughput_pct' => 20.0]
+        );
+        $this->assertSame(1.2, $result['throughput_multiplier']);
+
+        $tickService->persistTickResult($hub, $result, new DateTime('2026-05-18 10:00:00'));
+
+        $stmt = $this->db->prepare('SELECT real_capacity_bph FROM logistics_hubs WHERE id = ?');
+        $stmt->execute([$ids['hubId']]);
+        $persistedCapacity = (float)$stmt->fetchColumn();
+        $expectedCapacity = 200.0 * ((float)$result['new_condition'] / 100.0) * 1.2;
+
+        $this->assertEqualsWithDelta($expectedCapacity, $persistedCapacity, 0.01);
+    }
+
+    public function testPersistFailureInsideOuterTransactionRollsBackHubUpdate(): void
+    {
+        $ids = $this->getTrackedIds();
+        $this->seedPlayer();
+        $this->seedHub($ids['hubId'], 'PHPUnit Savepoint Hub', 77, 'A1', 82.0, 'active', 'used', 'standard', 40.0);
+
+        $hubService = new HubService($this->db);
+        $tickService = new HubTickService($this->db, $hubService);
+        $hub = $hubService->getHub($ids['hubId']);
+        $this->assertIsArray($hub);
+
+        $result = $tickService->processTick($hub, 150.0, 1.0);
+        $triggerName = 'trg_phpunit_hub_stats_fail_' . $ids['hubId'];
+
+        $this->db->exec("DROP TRIGGER IF EXISTS {$triggerName}");
+        $this->db->exec(
+            "CREATE TRIGGER {$triggerName}
+             BEFORE INSERT ON logistics_hub_tick_stats
+             FOR EACH ROW
+             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced hub stats failure'"
+        );
+
+        try {
+            $this->db->beginTransaction();
+            $ok = $tickService->persistTickResult($hub, $result, new DateTime('2026-05-18 11:00:00'));
+            $this->assertFalse($ok);
+            $this->db->commit();
+        } finally {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            $this->db->exec("DROP TRIGGER IF EXISTS {$triggerName}");
+        }
+
+        $stmt = $this->db->prepare(
+            'SELECT condition_pct, buffer_current_bbl, last_processed_at
+               FROM logistics_hubs
+              WHERE id = ?'
+        );
+        $stmt->execute([$ids['hubId']]);
+        $persistedHub = $stmt->fetch();
+
+        $this->assertNotFalse($persistedHub);
+        $this->assertSame('82.00', (string)$persistedHub['condition_pct']);
+        $this->assertSame('40.00', (string)$persistedHub['buffer_current_bbl']);
+        $this->assertNull($persistedHub['last_processed_at']);
+    }
+
+    public function testAddBufferBblReturnsDatabaseRoundedAmount(): void
+    {
+        $ids = $this->getTrackedIds();
+        $this->seedPlayer();
+        $this->seedHub($ids['hubId'], 'PHPUnit Rounded Buffer Hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 0.0);
+
+        $tickService = new HubTickService($this->db, new HubService($this->db));
+
+        $this->assertSame(0.0, $tickService->addBufferBbl($ids['hubId'], 0.004));
+        $storedAfterTiny = (float)$this->db->query("SELECT buffer_current_bbl FROM logistics_hubs WHERE id = {$ids['hubId']}")->fetchColumn();
+        $this->assertEqualsWithDelta(0.0, $storedAfterTiny, 0.0001);
+
+        $this->assertEqualsWithDelta(0.01, $tickService->addBufferBbl($ids['hubId'], 0.006), 0.0001);
+        $storedAfterRounded = (float)$this->db->query("SELECT buffer_current_bbl FROM logistics_hubs WHERE id = {$ids['hubId']}")->fetchColumn();
+        $this->assertEqualsWithDelta(0.01, $storedAfterRounded, 0.0001);
+    }
 }

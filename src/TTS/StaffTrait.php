@@ -95,25 +95,24 @@ trait TTSStaffTrait
         // Wzorzec $ownTx — metoda moze byc wywolana samodzielnie lub wewnatrz transakcji wywolujacego (Rule 5).
         // $ownTx pattern — method may be called standalone or inside a caller's transaction (Rule 5).
         $ownTx = !$this->db->inTransaction();
+        $savepoint = null;
         if ($ownTx) $this->db->beginTransaction();
+        else {
+            $savepoint = 'tts_hire_' . str_replace('.', '', uniqid('', true));
+            $this->db->exec('SAVEPOINT ' . $savepoint);
+        }
         try {
-            // Atomic cash check + deduct to avoid TOCTOU race.
-            // Atomowe sprawdzenie + odliczenie srodkow, by uniknac wyscigu TOCTOU.
-            $cashUpd = $this->db->prepare("UPDATE players SET cash = cash - ? WHERE id = ? AND cash >= ?");
-            $cashUpd->execute([$salary, $this->playerId, $salary]);
-            if ($cashUpd->rowCount() === 0) {
+            $charge = (new FinancialTransactionService($this->db))->debit(
+                $this->playerId,
+                (float)$salary,
+                FinancialTransactionService::TYPE_HR_FEE,
+                'Zatrudnienie pracownika TTS (pierwsza pensja)'
+            );
+            if (empty($charge['success'])) {
                 if ($ownTx) $this->db->rollBack();
+                elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
                 return ['success' => false, 'message' => t('technical.staff_msg.no_funds', ['amount' => $salary])];
             }
-            try {
-                if (class_exists('FinancialTransactionService', false)) {
-                    (new FinancialTransactionService($this->db))->logTransaction(
-                        $this->playerId, null, $salary,
-                        FinancialTransactionService::TYPE_HR_FEE,
-                        'Zatrudnienie pracownika TTS (pierwsza pensja)'
-                    );
-                }
-            } catch (Throwable $le) { /* audit trail failure must not break the operation */ }
             $this->db->prepare("
                 INSERT INTO technical_staff
                     (player_id, manager_id, first_name, last_name, spec_code, spec_name, skill_level, salary)
@@ -129,8 +128,15 @@ trait TTSStaffTrait
                 $salary,
             ]);
             if ($ownTx) $this->db->commit();
+            elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
         } catch (Throwable $e) {
             if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
+            elseif ($savepoint !== null) {
+                try {
+                    $this->db->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                    $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
+                } catch (Throwable) {}
+            }
             GameLog::error('TTS', 'hireEngineer FAILED', $e);
             return ['success' => false, 'message' => t('technical.staff_msg.hire_failed', [
                 'error' => $e->getMessage(),

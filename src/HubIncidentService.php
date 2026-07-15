@@ -62,7 +62,8 @@ class HubIncidentService
  *
  * @param array<string, mixed> $hub Wiersz huba z DB / Hub row from DB
  * @param float $inputBbl Wolumen wejciowy tego ticka (bbl) / Input volume this tick
- * @param array<string, mixed> $tickResult Wynik z HubTickService::processTick() / Result from HubTickService
+  * @param array<string, mixed> $tickResult Wynik z HubTickService::processTick() / Result from HubTickService
+  * @param array<string, float|int> $runtimeMods Runtime multipliers from finance/logistics.
  * @param float $deltaHours Czas ticka (godziny) / Tick duration in hours
  * @param int $playerId Gracz, ktrego studnie s w hubie / Player whose wells are in the hub
  * @return ?array<string, mixed> Dane incydentu lub null / Incident data or null
@@ -74,7 +75,8 @@ class HubIncidentService
         float $deltaHours,
         int   $playerId,
         array $hseBonus = [],
-        ?ProtectionService $protection = null
+        ?ProtectionService $protection = null,
+        array $runtimeMods = []
     ): ?array {
  // Huby active/overloaded/damaged/critical mog mie incydenty (disabled/building/paused nie)
  // Hubs active/overloaded/damaged/critical may have incidents (disabled/building/paused no)
@@ -83,12 +85,16 @@ class HubIncidentService
             return null;
         }
 
- // Brak wolumenu brak incydentu / No volume no incident
-        if ($inputBbl < 0.001) {
+        $activityBbl = max(
+            $inputBbl,
+            (float)($tickResult['processed_bbl'] ?? 0.0) + (float)($tickResult['lost_bbl'] ?? 0.0)
+        );
+        if ($activityBbl < 0.001) {
             return null;
         }
 
         $riskMult = $this->calcRiskMultiplier($hub, $tickResult, $hseBonus);
+        $riskMult *= max(0.0, (float)($runtimeMods['incident_mult'] ?? 1.0));
         $loadPct  = (float)($tickResult['load_pct'] ?? 0.0);
         // Ochrona jest przypisana do wlasciciela huba, nie do gracza-dzierzawcy.
         // Protection belongs to the hub owner, not to the tenant well-owner.
@@ -114,7 +120,7 @@ class HubIncidentService
                 * ($protMults[$type] ?? 1.0);
             $chance = min(1.0, max(0.0, $chance));
             if ((mt_rand(0, 999999) / 1_000_000.0) < $chance) {
-                $incident = $this->generateIncident($type, $cfg, $hub, $inputBbl, $tickResult, $playerId);
+                $incident = $this->generateIncident($type, $cfg, $hub, $activityBbl, $tickResult, $playerId);
                 if ($protection !== null && isset($protMults[$type]) && $protectionData['option_id'] > 0) {
                     $protection->logEvent(
                         $hubOwnerPlayerId, $protectionData['option_id'], 'hub', (int)$hub['id'], 'hub_guard',

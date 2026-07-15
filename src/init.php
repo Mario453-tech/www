@@ -161,6 +161,7 @@ spl_autoload_register(function ($class) {
         __DIR__ . '/Well/' . $class . '.php',
         __DIR__ . '/Incident/' . $class . '.php',
         __DIR__ . '/Sabotage/' . $class . '.php',
+        __DIR__ . '/Employee/' . $class . '.php',
     ];
     foreach ($candidates as $file) {
         if (file_exists($file)) {
@@ -245,6 +246,15 @@ try {
     ensureTrainingSchema();
 } catch (Throwable $__trainEx) {
  // Non-fatal - game runs without this migration
+}
+
+require_once __DIR__ . '/EmployeeSystemBootstrap.php';
+try {
+    ensureEmployeeSystemSchema();
+} catch (Throwable $__employeeEx) {
+    // Existing game flows remain available while the new employee layer is unavailable.
+    // Istniejace funkcje gry pozostaja dostepne, gdy nowa warstwa pracownikow jest niedostepna.
+    GameLog::error('init.php', 'employee system schema bootstrap FAILED', $__employeeEx);
 }
 
 // ROUTING 

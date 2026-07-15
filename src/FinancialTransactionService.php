@@ -63,6 +63,7 @@ class FinancialTransactionService
     public const TYPE_TTS_FEE            = 'tts_fee';
     public const TYPE_TRAINING_FEE       = 'training_fee';
     public const TYPE_BANKRUPTCY_EVENT   = 'bankruptcy_event';
+    public const TYPE_BANKRUPTCY_PENALTY = 'bankruptcy_penalty';
     public const TYPE_GEOLOGICAL_FEE     = 'geological_fee';
     public const TYPE_MAP_PURCHASE       = 'map_purchase';
     public const TYPE_STORAGE_UPGRADE    = 'storage_upgrade';
@@ -121,6 +122,7 @@ class FinancialTransactionService
         self::TYPE_TTS_FEE,
         self::TYPE_TRAINING_FEE,
         self::TYPE_BANKRUPTCY_EVENT,
+        self::TYPE_BANKRUPTCY_PENALTY,
         self::TYPE_GEOLOGICAL_FEE,
         self::TYPE_MAP_PURCHASE,
         self::TYPE_STORAGE_UPGRADE,

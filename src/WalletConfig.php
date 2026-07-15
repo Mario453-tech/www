@@ -85,6 +85,7 @@ class WalletConfig
         'loan'                => self::POOL_BANK,
         'well_sale'           => self::POOL_BANK,
         'bankruptcy_event'    => self::POOL_BANK,
+        'bankruptcy_penalty'  => self::POOL_CASH,
         // Przelew P2P miedzy graczami -> konto bankowe (przelew bankowy)
         // P2P transfer between players -> bank account (bank wire)
         'player_transfer'     => self::POOL_BANK,

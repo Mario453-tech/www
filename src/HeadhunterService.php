@@ -399,13 +399,6 @@ class HeadhunterService
     private function doHire(array $c, float $salary, float $bonus, int $prob): array
     {
         try {
-            $roleStmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = 'technical' LIMIT 1");
-            $roleStmt->execute();
-            $role = $roleStmt->fetch();
-            if (!$role) {
-                return ['success' => false, 'message' => t('hr_headhunter.err_missing_technical_role')];
-            }
-
             $this->db->beginTransaction();
             try {
                 $candidateLock = $this->db->prepare("
@@ -430,7 +423,7 @@ class HeadhunterService
                     $this->playerId, (float)$bonus,
                     FinancialTransactionService::TYPE_HR_FEE,
                     tPlain('bank.tx_hr_headhunter_bonus'),
-                    'board_member', null
+                    'employee', null
                 );
                 if (empty($bonusRes['success'])) {
                     $this->db->rollBack();
@@ -438,57 +431,24 @@ class HeadhunterService
                     return ['success' => false, 'message' => t('hr_headhunter.err_bonus_funds', ['cost' => self::fmt($bonus)])];
                 }
 
-                $birthDate = date('Y-m-d', mktime(0, 0, 0, rand(1, 12), rand(1, 28), date('Y') - rand(28, 55)));
-                $skill = (int)$c['skill_level'];
-
-                $this->db->prepare("
-                    INSERT INTO board_members
-                        (player_id, member_type, role_id, first_name, last_name, gender, birth_date,
-                         nationality, region_code, specialization_id, experience_years,
-                         skill_organization, skill_negotiation, skill_analysis,
-                         skill_stress, skill_ethics,
-                         trait_loyalty, trait_corruption_risk, trait_ambition,
-                         salary, hired_at, status)
-                    VALUES (?,'staff',?,?,?, 'M',?,'INT','INT',?,?,?,?,?,?,?,?,3,5,?,NOW(),'active')
-                ")->execute([
-                    $this->playerId,
-                    $role['id'],
-                    $c['first_name'], $c['last_name'], $birthDate,
-                    $c['specialization_id'], rand(8, 25),
-                    $skill, $skill, $skill, $skill, $skill,
-                    max(1, 10 - $skill),
-                    $salary,
-                ]);
-
-                $memberId = (int)$this->db->lastInsertId();
-
-                $specStmt = $this->db->prepare("SELECT code, name FROM hr_specializations WHERE id = ?");
-                $specStmt->execute([$c['specialization_id']]);
-                $spec = $specStmt->fetch();
-                if ($spec) {
-                    $this->db->prepare("
-                        INSERT INTO technical_staff
-                            (player_id, manager_id, first_name, last_name,
-                             spec_code, spec_name, skill_level, salary)
-                        VALUES (?,?,?,?,?,?,?,?)
-                    ")->execute([
-                        $this->playerId, $memberId,
-                        $c['first_name'], $c['last_name'],
-                        $spec['code'], $spec['name'], $skill, $salary,
-                    ]);
-                } else {
-                    GameLog::warn('HeadhunterService', 'doHire: hr_specialization not found, technical_staff skipped', [
-                        'player_id' => $this->playerId,
-                        'member_id' => $memberId,
-                        'specialization_id' => $c['specialization_id'],
-                    ]);
+                $spec = $this->loadSpecializationMeta((int)$c['specialization_id']);
+                if ($spec === null) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('hr_headhunter.err_unknown_specialization')];
                 }
 
-                $this->db->prepare("
-                    INSERT INTO employee_contracts
-                        (member_id, contract_start, contract_end, salary, contract_type, status)
-                    VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR), ?, '1y', 'active')
-                ")->execute([$memberId, $salary]);
+                $birthDate = date('Y-m-d', mktime(0, 0, 0, rand(1, 12), rand(1, 28), date('Y') - rand(28, 55)));
+                $skill = (int)$c['skill_level'];
+                if ($spec['department'] === 'technical') {
+                    $this->insertTechnicalHeadhunterHire($c, $spec, $salary, $skill);
+                } else {
+                    $memberId = $this->insertBoardStaffHeadhunterHire($c, $spec, $salary, $skill, $birthDate);
+                    $this->db->prepare("
+                        INSERT INTO employee_contracts
+                            (member_id, contract_start, contract_end, salary, contract_type, status)
+                        VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR), ?, '1y', 'active')
+                    ")->execute([$memberId, $salary]);
+                }
 
                 $acceptedUpdate = $this->db->prepare("
                     UPDATE headhunter_candidates
@@ -532,6 +492,157 @@ class HeadhunterService
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_hire_failed')];
         }
+    }
+
+    /**
+     * @return array{code:string,name:string,department:string}|null
+     */
+    private function loadSpecializationMeta(int $specializationId): ?array
+    {
+        $stmt = $this->db->prepare("SELECT code, name, department FROM hr_specializations WHERE id = ? LIMIT 1");
+        $stmt->execute([$specializationId]);
+        $spec = $stmt->fetch();
+        if (!$spec) {
+            return null;
+        }
+
+        return [
+            'code' => (string)$spec['code'],
+            'name' => (string)$spec['name'],
+            'department' => (string)$spec['department'],
+        ];
+    }
+
+    private function findRoleIdByCode(string $roleCode): int
+    {
+        $stmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = ? LIMIT 1");
+        $stmt->execute([$roleCode]);
+        return (int)($stmt->fetchColumn() ?: 0);
+    }
+
+    private function findActiveDirectorId(string $roleCode): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT bm.id
+            FROM board_members bm
+            JOIN board_roles br ON br.id = bm.role_id
+            WHERE bm.player_id = ?
+              AND bm.member_type = 'director'
+              AND bm.status = 'active'
+              AND br.code = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $stmt->execute([$this->playerId, $roleCode]);
+        return (int)($stmt->fetchColumn() ?: 0);
+    }
+
+    /**
+     * @param array<string, mixed> $candidate
+     * @param array{code:string,name:string,department:string} $spec
+     */
+    private function insertTechnicalHeadhunterHire(array $candidate, array $spec, float $salary, int $skill): void
+    {
+        $managerId = $this->findActiveDirectorId('technical');
+        if ($managerId <= 0) {
+            throw new RuntimeException(t('hr_headhunter.err_missing_technical_role'));
+        }
+
+        $staffPerk = $this->rollStaffSpecialization($spec['code'], $skill);
+        $this->db->prepare("
+            INSERT INTO technical_staff
+                (player_id, manager_id, first_name, last_name, spec_code, specialization, spec_name, skill_level, salary)
+            VALUES (?,?,?,?,?,?,?,?,?)
+        ")->execute([
+            $this->playerId,
+            $managerId,
+            $candidate['first_name'],
+            $candidate['last_name'],
+            $spec['code'],
+            $staffPerk,
+            $spec['name'],
+            $skill,
+            $salary,
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $candidate
+     * @param array{code:string,name:string,department:string} $spec
+     */
+    private function insertBoardStaffHeadhunterHire(array $candidate, array $spec, float $salary, int $skill, string $birthDate): int
+    {
+        $roleId = $this->findRoleIdByCode($spec['department']);
+        if ($roleId <= 0) {
+            throw new RuntimeException(t('hr_headhunter.err_missing_department_role'));
+        }
+
+        $this->db->prepare("
+            INSERT INTO board_members
+                (player_id, member_type, role_id, first_name, last_name, gender, birth_date,
+                 nationality, region_code, specialization_id, experience_years,
+                 skill_organization, skill_negotiation, skill_analysis,
+                 skill_stress, skill_ethics,
+                 trait_loyalty, trait_corruption_risk, trait_ambition,
+                 salary, hired_at, status)
+            VALUES (?,'staff',?,?,?,'M',?,'INT','INT',?,?,?,?,?,?,?,?,?,?,?,NOW(),'active')
+        ")->execute([
+            $this->playerId,
+            $roleId,
+            $candidate['first_name'],
+            $candidate['last_name'],
+            $birthDate,
+            $candidate['specialization_id'],
+            rand(8, 25),
+            $skill,
+            $skill,
+            $skill,
+            $skill,
+            $skill,
+            (int)($candidate['trait_loyalty'] ?? max(1, 10 - $skill)),
+            3,
+            5,
+            $salary,
+        ]);
+
+        return (int)$this->db->lastInsertId();
+    }
+
+    private function rollStaffSpecialization(string $specCode, int $skillLevel): ?string
+    {
+        $operatorSpecs = ['drilling_engineer', 'petroleum_engineer', 'reservoir_engineer', 'rig_manager', 'production_engineer', 'well_operator'];
+        $technicianSpecs = ['maintenance_engineer', 'safety_engineer', 'pipeline_engineer', 'safety_officer', 'well_technician'];
+
+        if (in_array($specCode, $operatorSpecs, true)) {
+            $role = 'operator';
+        } elseif (in_array($specCode, $technicianSpecs, true)) {
+            $role = 'technician';
+        } else {
+            return null;
+        }
+
+        $baseChance = 0.05 + max(0, $skillLevel - 5) * 0.01;
+        if ((mt_rand(1, 1000) / 1000.0) > $baseChance) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare("SELECT code, rarity FROM staff_specializations WHERE role = ?");
+        $stmt->execute([$role]);
+        $perks = $stmt->fetchAll();
+        if (empty($perks)) {
+            return null;
+        }
+
+        $weights = ['common' => 60, 'uncommon' => 30, 'rare' => 10];
+        $pool = [];
+        foreach ($perks as $perk) {
+            $weight = $weights[$perk['rarity']] ?? 20;
+            for ($i = 0; $i < $weight; $i++) {
+                $pool[] = $perk['code'];
+            }
+        }
+
+        return $pool[array_rand($pool)];
     }
 
  /**

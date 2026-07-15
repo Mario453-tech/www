@@ -54,6 +54,12 @@ class WellLoopSection
  // P1.2: oil dispatched by road and not yet delivered
  // P1.2: ropa wyslana ciezarowkami i jeszcze niedostarczona
     public float $roadInTransitBbl         = 0.0;
+ /** @var array<string, float> */
+    public array $employeeLogisticsEffects = [
+        'hub_throughput_pct' => 0.0,
+        'pipeline_loss_pct' => 0.0,
+        'department_transport_cost_pct' => 0.0,
+    ];
 
  // Stan hubow - wspoldzielony z WellProductionSection i WellHubSection
  // Hub state - shared with WellProductionSection and WellHubSection
@@ -95,7 +101,9 @@ class WellLoopSection
  /** @var array<string, array<string, float>> konfiguracja transportu per typ (z transport_config lub domyslna) / transport config per type (from transport_config or default) */
     private array $transportConfig = [];
     private ?FinancePolicyService $financePolicySvc = null;
- /** @var array<string, float|string> */
+    private ?EmployeeRepository $employeeRepo = null;
+    private ?EmployeeRoleEffectService $employeeRoleEffectSvc = null;
+/** @var array<string, float|string> */
     private array $financeTechnicalMods = [];
  /** @var array<string, float|string> */
     private array $financeLogisticsMods = [];
@@ -144,6 +152,15 @@ class WellLoopSection
                 $this->financePolicySvc = new FinancePolicyService($db);
             } catch (Throwable $e) {
                 GameLog::error('tick', 'WellLoopSection: FinancePolicyService init FAILED', $e);
+            }
+        }
+
+        if (class_exists('EmployeeRepository') && class_exists('EmployeeRoleEffectService')) {
+            try {
+                $this->employeeRepo = new EmployeeRepository($db);
+                $this->employeeRoleEffectSvc = new EmployeeRoleEffectService($db, $this->employeeRepo);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'WellLoopSection: employee logistics services init FAILED', $e);
             }
         }
 
@@ -216,7 +233,8 @@ class WellLoopSection
         float   $offlineRiskMult,
         ?object $tsvc,
         ?object $regionalSvc,
-        array   $activeRegEvents
+        array   $activeRegEvents,
+        array   $pipelineActiveHours = []
     ): void {
         $this->playerCash     = $playerCash;
         $this->currentStorage = $currentStorage;
@@ -228,6 +246,7 @@ class WellLoopSection
 
  // Preload danych przed petla odwiertow (w tym przypisania hubow). / Preload data before well loop (including hub assignments).
         $this->preloadPlayerData($playerId, $wells);
+        $this->applyPipelineActiveHours($pipelineActiveHours);
 
  // Petla odwiertow / Well loop
         $wellProd = new WellProductionSection(
@@ -377,6 +396,86 @@ class WellLoopSection
             return;
         }
         $this->hubWellDelivered[$wellId] = ($this->hubWellDelivered[$wellId] ?? 0.0) + $bbl;
+    }
+
+    /**
+     * Removes current-tick hub input that was destroyed before hub finalization.
+     * Storage is adjusted by the caller because the same loss may also consume old stock.
+     */
+    public function consumeHubInputForLoss(int $hubId, float $bbl, float $price): float
+    {
+        $available = max(0.0, (float)($this->hubInputAccum[$hubId] ?? 0.0));
+        $consumed = min(max(0.0, $bbl), $available);
+        if ($consumed <= 0.001) {
+            return 0.0;
+        }
+
+        $this->hubInputAccum[$hubId] = max(0.0, $available - $consumed);
+        $remaining = $consumed;
+        foreach ($this->hubWellDelivered as $wellId => $deliveredBbl) {
+            if (($this->wellHubMap[$wellId] ?? null) !== $hubId || $remaining <= 0.001) {
+                continue;
+            }
+            $deducted = min((float)$deliveredBbl, $remaining);
+            $this->hubWellDelivered[$wellId] = max(0.0, (float)$deliveredBbl - $deducted);
+            $remaining -= $deducted;
+        }
+
+        $value = round($consumed * $price, 2);
+        $this->finBbl = max(0.0, $this->finBbl - $consumed);
+        $this->deliveredBbl = max(0.0, $this->deliveredBbl - $consumed);
+        $this->finRevenue = max(0.0, $this->finRevenue - $value);
+
+        return $consumed;
+    }
+
+    /**
+     * Rolls back an optimistic storage credit when hub state persistence fails.
+     */
+    public function rollbackHubInputCredit(int $hubId, float $bbl, float $price): float
+    {
+        $removed = $this->consumeHubInputForLoss($hubId, $bbl, $price);
+        if ($removed <= 0.001) {
+            return 0.0;
+        }
+
+        $value = round($removed * $price, 2);
+        $this->currentStorage = max(0.0, $this->currentStorage - $removed);
+        $this->finLossBbl += $removed;
+        $this->finLossValue += $value;
+        $this->finHubLossBbl += $removed;
+        $this->finHubLossValue += $value;
+
+        return $removed;
+    }
+
+    /**
+     * Invalidates cached pipeline rows after degradation or an explosion in this tick.
+     *
+     * @param list<int> $pipelineIds
+     */
+    public function markPipelinesUnavailable(array $pipelineIds): void
+    {
+        $lookup = array_fill_keys(array_map('intval', $pipelineIds), true);
+        if ($lookup === []) {
+            return;
+        }
+
+        foreach ($this->wellPipelineCache as &$pipeline) {
+            if (isset($lookup[(int)($pipeline['id'] ?? 0)])) {
+                $pipeline['status'] = 'damaged';
+                $pipeline['_is_operational'] = false;
+            }
+        }
+        unset($pipeline);
+
+        foreach ($this->hubOutboundPipelineCache as &$pipeline) {
+            if (isset($lookup[(int)($pipeline['id'] ?? 0)])) {
+                $pipeline['status'] = 'damaged';
+                $pipeline['_is_operational'] = false;
+            }
+        }
+        unset($pipeline);
     }
 
  /**
@@ -637,7 +736,7 @@ class WellLoopSection
                        LEFT JOIN world_regions wr ON wr.id = h.region_id
                       WHERE a.well_id IN ({$placeholders})
                         AND a.status   = 'active'
-                        AND h.status  NOT IN ('disabled','building')"
+                        AND h.status  NOT IN ('planned','disabled','building','paused','maintenance')"
                 );
                 $stmt->execute($wellIds);
                 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -677,6 +776,115 @@ class WellLoopSection
             } catch (Throwable $e) {
                 GameLog::error('tick', 'preloadPlayerData hub outbound pipelines FAILED', $e, ['player_id' => $playerId]);
             }
+        }
+
+        $this->preloadEmployeeLogisticsEffects($playerId);
+    }
+
+    private function preloadEmployeeLogisticsEffects(int $playerId): void
+    {
+        $this->employeeLogisticsEffects = [
+            'hub_throughput_pct' => 0.0,
+            'pipeline_loss_pct' => 0.0,
+            'department_transport_cost_pct' => 0.0,
+        ];
+
+        if ($playerId <= 0 || $this->employeeRepo === null || $this->employeeRoleEffectSvc === null) {
+            return;
+        }
+
+        try {
+            try {
+                $managerBonus = $this->employeeRoleEffectSvc->getLogisticsManagerBonus($playerId);
+                $this->mergeEmployeeLogisticsEffect(
+                    'department_transport_cost_pct',
+                    $managerBonus['effects']['department_transport_cost_pct']['final_value'] ?? null
+                );
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'employee logistics manager bonus FAILED', $e, ['player_id' => $playerId]);
+            }
+
+            $calculatedEmployees = $this->employeeRoleEffectSvc->calculatePlayerEffects($playerId, [
+                'hub_operator' => ['hub', 'pipeline'],
+                'pipeline_logistics_specialist' => ['hub', 'pipeline'],
+            ]);
+            foreach ($calculatedEmployees as $calculated) {
+                foreach ((array)($calculated['effects'] ?? []) as $effectKey => $effect) {
+                    if (!array_key_exists($effectKey, $this->employeeLogisticsEffects)) {
+                        continue;
+                    }
+                    $this->mergeEmployeeLogisticsEffect($effectKey, $effect['final_value'] ?? null);
+                }
+            }
+
+            $departmentTransportPct = (float)($this->employeeLogisticsEffects['department_transport_cost_pct'] ?? 0.0);
+            if ($departmentTransportPct !== 0.0) {
+                $transportCostMult = max(0.05, 1.0 + ($departmentTransportPct / 100.0));
+                $this->financeLogisticsMods['transport_cost_mult'] = round(
+                    (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0) * $transportCostMult,
+                    6
+                );
+                $this->financeLogisticsMods['hub_cost_mult'] = round(
+                    (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0) * $transportCostMult,
+                    6
+                );
+            }
+
+            if (
+                abs((float)$this->employeeLogisticsEffects['hub_throughput_pct']) > 0.0001
+                || abs((float)$this->employeeLogisticsEffects['pipeline_loss_pct']) > 0.0001
+                || abs((float)$this->employeeLogisticsEffects['department_transport_cost_pct']) > 0.0001
+            ) {
+                GameLog::info('tick', 'employee_logistics_effects_preloaded', [
+                    'player_id' => $playerId,
+                    'effects' => $this->employeeLogisticsEffects,
+                    'transport_cost_mult' => (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
+                    'hub_cost_mult' => (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0),
+                ]);
+            }
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'preloadEmployeeLogisticsEffects FAILED', $e, ['player_id' => $playerId]);
+        }
+    }
+
+    /**
+     * Annotates pipelines completed during this tick with their actual active time.
+     *
+     * @param array<int, float> $activeHoursByPipeline
+     */
+    private function applyPipelineActiveHours(array $activeHoursByPipeline): void
+    {
+        if ($activeHoursByPipeline === []) {
+            return;
+        }
+
+        foreach ($this->wellPipelineCache as &$pipeline) {
+            $pipelineId = (int)($pipeline['id'] ?? 0);
+            if (array_key_exists($pipelineId, $activeHoursByPipeline)) {
+                $pipeline['_active_hours_this_tick'] = max(0.0, (float)$activeHoursByPipeline[$pipelineId]);
+            }
+        }
+        unset($pipeline);
+
+        foreach ($this->hubOutboundPipelineCache as &$pipeline) {
+            $pipelineId = (int)($pipeline['id'] ?? 0);
+            if (array_key_exists($pipelineId, $activeHoursByPipeline)) {
+                $pipeline['_active_hours_this_tick'] = max(0.0, (float)$activeHoursByPipeline[$pipelineId]);
+            }
+        }
+        unset($pipeline);
+    }
+
+    private function mergeEmployeeLogisticsEffect(string $effectKey, mixed $candidateValue): void
+    {
+        if (!is_numeric($candidateValue) || !array_key_exists($effectKey, $this->employeeLogisticsEffects)) {
+            return;
+        }
+
+        $current = (float)$this->employeeLogisticsEffects[$effectKey];
+        $candidate = (float)$candidateValue;
+        if (abs($candidate) > abs($current)) {
+            $this->employeeLogisticsEffects[$effectKey] = round($candidate, 4);
         }
     }
 }

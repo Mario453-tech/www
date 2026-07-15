@@ -105,9 +105,18 @@ final class WellProductionHandlerTest extends SqliteIntegrationTestCase
                 $this->hubWellDelivered    = [];
                 $this->hubOutboundType     = [];
             }
-            public function applyHubOrFallback(int $wellId, float &$actual, float $deltaHours): void {}
+            public function applyHubOrFallback(int $wellId, float &$actual, float $deltaHours): void {
+                $hubId = $this->wellHubMap[$wellId] ?? null;
+                if ($hubId !== null) {
+                    $this->hubInputAccum[$hubId] = ($this->hubInputAccum[$hubId] ?? 0.0) + $actual;
+                }
+            }
             public function recordPreStorageLoss(float $bbl, float $price): void {}
-            public function recordHubWellDelivered(int $wellId, float $bbl): void {}
+            public function recordHubWellDelivered(int $wellId, float $bbl): void {
+                if (isset($this->wellHubMap[$wellId])) {
+                    $this->hubWellDelivered[$wellId] = ($this->hubWellDelivered[$wellId] ?? 0.0) + $bbl;
+                }
+            }
         };
 
         // Anonimowy WellService - omija Database::getInstance() / Anonymous WellService - bypasses Database::getInstance()
@@ -509,6 +518,243 @@ final class WellProductionHandlerTest extends SqliteIntegrationTestCase
             'finTransport musi byc 0 gdy brak gotowki / must be 0 when no cash');
     }
 
+    public function testPipelineLossUsesEmployeeLogisticsReduction(): void
+    {
+        $this->seedWell(100, 1);
+
+        [$handler, $loopCtx] = $this->makeHandler(10_000_000.0);
+        $loopCtx->employeeLogisticsEffects['pipeline_loss_pct'] = -20.0;
+        $loopCtx->currentStorage = 0.0;
+        $loopCtx->wellHubMap[100] = 77;
+
+        $well = $this->defaultWellRow(100, 1);
+        $pipeline = [
+            'id' => 1,
+            'real_capacity_bph' => 100000.0,
+            'opex_per_tick' => 0.0,
+            'opex_per_bbl' => 0.0,
+            'transport_loss' => 10.0,
+            'status' => 'active',
+            '_is_operational' => true,
+        ];
+
+        $handler->processProduction(
+            $well, 100, 1, 1.0,
+            1_000_000.0, ['failure_reduction' => 0.0], null, $this->defaultMults(),
+            'rurociag', [], 100.0, 0.0, $pipeline,
+            1.0, 0.0, null, [], null
+        );
+
+        $this->assertEqualsWithDelta(4.0, $loopCtx->transportLossBbl, 0.0001,
+            'Efekt pipeline_loss_pct powinien obnizyc strate z 10% do 8% / pipeline_loss_pct should reduce loss from 10% to 8%');
+        $this->assertEqualsWithDelta(46.0, $loopCtx->deliveredBbl, 0.0001,
+            'Dostarczony wolumen powinien wzrosnac po bonusie logistycznym / delivered volume should increase after the logistics bonus');
+        $this->assertEqualsWithDelta(46.0, $loopCtx->hubInputAccum[77] ?? 0.0, 0.0001);
+        $this->assertEqualsWithDelta(46.0, $loopCtx->hubWellDelivered[100] ?? 0.0, 0.0001);
+        $this->assertEqualsWithDelta(
+            $loopCtx->producedBbl,
+            $loopCtx->deliveredBbl + $loopCtx->transportLossBbl,
+            0.0001
+        );
+    }
+
+    public function testFullStorageDoesNotBypassAssignedHubBuffer(): void
+    {
+        $this->seedWell(100, 1);
+
+        [$handler, $loopCtx] = $this->makeHandler(10_000_000.0);
+        $loopCtx->currentStorage = 1000.0;
+        $loopCtx->wellHubMap[100] = 77;
+        $loopCtx->hubInputAccum[77] = 0.0;
+
+        $handler->processProduction(
+            $this->defaultWellRow(100, 1),
+            100,
+            1,
+            1.0,
+            1000.0,
+            ['failure_reduction' => 0.0],
+            null,
+            $this->defaultMults(),
+            'rurociag',
+            [],
+            100.0,
+            0.0,
+            [
+                'id' => 1,
+                'real_capacity_bph' => 100000.0,
+                'opex_per_tick' => 0.0,
+                'opex_per_bbl' => 0.0,
+                'transport_loss' => 0.0,
+                'status' => 'active',
+                '_is_operational' => true,
+            ],
+            1.0,
+            0.0,
+            null,
+            [],
+            null
+        );
+
+        $this->assertEqualsWithDelta(50.0, $loopCtx->hubInputAccum[77], 0.0001);
+        $this->assertEqualsWithDelta(50.0, $loopCtx->deliveredBbl, 0.0001);
+        $this->assertEqualsWithDelta(0.0, $loopCtx->storageBlockedBbl, 0.0001);
+        $status = $this->db->query('SELECT status FROM wells WHERE id = 100')->fetchColumn();
+        $this->assertSame('active', $status);
+    }
+
+    public function testPipelineBoundToDifferentHubFallsBackToRoadTransport(): void
+    {
+        [$handler] = $this->makeHandler(10_000_000.0);
+        $handlerContextProperty = new ReflectionProperty($handler, 'ctx');
+        /** @var WellProductionSection $handlerContext */
+        $handlerContext = $handlerContextProperty->getValue($handler);
+
+        $pipelineCacheProperty = new ReflectionProperty($handlerContext, 'wellPipelineCache');
+        $pipelineCacheProperty->setValue($handlerContext, [
+            100 => [
+                'id' => 1,
+                'status' => 'active',
+                '_has_hub_binding' => false,
+                '_binding_mismatch' => true,
+                '_is_operational' => false,
+            ],
+        ]);
+
+        $well = $this->defaultWellRow(100, 1);
+        $well['transport_type'] = 'rurociag';
+        $resolved = $handler->resolveTransportConfig($well, 100);
+
+        $this->assertSame('ciezarowki', $resolved[0]);
+    }
+
+    public function testPipelineLossCannotExceedTransportedVolumeWithExtremeMultipliers(): void
+    {
+        $this->seedWell(100, 1);
+
+        [$handler, $loopCtx] = $this->makeHandler(10_000_000.0);
+        $loopCtx->currentStorage = 0.0;
+
+        $reflection = new ReflectionProperty($handler, 'ctx');
+        /** @var WellProductionSection $ctx */
+        $ctx = $reflection->getValue($handler);
+        $ctx->gBalanceMults['loss'] = 2.0;
+        $ctx->financeLogisticsMods['loss_mult'] = 3.0;
+
+        $well = $this->defaultWellRow(100, 1);
+        $pipeline = [
+            'id' => 1,
+            'real_capacity_bph' => 100000.0,
+            'opex_per_tick' => 0.0,
+            'opex_per_bbl' => 0.0,
+            'transport_loss' => 80.0,
+            'status' => 'active',
+            '_is_operational' => true,
+        ];
+
+        $handler->processProduction(
+            $well,
+            100,
+            1,
+            1.0,
+            1_000_000.0,
+            ['failure_reduction' => 0.0],
+            null,
+            $this->defaultMults(),
+            'rurociag',
+            [],
+            100.0,
+            0.0,
+            $pipeline,
+            1.0,
+            0.0,
+            null,
+            [],
+            null
+        );
+
+        $this->assertEqualsWithDelta(50.0, $loopCtx->transportLossBbl, 0.0001);
+        $this->assertEqualsWithDelta(0.0, $loopCtx->deliveredBbl, 0.0001);
+        $this->assertLessThanOrEqual(50.0, $loopCtx->transportLossBbl);
+    }
+
+    public function testNegativePipelineLossMultiplierCannotCreateOil(): void
+    {
+        $this->seedWell(100, 1);
+
+        [$handler, $loopCtx] = $this->makeHandler(10_000_000.0);
+        $reflection = new ReflectionProperty($handler, 'ctx');
+        /** @var WellProductionSection $ctx */
+        $ctx = $reflection->getValue($handler);
+        $ctx->gBalanceMults['loss'] = -2.0;
+
+        $handler->processProduction(
+            $this->defaultWellRow(100, 1),
+            100,
+            1,
+            1.0,
+            1_000_000.0,
+            ['failure_reduction' => 0.0],
+            null,
+            $this->defaultMults(),
+            'rurociag',
+            [],
+            100.0,
+            0.0,
+            [
+                'id' => 1,
+                'real_capacity_bph' => 100000.0,
+                'opex_per_tick' => 0.0,
+                'opex_per_bbl' => 0.0,
+                'transport_loss' => 80.0,
+                'status' => 'active',
+                '_is_operational' => true,
+            ],
+            1.0,
+            0.0,
+            null,
+            [],
+            null
+        );
+
+        $this->assertEqualsWithDelta(0.0, $loopCtx->transportLossBbl, 0.0001);
+        $this->assertEqualsWithDelta(50.0, $loopCtx->deliveredBbl, 0.0001);
+    }
+
+    public function testPipelineCostUsesDepartmentTransportDiscountMultiplier(): void
+    {
+        $this->seedWell(100, 1);
+
+        [$handler, $loopCtx] = $this->makeHandler(10_000_000.0);
+        $loopCtx->currentStorage = 0.0;
+
+        $well = $this->defaultWellRow(100, 1);
+        $pipeline = [
+            'id' => 1,
+            'real_capacity_bph' => 100000.0,
+            'opex_per_tick' => 100.0,
+            'opex_per_bbl' => 0.0,
+            'transport_loss' => 0.0,
+            'status' => 'active',
+            '_is_operational' => true,
+        ];
+
+        $reflection = new ReflectionProperty($handler, 'ctx');
+        /** @var WellProductionSection $ctx */
+        $ctx = $reflection->getValue($handler);
+        $ctx->financeLogisticsMods['transport_cost_mult'] = 0.955;
+
+        $handler->processProduction(
+            $well, 100, 1, 0.0001,
+            1_000_000.0, [], null, $this->defaultMults(),
+            'rurociag', [], 100.0, 0.0, $pipeline,
+            1.0, 0.0, null, [], null
+        );
+
+        $this->assertEqualsWithDelta(95.5, $loopCtx->finTransport, 0.0001,
+            'Rabat dzialowy powinien obnizyc koszt rurociagu / department discount should reduce the pipeline cost');
+    }
+
     /**
      * Transport OPEX%: finTransport += min(opex, cash).
      */
@@ -648,5 +894,46 @@ final class WellProductionHandlerTest extends SqliteIntegrationTestCase
         $storedUsed = (float)$this->db->query("SELECT used FROM storage WHERE player_id = 1")->fetchColumn();
         $this->assertEqualsWithDelta(5000.0, $storedUsed, 0.001,
             'Tabela storage nie moze byc bezposrednio zmieniona w tiku / Storage table must not be directly changed mid-tick');
+    }
+
+    public function testPipelineCompletedMidTickUsesOnlyItsActualActiveTime(): void
+    {
+        $this->seedWell(100, 1);
+        [$handler, $loopCtx] = $this->makeHandler(10_000_000.0);
+        $loopCtx->currentStorage = 0.0;
+
+        $handler->processProduction(
+            $this->defaultWellRow(100, 1),
+            100,
+            1,
+            10.0,
+            1_000_000.0,
+            ['failure_reduction' => 1.0],
+            null,
+            $this->defaultMults(),
+            'rurociag',
+            [],
+            100.0,
+            0.0,
+            [
+                'id' => 1,
+                'real_capacity_bph' => 100.0,
+                'opex_per_tick' => 100.0,
+                'opex_per_bbl' => 0.0,
+                'transport_loss' => 0.0,
+                'status' => 'active',
+                '_is_operational' => true,
+                '_active_hours_this_tick' => 0.5,
+            ],
+            1.0,
+            0.0,
+            null,
+            [],
+            null
+        );
+
+        $this->assertLessThanOrEqual(50.001, $loopCtx->deliveredBbl);
+        $this->assertGreaterThan(400.0, $loopCtx->transportCapacityLossBbl);
+        $this->assertEqualsWithDelta(50.0, $loopCtx->finTransport, 0.01);
     }
 }

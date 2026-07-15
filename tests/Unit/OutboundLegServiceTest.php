@@ -48,15 +48,59 @@ final class OutboundLegServiceTest extends BaseTestCase
         $this->assertEqualsWithDelta(150.0, $res['cost'], 0.01);
     }
 
-    public function testPipelineBuildingIsDirect(): void
+    public function testPipelineBuildingBlocksFlow(): void
     {
-        // building/suspended (nie-uszkodzenie) -> direct jak dotad / building/suspended -> direct as before
         $svc  = new OutboundLegService($this->config());
         $pipe = ['_is_operational' => false, 'status' => 'building', 'transport_loss' => 5.0, 'opex_per_tick' => 100.0];
         $res  = $svc->compute('rurociag', $pipe, 200.0, 70.0, $this->mults());
 
-        $this->assertSame('direct', $res['kind']);
+        $this->assertSame('blocked', $res['kind']);
+        $this->assertEqualsWithDelta(200.0, $res['excess_bbl'], 0.001);
         $this->assertSame(0.0, $res['cost']);
+    }
+
+    public function testPipelineOpexUsesActualActiveHours(): void
+    {
+        $svc  = new OutboundLegService($this->config());
+        $pipe = [
+            '_is_operational' => true,
+            'status' => 'active',
+            'real_capacity_bph' => 1000.0,
+            'transport_loss' => 0.0,
+            'opex_per_tick' => 100.0,
+            'opex_per_bbl' => 0.0,
+        ];
+
+        $res = $svc->compute('rurociag', $pipe, 100.0, 70.0, $this->mults(), 0.5);
+
+        $this->assertSame('pipeline', $res['kind']);
+        $this->assertEqualsWithDelta(50.0, $res['cost'], 0.001);
+    }
+
+    public function testMissingSelectedPipelineBlocksFlow(): void
+    {
+        $svc = new OutboundLegService($this->config());
+        $res = $svc->compute('rurociag', null, 120.0, 70.0, $this->mults());
+
+        $this->assertSame('blocked', $res['kind']);
+        $this->assertEqualsWithDelta(120.0, $res['excess_bbl'], 0.001);
+        $this->assertSame(0.0, $res['capped_bbl']);
+        $this->assertSame(0.0, $res['cost']);
+    }
+
+    public function testSuspendedAndServicingPipelinesBlockFlow(): void
+    {
+        $svc = new OutboundLegService($this->config());
+
+        foreach (['suspended', 'servicing'] as $status) {
+            $res = $svc->compute('rurociag', [
+                '_is_operational' => false,
+                'status' => $status,
+            ], 75.0, 70.0, $this->mults());
+
+            $this->assertSame('blocked', $res['kind'], $status);
+            $this->assertEqualsWithDelta(75.0, $res['excess_bbl'], 0.001, $status);
+        }
     }
 
     // H3: uszkodzony/wylaczony rurociag wylotowy ZATRZYMUJE przeplyw (cala ropa wraca do

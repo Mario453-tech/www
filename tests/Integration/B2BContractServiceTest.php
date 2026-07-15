@@ -176,6 +176,41 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(49, $this->b2bScore(1));
     }
 
+    public function testExpireOpenOffersRespectsBatchLimit(): void
+    {
+        $this->seedPlayer(1, 0.0, 100000.0);
+        for ($i = 0; $i < 3; $i++) {
+            $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+            $this->db->prepare("UPDATE b2b_contract_offers SET expires_at = ? WHERE id = ?")
+                ->execute(['2000-01-01 00:00:00', $offerId]);
+        }
+
+        $result = $this->service->expireOpenOffers(new DateTimeImmutable('2000-01-02 00:00:00'), 2);
+
+        $this->assertSame(2, $result['expired']);
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'open'")->fetchColumn());
+        $this->assertSame(2, (int)$this->db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'expired'")->fetchColumn());
+    }
+
+    public function testFinalizeExpiredAcceptedOffersRespectsBatchLimit(): void
+    {
+        $this->seedPlayer(1, 0.0, 100000.0);
+        $this->seedPlayer(2, 0.0, 0.0);
+        $this->seedStorage(2, 1000.0);
+        for ($i = 0; $i < 2; $i++) {
+            $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+            $this->service->acceptOffer(2, $offerId, 30.0);
+            $this->db->prepare("UPDATE b2b_contract_offers SET delivery_deadline_at = ? WHERE id = ?")
+                ->execute(['2000-01-01 00:00:00', $offerId]);
+        }
+
+        $result = $this->service->finalizeExpiredAcceptedOffers(new DateTimeImmutable('2000-01-02 00:00:00'), 1);
+
+        $this->assertSame(1, $result['finalized']);
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'accepted'")->fetchColumn());
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'partial_done'")->fetchColumn());
+    }
+
     public function testTickModuleExpiresOffersAndRefundsEscrow(): void
     {
         $this->seedPlayer(1, 0.0, 50000.0);
@@ -193,6 +228,25 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(0, $stats['b2b_contracts_finalized']);
         $this->assertSame(50000.0, $this->bankOf(1));
         $this->assertSame('expired', $this->offerStatus($offerId));
+    }
+
+    public function testTickModuleUsesConfiguredBatchLimit(): void
+    {
+        $this->seedPlayer(1, 0.0, 100000.0);
+        for ($i = 0; $i < 3; $i++) {
+            $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+            $this->db->prepare("UPDATE b2b_contract_offers SET expires_at = ? WHERE id = ?")
+                ->execute(['2000-01-01 00:00:00', $offerId]);
+        }
+
+        $module = new B2BContractsModule();
+        $ctx = new TickContext($this->db, new DateTimeImmutable('2000-01-02 00:00:00'), 'test');
+        $ctx->setModuleLimit('b2b_contracts', 2);
+        $module->run($ctx);
+
+        $stats = $module->stats();
+        $this->assertSame(2, $stats['b2b_contracts_expired']);
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM b2b_contract_offers WHERE status = 'open'")->fetchColumn());
     }
 
     // =========================================================

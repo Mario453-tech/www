@@ -19,7 +19,6 @@ final class MySqlHubIncidentServiceTest extends MySqlIntegrationTestCase
 
         $ref = new ReflectionClass($incidentService);
         $method = $ref->getMethod('calcRiskMultiplier');
-        $method->setAccessible(true);
 
         $tickResult = ['load_pct' => 135.0];
 

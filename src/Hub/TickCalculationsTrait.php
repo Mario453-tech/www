@@ -75,13 +75,16 @@ trait HubTickCalculationsTrait
     {
         $modeMultipliers = $this->hubSvc->getWorkModeMultipliers($hub['work_mode'] ?? 'standard');
         $conditionFactor = $this->calcConditionFactor($result['new_condition']);
-        $throughputMult  = $modeMultipliers['throughput_mult'] ?? 1.0;
+        $throughputMult = array_key_exists('throughput_multiplier', $result)
+            ? (float)$result['throughput_multiplier']
+            : (float)($modeMultipliers['throughput_mult'] ?? 1.0);
+        $throughputMult = min(10.0, max(0.05, $throughputMult));
         return round((float)$hub['nominal_capacity_bph'] * $conditionFactor * $throughputMult, 2);
     }
 
  /**
- * Wynik gdy hub jest nieaktywny (disabled / building / paused).
- * Result when the hub is inactive (disabled / building / paused).
+ * Result when the hub is inactive (planned / disabled / building / paused / maintenance).
+ * Wynik dla nieaktywnego huba (planned / disabled / building / paused / maintenance).
  * @param array<string, mixed> $hub
  * @return array<string, mixed>
  */
@@ -94,6 +97,7 @@ trait HubTickCalculationsTrait
             'buffered_bbl'       => 0.0,
             'drained_buffer_bbl' => 0.0,
             'lost_bbl'           => $fallback['lost_bbl'],
+            'overflow_lost_bbl'  => $fallback['lost_bbl'],
             'condition_lost_bbl' => 0.0,
             'input_bbl'          => round($inputBbl, 2),
             'load_pct'           => 0.0,

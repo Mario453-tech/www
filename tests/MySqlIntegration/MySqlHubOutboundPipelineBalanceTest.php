@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/MySqlIntegrationTestCase.php';
 require_once dirname(__DIR__, 2) . '/src/HubService.php';
 require_once dirname(__DIR__, 2) . '/src/HubTickService.php';
+require_once dirname(__DIR__, 2) . '/src/HubIncidentService.php';
 require_once dirname(__DIR__, 2) . '/src/OutboundLegService.php';
 require_once dirname(__DIR__, 2) . '/src/Tick/WellHubSection.php';
 require_once dirname(__DIR__, 2) . '/src/Tick/WellLoopSection.php';
@@ -99,5 +100,126 @@ final class MySqlHubOutboundPipelineBalanceTest extends MySqlIntegrationTestCase
             1.0,
             'Barrel balance must hold when outbound pipeline is damaged and the flow is throttled.'
         );
+    }
+
+    public function testActiveOutboundPipelinePreservesBarrelsAcrossMultipleTicks(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $hubId    = $ids['hubId'];
+        $wellId   = $ids['wellId'];
+
+        $this->seedHub($hubId, 'Multitick outbound hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 200.0, $playerId);
+        $initialHub = $this->db->query("SELECT * FROM logistics_hubs WHERE id = {$hubId}")->fetch();
+        $initialBuffer = (float)$initialHub['buffer_current_bbl'];
+        $newInput = 100.0;
+        $storage = 0.0;
+        $losses = 0.0;
+
+        for ($tick = 0; $tick < 10; $tick++) {
+            $input = $tick === 0 ? $newInput : 0.0;
+            $hubRow = $this->db->query("SELECT * FROM logistics_hubs WHERE id = {$hubId}")->fetch();
+            $hubRow['region_political_risk'] = 1;
+
+            $ctx = $this->makeCtx($hubId, $wellId, $hubRow, 100000.0, $storage + $input);
+            $ctx->hubInputAccum[$hubId] = $input;
+            $ctx->finBbl = $input;
+            $ctx->deliveredBbl = $input;
+            $ctx->finRevenue = $input * 70.0;
+            $ctx->hubOutboundPipelineCache[$hubId] = [
+                'status' => 'active',
+                '_is_operational' => true,
+                'real_capacity_bph' => 50.0,
+                'transport_loss' => 10.0,
+                'opex_per_tick' => 0.0,
+                'opex_per_bbl' => 0.0,
+            ];
+
+            $section = new WellHubSection(
+                $ctx,
+                new DateTime(sprintf('2026-07-15 %02d:00:00', 10 + $tick)),
+                new HubTickService($this->db, new HubService($this->db)),
+                null,
+                null,
+                [],
+                ['opex' => 1.0, 'loss' => 1.0],
+                70.0,
+                new OutboundLegService([]),
+                null
+            );
+            $section->finalize($playerId, 1.0, []);
+
+            $storage = $ctx->currentStorage;
+            $losses += $ctx->finHubLossBbl + $ctx->finOutboundLossBbl;
+        }
+
+        $finalBuffer = (float)$this->db->query("SELECT buffer_current_bbl FROM logistics_hubs WHERE id = {$hubId}")->fetchColumn();
+
+        $this->assertLessThan(0.1, $finalBuffer, 'The outbound backlog should clear after enough ticks.');
+        $this->assertGreaterThan(0.0, $losses, 'Configured pipeline loss should be recorded.');
+        $this->assertEqualsWithDelta(
+            $initialBuffer + $newInput,
+            $storage + $finalBuffer + $losses,
+            0.5,
+            'Multitick outbound transport must neither create nor destroy unclassified barrels.'
+        );
+    }
+
+    public function testHubIncidentUsesVolumeRemainingAfterOutboundLoss(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $hubId = $ids['hubId'];
+        $wellId = $ids['wellId'];
+
+        $this->seedHub($hubId, 'Incident base hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 200.0, $playerId);
+        $hubRow = $this->db->query("SELECT * FROM logistics_hubs WHERE id = {$hubId}")->fetch();
+        $hubRow['region_political_risk'] = 1;
+        $ctx = $this->makeCtx($hubId, $wellId, $hubRow, 100000.0, 0.0);
+        $ctx->hubOutboundPipelineCache[$hubId] = [
+            'status' => 'active',
+            '_is_operational' => true,
+            'real_capacity_bph' => 100000.0,
+            'transport_loss' => 100.0,
+            'opex_per_tick' => 0.0,
+            'opex_per_bbl' => 0.0,
+        ];
+
+        $incidentSvc = new class($this->db) extends HubIncidentService {
+            public float $lastProcessedBbl = -1.0;
+
+            public function processTick(
+                array $hub,
+                float $inputBbl,
+                array $tickResult,
+                float $deltaHours,
+                int $playerId,
+                array $hseBonus = [],
+                ?ProtectionService $protection = null,
+                array $runtimeMods = []
+            ): ?array {
+                $this->lastProcessedBbl = (float)($tickResult['processed_bbl'] ?? 0.0);
+                return ['extra_loss' => $this->lastProcessedBbl];
+            }
+        };
+
+        $section = new WellHubSection(
+            $ctx,
+            new DateTime('2026-07-15 12:00:00'),
+            new HubTickService($this->db, new HubService($this->db)),
+            $incidentSvc,
+            null,
+            [],
+            ['opex' => 1.0, 'loss' => 1.0],
+            70.0,
+            new OutboundLegService([]),
+            null
+        );
+        $section->finalize($playerId, 1.0, []);
+
+        $this->assertEqualsWithDelta(0.0, $incidentSvc->lastProcessedBbl, 0.001);
+        $this->assertEqualsWithDelta(0.0, $ctx->finHubIncidentLossBbl, 0.001);
+        $this->assertGreaterThanOrEqual(0.0, $ctx->finBbl);
+        $this->assertGreaterThanOrEqual(0.0, $ctx->deliveredBbl);
     }
 }

@@ -140,4 +140,55 @@ final class MySqlHubStorageBlockedRebufferTest extends MySqlIntegrationTestCase
             'Bilans barylek zachowany takze przy dostawie do magazynu'
         );
     }
+
+    public function testNewPipelineInputUsesHubBufferWhenStorageIsFull(): void
+    {
+        $ids      = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $hubId    = $ids['hubId'];
+        $wellId   = $ids['wellId'];
+
+        $this->seedHub($hubId, 'Full storage input hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 200.0, $playerId);
+        $hubRow = $this->db->query("SELECT * FROM logistics_hubs WHERE id = {$hubId}")->fetch();
+        $hubRow['region_political_risk'] = 1;
+
+        $initialBuffer = (float)$hubRow['buffer_current_bbl'];
+        $inputBbl      = 100.0;
+        $storageCap    = 1000.0;
+
+        // The synchronous well path credits input optimistically before hub reconciliation.
+        // Synchroniczna sciezka odwiertu kredytuje wejscie optymistycznie przed rozliczeniem huba.
+        $ctx = $this->makeCtx($hubId, $wellId, $hubRow, $storageCap, $storageCap + $inputBbl);
+        $ctx->hubInputAccum[$hubId] = $inputBbl;
+        $ctx->finBbl                = $inputBbl;
+        $ctx->deliveredBbl          = $inputBbl;
+        $ctx->finRevenue            = $inputBbl * 70.0;
+
+        $section = new WellHubSection(
+            $ctx,
+            new DateTime('2026-07-15 12:00:00'),
+            new HubTickService($this->db, new HubService($this->db)),
+            null,
+            null,
+            [],
+            ['opex' => 1.0, 'loss' => 1.0],
+            70.0,
+            new OutboundLegService([]),
+            null
+        );
+        $section->finalize($playerId, 1.0, []);
+
+        $finalBuffer = (float)$this->db->query("SELECT buffer_current_bbl FROM logistics_hubs WHERE id = {$hubId}")->fetchColumn();
+        $storageDelta = $ctx->currentStorage - $storageCap;
+
+        $this->assertLessThanOrEqual($storageCap, $ctx->currentStorage, 'Hub flow must not overfill storage.');
+        $this->assertGreaterThan($initialBuffer, $finalBuffer, 'Blocked new input should wait in the hub buffer.');
+        $this->assertEqualsWithDelta(0.0, $ctx->finBbl, 0.01, 'No new oil is delivered into a full storage.');
+        $this->assertEqualsWithDelta(
+            $initialBuffer + $inputBbl,
+            $finalBuffer + $storageDelta + $ctx->finHubLossBbl + $ctx->finOutboundLossBbl,
+            0.05,
+            'Opening buffer plus input must equal closing buffer, storage delta and classified losses.'
+        );
+    }
 }

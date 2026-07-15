@@ -34,29 +34,18 @@ trait HRHiringTrait
                 return ['success' => false, 'message' => t('hr_hiring.err_candidate_unavailable')];
             }
 
- // Split flow: technical engineer versus department director.
- // PL: Rozdzielenie sciezek: inzynier techniczny versus dyrektor dzialu.
-            $isTechEngineer = false;
-            if (!empty($candidate['specialization_id'])) {
-                $spStmt = $this->db->prepare("SELECT department FROM hr_specializations WHERE id = ? LIMIT 1");
-                $spStmt->execute([(int)$candidate['specialization_id']]);
-                $spDept = $spStmt->fetchColumn();
-
-                if ($spDept === 'technical') {
-                    // Look up the technical role ID explicitly — candidate role_id may differ.
-                    // Pobierz ID roli technicznej explicite — role_id kandydata moze byc inne.
-                    $techRoleStmt = $this->db->prepare("SELECT id FROM board_roles WHERE code = 'technical' LIMIT 1");
-                    $techRoleStmt->execute();
-                    $techRoleId = (int)($techRoleStmt->fetchColumn() ?: 0);
-                    if ($techRoleId > 0 && $this->isRoleOccupied($techRoleId, $playerId)) {
-                        $isTechEngineer = true;
-                    }
-                }
+ // Specialized candidates become staff, unspecialized candidates stay directors.
+ // PL: Kandydat ze specjalizacja staje sie pracownikiem, bez specjalizacji zostaje dyrektorem.
+            $hireTarget = $this->resolveCandidateHireTarget($candidate);
+            if ($hireTarget === null) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('hr_hiring.err_unknown_specialization')];
             }
-
-            $isStaffCandidate = !empty($candidate['specialization_id']);
+            $isTechEngineer = ($hireTarget === 'technical_staff');
+            $isStaffCandidate = ($hireTarget !== 'director');
 
             GameLog::step('HRService', 'hireCandidate', 1, 'routing', [
+                'hire_target'      => $hireTarget,
                 'is_tech_engineer' => $isTechEngineer,
                 'role_code'        => $candidate['role_code'] ?? null,
                 'spec_id'          => $candidate['specialization_id'] ?? null,
@@ -67,12 +56,13 @@ trait HRHiringTrait
                 return $this->hireTechEngineerToStaff((int)$candidate['id'], $playerId);
             }
 
-            if ($this->isRoleOccupied((int)$candidate['role_id'], $playerId)) {
+            if ($hireTarget === 'director' && $this->isRoleOccupied((int)$candidate['role_id'], $playerId)) {
                 $this->db->rollBack();
                 return ['success' => false, 'message' => t('hr_hiring.err_role_already_filled')];
             }
 
-            $result = $this->hireCandidateDefaultPath($candidate, $playerId, $contractType);
+            $memberType = ($hireTarget === 'board_staff') ? 'staff' : 'director';
+            $result = $this->hireCandidateDefaultPath($candidate, $playerId, $contractType, $memberType);
             $this->finalizeCandidateHiring(
                 (int)$candidate['id'],
                 (int)$candidate['role_id'],
@@ -85,6 +75,7 @@ trait HRHiringTrait
             GameLog::info('HRService', 'hireCandidate success (board_member)', [
                 'candidate_id' => $candidateId,
                 'member_id'    => $result['member_id'],
+                'member_type'  => $memberType,
             ]);
 
             return $result;
@@ -107,7 +98,6 @@ trait HRHiringTrait
  * Hire a technical engineer directly into technical_staff.
  * PL: Zatrudnia inzyniera technicznego bezposrednio do technical_staff.
  *
- * @param array<string, mixed> $candidate
  * @return array<string, mixed>
  */
     private function hireTechEngineerToStaff(int $candidateId, int $playerId): array
@@ -166,13 +156,15 @@ trait HRHiringTrait
                 ];
             }
 
- // Pierwsza pensja przez centralne API finansowe (ruch gotowki + wpis bankowy; w transakcji).
- // First salary via the central finance API (cash movement + bank entry; inside a transaction).
+ // First salary via the central finance API inside the same transaction.
+ // PL: Pierwsza pensja przez centralne API finansowe w tej samej transakcji.
             $feeRes = (new FinancialTransactionService($this->db))->debit(
-                $playerId, (float)$salary,
+                $playerId,
+                (float)$salary,
                 FinancialTransactionService::TYPE_HR_FEE,
                 tPlain('bank.tx_hr_hire'),
-                'technical_staff', null
+                'technical_staff',
+                null
             );
             if (empty($feeRes['success'])) {
                 $this->db->rollBack();
@@ -238,6 +230,27 @@ trait HRHiringTrait
             GameLog::error('HRService', 'hireTechEngineer FAILED', $e, ['player_id' => $playerId]);
             return ['success' => false, 'message' => t('hr_hiring.err_hire_engineer_failed')];
         }
+    }
+
+    /**
+     * Resolve the target structure before mutating any employee table.
+     */
+    private function resolveCandidateHireTarget(array $candidate): ?string
+    {
+        $specializationId = (int)($candidate['specialization_id'] ?? 0);
+        if ($specializationId <= 0) {
+            return 'director';
+        }
+
+        $spStmt = $this->db->prepare("SELECT department FROM hr_specializations WHERE id = ? LIMIT 1");
+        $spStmt->execute([$specializationId]);
+        $department = $spStmt->fetchColumn();
+        if ($department === false) {
+            return null;
+        }
+        $department = (string)$department;
+
+        return $department === 'technical' ? 'technical_staff' : 'board_staff';
     }
 
  /**
@@ -339,14 +352,15 @@ trait HRHiringTrait
  * @param array<string, mixed> $candidate
  * @return array<string, mixed>
  */
-    private function hireCandidateDefaultPath(array $candidate, int $playerId, string $contractType): array
+    private function hireCandidateDefaultPath(array $candidate, int $playerId, string $contractType, string $memberType = 'director'): array
     {
         GameLog::step('HRService', 'hireCandidate', 1, 'default path', [
             'candidate_id' => $candidate['id'] ?? null,
             'role_code'    => $candidate['role_code'] ?? null,
+            'member_type'  => $memberType,
         ]);
 
-        $memberId = $this->insertBoardMember($candidate, $playerId);
+        $memberId = $this->insertBoardMember($candidate, $playerId, $memberType);
         $this->createEmployeeContract($memberId, (float)$candidate['expected_salary'], $contractType);
         $this->createEmploymentHistory($memberId, t('hr_hiring.history_director_hire'));
 
@@ -368,7 +382,7 @@ trait HRHiringTrait
  *
  * @param array<string, mixed> $candidate
  */
-    private function insertBoardMember(array $candidate, int $playerId = 0): int
+    private function insertBoardMember(array $candidate, int $playerId = 0, string $memberType = 'director'): int
     {
         if ($playerId <= 0) {
             $playerId = (int)($_SESSION['user_id'] ?? 0);
@@ -384,7 +398,7 @@ trait HRHiringTrait
                 trait_loyalty, trait_corruption_risk, trait_ambition,
                 salary, hired_at, status
             ) VALUES (
-                :player_id, 'director',
+                :player_id, :member_type,
                 :role_id, :first_name, :last_name, :gender, :birth_date, :nationality,
                 :region_code, :specialization_id, :experience_years,
                 :skill_organization, :skill_negotiation, :skill_analysis,
@@ -395,6 +409,7 @@ trait HRHiringTrait
         ");
         $ins->execute([
             ':player_id'             => $playerId,
+            ':member_type'           => $memberType,
             ':role_id'               => $candidate['role_id'],
             ':first_name'            => $candidate['first_name'],
             ':last_name'             => $candidate['last_name'],

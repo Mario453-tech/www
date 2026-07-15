@@ -89,6 +89,23 @@ function fetchActiveLoansCount(PDO $db, int $pid): int
     }
 }
 
+function adminApplyCashAdjustment(PDO $db, int $pid, float $delta, string $description, string $referenceType): void
+{
+    $amount = round(abs($delta), 2);
+    if ($amount < FinancialTransactionService::MIN_AMOUNT) {
+        return;
+    }
+
+    $fts = new FinancialTransactionService($db);
+    $result = $delta > 0
+        ? $fts->credit($pid, $amount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $description, $referenceType, null)
+        : $fts->debit($pid, $amount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $description, $referenceType, null);
+
+    if (empty($result['success'])) {
+        throw new RuntimeException('admin_cash_adjustment_failed:' . (string)($result['error'] ?? 'unknown'));
+    }
+}
+
 function fetchTrustScore(PDO $db, int $pid): array
 {
     try {
@@ -352,12 +369,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $setAmount = max(0, (float)$rawInput);
         if ($setAmount >= 0) {
             try {
-                $db->prepare("UPDATE players SET cash = :a WHERE id = :id")
-                   ->execute([':a' => $setAmount, ':id' => $pid]);
+                $driver = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME);
+                $forUpdate = $driver === 'mysql' ? ' FOR UPDATE' : '';
+
+                new FinancialTransactionService($db);
+                $db->beginTransaction();
+                $currentStmt = $db->prepare("SELECT cash FROM players WHERE id = :id LIMIT 1{$forUpdate}");
+                $currentStmt->execute([':id' => $pid]);
+                $currentCash = $currentStmt->fetchColumn();
+                if ($currentCash === false) {
+                    throw new RuntimeException('player_not_found');
+                }
+
+                $delta = round($setAmount - (float)$currentCash, 2);
+                adminApplyCashAdjustment(
+                    $db,
+                    $pid,
+                    $delta,
+                    tPlain('bank.tx_admin_cash_set', ['amount' => number_format($setAmount, 2, '.', '')]),
+                    'admin_player_set_cash'
+                );
+                $db->commit();
                 AdminLog::log('cash_set', t('admin.player.log_cash_set', ['amount' => $setAmount]), $pid);
                 GameLog::info('admin/player', 'gotwka ustawiona', ['pid' => $pid, 'value' => $setAmount]);
                 $msg = t('admin.player.msg_cash_set', ['amount' => number_format($setAmount, 2, ',', ' ')]);
             } catch (Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
                 GameLog::error('admin/player', 'set_cash FAILED', $e, ['pid' => $pid, 'amount' => $setAmount]);
                 $error = t('admin.player.err_cash_change') . $e->getMessage();
             }
@@ -365,14 +404,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = t('admin.player.err_cash_negative');
         }
 
- // Zmiana gotwki (delta) 
+    // Cash delta adjustment.
+    // Korekta gotowki roznica.
     } elseif ($action === 'cash') {
         $amount = (int)($_POST['amount'] ?? 0);
         $reason = trim($_POST['reason'] ?? '');
         if ($amount !== 0) {
             try {
-                $db->prepare("UPDATE players SET cash = cash + :a WHERE id = :id")
-                   ->execute([':a' => $amount, ':id' => $pid]);
+                $amountText = ($amount > 0 ? '+' : '') . (string)$amount;
+                $description = $reason !== ''
+                    ? tPlain('bank.tx_admin_cash_delta_reason', ['amount' => $amountText, 'reason' => $reason])
+                    : tPlain('bank.tx_admin_cash_delta', ['amount' => $amountText]);
+                adminApplyCashAdjustment(
+                    $db,
+                    $pid,
+                    (float)$amount,
+                    $description,
+                    'admin_player_cash_delta'
+                );
                 AdminLog::log('cash_change', t('admin.player.log_cash_change', ['amount' => $amount, 'reason' => $reason]), $pid);
                 GameLog::info('admin/player', 'gotwka zmieniona', ['pid' => $pid, 'delta' => $amount, 'reason' => $reason]);
                 $msg = t('admin.player.msg_cash_changed', ['amount' => $amount]);
@@ -503,8 +552,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            ->execute([':p' => $totalProd, ':pid' => $pid]);
                     }
                     if ($totalCost > 0) {
-                        $db->prepare("UPDATE players SET cash = cash - :c WHERE id = :pid")
-                           ->execute([':c' => $totalCost, ':pid' => $pid]);
+                        $cashStmt = $db->prepare("SELECT cash FROM players WHERE id = :pid LIMIT 1");
+                        $cashStmt->execute([':pid' => $pid]);
+                        $chargeAmount = min((float)$totalCost, max(0.0, (float)$cashStmt->fetchColumn()));
+                        if ($chargeAmount >= FinancialTransactionService::MIN_AMOUNT) {
+                            $charge = (new FinancialTransactionService($db))->debit(
+                                $pid,
+                                $chargeAmount,
+                                FinancialTransactionService::TYPE_TICK_OPEX,
+                                tPlain('bank.tx_admin_manual_tick_costs'),
+                                'admin_player_manual_tick',
+                                null
+                            );
+                            if (empty($charge['success'])) {
+                                throw new RuntimeException('manual_tick_charge_failed:' . (string)($charge['error'] ?? 'unknown'));
+                            }
+                        }
                     }
                     $db->prepare("UPDATE players SET last_tick_at = :now WHERE id = :id")
                        ->execute([':now' => $now->format('Y-m-d H:i:s'), ':id' => $pid]);

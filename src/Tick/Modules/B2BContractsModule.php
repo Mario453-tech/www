@@ -36,12 +36,16 @@ final class B2BContractsModule implements TickModule
     public function run(TickContext $ctx): void
     {
         $service = new B2BContractService($ctx->db);
+        $limit = $ctx->moduleLimit($this->key(), 200);
 
-        $expireResult = $service->expireOpenOffers($ctx->now);
+        $expireResult = $service->expireOpenOffers($ctx->now, $limit);
         $this->expired = (int)($expireResult['expired'] ?? 0);
         $this->refunded = (float)($expireResult['refunded'] ?? 0.0);
 
-        $finalizeResult = $service->finalizeExpiredAcceptedOffers($ctx->now);
+        $remainingLimit = max(0, $limit - (int)($expireResult['processed'] ?? $this->expired));
+        $finalizeResult = $remainingLimit > 0
+            ? $service->finalizeExpiredAcceptedOffers($ctx->now, $remainingLimit)
+            : ['finalized' => 0, 'partial_done' => 0, 'failed' => 0, 'penalties' => 0.0];
         $this->finalized = (int)($finalizeResult['finalized'] ?? 0);
         $this->partialDone = (int)($finalizeResult['partial_done'] ?? 0);
         $this->failed = (int)($finalizeResult['failed'] ?? 0);

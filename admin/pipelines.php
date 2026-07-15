@@ -98,21 +98,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$well) {
                 throw new RuntimeException(tPlain('admin.pipelines.err_grant_well'));
             }
-            if ((string)($well['well_type'] ?? 'onshore') === 'offshore') {
+            if ($leg === 'inbound' && (string)($well['well_type'] ?? 'onshore') === 'offshore') {
                 throw new RuntimeException(tPlain('admin.pipelines.err_grant_offshore'));
             }
             if (in_array((string)($well['status'] ?? ''), ['sold', 'seized', 'blowout'], true)) {
                 throw new RuntimeException(tPlain('admin.pipelines.err_grant_well'));
             }
 
+            $db->beginTransaction();
+
             $hubStmt = $db->prepare(
-                "SELECT a.hub_id, h.name AS hub_name
+                "SELECT a.hub_id, h.name AS hub_name, h.nominal_capacity_bph
                    FROM logistics_hub_assignments a
                    JOIN logistics_hubs h ON h.id = a.hub_id
                   WHERE a.well_id = ?
                     AND a.status = 'active'
-                    AND h.status NOT IN ('disabled', 'building')
-                  LIMIT 1"
+                    AND h.status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')
+                  LIMIT 1
+                  FOR UPDATE"
             );
             $hubStmt->execute([$wellId]);
             $hub = $hubStmt->fetch(PDO::FETCH_ASSOC);
@@ -120,18 +123,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException(tPlain('admin.pipelines.err_grant_no_hub'));
             }
 
-            $existingStmt = $db->prepare('SELECT id FROM well_pipelines WHERE well_id = ? AND leg = ? LIMIT 1');
-            $existingStmt->execute([$wellId, $leg]);
+            $pipelineWellId = $leg === 'outbound' ? 0 : $wellId;
+            $existingStmt = $leg === 'outbound'
+                ? $db->prepare("SELECT id FROM well_pipelines WHERE well_id = 0 AND hub_id = ? AND leg = 'outbound' LIMIT 1 FOR UPDATE")
+                : $db->prepare("SELECT id FROM well_pipelines WHERE well_id = ? AND leg = 'inbound' LIMIT 1 FOR UPDATE");
+            $existingStmt->execute([$leg === 'outbound' ? (int)$hub['hub_id'] : $wellId]);
             if ($existingStmt->fetchColumn()) {
                 throw new RuntimeException(tPlain('admin.pipelines.err_grant_exists'));
             }
 
             $profile = $pipelineSvc->getProfile($type);
-            $baseProd = (float)($well['base_production_per_hour'] ?? 100.0);
+            $baseProd = $leg === 'outbound'
+                ? (float)($hub['nominal_capacity_bph'] ?? 100.0)
+                : (float)($well['base_production_per_hour'] ?? 100.0);
             $capacity = max(1.0, round($baseProd * ((float)$profile['capacity_pct'] / 100.0), 2));
-            $name = tPlain('pipeline.default_name', ['id' => $wellId]);
+            $name = $leg === 'outbound'
+                ? tPlain('pipeline.default_name_hub', ['id' => (int)$hub['hub_id']])
+                : tPlain('pipeline.default_name', ['id' => $wellId]);
 
-            $db->beginTransaction();
             $insertStmt = $db->prepare(
                 "INSERT INTO well_pipelines
                     (player_id, well_id, hub_id, leg, name, pipeline_type, status, condition_pct, transport_loss,
@@ -141,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $insertStmt->execute([
                 (int)$well['player_id'],
-                $wellId,
+                $pipelineWellId,
                 (int)$hub['hub_id'],
                 $leg,
                 $name,
@@ -162,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'type' => tPlain('logistics.pipeline.type_' . $type),
                 'hub' => (string)$hub['hub_name'],
             ]);
-            $pipelineSvc->recordEvent((int)$well['player_id'], $wellId, $pipelineId, 'admin_pipeline_granted', 'info', $eventMessage);
+            $pipelineSvc->recordEvent((int)$well['player_id'], $pipelineWellId, $pipelineId, 'admin_pipeline_granted', 'info', $eventMessage);
             AdminLog::log('pipeline_grant', "Admin granted pipeline #{$pipelineId} to well #{$wellId}", (int)$well['player_id'], 'pipeline', $pipelineId);
             $db->commit();
 
@@ -242,14 +251,16 @@ try {
            FROM wells w
            JOIN players p ON p.id = w.player_id
            JOIN logistics_hub_assignments a ON a.well_id = w.id AND a.status = 'active'
-           JOIN logistics_hubs h ON h.id = a.hub_id AND h.status NOT IN ('disabled', 'building')
-           LEFT JOIN (
-                SELECT well_id, COUNT(*) AS leg_count
-                  FROM well_pipelines
-                 GROUP BY well_id
-           ) wp ON wp.well_id = w.id
-          WHERE COALESCE(wp.leg_count, 0) < 2
-            AND COALESCE(w.well_type, 'onshore') <> 'offshore'
+           JOIN logistics_hubs h ON h.id = a.hub_id
+                                AND h.status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')
+            LEFT JOIN well_pipelines wpin
+                   ON wpin.well_id = w.id
+                  AND wpin.leg = 'inbound'
+            LEFT JOIN well_pipelines wpout
+                   ON wpout.well_id = 0
+                  AND wpout.hub_id = h.id
+                  AND wpout.leg = 'outbound'
+          WHERE (wpin.id IS NULL OR wpout.id IS NULL)
             AND w.status NOT IN ('sold', 'seized', 'blowout')
           ORDER BY p.username ASC, w.id ASC"
     )->fetchAll(PDO::FETCH_ASSOC);

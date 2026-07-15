@@ -2594,6 +2594,9 @@ CREATE TABLE IF NOT EXISTS `legal_region_config` (
   `refusal_cooldown_minutes` int UNSIGNED NOT NULL DEFAULT '120',
   `required_capital` decimal(20,2) NOT NULL DEFAULT '0.00',
   `required_legal_level` int UNSIGNED NOT NULL DEFAULT '0',
+  `hub_permit_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `hub_permit_cost` decimal(14,2) NOT NULL DEFAULT '500000.00',
+  `hub_review_minutes` int UNSIGNED NOT NULL DEFAULT '120',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`region_id`)
@@ -2617,6 +2620,26 @@ CREATE TABLE IF NOT EXISTS `drilling_permit_applications` (
   `refusal_cooldown_until` datetime DEFAULT NULL,
   `delay_count` int UNSIGNED NOT NULL DEFAULT '0',
   `source` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'player',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_player_region` (`player_id`,`region_id`),
+  KEY `idx_status_due` (`status`,`decision_due_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `hub_permit_applications` (
+  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
+  `player_id` int UNSIGNED NOT NULL,
+  `region_id` int UNSIGNED NOT NULL,
+  `status` enum('pending','delayed','no_decision','granted','refused') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending',
+  `cost` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `submitted_at` datetime DEFAULT NULL,
+  `decision_due_at` datetime DEFAULT NULL,
+  `decided_at` datetime DEFAULT NULL,
+  `refusal_cooldown_until` datetime DEFAULT NULL,
+  `delay_count` int UNSIGNED NOT NULL DEFAULT '0',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -3400,7 +3423,7 @@ ALTER TABLE `well_offshore_incident_logs`
 --
 ALTER TABLE `well_pipelines`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_well_pipeline_well_leg` (`well_id`,`leg`),
+  ADD UNIQUE KEY `uq_wp_well_hub_leg` (`well_id`,`hub_id`,`leg`),
   ADD KEY `idx_well_pipeline_player` (`player_id`),
   ADD KEY `idx_well_pipeline_status` (`status`),
   ADD KEY `idx_pipeline_build_finish` (`status`,`build_finish_at`);

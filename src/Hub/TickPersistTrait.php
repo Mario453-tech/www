@@ -23,10 +23,16 @@ trait HubTickPersistTrait
  // Buffer and stats must persist atomically — otherwise the caller may credit drained oil
  // while the buffer stays undecremented (barrel duplication on the next tick).
         $ownTransaction = !$this->db->inTransaction();
-        if ($ownTransaction) {
-            $this->db->beginTransaction();
-        }
+        $savepoint = 'hub_tick_persist_' . $hubId;
+        $savepointActive = false;
         try {
+            if ($ownTransaction) {
+                $this->db->beginTransaction();
+            } else {
+                $this->db->exec("SAVEPOINT {$savepoint}");
+                $savepointActive = true;
+            }
+
             $this->db->prepare(
                 "UPDATE logistics_hubs
                     SET buffer_current_bbl   = ?,
@@ -77,11 +83,20 @@ trait HubTickPersistTrait
 
             if ($ownTransaction) {
                 $this->db->commit();
+            } elseif ($savepointActive) {
+                $this->db->exec("RELEASE SAVEPOINT {$savepoint}");
             }
             return true;
         } catch (Throwable $e) {
             if ($ownTransaction && $this->db->inTransaction()) {
                 $this->db->rollBack();
+            } elseif ($savepointActive && $this->db->inTransaction()) {
+                try {
+                    $this->db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+                    $this->db->exec("RELEASE SAVEPOINT {$savepoint}");
+                } catch (Throwable $rollbackError) {
+                    GameLog::error('HubTickService', 'persistTickResult savepoint rollback failed', $rollbackError, ['hub_id' => $hubId]);
+                }
             }
             GameLog::error('HubTickService', 'persistTickResult failed', $e, ['hub_id' => $hubId]);
             return false;
@@ -115,7 +130,7 @@ trait HubTickPersistTrait
                 return 0.0;
             }
             $space = max(0.0, (float)$row['buffer_capacity_bbl'] - (float)$row['buffer_current_bbl']);
-            $added = round(min($bbl, $space), 4);
+            $added = round(min($bbl, $space), 2);
             if ($added <= 0.001) {
                 return 0.0;
             }
@@ -135,6 +150,19 @@ trait HubTickPersistTrait
         } catch (Throwable $e) {
             GameLog::error('HubTickService', 'addBufferBbl failed', $e, ['hub_id' => $hubId]);
             return 0.0;
+        }
+    }
+
+    public function markLatestTickIncident(int $hubId, DateTime $now): void
+    {
+        try {
+            $this->db->prepare(
+                "UPDATE logistics_hub_tick_stats
+                    SET incident_flag = 1
+                  WHERE hub_id = ? AND tick_time = ?"
+            )->execute([$hubId, $now->format('Y-m-d H:i:s')]);
+        } catch (Throwable $e) {
+            GameLog::error('HubTickService', 'markLatestTickIncident failed', $e, ['hub_id' => $hubId]);
         }
     }
 
