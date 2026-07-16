@@ -95,7 +95,7 @@ final class MySqlHubIncidentServiceTest extends MySqlIntegrationTestCase
         ]);
 
         $recentPlayer = $incidentService->getPlayerRecentIncidents($playerId, 10);
-        $recentHub = $incidentService->getHubRecentIncidents($ids['hubId'], 10);
+        $recentHub = $incidentService->getHubRecentIncidents($ids['hubId'], $playerId, 10);
         $count = $incidentService->countPlayerIncidents($playerId);
 
         $this->assertCount(2, $recentPlayer);

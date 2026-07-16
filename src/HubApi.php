@@ -29,6 +29,9 @@ function hubApiOut(array $data, int $code = 200): never
     exit;
 }
 
+/**
+ * @return array{permit_type:string,permit_action:string,region_id:int,region_name:string}
+ */
 function hubPermitContext(PDO $db, int $regionId): array
 {
     $context = [
@@ -373,8 +376,9 @@ try {
         case 'hub_wells':
             $hubId = (int)($_GET['hub_id'] ?? 0);
             if ($hubId <= 0) hubApiOut(['success' => false, 'error' => t('common.validation_error')], 422);
- // Hubs are system-owned no ownership check, but return only this player's wells
-            $hub = $hubSvc->getHub($hubId);
+            // Hub metadata is private to its owner or current tenant.
+            // Metadane huba sa prywatne dla wlasciciela lub aktualnego najemcy.
+            $hub = $hubSvc->getHubForPlayer($hubId, $playerId);
             if (!$hub) hubApiOut(['success' => false, 'error' => t('common.access_denied')], 403);
             $wells = $hubSvc->getHubWellsForPlayer($hubId, $playerId);
             hubApiOut(['success' => true, 'wells' => $wells, 'hub' => $hub]);

@@ -76,8 +76,14 @@ trait BankNegotiationProcessorTrait
                     bank_decision             = :msg,
                     decision_at               = NOW(),
                     expires_at                = :exp
-                WHERE id=:id
-            ")->execute([':msg' => $msg, ':exp' => $expires, ':id' => $neg['id']]);
+                WHERE id = :id
+                  AND player_id = :player_id
+            ")->execute([
+                ':msg' => $msg,
+                ':exp' => $expires,
+                ':id' => $neg['id'],
+                ':player_id' => $neg['player_id'],
+            ]);
 
             $this->adjustTrustScore((int)$neg['player_id'], 'negocjacja_sukces');
         } else {
@@ -88,19 +94,26 @@ trait BankNegotiationProcessorTrait
                     bank_decision    = :msg,
                     rejection_reason = :reason,
                     decision_at      = NOW()
-                WHERE id=:id
+                WHERE id = :id
+                  AND player_id = :player_id
             ")->execute([
                 ':msg' => $rejection['public'],
                 ':reason' => $rejection['internal'],
                 ':id' => $neg['id'],
+                ':player_id' => $neg['player_id'],
             ]);
 
  // Restore bailiff when a suspended negotiation path is rejected.
  // Przywroc komornika, gdy odrzucono zawieszona sciezke negocjacji.
             $this->db->prepare("
                 UPDATE bailiff_proceedings SET status='active'
-                WHERE loan_id=:lid AND status='suspended'
-            ")->execute([':lid' => $neg['loan_id']]);
+                WHERE loan_id = :loan_id
+                  AND player_id = :player_id
+                  AND status = 'suspended'
+            ")->execute([
+                ':loan_id' => $neg['loan_id'],
+                ':player_id' => $neg['player_id'],
+            ]);
 
             $this->adjustTrustScore((int)$neg['player_id'], 'negocjacja_odrzucona');
         }
@@ -192,11 +205,13 @@ trait BankNegotiationProcessorTrait
                         interest_rate       = :rate,
                         late_since          = NULL,
                         status              = 'active'
-                    WHERE id=:id
+                    WHERE id = :id
+                      AND player_id = :player_id
                 ")->execute([
                     ':days' => $neg['approved_deferral_days'],
                     ':rate' => $neg['new_interest_rate'],
                     ':id' => $neg['loan_id'],
+                    ':player_id' => $playerId,
                 ]);
 
  // Suspend bailiff until the shifted installment date.
@@ -208,10 +223,12 @@ trait BankNegotiationProcessorTrait
                         suspended_until = :until,
                         suspend_reason = 'deferral'
                     WHERE loan_id = :lid
+                      AND player_id = :player_id
                       AND status IN ('active', 'pending')
                 ")->execute([
                     ':until' => $newInstallmentAt,
                     ':lid' => $neg['loan_id'],
+                    ':player_id' => $playerId,
                 ]);
 
                 GameLog::info('BankNeg', 'deferral - bailiff suspended', [
@@ -230,8 +247,13 @@ trait BankNegotiationProcessorTrait
 
                 $this->db->prepare("
                     UPDATE loans SET installment_amount=:inst, late_since=NULL, status='active'
-                    WHERE id=:id
-                ")->execute([':inst' => $newInst, ':id' => $neg['loan_id']]);
+                    WHERE id = :id
+                      AND player_id = :player_id
+                ")->execute([
+                    ':inst' => $newInst,
+                    ':id' => $neg['loan_id'],
+                    ':player_id' => $playerId,
+                ]);
             } elseif ($neg['type'] === 'recovery') {
  // Recovery plan suspends bailiff until full repayment or violation.
  // Plan naprawczy zawiesza komornika do pelnej splaty lub naruszenia.
@@ -239,19 +261,38 @@ trait BankNegotiationProcessorTrait
                     UPDATE bailiff_proceedings
                     SET status='suspended_recovery', negotiation_used=1,
                         suspended_at=NOW(), suspend_reason='plan_naprawczy'
-                    WHERE loan_id=:lid AND status IN ('active','suspended')
-                ")->execute([':lid' => $neg['loan_id']]);
+                    WHERE loan_id = :lid
+                      AND player_id = :player_id
+                      AND status IN ('active','suspended')
+                ")->execute([
+                    ':lid' => $neg['loan_id'],
+                    ':player_id' => $playerId,
+                ]);
 
                 $this->db->prepare("
-                    UPDATE loans SET late_since=NULL, status='active' WHERE id=:id
-                ")->execute([':id' => $neg['loan_id']]);
+                    UPDATE loans
+                       SET late_since = NULL,
+                           status = 'active'
+                     WHERE id = :id
+                       AND player_id = :player_id
+                ")->execute([
+                    ':id' => $neg['loan_id'],
+                    ':player_id' => $playerId,
+                ]);
 
                 $this->adjustTrustScore($playerId, 'plan_naprawczy_ok');
             }
 
             $this->db->prepare("
-                UPDATE bank_negotiations SET status='completed', decision_at=NOW() WHERE id=:id
-            ")->execute([':id' => $negotiationId]);
+                UPDATE bank_negotiations
+                   SET status = 'completed',
+                       decision_at = NOW()
+                 WHERE id = :id
+                   AND player_id = :player_id
+            ")->execute([
+                ':id' => $negotiationId,
+                ':player_id' => $playerId,
+            ]);
 
             $this->db->commit();
 
@@ -287,7 +328,9 @@ trait BankNegotiationProcessorTrait
                 WHERE l.status = 'late'
                   AND EXISTS (
                     SELECT 1 FROM bailiff_proceedings bp
-                    WHERE bp.loan_id = l.id AND bp.status = 'suspended_recovery'
+                    WHERE bp.loan_id = l.id
+                      AND bp.player_id = l.player_id
+                      AND bp.status = 'suspended_recovery'
                   )
             ")->fetchAll();
 
@@ -296,8 +339,13 @@ trait BankNegotiationProcessorTrait
                     $this->db->prepare("
                         UPDATE bailiff_proceedings
                         SET status='active', suspend_reason=NULL
-                        WHERE loan_id=:lid AND status='suspended_recovery'
-                    ")->execute([':lid' => $row['loan_id']]);
+                        WHERE loan_id=:lid
+                          AND player_id=:pid
+                          AND status='suspended_recovery'
+                    ")->execute([
+                        ':lid' => $row['loan_id'],
+                        ':pid' => $row['player_id'],
+                    ]);
 
                     $this->adjustTrustScore((int)$row['player_id'], 'plan_naruszony');
 
@@ -336,7 +384,9 @@ trait BankNegotiationProcessorTrait
                 SELECT bp.id AS bp_id, bp.loan_id, bp.player_id, bp.suspended_until,
                        l.status AS loan_status, l.late_since, l.next_installment_at
                 FROM bailiff_proceedings bp
-                JOIN loans l ON l.id = bp.loan_id
+                JOIN loans l
+                  ON l.id = bp.loan_id
+                 AND l.player_id = bp.player_id
                 WHERE bp.status = 'suspended'
                   AND bp.suspend_reason = 'deferral'
                   AND bp.suspended_until IS NOT NULL
@@ -353,7 +403,11 @@ trait BankNegotiationProcessorTrait
                                 suspend_reason  = NULL,
                                 next_action_at  = NOW()
                             WHERE id = :id
-                        ")->execute([':id' => $row['bp_id']]);
+                              AND player_id = :player_id
+                        ")->execute([
+                            ':id' => $row['bp_id'],
+                            ':player_id' => $row['player_id'],
+                        ]);
 
                         $this->adjustTrustScore((int)$row['player_id'], 'plan_naruszony');
 
@@ -375,7 +429,11 @@ trait BankNegotiationProcessorTrait
                             UPDATE bailiff_proceedings
                             SET suspended_until = NULL
                             WHERE id = :id
-                        ")->execute([':id' => $row['bp_id']]);
+                              AND player_id = :player_id
+                        ")->execute([
+                            ':id' => $row['bp_id'],
+                            ':player_id' => $row['player_id'],
+                        ]);
 
                         GameLog::info('BankNeg', 'deferral expired - installment paid, bailiff remains suspended', [
                             'bp_id' => $row['bp_id'],
@@ -415,8 +473,13 @@ trait BankNegotiationProcessorTrait
                     $this->db->prepare("
                         UPDATE bailiff_proceedings
                         SET status='dismissed', dismissed_at=NOW()
-                        WHERE loan_id=:lid AND status='suspended_recovery'
-                    ")->execute([':lid' => $row['loan_id']]);
+                        WHERE loan_id = :loan_id
+                          AND player_id = :player_id
+                          AND status = 'suspended_recovery'
+                    ")->execute([
+                        ':loan_id' => $row['loan_id'],
+                        ':player_id' => $row['player_id'],
+                    ]);
 
                     $this->adjustTrustScore((int)$row['player_id'], 'negocjacja_dotrzymana');
 
@@ -454,9 +517,12 @@ trait BankNegotiationProcessorTrait
  // Negocjacje sa dostepne dopiero po zajeciu odwiertow przez komornika.
             $bStmt = $this->db->prepare("
                 SELECT id, negotiation_used FROM bailiff_proceedings
-                WHERE loan_id = :lid AND status = 'active' LIMIT 1
+                WHERE loan_id = :lid
+                  AND player_id = :pid
+                  AND status = 'active'
+                LIMIT 1
             ");
-            $bStmt->execute([':lid' => $loanId]);
+            $bStmt->execute([':lid' => $loanId, ':pid' => $playerId]);
             $bailiff = $bStmt->fetch();
 
             if (!$bailiff) {
@@ -474,8 +540,8 @@ trait BankNegotiationProcessorTrait
                 return ['can_negotiate' => false, 'reason' => t('bank_neg.err_negotiation_used')];
             }
 
-            if ($this->hasPendingOrApproved($loanId)) {
-                $neg = $this->getActivePendingOrApproved($loanId);
+            if ($this->hasPendingOrApproved($loanId, $playerId)) {
+                $neg = $this->getActivePendingOrApproved($loanId, $playerId);
                 if ($neg && $neg['status'] === 'pending') {
                     $due = date('H:i d.m.Y', strtotime($neg['decision_due_at']));
                     return [
@@ -523,15 +589,17 @@ trait BankNegotiationProcessorTrait
  * Returns the first active pending or approved negotiation for a loan.
  * Zwraca pierwsza aktywna negocjacje pending lub approved dla kredytu.
  */
-    public function getActivePendingOrApproved(int $loanId): ?array
+    public function getActivePendingOrApproved(int $loanId, int $playerId): ?array
     {
         try {
             $stmt = $this->db->prepare("
                 SELECT * FROM bank_negotiations
-                WHERE loan_id=:lid AND status IN ('pending','approved')
+                WHERE loan_id=:lid
+                  AND player_id=:pid
+                  AND status IN ('pending','approved')
                   AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1
             ");
-            $stmt->execute([':lid' => $loanId]);
+            $stmt->execute([':lid' => $loanId, ':pid' => $playerId]);
             return $stmt->fetch() ?: null;
         } catch (Throwable $e) {
             GameLog::error('BankNeg', 'getActivePendingOrApproved FAILED', $e, ['loan_id' => $loanId]);
@@ -581,15 +649,17 @@ trait BankNegotiationProcessorTrait
  * Checks for an active pending or approved negotiation.
  * Sprawdza, czy istnieje aktywna negocjacja pending lub approved.
  */
-    private function hasPendingOrApproved(int $loanId): bool
+    private function hasPendingOrApproved(int $loanId, int $playerId): bool
     {
         try {
             $stmt = $this->db->prepare("
                 SELECT id FROM bank_negotiations
-                WHERE loan_id=:lid AND status IN ('pending','approved')
+                WHERE loan_id=:lid
+                  AND player_id=:pid
+                  AND status IN ('pending','approved')
                   AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1
             ");
-            $stmt->execute([':lid' => $loanId]);
+            $stmt->execute([':lid' => $loanId, ':pid' => $playerId]);
             return (bool)$stmt->fetch();
         } catch (Throwable $e) {
             GameLog::error('BankNeg', 'hasActivePendingOrApproved FAILED', $e, ['loan_id' => $loanId]);

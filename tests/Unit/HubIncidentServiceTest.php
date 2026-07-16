@@ -10,8 +10,26 @@ final class HubIncidentServiceTest extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->db = new PDO('sqlite::memory:');
+        $this->db = class_exists(\Pdo\Sqlite::class)
+            ? new \Pdo\Sqlite('sqlite::memory:')
+            : new PDO('sqlite::memory:');
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        if ($this->db instanceof \Pdo\Sqlite) {
+            $this->db->createFunction('GREATEST', static fn(...$values) => max($values));
+            $this->db->createFunction('NOW', static fn() => date('Y-m-d H:i:s'));
+        } else {
+            $this->db->sqliteCreateFunction('GREATEST', static fn(...$values) => max($values));
+            $this->db->sqliteCreateFunction('NOW', static fn() => date('Y-m-d H:i:s'));
+        }
+        $this->db->exec(
+            'CREATE TABLE logistics_hubs (
+                id INTEGER PRIMARY KEY,
+                player_id INTEGER NOT NULL DEFAULT 0,
+                tenant_player_id INTEGER NOT NULL DEFAULT 0,
+                condition_pct REAL NOT NULL DEFAULT 100,
+                updated_at TEXT NULL
+            )'
+        );
     }
 
     public function testRiskMultiplierIncludesAcquisitionModeLoadAndHseProtection(): void
@@ -83,6 +101,11 @@ final class HubIncidentServiceTest extends BaseTestCase
 
         mt_srand(1234);
         $service = new HubIncidentService($this->db, $hubSvc);
+        $this->db->exec(
+            "INSERT INTO logistics_hubs
+                (id, player_id, tenant_player_id, condition_pct)
+             VALUES (10, 1, 0, 10)"
+        );
 
         $result = $service->processTick(
             ['id' => 10, 'status' => 'active', 'condition_pct' => 10.0, 'work_mode' => 'max', 'acquisition_type' => 'new'],

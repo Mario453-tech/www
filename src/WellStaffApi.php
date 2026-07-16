@@ -20,6 +20,9 @@ function jsonOut(array $data, int $code = 200): void
     exit;
 }
 
+/**
+ * @return array{permit_type:string,permit_action:string,region_id:int,region_name:string}
+ */
 function wellStaffPermitContext(PDO $db, int $regionId): array
 {
     $context = [
@@ -276,11 +279,20 @@ try {
  // Find the hub for this well (ETAP 11: outbound setting is per hub).
  // JOIN wells ensures only the owning player can change the outbound transport.
                 $hubStmt = $db->prepare(
-                    'SELECT a.hub_id FROM logistics_hub_assignments a
-                     JOIN wells w ON w.id = a.well_id AND w.player_id = ?
-                     WHERE a.well_id = ? AND a.status = \'active\' LIMIT 1'
+                    'SELECT a.hub_id
+                       FROM logistics_hub_assignments a
+                       JOIN wells w
+                         ON w.id = a.well_id
+                        AND w.player_id = ?
+                       JOIN logistics_hubs h
+                         ON h.id = a.hub_id
+                        AND (h.player_id = ? OR h.tenant_player_id = ?)
+                      WHERE a.well_id = ?
+                        AND a.status = \'active\'
+                      LIMIT 1
+                      FOR UPDATE'
                 );
-                $hubStmt->execute([$playerId, $wellId]);
+                $hubStmt->execute([$playerId, $playerId, $playerId, $wellId]);
                 $hubRow = $hubStmt->fetch(PDO::FETCH_ASSOC);
                 if (!$hubRow) {
                     $db->rollBack();
@@ -320,9 +332,13 @@ try {
                     }
                 }
 
-                $db->prepare(
-                    'UPDATE logistics_hubs SET outbound_transport_type = ? WHERE id = ?'
-                )->execute([$transportType, $hubId]);
+                $updateHub = $db->prepare(
+                    'UPDATE logistics_hubs
+                        SET outbound_transport_type = ?
+                      WHERE id = ?
+                        AND (player_id = ? OR tenant_player_id = ?)'
+                );
+                $updateHub->execute([$transportType, $hubId, $playerId, $playerId]);
 
                 $db->commit();
             } catch (Throwable $e) {

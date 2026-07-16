@@ -7,7 +7,8 @@
 trait HubIncidentEffectsTrait
 {
  /**
- * Generuje incydent, zapisuje do DB i zwraca dane zdarzenia.
+ * Generates, persists and returns a hub incident.
+ * Generuje, zapisuje i zwraca incydent huba.
  *
  * @param array<string, mixed> $cfg
  * @param array<string, mixed> $hub
@@ -29,12 +30,10 @@ trait HubIncidentEffectsTrait
 
         $condDmg      = $dmgMax > $dmgMin ? mt_rand($dmgMin, $dmgMax) : $dmgMin;
         $extraLossPct = $losMax > $losMin ? mt_rand($losMin, $losMax) : $losMin;
- // Strate liczymy od barylek, ktore faktycznie dotarly (processed_bbl), a nie od pelnego
- // inputBbl — bufor i straty huba sa juz odjete od magazynu przez callera, wiec liczenie od
- // inputBbl podwajaloby straty i moglo zbic magazyn/finBbl ponizej zera.
  // Loss is based on barrels that actually reached storage (processed_bbl), not the full
- // inputBbl — hub buffer and losses are already deducted by the caller, so basing it on
+ // inputBbl - hub buffer and losses are already deducted by the caller, so basing it on
  // inputBbl would double-count losses and could push storage/finBbl below zero.
+ // Strata bazuje na barylkach, ktore dotarly do magazynu po buforowaniu i stratach huba.
         $lossBase     = (float)($tickResult['processed_bbl'] ?? $inputBbl);
         $extraLoss    = round($lossBase * $extraLossPct / 100.0, 2);
 
@@ -49,15 +48,15 @@ trait HubIncidentEffectsTrait
         ]);
 
         if ($condDmg > 0) {
-            if (!isset($hub['player_id']) || $hub['player_id'] === null) {
-                GameLog::warn('HubIncidentService', 'missing hub player_id — skipping condition damage', ['hub_id' => $hubId]);
+            if ($playerId <= 0) {
+                GameLog::warn('HubIncidentService', 'missing controlling player id - skipping condition damage', ['hub_id' => $hubId]);
             } else {
-                $this->applyConditionDamage($hubId, $condDmg, (int)$hub['player_id']);
+                $this->applyConditionDamage($hubId, $condDmg, $playerId);
             }
         }
 
-        // Operacje poboczne — blad nie moze przerywac glownego przepływu (Rule 6).
-        // Side operations — failure must not interrupt the main flow (Rule 6).
+        // Side operations must not interrupt the main incident flow.
+        // Operacje poboczne nie moga przerywac glownego przeplywu incydentu.
         try {
             $this->saveEvent($hubId, $playerId, $type, $cfg['severity'], $message, [
                 'condition_dmg'  => $condDmg,
@@ -95,16 +94,17 @@ trait HubIncidentEffectsTrait
         ];
     }
 
-    // Filtruj po player_id — izolacja gracza przy UPDATE logistics_hubs (Rule 1).
-    // Filter by player_id — player isolation on UPDATE logistics_hubs (Rule 1).
+    // Owner and tenant filters protect hub isolation during condition updates.
+    // Filtry wlasciciela i najemcy chronia izolacje huba przy zmianie stanu.
     private function applyConditionDamage(int $hubId, int $dmg, int $playerId): void
     {
         $this->db->prepare(
             "UPDATE logistics_hubs
                 SET condition_pct = GREATEST(0.00, condition_pct - ?),
                     updated_at    = NOW()
-              WHERE id = ? AND player_id = ?"
-        )->execute([(float)$dmg, $hubId, $playerId]);
+              WHERE id = ?
+                AND (player_id = ? OR tenant_player_id = ?)"
+        )->execute([(float)$dmg, $hubId, $playerId, $playerId]);
     }
 
  /** @param array<string, mixed> $meta */

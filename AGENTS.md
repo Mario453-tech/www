@@ -125,6 +125,10 @@ Endpointy AJAX/API:
 - Dla operacji finansowych uzywaj serwisow finansowych projektu, nie recznych `UPDATE players SET cash = ...`.
 - Przy operacjach multi-step uzywaj transakcji.
 - Dla lockow globalnych uzywaj MySQL `GET_LOCK` zgodnie z istniejacym wzorcem.
+- Akcja gracza na rekordzie nalezacym do gracza musi filtrowac jednoczesnie identyfikator rekordu i `player_id`.
+- Dla wynajmowanych hubow filtr wlasciciela ma uwzgledniac `player_id` albo `tenant_player_id`.
+- Nie polegaj wylacznie na wczesniejszym `SELECT`; filtr wlasciciela musi pozostac takze w finalnym `UPDATE` albo `DELETE`.
+- Operacje globalne ticka i jawne akcje admina sa wyjatkiem, ale musza pobierac rekord z kontrolowanego zapytania i zachowac warunki stanu.
 
 ## Baza danych
 

@@ -78,8 +78,13 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 
         $progress = 0;
         if ($isBusy && $s['active_task_end']) {
-            $taskStmt = $db->prepare("SELECT start_time, end_time FROM technical_tasks WHERE id = ? LIMIT 1");
-            $taskStmt->execute([$s['active_task_id']]);
+            $taskStmt = $db->prepare(
+                "SELECT start_time, end_time
+                   FROM technical_tasks
+                  WHERE id = ? AND player_id = ?
+                  LIMIT 1"
+            );
+            $taskStmt->execute([$s['active_task_id'], $playerId]);
             $taskRow = $taskStmt->fetch();
             if ($taskRow) {
                 $total    = strtotime($taskRow['end_time']) - strtotime($taskRow['start_time']);

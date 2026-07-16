@@ -8,17 +8,28 @@ trait WellTickTrait
  * @param array<string, mixed> $hseBonus Optional bonus array from getHSEBonus()
  * @return array<string, mixed>
  */
-    public function processDegradation(int $wellId, float $deltaHours, array $hseBonus = [], float $techMult = 1.0): array
+    public function processDegradation(
+        int $wellId,
+        float $deltaHours,
+        array $hseBonus = [],
+        float $techMult = 1.0,
+        ?int $expectedPlayerId = null
+    ): array
     {
+        $playerFilter = $expectedPlayerId !== null ? ' AND w.player_id = ?' : '';
         $stmt = $this->db->prepare("
             SELECT w.*, wr.political_risk AS region_political_risk,
                    wr.stability_bonus AS region_stability_bonus,
                    (w.post_disaster_expires_at IS NOT NULL AND w.post_disaster_expires_at > NOW()) AS post_disaster_active
             FROM wells w
             LEFT JOIN world_regions wr ON wr.id = w.region_id
-            WHERE w.id = ?
+            WHERE w.id = ?{$playerFilter}
         ");
-        $stmt->execute([$wellId]);
+        $params = [$wellId];
+        if ($expectedPlayerId !== null) {
+            $params[] = $expectedPlayerId;
+        }
+        $stmt->execute($params);
         $well = $stmt->fetch();
 
  // Degradation applies to active and paused operational states.
@@ -27,8 +38,13 @@ trait WellTickTrait
         if (!$well || in_array($well['status'], ['seized', 'blowout'])) {
             return [];
         }
+        $playerId = (int)($well['player_id'] ?? 0);
+        if ($playerId <= 0) {
+            GameLog::warn('WellService', 'processDegradation rejected unscoped well', ['well_id' => $wellId]);
+            return [];
+        }
 
-        $upgrades = $this->getInstalledUpgrades($wellId, (int)($well['player_id'] ?? 0));
+        $upgrades = $this->getInstalledUpgrades($wellId, $playerId);
 
  // Base degradation is 0.1% per hour; monitoring and HSE can reduce it.
  // Bazowa degradacja to 0.1% na godzine; monitoring i BHP moga ja zmniejszyc.
@@ -79,7 +95,7 @@ trait WellTickTrait
                     UPDATE wells
                     SET post_disaster_risk_boost = 0, post_disaster_expires_at = NULL
                     WHERE id = ? AND player_id = ?
-                ")->execute([$wellId, (int)($well['player_id'] ?? 0)]);
+                ")->execute([$wellId, $playerId]);
             }
         }
 
@@ -94,8 +110,12 @@ trait WellTickTrait
  // Stan 0% wymusza przejscie odwiertu w broken dla wszystkich statusow operacyjnych.
         $operationalStatuses = ['active', 'paused_staff', 'paused_cash', 'paused_storage'];
         if ($condAfter <= 0 && in_array($well['status'], $operationalStatuses, true)) {
-            $this->db->prepare("UPDATE wells SET status = 'broken', technical_condition = 0 WHERE id = ?")
-                ->execute([$wellId]);
+            $this->db->prepare(
+                "UPDATE wells
+                    SET status = 'broken',
+                        technical_condition = 0
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$wellId, $playerId]);
             $this->logEvent(
                 $wellId,
                 $well['player_id'],
@@ -146,7 +166,9 @@ trait WellTickTrait
  // Failure removes condition and pauses the well.
  // Awaria zabiera stan i pauzuje odwiert.
                 $condAfter = max(1, $condAfter - 20);
-                $this->db->prepare("UPDATE wells SET status = 'paused_cash' WHERE id = ?")->execute([$wellId]);
+                $this->db->prepare(
+                    "UPDATE wells SET status = 'paused_cash' WHERE id = ? AND player_id = ?"
+                )->execute([$wellId, $playerId]);
                 $this->logEvent(
                     $wellId,
                     $well['player_id'],
@@ -173,12 +195,7 @@ trait WellTickTrait
  // Blowout is catastrophic; delegate to triggerBlowout() so disaster records,
  // financial penalties and director notifications are all created atomically.
                 $condAfter = 1;
-                $blowoutPlayerId = (int)($well['player_id'] ?? 0);
-                if ($blowoutPlayerId > 0) {
-                    $this->triggerBlowout($wellId, $blowoutPlayerId, $hseBonus);
-                } else {
-                    $this->db->prepare("UPDATE wells SET status = 'blowout', technical_condition = 1 WHERE id = ?")->execute([$wellId]);
-                }
+                $this->triggerBlowout($wellId, $playerId, $hseBonus);
                 $this->logEvent(
                     $wellId,
                     $well['player_id'],
@@ -193,7 +210,9 @@ trait WellTickTrait
             }
         }
 
-        $this->db->prepare("UPDATE wells SET technical_condition = ? WHERE id = ?")->execute([round($condAfter, 1), $wellId]);
+        $this->db->prepare(
+            "UPDATE wells SET technical_condition = ? WHERE id = ? AND player_id = ?"
+        )->execute([round($condAfter, 1), $wellId, $playerId]);
 
         return [
             'failure'     => $failureOccurred,
@@ -217,13 +236,25 @@ trait WellTickTrait
  * @return array{disaster: string|null, cost?: int, env_fine?: int, desc?: string}
  */
     public function processDisasterRoll(
-        int $wellId, float $deltaHours, array $hseBonus, float $combinedMult = 1.0
+        int $wellId,
+        float $deltaHours,
+        array $hseBonus,
+        float $combinedMult = 1.0,
+        ?int $expectedPlayerId = null
     ): array {
         try {
+            $playerFilter = $expectedPlayerId !== null ? ' AND player_id = ?' : '';
             $stmt = $this->db->prepare(
-                "SELECT id, player_id, status, technical_condition, risk_score FROM wells WHERE id = ? LIMIT 1"
+                "SELECT id, player_id, status, technical_condition, risk_score
+                   FROM wells
+                  WHERE id = ?{$playerFilter}
+                  LIMIT 1"
             );
-            $stmt->execute([$wellId]);
+            $params = [$wellId];
+            if ($expectedPlayerId !== null) {
+                $params[] = $expectedPlayerId;
+            }
+            $stmt->execute($params);
             $well = $stmt->fetch();
 
  // Tylko aktywne/wstrzymane odwierty kwalifikuja sie do katastrofy. / Only active/paused wells qualify.
@@ -275,11 +306,21 @@ trait WellTickTrait
  * Natural decay when condition > 80 and HSE is active: -0.1/h
  * risk_score utrzymywany w zakresie 0-100.
  */
-    public function updateRiskScore(int $wellId, float $deltaHours, array $hseBonus = []): void
+    public function updateRiskScore(
+        int $wellId,
+        float $deltaHours,
+        array $hseBonus = [],
+        ?int $expectedPlayerId = null
+    ): void
     {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM wells WHERE id = ?");
-            $stmt->execute([$wellId]);
+            $playerFilter = $expectedPlayerId !== null ? ' AND player_id = ?' : '';
+            $stmt = $this->db->prepare("SELECT * FROM wells WHERE id = ?{$playerFilter}");
+            $params = [$wellId];
+            if ($expectedPlayerId !== null) {
+                $params[] = $expectedPlayerId;
+            }
+            $stmt->execute($params);
             $well = $stmt->fetch();
             if (!$well || !in_array($well['status'], ['active', 'contaminated', 'paused_staff', 'paused_cash', 'paused_storage'], true)) {
                 return;
@@ -319,8 +360,8 @@ trait WellTickTrait
 
             $newRisk = round(min(100, max(0, $riskNow + $deltaRisk)), 2);
 
-            $this->db->prepare("UPDATE wells SET risk_score = ? WHERE id = ?")
-                ->execute([$newRisk, $wellId]);
+            $this->db->prepare("UPDATE wells SET risk_score = ? WHERE id = ? AND player_id = ?")
+                ->execute([$newRisk, $wellId, (int)$well['player_id']]);
 
             if (abs($newRisk - $riskNow) >= 1.0) {
                 GameLog::info('WellService', 'updateRiskScore', [
@@ -343,7 +384,13 @@ trait WellTickTrait
  *
  * minor +1, medium +6, major +15; cap=50; BHP redukuje gain.
  */
-    public function addSpiralBoost(int $wellId, string $incidentLevel, array $hseBonus = [], float $transportSpiralMult = 1.0): float
+    public function addSpiralBoost(
+        int $wellId,
+        string $incidentLevel,
+        array $hseBonus = [],
+        float $transportSpiralMult = 1.0,
+        ?int $expectedPlayerId = null
+    ): float
     {
         $boostMap = ['micro' => 0.0, 'minor' => 1.0, 'medium' => 6.0, 'major' => 15.0];
         $add = (float) ($boostMap[$incidentLevel] ?? 0.0);
@@ -352,9 +399,22 @@ trait WellTickTrait
         }
 
         try {
-            $stmt = $this->db->prepare("SELECT post_incident_risk_boost, equipment_tier, equipment_upgrade_level FROM wells WHERE id = ? LIMIT 1");
-            $stmt->execute([$wellId]);
+            $playerFilter = $expectedPlayerId !== null ? ' AND player_id = ?' : '';
+            $stmt = $this->db->prepare(
+                "SELECT player_id, post_incident_risk_boost, equipment_tier, equipment_upgrade_level
+                   FROM wells
+                  WHERE id = ?{$playerFilter}
+                  LIMIT 1"
+            );
+            $params = [$wellId];
+            if ($expectedPlayerId !== null) {
+                $params[] = $expectedPlayerId;
+            }
+            $stmt->execute($params);
             $wellRow = $stmt->fetch();
+            if (!is_array($wellRow) || (int)($wellRow['player_id'] ?? 0) <= 0) {
+                return 0.0;
+            }
             $current = (float) ($wellRow['post_incident_risk_boost'] ?? 0.0);
             $eqMults = self::getEquipmentMultipliers(
                 $wellRow['equipment_tier'] ?? 'standard',
@@ -370,8 +430,9 @@ trait WellTickTrait
 
             $newBoost = min(50.0, round($current + $add, 3));
 
-            $this->db->prepare("UPDATE wells SET post_incident_risk_boost = ? WHERE id = ?")
-                ->execute([$newBoost, $wellId]);
+            $this->db->prepare(
+                "UPDATE wells SET post_incident_risk_boost = ? WHERE id = ? AND player_id = ?"
+            )->execute([$newBoost, $wellId, (int)($wellRow['player_id'] ?? 0)]);
 
             GameLog::step('WellService', 'addSpiralBoost', 1, 'boost_added', [
                 'well_id' => $wellId,
@@ -394,12 +455,31 @@ trait WellTickTrait
  *
  * Bazowy decay: 0.4/h; BHP (proc_factor) przyspiesza powrot.
  */
-    public function processSpiralDecay(int $wellId, float $deltaHours, array $hseBonus = []): float
+    public function processSpiralDecay(
+        int $wellId,
+        float $deltaHours,
+        array $hseBonus = [],
+        ?int $expectedPlayerId = null
+    ): float
     {
         try {
-            $stmt = $this->db->prepare("SELECT post_incident_risk_boost FROM wells WHERE id = ? LIMIT 1");
-            $stmt->execute([$wellId]);
-            $boost = (float) ($stmt->fetchColumn() ?? 0.0);
+            $playerFilter = $expectedPlayerId !== null ? ' AND player_id = ?' : '';
+            $stmt = $this->db->prepare(
+                "SELECT player_id, post_incident_risk_boost
+                   FROM wells
+                  WHERE id = ?{$playerFilter}
+                  LIMIT 1"
+            );
+            $params = [$wellId];
+            if ($expectedPlayerId !== null) {
+                $params[] = $expectedPlayerId;
+            }
+            $stmt->execute($params);
+            $wellRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($wellRow) || (int)($wellRow['player_id'] ?? 0) <= 0) {
+                return 0.0;
+            }
+            $boost = (float)($wellRow['post_incident_risk_boost'] ?? 0.0);
 
             if ($boost <= 0.0) {
                 return 0.0;
@@ -410,8 +490,9 @@ trait WellTickTrait
             $decay = $decayPerHour * $deltaHours * $hseFactor;
             $newBoost = max(0.0, round($boost - $decay, 3));
 
-            $this->db->prepare("UPDATE wells SET post_incident_risk_boost = ? WHERE id = ?")
-                ->execute([$newBoost, $wellId]);
+            $this->db->prepare(
+                "UPDATE wells SET post_incident_risk_boost = ? WHERE id = ? AND player_id = ?"
+            )->execute([$newBoost, $wellId, (int)($wellRow['player_id'] ?? 0)]);
 
             if ($boost > 0 && $newBoost === 0.0) {
                 GameLog::info('WellService', 'spiral_boost_cleared', ['well_id' => $wellId]);
@@ -437,14 +518,28 @@ trait WellTickTrait
         float $productionPerHour,
         float $oilRichness = 1.0,
         bool $hadIncident = false,
-        float $spiralMult = 1.0
+        float $spiralMult = 1.0,
+        ?int $expectedPlayerId = null
     ): float {
         try {
  // Use one SELECT instead of two for the same row.
  // Uzyj jednego SELECT zamiast dwoch dla tego samego wiersza.
-            $stmt = $this->db->prepare("SELECT wear_level, equipment_tier, equipment_upgrade_level FROM wells WHERE id = ? LIMIT 1");
-            $stmt->execute([$wellId]);
+            $playerFilter = $expectedPlayerId !== null ? ' AND player_id = ?' : '';
+            $stmt = $this->db->prepare(
+                "SELECT player_id, wear_level, equipment_tier, equipment_upgrade_level
+                   FROM wells
+                  WHERE id = ?{$playerFilter}
+                  LIMIT 1"
+            );
+            $params = [$wellId];
+            if ($expectedPlayerId !== null) {
+                $params[] = $expectedPlayerId;
+            }
+            $stmt->execute($params);
             $eqRow = $stmt->fetch();
+            if (!is_array($eqRow) || (int)($eqRow['player_id'] ?? 0) <= 0) {
+                return 0.0;
+            }
             $current = (float) ($eqRow['wear_level'] ?? 0.0);
             $eqMults = self::getEquipmentMultipliers(
                 $eqRow['equipment_tier'] ?? 'standard',
@@ -457,8 +552,8 @@ trait WellTickTrait
             $delta = $base * $richnessMult * $incidentMult * $spiralMult * $eqMults['wear'];
             $newWear = min(100.0, $current + $delta);
 
-            $this->db->prepare("UPDATE wells SET wear_level = ? WHERE id = ?")
-                ->execute([round($newWear, 3), $wellId]);
+            $this->db->prepare("UPDATE wells SET wear_level = ? WHERE id = ? AND player_id = ?")
+                ->execute([round($newWear, 3), $wellId, (int)($eqRow['player_id'] ?? 0)]);
 
             GameLog::step('WellService', 'processWear', 1, 'wear_update', [
                 'well_id' => $wellId,

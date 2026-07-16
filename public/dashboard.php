@@ -169,25 +169,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'fire_employee') {
             $memberId = (int)($_POST['member_id'] ?? 0);
             if ($memberId > 0) {
- // Weryfikacja e pracownik naley do tego gracza
-                $ck2 = $db->prepare("SELECT id FROM board_members WHERE id = ? AND player_id = ?");
-                $ck2->execute([$memberId, $playerId]);
-                if ($ck2->fetch()) {
-                    $db->beginTransaction();
-                    try {
-                        $db->prepare("UPDATE board_members SET status='fired', fired_at=NOW() WHERE id=? AND player_id=?")
-                           ->execute([$memberId, $playerId]);
-                        $db->prepare("UPDATE employee_contracts SET status='terminated' WHERE member_id=? AND status='active'")
-                           ->execute([$memberId]);
-                        $db->prepare("INSERT INTO employment_history (member_id, action, reason, created_at) VALUES (?,?,?,NOW())")
-                           ->execute([$memberId, 'fired', t('dashboard.fire_reason')]);
-                        $db->commit();
-                        $msg = t('dashboard.msg_fired');
-                    } catch (Throwable $e) {
-                        $db->rollBack();
-                        $error = t('dashboard.err_fire');
-                        GameLog::error('dashboard', 'fire FAILED', $e);
-                    }
+                $result = $hr->fireEmployee($memberId, t('dashboard.fire_reason'), $playerId);
+                if (!empty($result['success'])) {
+                    $msg = (string)($result['message'] ?? t('dashboard.msg_fired'));
+                } else {
+                    $error = (string)($result['message'] ?? t('dashboard.err_fire'));
                 }
             }
         }

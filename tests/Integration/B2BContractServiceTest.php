@@ -160,6 +160,21 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(47, $this->b2bScore(1));
     }
 
+    public function testCancelBuyOfferRejectsForeignBuyer(): void
+    {
+        $this->seedPlayer(1, 0.0, 50000.0);
+        $this->seedPlayer(2, 0.0, 50000.0);
+        $offerId = (int)$this->service->createBuyOffer(1, 100.0, 100.0, 120)['offer_id'];
+
+        $result = $this->service->cancelBuyOffer(2, $offerId, 'foreign attempt');
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('forbidden', $result['status']);
+        $this->assertSame('open', $this->offerStatus($offerId));
+        $this->assertSame(40000.0, $this->bankOf(1));
+        $this->assertSame(50000.0, $this->bankOf(2));
+    }
+
     public function testExpireOpenOffersRefundsFullEscrow(): void
     {
         $this->seedPlayer(1, 0.0, 50000.0);

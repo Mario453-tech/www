@@ -312,7 +312,7 @@ trait WellDisastersTrait
                 $desc, 'active',
             ]);
 
-            $this->applyDisasterRiskBoost($wellId);
+            $this->applyDisasterRiskBoost($wellId, $playerId);
 
             $this->db->commit();
 
@@ -395,7 +395,7 @@ trait WellDisastersTrait
                 $desc, 'active',
             ]);
 
-            $this->applyDisasterRiskBoost($wellId);
+            $this->applyDisasterRiskBoost($wellId, $playerId);
 
             $this->db->commit();
 
@@ -430,7 +430,7 @@ trait WellDisastersTrait
  * Wyodrebione z triggerBlowout + triggerReservoirContamination.
  * Extracted from triggerBlowout + triggerReservoirContamination.
  */
-    private function applyDisasterRiskBoost(int $wellId): void
+    private function applyDisasterRiskBoost(int $wellId, int $playerId): void
     {
  // Atomowa aktualizacja — brak race condition przy rownolegych tickach.
  // Atomic UPDATE — no race condition with concurrent ticks.
@@ -438,8 +438,8 @@ trait WellDisastersTrait
             UPDATE wells
             SET post_disaster_risk_boost = LEAST(0.45, COALESCE(post_disaster_risk_boost, 0) + 0.15),
                 post_disaster_expires_at  = DATE_ADD(NOW(), INTERVAL 48 HOUR)
-            WHERE id = ?
-        ")->execute([$wellId]);
+            WHERE id = ? AND player_id = ?
+        ")->execute([$wellId, $playerId]);
         GameLog::info('WellService', 'post_disaster_boost', [
             'well_id' => $wellId, 'boost_added' => 0.15,
         ]);

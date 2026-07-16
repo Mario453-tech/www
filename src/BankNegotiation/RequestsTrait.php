@@ -27,7 +27,7 @@ trait BankNegotiationRequestsTrait
             if (!in_array($loan['status'], ['active', 'late'], true)) {
                 return ['success' => false, 'message' => t('bank_neg.err_deferral_status')];
             }
-            if ($this->hasPendingOrApproved($loanId)) {
+            if ($this->hasPendingOrApproved($loanId, $playerId)) {
                 return ['success' => false, 'message' => t('bank_neg.err_active_negotiation')];
             }
 
@@ -107,7 +107,7 @@ trait BankNegotiationRequestsTrait
             if (!in_array($loan['status'], ['active', 'late'], true)) {
                 return ['success' => false, 'message' => t('bank_neg.err_restructure_status')];
             }
-            if ($this->hasPendingOrApproved($loanId)) {
+            if ($this->hasPendingOrApproved($loanId, $playerId)) {
                 return ['success' => false, 'message' => t('bank_neg.err_active_negotiation')];
             }
 
@@ -199,7 +199,7 @@ trait BankNegotiationRequestsTrait
             if (!in_array($loan['status'], ['active', 'late'], true)) {
                 return ['success' => false, 'message' => t('bank_neg.err_recovery_status')];
             }
-            if ($this->hasPendingOrApproved($loanId)) {
+            if ($this->hasPendingOrApproved($loanId, $playerId)) {
                 return ['success' => false, 'message' => t('bank_neg.err_active_negotiation')];
             }
 
@@ -209,9 +209,12 @@ trait BankNegotiationRequestsTrait
  // Plan naprawczy wymaga rzeczywiscie trudnej sytuacji.
             $hasBailiff = $this->db->prepare("
                 SELECT id FROM bailiff_proceedings
-                WHERE loan_id=:lid AND status='active' LIMIT 1
+                WHERE loan_id=:lid
+                  AND player_id=:pid
+                  AND status='active'
+                LIMIT 1
             ");
-            $hasBailiff->execute([':lid' => $loanId]);
+            $hasBailiff->execute([':lid' => $loanId, ':pid' => $playerId]);
             $bailiff = $hasBailiff->fetch();
 
             if (!$bailiff && $loan['status'] !== 'late' && $ctx['creditScore'] > 60) {

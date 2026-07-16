@@ -250,7 +250,7 @@ class ContractReputationService
     /** @param array<string,mixed> $delivery */
     public function onDeliverySuccess(int $playerId, int $contractId, array $delivery): void
     {
-        $delta = $this->termInt($contractId, 'reputation_gain_on_delivery', 1);
+        $delta = $this->termInt($playerId, $contractId, 'reputation_gain_on_delivery', 1);
         $this->changeScore($playerId, $delta, 'delivery_success', $contractId, $delivery);
     }
 
@@ -259,7 +259,7 @@ class ContractReputationService
     {
         $status = (string)($delivery['status'] ?? 'missed');
         $term = $status === 'partial' ? 'reputation_loss_on_partial_delivery' : 'reputation_loss_on_missed_delivery';
-        $delta = $this->termInt($contractId, $term, $status === 'partial' ? -1 : -2);
+        $delta = $this->termInt($playerId, $contractId, $term, $status === 'partial' ? -1 : -2);
 
         $this->withTransaction(function () use ($playerId, $contractId, $delivery, $status, $delta): void {
             $this->ensureRow($playerId);
@@ -272,9 +272,9 @@ class ContractReputationService
 
     public function onContractCompleted(int $playerId, int $contractId, bool $perfect): void
     {
-        $delta = $this->termInt($contractId, 'reputation_gain_on_full_completion', 1);
+        $delta = $this->termInt($playerId, $contractId, 'reputation_gain_on_full_completion', 1);
         if ($perfect) {
-            $delta += $this->termInt($contractId, 'reputation_gain_on_perfect_contract', 0);
+            $delta += $this->termInt($playerId, $contractId, 'reputation_gain_on_perfect_contract', 0);
         }
         $this->withTransaction(function () use ($playerId, $contractId, $perfect, $delta): void {
             $this->incrementCounters($playerId, [
@@ -288,7 +288,7 @@ class ContractReputationService
 
     public function onContractFailed(int $playerId, int $contractId): void
     {
-        $delta = $this->termInt($contractId, 'reputation_loss_on_contract_failed', -3);
+        $delta = $this->termInt($playerId, $contractId, 'reputation_loss_on_contract_failed', -3);
         $this->withTransaction(function () use ($playerId, $contractId, $delta): void {
             $this->incrementCounters($playerId, [
                 'total_contracts' => 1,
@@ -300,7 +300,12 @@ class ContractReputationService
 
     public function onContractCancelled(int $playerId, int $contractId): void
     {
-        $delta = $this->termInt($contractId, 'cancel_reputation_loss', $this->termInt($contractId, 'reputation_loss_on_cancel', -1));
+        $delta = $this->termInt(
+            $playerId,
+            $contractId,
+            'cancel_reputation_loss',
+            $this->termInt($playerId, $contractId, 'reputation_loss_on_cancel', -1)
+        );
         $this->withTransaction(function () use ($playerId, $contractId, $delta): void {
             $this->incrementCounters($playerId, [
                 'total_contracts' => 1,
@@ -353,16 +358,17 @@ class ContractReputationService
             ->execute($params);
     }
 
-    private function termInt(int $contractId, string $termKey, int $default): int
+    private function termInt(int $playerId, int $contractId, string $termKey, int $default): int
     {
         try {
             $stmt = $this->db->prepare(
                 "SELECT terms_json, contract_option_id
                    FROM player_contracts
                   WHERE id = ?
+                    AND player_id = ?
                   LIMIT 1"
             );
-            $stmt->execute([$contractId]);
+            $stmt->execute([$contractId, $playerId]);
             $contract = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!is_array($contract)) {
                 return $default;

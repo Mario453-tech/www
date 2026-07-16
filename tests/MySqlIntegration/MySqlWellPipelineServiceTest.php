@@ -38,6 +38,24 @@ final class MySqlWellPipelineServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(1, (int)$countStmt->fetchColumn());
     }
 
+    public function testCreatePipelineForWellRejectsForeignOwner(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId']);
+
+        $service = new WellPipelineService($this->db);
+        $pipeline = $service->createPipelineForWell($playerId + 999, [
+            'id' => $ids['wellId'],
+            'base_production_per_hour' => 55.0,
+        ]);
+
+        $this->assertSame([], $pipeline);
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM well_pipelines WHERE well_id = ?');
+        $stmt->execute([$ids['wellId']]);
+        $this->assertSame(0, (int)$stmt->fetchColumn());
+    }
+
     public function testEnsurePipelinesForPlayerWellsIsLegacyNoOp(): void
     {
         $ids = $this->getTrackedIds();

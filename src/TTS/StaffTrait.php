@@ -161,6 +161,10 @@ trait TTSStaffTrait
 
         // Transakcja chroni przed race condition: sprawdzenie zajecia i zwolnienie sa atomowe.
         // Transaction prevents race condition: busy-check and firing are atomic.
+        // Build the assignment service before the transaction because its bootstrap may create schema.
+        // Zbuduj serwis przypisan przed transakcja, poniewaz bootstrap moze tworzyc schemat.
+        $assignments = new EmployeeAssignmentService($this->db);
+
         $this->db->beginTransaction();
         try {
             // Blokuj rekord pracownika, by wykluczyc wspolbiezne operacje na tym samym staffId.
@@ -180,6 +184,9 @@ trait TTSStaffTrait
             }
 
             $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")->execute([$staffId, $this->playerId]);
+            $assignments->releaseEmployeeAssignments(
+                new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $staffId, $this->playerId)
+            );
             $this->db->commit();
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) {

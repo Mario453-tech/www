@@ -861,3 +861,26 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Schemat testowy MySQL dostał brakujące pola i tabelę hub permit, żeby testy wykrywały regresje zezwoleń hubowych.
 - Dodano regresje dla pełnego magazynu, częściowo pełnego magazynu, błędu persystencji, savepointu, statusów huba przy zakupie rurociągu, aktywnego czasu outbound OPEX, incydentów z bufora i mnożników strat.
 - Weryfikacja po poprawkach: `Unit 88/88`, `Integration 440/440`, `MySqlIntegration 217/217`, targeted PHPStan dla hubów/rurociągów bez błędów, `tools/check_encoding.php` 1904 pliki, `git diff --check` bez błędów.
+[2026-07-16] Pracownicy i logistyka - limit graczy oraz obsada hubow
+
+- PlayersModule przekazuje teraz realny max_items_per_run do PlayersSection, a sekcja pobiera graczy deterministycznie wedlug last_tick_at ASC, id ASC. Najpierw przetwarzani sa gracze najdluzej czekajacy na tick.
+- PlayersSection raportuje players_fetched i players_remaining_estimate, dzieki czemu panel ticka moze pokazac, czy modul graczy zostal ograniczony limitem.
+- Dodano employee_assignments oraz EmployeeAssignmentService. Serwis przypisuje wspolnego pracownika (board_member albo technical_staff) do obiektu gry, na start do huba.
+- Przypisanie sprawdza wlasciciela pracownika, wlasciciela huba, aktywny status pracownika, blokujace statusy relacji (on_strike, leaving, inactive) oraz limit alokacji pracownika do 100%.
+- Dla MySQL serwis uzywa GET_LOCK() per pracownik, zeby rownolegle przypisania tego samego pracownika nie ominely limitu alokacji.
+- Dodano LogisticsStaffingService, ktory liczy obsade huba: wymagana liczbe osob, pokrycie procentowe, sredni skill, srednie morale, brakujace role oraz mnozniki przepustowosci, ryzyka incydentu i kosztu utrzymania.
+- WellHubSection pobiera teraz wynik obsady per hub i przekazuje go do istniejacych sciezek ticka jako korekte hub_throughput_pct oraz incident_mult. Globalne efekty dzialu logistyki nadal dzialaja jako osobny bonus.
+- Ten etap nie dodaje jeszcze UI przypisywania pracownikow ani modulu EmployeesModule. UI, morale cykliczne, podwyzki i strajki zostaja na kolejne etapy.
+- Dodano testy PlayersSectionLimitTest, EmployeeAssignmentServiceTest oraz MySqlEmployeeAssignmentServiceTest.
+
+[2026-07-16] Audyt izolacji danych graczy
+
+- Przejrzano zapytania odczytu i mutacji w `src/`, `public/`, ticku, banku, HR, logistyce, hubach, rurociagach, kontraktach, rynku, ochronie i czacie.
+- Akcje na odwiertach, rurociagach, kredytach, negocjacjach, ofertach, zadaniach technicznych, incydentach i kontraktach wymagaja teraz zgodnosci identyfikatora rekordu z `player_id`.
+- Huby wynajmowane zachowuja osobny model kontroli: operacje gracza akceptuja wlasciciela albo `tenant_player_id`, natomiast zakup ochrony huba pozostaje dostepny tylko dla wlasciciela.
+- Finalne `UPDATE` i `DELETE` zachowuja filtr wlasciciela oraz warunek stanu rekordu. Wczesniejszy `SELECT` nie jest juz jedynym zabezpieczeniem.
+- Rynek ropy blokuje oferte przed wyplata i nie moze wyplacic jej drugi raz. Czat ogranicza raportowanie i usuwanie zalacznikow do wiadomosci widocznych lub wyslanych przez zalogowanego gracza.
+- Tick sprawdza wlasciciela przy zmianie stanu odwiertu, warstwy geologicznej, rurociagu, kolejki portowej, zezwolenia i huba. Zadanie techniczne obcego gracza nie moze zostac zakonczone przez inna instancje serwisu.
+- Wygaszanie i anulowanie ochrony ponownie sprawdza `player_id`, status oraz termin w finalnym zapisie. Powiazania kredytu z komornikiem wymagaja zgodnego gracza po obu stronach relacji.
+- Dodano regresje MySQL dla negocjacji bankowych, jednorazowej wyplaty oferty rynkowej, odczytu huba przez wlasciciela oraz odrzucenia obcego zadania technicznego.
+- Weryfikacja: Unit `91/91` (`277` asercji), Integration `454/454` (`6028` asercji), MySqlIntegration `224/224` (`2512` asercji), PHPStan dla zmienionych serwisow bez bledow, lint `77` plikow, encoding `1912` plikow i `git diff --check` bez bledow.

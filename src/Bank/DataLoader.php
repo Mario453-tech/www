@@ -278,7 +278,7 @@ class BankDataLoader
 
             try {
                 $can = $this->bankNeg->canNegotiate($this->playerId, $loanId);
-                $active = $this->bankNeg->getActivePendingOrApproved($loanId);
+                $active = $this->bankNeg->getActivePendingOrApproved($loanId, $this->playerId);
                 $events = $this->loadNegEvents($active);
 
                 if ($active) {
@@ -290,8 +290,8 @@ class BankDataLoader
                         : t('common.dash');
                 }
 
-                $hasBailiff = $this->checkBailiff($loanId);
-                $restructDisplay = $this->loadRestructDisplay($loanId);
+                $hasBailiff = $this->checkBailiff($loanId, $this->playerId);
+                $restructDisplay = $this->loadRestructDisplay($loanId, $this->playerId);
 
                 $principal = (float)($loan['principal_amount'] ?? 0);
                 $pct = 0;
@@ -376,7 +376,7 @@ class BankDataLoader
  * Checks whether a bailiff proceeding is active for the given loan.
  * Sprawdza, czy dla kredytu jest aktywny komornik.
  */
-    private function checkBailiff(int $loanId): bool
+    private function checkBailiff(int $loanId, int $playerId): bool
     {
         if (!$this->db) {
             return false;
@@ -385,9 +385,12 @@ class BankDataLoader
         try {
             $stmt = $this->db->prepare("
                 SELECT id FROM bailiff_proceedings
-                WHERE loan_id = :lid AND status = 'active' LIMIT 1
+                WHERE loan_id = :lid
+                  AND player_id = :pid
+                  AND status = 'active'
+                LIMIT 1
             ");
-            $stmt->execute([':lid' => $loanId]);
+            $stmt->execute([':lid' => $loanId, ':pid' => $playerId]);
             return (bool)$stmt->fetch();
         } catch (Throwable $e) {
             GameLog::error('bank', 'bailiff check FAILED', $e, ['loan_id' => $loanId]);
@@ -399,7 +402,7 @@ class BankDataLoader
  * Loads restructure display helper data.
  * Laduje pomocnicze dane wyswietlania restrukturyzacji.
  */
-    private function loadRestructDisplay(int $loanId): ?array
+    private function loadRestructDisplay(int $loanId, int $playerId): ?array
     {
         if (!$this->db) {
             return null;
@@ -410,11 +413,12 @@ class BankDataLoader
                 SELECT approved_extension_months, requested_at, decision_at
                 FROM bank_negotiations
                 WHERE loan_id = ?
+                  AND player_id = ?
                   AND type = 'restructure'
                   AND status IN ('completed','approved')
                 ORDER BY decision_at DESC LIMIT 1
             ");
-            $stmt->execute([$loanId]);
+            $stmt->execute([$loanId, $playerId]);
             $info = $stmt->fetch() ?: null;
         } catch (Throwable $e) {
             GameLog::error('bank', 'restructureInfo FAILED', $e, ['loan_id' => $loanId]);

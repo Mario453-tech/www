@@ -18,6 +18,10 @@ final class PlayersModule implements TickModule
     private array $sectionTimingsMs = [];
     private int $slowestPlayerMs = 0;
     private int $slowestPlayerId = 0;
+    private int $playersFetched = 0;
+    private int $playersSkipped = 0;
+    private int $playersMissingStorage = 0;
+    private int $playersRemainingEstimate = 0;
 
     public function key(): string { return 'players'; }
     public function order(): int { return 40; }
@@ -26,9 +30,19 @@ final class PlayersModule implements TickModule
     public function run(TickContext $ctx): void
     {
         $ctx->loadBalanceMults();
-        $section = new PlayersSection($ctx->db, $ctx->mutableNow(), $ctx->newPrice, $ctx->balanceMults);
+        $section = new PlayersSection(
+            $ctx->db,
+            $ctx->mutableNow(),
+            $ctx->newPrice,
+            $ctx->balanceMults,
+            $ctx->moduleLimit($this->key(), TickModuleCatalog::recommendedLimit($this->key()))
+        );
         $section->run();
         $this->playersProcessed = $section->playersProcessed;
+        $this->playersFetched = $section->playersFetched;
+        $this->playersSkipped = $section->playersSkipped;
+        $this->playersMissingStorage = $section->playersMissingStorage;
+        $this->playersRemainingEstimate = $section->playersRemainingEstimate;
         $this->wellsActive = $section->wellsActive;
         $this->totalBbl = $section->totalBbl;
         $this->totalRevenue = $section->totalRevenue;
@@ -45,6 +59,10 @@ final class PlayersModule implements TickModule
     {
         return [
             'players_processed' => $this->playersProcessed,
+            'players_fetched' => $this->playersFetched,
+            'players_skipped' => $this->playersSkipped,
+            'players_missing_storage' => $this->playersMissingStorage,
+            'players_remaining_estimate' => $this->playersRemainingEstimate,
             'wells_active' => $this->wellsActive,
             'total_production_bbl' => $this->totalBbl,
             'total_revenue_pln' => $this->totalRevenue,

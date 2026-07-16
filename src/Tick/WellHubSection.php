@@ -25,6 +25,7 @@ class WellHubSection
     private float             $oilPrice;
     private OutboundLegService $outboundSvc;
     private ?ProtectionService $protectionSvc;
+    private ?LogisticsStaffingService $logisticsStaffingSvc;
 
  /**
  * @param array<string, float|string> $financeLogisticsMods
@@ -40,7 +41,8 @@ class WellHubSection
         array                 $gBalanceMults,
         float                 $oilPrice,
         OutboundLegService    $outboundSvc,
-        ?ProtectionService    $protectionSvc = null
+        ?ProtectionService    $protectionSvc = null,
+        ?LogisticsStaffingService $logisticsStaffingSvc = null
     ) {
         $this->ctx                  = $ctx;
         $this->now                  = $now;
@@ -52,6 +54,7 @@ class WellHubSection
         $this->oilPrice             = $oilPrice;
         $this->outboundSvc          = $outboundSvc;
         $this->protectionSvc        = $protectionSvc;
+        $this->logisticsStaffingSvc = $logisticsStaffingSvc;
     }
 
  /**
@@ -79,16 +82,50 @@ class WellHubSection
             $this->hubIncidentSvc->preloadProtections($hubIdToOwnerPlayerId, $this->protectionSvc);
         }
 
+        $staffingByHub = [];
+        if ($this->logisticsStaffingSvc !== null && $this->logisticsStaffingSvc->isRuntimeEnabled()) {
+            try {
+                $staffingByHub = $this->logisticsStaffingSvc->hubStaffingForHubs(
+                    array_values($this->ctx->hubCache)
+                );
+            } catch (Throwable $staffingError) {
+                GameLog::error('tick', 'hub_staffing_batch_failed', $staffingError, [
+                    'player_id' => $playerId,
+                    'hub_count' => count($this->ctx->hubCache),
+                ]);
+            }
+        }
+
         foreach ($this->ctx->hubCache as $hubId => $hub) {
             try {
                 $inputBbl = $this->ctx->hubInputAccum[$hubId] ?? 0.0;
+                $hubRuntimeEffects = $this->ctx->employeeLogisticsEffects;
+                $hubMaintenanceCostMult = 1.0;
+                $hubIncidentMods = [
+                    'incident_mult' => max(0.0, (float)($this->financeLogisticsMods['incident_mult'] ?? 1.0)),
+                ];
+                $staffing = $staffingByHub[(int)$hubId] ?? null;
+                if (is_array($staffing)) {
+                    $hubRuntimeEffects = $this->mergeRuntimeEffects(
+                        $hubRuntimeEffects,
+                        (array)($staffing['runtime_effects'] ?? [])
+                    );
+                    $hubIncidentMods = $this->mergeIncidentMods(
+                        $hubIncidentMods,
+                        (array)($staffing['runtime_incident_mods'] ?? [])
+                    );
+                    $hubMaintenanceCostMult = max(
+                        0.1,
+                        (float)($staffing['maintenance_cost_mult'] ?? 1.0)
+                    );
+                }
 
                 $result = $this->hubTickSvc->processTick(
                     $hub,
                     $inputBbl,
                     $deltaHours,
                     $hseBonus,
-                    $this->ctx->employeeLogisticsEffects
+                    $hubRuntimeEffects
                 );
 
                 $baseConditionLoss = max(0.0, (float)($result['condition_lost_bbl'] ?? 0.0));
@@ -177,7 +214,7 @@ class WellHubSection
                         // (processOutboundLeg: excess -> addBufferBbl). Previously all blocked oil was
                         // destroyed on transiently-full storage.
                         $returnedBbl = $this->hubTickSvc !== null
-                            ? $this->hubTickSvc->addBufferBbl($hubId, $blockedBbl)
+                            ? $this->hubTickSvc->addBufferBbl($hubId, $playerId, $blockedBbl)
                             : 0.0;
                         $overflowBbl = max(0.0, round($blockedBbl - $returnedBbl, 4));
                         if ($overflowBbl > 0.001) {
@@ -240,7 +277,14 @@ class WellHubSection
                     fn($hId) => $hId === $hubId
                 ));
 
-                $this->processHubUsageFee($hubId, $hub, $playerId, $playerWellCount, $deltaHours);
+                $this->processHubUsageFee(
+                    $hubId,
+                    $hub,
+                    $playerId,
+                    $playerWellCount,
+                    $deltaHours,
+                    $hubMaintenanceCostMult
+                );
                 // Odejmij bbl zablokowane przez pelny magazyn (juz zaksiegowane jako hub-loss),
                 // aby drugi odcinek transportu nie naliczal kosztow za ropy ktora nie dotarla.
                 // Subtract storage-blocked bbl (already booked as hub-loss) so the outbound
@@ -262,7 +306,17 @@ class WellHubSection
                     0.0,
                     $processedBbl - (float)$outboundResult['not_delivered_bbl']
                 );
-                $incidentTriggered = $this->processHubIncident($hubId, $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $playerWellCount);
+                $incidentTriggered = $this->processHubIncident(
+                    $hubId,
+                    $hub,
+                    $inputBbl,
+                    $result,
+                    $deltaHours,
+                    $playerId,
+                    $hseBonus,
+                    $playerWellCount,
+                    $hubIncidentMods
+                );
                 if ($incidentTriggered) {
                     $this->hubTickSvc->markLatestTickIncident($hubId, $this->now);
                 }
@@ -278,6 +332,34 @@ class WellHubSection
  // Retencja statow hubow poza hot-path per-hub — jeden DELETE na przebieg sekcji.
  // Hub stats retention out of the per-hub hot path — one DELETE per section run.
         $this->hubTickSvc->pruneHubTickStats($this->now);
+    }
+
+    /**
+     * @param array<string, mixed> $base
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed>
+     */
+    private function mergeRuntimeEffects(array $base, array $extra): array
+    {
+        foreach ($extra as $key => $value) {
+            $base[$key] = (float)($base[$key] ?? 0.0) + (float)$value;
+        }
+
+        return $base;
+    }
+
+    /**
+     * @param array<string, mixed> $base
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed>
+     */
+    private function mergeIncidentMods(array $base, array $extra): array
+    {
+        foreach ($extra as $key => $value) {
+            $base[$key] = max(0.0, (float)($base[$key] ?? 1.0) * max(0.0, (float)$value));
+        }
+
+        return $base;
     }
 
     /**
@@ -302,7 +384,7 @@ class WellHubSection
         $this->ctx->deliveredBbl = max(0.0, $this->ctx->deliveredBbl - $deferredBbl);
         $this->ctx->finRevenue = max(0.0, $this->ctx->finRevenue - $deferredValue);
 
-        $returnedBbl = $this->hubTickSvc->addBufferBbl($hubId, $deferredBbl);
+        $returnedBbl = $this->hubTickSvc->addBufferBbl($hubId, $playerId, $deferredBbl);
         $lostBbl = max(0.0, round($deferredBbl - $returnedBbl, 4));
         if ($lostBbl > 0.001) {
             $lostValue = round($lostBbl * $this->oilPrice, 2);
@@ -331,7 +413,8 @@ class WellHubSection
  *
  * @param array<string, mixed> $hub
  * @param array<string, mixed> $result
- * @param array<string, mixed> $hseBonus
+     * @param array<string, mixed> $hseBonus
+     * @param array<string, mixed> $incidentMods
  */
     private function processHubIncident(
         int   $hubId,
@@ -341,15 +424,13 @@ class WellHubSection
         float $deltaHours,
         int   $playerId,
         array $hseBonus,
-        int   $playerWellCount
+        int   $playerWellCount,
+        array $incidentMods
     ): bool {
         if ($this->hubIncidentSvc === null || $playerWellCount <= 0) {
             return false;
         }
         try {
-            $incidentMods = [
-                'incident_mult' => max(0.0, (float)($this->financeLogisticsMods['incident_mult'] ?? 1.0)),
-            ];
             $incident = $this->hubIncidentSvc->processTick(
                 $hub, $inputBbl, $result, $deltaHours, $playerId, $hseBonus, $this->protectionSvc, $incidentMods
             );
@@ -394,7 +475,14 @@ class WellHubSection
  *
  * @param array<string, mixed> $hub
  */
-    private function processHubUsageFee(int $hubId, array $hub, int $playerId, int $playerWellCount, float $deltaHours = 1.0): void
+    private function processHubUsageFee(
+        int $hubId,
+        array $hub,
+        int $playerId,
+        int $playerWellCount,
+        float $deltaHours = 1.0,
+        float $maintenanceCostMult = 1.0
+    ): void
     {
         if ($playerWellCount <= 0 || $this->hubSvc === null) {
             return;
@@ -440,7 +528,16 @@ class WellHubSection
             // deltaHours scaling (semantics: opex_per_tick = PLN per HOUR, floored at one tick):
             // without it the hourly cost depended on cron cadence (12x more at 5-min ticks than
             // a 1h catch-up), unlike the already-fixed well OPEX.
-            $usageFee = round((float)$hub['opex_per_tick'] * $opexMult * $condMult * $acqOpexMult * $costMult * max(1.0, $deltaHours), 2);
+            $usageFee = round(
+                (float)$hub['opex_per_tick']
+                * $opexMult
+                * $condMult
+                * $acqOpexMult
+                * $costMult
+                * max(0.1, $maintenanceCostMult)
+                * max(1.0, $deltaHours),
+                2
+            );
             if ($usageFee > 0.0) {
                 $this->ctx->finOpex         += $usageFee;
                 $this->ctx->finHubUsageCost += $usageFee;
@@ -452,6 +549,7 @@ class WellHubSection
                     'opex'      => $usageFee,
                     'cond_pct'  => $condPct,
                     'cond_mult' => $condMult,
+                    'staffing_maintenance_mult' => round($maintenanceCostMult, 4),
                 ]);
             }
             return;
@@ -545,7 +643,7 @@ class WellHubSection
             $this->ctx->finBbl         = max(0.0, $this->ctx->finBbl - $excessBbl);
             $this->ctx->deliveredBbl   = max(0.0, $this->ctx->deliveredBbl - $excessBbl);
             $this->ctx->finRevenue     = max(0.0, $this->ctx->finRevenue - $excessVal);
-            $returnedBbl = $this->hubTickSvc->addBufferBbl($hubId, $excessBbl);
+            $returnedBbl = $this->hubTickSvc->addBufferBbl($hubId, $playerId, $excessBbl);
 
             // Bufor jest capowany do pojemnosci: co sie nie zmiescilo, jest strata
             // (jak overflow przy normalnym wejsciu huba), nie nieskonczonym buforem.

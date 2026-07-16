@@ -255,18 +255,20 @@ class HubIncidentService
  * Ostatnie incydenty dla konkretnego huba (do kart na logistics page).
  * @return list<array<string, mixed>>
  */
-    public function getHubRecentIncidents(int $hubId, int $limit = 3): array
+    public function getHubRecentIncidents(int $hubId, int $playerId, int $limit = 3): array
     {
         $stmt = $this->db->prepare("
             SELECT *
             FROM   logistics_hub_events
             WHERE  hub_id     = ?
+              AND  player_id  = ?
               AND  event_type LIKE 'hub_incident_%'
             ORDER BY created_at DESC
             LIMIT  ?
         ");
         $stmt->bindValue(1, $hubId, PDO::PARAM_INT);
-        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $stmt->bindValue(2, $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(3, $limit, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

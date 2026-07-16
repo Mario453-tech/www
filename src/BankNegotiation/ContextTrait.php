@@ -191,17 +191,21 @@ trait BankNegotiationContextTrait
                 JOIN board_roles br ON br.id = bm.role_id
                 JOIN employee_contracts ec ON ec.member_id = bm.id
                 WHERE br.code = 'finance'
+                  AND bm.player_id = :cfo_player_id
                   AND bm.status = 'active'
                   AND ec.status = 'active'
                   AND EXISTS (
                       SELECT 1 FROM recruitment_requests rr
                       WHERE rr.role_id = bm.role_id
-                        AND rr.player_id = :pid
+                        AND rr.player_id = :cfo_request_player_id
                         AND rr.status = 'completed'
                   )
                 LIMIT 1
             ");
-            $cfo->execute([':pid' => $playerId]);
+            $cfo->execute([
+                ':cfo_player_id' => $playerId,
+                ':cfo_request_player_id' => $playerId,
+            ]);
             $cfoRow = $cfo->fetch() ?: null;
 
             if ($cfoRow) {
@@ -224,17 +228,21 @@ trait BankNegotiationContextTrait
                 JOIN board_roles br ON br.id = bm.role_id
                 JOIN employee_contracts ec ON ec.member_id = bm.id
                 WHERE br.code = 'legal'
+                  AND bm.player_id = :lawyer_player_id
                   AND bm.status = 'active'
                   AND ec.status = 'active'
                   AND EXISTS (
                       SELECT 1 FROM recruitment_requests rr
                       WHERE rr.role_id = bm.role_id
-                        AND rr.player_id = :pid
+                        AND rr.player_id = :lawyer_request_player_id
                         AND rr.status = 'completed'
                   )
                 LIMIT 1
             ");
-            $law->execute([':pid' => $playerId]);
+            $law->execute([
+                ':lawyer_player_id' => $playerId,
+                ':lawyer_request_player_id' => $playerId,
+            ]);
             $lawRow = $law->fetch() ?: null;
             if ($lawRow) {
                 $lawyerName = trim($lawRow['first_name'] . ' ' . $lawRow['last_name']);

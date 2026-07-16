@@ -128,7 +128,7 @@ trait IncidentTickTrait
         $layerRiskMult = 1.0;
         if (class_exists('GeologicalLayerService')) {
             $layerSvc = new GeologicalLayerService();
-            $layerMults = $layerSvc->getLayerMultipliers($wellId, $eqTier);
+            $layerMults = $layerSvc->getLayerMultipliers($wellId, $playerId, $eqTier);
             $layerRiskMult = $layerMults['risk_mult'];
         }
 

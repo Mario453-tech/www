@@ -120,10 +120,17 @@ trait TTSTasksTrait
                 FROM logistics_hubs h
                 JOIN logistics_hub_assignments a ON a.hub_id = h.id AND a.status = 'active'
                 JOIN wells w ON w.id = a.well_id
-                WHERE h.id = ? AND w.player_id = ?
+                WHERE h.id = ?
+                  AND w.player_id = ?
+                  AND (h.player_id = ? OR h.tenant_player_id = ?)
                 LIMIT 1
             ");
-            $hubStmt->execute([$hubId, $this->playerId]);
+            $hubStmt->execute([
+                $hubId,
+                $this->playerId,
+                $this->playerId,
+                $this->playerId,
+            ]);
             if (!$hubStmt->fetch()) {
                 return ['success' => false, 'message' => t('technical.task_msg.hub_not_used')];
             }
@@ -142,8 +149,8 @@ trait TTSTasksTrait
  // Prevent duplicate queue entries for the same worker+task+target combination.
  // Zabezpieczenie przed duplikatami w kolejce dla tego samego pracownika i zadania.
  // Build null-safe conditions portably (MySQL <=> is not supported by SQLite).
-                $dupConds  = ['staff_id = ?', 'task_type = ?'];
-                $dupParams = [$staffId, $taskType];
+                $dupConds  = ['player_id = ?', 'staff_id = ?', 'task_type = ?'];
+                $dupParams = [$this->playerId, $staffId, $taskType];
                 foreach (['well_id' => $wellId, 'hub_id' => $hubId, 'pipeline_id' => $pipelineId, 'module_type' => $moduleType] as $col => $val) {
                     if ($val === null) {
                         $dupConds[] = "$col IS NULL";
@@ -233,8 +240,14 @@ trait TTSTasksTrait
         if ($hubId) {
             // Filtruj po player_id — zapobiega wyciekiem nazwy huba innego gracza (Rule 1).
             // Filter by player_id — prevents leaking another player's hub name (Rule 1).
-            $hStmt = $this->db->prepare("SELECT name FROM logistics_hubs WHERE id = ? AND player_id = ? LIMIT 1");
-            $hStmt->execute([$hubId, $this->playerId]);
+            $hStmt = $this->db->prepare(
+                "SELECT name
+                   FROM logistics_hubs
+                  WHERE id = ?
+                    AND (player_id = ? OR tenant_player_id = ?)
+                  LIMIT 1"
+            );
+            $hStmt->execute([$hubId, $this->playerId, $this->playerId]);
             $h = $hStmt->fetch();
             $hubName = $h ? ' - ' . $h['name'] : ' - hub #' . $hubId;
         }
@@ -362,7 +375,9 @@ trait TTSTasksTrait
             SELECT tt.*, ts.spec_code, ts.skill_level,
                    ts.first_name, ts.last_name
             FROM technical_tasks tt
-            JOIN technical_staff ts ON tt.staff_id = ts.id
+            JOIN technical_staff ts
+              ON tt.staff_id = ts.id
+             AND ts.player_id = tt.player_id
             WHERE tt.status = 'in_progress'
               AND tt.end_time <= NOW()
               AND tt.player_id = ?
@@ -390,6 +405,15 @@ trait TTSTasksTrait
         $skill   = (int)($task['skill_level'] ?? 5);
         $result  = [];
         $msg     = '';
+
+        if ($pId !== $this->playerId) {
+            GameLog::warn('TTS', 'Rejected foreign technical task completion', [
+                'task_id' => $taskId,
+                'task_player_id' => $pId,
+                'service_player_id' => $this->playerId,
+            ]);
+            return;
+        }
 
  // Wynik (sukces/porazka) losujemy ZANIM zajmiemy zadanie, by zajac je od razu statusem koncowym.
  // Roll the success/failure outcome BEFORE claiming, so the claim sets the final status directly.
@@ -516,40 +540,48 @@ trait TTSTasksTrait
                 case 'hub_maintenance':
                     if ($hubId) {
                         $gain = min(22, 12 + max(0, $skill - 4) * 2);
-                        // Dodaj player_id do WHERE — zapobiega modyfikacji hubu innego gracza.
-                        // Add player_id to WHERE — prevents modifying another player's hub.
-                        $this->db->prepare("
+                        // Owner and tenant filters prevent modifying another player's hub.
+                        // Filtry wlasciciela i najemcy blokuja zmiane huba innego gracza.
+                        $hubUpdate = $this->db->prepare("
                             UPDATE logistics_hubs
                             SET condition_pct = LEAST(100, condition_pct + ?),
                                 repair_cost_estimate = GREATEST(0, repair_cost_estimate - ?),
                                 last_maintenance_at = NOW(),
                                 updated_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$gain, $gain * 25000, $hubId, $pId]);
-                        $result = ['condition_gain' => $gain];
-                        $msg = t('technical.task_msg.hub_maintenance_done', [
-                            'hub_id' => $hubId,
-                            'gain' => $gain,
-                        ]);
+                            WHERE id = ?
+                              AND (player_id = ? OR tenant_player_id = ?)
+                        ");
+                        $hubUpdate->execute([$gain, $gain * 25000, $hubId, $pId, $pId]);
+                        if ($hubUpdate->rowCount() > 0) {
+                            $result = ['condition_gain' => $gain];
+                            $msg = t('technical.task_msg.hub_maintenance_done', [
+                                'hub_id' => $hubId,
+                                'gain' => $gain,
+                            ]);
+                        }
                     }
                     break;
 
                 case 'hub_repair':
                     if ($hubId) {
                         $condition = min(100, 60 + $skill * 4);
-                        // Dodaj player_id do WHERE — zapobiega napraw hubu innego gracza.
-                        // Add player_id to WHERE — prevents repairing another player's hub.
-                        $this->db->prepare("
+                        // Owner and tenant filters prevent repairing another player's hub.
+                        // Filtry wlasciciela i najemcy blokuja naprawe huba innego gracza.
+                        $hubUpdate = $this->db->prepare("
                             UPDATE logistics_hubs
                             SET condition_pct = ?,
                                 status = CASE WHEN status IN ('damaged','disabled','paused') THEN 'active' ELSE status END,
                                 repair_cost_estimate = 0.00,
                                 last_maintenance_at = NOW(),
                                 updated_at = NOW()
-                            WHERE id = ? AND player_id = ?
-                        ")->execute([$condition, $hubId, $pId]);
-                        $result = ['condition' => $condition, 'status' => 'active'];
-                        $msg = t('technical.task_msg.hub_repair_done', ['hub_id' => $hubId]);
+                            WHERE id = ?
+                              AND (player_id = ? OR tenant_player_id = ?)
+                        ");
+                        $hubUpdate->execute([$condition, $hubId, $pId, $pId]);
+                        if ($hubUpdate->rowCount() > 0) {
+                            $result = ['condition' => $condition, 'status' => 'active'];
+                            $msg = t('technical.task_msg.hub_repair_done', ['hub_id' => $hubId]);
+                        }
                     }
                     break;
 
@@ -562,8 +594,8 @@ trait TTSTasksTrait
                             ")->execute([$wellId, $pId]);
                             $result = ['pressure_boost' => 0.05];
                         }
-                        // Filtruj po player_id — zapobiega wyciekom danych o zlozu innego gracza (Rule 1).
-                        // Filter by player_id — prevents leaking another player's reservoir data (Rule 1).
+                        // Filter by player_id to prevent leaking another player's reservoir data.
+                        // Filtruj po player_id, aby nie ujawniac danych zloza innego gracza.
                         $wStmt = $this->db->prepare("SELECT reservoir_remaining, reservoir_max, pressure FROM wells WHERE id = ? AND player_id = ?");
                         $wStmt->execute([$wellId, $pId]);
                         $w      = $wStmt->fetch();
@@ -636,11 +668,8 @@ trait TTSTasksTrait
                     break;
                 case 'pipeline_maintenance':
                 case 'pipeline_inspection':
- // Sukces/komunikat ustawiamy TYLKO gdy UPDATE faktycznie cos zmienil. Jesli rurociag
- // zniknal (sprzedany) lub WHERE ... player_id trafil 0 wierszy, zadanie nie moze
- // raportowac "straty zmniejszone" (L6).
- // Set success/message ONLY when the UPDATE actually changed a row. If the pipeline is
- // gone (sold) or WHERE ... player_id matched 0 rows, the task must not report success.
+ // Report success only when the player-scoped pipeline update changed a row.
+ // Raportuj sukces tylko gdy aktualizacja rurociagu gracza zmienila rekord.
                     if ($pipeId) {
                         $pipeStmt = $this->db->prepare("
                             UPDATE well_pipelines
@@ -863,6 +892,7 @@ trait TTSTasksTrait
     public function cancelTask(int $taskId): array
     {
         GameLog::step('TTS', 'cancelTask', 1, "task={$taskId}");
+        $ownTx = false;
         try {
             $stmt = $this->db->prepare("
                 SELECT t.*, ts.first_name, ts.last_name

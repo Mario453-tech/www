@@ -199,8 +199,20 @@ class BlackMarketService
             $penalty = 0.0;
             $creditChange = 0;
 
-            $this->db->prepare("UPDATE black_market_offers SET status = 'accepted' WHERE id = :oid")
-                ->execute([':oid' => $offerId]);
+            $offerUpdate = $this->db->prepare(
+                "UPDATE black_market_offers
+                    SET status = 'accepted'
+                  WHERE id = :oid
+                    AND player_id = :pid
+                    AND status = 'active'"
+            );
+            $offerUpdate->execute([
+                ':oid' => $offerId,
+                ':pid' => $playerId,
+            ]);
+            if ($offerUpdate->rowCount() !== 1) {
+                throw new RuntimeException('Black market offer ownership or status changed during execution.');
+            }
 
             $this->db->prepare("UPDATE storage SET used = used - :bbl WHERE player_id = :pid")
                 ->execute([':bbl' => $offer['bbl'], ':pid' => $playerId]);

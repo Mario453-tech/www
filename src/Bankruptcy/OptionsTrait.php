@@ -193,8 +193,13 @@ trait BankruptcyOptionsTrait
  // Note: MySQL evaluates SET left-to-right, so in the CASE remaining_amount is already updated.
  // Sprawdzamy remaining_amount <= 0 (nowa wartosc po GREATEST), nie odejmujemy ponownie debtReduction.
  // We check remaining_amount <= 0 (the new value after GREATEST), not subtract debtReduction again.
-            $this->db->prepare("UPDATE loans SET remaining_amount = GREATEST(0, remaining_amount - ?), status = CASE WHEN remaining_amount <= 0 THEN 'paid_off' ELSE status END WHERE id=?")
-                ->execute([$debtReduction, $loanId]);
+            $this->db->prepare(
+                "UPDATE loans
+                    SET remaining_amount = GREATEST(0, remaining_amount - ?),
+                        status = CASE WHEN remaining_amount <= 0 THEN 'paid_off' ELSE status END
+                  WHERE id = ?
+                    AND player_id = ?"
+            )->execute([$debtReduction, $loanId, $this->playerId]);
             $this->logEvent('bank_takeover', t('bankruptcy.log_bank_takeover'), ['well_id' => (int)$well['id'], 'loan_id' => $loanId, 'debt_reduction' => $debtReduction], 'high', 0, null);
             $this->addNotification(t('bankruptcy.notif_bank_takeover', ['amount' => number_format($debtReduction)]));
             $this->db->commit();
@@ -265,26 +270,76 @@ trait BankruptcyOptionsTrait
  // PL: Galaz ciec kosztow.
     private function applyCostCuts(): array
     {
- // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
- // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
+        // Build services before the transaction so schema bootstrap cannot commit the business transaction.
+        // Zbuduj serwisy przed transakcja, aby bootstrap schematu nie zatwierdzil transakcji biznesowej.
         $fts = new FinancialTransactionService($this->db);
+        $assignments = new EmployeeAssignmentService($this->db);
         $this->db->beginTransaction();
         try {
             $wStmt = $this->db->prepare("UPDATE wells SET status='paused_cash' WHERE player_id=? AND status='active'");
             $wStmt->execute([$this->playerId]);
             $paused = (int)$wStmt->rowCount();
 
+            $techIdsStmt = $this->db->prepare(
+                "SELECT id
+                   FROM technical_staff
+                  WHERE player_id = ?
+                    AND status IN ('active','busy','on_leave')
+                  FOR UPDATE"
+            );
+            $techIdsStmt->execute([$this->playerId]);
+            $technicalStaffIds = array_map('intval', $techIdsStmt->fetchAll(PDO::FETCH_COLUMN));
+
             $techStmt = $this->db->prepare("UPDATE technical_staff SET status='fired', fired_at=NOW() WHERE player_id=? AND status IN ('active','busy','on_leave')");
             $techStmt->execute([$this->playerId]);
             $firedTech = (int)$techStmt->rowCount();
 
-            $boardStmt = $this->db->prepare("UPDATE board_members bm JOIN board_roles br ON br.id=bm.role_id SET bm.status='suspended' WHERE bm.status='active' AND br.code!='hr'");
-            $boardStmt->execute();
+            $boardIdsStmt = $this->db->prepare(
+                "SELECT bm.id
+                   FROM board_members bm
+                   JOIN board_roles br ON br.id = bm.role_id
+                  WHERE bm.player_id = ?
+                    AND bm.status = 'active'
+                    AND br.code != 'hr'
+                  FOR UPDATE"
+            );
+            $boardIdsStmt->execute([$this->playerId]);
+            $boardMemberIds = array_map('intval', $boardIdsStmt->fetchAll(PDO::FETCH_COLUMN));
+
+            $boardStmt = $this->db->prepare(
+                "UPDATE board_members bm
+                   JOIN board_roles br ON br.id = bm.role_id
+                    SET bm.status = 'suspended'
+                  WHERE bm.player_id = ?
+                    AND bm.status = 'active'
+                    AND br.code != 'hr'"
+            );
+            $boardStmt->execute([$this->playerId]);
             $suspendedBoard = (int)$boardStmt->rowCount();
 
             if ($suspendedBoard > 0) {
-                $this->db->prepare("UPDATE employee_contracts ec JOIN board_members bm ON bm.id=ec.member_id JOIN board_roles br ON br.id=bm.role_id SET ec.status='terminated' WHERE bm.status='suspended' AND br.code!='hr' AND ec.status='active'")->execute();
+                $this->db->prepare(
+                    "UPDATE employee_contracts ec
+                       JOIN board_members bm ON bm.id = ec.member_id
+                       JOIN board_roles br ON br.id = bm.role_id
+                        SET ec.status = 'terminated'
+                      WHERE bm.player_id = ?
+                        AND bm.status = 'suspended'
+                        AND br.code != 'hr'
+                        AND ec.status = 'active'"
+                )->execute([$this->playerId]);
             }
+
+            $assignments->releaseAssignmentsForSources(
+                $this->playerId,
+                EmployeeRef::SOURCE_TECHNICAL_STAFF,
+                $technicalStaffIds
+            );
+            $assignments->releaseAssignmentsForSources(
+                $this->playerId,
+                EmployeeRef::SOURCE_BOARD_MEMBER,
+                $boardMemberIds
+            );
 
             $relief = min(200000, 40000 + ($paused * 12000) + ($firedTech * 8000) + ($suspendedBoard * 15000));
 
@@ -370,7 +425,14 @@ trait BankruptcyOptionsTrait
                     $repay = min($remaining, (float)$loan['remaining_amount']);
  // Ten sam wzorzec co bank_takeover: CASE sprawdza juz zaktualizowane remaining_amount <= 0.
  // Same pattern as bank_takeover: CASE checks the already-updated remaining_amount <= 0.
-                    $this->db->prepare("UPDATE loans SET remaining_amount=GREATEST(0,remaining_amount-?), status=CASE WHEN remaining_amount<=0 THEN 'paid_off' ELSE 'active' END, late_since=NULL WHERE id=?")->execute([$repay, $loan['id']]);
+                    $this->db->prepare(
+                        "UPDATE loans
+                            SET remaining_amount = GREATEST(0, remaining_amount - ?),
+                                status = CASE WHEN remaining_amount <= 0 THEN 'paid_off' ELSE 'active' END,
+                                late_since = NULL
+                          WHERE id = ?
+                            AND player_id = ?"
+                    )->execute([$repay, $loan['id'], $this->playerId]);
                     $remaining -= $repay;
                 }
             }

@@ -66,7 +66,7 @@ class HubAssignmentService
             $hub = $validation['hub'];
             $regionId = (int)($hub['region_id'] ?? 0);
             if ($regionId <= 0) {
-                $regionId = $this->getHubRegionId($hubId);
+                $regionId = $this->getHubRegionId($hubId, $playerId);
             }
             if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
                 if ($ownTransaction && $this->db->inTransaction()) {
@@ -75,7 +75,7 @@ class HubAssignmentService
                 return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
             }
 
-            $zone = $this->getWellZoneKey($wellId);
+            $zone = $this->getWellZoneKey($wellId, $playerId);
             $now = date('Y-m-d H:i:s');
             $this->db->prepare(
                 "INSERT INTO logistics_hub_assignments
@@ -133,7 +133,7 @@ class HubAssignmentService
             return ['success' => false, 'error' => 'well_not_found'];
         }
 
-        $assignment = $this->hubSvc->getWellAssignment($wellId);
+        $assignment = $this->hubSvc->getWellAssignment($wellId, $playerId);
         if (!$assignment) {
             return ['success' => false, 'error' => 'not_assigned'];
         }
@@ -151,7 +151,7 @@ class HubAssignmentService
             }
             $this->lockAssignmentScope($playerId, $wellId, [(int)$assignment['hub_id']]);
 
-            $assignment = $this->hubSvc->getWellAssignment($wellId);
+            $assignment = $this->hubSvc->getWellAssignment($wellId, $playerId);
             if (!$assignment) {
                 if ($ownTransaction && $this->db->inTransaction()) {
                     $this->db->rollBack();
@@ -165,9 +165,11 @@ class HubAssignmentService
                         detached_at   = NOW(),
                         cooldown_until = ?,
                         updated_at    = NOW()
-                  WHERE id = ? AND status = 'active'"
+                  WHERE id = ?
+                    AND well_id = ?
+                    AND status = 'active'"
             );
-            $update->execute([$cooldownUntil, (int)$assignment['id']]);
+            $update->execute([$cooldownUntil, (int)$assignment['id'], $wellId]);
             if ($update->rowCount() !== 1) {
                 throw new RuntimeException('Active hub assignment changed during detach.');
             }
@@ -218,7 +220,7 @@ class HubAssignmentService
             return ['success' => false, 'error' => 'well_not_found'];
         }
 
-        $assignment = $this->hubSvc->getWellAssignment($wellId);
+        $assignment = $this->hubSvc->getWellAssignment($wellId, $playerId);
         if (!$assignment) {
             return ['success' => false, 'error' => 'not_assigned'];
         }
@@ -239,7 +241,7 @@ class HubAssignmentService
         }
 
         $newHub        = $validation['hub'];
-        $newRegionId   = (int)($newHub['region_id'] ?? $this->getHubRegionId($newHubId));
+        $newRegionId   = (int)($newHub['region_id'] ?? $this->getHubRegionId($newHubId, $playerId));
         if (!$this->hasLocalPermitOrNotRequired($playerId, $newRegionId)) {
             return ['success' => false, 'error' => 'no_hub_permit'];
         }
@@ -260,7 +262,7 @@ class HubAssignmentService
                 [(int)$assignment['hub_id'], $newHubId]
             );
 
-            $assignment = $this->hubSvc->getWellAssignment($wellId);
+            $assignment = $this->hubSvc->getWellAssignment($wellId, $playerId);
             if (!$assignment) {
                 $this->rollbackMutationScope($ownTransaction, $savepoint);
                 return ['success' => false, 'error' => 'not_assigned'];
@@ -277,7 +279,7 @@ class HubAssignmentService
                 return ['success' => false, 'error' => !$oldHub ? 'hub_not_found' : $validation['error']];
             }
             $newHub = $validation['hub'];
-            $newRegionId = (int)($newHub['region_id'] ?? $this->getHubRegionId($newHubId));
+            $newRegionId = (int)($newHub['region_id'] ?? $this->getHubRegionId($newHubId, $playerId));
             if (!$this->hasLocalPermitOrNotRequired($playerId, $newRegionId)) {
                 $this->rollbackMutationScope($ownTransaction, $savepoint);
                 return ['success' => false, 'error' => 'no_hub_permit'];
@@ -286,9 +288,11 @@ class HubAssignmentService
             $close = $this->db->prepare(
                 "UPDATE logistics_hub_assignments
                     SET status = 'detached', detached_at = NOW(), cooldown_until = ?, updated_at = NOW()
-                  WHERE id = ? AND status = 'active'"
+                  WHERE id = ?
+                    AND well_id = ?
+                    AND status = 'active'"
             );
-            $close->execute([$cooldownUntil, (int)$assignment['id']]);
+            $close->execute([$cooldownUntil, (int)$assignment['id'], $wellId]);
             if ($close->rowCount() !== 1) {
                 throw new RuntimeException('Active hub assignment changed during transfer.');
             }
@@ -383,14 +387,23 @@ class HubAssignmentService
     /**
      * Returns the hub region id, or 0 when it cannot be resolved.
      */
-    private function getHubRegionId(int $hubId): int
+    private function getHubRegionId(int $hubId, int $playerId): int
     {
         try {
-            $stmt = $this->db->prepare("SELECT region_id FROM logistics_hubs WHERE id = ? LIMIT 1");
-            $stmt->execute([$hubId]);
+            $stmt = $this->db->prepare(
+                "SELECT region_id
+                   FROM logistics_hubs
+                  WHERE id = ?
+                    AND (player_id = ? OR tenant_player_id = ?)
+                  LIMIT 1"
+            );
+            $stmt->execute([$hubId, $playerId, $playerId]);
             return (int)($stmt->fetchColumn() ?: 0);
         } catch (Throwable $e) {
-            GameLog::error('HubAssignmentService', 'getHubRegionId failed', $e, ['hub_id' => $hubId]);
+            GameLog::error('HubAssignmentService', 'getHubRegionId failed', $e, [
+                'hub_id' => $hubId,
+                'player_id' => $playerId,
+            ]);
             return 0;
         }
     }

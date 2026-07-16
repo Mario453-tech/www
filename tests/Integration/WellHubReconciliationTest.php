@@ -45,7 +45,7 @@ final class WellHubReconciliationTest extends SqliteIntegrationTestCase
                 return $this->persist;
             }
 
-            public function addBufferBbl(int $hubId, float $bbl): float
+            public function addBufferBbl(int $hubId, int $playerId, float $bbl): float
             {
                 $this->bufferAdded += $bbl;
                 return $bbl;

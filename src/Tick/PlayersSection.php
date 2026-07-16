@@ -25,43 +25,51 @@ class PlayersSection
     public array $sectionTimingsMs = [];
     public int $slowestPlayerMs = 0;
     public int $slowestPlayerId = 0;
+    public int $playersFetched = 0;
+    public int $playersSkipped = 0;
+    public int $playersRemainingEstimate = 0;
+    public int $playersMissingStorage = 0;
     private int $playersFetchMs = 0;
+    private int $activePlayersTotal = 0;
 
     private PDO      $db;
     private DateTime $now;
     private float    $oilPrice;
+    private int      $maxPlayersPerRun;
  /** @var array<string, mixed> */
     private array    $gBalanceMults;
 
  /** @param array<string, mixed> $gBalanceMults */
-    public function __construct(PDO $db, DateTime $now, float $oilPrice, array $gBalanceMults)
+    public function __construct(PDO $db, DateTime $now, float $oilPrice, array $gBalanceMults, int $maxPlayersPerRun = 500)
     {
         $this->db            = $db;
         $this->now           = $now;
         $this->oilPrice      = $oilPrice;
         $this->gBalanceMults = $gBalanceMults;
+        $this->maxPlayersPerRun = max(1, $maxPlayersPerRun);
     }
 
     public function run(): void
     {
         $playersFetchStarted = microtime(true);
         try {
-            $players = $this->db->query("
-                SELECT id,
-                       COALESCE(last_tick_at, '2000-01-01 00:00:00') AS last_tick_at,
-                       cash,
-                       COALESCE(financial_state, 'normal') AS financial_state,
-                       COALESCE(crisis_ticks, 0)           AS crisis_ticks,
-                       COALESCE(last_crisis_tick_at, NULL) AS last_crisis_tick_at,
-                       COALESCE(credit_score, 50)          AS credit_score,
-                       COALESCE(bankruptcy_status, 'none') AS bankruptcy_status,
-                       last_active_at,
-                       COALESCE(offline_mode, 0)           AS offline_mode,
-                       offline_since
-                FROM players
-                WHERE status != 'bankrupt'
-            ")->fetchAll();
-            GameLog::dbResult('tick', 'active players', count($players));
+            $players = $this->fetchActivePlayers();
+            $this->playersFetched = count($players);
+            $this->activePlayersTotal = $this->countActivePlayers();
+            $this->playersMissingStorage = $this->countPlayersMissingStorage();
+            $this->playersRemainingEstimate = max(0, $this->activePlayersTotal - $this->playersFetched);
+            GameLog::dbResult('tick', 'active players batch', $this->playersFetched);
+            if ($this->playersRemainingEstimate > 0) {
+                GameLog::info('tick', 'players batch limited', [
+                    'limit' => $this->maxPlayersPerRun,
+                    'remaining_estimate' => $this->playersRemainingEstimate,
+                ]);
+            }
+            if ($this->playersMissingStorage > 0) {
+                GameLog::warn('tick', 'players excluded because storage is missing', [
+                    'count' => $this->playersMissingStorage,
+                ]);
+            }
         } catch (Throwable $e) {
             GameLog::error('tick', 'player fetch FAILED', $e);
             $players = [];
@@ -89,6 +97,75 @@ class PlayersSection
                 }
             }
         }
+        $this->playersRemainingEstimate = max(
+            0,
+            $this->activePlayersTotal - $this->playersProcessed - $this->playersSkipped
+        );
+    }
+
+    /**
+     * Fetches the oldest eligible players for this run.
+     * Pobiera najstarszych kwalifikujacych sie graczy do tej rundy.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function fetchActivePlayers(): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT id,
+                   COALESCE(last_tick_at, '2000-01-01 00:00:00') AS last_tick_at,
+                   cash,
+                   COALESCE(financial_state, 'normal') AS financial_state,
+                   COALESCE(crisis_ticks, 0)           AS crisis_ticks,
+                   COALESCE(last_crisis_tick_at, NULL) AS last_crisis_tick_at,
+                   COALESCE(credit_score, 50)          AS credit_score,
+                   COALESCE(bankruptcy_status, 'none') AS bankruptcy_status,
+                   last_active_at,
+                   COALESCE(offline_mode, 0)           AS offline_mode,
+                   offline_since
+            FROM players p
+            WHERE p.status != 'bankrupt'
+              AND EXISTS (
+                    SELECT 1
+                      FROM storage s
+                     WHERE s.player_id = p.id
+              )
+            ORDER BY p.last_tick_at ASC, p.id ASC
+            LIMIT :limit
+        ");
+        $stmt->bindValue(':limit', $this->maxPlayersPerRun, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function countActivePlayers(): int
+    {
+        $stmt = $this->db->query("
+            SELECT COUNT(*)
+              FROM players p
+             WHERE p.status != 'bankrupt'
+               AND EXISTS (
+                    SELECT 1
+                      FROM storage s
+                     WHERE s.player_id = p.id
+               )
+        ");
+        return max(0, (int)$stmt->fetchColumn());
+    }
+
+    private function countPlayersMissingStorage(): int
+    {
+        $stmt = $this->db->query("
+            SELECT COUNT(*)
+              FROM players p
+             WHERE p.status != 'bankrupt'
+               AND NOT EXISTS (
+                    SELECT 1
+                      FROM storage s
+                     WHERE s.player_id = p.id
+               )
+        ");
+        return max(0, (int)$stmt->fetchColumn());
     }
 
  /** @param array<string, mixed> $playerData */
@@ -140,6 +217,7 @@ class PlayersSection
 
         if (!$storage) {
             GameLog::warn('tick', 'no storage for player', ['player_id' => $playerId]);
+            $this->markPlayerSkipped($playerId, 'no_storage', false);
             return;
         }
         $this->addSectionTiming('player_state_fetch', (int)round((microtime(true) - $fetchPlayerStateStarted) * 1000));
@@ -148,13 +226,14 @@ class PlayersSection
         $initialCash     = $playerCash; // gotowka na poczatku ticka (do roznicowego zapisu) / cash at tick start (for differential save)
         $storageCapacity = (float)$storage['capacity'];
         $currentStorage  = (float)$storage['used'];
-        $initialStorage  = $currentStorage; // magazyn na poczatku ticka — delta do roznicowego zapisu / storage at tick start — delta for differential save
+        $initialStorage  = $currentStorage; // Storage at tick start - delta for differential save.
 
  // 1. OFFLINE 
         $offlineStarted = microtime(true);
         $offline = new OfflineSection($db, $now);
         if (!$offline->process($playerId, $playerData, $playerCash)) {
             $this->addSectionTiming('offline', (int)round((microtime(true) - $offlineStarted) * 1000));
+            $this->markPlayerSkipped($playerId, 'offline_freeze', true);
             return; // freeze mode - skip tick
         }
         $this->addSectionTiming('offline', (int)round((microtime(true) - $offlineStarted) * 1000));
@@ -501,6 +580,30 @@ class PlayersSection
     private function addSectionTiming(string $key, int $durationMs): void
     {
         $this->sectionTimingsMs[$key] = ($this->sectionTimingsMs[$key] ?? 0) + max(0, $durationMs);
+    }
+
+    private function markPlayerSkipped(int $playerId, string $reason, bool $advanceTick): void
+    {
+        $this->playersSkipped++;
+        if ($advanceTick) {
+            try {
+                $stmt = $this->db->prepare('UPDATE players SET last_tick_at = :now WHERE id = :player_id');
+                $stmt->execute([
+                    'now' => $this->now->format('Y-m-d H:i:s'),
+                    'player_id' => $playerId,
+                ]);
+            } catch (Throwable $e) {
+                GameLog::error('tick', 'player skip timestamp update FAILED', $e, [
+                    'player_id' => $playerId,
+                    'reason' => $reason,
+                ]);
+            }
+        }
+        GameLog::info('tick', 'player skipped in batch', [
+            'player_id' => $playerId,
+            'reason' => $reason,
+            'tick_advanced' => $advanceTick,
+        ]);
     }
 
  /**

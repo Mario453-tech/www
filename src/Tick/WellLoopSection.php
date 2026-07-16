@@ -103,6 +103,7 @@ class WellLoopSection
     private ?FinancePolicyService $financePolicySvc = null;
     private ?EmployeeRepository $employeeRepo = null;
     private ?EmployeeRoleEffectService $employeeRoleEffectSvc = null;
+    private ?LogisticsStaffingService $logisticsStaffingSvc = null;
 /** @var array<string, float|string> */
     private array $financeTechnicalMods = [];
  /** @var array<string, float|string> */
@@ -159,6 +160,9 @@ class WellLoopSection
             try {
                 $this->employeeRepo = new EmployeeRepository($db);
                 $this->employeeRoleEffectSvc = new EmployeeRoleEffectService($db, $this->employeeRepo);
+                if (class_exists('LogisticsStaffingService')) {
+                    $this->logisticsStaffingSvc = new LogisticsStaffingService($db);
+                }
             } catch (Throwable $e) {
                 GameLog::error('tick', 'WellLoopSection: employee logistics services init FAILED', $e);
             }
@@ -219,6 +223,7 @@ class WellLoopSection
  * @param array<string, mixed> $hseBonus
  * @param array<string, mixed> $staffCheck
  * @param list<array<string, mixed>> $activeRegEvents
+ * @param array<int, float> $pipelineActiveHours
  */
     public function run(
         int     $playerId,
@@ -305,7 +310,8 @@ class WellLoopSection
             $this->gBalanceMults,
             $this->oilPrice,
             new OutboundLegService($this->transportConfig),
-            $protectionSvc
+            $protectionSvc,
+            $this->logisticsStaffingSvc
         );
         $wellHub->finalize($playerId, $deltaHours, $hseBonus);
     }
@@ -610,6 +616,11 @@ class WellLoopSection
  */
     private function preloadPlayerData(int $playerId, array $wells): void
     {
+        // Initialize per-player services before any preload depends on them.
+        // Inicjalizuj serwisy gracza przed preloadem, ktory z nich korzysta.
+        $this->geoSvc = class_exists('GeologicalLayerService') ? new GeologicalLayerService() : null;
+        $this->incidentSvc = class_exists('IncidentService') ? new IncidentService() : null;
+
  // 1. Preload technical_staff + staff_specializations w jednym SELECT / in one SELECT
         $this->staffCache = [];
         try {
@@ -635,6 +646,8 @@ class WellLoopSection
  //     gracza zamiast jednego na odwiert na tick (getOngoingProdDrop w petli bylby N+1).
  // 1a. Preload ongoing production drops (incidents inside their `hours` window) — one query per
  //     player instead of one per well per tick (a per-well getOngoingProdDrop would be N+1).
+        // Preload ongoing production drops with one query per player.
+        // Zaladuj aktywne spadki produkcji jednym zapytaniem per gracz.
         $this->ongoingDropCache = ($this->incidentSvc !== null && method_exists($this->incidentSvc, 'getOngoingProdDropForPlayer'))
             ? $this->incidentSvc->getOngoingProdDropForPlayer($playerId)
             : [];
@@ -712,10 +725,6 @@ class WellLoopSection
             }
         }
 
- // 3. Inicjalizuj serwisy raz per gracz / Initialize services once per player
-        $this->geoSvc      = class_exists('GeologicalLayerService') ? new GeologicalLayerService() : null;
-        $this->incidentSvc = class_exists('IncidentService')         ? new IncidentService()        : null;
-
  // 4. Batch-load przypisan hubow dla odwiertow gracza (1 query na gracza). / Batch-load hub assignments for all player wells (1 query per player).
         $this->wellHubMap    = [];
         $this->hubCache      = [];
@@ -736,9 +745,13 @@ class WellLoopSection
                        LEFT JOIN world_regions wr ON wr.id = h.region_id
                       WHERE a.well_id IN ({$placeholders})
                         AND a.status   = 'active'
-                        AND h.status  NOT IN ('planned','disabled','building','paused','maintenance')"
+                        AND h.status  NOT IN ('planned','disabled','building','paused','maintenance')
+                        AND (
+                            h.player_id = ?
+                            OR (h.player_id = 0 AND h.tenant_player_id = ?)
+                        )"
                 );
-                $stmt->execute($wellIds);
+                $stmt->execute(array_merge($wellIds, [$playerId, $playerId]));
                 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     $wId   = (int)$row['well_id'];
                     $hubId = (int)$row['id'];

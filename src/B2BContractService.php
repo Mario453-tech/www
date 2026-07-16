@@ -248,7 +248,11 @@ final class B2BContractService
         $this->db->beginTransaction();
         try {
             $offer = $this->lockOffer($offerId);
-            if ($offer === null || (string)$offer['status'] !== 'open') {
+            if (
+                $offer === null
+                || (int)$offer['buyer_player_id'] !== $buyerPlayerId
+                || (string)$offer['status'] !== 'open'
+            ) {
                 $this->db->rollBack();
                 return $this->result(false, 'not_open', 'contracts.b2b.not_open');
             }
@@ -283,9 +287,23 @@ final class B2BContractService
                 "UPDATE b2b_contract_offers
                  SET status = 'cancelled', escrow_status = 'partial_refund', cancel_penalty_amount = ?,
                      refunded_amount = ?, cancelled_at = ?, cancel_reason = ?, updated_at = ?
-                 WHERE id = ?"
+                 WHERE id = ?
+                   AND buyer_player_id = ?
+                   AND status = 'open'"
             );
-            $stmt->execute([$penalty, $refund, $this->now(), $reason, $this->now(), $offerId]);
+            $stmt->execute([
+                $penalty,
+                $refund,
+                $this->now(),
+                $reason,
+                $this->now(),
+                $offerId,
+                $buyerPlayerId,
+            ]);
+            if ($stmt->rowCount() !== 1) {
+                $this->db->rollBack();
+                return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
+            }
             $this->logEvent($offerId, $buyerPlayerId, 'cancelled', 'B2B buy offer cancelled by buyer', [
                 'refund_amount' => $refund,
                 'penalty_amount' => $penalty,
@@ -413,7 +431,9 @@ final class B2BContractService
                      allow_multiple_deliveries = ?,
                      seller_penalty_pct = ?,
                      updated_at = ?
-                 WHERE id = ? AND status = 'open'"
+                 WHERE id = ?
+                   AND buyer_player_id = ?
+                   AND status = 'open'"
             );
             $stmt->execute([
                 $sellerPlayerId,
@@ -426,6 +446,7 @@ final class B2BContractService
                 (float)($offer['seller_penalty_pct'] ?? $cfg['seller_penalty_pct']),
                 $this->now(),
                 $offerId,
+                (int)$offer['buyer_player_id'],
             ]);
             if ($stmt->rowCount() !== 1) {
                 $this->db->rollBack();
@@ -433,14 +454,26 @@ final class B2BContractService
             }
 
             if ($newStatus === 'completed') {
-                $this->db->prepare(
+                $completion = $this->db->prepare(
                     "UPDATE b2b_contract_offers
                      SET completed_at = ?,
                          escrow_status = 'released',
                          released_amount = escrow_amount,
                          remaining_escrow_amount = 0
-                     WHERE id = ?"
-                )->execute([$this->now(), $offerId]);
+                     WHERE id = ?
+                       AND buyer_player_id = ?
+                       AND seller_player_id = ?"
+                );
+                $completion->execute([
+                    $this->now(),
+                    $offerId,
+                    (int)$offer['buyer_player_id'],
+                    $sellerPlayerId,
+                ]);
+                if ($completion->rowCount() !== 1) {
+                    $this->db->rollBack();
+                    return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
+                }
                 $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
                     'buy_completed' => 1, 'total_bought_bbl' => $totalBbl,
                 ]);
@@ -551,20 +584,43 @@ final class B2BContractService
             $newRemaining = $deliveryResult['remaining_bbl'];
             $newStatus = $newRemaining <= 1e-9 ? 'completed' : 'accepted';
 
-            $stmt = $this->db->prepare(
-                "UPDATE b2b_contract_offers SET status = ?, updated_at = ? WHERE id = ? AND status = 'accepted'"
-            );
-            $stmt->execute([$newStatus, $this->now(), $offerId]);
+            if ($newStatus === 'completed') {
+                $stmt = $this->db->prepare(
+                    "UPDATE b2b_contract_offers
+                        SET status = 'completed',
+                            updated_at = ?
+                      WHERE id = ?
+                        AND seller_player_id = ?
+                        AND status = 'accepted'"
+                );
+                $stmt->execute([$this->now(), $offerId, $sellerPlayerId]);
+                if ($stmt->rowCount() !== 1) {
+                    $this->db->rollBack();
+                    return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
+                }
+            }
 
             if ($newStatus === 'completed') {
-                $this->db->prepare(
+                $completion = $this->db->prepare(
                     "UPDATE b2b_contract_offers
                      SET completed_at = ?,
                          escrow_status = 'released',
                          released_amount = escrow_amount,
                          remaining_escrow_amount = 0
-                     WHERE id = ?"
-                )->execute([$this->now(), $offerId]);
+                     WHERE id = ?
+                       AND buyer_player_id = ?
+                       AND seller_player_id = ?"
+                );
+                $completion->execute([
+                    $this->now(),
+                    $offerId,
+                    (int)$offer['buyer_player_id'],
+                    $sellerPlayerId,
+                ]);
+                if ($completion->rowCount() !== 1) {
+                    $this->db->rollBack();
+                    return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
+                }
                 $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_completed', 1, [
                     'buy_completed' => 1, 'total_bought_bbl' => $totalBbl,
                 ]);
@@ -679,7 +735,7 @@ final class B2BContractService
 
             $newStatus = $deliveredBbl <= 1e-9 ? 'failed' : 'partial_done';
 
-            $this->db->prepare(
+            $statusUpdate = $this->db->prepare(
                 "UPDATE b2b_contract_offers
                  SET status = ?,
                      remaining_bbl = 0,
@@ -687,8 +743,23 @@ final class B2BContractService
                      seller_penalty_amount = ?,
                      escrow_status = 'refunded',
                      updated_at = ?
-                 WHERE id = ?"
-            )->execute([$newStatus, $penaltyAmount, $nowSql, $offerId]);
+                 WHERE id = ?
+                   AND buyer_player_id = ?
+                   AND seller_player_id = ?
+                   AND status = 'accepted'"
+            );
+            $statusUpdate->execute([
+                $newStatus,
+                $penaltyAmount,
+                $nowSql,
+                $offerId,
+                $buyerPlayerId,
+                $sellerPlayerId,
+            ]);
+            if ($statusUpdate->rowCount() !== 1) {
+                $this->db->rollBack();
+                return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
+            }
 
             if ($sellerPlayerId > 0) {
                 $this->recordReputation($sellerPlayerId, $offerId, 'seller_penalty', -3, []);
@@ -871,9 +942,22 @@ final class B2BContractService
                 "UPDATE b2b_contract_offers
                  SET status = 'cancelled', escrow_status = 'refunded', refunded_amount = ?,
                      cancelled_at = ?, cancel_reason = ?, updated_at = ?
-                 WHERE id = ?"
+                 WHERE id = ?
+                   AND buyer_player_id = ?
+                   AND status = 'open'"
             );
-            $stmt->execute([$refund, $this->now(), $reason, $this->now(), $offerId]);
+            $stmt->execute([
+                $refund,
+                $this->now(),
+                $reason,
+                $this->now(),
+                $offerId,
+                (int)$offer['buyer_player_id'],
+            ]);
+            if ($stmt->rowCount() !== 1) {
+                $this->db->rollBack();
+                return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
+            }
             $this->logEvent($offerId, null, 'admin_cancelled', 'B2B offer cancelled by admin', [
                 'admin_id' => $adminId,
                 'reason' => $reason,
@@ -896,6 +980,9 @@ final class B2BContractService
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function adminFlagOffer(int $adminId, int $offerId, string $reason): array
     {
         $offer = $this->offerById($offerId);
@@ -916,6 +1003,9 @@ final class B2BContractService
         return $this->result(true, 'flagged', 'contracts.b2b.flagged');
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function adminUnflagOffer(int $adminId, int $offerId): array
     {
         $stmt = $this->db->prepare('UPDATE b2b_contract_offers SET is_flagged = 0, flag_reason = NULL, updated_at = ? WHERE id = ?');
@@ -1201,6 +1291,7 @@ final class B2BContractService
     }
 
     /**
+     * @param array<string, mixed> $filters
      * @return list<array<string,mixed>>
      */
     public function listAdminDeliveries(array $filters = [], int $limit = 50, int $offset = 0): array
@@ -1221,6 +1312,9 @@ final class B2BContractService
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /**
+     * @param array<string, mixed> $filters
+     */
     public function countAdminDeliveries(array $filters = []): int
     {
         return (int)$this->db->query('SELECT COUNT(*) FROM b2b_contract_deliveries')->fetchColumn();
@@ -1362,22 +1456,31 @@ final class B2BContractService
             $this->now(),
         ]);
 
-        $this->db->prepare(
+        $offerUpdate = $this->db->prepare(
             "UPDATE b2b_contract_offers
              SET delivered_bbl = ?,
                  remaining_bbl = ?,
                  released_amount = ?,
                  remaining_escrow_amount = ?,
                  updated_at = ?
-             WHERE id = ?"
-        )->execute([
+             WHERE id = ?
+               AND buyer_player_id = ?
+               AND (seller_player_id IS NULL OR seller_player_id = ?)
+               AND status IN ('open', 'accepted')"
+        );
+        $offerUpdate->execute([
             $newDelivered,
             $newRemaining,
             $newReleased,
             $newEscrow,
             $this->now(),
             $offerId,
+            (int)$offer['buyer_player_id'],
+            $sellerPlayerId,
         ]);
+        if ($offerUpdate->rowCount() !== 1) {
+            return ['success' => false, 'status' => 'race_lost'];
+        }
 
         return [
             'success' => true,
@@ -1388,6 +1491,9 @@ final class B2BContractService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function expireSingleOffer(int $offerId): array
     {
         $this->db->beginTransaction();
@@ -1415,9 +1521,15 @@ final class B2BContractService
             $stmt = $this->db->prepare(
                 "UPDATE b2b_contract_offers
                  SET status = 'expired', escrow_status = 'refunded', refunded_amount = ?, updated_at = ?
-                 WHERE id = ?"
+                 WHERE id = ?
+                   AND buyer_player_id = ?
+                   AND status = 'open'"
             );
-            $stmt->execute([$refund, $this->now(), $offerId]);
+            $stmt->execute([$refund, $this->now(), $offerId, (int)$offer['buyer_player_id']]);
+            if ($stmt->rowCount() !== 1) {
+                $this->db->rollBack();
+                return $this->result(false, 'race_lost', 'contracts.b2b.race_lost');
+            }
             $this->logEvent($offerId, (int)$offer['buyer_player_id'], 'expired', 'B2B offer expired', ['refund_amount' => $refund]);
             $this->recordReputation((int)$offer['buyer_player_id'], $offerId, 'buyer_expired', -1, [
                 'buy_expired' => 1,
@@ -1569,7 +1681,9 @@ final class B2BContractService
             $take = min($used, $remaining);
             $newUsed = round($used - $take, 2);
             if ($hasId) {
-                $this->db->prepare('UPDATE storage SET used = ? WHERE id = ?')->execute([$newUsed, (int)$row['id']]);
+                $this->db->prepare(
+                    'UPDATE storage SET used = ? WHERE id = ? AND player_id = ?'
+                )->execute([$newUsed, (int)$row['id'], $playerId]);
             } elseif ($this->driver === 'sqlite') {
                 $this->db->prepare('UPDATE storage SET used = ? WHERE player_id = ?')->execute([$newUsed, $playerId]);
             } else {

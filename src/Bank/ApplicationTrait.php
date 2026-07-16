@@ -395,8 +395,15 @@ trait BankApplicationTrait
             }
 
             if (!empty($app['expires_at']) && strtotime((string)$app['expires_at']) < time()) {
-                $this->db->prepare("UPDATE loan_applications SET status = 'expired' WHERE id = :id")
-                    ->execute([':id' => $applicationId]);
+                $this->db->prepare(
+                    "UPDATE loan_applications
+                        SET status = 'expired'
+                      WHERE id = :id
+                        AND player_id = :player_id"
+                )->execute([
+                    ':id' => $applicationId,
+                    ':player_id' => $playerId,
+                ]);
                 throw new Exception(t('bank.err_offer_expired'));
             }
 
@@ -440,8 +447,15 @@ trait BankApplicationTrait
                 throw new RuntimeException(t('bank.err_financial_transaction'));
             }
 
-            $this->db->prepare("UPDATE loan_applications SET status = 'accepted' WHERE id = :id")
-                ->execute([':id' => $applicationId]);
+            $this->db->prepare(
+                "UPDATE loan_applications
+                    SET status = 'accepted'
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            )->execute([
+                ':id' => $applicationId,
+                ':player_id' => $playerId,
+            ]);
             $this->db->commit();
 
             GameLog::info('BankService', 'Loan offer accepted (annuity)', [

@@ -136,8 +136,15 @@ trait BankNegotiationRandomEventsTrait
                 $cappedDue = min($proposed, $maxDue);
                 $newDue = date('Y-m-d H:i:s', $cappedDue);
                 $this->db->prepare(
-                    "UPDATE bank_negotiations SET decision_due_at=:due WHERE id=:id"
-                )->execute([':due' => $newDue, ':id' => $negotiationId]);
+                    "UPDATE bank_negotiations
+                        SET decision_due_at = :due
+                      WHERE id = :id
+                        AND player_id = :player_id"
+                )->execute([
+                    ':due' => $newDue,
+                    ':id' => $negotiationId,
+                    ':player_id' => $neg['player_id'],
+                ]);
             }
             if (($event['sub_hours'] ?? 0) > 0) {
                 $newDue = date(
@@ -145,8 +152,15 @@ trait BankNegotiationRandomEventsTrait
                     max(time() + 1800, strtotime($neg['decision_due_at']) - (int)($event['sub_hours'] * 3600))
                 );
                 $this->db->prepare(
-                    "UPDATE bank_negotiations SET decision_due_at=:due WHERE id=:id"
-                )->execute([':due' => $newDue, ':id' => $negotiationId]);
+                    "UPDATE bank_negotiations
+                        SET decision_due_at = :due
+                      WHERE id = :id
+                        AND player_id = :player_id"
+                )->execute([
+                    ':due' => $newDue,
+                    ':id' => $negotiationId,
+                    ':player_id' => $neg['player_id'],
+                ]);
             }
             if (!empty($event['trust_evt'])) {
                 $this->adjustTrustScore($neg['player_id'], $event['trust_evt']);

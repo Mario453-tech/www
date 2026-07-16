@@ -30,7 +30,7 @@ class WellStatusHandler
  * @param array<string, mixed> $well
  * @return array<string, mixed>|null
  */
-    public function handleEquipmentSwap(array $well, int $wellId, ?object $tsvc): ?array
+    public function handleEquipmentSwap(array $well, int $wellId, int $playerId, ?object $tsvc): ?array
     {
         $swapUntil = $well['equipment_swap_until'] ?? null;
         if ($swapUntil && strtotime($swapUntil) <= time()) {
@@ -39,8 +39,8 @@ class WellStatusHandler
             $this->ctx->db->prepare("
                 UPDATE wells
                 SET status = ?, equipment_swap_until = NULL, equipment_swap_prev_status = NULL
-                WHERE id = ?
-            ")->execute([$prevStatus, $wellId]);
+                WHERE id = ? AND player_id = ?
+            ")->execute([$prevStatus, $wellId, $playerId]);
             $well['status'] = $prevStatus;
             GameLog::info('tick', 'equipment_swap completed - well resumed', ['well_id' => $wellId, 'new_status' => $prevStatus]);
             $tsvc?->notify('task', $wellId, t('tick.notify.equipment_swap_done', ['id' => $wellId]));
@@ -56,12 +56,14 @@ class WellStatusHandler
  * @param array<string, mixed> $well
  * @return array<string, mixed>
  */
-    public function handleGeoLayerSwitch(array $well, int $wellId): array
+    public function handleGeoLayerSwitch(array $well, int $wellId, int $playerId): array
     {
         try {
-            $this->ctx->geoSvc->processSwitchCompletion($wellId);
-            $freshStatus = $this->ctx->db->prepare("SELECT status FROM wells WHERE id = ? LIMIT 1");
-            $freshStatus->execute([$wellId]);
+            $this->ctx->geoSvc->processSwitchCompletion($wellId, $playerId);
+            $freshStatus = $this->ctx->db->prepare(
+                "SELECT status FROM wells WHERE id = ? AND player_id = ? LIMIT 1"
+            );
+            $freshStatus->execute([$wellId, $playerId]);
             $well['status'] = $freshStatus->fetchColumn() ?: $well['status'];
         } catch (Throwable $e) {
             GameLog::error('tick', 'geological layer drilling finish FAILED', $e, ['well_id' => $wellId]);
@@ -92,14 +94,26 @@ class WellStatusHandler
         if (!$staffCheck['meets_minimum']) {
             if (in_array($well['status'], ['active','contaminated'])) {
                 $reason = implode(',', $staffCheck['missing']);
-                $this->ctx->db->prepare("UPDATE wells SET status = 'paused_staff', paused_staff_reason = ?, paused_staff_prev_status = ? WHERE id = ?")->execute([$reason, $well['status'], $wellId]);
+                $this->ctx->db->prepare(
+                    "UPDATE wells
+                        SET status = 'paused_staff',
+                            paused_staff_reason = ?,
+                            paused_staff_prev_status = ?
+                      WHERE id = ? AND player_id = ?"
+                )->execute([$reason, $well['status'], $wellId, $playerId]);
                 $well['status'] = 'paused_staff';
                 GameLog::info('tick', 'well paused_staff (no staff)', ['well_id' => $wellId, 'player_id' => $playerId, 'missing' => $reason]);
                 $tsvc?->notify('task', $wellId, t('tick.notify.well_paused_staff', ['id' => $wellId, 'missing' => implode(', ', $staffCheck['missing_labels'])]));
             }
         } elseif ($well['status'] === 'paused_staff') {
             $restore = (($well['paused_staff_prev_status'] ?? '') === 'contaminated') ? 'contaminated' : 'active';
-            $this->ctx->db->prepare("UPDATE wells SET status = ?, paused_staff_reason = NULL, paused_staff_prev_status = NULL WHERE id = ?")->execute([$restore, $wellId]);
+            $this->ctx->db->prepare(
+                "UPDATE wells
+                    SET status = ?,
+                        paused_staff_reason = NULL,
+                        paused_staff_prev_status = NULL
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$restore, $wellId, $playerId]);
             $well['status'] = $restore;
             GameLog::info('tick', 'well resumed (staff assigned)', ['well_id' => $wellId, 'player_id' => $playerId, 'restored_status' => $restore]);
             $tsvc?->notify('task', $wellId, t('tick.notify.well_resumed_staff', ['id' => $wellId]));
@@ -121,8 +135,8 @@ class WellStatusHandler
         $operatorId   = !empty($well['operator_id'])   ? (int)$well['operator_id']   : null;
         $technicianId = !empty($well['technician_id']) ? (int)$well['technician_id'] : null;
 
-        $operatorId   = $this->validateStaff($operatorId,   $wellId, 'operator_id');
-        $technicianId = $this->validateStaff($technicianId, $wellId, 'technician_id');
+        $operatorId   = $this->validateStaff($operatorId, $wellId, $playerId, 'operator_id');
+        $technicianId = $this->validateStaff($technicianId, $wellId, $playerId, 'technician_id');
 
         if (!$operatorId && in_array($well['status'], ['active','contaminated','no_technician'])) {
  // H8: Zapamietaj poprzedni status zeby odwiert mogl wroic do 'contaminated' gdy personel wroci.
@@ -133,16 +147,22 @@ class WellStatusHandler
                 ? $well['status']
                 : ($well['paused_staff_prev_status'] ?? null);
             $this->ctx->db->prepare(
-                "UPDATE wells SET status = 'no_operator', paused_staff_prev_status = ? WHERE id = ?"
-            )->execute([$prevStatus, $wellId]);
+                "UPDATE wells
+                    SET status = 'no_operator',
+                        paused_staff_prev_status = ?
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$prevStatus, $wellId, $playerId]);
             $well['status'] = 'no_operator';
             GameLog::info('tick', 'well - no operator', ['well_id' => $wellId, 'prev' => $prevStatus]);
         } elseif ($operatorId && !$technicianId && in_array($well['status'], ['active','contaminated'])) {
  // H8: Zapamietaj poprzedni status (active lub contaminated) przed przejsciem na no_technician.
  // H8: Store previous status (active or contaminated) before transitioning to no_technician.
             $this->ctx->db->prepare(
-                "UPDATE wells SET status = 'no_technician', paused_staff_prev_status = ? WHERE id = ?"
-            )->execute([$well['status'], $wellId]);
+                "UPDATE wells
+                    SET status = 'no_technician',
+                        paused_staff_prev_status = ?
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$well['status'], $wellId, $playerId]);
             $well['status'] = 'no_technician';
             GameLog::info('tick', 'well - no technician', ['well_id' => $wellId, 'prev' => $well['status']]);
         } elseif ($operatorId && $technicianId && in_array($well['status'], ['no_operator','no_technician'])) {
@@ -150,8 +170,11 @@ class WellStatusHandler
  // H8: Restore previous status ('contaminated' if it was, otherwise 'active').
             $restore = (($well['paused_staff_prev_status'] ?? '') === 'contaminated') ? 'contaminated' : 'active';
             $this->ctx->db->prepare(
-                "UPDATE wells SET status = ?, paused_staff_prev_status = NULL WHERE id = ?"
-            )->execute([$restore, $wellId]);
+                "UPDATE wells
+                    SET status = ?,
+                        paused_staff_prev_status = NULL
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$restore, $wellId, $playerId]);
             $well['status'] = $restore;
             GameLog::info('tick', 'well restored (operator+technician)', ['well_id' => $wellId, 'restored_to' => $restore]);
         }
@@ -164,8 +187,8 @@ class WellStatusHandler
             $opRow = $this->ctx->staffCache[$operatorId] ?? null;
             if ($opRow === null) {
  // Fallback SELECT jesli brak w cache (nowo zatrudniony?) / Fallback SELECT if not in cache (hired this tick?)
-                $opStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? LIMIT 1");
-                $opStmt->execute([$operatorId]);
+                $opStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? AND ts.player_id = ? LIMIT 1");
+                $opStmt->execute([$operatorId, $playerId]);
                 $opRow = $opStmt->fetch() ?: null;
                 if ($opRow) $this->ctx->staffCache[$operatorId] = $opRow;
             }
@@ -177,8 +200,8 @@ class WellStatusHandler
         if ($technicianId) {
             $techRow = $this->ctx->staffCache[$technicianId] ?? null;
             if ($techRow === null) {
-                $techStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? LIMIT 1");
-                $techStmt->execute([$technicianId]);
+                $techStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? AND ts.player_id = ? LIMIT 1");
+                $techStmt->execute([$technicianId, $playerId]);
                 $techRow = $techStmt->fetch() ?: null;
                 if ($techRow) $this->ctx->staffCache[$technicianId] = $techRow;
             }
@@ -217,7 +240,11 @@ class WellStatusHandler
         if ($this->ctx->geoSvc !== null) {
             try {
                 $eqTierForLayer    = $well['equipment_tier'] ?? 'standard';
-                $lMults            = $this->ctx->geoSvc->getLayerMultipliers($wellId, $eqTierForLayer);
+                $lMults            = $this->ctx->geoSvc->getLayerMultipliers(
+                    $wellId,
+                    (int)$well['player_id'],
+                    $eqTierForLayer
+                );
                 $layerRichnessMult = (float)($lMults['richness_mult'] ?? 1.0);
                 $layerWearMult     = (float)($lMults['wear_mult']     ?? 1.0);
  // Zapisz active_layer_code do well (uzywane przez opProdPerkMult) / Store active_layer_code on well (used by opProdPerkMult)
@@ -272,7 +299,7 @@ class WellStatusHandler
  * Waliduje pracownika przez cache; usuwa martwe przypisanie jesli zwolniony.
  * Validates staff member via cache; removes dead assignment if fired.
  */
-    public function validateStaff(?int $staffId, int $wellId, string $column): ?int
+    public function validateStaff(?int $staffId, int $wellId, int $playerId, string $column): ?int
     {
         if (!$staffId) return null;
         try {
@@ -280,13 +307,15 @@ class WellStatusHandler
                 $chk = $this->ctx->staffCache[$staffId];
             } else {
  // Fallback - staff nie byl w cache (nowo zatrudniony w tym ticku?) / Fallback - not in cache (hired this tick?)
-                $chkStmt = $this->ctx->db->prepare("SELECT ts.id, ts.status, ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? LIMIT 1");
-                $chkStmt->execute([$staffId]);
+                $chkStmt = $this->ctx->db->prepare("SELECT ts.id, ts.status, ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? AND ts.player_id = ? LIMIT 1");
+                $chkStmt->execute([$staffId, $playerId]);
                 $chk = $chkStmt->fetch();
                 if ($chk) $this->ctx->staffCache[$staffId] = $chk;
             }
             if (!$chk || $chk['status'] === 'fired') {
-                $this->ctx->db->prepare("UPDATE wells SET {$column} = NULL WHERE id = ?")->execute([$wellId]);
+                $this->ctx->db->prepare(
+                    "UPDATE wells SET {$column} = NULL WHERE id = ? AND player_id = ?"
+                )->execute([$wellId, $playerId]);
                 return null;
             }
         } catch (Throwable $e) {

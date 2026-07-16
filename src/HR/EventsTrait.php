@@ -31,12 +31,37 @@ trait HREventsTrait
             return ['success' => false, 'message' => t('hr_events.err_employee_missing')];
         }
 
-        $this->db->prepare("UPDATE board_members SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")
-            ->execute([$memberId, $playerId]);
-        $this->db->prepare("UPDATE employee_contracts SET status = 'terminated' WHERE member_id = ? AND status = 'active'")
-            ->execute([$memberId]);
-        $this->db->prepare("INSERT INTO employment_history (member_id, action, reason) VALUES (?, 'fired', ?)")
-            ->execute([$memberId, $reason]);
+        // Build the assignment service before the transaction because its bootstrap may create schema.
+        // Zbuduj serwis przypisan przed transakcja, poniewaz bootstrap moze tworzyc schemat.
+        $assignments = new EmployeeAssignmentService($this->db);
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare("UPDATE board_members SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")
+                ->execute([$memberId, $playerId]);
+            $this->db->prepare(
+                "UPDATE employee_contracts ec
+                 JOIN board_members bm ON bm.id = ec.member_id
+                    SET ec.status = 'terminated'
+                  WHERE ec.member_id = ?
+                    AND bm.player_id = ?
+                    AND ec.status = 'active'"
+            )->execute([$memberId, $playerId]);
+            $this->db->prepare("INSERT INTO employment_history (member_id, action, reason) VALUES (?, 'fired', ?)")
+                ->execute([$memberId, $reason]);
+            $assignments->releaseEmployeeAssignments(
+                new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, $memberId, $playerId)
+            );
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('HRService', 'fireEmployee FAILED', $e, [
+                'player_id' => $playerId,
+                'member_id' => $memberId,
+            ]);
+            return ['success' => false, 'message' => t('common.app_error')];
+        }
 
         return [
             'success' => true,
@@ -58,24 +83,43 @@ trait HREventsTrait
             return ['success' => false, 'message' => t('hr_events.err_employee_missing')];
         }
 
-        $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")
-            ->execute([$staffId, $playerId]);
+        // Build the assignment service before the transaction because its bootstrap may create schema.
+        // Zbuduj serwis przypisan przed transakcja, poniewaz bootstrap moze tworzyc schemat.
+        $assignments = new EmployeeAssignmentService($this->db);
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")
+                ->execute([$staffId, $playerId]);
 
-        $this->db->prepare("
-            UPDATE well_staff_assignments
-            SET unassigned_at = NOW()
-            WHERE staff_id = ?
-              AND player_id = ?
-              AND unassigned_at IS NULL
-        ")->execute([$staffId, $playerId]);
+            $this->db->prepare("
+                UPDATE well_staff_assignments
+                SET unassigned_at = NOW()
+                WHERE staff_id = ?
+                  AND player_id = ?
+                  AND unassigned_at IS NULL
+            ")->execute([$staffId, $playerId]);
 
-        $this->db->prepare("
-            UPDATE wells
-            SET operator_id = CASE WHEN operator_id = ? THEN NULL ELSE operator_id END,
-                technician_id = CASE WHEN technician_id = ? THEN NULL ELSE technician_id END
-            WHERE player_id = ?
-              AND (operator_id = ? OR technician_id = ?)
-        ")->execute([$staffId, $staffId, $playerId, $staffId, $staffId]);
+            $this->db->prepare("
+                UPDATE wells
+                SET operator_id = CASE WHEN operator_id = ? THEN NULL ELSE operator_id END,
+                    technician_id = CASE WHEN technician_id = ? THEN NULL ELSE technician_id END
+                WHERE player_id = ?
+                  AND (operator_id = ? OR technician_id = ?)
+            ")->execute([$staffId, $staffId, $playerId, $staffId, $staffId]);
+            $assignments->releaseEmployeeAssignments(
+                new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $staffId, $playerId)
+            );
+            $this->db->commit();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            GameLog::error('HRService', 'fireTechnicalStaff FAILED', $e, [
+                'player_id' => $playerId,
+                'staff_id' => $staffId,
+            ]);
+            return ['success' => false, 'message' => t('common.app_error')];
+        }
 
         return [
             'success' => true,

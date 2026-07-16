@@ -67,6 +67,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $this->deleteByIds('pipelines', 'player_id', [$ids['playerId']]);
         $this->deleteByIds('logistics_hubs', 'id', [$ids['hubId'], $ids['auxHubId']]);
         $this->deleteByIds('wells', 'id', [$ids['wellId'], $ids['auxWellId']]);
+        $this->deleteByIds('employee_assignments', 'player_id', [$ids['playerId']]);
         $this->deleteByIds('technical_staff', 'player_id', [$ids['playerId']]);
         $this->deleteByIds('board_members', 'id', [$ids['managerId']]);
         $this->deleteByIds('board_roles', 'id', [$ids['roleId']]);

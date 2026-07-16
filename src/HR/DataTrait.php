@@ -399,8 +399,14 @@ trait HRDataTrait
         $add    = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'][$contractType];
         $baseDate = max(strtotime((string)$contract['contract_end']), strtotime(date('Y-m-d')));
         $newEnd = date('Y-m-d', strtotime(date('Y-m-d', $baseDate) . ' ' . $add));
-        $this->db->prepare("UPDATE employee_contracts SET contract_end = ?, contract_type = ? WHERE id = ?")
-                 ->execute([$newEnd, $contractType, $contract['id']]);
+        $this->db->prepare(
+            "UPDATE employee_contracts ec
+             JOIN board_members bm ON bm.id = ec.member_id
+                SET ec.contract_end = ?,
+                    ec.contract_type = ?
+              WHERE ec.id = ?
+                AND bm.player_id = ?"
+        )->execute([$newEnd, $contractType, $contract['id'], $playerId]);
         return ['success' => true, 'message' => t('hr.msg_contract_renewed', ['name' => "{$contract['first_name']} {$contract['last_name']}", 'date' => date('d.m.Y', strtotime($newEnd))])];
     }
 

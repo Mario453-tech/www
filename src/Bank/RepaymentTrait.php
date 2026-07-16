@@ -118,16 +118,18 @@ trait BankRepaymentTrait
                 $db->prepare("
                     UPDATE loans SET remaining_amount = 0, status = 'paid_off',
                         paid_off_at = NOW(), late_since = NULL
-                    WHERE id = :id
-                ")->execute([':id' => $loanId]);
+                    WHERE id = :id AND player_id = :player_id
+                ")->execute([':id' => $loanId, ':player_id' => $playerId]);
 
  // Close active negotiations linked to the paid-off loan.
  // Zamknij aktywne negocjacje powiazane z splaconym kredytem.
                 $db->prepare("
                     UPDATE bank_negotiations
                     SET status = 'cancelled', resolved_at = NOW()
-                    WHERE loan_id = :lid AND status IN ('pending','approved')
-                ")->execute([':lid' => $loanId]);
+                    WHERE loan_id = :lid
+                      AND player_id = :player_id
+                      AND status IN ('pending','approved')
+                ")->execute([':lid' => $loanId, ':player_id' => $playerId]);
             } else {
                 $db->prepare("
                     UPDATE loans SET
@@ -136,15 +138,21 @@ trait BankRepaymentTrait
                         late_since = NULL,
                         next_installment_at = DATE_ADD(NOW(), INTERVAL installment_frequency HOUR),
                         last_interest_calc_at = NOW()
-                    WHERE id = :id
-                ")->execute([':rem' => $newRemaining, ':id' => $loanId]);
+                    WHERE id = :id AND player_id = :player_id
+                ")->execute([
+                    ':rem' => $newRemaining,
+                    ':id' => $loanId,
+                    ':player_id' => $playerId,
+                ]);
             }
 
             $db->prepare("
                 UPDATE bailiff_proceedings
                 SET status = 'completed', completed_at = NOW()
-                WHERE loan_id = :lid AND status = 'active'
-            ")->execute([':lid' => $loanId]);
+                WHERE loan_id = :lid
+                  AND player_id = :player_id
+                  AND status = 'active'
+            ")->execute([':lid' => $loanId, ':player_id' => $playerId]);
 
             $otherLate = $db->prepare("
                 SELECT COUNT(*) FROM loans

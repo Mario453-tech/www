@@ -35,6 +35,18 @@ class LoanDecisionService
     public function processApplication(int $applicationId): array|false
     {
         try {
+            $ownerStmt = $this->db->prepare(
+                "SELECT player_id
+                   FROM loan_applications
+                  WHERE id = :id
+                  LIMIT 1"
+            );
+            $ownerStmt->execute([':id' => $applicationId]);
+            $playerId = (int)($ownerStmt->fetchColumn() ?: 0);
+            if ($playerId <= 0) {
+                return false;
+            }
+
             // L5: Atomowe "zaklepanie" wniosku. Tick (BankSection) i osobny cron
             // (cron/process_loan_decisions.php) przetwarzaja ten sam zestaw
             // (status='pending' AND decision_at <= NOW()) bez blokady wiersza — przy
@@ -52,9 +64,15 @@ class LoanDecisionService
             $claim = $this->db->prepare("
                 UPDATE loan_applications
                 SET decision_at = DATE_ADD(NOW(), INTERVAL 1 HOUR)
-                WHERE id = :id AND status = 'pending' AND decision_at <= NOW()
+                WHERE id = :id
+                  AND player_id = :player_id
+                  AND status = 'pending'
+                  AND decision_at <= NOW()
             ");
-            $claim->execute([':id' => $applicationId]);
+            $claim->execute([
+                ':id' => $applicationId,
+                ':player_id' => $playerId,
+            ]);
             if ($claim->rowCount() === 0) {
                 // Inny proces juz zaklepal ten wniosek (albo nie jest jeszcze wymagalny).
                 // Another process already claimed it (or it is not due yet).
@@ -63,9 +81,14 @@ class LoanDecisionService
 
             $stmt = $this->db->prepare("
                 SELECT * FROM loan_applications
-                WHERE id = :id AND status = 'pending'
+                WHERE id = :id
+                  AND player_id = :player_id
+                  AND status = 'pending'
             ");
-            $stmt->execute([':id' => $applicationId]);
+            $stmt->execute([
+                ':id' => $applicationId,
+                ':player_id' => $playerId,
+            ]);
             $application = $stmt->fetch();
 
             if (!$application) {
@@ -79,7 +102,14 @@ class LoanDecisionService
             $decision = $this->makeDecision($score, (float)$application['requested_amount'], $breakdown);
             $trendId  = $breakdown['market']['trend_id'] ?? null;
 
-            $this->saveDecision($applicationId, $score, $breakdown, $decision, $trendId);
+            $this->saveDecision(
+                $applicationId,
+                (int)$application['player_id'],
+                $score,
+                $breakdown,
+                $decision,
+                $trendId
+            );
 
             return $decision;
         } catch (Throwable $e) {
@@ -188,6 +218,7 @@ class LoanDecisionService
  */
     private function saveDecision(
         int    $applicationId,
+        int    $playerId,
         int    $score,
         array  $breakdown,
         array  $decision,
@@ -206,6 +237,8 @@ class LoanDecisionService
                     decided_at       = NOW(),
                     expires_at       = DATE_ADD(NOW(), INTERVAL 48 HOUR)
                 WHERE id = :id
+                  AND player_id = :player_id
+                  AND status = 'pending'
             ");
 
             $stmt->execute([
@@ -217,7 +250,11 @@ class LoanDecisionService
                 ':reason'          => $decision['reason'],
                 ':trend_id'        => $trendId,
                 ':id'              => $applicationId,
+                ':player_id'       => $playerId,
             ]);
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException('Loan application ownership or status changed before decision save.');
+            }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::error('LoanDecisionService', 'saveDecision failed', $e, [

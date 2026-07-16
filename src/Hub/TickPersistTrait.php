@@ -15,13 +15,23 @@ trait HubTickPersistTrait
     public function persistTickResult(array $hub, array $result, DateTime $now): bool
     {
         $hubId      = (int)$hub['id'];
+        $playerId   = (int)($hub['player_id'] ?? 0);
+        if ($playerId <= 0) {
+            $playerId = (int)($hub['tenant_player_id'] ?? 0);
+        }
         $tickTime   = $now->format('Y-m-d H:i:s');
         $condBefore = (float)$hub['condition_pct'];
 
- // Bufor i staty musza sie zapisac atomowo — inaczej caller moze skredytowac zdrenowana
- // rope, a bufor pozostanie niezmniejszony (duplikacja barylek w kolejnym ticku).
- // Buffer and stats must persist atomically — otherwise the caller may credit drained oil
- // while the buffer stays undecremented (barrel duplication on the next tick).
+        if ($hubId <= 0 || $playerId <= 0) {
+            GameLog::warn('HubTickService', 'persistTickResult rejected unscoped hub', [
+                'hub_id' => $hubId,
+                'player_id' => $playerId,
+            ]);
+            return false;
+        }
+
+        // Buffer and statistics persist atomically to prevent barrel duplication.
+        // Bufor i statystyki zapisuja sie atomowo, aby nie duplikowac barylek.
         $ownTransaction = !$this->db->inTransaction();
         $savepoint = 'hub_tick_persist_' . $hubId;
         $savepointActive = false;
@@ -33,7 +43,7 @@ trait HubTickPersistTrait
                 $savepointActive = true;
             }
 
-            $this->db->prepare(
+            $hubUpdate = $this->db->prepare(
                 "UPDATE logistics_hubs
                     SET buffer_current_bbl   = ?,
                         real_capacity_bph    = ?,
@@ -44,8 +54,10 @@ trait HubTickPersistTrait
                         repair_cost_estimate = ?,
                         last_processed_at    = ?,
                         updated_at           = ?
-                  WHERE id = ?"
-            )->execute([
+                  WHERE id = ?
+                    AND (player_id = ? OR tenant_player_id = ?)"
+            );
+            $hubUpdate->execute([
                 $result['new_buffer'],
                 $this->calculateRealCapacity($hub, $result),
                 $result['new_condition'],
@@ -56,7 +68,12 @@ trait HubTickPersistTrait
                 $tickTime,
                 $tickTime,
                 $hubId,
+                $playerId,
+                $playerId,
             ]);
+            if ($hubUpdate->rowCount() !== 1) {
+                throw new RuntimeException('Player-scoped hub tick update changed no rows.');
+            }
 
             $this->db->prepare(
                 "INSERT INTO logistics_hub_tick_stats
@@ -104,27 +121,22 @@ trait HubTickPersistTrait
     }
 
  /**
- * Dodaje barylki z powrotem do bufora hubu (np. nadmiar ponad przepustowosc rurociagu
- * wylotowego, ktory nie zmiescil sie w tym ticku i przechodzi na kolejny).
- * Bufor jest capowany do buffer_capacity_bbl — jak przy normalnym wejsciu huba
- * (HubTickService liczy bufferSpace); zwraca faktycznie dodana ilosc, nadmiar
- * to strata po stronie callera.
- * Adds barrels back to the hub buffer (e.g. outbound-pipeline over-capacity excess that
- * did not fit this tick and carries over to the next).
- * The buffer is capped at buffer_capacity_bbl — same as regular hub intake
- * (HubTickService computes bufferSpace); returns the amount actually added, the
- * overflow is the caller's loss.
+ * Adds outbound excess back to the player-controlled hub buffer.
+ * Dodaje nadmiar z transportu wyjsciowego do bufora huba kontrolowanego przez gracza.
  */
-    public function addBufferBbl(int $hubId, float $bbl): float
+    public function addBufferBbl(int $hubId, int $playerId, float $bbl): float
     {
-        if ($bbl <= 0.001) {
+        if ($hubId <= 0 || $playerId <= 0 || $bbl <= 0.001) {
             return 0.0;
         }
         try {
             $stmt = $this->db->prepare(
-                "SELECT buffer_current_bbl, buffer_capacity_bbl FROM logistics_hubs WHERE id = ?"
+                "SELECT buffer_current_bbl, buffer_capacity_bbl
+                   FROM logistics_hubs
+                  WHERE id = ?
+                    AND (player_id = ? OR tenant_player_id = ?)"
             );
-            $stmt->execute([$hubId]);
+            $stmt->execute([$hubId, $playerId, $playerId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row) {
                 return 0.0;
@@ -134,18 +146,19 @@ trait HubTickPersistTrait
             if ($added <= 0.001) {
                 return 0.0;
             }
- // LEAST(...) w samym UPDATE jest atomowym strażnikiem pojemności: nawet jeśli równoległy
- // przebieg (ADMIN_FORCE_TICK omija GET_LOCK) zmieni buffer_current_bbl między SELECT a UPDATE,
- // bufor nigdy nie przekroczy buffer_capacity_bbl. $added (z SELECT) to best-effort do księgowania strat.
- // LEAST(...) inside the UPDATE is an atomic capacity guard: even if a concurrent run
- // (ADMIN_FORCE_TICK bypasses GET_LOCK) changes buffer_current_bbl between SELECT and UPDATE,
- // the buffer never exceeds buffer_capacity_bbl. $added (from the SELECT) is best-effort for loss accounting.
-            $this->db->prepare(
+            // LEAST is an atomic capacity guard for concurrent buffer updates.
+            // LEAST jest atomowa ochrona pojemnosci przy rownoleglych zapisach bufora.
+            $bufferUpdate = $this->db->prepare(
                 "UPDATE logistics_hubs
                     SET buffer_current_bbl = LEAST(buffer_capacity_bbl, buffer_current_bbl + ?),
                         updated_at = NOW()
-                  WHERE id = ?"
-            )->execute([$added, $hubId]);
+                  WHERE id = ?
+                    AND (player_id = ? OR tenant_player_id = ?)"
+            );
+            $bufferUpdate->execute([$added, $hubId, $playerId, $playerId]);
+            if ($bufferUpdate->rowCount() !== 1) {
+                return 0.0;
+            }
             return $added;
         } catch (Throwable $e) {
             GameLog::error('HubTickService', 'addBufferBbl failed', $e, ['hub_id' => $hubId]);

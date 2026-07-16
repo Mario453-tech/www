@@ -230,8 +230,17 @@ class HeadhunterService
         }
 
         $this->db->prepare(
-            "UPDATE headhunter_searches SET status = ?, result_count = ? WHERE id = ?"
-        )->execute([$count > 0 ? 'completed' : 'failed', $count, $search['id']]);
+            "UPDATE headhunter_searches
+                SET status = ?, result_count = ?
+              WHERE id = ?
+                AND player_id = ?
+                AND status = 'failed'"
+        )->execute([
+            $count > 0 ? 'completed' : 'failed',
+            $count,
+            $search['id'],
+            $search['player_id'],
+        ]);
 
         $msg = $count > 0
             ? t('hr_headhunter.notify_candidates_found', ['count' => $count, 'spec' => $search['spec_name']])

@@ -214,11 +214,13 @@ trait HRRecruitmentTrait
                     UPDATE recruitment_requests
                     SET status = 'ready'
                     WHERE id = ?
+                      AND (player_id = ? OR (player_id IS NULL AND ? IS NULL))
                       AND status = 'pending'
                       AND ready_at <= NOW()
                       {$playerFilter}
                 ");
-                $claimParams = [(int)$req['id']];
+                $requestPlayerId = $req['player_id'] !== null ? (int)$req['player_id'] : null;
+                $claimParams = [(int)$req['id'], $requestPlayerId, $requestPlayerId];
                 if ($playerFilter !== "") {
                     $claimParams[] = $playerId;
                 }
@@ -281,8 +283,14 @@ trait HRRecruitmentTrait
                         );
                     }
                 } else {
-                    $cancelStmt = $this->db->prepare("UPDATE recruitment_requests SET status = 'cancelled' WHERE id = ? AND status = 'ready'");
-                    $cancelStmt->execute([(int)$req['id']]);
+                    $cancelStmt = $this->db->prepare(
+                        "UPDATE recruitment_requests
+                            SET status = 'cancelled'
+                          WHERE id = ?
+                            AND (player_id = ? OR (player_id IS NULL AND ? IS NULL))
+                            AND status = 'ready'"
+                    );
+                    $cancelStmt->execute([(int)$req['id'], $requestPlayerId, $requestPlayerId]);
                     if ($cancelStmt->rowCount() !== 1) {
                         GameLog::warn('HRService', 'processReadyRecruitments - cancel rowCount mismatch', [
                             'request_id' => (int)$req['id'],

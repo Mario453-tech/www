@@ -251,9 +251,12 @@ try {
 
         $placeholders = implode(',', array_fill(0, count($roadWellIds), '?'));
         $nameStmt = $db->prepare(
-            "SELECT id, COALESCE(NULLIF(name,''), location_name) AS well_name FROM wells WHERE id IN ({$placeholders})"
+            "SELECT id, COALESCE(NULLIF(name,''), location_name) AS well_name
+               FROM wells
+              WHERE player_id = ?
+                AND id IN ({$placeholders})"
         );
-        $nameStmt->execute($roadWellIds);
+        $nameStmt->execute(array_merge([$playerId], $roadWellIds));
         $wellNames = $nameStmt->fetchAll(PDO::FETCH_KEY_PAIR);
         $activeRoadProtections = $protSvc->getActiveProtections(
             $playerId,

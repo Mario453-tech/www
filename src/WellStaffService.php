@@ -134,8 +134,8 @@ class WellStaffService
 
  // Update cache in wells table
             $col = $role === 'operator' ? 'operator_id' : 'technician_id';
-            $this->db->prepare("UPDATE wells SET {$col} = ? WHERE id = ?")
-                     ->execute([$staffId, $wellId]);
+            $this->db->prepare("UPDATE wells SET {$col} = ? WHERE id = ? AND player_id = ?")
+                     ->execute([$staffId, $wellId, $this->playerId]);
 
  // Refresh well status (may change to active)
             $this->refreshWellStatus($wellId);
@@ -179,8 +179,8 @@ class WellStaffService
             $this->unassignRole($wellId, $role);
 
             $col = $role === 'operator' ? 'operator_id' : 'technician_id';
-            $this->db->prepare("UPDATE wells SET {$col} = NULL WHERE id = ?")
-                     ->execute([$wellId]);
+            $this->db->prepare("UPDATE wells SET {$col} = NULL WHERE id = ? AND player_id = ?")
+                     ->execute([$wellId, $this->playerId]);
 
             $this->refreshWellStatus($wellId);
 

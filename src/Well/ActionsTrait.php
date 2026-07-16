@@ -233,7 +233,7 @@ trait WellActionsTrait
     }
 
     private function logEvent(int $wellId, int $playerId, string $type, float $cost,
-                               string $desc, ?int $condBefore = null, ?int $condAfter = null): void
+                               string $desc, ?float $condBefore = null, ?float $condAfter = null): void
     {
         $this->db->prepare("
             INSERT INTO well_events (well_id, player_id, event_type, cost, description,

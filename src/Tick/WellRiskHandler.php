@@ -32,11 +32,13 @@ class WellRiskHandler
         ?int $technicianId
     ): void {
         $ws = $this->ctx->wellService;
+        $playerId = (int)($well['player_id'] ?? 0);
         try {
             $degradation = $ws->processDegradation($wellId, $deltaHours, $hseBonus,
                 $mults['techDegradefMult'] * $mults['wearDegMult'] * $mults['spiralMultEffective']
  * $mults['eqMults']['wear'] * $this->ctx->gBalanceMults['degradation'] * $offlineRiskMult
- * (float)($this->ctx->financeTechnicalMods['degradation_mult'] ?? 1.0));
+ * (float)($this->ctx->financeTechnicalMods['degradation_mult'] ?? 1.0),
+                $playerId);
 
             // Awaria mechaniczna: koszt naprawy pobierany realnie z gotowki ticku (jak inne koszty).
             // Wczesniej byl tylko logowany, a paused_cash auto-wznawialo odwiert w nastepnym ticku,
@@ -55,7 +57,7 @@ class WellRiskHandler
         // Skip risk score update for wells that are already in a terminal/inactive state.
         // Pomijamy aktualizacje risk score dla odwiertow w stanie terminalnym/nieaktywnym.
         if (!in_array($well['status'], ['blowout', 'broken', 'seized', 'sold'], true)) {
-            try { $ws->updateRiskScore($wellId, $deltaHours, $hseBonus); }
+            try { $ws->updateRiskScore($wellId, $deltaHours, $hseBonus, $playerId); }
             catch (Throwable $e) { GameLog::error('tick', 'updateRiskScore FAILED', $e, ['well_id' => $wellId]); }
         }
 
@@ -70,10 +72,11 @@ class WellRiskHandler
                 (float)($well['oil_richness'] ?? 1.0), false,
                 $mults['spiralWearMult'] * $mults['perkWearMult']
  * $transportWearMult * $this->ctx->gBalanceMults['wear'] * $mults['layerWearMult']
- * (float)($this->ctx->financeTechnicalMods['wear_mult'] ?? 1.0));
+ * (float)($this->ctx->financeTechnicalMods['wear_mult'] ?? 1.0),
+                $playerId);
             } catch (Throwable $e) { GameLog::error('tick', 'well wear FAILED', $e, ['well_id' => $wellId]); }
 
-            try { $ws->processSpiralDecay($wellId, $deltaHours, $hseBonus); }
+            try { $ws->processSpiralDecay($wellId, $deltaHours, $hseBonus, $playerId); }
             catch (Throwable $e) { GameLog::error('tick', 'spiral decay FAILED', $e, ['well_id' => $wellId]); }
         }
     }
@@ -106,6 +109,8 @@ class WellRiskHandler
                 $wellId, $deltaHours, $hseForDisaster,
                 $transportDisasterMult * $this->ctx->gBalanceMults['disaster']
  * $offlineRiskMult * (float)($this->ctx->financeSafetyMods['disaster_mult'] ?? 1.0)
+                ,
+                $playerId
             );
 
             if (!empty($disaster['disaster'])) {

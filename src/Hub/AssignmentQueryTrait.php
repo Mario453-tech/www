@@ -10,16 +10,23 @@ trait HubAssignmentQueryTrait
  * Returns the active assignment record for a well, or null.
  * @return array<string, mixed>|null
  */
-    public function getWellAssignment(int $wellId): ?array
+    public function getWellAssignment(int $wellId, ?int $playerId = null): ?array
     {
+        $playerFilter = $playerId !== null ? ' AND w.player_id = ?' : '';
         $stmt = $this->db->prepare(
             "SELECT a.*, h.name AS hub_name, h.region_id, h.zone_key, h.status AS hub_status
                FROM logistics_hub_assignments a
                JOIN logistics_hubs h ON h.id = a.hub_id
-              WHERE a.well_id = ? AND a.status = 'active'
+               JOIN wells w ON w.id = a.well_id
+              WHERE a.well_id = ?{$playerFilter}
+                AND a.status = 'active'
               LIMIT 1"
         );
-        $stmt->execute([$wellId]);
+        $params = [$wellId];
+        if ($playerId !== null) {
+            $params[] = $playerId;
+        }
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }

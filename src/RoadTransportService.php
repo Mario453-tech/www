@@ -452,8 +452,8 @@ class RoadTransportService
                     $this->db->prepare(
                         "UPDATE well_road_trips
                             SET status = 'crediting', delivered_bbl = ?
-                          WHERE id = ?"
-                    )->execute([round($delivered, 4), (int)$trip['id']]);
+                          WHERE id = ? AND player_id = ?"
+                    )->execute([round($delivered, 4), (int)$trip['id'], $playerId]);
                     // Akumulacja tylko po udanym UPDATE — blad zostawia kurs delayed i
                     // zostanie ponownie przetworzony w nastepnym ticku bez duplikatu.
                     // Accumulate only after a successful UPDATE — on failure the trip stays
@@ -509,8 +509,13 @@ class RoadTransportService
                         "UPDATE well_road_trips
                             SET status = 'delayed', delivered_bbl = ?,
                                 eta_at = DATE_ADD(NOW(), INTERVAL ? MINUTE)
-                          WHERE id = ?"
-                    )->execute([round($delivered, 4), $delayMinutes, (int)$trip['id']]);
+                          WHERE id = ? AND player_id = ?"
+                    )->execute([
+                        round($delivered, 4),
+                        $delayMinutes,
+                        (int)$trip['id'],
+                        $playerId,
+                    ]);
                     $deferOk = true;
                 } catch (Throwable $e) {
                     if (class_exists('GameLog', false)) {
@@ -540,8 +545,8 @@ class RoadTransportService
                 $this->db->prepare(
                     "UPDATE well_road_trips
                         SET status = 'crediting', delivered_bbl = ?
-                      WHERE id = ?"
-                )->execute([round($delivered, 4), (int)$trip['id']]);
+                      WHERE id = ? AND player_id = ?"
+                )->execute([round($delivered, 4), (int)$trip['id'], $playerId]);
                 // Akumulacja od razu po udanym UPDATE; logowanie (nierzucajace) na koncu, aby
                 // blad logu nie cofnal rozliczenia dostarczonego wolumenu.
                 // Accumulate right after a successful UPDATE; logging (non-throwing) last so a

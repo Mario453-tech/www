@@ -391,9 +391,18 @@ class ProtectionService
             if (!$row) {
                 return ['success' => false, 'message' => tPlain('protection.err_not_found')];
             }
-            $this->db->prepare(
-                "UPDATE active_protections SET status = 'cancelled', updated_at = ? WHERE id = ?"
-            )->execute([$this->dbNow(), $activeId]);
+            $update = $this->db->prepare(
+                "UPDATE active_protections
+                    SET status = 'cancelled',
+                        updated_at = ?
+                  WHERE id = ?
+                    AND player_id = ?
+                    AND status = 'active'"
+            );
+            $update->execute([$this->dbNow(), $activeId, (int)$row['player_id']]);
+            if ($update->rowCount() !== 1) {
+                return ['success' => false, 'message' => tPlain('protection.err_not_found')];
+            }
             $this->logEvent((int)$row['player_id'], (int)$row['protection_option_id'],
                 (string)$row['target_type'], (int)$row['target_id'], (string)$row['context'],
                 'protection_cancelled');
@@ -524,9 +533,20 @@ class ProtectionService
             if ($rows === []) {
                 return;
             }
-            $upd = $this->db->prepare("UPDATE active_protections SET status = 'expired', updated_at = ? WHERE id = ?");
+            $upd = $this->db->prepare(
+                "UPDATE active_protections
+                    SET status = 'expired',
+                        updated_at = ?
+                  WHERE id = ?
+                    AND player_id = ?
+                    AND status = 'active'
+                    AND ends_at <= ?"
+            );
             foreach ($rows as $row) {
-                $upd->execute([$now, (int)$row['id']]);
+                $upd->execute([$now, (int)$row['id'], (int)$row['player_id'], $now]);
+                if ($upd->rowCount() !== 1) {
+                    continue;
+                }
                 $this->logEvent((int)$row['player_id'], (int)$row['protection_option_id'],
                     (string)$row['target_type'], (int)$row['target_id'], (string)$row['context'],
                     'protection_expired');

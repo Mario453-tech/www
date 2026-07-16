@@ -103,11 +103,16 @@ class GeologicalLayerService
  *
  * @return array<string, mixed>
  */
-    public function getActiveLayer(int $wellId): array
+    public function getActiveLayer(int $wellId, int $playerId): array
     {
         try {
-            $stmt = $this->db->prepare("SELECT active_layer_id FROM wells WHERE id = ? LIMIT 1");
-            $stmt->execute([$wellId]);
+            $stmt = $this->db->prepare(
+                "SELECT active_layer_id
+                   FROM wells
+                  WHERE id = ? AND player_id = ?
+                  LIMIT 1"
+            );
+            $stmt->execute([$wellId, $playerId]);
             $layerId = (int)($stmt->fetchColumn() ?? 1);
         } catch (Throwable $e) {
  // active_layer_id may not exist yet - use shallow fallback.
@@ -126,9 +131,13 @@ class GeologicalLayerService
  *
  * @return array<string, mixed>
  */
-    public function getLayerMultipliers(int $wellId, string $equipmentTier = 'standard'): array
+    public function getLayerMultipliers(
+        int $wellId,
+        int $playerId,
+        string $equipmentTier = 'standard'
+    ): array
     {
-        $layer = $this->getActiveLayer($wellId);
+        $layer = $this->getActiveLayer($wellId, $playerId);
 
         $riskMult = (float)$layer['risk_mult'];
 
@@ -179,16 +188,16 @@ class GeologicalLayerService
  * Return remaining barrels in the active layer.
  * PL: Zwraca pozostale barylki w aktywnej warstwie.
  */
-    public function getRemainingReservoir(int $wellId): ?int
+    public function getRemainingReservoir(int $wellId, int $playerId): ?int
     {
         $stmt = $this->db->prepare("
             SELECT w.active_layer_id, w.layer_reservoir_used,
                    gl.reservoir_bbl
             FROM wells w
             JOIN geological_layers gl ON gl.id = w.active_layer_id
-            WHERE w.id = ? LIMIT 1
+            WHERE w.id = ? AND w.player_id = ? LIMIT 1
         ");
-        $stmt->execute([$wellId]);
+        $stmt->execute([$wellId, $playerId]);
         $row = $stmt->fetch();
         if (!$row) {
             return null;
@@ -202,15 +211,15 @@ class GeologicalLayerService
  * Register produced oil consumption in the current layer reservoir.
  * PL: Rejestruje zuzycie zasobu aktualnej warstwy przez wydobycie.
  */
-    public function consumeReservoir(int $wellId, float $bblProduced): bool
+    public function consumeReservoir(int $wellId, int $playerId, float $bblProduced): bool
     {
         $this->db->prepare("
             UPDATE wells
             SET layer_reservoir_used = layer_reservoir_used + ?
-            WHERE id = ?
-        ")->execute([(int)ceil($bblProduced), $wellId]);
+            WHERE id = ? AND player_id = ?
+        ")->execute([(int)ceil($bblProduced), $wellId, $playerId]);
 
-        $remaining = $this->getRemainingReservoir($wellId);
+        $remaining = $this->getRemainingReservoir($wellId, $playerId);
         return $remaining === null || $remaining > 0;
     }
 
@@ -218,9 +227,9 @@ class GeologicalLayerService
  * Check whether the active layer is exhausted.
  * PL: Sprawdza, czy aktywna warstwa jest wyczerpana.
  */
-    public function isLayerExhausted(int $wellId): bool
+    public function isLayerExhausted(int $wellId, int $playerId): bool
     {
-        $remaining = $this->getRemainingReservoir($wellId);
+        $remaining = $this->getRemainingReservoir($wellId, $playerId);
         return $remaining !== null && $remaining <= 0;
     }
 
@@ -341,10 +350,15 @@ class GeologicalLayerService
  * Unlock wells after drilling downtime finishes.
  * PL: Odblokowuje odwiert po zakonczeniu przestoju wiercenia.
  */
-    public function processSwitchCompletion(int $wellId): bool
+    public function processSwitchCompletion(int $wellId, int $playerId): bool
     {
-        $stmt = $this->db->prepare("SELECT layer_switch_until, status FROM wells WHERE id = ? LIMIT 1");
-        $stmt->execute([$wellId]);
+        $stmt = $this->db->prepare(
+            "SELECT layer_switch_until, status
+               FROM wells
+              WHERE id = ? AND player_id = ?
+              LIMIT 1"
+        );
+        $stmt->execute([$wellId, $playerId]);
         $row = $stmt->fetch();
 
         if (!$row || empty($row['layer_switch_until'])) {
@@ -363,8 +377,8 @@ class GeologicalLayerService
                     WHEN status = 'paused_cash' THEN 'active'
                     ELSE status
                 END
-            WHERE id = ?
-        ")->execute([$wellId]);
+            WHERE id = ? AND player_id = ?
+        ")->execute([$wellId, $playerId]);
 
         GameLog::info('GeologicalLayerService', 'layer_switch_completed', ['well_id' => $wellId]);
         return true;

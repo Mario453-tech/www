@@ -140,13 +140,13 @@ class WellProductionSection
 
  // Montaz sprzetu - odwiert wstrzymany przez 1h / Equipment installation - well paused for 1h
         if ($well['status'] === 'equipment_swap') {
-            $well = $this->statusHandler->handleEquipmentSwap($well, $wellId, $tsvc);
+            $well = $this->statusHandler->handleEquipmentSwap($well, $wellId, $playerId, $tsvc);
             if ($well === null) return;
         }
 
  // Zakonczenie wiercenia warstwy geologicznej / Geological layer drilling completed
         if (!empty($well['layer_switch_until']) && $this->geoSvc !== null) {
-            $well = $this->statusHandler->handleGeoLayerSwitch($well, $wellId);
+            $well = $this->statusHandler->handleGeoLayerSwitch($well, $wellId, $playerId);
         }
 
  // Kontrola personelu / Staff check

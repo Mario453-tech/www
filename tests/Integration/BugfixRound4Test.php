@@ -20,6 +20,34 @@ require_once dirname(__DIR__, 2) . '/src/TransportConfigService.php';
  */
 final class BugfixRound4Test extends SqliteIntegrationTestCase
 {
+    public function testWellWearRejectsForeignPlayerScope(): void
+    {
+        $db = $this->createSqlitePdo();
+        $db->exec(
+            "CREATE TABLE wells (
+                id INTEGER PRIMARY KEY,
+                player_id INTEGER NOT NULL,
+                wear_level REAL NOT NULL,
+                equipment_tier TEXT NOT NULL,
+                equipment_upgrade_level INTEGER NOT NULL
+            )"
+        );
+        $db->exec(
+            "INSERT INTO wells (id, player_id, wear_level, equipment_tier, equipment_upgrade_level)
+             VALUES (44, 2, 10, 'standard', 0)"
+        );
+
+        $svc = (new ReflectionClass(WellService::class))->newInstanceWithoutConstructor();
+        $this->setPrivateProperty($svc, WellService::class, 'db', $db);
+
+        $foreignResult = $svc->processWear(44, 1.0, 100.0, 1.0, false, 1.0, 1);
+        $this->assertSame(0.0, $foreignResult);
+        $this->assertSame(10.0, (float)$db->query('SELECT wear_level FROM wells WHERE id = 44')->fetchColumn());
+
+        $ownedResult = $svc->processWear(44, 1.0, 100.0, 1.0, false, 1.0, 2);
+        $this->assertGreaterThan(10.0, $ownedResult);
+    }
+
     // ------------------------------------------------------------------
     // C1: triggerSurfaceSpill nie odejmuje ropy z magazynu bezposrednio —
     // jedynym zapisem jest roznicowy w PlayersSection (bylo: podwojna strata).
@@ -138,19 +166,41 @@ final class BugfixRound4Test extends SqliteIntegrationTestCase
     {
         $db = $this->createSqlitePdo();
         $db->exec('CREATE TABLE logistics_hubs (
-            id INTEGER PRIMARY KEY, buffer_current_bbl REAL NOT NULL, buffer_capacity_bbl REAL NOT NULL,
+            id INTEGER PRIMARY KEY, player_id INTEGER NOT NULL, tenant_player_id INTEGER NOT NULL DEFAULT 0,
+            buffer_current_bbl REAL NOT NULL, buffer_capacity_bbl REAL NOT NULL,
             updated_at TEXT NULL
         )');
-        $db->exec("INSERT INTO logistics_hubs (id, buffer_current_bbl, buffer_capacity_bbl) VALUES (7, 900, 1000)");
+        $db->exec("INSERT INTO logistics_hubs (id, player_id, buffer_current_bbl, buffer_capacity_bbl) VALUES (7, 1, 900, 1000)");
 
         $hubSvc  = $this->createMock(HubService::class);
         $tickSvc = new HubTickService($db, $hubSvc);
 
-        $added = $tickSvc->addBufferBbl(7, 500.0);
+        $added = $tickSvc->addBufferBbl(7, 1, 500.0);
 
         $this->assertEqualsWithDelta(100.0, $added, 0.001, 'Only the free space (100) may be added');
         $buffer = (float)$db->query('SELECT buffer_current_bbl FROM logistics_hubs WHERE id = 7')->fetchColumn();
         $this->assertEqualsWithDelta(1000.0, $buffer, 0.001, 'Buffer must be capped at capacity');
+    }
+
+    public function testAddBufferBblRejectsForeignPlayer(): void
+    {
+        $db = $this->createSqlitePdo();
+        $db->exec('CREATE TABLE logistics_hubs (
+            id INTEGER PRIMARY KEY, player_id INTEGER NOT NULL, tenant_player_id INTEGER NOT NULL DEFAULT 0,
+            buffer_current_bbl REAL NOT NULL, buffer_capacity_bbl REAL NOT NULL,
+            updated_at TEXT NULL
+        )');
+        $db->exec("INSERT INTO logistics_hubs (id, player_id, buffer_current_bbl, buffer_capacity_bbl) VALUES (8, 2, 100, 1000)");
+
+        $hubSvc = $this->createMock(HubService::class);
+        $tickSvc = new HubTickService($db, $hubSvc);
+
+        $this->assertSame(0.0, $tickSvc->addBufferBbl(8, 1, 500.0));
+        $this->assertEqualsWithDelta(
+            100.0,
+            (float)$db->query('SELECT buffer_current_bbl FROM logistics_hubs WHERE id = 8')->fetchColumn(),
+            0.001
+        );
     }
 
     // ------------------------------------------------------------------

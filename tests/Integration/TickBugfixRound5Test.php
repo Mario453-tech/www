@@ -107,7 +107,13 @@ final class TickBugfixRound5Test extends SqliteIntegrationTestCase
     {
         $wellSvc = new class extends WellService {
             public function __construct() {}
-            public function processDisasterRoll(int $wellId, float $deltaHours, array $hseBonus, float $combinedMult = 1.0): array
+            public function processDisasterRoll(
+                int $wellId,
+                float $deltaHours,
+                array $hseBonus,
+                float $combinedMult = 1.0,
+                ?int $expectedPlayerId = null
+            ): array
             {
                 return ['disaster' => 'blowout', 'cost' => 8000.0, 'env_fine' => 2000.0];
             }
@@ -136,7 +142,13 @@ final class TickBugfixRound5Test extends SqliteIntegrationTestCase
     {
         $wellSvc = new class extends WellService {
             public function __construct() {}
-            public function processDisasterRoll(int $wellId, float $deltaHours, array $hseBonus, float $combinedMult = 1.0): array
+            public function processDisasterRoll(
+                int $wellId,
+                float $deltaHours,
+                array $hseBonus,
+                float $combinedMult = 1.0,
+                ?int $expectedPlayerId = null
+            ): array
             {
                 return ['disaster' => null];
             }

@@ -160,8 +160,8 @@ class PortSection
             try {
                 $this->db->beginTransaction();
                 $this->db->prepare(
-                    "UPDATE port_queue SET volume_bbl = ? WHERE id = ?"
-                )->execute([$remainder, $entryId]);
+                    "UPDATE port_queue SET volume_bbl = ? WHERE id = ? AND player_id = ?"
+                )->execute([$remainder, $entryId, $playerId]);
  // BUG2 FIX: update marine_deliveries status so partial deliveries are not permanently stuck
  // in 'waiting_for_port'. Use 'waiting_for_port' to keep the delivery associated with the
  // port queue entry that still has volume remaining.
@@ -196,8 +196,8 @@ class PortSection
                 $this->db->prepare(
                     "UPDATE port_queue
                         SET status = 'done', processed_at = ?
-                      WHERE id = ?"
-                )->execute([$nowStr, $entryId]);
+                      WHERE id = ? AND player_id = ?"
+                )->execute([$nowStr, $entryId, $playerId]);
                 $this->db->prepare(
                     "UPDATE marine_deliveries
                         SET status = 'delivered', delivered_at = ?,

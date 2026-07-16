@@ -90,7 +90,7 @@ class BailiffService
  // Always check if the debt has already been cleared.
  // PL: Zawsze najpierw sprawdz czy dlug nie zostal juz splacony.
         if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
-            $this->completeProceeding((int)$proc['id']);
+            $this->completeProceeding((int)$proc['id'], (int)$proc['player_id']);
             return;
         }
 
@@ -129,8 +129,11 @@ class BailiffService
         $this->db->prepare("
             UPDATE bailiff_proceedings
             SET stage = 2, next_action_at = DATE_ADD(NOW(), INTERVAL 24 HOUR)
-            WHERE id = :id
-        ")->execute([':id' => $proc['id']]);
+            WHERE id = :id AND player_id = :player_id
+        ")->execute([
+            ':id' => $proc['id'],
+            ':player_id' => $proc['player_id'],
+        ]);
     }
 
  // Stage 2: seize 30% of player cash.
@@ -173,11 +176,27 @@ class BailiffService
 
             // Utrzymaj dlug nieujemny po zajeciu, inaczej agregaty dlugu sie psuja.
             // Keep debt non-negative after seizure, otherwise debt aggregates break.
-            $this->db->prepare("UPDATE loans SET remaining_amount = GREATEST(0, remaining_amount - :amt) WHERE id = :id")
-                ->execute([':amt' => $seized, ':id' => $proc['loan_id']]);
+            $this->db->prepare(
+                "UPDATE loans
+                    SET remaining_amount = GREATEST(0, remaining_amount - :amt)
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            )->execute([
+                ':amt' => $seized,
+                ':id' => $proc['loan_id'],
+                ':player_id' => $proc['player_id'],
+            ]);
 
-            $this->db->prepare("UPDATE bailiff_proceedings SET cash_seized = cash_seized + :amt WHERE id = :id")
-                ->execute([':amt' => $seized, ':id' => $proc['id']]);
+            $this->db->prepare(
+                "UPDATE bailiff_proceedings
+                    SET cash_seized = cash_seized + :amt
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            )->execute([
+                ':amt' => $seized,
+                ':id' => $proc['id'],
+                ':player_id' => $proc['player_id'],
+            ]);
 
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $seized, 'bailiff_seizure');
         }
@@ -191,15 +210,18 @@ class BailiffService
         $this->markLoanPaidIfCleared((int)$proc['loan_id'], (int)$proc['player_id']);
 
         if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
-            $this->completeProceeding((int)$proc['id']);
+            $this->completeProceeding((int)$proc['id'], (int)$proc['player_id']);
             return;
         }
 
         $this->db->prepare("
             UPDATE bailiff_proceedings
             SET stage = 3, next_action_at = DATE_ADD(NOW(), INTERVAL 48 HOUR)
-            WHERE id = :id
-        ")->execute([':id' => $proc['id']]);
+            WHERE id = :id AND player_id = :player_id
+        ")->execute([
+            ':id' => $proc['id'],
+            ':player_id' => $proc['player_id'],
+        ]);
     }
 
  // Stage 3: seize 50% of stored oil and convert it using current market price.
@@ -220,11 +242,27 @@ class BailiffService
             $this->db->prepare("UPDATE storage SET used = used - :amt WHERE player_id = :id")
                 ->execute([':amt' => $seizedOil, ':id' => $proc['player_id']]);
 
-            $this->db->prepare("UPDATE loans SET remaining_amount = GREATEST(0, remaining_amount - :amt) WHERE id = :id")
-                ->execute([':amt' => $cashValue, ':id' => $proc['loan_id']]);
+            $this->db->prepare(
+                "UPDATE loans
+                    SET remaining_amount = GREATEST(0, remaining_amount - :amt)
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            )->execute([
+                ':amt' => $cashValue,
+                ':id' => $proc['loan_id'],
+                ':player_id' => $proc['player_id'],
+            ]);
 
-            $this->db->prepare("UPDATE bailiff_proceedings SET oil_seized = oil_seized + :amt WHERE id = :id")
-                ->execute([':amt' => $seizedOil, ':id' => $proc['id']]);
+            $this->db->prepare(
+                "UPDATE bailiff_proceedings
+                    SET oil_seized = oil_seized + :amt
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            )->execute([
+                ':amt' => $seizedOil,
+                ':id' => $proc['id'],
+                ':player_id' => $proc['player_id'],
+            ]);
 
             $this->logPayment((int)$proc['loan_id'], (int)$proc['player_id'], $cashValue, 'bailiff_seizure');
         }
@@ -234,15 +272,18 @@ class BailiffService
         $this->markLoanPaidIfCleared((int)$proc['loan_id'], (int)$proc['player_id']);
 
         if ($this->isDebtCleared((int)$proc['loan_id'], (int)$proc['player_id'])) {
-            $this->completeProceeding((int)$proc['id']);
+            $this->completeProceeding((int)$proc['id'], (int)$proc['player_id']);
             return;
         }
 
         $this->db->prepare("
             UPDATE bailiff_proceedings
             SET stage = 4, next_action_at = DATE_ADD(NOW(), INTERVAL 72 HOUR)
-            WHERE id = :id
-        ")->execute([':id' => $proc['id']]);
+            WHERE id = :id AND player_id = :player_id
+        ")->execute([
+            ':id' => $proc['id'],
+            ':player_id' => $proc['player_id'],
+        ]);
     }
 
  // Oznacza pozyczke jako splacona gdy zajecia komornika sprowadzily saldo do zera.
@@ -272,11 +313,26 @@ class BailiffService
         $well = $wellStmt->fetch();
 
         if ($well) {
-            $this->db->prepare("UPDATE wells SET status = 'seized', marine_buffer_bbl = 0 WHERE id = :id")
-                ->execute([':id' => $well['id']]);
+            $this->db->prepare(
+                "UPDATE wells
+                    SET status = 'seized',
+                        marine_buffer_bbl = 0
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            )->execute([
+                ':id' => $well['id'],
+                ':player_id' => $proc['player_id'],
+            ]);
 
-            $this->db->prepare("UPDATE bailiff_proceedings SET wells_seized = wells_seized + 1 WHERE id = :id")
-                ->execute([':id' => $proc['id']]);
+            $this->db->prepare(
+                "UPDATE bailiff_proceedings
+                    SET wells_seized = wells_seized + 1
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            )->execute([
+                ':id' => $proc['id'],
+                ':player_id' => $proc['player_id'],
+            ]);
 
             $remaining = $this->db->prepare("
                 SELECT COUNT(*) FROM wells WHERE player_id = :pid AND status != 'seized'
@@ -292,10 +348,13 @@ class BailiffService
                 $this->db->prepare("
                     UPDATE bailiff_proceedings
                     SET next_action_at = DATE_ADD(NOW(), INTERVAL 72 HOUR)
-                    WHERE id = :id
-                ")->execute([':id' => $proc['id']]);
+                    WHERE id = :id AND player_id = :player_id
+                ")->execute([
+                    ':id' => $proc['id'],
+                    ':player_id' => $proc['player_id'],
+                ]);
             } else {
-                $this->completeProceeding((int)$proc['id']);
+                $this->completeProceeding((int)$proc['id'], (int)$proc['player_id']);
             }
             return;
         }
@@ -318,12 +377,25 @@ class BailiffService
         ")->execute([':id' => $proc['player_id']]);
 
         $this->db->prepare("
-            UPDATE loans SET status = 'defaulted' WHERE id = :id
-        ")->execute([':id' => $proc['loan_id']]);
+            UPDATE loans
+               SET status = 'defaulted'
+             WHERE id = :id
+               AND player_id = :player_id
+        ")->execute([
+            ':id' => $proc['loan_id'],
+            ':player_id' => $proc['player_id'],
+        ]);
 
         $this->db->prepare("
-            UPDATE bailiff_proceedings SET status = 'bankruptcy', completed_at = NOW() WHERE id = :id
-        ")->execute([':id' => $proc['id']]);
+            UPDATE bailiff_proceedings
+               SET status = 'bankruptcy',
+                   completed_at = NOW()
+             WHERE id = :id
+               AND player_id = :player_id
+        ")->execute([
+            ':id' => $proc['id'],
+            ':player_id' => $proc['player_id'],
+        ]);
 
         $this->db->prepare("
             INSERT INTO technical_notifications (player_id, well_id, type, message)
@@ -352,11 +424,18 @@ class BailiffService
         }
     }
 
-    private function completeProceeding(int $procId): void
+    private function completeProceeding(int $procId, int $playerId): void
     {
         $this->db->prepare("
-            UPDATE bailiff_proceedings SET status = 'completed', completed_at = NOW() WHERE id = :id
-        ")->execute([':id' => $procId]);
+            UPDATE bailiff_proceedings
+               SET status = 'completed',
+                   completed_at = NOW()
+             WHERE id = :id
+               AND player_id = :player_id
+        ")->execute([
+            ':id' => $procId,
+            ':player_id' => $playerId,
+        ]);
     }
 
     private function logPayment(int $loanId, int $playerId, float $amount, string $type): void

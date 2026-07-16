@@ -31,7 +31,7 @@ class InterestEngine
             $loans = $stmt->fetchAll();
 
             foreach ($loans as $loan) {
-                $this->calculateLoanInterest($loan['id']);
+                $this->calculateLoanInterest((int)$loan['id'], (int)$loan['player_id']);
             }
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
@@ -43,11 +43,19 @@ class InterestEngine
  /**
  * Accrues interest for a single loan.
  */
-    private function calculateLoanInterest(int $loanId): void
+    private function calculateLoanInterest(int $loanId, int $playerId): void
     {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM loans WHERE id = :id");
-            $stmt->execute([':id' => $loanId]);
+            $stmt = $this->db->prepare(
+                "SELECT *
+                   FROM loans
+                  WHERE id = :id
+                    AND player_id = :player_id"
+            );
+            $stmt->execute([
+                ':id' => $loanId,
+                ':player_id' => $playerId,
+            ]);
             $loan = $stmt->fetch();
 
             if (!$loan) {
@@ -82,12 +90,14 @@ class InterestEngine
                     total_interest_paid = total_interest_paid + :interest,
                     last_interest_calc_at = NOW()
                 WHERE id = :id
+                  AND player_id = :player_id
             ");
 
             $update->execute([
                 ':remaining' => $newRemaining,
                 ':interest' => $interest,
-                ':id' => $loanId
+                ':id' => $loanId,
+                ':player_id' => $playerId,
             ]);
 
  // Record in payment history

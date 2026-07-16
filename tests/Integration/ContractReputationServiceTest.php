@@ -188,6 +188,26 @@ final class ContractReputationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('contract_cancelled', $log['reason']);
     }
 
+    public function testForeignContractTermsDoNotAffectAnotherPlayerReputation(): void
+    {
+        $this->seedPlayer(1, 50);
+        $this->seedPlayer(2, 50);
+        $contractId = $this->insertContract(2, [
+            'next_delivery_at' => '2025-06-01 11:00:00',
+            'ends_at' => '2099-12-31 00:00:00',
+        ]);
+        $foreignTerms = json_encode([
+            'reputation_gain_on_delivery' => ['type' => 'int', 'value' => 25, 'text' => null],
+        ]);
+        $this->db->prepare('UPDATE player_contracts SET terms_json = ? WHERE id = ? AND player_id = ?')
+            ->execute([$foreignTerms, $contractId, 2]);
+
+        $this->reputation->onDeliverySuccess(1, $contractId, []);
+
+        $this->assertSame(51, $this->reputation->getScore(1));
+        $this->assertSame(50, $this->reputation->getScore(2));
+    }
+
     public function testAdminListScoresIncludesDefaultRowsAndSearch(): void
     {
         $this->seedPlayer(1, 50, 'alpha', 'Alpha Oil');

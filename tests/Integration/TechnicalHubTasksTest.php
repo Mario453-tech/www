@@ -117,6 +117,36 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->assertNotEmpty($hub['last_maintenance_at']);
     }
 
+    public function testCompleteTaskRejectsTaskOwnedByAnotherPlayer(): void
+    {
+        $this->seedPlayerAndStaff(8);
+        $this->db->exec("INSERT INTO logistics_hubs (id, player_id, name, condition_pct, repair_cost_estimate, status, updated_at) VALUES (12, 2, 'Foreign Hub', 20, 750000, 'damaged', datetime('now'))");
+        $this->db->exec("INSERT INTO technical_tasks (id, player_id, staff_id, task_type, hub_id, title, status, start_time, end_time, duration_hours, cost) VALUES (4, 2, 1, 'hub_repair', 12, 'Foreign repair', 'in_progress', datetime('now'), datetime('now'), 1, 0)");
+
+        $task = [
+            'id' => 4,
+            'staff_id' => 1,
+            'hub_id' => 12,
+            'well_id' => null,
+            'player_id' => 2,
+            'task_type' => 'hub_repair',
+            'title' => 'Foreign repair',
+            'skill_level' => 8,
+        ];
+
+        $service = $this->makeService();
+        $service->completeTask($task);
+
+        $this->assertSame(
+            'in_progress',
+            $this->db->query("SELECT status FROM technical_tasks WHERE id = 4")->fetchColumn()
+        );
+        $this->assertSame(
+            20.0,
+            (float)$this->db->query("SELECT condition_pct FROM logistics_hubs WHERE id = 12")->fetchColumn()
+        );
+    }
+
     private function createSchema(): void
     {
         $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL NOT NULL DEFAULT 0, bank_balance REAL NOT NULL DEFAULT 0, safety_procedures_level INTEGER DEFAULT 0, procedure_integrity REAL DEFAULT 100, procedures_last_decay_at TEXT NULL)');
@@ -125,7 +155,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->db->exec('CREATE TABLE technical_task_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, module_type TEXT NULL, priority INTEGER DEFAULT 0, queued_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE technical_notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, well_id INTEGER NULL, type TEXT, message TEXT, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE wells (id INTEGER PRIMARY KEY, player_id INTEGER, status TEXT)');
-        $this->db->exec('CREATE TABLE logistics_hubs (id INTEGER PRIMARY KEY, player_id INTEGER DEFAULT 1, name TEXT, condition_pct REAL, repair_cost_estimate REAL, status TEXT, last_maintenance_at TEXT NULL, updated_at TEXT NULL)');
+        $this->db->exec('CREATE TABLE logistics_hubs (id INTEGER PRIMARY KEY, player_id INTEGER DEFAULT 1, tenant_player_id INTEGER DEFAULT 0, name TEXT, condition_pct REAL, repair_cost_estimate REAL, status TEXT, last_maintenance_at TEXT NULL, updated_at TEXT NULL)');
         $this->db->exec('CREATE TABLE logistics_hub_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, hub_id INTEGER, well_id INTEGER, status TEXT)');
         $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT)');
         $this->db->exec('CREATE TABLE board_members (id INTEGER PRIMARY KEY, role_id INTEGER, status TEXT, specialization_id INTEGER NULL, skill_organization INTEGER DEFAULT 5)');

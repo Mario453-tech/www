@@ -296,7 +296,7 @@ class WellGridData
         $glSwitchHoursLeft = 0;
         if (class_exists('GeologicalLayerService')) {
             $glSvc = new GeologicalLayerService();
-            $glCur = $glSvc->getActiveLayer((int)$w['id']);
+            $glCur = $glSvc->getActiveLayer((int)$w['id'], (int)$w['player_id']);
             $glSwitchUntil = $w['layer_switch_until'] ?? null;
             if (!empty($glSwitchUntil)) {
                 $ts = strtotime((string)$glSwitchUntil);
@@ -358,4 +358,3 @@ class WellGridData
         ]);
     }
 }
-

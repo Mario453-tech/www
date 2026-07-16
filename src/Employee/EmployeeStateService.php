@@ -281,12 +281,14 @@ final class EmployeeStateService
                     SET source_type = :source_type,
                         source_id = :source_id,
                         updated_at = CURRENT_TIMESTAMP
-                  WHERE id = :id'
+                  WHERE id = :id
+                    AND player_id = :player_id'
             );
             $stmt->execute([
                 'source_type' => $canonicalRef->sourceType,
                 'source_id' => $canonicalRef->sourceId,
                 'id' => (int)$legacyState['id'],
+                'player_id' => $legacyRef->playerId,
             ]);
             $this->refreshStateSnapshot($canonicalRef, $canonicalEmployee);
             return;
@@ -305,7 +307,8 @@ final class EmployeeStateService
                         last_morale_tick_at = :last_morale_tick_at,
                         version = :version,
                         updated_at = CURRENT_TIMESTAMP
-                  WHERE id = :id'
+                  WHERE id = :id
+                    AND player_id = :player_id'
             );
             $stmt->execute([
                 'morale' => $legacyState['morale'],
@@ -318,12 +321,13 @@ final class EmployeeStateService
                 'last_morale_tick_at' => $legacyState['last_morale_tick_at'],
                 'version' => max((int)$legacyState['version'], (int)$canonicalState['version']) + 1,
                 'id' => (int)$canonicalState['id'],
+                'player_id' => $canonicalRef->playerId,
             ]);
         }
 
         $this->refreshStateSnapshot($canonicalRef, $canonicalEmployee);
-        $delete = $this->db->prepare('DELETE FROM employee_state WHERE id = ?');
-        $delete->execute([(int)$legacyState['id']]);
+        $delete = $this->db->prepare('DELETE FROM employee_state WHERE id = ? AND player_id = ?');
+        $delete->execute([(int)$legacyState['id'], $legacyRef->playerId]);
     }
 
     /**

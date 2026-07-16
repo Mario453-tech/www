@@ -198,6 +198,21 @@ class WellPipelineService
             throw new InvalidArgumentException('Invalid well id for pipeline creation.');
         }
 
+        $ownedWell = $this->db->prepare(
+            "SELECT id
+               FROM wells
+              WHERE id = ? AND player_id = ?
+              LIMIT 1"
+        );
+        $ownedWell->execute([$wellId, $playerId]);
+        if (!$ownedWell->fetchColumn()) {
+            GameLog::warn('WellPipelineService', 'createPipelineForWell rejected foreign well', [
+                'player_id' => $playerId,
+                'well_id' => $wellId,
+            ]);
+            return [];
+        }
+
         $existing = $this->getByPlayerAndWellIds($playerId, [$wellId]);
         if (isset($existing[$wellId])) {
             return $existing[$wellId];
@@ -209,7 +224,7 @@ class WellPipelineService
         $capacity = max(1.0, round($baseProd * ($capPct / 100.0), 2));
         $legacyLoss = $this->getLegacyPipelineLoss($playerId);
         $name = tPlain('pipeline.default_name', ['id' => $wellId]);
-        $hubAssignment = $this->getActiveHubAssignmentForWell($wellId);
+        $hubAssignment = $this->getActiveHubAssignmentForWell($wellId, $playerId);
 
         $stmt = $this->db->prepare(
             "INSERT INTO well_pipelines
@@ -362,7 +377,7 @@ class WellPipelineService
         }
 
         // Hub outbound pipeline construction is local infrastructure work and requires a local permit.
-        $regionId = $this->getHubRegionId($hubId);
+        $regionId = $this->getHubRegionId($hubId, $playerId);
         if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
             return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
         }
@@ -631,12 +646,12 @@ class WellPipelineService
         }
 
         // Well pipeline construction is local infrastructure work and requires a local permit.
-        $regionId = $this->getWellRegionId($wellId);
+        $regionId = $this->getWellRegionId($wellId, $playerId);
         if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
             return ['success' => false, 'error' => 'no_hub_permit', 'region_id' => $regionId];
         }
 
-        $hubAssignment = $this->getActiveHubAssignmentForWell($wellId);
+        $hubAssignment = $this->getActiveHubAssignmentForWell($wellId, $playerId);
         if ($hubAssignment === null) {
             return ['success' => false, 'error' => 'hub_required'];
         }
@@ -648,7 +663,7 @@ class WellPipelineService
             $this->db->beginTransaction();
         }
         try {
-            $hubAssignment = $this->getActiveHubAssignmentForWell($wellId, true);
+            $hubAssignment = $this->getActiveHubAssignmentForWell($wellId, $playerId, true);
             if ($hubAssignment === null) {
                 if ($ownTransaction && $this->db->inTransaction()) {
                     $this->db->rollBack();
@@ -775,7 +790,7 @@ class WellPipelineService
  */
     public function bindPipelineToActiveHub(int $playerId, int $wellId): array
     {
-        $hubAssignment = $this->getActiveHubAssignmentForWell($wellId);
+        $hubAssignment = $this->getActiveHubAssignmentForWell($wellId, $playerId);
         if ($hubAssignment === null) {
             return ['success' => false, 'error' => 'hub_required'];
         }
@@ -840,9 +855,11 @@ class WellPipelineService
         $updateStmt = $this->db->prepare(
             "UPDATE well_pipelines
                 SET status = 'active', condition_pct = 100.0
-              WHERE id IN ({$placeholders}) AND status = 'building'"
+              WHERE id IN ({$placeholders})
+                AND player_id = ?
+                AND status = 'building'"
         );
-        $updateStmt->execute($ids);
+        $updateStmt->execute(array_merge($ids, [$playerId]));
         $actuallyCompleted = $updateStmt->rowCount();
 
         if ($actuallyCompleted === 0) {
@@ -1048,15 +1065,20 @@ class WellPipelineService
             };
             $newLoss = round(max(0.0, (float)$pipe['transport_loss'] * 0.4), 2);
 
-            $this->db->prepare(
+            $pipelineUpdate = $this->db->prepare(
                 "UPDATE well_pipelines
                     SET condition_pct  = 100.0,
                         transport_loss = ?,
                         status         = ?,
                         last_maintenance_at = NOW(),
                         updated_at     = NOW()
-                  WHERE id = ?"
-            )->execute([$newLoss, $newStatus, $pipelineId]);
+                  WHERE id = ?
+                    AND player_id = ?"
+            );
+            $pipelineUpdate->execute([$newLoss, $newStatus, $pipelineId, $playerId]);
+            if ($pipelineUpdate->rowCount() !== 1) {
+                throw new RuntimeException('Player-scoped pipeline repair changed no rows.');
+            }
 
             if ($ownTransaction) {
                 $this->db->commit();
@@ -1143,13 +1165,18 @@ class WellPipelineService
 
             $newCond = min(100.0, (float)$pipe['condition_pct'] + 2.0);
 
-            $this->db->prepare(
+            $pipelineUpdate = $this->db->prepare(
                 "UPDATE well_pipelines
                     SET last_maintenance_at = NOW(),
                         condition_pct       = ?,
                         updated_at          = NOW()
-                  WHERE id = ?"
-            )->execute([$newCond, $pipelineId]);
+                  WHERE id = ?
+                    AND player_id = ?"
+            );
+            $pipelineUpdate->execute([$newCond, $pipelineId, $playerId]);
+            if ($pipelineUpdate->rowCount() !== 1) {
+                throw new RuntimeException('Player-scoped pipeline maintenance changed no rows.');
+            }
 
             if ($ownTransaction) {
                 $this->db->commit();
@@ -1226,9 +1253,17 @@ class WellPipelineService
             $eventMsg  = "[Player] Pipeline suspended. Well switches to road transport.";
         }
 
-        $this->db->prepare(
-            "UPDATE well_pipelines SET status = ?, updated_at = NOW() WHERE id = ?"
-        )->execute([$newStatus, $pipelineId]);
+        $pipelineUpdate = $this->db->prepare(
+            "UPDATE well_pipelines
+                SET status = ?,
+                    updated_at = NOW()
+              WHERE id = ?
+                AND player_id = ?"
+        );
+        $pipelineUpdate->execute([$newStatus, $pipelineId, $playerId]);
+        if ($pipelineUpdate->rowCount() !== 1) {
+            return ['success' => false, 'error' => 'pipeline_not_found'];
+        }
 
         $this->recordEvent($playerId, (int)$pipe['well_id'], $pipelineId,
             $eventType, 'info', $eventMsg
@@ -1358,7 +1393,11 @@ class WellPipelineService
  /**
  * @return array<string, mixed>|null
  */
-    private function getActiveHubAssignmentForWell(int $wellId, bool $forUpdate = false): ?array
+    private function getActiveHubAssignmentForWell(
+        int $wellId,
+        int $playerId,
+        bool $forUpdate = false
+    ): ?array
     {
         try {
             $lock = $forUpdate && $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite'
@@ -1370,10 +1409,11 @@ class WellPipelineService
                    JOIN logistics_hubs h ON h.id = a.hub_id
                   WHERE a.well_id = ?
                     AND a.status = 'active'
+                    AND (h.player_id = ? OR h.tenant_player_id = ?)
                     AND h.status NOT IN ('planned', 'disabled', 'building', 'paused', 'maintenance')
                   LIMIT 1{$lock}"
             );
-            $stmt->execute([$wellId]);
+            $stmt->execute([$wellId, $playerId, $playerId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             return $row ?: null;
         } catch (Throwable $e) {
@@ -1401,14 +1441,19 @@ class WellPipelineService
  /**
  * Returns the well region id, or 0 when it cannot be resolved.
  */
-    private function getWellRegionId(int $wellId): int
+    private function getWellRegionId(int $wellId, int $playerId): int
     {
         try {
-            $stmt = $this->db->prepare("SELECT region_id FROM wells WHERE id = ? LIMIT 1");
-            $stmt->execute([$wellId]);
+            $stmt = $this->db->prepare(
+                "SELECT region_id FROM wells WHERE id = ? AND player_id = ? LIMIT 1"
+            );
+            $stmt->execute([$wellId, $playerId]);
             return (int)($stmt->fetchColumn() ?: 0);
         } catch (Throwable $e) {
-            GameLog::error('WellPipelineService', 'getWellRegionId failed', $e, ['well_id' => $wellId]);
+            GameLog::error('WellPipelineService', 'getWellRegionId failed', $e, [
+                'well_id' => $wellId,
+                'player_id' => $playerId,
+            ]);
             return 0;
         }
     }
@@ -1416,14 +1461,23 @@ class WellPipelineService
  /**
  * Returns the hub region id, or 0 when it cannot be resolved.
  */
-    private function getHubRegionId(int $hubId): int
+    private function getHubRegionId(int $hubId, int $playerId): int
     {
         try {
-            $stmt = $this->db->prepare("SELECT region_id FROM logistics_hubs WHERE id = ? LIMIT 1");
-            $stmt->execute([$hubId]);
+            $stmt = $this->db->prepare(
+                "SELECT region_id
+                   FROM logistics_hubs
+                  WHERE id = ?
+                    AND (player_id = ? OR tenant_player_id = ?)
+                  LIMIT 1"
+            );
+            $stmt->execute([$hubId, $playerId, $playerId]);
             return (int)($stmt->fetchColumn() ?: 0);
         } catch (Throwable $e) {
-            GameLog::error('WellPipelineService', 'getHubRegionId failed', $e, ['hub_id' => $hubId]);
+            GameLog::error('WellPipelineService', 'getHubRegionId failed', $e, [
+                'hub_id' => $hubId,
+                'player_id' => $playerId,
+            ]);
             return 0;
         }
     }

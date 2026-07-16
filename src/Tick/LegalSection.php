@@ -163,8 +163,10 @@ class LegalSection
     private function applyHubGranted(int $appId, int $playerId, int $regionId, string $nowStr, string $riskLevel): void
     {
         $this->db->prepare(
-            "UPDATE hub_permit_applications SET status='granted', decided_at=? WHERE id=?"
-        )->execute([$nowStr, $appId]);
+            "UPDATE hub_permit_applications
+                SET status='granted', decided_at=?
+              WHERE id=? AND player_id=?"
+        )->execute([$nowStr, $appId, $playerId]);
         $this->hubDecided++;
         $this->notifyHub($playerId, $regionId, 'granted', $riskLevel, $nowStr, false);
     }
@@ -175,8 +177,9 @@ class LegalSection
         $cooldownUntil = $this->addMinutes($nowStr, $cooldownMin);
         $this->db->prepare(
             "UPDATE hub_permit_applications
-                SET status='refused', decided_at=?, refusal_cooldown_until=? WHERE id=?"
-        )->execute([$nowStr, $cooldownUntil, $appId]);
+                SET status='refused', decided_at=?, refusal_cooldown_until=?
+              WHERE id=? AND player_id=?"
+        )->execute([$nowStr, $cooldownUntil, $appId, $playerId]);
         $this->hubDecided++;
         $this->notifyHub($playerId, $regionId, 'refused', $riskLevel, $nowStr, true);
     }
@@ -188,8 +191,9 @@ class LegalSection
         $newDueAt = $this->addMinutes($nowStr, $addMinutes);
         $this->db->prepare(
             "UPDATE hub_permit_applications
-                SET status='delayed', decision_due_at=?, delay_count=? WHERE id=?"
-        )->execute([$newDueAt, $currentDelayCount + 1, $appId]);
+                SET status='delayed', decision_due_at=?, delay_count=?
+              WHERE id=? AND player_id=?"
+        )->execute([$newDueAt, $currentDelayCount + 1, $appId, $playerId]);
         $this->hubDecided++;
         $this->notifyHub($playerId, $regionId, 'delayed', $riskLevel, $nowStr, true);
     }
@@ -201,8 +205,9 @@ class LegalSection
         // No decision = terminal status; player resubmits manually.
         $this->db->prepare(
             "UPDATE hub_permit_applications
-                SET status='no_decision', decided_at=? WHERE id=?"
-        )->execute([$nowStr, $appId]);
+                SET status='no_decision', decided_at=?
+              WHERE id=? AND player_id=?"
+        )->execute([$nowStr, $appId, $playerId]);
         $this->hubDecided++;
         $this->notifyHub($playerId, $regionId, 'no_decision', $riskLevel, $nowStr, true);
     }
@@ -232,7 +237,7 @@ class LegalSection
                 "INSERT INTO director_notifications
                     (player_id, type, priority, title, message, icon,
                      requires_action, action_url, action_label, expires_at)
-                 VALUES (?, 'legal', ?, ?, ?, ?, ?, 'legal.php', 'Dział prawny — huby', ?)"
+                 VALUES (?, 'legal', ?, ?, ?, ?, ?, 'legal.php', ?, ?)"
             )->execute([
                 $playerId,
                 $priority,
@@ -240,6 +245,7 @@ class LegalSection
                 $message,
                 $icon,
                 $requiresAction ? 1 : 0,
+                tPlain('legal.notif_action_label'),
                 $this->addHours($nowStr, 72),
             ]);
             $this->hubNotified++;
@@ -321,8 +327,8 @@ class LegalSection
                 "UPDATE drilling_permit_applications
                     SET upgrade_pending = 0, upgrade_decision_due_at = NULL,
                         decided_at = ?, updated_at = ?
-                  WHERE id = ?"
-            )->execute([$nowStr, $nowStr, $appId]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$nowStr, $nowStr, $appId, $playerId]);
             $this->decided++;
             $this->notify($playerId, $regionId, 'no_decision', $riskLevel, $nowStr);
             return;
@@ -337,8 +343,8 @@ class LegalSection
                 "UPDATE drilling_permit_applications
                     SET status = 'refused', upgrade_pending = 0, upgrade_decision_due_at = NULL,
                         decided_at = ?, refusal_cooldown_until = ?, updated_at = ?
-                  WHERE id = ?"
-            )->execute([$nowStr, $cooldownUntil, $nowStr, $appId]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$nowStr, $cooldownUntil, $nowStr, $appId, $playerId]);
             $this->decided++;
             $this->notify($playerId, $regionId, 'refused', $riskLevel, $nowStr);
             return;
@@ -351,8 +357,8 @@ class LegalSection
             $this->db->prepare(
                 "UPDATE drilling_permit_applications
                     SET upgrade_decision_due_at = ?, delay_count = ?, updated_at = ?
-                  WHERE id = ?"
-            )->execute([$newDueAt, $delayCount + 1, $nowStr, $appId]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([$newDueAt, $delayCount + 1, $nowStr, $appId, $playerId]);
             $this->decided++;
             $this->notify($playerId, $regionId, 'delayed', $riskLevel, $nowStr);
             return;
@@ -364,8 +370,8 @@ class LegalSection
             "UPDATE drilling_permit_applications
                 SET status = 'granted', upgrade_pending = 0, upgrade_decision_due_at = NULL,
                     decided_at = ?, updated_at = ?
-              WHERE id = ?"
-        )->execute([$nowStr, $nowStr, $appId]);
+              WHERE id = ? AND player_id = ?"
+        )->execute([$nowStr, $nowStr, $appId, $playerId]);
         $this->decided++;
         $this->notify($playerId, $regionId, 'granted', $riskLevel, $nowStr);
     }
@@ -418,8 +424,8 @@ class LegalSection
             "UPDATE drilling_permit_applications
                 SET status     = 'granted',
                     decided_at = ?
-              WHERE id = ?"
-        )->execute([$nowStr, $appId]);
+              WHERE id = ? AND player_id = ?"
+        )->execute([$nowStr, $appId, $playerId]);
 
         $this->decided++;
 
@@ -441,8 +447,8 @@ class LegalSection
                 SET status                 = 'refused',
                     decided_at             = ?,
                     refusal_cooldown_until = ?
-              WHERE id = ?"
-        )->execute([$nowStr, $cooldownUntil, $appId]);
+              WHERE id = ? AND player_id = ?"
+        )->execute([$nowStr, $cooldownUntil, $appId, $playerId]);
 
         $this->decided++;
 
@@ -465,8 +471,8 @@ class LegalSection
                 SET status          = 'delayed',
                     decision_due_at = ?,
                     delay_count     = ?
-              WHERE id = ?"
-        )->execute([$newDueAt, $currentDelayCount + 1, $appId]);
+              WHERE id = ? AND player_id = ?"
+        )->execute([$newDueAt, $currentDelayCount + 1, $appId, $playerId]);
 
         $this->decided++;
 
@@ -486,8 +492,8 @@ class LegalSection
             "UPDATE drilling_permit_applications
                 SET status     = 'no_decision',
                     decided_at = ?
-              WHERE id = ?"
-        )->execute([$nowStr, $appId]);
+              WHERE id = ? AND player_id = ?"
+        )->execute([$nowStr, $appId, $playerId]);
 
         $this->decided++;
 
@@ -503,7 +509,7 @@ class LegalSection
                 "INSERT INTO director_notifications
                     (player_id, type, priority, title, message, icon,
                      requires_action, action_url, action_label, expires_at)
-                 VALUES (?, 'legal', ?, ?, ?, ?, ?, 'legal.php', 'Dział prawny', ?)"
+                 VALUES (?, 'legal', ?, ?, ?, ?, ?, 'legal.php', ?, ?)"
             )->execute([
                 $playerId,
                 $priority,
@@ -511,6 +517,7 @@ class LegalSection
                 $message,
                 $icon,
                 ($outcome === 'granted') ? 0 : 1,
+                tPlain('legal.notif_action_label'),
                 $this->addHours($nowStr, 72),
             ]);
 

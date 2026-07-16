@@ -164,16 +164,16 @@ final class MySqlHubTickServiceTest extends MySqlIntegrationTestCase
     public function testAddBufferBblReturnsDatabaseRoundedAmount(): void
     {
         $ids = $this->getTrackedIds();
-        $this->seedPlayer();
-        $this->seedHub($ids['hubId'], 'PHPUnit Rounded Buffer Hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 0.0);
+        $playerId = $this->seedPlayer();
+        $this->seedHub($ids['hubId'], 'PHPUnit Rounded Buffer Hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 0.0, $playerId);
 
         $tickService = new HubTickService($this->db, new HubService($this->db));
 
-        $this->assertSame(0.0, $tickService->addBufferBbl($ids['hubId'], 0.004));
+        $this->assertSame(0.0, $tickService->addBufferBbl($ids['hubId'], $playerId, 0.004));
         $storedAfterTiny = (float)$this->db->query("SELECT buffer_current_bbl FROM logistics_hubs WHERE id = {$ids['hubId']}")->fetchColumn();
         $this->assertEqualsWithDelta(0.0, $storedAfterTiny, 0.0001);
 
-        $this->assertEqualsWithDelta(0.01, $tickService->addBufferBbl($ids['hubId'], 0.006), 0.0001);
+        $this->assertEqualsWithDelta(0.01, $tickService->addBufferBbl($ids['hubId'], $playerId, 0.006), 0.0001);
         $storedAfterRounded = (float)$this->db->query("SELECT buffer_current_bbl FROM logistics_hubs WHERE id = {$ids['hubId']}")->fetchColumn();
         $this->assertEqualsWithDelta(0.01, $storedAfterRounded, 0.0001);
     }

@@ -151,19 +151,17 @@ class MarketOffer
         }
     }
 
-    public function getOffer(int $offerId, ?int $playerId = null): ?array
+    public function getOffer(int $offerId, int $playerId): ?array
     {
         try {
-            $sql    = "SELECT * FROM market_offers WHERE id = :id";
-            $params = [':id' => $offerId];
-
-            if ($playerId !== null) {
-                $sql   .= " AND player_id = :player_id";
-                $params[':player_id'] = $playerId;
-            }
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
+            $stmt = $this->db->prepare(
+                "SELECT * FROM market_offers
+                  WHERE id = :id AND player_id = :player_id"
+            );
+            $stmt->execute([
+                ':id' => $offerId,
+                ':player_id' => $playerId,
+            ]);
             $row = $stmt->fetch();
             return $row ?: null;
         } catch (Throwable $e) {
@@ -322,6 +320,30 @@ class MarketOffer
         try {
             $this->db->beginTransaction();
 
+            // Lock and revalidate ownership/status before crediting the seller.
+            // Zablokuj i ponownie sprawdz wlasciciela oraz status przed wyplata.
+            $forUpdate = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+                ? ' FOR UPDATE'
+                : '';
+            $lockStmt = $this->db->prepare(
+                "SELECT *
+                   FROM market_offers
+                  WHERE id = :id
+                    AND player_id = :player_id
+                    AND status = 'pending'
+                    AND auto_execute = TRUE{$forUpdate}"
+            );
+            $lockStmt->execute([
+                ':id' => (int)$offer['id'],
+                ':player_id' => (int)$offer['player_id'],
+            ]);
+            $lockedOffer = $lockStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$lockedOffer) {
+                $this->db->rollBack();
+                return;
+            }
+            $offer = $lockedOffer;
+
             $earnings = (float)$offer['amount'] * $currentPrice;
 
             // Zasil konto gracza przez centralne API finansowe / Credit player via central financial API.
@@ -344,18 +366,25 @@ class MarketOffer
             }
 
  // Close the offer / Zamknij oferte
-            $this->db->prepare("
+            $completeStmt = $this->db->prepare("
                 UPDATE market_offers
                 SET status       = 'completed',
                     sold_amount  = :amount,
                     sold_price   = :price,
                     completed_at = NOW()
                 WHERE id = :id
-            ")->execute([
+                  AND player_id = :player_id
+                  AND status = 'pending'
+            ");
+            $completeStmt->execute([
                 ':amount' => $offer['amount'],
                 ':price'  => $currentPrice,
                 ':id'     => $offer['id'],
+                ':player_id' => $offer['player_id'],
             ]);
+            if ($completeStmt->rowCount() !== 1) {
+                throw new RuntimeException('Market offer completion lost its ownership or status guard.');
+            }
 
  // Log to sale history / Zapisz do historii sprzedazy
             $this->db->prepare("

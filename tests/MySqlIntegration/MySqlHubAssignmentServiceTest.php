@@ -7,6 +7,18 @@ require_once dirname(__DIR__, 2) . '/src/HubAssignmentService.php';
 
 final class MySqlHubAssignmentServiceTest extends MySqlIntegrationTestCase
 {
+    public function testGetHubForPlayerRejectsForeignPlayerAndAcceptsOwner(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedHub($ids['hubId'], 'PHPUnit Private Hub', 77, 'A1', 90.0, 'active');
+
+        $hubService = new HubService($this->db);
+
+        $this->assertNotNull($hubService->getHubForPlayer($ids['hubId'], $playerId));
+        $this->assertNull($hubService->getHubForPlayer($ids['hubId'], $playerId + 1000));
+    }
+
     public function testAssignDetachAndTransferFlowWorksOnRealMySql(): void
     {
         $ids      = $this->getTrackedIds();

@@ -222,6 +222,24 @@ final class EmployeeSystemBootstrap
             KEY `idx_employee_role_effect_scope` (`target_scope`, `is_active`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+        $db->exec("CREATE TABLE IF NOT EXISTS `employee_assignments` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `player_id` INT UNSIGNED NOT NULL,
+            `source_type` ENUM('board_member','technical_staff') NOT NULL,
+            `source_id` INT UNSIGNED NOT NULL,
+            `target_type` VARCHAR(32) NOT NULL,
+            `target_id` INT UNSIGNED NOT NULL,
+            `allocation_pct` DECIMAL(5,2) NOT NULL DEFAULT 100.00,
+            `status` ENUM('active','released') NOT NULL DEFAULT 'active',
+            `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `released_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_employee_assignment_employee` (`player_id`, `source_type`, `source_id`, `status`),
+            KEY `idx_employee_assignment_target` (`player_id`, `target_type`, `target_id`, `status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
         self::ensureMySqlDepartmentWidth($db);
         self::ensureMySqlRoleEffectColumns($db);
         self::seedHrSpecializations($db);
@@ -279,6 +297,23 @@ final class EmployeeSystemBootstrap
         )");
         $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_role_effect ON employee_role_effects (specialization_code, effect_key, target_scope)');
         $db->exec('CREATE INDEX IF NOT EXISTS idx_employee_role_effect_scope ON employee_role_effects (target_scope, is_active)');
+
+        $db->exec("CREATE TABLE IF NOT EXISTS employee_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER NOT NULL,
+            source_type TEXT NOT NULL,
+            source_id INTEGER NOT NULL,
+            target_type TEXT NOT NULL,
+            target_id INTEGER NOT NULL,
+            allocation_pct REAL NOT NULL DEFAULT 100.0,
+            status TEXT NOT NULL DEFAULT 'active',
+            assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            released_at TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )");
+        $db->exec('CREATE INDEX IF NOT EXISTS idx_employee_assignment_employee ON employee_assignments (player_id, source_type, source_id, status)');
+        $db->exec('CREATE INDEX IF NOT EXISTS idx_employee_assignment_target ON employee_assignments (player_id, target_type, target_id, status)');
 
         self::ensureSqliteRoleEffectColumns($db);
         self::seedHrSpecializations($db);

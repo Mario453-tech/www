@@ -224,7 +224,7 @@ class PipelineSection
                                                 THEN COALESCE(leak_started_at, NOW())
                                                 ELSE NULL
                                               END
-                      WHERE id = ?"
+                      WHERE id = ? AND player_id = ?"
                 )->execute([
                     // round(,4) + kolumna DECIMAL(8,4): degradacja przy tickach 5-min
                     // (0.0017-0.0042/tick) nie moze zaokraglac sie z powrotem do zera —
@@ -238,6 +238,7 @@ class PipelineSection
                     $newStatus,   // for damaged_at CASE
                     $newStatus,   // for leak_started_at CASE
                     $pipelineId,
+                    $playerId,
                 ]);
 
                 if ($newStatus === 'damaged' && !in_array($pipelineId, $this->unavailablePipelineIds, true)) {
@@ -449,8 +450,15 @@ class PipelineSection
                         condition_pct  = GREATEST(0.0, condition_pct - ?),
                         status     = CASE WHEN GREATEST(0.0, condition_pct - ?) <= 0.0 THEN 'damaged' ELSE status END,
                         damaged_at = CASE WHEN GREATEST(0.0, condition_pct - ?) <= 0.0 THEN COALESCE(damaged_at, NOW()) ELSE damaged_at END
-                  WHERE id = ?"
-            )->execute([round($lossAdd, 2), round($condDrop, 1), round($condDrop, 1), round($condDrop, 1), $pipelineId]);
+                  WHERE id = ? AND player_id = ?"
+            )->execute([
+                round($lossAdd, 2),
+                round($condDrop, 1),
+                round($condDrop, 1),
+                round($condDrop, 1),
+                $pipelineId,
+                $playerId,
+            ]);
 
             $this->wellPipelineService->recordEvent(
                 $playerId,

@@ -47,11 +47,11 @@ trait HubAssignmentValidationTrait
         }
 
         if (!$skipCurrentCheck) {
-            $existing = $this->hubSvc->getWellAssignment($wellId);
+            $existing = $this->hubSvc->getWellAssignment($wellId, $playerId);
             if ($existing && $existing['status'] === 'active') {
                 return ['ok' => false, 'error' => 'already_assigned'];
             }
-            $cooldownRow = $this->getCooldownAssignment($wellId);
+            $cooldownRow = $this->getCooldownAssignment($wellId, $playerId);
             if ($cooldownRow !== null) {
                 $remainSecs = max(0, (int)(strtotime((string)$cooldownRow['cooldown_until']) - time()));
                 return ['ok' => false, 'error' => 'cooldown_active', 'cooldown_remaining_s' => $remainSecs];
@@ -86,18 +86,20 @@ trait HubAssignmentValidationTrait
  * Returns the active cooldown assignment for a well, or null.
  * @return array<string, mixed>|null
  */
-    private function getCooldownAssignment(int $wellId): ?array
+    private function getCooldownAssignment(int $wellId, int $playerId): ?array
     {
         $stmt = $this->db->prepare(
-            "SELECT id, cooldown_until
-               FROM logistics_hub_assignments
-              WHERE well_id       = ?
-                AND status        = 'detached'
-                AND cooldown_until > NOW()
+            "SELECT a.id, a.cooldown_until
+               FROM logistics_hub_assignments a
+               JOIN wells w ON w.id = a.well_id
+              WHERE a.well_id = ?
+                AND w.player_id = ?
+                AND a.status = 'detached'
+                AND a.cooldown_until > NOW()
               ORDER BY cooldown_until DESC
               LIMIT 1"
         );
-        $stmt->execute([$wellId]);
+        $stmt->execute([$wellId, $playerId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -117,10 +119,10 @@ trait HubAssignmentValidationTrait
         return $row ?: null;
     }
 
-    private function getWellZoneKey(int $wellId): string
+    private function getWellZoneKey(int $wellId, int $playerId): string
     {
-        $stmt = $this->db->prepare("SELECT zone_key FROM wells WHERE id = ? LIMIT 1");
-        $stmt->execute([$wellId]);
+        $stmt = $this->db->prepare("SELECT zone_key FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
+        $stmt->execute([$wellId, $playerId]);
         return (string)($stmt->fetchColumn() ?: '');
     }
 }

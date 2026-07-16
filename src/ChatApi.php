@@ -379,6 +379,22 @@ if ($method === 'POST') {
             chatJson(['error' => t('chat.err_no_message_id')]);
         }
 
+        $visibleMessage = $db->prepare(
+            "SELECT 1
+               FROM chat_messages
+              WHERE id = ?
+                AND is_deleted = 0
+                AND (
+                    channel = 'global'
+                    OR (channel = 'private' AND (sender_id = ? OR receiver_id = ?))
+                )
+              LIMIT 1"
+        );
+        $visibleMessage->execute([$messageId, $playerId, $playerId]);
+        if (!$visibleMessage->fetchColumn()) {
+            chatJson(['error' => t('chat.err_no_message_id')]);
+        }
+
         $dup = $db->prepare("SELECT id FROM chat_reports WHERE message_id=? AND reporter_id=? LIMIT 1");
         $dup->execute([$messageId, $playerId]);
         if ($dup->fetch()) {
@@ -407,12 +423,15 @@ if ($method === 'POST') {
         $stmt = $db->prepare("
             SELECT id, sender_id, channel, attachment_path, message
             FROM chat_messages
-            WHERE id=? AND is_deleted=0
+            WHERE id=?
+              AND sender_id=?
+              AND channel='private'
+              AND is_deleted=0
             LIMIT 1
         ");
-        $stmt->execute([$messageId]);
+        $stmt->execute([$messageId, $playerId]);
         $message = $stmt->fetch();
-        if (!$message || (int) $message['sender_id'] !== $playerId || $message['channel'] !== 'private' || empty($message['attachment_path'])) {
+        if (!$message || empty($message['attachment_path'])) {
             chatJson(['error' => t('dm.err_delete_attachment')]);
         }
 
@@ -423,13 +442,19 @@ if ($method === 'POST') {
                 UPDATE chat_messages
                 SET is_deleted=1, attachment_path=NULL, attachment_name=NULL, attachment_type=NULL, attachment_size=NULL
                 WHERE id=?
-            ")->execute([$messageId]);
+                  AND sender_id=?
+                  AND channel='private'
+                  AND is_deleted=0
+            ")->execute([$messageId, $playerId]);
         } else {
             $db->prepare("
                 UPDATE chat_messages
                 SET attachment_path=NULL, attachment_name=NULL, attachment_type=NULL, attachment_size=NULL
                 WHERE id=?
-            ")->execute([$messageId]);
+                  AND sender_id=?
+                  AND channel='private'
+                  AND is_deleted=0
+            ")->execute([$messageId, $playerId]);
         }
 
         chatJson(['ok' => true, 'message' => t('dm.attachment_deleted')]);
