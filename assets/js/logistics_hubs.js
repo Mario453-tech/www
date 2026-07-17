@@ -192,13 +192,13 @@
 
     function closeHubModal(id) {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if (el) el.hidden = true;
     }
     window.closeHubModal = closeHubModal;
 
     function openHubModal(id) {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'flex';
+        if (el) el.hidden = false;
     }
 
     async function hubPost(action, body = {}) {
@@ -369,11 +369,11 @@
                     <span>${esc(w.region_name || '')}${w.zone_key ? ' / ' + esc(w.zone_key) : ''}</span>
                     <span>${parseFloat(w.base_production_per_hour || 0).toFixed(1)}</span>
                     <span>${esc(lang()['ws_' + w.status] || w.status || '')}</span>
-                    <span style="display:flex;gap:.35rem;flex-wrap:wrap">
-                        <button class="btn btn-xs btn-warn" onclick="hubDetachWell(${w.id}, ${hubId})">
+                    <span class="logistics-hub-row-actions">
+                        <button class="btn btn-xs btn-warn" type="button" data-hub-action="detach" data-well-id="${w.id}" data-hub-id="${hubId}">
                             ${lang().btn_detach || 'Odepnij'}
                         </button>
-                        <button class="btn btn-xs btn-secondary" onclick="hubTransferModal(${w.id}, ${hubId})">
+                        <button class="btn btn-xs btn-secondary" type="button" data-hub-action="transfer-modal" data-well-id="${w.id}" data-hub-id="${hubId}">
                              ${lang().btn_transfer || 'Przenie'}
                         </button>
                     </span>
@@ -462,8 +462,8 @@
                     <span>${esc(w.region_name || '')}${w.zone_key ? ' / ' + esc(w.zone_key) : ''}${zoneLabel}</span>
                     <span>${parseFloat(w.base_production_per_hour || 0).toFixed(1)} bph</span>
                     <span>
-                        <button class="btn btn-xs btn-primary"
-                                onclick="hubDoAssign(${w.id}, ${hubId}, 0)"
+                        <button class="btn btn-xs btn-primary" type="button"
+                                data-hub-action="do-assign" data-well-id="${w.id}" data-hub-id="${hubId}" data-fee="0"
                                 data-acq-type="${esc(hubAcqType)}"
                                 data-acq-lease-fee="${hubLeaseFee}">
                             ${lang().btn_assign_well || lang().btn_assign || 'Przypisz'}
@@ -556,8 +556,8 @@
                         ${acqBreakdown}
                         <small>${feeLabel}${condPenLabel}${penLabel}${condWarn} &nbsp;${slotsLabel}</small>
                     </div>
-                    <button class="btn btn-sm btn-primary"
-                            onclick="hubDoAssign(${wellId}, ${h.id}, ${fee})"
+                    <button class="btn btn-sm btn-primary" type="button"
+                            data-hub-action="do-assign" data-well-id="${wellId}" data-hub-id="${h.id}" data-fee="${fee}"
                             data-cond-warn="${esc(condWarn ? (condPct <= 20 ? 'critical' : 'low') : '')}"
                             data-acq-type="${esc(acqType)}"
                             data-acq-lease-fee="${leaseFee}"
@@ -575,10 +575,10 @@
                 html += `<div class="logistics-pagination-info">${currentPage} / ${totalPages} (${total})</div>`;
                 html += `<div class="logistics-pagination-buttons">`;
                 if (currentPage > 1) {
-                    html += `<button class="btn btn-xs btn-secondary" onclick="hubAssignModal(${wellId}, ${currentPage - 1})"> ${lang().pagination_prev || 'Poprzednia'}</button>`;
+                    html += `<button class="btn btn-xs btn-secondary" type="button" data-hub-action="assign-page" data-well-id="${wellId}" data-page="${currentPage - 1}"> ${lang().pagination_prev || 'Poprzednia'}</button>`;
                 }
                 if (currentPage < totalPages) {
-                    html += `<button class="btn btn-xs btn-secondary" onclick="hubAssignModal(${wellId}, ${currentPage + 1})">${lang().pagination_next || 'Nastpna'} </button>`;
+                    html += `<button class="btn btn-xs btn-secondary" type="button" data-hub-action="assign-page" data-well-id="${wellId}" data-page="${currentPage + 1}">${lang().pagination_next || 'Nastpna'} </button>`;
                 }
                 html += `</div></div>`;
             }
@@ -590,9 +590,7 @@
         }
     };
 
-    window.hubDoAssign = async function (wellId, hubId, fee = 0) {
-        const btn = document.querySelector(`[onclick*="hubDoAssign(${wellId}, ${hubId},"]`) ||
-                    document.querySelector(`[onclick*="hubDoAssign(${wellId}, ${hubId})"]`);
+    window.hubDoAssign = async function (wellId, hubId, fee = 0, btn = null) {
         const condWarnType = btn ? btn.dataset.condWarn    : '';
         const acqType      = btn ? (btn.dataset.acqType    || 'new') : 'new';
         const leaseFee     = btn ? parseFloat(btn.dataset.acqLeaseFee  || 0) : 0;
@@ -723,8 +721,8 @@
                         ${tBreakdown}
                         <small>${feeLabel}${condPenLabel}${penLabel}${condWarn} &nbsp;${slotsLabel}</small>
                     </div>
-                    <button class="btn btn-sm btn-primary"
-                            onclick="hubDoTransfer(${wellId}, ${h.id})"
+                    <button class="btn btn-sm btn-primary" type="button"
+                            data-hub-action="do-transfer" data-well-id="${wellId}" data-hub-id="${h.id}"
                             data-acq-type="${esc(tAcqType)}"
                             data-acq-lease-fee="${tLease}"
                             data-acq-access-fee="${parseFloat(entry.acq_access_fee || 0)}"
@@ -741,8 +739,7 @@
         }
     };
 
-    window.hubDoTransfer = async function (wellId, newHubId) {
-        const btn       = document.querySelector(`[onclick*="hubDoTransfer(${wellId}, ${newHubId})"]`);
+    window.hubDoTransfer = async function (wellId, newHubId, btn = null) {
         const acqType   = btn ? (btn.dataset.acqType    || 'new') : 'new';
         const leaseFee  = btn ? parseFloat(btn.dataset.acqLeaseFee  || 0) : 0;
         const accessFee = btn ? parseFloat(btn.dataset.acqAccessFee || 0) : 0;
@@ -894,6 +891,86 @@
             if (btn) btn.disabled = false;
         }
     };
+
+    // Route hub controls through delegated events instead of inline handlers.
+    // Kieruj kontrolki hubow przez delegowane zdarzenia zamiast handlerow inline.
+    document.addEventListener('click', function (event) {
+        const closeButton = event.target.closest('[data-hub-modal-close]');
+        if (closeButton) {
+            closeHubModal(closeButton.dataset.hubModalClose || '');
+            return;
+        }
+
+        const overlay = event.target.closest('[data-hub-modal]');
+        if (overlay && event.target === overlay) {
+            closeHubModal(overlay.id);
+            return;
+        }
+
+        const button = event.target.closest('[data-hub-action]');
+        if (!button || button.disabled) {
+            return;
+        }
+
+        const action = button.dataset.hubAction || '';
+        const hubId = Number(button.dataset.hubId || 0);
+        const wellId = Number(button.dataset.wellId || 0);
+        switch (action) {
+            case 'buy-new':
+                window.hubBuyNewModal();
+                break;
+            case 'buy-used':
+                window.hubBuyUsed(hubId);
+                break;
+            case 'rent':
+                window.hubRent(hubId);
+                break;
+            case 'assign-well':
+                window.hubAssignWellToHubModal(hubId);
+                break;
+            case 'staffing':
+                if (typeof window.hubStaffingModal === 'function') {
+                    window.hubStaffingModal(hubId);
+                }
+                break;
+            case 'wells':
+                window.hubWellsModal(hubId);
+                break;
+            case 'upgrade':
+                window.hubUpgrade(hubId);
+                break;
+            case 'assign':
+                window.hubAssignModal(wellId);
+                break;
+            case 'detach':
+                window.hubDetachWell(wellId, hubId);
+                break;
+            case 'transfer-modal':
+                window.hubTransferModal(wellId, hubId);
+                break;
+            case 'do-assign':
+                window.hubDoAssign(wellId, hubId, Number(button.dataset.fee || 0), button);
+                break;
+            case 'assign-page':
+                window.hubAssignModal(wellId, Number(button.dataset.page || 1));
+                break;
+            case 'do-transfer':
+                window.hubDoTransfer(wellId, hubId, button);
+                break;
+        }
+    });
+
+    document.addEventListener('change', function (event) {
+        const radio = event.target.closest('[data-hub-buy-type]');
+        if (radio) {
+            window.hubBuyNewTypeChange(radio);
+        }
+    });
+
+    const buyForm = document.getElementById('hub-buy-new-form');
+    if (buyForm) {
+        buyForm.addEventListener('submit', window.hubBuyNewSubmit);
+    }
 
     // Available hubs browser.
 

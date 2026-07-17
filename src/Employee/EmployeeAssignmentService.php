@@ -126,6 +126,11 @@ final class EmployeeAssignmentService
         return $stmt->rowCount() === 1;
     }
 
+    public function releaseHub(int $assignmentId, int $playerId): bool
+    {
+        return $this->releaseForTarget($assignmentId, $playerId, self::TARGET_HUB);
+    }
+
     public function releaseEmployeeAssignments(EmployeeRef $ref): int
     {
         $ref = $this->employees->canonicalRef($ref);
@@ -244,6 +249,26 @@ final class EmployeeAssignmentService
         ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function releaseForTarget(int $assignmentId, int $playerId, string $targetType): bool
+    {
+        $assignmentId = $this->positiveId($assignmentId, 'Assignment identifier must be positive.');
+        $playerId = $this->positiveId($playerId, 'Player identifier must be positive.');
+        $targetType = $this->normalizeTargetType($targetType);
+        $stmt = $this->db->prepare(
+            "UPDATE employee_assignments
+                SET status = 'released',
+                    released_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+                AND player_id = ?
+                AND target_type = ?
+                AND status = 'active'"
+        );
+        $stmt->execute([$assignmentId, $playerId, $targetType]);
+
+        return $stmt->rowCount() === 1;
     }
 
     /** @return array<string, mixed> */

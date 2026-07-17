@@ -1,5 +1,32 @@
 ## Changelog
 
+### 2026-07-17 - Logistyka: JavaScript wyodrebniony z widokow PHP
+
+- Usunieto wykonywalne bloki JavaScript oraz atrybuty `onclick`, `onchange` i `onsubmit` z aktywnych widokow `templates/views/logistics/`.
+- Logika konfiguracji, optymalizatora, rurociagow, licznikow czasu, obslugi hubow i obsady zostala rozdzielona na zewnetrzne pliki w `assets/js/`.
+- Widok przekazuje dane klienta przez bezpieczny, niewykonywalny blok JSON `application/json`; kod JavaScript odczytuje konfiguracje z jednego miejsca.
+- Usunieto statyczne style inline z widokow logistyki i przeniesiono je do `assets/css/logistics.css`.
+- Delegacja zdarzen obsluguje dynamicznie renderowane przyciski hubow bez generowania kodu JavaScript w HTML.
+
+### 2026-07-16 - Logistyka: ratyfikacja widoku `main.php`
+
+- `templates/views/logistics/main.php` zostal sprowadzony do roli cienkiego composera widoku; render sklada sie teraz z partiali `sections/`, `modals/`, `scripts/` i `partials/`.
+- Aktywny widok logistyki nie ma juz pliku 2500+ linii; nowe partiale zostaly rozciete po naturalnych granicach sekcji i wszystkie aktywne pliki widoku mieszcza sie ponizej limitu 500 linii.
+- Stara kopia `templates/views/logistics/main.bak.php` zostala wyniesiona do `backups/logistics/`, zeby backup nie siedzial w katalogu aktywnego widoku.
+- Snapshot magazynu (`storage_bbl`, `storagePct`) zostal wyciagniety z widoku do `public/logistics.php`, wiec `flow_section.php` nie wykonuje juz zapytania SQL w HTML.
+- W trakcie ratyfikacji poprawiono zakres akcji `release_hub_staff`: zwolnienie z logistyki zamyka juz tylko przypisania typu `hub`, a nie dowolne aktywne `employee_assignments` tego gracza.
+- Obliczanie obsady wynajetego huba preferuje `tenant_player_id`, gdy hub ma jednoczesnie wlasciciela i najemce. Dzieki temu zaloga najemcy zasila `coverage_pct`, mnozniki przepustowosci oraz ryzyka uzywane w ticku.
+
+### 2026-07-16 - Logistyka: obsada hubów z poziomu karty i modalu
+
+- `public/logistics.php` dostal klasyczny flow PRG dla obsady hubow: przypisanie pracownika, zmiana alokacji i odlaczenie od huba zapisuje flash w sesji, robi redirect na logistyke i waliduje CSRF.
+- Dodano serwis `src/Employee/HubStaffingManagementService.php`, ktory buduje dane obsady per hub dla widoku, scala kandydatow z aktywnymi przypisaniami i opakowuje akcje `assign/release` na bazie `EmployeeAssignmentService`.
+- `templates/views/logistics/main.php` pokazuje teraz na kazdej karcie huba pasek pokrycia obsady, sredni skill, srednie morale, brakujace role oraz skrot aktualnej zalogi.
+- Dodano modal `Zarzadzaj obsada`, ktory pozwala z poziomu logistyki przypisywac pracownikow do huba, aktualizowac procent alokacji i odlaczac przypisania bez przechodzenia do innych dzialow.
+- Nowy plik `assets/js/logistics_staffing.js` renderuje modal po stronie klienta z danych `window.HUB_STAFFING_CONFIG`, obsluguje confirmAction i pokazuje komunikaty flash bez inline JS.
+- `lang/pl/logistics.php` i `lang/en/logistics.php` dostaly komplet kluczy dla obsady hubow, w tym komunikaty sukcesu, bledow, etykiety statusow i teksty modalu.
+- Dodano test integracyjny `tests/Integration/HubStaffingManagementServiceTest.php` oraz walidacje regresyjne dla przypisania, aktualizacji i zwolnienia obsady huba.
+
 ### 2026-07-13 - Finanse: admin i komornik bez bezposredniego cash UPDATE
 
 - `admin/gm_tools.php` przy zbiorczej korekcie gotowki zmienia saldo przez `FinancialTransactionService`, a nie przez surowe `UPDATE players.cash`.

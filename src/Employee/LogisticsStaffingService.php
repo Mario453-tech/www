@@ -184,8 +184,13 @@ final class LogisticsStaffingService
      */
     private function controllingPlayerId(array $hub): int
     {
+        $tenantPlayerId = (int)($hub['tenant_player_id'] ?? 0);
+        if ($tenantPlayerId > 0) {
+            return $tenantPlayerId;
+        }
+
         $ownerPlayerId = (int)($hub['player_id'] ?? 0);
-        return $ownerPlayerId > 0 ? $ownerPlayerId : (int)($hub['tenant_player_id'] ?? 0);
+        return $ownerPlayerId > 0 ? $ownerPlayerId : 0;
     }
 
     /** @return array<string, array<string, mixed>> */

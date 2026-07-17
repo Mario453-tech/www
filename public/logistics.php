@@ -7,6 +7,8 @@ $playerId = Auth::getUserId();
 BoardAccess::require($playerId, 'logistics');
 $db       = Database::getInstance()->getConnection();
 $_pageStart = GameLog::pageStart('public/logistics.php');
+$staffingFlash = $_SESSION['logistics_staffing_flash'] ?? [];
+unset($_SESSION['logistics_staffing_flash']);
 
 // Regions where local works are blocked until the player gets a permit.
 $lockedRegionSet = [];
@@ -50,6 +52,66 @@ $logisticsSvc = new LogisticsService($playerId);
 $hubSvc       = new HubService($db);
 $econSvc      = new HubEconomyService($hubSvc);
 $viewSvc      = new HubViewService($db, $hubSvc, $econSvc);
+$hubStaffingMgmt = new HubStaffingManagementService($db);
+
+$logisticsRedirect = static function (string $anchor = 'logistics-hubs-heading'): void {
+    $location = function_exists('url') ? url('logistics') : '/logistics';
+    header('Location: ' . $location . '#' . $anchor);
+    exit;
+};
+
+$logisticsStaffingError = static function (Throwable $e): string {
+    return match ($e->getMessage()) {
+        'Employee assignment is busy.' => t('logistics.hub.staffing.err_busy'),
+        'Employee does not belong to this player.' => t('logistics.hub.staffing.err_employee_owner'),
+        'Employee is not active.' => t('logistics.hub.staffing.err_employee_inactive'),
+        'Employee relation status blocks assignment.' => t('logistics.hub.staffing.err_relation_blocked'),
+        'Hub does not belong to this player.' => t('logistics.hub.staffing.err_hub_owner'),
+        'Hub is not available for staffing.' => t('logistics.hub.staffing.err_hub_unavailable'),
+        'Employee assignment allocation exceeds 100%.' => t('logistics.hub.staffing.err_allocation'),
+        default => t('logistics.hub.staffing.err_generic'),
+    };
+};
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['logistics_staffing_flash'] = ['error' => t('common.csrf_error')];
+        $logisticsRedirect();
+    }
+
+    $staffingAction = (string)($_POST['action'] ?? '');
+    if (in_array($staffingAction, ['assign_hub_staff', 'release_hub_staff'], true)) {
+        try {
+            if ($staffingAction === 'assign_hub_staff') {
+                $result = $hubStaffingMgmt->assignToHub(
+                    $playerId,
+                    (string)($_POST['source_type'] ?? ''),
+                    (int)($_POST['source_id'] ?? 0),
+                    (int)($_POST['hub_id'] ?? 0),
+                    (float)($_POST['allocation_pct'] ?? 0)
+                );
+                $_SESSION['logistics_staffing_flash'] = [
+                    'success' => $result['was_update']
+                        ? t('logistics.hub.staffing.ok_update')
+                        : t('logistics.hub.staffing.ok_assign'),
+                ];
+            } else {
+                $released = $hubStaffingMgmt->releaseFromHub($playerId, (int)($_POST['assignment_id'] ?? 0));
+                $_SESSION['logistics_staffing_flash'] = $released
+                    ? ['success' => t('logistics.hub.staffing.ok_release')]
+                    : ['error' => t('logistics.hub.staffing.err_release')];
+            }
+        } catch (Throwable $e) {
+            GameLog::error('logistics', 'Hub staffing action failed', $e, [
+                'player_id' => $playerId,
+                'action' => $staffingAction,
+            ]);
+            $_SESSION['logistics_staffing_flash'] = ['error' => $logisticsStaffingError($e)];
+        }
+
+        $logisticsRedirect();
+    }
+}
 
 $summary = $logisticsSvc->getCurrentSummary();
 $wells   = $summary['wells'] ?? [];
@@ -85,6 +147,21 @@ $efficiency       = ($totalTransported + $totalLoss) > 0
 $lossPct          = ($totalTransported + $totalLoss) > 0
     ? round($totalLoss / ($totalTransported + $totalLoss) * 100, 1)
     : 0.0;
+$storagePct       = 0;
+$storageBbl       = 0.0;
+
+try {
+    $storageStmt = $db->prepare('SELECT storage_bbl, storage_capacity FROM players WHERE id = ? LIMIT 1');
+    $storageStmt->execute([$playerId]);
+    $storageRow = $storageStmt->fetch(PDO::FETCH_ASSOC);
+    if (is_array($storageRow)) {
+        $storageBbl = (float)($storageRow['storage_bbl'] ?? 0.0);
+        $storageCapacity = (float)($storageRow['storage_capacity'] ?? 0.0);
+        $storagePct = $storageCapacity > 0.0 ? (int)round(($storageBbl / $storageCapacity) * 100.0) : 0;
+    }
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'Storage snapshot load failed', $e, ['player_id' => $playerId]);
+}
 
 $alerts = [];
 if ($totalLoss > 0) {
@@ -98,6 +175,7 @@ $hubCards          = [];
 $hubAlerts         = [];
 $hubUnassigned     = [];
 $hubIncidents      = [];
+$hubStaffingViewByHub = [];
 $playerHubRegions  = [];
 $hubTypeOptions    = [];
 $hubAvailByRegion  = [];
@@ -189,6 +267,15 @@ try {
     }
 } catch (Throwable $e) {
     GameLog::error('logistics', 'Hub data load failed', $e, ['player' => $playerId]);
+}
+
+if ($hubCards !== []) {
+    try {
+        $hubStaffingViewByHub = $hubStaffingMgmt->buildHubStaffingView($playerId, $hubCards);
+    } catch (Throwable $e) {
+        GameLog::error('logistics', 'Hub staffing view build failed', $e, ['player' => $playerId]);
+        $hubStaffingViewByHub = [];
+    }
 }
 
 try {
@@ -673,6 +760,7 @@ $viewData = compact(
     'alerts',
     'hubAvailByRegion',
     'hubCards',
+    'hubStaffingViewByHub',
     'hubAlerts',
     'hubUnassigned',
     'hubIncidents',
@@ -699,7 +787,10 @@ $viewData = compact(
     'marineBuffers',
     'marineMinLoadBbl',
     'marineHistory',
-    'marineInTransitBbl'
+    'marineInTransitBbl',
+    'storageBbl',
+    'storagePct',
+    'staffingFlash'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
@@ -707,7 +798,16 @@ $pageTitle      = t('logistics.page_title') . ' - OilCorp';
 $gameShellTitle = t('logistics.page_title');
 $gameShellView  = __DIR__ . '/../templates/views/logistics/main.php';
 $extraCss       = ['/assets/css/logistics.css', '/assets/css/protection.css'];
-$extraJs        = ['/assets/js/logistics_hubs.js', '/assets/js/protection.js'];
+$extraJs        = [
+    '/assets/js/logistics_config.js',
+    '/assets/js/logistics_ui.js',
+    '/assets/js/logistics_hubs.js',
+    '/assets/js/logistics_staffing.js',
+    '/assets/js/logistics_optimizer.js',
+    '/assets/js/logistics_pipeline.js',
+    '/assets/js/protection.js',
+    '/assets/js/logistics_countdowns.js',
+];
 $extraHead      = '<meta name="csrf-token" content="' . htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8') . '">';
 
 require_once __DIR__ . '/../templates/header.php';
