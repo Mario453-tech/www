@@ -55,8 +55,8 @@ final class MySqlEmployeeStateServiceTest extends MySqlIntegrationTestCase
     {
         EmployeeSystemBootstrap::ensure($this->db);
         $playerId = $this->seedPlayer();
-        $boardMemberId = $this->seedBoardLogisticsMember($playerId, 'hub_operator', 'Anna', 'Nowak');
-        $staffId = $this->seedNamedTechnicalStaff($playerId, $this->getTrackedIds()['staffId'], 'hub_operator', 'Operator huba', 'Anna', 'Nowak', $boardMemberId);
+        $boardMemberId = $this->seedBoardLogisticsMember($playerId, 'pipeline_logistics_specialist', 'Anna', 'Nowak');
+        $staffId = $this->seedNamedTechnicalStaff($playerId, $this->getTrackedIds()['staffId'], 'pipeline_logistics_specialist', 'Specjalista logistyki rurociągów', 'Anna', 'Nowak', $boardMemberId);
 
         $repository = new EmployeeRepository($this->db);
         $service = new EmployeeStateService($this->db, $repository);
@@ -86,7 +86,7 @@ final class MySqlEmployeeStateServiceTest extends MySqlIntegrationTestCase
     {
         EmployeeSystemBootstrap::ensure($this->db);
         $playerId = $this->seedPlayer();
-        $boardMemberId = $this->seedBoardLogisticsMember($playerId, 'hub_operator', 'Anna', 'Nowak');
+        $boardMemberId = $this->seedBoardLogisticsMember($playerId, 'transport_dispatcher', 'Anna', 'Nowak');
         $staffId = $this->seedTechnicalStaff($playerId, $this->getTrackedIds()['staffId'], 'pipeline_logistics_specialist', 'Specjalista logistyki rurociągów', 7, 9700);
         $this->db->prepare(
             "INSERT INTO employee_source_links (player_id, board_member_id, technical_staff_id, link_type, created_at)
