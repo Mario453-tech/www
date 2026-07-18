@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-18 - CI: świeża baza MySQL i stabilizacja testów pracowników
+
+- `tests/ci-schema.sql` seeduje teraz podstawowe role zarządu (`hr`, `technical`, `finance`, `legal`, `logistics`), żeby świeża baza CI miała te same słowniki, których wymagają negocjacje bankowe i moduły pracowników.
+- `EmployeeStateService` dostał fallback zakresu oczekiwanej pensji dla starszych pracowników bez wpisu w `hr_specializations`; morale i zadowolenie płacowe nie blokują się już na wartości 100% tylko dlatego, że brakuje zakresu w słowniku.
+- Test rurociągu wymuszający eksplozję używa teraz wartości mieszczącej się w schemacie `well_pipelines.incident_risk_mult`, bez zmiany celu regresji.
+- Dodano `tools/repair_encoding.php`: bezpieczny audyt i opcjonalną naprawę UTF-8/BOM/mojibake z backupami w `backups/encoding/`.
+- Weryfikacja na świeżej bazie `oil_ci_repro`: trening 27/27, `MySqlIntegration` 224/224, `Unit+Integration` 774/774.
+
 ### 2026-07-17 - Logistyka: JavaScript wyodrebniony z widokow PHP
 
 - Usunieto wykonywalne bloki JavaScript oraz atrybuty `onclick`, `onchange` i `onsubmit` z aktywnych widokow `templates/views/logistics/`.

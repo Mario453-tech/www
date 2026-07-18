@@ -457,6 +457,13 @@ CREATE TABLE `board_roles` (
 -- Dumping data for table `board_roles`
 --
 
+INSERT INTO `board_roles` (`id`, `code`, `name`, `description`, `icon`, `sort_order`, `avatar_path`, `is_required`, `is_active`, `created_at`) VALUES
+(1, 'hr', 'HR', 'Human resources department', '', 10, '', 1, 1, '2026-01-01 00:00:00'),
+(2, 'technical', 'Technical', 'Technical department', '', 20, '', 1, 1, '2026-01-01 00:00:00'),
+(3, 'finance', 'Finance', 'Finance department', '', 30, '', 1, 1, '2026-01-01 00:00:00'),
+(4, 'legal', 'Legal', 'Legal department', '', 40, '', 1, 1, '2026-01-01 00:00:00'),
+(5, 'logistics', 'Logistics', 'Logistics department', '', 50, '', 1, 1, '2026-01-01 00:00:00');
+
 
 -- --------------------------------------------------------
 

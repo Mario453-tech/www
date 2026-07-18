@@ -213,7 +213,7 @@ final class MySqlPipelineSectionTest extends MySqlIntegrationTestCase
             "UPDATE well_pipelines
                 SET condition_pct = 10.0,
                     degradation_rate_per_hour = 0.0,
-                    incident_risk_mult = 100000.0,
+                    incident_risk_mult = 9999.0,
                     status = 'active'
               WHERE player_id = ? AND well_id = ?"
         )->execute([$playerId, $ids['wellId']]);

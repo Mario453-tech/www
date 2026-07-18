@@ -543,7 +543,7 @@ final class EmployeeStateService
         $minimum = isset($employee['salary_range_min']) ? (float)$employee['salary_range_min'] : 0.0;
         $maximum = isset($employee['salary_range_max']) ? (float)$employee['salary_range_max'] : 0.0;
         if ($minimum <= 0.0 || $maximum < $minimum) {
-            return round($currentSalary, 2);
+            [$minimum, $maximum] = $this->fallbackSalaryRange($employee, $currentSalary);
         }
 
         $employeeSkills = (array)$employee['skills'];
@@ -561,6 +561,26 @@ final class EmployeeStateService
         $expected = (($minimum + $maximum) / 2.0) * $skillFactor * $experienceFactor;
 
         return round(max($minimum * 0.8, min($maximum * 1.25, $expected)), 2);
+    }
+
+    /**
+     * Legacy technical roles can miss hr_specializations salary ranges on fresh or older schemas.
+     * Starsze role techniczne moga nie miec zakresow pensji w hr_specializations na swiezych albo starszych schematach.
+     *
+     * @param array<string, mixed> $employee
+     * @return array{0:float,1:float}
+     */
+    private function fallbackSalaryRange(array $employee, float $currentSalary): array
+    {
+        if ($currentSalary <= 0.0) {
+            $currentSalary = $employee['source_type'] === EmployeeRef::SOURCE_TECHNICAL_STAFF ? 9000.0 : 10000.0;
+        }
+
+        $floor = $employee['source_type'] === EmployeeRef::SOURCE_TECHNICAL_STAFF ? 6000.0 : 8000.0;
+        $minimum = max($floor, $currentSalary * 0.9);
+        $maximum = max($minimum + 1000.0, $currentSalary * 1.35);
+
+        return [round($minimum, 2), round($maximum, 2)];
     }
 
     private function salarySatisfaction(float $salary, float $expectedSalary): float
