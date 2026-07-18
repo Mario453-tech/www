@@ -198,7 +198,15 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
             )
         ");
         $this->db->exec("
-            CREATE TABLE hr_specializations (id INTEGER PRIMARY KEY, code TEXT, name TEXT)
+            CREATE TABLE hr_specializations (
+                id INTEGER PRIMARY KEY,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                department TEXT NOT NULL,
+                rarity TEXT NOT NULL DEFAULT 'common',
+                base_salary_min REAL NULL,
+                base_salary_max REAL NULL
+            )
         ");
         $this->db->exec("
             CREATE TABLE industrial_disasters (
@@ -237,6 +245,15 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         $this->setPrivateProperty($svc, TechnicalTeamService::class, 'db', $db);
         $this->setPrivateProperty($svc, TechnicalTeamService::class, 'playerId', $playerId);
         return $svc;
+    }
+
+    private function seedTechnicalSpecialization(string $code, string $name): void
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO hr_specializations (code, name, department, rarity, base_salary_min, base_salary_max)
+             VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$code, $name, 'technical', 'common', 6000, 13000]);
     }
 
     /** @return IncidentService */
@@ -450,7 +467,7 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
     public function testHireEngineerUsesOwnTxPatternNoNestedTransaction(): void
     {
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 10000000)");
-        $this->db->exec("INSERT INTO staff_specializations (code, name) VALUES ('maintenance_engineer', 'Inzynier Utrzymania Ruchu')");
+        $this->seedTechnicalSpecialization('maintenance_engineer', 'Inżynier Utrzymania Ruchu');
 
         $this->db->beginTransaction(); // zewnetrzna transakcja / outer transaction
 
@@ -473,7 +490,7 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
     public function testHireEngineerRefusesWithInsufficientFunds(): void
     {
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 100)"); // mniej niz salary / less than salary
-        $this->db->exec("INSERT INTO staff_specializations (code, name) VALUES ('maintenance_engineer', 'Inzynier')");
+        $this->seedTechnicalSpecialization('maintenance_engineer', 'Inżynier');
 
         $svc    = $this->makeService(1);
         $result = $svc->hireEngineer('maintenance_engineer', 'Jan', 'Kowalski', 5, 5000, 0);
@@ -486,7 +503,7 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
     public function testHireEngineerRecordsFinancialTransaction(): void
     {
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 100000)");
-        $this->db->exec("INSERT INTO staff_specializations (code, name) VALUES ('maintenance_engineer', 'Inzynier')");
+        $this->seedTechnicalSpecialization('maintenance_engineer', 'Inżynier');
 
         $svc = $this->makeService(1);
         $result = $svc->hireEngineer('maintenance_engineer', 'Jan', 'Kowalski', 5, 5000, 0);

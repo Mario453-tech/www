@@ -227,7 +227,7 @@ trait TTSRecruitmentTrait
 
     public function getOutstandingRecruitmentCount(string $specCode): int
     {
-        if (!self::getSpecDefinition($specCode)) {
+        if (!self::getSpecDefinition($specCode, $this->db)) {
             return 0;
         }
 
@@ -321,7 +321,7 @@ trait TTSRecruitmentTrait
 
     public function requestRecruitment(string $specCode, string $regionCode = 'PL', string $recruitmentType = 'local'): array
     {
-        $spec = self::getSpecDefinition($specCode);
+        $spec = self::getSpecDefinition($specCode, $this->db);
         if (!$spec) {
             return ['success' => false, 'message' => t('technical.recruitment_msg.unknown_spec')];
         }

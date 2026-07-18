@@ -7,7 +7,7 @@
 trait TTSCatalogTrait
 {
     /** @return array<string, array<string, mixed>> */
-    public static function getSpecsCatalog(): array
+    public static function getSpecsCatalog(?PDO $connection = null): array
     {
         $defaults = self::SPECS;
         foreach ($defaults as $code => $spec) {
@@ -16,7 +16,7 @@ trait TTSCatalogTrait
         }
 
         try {
-            $db = Database::getInstance()->getConnection();
+            $db = $connection ?? Database::getInstance()->getConnection();
             $stmt = $db->prepare(
                 "SELECT code, name, base_salary_min, base_salary_max
                    FROM hr_specializations
@@ -59,9 +59,9 @@ trait TTSCatalogTrait
     }
 
     /** @return array<string, mixed>|null */
-    public static function getSpecDefinition(string $code): ?array
+    public static function getSpecDefinition(string $code, ?PDO $connection = null): ?array
     {
-        $specs = self::getSpecsCatalog();
+        $specs = self::getSpecsCatalog($connection);
         return $specs[$code] ?? null;
     }
 

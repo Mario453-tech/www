@@ -94,7 +94,7 @@ trait TTSStaffTrait
         int $salary,
         int $managerId
     ): array {
-        $spec = self::getSpecDefinition($specCode);
+        $spec = self::getSpecDefinition($specCode, $this->db);
         if (!$spec) {
             return ['success' => false, 'message' => t('technical.staff_msg.unknown_spec')];
         }

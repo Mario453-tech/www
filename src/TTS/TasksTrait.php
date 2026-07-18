@@ -59,7 +59,7 @@ trait TTSTasksTrait
         if (!$taskDef) return ['success' => false, 'message' => t('technical.task_msg.task_unknown')];
 
         if (!in_array($staff['spec_code'], $taskDef['assignable'])) {
-            $allowed = implode(', ', array_map(fn($s) => (self::getSpecDefinition($s)['name'] ?? $s), $taskDef['assignable']));
+            $allowed = implode(', ', array_map(fn($s) => (self::getSpecDefinition($s, $this->db)['name'] ?? $s), $taskDef['assignable']));
             return ['success' => false, 'message' => t('technical.task_msg.task_wrong_specialist', [
                 'allowed' => $allowed,
                 'spec' => $staff['spec_name'],
