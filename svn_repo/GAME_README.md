@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-07-18 - Operator huba: jedna techniczna ścieżka rekrutacji
+
+- `hub_operator` jest wyłącznie stanowiskiem technicznym w `hr_specializations` z `department=technical`; bootstrap nie tworzy go już automatycznie jako pracownika logistyki.
+- Administrator zarządza stanowiskiem, widełkami pensji i rzadkością w `admin/hr.php`. Po skonfigurowaniu stanowisko pojawia się w rekrutacji działu technicznego.
+- Katalog stanowisk rekrutacyjnych został wydzielony do `src/TTS/CatalogTrait.php`; `TechnicalTeamService.php` pozostaje poniżej limitu 500 linii.
+- Modal obsady huba pokazuje wyłącznie zatrudnionych pracowników technicznych z `technical_staff.spec_code=hub_operator`. Stare rekordy `board_members` i zwykli pracownicy innych specjalizacji nie mogą być przypisani ani liczeni do pokrycia.
+- Bonus operatora działa tylko na hub, do którego pracownik jest przypisany, i jest skalowany alokacją. Usunięto globalne naliczanie bonusu operatora wszystkim hubom gracza.
+- Pola bonusów perków technicznych są podłączone do działania gry: produkcja i redukcja katastrofy obsługują operatora oraz technika, szybkość napraw skraca zadania naprawy i konserwacji, a redukcja powrotu incydentu ogranicza wzrost ryzyka po awarii.
+- Dodano ręczną migrację `sql/manual/2026-07-18_hub_operator_technical_migration.sql`, która usuwa starą ścieżkę operatora z zarządu, zachowuje poprawnych technicznych operatorów i konfiguruje stanowisko do rekrutacji.
+
 ### 2026-07-18 - Logistyka: diagnostyka i konfiguracja obsady hubów
 
 - Panel administracyjny logistyki pokazuje teraz pokrycie obsady hubów, średnie pokrycie, liczbę hubów z pełną, częściową i brakującą obsadą oraz listę obiektów wymagających uwagi.
@@ -863,7 +873,7 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 ### 2026-07-15 - Pracownicy: Etap 3, role i efekty logistyczne
 
 - `EmployeeSystemBootstrap` tworzy teraz `employee_role_effects` idempotentnie dla MySQL i SQLite.
-- Bootstrap seeduje brakujące specjalizacje logistyczne: `hub_operator`, `transport_dispatcher`, `warehouse_coordinator`, `pipeline_logistics_specialist`, `b2b_delivery_coordinator`, `terminal_operator`, `oil_flow_analyst`.
+- Bootstrap seeduje brakujące specjalizacje logistyczne: `transport_dispatcher`, `warehouse_coordinator`, `pipeline_logistics_specialist`, `b2b_delivery_coordinator`, `terminal_operator`, `oil_flow_analyst`. Stanowisko techniczne `hub_operator` jest zarządzane ręcznie przez administratora.
 - Bootstrap seeduje bazowe efekty dla scope: `hub`, `road_transport`, `warehouse`, `pipeline`, `b2b`, `port`, `department`.
 - Teksty seedów widoczne dla gracza nie są hardkodowane w PHP. Nazwy i opisy są pobierane z `lang/pl/hr.php`, a bootstrap trzyma tylko kody i klucze tłumaczeń.
 - Dodano `EmployeeRoleEffectService` z metodami `getEffectsForSpecialization()`, `calculateEffects()`, `calculatePlayerEffects()`, `saveEffect()`, `deleteEffect()` oraz `getLogisticsManagerBonus()`.

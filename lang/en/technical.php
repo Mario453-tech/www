@@ -179,6 +179,7 @@ return [
     'technical.spec_desc.pipeline_engineer' => 'Pipeline control, throughput, and transport losses',
     'technical.spec_desc.safety_engineer' => 'Technical safety, audits, and risk reduction',
     'technical.spec_desc.safety_officer' => 'Safety and environmental management (HSE)',
+    'technical.spec_desc.configured' => 'Technical position: :name.',
     'technical.no_wells' => 'No wells. Buy a well on the <a href=":url" class="link-gold">Map</a>.',
     'technical.well_num' => 'Well #:id',
     'technical.well_type_onshore' => 'Onshore',

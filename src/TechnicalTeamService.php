@@ -19,6 +19,7 @@
  * NotificationsTrait.php countUnreadNotifications, getUnreadNotifications, markRead, notify
  * RecruitmentTrait.php getTechnicalCandidates, reviewCandidate, completeRecruitment,
  * getActiveRecruitment, requestRecruitment, formatTime, fmt
+ * CatalogTrait.php getSpecsCatalog, getSpecDefinition
  */
 
 require_once __DIR__ . '/TTS/ManagerTrait.php';
@@ -27,6 +28,7 @@ require_once __DIR__ . '/TTS/StaffTrait.php';
 require_once __DIR__ . '/TTS/TasksTrait.php';
 require_once __DIR__ . '/TTS/NotificationsTrait.php';
 require_once __DIR__ . '/TTS/RecruitmentTrait.php';
+require_once __DIR__ . '/TTS/CatalogTrait.php';
 
 class TechnicalTeamService
 {
@@ -36,6 +38,7 @@ class TechnicalTeamService
     use TTSTasksTrait;
     use TTSNotificationsTrait;
     use TTSRecruitmentTrait;
+    use TTSCatalogTrait;
 
     private PDO $db;
     private int $playerId;
@@ -90,6 +93,13 @@ class TechnicalTeamService
             'tasks'     => ['safety_audit'],
             'salary_range' => [6000, 12000],
             'description_key' => 'technical.spec_desc.safety_officer',
+        ],
+        'hub_operator'         => [
+            'name_key'  => 'hr.spec.hub_operator',
+            'icon'      => 'HUB',
+            'tasks'     => [],
+            'salary_range' => [8200, 11500],
+            'description_key' => 'hr.spec_desc.hub_operator',
         ],
     ];
 
@@ -265,22 +275,6 @@ class TechnicalTeamService
         'water_injection'  => ['label_key' => 'technical.module.water_injection',  'cost' => 3_000_000, 'effect_key' => 'technical.module_effect.water_injection'],
         'pressure_booster' => ['label_key' => 'technical.module.pressure_booster', 'cost' => 2_500_000, 'effect_key' => 'technical.module_effect.pressure_booster'],
     ];
-
-    public static function getSpecsCatalog(): array
-    {
-        $specs = self::SPECS;
-        foreach ($specs as $code => $spec) {
-            $specs[$code]['name'] = t($spec['name_key']);
-            $specs[$code]['description'] = t($spec['description_key']);
-        }
-        return $specs;
-    }
-
-    public static function getSpecDefinition(string $code): ?array
-    {
-        $specs = self::getSpecsCatalog();
-        return $specs[$code] ?? null;
-    }
 
     public static function getTasksCatalog(): array
     {

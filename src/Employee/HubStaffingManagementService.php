@@ -4,6 +4,7 @@ declare(strict_types=1);
 final class HubStaffingManagementService
 {
     private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
+    private const HUB_OPERATOR_CODE = 'hub_operator';
 
     private readonly EmployeeAssignmentService $assignments;
     private readonly EmployeeRepository $employees;
@@ -58,6 +59,7 @@ final class HubStaffingManagementService
         $employeePool = $this->employeePool($playerId);
         $stateMap = $this->stateMap($playerId);
         $allocationMap = $this->allocationMap($playerId);
+        $operatorConfigured = $this->isHubOperatorConfigured();
 
         $result = [];
         foreach ($hubRows as $hubId => $hub) {
@@ -143,6 +145,7 @@ final class HubStaffingManagementService
                 'active_assignments' => $activeAssignmentRows,
                 'candidates' => $candidateRows,
                 'assignment_count' => count($activeAssignmentRows),
+                'operator_configured' => $operatorConfigured,
             ];
         }
 
@@ -153,6 +156,11 @@ final class HubStaffingManagementService
     public function assignToHub(int $playerId, string $sourceType, int $sourceId, int $hubId, float $allocationPct): array
     {
         $ref = new EmployeeRef($sourceType, $sourceId, $playerId);
+        $canonicalRef = $this->employees->canonicalRef($ref);
+        $employee = $this->employees->find($canonicalRef) ?? $this->employees->find($ref);
+        if ($employee === null || !$this->isHubOperator($employee)) {
+            throw new RuntimeException(t('logistics.hub.staffing.err_operator_required'));
+        }
         $existing = $this->findAssignmentForHub($playerId, $ref, $hubId);
         $result = $this->assignments->assignToHub($ref, $hubId, $allocationPct);
 
@@ -173,6 +181,9 @@ final class HubStaffingManagementService
     {
         $pool = [];
         foreach ($this->employees->listForPlayer($playerId, null, false) as $employee) {
+            if (!$this->isHubOperator($employee)) {
+                continue;
+            }
             $canonicalKey = $this->canonicalEmployeeKey($playerId, $employee);
             $current = $pool[$canonicalKey] ?? null;
             if ($current === null || (string)$employee['source_type'] === EmployeeRef::SOURCE_TECHNICAL_STAFF) {
@@ -184,6 +195,26 @@ final class HubStaffingManagementService
         }
 
         return $pool;
+    }
+
+    private function isHubOperatorConfigured(): bool
+    {
+        $stmt = $this->db->prepare(
+            "SELECT 1
+               FROM hr_specializations
+              WHERE code = ?
+                AND department = 'technical'
+              LIMIT 1"
+        );
+        $stmt->execute([self::HUB_OPERATOR_CODE]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
+    /** @param array<string, mixed> $employee */
+    private function isHubOperator(array $employee): bool
+    {
+        return (string)($employee['role_code'] ?? '') === self::HUB_OPERATOR_CODE;
     }
 
     /** @return array<string, array<string, mixed>> */
@@ -270,7 +301,10 @@ final class HubStaffingManagementService
         return round(max(1.0, min(10.0, ($organization * 0.45) + ($analysis * 0.35) + ($stress * 0.20))), 2);
     }
 
-    /** @param array<string, mixed> $hub */
+    /**
+     * @param array<string, mixed> $hub
+     * @return array<string, mixed>
+     */
     private function emptyHubSummary(int $hubId, array $hub): array
     {
         $playerId = (int)($hub['tenant_player_id'] ?? 0);

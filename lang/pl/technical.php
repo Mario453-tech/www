@@ -183,6 +183,7 @@ return [
     'technical.spec_desc.pipeline_engineer' => 'Kontrola rurociągów, przepustowość i straty transportowe',
     'technical.spec_desc.safety_engineer' => 'Bezpieczeństwo techniczne, audyty i redukcja ryzyka',
     'technical.spec_desc.safety_officer' => 'Zarządzanie bezpieczeństwem i środowiskiem (HSE)',
+    'technical.spec_desc.configured' => 'Stanowisko techniczne: :name.',
     'technical.no_wells' => 'Brak odwiertów. Kup odwiert w <a href=":url" class="link-gold">Mapie</a>.',
     'technical.well_num' => 'Odwiert #:id',
     'technical.well_type_onshore' => 'Lądowy',

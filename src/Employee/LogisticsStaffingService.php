@@ -4,6 +4,7 @@ declare(strict_types=1);
 final class LogisticsStaffingService
 {
     private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
+    private const HUB_OPERATOR_CODE = 'hub_operator';
     private const REQUIRED_STAFF_DEFAULTS = [
         'small' => 0,
         'medium' => 0,
@@ -14,6 +15,7 @@ final class LogisticsStaffingService
     private readonly EmployeeAssignmentService $assignments;
     private readonly EmployeeRepository $employees;
     private readonly EmployeeStateService $states;
+    private readonly EmployeeRoleEffectService $roleEffects;
     private bool $runtimeEnabled;
     /** @var array{small:int,medium:int,large:int} */
     private array $requiredStaffByType;
@@ -23,13 +25,15 @@ final class LogisticsStaffingService
         ?EmployeeAssignmentService $assignments = null,
         ?EmployeeRepository $employees = null,
         ?EmployeeStateService $states = null,
-        ?bool $runtimeEnabled = null
+        ?bool $runtimeEnabled = null,
+        ?EmployeeRoleEffectService $roleEffects = null
     ) {
         EmployeeSystemBootstrap::ensure($db);
         $this->db = $db;
         $this->employees = $employees ?? new EmployeeRepository($db);
         $this->states = $states ?? new EmployeeStateService($db, $this->employees);
         $this->assignments = $assignments ?? new EmployeeAssignmentService($db, $this->employees, $this->states);
+        $this->roleEffects = $roleEffects ?? new EmployeeRoleEffectService($db, $this->employees, $this->states);
         $this->runtimeEnabled = $runtimeEnabled ?? $this->loadRuntimeEnabled();
         $this->requiredStaffByType = $this->loadRequiredStaffByType();
     }
@@ -78,13 +82,15 @@ final class LogisticsStaffingService
             $assignmentsByHub = $this->assignments->listForHubs((int)$playerId, array_keys($playerHubs));
             $employeeMap = $this->employeeMap((int)$playerId);
             $stateMap = $this->stateMap((int)$playerId);
+            $effectMap = $this->hubOperatorEffectMap((int)$playerId);
 
             foreach ($playerHubs as $hubId => $hub) {
                 $result[(int)$hubId] = $this->calculateHubStaffing(
                     $hub,
                     $assignmentsByHub[(int)$hubId] ?? [],
                     $employeeMap,
-                    $stateMap
+                    $stateMap,
+                    $effectMap
                 );
             }
         }
@@ -97,13 +103,15 @@ final class LogisticsStaffingService
      * @param list<array<string, mixed>> $rows
      * @param array<string, array<string, mixed>> $employeeMap
      * @param array<string, array<string, mixed>> $stateMap
+     * @param array<string, float> $effectMap
      * @return array<string, mixed>
      */
     private function calculateHubStaffing(
         array $hub,
         array $rows,
         array $employeeMap,
-        array $stateMap
+        array $stateMap,
+        array $effectMap
     ): array {
         $hubId = (int)$hub['id'];
         $ownerPlayerId = (int)($hub['player_id'] ?? 0);
@@ -115,11 +123,15 @@ final class LogisticsStaffingService
         $skillWeighted = 0.0;
         $moraleWeighted = 0.0;
         $hasHubOperator = false;
+        $operatorThroughputPct = 0.0;
 
         foreach ($rows as $row) {
             $employeeKey = (string)$row['source_type'] . ':' . (int)$row['source_id'];
             $employee = $employeeMap[$employeeKey] ?? null;
             if ($employee === null || (string)($employee['status'] ?? '') !== 'active') {
+                continue;
+            }
+            if (!$this->isHubOperator($employee)) {
                 continue;
             }
             $state = $stateMap[$employeeKey] ?? [
@@ -139,7 +151,8 @@ final class LogisticsStaffingService
             $allocationUnits += $allocation;
             $skillWeighted += $skill * $allocation;
             $moraleWeighted += $morale * $allocation;
-            $hasHubOperator = $hasHubOperator || (string)($employee['specialization_code'] ?? '') === 'hub_operator';
+            $hasHubOperator = true;
+            $operatorThroughputPct += (float)($effectMap[$employeeKey] ?? 0.0) * $allocation;
             $activeRows[] = [
                 'assignment_id' => (int)$row['id'],
                 'source_type' => (string)$row['source_type'],
@@ -148,6 +161,7 @@ final class LogisticsStaffingService
                 'skill' => $skill,
                 'morale' => $morale,
                 'specialization_code' => $employee['specialization_code'] ?? null,
+                'role_code' => $employee['role_code'] ?? null,
             ];
         }
 
@@ -159,7 +173,8 @@ final class LogisticsStaffingService
         $base = $this->multipliersForCoverage($coveragePct);
         $qualityFactor = $this->qualityFactor($avgSkill, $avgMorale, $coveragePct);
 
-        $throughputMult = round(max(0.35, min(1.15, $base['throughput_mult'] * $qualityFactor)), 4);
+        $throughputMult = max(0.35, min(1.15, $base['throughput_mult'] * $qualityFactor));
+        $throughputMult = round(max(0.35, min(1.25, $throughputMult * (1.0 + ($operatorThroughputPct / 100.0)))), 4);
         $incidentRiskMult = round(max(0.60, min(2.50, $base['incident_risk_mult'] / max(0.75, $qualityFactor))), 4);
         $maintenanceCostMult = round(max(0.80, min(1.50, $base['maintenance_cost_mult'] / max(0.85, $qualityFactor))), 4);
 
@@ -177,6 +192,7 @@ final class LogisticsStaffingService
             'throughput_mult' => $throughputMult,
             'incident_risk_mult' => $incidentRiskMult,
             'maintenance_cost_mult' => $maintenanceCostMult,
+            'operator_throughput_bonus_pct' => round($operatorThroughputPct, 4),
             'runtime_effects' => [
                 'hub_throughput_pct' => round(($throughputMult - 1.0) * 100.0, 4),
             ],
@@ -210,6 +226,32 @@ final class LogisticsStaffingService
             $map[$key] = $employee;
         }
         return $map;
+    }
+
+    /** @return array<string, float> */
+    private function hubOperatorEffectMap(int $playerId): array
+    {
+        $map = [];
+        foreach ($this->roleEffects->calculatePlayerEffects($playerId, [self::HUB_OPERATOR_CODE => ['hub']]) as $result) {
+            $employee = is_array($result['employee'] ?? null) ? $result['employee'] : [];
+            $sourceType = (string)($employee['source_type'] ?? '');
+            $sourceId = (int)($employee['source_id'] ?? 0);
+            if ($sourceType === '' || $sourceId <= 0) {
+                continue;
+            }
+
+            $map[$sourceType . ':' . $sourceId] = (float)(
+                $result['effects']['hub_throughput_pct']['final_value'] ?? 0.0
+            );
+        }
+
+        return $map;
+    }
+
+    /** @param array<string, mixed> $employee */
+    private function isHubOperator(array $employee): bool
+    {
+        return (string)($employee['role_code'] ?? '') === self::HUB_OPERATOR_CODE;
     }
 
     /** @return array<string, array<string, mixed>> */

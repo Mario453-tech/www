@@ -6,15 +6,6 @@ final class EmployeeSystemBootstrap
     /** @var list<array{code:string,name_key:string,department:string,rarity:string,salary_min:float,salary_max:float,description_key:string}> */
     private const HR_SPECIALIZATION_SEED = [
         [
-            'code' => 'hub_operator',
-            'name_key' => 'hr.spec.hub_operator',
-            'department' => 'logistics',
-            'rarity' => 'common',
-            'salary_min' => 8200.0,
-            'salary_max' => 11500.0,
-            'description_key' => 'hr.spec_desc.hub_operator',
-        ],
-        [
             'code' => 'transport_dispatcher',
             'name_key' => 'hr.spec.transport_dispatcher',
             'department' => 'logistics',

@@ -231,7 +231,16 @@
             });
             html += '</div>';
         } else {
-            html += '<div class="logistics-hub-staffing-empty">' + esc(text('empty')) + '</div>';
+            if (hubData.operator_configured === false) {
+                html += '<div class="logistics-hub-staffing-empty">' + esc(text('operator_not_configured')) + '</div>';
+            } else {
+                html += '<div class="logistics-hub-staffing-empty">' +
+                    '<p>' + esc(text('empty')) + '</p>' +
+                    '<a class="btn btn-sm btn-primary" href="' + esc(text('recruit_url')) + '">' +
+                        esc(text('recruit_operator')) +
+                    '</a>' +
+                '</div>';
+            }
         }
         html += '</section>';
 

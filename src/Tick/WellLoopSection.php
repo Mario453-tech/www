@@ -818,7 +818,6 @@ class WellLoopSection
             }
 
             $calculatedEmployees = $this->employeeRoleEffectSvc->calculatePlayerEffects($playerId, [
-                'hub_operator' => ['hub', 'pipeline'],
                 'pipeline_logistics_specialist' => ['hub', 'pipeline'],
             ]);
             foreach ($calculatedEmployees as $calculated) {

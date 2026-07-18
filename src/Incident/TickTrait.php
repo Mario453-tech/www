@@ -248,6 +248,8 @@ trait IncidentTickTrait
             if ($level !== 'micro') {
                 $boostMap  = ['minor' => 1.0, 'medium' => 6.0, 'major' => 15.0];
                 $spiralAdd = (float) ($boostMap[$level] ?? 0.0);
+                $returnReduction = max(0.0, min(1.0, (float)($staffData['perk_incident_return_reduction'] ?? 0.0)));
+                $spiralAdd *= 1.0 - $returnReduction;
                 try {
                     // Filtruj po player_id — izolacja gracza przy UPDATE wells spirali (Rule 1).
                     // Filter by player_id — player isolation on spiral UPDATE wells (Rule 1).

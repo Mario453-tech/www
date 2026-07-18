@@ -150,7 +150,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
     private function createSchema(): void
     {
         $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL NOT NULL DEFAULT 0, bank_balance REAL NOT NULL DEFAULT 0, safety_procedures_level INTEGER DEFAULT 0, procedure_integrity REAL DEFAULT 100, procedures_last_decay_at TEXT NULL)');
-        $this->db->exec('CREATE TABLE technical_staff (id INTEGER PRIMARY KEY, player_id INTEGER, first_name TEXT, last_name TEXT, spec_code TEXT, spec_name TEXT, skill_level INTEGER, salary REAL DEFAULT 0, status TEXT, fired_at TEXT NULL)');
+        $this->db->exec('CREATE TABLE technical_staff (id INTEGER PRIMARY KEY, player_id INTEGER, first_name TEXT, last_name TEXT, spec_code TEXT, specialization TEXT NULL, spec_name TEXT, skill_level INTEGER, salary REAL DEFAULT 0, status TEXT, fired_at TEXT NULL)');
         $this->db->exec('CREATE TABLE technical_tasks (id INTEGER PRIMARY KEY, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, title TEXT, module_type TEXT NULL, start_time TEXT NULL, end_time TEXT NULL, duration_hours INTEGER DEFAULT 0, cost REAL DEFAULT 0, status TEXT, result_data TEXT NULL, notified INTEGER DEFAULT 0)');
         $this->db->exec('CREATE TABLE technical_task_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, module_type TEXT NULL, priority INTEGER DEFAULT 0, queued_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE technical_notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, well_id INTEGER NULL, type TEXT, message TEXT, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
@@ -160,7 +160,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT)');
         $this->db->exec('CREATE TABLE board_members (id INTEGER PRIMARY KEY, role_id INTEGER, status TEXT, specialization_id INTEGER NULL, skill_organization INTEGER DEFAULT 5)');
         $this->db->exec('CREATE TABLE hr_specializations (id INTEGER PRIMARY KEY, code TEXT, name TEXT)');
-        $this->db->exec('CREATE TABLE staff_specializations (code TEXT PRIMARY KEY, name TEXT, rarity TEXT, prod_bonus REAL DEFAULT 0, wear_reduction REAL DEFAULT 0, incident_reduction REAL DEFAULT 0, spiral_reduction REAL DEFAULT 0, catastrophe_reduction REAL DEFAULT 0)');
+        $this->db->exec('CREATE TABLE staff_specializations (code TEXT PRIMARY KEY, name TEXT, rarity TEXT, prod_bonus REAL DEFAULT 0, wear_reduction REAL DEFAULT 0, incident_reduction REAL DEFAULT 0, spiral_reduction REAL DEFAULT 0, repair_speed REAL DEFAULT 0, incident_return_reduction REAL DEFAULT 0, catastrophe_reduction REAL DEFAULT 0)');
         $this->db->exec('CREATE TABLE pipelines (id INTEGER PRIMARY KEY, player_id INTEGER, transport_loss REAL DEFAULT 0, condition_pct REAL DEFAULT 100, status TEXT DEFAULT "active", damaged_at TEXT NULL)');
         $this->db->exec('CREATE TABLE industrial_disasters (id INTEGER PRIMARY KEY, player_id INTEGER, well_id INTEGER NULL, disaster_type TEXT, status TEXT, resolved_at TEXT NULL)');
         $this->db->exec('CREATE TABLE failure_log (id INTEGER PRIMARY KEY, player_id INTEGER, well_id INTEGER NULL, failure_type TEXT, resolved INTEGER DEFAULT 0, resolved_at TEXT NULL)');

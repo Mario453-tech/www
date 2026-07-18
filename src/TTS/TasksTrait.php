@@ -189,7 +189,7 @@ trait TTSTasksTrait
         $taskDef = self::getTaskDefinition($taskType);
         $manager = $this->getManager();
         $mBonus  = $this->getManagerBonus($manager);
-        $sBonus  = $this->getStaffBonus($staff);
+        $sBonus  = $this->getStaffBonus($staff, $taskType);
 
         $baseHours = rand($taskDef['hours_min'], $taskDef['hours_max']);
         $hours     = max(1, (int)round($baseHours * $mBonus['time_mult'] * $sBonus['time_mult']));

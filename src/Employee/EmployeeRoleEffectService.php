@@ -171,7 +171,10 @@ final class EmployeeRoleEffectService
             if (isset($selected[$canonicalRef->key()])) {
                 continue;
             }
-            $specializationCode = $this->resolveEffectSpecializationCode($employee);
+            $roleCode = trim((string)($employee['role_code'] ?? ''));
+            $specializationCode = isset($normalizedScopes[$roleCode])
+                ? $roleCode
+                : $this->resolveEffectSpecializationCode($employee);
             if ($specializationCode === null || !isset($normalizedScopes[$specializationCode])) {
                 continue;
             }

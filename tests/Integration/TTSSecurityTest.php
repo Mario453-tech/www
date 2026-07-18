@@ -59,6 +59,7 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
                 last_name   TEXT    NOT NULL DEFAULT 'Test',
                 spec_code   TEXT    NOT NULL,
                 spec_name   TEXT    NOT NULL DEFAULT 'Test',
+                specialization TEXT NULL,
                 skill_level INTEGER NOT NULL DEFAULT 5,
                 salary      REAL    NOT NULL DEFAULT 5000.0,
                 status      TEXT    NOT NULL DEFAULT 'active',
@@ -136,6 +137,8 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
                 wear_reduction   REAL NOT NULL DEFAULT 0.0,
                 incident_reduction REAL NOT NULL DEFAULT 0.0,
                 spiral_reduction REAL NOT NULL DEFAULT 0.0,
+                repair_speed REAL NOT NULL DEFAULT 0.0,
+                incident_return_reduction REAL NOT NULL DEFAULT 0.0,
                 catastrophe_reduction REAL NOT NULL DEFAULT 0.0
             )
         ");
@@ -286,6 +289,16 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         $stmt->execute([$queueId2]);
         $q2Exists = (int)$stmt->fetchColumn();
         $this->assertSame(1, $q2Exists, 'Wpis kolejki gracza 2 nie moze zostac usuniety / Player 2 queue entry must not be deleted');
+    }
+
+    public function testRepairSpeedPerkReducesRepairTaskDurationMultiplier(): void
+    {
+        $service = $this->makeService(1);
+        $base = $service->getStaffBonus(['skill_level' => 5, 'repair_speed' => 0.25], 'safety_audit');
+        $repair = $service->getStaffBonus(['skill_level' => 5, 'repair_speed' => 0.25], 'well_repair');
+
+        $this->assertSame(1.0, $base['time_mult']);
+        $this->assertSame(0.75, $repair['time_mult']);
     }
 
     /**

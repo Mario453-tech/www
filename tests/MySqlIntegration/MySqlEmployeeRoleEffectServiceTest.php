@@ -23,9 +23,9 @@ final class MySqlEmployeeRoleEffectServiceTest extends MySqlIntegrationTestCase
     {
         EmployeeSystemBootstrap::ensure($this->db);
 
-        $specStmt = $this->db->prepare("SELECT COUNT(*) FROM hr_specializations WHERE code IN ('hub_operator','pipeline_logistics_specialist','oil_flow_analyst')");
+        $specStmt = $this->db->prepare("SELECT COUNT(*) FROM hr_specializations WHERE code IN ('pipeline_logistics_specialist','oil_flow_analyst')");
         $specStmt->execute();
-        $this->assertGreaterThanOrEqual(3, (int)$specStmt->fetchColumn());
+        $this->assertGreaterThanOrEqual(2, (int)$specStmt->fetchColumn());
 
         $effectStmt = $this->db->prepare("SELECT COUNT(*) FROM employee_role_effects WHERE specialization_code = 'hub_operator'");
         $effectStmt->execute();
@@ -84,7 +84,7 @@ final class MySqlEmployeeRoleEffectServiceTest extends MySqlIntegrationTestCase
         EmployeeSystemBootstrap::ensure($this->db);
         $playerId = $this->seedPlayer();
         $roleId = $this->ensureLogisticsRole();
-        $specializationId = $this->findSpecializationId('hub_operator');
+        $specializationId = $this->findSpecializationId('pipeline_logistics_specialist');
         $boardMemberId = $this->seed + 42;
         $stmt = $this->db->prepare(
             'INSERT INTO board_members
@@ -99,10 +99,10 @@ final class MySqlEmployeeRoleEffectServiceTest extends MySqlIntegrationTestCase
         $repository = new EmployeeRepository($this->db);
         $stateService = new EmployeeStateService($this->db, $repository);
         $service = new EmployeeRoleEffectService($this->db, $repository, $stateService);
-        $results = $service->calculatePlayerEffects($playerId, ['hub_operator' => 'hub']);
+        $results = $service->calculatePlayerEffects($playerId, ['pipeline_logistics_specialist' => 'pipeline']);
 
         $this->assertCount(1, $results);
-        $this->assertArrayHasKey('hub_throughput_pct', $results[0]['effects']);
+        $this->assertArrayHasKey('pipeline_loss_pct', $results[0]['effects']);
         $stateStmt = $this->db->prepare(
             "SELECT COUNT(*) FROM employee_state
               WHERE player_id = ? AND source_type = 'board_member' AND source_id = ?"

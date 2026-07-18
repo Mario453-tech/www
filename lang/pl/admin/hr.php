@@ -35,6 +35,7 @@ return [
     'admin.hr.empty_stats' => 'Brak danych.',
     'admin.hr.err_spec_duplicate' => 'Specjalizacja o tym kodzie już istnieje.',
     'admin.hr.err_spec_empty' => 'Kod i nazwa są wymagane.',
+    'admin.hr.err_hub_operator_reserved' => 'Kod hub_operator jest zarezerwowany dla stanowiska rekrutacyjnego działu technicznego.',
     'admin.hr.field_catastrophe_reduction' => 'Redukcja katastrofy',
     'admin.hr.field_code' => 'Kod (a-z, cyfry, _)',
     'admin.hr.field_incident_reduction' => 'Redukcja incydentów',

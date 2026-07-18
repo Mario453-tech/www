@@ -14,6 +14,7 @@ $msg = '';
 $err = '';
 $validDepartments = ['hr', 'technical', 'finance', 'legal', 'logistics'];
 $validRarities = ['common', 'uncommon', 'rare', 'very_rare'];
+$hubOperatorCode = 'hub_operator';
 $defaultSalaryByDepartment = [
     'hr' => [8000, 15000],
     'technical' => [8000, 18000],
@@ -22,7 +23,7 @@ $defaultSalaryByDepartment = [
     'logistics' => [4500, 13000],
 ];
 
-// POST: nowa specjalizacja techniczna (staff_specializations) 
+// Add a technical staff perk. / Dodaj perk pracownika technicznego.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -37,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
         if (!in_array($newRarity, $validRarities, true)) {
             $newRarity = 'common';
         }
-        if ($newCode === '' || $newName === '') {
+        if ($newCode === $hubOperatorCode) {
+            $err = t('admin.hr.err_hub_operator_reserved');
+        } elseif ($newCode === '' || $newName === '') {
             $err = t('admin.hr.err_spec_empty');
         } else {
             try {
@@ -49,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
                          incident_return_reduction, catastrophe_reduction)
                     VALUES (?,?,?,?, 0,0,0, 0,0, 0,0)
                 ")->execute([$newCode, $newName, $newRole, $newRarity]);
-                AdminLog::log('hr_spec_add', "Nowa specjalizacja: {$newCode}", null, AdminAuth::getAdminUsername());
+                AdminLog::log('hr_spec_add', "Added technical staff perk: {$newCode}", null, AdminAuth::getAdminUsername());
                 $msg = t('admin.hr.msg_spec_added', ['code' => $newCode]);
             } catch (Throwable $e) {
                 $err = str_contains($e->getMessage(), 'Duplicate') ? t('admin.hr.err_spec_duplicate') : t('common.db_error');
@@ -59,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
     }
 }
 
-// POST: nowa specjalizacja kandydatw (hr_specializations) 
+// Add a recruitable employee position. / Dodaj stanowisko rekrutacyjne pracownika.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_hr_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -68,6 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_hr_spec'])) {
         $newName   = trim($_POST['new_hr_name']   ?? '');
         $newDept   = trim($_POST['new_hr_dept']   ?? '');
         $newRarity = trim($_POST['new_hr_rarity'] ?? 'common');
+        if ($newCode === $hubOperatorCode) {
+            $newDept = 'technical';
+        }
         if (!in_array($newDept, $validDepartments, true)) {
             $newDept = '';
         }
@@ -85,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_hr_spec'])) {
                         (code, name, department, rarity, base_salary_min, base_salary_max)
                     VALUES (?,?,?,?,?,?)
                 ")->execute([$newCode, $newName, $newDept, $newRarity, $salaryMin, $salaryMax]);
-                AdminLog::log('hr_hrspec_add', "Nowa hr_spec: {$newCode}", null, AdminAuth::getAdminUsername());
+                AdminLog::log('hr_hrspec_add', "Added recruitable employee position: {$newCode}", null, AdminAuth::getAdminUsername());
                 $msg = t('admin.hr.msg_hrspec_added', ['code' => $newCode]);
             } catch (Throwable $e) {
                 $err = str_contains($e->getMessage(), 'Duplicate') ? t('admin.hr.err_spec_duplicate') : t('common.db_error');
@@ -95,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_hr_spec'])) {
     }
 }
 
-// POST: usu specjalizacj techniczn 
+// Delete a technical staff perk. / Usun perk pracownika technicznego.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -119,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_spec'])) {
     }
 }
 
-// POST: usu hr_specialization 
+// Delete a recruitable employee position. / Usun stanowisko rekrutacyjne pracownika.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_hr_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -149,14 +155,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_hr_spec'])) {
     }
 }
 
-// POST: edycja specjalizacji technicznej 
+// Edit a technical staff perk. / Edytuj perk pracownika technicznego.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
     } else {
         $code     = trim(preg_replace('/[^a-z0-9_]/', '', $_POST['code'] ?? ''));
         $specName = trim($_POST['spec_name'] ?? '');
-        if ($code === '' || $specName === '') {
+        if ($code === $hubOperatorCode) {
+            $err = t('admin.hr.err_hub_operator_reserved');
+            $tab = 'specializations';
+        } elseif ($code === '' || $specName === '') {
             $err = t('admin.hr.err_spec_empty');
             $tab = 'specializations';
         } else {
@@ -189,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_spec'])) {
                 if ($stmt->rowCount() < 1) {
                     $err = t('admin.hr.err_spec_empty');
                 } else {
-                    AdminLog::log('hr_spec_edit', "Edycja specjalizacji: {$code}", null, AdminAuth::getAdminUsername());
+                    AdminLog::log('hr_spec_edit', "Edited technical staff perk: {$code}", null, AdminAuth::getAdminUsername());
                     $msg = t('admin.hr.msg_spec_saved');
                 }
             } catch (Throwable $e) {
@@ -200,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_spec'])) {
     }
 }
 
-// POST: edycja hr_specializations (kandydaci) 
+// Edit a recruitable employee position. / Edytuj stanowisko rekrutacyjne pracownika.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');
@@ -224,10 +233,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_spec'])) {
                 }
                 $db->prepare("
                     UPDATE hr_specializations
-                    SET name = ?, rarity = ?, department = ?, base_salary_min = ?, base_salary_max = ?
+                    SET name = ?,
+                        rarity = ?,
+                        department = CASE WHEN code = 'hub_operator' THEN 'technical' ELSE ? END,
+                        base_salary_min = ?,
+                        base_salary_max = ?
                     WHERE id = ?
                 ")->execute([$name, $rarity, $dept, $salaryMin, $salaryMax, $id]);
-                AdminLog::log('hr_hrspec_edit', "Edycja hr_specializations id={$id}", null, AdminAuth::getAdminUsername());
+                AdminLog::log('hr_hrspec_edit', "Edited recruitable employee position id={$id}", null, AdminAuth::getAdminUsername());
                 $msg = t('admin.hr.msg_hrspec_saved');
             } catch (Throwable $e) {
                 $err = t('common.db_error');
@@ -237,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_spec'])) {
     }
 }
 
-// POST: usu wygasych kandydatw 
+// Delete expired candidates. / Usun wygaslych kandydatow.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_candidates'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $err = t('common.csrf_error');

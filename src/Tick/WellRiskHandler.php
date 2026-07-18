@@ -174,7 +174,10 @@ class WellRiskHandler
             $perkIncidentReduction = 0.0;
             if ($opPerk   && (float)($opPerk['incident_reduction']   ?? 0) > 0) $perkIncidentReduction += (float)$opPerk['incident_reduction'];
             if ($techPerk && (float)($techPerk['incident_reduction'] ?? 0) > 0) $perkIncidentReduction += (float)$techPerk['incident_reduction'];
-            $perkCatRed = $techPerk ? (float)($techPerk['catastrophe_reduction'] ?? 0.0) : 0.0;
+            $perkCatRed = (float)($opPerk['catastrophe_reduction'] ?? 0.0)
+                + (float)($techPerk['catastrophe_reduction'] ?? 0.0);
+            $incidentReturnReduction = (float)($opPerk['incident_return_reduction'] ?? 0.0)
+                + (float)($techPerk['incident_return_reduction'] ?? 0.0);
 
             $incidentStaffData = [
                 'operator_skill'            => $operatorId   ? ($opRow['skill_level']   ?? null) : null,
@@ -184,6 +187,7 @@ class WellRiskHandler
                 'wear_mult'                 => $mults['wearDegMult'],
                 'perk_incident_reduction'   => $perkIncidentReduction,
                 'perk_catastrophe_reduction'=> $perkCatRed,
+                'perk_incident_return_reduction' => max(0.0, min(1.0, $incidentReturnReduction)),
                 'transport_incident_mult'   => $transportIncidentMult
  * $this->ctx->gBalanceMults['incident']
  * (float)($this->ctx->financeLogisticsMods['incident_mult'] ?? 1.0)

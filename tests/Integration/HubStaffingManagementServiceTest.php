@@ -28,7 +28,7 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
     {
         $assignments = new EmployeeAssignmentService($this->db);
         $assignments->assignToHub(
-            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
             100,
             60.0
         );
@@ -40,9 +40,10 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
         $this->assertArrayHasKey(100, $view);
         $this->assertSame(1, $view[100]['assignment_count']);
         $this->assertNotEmpty($view[100]['active_assignments']);
-        $this->assertSame('Anna Nowak', $view[100]['active_assignments'][0]['full_name']);
+        $this->assertSame('Jan Operator', $view[100]['active_assignments'][0]['full_name']);
         $this->assertNotEmpty($view[100]['candidates']);
-        $this->assertSame('Anna Nowak', $view[100]['candidates'][0]['full_name']);
+        $this->assertSame('Jan Operator', $view[100]['candidates'][0]['full_name']);
+        $this->assertNotContains('Anna Nowak', array_column($view[100]['candidates'], 'full_name'));
         $this->assertGreaterThan(0, $view[100]['summary']['coverage_pct']);
     }
 
@@ -53,7 +54,7 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
 
         $assignments = new EmployeeAssignmentService($this->db);
         $assignments->assignToHub(
-            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
             101,
             100.0
         );
@@ -70,8 +71,8 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
 
     public function testAssignToHubMarksUpdateWhenAssignmentAlreadyExists(): void
     {
-        $resultA = $this->service->assignToHub(1, EmployeeRef::SOURCE_BOARD_MEMBER, 10, 100, 50.0);
-        $resultB = $this->service->assignToHub(1, EmployeeRef::SOURCE_BOARD_MEMBER, 10, 100, 75.0);
+        $resultA = $this->service->assignToHub(1, EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 100, 50.0);
+        $resultB = $this->service->assignToHub(1, EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 100, 75.0);
 
         $this->assertFalse($resultA['was_update']);
         $this->assertTrue($resultB['was_update']);
@@ -83,7 +84,7 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
 
     public function testReleaseFromHubClosesAssignment(): void
     {
-        $result = $this->service->assignToHub(1, EmployeeRef::SOURCE_BOARD_MEMBER, 10, 100, 50.0);
+        $result = $this->service->assignToHub(1, EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 100, 50.0);
 
         $this->assertTrue($this->service->releaseFromHub(1, (int)$result['assignment_id']));
         $this->assertSame([], (new EmployeeAssignmentService($this->db))->listForHub(1, 100));
@@ -102,6 +103,20 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('active', $stmt->fetchColumn());
     }
 
+    public function testNonOperatorIsNotListedAndCannotBeAssignedToHub(): void
+    {
+        $view = $this->service->buildHubStaffingView(1, [
+            ['hub' => $this->hubRow(100)],
+        ]);
+
+        $candidateNames = array_column($view[100]['candidates'], 'full_name');
+        $this->assertNotContains('Anna Nowak', $candidateNames);
+        $this->assertNotContains('Adam Finance', $candidateNames);
+
+        $this->expectException(RuntimeException::class);
+        $this->service->assignToHub(1, EmployeeRef::SOURCE_BOARD_MEMBER, 12, 100, 100.0);
+    }
+
     private function createSourceSchema(): void
     {
         $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT NOT NULL)');
@@ -109,6 +124,7 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
             id INTEGER PRIMARY KEY,
             code TEXT NOT NULL,
             name TEXT NOT NULL,
+            department TEXT NOT NULL DEFAULT "technical",
             base_salary_min REAL NOT NULL,
             base_salary_max REAL NOT NULL
         )');
@@ -142,10 +158,10 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
             spec_code TEXT NOT NULL,
             specialization TEXT NULL,
             spec_name TEXT NOT NULL,
-            experience_years INTEGER NOT NULL,
-            skill_level INTEGER NOT NULL,
-            salary REAL NOT NULL,
-            status TEXT NOT NULL,
+            experience_years INTEGER NOT NULL DEFAULT 0,
+            skill_level INTEGER NOT NULL DEFAULT 5,
+            salary REAL NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'active',
             hired_at TEXT NULL
         )");
         $this->db->exec("CREATE TABLE logistics_hubs (
@@ -163,14 +179,22 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
     {
         $this->db->exec("INSERT INTO board_roles (id, code) VALUES (1, 'logistics')");
         $this->db->exec("INSERT INTO hr_specializations (id, code, name, base_salary_min, base_salary_max)
-            VALUES (1, 'hub_operator', 'Hub Operator', 8000, 12000)");
+            VALUES
+            (1, 'hub_operator', 'Hub Operator', 8000, 12000),
+            (2, 'accountant', 'Accountant', 8000, 12000)");
         $this->db->exec("INSERT INTO board_members
             (id, player_id, member_type, role_id, specialization_id, first_name, last_name,
              experience_years, skill_organization, skill_negotiation, skill_analysis, skill_stress,
              skill_ethics, trait_loyalty, trait_corruption_risk, trait_ambition, salary, status, hired_at)
             VALUES
             (10, 1, 'staff', 1, 1, 'Anna', 'Nowak', 5, 8, 7, 8, 6, 8, 9, 2, 7, 9000, 'active', '2026-01-01 10:00:00'),
-            (11, 1, 'staff', 1, 1, 'Ewa', 'Inactive', 5, 8, 7, 8, 6, 8, 9, 2, 7, 9000, 'fired', '2026-01-01 10:00:00')");
+            (11, 1, 'staff', 1, 1, 'Ewa', 'Inactive', 5, 8, 7, 8, 6, 8, 9, 2, 7, 9000, 'fired', '2026-01-01 10:00:00'),
+            (12, 1, 'staff', 1, 2, 'Adam', 'Finance', 5, 8, 7, 8, 6, 8, 9, 2, 7, 9000, 'active', '2026-01-01 10:00:00')");
+        $this->db->exec("INSERT INTO technical_staff
+            (id, player_id, manager_id, first_name, last_name, spec_code, specialization, spec_name,
+             experience_years, skill_level, salary, status, hired_at)
+            VALUES
+            (20, 1, 0, 'Jan', 'Operator', 'hub_operator', NULL, 'Hub Operator', 5, 8, 9500, 'active', '2026-01-01 10:00:00')");
         $this->db->exec("INSERT INTO logistics_hubs (id, player_id, tenant_player_id, name, hub_type, slot_limit, status)
             VALUES
             (100, 1, 0, 'Hub A', 'medium', 4, 'active')");

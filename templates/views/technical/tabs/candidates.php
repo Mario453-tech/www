@@ -46,7 +46,7 @@
 
     <div class="specs-need-grid">
     <?php foreach ($specRecruitmentCards as $card): ?>
-    <div class="spec-need-card <?= $card['card_class'] ?>">
+    <div class="spec-need-card <?= $card['card_class'] ?>" id="technical-recruitment-<?= htmlspecialchars($card['spec_code'], ENT_QUOTES, 'UTF-8') ?>">
         <div class="spec-need-icon"><?= htmlspecialchars($card['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
         <div class="spec-need-name"><?= htmlspecialchars($card['name'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
         <div class="spec-need-count">

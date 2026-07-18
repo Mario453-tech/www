@@ -187,7 +187,7 @@ class WellStatusHandler
             $opRow = $this->ctx->staffCache[$operatorId] ?? null;
             if ($opRow === null) {
  // Fallback SELECT jesli brak w cache (nowo zatrudniony?) / Fallback SELECT if not in cache (hired this tick?)
-                $opStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? AND ts.player_id = ? LIMIT 1");
+                $opStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? AND ts.player_id = ? LIMIT 1");
                 $opStmt->execute([$operatorId, $playerId]);
                 $opRow = $opStmt->fetch() ?: null;
                 if ($opRow) $this->ctx->staffCache[$operatorId] = $opRow;
@@ -200,7 +200,7 @@ class WellStatusHandler
         if ($technicianId) {
             $techRow = $this->ctx->staffCache[$technicianId] ?? null;
             if ($techRow === null) {
-                $techStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? AND ts.player_id = ? LIMIT 1");
+                $techStmt = $this->ctx->db->prepare("SELECT ts.skill_level, ts.specialization, ss.prod_bonus, ss.wear_reduction, ss.incident_reduction, ss.spiral_reduction, ss.only_deep_layers, ss.repair_speed, ss.incident_return_reduction, ss.catastrophe_reduction FROM technical_staff ts LEFT JOIN staff_specializations ss ON ss.code = ts.specialization WHERE ts.id = ? AND ts.player_id = ? LIMIT 1");
                 $techStmt->execute([$technicianId, $playerId]);
                 $techRow = $techStmt->fetch() ?: null;
                 if ($techRow) $this->ctx->staffCache[$technicianId] = $techRow;
@@ -267,9 +267,15 @@ class WellStatusHandler
  // Perki operatora i technika / Operator and technician perks
         $opEfficiencyMult = $operatorId ? (0.80 + ($opSkill - 1) * (0.30 / 9)) : 1.0;
         $opProdPerkMult   = 1.0;
-        if ($opPerk && ($opPerk['specialization'] ?? '') === 'drilling_specialist') {
+        foreach ([$opPerk, $techPerk] as $productionPerk) {
+            if (!$productionPerk || (float)($productionPerk['prod_bonus'] ?? 0.0) <= 0.0) {
+                continue;
+            }
             $activeLayerCode = $well['active_layer_code'] ?? 'shallow';
-            if (in_array($activeLayerCode, ['deep','ultra'])) $opProdPerkMult = 1.0 + (float)($opPerk['prod_bonus'] ?? 0.075);
+            $onlyDeepLayers = (int)($productionPerk['only_deep_layers'] ?? 0) === 1;
+            if (!$onlyDeepLayers || in_array($activeLayerCode, ['deep', 'ultra'], true)) {
+                $opProdPerkMult *= 1.0 + (float)$productionPerk['prod_bonus'];
+            }
         }
 
         $perkWearMult = 1.0;
@@ -283,6 +289,7 @@ class WellStatusHandler
         $spiralMultEffective  = 1.0 + ($spiralBoostEffective / 100.0);
 
         $perkCatastropheReduction = 0.0;
+        if ($opPerk && (float)($opPerk['catastrophe_reduction'] ?? 0) > 0) $perkCatastropheReduction += (float)$opPerk['catastrophe_reduction'];
         if ($techPerk && (float)($techPerk['catastrophe_reduction'] ?? 0) > 0) $perkCatastropheReduction += (float)$techPerk['catastrophe_reduction'];
         $techSpecCatMult = max(0.3, 1.0 - $perkCatastropheReduction);
 

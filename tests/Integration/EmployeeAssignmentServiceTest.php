@@ -45,7 +45,7 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->expectExceptionMessage('Hub does not belong to this player.');
 
         $this->service->assignToHub(
-            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
             200,
             50.0
         );
@@ -138,7 +138,7 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(['hub_operator'], $empty['missing_roles']);
 
         $this->service->assignToHub(
-            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
             100,
             50.0
         );
@@ -146,9 +146,13 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(25.0, $partial['coverage_pct']);
         $this->assertLessThan(1.0, $partial['throughput_mult']);
         $this->assertSame([], $partial['missing_roles']);
+        $this->assertGreaterThan(0.0, $partial['operator_throughput_bonus_pct']);
+
+        $unassigned = $staffing->hubStaffing($this->hubRow(101));
+        $this->assertSame(0.0, $unassigned['operator_throughput_bonus_pct']);
 
         $this->service->assignToHub(
-            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 21, 1),
             100,
             100.0
         );
@@ -164,7 +168,7 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
     {
         $this->db->exec("INSERT INTO well_config (`key`, `value`) VALUES ('employee_hub_staff_required_medium', '4')");
         $this->service->assignToHub(
-            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
             100,
             100.0
         );
@@ -191,6 +195,7 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
             id INTEGER PRIMARY KEY,
             code TEXT NOT NULL,
             name TEXT NOT NULL,
+            department TEXT NOT NULL DEFAULT "technical",
             base_salary_min REAL NOT NULL,
             base_salary_max REAL NOT NULL
         )');
@@ -261,7 +266,8 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
             (id, player_id, manager_id, first_name, last_name, spec_code, specialization, spec_name,
              experience_years, skill_level, salary, status, hired_at)
             VALUES
-            (20, 1, 0, 'Jan', 'Tech', 'maintenance_engineer', NULL, 'Maintenance Engineer', 4, 7, 9500, 'active', '2026-01-01 10:00:00')");
+            (20, 1, 0, 'Jan', 'Tech', 'hub_operator', NULL, 'Hub Operator', 4, 7, 9500, 'active', '2026-01-01 10:00:00'),
+            (21, 1, 0, 'Piotr', 'Operator', 'hub_operator', NULL, 'Hub Operator', 4, 8, 9800, 'active', '2026-01-01 10:00:00')");
         $this->db->exec("INSERT INTO logistics_hubs (id, player_id, tenant_player_id, name, hub_type, slot_limit, status)
             VALUES
             (100, 1, 0, 'Hub A', 'medium', 4, 'active'),

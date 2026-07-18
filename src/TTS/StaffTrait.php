@@ -47,14 +47,17 @@ trait TTSStaffTrait
     public function getStaffMember(int $staffId): ?array
     {
         $stmt = $this->db->prepare("
-            SELECT * FROM technical_staff WHERE id = ? AND player_id = ?
+            SELECT ts.*, ss.repair_speed
+              FROM technical_staff ts
+         LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
+             WHERE ts.id = ? AND ts.player_id = ?
         ");
         $stmt->execute([$staffId, $this->playerId]);
         return $stmt->fetch() ?: null;
     }
 
  // Staff task bonus / Bonus pracownika do zadania
-    public function getStaffBonus(array $staff): array
+    public function getStaffBonus(array $staff, ?string $taskType = null): array
     {
         $skill = (int)$staff['skill_level'];
         // skill>=6 gets speed bonus (~2.5% each step above 5); skill<=4 gets penalty.
@@ -62,6 +65,10 @@ trait TTSStaffTrait
         $timeMult = $skill >= 6
             ? max(0.5, 1.0 - (($skill - 5) * 0.025))
             : ($skill <= 4 ? 1.0 + ((5 - $skill) * 0.025) : 1.0);
+        if ($taskType !== null && (str_contains($taskType, 'repair') || str_contains($taskType, 'maintenance'))) {
+            $repairSpeed = max(0.0, min(0.9, (float)($staff['repair_speed'] ?? 0.0)));
+            $timeMult *= 1.0 - $repairSpeed;
+        }
         // Monotonically decreasing error risk: skill=1->8, 2->6, 3->4, 4->2, 5+->0.
         // Monotonicznie malejace ryzyko bledu: skill=1->8, 2->6, 3->4, 4->2, 5+->0.
         $errorRisk = $skill <= 4 ? max(0, (5 - $skill) * 2) : 0;
