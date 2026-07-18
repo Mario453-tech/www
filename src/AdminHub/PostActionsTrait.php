@@ -190,6 +190,31 @@ trait AdminHubPostActionsTrait
                 $err = !$ok;
                 break;
 
+ // Save hub staffing runtime configuration.
+ // Zapisz konfiguracje runtime obsady hubow.
+            case 'save_staffing_config':
+                $staffingConfig = [
+                    'enabled' => isset($_POST['staffing_enabled']),
+                    'small' => max(1, min(10, (int)($_POST['required_small'] ?? 1))),
+                    'medium' => max(1, min(10, (int)($_POST['required_medium'] ?? 2))),
+                    'large' => max(1, min(10, (int)($_POST['required_large'] ?? 3))),
+                ];
+                try {
+                    $this->saveStaffingConfig($db, $staffingConfig);
+                    AdminLog::log(
+                        'hub_staffing_config_update',
+                        'Hub staffing configuration updated: ' . json_encode($staffingConfig, JSON_UNESCAPED_UNICODE),
+                        null,
+                        'hub_staffing'
+                    );
+                    $msg = t('admin.logistics.staffing_config_saved');
+                } catch (Throwable $e) {
+                    GameLog::error('AdminHub', 'save staffing config FAILED', $e);
+                    $msg = t('admin.logistics.staffing_config_error');
+                    $err = true;
+                }
+                break;
+
             // Zaseeduj rozsadne wartosci domyslne dla hub_type (small/medium/large).
             // Seed sensible default values for hub_type (small/medium/large).
             // Idempotentne: nadpisuje tylko klucze brakujace w DB. Pozostawia recznie wpisane.

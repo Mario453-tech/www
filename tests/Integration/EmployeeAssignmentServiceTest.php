@@ -160,6 +160,30 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->assertArrayHasKey('incident_mult', $full['runtime_incident_mods']);
     }
 
+    public function testHubStaffingUsesConfiguredRequirementForHubType(): void
+    {
+        $this->db->exec("INSERT INTO well_config (`key`, `value`) VALUES ('employee_hub_staff_required_medium', '4')");
+        $this->service->assignToHub(
+            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1),
+            100,
+            100.0
+        );
+
+        $staffing = (new LogisticsStaffingService($this->db))->hubStaffing($this->hubRow(100));
+
+        $this->assertSame(4, $staffing['required_count']);
+        $this->assertSame(25.0, $staffing['coverage_pct']);
+    }
+
+    public function testHubStaffingReadsDecimalRuntimeFlagFromMySqlCompatibleConfig(): void
+    {
+        $this->db->exec("INSERT INTO well_config (`key`, `value`) VALUES ('employee_hub_staffing_enabled', '1.00')");
+
+        $staffing = new LogisticsStaffingService($this->db);
+
+        $this->assertTrue($staffing->isRuntimeEnabled());
+    }
+
     private function createSourceSchema(): void
     {
         $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT NOT NULL)');
@@ -214,6 +238,10 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
             hub_type TEXT NOT NULL DEFAULT 'medium',
             slot_limit INTEGER NOT NULL DEFAULT 4,
             status TEXT NOT NULL DEFAULT 'active'
+        )");
+        $this->db->exec("CREATE TABLE well_config (
+            `key` TEXT PRIMARY KEY,
+            `value` TEXT NOT NULL
         )");
     }
 

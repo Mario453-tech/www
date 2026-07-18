@@ -802,9 +802,12 @@ $extraJs        = [
     '/assets/js/logistics_config.js',
     '/assets/js/logistics_ui.js',
     '/assets/js/logistics_hubs.js',
+    '/assets/js/logistics_hub_wells.js',
+    '/assets/js/logistics_hub_market.js',
     '/assets/js/logistics_staffing.js',
     '/assets/js/logistics_optimizer.js',
     '/assets/js/logistics_pipeline.js',
+    '/assets/js/logistics_hub_browser.js',
     '/assets/js/protection.js',
     '/assets/js/logistics_countdowns.js',
 ];

@@ -47,6 +47,8 @@ $logisticsClientConfig['staffing'] = [
 $logisticsClientConfig['hub'] = [
     'api' => '/src/HubApi.php',
     'csrf_token' => CSRF::generateToken(),
+    'locale' => $currencyLocale,
+    'currency' => $currencyLabel,
     'lang' => [
  // Stan i ladowanie / State and loading
     'loading'        => t('logistics.loading'),
@@ -109,6 +111,9 @@ $logisticsClientConfig['hub'] = [
  // Pagination labels.
     'pagination_prev'=> t('logistics.hub.pagination_prev'),
     'pagination_next'=> t('logistics.hub.pagination_next'),
+    'cooldown_zero' => t('logistics.hub.cooldown_zero'),
+    'cooldown_hours_minutes' => t('logistics.hub.cooldown_hours_minutes', ['hours' => '{hours}', 'minutes' => '{minutes}']),
+    'cooldown_minutes' => t('logistics.hub.cooldown_minutes', ['minutes' => '{minutes}']),
  // Model pozyskania / Acquisition type labels
     'acq_new'        => t('logistics.hub.acquisition_new'),
     'acq_used'       => t('logistics.hub.acquisition_used'),

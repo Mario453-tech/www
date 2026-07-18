@@ -29,6 +29,8 @@
     window.HUB_API = hub.api || '/src/HubApi.php';
     window.HUB_CSRF = hub.csrf_token || '';
     window.HUB_LANG = hub.lang || {};
+    window.HUB_LOCALE = hub.locale || window.LOGISTICS_LOCALE;
+    window.HUB_CURRENCY = hub.currency || window.LOGISTICS_CURRENCY;
     window.HUB_STAFFING_CONFIG = config.staffing || null;
 
     const pipeline = config.pipeline || {};

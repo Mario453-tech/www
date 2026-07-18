@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= t('admin.logistics.title') ?></title>
 <link rel="stylesheet" href="<?= asset('/assets/css/admin.css') ?>">
-<script>window.ADMIN_LOGISTICS_LANG = { seed_confirm: <?= json_encode(t('admin.logistics.seed_confirm')) ?> };</script>
+<script>window.ADMIN_LOGISTICS_LANG = { seed_confirm: <?= json_encode(tPlain('admin.logistics.seed_confirm'), JSON_UNESCAPED_UNICODE) ?> };</script>
 </head>
 <body class="admin-body">
 <div class="admin-container">
@@ -66,6 +66,8 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
     </div>
     <?php endif ?>
 </details>
+
+<?php require __DIR__ . '/sections/staffing_diagnostics.php'; ?>
 
 <!--  Seed masowy  -->
 <div class="seed-box">
@@ -292,17 +294,19 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
     </div>
 
     <!--  Wymus awarie huba (admin)  -->
-    <details class="admin-details" style="border:1px solid #6a2020;border-radius:8px;padding:10px 14px;background:#1e1414;margin-top:16px;">
-        <summary style="color:#e66;"> <?= t('admin.logistics.incident_force_title') ?></summary>
-        <p class="c-muted" style="margin:8px 0 12px;"><?= t('admin.logistics.incident_force_desc') ?></p>
+    <details class="admin-details hub-incident-force">
+        <summary><?= t('admin.logistics.incident_force_title') ?></summary>
+        <p class="c-muted hub-incident-force__description"><?= t('admin.logistics.incident_force_desc') ?></p>
         <form method="POST" class="hub-param-form"
-              onsubmit="return confirm(<?= json_encode(t('admin.logistics.incident_force_confirm')) ?>)">
+              data-confirm="<?= htmlspecialchars(tPlain('admin.logistics.incident_force_confirm'), ENT_QUOTES, 'UTF-8') ?>"
+              data-confirm-title="<?= htmlspecialchars(tPlain('admin.logistics.incident_force_title'), ENT_QUOTES, 'UTF-8') ?>"
+              data-confirm-label="<?= htmlspecialchars(tPlain('admin.logistics.incident_force_submit'), ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action"     value="force_incident">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
             <input type="hidden" name="hub_id"     value="<?= (int)$viewHub['id'] ?>">
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="hub-incident-force__fields">
                 <div>
-                    <label style="display:block;margin-bottom:4px;font-size:.85em;"><?= t('admin.logistics.incident_force_type_label') ?></label>
+                    <label class="hub-incident-force__label"><?= t('admin.logistics.incident_force_type_label') ?></label>
                     <select name="incident_type" class="admin-input admin-select-dark">
                         <?php foreach ([
                             'transfer_failure'  => t('admin.logistics.incident_type_transfer_failure'),
@@ -317,9 +321,8 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;margin-bottom:4px;font-size:.85em;"><?= t('admin.logistics.incident_force_player_label') ?></label>
-                    <input type="number" name="notify_player" value="0" min="0" class="admin-input admin-input-dark"
-                           style="width:100px;" placeholder="0">
+                    <label class="hub-incident-force__label"><?= t('admin.logistics.incident_force_player_label') ?></label>
+                    <input type="number" name="notify_player" value="0" min="0" class="admin-input admin-input-dark hub-incident-force__player" placeholder="0">
                 </div>
                 <button type="submit" class="btn btn-sm btn-danger"> <?= t('admin.logistics.incident_force_submit') ?></button>
             </div>
@@ -427,25 +430,25 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
             <a href="?hub_id=<?= $hubId ?>&status=<?= urlencode($filterStatus) ?>&region_id=<?= $filterRegion ?>&cond=<?= urlencode($filterCond) ?>&page=<?= $page ?>"
                class="btn btn-xs btn-secondary"> <?= t('admin.logistics.btn_detail') ?></a>
 
-            <button type="button" class="btn btn-xs btn-warn"
-                    onclick="hubAdminConfirm('<?= $confirmPause ?>', 'toggle-<?= $hubId ?>')">
-                <?= $isPaused ? '' : '' ?>
-            </button>
-            <form id="toggle-<?= $hubId ?>" method="POST" class="hub-hidden-form">
+            <form method="POST" class="hub-inline-form"
+                  data-confirm="<?= $confirmPause ?>"
+                  data-confirm-title="<?= htmlspecialchars(tPlain('admin.logistics.' . ($isPaused ? 'btn_resume' : 'btn_pause')), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action"     value="toggle_pause">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                 <input type="hidden" name="hub_id"     value="<?= $hubId ?>">
+                <button type="submit" class="btn btn-xs btn-warn">
+                    <?= t('admin.logistics.' . ($isPaused ? 'btn_resume' : 'btn_pause')) ?>
+                </button>
             </form>
 
             <?php if ($condPct < 100): ?>
-            <button type="button" class="btn btn-xs btn-primary"
-                    onclick="hubAdminConfirm('<?= $confirmRepair ?>', 'repair-<?= $hubId ?>')">
-                
-            </button>
-            <form id="repair-<?= $hubId ?>" method="POST" class="hub-hidden-form">
+            <form method="POST" class="hub-inline-form"
+                  data-confirm="<?= $confirmRepair ?>"
+                  data-confirm-title="<?= htmlspecialchars(tPlain('admin.logistics.btn_repair'), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action"     value="repair_hub">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                 <input type="hidden" name="hub_id"     value="<?= $hubId ?>">
+                <button type="submit" class="btn btn-xs btn-primary"><?= t('admin.logistics.btn_repair') ?></button>
             </form>
             <?php endif ?>
         </div>
@@ -488,137 +491,10 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
 
 <?php endif ?>
 
-<!--  Modal potwierdzenia  -->
-<div id="hub-admin-confirm-modal" class="hub-admin-modal-overlay">
-    <div class="hub-admin-modal-box">
-        <div class="hub-admin-modal-icon">?</div>
-        <div id="hub-admin-confirm-text" class="hub-admin-modal-text"></div>
-        <div class="hub-admin-modal-btns">
-            <button class="btn btn-sm btn-primary"   id="hub-admin-confirm-ok"><?= t('admin.logistics.confirm_ok') ?></button>
-            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('hub-admin-confirm-modal').style.display='none'"><?= t('admin.logistics.confirm_cancel') ?></button>
-        </div>
-    </div>
-</div>
-<script>
-function hubAdminConfirm(msg, formId) {
-    var modal  = document.getElementById('hub-admin-confirm-modal');
-    var textEl = document.getElementById('hub-admin-confirm-text');
-    var okBtn  = document.getElementById('hub-admin-confirm-ok');
-    textEl.textContent = msg;
-    modal.style.display = 'flex';
-    okBtn.onclick = function () {
-        modal.style.display = 'none';
-        document.getElementById(formId).submit();
-    };
-}
-document.getElementById('hub-admin-confirm-modal').addEventListener('click', function (e) {
-    if (e.target === this) this.style.display = 'none';
-});
-</script>
-
-<!--  Konfiguracja  -->
-<details id="hub-config-section" class="admin-details">
-<summary>&#9881; <?= t('admin.logistics.cfg_section_title') ?></summary>
-<p class="c-muted"><?= t('admin.logistics.cfg_section_desc') ?></p>
-
-<?php
-$cfgField = fn(string $g, string $k, string $l, string $u = '', string $s = '1', string $n = '')
-    => $hub_admin->renderCfgField($g, $k, $l, (string)$cfgGet($g, $k, ''), $csrf, $u, $s, $n);
-?>
-
-<div class="cfg-section">
-<h4>&#128736; <?= t('admin.logistics.cfg_hub_types_title') ?></h4>
-
-
-
-<form method="post" action="/admin/logistics_hubs.php#hub-config-section"
-      data-confirm="<?= htmlspecialchars(tPlain('admin.logistics.cfg_seed_confirm'), ENT_QUOTES) ?>"
-      data-confirm-title="<?= htmlspecialchars(tPlain('admin.logistics.cfg_seed_btn'), ENT_QUOTES) ?>"
-      data-confirm-label="<?= htmlspecialchars(tPlain('admin.logistics.cfg_seed_btn'), ENT_QUOTES) ?>"
-      style="margin-bottom:12px">
-    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-    <input type="hidden" name="action" value="seed_hub_type_defaults">
-    <button type="submit" class="btn btn-primary"><?= t('admin.logistics.cfg_seed_btn') ?></button>
-    <small class="panel-hint"><?= t('admin.logistics.cfg_seed_hint') ?></small>
-</form>
-
-<div class="cfg-type-cols">
-<?php foreach (['small' => t('admin.logistics.cfg_type_small'), 'medium' => t('admin.logistics.cfg_type_medium'), 'large' => t('admin.logistics.cfg_type_large')] as $type => $label): ?>
-<div class="cfg-type-block">
-<h5><?= $label ?></h5>
-<?php
-$cfgField('hub_type', "{$type}.slot_limit",        t('admin.logistics.cfg_slot_limit'),        'szt',     '1');
-$cfgField('hub_type', "{$type}.nominal_bph",        t('admin.logistics.cfg_nominal_bph'),        'bph',     '10');
-$cfgField('hub_type', "{$type}.buffer_bbl",         t('admin.logistics.cfg_buffer_bbl'),         'bbl',     '10');
-$cfgField('hub_type', "{$type}.opex_per_tick",      t('admin.logistics.cfg_opex_per_tick'),      'PLN',     '100');
-$cfgField('hub_type', "{$type}.build_cost",         t('admin.logistics.cfg_build_cost'),         'PLN',     '1000');
-$cfgField('hub_type', "{$type}.repair_cost_pct",    t('admin.logistics.cfg_repair_cost_pct'),   '% build', '0.01', t('admin.logistics.cfg_repair_cost_note'));
-$cfgField('hub_type', "{$type}.wear_per_tick",      t('admin.logistics.cfg_wear_per_tick'),      'pkt',     '0.001');
-$cfgField('hub_type', "{$type}.overload_wear_mult", t('admin.logistics.cfg_overload_wear_mult'), 'x',       '0.1');
-$cfgField('hub_type', "{$type}.overload_risk_mult", t('admin.logistics.cfg_overload_risk_mult'), 'x',       '0.1');
-$cfgField('hub_type', "{$type}.upgrade_cost",       t('admin.logistics.cfg_upgrade_cost'),       'PLN',     '1000');
-$cfgField('hub_type', "{$type}.max_level",          t('admin.logistics.cfg_max_level'),          'lvl',     '1');
-?>
-</div>
-<?php endforeach ?>
-</div>
-</div>
-
-<div class="cfg-section">
-<h4>&#127970; <?= t('admin.logistics.cfg_acquisition_title') ?></h4>
-<div class="cfg-type-cols">
-<?php foreach (['new' => t('admin.logistics.acquisition_new'), 'used' => t('admin.logistics.acquisition_used'), 'rental' => t('admin.logistics.acquisition_rental')] as $type => $label): ?>
-<div class="cfg-type-block">
-<h5><?= $label ?></h5>
-<?php
-$cfgField('acquisition', "{$type}.build_cost_mult",     t('admin.logistics.cfg_acquisition_build_mult'), 'x',   '0.01');
-$cfgField('acquisition', "{$type}.opex_mult",           t('admin.logistics.cfg_acquisition_opex_mult'),  'x',   '0.01');
-$cfgField('acquisition', "{$type}.start_condition_min", t('admin.logistics.cfg_acquisition_start_min'),  '%',   '0.1');
-$cfgField('acquisition', "{$type}.start_condition_max", t('admin.logistics.cfg_acquisition_start_max'),  '%',   '0.1');
-$cfgField('acquisition', "{$type}.wear_mult",           t('admin.logistics.cfg_acquisition_wear_mult'),  'x',   '0.01');
-$cfgField('acquisition', "{$type}.risk_mult",           t('admin.logistics.cfg_acquisition_risk_mult'),  'x',   '0.01');
-$cfgField('acquisition', "{$type}.lease_fee_per_tick",  t('admin.logistics.cfg_acquisition_lease_fee'),  'PLN', '1');
-?>
-</div>
-<?php endforeach ?>
-</div>
-</div>
-
-<div class="cfg-section">
-<h4>&#9654; <?= t('admin.logistics.cfg_work_modes_title') ?></h4>
-<div class="cfg-type-cols">
-<?php foreach (['eco' => t('admin.logistics.cfg_mode_eco'), 'standard' => t('admin.logistics.cfg_mode_standard'), 'max' => t('admin.logistics.cfg_mode_max')] as $mode => $label): ?>
-<div class="cfg-type-block">
-<h5><?= $label ?></h5>
-<?php
-$cfgField('work_mode', "{$mode}.throughput_mult", t('admin.logistics.cfg_throughput_mult'), 'x',   '0.01', t('admin.logistics.cfg_throughput_note'));
-$cfgField('work_mode', "{$mode}.wear_mult",        t('admin.logistics.cfg_wear_mult'),        'x',   '0.01');
-$cfgField('work_mode', "{$mode}.opex_mult",        t('admin.logistics.cfg_opex_mult'),        'x',   '0.01');
-$cfgField('work_mode', "{$mode}.risk_mult",        t('admin.logistics.cfg_risk_mult'),        'x',   '0.01');
-$cfgField('work_mode', "{$mode}.efficiency_mod",   t('admin.logistics.cfg_efficiency_mod'),   'pkt', '0.1',  t('admin.logistics.cfg_efficiency_note'));
-?>
-</div>
-<?php endforeach ?>
-</div>
-</div>
-
-<div class="cfg-section">
-<h4>&#128683; <?= t('admin.logistics.cfg_fallback_title') ?></h4>
-<p class="c-muted"><?= t('admin.logistics.cfg_fallback_desc') ?></p>
-<div class="cfg-group">
-<?php
-$cfgField('fallback', 'throughput_bph', t('admin.logistics.cfg_throughput_bph'), 'bph', '10',  t('admin.logistics.cfg_throughput_bph_note'));
-$cfgField('fallback', 'opex_mult',       t('admin.logistics.cfg_opex_mult_fb'),   'x',   '0.1', t('admin.logistics.cfg_opex_mult_fb_note'));
-$cfgField('fallback', 'loss_mult',       t('admin.logistics.cfg_loss_mult'),      'x',   '0.1', t('admin.logistics.cfg_loss_mult_note'));
-$cfgField('fallback', 'risk_mult',       t('admin.logistics.cfg_risk_mult_fb'),   'x',   '0.1', t('admin.logistics.cfg_risk_mult_fb_note'));
-$cfgField('fallback', 'efficiency_pct',  t('admin.logistics.cfg_efficiency_pct'), '%',   '1',   t('admin.logistics.cfg_efficiency_pct_note'));
-?>
-</div>
-</div>
-
-</details>
+<?php require __DIR__ . '/sections/configuration.php'; ?>
 
 </div><!-- /admin-container -->
+<script src="<?= asset('/assets/js/modal.js') ?>"></script>
 <script src="<?= asset('/assets/js/admin_logistics_hubs.js') ?>"></script>
 </body>
 </html>

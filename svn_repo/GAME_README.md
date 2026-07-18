@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-07-18 - Logistyka: diagnostyka i konfiguracja obsady hubów
+
+- Panel administracyjny logistyki pokazuje teraz pokrycie obsady hubów, średnie pokrycie, liczbę hubów z pełną, częściową i brakującą obsadą oraz listę obiektów wymagających uwagi.
+- Dodano filtrowaną i stronicowaną historię przypisań pracowników do hubów z informacją o graczu, pracowniku, alokacji i statusie przypisania.
+- Administrator może włączyć lub wyłączyć wpływ obsady na działanie hubów oraz ustawić wymaganą liczbę pracowników osobno dla małych, średnich i dużych hubów.
+- `LogisticsStaffingService` odczytuje wymagania z `well_config` jednym zestawem zapytań i zachowuje dotychczasowe wyliczenie jako zgodny fallback dla instalacji bez nowych kluczy.
+- Widok administracyjny logistyki został podzielony na mniejsze sekcje, a skrypt hubów rozdzielono na osobne moduły: wspólny rdzeń, obsługę odwiertów, rynek hubów i delegację zdarzeń.
+- Podczas podziału zachowano potwierdzenia kosztów dla hubów wynajętych, sortowanie odwiertów według strefy i blokady uprawnień właściciela lub najemcy.
+- Weryfikacja: `Unit+Integration 776/776`, `MySqlIntegration 224/224`, PHP/JavaScript lint, PHPStan oraz UTF-8 bez BOM.
+
 ### 2026-07-18 - CI: świeża baza MySQL i stabilizacja testów pracowników
 
 - `tests/ci-schema.sql` seeduje teraz podstawowe role zarządu (`hr`, `technical`, `finance`, `legal`, `logistics`), żeby świeża baza CI miała te same słowniki, których wymagają negocjacje bankowe i moduły pracowników.

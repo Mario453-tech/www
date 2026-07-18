@@ -1347,6 +1347,7 @@
     white-space: nowrap;
     cursor: default;
 }
+.hub-cooldown-badge.is-expired { opacity: .5; }
 
 /* Acquisition badge (hub cards - static) */
 .acq-badge {

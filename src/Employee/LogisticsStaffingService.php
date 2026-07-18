@@ -4,12 +4,19 @@ declare(strict_types=1);
 final class LogisticsStaffingService
 {
     private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
+    private const REQUIRED_STAFF_DEFAULTS = [
+        'small' => 0,
+        'medium' => 0,
+        'large' => 0,
+    ];
 
     private readonly PDO $db;
     private readonly EmployeeAssignmentService $assignments;
     private readonly EmployeeRepository $employees;
     private readonly EmployeeStateService $states;
     private bool $runtimeEnabled;
+    /** @var array{small:int,medium:int,large:int} */
+    private array $requiredStaffByType;
 
     public function __construct(
         PDO $db,
@@ -24,6 +31,7 @@ final class LogisticsStaffingService
         $this->states = $states ?? new EmployeeStateService($db, $this->employees);
         $this->assignments = $assignments ?? new EmployeeAssignmentService($db, $this->employees, $this->states);
         $this->runtimeEnabled = $runtimeEnabled ?? $this->loadRuntimeEnabled();
+        $this->requiredStaffByType = $this->loadRequiredStaffByType();
     }
 
     public function isRuntimeEnabled(): bool
@@ -237,7 +245,10 @@ final class LogisticsStaffingService
             if ($value === false) {
                 return false;
             }
-            return in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
+            $normalized = strtolower(trim((string)$value));
+            return is_numeric($normalized)
+                ? (float)$normalized > 0.0
+                : in_array($normalized, ['true', 'yes', 'on'], true);
         } catch (Throwable $e) {
             GameLog::error('LogisticsStaffingService', 'runtime flag read FAILED', $e);
             return false;
@@ -248,9 +259,42 @@ final class LogisticsStaffingService
     private function requiredHubStaffCount(array $hub): int
     {
         $type = (string)($hub['hub_type'] ?? 'medium');
-        $byType = ['small' => 1, 'medium' => 2, 'large' => 3];
-        $slotLimit = max(1, (int)($hub['slot_limit'] ?? ($byType[$type] ?? 2)));
-        return max(1, min(4, max($byType[$type] ?? 2, (int)ceil($slotLimit / 2))));
+        $configured = $this->requiredStaffByType[$type] ?? 0;
+        if ($configured > 0) {
+            return $configured;
+        }
+
+        $baseByType = ['small' => 1, 'medium' => 2, 'large' => 3];
+        $slotLimit = max(1, (int)($hub['slot_limit'] ?? ($baseByType[$type] ?? 2)));
+        return max(1, min(4, max($baseByType[$type] ?? 2, (int)ceil($slotLimit / 2))));
+    }
+
+    /** @return array{small:int,medium:int,large:int} */
+    private function loadRequiredStaffByType(): array
+    {
+        $requirements = self::REQUIRED_STAFF_DEFAULTS;
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT `key`, `value`
+                   FROM well_config
+                  WHERE `key` IN (?, ?, ?)'
+            );
+            $stmt->execute([
+                'employee_hub_staff_required_small',
+                'employee_hub_staff_required_medium',
+                'employee_hub_staff_required_large',
+            ]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $type = str_replace('employee_hub_staff_required_', '', (string)$row['key']);
+                if (array_key_exists($type, $requirements) && is_numeric($row['value'])) {
+                    $requirements[$type] = max(1, min(10, (int)$row['value']));
+                }
+            }
+        } catch (Throwable $e) {
+            GameLog::error('LogisticsStaffingService', 'staff requirements read FAILED', $e);
+        }
+
+        return $requirements;
     }
 
     /** @param array<string, mixed> $employee */

@@ -1,13 +1,7 @@
 <?php
 /**
- * admin/logistics_hubs.php Panel zarzdzania systemowymi hubami logistycznymi.
- *
- * Logika podzielona na traity w src/AdminHub/:
- * - AdminHubPostActionsTrait obsuga POST
- * - AdminHubDataFetchTrait pobieranie danych
- * - AdminHubConfigFieldTrait renderowanie pl konfiguracji
- *
- * Widok: templates/views/admin/logistics/main.php
+ * Admin controller for logistics hubs and staffing diagnostics.
+ * Kontroler admina hubow logistycznych i diagnostyki obsady.
  */
 require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
@@ -15,11 +9,13 @@ AdminAuth::requireLogin();
 require_once dirname(__DIR__) . '/src/AdminHub/PostActionsTrait.php';
 require_once dirname(__DIR__) . '/src/AdminHub/DataFetchTrait.php';
 require_once dirname(__DIR__) . '/src/AdminHub/ConfigFieldTrait.php';
+require_once dirname(__DIR__) . '/src/AdminHub/StaffingTrait.php';
 
 $hub_admin = new class {
     use AdminHubPostActionsTrait;
     use AdminHubDataFetchTrait;
     use AdminHubConfigFieldTrait;
+    use AdminHubStaffingTrait;
 };
 
 $db     = Database::getInstance()->getConnection();
@@ -27,7 +23,8 @@ $csrf   = CSRF::generateToken();
 $msg    = '';
 $msgErr = false;
 
-// Obsuga POST 
+// Handle POST actions with PRG.
+// Obsluz akcje POST przez PRG.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $msg    = t('admin.logistics.err_csrf');
@@ -44,19 +41,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $_SESSION['admin_hub_msg']     = $msg;
     $_SESSION['admin_hub_msg_err'] = $msgErr;
-    $anchor = (($_POST['action'] ?? '') === 'save_config') ? '#hub-config-section' : '';
+    $postAction = (string)($_POST['action'] ?? '');
+    $anchor = match ($postAction) {
+        'save_config', 'seed_hub_type_defaults' => '#hub-config-section',
+        'save_staffing_config' => '#hub-staffing-section',
+        default => '',
+    };
     header('Location: /admin/logistics_hubs.php' . (isset($_GET['hub_id']) ? '?hub_id=' . (int) $_GET['hub_id'] : '') . $anchor);
     exit;
 }
 
-// Flash message 
+// Read and clear the one-time flash message.
+// Odczytaj i usun jednorazowy komunikat flash.
 if (!empty($_SESSION['admin_hub_msg'])) {
     $msg    = $_SESSION['admin_hub_msg'];
     $msgErr = (bool) ($_SESSION['admin_hub_msg_err'] ?? false);
     unset($_SESSION['admin_hub_msg'], $_SESSION['admin_hub_msg_err']);
 }
 
-// Dane do widoku 
+// Build view data.
+// Zbuduj dane widoku.
 $hubSvc       = new HubService($db);
 $filterStatus = trim($_GET['status']     ?? '');
 $filterRegion = (int) ($_GET['region_id'] ?? 0);
@@ -138,5 +142,21 @@ $viewHub       = $detail['hub'];
 $viewWells     = $detail['wells'];
 $viewLastStats = $detail['lastStats'];
 
-// Widok 
+$staffingConfig = $hub_admin->loadStaffingConfig($db);
+$staffingFilters = [
+    'player_id' => max(0, (int)($_GET['staff_player_id'] ?? 0)),
+    'hub_id' => max(0, (int)($_GET['staff_hub_id'] ?? 0)),
+    'employee' => mb_substr(trim((string)($_GET['staff_employee'] ?? '')), 0, 100),
+    'status' => trim((string)($_GET['staff_status'] ?? '')),
+    'page' => max(1, (int)($_GET['staff_page'] ?? 1)),
+];
+$staffingDiagnostics = $hub_admin->buildStaffingDiagnostics(
+    $db,
+    $hubSvc->getAllHubs(''),
+    $staffingFilters,
+    10
+);
+
+// Render the view.
+// Wyrenderuj widok.
 require __DIR__ . '/../templates/views/admin/logistics/main.php';
