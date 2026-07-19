@@ -253,10 +253,36 @@ trait TechnicalPageDataTrait
     private function loadActiveDisasters(PDO $db): array
     {
         try {
+            // Reconcile legacy contamination rows with the current well/task state.
+            // Uzgodnij stare wpisy skazenia z aktualnym stanem odwiertu i zadania.
+            $reconcileStmt = $db->prepare("
+                UPDATE industrial_disasters
+                SET status = 'resolved', resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+                WHERE player_id = ?
+                  AND disaster_type = 'reservoir_contamination'
+                  AND status IN ('active', 'being_repaired')
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM wells w
+                      WHERE w.id = industrial_disasters.well_id
+                        AND w.player_id = industrial_disasters.player_id
+                        AND w.status = 'contaminated'
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM technical_tasks tt
+                      WHERE tt.player_id = industrial_disasters.player_id
+                        AND tt.well_id = industrial_disasters.well_id
+                        AND tt.task_type = 'reservoir_rehabilitation'
+                        AND tt.status = 'in_progress'
+                  )
+            ");
+            $reconcileStmt->execute([$this->playerId]);
+
             $stmt = $db->prepare("
                 SELECT d.*, w.location_name AS well_name
                 FROM industrial_disasters d
-                LEFT JOIN wells w ON w.id = d.well_id
+                LEFT JOIN wells w ON w.id = d.well_id AND w.player_id = d.player_id
                 WHERE d.player_id = ? AND d.status IN ('active','being_repaired')
                 ORDER BY d.occurred_at DESC
             ");

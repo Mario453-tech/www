@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-07-19 - Uzgodnienie statusu katastrof
+
+- Widok Katastrofy zamyka stare wpisy skazenia zloza, gdy odwiert nie jest juz skazony i nie trwa zadanie rehabilitacji.
+- Uzgodnienie obejmuje tylko dane zalogowanego gracza; faktyczne skazenie i trwajaca rehabilitacja pozostaja widoczne.
+- Zapytanie widoku dodatkowo laczy odwiert z katastrofa przez identyfikator gracza.
+- Dodano test regresyjny dla starego wpisu, aktywnego skazenia, rehabilitacji w toku i izolacji graczy.
+
 ### 2026-07-19 - Utwardzenie obsady rurociągów po code review
 
 - Końcowa aktualizacja alokacji ponownie sprawdza gracza, pracownika, typ i identyfikator celu oraz aktywny status przypisania; odczyt istniejącego rekordu jest blokowany w MySQL.
