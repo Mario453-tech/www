@@ -275,6 +275,13 @@ Przed finalna odpowiedzia sprawdz:
 - czy `git diff --check` przechodzi,
 - czy `tools/check_encoding.php` przechodzi.
 
+## Spojnosc statusow zdarzen
+
+- Widoki aktywnych katastrof, incydentow, awarii i podobnych zdarzen nie moga polegac wylacznie na historycznym polu `status` rekordu zdarzenia.
+- Status widoczny dla gracza musi byc uzgodniony z rzeczywistym stanem obiektu oraz aktywnym zadaniem naprawczym albo rehabilitacyjnym.
+- Uzgadnianie statusu i zamykanie osieroconych wpisow musi zachowywac filtr `player_id` we wszystkich odczytach i finalnych zapisach.
+- Test regresyjny powinien obejmowac co najmniej: stare osierocone zdarzenie, faktycznie aktywne zdarzenie, naprawe w toku oraz izolacje danych innego gracza.
+
 ## Dokumentacja
 
 - Po zmianie architektury aktualizuj `svn_repo/GAME_README.md`.
