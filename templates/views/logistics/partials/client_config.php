@@ -62,6 +62,33 @@ $logisticsClientConfig['pipeline'] = [
     ],
 ];
 
+$logisticsClientConfig['pipeline_staffing'] = [
+    'pipelines' => $pipelineStaffingViewByPipeline,
+    'post_url' => function_exists('url') ? url('logistics') : '/logistics',
+    'csrf_token' => CSRF::generateToken(),
+    'heading' => t('logistics.pipeline.staffing.modal_title'),
+    'subtitle' => t('logistics.pipeline.staffing.modal_subtitle'),
+    'coverage' => t('logistics.pipeline.staffing.coverage'),
+    'effects_on' => t('logistics.pipeline.staffing.effects_on'),
+    'effects_off' => t('logistics.pipeline.staffing.effects_off'),
+    'active_team' => t('logistics.pipeline.staffing.active_team'),
+    'available_team' => t('logistics.pipeline.staffing.available_team'),
+    'empty' => t('logistics.pipeline.staffing.empty'),
+    'empty_active' => t('logistics.pipeline.staffing.empty_active'),
+    'non_operational' => t('logistics.pipeline.staffing.non_operational'),
+    'free_allocation' => t('logistics.pipeline.staffing.free_allocation'),
+    'current_allocation' => t('logistics.pipeline.staffing.current_allocation'),
+    'allocation' => t('logistics.pipeline.staffing.allocation'),
+    'btn_assign' => t('logistics.pipeline.staffing.btn_assign'),
+    'btn_update' => t('logistics.pipeline.staffing.btn_update'),
+    'btn_release' => t('logistics.pipeline.staffing.btn_release'),
+    'confirm_assign' => t('logistics.pipeline.staffing.confirm_assign'),
+    'confirm_update' => t('logistics.pipeline.staffing.confirm_update'),
+    'confirm_release' => t('logistics.pipeline.staffing.confirm_release'),
+    'role_pipeline_engineer' => t('logistics.pipeline.staffing.role_pipeline_engineer'),
+    'role_pipeline_logistics_specialist' => t('logistics.pipeline.staffing.role_pipeline_logistics_specialist'),
+];
+
 $logisticsClientJson = json_encode(
     $logisticsClientConfig,
     JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT

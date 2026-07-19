@@ -140,7 +140,7 @@ final class MySqlPipelineSectionTest extends MySqlIntegrationTestCase
         $this->assertSame('degraded', $tickRow['status_after']);
     }
 
-    public function testPipelineEngineerKeepsWearLowerLossStableAndLogsStatusChange(): void
+    public function testFullyAssignedPipelineEngineerKeepsWearLowerAndLossStable(): void
     {
         $ids = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
@@ -166,8 +166,26 @@ final class MySqlPipelineSectionTest extends MySqlIntegrationTestCase
               WHERE player_id = ? AND well_id = ?'
         )->execute([$playerId, $ids['wellId']]);
 
+        $pipelineId = (int)$this->db->query(
+            "SELECT id FROM well_pipelines WHERE player_id = {$playerId} AND well_id = {$ids['wellId']} LIMIT 1"
+        )->fetchColumn();
+        $staffing = [
+            $pipelineId => [
+                'engineer_degradation_mult' => 1.0,
+                'engineer_incident_mult' => 1.0,
+            ],
+        ];
+
         $section = new PipelineSection($this->db, new DateTime('2026-05-18 12:00:00'), new WellService());
-        $section->process($playerId, 1000.0, ['degrade_mult' => 1.0, 'catastrophe_mult' => 1.0], 10.0, null);
+        $section->process(
+            $playerId,
+            1000.0,
+            ['degrade_mult' => 1.0, 'catastrophe_mult' => 1.0],
+            10.0,
+            null,
+            null,
+            $staffing
+        );
 
         $stmt = $this->db->prepare(
             'SELECT id, condition_pct, transport_loss, status

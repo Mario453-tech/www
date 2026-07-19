@@ -24,6 +24,7 @@ final class MySqlHubOutboundPipelineBalanceTest extends MySqlIntegrationTestCase
                 $this->wellHubMap                = [$wellId => $hubId];
                 $this->hubOutboundType           = [$hubId => 'rurociag'];
                 $this->hubOutboundPipelineCache  = [$hubId => [
+                    'id' => 900,
                     'status' => 'damaged',
                     '_is_operational' => true,
                     'real_capacity_bph' => 200.0,
@@ -115,6 +116,7 @@ final class MySqlHubOutboundPipelineBalanceTest extends MySqlIntegrationTestCase
         $newInput = 100.0;
         $storage = 0.0;
         $losses = 0.0;
+        $outboundLosses = 0.0;
 
         for ($tick = 0; $tick < 10; $tick++) {
             $input = $tick === 0 ? $newInput : 0.0;
@@ -127,6 +129,7 @@ final class MySqlHubOutboundPipelineBalanceTest extends MySqlIntegrationTestCase
             $ctx->deliveredBbl = $input;
             $ctx->finRevenue = $input * 70.0;
             $ctx->hubOutboundPipelineCache[$hubId] = [
+                'id' => 900,
                 'status' => 'active',
                 '_is_operational' => true,
                 'real_capacity_bph' => 50.0,
@@ -134,6 +137,7 @@ final class MySqlHubOutboundPipelineBalanceTest extends MySqlIntegrationTestCase
                 'opex_per_tick' => 0.0,
                 'opex_per_bbl' => 0.0,
             ];
+            $ctx->pipelineStaffingByPipeline[900] = ['pipeline_loss_pct' => -20.0];
 
             $section = new WellHubSection(
                 $ctx,
@@ -151,12 +155,14 @@ final class MySqlHubOutboundPipelineBalanceTest extends MySqlIntegrationTestCase
 
             $storage = $ctx->currentStorage;
             $losses += $ctx->finHubLossBbl + $ctx->finOutboundLossBbl;
+            $outboundLosses += $ctx->finOutboundLossBbl;
         }
 
         $finalBuffer = (float)$this->db->query("SELECT buffer_current_bbl FROM logistics_hubs WHERE id = {$hubId}")->fetchColumn();
 
         $this->assertLessThan(0.1, $finalBuffer, 'The outbound backlog should clear after enough ticks.');
         $this->assertGreaterThan(0.0, $losses, 'Configured pipeline loss should be recorded.');
+        $this->assertEqualsWithDelta(24.0, $outboundLosses, 0.5, 'Assigned specialist should reduce outbound loss from 10% to 8%.');
         $this->assertEqualsWithDelta(
             $initialBuffer + $newInput,
             $storage + $finalBuffer + $losses,

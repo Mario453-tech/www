@@ -37,6 +37,7 @@
     window.PIPELINE_API = pipeline.api || '/src/PipelineApi.php';
     window.PIPELINE_CSRF = pipeline.csrf_token || '';
     window.PIPELINE_LANG = pipeline.lang || {};
+    window.PIPELINE_STAFFING_CONFIG = config.pipeline_staffing || null;
 
     const protection = config.protection || {};
     window.PROTECTION_API = protection.api || '/public/protection.php';

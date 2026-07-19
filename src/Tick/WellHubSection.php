@@ -601,7 +601,10 @@ class WellHubSection
 
         $outboundType = (string)($this->ctx->hubOutboundType[$hubId] ?? 'nieustawiony');
         $pipe         = $this->ctx->hubOutboundPipelineCache[$hubId] ?? null;
-        $pipelineLossPct = (float)($this->ctx->employeeLogisticsEffects['pipeline_loss_pct'] ?? 0.0);
+        $pipelineId = is_array($pipe) ? (int)($pipe['id'] ?? 0) : 0;
+        $pipelineLossPct = (float)(
+            $this->ctx->pipelineStaffingByPipeline[$pipelineId]['pipeline_loss_pct'] ?? 0.0
+        );
         if ($outboundType === 'rurociag' && is_array($pipe) && $pipelineLossPct !== 0.0) {
             $pipe['transport_loss'] = max(
                 0.0,

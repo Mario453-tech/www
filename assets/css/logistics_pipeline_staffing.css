@@ -1,0 +1,140 @@
+.pipeline-staffing-card-summary {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border, #d7dde5);
+    border-radius: 6px;
+    background: var(--surface-soft, #f7f9fb);
+}
+
+.pipeline-staffing-card-head,
+.pipeline-staffing-assignment,
+.pipeline-staffing-candidate,
+.pipeline-staffing-candidate-actions,
+.pipeline-staffing-candidate-actions form {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pipeline-staffing-coverage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.pipeline-staffing-coverage-grid > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px 10px;
+    border-left: 3px solid #30795d;
+    background: var(--surface, #fff);
+}
+
+.pipeline-staffing-coverage-grid span,
+.pipeline-staffing-person span,
+.pipeline-staffing-person small,
+.pipeline-staffing-assignment span {
+    color: var(--text-muted, #667085);
+    font-size: 12px;
+}
+
+.pipeline-staffing-modal-box {
+    width: min(920px, calc(100vw - 32px));
+    max-height: min(820px, calc(100vh - 32px));
+}
+
+.pipeline-staffing-modal-body {
+    display: grid;
+    gap: 18px;
+    overflow-y: auto;
+    padding: 18px;
+}
+
+.pipeline-staffing-modal-body section {
+    display: grid;
+    gap: 10px;
+}
+
+.pipeline-staffing-modal-body h4,
+.pipeline-staffing-subtitle,
+.pipeline-staffing-notice,
+.pipeline-staffing-empty {
+    margin: 0;
+}
+
+.pipeline-staffing-modal-summary {
+    display: grid;
+    gap: 10px;
+}
+
+.pipeline-staffing-notice {
+    padding: 10px;
+    border-left: 3px solid #b7791f;
+    background: #fff7e6;
+    color: #6f4e16;
+}
+
+.pipeline-staffing-active-list,
+.pipeline-staffing-candidate-list {
+    display: grid;
+    gap: 8px;
+}
+
+.pipeline-staffing-assignment,
+.pipeline-staffing-candidate {
+    padding: 10px 12px;
+    border: 1px solid var(--border, #d7dde5);
+    border-radius: 6px;
+    background: var(--surface, #fff);
+}
+
+.pipeline-staffing-assignment > div,
+.pipeline-staffing-person {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.pipeline-staffing-candidate.is-blocked {
+    background: #f3f4f6;
+}
+
+.pipeline-staffing-candidate-actions {
+    flex: 0 0 auto;
+}
+
+.pipeline-staffing-candidate-actions label {
+    display: grid;
+    gap: 3px;
+    font-size: 12px;
+}
+
+.pipeline-staffing-candidate-actions input {
+    width: 92px;
+}
+
+.pipeline-staffing-empty {
+    padding: 12px;
+    color: var(--text-muted, #667085);
+    background: var(--surface-soft, #f7f9fb);
+}
+
+@media (max-width: 720px) {
+    .pipeline-staffing-coverage-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pipeline-staffing-candidate,
+    .pipeline-staffing-candidate-actions,
+    .pipeline-staffing-candidate-actions form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .pipeline-staffing-candidate-actions input {
+        width: 100%;
+    }
+}

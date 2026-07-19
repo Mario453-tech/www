@@ -75,6 +75,16 @@ trait HubTickPersistTrait
                 throw new RuntimeException('Player-scoped hub tick update changed no rows.');
             }
 
+            // Reject a repeated telemetry row while the player-controlled hub row remains locked.
+            // Odrzuc powtorzona statystyke, gdy rekord huba kontrolowanego przez gracza jest zablokowany.
+            $duplicateStats = $this->db->prepare(
+                'SELECT id FROM logistics_hub_tick_stats WHERE hub_id = ? AND tick_time = ? LIMIT 1'
+            );
+            $duplicateStats->execute([$hubId, $tickTime]);
+            if ($duplicateStats->fetchColumn() !== false) {
+                throw new RuntimeException('Hub tick statistics already exist for this tick.');
+            }
+
             $this->db->prepare(
                 "INSERT INTO logistics_hub_tick_stats
                     (hub_id, tick_time, input_volume_bbl, processed_volume_bbl,

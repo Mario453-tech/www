@@ -5,6 +5,7 @@ final class EmployeeAssignmentService
 {
     private const TARGET_HUB = 'hub';
     private const TARGET_PIPELINE = 'pipeline';
+    private const PIPELINE_ASSIGNABLE_STATUSES = ['active', 'degraded', 'critical', 'leak'];
     private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
 
     private readonly EmployeeRepository $employees;
@@ -60,36 +61,80 @@ final class EmployeeAssignmentService
             $this->assertAllocationAvailable($ref, $allocationPct, $excludeId);
 
             if ($existing !== null) {
-                $stmt = $this->db->prepare(
-                    'UPDATE employee_assignments
-                        SET allocation_pct = :allocation_pct,
-                            updated_at = CURRENT_TIMESTAMP
-                      WHERE id = :id
-                        AND player_id = :player_id'
-                );
-                $stmt->execute([
-                    'allocation_pct' => $allocationPct,
-                    'id' => $excludeId,
-                    'player_id' => $ref->playerId,
-                ]);
-                $assignmentId = $excludeId;
+                if (abs((float)$existing['allocation_pct'] - $allocationPct) < 0.0001) {
+                    $assignmentId = $excludeId;
+                } else {
+                    $stmt = $this->db->prepare(
+                        'UPDATE employee_assignments
+                            SET allocation_pct = :allocation_pct,
+                                updated_at = CURRENT_TIMESTAMP
+                          WHERE id = :id
+                            AND player_id = :player_id'
+                        . ($targetType === self::TARGET_PIPELINE
+                            ? " AND EXISTS (
+                                    SELECT 1
+                                      FROM well_pipelines wp
+                                     WHERE wp.id = :pipeline_id
+                                       AND wp.player_id = :pipeline_player_id
+                                       AND wp.status IN ('active','degraded','critical','leak')
+                                )"
+                            : '')
+                    );
+                    $params = [
+                        'allocation_pct' => $allocationPct,
+                        'id' => $excludeId,
+                        'player_id' => $ref->playerId,
+                    ];
+                    if ($targetType === self::TARGET_PIPELINE) {
+                        $params['pipeline_id'] = $targetId;
+                        $params['pipeline_player_id'] = $ref->playerId;
+                    }
+                    $stmt->execute($params);
+                    if ($stmt->rowCount() !== 1) {
+                        throw new RuntimeException('Assignment target is not available for staffing.');
+                    }
+                    $assignmentId = $excludeId;
+                }
             } else {
-                $stmt = $this->db->prepare(
-                    'INSERT INTO employee_assignments
+                if ($targetType === self::TARGET_PIPELINE) {
+                    $stmt = $this->db->prepare(
+                        "INSERT INTO employee_assignments
                         (player_id, source_type, source_id, target_type, target_id,
                          allocation_pct, status, assigned_at, created_at, updated_at)
-                     VALUES
-                        (:player_id, :source_type, :source_id, :target_type, :target_id,
-                         :allocation_pct, \'active\', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
-                );
-                $stmt->execute([
+                         SELECT :player_id, :source_type, :source_id, :target_type, wp.id,
+                                :allocation_pct, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                           FROM well_pipelines wp
+                          WHERE wp.id = :pipeline_id
+                            AND wp.player_id = :pipeline_player_id
+                            AND wp.status IN ('active','degraded','critical','leak')"
+                    );
+                } else {
+                    $stmt = $this->db->prepare(
+                        'INSERT INTO employee_assignments
+                            (player_id, source_type, source_id, target_type, target_id,
+                             allocation_pct, status, assigned_at, created_at, updated_at)
+                         VALUES
+                            (:player_id, :source_type, :source_id, :target_type, :target_id,
+                             :allocation_pct, \'active\', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
+                    );
+                }
+                $params = [
                     'player_id' => $ref->playerId,
                     'source_type' => $ref->sourceType,
                     'source_id' => $ref->sourceId,
                     'target_type' => $targetType,
-                    'target_id' => $targetId,
                     'allocation_pct' => $allocationPct,
-                ]);
+                ];
+                if ($targetType === self::TARGET_PIPELINE) {
+                    $params['pipeline_id'] = $targetId;
+                    $params['pipeline_player_id'] = $ref->playerId;
+                } else {
+                    $params['target_id'] = $targetId;
+                }
+                $stmt->execute($params);
+                if ($stmt->rowCount() !== 1) {
+                    throw new RuntimeException('Assignment target is not available for staffing.');
+                }
                 $assignmentId = (int)$this->db->lastInsertId();
             }
 
@@ -321,7 +366,11 @@ final class EmployeeAssignmentService
         if ($employee === null || (int)($employee['player_id'] ?? 0) !== $ref->playerId) {
             throw new RuntimeException('Employee does not belong to this player.');
         }
-        if ((string)($employee['status'] ?? '') !== 'active') {
+        $status = (string)($employee['status'] ?? '');
+        $allowedStatuses = $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
+            ? ['active', 'busy']
+            : ['active'];
+        if (!in_array($status, $allowedStatuses, true)) {
             throw new RuntimeException('Employee is not active.');
         }
 
@@ -364,19 +413,20 @@ final class EmployeeAssignmentService
 
     private function assertPipelineOwned(int $playerId, int $pipelineId): void
     {
+        $forUpdate = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
         $stmt = $this->db->prepare(
             "SELECT status
                FROM well_pipelines
               WHERE id = ?
                 AND player_id = ?
-              LIMIT 1"
+              LIMIT 1{$forUpdate}"
         );
         $stmt->execute([$pipelineId, $playerId]);
         $status = $stmt->fetchColumn();
         if ($status === false) {
             throw new RuntimeException('Pipeline does not belong to this player.');
         }
-        if (in_array((string)$status, ['planned', 'building', 'disabled'], true)) {
+        if (!in_array((string)$status, self::PIPELINE_ASSIGNABLE_STATUSES, true)) {
             throw new RuntimeException('Pipeline is not available for staffing.');
         }
     }

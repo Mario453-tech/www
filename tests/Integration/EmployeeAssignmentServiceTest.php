@@ -6,6 +6,9 @@ require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeRepository.php';
 require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeStateService.php';
 require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeAssignmentService.php';
 require_once dirname(__DIR__, 2) . '/src/Employee/LogisticsStaffingService.php';
+require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeRoleEffectService.php';
+require_once dirname(__DIR__, 2) . '/src/Employee/PipelineStaffingService.php';
+require_once dirname(__DIR__, 2) . '/src/Employee/PipelineStaffingManagementService.php';
 require_once dirname(__DIR__, 2) . '/src/EmployeeSystemBootstrap.php';
 require_once __DIR__ . '/SqliteIntegrationTestCase.php';
 
@@ -110,6 +113,114 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->assertFalse($this->service->releasePipeline((int)$first['assignment_id'], 2));
         $this->assertTrue($this->service->releasePipeline((int)$first['assignment_id'], 1));
         $this->assertSame([], $this->service->listForPipeline(1, 500));
+    }
+
+    public function testPipelineAssignmentSupportsOnlyOperationalStatuses(): void
+    {
+        foreach (['active', 'degraded', 'critical', 'leak'] as $status) {
+            $this->db->prepare('UPDATE well_pipelines SET status = ? WHERE id = 500')->execute([$status]);
+            $result = $this->service->assignToPipeline(
+                new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
+                500,
+                25.0
+            );
+            $this->assertTrue($result['success'], $status);
+            $this->assertTrue($this->service->releasePipeline((int)$result['assignment_id'], 1), $status);
+        }
+
+        foreach (['building', 'disabled', 'suspended', 'servicing', 'damaged'] as $status) {
+            $this->db->prepare('UPDATE well_pipelines SET status = ? WHERE id = 500')->execute([$status]);
+            try {
+                $this->service->assignToPipeline(
+                    new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
+                    500,
+                    25.0
+                );
+                $this->fail('Status should block assignment: ' . $status);
+            } catch (RuntimeException $e) {
+                $this->assertSame('Pipeline is not available for staffing.', $e->getMessage());
+            }
+        }
+    }
+
+    public function testPipelineAllocationSharesLimitWithHubAssignments(): void
+    {
+        $ref = new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1);
+        $this->service->assignToHub($ref, 100, 70.0);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Employee assignment allocation exceeds 100%.');
+        $this->service->assignToPipeline($ref, 500, 40.0);
+    }
+
+    public function testPipelineStaffingEffectsAreScopedAndPauseWithoutDroppingAssignments(): void
+    {
+        $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
+            500,
+            50.0
+        );
+        $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 23, 1),
+            500,
+            50.0
+        );
+
+        $staffing = new PipelineStaffingService($this->db);
+        $map = $staffing->pipelineStaffingForPipelines(1, [
+            ['id' => 500, 'player_id' => 1, 'status' => 'active'],
+            ['id' => 501, 'player_id' => 1, 'status' => 'active'],
+        ]);
+
+        $this->assertSame(50.0, $map[500]['engineer_coverage_pct']);
+        $this->assertSame(1.5, $map[500]['engineer_degradation_mult']);
+        $this->assertSame(50.0, $map[500]['logistics_coverage_pct']);
+        $this->assertLessThan(0.0, $map[500]['pipeline_loss_pct']);
+        $this->assertSame(0.0, $map[501]['engineer_coverage_pct']);
+        $this->assertSame(0.0, $map[501]['pipeline_loss_pct']);
+
+        $this->db->exec("UPDATE well_pipelines SET status = 'suspended' WHERE id = 500");
+        $paused = $staffing->pipelineStaffingForPipelines(1, [
+            ['id' => 500, 'player_id' => 1, 'status' => 'suspended'],
+        ]);
+        $this->assertFalse($paused[500]['is_operational']);
+        $this->assertSame(0.0, $paused[500]['engineer_coverage_pct']);
+        $this->assertSame(0.0, $paused[500]['pipeline_loss_pct']);
+        $this->assertCount(2, $paused[500]['assignments']);
+    }
+
+    public function testBlockedRelationRemovesAssignedPipelineEffects(): void
+    {
+        $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
+            500,
+            100.0
+        );
+        $this->db->exec("UPDATE employee_state
+            SET relation_status = 'on_strike'
+            WHERE player_id = 1 AND source_type = 'technical_staff' AND source_id = 22");
+
+        $map = (new PipelineStaffingService($this->db))->pipelineStaffingForPipelines(1, [
+            ['id' => 500, 'player_id' => 1, 'status' => 'active'],
+        ]);
+
+        $this->assertSame(0.0, $map[500]['engineer_coverage_pct']);
+        $this->assertSame(2.0, $map[500]['engineer_degradation_mult']);
+    }
+
+    public function testPipelineManagementRejectsWrongSpecializationAndWrongReleaseType(): void
+    {
+        $management = new PipelineStaffingManagementService($this->db);
+        $hubAssignment = $this->service->assignToHub(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            100,
+            25.0
+        );
+        $this->assertFalse($management->releaseFromPipeline(1, (int)$hubAssignment['assignment_id']));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Employee specialization is not allowed for pipeline staffing.');
+        $management->assignToPipeline(1, EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 500, 25.0);
     }
 
     public function testAssignsEmployeeToRentedHubControlledByTenant(): void
@@ -336,7 +447,9 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
              experience_years, skill_level, salary, status, hired_at)
             VALUES
             (20, 1, 0, 'Jan', 'Tech', 'hub_operator', NULL, 'Hub Operator', 4, 7, 9500, 'active', '2026-01-01 10:00:00'),
-            (21, 1, 0, 'Piotr', 'Operator', 'hub_operator', NULL, 'Hub Operator', 4, 8, 9800, 'active', '2026-01-01 10:00:00')");
+            (21, 1, 0, 'Piotr', 'Operator', 'hub_operator', NULL, 'Hub Operator', 4, 8, 9800, 'active', '2026-01-01 10:00:00'),
+            (22, 1, 0, 'Ewa', 'Engineer', 'pipeline_engineer', NULL, 'Pipeline Engineer', 5, 8, 10500, 'active', '2026-01-01 10:00:00'),
+            (23, 1, 0, 'Adam', 'Logistics', 'pipeline_logistics_specialist', NULL, 'Pipeline Logistics Specialist', 5, 8, 10300, 'busy', '2026-01-01 10:00:00')");
         $this->db->exec("INSERT INTO logistics_hubs (id, player_id, tenant_player_id, name, hub_type, slot_limit, status)
             VALUES
             (100, 1, 0, 'Hub A', 'medium', 4, 'active'),

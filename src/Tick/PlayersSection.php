@@ -279,6 +279,12 @@ class PlayersSection
         } catch (Throwable $e) {
             GameLog::error('tick', 'pipeline build completion FAILED', $e, ['player_id' => $playerId]);
         }
+        $pipelineStaffing = [];
+        try {
+            $pipelineStaffing = (new PipelineStaffingService($db))->pipelineStaffingForPlayer($playerId);
+        } catch (Throwable $e) {
+            GameLog::error('tick', 'pipeline staffing preload FAILED', $e, ['player_id' => $playerId]);
+        }
         $wellLoop    = new WellLoopSection($db, $now, $this->oilPrice, $this->gBalanceMults, $wellService);
         $wellLoopStarted = microtime(true);
         $wellLoop->run(
@@ -286,7 +292,8 @@ class PlayersSection
             $deltaHours, $hseBonus, $staffCheck,
             $offline->offlineProdMult, $offline->offlineRiskMult,
             $tsvc, $regionalSvc, $activeRegEvents,
-            $pipelines->completedActiveHours()
+            $pipelines->completedActiveHours(),
+            $pipelineStaffing
         );
         $this->addSectionTiming('well_loop', (int)round((microtime(true) - $wellLoopStarted) * 1000));
 
@@ -303,7 +310,15 @@ class PlayersSection
 
  // 3. RUROCIAGI / Pipelines
         $pipelinesStarted = microtime(true);
-        $pipelines->process($playerId, $currentStorage, $hseBonus, $deltaHours, $tsvc, $protectionSvc);
+        $pipelines->process(
+            $playerId,
+            $currentStorage,
+            $hseBonus,
+            $deltaHours,
+            $tsvc,
+            $protectionSvc,
+            $pipelineStaffing
+        );
         $this->addSectionTiming('pipelines', (int)round((microtime(true) - $pipelinesStarted) * 1000));
         $wellLoop->markPipelinesUnavailable($pipelines->unavailablePipelineIds);
  // Floor na 0 jak pozostale odliczenia gotowki (DB i tak ma GREATEST(0,...)).

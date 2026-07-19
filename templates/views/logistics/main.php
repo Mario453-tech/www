@@ -20,4 +20,5 @@
 
 <?php require __DIR__ . '/modals/optimizer_modal.php'; ?>
 <?php require __DIR__ . '/modals/pipeline_modals.php'; ?>
+<?php require __DIR__ . '/modals/pipeline_staffing_modal.php'; ?>
 <?php require __DIR__ . '/partials/client_config.php'; ?>

@@ -57,9 +57,10 @@ class WellLoopSection
  /** @var array<string, float> */
     public array $employeeLogisticsEffects = [
         'hub_throughput_pct' => 0.0,
-        'pipeline_loss_pct' => 0.0,
         'department_transport_cost_pct' => 0.0,
     ];
+    /** @var array<int, array<string, mixed>> pipeline_id -> staffing effects */
+    public array $pipelineStaffingByPipeline = [];
 
  // Stan hubow - wspoldzielony z WellProductionSection i WellHubSection
  // Hub state - shared with WellProductionSection and WellHubSection
@@ -224,6 +225,7 @@ class WellLoopSection
  * @param array<string, mixed> $staffCheck
  * @param list<array<string, mixed>> $activeRegEvents
  * @param array<int, float> $pipelineActiveHours
+ * @param array<int, array<string, mixed>> $pipelineStaffingByPipeline
  */
     public function run(
         int     $playerId,
@@ -239,11 +241,13 @@ class WellLoopSection
         ?object $tsvc,
         ?object $regionalSvc,
         array   $activeRegEvents,
-        array   $pipelineActiveHours = []
+        array   $pipelineActiveHours = [],
+        array   $pipelineStaffingByPipeline = []
     ): void {
         $this->playerCash     = $playerCash;
         $this->currentStorage = $currentStorage;
         $this->storageCapacity = $storageCapacity;
+        $this->pipelineStaffingByPipeline = $pipelineStaffingByPipeline;
         $this->preloadFinancePolicies($playerId);
 
  // Pensje / Salaries
@@ -798,7 +802,6 @@ class WellLoopSection
     {
         $this->employeeLogisticsEffects = [
             'hub_throughput_pct' => 0.0,
-            'pipeline_loss_pct' => 0.0,
             'department_transport_cost_pct' => 0.0,
         ];
 
@@ -817,18 +820,6 @@ class WellLoopSection
                 GameLog::error('tick', 'employee logistics manager bonus FAILED', $e, ['player_id' => $playerId]);
             }
 
-            $calculatedEmployees = $this->employeeRoleEffectSvc->calculatePlayerEffects($playerId, [
-                'pipeline_logistics_specialist' => ['hub', 'pipeline'],
-            ]);
-            foreach ($calculatedEmployees as $calculated) {
-                foreach ((array)($calculated['effects'] ?? []) as $effectKey => $effect) {
-                    if (!array_key_exists($effectKey, $this->employeeLogisticsEffects)) {
-                        continue;
-                    }
-                    $this->mergeEmployeeLogisticsEffect($effectKey, $effect['final_value'] ?? null);
-                }
-            }
-
             $departmentTransportPct = (float)($this->employeeLogisticsEffects['department_transport_cost_pct'] ?? 0.0);
             if ($departmentTransportPct !== 0.0) {
                 $transportCostMult = max(0.05, 1.0 + ($departmentTransportPct / 100.0));
@@ -844,7 +835,6 @@ class WellLoopSection
 
             if (
                 abs((float)$this->employeeLogisticsEffects['hub_throughput_pct']) > 0.0001
-                || abs((float)$this->employeeLogisticsEffects['pipeline_loss_pct']) > 0.0001
                 || abs((float)$this->employeeLogisticsEffects['department_transport_cost_pct']) > 0.0001
             ) {
                 GameLog::info('tick', 'employee_logistics_effects_preloaded', [

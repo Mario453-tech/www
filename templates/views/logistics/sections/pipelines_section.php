@@ -140,6 +140,13 @@
                 </div>
             </article>
             <?php else: ?>
+            <?php
+                $pipelineId = (int)($pipe['id'] ?? 0);
+                $pipelineStaffing = $pipelineStaffingViewByPipeline[$pipelineId] ?? [];
+                $pipelineStaffingSummary = (array)($pipelineStaffing['summary'] ?? []);
+                $engineerCoverage = (float)($pipelineStaffingSummary['engineer_coverage_pct'] ?? 0.0);
+                $logisticsCoverage = (float)($pipelineStaffingSummary['logistics_coverage_pct'] ?? 0.0);
+            ?>
             <article class="logistics-pipeline-card<?= !empty($pipe['is_critical']) ? ' is-critical' : (!empty($pipe['is_degraded']) ? ' is-degraded' : '') ?>">
                 <div class="logistics-pipeline-card-head">
                     <div>
@@ -148,6 +155,30 @@
                         <small><?= t('logistics.pipeline.type_' . ((string)($pipe['pipeline_type'] ?? 'standard'))) ?></small>
                     </div>
                     <span class="badge logistics-pipeline-badge logistics-pipeline-badge--<?= htmlspecialchars($status) ?>"><?= t('logistics.pipeline.status_' . $status) ?></span>
+                </div>
+
+                <div class="pipeline-staffing-card-summary">
+                    <div class="pipeline-staffing-card-head">
+                        <strong><?= t('logistics.pipeline.staffing.card_title') ?></strong>
+                        <span class="badge <?= !empty($pipelineStaffingSummary['is_operational']) ? 'badge-ok' : 'badge-muted' ?>">
+                            <?= !empty($pipelineStaffingSummary['is_operational'])
+                                ? t('logistics.pipeline.staffing.effects_on')
+                                : t('logistics.pipeline.staffing.effects_off') ?>
+                        </span>
+                    </div>
+                    <div class="pipeline-staffing-coverage-grid">
+                        <div>
+                            <span><?= t('logistics.pipeline.staffing.role_pipeline_engineer') ?></span>
+                            <strong><?= number_format($engineerCoverage, 0, ',', ' ') ?>%</strong>
+                        </div>
+                        <div>
+                            <span><?= t('logistics.pipeline.staffing.role_pipeline_logistics_specialist') ?></span>
+                            <strong><?= number_format($logisticsCoverage, 0, ',', ' ') ?>%</strong>
+                        </div>
+                    </div>
+                    <button class="btn btn-xs btn-secondary" type="button" data-pipeline-staffing-open="<?= $pipelineId ?>">
+                        <?= t('logistics.pipeline.staffing.btn_manage') ?>
+                    </button>
                 </div>
 
                 <div class="logistics-pipeline-stats">
@@ -192,7 +223,7 @@
                     <?php if (!empty($pipe['needs_service'])): ?>
                     <span class="badge logistics-pipeline-meta-badge logistics-pipeline-meta-badge--danger"><?= t('logistics.pipeline.badge_service') ?></span>
                     <?php endif ?>
-                    <?php if (($pipelineSummary['engineers'] ?? 0) <= 0): ?>
+                    <?php if ($engineerCoverage <= 0.0): ?>
                     <span class="badge logistics-pipeline-meta-badge logistics-pipeline-meta-badge--danger"><?= t('logistics.pipeline.badge_no_engineer') ?></span>
                     <?php endif ?>
                     <?php if (($pipelineHse['state'] ?? 'none') !== 'full'): ?>

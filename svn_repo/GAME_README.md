@@ -939,3 +939,12 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Wygaszanie i anulowanie ochrony ponownie sprawdza `player_id`, status oraz termin w finalnym zapisie. Powiazania kredytu z komornikiem wymagaja zgodnego gracza po obu stronach relacji.
 - Dodano regresje MySQL dla negocjacji bankowych, jednorazowej wyplaty oferty rynkowej, odczytu huba przez wlasciciela oraz odrzucenia obcego zadania technicznego.
 - Weryfikacja: Unit `91/91` (`277` asercji), Integration `454/454` (`6028` asercji), MySqlIntegration `224/224` (`2512` asercji), PHPStan dla zmienionych serwisow bez bledow, lint `77` plikow, encoding `1912` plikow i `git diff --check` bez bledow.
+
+[2026-07-19] Obsada rurociagow
+
+- Kazdy rekord `well_pipelines`, zarowno inbound, jak i outbound, ma niezalezna obsade: `pipeline_engineer` oraz `pipeline_logistics_specialist`.
+- Przypisania korzystaja ze wspolnego limitu alokacji pracownika dla hubow i rurociagow. Zapis ponownie sprawdza `pipeline_id`, `player_id` i operacyjny status rurociagu.
+- Statusy `active`, `degraded`, `critical` i `leak` pozwalaja przypisywac oraz aktualizowac obsade. W pozostalych stanach przypisania sa zachowane i mozna je zwolnic, ale nie daja efektow.
+- Tick pobiera jedna mape obsady na gracza. Pokrycie inzyniera skaluje degradacje i ryzyko per odcinek, a specjalista logistyki zmniejsza straty tylko przypisanego odcinka.
+- Usunieto globalne dzialanie `pipeline_engineer` i `pipeline_loss_pct`. Bonus kierownika logistyki oraz koszty dzialu pozostaja bez zmian.
+- Logistyka pokazuje pokrycie obu stanowisk na karcie rurociagu i udostepnia modal przypisania, aktualizacji alokacji oraz zwolnienia przez PRG i jednorazowy flash.

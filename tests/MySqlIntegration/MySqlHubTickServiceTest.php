@@ -125,7 +125,9 @@ final class MySqlHubTickServiceTest extends MySqlIntegrationTestCase
         $this->assertIsArray($hub);
 
         $result = $tickService->processTick($hub, 150.0, 1.0);
-        $result['load_pct'] = 100000.0;
+        $this->db->prepare(
+            'INSERT INTO logistics_hub_tick_stats (hub_id, tick_time) VALUES (?, ?)'
+        )->execute([$ids['hubId'], '2026-05-18 11:00:00']);
 
         try {
             $this->db->beginTransaction();

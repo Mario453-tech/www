@@ -53,6 +53,7 @@ $hubSvc       = new HubService($db);
 $econSvc      = new HubEconomyService($hubSvc);
 $viewSvc      = new HubViewService($db, $hubSvc, $econSvc);
 $hubStaffingMgmt = new HubStaffingManagementService($db);
+$pipelineStaffingMgmt = new PipelineStaffingManagementService($db);
 
 $logisticsRedirect = static function (string $anchor = 'logistics-hubs-heading'): void {
     $location = function_exists('url') ? url('logistics') : '/logistics';
@@ -60,7 +61,7 @@ $logisticsRedirect = static function (string $anchor = 'logistics-hubs-heading')
     exit;
 };
 
-$logisticsStaffingError = static function (Throwable $e): string {
+$logisticsStaffingError = static function (Throwable $e, bool $pipelineAction = false): string {
     return match ($e->getMessage()) {
         'Employee assignment is busy.' => t('logistics.hub.staffing.err_busy'),
         'Employee does not belong to this player.' => t('logistics.hub.staffing.err_employee_owner'),
@@ -68,19 +69,33 @@ $logisticsStaffingError = static function (Throwable $e): string {
         'Employee relation status blocks assignment.' => t('logistics.hub.staffing.err_relation_blocked'),
         'Hub does not belong to this player.' => t('logistics.hub.staffing.err_hub_owner'),
         'Hub is not available for staffing.' => t('logistics.hub.staffing.err_hub_unavailable'),
+        'Pipeline does not belong to this player.' => t('logistics.pipeline.staffing.err_pipeline_owner'),
+        'Pipeline is not available for staffing.' => t('logistics.pipeline.staffing.err_pipeline_unavailable'),
+        'Assignment target is not available for staffing.' => t('logistics.pipeline.staffing.err_pipeline_unavailable'),
+        'Employee specialization is not allowed for pipeline staffing.' => t('logistics.pipeline.staffing.err_role'),
         'Employee assignment allocation exceeds 100%.' => t('logistics.hub.staffing.err_allocation'),
-        default => t('logistics.hub.staffing.err_generic'),
+        default => $pipelineAction
+            ? t('logistics.pipeline.staffing.err_generic')
+            : t('logistics.hub.staffing.err_generic'),
     };
 };
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $staffingAction = (string)($_POST['action'] ?? '');
+    $pipelineStaffingAction = str_contains($staffingAction, 'pipeline');
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $_SESSION['logistics_staffing_flash'] = ['error' => t('common.csrf_error')];
-        $logisticsRedirect();
+        $logisticsRedirect($pipelineStaffingAction
+            ? 'logistics-pipelines-heading'
+            : 'logistics-hubs-heading');
     }
 
-    $staffingAction = (string)($_POST['action'] ?? '');
-    if (in_array($staffingAction, ['assign_hub_staff', 'release_hub_staff'], true)) {
+    if (in_array($staffingAction, [
+        'assign_hub_staff',
+        'release_hub_staff',
+        'assign_pipeline_staff',
+        'release_pipeline_staff',
+    ], true)) {
         try {
             if ($staffingAction === 'assign_hub_staff') {
                 $result = $hubStaffingMgmt->assignToHub(
@@ -95,21 +110,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ? t('logistics.hub.staffing.ok_update')
                         : t('logistics.hub.staffing.ok_assign'),
                 ];
-            } else {
+            } elseif ($staffingAction === 'release_hub_staff') {
                 $released = $hubStaffingMgmt->releaseFromHub($playerId, (int)($_POST['assignment_id'] ?? 0));
                 $_SESSION['logistics_staffing_flash'] = $released
                     ? ['success' => t('logistics.hub.staffing.ok_release')]
                     : ['error' => t('logistics.hub.staffing.err_release')];
+            } elseif ($staffingAction === 'assign_pipeline_staff') {
+                $result = $pipelineStaffingMgmt->assignToPipeline(
+                    $playerId,
+                    (string)($_POST['source_type'] ?? ''),
+                    (int)($_POST['source_id'] ?? 0),
+                    (int)($_POST['pipeline_id'] ?? 0),
+                    (float)($_POST['allocation_pct'] ?? 0)
+                );
+                $_SESSION['logistics_staffing_flash'] = [
+                    'success' => $result['was_update']
+                        ? t('logistics.pipeline.staffing.ok_update')
+                        : t('logistics.pipeline.staffing.ok_assign'),
+                ];
+            } else {
+                $released = $pipelineStaffingMgmt->releaseFromPipeline(
+                    $playerId,
+                    (int)($_POST['assignment_id'] ?? 0)
+                );
+                $_SESSION['logistics_staffing_flash'] = $released
+                    ? ['success' => t('logistics.pipeline.staffing.ok_release')]
+                    : ['error' => t('logistics.pipeline.staffing.err_release')];
             }
         } catch (Throwable $e) {
-            GameLog::error('logistics', 'Hub staffing action failed', $e, [
+            GameLog::error('logistics', 'Staffing action failed', $e, [
                 'player_id' => $playerId,
                 'action' => $staffingAction,
             ]);
-            $_SESSION['logistics_staffing_flash'] = ['error' => $logisticsStaffingError($e)];
+            $_SESSION['logistics_staffing_flash'] = [
+                'error' => $logisticsStaffingError($e, $pipelineStaffingAction),
+            ];
         }
 
-        $logisticsRedirect();
+        $logisticsRedirect($pipelineStaffingAction
+            ? 'logistics-pipelines-heading'
+            : 'logistics-hubs-heading');
     }
 }
 
@@ -193,6 +233,7 @@ $pipelineSummary = [
     'avg_cost' => 0.0,
     'engineers' => 0,
 ];
+$pipelineStaffingViewByPipeline = [];
 $pipelineHse = [
     'state' => 'none',
     'pipelines' => 0,
@@ -533,6 +574,15 @@ try {
     GameLog::error('logistics', 'Pipeline data load failed', $e, ['player' => $playerId]);
 }
 
+if ($pipelines !== []) {
+    try {
+        $pipelineStaffingViewByPipeline = $pipelineStaffingMgmt->buildPipelineStaffingView($playerId, $pipelines);
+    } catch (Throwable $e) {
+        GameLog::error('logistics', 'Pipeline staffing data load failed', $e, ['player_id' => $playerId]);
+        $pipelineStaffingViewByPipeline = [];
+    }
+}
+
 // Ochrona rurociagow - po zaladowaniu listy rurociagow (target_id = well_pipelines.id).
 // Pipeline protection - after the pipeline list is loaded (target_id = well_pipelines.id).
 if ($protSvc !== null && $pipelines !== []) {
@@ -770,6 +820,7 @@ $viewData = compact(
     'unassignedTotalPages',
     'unassignedTotal',
     'pipelines',
+    'pipelineStaffingViewByPipeline',
     'pipelineSummary',
     'pipelineHse',
     'logisticsInsights',
@@ -797,7 +848,11 @@ $viewData = array_merge($viewData, GameShell::data($playerId));
 $pageTitle      = t('logistics.page_title') . ' - OilCorp';
 $gameShellTitle = t('logistics.page_title');
 $gameShellView  = __DIR__ . '/../templates/views/logistics/main.php';
-$extraCss       = ['/assets/css/logistics.css', '/assets/css/protection.css'];
+$extraCss       = [
+    '/assets/css/logistics.css',
+    '/assets/css/logistics_pipeline_staffing.css',
+    '/assets/css/protection.css',
+];
 $extraJs        = [
     '/assets/js/logistics_config.js',
     '/assets/js/logistics_ui.js',
@@ -807,6 +862,7 @@ $extraJs        = [
     '/assets/js/logistics_staffing.js',
     '/assets/js/logistics_optimizer.js',
     '/assets/js/logistics_pipeline.js',
+    '/assets/js/logistics_pipeline_staffing.js',
     '/assets/js/logistics_hub_browser.js',
     '/assets/js/protection.js',
     '/assets/js/logistics_countdowns.js',

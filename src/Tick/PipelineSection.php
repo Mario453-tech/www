@@ -73,6 +73,7 @@ class PipelineSection
  * @param array<string, mixed> $hseBonus Active HSE bonuses / Aktywne bonusy BHP
  * @param float $deltaHours Time since last tick (h) / Czas od ostatniego ticka (h)
  * @param ?object $tsvc TechnicalTeamService for notifications / do powiadomien
+ * @param array<int, array<string, mixed>> $pipelineStaffingByPipeline
  */
     public function process(
         int $playerId,
@@ -80,7 +81,8 @@ class PipelineSection
         array $hseBonus,
         float $deltaHours,
         ?object $tsvc,
-        ?ProtectionService $protection = null
+        ?ProtectionService $protection = null,
+        array $pipelineStaffingByPipeline = []
     ): void {
         if ($deltaHours <= 0.0) return;
         $deltaHours = min($deltaHours, 48.0);
@@ -137,7 +139,6 @@ class PipelineSection
 
             $pipelines = array_merge($inboundPipelines, $outboundPipelines);
 
-            $hasPipelineEngineer = $this->checkPipelineEngineer($playerId);
             if ($protection !== null && $pipelines !== []) {
                 $pipelineIds = array_map(
                     static fn(array $pipeline): int => (int)($pipeline['id'] ?? 0),
@@ -163,13 +164,16 @@ class PipelineSection
                 $pipelineDeltaHours  = isset($this->completedActiveHours[$pipelineId])
                     ? min($deltaHours, $this->completedActiveHours[$pipelineId])
                     : $deltaHours;
+                $engineerDegradationMult = (float)(
+                    $pipelineStaffingByPipeline[$pipelineId]['engineer_degradation_mult'] ?? 2.0
+                );
+                $engineerIncidentMult = (float)(
+                    $pipelineStaffingByPipeline[$pipelineId]['engineer_incident_mult'] ?? 2.0
+                );
 
                 $degradeRate = (float) ($pipeline['degradation_rate_per_hour'] ?? 0.05)
- * (float) ($hseBonus['degrade_mult'] ?? 1.0);
-
-                if (!$hasPipelineEngineer) {
-                    $degradeRate *= 2.0;
-                }
+ * (float) ($hseBonus['degrade_mult'] ?? 1.0)
+ * max(1.0, min(2.0, $engineerDegradationMult));
 
  // Active leak accelerates degradation by 20%
                 if ($currentStatus === 'leak') {
@@ -179,8 +183,11 @@ class PipelineSection
                 $newCondition     = max(0.0, $conditionBefore - ($degradeRate * $pipelineDeltaHours));
                 $newTransportLoss = $transportLossBefore;
 
-                if (!$hasPipelineEngineer && $newCondition < 80.0) {
-                    $newTransportLoss = min(10.0, $transportLossBefore + (0.1 * $pipelineDeltaHours));
+                if ($engineerDegradationMult > 1.0 && $newCondition < 80.0) {
+                    $newTransportLoss = min(
+                        10.0,
+                        $transportLossBefore + (0.1 * ($engineerDegradationMult - 1.0) * $pipelineDeltaHours)
+                    );
                 }
 
  // Leaking pipeline loses additional oil through the crack each tick
@@ -206,7 +213,7 @@ class PipelineSection
                          * $pipelineDeltaHours
  * (float)($pipeline['incident_risk_mult'] ?? 1.0)
  * ((60.0 - $newCondition) / 60.0)
- * ($hasPipelineEngineer ? 1.0 : 2.0);
+ * max(1.0, min(2.0, $engineerIncidentMult));
                         if (mt_rand(1, 1_000_000) <= (int) round($leakChance * 1_000_000)) {
                             $newStatus = 'leak';
                         }
@@ -371,7 +378,7 @@ class PipelineSection
                         $pipelineId,
                         $newCondition,
                         (float)($pipeline['incident_risk_mult'] ?? 1.0),
-                        $hasPipelineEngineer,
+                        $engineerIncidentMult,
                         $pipelineDeltaHours,
                         $hseBonus,
                         $leg,
@@ -398,15 +405,16 @@ class PipelineSection
         int $pipelineId,
         float $conditionPct,
         float $incidentRiskMult,
-        bool $hasPipelineEngineer,
+        float $engineerIncidentMult,
         float $deltaHours,
         array $hseBonus,
         string $leg = 'inbound',
         ?ProtectionService $protection = null
     ): bool {
- // Chance multiplier: higher risk when condition is lower; engineer halves the chance
+ // Chance multiplier: lower staffing coverage increases pipeline incident risk.
+ // Mnoznik szansy: nizsze pokrycie obsady zwieksza ryzyko incydentu rurociagu.
         $condFactor = max(0.2, (100.0 - $conditionPct) / 100.0);
-        $engMult    = $hasPipelineEngineer ? 0.5 : 1.0;
+        $engMult    = max(1.0, min(2.0, $engineerIncidentMult));
         $hseMult    = (float)($hseBonus['failure_reduction'] ?? 1.0);
         $protectionData = $this->pipelineProtectionData($protection, $playerId, $pipelineId);
         $protMult       = $protectionData['mult'];
@@ -533,21 +541,4 @@ class PipelineSection
         return ['mult' => $mult, 'option_id' => (int)($row['protection_option_id'] ?? 0)];
     }
 
-    private function checkPipelineEngineer(int $playerId): bool
-    {
-        try {
-            $peStmt = $this->db->prepare(
-                "SELECT id FROM technical_staff
-                  WHERE player_id = ? AND specialization = 'pipeline_engineer'
-                    AND status IN ('active','busy')
-                    AND (fired_at IS NULL OR fired_at > NOW())
-                  LIMIT 1"
-            );
-            $peStmt->execute([$playerId]);
-            return (bool) $peStmt->fetch();
-        } catch (Throwable $e) {
-            GameLog::error('tick', 'pipeline engineer check FAILED', $e, ['player_id' => $playerId]);
-            return false;
-        }
-    }
 }

@@ -397,7 +397,10 @@ class WellProductionHandler
         if ($actual > 0 && $transportType === 'rurociag' && $wellPipeline !== null) {
             $configuredLossPct = max(0.0, (float)($wellPipeline['transport_loss'] ?? 0.0));
             $transportLossPct = $configuredLossPct;
-            $pipelineLossPct = (float)($this->ctx->loopCtx->employeeLogisticsEffects['pipeline_loss_pct'] ?? 0.0);
+            $pipelineId = (int)($wellPipeline['id'] ?? 0);
+            $pipelineLossPct = (float)(
+                $this->ctx->loopCtx->pipelineStaffingByPipeline[$pipelineId]['pipeline_loss_pct'] ?? 0.0
+            );
             if ($pipelineLossPct !== 0.0) {
                 $transportLossPct = max(0.0, $transportLossPct * (1.0 + ($pipelineLossPct / 100.0)));
             }

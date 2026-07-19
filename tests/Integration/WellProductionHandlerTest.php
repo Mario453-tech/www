@@ -523,7 +523,7 @@ final class WellProductionHandlerTest extends SqliteIntegrationTestCase
         $this->seedWell(100, 1);
 
         [$handler, $loopCtx] = $this->makeHandler(10_000_000.0);
-        $loopCtx->employeeLogisticsEffects['pipeline_loss_pct'] = -20.0;
+        $loopCtx->pipelineStaffingByPipeline[1] = ['pipeline_loss_pct' => -20.0];
         $loopCtx->currentStorage = 0.0;
         $loopCtx->wellHubMap[100] = 77;
 
