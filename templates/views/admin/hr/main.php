@@ -296,11 +296,11 @@
                 </div>
                 <div class="spec-field">
                     <label for="new_hr_salary_min">Min</label>
-                    <input type="number" id="new_hr_salary_min" name="new_hr_salary_min" value="8000" min="1" step="100" class="input-sm">
+                    <input type="number" id="new_hr_salary_min" name="new_hr_salary_min" value="8000" min="100" step="100" class="input-sm">
                 </div>
                 <div class="spec-field">
                     <label for="new_hr_salary_max">Max</label>
-                    <input type="number" id="new_hr_salary_max" name="new_hr_salary_max" value="15000" min="1" step="100" class="input-sm">
+                    <input type="number" id="new_hr_salary_max" name="new_hr_salary_max" value="15000" min="100" step="100" class="input-sm">
                 </div>
                 <div class="spec-field spec-field--action">
                     <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.hr.btn_add_spec') ?></button>
@@ -342,8 +342,8 @@
                             </select>
                         </span>
                         <span>
-                            <input type="number" name="hr_salary_min" value="<?= htmlspecialchars((string)($hs['base_salary_min'] ?? 0)) ?>" min="1" step="100" class="input-sm input-inline">
-                            <input type="number" name="hr_salary_max" value="<?= htmlspecialchars((string)($hs['base_salary_max'] ?? 0)) ?>" min="1" step="100" class="input-sm input-inline">
+                            <input type="number" name="hr_salary_min" value="<?= htmlspecialchars((string)($hs['base_salary_min'] ?? 0)) ?>" min="100" step="100" class="input-sm input-inline">
+                            <input type="number" name="hr_salary_max" value="<?= htmlspecialchars((string)($hs['base_salary_max'] ?? 0)) ?>" min="100" step="100" class="input-sm input-inline">
                         </span>
                         <span><button type="submit" class="btn btn-sm btn-primary"><?= t('common.save') ?></button></span>
                     </form>
