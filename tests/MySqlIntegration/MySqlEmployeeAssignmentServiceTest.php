@@ -83,6 +83,48 @@ final class MySqlEmployeeAssignmentServiceTest extends MySqlIntegrationTestCase
         $this->assertSame([], $service->listForPipeline($playerId, $pipelineId));
     }
 
+    public function testMySqlPipelineStatusesAndBusyPolicyAreTargetSpecific(): void
+    {
+        EmployeeSystemBootstrap::ensure($this->db);
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId']);
+        $this->seedHub($ids['hubId'], 'Employee status policy hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 0.0, $playerId);
+        $staffId = $this->seedTechnicalStaff($playerId, $ids['staffId'], 'pipeline_engineer', 'Pipeline Engineer', 8, 10500);
+        $this->db->prepare("UPDATE technical_staff SET status = 'busy' WHERE id = ? AND player_id = ?")
+            ->execute([$staffId, $playerId]);
+        $this->db->prepare(
+            "INSERT INTO well_pipelines (player_id, well_id, hub_id, name, status)
+             VALUES (?, ?, ?, 'Employee status policy pipeline', 'active')"
+        )->execute([$playerId, $ids['wellId'], $ids['hubId']]);
+        $pipelineId = (int)$this->db->lastInsertId();
+
+        $service = new EmployeeAssignmentService($this->db);
+        $ref = new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $staffId, $playerId);
+        foreach (['active', 'degraded', 'critical', 'leak'] as $status) {
+            $this->db->prepare('UPDATE well_pipelines SET status = ? WHERE id = ? AND player_id = ?')
+                ->execute([$status, $pipelineId, $playerId]);
+            $result = $service->assignToPipeline($ref, $pipelineId, 25.0);
+            $this->assertTrue($result['success'], $status);
+            $this->assertTrue($service->releasePipeline((int)$result['assignment_id'], $playerId), $status);
+        }
+
+        foreach (['building', 'disabled', 'suspended', 'servicing', 'damaged'] as $status) {
+            $this->db->prepare('UPDATE well_pipelines SET status = ? WHERE id = ? AND player_id = ?')
+                ->execute([$status, $pipelineId, $playerId]);
+            try {
+                $service->assignToPipeline($ref, $pipelineId, 25.0);
+                $this->fail('Status should block pipeline assignment: ' . $status);
+            } catch (RuntimeException $e) {
+                $this->assertSame('Pipeline is not available for staffing.', $e->getMessage(), $status);
+            }
+        }
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Employee is not active.');
+        $service->assignToHub($ref, $ids['hubId'], 25.0);
+    }
+
     public function testMySqlConcurrentAssignmentsCannotExceedOneHundredPercent(): void
     {
         EmployeeSystemBootstrap::ensure($this->db);
@@ -170,5 +212,82 @@ final class MySqlEmployeeAssignmentServiceTest extends MySqlIntegrationTestCase
         );
         $stmt->execute([$playerId, $staffId]);
         $this->assertSame(60.0, (float)$stmt->fetchColumn());
+    }
+
+    public function testMySqlConcurrentPipelineDisableBlocksAssignment(): void
+    {
+        EmployeeSystemBootstrap::ensure($this->db);
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId']);
+        $this->seedHub($ids['hubId'], 'Concurrent pipeline hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 0.0, $playerId);
+        $staffId = $this->seedTechnicalStaff($playerId, $ids['staffId'], 'pipeline_engineer', 'Pipeline Engineer', 8, 10500);
+        $this->db->prepare(
+            "INSERT INTO well_pipelines (player_id, well_id, hub_id, name, status)
+             VALUES (?, ?, ?, 'Concurrent staffing pipeline', 'active')"
+        )->execute([$playerId, $ids['wellId'], $ids['hubId']]);
+        $pipelineId = (int)$this->db->lastInsertId();
+
+        $root = dirname(__DIR__, 2);
+        $readyFile = tempnam(sys_get_temp_dir(), 'pipeline_assignment_ready_');
+        $gateFile = tempnam(sys_get_temp_dir(), 'pipeline_assignment_gate_');
+        $this->assertIsString($readyFile);
+        $this->assertIsString($gateFile);
+        @unlink($readyFile);
+        @unlink($gateFile);
+
+        $this->db->beginTransaction();
+        $this->db->prepare('SELECT id FROM well_pipelines WHERE id = ? AND player_id = ? FOR UPDATE')
+            ->execute([$pipelineId, $playerId]);
+
+        $pipes = [];
+        $process = proc_open(
+            [
+                PHP_BINARY,
+                $root . '/tests/fixtures/pipeline_assignment_concurrent_worker.php',
+                (string)$playerId,
+                (string)$staffId,
+                (string)$pipelineId,
+                '50',
+                $readyFile,
+                $gateFile,
+            ],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $root
+        );
+        $this->assertIsResource($process);
+
+        $deadline = microtime(true) + 10.0;
+        while (!is_file($readyFile) && microtime(true) < $deadline) {
+            usleep(25000);
+        }
+        $this->assertFileExists($readyFile);
+        file_put_contents($gateFile, 'go');
+        usleep(100000);
+
+        $this->db->prepare("UPDATE well_pipelines SET status = 'disabled' WHERE id = ? AND player_id = ?")
+            ->execute([$pipelineId, $playerId]);
+        $this->db->commit();
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+        @unlink($readyFile);
+        @unlink($gateFile);
+
+        $result = json_decode(trim((string)$stdout), true);
+        $this->assertIsArray($result, 'stdout=' . $stdout . ' stderr=' . $stderr . ' exit=' . $exitCode);
+        $this->assertFalse((bool)($result['success'] ?? true));
+        $this->assertSame('Pipeline is not available for staffing.', $result['error'] ?? null);
+
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM employee_assignments
+              WHERE player_id = ? AND target_type = 'pipeline' AND target_id = ? AND status = 'active'"
+        );
+        $stmt->execute([$playerId, $pipelineId]);
+        $this->assertSame(0, (int)$stmt->fetchColumn());
     }
 }

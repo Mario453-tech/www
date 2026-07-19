@@ -6,6 +6,7 @@ final class EmployeeAssignmentService
     private const TARGET_HUB = 'hub';
     private const TARGET_PIPELINE = 'pipeline';
     private const PIPELINE_ASSIGNABLE_STATUSES = ['active', 'degraded', 'critical', 'leak'];
+    private const PIPELINE_ROLES = ['pipeline_engineer', 'pipeline_logistics_specialist'];
     private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
 
     private readonly EmployeeRepository $employees;
@@ -51,8 +52,15 @@ final class EmployeeAssignmentService
             $this->db->beginTransaction();
             $startedTransaction = true;
 
-            $employee = $this->employeeForAssignment($ref);
+            $this->lockEmployeeSourceRow($ref);
+            $pipelineAssignment = $targetType === self::TARGET_PIPELINE;
+            $employee = $this->employeeForAssignment($ref, $pipelineAssignment);
+            if ($pipelineAssignment) {
+                $this->assertPipelineRole($employee);
+            }
             $this->assertTargetOwned($ref->playerId, $targetType, $targetId);
+            $state = $this->states->ensureState($ref);
+            $this->lockEmployeeStateRow($ref);
             $state = $this->states->ensureState($ref);
             $this->assertRelationAllowsAssignment($state);
 
@@ -65,11 +73,16 @@ final class EmployeeAssignmentService
                     $assignmentId = $excludeId;
                 } else {
                     $stmt = $this->db->prepare(
-                        'UPDATE employee_assignments
+                        "UPDATE employee_assignments
                             SET allocation_pct = :allocation_pct,
                                 updated_at = CURRENT_TIMESTAMP
                           WHERE id = :id
-                            AND player_id = :player_id'
+                            AND player_id = :player_id
+                            AND source_type = :source_type
+                            AND source_id = :source_id
+                            AND target_type = :target_type
+                            AND target_id = :target_id
+                            AND status = 'active'"
                         . ($targetType === self::TARGET_PIPELINE
                             ? " AND EXISTS (
                                     SELECT 1
@@ -84,6 +97,10 @@ final class EmployeeAssignmentService
                         'allocation_pct' => $allocationPct,
                         'id' => $excludeId,
                         'player_id' => $ref->playerId,
+                        'source_type' => $ref->sourceType,
+                        'source_id' => $ref->sourceId,
+                        'target_type' => $targetType,
+                        'target_id' => $targetId,
                     ];
                     if ($targetType === self::TARGET_PIPELINE) {
                         $params['pipeline_id'] = $targetId;
@@ -147,6 +164,7 @@ final class EmployeeAssignmentService
                 'assignment_id' => $assignmentId,
                 'employee' => $employee,
                 'allocation_pct' => $allocationPct,
+                'was_update' => $existing !== null,
             ];
         } catch (Throwable $e) {
             if ($startedTransaction && $this->db->inTransaction()) {
@@ -360,14 +378,14 @@ final class EmployeeAssignmentService
     }
 
     /** @return array<string, mixed> */
-    private function employeeForAssignment(EmployeeRef $ref): array
+    private function employeeForAssignment(EmployeeRef $ref, bool $allowBusyTechnical = false): array
     {
         $employee = $this->employees->find($ref);
         if ($employee === null || (int)($employee['player_id'] ?? 0) !== $ref->playerId) {
             throw new RuntimeException('Employee does not belong to this player.');
         }
         $status = (string)($employee['status'] ?? '');
-        $allowedStatuses = $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
+        $allowedStatuses = $allowBusyTechnical && $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
             ? ['active', 'busy']
             : ['active'];
         if (!in_array($status, $allowedStatuses, true)) {
@@ -440,6 +458,15 @@ final class EmployeeAssignmentService
         }
     }
 
+    /** @param array<string, mixed> $employee */
+    private function assertPipelineRole(array $employee): void
+    {
+        if ((string)($employee['source_type'] ?? '') !== EmployeeRef::SOURCE_TECHNICAL_STAFF
+            || !in_array((string)($employee['role_code'] ?? ''), self::PIPELINE_ROLES, true)) {
+            throw new RuntimeException('Employee specialization is not allowed for pipeline staffing.');
+        }
+    }
+
     private function assertAllocationAvailable(EmployeeRef $ref, float $allocationPct, ?int $excludeAssignmentId = null): void
     {
         $params = [$ref->playerId, $ref->sourceType, $ref->sourceId];
@@ -468,6 +495,7 @@ final class EmployeeAssignmentService
     /** @return array<string, mixed>|null */
     private function activeAssignmentForTarget(EmployeeRef $ref, string $targetType, int $targetId): ?array
     {
+        $forUpdate = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
         $stmt = $this->db->prepare(
             "SELECT *
                FROM employee_assignments
@@ -477,7 +505,7 @@ final class EmployeeAssignmentService
                 AND target_type = ?
                 AND target_id = ?
                 AND status = 'active'
-              LIMIT 1"
+              LIMIT 1{$forUpdate}"
         );
         $stmt->execute([$ref->playerId, $ref->sourceType, $ref->sourceId, $targetType, $targetId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -516,6 +544,36 @@ final class EmployeeAssignmentService
     private function lockName(EmployeeRef $ref): string
     {
         return 'employee_assignment:' . $ref->playerId . ':' . $ref->sourceType . ':' . $ref->sourceId;
+    }
+
+    private function lockEmployeeSourceRow(EmployeeRef $ref): void
+    {
+        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
+            return;
+        }
+
+        $table = $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
+            ? 'technical_staff'
+            : 'board_members';
+        $stmt = $this->db->prepare("SELECT id FROM {$table} WHERE id = ? AND player_id = ? FOR UPDATE");
+        $stmt->execute([$ref->sourceId, $ref->playerId]);
+    }
+
+    private function lockEmployeeStateRow(EmployeeRef $ref): void
+    {
+        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
+            return;
+        }
+
+        $stmt = $this->db->prepare(
+            'SELECT id
+               FROM employee_state
+              WHERE player_id = ?
+                AND source_type = ?
+                AND source_id = ?
+              FOR UPDATE'
+        );
+        $stmt->execute([$ref->playerId, $ref->sourceType, $ref->sourceId]);
     }
 
     private function acquireLock(string $lockName): void

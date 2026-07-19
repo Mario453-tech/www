@@ -224,6 +224,7 @@ $unassignedTotal   = 0;
 $unassignedTotalPages = 1;
 
 $pipelines = [];
+$pipelineStaffingClientPayload = ['pipelines' => [], 'candidates' => []];
 $pipelineSummary = [
     'total' => 0,
     'critical' => 0,
@@ -465,7 +466,7 @@ try {
         "SELECT COUNT(*)
            FROM technical_staff
           WHERE player_id = ?
-            AND specialization = 'pipeline_engineer'
+            AND spec_code = 'pipeline_engineer'
             AND status IN ('active','busy')
             AND (fired_at IS NULL OR fired_at > NOW())"
     );
@@ -577,9 +578,13 @@ try {
 if ($pipelines !== []) {
     try {
         $pipelineStaffingViewByPipeline = $pipelineStaffingMgmt->buildPipelineStaffingView($playerId, $pipelines);
+        $pipelineStaffingClientPayload = $pipelineStaffingMgmt->buildClientPayload(
+            $pipelineStaffingViewByPipeline
+        );
     } catch (Throwable $e) {
         GameLog::error('logistics', 'Pipeline staffing data load failed', $e, ['player_id' => $playerId]);
         $pipelineStaffingViewByPipeline = [];
+        $pipelineStaffingClientPayload = ['pipelines' => [], 'candidates' => []];
     }
 }
 
@@ -821,6 +826,7 @@ $viewData = compact(
     'unassignedTotal',
     'pipelines',
     'pipelineStaffingViewByPipeline',
+    'pipelineStaffingClientPayload',
     'pipelineSummary',
     'pipelineHse',
     'logisticsInsights',

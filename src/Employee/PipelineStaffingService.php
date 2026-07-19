@@ -50,9 +50,11 @@ final class PipelineStaffingService
         }
 
         $assignments = $this->loadAssignments($playerId, array_keys($pipelineRows));
-        $employeeMap = $this->employeeMap($playerId);
-        $stateMap = $this->stateMap($playerId);
-        $logisticsEffects = $this->logisticsEffectMap($playerId);
+        $employees = $this->employees->listForPlayer($playerId, null, false);
+        $linkMap = $this->employees->sourceLinkMap($playerId);
+        $employeeMap = $this->employeeMap($employees);
+        $stateMap = $this->stateMap($playerId, $linkMap);
+        $logisticsEffects = $this->logisticsEffectMap($playerId, $employees, $stateMap, $linkMap);
 
         $result = [];
         foreach ($pipelineRows as $pipelineId => $pipeline) {
@@ -129,13 +131,12 @@ final class PipelineStaffingService
     /** @param array<string, mixed> $employee */
     public function roleCode(array $employee): string
     {
-        foreach (['role_code', 'specialization_code'] as $field) {
-            $code = trim((string)($employee[$field] ?? ''));
-            if (in_array($code, [self::ROLE_ENGINEER, self::ROLE_LOGISTICS], true)) {
-                return $code;
-            }
+        if ((string)($employee['source_type'] ?? '') !== EmployeeRef::SOURCE_TECHNICAL_STAFF) {
+            return '';
         }
-        return '';
+
+        $code = trim((string)($employee['role_code'] ?? ''));
+        return in_array($code, [self::ROLE_ENGINEER, self::ROLE_LOGISTICS], true) ? $code : '';
     }
 
     /**
@@ -166,19 +167,25 @@ final class PipelineStaffingService
         return $grouped;
     }
 
-    /** @return array<string, array<string, mixed>> */
-    private function employeeMap(int $playerId): array
+    /**
+     * @param list<array<string, mixed>> $employees
+     * @return array<string, array<string, mixed>>
+     */
+    private function employeeMap(array $employees): array
     {
         $map = [];
-        foreach ($this->employees->listForPlayer($playerId, null, false) as $employee) {
+        foreach ($employees as $employee) {
             $key = (string)$employee['source_type'] . ':' . (int)$employee['source_id'];
             $map[$key] = $employee;
         }
         return $map;
     }
 
-    /** @return array<string, array<string, mixed>> */
-    private function stateMap(int $playerId): array
+    /**
+     * @param array<string, EmployeeRef> $linkMap
+     * @return array<string, array<string, mixed>>
+     */
+    private function stateMap(int $playerId, array $linkMap): array
     {
         $stmt = $this->db->prepare('SELECT * FROM employee_state WHERE player_id = ? ORDER BY id ASC');
         $stmt->execute([$playerId]);
@@ -187,7 +194,7 @@ final class PipelineStaffingService
             $map[(string)$state['source_type'] . ':' . (int)$state['source_id']] = $state;
         }
 
-        foreach ($this->employees->sourceLinkMap($playerId) as $legacyMapKey => $canonicalRef) {
+        foreach ($linkMap as $legacyMapKey => $canonicalRef) {
             $legacyId = (int)substr($legacyMapKey, strrpos($legacyMapKey, ':') + 1);
             $legacyKey = EmployeeRef::SOURCE_BOARD_MEMBER . ':' . $legacyId;
             $canonicalKey = $canonicalRef->key();
@@ -202,11 +209,22 @@ final class PipelineStaffingService
         return $map;
     }
 
-    /** @return array<string, float> */
-    private function logisticsEffectMap(int $playerId): array
+    /**
+     * @param list<array<string, mixed>> $employees
+     * @param array<string, array<string, mixed>> $states
+     * @param array<string, EmployeeRef> $linkMap
+     * @return array<string, float>
+     */
+    private function logisticsEffectMap(int $playerId, array $employees, array $states, array $linkMap): array
     {
         $map = [];
-        foreach ($this->roleEffects->calculatePlayerEffects($playerId, [self::ROLE_LOGISTICS => 'pipeline']) as $result) {
+        foreach ($this->roleEffects->calculatePlayerEffects(
+            $playerId,
+            [self::ROLE_LOGISTICS => 'pipeline'],
+            $employees,
+            $states,
+            $linkMap
+        ) as $result) {
             $employee = (array)($result['employee'] ?? []);
             $key = (string)($employee['source_type'] ?? '') . ':' . (int)($employee['source_id'] ?? 0);
             $map[$key] = (float)($result['effects']['pipeline_loss_pct']['final_value'] ?? 0.0);

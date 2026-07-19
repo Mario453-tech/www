@@ -61,8 +61,12 @@ final class PipelineStaffingManagementService
                 $allowedStatuses = (string)($employee['source_type'] ?? '') === EmployeeRef::SOURCE_TECHNICAL_STAFF
                     ? ['active', 'busy']
                     : ['active'];
-                $blocked = !in_array($employeeStatus, $allowedStatuses, true)
+                $statusBlocked = !in_array($employeeStatus, $allowedStatuses, true);
+                $blocked = $statusBlocked
                     || in_array((string)($state['relation_status'] ?? 'normal'), self::BLOCKED_RELATION_STATUSES, true);
+                if ($current === null && $statusBlocked) {
+                    continue;
+                }
 
                 $row = [
                     'source_type' => (string)$employee['source_type'],
@@ -99,6 +103,45 @@ final class PipelineStaffingManagementService
         return $result;
     }
 
+    /**
+     * Removes repeated candidate rows before embedding staffing data in the page.
+     * Usuwa powtarzane rekordy kandydatow przed osadzeniem danych obsady na stronie.
+     *
+     * @param array<int, array<string, mixed>> $viewByPipeline
+     * @return array{pipelines:array<int, array<string, mixed>>,candidates:list<array<string, mixed>>}
+     */
+    public function buildClientPayload(array $viewByPipeline): array
+    {
+        $pipelines = [];
+        $candidates = [];
+        foreach ($viewByPipeline as $pipelineId => $view) {
+            foreach ((array)($view['candidates'] ?? []) as $candidate) {
+                $key = (string)($candidate['source_type'] ?? '') . ':' . (int)($candidate['source_id'] ?? 0);
+                if ($key === ':0' || isset($candidates[$key])) {
+                    continue;
+                }
+                $current = (float)($candidate['current_allocation_pct'] ?? 0.0);
+                $free = (float)($candidate['free_allocation_pct'] ?? 0.0);
+                $candidate['used_allocation_pct'] = round(max(0.0, 100.0 - $free + $current), 2);
+                unset(
+                    $candidate['current_assignment_id'],
+                    $candidate['current_allocation_pct'],
+                    $candidate['free_allocation_pct'],
+                    $candidate['can_assign']
+                );
+                $candidates[$key] = $candidate;
+            }
+
+            unset($view['candidates']);
+            $pipelines[(int)$pipelineId] = $view;
+        }
+
+        return [
+            'pipelines' => $pipelines,
+            'candidates' => array_values($candidates),
+        ];
+    }
+
     /** @return array{success:bool,was_update:bool,assignment_id:int} */
     public function assignToPipeline(int $playerId, string $sourceType, int $sourceId, int $pipelineId, float $allocationPct): array
     {
@@ -109,11 +152,10 @@ final class PipelineStaffingManagementService
             throw new RuntimeException('Employee specialization is not allowed for pipeline staffing.');
         }
 
-        $existing = $this->findAssignment($playerId, $canonical, $pipelineId);
         $result = $this->assignments->assignToPipeline($canonical, $pipelineId, $allocationPct);
         return [
             'success' => true,
-            'was_update' => $existing !== null,
+            'was_update' => !empty($result['was_update']),
             'assignment_id' => (int)($result['assignment_id'] ?? 0),
         ];
     }
@@ -189,17 +231,4 @@ final class PipelineStaffingManagementService
         return $map;
     }
 
-    /** @return array<string, mixed>|null */
-    private function findAssignment(int $playerId, EmployeeRef $ref, int $pipelineId): ?array
-    {
-        $stmt = $this->db->prepare(
-            "SELECT * FROM employee_assignments
-              WHERE player_id = ? AND source_type = ? AND source_id = ?
-                AND target_type = 'pipeline' AND target_id = ? AND status = 'active'
-              LIMIT 1"
-        );
-        $stmt->execute([$playerId, $ref->sourceType, $ref->sourceId, $pipelineId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return is_array($row) ? $row : null;
-    }
 }

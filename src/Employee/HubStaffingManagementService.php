@@ -161,12 +161,11 @@ final class HubStaffingManagementService
         if ($employee === null || !$this->isHubOperator($employee)) {
             throw new RuntimeException(t('logistics.hub.staffing.err_operator_required'));
         }
-        $existing = $this->findAssignmentForHub($playerId, $ref, $hubId);
         $result = $this->assignments->assignToHub($ref, $hubId, $allocationPct);
 
         return [
             'success' => true,
-            'was_update' => $existing !== null,
+            'was_update' => !empty($result['was_update']),
             'assignment_id' => (int)($result['assignment_id'] ?? 0),
         ];
     }
@@ -254,27 +253,6 @@ final class HubStaffingManagementService
         }
 
         return $map;
-    }
-
-    /** @return array<string, mixed>|null */
-    private function findAssignmentForHub(int $playerId, EmployeeRef $ref, int $hubId): ?array
-    {
-        $canonical = $this->employees->canonicalRef($ref);
-        $stmt = $this->db->prepare(
-            "SELECT *
-               FROM employee_assignments
-              WHERE player_id = ?
-                AND source_type = ?
-                AND source_id = ?
-                AND target_type = 'hub'
-                AND target_id = ?
-                AND status = 'active'
-              LIMIT 1"
-        );
-        $stmt->execute([$playerId, $canonical->sourceType, $canonical->sourceId, $hubId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        return is_array($row) ? $row : null;
     }
 
     /** @param array<string, mixed> $employee */

@@ -57,7 +57,7 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
     public function testAssignsActiveEmployeeToOwnedPipeline(): void
     {
         $result = $this->service->assignToPipeline(
-            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
             500,
             40.0
         );
@@ -67,7 +67,7 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $rows = $this->service->listForPipeline(1, 500);
         $this->assertCount(1, $rows);
         $this->assertSame('pipeline', $rows[0]['target_type']);
-        $this->assertSame(20, (int)$rows[0]['source_id']);
+        $this->assertSame(22, (int)$rows[0]['source_id']);
     }
 
     public function testRejectsForeignPipeline(): void
@@ -76,7 +76,7 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->expectExceptionMessage('Pipeline does not belong to this player.');
 
         $this->service->assignToPipeline(
-            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
             600,
             50.0
         );
@@ -88,21 +88,33 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->expectExceptionMessage('Pipeline is not available for staffing.');
 
         $this->service->assignToPipeline(
-            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
             700,
             50.0
+        );
+    }
+
+    public function testRejectsWrongPipelineRoleAtPersistenceBoundary(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Employee specialization is not allowed for pipeline staffing.');
+
+        $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            500,
+            25.0
         );
     }
 
     public function testListsAndReleasesPipelineAssignmentsForPlayer(): void
     {
         $first = $this->service->assignToPipeline(
-            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
             500,
             40.0
         );
         $this->service->assignToPipeline(
-            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 21, 1),
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 23, 1),
             501,
             60.0
         );
@@ -221,6 +233,75 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Employee specialization is not allowed for pipeline staffing.');
         $management->assignToPipeline(1, EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 500, 25.0);
+    }
+
+    public function testBusyTechnicalEmployeeCanStaffPipelineButNotHub(): void
+    {
+        $busyRef = new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 23, 1);
+        $pipelineResult = $this->service->assignToPipeline($busyRef, 500, 25.0);
+
+        $this->assertTrue($pipelineResult['success']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Employee is not active.');
+        $this->service->assignToHub($busyRef, 100, 25.0);
+    }
+
+    public function testPipelineManagementReportsAtomicUpdateAndCompactsClientPayload(): void
+    {
+        $management = new PipelineStaffingManagementService($this->db);
+        $first = $management->assignToPipeline(
+            1,
+            EmployeeRef::SOURCE_TECHNICAL_STAFF,
+            22,
+            500,
+            25.0
+        );
+        $updated = $management->assignToPipeline(
+            1,
+            EmployeeRef::SOURCE_TECHNICAL_STAFF,
+            22,
+            500,
+            50.0
+        );
+
+        $this->assertFalse($first['was_update']);
+        $this->assertTrue($updated['was_update']);
+
+        $view = $management->buildPipelineStaffingView(1, [
+            ['id' => 500, 'player_id' => 1, 'status' => 'active'],
+            ['id' => 501, 'player_id' => 1, 'status' => 'active'],
+        ]);
+        $payload = $management->buildClientPayload($view);
+
+        $this->assertCount(2, $payload['candidates']);
+        $this->assertArrayNotHasKey('candidates', $payload['pipelines'][500]);
+        $this->assertArrayNotHasKey('candidates', $payload['pipelines'][501]);
+        $this->assertSame(50.0, (float)$payload['pipelines'][500]['active_assignments'][0]['allocation_pct']);
+    }
+
+    public function testPipelineRoleDoesNotFallBackToBoardPerkAndDepartedAssignmentRemainsReleasable(): void
+    {
+        $staffing = new PipelineStaffingService($this->db);
+        $this->assertSame('', $staffing->roleCode([
+            'source_type' => EmployeeRef::SOURCE_BOARD_MEMBER,
+            'role_code' => 'logistics',
+            'specialization_code' => 'pipeline_engineer',
+        ]));
+
+        $result = $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 22, 1),
+            500,
+            25.0
+        );
+        $this->db->exec("UPDATE technical_staff SET status = 'fired' WHERE id = 22 AND player_id = 1");
+
+        $view = (new PipelineStaffingManagementService($this->db))->buildPipelineStaffingView(1, [
+            ['id' => 500, 'player_id' => 1, 'status' => 'active'],
+        ]);
+
+        $this->assertCount(1, $view[500]['active_assignments']);
+        $this->assertTrue((bool)$view[500]['candidates'][0]['is_blocked']);
+        $this->assertSame((int)$result['assignment_id'], (int)$view[500]['candidates'][0]['current_assignment_id']);
     }
 
     public function testAssignsEmployeeToRentedHubControlledByTenant(): void

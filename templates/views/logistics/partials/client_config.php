@@ -63,7 +63,8 @@ $logisticsClientConfig['pipeline'] = [
 ];
 
 $logisticsClientConfig['pipeline_staffing'] = [
-    'pipelines' => $pipelineStaffingViewByPipeline,
+    'pipelines' => $pipelineStaffingClientPayload['pipelines'] ?? [],
+    'candidates' => $pipelineStaffingClientPayload['candidates'] ?? [],
     'post_url' => function_exists('url') ? url('logistics') : '/logistics',
     'csrf_token' => CSRF::generateToken(),
     'heading' => t('logistics.pipeline.staffing.modal_title'),

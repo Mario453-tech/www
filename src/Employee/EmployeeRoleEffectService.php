@@ -112,10 +112,18 @@ final class EmployeeRoleEffectService
      * Laduje efekty runtime wybranych specjalizacji bez zapytan odczytu per pracownik.
      *
      * @param array<string, string|list<string>> $scopeBySpecialization
+     * @param list<array<string, mixed>>|null $employees
+     * @param array<string, array<string, mixed>>|null $states
+     * @param array<string, EmployeeRef>|null $linkMap
      * @return list<array<string, mixed>>
      */
-    public function calculatePlayerEffects(int $playerId, array $scopeBySpecialization): array
-    {
+    public function calculatePlayerEffects(
+        int $playerId,
+        array $scopeBySpecialization,
+        ?array $employees = null,
+        ?array $states = null,
+        ?array $linkMap = null
+    ): array {
         if ($playerId <= 0) {
             throw new InvalidArgumentException('Player identifier must be positive.');
         }
@@ -139,14 +147,14 @@ final class EmployeeRoleEffectService
             return [];
         }
 
-        $employees = $this->employees->listForPlayer($playerId, null, true);
+        $employees ??= $this->employees->listForPlayer($playerId, null, true);
         $employeeByKey = [];
         foreach ($employees as $employee) {
             $employeeByKey[$this->employeeRecordKey($employee)] = $employee;
         }
 
-        $linkMap = $this->employees->sourceLinkMap($playerId);
-        $states = $this->loadPlayerStates($playerId);
+        $linkMap ??= $this->employees->sourceLinkMap($playerId);
+        $states ??= $this->loadPlayerStates($playerId);
         $selected = [];
         foreach ($employees as $employee) {
             $sourceRef = new EmployeeRef(

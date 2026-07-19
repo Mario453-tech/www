@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2026-07-19 - Utwardzenie obsady rurociągów po code review
+
+- Końcowa aktualizacja alokacji ponownie sprawdza gracza, pracownika, typ i identyfikator celu oraz aktywny status przypisania; odczyt istniejącego rekordu jest blokowany w MySQL.
+- Status `busy` jest dopuszczony wyłącznie przy obsadzie rurociągu. Obsada huba nadal wymaga aktywnego pracownika, zgodnie z naliczaniem efektu huba.
+- Komunikat `was_update` pochodzi z atomowej operacji przypisania, a nie z wcześniejszego odczytu wykonywanego poza transakcją.
+- Podsumowanie inżynierów rurociągów korzysta ze stanowiska `technical_staff.spec_code`, a dane kandydatów modala są osadzane raz zamiast osobno dla każdego rurociągu.
+- Preload obsady przekazuje pobranych pracowników, stany i mapę powiązań do kalkulatora efektów, ograniczając powtórne zapytania w ticku.
+- Dodano regresje SQLite i MySQL dla polityki `busy`, statusów rurociągu, kompaktowego payloadu oraz wyścigu przypisania z równoległym wyłączeniem rurociągu.
+
 ### 2026-07-18 - Operator huba: jedna techniczna ścieżka rekrutacji
 
 - `hub_operator` jest wyłącznie stanowiskiem technicznym w `hr_specializations` z `department=technical`; bootstrap nie tworzy go już automatycznie jako pracownika logistyki.

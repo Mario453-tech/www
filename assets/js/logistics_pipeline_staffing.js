@@ -96,6 +96,27 @@
         '</div>';
     }
 
+    function candidatesForPipeline(data, operational) {
+        const active = Array.isArray(data.active_assignments) ? data.active_assignments : [];
+        const activeByEmployee = {};
+        active.forEach(function (assignment) {
+            activeByEmployee[String(assignment.source_type) + ':' + Number(assignment.source_id || 0)] = assignment;
+        });
+
+        return (Array.isArray(config.candidates) ? config.candidates : []).map(function (candidate) {
+            const key = String(candidate.source_type) + ':' + Number(candidate.source_id || 0);
+            const current = activeByEmployee[key] || null;
+            const currentAllocation = Number(current && current.allocation_pct || 0);
+            const freeAllocation = Math.max(0, 100 - Number(candidate.used_allocation_pct || 0) + currentAllocation);
+            return Object.assign({}, candidate, {
+                current_assignment_id: Number(current && current.assignment_id || 0),
+                current_allocation_pct: currentAllocation,
+                free_allocation_pct: freeAllocation,
+                can_assign: operational && !candidate.is_blocked && freeAllocation > 0
+            });
+        });
+    }
+
     function openModal(pipelineId) {
         const data = config.pipelines && (config.pipelines[String(pipelineId)] || config.pipelines[pipelineId]);
         const modal = document.getElementById('pipeline-staffing-modal');
@@ -107,7 +128,7 @@
 
         const summary = data.summary || {};
         const active = Array.isArray(data.active_assignments) ? data.active_assignments : [];
-        const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+        const candidates = candidatesForPipeline(data, !!summary.is_operational);
         title.textContent = config.heading + ' #' + pipelineId;
 
         let html = '<p class="pipeline-staffing-subtitle">' + esc(config.subtitle) + '</p>' + summaryMarkup(summary);
@@ -132,7 +153,6 @@
             return;
         }
         if (typeof window.confirmAction !== 'function') {
-            form.submit();
             return;
         }
         window.confirmAction(button.dataset.confirm || '', function () {
