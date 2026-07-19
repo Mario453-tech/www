@@ -4,6 +4,7 @@ declare(strict_types=1);
 final class EmployeeAssignmentService
 {
     private const TARGET_HUB = 'hub';
+    private const TARGET_PIPELINE = 'pipeline';
     private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
 
     private readonly EmployeeRepository $employees;
@@ -20,6 +21,12 @@ final class EmployeeAssignmentService
     public function assignToHub(EmployeeRef $ref, int $hubId, float $allocationPct = 100.0): array
     {
         return $this->assign($ref, self::TARGET_HUB, $hubId, $allocationPct);
+    }
+
+    /** @return array<string, mixed> */
+    public function assignToPipeline(EmployeeRef $ref, int $pipelineId, float $allocationPct = 100.0): array
+    {
+        return $this->assign($ref, self::TARGET_PIPELINE, $pipelineId, $allocationPct);
     }
 
     /** @return array<string, mixed> */
@@ -131,6 +138,11 @@ final class EmployeeAssignmentService
         return $this->releaseForTarget($assignmentId, $playerId, self::TARGET_HUB);
     }
 
+    public function releasePipeline(int $assignmentId, int $playerId): bool
+    {
+        return $this->releaseForTarget($assignmentId, $playerId, self::TARGET_PIPELINE);
+    }
+
     public function releaseEmployeeAssignments(EmployeeRef $ref): int
     {
         $ref = $this->employees->canonicalRef($ref);
@@ -191,6 +203,12 @@ final class EmployeeAssignmentService
         return $this->listForTarget($playerId, self::TARGET_HUB, $hubId);
     }
 
+    /** @return list<array<string, mixed>> */
+    public function listForPipeline(int $playerId, int $pipelineId): array
+    {
+        return $this->listForTarget($playerId, self::TARGET_PIPELINE, $pipelineId);
+    }
+
     /**
      * Loads active hub assignments in one query.
      * Laduje aktywne przypisania hubow jednym zapytaniem.
@@ -200,26 +218,51 @@ final class EmployeeAssignmentService
      */
     public function listForHubs(int $playerId, array $hubIds): array
     {
+        return $this->listForTargets($playerId, self::TARGET_HUB, $hubIds);
+    }
+
+    /**
+     * Loads active pipeline assignments in one query.
+     * Laduje aktywne przypisania rurociagow jednym zapytaniem.
+     *
+     * @param list<int> $pipelineIds
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public function listForPipelines(int $playerId, array $pipelineIds): array
+    {
+        return $this->listForTargets($playerId, self::TARGET_PIPELINE, $pipelineIds);
+    }
+
+    /**
+     * Loads active assignments for one target type in one query.
+     * Laduje aktywne przypisania jednego typu celu jednym zapytaniem.
+     *
+     * @param list<int> $targetIds
+     * @return array<int, list<array<string, mixed>>>
+     */
+    private function listForTargets(int $playerId, string $targetType, array $targetIds): array
+    {
         $playerId = $this->positiveId($playerId, 'Player identifier must be positive.');
-        $hubIds = array_values(array_unique(array_filter(
-            array_map('intval', $hubIds),
-            static fn(int $hubId): bool => $hubId > 0
+        $targetType = $this->normalizeTargetType($targetType);
+        $targetIds = array_values(array_unique(array_filter(
+            array_map('intval', $targetIds),
+            static fn(int $targetId): bool => $targetId > 0
         )));
-        if ($hubIds === []) {
+        if ($targetIds === []) {
             return [];
         }
 
-        $placeholders = implode(',', array_fill(0, count($hubIds), '?'));
+        $placeholders = implode(',', array_fill(0, count($targetIds), '?'));
         $stmt = $this->db->prepare(
             "SELECT *
                FROM employee_assignments
               WHERE player_id = ?
-                AND target_type = 'hub'
+                AND target_type = ?
                 AND target_id IN ({$placeholders})
                 AND status = 'active'
               ORDER BY target_id ASC, id ASC"
         );
-        $stmt->execute(array_merge([$playerId], $hubIds));
+        $stmt->execute(array_merge([$playerId, $targetType], $targetIds));
 
         $grouped = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -287,10 +330,21 @@ final class EmployeeAssignmentService
 
     private function assertTargetOwned(int $playerId, string $targetType, int $targetId): void
     {
-        if ($targetType !== self::TARGET_HUB) {
-            throw new InvalidArgumentException('Unsupported assignment target type.');
+        if ($targetType === self::TARGET_HUB) {
+            $this->assertHubOwned($playerId, $targetId);
+            return;
         }
 
+        if ($targetType === self::TARGET_PIPELINE) {
+            $this->assertPipelineOwned($playerId, $targetId);
+            return;
+        }
+
+        throw new InvalidArgumentException('Unsupported assignment target type.');
+    }
+
+    private function assertHubOwned(int $playerId, int $hubId): void
+    {
         $stmt = $this->db->prepare(
             "SELECT status
                FROM logistics_hubs
@@ -298,13 +352,32 @@ final class EmployeeAssignmentService
                 AND (player_id = ? OR tenant_player_id = ?)
               LIMIT 1"
         );
-        $stmt->execute([$targetId, $playerId, $playerId]);
+        $stmt->execute([$hubId, $playerId, $playerId]);
         $status = $stmt->fetchColumn();
         if ($status === false) {
             throw new RuntimeException('Hub does not belong to this player.');
         }
         if (in_array((string)$status, ['planned', 'building', 'disabled', 'paused', 'maintenance'], true)) {
             throw new RuntimeException('Hub is not available for staffing.');
+        }
+    }
+
+    private function assertPipelineOwned(int $playerId, int $pipelineId): void
+    {
+        $stmt = $this->db->prepare(
+            "SELECT status
+               FROM well_pipelines
+              WHERE id = ?
+                AND player_id = ?
+              LIMIT 1"
+        );
+        $stmt->execute([$pipelineId, $playerId]);
+        $status = $stmt->fetchColumn();
+        if ($status === false) {
+            throw new RuntimeException('Pipeline does not belong to this player.');
+        }
+        if (in_array((string)$status, ['planned', 'building', 'disabled'], true)) {
+            throw new RuntimeException('Pipeline is not available for staffing.');
         }
     }
 
@@ -365,7 +438,7 @@ final class EmployeeAssignmentService
     private function normalizeTargetType(string $targetType): string
     {
         $targetType = trim($targetType);
-        if (!in_array($targetType, [self::TARGET_HUB, 'pipeline', 'port', 'department', 'well'], true)) {
+        if (!in_array($targetType, [self::TARGET_HUB, self::TARGET_PIPELINE, 'port', 'department', 'well'], true)) {
             throw new InvalidArgumentException('Unsupported assignment target type.');
         }
 

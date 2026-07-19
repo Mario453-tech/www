@@ -51,6 +51,67 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
         );
     }
 
+    public function testAssignsActiveEmployeeToOwnedPipeline(): void
+    {
+        $result = $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            500,
+            40.0
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(40.0, $result['allocation_pct']);
+        $rows = $this->service->listForPipeline(1, 500);
+        $this->assertCount(1, $rows);
+        $this->assertSame('pipeline', $rows[0]['target_type']);
+        $this->assertSame(20, (int)$rows[0]['source_id']);
+    }
+
+    public function testRejectsForeignPipeline(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Pipeline does not belong to this player.');
+
+        $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            600,
+            50.0
+        );
+    }
+
+    public function testRejectsPipelineUnderConstruction(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Pipeline is not available for staffing.');
+
+        $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            700,
+            50.0
+        );
+    }
+
+    public function testListsAndReleasesPipelineAssignmentsForPlayer(): void
+    {
+        $first = $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            500,
+            40.0
+        );
+        $this->service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 21, 1),
+            501,
+            60.0
+        );
+
+        $grouped = $this->service->listForPipelines(1, [500, 501]);
+        $this->assertCount(1, $grouped[500]);
+        $this->assertCount(1, $grouped[501]);
+        $this->assertFalse($this->service->releasePipeline((int)$first['assignment_id'], 2));
+        $this->assertTrue($this->service->releasePipeline((int)$first['assignment_id'], 1));
+        $this->assertSame([], $this->service->listForPipeline(1, 500));
+    }
+
     public function testAssignsEmployeeToRentedHubControlledByTenant(): void
     {
         $result = $this->service->assignToHub(
@@ -244,6 +305,14 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
             slot_limit INTEGER NOT NULL DEFAULT 4,
             status TEXT NOT NULL DEFAULT 'active'
         )");
+        $this->db->exec("CREATE TABLE well_pipelines (
+            id INTEGER PRIMARY KEY,
+            player_id INTEGER NOT NULL,
+            well_id INTEGER NOT NULL,
+            hub_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active'
+        )");
         $this->db->exec("CREATE TABLE well_config (
             `key` TEXT PRIMARY KEY,
             `value` TEXT NOT NULL
@@ -275,6 +344,12 @@ final class EmployeeAssignmentServiceTest extends SqliteIntegrationTestCase
             (200, 2, 0, 'Hub B', 'medium', 4, 'active'),
             (300, 1, 0, 'Hub Planned', 'medium', 4, 'planned'),
             (400, 0, 1, 'Hub Rented', 'small', 1, 'active')");
+        $this->db->exec("INSERT INTO well_pipelines (id, player_id, well_id, hub_id, name, status)
+            VALUES
+            (500, 1, 1000, 100, 'Pipeline A', 'active'),
+            (501, 1, 1001, 100, 'Pipeline A2', 'active'),
+            (600, 2, 2000, 200, 'Pipeline B', 'active'),
+            (700, 1, 1002, 100, 'Pipeline Building', 'building')");
     }
 
     /** @return array<string, mixed> */

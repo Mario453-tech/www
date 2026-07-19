@@ -920,8 +920,8 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 
 - PlayersModule przekazuje teraz realny max_items_per_run do PlayersSection, a sekcja pobiera graczy deterministycznie wedlug last_tick_at ASC, id ASC. Najpierw przetwarzani sa gracze najdluzej czekajacy na tick.
 - PlayersSection raportuje players_fetched i players_remaining_estimate, dzieki czemu panel ticka moze pokazac, czy modul graczy zostal ograniczony limitem.
-- Dodano employee_assignments oraz EmployeeAssignmentService. Serwis przypisuje wspolnego pracownika (board_member albo technical_staff) do obiektu gry, na start do huba.
-- Przypisanie sprawdza wlasciciela pracownika, wlasciciela huba, aktywny status pracownika, blokujace statusy relacji (on_strike, leaving, inactive) oraz limit alokacji pracownika do 100%.
+- Dodano employee_assignments oraz EmployeeAssignmentService. Serwis przypisuje wspolnego pracownika (board_member albo technical_staff) do huba albo konkretnego rurociagu, z kontrola wlasciciela i lacznego przydzialu do 100%.
+- Przypisanie sprawdza wlasciciela pracownika i celu (huba albo rurociagu), dostepnosc celu, aktywny status pracownika, blokujace statusy relacji (on_strike, leaving, inactive) oraz limit alokacji pracownika do 100%.
 - Dla MySQL serwis uzywa GET_LOCK() per pracownik, zeby rownolegle przypisania tego samego pracownika nie ominely limitu alokacji.
 - Dodano LogisticsStaffingService, ktory liczy obsade huba: wymagana liczbe osob, pokrycie procentowe, sredni skill, srednie morale, brakujace role oraz mnozniki przepustowosci, ryzyka incydentu i kosztu utrzymania.
 - WellHubSection pobiera teraz wynik obsady per hub i przekazuje go do istniejacych sciezek ticka jako korekte hub_throughput_pct oraz incident_mult. Globalne efekty dzialu logistyki nadal dzialaja jako osobny bonus.

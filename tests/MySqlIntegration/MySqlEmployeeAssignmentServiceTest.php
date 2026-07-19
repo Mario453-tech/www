@@ -54,6 +54,35 @@ final class MySqlEmployeeAssignmentServiceTest extends MySqlIntegrationTestCase
         $this->assertSame([], $service->listForHub($playerId, $ids['hubId']));
     }
 
+    public function testMySqlAssignsTechnicalEmployeeToOwnedPipeline(): void
+    {
+        EmployeeSystemBootstrap::ensure($this->db);
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId']);
+        $this->seedHub($ids['hubId'], 'Employee assignment pipeline hub', 77, 'A1', 90.0, 'active', 'new', 'standard', 0.0, $playerId);
+        $staffId = $this->seedTechnicalStaff($playerId, $ids['staffId'], 'pipeline_engineer', 'Pipeline Engineer', 8, 10500);
+
+        $pipelineStmt = $this->db->prepare(
+            "INSERT INTO well_pipelines (player_id, well_id, hub_id, name, status)
+             VALUES (?, ?, ?, 'Employee assignment pipeline', 'active')"
+        );
+        $pipelineStmt->execute([$playerId, $ids['wellId'], $ids['hubId']]);
+        $pipelineId = (int)$this->db->lastInsertId();
+
+        $service = new EmployeeAssignmentService($this->db);
+        $result = $service->assignToPipeline(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $staffId, $playerId),
+            $pipelineId,
+            65.0
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertCount(1, $service->listForPipeline($playerId, $pipelineId));
+        $this->assertTrue($service->releasePipeline((int)$result['assignment_id'], $playerId));
+        $this->assertSame([], $service->listForPipeline($playerId, $pipelineId));
+    }
+
     public function testMySqlConcurrentAssignmentsCannotExceedOneHundredPercent(): void
     {
         EmployeeSystemBootstrap::ensure($this->db);
