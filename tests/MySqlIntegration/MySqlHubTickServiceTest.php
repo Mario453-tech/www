@@ -125,15 +125,7 @@ final class MySqlHubTickServiceTest extends MySqlIntegrationTestCase
         $this->assertIsArray($hub);
 
         $result = $tickService->processTick($hub, 150.0, 1.0);
-        $triggerName = 'trg_phpunit_hub_stats_fail_' . $ids['hubId'];
-
-        $this->db->exec("DROP TRIGGER IF EXISTS {$triggerName}");
-        $this->db->exec(
-            "CREATE TRIGGER {$triggerName}
-             BEFORE INSERT ON logistics_hub_tick_stats
-             FOR EACH ROW
-             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced hub stats failure'"
-        );
+        $result['load_pct'] = 100000.0;
 
         try {
             $this->db->beginTransaction();
@@ -144,7 +136,6 @@ final class MySqlHubTickServiceTest extends MySqlIntegrationTestCase
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
-            $this->db->exec("DROP TRIGGER IF EXISTS {$triggerName}");
         }
 
         $stmt = $this->db->prepare(
