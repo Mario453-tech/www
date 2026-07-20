@@ -322,7 +322,7 @@ class WellHubSection
                 }
 
             } catch (Throwable $e) {
-                GameLog::error('tick', 'finalizeHubTicks FAILED', $e, [
+                GameLog::error('tick', 'hub_finalize_failed', $e, [
                     'hub_id'    => $hubId,
                     'player_id' => $playerId,
                 ]);

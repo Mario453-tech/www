@@ -163,6 +163,14 @@ spl_autoload_register(function ($class) {
         __DIR__ . '/Well/' . $class . '.php',
         __DIR__ . '/Incident/' . $class . '.php',
         __DIR__ . '/Sabotage/' . $class . '.php',
+        __DIR__ . '/Employee/' . $class . '.php',
+        __DIR__ . '/HR/' . $class . '.php',
+        __DIR__ . '/Contracts/' . $class . '.php',
+        __DIR__ . '/Hub/' . $class . '.php',
+        __DIR__ . '/RegionalEvent/' . $class . '.php',
+        __DIR__ . '/BankNegotiation/' . $class . '.php',
+        __DIR__ . '/Protection/' . $class . '.php',
+        __DIR__ . '/Training/' . $class . '.php',
     ];
     foreach ($candidates as $file) {
         if (file_exists($file)) {

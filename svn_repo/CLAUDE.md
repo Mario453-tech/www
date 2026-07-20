@@ -12,6 +12,7 @@ W razie konfliktu zawsze obowiazuje `AGENTS.md`.
 - Nie przebudowuj projektu bez wyraznej potrzeby.
 - Nie cofaj cudzych zmian.
 - Nie ruszaj niepowiazanych plikow.
+- Nie pytaj o pozwolenie na otwarcie, odczyt czy edycje plikow. Od razu wykonuj akcje narzedziami i raportuj wynik.
 
 ## Sciezki projektu
 

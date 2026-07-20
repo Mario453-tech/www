@@ -351,5 +351,11 @@ return [
     'hr.morale.reason.bonus' => 'Premia uznaniowa',
     'hr.morale.reason.negotiation' => 'Udana renegocjacja kontraktu',
     'hr.morale.reason.strike_end' => 'Zakończenie strajku po negocjacjach',
-
+    'hr.effect_desc.hub_throughput_pct' => 'Zwiększa przepustowość huba.',
+    'hr.effect_desc.road_delay_risk_pct' => 'Zmniejsza ryzyko opóźnień transportu drogowego.',
+    'hr.effect_desc.warehouse_buffer_efficiency_pct' => 'Zwiększa efektywność bufora magazynowego.',
+    'hr.effect_desc.pipeline_loss_pct' => 'Zmniejsza straty w rurociągach.',
+    'hr.effect_desc.b2b_delay_risk_pct' => 'Zmniejsza ryzyko opóźnień dostaw B2B.',
+    'hr.effect_desc.port_turnaround_time_pct' => 'Skraca czas obsługi w porcie.',
+    'hr.effect_desc.department_transport_cost_pct' => 'Zmniejsza ogólne koszty transportu w dziale.',
 ];

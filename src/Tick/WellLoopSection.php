@@ -54,6 +54,8 @@ class WellLoopSection
  // P1.2: oil dispatched by road and not yet delivered
  // P1.2: ropa wyslana ciezarowkami i jeszcze niedostarczona
     public float $roadInTransitBbl         = 0.0;
+    
+    public array $employeeLogisticsEffects = [];
 
  // Stan hubow - wspoldzielony z WellProductionSection i WellHubSection
  // Hub state - shared with WellProductionSection and WellHubSection
@@ -643,5 +645,85 @@ class WellLoopSection
                 GameLog::error('tick', 'preloadPlayerData hub outbound pipelines FAILED', $e, ['player_id' => $playerId]);
             }
         }
+    }
+
+    /**
+     * Removes current-tick hub input that was destroyed before hub finalization.
+     * Storage is adjusted by the caller because the same loss may also consume old stock.
+     */
+    public function consumeHubInputForLoss(int $hubId, float $bbl, float $price): float
+    {
+        $available = max(0.0, (float)($this->hubInputAccum[$hubId] ?? 0.0));
+        $consumed = min(max(0.0, $bbl), $available);
+        if ($consumed <= 0.001) {
+            return 0.0;
+        }
+
+        $this->hubInputAccum[$hubId] = max(0.0, $available - $consumed);
+        $remaining = $consumed;
+        foreach ($this->hubWellDelivered as $wellId => $deliveredBbl) {
+            if (($this->wellHubMap[$wellId] ?? null) !== $hubId || $remaining <= 0.001) {
+                continue;
+            }
+            $deducted = min((float)$deliveredBbl, $remaining);
+            $this->hubWellDelivered[$wellId] = max(0.0, (float)$deliveredBbl - $deducted);
+            $remaining -= $deducted;
+        }
+
+        $value = round($consumed * $price, 2);
+        $this->finBbl = max(0.0, $this->finBbl - $consumed);
+        $this->deliveredBbl = max(0.0, $this->deliveredBbl - $consumed);
+        $this->finRevenue = max(0.0, $this->finRevenue - $value);
+
+        return $consumed;
+    }
+
+    /**
+     * Rolls back an optimistic storage credit when hub state persistence fails.
+     */
+    public function rollbackHubInputCredit(int $hubId, float $bbl, float $price): float
+    {
+        $removed = $this->consumeHubInputForLoss($hubId, $bbl, $price);
+        if ($removed <= 0.001) {
+            return 0.0;
+        }
+
+        $value = round($removed * $price, 2);
+        $this->currentStorage = max(0.0, $this->currentStorage - $removed);
+        $this->finLossBbl += $removed;
+        $this->finLossValue += $value;
+        $this->finHubLossBbl += $removed;
+        $this->finHubLossValue += $value;
+
+        return $removed;
+    }
+
+    /**
+     * Invalidates cached pipeline rows after degradation or an explosion in this tick.
+     *
+     * @param list<int> $pipelineIds
+     */
+    public function markPipelinesUnavailable(array $pipelineIds): void
+    {
+        $lookup = array_fill_keys(array_map('intval', $pipelineIds), true);
+        if ($lookup === []) {
+            return;
+        }
+
+        foreach ($this->wellPipelineCache as &$pipeline) {
+            if (isset($lookup[(int)($pipeline['id'] ?? 0)])) {
+                $pipeline['status'] = 'damaged';
+                $pipeline['_is_operational'] = false;
+            }
+        }
+        unset($pipeline);
+
+        foreach ($this->hubOutboundPipelineCache as &$pipeline) {
+            if (isset($lookup[(int)($pipeline['id'] ?? 0)])) {
+                $pipeline['status'] = 'damaged';
+                $pipeline['_is_operational'] = false;
+            }
+        }
+        unset($pipeline);
     }
 }

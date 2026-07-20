@@ -2344,6 +2344,8 @@ testy rekrutacji.
 
 ## Etap 3 — role i efekty
 
+**Status: [x] Wdrożony i zweryfikowany 2026-07-15; model hub_operator ujednolicono 2026-07-18.**
+
 ```text
 employee_role_effects,
 EmployeeRoleEffectService,
@@ -2353,6 +2355,8 @@ panel admina ról i efektów.
 
 ## Etap 4 — przypisania
 
+**Status: [x] Wdrożony i utwardzony 2026-07-19.**
+
 ```text
 employee_assignments,
 EmployeeAssignmentService,
@@ -2360,6 +2364,8 @@ integracja ze zwalnianiem i szkoleniami.
 ```
 
 ## Etap 5 — obsada hubów
+
+**Status: [x] Wdrożony i zweryfikowany 2026-07-19.**
 
 ```text
 LogisticsStaffingService,
@@ -2370,7 +2376,21 @@ podpięcie pod huby i incydenty,
 zakładka Obsada.
 ```
 
+## Etap 5A — obsada rurociągów
+
+**Status: [x] Wdrożony, poddany code review i zweryfikowany 2026-07-19.**
+
+- [x] dwie role na każdy odcinek: pipeline_engineer i pipeline_logistics_specialist
+- [x] osobna obsada rekordów inbound i outbound
+- [x] wspólny limit alokacji hub + rurociąg
+- [x] lokalne efekty degradacji, ryzyka i strat w ticku
+- [x] UI logistyki: pokrycie, modal, przypisanie, aktualizacja i zwolnienie
+- [x] CSRF, PRG, jednorazowy flash i confirmAction
+- [x] izolacja player_id, blokady MySQL i testy wyścigów
+
 ## Etap 6 — morale i oczekiwania płacowe
+
+**Status: [~] Częściowo wdrożony. EmployeeStateService i wpływ morale na efekty działają; brakuje relacji cyklicznych, zdarzeń morale oraz pełnego UI gracza i admina.**
 
 ```text
 EmployeeStateService,
@@ -2380,6 +2400,8 @@ panel gracza i admina.
 ```
 
 ## Etap 7 — podwyżki
+
+**Status: [ ] Nie wdrożony. Brakuje żądań podwyżek, decyzji gracza, negocjacji i powiadomień.**
 
 ```text
 employee_raise_requests,
@@ -2392,6 +2414,8 @@ powiadomienia.
 
 ## Etap 8 — strajki
 
+**Status: [ ] Nie wdrożony. Istnieją statusy relacji używane jako blokady, ale nie ma procesu konfliktu, tabel strajków ani efektów strajku.**
+
 ```text
 employee_strikes,
 employee_strike_members,
@@ -2402,6 +2426,8 @@ efekty logistyki i innych działów.
 
 ## Etap 9 — tick
 
+**Status: [ ] Nie wdrożony. Nie istnieje EmployeesModule; cykliczne morale, limity i statystyki pracowników pozostają do wykonania.**
+
 ```text
 EmployeesModule,
 TickModuleCatalog,
@@ -2411,6 +2437,8 @@ testy integracyjne.
 ```
 
 ## Etap 10 — refaktoryzacja UI logistyki
+
+**Status: [~] Częściowo wdrożony. Widok i JavaScript logistyki są podzielone, ale public/logistics.php nadal wymaga wydzielenia kontrolera oraz traitów danych i akcji.**
 
 ```text
 LogisticsPageController,
@@ -2568,10 +2596,46 @@ Nie zmieniaj kilku niezależnych mechanik w jednym commitcie.
 **Status: [x] Wdrożony i zweryfikowany 2026-07-15.**
 
 1. `EmployeeSystemBootstrap` tworzy tabelę `employee_role_effects` idempotentnie dla MySQL i SQLite.
-2. Bootstrap seeduje brakujące specjalizacje logistyczne: `hub_operator`, `transport_dispatcher`, `warehouse_coordinator`, `pipeline_logistics_specialist`, `b2b_delivery_coordinator`, `terminal_operator`, `oil_flow_analyst`.
+2. Bootstrap seeduje brakujące specjalizacje logistyczne z wyjątkiem hub_operator: transport_dispatcher, warehouse_coordinator, pipeline_logistics_specialist, b2b_delivery_coordinator, terminal_operator, oil_flow_analyst. hub_operator jest stanowiskiem rekrutacyjnym działu technicznego, zarządzanym w hr_specializations; migracja produkcyjna znajduje się w sql/manual/2026-07-18_hub_operator_technical_migration.sql.
 3. Bootstrap seeduje bazowe efekty logistyczne dla scope: `hub`, `road_transport`, `warehouse`, `pipeline`, `b2b`, `port`, `department`.
 4. Teksty seedów widoczne dla gracza nie są hardkodowane w PHP. Nazwy i opisy są pobierane z `lang/pl/hr.php`.
 5. Dodano `EmployeeRoleEffectService` z metodami `getEffectsForSpecialization()`, `calculateEffects()`, `saveEffect()`, `deleteEffect()` oraz `getLogisticsManagerBonus()`.
 6. `calculateEffects()` wykorzystuje wspólne `EmployeeRepository` i `EmployeeStateService`, liczy wpływ `skill_weights_json` oraz stosuje mnożnik morale zgodny z briefem.
 7. Pracownik techniczny bez osobnej specjalizacji perkowej używa fallbacku `role_code`, więc efekty mogą działać już na `technical_staff.spec_code`.
 8. Dodano regresje SQLite i MySQL dla seedów, liczenia morale/skilli, fallbacku `role_code`, CRUD efektu i bonusu kierownika logistyki.
+
+## 32. Aktualny stan wdrożenia i następny etap — 2026-07-20
+
+### 32.1 Wdrożone w ostatnich etapach
+
+1. Fundament wspólnego pracownika, rekrutacja działowa, employee_state, role i efekty są wdrożone.
+2. hub_operator jest realnym stanowiskiem technicznym z hr_specializations, a nie perkiem z staff_specializations ani pracownikiem zarządu.
+3. Obsada hubów korzysta z realnych technical_staff, lokalnych przypisań, skilli, morale i bonusu kierownika logistyki.
+4. Panel admina logistyki ma diagnostykę obsady hubów, konfigurację wymagań i historię przypisań.
+5. Każdy rekord well_pipelines inbound lub outbound ma niezależną obsadę pipeline_engineer i pipeline_logistics_specialist.
+6. Efekty obsady rurociągu są lokalne: inżynier skaluje degradację i ryzyko, a specjalista logistyki zmniejsza straty tylko przypisanego odcinka.
+7. Logistyka udostępnia zarządzanie obsadą rurociągów przez modal, CSRF, PRG, jednorazowy flash i potwierdzenie zwolnienia.
+8. Warstwa przypisań ponownie sprawdza player_id, cel, typ i status w finalnym zapisie oraz ma testy blokad i wyścigów MySQL.
+
+### 32.2 Co pozostało do wdrożenia
+
+1. **Etap 6 — relacje i morale:** dodać EmployeeRelationsService, cykliczne zdarzenia morale, obciążenie pracą, ryzyko odejścia oraz widoki gracza i admina.
+2. **Etap 7 — podwyżki:** dodać employee_raise_requests, pełną i częściową podwyżkę, negocjacje, odmowę, odłożenie i powiadomienia.
+3. **Etap 8 — konflikty i strajki:** dodać employee_strikes, członków strajku, eskalację konfliktu oraz realne efekty działowe.
+4. **Etap 9 — modularny tick pracowników:** dodać EmployeesModule, rekomendowany interwał, max_items_per_run, statystyki i odporność na błąd pojedynczego pracownika.
+5. **Etap 10 — kontroler logistyki:** wydzielić logikę z dużego public/logistics.php do kontrolera oraz traitów danych i akcji.
+6. **Czytelność admin HR:** nazwać sekcje tak, aby laik rozróżniał perki techniczne staff_specializations od stanowisk rekrutacyjnych hr_specializations.
+7. **Weryfikacja produkcji:** uruchomić i sprawdzić migrację hub_operator, jeżeli nie została jeszcze wykonana na serwerze produkcyjnym.
+8. **Kontrola wizualna:** wykonać udokumentowany test desktop/mobile modali obsady hubów i rurociągów, w tym kart nieoperacyjnych.
+
+### 32.3 Rekomendowany kolejny etap
+
+Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i deterministyczne przeliczanie morale bez podwyżek i strajków. Dopiero po zielonych testach tego fundamentu przejść do Etapu 7, a następnie do eskalacji konfliktów w Etapie 8.
+
+### 32.4 Ostatnia pełna weryfikacja
+
+- targeted: 4/4,
+- Unit+Integration: 571/571,
+- MySqlIntegration: 227/227,
+- encoding: 1956 plików,
+- git diff --check: bez błędów.
