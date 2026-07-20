@@ -191,12 +191,12 @@ $storagePct       = 0;
 $storageBbl       = 0.0;
 
 try {
-    $storageStmt = $db->prepare('SELECT storage_bbl, storage_capacity FROM players WHERE id = ? LIMIT 1');
+    $storageStmt = $db->prepare('SELECT used, capacity FROM storage WHERE player_id = ? LIMIT 1');
     $storageStmt->execute([$playerId]);
     $storageRow = $storageStmt->fetch(PDO::FETCH_ASSOC);
     if (is_array($storageRow)) {
-        $storageBbl = (float)($storageRow['storage_bbl'] ?? 0.0);
-        $storageCapacity = (float)($storageRow['storage_capacity'] ?? 0.0);
+        $storageBbl = (float)($storageRow['used'] ?? 0.0);
+        $storageCapacity = (float)($storageRow['capacity'] ?? 0.0);
         $storagePct = $storageCapacity > 0.0 ? (int)round(($storageBbl / $storageCapacity) * 100.0) : 0;
     }
 } catch (Throwable $e) {
