@@ -270,11 +270,13 @@ trait HRDataTrait
             FROM employment_history eh
             LEFT JOIN board_members bm ON eh.member_id = bm.id
             LEFT JOIN board_roles   br ON bm.role_id   = br.id
-            WHERE bm.player_id = ?
+            WHERE bm.player_id = :player_id
             ORDER BY eh.created_at DESC
-            LIMIT ?
+            LIMIT :limit
         ");
-        $stmt->execute([$playerId, $limit]);
+        $stmt->bindValue(':player_id', $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
         return $stmt->fetchAll();
     }
 
