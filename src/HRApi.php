@@ -258,6 +258,61 @@ try {
             echo json_encode($hh->startSearch($specId));
             break;
 
+        case 'grant_bonus':
+            $staffId = (int)($_POST['staff_id'] ?? 0);
+            if (!$staffId) {
+                throw new InvalidArgumentException(t('hr_api.err_missing_staff_id'));
+            }
+            
+            $stmt = $db->prepare("SELECT player_id FROM technical_staff WHERE id = ?");
+            $stmt->execute([$staffId]);
+            if ((int)$stmt->fetchColumn() !== $playerId) {
+                throw new InvalidArgumentException(t('common.unauthorized'));
+            }
+
+            if (!class_exists('FinancialTransactionService')) {
+                require_once __DIR__ . '/Finance/FinancialTransactionService.php';
+            }
+            
+            $fin = new FinancialTransactionService();
+            if (!$fin->processTransaction($playerId, 'staff_bonus', 15000, 0, null)) {
+                respondJson(['success' => false, 'error' => t('hr.err_no_funds_for_bonus')], 422);
+            }
+            
+            MoraleService::modifyMorale($staffId, 15, 'bonus.granted');
+            echo json_encode(['success' => true, 'message' => t('hr.msg_bonus_granted')]);
+            break;
+
+        case 'resolve_strike':
+            $staffId = (int)($_POST['staff_id'] ?? 0);
+            if (!$staffId) {
+                throw new InvalidArgumentException(t('hr_api.err_missing_staff_id'));
+            }
+            
+            $stmt = $db->prepare("SELECT player_id FROM technical_staff WHERE id = ?");
+            $stmt->execute([$staffId]);
+            if ((int)$stmt->fetchColumn() !== $playerId) {
+                throw new InvalidArgumentException(t('common.unauthorized'));
+            }
+
+            if (!StrikeService::isStriking($staffId)) {
+                 respondJson(['success' => false, 'error' => t('hr.err_not_striking')], 422);
+            }
+
+            if (!class_exists('FinancialTransactionService')) {
+                require_once __DIR__ . '/Finance/FinancialTransactionService.php';
+            }
+            
+            $fin = new FinancialTransactionService();
+            if (!$fin->processTransaction($playerId, 'strike_resolution', 50000, 0, null)) {
+                respondJson(['success' => false, 'error' => t('hr.err_no_funds_strike')], 422);
+            }
+            
+            StrikeService::resolveStrike($staffId);
+            MoraleService::modifyMorale($staffId, 10, 'strike.resolved');
+            echo json_encode(['success' => true, 'message' => t('hr.msg_strike_resolved')]);
+            break;
+
         case 'get_headhunter_status':
             $hh = new HeadhunterService($playerId);
             $hh->processReady();

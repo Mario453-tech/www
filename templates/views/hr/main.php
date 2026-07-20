@@ -77,6 +77,29 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                     <div class="trait-item"><span class="trait-label"><?= t('hr.trait_ambition') ?></span><div class="trait-bar"><div class="trait-fill trait-ambition" style="--bar-w:<?= $emp['trait_ambition'] * 10 ?>%"></div></div><span class="trait-val"><?= $emp['trait_ambition'] ?>/10</span></div>
                 </div>
 
+                <?php if (($emp['source'] ?? '') === 'technical_staff'): ?>
+                <div class="cv-section-label cv-section-label--mt"><?= t('hr.morale_label') ?></div>
+                <div class="emp-morale-section" style="margin-bottom:15px;">
+                    <?php 
+                        $m = (int)($emp['morale'] ?? 50);
+                        $mColor = $m >= 70 ? 'c-green' : ($m >= 40 ? 'c-gold' : 'c-bad'); 
+                        $mBg = $m >= 70 ? '#4caf50' : ($m >= 40 ? '#ffb300' : '#e53935');
+                    ?>
+                    <div class="morale-bar-container" style="display:flex; align-items:center; gap:10px;">
+                        <span class="morale-val <?= $mColor ?>" style="font-weight:bold; min-width:40px;"><?= $m ?>%</span>
+                        <div class="morale-bar" style="flex:1; height:8px; background:var(--bg-lighter); border-radius:4px; overflow:hidden;">
+                            <div class="morale-fill" style="width: <?= $m ?>%; background-color: <?= $mBg ?>; height:100%; transition: width 0.3s;"></div>
+                        </div>
+                    </div>
+                    <?php if (($emp['is_striking'] ?? 0) > 0): ?>
+                    <div class="strike-warning-banner" style="margin-top:10px; background:rgba(229, 57, 53, 0.1); border:1px solid #e53935; padding:8px; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
+                        <strong style="color:#e53935;">&#9888; <?= t('hr.strike_active') ?></strong>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();resolveStrike(<?= $emp['id'] ?>, <?= $safeName ?>)"><?= t('hr.btn_resolve_strike') ?></button>
+                    </div>
+                    <?php endif ?>
+                </div>
+                <?php endif ?>
+
                 <div class="emp-footer-info">
                     <span><?= t('hr.hired_days_ago', ['days' => $emp['days_employed']]) ?></span>
                     <?php if (!empty($emp['contract_end'])): ?>
@@ -95,6 +118,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                     <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_renew') ?></button>
                     <?php endif ?>
                     <?php if (($emp['source'] ?? 'board_member') === 'technical_staff'): ?>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();grantBonus(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_grant_bonus') ?></button>
                     <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
                     <?php else: ?>
                     <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
@@ -528,6 +552,12 @@ window.HR_LANG = <?= json_encode([
     'headhunter_btn' => t('hr_js.headhunter_btn'),
     'headhunter_starting' => t('hr_js.headhunter_starting'),
     'negotiate_msg' => t('hr_js.negotiate_msg'),
+    'confirm_bonus' => t('hr_js.confirm_bonus'),
+    'confirm_bonus_btn' => t('hr_js.confirm_bonus_btn'),
+    'toast_bonus_granted' => t('hr_js.toast_bonus_granted'),
+    'confirm_resolve_strike' => t('hr_js.confirm_resolve_strike'),
+    'confirm_resolve_btn' => t('hr_js.confirm_resolve_btn'),
+    'toast_strike_resolved' => t('hr_js.toast_strike_resolved'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="/assets/js/hr.js"></script>

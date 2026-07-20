@@ -338,4 +338,44 @@ function updateCountdowns() {
     });
 }
 
+function grantBonus(staffId, name) {
+    confirmAction(
+        hrl('confirm_bonus', { name }),
+        async function () {
+            try {
+                const result = await hrApi('grant_bonus', { staff_id: staffId });
+                if (result.success) {
+                    showToast(hrl('toast_bonus_granted'), result.message);
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showToast(hrl('toast_err'), result.message || result.error, 'error');
+                }
+            } catch (error) {
+                showToast(hrl('toast_err'), error.message, 'error');
+            }
+        },
+        { type: 'confirm', confirmLabel: hrl('confirm_bonus_btn') || 'OK' }
+    );
+}
+
+function resolveStrike(staffId, name) {
+    confirmAction(
+        hrl('confirm_resolve_strike', { name }),
+        async function () {
+            try {
+                const result = await hrApi('resolve_strike', { staff_id: staffId });
+                if (result.success) {
+                    showToast(hrl('toast_strike_resolved'), result.message);
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showToast(hrl('toast_err'), result.message || result.error, 'error');
+                }
+            } catch (error) {
+                showToast(hrl('toast_err'), error.message, 'error');
+            }
+        },
+        { type: 'confirm', confirmLabel: hrl('confirm_resolve_btn') || 'OK' }
+    );
+}
+
 document.addEventListener('DOMContentLoaded', updateCountdowns);

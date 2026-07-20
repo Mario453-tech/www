@@ -54,13 +54,6 @@ class WellLoopSection
  // P1.2: oil dispatched by road and not yet delivered
  // P1.2: ropa wyslana ciezarowkami i jeszcze niedostarczona
     public float $roadInTransitBbl         = 0.0;
- /** @var array<string, float> */
-    public array $employeeLogisticsEffects = [
-        'hub_throughput_pct' => 0.0,
-        'department_transport_cost_pct' => 0.0,
-    ];
-    /** @var array<int, array<string, mixed>> pipeline_id -> staffing effects */
-    public array $pipelineStaffingByPipeline = [];
 
  // Stan hubow - wspoldzielony z WellProductionSection i WellHubSection
  // Hub state - shared with WellProductionSection and WellHubSection
@@ -80,8 +73,6 @@ class WellLoopSection
  // Second-leg transport losses (already folded into finLossBbl/finLossValue; kept for reporting).
     public float $finOutboundLossBbl   = 0.0;
     public float $finOutboundLossValue = 0.0;
- /** @var array<int, float> well_id -> trwajacy spadek produkcji (%) z aktywnych incydentow; preload raz/gracz */
-    public array $ongoingDropCache = [];
 
     private PDO         $db;
     private DateTime    $now;
@@ -102,10 +93,7 @@ class WellLoopSection
  /** @var array<string, array<string, float>> konfiguracja transportu per typ (z transport_config lub domyslna) / transport config per type (from transport_config or default) */
     private array $transportConfig = [];
     private ?FinancePolicyService $financePolicySvc = null;
-    private ?EmployeeRepository $employeeRepo = null;
-    private ?EmployeeRoleEffectService $employeeRoleEffectSvc = null;
-    private ?LogisticsStaffingService $logisticsStaffingSvc = null;
-/** @var array<string, float|string> */
+ /** @var array<string, float|string> */
     private array $financeTechnicalMods = [];
  /** @var array<string, float|string> */
     private array $financeLogisticsMods = [];
@@ -154,18 +142,6 @@ class WellLoopSection
                 $this->financePolicySvc = new FinancePolicyService($db);
             } catch (Throwable $e) {
                 GameLog::error('tick', 'WellLoopSection: FinancePolicyService init FAILED', $e);
-            }
-        }
-
-        if (class_exists('EmployeeRepository') && class_exists('EmployeeRoleEffectService')) {
-            try {
-                $this->employeeRepo = new EmployeeRepository($db);
-                $this->employeeRoleEffectSvc = new EmployeeRoleEffectService($db, $this->employeeRepo);
-                if (class_exists('LogisticsStaffingService')) {
-                    $this->logisticsStaffingSvc = new LogisticsStaffingService($db);
-                }
-            } catch (Throwable $e) {
-                GameLog::error('tick', 'WellLoopSection: employee logistics services init FAILED', $e);
             }
         }
 
@@ -224,8 +200,6 @@ class WellLoopSection
  * @param array<string, mixed> $hseBonus
  * @param array<string, mixed> $staffCheck
  * @param list<array<string, mixed>> $activeRegEvents
- * @param array<int, float> $pipelineActiveHours
- * @param array<int, array<string, mixed>> $pipelineStaffingByPipeline
  */
     public function run(
         int     $playerId,
@@ -240,14 +214,11 @@ class WellLoopSection
         float   $offlineRiskMult,
         ?object $tsvc,
         ?object $regionalSvc,
-        array   $activeRegEvents,
-        array   $pipelineActiveHours = [],
-        array   $pipelineStaffingByPipeline = []
+        array   $activeRegEvents
     ): void {
         $this->playerCash     = $playerCash;
         $this->currentStorage = $currentStorage;
         $this->storageCapacity = $storageCapacity;
-        $this->pipelineStaffingByPipeline = $pipelineStaffingByPipeline;
         $this->preloadFinancePolicies($playerId);
 
  // Pensje / Salaries
@@ -255,7 +226,6 @@ class WellLoopSection
 
  // Preload danych przed petla odwiertow (w tym przypisania hubow). / Preload data before well loop (including hub assignments).
         $this->preloadPlayerData($playerId, $wells);
-        $this->applyPipelineActiveHours($pipelineActiveHours);
 
  // Petla odwiertow / Well loop
         $wellProd = new WellProductionSection(
@@ -314,8 +284,7 @@ class WellLoopSection
             $this->gBalanceMults,
             $this->oilPrice,
             new OutboundLegService($this->transportConfig),
-            $protectionSvc,
-            $this->logisticsStaffingSvc
+            $protectionSvc
         );
         $wellHub->finalize($playerId, $deltaHours, $hseBonus);
     }
@@ -408,86 +377,6 @@ class WellLoopSection
         $this->hubWellDelivered[$wellId] = ($this->hubWellDelivered[$wellId] ?? 0.0) + $bbl;
     }
 
-    /**
-     * Removes current-tick hub input that was destroyed before hub finalization.
-     * Storage is adjusted by the caller because the same loss may also consume old stock.
-     */
-    public function consumeHubInputForLoss(int $hubId, float $bbl, float $price): float
-    {
-        $available = max(0.0, (float)($this->hubInputAccum[$hubId] ?? 0.0));
-        $consumed = min(max(0.0, $bbl), $available);
-        if ($consumed <= 0.001) {
-            return 0.0;
-        }
-
-        $this->hubInputAccum[$hubId] = max(0.0, $available - $consumed);
-        $remaining = $consumed;
-        foreach ($this->hubWellDelivered as $wellId => $deliveredBbl) {
-            if (($this->wellHubMap[$wellId] ?? null) !== $hubId || $remaining <= 0.001) {
-                continue;
-            }
-            $deducted = min((float)$deliveredBbl, $remaining);
-            $this->hubWellDelivered[$wellId] = max(0.0, (float)$deliveredBbl - $deducted);
-            $remaining -= $deducted;
-        }
-
-        $value = round($consumed * $price, 2);
-        $this->finBbl = max(0.0, $this->finBbl - $consumed);
-        $this->deliveredBbl = max(0.0, $this->deliveredBbl - $consumed);
-        $this->finRevenue = max(0.0, $this->finRevenue - $value);
-
-        return $consumed;
-    }
-
-    /**
-     * Rolls back an optimistic storage credit when hub state persistence fails.
-     */
-    public function rollbackHubInputCredit(int $hubId, float $bbl, float $price): float
-    {
-        $removed = $this->consumeHubInputForLoss($hubId, $bbl, $price);
-        if ($removed <= 0.001) {
-            return 0.0;
-        }
-
-        $value = round($removed * $price, 2);
-        $this->currentStorage = max(0.0, $this->currentStorage - $removed);
-        $this->finLossBbl += $removed;
-        $this->finLossValue += $value;
-        $this->finHubLossBbl += $removed;
-        $this->finHubLossValue += $value;
-
-        return $removed;
-    }
-
-    /**
-     * Invalidates cached pipeline rows after degradation or an explosion in this tick.
-     *
-     * @param list<int> $pipelineIds
-     */
-    public function markPipelinesUnavailable(array $pipelineIds): void
-    {
-        $lookup = array_fill_keys(array_map('intval', $pipelineIds), true);
-        if ($lookup === []) {
-            return;
-        }
-
-        foreach ($this->wellPipelineCache as &$pipeline) {
-            if (isset($lookup[(int)($pipeline['id'] ?? 0)])) {
-                $pipeline['status'] = 'damaged';
-                $pipeline['_is_operational'] = false;
-            }
-        }
-        unset($pipeline);
-
-        foreach ($this->hubOutboundPipelineCache as &$pipeline) {
-            if (isset($lookup[(int)($pipeline['id'] ?? 0)])) {
-                $pipeline['status'] = 'damaged';
-                $pipeline['_is_operational'] = false;
-            }
-        }
-        unset($pipeline);
-    }
-
  /**
  * Returns the multiplier set used by the second transport leg (hub -> storage),
  * so delivery sections (road/marine) can apply leg-2 economics consistently.
@@ -508,34 +397,12 @@ class WellLoopSection
  /**
  * Returns the well's chosen second-leg transport type (hub -> storage).
  * ETAP 11: looks up the well's hub and returns hub-level outbound_transport_type.
- *
- * Odwiert BEZ przypisanego huba nie ma odcinka hub->magazyn: dostarcza rope bezposrednio
- * (jeden odcinek), wiec zwracamy 'nieustawiony' (leg-2 = direct, bez kosztu). Legacy kolumna
- * wells.hub_outbound_transport_type jest reliktem sprzed ETAP 11 (gdy outbound byl per-odwiert)
- * i celowo NIE jest tu uzywana — naliczanie drugiego odcinka drogowego dla odwiertu bez huba
- * podwajaloby koszt/ryzyko juz naliczonego odcinka pierwszego (dostawa czasowa droga/port).
- * A well WITHOUT a hub has no hub->storage leg: it delivers oil directly (single leg), so we
- * return 'nieustawiony' (leg-2 = direct, no cost). The legacy wells.hub_outbound_transport_type
- * column predates ETAP 11 (when outbound was per-well) and is intentionally NOT used here —
- * charging a second road leg for a hubless well would double-count the already-charged first leg
- * (the timed road/port delivery).
  */
     public function outboundTypeFor(int $wellId): string
     {
         $hubId = $this->wellHubMap[$wellId] ?? null;
         if ($hubId === null) return 'nieustawiony';
         return (string)($this->hubOutboundType[$hubId] ?? 'nieustawiony');
-    }
-
- /**
- * Ryzyko polityczne regionu huba odwiertu (dla incydentow drogowych leg-2).
- * Political risk of the well's hub region (for leg-2 road incidents).
- */
-    public function outboundPoliticalRiskFor(int $wellId): int
-    {
-        $hubId = $this->wellHubMap[$wellId] ?? null;
-        if ($hubId === null) return 1;
-        return (int)($this->hubCache[$hubId]['region_political_risk'] ?? 1);
     }
 
  /**
@@ -620,16 +487,13 @@ class WellLoopSection
  */
     private function preloadPlayerData(int $playerId, array $wells): void
     {
-        // Initialize per-player services before any preload depends on them.
-        // Inicjalizuj serwisy gracza przed preloadem, ktory z nich korzysta.
-        $this->geoSvc = class_exists('GeologicalLayerService') ? new GeologicalLayerService() : null;
-        $this->incidentSvc = class_exists('IncidentService') ? new IncidentService() : null;
-
  // 1. Preload technical_staff + staff_specializations w jednym SELECT / in one SELECT
         $this->staffCache = [];
         try {
             $stmt = $this->db->prepare("
                 SELECT ts.id, ts.status, ts.skill_level, ts.specialization,
+                       ts.current_morale,
+                       (SELECT 1 FROM staff_strikes str WHERE str.technical_staff_id = ts.id AND str.end_time IS NULL LIMIT 1) AS is_striking,
                        ss.prod_bonus, ss.wear_reduction, ss.incident_reduction,
                        ss.spiral_reduction, ss.only_deep_layers, ss.repair_speed,
                        ss.incident_return_reduction, ss.catastrophe_reduction
@@ -645,16 +509,6 @@ class WellLoopSection
         } catch (Throwable $e) {
             GameLog::error('tick', 'preloadPlayerData staff FAILED', $e, ['player_id' => $playerId]);
         }
-
- // 1a. Preload trwajacych spadkow produkcji (incydenty w oknie `hours`) — jedno zapytanie na
- //     gracza zamiast jednego na odwiert na tick (getOngoingProdDrop w petli bylby N+1).
- // 1a. Preload ongoing production drops (incidents inside their `hours` window) — one query per
- //     player instead of one per well per tick (a per-well getOngoingProdDrop would be N+1).
-        // Preload ongoing production drops with one query per player.
-        // Zaladuj aktywne spadki produkcji jednym zapytaniem per gracz.
-        $this->ongoingDropCache = ($this->incidentSvc !== null && method_exists($this->incidentSvc, 'getOngoingProdDropForPlayer'))
-            ? $this->incidentSvc->getOngoingProdDropForPlayer($playerId)
-            : [];
 
  // 2. Preload owned pipelines per well for all player wells.
  // 2. Preload zakupionych rurociagow per odwiert dla odwiertow gracza.
@@ -729,6 +583,10 @@ class WellLoopSection
             }
         }
 
+ // 3. Inicjalizuj serwisy raz per gracz / Initialize services once per player
+        $this->geoSvc      = class_exists('GeologicalLayerService') ? new GeologicalLayerService() : null;
+        $this->incidentSvc = class_exists('IncidentService')         ? new IncidentService()        : null;
+
  // 4. Batch-load przypisan hubow dla odwiertow gracza (1 query na gracza). / Batch-load hub assignments for all player wells (1 query per player).
         $this->wellHubMap    = [];
         $this->hubCache      = [];
@@ -738,24 +596,15 @@ class WellLoopSection
             try {
                 $wellIds      = array_map('intval', array_column($wells, 'id'));
                 $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
-                // region_political_risk huba: uzywane przez leg-2 drogowy (ryzyko incydentu
-                // skaluje sie z ryzykiem politycznym regionu HUBA, jak leg-1 z regionem odwiertu).
-                // Hub's region_political_risk: used by the road leg-2 (incident risk scales with
-                // the HUB region's political risk, as leg-1 does with the well's region).
                 $stmt = $this->db->prepare(
-                    "SELECT a.well_id, h.*, COALESCE(wr.political_risk, 1) AS region_political_risk
+                    "SELECT a.well_id, h.*
                        FROM logistics_hub_assignments a
                        JOIN logistics_hubs h ON h.id = a.hub_id
-                       LEFT JOIN world_regions wr ON wr.id = h.region_id
                       WHERE a.well_id IN ({$placeholders})
                         AND a.status   = 'active'
-                        AND h.status  NOT IN ('planned','disabled','building','paused','maintenance')
-                        AND (
-                            h.player_id = ?
-                            OR (h.player_id = 0 AND h.tenant_player_id = ?)
-                        )"
+                        AND h.status  NOT IN ('disabled','building')"
                 );
-                $stmt->execute(array_merge($wellIds, [$playerId, $playerId]));
+                $stmt->execute($wellIds);
                 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     $wId   = (int)$row['well_id'];
                     $hubId = (int)$row['id'];
@@ -793,100 +642,6 @@ class WellLoopSection
             } catch (Throwable $e) {
                 GameLog::error('tick', 'preloadPlayerData hub outbound pipelines FAILED', $e, ['player_id' => $playerId]);
             }
-        }
-
-        $this->preloadEmployeeLogisticsEffects($playerId);
-    }
-
-    private function preloadEmployeeLogisticsEffects(int $playerId): void
-    {
-        $this->employeeLogisticsEffects = [
-            'hub_throughput_pct' => 0.0,
-            'department_transport_cost_pct' => 0.0,
-        ];
-
-        if ($playerId <= 0 || $this->employeeRepo === null || $this->employeeRoleEffectSvc === null) {
-            return;
-        }
-
-        try {
-            try {
-                $managerBonus = $this->employeeRoleEffectSvc->getLogisticsManagerBonus($playerId);
-                $this->mergeEmployeeLogisticsEffect(
-                    'department_transport_cost_pct',
-                    $managerBonus['effects']['department_transport_cost_pct']['final_value'] ?? null
-                );
-            } catch (Throwable $e) {
-                GameLog::error('tick', 'employee logistics manager bonus FAILED', $e, ['player_id' => $playerId]);
-            }
-
-            $departmentTransportPct = (float)($this->employeeLogisticsEffects['department_transport_cost_pct'] ?? 0.0);
-            if ($departmentTransportPct !== 0.0) {
-                $transportCostMult = max(0.05, 1.0 + ($departmentTransportPct / 100.0));
-                $this->financeLogisticsMods['transport_cost_mult'] = round(
-                    (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0) * $transportCostMult,
-                    6
-                );
-                $this->financeLogisticsMods['hub_cost_mult'] = round(
-                    (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0) * $transportCostMult,
-                    6
-                );
-            }
-
-            if (
-                abs((float)$this->employeeLogisticsEffects['hub_throughput_pct']) > 0.0001
-                || abs((float)$this->employeeLogisticsEffects['department_transport_cost_pct']) > 0.0001
-            ) {
-                GameLog::info('tick', 'employee_logistics_effects_preloaded', [
-                    'player_id' => $playerId,
-                    'effects' => $this->employeeLogisticsEffects,
-                    'transport_cost_mult' => (float)($this->financeLogisticsMods['transport_cost_mult'] ?? 1.0),
-                    'hub_cost_mult' => (float)($this->financeLogisticsMods['hub_cost_mult'] ?? 1.0),
-                ]);
-            }
-        } catch (Throwable $e) {
-            GameLog::error('tick', 'preloadEmployeeLogisticsEffects FAILED', $e, ['player_id' => $playerId]);
-        }
-    }
-
-    /**
-     * Annotates pipelines completed during this tick with their actual active time.
-     *
-     * @param array<int, float> $activeHoursByPipeline
-     */
-    private function applyPipelineActiveHours(array $activeHoursByPipeline): void
-    {
-        if ($activeHoursByPipeline === []) {
-            return;
-        }
-
-        foreach ($this->wellPipelineCache as &$pipeline) {
-            $pipelineId = (int)($pipeline['id'] ?? 0);
-            if (array_key_exists($pipelineId, $activeHoursByPipeline)) {
-                $pipeline['_active_hours_this_tick'] = max(0.0, (float)$activeHoursByPipeline[$pipelineId]);
-            }
-        }
-        unset($pipeline);
-
-        foreach ($this->hubOutboundPipelineCache as &$pipeline) {
-            $pipelineId = (int)($pipeline['id'] ?? 0);
-            if (array_key_exists($pipelineId, $activeHoursByPipeline)) {
-                $pipeline['_active_hours_this_tick'] = max(0.0, (float)$activeHoursByPipeline[$pipelineId]);
-            }
-        }
-        unset($pipeline);
-    }
-
-    private function mergeEmployeeLogisticsEffect(string $effectKey, mixed $candidateValue): void
-    {
-        if (!is_numeric($candidateValue) || !array_key_exists($effectKey, $this->employeeLogisticsEffects)) {
-            return;
-        }
-
-        $current = (float)$this->employeeLogisticsEffects[$effectKey];
-        $candidate = (float)$candidateValue;
-        if (abs($candidate) > abs($current)) {
-            $this->employeeLogisticsEffects[$effectKey] = round($candidate, 4);
         }
     }
 }

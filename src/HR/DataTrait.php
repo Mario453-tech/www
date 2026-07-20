@@ -65,7 +65,8 @@ trait HRDataTrait
                    TIMESTAMPDIFF(YEAR, bm.birth_date, CURDATE()) as age,
                    DATEDIFF(CURDATE(), bm.hired_at) as days_employed,
                    ec.contract_end, ec.contract_type,
-                   DATEDIFF(ec.contract_end, CURDATE()) as contract_days_left
+                   DATEDIFF(ec.contract_end, CURDATE()) as contract_days_left,
+                   NULL AS morale, 0 AS is_striking
             FROM board_members bm
             JOIN board_roles br ON bm.role_id = br.id
             LEFT JOIN hr_specializations hs ON bm.specialization_id = hs.id
@@ -85,7 +86,9 @@ trait HRDataTrait
                    ts.spec_name,
                    NULL AS age,
                    DATEDIFF(CURDATE(), ts.hired_at) AS days_employed,
-                   NULL AS contract_end, NULL AS contract_type, NULL AS contract_days_left
+                   NULL AS contract_end, NULL AS contract_type, NULL AS contract_days_left,
+                   ts.current_morale AS morale,
+                   (SELECT COUNT(*) FROM staff_strikes ss WHERE ss.technical_staff_id = ts.id AND ss.end_time IS NULL) AS is_striking
             FROM technical_staff ts
             JOIN board_roles br ON br.code = 'technical'
             WHERE ts.status IN ('active','busy','on_leave')
@@ -399,14 +402,8 @@ trait HRDataTrait
         $add    = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'][$contractType];
         $baseDate = max(strtotime((string)$contract['contract_end']), strtotime(date('Y-m-d')));
         $newEnd = date('Y-m-d', strtotime(date('Y-m-d', $baseDate) . ' ' . $add));
-        $this->db->prepare(
-            "UPDATE employee_contracts ec
-             JOIN board_members bm ON bm.id = ec.member_id
-                SET ec.contract_end = ?,
-                    ec.contract_type = ?
-              WHERE ec.id = ?
-                AND bm.player_id = ?"
-        )->execute([$newEnd, $contractType, $contract['id'], $playerId]);
+        $this->db->prepare("UPDATE employee_contracts SET contract_end = ?, contract_type = ? WHERE id = ?")
+                 ->execute([$newEnd, $contractType, $contract['id']]);
         return ['success' => true, 'message' => t('hr.msg_contract_renewed', ['name' => "{$contract['first_name']} {$contract['last_name']}", 'date' => date('d.m.Y', strtotime($newEnd))])];
     }
 

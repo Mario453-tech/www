@@ -105,6 +105,8 @@ require_once __DIR__ . '/HRService.php';
 require_once __DIR__ . '/WellStaffService.php';
 require_once __DIR__ . '/HeadhunterService.php';
 require_once __DIR__ . '/DirectorNotificationService.php';
+require_once __DIR__ . '/HR/MoraleService.php';
+require_once __DIR__ . '/HR/StrikeService.php';
 
  // Load bank negotiation traits, then the service, with OPcache self-healing.
  // PL: Laduj traity negocjacji, potem serwis, z samonaprawą OPcache.
@@ -161,7 +163,6 @@ spl_autoload_register(function ($class) {
         __DIR__ . '/Well/' . $class . '.php',
         __DIR__ . '/Incident/' . $class . '.php',
         __DIR__ . '/Sabotage/' . $class . '.php',
-        __DIR__ . '/Employee/' . $class . '.php',
     ];
     foreach ($candidates as $file) {
         if (file_exists($file)) {
@@ -182,36 +183,6 @@ if (session_status() === PHP_SESSION_NONE) {
     if (is_dir($sessionPath) && is_writable($sessionPath)) {
         session_save_path($sessionPath);
     }
-
- // Zywotnosc sesji zgodna z Auth::SESSION_TTL (2 h). Bez tego domyslny
- // session.gc_maxlifetime hostingu (czesto 1440 s = 24 min) kasuje pliki sesji z katalogu
- // sessions/ zanim aplikacja uzna sesje za wygasla — uzytkownik jest wylogowywany po ~24 min.
- // Session lifetime aligned with Auth::SESSION_TTL (2 h). Without this the host default
- // session.gc_maxlifetime (often 1440 s = 24 min) deletes session files from sessions/ before
- // the app considers the session expired — logging the user out after ~24 min.
-    $sessionTtl = 7200; // = Auth::SESSION_TTL
-    @ini_set('session.gc_maxlifetime', (string)$sessionTtl);
-
- // Bezpieczne wykrycie HTTPS rowniez za reverse proxy (X-Forwarded-Proto) — na shared hostingu
- // $_SERVER['HTTPS'] bywa puste mimo polaczenia szyfrowanego.
- // Detect HTTPS robustly, including behind a reverse proxy (X-Forwarded-Proto) — on shared
- // hosting $_SERVER['HTTPS'] is often empty despite an encrypted connection.
-    $isHttps = Security::isHttpsRequest();
-
- // Trwale cookie sesji (lifetime = TTL) zamiast cookie "na czas przegladarki" (lifetime = 0),
- // ktore Brave i przegladarki mobilne usuwaja przy zamknieciu/uspieniu karty. Dzieki temu sesja
- // przetrwa restart przegladarki w oknie 2 h; dluzsza trwalosc zapewnia cookie "zapamietaj mnie".
- // Persistent session cookie (lifetime = TTL) instead of a browser-session cookie (lifetime = 0),
- // which Brave and mobile browsers drop when the tab closes/sleeps. The session then survives a
- // browser restart within the 2 h window; longer persistence is handled by the remember-me cookie.
-    session_set_cookie_params([
-        'lifetime' => $sessionTtl,
-        'path'     => '/',
-        'secure'   => $isHttps,
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-
     session_start();
 }
 
@@ -248,13 +219,11 @@ try {
  // Non-fatal - game runs without this migration
 }
 
-require_once __DIR__ . '/EmployeeSystemBootstrap.php';
+require_once __DIR__ . '/HR/MoraleBootstrap.php';
 try {
-    ensureEmployeeSystemSchema();
-} catch (Throwable $__employeeEx) {
-    // Existing game flows remain available while the new employee layer is unavailable.
-    // Istniejace funkcje gry pozostaja dostepne, gdy nowa warstwa pracownikow jest niedostepna.
-    GameLog::error('init.php', 'employee system schema bootstrap FAILED', $__employeeEx);
+    ensureMoraleSchema();
+} catch (Throwable $__moraleEx) {
+ // Non-fatal
 }
 
 // ROUTING 
@@ -262,7 +231,6 @@ const ROUTES = [
     'home'            => '/',
     'login'           => '/login',
     'logout'          => '/logout',
-    'mobile-bridge-login' => '/mobile-bridge-login',
     'register'        => '/register',
     'forgot-password' => '/forgot-password',
     'reset-password'  => '/reset-password',
@@ -280,12 +248,10 @@ const ROUTES = [
     'technical'       => '/technical',
     'logistics'       => '/logistics',
     'boardroom'       => '/boardroom',
-    'boardroom-status' => '/boardroom-status',
-    'loans'           => '/bank',
+    'loans'           => '/loans',
     'dashboard'       => '/dashboard',
     'help'             => '/help',
     'legal'            => '/legal',
-    'contracts'        => '/contracts',
     'wallet-transfer'  => '/wallet-transfer',
 ];
 
