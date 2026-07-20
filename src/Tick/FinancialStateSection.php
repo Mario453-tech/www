@@ -69,28 +69,28 @@ class FinancialStateSection
 
             if ($playerCash <= 0 && $tickNetProfit < 0) {
                 $newFinancialState = 'crisis';
-                
-                // Obnizenie morale pracownikow z powodu kryzysu/braku wyplat
-                try {
-                    // Najpierw log, zeby uchwycic roznice: (nowa - stara_wartosc) = GREATEST(0, current_morale - 10) - current_morale
-                    $this->db->prepare("
-                        INSERT INTO staff_morale_logs (technical_staff_id, change_amount, reason) 
-                        SELECT id, GREATEST(0, current_morale - 10) - current_morale, 'hr.morale.reason.crisis' 
-                        FROM technical_staff 
-                        WHERE player_id = ? AND status != 'fired' AND current_morale > 0
-                    ")->execute([$playerId]);
-                    
-                    // Nastepnie UPDATE morale 
-                    $this->db->prepare("
-                        UPDATE technical_staff 
-                        SET current_morale = GREATEST(0, current_morale - 10) 
-                        WHERE player_id = ? AND status != 'fired' AND current_morale > 0
-                    ")->execute([$playerId]);
-                } catch (Throwable $e) {
-                    GameLog::error('tick', 'morale penalty FAILED', $e, ['player_id' => $playerId]);
-                }
 
                 if ($canIncrementCrisis) {
+                    // Obnizenie morale pracownikow z powodu kryzysu/braku wyplat
+                    try {
+                        // Najpierw log, zeby uchwycic roznice: (nowa - stara_wartosc) = GREATEST(0, current_morale - 10) - current_morale
+                        $this->db->prepare("
+                            INSERT INTO staff_morale_logs (technical_staff_id, change_amount, reason) 
+                            SELECT id, GREATEST(0, current_morale - 10) - current_morale, 'hr.morale.reason.crisis' 
+                            FROM technical_staff 
+                            WHERE player_id = ? AND status != 'fired' AND current_morale > 0
+                        ")->execute([$playerId]);
+                        
+                        // Nastepnie UPDATE morale 
+                        $this->db->prepare("
+                            UPDATE technical_staff 
+                            SET current_morale = GREATEST(0, current_morale - 10) 
+                            WHERE player_id = ? AND status != 'fired' AND current_morale > 0
+                        ")->execute([$playerId]);
+                    } catch (Throwable $e) {
+                        GameLog::error('tick', 'morale penalty FAILED', $e, ['player_id' => $playerId]);
+                    }
+
                     $newCrisisTicks      = $crisisTicks + 1;
                     $newLastCrisisTickAt = $this->now->format('Y-m-d H:i:s');
                     GameLog::warn('tick', 'financial_crisis', [

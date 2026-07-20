@@ -270,12 +270,8 @@ try {
                 throw new InvalidArgumentException(t('common.unauthorized'));
             }
 
-            if (!class_exists('FinancialTransactionService')) {
-                require_once __DIR__ . '/Finance/FinancialTransactionService.php';
-            }
-            
-            $fin = new FinancialTransactionService();
-            if (!$fin->processTransaction($playerId, 'staff_bonus', 15000, 0, null)) {
+            $player = new Player($playerId);
+            if (!$player->updateCash(-15000.0, 'staff_bonus', 'Staff Bonus')) {
                 respondJson(['success' => false, 'error' => t('hr.err_no_funds_for_bonus')], 422);
             }
             
@@ -299,12 +295,8 @@ try {
                  respondJson(['success' => false, 'error' => t('hr.err_not_striking')], 422);
             }
 
-            if (!class_exists('FinancialTransactionService')) {
-                require_once __DIR__ . '/Finance/FinancialTransactionService.php';
-            }
-            
-            $fin = new FinancialTransactionService();
-            if (!$fin->processTransaction($playerId, 'strike_resolution', 50000, 0, null)) {
+            $player = new Player($playerId);
+            if (!$player->updateCash(-50000.0, 'strike_resolution', 'Strike Resolution')) {
                 respondJson(['success' => false, 'error' => t('hr.err_no_funds_strike')], 422);
             }
             

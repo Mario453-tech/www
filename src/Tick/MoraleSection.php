@@ -44,8 +44,12 @@ class MoraleSection
         foreach ($potentialStrikers as $staffId) {
             // 5% szans na wybuch strajku w kazdym ticku
             if (mt_rand(1, 100) <= 5) {
-                StrikeService::startStrike((int)$staffId, 'hr.strike.reason.low_morale');
-                $this->strikesStarted++;
+                try {
+                    StrikeService::startStrike((int)$staffId, 'hr.strike.reason.low_morale');
+                    $this->strikesStarted++;
+                } catch (Throwable $e) {
+                    if (class_exists('GameLog', false)) GameLog::error('tick', 'StrikeService::startStrike failed', $e);
+                }
             }
         }
 
@@ -60,8 +64,12 @@ class MoraleSection
         foreach ($potentialEndings as $staffId) {
             // 50% szans na automatyczne zakonczenie strajku gdy morale podrosnie
             if (mt_rand(1, 100) <= 50) {
-                StrikeService::resolveStrike((int)$staffId);
-                $this->strikesEnded++;
+                try {
+                    StrikeService::resolveStrike((int)$staffId);
+                    $this->strikesEnded++;
+                } catch (Throwable $e) {
+                    if (class_exists('GameLog', false)) GameLog::error('tick', 'StrikeService::resolveStrike failed', $e);
+                }
             }
         }
     }

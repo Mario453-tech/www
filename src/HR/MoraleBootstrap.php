@@ -51,12 +51,13 @@ function ensureMoraleSchema(): void
         try {
             $db->exec("ALTER TABLE technical_staff ADD COLUMN base_morale INT NOT NULL DEFAULT 100");
         } catch (PDOException $e) {
-            // Ignorujemy blad jezeli kolumna juz istnieje (SQLSTATE 42S21)
+            if ($e->getCode() !== '42S21') throw $e;
         }
 
         try {
             $db->exec("ALTER TABLE technical_staff ADD COLUMN current_morale INT NOT NULL DEFAULT 100");
         } catch (PDOException $e) {
+            if ($e->getCode() !== '42S21') throw $e;
         }
     } catch (Throwable $e) {
         if (class_exists('GameLog', false)) {

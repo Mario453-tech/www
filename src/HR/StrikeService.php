@@ -9,12 +9,16 @@ class StrikeService
     {
         $db = Database::getInstance()->getConnection();
         
-        if (self::isStriking($staffId)) {
-            return;
-        }
-
-        $stmt = $db->prepare("INSERT INTO staff_strikes (technical_staff_id, start_time, reason) VALUES (?, NOW(), ?)");
-        $stmt->execute([$staffId, $reason]);
+        $stmt = $db->prepare("
+            INSERT INTO staff_strikes (technical_staff_id, start_time, reason) 
+            SELECT ?, NOW(), ?
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 FROM staff_strikes 
+                WHERE technical_staff_id = ? AND end_time IS NULL
+            )
+        ");
+        $stmt->execute([$staffId, $reason, $staffId]);
     }
 
     /**
