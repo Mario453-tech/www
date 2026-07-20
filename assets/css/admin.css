@@ -4949,7 +4949,7 @@ table.admin-table tr:hover td {
 /* ── Task config admin (admin/tasks.php) ─────────────────────────────── */
 .task-config-grid { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
 .task-config-header,
-.task-config-row   { display: grid; grid-template-columns: 2.5fr 1.5fr 1.5fr 120px 120px auto; gap: 12px; align-items: center; padding: 12px 16px; }
+.task-config-row   { display: grid; grid-template-columns: 2.5fr 1.5fr 1.5fr 110px 110px 210px; gap: 12px; align-items: center; padding: 12px 16px; }
 .task-config-header { font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; padding-bottom: 8px; margin-bottom: 4px; }
 .task-config-row { background: var(--card-bg); border-radius: 8px; transition: background 0.2s, transform 0.2s; border: 1px solid transparent; }
 .task-config-row:hover { background: var(--card-hover); border-color: var(--border); }
@@ -4959,7 +4959,7 @@ table.admin-table tr:hover td {
 .task-config-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .task-config-row .input-inline { width: 100px; font-family: monospace; text-align: right; }
 @media (max-width: 1100px) {
-    .task-config-header, .task-config-row { grid-template-columns: 2fr 1fr 1fr 100px 100px auto; }
+    .task-config-header, .task-config-row { grid-template-columns: 2fr 1fr 1fr 100px 100px 180px; gap: 8px; padding: 10px 12px; }
 }
 @media (max-width: 900px) {
     .task-config-header { display: none; }
