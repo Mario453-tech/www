@@ -958,6 +958,79 @@
     opacity: .4;
 }
 
+.logistics-hub-workmode-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .35rem .6rem;
+    margin: .4rem 0 .5rem;
+    background: rgba(15, 23, 42, .45);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 6px;
+}
+
+.logistics-hub-workmode-label {
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--text2, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.logistics-hub-workmode-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    background: rgba(0, 0, 0, .3);
+    padding: 2px;
+    border-radius: 6px;
+}
+
+.workmode-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text2, #94a3b8);
+    font-size: .72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1;
+}
+
+.workmode-btn:hover {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, .06);
+}
+
+.workmode-btn.is-active {
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+.workmode-btn--eco.is-active {
+    background: rgba(16, 185, 129, .2);
+    border-color: #10b981;
+    color: #34d399;
+}
+
+.workmode-btn--standard.is-active {
+    background: rgba(59, 130, 246, .2);
+    border-color: #3b82f6;
+    color: #60a5fa;
+}
+
+.workmode-btn--max.is-active {
+    background: rgba(239, 68, 68, .2);
+    border-color: #ef4444;
+    color: #f87171;
+}
+
 .logistics-hub-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;

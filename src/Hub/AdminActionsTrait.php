@@ -202,8 +202,15 @@ trait HubAdminActionsTrait
         if (!in_array($workMode, ['eco', 'standard', 'max'], true)) {
             return ['success' => false, 'error' => 'invalid_mode'];
         }
-        if (!$this->getHub($hubId)) {
+        $hub = $this->getHub($hubId);
+        if (!$hub) {
             return ['success' => false, 'error' => 'not_found'];
+        }
+
+        $ownerId = (int)($hub['player_id'] ?? 0);
+        $tenantId = (int)($hub['tenant_player_id'] ?? 0);
+        if ($adminId > 0 && $ownerId !== $adminId && $tenantId !== $adminId && !AdminAuth::isAdmin()) {
+            return ['success' => false, 'error' => 'access_denied'];
         }
 
         try {

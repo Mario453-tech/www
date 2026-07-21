@@ -97,11 +97,33 @@
                     <?php if (($hub['zone_key'] ?? '') !== ''): ?>
                     <span class="sep">&middot;</span>
                     <span><?= htmlspecialchars($hub['zone_key']) ?></span>
-                    <?php endif ?>
                     <span class="sep">&middot;</span>
                     <span><?= t('logistics.hub.label_level', ['level' => $hubLevel, 'max' => $hubMaxLevel]) ?></span>
-                    <span class="sep">&middot;</span>
-                    <span><?= t('logistics.hub.mode_' . ($hub['work_mode'] ?? 'standard')) ?></span>
+                </div>
+
+                <?php $workMode = (string)($hub['work_mode'] ?? 'standard'); ?>
+                <div class="logistics-hub-workmode-bar">
+                    <span class="logistics-hub-workmode-label"><?= t('logistics.hub.label_work_mode') ?>:</span>
+                    <div class="logistics-hub-workmode-buttons" role="group" aria-label="<?= t('logistics.hub.label_work_mode') ?>">
+                        <button type="button"
+                                class="workmode-btn workmode-btn--eco <?= $workMode === 'eco' ? 'is-active' : '' ?>"
+                                onclick="window.hubSetMode(<?= $hubId ?>, 'eco')"
+                                title="<?= htmlspecialchars(t('logistics.hub.desc_mode_eco')) ?>">
+                            <span class="dot">🟢</span> <?= t('logistics.hub.mode_eco') ?>
+                        </button>
+                        <button type="button"
+                                class="workmode-btn workmode-btn--standard <?= $workMode === 'standard' ? 'is-active' : '' ?>"
+                                onclick="window.hubSetMode(<?= $hubId ?>, 'standard')"
+                                title="<?= htmlspecialchars(t('logistics.hub.desc_mode_standard')) ?>">
+                            <span class="dot">🔵</span> <?= t('logistics.hub.mode_standard') ?>
+                        </button>
+                        <button type="button"
+                                class="workmode-btn workmode-btn--max <?= $workMode === 'max' ? 'is-active' : '' ?>"
+                                onclick="window.hubSetMode(<?= $hubId ?>, 'max')"
+                                title="<?= htmlspecialchars(t('logistics.hub.desc_mode_max')) ?>">
+                            <span class="dot">🔴</span> <?= t('logistics.hub.mode_max') ?>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="logistics-hub-stats">
