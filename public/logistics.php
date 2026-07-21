@@ -191,9 +191,7 @@ $storagePct       = 0;
 $storageBbl       = 0.0;
 
 try {
-    $storageStmt = $db->prepare('SELECT used, capacity FROM storage WHERE player_id = ? LIMIT 1');
-    $storageStmt->execute([$playerId]);
-    $storageRow = $storageStmt->fetch(PDO::FETCH_ASSOC);
+    $storageRow = (new Storage($playerId))->getData();
     if (is_array($storageRow)) {
         $storageBbl = (float)($storageRow['used'] ?? 0.0);
         $storageCapacity = (float)($storageRow['capacity'] ?? 0.0);
