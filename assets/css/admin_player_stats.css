@@ -1,0 +1,26 @@
+/* transport_loss warstwa typ (5 kolumn) *//* transport_loss per gracz (7 kolumn) */.player-loss-grid .list-header,
+.player-loss-grid .list-row {
+    grid-template-columns: 1fr 60px 70px 70px 75px 110px 90px;
+    font-size: 11px;
+}
+/* well_sales lista sprzeday (12 kolumn) *//* well_sales analiza graczy (5 kolumn) */.player-sales-grid .list-header,
+.player-sales-grid .list-row {
+    grid-template-columns: 1fr 110px 120px 120px 80px;
+}
+/* market_debug ekonomia per gracz (7 kolumn) */.player-economy-grid .list-header,
+.player-economy-grid .list-row {
+    grid-template-columns: 1fr 80px 80px 90px 80px 90px 80px;
+}
+/* market_debug supply/demand history (5 kolumn) */@media (max-width: 768px) {
+  .player-loss-grid .list-header span:nth-child(6),
+    .player-loss-grid .list-row span:nth-child(6) {
+        display: none;
+    }
+}
+@media (max-width: 768px) {
+  .player-loss-grid .list-header,
+    .player-loss-grid .list-row {
+        grid-template-columns: 1fr 55px 65px 65px 70px 90px !important;
+        min-width: 380px;
+    }
+}

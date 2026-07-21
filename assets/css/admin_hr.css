@@ -1,0 +1,45 @@
+/* Panel HR */.hr-tabs            { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+.hr-tab             { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); text-decoration: none; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); transition: all .15s; }
+.hr-tab:hover       { color: #ff9800; border-color: rgba(255,152,0,.3); background: rgba(255,152,0,.07); }
+.hr-tab.active      { color: #ff9800; border-color: rgba(255,152,0,.4); background: rgba(255,152,0,.1); }
+.hr-section         { margin-bottom: 32px; }
+.hr-divider         { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+.hr-candidates-grid .list-header,
+.hr-candidates-grid .list-row { grid-template-columns: 1fr 100px 130px 100px 160px 80px 60px; }
+.hr-history-grid .list-header,
+.hr-history-grid .list-row    { grid-template-columns: 110px 150px 1fr 90px 80px 1fr; }
+.hr-stats-grid .list-header,
+.hr-stats-grid .list-row      { grid-template-columns: 1fr 80px 80px 70px 70px 120px; }
+.hr-hrspecs-grid .list-header,
+.hr-hrspecs-grid .list-row    { grid-template-columns: 180px 100px 110px minmax(150px, 1fr) 60px 70px; gap: 6px; }
+.hr-hrspecs-grid .list-row    { padding: 2px 8px; min-height: 0; gap: 6px; }
+.hr-hrspecs-grid .inline-form { display: contents; }
+.hr-hrspecs-grid .input-inline { padding: 2px 5px; font-size: 11px; }
+.hr-hrspecs-grid .input-sm    { padding: 2px 5px; font-size: 11px; }
+.hr-hrspecs-grid .btn         { padding: 2px 8px; font-size: 11px; }
+/* 
+   BOARDROOM ADMIN
+ *//* Role card *//* Add role *//* All boardroom inputs inside grids *//* -- HR history - lista zatrudnien ----------------------------- */.hr-history-grid {
+    font-size: 12px;
+}
+.hr-history-grid .list-header {
+    font-size: 9px;
+    letter-spacing: .08em;
+    color: rgba(255,255,255,.3);
+}
+/* HR history - ukryj mniej wazne kolumny */@media (max-width: 768px) {
+  .hr-history-grid .list-header,
+    .hr-history-grid .list-row {
+        grid-template-columns: 90px 1fr 80px !important;
+    }
+}
+@media (max-width: 768px) {
+  .hr-history-grid .list-header div:nth-child(2),
+    .hr-history-grid .list-row div:nth-child(2),
+    .hr-history-grid .list-header div:nth-child(5),
+    .hr-history-grid .list-row div:nth-child(5),
+    .hr-history-grid .list-header div:nth-child(6),
+    .hr-history-grid .list-row div:nth-child(6) {
+        display: none !important;
+    }
+}

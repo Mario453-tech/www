@@ -1,0 +1,58 @@
+.logs-grid .list-header,
+.logs-grid .list-row {
+    grid-template-columns: 148px 155px 1fr 100px 130px 120px;
+    align-items: start;
+}
+.log-action    { color: var(--blue); font-size: 12px; font-weight: bold; }
+.log-time      { color: var(--muted2); font-size: 11px; }
+.log-ip        { color: var(--muted); font-size: 11px; }
+.logs-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+/* Game log */.log-line {
+    padding: 4px 10px;
+    background: var(--bg3);
+    border: 1px solid var(--brd2);
+    border-radius: 3px;
+    font-size: 11.5px;
+    font-family: monospace;
+    color: var(--muted2);
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.5;
+}
+.log-line--error { color: var(--red);    background: rgba(230,102,102,.07); border-color: rgba(230,102,102,.22); }
+.log-line--warn  { color: var(--yellow); background: rgba(200,170,80,.06);  border-color: rgba(200,170,80,.18); }
+.log-line--db    { color: var(--blue);   background: rgba(126,184,247,.05); border-color: rgba(126,184,247,.12); }
+.log-line--perf  { color: var(--green);  background: rgba(93,217,153,.05);  border-color: rgba(93,217,153,.12); }
+.log-line--tick  { color: #ffd766; background: rgba(255, 193, 7, .12); border-color: rgba(255, 193, 7, .34); box-shadow: inset 3px 0 0 rgba(255, 193, 7, .85); }
+/* Tick log table */.tick-log-grid .list-header,
+.tick-log-grid .list-row {
+    grid-template-columns: 46px 148px 80px 84px 90px 72px 90px 72px 72px 40px;
+    min-width: 860px;
+}
+@media (max-width: 700px) {
+  .logs-grid .col-player,
+    .logs-grid .col-ip { display: none; }
+}
+.logs-toolbar  { display: flex; align-items: center; justify-content: space-between;
+                 flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+/* Game log */.log-line      { padding: 3px 8px; border-radius: 3px; color: var(--muted, #aaa);
+                 word-break: break-all; background: #1a1a1a; }
+.log-line--error { color: #e57373; background: #2a1a1a; }
+.log-line--warn  { color: #ffb74d; background: #231e10; }
+.log-line--db    { color: #64b5f6; background: #0d1a26; }
+.log-line--perf  { color: #81c784; background: #0d1a10; }
+.log-line--tick  { color: #ffd766; background: #2b220d; box-shadow: inset 3px 0 0 #ffc107; }
+/* Tick Log */.tick-log-grid .list-header,
+.tick-log-grid .list-row {
+    grid-template-columns: 40px 140px 70px 90px 80px 130px 65px 80px 110px 60px 55px 1fr 36px;
+    align-items: center;
+    min-width: 1100px;
+}
+/* Trust log 4 kolumny: data / zdarzenie / zmiana / nota *//* nl-log-grid: data | temat | wysano | admin | status | usu */

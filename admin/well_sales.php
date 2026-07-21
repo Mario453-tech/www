@@ -201,6 +201,7 @@ $viewData = [
 ];
 
 $pageTitle = t('admin.well_sales.title');
+$adminExtraCss = ['/assets/css/admin_player_stats.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/well_sales/main.php';
 require_once __DIR__ . '/partials/footer.php';

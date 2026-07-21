@@ -128,6 +128,7 @@ $viewData = compact(
     'supplyDemandHistory', 'priceHistory', 'playerEconomy',
     'currentPrice', 'basePrice'
 );
+$adminExtraCss = ['/assets/css/admin_player_stats.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/market_debug/main.php';
 require_once __DIR__ . '/partials/footer.php';

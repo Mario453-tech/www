@@ -1,0 +1,66 @@
+/* Logistics hubs admin */.hub-admin-grid       { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 8px 0 16px; }
+.hub-admin-card       { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 12px 14px; }
+.hub-admin-card h4    { margin: 0 0 8px; font-size: .88rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+                        color: #f6ad55; font-weight: 700; }
+.hub-stat-row         { display: flex; justify-content: space-between; font-size: .8rem; padding: 3px 0;
+                        border-bottom: 1px solid #383838; }
+.hub-stat-row span:first-child { color: #a0aec0; }
+.hub-stat-row span:last-child  { color: #e2e8f0; font-weight: 600; }
+.hub-actions-row      { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.hub-actions-row form { margin: 0; }
+.hub-actions-row button { font-size: .75rem; padding: 2px 7px; }
+.hub-detail-box       { background: #222; border: 1px solid #f6ad55; border-radius: 8px; padding: 20px; margin: 16px 0; }
+.hub-detail-box h5    { margin: 20px 0 8px; font-size: .85rem; color: #a0aec0; text-transform: uppercase; letter-spacing: .04em; }
+.hub-detail-info      { margin-bottom: 16px; }
+.hub-detail-dl        { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: .83rem; margin: 0; }
+.hub-detail-dl dt     { color: #a0aec0; white-space: nowrap; font-weight: 400; }
+.hub-detail-dl dd     { margin: 0; color: #e2e8f0; font-weight: 600; }
+.hub-detail-quick-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.hub-detail-quick-actions form { margin: 0; }
+.hub-detail-params    { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.hub-param-card       { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 14px 16px; }
+.hub-param-label      { font-size: .72rem; color: #f6ad55; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; font-weight: 700; }
+.hub-param-current    { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; color: #e2e8f0; }
+.hub-param-form       { display: flex; flex-direction: column; gap: 6px; }
+.hub-param-form .admin-input  { width: 100%; font-size: .83rem; }
+.hub-param-form button        { align-self: flex-start; }
+/* Ciemne inputy i selecty wewntrz kart parametrw huba */.hub-param-card select,
+.hub-param-card input[type="number"],
+.hub-param-card input[type="text"],
+.hub-param-card .admin-input,
+.hub-param-card .admin-select-dark,
+.hub-param-card .admin-input-dark {
+    background: #222 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #383838 !important;
+    border-radius: 4px;
+}
+.hub-param-card select option { background: #222; color: #e2e8f0; }
+/* Nagwek szczegw huba zoty */.hub-detail-box h4    { margin: 0 0 14px; font-size: 1rem; color: #f6ad55; font-weight: 700; }
+.hub-detail-dl dt     { color: #a0aec0; }
+.hub-detail-dl dd     { color: #e2e8f0; font-weight: 600; }
+/* Hub config sections */.hub-actions-row--border { margin-top: 14px; border-top: 1px solid #383838; padding-top: 10px; }
+/* Lista hubw nagwek + paginacja */.hub-list-header         { display: flex; align-items: baseline; gap: 16px; margin-bottom: 4px; }
+.hub-list-header h3      { margin: 0; }
+.hub-pagination-info     { font-size: .8rem; color: #a0aec0; }
+.hub-region-section      { margin-bottom: 24px; }
+.hub-region-header       { font-size: .82rem; font-weight: 700; color: #f6ad55; text-transform: uppercase;
+                           letter-spacing: .06em; padding: 6px 0 4px; border-bottom: 1px solid #383838;
+                           margin-bottom: 10px; }
+/* Karta huba ID */.hub-card-id             { color: #4299e1; font-size: .78rem; font-weight: 400; margin-right: 2px; }
+.hub-pagination          { display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+                           margin: 16px 0; padding-top: 12px; border-top: 1px solid #383838;
+                           max-width: 100%; }
+.hub-pagination .btn          { min-width: 30px; padding: 3px 7px; font-size: .78rem; text-align: center; }
+.hub-pagination .btn-primary  { background: #f6ad55; color: #222; border-color: #f6ad55; font-weight: 700; }
+.hub-pagination-dots          { color: #a0aec0; font-size: .82rem; padding: 0 2px; align-self: center; }
+.hub-pagination-info          { margin-left: 8px; font-size: .78rem; color: #a0aec0; align-self: center; }
+.hub-admin-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+                           z-index: 9000; align-items: center; justify-content: center; }
+.hub-admin-modal-box     { background: #222; border: 1px solid #383838; border-radius: 10px;
+                           padding: 28px 32px; max-width: 420px; width: 90%; text-align: center; }
+.hub-admin-modal-icon    { font-size: 2rem; margin-bottom: 12px; color: #f6ad55; }
+.hub-admin-modal-text    { font-size: .9rem; color: #e2e8f0; margin-bottom: 20px; line-height: 1.5; }
+.hub-admin-modal-btns    { display: flex; gap: 10px; justify-content: center; }
+.hub-hidden-form         { display: none; }
+/* Weryfikacja ticku (hub verification panel) *//* Hide: type(5), transport(6), production(7), hub(8), upgrades(9) *//* Wnioski graczy / na huby - tabele *//* Hub staffing diagnostics / Diagnostyka obsady hubow */.hub-inline-form { display: inline-flex; }

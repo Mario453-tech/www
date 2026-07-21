@@ -123,6 +123,7 @@ $viewData = [
 ];
 
 $pageTitle = t('admin.transport_loss.title');
+$adminExtraCss = ['/assets/css/admin_player_stats.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/transport_loss/main.php';
 require_once __DIR__ . '/partials/footer.php';

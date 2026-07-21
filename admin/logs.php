@@ -208,6 +208,7 @@ $viewData = [
 ];
 
 $pageTitle = 'Logi';
+$adminExtraCss = ['/assets/css/admin_logs.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/logs/main.php';
 require_once __DIR__ . '/partials/footer.php';

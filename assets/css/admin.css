@@ -364,11 +364,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
     grid-template-columns: 36px 1fr 120px 110px 90px 160px;
 }
 .trends-grid .list-row.is-active { border-color: #2a5a1a; background: #1a2d1a; }
-.logs-grid .list-header,
-.logs-grid .list-row {
-    grid-template-columns: 148px 155px 1fr 100px 130px 120px;
-    align-items: start;
-}
+
 .syslogs-grid .list-header,
 .syslogs-grid .list-row {
     grid-template-columns: 148px 140px 1fr 110px;
@@ -400,9 +396,9 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .player-login  { font-weight: bold; font-size: 13px; }
 .player-email  { font-size: 11px; color: var(--muted2); margin-top: 1px; }
 .player-cash   { color: var(--orange); font-weight: bold; }
-.log-action    { color: var(--blue); font-size: 12px; font-weight: bold; }
-.log-time      { color: var(--muted2); font-size: 11px; }
-.log-ip        { color: var(--muted); font-size: 11px; }
+
+
+
 
 /* Well event types */
 .evt-maintenance  { color: var(--orange); }
@@ -663,38 +659,20 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 
 
 
-.logs-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 14px;
-}
 
-/* Game log */
+
+
 .game-log-list {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
-.log-line {
-    padding: 4px 10px;
-    background: var(--bg3);
-    border: 1px solid var(--brd2);
-    border-radius: 3px;
-    font-size: 11.5px;
-    font-family: monospace;
-    color: var(--muted2);
-    white-space: pre-wrap;
-    word-break: break-all;
-    line-height: 1.5;
-}
-.log-line--error { color: var(--red);    background: rgba(230,102,102,.07); border-color: rgba(230,102,102,.22); }
-.log-line--warn  { color: var(--yellow); background: rgba(200,170,80,.06);  border-color: rgba(200,170,80,.18); }
-.log-line--db    { color: var(--blue);   background: rgba(126,184,247,.05); border-color: rgba(126,184,247,.12); }
-.log-line--perf  { color: var(--green);  background: rgba(93,217,153,.05);  border-color: rgba(93,217,153,.12); }
-.log-line--tick  { color: #ffd766; background: rgba(255, 193, 7, .12); border-color: rgba(255, 193, 7, .34); box-shadow: inset 3px 0 0 rgba(255, 193, 7, .85); }
+
+
+
+
+
+
 
 /* Section card (used in tick log) */
 .section-card {
@@ -760,12 +738,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 .stat-value.green  { color: var(--green); }
 .stat-value.orange { color: var(--orange); }
 
-/* Tick log table */
-.tick-log-grid .list-header,
-.tick-log-grid .list-row {
-    grid-template-columns: 46px 148px 80px 84px 90px 72px 90px 72px 72px 40px;
-    min-width: 860px;
-}
+
+
 .row--warn { border-color: rgba(200,170,80,.3); background: rgba(200,170,80,.06); }
 
 /* Inline form helpers */
@@ -925,8 +899,7 @@ select {
 @media (max-width: 700px) {
     
     
-    .logs-grid .col-player,
-    .logs-grid .col-ip { display: none; }
+    
 }
 
 .btn-block-center { display: block; text-align: center; text-decoration: none; margin-top: 0; }
@@ -1382,18 +1355,14 @@ select {
 
 /* Gridy list-header per widok (nowe strony) */
 
-/* transport_loss warstwa typ (5 kolumn) */
+
 .layer-grid .list-header,
 .layer-grid .list-row {
     grid-template-columns: 100px 100px 70px 90px 100px;
 }
 
-/* transport_loss per gracz (7 kolumn) */
-.player-loss-grid .list-header,
-.player-loss-grid .list-row {
-    grid-template-columns: 1fr 60px 70px 70px 75px 110px 90px;
-    font-size: 11px;
-}
+
+
 
 
 .well-loss-grid .list-header,
@@ -1408,18 +1377,15 @@ select {
 
 
 
-/* well_sales lista sprzeday (12 kolumn) */
+
 .well-sales-grid .list-header,
 .well-sales-grid .list-row {
     grid-template-columns: 44px 1fr 60px 110px 80px 70px 70px 70px 70px 70px 110px 160px;
     align-items: center;
 }
 
-/* well_sales analiza graczy (5 kolumn) */
-.player-sales-grid .list-header,
-.player-sales-grid .list-row {
-    grid-template-columns: 1fr 110px 120px 120px 80px;
-}
+
+
 
 /* Zakadki nav */
 .tab-nav {
@@ -1457,13 +1423,10 @@ select {
 }
 .page-link.active { background: var(--gold); color: #000; }
 
-/* market_debug ekonomia per gracz (7 kolumn) */
-.player-economy-grid .list-header,
-.player-economy-grid .list-row {
-    grid-template-columns: 1fr 80px 80px 90px 80px 90px 80px;
-}
 
-/* market_debug supply/demand history (5 kolumn) */
+
+
+
 .supply-demand-grid .list-header,
 .supply-demand-grid .list-row {
     grid-template-columns: 130px 90px 90px 60px 80px;
@@ -1727,19 +1690,17 @@ select {
                  font-weight: 600; }
 
 /* Pasek narzdzi logw */
-.logs-toolbar  { display: flex; align-items: center; justify-content: space-between;
-                 flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 
-/* Game log */
+
+
 .game-log-list { display: flex; flex-direction: column; gap: 2px; font-family: monospace;
                  font-size: 11px; }
-.log-line      { padding: 3px 8px; border-radius: 3px; color: var(--muted, #aaa);
-                 word-break: break-all; background: #1a1a1a; }
-.log-line--error { color: #e57373; background: #2a1a1a; }
-.log-line--warn  { color: #ffb74d; background: #231e10; }
-.log-line--db    { color: #64b5f6; background: #0d1a26; }
-.log-line--perf  { color: #81c784; background: #0d1a10; }
-.log-line--tick  { color: #ffd766; background: #2b220d; box-shadow: inset 3px 0 0 #ffc107; }
+
+
+
+
+
+
 
 /* Section card (generic admin section wrapper) */
 .admin-page-header   { margin-bottom: 20px; }
@@ -1749,13 +1710,8 @@ select {
 .section-title       { font-size: 15px; font-weight: 700; color: var(--text, #e8e8f0); margin: 0 0 14px; }
 .empty-state         { text-align: center; padding: 32px; color: var(--muted2, #666); font-size: 13px; }
 
-/* Tick Log */
-.tick-log-grid .list-header,
-.tick-log-grid .list-row {
-    grid-template-columns: 40px 140px 70px 90px 80px 130px 65px 80px 110px 60px 55px 1fr 36px;
-    align-items: center;
-    min-width: 1100px;
-}
+
+
 .table-scroll-wrap { overflow-x: auto; }
 
 /* Stats grid */
@@ -1797,32 +1753,28 @@ select {
 .form-input--narrow { width: 70px; }
 .btn-xs             { padding: 2px 7px; font-size: 11px; }
 
-/* Panel HR */
-.hr-tabs            { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
-.hr-tab             { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); text-decoration: none; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); transition: all .15s; }
-.hr-tab:hover       { color: #ff9800; border-color: rgba(255,152,0,.3); background: rgba(255,152,0,.07); }
-.hr-tab.active      { color: #ff9800; border-color: rgba(255,152,0,.4); background: rgba(255,152,0,.1); }
 
-.hr-section         { margin-bottom: 32px; }
-.hr-divider         { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
 
-.hr-candidates-grid .list-header,
-.hr-candidates-grid .list-row { grid-template-columns: 1fr 100px 130px 100px 160px 80px 60px; }
 
-.hr-history-grid .list-header,
-.hr-history-grid .list-row    { grid-template-columns: 110px 150px 1fr 90px 80px 1fr; }
 
-.hr-stats-grid .list-header,
-.hr-stats-grid .list-row      { grid-template-columns: 1fr 80px 80px 70px 70px 120px; }
 
-.hr-hrspecs-grid .list-header,
-.hr-hrspecs-grid .list-row    { grid-template-columns: 180px 100px 110px minmax(150px, 1fr) 60px 70px; gap: 6px; }
 
-.hr-hrspecs-grid .list-row    { padding: 2px 8px; min-height: 0; gap: 6px; }
-.hr-hrspecs-grid .inline-form { display: contents; }
-.hr-hrspecs-grid .input-inline { padding: 2px 5px; font-size: 11px; }
-.hr-hrspecs-grid .input-sm    { padding: 2px 5px; font-size: 11px; }
-.hr-hrspecs-grid .btn         { padding: 2px 8px; font-size: 11px; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Spec card (details/summary) */
 .spec-card          { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
@@ -1853,9 +1805,7 @@ select {
 .add-spec-fields .spec-field { flex: 1; min-width: 120px; }
 .spec-field--action { flex: 0 0 auto; min-width: auto; justify-content: flex-end; padding-top: 18px; }
 
-/* 
-   BOARDROOM ADMIN
- */
+
 
 .br-admin-main       { padding: 24px; }
 .br-admin-title      { margin: 0 0 24px; font-size: 22px; color: var(--text, #e8e8f0); }
@@ -1905,7 +1855,7 @@ select {
 .br-bg-name-preview  { background: rgba(0,0,0,.2); border-radius: 5px; padding: 8px 12px; margin-top: 4px; }
 .br-bg-name-preview code { font-size: 12px; color: var(--gold, #c8a84b); }
 
-/* Role card */
+
 .br-role-card        { background: rgba(255,255,255,.02); border: 1px solid rgba(200,168,75,.15); border-radius: 8px; padding: 16px; overflow: hidden; }
 .br-role-form        { display: flex; flex-direction: column; gap: 12px; }
 .br-role-header      { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
@@ -1923,12 +1873,12 @@ select {
 .br-btn-delete       { background: none; border: 1px solid rgba(224,85,85,.3); color: var(--red, #e05555); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
 .br-btn-delete:hover { border-color: var(--red); }
 
-/* Add role */
+
 .br-add-grid         { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .br-add-grid > div   { min-width: 0; }
 .br-roles-list       { display: flex; flex-direction: column; gap: 16px; }
 
-/* All boardroom inputs inside grids */
+
 .br-admin-main input[type="text"],
 .br-admin-main input[type="number"] { box-sizing: border-box; width: 100%; min-width: 0; }
 
@@ -2336,7 +2286,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     margin-bottom: 12px;
 }
 
-/* Trust log 4 kolumny: data / zdarzenie / zmiana / nota */
+
 .list-header--trust,
 .list-row--trust    { display: grid;
                       grid-template-columns: 155px 1fr 70px 1fr;
@@ -2419,7 +2369,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     border: none;
 }
 
-/* nl-log-grid: data | temat | wysano | admin | status | usu */
+
 .nl-log-grid .list-header,
 .nl-log-grid .list-row     { grid-template-columns: 128px 1fr 60px 90px 160px 36px; align-items: start; }
 .nl-log-subject            { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
@@ -2432,59 +2382,47 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .badge-orange { background: rgba(246,173,85,.12);  border: 1px solid rgba(246,173,85,.25);  color: #f6ad55; }
 .badge-blue   { background: rgba(66,153,225,.12);  border: 1px solid rgba(66,153,225,.25);  color: #4299e1; }
 
-/* Logistics hubs admin */
-.hub-admin-grid       { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 8px 0 16px; }
-.hub-admin-card       { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 12px 14px; }
-.hub-admin-card h4    { margin: 0 0 8px; font-size: .88rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-                        color: #f6ad55; font-weight: 700; }
-.hub-stat-row         { display: flex; justify-content: space-between; font-size: .8rem; padding: 3px 0;
-                        border-bottom: 1px solid #383838; }
-.hub-stat-row span:first-child { color: #a0aec0; }
-.hub-stat-row span:last-child  { color: #e2e8f0; font-weight: 600; }
-.hub-actions-row      { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
-.hub-actions-row form { margin: 0; }
-.hub-actions-row button { font-size: .75rem; padding: 2px 7px; }
+
+
+
+
+
+
+
+
+
+
 .seed-box             { background: #222; border: 1px solid #f6ad55; border-radius: 8px; padding: 16px; margin: 16px 0; }
-.hub-detail-box       { background: #222; border: 1px solid #f6ad55; border-radius: 8px; padding: 20px; margin: 16px 0; }
-.hub-detail-box h5    { margin: 20px 0 8px; font-size: .85rem; color: #a0aec0; text-transform: uppercase; letter-spacing: .04em; }
+
+
 
 /* Info dl grid */
-.hub-detail-info      { margin-bottom: 16px; }
-.hub-detail-dl        { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: .83rem; margin: 0; }
-.hub-detail-dl dt     { color: #a0aec0; white-space: nowrap; font-weight: 400; }
-.hub-detail-dl dd     { margin: 0; color: #e2e8f0; font-weight: 600; }
+
+
+
+
 
 /* Szybkie akcje */
-.hub-detail-quick-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-.hub-detail-quick-actions form { margin: 0; }
+
+
 
 /* Karty parametrw */
-.hub-detail-params    { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.hub-param-card       { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 14px 16px; }
-.hub-param-label      { font-size: .72rem; color: #f6ad55; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; font-weight: 700; }
-.hub-param-current    { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; color: #e2e8f0; }
-.hub-param-form       { display: flex; flex-direction: column; gap: 6px; }
-.hub-param-form .admin-input  { width: 100%; font-size: .83rem; }
-.hub-param-form button        { align-self: flex-start; }
 
-/* Ciemne inputy i selecty wewntrz kart parametrw huba */
-.hub-param-card select,
-.hub-param-card input[type="number"],
-.hub-param-card input[type="text"],
-.hub-param-card .admin-input,
-.hub-param-card .admin-select-dark,
-.hub-param-card .admin-input-dark {
-    background: #222 !important;
-    color: #e2e8f0 !important;
-    border: 1px solid #383838 !important;
-    border-radius: 4px;
-}
-.hub-param-card select option { background: #222; color: #e2e8f0; }
 
-/* Nagwek szczegw huba zoty */
-.hub-detail-box h4    { margin: 0 0 14px; font-size: 1rem; color: #f6ad55; font-weight: 700; }
-.hub-detail-dl dt     { color: #a0aec0; }
-.hub-detail-dl dd     { color: #e2e8f0; font-weight: 600; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 .filter-row           { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
 .stats-bar            { display: flex; gap: 24px; background: #222; border-radius: 6px; padding: 10px 16px; margin-bottom: 16px; font-size: .85rem; }
 .admin-form-row       { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
@@ -2493,7 +2431,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .admin-details > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
 .admin-details-form   { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 16px; margin-top: 8px; }
 
-/* Hub config sections */
+
 .cfg-section      { background: #222; border: 1px solid #383838; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
 .cfg-section h4   { margin: 0 0 12px; font-size: .92rem; color: #a0aec0; text-transform: uppercase; letter-spacing: .05em; }
 .cfg-group        { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
@@ -2505,48 +2443,42 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .cfg-note         { font-size: .72rem; color: #718096; margin-bottom: 2px; }
 .cfg-form         { display: flex; gap: 4px; align-items: center; }
 .cfg-input        { width: 90px; font-size: .82rem; padding: 2px 6px; }
-.hub-actions-row--border { margin-top: 14px; border-top: 1px solid #383838; padding-top: 10px; }
+
 .admin-inline-form       { display: flex; gap: 4px; align-items: center; margin: 0; }
 .admin-input--xs         { font-size: .78rem; padding: 2px 4px; }
 .admin-input--cond       { width: 60px; font-size: .78rem; }
 .admin-input--name       { width: 200px; font-size: .78rem; }
 
-/* Lista hubw nagwek + paginacja */
-.hub-list-header         { display: flex; align-items: baseline; gap: 16px; margin-bottom: 4px; }
-.hub-list-header h3      { margin: 0; }
-.hub-pagination-info     { font-size: .8rem; color: #a0aec0; }
+
+
+
+
 
 /* Sekcja regionu */
-.hub-region-section      { margin-bottom: 24px; }
-.hub-region-header       { font-size: .82rem; font-weight: 700; color: #f6ad55; text-transform: uppercase;
-                           letter-spacing: .06em; padding: 6px 0 4px; border-bottom: 1px solid #383838;
-                           margin-bottom: 10px; }
 
-/* Karta huba ID */
-.hub-card-id             { color: #4299e1; font-size: .78rem; font-weight: 400; margin-right: 2px; }
+
+
+
+
 
 /* Paginacja */
-.hub-pagination          { display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
-                           margin: 16px 0; padding-top: 12px; border-top: 1px solid #383838;
-                           max-width: 100%; }
-.hub-pagination .btn          { min-width: 30px; padding: 3px 7px; font-size: .78rem; text-align: center; }
-.hub-pagination .btn-primary  { background: #f6ad55; color: #222; border-color: #f6ad55; font-weight: 700; }
-.hub-pagination-dots          { color: #a0aec0; font-size: .82rem; padding: 0 2px; align-self: center; }
-.hub-pagination-info          { margin-left: 8px; font-size: .78rem; color: #a0aec0; align-self: center; }
+
+
+
+
+
 
 /* Modal confirm */
-.hub-admin-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
-                           z-index: 9000; align-items: center; justify-content: center; }
-.hub-admin-modal-box     { background: #222; border: 1px solid #383838; border-radius: 10px;
-                           padding: 28px 32px; max-width: 420px; width: 90%; text-align: center; }
-.hub-admin-modal-icon    { font-size: 2rem; margin-bottom: 12px; color: #f6ad55; }
-.hub-admin-modal-text    { font-size: .9rem; color: #e2e8f0; margin-bottom: 20px; line-height: 1.5; }
-.hub-admin-modal-btns    { display: flex; gap: 10px; justify-content: center; }
+
+
+
+
+
 
 /* Ukryte formularze POST (modal confirm) */
-.hub-hidden-form         { display: none; }
 
-/* Weryfikacja ticku (hub verification panel) */
+
+
 .admin-details--verify   { border: 1px solid #4a5568; border-radius: 8px; padding: 12px 16px; background: #252525; }
 .admin-details--verify[open] { background: #2a2a2a; }
 .verify-grid           { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
@@ -2775,7 +2707,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 @media (max-width: 640px) {
     
 
-    /* Hide: type(5), transport(6), production(7), hub(8), upgrades(9) */
+    
     
 
     
@@ -2972,7 +2904,7 @@ body.cred-modal-open { overflow: hidden; }
     
     
 
-    /* Wnioski graczy / na huby - tabele */
+    
     .admin-tabs { gap: 0; }
     .admin-tab { padding: 7px 10px; font-size: 11px; }
 }
@@ -3220,15 +3152,9 @@ body.cred-modal-open { overflow: hidden; }
     color: #ff9800 !important;
 }
 
-/* -- HR history - lista zatrudnien ----------------------------- */
-.hr-history-grid {
-    font-size: 12px;
-}
-.hr-history-grid .list-header {
-    font-size: 9px;
-    letter-spacing: .08em;
-    color: rgba(255,255,255,.3);
-}
+
+
+
 
 
 
@@ -3254,19 +3180,9 @@ body.cred-modal-open { overflow: hidden; }
     .config-range { width: 100% !important; max-width: 220px; }
     .config-input-sm { width: 64px !important; }
 
-    /* HR history - ukryj mniej wazne kolumny */
-    .hr-history-grid .list-header,
-    .hr-history-grid .list-row {
-        grid-template-columns: 90px 1fr 80px !important;
-    }
-    .hr-history-grid .list-header div:nth-child(2),
-    .hr-history-grid .list-row div:nth-child(2),
-    .hr-history-grid .list-header div:nth-child(5),
-    .hr-history-grid .list-row div:nth-child(5),
-    .hr-history-grid .list-header div:nth-child(6),
-    .hr-history-grid .list-row div:nth-child(6) {
-        display: none !important;
-    }
+    
+    
+    
 
     
     
@@ -3290,7 +3206,7 @@ body.cred-modal-open { overflow: hidden; }
     }
 }
 
-/* Hub staffing diagnostics / Diagnostyka obsady hubow */
+
 .admin-details--staffing {
     border: 1px solid rgba(255, 152, 0, .22);
     border-radius: 8px;
@@ -3387,7 +3303,7 @@ body.cred-modal-open { overflow: hidden; }
 
 
 
-.hub-inline-form { display: inline-flex; }
+
 .cfg-seed-form { margin-bottom: 12px; }
 @media (max-width: 900px) {
     .staffing-config-fields,
@@ -3404,15 +3320,8 @@ body.cred-modal-open { overflow: hidden; }
 @media (max-width: 768px) {
 
     /* Transport loss - ukryj transport-mix na malym */
-    .player-loss-grid .list-header span:nth-child(6),
-    .player-loss-grid .list-row span:nth-child(6) {
-        display: none;
-    }
-    .player-loss-grid .list-header,
-    .player-loss-grid .list-row {
-        grid-template-columns: 1fr 55px 65px 65px 70px 90px !important;
-        min-width: 380px;
-    }
+    
+    
 
     
     
