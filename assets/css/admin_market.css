@@ -1,0 +1,204 @@
+/* -- RYNEK GLOBALNY - market/main.php -------------------------*/
+.market-form-panel {
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.market-form-panel .panel-title { color: #e05555 !important; }
+.market-form-panel--warn .panel-title { color: #e05555 !important; }
+
+}
+@media (max-width: 768px) {
+    /* Rynek - karty 2x2 */
+    .cards { flex-direction: column; gap: 6px !important; }
+    .cards .card { min-width: 0 !important; }
+    .card .value { font-size: 16px !important; }
+
+    /* Verify cards - 2 kolumny */
+    .verify-grid { grid-template-columns: 1fr 1fr !important; }
+
+    /* Hub admin grid - 1 kolumna */
+    .hub-admin-grid { grid-template-columns: 1fr !important; }
+
+    /* Hub detail - pelna szerokosc */
+    .hub-detail-box { padding: 14px !important; }
+    .hub-detail-params { grid-template-columns: 1fr 1fr !important; }
+
+    /* Protection/Sabotage rows - scroll */
+    .protection-admin-row {
+        grid-template-columns: 120px 1fr 80px auto !important;
+        font-size: 11px;
+    }
+    .protection-admin-row span:nth-child(3),
+    .protection-admin-row span:nth-child(5) { display: none; }
+    .protection-admin-row--head span:nth-child(3),
+    .protection-admin-row--head span:nth-child(5) { display: none; }
+}
+
+@media (max-width: 480px) {
+    .verify-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
+    .verify-value { font-size: 1.3rem !important; }
+    .card .value { font-size: 14px !important; }
+    .protection-admin-row {
+        grid-template-columns: 1fr auto !important;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    .protection-admin-row span:nth-child(2),
+    .protection-admin-row span:nth-child(3),
+    .protection-admin-row span:nth-child(4),
+    .protection-admin-row span:nth-child(5) { display: none; }
+}
+
+/* ── Task config admin (admin/tasks.php) ─────────────────────────────── */
+.task-config-grid { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
+.task-config-header,
+.task-config-row   { display: grid; grid-template-columns: 2.5fr 1.5fr 1.5fr 110px 110px 210px; gap: 12px; align-items: center; padding: 12px 16px; }
+.task-config-header { font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; padding-bottom: 8px; margin-bottom: 4px; }
+.task-config-row { background: var(--card-bg); border-radius: 8px; transition: background 0.2s, transform 0.2s; border: 1px solid transparent; }
+.task-config-row:hover { background: var(--card-hover); border-color: var(--border); }
+.task-config-row--modified { border-left: 4px solid var(--accent); border-radius: 4px 8px 8px 4px; }
+.task-config-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.task-config-row > span:not(.task-config-name):not(.task-config-actions) { display: flex; align-items: center; gap: 6px; }
+.task-config-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.task-config-row .input-inline { width: 100px; font-family: monospace; text-align: right; }
+@media (max-width: 1100px) {
+    .task-config-header, .task-config-row { grid-template-columns: 2fr 1fr 1fr 100px 100px 180px; gap: 8px; padding: 10px 12px; }
+}
+@media (max-width: 900px) {
+    .task-config-header { display: none; }
+    .task-config-row    { grid-template-columns: 1fr 1fr; gap: 8px; align-items: flex-start; }
+    .task-config-name   { grid-column: 1 / -1; margin-bottom: 4px; }
+    .task-config-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 4px; }
+    .task-config-row > span:not(.task-config-name):not(.task-config-actions) { flex-direction: column; align-items: flex-start; gap: 2px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   KONTRAKTY — dodatkowe ulepszenia wizualne
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Alert success — zielony zamiast surowego */
+.alert-success {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: rgba(78,201,122,.08);
+    border: 1px solid rgba(78,201,122,.25);
+    border-left: 3px solid #4ec97a;
+    color: #4ec97a;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+.alert-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: rgba(224,85,85,.08);
+    border: 1px solid rgba(224,85,85,.25);
+    border-left: 3px solid #e05555;
+    color: #e05555;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+
+/* Sticky panel header / Przyklejony naglowek panelu */
+.contracts-admin-grid .contracts-admin-row--head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* Rank badge consistent with system / Badge rangi spojny z systemem */
+.rank-badge,
+.contracts-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    padding: 3px 9px;
+    border-radius: 999px;
+}
+.rank-badge--low,
+.contracts-rank-badge--low    { background: rgba(78,201,122,.1); color: #4ec97a; border: 1px solid rgba(78,201,122,.2); }
+.rank-badge--medium,
+.contracts-rank-badge--medium { background: rgba(200,168,75,.1); color: #c8a84b; border: 1px solid rgba(200,168,75,.2); }
+.rank-badge--high,
+.contracts-rank-badge--high   { background: rgba(240,160,80,.1); color: #f0a050; border: 1px solid rgba(240,160,80,.2); }
+
+/* Status colors / Kolory statusow */
+.c-good  { color: #4ec97a; }
+.c-bad   { color: #e05555; }
+.c-muted2 { color: rgba(232,232,240,.35); }
+
+/* Better form row layout / Lepszy uklad wiersza formularza */
+.form-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.form-row--gap { gap: 14px; }
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+.form-field label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.35);
+}
+.form-field--wide { flex: 1; }
+
+/* Small input consistent style / Spojny styl malego inputa */
+.input-sm {
+    background: rgba(255,255,255,.04) !important;
+    border: 1px solid rgba(255,152,0,.2) !important;
+    border-radius: 7px !important;
+    color: rgba(232,232,240,.85) !important;
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+    font-family: inherit !important;
+    transition: border-color .15s !important;
+}
+.input-sm:focus {
+    border-color: rgba(255,152,0,.5) !important;
+    outline: none !important;
+}
+.input-sm[type="number"] {
+    -moz-appearance: textfield;
+}
+.input-sm[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+/* Module checkbox / Checkbox modulu */
+input[type="checkbox"].module-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: #ff9800;
+    cursor: pointer;
+}
+
+/* Contracts-help */
+.contracts-help__list li {
+    margin-bottom: 4px;
+    color: rgba(255,255,255,.65);
+}
+
+/* Mobile contracts admin */
+@media (max-width: 768px) {
+    .contracts-terms-block__title { padding: 8px 12px; }
+    .contracts-admin-actions { gap: 4px; }
+    .contracts-admin-actions .btn { padding: 4px 8px !important; font-size: 9px !important; }
+}

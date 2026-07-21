@@ -1,0 +1,189 @@
+/* -- KONTRAKTY - admin/contracts.php -------------------------- */
+.contracts-admin-grid {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(255,152,0,.15);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.contracts-admin-grid::-webkit-scrollbar { height: 3px; }
+.contracts-admin-grid::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
+.contracts-admin-row {
+    display: grid;
+    gap: 0 10px;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    font-size: 12px;
+    transition: background .13s;
+    color: rgba(232,232,240,.75);
+}
+.contracts-admin-row:hover { background: rgba(200,168,75,.05); }
+.contracts-admin-row--head {
+    background: rgba(255,255,255,.02);
+    border-bottom: 1px solid rgba(200,168,75,.18) !important;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: rgba(200,168,75,.55);
+    padding: 8px 14px;
+}
+.contracts-admin-row--options   { grid-template-columns: 150px 1fr 150px 130px 90px 70px auto; }
+.contracts-admin-row--terms     { grid-template-columns: 200px 110px 120px 1fr auto; }
+.contracts-admin-row--active    { grid-template-columns: 1fr 1fr 140px 140px 130px 130px; }
+.contracts-admin-row--deliveries{ grid-template-columns: 120px 1fr 90px 90px 100px 110px 110px 90px; }
+.contracts-admin-row--logs      { grid-template-columns: 120px 1fr 160px 2fr; }
+.contracts-admin-row--reputation{ grid-template-columns: 1fr 100px 100px 80px 90px 90px 80px minmax(320px, auto); }
+.contracts-admin-row--reputation-log { grid-template-columns: 120px 1fr 80px 100px 170px 1fr; }
+.contracts-admin-row--b2b       { grid-template-columns: 120px 1fr 1fr 100px 120px 90px 130px minmax(160px, auto); }
+.contracts-admin-row--b2b-rep   { grid-template-columns: 1fr 100px 120px 120px 90px 90px 90px; }
+.contracts-admin-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+}
+.contracts-admin-actions .btn {
+    font-size: 10px !important;
+    padding: 5px 10px !important;
+    border-radius: 7px !important;
+    letter-spacing: .04em !important;
+}
+.contracts-inline-form { margin: 0; display: inline; }
+.contracts-filter-form {
+    margin: 0 0 14px;
+}
+.contracts-admin-actions--stack {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.contracts-admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.contracts-admin-stats > div {
+    padding: 14px;
+    border: 1px solid rgba(200,168,75,.18);
+    border-radius: 8px;
+    background: rgba(255,255,255,.02);
+}
+
+.contracts-admin-stats span {
+    display: block;
+    color: var(--text-muted, #8f8a99);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.contracts-admin-stats strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--gold, #d6b447);
+    font-size: 22px;
+}
+
+.contracts-admin-pager {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+    color: var(--text-muted, #8f8a99);
+    font-size: 12px;
+}
+.contracts-reputation-adjust {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    margin: 0;
+}
+.contracts-reputation-note {
+    min-width: 150px;
+}
+.contracts-terms-block {
+    margin-bottom: 16px;
+    background: linear-gradient(145deg, #161622, #0f0f18);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.contracts-terms-block__title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: rgba(200,168,75,.8);
+    margin: 0;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(200,168,75,.12);
+    background: rgba(200,168,75,.04);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.contracts-terms-block .contracts-admin-grid {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+.contracts-help__list {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    line-height: 1.7;
+    font-size: 13px;
+    color: rgba(255,255,255,.75);
+}
+
+@media (max-width: 768px) {
+    .contracts-admin-row--options,
+    .contracts-admin-row--terms,
+    .contracts-admin-row--active,
+    .contracts-admin-row--deliveries,
+    .contracts-admin-row--logs,
+    .contracts-admin-row--reputation,
+    .contracts-admin-row--reputation-log,
+    .contracts-admin-row--b2b,
+    .contracts-admin-row--b2b-rep {
+        grid-template-columns: 1fr 1fr !important;
+        font-size: 11px;
+    }
+    .contracts-reputation-adjust {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .contracts-reputation-note {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+/* Toggle switch modul aktywny */
+.module-toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    flex-wrap: wrap;
+}
+.module-toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,.8);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+

@@ -65,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pageTitle = t('admin.tasks.page_title');
+$adminExtraCss = ['/assets/css/admin_tasks.css'];
 require_once __DIR__ . '/partials/header.php';
 ?>
 

@@ -381,6 +381,7 @@ $viewData = compact(
 );
 
 $pageTitle = t('admin.contracts.title');
+$adminExtraCss = ['/assets/css/admin_contracts.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/contracts/main.php';
 require_once __DIR__ . '/partials/footer.php';

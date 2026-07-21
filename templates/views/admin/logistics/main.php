@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= t('admin.logistics.title') ?></title>
 <link rel="stylesheet" href="<?= asset('/assets/css/admin.css') ?>">
+<link rel="stylesheet" href="<?= asset('/assets/css/admin_logistics.css') ?>">
 <script>window.ADMIN_LOGISTICS_LANG = { seed_confirm: <?= json_encode(tPlain('admin.logistics.seed_confirm'), JSON_UNESCAPED_UNICODE) ?> };</script>
 </head>
 <body class="admin-body">

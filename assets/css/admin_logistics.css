@@ -1,0 +1,113 @@
+}
+@media (max-width: 480px) {
+}
+@media (max-width: 480px) {
+.card {
+.card:hover { border-color: rgba(255,152,0,.35) !important; }
+.card .label {
+.card .value {
+.cards { gap: 8px !important; margin-bottom: 12px !important; }
+/* -- HUBY LOGISTYCZNE - logistics/main.php --------------------*/
+/* verify-cards - gradient tlo */
+.verify-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+}
+.verify-card {
+    background: linear-gradient(145deg, #1e1e1e, #181818) !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+    text-align: center !important;
+}
+.verify-card--warn {
+    border-color: rgba(255,152,0,.4) !important;
+    background: linear-gradient(145deg, rgba(255,152,0,.07), #181818) !important;
+}
+.verify-value {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -.02em !important;
+    line-height: 1 !important;
+}
+.verify-label {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: .09em !important;
+    text-transform: uppercase !important;
+    color: rgba(255,255,255,.35) !important;
+    margin-bottom: 5px !important;
+}
+.verify-sub {
+    font-size: 10px !important;
+    color: rgba(255,255,255,.3) !important;
+    margin-top: 3px !important;
+}
+
+/* Hub admin cards */
+.hub-admin-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+    gap: 10px !important;
+    margin: 8px 0 14px !important;
+}
+.hub-admin-card {
+    background: linear-gradient(145deg, #1e1e1e, #181818) !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+    transition: border-color .18s !important;
+}
+.hub-admin-card:hover { border-color: rgba(255,152,0,.3) !important; }
+.hub-admin-card h4 {
+    font-size: 12px !important;
+    color: #ff9800 !important;
+    margin-bottom: 8px !important;
+    padding-bottom: 6px !important;
+    border-bottom: 1px solid rgba(255,152,0,.12) !important;
+}
+.hub-stat-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    font-size: 11px !important;
+    padding: 3px 0 !important;
+    border-bottom: 1px solid rgba(255,255,255,.04) !important;
+    color: rgba(255,255,255,.6) !important;
+}
+.hub-stat-row:last-child { border-bottom: none !important; }
+
+/* Hub detail box */
+.hub-detail-box {
+    background: linear-gradient(145deg, #1e1e1e, #181818) !important;
+    border: 1px solid rgba(255,152,0,.3) !important;
+    border-radius: 12px !important;
+    padding: 18px !important;
+    margin: 14px 0 !important;
+}
+.hub-detail-box h4 { color: #ff9800 !important; margin-bottom: 12px !important; }
+.hub-detail-box h5 {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: .1em !important;
+    text-transform: uppercase !important;
+    color: rgba(255,152,0,.5) !important;
+    margin: 14px 0 8px !important;
+}
+.hub-detail-dl {
+    display: grid !important;
+    grid-template-columns: max-content 1fr !important;
+    gap: 4px 14px !important;
+    font-size: 12px !important;
+}
+.hub-detail-dl dt { color: rgba(255,255,255,.4) !important; font-weight: 400 !important; }
+.hub-detail-dl dd { color: rgba(255,255,255,.85) !important; font-weight: 600 !important; margin: 0 !important; }
+
+/* Hub modal */
+.hub-admin-modal-box {
+    background: #1e1e1e !important;
+    border: 1px solid rgba(255,152,0,.3) !important;
+    border-radius: 12px !important;
+}
+

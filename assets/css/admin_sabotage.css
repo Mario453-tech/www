@@ -1,0 +1,35 @@
+}
+@media (max-width: 480px) {
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+    gap: 10px;
+}
+}
+}
+}
+}
+@media (max-width: 480px) {
+}
+}
+}
+}
+.cards { gap: 8px !important; margin-bottom: 12px !important; }
+}
+    gap: 7px !important;
+}
+}
+/* -- SABOTAZE - sabotage/main.php -----------------------------*/
+/* Reuse protection-admin-grid + dodatkowe */
+.protection-admin-grid--sabotage .protection-admin-row {
+    grid-template-columns: 180px 1fr 140px 80px 90px 80px auto;
+}
+

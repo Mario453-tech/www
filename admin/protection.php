@@ -236,6 +236,7 @@ $viewData = compact(
 );
 
 $pageTitle = t('admin.protection.title');
+$adminExtraCss = ['/assets/css/admin_protection.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/protection/main.php';
 require_once __DIR__ . '/partials/footer.php';
