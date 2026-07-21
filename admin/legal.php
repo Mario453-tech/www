@@ -305,6 +305,7 @@ try {
 $viewData = compact('regions', 'applications', 'stats', 'hubApplications', 'hubStats', 'tab', 'msg', 'err');
 
 $pageTitle = t('admin.legal.title');
+$adminExtraCss = ['/assets/css/admin_legal.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/legal/main.php';
 require_once __DIR__ . '/partials/footer.php';

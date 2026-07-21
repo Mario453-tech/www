@@ -1,0 +1,109 @@
+/* 
+   TRANSPORT / LOSS / PIPELINES / ALERTS / BALANCE / MARKET DEBUG
+ *//* Input may (set loss w pipelines) *//* pipelines lista rurocigw (8 kolumn) */.pipelines-grid .list-header,
+.pipelines-grid .list-row {
+    grid-template-columns: 36px 1fr 80px 70px 80px 80px 80px 160px;
+    font-size: 11px;
+}
+/* pipelines historia awarii (3 kolumny) */.pipeline-history-grid .list-header,
+.pipeline-history-grid .list-row {
+    grid-template-columns: 120px 1fr 140px;
+}
+/* Pipeline type configuration */.pipeline-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+}
+.pipeline-type-card {
+    background: rgba(255,255,255,.035);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    padding: 14px;
+}
+.pipeline-type-card__head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.pipeline-type-card__head strong {
+    color: var(--gold);
+}
+.pipeline-type-card__head span,
+.pipeline-type-card__calc {
+    color: var(--muted2);
+    font-size: 12px;
+}
+.pipeline-type-card label {
+    display: block;
+    margin-bottom: 10px;
+}
+.pipeline-type-card label span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+.pipeline-type-card input {
+    width: 100%;
+}
+.pipeline-admin-stats {
+    margin-bottom: 16px;
+}
+.pipeline-grant-form,
+.pipeline-history-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+.pipeline-grant-field--wide {
+    flex: 1 1 420px;
+}
+.pipeline-grant-form select,
+.pipeline-history-filter input,
+.pipeline-history-filter select {
+    min-width: 180px;
+}
+.pipeline-history-clear {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 12px 0 16px;
+}
+.pipeline-history-grid {
+    overflow-x: auto;
+}
+.pipeline-history-grid .list-header,
+.pipeline-history-grid .list-row {
+    grid-template-columns: 54px 140px 140px 180px 140px minmax(260px, 1fr) 140px 82px;
+    min-width: 1120px;
+    align-items: start;
+}
+.pipeline-pagination {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+/* Pipelines - ukryj ostatnia kolumne (events) */@media (max-width: 768px) {
+  .pipelines-grid .list-header span:last-child,
+    .pipelines-grid .list-row   span:last-child {
+        display: none;
+    }
+}
+@media (max-width: 768px) {
+  .pipelines-grid .list-header,
+    .pipelines-grid .list-row {
+        grid-template-columns: 32px 1fr 70px 65px 75px 75px 75px !important;
+        min-width: 460px;
+    }
+}
+@media (max-width: 768px) {
+  .pipeline-types-grid { grid-template-columns: 1fr; }
+}

@@ -556,13 +556,9 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
     transition: color .15s, background .15s;
 }
 .btn-icon-close:hover { color: var(--text, #e0e0e0); background: rgba(255,255,255,.08); }
-/* Przycisk pinowania newsw */
-.btn-news-pin {
-    background: rgba(200,168,75,.15);
-    color: #c8a84b;
-    border: 1px solid rgba(200,168,75,.35);
-}
-.btn-news-pin:hover { background: rgba(200,168,75,.28); }
+
+
+
 
 /* ALERTS */
 .alert { padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 13px; }
@@ -1176,9 +1172,7 @@ select {
 /* Paginacja */
 .pagination { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 
-/* 
-   TRANSPORT / LOSS / PIPELINES / ALERTS / BALANCE / MARKET DEBUG
- */
+
 
 /* Karta drobna nota pod value */
 .card-note {
@@ -1307,7 +1301,7 @@ select {
 /* Form inline (w tabeli danych) */
 .form-inline { display: inline; }
 
-/* Input may (set loss w pipelines) */
+
 .input-w-loss { width: 60px; font-size: 11px; padding: 3px 5px; }
 
 /* Hint przy buttonie / spanie w form-row */
@@ -1425,18 +1419,11 @@ select {
     font-size: 11px;
 }
 
-/* pipelines lista rurocigw (8 kolumn) */
-.pipelines-grid .list-header,
-.pipelines-grid .list-row {
-    grid-template-columns: 36px 1fr 80px 70px 80px 80px 80px 160px;
-    font-size: 11px;
-}
 
-/* pipelines historia awarii (3 kolumny) */
-.pipeline-history-grid .list-header,
-.pipeline-history-grid .list-row {
-    grid-template-columns: 120px 1fr 140px;
-}
+
+
+
+
 
 /* well_sales lista sprzeday (12 kolumn) */
 .well-sales-grid .list-header,
@@ -2470,33 +2457,25 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .word-tag__btn--enable:hover        { background: rgba(0,200,100,.15); }
 .word-tag__btn--del:hover           { background: rgba(220,50,50,.25); color: #ff6b6b; }
 
-/* Black Market admin tabs view */
+
 .stats-grid--5      { grid-template-columns: repeat(5, 1fr); }
 
-.bm-cfg-section          { margin-bottom: 1.5rem; }
-.bm-cfg-section-title    { font-size: .78rem; font-weight: 700; text-transform: uppercase;
-                            letter-spacing: .06em; color: var(--orange); margin-bottom: .6rem; }
-.bm-cfg-grid             { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                            gap: .6rem 1rem; }
-.bm-cfg-field            { display: flex; flex-direction: column; gap: .2rem; }
-.bm-cfg-label            { font-size: .78rem; color: var(--muted2); }
-.bm-cfg-input            { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
-                            color: var(--text); padding: .3rem .5rem; font-size: .85rem;
-                            transition: border-color .15s; }
-.bm-cfg-input:focus      { border-color: var(--orange); outline: none; }
 
-.bm-help-grid            { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-                            gap: 1rem; margin-top: 1rem; }
-.bm-help-card            { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
-                            padding: 1rem 1.1rem; font-size: .84rem; line-height: 1.55; }
-.bm-help-card--tip       { border-color: rgba(200, 168, 75, .4); background: rgba(200, 168, 75, .05); }
-.bm-help-card-title      { font-weight: 700; font-size: .88rem; margin-bottom: .5rem;
-                            color: var(--orange); }
-.bm-help-card code       { background: rgba(255,255,255,.08); border-radius: 3px;
-                            padding: .1rem .35rem; font-size: .8rem; color: #a0cfff; }
-.bm-help-list            { margin: .4rem 0 0 1rem; padding: 0; color: var(--muted2); }
-.bm-help-list li         { margin-bottom: .3rem; }
-.bm-help-list strong     { color: var(--text); }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Admin Wells lista odwiertw */
 .wells-list-header,
@@ -2557,7 +2536,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
                             border-radius: 6px; padding: 1rem 1.1rem; }
 .help-section--highlight { border-color: rgba(200,168,75,.45);
                             background: rgba(200,168,75,.06); }
-.bm-info                 { margin-bottom: 1.2rem; }
+
 .help-section--dark      { border-color: rgba(180,60,60,.45);
                             background: rgba(180,60,60,.05); }
 .help-section--dark .help-section-title { color: #e66; }
@@ -2672,7 +2651,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 /* Kolor wartoci gotwki w stat-card */
 .pd-stat-value.orange { color: var(--orange); }
 
-/* NEWSLETTER */
+
 .nl-stats {
     display: flex;
     flex-wrap: wrap;
@@ -2734,7 +2713,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .nl-log-subject            { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 .row--error                { border-color: rgba(230,102,102,.3); background: rgba(230,102,102,.05); }
 
-/* Badge statusw (newsletter + oglne) */
+
 .badge-green  { background: rgba(78,201,122,.12);  border: 1px solid rgba(78,201,122,.25);  color: #4ec97a; }
 .badge-red    { background: rgba(224,85,85,.12);   border: 1px solid rgba(224,85,85,.25);   color: #e05555; }
 .badge-yellow { background: rgba(230,180,60,.12);  border: 1px solid rgba(230,180,60,.25);  color: #e6b43c; }
@@ -2902,148 +2881,55 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     }
 }
 
-/* Admin news editor / Edytor newsow admina */
-.news-editor-wrap {
-    width: 100%;
-}
 
-.news-title-editor-wrap {
-    width: 100%;
-}
 
-.news-form-panel .tox-tinymce {
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-}
 
-.news-form-panel .tox .tox-editor-header {
-    border-bottom: 1px solid rgba(255,255,255,.08);
-}
 
-.news-card-title > :first-child {
-    margin-top: 0;
-}
 
-.news-card-title > :last-child {
-    margin-bottom: 0;
-}
 
-.news-card-title p,
-.news-card-title div,
-.news-card-title h1,
-.news-card-title h2,
-.news-card-title h3,
-.news-card-title h4 {
-    margin: 0 0 6px;
-}
 
-.news-card-title h1,
-.news-card-title h2,
-.news-card-title h3,
-.news-card-title h4 {
-    color: var(--orange, #c8a84b);
-    line-height: 1.25;
-}
 
-/* Pipeline type configuration */
-.pipeline-types-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-    margin: 14px 0;
-}
 
-.pipeline-type-card {
-    background: rgba(255,255,255,.035);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 8px;
-    padding: 14px;
-}
 
-.pipeline-type-card__head {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 12px;
-}
 
-.pipeline-type-card__head strong {
-    color: var(--gold);
-}
 
-.pipeline-type-card__head span,
-.pipeline-type-card__calc {
-    color: var(--muted2);
-    font-size: 12px;
-}
 
-.pipeline-type-card label {
-    display: block;
-    margin-bottom: 10px;
-}
 
-.pipeline-type-card label span {
-    display: block;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-}
 
-.pipeline-type-card input {
-    width: 100%;
-}
 
-.pipeline-admin-stats {
-    margin-bottom: 16px;
-}
 
-.pipeline-grant-form,
-.pipeline-history-filter {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: flex-end;
-}
 
-.pipeline-grant-field--wide {
-    flex: 1 1 420px;
-}
 
-.pipeline-grant-form select,
-.pipeline-history-filter input,
-.pipeline-history-filter select {
-    min-width: 180px;
-}
 
-.pipeline-history-clear {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-    margin: 12px 0 16px;
-}
 
-.pipeline-history-grid {
-    overflow-x: auto;
-}
 
-.pipeline-history-grid .list-header,
-.pipeline-history-grid .list-row {
-    grid-template-columns: 54px 140px 140px 180px 140px minmax(260px, 1fr) 140px 82px;
-    min-width: 1120px;
-    align-items: start;
-}
 
-.pipeline-pagination {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-top: 14px;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* ============================================================
    GM Wells panel - player filter, list, edit form
@@ -3344,16 +3230,8 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     background: rgba(80, 140, 255, .38);
 }
 
-.admin-legal-seed-form {
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.admin-legal-seed-form .btn,
-.admin-legal-seed-form button {
-    align-self: flex-start;
-}
+
+
 
 .input-num-60  { width: 46px; }
 
@@ -3361,169 +3239,46 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 .input-num-110 { width: 80px; }
 
-.legal-admin-guide {
-    margin-bottom: 14px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 8px;
-}
-.legal-admin-guide > * {
-    background: #1e1e1e;
-    border: 1px solid rgba(255,152,0,.15);
-    border-radius: 6px;
-    padding: 10px 12px;
-}
-.legal-admin-guide p {
-    font-size: 12px;
-    color: rgba(224,224,224,.6);
-    line-height: 1.55;
-    margin: 0;
-}
-.legal-admin-guide strong {
-    display: block;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: #ff9800;
-    margin-bottom: 4px;
-}
 
-.legal-config-table {
-    min-width: unset;
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-}
 
-.legal-config-table th,
-.legal-config-table td {
-    vertical-align: middle;
-    white-space: nowrap;
-    padding: 5px 7px;
-    font-size: 11px;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-}
+
+
+
+
+
+
 
 /* Naglowek grup - kolorowe sekcje */
-.legal-config-table thead tr:first-child th {
-    background: rgba(255, 152, 0, .1);
-    color: #ff9800;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    border-bottom: 1px solid rgba(255, 152, 0, .25);
-    padding: 6px 7px;
-    text-align: center;
-}
+
 
 /* Naglowek kolumn */
-.legal-config-table thead tr:nth-child(2) th {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: rgba(224,224,224,.55);
-    background: #1e1e1e;
-    border-bottom: 1px solid rgba(255,152,0,.15);
-    padding: 5px 7px;
-}
+
 
 /* Region - nazwa kolumny */
-.legal-config-table__region {
-    min-width: 110px;
-    max-width: 140px;
-    white-space: normal;
-    font-weight: 600;
-    color: #e0e0e0;
-    word-break: break-word;
-}
+
 
 /* Wiersze - lepszy kontrast */
-.legal-config-table tbody tr td {
-    background: #1a1a1a;
-}
-.legal-config-table tbody tr:nth-child(even) td {
-    background: #1e1e1e;
-}
-.legal-config-table tbody tr:hover td {
-    background: rgba(255,152,0,.06) !important;
-}
+
+
+
 
 /* Sticky pierwsza kolumna */
-.legal-config-table th:first-child,
-.legal-config-table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    background: #1e1e1e;
-    border-right: 1px solid rgba(255,152,0,.15);
-    min-width: 110px;
-    max-width: 140px;
-    font-weight: 700;
-    color: #e0e0e0;
-}
-.legal-config-table thead th:first-child {
-    z-index: 4;
-    background: #252525;
-}
+
+
 
 /* Sticky ostatnia kolumna */
-.legal-config-table th:last-child,
-.legal-config-table td:last-child {
-    position: sticky;
-    right: 0;
-    z-index: 2;
-    background: #1e1e1e;
-    text-align: right;
-    border-left: 1px solid rgba(255,152,0,.15);
-    padding-left: 12px;
-}
-.legal-config-table thead th:last-child {
-    z-index: 4;
-    background: #252525;
-}
+
+
 
 /* Inputy w tabeli */
-.legal-config-table input[type="number"] {
-    background: #2a2a2a;
-    border: 1px solid rgba(255,152,0,.25);
-    border-radius: 4px;
-    color: #e0e0e0;
-    font-size: 11px;
-    padding: 2px 4px;
-    transition: border-color .15s;
-    box-sizing: border-box;
-    min-width: 0;
-    width: 100%;
-}
-.legal-config-table input[type="number"]:focus {
-    border-color: rgba(255,152,0,.6);
-    outline: none;
-}
-.legal-config-table input[type="checkbox"] {
-    transform: translateY(1px);
-    accent-color: #ff9800;
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-}
+
+
+
 
 /* Select w tabeli */
-.legal-config-table select {
-    background: #2a2a2a;
-    border: 1px solid rgba(255,152,0,.25);
-    border-radius: 4px;
-    color: #e0e0e0;
-    font-size: 11px;
-    padding: 2px 4px;
-    max-width: 80px;
-}
 
-.legal-admin-actions form {
-    display: inline-flex;
-}
+
+
 
 /* Wells admin list - mobile responsive */
 @media (max-width: 640px) {
@@ -3690,34 +3445,13 @@ body.cred-modal-open { overflow: hidden; }
     .cred-grid__cell--actions::before { align-self: center; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ADMIN LEGAL - MOBILE RESPONSYWNOSC
-   ═══════════════════════════════════════════════════════════════ */
+
 
 /* Wrapper tabeli - scroll poziomy z lepszym UX */
-.legal-config-table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border: 1px solid rgba(255,152,0,.15);
-    border-radius: 8px;
-    /* Gradient podpowiadajacy scroll */
-    background:
-        linear-gradient(to right, #1a1a1a 30%, rgba(26,26,26,0)) left,
-        linear-gradient(to left, #1a1a1a 30%, rgba(26,26,26,0)) right;
-    background-repeat: no-repeat;
-    background-size: 30px 100%;
-    background-attachment: local, local;
-}
-.legal-config-table-wrap::-webkit-scrollbar {
-    height: 5px;
-}
-.legal-config-table-wrap::-webkit-scrollbar-track {
-    background: #1a1a1a;
-}
-.legal-config-table-wrap::-webkit-scrollbar-thumb {
-    background: rgba(255,152,0,.3);
-    border-radius: 3px;
-}
+
+
+
+
 
 /* Seed + Migracja - kompaktowe na mobile */
 @media (max-width: 980px) {
@@ -3727,16 +3461,16 @@ body.cred-modal-open { overflow: hidden; }
     .admin-tab { padding: 8px 14px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
 
     /* Seed i Migracja obok siebie */
-    .admin-legal-seed-form { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+    
 
     /* Guide - 1 kolumna */
-    .legal-admin-guide { grid-template-columns: 1fr; }
+    
 
     /* Tabela z mini-scrollbarem */
-    .legal-config-table { min-width: 900px; }
-    .legal-config-table th, .legal-config-table td { padding: 5px 7px; font-size: 11px; }
-    .legal-config-table input[type="number"] { width: 60px !important; font-size: 11px; padding: 2px 4px; }
-    .legal-config-table select { font-size: 11px; padding: 2px 4px; }
+    
+    
+    
+    
 
     /* Panel seed / migracja - kompaktowy */
     .panel h2 { font-size: 12px; }
@@ -3747,26 +3481,25 @@ body.cred-modal-open { overflow: hidden; }
     .admin-wrap { padding: 10px 10px; }
 
     /* Tabela - jeszcze mniejsza */
-    .legal-config-table { min-width: 800px; }
-    .legal-config-table th, .legal-config-table td { padding: 4px 6px; font-size: 10px; }
-    .legal-config-table input[type="number"] { width: 50px !important; font-size: 10px; }
-    .legal-config-table input[type="checkbox"] { width: 13px; height: 13px; }
+    
+    
+    
+    
 
     /* Naglowki grup - mniejsze */
-    .legal-config-table thead tr:first-child th { font-size: 9px; padding: 5px 6px; letter-spacing: .05em; }
-    .legal-config-table thead tr:nth-child(2) th { font-size: 9px; padding: 4px 6px; }
+    
+    
 
     /* Pierwsza kolumna (region) - wezsza */
-    .legal-config-table__region { min-width: 100px; font-size: 10px; }
+    
 
     /* Przyciski seed/migracja */
-    .admin-legal-seed-form .btn,
-    .admin-legal-seed-form button { font-size: 11px; padding: 6px 12px; }
+    
 
     /* Guide */
-    .legal-admin-guide { grid-template-columns: 1fr; gap: 6px; }
-    .legal-admin-guide p { font-size: 11px; }
-    .legal-admin-guide strong { font-size: 9px; }
+    
+    
+    
 
     /* Wnioski graczy / na huby - tabele */
     .admin-tabs { gap: 0; }
@@ -3775,24 +3508,18 @@ body.cred-modal-open { overflow: hidden; }
 
 @media (max-width: 480px) {
     .admin-wrap { padding: 8px; }
-    .legal-config-table { min-width: 700px; }
-    .legal-config-table th, .legal-config-table td { padding: 3px 5px; font-size: 9px; }
-    .legal-config-table input[type="number"] { width: 44px !important; font-size: 9px; padding: 1px 3px; }
-    .legal-config-table__region { min-width: 80px; }
+    
+    
+    
+    
 
     /* Ukryj kolumny mniej wazne na bardzo malym ekranie */
-    .legal-config-table .col-hide-xs { display: none; }
+    
 }
 
 
 /* Kompaktowy Zapisz w tabeli regionow */
-.legal-config-table .btn-sm,
-.legal-config-table .btn-primary.btn-sm {
-    padding: 4px 10px !important;
-    font-size: 10px !important;
-    letter-spacing: .05em !important;
-    white-space: nowrap;
-}
+
 
 /* admin-wrap bez overflow-x zeby tabela mogla sie skalowac */
 .admin-wrap {
@@ -3807,36 +3534,17 @@ body.cred-modal-open { overflow: hidden; }
 .table-scroll-wrap::-webkit-scrollbar { height: 4px; }
 .table-scroll-wrap::-webkit-scrollbar-thumb { background: rgba(255,152,0,.35); border-radius: 2px; }
 
-/* --- LEGAL CONFIG TABLE - kolumny zaawansowane ukryte domyslnie --- */
+
 /* Domyslnie widoczne: Region, Ryzyko, Wlaczony, Koszt, Czas, Zapisz */
 /* Kolumny zaawansowane ukryte - toggle przyciskiem */
-.legal-config-table .col-advanced {
-    display: none;
-}
-.legal-table-expanded .legal-config-table .col-advanced {
-    display: table-cell;
-}
+
+
 
 /* Przycisk rozwijania zaawansowanych kolumn */
-.legal-table-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    margin-bottom: 10px;
-    border: 1px solid rgba(255,152,0,.3);
-    background: rgba(255,152,0,.08);
-    border-radius: 6px;
-    color: #ff9800;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    cursor: pointer;
-    transition: background .15s;
-}
-.legal-table-toggle:hover { background: rgba(255,152,0,.15); }
-.legal-table-toggle::before { content: '▶'; font-size: 9px; transition: transform .2s; }
-.legal-table-expanded .legal-table-toggle::before { transform: rotate(90deg); }
+
+
+
+
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4100,27 +3808,14 @@ body.cred-modal-open { overflow: hidden; }
     color: rgba(255,255,255,.3);
 }
 
-/* -- Black market - tabela transakcji -------------------------- */
-.bm-tx-table-wrap,
-.data-list--bm {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-.bm-tx-table-wrap::-webkit-scrollbar { height: 3px; }
-.bm-tx-table-wrap::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
 
-/* BM players table - kompaktowa */
-.bm-players-table .list-header,
-.bm-players-table .list-row {
-    font-size: 11px !important;
-}
-.bm-players-table .list-header div,
-.bm-players-table .list-row div {
-    padding: 5px 7px !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+
+
+
+
+
+
+
 
 /* -- MOBILE ≤768px --------------------------------------------- */
 @media (max-width: 768px) {
@@ -4151,11 +3846,8 @@ body.cred-modal-open { overflow: hidden; }
         display: none !important;
     }
 
-    /* BM players - ukryj credit score col na mobilnym */
-    .bm-players-table .list-header,
-    .bm-players-table .list-row {
-        grid-template-columns: 1fr auto auto !important;
-    }
+    
+    
 
     /* Incydenty toolbar - 2 wiersze */
     .admin-tabs:not(.admin-tabs--single) {
@@ -4306,16 +3998,9 @@ body.cred-modal-open { overflow: hidden; }
         min-width: 380px;
     }
 
-    /* Pipelines - ukryj ostatnia kolumne (events) */
-    .pipelines-grid .list-header span:last-child,
-    .pipelines-grid .list-row   span:last-child {
-        display: none;
-    }
-    .pipelines-grid .list-header,
-    .pipelines-grid .list-row {
-        grid-template-columns: 32px 1fr 70px 65px 75px 75px 75px !important;
-        min-width: 460px;
-    }
+    
+    
+    
 
     /* Well loss - ukryj Wear */
     .well-loss-grid .list-header span:nth-child(7),
@@ -4330,7 +4015,7 @@ body.cred-modal-open { overflow: hidden; }
 
     /* Marine port table - scroll */
     .admin-card { overflow-x: auto; padding: 12px 12px; }
-    .pipeline-types-grid { grid-template-columns: 1fr; }
+    
 }
 
 /* -- MOBILE ≤768px --------------------------------------------- */

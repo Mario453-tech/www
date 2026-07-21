@@ -148,6 +148,7 @@ try {
     $csrfToken = CSRF::generateToken();
     $pageTitle = t('admin.news.page_title');
 
+    $adminExtraCss = ['/assets/css/admin_news.css'];
     require_once __DIR__ . '/partials/header.php';
     require __DIR__ . '/../templates/views/admin/news/main.php';
     require_once __DIR__ . '/partials/footer.php';

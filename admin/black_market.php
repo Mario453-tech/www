@@ -140,6 +140,7 @@ $viewData = [
     'csrfToken'   => $csrfToken,
 ];
 
+$adminExtraCss = ['/assets/css/admin_black_market.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/black_market/main.php';
 require_once __DIR__ . '/partials/footer.php';

@@ -1,0 +1,48 @@
+/* Black Market admin tabs view */.bm-cfg-section          { margin-bottom: 1.5rem; }
+.bm-cfg-section-title    { font-size: .78rem; font-weight: 700; text-transform: uppercase;
+                            letter-spacing: .06em; color: var(--orange); margin-bottom: .6rem; }
+.bm-cfg-grid             { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                            gap: .6rem 1rem; }
+.bm-cfg-field            { display: flex; flex-direction: column; gap: .2rem; }
+.bm-cfg-label            { font-size: .78rem; color: var(--muted2); }
+.bm-cfg-input            { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+                            color: var(--text); padding: .3rem .5rem; font-size: .85rem;
+                            transition: border-color .15s; }
+.bm-cfg-input:focus      { border-color: var(--orange); outline: none; }
+.bm-help-grid            { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+                            gap: 1rem; margin-top: 1rem; }
+.bm-help-card            { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+                            padding: 1rem 1.1rem; font-size: .84rem; line-height: 1.55; }
+.bm-help-card--tip       { border-color: rgba(200, 168, 75, .4); background: rgba(200, 168, 75, .05); }
+.bm-help-card-title      { font-weight: 700; font-size: .88rem; margin-bottom: .5rem;
+                            color: var(--orange); }
+.bm-help-card code       { background: rgba(255,255,255,.08); border-radius: 3px;
+                            padding: .1rem .35rem; font-size: .8rem; color: #a0cfff; }
+.bm-help-list            { margin: .4rem 0 0 1rem; padding: 0; color: var(--muted2); }
+.bm-help-list li         { margin-bottom: .3rem; }
+.bm-help-list strong     { color: var(--text); }
+.bm-info                 { margin-bottom: 1.2rem; }
+/* -- Black market - tabela transakcji -------------------------- */.bm-tx-table-wrap,
+.data-list--bm {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.bm-tx-table-wrap::-webkit-scrollbar { height: 3px; }
+.bm-tx-table-wrap::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
+/* BM players table - kompaktowa */.bm-players-table .list-header,
+.bm-players-table .list-row {
+    font-size: 11px !important;
+}
+.bm-players-table .list-header div,
+.bm-players-table .list-row div {
+    padding: 5px 7px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* BM players - ukryj credit score col na mobilnym */@media (max-width: 768px) {
+  .bm-players-table .list-header,
+    .bm-players-table .list-row {
+        grid-template-columns: 1fr auto auto !important;
+    }
+}
