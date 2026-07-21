@@ -97,6 +97,7 @@
                     <?php if (($hub['zone_key'] ?? '') !== ''): ?>
                     <span class="sep">&middot;</span>
                     <span><?= htmlspecialchars($hub['zone_key']) ?></span>
+                    <?php endif ?>
                     <span class="sep">&middot;</span>
                     <span><?= t('logistics.hub.label_level', ['level' => $hubLevel, 'max' => $hubMaxLevel]) ?></span>
                 </div>
