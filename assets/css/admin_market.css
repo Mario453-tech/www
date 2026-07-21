@@ -202,3 +202,33 @@ input[type="checkbox"].module-checkbox {
     .contracts-admin-actions { gap: 4px; }
     .contracts-admin-actions .btn { padding: 4px 8px !important; font-size: 9px !important; }
 }
+.trends-grid .list-header,
+.trends-grid .list-row {
+    grid-template-columns: 36px 1fr 120px 110px 90px 160px;
+}
+.trends-grid .list-row.is-active { border-color: #2a5a1a; background: #1a2d1a; }
+.trends-grid-full .list-header,
+.trends-grid-full .list-row {
+    grid-template-columns: 44px 1fr 100px 110px 70px 90px 120px 140px;
+    min-width: 860px;
+}
+.trends-grid-full .list-row.is-active  { border-color: #2a5a1a; background: #1a2d1a; }
+.trends-grid-full .list-row.is-editing { border-color: #5a4a1a; background: #2d2a1a; }
+.trend-filter-form   { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.trend-actions       { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.trend-form-inline        { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.trend-form-field         { display: flex; flex-direction: column; gap: 4px; }
+.trend-form-field--tpl    { flex: 1 1 200px; }
+.trend-form-field--btn    { flex-direction: row; gap: 6px; align-items: flex-end; }
+.trend-input-name         { width: 200px; }
+.trend-input-cat          { width: 130px; }
+.trend-input-num          { width: 80px; }
+.trend-input-tpl          { width: 100%; min-width: 180px; box-sizing: border-box; }
+@media (max-width: 900px) {
+  .trend-form-inline    { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 900px) {
+  .trend-input-name,
+    .trend-input-cat,
+    .trend-input-tpl      { width: 100%; }
+}

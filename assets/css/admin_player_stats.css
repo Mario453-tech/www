@@ -24,3 +24,21 @@
         min-width: 380px;
     }
 }
+.well-loss-grid .list-header,
+.well-loss-grid .list-row {
+    grid-template-columns: 36px 1fr 70px 70px 70px 70px 70px 90px;
+    font-size: 11px;
+}
+@media (max-width: 768px) {
+  .well-loss-grid .list-header span:nth-child(7),
+    .well-loss-grid .list-row   span:nth-child(7) {
+        display: none;
+    }
+}
+@media (max-width: 768px) {
+  .well-loss-grid .list-header,
+    .well-loss-grid .list-row {
+        grid-template-columns: 32px 1fr 65px 65px 65px 65px 85px !important;
+        min-width: 460px;
+    }
+}

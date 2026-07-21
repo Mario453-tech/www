@@ -359,11 +359,8 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 /* Grid kolumny per widok */
 
 
-.trends-grid .list-header,
-.trends-grid .list-row {
-    grid-template-columns: 36px 1fr 120px 110px 90px 160px;
-}
-.trends-grid .list-row.is-active { border-color: #2a5a1a; background: #1a2d1a; }
+
+
 
 .syslogs-grid .list-header,
 .syslogs-grid .list-row {
@@ -1215,11 +1212,7 @@ select {
 
 
 
-.well-loss-grid .list-header,
-.well-loss-grid .list-row {
-    grid-template-columns: 36px 1fr 70px 70px 70px 70px 70px 90px;
-    font-size: 11px;
-}
+
 
 
 
@@ -1492,25 +1485,19 @@ select {
 .modal-title             { margin-bottom: 16px; }
 .modal-actions           { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 /* admin/player detail */
-.pd-header            { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-.pd-title             { font-size: 18px; font-weight: 700; color: var(--orange, #e8a020); margin: 0; }
 
-.pd-stats-row         { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.pd-stat-card         { background: var(--card-bg, #1a1a2e); border: 1px solid var(--border, #333);
-                         border-radius: 6px; padding: 10px 16px; min-width: 110px; flex: 1; }
-.pd-stat-label        { font-size: 10px; color: var(--muted2, #777); text-transform: uppercase;
-                         letter-spacing: .04em; margin-bottom: 4px; }
-.pd-stat-value        { font-size: 18px; font-weight: 700; }
-.pd-stat-value--sm    { font-size: 12px; font-weight: 400; color: var(--muted2, #888); }
 
-.pd-tabs              { display: flex; gap: 0; border-bottom: 2px solid var(--border, #333);
-                         margin-bottom: 16px; flex-wrap: wrap; }
-.pd-tab               { padding: 8px 18px; font-size: 13px; color: var(--muted2, #888);
-                         text-decoration: none; border-bottom: 2px solid transparent;
-                         margin-bottom: -2px; transition: color .15s; white-space: nowrap; }
-.pd-tab:hover         { color: var(--text, #ccc); }
-.pd-tab--active       { color: var(--orange, #e8a020); border-bottom-color: var(--orange, #e8a020);
-                         font-weight: 600; }
+
+
+
+
+
+
+
+
+
+
+
 
 .list-header--wells,
 .list-row--well       { display: grid;
@@ -1811,31 +1798,27 @@ select {
 /* 
    MARKET TRENDS  CRUD + PAGINATION (admin/market.php)
  */
-.trends-grid-full .list-header,
-.trends-grid-full .list-row {
-    grid-template-columns: 44px 1fr 100px 110px 70px 90px 120px 140px;
-    min-width: 860px;
-}
-.trends-grid-full .list-row.is-active  { border-color: #2a5a1a; background: #1a2d1a; }
-.trends-grid-full .list-row.is-editing { border-color: #5a4a1a; background: #2d2a1a; }
+
+
+
 .text-green          { color: #5dbb6c; }
 
 .form-inline         { display: inline; }
 .list-empty-msg      { padding: 1rem; }
-.trend-filter-form   { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+
 .form-field          { display: flex; flex-direction: column; gap: 4px; }
 .form-label          { font-size: 12px; color: rgba(255,255,255,.55); }
-.trend-actions       { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+
 
 /* Trend form horizontal inline row */
-.trend-form-inline        { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
-.trend-form-field         { display: flex; flex-direction: column; gap: 4px; }
-.trend-form-field--tpl    { flex: 1 1 200px; }
-.trend-form-field--btn    { flex-direction: row; gap: 6px; align-items: flex-end; }
-.trend-input-name         { width: 200px; }
-.trend-input-cat          { width: 130px; }
-.trend-input-num          { width: 80px; }
-.trend-input-tpl          { width: 100%; min-width: 180px; box-sizing: border-box; }
+
+
+
+
+
+
+
+
 
 .page-btn            { display: inline-flex; align-items: center; justify-content: center;
                        width: 28px; height: 28px; border-radius: 4px; font-size: 12px;
@@ -1847,10 +1830,8 @@ select {
 
 
 @media (max-width: 900px) {
-    .trend-form-inline    { flex-direction: column; align-items: stretch; }
-    .trend-input-name,
-    .trend-input-cat,
-    .trend-input-tpl      { width: 100%; }
+    
+    
 }
 
 
@@ -2093,26 +2074,10 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 }
 
 
-.pd-bk-status {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: var(--bg3);
-    border: 1px solid var(--brd2);
-    border-radius: 4px;
-    margin-bottom: 10px;
-    font-size: 13px;
-    flex-wrap: wrap;
-}
+
 
 /* Rzd kart statystyk gracza */
-.pd-stat-card-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-}
+
 
 
 .list-header--trust,
@@ -2139,7 +2104,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
                       gap: 8px; align-items: center; }
 
 /* Kolor wartoci gotwki w stat-card */
-.pd-stat-value.orange { color: var(--orange); }
+
 
 
 .nl-stats {
@@ -2936,15 +2901,8 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     
 
     /* Well loss - ukryj Wear */
-    .well-loss-grid .list-header span:nth-child(7),
-    .well-loss-grid .list-row   span:nth-child(7) {
-        display: none;
-    }
-    .well-loss-grid .list-header,
-    .well-loss-grid .list-row {
-        grid-template-columns: 32px 1fr 65px 65px 65px 65px 85px !important;
-        min-width: 460px;
-    }
+    
+    
 
     /* Marine port table - scroll */
     .admin-card { overflow-x: auto; padding: 12px 12px; }
