@@ -284,7 +284,7 @@
     .trn-prog-name    { font-size: 13px; }
 }
 @media (max-width: 560px) {
-    .trn-program-grid,
+    .trn-program-grid
     .trn-cert-grid    { grid-template-columns: 1fr; }
     .trn-enroll-form  { flex-direction: column; }
     .trn-enroll-btn   { width: 100%; text-align: center; }

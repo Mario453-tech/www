@@ -306,6 +306,8 @@ $currentTransferMax = WalletConfig::getTransferMax($db);
 $viewData['currentTransferMax'] = $currentTransferMax;
 
 $pageTitle = t('admin.loans.page_title');
+$adminExtraCss = ['/assets/css/admin_gm.css'];
 require_once __DIR__ . '/partials/header.php';
+// Render the view.
 require __DIR__ . '/../templates/views/admin/loans/main.php';
 require_once __DIR__ . '/partials/footer.php';

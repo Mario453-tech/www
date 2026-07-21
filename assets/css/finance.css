@@ -181,7 +181,7 @@
 /* Per-well list */
 .fin-well-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
 
-.fin-well-header,
+.fin-well-header
 .fin-well-row {
     display: grid;
     grid-template-columns: 2fr 80px 100px 90px 110px 80px 70px 110px;
@@ -192,7 +192,7 @@
     font-size: 13px;
 }
 @media (max-width: 900px) {
-    .fin-well-header,
+    .fin-well-header
     .fin-well-row { grid-template-columns: 2fr 1fr 1fr; }
     .fin-well-header span:nth-child(n+4),
     .fin-well-row  span:nth-child(n+4) { display: none; }

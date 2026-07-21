@@ -111,3 +111,86 @@
 /* Strength bar (reset password) */.auth-strength     { height: 3px; border-radius: 2px; margin-top: 6px; background: rgba(255,255,255,.08); }
 .auth-strength-bar { height: 100%; border-radius: 2px; transition: all .3s; width: 0; }
 .auth-hint         { font-size: 10px; color: rgba(255,255,255,.25); margin-top: 4px; }
+
+
+/* Extracted from admin.css */
+.auth-wrap {
+    width: 400px;
+    position: relative;
+    z-index: 1;
+    padding: 20px;
+}
+
+.auth-logo {
+    text-align: center;
+    margin-bottom: 36px;
+}
+
+.auth-alert-ok {
+    background: rgba(78, 201, 122, .08);
+    border: 1px solid rgba(78, 201, 122, .2);
+    color: #4ec97a;
+}
+
+.auth-field {
+    margin-bottom: 18px;
+}
+
+.auth-label {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, .35);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+}
+
+.auth-input {
+    width: 100%;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(200, 168, 75, .18);
+    border-radius: 5px;
+    color: #fff;
+    padding: 11px 14px;
+    font-size: 13px;
+    font-family: 'Montserrat', monospace;
+    outline: none;
+    transition: border-color .2s;
+}
+
+.auth-input:focus {
+    border-color: #c8a84b;
+    background: rgba(255, 255, 255, .06);
+}
+
+.auth-input::placeholder {
+    color: rgba(255, 255, 255, .18);
+}
+
+.auth-pw-eye {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, .25);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 2px;
+    line-height: 1;
+}
+
+.auth-strength {
+    height: 3px;
+    border-radius: 2px;
+    margin-top: 6px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.auth-hint {
+    font-size: 10px;
+    color: rgba(255, 255, 255, .25);
+    margin-top: 4px;
+}

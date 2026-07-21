@@ -1,21 +1,21 @@
-.players-grid .list-header,
+.players-grid .list-header
 .players-grid .list-row {
     grid-template-columns: 36px 1fr 120px 90px 100px 60px 150px 90px;
 }
 @media (max-width: 1100px) {
-  .players-grid .list-header,
+  .players-grid .list-header
     .players-grid .list-row { grid-template-columns: 36px 1fr 110px 90px 90px 90px; }
 }
 @media (max-width: 1100px) {
-  .players-grid .col-wells,
+  .players-grid .col-wells
     .players-grid .col-lasttick { display: none; }
 }
 @media (max-width: 700px) {
-  .players-grid .list-header,
+  .players-grid .list-header
     .players-grid .list-row { grid-template-columns: 1fr 100px 80px; }
 }
 @media (max-width: 700px) {
-  .players-grid .col-id,
+  .players-grid .col-id
     .players-grid .col-storage { display: none; }
 }
 .gm-players-list {
@@ -257,3 +257,72 @@
     margin-bottom: 12px;
 }
 .pd-stat-value.orange { color: var(--orange); }
+
+
+/* Extracted from admin.css - HELP */
+.help-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 1rem;
+}
+
+.help-section {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+}
+
+.help-section--highlight {
+    border-color: rgba(200, 168, 75, .45);
+    background: rgba(200, 168, 75, .06);
+}
+
+.help-section--dark {
+    border-color: rgba(180, 60, 60, .45);
+    background: rgba(180, 60, 60, .05);
+}
+
+.help-section--dark .help-section-title {
+    color: #e66;
+}
+
+.help-section-title {
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--orange);
+    margin-bottom: .6rem;
+}
+
+.help-section-body {
+    font-size: .84rem;
+    line-height: 1.6;
+    color: var(--text);
+}
+
+.help-section-body p {
+    margin-bottom: .5rem;
+    color: var(--muted2);
+}
+
+/* Extracted from admin.css - PLAYER_DETAIL */
+/* admin/player detail */
+.pd-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+
+/* Rzd kart statystyk gracza */
+.pd-stat-card-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+/* Kolor wartoci gotwki w stat-card */
+.pd-stat-value.orange {
+    color: var(--orange);
+}

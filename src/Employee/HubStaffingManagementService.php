@@ -202,7 +202,6 @@ final class HubStaffingManagementService
             "SELECT 1
                FROM hr_specializations
               WHERE code = ?
-                AND department = 'technical'
               LIMIT 1"
         );
         $stmt->execute([self::HUB_OPERATOR_CODE]);

@@ -46,16 +46,16 @@
 .help-card h3       { font-size: .9rem; color: #e8e8f0; margin-bottom: 4px; }
 .help-card p        { font-size: .8rem; color: rgba(232,232,240,.55); line-height: 1.5; }
 
-.help-table,
+.help-table
 .help-content table         { width: 100%; border-collapse: collapse; font-size: .85rem; margin-bottom: 10px; }
-.help-table th,
+.help-table th
 .help-content table th      { text-align: left; color: rgba(232,232,240,.4); font-weight: 600;
                               font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
                               padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,.08); }
-.help-table td,
+.help-table td
 .help-content table td      { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.05);
                               color: rgba(232,232,240,.8); vertical-align: top; }
-.help-table tr:last-child td,
+.help-table tr:last-child td
 .help-content table tr:last-child td { border-bottom: none; }
 
 .help-tip           { display: flex; gap: 10px; background: rgba(78,201,122,.07);
@@ -90,7 +90,7 @@
 
  /* tabela scroll poziomy */
     .help-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .help-table,
+    .help-table
     .help-content table { min-width: 480px; }
     .help-content .help-table-wrap { overflow-x: auto; }
 

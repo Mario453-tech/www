@@ -334,7 +334,7 @@
 .offer-item:last-child { border-bottom: none; }
 .offer-item:hover      { background: rgba(255,255,255,.025); }
 .offer-item--alert:hover,
-.offer-item--warning:hover,
+.offer-item--warning:hover
 .offer-item--note:hover { background: unset; }
 .offer-label {
     color: var(--text3);

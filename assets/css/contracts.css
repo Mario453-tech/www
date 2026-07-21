@@ -153,7 +153,7 @@
 
 .contracts-badge--low     { background: rgba(91, 156, 246, .12); color: var(--blue);   border: 1px solid rgba(91, 156, 246, .35); }
 .contracts-badge--medium  { background: rgba(240, 160, 80, .12);  color: var(--orange); border: 1px solid rgba(240, 160, 80, .35); }
-.contracts-badge--high,
+.contracts-badge--high
 .contracts-badge--critical { background: rgba(224, 85, 85, .12); color: var(--red);    border: 1px solid rgba(224, 85, 85, .35); }
 .contracts-badge--status  { background: rgba(200, 168, 75, .12); color: var(--gold);   border: 1px solid var(--gold-border); }
 .contracts-badge--delivered { background: var(--green-dim);      color: var(--green);  border: 1px solid rgba(78, 201, 122, .35); }

@@ -11,3 +11,147 @@
 /* ACTIONS FLEX (formularz wymu bankructwo itd.) *//* 
    BANKRUCTWO  sekcja GM w admin/player.php
  *//* Bankrupt list *//* Wiersz statusu bankructwa *//* Komornik 5 kolumn: id / etap / dug / status / nastpna *//* Bankructwo 4 kolumny: data / zdarzenie / waga / nota */
+/* BANK SETTINGS */
+.bank-settings-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+}
+
+.bank-setting-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    min-width: 200px;
+}
+
+.bank-setting-label {
+    font-size: 10px;
+    color: var(--muted2);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+}
+
+.bank-setting-note {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.bank-setting-input {
+    width: 100%;
+    font-size: 20px;
+    font-weight: bold;
+    background: var(--bg2);
+    border: 1px solid var(--brd2);
+    border-radius: 3px;
+    padding: 4px 8px;
+}
+
+/* RISK SCORE BREAKDOWN */
+.risk-breakdown-details {
+    margin-top: 6px;
+}
+
+.risk-breakdown-summary {
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--blue);
+    user-select: none;
+}
+
+.risk-breakdown-summary:hover {
+    text-decoration: underline;
+}
+
+.risk-breakdown-grid {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 260px;
+}
+
+.risk-row {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+}
+
+.risk-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+
+.risk-row-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.risk-row-pts {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--orange);
+    white-space: nowrap;
+}
+
+.risk-row-pts.red {
+    color: var(--red);
+}
+
+.risk-bar-bg {
+    width: 100%;
+    height: 5px;
+    background: var(--bg2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.risk-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .3s;
+}
+
+.risk-row-detail {
+    margin: 0 0 2px;
+    color: var(--muted2);
+}
+
+.risk-row-desc {
+    margin: 0;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+/* PANEL danger border */
+.panel-danger {
+    border-left: 4px solid var(--red);
+}
+
+.panel-title-danger {
+    color: var(--red);
+}
+
+/* DETAILS / SUMMARY (collapse) */
+.details-btn {
+    cursor: pointer;
+    list-style: none;
+}
+
+.details-body {
+    background: var(--bg2);
+    padding: 8px;
+    margin-top: 4px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}

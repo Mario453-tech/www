@@ -1,0 +1,176 @@
+
+
+/* Extracted from admin.css - STAFFING */
+        .staffing-config-form {
+            display: grid;
+            gap: 12px;
+            margin: 14px 0 18px;
+            padding: 14px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .025);
+        }
+
+        .staffing-filter-form>label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .staffing-runtime-toggle input {
+            accent-color: #4ec97a;
+        }
+
+        .staffing-config-fields {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(160px, 1fr));
+            gap: 10px;
+            margin: 0;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 6px;
+        }
+
+        .staffing-config-fields legend {
+            padding: 0 6px;
+            color: rgba(255, 255, 255, .65);
+            font-size: 12px;
+        }
+
+        .staffing-config-fields>label {
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .staffing-config-input {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .staffing-config-input input {
+            width: 72px;
+        }
+
+        .staffing-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(130px, 1fr));
+            gap: 10px;
+            margin: 12px 0 18px;
+        }
+
+        .staffing-assignment-list {
+            display: grid;
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+
+        .staffing-coverage-row {
+            display: grid;
+            grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(95px, 1fr));
+            gap: 10px;
+            align-items: center;
+            padding: 10px 12px;
+            border: 1px solid rgba(255, 255, 255, .06);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, .02);
+        }
+
+        .staffing-coverage-name {
+            display: grid;
+            gap: 3px;
+        }
+
+        .staffing-coverage-row small {
+            color: rgba(255, 255, 255, .45);
+            font-size: 11px;
+        }
+
+        .staffing-filter-form {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 12px;
+        }
+
+        .staffing-filter-form>label {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .staffing-filter-form>label>span {
+            color: rgba(255, 255, 255, .55);
+            font-size: 11px;
+        }
+
+        .staffing-filter-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .staffing-assignment-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1.5fr 1.5fr .7fr .8fr 1fr;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, .05);
+            font-size: 12px;
+        }
+
+        .staffing-assignment-row--head {
+            color: rgba(255, 255, 255, .45);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+/* Staffing mobile extracted from admin.css */
+        .admin-details--staffing {
+            border: 1px solid rgba(255, 152, 0, .22);
+            border-radius: 8px;
+            padding: 12px 16px;
+            background: rgba(255, 152, 0, .025);
+        }
+
+        .staffing-runtime-toggle,
+        .staffing-config-fields > label,
+        .staffing-coverage-list,
+        .staffing-coverage-row > div,
+        .staffing-coverage-row span,
+        .cfg-seed-form {
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 900px) {
+
+            .staffing-config-fields,
+            .staffing-summary-grid {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+
+            .staffing-filter-form {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+
+            .staffing-filter-actions {
+                grid-column: 1 / -1;
+            }
+
+            .staffing-coverage-row {
+                grid-template-columns: repeat(2, minmax(120px, 1fr));
+            }
+
+            .staffing-coverage-name {
+                grid-column: 1 / -1;
+            }
+
+            .staffing-assignment-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .staffing-assignment-row--head {
+                display: none;
+            }
+        }

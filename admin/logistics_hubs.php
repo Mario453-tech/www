@@ -159,4 +159,5 @@ $staffingDiagnostics = $hub_admin->buildStaffingDiagnostics(
 
 // Render the view.
 // Wyrenderuj widok.
+$adminExtraCss = ['/assets/css/admin_staffing.css'];
 require __DIR__ . '/../templates/views/admin/logistics/main.php';

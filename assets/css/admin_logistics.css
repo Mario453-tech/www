@@ -1,12 +1,3 @@
-}
-@media (max-width: 480px) {
-}
-@media (max-width: 480px) {
-.card {
-.card:hover { border-color: rgba(255,152,0,.35) !important; }
-.card .label {
-.card .value {
-.cards { gap: 8px !important; margin-bottom: 12px !important; }
 /* -- HUBY LOGISTYCZNE - logistics/main.php --------------------*/
 /* verify-cards - gradient tlo */
 .verify-grid {
@@ -110,4 +101,3 @@
     border: 1px solid rgba(255,152,0,.3) !important;
     border-radius: 12px !important;
 }
-

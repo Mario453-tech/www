@@ -419,6 +419,17 @@ class WellLoopSection
         return $this->hubOutboundPipelineCache[$hubId] ?? null;
     }
 
+    /**
+     * Returns the political risk of the well's hub region, or 0.0.
+     */
+    public function outboundPoliticalRiskFor(int $wellId): float
+    {
+        $hubId = $this->wellHubMap[$wellId] ?? null;
+        if ($hubId === null) return 0.0;
+        $hub = $this->hubCache[$hubId] ?? null;
+        return (float)($hub['region_political_risk'] ?? 0.0);
+    }
+
  // ------------------------------------------------------------------ private
 
     private function processSalaries(int $playerId, float $deltaHours): void

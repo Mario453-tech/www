@@ -1,32 +1,6 @@
-}
-@media (max-width: 480px) {
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-    gap: 10px;
-}
-}
-}
-}
-}
-@media (max-width: 480px) {
-}
-}
-}
-}
+gap: 10px;
 .cards { gap: 8px !important; margin-bottom: 12px !important; }
-}
     gap: 7px !important;
-}
-}
 /* -- OCHRONA - protection/main.php ----------------------------*/
 .protection-admin-grid {
     width: 100%;
@@ -67,4 +41,3 @@
     font-size: 11px;
     font-family: inherit;
 }
-

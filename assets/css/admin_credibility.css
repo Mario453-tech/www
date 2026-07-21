@@ -116,3 +116,66 @@ body.cred-modal-open { overflow: hidden; }
 @media (max-width: 760px) {
   .cred-grid__cell--actions::before { align-self: center; }
 }
+
+
+/* Extracted from admin.css - CREDIBILITY */
+    /* Modal recznej korekty / Manual adjustment modal */
+    .cred-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 16px;
+    }
+
+    .cred-field>span {
+        display: block;
+        font-size: 12px;
+        color: rgba(232, 232, 240, .7);
+        margin-bottom: 5px;
+    }
+
+    /* Lista wiarygodnosci jako CSS Grid (zero tabel HTML) / Credibility list as CSS Grid (no HTML tables) */
+    .cred-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    /* Mobile: zwijanie grida do kart z etykietami / Mobile: collapse grid into labeled cards */
+    @media (max-width: 760px) {
+        .cred-grid__head {
+            display: none;
+        }
+
+        .cred-grid--players .cred-grid__row,
+        .cred-grid--history .cred-grid__row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+
+        .cred-grid__cell {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .cred-grid__cell::before {
+            content: attr(data-label);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: rgba(232, 232, 240, .45);
+        }
+
+        .cred-grid__cell--actions {
+            justify-content: flex-start;
+        }
+
+        .cred-grid__cell--actions::before {
+            align-self: center;
+        }
+    }

@@ -59,6 +59,15 @@ final class EmployeeSystemBootstrap
             'salary_max' => 14500.0,
             'description_key' => 'hr.spec_desc.oil_flow_analyst',
         ],
+        [
+            'code' => 'hub_operator',
+            'name_key' => 'hr.spec.hub_operator',
+            'department' => 'technical',
+            'rarity' => 'common',
+            'salary_min' => 8200.0,
+            'salary_max' => 11500.0,
+            'description_key' => 'hr.spec_desc.hub_operator',
+        ],
     ];
 
     /** @var list<array{specialization_code:string,effect_key:string,effect_type:string,effect_value:float,target_scope:string,skill_weights_json:string,description_key:string,is_active:int}> */
@@ -140,6 +149,14 @@ final class EmployeeSystemBootstrap
 
     public static function ensure(PDO $db): void
     {
+        require_once __DIR__ . '/Employee/EmployeeRepository.php';
+        require_once __DIR__ . '/Employee/EmployeeStateService.php';
+        require_once __DIR__ . '/Employee/EmployeeRoleEffectService.php';
+        require_once __DIR__ . '/Employee/EmployeeAssignmentService.php';
+        require_once __DIR__ . '/Employee/LogisticsStaffingService.php';
+        require_once __DIR__ . '/Employee/HubStaffingManagementService.php';
+        require_once __DIR__ . '/Employee/PipelineStaffingService.php';
+
         self::$initialized ??= new WeakMap();
         if (isset(self::$initialized[$db])) {
             return;
@@ -361,6 +378,9 @@ final class EmployeeSystemBootstrap
              VALUES
                 (?, ?, ?, ?, ?, ?, 25, 58, ?)'
         );
+
+        $updateDept = $db->prepare("UPDATE hr_specializations SET department = ? WHERE code = ? AND department <> ?");
+        $updateDept->execute(['technical', 'hub_operator', 'technical']);
 
         foreach (self::HR_SPECIALIZATION_SEED as $row) {
             $name = self::langValue('hr', $row['name_key']);

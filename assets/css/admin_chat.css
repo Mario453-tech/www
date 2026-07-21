@@ -49,3 +49,16 @@
 .ac-modal-body          { font-size: .88rem; color: rgba(224,224,224,.8); line-height: 1.6; margin-bottom: 20px; }
 .ac-modal-body strong   { color: #e66; }
 .ac-modal-footer        { display: flex; justify-content: flex-end; gap: 10px; }
+
+
+/* Extracted from admin.css - AC_MODAL */
+/* modal potwierdzenia czyszczenia czatu */
+.ac-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 900;
+}

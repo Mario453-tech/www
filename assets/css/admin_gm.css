@@ -1,0 +1,316 @@
+/* 
+   GM TOOLS
+ */
+.gm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.gm-form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.gm-label {
+    display: block;
+    font-size: 10px;
+    color: var(--muted2);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 4px;
+}
+
+.gm-input {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 13px;
+    width: 100%;
+}
+
+.gm-input:focus {
+    border-color: var(--orange);
+    outline: none;
+}
+
+.gm-input--short {
+    width: 160px;
+}
+
+.gm-textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+@media (max-width: 900px) {
+    .gm-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 
+   BANKRUCTWO  sekcja GM w admin/player.php
+ */
+
+/* Dodatkowe badge */
+.badge-ok {
+    background: #1a3d1a;
+    color: var(--green);
+    border: 1px solid #2a5a2a;
+}
+
+.badge-danger {
+    background: #3d1a1a;
+    color: var(--red);
+    border: 1px solid #5a2a2a;
+}
+
+.badge-warning {
+    background: #3d2a00;
+    color: var(--yellow);
+    border: 1px solid #5a4000;
+}
+
+/* Sekcja bankruta */
+.bk-section {
+    margin-top: 24px;
+}
+
+.bk-section .section-heading {
+    margin-bottom: 12px;
+}
+
+/* Grid dla listy zdarze bankruta 8 kolumn */
+.bk-events-list .list-header,
+.bk-events-list .list-row {
+    grid-template-columns:
+        44px
+        /* id + flaga */
+        140px
+        /* typ */
+        70px
+        /* waga */
+        90px
+        /* termin */
+        90px
+        /* rozwizane */
+        1fr
+        /* komunikat */
+        1fr
+        /* notatka */
+        80px;
+    /* utworzono */
+    align-items: start;
+}
+
+/* Waga zdarzenia */
+.bk-sev-low {
+    color: var(--muted2);
+}
+
+.bk-sev-medium {
+    color: var(--yellow);
+}
+
+.bk-sev-high {
+    color: var(--orange);
+}
+
+.bk-sev-critical {
+    color: var(--red);
+    font-weight: bold;
+}
+
+/* Wiersz z otwartym zdarzeniem krytycznym */
+.bk-row-critical {
+    background: rgba(230, 102, 102, 0.07);
+    border-left: 3px solid var(--red);
+}
+
+/* Termin przeterminowany */
+.bk-overdue {
+    color: var(--red);
+    font-weight: bold;
+}
+
+/* Status "otwarte" */
+.bk-open {
+    color: var(--red);
+}
+/* 
+   PLAYER CLEAN  player_clean.php  dodatkowe klasy
+ */
+
+/* Nagwek sekcji z tytuem + przyciskiem obok */
+.panel-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-title-row .panel-title {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* dl lista szczegw gracza */
+.detail-list {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 5px 12px;
+    font-size: 13px;
+}
+
+.detail-list dt {
+    color: var(--muted2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--brd2);
+}
+
+.detail-list dd {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--brd2);
+    word-break: break-word;
+}
+
+/* Wiersz statusu bankructwa */
+.pd-bk-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg3);
+    border: 1px solid var(--brd2);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+/* Extracted from admin.css - GM_TOOLS */
+.gm-input--full {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Extracted from admin.css - GM_TOOLS */
+    .gm-delete-panel {
+        border-left: 3px solid var(--red, #e05555) !important;
+        background: rgba(224, 85, 85, .04) !important;
+    }
+
+    .gm-delete-title {
+        color: var(--red, #e05555) !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        letter-spacing: .1em !important;
+        text-transform: uppercase !important;
+    }
+
+    .panel-danger .muted {
+        font-size: 12px !important;
+        font-family: inherit !important;
+        color: rgba(255, 255, 255, .45) !important;
+        line-height: 1.6 !important;
+        margin-bottom: 14px !important;
+        font-weight: 400 !important;
+    }
+
+    /* Zaznacz wszystkich - row */
+    .gm-select-all-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        margin-bottom: 4px;
+        background: rgba(255, 255, 255, .03);
+        border: 1px solid rgba(255, 255, 255, .07);
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, .55);
+        font-family: inherit;
+    }
+
+    .gm-select-all-row:hover {
+        border-color: rgba(255, 152, 0, .3);
+        color: #ff9800;
+    }
+
+    .gm-select-all-row input[type="checkbox"] {
+        width: 15px;
+        height: 15px;
+        accent-color: #ff9800;
+        cursor: pointer;
+    }
+
+    /* Licznik zaznaczonych */
+    .gm-selected-count {
+        font-size: 11px;
+        color: rgba(255, 255, 255, .35);
+        margin-bottom: 10px;
+    }
+
+    .gm-selected-count strong {
+        color: var(--red, #e05555);
+    }
+
+    .panel-danger .btn-danger {
+        background: rgba(224, 85, 85, .1) !important;
+        border: 1px solid rgba(224, 85, 85, .35) !important;
+        color: #e05555 !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        letter-spacing: .07em !important;
+        padding: 8px 18px !important;
+        border-radius: 8px !important;
+        cursor: pointer !important;
+        transition: background .15s, border-color .15s !important;
+    }
+
+    .panel-danger .btn-danger:hover {
+        background: rgba(224, 85, 85, .2) !important;
+        border-color: rgba(224, 85, 85, .6) !important;
+    }
+
+    .gm-delete-panel label {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 8px;
+        margin: 2px;
+        background: #1e1e1e;
+        border: 1px solid rgba(255, 255, 255, .07);
+        border-radius: 6px;
+        font-family: inherit !important;
+        font-size: 11px !important;
+        color: rgba(255, 255, 255, .65) !important;
+        cursor: pointer;
+        transition: border-color .15s;
+    }
+
+    .gm-delete-panel label:hover {
+        border-color: rgba(224, 85, 85, .35);
+        background: rgba(224, 85, 85, .06);
+    }
+
+    .gm-delete-panel label:has(input:checked) {
+        border-color: rgba(224, 85, 85, .5);
+        background: rgba(224, 85, 85, .08);
+        color: #fff !important;
+    }

@@ -46,7 +46,7 @@
 
  /* Stat-bar (strona glowna) */
     .db-stats-row,
-    .stat-bar,
+    .stat-bar
     .stats-row { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
 
  /* Tabele - scroll poziomy */
@@ -58,7 +58,7 @@
     .fin-table { overflow-x: auto; }
 
  /* Modalne */
-    .modal-content,
+    .modal-content
     .repay-modal { max-width: 94vw !important; padding: 20px 16px !important; }
 }
 
@@ -122,7 +122,7 @@
     .fin-policy-grid { grid-template-columns: 1fr !important; }
 
  /* Overview stat grid */
-    .fin-overview-grid,
+    .fin-overview-grid
     .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
 
  /* History table */
@@ -176,7 +176,7 @@
     .scene { aspect-ratio: 3 / 2 !important; }
 
  /* Sloty */
-    .slot-num,
+    .slot-num
     .slot-label { font-size: 8px !important; }
 
  /* Licznik miejsc */

@@ -121,7 +121,7 @@
 }
 .staffing-coverage-row > div,
 .staffing-coverage-name { display: grid; gap: 3px; }
-.staffing-coverage-row span,
+.staffing-coverage-row span
 .staffing-coverage-row small { color: rgba(255, 255, 255, .45); font-size: 11px; }
 .staffing-filter-form {
     display: grid;

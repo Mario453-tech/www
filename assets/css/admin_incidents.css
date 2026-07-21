@@ -80,3 +80,40 @@
   .inc-trig-levels { grid-template-columns: 1fr; }
 }
 /* Incydenty toolbar - 2 wiersze */
+
+/* Extracted from admin.css - INCIDENTS */
+/* History filter bar */
+.inc-history-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+    margin-bottom: 10px;
+}
+
+/* Bulk delete bar */
+.inc-bulk-del {
+    margin-bottom: 12px;
+}
+
+/* Trigger tab danger style */
+.admin-tab--danger {
+    color: #e05555;
+}
+
+.admin-tab--danger:hover {
+    color: #ff7070;
+    border-bottom-color: #e05555;
+}
+
+.admin-tab--danger.active {
+    color: #ff7070;
+    border-bottom-color: #e05555;
+}
+
+/* Level selection cards */
+.inc-trig-levels {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}

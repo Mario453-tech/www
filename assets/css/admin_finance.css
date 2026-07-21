@@ -74,7 +74,7 @@
 }
 .fin-config-grid { margin-bottom: 12px; }
 .fin-player-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
-.fin-player-header,
+.fin-player-header
 .fin-player-row {
     display: grid;
     grid-template-columns: 2fr 120px 120px 120px 130px 70px 110px;
@@ -85,7 +85,7 @@
     font-size: 12px;
 }
 @media (max-width: 900px) {
-  .fin-player-header,
+  .fin-player-header
     .fin-player-row { grid-template-columns: 2fr 1fr 1fr; }
 }
 @media (max-width: 900px) {
@@ -271,7 +271,7 @@
 .crisis-admin-stat--crisis .crisis-admin-stat-val  { color: var(--red,#e05555); }
 .crisis-admin-stat--bankrupt .crisis-admin-stat-val{ color: var(--muted2); }
 .crisis-admin-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
-.crisis-admin-header,
+.crisis-admin-header
 .crisis-admin-row {
     display: grid;
     grid-template-columns: 2fr 100px 120px 100px 100px 70px 160px;
@@ -282,7 +282,7 @@
     font-size: 12px;
 }
 @media (max-width: 900px) {
-  .crisis-admin-header,
+  .crisis-admin-header
     .crisis-admin-row { grid-template-columns: 2fr 80px 100px 160px; }
 }
 @media (max-width: 900px) {
@@ -328,7 +328,7 @@
 .crisis-config-desc { font-size: 10px; color: var(--muted2); margin-top: 4px; }
 .crisis-save-hint { font-size: 11px; margin-left: 10px; color: var(--muted2); }
 .crisis-bankrupt-list { display: flex; flex-direction: column; margin-top: 10px; }
-.crisis-bankrupt-header,
+.crisis-bankrupt-header
 .crisis-bankrupt-row {
     display: grid;
     grid-template-columns: 2fr 180px 100px;
@@ -345,7 +345,7 @@
 /* Finance admin impact overview */.fin-impact-summary-grid {
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
-.fin-impact-header,
+.fin-impact-header
 .fin-impact-row {
     display: grid;
     grid-template-columns: 1.2fr 120px 70px 120px 120px 190px 130px 2fr;
@@ -371,7 +371,7 @@
     color: #d9b85a !important;
 }
 @media (max-width: 1280px) {
-  .fin-impact-header,
+  .fin-impact-header
     .fin-impact-row {
         grid-template-columns: 1.2fr 110px 60px 110px 110px 170px 120px 1.7fr;
     }

@@ -1025,7 +1025,7 @@
     border-radius: 10px;
 }
 
-.tech-notif--disaster  .tech-notif-type-badge,
+.tech-notif--disaster  .tech-notif-type-badge
 .tech-notif--critical  .tech-notif-type-badge { background: rgba(224,85,85,.2);  color: var(--red); }
 .tech-notif--warning   .tech-notif-type-badge { background: rgba(240,160,80,.2); color: var(--orange); }
 .tech-notif--default   .tech-notif-type-badge { background: rgba(200,168,75,.15); color: var(--gold); }
