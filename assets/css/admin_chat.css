@@ -38,4 +38,14 @@
     font-weight: 700;
     flex-shrink: 0;
 }
-/* blocked words list (admin/chat) *//* blocked words tag cloud (admin/chat) */
+/* blocked words list (admin/chat) *//* blocked words tag cloud (admin/chat) */.ac-modal-overlay       { position: fixed; inset: 0; background: rgba(0,0,0,.65);
+                          display: flex; align-items: center; justify-content: center; z-index: 900; }
+.ac-modal               { background: var(--bg2); border: 1px solid rgba(255,255,255,.12);
+                          border-radius: 10px; padding: 28px 28px 22px; max-width: 440px; width: 90%;
+                          box-shadow: 0 16px 48px rgba(0,0,0,.5); animation: acIn .18s ease; }
+.ac-modal-header        { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.ac-modal-icon          { font-size: 1.4rem; }
+.ac-modal-header strong { font-size: 1rem; }
+.ac-modal-body          { font-size: .88rem; color: rgba(224,224,224,.8); line-height: 1.6; margin-bottom: 20px; }
+.ac-modal-body strong   { color: #e66; }
+.ac-modal-footer        { display: flex; justify-content: flex-end; gap: 10px; }

@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= t('admin.forgot_password.page_title') ?></title>
 <link rel="stylesheet" href="/assets/css/admin.css">
+<link rel="stylesheet" href="/assets/css/admin_auth.css">
 </head>
 <body class="auth-page">
 <div class="auth-wrap">

@@ -42,6 +42,7 @@ $csrf = CSRF::generateToken();
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Nowe haso  Admin</title>
 <link rel="stylesheet" href="<?= asset('/assets/css/admin.css') ?>">
+<link rel="stylesheet" href="<?= asset('/assets/css/admin_auth.css') ?>">
 </head>
 <body class="auth-page">
 <div class="auth-wrap">

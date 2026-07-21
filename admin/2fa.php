@@ -132,6 +132,7 @@ if ($mode === 'setup') {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= t('admin.2fa.page_title') ?></title>
 <link rel="stylesheet" href="/assets/css/admin.css">
+<link rel="stylesheet" href="/assets/css/admin_auth.css">
 <link rel="stylesheet" href="/assets/css/admin-2fa.css">
 </head>
 <body class="auth-page">

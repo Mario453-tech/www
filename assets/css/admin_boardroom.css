@@ -1,0 +1,71 @@
+.br-admin-main       { padding: 24px; }
+.br-admin-title      { margin: 0 0 24px; font-size: 22px; color: var(--text, #e8e8f0); }
+.br-section-title    { margin: 0 0 16px; font-size: 16px; color: var(--orange, #c8a84b); }
+.br-section          { margin-bottom: 32px; }
+.br-config-grid      { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.br-field            { margin-bottom: 20px; }
+.br-img-preview      { margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+.br-img-thumb        { height: 60px; border-radius: 6px; border: 1px solid rgba(200,168,75,.2); }
+.br-btn-remove       { background: none; border: 1px solid rgba(224,85,85,.4); color: var(--red, #e05555); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+.br-btn-remove:hover { border-color: var(--red); }
+.br-file-input       { font-size: 12px; color: var(--muted, rgba(255,255,255,.5)); }
+.br-file-hint        { font-size: 10px; color: var(--muted2, rgba(255,255,255,.3)); margin-top: 4px; }
+.br-link-row         { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+.br-link-row input   { flex: 1; }
+.br-link-row input + input { flex: 2; }
+.br-btn-remove-link  { background: none; border: none; color: var(--red, #e05555); cursor: pointer; font-size: 16px; }
+.br-btn-add-link     { background: rgba(200,168,75,.1); border: 1px dashed rgba(200,168,75,.3); color: var(--orange, #c8a84b); padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.br-btn-add-link:hover { background: rgba(200,168,75,.18); }
+.br-bg-info          { font-size: 11px; color: var(--muted, rgba(255,255,255,.5)); background: rgba(255,255,255,.03); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; line-height: 1.8; }
+.br-bg-info code     { background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+.br-bg-grid          { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.br-bg-card          { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; position: relative; }
+.br-bg-exists        { border-color: rgba(78,201,122,.25); }
+.br-bg-thumb-wrap    { width: 100%; aspect-ratio: 16/9; overflow: hidden; background: rgba(0,0,0,.3); }
+.br-bg-thumb         { width: 100%; height: 100%; object-fit: cover; display: block; }
+.br-bg-card-info     { padding: 8px 10px 6px; }
+.br-bg-fname         { font-size: 10px; color: var(--muted2, rgba(255,255,255,.35)); display: block; word-break: break-all; }
+.br-bg-label         { font-size: 11px; color: var(--muted, rgba(255,255,255,.55)); display: block; margin-top: 2px; }
+.br-bg-delete-form   { position: absolute; top: 6px; right: 6px; }
+.br-bg-delete-form .br-btn-remove { padding: 3px 7px; font-size: 11px; }
+.br-bg-upload-wrap   { margin-top: 12px; }
+.br-bg-upload-wrap > summary { list-style: none; }
+.br-bg-upload-body   { margin-top: 12px; padding: 16px; background: rgba(255,255,255,.02); border: 1px dashed rgba(200,168,75,.2); border-radius: 8px; }
+.br-bg-upload-fields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+.br-bg-role-checks   { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.br-bg-role-check    { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text, #fff); background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.br-bg-role-check input[type=checkbox] { accent-color: var(--gold, #c8a84b); }
+.br-bg-gender-sel    { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 4px; color: var(--text, #fff); font-size: 11px; padding: 2px 4px; }
+.br-bg-gender-sel:disabled { opacity: .3; }
+.br-bg-name-preview  { background: rgba(0,0,0,.2); border-radius: 5px; padding: 8px 12px; margin-top: 4px; }
+.br-bg-name-preview code { font-size: 12px; color: var(--gold, #c8a84b); }
+.br-role-card        { background: rgba(255,255,255,.02); border: 1px solid rgba(200,168,75,.15); border-radius: 8px; padding: 16px; overflow: hidden; }
+.br-role-form        { display: flex; flex-direction: column; gap: 12px; }
+.br-role-header      { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.br-role-avatar      { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(200,168,75,.3); }
+.br-role-icon        { width: 40px; height: 40px; border-radius: 50%; background: rgba(200,168,75,.1); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.br-role-code        { font-size: 14px; font-weight: 600; color: var(--text, #e8e8f0); }
+.br-role-members     { font-size: 11px; color: var(--muted2, rgba(255,255,255,.35)); }
+.br-role-fields      { display: grid; grid-template-columns: 2fr 2fr 100px 100px; gap: 12px; }
+.br-role-fields > div { min-width: 0; }
+.br-role-actions     { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.br-role-active-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(255,255,255,.6); cursor: pointer; }
+.br-role-file-wrap   { display: flex; flex-direction: column; }
+.br-role-file-input  { font-size: 11px; color: var(--muted, rgba(255,255,255,.4)); }
+.br-role-spacer      { flex: 1; }
+.br-btn-delete       { background: none; border: 1px solid rgba(224,85,85,.3); color: var(--red, #e05555); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+.br-btn-delete:hover { border-color: var(--red); }
+.br-add-grid         { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.br-add-grid > div   { min-width: 0; }
+.br-roles-list       { display: flex; flex-direction: column; gap: 16px; }
+.br-admin-main input[type="text"],
+.br-admin-main input[type="number"] { box-sizing: border-box; width: 100%; min-width: 0; }
+@media (max-width: 700px) {
+  .br-role-fields  { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 700px) {
+  .br-config-grid  { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .br-add-grid     { grid-template-columns: 1fr 1fr; }
+}

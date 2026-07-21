@@ -168,7 +168,7 @@ $viewData = [
 ];
 
 $pageTitle = t('boardroom.admin_nav');
-$adminExtraCss = ['/assets/css/admin_hr.css'];
+$adminExtraCss = ['/assets/css/admin_hr.css', '/assets/css/admin_boardroom.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/boardroom/main.php';
 require_once __DIR__ . '/partials/footer.php';

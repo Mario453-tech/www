@@ -109,6 +109,7 @@ if ($viewPlayerId === 0) {
 $viewData = compact('players', 'history', 'historyPlayer', 'viewPlayerId', 'stats', 'msg', 'err');
 
 $pageTitle = t('admin.credibility.title');
+$adminExtraCss = ['/assets/css/admin_credibility.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/credibility/main.php';
 require_once __DIR__ . '/partials/footer.php';

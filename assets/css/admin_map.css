@@ -3,4 +3,48 @@
     grid-template-columns: 40px 1fr 120px 50px 45px 50px 50px 80px 160px;
     align-items: center;
 }
-/* admin/map_locations */
+/* admin/map_locations */.globe-picker-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,.75);
+    align-items: center;
+    justify-content: center;
+}
+.globe-picker-modal.is-open { display: flex; }
+.globe-picker-modal__inner {
+    background: #0b0f1a;
+    border: 1px solid var(--border, #333);
+    border-radius: var(--radius-lg, 10px);
+    padding: 16px;
+    width: 660px;
+    max-width: 98vw;
+}
+.globe-picker-modal__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.globe-picker-modal__title { color: var(--text, #e8e8f0); font-weight: 600; }
+.globe-picker-canvas {
+    width: 100%;
+    height: 380px;
+    border-radius: var(--radius, 6px);
+    overflow: hidden;
+    cursor: crosshair;
+    position: relative;
+}
+.globe-picker-info {
+    margin-top: 10px;
+    color: var(--muted, #aaa);
+    font-size: .9rem;
+    min-height: 1.4em;
+}
+.globe-picker-footer {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
