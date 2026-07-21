@@ -1618,10 +1618,6 @@ select {
 .page-btn:hover:not(.active) { background: rgba(255,255,255,.12); color: #fff; }
 
 @media (max-width: 700px) {
- /* tabela historii: ukryj kolumny ID i czas, zostaw nick/tre/akcje */
-
- /* ukryj kolumny: ID (1), czas (2) zostaj: nick (3), tre (4), akcje (5) */
-
 
  /* formularz bana stack pionowo */
     .form-row > select,
@@ -2054,24 +2050,12 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
    Odznaki poziomu, kolory delty, modal recznej korekty.
    Level badges, delta colors, manual adjustment modal.
    ============================================================= */
-/* Seed + Migracja - kompaktowe na mobile */
+
 @media (max-width: 980px) {
     .admin-wrap { padding: 12px 14px; }
     .admin-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .admin-tabs::-webkit-scrollbar { display: none; }
     .admin-tab { padding: 8px 14px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-
-    /* Seed i Migracja obok siebie */
-
-
-    /* Guide - 1 kolumna */
-
-
-    /* Tabela z mini-scrollbarem */
-
-
-
-
 
     /* Panel seed / migracja - kompaktowy */
     .panel h2 { font-size: 12px; }
@@ -2081,27 +2065,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 @media (max-width: 640px) {
     .admin-wrap { padding: 10px 10px; }
 
-    /* Tabela - jeszcze mniejsza */
-
-
-
-
-
-    /* Naglowki grup - mniejsze */
-
-
-
-    /* Pierwsza kolumna (region) - wezsza */
-
-
-    /* Przyciski seed/migracja */
-
-
     /* Guide */
-
-
-
-
 
     .admin-tabs { gap: 0; }
     .admin-tab { padding: 7px 10px; font-size: 11px; }
@@ -2109,12 +2073,6 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 @media (max-width: 480px) {
     .admin-wrap { padding: 8px; }
-
-
-
-
-
-    /* Ukryj kolumny mniej wazne na bardzo malym ekranie */
 
 }
 
@@ -2201,7 +2159,6 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 /* -- MOBILE ≤768px --------------------------------------------- */
 @media (max-width: 768px) {
 
-
     .config-row {
         grid-template-columns: 1fr !important;
         gap: 8px !important;
@@ -2212,14 +2169,6 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     }
     .config-range { width: 100% !important; max-width: 220px; }
     .config-input-sm { width: 64px !important; }
-
-
-
-
-
-
-
-
 
     .admin-tabs:not(.admin-tabs--single) {
         flex-wrap: wrap !important;
@@ -2251,24 +2200,9 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 /* -- MOBILE ≤768px --------------------------------------------- */
 @media (max-width: 768px) {
 
-    /* Transport loss - ukryj transport-mix na malym */
-
-
-
-
-
-
-
-    /* Well loss - ukryj Wear */
-
-
-
     /* Marine port table - scroll */
     .admin-card { overflow-x: auto; padding: 12px 12px; }
 
 }
 
 /* -- MOBILE ≤768px --------------------------------------------- */
-@media (max-width: 768px) {
-
-
