@@ -55,7 +55,7 @@ trait TTSRecruitmentTrait
                                             AND cr.player_id = ?
             LEFT JOIN recruitment_requests rr ON rr.id = c.request_id
             WHERE c.expires_at > NOW()
-              AND (hs.department = 'technical' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
+              AND (hs.department = 'technical' OR hs.code = 'hub_operator' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (
@@ -96,7 +96,7 @@ trait TTSRecruitmentTrait
             LEFT JOIN recruitment_requests rr ON rr.id = c.request_id
             WHERE c.id = ?
               AND c.expires_at > NOW()
-              AND (hs.department = 'technical' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
+              AND (hs.department = 'technical' OR hs.code = 'hub_operator' OR (c.specialization_id IS NULL AND rr.initiated_by = 'technical'))
               AND (
                    c.player_id = ?
                    OR (c.player_id IS NULL AND c.request_id IN (

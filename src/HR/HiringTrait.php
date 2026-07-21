@@ -130,7 +130,9 @@ trait HRHiringTrait
             $specStmt = $this->db->prepare("SELECT code, name, department FROM hr_specializations WHERE id = ? LIMIT 1");
             $specStmt->execute([(int)$candidate['specialization_id']]);
             $spec = $specStmt->fetch();
-            if (!$spec || (string)($spec['department'] ?? '') !== 'technical') {
+            $specCode = (string)($spec['code'] ?? '');
+            $specDept = (string)($spec['department'] ?? '');
+            if (!$spec || ($specDept !== 'technical' && $specCode !== 'hub_operator')) {
                 $this->db->rollBack();
                 return ['success' => false, 'message' => t('hr_hiring.err_unknown_specialization')];
             }
@@ -242,15 +244,16 @@ trait HRHiringTrait
             return 'director';
         }
 
-        $spStmt = $this->db->prepare("SELECT department FROM hr_specializations WHERE id = ? LIMIT 1");
+        $spStmt = $this->db->prepare("SELECT code, department FROM hr_specializations WHERE id = ? LIMIT 1");
         $spStmt->execute([$specializationId]);
-        $department = $spStmt->fetchColumn();
-        if ($department === false) {
+        $spec = $spStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$spec) {
             return null;
         }
-        $department = (string)$department;
+        $code = (string)($spec['code'] ?? '');
+        $department = (string)($spec['department'] ?? '');
 
-        return $department === 'technical' ? 'technical_staff' : 'board_staff';
+        return ($department === 'technical' || $code === 'hub_operator') ? 'technical_staff' : 'board_staff';
     }
 
  /**
