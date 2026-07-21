@@ -1,0 +1,90 @@
+.players-grid .list-header,
+.players-grid .list-row {
+    grid-template-columns: 36px 1fr 120px 90px 100px 60px 150px 90px;
+}
+@media (max-width: 1100px) {
+  .players-grid .list-header,
+    .players-grid .list-row { grid-template-columns: 36px 1fr 110px 90px 90px 90px; }
+}
+@media (max-width: 1100px) {
+  .players-grid .col-wells,
+    .players-grid .col-lasttick { display: none; }
+}
+@media (max-width: 700px) {
+  .players-grid .list-header,
+    .players-grid .list-row { grid-template-columns: 1fr 100px 80px; }
+}
+@media (max-width: 700px) {
+  .players-grid .col-id,
+    .players-grid .col-storage { display: none; }
+}
+.gm-players-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 6px;
+    margin: 12px 0;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 2px;
+}
+.gm-players-list::-webkit-scrollbar { width: 4px; }
+.gm-players-list::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
+.gm-player-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: #1e1e1e;
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.gm-player-item:hover {
+    border-color: rgba(224,85,85,.3);
+    background: rgba(224,85,85,.05);
+}
+.gm-player-item.selected {
+    border-color: rgba(224,85,85,.5);
+    background: rgba(224,85,85,.08);
+}
+.gm-player-item input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #e05555;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.gm-player-id {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(224,85,85,.7);
+    flex-shrink: 0;
+    font-family: inherit;
+    min-width: 28px;
+}
+.gm-player-email {
+    font-size: 11px;
+    color: rgba(255,255,255,.7);
+    font-family: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+@media (max-width: 600px) {
+  .gm-players-list {
+        grid-template-columns: 1fr 1fr;
+        max-height: 320px;
+    }
+}
+@media (max-width: 600px) {
+  .gm-player-email { font-size: 10px; }
+}
+@media (max-width: 600px) {
+  .gm-player-id { font-size: 9px; }
+}
+@media (max-width: 400px) {
+  .gm-players-list { grid-template-columns: 1fr; }
+}

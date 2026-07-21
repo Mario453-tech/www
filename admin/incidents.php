@@ -920,6 +920,7 @@ $viewData = [
     'PRESSURE_DEFAULTS' => $PRESSURE_DEFAULTS,
 ];
 
+$adminExtraCss = ['/assets/css/admin_incidents.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/incidents/main.php';
 require_once __DIR__ . '/partials/footer.php';

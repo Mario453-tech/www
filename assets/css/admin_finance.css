@@ -1,0 +1,378 @@
+/* 
+   DZIA FINANSOWY  style admina (/admin/finance)  dodano 08.04.2026
+ *//* 
+   DZIA FINANSOWY  style admina (admin/finance.php)
+ */.fin-admin-alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+.fin-range-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    align-items: center;
+}
+.fin-range-bar .fin-range-label {
+    font-size: 12px;
+    color: var(--text3);
+}
+.fin-save-hint {
+    font-size: 11px;
+    margin-left: 10px;
+    color: var(--text3);
+}
+.fin-config-card {
+    padding: 12px;
+}
+.fin-config-label {
+    font-size: 12px;
+    color: var(--text3);
+}
+.fin-config-input {
+    width: 100%;
+    margin-top: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    color: var(--text);
+}
+.fin-config-desc {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 4px;
+}
+.fin-player-link {
+    color: var(--gold);
+    text-decoration: none;
+}
+.fin-player-link:hover { color: var(--gold2); }
+.fin-global-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+@media (max-width: 900px) {
+  .fin-global-grid-3 { grid-template-columns: 1fr; }
+}
+.fin-admin-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 900px) {
+  .fin-admin-grid-2 { grid-template-columns: 1fr; }
+}
+.fin-admin-chart-wrap { position: relative; width: 100%; }
+.fin-stat-label {
+    font-size: 11px;
+    color: var(--text3);
+}
+.fin-config-grid { margin-bottom: 12px; }
+.fin-player-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
+.fin-player-header,
+.fin-player-row {
+    display: grid;
+    grid-template-columns: 2fr 120px 120px 120px 130px 70px 110px;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 8px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    font-size: 12px;
+}
+@media (max-width: 900px) {
+  .fin-player-header,
+    .fin-player-row { grid-template-columns: 2fr 1fr 1fr; }
+}
+@media (max-width: 900px) {
+  .fin-player-header span:nth-child(n+4),
+    .fin-player-row  span:nth-child(n+4) { display: none; }
+}
+.fin-player-header {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+}
+.fin-player-row:hover { background: rgba(255,255,255,.02); }
+.fin-global-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.fin-global-val {
+    font-size: 20px;
+    font-weight: 700;
+}
+.fin-stat-neutral { color: var(--text2); }
+/* Admin finance etap 4: polityki graczy */.fin-policy-header,
+.fin-policy-row {
+    grid-template-columns: 2fr 140px 70px 120px 90px !important;
+}
+.fin-budget-row {
+    display: flex;
+    gap: 3px;
+}
+.fin-budget-chip {
+    display: inline-block;
+    width: 20px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 0;
+    border-radius: 3px;
+    background: rgba(255,255,255,.07);
+    color: var(--text2);
+}
+.fin-budget-chip.fin-budget-low  { background: rgba(224,85,85,.25); color: #e08080; }
+.fin-budget-chip.fin-budget-high { background: rgba(80,200,120,.20); color: #80c8a0; }
+.fin-mode-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.fin-mode-off        { background: rgba(255,255,255,.06); color: var(--text3); }
+.fin-mode-moderate   { background: rgba(240,160,80,.20);  color: #f0a050; }
+.fin-mode-aggressive { background: rgba(224,85,85,.25);   color: #e08080; }
+.fin-cooldown-active {
+    font-size: 11px;
+    color: #f0a050;
+    font-weight: 600;
+}
+/* Admin finance historia decyzji graczy */.fin-history-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+.fin-history-header {
+    grid-template-columns: 80px 1.6fr 1.4fr 100px 100px 70px !important;
+}
+/* Admin finance monitoring hubw */.fin-hub-monitor-header {
+    grid-template-columns: 2.2fr 1.2fr 70px 80px 80px 90px 80px !important;
+}
+/* Admin finance etap 4: monitoring rezerwy */.fin-yellow { color: var(--yellow); }
+.fin-reserve-header {
+    grid-template-columns: 2fr 110px 110px 80px 120px !important;
+}
+/* Admin finance etap 4: tabela efektw D2 (edytowalna) */.fin-effects-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 70px 130px 130px;
+    gap: 0 8px;
+    align-items: center;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+}
+.fin-effects-domain-row {
+    margin-top: 8px;
+    border-top: 1px solid var(--brd2);
+}
+.fin-effects-domain {
+    font-weight: 700;
+    color: var(--muted2);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    align-self: start;
+    padding-top: 3px;
+}
+.fin-effects-metric {
+    color: var(--text);
+}
+.fin-effects-off {
+    font-size: 11px;
+    text-align: right;
+}
+.fin-effects-cell {
+    text-align: right;
+}
+.fin-mult-input {
+    width: 90px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: inherit;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: monospace;
+    text-align: right;
+}
+.fin-mult-input:focus {
+    outline: none;
+    border-color: var(--orange);
+}
+.fin-d2-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.fin-effects-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fin-effects-table th, .fin-effects-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+/* Admin finance etap 4: narzdzia GM */.fin-gm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+.fin-gm-card {
+    padding: 16px;
+}
+.fin-gm-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 6px;
+}
+.fin-gm-form {
+    margin-top: 12px;
+}
+.fin-gm-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.fin-gm-select {
+    flex: 1;
+    min-width: 180px;
+    background: var(--bg2, #1a1a2e);
+    border: 1px solid var(--border, rgba(255,255,255,.1));
+    color: var(--text1, #e0e0e0);
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+.crisis-admin-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+@media (max-width: 800px) {
+  .crisis-admin-stats { grid-template-columns: repeat(2,1fr); }
+}
+.crisis-admin-stat-card { padding: 14px; text-align: center; }
+.crisis-admin-stat-label { font-size: 11px; color: var(--muted2); text-transform: uppercase; margin-bottom: 4px; }
+.crisis-admin-stat-val { font-size: 28px; font-weight: 700; }
+.crisis-admin-stat--warn .crisis-admin-stat-val   { color: var(--orange,#f0a050); }
+.crisis-admin-stat--crisis .crisis-admin-stat-val  { color: var(--red,#e05555); }
+.crisis-admin-stat--bankrupt .crisis-admin-stat-val{ color: var(--muted2); }
+.crisis-admin-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
+.crisis-admin-header,
+.crisis-admin-row {
+    display: grid;
+    grid-template-columns: 2fr 100px 120px 100px 100px 70px 160px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    font-size: 12px;
+}
+@media (max-width: 900px) {
+  .crisis-admin-header,
+    .crisis-admin-row { grid-template-columns: 2fr 80px 100px 160px; }
+}
+@media (max-width: 900px) {
+  .crisis-admin-header span:nth-child(n+4):not(:last-child),
+    .crisis-admin-row  span:nth-child(n+4):not(:last-child) { display: none; }
+}
+.crisis-admin-header {
+    font-size: 10px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted2);
+    border-bottom: 1px solid var(--border);
+}
+.crisis-admin-row--crisis { background: rgba(224,85,85,.06); }
+.crisis-admin-row--warn   { background: rgba(240,160,80,.04); }
+.crisis-admin-row:hover   { background: rgba(255,255,255,.03); }
+.crisis-state-badge {
+    font-size: 11px; padding: 2px 7px;
+    border-radius: 4px; font-weight: 600;
+}
+.crisis-state-badge--crisis  { background: rgba(224,85,85,.18); color: var(--red,#e05555); }
+.crisis-state-badge--warning { background: rgba(240,160,80,.18); color: var(--orange,#f0a050); }
+.crisis-num { text-align: right; font-variant-numeric: tabular-nums; }
+.crisis-val--red    { color: var(--red,#e05555); }
+.crisis-val--orange { color: var(--orange,#f0a050); }
+.crisis-player-link { color: var(--gold,#c8a84b); text-decoration: none; }
+.crisis-player-link:hover { text-decoration: underline; }
+.crisis-admin-actions { display: flex; gap: 4px; }
+.crisis-config-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+@media (max-width: 800px) {
+  .crisis-config-grid { grid-template-columns: repeat(2,1fr); }
+}
+.crisis-config-card { padding: 12px; }
+.crisis-config-label { font-size: 12px; color: var(--muted2); display: block; margin-bottom: 6px; }
+.crisis-config-input {
+    width: 100%; font-size: 16px; font-weight: 700;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 6px 10px; color: var(--text);
+}
+.crisis-config-desc { font-size: 10px; color: var(--muted2); margin-top: 4px; }
+.crisis-save-hint { font-size: 11px; margin-left: 10px; color: var(--muted2); }
+.crisis-bankrupt-list { display: flex; flex-direction: column; margin-top: 10px; }
+.crisis-bankrupt-header,
+.crisis-bankrupt-row {
+    display: grid;
+    grid-template-columns: 2fr 180px 100px;
+    gap: 8px; align-items: center;
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    font-size: 12px;
+}
+.crisis-bankrupt-header {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    color: var(--muted2); letter-spacing: .06em;
+    border-bottom: 1px solid var(--border);
+}
+/* Finance admin impact overview */.fin-impact-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.fin-impact-header,
+.fin-impact-row {
+    display: grid;
+    grid-template-columns: 1.2fr 120px 70px 120px 120px 190px 130px 2fr;
+    gap: 10px;
+    align-items: start;
+}
+.fin-impact-reco {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    line-height: 1.35;
+}
+.fin-impact-reco strong {
+    color: #f3f1ff;
+    font-size: 13px;
+    font-weight: 700;
+}
+.fin-impact-reco small {
+    color: var(--muted2);
+    font-size: 11px;
+}
+.fin-impact-highlight {
+    color: #d9b85a !important;
+}
+@media (max-width: 1280px) {
+  .fin-impact-header,
+    .fin-impact-row {
+        grid-template-columns: 1.2fr 110px 60px 110px 110px 170px 120px 1.7fr;
+    }
+}

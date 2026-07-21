@@ -1,0 +1,14 @@
+/* 
+   INCIDENTS ADMIN PANEL (admin/incidents.php)
+ *//* Incident history list horizontal grid *//* Incident help tab grid *//* Trigger incident form */.hub-incident-force {
+    border: 1px solid #6a2020;
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: #1e1414;
+    margin-top: 16px;
+}
+.hub-incident-force > summary { color: #e66; }
+.hub-incident-force__description { margin: 8px 0 12px; }
+.hub-incident-force__fields { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.hub-incident-force__label { display: block; margin-bottom: 4px; font-size: .85em; }
+.hub-incident-force__player { width: 100px; }

@@ -357,14 +357,8 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
 .list-row:hover { background: #2a2a2a; }
 
 /* Grid kolumny per widok */
-.players-grid .list-header,
-.players-grid .list-row {
-    grid-template-columns: 36px 1fr 120px 90px 100px 60px 150px 90px;
-}
-.wells-grid .list-header,
-.wells-grid .list-row {
-    grid-template-columns: 46px 64px 100px 120px 110px 1fr;
-}
+
+
 .trends-grid .list-header,
 .trends-grid .list-row {
     grid-template-columns: 36px 1fr 120px 110px 90px 160px;
@@ -398,16 +392,9 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
     grid-template-columns: 40px 1fr 180px 100px 130px 130px 1fr;
     align-items: center;
 }
-/* Wells config */
-.wells-config-grid .list-header,
-.wells-config-grid .list-row {
-    grid-template-columns: 44px 1fr 100px 80px 80px 100px 110px 1fr;
-}
-.wells-events-grid .list-header,
-.wells-events-grid .list-row {
-    grid-template-columns: 110px 130px 1fr 70px 120px 120px 1fr;
-    align-items: start;
-}
+
+
+
 
 /* Typy danych w wierszach */
 .player-login  { font-weight: bold; font-size: 13px; }
@@ -569,7 +556,7 @@ input:focus, select:focus { outline: none; border-color: var(--orange); }
 .alert-warning { background: #3d2a00; border: 1px solid #5a4000; color: var(--yellow); }
 .alert-border-red { border: 2px solid var(--red); }
 
-/* CONFIG FORM (wells / bank settings) */
+
 .config-section       { margin-bottom: 28px; }
 .config-section-title {
     font-size: 11px; font-weight: bold; color: var(--orange);
@@ -932,16 +919,12 @@ select {
 .lh-tall      { line-height: 1.7; }
 
 @media (max-width: 1100px) {
-    .players-grid .list-header,
-    .players-grid .list-row { grid-template-columns: 36px 1fr 110px 90px 90px 90px; }
-    .players-grid .col-wells,
-    .players-grid .col-lasttick { display: none; }
+    
+    
 }
 @media (max-width: 700px) {
-    .players-grid .list-header,
-    .players-grid .list-row { grid-template-columns: 1fr 100px 80px; }
-    .players-grid .col-id,
-    .players-grid .col-storage { display: none; }
+    
+    
     .logs-grid .col-player,
     .logs-grid .col-ip { display: none; }
 }
@@ -1412,7 +1395,7 @@ select {
     font-size: 11px;
 }
 
-/* transport_loss top wells (8 kolumn) */
+
 .well-loss-grid .list-header,
 .well-loss-grid .list-row {
     grid-template-columns: 36px 1fr 70px 70px 70px 70px 70px 90px;
@@ -1504,385 +1487,150 @@ select {
 }
 
 
-/* 
-   DZIA FINANSOWY  style admina (/admin/finance)  dodano 08.04.2026
- */
 
-/* 
-   DZIA FINANSOWY  style admina (admin/finance.php)
- */
 
-.fin-admin-alerts {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 16px;
-}
-.fin-range-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    align-items: center;
-}
-.fin-range-bar .fin-range-label {
-    font-size: 12px;
-    color: var(--text3);
-}
-.fin-save-hint {
-    font-size: 11px;
-    margin-left: 10px;
-    color: var(--text3);
-}
-.fin-config-card {
-    padding: 12px;
-}
-.fin-config-label {
-    font-size: 12px;
-    color: var(--text3);
-}
-.fin-config-input {
-    width: 100%;
-    margin-top: 6px;
-    font-size: 16px;
-    font-weight: 700;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 6px 10px;
-    color: var(--text);
-}
-.fin-config-desc {
-    font-size: 10px;
-    color: var(--text3);
-    margin-top: 4px;
-}
-.fin-player-link {
-    color: var(--gold);
-    text-decoration: none;
-}
-.fin-player-link:hover { color: var(--gold2); }
-.fin-global-grid-3 {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
 @media (max-width: 900px) {
-    .fin-global-grid-3 { grid-template-columns: 1fr; }
+    
 }
-.fin-admin-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
+
 @media (max-width: 900px) {
-    .fin-admin-grid-2 { grid-template-columns: 1fr; }
+    
 }
-.fin-admin-chart-wrap { position: relative; width: 100%; }
-.fin-stat-label {
-    font-size: 11px;
-    color: var(--text3);
-}
-.fin-config-grid { margin-bottom: 12px; }
-.fin-player-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
-.fin-player-header,
-.fin-player-row {
-    display: grid;
-    grid-template-columns: 2fr 120px 120px 120px 130px 70px 110px;
-    gap: 8px;
-    align-items: center;
-    padding: 7px 8px;
-    border-bottom: 1px solid rgba(255,255,255,.04);
-    font-size: 12px;
-}
+
+
+
+
+
 @media (max-width: 900px) {
-    .fin-player-header,
-    .fin-player-row { grid-template-columns: 2fr 1fr 1fr; }
-    .fin-player-header span:nth-child(n+4),
-    .fin-player-row  span:nth-child(n+4) { display: none; }
+    
+    
 }
-.fin-player-header {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: var(--text3);
-    border-bottom: 1px solid var(--border);
-}
-.fin-player-row:hover { background: rgba(255,255,255,.02); }
+
+
 
 /* admin karty global stats */
-.fin-global-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.fin-global-val {
-    font-size: 20px;
-    font-weight: 700;
-}
-.fin-stat-neutral { color: var(--text2); }
 
-/* Admin finance etap 4: polityki graczy */
-.fin-policy-header,
-.fin-policy-row {
-    grid-template-columns: 2fr 140px 70px 120px 90px !important;
-}
+
+
+
+
+
 
 /* Budety chipy T/L/HR/BHP */
-.fin-budget-row {
-    display: flex;
-    gap: 3px;
-}
-.fin-budget-chip {
-    display: inline-block;
-    width: 20px;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 0;
-    border-radius: 3px;
-    background: rgba(255,255,255,.07);
-    color: var(--text2);
-}
-.fin-budget-chip.fin-budget-low  { background: rgba(224,85,85,.25); color: #e08080; }
-.fin-budget-chip.fin-budget-high { background: rgba(80,200,120,.20); color: #80c8a0; }
+
+
+
+
 
 /* Tryb oszczdnoci badge w tabeli admina */
-.fin-mode-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-}
-.fin-mode-off        { background: rgba(255,255,255,.06); color: var(--text3); }
-.fin-mode-moderate   { background: rgba(240,160,80,.20);  color: #f0a050; }
-.fin-mode-aggressive { background: rgba(224,85,85,.25);   color: #e08080; }
+
+
+
+
 
 /* Cooldown */
-.fin-cooldown-active {
-    font-size: 11px;
-    color: #f0a050;
-    font-weight: 600;
-}
 
-/* Admin finance historia decyzji graczy */
-.fin-history-filter {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 4px;
-    flex-wrap: wrap;
-}
-.fin-history-header {
-    grid-template-columns: 80px 1.6fr 1.4fr 100px 100px 70px !important;
-}
 
-/* Admin finance monitoring hubw */
-.fin-hub-monitor-header {
-    grid-template-columns: 2.2fr 1.2fr 70px 80px 80px 90px 80px !important;
-}
 
-/* Admin finance etap 4: monitoring rezerwy */
-.fin-yellow { color: var(--yellow); }
 
-.fin-reserve-header {
-    grid-template-columns: 2fr 110px 110px 80px 120px !important;
-}
 
-/* Admin finance etap 4: tabela efektw D2 (edytowalna) */
-.fin-effects-row {
-    display: grid;
-    grid-template-columns: 100px 1fr 70px 130px 130px;
-    gap: 0 8px;
-    align-items: center;
-    padding: 4px 6px;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-}
-.fin-effects-domain-row {
-    margin-top: 8px;
-    border-top: 1px solid var(--brd2);
-}
-.fin-effects-domain {
-    font-weight: 700;
-    color: var(--muted2);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    white-space: nowrap;
-    align-self: start;
-    padding-top: 3px;
-}
-.fin-effects-metric {
-    color: var(--text);
-}
-.fin-effects-off {
-    font-size: 11px;
-    text-align: right;
-}
-.fin-effects-cell {
-    text-align: right;
-}
-.fin-mult-input {
-    width: 90px;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    color: inherit;
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-family: monospace;
-    text-align: right;
-}
-.fin-mult-input:focus {
-    outline: none;
-    border-color: var(--orange);
-}
-.fin-d2-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-    flex-wrap: wrap;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Stare klasy tabeli (zachowane dla ewentualnych innych uy) */
-.fin-effects-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.fin-effects-table th, .fin-effects-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: left; }
 
-/* Admin finance etap 4: narzdzia GM */
-.fin-gm-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-}
-.fin-gm-card {
-    padding: 16px;
-}
-.fin-gm-card-title {
-    font-size: 13px;
-    font-weight: 600;
-    margin: 0 0 6px;
-}
-.fin-gm-form {
-    margin-top: 12px;
-}
-.fin-gm-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-.fin-gm-select {
-    flex: 1;
-    min-width: 180px;
-    background: var(--bg2, #1a1a2e);
-    border: 1px solid var(--border, rgba(255,255,255,.1));
-    color: var(--text1, #e0e0e0);
-    padding: 7px 10px;
-    border-radius: 6px;
-    font-size: 13px;
-}
+
+
+
+
+
+
+
+
+
 
 /* 
    CRISIS SYSTEM  admin/financial-crisis.php  dodano 08.04.2026
  */
 
-.crisis-admin-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 16px;
-}
-@media (max-width: 800px) { .crisis-admin-stats { grid-template-columns: repeat(2,1fr); } }
 
-.crisis-admin-stat-card { padding: 14px; text-align: center; }
-.crisis-admin-stat-label { font-size: 11px; color: var(--muted2); text-transform: uppercase; margin-bottom: 4px; }
-.crisis-admin-stat-val { font-size: 28px; font-weight: 700; }
-.crisis-admin-stat--warn .crisis-admin-stat-val   { color: var(--orange,#f0a050); }
-.crisis-admin-stat--crisis .crisis-admin-stat-val  { color: var(--red,#e05555); }
-.crisis-admin-stat--bankrupt .crisis-admin-stat-val{ color: var(--muted2); }
+@media (max-width: 800px) {  }
 
-.crisis-admin-list { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
 
-.crisis-admin-header,
-.crisis-admin-row {
-    display: grid;
-    grid-template-columns: 2fr 100px 120px 100px 100px 70px 160px;
-    gap: 8px;
-    align-items: center;
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(255,255,255,.04);
-    font-size: 12px;
-}
+
+
+
+
+
+
+
+
+
 @media (max-width: 900px) {
-    .crisis-admin-header,
-    .crisis-admin-row { grid-template-columns: 2fr 80px 100px 160px; }
-    .crisis-admin-header span:nth-child(n+4):not(:last-child),
-    .crisis-admin-row  span:nth-child(n+4):not(:last-child) { display: none; }
+    
+    
 }
-.crisis-admin-header {
-    font-size: 10px; font-weight: 600; letter-spacing: .06em;
-    text-transform: uppercase; color: var(--muted2);
-    border-bottom: 1px solid var(--border);
-}
-.crisis-admin-row--crisis { background: rgba(224,85,85,.06); }
-.crisis-admin-row--warn   { background: rgba(240,160,80,.04); }
-.crisis-admin-row:hover   { background: rgba(255,255,255,.03); }
 
-.crisis-state-badge {
-    font-size: 11px; padding: 2px 7px;
-    border-radius: 4px; font-weight: 600;
-}
-.crisis-state-badge--crisis  { background: rgba(224,85,85,.18); color: var(--red,#e05555); }
-.crisis-state-badge--warning { background: rgba(240,160,80,.18); color: var(--orange,#f0a050); }
 
-.crisis-num { text-align: right; font-variant-numeric: tabular-nums; }
-.crisis-val--red    { color: var(--red,#e05555); }
-.crisis-val--orange { color: var(--orange,#f0a050); }
 
-.crisis-player-link { color: var(--gold,#c8a84b); text-decoration: none; }
-.crisis-player-link:hover { text-decoration: underline; }
 
-.crisis-admin-actions { display: flex; gap: 4px; }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Config */
-.crisis-config-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 12px;
-}
-@media (max-width: 800px) { .crisis-config-grid { grid-template-columns: repeat(2,1fr); } }
-.crisis-config-card { padding: 12px; }
-.crisis-config-label { font-size: 12px; color: var(--muted2); display: block; margin-bottom: 6px; }
-.crisis-config-input {
-    width: 100%; font-size: 16px; font-weight: 700;
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 6px 10px; color: var(--text);
-}
-.crisis-config-desc { font-size: 10px; color: var(--muted2); margin-top: 4px; }
-.crisis-save-hint { font-size: 11px; margin-left: 10px; color: var(--muted2); }
+
+@media (max-width: 800px) {  }
+
+
+
+
+
 
 /* Bankrupt list */
-.crisis-bankrupt-list { display: flex; flex-direction: column; margin-top: 10px; }
-.crisis-bankrupt-header,
-.crisis-bankrupt-row {
-    display: grid;
-    grid-template-columns: 2fr 180px 100px;
-    gap: 8px; align-items: center;
-    padding: 7px 10px;
-    border-bottom: 1px solid rgba(255,255,255,.04);
-    font-size: 12px;
-}
-.crisis-bankrupt-header {
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    color: var(--muted2); letter-spacing: .06em;
-    border-bottom: 1px solid var(--border);
-}
-/* admin/chat layout helpers */
+
+
+
+
 .admin-row           { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .admin-row > .panel  { flex: 1; min-width: 280px; }
 .admin-stats-row     { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -2191,9 +1939,7 @@ select {
     .br-add-grid     { grid-template-columns: 1fr 1fr; }
 }
 
-/* 
-   INCIDENTS ADMIN PANEL (admin/incidents.php)
- */
+
 .inc-cfg-block       { border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; }
 .inc-cfg-head        { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--gold, #c8a84b); }
 .inc-cfg-grid        { display: flex; flex-direction: column; gap: 8px; }
@@ -2211,7 +1957,7 @@ select {
     min-width: 860px;
 }
 
-/* Incident history list horizontal grid */
+
 .inc-history-list .list-header,
 .inc-history-list .list-row {
     grid-template-columns: 44px 80px 110px 140px 80px 70px 100px 90px 110px 36px;
@@ -2234,7 +1980,7 @@ select {
 /* Bulk delete bar */
 .inc-bulk-del        { margin-bottom: 12px; }
 
-/* Incident help tab grid */
+
 .inc-help-grid          { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 10px; }
 .inc-help-card          { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
                           border-radius: 6px; padding: 14px 16px; }
@@ -2252,7 +1998,7 @@ select {
 .admin-tab--danger:hover  { color: #ff7070; border-bottom-color: #e05555; }
 .admin-tab--danger.active { color: #ff7070; border-bottom-color: #e05555; }
 
-/* Trigger incident form */
+
 .inc-trig-form    { display: flex; flex-direction: column; gap: 16px; }
 .inc-trig-row     { display: flex; gap: 16px; flex-wrap: wrap; }
 .inc-trig-field   { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
@@ -2325,29 +2071,22 @@ select {
     .trend-input-cat,
     .trend-input-tpl      { width: 100%; }
 }
-/* chat history list (admin/chat) */
-.chat-list { display: grid; margin-top: .75rem; }
-.chat-list-head,
-.chat-list-row     { display: grid; grid-template-columns: 3rem 9rem 10rem 1fr 6rem; gap: .5rem; padding: .45rem .5rem; align-items: start; }
-.chat-list-head    { font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid rgba(255,255,255,.1); }
-.chat-list-row     { border-bottom: 1px solid rgba(255,255,255,.04); font-size: .85rem; }
-.chat-list-row--admin   { opacity: .55; }
-.chat-list-row--expired { opacity: .45; background: rgba(255,80,80,.04); }
-.chat-msg-text     { word-break: break-word; }
-.chat-row-actions  { display: flex; gap: .3rem; flex-wrap: wrap; }
 
-/* admin/chat mobile */
+
+
+
+
+
+
+
+
+
+
 @media (max-width: 700px) {
  /* tabela historii: ukryj kolumny ID i czas, zostaw nick/tre/akcje */
-    .chat-list-head,
-    .chat-list-row {
-        grid-template-columns: 8rem 1fr auto;
-    }
+    
  /* ukryj kolumny: ID (1), czas (2) zostaj: nick (3), tre (4), akcje (5) */
-    .chat-list-head > span:nth-child(1),
-    .chat-list-head > span:nth-child(2),
-    .chat-list-row  > span:nth-child(1),
-    .chat-list-row  > span:nth-child(2) { display: none; }
+    
 
  /* formularz bana stack pionowo */
     .form-row > select,
@@ -2358,25 +2097,8 @@ select {
 }
 
 /* Avatar inicjaowy w historii czatu */
-.chat-history-player {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.chat-history-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: rgba(249,153,0,.12);
-    border: 1px solid rgba(249,153,0,.28);
-    color: var(--orange, #f90);
-    font-size: .6rem;
-    font-weight: 700;
-    flex-shrink: 0;
-}
+
+
 
 /* panel divider */
 .panel-divider { border: none; border-top: 1px solid rgba(255,255,255,.07); margin: 12px 0; }
@@ -2417,7 +2139,7 @@ select {
 .ac-modal-body strong   { color: #e66; }
 .ac-modal-footer        { display: flex; justify-content: flex-end; gap: 10px; }
 
-/* blocked words list (admin/chat) */
+
 .words-list            { display: grid; }
 .words-list-head,
 .words-list-row        { display: grid; grid-template-columns: 12rem 6rem 7rem 8rem 10rem; gap: .5rem; padding: .4rem .5rem; align-items: center; }
@@ -2427,7 +2149,7 @@ select {
 .word-text             { font-family: monospace; font-size: .9rem; }
 .words-row-actions     { display: flex; gap: .3rem; }
 
-/* blocked words tag cloud (admin/chat) */
+
 .panel-collapsible > summary        { cursor: pointer; list-style: none; }
 .panel-collapsible > summary::marker,
 .panel-collapsible > summary::-webkit-details-marker { display: none; }
@@ -2477,35 +2199,25 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 
 
-/* Admin Wells lista odwiertw */
-.wells-list-header,
-.wells-list-row          { display: grid;
-                            grid-template-columns: 2.5rem 1fr 6rem 3.5rem 5rem 6rem 7rem 1fr 2rem;
-                            gap: .4rem 1rem; align-items: center;
-                            padding: .45rem .8rem; font-size: .84rem; }
-.wells-list-header       { font-size: .74rem; font-weight: 700; text-transform: uppercase;
-                            letter-spacing: .05em; color: var(--muted2);
-                            border-bottom: 1px solid var(--border); margin-bottom: .2rem; }
-.wells-list-row          { border-bottom: 1px solid var(--border); transition: background .12s; }
-.wells-list-row:hover    { background: rgba(255,255,255,.03); }
+
+
+
+
+
 .btn-admin-edit          { background: none; border: none; cursor: pointer; font-size: 1rem;
                             padding: .1rem .3rem; border-radius: 4px; transition: background .15s; }
 .btn-admin-edit:hover    { background: rgba(255,255,255,.08); }
 
 /* Inline formularz edycji odwiertu */
-.aw-edit-form            { background: var(--bg3); border: 1px solid var(--brd2);
-                            border-top: 2px solid var(--orange);
-                            border-radius: 0 0 6px 6px; margin-bottom: .5rem; }
-.aw-form-inner           { padding: .9rem 1.1rem; display: flex; flex-direction: column; gap: .7rem; }
-.aw-form-row             { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
-.aw-lbl                  { font-size: .78rem; color: var(--muted2); min-width: 240px; flex-shrink: 0; }
-.aw-input                { background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-                            color: var(--text); padding: .3rem .6rem; font-size: .85rem; width: 140px;
-                            transition: border-color .15s; }
-.aw-input:focus          { border-color: var(--orange); outline: none; }
-.aw-hint                 { font-size: .78rem; color: var(--muted2); }
-.aw-hint strong          { font-weight: 700; }
-.aw-form-actions         { display: flex; gap: .5rem; margin-top: .2rem; }
+
+
+
+
+
+
+
+
+
 .cv-good                 { color: var(--green); }
 .cv-warn                 { color: var(--yellow); }
 .cv-bad                  { color: var(--red); }
@@ -2845,40 +2557,15 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 .verify-sub            { font-size: .78rem; color: #718096; margin-top: 4px; }
 .verify-alert          { margin-top: 14px; padding: 10px 14px; background: rgba(221,107,32,.12); border: 1px solid #dd6b20; border-radius: 6px; color: #fbd38d; font-size: .85rem; }
 
-/* Finance admin impact overview */
-.fin-impact-summary-grid {
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-}
-.fin-impact-header,
-.fin-impact-row {
-    display: grid;
-    grid-template-columns: 1.2fr 120px 70px 120px 120px 190px 130px 2fr;
-    gap: 10px;
-    align-items: start;
-}
-.fin-impact-reco {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    line-height: 1.35;
-}
-.fin-impact-reco strong {
-    color: #f3f1ff;
-    font-size: 13px;
-    font-weight: 700;
-}
-.fin-impact-reco small {
-    color: var(--muted2);
-    font-size: 11px;
-}
-.fin-impact-highlight {
-    color: #d9b85a !important;
-}
+
+
+
+
+
+
+
 @media (max-width: 1280px) {
-    .fin-impact-header,
-    .fin-impact-row {
-        grid-template-columns: 1.2fr 110px 60px 110px 110px 170px 120px 1.7fr;
-    }
+    
 }
 
 
@@ -2931,288 +2618,92 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 
 
-/* ============================================================
-   GM Wells panel - player filter, list, edit form
-   Panel odwiertow GM - filtr gracza, lista, formularz edycji
-   ============================================================ */
 
-.aw-player-filter {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-    padding: 10px 14px;
-    background: var(--card-bg2, rgba(255,255,255,.04));
-    border: 1px solid var(--border-color, rgba(255,255,255,.07));
-    border-radius: 6px;
-}
 
-.aw-filter-label {
-    font-size: .82rem;
-    color: var(--text-muted, #aaa);
-    white-space: nowrap;
-}
 
-.aw-filter-select {
-    padding: 4px 8px;
-    font-size: .82rem;
-    background: var(--input-bg, #1e2433);
-    color: var(--text, #e8e8e8);
-    border: 1px solid var(--border-color, rgba(255,255,255,.12));
-    border-radius: 4px;
-    min-width: 220px;
-}
 
-.aw-filter-count {
-    margin-left: auto;
-    font-size: .78rem;
-    color: var(--text-muted2, #888);
-}
+
+
+
+
+
 
 /* List grid */
-.aw-list-head,
-.aw-list-row {
-    display: grid;
-    grid-template-columns: 44px minmax(120px,1fr) 120px 56px 68px 90px 80px minmax(80px,1fr) 110px 34px;
-    gap: 6px;
-    align-items: center;
-    padding: 6px 10px;
-    font-size: .81rem;
-}
 
-.aw-list-head {
-    font-size: .74rem;
-    font-weight: 600;
-    color: var(--text-muted, #aaa);
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    border-bottom: 1px solid var(--border-color, rgba(255,255,255,.08));
-}
 
-.aw-list-row {
-    border-bottom: 1px solid var(--border-color, rgba(255,255,255,.05));
-}
 
-.aw-list-row--expandable:hover {
-    background: var(--hover-bg, rgba(255,255,255,.03));
-}
 
-.aw-col-player {
-    font-size: .8rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
 
-.aw-transport-badge {
-    font-size: .74rem;
-    padding: 2px 7px;
-    border-radius: 10px;
-    white-space: nowrap;
-    background: rgba(255,255,255,.08);
-}
 
-.aw-transport-rurociag   { background: rgba(80,160,255,.18); color: #7bbeff; }
-.aw-transport-ciezarowki { background: rgba(255,160,60,.18);  color: #ffb060; }
-.aw-transport-tankowiec  { background: rgba(100,220,180,.18); color: #70ddbb; }
 
-.aw-hub-badge {
-    font-size: .76rem;
-    color: var(--text-muted2, #888);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 110px;
-    display: inline-block;
-}
+
+
+
+
+
+
+
+
+
+
 
 /* GM Edit panel */
-.aw-gm-panel {
-    margin: 0 0 4px 44px;
-    padding: 16px 18px 14px;
-    background: var(--card-bg2, rgba(255,255,255,.03));
-    border: 1px solid var(--border-color, rgba(255,255,255,.09));
-    border-top: none;
-    border-radius: 0 0 6px 6px;
-}
 
-.aw-gm-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 12px;
-    margin-bottom: 14px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color, rgba(255,255,255,.07));
-    font-size: .83rem;
-}
 
-.aw-gm-header strong {
-    font-size: .9rem;
-}
 
-.aw-gm-sections {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 14px;
-    margin-bottom: 14px;
-}
 
-.aw-gm-section {
-    background: var(--card-bg, rgba(255,255,255,.025));
-    border: 1px solid var(--border-color, rgba(255,255,255,.07));
-    border-radius: 5px;
-    padding: 12px 14px;
-}
 
-.aw-gm-section-title {
-    font-size: .74rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--text-muted, #aaa);
-    margin-bottom: 10px;
-}
 
-.aw-gm-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
 
-.aw-field {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
 
-.aw-field label {
-    font-size: .76rem;
-    color: var(--text-muted, #aaa);
-}
 
-.aw-field-hint {
-    font-size: .74rem;
-    color: var(--text-muted2, #888);
-}
 
-.aw-field--readonly span {
-    font-size: .82rem;
-    color: var(--text-muted2, #888);
-}
 
-.aw-field--info span {
-    font-size: .8rem;
-    color: var(--text-muted2, #888);
-}
 
-.aw-input,
-.aw-select {
-    width: 100%;
-    padding: 5px 8px;
-    font-size: .82rem;
-    background: var(--input-bg, #1e2433);
-    color: var(--text, #e8e8e8);
-    border: 1px solid var(--border-color, rgba(255,255,255,.12));
-    border-radius: 4px;
-}
 
-.aw-select {
-    cursor: pointer;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Upgrades */
-.aw-gm-upgrade-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
 
-.aw-upgrade-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color, rgba(255,255,255,.07));
-    cursor: pointer;
-    font-size: .82rem;
-    transition: background .15s;
-}
 
-.aw-upgrade-checkbox:hover {
-    background: rgba(255,255,255,.05);
-}
 
-.aw-upgrade-checkbox--on {
-    border-color: rgba(80,180,100,.4);
-    background: rgba(80,180,100,.08);
-}
 
-.aw-upgrade-name {
-    flex: 1;
-}
+
+
+
+
+
 
 /* Actions bar */
-.aw-gm-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
 
-.aw-gm-warn {
-    font-size: .76rem;
-    color: var(--text-muted2, #888);
-    margin-left: auto;
-}
+
+
 
 /* Quick restore condition widget */
-.aw-quick-restore {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    background: rgba(80, 140, 255, .05);
-    border: 1px solid rgba(80, 140, 255, .2);
-    border-radius: 5px;
-}
 
-.aw-quick-restore-label {
-    font-size: .8rem;
-    font-weight: 600;
-    color: var(--text-muted, #aaa);
-    white-space: nowrap;
-}
 
-.aw-quick-restore-current {
-    font-size: .92rem;
-    font-weight: 700;
-}
 
-.aw-quick-restore-arrow {
-    color: var(--text-muted2, #888);
-    font-size: .85rem;
-}
 
-.aw-quick-restore-unit {
-    color: var(--text-muted2, #888);
-    font-size: .85rem;
-}
 
-.aw-quick-restore input[type="number"] {
-    width: 64px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,.15);
-    background: rgba(255,255,255,.06);
-    color: inherit;
-    font-size: .85rem;
-    text-align: center;
-}
+
+
+
+
+
+
 
 .btn-restore {
     padding: 5px 14px;
@@ -3280,36 +2771,16 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
 
 
 
-/* Wells admin list - mobile responsive */
+
 @media (max-width: 640px) {
-    .aw-list-head,
-    .aw-list-row {
-        grid-template-columns: 36px 1fr 86px 46px 34px;
-        padding: 5px 6px;
-        gap: 4px;
-    }
+    
 
     /* Hide: type(5), transport(6), production(7), hub(8), upgrades(9) */
-    .aw-list-head > *:nth-child(5),
-    .aw-list-head > *:nth-child(6),
-    .aw-list-head > *:nth-child(7),
-    .aw-list-head > *:nth-child(8),
-    .aw-list-head > *:nth-child(9),
-    .aw-list-row > *:nth-child(5),
-    .aw-list-row > *:nth-child(6),
-    .aw-list-row > *:nth-child(7),
-    .aw-list-row > *:nth-child(8),
-    .aw-list-row > *:nth-child(9) {
-        display: none;
-    }
+    
 
-    .aw-gm-panel {
-        margin-left: 0;
-    }
+    
 
-    .aw-gm-sections {
-        grid-template-columns: 1fr;
-    }
+    
 }
 
 /* =============================================================
@@ -3578,69 +3049,23 @@ body.cred-modal-open { overflow: hidden; }
 }
 
 /* Lista graczy - siatka kart */
-.gm-players-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 6px;
-    margin: 12px 0;
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 2px;
-}
-.gm-players-list::-webkit-scrollbar { width: 4px; }
-.gm-players-list::-webkit-scrollbar-thumb { background: rgba(255,152,0,.3); border-radius: 2px; }
+
+
+
 
 /* Karta gracza z checkboxem */
-.gm-player-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    background: #1e1e1e;
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 7px;
-    cursor: pointer;
-    transition: border-color .15s, background .15s;
-}
-.gm-player-item:hover {
-    border-color: rgba(224,85,85,.3);
-    background: rgba(224,85,85,.05);
-}
-.gm-player-item.selected {
-    border-color: rgba(224,85,85,.5);
-    background: rgba(224,85,85,.08);
-}
+
+
+
 
 /* Checkbox w karcie gracza */
-.gm-player-item input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
-    accent-color: #e05555;
-    cursor: pointer;
-    flex-shrink: 0;
-}
+
 
 /* ID gracza */
-.gm-player-id {
-    font-size: 10px;
-    font-weight: 700;
-    color: rgba(224,85,85,.7);
-    flex-shrink: 0;
-    font-family: inherit;
-    min-width: 28px;
-}
+
 
 /* Email gracza */
-.gm-player-email {
-    font-size: 11px;
-    color: rgba(255,255,255,.7);
-    font-family: inherit;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
-}
+
 
 /* Zaznacz wszystkich - row */
 .gm-select-all-row {
@@ -3733,16 +3158,13 @@ body.cred-modal-open { overflow: hidden; }
 
 /* Mobile */
 @media (max-width: 600px) {
-    .gm-players-list {
-        grid-template-columns: 1fr 1fr;
-        max-height: 320px;
-    }
-    .gm-player-email { font-size: 10px; }
-    .gm-player-id { font-size: 9px; }
+    
+    
+    
 }
 
 @media (max-width: 400px) {
-    .gm-players-list { grid-template-columns: 1fr; }
+    
 }
 
 
@@ -3959,18 +3381,12 @@ body.cred-modal-open { overflow: hidden; }
     font-weight: 700;
     text-transform: uppercase;
 }
-.hub-incident-force {
-    border: 1px solid #6a2020;
-    border-radius: 8px;
-    padding: 10px 14px;
-    background: #1e1414;
-    margin-top: 16px;
-}
-.hub-incident-force > summary { color: #e66; }
-.hub-incident-force__description { margin: 8px 0 12px; }
-.hub-incident-force__fields { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-.hub-incident-force__label { display: block; margin-bottom: 4px; font-size: .85em; }
-.hub-incident-force__player { width: 100px; }
+
+
+
+
+
+
 .hub-inline-form { display: inline-flex; }
 .cfg-seed-form { margin-bottom: 12px; }
 @media (max-width: 900px) {

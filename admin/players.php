@@ -83,6 +83,7 @@ $viewData = [
 
 $pageTitle = t('admin.players.page_title');
 $extraJs = ['/assets/js/admin_players.js'];
+$adminExtraCss = ['/assets/css/admin_players.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/players/main.php';
 require_once __DIR__ . '/partials/footer.php';

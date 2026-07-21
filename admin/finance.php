@@ -48,6 +48,7 @@ try {
     ]);
 
     $pageTitle = t('admin.finance.page_title');
+    $adminExtraCss = ['/assets/css/admin_finance.css'];
     require_once __DIR__ . '/partials/header.php';
     extract($viewData, EXTR_SKIP);
     require __DIR__ . '/../templates/views/admin/finance/main.php';

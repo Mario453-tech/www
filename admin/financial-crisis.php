@@ -128,6 +128,7 @@ $viewData = [
 ];
 
 $pageTitle = t('admin.crisis.title');
+$adminExtraCss = ['/assets/css/admin_finance.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/financial-crisis/main.php';
 require_once __DIR__ . '/partials/footer.php';

@@ -201,6 +201,7 @@ $viewData = [
 ];
 
 $pageTitle = 'Odwierty — GM';
+$adminExtraCss = ['/assets/css/admin_wells.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/wells/main.php';
 require_once __DIR__ . '/partials/footer.php';

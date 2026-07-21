@@ -784,6 +784,7 @@ $viewData = compact(
 );
 
 $pageTitle = t('admin.player.page_title', ['pid' => $pid]);
+$adminExtraCss = ['/assets/css/admin_players.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/player/main.php';
 require_once __DIR__ . '/partials/footer.php';
