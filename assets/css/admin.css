@@ -383,11 +383,7 @@ h3 { font-size: 13px; color: var(--muted2); margin-bottom: 6px; }
     align-items: center;
     min-width: 860px;
 }
-.bailiff-grid .list-header,
-.bailiff-grid .list-row {
-    grid-template-columns: 40px 1fr 180px 100px 130px 130px 1fr;
-    align-items: center;
-}
+
 
 
 
@@ -790,11 +786,11 @@ select {
 
 
 /* BANK SETTINGS */
-.bank-settings-form       { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
-.bank-setting-box         { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 12px; min-width: 200px; }
-.bank-setting-label       { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-.bank-setting-note        { font-size: 10px; color: var(--muted); margin-top: 4px; }
-.bank-setting-input       { width: 100%; font-size: 20px; font-weight: bold; background: var(--bg2); border: 1px solid var(--brd2); border-radius: 3px; padding: 4px 8px; }
+
+
+
+
+
 
 /* RISK SCORE BREAKDOWN */
 .risk-breakdown-details   { margin-top: 6px; }
@@ -819,13 +815,13 @@ select {
 .details-btn              { cursor: pointer; list-style: none; }
 .details-body             { background: var(--bg2); padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid var(--border); }
 
-/* ACTIONS FLEX (formularz wymu bankructwo itd.) */
+
 .action-col               { display: flex; flex-direction: column; gap: 4px; }
 
 /* INPUT WIDTHS */
 .input-w-xs               { width: 80px; }
 
-/* GLOBE PICKER MODAL (admin/map_locations) */
+
 .globe-picker-modal {
     display: none;
     position: fixed;
@@ -1071,9 +1067,7 @@ select {
 @media (max-width: 900px) {
     .gm-grid { grid-template-columns: 1fr; }
 }
-/* 
-   BANKRUCTWO  sekcja GM w admin/player.php
- */
+
 
 /* Dodatkowe badge */
 .badge-ok      { background: #1a3d1a; color: var(--green);  border: 1px solid #2a5a2a; }
@@ -1116,12 +1110,8 @@ select {
 
 /* Status "otwarte" */
 .bk-open { color: var(--red); }
-/* Mapa wiata lokalizacje */
-.map-locs-grid .list-header,
-.map-locs-grid .list-row {
-    grid-template-columns: 40px 1fr 120px 50px 45px 50px 50px 80px 160px;
-    align-items: center;
-}
+
+
 .row-disabled { opacity: .45; }
 .action-btns  { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 
@@ -1437,7 +1427,7 @@ select {
 .row-name-secondary { font-size: 10px; color: var(--muted2); }
 .row-name-note      { font-size: 10px; color: var(--muted2); margin-top: 1px; }
 
-/* Balance zielony/czerwony kolor wartoci mnonika */
+
 .mult-nerf   { color: var(--green); }
 .mult-buff   { color: var(--red); }
 .mult-normal { color: var(--text); }
@@ -1589,7 +1579,7 @@ select {
 
 
 
-/* Bankrupt list */
+
 
 
 
@@ -1621,7 +1611,7 @@ select {
 .list-row--reports   { grid-template-columns: 80px 1fr 100px 80px 160px; }
 
 .list-header         { display: grid; gap: 8px; padding: 4px 8px; font-size: 11px; text-transform: uppercase; color: var(--muted2); border-bottom: 1px solid var(--border); }
-/* admin/map_locations */
+
 .region-details          { margin-bottom: 6px; }
 .region-summary          { cursor: pointer; padding: 5px 0; font-weight: bold; }
 .region-summary-meta     { font-size: 11px; font-weight: normal; margin-left: 8px; color: var(--muted2); }
@@ -2264,7 +2254,7 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
     word-break: break-word;
 }
 
-/* Wiersz statusu bankructwa */
+
 .pd-bk-status {
     display: flex;
     align-items: center;
@@ -2298,13 +2288,13 @@ details[open] .panel-title--toggle::before { transform: rotate(90deg); }
                       grid-template-columns: 50px 1fr 130px 155px;
                       gap: 8px; align-items: center; }
 
-/* Komornik 5 kolumn: id / etap / dug / status / nastpna */
+
 .list-header--bailiff,
 .list-row--bailiff  { display: grid;
                       grid-template-columns: 50px 90px 130px 120px 155px;
                       gap: 8px; align-items: center; }
 
-/* Bankructwo 4 kolumny: data / zdarzenie / waga / nota */
+
 .list-header--bk,
 .list-row--bk       { display: grid;
                       grid-template-columns: 155px 1fr 100px 1fr;
@@ -3104,7 +3094,7 @@ body.cred-modal-open { overflow: hidden; }
    ADMIN MOBILE - poprawki dla wszystkich paneli
    ═══════════════════════════════════════════════════════════════ */
 
-/* -- Balance - slidery ------------------------------------------ */
+
 .config-rows { gap: 6px !important; }
 .badge-warning {
     display: inline-flex;
@@ -3168,7 +3158,7 @@ body.cred-modal-open { overflow: hidden; }
 /* -- MOBILE ≤768px --------------------------------------------- */
 @media (max-width: 768px) {
 
-    /* Balance slidery - pionowo */
+    
     .config-row {
         grid-template-columns: 1fr !important;
         gap: 8px !important;
@@ -3213,90 +3203,25 @@ body.cred-modal-open { overflow: hidden; }
     padding: 12px 16px;
     background: rgba(255, 152, 0, .025);
 }
-.staffing-config-form {
-    display: grid;
-    gap: 12px;
-    margin: 14px 0 18px;
-    padding: 14px;
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, .025);
-}
-.staffing-runtime-toggle,
-.staffing-config-fields > label,
-.staffing-filter-form > label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.staffing-runtime-toggle input { accent-color: #4ec97a; }
-.staffing-config-fields {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(160px, 1fr));
-    gap: 10px;
-    margin: 0;
-    padding: 12px;
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 6px;
-}
-.staffing-config-fields legend {
-    padding: 0 6px;
-    color: rgba(255, 255, 255, .65);
-    font-size: 12px;
-}
-.staffing-config-fields > label {
-    justify-content: space-between;
-    align-items: flex-end;
-}
-.staffing-config-input { display: flex; align-items: center; gap: 6px; }
-.staffing-config-input input { width: 72px; }
-.staffing-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(130px, 1fr));
-    gap: 10px;
-    margin: 12px 0 18px;
-}
-.staffing-coverage-list,
-.staffing-assignment-list { display: grid; gap: 4px; margin-bottom: 16px; }
-.staffing-coverage-row {
-    display: grid;
-    grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(95px, 1fr));
-    gap: 10px;
-    align-items: center;
-    padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, .06);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, .02);
-}
-.staffing-coverage-row > div,
-.staffing-coverage-name { display: grid; gap: 3px; }
-.staffing-coverage-row span,
-.staffing-coverage-row small { color: rgba(255, 255, 255, .45); font-size: 11px; }
-.staffing-filter-form {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
-    gap: 10px;
-    align-items: end;
-    margin-bottom: 12px;
-}
-.staffing-filter-form > label { align-items: stretch; flex-direction: column; }
-.staffing-filter-form > label > span { color: rgba(255, 255, 255, .55); font-size: 11px; }
-.staffing-filter-actions { display: flex; gap: 6px; }
-.staffing-assignment-row {
-    display: grid;
-    grid-template-columns: 1.5fr 1.5fr 1.5fr .7fr .8fr 1fr;
-    gap: 8px;
-    align-items: center;
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, .05);
-    font-size: 12px;
-}
-.staffing-assignment-row--head {
-    color: rgba(255, 255, 255, .45);
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3306,14 +3231,13 @@ body.cred-modal-open { overflow: hidden; }
 
 .cfg-seed-form { margin-bottom: 12px; }
 @media (max-width: 900px) {
-    .staffing-config-fields,
-    .staffing-summary-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
-    .staffing-filter-form { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
-    .staffing-filter-actions { grid-column: 1 / -1; }
-    .staffing-coverage-row { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
-    .staffing-coverage-name { grid-column: 1 / -1; }
-    .staffing-assignment-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .staffing-assignment-row--head { display: none; }
+    
+    
+    
+    
+    
+    
+    
 }
 
 /* -- MOBILE ≤768px --------------------------------------------- */

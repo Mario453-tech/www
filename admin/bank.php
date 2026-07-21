@@ -194,6 +194,7 @@ $viewData = [
 ];
 
 $pageTitle = 'Bank — panel administratora';
+$adminExtraCss = ['/assets/css/admin_bank.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/bank/main.php';
 require_once __DIR__ . '/partials/footer.php';

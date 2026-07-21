@@ -1,0 +1,13 @@
+.bailiff-grid .list-header,
+.bailiff-grid .list-row {
+    grid-template-columns: 40px 1fr 180px 100px 130px 130px 1fr;
+    align-items: center;
+}
+.bank-settings-form       { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+.bank-setting-box         { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 12px; min-width: 200px; }
+.bank-setting-label       { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.bank-setting-note        { font-size: 10px; color: var(--muted); margin-top: 4px; }
+.bank-setting-input       { width: 100%; font-size: 20px; font-weight: bold; background: var(--bg2); border: 1px solid var(--brd2); border-radius: 3px; padding: 4px 8px; }
+/* ACTIONS FLEX (formularz wymu bankructwo itd.) *//* 
+   BANKRUCTWO  sekcja GM w admin/player.php
+ *//* Bankrupt list *//* Wiersz statusu bankructwa *//* Komornik 5 kolumn: id / etap / dug / status / nastpna *//* Bankructwo 4 kolumny: data / zdarzenie / waga / nota */

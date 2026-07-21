@@ -1,0 +1,6 @@
+/* GLOBE PICKER MODAL (admin/map_locations) *//* Mapa wiata lokalizacje */.map-locs-grid .list-header,
+.map-locs-grid .list-row {
+    grid-template-columns: 40px 1fr 120px 50px 45px 50px 50px 80px 160px;
+    align-items: center;
+}
+/* admin/map_locations */

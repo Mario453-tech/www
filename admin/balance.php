@@ -196,6 +196,7 @@ $viewData = [
 ];
 
 $pageTitle = t('admin.balance.title');
+$adminExtraCss = ['/assets/css/admin_balance.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/balance/main.php';
 require_once __DIR__ . '/partials/footer.php';

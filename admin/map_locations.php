@@ -161,6 +161,7 @@ $viewData = compact(
 );
 
 $pageTitle = t('admin.map.heading');
+$adminExtraCss = ['/assets/css/admin_map.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/map_locations/main.php';
 require_once __DIR__ . '/partials/footer.php';
