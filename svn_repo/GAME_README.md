@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-22 - HR: backend negocjacji strajkowych i dialogow
+
+- Dodano backendowy katalog dialogow negocjacyjnych employee_dialogue_templates z seedem ponad 80 dwujezycznych wariantow, walidacja placeholderow i unikaniem powtorzen w ramach strajku.
+- Dodano EmployeeStrikeService, ktory po zamknieciu cyklu morale eskaluje relacje pracownikow do zadan podwyzki, grozb strajku i aktywnych strajkow zgodnie z flagami konfiguracji.
+- Dodano EmployeeNegotiationService: oferta strajkowa ma token idempotencji, zapisany wynik losowania i formule, a udana ugoda atomowo ksieguje premie przez FinancialTransactionService, aktualizuje pensje i zamyka konflikt.
+- Dodano typy finansowe hr_bonus i hr_strike_settlement oraz routing do puli gotowki w WalletConfig.
+- Etap nie wlacza jeszcze UI admina/gracza ani konsumenckich efektow dzialowych; to zostaje kolejnym etapem wdrozenia.
+- Weryfikacja: lint PHP dotknietych plikow, 	ools/check_encoding.php, git diff --check, targeted PHPUnit: MoraleFormulaTest, FinancialTransactionServiceTest, EmployeeNegotiationServiceTest, TickRegistryTest/TickModuleSchedulerTest.
 ### 2026-07-22 - Logistyka: zmiana trybu pracy huba przez gracza
 
 - Przyciski Eco, Standard i Turbo korzystaja z istniejacego pola `logistics_hubs.work_mode` oraz istniejacych mnoznikow ticka i ekonomii.

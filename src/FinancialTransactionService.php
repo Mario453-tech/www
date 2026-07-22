@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/WalletConfig.php';
 require_once __DIR__ . '/BankAccountService.php';
 
 /**
@@ -60,6 +61,8 @@ class FinancialTransactionService
     public const TYPE_ADMIN_ADJUSTMENT   = 'admin_adjustment';
     public const TYPE_BAILIFF_SEIZURE    = 'bailiff_seizure';
     public const TYPE_HR_FEE             = 'hr_fee';
+    public const TYPE_HR_BONUS           = 'hr_bonus';
+    public const TYPE_HR_STRIKE_SETTLEMENT = 'hr_strike_settlement';
     public const TYPE_TTS_FEE            = 'tts_fee';
     public const TYPE_TRAINING_FEE       = 'training_fee';
     public const TYPE_BANKRUPTCY_EVENT   = 'bankruptcy_event';
@@ -119,6 +122,8 @@ class FinancialTransactionService
         self::TYPE_ADMIN_ADJUSTMENT,
         self::TYPE_BAILIFF_SEIZURE,
         self::TYPE_HR_FEE,
+        self::TYPE_HR_BONUS,
+        self::TYPE_HR_STRIKE_SETTLEMENT,
         self::TYPE_TTS_FEE,
         self::TYPE_TRAINING_FEE,
         self::TYPE_BANKRUPTCY_EVENT,

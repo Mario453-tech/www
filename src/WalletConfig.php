@@ -93,6 +93,8 @@ class WalletConfig
         // Costs / fees -> cash
         'tax'                 => self::POOL_CASH,
         'hr_fee'              => self::POOL_CASH,
+        'hr_bonus'            => self::POOL_CASH,
+        'hr_strike_settlement'=> self::POOL_CASH,
         'tts_fee'             => self::POOL_CASH,
         'well_purchase'       => self::POOL_CASH,
         'well_upgrade'        => self::POOL_CASH,

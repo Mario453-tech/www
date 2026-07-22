@@ -358,4 +358,8 @@ return [
     'hr.effect_desc.b2b_delay_risk_pct' => 'Zmniejsza ryzyko opóźnień dostaw B2B.',
     'hr.effect_desc.port_turnaround_time_pct' => 'Skraca czas obsługi w porcie.',
     'hr.effect_desc.department_transport_cost_pct' => 'Zmniejsza ogólne koszty transportu w dziale.',
+    'hr_api.err_missing_strike_id' => 'Brak identyfikatora strajku.',
+    'hr_api.err_missing_idempotency_token' => 'Brak tokenu operacji.',
+    'hr.err_strike_negotiation_unavailable' => 'Negocjacje strajkowe nie są teraz dostępne.',
+    'hr.err_strike_offer_rejected' => 'Nie udało się zapisać oferty negocjacyjnej.',
 ];

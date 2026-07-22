@@ -349,4 +349,8 @@ return [
     'candidate.certificate.equipment' => 'Equipment specialist certificate',
     'candidate.certificate.hse' => 'HSE management certificate',
     'candidate.certificate.project_mgmt' => 'Project management certificate (PMP)',
+    'hr_api.err_missing_strike_id' => 'Missing strike identifier.',
+    'hr_api.err_missing_idempotency_token' => 'Missing operation token.',
+    'hr.err_strike_negotiation_unavailable' => 'Strike negotiations are not available now.',
+    'hr.err_strike_offer_rejected' => 'Could not save the negotiation offer.',
 ];

@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/Employee/EmployeeRef.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeRepository.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeStateService.php';
 require_once dirname(__DIR__) . '/HR/MoraleServiceV2.php';
+require_once dirname(__DIR__) . '/HR/EmployeeStrikeService.php';
 
 final class EmployeeMoraleSection
 {
@@ -101,6 +102,9 @@ final class EmployeeMoraleSection
         );
         $stmt->execute([$this->cycleId]);
         $this->remaining = (int)$stmt->fetchColumn();
+        if ($this->remaining === 0) {
+            (new EmployeeStrikeService($this->db))->processEscalations($this->now);
+        }
         $this->updateCycle();
     }
 

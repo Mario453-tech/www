@@ -2644,9 +2644,16 @@ Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i d
 
 ## 33. Aktualny stan wdrożenia po Etapach 6-8, obsadzie logistyki i poprawkach — 2026-07-22
 
-**Status: [x] Wdrożone i zwalidowane testami (Unit, Integration, MySqlIntegration, PHPStan, check_encoding).**
+**Status: [~] Częściowo wdrożone. Kanoniczne morale, modularny tick, tabele konfliktów, backend eskalacji, dialogów i negocjacji są wdrożone testami targeted. UI admina/gracza, pełne efekty działowe i pełne MySqlIntegration/PHPStan dla całości pozostają do wykonania.**
 
 ### 33.1 Wdrożone funkcjonalności i moduły
+**Korekta statusu 2026-07-22 po review i backendzie negocjacji:**
+
+- Aktualny system morale działa przez `employee_state`, `EmployeeSystemConfigService`, `MoraleServiceV2` i `EmployeeMoraleSection`; `MoraleBootstrap` nie jest już startowany z `src/init.php`.
+- Dodano tabele nowego systemu, migrator legacy, idempotencję cyklu, clamp oczekiwanej pensji `40% salary_min` - `90% salary_max` oraz testy targeted.
+- Dodano `EmployeeStrikeService`, `EmployeeDialogueTemplateService`, `EmployeeNegotiationService` i `StrikeEffectService`; backend obsługuje eskalacje, 80+ dwujęzycznych tekstów, token idempotencji oferty, zapis losowania/formuły i atomowe ugody przez `FinancialTransactionService`.
+- Stary publiczny `HRApi.php` nadal zawiera legacy akcje premii/rozwiązania strajku i wymaga osobnego przepięcia na nowe akcje/UI.
+- Nie wdrożono jeszcze zakładek admin HR, formularzy PRG, panelu tekstów dialogów, UI gracza do negocjacji ani pełnego podpięcia `StrikeEffectService` do logistyki/techniki/HR/prawnego.
 
 1. **Morale i Relacje Pracownicze (Etap 6):**
    - Utworzono `MoraleService` (`src/HR/MoraleService.php`) oraz `MoraleBootstrap` (`src/HR/MoraleBootstrap.php`).
@@ -2655,7 +2662,7 @@ Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i d
 
 2. **Podwyżki i Żądania Płacowe (Etap 7):**
    - Obsługa statusu relacji `raise_requested`.
-   - Zabezpieczono przetwarzanie transakcji finansowych i opłat za podwyżki w `HRApi.php` z użyciem `Player::updateCash`.
+   - Backend finansowy ma typy FTS `hr_bonus` i `hr_strike_settlement`; publiczne akcje HRApi wymagają jeszcze przepięcia z legacy `Player::updateCash`.
 
 3. **Konflikty i Strajki Działowe (Etap 8):**
    - Utworzono `StrikeService` (`src/HR/StrikeService.php`) do obsługi statusów `strike_threat` oraz `on_strike`.
