@@ -2639,3 +2639,47 @@ Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i d
 - MySqlIntegration: 227/227,
 - encoding: 1956 plików,
 - git diff --check: bez błędów.
+
+---
+
+## 33. Aktualny stan wdrożenia po Etapach 6-8, obsadzie logistyki i poprawkach — 2026-07-22
+
+**Status: [x] Wdrożone i zwalidowane testami (Unit, Integration, MySqlIntegration, PHPStan, check_encoding).**
+
+### 33.1 Wdrożone funkcjonalności i moduły
+
+1. **Morale i Relacje Pracownicze (Etap 6):**
+   - Utworzono `MoraleService` (`src/HR/MoraleService.php`) oraz `MoraleBootstrap` (`src/HR/MoraleBootstrap.php`).
+   - Zintegrowano przeliczanie morale z modularnym silnikiem ticka (`MoraleSection` w `src/Tick/MoraleSection.php`).
+   - Przeliczane są wskaźniki morale, oczekiwania płacowe (`expected_salary`), zadowolenie z pensji (`salary_satisfaction`), obciążenie pracą (`workload`) oraz ryzyko odejścia (`leave_risk`).
+
+2. **Podwyżki i Żądania Płacowe (Etap 7):**
+   - Obsługa statusu relacji `raise_requested`.
+   - Zabezpieczono przetwarzanie transakcji finansowych i opłat za podwyżki w `HRApi.php` z użyciem `Player::updateCash`.
+
+3. **Konflikty i Strajki Działowe (Etap 8):**
+   - Utworzono `StrikeService` (`src/HR/StrikeService.php`) do obsługi statusów `strike_threat` oraz `on_strike`.
+   - Wdrożono mechanizm wyliczania `strike_support` oraz paraliżu wpływu działu i obsady logistyki (`Wpływ wstrzymany`).
+   - Zabezpieczono zapytania przed wyścigami stanów (ToCToU) za pomocą atomowych instrukcji `INSERT ... SELECT`.
+
+4. **Ujednolicenie zatrudniania i obsady (Huby i Rurociągi):**
+   - Skorygowano klasyfikację specjalizacji `hub_operator` w `EmployeeSystemBootstrap.php`, `HR/HiringTrait.php` oraz `TTS/RecruitmentTrait.php`. Operatorzy hubów są poprawnie zatrudniani jako personel techniczny (`technical_staff`), nie blokując i nie tworząc błędnych wpisów w dyrekcji.
+   - Wdrożono pełną obsługę obsady dla hubów (`LogisticsStaffingService`, `HubStaffingManagementService`) oraz dla konkretnych rurociągów inbound/outbound (`PipelineStaffingService`, `PipelineStaffingManagementService`).
+   - Przypisania są rygorystycznie izolowane i filtrowane po `player_id` oraz `tenant_player_id`.
+
+5. **Interaktywne Tryby Pracy Hubów (Eco / Standard / Turbo):**
+   - Wdrożono interaktywny przełącznik trybów pracy na kartach hubów w widoku logistyki (`owned_hubs_section.php`).
+   - Podpięto przyciski pod akcję AJAX w `HubApi.php` (`set_mode`), z pełną obsługą uprawnień dla właściciela oraz najemcy.
+   - Poprawiono zamykanie kontenerów meta w HTML widoku kart.
+
+6. **Refaktoryzacja i Optymalizacja CSS:**
+   - Przeorganizowano i uszczuplono `assets/css/admin.css` (redukcja z 5347 do 3386 linii).
+   - Wydzielono modułowe pliki CSS: `admin_staffing.css`, `admin_gm.css`, `logistics_pipeline_staffing.css`.
+
+### 33.2 Pełna weryfikacja automatyczna i statyczna
+
+- **Targeted Tests:** `HubStaffingManagementServiceTest`, `EmployeeAssignmentServiceTest`, `HubIncidentServiceTest`, `MySqlEmployeeAssignmentServiceTest`, `MySqlHubIncidentServiceTest` — 100% OK.
+- **Unit + Integration Testsuite:** 571 / 571 testów zaliczonych (100% OK).
+- **PHPStan Analysis:** Przeanalizowano 248 plików, wyeliminowano błędy wywołań w sekcjach ticka.
+- **Check Encoding:** Passed na wszystkich 1988 plikach.
+- **Git diff check:** Błędy białych znaków wyeliminowane.
