@@ -1,5 +1,7 @@
 <?php
 
+// Legacy strike API used by HR actions and the compatibility tick section.
+// PL: Starsze API strajkow uzywane przez akcje HR i zgodnosciowa sekcje ticka.
 class StrikeService
 {
     /**

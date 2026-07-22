@@ -8,6 +8,7 @@
  */
 ob_start(); // Buffer output to prevent accidental bytes before JSON. / PL: Buforuj output, aby uniknac bajtow przed JSON.
 require_once __DIR__ . '/init.php';
+require_once __DIR__ . '/HR/StrikeService.php';
 
 // Clear any buffered output before sending JSON headers.
 // PL: Wyczysc bufor przed wyslaniem naglowkow JSON.

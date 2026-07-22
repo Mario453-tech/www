@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__DIR__) . '/HR/StrikeService.php';
+
 class MoraleSection
 {
     private PDO $db;

@@ -107,12 +107,7 @@ require_once __DIR__ . '/HeadhunterService.php';
 require_once __DIR__ . '/DirectorNotificationService.php';
 require_once __DIR__ . '/HR/MoraleService.php';
 require_once __DIR__ . '/HR/MoraleServiceV2.php';
-require_once __DIR__ . '/HR/StrikeService.php';
-require_once __DIR__ . '/HR/EmployeeDialogueTemplateService.php';
-require_once __DIR__ . '/HR/EmployeeStrikeService.php';
-require_once __DIR__ . '/HR/EmployeeNegotiationService.php';
-require_once __DIR__ . '/HR/StrikeEffectService.php';
-require_once __DIR__ . '/FinancialTransactionService.php';
+
 
  // Load bank negotiation traits, then the service, with OPcache self-healing.
  // PL: Laduj traity negocjacji, potem serwis, z samonaprawą OPcache.
