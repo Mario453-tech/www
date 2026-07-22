@@ -24,7 +24,7 @@ final class EmployeeStrikeService
             "SELECT player_id, department_code,
                     AVG(morale) AS avg_morale, AVG(strike_support) AS avg_support,
                     AVG(workload) AS avg_workload,
-                    SUM(CASE WHEN relation_status='dispute' THEN 1 ELSE 0 END) AS disputes
+                    SUM(CASE WHEN relation_status IN ('dispute','strike_threat') THEN 1 ELSE 0 END) AS disputes
                FROM employee_state
               WHERE relation_status NOT IN ('inactive','leaving')
               GROUP BY player_id, department_code"
@@ -166,7 +166,10 @@ final class EmployeeStrikeService
         return $created;
     }
 
-    /** @param array<string,mixed> $department @param array<string,int> $stats */
+    /**
+     * @param array<string,mixed> $department
+     * @param array<string,int> $stats
+     */
     private function evaluateDepartment(array $department, DateTimeInterface $now, array &$stats): void
     {
         $playerId = (int)$department['player_id'];
@@ -266,7 +269,10 @@ final class EmployeeStrikeService
         }
     }
 
-    /** @param array<string,mixed> $state @param array<string,mixed> $meta */
+    /**
+     * @param array<string,mixed> $state
+     * @param array<string,mixed> $meta
+     */
     private function event(array $state, string $eventKey, string $titleKey, string $messageKey, array $meta, string $dedupe): void
     {
         $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);

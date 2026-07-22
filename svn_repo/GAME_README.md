@@ -4,7 +4,9 @@
 
 - Skutecznosc zespolu HR w negocjacjach jest liczona wylacznie z aktywnych pracownikow HR nalezacych do gracza prowadzacego rozmowy; personel konkurencji nie wplywa na wynik.
 - Testy MySQL morale sprawdzaja kanoniczne `employee_state` i `employee_events`, zamiast nieaktualnej kolumny `technical_staff.current_morale`.
-- Weryfikacja: targeted negocjacji i morale, `Unit+Integration` 584/584, `MySqlIntegration` 231/231 oraz targeted PHPStan bez bledow.
+- Grozba strajku zachowuje kwalifikujace spory po przejsciu pracownikow do `strike_threat`, dzieki czemu moze eskalowac po wymaganej liczbie kolejnych cykli.
+- Weryfikacja: targeted negocjacji i morale, `Unit+Integration` 584/584, `MySqlIntegration` 231/231 na swiezym schemacie CI oraz targeted PHPStan bez bledow.
+
 ### 2026-07-22 - HR: backend negocjacji strajkowych i dialogow
 
 - Dodano backendowy katalog dialogow negocjacyjnych employee_dialogue_templates z seedem ponad 80 dwujezycznych wariantow, walidacja placeholderow i unikaniem powtorzen w ramach strajku.

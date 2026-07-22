@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../../src/init.php'; 
+require_once __DIR__ . '/../../src/init.php';
+require_once __DIR__ . '/../../src/HR/EmployeeStrikeService.php';
 
 class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
 {
@@ -56,27 +57,50 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
         $this->assertEquals(-10, $logs[0]['change_amount']);
     }
 
-    public function testStrikeServiceStartAndResolve()
+    public function testEmployeeStrikeEscalatesAndResolvesCanonicalConflict(): void
     {
-        $this->db->exec("UPDATE technical_staff SET current_morale = 5 WHERE id = {$this->staffId}");
+        $config = new EmployeeSystemConfigService($this->db);
+        $keys = ['feature_threats', 'feature_strikes', 'threat_min_disputes', 'threat_cycles_required'];
+        $original = array_intersect_key($config->all(), array_fill_keys($keys, true));
+        $config->save([
+            'feature_threats' => true,
+            'feature_strikes' => true,
+            'threat_min_disputes' => 1,
+            'threat_cycles_required' => 2,
+        ]);
 
-        $this->assertFalse(StrikeService::isStriking($this->staffId));
+        try {
+            $stmt = $this->db->prepare(
+                "UPDATE employee_state
+                    SET morale=30, salary_satisfaction=60, strike_support=70,
+                        workload=80, relation_status='dispute'
+                  WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+            );
+            $stmt->execute([$this->playerId, $this->staffId]);
+            $this->assertSame(1, $stmt->rowCount());
+            $service = new EmployeeStrikeService($this->db);
 
-        StrikeService::startStrike($this->staffId, 'low_morale');
-        
-        $this->assertTrue(StrikeService::isStriking($this->staffId));
-        
-        $strikes = StrikeService::getActiveStrikes($this->playerId);
-        $this->assertArrayHasKey($this->staffId, $strikes);
-        $this->assertEquals('low_morale', $strikes[$this->staffId]['reason']);
+            $first = $service->processEscalations(new DateTimeImmutable('2026-07-22 10:00:00'));
+            $this->assertSame(1, $first['threats_started']);
+            $this->assertSame('threat', $service->activeForPlayer($this->playerId)[0]['status']);
 
-        StrikeService::resolveStrike($this->staffId);
-        
-        $this->assertFalse(StrikeService::isStriking($this->staffId));
-        $strikesAfter = StrikeService::getActiveStrikes($this->playerId);
-        $this->assertArrayNotHasKey($this->staffId, $strikesAfter);
+            $second = $service->processEscalations(new DateTimeImmutable('2026-07-22 10:05:00'));
+            $strikes = $service->activeForPlayer($this->playerId);
+            $this->assertSame(1, $second['strikes_started']);
+            $this->assertCount(1, $strikes);
+            $this->assertSame('active', $strikes[0]['status']);
+            $this->assertCount(1, $service->members($this->playerId, (int)$strikes[0]['id']));
+            $this->assertSame('on_strike', $this->canonicalRelationStatus());
+
+            $service->closeByAgreement($this->playerId, (int)$strikes[0]['id'], 10.0);
+
+            $this->assertSame([], $service->activeForPlayer($this->playerId));
+            $this->assertSame('normal', $this->canonicalRelationStatus());
+            $this->assertSame(40.0, $this->canonicalMorale());
+        } finally {
+            $config->save($original);
+        }
     }
-
     private function employeeRef(): EmployeeRef
     {
         return new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $this->staffId, $this->playerId);
@@ -90,6 +114,16 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
         );
         $stmt->execute([$morale, $this->playerId, $this->staffId]);
         $this->assertSame(1, $stmt->rowCount());
+    }
+
+    private function canonicalRelationStatus(): string
+    {
+        $stmt = $this->db->prepare(
+            "SELECT relation_status FROM employee_state
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        );
+        $stmt->execute([$this->playerId, $this->staffId]);
+        return (string)$stmt->fetchColumn();
     }
 
     private function canonicalMorale(): float
