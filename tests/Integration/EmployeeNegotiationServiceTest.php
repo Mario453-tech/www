@@ -101,6 +101,33 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('normal', $this->relationStatus(1));
     }
 
+    public function testHrEffectivenessUsesOnlyNegotiatingPlayersTeam(): void
+    {
+        $this->config->save(['feature_negotiations' => true]);
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedPlayer(2, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $this->db->exec("INSERT INTO board_roles (id, code) VALUES (1, 'hr')");
+        $stmt = $this->db->prepare(
+            "INSERT INTO board_members
+                (id, player_id, role_id, skill_negotiation, skill_organization, salary, status)
+             VALUES (?, ?, 1, ?, ?, 10000, 'active')"
+        );
+        $stmt->execute([1, 1, 1, 1]);
+        $stmt->execute([2, 2, 10, 10]);
+
+        $round = (new EmployeeNegotiationService($this->db))->submitOffer(
+            1,
+            1,
+            30.0,
+            0.0,
+            'player-scoped-hr-team',
+            new DateTimeImmutable('2026-07-22 10:00:00')
+        );
+
+        $this->assertSame(10.0, (float)$round['formula']['hr_effectiveness']);
+    }
+
     private function createSourceSchema(): void
     {
         $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL NOT NULL DEFAULT 0, bank_balance REAL NOT NULL DEFAULT 0)');

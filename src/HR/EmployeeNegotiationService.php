@@ -124,7 +124,7 @@ final class EmployeeNegotiationService
                 throw new RuntimeException('Strike has no active members.');
             }
             $metrics = $this->metrics($members);
-            $formula = $this->score($raisePct, $bonusPerMember, $metrics, $roundNo, (int)$negotiation['max_rounds']);
+            $formula = $this->score($playerId, $raisePct, $bonusPerMember, $metrics, $roundNo, (int)$negotiation['max_rounds']);
             $accepted = $formula['score'] >= $formula['random_roll'];
             $isFinal = $roundNo >= (int)$negotiation['max_rounds'];
             $result = $accepted ? 'accepted' : ($isFinal ? 'final_failure' : 'rejected');
@@ -259,7 +259,10 @@ final class EmployeeNegotiationService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** @param list<array<string,mixed>> $members @return array<string,float|int> */
+    /**
+     * @param list<array<string,mixed>> $members
+     * @return array<string,float|int>
+     */
     private function metrics(array $members): array
     {
         $count = max(1, count($members));
@@ -270,14 +273,17 @@ final class EmployeeNegotiationService
         ];
     }
 
-    /** @param array<string,float|int> $metrics @return array<string,float|int> */
-    private function score(float $raisePct, float $bonusPerMember, array $metrics, int $roundNo, int $maxRounds): array
+    /**
+     * @param array<string,float|int> $metrics
+     * @return array<string,float|int>
+     */
+    private function score(int $playerId, float $raisePct, float $bonusPerMember, array $metrics, int $roundNo, int $maxRounds): array
     {
         $maxRaise = max(0.01, $this->config->getFloat('negotiation_raise_max'));
         $maxBonus = max(1.0, $this->config->getFloat('negotiation_bonus_max'));
         $offerQuality = min(100.0, ($raisePct / $maxRaise) * 70.0 + ($bonusPerMember / $maxBonus) * 30.0);
         $roundPressure = $maxRounds > 1 ? (($roundNo - 1) / ($maxRounds - 1)) * 10.0 : 5.0;
-        $hrEffectiveness = $this->hrEffectiveness();
+        $hrEffectiveness = $this->hrEffectiveness($playerId);
         $score = $offerQuality * $this->config->getFloat('negotiation_offer_weight')
             + (100.0 - (float)$metrics['avg_support']) * $this->config->getFloat('negotiation_support_weight')
             + (float)$metrics['avg_morale'] * $this->config->getFloat('negotiation_morale_weight')
@@ -294,14 +300,15 @@ final class EmployeeNegotiationService
         ];
     }
 
-    private function hrEffectiveness(): float
+    private function hrEffectiveness(int $playerId): float
     {
-        $stmt = $this->db->query(
+        $stmt = $this->db->prepare(
             "SELECT AVG((COALESCE(skill_negotiation,5) + COALESCE(skill_organization,5)) * 5) FROM board_members bm
               JOIN board_roles br ON br.id=bm.role_id
-             WHERE br.code='hr' AND bm.status='active'"
+             WHERE br.code='hr' AND bm.status='active' AND bm.player_id=?"
         );
-        $value = $stmt !== false ? $stmt->fetchColumn() : false;
+        $stmt->execute([$playerId]);
+        $value = $stmt->fetchColumn();
         return $value !== false && $value !== null ? max(0.0, min(100.0, (float)$value)) : 50.0;
     }
 
@@ -404,7 +411,10 @@ final class EmployeeNegotiationService
         return 'p' . $playerId . ':' . hash('sha256', $token);
     }
 
-    /** @param array<string,mixed> $row @return array<string,mixed> */
+    /**
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
     private function formatRound(array $row): array
     {
         return [
@@ -421,7 +431,10 @@ final class EmployeeNegotiationService
         ];
     }
 
-    /** @param array<string,mixed> $row @return array<string,mixed> */
+    /**
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
     private function formatNegotiation(array $row): array
     {
         return [

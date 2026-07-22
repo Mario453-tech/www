@@ -12,21 +12,17 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
     {
         parent::setUp();
         
-        $ids = $this->getTrackedIds();
         $this->playerId = $this->seedPlayer();
         $this->staffId = $this->seedTechnicalWorker($this->playerId, 6);
-        
-        $this->db->exec("UPDATE technical_staff SET current_morale = 50 WHERE id = {$this->staffId}");
+        (new EmployeeStateService($this->db))->ensureState($this->employeeRef());
+        $this->setCanonicalMorale(50.0);
     }
 
     public function testModifyMoraleIncreasesMoraleAndLogs()
     {
-        $this->db->exec("UPDATE technical_staff SET current_morale = 50 WHERE id = {$this->staffId}");
-
         MoraleService::modifyMorale($this->staffId, 10, 'bonus.granted');
 
-        $stmt = $this->db->query("SELECT current_morale FROM technical_staff WHERE id = {$this->staffId}");
-        $this->assertEquals(60, $stmt->fetchColumn());
+        $this->assertSame(60.0, $this->canonicalMorale());
 
         $logs = MoraleService::getMoraleHistory($this->staffId);
         $this->assertCount(1, $logs);
@@ -36,12 +32,11 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
 
     public function testModifyMoraleCappedAt100()
     {
-        $this->db->exec("UPDATE technical_staff SET current_morale = 95 WHERE id = {$this->staffId}");
+        $this->setCanonicalMorale(95.0);
 
         MoraleService::modifyMorale($this->staffId, 20, 'big.bonus');
 
-        $stmt = $this->db->query("SELECT current_morale FROM technical_staff WHERE id = {$this->staffId}");
-        $this->assertEquals(100, $stmt->fetchColumn());
+        $this->assertSame(100.0, $this->canonicalMorale());
 
         $logs = MoraleService::getMoraleHistory($this->staffId);
         $this->assertCount(1, $logs);
@@ -50,12 +45,11 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
 
     public function testModifyMoraleCappedAt0()
     {
-        $this->db->exec("UPDATE technical_staff SET current_morale = 10 WHERE id = {$this->staffId}");
+        $this->setCanonicalMorale(10.0);
 
         MoraleService::modifyMorale($this->staffId, -15, 'crisis');
 
-        $stmt = $this->db->query("SELECT current_morale FROM technical_staff WHERE id = {$this->staffId}");
-        $this->assertEquals(0, $stmt->fetchColumn());
+        $this->assertSame(0.0, $this->canonicalMorale());
 
         $logs = MoraleService::getMoraleHistory($this->staffId);
         $this->assertCount(1, $logs);
@@ -81,5 +75,30 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
         $this->assertFalse(StrikeService::isStriking($this->staffId));
         $strikesAfter = StrikeService::getActiveStrikes($this->playerId);
         $this->assertArrayNotHasKey($this->staffId, $strikesAfter);
+    }
+
+    private function employeeRef(): EmployeeRef
+    {
+        return new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $this->staffId, $this->playerId);
+    }
+
+    private function setCanonicalMorale(float $morale): void
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE employee_state SET morale=?
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        );
+        $stmt->execute([$morale, $this->playerId, $this->staffId]);
+        $this->assertSame(1, $stmt->rowCount());
+    }
+
+    private function canonicalMorale(): float
+    {
+        $stmt = $this->db->prepare(
+            "SELECT morale FROM employee_state
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        );
+        $stmt->execute([$this->playerId, $this->staffId]);
+        return (float)$stmt->fetchColumn();
     }
 }
