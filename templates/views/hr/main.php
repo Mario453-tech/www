@@ -4,6 +4,79 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
 $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 ?>
 
+<?php if (!empty($activeStrikes)): ?>
+<section class="hr-strike-center" aria-labelledby="hr-strike-center-title">
+    <div class="hr-section-header hr-strike-center__header">
+        <h2 id="hr-strike-center-title"><?= t('hr.strikes_title') ?></h2>
+        <p><?= t('hr.strikes_desc') ?></p>
+    </div>
+    <div class="hr-strike-list">
+        <?php foreach ($activeStrikes as $strike):
+            $strikeId = (int)$strike['id'];
+            $status = (string)$strike['status'];
+            $canNegotiate = !empty($strikeNegotiationLimits['enabled']) && in_array($status, ['active', 'negotiating'], true);
+            $departmentKey = 'hr.department.' . (string)$strike['department_code'];
+        ?>
+        <article class="hr-strike-card" data-strike-card="<?= $strikeId ?>">
+            <div class="hr-strike-card__header">
+                <div>
+                    <span class="hr-strike-card__eyebrow"><?= t('hr.strike_department') ?></span>
+                    <h3><?= htmlspecialchars(t($departmentKey), ENT_QUOTES, 'UTF-8') ?></h3>
+                </div>
+                <span class="hr-strike-status hr-strike-status--<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= t('hr.strike_status.' . $status) ?>
+                </span>
+            </div>
+            <div class="hr-strike-stats">
+                <div><span><?= t('hr.strike_participants') ?></span><strong><?= (int)$strike['member_count'] ?></strong></div>
+                <div><span><?= t('hr.strike_support') ?></span><strong><?= number_format((float)$strike['support_pct'], 1, ',', ' ') ?>%</strong></div>
+                <div><span><?= t('hr.strike_avg_morale') ?></span><strong><?= number_format((float)$strike['avg_morale'], 1, ',', ' ') ?>%</strong></div>
+            </div>
+
+            <?php if ($status === 'threat'): ?>
+                <p class="hr-strike-card__notice"><?= t('hr.strike_threat_notice') ?></p>
+            <?php elseif (!$canNegotiate): ?>
+                <p class="hr-strike-card__notice"><?= t('hr.strike_negotiation_disabled') ?></p>
+            <?php elseif ($status === 'active'): ?>
+                <button type="button" class="btn btn-primary" data-open-strike-negotiation="<?= $strikeId ?>">
+                    <?= t('hr.btn_open_strike_negotiation') ?>
+                </button>
+            <?php else: ?>
+                <form class="hr-strike-offer-form" data-strike-offer-form="<?= $strikeId ?>">
+                    <div class="hr-strike-round">
+                        <strong><?= t('hr.strike_round', [
+                            'round' => (int)($strike['current_round'] ?? 1),
+                            'max' => (int)($strike['max_rounds'] ?? 1),
+                        ]) ?></strong>
+                        <?php if (!empty($strike['round_deadline_at'])): ?>
+                            <span><?= t('hr.strike_deadline') ?>: <?= date('d.m.Y H:i', strtotime((string)$strike['round_deadline_at'])) ?></span>
+                        <?php endif ?>
+                    </div>
+                    <div class="hr-strike-offer-grid">
+                        <label>
+                            <span><?= t('hr.strike_raise_offer') ?></span>
+                            <input type="number" name="raise_pct"
+                                   min="<?= (float)$strikeNegotiationLimits['raise_min'] ?>"
+                                   max="<?= (float)$strikeNegotiationLimits['raise_max'] ?>"
+                                   step="0.5" required>
+                        </label>
+                        <label>
+                            <span><?= t('hr.strike_bonus_offer') ?></span>
+                            <input type="number" name="bonus_per_member" min="0"
+                                   max="<?= (float)$strikeNegotiationLimits['bonus_max'] ?>"
+                                   step="100" value="0" required>
+                        </label>
+                    </div>
+                    <p class="hr-strike-offer-form__hint"><?= t('hr.strike_offer_hint') ?></p>
+                    <button type="submit" class="btn btn-primary"><?= t('hr.btn_submit_strike_offer') ?></button>
+                </form>
+            <?php endif ?>
+            <p class="hr-strike-dialogue" data-strike-dialogue="<?= $strikeId ?>" hidden></p>
+        </article>
+        <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
 <div class="hr-tabs module-tabs">
     <button type="button" class="hr-tab module-tab active" onclick="switchTab('employees')"><?= t('hr.tab_employees') ?><span class="tab-badge module-tab-badge module-tab-badge--ok"><?= count($employees) ?></span></button>
     <button type="button" class="hr-tab module-tab" onclick="switchTab('candidates')"><?= t('hr.tab_candidates') ?><?php if (!empty($staffCandidates)): ?><span class="tab-badge module-tab-badge module-tab-badge--gold"><?= count($staffCandidates) ?></span><?php endif ?></button>
@@ -79,24 +152,19 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 
                 <?php if (($emp['source'] ?? '') === 'technical_staff'): ?>
                 <div class="cv-section-label cv-section-label--mt"><?= t('hr.morale_label') ?></div>
-                <div class="emp-morale-section" style="margin-bottom:15px;">
+                <div class="emp-morale-section">
                     <?php 
                         $m = (int)($emp['morale'] ?? 50);
                         $mColor = $m >= 70 ? 'c-green' : ($m >= 40 ? 'c-gold' : 'c-bad'); 
                         $mBg = $m >= 70 ? '#4caf50' : ($m >= 40 ? '#ffb300' : '#e53935');
                     ?>
-                    <div class="morale-bar-container" style="display:flex; align-items:center; gap:10px;">
-                        <span class="morale-val <?= $mColor ?>" style="font-weight:bold; min-width:40px;"><?= $m ?>%</span>
-                        <div class="morale-bar" style="flex:1; height:8px; background:var(--bg-lighter); border-radius:4px; overflow:hidden;">
-                            <div class="morale-fill" style="width: <?= $m ?>%; background-color: <?= $mBg ?>; height:100%; transition: width 0.3s;"></div>
+                    <div class="morale-bar-container">
+                        <span class="morale-val <?= $mColor ?>"><?= $m ?>%</span>
+                        <div class="morale-bar">
+                            <div class="morale-fill" style="--bar-w:<?= $m ?>%;--morale-color:<?= $mBg ?>"></div>
                         </div>
                     </div>
-                    <?php if (($emp['is_striking'] ?? 0) > 0): ?>
-                    <div class="strike-warning-banner" style="margin-top:10px; background:rgba(229, 57, 53, 0.1); border:1px solid #e53935; padding:8px; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
-                        <strong style="color:#e53935;">&#9888; <?= t('hr.strike_active') ?></strong>
-                        <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();resolveStrike(<?= $emp['id'] ?>, <?= $safeName ?>)"><?= t('hr.btn_resolve_strike') ?></button>
-                    </div>
-                    <?php endif ?>
+
                 </div>
                 <?php endif ?>
 
@@ -522,6 +590,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 <script>
 const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
 const HR_API = '/src/HRApi.php';
+window.HR_LOCALE = <?= json_encode($locale) ?>;
 window.HR_LANG = <?= json_encode([
     'contract_1y' => t('hr_js.contract_1y'),
     'contract_6m' => t('hr_js.contract_6m'),
@@ -555,9 +624,11 @@ window.HR_LANG = <?= json_encode([
     'confirm_bonus' => t('hr_js.confirm_bonus'),
     'confirm_bonus_btn' => t('hr_js.confirm_bonus_btn'),
     'toast_bonus_granted' => t('hr_js.toast_bonus_granted'),
-    'confirm_resolve_strike' => t('hr_js.confirm_resolve_strike'),
-    'confirm_resolve_btn' => t('hr_js.confirm_resolve_btn'),
-    'toast_strike_resolved' => t('hr_js.toast_strike_resolved'),
+    'strike_negotiation_title' => t('hr_js.strike_negotiation_title'),
+    'strike_offer_invalid' => t('hr_js.strike_offer_invalid'),
+    'confirm_strike_offer' => t('hr_js.confirm_strike_offer'),
+    'confirm_strike_offer_btn' => t('hr_js.confirm_strike_offer_btn'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="/assets/js/hr.js"></script>
+<script src="/assets/js/hr_strikes.js"></script>

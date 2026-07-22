@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-22 - HR: panel negocjacji strajkowych gracza
+
+- Strona HR pokazuje otwarte konflikty działowe, uczestników, poparcie, średnie morale, aktualną rundę oraz termin odpowiedzi.
+- Dodano akcje API otwarcia negocjacji i złożenia oferty z CSRF, tokenem idempotencji, izolacją `player_id` i tekstami PL/EN.
+- Wybrany dialog rundy jest renderowany graczowi, natomiast formuła wyniku i zapisany rzut pozostają wyłącznie po stronie serwera.
+- Po nieudanych albo wygasłych negocjacjach rozmowy mogą zostać ponownie otwarte od pierwszej rundy po zakończeniu cooldownu.
+- Usunięto legacy akcję zakończenia strajku za stałą kwotę. Premia techniczna korzysta z nowego `EmployeeBonusService`, `FinancialTransactionService` i kanonicznego `employee_state`.
+- Weryfikacja: targeted 10/10, Unit+Integration 588/588, MySqlIntegration 232/232, targeted PHPStan, lint PHP/JS, encoding i diff check.
 ### 2026-07-22 - HR: izolacja negocjacji i kanoniczne testy morale
 
 - Skutecznosc zespolu HR w negocjacjach jest liczona wylacznie z aktywnych pracownikow HR nalezacych do gracza prowadzacego rozmowy; personel konkurencji nie wplywa na wynik.

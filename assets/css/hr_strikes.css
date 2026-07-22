@@ -1,0 +1,186 @@
+/* Employee dispute dashboard. / Panel konfliktow pracowniczych. */
+.hr-strike-center {
+  margin: 0 auto 22px;
+  max-width: 1500px;
+  padding: 20px clamp(12px, 2vw, 28px) 0;
+}
+
+.hr-strike-center__header {
+  margin-bottom: 14px;
+}
+
+.hr-strike-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+}
+
+.hr-strike-card {
+  background: var(--bg-card, #17191e);
+  background: color-mix(in srgb, var(--bg-card, #17191e) 92%, #a62f35 8%);
+  border: 1px solid rgba(213, 79, 85, 0.42);
+  border-radius: 6px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.hr-strike-card__header,
+.hr-strike-round {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.hr-strike-card__header h3 {
+  font-size: 18px;
+  margin: 3px 0 0;
+}
+
+.hr-strike-card__eyebrow,
+.hr-strike-stats span,
+.hr-strike-round span {
+  color: var(--text-muted, #a8abb3);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.hr-strike-status {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 5px 9px;
+}
+
+.hr-strike-status--threat {
+  color: #d9a928;
+}
+
+.hr-strike-status--active,
+.hr-strike-status--negotiating {
+  color: #e45a61;
+}
+
+.hr-strike-stats {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0;
+}
+
+.hr-strike-stats div {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.hr-strike-stats span,
+.hr-strike-stats strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.hr-strike-stats strong {
+  font-size: 17px;
+  margin-top: 5px;
+}
+
+.hr-strike-card__notice,
+.hr-strike-offer-form__hint {
+  color: var(--text-muted, #a8abb3);
+  line-height: 1.5;
+}
+
+.hr-strike-offer-form {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.hr-strike-round {
+  margin-bottom: 14px;
+}
+
+.hr-strike-offer-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hr-strike-offer-grid label span {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.hr-strike-offer-grid input {
+  background: var(--bg-input, #101217);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  color: inherit;
+  min-height: 42px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.hr-strike-dialogue {
+  background: rgba(210, 169, 66, 0.08);
+  border-left: 3px solid #d2a942;
+  line-height: 1.55;
+  margin: 14px 0 0;
+  padding: 11px 13px;
+}
+
+.emp-morale-section {
+  margin-bottom: 15px;
+}
+
+.morale-bar-container {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.morale-val {
+  font-weight: 700;
+  min-width: 40px;
+}
+
+.morale-bar {
+  background: var(--bg-lighter);
+  border-radius: 4px;
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+}
+
+.morale-fill {
+  background-color: var(--morale-color);
+  height: 100%;
+  transition: width 0.3s;
+  width: var(--bar-w);
+}
+
+@media (max-width: 600px) {
+  .hr-strike-center {
+    padding-top: 12px;
+  }
+
+  .hr-strike-card__header,
+  .hr-strike-round {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hr-strike-status {
+    align-self: flex-start;
+  }
+
+  .hr-strike-stats,
+  .hr-strike-offer-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -2642,47 +2642,44 @@ Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i d
 
 ---
 
-## 33. Aktualny stan wdrożenia po Etapach 6-8, obsadzie logistyki i poprawkach — 2026-07-22
+## 33. Aktualny stan wdrożenia po Etapach 6-8, obsadzie logistyki i poprawkach - 2026-07-22
 
-**Status: [~] Częściowo wdrożone. Kanoniczne morale, modularny tick, tabele konfliktów, backend eskalacji, dialogów i negocjacji są wdrożone testami targeted. UI admina/gracza, pełne efekty działowe i pełne MySqlIntegration/PHPStan dla całości pozostają do wykonania.**
+**Status: [~] Częściowo wdrożone. Kanoniczne morale, modularny tick, konflikty, backend negocjacji oraz podstawowy panel negocjacji gracza są wdrożone i sprawdzone pełnymi suite. Panel administracyjny HR i pełne efekty strajków w konsumentach działowych pozostają do wykonania.**
 
 ### 33.1 Wdrożone funkcjonalności i moduły
-**Korekta statusu 2026-07-22 po review i backendzie negocjacji:**
 
-- Aktualny system morale działa przez `employee_state`, `EmployeeSystemConfigService`, `MoraleServiceV2` i `EmployeeMoraleSection`; `MoraleBootstrap` nie jest już startowany z `src/init.php`.
-- Dodano tabele nowego systemu, migrator legacy, idempotencję cyklu, clamp oczekiwanej pensji `40% salary_min` - `90% salary_max` oraz testy targeted.
-- Dodano `EmployeeStrikeService`, `EmployeeDialogueTemplateService`, `EmployeeNegotiationService` i `StrikeEffectService`; backend obsługuje eskalacje, 80+ dwujęzycznych tekstów, token idempotencji oferty, zapis losowania/formuły i atomowe ugody przez `FinancialTransactionService`.
-- Stary publiczny `HRApi.php` nadal zawiera legacy akcje premii/rozwiązania strajku i wymaga osobnego przepięcia na nowe akcje/UI.
-- Nie wdrożono jeszcze zakładek admin HR, formularzy PRG, panelu tekstów dialogów, UI gracza do negocjacji ani pełnego podpięcia `StrikeEffectService` do logistyki/techniki/HR/prawnego.
+**Aktualizacja statusu 2026-07-22 po podpięciu negocjacji gracza:**
 
-1. **Morale i Relacje Pracownicze (Etap 6):**
-   - Utworzono `MoraleService` (`src/HR/MoraleService.php`) oraz `MoraleBootstrap` (`src/HR/MoraleBootstrap.php`).
-   - Zintegrowano przeliczanie morale z modularnym silnikiem ticka (`MoraleSection` w `src/Tick/MoraleSection.php`).
-   - Przeliczane są wskaźniki morale, oczekiwania płacowe (`expected_salary`), zadowolenie z pensji (`salary_satisfaction`), obciążenie pracą (`workload`) oraz ryzyko odejścia (`leave_risk`).
+- System morale działa przez `employee_state`, `EmployeeSystemConfigService`, `MoraleServiceV2` i `EmployeeMoraleSection`; legacy `MoraleBootstrap` nie jest uruchamiany globalnie z `src/init.php`.
+- Tabele nowego systemu, migrator legacy, idempotencja cyklu oraz zakres oczekiwanej pensji `40% salary_min - 90% salary_max` są wdrożone.
+- `EmployeeStrikeService`, `EmployeeDialogueTemplateService`, `EmployeeNegotiationService` i `StrikeEffectService` obsługują eskalację, ponad 80 dwujęzycznych tekstów, token idempotencji oferty, utrwalony wynik losowania i atomową ugodę przez `FinancialTransactionService`.
+- `public/hr.php` pokazuje konflikty działowe, poparcie, morale i uczestników. Gracz może rozpocząć negocjacje i składać oferty podwyżki oraz premii w rundach ograniczonych konfiguracją admina.
+- Odpowiedź rundy pokazuje wybrany tekst dialogowy PL/EN. Formuła i wynik losowania pozostają danymi wewnętrznymi i nie są ujawniane przez API.
+- Usunięto publiczną legacy akcję natychmiastowego zakończenia strajku za stałą kwotę. Premie techniczne używają `EmployeeBonusService`, `FinancialTransactionService` i kanonicznego morale z filtrem `player_id`.
+- Nie wdrożono jeszcze kompletu zakładek admin HR, panelu edycji dialogów ani pełnego podpięcia `StrikeEffectService` do logistyki, techniki, HR i działu prawnego.
 
-2. **Podwyżki i Żądania Płacowe (Etap 7):**
-   - Obsługa statusu relacji `raise_requested`.
-   - Backend finansowy ma typy FTS `hr_bonus` i `hr_strike_settlement`; publiczne akcje HRApi wymagają jeszcze przepięcia z legacy `Player::updateCash`.
+1. **Morale i relacje pracownicze (Etap 6):**
+   - `EmployeesModule` i `EmployeeMoraleSection` przeliczają morale, oczekiwaną pensję, zadowolenie płacowe, workload, leave risk i strike support w modularnym ticku.
+   - Cykl jest wznawialny i idempotentny, a błąd pojedynczego pracownika nie zatrzymuje całej partii.
 
-3. **Konflikty i Strajki Działowe (Etap 8):**
-   - Utworzono `StrikeService` (`src/HR/StrikeService.php`) do obsługi statusów `strike_threat` oraz `on_strike`.
-   - Wdrożono mechanizm wyliczania `strike_support` oraz paraliżu wpływu działu i obsady logistyki (`Wpływ wstrzymany`).
-   - Zabezpieczono zapytania przed wyścigami stanów (ToCToU) za pomocą atomowych instrukcji `INSERT ... SELECT`.
+2. **Podwyżki i żądania płacowe (Etap 7):**
+   - Relacje obsługują `unhappy`, `raise_requested`, `dispute`, `strike_threat` i `on_strike`.
+   - Premie i ugody są księgowane typami `hr_bonus` oraz `hr_strike_settlement` przez centralny serwis finansowy.
 
-4. **Ujednolicenie zatrudniania i obsady (Huby i Rurociągi):**
-   - Skorygowano klasyfikację specjalizacji `hub_operator` w `EmployeeSystemBootstrap.php`, `HR/HiringTrait.php` oraz `TTS/RecruitmentTrait.php`. Operatorzy hubów są poprawnie zatrudniani jako personel techniczny (`technical_staff`), nie blokując i nie tworząc błędnych wpisów w dyrekcji.
-   - Wdrożono pełną obsługę obsady dla hubów (`LogisticsStaffingService`, `HubStaffingManagementService`) oraz dla konkretnych rurociągów inbound/outbound (`PipelineStaffingService`, `PipelineStaffingManagementService`).
-   - Przypisania są rygorystycznie izolowane i filtrowane po `player_id` oraz `tenant_player_id`.
+3. **Konflikty i strajki działowe (Etap 8):**
+   - Konflikty są grupowane według gracza i działu; jeden dział nie może mieć dwóch otwartych strajków.
+   - Groźba zachowuje liczbę kwalifikujących sporów po zmianie relacji na `strike_threat`, dzięki czemu może poprawnie eskalować po wymaganych cyklach.
+   - Negocjacje mają rundy, deadline, cooldown, kontrofertę i bezpieczne ponowne otwarcie po statusie `failed` lub `expired`.
 
-5. **Interaktywne Tryby Pracy Hubów (Eco / Standard / Turbo):**
-   - Wdrożono interaktywny przełącznik trybów pracy na kartach hubów w widoku logistyki (`owned_hubs_section.php`).
-   - Podpięto przyciski pod akcję AJAX w `HubApi.php` (`set_mode`), z pełną obsługą uprawnień dla właściciela oraz najemcy.
-   - Poprawiono zamykanie kontenerów meta w HTML widoku kart.
+4. **Obsada hubów i rurociągów:**
+   - Huby i konkretne odcinki rurociągów inbound/outbound korzystają z lokalnych przypisań pracowników, alokacji, skilli i morale.
+   - Odczyty oraz finalne zapisy zachowują izolację `player_id`; wynajmowane huby uwzględniają `tenant_player_id`.
 
-### 33.2 Pełna weryfikacja automatyczna i statyczna
+### 33.2 Weryfikacja automatyczna i statyczna
 
-- **Targeted Tests:** `HubStaffingManagementServiceTest`, `EmployeeAssignmentServiceTest`, `HubIncidentServiceTest`, `MySqlEmployeeAssignmentServiceTest`, `MySqlHubIncidentServiceTest` — 100% OK.
-- **Unit + Integration Testsuite:** 571 / 571 testów zaliczonych (100% OK).
-- **PHPStan Analysis:** Przeanalizowano 248 plików, wyeliminowano błędy wywołań w sekcjach ticka.
-- **Check Encoding:** Passed na wszystkich 1988 plikach.
-- **Git diff check:** Błędy białych znaków wyeliminowane.
+- Targeted `EmployeeNegotiationServiceTest`: 10/10 testów, 340 asercji.
+- Targeted MySQL morale, premii i eskalacji: 5/5 testów, 32 asercje.
+- `Unit + Integration`: 588/588 testów, 6842 asercje.
+- `MySqlIntegration`: 232/232 testy, 2564 asercje.
+- Targeted PHPStan dla zmienionych serwisów i kontrolerów: bez błędów.
+- Lint PHP/JS, `tools/check_encoding.php` i `git diff --check`: wymagane przed commitem.

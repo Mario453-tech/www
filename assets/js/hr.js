@@ -39,16 +39,16 @@ async function hrApi(action, data = {}) {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
     });
 
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
         throw new Error('Response is not JSON');
     }
 
-    return response.json();
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
+    }
+    return payload;
 }
 
 function removeCandidateCard(candidateId) {
@@ -355,26 +355,6 @@ function grantBonus(staffId, name) {
             }
         },
         { type: 'confirm', confirmLabel: hrl('confirm_bonus_btn') || 'OK' }
-    );
-}
-
-function resolveStrike(staffId, name) {
-    confirmAction(
-        hrl('confirm_resolve_strike', { name }),
-        async function () {
-            try {
-                const result = await hrApi('resolve_strike', { staff_id: staffId });
-                if (result.success) {
-                    showToast(hrl('toast_strike_resolved'), result.message);
-                    setTimeout(() => location.reload(), 1200);
-                } else {
-                    showToast(hrl('toast_err'), result.message || result.error, 'error');
-                }
-            } catch (error) {
-                showToast(hrl('toast_err'), error.message, 'error');
-            }
-        },
-        { type: 'confirm', confirmLabel: hrl('confirm_resolve_btn') || 'OK' }
     );
 }
 

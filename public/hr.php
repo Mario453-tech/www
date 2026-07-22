@@ -31,6 +31,28 @@ try {
 }
 
 try {
+    require_once __DIR__ . '/../src/HR/EmployeeStrikeService.php';
+    require_once __DIR__ . '/../src/Employee/EmployeeSystemConfigService.php';
+    $employeeStrikeService = new EmployeeStrikeService($db);
+    $employeeConfig = new EmployeeSystemConfigService($db);
+    $activeStrikes = $employeeStrikeService->activeForPlayer($playerId);
+    $strikeNegotiationLimits = [
+        'raise_min' => $employeeConfig->getFloat('negotiation_raise_min'),
+        'raise_max' => $employeeConfig->getFloat('negotiation_raise_max'),
+        'bonus_max' => $employeeConfig->getFloat('negotiation_bonus_max'),
+        'enabled' => $employeeConfig->getBool('feature_negotiations'),
+    ];
+} catch (Throwable $e) {
+    GameLog::error('hr.php', 'Failed to load employee strike dashboard', $e, ['player_id' => $playerId]);
+    $activeStrikes = [];
+    $strikeNegotiationLimits = [
+        'raise_min' => 0.0,
+        'raise_max' => 30.0,
+        'bonus_max' => 100000.0,
+        'enabled' => false,
+    ];
+}
+try {
     GameLog::step('hr.php', 'init', 1, 'HRService OK');
     GameLog::step('hr.php', 'init', 2, 'checkExpiringContracts');
     $hr->checkExpiringContracts($playerId);
@@ -160,6 +182,8 @@ $viewData = [
     'hhRecentSearches' => $hhRecentSearches,
     'expiring' => $expiring,
     'csrfToken' => $csrfToken,
+    'activeStrikes' => $activeStrikes,
+    'strikeNegotiationLimits' => $strikeNegotiationLimits,
 ];
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
@@ -168,6 +192,7 @@ $extraCss = [
     'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;600&display=swap',
     '/assets/css/recruitment.css',
     '/assets/css/hr.css',
+    '/assets/css/hr_strikes.css',
 ];
 $gameShellTitle = t('hr.page_title');
 $gameShellView = __DIR__ . '/../templates/views/hr/main.php';

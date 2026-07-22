@@ -6,6 +6,7 @@ require_once dirname(__DIR__, 2) . '/src/EmployeeSystemBootstrap.php';
 require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeSystemConfigService.php';
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeDialogueTemplateService.php';
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeNegotiationService.php';
+require_once dirname(__DIR__, 2) . '/src/HR/EmployeeBonusService.php';
 
 final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
 {
@@ -91,6 +92,11 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $second = $service->submitOffer(1, 1, 30.0, 10000.0, 'same-offer-token', new DateTimeImmutable('2026-07-22 10:01:00'));
 
         $this->assertSame('accepted', $first['result']);
+        $this->assertSame(1, $first['formula']['participant_count']);
+        $this->assertNotSame('', $first['dialogue']['pl']);
+        $this->assertNotSame('', $first['dialogue']['en']);
+        $this->assertStringNotContainsString('{', $first['dialogue']['pl']);
+        $this->assertStringNotContainsString('{', $first['dialogue']['en']);
         $this->assertTrue($second['idempotent']);
         $this->assertSame($first['round_id'], $second['round_id']);
         $this->assertSame(19500.0, $this->salaryOfTechnicalStaff(1));
@@ -128,6 +134,83 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(10.0, (float)$round['formula']['hr_effectiveness']);
     }
 
+    public function testActiveStrikeDashboardIsGroupedAndPlayerScoped(): void
+    {
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedPlayer(2, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status) VALUES (2, 2, 18000, 'busy')");
+        $this->db->exec("INSERT INTO employee_state
+            (player_id, source_type, source_id, department_code, morale, salary_satisfaction, strike_support, workload, relation_status)
+            VALUES (2, 'technical_staff', 2, 'technical', 10, 40, 95, 100, 'on_strike')");
+        $this->db->exec("INSERT INTO employee_strikes
+            (id, player_id, department_code, status, open_key, support_pct, threat_cycles, started_at)
+            VALUES (2, 2, 'technical', 'active', '2:technical', 95, 2, '2026-07-22 09:00:00')");
+        $this->db->exec("INSERT INTO employee_strike_members
+            (strike_id, player_id, source_type, source_id, support_pct)
+            VALUES (2, 2, 'technical_staff', 2, 95)");
+
+        $rows = (new EmployeeStrikeService($this->db))->activeForPlayer(1);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame(1, (int)$rows[0]['id']);
+        $this->assertSame(1, (int)$rows[0]['member_count']);
+        $this->assertSame(30.0, (float)$rows[0]['avg_morale']);
+    }
+
+    public function testFailedNegotiationCanReopenAfterCooldown(): void
+    {
+        $this->config->save(['feature_negotiations' => true, 'negotiation_rounds' => 4]);
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $this->db->exec("INSERT INTO employee_strike_negotiations
+            (id, strike_id, player_id, status, current_round, max_rounds, round_deadline_at)
+            VALUES (1, 1, 1, 'failed', 3, 3, '2026-07-21 10:00:00')");
+
+        $result = (new EmployeeNegotiationService($this->db))->openForStrike(
+            1,
+            1,
+            new DateTimeImmutable('2026-07-22 10:00:00')
+        );
+
+        $this->assertSame('open', $result['status']);
+        $this->assertSame(1, $result['current_round']);
+        $this->assertSame(4, $result['max_rounds']);
+        $this->assertSame('negotiating', $this->strikeStatus(1));
+    }
+    public function testTechnicalBonusUsesFinancialServiceAndCanonicalMoraleAtomically(): void
+    {
+        $this->seedPlayer(1, 20000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status) VALUES (1, 1, 15000, 'active')");
+        $service = new EmployeeBonusService($this->db);
+        $this->db->exec("INSERT INTO employee_state
+            (player_id, source_type, source_id, department_code, morale, salary_satisfaction, strike_support, workload, relation_status)
+            VALUES (1, 'technical_staff', 1, 'technical', 50, 90, 20, 20, 'normal')");
+
+        $result = $service->grantTechnicalBonus(1, 1);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(65.0, $result['new_morale']);
+        $this->assertSame(5000.0, $this->cashOfPlayer(1));
+        $this->assertSame(1, $this->countRows('bank_transactions'));
+        $this->assertSame(65.0, $this->moraleOfTechnicalStaff(1));
+    }
+
+    public function testTechnicalBonusCannotTargetAnotherPlayersEmployee(): void
+    {
+        $this->seedPlayer(1, 20000.0, 0.0);
+        $this->seedPlayer(2, 20000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status) VALUES (1, 1, 15000, 'active')");
+        $service = new EmployeeBonusService($this->db);
+
+        try {
+            $service->grantTechnicalBonus(2, 1);
+            $this->fail('A player must not grant a bonus to another player employee.');
+        } catch (RuntimeException) {
+            $this->assertSame(20000.0, $this->cashOfPlayer(1));
+            $this->assertSame(20000.0, $this->cashOfPlayer(2));
+        }
+    }
     private function createSourceSchema(): void
     {
         $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL NOT NULL DEFAULT 0, bank_balance REAL NOT NULL DEFAULT 0)');
@@ -137,9 +220,17 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
             skill_negotiation INTEGER NOT NULL DEFAULT 5, skill_organization INTEGER NOT NULL DEFAULT 5,
             salary REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT \'active\'
         )');
+        $this->db->exec('CREATE TABLE hr_specializations (
+            id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE,
+            base_salary_min REAL NULL, base_salary_max REAL NULL
+        )');
         $this->db->exec('CREATE TABLE technical_staff (
-            id INTEGER PRIMARY KEY, player_id INTEGER NOT NULL, salary REAL NOT NULL,
-            status TEXT NOT NULL DEFAULT \'active\'
+            id INTEGER PRIMARY KEY, player_id INTEGER NOT NULL, manager_id INTEGER NULL,
+            first_name TEXT NOT NULL DEFAULT \'Test\', last_name TEXT NOT NULL DEFAULT \'Employee\',
+            spec_code TEXT NULL, specialization TEXT NULL, spec_name TEXT NULL,
+            experience_years INTEGER NOT NULL DEFAULT 0, skill_level INTEGER NOT NULL DEFAULT 5,
+            salary REAL NOT NULL, status TEXT NOT NULL DEFAULT \'active\',
+            hired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )');
     }
 
@@ -189,6 +280,14 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         return (string)$stmt->fetchColumn();
     }
 
+    private function moraleOfTechnicalStaff(int $sourceId): float
+    {
+        $stmt = $this->db->prepare(
+            "SELECT morale FROM employee_state WHERE source_type='technical_staff' AND source_id=?"
+        );
+        $stmt->execute([$sourceId]);
+        return (float)$stmt->fetchColumn();
+    }
     private function relationStatus(int $sourceId): string
     {
         $stmt = $this->db->prepare("SELECT relation_status FROM employee_state WHERE source_type='technical_staff' AND source_id=?");

@@ -39,9 +39,30 @@ final class EmployeeStrikeService
     public function activeForPlayer(int $playerId): array
     {
         $stmt = $this->db->prepare(
-            "SELECT * FROM employee_strikes
-              WHERE player_id=? AND open_key IS NOT NULL
-              ORDER BY created_at DESC"
+            "SELECT s.*,
+                    COALESCE(m.member_count, 0) AS member_count,
+                    COALESCE(m.avg_morale, 0) AS avg_morale,
+                    COALESCE(m.avg_satisfaction, 0) AS avg_satisfaction,
+                    n.id AS negotiation_id,
+                    n.status AS negotiation_status,
+                    n.current_round,
+                    n.max_rounds,
+                    n.round_deadline_at
+               FROM employee_strikes s
+               LEFT JOIN (
+                    SELECT sm.player_id, sm.strike_id, COUNT(*) AS member_count,
+                           AVG(es.morale) AS avg_morale,
+                           AVG(es.salary_satisfaction) AS avg_satisfaction
+                      FROM employee_strike_members sm
+                      JOIN employee_state es ON es.player_id=sm.player_id
+                       AND es.source_type=sm.source_type AND es.source_id=sm.source_id
+                     WHERE sm.left_at IS NULL
+                     GROUP BY sm.player_id, sm.strike_id
+               ) m ON m.player_id=s.player_id AND m.strike_id=s.id
+               LEFT JOIN employee_strike_negotiations n
+                 ON n.player_id=s.player_id AND n.strike_id=s.id
+              WHERE s.player_id=? AND s.open_key IS NOT NULL
+              ORDER BY s.created_at DESC"
         );
         $stmt->execute([$playerId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

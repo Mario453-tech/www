@@ -8,7 +8,6 @@
  */
 ob_start(); // Buffer output to prevent accidental bytes before JSON. / PL: Buforuj output, aby uniknac bajtow przed JSON.
 require_once __DIR__ . '/init.php';
-require_once __DIR__ . '/HR/StrikeService.php';
 
 // Clear any buffered output before sending JSON headers.
 // PL: Wyczysc bufor przed wyslaniem naglowkow JSON.
@@ -259,53 +258,81 @@ try {
             echo json_encode($hh->startSearch($specId));
             break;
 
-        case 'grant_bonus':
-            $staffId = (int)($_POST['staff_id'] ?? 0);
-            if (!$staffId) {
-                throw new InvalidArgumentException(t('hr_api.err_missing_staff_id'));
+        case 'open_strike_negotiation':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                respondJson(['success' => false, 'error' => t('hr_api.err_post_required')], 405);
             }
-            
-            $stmt = $db->prepare("SELECT player_id FROM technical_staff WHERE id = ?");
-            $stmt->execute([$staffId]);
-            if ((int)$stmt->fetchColumn() !== $playerId) {
-                throw new InvalidArgumentException(t('common.unauthorized'));
+            $strikeId = (int)($_POST['strike_id'] ?? 0);
+            if ($strikeId <= 0) {
+                throw new InvalidArgumentException(t('hr_api.err_missing_strike_id'));
+            }
+            require_once __DIR__ . '/HR/EmployeeNegotiationService.php';
+            try {
+                $result = (new EmployeeNegotiationService($db))->openForStrike($playerId, $strikeId);
+                $result['message'] = t('hr.msg_strike_negotiation_opened');
+                respondJson($result);
+            } catch (Throwable $e) {
+                GameLog::warn('HRApi', 'Strike negotiation could not be opened', [
+                    'player_id' => $playerId,
+                    'strike_id' => $strikeId,
+                    'exception_class' => get_class($e),
+                    'error' => $e->getMessage(),
+                ]);
+                respondJson(['success' => false, 'error' => t('hr.err_strike_negotiation_unavailable')], 422);
             }
 
-            $player = new Player($playerId);
-            if (!$player->updateCash(-15000.0, 'staff_bonus', 'Staff Bonus')) {
+        case 'submit_strike_offer':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                respondJson(['success' => false, 'error' => t('hr_api.err_post_required')], 405);
+            }
+            $strikeId = (int)($_POST['strike_id'] ?? 0);
+            $raiseRaw = $_POST['raise_pct'] ?? null;
+            $bonusRaw = $_POST['bonus_per_member'] ?? null;
+            $token = trim((string)($_POST['idempotency_token'] ?? ''));
+            if ($strikeId <= 0) {
+                throw new InvalidArgumentException(t('hr_api.err_missing_strike_id'));
+            }
+            if ($token === '') {
+                throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
+            }
+            if (!is_numeric($raiseRaw) || !is_numeric($bonusRaw)) {
+                throw new InvalidArgumentException(t('hr_api.err_invalid_strike_offer'));
+            }
+            require_once __DIR__ . '/HR/EmployeeNegotiationService.php';
+            try {
+                $result = (new EmployeeNegotiationService($db))->submitOffer(
+                    $playerId,
+                    $strikeId,
+                    (float)$raiseRaw,
+                    (float)$bonusRaw,
+                    $token
+                );
+                $result['message'] = t('hr.strike_offer_result.' . (string)$result['result']);
+                unset($result['formula']);
+                respondJson($result);
+            } catch (Throwable $e) {
+                GameLog::warn('HRApi', 'Strike negotiation offer failed', [
+                    'player_id' => $playerId,
+                    'strike_id' => $strikeId,
+                    'exception_class' => get_class($e),
+                    'error' => $e->getMessage(),
+                ]);
+                respondJson(['success' => false, 'error' => t('hr.err_strike_offer_rejected')], 422);
+            }
+        case 'grant_bonus':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                respondJson(['success' => false, 'error' => t('hr_api.err_post_required')], 405);
+            }
+            $staffId = (int)($_POST['staff_id'] ?? 0);
+            if ($staffId <= 0) {
+                throw new InvalidArgumentException(t('hr_api.err_missing_staff_id'));
+            }
+            require_once __DIR__ . '/HR/EmployeeBonusService.php';
+            $bonus = (new EmployeeBonusService($db))->grantTechnicalBonus($playerId, $staffId);
+            if (!$bonus['success']) {
                 respondJson(['success' => false, 'error' => t('hr.err_no_funds_for_bonus')], 422);
             }
-            
-            MoraleService::modifyMorale($staffId, 15, 'bonus.granted');
-            echo json_encode(['success' => true, 'message' => t('hr.msg_bonus_granted')]);
-            break;
-
-        case 'resolve_strike':
-            $staffId = (int)($_POST['staff_id'] ?? 0);
-            if (!$staffId) {
-                throw new InvalidArgumentException(t('hr_api.err_missing_staff_id'));
-            }
-            
-            $stmt = $db->prepare("SELECT player_id FROM technical_staff WHERE id = ?");
-            $stmt->execute([$staffId]);
-            if ((int)$stmt->fetchColumn() !== $playerId) {
-                throw new InvalidArgumentException(t('common.unauthorized'));
-            }
-
-            if (!StrikeService::isStriking($staffId)) {
-                 respondJson(['success' => false, 'error' => t('hr.err_not_striking')], 422);
-            }
-
-            $player = new Player($playerId);
-            if (!$player->updateCash(-50000.0, 'strike_resolution', 'Strike Resolution')) {
-                respondJson(['success' => false, 'error' => t('hr.err_no_funds_strike')], 422);
-            }
-            
-            StrikeService::resolveStrike($staffId);
-            MoraleService::modifyMorale($staffId, 10, 'strike.resolved');
-            echo json_encode(['success' => true, 'message' => t('hr.msg_strike_resolved')]);
-            break;
-
+            respondJson(['success' => true, 'message' => t('hr.msg_bonus_granted')]);
         case 'get_headhunter_status':
             $hh = new HeadhunterService($playerId);
             $hh->processReady();

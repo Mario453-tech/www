@@ -41,21 +41,7 @@ final class EmployeeNegotiationService
                 && strtotime((string)$strike['negotiation_cooldown_until']) > $now->getTimestamp()) {
                 throw new RuntimeException('Strike negotiation is on cooldown.');
             }
-            $maxRounds = max(1, min(5, $this->config->getInt('negotiation_rounds')));
-            $deadline = $now->getTimestamp() + $this->config->getInt('negotiation_round_hours') * 3600;
-            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-            $sql = $driver === 'sqlite'
-                ? "INSERT INTO employee_strike_negotiations
-                    (strike_id, player_id, status, current_round, max_rounds, round_deadline_at)
-                   VALUES (?, ?, 'open', 1, ?, ?) ON CONFLICT(strike_id) DO NOTHING"
-                : "INSERT IGNORE INTO employee_strike_negotiations
-                    (strike_id, player_id, status, current_round, max_rounds, round_deadline_at)
-                   VALUES (?, ?, 'open', 1, ?, ?)";
-            $this->db->prepare($sql)->execute([$strikeId, $playerId, $maxRounds, date('Y-m-d H:i:s', $deadline)]);
-            $this->db->prepare(
-                "UPDATE employee_strikes SET status='negotiating', updated_at=CURRENT_TIMESTAMP
-                  WHERE id=? AND player_id=? AND status='active' AND open_key IS NOT NULL"
-            )->execute([$strikeId, $playerId]);
+            $this->openNegotiationInsideTransaction($playerId, $strikeId, $now);
             $negotiation = $this->loadNegotiation($playerId, $strikeId, true);
             if ($ownTransaction) {
                 $this->db->commit();
@@ -240,6 +226,11 @@ final class EmployeeNegotiationService
                VALUES (?, ?, 'open', 1, ?, ?)";
         $this->db->prepare($sql)->execute([$strikeId, $playerId, $maxRounds, $deadline]);
         $this->db->prepare(
+            "UPDATE employee_strike_negotiations
+                SET status='open', current_round=1, max_rounds=?, round_deadline_at=?, updated_at=CURRENT_TIMESTAMP
+              WHERE strike_id=? AND player_id=? AND status IN ('failed','expired')"
+        )->execute([$maxRounds, $deadline, $strikeId, $playerId]);
+        $this->db->prepare(
             "UPDATE employee_strikes SET status='negotiating', updated_at=CURRENT_TIMESTAMP
               WHERE id=? AND player_id=? AND status='active' AND open_key IS NOT NULL"
         )->execute([$strikeId, $playerId]);
@@ -290,6 +281,7 @@ final class EmployeeNegotiationService
             + $hrEffectiveness * $this->config->getFloat('negotiation_hr_weight')
             + $roundPressure;
         return [
+            'participant_count' => (int)$metrics['participant_count'],
             'offer_quality' => round($offerQuality, 4),
             'avg_support' => round((float)$metrics['avg_support'], 4),
             'avg_morale' => round((float)$metrics['avg_morale'], 4),
@@ -394,8 +386,14 @@ final class EmployeeNegotiationService
     private function roundByToken(int $playerId, int $strikeId, string $token): ?array
     {
         $stmt = $this->db->prepare(
-            'SELECT * FROM employee_strike_negotiation_rounds
-              WHERE player_id=? AND strike_id=? AND idempotency_token=? LIMIT 1'
+            'SELECT r.*, n.max_rounds, n.round_deadline_at, s.department_code,
+                    d.text_pl AS dialogue_text_pl, d.text_en AS dialogue_text_en
+               FROM employee_strike_negotiation_rounds r
+               JOIN employee_strike_negotiations n
+                 ON n.id=r.negotiation_id AND n.player_id=r.player_id AND n.strike_id=r.strike_id
+               JOIN employee_strikes s ON s.id=r.strike_id AND s.player_id=r.player_id
+               LEFT JOIN employee_dialogue_templates d ON d.id=r.dialogue_template_id
+              WHERE r.player_id=? AND r.strike_id=? AND r.idempotency_token=? LIMIT 1'
         );
         $stmt->execute([$playerId, $strikeId, $token]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -417,6 +415,20 @@ final class EmployeeNegotiationService
      */
     private function formatRound(array $row): array
     {
+        $formula = json_decode((string)$row['formula_json'], true) ?: [];
+        $values = [
+            'department' => (string)($row['department_code'] ?? ''),
+            'round' => (int)$row['round_no'],
+            'max_rounds' => (int)($row['max_rounds'] ?? $row['round_no']),
+            'morale' => round((float)($formula['avg_morale'] ?? 0), 1),
+            'support_pct' => round((float)($formula['avg_support'] ?? 0), 1),
+            'raise_pct' => (float)$row['raise_pct'],
+            'bonus' => (float)$row['bonus_per_member'],
+            'counter_raise_pct' => $row['counter_raise_pct'] !== null ? (float)$row['counter_raise_pct'] : 0,
+            'counter_bonus' => $row['counter_bonus_per_member'] !== null ? (float)$row['counter_bonus_per_member'] : 0,
+            'deadline' => (string)($row['round_deadline_at'] ?? ''),
+            'participant_count' => (int)($formula['participant_count'] ?? 0),
+        ];
         return [
             'success' => true,
             'round_id' => (int)$row['id'],
@@ -426,9 +438,22 @@ final class EmployeeNegotiationService
             'bonus_per_member' => (float)$row['bonus_per_member'],
             'counter_raise_pct' => $row['counter_raise_pct'] !== null ? (float)$row['counter_raise_pct'] : null,
             'counter_bonus_per_member' => $row['counter_bonus_per_member'] !== null ? (float)$row['counter_bonus_per_member'] : null,
-            'formula' => json_decode((string)$row['formula_json'], true) ?: [],
+            'formula' => $formula,
             'dialogue_template_id' => $row['dialogue_template_id'] !== null ? (int)$row['dialogue_template_id'] : null,
+            'dialogue' => [
+                'pl' => $this->renderRoundDialogue((string)($row['dialogue_text_pl'] ?? ''), $values),
+                'en' => $this->renderRoundDialogue((string)($row['dialogue_text_en'] ?? ''), $values),
+            ],
         ];
+    }
+
+    /** @param array<string,int|float|string> $values */
+    private function renderRoundDialogue(string $text, array $values): string
+    {
+        foreach ($values as $key => $value) {
+            $text = str_replace('{' . $key . '}', (string)$value, $text);
+        }
+        return $text;
     }
 
     /**

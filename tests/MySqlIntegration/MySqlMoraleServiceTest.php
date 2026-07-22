@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../src/init.php';
 require_once __DIR__ . '/../../src/HR/EmployeeStrikeService.php';
+require_once __DIR__ . '/../../src/HR/EmployeeBonusService.php';
 
 class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
 {
@@ -57,6 +58,28 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
         $this->assertEquals(-10, $logs[0]['change_amount']);
     }
 
+    public function testTechnicalBonusUsesFinancialTransactionAndCanonicalMorale(): void
+    {
+        $before = $this->walletTotal();
+
+        $result = (new EmployeeBonusService($this->db))->grantTechnicalBonus(
+            $this->playerId,
+            $this->staffId,
+            100.0,
+            5.0
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(55.0, $this->canonicalMorale());
+        $this->assertSame($before - 100.0, $this->walletTotal());
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM bank_transactions
+              WHERE from_player_id=? AND transaction_type='hr_bonus'
+                AND reference_type='technical_staff' AND reference_id=?"
+        );
+        $stmt->execute([$this->playerId, $this->staffId]);
+        $this->assertSame(1, (int)$stmt->fetchColumn());
+    }
     public function testEmployeeStrikeEscalatesAndResolvesCanonicalConflict(): void
     {
         $config = new EmployeeSystemConfigService($this->db);
@@ -126,6 +149,12 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
         return (string)$stmt->fetchColumn();
     }
 
+    private function walletTotal(): float
+    {
+        $stmt = $this->db->prepare('SELECT cash + bank_balance FROM players WHERE id=?');
+        $stmt->execute([$this->playerId]);
+        return (float)$stmt->fetchColumn();
+    }
     private function canonicalMorale(): float
     {
         $stmt = $this->db->prepare(
