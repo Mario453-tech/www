@@ -149,6 +149,7 @@ final class EmployeeSystemBootstrap
 
     public static function ensure(PDO $db): void
     {
+        require_once __DIR__ . '/Employee/EmployeeSystemSchema.php';
         require_once __DIR__ . '/Employee/EmployeeRepository.php';
         require_once __DIR__ . '/Employee/EmployeeStateService.php';
         require_once __DIR__ . '/Employee/EmployeeRoleEffectService.php';
@@ -168,6 +169,7 @@ final class EmployeeSystemBootstrap
         } else {
             self::createMySqlSchema($db);
         }
+        EmployeeSystemSchema::ensure($db);
 
         self::$initialized[$db] = true;
     }
