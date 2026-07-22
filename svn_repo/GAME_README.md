@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-07-22 - Logistyka: zmiana trybu pracy huba przez gracza
+
+- Przyciski Eco, Standard i Turbo korzystaja z istniejacego pola `logistics_hubs.work_mode` oraz istniejacych mnoznikow ticka i ekonomii.
+- Akcja `set_mode` jest dostepna dla zalogowanego gracza tylko dla huba posiadanego albo wynajmowanego; filtr `player_id` lub `tenant_player_id` pozostaje w finalnym `UPDATE`.
+- Panel admina zachowuje jawne uprawnienie do zmiany trybu dowolnego huba.
+- Dodano regresje dla wlasciciela, najemcy, obcego gracza i wywolania administratora.
+
 ### 2026-07-19 - Uzgodnienie statusu katastrof
 
 - Widok Katastrofy zamyka stare wpisy skazenia zloza, gdy odwiert nie jest juz skazony i nie trwa zadanie rehabilitacji.

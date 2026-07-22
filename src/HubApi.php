@@ -7,8 +7,8 @@
  * Metody: POST (akcje gracza) | GET (dane odczytu)
  * Methods: POST (player actions) | GET (read data)
  *
- * Akcje gracza POST: assign_well, detach_well, transfer_well, upgrade_hub
- * Akcje ADMIN POST: build_hub, repair_hub, upgrade_hub, set_mode, toggle_pause, rename_hub
+ * Akcje gracza POST: assign_well, detach_well, transfer_well, upgrade_hub, set_mode
+ * Akcje ADMIN POST: build_hub, repair_hub, upgrade_hub, toggle_pause, rename_hub
  * Akcje GET: hub_wells, assignable_hubs, unassigned_wells, hub_detail
  *
  * Huby s infrastruktur systemow (player_id = 0).
@@ -84,7 +84,7 @@ if (!$isAdmin && method_exists('Auth', 'hasRole')) {
 $action   = $_REQUEST['action'] ?? '';
 
 // Admin-only actions block for regular players
-$adminOnlyActions = ['build_hub', 'repair_hub', 'set_mode', 'toggle_pause', 'rename_hub'];
+$adminOnlyActions = ['build_hub', 'repair_hub', 'toggle_pause', 'rename_hub'];
 if (in_array($action, $adminOnlyActions, true) && !$isAdmin) {
     hubApiOut(['success' => false, 'error' => t('common.access_denied')], 403);
 }
@@ -159,7 +159,8 @@ try {
                 'cost'      => $result['cost'] ?? 0.0,
             ]);
 
- // POST: change work mode (ADMIN ONLY)
+        // POST: change work mode for an owned or rented hub.
+        // PL: Zmien tryb pracy huba posiadanego lub wynajmowanego przez gracza.
         case 'set_mode':
             $hubId = (int)($_POST['hub_id'] ?? 0);
             $mode  = trim($_POST['mode']    ?? 'standard');
@@ -168,7 +169,11 @@ try {
             }
             $result = $hubSvc->setWorkMode($hubId, $playerId, $mode);
             if (!$result['success']) {
-                hubApiOut(['success' => false, 'error' => t('logistics.hub.err_generic')]);
+                $accessDenied = ($result['error'] ?? '') === 'access_denied';
+                $error = $accessDenied
+                    ? t('logistics.hub.err_hub_not_yours')
+                    : t('logistics.hub.err_generic');
+                hubApiOut(['success' => false, 'error' => $error], $accessDenied ? 403 : 500);
             }
             $modeLabel = t('logistics.hub.mode_' . $mode);
             hubApiOut(['success' => true, 'message' => t('logistics.hub.ok_mode', ['mode' => $modeLabel])]);

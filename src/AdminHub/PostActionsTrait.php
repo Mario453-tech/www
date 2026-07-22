@@ -121,7 +121,7 @@ trait AdminHubPostActionsTrait
             case 'set_mode':
                 $hubId = (int)($_POST['hub_id'] ?? 0);
                 $mode = trim($_POST['mode'] ?? 'standard');
-                $result = $hubSvc->setWorkMode($hubId, $adminId, $mode);
+                $result = $hubSvc->setWorkMode($hubId, $adminId, $mode, true);
                 $msg = $result['success']
                     ? t('admin.logistics.ok_mode', ['id' => $hubId, 'mode' => $mode])
                     : t('admin.logistics.err_generic');

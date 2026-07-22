@@ -1,11 +1,10 @@
 <?php
 
 /**
- * HubAdminActionsTrait - admin-facing hub mutations: build, repair, upgrade, toggle, rename.
+ * HubAdminActionsTrait - hub mutations shared by admin and player endpoints.
  *
- * Hubs are SYSTEM-OWNED infrastructure (player_id = 0).
- * All mutating operations are admin-only; $adminId is used for logging only,
- * NOT as an ownership filter in SQL.
+ * Most operations are admin-only. setWorkMode() is shared with the player endpoint
+ * and keeps owner/tenant filtering in the final player UPDATE.
  *
  * Used by HubService.
  */
@@ -194,10 +193,17 @@ trait HubAdminActionsTrait
     }
 
  /**
- * Sets the work mode (eco|standard|max) for a hub (admin only).
+ * Sets the work mode for a player-owned/rented hub or for an explicit admin action.
+ * PL: Ustawia tryb pracy huba gracza/najemcy albo w jawnej akcji admina.
+ *
  * @return array{success: bool, error?: string}
  */
-    public function setWorkMode(int $hubId, int $adminId, string $workMode): array
+    public function setWorkMode(
+        int $hubId,
+        int $actorId,
+        string $workMode,
+        bool $adminOverride = false
+    ): array
     {
         if (!in_array($workMode, ['eco', 'standard', 'max'], true)) {
             return ['success' => false, 'error' => 'invalid_mode'];
@@ -209,24 +215,46 @@ trait HubAdminActionsTrait
 
         $ownerId = (int)($hub['player_id'] ?? 0);
         $tenantId = (int)($hub['tenant_player_id'] ?? 0);
-        if ($adminId > 0 && $ownerId !== $adminId && $tenantId !== $adminId && !AdminAuth::isAdmin()) {
+        if (!$adminOverride && $ownerId !== $actorId && $tenantId !== $actorId) {
             return ['success' => false, 'error' => 'access_denied'];
+        }
+        if ((string)($hub['work_mode'] ?? 'standard') === $workMode) {
+            return ['success' => true];
         }
 
         try {
-            $this->db->prepare(
-                "UPDATE logistics_hubs SET work_mode = ?, updated_at = NOW() WHERE id = ?"
-            )->execute([$workMode, $hubId]);
+            if ($adminOverride) {
+                $stmt = $this->db->prepare(
+                    "UPDATE logistics_hubs SET work_mode = ?, updated_at = NOW() WHERE id = ?"
+                );
+                $stmt->execute([$workMode, $hubId]);
+            } else {
+                $stmt = $this->db->prepare(
+                    "UPDATE logistics_hubs
+                        SET work_mode = ?, updated_at = NOW()
+                      WHERE id = ?
+                        AND (player_id = ? OR tenant_player_id = ?)"
+                );
+                $stmt->execute([$workMode, $hubId, $actorId, $actorId]);
+            }
+
+            if ($stmt->rowCount() !== 1) {
+                return ['success' => false, 'error' => $adminOverride ? 'not_found' : 'access_denied'];
+            }
 
             GameLog::info('HubService', 'Hub work mode changed', [
                 'hub_id'   => $hubId,
-                'admin_id' => $adminId,
+                'actor_id' => $actorId,
                 'mode'     => $workMode,
+                'admin'   => $adminOverride,
             ]);
 
             return ['success' => true];
         } catch (Throwable $e) {
-            GameLog::error('HubService', 'setWorkMode failed', $e, ['hub_id' => $hubId]);
+            GameLog::error('HubService', 'setWorkMode failed', $e, [
+                'hub_id'   => $hubId,
+                'actor_id' => $actorId,
+            ]);
             return ['success' => false, 'error' => 'db_error'];
         }
     }
