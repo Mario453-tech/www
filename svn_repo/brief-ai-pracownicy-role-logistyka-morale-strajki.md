@@ -2672,10 +2672,6 @@ Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i d
    - Podpięto przyciski pod akcję AJAX w `HubApi.php` (`set_mode`), z pełną obsługą uprawnień dla właściciela oraz najemcy.
    - Poprawiono zamykanie kontenerów meta w HTML widoku kart.
 
-6. **Refaktoryzacja i Optymalizacja CSS:**
-   - Przeorganizowano i uszczuplono `assets/css/admin.css` (redukcja z 5347 do 3386 linii).
-   - Wydzielono modułowe pliki CSS: `admin_staffing.css`, `admin_gm.css`, `logistics_pipeline_staffing.css`.
-
 ### 33.2 Pełna weryfikacja automatyczna i statyczna
 
 - **Targeted Tests:** `HubStaffingManagementServiceTest`, `EmployeeAssignmentServiceTest`, `HubIncidentServiceTest`, `MySqlEmployeeAssignmentServiceTest`, `MySqlHubIncidentServiceTest` — 100% OK.
