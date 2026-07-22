@@ -8,6 +8,7 @@ final class TickModuleCatalog
         'market' => ['interval' => 1, 'limit' => 1, 'critical' => true],
         'marine_purge' => ['interval' => 1, 'limit' => 200, 'critical' => false],
         'bank' => ['interval' => 1, 'limit' => 500, 'critical' => true],
+        'employees' => ['interval' => 2, 'limit' => 200, 'critical' => false],
         'players' => ['interval' => 1, 'limit' => 500, 'critical' => true],
         'black_market' => ['interval' => 1, 'limit' => 500, 'critical' => false],
         'credibility' => ['interval' => 6, 'limit' => 500, 'critical' => false],

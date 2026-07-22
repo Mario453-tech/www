@@ -1,6 +1,6 @@
 <?php
 
-class MoraleService
+final class LegacyMoraleService
 {
     /**
      * Zmiana morale z logowaniem (Change morale with logging)

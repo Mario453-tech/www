@@ -505,13 +505,15 @@ class WellLoopSection
         try {
             $stmt = $this->db->prepare("
                 SELECT ts.id, ts.status, ts.skill_level, ts.specialization,
-                       ts.current_morale,
-                       (SELECT 1 FROM staff_strikes str WHERE str.technical_staff_id = ts.id AND str.end_time IS NULL LIMIT 1) AS is_striking,
+                       COALESCE(es.morale, 65) AS current_morale,
+                       CASE WHEN es.relation_status = 'on_strike' THEN 1 ELSE 0 END AS is_striking,
                        ss.prod_bonus, ss.wear_reduction, ss.incident_reduction,
                        ss.spiral_reduction, ss.only_deep_layers, ss.repair_speed,
                        ss.incident_return_reduction, ss.catastrophe_reduction
                 FROM technical_staff ts
                 LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
+                LEFT JOIN employee_state es ON es.player_id = ts.player_id
+                    AND es.source_type = 'technical_staff' AND es.source_id = ts.id
                 WHERE ts.player_id = ?
                   AND ts.status IN ('active', 'busy')
             ");

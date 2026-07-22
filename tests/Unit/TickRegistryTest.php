@@ -32,6 +32,7 @@ final class TickRegistryTest extends BaseTestCase
                 [10, 'market'],
                 [20, 'marine_purge'],
                 [30, 'bank'],
+                [35, 'employees'],
                 [40, 'players'],
                 [50, 'black_market'],
                 [60, 'credibility'],

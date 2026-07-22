@@ -66,11 +66,12 @@ trait HRDataTrait
                    DATEDIFF(CURDATE(), bm.hired_at) as days_employed,
                    ec.contract_end, ec.contract_type,
                    DATEDIFF(ec.contract_end, CURDATE()) as contract_days_left,
-                   NULL AS morale, 0 AS is_striking
+                   es.morale AS morale, CASE WHEN es.relation_status = 'on_strike' THEN 1 ELSE 0 END AS is_striking
             FROM board_members bm
             JOIN board_roles br ON bm.role_id = br.id
             LEFT JOIN hr_specializations hs ON bm.specialization_id = hs.id
             LEFT JOIN employee_contracts ec ON ec.member_id = bm.id AND ec.status = 'active' AND ec.contract_end >= CURDATE()
+            LEFT JOIN employee_state es ON es.player_id = bm.player_id AND es.source_type = 'board_member' AND es.source_id = bm.id
             WHERE bm.status = 'active'
               AND bm.player_id = ?
               AND bm.member_type = 'staff'
@@ -87,10 +88,11 @@ trait HRDataTrait
                    NULL AS age,
                    DATEDIFF(CURDATE(), ts.hired_at) AS days_employed,
                    NULL AS contract_end, NULL AS contract_type, NULL AS contract_days_left,
-                   ts.current_morale AS morale,
-                   (SELECT COUNT(*) FROM staff_strikes ss WHERE ss.technical_staff_id = ts.id AND ss.end_time IS NULL) AS is_striking
+                   es.morale AS morale,
+                   CASE WHEN es.relation_status = 'on_strike' THEN 1 ELSE 0 END AS is_striking
             FROM technical_staff ts
             JOIN board_roles br ON br.code = 'technical'
+            LEFT JOIN employee_state es ON es.player_id = ts.player_id AND es.source_type = 'technical_staff' AND es.source_id = ts.id
             WHERE ts.status IN ('active','busy','on_leave')
               AND ts.player_id = ?
             ORDER BY hired_at ASC

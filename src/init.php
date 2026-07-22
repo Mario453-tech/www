@@ -106,6 +106,7 @@ require_once __DIR__ . '/WellStaffService.php';
 require_once __DIR__ . '/HeadhunterService.php';
 require_once __DIR__ . '/DirectorNotificationService.php';
 require_once __DIR__ . '/HR/MoraleService.php';
+require_once __DIR__ . '/HR/MoraleServiceV2.php';
 require_once __DIR__ . '/HR/StrikeService.php';
 
  // Load bank negotiation traits, then the service, with OPcache self-healing.
@@ -227,12 +228,6 @@ try {
  // Non-fatal - game runs without this migration
 }
 
-require_once __DIR__ . '/HR/MoraleBootstrap.php';
-try {
-    ensureMoraleSchema();
-} catch (Throwable $__moraleEx) {
- // Non-fatal
-}
 
 // ROUTING 
 const ROUTES = [

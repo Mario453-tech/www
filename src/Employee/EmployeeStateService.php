@@ -560,7 +560,7 @@ final class EmployeeStateService
         $experienceFactor = 1.0 + min(20, max(0, (int)$employee['experience_years'])) * 0.01;
         $expected = (($minimum + $maximum) / 2.0) * $skillFactor * $experienceFactor;
 
-        return round(max($minimum * 0.8, min($maximum * 1.25, $expected)), 2);
+        return round(max($minimum * 0.4, min($maximum * 0.9, $expected)), 2);
     }
 
     /**
