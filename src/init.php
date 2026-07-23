@@ -181,7 +181,7 @@ spl_autoload_register(function ($class) {
     }
 });
 
-// SESJA I NAGWKI / SESSION AND HEADERS
+// SESJA I NAGLOWKI / SESSION AND HEADERS
 if (session_status() === PHP_SESSION_NONE) {
  // Na shared hostingu /tmp moe by niedostpny uywamy katalogu sessions/ w projekcie.
  // On shared hosting /tmp may be unavailable use sessions/ directory within the project.
@@ -226,6 +226,19 @@ try {
     ensureTrainingSchema();
 } catch (Throwable $__trainEx) {
  // Non-fatal - game runs without this migration
+}
+
+// WellConfig schema migration for text keys like cron_secret_key
+// PL: Migracja schematu well_config dla kluczy tekstowych takich jak cron_secret_key
+try {
+    static $__wellConfigSchemaDone = false;
+    if (!$__wellConfigSchemaDone) {
+        $__wellConfigSchemaDone = true;
+        $__db = Database::getInstance()->getConnection();
+        $__db->exec("ALTER TABLE well_config MODIFY COLUMN `value` VARCHAR(255) NOT NULL");
+        $__db->exec("ALTER TABLE well_config MODIFY COLUMN `label` VARCHAR(120) NOT NULL DEFAULT ''");
+    }
+} catch (Throwable) {
 }
 
 
