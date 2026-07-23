@@ -11,26 +11,29 @@
 
 // Minimal bootstrap — no DB, no session / Minimalny bootstrap — bez bazy, bez sesji
 
-// Load .env directly (file may not be loaded yet) / Wczytaj .env bezposrednio
-$envFile = __DIR__ . '/../../.env';
-if (is_readable($envFile)) {
-    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $envLine) {
-        $envLine = trim($envLine);
-        if ($envLine === '' || $envLine[0] === '#') {
-            continue;
-        }
-        $eqPos = strpos($envLine, '=');
-        if ($eqPos === false) {
-            continue;
-        }
-        $k = trim(substr($envLine, 0, $eqPos));
-        $v = trim(substr($envLine, $eqPos + 1));
-        if (!isset($_ENV[$k])) {
-            $_ENV[$k] = $v;
-            putenv("$k=$v");
+// Load .env or ENV_FILE.env directly / Wczytaj .env lub ENV_FILE.env bezposrednio
+$envFiles = [__DIR__ . '/../../.env', __DIR__ . '/../../ENV_FILE.env'];
+foreach ($envFiles as $envFile) {
+    if (is_readable($envFile)) {
+        foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $envLine) {
+            $envLine = trim($envLine);
+            if ($envLine === '' || $envLine[0] === '#') {
+                continue;
+            }
+            $eqPos = strpos($envLine, '=');
+            if ($eqPos === false) {
+                continue;
+            }
+            $k = trim(substr($envLine, 0, $eqPos));
+            $v = trim(substr($envLine, $eqPos + 1));
+            if (!isset($_ENV[$k]) || $_ENV[$k] === '') {
+                $_ENV[$k] = $v;
+                putenv("$k=$v");
+            }
         }
     }
 }
+
 
 // Token must be configured and at least 16 chars / Token musi byc skonfigurowany
 $configuredToken = $_ENV['LOG_EXPORT_TOKEN'] ?? getenv('LOG_EXPORT_TOKEN') ?: '';
