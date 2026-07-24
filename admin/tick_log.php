@@ -36,8 +36,19 @@ $listStmt->bindValue(':off',  $offset,  PDO::PARAM_INT);
 $listStmt->execute();
 $ticks = $listStmt->fetchAll();
 
-// Dane: podsumowanie 24h 
+// Dane: podsumowanie 24h
 $summary24h = $repo->getSummary24h();
+
+// Dane: ostatni tick (status + czas)
+$lastTickRow = null;
+try {
+    $lastTickRow = $db->query("SELECT ran_at, source, duration_ms, players_processed, oil_price FROM tick_stats ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+} catch (Throwable) {}
+
+// Flash z force_tick.php
+$ftMsg   = $_SESSION['force_tick_msg']   ?? '';
+$ftError = $_SESSION['force_tick_error'] ?? false;
+unset($_SESSION['force_tick_msg'], $_SESSION['force_tick_error']);
 
 // Akcja: usu wpis 
 $deleteMsg = '';
@@ -77,6 +88,9 @@ $csrfToken = CSRF::generateToken();
 $viewData = [
     'ticks'        => $ticks,
     'summary24h'   => $summary24h,
+    'lastTickRow'  => $lastTickRow,
+    'ftMsg'        => $ftMsg,
+    'ftError'      => $ftError,
     'totalRows'    => $totalRows,
     'totalPages'   => $totalPages,
     'page'         => $page,

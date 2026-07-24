@@ -20,6 +20,53 @@ $s = $summary24h;
 $tickCount = (int)($s['tick_count'] ?? 0);
 ?>
 
+<?php if ($ftMsg): ?>
+<div class="alert alert-<?= $ftError ? 'danger' : 'success' ?>">
+    <?= htmlspecialchars($ftMsg) ?>
+</div>
+<?php endif ?>
+
+<section class="section-card" style="margin-bottom:14px">
+    <h2 class="section-title">Status CRON / Wywołanie tika</h2>
+    <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:14px">
+        <div class="stat-card" style="min-width:180px">
+            <div class="stat-label">Ostatni tick</div>
+            <div class="stat-value sm"><?= $lastTickRow ? htmlspecialchars($lastTickRow['ran_at']) : '—' ?></div>
+        </div>
+        <div class="stat-card" style="min-width:130px">
+            <div class="stat-label">Źródło</div>
+            <div class="stat-value sm"><?= $lastTickRow ? htmlspecialchars($lastTickRow['source']) : '—' ?></div>
+        </div>
+        <div class="stat-card" style="min-width:120px">
+            <div class="stat-label">Czas trwania</div>
+            <div class="stat-value"><?= $lastTickRow ? number_format((int)$lastTickRow['duration_ms']) . ' ms' : '—' ?></div>
+        </div>
+        <div class="stat-card" style="min-width:120px">
+            <div class="stat-label">Gracze przeliczeni</div>
+            <div class="stat-value"><?= $lastTickRow ? (int)$lastTickRow['players_processed'] : '—' ?></div>
+        </div>
+        <div class="stat-card" style="min-width:100px">
+            <div class="stat-label">Cena ropy</div>
+            <div class="stat-value orange"><?= $lastTickRow ? '$' . number_format((float)$lastTickRow['oil_price'], 0) : '—' ?></div>
+        </div>
+        <?php
+        $lastTickAge = $lastTickRow ? (time() - strtotime($lastTickRow['ran_at'])) : null;
+        $ageClass = $lastTickAge === null ? 'red' : ($lastTickAge > 600 ? 'red' : ($lastTickAge > 360 ? 'orange' : 'green'));
+        $ageLabel = $lastTickAge === null ? 'brak' : (($lastTickAge < 60) ? $lastTickAge . ' s temu' : round($lastTickAge / 60, 1) . ' min temu');
+        ?>
+        <div class="stat-card" style="min-width:130px">
+            <div class="stat-label">Czas od ostatniego</div>
+            <div class="stat-value <?= $ageClass ?>"><?= $ageLabel ?></div>
+        </div>
+    </div>
+    <form method="post" action="/admin/force_tick.php"
+          onsubmit="this.querySelector('button').disabled=true; return confirmSubmit(this, 'Na pewno uruchomić tick ręcznie?', {type:'danger'}) !== false">
+        <?= CSRF::field() ?>
+        <button type="submit" class="btn btn-danger">Wywołaj tick ręcznie</button>
+        <span class="muted" style="font-size:12px; margin-left:8px">Cron powinien wywoływać tick automatycznie co 5 minut.</span>
+    </form>
+</section>
+
 <section class="section-card">
     <h2 class="section-title"><?= t('admin.tick_log.section_summary') ?></h2>
     <div class="stats-grid stats-grid--6">

@@ -31,6 +31,7 @@
 .log-line--db    { color: var(--blue);   background: rgba(126,184,247,.05); border-color: rgba(126,184,247,.12); }
 .log-line--perf  { color: var(--green);  background: rgba(93,217,153,.05);  border-color: rgba(93,217,153,.12); }
 .log-line--tick  { color: #ffd766; background: rgba(255, 193, 7, .12); border-color: rgba(255, 193, 7, .34); box-shadow: inset 3px 0 0 rgba(255, 193, 7, .85); }
+.log-line--cron  { color: #ff6b6b; background: rgba(230, 57, 70, .10); border-color: rgba(230, 57, 70, .35); box-shadow: inset 3px 0 0 rgba(230, 57, 70, .90); font-weight: bold; }
 /* Tick log table */.tick-log-grid .list-header,
 .tick-log-grid .list-row {
     grid-template-columns: 46px 148px 80px 84px 90px 72px 90px 72px 72px 40px;
@@ -49,6 +50,7 @@
 .log-line--db    { color: #64b5f6; background: #0d1a26; }
 .log-line--perf  { color: #81c784; background: #0d1a10; }
 .log-line--tick  { color: #ffd766; background: #2b220d; box-shadow: inset 3px 0 0 #ffc107; }
+.log-line--cron  { color: #ff6b6b; background: #2b1010; box-shadow: inset 3px 0 0 #e63946; font-weight: bold; }
 /* Tick Log */.tick-log-grid .list-header,
 .tick-log-grid .list-row {
     grid-template-columns: 40px 140px 70px 90px 80px 130px 65px 80px 110px 60px 55px 1fr 36px;
