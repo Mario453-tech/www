@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
+require_once __DIR__ . '/EmployeeSystemBootstrap.php';
 /**
  * HeadhunterService - recruit specialists from competitors.
  * PL: HeadhunterService - rekrutacja specjalistow od konkurencji.
@@ -37,6 +39,7 @@ class HeadhunterService
     {
         try {
             $this->db = Database::getInstance()->getConnection();
+            EmployeeSystemBootstrap::ensure($this->db);
             $this->playerId = $playerId;
             GameLog::info('HeadhunterService', 'Service initialized', ['player_id' => $playerId]);
         } catch (Throwable $e) {
@@ -558,10 +561,12 @@ class HeadhunterService
         }
 
         $staffPerk = $this->rollStaffSpecialization($spec['code'], $skill);
+        $traits = TechnicalStaffProfile::fromCandidate($candidate, $skill);
         $this->db->prepare("
             INSERT INTO technical_staff
-                (player_id, manager_id, first_name, last_name, spec_code, specialization, spec_name, skill_level, salary)
-            VALUES (?,?,?,?,?,?,?,?,?)
+                (player_id, manager_id, first_name, last_name, spec_code, specialization, spec_name, skill_level,
+                 salary, trait_loyalty, trait_corruption_risk, trait_ambition)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         ")->execute([
             $this->playerId,
             $managerId,
@@ -572,6 +577,9 @@ class HeadhunterService
             $spec['name'],
             $skill,
             $salary,
+            $traits['loyalty'],
+            $traits['corruption_risk'],
+            $traits['ambition'],
         ]);
     }
 

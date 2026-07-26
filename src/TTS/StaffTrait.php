@@ -23,9 +23,16 @@ trait TTSStaffTrait
                    tt.title AS active_task_title,
                    tt.end_time AS active_task_end,
                    tt.status AS active_task_status,
-                   COALESCE(ttq.cnt, 0) AS queued_tasks
+                   COALESCE(ttq.cnt, 0) AS queued_tasks,
+                   es.morale AS morale,
+                   es.salary_satisfaction AS salary_satisfaction,
+                   es.workload_pct AS workload_pct,
+                   es.leave_risk AS leave_risk,
+                   es.strike_support AS strike_support,
+                   es.relation_status AS relation_status
             FROM technical_staff ts
             LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
+            LEFT JOIN employee_state es ON es.player_id = ts.player_id AND es.source_type = 'technical_staff' AND es.source_id = ts.id
             LEFT JOIN technical_tasks tt ON tt.staff_id = ts.id AND tt.status = 'in_progress'
             LEFT JOIN (
                 SELECT staff_id, COUNT(*) AS cnt
@@ -120,10 +127,19 @@ trait TTSStaffTrait
                 elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);
                 return ['success' => false, 'message' => t('technical.staff_msg.no_funds', ['amount' => $salary])];
             }
+            $traits = TechnicalStaffProfile::deterministic(
+                $this->playerId,
+                $firstName,
+                $lastName,
+                $specCode,
+                max(1, min(10, $skillLevel))
+            );
+
             $this->db->prepare("
                 INSERT INTO technical_staff
-                    (player_id, manager_id, first_name, last_name, spec_code, spec_name, skill_level, salary)
-                VALUES (?,?,?,?,?,?,?,?)
+                    (player_id, manager_id, first_name, last_name, spec_code, spec_name, skill_level, salary,
+                     trait_loyalty, trait_corruption_risk, trait_ambition)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
             ")->execute([
                 $this->playerId,
                 $managerId,
@@ -133,6 +149,9 @@ trait TTSStaffTrait
                 $spec['name'],
                 max(1, min(10, $skillLevel)),
                 $salary,
+                $traits['loyalty'],
+                $traits['corruption_risk'],
+                $traits['ambition'],
             ]);
             if ($ownTx) $this->db->commit();
             elseif ($savepoint !== null) $this->db->exec('RELEASE SAVEPOINT ' . $savepoint);

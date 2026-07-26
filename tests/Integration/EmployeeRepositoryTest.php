@@ -36,7 +36,10 @@ final class EmployeeRepositoryTest extends SqliteIntegrationTestCase
         $this->assertSame('technical', $technical['department_code']);
         $this->assertSame('maintenance_engineer', $technical['role_code']);
         $this->assertSame(7, $technical['skills']['role_skill']);
-        $this->assertSame(5, $technical['traits']['loyalty']);
+        $this->assertSame(7, $technical['skills']['organization']);
+        $this->assertSame(7, $technical['traits']['loyalty']);
+        $this->assertSame(4, $technical['traits']['corruption_risk']);
+        $this->assertSame(4, $technical['traits']['ambition']);
         $this->assertSame(9000.0, $technical['salary_range_min']);
     }
 

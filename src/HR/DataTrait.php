@@ -82,7 +82,7 @@ trait HRDataTrait
                    ts.skill_level AS skill_organization, ts.skill_level AS skill_negotiation,
                    ts.skill_level AS skill_analysis, ts.skill_level AS skill_stress,
                    ts.skill_level AS skill_ethics,
-                   5 AS trait_loyalty, 5 AS trait_corruption_risk, 5 AS trait_ambition,
+                   ts.trait_loyalty, ts.trait_corruption_risk, ts.trait_ambition,
                    br.id AS role_id, br.name AS role_name, br.code AS role_code,
                    ts.spec_name,
                    NULL AS age,

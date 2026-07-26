@@ -106,15 +106,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $warn = isset($emp['contract_days_left']) && $emp['contract_days_left'] <= 14 && $emp['contract_days_left'] >= 0;
             $age = !empty($emp['birth_date']) ? date_diff(date_create($emp['birth_date']), date_create('today'))->y : null;
-            // json_encode daje literalny JS-string, htmlspecialchars escapuje cudzyslowy-ograniczniki,
-            // dzieki czemu wartosc bezpiecznie wchodzi w atrybut onclick="..." (inaczej cudzyslow zamyka atrybut).
+            // json_encode returns a JS string, htmlspecialchars escapes attribute delimiters.
+            // PL: json_encode zwraca string JS, a htmlspecialchars escapuje ograniczniki atrybutu.
             $safeName = htmlspecialchars(json_encode($emp['first_name'] . ' ' . $emp['last_name']), ENT_QUOTES, 'UTF-8');
             $empDomId = ($emp['source'] ?? 'board_member') . '-' . (int)$emp['id'];
             $empDomJs = htmlspecialchars(json_encode($empDomId), ENT_QUOTES, 'UTF-8');
+            $initials = mb_strtoupper(mb_substr((string)$emp['first_name'], 0, 1) . mb_substr((string)$emp['last_name'], 0, 1), 'UTF-8');
         ?>
         <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails(<?= $empDomJs ?>)">
             <div class="emp-header">
-                <div class="emp-avatar"><?= ($emp['gender'] ?? 'M') === 'F' ? '&#128105;' : '&#128104;' ?></div>
+                <div class="emp-avatar" aria-hidden="true"><?= htmlspecialchars($initials, ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="emp-info">
                     <div class="emp-name"><?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?></div>
                     <div class="emp-role"><?= htmlspecialchars($emp['role_name']) ?></div>
@@ -311,10 +312,11 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             $expLevel = $emp['experience_years'] <= 5 ? 'Junior' : ($emp['experience_years'] <= 12 ? 'Mid' : 'Senior');
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $age = (int)($emp['age'] ?? 0);
+            $initials = mb_strtoupper(mb_substr((string)$emp['first_name'], 0, 1) . mb_substr((string)$emp['last_name'], 0, 1), 'UTF-8');
         ?>
         <div class="employee-card director-card" onclick="toggleEmployeeDetails('director-<?= (int)$emp['id'] ?>')">
             <div class="emp-header">
-                <div class="emp-avatar"><?= ($emp['gender'] ?? 'M') === 'F' ? '&#128105;' : '&#128104;' ?></div>
+                <div class="emp-avatar" aria-hidden="true"><?= htmlspecialchars($initials, ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="emp-info">
                     <div class="emp-name"><?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?></div>
                     <div class="emp-role"><?= htmlspecialchars($emp['role_name']) ?></div>

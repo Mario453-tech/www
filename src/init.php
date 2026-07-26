@@ -98,6 +98,8 @@ require_once __DIR__ . '/Player.php';
 require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Well.php';
 require_once __DIR__ . '/WellShop.php';
+require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
+require_once __DIR__ . '/EmployeeSystemBootstrap.php';
 require_once __DIR__ . '/TechnicalTeamService.php';
 require_once __DIR__ . '/TaskConfigService.php';
 require_once __DIR__ . '/CandidateGenerator.php';

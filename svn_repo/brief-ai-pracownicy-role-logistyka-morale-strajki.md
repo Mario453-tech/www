@@ -226,7 +226,7 @@ traits
 hired_at
 ```
 
-Dla `technical_staff`, które nie ma wszystkich cech zarządu, repozytorium może zwracać wartości neutralne albo dane z `employee_state`.
+Dla `technical_staff` repozytorium zwraca trwałe cechy zapisane w tabeli (`trait_loyalty`, `trait_corruption_risk`, `trait_ambition`). Stare rekordy są uzupełniane deterministycznie przez bootstrap schematu, więc widok HR i mechaniki morale nie pokazują już wszystkim technikom neutralnych wartości `5/10`.
 
 Nie duplikuj logiki odczytu pracownika w wielu serwisach.
 

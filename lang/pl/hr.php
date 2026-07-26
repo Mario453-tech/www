@@ -339,7 +339,7 @@ return [
     'hr.err_not_striking' => 'Ten pracownik nie strajkuje.',
     'hr.err_no_funds_strike' => 'Brak środków na żądania strajkujących!',
     'hr.msg_strike_resolved' => 'Spełniono żądania. Pracownik wraca do pracy.',
-    'hr_js.confirm_bonus' => 'Przyznać :name premię w wysokości 15 000 USD?',
+    'hr_js.confirm_bonus' => 'Przyznać :name premię w wysokości 15 000 PLN?',
     'hr_js.confirm_bonus_btn' => 'Przyznaj',
     'hr_js.toast_bonus_granted' => 'Premia przyznana!',
     'hr_js.confirm_resolve_strike' => 'Zapłacić 50 000 USD, by rozwiązać strajk :name?',

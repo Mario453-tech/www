@@ -61,6 +61,9 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
                 spec_name   TEXT    NOT NULL DEFAULT 'Test',
                 specialization TEXT NULL,
                 skill_level INTEGER NOT NULL DEFAULT 5,
+                trait_loyalty INTEGER NOT NULL DEFAULT 5,
+                trait_corruption_risk INTEGER NOT NULL DEFAULT 5,
+                trait_ambition INTEGER NOT NULL DEFAULT 5,
                 salary      REAL    NOT NULL DEFAULT 5000.0,
                 status      TEXT    NOT NULL DEFAULT 'active',
                 fired_at    TEXT    NULL

@@ -1,0 +1,143 @@
+/* Employee cards polish / PL: Doprecyzowanie kart pracownikow */
+.employees-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.employee-card {
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.022));
+  border-color: rgba(200,168,75,0.22);
+  box-shadow: 0 14px 30px rgba(0,0,0,0.22);
+}
+
+.employee-card:hover {
+  border-color: rgba(224,182,68,0.48);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.028));
+}
+
+.emp-header {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+  padding: 18px 18px 16px;
+}
+
+.emp-avatar {
+  width: 48px;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: #111015;
+  background: linear-gradient(135deg, var(--gold), #f0cf65);
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+}
+
+.emp-info {
+  min-width: 0;
+}
+
+.emp-name {
+  font-size: 16px;
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+
+.emp-role {
+  font-size: 11px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.emp-meta {
+  line-height: 1.5;
+}
+
+.emp-salary-block {
+  min-width: 112px;
+}
+
+.emp-salary {
+  font-size: 19px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.emp-details {
+  padding: 0 18px 16px;
+}
+
+.emp-skills-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  padding: 14px 0 16px;
+}
+
+.skill-label {
+  min-height: 28px;
+  line-height: 1.35;
+  word-break: normal;
+}
+
+.cand-traits {
+  gap: 10px;
+}
+
+.trait-item {
+  grid-template-columns: minmax(110px, 0.9fr) minmax(90px, 1.2fr) 38px;
+  gap: 10px;
+  align-items: center;
+}
+
+.emp-morale-section {
+  margin-top: 8px;
+}
+
+.morale-bar-container {
+  gap: 12px;
+}
+
+.emp-footer-info {
+  gap: 10px 16px;
+  margin-top: 14px;
+}
+
+.emp-actions {
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .emp-header {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .emp-avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .emp-salary-block {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .emp-salary,
+  .emp-salary-label {
+    text-align: left;
+  }
+
+  .emp-skills-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trait-item {
+    grid-template-columns: minmax(98px, 1fr) minmax(80px, 1fr) 34px;
+  }
+}

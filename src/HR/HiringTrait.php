@@ -182,11 +182,13 @@ trait HRHiringTrait
             }
 
             $staffPerk = $this->rollStaffSpecialization($spec['code'], $skillLevel);
+            $traits = TechnicalStaffProfile::fromCandidate($candidate, $skillLevel);
 
             $this->db->prepare("
                 INSERT INTO technical_staff
-                    (player_id, manager_id, first_name, last_name, spec_code, spec_name, skill_level, salary, specialization)
-                VALUES (?,?,?,?,?,?,?,?,?)
+                    (player_id, manager_id, first_name, last_name, spec_code, spec_name, skill_level, salary,
+                     specialization, trait_loyalty, trait_corruption_risk, trait_ambition)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             ")->execute([
                 $playerId,
                 $managerId,
@@ -197,6 +199,9 @@ trait HRHiringTrait
                 $skillLevel,
                 $salary,
                 $staffPerk,
+                $traits['loyalty'],
+                $traits['corruption_risk'],
+                $traits['ambition'],
             ]);
 
             $this->finalizeCandidateHiring(

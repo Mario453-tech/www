@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
+require_once __DIR__ . '/EmployeeSystemBootstrap.php';
 
 require_once __DIR__ . '/HR/RecruitmentTrait.php';
 require_once __DIR__ . '/HR/HiringTrait.php';

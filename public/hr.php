@@ -192,6 +192,7 @@ $extraCss = [
     'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;600&display=swap',
     '/assets/css/recruitment.css',
     '/assets/css/hr.css',
+    '/assets/css/hr_employees.css',
     '/assets/css/hr_strikes.css',
 ];
 $gameShellTitle = t('hr.page_title');

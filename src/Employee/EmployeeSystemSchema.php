@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EmployeeSystemSchema
 {
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     public static function ensure(PDO $db): void
     {
@@ -16,6 +16,7 @@ final class EmployeeSystemSchema
             $db->exec($sql);
         }
         self::ensureStateColumns($db, $driver);
+        self::ensureTechnicalStaffTraitColumns($db, $driver);
         self::verify($db);
         self::storeVersion($db, $driver);
     }
@@ -165,15 +166,62 @@ final class EmployeeSystemSchema
         }
     }
 
-    /** @return array<string, true> */
-    private static function columns(PDO $db, string $driver): array
+    private static function ensureTechnicalStaffTraitColumns(PDO $db, string $driver): void
+    {
+        if (!self::tableExists($db, $driver, 'technical_staff')) {
+            return;
+        }
+
+        $columns = self::columns($db, $driver, 'technical_staff');
+        $defs = [
+            'trait_loyalty' => 'TINYINT NOT NULL DEFAULT 5',
+            'trait_corruption_risk' => 'TINYINT NOT NULL DEFAULT 5',
+            'trait_ambition' => 'TINYINT NOT NULL DEFAULT 5',
+        ];
+        foreach ($defs as $name => $definition) {
+            if (!isset($columns[$name])) {
+                $db->exec("ALTER TABLE technical_staff ADD COLUMN {$name} {$definition}");
+            }
+        }
+
+        if ($driver === 'sqlite') {
+            $db->exec("UPDATE technical_staff
+                          SET trait_loyalty = MAX(1, MIN(10, 4 + (ABS(id * 17 + player_id * 13) % 5))),
+                              trait_corruption_risk = MAX(1, MIN(10, 2 + (ABS(id * 11 + player_id * 7) % 5))),
+                              trait_ambition = MAX(1, MIN(10, 3 + (ABS(id * 19 + player_id * 5) % 6)))
+                        WHERE trait_loyalty = 5 AND trait_corruption_risk = 5 AND trait_ambition = 5");
+            return;
+        }
+
+        $db->exec("UPDATE technical_staff
+                      SET trait_loyalty = LEAST(10, GREATEST(1, 4 + (ABS(id * 17 + player_id * 13) MOD 5))),
+                          trait_corruption_risk = LEAST(10, GREATEST(1, 2 + (ABS(id * 11 + player_id * 7) MOD 5))),
+                          trait_ambition = LEAST(10, GREATEST(1, 3 + (ABS(id * 19 + player_id * 5) MOD 6)))
+                    WHERE trait_loyalty = 5 AND trait_corruption_risk = 5 AND trait_ambition = 5");
+    }
+
+    private static function tableExists(PDO $db, string $driver, string $table): bool
     {
         if ($driver === 'sqlite') {
-            $rows = $db->query('PRAGMA table_info(employee_state)')->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $db->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1");
+            $stmt->execute([$table]);
+            return (bool)$stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare('SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
+        $stmt->execute([$table]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+    /** @return array<string, true> */
+    private static function columns(PDO $db, string $driver, string $table = 'employee_state'): array
+    {
+        if ($driver === 'sqlite') {
+            $rows = $db->query('PRAGMA table_info(' . $table . ')')->fetchAll(PDO::FETCH_ASSOC);
             return array_fill_keys(array_map(static fn(array $row): string => (string)$row['name'], $rows), true);
         }
-        $stmt = $db->prepare("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'employee_state'");
-        $stmt->execute();
+        $stmt = $db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?');
+        $stmt->execute([$table]);
         return array_fill_keys(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN)), true);
     }
 

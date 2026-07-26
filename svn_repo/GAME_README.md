@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-07-26 - HR: trwałe cechy techników i czytelniejsze karty pracowników
+
+- `technical_staff` ma teraz trwałe pola `trait_loyalty`, `trait_corruption_risk` i `trait_ambition`; bootstrap schematu dodaje je dla MySQL/SQLite i deterministycznie backfilluje stare rekordy.
+- HR, wspólne `EmployeeRepository`, headhunter i zatrudnianie TTS korzystają z zapisanych cech technika zamiast neutralnych wartości `5/10`.
+- Karty pracowników HR dostały osobny arkusz `assets/css/hr_employees.css`, inicjały zamiast ikon emoji oraz poprawiony komunikat premii w PL z `USD` na `PLN`.
+- Weryfikacja: lint PHP zmienionych plików, targeted employee/HR, Unit+Integration 588/588, encoding, `git diff --check`; MySqlIntegration nie doszedł do kodu, bo lokalny MySQL odmawia połączenia.
 ### 2026-07-22 - HR: panel negocjacji strajkowych gracza
 
 - Strona HR pokazuje otwarte konflikty działowe, uczestników, poparcie, średnie morale, aktualną rundę oraz termin odpowiedzi.

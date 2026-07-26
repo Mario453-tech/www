@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
+require_once __DIR__ . '/EmployeeSystemBootstrap.php';
 /**
  * TechnicalTeamService.php
  * Technical team management and task system.
@@ -442,6 +444,7 @@ class TechnicalTeamService
     {
         try {
             $this->db       = Database::getInstance()->getConnection();
+            EmployeeSystemBootstrap::ensure($this->db);
             $this->playerId = $playerId;
             $this->ensureHubTaskSchema();
             GameLog::info('TechnicalTeamService', 'Service initialized', ['player_id' => $playerId]);
