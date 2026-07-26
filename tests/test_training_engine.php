@@ -174,12 +174,18 @@ $trIdR = (int)($r['training_id'] ?? 0);
 $db->exec("UPDATE staff_trainings SET finishes_at=DATE_SUB(NOW(),INTERVAL 1 HOUR) WHERE id=$trIdR");
 $n1 = $svc->processFinishedExams($P);
 $n2 = $svc->processFinishedExams($P); // drugie wywolanie - nie powinno nic zrobic
+$rowR = $db->query("SELECT status FROM staff_trainings WHERE id=$trIdR")->fetch(PDO::FETCH_ASSOC);
 $lvlR = (int)$db->query("SELECT skill_level FROM technical_staff_skills WHERE staff_id=$TS AND skill_code='skill_drilling'")->fetchColumn();
 $certCnt = (int)$db->query("SELECT COUNT(*) FROM training_certificates WHERE training_id=$trIdR")->fetchColumn();
 check('pierwsze przetworzenie n=1', $n1 === 1, "n1=$n1");
 check('drugie przetworzenie n=0 (idempotentne)', $n2 === 0, "n2=$n2");
-check('skill +1 tylko raz (3->4)', $lvlR === 4, "lvl=$lvlR");
-check('certyfikat tylko jeden', $certCnt === 1, "certs=$certCnt");
+if (($rowR['status'] ?? '') === 'passed') {
+    check('skill +1 tylko raz (3->4)', $lvlR === 4, "lvl=$lvlR");
+    check('certyfikat tylko jeden', $certCnt === 1, "certs=$certCnt");
+} else {
+    check('oblany egzamin nie podnosi skillu', $lvlR === 3, "lvl=$lvlR");
+    check('oblany egzamin nie wystawia certyfikatu', $certCnt === 0, "certs=$certCnt");
+}
 
 // restore seed base_pass_rate to avoid polluting future runs
 $db->exec("UPDATE training_programs SET base_pass_rate=85 WHERE code='tech_drilling_basic'");
