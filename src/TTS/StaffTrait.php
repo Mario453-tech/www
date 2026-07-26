@@ -26,7 +26,7 @@ trait TTSStaffTrait
                    COALESCE(ttq.cnt, 0) AS queued_tasks,
                    es.morale AS morale,
                    es.salary_satisfaction AS salary_satisfaction,
-                   es.workload_pct AS workload_pct,
+                   es.workload AS workload_pct,
                    es.leave_risk AS leave_risk,
                    es.strike_support AS strike_support,
                    es.relation_status AS relation_status
