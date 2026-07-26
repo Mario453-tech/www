@@ -19,6 +19,7 @@ declare(strict_types=1);
 class WalletService
 {
     private PDO $db;
+    /** @var array<int,bool> */
     private static array $schemaReady = [];
 
     public function __construct(?PDO $db = null)

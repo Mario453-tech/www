@@ -2,6 +2,7 @@
 require_once __DIR__ . '/PolicyRepository.php';
 require_once __DIR__ . '/../../PrivacyPolicyService.php';
 
+/** @phpstan-import-type PolicyRow from PolicyRepository */
 class PolicyFeature extends AbstractPrivacyFeature
 {
     private PolicyRepository   $repo;
@@ -18,6 +19,10 @@ class PolicyFeature extends AbstractPrivacyFeature
     public function getLabel(): string { return t('privacy.feature.policy_label'); }
     public function getIcon(): string  { return ''; }
 
+    /**
+     * @param array<string, mixed> $post
+     * @return array{success: bool, message: string}|null
+     */
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {
         $action = (string)($post['action'] ?? '');
@@ -76,6 +81,10 @@ class PolicyFeature extends AbstractPrivacyFeature
         return null;
     }
 
+    /**
+     * @param array<string, mixed> $get
+     * @return array{policies: list<PolicyRow>, edit_policy: PolicyRow|null}
+     */
     public function getViewData(array $get): array
     {
         $editId  = (int)($get['edit_policy'] ?? 0);

@@ -37,7 +37,7 @@ class MarketTick
  // Main method
 
  /** @param array<string, mixed>|null $activeTrend */
-    public function updatePrices(?array $activeTrend = null): int
+    public function updatePrices(?array $activeTrend = null): float
     {
         GameLog::step('MarketTick', 'updatePrices', 1, 'start', [
             'trend' => $activeTrend['trend_name'] ?? 'none',

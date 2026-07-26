@@ -241,7 +241,10 @@ trait ContractQueryTrait
         ]);
     }
 
-    /** @param list<mixed> $params @return list<array<string,mixed>> */
+    /**
+     * @param list<mixed> $params
+     * @return list<array<string,mixed>>
+     */
     private function fetchList(string $sql, array $params): array
     {
         try {

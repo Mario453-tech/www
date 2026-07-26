@@ -55,7 +55,12 @@ class WellLoopSection
  // P1.2: ropa wyslana ciezarowkami i jeszcze niedostarczona
     public float $roadInTransitBbl         = 0.0;
     
+    /** @var array<string, float> */
     public array $employeeLogisticsEffects = [];
+    /** @var array<int, array<string, mixed>> pipeline_id -> staffing effects */
+    public array $pipelineStaffingByPipeline = [];
+    /** @var array<int, float> pipeline_id -> active hours after build completion */
+    private array $pipelineCompletedActiveHours = [];
 
  // Stan hubow - wspoldzielony z WellProductionSection i WellHubSection
  // Hub state - shared with WellProductionSection and WellHubSection
@@ -202,6 +207,8 @@ class WellLoopSection
  * @param array<string, mixed> $hseBonus
  * @param array<string, mixed> $staffCheck
  * @param list<array<string, mixed>> $activeRegEvents
+ * @param array<int, float> $pipelineCompletedActiveHours
+ * @param array<int, array<string, mixed>> $pipelineStaffingByPipeline
  */
     public function run(
         int     $playerId,
@@ -216,11 +223,15 @@ class WellLoopSection
         float   $offlineRiskMult,
         ?object $tsvc,
         ?object $regionalSvc,
-        array   $activeRegEvents
+        array   $activeRegEvents,
+        array   $pipelineCompletedActiveHours = [],
+        array   $pipelineStaffingByPipeline = []
     ): void {
         $this->playerCash     = $playerCash;
         $this->currentStorage = $currentStorage;
         $this->storageCapacity = $storageCapacity;
+        $this->pipelineCompletedActiveHours = $pipelineCompletedActiveHours;
+        $this->pipelineStaffingByPipeline = $pipelineStaffingByPipeline;
         $this->preloadFinancePolicies($playerId);
 
  // Pensje / Salaries
@@ -422,12 +433,12 @@ class WellLoopSection
     /**
      * Returns the political risk of the well's hub region, or 0.0.
      */
-    public function outboundPoliticalRiskFor(int $wellId): float
+    public function outboundPoliticalRiskFor(int $wellId): int
     {
         $hubId = $this->wellHubMap[$wellId] ?? null;
-        if ($hubId === null) return 0.0;
+        if ($hubId === null) return 0;
         $hub = $this->hubCache[$hubId] ?? null;
-        return (float)($hub['region_political_risk'] ?? 0.0);
+        return (int)($hub['region_political_risk'] ?? 0);
     }
 
  // ------------------------------------------------------------------ private
@@ -533,6 +544,13 @@ class WellLoopSection
                 $wellIds = array_map('intval', array_column($wells, 'id'));
  // Inbound pipelines only (well -> hub); outbound rows fetched separately below.
                 $this->wellPipelineCache = $this->wellPipelineSvc->getByPlayerAndWellIds($playerId, $wellIds, 'inbound');
+                foreach ($this->wellPipelineCache as &$pipeline) {
+                    $pipelineId = (int)($pipeline['id'] ?? 0);
+                    if (isset($this->pipelineCompletedActiveHours[$pipelineId])) {
+                        $pipeline['_active_hours_this_tick'] = $this->pipelineCompletedActiveHours[$pipelineId];
+                    }
+                }
+                unset($pipeline);
             } catch (Throwable $e) {
                 GameLog::error('tick', 'preloadPlayerData well pipelines FAILED', $e, ['player_id' => $playerId]);
             }
@@ -654,6 +672,13 @@ class WellLoopSection
         if ($this->wellPipelineSvc !== null && $outboundHubIds !== []) {
             try {
                 $this->hubOutboundPipelineCache = $this->wellPipelineSvc->getByPlayerHubIds($playerId, $outboundHubIds);
+                foreach ($this->hubOutboundPipelineCache as &$pipeline) {
+                    $pipelineId = (int)($pipeline['id'] ?? 0);
+                    if (isset($this->pipelineCompletedActiveHours[$pipelineId])) {
+                        $pipeline['_active_hours_this_tick'] = $this->pipelineCompletedActiveHours[$pipelineId];
+                    }
+                }
+                unset($pipeline);
             } catch (Throwable $e) {
                 GameLog::error('tick', 'preloadPlayerData hub outbound pipelines FAILED', $e, ['player_id' => $playerId]);
             }

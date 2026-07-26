@@ -1,6 +1,8 @@
 <?php
 /**
  * Dostarcza dane potrzebne do wyrenderowania banera cookies.
+ *
+ * @phpstan-type BannerCategory array{key: string, label: string, description: string, required: bool}
  */
 class PrivacyBannerService
 {
@@ -11,6 +13,8 @@ class PrivacyBannerService
 
     /**
      * Zwraca wszystkie dane potrzebne widokowi banera.
+     *
+     * @return array{heading: string, description: string, btn_accept_all: string, btn_necessary_only: string, btn_settings: string, show_decline_button: bool, policy_url: string, privacy_url: string, categories: list<BannerCategory>}
      */
     public function getBannerData(): array
     {
@@ -30,6 +34,8 @@ class PrivacyBannerService
     /**
      * Zwraca kategorie cookies z opisami, pogrupowane.
      * Kategoria 'necessary' zawsze na pierwszym miejscu.
+     *
+     * @return list<BannerCategory>
      */
     public function getActiveCategories(): array
     {

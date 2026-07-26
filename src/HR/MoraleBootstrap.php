@@ -19,9 +19,6 @@ function ensureMoraleSchema(): void
 
     try {
         $db = Database::getInstance()->getConnection();
-        if (!$db) {
-            return;
-        }
 
         // Tabela logow zmian morale
         $db->exec("

@@ -1,8 +1,10 @@
 <?php
+/** @phpstan-type PolicyRow array{id: int|string, policy_type: string, version: string, title: string, content: string, is_active: int|string, published_at: string|null, created_at: string, updated_at: string} */
 class PolicyRepository
 {
     public function __construct(private readonly PDO $db) {}
 
+    /** @return list<PolicyRow> */
     public function getAll(): array
     {
         try {
@@ -14,6 +16,7 @@ class PolicyRepository
         }
     }
 
+    /** @return PolicyRow|null */
     public function getById(int $id): ?array
     {
         try {

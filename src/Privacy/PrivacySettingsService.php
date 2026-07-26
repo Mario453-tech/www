@@ -4,6 +4,7 @@
  */
 class PrivacySettingsService
 {
+    /** @var array<string, mixed> */
     private array $cache = [];
 
     public function __construct(private readonly PDO $db) {}
@@ -49,6 +50,9 @@ class PrivacySettingsService
         unset($this->cache[$key]);
     }
 
+    /** @param list<string> $keys
+     * @return array<string, mixed>
+     */
     public function getMany(array $keys): array
     {
         $result = [];
@@ -58,7 +62,11 @@ class PrivacySettingsService
         return $result;
     }
 
-    /** Zwraca wszystkie ustawienia jako tablice klucz => wartosc. */
+    /**
+     * Zwraca wszystkie ustawienia jako tablice klucz => wartosc.
+     *
+     * @return array<string, mixed>
+     */
     public function all(): array
     {
         try {

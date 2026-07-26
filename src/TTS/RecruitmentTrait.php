@@ -160,13 +160,13 @@ trait TTSRecruitmentTrait
             ");
             $stmt->execute([$requestId, $this->playerId]);
             if ($stmt->rowCount() < 1) {
-                GameLog::error('completeRecruitment: no rows updated', [
+                GameLog::error('TTSRecruitmentTrait', 'completeRecruitment: no rows updated', null, [
                     'requestId' => $requestId,
                     'playerId'  => $this->playerId,
                 ]);
             }
         } catch (\Throwable $e) {
-            GameLog::error('completeRecruitment: DB error', [
+            GameLog::error('TTSRecruitmentTrait', 'completeRecruitment: DB error', $e, [
                 'requestId' => $requestId,
                 'playerId'  => $this->playerId,
                 'error'     => $e->getMessage(),

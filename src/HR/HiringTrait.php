@@ -241,6 +241,8 @@ trait HRHiringTrait
 
     /**
      * Resolve the target structure before mutating any employee table.
+     *
+     * @param array<string,mixed> $candidate
      */
     private function resolveCandidateHireTarget(array $candidate): ?string
     {

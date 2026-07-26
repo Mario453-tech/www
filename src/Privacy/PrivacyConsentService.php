@@ -3,6 +3,8 @@
  * Rdzen zarzadzania zgodami.
  * Decyduje czy pokazac baner, odczytuje ostatnia zgode gracza/goscia,
  * zapisuje nowa zgode.
+ *
+ * @phpstan-type ConsentRow array{id: int|string, player_id: int|string|null, anonymous_token: string, consent_version: string, banner_version: string, accepted_categories_json: string, rejected_categories_json: string, source: string, ip_address: string|null, user_agent: string|null, created_at: string, updated_at: string, withdrawn_at: string|null}
  */
 class PrivacyConsentService
 {
@@ -43,6 +45,8 @@ class PrivacyConsentService
 
     /**
      * Ostatnia aktywna (nie wycofana) zgoda gracza lub goscia.
+     *
+     * @return ConsentRow|null
      */
     public function getActiveConsent(?int $playerId, string $anonymousToken): ?array
     {
@@ -73,6 +77,9 @@ class PrivacyConsentService
     /**
      * Zapisuje zgode uzytkownika.
      * Zwraca id nowo zapisanej zgody.
+     *
+     * @param list<string> $acceptedCategories
+     * @param list<string> $rejectedCategories
      */
     public function saveConsent(
         ?int   $playerId,

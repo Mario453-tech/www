@@ -83,6 +83,7 @@ trait TechnicalPageActionsTrait
         return [$msg, $msgType];
     }
 
+    /** @return array{0:string,1:string} */
     private function handleStartTraining(): array
     {
         try {
@@ -95,7 +96,7 @@ trait TechnicalPageActionsTrait
                 (int)($_POST['program_id'] ?? 0)
             );
             GameLog::info('technical.php', 'start_training result', $result);
-            return [$result['message'], !empty($result['success']) ? 'success' : 'error'];
+            return [(string)$result['message'], !empty($result['success']) ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'start_training EXCEPTION', $e);
             return [t('training.err.generic'), 'error'];
@@ -114,7 +115,7 @@ trait TechnicalPageActionsTrait
                 ($_POST['pipeline_id'] ?? '') !== '' ? (int)$_POST['pipeline_id'] : null
             );
             GameLog::info('technical.php', 'assign_task result', $result);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'assign_task EXCEPTION', $e);
             return [t('technical.err_assign_task'), 'error'];
@@ -126,7 +127,7 @@ trait TechnicalPageActionsTrait
         try {
             $result = $this->svc->fireEngineer((int)($_POST['staff_id'] ?? 0));
             GameLog::info('technical.php', 'fire_engineer result', $result);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'fire_engineer EXCEPTION', $e);
             return [t('technical.err_fire_engineer'), 'error'];
@@ -143,7 +144,7 @@ trait TechnicalPageActionsTrait
                 Validator::sanitize($_POST['comment'] ?? '')
             );
             GameLog::info('technical.php', 'review_candidate result', $result);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'review_candidate EXCEPTION', $e);
             return [t('technical.err_review'), 'error'];
@@ -223,6 +224,7 @@ trait TechnicalPageActionsTrait
         }
     }
 
+    /** @return array{0:string,1:string} */
     private function handleHireCandidate(): array
     {
         try {
@@ -236,7 +238,7 @@ trait TechnicalPageActionsTrait
                 'candidate_id' => $candidateId,
                 'ok' => $result['success'],
             ]);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'hire_candidate EXCEPTION', $e);
             return [t('technical.err_hire'), 'error'];
@@ -252,7 +254,7 @@ trait TechnicalPageActionsTrait
                 'request_id' => $requestId,
                 'ok'         => $result['success'],
             ]);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'cancel_recruitment EXCEPTION', $e);
             return [t('technical.err_cancel_recruitment'), 'error'];
@@ -265,7 +267,7 @@ trait TechnicalPageActionsTrait
             $taskId = (int)($_POST['task_id'] ?? 0);
             $result = $this->svc->cancelTask($taskId);
             GameLog::info('technical.php', 'cancel_task', ['task_id' => $taskId, 'ok' => $result['success']]);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'cancel_task EXCEPTION', $e);
             return [t('technical.err_cancel_task'), 'error'];
@@ -278,7 +280,7 @@ trait TechnicalPageActionsTrait
             $queueId = (int)($_POST['queue_id'] ?? 0);
             $result = $this->svc->cancelQueueItem($queueId);
             GameLog::info('technical.php', 'cancel_queue_item', ['queue_id' => $queueId, 'ok' => $result['success']]);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'cancel_queue_item EXCEPTION', $e);
             return [t('technical.err_cancel_queue'), 'error'];
@@ -290,7 +292,7 @@ trait TechnicalPageActionsTrait
         try {
             $result = $this->svc->upgradeProcedures();
             GameLog::info('technical.php', 'upgrade_procedures result', $result);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'upgrade_procedures EXCEPTION', $e);
             return [t('technical.err_upgrade_proc'), 'error'];
@@ -302,7 +304,7 @@ trait TechnicalPageActionsTrait
         try {
             $result = $this->svc->repairProcedureIntegrity();
             GameLog::info('technical.php', 'repair_procedure_integrity result', $result);
-            return [$result['message'], $result['success'] ? 'success' : 'error'];
+            return [(string)$result['message'], $result['success'] ? 'success' : 'error'];
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'repair_procedure_integrity EXCEPTION', $e);
             return [t('technical.err_repair_proc'), 'error'];

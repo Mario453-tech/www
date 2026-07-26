@@ -53,6 +53,7 @@ class TaskConfigService
         return $out;
     }
 
+    /** @param array<string,mixed> $values */
     public static function save(PDO $db, string $taskType, array $values, string $updatedBy): void
     {
         $stmt = $db->prepare("

@@ -229,9 +229,6 @@ class SabotageService
         ];
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
     public function countPlayerTargets(int $playerId): int
     {
         try {
@@ -245,6 +242,7 @@ class SabotageService
         }
     }
 
+    /** @return list<array<string,mixed>> */
     public function getPlayerTargets(int $playerId, int $limit = 12, int $offset = 0): array
     {
         try {
@@ -833,6 +831,7 @@ class SabotageService
         return $out;
     }
 
+    /** @return array<string,mixed>|null */
     private function pickOption(string $targetType, string $context, float $referenceValue): ?array
     {
         $options = $this->getAvailableOptions($targetType, $context);
@@ -912,6 +911,7 @@ class SabotageService
         }
     }
 
+    /** @param array<string,mixed> $option */
     private function calculateCost(array $option, float $referenceValue): float
     {
         $type = (string)($option['cost_type'] ?? 'fixed');

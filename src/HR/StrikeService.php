@@ -47,6 +47,8 @@ class StrikeService
     /**
      * Pobiera aktywne strajki dla wszystkich pracownikow gracza
      * Zwraca tablice: [technical_staff_id => [reason, start_time]]
+     *
+     * @return array<int,array{reason:mixed,start_time:mixed}>
      */
     public static function getActiveStrikes(int $playerId): array
     {

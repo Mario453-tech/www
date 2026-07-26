@@ -24,7 +24,10 @@ final class EmployeeDialogueTemplateService
         $this->seedDefaults();
     }
 
-    /** @return list<array<string,mixed>> */
+    /**
+     * @param array{context_key?:mixed,department_code?:mixed,tone?:mixed,round_no?:mixed,is_active?:mixed} $filters
+     * @return list<array<string,mixed>>
+     */
     public function list(array $filters = []): array
     {
         $where = ['1=1'];
@@ -128,7 +131,10 @@ final class EmployeeDialogueTemplateService
         return $this->weightedPick($unused !== [] ? $unused : $rows);
     }
 
-    /** @param array<string,mixed> $values */
+    /**
+     * @param array<string,mixed> $template
+     * @param array<string,mixed> $values
+     */
     public function render(array $template, string $language, array $values): string
     {
         $field = $language === 'en' ? 'text_en' : 'text_pl';
@@ -147,7 +153,10 @@ final class EmployeeDialogueTemplateService
         $this->seedDefaults();
     }
 
-    /** @param array<string,mixed> $data @return array<string,mixed> */
+    /**
+     * @param array<string,mixed> $data
+     * @return array{context_key:string,department_code:?string,round_no:?int,tone:string,text_pl:string,text_en:string,weight:float,is_active:0|1}
+     */
     private function validate(array $data): array
     {
         $context = (string)($data['context_key'] ?? '');
@@ -240,7 +249,10 @@ final class EmployeeDialogueTemplateService
         return array_fill_keys(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN)), true);
     }
 
-    /** @param list<array<string,mixed>> $rows @return array<string,mixed>|null */
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @return array<string,mixed>|null
+     */
     private function weightedPick(array $rows): ?array
     {
         if ($rows === []) {

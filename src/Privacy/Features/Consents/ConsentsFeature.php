@@ -2,6 +2,7 @@
 require_once __DIR__ . '/ConsentRepository.php';
 require_once __DIR__ . '/ConsentService.php';
 
+/** @phpstan-import-type ConsentRow from ConsentRepository */
 class ConsentsFeature extends AbstractPrivacyFeature
 {
     private ConsentRepository $repo;
@@ -11,13 +12,17 @@ class ConsentsFeature extends AbstractPrivacyFeature
     {
         parent::__construct($db, $settings, $audit);
         $this->repo    = new ConsentRepository($db);
-        $this->service = new ConsentService($this->repo, $audit);
+        $this->service = new ConsentService($this->repo);
     }
 
     public function getKey(): string   { return 'consents'; }
     public function getLabel(): string { return t('privacy.feature.consents_label'); }
     public function getIcon(): string  { return ''; }
 
+    /**
+     * @param array<string, mixed> $post
+     * @return array{success: bool, message: string}|null
+     */
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {
         $action = (string)($post['action'] ?? '');
@@ -38,6 +43,10 @@ class ConsentsFeature extends AbstractPrivacyFeature
         return null;
     }
 
+    /**
+     * @param array<string, mixed> $get
+     * @return array{consents_data: array{rows: list<ConsentRow>, total: int, pages: int}, filters: array{date_from: string, date_to: string, consent_version: string, source: string, player_id: int}, page: int, versions: list<string>, consent_detail: ConsentRow|null}
+     */
     public function getViewData(array $get): array
     {
         $filters = [

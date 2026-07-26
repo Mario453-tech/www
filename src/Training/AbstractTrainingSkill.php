@@ -15,6 +15,7 @@ abstract class AbstractTrainingSkill implements TrainingSkillInterface
         return 10;
     }
 
+    /** @param array<string,mixed> $staffData */
     public function passRateModifier(array $staffData, int $currentLevel): int
     {
         return 0;
@@ -24,6 +25,8 @@ abstract class AbstractTrainingSkill implements TrainingSkillInterface
      * Modyfikator ambicji: trait_ambition 1-10, +2% za kazdy punkt powyzej 5,
      * -2% za kazdy ponizej. Pracownicy bez tej cechy (technicy) -> 0.
      * Ambition modifier: +/-2% per point from the 5 baseline; 0 when absent.
+     *
+     * @param array<string,mixed> $staffData
      */
     protected function ambitionModifier(array $staffData): int
     {

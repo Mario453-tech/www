@@ -304,6 +304,7 @@ class LogisticsService
  * transport_config cost_per_bbl — an optimizer using cost_per_bbl recommended types
  * by a fee the production tick never charges.
  */
+    /** @param array<string,float> $cfg */
     private function projectCost(string $type, float $transported, array $cfg): float
     {
         if ($type === 'ciezarowki') {

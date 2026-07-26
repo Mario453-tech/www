@@ -22,7 +22,7 @@ require_once __DIR__ . '/Features/Banner/BannerSettingsFeature.php';
  */
 class PrivacyFeatureRegistry
 {
-    /** @var PrivacyFeatureInterface[] */
+    /** @var array<string, PrivacyFeatureInterface> */
     private array $features = [];
 
     public function register(PrivacyFeatureInterface $feature): void
@@ -35,13 +35,21 @@ class PrivacyFeatureRegistry
         return $this->features[$key] ?? null;
     }
 
-    /** Zwraca wszystkie zarejestrowane podmoduly (wlaczone i wylaczone). */
+    /**
+     * Zwraca wszystkie zarejestrowane podmoduly (wlaczone i wylaczone).
+     *
+     * @return array<string, PrivacyFeatureInterface>
+     */
     public function all(): array
     {
         return $this->features;
     }
 
-    /** Zwraca tylko aktywne podmoduly - te ktore pokazujemy w panelu. */
+    /**
+     * Zwraca tylko aktywne podmoduly - te ktore pokazujemy w panelu.
+     *
+     * @return array<string, PrivacyFeatureInterface>
+     */
     public function getEnabled(): array
     {
         return array_filter($this->features, fn($f) => $f->isEnabled());

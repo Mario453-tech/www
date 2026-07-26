@@ -20,11 +20,17 @@ interface PrivacyFeatureInterface
     /**
      * Obsługuje POST request dla tej zakładki (akcje formularzy).
      * Zwraca ['success' => bool, 'message' => string] lub null gdy brak akcji.
+     *
+     * @param array<string, mixed> $post
+     * @return array{success: bool, message: string, id?: int}|null
      */
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array;
 
     /**
      * Przygotowuje dane dla widoku zakładki.
+     *
+     * @param array<string, mixed> $get
+     * @return array<string, mixed>
      */
     public function getViewData(array $get): array;
 

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/CookieRepository.php';
 require_once __DIR__ . '/CookieService.php';
 
+/** @phpstan-import-type CookieRow from CookieRepository */
 class CookiesFeature extends AbstractPrivacyFeature
 {
     private CookieRepository $repo;
@@ -18,6 +19,10 @@ class CookiesFeature extends AbstractPrivacyFeature
     public function getLabel(): string { return t('privacy.feature.cookies_label'); }
     public function getIcon(): string  { return ''; }
 
+    /**
+     * @param array<string, mixed> $post
+     * @return array{success: bool, message: string, id?: int}|null
+     */
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {
         $action = (string)($post['action'] ?? '');
@@ -31,6 +36,10 @@ class CookiesFeature extends AbstractPrivacyFeature
         };
     }
 
+    /**
+     * @param array<string, mixed> $get
+     * @return array{cookies: list<CookieRow>, filters: array{category: string, is_active: mixed}, edit_row: CookieRow|null, valid_categories: list<string>, valid_types: list<string>}
+     */
     public function getViewData(array $get): array
     {
         $filters = [

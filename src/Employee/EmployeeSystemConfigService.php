@@ -94,7 +94,10 @@ final class EmployeeSystemConfigService
     {
         return $this->values;
     }
-    /** @param array<string,mixed> $input @return array<string,array{old:float|int|bool,new:float|int|bool}> */
+    /**
+     * @param array<string,mixed> $input
+     * @return array<string,array{old:float|int|bool,new:float|int|bool}>
+     */
     public function save(array $input): array
     {
         $values = $this->all();

@@ -1,14 +1,16 @@
 <?php
 /**
  * Logika biznesowa podgladu i eksportu zgod.
+ *
+ * @phpstan-import-type ConsentFilter from ConsentRepository
  */
 class ConsentService
 {
     public function __construct(
-        private readonly ConsentRepository  $repo,
-        private readonly PrivacyAuditLogger $audit
+        private readonly ConsentRepository $repo
     ) {}
 
+    /** @param ConsentFilter $filters */
     public function exportCsv(array $filters): string
     {
         $result = $this->repo->getList($filters, 1, 10000);

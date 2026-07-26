@@ -1,6 +1,8 @@
 <?php
 /**
  * Zarzadzanie wersjami polityk prywatnosci i cookies.
+ *
+ * @phpstan-type PolicyRow array{id: int|string, policy_type: string, version: string, title: string, content: string, is_active: int|string, published_at: string|null, created_at: string, updated_at: string}
  */
 class PrivacyPolicyService
 {
@@ -8,6 +10,8 @@ class PrivacyPolicyService
 
     /**
      * Aktywna wersja polityki danego typu ('cookies' lub 'privacy').
+     *
+     * @return PolicyRow|null
      */
     public function getActive(string $policyType): ?array
     {
@@ -26,6 +30,8 @@ class PrivacyPolicyService
 
     /**
      * Lista wszystkich wersji danego typu, najnowsze najpierw.
+     *
+     * @return list<PolicyRow>
      */
     public function getAll(string $policyType): array
     {

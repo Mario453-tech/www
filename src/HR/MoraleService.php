@@ -58,6 +58,8 @@ final class LegacyMoraleService
 
     /**
      * Zwraca historie zmian morale pracownika
+     *
+     * @return list<array{change_amount:mixed,reason:mixed,created_at:mixed}>
      */
     public static function getMoraleHistory(int $staffId, int $limit = 20): array
     {

@@ -40,10 +40,8 @@ class WellRoadTripSection
  * Processes completed trips; returns updated storage level.
  *
  * @param array<string, mixed> $hseBonus
+ * @param array<int, int> $wellHubMap well_id => hub_id (odwierty przypisane do huba)
  */
-    /**
-     * @param array<int, int> $wellHubMap well_id => hub_id (odwierty przypisane do huba)
-     */
     public function process(
         int                  $playerId,
         float                $currentStorage,

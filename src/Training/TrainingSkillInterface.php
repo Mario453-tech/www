@@ -36,6 +36,8 @@ interface TrainingSkillInterface
      * Dodatkowy modyfikator szansy zdania zalezny od umiejetnosci/poziomu (w %).
      * Extra pass-chance modifier specific to this skill/level (percent).
      * Domyslnie 0 - trudniej zdac na wyzszych poziomach mozna tu zaszyc.
+     *
+     * @param array<string,mixed> $staffData
      */
     public function passRateModifier(array $staffData, int $currentLevel): int;
 }

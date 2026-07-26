@@ -15,6 +15,10 @@ class BannerSettingsFeature extends AbstractPrivacyFeature
     public function getLabel(): string { return t('privacy.feature.banner_label'); }
     public function getIcon(): string  { return ''; }
 
+    /**
+     * @param array<string, mixed> $post
+     * @return array{success: bool, message: string}|null
+     */
     public function handlePost(array $post, int $adminId, string $ip, string $ua): ?array
     {
         if ((string)($post['action'] ?? '') !== 'save_banner_settings') {
@@ -27,6 +31,10 @@ class BannerSettingsFeature extends AbstractPrivacyFeature
         return ['success' => true, 'message' => t('privacy.banner_settings.msg_saved')];
     }
 
+    /**
+     * @param array<string, mixed> $get
+     * @return array{all_settings: array<string, mixed>}
+     */
     public function getViewData(array $get): array
     {
         return ['all_settings' => $this->bannerSvc->getAll()];

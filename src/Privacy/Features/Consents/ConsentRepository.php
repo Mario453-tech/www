@@ -1,11 +1,18 @@
 <?php
 /**
  * Dostep do bazy danych dla zgod uzytkownikow.
+ *
+ * @phpstan-type ConsentFilter array{date_from?: string, date_to?: string, consent_version?: string, source?: string, player_id?: int}
+ * @phpstan-type ConsentRow array{id: int|string, player_id: int|string|null, anonymous_token: string, consent_version: string, banner_version: string, accepted_categories_json: string, rejected_categories_json: string, source: string, ip_address: string|null, user_agent: string|null, created_at: string, updated_at: string, withdrawn_at: string|null, username: string|null}
  */
 class ConsentRepository
 {
     public function __construct(private readonly PDO $db) {}
 
+    /**
+     * @param ConsentFilter $filters
+     * @return array{rows: list<ConsentRow>, total: int, pages: int}
+     */
     public function getList(array $filters = [], int $page = 1, int $perPage = 50): array
     {
         $where  = [];
@@ -59,6 +66,7 @@ class ConsentRepository
         }
     }
 
+    /** @return ConsentRow|null */
     public function getById(int $id): ?array
     {
         try {
@@ -75,6 +83,7 @@ class ConsentRepository
         }
     }
 
+    /** @return list<string> */
     public function getVersions(): array
     {
         try {

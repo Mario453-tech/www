@@ -165,6 +165,8 @@ class TrainingService
     /**
      * Pojedynczy egzamin: losowanie, aktualizacja stanu, powiadomienie.
      * Single exam: roll, state update, notification.
+     *
+     * @param array<string,mixed> $row
      */
     private function runExam(int $playerId, array $row): bool
     {
@@ -254,6 +256,8 @@ class TrainingService
     /**
      * Wystawia certyfikat po zdanym egzaminie (technik lub czlonek zarzadu).
      * Issues a certificate after a passed exam (technical staff or board member).
+     *
+     * @param array<string,mixed> $row
      */
     private function issueCertificate(
         int $playerId, string $staffType, int $staffId, int $trainingId,
@@ -271,7 +275,12 @@ class TrainingService
         ]);
     }
 
-    /** Powiadomienie o wyniku egzaminu - nigdy nie przerywa glownego przeplywu. */
+    /**
+     * Powiadomienie o wyniku egzaminu - nigdy nie przerywa glownego przeplywu.
+     *
+     * @param array<string,mixed> $staffData
+     * @param array<string,mixed> $row
+     */
     private function notifyExamResult(int $playerId, array $staffData, array $row, bool $passed, int $score, int $passMin, int $levelAfter): void
     {
         try {
@@ -315,7 +324,7 @@ class TrainingService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** Aktywne szkolenia gracza dla danego dzialu. */
+    /** @return list<array<string,mixed>> */
     public function getActiveTrainings(int $playerId, string $department): array
     {
         $stmt = $this->db->prepare(
@@ -329,7 +338,7 @@ class TrainingService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** Zdobyte certyfikaty gracza dla danego dzialu (najnowsze pierwsze). */
+    /** @return list<array<string,mixed>> */
     public function getCertificates(int $playerId, string $department, int $limit = 50): array
     {
         $limit = max(1, min(200, $limit));
@@ -343,7 +352,7 @@ class TrainingService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** Historia zakonczonych szkolen gracza (passed/failed/cancelled). */
+    /** @return list<array<string,mixed>> */
     public function getHistory(int $playerId, string $department, int $limit = 30): array
     {
         $limit = max(1, min(100, $limit));
@@ -363,6 +372,7 @@ class TrainingService
     // Wewnetrzne / Internal
     // ============================================================
 
+    /** @return array<string,mixed>|null */
     private function loadProgram(int $programId): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM training_programs WHERE id = ? LIMIT 1");
@@ -418,6 +428,7 @@ class TrainingService
         return (int)$stmt->fetchColumn();
     }
 
+    /** @return array<string,mixed> */
     private function loadStaffData(int $playerId, string $staffType, int $staffId): array
     {
         if ($staffType === 'board') {
@@ -444,7 +455,11 @@ class TrainingService
         return (bool)$stmt->fetchColumn();
     }
 
-    /** Modyfikator ambicji (tylko zarzad ma trait_ambition). */
+    /**
+     * Modyfikator ambicji (tylko zarzad ma trait_ambition).
+     *
+     * @param array<string,mixed> $staffData
+     */
     private function ambitionOf(array $staffData): int
     {
         if (!isset($staffData['trait_ambition'])) {

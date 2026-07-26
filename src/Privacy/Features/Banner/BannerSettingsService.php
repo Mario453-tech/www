@@ -1,6 +1,7 @@
 <?php
 class BannerSettingsService
 {
+    /** @var list<string> */
     private static array $boolKeys = [
         'privacy.banner.enabled',
         'privacy.banner.force_reconsent',
@@ -10,11 +11,13 @@ class BannerSettingsService
 
     public function __construct(private readonly PrivacySettingsService $settings) {}
 
+    /** @return array<string, mixed> */
     public function getAll(): array
     {
         return $this->settings->all();
     }
 
+    /** @param array<string, mixed> $post */
     public function saveFromPost(array $post): void
     {
         $stringKeys = [

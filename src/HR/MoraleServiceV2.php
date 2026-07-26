@@ -166,7 +166,11 @@ final class MoraleService
         return ($employee['source_type'] ?? '') === EmployeeRef::SOURCE_TECHNICAL_STAFF ? 20.0 : 40.0;
     }
 
-    /** @param array<string,mixed> $employee @param array<string,mixed> $state @return array<string,float|string|int> */
+    /**
+     * @param array<string,mixed> $employee
+     * @param array<string,mixed> $state
+     * @return array<string,float|string|int>
+     */
     public function calculateMetrics(array $employee, array $state, float $workload, int $trainingCount, string $financialState): array
     {
         $expected = $this->calculateExpectedSalary($employee, $trainingCount, $workload);

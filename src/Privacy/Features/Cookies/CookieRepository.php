@@ -1,11 +1,19 @@
 <?php
 /**
  * Dostep do bazy danych dla definicji cookies.
+ *
+ * @phpstan-type CookieFilter array{category?: string, is_active?: int|string}
+ * @phpstan-type CookieData array{name: string, category: string, provider: string, purpose: string, duration: string, type: string, is_required: int, is_active: int, cookie_key: string, notes: string|null}
+ * @phpstan-type CookieRow array{id: int|string, name: string, category: string, provider: string, purpose: string, duration: string, type: string, is_required: int|string, is_active: int|string, cookie_key: string, notes: string|null, created_at: string, updated_at: string}
  */
 class CookieRepository
 {
     public function __construct(private readonly PDO $db) {}
 
+    /**
+     * @param CookieFilter $filters
+     * @return list<CookieRow>
+     */
     public function getAll(array $filters = []): array
     {
         $where  = [];
@@ -30,6 +38,7 @@ class CookieRepository
         }
     }
 
+    /** @return CookieRow|null */
     public function getById(int $id): ?array
     {
         try {
@@ -41,6 +50,7 @@ class CookieRepository
         }
     }
 
+    /** @param CookieData $data */
     public function create(array $data): int
     {
         try {
@@ -67,6 +77,7 @@ class CookieRepository
         }
     }
 
+    /** @param CookieData $data */
     public function update(int $id, array $data): bool
     {
         try {

@@ -1,10 +1,14 @@
 <?php
 /**
  * Logika biznesowa zarzadzania definicjami cookies.
+ *
+ * @phpstan-import-type CookieData from CookieRepository
  */
 class CookieService
 {
+    /** @var list<string> */
     private static array $validCategories = ['necessary', 'preferences', 'analytics', 'marketing'];
+    /** @var list<string> */
     private static array $validTypes      = ['cookie', 'local_storage', 'session_storage', 'indexeddb'];
 
     public function __construct(
@@ -12,6 +16,10 @@ class CookieService
         private readonly PrivacyAuditLogger  $audit
     ) {}
 
+    /**
+     * @param array<string, mixed> $input
+     * @return array{success: bool, message: string, id?: int}
+     */
     public function create(array $input, int $adminId, string $ip, string $ua): array
     {
         $data = $this->validate($input);
@@ -22,6 +30,10 @@ class CookieService
         return ['success' => true, 'message' => t('privacy.cookies.msg_created'), 'id' => $id];
     }
 
+    /**
+     * @param array<string, mixed> $input
+     * @return array{success: bool, message: string}
+     */
     public function update(int $id, array $input, int $adminId, string $ip, string $ua): array
     {
         $old = $this->repo->getById($id);
@@ -35,6 +47,7 @@ class CookieService
         return ['success' => true, 'message' => t('privacy.cookies.msg_updated')];
     }
 
+    /** @return array{success: bool, message: string} */
     public function toggleActive(int $id, bool $active, int $adminId, string $ip, string $ua): array
     {
         $old = $this->repo->getById($id);
@@ -46,6 +59,7 @@ class CookieService
         return ['success' => true, 'message' => $active ? t('privacy.cookies.msg_activated') : t('privacy.cookies.msg_deactivated')];
     }
 
+    /** @return array{success: bool, message: string} */
     public function delete(int $id, int $adminId, string $ip, string $ua): array
     {
         $old = $this->repo->getById($id);
@@ -57,6 +71,10 @@ class CookieService
         return ['success' => true, 'message' => t('privacy.cookies.msg_deleted')];
     }
 
+    /**
+     * @param array<string, mixed> $input
+     * @return CookieData|array{error: string}
+     */
     private function validate(array $input): array
     {
         $name = trim((string)($input['name'] ?? ''));
