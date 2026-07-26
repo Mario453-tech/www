@@ -119,6 +119,138 @@ final class EmployeeStrikeService
         }
     }
 
+    /** @return array{strike_id:int,member_count:int,status:string} */
+    public function forceActiveForTesting(
+        int $playerId,
+        string $department,
+        ?DateTimeInterface $now = null,
+        float $support = 80.0
+    ): array {
+        // Admin-only test hook: creates a real active strike using the canonical tables.
+        // Hak testowy admina: tworzy prawdziwy aktywny strajk w kanonicznych tabelach.
+        $department = trim($department);
+        if ($playerId <= 0 || !in_array($department, ['hr', 'technical', 'finance', 'legal', 'logistics'], true)) {
+            throw new InvalidArgumentException('Invalid player or department for test strike.');
+        }
+        $support = max(50.0, min(100.0, $support));
+        $now ??= new DateTimeImmutable();
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $player = $this->db->prepare('SELECT id FROM players WHERE id=? LIMIT 1');
+            $player->execute([$playerId]);
+            if ((int)($player->fetchColumn() ?: 0) !== $playerId) {
+                throw new RuntimeException('Player does not exist.');
+            }
+            $states = $this->eligibleStatesForTestStrike($playerId, $department);
+            if ($states === []) {
+                throw new RuntimeException('No active employees in this department.');
+            }
+
+            $openKey = $playerId . ':' . $department;
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $insert = $driver === 'sqlite'
+                ? "INSERT INTO employee_strikes
+                    (player_id, department_code, status, open_key, support_pct, threat_cycles, started_at)
+                   VALUES (?, ?, 'active', ?, ?, 1, ?)
+                   ON CONFLICT(open_key) DO UPDATE SET
+                     status='active', support_pct=excluded.support_pct, threat_cycles=1,
+                     started_at=COALESCE(employee_strikes.started_at, excluded.started_at)"
+                : "INSERT INTO employee_strikes
+                    (player_id, department_code, status, open_key, support_pct, threat_cycles, started_at)
+                   VALUES (?, ?, 'active', ?, ?, 1, ?)
+                   ON DUPLICATE KEY UPDATE
+                     status='active', support_pct=VALUES(support_pct), threat_cycles=1,
+                     started_at=COALESCE(started_at, VALUES(started_at)),
+                     updated_at=CURRENT_TIMESTAMP";
+            $this->db->prepare($insert)->execute([
+                $playerId,
+                $department,
+                $openKey,
+                $support,
+                $now->format('Y-m-d H:i:s'),
+            ]);
+            $strikeStmt = $this->db->prepare(
+                "SELECT id, status FROM employee_strikes
+                  WHERE player_id=? AND open_key=? AND status IN ('active','negotiating') LIMIT 1"
+            );
+            $strikeStmt->execute([$playerId, $openKey]);
+            $strike = $strikeStmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($strike)) {
+                throw new RuntimeException('Test strike could not be created.');
+            }
+            $strikeId = (int)$strike['id'];
+            $memberInsert = $driver === 'sqlite'
+                ? "INSERT INTO employee_strike_members
+                    (strike_id, player_id, source_type, source_id, support_pct)
+                   VALUES (?, ?, ?, ?, ?) ON CONFLICT(strike_id, source_type, source_id) DO NOTHING"
+                : "INSERT IGNORE INTO employee_strike_members
+                    (strike_id, player_id, source_type, source_id, support_pct) VALUES (?, ?, ?, ?, ?)";
+            $stateUpdate = $this->db->prepare(
+                "UPDATE employee_state
+                    SET relation_status='on_strike',
+                        morale=CASE WHEN morale > 30 THEN 30 ELSE morale END,
+                        salary_satisfaction=CASE WHEN salary_satisfaction > 60 THEN 60 ELSE salary_satisfaction END,
+                        workload=CASE WHEN workload < 80 THEN 80 ELSE workload END,
+                        strike_support=CASE WHEN strike_support < :support THEN :support ELSE strike_support END,
+                        version=version+1,
+                        updated_at=CURRENT_TIMESTAMP
+                  WHERE id=:id AND player_id=:player_id AND source_type=:source_type AND source_id=:source_id"
+            );
+            foreach ($states as $state) {
+                $this->db->prepare($memberInsert)->execute([
+                    $strikeId,
+                    $playerId,
+                    (string)$state['source_type'],
+                    (int)$state['source_id'],
+                    $support,
+                ]);
+                $stateUpdate->execute([
+                    'support' => $support,
+                    'id' => (int)$state['id'],
+                    'player_id' => $playerId,
+                    'source_type' => (string)$state['source_type'],
+                    'source_id' => (int)$state['source_id'],
+                ]);
+            }
+            if ($ownTx) {
+                $this->db->commit();
+            }
+            return [
+                'strike_id' => $strikeId,
+                'member_count' => count($states),
+                'status' => (string)$strike['status'],
+            ];
+        } catch (Throwable $e) {
+            if ($ownTx && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function eligibleStatesForTestStrike(int $playerId, string $department): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT es.*
+               FROM employee_state es
+          LEFT JOIN technical_staff ts
+                 ON es.source_type='technical_staff' AND ts.id=es.source_id AND ts.player_id=es.player_id
+          LEFT JOIN board_members bm
+                 ON es.source_type='board_member' AND bm.id=es.source_id AND bm.player_id=es.player_id
+              WHERE es.player_id=? AND es.department_code=?
+                AND es.relation_status NOT IN ('inactive','leaving')
+                AND ((es.source_type='technical_staff' AND ts.status IN ('active','busy'))
+                  OR (es.source_type='board_member' AND bm.status='active'))
+              ORDER BY es.id"
+        );
+        $stmt->execute([$playerId, $department]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     private function expireRaiseRequests(DateTimeInterface $now): void
     {
         $stmt = $this->db->prepare(

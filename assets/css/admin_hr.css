@@ -49,3 +49,6 @@
 .hr-raise-config-field > span { font-size: 12px; font-weight: 600; }
 .hr-raise-config-field input { width: 100%; }
 .hr-raise-config-field small { color: rgba(255,255,255,.55); line-height: 1.4; }
+.hr-test-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }
+.hr-test-targets-grid .list-header,
+.hr-test-targets-grid .list-row { grid-template-columns: minmax(180px, 1fr) 120px 100px 100px 150px; }

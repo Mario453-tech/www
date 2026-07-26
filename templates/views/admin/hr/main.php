@@ -18,6 +18,7 @@
         <a href="?tab=stats"           class="hr-tab <?= $tab === 'stats'           ? 'active' : '' ?>"><?= t('admin.hr.tab_stats') ?></a>
         <a href="?tab=specializations" class="hr-tab <?= $tab === 'specializations' ? 'active' : '' ?>"><?= t('admin.hr.tab_specializations') ?></a>
         <a href="?tab=raises" class="hr-tab <?= $tab === 'raises' ? 'active' : '' ?>"><?= t('admin.hr.tab_raises') ?></a>
+        <a href="?tab=tests" class="hr-tab <?= $tab === 'tests' ? 'active' : '' ?>"><?= t('admin.hr.tab_tests') ?></a>
     </nav>
 
     <?php if ($tab === 'candidates'): ?>
@@ -194,6 +195,76 @@
             </div>
             <button type="submit" class="btn btn-primary"><?= t('admin.hr.btn_save_raise_config') ?></button>
         </form>
+    </section>
+    <?php elseif ($tab === 'tests'): ?>
+    <section class="hr-section">
+        <div class="section-toolbar">
+            <div>
+                <h2><?= t('admin.hr.section_tests') ?></h2>
+                <p class="muted font-xs"><?= t('admin.hr.tests_desc') ?></p>
+            </div>
+        </div>
+        <form method="post" class="hr-test-strike-form" data-confirm-submit
+              data-confirm-message="<?= htmlspecialchars(tPlain('admin.hr.confirm_test_strike'), ENT_QUOTES, 'UTF-8') ?>"
+              data-confirm-label="<?= htmlspecialchars(tPlain('admin.hr.btn_force_test_strike'), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="force_test_strike" value="1">
+            <div class="hr-test-grid">
+                <label class="hr-raise-config-field">
+                    <span><?= t('admin.hr.field_test_strike_player') ?></span>
+                    <input type="number" name="test_strike_player_id" min="1" step="1" required>
+                    <small><?= t('admin.hr.field_test_strike_player_desc') ?></small>
+                </label>
+                <label class="hr-raise-config-field">
+                    <span><?= t('admin.hr.field_test_strike_department') ?></span>
+                    <select name="test_strike_department" required>
+                        <?php foreach (($validDepartments ?? ['hr','technical','finance','legal','logistics']) as $department): ?>
+                        <option value="<?= htmlspecialchars($department, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($department, ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach ?>
+                    </select>
+                    <small><?= t('admin.hr.field_test_strike_department_desc') ?></small>
+                </label>
+            </div>
+            <button type="submit" class="btn btn-danger"><?= t('admin.hr.btn_force_test_strike') ?></button>
+        </form>
+
+        <h3 class="spec-group-title"><?= t('admin.hr.section_test_targets') ?></h3>
+        <?php if (empty($testStrikeTargets)): ?>
+        <p class="muted"><?= t('admin.hr.empty_test_targets') ?></p>
+        <?php else: ?>
+        <div class="data-list hr-test-targets-grid">
+            <div class="list-header" role="row">
+                <span><?= t('admin.hr.col_player') ?></span>
+                <span><?= t('admin.hr.col_department') ?></span>
+                <span><?= t('admin.hr.col_staff_count') ?></span>
+                <span><?= t('admin.hr.col_test_striking') ?></span>
+                <span><?= t('admin.hr.col_action') ?></span>
+            </div>
+            <?php foreach ($testStrikeTargets as $target): ?>
+            <article class="list-row" role="row">
+                <span>
+                    <a href="/admin/player.php?id=<?= (int)$target['player_id'] ?>">
+                        <?= htmlspecialchars((string)($target['player_email'] ?? $target['player_id']), ENT_QUOTES, 'UTF-8') ?>
+                    </a>
+                </span>
+                <span><?= htmlspecialchars((string)$target['department_code'], ENT_QUOTES, 'UTF-8') ?></span>
+                <span><?= (int)$target['employee_count'] ?></span>
+                <span><?= (int)$target['striking_count'] ?></span>
+                <span>
+                    <form method="post" data-confirm-submit
+                          data-confirm-message="<?= htmlspecialchars(tPlain('admin.hr.confirm_test_strike'), ENT_QUOTES, 'UTF-8') ?>"
+                          data-confirm-label="<?= htmlspecialchars(tPlain('admin.hr.btn_force_test_strike'), ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="force_test_strike" value="1">
+                        <input type="hidden" name="test_strike_player_id" value="<?= (int)$target['player_id'] ?>">
+                        <input type="hidden" name="test_strike_department" value="<?= htmlspecialchars((string)$target['department_code'], ENT_QUOTES, 'UTF-8') ?>">
+                        <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.hr.btn_force_test_strike') ?></button>
+                    </form>
+                </span>
+            </article>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
     </section>
     <?php elseif ($tab === 'specializations'): ?>
     <!--  SPECJALIZACJE  -->

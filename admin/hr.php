@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/init.php';
 require_once dirname(__DIR__) . '/src/Employee/EmployeeSystemConfigService.php';
+require_once dirname(__DIR__) . '/src/HR/EmployeeStrikeService.php';
 AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
@@ -61,6 +62,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_raise_config']))
     header('Location: /admin/hr.php?tab=raises');
     exit;
 }
+
+// Force a real test strike for a player department. / Wymus realny testowy strajk dzialu gracza.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['force_test_strike'])) {
+    $tab = 'tests';
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $err = t('common.csrf_error');
+    } else {
+        $playerId = (int)($_POST['test_strike_player_id'] ?? 0);
+        $department = (string)($_POST['test_strike_department'] ?? '');
+        try {
+            $result = (new EmployeeStrikeService($db))->forceActiveForTesting($playerId, $department);
+            AdminLog::log(
+                'hr_test_strike_forced',
+                'Forced HR test strike: player_id=' . $playerId
+                    . ', department=' . $department
+                    . ', strike_id=' . (int)$result['strike_id']
+                    . ', members=' . (int)$result['member_count'],
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $msg = t('admin.hr.msg_test_strike_forced', [
+                'player' => $playerId,
+                'department' => $department,
+                'count' => (int)$result['member_count'],
+            ]);
+        } catch (Throwable $e) {
+            AdminLog::log(
+                'hr_test_strike_error',
+                'Forced HR test strike failed: ' . $e->getMessage(),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $err = t('admin.hr.err_test_strike_failed');
+        }
+    }
+}
+
 // Add a technical staff perk. / Dodaj perk pracownika technicznego.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
@@ -426,6 +464,23 @@ if ($tab === 'raises') {
         $err = t('common.db_error');
     }
 }
+$testStrikeTargets = [];
+if ($tab === 'tests') {
+    try {
+        $testStrikeTargets = $db->query(
+            "SELECT es.player_id, p.email AS player_email, es.department_code, COUNT(*) AS employee_count,
+                    SUM(CASE WHEN es.relation_status='on_strike' THEN 1 ELSE 0 END) AS striking_count
+               FROM employee_state es
+               JOIN players p ON p.id=es.player_id
+              WHERE es.relation_status NOT IN ('inactive','leaving')
+              GROUP BY es.player_id, p.email, es.department_code
+              ORDER BY es.player_id DESC, es.department_code ASC
+              LIMIT 200"
+        )->fetchAll();
+    } catch (Throwable $e) {
+        $err = t('common.db_error');
+    }
+}
 $pageTitle = t('admin.hr.page_title');
 $csrfToken = CSRF::generateToken();
 
@@ -447,6 +502,7 @@ $viewData = [
     'validRarities' => $validRarities,
     'raiseConfigDefinitions' => $raiseConfigDefinitions,
     'raiseConfigValues' => $raiseConfigValues,
+    'testStrikeTargets' => $testStrikeTargets,
 ];
 
 $adminExtraCss = ['/assets/css/admin_hr.css'];

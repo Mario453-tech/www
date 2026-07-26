@@ -124,6 +124,36 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
             $config->save($original);
         }
     }
+
+    public function testAdminCanForceActiveTestStrike(): void
+    {
+        $this->db->prepare(
+            "UPDATE employee_state
+                SET morale=70, salary_satisfaction=90, strike_support=10,
+                    workload=20, relation_status='normal'
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        )->execute([$this->playerId, $this->staffId]);
+
+        $result = (new EmployeeStrikeService($this->db))->forceActiveForTesting(
+            $this->playerId,
+            'technical',
+            new DateTimeImmutable('2026-07-26 12:00:00')
+        );
+        $strikes = (new EmployeeStrikeService($this->db))->activeForPlayer($this->playerId);
+
+        $this->assertSame(1, $result['member_count']);
+        $this->assertSame('active', $result['status']);
+        $this->assertCount(1, $strikes);
+        $this->assertSame((int)$strikes[0]['id'], $result['strike_id']);
+        $this->assertSame('active', $strikes[0]['status']);
+        $this->assertCount(
+            1,
+            (new EmployeeStrikeService($this->db))->members($this->playerId, $result['strike_id'])
+        );
+        $this->assertSame('on_strike', $this->canonicalRelationStatus());
+        $this->assertSame(30.0, $this->canonicalMorale());
+    }
+
     public function testRaiseRequestPersistsSalaryAndDoesNotDuplicatePostponedRequest(): void
     {
         $salaryStmt = $this->db->prepare(
