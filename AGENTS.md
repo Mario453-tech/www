@@ -293,6 +293,7 @@ Przed finalna odpowiedzia sprawdz:
 
 - Odpowiadaj po polsku.
 - Pisz krotko i konkretnie.
+- Ogranicz komentarze robocze i raporty do minimum potrzebnego do decyzji, zeby nie zuzywac niepotrzebnie tokenow.
 - Przy duzym zadaniu podaj plan, potem wdrazaj etapami.
 - Przy malym zadaniu wykonaj zmiane od razu.
 - Jesli cos jest ryzykowne, nazwij ryzyko i zaproponuj bezpieczny wariant.
