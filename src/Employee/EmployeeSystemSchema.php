@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EmployeeSystemSchema
 {
-    public const VERSION = 3;
+    public const VERSION = 4;
 
     public static function ensure(PDO $db): void
     {
@@ -16,6 +16,7 @@ final class EmployeeSystemSchema
             $db->exec($sql);
         }
         self::ensureStateColumns($db, $driver);
+        self::ensureRaiseRequestColumns($db, $driver);
         self::ensureTechnicalStaffTraitColumns($db, $driver);
         self::verify($db);
         self::storeVersion($db, $driver);
@@ -58,7 +59,10 @@ final class EmployeeSystemSchema
             "CREATE TABLE IF NOT EXISTS employee_raise_requests (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, player_id INT UNSIGNED NOT NULL,
                 source_type VARCHAR(32) NOT NULL, source_id INT UNSIGNED NOT NULL, request_no INT UNSIGNED NOT NULL DEFAULT 1,
-                requested_raise_pct DECIMAL(7,4) NOT NULL DEFAULT 0, status VARCHAR(32) NOT NULL DEFAULT 'open',
+                current_salary DECIMAL(14,2) NOT NULL DEFAULT 0, requested_salary DECIMAL(14,2) NOT NULL DEFAULT 0,
+                negotiated_salary DECIMAL(14,2) NULL DEFAULT NULL, requested_raise_pct DECIMAL(7,4) NOT NULL DEFAULT 0,
+                reason_code VARCHAR(64) NOT NULL DEFAULT 'low_morale', postponed_count INT UNSIGNED NOT NULL DEFAULT 0,
+                status VARCHAR(32) NOT NULL DEFAULT 'open',
                 deadline_at DATETIME NULL, resolved_at DATETIME NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE KEY uq_employee_raise_request (player_id, source_type, source_id, request_no)
@@ -166,6 +170,30 @@ final class EmployeeSystemSchema
         }
     }
 
+    private static function ensureRaiseRequestColumns(PDO $db, string $driver): void
+    {
+        $columns = self::columns($db, $driver, 'employee_raise_requests');
+        $defs = [
+            'current_salary' => $driver === 'sqlite'
+                ? 'REAL NOT NULL DEFAULT 0'
+                : 'DECIMAL(14,2) NOT NULL DEFAULT 0',
+            'requested_salary' => $driver === 'sqlite'
+                ? 'REAL NOT NULL DEFAULT 0'
+                : 'DECIMAL(14,2) NOT NULL DEFAULT 0',
+            'negotiated_salary' => $driver === 'sqlite'
+                ? 'REAL NULL DEFAULT NULL'
+                : 'DECIMAL(14,2) NULL DEFAULT NULL',
+            'reason_code' => "VARCHAR(64) NOT NULL DEFAULT 'low_morale'",
+            'postponed_count' => $driver === 'sqlite'
+                ? 'INTEGER NOT NULL DEFAULT 0'
+                : 'INT UNSIGNED NOT NULL DEFAULT 0',
+        ];
+        foreach ($defs as $name => $definition) {
+            if (!isset($columns[$name])) {
+                $db->exec("ALTER TABLE employee_raise_requests ADD COLUMN {$name} {$definition}");
+            }
+        }
+    }
     private static function ensureTechnicalStaffTraitColumns(PDO $db, string $driver): void
     {
         if (!self::tableExists($db, $driver, 'technical_staff')) {

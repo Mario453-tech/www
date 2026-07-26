@@ -17,6 +17,7 @@
         <a href="?tab=history"         class="hr-tab <?= $tab === 'history'         ? 'active' : '' ?>"><?= t('admin.hr.tab_history') ?></a>
         <a href="?tab=stats"           class="hr-tab <?= $tab === 'stats'           ? 'active' : '' ?>"><?= t('admin.hr.tab_stats') ?></a>
         <a href="?tab=specializations" class="hr-tab <?= $tab === 'specializations' ? 'active' : '' ?>"><?= t('admin.hr.tab_specializations') ?></a>
+        <a href="?tab=raises" class="hr-tab <?= $tab === 'raises' ? 'active' : '' ?>"><?= t('admin.hr.tab_raises') ?></a>
     </nav>
 
     <?php if ($tab === 'candidates'): ?>
@@ -163,6 +164,35 @@
         <?php endif ?>
     </section>
 
+    <?php elseif ($tab === 'raises'): ?>
+    <section class="hr-section">
+        <div class="section-toolbar">
+            <div>
+                <h2><?= t('admin.hr.section_raise_config') ?></h2>
+                <p class="muted font-xs"><?= t('admin.hr.raise_config_desc') ?></p>
+            </div>
+        </div>
+        <form method="post" class="hr-raise-config-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="save_raise_config" value="1">
+            <div class="hr-raise-config-grid">
+                <?php foreach ($raiseConfigDefinitions as $key => $definition): ?>
+                <label class="hr-raise-config-field">
+                    <span><?= t((string)$definition['label_key']) ?></span>
+                    <input type="number"
+                           name="raise_config[<?= htmlspecialchars((string)$key, ENT_QUOTES, 'UTF-8') ?>]"
+                           value="<?= htmlspecialchars((string)($raiseConfigValues[$key] ?? $definition['default']), ENT_QUOTES, 'UTF-8') ?>"
+                           min="<?= (float)$definition['min'] ?>"
+                           max="<?= (float)$definition['max'] ?>"
+                           step="<?= (float)$definition['step'] ?>"
+                           required>
+                    <small><?= t((string)$definition['description_key']) ?></small>
+                </label>
+                <?php endforeach ?>
+            </div>
+            <button type="submit" class="btn btn-primary"><?= t('admin.hr.btn_save_raise_config') ?></button>
+        </form>
+    </section>
     <?php elseif ($tab === 'specializations'): ?>
     <!--  SPECJALIZACJE  -->
     <section class="hr-section">

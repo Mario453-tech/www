@@ -2401,17 +2401,15 @@ panel gracza i admina.
 
 ## Etap 7 — podwyżki
 
-**Status: [ ] Nie wdrożony. Brakuje żądań podwyżek, decyzji gracza, negocjacji i powiadomień.**
+**Status: [x] Wdrożony i zweryfikowany 2026-07-26.**
 
-```text
-employee_raise_requests,
-pełna podwyżka,
-negocjacja,
-odmowa,
-odłożenie,
-powiadomienia.
-```
-
+- `employee_raise_requests` przechowuje migrowalne snapshoty pensji, przyczynę, liczbę odroczeń, termin i wynik.
+- Tick tworzy jedno aktywne żądanie tylko dla aktywnego pracownika i automatycznie eskaluje przeterminowane żądanie do sporu.
+- Gracz może przyznać pełną podwyżkę, złożyć mniejszą ofertę, odmówić albo odłożyć decyzję.
+- Akcje używają CSRF, `player_id`, transakcji, blokad MySQL oraz tokenów idempotencji; wynik losowania i formuła nie są ujawniane przez API.
+- Efekty morale, lojalności, ryzyka odejścia, poparcia strajku, terminów i negocjatora płacowego są typowane i edytowalne w panelu admina HR.
+- Powiadomienia oraz UI gracza i admina mają wersje PL/EN.
+- Weryfikacja: targeted SQLite/MySQL, Unit+Integration 600/600, MySqlIntegration 233/233, PHPStan 0 błędów, lint, encoding i `git diff --check`.
 ## Etap 8 — strajki
 
 **Status: [ ] Nie wdrożony. Istnieją statusy relacji używane jako blokady, ale nie ma procesu konfliktu, tabel strajków ani efektów strajku.**
@@ -2620,7 +2618,7 @@ Nie zmieniaj kilku niezależnych mechanik w jednym commitcie.
 ### 32.2 Co pozostało do wdrożenia
 
 1. **Etap 6 — relacje i morale:** dodać EmployeeRelationsService, cykliczne zdarzenia morale, obciążenie pracą, ryzyko odejścia oraz widoki gracza i admina.
-2. **Etap 7 — podwyżki:** dodać employee_raise_requests, pełną i częściową podwyżkę, negocjacje, odmowę, odłożenie i powiadomienia.
+2. **Etap 7 — podwyżki: [x] wdrożony 2026-07-26.** Pełny proces, UI gracza, konfiguracja admina, powiadomienia i testy są zamknięte.
 3. **Etap 8 — konflikty i strajki:** dodać employee_strikes, członków strajku, eskalację konfliktu oraz realne efekty działowe.
 4. **Etap 9 — modularny tick pracowników:** dodać EmployeesModule, rekomendowany interwał, max_items_per_run, statystyki i odporność na błąd pojedynczego pracownika.
 5. **Etap 10 — kontroler logistyki:** wydzielić logikę z dużego public/logistics.php do kontrolera oraz traitów danych i akcji.
@@ -2663,9 +2661,9 @@ Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i d
    - Cykl jest wznawialny i idempotentny, a błąd pojedynczego pracownika nie zatrzymuje całej partii.
 
 2. **Podwyżki i żądania płacowe (Etap 7):**
-   - Relacje obsługują `unhappy`, `raise_requested`, `dispute`, `strike_threat` i `on_strike`.
-   - Premie i ugody są księgowane typami `hr_bonus` oraz `hr_strike_settlement` przez centralny serwis finansowy.
-
+   - Wdrożono tworzenie, akceptację, mniejszą ofertę, odmowę, odroczenie, wygaśnięcie oraz powiadomienia.
+   - Decyzje są transakcyjne, izolowane przez `player_id` i idempotentne; negocjacje zapisują formułę oraz pojedynczy wynik losowania.
+   - UI gracza oraz typowane ustawienia w panelu admina HR są podłączone. Etap 7 jest zamknięty.
 3. **Konflikty i strajki działowe (Etap 8):**
    - Konflikty są grupowane według gracza i działu; jeden dział nie może mieć dwóch otwartych strajków.
    - Groźba zachowuje liczbę kwalifikujących sporów po zmianie relacji na `strike_threat`, dzięki czemu może poprawnie eskalować po wymaganych cyklach.

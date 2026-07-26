@@ -6,12 +6,15 @@
  */
 
 require_once __DIR__ . '/init.php';
+require_once dirname(__DIR__) . '/src/Employee/EmployeeSystemConfigService.php';
 AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
 $tab = $_GET['tab'] ?? 'candidates';
-$msg = '';
-$err = '';
+$flash = $_SESSION['admin_hr_flash'] ?? null;
+unset($_SESSION['admin_hr_flash']);
+$msg = is_array($flash) && ($flash['type'] ?? '') === 'success' ? (string)($flash['message'] ?? '') : '';
+$err = is_array($flash) && ($flash['type'] ?? '') === 'error' ? (string)($flash['message'] ?? '') : '';
 $validDepartments = ['hr', 'technical', 'finance', 'legal', 'logistics'];
 $validRarities = ['common', 'uncommon', 'rare', 'very_rare'];
 $hubOperatorCode = 'hub_operator';
@@ -23,6 +26,41 @@ $defaultSalaryByDepartment = [
     'logistics' => [4500, 13000],
 ];
 
+// Save typed raise settings using PRG. / Zapisz typowane ustawienia podwyzek przez PRG.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_raise_config'])) {
+    $flash = ['type' => 'error', 'message' => t('common.csrf_error')];
+    if (CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        try {
+            $configService = new EmployeeSystemConfigService($db);
+            $allowed = array_filter(
+                $configService->definitions(),
+                static fn(array $definition, string $key): bool => str_starts_with($key, 'raise_'),
+                ARRAY_FILTER_USE_BOTH
+            );
+            $submitted = is_array($_POST['raise_config'] ?? null) ? $_POST['raise_config'] : [];
+            $input = array_intersect_key($submitted, $allowed);
+            $changes = $configService->save($input);
+            AdminLog::log(
+                'hr_raise_config_update',
+                'Updated employee raise configuration: ' . json_encode($changes, JSON_THROW_ON_ERROR),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'success', 'message' => t('admin.hr.msg_raise_config_saved')];
+        } catch (Throwable $e) {
+            AdminLog::log(
+                'hr_raise_config_error',
+                'Employee raise configuration update failed: ' . $e->getMessage(),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'error', 'message' => t('admin.hr.err_raise_config_invalid')];
+        }
+    }
+    $_SESSION['admin_hr_flash'] = $flash;
+    header('Location: /admin/hr.php?tab=raises');
+    exit;
+}
 // Add a technical staff perk. / Dodaj perk pracownika technicznego.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_spec'])) {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
@@ -363,6 +401,21 @@ if ($tab === 'specializations') {
     } catch (Throwable $e) {}
 }
 
+$raiseConfigDefinitions = [];
+$raiseConfigValues = [];
+if ($tab === 'raises') {
+    try {
+        $configService = new EmployeeSystemConfigService($db);
+        $raiseConfigDefinitions = array_filter(
+            $configService->definitions(),
+            static fn(array $definition, string $key): bool => str_starts_with($key, 'raise_'),
+            ARRAY_FILTER_USE_BOTH
+        );
+        $raiseConfigValues = array_intersect_key($configService->all(), $raiseConfigDefinitions);
+    } catch (Throwable $e) {
+        $err = t('common.db_error');
+    }
+}
 $pageTitle = t('admin.hr.page_title');
 $csrfToken = CSRF::generateToken();
 
@@ -382,6 +435,8 @@ $viewData = [
     'pageTitle'  => $pageTitle,
     'validDepartments' => $validDepartments,
     'validRarities' => $validRarities,
+    'raiseConfigDefinitions' => $raiseConfigDefinitions,
+    'raiseConfigValues' => $raiseConfigValues,
 ];
 
 $adminExtraCss = ['/assets/css/admin_hr.css'];

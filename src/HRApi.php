@@ -319,6 +319,45 @@ try {
                 ]);
                 respondJson(['success' => false, 'error' => t('hr.err_strike_offer_rejected')], 422);
             }
+        case 'accept_raise_request':
+        case 'negotiate_raise_request':
+        case 'reject_raise_request':
+        case 'postpone_raise_request':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                respondJson(['success' => false, 'error' => t('hr_api.err_post_required')], 405);
+            }
+            $requestId = (int)($_POST['request_id'] ?? 0);
+            $token = trim((string)($_POST['idempotency_token'] ?? ''));
+            if ($requestId <= 0) {
+                throw new InvalidArgumentException(t('hr_api.err_missing_raise_request_id'));
+            }
+            if ($token === '') {
+                throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
+            }
+            try {
+                $raiseService = new EmployeeRaiseRequestService($db);
+                $result = match ($action) {
+                    'accept_raise_request' => $raiseService->acceptFull($playerId, $requestId, $token),
+                    'reject_raise_request' => $raiseService->reject($playerId, $requestId, $token),
+                    'postpone_raise_request' => $raiseService->postpone($playerId, $requestId, $token),
+                    'negotiate_raise_request' => is_numeric($_POST['offered_salary'] ?? null)
+                        ? $raiseService->negotiate($playerId, $requestId, (float)$_POST['offered_salary'], $token)
+                        : throw new InvalidArgumentException(t('hr_api.err_invalid_raise_offer')),
+                };
+                $result['success'] = true;
+                $result['message'] = t('hr.raise_result.' . (string)$result['result']);
+                unset($result['roll']);
+                respondJson($result);
+            } catch (Throwable $e) {
+                GameLog::warn('HRApi', 'Raise request action failed', [
+                    'player_id' => $playerId,
+                    'request_id' => $requestId,
+                    'action' => $action,
+                    'exception_class' => get_class($e),
+                    'error' => $e->getMessage(),
+                ]);
+                respondJson(['success' => false, 'error' => t('hr.err_raise_request_action')], 422);
+            }
         case 'grant_bonus':
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 respondJson(['success' => false, 'error' => t('hr_api.err_post_required')], 405);

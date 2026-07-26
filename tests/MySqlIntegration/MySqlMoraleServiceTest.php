@@ -124,6 +124,43 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
             $config->save($original);
         }
     }
+    public function testRaiseRequestPersistsSalaryAndDoesNotDuplicatePostponedRequest(): void
+    {
+        $salaryStmt = $this->db->prepare(
+            'SELECT salary FROM technical_staff WHERE id=? AND player_id=?'
+        );
+        $salaryStmt->execute([$this->staffId, $this->playerId]);
+        $salary = (float)$salaryStmt->fetchColumn();
+        $this->db->prepare(
+            "UPDATE employee_state SET relation_status='raise_requested', last_raise_request_at=NULL
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        )->execute([$this->playerId, $this->staffId]);
+        $service = new EmployeeStrikeService($this->db);
+        $now = new DateTimeImmutable('2026-07-22 10:00:00');
+
+        $first = $service->processEscalations($now);
+        $this->db->prepare(
+            "UPDATE employee_raise_requests SET status='postponed', deadline_at=?
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=? AND status='open'"
+        )->execute(['2026-07-23 10:00:00', $this->playerId, $this->staffId]);
+        $second = $service->processEscalations($now->modify('+1 hour'));
+
+        $stmt = $this->db->prepare(
+            'SELECT current_salary, requested_salary, negotiated_salary, reason_code, postponed_count, status
+               FROM employee_raise_requests
+              WHERE player_id=? AND source_type=\'technical_staff\' AND source_id=?'
+        );
+        $stmt->execute([$this->playerId, $this->staffId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame(1, $first['raise_requests']);
+        $this->assertSame(0, $second['raise_requests']);
+        $this->assertSame($salary, (float)$row['current_salary']);
+        $this->assertSame(round($salary * 1.10, 2), (float)$row['requested_salary']);
+        $this->assertNull($row['negotiated_salary']);
+        $this->assertSame('low_morale', $row['reason_code']);
+        $this->assertSame(0, (int)$row['postponed_count']);
+        $this->assertSame('postponed', $row['status']);
+    }
     private function employeeRef(): EmployeeRef
     {
         return new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $this->staffId, $this->playerId);

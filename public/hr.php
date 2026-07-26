@@ -53,6 +53,19 @@ try {
     ];
 }
 try {
+    $raiseRequestService = new EmployeeRaiseRequestService($db);
+    $raiseConfig = new EmployeeSystemConfigService($db);
+    $raiseRequests = $raiseRequestService->listForPlayer($playerId);
+    $raiseDecisionLimits = [
+        'salary_step' => 100.0,
+        'max_postponements' => $raiseConfig->getInt('raise_max_postponements'),
+    ];
+} catch (Throwable $e) {
+    GameLog::error('hr.php', 'Failed to load employee raise requests', $e, ['player_id' => $playerId]);
+    $raiseRequests = [];
+    $raiseDecisionLimits = ['salary_step' => 100.0, 'max_postponements' => 0];
+}
+try {
     GameLog::step('hr.php', 'init', 1, 'HRService OK');
     GameLog::step('hr.php', 'init', 2, 'checkExpiringContracts');
     $hr->checkExpiringContracts($playerId);
@@ -184,6 +197,8 @@ $viewData = [
     'csrfToken' => $csrfToken,
     'activeStrikes' => $activeStrikes,
     'strikeNegotiationLimits' => $strikeNegotiationLimits,
+    'raiseRequests' => $raiseRequests,
+    'raiseDecisionLimits' => $raiseDecisionLimits,
 ];
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
@@ -194,6 +209,7 @@ $extraCss = [
     '/assets/css/hr.css',
     '/assets/css/hr_employees.css',
     '/assets/css/hr_strikes.css',
+    '/assets/css/hr_raises.css',
 ];
 $gameShellTitle = t('hr.page_title');
 $gameShellView = __DIR__ . '/../templates/views/hr/main.php';

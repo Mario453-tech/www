@@ -123,32 +123,54 @@ final class EmployeeStrikeService
     {
         $stmt = $this->db->prepare(
             "SELECT id, player_id, source_type, source_id FROM employee_raise_requests
-              WHERE status='open' AND deadline_at < ?"
+              WHERE status IN ('open','postponed') AND deadline_at < ?"
         );
         $stmt->execute([$now->format('Y-m-d H:i:s')]);
+        $expire = $this->db->prepare(
+            "UPDATE employee_raise_requests SET status='expired', resolved_at=CURRENT_TIMESTAMP,
+                    updated_at=CURRENT_TIMESTAMP
+              WHERE id=? AND player_id=? AND status IN ('open','postponed')"
+        );
+        $stateUpdate = $this->db->prepare(
+            "UPDATE employee_state SET relation_status='dispute', dispute_ticks=dispute_ticks+1,
+                    version=version+1, updated_at=CURRENT_TIMESTAMP
+              WHERE player_id=? AND source_type=? AND source_id=? AND relation_status='raise_requested'"
+        );
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $this->db->prepare(
-                "UPDATE employee_raise_requests SET status='expired', resolved_at=CURRENT_TIMESTAMP,
-                        updated_at=CURRENT_TIMESTAMP
-                  WHERE id=? AND player_id=? AND status='open'"
-            )->execute([(int)$row['id'],(int)$row['player_id']]);
-            $this->db->prepare(
-                "UPDATE employee_state SET relation_status='dispute', dispute_ticks=dispute_ticks+1,
-                        version=version+1, updated_at=CURRENT_TIMESTAMP
-                  WHERE player_id=? AND source_type=? AND source_id=? AND relation_status='raise_requested'"
-            )->execute([(int)$row['player_id'],(string)$row['source_type'],(int)$row['source_id']]);
+            $expire->execute([(int)$row['id'], (int)$row['player_id']]);
+            if ($expire->rowCount() !== 1) {
+                continue;
+            }
+            $stateUpdate->execute([(int)$row['player_id'], (string)$row['source_type'], (int)$row['source_id']]);
+            $this->event(
+                $row,
+                'raise_request_expired',
+                'hr.event.raise_expired.title',
+                'hr.event.raise_expired.message',
+                ['request_id' => (int)$row['id']],
+                'raise-expired:' . (int)$row['player_id'] . ':' . (int)$row['id']
+            );
         }
     }
 
     private function createRaiseRequests(DateTimeInterface $now): int
     {
         $stmt = $this->db->prepare(
-            "SELECT es.* FROM employee_state es
+            "SELECT es.*,
+                    COALESCE(ts.salary, bm.salary) AS current_salary
+               FROM employee_state es
+               LEFT JOIN technical_staff ts
+                 ON es.source_type='technical_staff' AND ts.id=es.source_id AND ts.player_id=es.player_id
+               LEFT JOIN board_members bm
+                 ON es.source_type='board_member' AND bm.id=es.source_id AND bm.player_id=es.player_id
               WHERE es.relation_status='raise_requested'
-                AND NOT EXISTS (
+                AND COALESCE(ts.salary, bm.salary) IS NOT NULL
+                 AND ((es.source_type='technical_staff' AND ts.status IN ('active','busy'))
+                   OR (es.source_type='board_member' AND bm.status='active'))
+                 AND NOT EXISTS (
                     SELECT 1 FROM employee_raise_requests rr
                      WHERE rr.player_id=es.player_id AND rr.source_type=es.source_type
-                       AND rr.source_id=es.source_id AND rr.status='open'
+                       AND rr.source_id=es.source_id AND rr.status IN ('open','postponed')
                 )
                 AND (es.last_raise_request_at IS NULL OR es.last_raise_request_at < ?)"
         );
@@ -157,6 +179,8 @@ final class EmployeeStrikeService
         $deadline = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('raise_response_hours') * 3600);
         $created = 0;
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $state) {
+            $currentSalary = round(max(0.0, (float)$state['current_salary']), 2);
+            $requestedSalary = round($currentSalary * 1.10, 2);
             $numberStmt = $this->db->prepare(
                 'SELECT COALESCE(MAX(request_no),0)+1 FROM employee_raise_requests
                   WHERE player_id=? AND source_type=? AND source_id=?'
@@ -165,12 +189,21 @@ final class EmployeeStrikeService
             $requestNo = (int)$numberStmt->fetchColumn();
             $insert = $this->db->prepare(
                 "INSERT INTO employee_raise_requests
-                    (player_id, source_type, source_id, request_no, requested_raise_pct, status, deadline_at)
-                 VALUES (?, ?, ?, ?, 10, 'open', ?)"
+                    (player_id, source_type, source_id, request_no, current_salary, requested_salary,
+                     requested_raise_pct, reason_code, postponed_count, status, deadline_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 10, 'low_morale', 0, 'open', ?)"
             );
-            $insert->execute([
-                (int)$state['player_id'],(string)$state['source_type'],(int)$state['source_id'],$requestNo,$deadline,
-            ]);
+            try {
+                $insert->execute([
+                    (int)$state['player_id'],(string)$state['source_type'],(int)$state['source_id'],$requestNo,
+                    $currentSalary,$requestedSalary,$deadline,
+                ]);
+            } catch (PDOException $exception) {
+                if ((string)$exception->getCode() !== '23000') {
+                    throw $exception;
+                }
+                continue;
+            }
             $this->db->prepare(
                 'UPDATE employee_state SET last_raise_request_at=?, version=version+1
                   WHERE id=? AND player_id=? AND source_type=? AND source_id=?'
@@ -181,6 +214,8 @@ final class EmployeeStrikeService
             $this->event($state, 'raise_requested', 'hr.event.raise.title', 'hr.event.raise.message', [
                 'deadline'=>$deadline,
                 'request_no'=>$requestNo,
+                'current_salary'=>$currentSalary,
+                'requested_salary'=>$requestedSalary,
             ], 'raise:' . (int)$state['id'] . ':' . $requestNo);
             $created++;
         }

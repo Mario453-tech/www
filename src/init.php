@@ -109,6 +109,7 @@ require_once __DIR__ . '/HeadhunterService.php';
 require_once __DIR__ . '/DirectorNotificationService.php';
 require_once __DIR__ . '/HR/MoraleService.php';
 require_once __DIR__ . '/HR/MoraleServiceV2.php';
+require_once __DIR__ . '/HR/EmployeeRaiseRequestService.php';
 
 
  // Load bank negotiation traits, then the service, with OPcache self-healing.

@@ -1,9 +1,15 @@
 <?php extract($viewData, EXTR_SKIP); ?>
 <?php
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLabel = 'PLN';
+$raiseRequests = is_array($raiseRequests ?? null)
+    ? array_values(array_filter(
+        $raiseRequests,
+        static fn(array $request): bool => in_array((string)($request['status'] ?? 'open'), ['open', 'pending', 'postponed'], true)
+    ))
+    : [];
+$raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLimits : [];
 ?>
-
 <?php if (!empty($activeStrikes)): ?>
 <section class="hr-strike-center" aria-labelledby="hr-strike-center-title">
     <div class="hr-section-header hr-strike-center__header">
@@ -72,6 +78,101 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 </form>
             <?php endif ?>
             <p class="hr-strike-dialogue" data-strike-dialogue="<?= $strikeId ?>" hidden></p>
+        </article>
+        <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>
+<?php if (!empty($raiseRequests)): ?>
+<section class="hr-raise-center" aria-labelledby="hr-raise-center-title">
+    <div class="hr-section-header hr-raise-center__header">
+        <h2 id="hr-raise-center-title"><?= t('hr.raises_title') ?></h2>
+        <p><?= t('hr.raises_desc') ?></p>
+    </div>
+    <div class="hr-raise-list">
+        <?php foreach ($raiseRequests as $request):
+            $requestId = (int)($request['id'] ?? 0);
+            $employee = is_array($request['employee'] ?? null) ? $request['employee'] : [];
+            $employeeName = trim((string)($request['employee_name']
+                ?? (($request['first_name'] ?? $employee['first_name'] ?? '') . ' '
+                    . ($request['last_name'] ?? $employee['last_name'] ?? ''))));
+            $employeeName = $employeeName !== '' ? $employeeName : t('hr.raise_employee_unknown');
+            $currentSalary = (float)($request['current_salary'] ?? $request['salary'] ?? 0);
+            $requestedRaisePct = (float)($request['requested_raise_pct'] ?? 0);
+            $requestedSalary = (float)($request['requested_salary']
+                ?? ($currentSalary > 0 ? $currentSalary * (1 + ($requestedRaisePct / 100)) : 0));
+            if ($requestedRaisePct <= 0 && $currentSalary > 0 && $requestedSalary > 0) {
+                $requestedRaisePct = (($requestedSalary / $currentSalary) - 1) * 100;
+            }
+            $salaryStep = max(1, (float)($raiseDecisionLimits['salary_step'] ?? 100));
+            $offerMin = max($currentSalary + $salaryStep, (float)($raiseDecisionLimits['min_offer_salary'] ?? 0));
+            $offerMax = min(
+                $requestedSalary - $salaryStep,
+                (float)($raiseDecisionLimits['max_offer_salary'] ?? $requestedSalary)
+            );
+            $canOfferLess = $requestId > 0 && $offerMax >= $offerMin;
+            $suggestedOffer = $canOfferLess
+                ? min($offerMax, max($offerMin, $currentSalary + (($requestedSalary - $currentSalary) / 2)))
+                : 0;
+            $maxPostponements = max(0, (int)($raiseDecisionLimits['max_postponements'] ?? 0));
+            $canPostpone = (int)($request['postponed_count'] ?? 0) < $maxPostponements;
+            $status = (string)($request['status'] ?? 'open');
+            $statusKey = in_array($status, ['open', 'pending', 'postponed'], true) ? $status : 'open';
+            $deadline = (string)($request['deadline_at'] ?? $request['decision_deadline_at'] ?? '');
+            $deadlineTimestamp = $deadline !== '' ? strtotime($deadline) : false;
+            $morale = max(0, min(100, (float)($request['morale'] ?? 0)));
+            $satisfaction = max(0, min(120, (float)($request['salary_satisfaction'] ?? $request['satisfaction'] ?? 0)));
+        ?>
+        <article class="hr-raise-card" data-raise-request="<?= $requestId ?>">
+            <div class="hr-raise-card__header">
+                <div>
+                    <span class="hr-raise-card__eyebrow"><?= t('hr.raise_employee') ?></span>
+                    <h3><?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?></h3>
+                </div>
+                <span class="hr-raise-status hr-raise-status--<?= htmlspecialchars($statusKey, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= t('hr.raise_status.' . $statusKey) ?>
+                </span>
+            </div>
+            <div class="hr-raise-salary">
+                <div><span><?= t('hr.raise_current_salary') ?></span><strong><?= number_format($currentSalary, 0, ',', ' ') ?> <?= $currencyLabel ?></strong></div>
+                <div><span><?= t('hr.raise_requested_salary') ?></span><strong><?= number_format($requestedSalary, 0, ',', ' ') ?> <?= $currencyLabel ?></strong></div>
+                <div><span><?= t('hr.raise_requested_pct') ?></span><strong>+<?= number_format($requestedRaisePct, 1, ',', ' ') ?>%</strong></div>
+            </div>
+            <dl class="hr-raise-meta">
+                <div><dt><?= t('hr.raise_morale') ?></dt><dd><?= number_format($morale, 0, ',', ' ') ?>%</dd></div>
+                <div><dt><?= t('hr.raise_satisfaction') ?></dt><dd><?= number_format($satisfaction, 0, ',', ' ') ?>%</dd></div>
+                <div>
+                    <dt><?= t('hr.raise_deadline') ?></dt>
+                    <dd><?= $deadlineTimestamp !== false ? date('d.m.Y H:i', $deadlineTimestamp) : t('hr.raise_deadline_none') ?></dd>
+                </div>
+            </dl>
+            <div class="hr-raise-actions">
+                <button type="button" class="btn btn-primary" data-raise-action="accept"
+                        data-request-id="<?= $requestId ?>" data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= t('hr.btn_accept_raise') ?>
+                </button>
+                <form class="hr-raise-offer-form" data-raise-offer-form="<?= $requestId ?>"
+                      data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>">
+                    <label for="raise-offer-<?= $requestId ?>"><?= t('hr.raise_smaller_offer') ?></label>
+                    <div>
+                        <input id="raise-offer-<?= $requestId ?>" name="offered_salary" type="number"
+                               min="<?= $offerMin ?>" max="<?= $offerMax ?>" step="<?= $salaryStep ?>"
+                               value="<?= $suggestedOffer ?>" <?= $canOfferLess ? 'required' : 'disabled' ?>>
+                        <button type="submit" class="btn btn-secondary" <?= $canOfferLess ? '' : 'disabled' ?>>
+                            <?= t('hr.btn_negotiate_raise') ?>
+                        </button>
+                    </div>
+                    <?php if (!$canOfferLess): ?><small><?= t('hr.raise_smaller_offer_unavailable') ?></small><?php endif ?>
+                </form>
+                <button type="button" class="btn btn-secondary" data-raise-action="postpone"
+                        data-request-id="<?= $requestId ?>" data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>" <?= $canPostpone ? '' : 'disabled' ?>>
+                    <?= t('hr.btn_postpone_raise') ?>
+                </button>
+                <button type="button" class="btn btn-danger" data-raise-action="reject"
+                        data-request-id="<?= $requestId ?>" data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= t('hr.btn_reject_raise') ?>
+                </button>
+            </div>
         </article>
         <?php endforeach ?>
     </div>
@@ -630,7 +731,18 @@ window.HR_LANG = <?= json_encode([
     'strike_offer_invalid' => t('hr_js.strike_offer_invalid'),
     'confirm_strike_offer' => t('hr_js.confirm_strike_offer'),
     'confirm_strike_offer_btn' => t('hr_js.confirm_strike_offer_btn'),
+    'raise_title' => t('hr_js.raise_title'),
+    'raise_offer_invalid' => t('hr_js.raise_offer_invalid'),
+    'confirm_raise_accept' => t('hr_js.confirm_raise_accept'),
+    'confirm_raise_accept_btn' => t('hr_js.confirm_raise_accept_btn'),
+    'confirm_raise_negotiate' => t('hr_js.confirm_raise_negotiate'),
+    'confirm_raise_negotiate_btn' => t('hr_js.confirm_raise_negotiate_btn'),
+    'confirm_raise_reject' => t('hr_js.confirm_raise_reject'),
+    'confirm_raise_reject_btn' => t('hr_js.confirm_raise_reject_btn'),
+    'confirm_raise_postpone' => t('hr_js.confirm_raise_postpone'),
+    'confirm_raise_postpone_btn' => t('hr_js.confirm_raise_postpone_btn'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="/assets/js/hr.js"></script>
 <script src="/assets/js/hr_strikes.js"></script>
+<script src="/assets/js/hr_raises.js"></script>

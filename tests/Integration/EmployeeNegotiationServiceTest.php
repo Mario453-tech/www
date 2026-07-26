@@ -21,6 +21,111 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->config = new EmployeeSystemConfigService($this->db);
     }
 
+    public function testRaiseRequestSchemaUpgradeAndConfigDefaults(): void
+    {
+        $legacy = $this->createSqlitePdo();
+        $legacy->exec('CREATE TABLE employee_state (id INTEGER PRIMARY KEY)');
+        $legacy->exec('CREATE TABLE employee_raise_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER NOT NULL,
+            source_type TEXT NOT NULL, source_id INTEGER NOT NULL, request_no INTEGER NOT NULL DEFAULT 1,
+            requested_raise_pct REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT \'open\'
+        )');
+        $legacy->exec('CREATE TABLE employee_schema_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, module_key TEXT NOT NULL UNIQUE,
+            version INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )');
+        $legacy->exec("INSERT INTO employee_schema_versions (module_key, version) VALUES ('employee_system', 3)");
+
+        EmployeeSystemSchema::ensure($legacy);
+
+        $columns = $legacy->query('PRAGMA table_info(employee_raise_requests)')->fetchAll(PDO::FETCH_COLUMN, 1);
+        $this->assertContains('current_salary', $columns);
+        $this->assertContains('requested_salary', $columns);
+        $this->assertContains('negotiated_salary', $columns);
+        $this->assertContains('reason_code', $columns);
+        $this->assertContains('postponed_count', $columns);
+        $this->assertSame(EmployeeSystemSchema::VERSION, EmployeeSystemSchema::currentVersion($legacy));
+
+        $expected = [
+            'raise_accept_morale_gain' => 20.0,
+            'raise_negotiated_morale_gain' => 8.0,
+            'raise_negotiation_fail_morale_penalty' => 5.0,
+            'raise_accept_loyalty_gain' => 5.0,
+            'raise_accept_leave_risk_reduction' => 15.0,
+            'raise_salary_negotiator_chance_bonus' => 10.0,
+            'raise_reject_morale_penalty' => 20.0,
+            'raise_reject_support_gain' => 15.0,
+            'raise_reject_leave_risk_gain' => 15.0,
+            'raise_postpone_morale_penalty' => 5.0,
+            'raise_postpone_leave_risk_gain' => 5.0,
+            'raise_postpone_hours' => 24,
+            'raise_max_postponements' => 1,
+        ];
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, $this->config->get($key));
+        }
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->config->save(['raise_max_postponements' => 11]);
+    }
+
+    public function testRaiseRequestStoresSalaryAndTreatsPostponedAsActive(): void
+    {
+        $this->seedPlayer(1, 100000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status) VALUES (1, 1, 15000, 'active')");
+        $this->db->exec("INSERT INTO employee_state
+            (player_id, source_type, source_id, department_code, morale, salary_satisfaction,
+             strike_support, workload, relation_status)
+            VALUES (1, 'technical_staff', 1, 'technical', 30, 60, 20, 80, 'raise_requested')");
+        $service = new EmployeeStrikeService($this->db);
+        $now = new DateTimeImmutable('2026-07-22 10:00:00');
+
+        $first = $service->processEscalations($now);
+        $this->db->exec("UPDATE employee_raise_requests SET status='postponed',
+            deadline_at='2026-07-23 10:00:00' WHERE player_id=1 AND source_id=1");
+        $second = $service->processEscalations($now->modify('+1 hour'));
+
+        $row = $this->db->query(
+            'SELECT player_id, current_salary, requested_salary, negotiated_salary,
+                    reason_code, postponed_count, status
+               FROM employee_raise_requests'
+        )->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame(1, $first['raise_requests']);
+        $this->assertSame(0, $second['raise_requests']);
+        $this->assertSame(1, $this->countRows('employee_raise_requests'));
+        $this->assertSame(1, (int)$row['player_id']);
+        $this->assertSame(15000.0, (float)$row['current_salary']);
+        $this->assertSame(16500.0, (float)$row['requested_salary']);
+        $this->assertNull($row['negotiated_salary']);
+        $this->assertSame('low_morale', $row['reason_code']);
+        $this->assertSame(0, (int)$row['postponed_count']);
+        $this->assertSame('postponed', $row['status']);
+
+        $expired = $service->processEscalations($now->modify('+2 days'));
+        $this->assertSame(0, $expired['raise_requests']);
+        $this->assertSame('expired', (string)$this->db->query(
+            'SELECT status FROM employee_raise_requests WHERE player_id=1 AND source_id=1'
+        )->fetchColumn());
+        $this->assertSame('dispute', $this->relationStatus(1));
+        $this->assertSame(1, (int)$this->db->query(
+            "SELECT COUNT(*) FROM employee_events WHERE event_key='raise_request_expired'"
+        )->fetchColumn());
+    }
+
+    public function testInactiveEmployeeDoesNotCreateRaiseRequest(): void
+    {
+        $this->seedPlayer(1, 100000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status) VALUES (1, 1, 15000, 'fired')");
+        $this->db->exec("INSERT INTO employee_state
+            (player_id, source_type, source_id, department_code, morale, salary_satisfaction,
+             strike_support, workload, relation_status)
+            VALUES (1, 'technical_staff', 1, 'technical', 30, 60, 20, 80, 'raise_requested')");
+
+        $result = (new EmployeeStrikeService($this->db))->processEscalations(new DateTimeImmutable('2026-07-22 10:00:00'));
+
+        $this->assertSame(0, $result['raise_requests']);
+        $this->assertSame(0, $this->countRows('employee_raise_requests'));
+    }
     public function testDialogueSeedCreatesAtLeastEightyBilingualTemplates(): void
     {
         $service = new EmployeeDialogueTemplateService($this->db);

@@ -43,3 +43,9 @@
         display: none !important;
     }
 }
+
+.hr-raise-config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }
+.hr-raise-config-field { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: rgba(255,255,255,.02); }
+.hr-raise-config-field > span { font-size: 12px; font-weight: 600; }
+.hr-raise-config-field input { width: 100%; }
+.hr-raise-config-field small { color: rgba(255,255,255,.55); line-height: 1.4; }

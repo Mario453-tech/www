@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-07-26 - HR: kompletny etap żądań podwyżek
+
+- Dodano pełny proces żądania podwyżki: utworzenie w ticku, akceptację, mniejszą ofertę z kontrolowanym losowaniem, odmowę, odroczenie, wygaśnięcie i powiadomienia PL/EN.
+- Decyzje są izolowane przez `player_id`, transakcyjne i idempotentne. Pełna podwyżka aktualizuje pensję, morale, lojalność i ryzyko odejścia; odmowa oraz odroczenie eskalują konflikt według konfiguracji.
+- Strona gracza HR pokazuje aktywne żądania. Panel admina HR udostępnia typowane ustawienia podwyżek przez CSRF, PRG i `AdminLog`.
+- Dodano rekrutowalne stanowisko `salary_negotiator`, które wpływa na szansę przyjęcia mniejszej oferty. Wynik losowania pozostaje wyłącznie w logu zdarzenia.
+- Weryfikacja: targeted SQLite/MySQL, Unit+Integration 600/600, MySqlIntegration 233/233, pełny PHPStan 0 błędów, lint PHP/JS, encoding i `git diff --check`.
 ### 2026-07-26 - HR: trwałe cechy techników i czytelniejsze karty pracowników
 
 - `technical_staff` ma teraz trwałe pola `trait_loyalty`, `trait_corruption_risk` i `trait_ambition`; bootstrap schematu dodaje je dla MySQL/SQLite i deterministycznie backfilluje stare rekordy.

@@ -1,0 +1,165 @@
+/* Employee raise requests. / Zadania podwyzek pracownikow. */
+.hr-raise-center {
+  margin: 0 auto 22px;
+  max-width: 1500px;
+  padding: 20px clamp(12px, 2vw, 28px) 0;
+}
+
+.hr-raise-center__header { margin-bottom: 14px; }
+
+.hr-raise-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+}
+
+.hr-raise-card {
+  background: color-mix(in srgb, var(--bg-card, #17191e) 94%, #d2a942 6%);
+  border: 1px solid rgba(210, 169, 66, 0.38);
+  border-radius: 6px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.hr-raise-card__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.hr-raise-card__header h3 {
+  font-size: 18px;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.hr-raise-card__eyebrow,
+.hr-raise-salary span,
+.hr-raise-meta dt {
+  color: var(--text-muted, #a8abb3);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.hr-raise-status {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: #d2a942;
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 5px 9px;
+}
+
+.hr-raise-status--postponed { color: #d8894b; }
+
+.hr-raise-salary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0 10px;
+}
+
+.hr-raise-salary div,
+.hr-raise-meta div {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.hr-raise-salary span,
+.hr-raise-salary strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.hr-raise-salary strong {
+  font-size: 16px;
+  margin-top: 5px;
+}
+
+.hr-raise-meta {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 16px;
+}
+
+.hr-raise-meta dt,
+.hr-raise-meta dd { margin: 0; }
+
+.hr-raise-meta dd {
+  font-weight: 600;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+
+.hr-raise-actions {
+  align-items: end;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 14px;
+}
+
+.hr-raise-actions > .btn {
+  min-height: 42px;
+  width: 100%;
+}
+
+.hr-raise-offer-form {
+  grid-column: span 3;
+  min-width: 0;
+}
+
+.hr-raise-offer-form label,
+.hr-raise-offer-form small { display: block; }
+
+.hr-raise-offer-form label {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.hr-raise-offer-form > div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hr-raise-offer-form input {
+  background: var(--bg-input, #101217);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  color: inherit;
+  min-height: 42px;
+  min-width: 0;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.hr-raise-offer-form small {
+  color: var(--text-muted, #a8abb3);
+  margin-top: 6px;
+}
+
+@media (max-width: 700px) {
+  .hr-raise-center { padding-top: 12px; }
+
+  .hr-raise-card__header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hr-raise-status { align-self: flex-start; }
+
+  .hr-raise-salary,
+  .hr-raise-meta,
+  .hr-raise-actions { grid-template-columns: 1fr; }
+
+  .hr-raise-offer-form { grid-column: auto; }
+
+  .hr-raise-offer-form > div { grid-template-columns: 1fr; }
+}
