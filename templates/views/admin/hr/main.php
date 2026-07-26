@@ -203,6 +203,13 @@
                 <h2><?= t('admin.hr.section_tests') ?></h2>
                 <p class="muted font-xs"><?= t('admin.hr.tests_desc') ?></p>
             </div>
+            <form method="post" data-confirm-submit
+                  data-confirm-message="<?= htmlspecialchars(tPlain('admin.hr.confirm_enable_test_negotiations'), ENT_QUOTES, 'UTF-8') ?>"
+                  data-confirm-label="<?= htmlspecialchars(tPlain('admin.hr.btn_enable_test_negotiations'), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="enable_test_negotiations" value="1">
+                <button type="submit" class="btn btn-sm btn-primary"><?= t('admin.hr.btn_enable_test_negotiations') ?></button>
+            </form>
         </div>
         <form method="post" class="hr-test-strike-form" data-confirm-submit
               data-confirm-message="<?= htmlspecialchars(tPlain('admin.hr.confirm_test_strike'), ENT_QUOTES, 'UTF-8') ?>"
@@ -223,6 +230,11 @@
                         <?php endforeach ?>
                     </select>
                     <small><?= t('admin.hr.field_test_strike_department_desc') ?></small>
+                </label>
+                <label class="hr-raise-config-field">
+                    <span><?= t('admin.hr.field_test_negotiations') ?></span>
+                    <input type="checkbox" name="enable_test_negotiations_after_strike" value="1" checked>
+                    <small><?= t('admin.hr.field_test_negotiations_desc') ?></small>
                 </label>
             </div>
             <button type="submit" class="btn btn-danger"><?= t('admin.hr.btn_force_test_strike') ?></button>
@@ -258,6 +270,7 @@
                         <input type="hidden" name="force_test_strike" value="1">
                         <input type="hidden" name="test_strike_player_id" value="<?= (int)$target['player_id'] ?>">
                         <input type="hidden" name="test_strike_department" value="<?= htmlspecialchars((string)$target['department_code'], ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="enable_test_negotiations_after_strike" value="1">
                         <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.hr.btn_force_test_strike') ?></button>
                     </form>
                 </span>

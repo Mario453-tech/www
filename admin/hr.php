@@ -63,30 +63,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_raise_config']))
     exit;
 }
 
+// Enable test strike negotiations through an explicit admin action. / Wlacz negocjacje strajku testowego jawna akcja admina.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enable_test_negotiations'])) {
+    $flash = ['type' => 'error', 'message' => t('common.csrf_error')];
+    if (CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        try {
+            $changes = (new EmployeeSystemConfigService($db))->save(['feature_negotiations' => true]);
+            AdminLog::log(
+                'hr_test_negotiations_enabled',
+                'Enabled employee strike negotiations for HR tests: ' . json_encode($changes, JSON_THROW_ON_ERROR),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'success', 'message' => t('admin.hr.msg_test_negotiations_enabled')];
+        } catch (Throwable $e) {
+            AdminLog::log(
+                'hr_test_negotiations_enable_error',
+                'Employee strike negotiations test enable failed: ' . $e->getMessage(),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'error', 'message' => t('admin.hr.err_test_negotiations_enable_failed')];
+        }
+    }
+    $_SESSION['admin_hr_flash'] = $flash;
+    header('Location: /admin/hr.php?tab=tests');
+    exit;
+}
+
 // Force a real test strike for a player department. / Wymus realny testowy strajk dzialu gracza.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['force_test_strike'])) {
-    $tab = 'tests';
+    $flash = ['type' => 'error', 'message' => t('common.csrf_error')];
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-        $err = t('common.csrf_error');
+        $_SESSION['admin_hr_flash'] = $flash;
+        header('Location: /admin/hr.php?tab=tests');
+        exit;
     } else {
         $playerId = (int)($_POST['test_strike_player_id'] ?? 0);
         $department = (string)($_POST['test_strike_department'] ?? '');
         try {
+            $enableNegotiations = !empty($_POST['enable_test_negotiations_after_strike']);
             $result = (new EmployeeStrikeService($db))->forceActiveForTesting($playerId, $department);
+            $negotiationChanges = $enableNegotiations
+                ? (new EmployeeSystemConfigService($db))->save(['feature_negotiations' => true])
+                : [];
             AdminLog::log(
                 'hr_test_strike_forced',
                 'Forced HR test strike: player_id=' . $playerId
                     . ', department=' . $department
                     . ', strike_id=' . (int)$result['strike_id']
-                    . ', members=' . (int)$result['member_count'],
+                    . ', members=' . (int)$result['member_count']
+                    . ', negotiations_enabled=' . ($enableNegotiations ? 'yes' : 'no')
+                    . ', negotiation_config_changes=' . json_encode($negotiationChanges, JSON_THROW_ON_ERROR),
                 null,
                 AdminAuth::getAdminUsername()
             );
-            $msg = t('admin.hr.msg_test_strike_forced', [
+            $flash = ['type' => 'success', 'message' => t(
+                $enableNegotiations ? 'admin.hr.msg_test_strike_forced_with_negotiations' : 'admin.hr.msg_test_strike_forced',
+                [
                 'player' => $playerId,
                 'department' => $department,
                 'count' => (int)$result['member_count'],
-            ]);
+                ]
+            )];
         } catch (Throwable $e) {
             AdminLog::log(
                 'hr_test_strike_error',
@@ -94,9 +133,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['force_test_strike']))
                 null,
                 AdminAuth::getAdminUsername()
             );
-            $err = t('admin.hr.err_test_strike_failed');
+            $flash = ['type' => 'error', 'message' => t('admin.hr.err_test_strike_failed')];
         }
     }
+    $_SESSION['admin_hr_flash'] = $flash;
+    header('Location: /admin/hr.php?tab=tests');
+    exit;
 }
 
 // Add a technical staff perk. / Dodaj perk pracownika technicznego.
