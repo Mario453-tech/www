@@ -9,7 +9,7 @@ trait EmployeeRaiseRequestPersistenceTrait
             ? 'technical_staff'
             : 'board_members';
         $statusSql = $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
-            ? "status IN ('active','busy','on_leave')"
+            ? "status IN ('active','busy')"
             : "status='active'";
         $stmt = $this->db->prepare(
             "UPDATE {$table} SET salary=?
@@ -17,23 +17,37 @@ trait EmployeeRaiseRequestPersistenceTrait
         );
         $stmt->execute([$salary, $ref->sourceId, $ref->playerId]);
         if ($stmt->rowCount() !== 1) {
-            throw new RuntimeException('Employee salary update did not affect exactly one row.');
+            $check = $this->db->prepare(
+                "SELECT salary FROM {$table} WHERE id=? AND player_id=? AND {$statusSql}"
+            );
+            $check->execute([$ref->sourceId, $ref->playerId]);
+            $current = $check->fetchColumn();
+            if ($current === false || abs((float)$current - $salary) > 0.009) {
+                throw new RuntimeException('Employee salary update did not affect exactly one row.');
+            }
         }
     }
 
-    private function updateLoyalty(EmployeeRef $ref, float $gain): void
+    private function updateLoyaltyModifier(EmployeeRef $ref, float $gain): void
     {
-        $table = $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
-            ? 'technical_staff'
-            : 'board_members';
         $stmt = $this->db->prepare(
-            "UPDATE {$table}
-                SET trait_loyalty=CASE WHEN trait_loyalty+:gain > 10 THEN 10 ELSE trait_loyalty+:gain END
-              WHERE id=:id AND player_id=:player_id"
+            'UPDATE employee_state
+                SET loyalty_modifier=CASE
+                        WHEN loyalty_modifier < :gain_compare THEN :gain_value
+                        ELSE loyalty_modifier
+                    END,
+                    updated_at=CURRENT_TIMESTAMP
+              WHERE player_id=:player_id AND source_type=:source_type AND source_id=:source_id'
         );
-        $stmt->execute(['gain' => $gain, 'id' => $ref->sourceId, 'player_id' => $ref->playerId]);
-
+        $stmt->execute([
+            'gain_compare' => min(10.0, max(0.0, $gain)),
+            'gain_value' => min(10.0, max(0.0, $gain)),
+            'player_id' => $ref->playerId,
+            'source_type' => $ref->sourceType,
+            'source_id' => $ref->sourceId,
+        ]);
     }
+
     private function updateState(
         EmployeeRef $ref,
         float $moraleDelta,

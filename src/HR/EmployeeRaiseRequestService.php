@@ -33,9 +33,10 @@ final class EmployeeRaiseRequestService
     private readonly PDO $db;
 
     /** @return list<array<string,mixed>> */
-    public function listForPlayer(int $playerId): array
+    public function listForPlayer(int $playerId, int $limit = 100): array
     {
         $this->assertPositiveIds($playerId);
+        $limit = max(1, min(200, $limit));
         $stmt = $this->db->prepare(
             'SELECT rr.*, es.department_code, es.morale, es.salary_satisfaction,
                     es.strike_support, es.relation_status
@@ -45,8 +46,9 @@ final class EmployeeRaiseRequestService
                 AND es.source_type=rr.source_type
                 AND es.source_id=rr.source_id
               WHERE rr.player_id=?
-              ORDER BY CASE WHEN rr.status IN (\'open\',\'postponed\') THEN 0 ELSE 1 END,
-                       rr.created_at DESC, rr.id DESC'
+                AND rr.status IN (\'open\',\'postponed\')
+              ORDER BY rr.created_at DESC, rr.id DESC
+              LIMIT ' . $limit
         );
         $stmt->execute([$playerId]);
 
@@ -59,10 +61,9 @@ final class EmployeeRaiseRequestService
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $employee = $employeeMap[(string)$row['source_type'] . ':' . (int)$row['source_id']] ?? null;
             $liveSalary = is_array($employee) ? (float)$employee['salary'] : 0.0;
-            $currentSalary = (float)($row['current_salary'] ?? 0.0);
-            if ($currentSalary <= 0.0) {
-                $currentSalary = $liveSalary;
-            }
+            $currentSalary = $liveSalary > 0.0
+                ? $liveSalary
+                : (float)($row['current_salary'] ?? 0.0);
             $requestedSalary = (float)($row['requested_salary'] ?? 0.0);
             if ($requestedSalary <= 0.0) {
                 $requestedSalary = $this->requestedSalary($currentSalary, (float)$row['requested_raise_pct']);
@@ -180,14 +181,17 @@ final class EmployeeRaiseRequestService
             $employee = array_replace($employee, $this->lockEmployee($ref));
             $state = $this->lockState($ref);
             $currentSalary = round((float)$employee['salary'], 2);
-            $requestedSalary = (float)$request['requested_salary'] > 0.0 ? round((float)$request['requested_salary'], 2) : $this->requestedSalary($currentSalary, (float)$request['requested_raise_pct']);
+            $requestedSalary = (float)$request['requested_salary'] > 0.0
+                ? round((float)$request['requested_salary'], 2)
+                : $this->requestedSalary($currentSalary, (float)$request['requested_raise_pct']);
+            $acceptedSalary = max($currentSalary, $requestedSalary);
 
             $formula = [];
             $result = match ($action) {
                 'accept_full' => $this->applyAccepted(
                     $request,
                     $ref,
-                    $requestedSalary,
+                    $acceptedSalary,
                     $this->config->getFloat('raise_accept_morale_gain'),
                     'accepted',
                     $this->config->getFloat('raise_accept_loyalty_gain'),
@@ -386,7 +390,7 @@ final class EmployeeRaiseRequestService
     private function isActiveEmployeeStatus(string $sourceType, string $status): bool
     {
         return $sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
-            ? in_array($status, ['active', 'busy', 'on_leave'], true)
+            ? in_array($status, ['active', 'busy'], true)
             : $status === 'active';
     }
 

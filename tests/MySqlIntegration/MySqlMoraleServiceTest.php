@@ -161,6 +161,61 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(0, (int)$row['postponed_count']);
         $this->assertSame('postponed', $row['status']);
     }
+    public function testRaiseAcceptanceOnMySqlDoesNotLowerLiveSalaryOrMutatePersonality(): void
+    {
+        $employeeStmt = $this->db->prepare(
+            'SELECT salary, trait_loyalty FROM technical_staff WHERE id=? AND player_id=?'
+        );
+        $employeeStmt->execute([$this->staffId, $this->playerId]);
+        $employee = $employeeStmt->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($employee);
+        $baseLoyalty = (int)$employee['trait_loyalty'];
+        $this->db->prepare(
+            "UPDATE employee_state SET relation_status='raise_requested', last_raise_request_at=NULL
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        )->execute([$this->playerId, $this->staffId]);
+        (new EmployeeStrikeService($this->db))->processEscalations(
+            new DateTimeImmutable('2026-07-22 10:00:00')
+        );
+
+        $requestStmt = $this->db->prepare(
+            "SELECT id, requested_salary FROM employee_raise_requests
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?
+              ORDER BY id DESC LIMIT 1"
+        );
+        $requestStmt->execute([$this->playerId, $this->staffId]);
+        $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($request);
+        $liveSalary = (float)$request['requested_salary'] + 1000.0;
+        $this->db->prepare(
+            "UPDATE technical_staff SET salary=? WHERE id=? AND player_id=? AND status IN ('active','busy')"
+        )->execute([$liveSalary, $this->staffId, $this->playerId]);
+
+        $result = (new EmployeeRaiseRequestService($this->db))->acceptFull(
+            $this->playerId,
+            (int)$request['id'],
+            'mysql-stale-salary-token'
+        );
+
+        $employeeStmt->execute([$this->staffId, $this->playerId]);
+        $updated = $employeeStmt->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($updated);
+        $this->assertSame($liveSalary, (float)$updated['salary']);
+        $this->assertSame($baseLoyalty, (int)$updated['trait_loyalty']);
+        $this->assertSame($liveSalary, (float)$result['salary']);
+        $idempotent = (new EmployeeRaiseRequestService($this->db))->acceptFull(
+            $this->playerId,
+            (int)$request['id'],
+            'mysql-stale-salary-token'
+        );
+        $this->assertTrue($idempotent['idempotent']);
+        $modifierStmt = $this->db->prepare(
+            "SELECT loyalty_modifier FROM employee_state
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        );
+        $modifierStmt->execute([$this->playerId, $this->staffId]);
+        $this->assertGreaterThan(0.0, (float)$modifierStmt->fetchColumn());
+    }
     private function employeeRef(): EmployeeRef
     {
         return new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $this->staffId, $this->playerId);

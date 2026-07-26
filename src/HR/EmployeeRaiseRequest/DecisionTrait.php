@@ -18,7 +18,7 @@ trait EmployeeRaiseRequestDecisionTrait
     ): array {
         $this->updateSalary($ref, $salary);
         if ($loyaltyGain > 0.0) {
-            $this->updateLoyalty($ref, $loyaltyGain);
+            $this->updateLoyaltyModifier($ref, $loyaltyGain);
         }
         $morale = $this->updateState($ref, $moraleGain, 'normal', 0.0, $leaveRiskDelta);
         $negotiatedSalary = $status === 'negotiated' ? $salary : null;

@@ -2408,8 +2408,9 @@ panel gracza i admina.
 - Gracz może przyznać pełną podwyżkę, złożyć mniejszą ofertę, odmówić albo odłożyć decyzję.
 - Akcje używają CSRF, `player_id`, transakcji, blokad MySQL oraz tokenów idempotencji; wynik losowania i formuła nie są ujawniane przez API.
 - Efekty morale, lojalności, ryzyka odejścia, poparcia strajku, terminów i negocjatora płacowego są typowane i edytowalne w panelu admina HR.
+- Efektywna lojalność po zaakceptowaniu podwyżki jest zapisywana jako modyfikator relacji w `employee_state`; bazowe cechy charakteru pozostają niezmienne. Akceptacja nie obniża nowszej pensji, urlop blokuje decyzję, aktywna lista jest limitowana, a ustawienia admina zapisują się atomowo.
 - Powiadomienia oraz UI gracza i admina mają wersje PL/EN.
-- Weryfikacja: targeted SQLite/MySQL, Unit+Integration 600/600, MySqlIntegration 233/233, PHPStan 0 błędów, lint, encoding i `git diff --check`.
+- Weryfikacja: targeted SQLite/MySQL, Unit+Integration 605/605, MySqlIntegration 234/234, PHPStan 0 błędów, lint, encoding i `git diff --check`.
 ## Etap 8 — strajki
 
 **Status: [ ] Nie wdrożony. Istnieją statusy relacji używane jako blokady, ale nie ma procesu konfliktu, tabel strajków ani efektów strajku.**

@@ -122,28 +122,73 @@ final class EmployeeSystemConfigService
         }
         $this->validateRelations($values);
 
-        $changes = [];
-        foreach ($input as $key => $_) {
-            $old = $this->get($key);
-            $new = $values[$key];
-            if ($old === $new) {
-                continue;
-            }
-            $stmt = $this->db->prepare('UPDATE employee_system_config SET config_value = ?, updated_at = CURRENT_TIMESTAMP WHERE config_key = ?');
-            $stmt->execute([$this->serialize($new), $key]);
-            $this->values[$key] = $new;
-            $changes[$key] = ['old' => $old, 'new' => $new];
+        $original = $this->values;
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
         }
-        return $changes;
+
+        try {
+            $changes = [];
+            $stmt = $this->db->prepare(
+                'UPDATE employee_system_config
+                    SET config_value = ?, updated_at = CURRENT_TIMESTAMP
+                  WHERE config_key = ?'
+            );
+            foreach ($input as $key => $_) {
+                $old = $this->get($key);
+                $new = $values[$key];
+                if ($old === $new) {
+                    continue;
+                }
+                $stmt->execute([$this->serialize($new), $key]);
+                if ($stmt->rowCount() !== 1) {
+                    throw new RuntimeException('Employee system config update did not affect exactly one row.');
+                }
+                $this->values[$key] = $new;
+                $changes[$key] = ['old' => $old, 'new' => $new];
+            }
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return $changes;
+        } catch (Throwable $exception) {
+            $this->values = $original;
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function reset(): void
     {
-        $stmt = $this->db->prepare('UPDATE employee_system_config SET config_value = ?, updated_at = CURRENT_TIMESTAMP WHERE config_key = ?');
-        foreach (self::DEFINITIONS as $key => $definition) {
-            $stmt->execute([$this->serialize($definition['default']), $key]);
+        $original = $this->values;
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
         }
-        $this->loadValues();
+
+        try {
+            $stmt = $this->db->prepare(
+                'UPDATE employee_system_config
+                    SET config_value = ?, updated_at = CURRENT_TIMESTAMP
+                  WHERE config_key = ?'
+            );
+            foreach (self::DEFINITIONS as $key => $definition) {
+                $stmt->execute([$this->serialize($definition['default']), $key]);
+            }
+            $this->loadValues();
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $exception) {
+            $this->values = $original;
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     private function loadValues(): void

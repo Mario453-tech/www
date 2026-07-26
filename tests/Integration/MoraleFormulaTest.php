@@ -58,6 +58,25 @@ final class MoraleFormulaTest extends SqliteIntegrationTestCase
         $this->assertSame(0.0, $this->service->calculateWorkload($technical, 100));
     }
 
+    public function testRelationshipLoyaltyModifierImprovesCalculatedRiskWithoutChangingTraits(): void
+    {
+        $employee = $this->employee(10000, 20000, 5, 5, 5);
+        $state = [
+            'morale' => 40.0,
+            'relation_status' => 'unhappy',
+            'low_morale_streak' => 0,
+            'dispute_ticks' => 0,
+            'loyalty_modifier' => 0.0,
+        ];
+
+        $withoutBonus = $this->service->calculateMetrics($employee, $state, 90.0, 0, 'normal');
+        $state['loyalty_modifier'] = 5.0;
+        $withBonus = $this->service->calculateMetrics($employee, $state, 90.0, 0, 'normal');
+
+        $this->assertGreaterThan($withBonus['leave_risk'], $withoutBonus['leave_risk']);
+        $this->assertGreaterThan($withBonus['strike_support'], $withoutBonus['strike_support']);
+        $this->assertSame(5, $employee['traits']['loyalty']);
+    }
     /** @return array<string,mixed> */
     private function employee(float $minimum, float $maximum, int $skill, int $experience, int $ambition): array
     {

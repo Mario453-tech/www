@@ -36,7 +36,7 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
         (new EmployeeSystemConfigService($this->db))->save(['raise_accept_morale_gain' => 12]);
         $this->db->exec("UPDATE employee_state SET leave_risk=40 WHERE player_id=1 AND source_type='technical_staff' AND source_id=20");
-        $this->db->exec("UPDATE technical_staff SET trait_loyalty=10 WHERE id=20 AND player_id=1");
+        $this->db->exec("UPDATE technical_staff SET trait_loyalty=6 WHERE id=20 AND player_id=1");
         $service = $this->service();
 
         $first = $service->acceptFull(1, 1, 'accept-full-token');
@@ -51,7 +51,8 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         $state = $this->state(1, 'technical_staff', 20);
         $this->assertSame('normal', $state['relation_status']);
         $this->assertSame(25.0, (float)$state['leave_risk']);
-        $this->assertSame(10.0, $this->loyalty('technical_staff', 20));
+        $this->assertSame(6.0, $this->loyalty('technical_staff', 20));
+        $this->assertSame(5.0, (float)$state['loyalty_modifier']);
         $this->assertSame(1, $this->countRows('employee_events'));
     }
 
@@ -174,6 +175,79 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         $this->assertNull($service->resultByToken(2, 1, 'history-result-token'));
     }
 
+    public function testAcceptanceNeverLowersSalaryChangedAfterRequest(): void
+    {
+        $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
+        $this->db->exec('UPDATE employee_raise_requests SET current_salary=10000, requested_salary=12000 WHERE id=1');
+        $this->db->exec('UPDATE technical_staff SET salary=13000 WHERE id=20 AND player_id=1');
+        $service = $this->service();
+
+        $listed = $service->listForPlayer(1);
+        $result = $service->acceptFull(1, 1, 'stale-salary-accept-token');
+
+        $this->assertSame(13000.0, (float)$listed[0]['current_salary']);
+        $this->assertSame(12000.0, (float)$listed[0]['requested_salary']);
+        $this->assertSame(13000.0, $result['salary']);
+        $this->assertSame(13000.0, $this->salary('technical_staff', 20));
+        $this->assertSame('accepted', $this->requestStatus(1));
+    }
+
+    public function testEmployeeOnLeaveCannotReceiveRaise(): void
+    {
+        $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
+        $this->db->exec("UPDATE technical_staff SET status='on_leave' WHERE id=20 AND player_id=1");
+
+        try {
+            $this->service()->acceptFull(1, 1, 'employee-on-leave-token');
+            $this->fail('Employee on leave must not receive a raise.');
+        } catch (RuntimeException) {
+            $this->assertSame(10000.0, $this->salary('technical_staff', 20));
+            $this->assertSame('open', $this->requestStatus(1));
+            $this->assertSame(0, $this->countRows('employee_events'));
+        }
+    }
+
+    public function testListReturnsOnlyActiveRequestsAndHonorsLimit(): void
+    {
+        $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
+        $this->seedRequest(2, 1, 'board_member', 10, 15.0);
+        $this->db->exec("UPDATE employee_raise_requests SET status='accepted' WHERE id=1");
+
+        $rows = $this->service()->listForPlayer(1, 1);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame(2, (int)$rows[0]['id']);
+        $this->assertSame('open', $rows[0]['status']);
+    }
+
+    public function testConfigSaveRollsBackDatabaseAndMemoryOnFailure(): void
+    {
+        $config = new EmployeeSystemConfigService($this->db);
+        $oldAccept = $config->getFloat('raise_accept_morale_gain');
+        $oldReject = $config->getFloat('raise_reject_morale_penalty');
+        $this->db->exec(
+            "CREATE TRIGGER fail_raise_config_update
+             BEFORE UPDATE ON employee_system_config
+             WHEN NEW.config_key='raise_reject_morale_penalty'
+             BEGIN SELECT RAISE(ABORT, 'forced config failure'); END"
+        );
+
+        try {
+            $config->save([
+                'raise_accept_morale_gain' => $oldAccept - 1,
+                'raise_reject_morale_penalty' => $oldReject - 1,
+            ]);
+            $this->fail('Config save must fail and roll back.');
+        } catch (PDOException) {
+            $stmt = $this->db->prepare(
+                'SELECT config_value FROM employee_system_config WHERE config_key=?'
+            );
+            $stmt->execute(['raise_accept_morale_gain']);
+            $this->assertSame($oldAccept, (float)$stmt->fetchColumn());
+            $this->assertSame($oldAccept, $config->getFloat('raise_accept_morale_gain'));
+            $this->assertSame($oldReject, $config->getFloat('raise_reject_morale_penalty'));
+        }
+    }
     private function service(?callable $randomRoll = null): EmployeeRaiseRequestService
     {
         return new EmployeeRaiseRequestService($this->db, $randomRoll);

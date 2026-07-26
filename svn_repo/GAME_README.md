@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-07-26 - HR: utwardzenie decyzji o podwyżkach
+
+- Akceptacja starego żądania nie może obniżyć nowszej pensji pracownika, a pracownik na urlopie nie może otrzymać decyzji płacowej.
+- Bonus lojalności po podwyżce jest efektem relacji w `employee_state.loyalty_modifier`; nie zmienia trwałej cechy charakteru `trait_loyalty`.
+- Lista gracza pobiera wyłącznie aktywne żądania z limitem, kontroferta jest zgodna z krokiem formularza, a konfiguracja HR zapisuje się atomowo.
+- Wszystkie klasyczne formularze admina HR używają PRG, a potwierdzenia usuwania przeniesiono do `assets/js/admin_hr.js`.
+- Weryfikacja: Unit+Integration 605/605, MySqlIntegration 234/234, PHPStan bez błędów, lint PHP/JS, encoding i git diff --check.
+
 ### 2026-07-26 - HR: kompletny etap żądań podwyżek
 
 - Dodano pełny proces żądania podwyżki: utworzenie w ticku, akceptację, mniejszą ofertę z kontrolowanym losowaniem, odmowę, odroczenie, wygaśnięcie i powiadomienia PL/EN.

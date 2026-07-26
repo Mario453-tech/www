@@ -111,9 +111,11 @@ $raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLi
                 (float)($raiseDecisionLimits['max_offer_salary'] ?? $requestedSalary)
             );
             $canOfferLess = $requestId > 0 && $offerMax >= $offerMin;
+            $offerMidpoint = $currentSalary + (($requestedSalary - $currentSalary) / 2);
             $suggestedOffer = $canOfferLess
-                ? min($offerMax, max($offerMin, $currentSalary + (($requestedSalary - $currentSalary) / 2)))
+                ? $offerMin + floor(max(0, $offerMidpoint - $offerMin) / $salaryStep) * $salaryStep
                 : 0;
+            $suggestedOffer = $canOfferLess ? min($offerMax, max($offerMin, $suggestedOffer)) : 0;
             $maxPostponements = max(0, (int)($raiseDecisionLimits['max_postponements'] ?? 0));
             $canPostpone = (int)($request['postponed_count'] ?? 0) < $maxPostponements;
             $status = (string)($request['status'] ?? 'open');

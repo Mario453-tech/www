@@ -183,7 +183,11 @@ final class MoraleService
             'unhappy'=>-5.0, 'raise_requested'=>-8.0, 'dispute'=>-15.0,
             'strike_threat'=>-22.0, 'on_strike'=>-30.0, default=>0.0,
         };
-        $loyalty = max(0.0, min(10.0, (float)(($employee['traits']['loyalty'] ?? 5))));
+        $loyalty = max(0.0, min(
+            10.0,
+            (float)($employee['traits']['loyalty'] ?? 5)
+                + max(0.0, (float)($state['loyalty_modifier'] ?? 0.0))
+        ));
         $stress = max(0.0, min(10.0, (float)(($employee['skills']['stress'] ?? 5))));
         $penaltyReduction = (($loyalty + $stress) / 20.0) * 0.30;
         $negative = min(0.0, $workloadAdjustment) + $financeAdjustment + $relationAdjustment;

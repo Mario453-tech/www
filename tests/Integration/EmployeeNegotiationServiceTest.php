@@ -38,6 +38,8 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
 
         EmployeeSystemSchema::ensure($legacy);
 
+        $stateColumns = $legacy->query('PRAGMA table_info(employee_state)')->fetchAll(PDO::FETCH_COLUMN, 1);
+        $this->assertContains('loyalty_modifier', $stateColumns);
         $columns = $legacy->query('PRAGMA table_info(employee_raise_requests)')->fetchAll(PDO::FETCH_COLUMN, 1);
         $this->assertContains('current_salary', $columns);
         $this->assertContains('requested_salary', $columns);

@@ -303,6 +303,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_candidates'])
     }
 }
 
+// Redirect every classic admin form after POST. / Przekieruj kazdy klasyczny formularz admina po POST.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $_SESSION['admin_hr_flash'] = [
+        'type' => $err !== '' ? 'error' : 'success',
+        'message' => $err !== '' ? $err : $msg,
+    ];
+    header('Location: /admin/hr.php?tab=' . rawurlencode((string)$tab));
+    exit;
+}
+
 // Dane: kandydaci aktywni 
 $candidates = [];
 if ($tab === 'candidates') {
@@ -440,6 +450,7 @@ $viewData = [
 ];
 
 $adminExtraCss = ['/assets/css/admin_hr.css'];
+$extraJs = ['/assets/js/admin_hr.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/hr/main.php';
 require_once __DIR__ . '/partials/footer.php';

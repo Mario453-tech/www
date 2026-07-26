@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EmployeeSystemSchema
 {
-    public const VERSION = 4;
+    public const VERSION = 5;
 
     public static function ensure(PDO $db): void
     {
@@ -162,6 +162,9 @@ final class EmployeeSystemSchema
             'last_morale_cycle_id' => $driver === 'sqlite' ? 'INTEGER NULL' : 'BIGINT UNSIGNED NULL',
             'low_morale_streak' => 'INT NOT NULL DEFAULT 0',
             'dispute_ticks' => 'INT NOT NULL DEFAULT 0',
+            'loyalty_modifier' => $driver === 'sqlite'
+                ? 'REAL NOT NULL DEFAULT 0'
+                : 'DECIMAL(5,2) NOT NULL DEFAULT 0.00',
         ];
         foreach ($defs as $name => $definition) {
             if (!isset($columns[$name])) {

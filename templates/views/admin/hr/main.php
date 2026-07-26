@@ -25,7 +25,9 @@
     <section class="hr-section">
         <div class="section-toolbar">
             <h2><?= t('admin.hr.section_candidates') ?> <span class="badge badge-inactive"><?= count($candidates) ?></span></h2>
-            <form method="post" onsubmit="return confirmSubmit(this,'<?= htmlspecialchars(tPlain('admin.hr.confirm_cleanup'), ENT_QUOTES) ?>')">
+            <form method="post" data-confirm-submit
+                  data-confirm-message="<?= htmlspecialchars(tPlain('admin.hr.confirm_cleanup'), ENT_QUOTES, 'UTF-8') ?>"
+                  data-confirm-label="<?= htmlspecialchars(tPlain('common.delete'), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
                 <input type="hidden" name="cleanup_candidates" value="1">
                 <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.hr.btn_cleanup_candidates') ?></button>
@@ -282,7 +284,9 @@
                     <input type="hidden" name="delete_spec" value="1">
                     <input type="hidden" name="code" value="<?= htmlspecialchars($spec['code']) ?>">
                     <button type="button" class="btn btn-sm btn-danger"
-                        onclick='confirmAction(<?= htmlspecialchars(json_encode(t("admin.hr.confirm_delete_spec") . " (" . $spec["code"] . ")?"), ENT_QUOTES, 'UTF-8') ?>,function(){document.getElementById("del-spec-<?= htmlspecialchars($spec['code']) ?>").submit();},{type:"danger",confirmLabel:<?= htmlspecialchars(json_encode(t("common.delete")), ENT_QUOTES, 'UTF-8') ?>})'>
+                        data-confirm-form="del-spec-<?= htmlspecialchars($spec['code'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-confirm-message="<?= htmlspecialchars(t("admin.hr.confirm_delete_spec") . " (" . $spec["code"] . ")?", ENT_QUOTES, 'UTF-8') ?>"
+                        data-confirm-label="<?= htmlspecialchars(t("common.delete"), ENT_QUOTES, 'UTF-8') ?>">
                         <?= t('common.delete') ?>
                     </button>
                 </form>
@@ -384,7 +388,9 @@
                     </form>
                     <span>
                         <button type="button" class="btn btn-sm btn-danger"
-                            onclick='confirmAction(<?= htmlspecialchars(json_encode(t("admin.hr.confirm_delete_spec")), ENT_QUOTES, 'UTF-8') ?>,function(){document.getElementById("del-hs-<?= (int)$hs['id'] ?>").submit();},{type:"danger",confirmLabel:<?= htmlspecialchars(json_encode(t("common.delete")), ENT_QUOTES, 'UTF-8') ?>})'>
+                            data-confirm-form="del-hs-<?= (int)$hs['id'] ?>"
+                            data-confirm-message="<?= htmlspecialchars(t("admin.hr.confirm_delete_spec"), ENT_QUOTES, 'UTF-8') ?>"
+                            data-confirm-label="<?= htmlspecialchars(t("common.delete"), ENT_QUOTES, 'UTF-8') ?>">
                             <?= t('common.delete') ?>
                         </button>
                     </span>

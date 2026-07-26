@@ -21,7 +21,10 @@ trait EmployeeRaiseRequestNegotiationTrait
         $skills = is_array($employee['skills'] ?? null) ? $employee['skills'] : [];
         $traits = is_array($employee['traits'] ?? null) ? $employee['traits'] : [];
         $employeeNegotiation = (float)($skills['negotiation'] ?? $skills['role_skill'] ?? 5);
-        $loyalty = (float)($traits['loyalty'] ?? 5);
+        $loyalty = min(
+            10.0,
+            (float)($traits['loyalty'] ?? 5) + max(0.0, (float)($state['loyalty_modifier'] ?? 0.0))
+        );
         $ambition = (float)($traits['ambition'] ?? 5);
         $morale = max(0.0, min(100.0, (float)$state['morale']));
         $hrEffectiveness = $this->hrEffectiveness($playerId);
