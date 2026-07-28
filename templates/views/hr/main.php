@@ -9,6 +9,33 @@ $raiseRequests = is_array($raiseRequests ?? null)
     ))
     : [];
 $raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLimits : [];
+$employeeDashboard = is_array($employeeDashboard ?? null) ? $employeeDashboard : [];
+$canonicalEmployees = is_array($employeeDashboard['employees'] ?? null) ? $employeeDashboard['employees'] : [];
+$moraleSummary = is_array($employeeDashboard['morale'] ?? null) ? $employeeDashboard['morale'] : [];
+$trainingRows = is_array($employeeDashboard['trainings'] ?? null) ? $employeeDashboard['trainings'] : [];
+$employeeEvents = is_array($employeeDashboard['events'] ?? null) ? $employeeDashboard['events'] : [];
+$activeHrTab = (string)($activeHrTab ?? 'employees');
+$focusedRecord = (string)($focusedRecord ?? '');
+$canonicalEmployeeMap = [];
+foreach ($canonicalEmployees as $canonicalEmployee) {
+    $canonicalEmployeeMap[
+        (string)$canonicalEmployee['source_type'] . ':' . (int)$canonicalEmployee['source_id']
+    ] = $canonicalEmployee;
+}
+$assignmentTargetLabels = [];
+foreach (['department', 'well', 'hub', 'pipeline', 'warehouse', 'road_transport', 'port', 'b2b'] as $targetType) {
+    $assignmentTargetLabels[$targetType] = t('hr.assignment_target.' . $targetType);
+}
+$departmentLabel = static function (string $code): string {
+    return in_array($code, ['technical', 'logistics', 'hr', 'legal', 'finance'], true)
+        ? t('hr.department.' . $code)
+        : t('hr.department.unknown');
+};
+$relationLabel = static function (string $status): string {
+    return in_array($status, ['normal', 'unhappy', 'raise_requested', 'dispute', 'strike_threat', 'on_strike', 'leaving', 'inactive'], true)
+        ? t('hr.relation.' . $status)
+        : t('hr.relation.normal');
+};
 $hrSeniorityLevel = static function (array $employee): string {
     $experience = max(0, (float)($employee['experience_years'] ?? 0));
     $skills = [
@@ -29,24 +56,28 @@ $hrSeniorityLevel = static function (array $employee): string {
     return 'junior';
 };
 ?>
-<?php if (!empty($activeStrikes)): ?>
+<div id="tab-conflicts" class="hr-tab-content" data-canonical-panel="conflicts">
 <section class="hr-strike-center" aria-labelledby="hr-strike-center-title">
     <div class="hr-section-header hr-strike-center__header">
         <h2 id="hr-strike-center-title"><?= t('hr.strikes_title') ?></h2>
         <p><?= t('hr.strikes_desc') ?></p>
     </div>
+    <?php if (empty($activeStrikes)): ?>
+        <div class="hr-empty hr-empty--big"><p><?= t('hr.conflicts_empty') ?></p></div>
+    <?php else: ?>
     <div class="hr-strike-list">
         <?php foreach ($activeStrikes as $strike):
             $strikeId = (int)$strike['id'];
             $status = (string)$strike['status'];
             $canNegotiate = !empty($strikeNegotiationLimits['enabled']) && in_array($status, ['active', 'negotiating'], true);
-            $departmentKey = 'hr.department.' . (string)$strike['department_code'];
+            $strikeDepartmentLabel = $departmentLabel((string)$strike['department_code']);
         ?>
-        <article class="hr-strike-card" data-strike-card="<?= $strikeId ?>">
+        <article class="hr-strike-card<?= $focusedRecord === 'strike:' . $strikeId ? ' hr-record-focus' : '' ?>"
+                 data-strike-card="<?= $strikeId ?>" data-record="strike:<?= $strikeId ?>">
             <div class="hr-strike-card__header">
                 <div>
                     <span class="hr-strike-card__eyebrow"><?= t('hr.strike_department') ?></span>
-                    <h3><?= htmlspecialchars(t($departmentKey), ENT_QUOTES, 'UTF-8') ?></h3>
+                    <h3><?= htmlspecialchars($strikeDepartmentLabel, ENT_QUOTES, 'UTF-8') ?></h3>
                 </div>
                 <span class="hr-strike-status hr-strike-status--<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>">
                     <?= t('hr.strike_status.' . $status) ?>
@@ -100,14 +131,18 @@ $hrSeniorityLevel = static function (array $employee): string {
         </article>
         <?php endforeach ?>
     </div>
+    <?php endif ?>
 </section>
-<?php endif ?>
-<?php if (!empty($raiseRequests)): ?>
+</div>
+<div id="tab-raises" class="hr-tab-content" data-canonical-panel="raises">
 <section class="hr-raise-center" aria-labelledby="hr-raise-center-title">
     <div class="hr-section-header hr-raise-center__header">
         <h2 id="hr-raise-center-title"><?= t('hr.raises_title') ?></h2>
         <p><?= t('hr.raises_desc') ?></p>
     </div>
+    <?php if (empty($raiseRequests)): ?>
+        <div class="hr-empty hr-empty--big"><p><?= t('hr.raises_empty') ?></p></div>
+    <?php else: ?>
     <div class="hr-raise-list">
         <?php foreach ($raiseRequests as $request):
             $requestId = (int)($request['id'] ?? 0);
@@ -143,8 +178,12 @@ $hrSeniorityLevel = static function (array $employee): string {
             $deadlineTimestamp = $deadline !== '' ? strtotime($deadline) : false;
             $morale = max(0, min(100, (float)($request['morale'] ?? 0)));
             $satisfaction = max(0, min(120, (float)($request['salary_satisfaction'] ?? $request['satisfaction'] ?? 0)));
+            $refusalRisk = max(0, min(100, round((100 - $morale) * 0.45 + (100 - min(100, $satisfaction)) * 0.55)));
+            $departmentCode = (string)($request['department_code'] ?? 'unknown');
+            $reasonCode = (string)($request['reason_code'] ?? 'other');
         ?>
-        <article class="hr-raise-card" data-raise-request="<?= $requestId ?>">
+        <article class="hr-raise-card<?= $focusedRecord === 'raise:' . $requestId ? ' hr-record-focus' : '' ?>"
+                 data-raise-request="<?= $requestId ?>" data-record="raise:<?= $requestId ?>">
             <div class="hr-raise-card__header">
                 <div>
                     <span class="hr-raise-card__eyebrow"><?= t('hr.raise_employee') ?></span>
@@ -166,6 +205,9 @@ $hrSeniorityLevel = static function (array $employee): string {
                     <dt><?= t('hr.raise_deadline') ?></dt>
                     <dd><?= $deadlineTimestamp !== false ? date('d.m.Y H:i', $deadlineTimestamp) : t('hr.raise_deadline_none') ?></dd>
                 </div>
+                <div><dt><?= t('hr.raise_department') ?></dt><dd><?= $departmentLabel($departmentCode) ?></dd></div>
+                <div><dt><?= t('hr.raise_reason') ?></dt><dd><?= t('hr.raise_reason.' . ($reasonCode === 'low_morale' ? 'low_morale' : 'other')) ?></dd></div>
+                <div><dt><?= t('hr.raise_refusal_risk') ?></dt><dd><?= $refusalRisk ?>%</dd></div>
             </dl>
             <div class="hr-raise-actions">
                 <button type="button" class="btn btn-primary" data-raise-action="accept"
@@ -197,28 +239,39 @@ $hrSeniorityLevel = static function (array $employee): string {
         </article>
         <?php endforeach ?>
     </div>
+    <?php endif ?>
 </section>
-<?php endif ?>
+</div>
 <div class="hr-tabs module-tabs">
-    <button type="button" class="hr-tab module-tab active" onclick="switchTab('employees')"><?= t('hr.tab_employees') ?><span class="tab-badge module-tab-badge module-tab-badge--ok"><?= count($employees) ?></span></button>
-    <button type="button" class="hr-tab module-tab" onclick="switchTab('candidates')"><?= t('hr.tab_candidates') ?><?php if (!empty($staffCandidates)): ?><span class="tab-badge module-tab-badge module-tab-badge--gold"><?= count($staffCandidates) ?></span><?php endif ?></button>
-    <button type="button" class="hr-tab module-tab" onclick="switchTab('directors')"><?= t('hr.tab_directors') ?><span class="tab-badge module-tab-badge module-tab-badge--muted"><?= count($directors ?? []) ?></span></button>
-    <button type="button" class="hr-tab module-tab" onclick="switchTab('contracts')"><?= t('hr.tab_contracts') ?><?php if (!empty($expiring)): ?><span class="tab-badge module-tab-badge module-tab-badge--warn"><?= count($expiring) ?></span><?php endif ?></button>
-    <button type="button" class="hr-tab module-tab" onclick="switchTab('history')"><?= t('hr.tab_history') ?><span class="tab-badge module-tab-badge module-tab-badge--muted"><?= count($history) ?></span></button>
-    <button type="button" class="hr-tab module-tab" onclick="switchTab('market')"><?= t('hr.tab_market') ?></button>
-    <button type="button" class="hr-tab module-tab" onclick="switchTab('headhunter')"><?= t('hr.tab_headhunter') ?><?php if (!empty($hhCandidates)): ?><span class="tab-badge module-tab-badge module-tab-badge--gold"><?= count($hhCandidates) ?></span><?php endif ?></button>
+    <?php foreach ([
+        'employees' => count($canonicalEmployees),
+        'recruitment' => count($staffCandidates),
+        'raises' => count($raiseRequests),
+        'morale' => null,
+        'conflicts' => count($activeStrikes),
+        'training' => count($trainingRows),
+        'history' => count($employeeEvents) + count($history),
+    ] as $tabCode => $tabCount): ?>
+        <button type="button"
+                class="hr-tab module-tab<?= $activeHrTab === $tabCode ? ' active' : '' ?>"
+                data-hr-tab="<?= htmlspecialchars($tabCode, ENT_QUOTES, 'UTF-8') ?>">
+            <?= t('hr.tab_' . $tabCode) ?>
+            <?php if ($tabCount !== null && $tabCount > 0): ?>
+                <span class="tab-badge module-tab-badge module-tab-badge--muted"><?= $tabCount ?></span>
+            <?php endif ?>
+        </button>
+    <?php endforeach ?>
 </div>
 
 <div class="hr-container">
 
-<div id="tab-employees" class="hr-tab-content active">
+<div id="tab-employees" class="hr-tab-content" data-canonical-panel="employees">
     <div class="hr-section-header">
         <h2><?= t('hr.employees_title') ?></h2>
         <p><?= t('hr.employees_desc') ?></p>
     </div>
     <?php if (empty($employees)): ?>
         <div class="hr-empty hr-empty--big">
-            <div class="hr-empty-icon">&#128101;</div>
             <p><?= t('hr.no_employees') ?></p>
         </div>
     <?php else: ?>
@@ -229,14 +282,15 @@ $hrSeniorityLevel = static function (array $employee): string {
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $warn = isset($emp['contract_days_left']) && $emp['contract_days_left'] <= 14 && $emp['contract_days_left'] >= 0;
             $age = !empty($emp['birth_date']) ? date_diff(date_create($emp['birth_date']), date_create('today'))->y : null;
-            // json_encode returns a JS string, htmlspecialchars escapes attribute delimiters.
-            // PL: json_encode zwraca string JS, a htmlspecialchars escapuje ograniczniki atrybutu.
-            $safeName = htmlspecialchars(json_encode($emp['first_name'] . ' ' . $emp['last_name']), ENT_QUOTES, 'UTF-8');
             $empDomId = ($emp['source'] ?? 'board_member') . '-' . (int)$emp['id'];
-            $empDomJs = htmlspecialchars(json_encode($empDomId), ENT_QUOTES, 'UTF-8');
             $initials = mb_strtoupper(mb_substr((string)$emp['first_name'], 0, 1) . mb_substr((string)$emp['last_name'], 0, 1), 'UTF-8');
+            $sourceType = (string)($emp['source'] ?? 'board_member');
+            $canonical = $canonicalEmployeeMap[$sourceType . ':' . (int)$emp['id']] ?? [];
+            $recordKey = 'employee:' . (int)$emp['id'];
         ?>
-        <div class="employee-card <?= $warn ? 'contract-warning' : '' ?>" onclick="toggleEmployeeDetails(<?= $empDomJs ?>)">
+        <article class="employee-card <?= $warn ? 'contract-warning' : '' ?><?= $focusedRecord === $recordKey ? ' hr-record-focus' : '' ?>"
+                 data-toggle-employee="<?= htmlspecialchars($empDomId, ENT_QUOTES, 'UTF-8') ?>"
+                 data-record="<?= htmlspecialchars($recordKey, ENT_QUOTES, 'UTF-8') ?>" tabindex="0">
             <div class="emp-header">
                 <div class="emp-avatar" aria-hidden="true"><?= htmlspecialchars($initials, ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="emp-info">
@@ -251,11 +305,34 @@ $hrSeniorityLevel = static function (array $employee): string {
                 <div class="emp-salary-block">
                     <div class="emp-salary"><?= number_format((float)$emp['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
                     <div class="emp-salary-label"><?= t('hr.salary_month') ?></div>
-                    <?php if ($warn): ?><div class="emp-contract-warn">&#9888; <?= $emp['contract_days_left'] ?> <?= t('common.days') ?></div><?php endif ?>
+                    <?php if ($warn): ?><div class="emp-contract-warn"><?= t('hr.contract_expiring', ['days' => (int)$emp['contract_days_left']]) ?></div><?php endif ?>
                 </div>
             </div>
 
             <div class="emp-details" id="emp-details-<?= $empDomId ?>">
+                <dl class="hr-employee-metrics">
+                    <div><dt><?= t('hr.expected_salary') ?></dt><dd><?= number_format((float)($canonical['expected_salary'] ?? $emp['salary']), 0, ',', ' ') ?> <?= $currencyLabel ?></dd></div>
+                    <div><dt><?= t('hr.salary_satisfaction') ?></dt><dd><?= number_format((float)($canonical['salary_satisfaction'] ?? 70), 0, ',', ' ') ?>%</dd></div>
+                    <div><dt><?= t('hr.morale_label') ?></dt><dd><?= number_format((float)($canonical['morale'] ?? $emp['morale'] ?? 65), 0, ',', ' ') ?>%</dd></div>
+                    <div><dt><?= t('hr.workload') ?></dt><dd><?= number_format((float)($canonical['workload'] ?? 0), 0, ',', ' ') ?>%</dd></div>
+                    <div><dt><?= t('hr.leave_risk') ?></dt><dd><?= number_format((float)($canonical['leave_risk'] ?? 0), 0, ',', ' ') ?>%</dd></div>
+                    <div><dt><?= t('hr.strike_support') ?></dt><dd><?= number_format((float)($canonical['strike_support'] ?? 0), 0, ',', ' ') ?>%</dd></div>
+                    <div><dt><?= t('hr.relation_status') ?></dt><dd><?= $relationLabel((string)($canonical['relation_status'] ?? 'normal')) ?></dd></div>
+                    <div><dt><?= t('hr.assignments') ?></dt><dd><?= count((array)($canonical['assignments'] ?? [])) ?></dd></div>
+                </dl>
+                <?php if (!empty($canonical['assignments'])): ?>
+                    <ul class="hr-assignment-list">
+                        <?php foreach ($canonical['assignments'] as $assignment):
+                            $targetType = (string)($assignment['target_type'] ?? '');
+                            $targetLabel = $assignmentTargetLabels[$targetType] ?? t('hr.assignment_target.other');
+                        ?>
+                            <li>
+                                <span><?= htmlspecialchars($targetLabel, ENT_QUOTES, 'UTF-8') ?> #<?= (int)($assignment['target_id'] ?? 0) ?></span>
+                                <strong><?= number_format((float)($assignment['allocation_pct'] ?? 0), 0, ',', ' ') ?>%</strong>
+                            </li>
+                        <?php endforeach ?>
+                    </ul>
+                <?php endif ?>
                 <div class="cv-section-label"><?= t('hr.skill_label') ?> &nbsp;<span class="skills-avg-label"><?= sprintf(t('hr.skills_avg'), $avg) ?></span></div>
                 <div class="emp-skills-grid">
                     <?php foreach (['skill_organization' => t('hr.skill_organization'), 'skill_negotiation' => t('hr.skill_negotiation'), 'skill_analysis' => t('hr.skill_analysis'), 'skill_stress' => t('hr.skill_stress'), 'skill_ethics' => t('hr.skill_ethics')] as $k => $l): ?>
@@ -307,23 +384,23 @@ $hrSeniorityLevel = static function (array $employee): string {
                         <option value="6m"><?= t('hr.renew_6m') ?></option>
                         <option value="2y"><?= t('hr.renew_2y') ?></option>
                     </select>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();renewContract(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_renew') ?></button>
+                    <button type="button" class="btn btn-sm btn-primary" data-hr-action="renew" data-employee-id="<?= (int)$emp['id'] ?>" data-employee-name="<?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name'], ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.btn_renew') ?></button>
                     <?php endif ?>
                     <?php if (($emp['source'] ?? 'board_member') === 'technical_staff'): ?>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation();grantBonus(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_grant_bonus') ?></button>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireTechnicalStaff(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-primary" data-hr-action="bonus" data-employee-id="<?= (int)$emp['id'] ?>" data-employee-name="<?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name'], ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.btn_grant_bonus') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" data-hr-action="fire-technical" data-employee-id="<?= (int)$emp['id'] ?>" data-employee-name="<?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name'], ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.btn_fire') ?></button>
                     <?php else: ?>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();fireEmployee(<?= $emp['id'] ?>,<?= $safeName ?>)"><?= t('hr.btn_fire') ?></button>
+                    <button type="button" class="btn btn-sm btn-danger" data-hr-action="fire" data-employee-id="<?= (int)$emp['id'] ?>" data-employee-name="<?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name'], ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.btn_fire') ?></button>
                     <?php endif ?>
                 </div>
             </div>
-        </div>
+        </article>
         <?php endforeach ?>
     </div>
     <?php endif ?>
 </div>
 
-<div id="tab-candidates" class="hr-tab-content">
+<div id="tab-candidates" class="hr-tab-content" data-canonical-panel="recruitment">
     <div class="hr-section-header">
         <h2><?= t('hr.candidates_title') ?></h2>
         <p><?= t('hr.candidates_desc') ?></p>
@@ -331,20 +408,19 @@ $hrSeniorityLevel = static function (array $employee): string {
 
     <?php if (empty($staffCandidates)): ?>
         <div class="hr-empty hr-empty--big">
-            <div class="hr-empty-icon">&#128196;</div>
             <p><?= t('hr.no_candidates') ?></p>
         </div>
     <?php else: ?>
     <div class="candidates-grid">
         <?php foreach ($staffCandidates as $candidate):
             $avg = round(($candidate['skill_organization'] + $candidate['skill_negotiation'] + $candidate['skill_analysis'] + $candidate['skill_stress'] + $candidate['skill_ethics']) / 5, 1);
-            $expLevel = $candidate['experience_years'] <= 5 ? 'Junior' : ($candidate['experience_years'] <= 12 ? 'Mid' : 'Senior');
+            $expCode = $candidate['experience_years'] <= 5 ? 'junior' : ($candidate['experience_years'] <= 12 ? 'mid' : 'senior');
+            $expLevel = t('hr.exp_' . $expCode);
             $hoursLeft = max(0, (int)$candidate['hours_remaining']);
-            $safeName = htmlspecialchars(json_encode($candidate['first_name'] . ' ' . $candidate['last_name']), ENT_QUOTES, 'UTF-8');
             $isRecommended = ($candidate['tech_recommendation'] ?? '') === 'hire';
             $isRejected = ($candidate['tech_recommendation'] ?? '') === 'reject';
         ?>
-        <div class="candidate-card-hr <?= $isRecommended ? 'hr-recommended' : '' ?>">
+        <article class="candidate-card-hr <?= $isRecommended ? 'hr-recommended' : '' ?>" data-candidate-card="<?= (int)$candidate['id'] ?>">
             <?php if ($isRecommended): ?><div class="hr-rec-badge"><?= t('hr.rec_badge') ?></div><?php endif ?>
 
             <div class="cand-header">
@@ -354,7 +430,7 @@ $hrSeniorityLevel = static function (array $employee): string {
                         <?= htmlspecialchars($candidate['spec_name'] ?? $candidate['role_name']) ?>
                         &nbsp;·&nbsp;<?= (int)$candidate['age'] ?> <?= t('hr.years_age') ?>
                         &nbsp;·&nbsp;<?= htmlspecialchars($candidate['nationality'] ?? '') ?>
-                        &nbsp;·&nbsp;<span class="exp-badge exp-<?= strtolower($expLevel) ?>"><?= $expLevel ?> (<?= (int)$candidate['experience_years'] ?> <?= t('hr.years_exp_short') ?>)</span>
+                        - <span class="exp-badge exp-<?= $expCode ?>"><?= $expLevel ?> (<?= (int)$candidate['experience_years'] ?> <?= t('hr.years_exp_short') ?>)</span>
                     </div>
                 </div>
                 <div class="cand-salary">
@@ -383,7 +459,6 @@ $hrSeniorityLevel = static function (array $employee): string {
 
             <?php if (!empty($candidate['technical_score'])): ?>
             <div class="tech-review-badge <?= $isRecommended ? 'rev-hire' : ($isRejected ? 'rev-reject' : 'rev-pending') ?>">
-                <span class="tech-rev-icon"><?= $isRecommended ? '&#10003;' : ($isRejected ? '&#10007;' : '&#9679;') ?></span>
                 <span class="tech-rev-title"><?= t('hr.tech_review_title') ?></span>
                 <span class="tech-rev-score"><?= (int)$candidate['technical_score'] ?>/10</span>
                 <?php if (!empty($candidate['tech_comment'])): ?>
@@ -397,7 +472,7 @@ $hrSeniorityLevel = static function (array $employee): string {
             <div class="cand-footer">
                 <div class="cand-footer-left">
                     <span class="cand-avg"><?= sprintf(t('hr.skills_avg'), $avg) ?></span>
-                    <span class="cand-expires <?= $hoursLeft < 12 ? 'cand-expires--urgent' : '' ?>">&#8634; <?= $hoursLeft ?>h</span>
+                    <span class="cand-expires <?= $hoursLeft < 12 ? 'cand-expires--urgent' : '' ?>"><?= t('hr.expires_hours', ['hours' => $hoursLeft]) ?></span>
                     <?php if (!empty($candidate['region_name'])): ?><span class="cand-region-name"><?= htmlspecialchars($candidate['region_name']) ?></span><?php endif ?>
                 </div>
                 <div class="cand-footer-actions">
@@ -406,19 +481,19 @@ $hrSeniorityLevel = static function (array $employee): string {
                         <option value="6m"><?= t('hr.contract_6m') ?></option>
                         <option value="2y"><?= t('hr.contract_2y') ?></option>
                     </select>
-                    <button type="button" class="btn-cv btn-cv-reject" onclick="rejectCandidate(<?= (int)$candidate['id'] ?>, <?= $safeName ?>)"><?= t('hr.btn_reject') ?></button>
-                    <button type="button" class="btn-cv btn-cv-hire <?= $isRecommended ? 'btn-cv-hire-recommended' : '' ?>" onclick="hireCandidate(<?= (int)$candidate['id'] ?>, <?= $safeName ?>)">
+                    <button type="button" class="btn-cv btn-cv-reject" data-hr-action="reject-candidate" data-candidate-id="<?= (int)$candidate['id'] ?>" data-employee-name="<?= htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name'], ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.btn_reject') ?></button>
+                    <button type="button" class="btn-cv btn-cv-hire <?= $isRecommended ? 'btn-cv-hire-recommended' : '' ?>" data-hr-action="hire-candidate" data-candidate-id="<?= (int)$candidate['id'] ?>" data-employee-name="<?= htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name'], ENT_QUOTES, 'UTF-8') ?>">
                         <?= $isRecommended ? t('hr.btn_hire_recommended') : t('hr.btn_hire') ?>
                     </button>
                 </div>
             </div>
-        </div>
+        </article>
         <?php endforeach ?>
     </div>
     <?php endif ?>
 </div>
 
-<div id="tab-directors" class="hr-tab-content">
+<div id="tab-directors" class="hr-tab-content" data-canonical-panel="employees">
     <div class="hr-section-header">
         <h2><?= t('hr.directors_title') ?></h2>
         <p><?= t('hr.directors_desc') ?></p>
@@ -426,7 +501,6 @@ $hrSeniorityLevel = static function (array $employee): string {
 
     <?php if (empty($directors)): ?>
         <div class="hr-empty hr-empty--big">
-            <div class="hr-empty-icon">&#128081;</div>
             <p><?= t('hr.no_directors') ?></p>
         </div>
     <?php else: ?>
@@ -438,7 +512,7 @@ $hrSeniorityLevel = static function (array $employee): string {
             $age = (int)($emp['age'] ?? 0);
             $initials = mb_strtoupper(mb_substr((string)$emp['first_name'], 0, 1) . mb_substr((string)$emp['last_name'], 0, 1), 'UTF-8');
         ?>
-        <div class="employee-card director-card" onclick="toggleEmployeeDetails('director-<?= (int)$emp['id'] ?>')">
+        <article class="employee-card director-card" data-toggle-employee="director-<?= (int)$emp['id'] ?>" tabindex="0">
             <div class="emp-header">
                 <div class="emp-avatar" aria-hidden="true"><?= htmlspecialchars($initials, ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="emp-info">
@@ -472,13 +546,13 @@ $hrSeniorityLevel = static function (array $employee): string {
                     <span><?= t('hr.directors_boardroom_hint') ?></span>
                 </div>
             </div>
-        </div>
+        </article>
         <?php endforeach ?>
     </div>
     <?php endif ?>
 </div>
 
-<div id="tab-contracts" class="hr-tab-content">
+<div id="tab-contracts" class="hr-tab-content" data-canonical-panel="employees">
     <div class="hr-section-header">
         <h2><?= t('hr.contracts_title') ?></h2>
         <p><?= t('hr.contracts_desc') ?></p>
@@ -505,7 +579,7 @@ $hrSeniorityLevel = static function (array $employee): string {
             <div><?= number_format((float)$c['salary'], 0, ',', ' ') ?> <?= $currencyLabel ?></div>
             <div>
                 <?php if ($isDead): ?><span class="badge-expired"><?= t('hr.badge_expired') ?></span>
-                <?php elseif ($isExp): ?><span class="badge-expiring">&#9888; <?= $c['days_left'] ?> <?= t('common.days') ?></span>
+                <?php elseif ($isExp): ?><span class="badge-expiring"><?= t('hr.contract_expiring', ['days' => (int)$c['days_left']]) ?></span>
                 <?php else: ?><span class="badge-active"><?= $c['days_left'] ?> <?= t('common.days') ?></span><?php endif ?>
             </div>
         </div>
@@ -514,15 +588,108 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-history" class="hr-tab-content">
+<div id="tab-morale" class="hr-tab-content" data-canonical-panel="morale">
+    <div class="hr-section-header">
+        <h2><?= t('hr.morale_title') ?></h2>
+        <p><?= t('hr.morale_desc') ?></p>
+    </div>
+    <dl class="hr-summary-grid">
+        <div><dt><?= t('hr.employee_count') ?></dt><dd><?= (int)($moraleSummary['employee_count'] ?? 0) ?></dd></div>
+        <div><dt><?= t('hr.average_morale') ?></dt><dd><?= number_format((float)($moraleSummary['average_morale'] ?? 0), 1, ',', ' ') ?>%</dd></div>
+        <div><dt><?= t('hr.average_leave_risk') ?></dt><dd><?= number_format((float)($moraleSummary['average_leave_risk'] ?? 0), 1, ',', ' ') ?>%</dd></div>
+        <div><dt><?= t('hr.average_strike_support') ?></dt><dd><?= number_format((float)($moraleSummary['average_strike_support'] ?? 0), 1, ',', ' ') ?>%</dd></div>
+    </dl>
+    <?php if (empty($canonicalEmployees)): ?>
+        <div class="hr-empty hr-empty--big"><p><?= t('hr.no_employees') ?></p></div>
+    <?php else: ?>
+        <div class="hr-morale-list">
+            <?php foreach ($canonicalEmployees as $employee): ?>
+                <article class="hr-morale-row">
+                    <div>
+                        <strong><?= htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                        <span><?= $departmentLabel((string)$employee['department_code']) ?></span>
+                    </div>
+                    <div><span><?= t('hr.morale_label') ?></span><strong><?= number_format((float)$employee['morale'], 0, ',', ' ') ?>%</strong></div>
+                    <div><span><?= t('hr.salary_satisfaction') ?></span><strong><?= number_format((float)$employee['salary_satisfaction'], 0, ',', ' ') ?>%</strong></div>
+                    <div><span><?= t('hr.leave_risk') ?></span><strong><?= number_format((float)$employee['leave_risk'], 0, ',', ' ') ?>%</strong></div>
+                    <div><span><?= t('hr.relation_status') ?></span><strong><?= $relationLabel((string)$employee['relation_status']) ?></strong></div>
+                </article>
+            <?php endforeach ?>
+        </div>
+    <?php endif ?>
+</div>
+
+<div id="tab-training" class="hr-tab-content" data-canonical-panel="training">
+    <div class="hr-section-header">
+        <h2><?= t('hr.training_title') ?></h2>
+        <p><?= t('hr.training_desc') ?></p>
+    </div>
+    <?php if (empty($trainingRows)): ?>
+        <div class="hr-empty hr-empty--big"><p><?= t('hr.training_empty') ?></p></div>
+    <?php else: ?>
+        <div class="hr-training-list">
+            <?php foreach ($trainingRows as $training):
+                $trainingId = (int)($training['id'] ?? 0);
+                $trainingName = $locale === 'en'
+                    ? (string)($training['name_en'] ?? $training['name_pl'] ?? '')
+                    : (string)($training['name_pl'] ?? $training['name_en'] ?? '');
+                $trainingStatus = (string)($training['status'] ?? 'in_progress');
+                $trainingStatus = in_array($trainingStatus, ['in_progress', 'passed', 'failed', 'cancelled'], true)
+                    ? $trainingStatus
+                    : 'cancelled';
+                $skillCode = (string)($training['target_skill'] ?? 'other');
+                $skillCode = in_array($skillCode, [
+                    'skill_drilling', 'skill_maintenance', 'skill_safety', 'skill_analysis',
+                    'skill_negotiation', 'skill_ethics', 'skill_stress', 'skill_organization',
+                ], true) ? $skillCode : 'other';
+            ?>
+                <article class="hr-training-row<?= $focusedRecord === 'training:' . $trainingId ? ' hr-record-focus' : '' ?>"
+                         data-record="training:<?= $trainingId ?>">
+                    <div><strong><?= htmlspecialchars($trainingName, ENT_QUOTES, 'UTF-8') ?></strong><span><?= t('hr.training_skill') ?>: <?= t('hr.skill_code.' . $skillCode) ?></span></div>
+                    <div><span><?= t('hr.training_status_label') ?></span><strong><?= t('hr.training_status.' . $trainingStatus) ?></strong></div>
+                    <div><span><?= t('hr.training_started') ?></span><strong><?= !empty($training['started_at']) ? date('d.m.Y H:i', strtotime((string)$training['started_at'])) : '-' ?></strong></div>
+                    <div><span><?= t('hr.training_result') ?></span><strong><?= isset($training['exam_score']) ? (int)$training['exam_score'] . '/100' : '-' ?></strong></div>
+                </article>
+            <?php endforeach ?>
+        </div>
+    <?php endif ?>
+</div>
+
+<div id="tab-history" class="hr-tab-content" data-canonical-panel="history">
     <div class="hr-section-header">
         <h2><?= t('hr.history_title') ?></h2>
         <p><?= t('hr.history_desc') ?></p>
     </div>
 
-    <?php if (empty($history)): ?>
+    <?php if (!empty($employeeEvents)): ?>
+        <div class="hr-event-list">
+            <?php foreach ($employeeEvents as $event):
+                $eventId = (int)($event['id'] ?? 0);
+                $meta = json_decode((string)($event['meta_json'] ?? ''), true);
+                $meta = is_array($meta) ? $meta : [];
+                $eventTitle = t((string)$event['title_key'], $meta);
+                $eventMessage = t((string)$event['message_key'], $meta);
+                if ($eventTitle === (string)$event['title_key']) {
+                    $eventTitle = t('hr.event_generic_title');
+                }
+                if ($eventMessage === (string)$event['message_key']) {
+                    $eventMessage = t('hr.event_generic_message');
+                }
+            ?>
+                <article class="hr-event-row<?= $focusedRecord === 'event:' . $eventId ? ' hr-record-focus' : '' ?>"
+                         data-record="event:<?= $eventId ?>">
+                    <time datetime="<?= htmlspecialchars((string)$event['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m.Y H:i', strtotime((string)$event['created_at'])) ?></time>
+                    <div>
+                        <strong><?= htmlspecialchars($eventTitle, ENT_QUOTES, 'UTF-8') ?></strong>
+                        <p><?= htmlspecialchars($eventMessage, ENT_QUOTES, 'UTF-8') ?></p>
+                    </div>
+                </article>
+            <?php endforeach ?>
+        </div>
+    <?php endif ?>
+
+    <?php if (empty($history) && empty($employeeEvents)): ?>
         <div class="hr-empty hr-empty--big">
-            <div class="hr-empty-icon">&#128221;</div>
             <p><?= t('hr.no_history') ?></p>
         </div>
     <?php else: ?>
@@ -545,7 +712,7 @@ $hrSeniorityLevel = static function (array $employee): string {
                     'resigned' => [t('hr.action_resigned'), 'action-resigned'],
                     'suspended' => [t('hr.action_suspended'), 'action-suspended'],
                 ];
-                [$label, $cls] = $badges[$h['action']] ?? [$h['action'], 'action-hired'];
+                [$label, $cls] = $badges[$h['action']] ?? [t('hr.action_other'), 'action-hired'];
                 ?>
                 <span class="action-badge <?= $cls ?>"><?= $label ?></span>
             </div>
@@ -558,7 +725,7 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-market" class="hr-tab-content">
+<div id="tab-market" class="hr-tab-content" data-canonical-panel="recruitment">
     <div class="hr-section-header">
         <h2><?= t('hr.market_title') ?></h2>
         <p><?= t('hr.market_desc') ?></p>
@@ -590,7 +757,7 @@ $hrSeniorityLevel = static function (array $employee): string {
     </div>
 </div>
 
-<div id="tab-headhunter" class="hr-tab-content">
+<div id="tab-headhunter" class="hr-tab-content" data-canonical-panel="recruitment">
     <div class="hr-section-header">
         <h2><?= t('hr.hh_title') ?></h2>
         <p><?= t('hr.hh_desc') ?></p>
@@ -598,7 +765,6 @@ $hrSeniorityLevel = static function (array $employee): string {
 
     <?php if ($hhActiveSearch): ?>
     <div class="hh-status-card hh-searching">
-        <div class="hh-status-icon">&#128269;</div>
         <div class="hh-status-info">
             <div class="hh-status-title"><?= t('hr.hh_searching_for') ?>: <?= htmlspecialchars($hhActiveSearch['spec_name']) ?></div>
             <div class="hh-status-meta">
@@ -631,7 +797,7 @@ $hrSeniorityLevel = static function (array $employee): string {
                 <div class="hh-time-note"><?= t('hr.hh_time_note') ?></div>
             </div>
         </div>
-        <button type="button" class="btn btn-primary btn-full" onclick="startHeadhunter()"><?= t('hr.hh_btn_launch') ?></button>
+        <button type="button" class="btn btn-primary btn-full" data-hr-action="start-headhunter"><?= t('hr.hh_btn_launch') ?></button>
     </div>
     <?php endif ?>
 
@@ -647,7 +813,7 @@ $hrSeniorityLevel = static function (array $employee): string {
             <div>
                 <div class="hh-cand-name"><?= htmlspecialchars($hc['first_name'] . ' ' . $hc['last_name']) ?></div>
                 <div class="hh-cand-spec"><?= htmlspecialchars($hc['spec_name']) ?></div>
-                <div class="hh-cand-company">&#127970; <?= htmlspecialchars($hc['current_company']) ?></div>
+                <div class="hh-cand-company"><?= htmlspecialchars($hc['current_company']) ?></div>
             </div>
             <div class="hh-cand-skill-badge">
                 <div class="hh-skill-num"><?= $hc['skill_level'] ?></div>
@@ -663,7 +829,7 @@ $hrSeniorityLevel = static function (array $employee): string {
         </div>
         <details>
             <summary class="task-assign-toggle"><?= t('hr.hh_offer_btn') ?></summary>
-            <form class="hh-offer-form" onsubmit="makeHeadhunterOffer(event, <?= (int)$hc['id'] ?>)">
+            <form class="hh-offer-form" data-headhunter-offer="<?= (int)$hc['id'] ?>">
                 <div class="hh-offer-grid">
                     <div class="form-group form-group--flush">
                         <label class="form-label"><?= t('hr.hh_salary_input') ?></label>
@@ -699,7 +865,7 @@ $hrSeniorityLevel = static function (array $employee): string {
                     'completed' => t('hr.hh_completed'),
                     'failed' => t('hr.hh_failed'),
                     'searching' => t('hr.hh_searching_status'),
-                    default => htmlspecialchars($sr['status']),
+                    default => t('hr.hh_unknown_status'),
                 } ?>
             </span>
             <span><?= (int)$sr['result_count'] ?></span>
@@ -717,6 +883,7 @@ $hrSeniorityLevel = static function (array $employee): string {
 const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
 const HR_API = '/src/HRApi.php';
 window.HR_LOCALE = <?= json_encode($locale) ?>;
+window.HR_ACTIVE_TAB = <?= json_encode($activeHrTab) ?>;
 window.HR_LANG = <?= json_encode([
     'contract_1y' => t('hr_js.contract_1y'),
     'contract_6m' => t('hr_js.contract_6m'),
@@ -764,6 +931,9 @@ window.HR_LANG = <?= json_encode([
     'confirm_raise_reject_btn' => t('hr_js.confirm_raise_reject_btn'),
     'confirm_raise_postpone' => t('hr_js.confirm_raise_postpone'),
     'confirm_raise_postpone_btn' => t('hr_js.confirm_raise_postpone_btn'),
+    'err_api_config' => t('hr_js.err_api_config'),
+    'err_invalid_response' => t('hr_js.err_invalid_response'),
+    'err_http' => t('hr_js.err_http'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="/assets/js/hr.js"></script>

@@ -22,7 +22,7 @@
         try {
             const result = await hrApi('open_strike_negotiation', { strike_id: strikeId });
             showToast(hrl('strike_negotiation_title'), result.message);
-            window.setTimeout(() => window.location.reload(), 900);
+            window.setTimeout(() => window.location.reload(), 5200);
         } catch (error) {
             showToast(hrl('toast_err'), error.message, 'error');
             setBusy(button, false);

@@ -1,12 +1,18 @@
-if (typeof HR_API === 'undefined' || typeof CSRF_TOKEN === 'undefined') {
-    console.error('[HR] Missing HR_API or CSRF_TOKEN');
-}
-
-function switchTab(name) {
+function activateHrTab(name, updateUrl = false) {
+    const available = Array.from(document.querySelectorAll('[data-hr-tab]'))
+        .map((button) => button.dataset.hrTab);
+    const selected = available.includes(name) ? name : 'employees';
     document.querySelectorAll('.hr-tab-content').forEach((el) => el.classList.remove('active'));
     document.querySelectorAll('.hr-tab').forEach((el) => el.classList.remove('active'));
-    document.getElementById('tab-' + name)?.classList.add('active');
-    document.querySelector(`.hr-tab[onclick="switchTab('${name}')"]`)?.classList.add('active');
+    document.querySelectorAll(`[data-canonical-panel="${selected}"]`).forEach((panel) => {
+        panel.classList.add('active');
+    });
+    document.querySelector(`[data-hr-tab="${selected}"]`)?.classList.add('active');
+    if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', selected);
+        history.replaceState(null, '', url);
+    }
 }
 
 const _HL = window.HR_LANG || {};
@@ -22,10 +28,10 @@ function hrl(key, params) {
 
 async function hrApi(action, data = {}) {
     if (typeof HR_API === 'undefined') {
-        throw new Error('HR_API undefined');
+        throw new Error(hrl('err_api_config'));
     }
     if (typeof CSRF_TOKEN === 'undefined') {
-        throw new Error('CSRF token undefined');
+        throw new Error(hrl('err_api_config'));
     }
 
     const formData = new FormData();
@@ -41,18 +47,18 @@ async function hrApi(action, data = {}) {
 
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
-        throw new Error('Response is not JSON');
+        throw new Error(hrl('err_invalid_response'));
     }
 
     const payload = await response.json();
     if (!response.ok) {
-        throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
+        throw new Error(payload.error || payload.message || hrl('err_http', { status: response.status }));
     }
     return payload;
 }
 
 function removeCandidateCard(candidateId) {
-    const card = document.querySelector(`[onclick*="Candidate(${candidateId},"]`)?.closest('.candidate-card-hr');
+    const card = document.querySelector(`[data-candidate-card="${candidateId}"]`);
     if (!card) {
         return;
     }
@@ -63,7 +69,7 @@ function removeCandidateCard(candidateId) {
 
     setTimeout(() => {
         card.remove();
-        const badge = document.querySelector(`.hr-tab[onclick="switchTab('candidates')"] .tab-badge`);
+        const badge = document.querySelector('[data-hr-tab="recruitment"] .tab-badge');
         if (badge) {
             const nextValue = Math.max(0, parseInt(badge.textContent || '0', 10) - 1);
             if (nextValue > 0) {
@@ -76,7 +82,7 @@ function removeCandidateCard(candidateId) {
         if (!document.querySelector('#tab-candidates .candidate-card-hr')) {
             const container = document.querySelector('#tab-candidates .candidates-grid');
             if (container) {
-                container.outerHTML = `<div class="hr-empty hr-empty--big"><div class="hr-empty-icon">&#128196;</div><p>${hrl('no_candidates')}</p></div>`;
+                container.outerHTML = `<div class="hr-empty hr-empty--big"><p>${hrl('no_candidates')}</p></div>`;
             }
         }
     }, 260);
@@ -358,4 +364,54 @@ function grantBonus(staffId, name) {
     );
 }
 
-document.addEventListener('DOMContentLoaded', updateCountdowns);
+document.addEventListener('DOMContentLoaded', function () {
+    activateHrTab(window.HR_ACTIVE_TAB || 'employees');
+    updateCountdowns();
+
+    document.querySelectorAll('[data-hr-tab]').forEach((button) => {
+        button.addEventListener('click', () => activateHrTab(button.dataset.hrTab || 'employees', true));
+    });
+
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-hr-action]');
+        if (button) {
+            event.stopPropagation();
+            const action = button.dataset.hrAction;
+            const employeeId = Number(button.dataset.employeeId || 0);
+            const candidateId = Number(button.dataset.candidateId || 0);
+            const name = button.dataset.employeeName || '';
+            if (action === 'renew') renewContract(employeeId, name);
+            if (action === 'bonus') grantBonus(employeeId, name);
+            if (action === 'fire') fireEmployee(employeeId, name);
+            if (action === 'fire-technical') fireTechnicalStaff(employeeId, name);
+            if (action === 'hire-candidate') hireCandidate(candidateId, name);
+            if (action === 'reject-candidate') rejectCandidate(candidateId, name);
+            if (action === 'start-headhunter') startHeadhunter();
+            return;
+        }
+
+        const card = event.target.closest('[data-toggle-employee]');
+        if (card && !event.target.closest('button, select, input, a, form')) {
+            toggleEmployeeDetails(card.dataset.toggleEmployee || '');
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        const card = event.target.closest('[data-toggle-employee]');
+        if (card && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            toggleEmployeeDetails(card.dataset.toggleEmployee || '');
+        }
+    });
+
+    document.querySelectorAll('[data-headhunter-offer]').forEach((form) => {
+        form.addEventListener('submit', function (event) {
+            makeHeadhunterOffer(event, Number(form.dataset.headhunterOffer || 0));
+        });
+    });
+
+    const focused = document.querySelector('.hr-record-focus');
+    if (focused) {
+        focused.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+});

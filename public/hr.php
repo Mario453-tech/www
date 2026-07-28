@@ -6,6 +6,13 @@ BoardAccess::require(Auth::getUserId(), 'hr');
 $_pageStart = GameLog::pageStart('hr.php');
 $playerId = Auth::getUserId();
 GameLog::info('hr.php', 'Player logged in', ['player_id' => $playerId]);
+$allowedTabs = ['employees', 'recruitment', 'raises', 'morale', 'conflicts', 'training', 'history'];
+$requestedTab = strtolower(trim((string)($_GET['tab'] ?? 'employees')));
+$activeHrTab = in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'employees';
+$focusedRecord = trim((string)($_GET['record'] ?? ''));
+if ($focusedRecord !== '' && preg_match('/^[a-z_]+:[0-9]+$/', $focusedRecord) !== 1) {
+    $focusedRecord = '';
+}
 
 try {
     $db = Database::getInstance()->getConnection();
@@ -64,6 +71,22 @@ try {
     GameLog::error('hr.php', 'Failed to load employee raise requests', $e, ['player_id' => $playerId]);
     $raiseRequests = [];
     $raiseDecisionLimits = ['salary_step' => 100.0, 'max_postponements' => 0];
+}
+try {
+    $employeeDashboard = (new EmployeeDashboardQueryService($db))->forPlayer($playerId);
+} catch (Throwable $e) {
+    GameLog::error('hr.php', 'Failed to load canonical employee dashboard', $e, ['player_id' => $playerId]);
+    $employeeDashboard = [
+        'employees' => [],
+        'morale' => [
+            'employee_count' => 0,
+            'average_morale' => 0.0,
+            'average_leave_risk' => 0.0,
+            'average_strike_support' => 0.0,
+        ],
+        'trainings' => [],
+        'events' => [],
+    ];
 }
 try {
     GameLog::step('hr.php', 'init', 1, 'HRService OK');
@@ -199,6 +222,9 @@ $viewData = [
     'strikeNegotiationLimits' => $strikeNegotiationLimits,
     'raiseRequests' => $raiseRequests,
     'raiseDecisionLimits' => $raiseDecisionLimits,
+    'employeeDashboard' => $employeeDashboard,
+    'activeHrTab' => $activeHrTab,
+    'focusedRecord' => $focusedRecord,
 ];
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
