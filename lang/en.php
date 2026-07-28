@@ -22,6 +22,7 @@ $lang = array_replace($lang, require __DIR__ . '/en/contracts.php');
 $lang = array_replace($lang, require __DIR__ . '/en/credibility.php');
 $lang = array_replace($lang, require __DIR__ . '/en/director.php');
 $lang = array_replace($lang, require __DIR__ . '/en/finance.php');
+$lang = array_replace($lang, require __DIR__ . '/en/help.php');
 $lang = array_replace($lang, require __DIR__ . '/en/hr.php');
 $lang = array_replace($lang, require __DIR__ . '/en/incidents.php');
 $lang = array_replace($lang, require __DIR__ . '/en/legal.php');

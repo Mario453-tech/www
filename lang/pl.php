@@ -42,6 +42,7 @@ $lang += require __DIR__ . '/pl/contracts.php';
 $lang += require __DIR__ . '/pl/credibility.php';
 $lang += require __DIR__ . '/pl/director.php';
 $lang += require __DIR__ . '/pl/finance.php';
+$lang += require __DIR__ . '/pl/help.php';
 $lang += require __DIR__ . '/pl/hr.php';
 $lang += require __DIR__ . '/pl/incidents.php';
 $lang += require __DIR__ . '/pl/legal.php';

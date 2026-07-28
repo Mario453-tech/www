@@ -7,10 +7,10 @@ declare(strict_types=1);
  */
 
 return [
-    'page_title' => 'Help - Oil Empire',
-    'hero_title' => 'Help',
-    'hero_subtitle' => 'Everything you need to know to become an oil magnate. For complete beginners.',
-    'toc_title' => 'Table of contents',
-    'fallback_message' => 'The help section is still being configured.',
-    'back_label' => 'Back to Dashboard',
+    'help.page_title' => 'Help - Oil Empire',
+    'help.hero_title' => 'Help',
+    'help.hero_subtitle' => 'Everything you need to know to become an oil magnate. For complete beginners.',
+    'help.toc_title' => 'Table of contents',
+    'help.fallback_message' => 'The help section is still being configured.',
+    'help.back_label' => 'Back to Dashboard',
 ];
