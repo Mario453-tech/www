@@ -11,6 +11,12 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.admin-hr-flash').forEach(function (flash) {
+            window.setTimeout(function () {
+                flash.remove();
+            }, 5000);
+        });
+
         document.querySelectorAll('[data-confirm-submit]').forEach(function (form) {
             form.addEventListener('submit', function (event) {
                 event.preventDefault();

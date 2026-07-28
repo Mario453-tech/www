@@ -8,10 +8,27 @@
 require_once __DIR__ . '/init.php';
 require_once dirname(__DIR__) . '/src/Employee/EmployeeSystemConfigService.php';
 require_once dirname(__DIR__) . '/src/HR/EmployeeStrikeService.php';
+require_once dirname(__DIR__) . '/src/HR/AdminHRConfigService.php';
+require_once dirname(__DIR__) . '/src/HR/AdminHRQueryService.php';
 AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
-$tab = $_GET['tab'] ?? 'candidates';
+$tabAliases = [
+    'candidates' => 'dashboard',
+    'stats' => 'employees',
+    'specializations' => 'roles',
+    'history' => 'logs',
+    'tests' => 'dashboard',
+];
+$validTabs = [
+    'dashboard', 'employees', 'roles', 'effects', 'assignments', 'morale',
+    'raises', 'strikes', 'settings', 'dialogues', 'logs',
+];
+$requestedTab = (string)($_GET['tab'] ?? 'dashboard');
+$tab = $tabAliases[$requestedTab] ?? $requestedTab;
+if (!in_array($tab, $validTabs, true)) {
+    $tab = 'dashboard';
+}
 $flash = $_SESSION['admin_hr_flash'] ?? null;
 unset($_SESSION['admin_hr_flash']);
 $msg = is_array($flash) && ($flash['type'] ?? '') === 'success' ? (string)($flash['message'] ?? '') : '';
@@ -33,6 +50,73 @@ $hrTimingConfigKeys = [
     'negotiation_cooldown_hours',
     'threat_cycles_required',
 ];
+
+// Handle the new HR admin actions through one PRG boundary. / Obsluz nowe akcje admina HR przez jedna granice PRG.
+$adminHrAction = (string)($_POST['action'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminHrAction !== '') {
+    $redirectTab = in_array((string)($_POST['return_tab'] ?? ''), $validTabs, true)
+        ? (string)$_POST['return_tab']
+        : 'dashboard';
+    $flash = ['type' => 'error', 'message' => t('common.csrf_error')];
+    if (CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        try {
+            $adminService = new AdminHRConfigService($db);
+            $logDetails = '';
+            switch ($adminHrAction) {
+                case 'save_settings':
+                    $group = (string)($_POST['config_group'] ?? '');
+                    $values = is_array($_POST['config'] ?? null) ? $_POST['config'] : [];
+                    $changes = $adminService->saveSettings($group, $values);
+                    $logDetails = 'Updated HR configuration group ' . $group . ': '
+                        . json_encode($changes, JSON_THROW_ON_ERROR);
+                    break;
+                case 'save_dialogue':
+                    $dialogueId = max(0, (int)($_POST['dialogue_id'] ?? 0));
+                    $savedId = $adminService->saveDialogue(
+                        is_array($_POST['dialogue'] ?? null) ? $_POST['dialogue'] : [],
+                        $dialogueId > 0 ? $dialogueId : null
+                    );
+                    $logDetails = 'Saved employee dialogue template id=' . $savedId;
+                    break;
+                case 'duplicate_dialogue':
+                    $savedId = $adminService->duplicateDialogue((int)($_POST['dialogue_id'] ?? 0));
+                    $logDetails = 'Duplicated employee dialogue template as id=' . $savedId;
+                    break;
+                case 'toggle_dialogue':
+                    $dialogueId = (int)($_POST['dialogue_id'] ?? 0);
+                    $active = !empty($_POST['dialogue_active']);
+                    $adminService->toggleDialogue($dialogueId, $active);
+                    $logDetails = 'Set employee dialogue template id=' . $dialogueId
+                        . ' active=' . ($active ? '1' : '0');
+                    break;
+                case 'reset_dialogues':
+                    $adminService->resetDialogues();
+                    $logDetails = 'Restored seeded employee dialogue templates';
+                    break;
+                default:
+                    throw new InvalidArgumentException('Unknown HR admin action.');
+            }
+            AdminLog::log(
+                'hr_admin_action',
+                $logDetails,
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'success', 'message' => t('admin.hr.msg_action_saved')];
+        } catch (Throwable $e) {
+            AdminLog::log(
+                'hr_admin_action_error',
+                'HR admin action failed: action=' . $adminHrAction . ', error=' . $e->getMessage(),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'error', 'message' => t('admin.hr.err_action_failed')];
+        }
+    }
+    $_SESSION['admin_hr_flash'] = $flash;
+    header('Location: /admin/hr.php?tab=' . rawurlencode($redirectTab));
+    exit;
+}
 
 // Save typed raise settings using PRG. / Zapisz typowane ustawienia podwyzek przez PRG.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_raise_config'])) {
@@ -413,6 +497,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_candidates'])
     } else {
         try {
             $deleted = $db->exec("DELETE FROM candidates WHERE expires_at < NOW()");
+            AdminLog::log(
+                'hr_candidates_cleanup',
+                'Deleted expired HR candidates: count=' . (int)$deleted,
+                null,
+                AdminAuth::getAdminUsername()
+            );
             $msg = t('admin.hr.msg_candidates_cleaned', ['count' => $deleted]);
         } catch (Throwable $e) {
             $err = t('common.db_error');
@@ -431,15 +521,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// Keep legacy data loaders behind canonical tabs. / Zachowaj stare loadery danych za kanonicznymi zakladkami.
+$legacyDataTab = match ($tab) {
+    'dashboard' => 'candidates',
+    'employees' => 'stats',
+    'roles' => 'specializations',
+    'logs' => 'history',
+    default => $tab,
+};
+
 // Dane: kandydaci aktywni 
 $candidates = [];
-if ($tab === 'candidates') {
+if ($legacyDataTab === 'candidates') {
     try {
         $candidates = $db->query("
             SELECT c.*,
                    br.name  AS role_name,
                    hs.name  AS spec_name,
                    hs.rarity,
+                   hs.department,
                    hr.name  AS region_name,
                    p.email  AS player_email,
                    TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE())  AS age,
@@ -462,7 +562,7 @@ $histPage   = max(1, (int)($_GET['hpage'] ?? 1));
 $histPer    = 50;
 $histOffset = ($histPage - 1) * $histPer;
 $histTotal  = 0;
-if ($tab === 'history') {
+if ($legacyDataTab === 'history') {
     try {
         $histTotal = (int)$db->query("SELECT COUNT(*) FROM employment_history")->fetchColumn();
         $history   = $db->prepare("
@@ -488,7 +588,7 @@ $histPages = max(1, (int)ceil($histTotal / $histPer));
 
 // Dane: statystyki HR graczy 
 $stats = [];
-if ($tab === 'stats') {
+if ($legacyDataTab === 'stats') {
     try {
         $stats = $db->query("
             SELECT p.id AS player_id, p.email AS player_email,
@@ -510,7 +610,7 @@ if ($tab === 'stats') {
 // Dane: specjalizacje techniczne (staff_specializations) 
 $staffSpecs = [];
 $hrSpecs    = [];
-if ($tab === 'specializations') {
+if ($legacyDataTab === 'specializations') {
     try {
         $rows = $db->query("
             SELECT * FROM staff_specializations ORDER BY role, rarity DESC, name ASC
@@ -533,7 +633,7 @@ $raiseConfigDefinitions = [];
 $raiseConfigValues = [];
 $hrTimingConfigDefinitions = [];
 $hrTimingConfigValues = [];
-if ($tab === 'raises') {
+if ($legacyDataTab === 'raises') {
     try {
         $configService = new EmployeeSystemConfigService($db);
         $raiseConfigDefinitions = array_filter(
@@ -549,7 +649,7 @@ if ($tab === 'raises') {
     }
 }
 $testStrikeTargets = [];
-if ($tab === 'tests') {
+if ($legacyDataTab === 'candidates') {
     try {
         $testStrikeTargets = $db->query(
             "SELECT es.player_id, p.email AS player_email, es.department_code, COUNT(*) AS employee_count,
@@ -564,6 +664,75 @@ if ($tab === 'tests') {
     } catch (Throwable $e) {
         $err = t('common.db_error');
     }
+}
+
+$filters = [
+    'player_id' => max(0, (int)($_GET['player_id'] ?? 0)),
+    'department' => trim((string)($_GET['department'] ?? '')),
+    'status' => trim((string)($_GET['status'] ?? '')),
+    'source_type' => trim((string)($_GET['source_type'] ?? '')),
+    'target_type' => trim((string)($_GET['target_type'] ?? '')),
+    'event_key' => trim((string)($_GET['event_key'] ?? '')),
+];
+$listPage = max(1, (int)($_GET['page'] ?? 1));
+$dashboard = [];
+$employeeList = ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+$assignmentList = ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+$raiseList = ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+$strikeList = ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+$eventList = ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+$roleEffects = [];
+$settingsGroups = [];
+$dialogues = [];
+$dialoguePagination = ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+$dialogueContexts = EmployeeDialogueTemplateService::CONTEXTS;
+$dialogueTones = EmployeeDialogueTemplateService::TONES;
+$strikeRounds = [];
+try {
+    $queryService = new AdminHRQueryService($db);
+    if ($tab === 'dashboard') {
+        $dashboard = $queryService->dashboard();
+    } elseif (in_array($tab, ['employees', 'morale'], true)) {
+        $employeeList = $queryService->employees($filters, $listPage);
+    } elseif ($tab === 'effects') {
+        $roleEffects = $queryService->roleEffects();
+    } elseif ($tab === 'assignments') {
+        $assignmentList = $queryService->assignments($filters, $listPage);
+    } elseif ($tab === 'raises') {
+        $raiseList = $queryService->raises($filters, $listPage);
+    } elseif ($tab === 'strikes') {
+        $strikeList = $queryService->strikes($filters, $listPage);
+        $strikeRounds = $queryService->negotiationRounds(max(0, (int)($_GET['strike_id'] ?? 0)));
+    } elseif ($tab === 'settings') {
+        $settingsGroups = (new AdminHRConfigService($db))->groupedSettings();
+    } elseif ($tab === 'dialogues') {
+        $allDialogues = $queryService->dialogues([
+            'context_key' => (string)($_GET['context_key'] ?? ''),
+            'department_code' => (string)($_GET['department'] ?? ''),
+            'tone' => (string)($_GET['tone'] ?? ''),
+            'is_active' => (string)($_GET['active'] ?? ''),
+        ]);
+        $dialogueTotal = count($allDialogues);
+        $dialoguePages = max(1, (int)ceil($dialogueTotal / 30));
+        $dialoguePage = min($listPage, $dialoguePages);
+        $dialogues = array_slice($allDialogues, ($dialoguePage - 1) * 30, 30);
+        $dialoguePagination = [
+            'rows' => $dialogues,
+            'total' => $dialogueTotal,
+            'page' => $dialoguePage,
+            'pages' => $dialoguePages,
+        ];
+    } elseif ($tab === 'logs') {
+        $eventList = $queryService->events($filters, $listPage);
+    }
+} catch (Throwable $e) {
+    $err = t('common.db_error');
+    AdminLog::log(
+        'hr_admin_read_error',
+        'HR admin data load failed: tab=' . $tab . ', error=' . $e->getMessage(),
+        null,
+        AdminAuth::getAdminUsername()
+    );
 }
 $pageTitle = t('admin.hr.page_title');
 $csrfToken = CSRF::generateToken();
@@ -589,6 +758,20 @@ $viewData = [
     'hrTimingConfigDefinitions' => $hrTimingConfigDefinitions,
     'hrTimingConfigValues' => $hrTimingConfigValues,
     'testStrikeTargets' => $testStrikeTargets,
+    'filters' => $filters,
+    'dashboard' => $dashboard,
+    'employeeList' => $employeeList,
+    'assignmentList' => $assignmentList,
+    'raiseList' => $raiseList,
+    'strikeList' => $strikeList,
+    'eventList' => $eventList,
+    'roleEffects' => $roleEffects,
+    'settingsGroups' => $settingsGroups,
+    'dialogues' => $dialogues,
+    'dialoguePagination' => $dialoguePagination,
+    'dialogueContexts' => $dialogueContexts,
+    'dialogueTones' => $dialogueTones,
+    'strikeRounds' => $strikeRounds,
 ];
 
 $adminExtraCss = ['/assets/css/admin_hr.css'];
