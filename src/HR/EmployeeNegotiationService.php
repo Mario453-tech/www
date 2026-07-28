@@ -63,7 +63,8 @@ final class EmployeeNegotiationService
         float $raisePct,
         float $bonusPerMember,
         string $idempotencyToken,
-        ?DateTimeInterface $now = null
+        ?DateTimeInterface $now = null,
+        ?int $expectedRound = null
     ): array {
         $now ??= new DateTimeImmutable('now');
         if (!$this->config->getBool('feature_negotiations')) {
@@ -79,6 +80,9 @@ final class EmployeeNegotiationService
         }
         if ($raisePct < $minRaise || $raisePct > $maxRaise || $bonusPerMember < 0 || $bonusPerMember > $maxBonus) {
             throw new InvalidArgumentException('Employee strike offer is outside configured limits.');
+        }
+        if ($expectedRound !== null && $expectedRound <= 0) {
+            throw new InvalidArgumentException('Expected negotiation round must be positive.');
         }
         $token = $this->normalizeToken($playerId, $idempotencyToken);
         $existing = $this->roundByToken($playerId, $strikeId, $token);
@@ -98,6 +102,9 @@ final class EmployeeNegotiationService
                     $this->db->commit();
                 }
                 return $existing + ['idempotent' => true];
+            }
+            if (empty($strike['open_key'])) {
+                throw new RuntimeException('Open strike does not exist for this player.');
             }
             if ((string)$strike['status'] === 'active') {
                 $this->openNegotiationInsideTransaction($playerId, $strikeId, $now);
@@ -119,6 +126,9 @@ final class EmployeeNegotiationService
                 throw new RuntimeException('Negotiation round deadline has passed.');
             }
             $roundNo = (int)$negotiation['current_round'];
+            if ($expectedRound !== null && $roundNo !== $expectedRound) {
+                throw new RuntimeException('Negotiation round has already changed.');
+            }
             $members = $this->members($playerId, $strikeId);
             if ($members === []) {
                 throw new RuntimeException('Strike has no active members.');
@@ -253,7 +263,7 @@ final class EmployeeNegotiationService
     {
         $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
         $stmt = $this->db->prepare(
-            "SELECT * FROM employee_strikes WHERE id=? AND player_id=? AND open_key IS NOT NULL LIMIT 1{$suffix}"
+            "SELECT * FROM employee_strikes WHERE id=? AND player_id=? LIMIT 1{$suffix}"
         );
         $stmt->execute([$strikeId, $playerId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

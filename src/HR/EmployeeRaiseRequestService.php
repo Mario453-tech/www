@@ -9,6 +9,7 @@ require_once __DIR__ . '/EmployeeRaiseRequest/DecisionTrait.php';
 require_once __DIR__ . '/EmployeeRaiseRequest/NegotiationTrait.php';
 require_once __DIR__ . '/EmployeeRaiseRequest/PersistenceTrait.php';
 require_once __DIR__ . '/EmployeeNegotiationEffectivenessService.php';
+require_once __DIR__ . '/EmployeeStrikeService.php';
 
 final class EmployeeRaiseRequestService
 {
@@ -18,6 +19,7 @@ final class EmployeeRaiseRequestService
 
     private readonly EmployeeRepository $employees;
     private readonly EmployeeSystemConfigService $config;
+    private readonly EmployeeStrikeService $strikes;
     private readonly Closure $randomRoll;
 
     public function __construct(PDO $db, ?callable $randomRoll = null)
@@ -26,6 +28,7 @@ final class EmployeeRaiseRequestService
         EmployeeSystemBootstrap::ensure($db);
         $this->employees = new EmployeeRepository($db);
         $this->config = new EmployeeSystemConfigService($db);
+        $this->strikes = new EmployeeStrikeService($db);
         $this->randomRoll = $randomRoll !== null
             ? Closure::fromCallable($randomRoll)
             : static fn(): float => random_int(1, 10000) / 100.0;
@@ -173,6 +176,14 @@ final class EmployeeRaiseRequestService
             }
             if (!in_array((string)$request['status'], ['open', 'postponed'], true)) {
                 throw new RuntimeException('Active raise request does not exist for this player.');
+            }
+            if (!empty($request['deadline_at'])
+                && strtotime((string)$request['deadline_at']) < time()) {
+                $this->strikes->expireRaiseRequest($playerId, $requestId, new DateTimeImmutable('now'));
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                throw new RuntimeException('Raise request deadline has passed.');
             }
             $ref = new EmployeeRef((string)$request['source_type'], (int)$request['source_id'], $playerId);
             $employee = $this->employees->find($ref);

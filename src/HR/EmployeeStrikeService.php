@@ -32,6 +32,18 @@ final class EmployeeStrikeService
         ];
     }
 
+    public function expireRaiseRequest(int $playerId, int $requestId, DateTimeInterface $now): bool
+    {
+        if ($playerId <= 0 || $requestId <= 0) {
+            throw new InvalidArgumentException('Player and raise request identifiers must be positive.');
+        }
+
+        return $this->expireRaiseRequestRecord([
+            'id' => $requestId,
+            'player_id' => $playerId,
+        ], $now);
+    }
+
     /** @return array<string,int> */
     public function processCycleEscalations(DateTimeInterface $now, int $cycleId): array
     {

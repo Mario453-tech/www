@@ -34,9 +34,10 @@
             return;
         }
         const strikeId = Number(form.dataset.strikeOfferForm || 0);
+        const expectedRound = Number(form.dataset.strikeRound || 0);
         const raisePct = Number(form.elements.raise_pct.value);
         const bonusPerMember = Number(form.elements.bonus_per_member.value);
-        if (!strikeId || !Number.isFinite(raisePct) || !Number.isFinite(bonusPerMember)
+        if (!strikeId || !expectedRound || !Number.isFinite(raisePct) || !Number.isFinite(bonusPerMember)
             || (raisePct <= 0 && bonusPerMember <= 0)) {
             showToast(hrl('toast_err'), hrl('strike_offer_invalid'), 'error');
             return;
@@ -59,6 +60,7 @@
                         strike_id: strikeId,
                         raise_pct: raisePct,
                         bonus_per_member: bonusPerMember,
+                        expected_round: expectedRound,
                         idempotency_token: token,
                     });
                     delete form.dataset.idempotencyToken;

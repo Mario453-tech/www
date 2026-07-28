@@ -205,7 +205,7 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
               WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
         )->execute([$this->playerId, $this->staffId]);
         (new EmployeeStrikeService($this->db))->processEscalations(
-            new DateTimeImmutable('2026-07-22 10:00:00')
+            new DateTimeImmutable('+1 day')
         );
 
         $requestStmt = $this->db->prepare(

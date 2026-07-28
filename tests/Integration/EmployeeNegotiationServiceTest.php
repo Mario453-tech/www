@@ -250,6 +250,31 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         }
     }
 
+    public function testOfferForStaleRoundIsRejectedBeforeInsert(): void
+    {
+        $this->config->save(['feature_negotiations' => true]);
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $service = new EmployeeNegotiationService($this->db);
+        $service->openForStrike(1, 1, new DateTimeImmutable('2026-07-22 10:00:00'));
+        $this->db->exec('UPDATE employee_strike_negotiations SET current_round=2 WHERE strike_id=1 AND player_id=1');
+
+        try {
+            $service->submitOffer(
+                1,
+                1,
+                10.0,
+                0.0,
+                'stale-round-token',
+                new DateTimeImmutable('2026-07-22 10:01:00'),
+                1
+            );
+            $this->fail('An offer for a stale negotiation round must be rejected.');
+        } catch (RuntimeException) {
+            $this->assertSame(0, $this->countRows('employee_strike_negotiation_rounds'));
+        }
+    }
+
     public function testVeryWeakRejectedOfferDoesNotIncreaseStrikeSupport(): void
     {
         $this->config->save(['negotiation_reject_support_gain' => 8]);

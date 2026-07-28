@@ -152,6 +152,40 @@ final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
         )->fetchColumn());
     }
 
+    public function testLegacyMigratorPreservesMixedCanonicalState(): void
+    {
+        $existing = $this->service->ensureState(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1)
+        );
+        $this->db->exec("UPDATE employee_state SET morale=41 WHERE id=" . (int)$existing['id']);
+
+        $report = (new EmployeeLegacyMigrationService($this->db))->run(true, 1);
+
+        $this->assertSame(1, $report['state_backfill']['created']);
+        $this->assertSame(1, $report['state_backfill']['skipped']);
+        $this->assertSame(41.0, (float)$this->db->query(
+            "SELECT morale FROM employee_state
+              WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+        )->fetchColumn());
+    }
+
+    public function testLegacyMigratorRollsBackPartialBackfillOnError(): void
+    {
+        $this->db->exec(
+            "CREATE TRIGGER fail_second_employee_state
+             BEFORE INSERT ON employee_state
+             WHEN NEW.source_id=21
+             BEGIN SELECT RAISE(ABORT, 'forced migration failure'); END"
+        );
+
+        try {
+            (new EmployeeLegacyMigrationService($this->db))->run(true, 1);
+            $this->fail('A failed backfill must abort the migration.');
+        } catch (RuntimeException) {
+            $this->assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM employee_state')->fetchColumn());
+        }
+    }
+
     private function createSourceSchema(): void
     {
         $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT NOT NULL)');

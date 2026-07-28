@@ -23,33 +23,33 @@ final class EmployeeLegacyMigrationService
         if ($preflight['errors'] !== []) {
             throw new RuntimeException('Employee state preflight failed.');
         }
-        $stateReport = $apply ? $stateService->backfillEmployeeState(true, $playerId) : $preflight;
-        if ($stateReport['errors'] !== []) {
-            throw new RuntimeException('Employee state backfill failed.');
-        }
-        if ($apply) {
-            $verification = $stateService->backfillEmployeeState(false, $playerId);
-            if ($verification['errors'] !== [] || (int)$verification['would_create'] !== 0) {
-                throw new RuntimeException('Canonical employee state verification failed after backfill.');
-            }
-        }
-        $report = [
-            'applied'=>$apply,
-            'player_id'=>$playerId,
-            'state_backfill'=>$stateReport,
-            'morale_checked'=>0,
-            'morale_would_copy'=>0,
-            'morale_copied'=>0,
-            'morale_preserved'=>0,
-            'active_strike_groups'=>0,
-            'strikes_created'=>0,
-            'members_created'=>0,
-            'ambiguities'=>[],
-        ];
         if ($apply) {
             $this->db->beginTransaction();
         }
         try {
+            $stateReport = $apply ? $stateService->backfillEmployeeState(true, $playerId) : $preflight;
+            if ($stateReport['errors'] !== []) {
+                throw new RuntimeException('Employee state backfill failed.');
+            }
+            if ($apply) {
+                $verification = $stateService->backfillEmployeeState(false, $playerId);
+                if ($verification['errors'] !== [] || (int)$verification['would_create'] !== 0) {
+                    throw new RuntimeException('Canonical employee state verification failed after backfill.');
+                }
+            }
+            $report = [
+                'applied'=>$apply,
+                'player_id'=>$playerId,
+                'state_backfill'=>$stateReport,
+                'morale_checked'=>0,
+                'morale_would_copy'=>0,
+                'morale_copied'=>0,
+                'morale_preserved'=>0,
+                'active_strike_groups'=>0,
+                'strikes_created'=>0,
+                'members_created'=>0,
+                'ambiguities'=>[],
+            ];
             $this->migrateMorale($report, $apply, $playerId);
             $this->migrateActiveStrikes($report, $apply, $playerId);
             if ($apply) {

@@ -8,6 +8,7 @@
 - `StrikeEffectService` zasila logistykę, transport drogowy, technikę, rekrutację, HR, legal, finanse i B2B. Efekty dynamiczne znikają po ugodzie, a rozpoczęte operacje zachowują snapshot.
 - Panel gracza i admina udostępnia pełne widoki pracowników, morale, podwyżek, konfliktów, dialogów, ustawień i historii.
 - Schemat pracowników ma wersję 6. Migrację legacy uruchamia `tools/migrate_employee_system.php` w trybie dry-run, apply i ponownego dry-run; flagi `feature_threats`, `feature_strikes` i `feature_strike_effects` nie są włączane automatycznie.
+- Wyścigi identycznych i różnych tokenów, ofert z deadline'em, decyzji podwyżkowych z deadline'em oraz dwóch ticków są sprawdzane po 20 powtórzeń na MySQL.
 - Zachowano zmianę `c10fe17`; kolejne pakiety wdrożono w commitach `362cb24`, `e997679`, `7d94865`, `d153fb4`, `bc06c80`, `4d9effb` i `d73a08e`.
 
 ### 2026-07-28 - Logistyka: Etap 10, cienki kontroler strony

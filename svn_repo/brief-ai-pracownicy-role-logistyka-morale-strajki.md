@@ -2651,6 +2651,7 @@ Domknąć atomowe deadline'y i idempotencję Etapów 6-9, następnie podłączy�
 6. Schemat pracowników ma wersję 6, migrator wspiera dry-run/apply/ponowienie, a legacy pozostaje tylko do odczytu na okres obserwacji.
 7. Flagi `feature_threats`, `feature_strikes` i `feature_strike_effects` pozostają wyłączone do kontrolowanego rollout'u.
 8. Pozostaje produkcyjny backup i rollout migracji oraz wizualny smoke test na zalogowanej sesji.
+9. Stress testy MySQL wykonują po 20 powtórzeń dla tokenów, deadline'ów i globalnego locka ticka.
 
 ## 33. Aktualny stan wdrożenia po Etapach 6-8, obsadzie logistyki i poprawkach - 2026-07-22
 

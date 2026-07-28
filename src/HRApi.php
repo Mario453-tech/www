@@ -334,6 +334,7 @@ try {
             $strikeId = (int)($_POST['strike_id'] ?? 0);
             $raiseRaw = $_POST['raise_pct'] ?? null;
             $bonusRaw = $_POST['bonus_per_member'] ?? null;
+            $roundRaw = $_POST['expected_round'] ?? null;
             $token = trim((string)($_POST['idempotency_token'] ?? ''));
             if ($strikeId <= 0) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_strike_id'));
@@ -341,7 +342,7 @@ try {
             if ($token === '') {
                 throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
             }
-            if (!is_numeric($raiseRaw) || !is_numeric($bonusRaw)) {
+            if (!is_numeric($raiseRaw) || !is_numeric($bonusRaw) || !is_numeric($roundRaw)) {
                 throw new InvalidArgumentException(t('hr_api.err_invalid_strike_offer'));
             }
             require_once __DIR__ . '/HR/EmployeeNegotiationService.php';
@@ -351,7 +352,9 @@ try {
                     $strikeId,
                     (float)$raiseRaw,
                     (float)$bonusRaw,
-                    $token
+                    $token,
+                    null,
+                    (int)$roundRaw
                 );
                 $result['message'] = t('hr.strike_offer_result.' . (string)$result['result']);
                 unset($result['formula']);

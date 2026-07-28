@@ -98,7 +98,9 @@ $hrSeniorityLevel = static function (array $employee): string {
                     <?= t('hr.btn_open_strike_negotiation') ?>
                 </button>
             <?php else: ?>
-                <form class="hr-strike-offer-form" data-strike-offer-form="<?= $strikeId ?>">
+                <form class="hr-strike-offer-form"
+                      data-strike-offer-form="<?= $strikeId ?>"
+                      data-strike-round="<?= (int)($strike['current_round'] ?? 1) ?>">
                     <div class="hr-strike-round">
                         <strong><?= t('hr.strike_round', [
                             'round' => (int)($strike['current_round'] ?? 1),

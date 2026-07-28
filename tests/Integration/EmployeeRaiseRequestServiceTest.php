@@ -146,6 +146,22 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         }
     }
 
+    public function testDecisionAfterDeadlineCommitsExpiration(): void
+    {
+        $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
+        $this->db->exec("UPDATE employee_raise_requests SET deadline_at='2000-01-01 00:00:00' WHERE id=1");
+
+        try {
+            $this->service()->acceptFull(1, 1, 'expired-request-token');
+            $this->fail('A decision after the deadline must be rejected.');
+        } catch (RuntimeException) {
+            $this->assertSame('expired', $this->requestStatus(1));
+            $this->assertSame(10000.0, $this->salary('technical_staff', 20));
+            $this->assertSame('dispute', $this->state(1, 'technical_staff', 20)['relation_status']);
+            $this->assertSame(1, $this->countRows('employee_events'));
+        }
+    }
+
     public function testTokenCannotBeReusedForAnotherAction(): void
     {
         $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
