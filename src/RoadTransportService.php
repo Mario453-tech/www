@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/HR/StrikeEffectService.php';
+
 /**
  * RoadTransportService transport drogowy jako system kursw.
  * RoadTransportService road transport as a trip system.
@@ -20,6 +22,7 @@ declare(strict_types=1);
 class RoadTransportService
 {
     private PDO $db;
+    private ?StrikeEffectService $strikeEffects;
 
  /** Bazowe prawdopodobiestwo incydentu na kurs na godzin / Base incident probability per trip per hour */
     private const BASE_INCIDENT_CHANCE_PER_HOUR = 0.015;
@@ -52,9 +55,10 @@ class RoadTransportService
         'armored'  => ['trip_capacity_bbl' => 20.0, 'cost_per_trip' => 1500.0, 'incident_risk_mult' => 0.300, 'trip_hours' => 2],
     ];
 
-    public function __construct(PDO $db)
+    public function __construct(PDO $db, ?StrikeEffectService $strikeEffects = null)
     {
         $this->db = $db;
+        $this->strikeEffects = $strikeEffects;
         $this->ensureSchema();
     }
 
@@ -145,6 +149,7 @@ class RoadTransportService
                     trip_hours           TINYINT UNSIGNED NOT NULL DEFAULT 2,
                     cost                 DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                     incident_risk_mult   DECIMAL(6,3)  NOT NULL DEFAULT 1.000,
+                    delay_risk_mult      DECIMAL(6,3)  NOT NULL DEFAULT 1.000,
                     political_risk_level TINYINT UNSIGNED NOT NULL DEFAULT 1,
                     status               ENUM('in_transit','crediting','delivered','lost','delayed') NOT NULL DEFAULT 'in_transit',
                     departure_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -163,6 +168,7 @@ class RoadTransportService
             $this->ensureRoadTripColumn('trips_count',          'SMALLINT UNSIGNED NOT NULL DEFAULT 1 AFTER truck_type');
             $this->ensureRoadTripColumn('trip_hours',           'TINYINT UNSIGNED NOT NULL DEFAULT 2 AFTER trips_count');
             $this->ensureRoadTripColumn('incident_risk_mult',   'DECIMAL(6,3) NOT NULL DEFAULT 1.000 AFTER cost');
+            $this->ensureRoadTripColumn('delay_risk_mult',      'DECIMAL(6,3) NOT NULL DEFAULT 1.000 AFTER incident_risk_mult');
             $this->ensureRoadTripColumn('political_risk_level', 'TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER incident_risk_mult');
  // M3: Rozszerz ENUM status o 'crediting' (stan przejsciowy: kurs policzony,
  // ale jeszcze nie potwierdzony w magazynie). / M3: extend status ENUM with
@@ -311,6 +317,9 @@ class RoadTransportService
         $costPerTrip = (float)($config['cost_per_trip']      ?? $defaults['cost_per_trip']);
         $riskMult    = (float)($config['incident_risk_mult'] ?? $defaults['incident_risk_mult']);
         $tripHours   = (int)$defaults['trip_hours'];
+        $strikeEffects = $this->logisticsStrikeEffects($playerId);
+        $costPerTrip *= (float)($strikeEffects['transport_cost_mult'] ?? 1.0);
+        $delayRiskMult = (float)($strikeEffects['delay_risk_mult'] ?? 1.0);
 
         $tripsCount = max(1, (int)ceil($volumeBbl / $tripCap));
         $cost       = round($tripsCount * $costPerTrip, 2);
@@ -324,11 +333,11 @@ class RoadTransportService
         $this->db->prepare(
             "INSERT INTO well_road_trips
                 (player_id, well_id, volume_bbl, truck_type, trips_count, trip_hours,
-                 cost, incident_risk_mult, political_risk_level, status, departure_at, eta_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_transit', NOW(), ?)"
+                 cost, incident_risk_mult, delay_risk_mult, political_risk_level, status, departure_at, eta_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_transit', NOW(), ?)"
         )->execute([
             $playerId, $wellId, round($volumeBbl, 4), $truckType, $tripsCount, $tripHours,
-            $cost, $riskMult, $politicalRiskLevel, $etaAt,
+            $cost, $riskMult, $delayRiskMult, $politicalRiskLevel, $etaAt,
         ]);
 
         return [
@@ -412,7 +421,7 @@ class RoadTransportService
         try {
             $stmt = $this->db->prepare(
                 "SELECT id, well_id, volume_bbl, delivered_bbl, status, trips_count, trip_hours,
-                        incident_risk_mult, political_risk_level
+                        incident_risk_mult, delay_risk_mult, political_risk_level
                    FROM well_road_trips
                   WHERE player_id = ? AND status IN ('in_transit','delayed') AND eta_at <= NOW()
                   ORDER BY eta_at ASC"
@@ -497,7 +506,8 @@ class RoadTransportService
                 $sabotage,
                 $playerId,
                 $wid,
-                $activeProt
+                $activeProt,
+                (float)($trip['delay_risk_mult'] ?? 1.0)
             );
 
             // Sabotaz z efektem opoznienia: zapisz wynik, przesun ETA, finalizuj w pozniejszym ticku.
@@ -763,12 +773,13 @@ class RoadTransportService
             }
             // Whitelist kolumn i definicji DDL — zapobiega interpolacji niezaufanych wartosci (Rule 7).
             // DDL column and definition whitelist — prevents interpolation of untrusted values (Rule 7).
-            $allowedColumns = ['delivered_bbl', 'trips_count', 'trip_hours', 'incident_risk_mult', 'political_risk_level'];
+            $allowedColumns = ['delivered_bbl', 'trips_count', 'trip_hours', 'incident_risk_mult', 'delay_risk_mult', 'political_risk_level'];
             $allowedDefinitions = [
                 'DECIMAL(12,4) NOT NULL DEFAULT 0.0000 AFTER volume_bbl',
                 'SMALLINT UNSIGNED NOT NULL DEFAULT 1 AFTER truck_type',
                 'TINYINT UNSIGNED NOT NULL DEFAULT 2 AFTER trips_count',
                 'DECIMAL(6,3) NOT NULL DEFAULT 1.000 AFTER cost',
+                'DECIMAL(6,3) NOT NULL DEFAULT 1.000 AFTER incident_risk_mult',
                 'TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER incident_risk_mult',
             ];
             if (!in_array($column, $allowedColumns, true) || !in_array($definition, $allowedDefinitions, true)) {
@@ -810,7 +821,8 @@ class RoadTransportService
         ?SabotageService $sabotage = null,
         int $playerId = 0,
         int $wellId = 0,
-        ?array $activeProtection = null
+        ?array $activeProtection = null,
+        float $delayRiskMult = 1.0
     ): array {
         if ($totalVolume <= 0.0 || $tripsCount <= 0) {
             return [0.0, 0.0, [], 0];
@@ -830,6 +842,7 @@ class RoadTransportService
         );
 
         $weights = array_map('floatval', self::INCIDENT_WEIGHTS);
+        $weights['route_block'] *= max(1.0, $delayRiskMult);
         if ($sabotage === null || !$sabotage->hasActiveOptions(SabotageService::TARGET_ROAD_TRANSPORT, SabotageService::CONTEXT_ROAD_TRANSPORT)) {
             $weights['sabotage'] = 0.0;
         }
@@ -891,6 +904,17 @@ class RoadTransportService
         }
 
         return [round($deliveredBbl, 4), round($lostBbl, 4), $incidents, $maxDelay];
+    }
+
+    /** @return array<string,float|bool> */
+    private function logisticsStrikeEffects(int $playerId): array
+    {
+        $this->strikeEffects ??= new StrikeEffectService(
+            $this->db,
+            new EmployeeSystemConfigService($this->db)
+        );
+
+        return $this->strikeEffects->forPlayer($playerId)['logistics'] ?? [];
     }
 
  /**

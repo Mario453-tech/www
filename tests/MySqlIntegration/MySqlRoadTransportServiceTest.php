@@ -254,6 +254,45 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
         $this->assertSame('3', (string)$stmt->fetchColumn()); // heavy = 3h
     }
 
+    public function testDispatchTripsSnapshotsStrikeCostAndDelayRisk(): void
+    {
+        $ids = $this->getTrackedIds();
+        $playerId = $this->seedPlayer();
+        $this->seedWell($playerId, $ids['wellId'], 'active', 77, 'A1', 'ciezarowki', 100.0, 50.0);
+
+        $configService = new EmployeeSystemConfigService($this->db);
+        $previousFlag = $configService->getBool('feature_strike_effects');
+        $configService->save(['feature_strike_effects' => true]);
+        $this->db->prepare(
+            "INSERT INTO employee_strikes
+                (player_id, department_code, status, open_key, support_pct, started_at)
+             VALUES (?, 'logistics', 'active', ?, 70, NOW())"
+        )->execute([$playerId, $playerId . ':logistics']);
+
+        try {
+            $service = new RoadTransportService($this->db);
+            $result = $service->dispatchTrips($playerId, $ids['wellId'], 100.0, null, 1);
+
+            $this->assertSame(2400.0, $result['cost']);
+            $stmt = $this->db->prepare(
+                'SELECT cost, incident_risk_mult, delay_risk_mult
+                   FROM well_road_trips
+                  WHERE player_id = ? AND well_id = ?'
+            );
+            $stmt->execute([$playerId, $ids['wellId']]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $this->assertIsArray($row);
+            $this->assertSame('2400.00', $row['cost']);
+            $this->assertSame('1.000', $row['incident_risk_mult']);
+            $this->assertSame('1.150', $row['delay_risk_mult']);
+        } finally {
+            $this->db->prepare('DELETE FROM employee_strikes WHERE player_id = ?')->execute([$playerId]);
+            (new EmployeeSystemConfigService($this->db))->save([
+                'feature_strike_effects' => $previousFlag,
+            ]);
+        }
+    }
+
     public function testDispatchTripsWithZeroVolumeCreatesNoRecord(): void
     {
         $ids      = $this->getTrackedIds();

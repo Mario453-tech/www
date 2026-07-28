@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/HR/StrikeEffectService.php';
+
 final class LogisticsStaffingService
 {
     private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
@@ -16,6 +18,7 @@ final class LogisticsStaffingService
     private readonly EmployeeRepository $employees;
     private readonly EmployeeStateService $states;
     private readonly EmployeeRoleEffectService $roleEffects;
+    private readonly StrikeEffectService $strikeEffects;
     private bool $runtimeEnabled;
     /** @var array{small:int,medium:int,large:int} */
     private array $requiredStaffByType;
@@ -26,7 +29,8 @@ final class LogisticsStaffingService
         ?EmployeeRepository $employees = null,
         ?EmployeeStateService $states = null,
         ?bool $runtimeEnabled = null,
-        ?EmployeeRoleEffectService $roleEffects = null
+        ?EmployeeRoleEffectService $roleEffects = null,
+        ?StrikeEffectService $strikeEffects = null
     ) {
         EmployeeSystemBootstrap::ensure($db);
         $this->db = $db;
@@ -34,6 +38,8 @@ final class LogisticsStaffingService
         $this->states = $states ?? new EmployeeStateService($db, $this->employees);
         $this->assignments = $assignments ?? new EmployeeAssignmentService($db, $this->employees, $this->states);
         $this->roleEffects = $roleEffects ?? new EmployeeRoleEffectService($db, $this->employees, $this->states);
+        $this->strikeEffects = $strikeEffects
+            ?? new StrikeEffectService($db, new EmployeeSystemConfigService($db));
         $this->runtimeEnabled = $runtimeEnabled ?? $this->loadRuntimeEnabled();
         $this->requiredStaffByType = $this->loadRequiredStaffByType();
     }
@@ -83,6 +89,8 @@ final class LogisticsStaffingService
             $employeeMap = $this->employeeMap((int)$playerId);
             $stateMap = $this->stateMap((int)$playerId);
             $effectMap = $this->hubOperatorEffectMap((int)$playerId);
+            $strikeEffects = $this->strikeEffects->forPlayer((int)$playerId);
+            $capacityCap = (float)($strikeEffects['logistics']['capacity_cap'] ?? 1.25);
 
             foreach ($playerHubs as $hubId => $hub) {
                 $result[(int)$hubId] = $this->calculateHubStaffing(
@@ -90,7 +98,8 @@ final class LogisticsStaffingService
                     $assignmentsByHub[(int)$hubId] ?? [],
                     $employeeMap,
                     $stateMap,
-                    $effectMap
+                    $effectMap,
+                    $capacityCap
                 );
             }
         }
@@ -111,7 +120,8 @@ final class LogisticsStaffingService
         array $rows,
         array $employeeMap,
         array $stateMap,
-        array $effectMap
+        array $effectMap,
+        float $capacityCap
     ): array {
         $hubId = (int)$hub['id'];
         $ownerPlayerId = (int)($hub['player_id'] ?? 0);
@@ -175,6 +185,7 @@ final class LogisticsStaffingService
 
         $throughputMult = max(0.35, min(1.15, $base['throughput_mult'] * $qualityFactor));
         $throughputMult = round(max(0.35, min(1.25, $throughputMult * (1.0 + ($operatorThroughputPct / 100.0)))), 4);
+        $throughputMult = round(min($throughputMult, max(0.10, min(1.25, $capacityCap))), 4);
         $incidentRiskMult = round(max(0.60, min(2.50, $base['incident_risk_mult'] / max(0.75, $qualityFactor))), 4);
         $maintenanceCostMult = round(max(0.80, min(1.50, $base['maintenance_cost_mult'] / max(0.85, $qualityFactor))), 4);
 

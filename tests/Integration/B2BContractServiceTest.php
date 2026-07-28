@@ -30,6 +30,36 @@ final class B2BContractServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(5.0, (float)$this->service->getConfig()['max_open_offers_per_player']);
     }
 
+    public function testCoordinatorBonusIsDisabledAndWarningExposedDuringLogisticsStrike(): void
+    {
+        $config = new EmployeeSystemConfigService($this->db);
+        $config->save(['feature_strike_effects' => true]);
+        $this->db->exec(
+            "INSERT INTO employee_strikes
+                (player_id, department_code, status, open_key, support_pct, started_at)
+             VALUES (1, 'logistics', 'active', '1:logistics', 70, CURRENT_TIMESTAMP)"
+        );
+
+        $context = $this->service->coordinatorContext(1, ['b2b_delay_risk_pct' => -10.0]);
+
+        $this->assertFalse($context['bonus_active']);
+        $this->assertSame([], $context['effects']);
+        $this->assertSame(
+            ['code' => 'logistics_strike', 'department_code' => 'logistics'],
+            $context['warning']
+        );
+    }
+
+    public function testCoordinatorBonusRemainsAvailableWithoutLogisticsStrike(): void
+    {
+        $effects = ['b2b_delay_risk_pct' => -10.0];
+        $context = $this->service->coordinatorContext(1, $effects);
+
+        $this->assertTrue($context['bonus_active']);
+        $this->assertSame($effects, $context['effects']);
+        $this->assertNull($context['warning']);
+    }
+
     public function testSaveConfigNormalizesMinMaxPairs(): void
     {
         $this->service->saveConfig([

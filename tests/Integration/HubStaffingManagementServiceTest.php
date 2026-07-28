@@ -69,6 +69,30 @@ final class HubStaffingManagementServiceTest extends SqliteIntegrationTestCase
         $this->assertCount(1, $view[101]['summary']['assignments']);
     }
 
+    public function testLogisticsStrikeCapsStaffingThroughputWithoutDoublePenalty(): void
+    {
+        $config = new EmployeeSystemConfigService($this->db);
+        $config->save(['feature_strike_effects' => true]);
+        $this->db->exec(
+            "INSERT INTO employee_strikes
+                (player_id, department_code, status, open_key, support_pct, started_at)
+             VALUES (1, 'logistics', 'active', '1:logistics', 70, CURRENT_TIMESTAMP)"
+        );
+        (new EmployeeAssignmentService($this->db))->assignToHub(
+            new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 1),
+            100,
+            100.0
+        );
+
+        $service = new HubStaffingManagementService($this->db);
+        $view = $service->buildHubStaffingView(1, [
+            ['hub' => $this->hubRow(100)],
+        ]);
+
+        $this->assertSame(0.70, $view[100]['summary']['throughput_mult']);
+        $this->assertSame(-30.0, $view[100]['summary']['runtime_effects']['hub_throughput_pct']);
+    }
+
     public function testAssignToHubMarksUpdateWhenAssignmentAlreadyExists(): void
     {
         $resultA = $this->service->assignToHub(1, EmployeeRef::SOURCE_TECHNICAL_STAFF, 20, 100, 50.0);

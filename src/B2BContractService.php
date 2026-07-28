@@ -6,6 +6,7 @@ declare(strict_types=1);
 // przez co wersja na produkcji byla nieaktualna (Call to undefined method).
 require_once __DIR__ . '/FinancialTransactionService.php';
 require_once __DIR__ . '/B2BContracts/B2BContractSchema.php';
+require_once __DIR__ . '/HR/StrikeEffectService.php';
 
 /**
  * B2BContractService - player-to-player oil buy offers with escrow.
@@ -17,13 +18,43 @@ final class B2BContractService
     private FinancialTransactionService $fts;
     private string $driver;
     private ?bool $storageHasId = null;
+    private ?StrikeEffectService $strikeEffects;
 
-    public function __construct(?PDO $db = null, ?FinancialTransactionService $fts = null)
+    public function __construct(
+        ?PDO $db = null,
+        ?FinancialTransactionService $fts = null,
+        ?StrikeEffectService $strikeEffects = null
+    )
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
         B2BContractSchema::ensure($this->db);
         $this->fts = $fts ?? new FinancialTransactionService($this->db);
         $this->driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $this->strikeEffects = $strikeEffects;
+    }
+
+    /**
+     * Disables coordinator bonuses during a logistics strike and exposes warning data.
+     * Wylacza bonusy koordynatora podczas strajku logistyki i wystawia dane ostrzezenia.
+     *
+     * @param array<string,mixed> $coordinatorEffects
+     * @return array{bonus_active:bool,effects:array<string,mixed>,warning:?array{code:string,department_code:string}}
+     */
+    public function coordinatorContext(int $playerId, array $coordinatorEffects): array
+    {
+        $this->strikeEffects ??= new StrikeEffectService(
+            $this->db,
+            new EmployeeSystemConfigService($this->db)
+        );
+        $strikeActive = isset($this->strikeEffects->forPlayer($playerId)['logistics']);
+
+        return [
+            'bonus_active' => !$strikeActive && $coordinatorEffects !== [],
+            'effects' => $strikeActive ? [] : $coordinatorEffects,
+            'warning' => $strikeActive
+                ? ['code' => 'logistics_strike', 'department_code' => 'logistics']
+                : null,
+        ];
     }
 
     /**
