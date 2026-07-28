@@ -33,7 +33,7 @@ trait TTSStaffTrait
             FROM technical_staff ts
             LEFT JOIN staff_specializations ss ON ss.code = ts.specialization
             LEFT JOIN employee_state es ON es.player_id = ts.player_id AND es.source_type = 'technical_staff' AND es.source_id = ts.id
-            LEFT JOIN technical_tasks tt ON tt.staff_id = ts.id AND tt.status = 'in_progress'
+            LEFT JOIN technical_tasks tt ON tt.staff_id = ts.id AND tt.status IN ('in_progress','paused_strike')
             LEFT JOIN (
                 SELECT staff_id, COUNT(*) AS cnt
                 FROM technical_task_queue
@@ -202,7 +202,7 @@ trait TTSStaffTrait
             // Sprawdzenie player_id (ochrona przed zwolnieniem pracownika innego gracza) + blokada przy zadaniu w toku.
             // Filtruj po player_id — zapobiega blokowaniu przez zadanie innego gracza (Rule 1).
             // Filter by player_id — prevents blocking by another player's task (Rule 1).
-            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status = 'in_progress' LIMIT 1");
+            $taskStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike') LIMIT 1");
             $taskStmt->execute([$staffId, $this->playerId]);
             if ($taskStmt->fetch()) {
                 $this->db->rollBack();

@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
 require_once __DIR__ . '/EmployeeSystemBootstrap.php';
+require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/HR/StrikeEffectService.php';
 /**
  * TechnicalTeamService.php
  * Technical team management and task system.
@@ -44,6 +46,7 @@ class TechnicalTeamService
 
     private PDO $db;
     private int $playerId;
+    private ?StrikeEffectService $strikeEffectService = null;
 
  // Engineer specs catalog / Katalog specjalizacji inzyniera
     const SPECS = [
@@ -381,9 +384,38 @@ class TechnicalTeamService
         Database::addColumnIfMissing('technical_task_queue', 'hub_id', 'INT NULL DEFAULT NULL AFTER well_id');
         Database::addColumnIfMissing('technical_tasks', 'pipeline_id', 'INT UNSIGNED NULL DEFAULT NULL AFTER hub_id');
         Database::addColumnIfMissing('technical_task_queue', 'pipeline_id', 'INT UNSIGNED NULL DEFAULT NULL AFTER hub_id');
+        Database::addColumnIfMissing('technical_tasks', 'strike_paused_at', 'DATETIME NULL DEFAULT NULL AFTER end_time');
 
         $this->ensureEnumContainsValues('technical_tasks', 'task_type', self::getTaskTypeEnumValues(), 'well_maintenance');
         $this->ensureEnumContainsValues('technical_task_queue', 'task_type', self::getQueueTaskTypeEnumValues(), 'well_maintenance');
+        $this->ensureEnumContainsValues(
+            'technical_tasks',
+            'status',
+            ['in_progress', 'paused_strike', 'completed', 'failed', 'cancelled'],
+            'in_progress'
+        );
+    }
+
+    /**
+     * Returns the current technical strike effect for this player.
+     * Zwraca aktualny efekt strajku technicznego dla tego gracza.
+     *
+     * @return array<string,float|bool>
+     */
+    protected function getTechnicalStrikeEffect(): array
+    {
+        try {
+            $this->strikeEffectService ??= new StrikeEffectService(
+                $this->db,
+                new EmployeeSystemConfigService($this->db)
+            );
+            return $this->strikeEffectService->forPlayer($this->playerId)['technical'] ?? [];
+        } catch (Throwable $e) {
+            GameLog::error('TTS', 'Technical strike effect lookup failed', $e, [
+                'player_id' => $this->playerId,
+            ]);
+            return [];
+        }
     }
 
  /**

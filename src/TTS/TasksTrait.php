@@ -12,10 +12,22 @@ trait TTSTasksTrait
  // Zadania, ktore fizycznie wstrzymuja rurociag ("W naprawie") na czas pracy serwisanta.
  // Tasks that physically pause the pipeline ("servicing") while the technician works.
     private const PIPELINE_SERVICE_TASKS = ['pipeline_maintenance', 'pipeline_repair'];
+    /** @var list<string> */
+    private const REPAIR_TASKS = [
+        'well_repair',
+        'hub_repair',
+        'pipeline_repair',
+        'blowout_control',
+        'reservoir_rehabilitation',
+    ];
+    /** @var list<string> */
+    private const BLOCKED_RELATION_STATUSES = ['on_strike', 'leaving', 'inactive'];
 
     public function getTasks(string $statusFilter = ''): array
     {
-        $where = $statusFilter ? "AND tt.status = ?" : '';
+        $where = $statusFilter === 'active'
+            ? "AND tt.status IN ('in_progress','paused_strike')"
+            : ($statusFilter !== '' ? 'AND tt.status = ?' : '');
         $stmt = $this->db->prepare("
             SELECT tt.*,
                    ts.first_name, ts.last_name, ts.spec_code, ts.spec_name, ts.skill_level,
@@ -33,14 +45,14 @@ trait TTSTasksTrait
             LIMIT 50
         ");
         $params = [$this->playerId];
-        if ($statusFilter) $params[] = $statusFilter;
+        if ($statusFilter !== '' && $statusFilter !== 'active') $params[] = $statusFilter;
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
     public function getActiveTasks(): array
     {
-        return $this->getTasks('in_progress');
+        return $this->getTasks('active');
     }
 
  // ZLECANIE ZADAN
@@ -54,6 +66,10 @@ trait TTSTasksTrait
         $staff = $this->getStaffMember($staffId);
         if (!$staff) return ['success' => false, 'message' => t('technical.task_msg.staff_missing')];
         if ($staff['status'] === 'fired') return ['success' => false, 'message' => t('technical.task_msg.staff_fired')];
+        $blockedRelation = $this->blockedRelationStatus($staffId);
+        if ($blockedRelation !== null) {
+            return $this->relationBlockedResult($blockedRelation);
+        }
 
         $taskDef = self::getTaskDefinition($taskType);
         if (!$taskDef) return ['success' => false, 'message' => t('technical.task_msg.task_unknown')];
@@ -138,7 +154,7 @@ trait TTSTasksTrait
 
         // Sprawdz zajetos pracownika tylko w ramach tego gracza — blokada miedzy graczami niedopuszczalna.
         // Check worker busy state only within this player — cross-player blocking is not allowed.
-        $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status = 'in_progress' LIMIT 1");
+        $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike') LIMIT 1");
         $busyStmt->execute([$staffId, $this->playerId]);
         if ($busyStmt->fetch()) {
  // Atomowa kontrola duplikatu + wstawienie do kolejki — chroni przed race condition.
@@ -190,13 +206,20 @@ trait TTSTasksTrait
         $manager = $this->getManager();
         $mBonus  = $this->getManagerBonus($manager);
         $sBonus  = $this->getStaffBonus($staff, $taskType);
+        $strikeEffect = $this->getTechnicalStrikeEffect();
 
         $baseHours = rand($taskDef['hours_min'], $taskDef['hours_max']);
-        $hours     = max(1, (int)round($baseHours * $mBonus['time_mult'] * $sBonus['time_mult']));
+        $repairTimeMultiplier = in_array($taskType, self::REPAIR_TASKS, true)
+            ? max(1.0, (float)($strikeEffect['repair_time_mult'] ?? 1.0))
+            : 1.0;
+        $hours = max(1, (int)round(
+            $baseHours * $mBonus['time_mult'] * $sBonus['time_mult'] * $repairTimeMultiplier
+        ));
 
         // Klucz sesji blokujacy ponowne losowanie kosztu dla tej samej kombinacji zlecenia.
         // Session key locking re-rolls of cost for the same task combination.
-        $quoteKey = 'tts_q_' . $staffId . '_' . $taskType . '_' . (int)$wellId . '_' . (int)$hubId . '_' . (int)$pipelineId;
+        $quoteKey = 'tts_q_' . $staffId . '_' . $taskType . '_' . (int)$wellId . '_' . (int)$hubId . '_'
+            . (int)$pipelineId . '_' . md5(json_encode($strikeEffect) ?: '[]');
 
         $moduleDef = $moduleType ? self::getModuleDefinition($moduleType) : null;
 
@@ -216,7 +239,12 @@ trait TTSTasksTrait
             $cost = (int)$_SESSION[$quoteKey]['cost'];
         } else {
             $baseCost = $taskDef['cost_min'] > 0 ? rand($taskDef['cost_min'], $taskDef['cost_max']) : 0;
-            $cost     = (int)round($baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult']);
+            $emergencyCostMultiplier = !empty($taskDef['emergency'])
+                ? max(1.0, (float)($strikeEffect['emergency_cost_mult'] ?? 1.0))
+                : 1.0;
+            $cost = (int)round(
+                $baseCost * $mBonus['cost_mult'] * $sBonus['cost_mult'] * $emergencyCostMultiplier
+            );
             if ($usesSessionQuote) {
                 // Zapisz wylosowany koszt w sesji na 5 minut / Store rolled cost in session for 5 minutes
                 $_SESSION[$quoteKey] = ['cost' => $cost, 'expires' => time() + 300];
@@ -277,6 +305,11 @@ trait TTSTasksTrait
         $fts = ($cost > 0) ? new FinancialTransactionService($this->db) : null;
         $this->db->beginTransaction();
         try {
+            $blockedRelation = $this->blockedRelationStatus($staffId, true);
+            if ($blockedRelation !== null) {
+                $this->db->rollBack();
+                return $this->relationBlockedResult($blockedRelation);
+            }
             if ($cost > 0 && $fts !== null) {
                 // Pobranie gotowki przez FTS — atomowo (blokada + walidacja salda) i z pelnym
                 // audytem w bank_transactions (regula #10). Wywolanie zagniezdzone w tej
@@ -371,6 +404,7 @@ trait TTSTasksTrait
 
     public function processTick(): void
     {
+        $this->syncStrikePausedTasks();
         $stmt = $this->db->prepare("
             SELECT tt.*, ts.spec_code, ts.skill_level,
                    ts.first_name, ts.last_name
@@ -388,6 +422,88 @@ trait TTSTasksTrait
         foreach ($stmt->fetchAll() as $task) {
             $this->completeTask($task);
         }
+    }
+
+    /**
+     * Pauses tasks of striking workers and restores their remaining time after the strike.
+     * Wstrzymuje zadania strajkujacych pracownikow i przywraca pozostaly czas po strajku.
+     */
+    private function syncStrikePausedTasks(): void
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT tt.id, tt.status, es.relation_status
+                FROM technical_tasks tt
+                JOIN employee_state es
+                  ON es.player_id = tt.player_id
+                 AND es.source_type = 'technical_staff'
+                 AND es.source_id = tt.staff_id
+                WHERE tt.player_id = ?
+                  AND tt.status IN ('in_progress','paused_strike')
+            ");
+            $stmt->execute([$this->playerId]);
+            $isSqlite = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $task) {
+                $taskId = (int)$task['id'];
+                $isStriking = (string)$task['relation_status'] === 'on_strike';
+                if ($task['status'] === 'in_progress' && $isStriking) {
+                    $pause = $this->db->prepare("
+                        UPDATE technical_tasks
+                        SET status = 'paused_strike', strike_paused_at = NOW()
+                        WHERE id = ? AND player_id = ? AND status = 'in_progress'
+                    ");
+                    $pause->execute([$taskId, $this->playerId]);
+                    continue;
+                }
+                if ($task['status'] === 'paused_strike' && !$isStriking) {
+                    $resumeSql = $isSqlite
+                        ? "end_time = datetime(end_time, '+' || MAX(0, CAST(strftime('%s', NOW()) - strftime('%s', strike_paused_at) AS INTEGER)) || ' seconds')"
+                        : 'end_time = DATE_ADD(end_time, INTERVAL GREATEST(0, TIMESTAMPDIFF(SECOND, strike_paused_at, NOW())) SECOND)';
+                    $resume = $this->db->prepare("
+                        UPDATE technical_tasks
+                        SET status = 'in_progress', {$resumeSql}, strike_paused_at = NULL
+                        WHERE id = ? AND player_id = ? AND status = 'paused_strike'
+                    ");
+                    $resume->execute([$taskId, $this->playerId]);
+                }
+            }
+        } catch (Throwable $e) {
+            GameLog::error('TTS', 'Strike task pause synchronization failed', $e, [
+                'player_id' => $this->playerId,
+            ]);
+        }
+    }
+
+    private function blockedRelationStatus(int $staffId, bool $forUpdate = false): ?string
+    {
+        try {
+            $isSqlite = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+            $lockSql = $forUpdate && !$isSqlite ? ' FOR UPDATE' : '';
+            $stmt = $this->db->prepare("
+                SELECT relation_status
+                FROM employee_state
+                WHERE player_id = ? AND source_type = 'technical_staff' AND source_id = ?
+                LIMIT 1{$lockSql}
+            ");
+            $stmt->execute([$this->playerId, $staffId]);
+            $status = $stmt->fetchColumn();
+            return is_string($status) && in_array($status, self::BLOCKED_RELATION_STATUSES, true)
+                ? $status
+                : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** @return array{success:false,message:string} */
+    private function relationBlockedResult(string $relationStatus): array
+    {
+        return [
+            'success' => false,
+            'message' => t('technical.task_msg.start_failed', [
+                'error' => t('hr.relation.' . $relationStatus),
+            ]),
+        ];
     }
 
  /**
@@ -456,7 +572,7 @@ trait TTSTasksTrait
         if ($wellId && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
             $otherStmt = $this->db->prepare("
                 SELECT COUNT(*) FROM technical_tasks
-                WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
+                WHERE well_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike')
                   AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
             ");
             $otherStmt->execute([$wellId, $pId, $taskId]);
@@ -474,7 +590,7 @@ trait TTSTasksTrait
         if ($pipeId && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
             $otherStmt = $this->db->prepare("
                 SELECT COUNT(*) FROM technical_tasks
-                WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
+                WHERE pipeline_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike')
                   AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
             ");
             $otherStmt->execute([$pipeId, $pId, $taskId]);
@@ -898,7 +1014,7 @@ trait TTSTasksTrait
                 SELECT t.*, ts.first_name, ts.last_name
                 FROM technical_tasks t
                 JOIN technical_staff ts ON ts.id = t.staff_id
-                WHERE t.id = ? AND t.player_id = ? AND t.status = 'in_progress'
+                WHERE t.id = ? AND t.player_id = ? AND t.status IN ('in_progress','paused_strike')
                 LIMIT 1
             ");
             $stmt->execute([$taskId, $this->playerId]);
@@ -913,7 +1029,7 @@ trait TTSTasksTrait
             if ($ownTx) $this->db->beginTransaction();
             $cancelStmt = $this->db->prepare("
                 UPDATE technical_tasks SET status = 'cancelled', end_time = NOW()
-                WHERE id = ? AND player_id = ? AND status = 'in_progress'
+                WHERE id = ? AND player_id = ? AND status IN ('in_progress','paused_strike')
             ");
             $cancelStmt->execute([$taskId, $this->playerId]);
             if ($cancelStmt->rowCount() === 0) {
@@ -930,7 +1046,7 @@ trait TTSTasksTrait
             if (!empty($task['well_id']) && in_array($task['task_type'], self::WELL_SERVICE_TASKS, true)) {
                 $otherStmt = $this->db->prepare("
                     SELECT COUNT(*) FROM technical_tasks
-                    WHERE well_id = ? AND player_id = ? AND status = 'in_progress'
+                    WHERE well_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike')
                       AND id <> ? AND task_type IN ('well_maintenance','well_repair','blowout_control','reservoir_rehabilitation')
                 ");
                 $otherStmt->execute([(int)$task['well_id'], $this->playerId, $taskId]);
@@ -948,7 +1064,7 @@ trait TTSTasksTrait
             if (!empty($task['pipeline_id']) && in_array($task['task_type'], self::PIPELINE_SERVICE_TASKS, true)) {
                 $otherStmt = $this->db->prepare("
                     SELECT COUNT(*) FROM technical_tasks
-                    WHERE pipeline_id = ? AND player_id = ? AND status = 'in_progress'
+                    WHERE pipeline_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike')
                       AND id <> ? AND task_type IN ('pipeline_maintenance','pipeline_repair')
                 ");
                 $otherStmt->execute([(int)$task['pipeline_id'], $this->playerId, $taskId]);
