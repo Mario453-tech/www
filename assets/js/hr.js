@@ -306,7 +306,7 @@ async function makeHeadhunterOffer(event, candidateId) {
 
 function showToast(title, message, type = 'success') {
     if (typeof window.showGameToast === 'function') {
-        window.showGameToast(title, message, type);
+        window.showGameToast(title, message, type, { position: 'center', duration: 5000 });
         return;
     }
     alertInfo(title + ': ' + message);

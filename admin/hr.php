@@ -26,6 +26,13 @@ $defaultSalaryByDepartment = [
     'legal' => [10000, 18000],
     'logistics' => [4500, 13000],
 ];
+$hrTimingConfigKeys = [
+    'raise_response_hours',
+    'raise_postpone_hours',
+    'negotiation_round_hours',
+    'negotiation_cooldown_hours',
+    'threat_cycles_required',
+];
 
 // Save typed raise settings using PRG. / Zapisz typowane ustawienia podwyzek przez PRG.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_raise_config'])) {
@@ -56,6 +63,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_raise_config']))
                 AdminAuth::getAdminUsername()
             );
             $flash = ['type' => 'error', 'message' => t('admin.hr.err_raise_config_invalid')];
+        }
+    }
+    $_SESSION['admin_hr_flash'] = $flash;
+    header('Location: /admin/hr.php?tab=raises');
+    exit;
+}
+
+// Save whitelisted HR timing settings using PRG. / Zapisz dozwolone ustawienia czasu HR przez PRG.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_timing_config'])) {
+    $flash = ['type' => 'error', 'message' => t('common.csrf_error')];
+    if (CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        try {
+            $configService = new EmployeeSystemConfigService($db);
+            $allowed = array_intersect_key($configService->definitions(), array_flip($hrTimingConfigKeys));
+            $submitted = is_array($_POST['hr_timing_config'] ?? null) ? $_POST['hr_timing_config'] : [];
+            $changes = $configService->save(array_intersect_key($submitted, $allowed));
+            AdminLog::log(
+                'hr_timing_config_update',
+                'Updated employee timing configuration: ' . json_encode($changes, JSON_THROW_ON_ERROR),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'success', 'message' => t('admin.hr.msg_timing_config_saved')];
+        } catch (Throwable $e) {
+            AdminLog::log(
+                'hr_timing_config_error',
+                'Employee timing configuration update failed: ' . $e->getMessage(),
+                null,
+                AdminAuth::getAdminUsername()
+            );
+            $flash = ['type' => 'error', 'message' => t('admin.hr.err_timing_config_invalid')];
         }
     }
     $_SESSION['admin_hr_flash'] = $flash;
@@ -493,6 +531,8 @@ if ($tab === 'specializations') {
 
 $raiseConfigDefinitions = [];
 $raiseConfigValues = [];
+$hrTimingConfigDefinitions = [];
+$hrTimingConfigValues = [];
 if ($tab === 'raises') {
     try {
         $configService = new EmployeeSystemConfigService($db);
@@ -502,6 +542,8 @@ if ($tab === 'raises') {
             ARRAY_FILTER_USE_BOTH
         );
         $raiseConfigValues = array_intersect_key($configService->all(), $raiseConfigDefinitions);
+        $hrTimingConfigDefinitions = array_intersect_key($configService->definitions(), array_flip($hrTimingConfigKeys));
+        $hrTimingConfigValues = array_intersect_key($configService->all(), $hrTimingConfigDefinitions);
     } catch (Throwable $e) {
         $err = t('common.db_error');
     }
@@ -544,6 +586,8 @@ $viewData = [
     'validRarities' => $validRarities,
     'raiseConfigDefinitions' => $raiseConfigDefinitions,
     'raiseConfigValues' => $raiseConfigValues,
+    'hrTimingConfigDefinitions' => $hrTimingConfigDefinitions,
+    'hrTimingConfigValues' => $hrTimingConfigValues,
     'testStrikeTargets' => $testStrikeTargets,
 ];
 

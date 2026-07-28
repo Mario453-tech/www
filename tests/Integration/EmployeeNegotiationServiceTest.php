@@ -214,6 +214,57 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('normal', $this->relationStatus(1));
     }
 
+    public function testZeroStrikeOfferIsRejectedBeforeRoundInsert(): void
+    {
+        $this->config->save(['feature_negotiations' => true]);
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+
+        try {
+            (new EmployeeNegotiationService($this->db))->submitOffer(
+                1,
+                1,
+                0.0,
+                0.0,
+                'zero-offer-token',
+                new DateTimeImmutable('2026-07-22 10:00:00')
+            );
+            $this->fail('Zero raise and zero bonus must not be a valid strike offer.');
+        } catch (InvalidArgumentException) {
+            $this->assertSame(0, $this->countRows('employee_strike_negotiation_rounds'));
+            $this->assertSame('active', $this->strikeStatus(1));
+        }
+    }
+
+    public function testVeryWeakRejectedOfferDoesNotIncreaseStrikeSupport(): void
+    {
+        $this->config->save(['negotiation_reject_support_gain' => 8]);
+        $service = new EmployeeNegotiationService($this->db);
+        $method = new ReflectionMethod($service, 'rejectedOfferEffects');
+
+        $effects = $method->invoke($service, 4.0);
+
+        $this->assertSame(0.0, $effects['support_delta']);
+        $this->assertLessThan(0.0, $effects['morale_delta']);
+    }
+
+    public function testExpiredNegotiationRoundReturnsStrikeToCooldown(): void
+    {
+        $this->config->save(['negotiation_cooldown_hours' => 6]);
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $this->db->exec("UPDATE employee_strikes SET status='negotiating' WHERE id=1");
+        $this->db->exec("INSERT INTO employee_strike_negotiations
+            (id, strike_id, player_id, status, current_round, max_rounds, round_deadline_at)
+            VALUES (1, 1, 1, 'open', 1, 3, '2026-07-22 09:00:00')");
+
+        (new EmployeeStrikeService($this->db))->processEscalations(new DateTimeImmutable('2026-07-22 10:00:00'));
+
+        $this->assertSame('expired', (string)$this->db->query('SELECT status FROM employee_strike_negotiations WHERE id=1')->fetchColumn());
+        $this->assertSame('active', $this->strikeStatus(1));
+        $this->assertSame('2026-07-22 16:00:00', (string)$this->db->query('SELECT negotiation_cooldown_until FROM employee_strikes WHERE id=1')->fetchColumn());
+    }
+
     public function testHrEffectivenessUsesOnlyNegotiatingPlayersTeam(): void
     {
         $this->config->save(['feature_negotiations' => true]);

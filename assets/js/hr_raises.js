@@ -34,7 +34,7 @@
 
     function complete(result) {
         showToast(hrl('raise_title'), result.message || hrl('raise_title'), 'success');
-        window.setTimeout(() => window.location.reload(), 900);
+        window.setTimeout(() => window.location.reload(), 5200);
     }
 
     function handleDecision(button) {

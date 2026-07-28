@@ -317,7 +317,10 @@ try {
                     'exception_class' => get_class($e),
                     'error' => $e->getMessage(),
                 ]);
-                respondJson(['success' => false, 'error' => t('hr.err_strike_offer_rejected')], 422);
+                $messageKey = $e instanceof InvalidArgumentException
+                    ? 'hr_api.err_invalid_strike_offer'
+                    : 'hr.err_strike_offer_rejected';
+                respondJson(['success' => false, 'error' => t($messageKey)], 422);
             }
         case 'accept_raise_request':
         case 'negotiate_raise_request':

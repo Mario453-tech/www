@@ -177,8 +177,9 @@
         }, 180);
     }
 
-    window.showGameToast = function (arg1, arg2, arg3) {
+    window.showGameToast = function (arg1, arg2, arg3, arg4) {
         var cfg = normalizeToastArgs(arg1, arg2, arg3);
+        var opts = arg4 || {};
 
         if (cfg.type === 'error') {
             alertError(cfg.message || cfg.title, cfg.message ? cfg.title : undefined);
@@ -186,6 +187,7 @@
         }
 
         buildToastStack();
+        toastStack.classList.toggle('app-toast-stack--center', opts.position === 'center');
         var toast = document.createElement('div');
         toast.className = 'app-toast app-toast--' + cfg.type;
 
@@ -232,7 +234,7 @@
 
         setTimeout(function () {
             removeToast(toast);
-        }, 4500);
+        }, Math.max(1000, Number(opts.duration || 4500)));
     };
 
     window.confirmAction = function (text, callback, opts) {

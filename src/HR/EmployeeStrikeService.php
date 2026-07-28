@@ -19,6 +19,7 @@ final class EmployeeStrikeService
     {
         $stats = ['raise_requests'=>0,'threats_started'=>0,'strikes_started'=>0,'threats_closed'=>0];
         $this->expireRaiseRequests($now);
+        $this->expireNegotiations($now);
         $stats['raise_requests'] = $this->createRaiseRequests($now);
         $stmt = $this->db->query(
             "SELECT player_id, department_code,
@@ -33,6 +34,49 @@ final class EmployeeStrikeService
             $this->evaluateDepartment($department, $now, $stats);
         }
         return $stats;
+    }
+
+    private function expireNegotiations(DateTimeInterface $now): void
+    {
+        $stmt = $this->db->prepare(
+            "SELECT n.id, n.player_id, n.strike_id
+               FROM employee_strike_negotiations n
+               JOIN employee_strikes s ON s.id=n.strike_id AND s.player_id=n.player_id
+              WHERE n.status='open' AND n.round_deadline_at < ? AND s.open_key IS NOT NULL"
+        );
+        $stmt->execute([$now->format('Y-m-d H:i:s')]);
+        $negotiationUpdate = $this->db->prepare(
+            "UPDATE employee_strike_negotiations SET status='expired', updated_at=CURRENT_TIMESTAMP
+              WHERE id=? AND player_id=? AND status='open'"
+        );
+        $strikeUpdate = $this->db->prepare(
+            "UPDATE employee_strikes SET status='active', negotiation_cooldown_until=?, updated_at=CURRENT_TIMESTAMP
+              WHERE id=? AND player_id=? AND open_key IS NOT NULL"
+        );
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $cooldown = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_cooldown_hours') * 3600);
+            $negotiationUpdate->execute([(int)$row['id'], (int)$row['player_id']]);
+            if ($negotiationUpdate->rowCount() !== 1) {
+                continue;
+            }
+            $strikeUpdate->execute([$cooldown, (int)$row['strike_id'], (int)$row['player_id']]);
+            $this->db->prepare(
+                "UPDATE employee_state
+                    SET dispute_ticks=dispute_ticks+1,
+                        morale=CASE WHEN morale-2 < 0 THEN 0 ELSE morale-2 END,
+                        version=version+1,
+                        updated_at=CURRENT_TIMESTAMP
+                  WHERE player_id=? AND relation_status='on_strike'
+                    AND EXISTS (
+                        SELECT 1 FROM employee_strike_members sm
+                         WHERE sm.player_id=employee_state.player_id
+                           AND sm.source_type=employee_state.source_type
+                           AND sm.source_id=employee_state.source_id
+                           AND sm.strike_id=?
+                           AND sm.left_at IS NULL
+                    )"
+            )->execute([(int)$row['player_id'], (int)$row['strike_id']]);
+        }
     }
 
     /** @return list<array<string,mixed>> */

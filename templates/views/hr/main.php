@@ -9,6 +9,25 @@ $raiseRequests = is_array($raiseRequests ?? null)
     ))
     : [];
 $raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLimits : [];
+$hrSeniorityLevel = static function (array $employee): string {
+    $experience = max(0, (float)($employee['experience_years'] ?? 0));
+    $skills = [
+        (float)($employee['skill_organization'] ?? $employee['skill_level'] ?? 5),
+        (float)($employee['skill_negotiation'] ?? $employee['skill_level'] ?? 5),
+        (float)($employee['skill_analysis'] ?? $employee['skill_level'] ?? 5),
+        (float)($employee['skill_stress'] ?? $employee['skill_level'] ?? 5),
+        (float)($employee['skill_ethics'] ?? $employee['skill_level'] ?? 5),
+    ];
+    $skillAvg = array_sum($skills) / max(1, count($skills));
+    $score = $experience + max(0.0, ($skillAvg - 5.0) * 2.0);
+    if ($score >= 12.0 || ($experience >= 9.0 && $skillAvg >= 7.0)) {
+        return 'senior';
+    }
+    if ($score >= 6.0 || ($experience >= 4.0 && $skillAvg >= 6.0)) {
+        return 'mid';
+    }
+    return 'junior';
+};
 ?>
 <?php if (!empty($activeStrikes)): ?>
 <section class="hr-strike-center" aria-labelledby="hr-strike-center-title">
@@ -205,7 +224,8 @@ $raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLi
     <?php else: ?>
     <div class="employees-grid">
         <?php foreach ($employees as $emp):
-            $expLevel = $emp['experience_years'] <= 5 ? 'Junior' : ($emp['experience_years'] <= 12 ? 'Mid' : 'Senior');
+            $expLevel = $hrSeniorityLevel($emp);
+            $expLabel = t('hr.exp_' . $expLevel);
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $warn = isset($emp['contract_days_left']) && $emp['contract_days_left'] <= 14 && $emp['contract_days_left'] >= 0;
             $age = !empty($emp['birth_date']) ? date_diff(date_create($emp['birth_date']), date_create('today'))->y : null;
@@ -224,7 +244,7 @@ $raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLi
                     <div class="emp-role"><?= htmlspecialchars($emp['role_name']) ?></div>
                     <div class="emp-meta">
                         <?= $age !== null ? $age . ' ' . t('hr.years_age') . ' · ' : '' ?><?= $emp['experience_years'] ?><?= t('hr.years_exp') ?>&nbsp;·&nbsp;
-                        <span class="exp-badge exp-<?= strtolower($expLevel) ?>"><?= $expLevel ?></span>
+                        <span class="exp-badge exp-<?= htmlspecialchars($expLevel, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($expLabel, ENT_QUOTES, 'UTF-8') ?></span>
                         &nbsp;·&nbsp; <?= htmlspecialchars($emp['nationality'] ?? '') ?>
                     </div>
                 </div>
@@ -412,7 +432,8 @@ $raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLi
     <?php else: ?>
     <div class="employees-grid directors-grid">
         <?php foreach ($directors as $emp):
-            $expLevel = $emp['experience_years'] <= 5 ? 'Junior' : ($emp['experience_years'] <= 12 ? 'Mid' : 'Senior');
+            $expLevel = $hrSeniorityLevel($emp);
+            $expLabel = t('hr.exp_' . $expLevel);
             $avg = round(($emp['skill_organization'] + $emp['skill_negotiation'] + $emp['skill_analysis'] + $emp['skill_stress'] + $emp['skill_ethics']) / 5, 1);
             $age = (int)($emp['age'] ?? 0);
             $initials = mb_strtoupper(mb_substr((string)$emp['first_name'], 0, 1) . mb_substr((string)$emp['last_name'], 0, 1), 'UTF-8');
@@ -425,7 +446,7 @@ $raiseDecisionLimits = is_array($raiseDecisionLimits ?? null) ? $raiseDecisionLi
                     <div class="emp-role"><?= htmlspecialchars($emp['role_name']) ?></div>
                     <div class="emp-meta">
                         <?= $age ?> <?= t('hr.years_age') ?> &nbsp;·&nbsp; <?= $emp['experience_years'] ?><?= t('hr.years_exp') ?>&nbsp;·&nbsp;
-                        <span class="exp-badge exp-<?= strtolower($expLevel) ?>"><?= $expLevel ?></span>
+                        <span class="exp-badge exp-<?= htmlspecialchars($expLevel, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($expLabel, ENT_QUOTES, 'UTF-8') ?></span>
                         &nbsp;·&nbsp; <?= htmlspecialchars($emp['nationality'] ?? '') ?>
                     </div>
                 </div>

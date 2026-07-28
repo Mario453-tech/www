@@ -170,6 +170,13 @@
     pointer-events: none;
 }
 
+.app-toast-stack--center {
+    top: 50%;
+    right: auto;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
 .app-toast {
     display: grid;
     grid-template-columns: 42px 1fr 24px;

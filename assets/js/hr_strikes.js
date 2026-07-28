@@ -36,7 +36,8 @@
         const strikeId = Number(form.dataset.strikeOfferForm || 0);
         const raisePct = Number(form.elements.raise_pct.value);
         const bonusPerMember = Number(form.elements.bonus_per_member.value);
-        if (!strikeId || !Number.isFinite(raisePct) || !Number.isFinite(bonusPerMember)) {
+        if (!strikeId || !Number.isFinite(raisePct) || !Number.isFinite(bonusPerMember)
+            || (raisePct <= 0 && bonusPerMember <= 0)) {
             showToast(hrl('toast_err'), hrl('strike_offer_invalid'), 'error');
             return;
         }
@@ -68,7 +69,7 @@
                         dialogueElement.hidden = false;
                     }
                     showToast(hrl('strike_negotiation_title'), result.message, result.result === 'accepted' ? 'success' : 'warning');
-                    window.setTimeout(() => window.location.reload(), dialogue ? 3500 : 1200);
+                    window.setTimeout(() => window.location.reload(), 5200);
                 } catch (error) {
                     showToast(hrl('toast_err'), error.message, 'error');
                     if (button) {

@@ -73,6 +73,9 @@ final class EmployeeNegotiationService
         $minRaise = $this->config->getFloat('negotiation_raise_min');
         $maxRaise = $this->config->getFloat('negotiation_raise_max');
         $maxBonus = $this->config->getFloat('negotiation_bonus_max');
+        if ($raisePct <= 0.0 && $bonusPerMember <= 0.0) {
+            throw new InvalidArgumentException('Employee strike offer must contain a real raise or bonus.');
+        }
         if ($raisePct < $minRaise || $raisePct > $maxRaise || $bonusPerMember < 0 || $bonusPerMember > $maxBonus) {
             throw new InvalidArgumentException('Employee strike offer is outside configured limits.');
         }
@@ -155,7 +158,7 @@ final class EmployeeNegotiationService
                       WHERE id=? AND player_id=? AND open_key IS NOT NULL"
                 )->execute([$cooldown, $strikeId, $playerId]);
             } else {
-                $gain = $this->config->getFloat('negotiation_reject_support_gain');
+                $effects = $this->rejectedOfferEffects((float)$formula['offer_quality']);
                 $deadline = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_round_hours') * 3600);
                 $this->db->prepare(
                     'UPDATE employee_strike_negotiations SET current_round=current_round+1,
@@ -163,10 +166,14 @@ final class EmployeeNegotiationService
                       WHERE id=? AND player_id=? AND status=\'open\''
                 )->execute([$deadline, (int)$negotiation['id'], $playerId]);
                 $this->db->prepare(
-                    'UPDATE employee_strikes SET support_pct=CASE WHEN support_pct+:gain > 100 THEN 100 ELSE support_pct+:gain END,
+                    'UPDATE employee_strikes SET support_pct=CASE
+                                WHEN support_pct+:support_delta < 0 THEN 0
+                                WHEN support_pct+:support_delta > 100 THEN 100
+                                ELSE support_pct+:support_delta END,
                             updated_at=CURRENT_TIMESTAMP
                       WHERE id=:id AND player_id=:player_id AND open_key IS NOT NULL'
-                )->execute(['gain' => $gain, 'id' => $strikeId, 'player_id' => $playerId]);
+                )->execute(['support_delta' => $effects['support_delta'], 'id' => $strikeId, 'player_id' => $playerId]);
+                $this->applyMemberPressure($playerId, $strikeId, $effects['support_delta'], $effects['morale_delta']);
             }
 
             $round = $this->roundByToken($playerId, $strikeId, $token) ?? [];
@@ -180,6 +187,52 @@ final class EmployeeNegotiationService
             }
             throw $exception;
         }
+    }
+
+    /** @return array{support_delta:float,morale_delta:float} */
+    private function rejectedOfferEffects(float $offerQuality): array
+    {
+        $gain = $this->config->getFloat('negotiation_reject_support_gain');
+        if ($offerQuality < 10.0) {
+            return ['support_delta' => 0.0, 'morale_delta' => -3.0];
+        }
+        if ($offerQuality < 25.0) {
+            return ['support_delta' => round($gain * 0.25, 2), 'morale_delta' => -1.0];
+        }
+        return ['support_delta' => $gain, 'morale_delta' => 0.0];
+    }
+
+    private function applyMemberPressure(int $playerId, int $strikeId, float $supportDelta, float $moraleDelta): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE employee_state
+                SET strike_support=CASE
+                        WHEN strike_support+:support_delta < 0 THEN 0
+                        WHEN strike_support+:support_delta > 100 THEN 100
+                        ELSE strike_support+:support_delta END,
+                    morale=CASE
+                        WHEN morale+:morale_delta < 0 THEN 0
+                        WHEN morale+:morale_delta > 100 THEN 100
+                        ELSE morale+:morale_delta END,
+                    dispute_ticks=dispute_ticks+1,
+                    version=version+1,
+                    updated_at=CURRENT_TIMESTAMP
+              WHERE player_id=:player_id
+                AND EXISTS (
+                    SELECT 1 FROM employee_strike_members sm
+                     WHERE sm.player_id=employee_state.player_id
+                       AND sm.source_type=employee_state.source_type
+                       AND sm.source_id=employee_state.source_id
+                       AND sm.strike_id=:strike_id
+                       AND sm.left_at IS NULL
+                )'
+        );
+        $stmt->execute([
+            'support_delta' => $supportDelta,
+            'morale_delta' => $moraleDelta,
+            'player_id' => $playerId,
+            'strike_id' => $strikeId,
+        ]);
     }
 
     /** @return array<string,mixed> */
