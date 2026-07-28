@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
 require_once dirname(__DIR__) . '/FinancialTransactionService.php';
 require_once __DIR__ . '/EmployeeDialogueTemplateService.php';
 require_once __DIR__ . '/EmployeeStrikeService.php';
+require_once __DIR__ . '/EmployeeNegotiationEffectivenessService.php';
 
 final class EmployeeNegotiationService
 {
@@ -91,6 +92,13 @@ final class EmployeeNegotiationService
         }
         try {
             $strike = $this->lockStrike($playerId, $strikeId);
+            $existing = $this->roundByToken($playerId, $strikeId, $token);
+            if ($existing !== null) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $existing + ['idempotent' => true];
+            }
             if ((string)$strike['status'] === 'active') {
                 $this->openNegotiationInsideTransaction($playerId, $strikeId, $now);
                 $strike = $this->lockStrike($playerId, $strikeId);
@@ -105,6 +113,9 @@ final class EmployeeNegotiationService
             if (!empty($negotiation['round_deadline_at'])
                 && strtotime((string)$negotiation['round_deadline_at']) < $now->getTimestamp()) {
                 $this->expireNegotiation($playerId, $strikeId, (int)$negotiation['id'], $now);
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
                 throw new RuntimeException('Negotiation round deadline has passed.');
             }
             $roundNo = (int)$negotiation['current_round'];
@@ -147,24 +158,8 @@ final class EmployeeNegotiationService
                     "UPDATE employee_strike_negotiations SET status='accepted', updated_at=CURRENT_TIMESTAMP
                       WHERE id=? AND player_id=? AND status='open'"
                 )->execute([(int)$negotiation['id'], $playerId]);
-            } elseif ($isFinal) {
-                $cooldown = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_cooldown_hours') * 3600);
-                $this->db->prepare(
-                    "UPDATE employee_strike_negotiations SET status='failed', updated_at=CURRENT_TIMESTAMP
-                      WHERE id=? AND player_id=? AND status='open'"
-                )->execute([(int)$negotiation['id'], $playerId]);
-                $this->db->prepare(
-                    "UPDATE employee_strikes SET status='active', negotiation_cooldown_until=?, updated_at=CURRENT_TIMESTAMP
-                      WHERE id=? AND player_id=? AND open_key IS NOT NULL"
-                )->execute([$cooldown, $strikeId, $playerId]);
             } else {
                 $effects = $this->rejectedOfferEffects((float)$formula['offer_quality']);
-                $deadline = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_round_hours') * 3600);
-                $this->db->prepare(
-                    'UPDATE employee_strike_negotiations SET current_round=current_round+1,
-                            round_deadline_at=?, updated_at=CURRENT_TIMESTAMP
-                      WHERE id=? AND player_id=? AND status=\'open\''
-                )->execute([$deadline, (int)$negotiation['id'], $playerId]);
                 $this->db->prepare(
                     'UPDATE employee_strikes SET support_pct=CASE
                                 WHEN support_pct+:support_delta < 0 THEN 0
@@ -174,6 +169,24 @@ final class EmployeeNegotiationService
                       WHERE id=:id AND player_id=:player_id AND open_key IS NOT NULL'
                 )->execute(['support_delta' => $effects['support_delta'], 'id' => $strikeId, 'player_id' => $playerId]);
                 $this->applyMemberPressure($playerId, $strikeId, $effects['support_delta'], $effects['morale_delta']);
+                if ($isFinal) {
+                    $cooldown = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_cooldown_hours') * 3600);
+                    $this->db->prepare(
+                        "UPDATE employee_strike_negotiations SET status='failed', updated_at=CURRENT_TIMESTAMP
+                          WHERE id=? AND player_id=? AND status='open'"
+                    )->execute([(int)$negotiation['id'], $playerId]);
+                    $this->db->prepare(
+                        "UPDATE employee_strikes SET status='active', negotiation_cooldown_until=?, updated_at=CURRENT_TIMESTAMP
+                          WHERE id=? AND player_id=? AND open_key IS NOT NULL"
+                    )->execute([$cooldown, $strikeId, $playerId]);
+                } else {
+                    $deadline = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_round_hours') * 3600);
+                    $this->db->prepare(
+                        'UPDATE employee_strike_negotiations SET current_round=current_round+1,
+                                round_deadline_at=?, updated_at=CURRENT_TIMESTAMP
+                          WHERE id=? AND player_id=? AND status=\'open\''
+                    )->execute([$deadline, (int)$negotiation['id'], $playerId]);
+                }
             }
 
             $round = $this->roundByToken($playerId, $strikeId, $token) ?? [];
@@ -347,14 +360,7 @@ final class EmployeeNegotiationService
 
     private function hrEffectiveness(int $playerId): float
     {
-        $stmt = $this->db->prepare(
-            "SELECT AVG((COALESCE(skill_negotiation,5) + COALESCE(skill_organization,5)) * 5) FROM board_members bm
-              JOIN board_roles br ON br.id=bm.role_id
-             WHERE br.code='hr' AND bm.status='active' AND bm.player_id=?"
-        );
-        $stmt->execute([$playerId]);
-        $value = $stmt->fetchColumn();
-        return $value !== false && $value !== null ? max(0.0, min(100.0, (float)$value)) : 50.0;
+        return (new EmployeeNegotiationEffectivenessService($this->db))->calculate($playerId, false);
     }
 
     /** @param array<string,float|int> $formula */

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/EmployeeSystemBootstrap.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/EmployeeDepartureService.php';
 
 final class EmployeeStrikeService
 {
@@ -14,13 +15,39 @@ final class EmployeeStrikeService
         $this->config = new EmployeeSystemConfigService($db);
     }
 
-    /** @return array{raise_requests:int,threats_started:int,strikes_started:int,threats_closed:int} */
+    /** @return array<string,int> */
     public function processEscalations(DateTimeInterface $now): array
     {
-        $stats = ['raise_requests'=>0,'threats_started'=>0,'strikes_started'=>0,'threats_closed'=>0];
-        $this->expireRaiseRequests($now);
-        $this->expireNegotiations($now);
-        $stats['raise_requests'] = $this->createRaiseRequests($now);
+        $this->processDeadlines($now);
+        return $this->processCycleEscalations($now, 0);
+    }
+
+    /** @return array{raise_requests_expired:int,negotiations_expired:int,departures_completed:int} */
+    public function processDeadlines(DateTimeInterface $now): array
+    {
+        return [
+            'raise_requests_expired' => $this->expireRaiseRequests($now),
+            'negotiations_expired' => $this->expireNegotiations($now),
+            'departures_completed' => (new EmployeeDepartureService($this->db))->processDue($now),
+        ];
+    }
+
+    /** @return array<string,int> */
+    public function processCycleEscalations(DateTimeInterface $now, int $cycleId): array
+    {
+        $stats = [
+            'raise_requests'=>0,
+            'threats_started'=>0,
+            'strikes_started'=>0,
+            'threats_closed'=>0,
+            'departures'=>0,
+        ];
+        if ($this->withCycleClaim($cycleId, 0, 'raise_requests', function () use ($now, &$stats): void {
+            $stats['raise_requests'] = $this->createRaiseRequests($now);
+        })) {
+            // Claim completion is handled in withCycleClaim.
+            // Zakonczenie claimu obsluguje withCycleClaim.
+        }
         $stmt = $this->db->query(
             "SELECT player_id, department_code,
                     AVG(morale) AS avg_morale, AVG(strike_support) AS avg_support,
@@ -31,12 +58,22 @@ final class EmployeeStrikeService
               GROUP BY player_id, department_code"
         );
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $department) {
-            $this->evaluateDepartment($department, $now, $stats);
+            $this->withCycleClaim(
+                $cycleId,
+                (int)$department['player_id'],
+                (string)$department['department_code'],
+                function () use ($department, $now, &$stats): void {
+                    $this->evaluateDepartment($department, $now, $stats);
+                }
+            );
         }
+        $this->withCycleClaim($cycleId, 0, 'departures', function () use ($cycleId, $now, &$stats): void {
+            $stats['departures'] = (new EmployeeDepartureService($this->db))->processCycle($cycleId, $now);
+        });
         return $stats;
     }
 
-    private function expireNegotiations(DateTimeInterface $now): void
+    private function expireNegotiations(DateTimeInterface $now): int
     {
         $stmt = $this->db->prepare(
             "SELECT n.id, n.player_id, n.strike_id
@@ -45,37 +82,146 @@ final class EmployeeStrikeService
               WHERE n.status='open' AND n.round_deadline_at < ? AND s.open_key IS NOT NULL"
         );
         $stmt->execute([$now->format('Y-m-d H:i:s')]);
-        $negotiationUpdate = $this->db->prepare(
-            "UPDATE employee_strike_negotiations SET status='expired', updated_at=CURRENT_TIMESTAMP
-              WHERE id=? AND player_id=? AND status='open'"
-        );
-        $strikeUpdate = $this->db->prepare(
-            "UPDATE employee_strikes SET status='active', negotiation_cooldown_until=?, updated_at=CURRENT_TIMESTAMP
-              WHERE id=? AND player_id=? AND open_key IS NOT NULL"
-        );
+        $expired = 0;
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $cooldown = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_cooldown_hours') * 3600);
-            $negotiationUpdate->execute([(int)$row['id'], (int)$row['player_id']]);
-            if ($negotiationUpdate->rowCount() !== 1) {
-                continue;
+            $expired += $this->expireNegotiationRecord($row, $now) ? 1 : 0;
+        }
+        return $expired;
+    }
+
+    /** @param array<string,mixed> $row */
+    private function expireNegotiationRecord(array $row, DateTimeInterface $now): bool
+    {
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $lock = $this->db->prepare(
+                "SELECT n.id, n.player_id, n.strike_id
+                   FROM employee_strike_negotiations n
+                   JOIN employee_strikes s ON s.id=n.strike_id AND s.player_id=n.player_id
+                  WHERE n.id=? AND n.player_id=? AND n.status='open'
+                    AND n.round_deadline_at<? AND s.open_key IS NOT NULL
+                  LIMIT 1{$suffix}"
+            );
+            $lock->execute([(int)$row['id'], (int)$row['player_id'], $now->format('Y-m-d H:i:s')]);
+            $current = $lock->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($current)) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return false;
             }
-            $strikeUpdate->execute([$cooldown, (int)$row['strike_id'], (int)$row['player_id']]);
+            $cooldown = date(
+                'Y-m-d H:i:s',
+                $now->getTimestamp() + $this->config->getInt('negotiation_cooldown_hours') * 3600
+            );
+            $this->db->prepare(
+                "UPDATE employee_strike_negotiations SET status='expired', updated_at=CURRENT_TIMESTAMP
+                  WHERE id=? AND player_id=? AND status='open'"
+            )->execute([(int)$current['id'], (int)$current['player_id']]);
+            $this->db->prepare(
+                "UPDATE employee_strikes SET status='active', negotiation_cooldown_until=?, updated_at=CURRENT_TIMESTAMP
+                  WHERE id=? AND player_id=? AND open_key IS NOT NULL"
+            )->execute([$cooldown, (int)$current['strike_id'], (int)$current['player_id']]);
             $this->db->prepare(
                 "UPDATE employee_state
                     SET dispute_ticks=dispute_ticks+1,
                         morale=CASE WHEN morale-2 < 0 THEN 0 ELSE morale-2 END,
-                        version=version+1,
-                        updated_at=CURRENT_TIMESTAMP
+                        version=version+1, updated_at=CURRENT_TIMESTAMP
                   WHERE player_id=? AND relation_status='on_strike'
                     AND EXISTS (
                         SELECT 1 FROM employee_strike_members sm
                          WHERE sm.player_id=employee_state.player_id
                            AND sm.source_type=employee_state.source_type
                            AND sm.source_id=employee_state.source_id
-                           AND sm.strike_id=?
-                           AND sm.left_at IS NULL
+                           AND sm.strike_id=? AND sm.left_at IS NULL
                     )"
-            )->execute([(int)$row['player_id'], (int)$row['strike_id']]);
+            )->execute([(int)$current['player_id'], (int)$current['strike_id']]);
+            $this->strikeEvent(
+                (int)$current['player_id'],
+                (int)$current['strike_id'],
+                'negotiation_expired',
+                'hr.event.negotiation_expired.title',
+                'hr.event.negotiation_expired.message',
+                ['cooldown_until' => $cooldown],
+                'negotiation-expired:' . (int)$current['id']
+            );
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return true;
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
+    /** @param array<string,mixed> $row */
+    private function expireRaiseRequestRecord(array $row, DateTimeInterface $now): bool
+    {
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $lock = $this->db->prepare(
+                "SELECT id, player_id, source_type, source_id
+                   FROM employee_raise_requests
+                  WHERE id=? AND player_id=? AND status IN ('open','postponed') AND deadline_at<?
+                  LIMIT 1{$suffix}"
+            );
+            $lock->execute([(int)$row['id'], (int)$row['player_id'], $now->format('Y-m-d H:i:s')]);
+            $current = $lock->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($current)) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return false;
+            }
+            $this->db->prepare(
+                "UPDATE employee_raise_requests SET status='expired', resolved_at=CURRENT_TIMESTAMP,
+                        updated_at=CURRENT_TIMESTAMP
+                  WHERE id=? AND player_id=? AND status IN ('open','postponed')"
+            )->execute([(int)$current['id'], (int)$current['player_id']]);
+            $penalty = $this->config->getFloat('raise_postpone_morale_penalty');
+            $this->db->prepare(
+                "UPDATE employee_state SET relation_status='dispute', dispute_ticks=dispute_ticks+1,
+                        morale=CASE WHEN morale-:penalty_guard<0 THEN 0 ELSE morale-:penalty_value END,
+                        leave_risk=CASE WHEN leave_risk+5>100 THEN 100 ELSE leave_risk+5 END,
+                        strike_support=CASE WHEN strike_support+5>100 THEN 100 ELSE strike_support+5 END,
+                        version=version+1, updated_at=CURRENT_TIMESTAMP
+                  WHERE player_id=:player_id AND source_type=:source_type AND source_id=:source_id
+                    AND relation_status='raise_requested'"
+            )->execute([
+                'penalty_guard' => $penalty,
+                'penalty_value' => $penalty,
+                'player_id' => (int)$current['player_id'],
+                'source_type' => (string)$current['source_type'],
+                'source_id' => (int)$current['source_id'],
+            ]);
+            $this->event(
+                $current,
+                'raise_request_expired',
+                'hr.event.raise_expired.title',
+                'hr.event.raise_expired.message',
+                ['request_id' => (int)$current['id']],
+                'raise-expired:' . (int)$current['player_id'] . ':' . (int)$current['id']
+            );
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return true;
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
         }
     }
 
@@ -295,38 +441,18 @@ final class EmployeeStrikeService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function expireRaiseRequests(DateTimeInterface $now): void
+    private function expireRaiseRequests(DateTimeInterface $now): int
     {
         $stmt = $this->db->prepare(
             "SELECT id, player_id, source_type, source_id FROM employee_raise_requests
               WHERE status IN ('open','postponed') AND deadline_at < ?"
         );
         $stmt->execute([$now->format('Y-m-d H:i:s')]);
-        $expire = $this->db->prepare(
-            "UPDATE employee_raise_requests SET status='expired', resolved_at=CURRENT_TIMESTAMP,
-                    updated_at=CURRENT_TIMESTAMP
-              WHERE id=? AND player_id=? AND status IN ('open','postponed')"
-        );
-        $stateUpdate = $this->db->prepare(
-            "UPDATE employee_state SET relation_status='dispute', dispute_ticks=dispute_ticks+1,
-                    version=version+1, updated_at=CURRENT_TIMESTAMP
-              WHERE player_id=? AND source_type=? AND source_id=? AND relation_status='raise_requested'"
-        );
+        $expired = 0;
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $expire->execute([(int)$row['id'], (int)$row['player_id']]);
-            if ($expire->rowCount() !== 1) {
-                continue;
-            }
-            $stateUpdate->execute([(int)$row['player_id'], (string)$row['source_type'], (int)$row['source_id']]);
-            $this->event(
-                $row,
-                'raise_request_expired',
-                'hr.event.raise_expired.title',
-                'hr.event.raise_expired.message',
-                ['request_id' => (int)$row['id']],
-                'raise-expired:' . (int)$row['player_id'] . ':' . (int)$row['id']
-            );
+            $expired += $this->expireRaiseRequestRecord($row, $now) ? 1 : 0;
         }
+        return $expired;
     }
 
     private function createRaiseRequests(DateTimeInterface $now): int
@@ -518,6 +644,78 @@ final class EmployeeStrikeService
         $this->db->prepare($sql)->execute([
             (int)$state['player_id'],(string)$state['source_type'],(int)$state['source_id'],
             $eventKey,$titleKey,$messageKey,json_encode($meta, JSON_THROW_ON_ERROR),$dedupe,
+        ]);
+    }
+
+    /** @param callable():void $callback */
+    private function withCycleClaim(int $cycleId, int $playerId, string $department, callable $callback): bool
+    {
+        if ($cycleId <= 0) {
+            $callback();
+            return true;
+        }
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $sql = $driver === 'sqlite'
+                ? 'INSERT OR IGNORE INTO employee_cycle_department_claims
+                    (cycle_id, player_id, department_code) VALUES (?, ?, ?)'
+                : 'INSERT IGNORE INTO employee_cycle_department_claims
+                    (cycle_id, player_id, department_code) VALUES (?, ?, ?)';
+            $claim = $this->db->prepare($sql);
+            $claim->execute([$cycleId, $playerId, $department]);
+            if ($claim->rowCount() !== 1) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return false;
+            }
+            $callback();
+            $this->db->prepare(
+                'UPDATE employee_cycle_department_claims SET completed_at=CURRENT_TIMESTAMP
+                  WHERE cycle_id=? AND player_id=? AND department_code=?'
+            )->execute([$cycleId, $playerId, $department]);
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return true;
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
+    /** @param array<string,mixed> $meta */
+    private function strikeEvent(
+        int $playerId,
+        int $strikeId,
+        string $eventKey,
+        string $titleKey,
+        string $messageKey,
+        array $meta,
+        string $dedupe
+    ): void {
+        $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $sql = $driver === 'sqlite'
+            ? 'INSERT OR IGNORE INTO employee_events
+                (player_id, strike_id, event_key, title_key, message_key, meta_json, dedupe_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?)'
+            : 'INSERT IGNORE INTO employee_events
+                (player_id, strike_id, event_key, title_key, message_key, meta_json, dedupe_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?)';
+        $this->db->prepare($sql)->execute([
+            $playerId,
+            $strikeId,
+            $eventKey,
+            $titleKey,
+            $messageKey,
+            json_encode($meta, JSON_THROW_ON_ERROR),
+            $dedupe,
         ]);
     }
 }

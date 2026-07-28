@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EmployeeSystemSchema
 {
-    public const VERSION = 5;
+    public const VERSION = 6;
 
     public static function ensure(PDO $db): void
     {
@@ -16,7 +16,9 @@ final class EmployeeSystemSchema
             $db->exec($sql);
         }
         self::ensureStateColumns($db, $driver);
+        self::ensureEventColumns($db, $driver);
         self::ensureRaiseRequestColumns($db, $driver);
+        self::ensureRoundTokenIndex($db, $driver);
         self::ensureTechnicalStaffTraitColumns($db, $driver);
         self::verify($db);
         self::storeVersion($db, $driver);
@@ -53,6 +55,7 @@ final class EmployeeSystemSchema
                 source_type VARCHAR(32) NULL, source_id INT UNSIGNED NULL, strike_id BIGINT UNSIGNED NULL,
                 event_key VARCHAR(100) NOT NULL, title_key VARCHAR(190) NOT NULL, message_key VARCHAR(190) NOT NULL,
                 meta_json TEXT NULL, dialogue_template_id BIGINT UNSIGNED NULL, dedupe_key VARCHAR(190) NOT NULL,
+                is_read TINYINT(1) NOT NULL DEFAULT 0, notified_at DATETIME NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_employee_event_dedupe (dedupe_key),
                 KEY idx_employee_event_player (player_id, created_at)
             ){$s}",
@@ -97,7 +100,8 @@ final class EmployeeSystemSchema
                 bonus_per_member DECIMAL(14,2) NOT NULL DEFAULT 0, counter_raise_pct DECIMAL(7,4) NULL,
                 counter_bonus_per_member DECIMAL(14,2) NULL, random_roll DECIMAL(7,4) NOT NULL,
                 formula_json TEXT NOT NULL, dialogue_template_id BIGINT UNSIGNED NULL, result VARCHAR(32) NOT NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_employee_round_token (idempotency_token),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_employee_round_token (player_id, strike_id, idempotency_token),
                 UNIQUE KEY uq_employee_round_no (negotiation_id, round_no)
             ){$s}",
             "CREATE TABLE IF NOT EXISTS employee_dialogue_templates (
@@ -123,6 +127,14 @@ final class EmployeeSystemSchema
                 config_key VARCHAR(100) NOT NULL PRIMARY KEY, config_value VARCHAR(255) NOT NULL,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ){$s}",
+            "CREATE TABLE IF NOT EXISTS employee_cycle_department_claims (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                cycle_id BIGINT UNSIGNED NOT NULL, player_id INT UNSIGNED NOT NULL,
+                department_code VARCHAR(50) NOT NULL, claimed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME NULL,
+                UNIQUE KEY uq_employee_cycle_department (cycle_id, player_id, department_code),
+                KEY idx_employee_cycle_claim (cycle_id, completed_at)
+            ){$s}",
         ];
     }
 
@@ -146,11 +158,12 @@ final class EmployeeSystemSchema
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_strike_open ON employee_strikes (open_key)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_strike_member ON employee_strike_members (strike_id, source_type, source_id)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_strike_negotiation ON employee_strike_negotiations (strike_id)',
-            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_round_token ON employee_strike_negotiation_rounds (idempotency_token)',
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_round_token ON employee_strike_negotiation_rounds (player_id, strike_id, idempotency_token)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_round_no ON employee_strike_negotiation_rounds (negotiation_id, round_no)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_dialogue_seed ON employee_dialogue_templates (seed_key)',
             'CREATE INDEX IF NOT EXISTS idx_employee_dialogue_lookup ON employee_dialogue_templates (context_key, department_code, round_no, tone, is_active)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_module_cycle ON employee_module_cycles (module_key, cycle_key)',
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_cycle_department ON employee_cycle_department_claims (cycle_id, player_id, department_code)',
         ]);
     }
 
@@ -165,12 +178,62 @@ final class EmployeeSystemSchema
             'loyalty_modifier' => $driver === 'sqlite'
                 ? 'REAL NOT NULL DEFAULT 0'
                 : 'DECIMAL(5,2) NOT NULL DEFAULT 0.00',
+            'leave_risk_streak' => 'INT NOT NULL DEFAULT 0',
+            'leaving_at' => 'DATETIME NULL',
+            'inactive_at' => 'DATETIME NULL',
         ];
         foreach ($defs as $name => $definition) {
             if (!isset($columns[$name])) {
                 $db->exec("ALTER TABLE employee_state ADD COLUMN {$name} {$definition}");
             }
         }
+    }
+
+    private static function ensureEventColumns(PDO $db, string $driver): void
+    {
+        $columns = self::columns($db, $driver, 'employee_events');
+        $defs = [
+            'is_read' => 'TINYINT NOT NULL DEFAULT 0',
+            'notified_at' => 'DATETIME NULL',
+        ];
+        foreach ($defs as $name => $definition) {
+            if (!isset($columns[$name])) {
+                $db->exec("ALTER TABLE employee_events ADD COLUMN {$name} {$definition}");
+            }
+        }
+    }
+
+    private static function ensureRoundTokenIndex(PDO $db, string $driver): void
+    {
+        if ($driver === 'sqlite') {
+            $db->exec('DROP INDEX IF EXISTS uq_employee_round_token');
+            $db->exec(
+                'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_round_token
+                   ON employee_strike_negotiation_rounds (player_id, strike_id, idempotency_token)'
+            );
+            return;
+        }
+
+        $stmt = $db->prepare(
+            "SELECT COLUMN_NAME
+               FROM information_schema.STATISTICS
+              WHERE TABLE_SCHEMA=DATABASE()
+                AND TABLE_NAME='employee_strike_negotiation_rounds'
+                AND INDEX_NAME='uq_employee_round_token'
+              ORDER BY SEQ_IN_INDEX"
+        );
+        $stmt->execute();
+        $columns = array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        if ($columns === ['player_id', 'strike_id', 'idempotency_token']) {
+            return;
+        }
+        if ($columns !== []) {
+            $db->exec('ALTER TABLE employee_strike_negotiation_rounds DROP INDEX uq_employee_round_token');
+        }
+        $db->exec(
+            'ALTER TABLE employee_strike_negotiation_rounds
+             ADD UNIQUE KEY uq_employee_round_token (player_id, strike_id, idempotency_token)'
+        );
     }
 
     private static function ensureRaiseRequestColumns(PDO $db, string $driver): void
@@ -260,7 +323,7 @@ final class EmployeeSystemSchema
     {
         foreach (['employee_events', 'employee_raise_requests', 'employee_strikes', 'employee_strike_members',
             'employee_strike_negotiations', 'employee_strike_negotiation_rounds', 'employee_dialogue_templates',
-            'employee_module_cycles', 'employee_system_config'] as $table) {
+            'employee_module_cycles', 'employee_system_config', 'employee_cycle_department_claims'] as $table) {
             $db->query("SELECT 1 FROM {$table} WHERE 1 = 0");
         }
     }

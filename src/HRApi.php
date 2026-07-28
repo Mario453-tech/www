@@ -29,20 +29,66 @@ if (!Auth::isLoggedIn()) {
     respondJson(['success' => false, 'error' => t('common.not_logged_in')], 401);
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$playerId = Auth::getUserId();
+if (!BoardAccess::has($playerId, 'hr')) {
+    GameLog::warn('HRApi', 'HR board access denied', [
+        'player_id' => $playerId,
+        'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+    ]);
+    respondJson(['success' => false, 'error' => t('hr_api.err_access_denied')], 403);
+}
+
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$action = (string)($_GET['action'] ?? $_POST['action'] ?? '');
+$getActions = [
+    'get_panel_data',
+    'get_candidates',
+    'get_regions',
+    'get_specializations',
+    'get_all_candidates',
+    'get_history',
+    'get_headhunter_status',
+];
+$postActions = [
+    'start_recruitment',
+    'hire_candidate',
+    'fire_employee',
+    'fire_technical_staff',
+    'mark_events_read',
+    'reject_candidate',
+    'save_candidate',
+    'renew_contract',
+    'start_headhunter',
+    'open_strike_negotiation',
+    'submit_strike_offer',
+    'accept_raise_request',
+    'negotiate_raise_request',
+    'reject_raise_request',
+    'postpone_raise_request',
+    'grant_bonus',
+    'make_offer',
+    'hire_headhunter_candidate',
+    'make_headhunter_offer',
+];
+
+if (($method === 'GET' && !in_array($action, $getActions, true))
+    || ($method === 'POST' && !in_array($action, $postActions, true))
+    || !in_array($method, ['GET', 'POST'], true)) {
+    respondJson(['success' => false, 'error' => t('hr_api.err_method_not_allowed')], 405);
+}
+
+if ($method === 'POST') {
     if (!CSRF::validateToken($_POST['_token'] ?? '')) {
         GameLog::warn('HRApi', 'Invalid CSRF token', [
-            'player_id' => Auth::getUserId(),
-            'action' => $_REQUEST['action'] ?? '',
+            'player_id' => $playerId,
+            'action' => $action,
         ]);
         respondJson(['success' => false, 'error' => t('common.csrf_error')], 419);
     }
 }
 
 $hr = new HRService();
-$hh = new HeadhunterService(Auth::getUserId());
-$playerId = Auth::getUserId();
-$action = $_REQUEST['action'] ?? '';
+$hh = new HeadhunterService($playerId);
 $db = Database::getInstance()->getConnection();
 
 GameLog::info('HRApi', 'Incoming action', [
