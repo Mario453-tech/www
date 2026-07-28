@@ -5,8 +5,8 @@
 
 -- 1. Dodanie kolumn jesli to nie zostalo jeszcze zrobione:
 ALTER TABLE `game_help_pages` 
-ADD COLUMN IF NOT EXISTS `title_en` VARCHAR(255) NULL AFTER `title`,
-ADD COLUMN IF NOT EXISTS `content_en` MEDIUMTEXT NULL AFTER `content`;
+ADD COLUMN `title_en` VARCHAR(255) NULL AFTER `title`,
+ADD COLUMN `content_en` MEDIUMTEXT NULL AFTER `content`;
 
 -- 2. Dodanie 3 nowych działów z EN
 INSERT INTO `game_help_pages` (`slug`, `title`, `title_en`, `icon`, `sort_order`, `content`, `content_en`) VALUES 
