@@ -37,9 +37,9 @@ final class EmployeeRepositoryTest extends SqliteIntegrationTestCase
         $this->assertSame('maintenance_engineer', $technical['role_code']);
         $this->assertSame(7, $technical['skills']['role_skill']);
         $this->assertSame(7, $technical['skills']['organization']);
-        $this->assertSame(7, $technical['traits']['loyalty']);
-        $this->assertSame(4, $technical['traits']['corruption_risk']);
-        $this->assertSame(4, $technical['traits']['ambition']);
+        $this->assertSame(5, $technical['traits']['loyalty']);
+        $this->assertSame(5, $technical['traits']['corruption_risk']);
+        $this->assertSame(5, $technical['traits']['ambition']);
         $this->assertSame(9000.0, $technical['salary_range_min']);
     }
 
@@ -47,6 +47,7 @@ final class EmployeeRepositoryTest extends SqliteIntegrationTestCase
     {
         $this->assertCount(2, $this->repository->listForPlayer(1));
         $this->assertCount(4, $this->repository->listForPlayer(1, null, false));
+        $this->assertCount(2, $this->repository->listMissingStateRefs(100));
         $this->assertCount(1, $this->repository->listForPlayer(1, 'logistics'));
         $this->assertCount(1, $this->repository->listForPlayer(1, 'technical'));
         $this->assertSame([], $this->repository->listForPlayer(1, 'legal'));
@@ -88,6 +89,7 @@ final class EmployeeRepositoryTest extends SqliteIntegrationTestCase
         $mirror = $this->repository->canonicalRef(new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 12, 1));
         $this->assertSame(EmployeeRef::SOURCE_TECHNICAL_STAFF, $mirror->sourceType);
         $this->assertSame(20, $mirror->sourceId);
+        $this->assertCount(2, $this->repository->listForPlayer(1));
     }
 
     /** @param list<array<string, mixed>> $employees @return array<string, mixed> */

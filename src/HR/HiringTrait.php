@@ -27,6 +27,13 @@ trait HRHiringTrait
             $contractType = $this->normalizeContractType($contractType);
 
             $this->db->beginTransaction();
+            $lockSuffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $playerLock = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$lockSuffix}");
+            $playerLock->execute([$playerId]);
+            if (!$playerLock->fetchColumn()) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => t('common.app_error')];
+            }
 
             $candidate = $this->getCandidateForHire($candidateId, $playerId, true);
             if (!$candidate) {

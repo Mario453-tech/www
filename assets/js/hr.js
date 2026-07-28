@@ -279,6 +279,7 @@ async function makeHeadhunterOffer(event, candidateId) {
             candidate_id: candidateId,
             salary,
             signing_bonus: bonus,
+            idempotency_token: hrOperationToken('headhunter-offer', candidateId),
         });
 
         if (!result.success) {
@@ -411,7 +412,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.addEventListener('keydown', function (event) {
         const card = event.target.closest('[data-toggle-employee]');
-        if (card && (event.key === 'Enter' || event.key === ' ')) {
+        if (card
+            && !event.target.closest('button, select, input, textarea, a, form')
+            && (event.key === 'Enter' || event.key === ' ')) {
             event.preventDefault();
             toggleEmployeeDetails(card.dataset.toggleEmployee || '');
         }

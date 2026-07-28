@@ -71,6 +71,12 @@ final class MoraleService
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** @param list<int> $playerIds */
+    public function prefetchStrikeEffects(array $playerIds): void
+    {
+        $this->strikeEffects->forPlayers($playerIds);
+    }
+
     public function changeMorale(EmployeeRef $ref, float $amount, string $reason): float
     {
         $state = $this->states->ensureState($ref);

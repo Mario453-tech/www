@@ -64,7 +64,7 @@ final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(0, $applied['would_create']);
         $this->assertSame(0, $repeated['created']);
         $this->assertSame(2, $repeated['skipped']);
-        $this->assertSame(1, $repeated['mirrored_records_skipped']);
+        $this->assertSame(0, $repeated['mirrored_records_skipped']);
         $this->assertSame(2, (int)$this->db->query('SELECT COUNT(*) FROM employee_state')->fetchColumn());
     }
 

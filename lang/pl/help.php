@@ -8,9 +8,9 @@ declare(strict_types=1);
 
 return [
     'help.page_title' => 'Instrukcja obsługi - Oil Empire',
-    'help.hero_title' => 'Instrukcja obsługi',
-    'help.hero_subtitle' => 'Wszystko co musisz wiedzieć, żeby zostać naftowym magnatem. Dla zupełnych początkujących.',
+    'help.hero_title' => 'Pomoc i Dokumentacja',
+    'help.hero_subtitle' => 'Wszystko co musisz wiedzieć o Oil Empire',
     'help.toc_title' => 'Spis treści',
     'help.fallback_message' => 'Instrukcja obsługi jest w trakcie konfiguracji.',
-    'help.back_label' => 'Wróć do Strony Głównej',
+    'help.back_label' => 'Wróć do spisu treści',
 ];

@@ -3,6 +3,7 @@ require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
 require_once __DIR__ . '/EmployeeSystemBootstrap.php';
 require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
 require_once __DIR__ . '/HR/StrikeEffectService.php';
+require_once __DIR__ . '/HR/EmployeeActionReceiptService.php';
 /**
  * HeadhunterService - recruit specialists from competitors.
  * PL: HeadhunterService - rekrutacja specjalistow od konkurencji.
@@ -158,19 +159,32 @@ class HeadhunterService
         }
     }
 
-    public function processReady(): void
+    public function processReady(int $limit = 100): int
     {
+        return $this->processReadyBatch($this->playerId, $limit);
+    }
+
+    public function processReadyAll(int $limit = 100): int
+    {
+        return $this->processReadyBatch(null, $limit);
+    }
+
+    private function processReadyBatch(?int $playerId, int $limit): int
+    {
+        $processed = 0;
         try {
+            $where = $playerId === null ? '' : 'AND hs.player_id = ?';
             $stmt = $this->db->prepare("
                 SELECT hs.*, hsp.name AS spec_name,
                        hsp.base_salary_min, hsp.base_salary_max
                 FROM headhunter_searches hs
                 JOIN hr_specializations hsp ON hs.specialization_id = hsp.id
-                WHERE hs.player_id = ?
-                  AND hs.status = 'searching'
+                WHERE hs.status = 'searching'
                   AND hs.finished_at <= NOW()
-            ");
-            $stmt->execute([$this->playerId]);
+                  {$where}
+                ORDER BY hs.finished_at, hs.id
+                LIMIT " . max(1, min(1000, $limit)));
+            $stmt->execute($playerId === null ? [] : [$playerId]);
 
             foreach ($stmt->fetchAll() as $search) {
                 $this->db->beginTransaction();
@@ -183,28 +197,30 @@ class HeadhunterService
                           AND status = 'searching'
                           AND finished_at <= NOW()
                     ");
-                    $claim->execute([(int)$search['id'], $this->playerId]);
+                    $claim->execute([(int)$search['id'], (int)$search['player_id']]);
                     if ($claim->rowCount() !== 1) {
                         $this->db->rollBack();
                         continue;
                     }
                     $this->generateCandidates($search);
                     $this->db->commit();
+                    $processed++;
                 } catch (Throwable $e) {
                     if ($this->db->inTransaction()) {
                         $this->db->rollBack();
                     }
                     GameLog::error('HeadhunterService', 'processReady search failed', $e, [
-                        'player_id' => $this->playerId,
+                        'player_id' => $search['player_id'] ?? null,
                         'search_id' => $search['id'] ?? null,
                     ]);
                 }
             }
         } catch (Throwable $e) {
             GameLog::error('HeadhunterService', 'processReady failed', $e, [
-                'player_id' => $this->playerId,
+                'player_id' => $playerId,
             ]);
         }
+        return $processed;
     }
 
     private function generateCandidates(array $search): void
@@ -272,55 +288,109 @@ class HeadhunterService
         ]);
     }
 
-    public function makeOffer(int $candidateId, float $offeredSalary, float $signingBonus): array
+    public function makeOffer(
+        int $candidateId,
+        float $offeredSalary,
+        float $signingBonus,
+        string $idempotencyToken
+    ): array
     {
+        $ownTransaction = !$this->db->inTransaction();
         try {
+            if ($ownTransaction) {
+                $this->db->beginTransaction();
+            }
+            $request = [
+                'candidate_id'=>$candidateId,
+                'offered_salary'=>round($offeredSalary, 2),
+                'signing_bonus'=>round($signingBonus, 2),
+            ];
+            $receipts = new EmployeeActionReceiptService($this->db);
+            $receipt = $receipts->claim(
+                $this->playerId,
+                'headhunter_offer',
+                $idempotencyToken,
+                $request
+            );
+            if ($receipt['replayed']) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $receipt['response'] ?? ['success'=>false, 'message'=>t('hr_headhunter.err_offer_failed')];
+            }
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
             $stmt = $this->db->prepare("
                 SELECT hc.*, hsp.name AS spec_name
                 FROM headhunter_candidates hc
                 JOIN hr_specializations hsp ON hc.specialization_id = hsp.id
                 WHERE hc.id = ? AND hc.player_id = ?
                   AND hc.status IN ('available', 'offered') AND hc.expires_at > NOW()
+                LIMIT 1{$suffix}
             ");
             $stmt->execute([$candidateId, $this->playerId]);
             $c = $stmt->fetch();
             if (!$c) {
-                return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+                $result = ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+                $receipts->complete((int)$receipt['id'], $this->playerId, $result);
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $result;
             }
 
-            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ?");
+            if ((string)$c['status'] === 'offered') {
+                $counterSalary = (float)($c['counter_salary'] ?? 0);
+                $counterBonus = (float)($c['counter_bonus'] ?? 0);
+                if (abs($counterSalary - $offeredSalary) > 0.01
+                    || abs($counterBonus - $signingBonus) > 0.01) {
+                    $result = ['success'=>false, 'message'=>t('hr_headhunter.err_candidate_unavailable')];
+                } else {
+                    $result = $this->doHire($c, $counterSalary, $counterBonus, 100);
+                }
+                $receipts->complete((int)$receipt['id'], $this->playerId, $result);
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $result;
+            }
+
+            $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1{$suffix}");
             $cashStmt->execute([$this->playerId]);
             if ((float)$cashStmt->fetchColumn() < $signingBonus) {
-                return [
+                $result = [
                     'success' => false,
                     'message' => t('hr_headhunter.err_bonus_funds', ['cost' => self::fmt($signingBonus)]),
                 ];
+                $receipts->complete((int)$receipt['id'], $this->playerId, $result);
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $result;
             }
 
             $prob = $this->calcProbability($c, $offeredSalary, $signingBonus);
             $roll = mt_rand(1, 100);
 
             if ($roll <= $prob) {
-                return $this->doHire($c, $offeredSalary, $signingBonus, $prob);
-            }
-
-            if ($roll <= $prob + 20) {
+                $result = $this->doHire($c, $offeredSalary, $signingBonus, $prob);
+            } elseif ($roll <= $prob + 20) {
                 $counterSalary = (int)round($offeredSalary * 1.15);
                 $counterBonus = (int)round($signingBonus * 1.25);
                 $update = $this->db->prepare("
                     UPDATE headhunter_candidates
-                    SET status = 'offered'
+                    SET status = 'offered', offer_round=offer_round+1,
+                        counter_salary=?, counter_bonus=?
                     WHERE id = ?
                       AND player_id = ?
-                      AND status IN ('available', 'offered')
+                      AND status = 'available'
                       AND expires_at > NOW()
                 ");
-                $update->execute([$candidateId, $this->playerId]);
+                $update->execute([$counterSalary, $counterBonus, $candidateId, $this->playerId]);
                 if ($update->rowCount() !== 1) {
-                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+                    throw new RuntimeException('Headhunter counteroffer could not be persisted.');
                 }
 
-                return [
+                $result = [
                     'success' => true,
                     'decision' => 'negotiate',
                     'message' => t('hr_headhunter.msg_negotiate', [
@@ -331,30 +401,35 @@ class HeadhunterService
                     'counter_bonus' => $counterBonus,
                     'probability' => $prob,
                 ];
+            } else {
+                $update = $this->db->prepare("
+                    UPDATE headhunter_candidates
+                    SET status = 'rejected'
+                    WHERE id = ? AND player_id = ? AND status = 'available' AND expires_at > NOW()
+                ");
+                $update->execute([$candidateId, $this->playerId]);
+                if ($update->rowCount() !== 1) {
+                    throw new RuntimeException('Headhunter rejection could not be persisted.');
+                }
+                $result = [
+                    'success' => true,
+                    'decision' => 'reject',
+                    'message' => t('hr_headhunter.msg_offer_rejected', [
+                        'first' => $c['first_name'],
+                        'last' => $c['last_name'],
+                    ]),
+                    'probability' => $prob,
+                ];
             }
-
-            $update = $this->db->prepare("
-                UPDATE headhunter_candidates
-                SET status = 'rejected'
-                WHERE id = ?
-                  AND player_id = ?
-                  AND status IN ('available', 'offered')
-                  AND expires_at > NOW()
-            ");
-            $update->execute([$candidateId, $this->playerId]);
-            if ($update->rowCount() !== 1) {
-                return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
+            $receipts->complete((int)$receipt['id'], $this->playerId, $result);
+            if ($ownTransaction) {
+                $this->db->commit();
             }
-            return [
-                'success' => true,
-                'decision' => 'reject',
-                'message' => t('hr_headhunter.msg_offer_rejected', [
-                    'first' => $c['first_name'],
-                    'last' => $c['last_name'],
-                ]),
-                'probability' => $prob,
-            ];
+            return $result;
         } catch (Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             GameLog::error('HeadhunterService', 'makeOffer failed', $e, [
                 'player_id' => $this->playerId,
                 'candidate_id' => $candidateId,
@@ -423,80 +498,47 @@ class HeadhunterService
     private function doHire(array $c, float $salary, float $bonus, int $prob): array
     {
         try {
-            $this->db->beginTransaction();
-            try {
-                $candidateLock = $this->db->prepare("
-                    SELECT id
-                    FROM headhunter_candidates
-                    WHERE id = ?
-                      AND player_id = ?
-                      AND status IN ('available', 'offered')
-                      AND expires_at > NOW()
-                    LIMIT 1
-                    FOR UPDATE
-                ");
-                $candidateLock->execute([(int)$c['id'], $this->playerId]);
-                if (!$candidateLock->fetch()) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
-                }
+            if (!$this->db->inTransaction()) {
+                throw new LogicException('Headhunter hire requires an active transaction.');
+            }
+            $spec = $this->loadSpecializationMeta((int)$c['specialization_id']);
+            if ($spec === null) {
+                return ['success' => false, 'message' => t('hr_headhunter.err_unknown_specialization')];
+            }
 
- // Premia za zatrudnienie przez centralne API finansowe (ruch + wpis bankowy; w transakcji).
- // Hire bonus via the central finance API (movement + bank entry; inside a transaction).
-                $bonusRes = (new FinancialTransactionService($this->db))->debit(
-                    $this->playerId, (float)$bonus,
-                    FinancialTransactionService::TYPE_HR_FEE,
-                    tPlain('bank.tx_hr_headhunter_bonus'),
-                    'employee', null
-                );
-                if (empty($bonusRes['success'])) {
-                    $this->db->rollBack();
-                    GameLog::error('HeadhunterService', 'doHire: bonus debit FAILED', null, ['player_id' => $this->playerId, 'error' => $bonusRes['error'] ?? 'unknown']);
-                    return ['success' => false, 'message' => t('hr_headhunter.err_bonus_funds', ['cost' => self::fmt($bonus)])];
-                }
+            // Hire bonus uses the central finance API inside the offer transaction.
+            // Premia zatrudnienia korzysta z centralnego API finansowego w transakcji oferty.
+            $bonusRes = (new FinancialTransactionService($this->db))->debit(
+                $this->playerId, (float)$bonus,
+                FinancialTransactionService::TYPE_HR_FEE,
+                tPlain('bank.tx_hr_headhunter_bonus'),
+                'employee', null
+            );
+            if (empty($bonusRes['success'])) {
+                return ['success' => false, 'message' => t('hr_headhunter.err_bonus_funds', ['cost' => self::fmt($bonus)])];
+            }
 
-                $spec = $this->loadSpecializationMeta((int)$c['specialization_id']);
-                if ($spec === null) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('hr_headhunter.err_unknown_specialization')];
-                }
+            $birthDate = date('Y-m-d', mktime(0, 0, 0, rand(1, 12), rand(1, 28), date('Y') - rand(28, 55)));
+            $skill = (int)$c['skill_level'];
+            if ($spec['department'] === 'technical') {
+                $this->insertTechnicalHeadhunterHire($c, $spec, $salary, $skill);
+            } else {
+                $memberId = $this->insertBoardStaffHeadhunterHire($c, $spec, $salary, $skill, $birthDate);
+                $this->db->prepare("
+                    INSERT INTO employee_contracts
+                        (member_id, contract_start, contract_end, salary, contract_type, status)
+                    VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR), ?, '1y', 'active')
+                ")->execute([$memberId, $salary]);
+            }
 
-                $birthDate = date('Y-m-d', mktime(0, 0, 0, rand(1, 12), rand(1, 28), date('Y') - rand(28, 55)));
-                $skill = (int)$c['skill_level'];
-                if ($spec['department'] === 'technical') {
-                    $this->insertTechnicalHeadhunterHire($c, $spec, $salary, $skill);
-                } else {
-                    $memberId = $this->insertBoardStaffHeadhunterHire($c, $spec, $salary, $skill, $birthDate);
-                    $this->db->prepare("
-                        INSERT INTO employee_contracts
-                            (member_id, contract_start, contract_end, salary, contract_type, status)
-                        VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR), ?, '1y', 'active')
-                    ")->execute([$memberId, $salary]);
-                }
-
-                $acceptedUpdate = $this->db->prepare("
-                    UPDATE headhunter_candidates
-                    SET status = 'accepted'
-                    WHERE id = ?
-                      AND player_id = ?
-                      AND status IN ('available', 'offered')
-                ");
-                $acceptedUpdate->execute([$c['id'], $this->playerId]);
-                if ($acceptedUpdate->rowCount() !== 1) {
-                    $this->db->rollBack();
-                    return ['success' => false, 'message' => t('hr_headhunter.err_candidate_unavailable')];
-                }
-
-                $this->db->commit();
-            } catch (Throwable $e) {
-                if ($this->db->inTransaction()) {
-                    $this->db->rollBack();
-                }
-                GameLog::error('HeadhunterService', 'doHire transaction failed', $e, [
-                    'player_id' => $this->playerId,
-                    'candidate_id' => $c['id'] ?? null,
-                ]);
-                return ['success' => false, 'message' => t('hr_headhunter.err_hire_transaction', ['error' => $e->getMessage()])];
+            $acceptedUpdate = $this->db->prepare("
+                UPDATE headhunter_candidates
+                SET status = 'accepted'
+                WHERE id = ? AND player_id = ? AND status IN ('available', 'offered')
+            ");
+            $acceptedUpdate->execute([$c['id'], $this->playerId]);
+            if ($acceptedUpdate->rowCount() !== 1) {
+                throw new RuntimeException('Headhunter candidate state changed during hire.');
             }
 
             return [
@@ -514,7 +556,7 @@ class HeadhunterService
                 'player_id' => $this->playerId,
                 'candidate_id' => $c['id'] ?? null,
             ]);
-            return ['success' => false, 'message' => t('hr_headhunter.err_hire_failed')];
+            throw $e;
         }
     }
 

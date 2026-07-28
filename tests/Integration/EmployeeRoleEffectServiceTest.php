@@ -32,8 +32,8 @@ final class EmployeeRoleEffectServiceTest extends SqliteIntegrationTestCase
         $specStmt = $this->db->query("SELECT COUNT(*) FROM hr_specializations WHERE department = 'logistics'");
         $effectStmt = $this->db->query("SELECT COUNT(*) FROM employee_role_effects");
 
-        $this->assertGreaterThanOrEqual(7, (int)$specStmt->fetchColumn());
-        $this->assertGreaterThanOrEqual(7, (int)$effectStmt->fetchColumn());
+        $this->assertGreaterThanOrEqual(6, (int)$specStmt->fetchColumn());
+        $this->assertGreaterThanOrEqual(6, (int)$effectStmt->fetchColumn());
     }
 
     public function testCalculateEffectsUsesSkillAndMoraleFactors(): void

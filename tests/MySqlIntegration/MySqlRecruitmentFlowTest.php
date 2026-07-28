@@ -258,7 +258,17 @@ final class MySqlRecruitmentFlowTest extends MySqlIntegrationTestCase
             HeadhunterService::class
         );
 
-        return $callable($candidate, $salary, $bonus, $prob);
+        $this->db->beginTransaction();
+        try {
+            $result = $callable($candidate, $salary, $bonus, $prob);
+            $this->db->commit();
+            return $result;
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     private function ensureRole(string $code, string $name): int

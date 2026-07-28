@@ -15,16 +15,11 @@ class RecruitmentAPI {
     private $db;
     private $generator;
     private $hrService;
-    private StrikeEffectService $strikeEffects;
     
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
         $this->generator = new CandidateGenerator($this->db);
         $this->hrService = new HRService();
-        $this->strikeEffects = new StrikeEffectService(
-            $this->db,
-            new EmployeeSystemConfigService($this->db)
-        );
     }
     
  /**
@@ -52,49 +47,13 @@ class RecruitmentAPI {
                 return ['success' => false, 'error' => t('recruitment.err_role_not_found')];
             }
             
- // Check that no active recruitment process exists for this player's role
-            $stmt = $this->db->prepare("
-                SELECT * FROM recruitment_requests 
-                WHERE role_id = ? AND player_id = ? AND status IN ('pending', 'ready')
-            ");
-            $stmt->execute([$roleId, $playerId]);
-            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($existing) {
-                return ['success' => false, 'error' => t('recruitment.err_already_running')];
+            $result = $this->hrService->startRecruitment($playerId, (int)$roleId);
+            if (empty($result['success'])) {
+                return ['success'=>false, 'error'=>(string)($result['message'] ?? t('recruitment.err_internal'))];
             }
-            
- // Check that the position is not already filled
-            $stmt = $this->db->prepare("
-                SELECT * FROM board_members 
-                WHERE role_id = ? AND player_id = ? AND status = 'active' AND member_type = 'director'
-            ");
-            $stmt->execute([$roleId, $playerId]);
-            $member = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($member) {
-                return ['success' => false, 'error' => t('recruitment.err_position_occupied')];
-            }
-            
- // Create a new recruitment request
-            $effects = $this->strikeEffects->forPlayer($playerId);
-            $strikeMultiplier = (float)($effects['hr']['recruitment_time_mult'] ?? 1.0);
-            $effectiveWaitMinutes = (int)ceil(max(1, (int)$waitMinutes) * $strikeMultiplier);
-            $readyAt = date('Y-m-d H:i:s', strtotime('+' . $effectiveWaitMinutes . ' minutes'));
-            
-            $stmt = $this->db->prepare("
-                INSERT INTO recruitment_requests (role_id, region_code, player_id, initiated_by, recruitment_type, ready_at, status)
-                VALUES (?, 'PL', ?, 'director', 'local', ?, 'pending')
-            ");
-            $stmt->execute([$roleId, $playerId, $readyAt]);
-            $requestId = $this->db->lastInsertId();
-            
-            return [
-                'success' => true,
-                'request_id' => $requestId,
-                'role' => $role,
-                'ready_at' => $readyAt,
-                'wait_minutes' => $effectiveWaitMinutes
+            return $result + [
+                'role'=>$role,
+                'wait_minutes'=>(int)ceil((int)$result['duration'] / 60),
             ];
             
         } catch (Throwable $e) {

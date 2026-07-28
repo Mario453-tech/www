@@ -189,7 +189,7 @@ class BankSection
 
         try {
             GameLog::step('tick', 'hr', 2, 'headhunter processReady');
-            (new HeadhunterService(0))->processReady();
+            (new HeadhunterService(0))->processReadyAll(100);
         } catch (Throwable $e) {
             GameLog::error('tick', 'HeadhunterService::processReady FAILED', $e);
         }

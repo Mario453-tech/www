@@ -107,6 +107,9 @@ final class EmployeeNegotiationService
                 throw new RuntimeException('Open strike does not exist for this player.');
             }
             if ((string)$strike['status'] === 'active') {
+                if (!empty($strike['negotiation_cooldown_until']) && strtotime((string)$strike['negotiation_cooldown_until']) > $now->getTimestamp()) {
+                    throw new RuntimeException('Cannot open negotiation during cooldown.');
+                }
                 $this->openNegotiationInsideTransaction($playerId, $strikeId, $now);
                 $strike = $this->lockStrike($playerId, $strikeId);
             }

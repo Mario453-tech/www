@@ -10,7 +10,8 @@ $allowedTabs = ['employees', 'recruitment', 'raises', 'morale', 'conflicts', 'tr
 $requestedTab = strtolower(trim((string)($_GET['tab'] ?? 'employees')));
 $activeHrTab = in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'employees';
 $focusedRecord = trim((string)($_GET['record'] ?? ''));
-if ($focusedRecord !== '' && preg_match('/^[a-z_]+:[0-9]+$/', $focusedRecord) !== 1) {
+if ($focusedRecord !== ''
+    && preg_match('/^(?:employee:(?:board_member|technical_staff):[0-9]+|[a-z_]+:[0-9]+)$/', $focusedRecord) !== 1) {
     $focusedRecord = '';
 }
 
@@ -92,10 +93,8 @@ try {
     GameLog::step('hr.php', 'init', 1, 'HRService OK');
     GameLog::step('hr.php', 'init', 2, 'checkExpiringContracts');
     $hr->checkExpiringContracts($playerId);
-    GameLog::step('hr.php', 'init', 3, 'headhunter processReady');
-    $hh->processReady();
 } catch (Throwable $e) {
-    GameLog::error('hr.php', 'Error processing contracts or headhunter', $e);
+    GameLog::error('hr.php', 'Error checking employee contracts', $e);
 }
 
 $_t = microtime(true);

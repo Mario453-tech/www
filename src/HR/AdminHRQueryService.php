@@ -140,11 +140,23 @@ final class AdminHRQueryService
 
     /**
      * @param array<string,mixed> $filters
-     * @return list<array<string,mixed>>
+     * @return array{rows:list<array<string,mixed>>,total:int,page:int,pages:int}
      */
-    public function dialogues(array $filters): array
+    public function dialogues(array $filters, int $page): array
     {
-        return (new EmployeeDialogueTemplateService($this->db))->list($filters);
+        $conditions = ['1=1'];
+        $params = [];
+        foreach (['context_key','department_code','tone'] as $field) {
+            $this->addExact($conditions, $params, $field, $filters[$field] ?? null);
+        }
+        if (array_key_exists('is_active', $filters) && $filters['is_active'] !== '') {
+            $conditions[] = 'is_active = ?';
+            $params[] = !empty($filters['is_active']) ? 1 : 0;
+        }
+        $sql = 'SELECT * FROM employee_dialogue_templates WHERE '
+            . implode(' AND ', $conditions)
+            . ' ORDER BY context_key, department_code, round_no, tone, id';
+        return $this->paginate($sql, $params, $page, 30);
     }
 
     /** @return list<array<string,mixed>> */

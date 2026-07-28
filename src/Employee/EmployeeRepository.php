@@ -24,19 +24,19 @@ final class EmployeeRepository
             throw new InvalidArgumentException('Player identifier must be positive.');
         }
 
-        return $this->mergeAndSort(
+        return $this->deduplicateLinkedRows($this->mergeAndSort(
             $this->fetchBoardMembers($playerId, $departmentCode, $activeOnly),
             $this->fetchTechnicalStaff($playerId, $departmentCode, $activeOnly)
-        );
+        ), $playerId);
     }
 
     /** @return list<array<string, mixed>> */
     public function listAll(?string $departmentCode = null, bool $activeOnly = true): array
     {
-        return $this->mergeAndSort(
+        return $this->deduplicateLinkedRows($this->mergeAndSort(
             $this->fetchBoardMembers(null, $departmentCode, $activeOnly),
             $this->fetchTechnicalStaff(null, $departmentCode, $activeOnly)
-        );
+        ));
     }
 
     /**
@@ -61,10 +61,10 @@ final class EmployeeRepository
             }
         }
 
-        return $this->mergeAndSort(
+        return $this->deduplicateLinkedRows($this->mergeAndSort(
             $boardRefs === [] ? [] : $this->fetchBoardMembers(null, null, false, null, $boardRefs),
             $technicalRefs === [] ? [] : $this->fetchTechnicalStaff(null, null, false, null, $technicalRefs)
-        );
+        ));
     }
 
     /**
@@ -79,8 +79,9 @@ final class EmployeeRepository
             "SELECT source_type, source_id, player_id
                FROM (
                     SELECT 'board_member' AS source_type, bm.id AS source_id, bm.player_id
-                      FROM board_members bm
+                     FROM board_members bm
                      WHERE bm.player_id IS NOT NULL
+                       AND bm.status <> 'fired'
                        AND NOT EXISTS (
                             SELECT 1 FROM employee_source_links esl
                              WHERE esl.player_id=bm.player_id AND esl.board_member_id=bm.id
@@ -94,7 +95,8 @@ final class EmployeeRepository
                     UNION ALL
                     SELECT 'technical_staff' AS source_type, ts.id AS source_id, ts.player_id
                       FROM technical_staff ts
-                     WHERE NOT EXISTS (
+                     WHERE ts.status <> 'fired'
+                       AND NOT EXISTS (
                             SELECT 1 FROM employee_state es
                              WHERE es.player_id=ts.player_id
                                AND es.source_type='technical_staff'
@@ -123,6 +125,7 @@ final class EmployeeRepository
             "SELECT
                 (SELECT COUNT(*) FROM board_members bm
                   WHERE bm.player_id IS NOT NULL
+                    AND bm.status <> 'fired'
                     AND NOT EXISTS (
                         SELECT 1 FROM employee_source_links esl
                          WHERE esl.player_id=bm.player_id AND esl.board_member_id=bm.id
@@ -134,7 +137,8 @@ final class EmployeeRepository
                     ))
                 +
                 (SELECT COUNT(*) FROM technical_staff ts
-                  WHERE NOT EXISTS (
+                  WHERE ts.status <> 'fired'
+                    AND NOT EXISTS (
                         SELECT 1 FROM employee_state es
                          WHERE es.player_id=ts.player_id
                            AND es.source_type='technical_staff' AND es.source_id=ts.id
@@ -202,7 +206,7 @@ final class EmployeeRepository
     /** @return list<array{player_id: int, board_member_id: int, technical_staff_id: int}> */
     public function findLegacyMirrorCandidates(?int $playerId = null): array
     {
-        $where = ['bm.player_id IS NOT NULL'];
+        $where = ['bm.player_id IS NOT NULL', "bm.status <> 'fired'"];
         $params = [];
         if ($playerId !== null) {
             $where[] = 'bm.player_id = :player_id';
@@ -584,5 +588,29 @@ final class EmployeeRepository
         });
 
         return $rows;
+    }
+
+    /**
+     * Linked legacy mirrors represent one canonical technical employee.
+     * Powiazane lustra legacy oznaczaja jednego kanonicznego pracownika technicznego.
+     *
+     * @param list<array<string,mixed>> $rows
+     * @return list<array<string,mixed>>
+     */
+    private function deduplicateLinkedRows(array $rows, ?int $playerId = null): array
+    {
+        $linkedBoards = [];
+        try {
+            foreach ($this->validatedSourceLinks($playerId) as $link) {
+                $linkedBoards[(int)$link['player_id'] . ':' . (int)$link['board_member_id']] = true;
+            }
+        } catch (PDOException) {
+            return $rows;
+        }
+        return array_values(array_filter(
+            $rows,
+            static fn(array $row): bool => (string)$row['source_type'] !== EmployeeRef::SOURCE_BOARD_MEMBER
+                || !isset($linkedBoards[(int)$row['player_id'] . ':' . (int)$row['source_id']])
+        ));
     }
 }

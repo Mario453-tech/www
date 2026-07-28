@@ -67,10 +67,24 @@ trait HRRecruitmentTrait
 
         $this->db->beginTransaction();
         try {
-            $lock = $this->db->prepare("SELECT id FROM players WHERE id = ? LIMIT 1 FOR UPDATE");
+            $lockSuffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $lock = $this->db->prepare("SELECT id FROM players WHERE id = ? LIMIT 1{$lockSuffix}");
             $lock->execute([$playerId]);
+            if (!$lock->fetchColumn()) {
+                throw new RuntimeException('Recruitment player does not exist.');
+            }
 
             if ($initiatedBy === 'director') {
+                $occupiedStmt = $this->db->prepare(
+                    "SELECT id FROM board_members
+                      WHERE player_id=? AND role_id=? AND status='active' AND member_type='director'
+                      LIMIT 1"
+                );
+                $occupiedStmt->execute([$playerId, $roleId]);
+                if ($occupiedStmt->fetchColumn()) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => tPlain('hr.err_role_already_filled')];
+                }
                 $limitStmt = $this->db->prepare("
                     SELECT COUNT(*)
                     FROM recruitment_requests
@@ -194,7 +208,7 @@ trait HRRecruitmentTrait
  * Call from cron or when loading board or HR views.
  * Wywolywac z crona lub przy zaladowaniu widokow zarzadu albo HR.
  */
-    public function processReadyRecruitments(?int $playerId = null): int
+    public function processReadyRecruitments(?int $playerId = null, int $limit = 100): int
     {
         $playerFilter = $playerId !== null && $playerId > 0 ? " AND player_id = ?" : "";
         $params = $playerFilter !== "" ? [$playerId] : [];
@@ -205,6 +219,7 @@ trait HRRecruitmentTrait
               AND ready_at <= NOW()
               {$playerFilter}
             ORDER BY ready_at ASC
+            LIMIT " . max(1, min(500, $limit)) . "
         ");
         $stmt->execute($params);
         $ready = $stmt->fetchAll();

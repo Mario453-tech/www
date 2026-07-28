@@ -22,6 +22,7 @@ final class EmployeeMoraleSection
     public int $strikesStarted = 0;
     public int $departures = 0;
     public bool $cycleCompleted = false;
+    private bool $escalationCompleted = false;
     private bool $unitOwnTransaction = false;
 
     public function __construct(
@@ -36,7 +37,7 @@ final class EmployeeMoraleSection
     public function run(): void
     {
         $strikeService = new EmployeeStrikeService($this->db);
-        $strikeService->processDeadlines($this->now);
+        $strikeService->processDeadlines($this->now, max(1, $this->limit));
         $this->cycleId = $this->openOrCreateCycle();
         $repository = new EmployeeRepository($this->db);
         $stateService = new EmployeeStateService($this->db, $repository);
@@ -80,6 +81,10 @@ final class EmployeeMoraleSection
         $trainingCounts = $this->loadTrainingCounts($refs);
         $financialStates = $this->loadFinancialStates($refs);
         $morale = new MoraleService($this->db);
+        $morale->prefetchStrikeEffects(array_values(array_unique(array_map(
+            static fn(EmployeeRef $ref): int => $ref->playerId,
+            $refs
+        ))));
 
         foreach ($states as $state) {
             $ref = new EmployeeRef((string)$state['source_type'], (int)$state['source_id'], (int)$state['player_id']);
@@ -152,10 +157,16 @@ final class EmployeeMoraleSection
         $this->remaining = (int)$stmt->fetchColumn() + $repository->countMissingStateRefs();
         if ($this->remaining === 0) {
             $this->markCycleReady();
-            $escalation = $strikeService->processCycleEscalations($this->now, $this->cycleId);
+            $escalation = $strikeService->processCycleEscalations(
+                $this->now,
+                $this->cycleId,
+                max(1, $this->limit)
+            );
             $this->raiseRequests = (int)($escalation['raise_requests'] ?? 0);
             $this->threatsStarted = (int)($escalation['threats_started'] ?? 0);
             $this->strikesStarted = (int)($escalation['strikes_started'] ?? 0);
+            $this->departures = (int)($escalation['departures'] ?? 0);
+            $this->escalationCompleted = (int)($escalation['complete'] ?? 0) === 1;
         }
         $this->updateCycle();
     }
@@ -328,7 +339,10 @@ final class EmployeeMoraleSection
 
     private function updateCycle(): void
     {
-        $this->cycleCompleted = $this->remaining === 0;
+        $this->cycleCompleted = $this->remaining === 0 && $this->escalationCompleted;
+        $status = $this->cycleCompleted
+            ? 'completed'
+            : ($this->remaining === 0 ? 'ready_for_escalation' : 'open');
         $stmt = $this->db->prepare(
             "UPDATE employee_module_cycles
                 SET processed_count=processed_count+:processed,
@@ -340,7 +354,7 @@ final class EmployeeMoraleSection
         );
         $stmt->execute([
             'processed'=>$this->processed, 'errors'=>$this->failed,
-            'status'=>$this->cycleCompleted ? 'completed' : 'open',
+            'status'=>$status,
             'complete'=>$this->cycleCompleted ? 1 : 0, 'id'=>$this->cycleId,
         ]);
     }

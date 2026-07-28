@@ -77,6 +77,18 @@ trait HRDataTrait
             WHERE bm.status = 'active'
               AND bm.player_id = ?
               AND bm.member_type = 'staff'
+              AND NOT EXISTS (
+                    SELECT 1
+                      FROM employee_source_links esl
+                      JOIN technical_staff linked_ts
+                        ON linked_ts.id=esl.technical_staff_id
+                       AND linked_ts.player_id=esl.player_id
+                     WHERE esl.player_id=bm.player_id
+                       AND esl.board_member_id=bm.id
+                       AND linked_ts.manager_id=bm.id
+                       AND linked_ts.first_name=bm.first_name
+                       AND linked_ts.last_name=bm.last_name
+              )
             UNION ALL
             SELECT ts.id, 'technical_staff' AS source,
                    ts.first_name, ts.last_name, 'N' AS gender, NULL AS birth_date, '' AS nationality,

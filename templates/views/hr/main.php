@@ -288,7 +288,7 @@ $hrSeniorityLevel = static function (array $employee): string {
             $initials = mb_strtoupper(mb_substr((string)$emp['first_name'], 0, 1) . mb_substr((string)$emp['last_name'], 0, 1), 'UTF-8');
             $sourceType = (string)($emp['source'] ?? 'board_member');
             $canonical = $canonicalEmployeeMap[$sourceType . ':' . (int)$emp['id']] ?? [];
-            $recordKey = 'employee:' . (int)$emp['id'];
+            $recordKey = 'employee:' . $sourceType . ':' . (int)$emp['id'];
         ?>
         <article class="employee-card <?= $warn ? 'contract-warning' : '' ?><?= $focusedRecord === $recordKey ? ' hr-record-focus' : '' ?>"
                  data-toggle-employee="<?= htmlspecialchars($empDomId, ENT_QUOTES, 'UTF-8') ?>"

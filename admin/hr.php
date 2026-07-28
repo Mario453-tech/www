@@ -706,22 +706,13 @@ try {
     } elseif ($tab === 'settings') {
         $settingsGroups = (new AdminHRConfigService($db))->groupedSettings();
     } elseif ($tab === 'dialogues') {
-        $allDialogues = $queryService->dialogues([
+        $dialoguePagination = $queryService->dialogues([
             'context_key' => (string)($_GET['context_key'] ?? ''),
             'department_code' => (string)($_GET['department'] ?? ''),
             'tone' => (string)($_GET['tone'] ?? ''),
             'is_active' => (string)($_GET['active'] ?? ''),
-        ]);
-        $dialogueTotal = count($allDialogues);
-        $dialoguePages = max(1, (int)ceil($dialogueTotal / 30));
-        $dialoguePage = min($listPage, $dialoguePages);
-        $dialogues = array_slice($allDialogues, ($dialoguePage - 1) * 30, 30);
-        $dialoguePagination = [
-            'rows' => $dialogues,
-            'total' => $dialogueTotal,
-            'page' => $dialoguePage,
-            'pages' => $dialoguePages,
-        ];
+        ], $listPage);
+        $dialogues = $dialoguePagination['rows'];
     } elseif ($tab === 'logs') {
         $eventList = $queryService->events($filters, $listPage);
     }

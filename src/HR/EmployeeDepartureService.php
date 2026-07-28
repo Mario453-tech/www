@@ -17,16 +17,26 @@ final class EmployeeDepartureService
         $this->assignments = new EmployeeAssignmentService($db);
     }
 
-    public function processCycle(int $cycleId, DateTimeInterface $now): int
+    public function processCycle(int $cycleId, DateTimeInterface $now, int $limit = 100): int
     {
+        $limit = max(1, min(1000, $limit));
+        $departureCode = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? "('departure:' || employee_state.id)"
+            : "CONCAT('departure:', employee_state.id)";
         $stmt = $this->db->prepare(
             "SELECT id, player_id, source_type, source_id, leave_risk, leave_risk_streak, relation_status
                FROM employee_state
               WHERE last_morale_cycle_id=?
                 AND relation_status NOT IN ('inactive','leaving')
-              ORDER BY id"
+                AND NOT EXISTS (
+                    SELECT 1 FROM employee_cycle_department_claims c
+                     WHERE c.cycle_id=? AND c.player_id=employee_state.player_id
+                       AND c.department_code={$departureCode}
+                       AND c.completed_at IS NOT NULL
+                )
+              ORDER BY id LIMIT " . $limit
         );
-        $stmt->execute([$cycleId]);
+        $stmt->execute([$cycleId, $cycleId]);
         $started = 0;
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $state) {
             if ($this->processStateCycle($state, $cycleId, $now)) {
@@ -36,8 +46,33 @@ final class EmployeeDepartureService
         return $started;
     }
 
-    public function processDue(DateTimeInterface $now): int
+    public function hasPendingCycle(int $cycleId): bool
     {
+        if ($cycleId <= 0) {
+            return false;
+        }
+        $departureCode = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? "('departure:' || es.id)"
+            : "CONCAT('departure:', es.id)";
+        $stmt = $this->db->prepare(
+            "SELECT 1 FROM employee_state es
+              WHERE es.last_morale_cycle_id=?
+                AND es.relation_status NOT IN ('inactive','leaving')
+                AND NOT EXISTS (
+                    SELECT 1 FROM employee_cycle_department_claims c
+                     WHERE c.cycle_id=? AND c.player_id=es.player_id
+                       AND c.department_code={$departureCode}
+                       AND c.completed_at IS NOT NULL
+                )
+              LIMIT 1"
+        );
+        $stmt->execute([$cycleId, $cycleId]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+    public function processDue(DateTimeInterface $now, int $limit = 100): int
+    {
+        $limit = max(1, min(1000, $limit));
         $deadline = DateTimeImmutable::createFromInterface($now)
             ->modify('-' . $this->config->getInt('leave_notice_hours') . ' hours')
             ->format('Y-m-d H:i:s');
@@ -45,7 +80,7 @@ final class EmployeeDepartureService
             "SELECT id, player_id, source_type, source_id
                FROM employee_state
               WHERE relation_status='leaving' AND leaving_at IS NOT NULL AND leaving_at<=?
-              ORDER BY id"
+              ORDER BY id LIMIT " . $limit
         );
         $stmt->execute([$deadline]);
         $completed = 0;
@@ -65,7 +100,8 @@ final class EmployeeDepartureService
             $this->db->beginTransaction();
         }
         try {
-            if (!$this->claim($cycleId, (int)$state['player_id'], 'departure:' . (int)$state['id'])) {
+            if ($cycleId > 0
+                && !$this->claim($cycleId, (int)$state['player_id'], 'departure:' . (int)$state['id'])) {
                 if ($ownTransaction) {
                     $this->db->commit();
                 }
@@ -120,7 +156,9 @@ final class EmployeeDepartureService
                     'notice_hours' => $this->config->getInt('leave_notice_hours'),
                 ], 'employee-leaving:' . (int)$current['id']);
             }
-            $this->completeClaim($cycleId, (int)$current['player_id'], 'departure:' . (int)$current['id']);
+            if ($cycleId > 0) {
+                $this->completeClaim($cycleId, (int)$current['player_id'], 'departure:' . (int)$current['id']);
+            }
             if ($ownTransaction) {
                 $this->db->commit();
             }
@@ -217,7 +255,16 @@ final class EmployeeDepartureService
             : 'INSERT IGNORE INTO employee_cycle_department_claims (cycle_id, player_id, department_code) VALUES (?, ?, ?)';
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$cycleId, $playerId, $code]);
-        return $stmt->rowCount() === 1;
+        if ($stmt->rowCount() === 1) {
+            return true;
+        }
+        $suffix = $driver === 'mysql' ? ' FOR UPDATE' : '';
+        $existing = $this->db->prepare(
+            "SELECT completed_at FROM employee_cycle_department_claims
+              WHERE cycle_id=? AND player_id=? AND department_code=? LIMIT 1{$suffix}"
+        );
+        $existing->execute([$cycleId, $playerId, $code]);
+        return $existing->fetchColumn() === null;
     }
 
     private function completeClaim(int $cycleId, int $playerId, string $code): void

@@ -34,4 +34,25 @@ final class AdminHRQueryServiceTest extends SqliteIntegrationTestCase
         self::assertSame('Jan Nowak', $visible['rows'][0]['employee_name']);
         self::assertSame(0, $hidden['total']);
     }
+
+    public function testDialoguePaginationRunsInDatabase(): void
+    {
+        $db = $this->createSqlitePdo();
+        $service = new AdminHRQueryService($db);
+        $insert = $db->prepare(
+            "INSERT INTO employee_dialogue_templates
+                (context_key, tone, text_pl, text_en, weight, is_active)
+             VALUES ('accepted', 'calm', ?, ?, 1, 1)"
+        );
+        for ($index = 1; $index <= 65; $index++) {
+            $insert->execute(['PL ' . $index, 'EN ' . $index]);
+        }
+
+        $page = $service->dialogues(['context_key'=>'accepted'], 2);
+
+        self::assertSame(65, $page['total']);
+        self::assertSame(3, $page['pages']);
+        self::assertSame(2, $page['page']);
+        self::assertCount(30, $page['rows']);
+    }
 }

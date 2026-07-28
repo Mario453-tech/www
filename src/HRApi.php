@@ -434,7 +434,6 @@ try {
             respondJson(['success' => true, 'message' => t('hr.msg_bonus_granted')]);
         case 'get_headhunter_status':
             $hh = new HeadhunterService($playerId);
-            $hh->processReady();
             echo json_encode([
                 'success' => true,
                 'active' => $hh->getActiveSearch(),
@@ -447,10 +446,14 @@ try {
             $candidateId = (int)($_POST['candidate_id'] ?? 0);
             $offeredSalary = (float)($_POST['offered_salary'] ?? 0);
             $signingBonus = (float)($_POST['signing_bonus'] ?? 0);
+            $token = trim((string)($_POST['idempotency_token'] ?? ''));
             if (!$candidateId || $offeredSalary <= 0) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_offer_data'));
             }
-            echo json_encode($hh->makeOffer($candidateId, $offeredSalary, $signingBonus));
+            if ($token === '') {
+                throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
+            }
+            echo json_encode($hh->makeOffer($candidateId, $offeredSalary, $signingBonus, $token));
             break;
 
         case 'hire_headhunter_candidate':
@@ -458,10 +461,14 @@ try {
             $candidateId = (int)($_POST['candidate_id'] ?? 0);
             $offeredSalary = (float)($_POST['offered_salary'] ?? ($_POST['salary'] ?? 0));
             $signingBonus = (float)($_POST['signing_bonus'] ?? 0);
+            $token = trim((string)($_POST['idempotency_token'] ?? ''));
             if (!$candidateId || $offeredSalary <= 0) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_offer_data'));
             }
-            echo json_encode($hh->makeOffer($candidateId, $offeredSalary, $signingBonus));
+            if ($token === '') {
+                throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
+            }
+            echo json_encode($hh->makeOffer($candidateId, $offeredSalary, $signingBonus, $token));
             break;
 
         case 'make_headhunter_offer':
@@ -469,10 +476,14 @@ try {
             $candId = (int)($_POST['candidate_id'] ?? 0);
             $salary = (float)($_POST['salary'] ?? 0);
             $bonus = (float)($_POST['signing_bonus'] ?? 0);
+            $token = trim((string)($_POST['idempotency_token'] ?? ''));
             if (!$candId || !$salary) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_offer_data'));
             }
-            echo json_encode($hh->makeOffer($candId, $salary, $bonus));
+            if ($token === '') {
+                throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
+            }
+            echo json_encode($hh->makeOffer($candId, $salary, $bonus, $token));
             break;
 
         default:

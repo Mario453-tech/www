@@ -23,12 +23,13 @@ final class EmployeeStrikeService
     }
 
     /** @return array{raise_requests_expired:int,negotiations_expired:int,departures_completed:int} */
-    public function processDeadlines(DateTimeInterface $now): array
+    public function processDeadlines(DateTimeInterface $now, int $limit = 100): array
     {
+        $limit = max(1, min(1000, $limit));
         return [
-            'raise_requests_expired' => $this->expireRaiseRequests($now),
-            'negotiations_expired' => $this->expireNegotiations($now),
-            'departures_completed' => (new EmployeeDepartureService($this->db))->processDue($now),
+            'raise_requests_expired' => $this->expireRaiseRequests($now, $limit),
+            'negotiations_expired' => $this->expireNegotiations($now, $limit),
+            'departures_completed' => (new EmployeeDepartureService($this->db))->processDue($now, $limit),
         ];
     }
 
@@ -61,30 +62,38 @@ final class EmployeeStrikeService
     }
 
     /** @return array<string,int> */
-    public function processCycleEscalations(DateTimeInterface $now, int $cycleId): array
+    public function processCycleEscalations(DateTimeInterface $now, int $cycleId, int $limit = 100): array
     {
+        $limit = max(1, min(1000, $limit));
         $stats = [
             'raise_requests'=>0,
             'threats_started'=>0,
             'strikes_started'=>0,
             'threats_closed'=>0,
             'departures'=>0,
+            'complete'=>0,
         ];
-        if ($this->withCycleClaim($cycleId, 0, 'raise_requests', function () use ($now, &$stats): void {
-            $stats['raise_requests'] = $this->createRaiseRequests($now);
-        })) {
-            // Claim completion is handled in withCycleClaim.
-            // Zakonczenie claimu obsluguje withCycleClaim.
-        }
-        $stmt = $this->db->query(
+        $stats['raise_requests'] = $this->createRaiseRequests($now, $limit);
+        $departmentSql =
             "SELECT player_id, department_code,
                     AVG(morale) AS avg_morale, AVG(strike_support) AS avg_support,
                     AVG(workload) AS avg_workload,
                     SUM(CASE WHEN relation_status IN ('dispute','strike_threat') THEN 1 ELSE 0 END) AS disputes
-               FROM employee_state
-              WHERE relation_status NOT IN ('inactive','leaving')
-              GROUP BY player_id, department_code"
-        );
+               FROM employee_state es
+              WHERE relation_status NOT IN ('inactive','leaving')";
+        $params = [];
+        if ($cycleId > 0) {
+            $departmentSql .= "
+                AND NOT EXISTS (
+                    SELECT 1 FROM employee_cycle_department_claims c
+                     WHERE c.cycle_id=? AND c.player_id=es.player_id
+                       AND c.department_code=es.department_code AND c.completed_at IS NOT NULL
+                )";
+            $params[] = $cycleId;
+        }
+        $departmentSql .= ' GROUP BY player_id, department_code ORDER BY player_id, department_code LIMIT ' . $limit;
+        $stmt = $this->db->prepare($departmentSql);
+        $stmt->execute($params);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $department) {
             $this->withCycleClaim(
                 $cycleId,
@@ -95,19 +104,23 @@ final class EmployeeStrikeService
                 }
             );
         }
-        $this->withCycleClaim($cycleId, 0, 'departures', function () use ($cycleId, $now, &$stats): void {
-            $stats['departures'] = (new EmployeeDepartureService($this->db))->processCycle($cycleId, $now);
-        });
+        $departures = new EmployeeDepartureService($this->db);
+        $stats['departures'] = $departures->processCycle($cycleId, $now, $limit);
+        $stats['complete'] = !$this->hasPendingRaiseRequests($now)
+            && !$this->hasPendingDepartments($cycleId)
+            && !$departures->hasPendingCycle($cycleId)
+            ? 1 : 0;
         return $stats;
     }
 
-    private function expireNegotiations(DateTimeInterface $now): int
+    private function expireNegotiations(DateTimeInterface $now, int $limit): int
     {
         $stmt = $this->db->prepare(
             "SELECT n.id, n.player_id, n.strike_id
                FROM employee_strike_negotiations n
                JOIN employee_strikes s ON s.id=n.strike_id AND s.player_id=n.player_id
-              WHERE n.status='open' AND n.round_deadline_at < ? AND s.open_key IS NOT NULL"
+              WHERE n.status='open' AND n.round_deadline_at < ? AND s.open_key IS NOT NULL
+              ORDER BY n.round_deadline_at, n.id LIMIT " . $limit
         );
         $stmt->execute([$now->format('Y-m-d H:i:s')]);
         $expired = 0;
@@ -469,11 +482,12 @@ final class EmployeeStrikeService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function expireRaiseRequests(DateTimeInterface $now): int
+    private function expireRaiseRequests(DateTimeInterface $now, int $limit): int
     {
         $stmt = $this->db->prepare(
             "SELECT id, player_id, source_type, source_id FROM employee_raise_requests
-              WHERE status IN ('open','postponed') AND deadline_at < ?"
+              WHERE status IN ('open','postponed') AND deadline_at < ?
+              ORDER BY deadline_at, id LIMIT " . $limit
         );
         $stmt->execute([$now->format('Y-m-d H:i:s')]);
         $expired = 0;
@@ -483,7 +497,7 @@ final class EmployeeStrikeService
         return $expired;
     }
 
-    private function createRaiseRequests(DateTimeInterface $now): int
+    private function createRaiseRequests(DateTimeInterface $now, int $limit): int
     {
         $stmt = $this->db->prepare(
             "SELECT es.*,
@@ -502,7 +516,8 @@ final class EmployeeStrikeService
                      WHERE rr.player_id=es.player_id AND rr.source_type=es.source_type
                        AND rr.source_id=es.source_id AND rr.status IN ('open','postponed')
                 )
-                AND (es.last_raise_request_at IS NULL OR es.last_raise_request_at < ?)"
+                AND (es.last_raise_request_at IS NULL OR es.last_raise_request_at < ?)
+              ORDER BY es.id LIMIT " . $limit
         );
         $cooldown = $now->getTimestamp() - $this->config->getInt('raise_cooldown_hours') * 3600;
         $stmt->execute([date('Y-m-d H:i:s', $cooldown)]);
@@ -550,6 +565,52 @@ final class EmployeeStrikeService
             $created++;
         }
         return $created;
+    }
+
+    private function hasPendingRaiseRequests(DateTimeInterface $now): bool
+    {
+        $stmt = $this->db->prepare(
+            "SELECT 1
+               FROM employee_state es
+               LEFT JOIN technical_staff ts
+                 ON es.source_type='technical_staff' AND ts.id=es.source_id AND ts.player_id=es.player_id
+               LEFT JOIN board_members bm
+                 ON es.source_type='board_member' AND bm.id=es.source_id AND bm.player_id=es.player_id
+              WHERE es.relation_status='raise_requested'
+                AND COALESCE(ts.salary, bm.salary) IS NOT NULL
+                AND ((es.source_type='technical_staff' AND ts.status IN ('active','busy'))
+                  OR (es.source_type='board_member' AND bm.status='active'))
+                AND NOT EXISTS (
+                    SELECT 1 FROM employee_raise_requests rr
+                     WHERE rr.player_id=es.player_id AND rr.source_type=es.source_type
+                       AND rr.source_id=es.source_id AND rr.status IN ('open','postponed')
+                )
+                AND (es.last_raise_request_at IS NULL OR es.last_raise_request_at < ?)
+              LIMIT 1"
+        );
+        $cooldown = $now->getTimestamp() - $this->config->getInt('raise_cooldown_hours') * 3600;
+        $stmt->execute([date('Y-m-d H:i:s', $cooldown)]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+    private function hasPendingDepartments(int $cycleId): bool
+    {
+        if ($cycleId <= 0) {
+            return false;
+        }
+        $stmt = $this->db->prepare(
+            "SELECT 1
+               FROM employee_state es
+              WHERE es.relation_status NOT IN ('inactive','leaving')
+                AND NOT EXISTS (
+                    SELECT 1 FROM employee_cycle_department_claims c
+                     WHERE c.cycle_id=? AND c.player_id=es.player_id
+                       AND c.department_code=es.department_code AND c.completed_at IS NOT NULL
+                )
+              LIMIT 1"
+        );
+        $stmt->execute([$cycleId]);
+        return (bool)$stmt->fetchColumn();
     }
 
     /**
@@ -696,10 +757,19 @@ final class EmployeeStrikeService
             $claim = $this->db->prepare($sql);
             $claim->execute([$cycleId, $playerId, $department]);
             if ($claim->rowCount() !== 1) {
-                if ($ownTransaction) {
-                    $this->db->commit();
+                $suffix = $driver === 'mysql' ? ' FOR UPDATE' : '';
+                $existing = $this->db->prepare(
+                    "SELECT completed_at FROM employee_cycle_department_claims
+                      WHERE cycle_id=? AND player_id=? AND department_code=? LIMIT 1{$suffix}"
+                );
+                $existing->execute([$cycleId, $playerId, $department]);
+                $completedAt = $existing->fetchColumn();
+                if ($completedAt !== false && $completedAt !== null) {
+                    if ($ownTransaction) {
+                        $this->db->commit();
+                    }
+                    return false;
                 }
-                return false;
             }
             $callback();
             $this->db->prepare(

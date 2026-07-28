@@ -404,7 +404,18 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame($first->cycleId, $second->cycleId);
         $this->assertSame(1, $second->processed);
         $this->assertSame(0, $second->remaining);
-        $this->assertTrue($second->cycleCompleted);
+        $this->assertFalse($second->cycleCompleted);
+
+        $third = new EmployeeMoraleSection(
+            $this->db,
+            new DateTimeImmutable('2026-07-22 12:00:00'),
+            3,
+            1
+        );
+        $third->run();
+
+        $this->assertSame($first->cycleId, $third->cycleId);
+        $this->assertTrue($third->cycleCompleted);
         $this->assertSame(2, $this->countRows('employee_state'));
     }
 
