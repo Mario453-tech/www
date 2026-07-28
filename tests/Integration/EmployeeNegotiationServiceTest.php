@@ -197,10 +197,13 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
             'negotiation_offer_weight' => 10,
             'negotiation_raise_max' => 30,
             'settlement_morale_gain' => 12,
+            'feature_strike_effects' => true,
         ]);
         $this->seedPlayer(1, 200000.0, 0.0);
         $this->seedActiveTechnicalStrike();
         $service = new EmployeeNegotiationService($this->db);
+        $effects = new StrikeEffectService($this->db, $this->config);
+        $this->assertArrayHasKey('technical', $effects->forPlayer(1));
 
         $first = $service->submitOffer(1, 1, 30.0, 10000.0, 'same-offer-token', new DateTimeImmutable('2026-07-22 10:00:00'));
         $second = $service->submitOffer(1, 1, 30.0, 10000.0, 'same-offer-token', new DateTimeImmutable('2026-07-22 10:01:00'));
@@ -219,6 +222,10 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(1, $this->countRows('bank_transactions'));
         $this->assertSame('resolved', $this->strikeStatus(1));
         $this->assertSame('normal', $this->relationStatus(1));
+        $this->assertArrayNotHasKey(
+            'technical',
+            (new StrikeEffectService($this->db, $this->config))->forPlayer(1)
+        );
     }
 
     public function testZeroStrikeOfferIsRejectedBeforeRoundInsert(): void

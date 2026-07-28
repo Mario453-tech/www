@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
+require_once dirname(__DIR__) . '/HR/StrikeEffectService.php';
+
 /**
  * LegalSection - etap 4+P2a: tick rozpatrujacy wnioski o zezwolenia (wiercenie + huby).
  * LegalSection - stage 4+P2a: tick processing permit applications (drilling + hubs).
@@ -22,6 +25,7 @@ class LegalSection
 
     private PDO      $db;
     private DateTime $now;
+    private readonly StrikeEffectService $strikeEffects;
 
     /** @var array<int,string> Cache nazw regionów w obrębie jednego ticku. */
     private array $regionNames = [];
@@ -30,6 +34,10 @@ class LegalSection
     {
         $this->db  = $db;
         $this->now = $now;
+        $this->strikeEffects = new StrikeEffectService(
+            $db,
+            new EmployeeSystemConfigService($db)
+        );
     }
 
     public function run(): void
@@ -134,6 +142,12 @@ class LegalSection
         $noDecRisk   = (float)$app['no_decision_risk_pct'];
         $refusRisk   = (float)$app['refusal_risk_pct'];
         $delayRisk   = (float)$app['delay_risk_pct'];
+        [$noDecRisk, $refusRisk, $delayRisk] = $this->applyLegalStrikeRisks(
+            $playerId,
+            $noDecRisk,
+            $refusRisk,
+            $delayRisk
+        );
         $delayMin    = (int)$app['delay_min_minutes'];
         $delayMax    = (int)$app['delay_max_minutes'];
         $cooldownMin = (int)$app['refusal_cooldown_minutes'];
@@ -313,6 +327,12 @@ class LegalSection
         $noDecRisk   = (float)$app['no_decision_risk_pct'];
         $refusRisk   = (float)$app['refusal_risk_pct'];
         $delayRisk   = (float)$app['delay_risk_pct'];
+        [$noDecRisk, $refusRisk, $delayRisk] = $this->applyLegalStrikeRisks(
+            $playerId,
+            $noDecRisk,
+            $refusRisk,
+            $delayRisk
+        );
         $delayMin    = (int)$app['delay_min_minutes'];
         $delayMax    = (int)$app['delay_max_minutes'];
         $cooldownMin = (int)$app['refusal_cooldown_minutes'];
@@ -387,6 +407,12 @@ class LegalSection
         $noDecRisk  = (float)$app['no_decision_risk_pct'];
         $refusRisk  = (float)$app['refusal_risk_pct'];
         $delayRisk  = (float)$app['delay_risk_pct'];
+        [$noDecRisk, $refusRisk, $delayRisk] = $this->applyLegalStrikeRisks(
+            $playerId,
+            $noDecRisk,
+            $refusRisk,
+            $delayRisk
+        );
         $delayMin   = (int)$app['delay_min_minutes'];
         $delayMax   = (int)$app['delay_max_minutes'];
         $cooldownMin = (int)$app['refusal_cooldown_minutes'];
@@ -416,6 +442,29 @@ class LegalSection
         }
 
         $this->applyGranted($appId, $playerId, $regionId, $nowStr, $riskLevel);
+    }
+
+    /**
+     * Applies legal strike effectiveness only to refusal and deadline-related outcomes.
+     * Stosuje skutecznosc strajku legal tylko do odmowy i ryzyk terminowych.
+     *
+     * @return array{0:float,1:float,2:float}
+     */
+    private function applyLegalStrikeRisks(
+        int $playerId,
+        float $noDecisionRisk,
+        float $refusalRisk,
+        float $delayRisk
+    ): array {
+        $effects = $this->strikeEffects->forPlayer($playerId)['legal'] ?? [];
+        $deadlineMultiplier = max(1.0, (float)($effects['deadline_risk_mult'] ?? 1.0));
+        $effectiveness = max(0.10, min(1.0, (float)($effects['effectiveness_mult'] ?? 1.0)));
+
+        return [
+            min(100.0, $noDecisionRisk * $deadlineMultiplier),
+            min(100.0, $refusalRisk / $effectiveness),
+            min(100.0, $delayRisk * $deadlineMultiplier),
+        ];
     }
 
     private function applyGranted(int $appId, int $playerId, int $regionId, string $nowStr, string $riskLevel): void

@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-07-28 - Domknięcie systemu pracowników i HR
+
+- API HR wymaga dostępu do działu, rozdziela akcje GET/POST i chroni mutacje przez CSRF.
+- Deadline'y żądań i negocjacji są atomowe, izolowane przez `player_id` oraz idempotentne per gracz, strajk i token.
+- Tick pracowników działa partiami, zapisuje claimy eskalacji, pełne statystyki cyklu i obsługuje odejście po trzech cyklach wysokiego ryzyka.
+- `StrikeEffectService` zasila logistykę, transport drogowy, technikę, rekrutację, HR, legal, finanse i B2B. Efekty dynamiczne znikają po ugodzie, a rozpoczęte operacje zachowują snapshot.
+- Panel gracza i admina udostępnia pełne widoki pracowników, morale, podwyżek, konfliktów, dialogów, ustawień i historii.
+- Schemat pracowników ma wersję 6. Migrację legacy uruchamia `tools/migrate_employee_system.php` w trybie dry-run, apply i ponownego dry-run; flagi `feature_threats`, `feature_strikes` i `feature_strike_effects` nie są włączane automatycznie.
+- Zachowano zmianę `c10fe17`; kolejne pakiety wdrożono w commitach `362cb24`, `e997679`, `7d94865`, `d153fb4`, `bc06c80`, `4d9effb` i `d73a08e`.
+
 ### 2026-07-28 - Logistyka: Etap 10, cienki kontroler strony
 
 - `public/logistics.php` został skrócony z 880 linii do cienkiego entrypointu odpowiedzialnego za autoryzację, uruchomienie kontrolera i renderowanie wspólnej powłoki gry.

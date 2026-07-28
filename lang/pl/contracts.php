@@ -242,4 +242,5 @@ return [
     'contracts.b2b.log_detail.admin_unflagged' => 'Ręczna kontrola została zakończona, a oznaczenie usunięte.',
     'contracts.b2b.log_detail.expired' => 'Zlecenie wygasło bez realizacji. Kupujący odzyskał :refund.',
     'contracts.b2b.log_detail.default' => 'Zapisano zmianę przy ofercie #:offer.',
+    'contracts.b2b.coordinator_strike_warning' => 'Strajk logistyki wstrzymał premię koordynatora dostaw.',
 ];

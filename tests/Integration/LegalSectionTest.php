@@ -80,6 +80,23 @@ final class LegalSectionTest extends SqliteIntegrationTestCase
         $this->assertSame(0, $section->decided);
     }
 
+    public function testLegalStrikeAdjustsOnlyRefusalAndDeadlineRisks(): void
+    {
+        $config = new EmployeeSystemConfigService($this->db);
+        $config->save(['feature_strike_effects' => true]);
+        $this->db->exec("INSERT INTO employee_strikes
+            (player_id, department_code, status, open_key, support_pct)
+            VALUES (77, 'legal', 'active', '77:legal', 80)");
+        $section = new LegalSection($this->db, new DateTime());
+        $method = new ReflectionMethod($section, 'applyLegalStrikeRisks');
+
+        $risks = $method->invoke($section, 77, 10.0, 20.0, 30.0);
+
+        $this->assertSame(11.5, round((float)$risks[0], 4));
+        $this->assertSame(23.5294, round((float)$risks[1], 4));
+        $this->assertSame(34.5, round((float)$risks[2], 4));
+    }
+
     // ---------------------------------------------------------- delayed outcome
 
     public function testRunAppliesDelayWhenConfigForces100PctDelay(): void

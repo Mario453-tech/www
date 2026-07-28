@@ -12,6 +12,7 @@ try {
 require_once __DIR__ . '/../src/init.php';
 require_once __DIR__ . '/../src/ContractService.php';
 require_once __DIR__ . '/../src/B2BContractService.php';
+require_once __DIR__ . '/../src/Employee/EmployeeRoleEffectService.php';
 
 Auth::requireLogin();
 
@@ -175,6 +176,16 @@ $b2bHistoryPage = $pageNum('b2b_history_page');
 $b2bLogsPage = $pageNum('b2b_logs_page');
 $b2bConfig = $b2bService->getConfig();
 $b2bReputationScore = $b2bService->getPlayerReputationScore($playerId);
+$b2bCoordinatorEffects = [];
+foreach ((new EmployeeRoleEffectService($db))->calculatePlayerEffects(
+    $playerId,
+    ['b2b_delivery_coordinator' => ['b2b']]
+) as $roleEffect) {
+    foreach ((array)($roleEffect['effects'] ?? []) as $effectKey => $effect) {
+        $b2bCoordinatorEffects[(string)$effectKey] = (float)($effect['final_value'] ?? 0.0);
+    }
+}
+$b2bCoordinatorContext = $b2bService->coordinatorContext($playerId, $b2bCoordinatorEffects);
 $b2bMarketOffers = $b2bService->listOpenOffers($playerId, $limit, ($b2bMarketPage - 1) * $limit);
 $b2bMarketCount = $b2bService->countOpenOffers($playerId);
 $b2bMyBuyOffers = $b2bService->listMyBuyOffers($playerId, $limit, ($b2bMyPage - 1) * $limit);
@@ -208,6 +219,7 @@ $viewData = compact(
     'success',
     'b2bConfig',
     'b2bReputationScore',
+    'b2bCoordinatorContext',
     'b2bMarketOffers',
     'b2bMarketCount',
     'b2bMarketPage',

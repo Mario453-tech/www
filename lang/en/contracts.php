@@ -203,6 +203,7 @@ return [
     'contracts.b2b.log_detail.admin_unflagged' => 'Manual review was completed and the flag was removed.',
     'contracts.b2b.log_detail.expired' => 'The order expired without fulfilment. Buyer recovered :refund.',
     'contracts.b2b.log_detail.default' => 'A change was recorded for offer #:offer.',
+    'contracts.b2b.coordinator_strike_warning' => 'The logistics strike has suspended the delivery coordinator bonus.',
     'contracts.pagination' => 'Pagination',
     'contracts.prev_page' => 'Previous',
     'contracts.next_page' => 'Next',

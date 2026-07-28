@@ -2641,6 +2641,17 @@ Domknąć atomowe deadline'y i idempotencję Etapów 6-9, następnie podłączy�
 
 ---
 
+## 32.5 Stan końcowy Etapów 6-10 - 2026-07-28
+
+1. **Etap 6 - relacje i morale: [x] wdrożony.** Działa kanoniczny stan, cykle morale, batch, odejścia, pełny panel gracza i panel admina.
+2. **Etap 7 - podwyżki: [x] wdrożony.** Decyzje, deadline'y, odroczenia, negocjacje, powiadomienia i konfiguracja są kompletne.
+3. **Etap 8 - konflikty i strajki: [x] wdrożony.** Atomowe deadline'y, idempotencja, wspólny model efektów oraz konsumenci działowi są podłączeni.
+4. **Etap 9 - modularny tick pracowników: [x] wdrożony.** Cykl ma stan `ready_for_escalation`, trwałe claimy, pełne statystyki i izolację `player_id`.
+5. **Etap 10 - kontroler logistyki: [x] wdrożony.** Entry point, akcje i dane widoku są rozdzielone, a kontrakt widoku chroni test regresyjny.
+6. Schemat pracowników ma wersję 6, migrator wspiera dry-run/apply/ponowienie, a legacy pozostaje tylko do odczytu na okres obserwacji.
+7. Flagi `feature_threats`, `feature_strikes` i `feature_strike_effects` pozostają wyłączone do kontrolowanego rollout'u.
+8. Pozostaje produkcyjny backup i rollout migracji oraz wizualny smoke test na zalogowanej sesji.
+
 ## 33. Aktualny stan wdrożenia po Etapach 6-8, obsadzie logistyki i poprawkach - 2026-07-22
 
 **Status: [~] Częściowo wdrożone. Kanoniczne morale, modularny tick, konflikty, backend negocjacji oraz podstawowy panel negocjacji gracza są wdrożone i sprawdzone pełnymi suite. Panel administracyjny HR i pełne efekty strajków w konsumentach działowych pozostają do wykonania.**

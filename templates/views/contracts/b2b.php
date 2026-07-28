@@ -146,6 +146,11 @@ $b2bPager = static function (string $tab, string $param, int $page, int $count, 
 <?php endif ?>
 
 <?php if (in_array($contractsTab, ['b2b_market', 'b2b_my', 'b2b_history', 'b2b_logs'], true)): ?>
+<?php if (($b2bCoordinatorContext['warning']['code'] ?? null) === 'logistics_strike'): ?>
+<div class="contracts-notice contracts-notice--off">
+    <?= t('contracts.b2b.coordinator_strike_warning') ?>
+</div>
+<?php endif ?>
 <section class="card contracts-b2b-reputation">
     <div class="contracts-b2b-reputation__head">
         <div>

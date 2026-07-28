@@ -107,7 +107,7 @@ class BankNegotiationService
         $this->db = $db ?? Database::getInstance()->getConnection();
     }
 
-    private function financeRoleBonusesActive(int $playerId): bool
+    protected function financeRoleBonusesActive(int $playerId): bool
     {
         $effects = (new StrikeEffectService(
             $this->db,
