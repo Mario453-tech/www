@@ -9,7 +9,6 @@ final class EmployeeLegacyMigrationService
 {
     public function __construct(private readonly PDO $db)
     {
-        EmployeeSystemBootstrap::ensure($db);
     }
 
     /** @return array<string,mixed> */
@@ -18,7 +17,7 @@ final class EmployeeLegacyMigrationService
         if ($playerId !== null && $playerId <= 0) {
             throw new InvalidArgumentException('Player id must be positive.');
         }
-        $stateService = new EmployeeStateService($this->db);
+        $stateService = new EmployeeStateService($this->db, new EmployeeRepository($this->db), false);
         $preflight = $stateService->backfillEmployeeState(false, $playerId);
         if ($preflight['errors'] !== []) {
             throw new RuntimeException('Employee state preflight failed.');

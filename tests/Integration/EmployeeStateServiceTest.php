@@ -152,6 +152,28 @@ final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
         )->fetchColumn());
     }
 
+    public function testLegacyMigratorConstructionDoesNotCreateSchema(): void
+    {
+        $db = $this->createSqlitePdo();
+        $before = (int)$db->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")->fetchColumn();
+
+        new EmployeeLegacyMigrationService($db);
+
+        $after = (int)$db->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")->fetchColumn();
+        $this->assertSame($before, $after);
+    }
+
+    public function testSchemaUpgradePreservesDefaultTechnicalTraits(): void
+    {
+        $this->assertSame(
+            [5, 5, 5],
+            $this->db->query(
+                'SELECT trait_loyalty, trait_corruption_risk, trait_ambition
+                   FROM technical_staff WHERE id=20'
+            )->fetch(PDO::FETCH_NUM)
+        );
+    }
+
     public function testLegacyMigratorPreservesMixedCanonicalState(): void
     {
         $existing = $this->service->ensureState(

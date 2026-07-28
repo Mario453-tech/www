@@ -70,7 +70,7 @@ final class EmployeeSystemBootstrap
         [
             'code' => 'hub_operator',
             'name_key' => 'hr.spec.hub_operator',
-            'department' => 'logistics',
+            'department' => 'technical',
             'rarity' => 'common',
             'salary_min' => 8200.0,
             'salary_max' => 11500.0,
@@ -392,7 +392,7 @@ final class EmployeeSystemBootstrap
         );
 
         $updateDept = $db->prepare("UPDATE hr_specializations SET department = ? WHERE code = ? AND department <> ?");
-        $updateDept->execute(['logistics', 'hub_operator', 'logistics']);
+        $updateDept->execute(['technical', 'hub_operator', 'technical']);
 
         foreach (self::HR_SPECIALIZATION_SEED as $row) {
             $name = self::langValue('hr', $row['name_key']);

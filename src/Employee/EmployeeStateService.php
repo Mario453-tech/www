@@ -5,9 +5,15 @@ final class EmployeeStateService
 {
     private readonly EmployeeRepository $employees;
 
-    public function __construct(private readonly PDO $db, ?EmployeeRepository $employees = null)
+    public function __construct(
+        private readonly PDO $db,
+        ?EmployeeRepository $employees = null,
+        bool $ensureSchema = true
+    )
     {
-        EmployeeSystemBootstrap::ensure($db);
+        if ($ensureSchema) {
+            EmployeeSystemBootstrap::ensure($db);
+        }
         $this->employees = $employees ?? new EmployeeRepository($db);
     }
 

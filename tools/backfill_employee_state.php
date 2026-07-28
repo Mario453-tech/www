@@ -11,6 +11,7 @@ require_once $root . '/src/Database.php';
 require_once $root . '/src/GameLog.php';
 require_once $root . '/src/Employee/EmployeeRef.php';
 require_once $root . '/src/Employee/EmployeeRepository.php';
+require_once $root . '/src/Employee/EmployeeSystemSchema.php';
 require_once $root . '/src/EmployeeSystemBootstrap.php';
 require_once $root . '/src/Employee/EmployeeStateService.php';
 
@@ -30,8 +31,12 @@ foreach ($arguments as $argument) {
 
 try {
     $db = Database::getInstance()->getConnection();
-    EmployeeSystemBootstrap::ensure($db);
-    $service = new EmployeeStateService($db, new EmployeeRepository($db));
+    if ($apply) {
+        EmployeeSystemBootstrap::ensure($db);
+    } elseif (EmployeeSystemSchema::currentVersion($db) < EmployeeSystemSchema::VERSION) {
+        throw new RuntimeException('Employee schema is not ready. Run migrate_employee_system.php --apply-schema first.');
+    }
+    $service = new EmployeeStateService($db, new EmployeeRepository($db), false);
     $result = $service->backfillEmployeeState($apply, $playerId);
 
     fwrite(STDOUT, json_encode(

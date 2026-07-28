@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EmployeeSystemSchema
 {
-    public const VERSION = 6;
+    public const VERSION = 7;
 
     public static function ensure(PDO $db): void
     {
@@ -19,8 +19,10 @@ final class EmployeeSystemSchema
         self::ensureEventColumns($db, $driver);
         self::ensureRaiseRequestColumns($db, $driver);
         self::ensureRoundTokenIndex($db, $driver);
+        self::ensureNegotiationAttemptColumns($db, $driver);
+        self::ensureHeadhunterOfferColumns($db, $driver);
         self::ensureTechnicalStaffTraitColumns($db, $driver);
-        self::verify($db);
+        self::verify($db, $driver);
         self::storeVersion($db, $driver);
     }
 
@@ -88,6 +90,7 @@ final class EmployeeSystemSchema
             "CREATE TABLE IF NOT EXISTS employee_strike_negotiations (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, strike_id BIGINT UNSIGNED NOT NULL,
                 player_id INT UNSIGNED NOT NULL, status VARCHAR(32) NOT NULL DEFAULT 'open',
+                attempt_no INT UNSIGNED NOT NULL DEFAULT 1,
                 current_round INT UNSIGNED NOT NULL DEFAULT 1, max_rounds INT UNSIGNED NOT NULL DEFAULT 3,
                 round_deadline_at DATETIME NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -95,14 +98,15 @@ final class EmployeeSystemSchema
             ){$s}",
             "CREATE TABLE IF NOT EXISTS employee_strike_negotiation_rounds (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, negotiation_id BIGINT UNSIGNED NOT NULL,
-                strike_id BIGINT UNSIGNED NOT NULL, player_id INT UNSIGNED NOT NULL, round_no INT UNSIGNED NOT NULL,
+                strike_id BIGINT UNSIGNED NOT NULL, player_id INT UNSIGNED NOT NULL,
+                attempt_no INT UNSIGNED NOT NULL DEFAULT 1, round_no INT UNSIGNED NOT NULL,
                 idempotency_token VARCHAR(128) NOT NULL, raise_pct DECIMAL(7,4) NOT NULL DEFAULT 0,
                 bonus_per_member DECIMAL(14,2) NOT NULL DEFAULT 0, counter_raise_pct DECIMAL(7,4) NULL,
                 counter_bonus_per_member DECIMAL(14,2) NULL, random_roll DECIMAL(7,4) NOT NULL,
                 formula_json TEXT NOT NULL, dialogue_template_id BIGINT UNSIGNED NULL, result VARCHAR(32) NOT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY uq_employee_round_token (player_id, strike_id, idempotency_token),
-                UNIQUE KEY uq_employee_round_no (negotiation_id, round_no)
+                UNIQUE KEY uq_employee_round_no (negotiation_id, attempt_no, round_no)
             ){$s}",
             "CREATE TABLE IF NOT EXISTS employee_dialogue_templates (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, seed_key VARCHAR(160) NULL,
@@ -135,6 +139,14 @@ final class EmployeeSystemSchema
                 UNIQUE KEY uq_employee_cycle_department (cycle_id, player_id, department_code),
                 KEY idx_employee_cycle_claim (cycle_id, completed_at)
             ){$s}",
+            "CREATE TABLE IF NOT EXISTS employee_action_receipts (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                player_id INT UNSIGNED NOT NULL, action_key VARCHAR(80) NOT NULL,
+                idempotency_token VARCHAR(128) NOT NULL, request_hash CHAR(64) NOT NULL,
+                response_json TEXT NULL, completed_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_employee_action_receipt (player_id, action_key, idempotency_token)
+            ){$s}",
         ];
     }
 
@@ -159,11 +171,12 @@ final class EmployeeSystemSchema
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_strike_member ON employee_strike_members (strike_id, source_type, source_id)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_strike_negotiation ON employee_strike_negotiations (strike_id)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_round_token ON employee_strike_negotiation_rounds (player_id, strike_id, idempotency_token)',
-            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_round_no ON employee_strike_negotiation_rounds (negotiation_id, round_no)',
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_round_no ON employee_strike_negotiation_rounds (negotiation_id, attempt_no, round_no)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_dialogue_seed ON employee_dialogue_templates (seed_key)',
             'CREATE INDEX IF NOT EXISTS idx_employee_dialogue_lookup ON employee_dialogue_templates (context_key, department_code, round_no, tone, is_active)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_module_cycle ON employee_module_cycles (module_key, cycle_key)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_cycle_department ON employee_cycle_department_claims (cycle_id, player_id, department_code)',
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_action_receipt ON employee_action_receipts (player_id, action_key, idempotency_token)',
         ]);
     }
 
@@ -236,6 +249,57 @@ final class EmployeeSystemSchema
         );
     }
 
+    private static function ensureNegotiationAttemptColumns(PDO $db, string $driver): void
+    {
+        $negotiationColumns = self::columns($db, $driver, 'employee_strike_negotiations');
+        if (!isset($negotiationColumns['attempt_no'])) {
+            $db->exec('ALTER TABLE employee_strike_negotiations ADD COLUMN attempt_no INT NOT NULL DEFAULT 1');
+        }
+        $roundColumns = self::columns($db, $driver, 'employee_strike_negotiation_rounds');
+        if (!isset($roundColumns['attempt_no'])) {
+            $db->exec('ALTER TABLE employee_strike_negotiation_rounds ADD COLUMN attempt_no INT NOT NULL DEFAULT 1');
+        }
+
+        if ($driver === 'sqlite') {
+            $db->exec('DROP INDEX IF EXISTS uq_employee_round_no');
+            $db->exec(
+                'CREATE UNIQUE INDEX uq_employee_round_no
+                   ON employee_strike_negotiation_rounds (negotiation_id, attempt_no, round_no)'
+            );
+            return;
+        }
+
+        $columns = self::indexColumns($db, 'employee_strike_negotiation_rounds', 'uq_employee_round_no');
+        if ($columns === ['negotiation_id', 'attempt_no', 'round_no']) {
+            return;
+        }
+        if ($columns !== []) {
+            $db->exec('ALTER TABLE employee_strike_negotiation_rounds DROP INDEX uq_employee_round_no');
+        }
+        $db->exec(
+            'ALTER TABLE employee_strike_negotiation_rounds
+             ADD UNIQUE KEY uq_employee_round_no (negotiation_id, attempt_no, round_no)'
+        );
+    }
+
+    private static function ensureHeadhunterOfferColumns(PDO $db, string $driver): void
+    {
+        if (!self::tableExists($db, $driver, 'headhunter_candidates')) {
+            return;
+        }
+        $columns = self::columns($db, $driver, 'headhunter_candidates');
+        $definitions = [
+            'offer_round' => 'INT NOT NULL DEFAULT 0',
+            'counter_salary' => $driver === 'sqlite' ? 'REAL NULL' : 'DECIMAL(14,2) NULL',
+            'counter_bonus' => $driver === 'sqlite' ? 'REAL NULL' : 'DECIMAL(14,2) NULL',
+        ];
+        foreach ($definitions as $name => $definition) {
+            if (!isset($columns[$name])) {
+                $db->exec("ALTER TABLE headhunter_candidates ADD COLUMN {$name} {$definition}");
+            }
+        }
+    }
+
     private static function ensureRaiseRequestColumns(PDO $db, string $driver): void
     {
         $columns = self::columns($db, $driver, 'employee_raise_requests');
@@ -277,21 +341,6 @@ final class EmployeeSystemSchema
                 $db->exec("ALTER TABLE technical_staff ADD COLUMN {$name} {$definition}");
             }
         }
-
-        if ($driver === 'sqlite') {
-            $db->exec("UPDATE technical_staff
-                          SET trait_loyalty = MAX(1, MIN(10, 4 + (ABS(id * 17 + player_id * 13) % 5))),
-                              trait_corruption_risk = MAX(1, MIN(10, 2 + (ABS(id * 11 + player_id * 7) % 5))),
-                              trait_ambition = MAX(1, MIN(10, 3 + (ABS(id * 19 + player_id * 5) % 6)))
-                        WHERE trait_loyalty = 5 AND trait_corruption_risk = 5 AND trait_ambition = 5");
-            return;
-        }
-
-        $db->exec("UPDATE technical_staff
-                      SET trait_loyalty = LEAST(10, GREATEST(1, 4 + (ABS(id * 17 + player_id * 13) MOD 5))),
-                          trait_corruption_risk = LEAST(10, GREATEST(1, 2 + (ABS(id * 11 + player_id * 7) MOD 5))),
-                          trait_ambition = LEAST(10, GREATEST(1, 3 + (ABS(id * 19 + player_id * 5) MOD 6)))
-                    WHERE trait_loyalty = 5 AND trait_corruption_risk = 5 AND trait_ambition = 5");
     }
 
     private static function tableExists(PDO $db, string $driver, string $table): bool
@@ -319,12 +368,54 @@ final class EmployeeSystemSchema
         return array_fill_keys(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN)), true);
     }
 
-    private static function verify(PDO $db): void
+    /** @return list<string> */
+    private static function indexColumns(PDO $db, string $table, string $index): array
     {
-        foreach (['employee_events', 'employee_raise_requests', 'employee_strikes', 'employee_strike_members',
-            'employee_strike_negotiations', 'employee_strike_negotiation_rounds', 'employee_dialogue_templates',
-            'employee_module_cycles', 'employee_system_config', 'employee_cycle_department_claims'] as $table) {
+        $stmt = $db->prepare(
+            'SELECT COLUMN_NAME FROM information_schema.STATISTICS
+              WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND INDEX_NAME=?
+              ORDER BY SEQ_IN_INDEX'
+        );
+        $stmt->execute([$table, $index]);
+        return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    private static function verify(PDO $db, string $driver): void
+    {
+        $required = [
+            'employee_events' => ['id', 'player_id', 'dedupe_key', 'is_read', 'notified_at'],
+            'employee_raise_requests' => ['id', 'player_id', 'source_type', 'source_id', 'status'],
+            'employee_strikes' => ['id', 'player_id', 'department_code', 'status', 'open_key'],
+            'employee_strike_members' => ['strike_id', 'player_id', 'source_type', 'source_id', 'left_at'],
+            'employee_strike_negotiations' => ['id', 'strike_id', 'player_id', 'attempt_no', 'current_round'],
+            'employee_strike_negotiation_rounds' => ['negotiation_id', 'attempt_no', 'round_no', 'idempotency_token'],
+            'employee_dialogue_templates' => ['id', 'context_key', 'text_pl', 'text_en'],
+            'employee_module_cycles' => ['id', 'module_key', 'cycle_key', 'status'],
+            'employee_system_config' => ['config_key', 'config_value'],
+            'employee_cycle_department_claims' => ['cycle_id', 'player_id', 'department_code', 'completed_at'],
+            'employee_action_receipts' => ['player_id', 'action_key', 'idempotency_token', 'request_hash'],
+        ];
+        foreach ($required as $table => $columnNames) {
             $db->query("SELECT 1 FROM {$table} WHERE 1 = 0");
+            $columns = self::columns($db, $driver, $table);
+            foreach ($columnNames as $columnName) {
+                if (!isset($columns[$columnName])) {
+                    throw new RuntimeException("Employee schema verification failed: {$table}.{$columnName} is missing.");
+                }
+            }
+        }
+
+        if ($driver === 'mysql') {
+            $indexes = [
+                ['employee_strike_negotiation_rounds', 'uq_employee_round_no', ['negotiation_id', 'attempt_no', 'round_no']],
+                ['employee_strike_negotiation_rounds', 'uq_employee_round_token', ['player_id', 'strike_id', 'idempotency_token']],
+                ['employee_action_receipts', 'uq_employee_action_receipt', ['player_id', 'action_key', 'idempotency_token']],
+            ];
+            foreach ($indexes as [$table, $index, $expected]) {
+                if (self::indexColumns($db, $table, $index) !== $expected) {
+                    throw new RuntimeException("Employee schema verification failed: {$index} is invalid.");
+                }
+            }
         }
     }
 
