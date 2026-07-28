@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
 require_once __DIR__ . '/EmployeeRaiseRequest/DecisionTrait.php';
 require_once __DIR__ . '/EmployeeRaiseRequest/NegotiationTrait.php';
 require_once __DIR__ . '/EmployeeRaiseRequest/PersistenceTrait.php';
+require_once __DIR__ . '/EmployeeNegotiationEffectivenessService.php';
 
 final class EmployeeRaiseRequestService
 {

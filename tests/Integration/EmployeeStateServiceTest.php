@@ -5,6 +5,7 @@ require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeRef.php';
 require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeRepository.php';
 require_once dirname(__DIR__, 2) . '/src/EmployeeSystemBootstrap.php';
 require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeStateService.php';
+require_once dirname(__DIR__, 2) . '/src/HR/EmployeeLegacyMigrationService.php';
 require_once __DIR__ . '/SqliteIntegrationTestCase.php';
 
 final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
@@ -116,6 +117,39 @@ final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
         $this->assertCount(1, $risk);
         $this->assertSame(1, $risk[0]['player_id']);
         $this->assertSame(21, $risk[0]['source_id']);
+    }
+
+    public function testLegacyMigratorSupportsDryRunApplyRetryAndPlayerFilter(): void
+    {
+        $this->db->exec('CREATE TABLE staff_strikes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            technical_staff_id INTEGER NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NULL
+        )');
+        $this->db->exec("INSERT INTO staff_strikes (technical_staff_id, start_time, end_time)
+            VALUES (20, '2026-07-20 10:00:00', NULL)");
+        $migration = new EmployeeLegacyMigrationService($this->db);
+
+        $dryRun = $migration->run(false, 1);
+        $this->assertFalse($dryRun['applied']);
+        $this->assertSame(2, $dryRun['state_backfill']['would_create']);
+        $this->assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM employee_state')->fetchColumn());
+
+        $applied = $migration->run(true, 1);
+        $repeated = $migration->run(true, 1);
+        $otherPlayer = $migration->run(false, 2);
+
+        $this->assertSame(2, $applied['state_backfill']['created']);
+        $this->assertSame(1, $applied['active_strike_groups']);
+        $this->assertSame(1, $applied['strikes_created']);
+        $this->assertSame(0, $repeated['state_backfill']['created']);
+        $this->assertSame(0, $repeated['strikes_created']);
+        $this->assertSame(1, $otherPlayer['state_backfill']['would_create']);
+        $this->assertSame(0, $otherPlayer['active_strike_groups']);
+        $this->assertSame(1, (int)$this->db->query(
+            'SELECT COUNT(*) FROM employee_strikes WHERE player_id=1'
+        )->fetchColumn());
     }
 
     private function createSourceSchema(): void

@@ -7,6 +7,7 @@ require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeSystemConfigService.ph
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeDialogueTemplateService.php';
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeNegotiationService.php';
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeBonusService.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/EmployeeMoraleSection.php';
 
 final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
 {
@@ -40,6 +41,12 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
 
         $stateColumns = $legacy->query('PRAGMA table_info(employee_state)')->fetchAll(PDO::FETCH_COLUMN, 1);
         $this->assertContains('loyalty_modifier', $stateColumns);
+        $this->assertContains('leave_risk_streak', $stateColumns);
+        $this->assertContains('leaving_at', $stateColumns);
+        $this->assertContains('inactive_at', $stateColumns);
+        $eventColumns = $legacy->query('PRAGMA table_info(employee_events)')->fetchAll(PDO::FETCH_COLUMN, 1);
+        $this->assertContains('is_read', $eventColumns);
+        $this->assertContains('notified_at', $eventColumns);
         $columns = $legacy->query('PRAGMA table_info(employee_raise_requests)')->fetchAll(PDO::FETCH_COLUMN, 1);
         $this->assertContains('current_salary', $columns);
         $this->assertContains('requested_salary', $columns);
@@ -263,6 +270,125 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('expired', (string)$this->db->query('SELECT status FROM employee_strike_negotiations WHERE id=1')->fetchColumn());
         $this->assertSame('active', $this->strikeStatus(1));
         $this->assertSame('2026-07-22 16:00:00', (string)$this->db->query('SELECT negotiation_cooldown_until FROM employee_strikes WHERE id=1')->fetchColumn());
+    }
+
+    public function testSubmittingAfterDeadlineCommitsExpiryBeforeReturningError(): void
+    {
+        $this->config->save(['feature_negotiations' => true, 'negotiation_cooldown_hours' => 6]);
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $this->db->exec("UPDATE employee_strikes SET status='negotiating' WHERE id=1");
+        $this->db->exec("INSERT INTO employee_strike_negotiations
+            (id, strike_id, player_id, status, current_round, max_rounds, round_deadline_at)
+            VALUES (1, 1, 1, 'open', 1, 3, '2026-07-22 09:00:00')");
+
+        try {
+            (new EmployeeNegotiationService($this->db))->submitOffer(
+                1,
+                1,
+                10.0,
+                0.0,
+                'expired-round',
+                new DateTimeImmutable('2026-07-22 10:00:00')
+            );
+            $this->fail('An expired negotiation must reject the offer.');
+        } catch (RuntimeException) {
+            $this->assertSame(
+                'expired',
+                (string)$this->db->query('SELECT status FROM employee_strike_negotiations WHERE id=1')->fetchColumn()
+            );
+            $this->assertSame('active', $this->strikeStatus(1));
+            $this->assertSame(
+                '2026-07-22 16:00:00',
+                (string)$this->db->query('SELECT negotiation_cooldown_until FROM employee_strikes WHERE id=1')->fetchColumn()
+            );
+        }
+    }
+
+    public function testHighLeaveRiskNeedsThreeCyclesAndNoticePeriod(): void
+    {
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status)
+            VALUES (1, 1, 15000, 'active')");
+        $this->db->exec("INSERT INTO employee_state
+            (id, player_id, source_type, source_id, department_code, morale, leave_risk,
+             leave_risk_streak, relation_status, last_morale_cycle_id)
+            VALUES (1, 1, 'technical_staff', 1, 'technical', 20, 95, 0, 'normal', 101)");
+        $service = new EmployeeDepartureService($this->db);
+        $now = new DateTimeImmutable('2026-07-22 10:00:00');
+
+        $this->assertSame(0, $service->processCycle(101, $now));
+        $this->db->exec('UPDATE employee_state SET last_morale_cycle_id=102');
+        $this->assertSame(0, $service->processCycle(102, $now->modify('+1 day')));
+        $this->db->exec('UPDATE employee_state SET last_morale_cycle_id=103');
+        $this->assertSame(1, $service->processCycle(103, $now->modify('+2 days')));
+        $this->assertSame('leaving', $this->relationStatus(1));
+        $this->assertSame(0, $service->processDue($now->modify('+3 days')));
+        $this->assertSame(1, $service->processDue($now->modify('+5 days')));
+        $this->assertSame('inactive', $this->relationStatus(1));
+        $this->assertSame(
+            'fired',
+            (string)$this->db->query('SELECT status FROM technical_staff WHERE id=1 AND player_id=1')->fetchColumn()
+        );
+        $this->assertSame(1, (int)$this->db->query(
+            "SELECT COUNT(*) FROM employee_events WHERE event_key='employee_departed'"
+        )->fetchColumn());
+    }
+
+    public function testMoraleCycleProcessesOnlyConfiguredBatchBeforeEscalation(): void
+    {
+        $this->seedPlayer(1, 100000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status)
+            VALUES (1, 1, 15000, 'active'), (2, 1, 16000, 'active')");
+
+        $first = new EmployeeMoraleSection(
+            $this->db,
+            new DateTimeImmutable('2026-07-22 10:00:00'),
+            1,
+            1
+        );
+        $first->run();
+
+        $this->assertSame(1, $first->processed);
+        $this->assertSame(1, $first->remaining);
+        $this->assertFalse($first->cycleCompleted);
+
+        $second = new EmployeeMoraleSection(
+            $this->db,
+            new DateTimeImmutable('2026-07-22 11:00:00'),
+            2,
+            1
+        );
+        $second->run();
+
+        $this->assertSame($first->cycleId, $second->cycleId);
+        $this->assertSame(1, $second->processed);
+        $this->assertSame(0, $second->remaining);
+        $this->assertTrue($second->cycleCompleted);
+        $this->assertSame(2, $this->countRows('employee_state'));
+    }
+
+    public function testStrikeEffectsAreBatchLoadedOnlyForActiveAndNegotiatingStatuses(): void
+    {
+        $this->config->save(['feature_strike_effects' => true]);
+        $this->seedPlayer(1, 100000.0, 0.0);
+        $this->seedPlayer(2, 100000.0, 0.0);
+        $this->db->exec("INSERT INTO employee_strikes
+            (id, player_id, department_code, status, open_key, support_pct)
+            VALUES
+            (1, 1, 'logistics', 'active', '1:logistics', 80),
+            (2, 1, 'hr', 'negotiating', '1:hr', 75),
+            (3, 2, 'technical', 'threat', '2:technical', 60),
+            (4, 2, 'legal', 'active', '2:legal', 85)");
+        $service = new StrikeEffectService($this->db, $this->config);
+
+        $effects = $service->forPlayers([1, 2]);
+
+        $this->assertSame(0.70, $effects[1]['logistics']['capacity_cap']);
+        $this->assertSame(0.80, $effects[1]['hr']['negotiation_effectiveness_mult']);
+        $this->assertArrayNotHasKey('roles_active', $effects[1]['logistics']);
+        $this->assertArrayNotHasKey('technical', $effects[2]);
+        $this->assertSame(0.85, $effects[2]['legal']['effectiveness_mult']);
     }
 
     public function testHrEffectivenessUsesOnlyNegotiatingPlayersTeam(): void

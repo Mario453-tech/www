@@ -18,7 +18,21 @@ final class EmployeeLegacyMigrationService
         if ($playerId !== null && $playerId <= 0) {
             throw new InvalidArgumentException('Player id must be positive.');
         }
-        $stateReport = (new EmployeeStateService($this->db))->backfillEmployeeState($apply, $playerId);
+        $stateService = new EmployeeStateService($this->db);
+        $preflight = $stateService->backfillEmployeeState(false, $playerId);
+        if ($preflight['errors'] !== []) {
+            throw new RuntimeException('Employee state preflight failed.');
+        }
+        $stateReport = $apply ? $stateService->backfillEmployeeState(true, $playerId) : $preflight;
+        if ($stateReport['errors'] !== []) {
+            throw new RuntimeException('Employee state backfill failed.');
+        }
+        if ($apply) {
+            $verification = $stateService->backfillEmployeeState(false, $playerId);
+            if ($verification['errors'] !== [] || (int)$verification['would_create'] !== 0) {
+                throw new RuntimeException('Canonical employee state verification failed after backfill.');
+            }
+        }
         $report = [
             'applied'=>$apply,
             'player_id'=>$playerId,

@@ -61,24 +61,7 @@ trait EmployeeRaiseRequestNegotiationTrait
 
     private function hrEffectiveness(int $playerId): float
     {
-        $stmt = $this->db->prepare(
-            "SELECT AVG(
-                    ((COALESCE(bm.skill_negotiation,5) + COALESCE(bm.skill_organization,5)) * 5)
-                    * (0.5 + COALESCE(es.morale,65) / 200)
-                )
-               FROM board_members bm
-               JOIN board_roles br ON br.id=bm.role_id AND br.code='hr'
-          LEFT JOIN employee_state es
-                 ON es.player_id=bm.player_id
-                AND es.source_type='board_member'
-                AND es.source_id=bm.id
-              WHERE bm.player_id=? AND bm.status='active'"
-        );
-        $stmt->execute([$playerId]);
-        $value = $stmt->fetchColumn();
-        return $value !== false && $value !== null
-            ? max(0.0, min(100.0, (float)$value))
-            : 0.0;
+        return (new EmployeeNegotiationEffectivenessService($this->db))->calculate($playerId, true);
     }
 
     private function hasSalaryNegotiator(int $playerId): bool

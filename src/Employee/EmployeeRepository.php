@@ -39,6 +39,110 @@ final class EmployeeRepository
         );
     }
 
+    /**
+     * Load only source records referenced by the current processing batch.
+     * Laduje tylko rekordy zrodlowe wskazane przez biezaca partie przetwarzania.
+     *
+     * @param list<EmployeeRef> $refs
+     * @return list<array<string,mixed>>
+     */
+    public function listByRefs(array $refs): array
+    {
+        $boardRefs = [];
+        $technicalRefs = [];
+        foreach ($refs as $ref) {
+            if (!$ref instanceof EmployeeRef) {
+                throw new InvalidArgumentException('Employee reference list contains an invalid value.');
+            }
+            if ($ref->sourceType === EmployeeRef::SOURCE_BOARD_MEMBER) {
+                $boardRefs[] = $ref;
+            } else {
+                $technicalRefs[] = $ref;
+            }
+        }
+
+        return $this->mergeAndSort(
+            $boardRefs === [] ? [] : $this->fetchBoardMembers(null, null, false, null, $boardRefs),
+            $technicalRefs === [] ? [] : $this->fetchTechnicalStaff(null, null, false, null, $technicalRefs)
+        );
+    }
+
+    /**
+     * Find source records which still need a canonical state, bounded for tick batching.
+     * Wyszukuje rekordy zrodlowe bez stanu kanonicznego, z limitem partii ticka.
+     *
+     * @return list<EmployeeRef>
+     */
+    public function listMissingStateRefs(int $limit): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT source_type, source_id, player_id
+               FROM (
+                    SELECT 'board_member' AS source_type, bm.id AS source_id, bm.player_id
+                      FROM board_members bm
+                     WHERE bm.player_id IS NOT NULL
+                       AND NOT EXISTS (
+                            SELECT 1 FROM employee_source_links esl
+                             WHERE esl.player_id=bm.player_id AND esl.board_member_id=bm.id
+                       )
+                       AND NOT EXISTS (
+                            SELECT 1 FROM employee_state es
+                             WHERE es.player_id=bm.player_id
+                               AND es.source_type='board_member'
+                               AND es.source_id=bm.id
+                       )
+                    UNION ALL
+                    SELECT 'technical_staff' AS source_type, ts.id AS source_id, ts.player_id
+                      FROM technical_staff ts
+                     WHERE NOT EXISTS (
+                            SELECT 1 FROM employee_state es
+                             WHERE es.player_id=ts.player_id
+                               AND es.source_type='technical_staff'
+                               AND es.source_id=ts.id
+                       )
+               ) missing
+              ORDER BY player_id, source_type, source_id
+              LIMIT :limit"
+        );
+        $stmt->bindValue(':limit', max(1, $limit), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return array_map(
+            static fn(array $row): EmployeeRef => new EmployeeRef(
+                (string)$row['source_type'],
+                (int)$row['source_id'],
+                (int)$row['player_id']
+            ),
+            $stmt->fetchAll(PDO::FETCH_ASSOC)
+        );
+    }
+
+    public function countMissingStateRefs(): int
+    {
+        $stmt = $this->db->query(
+            "SELECT
+                (SELECT COUNT(*) FROM board_members bm
+                  WHERE bm.player_id IS NOT NULL
+                    AND NOT EXISTS (
+                        SELECT 1 FROM employee_source_links esl
+                         WHERE esl.player_id=bm.player_id AND esl.board_member_id=bm.id
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM employee_state es
+                         WHERE es.player_id=bm.player_id
+                           AND es.source_type='board_member' AND es.source_id=bm.id
+                    ))
+                +
+                (SELECT COUNT(*) FROM technical_staff ts
+                  WHERE NOT EXISTS (
+                        SELECT 1 FROM employee_state es
+                         WHERE es.player_id=ts.player_id
+                           AND es.source_type='technical_staff' AND es.source_id=ts.id
+                  ))"
+        );
+        return (int)$stmt->fetchColumn();
+    }
+
     public function resolveDepartment(EmployeeRef $ref): ?string
     {
         $employee = $this->find($ref);
@@ -221,12 +325,16 @@ final class EmployeeRepository
         );
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * @param list<EmployeeRef>|null $refs
+     * @return list<array<string,mixed>>
+     */
     private function fetchBoardMembers(
         ?int $playerId,
         ?string $departmentCode,
         bool $activeOnly,
-        ?int $sourceId = null
+        ?int $sourceId = null,
+        ?array $refs = null
     ): array {
         $where = ['bm.player_id IS NOT NULL'];
         $params = [];
@@ -245,6 +353,15 @@ final class EmployeeRepository
         if ($sourceId !== null) {
             $where[] = 'bm.id = :source_id';
             $params['source_id'] = $sourceId;
+        }
+        if ($refs !== null) {
+            $pairs = [];
+            foreach ($refs as $index => $ref) {
+                $pairs[] = "(bm.player_id = :ref_player_{$index} AND bm.id = :ref_source_{$index})";
+                $params["ref_player_{$index}"] = $ref->playerId;
+                $params["ref_source_{$index}"] = $ref->sourceId;
+            }
+            $where[] = '(' . implode(' OR ', $pairs) . ')';
         }
 
         $sql = "SELECT bm.id AS source_id,
@@ -286,12 +403,16 @@ final class EmployeeRepository
         return $rows;
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * @param list<EmployeeRef>|null $refs
+     * @return list<array<string,mixed>>
+     */
     private function fetchTechnicalStaff(
         ?int $playerId,
         ?string $departmentCode,
         bool $activeOnly,
-        ?int $sourceId = null
+        ?int $sourceId = null,
+        ?array $refs = null
     ): array {
         if ($departmentCode !== null && $departmentCode !== '' && $departmentCode !== 'technical') {
             return [];
@@ -309,6 +430,15 @@ final class EmployeeRepository
         if ($sourceId !== null) {
             $where[] = 'ts.id = :source_id';
             $params['source_id'] = $sourceId;
+        }
+        if ($refs !== null) {
+            $pairs = [];
+            foreach ($refs as $index => $ref) {
+                $pairs[] = "(ts.player_id = :ref_player_{$index} AND ts.id = :ref_source_{$index})";
+                $params["ref_player_{$index}"] = $ref->playerId;
+                $params["ref_source_{$index}"] = $ref->sourceId;
+            }
+            $where[] = '(' . implode(' OR ', $pairs) . ')';
         }
 
         $sql = "SELECT ts.id AS source_id,

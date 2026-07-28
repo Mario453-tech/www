@@ -6,11 +6,13 @@ require_once dirname(__DIR__) . '/Employee/EmployeeRef.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeRepository.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeStateService.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/StrikeEffectService.php';
 
 final class MoraleService
 {
     private readonly EmployeeStateService $states;
     private readonly EmployeeSystemConfigService $config;
+    private readonly StrikeEffectService $strikeEffects;
 
     public function __construct(private readonly PDO $db)
     {
@@ -18,6 +20,7 @@ final class MoraleService
         $repository = new EmployeeRepository($db);
         $this->states = new EmployeeStateService($db, $repository);
         $this->config = new EmployeeSystemConfigService($db);
+        $this->strikeEffects = new StrikeEffectService($db, $this->config);
     }
 
     public static function modifyMorale(int $staffId, int $amount, string $reason): void
@@ -191,6 +194,10 @@ final class MoraleService
         $stress = max(0.0, min(10.0, (float)(($employee['skills']['stress'] ?? 5))));
         $penaltyReduction = (($loyalty + $stress) / 20.0) * 0.30;
         $negative = min(0.0, $workloadAdjustment) + $financeAdjustment + $relationAdjustment;
+        if ((string)($employee['department_code'] ?? '') !== 'hr') {
+            $effects = $this->strikeEffects->forPlayer((int)($employee['player_id'] ?? 0));
+            $negative *= (float)($effects['hr']['negative_morale_mult'] ?? 1.0);
+        }
         $target = 65.0 + $salaryAdjustment + max(0.0, $workloadAdjustment) + $negative * (1.0 - $penaltyReduction);
         $current = (float)$state['morale'];
         $delta = max(-$this->config->getFloat('morale_cycle_down_max'), min($this->config->getFloat('morale_cycle_up_max'), $target - $current));

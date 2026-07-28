@@ -42,6 +42,11 @@ final class EmployeesModule implements TickModule
             'already_processed'=>$section->alreadyProcessed,
             'remaining'=>$section->remaining,
             'cycle_completed'=>$section->cycleCompleted,
+            'morale_changed'=>$section->moraleChanged,
+            'raise_requests'=>$section->raiseRequests,
+            'threats_started'=>$section->threatsStarted,
+            'strikes_started'=>$section->strikesStarted,
+            'departures'=>$section->departures,
         ];
     }
 

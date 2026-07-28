@@ -16,6 +16,11 @@ final class EmployeeMoraleSection
     public int $failed = 0;
     public int $alreadyProcessed = 0;
     public int $remaining = 0;
+    public int $moraleChanged = 0;
+    public int $raiseRequests = 0;
+    public int $threatsStarted = 0;
+    public int $strikesStarted = 0;
+    public int $departures = 0;
     public bool $cycleCompleted = false;
     private bool $unitOwnTransaction = false;
 
@@ -30,24 +35,50 @@ final class EmployeeMoraleSection
 
     public function run(): void
     {
+        $strikeService = new EmployeeStrikeService($this->db);
+        $strikeService->processDeadlines($this->now);
         $this->cycleId = $this->openOrCreateCycle();
         $repository = new EmployeeRepository($this->db);
         $stateService = new EmployeeStateService($this->db, $repository);
-        $employees = $repository->listAll(null, false);
-        $entries = [];
+        $states = $this->loadStateBatch();
+        $missingSlots = max(0, max(1, $this->limit) - count($states));
+        if ($missingSlots > 0) {
+            $missingRefs = $repository->listMissingStateRefs($missingSlots);
+            $missingEmployees = $repository->listByRefs($missingRefs);
+            $entries = [];
+            foreach ($missingEmployees as $employee) {
+                $entries[] = [
+                    'ref' => new EmployeeRef(
+                        (string)$employee['source_type'],
+                        (int)$employee['source_id'],
+                        (int)$employee['player_id']
+                    ),
+                    'employee' => $employee,
+                ];
+            }
+            $stateService->ensureStatesForRecords($entries);
+            $states = $this->loadStateBatch();
+        }
+
+        $refs = [];
+        foreach ($states as $state) {
+            $refs[] = new EmployeeRef(
+                (string)$state['source_type'],
+                (int)$state['source_id'],
+                (int)$state['player_id']
+            );
+        }
+        $employees = $repository->listByRefs($refs);
         $employeeMap = [];
         foreach ($employees as $employee) {
             $ref = new EmployeeRef((string)$employee['source_type'], (int)$employee['source_id'], (int)$employee['player_id']);
-            $entries[] = ['ref'=>$ref, 'employee'=>$employee];
             $employeeMap[$ref->playerId . ':' . $ref->key()] = $employee;
         }
-        $stateService->ensureStatesForRecords($entries);
 
-        $states = $this->loadStateBatch();
         $this->examined = count($states);
-        $allocations = $this->loadAllocations();
-        $trainingCounts = $this->loadTrainingCounts();
-        $financialStates = $this->loadFinancialStates();
+        $allocations = $this->loadAllocations($refs);
+        $trainingCounts = $this->loadTrainingCounts($refs);
+        $financialStates = $this->loadFinancialStates($refs);
         $morale = new MoraleService($this->db);
 
         foreach ($states as $state) {
@@ -75,6 +106,10 @@ final class EmployeeMoraleSection
                         $this->now,
                         $metrics
                     );
+                    if ($updated && round((float)$state['morale'], 2) !== round((float)$metrics['morale'], 2)) {
+                        $this->recordMoraleChange($state, (float)$state['morale'], (float)$metrics['morale']);
+                        $this->moraleChanged++;
+                    }
                 }
                 if ($updated) {
                     $this->processed++;
@@ -101,9 +136,13 @@ final class EmployeeMoraleSection
               WHERE last_morale_cycle_id IS NULL OR last_morale_cycle_id <> ?'
         );
         $stmt->execute([$this->cycleId]);
-        $this->remaining = (int)$stmt->fetchColumn();
+        $this->remaining = (int)$stmt->fetchColumn() + $repository->countMissingStateRefs();
         if ($this->remaining === 0) {
-            (new EmployeeStrikeService($this->db))->processEscalations($this->now);
+            $this->markCycleReady();
+            $escalation = $strikeService->processCycleEscalations($this->now, $this->cycleId);
+            $this->raiseRequests = (int)($escalation['raise_requests'] ?? 0);
+            $this->threatsStarted = (int)($escalation['threats_started'] ?? 0);
+            $this->strikesStarted = (int)($escalation['strikes_started'] ?? 0);
         }
         $this->updateCycle();
     }
@@ -112,7 +151,7 @@ final class EmployeeMoraleSection
     {
         $stmt = $this->db->prepare(
             "SELECT id FROM employee_module_cycles
-              WHERE module_key = 'employees' AND status = 'open'
+              WHERE module_key = 'employees' AND status IN ('open','ready_for_escalation')
               ORDER BY id ASC LIMIT 1"
         );
         $stmt->execute();
@@ -155,14 +194,23 @@ final class EmployeeMoraleSection
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** @return array<string,float> */
-    private function loadAllocations(): array
+    /** @param list<EmployeeRef> $refs
+     * @return array<string,float>
+     */
+    private function loadAllocations(array $refs): array
     {
-        $rows = $this->db->query(
+        if ($refs === []) {
+            return [];
+        }
+        [$where, $params] = $this->refPredicate($refs, 'employee_assignments');
+        $stmt = $this->db->prepare(
             "SELECT player_id, source_type, source_id, SUM(allocation_pct) AS allocation
                FROM employee_assignments WHERE status='active'
+                AND ({$where})
               GROUP BY player_id, source_type, source_id"
-        )->fetchAll(PDO::FETCH_ASSOC);
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $result = [];
         foreach ($rows as $row) {
             $key = (int)$row['player_id'] . ':' . (string)$row['source_type'] . ':' . (int)$row['source_id'];
@@ -171,15 +219,32 @@ final class EmployeeMoraleSection
         return $result;
     }
 
-    /** @return array<string,int> */
-    private function loadTrainingCounts(): array
+    /** @param list<EmployeeRef> $refs
+     * @return array<string,int>
+     */
+    private function loadTrainingCounts(array $refs): array
     {
+        if ($refs === []) {
+            return [];
+        }
+        $conditions = [];
+        $params = [];
+        foreach ($refs as $index => $ref) {
+            $staffType = $ref->sourceType === EmployeeRef::SOURCE_BOARD_MEMBER ? 'board' : 'technical';
+            $conditions[] = "(player_id=:player_{$index} AND staff_type=:type_{$index} AND staff_id=:source_{$index})";
+            $params["player_{$index}"] = $ref->playerId;
+            $params["type_{$index}"] = $staffType;
+            $params["source_{$index}"] = $ref->sourceId;
+        }
         try {
-            $rows = $this->db->query(
+            $stmt = $this->db->prepare(
                 "SELECT player_id, staff_type, staff_id, COUNT(*) AS completed
                    FROM staff_trainings WHERE status='passed'
+                    AND (" . implode(' OR ', $conditions) . ")
                   GROUP BY player_id, staff_type, staff_id"
-            )->fetchAll(PDO::FETCH_ASSOC);
+            );
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable) {
             return [];
         }
@@ -191,11 +256,23 @@ final class EmployeeMoraleSection
         return $result;
     }
 
-    /** @return array<int,string> */
-    private function loadFinancialStates(): array
+    /** @param list<EmployeeRef> $refs
+     * @return array<int,string>
+     */
+    private function loadFinancialStates(array $refs): array
     {
+        $playerIds = array_values(array_unique(array_map(
+            static fn(EmployeeRef $ref): int => $ref->playerId,
+            $refs
+        )));
+        if ($playerIds === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
         try {
-            $rows = $this->db->query('SELECT id, financial_state FROM players')->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $this->db->prepare("SELECT id, financial_state FROM players WHERE id IN ({$placeholders})");
+            $stmt->execute($playerIds);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable) {
             return [];
         }
@@ -239,6 +316,60 @@ final class EmployeeMoraleSection
             'processed'=>$this->processed, 'errors'=>$this->failed,
             'status'=>$this->cycleCompleted ? 'completed' : 'open',
             'complete'=>$this->cycleCompleted ? 1 : 0, 'id'=>$this->cycleId,
+        ]);
+    }
+
+    private function markCycleReady(): void
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE employee_module_cycles
+                SET status='ready_for_escalation', updated_at=CURRENT_TIMESTAMP
+              WHERE id=? AND module_key='employees' AND status IN ('open','ready_for_escalation')"
+        );
+        $stmt->execute([$this->cycleId]);
+    }
+
+    /**
+     * @param list<EmployeeRef> $refs
+     * @return array{0:string,1:array<string,int|string>}
+     */
+    private function refPredicate(array $refs, string $table): array
+    {
+        $conditions = [];
+        $params = [];
+        foreach ($refs as $index => $ref) {
+            $conditions[] = "({$table}.player_id=:player_{$index}
+                AND {$table}.source_type=:type_{$index}
+                AND {$table}.source_id=:source_{$index})";
+            $params["player_{$index}"] = $ref->playerId;
+            $params["type_{$index}"] = $ref->sourceType;
+            $params["source_{$index}"] = $ref->sourceId;
+        }
+        return [implode(' OR ', $conditions), $params];
+    }
+
+    /** @param array<string,mixed> $state */
+    private function recordMoraleChange(array $state, float $before, float $after): void
+    {
+        $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $sql = $driver === 'sqlite'
+            ? "INSERT OR IGNORE INTO employee_events
+                (player_id, source_type, source_id, event_key, title_key, message_key, meta_json, dedupe_key)
+               VALUES (?, ?, ?, 'morale_changed', 'hr.event.morale.title', 'hr.event.morale.message', ?, ?)"
+            : "INSERT IGNORE INTO employee_events
+                (player_id, source_type, source_id, event_key, title_key, message_key, meta_json, dedupe_key)
+               VALUES (?, ?, ?, 'morale_changed', 'hr.event.morale.title', 'hr.event.morale.message', ?, ?)";
+        $this->db->prepare($sql)->execute([
+            (int)$state['player_id'],
+            (string)$state['source_type'],
+            (int)$state['source_id'],
+            json_encode([
+                'before' => round($before, 2),
+                'after' => round($after, 2),
+                'amount' => round($after - $before, 2),
+                'cycle_id' => $this->cycleId,
+            ], JSON_THROW_ON_ERROR),
+            'morale-cycle:' . $this->cycleId . ':' . (int)$state['id'],
         ]);
     }
 
