@@ -2616,20 +2616,20 @@ Nie zmieniaj kilku niezależnych mechanik w jednym commitcie.
 7. Logistyka udostępnia zarządzanie obsadą rurociągów przez modal, CSRF, PRG, jednorazowy flash i potwierdzenie zwolnienia.
 8. Warstwa przypisań ponownie sprawdza player_id, cel, typ i status w finalnym zapisie oraz ma testy blokad i wyścigów MySQL.
 
-### 32.2 Co pozostało do wdrożenia
+### 32.2 Status Etapów 6-10
 
-1. **Etap 6 — relacje i morale:** dodać EmployeeRelationsService, cykliczne zdarzenia morale, obciążenie pracą, ryzyko odejścia oraz widoki gracza i admina.
+1. **Etap 6 — relacje i morale: [~] częściowo wdrożony 2026-07-22.** Kanoniczny stan, cykliczne morale, workload i ryzyko odejścia działają. Pełny proces odejścia oraz komplet widoków gracza i admina pozostają do domknięcia.
 2. **Etap 7 — podwyżki: [x] wdrożony 2026-07-26.** Pełny proces, UI gracza, konfiguracja admina, powiadomienia i testy są zamknięte.
-3. **Etap 8 — konflikty i strajki:** dodać employee_strikes, członków strajku, eskalację konfliktu oraz realne efekty działowe.
-4. **Etap 9 — modularny tick pracowników:** dodać EmployeesModule, rekomendowany interwał, max_items_per_run, statystyki i odporność na błąd pojedynczego pracownika.
-5. **Etap 10 — kontroler logistyki:** wydzielić logikę z dużego public/logistics.php do kontrolera oraz traitów danych i akcji.
+3. **Etap 8 — konflikty i strajki: [~] częściowo wdrożony 2026-07-22.** Konflikty, członkowie strajku, eskalacja i negocjacje istnieją. Pełne efekty działowe i ich konsumenci pozostają do wdrożenia.
+4. **Etap 9 — modularny tick pracowników: [~] częściowo wdrożony 2026-07-22.** `EmployeesModule`, interwał, limit partii i izolacja błędów istnieją. Atomowe deadline'y, pełne statystyki cyklu i trwałe claimy eskalacji pozostają do domknięcia.
+5. **Etap 10 — kontroler logistyki: [x] wdrożony 2026-07-28.** `public/logistics.php` jest cienkim entrypointem, akcje PRG obsługuje `LogisticsPageActionsTrait`, a budowę danych widoku `LogisticsPageViewDataTrait`. Zachowano pełny kontrakt danych oraz wszystkie sekcje widoku.
 6. **Czytelność admin HR:** nazwać sekcje tak, aby laik rozróżniał perki techniczne staff_specializations od stanowisk rekrutacyjnych hr_specializations.
 7. **Weryfikacja produkcji:** uruchomić i sprawdzić migrację hub_operator, jeżeli nie została jeszcze wykonana na serwerze produkcyjnym.
 8. **Kontrola wizualna:** wykonać udokumentowany test desktop/mobile modali obsady hubów i rurociągów, w tym kart nieoperacyjnych.
 
 ### 32.3 Rekomendowany kolejny etap
 
-Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i deterministyczne przeliczanie morale bez podwyżek i strajków. Dopiero po zielonych testach tego fundamentu przejść do Etapu 7, a następnie do eskalacji konfliktów w Etapie 8.
+Domknąć atomowe deadline'y i idempotencję Etapów 6-9, następnie podłączyć efekty strajków do konsumentów działowych. Etap 10 nie wymaga dalszego przenoszenia funkcji; kolejne zmiany logistyki powinny rozwijać kontroler i istniejące traity.
 
 ### 32.4 Ostatnia pełna weryfikacja
 
@@ -2673,6 +2673,11 @@ Kontynuować od **Etapu 6**. Najpierw wdrożyć sam EmployeeRelationsService i d
 4. **Obsada hubów i rurociągów:**
    - Huby i konkretne odcinki rurociągów inbound/outbound korzystają z lokalnych przypisań pracowników, alokacji, skilli i morale.
    - Odczyty oraz finalne zapisy zachowują izolację `player_id`; wynajmowane huby uwzględniają `tenant_player_id`.
+
+5. **Kontroler logistyki (Etap 10, 2026-07-28):**
+   - `public/logistics.php` odpowiada wyłącznie za autoryzację, uruchomienie kontrolera i renderowanie wspólnej powłoki gry.
+   - Akcje obsady hubów i rurociągów są w `LogisticsPageActionsTrait`, a kompletne loadery danych w `LogisticsPageViewDataTrait` i katalogu `LogisticsPage/ViewData/`.
+   - Test kontraktu pilnuje 41 kluczy danych modułu, zachowania wszystkich 19 sekcji i modali oraz braku SQL i logiki domenowej w entrypoincie.
 
 ### 33.2 Weryfikacja automatyczna i statyczna
 

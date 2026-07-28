@@ -1,5 +1,20 @@
 ## Changelog
 
+### 2026-07-28 - Logistyka: Etap 10, cienki kontroler strony
+
+- `public/logistics.php` został skrócony z 880 linii do cienkiego entrypointu odpowiedzialnego za autoryzację, uruchomienie kontrolera i renderowanie wspólnej powłoki gry.
+- Akcje obsady hubów i rurociągów przeniesiono do `LogisticsPageActionsTrait`; zachowano CSRF, PRG, jednorazowy flash, izolację `player_id` i dotychczasowe komunikaty.
+- Budowę danych przeniesiono do `LogisticsPageViewDataTrait` oraz dwóch loaderów w `LogisticsPage/ViewData/` bez zmiany zapytań, kolejności obliczeń, kluczy danych ani sekcji widoku.
+- Dodano `LogisticsPageViewContractTest`, który pilnuje kontraktu danych, kolejności wszystkich sekcji i modali oraz braku SQL i logiki domenowej w publicznym entrypoincie.
+- Refaktoryzacja nie zmienia schematu bazy, migracji pracowników ani flag `feature_threats`, `feature_strikes` i `feature_strike_effects`.
+
+### 2026-07-28 - HR: morale i negocjacje pracownicze (`c10fe17`)
+
+- Naprawiono prezentację poziomu pracowników, walidację realnej oferty strajkowej oraz zachowanie poparcia i morale po słabej ofercie.
+- Komunikaty negocjacji HR są centralne i pozostają widoczne około pięciu sekund; teksty gracza i admina korzystają z tłumaczeń PL/EN.
+- Panel admina udostępnia kontrolowane czasy decyzji HR z allowlistą i walidacją zakresów.
+- Commit nie uruchamia migracji legacy i nie zmienia automatycznie flag `feature_threats`, `feature_strikes` ani `feature_strike_effects`.
+
 ### 2026-07-26 - HR: utwardzenie decyzji o podwyżkach
 
 - Akceptacja starego żądania nie może obniżyć nowszej pensji pracownika, a pracownik na urlopie nie może otrzymać decyzji płacowej.
