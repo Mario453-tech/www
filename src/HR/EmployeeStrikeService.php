@@ -44,6 +44,22 @@ final class EmployeeStrikeService
         ], $now);
     }
 
+    public function expireNegotiation(
+        int $playerId,
+        int $strikeId,
+        int $negotiationId,
+        DateTimeInterface $now
+    ): bool {
+        if ($playerId <= 0 || $strikeId <= 0 || $negotiationId <= 0) {
+            throw new InvalidArgumentException('Negotiation deadline identifiers must be positive.');
+        }
+        return $this->expireNegotiationRecord([
+            'id'=>$negotiationId,
+            'player_id'=>$playerId,
+            'strike_id'=>$strikeId,
+        ], $now);
+    }
+
     /** @return array<string,int> */
     public function processCycleEscalations(DateTimeInterface $now, int $cycleId): array
     {

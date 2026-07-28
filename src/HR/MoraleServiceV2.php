@@ -74,23 +74,38 @@ final class MoraleService
     public function changeMorale(EmployeeRef $ref, float $amount, string $reason): float
     {
         $state = $this->states->ensureState($ref);
-        $newMorale = round(max(0.0, min(100.0, (float)$state['morale'] + $amount)), 2);
-        $actual = round($newMorale - (float)$state['morale'], 2);
-        if ($actual === 0.0) {
-            return $newMorale;
-        }
         $ownTransaction = !$this->db->inTransaction();
         if ($ownTransaction) {
             $this->db->beginTransaction();
         }
         try {
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $lock = $this->db->prepare(
+                "SELECT morale, version FROM employee_state
+                  WHERE id=? AND player_id=? AND source_type=? AND source_id=? LIMIT 1{$suffix}"
+            );
+            $lock->execute([(int)$state['id'], $ref->playerId, $ref->sourceType, $ref->sourceId]);
+            $current = $lock->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($current)) {
+                throw new RuntimeException('Canonical employee state does not exist.');
+            }
+            $newMorale = round(max(0.0, min(100.0, (float)$current['morale'] + $amount)), 2);
+            $actual = round($newMorale - (float)$current['morale'], 2);
+            if ($actual === 0.0) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $newMorale;
+            }
             $stmt = $this->db->prepare(
                 'UPDATE employee_state SET morale=:morale, version=version+1, updated_at=CURRENT_TIMESTAMP
-                  WHERE id=:id AND player_id=:player_id AND source_type=:source_type AND source_id=:source_id'
+                  WHERE id=:id AND player_id=:player_id AND source_type=:source_type
+                    AND source_id=:source_id AND version=:version'
             );
             $stmt->execute([
                 'morale'=>$newMorale, 'id'=>(int)$state['id'], 'player_id'=>$ref->playerId,
                 'source_type'=>$ref->sourceType, 'source_id'=>$ref->sourceId,
+                'version'=>(int)$current['version'],
             ]);
             if ($stmt->rowCount() !== 1) {
                 throw new RuntimeException('Canonical employee morale update did not affect exactly one row.');
@@ -234,7 +249,15 @@ final class MoraleService
     }
 
     /** @param array<string,float|string|int> $metrics */
-    public function persistCycleMetrics(EmployeeRef $ref, int $stateId, int $cycleId, int $runSequence, DateTimeInterface $now, array $metrics): bool
+    public function persistCycleMetrics(
+        EmployeeRef $ref,
+        int $stateId,
+        int $expectedVersion,
+        int $cycleId,
+        int $runSequence,
+        DateTimeInterface $now,
+        array $metrics
+    ): bool
     {
         $stmt = $this->db->prepare(
             'UPDATE employee_state SET expected_salary=:expected_salary, salary_satisfaction=:salary_satisfaction,
@@ -243,6 +266,7 @@ final class MoraleService
                 last_morale_tick_at=:tick_at, last_morale_tick_sequence=:tick_sequence,
                 last_morale_cycle_id=:cycle_id, version=version+1, updated_at=CURRENT_TIMESTAMP
              WHERE id=:id AND player_id=:player_id AND source_type=:source_type AND source_id=:source_id
+               AND version=:expected_version
                AND (last_morale_cycle_id IS NULL OR last_morale_cycle_id <> :cycle_guard)'
         );
         $stmt->execute([
@@ -252,7 +276,7 @@ final class MoraleService
             'low_morale_streak'=>$metrics['low_morale_streak'], 'dispute_ticks'=>$metrics['dispute_ticks'],
             'tick_at'=>$now->format('Y-m-d H:i:s'), 'tick_sequence'=>$runSequence, 'cycle_id'=>$cycleId,
             'id'=>$stateId, 'player_id'=>$ref->playerId, 'source_type'=>$ref->sourceType,
-            'source_id'=>$ref->sourceId, 'cycle_guard'=>$cycleId,
+            'source_id'=>$ref->sourceId, 'expected_version'=>$expectedVersion, 'cycle_guard'=>$cycleId,
         ]);
         return $stmt->rowCount() === 1;
     }

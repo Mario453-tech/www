@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/EmployeeSystemBootstrap.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeRef.php';
 require_once dirname(__DIR__) . '/FinancialTransactionService.php';
 require_once __DIR__ . '/MoraleServiceV2.php';
+require_once __DIR__ . '/EmployeeActionReceiptService.php';
 
 final class EmployeeBonusService
 {
@@ -17,6 +18,7 @@ final class EmployeeBonusService
     public function grantTechnicalBonus(
         int $playerId,
         int $staffId,
+        string $idempotencyToken,
         float $amount = 15000.0,
         float $moraleGain = 15.0
     ): array {
@@ -28,9 +30,23 @@ final class EmployeeBonusService
             $this->db->beginTransaction();
         }
         try {
+            $receipts = new EmployeeActionReceiptService($this->db);
+            $receipt = $receipts->claim($playerId, 'grant_bonus', $idempotencyToken, [
+                'staff_id'=>$staffId,
+                'amount'=>$amount,
+                'morale_gain'=>$moraleGain,
+            ]);
+            if ($receipt['replayed']) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $receipt['response'];
+            }
             $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
             $stmt = $this->db->prepare(
-                "SELECT id FROM technical_staff WHERE id=? AND player_id=? LIMIT 1{$suffix}"
+                "SELECT id FROM technical_staff
+                  WHERE id=? AND player_id=? AND status IN ('active','busy','on_leave')
+                  LIMIT 1{$suffix}"
             );
             $stmt->execute([$staffId, $playerId]);
             if ((int)($stmt->fetchColumn() ?: 0) !== $staffId) {
@@ -45,24 +61,28 @@ final class EmployeeBonusService
                 $staffId
             );
             if (empty($payment['success'])) {
-                if ($ownTransaction && $this->db->inTransaction()) {
-                    $this->db->rollBack();
-                }
-                return [
+                $result = [
                     'success' => false,
                     'amount' => $amount,
                     'error' => (string)($payment['error'] ?? 'payment_failed'),
                 ];
+                $receipts->complete((int)$receipt['id'], $playerId, $result);
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $result;
             }
             $newMorale = (new MoraleService($this->db))->changeMorale(
                 new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $staffId, $playerId),
                 $moraleGain,
                 'bonus.granted'
             );
+            $result = ['success' => true, 'amount' => $amount, 'new_morale' => $newMorale];
+            $receipts->complete((int)$receipt['id'], $playerId, $result);
             if ($ownTransaction) {
                 $this->db->commit();
             }
-            return ['success' => true, 'amount' => $amount, 'new_morale' => $newMorale];
+            return $result;
         } catch (Throwable $exception) {
             if ($ownTransaction && $this->db->inTransaction()) {
                 $this->db->rollBack();

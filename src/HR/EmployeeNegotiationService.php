@@ -119,7 +119,12 @@ final class EmployeeNegotiationService
             }
             if (!empty($negotiation['round_deadline_at'])
                 && strtotime((string)$negotiation['round_deadline_at']) < $now->getTimestamp()) {
-                $this->expireNegotiation($playerId, $strikeId, (int)$negotiation['id'], $now);
+                $this->strikes->expireNegotiation(
+                    $playerId,
+                    $strikeId,
+                    (int)$negotiation['id'],
+                    $now
+                );
                 if ($ownTransaction) {
                     $this->db->commit();
                 }
@@ -151,6 +156,7 @@ final class EmployeeNegotiationService
                 (int)$negotiation['id'],
                 $strikeId,
                 $playerId,
+                (int)$negotiation['attempt_no'],
                 $roundNo,
                 $token,
                 $raisePct,
@@ -303,7 +309,8 @@ final class EmployeeNegotiationService
         $this->db->prepare($sql)->execute([$strikeId, $playerId, $maxRounds, $deadline]);
         $this->db->prepare(
             "UPDATE employee_strike_negotiations
-                SET status='open', current_round=1, max_rounds=?, round_deadline_at=?, updated_at=CURRENT_TIMESTAMP
+                SET status='open', attempt_no=attempt_no+1, current_round=1,
+                    max_rounds=?, round_deadline_at=?, updated_at=CURRENT_TIMESTAMP
               WHERE strike_id=? AND player_id=? AND status IN ('failed','expired')"
         )->execute([$maxRounds, $deadline, $strikeId, $playerId]);
         $this->db->prepare(
@@ -316,11 +323,18 @@ final class EmployeeNegotiationService
     private function members(int $playerId, int $strikeId): array
     {
         $stmt = $this->db->prepare(
-            'SELECT sm.*, es.morale, es.strike_support, es.salary_satisfaction, es.workload
+            "SELECT sm.*, es.morale, es.strike_support, es.salary_satisfaction, es.workload
                FROM employee_strike_members sm
                JOIN employee_state es ON es.player_id=sm.player_id
-                AND es.source_type=sm.source_type AND es.source_id=sm.source_id
-              WHERE sm.player_id=? AND sm.strike_id=? AND sm.left_at IS NULL'
+                 AND es.source_type=sm.source_type AND es.source_id=sm.source_id
+          LEFT JOIN technical_staff ts
+                 ON sm.source_type='technical_staff' AND ts.id=sm.source_id AND ts.player_id=sm.player_id
+          LEFT JOIN board_members bm
+                 ON sm.source_type='board_member' AND bm.id=sm.source_id AND bm.player_id=sm.player_id
+               WHERE sm.player_id=? AND sm.strike_id=? AND sm.left_at IS NULL
+                 AND es.relation_status='on_strike'
+                 AND ((sm.source_type='technical_staff' AND ts.status IN ('active','busy','on_leave'))
+                   OR (sm.source_type='board_member' AND bm.status='active'))"
         );
         $stmt->execute([$playerId, $strikeId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -378,6 +392,7 @@ final class EmployeeNegotiationService
         int $negotiationId,
         int $strikeId,
         int $playerId,
+        int $attemptNo,
         int $roundNo,
         string $token,
         float $raisePct,
@@ -390,13 +405,13 @@ final class EmployeeNegotiationService
     ): void {
         $stmt = $this->db->prepare(
             'INSERT INTO employee_strike_negotiation_rounds
-                (negotiation_id, strike_id, player_id, round_no, idempotency_token, raise_pct,
-                 bonus_per_member, counter_raise_pct, counter_bonus_per_member, random_roll,
-                 formula_json, dialogue_template_id, result)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                (negotiation_id, strike_id, player_id, attempt_no, round_no, idempotency_token, raise_pct,
+                  bonus_per_member, counter_raise_pct, counter_bonus_per_member, random_roll,
+                  formula_json, dialogue_template_id, result)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
-            $negotiationId, $strikeId, $playerId, $roundNo, $token, $raisePct, $bonusPerMember,
+            $negotiationId, $strikeId, $playerId, $attemptNo, $roundNo, $token, $raisePct, $bonusPerMember,
             $counterRaise, $counterBonus, $formula['random_roll'], json_encode($formula, JSON_THROW_ON_ERROR),
             $templateId, $result,
         ]);
@@ -431,24 +446,17 @@ final class EmployeeNegotiationService
             return;
         }
         $table = $sourceType === 'technical_staff' ? 'technical_staff' : 'board_members';
-        $stmt = $this->db->prepare("UPDATE {$table} SET salary=ROUND(salary * ?, 2) WHERE id=? AND player_id=?");
+        $statusSql = $sourceType === 'technical_staff'
+            ? "status IN ('active','busy','on_leave')"
+            : "status='active'";
+        $stmt = $this->db->prepare(
+            "UPDATE {$table} SET salary=ROUND(salary * ?, 2)
+              WHERE id=? AND player_id=? AND {$statusSql}"
+        );
         $stmt->execute([1.0 + $raisePct / 100.0, $sourceId, $playerId]);
         if ($stmt->rowCount() !== 1) {
             throw new RuntimeException('Employee salary update did not affect exactly one row.');
         }
-    }
-
-    private function expireNegotiation(int $playerId, int $strikeId, int $negotiationId, DateTimeInterface $now): void
-    {
-        $cooldown = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('negotiation_cooldown_hours') * 3600);
-        $this->db->prepare(
-            "UPDATE employee_strike_negotiations SET status='expired', updated_at=CURRENT_TIMESTAMP
-              WHERE id=? AND player_id=? AND status='open'"
-        )->execute([$negotiationId, $playerId]);
-        $this->db->prepare(
-            "UPDATE employee_strikes SET status='active', negotiation_cooldown_until=?, updated_at=CURRENT_TIMESTAMP
-              WHERE id=? AND player_id=? AND open_key IS NOT NULL"
-        )->execute([$cooldown, $strikeId, $playerId]);
     }
 
     /** @return array<string,mixed>|null */
@@ -501,6 +509,7 @@ final class EmployeeNegotiationService
         return [
             'success' => true,
             'round_id' => (int)$row['id'],
+            'attempt_no' => (int)($row['attempt_no'] ?? 1),
             'round_no' => (int)$row['round_no'],
             'result' => (string)$row['result'],
             'raise_pct' => (float)$row['raise_pct'],
@@ -536,6 +545,7 @@ final class EmployeeNegotiationService
             'negotiation_id' => (int)$row['id'],
             'strike_id' => (int)$row['strike_id'],
             'status' => (string)$row['status'],
+            'attempt_no' => (int)($row['attempt_no'] ?? 1),
             'current_round' => (int)$row['current_round'],
             'max_rounds' => (int)$row['max_rounds'],
             'round_deadline_at' => $row['round_deadline_at'],

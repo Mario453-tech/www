@@ -90,24 +90,37 @@ final class EmployeeMoraleSection
                 if (!is_array($employee)) {
                     $updated = $this->markMissingSource($ref, (int)$state['id']);
                 } else {
+                    $currentState = $this->lockState((int)$state['id'], $ref);
+                    if ($currentState === null
+                        || (int)($currentState['last_morale_cycle_id'] ?? 0) === $this->cycleId) {
+                        $updated = false;
+                        $this->commitEmployeeUnit();
+                        $this->alreadyProcessed++;
+                        continue;
+                    }
                     $workload = $morale->calculateWorkload($employee, (float)($allocations[$key] ?? 0));
                     $metrics = $morale->calculateMetrics(
                         $employee,
-                        $state,
+                        $currentState,
                         $workload,
                         (int)($trainingCounts[$key] ?? 0),
                         (string)($financialStates[$ref->playerId] ?? 'normal')
                     );
                     $updated = $morale->persistCycleMetrics(
                         $ref,
-                        (int)$state['id'],
+                        (int)$currentState['id'],
+                        (int)$currentState['version'],
                         $this->cycleId,
                         $this->runSequence,
                         $this->now,
                         $metrics
                     );
-                    if ($updated && round((float)$state['morale'], 2) !== round((float)$metrics['morale'], 2)) {
-                        $this->recordMoraleChange($state, (float)$state['morale'], (float)$metrics['morale']);
+                    if ($updated && round((float)$currentState['morale'], 2) !== round((float)$metrics['morale'], 2)) {
+                        $this->recordMoraleChange(
+                            $currentState,
+                            (float)$currentState['morale'],
+                            (float)$metrics['morale']
+                        );
                         $this->moraleChanged++;
                     }
                 }
@@ -298,6 +311,19 @@ final class EmployeeMoraleSection
             'source_type'=>$ref->sourceType, 'source_id'=>$ref->sourceId, 'cycle_guard'=>$this->cycleId,
         ]);
         return $stmt->rowCount() === 1;
+    }
+
+    /** @return array<string,mixed>|null */
+    private function lockState(int $stateId, EmployeeRef $ref): ?array
+    {
+        $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $stmt = $this->db->prepare(
+            "SELECT * FROM employee_state
+              WHERE id=? AND player_id=? AND source_type=? AND source_id=? LIMIT 1{$suffix}"
+        );
+        $stmt->execute([$stateId, $ref->playerId, $ref->sourceType, $ref->sourceId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
     }
 
     private function updateCycle(): void

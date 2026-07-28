@@ -65,6 +65,7 @@ class MySqlMoraleServiceTest extends MySqlIntegrationTestCase
         $result = (new EmployeeBonusService($this->db))->grantTechnicalBonus(
             $this->playerId,
             $this->staffId,
+            'mysql-bonus-token-' . $this->playerId,
             100.0,
             5.0
         );

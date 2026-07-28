@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/Employee/EmployeeAssignmentService.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeRef.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/EmployeeRelationLifecycleService.php';
 
 final class EmployeeDepartureService
 {
@@ -106,6 +107,14 @@ final class EmployeeDepartureService
                 )->execute([$streak, (int)$current['id'], (int)$current['player_id']]);
             }
             if ($leaving) {
+                (new EmployeeRelationLifecycleService($this->db))->leaveOpenStrikes(
+                    new EmployeeRef(
+                        (string)$current['source_type'],
+                        (int)$current['source_id'],
+                        (int)$current['player_id']
+                    ),
+                    $now
+                );
                 $this->event($current, 'employee_leaving', 'hr.event.leaving.title', 'hr.event.leaving.message', [
                     'leaving_at' => $now->format('Y-m-d H:i:s'),
                     'notice_hours' => $this->config->getInt('leave_notice_hours'),
@@ -184,11 +193,7 @@ final class EmployeeDepartureService
                     )->execute([$ref->sourceId, $ref->sourceId, $ref->playerId, $ref->sourceId, $ref->sourceId]);
                 }
             }
-            $this->db->prepare(
-                "UPDATE employee_state SET relation_status='inactive', inactive_at=?,
-                        version=version+1, updated_at=CURRENT_TIMESTAMP
-                  WHERE id=? AND player_id=? AND relation_status='leaving'"
-            )->execute([$now->format('Y-m-d H:i:s'), (int)$current['id'], $ref->playerId]);
+            (new EmployeeRelationLifecycleService($this->db))->deactivate($ref, $now);
             $this->event($current, 'employee_departed', 'hr.event.departed.title', 'hr.event.departed.message', [
                 'inactive_at' => $now->format('Y-m-d H:i:s'),
             ], 'employee-departed:' . (int)$current['id']);

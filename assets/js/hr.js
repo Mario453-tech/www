@@ -16,6 +16,12 @@ function activateHrTab(name, updateUrl = false) {
 }
 
 const _HL = window.HR_LANG || {};
+function hrOperationToken(scope, id) {
+    if (window.crypto?.randomUUID) {
+        return `${scope}:${id}:${window.crypto.randomUUID()}`;
+    }
+    return `${scope}:${id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
 function hrl(key, params) {
     let text = _HL[key] || key;
     if (params) {
@@ -195,7 +201,11 @@ function renewContract(memberId, name) {
         hrl('confirm_renew', { name }),
         async function () {
             try {
-                const result = await hrApi('renew_contract', { member_id: memberId, contract_type: contractType });
+                const result = await hrApi('renew_contract', {
+                    member_id: memberId,
+                    contract_type: contractType,
+                    idempotency_token: hrOperationToken('renew', memberId),
+                });
                 if (result.success) {
                     showToast(hrl('toast_renewed'), result.message);
                     setTimeout(() => location.reload(), 1200);
@@ -349,7 +359,10 @@ function grantBonus(staffId, name) {
         hrl('confirm_bonus', { name }),
         async function () {
             try {
-                const result = await hrApi('grant_bonus', { staff_id: staffId });
+                const result = await hrApi('grant_bonus', {
+                    staff_id: staffId,
+                    idempotency_token: hrOperationToken('bonus', staffId),
+                });
                 if (result.success) {
                     showToast(hrl('toast_bonus_granted'), result.message);
                     setTimeout(() => location.reload(), 1200);

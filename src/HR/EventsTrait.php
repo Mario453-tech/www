@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/EmployeeRelationLifecycleService.php';
+
 /**
  * EventsTrait - firing employees and HR event management.
  * PL: EventsTrait - zwalnianie pracownikow i obsluga zdarzen HR.
@@ -36,8 +38,14 @@ trait HREventsTrait
         $assignments = new EmployeeAssignmentService($this->db);
         $this->db->beginTransaction();
         try {
-            $this->db->prepare("UPDATE board_members SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")
-                ->execute([$memberId, $playerId]);
+            $update = $this->db->prepare(
+                "UPDATE board_members SET status='fired', fired_at=NOW()
+                  WHERE id=? AND player_id=? AND status='active' AND member_type='staff'"
+            );
+            $update->execute([$memberId, $playerId]);
+            if ($update->rowCount() !== 1) {
+                throw new RuntimeException('Employee status changed before termination.');
+            }
             $this->db->prepare(
                 "UPDATE employee_contracts ec
                  JOIN board_members bm ON bm.id = ec.member_id
@@ -50,6 +58,10 @@ trait HREventsTrait
                 ->execute([$memberId, $reason]);
             $assignments->releaseEmployeeAssignments(
                 new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, $memberId, $playerId)
+            );
+            (new EmployeeRelationLifecycleService($this->db))->deactivate(
+                new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, $memberId, $playerId),
+                new DateTimeImmutable()
             );
             $this->db->commit();
         } catch (Throwable $e) {
@@ -88,8 +100,14 @@ trait HREventsTrait
         $assignments = new EmployeeAssignmentService($this->db);
         $this->db->beginTransaction();
         try {
-            $this->db->prepare("UPDATE technical_staff SET status = 'fired', fired_at = NOW() WHERE id = ? AND player_id = ?")
-                ->execute([$staffId, $playerId]);
+            $update = $this->db->prepare(
+                "UPDATE technical_staff SET status='fired', fired_at=NOW()
+                  WHERE id=? AND player_id=? AND status IN ('active','busy','on_leave')"
+            );
+            $update->execute([$staffId, $playerId]);
+            if ($update->rowCount() !== 1) {
+                throw new RuntimeException('Technical employee status changed before termination.');
+            }
 
             $this->db->prepare("
                 UPDATE well_staff_assignments
@@ -108,6 +126,10 @@ trait HREventsTrait
             ")->execute([$staffId, $staffId, $playerId, $staffId, $staffId]);
             $assignments->releaseEmployeeAssignments(
                 new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $staffId, $playerId)
+            );
+            (new EmployeeRelationLifecycleService($this->db))->deactivate(
+                new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, $staffId, $playerId),
+                new DateTimeImmutable()
             );
             $this->db->commit();
         } catch (Throwable $e) {

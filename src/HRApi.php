@@ -289,10 +289,14 @@ try {
         case 'renew_contract':
             $memberId = (int)($_POST['member_id'] ?? 0);
             $contractType = $_POST['contract_type'] ?? '1y';
+            $token = trim((string)($_POST['idempotency_token'] ?? ''));
             if (!$memberId) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_member_id'));
             }
-            echo json_encode($hr->renewContract($memberId, $contractType, $playerId));
+            if ($token === '') {
+                throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
+            }
+            echo json_encode($hr->renewContract($memberId, $contractType, $playerId, $token));
             break;
 
         case 'start_headhunter':
@@ -415,11 +419,15 @@ try {
                 respondJson(['success' => false, 'error' => t('hr_api.err_post_required')], 405);
             }
             $staffId = (int)($_POST['staff_id'] ?? 0);
+            $token = trim((string)($_POST['idempotency_token'] ?? ''));
             if ($staffId <= 0) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_staff_id'));
             }
+            if ($token === '') {
+                throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
+            }
             require_once __DIR__ . '/HR/EmployeeBonusService.php';
-            $bonus = (new EmployeeBonusService($db))->grantTechnicalBonus($playerId, $staffId);
+            $bonus = (new EmployeeBonusService($db))->grantTechnicalBonus($playerId, $staffId, $token);
             if (!$bonus['success']) {
                 respondJson(['success' => false, 'error' => t('hr.err_no_funds_for_bonus')], 422);
             }

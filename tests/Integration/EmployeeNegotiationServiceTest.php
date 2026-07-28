@@ -7,6 +7,7 @@ require_once dirname(__DIR__, 2) . '/src/Employee/EmployeeSystemConfigService.ph
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeDialogueTemplateService.php';
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeNegotiationService.php';
 require_once dirname(__DIR__, 2) . '/src/HR/EmployeeBonusService.php';
+require_once dirname(__DIR__, 2) . '/src/HR/EmployeeRelationLifecycleService.php';
 require_once dirname(__DIR__, 2) . '/src/Tick/EmployeeMoraleSection.php';
 
 final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
@@ -334,6 +335,13 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
                 '2026-07-22 16:00:00',
                 (string)$this->db->query('SELECT negotiation_cooldown_until FROM employee_strikes WHERE id=1')->fetchColumn()
             );
+            $this->assertSame(28.0, $this->moraleOfTechnicalStaff(1));
+            $this->assertSame(
+                1,
+                (int)$this->db->query(
+                    "SELECT COUNT(*) FROM employee_events WHERE event_key='negotiation_expired'"
+                )->fetchColumn()
+            );
         }
     }
 
@@ -476,23 +484,42 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
 
     public function testFailedNegotiationCanReopenAfterCooldown(): void
     {
-        $this->config->save(['feature_negotiations' => true, 'negotiation_rounds' => 4]);
+        $this->config->save([
+            'feature_negotiations' => true,
+            'negotiation_rounds' => 4,
+            'negotiation_offer_weight' => 10,
+        ]);
         $this->seedPlayer(1, 200000.0, 0.0);
         $this->seedActiveTechnicalStrike();
         $this->db->exec("INSERT INTO employee_strike_negotiations
             (id, strike_id, player_id, status, current_round, max_rounds, round_deadline_at)
             VALUES (1, 1, 1, 'failed', 3, 3, '2026-07-21 10:00:00')");
+        $this->db->exec("INSERT INTO employee_strike_negotiation_rounds
+            (negotiation_id, strike_id, player_id, attempt_no, round_no, idempotency_token,
+             raise_pct, bonus_per_member, random_roll, formula_json, result)
+            VALUES (1, 1, 1, 1, 1, 'previous-attempt-token', 1, 0, 99, '{}', 'rejected')");
 
-        $result = (new EmployeeNegotiationService($this->db))->openForStrike(
+        $service = new EmployeeNegotiationService($this->db);
+        $result = $service->openForStrike(
             1,
             1,
             new DateTimeImmutable('2026-07-22 10:00:00')
+        );
+        $round = $service->submitOffer(
+            1,
+            1,
+            30.0,
+            0.0,
+            'reopened-attempt-token',
+            new DateTimeImmutable('2026-07-22 10:01:00')
         );
 
         $this->assertSame('open', $result['status']);
         $this->assertSame(1, $result['current_round']);
         $this->assertSame(4, $result['max_rounds']);
-        $this->assertSame('negotiating', $this->strikeStatus(1));
+        $this->assertSame(2, (int)$result['attempt_no']);
+        $this->assertSame(2, (int)$round['attempt_no']);
+        $this->assertSame(2, $this->countRows('employee_strike_negotiation_rounds'));
     }
     public function testTechnicalBonusUsesFinancialServiceAndCanonicalMoraleAtomically(): void
     {
@@ -503,9 +530,11 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
             (player_id, source_type, source_id, department_code, morale, salary_satisfaction, strike_support, workload, relation_status)
             VALUES (1, 'technical_staff', 1, 'technical', 50, 90, 20, 20, 'normal')");
 
-        $result = $service->grantTechnicalBonus(1, 1);
+        $result = $service->grantTechnicalBonus(1, 1, 'bonus-test-token-0001');
+        $replayed = $service->grantTechnicalBonus(1, 1, 'bonus-test-token-0001');
 
         $this->assertTrue($result['success']);
+        $this->assertSame($result, $replayed);
         $this->assertSame(65.0, $result['new_morale']);
         $this->assertSame(5000.0, $this->cashOfPlayer(1));
         $this->assertSame(1, $this->countRows('bank_transactions'));
@@ -520,12 +549,53 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $service = new EmployeeBonusService($this->db);
 
         try {
-            $service->grantTechnicalBonus(2, 1);
+            $service->grantTechnicalBonus(2, 1, 'bonus-test-token-0002');
             $this->fail('A player must not grant a bonus to another player employee.');
         } catch (RuntimeException) {
             $this->assertSame(20000.0, $this->cashOfPlayer(1));
             $this->assertSame(20000.0, $this->cashOfPlayer(2));
         }
+    }
+
+    public function testTechnicalBonusCannotTargetFiredEmployee(): void
+    {
+        $this->seedPlayer(1, 20000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status)
+            VALUES (1, 1, 15000, 'fired')");
+
+        try {
+            (new EmployeeBonusService($this->db))->grantTechnicalBonus(
+                1,
+                1,
+                'bonus-fired-token-01'
+            );
+            $this->fail('A fired employee must not receive a bonus.');
+        } catch (RuntimeException) {
+            $this->assertSame(20000.0, $this->cashOfPlayer(1));
+        }
+    }
+
+    public function testDeactivatingLastStrikeMemberClosesStrikeAndEffects(): void
+    {
+        $this->config->save(['feature_strike_effects' => true]);
+        $this->seedPlayer(1, 20000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $ref = new EmployeeRef(EmployeeRef::SOURCE_TECHNICAL_STAFF, 1, 1);
+
+        (new EmployeeRelationLifecycleService($this->db))->deactivate(
+            $ref,
+            new DateTimeImmutable('2026-07-22 12:00:00')
+        );
+
+        $this->assertSame('inactive', $this->relationStatus(1));
+        $this->assertSame('resolved', $this->strikeStatus(1));
+        $this->assertSame(
+            1,
+            (int)$this->db->query(
+                'SELECT COUNT(*) FROM employee_strike_members WHERE strike_id=1 AND left_at IS NOT NULL'
+            )->fetchColumn()
+        );
+        $this->assertSame([], (new StrikeEffectService($this->db, $this->config))->forPlayer(1));
     }
     private function createSourceSchema(): void
     {

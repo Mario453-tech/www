@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/EmployeeActionReceiptService.php';
+
 /**
  * DataTrait gettery danych HR, zarzdzanie kandydatami i kontraktami.
  * Data trait HR data getters, candidate and contract management.
@@ -387,28 +389,78 @@ trait HRDataTrait
         return ['success' => true, 'message' => t('hr.msg_candidate_saved', ['name' => "{$c['first_name']} {$c['last_name']}", 'date' => date('d.m.Y H:i', strtotime($newExpiry))])];
     }
 
-    public function renewContract(int $memberId, string $contractType = '1y', int $playerId = 0): array
+    public function renewContract(
+        int $memberId,
+        string $contractType = '1y',
+        int $playerId = 0,
+        string $idempotencyToken = ''
+    ): array
     {
         if ($playerId <= 0) $playerId = (int)($_SESSION['user_id'] ?? 0);
-
-        $stmt = $this->db->prepare("
-            SELECT ec.*, bm.first_name, bm.last_name
-            FROM employee_contracts ec
-            JOIN board_members bm ON ec.member_id = bm.id
-            WHERE ec.member_id = ? AND ec.status = 'active'
-              AND bm.player_id = ?
-            ORDER BY ec.contract_end DESC LIMIT 1
-        ");
-        $stmt->execute([$memberId, $playerId]);
-        $contract = $stmt->fetch();
-        if (!$contract) return ['success' => false, 'message' => t('hr.err_no_active_contract')];
         $contractType = in_array($contractType, ['6m', '1y', '2y'], true) ? $contractType : '1y';
-        $add    = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'][$contractType];
-        $baseDate = max(strtotime((string)$contract['contract_end']), strtotime(date('Y-m-d')));
-        $newEnd = date('Y-m-d', strtotime(date('Y-m-d', $baseDate) . ' ' . $add));
-        $this->db->prepare("UPDATE employee_contracts SET contract_end = ?, contract_type = ? WHERE id = ?")
-                 ->execute([$newEnd, $contractType, $contract['id']]);
-        return ['success' => true, 'message' => t('hr.msg_contract_renewed', ['name' => "{$contract['first_name']} {$contract['last_name']}", 'date' => date('d.m.Y', strtotime($newEnd))])];
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $receipts = new EmployeeActionReceiptService($this->db);
+            $receipt = $receipts->claim($playerId, 'renew_contract', $idempotencyToken, [
+                'member_id'=>$memberId,
+                'contract_type'=>$contractType,
+            ]);
+            if ($receipt['replayed']) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $receipt['response'];
+            }
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $stmt = $this->db->prepare("
+                SELECT ec.*, bm.first_name, bm.last_name
+                FROM employee_contracts ec
+                JOIN board_members bm ON ec.member_id = bm.id
+                WHERE ec.member_id = ? AND ec.status = 'active'
+                  AND bm.player_id = ? AND bm.status='active'
+                ORDER BY ec.contract_end DESC LIMIT 1{$suffix}
+            ");
+            $stmt->execute([$memberId, $playerId]);
+            $contract = $stmt->fetch();
+            if (!$contract) {
+                $result = ['success' => false, 'message' => t('hr.err_no_active_contract')];
+            } else {
+                $add = ['6m' => '+6 months', '1y' => '+1 year', '2y' => '+2 years'][$contractType];
+                $baseDate = max(strtotime((string)$contract['contract_end']), strtotime(date('Y-m-d')));
+                $newEnd = date('Y-m-d', strtotime(date('Y-m-d', $baseDate) . ' ' . $add));
+                $update = $this->db->prepare(
+                    "UPDATE employee_contracts
+                        SET contract_end=?, contract_type=?
+                      WHERE id=? AND member_id=? AND status='active'
+                        AND EXISTS (
+                            SELECT 1 FROM board_members bm
+                             WHERE bm.id=employee_contracts.member_id
+                               AND bm.player_id=? AND bm.status='active'
+                        )"
+                );
+                $update->execute([$newEnd, $contractType, (int)$contract['id'], $memberId, $playerId]);
+                if ($update->rowCount() !== 1) {
+                    throw new RuntimeException('Employee contract update did not affect exactly one row.');
+                }
+                $result = ['success' => true, 'message' => t('hr.msg_contract_renewed', [
+                    'name' => "{$contract['first_name']} {$contract['last_name']}",
+                    'date' => date('d.m.Y', strtotime($newEnd)),
+                ])];
+            }
+            $receipts->complete((int)$receipt['id'], $playerId, $result);
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return $result;
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
  // HELPER 

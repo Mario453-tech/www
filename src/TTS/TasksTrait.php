@@ -432,12 +432,14 @@ trait TTSTasksTrait
     {
         try {
             $stmt = $this->db->prepare("
-                SELECT tt.id, tt.status, es.relation_status
+                SELECT tt.id, tt.status, es.relation_status, ts.status AS employee_status
                 FROM technical_tasks tt
                 JOIN employee_state es
                   ON es.player_id = tt.player_id
                  AND es.source_type = 'technical_staff'
-                 AND es.source_id = tt.staff_id
+                  AND es.source_id = tt.staff_id
+                JOIN technical_staff ts
+                  ON ts.id=tt.staff_id AND ts.player_id=tt.player_id
                 WHERE tt.player_id = ?
                   AND tt.status IN ('in_progress','paused_strike')
             ");
@@ -445,7 +447,10 @@ trait TTSTasksTrait
             $isSqlite = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $task) {
                 $taskId = (int)$task['id'];
-                $isStriking = (string)$task['relation_status'] === 'on_strike';
+                $relationStatus = (string)$task['relation_status'];
+                $isStriking = $relationStatus === 'on_strike';
+                $canResume = !in_array($relationStatus, self::BLOCKED_RELATION_STATUSES, true)
+                    && in_array((string)$task['employee_status'], ['active', 'busy', 'on_leave'], true);
                 if ($task['status'] === 'in_progress' && $isStriking) {
                     $pause = $this->db->prepare("
                         UPDATE technical_tasks
@@ -455,7 +460,7 @@ trait TTSTasksTrait
                     $pause->execute([$taskId, $this->playerId]);
                     continue;
                 }
-                if ($task['status'] === 'paused_strike' && !$isStriking) {
+                if ($task['status'] === 'paused_strike' && $canResume) {
                     $resumeSql = $isSqlite
                         ? "end_time = datetime(end_time, '+' || MAX(0, CAST(strftime('%s', NOW()) - strftime('%s', strike_paused_at) AS INTEGER)) || ' seconds')"
                         : 'end_time = DATE_ADD(end_time, INTERVAL GREATEST(0, TIMESTAMPDIFF(SECOND, strike_paused_at, NOW())) SECOND)';
