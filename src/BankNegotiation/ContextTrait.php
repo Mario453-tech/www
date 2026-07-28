@@ -214,6 +214,11 @@ trait BankNegotiationContextTrait
                 $analysis = (int)($cfoRow['skill_analysis'] ?? 0);
                 $cfoSkill = (int)round(($nego + $analysis) / 2);
             }
+            if (!$this->financeRoleBonusesActive($playerId)) {
+                $cfoRow = null;
+                $cfoName = null;
+                $cfoSkill = 0;
+            }
         } catch (Throwable $e) {
             GameLog::error('BankNeg', 'buildContext CFO query FAILED', $e);
         }

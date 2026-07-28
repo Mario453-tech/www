@@ -15,11 +15,16 @@ class RecruitmentAPI {
     private $db;
     private $generator;
     private $hrService;
+    private StrikeEffectService $strikeEffects;
     
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
         $this->generator = new CandidateGenerator($this->db);
         $this->hrService = new HRService();
+        $this->strikeEffects = new StrikeEffectService(
+            $this->db,
+            new EmployeeSystemConfigService($this->db)
+        );
     }
     
  /**
@@ -72,7 +77,10 @@ class RecruitmentAPI {
             }
             
  // Create a new recruitment request
-            $readyAt = date('Y-m-d H:i:s', strtotime('+' . $waitMinutes . ' minutes'));
+            $effects = $this->strikeEffects->forPlayer($playerId);
+            $strikeMultiplier = (float)($effects['hr']['recruitment_time_mult'] ?? 1.0);
+            $effectiveWaitMinutes = (int)ceil(max(1, (int)$waitMinutes) * $strikeMultiplier);
+            $readyAt = date('Y-m-d H:i:s', strtotime('+' . $effectiveWaitMinutes . ' minutes'));
             
             $stmt = $this->db->prepare("
                 INSERT INTO recruitment_requests (role_id, region_code, player_id, initiated_by, recruitment_type, ready_at, status)
@@ -86,7 +94,7 @@ class RecruitmentAPI {
                 'request_id' => $requestId,
                 'role' => $role,
                 'ready_at' => $readyAt,
-                'wait_minutes' => $waitMinutes
+                'wait_minutes' => $effectiveWaitMinutes
             ];
             
         } catch (Throwable $e) {

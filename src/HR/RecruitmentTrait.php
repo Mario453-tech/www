@@ -34,6 +34,9 @@ trait HRRecruitmentTrait
             }
         }
 
+        $strikeEffects = $this->strikeEffects->forPlayer($playerId);
+        $durationMult *= (float)($strikeEffects['hr']['recruitment_time_mult'] ?? 1.0);
+
         $isBankrupt = false;
         try {
             $bStmt = $this->db->prepare("
@@ -170,6 +173,7 @@ trait HRRecruitmentTrait
             'request_id' => $requestId,
             'type' => $recruitmentType,
             'duration_s' => $duration,
+            'strike_time_multiplier' => (float)($strikeEffects['hr']['recruitment_time_mult'] ?? 1.0),
             'is_bankrupt' => $isBankrupt,
             'initiated_by' => $initiatedBy,
             'spec_code' => $specCode,

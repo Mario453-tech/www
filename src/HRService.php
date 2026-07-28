@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
 require_once __DIR__ . '/EmployeeSystemBootstrap.php';
+require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/HR/StrikeEffectService.php';
 
 require_once __DIR__ . '/HR/RecruitmentTrait.php';
 require_once __DIR__ . '/HR/HiringTrait.php';
@@ -31,6 +33,7 @@ class HRService
 
     private PDO $db;
     private CandidateGenerator $generator;
+    private StrikeEffectService $strikeEffects;
 
  // Recruitment duration in seconds.
  // PL: Czas rekrutacji w sekundach.
@@ -57,6 +60,10 @@ class HRService
     {
         $this->db = Database::getInstance()->getConnection();
         $this->generator = new CandidateGenerator($this->db);
+        $this->strikeEffects = new StrikeEffectService(
+            $this->db,
+            new EmployeeSystemConfigService($this->db)
+        );
 
         try {
             Database::addColumnIfMissing('board_members', 'member_type', "ENUM('director','staff') NOT NULL DEFAULT 'director' AFTER player_id");

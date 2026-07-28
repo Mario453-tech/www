@@ -5,6 +5,8 @@ require_once __DIR__ . '/BankNegotiation/MessagesTrait.php';
 require_once __DIR__ . '/BankNegotiation/RandomEventsTrait.php';
 require_once __DIR__ . '/BankNegotiation/RequestsTrait.php';
 require_once __DIR__ . '/BankNegotiation/ProcessorTrait.php';
+require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/HR/StrikeEffectService.php';
 
 /**
  * BankNegotiationService v3.
@@ -100,8 +102,18 @@ class BankNegotiationService
 
     private PDO $db;
 
-    public function __construct()
+    public function __construct(?PDO $db = null)
     {
-        $this->db = Database::getInstance()->getConnection();
+        $this->db = $db ?? Database::getInstance()->getConnection();
+    }
+
+    private function financeRoleBonusesActive(int $playerId): bool
+    {
+        $effects = (new StrikeEffectService(
+            $this->db,
+            new EmployeeSystemConfigService($this->db)
+        ))->forPlayer($playerId);
+
+        return (bool)($effects['finance']['role_bonus_active'] ?? true);
     }
 }

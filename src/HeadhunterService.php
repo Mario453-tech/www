@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
 require_once __DIR__ . '/EmployeeSystemBootstrap.php';
+require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/HR/StrikeEffectService.php';
 /**
  * HeadhunterService - recruit specialists from competitors.
  * PL: HeadhunterService - rekrutacja specjalistow od konkurencji.
@@ -9,6 +11,7 @@ class HeadhunterService
 {
     private PDO $db;
     private int $playerId;
+    private StrikeEffectService $strikeEffects;
 
     public const COST_MIN = 500_000;
     public const COST_MAX = 2_000_000;
@@ -41,6 +44,10 @@ class HeadhunterService
             $this->db = Database::getInstance()->getConnection();
             EmployeeSystemBootstrap::ensure($this->db);
             $this->playerId = $playerId;
+            $this->strikeEffects = new StrikeEffectService(
+                $this->db,
+                new EmployeeSystemConfigService($this->db)
+            );
             GameLog::info('HeadhunterService', 'Service initialized', ['player_id' => $playerId]);
         } catch (Throwable $e) {
             GameLog::error('HeadhunterService', 'Initialization failed', $e);
@@ -67,7 +74,11 @@ class HeadhunterService
                 return ['success' => false, 'message' => t('hr_headhunter.err_insufficient_funds', ['cost' => self::fmt($cost)])];
             }
 
-            $duration = rand(self::DURATION_MIN_SEC, self::DURATION_MAX_SEC);
+            $effects = $this->strikeEffects->forPlayer($this->playerId);
+            $strikeMultiplier = (float)($effects['hr']['recruitment_time_mult'] ?? 1.0);
+            $duration = (int)round(
+                rand(self::DURATION_MIN_SEC, self::DURATION_MAX_SEC) * $strikeMultiplier
+            );
             $finishedAt = date('Y-m-d H:i:s', time() + $duration);
 
             $this->db->beginTransaction();
@@ -124,6 +135,7 @@ class HeadhunterService
                 'specialization_id' => $specializationId,
                 'cost' => $cost,
                 'duration_sec' => $duration,
+                'strike_time_multiplier' => $strikeMultiplier,
             ]);
 
             return [

@@ -268,7 +268,11 @@ trait LegalHubPermitTrait
         }
 
         $applicationCost = (float)$config['hub_permit_cost'];
-        $reviewMinutes   = (int)$config['hub_review_minutes'];
+        $legalEffects = $this->strikeEffects->forPlayer($playerId);
+        $reviewMinutes = (int)ceil(
+            (int)$config['hub_review_minutes']
+            * (float)($legalEffects['legal']['case_time_mult'] ?? 1.0)
+        );
 
         $fts = new FinancialTransactionService($this->db);
 

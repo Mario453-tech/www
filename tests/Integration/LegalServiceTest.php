@@ -270,6 +270,37 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
         $this->assertEqualsWithDelta(250000.0, (float)$status['application']['cost'], 0.001);
     }
 
+    public function testLegalStrikePersistsExtendedApplicationDeadline(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1, ['application_cost' => 250000.0, 'base_review_minutes' => 60]);
+        $this->seedPlayer(100, 1000000.0);
+        $config = new EmployeeSystemConfigService($this->db);
+        $config->save([
+            'feature_strike_effects' => true,
+            'strike_legal_case_time_multiplier' => 1.25,
+        ]);
+        $this->db->exec(
+            "INSERT INTO employee_strikes
+                (player_id, department_code, status, open_key, support_pct)
+             VALUES (100, 'legal', 'active', '100:legal', 70)"
+        );
+        $service = new LegalService($this->db);
+
+        $result = $service->submitApplication(
+            100,
+            1,
+            new DateTimeImmutable('2026-06-02 12:00:00')
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(75, $result['review_minutes']);
+        $this->assertSame(
+            '2026-06-02 13:15:00',
+            $service->getPermitStatus(100, 1)['application']['decision_due_at']
+        );
+    }
+
     public function testSubmitBlockedWhenAlreadyActive(): void
     {
         $this->seedRegions();

@@ -5,6 +5,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/CompanyCredibilityService.php';
 require_once __DIR__ . '/PlayerPaymentService.php';
 require_once __DIR__ . '/WalletService.php';
+require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
+require_once __DIR__ . '/HR/StrikeEffectService.php';
 require_once __DIR__ . '/Legal/HubPermitTrait.php';
 require_once __DIR__ . '/Legal/BriberyTrait.php';
 
@@ -80,6 +82,7 @@ class LegalService
     ];
 
     private PDO $db;
+    private StrikeEffectService $strikeEffects;
 
     /** @var array<int,bool> cache zapewnionego schematu per połączenie */
     private static array $schemaEnsured = [];
@@ -91,6 +94,10 @@ class LegalService
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
         new WalletService($this->db);
+        $this->strikeEffects = new StrikeEffectService(
+            $this->db,
+            new EmployeeSystemConfigService($this->db)
+        );
         $this->ensureSchema();
         $this->autoSeedIfEmpty();
     }
@@ -598,9 +605,15 @@ class LegalService
                 ];
             }
 
-            // Termin decyzji = teraz + bazowy czas rozpatrzenia.
+            // Persist the strike-adjusted review time when the case starts.
+            // Utrwal czas rozpatrzenia skorygowany o strajk przy starcie sprawy.
+            $legalEffects = $this->strikeEffects->forPlayer($playerId);
+            $reviewMinutes = (int)ceil(
+                (int)$config['base_review_minutes']
+                * (float)($legalEffects['legal']['case_time_mult'] ?? 1.0)
+            );
             $dueStr = (clone $now)
-                ->modify('+' . (int)$config['base_review_minutes'] . ' minutes')
+                ->modify('+' . $reviewMinutes . ' minutes')
                 ->format('Y-m-d H:i:s');
 
             // Jeden wiersz na pare (gracz, region) — wstaw lub zaktualizuj po odmowie.
@@ -654,17 +667,17 @@ class LegalService
         $regionName = (string)($config['region_name'] ?? ('#' . $regionId));
         $this->notifyDirector($playerId, 'submitted', [
             'region' => $regionName,
-            'time'   => self::minutesToHuman((int)$config['base_review_minutes']),
+            'time'   => self::minutesToHuman($reviewMinutes),
         ], '', 'low');
 
         return [
             'success'         => true,
             'code'            => 'submitted',
             'message'         => tPlain('legal.msg.application_submitted', [
-                'time' => self::minutesToHuman((int)$config['base_review_minutes']),
+                'time' => self::minutesToHuman($reviewMinutes),
             ]),
             'cost'            => $applicationCost,
-            'review_minutes'  => (int)$config['base_review_minutes'],
+            'review_minutes'  => $reviewMinutes,
         ];
     }
 

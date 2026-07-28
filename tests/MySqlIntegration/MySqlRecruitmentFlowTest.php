@@ -175,6 +175,56 @@ final class MySqlRecruitmentFlowTest extends MySqlIntegrationTestCase
         $this->assertSame(1, $this->countBySql("SELECT COUNT(*) FROM headhunter_candidates WHERE id = ? AND status = 'accepted'", [$this->headhunterStaffId]));
     }
 
+    public function testHrStrikePersistsExtendedRecruitmentAndHeadhunterDeadlines(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->logisticsRoleId = $this->ensureRole('logistics', 'Logistics');
+        $this->insertSpecialization(
+            $this->logisticsSpecId,
+            'phpunit_hr_strike_' . $playerId,
+            'HR Strike',
+            'logistics'
+        );
+        $config = new EmployeeSystemConfigService($this->db);
+        $original = [
+            'feature_strike_effects' => $config->getBool('feature_strike_effects'),
+            'strike_hr_recruitment_time_multiplier' => $config->getFloat('strike_hr_recruitment_time_multiplier'),
+        ];
+
+        try {
+            $config->save([
+                'feature_strike_effects' => true,
+                'strike_hr_recruitment_time_multiplier' => 3.0,
+            ]);
+            $this->db->prepare(
+                "INSERT INTO employee_strikes
+                    (player_id, department_code, status, open_key, support_pct)
+                 VALUES (?, 'hr', 'active', ?, 70)"
+            )->execute([$playerId, $playerId . ':hr']);
+
+            $recruitment = (new HRService())->startRecruitment(
+                $playerId,
+                $this->logisticsRoleId,
+                'PL',
+                null,
+                'director',
+                'local'
+            );
+            $headhunter = (new HeadhunterService($playerId))->startSearch($this->logisticsSpecId);
+
+            $this->assertTrue($recruitment['success']);
+            $this->assertGreaterThan(240, $recruitment['duration']);
+            $this->assertTrue($headhunter['success']);
+            $this->assertGreaterThanOrEqual(
+                HeadhunterService::DURATION_MIN_SEC * 3 - 2,
+                strtotime((string)$headhunter['finished_at']) - time()
+            );
+        } finally {
+            $this->db->prepare('DELETE FROM employee_strikes WHERE player_id = ?')->execute([$playerId]);
+            (new EmployeeSystemConfigService($this->db))->save($original);
+        }
+    }
+
     private function makeHrService(): HRService
     {
         $ref = new ReflectionClass(HRService::class);
@@ -304,6 +354,7 @@ final class MySqlRecruitmentFlowTest extends MySqlIntegrationTestCase
         $this->deleteByIdsLocal('headhunter_searches', 'id', [$this->headhunterTechnicalId + 1000, $this->headhunterStaffId + 1000]);
         $this->deleteByIdsLocal('headhunter_searches', 'player_id', [$playerId]);
         $this->deleteByIdsLocal('recruitment_requests', 'player_id', [$playerId]);
+        $this->deleteByIdsLocal('employee_strikes', 'player_id', [$playerId]);
         $this->deleteByIdsLocal('technical_staff', 'player_id', [$playerId]);
         $this->deleteByIdsLocal('board_members', 'player_id', [$playerId]);
         $this->deleteByIdsLocal('hr_specializations', 'id', [$this->technicalSpecId, $this->logisticsSpecId]);
