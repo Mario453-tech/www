@@ -41,6 +41,8 @@
                 <input type="text" name="new_slug" placeholder="<?= t('admin.help_editor.placeholder_slug') ?>" pattern="[a-z0-9_]+" required>
                 <label class="he-form-label"><?= t('admin.help_editor.label_title') ?></label>
                 <input type="text" name="new_title" placeholder="<?= t('admin.help_editor.placeholder_title') ?>" required>
+                <label class="he-form-label"><?= t('admin.help_editor.label_title_en') ?></label>
+                <input type="text" name="new_title_en" placeholder="English Title">
                 <label class="he-form-label"><?= t('admin.help_editor.label_icon') ?></label>
                 <input type="text" name="new_icon" placeholder="" maxlength="4" value="">
                 <button type="submit" class="btn btn-secondary he-add-btn">+ <?= t('admin.help_editor.btn_add') ?></button>
@@ -74,6 +76,10 @@
                 <input type="text" name="title" value="<?= htmlspecialchars($editPage['title']) ?>" required>
             </div>
             <div>
+                <label><?= t('admin.help_editor.label_title_en') ?></label>
+                <input type="text" name="title_en" value="<?= htmlspecialchars($editPage['title_en'] ?? '') ?>">
+            </div>
+            <div>
                 <label><?= t('admin.help_editor.label_order') ?></label>
                 <input type="number" name="sort_order" value="<?= (int)$editPage['sort_order'] ?>" min="0">
             </div>
@@ -84,8 +90,13 @@
         </div>
 
         <!-- TinyMCE -->
-        <div class="he-tinymce">
+        <div class="he-tinymce" style="margin-top: 20px;">
+            <label style="display:block; margin-bottom: 5px; font-weight: bold;"><?= t('admin.help_editor.label_content_pl') ?></label>
             <textarea id="tinymce-content" name="content"><?= htmlspecialchars($editPage['content']) ?></textarea>
+        </div>
+        <div class="he-tinymce" style="margin-top: 20px;">
+            <label style="display:block; margin-bottom: 5px; font-weight: bold;"><?= t('admin.help_editor.label_content_en') ?></label>
+            <textarea id="tinymce-content-en" name="content_en"><?= htmlspecialchars($editPage['content_en'] ?? '') ?></textarea>
         </div>
 
         <div class="form-row">

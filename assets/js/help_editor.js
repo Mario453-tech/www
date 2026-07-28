@@ -3,7 +3,7 @@
  */
 
 tinymce.init({
-    selector: '#tinymce-content',
+    selector: '#tinymce-content, #tinymce-content-en',
     language: 'pl',
     height: 520,
     menubar: 'file edit view insert format tools',
