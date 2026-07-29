@@ -177,8 +177,24 @@ trait HREventsTrait
 
     public function markEventsRead(int $playerId): void
     {
-        $this->db->prepare("UPDATE hr_events SET is_read = 1 WHERE player_id = ?")
-            ->execute([$playerId]);
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $this->db->prepare("UPDATE hr_events SET is_read = 1 WHERE player_id = ?")
+                ->execute([$playerId]);
+            $this->db->prepare("UPDATE employee_events SET is_read = 1 WHERE player_id = ?")
+                ->execute([$playerId]);
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
  /**

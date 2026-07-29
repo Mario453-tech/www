@@ -42,4 +42,9 @@
         <?php endforeach ?>
     </div>
     <?php endif ?>
+    <?php
+    $pagination = ['page' => $histPage, 'pages' => $histPages];
+    $paginationQueryKey = 'hpage';
+    require __DIR__ . '/_pagination.php';
+    ?>
 </section>

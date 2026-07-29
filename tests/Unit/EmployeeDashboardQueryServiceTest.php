@@ -55,6 +55,10 @@ final class EmployeeDashboardQueryServiceTest extends TestCase
         self::assertCount(1, $dashboard['employees'][0]['assignments']);
         self::assertSame(74.0, $dashboard['morale']['average_morale']);
         self::assertCount(1, $dashboard['events']);
+        self::assertSame('event:1', $dashboard['events'][0]['record_key']);
+        self::assertSame('employee:board_member:11', $dashboard['events'][0]['employee_record_key']);
+        self::assertTrue($dashboard['events'][0]['is_unread']);
+        self::assertNotNull($this->db->query('SELECT notified_at FROM employee_events WHERE id=1')->fetchColumn());
     }
 
     private function createSchema(): void
@@ -102,7 +106,8 @@ final class EmployeeDashboardQueryServiceTest extends TestCase
             'CREATE TABLE employee_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, source_type TEXT,
                 source_id INTEGER, strike_id INTEGER, event_key TEXT, title_key TEXT,
-                message_key TEXT, meta_json TEXT, created_at TEXT
+                message_key TEXT, meta_json TEXT, is_read INTEGER NOT NULL DEFAULT 0,
+                notified_at TEXT NULL, created_at TEXT
             )'
         );
         $this->db->exec(

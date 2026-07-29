@@ -144,14 +144,49 @@ final class EmployeeDashboardQueryService
     {
         $stmt = $this->db->prepare(
             'SELECT id, source_type, source_id, strike_id, event_key, title_key,
-                    message_key, meta_json, created_at
+                    message_key, meta_json, is_read, notified_at, created_at
                FROM employee_events
               WHERE player_id = ?
               ORDER BY created_at DESC, id DESC
               LIMIT 100'
         );
         $stmt->execute([$playerId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $pendingNotificationIds = [];
+        foreach ($rows as &$row) {
+            $eventId = (int)$row['id'];
+            $sourceType = (string)($row['source_type'] ?? '');
+            $sourceId = (int)($row['source_id'] ?? 0);
+            $row['record_key'] = 'event:' . $eventId;
+            $row['deep_link'] = '/hr?tab=history&record=' . rawurlencode((string)$row['record_key']);
+            $row['employee_record_key'] = in_array(
+                $sourceType,
+                [EmployeeRef::SOURCE_BOARD_MEMBER, EmployeeRef::SOURCE_TECHNICAL_STAFF],
+                true
+            ) && $sourceId > 0
+                ? 'employee:' . $sourceType . ':' . $sourceId
+                : null;
+            $row['employee_deep_link'] = $row['employee_record_key'] !== null
+                ? '/hr?tab=employees&record=' . rawurlencode((string)$row['employee_record_key'])
+                : null;
+            $row['is_unread'] = (int)($row['is_read'] ?? 0) === 0;
+            if ($row['notified_at'] === null) {
+                $pendingNotificationIds[] = $eventId;
+            }
+        }
+        unset($row);
+
+        if ($pendingNotificationIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($pendingNotificationIds), '?'));
+            $update = $this->db->prepare(
+                "UPDATE employee_events
+                    SET notified_at=CURRENT_TIMESTAMP
+                  WHERE player_id=? AND notified_at IS NULL AND id IN ({$placeholders})"
+            );
+            $update->execute([$playerId, ...$pendingNotificationIds]);
+        }
+
+        return $rows;
     }
 
     /** @param array<string,mixed> $employee */

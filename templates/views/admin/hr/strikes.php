@@ -22,7 +22,9 @@
             <span><?= $esc($departments[$strike['department_code']] ?? $strike['department_code']) ?></span>
             <span><?= (int)$strike['participant_count'] ?></span>
             <span><?= number_format((float)$strike['support_pct'], 1) ?>%</span>
-            <span><?= $strike['current_round'] !== null ? (int)$strike['current_round'] . '/' . (int)$strike['max_rounds'] : '-' ?></span>
+            <span><?= $strike['current_round'] !== null
+                ? (int)($strike['attempt_no'] ?? 1) . ': ' . (int)$strike['current_round'] . '/' . (int)$strike['max_rounds']
+                : '-' ?></span>
             <span><?= $esc($strike['round_deadline_at'] ?? '-') ?></span>
             <span><?= $esc($strike['negotiation_cooldown_until'] ?? '-') ?></span>
             <span><?= $esc(t('admin.hr.status.' . $strike['status'])) ?></span>
@@ -48,7 +50,7 @@
         </div>
         <?php foreach ($strikeRounds as $round): ?>
         <article>
-            <span><?= (int)$round['round_no'] ?></span>
+            <span><?= (int)($round['attempt_no'] ?? 1) . ': ' . (int)$round['round_no'] ?></span>
             <span><?= number_format((float)$round['raise_pct'], 2) ?>%</span>
             <span><?= number_format((float)$round['bonus_per_member'], 2) ?></span>
             <span><?= $round['counter_raise_pct'] !== null ? number_format((float)$round['counter_raise_pct'], 2) . '% / ' . number_format((float)$round['counter_bonus_per_member'], 2) : '-' ?></span>

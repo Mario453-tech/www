@@ -560,11 +560,13 @@ if ($legacyDataTab === 'candidates') {
 $history    = [];
 $histPage   = max(1, (int)($_GET['hpage'] ?? 1));
 $histPer    = 50;
-$histOffset = ($histPage - 1) * $histPer;
 $histTotal  = 0;
 if ($legacyDataTab === 'history') {
     try {
         $histTotal = (int)$db->query("SELECT COUNT(*) FROM employment_history")->fetchColumn();
+        $histPages = max(1, (int)ceil($histTotal / $histPer));
+        $histPage = min($histPage, $histPages);
+        $histOffset = ($histPage - 1) * $histPer;
         $history   = $db->prepare("
             SELECT eh.*,
                    bm.first_name, bm.last_name,
@@ -584,7 +586,7 @@ if ($legacyDataTab === 'history') {
         $history = $history->fetchAll();
     } catch (Throwable $e) {}
 }
-$histPages = max(1, (int)ceil($histTotal / $histPer));
+$histPages = $histPages ?? 1;
 
 // Dane: statystyki HR graczy 
 $stats = [];

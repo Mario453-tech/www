@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2026-07-29 - HR: naprawa spójności danych i przetwarzania
+
+- Podwyżki i ugody synchronizują pensję źródłową z aktywnym kontraktem, a decyzje, bonusy i odnowienia respektują status relacji pracownika.
+- Operacje finansowe HR stosują wspólną kolejność blokad, kontrolę pełnego payloadu tokenu oraz retry przejściowych deadlocków MySQL.
+- Migracja legacy odrzuca konfliktujące i nieaktywne strajki, schemat v7 jest zawsze weryfikowany, a żądania podwyżek powstają atomowo.
+- Rekrutacje i headhunter są przetwarzane wyłącznie w limitowanym ticku; odczyty stron i statusów nie generują kandydatów ani nie zmieniają stanu.
+- Panel HR pokazuje próby negocjacji, paginację historii, deep-linki i stan powiadomień; dialogi są seedowane podczas bootstrapu schematu.
+- Weryfikacja lokalna: Unit 101/101, Integration 553/553, targeted PHPStan, lint PHP, standardy HTML, encoding i `git diff --check`; MySQL concurrency niewykonane z powodu odrzuconego połączenia.
+
 ### 2026-07-29 - HR: schemat v7 i domknięcie współbieżności
 
 - Schemat pracowników ma wersję 7, weryfikuje wymagane kolumny i indeksy oraz nie nadpisuje istniejących cech pracowników.

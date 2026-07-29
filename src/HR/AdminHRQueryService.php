@@ -1,14 +1,10 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/EmployeeSystemBootstrap.php';
-require_once __DIR__ . '/EmployeeDialogueTemplateService.php';
-
 final class AdminHRQueryService
 {
     public function __construct(private readonly PDO $db)
     {
-        EmployeeSystemBootstrap::ensure($db);
     }
 
     /** @return array<string,int> */
@@ -99,14 +95,14 @@ final class AdminHRQueryService
         $where = 'WHERE ' . implode(' AND ', $conditions);
         $sql = "SELECT s.*, p.email AS player_email,
                     COUNT(DISTINCT sm.id) AS participant_count,
-                    n.current_round, n.max_rounds, n.round_deadline_at,
+                    n.attempt_no, n.current_round, n.max_rounds, n.round_deadline_at,
                     n.status AS negotiation_status
                 FROM employee_strikes s
                 LEFT JOIN players p ON p.id=s.player_id
                 LEFT JOIN employee_strike_members sm ON sm.strike_id=s.id AND sm.left_at IS NULL
                 LEFT JOIN employee_strike_negotiations n ON n.strike_id=s.id
                 {$where}
-                GROUP BY s.id, p.email, n.current_round, n.max_rounds, n.round_deadline_at, n.status
+                GROUP BY s.id, p.email, n.attempt_no, n.current_round, n.max_rounds, n.round_deadline_at, n.status
                 ORDER BY s.updated_at DESC, s.id DESC";
         return $this->paginate($sql, $params, $page, 30);
     }
@@ -166,11 +162,11 @@ final class AdminHRQueryService
             return [];
         }
         $stmt = $this->db->prepare(
-            'SELECT round_no, raise_pct, bonus_per_member, counter_raise_pct,
+            'SELECT attempt_no, round_no, raise_pct, bonus_per_member, counter_raise_pct,
                     counter_bonus_per_member, result, created_at
                FROM employee_strike_negotiation_rounds
               WHERE strike_id=?
-              ORDER BY round_no ASC'
+              ORDER BY attempt_no ASC, round_no ASC, id ASC'
         );
         $stmt->execute([$strikeId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

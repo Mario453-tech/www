@@ -678,11 +678,15 @@ $hrSeniorityLevel = static function (array $employee): string {
                     $eventMessage = t('hr.event_generic_message');
                 }
             ?>
-                <article class="hr-event-row<?= $focusedRecord === 'event:' . $eventId ? ' hr-record-focus' : '' ?>"
-                         data-record="event:<?= $eventId ?>">
+                <article class="hr-event-row<?= !empty($event['is_unread']) ? ' hr-event-row--unread' : '' ?><?= $focusedRecord === ($event['record_key'] ?? 'event:' . $eventId) ? ' hr-record-focus' : '' ?>"
+                         data-record="<?= htmlspecialchars((string)($event['record_key'] ?? 'event:' . $eventId), ENT_QUOTES, 'UTF-8') ?>">
                     <time datetime="<?= htmlspecialchars((string)$event['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m.Y H:i', strtotime((string)$event['created_at'])) ?></time>
                     <div>
+                        <?php if (!empty($event['employee_deep_link'])): ?>
+                        <strong><a class="hr-event-link" href="<?= htmlspecialchars((string)$event['employee_deep_link'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($eventTitle, ENT_QUOTES, 'UTF-8') ?></a></strong>
+                        <?php else: ?>
                         <strong><?= htmlspecialchars($eventTitle, ENT_QUOTES, 'UTF-8') ?></strong>
+                        <?php endif ?>
                         <p><?= htmlspecialchars($eventMessage, ENT_QUOTES, 'UTF-8') ?></p>
                     </div>
                 </article>
@@ -750,7 +754,7 @@ $hrSeniorityLevel = static function (array $employee): string {
                 </div>
                 <div class="market-stat">
                     <span class="market-stat-label"><?= t('hr.stat_availability') ?></span>
-                    <div class="avail-bar"><div class="avail-fill" style="width:<?= (float)$r['availability'] ?>%"></div></div>
+                    <div class="avail-bar"><div class="avail-fill" style="--bar-w:<?= (float)$r['availability'] ?>%"></div></div>
                     <span class="market-stat-val"><?= (int)$r['availability'] ?>%</span>
                 </div>
             </div>
