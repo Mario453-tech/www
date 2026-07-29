@@ -15,6 +15,7 @@ require_once $root . '/src/Employee/EmployeeSystemSchema.php';
 require_once $root . '/src/EmployeeSystemBootstrap.php';
 require_once $root . '/src/Employee/EmployeeStateService.php';
 require_once $root . '/src/HR/EmployeeLegacyMigrationService.php';
+require_once $root . '/src/HR/EmployeeDialogueTemplateService.php';
 
 $arguments = array_slice($_SERVER['argv'] ?? [], 1);
 $apply = in_array('--apply', $arguments, true);
@@ -36,6 +37,7 @@ try {
     $db = Database::getInstance()->getConnection();
     if ($applySchema) {
         EmployeeSystemBootstrap::ensure($db);
+        (new EmployeeDialogueTemplateService($db))->ensureSeededDefaults();
         $result = [
             'schema_applied' => true,
             'schema_version' => EmployeeSystemSchema::currentVersion($db),

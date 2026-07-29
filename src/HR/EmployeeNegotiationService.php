@@ -7,6 +7,7 @@ require_once dirname(__DIR__) . '/FinancialTransactionService.php';
 require_once __DIR__ . '/EmployeeDialogueTemplateService.php';
 require_once __DIR__ . '/EmployeeStrikeService.php';
 require_once __DIR__ . '/EmployeeNegotiationEffectivenessService.php';
+require_once __DIR__ . '/EmployeeDeadlockRetry.php';
 
 final class EmployeeNegotiationService
 {
@@ -66,6 +67,30 @@ final class EmployeeNegotiationService
         ?DateTimeInterface $now = null,
         ?int $expectedRound = null
     ): array {
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): array => $this->submitOfferOnce(
+                $playerId,
+                $strikeId,
+                $raisePct,
+                $bonusPerMember,
+                $idempotencyToken,
+                $now,
+                $expectedRound
+            )
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function submitOfferOnce(
+        int $playerId,
+        int $strikeId,
+        float $raisePct,
+        float $bonusPerMember,
+        string $idempotencyToken,
+        ?DateTimeInterface $now = null,
+        ?int $expectedRound = null
+    ): array {
         $now ??= new DateTimeImmutable('now');
         if (!$this->config->getBool('feature_negotiations')) {
             throw new RuntimeException('Employee strike negotiations are disabled.');
@@ -87,6 +112,7 @@ final class EmployeeNegotiationService
         $token = $this->normalizeToken($playerId, $idempotencyToken);
         $existing = $this->roundByToken($playerId, $strikeId, $token);
         if ($existing !== null) {
+            $this->assertMatchingOffer($existing, $raisePct, $bonusPerMember);
             return $existing + ['idempotent' => true];
         }
 
@@ -95,9 +121,11 @@ final class EmployeeNegotiationService
             $this->db->beginTransaction();
         }
         try {
+            $this->lockPlayer($playerId);
             $strike = $this->lockStrike($playerId, $strikeId);
             $existing = $this->roundByToken($playerId, $strikeId, $token);
             if ($existing !== null) {
+                $this->assertMatchingOffer($existing, $raisePct, $bonusPerMember);
                 if ($ownTransaction) {
                     $this->db->commit();
                 }
@@ -460,6 +488,19 @@ final class EmployeeNegotiationService
         if ($stmt->rowCount() !== 1) {
             throw new RuntimeException('Employee salary update did not affect exactly one row.');
         }
+        if ($sourceType === 'board_member') {
+            $contract = $this->db->prepare(
+                "UPDATE employee_contracts
+                    SET salary=ROUND(salary * ?, 2)
+                  WHERE member_id=? AND status='active'
+                    AND EXISTS (
+                        SELECT 1 FROM board_members bm
+                         WHERE bm.id=employee_contracts.member_id
+                           AND bm.player_id=? AND bm.status='active'
+                    )"
+            );
+            $contract->execute([1.0 + $raisePct / 100.0, $sourceId, $playerId]);
+        }
     }
 
     /** @return array<string,mixed>|null */
@@ -487,6 +528,25 @@ final class EmployeeNegotiationService
             throw new InvalidArgumentException('Invalid negotiation idempotency token.');
         }
         return 'p' . $playerId . ':' . hash('sha256', $token);
+    }
+
+    private function lockPlayer(int $playerId): void
+    {
+        $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $stmt = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$suffix}");
+        $stmt->execute([$playerId]);
+        if ((int)($stmt->fetchColumn() ?: 0) !== $playerId) {
+            throw new RuntimeException('Player does not exist for HR negotiation.');
+        }
+    }
+
+    /** @param array<string,mixed> $existing */
+    private function assertMatchingOffer(array $existing, float $raisePct, float $bonusPerMember): void
+    {
+        if (abs((float)$existing['raise_pct'] - $raisePct) > 0.00009
+            || abs((float)$existing['bonus_per_member'] - $bonusPerMember) > 0.009) {
+            throw new RuntimeException('Negotiation token was reused with different offer data.');
+        }
     }
 
     /**

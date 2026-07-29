@@ -131,7 +131,13 @@ final class EmployeeLegacyMigrationService
         $sql = "SELECT ts.player_id, ts.id AS staff_id, MIN(ss.start_time) AS started_at
                   FROM staff_strikes ss
                   JOIN technical_staff ts ON ts.id=ss.technical_staff_id
-                 WHERE ss.end_time IS NULL";
+                  JOIN employee_state es
+                    ON es.player_id=ts.player_id
+                   AND es.source_type='technical_staff'
+                   AND es.source_id=ts.id
+                 WHERE ss.end_time IS NULL
+                   AND ts.status IN ('active','busy','on_leave')
+                   AND es.relation_status NOT IN ('inactive','leaving')";
         $params = [];
         if ($playerId !== null) {
             $sql .= ' AND ts.player_id=?';
@@ -162,9 +168,16 @@ final class EmployeeLegacyMigrationService
             $insert = $this->db->prepare($insertSql);
             $insert->execute([$ownerId, $openKey, $startedAt]);
             $report['strikes_created'] += $insert->rowCount() === 1 ? 1 : 0;
-            $strikeStmt = $this->db->prepare('SELECT id FROM employee_strikes WHERE open_key=? AND player_id=? LIMIT 1');
+            $strikeStmt = $this->db->prepare(
+                "SELECT id, status FROM employee_strikes
+                  WHERE open_key=? AND player_id=? LIMIT 1"
+            );
             $strikeStmt->execute([$openKey, $ownerId]);
-            $strikeId = (int)($strikeStmt->fetchColumn() ?: 0);
+            $strike = $strikeStmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($strike) || (string)$strike['status'] !== 'active') {
+                throw new RuntimeException('Legacy strike conflicts with a non-active canonical strike.');
+            }
+            $strikeId = (int)$strike['id'];
             foreach ($members as $member) {
                 $memberSql = $driver === 'sqlite'
                     ? "INSERT INTO employee_strike_members
@@ -179,9 +192,13 @@ final class EmployeeLegacyMigrationService
                 $report['members_created'] += $memberStmt->rowCount() === 1 ? 1 : 0;
                 $state = $this->db->prepare(
                     "UPDATE employee_state SET relation_status='on_strike', version=version+1
-                      WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+                      WHERE player_id=? AND source_type='technical_staff' AND source_id=?
+                        AND relation_status NOT IN ('inactive','leaving')"
                 );
                 $state->execute([$ownerId, (int)$member['staff_id']]);
+                if ($state->rowCount() !== 1) {
+                    throw new RuntimeException('Legacy strike member has no active canonical state.');
+                }
             }
         }
     }

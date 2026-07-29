@@ -477,7 +477,7 @@ try {
             $salary = (float)($_POST['salary'] ?? 0);
             $bonus = (float)($_POST['signing_bonus'] ?? 0);
             $token = trim((string)($_POST['idempotency_token'] ?? ''));
-            if (!$candId || !$salary) {
+            if ($candId <= 0 || !is_finite($salary) || !is_finite($bonus) || $salary <= 0.0 || $bonus < 0.0) {
                 throw new InvalidArgumentException(t('hr_api.err_missing_offer_data'));
             }
             if ($token === '') {

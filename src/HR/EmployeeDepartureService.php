@@ -143,6 +143,17 @@ final class EmployeeDepartureService
                 )->execute([$streak, (int)$current['id'], (int)$current['player_id']]);
             }
             if ($leaving) {
+                $this->db->prepare(
+                    "UPDATE employee_raise_requests
+                        SET status='expired', resolved_at=?, updated_at=CURRENT_TIMESTAMP
+                      WHERE player_id=? AND source_type=? AND source_id=?
+                        AND status IN ('open','postponed')"
+                )->execute([
+                    $now->format('Y-m-d H:i:s'),
+                    (int)$current['player_id'],
+                    (string)$current['source_type'],
+                    (int)$current['source_id'],
+                ]);
                 (new EmployeeRelationLifecycleService($this->db))->leaveOpenStrikes(
                     new EmployeeRef(
                         (string)$current['source_type'],

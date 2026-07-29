@@ -90,6 +90,13 @@ final class EmployeeRepositoryTest extends SqliteIntegrationTestCase
         $this->assertSame(EmployeeRef::SOURCE_TECHNICAL_STAFF, $mirror->sourceType);
         $this->assertSame(20, $mirror->sourceId);
         $this->assertCount(2, $this->repository->listForPlayer(1));
+
+        $this->db->exec("UPDATE technical_staff SET status='fired' WHERE id=20");
+        $inactiveMirror = $this->repository->canonicalRef(
+            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 12, 1)
+        );
+        $this->assertSame(EmployeeRef::SOURCE_TECHNICAL_STAFF, $inactiveMirror->sourceType);
+        $this->assertCount(1, $this->repository->listForPlayer(1));
     }
 
     /** @param list<array<string, mixed>> $employees @return array<string, mixed> */

@@ -221,6 +221,7 @@ final class EmployeeRepository
                 AND ts.player_id = bm.player_id
                 AND ts.first_name = bm.first_name
                 AND ts.last_name = bm.last_name
+                AND ts.status IN (\'active\',\'busy\',\'on_leave\')
                JOIN hr_specializations hs
                  ON hs.id = bm.specialization_id
                 AND hs.code = ts.spec_code

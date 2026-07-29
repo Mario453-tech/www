@@ -65,6 +65,9 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
 
         $this->assertSame('negotiated', $result['result']);
         $this->assertSame(11500.0, $this->salary('board_member', 10));
+        $this->assertSame(11500.0, (float)$this->db->query(
+            'SELECT salary FROM employee_contracts WHERE member_id=10'
+        )->fetchColumn());
         $this->assertSame(11500.0, (float)$this->db->query('SELECT negotiated_salary FROM employee_raise_requests WHERE id=1')->fetchColumn());
         $this->assertSame(58.0, $result['morale']);
         $this->assertArrayHasKey('chance', $result);
@@ -74,6 +77,35 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         $this->assertArrayHasKey('formula', $meta);
         $this->assertSame(1.0, (float)$meta['formula']['random_roll']);
         $this->assertSame(1.0, (float)$meta['formula']['salary_negotiator_active']);
+    }
+
+    public function testDecisionCannotOverrideLeavingState(): void
+    {
+        $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
+        $this->db->exec(
+            "UPDATE employee_state SET relation_status='leaving', leaving_at=CURRENT_TIMESTAMP
+              WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+        );
+
+        try {
+            $this->service()->acceptFull(1, 1, 'leaving-decision-token');
+            $this->fail('Leaving employee decision should be rejected.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('not available', $exception->getMessage());
+        }
+
+        $this->assertSame('leaving', $this->state(1, 'technical_staff', 20)['relation_status']);
+        $this->assertSame(10000.0, $this->salary('technical_staff', 20));
+    }
+
+    public function testNegotiationTokenRejectsChangedSalary(): void
+    {
+        $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
+        $service = $this->service(static fn(): float => 100.0);
+        $service->negotiate(1, 1, 10001.0, 'changed-payload-token');
+
+        $this->expectException(InvalidArgumentException::class);
+        $service->negotiate(1, 1, 10002.0, 'changed-payload-token');
     }
 
     public function testFailedNegotiationKeepsRequestOpenAndAppliesMoralePenaltyOnce(): void
@@ -359,6 +391,12 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
             trait_ambition INTEGER NOT NULL DEFAULT 5, salary REAL NOT NULL,
             status TEXT NOT NULL DEFAULT 'active', hired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )");
+        $this->db->exec("CREATE TABLE employee_contracts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL,
+            salary REAL NOT NULL DEFAULT 0, bonus REAL NOT NULL DEFAULT 0,
+            contract_type TEXT NOT NULL DEFAULT '1y', contract_end TEXT NOT NULL DEFAULT '2099-12-31',
+            status TEXT NOT NULL DEFAULT 'active'
+        )");
     }
 
     private function seedEmployees(): void
@@ -374,6 +412,10 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
             VALUES
             (10, 1, 1, 1, 'Anna', 'Nowak', 7, 7, 8, 5, 10000, 'active'),
             (11, 1, 2, 2, 'Ewa', 'HR', 9, 9, 8, 5, 13000, 'active')");
+        $this->db->exec(
+            "INSERT INTO employee_contracts (member_id, salary, status)
+             VALUES (10, 10000, 'active'), (11, 13000, 'active')"
+        );
         $this->db->exec("INSERT INTO technical_staff
             (id, player_id, manager_id, first_name, last_name, spec_code, spec_name,
              skill_level, trait_loyalty, trait_ambition, salary, status)

@@ -79,6 +79,22 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->config->save(['raise_max_postponements' => 11]);
     }
 
+    public function testSchemaVersionSevenStillVerifiesRequiredTables(): void
+    {
+        $broken = $this->createSqlitePdo();
+        $broken->exec('CREATE TABLE employee_schema_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, module_key TEXT NOT NULL UNIQUE,
+            version INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )');
+        $broken->exec(
+            "INSERT INTO employee_schema_versions (module_key, version)
+             VALUES ('employee_system', 7)"
+        );
+
+        $this->expectException(Throwable::class);
+        EmployeeSystemSchema::ensure($broken);
+    }
+
     public function testRaiseRequestStoresSalaryAndTreatsPostponedAsActive(): void
     {
         $this->seedPlayer(1, 100000.0, 0.0);
@@ -139,6 +155,7 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
     public function testDialogueSeedCreatesAtLeastEightyBilingualTemplates(): void
     {
         $service = new EmployeeDialogueTemplateService($this->db);
+        $service->ensureSeededDefaults();
 
         $rows = $service->list();
 
@@ -226,6 +243,36 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertArrayNotHasKey(
             'technical',
             (new StrikeEffectService($this->db, $this->config))->forPlayer(1)
+        );
+    }
+
+    public function testStrikeOfferTokenRejectsChangedPayload(): void
+    {
+        $this->config->save([
+            'feature_negotiations' => true,
+            'negotiation_offer_weight' => 10,
+            'negotiation_raise_max' => 30,
+        ]);
+        $this->seedPlayer(1, 200000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+        $service = new EmployeeNegotiationService($this->db);
+        $service->submitOffer(
+            1,
+            1,
+            5.0,
+            1000.0,
+            'changed-strike-offer-token',
+            new DateTimeImmutable('2026-07-22 10:00:00')
+        );
+
+        $this->expectException(RuntimeException::class);
+        $service->submitOffer(
+            1,
+            1,
+            6.0,
+            1000.0,
+            'changed-strike-offer-token',
+            new DateTimeImmutable('2026-07-22 10:01:00')
         );
     }
 
@@ -419,6 +466,43 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(2, $this->countRows('employee_state'));
     }
 
+    public function testMoraleCycleSkipsInactiveStateAndReportsExpiredDeadline(): void
+    {
+        $this->seedPlayer(1, 100000.0, 0.0);
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, salary, status)
+            VALUES (1, 1, 15000, 'active'), (2, 1, 16000, 'active')");
+        $this->db->exec("INSERT INTO employee_state
+            (id, player_id, source_type, source_id, department_code, morale,
+             salary_satisfaction, strike_support, workload, relation_status)
+            VALUES
+            (1, 1, 'technical_staff', 1, 'technical', 50, 50, 10, 20, 'inactive'),
+            (2, 1, 'technical_staff', 2, 'technical', 30, 40, 20, 50, 'raise_requested')");
+        $this->db->exec("INSERT INTO employee_raise_requests
+            (id, player_id, source_type, source_id, request_no, current_salary,
+             requested_salary, requested_raise_pct, status, deadline_at)
+            VALUES
+            (1, 1, 'technical_staff', 2, 1, 16000, 17600, 10, 'open', '2026-07-22 09:00:00')");
+
+        $section = new EmployeeMoraleSection(
+            $this->db,
+            new DateTimeImmutable('2026-07-22 10:00:00'),
+            1,
+            10
+        );
+        $section->run();
+
+        $this->assertSame(1, $section->examined);
+        $this->assertSame(1, $section->raiseRequestsExpired);
+        $this->assertSame(0, $section->deadlineErrors);
+        $this->assertSame(0, $section->remaining);
+        $this->assertNull($this->db->query(
+            'SELECT last_morale_cycle_id FROM employee_state WHERE id=1'
+        )->fetchColumn());
+        $this->assertSame('expired', (string)$this->db->query(
+            'SELECT status FROM employee_raise_requests WHERE id=1'
+        )->fetchColumn());
+    }
+
     public function testStrikeEffectsAreBatchLoadedOnlyForActiveAndNegotiatingStatuses(): void
     {
         $this->config->save(['feature_strike_effects' => true]);
@@ -581,6 +665,23 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
                 'bonus-fired-token-01'
             );
             $this->fail('A fired employee must not receive a bonus.');
+        } catch (RuntimeException) {
+            $this->assertSame(20000.0, $this->cashOfPlayer(1));
+        }
+    }
+
+    public function testTechnicalBonusCannotTargetStrikingEmployee(): void
+    {
+        $this->seedPlayer(1, 20000.0, 0.0);
+        $this->seedActiveTechnicalStrike();
+
+        try {
+            (new EmployeeBonusService($this->db))->grantTechnicalBonus(
+                1,
+                1,
+                'bonus-strike-token-01'
+            );
+            $this->fail('A striking employee must not receive a bonus.');
         } catch (RuntimeException) {
             $this->assertSame(20000.0, $this->cashOfPlayer(1));
         }

@@ -31,7 +31,7 @@ trait EmployeeRaiseRequestDecisionTrait
      * @param array<string,mixed> $employee
      * @param array<string,mixed> $state
      * @param array<string,float> $formula
-     * @return array{result:string,status:string,salary:float,morale:float,deadline_at:null}
+     * @return array{result:string,status:string,salary:float,morale:float,deadline_at:null|string}
      */
     private function applyNegotiation(
         array $request,
@@ -78,7 +78,7 @@ trait EmployeeRaiseRequestDecisionTrait
             'status' => 'open',
             'salary' => $currentSalary,
             'morale' => $morale,
-            'deadline_at' => null,
+            'deadline_at' => (string)$request['deadline_at'],
         ];
     }
 

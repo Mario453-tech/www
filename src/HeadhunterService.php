@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/HR/EmployeeDeadlockRetry.php';
 require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
 require_once __DIR__ . '/EmployeeSystemBootstrap.php';
 require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
@@ -288,7 +289,28 @@ class HeadhunterService
         ]);
     }
 
+    /** @return array<string,mixed> */
     public function makeOffer(
+        int $candidateId,
+        float $offeredSalary,
+        float $signingBonus,
+        string $idempotencyToken
+    ): array
+    {
+        $this->assertValidOfferValues($candidateId, $offeredSalary, $signingBonus);
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): array => $this->makeOfferOnce(
+                $candidateId,
+                $offeredSalary,
+                $signingBonus,
+                $idempotencyToken
+            )
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function makeOfferOnce(
         int $candidateId,
         float $offeredSalary,
         float $signingBonus,
@@ -299,6 +321,12 @@ class HeadhunterService
         try {
             if ($ownTransaction) {
                 $this->db->beginTransaction();
+            }
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $playerLock = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$suffix}");
+            $playerLock->execute([$this->playerId]);
+            if ((int)($playerLock->fetchColumn() ?: 0) !== $this->playerId) {
+                throw new RuntimeException('Player does not exist for headhunter offer.');
             }
             $request = [
                 'candidate_id'=>$candidateId,
@@ -318,7 +346,6 @@ class HeadhunterService
                 }
                 return $receipt['response'] ?? ['success'=>false, 'message'=>t('hr_headhunter.err_offer_failed')];
             }
-            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
             $stmt = $this->db->prepare("
                 SELECT hc.*, hsp.name AS spec_name
                 FROM headhunter_candidates hc
@@ -435,6 +462,17 @@ class HeadhunterService
                 'candidate_id' => $candidateId,
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_offer_failed')];
+        }
+    }
+
+    private function assertValidOfferValues(int $candidateId, float $offeredSalary, float $signingBonus): void
+    {
+        if ($candidateId <= 0
+            || !is_finite($offeredSalary)
+            || !is_finite($signingBonus)
+            || $offeredSalary <= 0.0
+            || $signingBonus < 0.0) {
+            throw new InvalidArgumentException('Headhunter offer values are invalid.');
         }
     }
 

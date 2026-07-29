@@ -26,18 +26,32 @@ trait EmployeeRaiseRequestPersistenceTrait
                 throw new RuntimeException('Employee salary update did not affect exactly one row.');
             }
         }
+        if ($ref->sourceType === EmployeeRef::SOURCE_BOARD_MEMBER) {
+            $contract = $this->db->prepare(
+                "UPDATE employee_contracts
+                    SET salary=?
+                  WHERE member_id=? AND status='active'
+                    AND EXISTS (
+                        SELECT 1 FROM board_members bm
+                         WHERE bm.id=employee_contracts.member_id
+                           AND bm.player_id=? AND bm.status='active'
+                    )"
+            );
+            $contract->execute([$salary, $ref->sourceId, $ref->playerId]);
+        }
     }
 
     private function updateLoyaltyModifier(EmployeeRef $ref, float $gain): void
     {
         $stmt = $this->db->prepare(
-            'UPDATE employee_state
+            "UPDATE employee_state
                 SET loyalty_modifier=CASE
                         WHEN loyalty_modifier < :gain_compare THEN :gain_value
                         ELSE loyalty_modifier
                     END,
                     updated_at=CURRENT_TIMESTAMP
-              WHERE player_id=:player_id AND source_type=:source_type AND source_id=:source_id'
+              WHERE player_id=:player_id AND source_type=:source_type AND source_id=:source_id
+                AND relation_status NOT IN ('on_strike','leaving','inactive')"
         );
         $stmt->execute([
             'gain_compare' => min(10.0, max(0.0, $gain)),
@@ -79,7 +93,8 @@ trait EmployeeRaiseRequestPersistenceTrait
                     last_raise_at=CASE WHEN :is_raise=1 THEN CURRENT_TIMESTAMP ELSE last_raise_at END,
                     version=version+1,
                     updated_at=CURRENT_TIMESTAMP
-              WHERE player_id=:player_id AND source_type=:source_type AND source_id=:source_id'
+              WHERE player_id=:player_id AND source_type=:source_type AND source_id=:source_id
+                AND relation_status NOT IN (\'on_strike\',\'leaving\',\'inactive\')'
         );
         $salary = $this->currentSalary($ref);
         $stmt->execute([

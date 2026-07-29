@@ -3,6 +3,7 @@ require_once __DIR__ . '/Employee/TechnicalStaffProfile.php';
 require_once __DIR__ . '/EmployeeSystemBootstrap.php';
 require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
 require_once __DIR__ . '/HR/StrikeEffectService.php';
+require_once __DIR__ . '/HR/EmployeeDeadlockRetry.php';
 
 require_once __DIR__ . '/HR/RecruitmentTrait.php';
 require_once __DIR__ . '/HR/HiringTrait.php';
@@ -65,10 +66,5 @@ class HRService
             new EmployeeSystemConfigService($this->db)
         );
 
-        try {
-            Database::addColumnIfMissing('board_members', 'member_type', "ENUM('director','staff') NOT NULL DEFAULT 'director' AFTER player_id");
-        } catch (Throwable $e) {
-            GameLog::error('HRService', 'member_type schema guard failed', $e);
-        }
     }
 }

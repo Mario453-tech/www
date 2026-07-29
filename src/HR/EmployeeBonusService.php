@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/Employee/EmployeeRef.php';
 require_once dirname(__DIR__) . '/FinancialTransactionService.php';
 require_once __DIR__ . '/MoraleServiceV2.php';
 require_once __DIR__ . '/EmployeeActionReceiptService.php';
+require_once __DIR__ . '/EmployeeDeadlockRetry.php';
 
 final class EmployeeBonusService
 {
@@ -22,6 +23,26 @@ final class EmployeeBonusService
         float $amount = 15000.0,
         float $moraleGain = 15.0
     ): array {
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): array => $this->grantTechnicalBonusOnce(
+                $playerId,
+                $staffId,
+                $idempotencyToken,
+                $amount,
+                $moraleGain
+            )
+        );
+    }
+
+    /** @return array{success:bool,amount:float,new_morale?:float,error?:string} */
+    private function grantTechnicalBonusOnce(
+        int $playerId,
+        int $staffId,
+        string $idempotencyToken,
+        float $amount = 15000.0,
+        float $moraleGain = 15.0
+    ): array {
         if ($playerId <= 0 || $staffId <= 0 || $amount <= 0.0 || $moraleGain <= 0.0) {
             throw new InvalidArgumentException('Employee bonus parameters are invalid.');
         }
@@ -30,6 +51,12 @@ final class EmployeeBonusService
             $this->db->beginTransaction();
         }
         try {
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $playerLock = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$suffix}");
+            $playerLock->execute([$playerId]);
+            if ((int)($playerLock->fetchColumn() ?: 0) !== $playerId) {
+                throw new RuntimeException('Player does not exist for employee bonus.');
+            }
             $receipts = new EmployeeActionReceiptService($this->db);
             $receipt = $receipts->claim($playerId, 'grant_bonus', $idempotencyToken, [
                 'staff_id'=>$staffId,
@@ -42,10 +69,14 @@ final class EmployeeBonusService
                 }
                 return $receipt['response'];
             }
-            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
             $stmt = $this->db->prepare(
-                "SELECT id FROM technical_staff
-                  WHERE id=? AND player_id=? AND status IN ('active','busy','on_leave')
+                "SELECT ts.id FROM technical_staff ts
+                   JOIN employee_state es
+                     ON es.player_id=ts.player_id
+                    AND es.source_type='technical_staff'
+                    AND es.source_id=ts.id
+                  WHERE ts.id=? AND ts.player_id=? AND ts.status IN ('active','busy','on_leave')
+                    AND es.relation_status NOT IN ('on_strike','leaving','inactive')
                   LIMIT 1{$suffix}"
             );
             $stmt->execute([$staffId, $playerId]);

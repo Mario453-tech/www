@@ -151,7 +151,7 @@ final class EmployeeRaiseRequestService
         $token = $this->normalizeToken($token);
         $existing = $this->resultByToken($playerId, $requestId, $token);
         if ($existing !== null) {
-            if ((string)($existing['action'] ?? '') !== $action) {
+            if (!$this->matchesIdempotentAction($existing, $action, $offeredSalary)) {
                 throw new InvalidArgumentException('Idempotency token was already used for another action.');
             }
             return $existing;
@@ -166,7 +166,7 @@ final class EmployeeRaiseRequestService
             $request = $this->lockRequest($playerId, $requestId);
             $existing = $this->resultByToken($playerId, $requestId, $token);
             if ($existing !== null) {
-                if ((string)($existing['action'] ?? '') !== $action) {
+                if (!$this->matchesIdempotentAction($existing, $action, $offeredSalary)) {
                     throw new InvalidArgumentException('Idempotency token was already used for another action.');
                 }
                 if ($ownTransaction) {
@@ -192,6 +192,9 @@ final class EmployeeRaiseRequestService
             }
             $employee = array_replace($employee, $this->lockEmployee($ref));
             $state = $this->lockState($ref);
+            if (in_array((string)$state['relation_status'], ['on_strike', 'leaving', 'inactive'], true)) {
+                throw new RuntimeException('Raise request employee is not available for a decision.');
+            }
             $currentSalary = round((float)$employee['salary'], 2);
             $requestedSalary = (float)$request['requested_salary'] > 0.0
                 ? round((float)$request['requested_salary'], 2)
@@ -235,6 +238,7 @@ final class EmployeeRaiseRequestService
             ];
             if ($action === 'negotiate') {
                 $publicResult['chance'] = $formula['chance'];
+                $publicResult['offered_salary'] = (float)$offeredSalary;
             }
 
             $this->insertEvent(
@@ -383,6 +387,19 @@ final class EmployeeRaiseRequestService
             throw new InvalidArgumentException('Raise request idempotency token must contain 16 to 128 characters.');
         }
         return $token;
+    }
+
+    /** @param array<string,mixed> $existing */
+    private function matchesIdempotentAction(array $existing, string $action, ?float $offeredSalary): bool
+    {
+        if ((string)($existing['action'] ?? '') !== $action) {
+            return false;
+        }
+        if ($action !== 'negotiate' || !array_key_exists('offered_salary', $existing)) {
+            return true;
+        }
+        return $offeredSalary !== null
+            && abs((float)$existing['offered_salary'] - $offeredSalary) <= 0.009;
     }
 
     private function dedupeKey(int $playerId, int $requestId, string $token): string

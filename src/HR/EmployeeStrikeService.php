@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/EmployeeSystemBootstrap.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
 require_once __DIR__ . '/EmployeeDepartureService.php';
+require_once __DIR__ . '/EmployeeDeadlockRetry.php';
 
 final class EmployeeStrikeService
 {
@@ -136,21 +137,51 @@ final class EmployeeStrikeService
     /** @param array<string,mixed> $row */
     private function expireNegotiationRecord(array $row, DateTimeInterface $now): bool
     {
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): bool => $this->expireNegotiationRecordOnce($row, $now)
+        );
+    }
+
+    /** @param array<string,mixed> $row */
+    private function expireNegotiationRecordOnce(array $row, DateTimeInterface $now): bool
+    {
         $ownTransaction = !$this->db->inTransaction();
         if ($ownTransaction) {
             $this->db->beginTransaction();
         }
         try {
             $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
-            $lock = $this->db->prepare(
-                "SELECT n.id, n.player_id, n.strike_id
-                   FROM employee_strike_negotiations n
-                   JOIN employee_strikes s ON s.id=n.strike_id AND s.player_id=n.player_id
-                  WHERE n.id=? AND n.player_id=? AND n.status='open'
-                    AND n.round_deadline_at<? AND s.open_key IS NOT NULL
+            $playerLock = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$suffix}");
+            $playerLock->execute([(int)$row['player_id']]);
+            if ((int)($playerLock->fetchColumn() ?: 0) !== (int)$row['player_id']) {
+                throw new RuntimeException('Player does not exist for negotiation deadline.');
+            }
+            $strikeLock = $this->db->prepare(
+                "SELECT id FROM employee_strikes
+                  WHERE id=? AND player_id=? AND open_key IS NOT NULL
                   LIMIT 1{$suffix}"
             );
-            $lock->execute([(int)$row['id'], (int)$row['player_id'], $now->format('Y-m-d H:i:s')]);
+            $strikeLock->execute([(int)$row['strike_id'], (int)$row['player_id']]);
+            if ((int)($strikeLock->fetchColumn() ?: 0) !== (int)$row['strike_id']) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return false;
+            }
+            $lock = $this->db->prepare(
+                "SELECT id, player_id, strike_id
+                   FROM employee_strike_negotiations
+                  WHERE id=? AND player_id=? AND strike_id=? AND status='open'
+                    AND round_deadline_at<?
+                  LIMIT 1{$suffix}"
+            );
+            $lock->execute([
+                (int)$row['id'],
+                (int)$row['player_id'],
+                (int)$row['strike_id'],
+                $now->format('Y-m-d H:i:s'),
+            ]);
             $current = $lock->fetch(PDO::FETCH_ASSOC);
             if (!is_array($current)) {
                 if ($ownTransaction) {
@@ -527,13 +558,52 @@ final class EmployeeStrikeService
         $deadline = date('Y-m-d H:i:s', $now->getTimestamp() + $this->config->getInt('raise_response_hours') * 3600);
         $created = 0;
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $state) {
-            $currentSalary = round(max(0.0, (float)$state['current_salary']), 2);
+            $created += $this->createRaiseRequestRecord($state, $now, $deadline) ? 1 : 0;
+        }
+        return $created;
+    }
+
+    /** @param array<string,mixed> $state */
+    private function createRaiseRequestRecord(array $state, DateTimeInterface $now, string $deadline): bool
+    {
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $lock = $this->db->prepare(
+                "SELECT es.*, COALESCE(ts.salary, bm.salary) AS current_salary
+                   FROM employee_state es
+              LEFT JOIN technical_staff ts
+                     ON es.source_type='technical_staff' AND ts.id=es.source_id AND ts.player_id=es.player_id
+              LEFT JOIN board_members bm
+                     ON es.source_type='board_member' AND bm.id=es.source_id AND bm.player_id=es.player_id
+                  WHERE es.id=? AND es.player_id=? AND es.relation_status='raise_requested'
+                    AND ((es.source_type='technical_staff' AND ts.status IN ('active','busy'))
+                      OR (es.source_type='board_member' AND bm.status='active'))
+                    AND NOT EXISTS (
+                        SELECT 1 FROM employee_raise_requests rr
+                         WHERE rr.player_id=es.player_id AND rr.source_type=es.source_type
+                           AND rr.source_id=es.source_id AND rr.status IN ('open','postponed')
+                    )
+                  LIMIT 1{$suffix}"
+            );
+            $lock->execute([(int)$state['id'], (int)$state['player_id']]);
+            $current = $lock->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($current)) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return false;
+            }
+            $currentSalary = round(max(0.0, (float)$current['current_salary']), 2);
             $requestedSalary = round($currentSalary * 1.10, 2);
             $numberStmt = $this->db->prepare(
                 'SELECT COALESCE(MAX(request_no),0)+1 FROM employee_raise_requests
                   WHERE player_id=? AND source_type=? AND source_id=?'
             );
-            $numberStmt->execute([(int)$state['player_id'],(string)$state['source_type'],(int)$state['source_id']]);
+            $numberStmt->execute([(int)$current['player_id'], (string)$current['source_type'], (int)$current['source_id']]);
             $requestNo = (int)$numberStmt->fetchColumn();
             $insert = $this->db->prepare(
                 "INSERT INTO employee_raise_requests
@@ -541,33 +611,46 @@ final class EmployeeStrikeService
                      requested_raise_pct, reason_code, postponed_count, status, deadline_at)
                  VALUES (?, ?, ?, ?, ?, ?, 10, 'low_morale', 0, 'open', ?)"
             );
-            try {
-                $insert->execute([
-                    (int)$state['player_id'],(string)$state['source_type'],(int)$state['source_id'],$requestNo,
-                    $currentSalary,$requestedSalary,$deadline,
-                ]);
-            } catch (PDOException $exception) {
-                if ((string)$exception->getCode() !== '23000') {
-                    throw $exception;
-                }
-                continue;
-            }
-            $this->db->prepare(
-                'UPDATE employee_state SET last_raise_request_at=?, version=version+1
-                  WHERE id=? AND player_id=? AND source_type=? AND source_id=?'
-            )->execute([
-                $now->format('Y-m-d H:i:s'),(int)$state['id'],(int)$state['player_id'],
-                (string)$state['source_type'],(int)$state['source_id'],
+            $insert->execute([
+                (int)$current['player_id'], (string)$current['source_type'], (int)$current['source_id'],
+                $requestNo, $currentSalary, $requestedSalary, $deadline,
             ]);
-            $this->event($state, 'raise_requested', 'hr.event.raise.title', 'hr.event.raise.message', [
+            $update = $this->db->prepare(
+                "UPDATE employee_state SET last_raise_request_at=?, version=version+1
+                  WHERE id=? AND player_id=? AND source_type=? AND source_id=?
+                    AND relation_status='raise_requested'"
+            );
+            $update->execute([
+                $now->format('Y-m-d H:i:s'), (int)$current['id'], (int)$current['player_id'],
+                (string)$current['source_type'], (int)$current['source_id'],
+            ]);
+            if ($update->rowCount() !== 1) {
+                throw new RuntimeException('Raise request state update did not affect exactly one row.');
+            }
+            $this->event($current, 'raise_requested', 'hr.event.raise.title', 'hr.event.raise.message', [
                 'deadline'=>$deadline,
                 'request_no'=>$requestNo,
                 'current_salary'=>$currentSalary,
                 'requested_salary'=>$requestedSalary,
-            ], 'raise:' . (int)$state['id'] . ':' . $requestNo);
-            $created++;
+            ], 'raise:' . (int)$current['id'] . ':' . $requestNo);
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return true;
+        } catch (PDOException $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            if ((string)$exception->getCode() === '23000') {
+                return false;
+            }
+            throw $exception;
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
         }
-        return $created;
     }
 
     private function hasPendingRaiseRequests(DateTimeInterface $now): bool

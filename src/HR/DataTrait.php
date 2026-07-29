@@ -401,7 +401,22 @@ trait HRDataTrait
         return ['success' => true, 'message' => t('hr.msg_candidate_saved', ['name' => "{$c['first_name']} {$c['last_name']}", 'date' => date('d.m.Y H:i', strtotime($newExpiry))])];
     }
 
+    /** @return array<string,mixed> */
     public function renewContract(
+        int $memberId,
+        string $contractType = '1y',
+        int $playerId = 0,
+        string $idempotencyToken = ''
+    ): array
+    {
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): array => $this->renewContractOnce($memberId, $contractType, $playerId, $idempotencyToken)
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function renewContractOnce(
         int $memberId,
         string $contractType = '1y',
         int $playerId = 0,
@@ -415,6 +430,12 @@ trait HRDataTrait
             $this->db->beginTransaction();
         }
         try {
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $playerLock = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$suffix}");
+            $playerLock->execute([$playerId]);
+            if ((int)($playerLock->fetchColumn() ?: 0) !== $playerId) {
+                throw new RuntimeException('Player does not exist for contract renewal.');
+            }
             $receipts = new EmployeeActionReceiptService($this->db);
             $receipt = $receipts->claim($playerId, 'renew_contract', $idempotencyToken, [
                 'member_id'=>$memberId,
@@ -426,13 +447,32 @@ trait HRDataTrait
                 }
                 return $receipt['response'];
             }
-            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
             $stmt = $this->db->prepare("
                 SELECT ec.*, bm.first_name, bm.last_name
                 FROM employee_contracts ec
                 JOIN board_members bm ON ec.member_id = bm.id
                 WHERE ec.member_id = ? AND ec.status = 'active'
                   AND bm.player_id = ? AND bm.status='active'
+                  AND (
+                      EXISTS (
+                          SELECT 1 FROM employee_state es
+                           WHERE es.player_id=bm.player_id
+                             AND es.source_type='board_member'
+                             AND es.source_id=bm.id
+                             AND es.relation_status NOT IN ('on_strike','leaving','inactive')
+                      )
+                      OR EXISTS (
+                          SELECT 1
+                            FROM employee_source_links esl
+                            JOIN employee_state es
+                              ON es.player_id=esl.player_id
+                             AND es.source_type='technical_staff'
+                             AND es.source_id=esl.technical_staff_id
+                           WHERE esl.player_id=bm.player_id
+                             AND esl.board_member_id=bm.id
+                             AND es.relation_status NOT IN ('on_strike','leaving','inactive')
+                      )
+                  )
                 ORDER BY ec.contract_end DESC LIMIT 1{$suffix}
             ");
             $stmt->execute([$memberId, $playerId]);
@@ -450,10 +490,36 @@ trait HRDataTrait
                         AND EXISTS (
                             SELECT 1 FROM board_members bm
                              WHERE bm.id=employee_contracts.member_id
-                               AND bm.player_id=? AND bm.status='active'
-                        )"
+                                AND bm.player_id=? AND bm.status='active'
+                                AND (
+                                    EXISTS (
+                                        SELECT 1 FROM employee_state es
+                                         WHERE es.player_id=bm.player_id
+                                           AND es.source_type='board_member'
+                                           AND es.source_id=bm.id
+                                           AND es.relation_status NOT IN ('on_strike','leaving','inactive')
+                                    )
+                                    OR EXISTS (
+                                        SELECT 1
+                                          FROM employee_source_links esl
+                                          JOIN employee_state es
+                                            ON es.player_id=esl.player_id
+                                           AND es.source_type='technical_staff'
+                                           AND es.source_id=esl.technical_staff_id
+                                         WHERE esl.player_id=bm.player_id
+                                           AND esl.board_member_id=bm.id
+                                           AND es.relation_status NOT IN ('on_strike','leaving','inactive')
+                                    )
+                                )
+                         )"
                 );
-                $update->execute([$newEnd, $contractType, (int)$contract['id'], $memberId, $playerId]);
+                $update->execute([
+                    $newEnd,
+                    $contractType,
+                    (int)$contract['id'],
+                    $memberId,
+                    $playerId,
+                ]);
                 if ($update->rowCount() !== 1) {
                     throw new RuntimeException('Employee contract update did not affect exactly one row.');
                 }

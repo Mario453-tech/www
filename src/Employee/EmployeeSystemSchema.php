@@ -10,6 +10,7 @@ final class EmployeeSystemSchema
         $driver = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME);
         self::createVersionTable($db, $driver);
         if (self::currentVersion($db) >= self::VERSION) {
+            self::verify($db, $driver);
             return;
         }
         foreach ($driver === 'sqlite' ? self::sqliteStatements() : self::mysqlStatements() as $sql) {
@@ -35,6 +36,11 @@ final class EmployeeSystemSchema
         } catch (Throwable) {
             return 0;
         }
+    }
+
+    public static function verifyCurrent(PDO $db): void
+    {
+        self::verify($db, (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME));
     }
 
     private static function createVersionTable(PDO $db, string $driver): void

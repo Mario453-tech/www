@@ -165,6 +165,7 @@ final class EmployeeSystemBootstrap
         require_once __DIR__ . '/Employee/LogisticsStaffingService.php';
         require_once __DIR__ . '/Employee/HubStaffingManagementService.php';
         require_once __DIR__ . '/Employee/PipelineStaffingService.php';
+        require_once __DIR__ . '/HR/EmployeeDialogueTemplateService.php';
 
         self::$initialized ??= new WeakMap();
         if (isset(self::$initialized[$db])) {
@@ -172,12 +173,18 @@ final class EmployeeSystemBootstrap
         }
 
         $driver = (string)$db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if (EmployeeSystemSchema::currentVersion($db) >= EmployeeSystemSchema::VERSION) {
+            EmployeeSystemSchema::verifyCurrent($db);
+            self::$initialized[$db] = true;
+            return;
+        }
         if ($driver === 'sqlite') {
             self::createSqliteSchema($db);
         } else {
             self::createMySqlSchema($db);
         }
         EmployeeSystemSchema::ensure($db);
+        (new EmployeeDialogueTemplateService($db))->ensureSeededDefaults();
 
         self::$initialized[$db] = true;
     }

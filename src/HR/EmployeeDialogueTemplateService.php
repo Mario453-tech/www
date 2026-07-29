@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/EmployeeSystemBootstrap.php';
-
 final class EmployeeDialogueTemplateService
 {
     public const CONTEXTS = [
@@ -20,7 +18,10 @@ final class EmployeeDialogueTemplateService
 
     public function __construct(private readonly PDO $db)
     {
-        EmployeeSystemBootstrap::ensure($db);
+    }
+
+    public function ensureSeededDefaults(): void
+    {
         $this->seedDefaults();
     }
 
@@ -119,6 +120,7 @@ final class EmployeeDialogueTemplateService
         if (!in_array($context, self::CONTEXTS, true)) {
             throw new InvalidArgumentException('Unknown dialogue context.');
         }
+        $this->ensureSeededDefaults();
         $used = $this->usedTemplateIds($strikeId);
         $rows = $this->candidates($context, $department, $round, $tone, true);
         if ($rows === []) {

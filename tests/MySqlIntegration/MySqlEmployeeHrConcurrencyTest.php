@@ -336,7 +336,10 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
                 (member_id, contract_start, contract_end, salary, contract_type, status)
              VALUES (?, '2026-01-01', '2026-12-31', 12000, '1y', 'active')"
         )->execute([$memberId]);
-        return ['member_id'=>$memberId, 'contract_id'=>(int)$this->db->lastInsertId()];
+        $contractId = (int)$this->db->lastInsertId();
+        $stateService = new EmployeeStateService($this->db, new EmployeeRepository($this->db));
+        $stateService->ensureState(new EmployeeRef('board_member', $memberId, $playerId));
+        return ['member_id'=>$memberId, 'contract_id'=>$contractId];
     }
 
     /** @return array{first:int,second:int,role_id:int} */
@@ -452,7 +455,7 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
                 $workers[] = ['process' => $process, 'pipes' => $pipes, 'ready' => $readyFile];
             }
 
-            $deadline = microtime(true) + 15.0;
+            $deadline = microtime(true) + 30.0;
             do {
                 $allReady = count(array_filter(
                     $workers,

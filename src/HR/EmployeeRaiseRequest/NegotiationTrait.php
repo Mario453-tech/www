@@ -70,7 +70,12 @@ trait EmployeeRaiseRequestNegotiationTrait
             "SELECT 1
                FROM board_members bm
                JOIN hr_specializations hs ON hs.id=bm.specialization_id
+               JOIN employee_state es
+                 ON es.player_id=bm.player_id
+                AND es.source_type='board_member'
+                AND es.source_id=bm.id
               WHERE bm.player_id=? AND bm.status='active' AND hs.code='salary_negotiator'
+                AND es.relation_status NOT IN ('on_strike','leaving','inactive')
               LIMIT 1"
         );
         $stmt->execute([$playerId]);

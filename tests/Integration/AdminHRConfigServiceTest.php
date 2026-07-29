@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/SqliteIntegrationTestCase.php';
+require_once dirname(__DIR__, 2) . '/src/EmployeeSystemBootstrap.php';
 require_once dirname(__DIR__, 2) . '/src/HR/AdminHRConfigService.php';
 
 final class AdminHRConfigServiceTest extends SqliteIntegrationTestCase
@@ -13,6 +14,7 @@ final class AdminHRConfigServiceTest extends SqliteIntegrationTestCase
     {
         parent::setUp();
         $this->db = $this->createSqlitePdo();
+        EmployeeSystemBootstrap::ensure($this->db);
         $this->service = new AdminHRConfigService($this->db);
     }
 
