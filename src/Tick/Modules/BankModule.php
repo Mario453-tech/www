@@ -10,6 +10,9 @@ final class BankModule implements TickModule
     private int $loanDecisions = 0;
     private int $negotiationsResolved = 0;
     private int $hrRecruitmentsProcessed = 0;
+    private int $hrRecruitmentCleanupProcessed = 0;
+    private int $headhunterSearchesProcessed = 0;
+    private int $hrErrors = 0;
     private int $bankruptcyProcessed = 0;
     private int $bankruptcyRecovered = 0;
 
@@ -19,11 +22,19 @@ final class BankModule implements TickModule
 
     public function run(TickContext $ctx): void
     {
-        $section = new BankSection($ctx->db, $ctx->bankNegAvailable, $ctx->bankruptcyAvailable);
+        $section = new BankSection(
+            $ctx->db,
+            $ctx->bankNegAvailable,
+            $ctx->bankruptcyAvailable,
+            $ctx->moduleLimit('bank', 200)
+        );
         $section->run();
         $this->loanDecisions = $section->loanDecisions;
         $this->negotiationsResolved = $section->negotiationsResolved;
         $this->hrRecruitmentsProcessed = $section->hrRecruitmentsProcessed;
+        $this->hrRecruitmentCleanupProcessed = $section->hrRecruitmentCleanupProcessed;
+        $this->headhunterSearchesProcessed = $section->headhunterSearchesProcessed;
+        $this->hrErrors = $section->hrErrors;
         $this->bankruptcyProcessed = $section->bankruptcyProcessed;
         $this->bankruptcyRecovered = $section->bankruptcyRecovered;
     }
@@ -37,6 +48,9 @@ final class BankModule implements TickModule
             'negotiations_resolved' => $this->negotiationsResolved,
             'loan_decisions' => $this->loanDecisions,
             'hr_recruitments_processed' => $this->hrRecruitmentsProcessed,
+            'hr_recruitment_cleanup_processed' => $this->hrRecruitmentCleanupProcessed,
+            'headhunter_searches_processed' => $this->headhunterSearchesProcessed,
+            'hr_errors' => $this->hrErrors,
             'bankruptcy_processed' => $this->bankruptcyProcessed,
             'bankruptcy_recovered' => $this->bankruptcyRecovered,
         ];

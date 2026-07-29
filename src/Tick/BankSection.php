@@ -9,18 +9,28 @@ class BankSection
     public int  $loanDecisions          = 0;
     public int  $negotiationsResolved   = 0;
     public int  $hrRecruitmentsProcessed = 0;
+    public int  $hrRecruitmentCleanupProcessed = 0;
+    public int  $headhunterSearchesProcessed = 0;
+    public int  $hrErrors = 0;
     public int  $bankruptcyProcessed    = 0;
     public int  $bankruptcyRecovered    = 0;
 
     private PDO  $db;
     private bool $bankNegAvailable;
     private bool $bankruptcyAvailable;
+    private int $limit;
 
-    public function __construct(PDO $db, bool $bankNegAvailable, bool $bankruptcyAvailable)
+    public function __construct(
+        PDO $db,
+        bool $bankNegAvailable,
+        bool $bankruptcyAvailable,
+        int $limit = 200
+    )
     {
         $this->db                  = $db;
         $this->bankNegAvailable    = $bankNegAvailable;
         $this->bankruptcyAvailable = $bankruptcyAvailable;
+        $this->limit               = max(1, min(1000, $limit));
     }
 
     public function run(): void
@@ -170,27 +180,34 @@ class BankSection
         try {
             GameLog::step('tick', 'hr', 1, 'processReadyRecruitments');
             $hrSvcTick                     = new HRService();
-            $this->hrRecruitmentsProcessed = (int)$hrSvcTick->processReadyRecruitments();
+            $this->hrRecruitmentsProcessed = (int)$hrSvcTick->processReadyRecruitmentsAll($this->limit);
             if ($this->hrRecruitmentsProcessed > 0) {
                 GameLog::info('tick', 'processReadyRecruitments', ['processed' => $this->hrRecruitmentsProcessed]);
             }
         } catch (Throwable $e) {
+            $this->hrErrors++;
             GameLog::error('tick', 'processReadyRecruitments FAILED', $e);
         }
 
         try {
-            $this->db->prepare("
+            $cleanup = $this->db->prepare("
                 UPDATE recruitment_requests SET status = 'completed'
                 WHERE status = 'ready' AND ready_at < DATE_SUB(NOW(), INTERVAL 48 HOUR)
-            ")->execute();
+                ORDER BY ready_at ASC, id ASC
+                LIMIT {$this->limit}
+            ");
+            $cleanup->execute();
+            $this->hrRecruitmentCleanupProcessed = $cleanup->rowCount();
         } catch (Throwable $e) {
+            $this->hrErrors++;
             GameLog::error('tick', 'recruitment_cleanup FAILED', $e);
         }
 
         try {
             GameLog::step('tick', 'hr', 2, 'headhunter processReady');
-            (new HeadhunterService(0))->processReadyAll(100);
+            $this->headhunterSearchesProcessed = (new HeadhunterService(0))->processReadyAll($this->limit);
         } catch (Throwable $e) {
+            $this->hrErrors++;
             GameLog::error('tick', 'HeadhunterService::processReady FAILED', $e);
         }
     }

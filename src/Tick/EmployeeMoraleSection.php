@@ -21,6 +21,10 @@ final class EmployeeMoraleSection
     public int $threatsStarted = 0;
     public int $strikesStarted = 0;
     public int $departures = 0;
+    public int $raiseRequestsExpired = 0;
+    public int $negotiationsExpired = 0;
+    public int $departuresCompleted = 0;
+    public int $deadlineErrors = 0;
     public bool $cycleCompleted = false;
     private bool $escalationCompleted = false;
     private bool $unitOwnTransaction = false;
@@ -37,7 +41,17 @@ final class EmployeeMoraleSection
     public function run(): void
     {
         $strikeService = new EmployeeStrikeService($this->db);
-        $strikeService->processDeadlines($this->now, max(1, $this->limit));
+        try {
+            $deadlineStats = $strikeService->processDeadlines($this->now, max(1, $this->limit));
+            $this->raiseRequestsExpired = (int)($deadlineStats['raise_requests_expired'] ?? 0);
+            $this->negotiationsExpired = (int)($deadlineStats['negotiations_expired'] ?? 0);
+            $this->departuresCompleted = (int)($deadlineStats['departures_completed'] ?? 0);
+        } catch (Throwable $exception) {
+            $this->deadlineErrors++;
+            if (class_exists('GameLog', false)) {
+                GameLog::error('employees', 'Employee deadline processing failed', $exception);
+            }
+        }
         $this->cycleId = $this->openOrCreateCycle();
         $repository = new EmployeeRepository($this->db);
         $stateService = new EmployeeStateService($this->db, $repository);
@@ -151,7 +165,8 @@ final class EmployeeMoraleSection
 
         $stmt = $this->db->prepare(
             'SELECT COUNT(*) FROM employee_state
-              WHERE last_morale_cycle_id IS NULL OR last_morale_cycle_id <> ?'
+              WHERE relation_status <> \'inactive\'
+                AND (last_morale_cycle_id IS NULL OR last_morale_cycle_id <> ?)'
         );
         $stmt->execute([$this->cycleId]);
         $this->remaining = (int)$stmt->fetchColumn() + $repository->countMissingStateRefs();
@@ -207,7 +222,8 @@ final class EmployeeMoraleSection
     {
         $stmt = $this->db->prepare(
             'SELECT * FROM employee_state
-              WHERE last_morale_cycle_id IS NULL OR last_morale_cycle_id <> :cycle_id
+              WHERE relation_status <> \'inactive\'
+                AND (last_morale_cycle_id IS NULL OR last_morale_cycle_id <> :cycle_id)
               ORDER BY CASE WHEN last_morale_tick_at IS NULL THEN 0 ELSE 1 END,
                        last_morale_tick_at ASC, id ASC
               LIMIT :limit'

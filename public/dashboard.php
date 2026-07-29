@@ -13,12 +13,6 @@ $directorRoleCodes = ['hr', 'technical', 'finance', 'legal', 'logistics'];
 
 GameLog::step('dashboard', 'init', 1, 'start', ['player_id' => $playerId]);
 
-try {
-    $hr->processReadyRecruitments();
-} catch (Throwable $e) {
-    GameLog::error('dashboard', 'processReadyRecruitments FAILED', $e, ['player_id' => $playerId]);
-}
-
 // Bankrut? 
 $isBankrupt = false;
 try {

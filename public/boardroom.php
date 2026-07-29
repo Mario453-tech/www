@@ -9,14 +9,6 @@ require_once __DIR__ . '/../src/HRService.php';
 $playerId = (int)($_SESSION['user_id'] ?? 0);
 $db = Database::getInstance()->getConnection();
 
-try {
-    $hrBoardroom = new HRService();
-    $hrBoardroom->processReadyRecruitments();
-} catch (Throwable $e) {
-    GameLog::error('boardroom.php', 'processReadyRecruitments failed', $e, ['player_id' => $playerId]);
-}
-
-
 // Load active board members for the current player.
 $stmt = $db->prepare("
     SELECT bm.*, br.code as role_code, br.name as role_name,

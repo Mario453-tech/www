@@ -3,23 +3,6 @@
 trait TechnicalPageRecruitmentViewTrait
 {
  /**
- * Sync ready recruitments before rendering the page.
- * Synchronizuje gotowe rekrutacje przed renderem strony.
- */
-    public function syncReadyRecruitments(): void
-    {
-        try {
-            $hrUiSync = new HRService();
-            $processed = $hrUiSync->processReadyRecruitments($this->playerId);
-            if ($processed > 0) {
-                GameLog::info('technical.php', 'processReadyRecruitments on pageview', ['processed' => $processed]);
-            }
-        } catch (Throwable $e) {
-            GameLog::error('technical.php', 'processReadyRecruitments pageview FAIL', $e);
-        }
-    }
-
- /**
  * Build recruitment UI data for the technical page.
  * Buduje dane UI rekrutacji dla strony technicznej.
  */
@@ -27,16 +10,9 @@ trait TechnicalPageRecruitmentViewTrait
     {
         $pendingRecruitments = [];
         foreach ($activeRecruitments as $recruitment) {
-            $recruitmentId = (int) ($recruitment['id'] ?? 0);
             $status = $recruitment['status'] ?? '';
 
             if ($status === 'ready') {
-                try {
-                    $this->svc->completeRecruitment($recruitmentId);
-                    GameLog::info('technical.php', 'auto-completed ready recruitment banner', ['req_id' => $recruitmentId]);
-                } catch (Throwable $e) {
-                    GameLog::error('technical.php', 'auto-complete ready recruitment banner FAILED', $e, ['req_id' => $recruitmentId]);
-                }
                 continue;
             }
 

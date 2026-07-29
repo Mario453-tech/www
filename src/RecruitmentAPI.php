@@ -63,7 +63,8 @@ class RecruitmentAPI {
     }
 
  /**
- * Checks recruitment status and generates candidates if the wait has elapsed.
+ * Checks recruitment status without changing recruitment state.
+ * Sprawdza status rekrutacji bez zmiany jej stanu.
  *
  * @param int $requestId Recruitment request ID
  * @return array Recruitment status
@@ -85,21 +86,6 @@ class RecruitmentAPI {
             
             if (!$request) {
                 return ['success' => false, 'error' => t('recruitment.err_request_not_found')];
-            }
-            
- // Atomically claim the pending request to avoid double-processing under concurrent calls.
- // Atomowo przejm rekord, by uniknac podwojnego przetwarzania przy rownoczesnych zapytaniach.
-            if ($request['status'] === 'pending' && strtotime($request['ready_at']) <= time()) {
-                $this->hrService->processReadyRecruitments($playerId);
-
-                $stmt = $this->db->prepare("
-                    SELECT r.*, br.name as role_name, br.code as role_code
-                    FROM recruitment_requests r
-                    JOIN board_roles br ON r.role_id = br.id
-                    WHERE r.id = ? AND r.player_id = ?
-                ");
-                $stmt->execute([$requestId, $playerId]);
-                $request = $stmt->fetch(PDO::FETCH_ASSOC) ?: $request;
             }
             
             return [

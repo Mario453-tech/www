@@ -17,7 +17,6 @@ try {
 }
 
 [$msg, $msgType] = $controller->handlePost();
-$controller->syncReadyRecruitments();
 $viewData = $controller->buildViewData($msg, $msgType);
 
 $pageTitle = t('technical.page_title');

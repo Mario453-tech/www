@@ -47,6 +47,12 @@ final class EmployeesModule implements TickModule
             'threats_started'=>$section->threatsStarted,
             'strikes_started'=>$section->strikesStarted,
             'departures'=>$section->departures,
+            'departures_started'=>$section->departures,
+            'departures_completed'=>$section->departuresCompleted,
+            'raise_requests_expired'=>$section->raiseRequestsExpired,
+            'negotiations_expired'=>$section->negotiationsExpired,
+            'deadline_errors'=>$section->deadlineErrors,
+            'errors'=>$section->failed + $section->deadlineErrors,
         ];
     }
 

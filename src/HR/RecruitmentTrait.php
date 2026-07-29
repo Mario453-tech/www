@@ -202,16 +202,32 @@ trait HRRecruitmentTrait
         ];
     }
 
- /**
- * Sprawdza gotowe rekrutacje i generuje kandydatow.
- * Checks completed recruitments and generates candidates.
- * Call from cron or when loading board or HR views.
- * Wywolywac z crona lub przy zaladowaniu widokow zarzadu albo HR.
- */
-    public function processReadyRecruitments(?int $playerId = null, int $limit = 100): int
+    /**
+     * Processes ready recruitments for one player.
+     * Przetwarza gotowe rekrutacje jednego gracza.
+     */
+    public function processReadyRecruitments(int $playerId, int $limit = 100): int
     {
-        $playerFilter = $playerId !== null && $playerId > 0 ? " AND player_id = ?" : "";
-        $params = $playerFilter !== "" ? [$playerId] : [];
+        if ($playerId <= 0) {
+            throw new InvalidArgumentException('Player identifier must be positive.');
+        }
+
+        return $this->processReadyRecruitmentBatch($playerId, $limit);
+    }
+
+    /**
+     * Processes ready recruitments globally from the tick.
+     * Przetwarza globalnie gotowe rekrutacje z ticka.
+     */
+    public function processReadyRecruitmentsAll(int $limit = 100): int
+    {
+        return $this->processReadyRecruitmentBatch(null, $limit);
+    }
+
+    private function processReadyRecruitmentBatch(?int $playerId, int $limit): int
+    {
+        $playerFilter = $playerId !== null ? " AND player_id = ?" : "";
+        $params = $playerId !== null ? [$playerId] : [];
 
         $stmt = $this->db->prepare("
             SELECT * FROM recruitment_requests
