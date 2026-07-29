@@ -175,6 +175,59 @@ final class MySqlRecruitmentFlowTest extends MySqlIntegrationTestCase
         $this->assertSame(1, $this->countBySql("SELECT COUNT(*) FROM headhunter_candidates WHERE id = ? AND status = 'accepted'", [$this->headhunterStaffId]));
     }
 
+    public function testPersistedHeadhunterCounterofferCanBeAcceptedOnce(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->technicalRoleId = $this->ensureRole('technical', 'Technical');
+        $this->insertDirector($this->getTrackedIds()['managerId'], $playerId, $this->technicalRoleId, 'Tech', 'Director');
+        $technicalCode = 'phpunit_hh_counter_' . $playerId;
+        $this->insertSpecialization($this->technicalSpecId, $technicalCode, 'Counter Hunter', 'technical');
+        $this->insertHeadhunterCandidate($this->headhunterTechnicalId, $playerId, $this->technicalSpecId, 'Ivar', 'Counter');
+        $this->db->prepare(
+            "UPDATE headhunter_candidates
+                SET status='offered', offer_round=1, counter_salary=15000, counter_bonus=50000,
+                    expires_at=DATE_ADD(NOW(), INTERVAL 10 YEAR)
+              WHERE id=? AND player_id=?"
+        )->execute([$this->headhunterTechnicalId, $playerId]);
+        $persisted = $this->fetchOne(
+            'SELECT status, specialization_id, counter_salary, counter_bonus, expires_at FROM headhunter_candidates WHERE id=? AND player_id=?',
+            [$this->headhunterTechnicalId, $playerId]
+        );
+        $this->assertSame('offered', $persisted['status'] ?? null);
+        $this->assertSame($this->technicalSpecId, (int)($persisted['specialization_id'] ?? 0));
+        $this->assertSame(15000.0, (float)($persisted['counter_salary'] ?? 0));
+        $this->assertSame(50000.0, (float)($persisted['counter_bonus'] ?? 0));
+        $this->assertSame(1, $this->countBySql(
+            'SELECT COUNT(*) FROM headhunter_candidates hc JOIN hr_specializations hs ON hs.id=hc.specialization_id WHERE hc.id=?',
+            [$this->headhunterTechnicalId]
+        ));
+        $this->assertSame(1, $this->countBySql(
+            "SELECT COUNT(*) FROM headhunter_candidates hc
+              JOIN hr_specializations hs ON hs.id=hc.specialization_id
+              WHERE hc.id=? AND hc.player_id=? AND hc.status IN ('available','offered') AND hc.expires_at>NOW()",
+            [$this->headhunterTechnicalId, $playerId]
+        ));
+        $service = $this->makeHeadhunterService($playerId);
+        $token = 'headhunter-counter-token-' . $playerId;
+
+        $counterSalary = (float)$persisted['counter_salary'];
+        $counterBonus = (float)$persisted['counter_bonus'];
+        $first = $service->makeOffer($this->headhunterTechnicalId, $counterSalary, $counterBonus, $token);
+        $second = $service->makeOffer($this->headhunterTechnicalId, $counterSalary, $counterBonus, $token);
+
+        $this->assertTrue($first['success'], json_encode($first, JSON_UNESCAPED_UNICODE));
+        $this->assertSame($first, $second);
+        $this->assertSame(1, $this->countBySql(
+            'SELECT COUNT(*) FROM technical_staff WHERE player_id=? AND spec_code=?',
+            [$playerId, $technicalCode]
+        ));
+        $this->assertSame(1, $this->countBySql(
+            "SELECT COUNT(*) FROM employee_action_receipts
+              WHERE player_id=? AND action_key='headhunter_offer'",
+            [$playerId]
+        ));
+    }
+
     public function testHrStrikePersistsExtendedRecruitmentAndHeadhunterDeadlines(): void
     {
         $playerId = $this->seedPlayer();
@@ -358,6 +411,7 @@ final class MySqlRecruitmentFlowTest extends MySqlIntegrationTestCase
 
         $this->deleteByIdsLocal('bank_transactions', 'from_player_id', [$playerId]);
         $this->deleteByIdsLocal('bank_transactions', 'to_player_id', [$playerId]);
+        $this->deleteByIdsLocal('employee_action_receipts', 'player_id', [$playerId]);
         $this->deleteByIdsLocal('candidates', 'id', $candidateIds);
         $this->deleteByIdsLocal('headhunter_candidates', 'id', [$this->headhunterTechnicalId, $this->headhunterStaffId]);
         $this->deleteByIdsLocal('headhunter_candidates', 'player_id', [$playerId]);

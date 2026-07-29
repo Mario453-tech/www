@@ -91,7 +91,10 @@ final class EmployeeStrikeService
                 )";
             $params[] = $cycleId;
         }
-        $departmentSql .= ' GROUP BY player_id, department_code ORDER BY player_id, department_code LIMIT ' . $limit;
+        $departmentSql .= ' GROUP BY player_id, department_code ORDER BY player_id, department_code';
+        if ($cycleId > 0) {
+            $departmentSql .= ' LIMIT ' . $limit;
+        }
         $stmt = $this->db->prepare($departmentSql);
         $stmt->execute($params);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $department) {

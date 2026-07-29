@@ -54,6 +54,25 @@ try {
                 new DateTimeImmutable((string)$payload['now'])
             ),
         ],
+        'bonus' => (new EmployeeBonusService($db))->grantTechnicalBonus(
+            (int)$payload['player_id'],
+            (int)$payload['staff_id'],
+            (string)$payload['token']
+        ),
+        'renew_contract' => (new HRService())->renewContract(
+            (int)$payload['member_id'],
+            (string)$payload['contract_type'],
+            (int)$payload['player_id'],
+            (string)$payload['token']
+        ),
+        'hire_candidate' => (new HRService())->hireCandidate(
+            (int)$payload['candidate_id'],
+            (int)$payload['player_id']
+        ),
+        'start_recruitment' => (new HRService())->startRecruitment(
+            (int)$payload['player_id'],
+            (int)$payload['role_id']
+        ),
         'tick_lock' => probeTickLock($db),
         default => throw new InvalidArgumentException('Unknown employee HR worker action.'),
     };

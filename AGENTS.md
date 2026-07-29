@@ -294,6 +294,8 @@ Przed finalna odpowiedzia sprawdz:
 - Odpowiadaj po polsku.
 - Pisz krotko i konkretnie.
 - Ogranicz komentarze robocze i raporty do minimum potrzebnego do decyzji, zeby nie zuzywac niepotrzebnie tokenow.
+- Stosuj token economy: bez lania wody, bez opisywania toku myslenia i bez wklejania calych zmienianych plikow.
+- Plan ogranicz do 2-3 krotkich punktow, a potwierdzenie wykonania do wyniku, testow i ewentualnego bledu.
 - Przy duzym zadaniu podaj plan, potem wdrazaj etapami.
 - Przy malym zadaniu wykonaj zmiane od razu.
 - Jesli cos jest ryzykowne, nazwij ryzyko i zaproponuj bezpieczny wariant.

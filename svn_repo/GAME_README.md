@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2026-07-29 - HR: schemat v7 i domknięcie współbieżności
+
+- Schemat pracowników ma wersję 7, weryfikuje wymagane kolumny i indeksy oraz nie nadpisuje istniejących cech pracowników.
+- Migrator rozdziela `--apply-schema` od migracji danych; dry-run nie uruchamia bootstrapu ani zapisów.
+- Bonusy, odnowienia kontraktów i oferty headhuntera mają rejestr idempotencji, blokady rekordów i końcową kontrolę `player_id`.
+- Tick ogranicza partie deadline'ów, rekrutacji, headhuntera, eskalacji i odejść; cykl pozostaje `ready_for_escalation` do zakończenia wszystkich claimów.
+- Zwolnienie i odejście atomowo zamyka przypisania, członkostwo strajkowe i pusty konflikt.
+- Testy MySQL wykonują po 20 powtórzeń dla tokenów negocjacji, deadline'ów, blokady ticka, bonusu, kontraktu, zatrudnienia dyrektora i startu rekrutacji.
+
 ### 2026-07-28 - Domknięcie systemu pracowników i HR
 
 - API HR wymaga dostępu do działu, rozdziela akcje GET/POST i chroni mutacje przez CSRF.
@@ -7,7 +16,7 @@
 - Tick pracowników działa partiami, zapisuje claimy eskalacji, pełne statystyki cyklu i obsługuje odejście po trzech cyklach wysokiego ryzyka.
 - `StrikeEffectService` zasila logistykę, transport drogowy, technikę, rekrutację, HR, legal, finanse i B2B. Efekty dynamiczne znikają po ugodzie, a rozpoczęte operacje zachowują snapshot.
 - Panel gracza i admina udostępnia pełne widoki pracowników, morale, podwyżek, konfliktów, dialogów, ustawień i historii.
-- Schemat pracowników ma wersję 6. Migrację legacy uruchamia `tools/migrate_employee_system.php` w trybie dry-run, apply i ponownego dry-run; flagi `feature_threats`, `feature_strikes` i `feature_strike_effects` nie są włączane automatycznie.
+- Schemat pracowników ma wersję 7. Migrację legacy uruchamia `tools/migrate_employee_system.php` przez dry-run, jawne `--apply-schema`, apply i ponowny dry-run; flagi `feature_threats`, `feature_strikes` i `feature_strike_effects` nie są włączane automatycznie.
 - Wyścigi identycznych i różnych tokenów, ofert z deadline'em, decyzji podwyżkowych z deadline'em oraz dwóch ticków są sprawdzane po 20 powtórzeń na MySQL.
 - Zachowano zmianę `c10fe17`; kolejne pakiety wdrożono w commitach `362cb24`, `e997679`, `7d94865`, `d153fb4`, `bc06c80`, `4d9effb` i `d73a08e`.
 

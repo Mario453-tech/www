@@ -145,6 +145,80 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
         }
     }
 
+    public function testBonusRetryChargesOnce(): void
+    {
+        for ($iteration = 0; $iteration < self::REPETITIONS; $iteration++) {
+            $seed = $this->seedEmployee($iteration);
+            $before = $this->liquidFunds((int)$seed['player_id']);
+            $payload = [
+                'player_id'=>$seed['player_id'],
+                'staff_id'=>$seed['staff_id'],
+                'token'=>'bonus-retry-token-' . $iteration,
+            ];
+            $results = $this->runPair('bonus', $payload, 'bonus', $payload);
+
+            $this->assertTrue((bool)($results[0]['result']['success'] ?? false), $this->failureMessage($iteration, $results));
+            $this->assertTrue((bool)($results[1]['result']['success'] ?? false), $this->failureMessage($iteration, $results));
+            $this->assertSame(15000.0, $before - $this->liquidFunds((int)$seed['player_id']), 'Iteration ' . $iteration);
+            $this->assertSame(1, $this->receiptCount((int)$seed['player_id'], 'grant_bonus'));
+        }
+    }
+
+    public function testContractRenewalRetryExtendsOnce(): void
+    {
+        for ($iteration = 0; $iteration < self::REPETITIONS; $iteration++) {
+            $seed = $this->seedEmployee($iteration);
+            $contract = $this->seedBoardContract((int)$seed['player_id'], $iteration);
+            $payload = [
+                'player_id'=>$seed['player_id'],
+                'member_id'=>$contract['member_id'],
+                'contract_type'=>'1y',
+                'token'=>'renew-retry-token-' . $iteration,
+            ];
+            $results = $this->runPair('renew_contract', $payload, 'renew_contract', $payload);
+
+            $this->assertTrue((bool)($results[0]['result']['success'] ?? false), $this->failureMessage($iteration, $results));
+            $this->assertTrue((bool)($results[1]['result']['success'] ?? false), $this->failureMessage($iteration, $results));
+            $this->assertSame('2027-12-31', $this->contractEnd((int)$contract['contract_id']));
+            $this->assertSame(1, $this->receiptCount((int)$seed['player_id'], 'renew_contract'));
+        }
+    }
+
+    public function testConcurrentDirectorHiringFillsRoleOnce(): void
+    {
+        for ($iteration = 0; $iteration < self::REPETITIONS; $iteration++) {
+            $seed = $this->seedEmployee($iteration);
+            $candidates = $this->seedDirectorCandidates((int)$seed['player_id'], $iteration);
+            $left = ['player_id'=>$seed['player_id'], 'candidate_id'=>$candidates['first']];
+            $right = ['player_id'=>$seed['player_id'], 'candidate_id'=>$candidates['second']];
+            $results = $this->runPair('hire_candidate', $left, 'hire_candidate', $right);
+
+            $successes = count(array_filter(
+                $results,
+                static fn(array $row): bool => (bool)($row['result']['success'] ?? false)
+            ));
+            $this->assertSame(1, $successes, $this->failureMessage($iteration, $results));
+            $this->assertSame(1, $this->activeDirectorCount((int)$seed['player_id'], $candidates['role_id']));
+        }
+    }
+
+    public function testConcurrentRecruitmentStartCreatesOneRequest(): void
+    {
+        for ($iteration = 0; $iteration < self::REPETITIONS; $iteration++) {
+            $seed = $this->seedEmployee($iteration);
+            $roleId = $this->roleId('legal');
+            $payload = ['player_id'=>$seed['player_id'], 'role_id'=>$roleId];
+            $results = $this->runPair('start_recruitment', $payload, 'start_recruitment', $payload);
+
+            $successes = count(array_filter(
+                $results,
+                static fn(array $row): bool => (bool)($row['result']['success'] ?? false)
+            ));
+            $this->assertSame(1, $successes, $this->failureMessage($iteration, $results));
+            $this->assertSame(1, $this->activeRecruitmentCount((int)$seed['player_id'], $roleId));
+        }
+    }
+
     /** @return array<string,int> */
     private function seedStrikeScenario(int $iteration): array
     {
@@ -241,6 +315,100 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
             'now' => (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'),
             'expected_round' => 1,
         ];
+    }
+
+    /** @return array{member_id:int,contract_id:int} */
+    private function seedBoardContract(int $playerId, int $iteration): array
+    {
+        $roleId = $this->roleId('hr');
+        $memberId = $playerId + 2 + $iteration;
+        $this->db->prepare(
+            "INSERT INTO board_members
+                (id, player_id, member_type, role_id, first_name, last_name, gender, birth_date,
+                 nationality, experience_years, skill_organization, skill_negotiation, skill_analysis,
+                 skill_stress, skill_ethics, trait_loyalty, trait_corruption_risk, trait_ambition,
+                 salary, hired_at, status)
+             VALUES (?, ?, 'staff', ?, 'Contract', 'Worker', 'F', '1990-01-01', 'PL',
+                     8, 7, 7, 7, 7, 7, 7, 3, 6, 12000, NOW(), 'active')"
+        )->execute([$memberId, $playerId, $roleId]);
+        $this->db->prepare(
+            "INSERT INTO employee_contracts
+                (member_id, contract_start, contract_end, salary, contract_type, status)
+             VALUES (?, '2026-01-01', '2026-12-31', 12000, '1y', 'active')"
+        )->execute([$memberId]);
+        return ['member_id'=>$memberId, 'contract_id'=>(int)$this->db->lastInsertId()];
+    }
+
+    /** @return array{first:int,second:int,role_id:int} */
+    private function seedDirectorCandidates(int $playerId, int $iteration): array
+    {
+        $roleId = $this->roleId('legal');
+        $first = $playerId + 3 + $iteration;
+        $second = $playerId + 4 + $iteration;
+        $stmt = $this->db->prepare(
+            "INSERT INTO candidates
+                (id, player_id, director_status, role_id, first_name, last_name, gender, birth_date,
+                 nationality, region_code, experience_years, skill_organization, skill_negotiation,
+                 skill_analysis, skill_stress, skill_ethics, trait_loyalty, trait_corruption_risk,
+                 trait_ambition, expected_salary, expires_at)
+             VALUES (?, ?, 'pending', ?, ?, 'Candidate', 'F', '1990-01-01', 'PL', 'PL',
+                     8, 7, 7, 7, 7, 7, 7, 3, 6, 12000, DATE_ADD(NOW(), INTERVAL 1 DAY))"
+        );
+        $stmt->execute([$first, $playerId, $roleId, 'First']);
+        $stmt->execute([$second, $playerId, $roleId, 'Second']);
+        return ['first'=>$first, 'second'=>$second, 'role_id'=>$roleId];
+    }
+
+    private function roleId(string $code): int
+    {
+        $stmt = $this->db->prepare('SELECT id FROM board_roles WHERE code=? LIMIT 1');
+        $stmt->execute([$code]);
+        $id = (int)($stmt->fetchColumn() ?: 0);
+        $this->assertGreaterThan(0, $id);
+        return $id;
+    }
+
+    private function liquidFunds(int $playerId): float
+    {
+        $stmt = $this->db->prepare('SELECT cash + bank_balance FROM players WHERE id=?');
+        $stmt->execute([$playerId]);
+        return (float)$stmt->fetchColumn();
+    }
+
+    private function receiptCount(int $playerId, string $action): int
+    {
+        $stmt = $this->db->prepare(
+            'SELECT COUNT(*) FROM employee_action_receipts WHERE player_id=? AND action_key=?'
+        );
+        $stmt->execute([$playerId, $action]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    private function contractEnd(int $contractId): string
+    {
+        $stmt = $this->db->prepare('SELECT contract_end FROM employee_contracts WHERE id=?');
+        $stmt->execute([$contractId]);
+        return (string)$stmt->fetchColumn();
+    }
+
+    private function activeDirectorCount(int $playerId, int $roleId): int
+    {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM board_members
+              WHERE player_id=? AND role_id=? AND member_type='director' AND status='active'"
+        );
+        $stmt->execute([$playerId, $roleId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    private function activeRecruitmentCount(int $playerId, int $roleId): int
+    {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM recruitment_requests
+              WHERE player_id=? AND role_id=? AND status IN ('pending','ready')"
+        );
+        $stmt->execute([$playerId, $roleId]);
+        return (int)$stmt->fetchColumn();
     }
 
     /**
@@ -369,7 +537,14 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
 
     private function cleanupPlayer(int $playerId): void
     {
+        $this->db->prepare(
+            'DELETE FROM employment_history WHERE member_id IN (SELECT id FROM board_members WHERE player_id=?)'
+        )->execute([$playerId]);
+        $this->db->prepare(
+            'DELETE FROM employee_contracts WHERE member_id IN (SELECT id FROM board_members WHERE player_id=?)'
+        )->execute([$playerId]);
         foreach ([
+            'employee_action_receipts',
             'employee_strike_negotiation_rounds',
             'employee_strike_negotiations',
             'employee_strike_members',
@@ -380,9 +555,14 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
             'employee_state',
             'employee_source_links',
             'technical_staff',
+            'candidates',
+            'recruitment_requests',
+            'board_members',
         ] as $table) {
             $this->db->prepare("DELETE FROM {$table} WHERE player_id=?")->execute([$playerId]);
         }
+        $this->db->prepare('DELETE FROM bank_transactions WHERE from_player_id=? OR to_player_id=?')
+            ->execute([$playerId, $playerId]);
         $this->db->prepare('DELETE FROM players WHERE id=?')->execute([$playerId]);
     }
 
