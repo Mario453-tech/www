@@ -175,6 +175,12 @@ $actionHint = [
     'contaminated' => t('technical.ah_contaminated'),
 ];
 
+$actionAnchor = [
+    'broken'       => 'tech-mnt',
+    'blowout'      => 'tech-drl',
+    'contaminated' => 'tech-mnt',
+];
+
 $specLabelsSafety = [
     'safety_officer'       => t('technical.spec_safety_officer'),
     'safety_engineer'      => t('technical.spec_safety_engineer'),
@@ -208,7 +214,11 @@ $specLabelsSafety = [
             </li>
         <?php endforeach ?>
         </ul>
-        <p class="hse-fix-hint"> <?= htmlspecialchars($actionHint[$stCode] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
+        <?php if (!empty($actionHint[$stCode])): ?>
+        <a class="hse-fix-hint tech-gold-link" href="<?= htmlspecialchars(url('technical', ['tab' => 'team']), ENT_QUOTES, 'UTF-8') ?>#<?= htmlspecialchars($actionAnchor[$stCode] ?? 'tech-mnt', ENT_QUOTES, 'UTF-8') ?>">
+            <?= htmlspecialchars($actionHint[$stCode], ENT_QUOTES, 'UTF-8') ?>
+        </a>
+        <?php endif ?>
     </div>
 </div>
 <?php endif ?>
@@ -296,7 +306,11 @@ foreach ($activeDisasters as $d):
         <?php endif ?>
         <div class="disaster-stat"><div class="disaster-stat-val"><?= date('d.m H:i', strtotime($d['occurred_at'])) ?></div><div class="disaster-stat-lbl"><?= t('technical.disaster_date') ?></div></div>
     </div>
-    <?php if ($hint): ?><div class="disaster-action-hint"> <?= htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') ?></div><?php endif ?>
+    <?php if ($hint): ?>
+    <a class="disaster-action-hint tech-gold-link" href="<?= htmlspecialchars(url('technical', ['tab' => 'team']), ENT_QUOTES, 'UTF-8') ?>#<?= $d['disaster_type'] === 'blowout' ? 'tech-drl' : 'tech-mnt' ?>">
+        <?= htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') ?>
+    </a>
+    <?php endif ?>
     <?php if ($d['hse_active']): ?><div class="disaster-hse-note"> <?= t('technical.disaster_hse_note') ?></div><?php endif ?>
 </div>
 <?php endforeach ?>

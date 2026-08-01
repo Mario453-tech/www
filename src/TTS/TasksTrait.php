@@ -515,6 +515,13 @@ trait TTSTasksTrait
     /** @return array{success:false,message:string} */
     private function relationBlockedResult(string $relationStatus): array
     {
+        if ($relationStatus === 'on_strike') {
+            return [
+                'success' => false,
+                'message' => t('technical.task_msg.staff_on_strike'),
+            ];
+        }
+
         return [
             'success' => false,
             'message' => t('technical.task_msg.start_failed', [

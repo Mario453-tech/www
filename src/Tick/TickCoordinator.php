@@ -313,9 +313,10 @@ final class TickCoordinator
         $this->cleanupTickHistoryIfDue();
 
         $retentionDays = $this->configInt('incident_retention_days', 30, 1);
+        $incidentRetentionDays = 3;
         try {
             $stmt = $this->db->prepare('DELETE FROM well_incidents WHERE created_at < NOW() - INTERVAL ? DAY');
-            $stmt->bindValue(1, $retentionDays, PDO::PARAM_INT);
+            $stmt->bindValue(1, $incidentRetentionDays, PDO::PARAM_INT);
             $stmt->execute();
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
@@ -323,6 +324,25 @@ final class TickCoordinator
             }
         }
 
+
+        try {
+            $stmt = $this->db->prepare(
+                'DELETE FROM failure_log WHERE resolved = 1 AND resolved_at < NOW() - INTERVAL ? DAY'
+            );
+            $stmt->bindValue(1, $incidentRetentionDays, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $stmt = $this->db->prepare(
+                "DELETE FROM industrial_disasters
+                 WHERE status = 'resolved' AND resolved_at < NOW() - INTERVAL ? DAY"
+            );
+            $stmt->bindValue(1, $incidentRetentionDays, PDO::PARAM_INT);
+            $stmt->execute();
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('tick', 'resolved_incident_retention_cleanup FAILED', $e);
+            }
+        }
         try {
             $stmt = $this->db->prepare(
                 'DELETE FROM technical_notifications WHERE is_read = 1 AND created_at < NOW() - INTERVAL ? DAY'

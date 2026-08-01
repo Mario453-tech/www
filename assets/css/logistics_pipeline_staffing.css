@@ -29,15 +29,16 @@
     gap: 3px;
     min-width: 0;
     padding: 8px 10px;
-    border-left: 3px solid #30795d;
-    background: var(--surface, #fff);
+    border: 1px solid #343649;
+    border-left: 3px solid #4ea87c;
+    background: #222331;
 }
 
 .pipeline-staffing-coverage-grid span,
 .pipeline-staffing-person span,
 .pipeline-staffing-person small,
 .pipeline-staffing-assignment span {
-    color: var(--text-muted, #667085);
+    color: #aeb5c9;
     font-size: 12px;
 }
 
@@ -50,6 +51,8 @@
     display: grid;
     gap: 18px;
     overflow-y: auto;
+    color: #e7e9f0;
+    background: #171724;
     padding: 18px;
 }
 
@@ -73,8 +76,8 @@
 .pipeline-staffing-notice {
     padding: 10px;
     border-left: 3px solid #b7791f;
-    background: #fff7e6;
-    color: #6f4e16;
+    background: #342a1b;
+    color: #f2d384;
 }
 
 .pipeline-staffing-active-list,
@@ -86,9 +89,10 @@
 .pipeline-staffing-assignment,
 .pipeline-staffing-candidate {
     padding: 10px 12px;
-    border: 1px solid var(--border, #d7dde5);
+    border: 1px solid #343649;
     border-radius: 6px;
-    background: var(--surface, #fff);
+    background: #222331;
+    color: #f1f3f8;
 }
 
 .pipeline-staffing-assignment > div,
@@ -99,7 +103,7 @@
 }
 
 .pipeline-staffing-candidate.is-blocked {
-    background: #f3f4f6;
+    background: #292a35;
 }
 
 .pipeline-staffing-candidate-actions {
@@ -114,12 +118,15 @@
 
 .pipeline-staffing-candidate-actions input {
     width: 92px;
+    color: #f1f3f8;
+    border-color: #4a4d61;
+    background: #171724;
 }
 
 .pipeline-staffing-empty {
     padding: 12px;
-    color: var(--text-muted, #667085);
-    background: var(--surface-soft, #f7f9fb);
+    color: #aeb5c9;
+    background: #222331;
 }
 
 @media (max-width: 720px) {

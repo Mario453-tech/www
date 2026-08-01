@@ -1453,3 +1453,7 @@
 }
 
 .pipe-sub { margin-top: 4px; font-size: 11px; color: rgba(232,232,240,.45); }
+
+.inc-repair-link {
+    display: inline-flex;
+    margin-top: 6px;

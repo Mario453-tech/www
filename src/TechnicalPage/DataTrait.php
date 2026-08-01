@@ -279,6 +279,32 @@ trait TechnicalPageDataTrait
             ");
             $reconcileStmt->execute([$this->playerId]);
 
+            // Reconcile stale blowouts only after both the well and rescue task are clear.
+            // Uzgodnij stare blowouty dopiero gdy odwiert i zadanie ratunkowe sa zakonczone.
+            $reconcileBlowoutStmt = $db->prepare("
+                UPDATE industrial_disasters
+                SET status = 'resolved', resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+                WHERE player_id = ?
+                  AND disaster_type = 'blowout'
+                  AND status IN ('active', 'being_repaired')
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM wells w
+                      WHERE w.id = industrial_disasters.well_id
+                        AND w.player_id = industrial_disasters.player_id
+                        AND w.status = 'blowout'
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM technical_tasks tt
+                      WHERE tt.player_id = industrial_disasters.player_id
+                        AND tt.well_id = industrial_disasters.well_id
+                        AND tt.task_type = 'blowout_control'
+                        AND tt.status = 'in_progress'
+                  )
+            ");
+            $reconcileBlowoutStmt->execute([$this->playerId]);
+
             $stmt = $db->prepare("
                 SELECT d.*, w.location_name AS well_name
                 FROM industrial_disasters d

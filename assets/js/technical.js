@@ -149,9 +149,33 @@ function toggleWellSelect(sel, staffId) {
     }
 }
 
-// Confirm dialog for paid task assignment.
-// Shows cost range when task has cost > 0.
-// Submits via AJAX and shows result in a modal instead of page reload.
+// Show a strike-specific action without exposing a technical error.
+// Pokaz akcje dla strajku bez ujawniania bledu technicznego.
+function showTechnicalTaskError(message) {
+    const lang = window.TECH_LANG || {};
+    if (message === lang.strike_blocked_message && typeof window.alertWithActions === 'function') {
+        window.alertWithActions(message, lang.strike_blocked_title, [
+            {
+                label: lang.strike_conflicts_label,
+                cls: 'modal-btn--confirm',
+                onClick: function () { window.location.assign(lang.strike_conflicts_url); }
+            },
+            { label: lang.strike_close_label, cls: 'modal-btn--secondary' }
+        ], 'warning');
+        return;
+    }
+
+    if (typeof window.alertError === 'function') {
+        window.alertError(message);
+    } else if (typeof window.showGameToast === 'function') {
+        window.showGameToast(message, 'error');
+    }
+}
+
+window.showTechnicalTaskError = showTechnicalTaskError;
+
+// Confirm paid task assignment and submit it with AJAX.
+// Potwierdz platne zadanie i wyslij je przez AJAX.
 function techTaskConfirm(form) {
     const sel = form.querySelector('select[name="task_type"]');
     if (!sel) return true;
@@ -189,11 +213,7 @@ function techTaskConfirm(form) {
                 }
             } else {
                 if (btn) { btn.disabled = false; btn.textContent = btnText; }
-                if (typeof window.alertError === 'function') {
-                    window.alertError(msg);
-                } else if (typeof window.showGameToast === 'function') {
-                    window.showGameToast(msg, 'error');
-                }
+                showTechnicalTaskError(msg);
             }
         } catch (_e) {
             location.reload();

@@ -63,6 +63,19 @@ final class TechnicalDisasterStatusTest extends SqliteIntegrationTestCase
         $this->assertSame('active', $rows[0]['status']);
     }
 
+    public function testStaleBlowoutIsResolvedAndHidden(): void
+    {
+        $this->db->exec("INSERT INTO wells VALUES (14, 1, 'Pole 14', 'active')");
+        $this->db->exec("INSERT INTO industrial_disasters
+            VALUES (104, 1, 14, 'blowout', 'active', NULL, '2026-07-20 10:00:00')");
+
+        $rows = $this->loadDisasters(1);
+
+        $this->assertSame([], $rows);
+        $status = $this->db->query('SELECT status FROM industrial_disasters WHERE id = 104')->fetchColumn();
+        $this->assertSame('resolved', $status);
+    }
+
     public function testRehabilitationInProgressKeepsDisasterVisible(): void
     {
         $this->db->exec("INSERT INTO wells VALUES (12, 1, 'Pole 12', 'servicing')");
