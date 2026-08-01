@@ -7,6 +7,7 @@ class GameShell
     {
         $playerData = ['cash' => 0, 'status' => 'active', 'capacity' => 0, 'used' => 0, 'created_at' => null];
         $marketData = ['current_price' => 0];
+        $wellCounts = ['active' => 0, 'total' => 0, 'damaged' => 0];
 
         // Zapewnij kolumny portfela PRZED Player::getData() (SELECT p.* musi widziec bank_balance).
         // Ensure wallet columns BEFORE Player::getData() (SELECT p.* must see bank_balance).
@@ -42,11 +43,43 @@ class GameShell
             }
         }
 
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("
+                SELECT
+                    SUM(CASE WHEN status = 'active' AND technical_condition > 1 THEN 1 ELSE 0 END) AS active_count,
+                    SUM(CASE WHEN status NOT IN ('sold', 'seized') THEN 1 ELSE 0 END) AS total_count,
+                    SUM(CASE
+                        WHEN status NOT IN ('sold', 'seized')
+                         AND (status IN ('broken', 'blowout', 'contaminated') OR technical_condition <= 1)
+                        THEN 1 ELSE 0
+                    END) AS damaged_count
+                FROM wells
+                WHERE player_id = ?
+            ");
+            $stmt->execute([$playerId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $wellCounts = [
+                'active' => (int)($row['active_count'] ?? 0),
+                'total' => (int)($row['total_count'] ?? 0),
+                'damaged' => (int)($row['damaged_count'] ?? 0),
+            ];
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('GameShell', 'company well status load failed', $e, ['player_id' => $playerId]);
+            }
+        }
+
         $used        = (float)($playerData['used'] ?? 0);
         $capacity    = (float)($playerData['capacity'] ?? 0);
         $storagePct  = $capacity > 0 ? round(($used / $capacity) * 100, 0) : 0;
         $companyDays = self::companyAgeDays($playerData['created_at'] ?? null);
-        $statusLabel = self::statusLabel((string)($playerData['status'] ?? 'active'));
+        $companyStatus = self::companyStatusPresentation(
+            (string)($playerData['status'] ?? 'active'),
+            $wellCounts['active'],
+            $wellCounts['total'],
+            $wellCounts['damaged']
+        );
         $bankBalance = (float)($playerData['bank_balance'] ?? 0.0);
 
         return [
@@ -88,9 +121,9 @@ class GameShell
             ],
             [
                 'label' => t('game_shell.company_status_label'),
-                'value' => $statusLabel,
+                'value' => $companyStatus['label'],
                 'sub' => t('game_shell.company_age_sub', ['days' => $companyDays]),
-                'class' => '',
+                'class' => $companyStatus['code'] === 'well_failure' ? 'cv-bad' : '',
                 'icon_html' => self::statusIconHtml('company'),
                 'icon_color' => '#20b2aa',
                 'pulse' => true,
@@ -209,15 +242,45 @@ class GameShell
         return max(0, (int)floor((time() - $ts) / 86400));
     }
 
-    private static function statusLabel(string $status): string
+    public static function companyStatusCode(string $playerStatus, int $activeWells, int $totalWells, int $damagedWells): string
     {
-        return match (strtolower($status)) {
-            'active' => t('game_shell.company_status_active'),
-            'bankrupt' => t('game_shell.company_status_bankrupt'),
-            'recovery' => t('game_shell.company_status_recovery'),
-            'paused' => t('game_shell.company_status_paused'),
-            default => ucfirst($status),
+        $status = strtolower($playerStatus);
+        if (in_array($status, ['bankrupt', 'under_bailiff', 'financial_risk', 'recovery', 'paused'], true)) {
+            return $status;
+        }
+        if ($damagedWells > 0) {
+            return 'well_failure';
+        }
+        if ($totalWells > 0 && $activeWells === 0) {
+            return 'idle';
+        }
+
+        return $status;
+    }
+
+    /** @return array{code:string,label:string,modifier:string} */
+    public static function companyStatusPresentation(string $playerStatus, int $activeWells, int $totalWells, int $damagedWells): array
+    {
+        $code = self::companyStatusCode($playerStatus, $activeWells, $totalWells, $damagedWells);
+        $label = match ($code) {
+            'active' => t('header.company_active'),
+            'well_failure' => t('header.company_well_failure', ['count' => $damagedWells]),
+            'idle' => t('header.company_idle'),
+            'bankrupt' => t('header.company_bankrupt'),
+            'under_bailiff' => t('header.company_under_bailiff'),
+            'financial_risk' => t('header.company_financial_risk'),
+            'recovery' => t('header.company_recovery'),
+            'paused' => t('header.company_paused'),
+            default => ucfirst($code),
         };
+        $modifier = match ($code) {
+            'well_failure' => 'failure',
+            'under_bailiff' => 'bailiff',
+            'financial_risk' => 'risk',
+            default => $code,
+        };
+
+        return ['code' => $code, 'label' => $label, 'modifier' => $modifier];
     }
 
  /** @return array{statusItems:array<int,array<string,mixed>>,actions:array<int,array<string,mixed>>} */

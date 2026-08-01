@@ -104,7 +104,7 @@ try {
  // User data / Dane uzytkownika
             $__topbarName   = '';
             $__topbarAvatar = null;
-            $__statusLabel  = 'Aktywna';
+            $__statusLabel  = t('header.company_active');
             $__statusMod    = 'active';
             if (!empty($_SESSION['user_id'])) {
                 try {
@@ -113,44 +113,34 @@ try {
                         SELECT p.username, p.company_name, p.avatar_path, p.status,
                                (SELECT COUNT(*) FROM wells w
                                  WHERE w.player_id = p.id
-                                   AND w.status = 'active') AS active_wells_count,
+                                   AND w.status = 'active'
+                                   AND w.technical_condition > 1) AS active_wells_count,
                                (SELECT COUNT(*) FROM wells w
                                  WHERE w.player_id = p.id
-                                   AND w.status NOT IN ('sold','seized')) AS total_wells_count
+                                   AND w.status NOT IN ('sold','seized')) AS total_wells_count,
+                               (SELECT COUNT(*) FROM wells w
+                                 WHERE w.player_id = p.id
+                                   AND w.status NOT IN ('sold','seized')
+                                   AND (w.status IN ('broken','blowout','contaminated') OR w.technical_condition <= 1)) AS damaged_wells_count
                           FROM players p WHERE p.id = ? LIMIT 1
                     ");
                     $__uRow->execute([$_SESSION['user_id']]);
                     $__uData = $__uRow->fetch();
-                    $__topbarName   = $__uData['company_name'] ?: $__uData['username'] ?: ('Gracz #' . $_SESSION['user_id']);
+                    $__topbarName   = $__uData['company_name'] ?: $__uData['username'] ?: t('header.player_fallback', ['id' => (int)$_SESSION['user_id']]);
                     $__topbarAvatar = $__uData['avatar_path'] ?? null;
 
-                    // Compute display status — Polish labels, wells-idle detection
-                    // Wyznacz status wyswietlany: polskie etykiety, detekcja przestoju odwiertow
+                    // Compute the company status from account and actual well states.
+                    // Wyznacz status firmy z konta i rzeczywistych stanow odwiertow.
                     $__ps = (string)($__uData['status'] ?? 'active');
                     $__aw = (int)($__uData['active_wells_count'] ?? 0);
                     $__tw = (int)($__uData['total_wells_count'] ?? 0);
-
-                    if ($__ps === 'bankrupt') {
-                        $__statusLabel = 'Bankrut';
-                        $__statusMod   = 'bankrupt';
-                    } elseif ($__ps === 'under_bailiff') {
-                        $__statusLabel = 'Pod komornikiem';
-                        $__statusMod   = 'bailiff';
-                    } elseif ($__ps === 'financial_risk') {
-                        $__statusLabel = 'Ryzyko finansowe';
-                        $__statusMod   = 'risk';
-                    } elseif ($__tw > 0 && $__aw === 0) {
-                        // All wells exist but none active — company is idle
-                        // Wszystkie odwierty istnieja, ale zadne nie dziala — przestoj
-                        $__statusLabel = 'Przestoj';
-                        $__statusMod   = 'idle';
-                    } else {
-                        $__statusLabel = 'Aktywna';
-                        $__statusMod   = 'active';
-                    }
-                    unset($__ps, $__aw, $__tw);
+                    $__dw = (int)($__uData['damaged_wells_count'] ?? 0);
+                    $__companyStatus = GameShell::companyStatusPresentation($__ps, $__aw, $__tw, $__dw);
+                    $__statusLabel = $__companyStatus['label'];
+                    $__statusMod = $__companyStatus['modifier'];
+                    unset($__ps, $__aw, $__tw, $__dw, $__companyStatus);
                 } catch (Throwable $e) {
-                    $__topbarName = 'Gracz #' . $_SESSION['user_id'];
+                    $__topbarName = t('header.player_fallback', ['id' => (int)$_SESSION['user_id']]);
                 }
             }
 

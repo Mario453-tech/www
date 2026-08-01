@@ -834,6 +834,7 @@ Zmiany:
 
 ### 2026-06-05 - Karty odwiertow: stale KPI przy wstrzymaniu
 - `templates/components/well_grid.php` - karty odwiertow pokazuja teraz wydobycie, stan, tryb i zloze takze dla statusow wstrzymanych; wydobycie aktywne pokazuje wartosc normalnie, a wstrzymane pokazuje `0 bbl/h` z bazowym potencjalem.
+- src/GameShell.php, templates/header.php - status firmy uwzglednia rzeczywiste awarie odwiertow; przy co najmniej jednym uszkodzonym odwiercie zamiast statusu aktywnego pokazuje liczbe awarii w PL/EN.
 - `lang/pl/components.php` - dodano etykiety `wg.stat_paused` i `wg.stat_base` dla informacji pod KPI wydobycia.
 
 ### 2026-06-05 - Aktualnosci spolki: tytul z TinyMCE

@@ -1086,6 +1086,7 @@ select option { background: var(--bg3); color: var(--text); }
     white-space: nowrap;
 }
 .hdr-company-status--active   { color: var(--green); }
+.hdr-company-status--failure  { color: var(--red); }
 .hdr-company-status--idle     { color: var(--orange); }
 .hdr-company-status--risk     { color: var(--orange); }
 .hdr-company-status--bailiff  { color: #e07830; }
