@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/EmployeeSystemBootstrap.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
 require_once __DIR__ . '/EmployeeDepartureService.php';
 require_once __DIR__ . '/EmployeeDeadlockRetry.php';
+require_once __DIR__ . '/StrikeEffectService.php';
 
 final class EmployeeStrikeService
 {
@@ -350,6 +351,34 @@ final class EmployeeStrikeService
 
     public function closeByAgreement(int $playerId, int $strikeId, float $moraleGain): void
     {
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
+        }
+        try {
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $lock = $this->db->prepare(
+                "SELECT id FROM employee_strikes
+                  WHERE id=? AND player_id=? AND open_key IS NOT NULL LIMIT 1{$suffix}"
+            );
+            $lock->execute([$strikeId, $playerId]);
+            if ((int)($lock->fetchColumn() ?: 0) !== $strikeId) {
+                throw new RuntimeException('Open strike does not exist for this player.');
+            }
+            $this->closeByAgreementInsideTransaction($playerId, $strikeId, $moraleGain);
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
+    private function closeByAgreementInsideTransaction(int $playerId, int $strikeId, float $moraleGain): void
+    {
         $members = $this->members($playerId, $strikeId);
         $stmt = $this->db->prepare(
             "UPDATE employee_strikes SET status='resolved', open_key=NULL,
@@ -382,6 +411,7 @@ final class EmployeeStrikeService
                 $strikeId,$playerId,(string)$member['source_type'],(int)$member['source_id'],
             ]);
         }
+        StrikeEffectService::invalidateRequestCache($playerId);
     }
 
     /** @return array{strike_id:int,member_count:int,status:string} */
@@ -743,6 +773,9 @@ final class EmployeeStrikeService
         $activate = $cycles >= $this->config->getInt('threat_cycles_required')
             && (float)$department['avg_support'] >= $this->config->getFloat('strike_support_threshold')
             && $this->config->getBool('feature_strikes');
+        if ($activate && $this->activateMembers($playerId, (int)$strike['id'], $code) === 0) {
+            $activate = false;
+        }
         $this->db->prepare(
             'UPDATE employee_strikes SET threat_cycles=?, support_pct=?,
                     status=?, started_at=CASE WHEN ?=1 THEN ? ELSE started_at END,
@@ -752,7 +785,6 @@ final class EmployeeStrikeService
             $activate ? 1 : 0,$now->format('Y-m-d H:i:s'),(int)$strike['id'],$playerId,
         ]);
         if ($activate) {
-            $this->activateMembers($playerId, (int)$strike['id'], $code);
             $stats['strikes_started']++;
         }
     }
@@ -774,7 +806,7 @@ final class EmployeeStrikeService
         )->execute([$playerId,$department]);
     }
 
-    private function activateMembers(int $playerId, int $strikeId, string $department): void
+    private function activateMembers(int $playerId, int $strikeId, string $department): int
     {
         $minimum = $this->config->getFloat('strike_member_support');
         $stmt = $this->db->prepare(
@@ -783,7 +815,8 @@ final class EmployeeStrikeService
         );
         $stmt->execute([$playerId,$department,$minimum]);
         $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $state) {
+        $states = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($states as $state) {
             $sql = $driver === 'sqlite'
                 ? "INSERT INTO employee_strike_members
                     (strike_id, player_id, source_type, source_id, support_pct)
@@ -800,6 +833,7 @@ final class EmployeeStrikeService
                 (int)$state['id'],$playerId,(string)$state['source_type'],(int)$state['source_id'],
             ]);
         }
+        return count($states);
     }
 
     /**

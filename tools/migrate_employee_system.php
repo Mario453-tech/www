@@ -46,6 +46,7 @@ try {
         if (EmployeeSystemSchema::currentVersion($db) < EmployeeSystemSchema::VERSION) {
             throw new RuntimeException('Employee schema is not ready. Run with --apply-schema first.');
         }
+        EmployeeSystemSchema::verifyCurrent($db);
         $result = (new EmployeeLegacyMigrationService($db))->run($apply, $playerId);
     }
     fwrite(STDOUT, json_encode(

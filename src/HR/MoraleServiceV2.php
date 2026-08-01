@@ -80,6 +80,11 @@ final class MoraleService
     public function changeMorale(EmployeeRef $ref, float $amount, string $reason): float
     {
         $state = $this->states->ensureState($ref);
+        $stateRef = new EmployeeRef(
+            (string)$state['source_type'],
+            (int)$state['source_id'],
+            (int)$state['player_id']
+        );
         $ownTransaction = !$this->db->inTransaction();
         if ($ownTransaction) {
             $this->db->beginTransaction();
@@ -90,7 +95,12 @@ final class MoraleService
                 "SELECT morale, version FROM employee_state
                   WHERE id=? AND player_id=? AND source_type=? AND source_id=? LIMIT 1{$suffix}"
             );
-            $lock->execute([(int)$state['id'], $ref->playerId, $ref->sourceType, $ref->sourceId]);
+            $lock->execute([
+                (int)$state['id'],
+                $stateRef->playerId,
+                $stateRef->sourceType,
+                $stateRef->sourceId,
+            ]);
             $current = $lock->fetch(PDO::FETCH_ASSOC);
             if (!is_array($current)) {
                 throw new RuntimeException('Canonical employee state does not exist.');
@@ -109,8 +119,8 @@ final class MoraleService
                     AND source_id=:source_id AND version=:version'
             );
             $stmt->execute([
-                'morale'=>$newMorale, 'id'=>(int)$state['id'], 'player_id'=>$ref->playerId,
-                'source_type'=>$ref->sourceType, 'source_id'=>$ref->sourceId,
+                'morale'=>$newMorale, 'id'=>(int)$state['id'], 'player_id'=>$stateRef->playerId,
+                'source_type'=>$stateRef->sourceType, 'source_id'=>$stateRef->sourceId,
                 'version'=>(int)$current['version'],
             ]);
             if ($stmt->rowCount() !== 1) {
@@ -122,9 +132,9 @@ final class MoraleService
                  VALUES (?, ?, ?, 'morale_changed', 'hr.event.morale.title', 'hr.event.morale.message', ?, ?)"
             );
             $event->execute([
-                $ref->playerId, $ref->sourceType, $ref->sourceId,
+                $stateRef->playerId, $stateRef->sourceType, $stateRef->sourceId,
                 json_encode(['amount'=>$actual, 'reason'=>$reason], JSON_THROW_ON_ERROR),
-                'morale:' . $ref->playerId . ':' . $ref->key() . ':' . bin2hex(random_bytes(12)),
+                'morale:' . $stateRef->playerId . ':' . $stateRef->key() . ':' . bin2hex(random_bytes(12)),
             ]);
             if ($ownTransaction) {
                 $this->db->commit();

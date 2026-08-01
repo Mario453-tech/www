@@ -18,12 +18,13 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
         parent::setUp();
         EmployeeSystemBootstrap::ensure($this->db);
         $config = new EmployeeSystemConfigService($this->db);
-        foreach (['feature_negotiations', 'negotiation_rounds'] as $key) {
+        foreach (['feature_negotiations', 'negotiation_rounds', 'negotiation_offer_weight'] as $key) {
             $this->originalConfig[$key] = $config->get($key);
         }
         $config->save([
             'feature_negotiations' => true,
             'negotiation_rounds' => 1,
+            'negotiation_offer_weight' => 10.0,
         ]);
     }
 
@@ -219,6 +220,88 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
         }
     }
 
+    public function testDepartureAndSettlementRemainConsistent(): void
+    {
+        for ($iteration = 0; $iteration < self::REPETITIONS; $iteration++) {
+            $seed = $this->seedStrikeScenario($iteration);
+            $cycleId = (int)$seed['player_id'];
+            $this->db->prepare(
+                'UPDATE employee_state
+                    SET leave_risk=95, leave_risk_streak=2, last_morale_cycle_id=?
+                  WHERE player_id=? AND source_type=\'technical_staff\' AND source_id=?'
+            )->execute([$cycleId, $seed['player_id'], $seed['staff_id']]);
+            $departure = [
+                'cycle_id' => $cycleId,
+                'now' => (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'),
+            ];
+            $offer = $this->offerPayload($seed, 'departure-offer-' . $iteration);
+            $offer['raise_pct'] = 30.0;
+            $offer['bonus_per_member'] = 100000.0;
+
+            $results = $this->runPair('departure_cycle', $departure, 'offer', $offer);
+
+            $this->assertSame('leaving', $this->relationStatus($seed), $this->failureMessage($iteration, $results));
+            $this->assertSame('resolved', $this->strikeStatusForPlayer($seed), $this->failureMessage($iteration, $results));
+            $this->assertSame(1, $this->leavingEventCount($seed), $this->failureMessage($iteration, $results));
+            $this->assertSame(1, $this->closedStrikeMemberCount($seed), $this->failureMessage($iteration, $results));
+        }
+    }
+
+    public function testBonusAndSettlementDoNotDoubleCharge(): void
+    {
+        for ($iteration = 0; $iteration < self::REPETITIONS; $iteration++) {
+            $seed = $this->seedStrikeScenario($iteration);
+            $before = $this->liquidFunds((int)$seed['player_id']);
+            $bonus = [
+                'player_id' => $seed['player_id'],
+                'staff_id' => $seed['staff_id'],
+                'token' => 'settlement-bonus-' . $iteration,
+            ];
+            $offer = $this->offerPayload($seed, 'bonus-offer-' . $iteration);
+            $offer['raise_pct'] = 30.0;
+            $offer['bonus_per_member'] = 100000.0;
+
+            $results = $this->runPair('bonus', $bonus, 'offer', $offer);
+
+            $this->assertTrue($results[1]['ok'], $this->failureMessage($iteration, $results));
+            $this->assertSame('accepted', $results[1]['result']['result'] ?? null);
+            $bonusReceipts = $this->receiptCount((int)$seed['player_id'], 'grant_bonus');
+            $this->assertContains($bonusReceipts, [0, 1], $this->failureMessage($iteration, $results));
+            $this->assertSame(
+                100000.0 + 15000.0 * $bonusReceipts,
+                $before - $this->liquidFunds((int)$seed['player_id']),
+                'Iteration ' . $iteration
+            );
+        }
+    }
+
+    public function testConcurrentDepartureCyclesStartNoticeOnce(): void
+    {
+        for ($iteration = 0; $iteration < self::REPETITIONS; $iteration++) {
+            $seed = $this->seedEmployee($iteration);
+            $cycleId = (int)$seed['player_id'];
+            $this->db->prepare(
+                'UPDATE employee_state
+                    SET leave_risk=95, leave_risk_streak=2, last_morale_cycle_id=?
+                  WHERE player_id=? AND source_type=\'technical_staff\' AND source_id=?'
+            )->execute([$cycleId, $seed['player_id'], $seed['staff_id']]);
+            $payload = [
+                'cycle_id' => $cycleId,
+                'now' => (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'),
+            ];
+
+            $results = $this->runPair('departure_cycle', $payload, 'departure_cycle', $payload);
+
+            $started = array_sum(array_map(
+                static fn(array $row): int => (int)($row['result']['started'] ?? 0),
+                $results
+            ));
+            $this->assertSame(1, $started, $this->failureMessage($iteration, $results));
+            $this->assertSame('leaving', $this->relationStatus($seed), $this->failureMessage($iteration, $results));
+            $this->assertSame(1, $this->leavingEventCount($seed), $this->failureMessage($iteration, $results));
+        }
+    }
+
     /** @return array<string,int> */
     private function seedStrikeScenario(int $iteration): array
     {
@@ -411,6 +494,49 @@ final class MySqlEmployeeHrConcurrencyTest extends MySqlIntegrationTestCase
               WHERE player_id=? AND role_id=? AND status IN ('pending','ready')"
         );
         $stmt->execute([$playerId, $roleId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /** @param array<string,int> $seed */
+    private function relationStatus(array $seed): string
+    {
+        $stmt = $this->db->prepare(
+            "SELECT relation_status FROM employee_state
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?"
+        );
+        $stmt->execute([$seed['player_id'], $seed['staff_id']]);
+        return (string)$stmt->fetchColumn();
+    }
+
+    /** @param array<string,int> $seed */
+    private function strikeStatusForPlayer(array $seed): string
+    {
+        $stmt = $this->db->prepare('SELECT status FROM employee_strikes WHERE id=? AND player_id=?');
+        $stmt->execute([$seed['strike_id'], $seed['player_id']]);
+        return (string)$stmt->fetchColumn();
+    }
+
+    /** @param array<string,int> $seed */
+    private function leavingEventCount(array $seed): int
+    {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM employee_events
+              WHERE player_id=? AND source_type='technical_staff' AND source_id=?
+                AND event_key='employee_leaving'"
+        );
+        $stmt->execute([$seed['player_id'], $seed['staff_id']]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /** @param array<string,int> $seed */
+    private function closedStrikeMemberCount(array $seed): int
+    {
+        $stmt = $this->db->prepare(
+            'SELECT COUNT(*) FROM employee_strike_members
+              WHERE strike_id=? AND player_id=? AND source_type=\'technical_staff\'
+                AND source_id=? AND left_at IS NOT NULL'
+        );
+        $stmt->execute([$seed['strike_id'], $seed['player_id'], $seed['staff_id']]);
         return (int)$stmt->fetchColumn();
     }
 

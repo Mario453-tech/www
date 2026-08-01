@@ -77,6 +77,49 @@ final class MoraleFormulaTest extends SqliteIntegrationTestCase
         $this->assertGreaterThan($withBonus['strike_support'], $withoutBonus['strike_support']);
         $this->assertSame(5, $employee['traits']['loyalty']);
     }
+
+    public function testMoraleChangeThroughLegacyMirrorUpdatesCanonicalState(): void
+    {
+        $this->db->exec("INSERT INTO board_roles (id, code) VALUES (1, 'technical')");
+        $this->db->exec("INSERT INTO hr_specializations
+            (id, code, name, base_salary_min, base_salary_max)
+            VALUES (1, 'hub_operator', 'Hub operator', 8000, 12000)");
+        $this->db->exec("INSERT INTO board_members
+            (id, player_id, member_type, role_id, specialization_id, first_name, last_name,
+             experience_years, skill_organization, skill_negotiation, skill_analysis, skill_stress,
+             skill_ethics, trait_loyalty, trait_corruption_risk, trait_ambition, salary, status)
+            VALUES (10, 1, 'staff', 1, 1, 'Jan', 'Nowak', 8, 7, 7, 7, 7, 7, 7, 2, 5, 10000, 'active')");
+        $this->db->exec("INSERT INTO technical_staff
+            (id, player_id, manager_id, first_name, last_name, spec_code, spec_name,
+             experience_years, skill_level, salary, status)
+            VALUES (20, 1, 10, 'Jan', 'Nowak', 'hub_operator', 'Hub operator', 8, 7, 10000, 'active')");
+        $this->db->exec("INSERT INTO employee_source_links
+            (player_id, board_member_id, technical_staff_id, link_type)
+            VALUES (1, 10, 20, 'legacy_headhunter_mirror')");
+
+        $newMorale = $this->service->changeMorale(
+            new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1),
+            -5.0,
+            'test.mirror'
+        );
+
+        $this->assertSame(60.0, $newMorale);
+        $this->assertSame(
+            60.0,
+            (float)$this->db->query(
+                "SELECT morale FROM employee_state
+                  WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+            )->fetchColumn()
+        );
+        $this->assertSame(
+            1,
+            (int)$this->db->query(
+                "SELECT COUNT(*) FROM employee_events
+                  WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+            )->fetchColumn()
+        );
+    }
+
     /** @return array<string,mixed> */
     private function employee(float $minimum, float $maximum, int $skill, int $experience, int $ambition): array
     {

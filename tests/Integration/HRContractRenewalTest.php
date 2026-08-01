@@ -50,6 +50,25 @@ final class HRContractRenewalTest extends SqliteIntegrationTestCase
         self::assertSame('2027-12-31', $this->contractEnd());
     }
 
+    public function testRenewalRejectsLinkedCanonicalEmployeeWhoIsLeaving(): void
+    {
+        $this->seedBoardEmployee('normal');
+        $this->db->exec(
+            "INSERT INTO technical_staff (id, player_id, status) VALUES (20, 1, 'active');
+             INSERT INTO employee_state
+                (player_id, source_type, source_id, department_code, relation_status)
+             VALUES (1, 'technical_staff', 20, 'hr', 'leaving');
+             INSERT INTO employee_source_links
+                (player_id, board_member_id, technical_staff_id, link_type)
+             VALUES (1, 10, 20, 'legacy_headhunter_mirror')"
+        );
+
+        $result = $this->service->renewContract(10, '1y', 1, 'linked-leaving-contract-token');
+
+        self::assertFalse($result['success']);
+        self::assertSame('2026-12-31', $this->contractEnd());
+    }
+
     private function createSourceSchema(): void
     {
         $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY)');

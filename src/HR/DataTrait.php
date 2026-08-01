@@ -454,12 +454,18 @@ trait HRDataTrait
                 WHERE ec.member_id = ? AND ec.status = 'active'
                   AND bm.player_id = ? AND bm.status='active'
                   AND (
-                      EXISTS (
+                      (
+                        NOT EXISTS (
+                            SELECT 1 FROM employee_source_links esl
+                             WHERE esl.player_id=bm.player_id AND esl.board_member_id=bm.id
+                        )
+                        AND EXISTS (
                           SELECT 1 FROM employee_state es
                            WHERE es.player_id=bm.player_id
                              AND es.source_type='board_member'
                              AND es.source_id=bm.id
                              AND es.relation_status NOT IN ('on_strike','leaving','inactive')
+                        )
                       )
                       OR EXISTS (
                           SELECT 1
@@ -492,12 +498,18 @@ trait HRDataTrait
                              WHERE bm.id=employee_contracts.member_id
                                 AND bm.player_id=? AND bm.status='active'
                                 AND (
-                                    EXISTS (
+                                    (
+                                      NOT EXISTS (
+                                          SELECT 1 FROM employee_source_links esl
+                                           WHERE esl.player_id=bm.player_id AND esl.board_member_id=bm.id
+                                      )
+                                      AND EXISTS (
                                         SELECT 1 FROM employee_state es
                                          WHERE es.player_id=bm.player_id
                                            AND es.source_type='board_member'
                                            AND es.source_id=bm.id
                                            AND es.relation_status NOT IN ('on_strike','leaving','inactive')
+                                      )
                                     )
                                     OR EXISTS (
                                         SELECT 1

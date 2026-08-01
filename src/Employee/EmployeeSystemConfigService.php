@@ -244,7 +244,22 @@ final class EmployeeSystemConfigService
     private function validateValue(string $key, mixed $value): float|int|bool
     {
         $definition = self::DEFINITIONS[$key];
-        $cast = $this->cast($definition, $value);
+        if ($definition['type'] === 'bool') {
+            $cast = filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            if ($cast === null) {
+                throw new InvalidArgumentException('Employee system boolean config value is invalid.');
+            }
+        } elseif ($definition['type'] === 'int') {
+            $cast = filter_var($value, FILTER_VALIDATE_INT);
+            if ($cast === false) {
+                throw new InvalidArgumentException('Employee system integer config value is invalid.');
+            }
+        } else {
+            if (!is_numeric($value) || !is_finite((float)$value)) {
+                throw new InvalidArgumentException('Employee system numeric config value is invalid.');
+            }
+            $cast = (float)$value;
+        }
         $number = (float)$cast;
         if ($number < $definition['min'] || $number > $definition['max']) {
             throw new InvalidArgumentException('Employee system config value is outside the allowed range.');

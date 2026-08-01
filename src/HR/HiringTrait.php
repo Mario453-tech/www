@@ -150,7 +150,7 @@ trait HRHiringTrait
                 (int)$candidate['skill_stress']
             ) / 3)));
 
-            $salary = (int)$candidate['expected_salary'];
+            $salary = (int)round($this->validatedCandidateSalary($candidate));
             $cashStmt = $this->db->prepare("SELECT cash FROM players WHERE id = ? LIMIT 1 FOR UPDATE");
             $cashStmt->execute([$playerId]);
             $cash = (float)$cashStmt->fetchColumn();
@@ -377,6 +377,7 @@ trait HRHiringTrait
             'member_type'  => $memberType,
         ]);
 
+        $candidate['expected_salary'] = $this->validatedCandidateSalary($candidate);
         $memberId = $this->insertBoardMember($candidate, $playerId, $memberType);
         $this->createEmployeeContract($memberId, (float)$candidate['expected_salary'], $contractType);
         $this->createEmploymentHistory($memberId, t('hr_hiring.history_director_hire'));
@@ -464,6 +465,22 @@ trait HRHiringTrait
                 (member_id, contract_start, contract_end, salary, contract_type, status)
             VALUES (?, CURDATE(), ?, ?, ?, 'active')
         ")->execute([$memberId, $contractEnd, $salary, $contractType]);
+    }
+
+    /**
+     * Validates salary before any employee or financial record is created.
+     * Waliduje pensje przed utworzeniem pracownika lub zapisu finansowego.
+     *
+     * @param array<string, mixed> $candidate
+     */
+    private function validatedCandidateSalary(array $candidate): float
+    {
+        $salary = filter_var($candidate['expected_salary'] ?? null, FILTER_VALIDATE_FLOAT);
+        if ($salary === false || !is_finite((float)$salary)
+            || (float)$salary <= 0.0 || (float)$salary > 999999999999.99) {
+            throw new InvalidArgumentException('Candidate salary is outside the supported range.');
+        }
+        return round((float)$salary, 2);
     }
 
  /**

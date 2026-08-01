@@ -79,6 +79,29 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(1.0, (float)$meta['formula']['salary_negotiator_active']);
     }
 
+    public function testLinkedTechnicalRaiseSynchronizesBoardContractAndAddsLoyalty(): void
+    {
+        $this->db->exec(
+            "INSERT INTO employee_source_links
+                (player_id, board_member_id, technical_staff_id, link_type)
+             VALUES (1, 10, 20, 'legacy_headhunter_mirror')"
+        );
+        $this->db->exec(
+            "UPDATE employee_state SET loyalty_modifier=4
+              WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+        );
+        $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);
+
+        $this->service()->acceptFull(1, 1, 'linked-raise-sync-token');
+
+        $this->assertSame(12000.0, $this->salary('technical_staff', 20));
+        $this->assertSame(12000.0, $this->salary('board_member', 10));
+        $this->assertSame(12000.0, (float)$this->db->query(
+            'SELECT salary FROM employee_contracts WHERE member_id=10 AND status=\'active\''
+        )->fetchColumn());
+        $this->assertSame(9.0, (float)$this->state(1, 'technical_staff', 20)['loyalty_modifier']);
+    }
+
     public function testDecisionCannotOverrideLeavingState(): void
     {
         $this->seedRequest(1, 1, 'technical_staff', 20, 20.0);

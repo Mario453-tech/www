@@ -75,22 +75,32 @@ final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
         $this->service->ensureState(new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 2));
     }
 
-    public function testEnsureStateMigratesLegacyBoardStateToCanonicalTechnicalState(): void
+    public function testExplicitReconciliationMigratesCompleteLegacyStateToCanonicalTechnicalState(): void
     {
         $boardRef = new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1);
         $this->service->ensureState($boardRef);
         $this->db->exec("UPDATE employee_state
-            SET morale = 33, leave_risk = 71, relation_status = 'dispute'
+            SET morale = 33, leave_risk = 71, relation_status = 'leaving',
+                loyalty_modifier = 7, leave_risk_streak = 3,
+                last_morale_cycle_id = 44, leaving_at = '2026-07-28 10:00:00'
             WHERE player_id = 1 AND source_type = 'board_member' AND source_id = 10");
         $this->assertSame(1, $this->repository->syncLegacyMirrorLinks(1));
 
-        $state = $this->service->ensureState($boardRef);
+        $readOnlyState = $this->service->getState($boardRef);
+        $this->assertSame(EmployeeRef::SOURCE_BOARD_MEMBER, $readOnlyState['source_type']);
+        $this->assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM employee_state')->fetchColumn());
+
+        $state = $this->service->reconcileCanonicalState($boardRef);
 
         $this->assertSame(EmployeeRef::SOURCE_TECHNICAL_STAFF, $state['source_type']);
         $this->assertSame(21, $state['source_id']);
         $this->assertSame(33.0, $state['morale']);
         $this->assertSame(71.0, $state['leave_risk']);
-        $this->assertSame('dispute', $state['relation_status']);
+        $this->assertSame('leaving', $state['relation_status']);
+        $this->assertSame(7.0, $state['loyalty_modifier']);
+        $this->assertSame(3, $state['leave_risk_streak']);
+        $this->assertSame(44, $state['last_morale_cycle_id']);
+        $this->assertSame('2026-07-28 10:00:00', $state['leaving_at']);
         $this->assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM employee_state')->fetchColumn());
     }
 
@@ -137,6 +147,14 @@ final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM employee_state')->fetchColumn());
 
         $applied = $migration->run(true, 1);
+        $this->db->exec(
+            "UPDATE employee_strike_members SET left_at='2026-07-21 10:00:00'
+              WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+        );
+        $this->db->exec(
+            "UPDATE employee_state SET relation_status='normal'
+              WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+        );
         $repeated = $migration->run(true, 1);
         $otherPlayer = $migration->run(false, 2);
 
@@ -145,6 +163,15 @@ final class EmployeeStateServiceTest extends SqliteIntegrationTestCase
         $this->assertSame(1, $applied['strikes_created']);
         $this->assertSame(0, $repeated['state_backfill']['created']);
         $this->assertSame(0, $repeated['strikes_created']);
+        $this->assertSame(1, $repeated['members_reactivated']);
+        $this->assertNull($this->db->query(
+            "SELECT left_at FROM employee_strike_members
+              WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+        )->fetchColumn() ?: null);
+        $this->assertSame('on_strike', (string)$this->db->query(
+            "SELECT relation_status FROM employee_state
+              WHERE player_id=1 AND source_type='technical_staff' AND source_id=20"
+        )->fetchColumn());
         $this->assertSame(1, $otherPlayer['state_backfill']['would_create']);
         $this->assertSame(0, $otherPlayer['active_strike_groups']);
         $this->assertSame(1, (int)$this->db->query(

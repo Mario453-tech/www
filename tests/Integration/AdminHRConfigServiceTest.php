@@ -46,6 +46,22 @@ final class AdminHRConfigServiceTest extends SqliteIntegrationTestCase
         );
     }
 
+    public function testSettingsRejectNonFiniteAndInvalidTypedValues(): void
+    {
+        foreach ([
+            ['effects', 'strike_road_cost_multiplier', NAN],
+            ['relations', 'raise_response_hours', 'invalid'],
+            ['strikes', 'feature_strikes', 'sometimes'],
+        ] as [$group, $key, $value]) {
+            try {
+                $this->service->saveSettings($group, [$key => $value]);
+                $this->fail('Invalid HR configuration value must be rejected.');
+            } catch (InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
     public function testDialogueCrudUsesValidatedService(): void
     {
         $id = $this->service->saveDialogue([

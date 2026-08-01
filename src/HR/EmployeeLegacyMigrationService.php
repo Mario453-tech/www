@@ -47,6 +47,7 @@ final class EmployeeLegacyMigrationService
                 'active_strike_groups'=>0,
                 'strikes_created'=>0,
                 'members_created'=>0,
+                'members_reactivated'=>0,
                 'ambiguities'=>[],
             ];
             $this->migrateMorale($report, $apply, $playerId);
@@ -179,17 +180,27 @@ final class EmployeeLegacyMigrationService
             }
             $strikeId = (int)$strike['id'];
             foreach ($members as $member) {
+                $existingMember = $this->db->prepare(
+                    "SELECT left_at FROM employee_strike_members
+                      WHERE strike_id=? AND player_id=? AND source_type='technical_staff' AND source_id=?
+                      LIMIT 1"
+                );
+                $existingMember->execute([$strikeId, $ownerId, (int)$member['staff_id']]);
+                $existingRow = $existingMember->fetch(PDO::FETCH_ASSOC);
                 $memberSql = $driver === 'sqlite'
                     ? "INSERT INTO employee_strike_members
                         (strike_id, player_id, source_type, source_id, support_pct)
                        VALUES (?, ?, 'technical_staff', ?, 100)
-                       ON CONFLICT(strike_id, source_type, source_id) DO NOTHING"
-                    : "INSERT IGNORE INTO employee_strike_members
+                       ON CONFLICT(strike_id, source_type, source_id)
+                       DO UPDATE SET left_at=NULL, support_pct=excluded.support_pct"
+                    : "INSERT INTO employee_strike_members
                         (strike_id, player_id, source_type, source_id, support_pct)
-                       VALUES (?, ?, 'technical_staff', ?, 100)";
+                       VALUES (?, ?, 'technical_staff', ?, 100)
+                       ON DUPLICATE KEY UPDATE left_at=NULL, support_pct=VALUES(support_pct)";
                 $memberStmt = $this->db->prepare($memberSql);
                 $memberStmt->execute([$strikeId, $ownerId, (int)$member['staff_id']]);
-                $report['members_created'] += $memberStmt->rowCount() === 1 ? 1 : 0;
+                $report['members_created'] += !is_array($existingRow) ? 1 : 0;
+                $report['members_reactivated'] += is_array($existingRow) && $existingRow['left_at'] !== null ? 1 : 0;
                 $state = $this->db->prepare(
                     "UPDATE employee_state SET relation_status='on_strike', version=version+1
                       WHERE player_id=? AND source_type='technical_staff' AND source_id=?

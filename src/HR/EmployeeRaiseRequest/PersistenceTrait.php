@@ -5,40 +5,7 @@ trait EmployeeRaiseRequestPersistenceTrait
 {
     private function updateSalary(EmployeeRef $ref, float $salary): void
     {
-        $table = $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
-            ? 'technical_staff'
-            : 'board_members';
-        $statusSql = $ref->sourceType === EmployeeRef::SOURCE_TECHNICAL_STAFF
-            ? "status IN ('active','busy')"
-            : "status='active'";
-        $stmt = $this->db->prepare(
-            "UPDATE {$table} SET salary=?
-              WHERE id=? AND player_id=? AND {$statusSql}"
-        );
-        $stmt->execute([$salary, $ref->sourceId, $ref->playerId]);
-        if ($stmt->rowCount() !== 1) {
-            $check = $this->db->prepare(
-                "SELECT salary FROM {$table} WHERE id=? AND player_id=? AND {$statusSql}"
-            );
-            $check->execute([$ref->sourceId, $ref->playerId]);
-            $current = $check->fetchColumn();
-            if ($current === false || abs((float)$current - $salary) > 0.009) {
-                throw new RuntimeException('Employee salary update did not affect exactly one row.');
-            }
-        }
-        if ($ref->sourceType === EmployeeRef::SOURCE_BOARD_MEMBER) {
-            $contract = $this->db->prepare(
-                "UPDATE employee_contracts
-                    SET salary=?
-                  WHERE member_id=? AND status='active'
-                    AND EXISTS (
-                        SELECT 1 FROM board_members bm
-                         WHERE bm.id=employee_contracts.member_id
-                           AND bm.player_id=? AND bm.status='active'
-                    )"
-            );
-            $contract->execute([$salary, $ref->sourceId, $ref->playerId]);
-        }
+        (new EmployeeCompensationService($this->db))->setSalary($ref, $salary);
     }
 
     private function updateLoyaltyModifier(EmployeeRef $ref, float $gain): void
@@ -46,16 +13,15 @@ trait EmployeeRaiseRequestPersistenceTrait
         $stmt = $this->db->prepare(
             "UPDATE employee_state
                 SET loyalty_modifier=CASE
-                        WHEN loyalty_modifier < :gain_compare THEN :gain_value
-                        ELSE loyalty_modifier
+                        WHEN loyalty_modifier + :gain > 10 THEN 10
+                        ELSE loyalty_modifier + :gain
                     END,
                     updated_at=CURRENT_TIMESTAMP
               WHERE player_id=:player_id AND source_type=:source_type AND source_id=:source_id
                 AND relation_status NOT IN ('on_strike','leaving','inactive')"
         );
         $stmt->execute([
-            'gain_compare' => min(10.0, max(0.0, $gain)),
-            'gain_value' => min(10.0, max(0.0, $gain)),
+            'gain' => min(10.0, max(0.0, $gain)),
             'player_id' => $ref->playerId,
             'source_type' => $ref->sourceType,
             'source_id' => $ref->sourceId,

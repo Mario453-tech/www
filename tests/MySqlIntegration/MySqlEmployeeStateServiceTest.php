@@ -51,7 +51,7 @@ final class MySqlEmployeeStateServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(1, (int)$stmt->fetchColumn());
     }
 
-    public function testMySqlEnsureStateMigratesLegacyBoardStateToCanonicalTechnicalState(): void
+    public function testMySqlExplicitReconciliationMigratesLegacyBoardStateToCanonicalTechnicalState(): void
     {
         EmployeeSystemBootstrap::ensure($this->db);
         $playerId = $this->seedPlayer();
@@ -69,7 +69,7 @@ final class MySqlEmployeeStateServiceTest extends MySqlIntegrationTestCase
             ->execute([$playerId, $boardMemberId]);
         $repository->syncLegacyMirrorLinks($playerId);
 
-        $state = $service->ensureState($boardRef);
+        $state = $service->reconcileCanonicalState($boardRef);
 
         $this->assertSame(EmployeeRef::SOURCE_TECHNICAL_STAFF, $state['source_type']);
         $this->assertSame($staffId, $state['source_id']);

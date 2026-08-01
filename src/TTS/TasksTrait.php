@@ -417,7 +417,8 @@ trait TTSTasksTrait
               AND tt.player_id = ?
         ");
         // Filtruj tylko zadania tego gracza — zapobiega przetwarzaniu cudzych zadan.
-        // Filter to this player's tasks only — prevents processing other players' tasks.
+        // Filter tasks by owner to prevent cross-player processing.
+        // Filtruj zadania po wlascicielu, aby nie przetwarzac danych innego gracza.
         $stmt->execute([$this->playerId]);
         foreach ($stmt->fetchAll() as $task) {
             $this->completeTask($task);
@@ -449,6 +450,17 @@ trait TTSTasksTrait
                 $taskId = (int)$task['id'];
                 $relationStatus = (string)$task['relation_status'];
                 $isStriking = $relationStatus === 'on_strike';
+                $isUnavailable = in_array($relationStatus, ['leaving', 'inactive'], true)
+                    || !in_array((string)$task['employee_status'], ['active', 'busy', 'on_leave'], true);
+                if ($isUnavailable) {
+                    $cancel = $this->db->prepare("
+                        UPDATE technical_tasks
+                        SET status='cancelled', end_time=NOW(), strike_paused_at=NULL
+                        WHERE id=? AND player_id=? AND status IN ('in_progress','paused_strike')
+                    ");
+                    $cancel->execute([$taskId, $this->playerId]);
+                    continue;
+                }
                 $canResume = !in_array($relationStatus, self::BLOCKED_RELATION_STATUSES, true)
                     && in_array((string)$task['employee_status'], ['active', 'busy', 'on_leave'], true);
                 if ($task['status'] === 'in_progress' && $isStriking) {

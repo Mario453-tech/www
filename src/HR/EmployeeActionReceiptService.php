@@ -16,7 +16,7 @@ final class EmployeeActionReceiptService
             || !preg_match('/^[a-z0-9._:-]{3,80}$/', $actionKey)) {
             throw new InvalidArgumentException('Invalid HR action idempotency data.');
         }
-        $hash = hash('sha256', json_encode($request, JSON_THROW_ON_ERROR));
+        $hash = hash('sha256', json_encode($this->canonicalize($request), JSON_THROW_ON_ERROR));
         $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
         $sql = $driver === 'sqlite'
             ? 'INSERT OR IGNORE INTO employee_action_receipts
@@ -66,5 +66,24 @@ final class EmployeeActionReceiptService
         if ($stmt->rowCount() !== 1) {
             throw new RuntimeException('HR action receipt could not be completed.');
         }
+    }
+
+    /**
+     * Sorts payload maps recursively while preserving list order.
+     * Sortuje mapy payloadu rekurencyjnie, zachowujac kolejnosc list.
+     */
+    private function canonicalize(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+        if (array_is_list($value)) {
+            return array_map(fn(mixed $item): mixed => $this->canonicalize($item), $value);
+        }
+        ksort($value, SORT_STRING);
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->canonicalize($item);
+        }
+        return $value;
     }
 }

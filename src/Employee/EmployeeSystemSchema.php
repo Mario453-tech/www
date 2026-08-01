@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EmployeeSystemSchema
 {
-    public const VERSION = 7;
+    public const VERSION = 8;
 
     public static function ensure(PDO $db): void
     {
@@ -171,6 +171,9 @@ final class EmployeeSystemSchema
             $statements[] = (string)$sql;
         }
         return array_merge($statements, [
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_state_source ON employee_state (source_type, source_id)',
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_source_link_board ON employee_source_links (board_member_id)',
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_source_link_technical ON employee_source_links (technical_staff_id)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_event_dedupe ON employee_events (dedupe_key)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_raise_request ON employee_raise_requests (player_id, source_type, source_id, request_no)',
             'CREATE UNIQUE INDEX IF NOT EXISTS uq_employee_strike_open ON employee_strikes (open_key)',
@@ -389,17 +392,67 @@ final class EmployeeSystemSchema
     private static function verify(PDO $db, string $driver): void
     {
         $required = [
-            'employee_events' => ['id', 'player_id', 'dedupe_key', 'is_read', 'notified_at'],
-            'employee_raise_requests' => ['id', 'player_id', 'source_type', 'source_id', 'status'],
-            'employee_strikes' => ['id', 'player_id', 'department_code', 'status', 'open_key'],
-            'employee_strike_members' => ['strike_id', 'player_id', 'source_type', 'source_id', 'left_at'],
-            'employee_strike_negotiations' => ['id', 'strike_id', 'player_id', 'attempt_no', 'current_round'],
-            'employee_strike_negotiation_rounds' => ['negotiation_id', 'attempt_no', 'round_no', 'idempotency_token'],
-            'employee_dialogue_templates' => ['id', 'context_key', 'text_pl', 'text_en'],
-            'employee_module_cycles' => ['id', 'module_key', 'cycle_key', 'status'],
-            'employee_system_config' => ['config_key', 'config_value'],
-            'employee_cycle_department_claims' => ['cycle_id', 'player_id', 'department_code', 'completed_at'],
-            'employee_action_receipts' => ['player_id', 'action_key', 'idempotency_token', 'request_hash'],
+            'employee_state' => [
+                'id', 'player_id', 'source_type', 'source_id', 'department_code', 'morale',
+                'salary_satisfaction', 'expected_salary', 'leave_risk', 'strike_support',
+                'workload', 'loyalty_modifier', 'relation_status', 'last_raise_at',
+                'last_raise_request_at', 'last_morale_tick_at', 'last_morale_tick_sequence',
+                'last_morale_cycle_id', 'low_morale_streak', 'dispute_ticks',
+                'leave_risk_streak', 'leaving_at', 'inactive_at', 'version',
+            ],
+            'employee_source_links' => [
+                'id', 'player_id', 'board_member_id', 'technical_staff_id', 'link_type',
+            ],
+            'employee_role_effects' => [
+                'id', 'specialization_code', 'effect_key', 'effect_type', 'effect_value',
+                'target_scope', 'skill_weights_json', 'description_key', 'is_active',
+            ],
+            'employee_assignments' => [
+                'id', 'player_id', 'source_type', 'source_id', 'target_type', 'target_id',
+                'allocation_pct', 'status', 'assigned_at', 'released_at',
+            ],
+            'employee_events' => [
+                'id', 'player_id', 'source_type', 'source_id', 'strike_id', 'event_key',
+                'title_key', 'message_key', 'meta_json', 'dedupe_key', 'is_read', 'notified_at',
+            ],
+            'employee_raise_requests' => [
+                'id', 'player_id', 'source_type', 'source_id', 'request_no', 'current_salary',
+                'requested_salary', 'negotiated_salary', 'requested_raise_pct', 'reason_code',
+                'postponed_count', 'status', 'deadline_at', 'resolved_at',
+            ],
+            'employee_strikes' => [
+                'id', 'player_id', 'department_code', 'status', 'open_key', 'support_pct',
+                'threat_cycles', 'negotiation_cooldown_until', 'started_at', 'resolved_at',
+            ],
+            'employee_strike_members' => [
+                'id', 'strike_id', 'player_id', 'source_type', 'source_id', 'support_pct',
+                'joined_at', 'left_at',
+            ],
+            'employee_strike_negotiations' => [
+                'id', 'strike_id', 'player_id', 'status', 'attempt_no', 'current_round',
+                'max_rounds', 'round_deadline_at',
+            ],
+            'employee_strike_negotiation_rounds' => [
+                'id', 'negotiation_id', 'strike_id', 'player_id', 'attempt_no', 'round_no',
+                'idempotency_token', 'raise_pct', 'bonus_per_member', 'counter_raise_pct',
+                'counter_bonus_per_member', 'random_roll', 'formula_json', 'result',
+            ],
+            'employee_dialogue_templates' => [
+                'id', 'seed_key', 'context_key', 'department_code', 'round_no', 'tone',
+                'text_pl', 'text_en', 'weight', 'is_active',
+            ],
+            'employee_module_cycles' => [
+                'id', 'module_key', 'cycle_key', 'run_sequence', 'status', 'processed_count',
+                'error_count', 'started_at', 'completed_at',
+            ],
+            'employee_system_config' => ['config_key', 'config_value', 'updated_at'],
+            'employee_cycle_department_claims' => [
+                'id', 'cycle_id', 'player_id', 'department_code', 'claimed_at', 'completed_at',
+            ],
+            'employee_action_receipts' => [
+                'id', 'player_id', 'action_key', 'idempotency_token', 'request_hash',
+                'response_json', 'completed_at',
+            ],
         ];
         foreach ($required as $table => $columnNames) {
             $db->query("SELECT 1 FROM {$table} WHERE 1 = 0");
@@ -411,16 +464,72 @@ final class EmployeeSystemSchema
             }
         }
 
+        $indexes = [
+            ['employee_state', 'uq_employee_state_source', ['source_type', 'source_id']],
+            ['employee_source_links', 'uq_employee_source_link_board', ['board_member_id']],
+            ['employee_source_links', 'uq_employee_source_link_technical', ['technical_staff_id']],
+            ['employee_role_effects', 'uq_employee_role_effect', ['specialization_code', 'effect_key', 'target_scope']],
+            ['employee_events', 'uq_employee_event_dedupe', ['dedupe_key']],
+            ['employee_raise_requests', 'uq_employee_raise_request', ['player_id', 'source_type', 'source_id', 'request_no']],
+            ['employee_strikes', 'uq_employee_strike_open', ['open_key']],
+            ['employee_strike_members', 'uq_employee_strike_member', ['strike_id', 'source_type', 'source_id']],
+            ['employee_strike_negotiations', 'uq_employee_strike_negotiation', ['strike_id']],
+            ['employee_strike_negotiation_rounds', 'uq_employee_round_no', ['negotiation_id', 'attempt_no', 'round_no']],
+            ['employee_strike_negotiation_rounds', 'uq_employee_round_token', ['player_id', 'strike_id', 'idempotency_token']],
+            ['employee_dialogue_templates', 'uq_employee_dialogue_seed', ['seed_key']],
+            ['employee_module_cycles', 'uq_employee_module_cycle', ['module_key', 'cycle_key']],
+            ['employee_cycle_department_claims', 'uq_employee_cycle_department', ['cycle_id', 'player_id', 'department_code']],
+            ['employee_action_receipts', 'uq_employee_action_receipt', ['player_id', 'action_key', 'idempotency_token']],
+        ];
+        foreach ($indexes as [$table, $index, $expected]) {
+            if (self::verificationIndexColumns($db, $driver, $table, $index) !== $expected) {
+                throw new RuntimeException("Employee schema verification failed: {$index} is invalid.");
+            }
+        }
+
+        self::verifyOptionalColumns(
+            $db,
+            $driver,
+            'headhunter_candidates',
+            ['offer_round', 'counter_salary', 'counter_bonus']
+        );
+        self::verifyOptionalColumns(
+            $db,
+            $driver,
+            'technical_staff',
+            ['trait_loyalty', 'trait_corruption_risk', 'trait_ambition']
+        );
+    }
+
+    /** @return list<string> */
+    private static function verificationIndexColumns(
+        PDO $db,
+        string $driver,
+        string $table,
+        string $index
+    ): array {
         if ($driver === 'mysql') {
-            $indexes = [
-                ['employee_strike_negotiation_rounds', 'uq_employee_round_no', ['negotiation_id', 'attempt_no', 'round_no']],
-                ['employee_strike_negotiation_rounds', 'uq_employee_round_token', ['player_id', 'strike_id', 'idempotency_token']],
-                ['employee_action_receipts', 'uq_employee_action_receipt', ['player_id', 'action_key', 'idempotency_token']],
-            ];
-            foreach ($indexes as [$table, $index, $expected]) {
-                if (self::indexColumns($db, $table, $index) !== $expected) {
-                    throw new RuntimeException("Employee schema verification failed: {$index} is invalid.");
-                }
+            return self::indexColumns($db, $table, $index);
+        }
+
+        $rows = $db->query('PRAGMA index_info(' . $index . ')')->fetchAll(PDO::FETCH_ASSOC);
+        return array_map(static fn(array $row): string => (string)$row['name'], $rows);
+    }
+
+    /** @param list<string> $requiredColumns */
+    private static function verifyOptionalColumns(
+        PDO $db,
+        string $driver,
+        string $table,
+        array $requiredColumns
+    ): void {
+        if (!self::tableExists($db, $driver, $table)) {
+            return;
+        }
+        $columns = self::columns($db, $driver, $table);
+        foreach ($requiredColumns as $columnName) {
+            if (!isset($columns[$columnName])) {
+                throw new RuntimeException("Employee schema verification failed: {$table}.{$columnName} is missing.");
             }
         }
     }

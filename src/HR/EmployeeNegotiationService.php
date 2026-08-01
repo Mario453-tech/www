@@ -2,12 +2,14 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/EmployeeSystemBootstrap.php';
+require_once dirname(__DIR__) . '/Employee/EmployeeRef.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
 require_once dirname(__DIR__) . '/FinancialTransactionService.php';
 require_once __DIR__ . '/EmployeeDialogueTemplateService.php';
 require_once __DIR__ . '/EmployeeStrikeService.php';
 require_once __DIR__ . '/EmployeeNegotiationEffectivenessService.php';
 require_once __DIR__ . '/EmployeeDeadlockRetry.php';
+require_once __DIR__ . '/EmployeeCompensationService.php';
 
 final class EmployeeNegotiationService
 {
@@ -112,7 +114,7 @@ final class EmployeeNegotiationService
         $token = $this->normalizeToken($playerId, $idempotencyToken);
         $existing = $this->roundByToken($playerId, $strikeId, $token);
         if ($existing !== null) {
-            $this->assertMatchingOffer($existing, $raisePct, $bonusPerMember);
+            $this->assertMatchingOffer($existing, $raisePct, $bonusPerMember, $expectedRound);
             return $existing + ['idempotent' => true];
         }
 
@@ -125,7 +127,7 @@ final class EmployeeNegotiationService
             $strike = $this->lockStrike($playerId, $strikeId);
             $existing = $this->roundByToken($playerId, $strikeId, $token);
             if ($existing !== null) {
-                $this->assertMatchingOffer($existing, $raisePct, $bonusPerMember);
+                $this->assertMatchingOffer($existing, $raisePct, $bonusPerMember, $expectedRound);
                 if ($ownTransaction) {
                     $this->db->commit();
                 }
@@ -171,6 +173,7 @@ final class EmployeeNegotiationService
             }
             $metrics = $this->metrics($members);
             $formula = $this->score($playerId, $raisePct, $bonusPerMember, $metrics, $roundNo, (int)$negotiation['max_rounds']);
+            $formula['expected_round'] = $expectedRound;
             $accepted = $formula['score'] >= $formula['random_roll'];
             $isFinal = $roundNo >= (int)$negotiation['max_rounds'];
             $result = $accepted ? 'accepted' : ($isFinal ? 'final_failure' : 'rejected');
@@ -353,6 +356,7 @@ final class EmployeeNegotiationService
     /** @return list<array<string,mixed>> */
     private function members(int $playerId, int $strikeId): array
     {
+        $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
         $stmt = $this->db->prepare(
             "SELECT sm.*, es.morale, es.strike_support, es.salary_satisfaction, es.workload
                FROM employee_strike_members sm
@@ -364,8 +368,9 @@ final class EmployeeNegotiationService
                  ON sm.source_type='board_member' AND bm.id=sm.source_id AND bm.player_id=sm.player_id
                WHERE sm.player_id=? AND sm.strike_id=? AND sm.left_at IS NULL
                  AND es.relation_status='on_strike'
-                 AND ((sm.source_type='technical_staff' AND ts.status IN ('active','busy','on_leave'))
-                   OR (sm.source_type='board_member' AND bm.status='active'))"
+                  AND ((sm.source_type='technical_staff' AND ts.status IN ('active','busy','on_leave'))
+                    OR (sm.source_type='board_member' AND bm.status='active'))
+               ORDER BY sm.id{$suffix}"
         );
         $stmt->execute([$playerId, $strikeId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -476,31 +481,10 @@ final class EmployeeNegotiationService
         if ($raisePct <= 0.0) {
             return;
         }
-        $table = $sourceType === 'technical_staff' ? 'technical_staff' : 'board_members';
-        $statusSql = $sourceType === 'technical_staff'
-            ? "status IN ('active','busy','on_leave')"
-            : "status='active'";
-        $stmt = $this->db->prepare(
-            "UPDATE {$table} SET salary=ROUND(salary * ?, 2)
-              WHERE id=? AND player_id=? AND {$statusSql}"
+        (new EmployeeCompensationService($this->db))->applyRaise(
+            new EmployeeRef($sourceType, $sourceId, $playerId),
+            $raisePct
         );
-        $stmt->execute([1.0 + $raisePct / 100.0, $sourceId, $playerId]);
-        if ($stmt->rowCount() !== 1) {
-            throw new RuntimeException('Employee salary update did not affect exactly one row.');
-        }
-        if ($sourceType === 'board_member') {
-            $contract = $this->db->prepare(
-                "UPDATE employee_contracts
-                    SET salary=ROUND(salary * ?, 2)
-                  WHERE member_id=? AND status='active'
-                    AND EXISTS (
-                        SELECT 1 FROM board_members bm
-                         WHERE bm.id=employee_contracts.member_id
-                           AND bm.player_id=? AND bm.status='active'
-                    )"
-            );
-            $contract->execute([1.0 + $raisePct / 100.0, $sourceId, $playerId]);
-        }
     }
 
     /** @return array<string,mixed>|null */
@@ -541,10 +525,17 @@ final class EmployeeNegotiationService
     }
 
     /** @param array<string,mixed> $existing */
-    private function assertMatchingOffer(array $existing, float $raisePct, float $bonusPerMember): void
+    private function assertMatchingOffer(
+        array $existing,
+        float $raisePct,
+        float $bonusPerMember,
+        ?int $expectedRound
+    ): void
     {
+        $storedExpectedRound = $existing['formula']['expected_round'] ?? null;
         if (abs((float)$existing['raise_pct'] - $raisePct) > 0.00009
-            || abs((float)$existing['bonus_per_member'] - $bonusPerMember) > 0.009) {
+            || abs((float)$existing['bonus_per_member'] - $bonusPerMember) > 0.009
+            || $storedExpectedRound !== $expectedRound) {
             throw new RuntimeException('Negotiation token was reused with different offer data.');
         }
     }

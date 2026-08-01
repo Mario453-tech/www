@@ -20,7 +20,12 @@ final class EmployeeStateService
     /** @return array<string, mixed>|null */
     public function getState(EmployeeRef $ref): ?array
     {
-        $ref = $this->resolvePreferredRef($ref, true);
+        $preferredRef = $this->resolvePreferredRef($ref);
+        $state = $this->getStateExact($preferredRef);
+        if ($state !== null || $preferredRef->key() === $ref->key()) {
+            return $state;
+        }
+
         return $this->getStateExact($ref);
     }
 
@@ -147,7 +152,7 @@ final class EmployeeStateService
     ): array
     {
         if (!$alreadyCanonical) {
-            [$ref, $employee] = $this->resolveRefAndEmployee($ref, $employee, true);
+            [$ref, $employee] = $this->resolveRefAndEmployee($ref, $employee);
         }
         $employee ??= $this->employees->find($ref);
         if ($employee === null) {
@@ -189,7 +194,7 @@ final class EmployeeStateService
 
     public function calculateExpectedSalary(EmployeeRef $ref): float
     {
-        [$ref, $employee] = $this->resolveRefAndEmployee($ref, null, true);
+        [$ref, $employee] = $this->resolveRefAndEmployee($ref);
         if ($employee === null) {
             throw new RuntimeException('Employee source record does not exist or belongs to another player.');
         }
@@ -200,7 +205,7 @@ final class EmployeeStateService
     /** @return array<string, mixed> */
     public function updateSalarySatisfaction(EmployeeRef $ref): array
     {
-        [$ref, $employee] = $this->resolveRefAndEmployee($ref, null, true);
+        [$ref, $employee] = $this->resolveRefAndEmployee($ref);
         if ($employee === null) {
             throw new RuntimeException('Employee source record does not exist or belongs to another player.');
         }
@@ -229,15 +234,11 @@ final class EmployeeStateService
         return $this->getState($ref) ?? throw new RuntimeException('Employee state disappeared during update.');
     }
 
-    private function resolvePreferredRef(EmployeeRef $ref, bool $repairState = false): EmployeeRef
+    private function resolvePreferredRef(EmployeeRef $ref): EmployeeRef
     {
         $canonical = $this->employees->canonicalRef($ref);
         if ($canonical->key() === $ref->key()) {
             return $canonical;
-        }
-
-        if ($repairState) {
-            $this->reconcileCanonicalState($ref, $canonical);
         }
 
         return $this->employees->find($canonical) !== null ? $canonical : $ref;
@@ -247,14 +248,11 @@ final class EmployeeStateService
      * @param array<string, mixed>|null $employee
      * @return array{0: EmployeeRef, 1: array<string, mixed>|null}
      */
-    private function resolveRefAndEmployee(EmployeeRef $ref, ?array $employee = null, bool $repairState = false): array
+    private function resolveRefAndEmployee(EmployeeRef $ref, ?array $employee = null): array
     {
         $canonical = $this->employees->canonicalRef($ref);
         $canonicalEmployee = $employee;
         if ($canonical->key() !== $ref->key()) {
-            if ($repairState) {
-                $this->reconcileCanonicalState($ref, $canonical);
-            }
             $canonicalEmployee = $employee ?? $this->employees->find($canonical);
             if ($canonicalEmployee !== null) {
                 return [$canonical, $canonicalEmployee];
@@ -264,76 +262,173 @@ final class EmployeeStateService
         return [$ref, $employee ?? $this->employees->find($ref)];
     }
 
-    private function reconcileCanonicalState(EmployeeRef $legacyRef, EmployeeRef $canonicalRef): void
+    /**
+     * Reconciles a linked legacy state explicitly under row locks.
+     * Scala powiazany stary stan jawnie pod blokadami rekordow.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function reconcileCanonicalState(EmployeeRef $legacyRef): ?array
     {
+        $canonicalRef = $this->employees->canonicalRef($legacyRef);
         if ($legacyRef->key() === $canonicalRef->key()) {
-            return;
+            return $this->getStateExact($canonicalRef);
         }
 
         $canonicalEmployee = $this->employees->find($canonicalRef);
         if ($canonicalEmployee === null) {
-            return;
+            return $this->getStateExact($legacyRef);
         }
 
-        $legacyState = $this->getStateExact($legacyRef);
-        if ($legacyState === null) {
-            return;
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) {
+            $this->db->beginTransaction();
         }
+        try {
+            [$legacyState, $canonicalState] = $this->lockStatePair($legacyRef, $canonicalRef);
+            if ($legacyState === null) {
+                if ($ownTransaction) {
+                    $this->db->commit();
+                }
+                return $canonicalState;
+            }
 
-        $canonicalState = $this->getStateExact($canonicalRef);
-        if ($canonicalState === null) {
-            $stmt = $this->db->prepare(
-                'UPDATE employee_state
-                    SET source_type = :source_type,
-                        source_id = :source_id,
-                        updated_at = CURRENT_TIMESTAMP
-                  WHERE id = :id
-                    AND player_id = :player_id'
-            );
-            $stmt->execute([
-                'source_type' => $canonicalRef->sourceType,
-                'source_id' => $canonicalRef->sourceId,
-                'id' => (int)$legacyState['id'],
-                'player_id' => $legacyRef->playerId,
-            ]);
+            if ($canonicalState === null) {
+                $move = $this->db->prepare(
+                    'UPDATE employee_state
+                        SET source_type = :source_type,
+                            source_id = :source_id,
+                            version = version + 1,
+                            updated_at = CURRENT_TIMESTAMP
+                      WHERE id = :id
+                        AND player_id = :player_id
+                        AND version = :expected_version'
+                );
+                $move->execute([
+                    'source_type' => $canonicalRef->sourceType,
+                    'source_id' => $canonicalRef->sourceId,
+                    'id' => (int)$legacyState['id'],
+                    'player_id' => $legacyRef->playerId,
+                    'expected_version' => (int)$legacyState['version'],
+                ]);
+                if ($move->rowCount() !== 1) {
+                    throw new RuntimeException('Employee state changed during canonical reconciliation.');
+                }
+            } else {
+                $metrics = $this->shouldCopyLegacyMetrics($legacyState, $canonicalState)
+                    ? $legacyState
+                    : $canonicalState;
+                $this->copyCanonicalMetrics($canonicalRef, $canonicalState, $legacyState, $metrics);
+
+                $delete = $this->db->prepare(
+                    'DELETE FROM employee_state
+                      WHERE id = ? AND player_id = ? AND version = ?'
+                );
+                $delete->execute([
+                    (int)$legacyState['id'],
+                    $legacyRef->playerId,
+                    (int)$legacyState['version'],
+                ]);
+                if ($delete->rowCount() !== 1) {
+                    throw new RuntimeException('Legacy employee state changed during canonical reconciliation.');
+                }
+            }
+
             $this->refreshStateSnapshot($canonicalRef, $canonicalEmployee);
-            return;
+            $result = $this->getStateExact($canonicalRef);
+            if ($result === null) {
+                throw new RuntimeException('Canonical employee state disappeared during reconciliation.');
+            }
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
+            return $result;
+        } catch (Throwable $exception) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
         }
+    }
 
-        if ($this->shouldCopyLegacyMetrics($legacyState, $canonicalState)) {
-            $stmt = $this->db->prepare(
-                'UPDATE employee_state
-                    SET morale = :morale,
-                        leave_risk = :leave_risk,
-                        strike_support = :strike_support,
-                        workload = :workload,
-                        relation_status = :relation_status,
-                        last_raise_at = :last_raise_at,
-                        last_raise_request_at = :last_raise_request_at,
-                        last_morale_tick_at = :last_morale_tick_at,
-                        version = :version,
-                        updated_at = CURRENT_TIMESTAMP
-                  WHERE id = :id
-                    AND player_id = :player_id'
-            );
-            $stmt->execute([
-                'morale' => $legacyState['morale'],
-                'leave_risk' => $legacyState['leave_risk'],
-                'strike_support' => $legacyState['strike_support'],
-                'workload' => $legacyState['workload'],
-                'relation_status' => $legacyState['relation_status'],
-                'last_raise_at' => $legacyState['last_raise_at'],
-                'last_raise_request_at' => $legacyState['last_raise_request_at'],
-                'last_morale_tick_at' => $legacyState['last_morale_tick_at'],
-                'version' => max((int)$legacyState['version'], (int)$canonicalState['version']) + 1,
-                'id' => (int)$canonicalState['id'],
-                'player_id' => $canonicalRef->playerId,
-            ]);
+    /**
+     * @return array{0: array<string, mixed>|null, 1: array<string, mixed>|null}
+     */
+    private function lockStatePair(EmployeeRef $legacyRef, EmployeeRef $canonicalRef): array
+    {
+        $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $stmt = $this->db->prepare(
+            'SELECT *
+               FROM employee_state
+              WHERE player_id = ?
+                AND ((source_type = ? AND source_id = ?)
+                  OR (source_type = ? AND source_id = ?))
+              ORDER BY id' . $suffix
+        );
+        $stmt->execute([
+            $legacyRef->playerId,
+            $legacyRef->sourceType,
+            $legacyRef->sourceId,
+            $canonicalRef->sourceType,
+            $canonicalRef->sourceId,
+        ]);
+        $legacyState = null;
+        $canonicalState = null;
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $state = $this->castState($row);
+            if ((string)$state['source_type'] === $legacyRef->sourceType
+                && (int)$state['source_id'] === $legacyRef->sourceId) {
+                $legacyState = $state;
+            }
+            if ((string)$state['source_type'] === $canonicalRef->sourceType
+                && (int)$state['source_id'] === $canonicalRef->sourceId) {
+                $canonicalState = $state;
+            }
         }
+        return [$legacyState, $canonicalState];
+    }
 
-        $this->refreshStateSnapshot($canonicalRef, $canonicalEmployee);
-        $delete = $this->db->prepare('DELETE FROM employee_state WHERE id = ? AND player_id = ?');
-        $delete->execute([(int)$legacyState['id'], $legacyRef->playerId]);
+    /**
+     * @param array<string, mixed> $canonicalState
+     * @param array<string, mixed> $legacyState
+     * @param array<string, mixed> $metrics
+     */
+    private function copyCanonicalMetrics(
+        EmployeeRef $canonicalRef,
+        array $canonicalState,
+        array $legacyState,
+        array $metrics
+    ): void {
+        $fields = [
+            'morale', 'leave_risk', 'strike_support', 'workload', 'loyalty_modifier',
+            'relation_status', 'last_raise_at', 'last_raise_request_at', 'last_morale_tick_at',
+            'last_morale_tick_sequence', 'last_morale_cycle_id', 'low_morale_streak',
+            'dispute_ticks', 'leave_risk_streak', 'leaving_at', 'inactive_at',
+        ];
+        $assignments = [];
+        $params = [];
+        foreach ($fields as $field) {
+            $assignments[] = "{$field} = :{$field}";
+            $params[$field] = $metrics[$field] ?? null;
+        }
+        $params['version'] = max((int)$legacyState['version'], (int)$canonicalState['version']) + 1;
+        $params['id'] = (int)$canonicalState['id'];
+        $params['player_id'] = $canonicalRef->playerId;
+        $params['expected_version'] = (int)$canonicalState['version'];
+
+        $stmt = $this->db->prepare(
+            'UPDATE employee_state
+                SET ' . implode(', ', $assignments) . ',
+                    version = :version,
+                    updated_at = CURRENT_TIMESTAMP
+              WHERE id = :id
+                AND player_id = :player_id
+                AND version = :expected_version'
+        );
+        $stmt->execute($params);
+        if ($stmt->rowCount() !== 1) {
+            throw new RuntimeException('Canonical employee state changed during reconciliation.');
+        }
     }
 
     /**
@@ -448,6 +543,34 @@ final class EmployeeStateService
         }
         $linksCreated = $apply ? $this->employees->syncLegacyMirrorLinks($playerId) : 0;
         $duplicateGroups = $this->findSuspectedDuplicateGroups($employees);
+        $errors = [];
+        $reconciled = 0;
+        if ($apply) {
+            foreach ($employees as $employee) {
+                if ((string)$employee['source_type'] !== EmployeeRef::SOURCE_BOARD_MEMBER) {
+                    continue;
+                }
+                $sourceRef = new EmployeeRef(
+                    EmployeeRef::SOURCE_BOARD_MEMBER,
+                    (int)$employee['source_id'],
+                    (int)$employee['player_id']
+                );
+                if (!isset($legacyMirrorMap[$sourceRef->playerId . ':' . $sourceRef->sourceId])) {
+                    continue;
+                }
+                try {
+                    if ($this->reconcileCanonicalState($sourceRef) !== null) {
+                        $reconciled++;
+                    }
+                } catch (Throwable $exception) {
+                    $errors[] = [
+                        'employee' => $sourceRef->key(),
+                        'player_id' => $sourceRef->playerId,
+                        'error' => $exception->getMessage(),
+                    ];
+                }
+            }
+        }
         $canonicalEmployees = [];
         $mirroredSkipped = 0;
         foreach ($employees as $employee) {
@@ -474,8 +597,6 @@ final class EmployeeStateService
         $created = 0;
         $skipped = 0;
         $wouldCreate = 0;
-        $errors = [];
-
         foreach ($canonicalEmployees as $canonicalKey => $entry) {
             /** @var EmployeeRef $ref */
             $ref = $entry['ref'];
@@ -517,6 +638,7 @@ final class EmployeeStateService
             'would_create' => $wouldCreate,
             'skipped' => $skipped,
             'mirrored_records_skipped' => $mirroredSkipped,
+            'mirrored_states_reconciled' => $reconciled,
             'legacy_links_created' => $linksCreated,
             'errors' => $errors,
             'suspected_duplicate_groups' => $duplicateGroups,
@@ -638,10 +760,19 @@ final class EmployeeStateService
      */
     private function castState(array $row): array
     {
-        foreach (['id', 'player_id', 'source_id', 'version'] as $key) {
+        foreach ([
+            'id', 'player_id', 'source_id', 'version', 'last_morale_tick_sequence',
+            'last_morale_cycle_id', 'low_morale_streak', 'dispute_ticks', 'leave_risk_streak',
+        ] as $key) {
+            if ($row[$key] === null) {
+                continue;
+            }
             $row[$key] = (int)$row[$key];
         }
-        foreach (['morale', 'salary_satisfaction', 'expected_salary', 'leave_risk', 'strike_support', 'workload'] as $key) {
+        foreach ([
+            'morale', 'salary_satisfaction', 'expected_salary', 'leave_risk',
+            'strike_support', 'workload', 'loyalty_modifier',
+        ] as $key) {
             $row[$key] = (float)$row[$key];
         }
         return $row;

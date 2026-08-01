@@ -459,9 +459,18 @@ class WellLoopSection
             $boardSalaryMonth = (float)$boardSalaryStmt->fetchColumn();
 
             $techSalaryStmt = $this->db->prepare("
-                SELECT COALESCE(SUM(salary), 0) AS total
-                FROM technical_staff
-                WHERE player_id = :pid AND status IN ('active','busy')
+                SELECT COALESCE(SUM(ts.salary), 0) AS total
+                FROM technical_staff ts
+                WHERE ts.player_id = :pid AND ts.status IN ('active','busy')
+                  AND NOT EXISTS (
+                      SELECT 1
+                        FROM employee_source_links esl
+                        JOIN board_members bm
+                          ON bm.id=esl.board_member_id AND bm.player_id=esl.player_id
+                       WHERE esl.player_id=ts.player_id
+                         AND esl.technical_staff_id=ts.id
+                         AND bm.status='active'
+                  )
             ");
             $techSalaryStmt->execute([':pid' => $playerId]);
             $techSalaryMonth  = (float)$techSalaryStmt->fetchColumn();

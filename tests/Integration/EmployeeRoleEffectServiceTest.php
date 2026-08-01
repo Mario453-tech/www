@@ -102,7 +102,7 @@ final class EmployeeRoleEffectServiceTest extends SqliteIntegrationTestCase
         $this->assertSame($stateCountBefore + 2, (int)$this->db->query('SELECT COUNT(*) FROM employee_state')->fetchColumn());
     }
 
-    public function testCanonicalMirrorUsesLegacyStrikeStateDuringEffectCalculation(): void
+    public function testCanonicalMirrorRequiresExplicitReconciliationBeforeEffectCalculation(): void
     {
         $legacyRef = new EmployeeRef(EmployeeRef::SOURCE_BOARD_MEMBER, 10, 1);
         $this->employeeState->ensureState($legacyRef);
@@ -113,6 +113,16 @@ final class EmployeeRoleEffectServiceTest extends SqliteIntegrationTestCase
         );
         $this->seedCanonicalHubOperatorMirror(21, 'busy');
 
+        $beforeReconcile = $this->service->calculateEffects($legacyRef, 'hub');
+
+        $this->assertSame(65.0, $beforeReconcile['morale']);
+        $this->assertArrayHasKey('hub_throughput_pct', $beforeReconcile['effects']);
+        $this->assertSame(
+            'normal',
+            $this->db->query("SELECT relation_status FROM employee_state WHERE source_type = 'technical_staff' AND source_id = 21")->fetchColumn()
+        );
+
+        $this->employeeState->reconcileCanonicalState($legacyRef);
         $result = $this->service->calculateEffects($legacyRef, 'hub');
 
         $this->assertSame(EmployeeRef::SOURCE_TECHNICAL_STAFF, $result['employee']['source_type']);

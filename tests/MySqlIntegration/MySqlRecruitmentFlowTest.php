@@ -90,6 +90,34 @@ final class MySqlRecruitmentFlowTest extends MySqlIntegrationTestCase
         $this->assertSame(1, $this->countBySql("SELECT COUNT(*) FROM candidates WHERE id = ?", [$this->candidateDirectorId]));
     }
 
+    public function testCandidateWithNegativeSalaryIsRejectedWithoutPartialHire(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->logisticsRoleId = $this->ensureRole('logistics', 'Logistics');
+        $this->insertCandidate(
+            $this->candidateDirectorId,
+            $playerId,
+            $this->logisticsRoleId,
+            null,
+            'Invalid',
+            'Salary'
+        );
+        $this->db->prepare('UPDATE candidates SET expected_salary=-1 WHERE id=? AND player_id=?')
+            ->execute([$this->candidateDirectorId, $playerId]);
+
+        $result = $this->makeHrService()->hireCandidate($this->candidateDirectorId, $playerId);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(1, $this->countBySql(
+            'SELECT COUNT(*) FROM candidates WHERE id=? AND player_id=?',
+            [$this->candidateDirectorId, $playerId]
+        ));
+        $this->assertSame(0, $this->countBySql(
+            'SELECT COUNT(*) FROM board_members WHERE player_id=?',
+            [$playerId]
+        ));
+    }
+
     public function testTechnicalCandidateFromHrCreatesOnlyTechnicalStaff(): void
     {
         $playerId = $this->seedPlayer();
@@ -226,6 +254,69 @@ final class MySqlRecruitmentFlowTest extends MySqlIntegrationTestCase
               WHERE player_id=? AND action_key='headhunter_offer'",
             [$playerId]
         ));
+    }
+
+    public function testHeadhunterTokenRejectsChangedOfferPayload(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->technicalRoleId = $this->ensureRole('technical', 'Technical');
+        $this->insertDirector($this->getTrackedIds()['managerId'], $playerId, $this->technicalRoleId, 'Tech', 'Director');
+        $this->insertSpecialization(
+            $this->technicalSpecId,
+            'phpunit_hh_payload_' . $playerId,
+            'Payload Hunter',
+            'technical'
+        );
+        $this->insertHeadhunterCandidate(
+            $this->headhunterTechnicalId,
+            $playerId,
+            $this->technicalSpecId,
+            'Ivar',
+            'Payload'
+        );
+        $service = $this->makeHeadhunterService($playerId);
+        $token = 'headhunter-payload-token-' . $playerId;
+
+        $service->makeOffer($this->headhunterTechnicalId, 15000.0, 50000.0, $token);
+        $conflict = $service->makeOffer($this->headhunterTechnicalId, 15001.0, 50000.0, $token);
+
+        $this->assertFalse($conflict['success']);
+        $this->assertTrue($conflict['conflict'] ?? false);
+        $this->assertSame(1, $this->countBySql(
+            "SELECT COUNT(*) FROM employee_action_receipts
+              WHERE player_id=? AND action_key='headhunter_offer'",
+            [$playerId]
+        ));
+    }
+
+    public function testCandidateCleanupDeletesOnlyConfiguredBatch(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->logisticsRoleId = $this->ensureRole('logistics', 'Logistics');
+        $this->insertCandidate($this->candidateDirectorId, $playerId, $this->logisticsRoleId, null, 'A', 'Expired');
+        $this->insertCandidate($this->candidateStaffId, $playerId, $this->logisticsRoleId, null, 'B', 'Expired');
+        $this->insertCandidate($this->candidateTechnicalId, $playerId, $this->logisticsRoleId, null, 'C', 'Expired');
+        $this->db->prepare(
+            'UPDATE candidates SET expires_at=DATE_SUB(NOW(), INTERVAL 1 HOUR) WHERE player_id=?'
+        )->execute([$playerId]);
+        $generator = new CandidateGenerator($this->db);
+        $before = (int)$this->db->query('SELECT COUNT(*) FROM candidates')->fetchColumn();
+
+        $this->db->beginTransaction();
+        try {
+            $this->assertSame(2, $generator->cleanupExpired(2));
+            $this->assertSame($before - 2, (int)$this->db->query(
+                'SELECT COUNT(*) FROM candidates'
+            )->fetchColumn());
+            $this->assertSame(1, $generator->cleanupExpired(1));
+            $this->assertSame($before - 3, (int)$this->db->query(
+                'SELECT COUNT(*) FROM candidates'
+            )->fetchColumn());
+        } finally {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+        }
     }
 
     public function testHrStrikePersistsExtendedRecruitmentAndHeadhunterDeadlines(): void

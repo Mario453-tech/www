@@ -5,6 +5,8 @@ require_once dirname(__DIR__) . '/Employee/EmployeeAssignmentService.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeRef.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
 require_once __DIR__ . '/EmployeeRelationLifecycleService.php';
+require_once __DIR__ . '/EmployeeCompensationService.php';
+require_once __DIR__ . '/EmployeeDeadlockRetry.php';
 
 final class EmployeeDepartureService
 {
@@ -95,11 +97,21 @@ final class EmployeeDepartureService
     /** @param array<string,mixed> $state */
     private function processStateCycle(array $state, int $cycleId, DateTimeInterface $now): bool
     {
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): bool => $this->processStateCycleOnce($state, $cycleId, $now)
+        );
+    }
+
+    /** @param array<string,mixed> $state */
+    private function processStateCycleOnce(array $state, int $cycleId, DateTimeInterface $now): bool
+    {
         $ownTransaction = !$this->db->inTransaction();
         if ($ownTransaction) {
             $this->db->beginTransaction();
         }
         try {
+            $this->lockPlayer((int)$state['player_id']);
             if ($cycleId > 0
                 && !$this->claim($cycleId, (int)$state['player_id'], 'departure:' . (int)$state['id'])) {
                 if ($ownTransaction) {
@@ -143,25 +155,16 @@ final class EmployeeDepartureService
                 )->execute([$streak, (int)$current['id'], (int)$current['player_id']]);
             }
             if ($leaving) {
-                $this->db->prepare(
-                    "UPDATE employee_raise_requests
-                        SET status='expired', resolved_at=?, updated_at=CURRENT_TIMESTAMP
-                      WHERE player_id=? AND source_type=? AND source_id=?
-                        AND status IN ('open','postponed')"
-                )->execute([
-                    $now->format('Y-m-d H:i:s'),
-                    (int)$current['player_id'],
+                $ref = new EmployeeRef(
                     (string)$current['source_type'],
                     (int)$current['source_id'],
-                ]);
-                (new EmployeeRelationLifecycleService($this->db))->leaveOpenStrikes(
-                    new EmployeeRef(
-                        (string)$current['source_type'],
-                        (int)$current['source_id'],
-                        (int)$current['player_id']
-                    ),
-                    $now
+                    (int)$current['player_id']
                 );
+                $refs = (new EmployeeCompensationService($this->db))->linkedSources($ref);
+                foreach ($refs as $linkedRef) {
+                    $this->expireOpenRaiseRequests($linkedRef, $now);
+                    (new EmployeeRelationLifecycleService($this->db))->leaveOpenStrikes($linkedRef, $now);
+                }
                 $this->event($current, 'employee_leaving', 'hr.event.leaving.title', 'hr.event.leaving.message', [
                     'leaving_at' => $now->format('Y-m-d H:i:s'),
                     'notice_hours' => $this->config->getInt('leave_notice_hours'),
@@ -185,11 +188,21 @@ final class EmployeeDepartureService
     /** @param array<string,mixed> $state */
     private function finalize(array $state, DateTimeInterface $now): bool
     {
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): bool => $this->finalizeOnce($state, $now)
+        );
+    }
+
+    /** @param array<string,mixed> $state */
+    private function finalizeOnce(array $state, DateTimeInterface $now): bool
+    {
         $ownTransaction = !$this->db->inTransaction();
         if ($ownTransaction) {
             $this->db->beginTransaction();
         }
         try {
+            $this->lockPlayer((int)$state['player_id']);
             $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
             $lock = $this->db->prepare(
                 "SELECT * FROM employee_state WHERE id=? AND player_id=? AND relation_status='leaving' LIMIT 1{$suffix}"
@@ -207,42 +220,12 @@ final class EmployeeDepartureService
                 (int)$current['source_id'],
                 (int)$current['player_id']
             );
-            $this->assignments->releaseEmployeeAssignments($ref);
-            if ($ref->sourceType === EmployeeRef::SOURCE_BOARD_MEMBER) {
-                $this->db->prepare(
-                    "UPDATE board_members SET status='fired'
-                      WHERE id=? AND player_id=? AND status<>'fired'"
-                )->execute([$ref->sourceId, $ref->playerId]);
-                $this->db->prepare(
-                    "UPDATE employee_contracts
-                        SET status='terminated'
-                      WHERE member_id=? AND status='active'
-                        AND EXISTS (
-                            SELECT 1 FROM board_members bm
-                             WHERE bm.id=employee_contracts.member_id AND bm.player_id=?
-                        )"
-                )->execute([$ref->sourceId, $ref->playerId]);
-            } else {
-                $this->db->prepare(
-                    "UPDATE technical_staff SET status='fired'
-                      WHERE id=? AND player_id=? AND status<>'fired'"
-                )->execute([$ref->sourceId, $ref->playerId]);
-                if ($this->tableExists('well_staff_assignments')) {
-                    $this->db->prepare(
-                        'UPDATE well_staff_assignments SET unassigned_at=?
-                          WHERE staff_id=? AND player_id=? AND unassigned_at IS NULL'
-                    )->execute([$now->format('Y-m-d H:i:s'), $ref->sourceId, $ref->playerId]);
-                }
-                if ($this->tableExists('wells')) {
-                    $this->db->prepare(
-                        'UPDATE wells
-                            SET operator_id=CASE WHEN operator_id=? THEN NULL ELSE operator_id END,
-                                technician_id=CASE WHEN technician_id=? THEN NULL ELSE technician_id END
-                          WHERE player_id=? AND (operator_id=? OR technician_id=?)'
-                    )->execute([$ref->sourceId, $ref->sourceId, $ref->playerId, $ref->sourceId, $ref->sourceId]);
-                }
+            $refs = (new EmployeeCompensationService($this->db))->linkedSources($ref);
+            foreach ($refs as $linkedRef) {
+                $this->assignments->releaseEmployeeAssignments($linkedRef);
+                $this->deactivateSource($linkedRef, $now);
+                (new EmployeeRelationLifecycleService($this->db))->deactivate($linkedRef, $now);
             }
-            (new EmployeeRelationLifecycleService($this->db))->deactivate($ref, $now);
             $this->event($current, 'employee_departed', 'hr.event.departed.title', 'hr.event.departed.message', [
                 'inactive_at' => $now->format('Y-m-d H:i:s'),
             ], 'employee-departed:' . (int)$current['id']);
@@ -255,6 +238,85 @@ final class EmployeeDepartureService
                 $this->db->rollBack();
             }
             throw $exception;
+        }
+    }
+
+    private function lockPlayer(int $playerId): void
+    {
+        if (!$this->tableExists('players')) {
+            return;
+        }
+        $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $stmt = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$suffix}");
+        $stmt->execute([$playerId]);
+        if ((int)($stmt->fetchColumn() ?: 0) !== $playerId) {
+            throw new RuntimeException('Player does not exist for employee departure.');
+        }
+    }
+
+    private function expireOpenRaiseRequests(EmployeeRef $ref, DateTimeInterface $now): void
+    {
+        $this->db->prepare(
+            "UPDATE employee_raise_requests
+                SET status='expired', resolved_at=?, updated_at=CURRENT_TIMESTAMP
+              WHERE player_id=? AND source_type=? AND source_id=?
+                AND status IN ('open','postponed')"
+        )->execute([
+            $now->format('Y-m-d H:i:s'),
+            $ref->playerId,
+            $ref->sourceType,
+            $ref->sourceId,
+        ]);
+    }
+
+    private function deactivateSource(EmployeeRef $ref, DateTimeInterface $now): void
+    {
+        if ($ref->sourceType === EmployeeRef::SOURCE_BOARD_MEMBER) {
+            $this->db->prepare(
+                "UPDATE board_members SET status='fired'
+                  WHERE id=? AND player_id=? AND status<>'fired'"
+            )->execute([$ref->sourceId, $ref->playerId]);
+            $this->db->prepare(
+                "UPDATE employee_contracts
+                    SET status='terminated'
+                  WHERE member_id=? AND status='active'
+                    AND EXISTS (
+                        SELECT 1 FROM board_members bm
+                         WHERE bm.id=employee_contracts.member_id AND bm.player_id=?
+                    )"
+            )->execute([$ref->sourceId, $ref->playerId]);
+            return;
+        }
+
+        $this->db->prepare(
+            "UPDATE technical_staff SET status='fired'
+              WHERE id=? AND player_id=? AND status<>'fired'"
+        )->execute([$ref->sourceId, $ref->playerId]);
+        if ($this->tableExists('technical_tasks')) {
+            $this->db->prepare(
+                "UPDATE technical_tasks
+                    SET status='cancelled', end_time=?
+                  WHERE staff_id=? AND player_id=? AND status IN ('in_progress','paused_strike')"
+            )->execute([$now->format('Y-m-d H:i:s'), $ref->sourceId, $ref->playerId]);
+        }
+        if ($this->tableExists('technical_task_queue')) {
+            $this->db->prepare(
+                'DELETE FROM technical_task_queue WHERE staff_id=? AND player_id=?'
+            )->execute([$ref->sourceId, $ref->playerId]);
+        }
+        if ($this->tableExists('well_staff_assignments')) {
+            $this->db->prepare(
+                'UPDATE well_staff_assignments SET unassigned_at=?
+                  WHERE staff_id=? AND player_id=? AND unassigned_at IS NULL'
+            )->execute([$now->format('Y-m-d H:i:s'), $ref->sourceId, $ref->playerId]);
+        }
+        if ($this->tableExists('wells')) {
+            $this->db->prepare(
+                'UPDATE wells
+                    SET operator_id=CASE WHEN operator_id=? THEN NULL ELSE operator_id END,
+                        technician_id=CASE WHEN technician_id=? THEN NULL ELSE technician_id END
+                  WHERE player_id=? AND (operator_id=? OR technician_id=?)'
+            )->execute([$ref->sourceId, $ref->sourceId, $ref->playerId, $ref->sourceId, $ref->sourceId]);
         }
     }
 

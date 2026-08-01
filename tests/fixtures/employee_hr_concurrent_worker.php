@@ -73,6 +73,13 @@ try {
             (int)$payload['player_id'],
             (int)$payload['role_id']
         ),
+        'departure_cycle' => [
+            'started' => (new EmployeeDepartureService($db))->processCycle(
+                (int)$payload['cycle_id'],
+                new DateTimeImmutable((string)$payload['now']),
+                1
+            ),
+        ],
         'tick_lock' => probeTickLock($db),
         default => throw new InvalidArgumentException('Unknown employee HR worker action.'),
     };

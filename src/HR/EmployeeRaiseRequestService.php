@@ -10,6 +10,8 @@ require_once __DIR__ . '/EmployeeRaiseRequest/NegotiationTrait.php';
 require_once __DIR__ . '/EmployeeRaiseRequest/PersistenceTrait.php';
 require_once __DIR__ . '/EmployeeNegotiationEffectivenessService.php';
 require_once __DIR__ . '/EmployeeStrikeService.php';
+require_once __DIR__ . '/EmployeeCompensationService.php';
+require_once __DIR__ . '/EmployeeDeadlockRetry.php';
 
 final class EmployeeRaiseRequestService
 {
@@ -147,6 +149,26 @@ final class EmployeeRaiseRequestService
         string $action,
         ?float $offeredSalary = null
     ): array {
+        return EmployeeDeadlockRetry::run(
+            $this->db,
+            fn(): array => $this->runActionOnce(
+                $playerId,
+                $requestId,
+                $token,
+                $action,
+                $offeredSalary
+            )
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function runActionOnce(
+        int $playerId,
+        int $requestId,
+        string $token,
+        string $action,
+        ?float $offeredSalary = null
+    ): array {
         $this->assertPositiveIds($playerId, $requestId);
         $token = $this->normalizeToken($token);
         $existing = $this->resultByToken($playerId, $requestId, $token);
@@ -163,6 +185,7 @@ final class EmployeeRaiseRequestService
         }
 
         try {
+            $this->lockPlayer($playerId);
             $request = $this->lockRequest($playerId, $requestId);
             $existing = $this->resultByToken($playerId, $requestId, $token);
             if ($existing !== null) {
@@ -190,11 +213,11 @@ final class EmployeeRaiseRequestService
             if ($employee === null) {
                 throw new RuntimeException('Employee does not exist for this raise request.');
             }
-            $employee = array_replace($employee, $this->lockEmployee($ref));
             $state = $this->lockState($ref);
             if (in_array((string)$state['relation_status'], ['on_strike', 'leaving', 'inactive'], true)) {
                 throw new RuntimeException('Raise request employee is not available for a decision.');
             }
+            $employee = array_replace($employee, $this->lockEmployee($ref));
             $currentSalary = round((float)$employee['salary'], 2);
             $requestedSalary = (float)$request['requested_salary'] > 0.0
                 ? round((float)$request['requested_salary'], 2)
@@ -260,6 +283,25 @@ final class EmployeeRaiseRequestService
                 $this->db->rollBack();
             }
             throw $exception;
+        }
+    }
+
+    private function lockPlayer(int $playerId): void
+    {
+        if ($this->isMySql() === false) {
+            $exists = $this->db->prepare(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='players' LIMIT 1"
+            );
+            $exists->execute();
+            if (!$exists->fetchColumn()) {
+                return;
+            }
+        }
+        $suffix = $this->isMySql() ? ' FOR UPDATE' : '';
+        $stmt = $this->db->prepare("SELECT id FROM players WHERE id=? LIMIT 1{$suffix}");
+        $stmt->execute([$playerId]);
+        if ((int)($stmt->fetchColumn() ?: 0) !== $playerId) {
+            throw new RuntimeException('Player does not exist for raise request decision.');
         }
     }
 
