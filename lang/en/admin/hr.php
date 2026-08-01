@@ -35,6 +35,8 @@ return [
     'admin.hr.empty_stats' => 'No data.',
     'admin.hr.err_spec_duplicate' => 'A specialization with this code already exists.',
     'admin.hr.err_spec_empty' => 'Code and name are required.',
+    'admin.hr.err_spec_not_found' => 'The technical specialization was not found.',
+    'admin.hr.err_hr_spec_not_found' => 'The recruitable position was not found.',
     'admin.hr.err_hub_operator_reserved' => 'The hub_operator code is reserved for a recruitable technical department position.',
     'admin.hr.field_catastrophe_reduction' => 'Catastrophe reduction',
     'admin.hr.field_code' => 'Code (a-z, digits, _)',

@@ -26,14 +26,17 @@ final class EmployeeDashboardQueryService
      *   employees:list<array<string,mixed>>,
      *   morale:array<string,float|int>,
      *   trainings:list<array<string,mixed>>,
-     *   events:list<array<string,mixed>>
+     *   events:list<array<string,mixed>>,
+     *   event_pagination:array{page:int,pages:int,total:int,per_page:int,unread_count:int}
      * }
      */
-    public function forPlayer(int $playerId): array
+    public function forPlayer(int $playerId, int $eventPage = 1, int $eventPerPage = 20): array
     {
         if ($playerId <= 0) {
             throw new InvalidArgumentException('Player identifier must be positive.');
         }
+        $eventPage = max(1, $eventPage);
+        $eventPerPage = max(10, min(50, $eventPerPage));
 
         $employees = $this->employees->listForPlayer($playerId);
         $stateMap = $this->stateMap($playerId);
@@ -71,6 +74,8 @@ final class EmployeeDashboardQueryService
         unset($employee);
 
         $count = count($employees);
+        $eventData = $this->events($playerId, $eventPage, $eventPerPage);
+
         return [
             'employees' => $employees,
             'morale' => [
@@ -80,8 +85,21 @@ final class EmployeeDashboardQueryService
                 'average_strike_support' => $count > 0 ? round($strikeSupportTotal / $count, 1) : 0.0,
             ],
             'trainings' => array_values(array_merge(...array_values($trainingMap ?: [[]]))),
-            'events' => $this->events($playerId),
+            'events' => $eventData['rows'],
+            'event_pagination' => $eventData['pagination'],
         ];
+    }
+
+    /** @param list<int> $eventIds */
+    public function markEventsNotified(int $playerId, array $eventIds): int
+    {
+        return $this->updateEventDeliveryState($playerId, $eventIds, false);
+    }
+
+    /** @param list<int> $eventIds */
+    public function markEventsRead(int $playerId, array $eventIds): int
+    {
+        return $this->updateEventDeliveryState($playerId, $eventIds, true);
     }
 
     /** @return array<string,array<string,mixed>> */
@@ -139,26 +157,47 @@ final class EmployeeDashboardQueryService
         }
     }
 
-    /** @return list<array<string,mixed>> */
-    private function events(int $playerId): array
+    /**
+     * @return array{
+     *   rows:list<array<string,mixed>>,
+     *   pagination:array{page:int,pages:int,total:int,per_page:int,unread_count:int}
+     * }
+     */
+    private function events(int $playerId, int $page, int $perPage): array
     {
+        $count = $this->db->prepare(
+            'SELECT COUNT(*) AS total,
+                    COALESCE(SUM(CASE WHEN is_read=0 THEN 1 ELSE 0 END), 0) AS unread_count
+               FROM employee_events
+              WHERE player_id=?'
+        );
+        $count->execute([$playerId]);
+        $counts = $count->fetch(PDO::FETCH_ASSOC) ?: [];
+        $total = (int)($counts['total'] ?? 0);
+        $pages = max(1, (int)ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
+
         $stmt = $this->db->prepare(
             'SELECT id, source_type, source_id, strike_id, event_key, title_key,
                     message_key, meta_json, is_read, notified_at, created_at
                FROM employee_events
               WHERE player_id = ?
               ORDER BY created_at DESC, id DESC
-              LIMIT 100'
+              LIMIT ? OFFSET ?'
         );
-        $stmt->execute([$playerId]);
+        $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(3, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $pendingNotificationIds = [];
         foreach ($rows as &$row) {
             $eventId = (int)$row['id'];
             $sourceType = (string)($row['source_type'] ?? '');
             $sourceId = (int)($row['source_id'] ?? 0);
             $row['record_key'] = 'event:' . $eventId;
-            $row['deep_link'] = '/hr?tab=history&record=' . rawurlencode((string)$row['record_key']);
+            $row['deep_link'] = '/hr?tab=history&event_page=' . $page
+                . '&record=' . rawurlencode((string)$row['record_key']);
             $row['employee_record_key'] = in_array(
                 $sourceType,
                 [EmployeeRef::SOURCE_BOARD_MEMBER, EmployeeRef::SOURCE_TECHNICAL_STAFF],
@@ -170,23 +209,46 @@ final class EmployeeDashboardQueryService
                 ? '/hr?tab=employees&record=' . rawurlencode((string)$row['employee_record_key'])
                 : null;
             $row['is_unread'] = (int)($row['is_read'] ?? 0) === 0;
-            if ($row['notified_at'] === null) {
-                $pendingNotificationIds[] = $eventId;
-            }
         }
         unset($row);
 
-        if ($pendingNotificationIds !== []) {
-            $placeholders = implode(',', array_fill(0, count($pendingNotificationIds), '?'));
-            $update = $this->db->prepare(
-                "UPDATE employee_events
-                    SET notified_at=CURRENT_TIMESTAMP
-                  WHERE player_id=? AND notified_at IS NULL AND id IN ({$placeholders})"
-            );
-            $update->execute([$playerId, ...$pendingNotificationIds]);
-        }
+        return [
+            'rows' => $rows,
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'per_page' => $perPage,
+                'unread_count' => (int)($counts['unread_count'] ?? 0),
+            ],
+        ];
+    }
 
-        return $rows;
+    /** @param list<int> $eventIds */
+    private function updateEventDeliveryState(int $playerId, array $eventIds, bool $markRead): int
+    {
+        if ($playerId <= 0) {
+            throw new InvalidArgumentException('Player identifier must be positive.');
+        }
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $eventIds),
+            static fn(int $id): bool => $id > 0
+        )));
+        if ($ids === []) {
+            return 0;
+        }
+        $ids = array_slice($ids, 0, 50);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $set = $markRead
+            ? 'is_read=1, notified_at=COALESCE(notified_at, CURRENT_TIMESTAMP)'
+            : 'notified_at=COALESCE(notified_at, CURRENT_TIMESTAMP)';
+        $stmt = $this->db->prepare(
+            "UPDATE employee_events
+                SET {$set}
+              WHERE player_id=? AND id IN ({$placeholders})"
+        );
+        $stmt->execute([$playerId, ...$ids]);
+        return $stmt->rowCount();
     }
 
     /** @param array<string,mixed> $employee */

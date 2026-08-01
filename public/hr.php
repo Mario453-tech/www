@@ -14,6 +14,9 @@ if ($focusedRecord !== ''
     && preg_match('/^(?:employee:(?:board_member|technical_staff):[0-9]+|[a-z_]+:[0-9]+)$/', $focusedRecord) !== 1) {
     $focusedRecord = '';
 }
+$eventPage = max(1, (int)($_GET['event_page'] ?? 1));
+$historyPage = max(1, (int)($_GET['history_page'] ?? 1));
+$historyPerPage = 20;
 
 try {
     $db = Database::getInstance()->getConnection();
@@ -74,7 +77,7 @@ try {
     $raiseDecisionLimits = ['salary_step' => 100.0, 'max_postponements' => 0];
 }
 try {
-    $employeeDashboard = (new EmployeeDashboardQueryService($db))->forPlayer($playerId);
+    $employeeDashboard = (new EmployeeDashboardQueryService($db))->forPlayer($playerId, $eventPage);
 } catch (Throwable $e) {
     GameLog::error('hr.php', 'Failed to load canonical employee dashboard', $e, ['player_id' => $playerId]);
     $employeeDashboard = [
@@ -87,14 +90,14 @@ try {
         ],
         'trainings' => [],
         'events' => [],
+        'event_pagination' => [
+            'page' => 1,
+            'pages' => 1,
+            'total' => 0,
+            'per_page' => 20,
+            'unread_count' => 0,
+        ],
     ];
-}
-try {
-    GameLog::step('hr.php', 'init', 1, 'HRService OK');
-    GameLog::step('hr.php', 'init', 2, 'checkExpiringContracts');
-    $hr->checkExpiringContracts($playerId);
-} catch (Throwable $e) {
-    GameLog::error('hr.php', 'Error checking employee contracts', $e);
 }
 
 $_t = microtime(true);
@@ -146,12 +149,45 @@ try {
 
 try {
     GameLog::step('hr.php', 'data', 6, 'getHistory');
-    $history = $hr->getHistory($playerId, 100);
+    $historyCount = $db->prepare(
+        'SELECT COUNT(*)
+           FROM employment_history eh
+           JOIN board_members bm ON bm.id=eh.member_id
+          WHERE bm.player_id=?'
+    );
+    $historyCount->execute([$playerId]);
+    $historyTotal = (int)$historyCount->fetchColumn();
+    $historyPages = max(1, (int)ceil($historyTotal / $historyPerPage));
+    $historyPage = min($historyPage, $historyPages);
+    $historyOffset = ($historyPage - 1) * $historyPerPage;
+    $historyQuery = $db->prepare(
+        'SELECT eh.*, bm.first_name, bm.last_name, br.name AS role_name
+           FROM employment_history eh
+           JOIN board_members bm ON bm.id=eh.member_id
+      LEFT JOIN board_roles br ON br.id=bm.role_id
+          WHERE bm.player_id=?
+          ORDER BY eh.created_at DESC
+          LIMIT ? OFFSET ?'
+    );
+    $historyQuery->bindValue(1, $playerId, PDO::PARAM_INT);
+    $historyQuery->bindValue(2, $historyPerPage, PDO::PARAM_INT);
+    $historyQuery->bindValue(3, $historyOffset, PDO::PARAM_INT);
+    $historyQuery->execute();
+    $history = $historyQuery->fetchAll(PDO::FETCH_ASSOC);
     GameLog::dbResult('hr.php', 'getHistory', count($history));
 } catch (Throwable $e) {
     GameLog::error('hr.php', 'getHistory failed', $e);
     $history = [];
+    $historyTotal = 0;
+    $historyPages = 1;
+    $historyPage = 1;
 }
+$historyPagination = [
+    'page' => $historyPage,
+    'pages' => $historyPages,
+    'total' => $historyTotal,
+    'per_page' => $historyPerPage,
+];
 
 try {
     GameLog::step('hr.php', 'data', 7, 'getHrCandidates');
@@ -222,6 +258,7 @@ $viewData = [
     'raiseRequests' => $raiseRequests,
     'raiseDecisionLimits' => $raiseDecisionLimits,
     'employeeDashboard' => $employeeDashboard,
+    'historyPagination' => $historyPagination,
     'activeHrTab' => $activeHrTab,
     'focusedRecord' => $focusedRecord,
 ];

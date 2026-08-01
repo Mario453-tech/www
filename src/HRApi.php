@@ -17,8 +17,29 @@ header('Content-Type: application/json; charset=utf-8');
 function respondJson(array $payload, int $statusCode = 200): void
 {
     http_response_code($statusCode);
-    echo json_encode($payload);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+function isHrIdempotencyConflict(Throwable $exception): bool
+{
+    $message = strtolower($exception->getMessage());
+    return str_contains($message, 'token was reused')
+        || str_contains($message, 'already being processed')
+        || str_contains($message, 'idempotency conflict');
+}
+
+/** @return list<int> */
+function hrEventIds(mixed $value): array
+{
+    $values = is_array($value) ? $value : preg_split('/[,\s]+/', trim((string)$value));
+    if (!is_array($values)) {
+        return [];
+    }
+    return array_values(array_unique(array_slice(array_filter(
+        array_map('intval', $values),
+        static fn(int $id): bool => $id > 0
+    ), 0, 50)));
 }
 
 if (!Auth::isLoggedIn()) {
@@ -54,6 +75,7 @@ $postActions = [
     'hire_candidate',
     'fire_employee',
     'fire_technical_staff',
+    'mark_events_notified',
     'mark_events_read',
     'reject_candidate',
     'save_candidate',
@@ -246,12 +268,17 @@ try {
             echo json_encode($hr->fireTechnicalStaff($staffId, $playerId, $reason));
             break;
 
+        case 'mark_events_notified':
         case 'mark_events_read':
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                respondJson(['success' => false, 'error' => 'Method Not Allowed'], 405);
+            $eventIds = hrEventIds($_POST['event_ids'] ?? '');
+            if ($eventIds === []) {
+                throw new InvalidArgumentException('Event identifiers are required.');
             }
-            $hr->markEventsRead($playerId);
-            echo json_encode(['success' => true]);
+            $eventDashboard = new EmployeeDashboardQueryService($db);
+            $updated = $action === 'mark_events_read'
+                ? $eventDashboard->markEventsRead($playerId, $eventIds)
+                : $eventDashboard->markEventsNotified($playerId, $eventIds);
+            echo json_encode(['success' => true, 'updated' => $updated]);
             break;
 
         case 'get_regions':
@@ -370,6 +397,9 @@ try {
                     'exception_class' => get_class($e),
                     'error' => $e->getMessage(),
                 ]);
+                if (isHrIdempotencyConflict($e)) {
+                    respondJson(['success' => false, 'error' => t('hr_api.err_conflict')], 409);
+                }
                 $messageKey = $e instanceof InvalidArgumentException
                     ? 'hr_api.err_invalid_strike_offer'
                     : 'hr.err_strike_offer_rejected';
@@ -412,6 +442,9 @@ try {
                     'exception_class' => get_class($e),
                     'error' => $e->getMessage(),
                 ]);
+                if (isHrIdempotencyConflict($e)) {
+                    respondJson(['success' => false, 'error' => t('hr_api.err_conflict')], 409);
+                }
                 respondJson(['success' => false, 'error' => t('hr.err_raise_request_action')], 422);
             }
         case 'grant_bonus':
@@ -453,8 +486,8 @@ try {
             if ($token === '') {
                 throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
             }
-            echo json_encode($hh->makeOffer($candidateId, $offeredSalary, $signingBonus, $token));
-            break;
+            $offer = $hh->makeOffer($candidateId, $offeredSalary, $signingBonus, $token);
+            respondJson($offer, !empty($offer['conflict']) ? 409 : 200);
 
         case 'hire_headhunter_candidate':
             $hh = new HeadhunterService($playerId);
@@ -468,8 +501,8 @@ try {
             if ($token === '') {
                 throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
             }
-            echo json_encode($hh->makeOffer($candidateId, $offeredSalary, $signingBonus, $token));
-            break;
+            $offer = $hh->makeOffer($candidateId, $offeredSalary, $signingBonus, $token);
+            respondJson($offer, !empty($offer['conflict']) ? 409 : 200);
 
         case 'make_headhunter_offer':
             $hh->processReady();
@@ -483,8 +516,8 @@ try {
             if ($token === '') {
                 throw new InvalidArgumentException(t('hr_api.err_missing_idempotency_token'));
             }
-            echo json_encode($hh->makeOffer($candId, $salary, $bonus, $token));
-            break;
+            $offer = $hh->makeOffer($candId, $salary, $bonus, $token);
+            respondJson($offer, !empty($offer['conflict']) ? 409 : 200);
 
         default:
             GameLog::warn('HRApi', 'Unknown action', [
@@ -499,7 +532,18 @@ try {
         'action' => $action,
         'error' => $e->getMessage(),
     ]);
-    respondJson(['success' => false, 'error' => $e->getMessage()], 422);
+    respondJson(['success' => false, 'error' => t('hr_api.err_invalid_request')], 422);
+} catch (RuntimeException $e) {
+    $isConflict = isHrIdempotencyConflict($e);
+    GameLog::warn('HRApi', $isConflict ? 'Idempotency conflict' : 'Runtime action error', [
+        'player_id' => $playerId,
+        'action' => $action,
+        'error' => $e->getMessage(),
+    ]);
+    respondJson(
+        ['success' => false, 'error' => t($isConflict ? 'hr_api.err_conflict' : 'common.app_error')],
+        $isConflict ? 409 : 500
+    );
 } catch (Throwable $e) {
     GameLog::error('HRApi', 'Unhandled API error', $e, [
         'player_id' => $playerId,

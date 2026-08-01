@@ -56,13 +56,6 @@ class BoardAccess
 
         try {
             $db = Database::getInstance()->getConnection();
-            try {
-                Database::addColumnIfMissing('board_members', 'member_type', "ENUM('director','staff') NOT NULL DEFAULT 'director' AFTER player_id");
-            } catch (Throwable $e) {
- // Best-effort guard for legacy schemas.
- // PL: Zabezpieczenie best-effort dla starych schematow.
-            }
-
             $stmt = $db->prepare("
                 SELECT br.code, bm.member_type
                 FROM board_members bm
@@ -83,19 +76,19 @@ class BoardAccess
                 GameLog::error('BoardAccess', 'get FAILED', $e, ['player_id' => $playerId]);
             }
 
- // Brak tabeli/schematu (nowa instalacja) -> fail-open (nie blokuj setupu).
- // Missing table/schema (fresh install) -> fail-open (do not block initial setup).
+ // Missing schema requires migration and never grants access.
+ // PL: Brak schematu wymaga migracji i nigdy nie przyznaje dostepu.
             $msg = $e->getMessage();
             $missingSchema = stripos($msg, '42S02') !== false
                           || stripos($msg, "doesn't exist") !== false
                           || stripos($msg, 'no such table') !== false;
             if ($missingSchema) {
-                return array_fill_keys(self::PROTECTED_ROLES, true);
+                return $result;
             }
 
- // Prawdziwy blad DB -> fail-closed (nie dawaj dostepu przy bledzie).
- // Real DB error -> fail-closed (do not grant access on error).
-            return array_fill_keys(self::PROTECTED_ROLES, false);
+ // Real database errors fail closed.
+ // PL: Rzeczywiste bledy bazy odmawiaja dostepu.
+            return $result;
         }
 
         self::$cache[$playerId] = $result;

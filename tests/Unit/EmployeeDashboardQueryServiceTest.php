@@ -47,7 +47,8 @@ final class EmployeeDashboardQueryServiceTest extends TestCase
              VALUES (7, 'board_member', 11, 'morale_changed', 'event.title', 'event.message', '{}', '2026-01-01')"
         );
 
-        $dashboard = (new EmployeeDashboardQueryService($this->db))->forPlayer(7);
+        $service = new EmployeeDashboardQueryService($this->db);
+        $dashboard = $service->forPlayer(7);
 
         self::assertCount(1, $dashboard['employees']);
         self::assertSame('senior', $dashboard['employees'][0]['seniority']);
@@ -58,7 +59,35 @@ final class EmployeeDashboardQueryServiceTest extends TestCase
         self::assertSame('event:1', $dashboard['events'][0]['record_key']);
         self::assertSame('employee:board_member:11', $dashboard['events'][0]['employee_record_key']);
         self::assertTrue($dashboard['events'][0]['is_unread']);
-        self::assertNotNull($this->db->query('SELECT notified_at FROM employee_events WHERE id=1')->fetchColumn());
+        self::assertNull($this->db->query('SELECT notified_at FROM employee_events WHERE id=1')->fetchColumn());
+        self::assertSame(1, $dashboard['event_pagination']['unread_count']);
+
+        self::assertSame(1, $service->markEventsNotified(7, [1]));
+        self::assertNotFalse($this->db->query('SELECT notified_at FROM employee_events WHERE id=1')->fetchColumn());
+        self::assertSame(1, $service->markEventsRead(7, [1]));
+        self::assertSame(1, (int)$this->db->query('SELECT is_read FROM employee_events WHERE id=1')->fetchColumn());
+    }
+
+    public function testPaginatesEventsAndCountsAllUnreadRows(): void
+    {
+        $insert = $this->db->prepare(
+            "INSERT INTO employee_events
+                (player_id, event_key, title_key, message_key, meta_json, created_at)
+             VALUES (7, 'morale_changed', 'event.title', 'event.message', '{}', ?)"
+        );
+        for ($event = 1; $event <= 25; $event++) {
+            $insert->execute([sprintf('2026-01-%02d 12:00:00', $event)]);
+        }
+
+        $dashboard = (new EmployeeDashboardQueryService($this->db))->forPlayer(7, 2, 10);
+
+        self::assertCount(10, $dashboard['events']);
+        self::assertSame(2, $dashboard['event_pagination']['page']);
+        self::assertSame(3, $dashboard['event_pagination']['pages']);
+        self::assertSame(25, $dashboard['event_pagination']['total']);
+        self::assertSame(25, $dashboard['event_pagination']['unread_count']);
+        self::assertSame('event:15', $dashboard['events'][0]['record_key']);
+        self::assertStringContainsString('event_page=2', $dashboard['events'][0]['deep_link']);
     }
 
     private function createSchema(): void

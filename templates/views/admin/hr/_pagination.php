@@ -1,6 +1,10 @@
 <?php if (($pagination['pages'] ?? 1) > 1): ?>
 <?php
-$pageQueryKey = isset($paginationQueryKey) && in_array($paginationQueryKey, ['page', 'hpage'], true)
+$pageQueryKey = isset($paginationQueryKey) && in_array(
+    $paginationQueryKey,
+    ['page', 'hpage', 'candidate_page', 'round_page'],
+    true
+)
     ? $paginationQueryKey
     : 'page';
 unset($paginationQueryKey);

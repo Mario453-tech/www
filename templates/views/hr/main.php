@@ -14,6 +14,13 @@ $canonicalEmployees = is_array($employeeDashboard['employees'] ?? null) ? $emplo
 $moraleSummary = is_array($employeeDashboard['morale'] ?? null) ? $employeeDashboard['morale'] : [];
 $trainingRows = is_array($employeeDashboard['trainings'] ?? null) ? $employeeDashboard['trainings'] : [];
 $employeeEvents = is_array($employeeDashboard['events'] ?? null) ? $employeeDashboard['events'] : [];
+$eventPagination = is_array($employeeDashboard['event_pagination'] ?? null)
+    ? $employeeDashboard['event_pagination']
+    : ['page' => 1, 'pages' => 1, 'total' => 0, 'per_page' => 20, 'unread_count' => 0];
+$historyPagination = is_array($historyPagination ?? null)
+    ? $historyPagination
+    : ['page' => 1, 'pages' => 1, 'total' => count($history ?? []), 'per_page' => 20];
+$unreadEventCount = max(0, (int)($eventPagination['unread_count'] ?? 0));
 $activeHrTab = (string)($activeHrTab ?? 'employees');
 $focusedRecord = (string)($focusedRecord ?? '');
 $canonicalEmployeeMap = [];
@@ -36,6 +43,13 @@ $relationLabel = static function (string $status): string {
         ? t('hr.relation.' . $status)
         : t('hr.relation.normal');
 };
+$historyPageUrl = static function (string $pageKey, int $page): string {
+    $query = $_GET;
+    $query['tab'] = 'history';
+    $query[$pageKey] = max(1, $page);
+    unset($query['record']);
+    return '?' . http_build_query($query);
+};
 $hrSeniorityLevel = static function (array $employee): string {
     $experience = max(0, (float)($employee['experience_years'] ?? 0));
     $skills = [
@@ -56,7 +70,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     return 'junior';
 };
 ?>
-<div id="tab-conflicts" class="hr-tab-content" data-canonical-panel="conflicts">
+<div id="tab-conflicts" class="hr-tab-content" data-canonical-panel="conflicts"
+     role="tabpanel" aria-labelledby="hr-tab-button-conflicts">
 <section class="hr-strike-center" aria-labelledby="hr-strike-center-title">
     <div class="hr-section-header hr-strike-center__header">
         <h2 id="hr-strike-center-title"><?= t('hr.strikes_title') ?></h2>
@@ -136,7 +151,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </section>
 </div>
-<div id="tab-raises" class="hr-tab-content" data-canonical-panel="raises">
+<div id="tab-raises" class="hr-tab-content" data-canonical-panel="raises"
+     role="tabpanel" aria-labelledby="hr-tab-button-raises">
 <section class="hr-raise-center" aria-labelledby="hr-raise-center-title">
     <div class="hr-section-header hr-raise-center__header">
         <h2 id="hr-raise-center-title"><?= t('hr.raises_title') ?></h2>
@@ -244,7 +260,18 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </section>
 </div>
-<div class="hr-tabs module-tabs">
+<?php
+$hrTabControls = [
+    'employees' => 'tab-employees tab-directors tab-contracts',
+    'recruitment' => 'tab-candidates tab-market tab-headhunter',
+    'raises' => 'tab-raises',
+    'morale' => 'tab-morale',
+    'conflicts' => 'tab-conflicts',
+    'training' => 'tab-training',
+    'history' => 'tab-history',
+];
+?>
+<div class="hr-tabs module-tabs" role="tablist" aria-label="<?= htmlspecialchars(tPlain('hr.tabs_label'), ENT_QUOTES, 'UTF-8') ?>">
     <?php foreach ([
         'employees' => count($canonicalEmployees),
         'recruitment' => count($staffCandidates),
@@ -252,10 +279,15 @@ $hrSeniorityLevel = static function (array $employee): string {
         'morale' => null,
         'conflicts' => count($activeStrikes),
         'training' => count($trainingRows),
-        'history' => count($employeeEvents) + count($history),
+        'history' => $unreadEventCount,
     ] as $tabCode => $tabCount): ?>
         <button type="button"
+                id="hr-tab-button-<?= htmlspecialchars($tabCode, ENT_QUOTES, 'UTF-8') ?>"
                 class="hr-tab module-tab<?= $activeHrTab === $tabCode ? ' active' : '' ?>"
+                role="tab"
+                aria-selected="<?= $activeHrTab === $tabCode ? 'true' : 'false' ?>"
+                aria-controls="<?= htmlspecialchars($hrTabControls[$tabCode], ENT_QUOTES, 'UTF-8') ?>"
+                tabindex="<?= $activeHrTab === $tabCode ? '0' : '-1' ?>"
                 data-hr-tab="<?= htmlspecialchars($tabCode, ENT_QUOTES, 'UTF-8') ?>">
             <?= t('hr.tab_' . $tabCode) ?>
             <?php if ($tabCount !== null && $tabCount > 0): ?>
@@ -267,7 +299,8 @@ $hrSeniorityLevel = static function (array $employee): string {
 
 <div class="hr-container">
 
-<div id="tab-employees" class="hr-tab-content" data-canonical-panel="employees">
+<div id="tab-employees" class="hr-tab-content" data-canonical-panel="employees"
+     role="tabpanel" aria-labelledby="hr-tab-button-employees">
     <div class="hr-section-header">
         <h2><?= t('hr.employees_title') ?></h2>
         <p><?= t('hr.employees_desc') ?></p>
@@ -292,7 +325,9 @@ $hrSeniorityLevel = static function (array $employee): string {
         ?>
         <article class="employee-card <?= $warn ? 'contract-warning' : '' ?><?= $focusedRecord === $recordKey ? ' hr-record-focus' : '' ?>"
                  data-toggle-employee="<?= htmlspecialchars($empDomId, ENT_QUOTES, 'UTF-8') ?>"
-                 data-record="<?= htmlspecialchars($recordKey, ENT_QUOTES, 'UTF-8') ?>" tabindex="0">
+                 data-record="<?= htmlspecialchars($recordKey, ENT_QUOTES, 'UTF-8') ?>"
+                 role="button" aria-expanded="false"
+                 aria-controls="emp-details-<?= htmlspecialchars($empDomId, ENT_QUOTES, 'UTF-8') ?>" tabindex="0">
             <div class="emp-header">
                 <div class="emp-avatar" aria-hidden="true"><?= htmlspecialchars($initials, ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="emp-info">
@@ -402,7 +437,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-candidates" class="hr-tab-content" data-canonical-panel="recruitment">
+<div id="tab-candidates" class="hr-tab-content" data-canonical-panel="recruitment"
+     role="tabpanel" aria-labelledby="hr-tab-button-recruitment">
     <div class="hr-section-header">
         <h2><?= t('hr.candidates_title') ?></h2>
         <p><?= t('hr.candidates_desc') ?></p>
@@ -495,7 +531,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-directors" class="hr-tab-content" data-canonical-panel="employees">
+<div id="tab-directors" class="hr-tab-content" data-canonical-panel="employees"
+     role="tabpanel" aria-labelledby="hr-tab-button-employees">
     <div class="hr-section-header">
         <h2><?= t('hr.directors_title') ?></h2>
         <p><?= t('hr.directors_desc') ?></p>
@@ -554,7 +591,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-contracts" class="hr-tab-content" data-canonical-panel="employees">
+<div id="tab-contracts" class="hr-tab-content" data-canonical-panel="employees"
+     role="tabpanel" aria-labelledby="hr-tab-button-employees">
     <div class="hr-section-header">
         <h2><?= t('hr.contracts_title') ?></h2>
         <p><?= t('hr.contracts_desc') ?></p>
@@ -590,7 +628,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-morale" class="hr-tab-content" data-canonical-panel="morale">
+<div id="tab-morale" class="hr-tab-content" data-canonical-panel="morale"
+     role="tabpanel" aria-labelledby="hr-tab-button-morale">
     <div class="hr-section-header">
         <h2><?= t('hr.morale_title') ?></h2>
         <p><?= t('hr.morale_desc') ?></p>
@@ -621,7 +660,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-training" class="hr-tab-content" data-canonical-panel="training">
+<div id="tab-training" class="hr-tab-content" data-canonical-panel="training"
+     role="tabpanel" aria-labelledby="hr-tab-button-training">
     <div class="hr-section-header">
         <h2><?= t('hr.training_title') ?></h2>
         <p><?= t('hr.training_desc') ?></p>
@@ -657,7 +697,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </div>
 
-<div id="tab-history" class="hr-tab-content" data-canonical-panel="history">
+<div id="tab-history" class="hr-tab-content" data-canonical-panel="history"
+     role="tabpanel" aria-labelledby="hr-tab-button-history">
     <div class="hr-section-header">
         <h2><?= t('hr.history_title') ?></h2>
         <p><?= t('hr.history_desc') ?></p>
@@ -679,11 +720,12 @@ $hrSeniorityLevel = static function (array $employee): string {
                 }
             ?>
                 <article class="hr-event-row<?= !empty($event['is_unread']) ? ' hr-event-row--unread' : '' ?><?= $focusedRecord === ($event['record_key'] ?? 'event:' . $eventId) ? ' hr-record-focus' : '' ?>"
+                         data-event-id="<?= $eventId ?>"
                          data-record="<?= htmlspecialchars((string)($event['record_key'] ?? 'event:' . $eventId), ENT_QUOTES, 'UTF-8') ?>">
                     <time datetime="<?= htmlspecialchars((string)$event['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m.Y H:i', strtotime((string)$event['created_at'])) ?></time>
                     <div>
-                        <?php if (!empty($event['employee_deep_link'])): ?>
-                        <strong><a class="hr-event-link" href="<?= htmlspecialchars((string)$event['employee_deep_link'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($eventTitle, ENT_QUOTES, 'UTF-8') ?></a></strong>
+                        <?php if (!empty($event['deep_link'])): ?>
+                        <strong><a class="hr-event-link" href="<?= htmlspecialchars((string)$event['deep_link'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($eventTitle, ENT_QUOTES, 'UTF-8') ?></a></strong>
                         <?php else: ?>
                         <strong><?= htmlspecialchars($eventTitle, ENT_QUOTES, 'UTF-8') ?></strong>
                         <?php endif ?>
@@ -692,6 +734,17 @@ $hrSeniorityLevel = static function (array $employee): string {
                 </article>
             <?php endforeach ?>
         </div>
+        <?php if ((int)$eventPagination['pages'] > 1): ?>
+        <nav class="hr-pagination" aria-label="<?= htmlspecialchars(tPlain('hr.events_pagination_label'), ENT_QUOTES, 'UTF-8') ?>">
+            <?php if ((int)$eventPagination['page'] > 1): ?>
+            <a class="btn btn-sm" href="<?= htmlspecialchars($historyPageUrl('event_page', (int)$eventPagination['page'] - 1), ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.pagination_previous') ?></a>
+            <?php endif ?>
+            <span><?= t('hr.pagination_status', ['page' => (int)$eventPagination['page'], 'pages' => (int)$eventPagination['pages']]) ?></span>
+            <?php if ((int)$eventPagination['page'] < (int)$eventPagination['pages']): ?>
+            <a class="btn btn-sm" href="<?= htmlspecialchars($historyPageUrl('event_page', (int)$eventPagination['page'] + 1), ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.pagination_next') ?></a>
+            <?php endif ?>
+        </nav>
+        <?php endif ?>
     <?php endif ?>
 
     <?php if (empty($history) && empty($employeeEvents)): ?>
@@ -728,10 +781,22 @@ $hrSeniorityLevel = static function (array $employee): string {
         </div>
         <?php endforeach ?>
     </div>
+    <?php if ((int)$historyPagination['pages'] > 1): ?>
+    <nav class="hr-pagination" aria-label="<?= htmlspecialchars(tPlain('hr.history_pagination_label'), ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ((int)$historyPagination['page'] > 1): ?>
+        <a class="btn btn-sm" href="<?= htmlspecialchars($historyPageUrl('history_page', (int)$historyPagination['page'] - 1), ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.pagination_previous') ?></a>
+        <?php endif ?>
+        <span><?= t('hr.pagination_status', ['page' => (int)$historyPagination['page'], 'pages' => (int)$historyPagination['pages']]) ?></span>
+        <?php if ((int)$historyPagination['page'] < (int)$historyPagination['pages']): ?>
+        <a class="btn btn-sm" href="<?= htmlspecialchars($historyPageUrl('history_page', (int)$historyPagination['page'] + 1), ENT_QUOTES, 'UTF-8') ?>"><?= t('hr.pagination_next') ?></a>
+        <?php endif ?>
+    </nav>
+    <?php endif ?>
     <?php endif ?>
 </div>
 
-<div id="tab-market" class="hr-tab-content" data-canonical-panel="recruitment">
+<div id="tab-market" class="hr-tab-content" data-canonical-panel="recruitment"
+     role="tabpanel" aria-labelledby="hr-tab-button-recruitment">
     <div class="hr-section-header">
         <h2><?= t('hr.market_title') ?></h2>
         <p><?= t('hr.market_desc') ?></p>
@@ -763,7 +828,8 @@ $hrSeniorityLevel = static function (array $employee): string {
     </div>
 </div>
 
-<div id="tab-headhunter" class="hr-tab-content" data-canonical-panel="recruitment">
+<div id="tab-headhunter" class="hr-tab-content" data-canonical-panel="recruitment"
+     role="tabpanel" aria-labelledby="hr-tab-button-recruitment">
     <div class="hr-section-header">
         <h2><?= t('hr.hh_title') ?></h2>
         <p><?= t('hr.hh_desc') ?></p>
@@ -890,56 +956,64 @@ const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
 const HR_API = '/src/HRApi.php';
 window.HR_LOCALE = <?= json_encode($locale) ?>;
 window.HR_ACTIVE_TAB = <?= json_encode($activeHrTab) ?>;
+window.HR_EVENT_IDS = <?= json_encode(array_values(array_map(
+    static fn(array $event): int => (int)($event['id'] ?? 0),
+    $employeeEvents
+))) ?>;
+window.HR_UNREAD_EVENT_IDS = <?= json_encode(array_values(array_map(
+    static fn(array $event): int => (int)($event['id'] ?? 0),
+    array_filter($employeeEvents, static fn(array $event): bool => !empty($event['is_unread']))
+))) ?>;
 window.HR_LANG = <?= json_encode([
-    'contract_1y' => t('hr_js.contract_1y'),
-    'contract_6m' => t('hr_js.contract_6m'),
-    'contract_2y' => t('hr_js.contract_2y'),
-    'confirm_hire' => t('hr_js.confirm_hire'),
-    'confirm_hire_btn' => t('hr_js.confirm_hire_btn'),
-    'confirm_reject' => t('hr_js.confirm_reject'),
-    'confirm_reject_btn' => t('hr_js.confirm_reject_btn'),
-    'confirm_fire' => t('hr_js.confirm_fire'),
-    'confirm_fire_btn' => t('hr_js.confirm_fire_btn'),
-    'confirm_renew' => t('hr_js.confirm_renew'),
-    'confirm_renew_btn' => t('hr_js.confirm_renew_btn'),
-    'prompt_fire_reason' => t('hr_js.prompt_fire_reason'),
-    'prompt_fire_default' => t('hr_js.prompt_fire_default'),
-    'toast_hired' => t('hr_js.toast_hired'),
-    'toast_rejected' => t('hr_js.toast_rejected'),
-    'toast_fired' => t('hr_js.toast_fired'),
-    'toast_renewed' => t('hr_js.toast_renewed'),
-    'toast_negotiating' => t('hr_js.toast_negotiating'),
-    'toast_offer_rejected' => t('hr_js.toast_offer_rejected'),
-    'toast_headhunter' => t('hr_js.toast_headhunter_start'),
-    'toast_err' => t('hr_js.toast_err'),
-    'btn_hire' => t('hr.btn_hire'),
-    'btn_reject' => t('hr.btn_reject'),
-    'no_candidates' => t('hr.no_candidates'),
-    'err_no_salary' => t('hr_js.err_no_salary'),
-    'err_no_spec' => t('hr_js.err_no_spec'),
-    'headhunter_btn' => t('hr_js.headhunter_btn'),
-    'headhunter_starting' => t('hr_js.headhunter_starting'),
-    'negotiate_msg' => t('hr_js.negotiate_msg'),
-    'confirm_bonus' => t('hr_js.confirm_bonus'),
-    'confirm_bonus_btn' => t('hr_js.confirm_bonus_btn'),
-    'toast_bonus_granted' => t('hr_js.toast_bonus_granted'),
-    'strike_negotiation_title' => t('hr_js.strike_negotiation_title'),
-    'strike_offer_invalid' => t('hr_js.strike_offer_invalid'),
-    'confirm_strike_offer' => t('hr_js.confirm_strike_offer'),
-    'confirm_strike_offer_btn' => t('hr_js.confirm_strike_offer_btn'),
-    'raise_title' => t('hr_js.raise_title'),
-    'raise_offer_invalid' => t('hr_js.raise_offer_invalid'),
-    'confirm_raise_accept' => t('hr_js.confirm_raise_accept'),
-    'confirm_raise_accept_btn' => t('hr_js.confirm_raise_accept_btn'),
-    'confirm_raise_negotiate' => t('hr_js.confirm_raise_negotiate'),
-    'confirm_raise_negotiate_btn' => t('hr_js.confirm_raise_negotiate_btn'),
-    'confirm_raise_reject' => t('hr_js.confirm_raise_reject'),
-    'confirm_raise_reject_btn' => t('hr_js.confirm_raise_reject_btn'),
-    'confirm_raise_postpone' => t('hr_js.confirm_raise_postpone'),
-    'confirm_raise_postpone_btn' => t('hr_js.confirm_raise_postpone_btn'),
-    'err_api_config' => t('hr_js.err_api_config'),
-    'err_invalid_response' => t('hr_js.err_invalid_response'),
-    'err_http' => t('hr_js.err_http'),
+    'contract_1y' => tPlain('hr_js.contract_1y'),
+    'contract_6m' => tPlain('hr_js.contract_6m'),
+    'contract_2y' => tPlain('hr_js.contract_2y'),
+    'confirm_hire' => tPlain('hr_js.confirm_hire'),
+    'confirm_hire_btn' => tPlain('hr_js.confirm_hire_btn'),
+    'confirm_reject' => tPlain('hr_js.confirm_reject'),
+    'confirm_reject_btn' => tPlain('hr_js.confirm_reject_btn'),
+    'confirm_fire' => tPlain('hr_js.confirm_fire'),
+    'confirm_fire_btn' => tPlain('hr_js.confirm_fire_btn'),
+    'confirm_renew' => tPlain('hr_js.confirm_renew'),
+    'confirm_renew_btn' => tPlain('hr_js.confirm_renew_btn'),
+    'prompt_fire_reason' => tPlain('hr_js.prompt_fire_reason'),
+    'prompt_fire_default' => tPlain('hr_js.prompt_fire_default'),
+    'toast_hired' => tPlain('hr_js.toast_hired'),
+    'toast_rejected' => tPlain('hr_js.toast_rejected'),
+    'toast_fired' => tPlain('hr_js.toast_fired'),
+    'toast_renewed' => tPlain('hr_js.toast_renewed'),
+    'toast_negotiating' => tPlain('hr_js.toast_negotiating'),
+    'toast_offer_rejected' => tPlain('hr_js.toast_offer_rejected'),
+    'toast_headhunter' => tPlain('hr_js.toast_headhunter_start'),
+    'toast_err' => tPlain('hr_js.toast_err'),
+    'btn_hire' => tPlain('hr.btn_hire'),
+    'btn_reject' => tPlain('hr.btn_reject'),
+    'no_candidates' => tPlain('hr.no_candidates'),
+    'err_no_salary' => tPlain('hr_js.err_no_salary'),
+    'err_no_spec' => tPlain('hr_js.err_no_spec'),
+    'headhunter_btn' => tPlain('hr_js.headhunter_btn'),
+    'headhunter_starting' => tPlain('hr_js.headhunter_starting'),
+    'negotiate_msg' => tPlain('hr_js.negotiate_msg'),
+    'confirm_bonus' => tPlain('hr_js.confirm_bonus'),
+    'confirm_bonus_btn' => tPlain('hr_js.confirm_bonus_btn'),
+    'toast_bonus_granted' => tPlain('hr_js.toast_bonus_granted'),
+    'strike_negotiation_title' => tPlain('hr_js.strike_negotiation_title'),
+    'strike_offer_invalid' => tPlain('hr_js.strike_offer_invalid'),
+    'confirm_strike_offer' => tPlain('hr_js.confirm_strike_offer'),
+    'confirm_strike_offer_btn' => tPlain('hr_js.confirm_strike_offer_btn'),
+    'raise_title' => tPlain('hr_js.raise_title'),
+    'raise_offer_invalid' => tPlain('hr_js.raise_offer_invalid'),
+    'confirm_raise_accept' => tPlain('hr_js.confirm_raise_accept'),
+    'confirm_raise_accept_btn' => tPlain('hr_js.confirm_raise_accept_btn'),
+    'confirm_raise_negotiate' => tPlain('hr_js.confirm_raise_negotiate'),
+    'confirm_raise_negotiate_btn' => tPlain('hr_js.confirm_raise_negotiate_btn'),
+    'confirm_raise_reject' => tPlain('hr_js.confirm_raise_reject'),
+    'confirm_raise_reject_btn' => tPlain('hr_js.confirm_raise_reject_btn'),
+    'confirm_raise_postpone' => tPlain('hr_js.confirm_raise_postpone'),
+    'confirm_raise_postpone_btn' => tPlain('hr_js.confirm_raise_postpone_btn'),
+    'err_api_config' => tPlain('hr_js.err_api_config'),
+    'err_invalid_response' => tPlain('hr_js.err_invalid_response'),
+    'err_http' => tPlain('hr_js.err_http'),
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="/assets/js/hr.js"></script>

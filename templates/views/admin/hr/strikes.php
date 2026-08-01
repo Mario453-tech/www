@@ -60,5 +60,10 @@
         <?php endforeach ?>
     </div>
     <?php endif ?>
+    <?php
+    $pagination = $strikeRoundPagination;
+    $paginationQueryKey = 'round_page';
+    require __DIR__ . '/_pagination.php';
+    ?>
 </section>
 <?php endif ?>

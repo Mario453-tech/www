@@ -1059,3 +1059,11 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Tick pobiera jedna mape obsady na gracza. Pokrycie inzyniera skaluje degradacje i ryzyko per odcinek, a specjalista logistyki zmniejsza straty tylko przypisanego odcinka.
 - Usunieto globalne dzialanie `pipeline_engineer` i `pipeline_loss_pct`. Bonus kierownika logistyki oraz koszty dzialu pozostaja bez zmian.
 - Logistyka pokazuje pokrycie obu stanowisk na karcie rurociagu i udostepnia modal przypisania, aktualizacji alokacji oraz zwolnienia przez PRG i jednorazowy flash.
+
+### 2026-07-29 - HR: obowiązkowe bramki testowe i CI
+
+- Deploy wymaga przejścia obu bramek: Unit/Integration/Infrastructure oraz pełnego MySqlIntegration. Testy MySQL nie korzystają już z `continue-on-error`.
+- Bramka infrastrukturalna sprawdza parytet kluczy i placeholderów PL/EN oraz komplet dynamicznych etykiet działów, statusów, rzadkości i przyczyn HR.
+- Rekurencyjny test standardów HTML HR jest obowiązkowym krokiem obu workflow testowych.
+- Istniejący smoke HTTP uruchamia prawdziwy serwer `php -S`, używa schematu MySQL CI i blokuje workflow przy błędzie endpointu.
+- Nie utworzono pozornej suite przeglądarkowej HR. Dedykowane HTTP/browser E2E wymaga najpierw izolowanego harnessu sesji, CSRF i danych gracza; do tego czasu obowiązkowy jest istniejący smoke API.

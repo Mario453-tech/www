@@ -138,7 +138,7 @@ function render() {
       div.addEventListener('click', () => {
         if (typeof recruitment !== 'undefined') {
  // ID roli HR = 1 (zgodnie z SQL)
-          recruitment.startRecruitment(1, 'Dzia Kadr', 1);
+          recruitment.startRecruitment(1, 'Dzia Kadr');
         }
       });
     }

@@ -16,8 +16,10 @@ final class HRPlayerViewContractTest extends TestCase
         self::assertStringNotContainsString('onclick=', $view);
         self::assertStringNotContainsString('onsubmit=', $view);
         self::assertStringNotContainsString('style="width:', $view);
-        self::assertStringContainsString('employee_deep_link', $view);
+        self::assertStringContainsString("\$event['deep_link']", $view);
         self::assertStringContainsString('hr-event-row--unread', $view);
+        self::assertStringContainsString('role="tablist"', $view);
+        self::assertStringContainsString('aria-expanded="false"', $view);
         self::assertDoesNotMatchRegularExpression('/&#(?:x[0-9a-f]+|[0-9]+);/i', $view);
     }
 }

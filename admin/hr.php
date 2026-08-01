@@ -225,6 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['force_test_strike']))
         $department = (string)($_POST['test_strike_department'] ?? '');
         try {
             $enableNegotiations = !empty($_POST['enable_test_negotiations_after_strike']);
+            $db->beginTransaction();
             $result = (new EmployeeStrikeService($db))->forceActiveForTesting($playerId, $department);
             $negotiationChanges = $enableNegotiations
                 ? (new EmployeeSystemConfigService($db))->save(['feature_negotiations' => true])
@@ -240,6 +241,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['force_test_strike']))
                 null,
                 AdminAuth::getAdminUsername()
             );
+            $db->commit();
             $flash = ['type' => 'success', 'message' => t(
                 $enableNegotiations ? 'admin.hr.msg_test_strike_forced_with_negotiations' : 'admin.hr.msg_test_strike_forced',
                 [
@@ -249,6 +251,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['force_test_strike']))
                 ]
             )];
         } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             AdminLog::log(
                 'hr_test_strike_error',
                 'Forced HR test strike failed: ' . $e->getMessage(),
@@ -435,8 +440,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_spec'])) {
                     array_map(fn($k) => ':' . $k, array_keys($fields)),
                     array_values($fields)
                 )));
-                if ($stmt->rowCount() < 1) {
-                    $err = t('admin.hr.err_spec_empty');
+                $recordExists = true;
+                if ($stmt->rowCount() === 0) {
+                    $verify = $db->prepare('SELECT 1 FROM staff_specializations WHERE code=? LIMIT 1');
+                    $verify->execute([$code]);
+                    $recordExists = (bool)$verify->fetchColumn();
+                }
+                if (!$recordExists) {
+                    $err = t('admin.hr.err_spec_not_found');
                 } else {
                     AdminLog::log('hr_spec_edit', "Edited technical staff perk: {$code}", null, AdminAuth::getAdminUsername());
                     $msg = t('admin.hr.msg_spec_saved');
@@ -471,7 +482,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_spec'])) {
                 if ($dept === '' || $salaryMin <= 0 || $salaryMax <= 0) {
                     throw new InvalidArgumentException('invalid_hr_spec');
                 }
-                $db->prepare("
+                $update = $db->prepare("
                     UPDATE hr_specializations
                     SET name = ?,
                         rarity = ?,
@@ -479,9 +490,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_hr_spec'])) {
                         base_salary_min = ?,
                         base_salary_max = ?
                     WHERE id = ?
-                ")->execute([$name, $rarity, $dept, $salaryMin, $salaryMax, $id]);
-                AdminLog::log('hr_hrspec_edit', "Edited recruitable employee position id={$id}", null, AdminAuth::getAdminUsername());
-                $msg = t('admin.hr.msg_hrspec_saved');
+                ");
+                $update->execute([$name, $rarity, $dept, $salaryMin, $salaryMax, $id]);
+                $recordExists = true;
+                if ($update->rowCount() === 0) {
+                    $verify = $db->prepare('SELECT 1 FROM hr_specializations WHERE id=? LIMIT 1');
+                    $verify->execute([$id]);
+                    $recordExists = (bool)$verify->fetchColumn();
+                }
+                if (!$recordExists) {
+                    $err = t('admin.hr.err_hr_spec_not_found');
+                } else {
+                    AdminLog::log('hr_hrspec_edit', "Edited recruitable employee position id={$id}", null, AdminAuth::getAdminUsername());
+                    $msg = t('admin.hr.msg_hrspec_saved');
+                }
             } catch (Throwable $e) {
                 $err = t('common.db_error');
             }
@@ -532,9 +554,22 @@ $legacyDataTab = match ($tab) {
 
 // Dane: kandydaci aktywni 
 $candidates = [];
+$candidatePage = max(1, (int)($_GET['candidate_page'] ?? 1));
+$candidatePerPage = 30;
+$candidateTotal = 0;
+$candidatePages = 1;
 if ($legacyDataTab === 'candidates') {
     try {
-        $candidates = $db->query("
+        $candidateTotal = (int)$db->query(
+            'SELECT COUNT(*)
+               FROM candidates c
+               JOIN board_roles br ON br.id=c.role_id
+              WHERE c.expires_at > NOW()'
+        )->fetchColumn();
+        $candidatePages = max(1, (int)ceil($candidateTotal / $candidatePerPage));
+        $candidatePage = min($candidatePage, $candidatePages);
+        $candidateOffset = ($candidatePage - 1) * $candidatePerPage;
+        $candidateQuery = $db->prepare("
             SELECT c.*,
                    br.name  AS role_name,
                    hs.name  AS spec_name,
@@ -551,10 +586,19 @@ if ($legacyDataTab === 'candidates') {
             LEFT JOIN players p             ON p.id             = c.player_id
             WHERE c.expires_at > NOW()
             ORDER BY c.expires_at ASC
-            LIMIT 200
-        ")->fetchAll();
+            LIMIT ? OFFSET ?
+        ");
+        $candidateQuery->bindValue(1, $candidatePerPage, PDO::PARAM_INT);
+        $candidateQuery->bindValue(2, $candidateOffset, PDO::PARAM_INT);
+        $candidateQuery->execute();
+        $candidates = $candidateQuery->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {}
 }
+$candidatePagination = [
+    'page' => $candidatePage,
+    'pages' => $candidatePages,
+    'total' => $candidateTotal,
+];
 
 // Dane: historia zatrudnienia 
 $history    = [];
@@ -690,6 +734,7 @@ $dialoguePagination = ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
 $dialogueContexts = EmployeeDialogueTemplateService::CONTEXTS;
 $dialogueTones = EmployeeDialogueTemplateService::TONES;
 $strikeRounds = [];
+$strikeRoundPagination = ['page' => 1, 'pages' => 1, 'total' => 0];
 try {
     $queryService = new AdminHRQueryService($db);
     if ($tab === 'dashboard') {
@@ -705,6 +750,17 @@ try {
     } elseif ($tab === 'strikes') {
         $strikeList = $queryService->strikes($filters, $listPage);
         $strikeRounds = $queryService->negotiationRounds(max(0, (int)($_GET['strike_id'] ?? 0)));
+        $roundPage = max(1, (int)($_GET['round_page'] ?? 1));
+        $roundPerPage = 20;
+        $roundTotal = count($strikeRounds);
+        $roundPages = max(1, (int)ceil($roundTotal / $roundPerPage));
+        $roundPage = min($roundPage, $roundPages);
+        $strikeRounds = array_slice($strikeRounds, ($roundPage - 1) * $roundPerPage, $roundPerPage);
+        $strikeRoundPagination = [
+            'page' => $roundPage,
+            'pages' => $roundPages,
+            'total' => $roundTotal,
+        ];
     } elseif ($tab === 'settings') {
         $settingsGroups = (new AdminHRConfigService($db))->groupedSettings();
     } elseif ($tab === 'dialogues') {
@@ -751,6 +807,7 @@ $viewData = [
     'hrTimingConfigDefinitions' => $hrTimingConfigDefinitions,
     'hrTimingConfigValues' => $hrTimingConfigValues,
     'testStrikeTargets' => $testStrikeTargets,
+    'candidatePagination' => $candidatePagination,
     'filters' => $filters,
     'dashboard' => $dashboard,
     'employeeList' => $employeeList,
@@ -765,6 +822,7 @@ $viewData = [
     'dialogueContexts' => $dialogueContexts,
     'dialogueTones' => $dialogueTones,
     'strikeRounds' => $strikeRounds,
+    'strikeRoundPagination' => $strikeRoundPagination,
 ];
 
 $adminExtraCss = ['/assets/css/admin_hr.css'];

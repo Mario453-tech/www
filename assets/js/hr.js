@@ -2,25 +2,48 @@ function activateHrTab(name, updateUrl = false) {
     const available = Array.from(document.querySelectorAll('[data-hr-tab]'))
         .map((button) => button.dataset.hrTab);
     const selected = available.includes(name) ? name : 'employees';
-    document.querySelectorAll('.hr-tab-content').forEach((el) => el.classList.remove('active'));
-    document.querySelectorAll('.hr-tab').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll('.hr-tab-content').forEach((el) => {
+        el.classList.remove('active');
+        el.setAttribute('aria-hidden', 'true');
+    });
+    document.querySelectorAll('.hr-tab').forEach((el) => {
+        const active = el.dataset.hrTab === selected;
+        el.classList.toggle('active', active);
+        el.setAttribute('aria-selected', active ? 'true' : 'false');
+        el.tabIndex = active ? 0 : -1;
+    });
     document.querySelectorAll(`[data-canonical-panel="${selected}"]`).forEach((panel) => {
         panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
     });
-    document.querySelector(`[data-hr-tab="${selected}"]`)?.classList.add('active');
     if (updateUrl) {
         const url = new URL(window.location.href);
         url.searchParams.set('tab', selected);
         history.replaceState(null, '', url);
     }
+    if (selected === 'history') {
+        markVisibleEventsRead();
+    }
 }
 
 const _HL = window.HR_LANG || {};
+const hrPendingTokens = new Map();
 function hrOperationToken(scope, id) {
-    if (window.crypto?.randomUUID) {
-        return `${scope}:${id}:${window.crypto.randomUUID()}`;
+    const key = `${scope}:${id}`;
+    if (hrPendingTokens.has(key)) {
+        return hrPendingTokens.get(key);
     }
-    return `${scope}:${id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    let token;
+    if (window.crypto?.randomUUID) {
+        token = `${scope}:${id}:${window.crypto.randomUUID()}`;
+    } else {
+        token = `${scope}:${id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    }
+    hrPendingTokens.set(key, token);
+    return token;
+}
+function clearHrOperationToken(scope, id) {
+    hrPendingTokens.delete(`${scope}:${id}`);
 }
 function hrl(key, params) {
     let text = _HL[key] || key;
@@ -61,6 +84,51 @@ async function hrApi(action, data = {}) {
         throw new Error(payload.error || payload.message || hrl('err_http', { status: response.status }));
     }
     return payload;
+}
+
+const displayedEventIds = Array.isArray(window.HR_EVENT_IDS)
+    ? window.HR_EVENT_IDS.filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+let pendingUnreadEventIds = Array.isArray(window.HR_UNREAD_EVENT_IDS)
+    ? window.HR_UNREAD_EVENT_IDS.filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+let eventReadRequestPending = false;
+
+async function markDisplayedEventsNotified() {
+    if (displayedEventIds.length === 0) {
+        return;
+    }
+    try {
+        await hrApi('mark_events_notified', { event_ids: displayedEventIds.join(',') });
+    } catch (_) {
+    }
+}
+
+async function markVisibleEventsRead() {
+    if (pendingUnreadEventIds.length === 0 || eventReadRequestPending) {
+        return;
+    }
+    eventReadRequestPending = true;
+    try {
+        const readCount = pendingUnreadEventIds.length;
+        await hrApi('mark_events_read', { event_ids: pendingUnreadEventIds.join(',') });
+        pendingUnreadEventIds = [];
+        document.querySelectorAll('.hr-event-row--unread').forEach((row) => {
+            row.classList.remove('hr-event-row--unread');
+        });
+        const badge = document.querySelector('[data-hr-tab="history"] .tab-badge');
+        if (badge) {
+            const remaining = Math.max(0, Number.parseInt(badge.textContent || '0', 10) - readCount);
+            if (remaining > 0) {
+                badge.textContent = String(remaining);
+            } else {
+                badge.remove();
+            }
+        }
+    } catch (_) {
+    } finally {
+        eventReadRequestPending = false;
+    }
 }
 
 function removeCandidateCard(candidateId) {
@@ -206,6 +274,7 @@ function renewContract(memberId, name) {
                     contract_type: contractType,
                     idempotency_token: hrOperationToken('renew', memberId),
                 });
+                clearHrOperationToken('renew', memberId);
                 if (result.success) {
                     showToast(hrl('toast_renewed'), result.message);
                     setTimeout(() => location.reload(), 1200);
@@ -222,11 +291,14 @@ function renewContract(memberId, name) {
 
 function toggleEmployeeDetails(id) {
     const element = document.getElementById(`emp-details-${id}`);
+    const card = Array.from(document.querySelectorAll('[data-toggle-employee]'))
+        .find((item) => item.dataset.toggleEmployee === id);
     if (!element) {
         return;
     }
-    const isOpen = element.style.display !== 'none';
+    const isOpen = card?.getAttribute('aria-expanded') === 'true';
     element.style.display = isOpen ? 'none' : 'block';
+    card?.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
 }
 
 async function startHeadhunter() {
@@ -281,6 +353,7 @@ async function makeHeadhunterOffer(event, candidateId) {
             signing_bonus: bonus,
             idempotency_token: hrOperationToken('headhunter-offer', candidateId),
         });
+        clearHrOperationToken('headhunter-offer', candidateId);
 
         if (!result.success) {
             showToast(hrl('toast_err'), result.message || result.error, 'error');
@@ -364,6 +437,7 @@ function grantBonus(staffId, name) {
                     staff_id: staffId,
                     idempotency_token: hrOperationToken('bonus', staffId),
                 });
+                clearHrOperationToken('bonus', staffId);
                 if (result.success) {
                     showToast(hrl('toast_bonus_granted'), result.message);
                     setTimeout(() => location.reload(), 1200);
@@ -379,11 +453,30 @@ function grantBonus(staffId, name) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    activateHrTab(window.HR_ACTIVE_TAB || 'employees');
+    const initialTab = window.HR_ACTIVE_TAB || 'employees';
+    activateHrTab(initialTab);
+    if (initialTab !== 'history') {
+        markDisplayedEventsNotified();
+    }
     updateCountdowns();
 
     document.querySelectorAll('[data-hr-tab]').forEach((button) => {
         button.addEventListener('click', () => activateHrTab(button.dataset.hrTab || 'employees', true));
+        button.addEventListener('keydown', function (event) {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                return;
+            }
+            event.preventDefault();
+            const tabs = Array.from(document.querySelectorAll('[data-hr-tab]'));
+            const current = tabs.indexOf(button);
+            const next = event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                    ? tabs.length - 1
+                    : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+            tabs[next]?.focus();
+            tabs[next]?.click();
+        });
     });
 
     document.addEventListener('click', function (event) {

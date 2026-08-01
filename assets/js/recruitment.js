@@ -30,6 +30,7 @@ class RecruitmentSystem {
         this.currentRequestId = null;
         this.selectedCandidateId = null;
         this.checkInterval = null;
+        this.timerInterval = null;
         
         this.initModal();
     }
@@ -51,7 +52,8 @@ class RecruitmentSystem {
                         <div class="recruitment-title">${recl('modal_title')}</div>
                         <div class="recruitment-subtitle" id="recruitment-role-name"></div>
                     </div>
-                    <button class="recruitment-close" onclick="recruitment.closeModal()"></button>
+                    <button class="recruitment-close" type="button"
+                            data-recruitment-action="close" aria-label="${recl('close_btn')}">X</button>
                 </div>
                 <div class="recruitment-content" id="recruitment-content">
                     <!-- Dynamiczna zawarto -->
@@ -63,18 +65,28 @@ class RecruitmentSystem {
         `;
         
         document.body.appendChild(modal);
+        modal.addEventListener('click', (event) => {
+            const actionElement = event.target.closest('[data-recruitment-action]');
+            if (!actionElement) {
+                return;
+            }
+            if (actionElement.dataset.recruitmentAction === 'close') {
+                this.closeModal();
+            } else if (actionElement.dataset.recruitmentAction === 'hire') {
+                this.hireSelected();
+            }
+        });
     }
     
  /**
  * Rozpoczyna proces rekrutacji
  */
-    async startRecruitment(roleId, roleName, waitMinutes = 1) {
+    async startRecruitment(roleId, roleName) {
         this.currentRoleId = roleId;
         
         try {
             const response = await this.apiCall('start_recruitment', {
-                role_id: roleId,
-                wait_minutes: waitMinutes
+                role_id: roleId
             });
             
             if (response.success) {
@@ -113,6 +125,10 @@ class RecruitmentSystem {
             clearInterval(this.checkInterval);
             this.checkInterval = null;
         }
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
     }
     
  /**
@@ -124,7 +140,6 @@ class RecruitmentSystem {
         
         content.innerHTML = `
             <div class="recruitment-waiting">
-                <div class="waiting-icon">&#8987;</div>
                 <div class="waiting-title">${recl('waiting_title')}</div>
                 <div class="waiting-message">${recl('waiting_msg')}</div>
                 <div class="waiting-timer" id="waiting-timer">--:--</div>
@@ -132,7 +147,7 @@ class RecruitmentSystem {
         `;
         
         actions.innerHTML = `
-            <button class="btn-recruitment" onclick="recruitment.closeModal()">${recl('close_btn')}</button>
+            <button class="btn-recruitment" type="button" data-recruitment-action="close">${recl('close_btn')}</button>
         `;
         
         this.updateTimer(readyAt);
@@ -162,7 +177,10 @@ class RecruitmentSystem {
         };
         
         updateTime();
-        setInterval(updateTime, 1000);
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
+        this.timerInterval = setInterval(updateTime, 1000);
     }
     
  /**
@@ -188,6 +206,10 @@ class RecruitmentSystem {
             if (response.success && response.is_ready) {
                 clearInterval(this.checkInterval);
                 this.checkInterval = null;
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
                 await this.loadCandidates();
             }
         } catch (error) {
@@ -234,12 +256,11 @@ class RecruitmentSystem {
         if (candidates.length === 0) {
             content.innerHTML = `
                 <div class="recruitment-empty">
-                    <div class="empty-icon">&#128203;</div>
                     <p>${recl('no_candidates')}</p>
                 </div>
             `;
             actions.innerHTML = `
-                <button class="btn-recruitment" onclick="recruitment.closeModal()">${recl('close_btn')}</button>
+                <button class="btn-recruitment" type="button" data-recruitment-action="close">${recl('close_btn')}</button>
             `;
             return;
         }
@@ -247,8 +268,9 @@ class RecruitmentSystem {
         content.innerHTML = candidates.map(c => this.renderCandidateCard(c)).join('');
 
         actions.innerHTML = `
-            <button class="btn-recruitment" onclick="recruitment.closeModal()">${recl('cancel_btn')}</button>
-            <button class="btn-recruitment primary" id="hire-btn" onclick="recruitment.hireSelected()" disabled>
+            <button class="btn-recruitment" type="button" data-recruitment-action="close">${recl('cancel_btn')}</button>
+            <button class="btn-recruitment primary" id="hire-btn" type="button"
+                    data-recruitment-action="hire" disabled>
                 ${recl('hire_btn')}
             </button>
         `;
@@ -280,15 +302,12 @@ class RecruitmentSystem {
                         <div class="candidate-name">${esc(candidate.first_name)} ${esc(candidate.last_name)}</div>
                         <div class="candidate-meta">
                             <div class="candidate-meta-item">
-                                <span>&#127874;</span>
                                 <span>${recl('age', { n: parseInt(candidate.age) || 0 })}</span>
                             </div>
                             <div class="candidate-meta-item">
-                                <span>&#127757;</span>
                                 <span>${esc(this.getNationalityName(candidate.nationality))}</span>
                             </div>
                             <div class="candidate-meta-item">
-                                <span>&#128188;</span>
                                 <span>${recl('exp_years', { n: parseInt(candidate.experience_years) || 0 })}</span>
                             </div>
                         </div>
@@ -324,7 +343,7 @@ class RecruitmentSystem {
             <div class="skill-item">
                 <div class="skill-label">${label}</div>
                 <div class="skill-bar">
-                    <div class="skill-fill" style="width: ${value * 10}%"></div>
+                    <div class="skill-fill" style="--skill-width:${value * 10}%"></div>
                 </div>
                 <div class="skill-value">${value}/10</div>
             </div>

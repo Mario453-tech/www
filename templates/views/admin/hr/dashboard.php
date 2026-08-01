@@ -48,6 +48,11 @@
         <?php endforeach ?>
     </div>
     <?php endif ?>
+    <?php
+    $pagination = $candidatePagination;
+    $paginationQueryKey = 'candidate_page';
+    require __DIR__ . '/_pagination.php';
+    ?>
 </section>
 
 <section class="hr-section">
