@@ -13,12 +13,10 @@
 
 class RecruitmentAPI {
     private $db;
-    private $generator;
     private $hrService;
     
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
-        $this->generator = new CandidateGenerator($this->db);
         $this->hrService = new HRService();
     }
     
@@ -26,10 +24,9 @@ class RecruitmentAPI {
  * Starts a recruitment process for the given role.
  *
  * @param int $roleId Role ID
- * @param int $waitMinutes Wait time in minutes (default 60)
  * @return array Operation status
  */
-    public function startRecruitment($roleId, $waitMinutes = 60, int $playerId = 0) {
+    public function startRecruitment($roleId, int $playerId = 0) {
         try {
             if ($playerId <= 0) {
                 $playerId = (int)($_SESSION['user_id'] ?? 0);
@@ -51,10 +48,7 @@ class RecruitmentAPI {
             if (empty($result['success'])) {
                 return ['success'=>false, 'error'=>(string)($result['message'] ?? t('recruitment.err_internal'))];
             }
-            return $result + [
-                'role'=>$role,
-                'wait_minutes'=>(int)ceil((int)$result['duration'] / 60),
-            ];
+            return $result + ['role' => $role];
             
         } catch (Throwable $e) {
             GameLog::error('RecruitmentAPI', 'startRecruitment failed', $e, ['role_id' => $roleId]);
@@ -113,9 +107,6 @@ class RecruitmentAPI {
                 $playerId = (int)($_SESSION['user_id'] ?? 0);
             }
 
- // Remove expired candidates first
-            $this->generator->cleanupExpired();
-            
             $stmt = $this->db->prepare("
                 SELECT c.*, 
                        TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) as age,
@@ -249,15 +240,14 @@ class RecruitmentAPI {
 
 function respondJson(array $payload, int $statusCode = 200): void
 {
+    header('Content-Type: application/json; charset=UTF-8');
     http_response_code($statusCode);
-    echo json_encode($payload);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
 // API request handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Content-Type: application/json');
-
     if (!Auth::isLoggedIn()) {
         GameLog::warn('RecruitmentAPI', 'Unauthorized access attempt', [
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
@@ -290,8 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'start_recruitment':
                 $roleId = (int)($_POST['role_id'] ?? 0);
                 if ($roleId <= 0) { throw new InvalidArgumentException(t('recruitment.err_missing_role_id')); }
-                $waitMinutes = max(1, (int)($_POST['wait_minutes'] ?? 60));
-                $response = $api->startRecruitment($roleId, $waitMinutes, $playerId);
+                $response = $api->startRecruitment($roleId, $playerId);
                 break;
 
             case 'check_status':
@@ -345,4 +334,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-respondJson(['success' => false, 'error' => 'Method Not Allowed'], 405);
+respondJson(['success' => false, 'error' => t('recruitment.err_method_not_allowed')], 405);

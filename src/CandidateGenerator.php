@@ -504,9 +504,23 @@ class CandidateGenerator
 
  // CLEANUP 
 
-    public function cleanupExpired(): int
+    public function cleanupExpired(int $limit = 100): int
     {
-        $stmt = $this->db->prepare("DELETE FROM candidates WHERE expires_at < NOW()");
+        $limit = max(1, min(1000, $limit));
+        $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $sql = $driver === 'sqlite'
+            ? "DELETE FROM candidates
+                WHERE id IN (
+                    SELECT id FROM candidates
+                     WHERE expires_at < CURRENT_TIMESTAMP
+                     ORDER BY expires_at, id
+                     LIMIT {$limit}
+                )"
+            : "DELETE FROM candidates
+                WHERE expires_at < NOW()
+                ORDER BY expires_at, id
+                LIMIT {$limit}";
+        $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->rowCount();
     }

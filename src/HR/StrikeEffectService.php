@@ -5,10 +5,14 @@ require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
 
 final class StrikeEffectService
 {
+    /** @var array<int,int> */
+    private static array $requestGeneration = [];
     /** @var array<int,array<string,array<string,float|bool>>> */
     private array $cache = [];
     /** @var array<int,true> */
     private array $loaded = [];
+    /** @var array<int,int> */
+    private array $loadedGeneration = [];
 
     public function __construct(
         private readonly PDO $db,
@@ -27,6 +31,7 @@ final class StrikeEffectService
         if ($playerId <= 0 || !$this->config->getBool('feature_strike_effects')) {
             return [];
         }
+        $this->refreshInvalidatedPlayer($playerId);
         if (!isset($this->loaded[$playerId])) {
             $this->forPlayers([$playerId]);
         }
@@ -47,6 +52,7 @@ final class StrikeEffectService
             static fn(int $id): bool => $id > 0
         )));
         foreach ($playerIds as $playerId) {
+            $this->refreshInvalidatedPlayer($playerId);
             $this->cache[$playerId] ??= [];
         }
         if ($playerIds === [] || !$this->config->getBool('feature_strike_effects')) {
@@ -68,12 +74,45 @@ final class StrikeEffectService
         $stmt->execute($missing);
         foreach ($missing as $playerId) {
             $this->loaded[$playerId] = true;
+            $this->loadedGeneration[$playerId] = self::$requestGeneration[$playerId] ?? 0;
         }
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $this->cache[(int)$row['player_id']][(string)$row['department_code']]
                 = $this->departmentEffect((string)$row['department_code']);
         }
         return array_intersect_key($this->cache, array_flip($playerIds));
+    }
+
+    public function invalidatePlayer(int $playerId): void
+    {
+        if ($playerId <= 0) {
+            return;
+        }
+        self::invalidateRequestCache($playerId);
+        unset($this->cache[$playerId], $this->loaded[$playerId], $this->loadedGeneration[$playerId]);
+    }
+
+    /** @param list<int> $playerIds */
+    public function invalidatePlayers(array $playerIds): void
+    {
+        foreach (array_values(array_unique(array_map('intval', $playerIds))) as $playerId) {
+            $this->invalidatePlayer($playerId);
+        }
+    }
+
+    public static function invalidateRequestCache(int $playerId): void
+    {
+        if ($playerId > 0) {
+            self::$requestGeneration[$playerId] = (self::$requestGeneration[$playerId] ?? 0) + 1;
+        }
+    }
+
+    private function refreshInvalidatedPlayer(int $playerId): void
+    {
+        $generation = self::$requestGeneration[$playerId] ?? 0;
+        if (($this->loadedGeneration[$playerId] ?? $generation) !== $generation) {
+            unset($this->cache[$playerId], $this->loaded[$playerId]);
+        }
     }
 
     /** @return array<string,float|bool> */

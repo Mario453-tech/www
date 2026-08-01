@@ -453,6 +453,38 @@ class HeadhunterService
                 $this->db->commit();
             }
             return $result;
+        } catch (PDOException $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            if ($this->isRetryableDatabaseConflict($e)) {
+                throw $e;
+            }
+            GameLog::error('HeadhunterService', 'makeOffer failed', $e, [
+                'player_id' => $this->playerId,
+                'candidate_id' => $candidateId,
+            ]);
+            return ['success' => false, 'message' => t('hr_headhunter.err_offer_failed')];
+        } catch (RuntimeException $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            if ($this->isActionConflict($e)) {
+                GameLog::warn('HeadhunterService', 'Headhunter offer idempotency conflict', [
+                    'player_id' => $this->playerId,
+                    'candidate_id' => $candidateId,
+                ]);
+                return [
+                    'success'=>false,
+                    'conflict'=>true,
+                    'message'=>t('hr_headhunter.err_offer_failed'),
+                ];
+            }
+            GameLog::error('HeadhunterService', 'makeOffer failed', $e, [
+                'player_id' => $this->playerId,
+                'candidate_id' => $candidateId,
+            ]);
+            return ['success' => false, 'message' => t('hr_headhunter.err_offer_failed')];
         } catch (Throwable $e) {
             if ($ownTransaction && $this->db->inTransaction()) {
                 $this->db->rollBack();
@@ -463,6 +495,21 @@ class HeadhunterService
             ]);
             return ['success' => false, 'message' => t('hr_headhunter.err_offer_failed')];
         }
+    }
+
+    private function isRetryableDatabaseConflict(PDOException $exception): bool
+    {
+        $sqlState = (string)$exception->getCode();
+        $driverCode = (int)($exception->errorInfo[1] ?? 0);
+        return $sqlState === '40001' || in_array($driverCode, [1205, 1213], true);
+    }
+
+    private function isActionConflict(RuntimeException $exception): bool
+    {
+        return in_array($exception->getMessage(), [
+            'HR action token was reused with different data.',
+            'HR action is already being processed.',
+        ], true);
     }
 
     private function assertValidOfferValues(int $candidateId, float $offeredSalary, float $signingBonus): void

@@ -316,8 +316,12 @@ class RoadTransportService
         $tripCap     = max(0.01, (float)($config['trip_capacity_bbl'] ?? $defaults['trip_capacity_bbl']));
         $costPerTrip = (float)($config['cost_per_trip']      ?? $defaults['cost_per_trip']);
         $riskMult    = (float)($config['incident_risk_mult'] ?? $defaults['incident_risk_mult']);
-        $tripHours   = (int)$defaults['trip_hours'];
         $strikeEffects = $this->logisticsStrikeEffects($playerId);
+        $tripMinutes = max(1, (int)ceil(
+            (int)$defaults['trip_hours'] * 60
+            * (float)($strikeEffects['response_time_mult'] ?? 1.0)
+        ));
+        $tripHours = max(1, (int)ceil($tripMinutes / 60));
         $costPerTrip *= (float)($strikeEffects['transport_cost_mult'] ?? 1.0);
         $delayRiskMult = (float)($strikeEffects['delay_risk_mult'] ?? 1.0);
 
@@ -326,8 +330,8 @@ class RoadTransportService
 
  // Uzyj NOW() MySQL zamiast PHP DateTime zeby uniknac roznic stref czasowych.
  // Use MySQL NOW() instead of PHP DateTime to avoid timezone mismatches.
-        $etaStmt = $this->db->prepare("SELECT DATE_ADD(NOW(), INTERVAL ? HOUR) AS eta_at");
-        $etaStmt->execute([$tripHours]);
+        $etaStmt = $this->db->prepare("SELECT DATE_ADD(NOW(), INTERVAL ? MINUTE) AS eta_at");
+        $etaStmt->execute([$tripMinutes]);
         $etaAt = (string)$etaStmt->fetchColumn();
 
         $this->db->prepare(

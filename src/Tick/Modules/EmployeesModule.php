@@ -51,8 +51,10 @@ final class EmployeesModule implements TickModule
             'departures_completed'=>$section->departuresCompleted,
             'raise_requests_expired'=>$section->raiseRequestsExpired,
             'negotiations_expired'=>$section->negotiationsExpired,
+            'candidates_expired'=>$section->candidatesExpired,
             'deadline_errors'=>$section->deadlineErrors,
-            'errors'=>$section->failed + $section->deadlineErrors,
+            'cleanup_errors'=>$section->cleanupErrors,
+            'errors'=>$section->failed + $section->deadlineErrors + $section->cleanupErrors,
         ];
     }
 

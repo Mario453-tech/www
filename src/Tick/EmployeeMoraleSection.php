@@ -7,6 +7,10 @@ require_once dirname(__DIR__) . '/Employee/EmployeeRepository.php';
 require_once dirname(__DIR__) . '/Employee/EmployeeStateService.php';
 require_once dirname(__DIR__) . '/HR/MoraleServiceV2.php';
 require_once dirname(__DIR__) . '/HR/EmployeeStrikeService.php';
+require_once dirname(__DIR__) . '/HR/EmployeeDepartureService.php';
+require_once dirname(__DIR__) . '/HR/EmployeeRelationLifecycleService.php';
+require_once dirname(__DIR__) . '/Employee/EmployeeSystemConfigService.php';
+require_once dirname(__DIR__) . '/CandidateGenerator.php';
 
 final class EmployeeMoraleSection
 {
@@ -24,7 +28,9 @@ final class EmployeeMoraleSection
     public int $raiseRequestsExpired = 0;
     public int $negotiationsExpired = 0;
     public int $departuresCompleted = 0;
+    public int $candidatesExpired = 0;
     public int $deadlineErrors = 0;
+    public int $cleanupErrors = 0;
     public bool $cycleCompleted = false;
     private bool $escalationCompleted = false;
     private bool $unitOwnTransaction = false;
@@ -41,22 +47,15 @@ final class EmployeeMoraleSection
     public function run(): void
     {
         $strikeService = new EmployeeStrikeService($this->db);
-        try {
-            $deadlineStats = $strikeService->processDeadlines($this->now, max(1, $this->limit));
-            $this->raiseRequestsExpired = (int)($deadlineStats['raise_requests_expired'] ?? 0);
-            $this->negotiationsExpired = (int)($deadlineStats['negotiations_expired'] ?? 0);
-            $this->departuresCompleted = (int)($deadlineStats['departures_completed'] ?? 0);
-        } catch (Throwable $exception) {
-            $this->deadlineErrors++;
-            if (class_exists('GameLog', false)) {
-                GameLog::error('employees', 'Employee deadline processing failed', $exception);
-            }
-        }
+        $remainingBudget = max(1, $this->limit);
+        $this->processDeadlineBudget($strikeService, $remainingBudget);
+        $this->cleanupExpiredCandidates($remainingBudget);
+
         $this->cycleId = $this->openOrCreateCycle();
         $repository = new EmployeeRepository($this->db);
         $stateService = new EmployeeStateService($this->db, $repository);
-        $states = $this->loadStateBatch();
-        $missingSlots = max(0, max(1, $this->limit) - count($states));
+        $states = $remainingBudget > 0 ? $this->loadStateBatch($remainingBudget) : [];
+        $missingSlots = max(0, $remainingBudget - count($states));
         if ($missingSlots > 0) {
             $missingRefs = $repository->listMissingStateRefs($missingSlots);
             $missingEmployees = $repository->listByRefs($missingRefs);
@@ -72,7 +71,7 @@ final class EmployeeMoraleSection
                 ];
             }
             $stateService->ensureStatesForRecords($entries);
-            $states = $this->loadStateBatch();
+            $states = $this->loadStateBatch($remainingBudget);
         }
 
         $refs = [];
@@ -101,6 +100,7 @@ final class EmployeeMoraleSection
         ))));
 
         foreach ($states as $state) {
+            $remainingBudget = max(0, $remainingBudget - 1);
             $ref = new EmployeeRef((string)$state['source_type'], (int)$state['source_id'], (int)$state['player_id']);
             $key = $ref->playerId . ':' . $ref->key();
             $employee = $employeeMap[$key] ?? null;
@@ -170,12 +170,12 @@ final class EmployeeMoraleSection
         );
         $stmt->execute([$this->cycleId]);
         $this->remaining = (int)$stmt->fetchColumn() + $repository->countMissingStateRefs();
-        if ($this->remaining === 0) {
+        if ($this->remaining === 0 && $remainingBudget > 0) {
             $this->markCycleReady();
             $escalation = $strikeService->processCycleEscalations(
                 $this->now,
                 $this->cycleId,
-                max(1, $this->limit)
+                $remainingBudget
             );
             $this->raiseRequests = (int)($escalation['raise_requests'] ?? 0);
             $this->threatsStarted = (int)($escalation['threats_started'] ?? 0);
@@ -218,7 +218,7 @@ final class EmployeeMoraleSection
     }
 
     /** @return list<array<string,mixed>> */
-    private function loadStateBatch(): array
+    private function loadStateBatch(int $limit): array
     {
         $stmt = $this->db->prepare(
             'SELECT * FROM employee_state
@@ -229,7 +229,7 @@ final class EmployeeMoraleSection
               LIMIT :limit'
         );
         $stmt->bindValue(':cycle_id', $this->cycleId, PDO::PARAM_INT);
-        $stmt->bindValue(':limit', max(1, $this->limit), PDO::PARAM_INT);
+        $stmt->bindValue(':limit', max(1, $limit), PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -325,11 +325,18 @@ final class EmployeeMoraleSection
 
     private function markMissingSource(EmployeeRef $ref, int $stateId): bool
     {
+        $current = $this->lockState($stateId, $ref);
+        if ($current === null
+            || (string)$current['relation_status'] === 'inactive'
+            || (int)($current['last_morale_cycle_id'] ?? 0) === $this->cycleId) {
+            return false;
+        }
+        (new EmployeeRelationLifecycleService($this->db))->deactivate($ref, $this->now);
         $stmt = $this->db->prepare(
-            "UPDATE employee_state SET relation_status='inactive', workload=0,
-                    last_morale_tick_at=:tick_at, last_morale_tick_sequence=:sequence,
-                    last_morale_cycle_id=:cycle_id, version=version+1, updated_at=CURRENT_TIMESTAMP
+            "UPDATE employee_state SET last_morale_tick_at=:tick_at, last_morale_tick_sequence=:sequence,
+                    last_morale_cycle_id=:cycle_id, updated_at=CURRENT_TIMESTAMP
               WHERE id=:id AND player_id=:player_id AND source_type=:source_type AND source_id=:source_id
+                AND relation_status='inactive'
                 AND (last_morale_cycle_id IS NULL OR last_morale_cycle_id <> :cycle_guard)"
         );
         $stmt->execute([
@@ -338,6 +345,157 @@ final class EmployeeMoraleSection
             'source_type'=>$ref->sourceType, 'source_id'=>$ref->sourceId, 'cycle_guard'=>$this->cycleId,
         ]);
         return $stmt->rowCount() === 1;
+    }
+
+    private function cleanupExpiredCandidates(int &$remainingBudget): void
+    {
+        if ($remainingBudget <= 0) {
+            return;
+        }
+        $quota = min($remainingBudget, max(1, intdiv(max(1, $this->limit), 10)));
+        try {
+            $this->candidatesExpired = (new CandidateGenerator($this->db))->cleanupExpired($quota);
+            $remainingBudget = max(0, $remainingBudget - $this->candidatesExpired);
+        } catch (Throwable $exception) {
+            $this->cleanupErrors++;
+            if (class_exists('GameLog', false)) {
+                GameLog::error('employees', 'Expired candidate cleanup failed', $exception);
+            }
+        }
+    }
+
+    private function processDeadlineBudget(
+        EmployeeStrikeService $strikeService,
+        int &$remainingBudget
+    ): void {
+        if ($remainingBudget <= 0) {
+            return;
+        }
+
+        try {
+            $deadlines = $this->loadDueDeadlines($remainingBudget);
+        } catch (Throwable $exception) {
+            $this->deadlineErrors++;
+            if (class_exists('GameLog', false)) {
+                GameLog::error('employees', 'Employee deadline loading failed', $exception);
+            }
+            return;
+        }
+
+        $departures = new EmployeeDepartureService($this->db);
+        foreach ($deadlines as $deadline) {
+            if ($remainingBudget <= 0) {
+                break;
+            }
+            $remainingBudget--;
+            try {
+                $processed = match ($deadline['type']) {
+                    'raise' => $strikeService->expireRaiseRequest(
+                        (int)$deadline['player_id'],
+                        (int)$deadline['id'],
+                        $this->now
+                    ),
+                    'negotiation' => $strikeService->expireNegotiation(
+                        (int)$deadline['player_id'],
+                        (int)$deadline['strike_id'],
+                        (int)$deadline['id'],
+                        $this->now
+                    ),
+                    'departure' => $departures->processDue($this->now, 1) === 1,
+                    default => false,
+                };
+                if (!$processed) {
+                    continue;
+                }
+                match ($deadline['type']) {
+                    'raise' => $this->raiseRequestsExpired++,
+                    'negotiation' => $this->negotiationsExpired++,
+                    'departure' => $this->departuresCompleted++,
+                    default => null,
+                };
+            } catch (Throwable $exception) {
+                $this->deadlineErrors++;
+                if (class_exists('GameLog', false)) {
+                    GameLog::error('employees', 'Employee deadline processing failed', $exception, [
+                        'deadline_type'=>$deadline['type'],
+                        'record_id'=>$deadline['id'],
+                        'player_id'=>$deadline['player_id'],
+                    ]);
+                }
+            }
+        }
+    }
+
+    /** @return list<array{type:string,id:int,player_id:int,strike_id:int,due_at:string}> */
+    private function loadDueDeadlines(int $limit): array
+    {
+        $limit = max(1, $limit);
+        $now = $this->now->format('Y-m-d H:i:s');
+        $rows = [];
+
+        $raise = $this->db->prepare(
+            "SELECT id, player_id, 0 AS strike_id, deadline_at AS due_at
+               FROM employee_raise_requests
+              WHERE status IN ('open','postponed') AND deadline_at<?
+              ORDER BY deadline_at, id LIMIT {$limit}"
+        );
+        $raise->execute([$now]);
+        foreach ($raise->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $rows[] = $this->deadlineRow('raise', $row);
+        }
+
+        $negotiation = $this->db->prepare(
+            "SELECT n.id, n.player_id, n.strike_id, n.round_deadline_at AS due_at
+               FROM employee_strike_negotiations n
+               JOIN employee_strikes s ON s.id=n.strike_id AND s.player_id=n.player_id
+              WHERE n.status='open' AND n.round_deadline_at<? AND s.open_key IS NOT NULL
+              ORDER BY n.round_deadline_at, n.id LIMIT {$limit}"
+        );
+        $negotiation->execute([$now]);
+        foreach ($negotiation->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $rows[] = $this->deadlineRow('negotiation', $row);
+        }
+
+        $noticeHours = (new EmployeeSystemConfigService($this->db))->getInt('leave_notice_hours');
+        $departureCutoff = DateTimeImmutable::createFromInterface($this->now)
+            ->modify("-{$noticeHours} hours")
+            ->format('Y-m-d H:i:s');
+        $departure = $this->db->prepare(
+            "SELECT id, player_id, 0 AS strike_id, leaving_at AS due_at
+               FROM employee_state
+              WHERE relation_status='leaving' AND leaving_at IS NOT NULL AND leaving_at<=?
+              ORDER BY leaving_at, id LIMIT {$limit}"
+        );
+        $departure->execute([$departureCutoff]);
+        foreach ($departure->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $row['due_at'] = date(
+                'Y-m-d H:i:s',
+                strtotime((string)$row['due_at']) + ($noticeHours * 3600)
+            );
+            $rows[] = $this->deadlineRow('departure', $row);
+        }
+
+        usort(
+            $rows,
+            static fn(array $left, array $right): int =>
+                [$left['due_at'], $left['type'], $left['id']]
+                <=> [$right['due_at'], $right['type'], $right['id']]
+        );
+        return array_slice($rows, 0, $limit);
+    }
+
+    /** @param array<string,mixed> $row
+     * @return array{type:string,id:int,player_id:int,strike_id:int,due_at:string}
+     */
+    private function deadlineRow(string $type, array $row): array
+    {
+        return [
+            'type'=>$type,
+            'id'=>(int)$row['id'],
+            'player_id'=>(int)$row['player_id'],
+            'strike_id'=>(int)($row['strike_id'] ?? 0),
+            'due_at'=>(string)$row['due_at'],
+        ];
     }
 
     /** @return array<string,mixed>|null */

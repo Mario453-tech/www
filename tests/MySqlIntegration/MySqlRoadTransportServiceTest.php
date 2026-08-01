@@ -275,7 +275,8 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
 
             $this->assertSame(2400.0, $result['cost']);
             $stmt = $this->db->prepare(
-                'SELECT cost, incident_risk_mult, delay_risk_mult
+                'SELECT cost, trip_hours, incident_risk_mult, delay_risk_mult,
+                        TIMESTAMPDIFF(MINUTE, departure_at, eta_at) AS trip_minutes
                    FROM well_road_trips
                   WHERE player_id = ? AND well_id = ?'
             );
@@ -283,6 +284,8 @@ final class MySqlRoadTransportServiceTest extends MySqlIntegrationTestCase
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             $this->assertIsArray($row);
             $this->assertSame('2400.00', $row['cost']);
+            $this->assertSame('3', (string)$row['trip_hours']);
+            $this->assertSame('150', (string)$row['trip_minutes']);
             $this->assertSame('1.000', $row['incident_risk_mult']);
             $this->assertSame('1.150', $row['delay_risk_mult']);
         } finally {
