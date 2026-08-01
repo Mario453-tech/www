@@ -70,7 +70,7 @@ $db->prepare("INSERT INTO board_members
    ->execute([$BM, $P, 1, 'Anna', 'Prezes', '1980-01-01', 'PL', 10,
               5, 3, 5, 5, 5,   8, 2, 10,   20000.00]);
 
-$svc = new TrainingService($db);
+$svc = new TrainingService($db, static fn(): int => 100);
 
 // program ids
 $drillBasic = (int)$db->query("SELECT id FROM training_programs WHERE code='tech_drilling_basic'")->fetchColumn();

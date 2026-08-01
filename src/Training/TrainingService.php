@@ -22,9 +22,14 @@ class TrainingService
 
     private TrainingSkillRegistry $skills;
 
-    public function __construct(private readonly PDO $db)
+    // Test-only score source. Generator wyniku tylko dla testow.
+    /** @var null|Closure():int */
+    private ?Closure $examScoreGenerator;
+
+    public function __construct(private readonly PDO $db, ?Closure $examScoreGenerator = null)
     {
         $this->skills = TrainingSkillRegistry::build();
+        $this->examScoreGenerator = $examScoreGenerator;
         GameLog::info('TrainingService', 'init');
     }
 
@@ -193,7 +198,9 @@ class TrainingService
         // Pass threshold: score >= passMin passes. passMin = 101 - passChance
         // yields EXACTLY passChance% pass rate (score 1-100).
         $passMin = 101 - $passChance;
-        $score   = random_int(1, 100);
+        $score = $this->examScoreGenerator !== null
+            ? max(1, min(100, (int)($this->examScoreGenerator)()))
+            : random_int(1, 100);
         $passed  = $score >= $passMin;
 
         $levelAfter = $levelBefore;
