@@ -195,6 +195,22 @@ if (session_status() === PHP_SESSION_NONE) {
     if (is_dir($sessionPath) && is_writable($sessionPath)) {
         session_save_path($sessionPath);
     }
+
+    // Keep PHP storage and the application timeout aligned at two hours.
+    // Utrzymaj zgodnosc magazynu PHP i timeoutu aplikacji na poziomie dwoch godzin.
+    $sessionTtl = 7200;
+    @ini_set('session.gc_maxlifetime', (string)$sessionTtl);
+    @ini_set('session.use_strict_mode', '1');
+
+    // Set the cookie before session_start so it is shared by every player route.
+    // Ustaw cookie przed session_start, aby bylo wspolne dla wszystkich tras gracza.
+    session_set_cookie_params([
+        'lifetime' => $sessionTtl,
+        'path' => '/',
+        'secure' => Security::isHttpsRequest(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 

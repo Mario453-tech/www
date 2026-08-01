@@ -914,6 +914,7 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Testy rozszerzono o reputacje, filtry admina i MySQL cleanup nowych tabel.
 
 ### 2026-07-10 - Sesje: trwałe logowanie w Brave i lokalnym HTTP
+- src/init.php - przywrocono cookie sesji na 2 godziny oraz zgodny gc_maxlifetime; dodano strict mode i test regresyjny konfiguracji.
 
 - `src/Security.php` - dodano wspólną metodę `Security::isHttpsRequest()`, która poprawnie rozpoznaje natywne HTTPS, HTTPS za proxy oraz wartość `HTTPS=off` na lokalnym HTTP.
 - `src/init.php`, `src/Auth.php`, `src/AdminAuth.php`, `public/language.php` - wszystkie cookie zależne od protokołu korzystają z jednej reguły: sesja, zapamiętane logowanie gracza, zaufane urządzenie admina i wybór języka.
