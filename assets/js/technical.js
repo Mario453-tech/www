@@ -307,6 +307,13 @@ setInterval(() => {
         return;
     }
 
+    // Consume the one-shot repair target before a later task-page reload.
+    // Usun jednorazowy cel naprawy przed pozniejszym przeladowaniem strony zadania.
+    params.delete('repair_well');
+    var cleanQuery = params.toString();
+    var cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
+    window.history.replaceState(null, '', cleanUrl);
+
     function run() {
         var cards = document.querySelectorAll('.staff-card[data-spec="maintenance_engineer"]');
 

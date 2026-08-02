@@ -28,8 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $def    = $taskCatalog[$taskType];
             $values = [
-                'cost_min'  => max(0, (int)($_POST['cost_min']  ?? $def['cost_min'])),
-                'cost_max'  => max(0, (int)($_POST['cost_max']  ?? $def['cost_max'])),
+                'cost_min'  => max(1, (int)($_POST['cost_min']  ?? $def['cost_min'])),
+                'cost_max'  => max(1, (int)($_POST['cost_max']  ?? $def['cost_max'])),
                 'hours_min' => max(1, (int)($_POST['hours_min'] ?? $def['hours_min'])),
                 'hours_max' => max(1, (int)($_POST['hours_max'] ?? $def['hours_max'])),
             ];
@@ -127,13 +127,13 @@ require_once __DIR__ . '/partials/header.php';
                 </span>
                 <span>
                     <input type="number" name="cost_min" value="<?= (int)$cur['cost_min'] ?>"
-                           min="0" step="1" class="input-sm input-inline"
+                           min="1" step="1" class="input-sm input-inline"
                            title="<?= htmlspecialchars(t('admin.tasks.col_cost_min')) ?>">
                     <span class="muted font-xs"><?= t('admin.tasks.currency') ?></span>
                 </span>
                 <span>
                     <input type="number" name="cost_max" value="<?= (int)$cur['cost_max'] ?>"
-                           min="0" step="1" class="input-sm input-inline"
+                           min="1" step="1" class="input-sm input-inline"
                            title="<?= htmlspecialchars(t('admin.tasks.col_cost_max')) ?>">
                     <span class="muted font-xs"><?= t('admin.tasks.currency') ?></span>
                 </span>

@@ -47,6 +47,16 @@ class TaskConfigService
             foreach ($rows as $row) {
                 $out[(string)$row['task_type']][(string)$row['config_key']] = (int)$row['config_value'];
             }
+            foreach ($out as $taskType => $values) {
+                if (!array_key_exists('cost_min', $values) && !array_key_exists('cost_max', $values)) {
+                    continue;
+                }
+                $costMin = (int)($values['cost_min'] ?? 0);
+                $costMax = (int)($values['cost_max'] ?? 0);
+                if ($costMin < 1 || $costMax < $costMin) {
+                    unset($out[$taskType]['cost_min'], $out[$taskType]['cost_max']);
+                }
+            }
         } catch (Throwable $e) {
             GameLog::error('TaskConfigService', 'loadAll failed', $e);
         }
@@ -61,9 +71,16 @@ class TaskConfigService
             VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_by = VALUES(updated_by)
         ");
+        $costMin = max(1, (int)($values['cost_min'] ?? 1));
+        $normalized = [
+            'cost_min' => $costMin,
+            'cost_max' => max($costMin, (int)($values['cost_max'] ?? $costMin)),
+            'hours_min' => max(1, (int)($values['hours_min'] ?? 1)),
+            'hours_max' => max(1, (int)($values['hours_max'] ?? 1)),
+        ];
         foreach (self::EDITABLE_KEYS as $key) {
             if (array_key_exists($key, $values)) {
-                $stmt->execute([$taskType, $key, (int)$values[$key], $updatedBy]);
+                $stmt->execute([$taskType, $key, $normalized[$key], $updatedBy]);
             }
         }
     }

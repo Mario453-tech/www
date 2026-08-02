@@ -42,7 +42,7 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
         $this->assertArrayNotHasKey('queued', $assign);
 
         $task = $this->db->prepare(
-            "SELECT id, status
+            "SELECT id, status, cost
                FROM technical_tasks
               WHERE player_id = ? AND staff_id = ? AND task_type = 'pipeline_maintenance'
               ORDER BY id DESC
@@ -52,6 +52,7 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
         $taskRow = $task->fetch();
 
         $this->assertNotFalse($taskRow);
+        $this->assertGreaterThan(0.0, (float)$taskRow['cost']);
         $this->assertSame('in_progress', $taskRow['status']);
 
         $this->db->prepare('UPDATE technical_tasks SET end_time = DATE_SUB(NOW(), INTERVAL 1 MINUTE) WHERE id = ?')
@@ -112,7 +113,7 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
         $this->assertTrue($assign['success']);
 
         $task = $this->db->prepare(
-            "SELECT id, status
+            "SELECT id, status, cost
                FROM technical_tasks
               WHERE player_id = ? AND staff_id = ? AND task_type = 'pipeline_repair'
               ORDER BY id DESC
@@ -122,6 +123,7 @@ final class MySqlTechnicalPipelineTasksTest extends MySqlIntegrationTestCase
         $taskRow = $task->fetch();
 
         $this->assertNotFalse($taskRow);
+        $this->assertGreaterThan(0.0, (float)$taskRow['cost']);
 
         $this->db->prepare('UPDATE technical_tasks SET end_time = DATE_SUB(NOW(), INTERVAL 1 MINUTE) WHERE id = ?')
             ->execute([$taskRow['id']]);
