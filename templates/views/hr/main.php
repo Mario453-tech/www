@@ -70,6 +70,45 @@ $hrSeniorityLevel = static function (array $employee): string {
     return 'junior';
 };
 ?>
+<?php
+$hrTabControls = [
+    'employees' => 'tab-employees tab-directors tab-contracts',
+    'recruitment' => 'tab-candidates tab-market tab-headhunter',
+    'raises' => 'tab-raises',
+    'morale' => 'tab-morale',
+    'conflicts' => 'tab-conflicts',
+    'training' => 'tab-training',
+    'history' => 'tab-history',
+];
+?>
+<div class="hr-tabs module-tabs" role="tablist" aria-label="<?= htmlspecialchars(tPlain('hr.tabs_label'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php foreach ([
+        'employees' => count($canonicalEmployees),
+        'recruitment' => count($staffCandidates),
+        'raises' => count($raiseRequests),
+        'morale' => null,
+        'conflicts' => count($activeStrikes),
+        'training' => count($trainingRows),
+        'history' => $unreadEventCount,
+    ] as $tabCode => $tabCount): ?>
+        <button type="button"
+                id="hr-tab-button-<?= htmlspecialchars($tabCode, ENT_QUOTES, 'UTF-8') ?>"
+                class="hr-tab module-tab<?= $activeHrTab === $tabCode ? ' active' : '' ?>"
+                role="tab"
+                aria-selected="<?= $activeHrTab === $tabCode ? 'true' : 'false' ?>"
+                aria-controls="<?= htmlspecialchars($hrTabControls[$tabCode], ENT_QUOTES, 'UTF-8') ?>"
+                tabindex="<?= $activeHrTab === $tabCode ? '0' : '-1' ?>"
+                data-hr-tab="<?= htmlspecialchars($tabCode, ENT_QUOTES, 'UTF-8') ?>">
+            <?= t('hr.tab_' . $tabCode) ?>
+            <?php if ($tabCount !== null && $tabCount > 0): ?>
+                <span class="tab-badge module-tab-badge module-tab-badge--muted"><?= $tabCount ?></span>
+            <?php endif ?>
+        </button>
+    <?php endforeach ?>
+</div>
+
+<div class="hr-container">
+
 <div id="tab-conflicts" class="hr-tab-content" data-canonical-panel="conflicts"
      role="tabpanel" aria-labelledby="hr-tab-button-conflicts">
 <section class="hr-strike-center" aria-labelledby="hr-strike-center-title">
@@ -260,44 +299,7 @@ $hrSeniorityLevel = static function (array $employee): string {
     <?php endif ?>
 </section>
 </div>
-<?php
-$hrTabControls = [
-    'employees' => 'tab-employees tab-directors tab-contracts',
-    'recruitment' => 'tab-candidates tab-market tab-headhunter',
-    'raises' => 'tab-raises',
-    'morale' => 'tab-morale',
-    'conflicts' => 'tab-conflicts',
-    'training' => 'tab-training',
-    'history' => 'tab-history',
-];
-?>
-<div class="hr-tabs module-tabs" role="tablist" aria-label="<?= htmlspecialchars(tPlain('hr.tabs_label'), ENT_QUOTES, 'UTF-8') ?>">
-    <?php foreach ([
-        'employees' => count($canonicalEmployees),
-        'recruitment' => count($staffCandidates),
-        'raises' => count($raiseRequests),
-        'morale' => null,
-        'conflicts' => count($activeStrikes),
-        'training' => count($trainingRows),
-        'history' => $unreadEventCount,
-    ] as $tabCode => $tabCount): ?>
-        <button type="button"
-                id="hr-tab-button-<?= htmlspecialchars($tabCode, ENT_QUOTES, 'UTF-8') ?>"
-                class="hr-tab module-tab<?= $activeHrTab === $tabCode ? ' active' : '' ?>"
-                role="tab"
-                aria-selected="<?= $activeHrTab === $tabCode ? 'true' : 'false' ?>"
-                aria-controls="<?= htmlspecialchars($hrTabControls[$tabCode], ENT_QUOTES, 'UTF-8') ?>"
-                tabindex="<?= $activeHrTab === $tabCode ? '0' : '-1' ?>"
-                data-hr-tab="<?= htmlspecialchars($tabCode, ENT_QUOTES, 'UTF-8') ?>">
-            <?= t('hr.tab_' . $tabCode) ?>
-            <?php if ($tabCount !== null && $tabCount > 0): ?>
-                <span class="tab-badge module-tab-badge module-tab-badge--muted"><?= $tabCount ?></span>
-            <?php endif ?>
-        </button>
-    <?php endforeach ?>
-</div>
 
-<div class="hr-container">
 
 <div id="tab-employees" class="hr-tab-content" data-canonical-panel="employees"
      role="tabpanel" aria-labelledby="hr-tab-button-employees">
